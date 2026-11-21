@@ -30,6 +30,7 @@ rc = ROOT / "trunk/user/rc/src"
 shared = ROOT / "trunk/user/shared/src"
 net = (rc / "net.c").read_text()
 wan = (rc / "net_wan.c").read_text()
+lan = (rc / "net_lan.c").read_text()
 bridge_policy = (shared / "bridge_membership_policy.h").read_text()
 bridge_test = (shared / "tests/bridge_membership_policy.c").read_text()
 rc_header = (rc / "rc.h").read_text()
@@ -214,6 +215,34 @@ for key in ("vlan_vid_cpu", "vlan_vid_iptv", "vlan_pri_cpu"):
             f"WAN VLAN setup must not collapse read errors for {key}")
 require('nvram_match("vlan_filter", "1")' not in vinet_code,
         "WAN VLAN enable must not collapse a checked NVRAM backend error")
+
+config_bridge = body(lan, "config_bridge(int is_ap_mode)")
+config_bridge_code = " ".join(config_bridge.split())
+igmp_read = 'lan_nvram_get_int_status("ether_igmp", &igmp_snoop)'
+m2u_read = 'lan_nvram_get_int_status("ether_m2u", &wired_m2u)'
+mr_read = 'lan_nvram_get_match_status("mr_enable_x", "1", &mr_enable)'
+igmp_static_port_read = 'lan_nvram_get_int_status("ether_uport", &igmp_static_port)'
+igmp_pos = config_bridge_code.index(igmp_read)
+m2u_pos = config_bridge_code.index(m2u_read)
+mr_pos = config_bridge_code.index(mr_read)
+first_apply = config_bridge_code.index("rc_bridge_config_apply(")
+require(igmp_pos < m2u_pos < mr_pos < first_apply and
+        config_bridge_code.index("if (status != 0)", igmp_pos) < config_bridge_code.index("return status;", igmp_pos) and
+        config_bridge_code.index("if (status != 0)", m2u_pos) < config_bridge_code.index("return status;", m2u_pos) and
+        config_bridge_code.index("if (status != 0)", mr_pos) < config_bridge_code.index("return status;", mr_pos),
+        "LAN bridge IGMP, multicast-to-unicast and multicast-router settings must fail before bridge configuration")
+require(igmp_static_port_read in config_bridge_code and
+        config_bridge_code.index("if (status != 0)", config_bridge_code.index(igmp_static_port_read)) <
+        config_bridge_code.index("return status;", config_bridge_code.index(igmp_static_port_read)) <
+        first_apply,
+        "AP LAN bridge static port read must be checked before bridge configuration")
+require('lan_wan_bridge_mode_status(&bridge_mode)' in config_bridge_code and
+        'get_wan_bridge_mode()' not in config_bridge_code,
+        "GMAC2 LAN bridge port selection must use checked WAN bridge mode")
+for old_read in ('nvram_get_int("ether_igmp")','nvram_get_int("ether_m2u")',
+                 'nvram_get_int("ether_uport")','nvram_match("mr_enable_x", "1")'):
+    require(old_read not in config_bridge_code,
+            f"LAN bridge must not collapse NVRAM errors for {old_read}")
 
 other = body(wan, "config_soft_bridges_other(")
 port_reader = body(wan, "read_soft_bridge_port_vlan_config(")

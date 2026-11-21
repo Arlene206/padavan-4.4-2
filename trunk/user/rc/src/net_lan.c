@@ -87,6 +87,63 @@ static const rc_udhcpc_script_link_ops_t udhcpc_lan_script_link_ops = {
 	readlink
 };
 
+/*
+ * Keep NVRAM read failures distinct from absent keys before applying bridge
+ * configuration. These wrappers share the same parser/error policy as WAN.
+ */
+static int
+lan_nvram_get_int_status(const char *param_name, int *value)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] || !value)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &stored_value);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    stored_value, 0, value);
+}
+
+static int
+lan_nvram_get_match_status(const char *param_name, const char *expected,
+			   int *matches)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno, read_status;
+
+	if (!param_name || !param_name[0] || !expected || !matches)
+		return EINVAL;
+	*matches = 0;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &stored_value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (read_status != 0)
+		return rc_wan_nvram_match_status(read_status, NULL,
+						expected, matches);
+	if (api_result == 0)
+		stored_value = "";
+	return rc_wan_nvram_match_status(0, stored_value, expected, matches);
+}
+
+static int
+lan_wan_bridge_mode_status(int *bridge_mode)
+{
+	int configured_mode = 0;
+	int status;
+
+	if (!bridge_mode)
+		return EINVAL;
+	status = lan_nvram_get_int_status("wan_stb_x", &configured_mode);
+	return rc_wan_nvram_int_range_status(status, configured_mode, 0, 7,
+					     SWAPI_WAN_BRIDGE_DISABLE,
+					     bridge_mode);
+}
+
 in_addr_t get_lan_ip4(void)
 {
 	return get_interface_addr4(IFNAME_BR);
@@ -514,8 +571,10 @@ config_bridge(int is_ap_mode)
     const char *wired_ifname;
     const char *first_failure = NULL;
     int multicast_router, multicast_querier, igmp_static_port;
-    int igmp_snoop = nvram_get_int("ether_igmp");
-    int wired_m2u = nvram_get_int("ether_m2u");
+    int igmp_snoop, wired_m2u, mr_enable = 0;
+#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
+    int bridge_mode;
+#endif
     int failure_count = 0;
     int status;
     static const rc_bridge_config_ops_t ops = {
@@ -525,9 +584,34 @@ config_bridge(int is_ap_mode)
         phy_igmp_snooping
     };
 
+    status = lan_nvram_get_int_status("ether_igmp", &igmp_snoop);
+    if (status != 0) {
+        logmessage(LOGNAME,
+                   "cannot read LAN IGMP snooping setting before bridge configuration (status=%d)",
+                   status);
+        errno = status;
+        return status;
+    }
+    status = lan_nvram_get_int_status("ether_m2u", &wired_m2u);
+    if (status != 0) {
+        logmessage(LOGNAME,
+                   "cannot read LAN multicast-to-unicast setting before bridge configuration (status=%d)",
+                   status);
+        errno = status;
+        return status;
+    }
+
     if (!is_ap_mode) {
         igmp_static_port = -1;
-        if (nvram_match("mr_enable_x", "1")) {
+        status = lan_nvram_get_match_status("mr_enable_x", "1", &mr_enable);
+        if (status != 0) {
+            logmessage(LOGNAME,
+                       "cannot read multicast-router setting before bridge configuration (status=%d)",
+                       status);
+            errno = status;
+            return status;
+        }
+        if (mr_enable) {
             multicast_router = 2;
             multicast_querier = 0;
         } else {
@@ -536,11 +620,26 @@ config_bridge(int is_ap_mode)
         }
         wired_ifname = IFNAME_LAN;
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-        if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE)
+        status = lan_wan_bridge_mode_status(&bridge_mode);
+        if (status != 0) {
+            logmessage(LOGNAME,
+                       "cannot read WAN bridge mode before LAN bridge configuration (status=%d)",
+                       status);
+            errno = status;
+            return status;
+        }
+        if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE)
             wired_ifname = "eth2.1";
 #endif
     } else {
-        igmp_static_port = nvram_get_int("ether_uport");
+        status = lan_nvram_get_int_status("ether_uport", &igmp_static_port);
+        if (status != 0) {
+            logmessage(LOGNAME,
+                       "cannot read LAN IGMP static port before bridge configuration (status=%d)",
+                       status);
+            errno = status;
+            return status;
+        }
         multicast_router = 0;
         multicast_querier = 1;
 #if defined (AP_MODE_LAN_TAGGED)

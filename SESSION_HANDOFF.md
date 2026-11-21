@@ -28,22 +28,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Latest source slice: THIS COMMIT hardens `config_soft_bridge_lan()`. Both `ether_igmp` and `ether_m2u` now use checked integer reads and abort with the concrete error before bridge mode reads, interface probes, VLAN creation or bridge membership changes. This preserves valid integer semantics and prevents a failed read from silently disabling multicast forwarding features.
-- Parent main: `cfc41b84b12004bc43d1a0a136072a8ef53c5727`; production file `trunk/user/rc/src/net_wan.c`; source contract `scripts/check_wan_vlan_setup.py`. The same file also contains the previous WAN VLAN hardening commit `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`; WAN NVRAM helper sanitizer regression exists in the WAN route workflow.
-- WAN VLAN checker failure on b4 was a raw multiline-source assertion; checker normalization follow-up `cfc41b84b12004bc43d1a0a136072a8ef53c5727` was queued/running at last poll. b4 XY-C1 #44960876531 and NVRAM audit #44960876561 were also still running at last poll. Checker-only fixes to USB storage and WAN formatting must be validated on current HEAD.
-- Exact current-head WAN route and XY-C1 Build/TRX/artifact required; no L3 or hardware L4 claim yet.
+- Latest product slice: THIS COMMIT hardens `config_bridge()` in `net_lan.c`. Checked NVRAM reads now cover `ether_igmp`, `ether_m2u`, router-mode `mr_enable_x`, AP-mode `ether_uport`, and GMAC2 WAN bridge mode. All occur before `rc_bridge_config_apply()`, so backend/read/close/malformed errors cannot be collapsed into disabled multicast or wrong port selection.
+- Added local checked integer/exact-string wrappers over `wan_nvram_status_policy.h`; checked WAN bridge mode preserves the existing readable range/default behavior. Updated `scripts/check_wan_vlan_setup.py` to load `net_lan.c` and enforce read/error ordering. Existing WAN policy test exercises read, parse, exact match, missing-key and backend errors.
+- Prior product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` hardens WAN VLAN reads. Checker-only `cfc41b84b12004bc43d1a0a136072a8ef53c5727` exact WAN route and AI docs both PASS. Product source `7f66b9d41d7244265bf7292e89d5b8400da4080a` had WAN route queued/running when last polled. XY-C1 Build/TRX/artifact and NVRAM audit remain to be confirmed on exact product SHA.
+- Current main must be fetched live on takeover; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ## Verification boundary
 
-- The existing WAN NVRAM sanitizer tests cover checked string match and integer parser backend/malformed/overflow handling, but this new caller integration and the previous WAN VLAN change require exact workflow reruns.
-- XY-C1 Build/TRX/artifact must all PASS on a product-source SHA before L3 is recorded. Checker-only workflow heads may skip firmware output.
-- Frozen backup branch remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- New LAN bridge caller contract has source token preflight only; exact current-head WAN route/XY-C1 actions must verify it.
+- Same-source XY-C1 Build, TRX and artifact upload are all required for L3. Host/policy or workflow success without actual build is not L3. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head WAN route / XY-C1 / NVRAM runs for THIS COMMIT. Inspect Build, TRX and artifact steps, not just job conclusion.
-2. Repair any current-head checker, compiler or firmware failure based on its exact log.
-3. Continue another independent P1 whole-userland stability/security task after LAN/WAN switch-setting read hardening passes.
+1. Inspect exact-head WAN route and XY-C1 runs for THIS commit, including the Build, TRX and upload-artifact step conclusions.
+2. Fix any current-head checker/compiler/build failure from the exact logs and preserve the correct storage checker `}elseif(...)` expectation.
+3. After LAN and WAN checked-read contracts validate, continue a separate P1 reliability/security defect elsewhere in Padavan userland.
 
 ## Workflow and preservation rules
 

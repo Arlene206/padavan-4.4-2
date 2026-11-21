@@ -1,8 +1,9 @@
 ## Current checkpoint — 2026-11-22
 
-- WAN VLAN setup source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` now checks `vlan_filter`, CPU/IPTV VIDs and CPU priority before hardware changes; its checker formatting fix is `cfc41b84b12004bc43d1a0a136072a8ef53c5727`. Exact WAN route rerun was queued/running at last poll.
-- THIS COMMIT checks LAN soft-bridge `ether_igmp` and `ether_m2u` before interface probes, VLAN/bridge topology operations, extending the same fail-closed NVRAM policy.
-- Exact b4 XY-C1 Build/TRX/artifact and NVRAM audit were still running at last poll; confirm on source SHA. Frozen backup read-only.
+- WAN `config_vinet_wan()` now performs checked VLAN selector/VID/priority reads before hardware mapping; exact WAN route + AI docs passed on checker-only cfc `cfc41b84b12004bc43d1a0a136072a8ef53c5727`.
+- WAN `config_soft_bridge_lan()` checked `ether_igmp` and `ether_m2u` preflight is in source `7f66b9d41d7244265bf7292e89d5b8400da4080a`; WAN route Actions were queued/running at last poll.
+- THIS COMMIT hardens core AP/router `config_bridge()`: checked `ether_igmp`, `ether_m2u`, `mr_enable_x`, AP `ether_uport` and GMAC2 WAN bridge mode before bridge sysfs apply. Source contract checker extended to assert fail-before-apply; exact CI pending.
+- XY-C1 Build/TRX/artifact on a product-source SHA and NVRAM audit still need confirmation. Backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21
 

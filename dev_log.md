@@ -1,3 +1,14 @@
+## 2026-11-22 08:16 CST — Check LAN bridge multicast and port settings before applying bridge state
+
+- Parent main SHA: `7f66b9d41d7244265bf7292e89d5b8400da4080a`.
+- `config_bridge()` was another critical bridge path still using unchecked `nvram_get_int()` for `ether_igmp`, `ether_m2u`, and AP-mode `ether_uport`, plus unchecked `nvram_match("mr_enable_x")` and a fallback `get_wan_bridge_mode()` on GMAC2. A transient NVRAM read error could silently change multicast-router, snooping, multicast-to-unicast, static-port, or WAN-port selection before bridge sysfs changes.
+- THIS COMMIT adds local checked NVRAM integer/exact-match wrappers over the shared `rc_wan_nvram_status_policy.h`; reads every mode-specific setting before `rc_bridge_config_apply()`, and fails closed with concrete status. GMAC2 WAN bridge mode now uses a checked integer/range policy with the same 0..7 legacy fallback for readable out-of-range values.
+- Extended `scripts/check_wan_vlan_setup.py` to inspect `net_lan.c`, enforce all read/error gates before bridge apply, and reject the former lossy readers. Existing WAN NVRAM sanitizer tests cover the shared parser and exact-match backend error policies.
+- Current main WAN VLAN contract-normalization source chain: `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`, checker correction `cfc41b84b12004bc43d1a0a136072a8ef53c5727`; cfc exact WAN route and AI docs both PASS. WAN route for prior LAN-soft-bridge slice `7f66b9d41d7244265bf7292e89d5b8400da4080a` is queued/running at last poll. XY-C1 Build/TRX/artifact and NVRAM exact results remain pending.
+- Next: validate this AP/router bridge preflight and resolve exact current-source XY-C1 Build/TRX/artifact; then continue independent stability work.
+
+---
+
 ## 2026-11-22 08:02 CST — Check LAN bridge multicast settings before topology changes
 
 - Parent main SHA: `cfc41b84b12004bc43d1a0a136072a8ef53c5727`.
