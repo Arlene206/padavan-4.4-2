@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot USB modem RAS credentials before shared NVRAM cache reuse
+
+- Parent main SHA: `d8ff11c5c24230e88a7adc9464bb89d34eeb5036`.
+- Inspection of `trunk/user/shared/src/nvram_linux.c` confirmed `nvram_get_checked_unlocked()` returns a pointer into one static `nvr_cache` buffer. Each subsequent NVRAM get overwrites that buffer. The RAS peer writer fetched `modem_user`, `modem_pass` and `modem_isp` into pointers before using them, so the earlier values could all resolve to the last setting read (or change under concurrent configuration updates).
+- Replaced the independent reads with one bounded `nvram_transaction` snapshot of `modem_type`, username, password and ISP. The existing snapshot helper copies each cache-backed value before the next read, preserves a coherent tuple and invalidates it if any read or transaction close fails. No peer file is opened until the whole snapshot and strict modem-type parse succeed.
+- Added a GNU89 policy regression using the fake backend's single mutable cache slot to prove all four RAS settings survive subsequent reads. Extended USB modem static checks; workflow already compiles/runs this policy test with `-Werror`, ASan and UBSan.
+- This change prevents stale/misbound RAS credentials and carrier configuration; it does not alter the NVRAM keys or missing-key defaults.
+
+---
+
 ## 2026-11-21 — Make RAS modem-type checker whitespace independent
 
 - Parent main SHA: `912fbff13b652c09563159f3357a21732db35f4b`.

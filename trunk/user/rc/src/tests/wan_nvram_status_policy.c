@@ -897,6 +897,40 @@ init_fake_snapshot(struct fake_nvram_transaction *fake,
 }
 
 static void
+test_transactional_snapshot_copies_modem_ras_credentials_before_cache_overwrite(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fake.names[0] = "modem_type";
+	fake.names[1] = "modem_user";
+	fake.names[2] = "modem_pass";
+	fake.names[3] = "modem_isp";
+	fake.values[0] = "3";
+	fake.values[1] = "alice";
+	fake.values[2] = "s3cret";
+	fake.values[3] = "Carrier-A";
+	fields[0].param_name = fake.names[0];
+	fields[1].param_name = fake.names[1];
+	fields[2].param_name = fake.names[2];
+	fields[3].param_name = fake.names[3];
+
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 4);
+	assert(fake.end_calls == 1);
+	assert(strcmp(destinations[0], "3") == 0);
+	assert(strcmp(destinations[1], "alice") == 0);
+	assert(strcmp(destinations[2], "s3cret") == 0);
+	assert(strcmp(destinations[3], "Carrier-A") == 0);
+}
+
+
+static void
 test_transactional_snapshot_copies_coherent_tuple(void)
 {
 	struct fake_nvram_transaction fake;
@@ -1190,6 +1224,7 @@ main(void)
 	test_checked_nvram_copy_rejects_truncation();
 	test_checked_nvram_copy_rejects_invalid_arguments();
 	test_transactional_snapshot_copies_coherent_tuple();
+	test_transactional_snapshot_copies_modem_ras_credentials_before_cache_overwrite();
 	test_transactional_snapshot_treats_missing_key_as_empty();
 	test_transactional_snapshot_releases_lock_and_discards_partial_tuple();
 	test_transactional_snapshot_rejects_oversized_field_and_releases_lock();

@@ -31,6 +31,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include <nvram_linux.h>
 #include "modem_wan_start_policy.h"
 #include <process_inventory.h>
 #include "ppp_options_file.h"
@@ -67,6 +68,43 @@ get_modem_vid_pid(const char *modem_node, int *vid, int *pid)
 }
 
 static int
+usb_modem_nvram_transaction_get(void *context, const char *param_name,
+				char **value)
+{
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)context;
+
+	if (!transaction) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get(transaction, param_name, value);
+}
+
+
+static int
+usb_modem_nvram_transaction_begin(void *context)
+{
+	if (!context) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+
+static int
+usb_modem_nvram_transaction_end(void *context)
+{
+	if (!context) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+
+static int
 write_pppd_ras_credential(FILE *fp, const char *option, const char *value,
 			  char *encoded, size_t encoded_size)
 {
@@ -87,24 +125,49 @@ static int
 write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 {
 	FILE *fp;
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[4];
 	int modem_type, vid = 0, pid = 0, saved_errno;
-	int nvram_api_result, nvram_read_errno, modem_type_status;
-	char *modem_type_value = NULL;
+	int snapshot_status, modem_type_status;
+	char modem_type_value[32], user[256], pass[256], isp[256];
 	const char *failed_credential = NULL;
-	char tmp[256], *user, *pass, *isp, *connect;
+	char tmp[256], *connect;
 
 	if (!get_modem_vid_pid(modem_node, &vid, &pid))
 		return 0;
 
-	errno = 0;
-	nvram_api_result = nvram_get_checked("modem_type", &modem_type_value);
-	nvram_read_errno = errno;
-	modem_type_status = rc_wan_nvram_read_int_status(
-		nvram_api_result, nvram_read_errno, modem_type_value, 0, &modem_type);
+	fields[0].param_name = "modem_type";
+	fields[0].destination = modem_type_value;
+	fields[0].destination_size = sizeof(modem_type_value);
+	fields[1].param_name = "modem_user";
+	fields[1].destination = user;
+	fields[1].destination_size = sizeof(user);
+	fields[2].param_name = "modem_pass";
+	fields[2].destination = pass;
+	fields[2].destination_size = sizeof(pass);
+	fields[3].param_name = "modem_isp";
+	fields[3].destination = isp;
+	fields[3].destination_size = sizeof(isp);
+
+	snapshot_status = rc_wan_nvram_copy_snapshot(
+		fields, 4, usb_modem_nvram_transaction_begin,
+		usb_modem_nvram_transaction_get,
+		usb_modem_nvram_transaction_end, &transaction);
+	if (snapshot_status != 0) {
+		saved_errno = snapshot_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot USB modem PPP peer settings (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 0;
+	}
+
+	modem_type_status = rc_wan_nvram_parse_int_value(
+		modem_type_value, &modem_type);
 	if (modem_type_status != 0) {
 		saved_errno = modem_type_status;
 		logmessage(LOGNAME,
-			   "cannot read USB modem transport type for PPP peer file (status=%d)",
+			   "invalid USB modem transport type for PPP peer file (status=%d)",
 			   saved_errno);
 		errno = saved_errno;
 		return 0;
@@ -112,9 +175,6 @@ write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 
 	if (!(fp = ppp_options_file_open(call_path)))
 		return 0;
-	user = nvram_safe_get("modem_user");
-	pass = nvram_safe_get("modem_pass");
-	isp = nvram_safe_get("modem_isp");
 
 	fprintf(fp, "/dev/%s\n", modem_node);
 	fprintf(fp, "crtscts\n");

@@ -144,26 +144,31 @@ assert "goto invalid_credential;" in ras_conf_writer
 assert '#include "wan_nvram_status_policy.h"' in USB_SOURCE
 assert "rc_wan_nvram_read_int_status" in WAN_NVRAM_POLICY_SOURCE
 assert "test_checked_integer_read_propagates_backend_errors" in WAN_NVRAM_POLICY_TEST
+assert "test_transactional_snapshot_copies_modem_ras_credentials_before_cache_overwrite" in WAN_NVRAM_POLICY_TEST
 ras_conf_compact = "".join(ras_conf_writer.split())
-modem_type_read = 'nvram_api_result=nvram_get_checked("modem_type",&modem_type_value);'
-modem_type_parse = (
-    "modem_type_status=rc_wan_nvram_read_int_status("
-    "nvram_api_result,nvram_read_errno,modem_type_value,0,&modem_type);"
-)
-assert modem_type_read in ras_conf_compact
-assert "nvram_read_errno=errno;" in ras_conf_compact
-assert modem_type_parse in ras_conf_compact
-assert "if(modem_type_status!=0)" in ras_conf_compact
-modem_type_failure = ras_conf_compact[
-    ras_conf_compact.index("if(modem_type_status!=0)"):
-    ras_conf_compact.index("ppp_options_file_open(call_path)")
-]
-assert "errno=saved_errno;" in modem_type_failure
-assert "return0;" in modem_type_failure
-assert ras_conf_compact.index(modem_type_read) < ras_conf_compact.index(
+assert '#include <nvram_linux.h>' in USB_SOURCE
+for key, destination in (
+    ("modem_type", "modem_type_value"),
+    ("modem_user", "user"),
+    ("modem_pass", "pass"),
+    ("modem_isp", "isp"),
+):
+    assert f'fields[' in ras_conf_writer and f'"{key}"' in ras_conf_writer
+    assert f'fields[' in ras_conf_writer and f'destination = {destination};' in ras_conf_writer
+assert "rc_wan_nvram_copy_snapshot(" in ras_conf_writer
+assert "usb_modem_nvram_transaction_begin" in ras_conf_writer
+assert "usb_modem_nvram_transaction_get" in ras_conf_writer
+assert "usb_modem_nvram_transaction_end" in ras_conf_writer
+assert "rc_wan_nvram_parse_int_value(modem_type_value, &modem_type)" in ras_conf_compact
+assert "if (snapshot_status != 0)" in ras_conf_writer
+assert "if (modem_type_status != 0)" in ras_conf_writer
+assert ras_conf_compact.index("rc_wan_nvram_copy_snapshot(") < ras_conf_compact.index(
     "ppp_options_file_open(call_path)"
 )
-assert 'nvram_get_int("modem_type")' not in ras_conf_compact
+for key in ("modem_user", "modem_pass", "modem_isp"):
+    assert f'nvram_safe_get("{key}")' not in ras_conf_compact
+assert 'nvram_get_checked("modem_type"' not in ras_conf_compact
+assert "test_transactional_snapshot_copies_modem_ras_credentials_before_cache_overwrite" in WAN_NVRAM_POLICY_TEST
 assert "errno = 0; launch_status = eval(\"/usr/sbin/pppd\", \"call\", call_file);" in ras_launch
 assert "if (!modem_wan_ras_peer_cleanup_required(launch_status)) return launch_status;" in ras_launch
 assert "saved_errno = errno;" in ras_launch
