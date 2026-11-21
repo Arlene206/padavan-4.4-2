@@ -796,11 +796,11 @@ jobs:
           for key in ("gateway", "ipaddr", "netmask"):
               assert f'get_wan_unit_value(unit, "{key}")' not in wan_down
           assert "address_valid = dhcp_lease_ipv4_is_valid(wan_addr);" in wan_down
-assert "netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);" in wan_down
-assert "if (!address_valid)" in wan_down
-assert "if (!netmask_valid)" in wan_down
-assert wan_down.index("if (!address_valid)") < wan_down.index("if (!netmask_valid)") < wan_down.index("is_same_subnet(wan_gate, wan_addr, wan_mask)")
-assert "wan_teardown_gateway_host_route_required(" in wan_down
+          assert "netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);" in wan_down
+          assert "if (!address_valid)" in wan_down
+          assert "if (!netmask_valid)" in wan_down
+          assert wan_down.index("if (!address_valid)") < wan_down.index("if (!netmask_valid)") < wan_down.index("is_same_subnet(wan_gate, wan_addr, wan_mask)")
+          assert "wan_teardown_gateway_host_route_required(" in wan_down
           assert 'route_status = route_del(wan_ifname, 1, wan_gate, NULL,' in wan_down
           assert '"255.255.255.255");' in wan_down
           assert "route_status = route_status_idempotent_delete(route_status);" in wan_down
@@ -814,7 +814,7 @@ assert "wan_teardown_gateway_host_route_required(" in wan_down
           for token in ("gateway_read_status == 0", "address_read_status == 0", "netmask_read_status == 0", "gateway_valid", "address_valid", "netmask_valid", "ppp_index < 0", "gateway_off_subnet"):
               require(token in gateway_policy, "WAN host-route read gate missing " + token)
           assert "test_gateway_host_route_requires_a_complete_checked_snapshot" in wan_teardown_test
-assert "test_gateway_host_route_rejects_invalid_address_and_netmask" in wan_teardown_test
+          assert "test_gateway_host_route_rejects_invalid_address_and_netmask" in wan_teardown_test
           assert "route_status_wan_gateway_host_route_required" in route_status_test
           assert "test_wan_gateway_host_route_cleanup_matches_setup_conditions" in route_status_test
           

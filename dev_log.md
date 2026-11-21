@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore WAN route workflow YAML and ttyd rollback contracts
+
+- Parent main SHA: `a77ed612c19ac0b4c29d88f4b547fb7e077bd0d9`.
+- Exact-head Process regression #44928210224 passed process inventory and GNU89/ASan/UBSan execution before failing at a stale ttyd local-variable contract. Production `start_ttyd_with_mode()` now preserves `start_errno` and routes launcher, wait, UNKNOWN-inventory and timeout failures through `optional_daemon_rollback_failed_start()`; both duplicated checker blocks now assert that actual rollback sequence.
+- Exact-head WAN route workflow #44928208859 created no job. Inspection found six gateway address/netmask validation assertions accidentally outdented to YAML root level below `jobs:`; re-indented them into the final inline Python `run: |` block. The `require()` helper is already defined within that block.
+- On product-source SHA 335fddd5b61d20e22987da948136c412cf4bbf81, NVRAM transaction audit #44927981607 and WAN DHCP callback #44927981545 passed; Process integration #44927981517 failed on its earlier stale Telnetd assertion; XY-C1 firmware validation #44927981534 remained in progress at the latest poll. Exact-head reruns for the current checker/workflow correction are pending.
+- Checker/workflow/docs only; no production source changed. L3 remains unverified until XY-C1 build, TRX verification and artifact upload all pass on one exact product SHA; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Repair WAN and telnetd integration contracts
 
 - Parent main SHA: 335fddd5b61d20e22987da948136c412cf4bbf81.
