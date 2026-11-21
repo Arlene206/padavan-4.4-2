@@ -165,6 +165,11 @@ assert ras_conf_compact.index("rc_wan_nvram_copy_snapshot(") < ras_conf_compact.
 ) < ras_conf_compact.index("ppp_options_file_open(call_path)")
 assert ras_conf_compact.index("if(snapshot_status!=0)") < ras_conf_compact.index("ppp_options_file_open(call_path)")
 assert ras_conf_compact.index("if(modem_type_status!=0)") < ras_conf_compact.index("ppp_options_file_open(call_path)")
+assert ras_conf_compact.index("rc_wan_nvram_copy_snapshot(") < ras_conf_compact.index(
+    "rc_wan_nvram_parse_int_value(modem_type_value,&modem_type)"
+) < ras_conf_compact.index("ppp_options_file_open(call_path)")
+assert ras_conf_compact.index("if(snapshot_status!=0)") < ras_conf_compact.index("ppp_options_file_open(call_path)")
+assert ras_conf_compact.index("if(modem_type_status!=0)") < ras_conf_compact.index("ppp_options_file_open(call_path)")
 assert "if (snapshot_status != 0)" in ras_conf_writer
 assert "if (modem_type_status != 0)" in ras_conf_writer
 assert ras_conf_compact.index("rc_wan_nvram_copy_snapshot(") < ras_conf_compact.index(

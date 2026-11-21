@@ -1,3 +1,11 @@
+## 2026-11-21 — Tighten RAS credential snapshot source-contract ordering
+
+- Parent main SHA: 72b789bc6c027d1bb9d36fdbc9473a00de9bb13f.
+- Firewall startup run #44895295888 on ancestor 8700539 exposed the only failure in scripts/check_modem_wan_start_status.py: the checker searched a whitespace-compacted function but included an extra space in the expected modem-type parser token. Production write_pppd_ras_conf() already snapshots modem_type/user/pass/isp under one transaction and returns on snapshot/strict-parse errors before opening the peer file.
+- Corrected the compact token and made the contract enforce snapshot -> strict integer parse -> peer-file open, with both snapshot_status and modem_type_status error branches before file creation. No production code or checks were removed.
+- Exact 72b789 main had just retriggered Firewall startup run #44895636746, AI handoff run #44895636818, USB identity #44895636794, Process inventory/lifecycle #44895636775 and XY-C1 #44895636822; those were still in progress when queried. This checker change requires fresh exact-head runs.
+
+---
 ## 2026-11-21 — Correct RAS modem snapshot source-contract whitespace
 
 - Parent main SHA: c6c1d7a78213f9525560a5fe8602a6ec07957357.
