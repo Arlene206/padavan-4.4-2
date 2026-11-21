@@ -1,3 +1,12 @@
+## 2026-11-21 — Verify detached Transmission and Aria2 children before successful storage-app startup
+
+- Parent main SHA: `b0381ae36cc38f2963448681d28f97ecf41a5202`.
+- Fixed a second daemonization race in the storage applications: Transmission launches `transmission-daemon` and Aria2 explicitly passes `-D`, but both wrappers previously returned success as soon as `start-stop-daemon` returned. The storage RC caller then immediately inventoried the daemon, so a child not yet scheduled could be treated as absent and unnecessarily rolled back.
+- Both wrappers now require a valid `pidof` PID list after launch, with four bounded probes (three one-second waits). Confirmed absence is retried; malformed, inconsistent or failed `pidof` is UNKNOWN and fails immediately. This keeps the existing storage rollback path authoritative instead of reporting a false success.
+- Expanded `storage_app_start_status.sh` with delayed-child success, no-child bounded-timeout and post-launch UNKNOWN cases for both applications. The existing configuration, stop and concurrency cases remain enabled. Exact-SHA Storage Actions will provide the host/BusyBox runtime results; no firmware target build or router test is claimed.
+
+---
+
 ## 2026-11-21 — Align NFS source contract with daemon readiness regression
 
 - Parent main SHA: `c7e52aac41df195d68bcf49c9cd33e2153b2810a`; NFS daemon lifecycle run #44879119916 failed only in its final Python source-contract step. Shell syntax, the full NFS start/reload integration (including the delayed rpc.mountd child test), IPv4/IPv6 export-policy binary, and EINTR-safe service-wait policy all passed.

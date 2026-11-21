@@ -35,6 +35,63 @@ transmission_require_dir()
 	fi
 	return 0
 }
+
+# The daemon forks away from start-stop-daemon. Do not report success until
+# pidof confirms a complete, valid PID list from the detached child.
+transmission_wait_started()
+{
+	attempt=0
+	while [ "$attempt" -lt 4 ]; do
+		if tr_ready_pids=$(pidof transmission-daemon 2>/dev/null); then
+			tr_ready_status=0
+		else
+			tr_ready_status=$?
+		fi
+		case "$tr_ready_status" in
+		0)
+			if [ -z "$tr_ready_pids" ]; then
+				logger -t "$SVC_NAME" "Cannot verify startup: pidof returned success without a PID"
+				return 1
+			fi
+			case "$tr_ready_pids" in
+				*[!0-9\ ]*)
+					logger -t "$SVC_NAME" "Cannot verify startup: invalid daemon PID list"
+					return 1
+					;;
+			esac
+			for tr_ready_pid in $tr_ready_pids; do
+				case "$tr_ready_pid" in
+					0*|1|*[!0-9]*)
+						logger -t "$SVC_NAME" "Cannot verify startup: unsafe daemon PID"
+						return 1
+					;;
+				esac
+			done
+			return 0
+			;;
+		1)
+			if [ -n "$tr_ready_pids" ]; then
+				logger -t "$SVC_NAME" "Cannot verify startup: inconsistent daemon process state"
+				return 1
+			fi
+			;;
+		*)
+			logger -t "$SVC_NAME" "Cannot verify startup: pidof failed (status=$tr_ready_status)"
+			return 1
+			;;
+		esac
+		attempt=$((attempt + 1))
+		[ "$attempt" -lt 4 ] || break
+		sleep 1 || {
+			logger -t "$SVC_NAME" "Cannot verify startup: readiness wait was interrupted"
+			return 1
+		}
+	done
+
+	logger -t "$SVC_NAME" "launcher returned success but daemon did not appear"
+	return 1
+}
+
 func_start()
 {
 	# Avoid treating an inherited environment variable as our cleanup target.
@@ -179,6 +236,10 @@ func_start()
 	fi
 	
 	if start-stop-daemon -S -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- -g "$DIR_CFG" -P "$tr_pport" -p "$tr_rport" -e "${DIR_LINK}/transmission.log" ; then
+		if ! transmission_wait_started; then
+			echo "[FAILED]"
+			return 1
+		fi
 		echo "[  OK  ]"
 		logger -t "$SVC_NAME" "daemon is started"
 		return 0

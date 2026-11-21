@@ -20,6 +20,16 @@ printf '%s\n' '{"umask": 0, "download-dir": "/existing"}' > "$TMP_DIR/transmissi
 : > "$TMP_DIR/aria/config/incomplete.lst"
 cat > "$STUB_DIR/pidof" <<'EOF'
 #!/bin/sh
+if [ -e "${STORAGE_TEST_LAUNCH_CALLED_FILE:-/nonexistent}" ]; then
+	if [ "${STORAGE_TEST_POST_PIDOF_STATUS:-auto}" = "2" ]; then
+		exit 2
+	fi
+	if [ -s "$STORAGE_TEST_RUNNING_FILE" ]; then
+		printf '%s\n' 123
+		exit 0
+	fi
+	exit 1
+fi
 if [ -n "${STORAGE_TEST_START_PIDOF_OUTPUT:-}" ]; then
 	printf '%s\n' "$STORAGE_TEST_START_PIDOF_OUTPUT"
 fi
@@ -40,8 +50,25 @@ esac
 EOF
 cat > "$STUB_DIR/start-stop-daemon" <<'EOF'
 #!/bin/sh
-[ -z "${STORAGE_TEST_START_MARKER:-}" ] || printf '%s\n' "$$" >> "$STORAGE_TEST_START_MARKER"
-exit "${STORAGE_TEST_START_STATUS:-23}"
+[ -z "${STORAGE_TEST_START_MARKER:-}" ] || printf '%s\n' "$" >> "$STORAGE_TEST_START_MARKER"
+: > "$STORAGE_TEST_LAUNCH_CALLED_FILE"
+if [ "${STORAGE_TEST_START_STATUS:-23}" -ne 0 ]; then
+	exit "$STORAGE_TEST_START_STATUS"
+fi
+if [ "${STORAGE_TEST_START_NO_PID:-0}" = 0 ]; then
+	: > "$STORAGE_TEST_PENDING_FILE"
+fi
+exit 0
+EOF
+cat > "$STUB_DIR/sleep" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$STORAGE_TEST_SLEEP_LOG"
+if [ -e "$STORAGE_TEST_PENDING_FILE" ]; then
+	rm -f "$STORAGE_TEST_PENDING_FILE"
+	: > "$STORAGE_TEST_RUNNING_FILE"
+	exit 0
+fi
+exec /bin/sleep "$@"
 EOF
 cat > "$STUB_DIR/logger" <<'EOF'
 #!/bin/sh
@@ -170,11 +197,19 @@ run_launcher()
 	generator_empty=${12:-0}
 	pidof_status=${18:-1}
 	pidof_output=${19:-}
+	start_no_pid=${20:-0}
+	post_pidof_status=${21:-auto}
+	launch_state_dir=$(mktemp -d "$TMP_DIR/launch-state.XXXXXX")
+	launch_called_file="$launch_state_dir/called"
+	pending_file="$launch_state_dir/pending"
+	running_file="$launch_state_dir/running"
+	sleep_log="$launch_state_dir/sleep.log"
+	LAST_LAUNCH_STATE_DIR=$launch_state_dir
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			"$BUSYBOX_BIN" ash "$launcher" start >/dev/null 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
 			sh "$launcher" start >/dev/null 2>&1
 	fi
 }
@@ -199,11 +234,52 @@ assert_success()
 		echo "$name reported failure because logger failed after successful launch" >&2
 		exit 1
 	fi
+	[ -s "$LAST_LAUNCH_STATE_DIR/running" ] || {
+		echo "$name returned success before its delayed daemon PID appeared" >&2
+		exit 1
+	}
+	[ "$(wc -l < "$LAST_LAUNCH_STATE_DIR/sleep.log" | tr -d ' ')" -ge 1 ] || {
+		echo "$name did not wait for its daemonized child" >&2
+		exit 1
+	}
 }
 assert_failure Transmission "$TMP_DIR/transmission.sh"
 assert_failure Aria "$TMP_DIR/aria.sh"
 assert_success Transmission "$TMP_DIR/transmission.sh"
 assert_success Aria "$TMP_DIR/aria.sh"
+
+expect_start_readiness_failure()
+{
+	name=$1
+	launcher=$2
+	no_pid=$3
+	post_status=$4
+	marker="$TMP_DIR/$name-launch-marker"
+	rm -f "$marker"
+	if run_launcher "$launcher" 0 0 0 0 "$marker" "" "" "" 0 0 0 "" "" "" "" 0 1 "" "$no_pid" "$post_status"; then
+		echo "$name reported success without a verified daemon" >&2
+		exit 1
+	fi
+	[ -e "$marker" ] || {
+		echo "$name did not reach the daemon launch" >&2
+		exit 1
+	}
+	if [ "$post_status" = auto ]; then
+		[ "$(wc -l < "$LAST_LAUNCH_STATE_DIR/sleep.log" | tr -d ' ')" -eq 3 ] || {
+			echo "$name did not enforce the bounded readiness timeout" >&2
+			exit 1
+		}
+	else
+		[ ! -s "$LAST_LAUNCH_STATE_DIR/sleep.log" ] || {
+			echo "$name slept despite an unknown process inventory" >&2
+			exit 1
+		}
+	fi
+}
+expect_start_readiness_failure Transmission-no-child "$TMP_DIR/transmission.sh" 1 auto
+expect_start_readiness_failure Aria-no-child "$TMP_DIR/aria.sh" 1 auto
+expect_start_readiness_failure Transmission-unknown-after-launch "$TMP_DIR/transmission.sh" 0 2
+expect_start_readiness_failure Aria-unknown-after-launch "$TMP_DIR/aria.sh" 0 2
 
 expect_start_pidof_unknown()
 {

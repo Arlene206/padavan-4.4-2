@@ -13,6 +13,63 @@ SVC_NAME="Aria2"
 SVC_PATH="/usr/bin/aria2c"
 DIR_LINK="/mnt/aria"
 
+
+# aria2c is explicitly daemonized with -D; start-stop-daemon returning only
+# confirms that the short-lived launcher exited. Require the child PID.
+aria_wait_started()
+{
+	attempt=0
+	while [ "$attempt" -lt 4 ]; do
+		if aria_ready_pids=$(pidof aria2c 2>/dev/null); then
+			aria_ready_status=0
+		else
+			aria_ready_status=$?
+		fi
+		case "$aria_ready_status" in
+		0)
+			if [ -z "$aria_ready_pids" ]; then
+				logger -t "$SVC_NAME" "Cannot verify startup: pidof returned success without a PID"
+				return 1
+			fi
+			case "$aria_ready_pids" in
+				*[!0-9\ ]*)
+					logger -t "$SVC_NAME" "Cannot verify startup: invalid daemon PID list"
+					return 1
+					;;
+			esac
+			for aria_ready_pid in $aria_ready_pids; do
+				case "$aria_ready_pid" in
+					0*|1|*[!0-9]*)
+						logger -t "$SVC_NAME" "Cannot verify startup: unsafe daemon PID"
+						return 1
+					;;
+				esac
+				done
+			return 0
+			;;
+		1)
+			if [ -n "$aria_ready_pids" ]; then
+				logger -t "$SVC_NAME" "Cannot verify startup: inconsistent daemon process state"
+				return 1
+			fi
+			;;
+		*)
+			logger -t "$SVC_NAME" "Cannot verify startup: pidof failed (status=$aria_ready_status)"
+			return 1
+			;;
+		esac
+		attempt=$((attempt + 1))
+		[ "$attempt" -lt 4 ] || break
+		sleep 1 || {
+			logger -t "$SVC_NAME" "Cannot verify startup: readiness wait was interrupted"
+			return 1
+		}
+	done
+
+	logger -t "$SVC_NAME" "launcher returned success but daemon did not appear"
+	return 1
+}
+
 func_start()
 {
 	# Resolve the daemon state from both pidof's status and output.
@@ -196,6 +253,10 @@ EOF
 	if start-stop-daemon -S -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- \
 		-D --enable-rpc=true --conf-path="$FILE_CONF" --input-file="$FILE_LIST" --save-session="$FILE_LIST" \
 		--rpc-listen-port="$aria_rport" --listen-port="$aria_pport" --dht-listen-port="$aria_pport" $SSL_OPT ; then
+		if ! aria_wait_started; then
+			echo "[FAILED]"
+			return 1
+		fi
 		echo "[  OK  ]"
 		logger -t "$SVC_NAME" "daemon is started"
 		return 0
