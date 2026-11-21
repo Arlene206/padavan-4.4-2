@@ -1,3 +1,14 @@
+## 2026-11-21  17:3 ET — Fail closed on shared FTP/Samba session-limit NVRAM reads
+
+- Parent main SHA: `119e323e545c243b7a0edfe0aa20b2c8483db77d`.
+- Both `write_vsftpd_conf()` and `write_smb_conf_unlocked()` used unchecked `nvram_get_int("st_max_user")`. A transient NVRAM/backend/close failure could be read as zero, silently clamp both daemons to one connection, and publish an unintended service configuration.
+- Added one shared checked reader and a pure policy preserving the historical 1..`MAX_CLIENTS_NUM` clamp for successful/missing values. Actual read errors now abort FTP config generation before opening its staged file and abort Samba staged publication through its discard path. Existing active configs remain untouched on failed session-limit reads.
+- Added GNU89/Werror policy tests for valid, missing/low/high, API/close-error, invalid maximum and null-output cases. Both VSFTPD and Samba workflows compile/run the test and enforce source-order/fail-closed contracts; both workflow path filters include the new files.
+- Local MIPS/uClibc firmware build is unavailable in this GitHub-only workspace. Exact-head VSFTPD/Samba Actions and XY-C1 Build/TRX/artifact results are pending for this source commit; no L3/L4 claim.
+- Next: inspect those exact-SHA runs and fix any real failure. Then continue an independent storage/network stability slice.
+
+---
+
 ## 2026-11-21 — Close MAC-filter and static-route hardening; stabilize contracts
 
 - MAC filter mode and per-entry checked-read hardening landed in `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49`; exact XY-C1 #44955441811 passed Build/TRX/artifact.

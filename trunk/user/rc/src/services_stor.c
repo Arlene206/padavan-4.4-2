@@ -49,6 +49,7 @@
 #include "samba_share_policy.h"
 #include "samba_config_mode_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "service_connection_limit_policy.h"
 #include "samba_fastpath_policy.h"
 #if defined (APP_SMBD)
 #include "samba_config_file.h"
@@ -283,13 +284,43 @@ stop_ftp(void)
 	return status;
 }
 
+static int
+storage_read_integer_status(const char *name, int missing_value, int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!name || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked(name, &text);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    text, missing_value, value);
+}
+
+
 int
 write_vsftpd_conf(void)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
-	int i_maxuser, i_ftp_mode;
+	int i_maxuser = 0, max_user_value = 0;
+	int max_user_status, saved_errno, i_ftp_mode;
 	const char *banner_product;
+
+	max_user_status = storage_read_integer_status(
+		"st_max_user", 0, &max_user_value);
+	max_user_status = service_connection_limit_value_status(
+		max_user_status, max_user_value, MAX_CLIENTS_NUM, &i_maxuser);
+	if (max_user_status != 0) {
+		saved_errno = max_user_status > 0 ? max_user_status : EIO;
+		logmessage("FTP server",
+			   "cannot read max-connection limit; preserving active configuration (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	if (ftp_config_file_open("/etc/vsftpd.conf", staged_path,
 				 sizeof(staged_path), &fp) != 0)
@@ -349,10 +380,6 @@ write_vsftpd_conf(void)
 	fprintf(fp, "hide_ids=%s\n", "YES");
 	fprintf(fp, "utf8=%s\n", "YES");
 	fprintf(fp, "idle_session_timeout=%d\n", 600);
-
-	i_maxuser = nvram_get_int("st_max_user");
-	if (i_maxuser < 1) i_maxuser = 1;
-	if (i_maxuser > MAX_CLIENTS_NUM) i_maxuser = MAX_CLIENTS_NUM;
 
 	fprintf(fp, "max_clients=%d\n", i_maxuser);
 	fprintf(fp, "max_per_ip=%d\n", i_maxuser);
@@ -683,16 +710,7 @@ check_existed_share(const char *string, const char *config_path)
 static int
 samba_read_integer_status(const char *name, int missing_value, int *value)
 {
-	char *text = NULL;
-	int api_result, saved_errno;
-
-	if (!name || !value)
-		return EINVAL;
-	errno = 0;
-	api_result = nvram_get_checked(name, &text);
-	saved_errno = errno;
-	return rc_wan_nvram_read_int_status(api_result, saved_errno,
-					    text, missing_value, value);
+	return storage_read_integer_status(name, missing_value, value);
 }
 
 
@@ -778,7 +796,8 @@ write_smb_conf_unlocked(void)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
-	int i_maxuser, i_smb_mode, result = 0;
+	int i_maxuser = 0, i_maxuser_value = 0, i_maxuser_status;
+	int i_smb_mode, result = 0;
 	disk_info_t *follow_disk, *disks_info = NULL;
 	partition_info_t *follow_partition;
 
@@ -832,9 +851,21 @@ write_smb_conf_unlocked(void)
 	fprintf(fp, "force directory mode = 0777\n");
 
 	/* max users */
-	i_maxuser = nvram_get_int("st_max_user");
-	if (i_maxuser < 1) i_maxuser = 1;
-	if (i_maxuser > MAX_CLIENTS_NUM) i_maxuser = MAX_CLIENTS_NUM;
+	i_maxuser_value = 0;
+	i_maxuser_status = storage_read_integer_status(
+		"st_max_user", 0, &i_maxuser_value);
+	i_maxuser_status = service_connection_limit_value_status(
+		i_maxuser_status, i_maxuser_value, MAX_CLIENTS_NUM, &i_maxuser);
+	if (i_maxuser_status != 0) {
+		int read_error = i_maxuser_status > 0 ? i_maxuser_status : EIO;
+
+		logmessage("Samba Server",
+			   "cannot read max-connection limit; preserving active configuration (errno %d)",
+			   read_error);
+		errno = read_error;
+		result = -1;
+		goto confpage;
+	}
 
 	fprintf(fp, "max connections = %d\n", i_maxuser);
 	fprintf(fp, "use spnego = no\n");		// ASUS add

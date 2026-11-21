@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/service_connection_limit_policy.h"
+      - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_wait_policy.h"
@@ -30,6 +32,8 @@ on:
     paths:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/service_connection_limit_policy.h"
+      - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/samba_config_mode_policy.h"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
@@ -99,6 +103,11 @@ jobs:
             trunk/user/rc/src/tests/samba_config_mode_policy.c \
             -o /tmp/samba-config-mode-policy
           /tmp/samba-config-mode-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/service_connection_limit_policy.c \
+            -o /tmp/service-connection-limit-policy
+          /tmp/service-connection-limit-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -169,8 +178,10 @@ jobs:
           mode_reader = function_body(stor, "samba_read_mode_status(int missing_value, int *mode)")
           config_mode_reader = function_body(stor, "samba_read_config_mode_status(int *mode)")
           runtime_reader = function_body(stor, "samba_read_runtime_enabled_status(int *enabled)")
-          assert 'nvram_get_checked(name, &text)' in integer_reader
-          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in integer_reader
+          assert "return storage_read_integer_status(name, missing_value, value);" in integer_reader
+          storage_integer_reader = function_body(stor, "storage_read_integer_status(const char *name, int missing_value, int *value)")
+          assert 'nvram_get_checked(name, &text)' in storage_integer_reader
+          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in storage_integer_reader
           assert "samba_boolean_value_status(read_status, value, enabled)" in boolean_reader
           assert 'samba_read_integer_status("st_samba_mode", missing_value, mode)' in mode_reader
           assert "samba_config_mode_is_valid(*mode)" in mode_reader
@@ -185,6 +196,20 @@ jobs:
           assert smb.index("samba_read_config_mode_status(&i_smb_mode)") < smb.index("samba_config_file_open(SAMBA_CONF")
           assert "i_smb_mode == 0" in smb
           assert "result = -1;" in smb[smb.index("i_smb_mode == 0"):]
+          smb_compact = "".join(smb.split())
+          max_user_read = 'storage_read_integer_status("st_max_user",0,&i_maxuser_value)'
+          max_user_policy = 'service_connection_limit_value_status(i_maxuser_status,i_maxuser_value,MAX_CLIENTS_NUM,&i_maxuser)'
+          max_user_emit = 'fprintf(fp,"max connections = %d\\n",i_maxuser)'
+          assert max_user_read in smb_compact
+          assert max_user_policy in smb_compact
+          assert smb_compact.index(max_user_read) < smb_compact.index(max_user_policy) < smb_compact.index(max_user_emit)
+          assert 'nvram_get_int("st_max_user")' not in smb
+          assert "cannot read max-connection limit" in smb
+          max_user_failure = smb.index("cannot read max-connection limit")
+          assert "result = -1;" in smb[max_user_failure:]
+          assert "goto confpage;" in smb[max_user_failure:]
+          assert "service_connection_limit_value_status" in config_mode_policy
+          assert "service_connection_limit_value_status(EIO, 0, 16, &connections)" in Path("trunk/user/rc/src/tests/service_connection_limit_policy.c").read_text()
           assert "samba_config_mode_is_valid" in config_mode_policy
           assert "samba_boolean_value_status" in config_mode_policy
           assert "samba_runtime_enabled_status" in config_mode_policy
