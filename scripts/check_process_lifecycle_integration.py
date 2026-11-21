@@ -1372,10 +1372,38 @@ assert "if (action == PROCESS_PRESENCE_START_NEW)" in watchdog_start
 assert "launch_status = eval(\"/sbin/watchdog\")" in watchdog_start
 assert "if (launch_status != 0)" in watchdog_start
 assert "watchdog launcher failed (status=%d)" in watchdog_start
-assert "return launch_status;" in watchdog_start
+assert "watchdog_rollback_failed_start(" in watchdog_start
+assert watchdog_start.count("watchdog_rollback_failed_start(") == 6
+assert "return launch_status;" not in watchdog_start
 assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
     "launch_status = eval(\"/sbin/watchdog\")"
-) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
+) < watchdog_start.index("if (launch_status != 0)")
+watchdog_start_stop = c_function_body(
+    watchdog_source, "watchdog_start_rollback_stop(void *context)"
+)
+watchdog_start_scan = c_function_body(
+    watchdog_source, "watchdog_start_rollback_scan(void *context, int *scan_error)"
+)
+watchdog_start_rollback = c_function_body(
+    watchdog_source, "watchdog_rollback_failed_start(int start_status, int start_errno,"
+)
+assert "detached_daemon_start_rollback_with_ops(" in watchdog_start_rollback
+assert "watchdog_start_rollback_stop" in watchdog_start_rollback
+assert "watchdog_start_rollback_scan" in watchdog_start_rollback
+assert "errno = saved_errno;" in watchdog_start_rollback
+assert "return result;" in watchdog_start_rollback
+assert "kill_services(service_names, 3, 1)" in watchdog_start_stop
+assert "process_inventory_scan((const char *)context, &snapshot)" in watchdog_start_scan
+assert "process_snapshot_release(&snapshot)" in watchdog_start_scan
+for marker in (
+    'launch_status, launch_errno, "launcher"',
+    'wait_status, wait_errno, "initial readiness wait"',
+    '-1, scan_error, "process inventory"',
+    '-1, EIO, "invalid process inventory state"',
+    'wait_status, wait_errno, "retry readiness wait"',
+    '-1, ETIMEDOUT, "readiness timeout"',
+):
+    assert marker in watchdog_start, marker
 assert '#include "service_wait_policy.h"' in watchdog_source
 assert "watchdog_start_probe_wait(unsigned int seconds)" in watchdog_source
 assert "watchdog_start_probe_wait(" in watchdog_start
@@ -2349,10 +2377,38 @@ assert "if (action == PROCESS_PRESENCE_START_NEW)" in watchdog_start
 assert "launch_status = eval(\"/sbin/watchdog\")" in watchdog_start
 assert "if (launch_status != 0)" in watchdog_start
 assert "watchdog launcher failed (status=%d)" in watchdog_start
-assert "return launch_status;" in watchdog_start
+assert "watchdog_rollback_failed_start(" in watchdog_start
+assert watchdog_start.count("watchdog_rollback_failed_start(") == 6
+assert "return launch_status;" not in watchdog_start
 assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
     "launch_status = eval(\"/sbin/watchdog\")"
-) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
+) < watchdog_start.index("if (launch_status != 0)")
+watchdog_start_stop = c_function_body(
+    watchdog_source, "watchdog_start_rollback_stop(void *context)"
+)
+watchdog_start_scan = c_function_body(
+    watchdog_source, "watchdog_start_rollback_scan(void *context, int *scan_error)"
+)
+watchdog_start_rollback = c_function_body(
+    watchdog_source, "watchdog_rollback_failed_start(int start_status, int start_errno,"
+)
+assert "detached_daemon_start_rollback_with_ops(" in watchdog_start_rollback
+assert "watchdog_start_rollback_stop" in watchdog_start_rollback
+assert "watchdog_start_rollback_scan" in watchdog_start_rollback
+assert "errno = saved_errno;" in watchdog_start_rollback
+assert "return result;" in watchdog_start_rollback
+assert "kill_services(service_names, 3, 1)" in watchdog_start_stop
+assert "process_inventory_scan((const char *)context, &snapshot)" in watchdog_start_scan
+assert "process_snapshot_release(&snapshot)" in watchdog_start_scan
+for marker in (
+    'launch_status, launch_errno, "launcher"',
+    'wait_status, wait_errno, "initial readiness wait"',
+    '-1, scan_error, "process inventory"',
+    '-1, EIO, "invalid process inventory state"',
+    'wait_status, wait_errno, "retry readiness wait"',
+    '-1, ETIMEDOUT, "readiness timeout"',
+):
+    assert marker in watchdog_start, marker
 assert '#include "service_wait_policy.h"' in watchdog_source
 assert "watchdog_start_probe_wait(unsigned int seconds)" in watchdog_source
 assert "watchdog_start_probe_wait(" in watchdog_start

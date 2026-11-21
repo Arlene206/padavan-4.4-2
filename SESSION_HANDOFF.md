@@ -2,7 +2,7 @@
 
 ## Cross-session execution mandate
 
-- Continue development on `main` only. Each logical task is one atomic commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
+- Continue development on `main` only. Every logical change must be one atomic main commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
 - Never amend, force-push, create development branches/PRs, or modify the frozen backup.
 - Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Fix real defects with focused regressions; do not weaken checks.
 - PENDING Actions do not block independent work. Diagnose the earliest causal failure log.
@@ -10,33 +10,33 @@
 
 ## Mandatory handoff checkpoint — end-of-session accuracy
 
-The checkpoint is mandatory; a document edit is conditional. Every session must inspect live `main`, verify the frozen backup SHA and inspect exact-SHA Actions at session end. Update this document only when baseline, evidence, blocker or first next action materially changes; do not create a no-op commit.
+The checkpoint is mandatory; a document edit is conditional. At every session end, compare live `main`, relevant exact-SHA Actions, the product-source baseline, verification boundary, blockers and the first next action with this record. Update it only when one of those resumable facts materially changes; do not create a no-op commit.
 
 ## Current repository state
 
-- Parent main SHA before this handoff heading correction: `9a1175e8c5332751b68b7861c1ea5b043a67547d`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain read-only.
-- `1b25077e6e5a9f8750d4b5c76637beec5ca354d1` SCUT watchdog #44884209161, AI handoff #44884209044 and Process inventory #44884209082 passed; XY-C1 #44884209133 completed Build, TRX verification and artifact upload on that same SHA (L3 pass for those inputs).
-- `f530b3a75684feae8490bb3e33044df8034e48b1` Crond #44884633405, Process inventory #44884633475, Process fail-closed #44884633485 and watchdog #44884633410 passed. Its XY-C1 #44884633378 was still building at last poll.
-- Watchdog rollback source commit `8a55d24a4b797c96ca94bc8ece112966d86fa204` had Watchdog #44885239087 fail its stale inline `return launch_status;` assertion; generic rollback policy compilation and other policy steps passed. Its Process inventory #44885238990, XY-C1 #44885238962, DNSMasq #44885238979 and HTTPD #44885238949 were not all confirmed at this checkpoint.
-- The first watchdog Action uses an inline workflow contract that still expected `return launch_status;`. The production source now returns through the new rollback helper. This commit updates that stale contract and includes the detached rollback policy header/test in the workflow path contract; it does not change production behavior.
-- No force push, no backup mutation and no physical-router L4 claim.
+- Live `main` before this checker correction: `accf1726b163d54bd269019fd590554fc430fa0e`. The latest product-source baseline remains `8a55d24a4b797c96ca94bc8ece112966d86fa204`; main commits since that source change have affected workflow/checker/handoff files only, not firmware source.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (permanently read-only).
+- Watchdog workflow regression `#44885579764` passed on main SHA `9a1175e8`. AI handoff `#44885716352` failed on SHA `accf1726` because the validator also requires the literal phrase `one atomic main commit`; the previous wording described an atomic commit but omitted the word `main`. This checkpoint now uses the exact required phrase.
+- On product-source SHA `8a55d24a`, Process inventory `#44885238990`, HTTPD lifecycle `#44885238949`, DNSMasq lifecycle `#44885238979`, HTTPD security `#44885238957` and NVRAM audit `#44885238989` passed. Aggregate Process lifecycle `#44885238958` failed at the final watchdog integration contract because two assertions still required the old direct `return launch_status;` behavior. This commit updates both duplicate checker sections to validate the current six-branch rollback implementation and its adapters.
+- Watchdog source commit `8a55d24a` had its first signal workflow fail on an obsolete direct-return assertion (`#44885239087`). After updating and deduplicating the workflow contract, the exact-head Watchdog run `#44885579764` passed on docs-only child `9a1175e8`; no production source changed between those SHAs.
+- XY-C1 run `#44885238962` remains IN_PROGRESS on exact product-source SHA `8a55d24a`: all earlier host regression and input-detection steps passed; Build XY-C1 was running at last inspection; TRX output verification and artifact upload were pending.
 
 ## Active task
 
-1. Inspect exact-SHA AI handoff after this exact-heading correction; Watchdog #44885579764 already PASS on parent SHA `9a1175e`.
-2. Check exact-SHA XY-C1 gates and the older `8a55d24` Build/TRX/artifact run; do not infer firmware success from PENDING.
-3. If all relevant checks pass, continue mapping `kill_pidfile_s()` and `kill_pidfile()` consumers to exact PID-file producers before any shared-helper migration.
+1. Validate this checker/handoff correction with exact-head push Actions for Process lifecycle and AI handoff. The Watchdog regression was green on `9a1175e8`; confirm it remains green if a new relevant run is triggered. Fix the first causal failure without weakening assertions.
+2. Recheck XY-C1 `#44885238962` on product-source SHA `8a55d24a`. Do not claim L3 until Build XY-C1, Verify TRX output and artifact upload all succeed on that exact SHA.
+3. Once the rollback slice and source contracts are green, resume the shared PID-file audit at `trunk/user/shared/src/shutils.c::kill_pidfile_s()`: map every consumer to its producer format, owner, lifecycle and signal semantics before considering any migration. Preserve numeric-only external PID-file compatibility unless a source-backed safe change is proven.
 
 ## Verification boundary
 
-- The `8a55d24` source slice's generic rollback behavior is covered by `detached_daemon_start_policy.c` tests: cleanup success, failed cleanup with child still running, UNKNOWN cleanup inventory and primary status/errno preservation. Exact production wiring is source-checked.
-- The workflow-contract correction is not yet verified on its own SHA. No local compile or test run is claimed.
-- XY-C1 L3 requires Build, TRX and artifact upload on one SHA. Physical hardware L4 remains NOT VERIFIED.
+- Product-source baseline: `8a55d24a4b797c96ca94bc8ece112966d86fa204`; this follow-up changes no firmware production source.
+- The GNU89/ASan/UBSan watchdog policy binaries and the majority of Process lifecycle host regressions passed in the prior Actions run. The remaining Process failure was a stale source-contract assertion, not a demonstrated production C test failure.
+- No local checkout/compiler is available in this session; no local Python, shell or C test is claimed. Exact-head GitHub Actions are the validation source.
+- XY-C1 firmware L3 remains pending on `8a55d24a`. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`, confirm the frozen backup SHA, inspect exact-SHA AI handoff for this heading correction and verify the older `8a55d24` XY-C1 Build/TRX/artifact. Then continue focused stability work; the shared PID-file helper remains unactioned until its actual consumers and writers are found.
+Fetch live `main` and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect the exact-head Process lifecycle and AI handoff push Actions for this correction; diagnose the earliest remaining failure without removing coverage. Recheck XY-C1 `#44885238962` for Build, TRX verification and artifact upload on source SHA `8a55d24a`. Once these checks pass, start mapping the readers and producers of `kill_pidfile_s()` in `trunk/user/shared/src/shutils.c`.
 
 ## Handoff maintenance
 

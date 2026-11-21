@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct Process watchdog rollback contract and handoff execution metadata
+
+- Beijing time: 2026-11-21 16:31 (UTC+8). Parent main SHA: `accf1726b163d54bd269019fd590554fc430fa0e`.
+- Watchdog signal workflow `44885579764` passed on parent `9a1175e8`. AI handoff `44885716352` then failed because the exact validator also requires the phrase `one atomic main commit`; updated the handoff mandate with that exact branch/commit invariant.
+- Aggregate Process lifecycle `44885238958` on product-source SHA `8a55d24a` failed in the final source integration check because two copies of the watchdog contract still required `return launch_status;`. Both copies now require all six failure exits to invoke `watchdog_rollback_failed_start()`, check targeted stop/fresh-inventory adapters, verify errno preservation and assert every failure operation marker.
+- No firmware production source changed. No local Python/C tests are claimed; exact-head Process and AI handoff Actions are required after publication.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Match the handoff checkpoint heading to the exact validator contract
 
 - Parent main SHA: `9a1175e8c5332751b68b7861c1ea5b043a67547d`.
