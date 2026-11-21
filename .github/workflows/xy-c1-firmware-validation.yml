@@ -373,6 +373,7 @@ on:
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - "trunk/user/p910nd/**"
+      - "trunk/user/wsdd2/**"
   workflow_dispatch:
 
 permissions:

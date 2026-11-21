@@ -51,6 +51,7 @@
 */
 #include "wsdd.h"
 #include "wsd.h"
+#include "wsd_http_header_policy.h"
 #include <nvram_linux.h>
 
 #define UUIDLEN	37
@@ -857,12 +858,24 @@ static int wsd_parse_http_header(int fd, struct endpoint *ep,
 #define __FUNCTION__	"wsd_pars_http_header"
 	size_t contentlength = 0;
 	char *p = buf;
-	char *eol = strstr(p, "\r\n");
+	char *eol;
 	static size_t endpointlen;
 
 	if (!endpointlen)
 		endpointlen = strlen(wsd_endpoint);
 
+	/* TCP may split the request line; never dereference a missing CRLF. */
+	if (wsd_http_read_until_crlf(fd, buf, &len, bsize) != 0) {
+		ep->errstr = (errno == EMSGSIZE) ?
+			__FUNCTION__ ": HTTP request line too long" :
+			__FUNCTION__ ": Data receiving error";
+		return (errno == EMSGSIZE) ? 400 : 500;
+	}
+	eol = wsd_http_find_crlf(p, len);
+	if (!eol) {
+		ep->errstr = __FUNCTION__ ": Invalid HTTP request line";
+		return 400;
+	}
 	*eol = '\0';
 	if (strncmp(p, "POST /", 6)) {
 		ep->errstr = __FUNCTION__ ": Only POST method supported";
@@ -881,7 +894,8 @@ static int wsd_parse_http_header(int fd, struct endpoint *ep,
 
 again:
 #define HEADER_IS(p,h)	(strncasecmp((p),(h),strlen((h)))? NULL :(p)+strlen(h)) 
-	while (*p && (eol = strstr(p, "\r\n")) != p) {
+	while (*p &&
+	       (eol = wsd_http_find_crlf(p, len - (size_t)(p - buf))) != p) {
 		const char *val;
 
 		if (!eol)
@@ -894,10 +908,15 @@ again:
 				return 400;
 			}
 		} else if ((val = HEADER_IS(p, "Content-Length: "))) {
-			if ((contentlength = atoi(val)) <= 0) {
+			if (contentlength ||
+			    wsd_http_parse_content_length(val, &contentlength) != 0) {
 				ep->errstr = __FUNCTION__
-						": Invalid Content-Length";
+						": Invalid or duplicate Content-Length";
 				return 400;
+			}
+			if (contentlength >= bsize) {
+				ep->errstr = __FUNCTION__ ": Content-Length too large";
+				return 413;
 			}
 		}
 		p = eol + 2;
@@ -908,18 +927,18 @@ again:
 		p = eol + 2;
 		eoh = true;
 	}
-	memmove(buf, p, len -= (p - buf));
+	len -= (size_t)(p - buf);
+	memmove(buf, p, len);
+	p = buf;
 	buf[len] = '\0';
 
 	if (!eoh) {/* Have not reached end of header. */
-		ssize_t len2 = recv(fd, buf + len, bsize - len - 1, 0);
-
-		if (len2 <= 0) {
-			ep->errstr = __FUNCTION__ ": Data receiving error";
-			return 500;
+		if (wsd_http_read_until_crlf(fd, buf, &len, bsize) != 0) {
+			ep->errstr = (errno == EMSGSIZE) ?
+				__FUNCTION__ ": HTTP header line too long" :
+				__FUNCTION__ ": Data receiving error";
+			return (errno == EMSGSIZE) ? 400 : 500;
 		}
-		len += len2;
-		buf[len] = '\0';
 		goto again;
 	}
 
@@ -928,18 +947,10 @@ again:
 		return 400;
 	}
 
-	if (len < contentlength) {
-		if (contentlength >= bsize) {
-			ep->errstr = __FUNCTION__ ": Content-Length too large";
-			return 500;
-		}
-
-		ssize_t len2 = recv(fd, buf + len, contentlength - len, 0);
-
-		if (len2 < contentlength - len) {
-			ep->errstr = __FUNCTION__ ": Data receiving error";
-			return 500;
-		}
+	if (len < contentlength &&
+	    wsd_http_read_exact(fd, buf, &len, contentlength) != 0) {
+		ep->errstr = __FUNCTION__ ": Data receiving error";
+		return 500;
 	}
 	buf[contentlength] = '\0';
 	return 200;
