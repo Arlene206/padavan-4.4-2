@@ -2661,6 +2661,7 @@ start_wan(void)
 	int wan_start_status = 0, wan_up_status, sysctl_status;
 	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
+	int nvram_status;
 	char *wan_ifname;
 
 	if (wan_vars_reset_status != 0) {
@@ -2859,7 +2860,20 @@ start_wan(void)
 					int i_pppoe, i_pppoe_man, wanx_status;
 					
 					i_pppoe = (wan_proto == IPV4_WAN_PROTO_PPPOE) ? 1 : 0;
-					i_pppoe_man = get_wan_unit_value_int(unit, "pppoe_man");
+					nvram_status = get_wan_unit_value_int_status(
+						unit, "pppoe_man", &i_pppoe_man);
+					if (nvram_status != 0) {
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, nvram_status);
+						logmessage(LOGNAME,
+							   "aborting USB modem RAS startup: cannot read PPPoE manual mode (status=%d)",
+							   nvram_status);
+						vlan_result = restore_wan_after_firewall_failure(
+							unit, wan_ifname);
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, vlan_result);
+						continue;
+					}
 					wanx_status = 0;
 					if (!i_pppoe || i_pppoe_man == 1)
 						wanx_status = launch_wanx(wan_ifname, unit, 0, 0);
@@ -2949,7 +2963,20 @@ start_wan(void)
 			}
 			
 			i_pppoe = (wan_proto == IPV4_WAN_PROTO_PPPOE) ? 1 : 0;
-			i_pppoe_man = get_wan_unit_value_int(unit, "pppoe_man");
+			nvram_status = get_wan_unit_value_int_status(
+				unit, "pppoe_man", &i_pppoe_man);
+			if (nvram_status != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, nvram_status);
+				logmessage(LOGNAME,
+					   "aborting WAN PPP startup: cannot read PPPoE manual mode (status=%d)",
+					   nvram_status);
+				vlan_result = restore_wan_after_firewall_failure(
+					unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
 			
 			wanx_status = 0;
 			if (!i_pppoe || i_pppoe_man == 1)
@@ -2986,8 +3013,21 @@ start_wan(void)
 				continue;
 			}
 			
-			/* update demand option */
-			i_demand = get_wan_unit_value_int(unit, "pppoe_idletime");
+			/* update demand option only from a successful NVRAM read. */
+			nvram_status = get_wan_unit_value_int_status(
+				unit, "pppoe_idletime", &i_demand);
+			if (nvram_status != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, nvram_status);
+				logmessage(LOGNAME,
+					   "aborting WAN PPP startup: cannot read PPP idle-time setting (status=%d)",
+					   nvram_status);
+				vlan_result = restore_wan_after_firewall_failure(
+					unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
 			if (!i_pppoe || i_demand < 0)
 				i_demand = 0;
 			
