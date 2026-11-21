@@ -46,6 +46,8 @@
 #include "service_daemon_wait_policy.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
+#include "samba_config_mode_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "samba_fastpath_policy.h"
 #if defined (APP_SMBD)
 #include "samba_config_file.h"
@@ -634,6 +636,39 @@ check_existed_share(const char *string, const char *config_path)
 }
 
 static int
+samba_read_config_mode_status(int *mode)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!mode) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/*
+	 * A failed NVRAM read must not look like the legacy disabled value 0:
+	 * that would publish a header-only smb.conf over the last-good config.
+	 */
+	errno = 0;
+	api_result = nvram_get_checked("st_samba_mode", &value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+					      value, 0, mode);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	if (!samba_config_mode_is_valid(*mode)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	return 0;
+}
+
+
+static int
 write_smb_conf_unlocked(void)
 {
 	FILE *fp = NULL;
@@ -642,7 +677,15 @@ write_smb_conf_unlocked(void)
 	disk_info_t *follow_disk, *disks_info = NULL;
 	partition_info_t *follow_partition;
 
-	i_smb_mode = nvram_get_int("st_samba_mode");
+	if (samba_read_config_mode_status(&i_smb_mode) != 0) {
+		int mode_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot read a valid Samba share mode; preserving active configuration (errno %d)",
+			   mode_error);
+		errno = mode_error;
+		return -1;
+	}
 
 	if (samba_config_file_open(SAMBA_CONF, staged_path,
 				   sizeof(staged_path), &fp) != 0)
@@ -669,7 +712,12 @@ write_smb_conf_unlocked(void)
 		fprintf(fp, "guest ok = %s\n", "no");
 		fprintf(fp, "map to guest = Bad User\n");
 		fprintf(fp, "hide unreadable = yes\n");
+	} else if (i_smb_mode == 0) {
+		/* Disabled mode intentionally publishes a config with no shares. */
+		goto confpage;
 	} else {
+		errno = EINVAL;
+		result = -1;
 		goto confpage;
 	}
 

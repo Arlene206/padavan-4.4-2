@@ -12,6 +12,9 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/samba_config_file.h"
+      - "trunk/user/rc/src/samba_config_mode_policy.h"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/samba_config_mode_policy.c"
       - "trunk/user/rc/src/tests/samba_config_file.c"
       - "trunk/user/rc/src/samba_passdb_policy.h"
       - "trunk/user/rc/src/tests/samba_passdb_policy.c"
@@ -89,6 +92,11 @@ jobs:
             trunk/user/rc/src/tests/samba_fastpath_policy.c \
             -o /tmp/samba-fastpath-policy
           /tmp/samba-fastpath-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_config_mode_policy.c \
+            -o /tmp/samba-config-mode-policy
+          /tmp/samba-config-mode-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -105,6 +113,9 @@ jobs:
           test = Path("trunk/user/rc/src/tests/samba_config_file.c").read_text()
           fastpath_policy = Path("trunk/user/rc/src/samba_fastpath_policy.h").read_text()
           fastpath_test = Path("trunk/user/rc/src/tests/samba_fastpath_policy.c").read_text()
+          config_mode_policy = Path("trunk/user/rc/src/samba_config_mode_policy.h").read_text()
+          config_mode_test = Path("trunk/user/rc/src/tests/samba_config_mode_policy.c").read_text()
+          nvram_policy = Path("trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 
           def function_body(source, signature):
               start = source.index(signature)
@@ -126,6 +137,18 @@ jobs:
           assert "ferror(fp)" in header_body
 
           smb = function_body(stor, "write_smb_conf_unlocked(void)")
+          config_mode_reader = function_body(stor, "samba_read_config_mode_status(int *mode)")
+          assert 'nvram_get_checked("st_samba_mode", &value)' in config_mode_reader
+          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in config_mode_reader
+          assert "samba_config_mode_is_valid(*mode)" in config_mode_reader
+          assert "rc_wan_nvram_parse_int_value" in nvram_policy
+          assert 'nvram_get_int("st_samba_mode")' not in smb
+          assert "samba_read_config_mode_status(&i_smb_mode)" in smb
+          assert smb.index("samba_read_config_mode_status(&i_smb_mode)") < smb.index("samba_config_file_open(SAMBA_CONF")
+          assert "i_smb_mode == 0" in smb
+          assert "result = -1;" in smb[smb.index("i_smb_mode == 0"):]
+          assert "samba_config_mode_is_valid" in config_mode_policy
+          assert "samba_config_mode_is_valid(2)" in config_mode_test
           assert "samba_config_file_open(SAMBA_CONF" in smb
           assert "write_smb_conf_header(fp)" in smb
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in smb

@@ -1,3 +1,15 @@
+## 2026-11-21 — Fail closed on Samba share-mode NVRAM errors and unsupported values
+
+- Parent main SHA: `c9eff6c602124abc3d389272d3f0a98bbc6d092d`.
+- `write_smb_conf_unlocked()` used `nvram_get_int("st_samba_mode")`. A transient NVRAM backend failure therefore became the default zero mode; malformed or unsupported values also fell through to `confpage` with `result == 0`. The function then atomically published a header-only/partial `smb.conf` as success and could reload Samba over the last-known-good share configuration.
+- Added `samba_read_config_mode_status()` using `nvram_get_checked()` plus the existing strict decimal parser. Missing keys retain the historical disabled-mode zero default, but backend, malformed and overflow errors now abort. A small allowlist accepts only modes 0 (disabled), 1, 3 and 4; all other values return EINVAL. The writer validates before opening a staged file, and its explicit mode branch now allows header-only publication only for mode 0.
+- Added a GNU89 policy regression for all four supported modes and invalid negative, gap, high and integer-extreme values. Extended Samba push/PR contracts and XY-C1 firmware-input coverage for the new production policy header.
+- Exact-head `c9eff6c602124abc3d389272d3f0a98bbc6d092d` OpenVPN key regression #44899519368 PASS; Process inventory #44899519328 and Process lifecycle inventory #44899519428 PASS; AI handoff docs #44899519407 PASS. XY-C1 #44899519362 remains IN_PROGRESS (Build started; TRX/artifact pending). Parent USB source XY-C1 #44898901805 also remains IN_PROGRESS at last poll.
+- No local checkout/runtime is available; no local unit test, sanitizer or firmware build is claimed. New Samba and same-SHA XY-C1 Actions pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Protect OpenVPN TLS-crypt-v2 server keys at creation and on reuse
 
 - Beijing time: 2026-11-21 19:36 (UTC+8). Parent main SHA: `c58272b954ad175b16bb85879d3913d384035704`.

@@ -82,6 +82,18 @@ class FirmwareInputPathTests(unittest.TestCase):
                 self.assertIn('      - "' + path + '"', workflow)
                 self.assertFalse(is_non_firmware_input(path))
 
+    def test_samba_config_mode_policy_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        paths = (
+            "trunk/user/rc/src/services_stor.c",
+            "trunk/user/rc/src/samba_config_mode_policy.h",
+            "trunk/user/rc/src/wan_nvram_status_policy.h",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertIn('      - "' + path + '"', workflow)
+                self.assertFalse(is_non_firmware_input(path))
+
     def test_scut_watchdog_flock_dependency_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         for path in (
