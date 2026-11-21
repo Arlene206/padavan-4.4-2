@@ -354,6 +354,9 @@ test_dhcp_lease_nvram_restore_if_current_protects_newer_writer(void)
 	assert(strcmp(fake.current[2], fake.new_values[2]) == 0);
 
 	/* Backend read errors also stop before the first recovery write. */
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
 	fake.fail_get_enabled = 1;
 	fake.fail_get_index = 2;
 	fake.fail_get_status = EIO;

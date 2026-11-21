@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct the conditional-restore read-error fixture
+
+- Parent main SHA: `114a7711d29303b7b860ab31bdf4910dfd826a7b`.
+- The new stale-writer case intentionally leaves a third-party gateway value in the fake NVRAM store. Reset the full tuple to the expected candidate before injecting the later read error so that the regression reaches the backend-error branch rather than returning `EAGAIN` early.
+- Test-only correction; production behavior is unchanged. Exact-head DHCP callback and XY-C1 Actions for the previous source commit remain the verification targets.
+- Next: confirm the GNU89/ASan/UBSan conditional-restore regression and inspect same-SHA firmware build results.
+
+---
+
 ## 2026-11-21 — Guard failed DHCP tuple recovery against newer callbacks
 
 - Parent main SHA: `943b2a30bfe7ede0ae6d70e7cd98771c5420187c`.
