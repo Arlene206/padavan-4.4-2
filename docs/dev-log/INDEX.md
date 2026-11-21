@@ -27,6 +27,7 @@
 | `docs/dev-log/2026/11/part-018.md` | 101 | 2026-11-19 — Serialize Inadyn stop/start and configuration notifications → 2026-11-19 09:20 EST — Correct the committed AI handoff checkpoint contract | 123512 | `7c69f94c23df8035a0d8d3cdf357c54bc80c2be8` |
 | `docs/dev-log/2026/11/part-019.md` | 100 | 2026-11-19 → 2026-11-20 | 114230 | `bf5f91f6e47631f2f1331a3be3dd46c3515d4a89` |
 | `docs/dev-log/2026/11/part-020.md` | 100 | 2026-11-19 — Transactional LAN DHCP deconfig snapshot → 2026-11-20 — Escape untrusted UPnP mapping output before SOAP XML serialization | 129506 | `ca34b9403978210508f3102ec5cbd01579ecd198` |
+| `part-021.md` | 100 | 2026-11-20 → 2026-11-21 | 107416 | pending commit blob |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -94,3 +95,5 @@
 - **Rolling-window catch-up:** 100 oldest complete records evicted from root `dev_log.md` at parent main `7f04d46a955ec4358388b4b3fe7f9d23fc59bb49` are preserved byte-for-byte, oldest first, in part-019; pre-rotation root blob: `eb7190fedf832884fdaf9b48045223a91dcdcb22`. Root retains the 20 newest previous records plus this rotation checkpoint (21 total).
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 records at parent main `9d8a9036cdd350a3a45971d8cd5d766d5ec93762` are preserved verbatim, oldest first, in `part-020.md`; pre-rotation root blob: `798571a86689f0e29ba8b0b172bf1dee6ae80c9e`. Root retains the newest 20 complete records.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries at parent main `065837e4dcc383ebe2d5276b8165ffa834f9dd3f` are preserved verbatim, oldest first, in `part-021.md`; root retains the newest 20 complete records.

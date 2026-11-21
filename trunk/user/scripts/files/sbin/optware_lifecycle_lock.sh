@@ -54,7 +54,9 @@ optware_lifecycle_mount_matches()
 	[ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] || return 2
 	[ "$2" = "/opt" ] || return 1
 
-	awk -v wanted_device="$1" -v wanted_mountpoint="$2" '
+	# BusyBox awk 1.24 may collapse nonzero exit values to status 1.
+	# Emit an explicit result token so UNKNOWN remains distinct from no match.
+	_mount_match_result=$(awk -v wanted_device="$1" -v wanted_mountpoint="$2" '
 	{
 		records++
 		if (NF != 6 || $1 == "" || $2 == "" || $3 == "" ||
@@ -67,11 +69,19 @@ optware_lifecycle_mount_matches()
 	}
 	END {
 		if (records == 0 || invalid || found > 1)
-			exit 2
-		if (found == 1)
-			exit 0
-		exit 1
-	}' "$3" 2>/dev/null
+			print "unknown"
+		else if (found == 1)
+			print "match"
+		else
+			print "different"
+	}' "$3" 2>/dev/null) || return 2
+
+	case $_mount_match_result in
+	match) return 0 ;;
+	different) return 1 ;;
+	unknown) return 2 ;;
+	*) return 2 ;;
+	esac
 }
 
 # Start services in S??* order. If a hook fails, stop that possibly partially

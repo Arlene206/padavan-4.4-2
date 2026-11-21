@@ -822,8 +822,10 @@ require('"/sys/class/ubi/ubi%d"' in ubi_presence and '"%s/mtd_num"' in ubi_prese
         'fscanf(fp, "%d", &attached_mtd)' in ubi_presence,
         "UBI identity must be read from its kernel mtd_num attribute")
 require("optware_lifecycle_mount_matches()" in opt_lock and
-        "NF != 6" in opt_lock and "found > 1" in opt_lock,
-        "Optware ownership check must validate one complete unique mount-table source/mountpoint record")
+        "NF != 6" in opt_lock and "found > 1" in opt_lock and
+        'print "unknown"' in opt_lock and 'print "different"' in opt_lock and
+        "case _mount_match_result in" in opt_lock,
+        "Optware ownership check must validate one complete unique mount-table record and preserve tri-state results under BusyBox awk")
 require('if optware_lifecycle_mount_matches "$1" "$2" /proc/mounts; then' in opt_umount and
         "grep ' /opt ' /proc/mounts" not in opt_umount and "grep $1" not in opt_umount and
         "mount_match_status" in opt_umount,

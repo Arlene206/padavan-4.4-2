@@ -1,46 +1,50 @@
 # Cross-session execution mandate — 2026-11-21 checkpoint
 
-## Cross-session execution mandate
+## Execution rules
 
-- Continue development on `main` only. Every logical change is one atomic main commit: create every blob, one complete Git tree, one commit, then update main without force using the exact expected parent SHA.
+- Continue on `main` only. One complete Git tree and one atomic commit per logical task, then non-forced update using exact expected parent SHA.
 - Never amend, force-push, create development branches/PRs, or modify the frozen backup.
-- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Add focused regression coverage for source fixes; do not weaken checks.
-- PENDING Actions do not block independent work. Diagnose the earliest causal failure log.
+- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Add regression tests; do not weaken checks.
+- PENDING Actions do not block independent work. Diagnose the first causal failure and fix it.
 - Before context exhaustion, finish the current safe slice, publish atomically and leave the exact first next action here.
 
-## Mandatory handoff checkpoint — end-of-session accuracy
+## Repository state
 
-The checkpoint is mandatory; a document edit is conditional. At every session end, compare live `main`, relevant exact-SHA Actions, the product-source baseline, verification boundary, blockers and the first next action with this record. Update it only when one of those resumable facts materially changes; do not create a no-op commit.
+- Main parent before the BusyBox mount-status correction: `065837e4dcc383ebe2d5276b8165ffa834f9dd3f`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Product-source SHA `20e139d230b73eabc5f25a2b17d56a3a5768af11` has exact XY-C1 run `#44887656164` SUCCESS: Build XY-C1, TRX verification and artifact upload all passed. L3 VERIFIED only for that source SHA; physical router L4 remains NOT VERIFIED.
+- PID-only helper hardening in `20e139d2` was validated by Process regression `#44887824016` and AI handoff `#44887824043` on docs-only child `94c0e2c`.
+- Exact-head Process inventory `#44888827681` PASS on `065837e4dcc383ebe2d5276b8165ffa834f9dd3f`; AI handoff `#44888827646` PASS on `065837e4dcc383ebe2d5276b8165ffa834f9dd3f`.
+- Storage Hotplug run `#44888827697` FAILED on `065837e4dcc383ebe2d5276b8165ffa834f9dd3f` only in the BusyBox 1.24.2 ash lifecycle step: five-field truncated mount row expected tri-state UNKNOWN (2), got 1. Other pre-ash checks passed.
+- XY-C1 run `#44888827678` was IN_PROGRESS on `065837e4dcc383ebe2d5276b8165ffa834f9dd3f` at the last poll; poll it, but do not transfer its result to a later source SHA.
 
-## Current repository state
+## Storage Hotplug active fix
 
-- Live `main` before this Optware ownership fix: `94c0e2c11f6e73b90366ed6e74cb292858acb6e7`. Latest shared-source product baseline: `20e139d230b73eabc5f25a2b17d56a3a5768af11`.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Process lifecycle regression `#44887824016` and AI handoff `#44887824043` passed on exact SHA `94c0e2c`; the legacy shared PID-file parser integration is validated.
-- XY-C1 run `#44887656164` completed SUCCESS on exact product-source SHA `20e139d230b73eabc5f25a2b17d56a3a5768af11`: Build XY-C1, Verify TRX output and artifact upload all passed. Firmware build L3 is VERIFIED for this source SHA; physical-router L4 remains NOT VERIFIED.
-- The exported `kill_pidfile_s()` compatibility helper now strictly validates numeric PID-only records without changing the on-disk format. A full tracked-text inventory found no external direct callers; `kill_pidfile()` wrapper is the only internal call site, so retain the exported helper for unknown external consumers.
-- New bug found in `trunk/user/optware/opt-umount.sh`: unquoted `grep ' /opt ' /proc/mounts | grep $1` was substring matching and ignored the supplied mountpoint. A request for `/dev/sda1` could match `/dev/sda10`, stopping Optware while ejecting a different partition. This patch uses exact source+mountpoint fields in a validated six-field mount inventory and fails closed on malformed, duplicate or unavailable inventory.
+`optware_lifecycle_mount_matches()` already validates full six-field mount rows and exact source/mountpoint fields, rejects duplicate matches, and treats malformed/unreadable inventories as UNKNOWN. The regression exposed that carrying UNKNOWN through AWK `exit 2` did not retain exit value 2 under the BusyBox 1.24.2 ash path. The current correction emits explicit `match` / `different` / `unknown` tokens from AWK, then maps them to shell return values 0/1/2; AWK process/read errors still map to UNKNOWN. The static checker was updated, and the full regression must now pass on the new exact source SHA.
 
-## Active task
+## Completed repository audits
 
-1. Validate the Optware ownership fix with exact-head Storage Hotplug Actions: shell syntax, POSIX /bin/sh, BusyBox ash teardown tests, source assertions and standalone checker.
-2. Fix the earliest causal CI failure without weakening exact source/mountpoint coverage; while Actions run, continue independent userland stability/security tasks.
-3. Keep XY-C1 L3 attached to exact source SHA `20e139d2`; physical-router L4 remains unverified.
+- Full tracked `trunk/user` process inventory on `1ab5e53519d7316243f13cff4095dc1b3c13ce5d`: 9,725 tree entries, 6,478 text files, 37 hit files, zero missing candidates/read errors. `kill_pidfile_s()` had one in-tree call only from `kill_pidfile()` compatibility wrapper; retain exported PID-only semantics for unknown external consumers. Do not repeat absent new callers.
+- NVRAM transaction-boundary audit `#44887656246` PASS on `20e139d2`.
 
-## Verification boundary
+## Next engineering target after Storage CI is green
 
-- Shared PID-only parser hardening and its tests are merged at product-source SHA `20e139d2`; Process integration passed at `94c0e2c`.
-- XY-C1 build, TRX verification and artifact upload all passed on exact product-source SHA `20e139d2`; L3 is VERIFIED for that source SHA.
-- Optware mount matching source/test/checker changes require exact-head Storage Hotplug Actions before being treated as validated.
-- Physical-router L4 is NOT VERIFIED.
+Continue WAN stability work in `trunk/user/rc/src/net_wan.c`. Audit identified that `nvram_get_int()` returns zero for both absent keys and checked backend/read/close failures; internal WAN decisions use it for PPPoE manual mode/demand, MTU, EAPOL/Kabinet auth and MAN DNS-route/resolver choices. Use `nvram_get_checked()` plus an errno-style strict integer parser; preserve absent-key zero compatibility, fail closed on backend errors, add GNU89 policy tests and exact workflow checks. A prior patch-generation attempt aborted before GitHub writes; no WAN change is in main.
 
-## Exact first action for the next GPT
+## Exact first action
 
-Fetch live `main` and verify frozen backup SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect exact-head Storage Hotplug Actions for this Optware patch, fix the earliest causal failure without weakening checks, then continue independent stability/security tasks outside completed audits.
+Fetch live `main` and backup SHA; inspect Storage Hotplug run for the correction's exact SHA. If PASS, inspect the remaining completed/skipped Actions on that SHA and then begin the WAN checked-integer NVRAM fix. If FAIL, read the first causal log and fix that specific issue. Continue independent tasks while XY-C1 or any other run is pending.
+
+## Verification boundaries
+
+- Host regression PASS is not firmware L3.
+- XY-C1 L3 applies only when Build, TRX verification and artifact upload all pass on one exact source SHA.
+- Physical router L4 is NOT VERIFIED.
+- No local checkout/toolchain is available in this session; report only CI results actually observed.
 
 ## Handoff maintenance
 
-- Keep `dev_log.md` newest-first; archive only at 120 root records, retaining newest 20.
-- Update `REFACTOR_ROADMAP.md` only when module status, evidence or priority materially changes.
+- Root `dev_log.md` is now rotated to 20 newest-first records; the previous 100 oldest records are preserved in `docs/dev-log/2026/11/part-021.md`.
+- Keep newest-first root log; archive the oldest 100 only when the next entry would make it reach 120, retaining 20.
+- Update `REFACTOR_ROADMAP.md` only when module status/priority materially changes.
 - Keep frozen backup permanently unchanged.
-- Host regressions, exact-source firmware L3 and physical hardware L4 are separate evidence levels.
