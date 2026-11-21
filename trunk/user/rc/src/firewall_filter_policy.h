@@ -204,13 +204,16 @@ firewall_mac_filter_address_format(const char *value, char *formatted,
 	if (all_zero || all_broadcast)
 		return 0;
 
-	for (i = 0; i < 12; ++i) {
-		size_t out = (size_t)i + (size_t)i / 2U;
-		if (i != 0 && (i % 2) == 0)
-			formatted[out++] = ':';
-		formatted[out] = value[i];
+	{
+		size_t out = 0;
+
+		for (i = 0; i < 12; ++i) {
+			if (i != 0 && (i % 2) == 0)
+				formatted[out++] = ':';
+			formatted[out++] = value[i];
+		}
+		formatted[out] = '\0';
 	}
-	formatted[17] = '\0';
 	return 1;
 }
 
