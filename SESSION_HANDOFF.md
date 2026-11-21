@@ -11,31 +11,29 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live repository state and compare it with this handoff: source baseline, active task, exact-head Actions, validation boundary, blockers and first action. If all remain accurate, conclude without a file change or commit. Record relevant exact-head Action state changes when they alter validation gates.
 
 ## Current repository state
-- Parent main before router-mode update fix: `624dd2468ec8bc6422a4278c55779b69222c8f48`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- New P1 defect: `common_ex.c:update_router_mode()` used error-collapsing `nvram_get_int()` reads for `sw_mode` and `wan_nat_x`, allowing transient NVRAM backend faults to rewrite persistent router mode to 4 or 1. This slice adds checked transactional reads and validates the complete values before any write; AP mode retains its legacy no-op behavior.
-- Full WAN restart preflights router-mode refresh before `stop_wan()`; NETFILTER notification does not reload NAT/firewall after a failed refresh, while conntrack cleanup remains independent.
-- NFS checked-enable fix `ce227363` + restart preflight correction `b284c285`: NFS lifecycle #44903863601 PASS on `b284c285`. Restart reads `nfsd_enable` after storage lock acquisition and before inventory/stop/unload.
-- HTTPD duplicate NFS contract checker was corrected in `624dd2468ec8bc6422a4278c55779b69222c8f48`; exact HTTPD #44904054203 and docs #44904054208 both PASS on that SHA.
-- On parent `b284c285`, NVRAM audit #44903863567 ultimately PASS; XY-C1 #44903863658 was in progress with Build underway and TRX/artifact pending at last observed state. Do not claim L3 until all three stages pass on one exact product-source SHA.
-- MiniUPnP checked service-policy fix `0b0df9fd`: MiniUPnP lifecycle/docs and multiple process, Samba, HTTPD, WAN and DNSMasq exact gates passed on that SHA.
-- Historical XY-C1 #44902070311 passed Build/TRX/artifact on product SHA `232e31d7` only; not later source. Physical router L4 NOT VERIFIED.
-- Legacy PR #1 closed/unmerged; immutable backup unchanged.
+- Parent main before router-mode checker correction: `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- Router-mode fix commit `d9bffce5e1dd5e3683102a5ced9350e26c15d02e` changed `update_router_mode()` to a checked NVRAM transaction, preserved AP mode/no-op and absent-key defaults, validates complete decimal values, and gates full WAN restart before stop and NETFILTER NAT/firewall reload on success.
+- Its exact workflow #44904764742 passed GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy compile and execution, then failed only at a formatting-sensitive Python source assertion: the production checked-write call wraps after the comma. The correction in this commit whitespace-normalizes the extracted function before checking the same full-call token. Exact rerun pending.
+- HTTPD #44904764718 and NFS #44904764717 PASS on `d9bffce5`. XY-C1 #44904764739 is building, NVRAM audit #44904764756 and AI docs #44904764588 were queued/in progress at the last poll.
+- NFS fix `ce227363` plus placement correction `b284c285`: exact NFS lifecycle #44903863601 PASS on `b284c285`. HTTPD stale NFS wrapper-contract corrected in `624dd246`; HTTPD #44904054203 and AI docs #44904054208 PASS on that SHA.
+- MiniUPnP checked service-policy fix `0b0df9fd`: lifecycle/docs and multiple process, Samba, HTTPD, WAN and DNSMasq exact gates PASS on that SHA.
+- Historical XY-C1 #44902070311 passed Build/TRX/artifact on product SHA `232e31d7` only; does not validate later source. Physical router L4 NOT VERIFIED.
+- Legacy PR #1 is closed/unmerged; backup unchanged.
 
 ## Active task
-1. Inspect exact-head router-mode regression (new `router-mode-update` workflow compiles policy tests with GNU89/Werror/ASan/UBSan and checks callsite wiring).
-2. Inspect XY-C1 Build/TRX/artifact for the latest production-source SHA and any current NVRAM audit.
-3. If an Action fails, read the first causal log line and repair the real issue. Continue independent P1 work while checks are PENDING.
+1. Check exact-head router-mode workflow rerun after whitespace normalization; policy binary already passes under ASan/UBSan.
+2. Inspect current XY-C1 Build/TRX/artifact, NVRAM audit and docs checks for the latest product-source SHA.
+3. Fix exact-head failures at their root cause. Continue an independent P1 userland defect while actions are PENDING.
 
 ## Verification boundary
-- Router-mode source/tests/workflow are included in the pending atomic commit. No local compilation or target build was performed.
-- HTTPD #44904054203 and AI docs #44904054208 PASS on parent `624dd246`.
-- NFS exact lifecycle #44903863601 PASS on `b284c285`; NVRAM audit #44903863567 PASS on same SHA.
-- XY-C1 #44903863658 was in progress on older parent `b284c285`; Build/TRX/artifact result must be inspected independently. No current-source firmware/TRX pass is claimed.
-- Hardware L4 remains NOT VERIFIED.
+- Router-mode policy binary passed on `d9bffce5`; first source-contract run failed only because checker did not normalize a multiline call. Corrected rerun pending.
+- HTTPD #44904764718 and NFS #44904764717 PASS on `d9bffce5`.
+- XY-C1 #44904764739, NVRAM audit #44904764756 and AI docs #44904764588 were pending at last poll. No current-source firmware/TRX success claimed.
+- No local full RC compile or hardware L4 claimed.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head `router-mode-update` regression and docs.
-2. Inspect XY-C1 Build/TRX/artifact and NVRAM audit for the latest production-source SHA.
-3. Fix any exact-head failure at its cause; continue one distinct P1 reliability/security defect when Actions are pending.
+1. Fetch live main and inspect exact-head router-mode workflow result after whitespace normalization.
+2. Inspect the corresponding XY-C1 Build, TRX verification, artifact upload, NVRAM audit and AI docs results.
+3. Repair any new source-contract or build failure without weakening the tests, then continue a distinct P1 issue outside these recent fixes.
 
 Before context exhaustion, update this handoff only when active task, exact-head status, validation boundary or first action materially changes; no no-op commit.

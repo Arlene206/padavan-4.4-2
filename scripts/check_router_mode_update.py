@@ -25,6 +25,7 @@ def body(source, signature):
 
 
 update = body(common, "update_router_mode(void)")
+update_compact = " ".join(update.split())
 assert "nvram_transaction_begin(&transaction)" in update
 assert 'nvram_transaction_get(&transaction, "sw_mode"' in update
 assert "rc_router_mode_update_needed(api_result, saved_errno" in update
@@ -34,7 +35,7 @@ assert update.index('nvram_transaction_get(&transaction, "wan_nat_x"') < update.
 assert 'nvram_transaction_set(&transaction, "sw_mode"' in update
 assert update.index('nvram_transaction_set(&transaction, "sw_mode"') < update.index("nvram_transaction_end(&transaction)")
 assert "nvram_transaction_end(&transaction)" in update
-assert "rc_router_mode_nvram_write_status(api_result, saved_errno)" in update
+assert "rc_router_mode_nvram_write_status(api_result, saved_errno)" in update_compact
 assert 'nvram_get_int("sw_mode")' not in update
 assert 'nvram_get_int("wan_nat_x")' not in update
 assert 'nvram_set_int("sw_mode"' not in update

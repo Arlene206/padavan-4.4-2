@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize multiline router-mode source contract
+
+- Parent main SHA: `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`; Router mode NVRAM update regression #44904764742 compiled and ran its GNU89 ASan/UBSan policy tests successfully, then failed in the source checker on a formatting-sensitive assertion. The production call intentionally breaks after the comma, so the checker searched for a one-line spelling that did not exist.
+- Normalized the extracted `update_router_mode()` function by collapsing whitespace before asserting the complete checked-write status call. This preserves the assertion and does not change production source or relax behavior.
+- Exact-head rerun pending. HTTPD #44904764718 and NFS #44904764717 PASS on `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`; XY-C1 #44904764739, NVRAM audit #44904764756 and AI docs #44904764588 were still running/queued at last poll.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Make router-mode refresh fail closed on NVRAM errors
 
 - Parent main SHA: `624dd2468ec8bc6422a4278c55779b69222c8f48`.
