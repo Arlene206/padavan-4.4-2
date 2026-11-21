@@ -1,3 +1,11 @@
+## 2026-11-21 — Fix delayed-daemon fixture marker detection
+
+- Parent main SHA: `2647a9e4e90828fbae69d0f2d63413acc3908e1a`; the diagnostic rerun (#44879745837) reproduced the failure: the mock sleep did publish the delayed-child marker, but the mock `pidof` checked it with `-s`. The marker is intentionally an empty file, so `-s` incorrectly kept reporting ABSENT and made successful simulated startup time out.
+- Changed the fixture's presence checks to `-e` (existence, not nonzero file size) and corrected the fake launcher's PID marker. The production bounded wait logic is unchanged. Failure-only launch output/trace remains available for any later regression.
+- The c82 run therefore failed in the test fixture, not because of a source syntax or target compile error; re-running all storage checks on this new exact SHA.
+
+---
+
 ## 2026-11-21 — Isolate Transmission/Aria daemon-readiness CI failure
 
 - Parent main SHA: `331d94f73dd21eeb49a806357ec6f560ee6afac0`; storage-hotplug run #44879557620 failed in the first new Transmission successful-start regression. The Action output identified the failing assertion but the launcher output had been redirected away.

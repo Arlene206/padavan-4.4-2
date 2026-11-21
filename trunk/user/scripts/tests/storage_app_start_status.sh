@@ -27,7 +27,7 @@ if [ -e "${STORAGE_TEST_LAUNCH_CALLED_FILE:-/nonexistent}" ]; then
 	if [ "${STORAGE_TEST_POST_PIDOF_STATUS:-auto}" = "2" ]; then
 		exit 2
 	fi
-	if [ -s "$STORAGE_TEST_RUNNING_FILE" ]; then
+	if [ -e "$STORAGE_TEST_RUNNING_FILE" ]; then
 		printf '%s\n' 123
 		exit 0
 	fi
@@ -244,7 +244,7 @@ assert_success()
 		cat "$LAST_LAUNCH_STATE_DIR/trace.log" >&2 || :
 		exit 1
 	fi
-	[ -s "$LAST_LAUNCH_STATE_DIR/running" ] || {
+	[ -e "$LAST_LAUNCH_STATE_DIR/running" ] || {
 		echo "$name returned success before its delayed daemon PID appeared" >&2
 		exit 1
 	}
