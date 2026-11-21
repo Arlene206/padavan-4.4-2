@@ -2687,7 +2687,7 @@ start_wan(void)
 	int wan_start_status = 0, wan_up_status, sysctl_status;
 	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
-	int nvram_status;
+	int nvram_status, modem_type;
 	char *wan_ifname;
 
 	if (wan_vars_reset_status != 0) {
@@ -2861,7 +2861,21 @@ start_wan(void)
 #if defined (USE_USB_SUPPORT)
 		if (get_usb_modem_wan(unit))
 		{
-			if (nvram_get_int("modem_type") == 3)
+			nvram_status = get_nvram_int_checked_status(
+				"modem_type", &modem_type);
+			if (nvram_status != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, nvram_status);
+				logmessage(LOGNAME,
+					   "aborting USB modem WAN startup: cannot determine modem transport type (status=%d)",
+					   nvram_status);
+				vlan_result = restore_wan_after_firewall_failure(
+					unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
+			if (modem_type == 3)
 			{
 				vlan_result = launch_wan_usbnet(unit);
 				wan_start_status = rc_first_service_start_status(
