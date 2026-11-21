@@ -166,8 +166,8 @@ jobs:
           assert max_user_policy in config_compact
           assert config_compact.index(max_user_read) < config_compact.index(max_user_policy) < config_compact.index(ftp_config_open)
           assert 'nvram_get_int("st_max_user")' not in config
-          assert "cannot read max-connection limit" in config
-          assert config.index("cannot read max-connection limit") < config.index(ftp_config_open)
+          assert "cannot read FTP configuration" in config
+          assert config.index("cannot read FTP configuration") < config.index(ftp_config_open)
           assert 'fprintf(fp, "max_clients=%d\\n", i_maxuser);' in config
           assert 'fprintf(fp, "max_per_ip=%d\\n", i_maxuser);' in config
           storage_reader = function_body(source, "storage_read_integer_status(const char *name, int missing_value, int *value)")

@@ -1,3 +1,13 @@
+## 2026-11-21 — Align VSFTPD source contract with combined NVRAM failure gate
+
+- Parent main SHA: `21124596ab9442c2c1bb00669c351e66313aea0c`.
+- The VSFTPD regression on `a5be39915259794a7a7f17447c401ca9f6f52801` compiled and ran the shared policy test, then failed only because the older connection-limit checker still expected the superseded log text `cannot read max-connection limit`. The follow-up source gate now combines session-limit, mode and syslog read failures under `cannot read FTP configuration`; the checker now validates that actual common abort message before config staging.
+- The Samba failure on the same SHA was a separate checker mistake (asserting the new helper in the old Samba-mode header); corrected on parent `21124596ab9442c2c1bb00669c351e66313aea0c`. Both relevant exact-SHA reruns are pending.
+- XY-C1 exact run #44958245688, VSFTPD #44958245789 and Samba #44958245707 were previously checked; the new push will launch corrected exact-head checks. No L3/L4 claim yet.
+- Next: inspect corrected VSFTPD and Samba jobs, then review their result alongside the XY-C1 build.
+
+---
+
 ## 2026-11-21 — Point Samba contract at the shared connection-limit policy
 
 - Parent main SHA: `a5be39915259794a7a7f17447c401ca9f6f52801`.
