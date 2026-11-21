@@ -76,6 +76,22 @@ assert "rc_first_service_start_status(start_status" in boot[rule_error:type_read
 assert "rc_first_service_start_status(start_status" in boot[type_error:reload_call]
 assert "nvram_get_int(" not in boot[rule_read:usb_host]
 
+
+remove = body(USB, "safe_remove_usb_modem(void)")
+transport_reader = body(USB, "usb_modem_read_transport_status(int *is_ndis)")
+assert 'nvram_get_checked("modem_type", &value)' in transport_reader
+assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in transport_reader
+assert "rc_wan_nvram_modem_is_ndis_status(status, modem_type" in transport_reader
+assert "if (status != 0)" in transport_reader and "errno = status;" in transport_reader
+assert "usb_modem_read_transport_status(&is_ndis)" in remove
+transport_failure = remove.index("if (modem_type_status != 0)")
+transport_return = remove.index("return -1;", transport_failure)
+ndis_branch = remove.index("if (is_ndis)")
+assert transport_failure < transport_return < ndis_branch
+assert transport_return < remove.index("stop_udhcpc_wan(0)")
+assert transport_return < remove.index('kill_services_with_pidfiles(NULL, pidfiles, "pppd"')
+assert 'nvram_get_int("modem_type")' not in remove
+
 notify_start = RC_SOURCE.index('else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
 notify_end = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER)', notify_start)
 notify = RC_SOURCE[notify_start:notify_end]

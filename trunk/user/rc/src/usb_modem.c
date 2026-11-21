@@ -1017,18 +1017,57 @@ usb_modem_require_no_active_process(const char *process_name)
 	return -1;
 }
 
+static int
+usb_modem_read_transport_status(int *is_ndis)
+{
+	char *value = NULL;
+	int modem_type = 0;
+	int api_result, saved_errno, status;
+
+	if (!is_ndis) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked("modem_type", &value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+					      value, 0, &modem_type);
+	status = rc_wan_nvram_modem_is_ndis_status(status, modem_type,
+						   is_ndis);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+
 int
 safe_remove_usb_modem(void)
 {
 	const char *pidfiles[2];
 	int stop_status, publish_status;
+	int modem_type_status, is_ndis = 0;
 
 	/* Never terminate unrelated USB mode-switch or storage eject jobs. */
 	if (usb_modem_require_no_active_process("usb_modeswitch") != 0 ||
 	    usb_modem_require_no_active_process("eject") != 0)
 		return -1;
 
-	if (nvram_get_int("modem_type") == 3) {
+	/*
+	 * Removal must choose the correct NDIS vs RAS teardown path. A failed
+	 * NVRAM read cannot safely default to RAS and leave an NDIS lease active.
+	 */
+	modem_type_status = usb_modem_read_transport_status(&is_ndis);
+	if (modem_type_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing USB modem removal: configured transport is unknown (status=%d)",
+			   modem_type_status);
+		errno = modem_type_status;
+		return -1;
+	}
+
+	if (is_ndis) {
 		/* NDIS DHCP belongs to WAN unit 0, not every udhcpc instance. */
 		stop_status = stop_udhcpc_wan(0);
 		if (stop_status != 0) {

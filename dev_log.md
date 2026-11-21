@@ -1,3 +1,15 @@
+## 2026-11-21 — Fail closed when USB modem removal cannot read its transport type
+
+- Beijing time: 2026-11-21 19:26 (UTC+8). Parent main SHA: `6f47ae209274dd312c30499e8028ab059b68df72`.
+- Follow-up source review found `safe_remove_usb_modem()` still selected NDIS teardown vs RAS PPP teardown with `nvram_get_int("modem_type")`. On a transient NVRAM read/close/lock failure, the getter returned zero and incorrectly selected RAS. For a configured NDIS modem this could skip the WAN DHCP and usbnet teardown, clear the selected-modem marker and allow physical removal while the NDIS lease/network remained active.
+- Added `usb_modem_read_transport_status()`: it uses `nvram_get_checked()`, the existing strict integer parser and `rc_wan_nvram_modem_is_ndis_status()`. Missing key keeps the legacy RAS default; backend, malformed and overflow errors retain their status. `safe_remove_usb_modem()` now aborts before either transport-specific stop path when the transport is unknown, preserving the modem and its current network state.
+- Extended `scripts/check_modem_module_reload.py` to pin checked transport selection and the error return before NDIS/RAS teardown. Existing `wan_nvram_status_policy.c` GNU89/ASan/UBSan coverage exercises the checked integer parser and NDIS/RAS status policy; USB workflow already watches the affected source/checker and runs the test.
+- Prior USB boot-selection slice on parent `6f47ae209274dd312c30499e8028ab059b68df72`: USB modem identity #44898560333 SUCCESS, including checked WAN NVRAM policy binary and modem module source contract; Process lifecycle #44898560487 SUCCESS; AI docs #44898560510 SUCCESS. XY-C1 #44898560501 was still IN_PROGRESS at last poll (Build running, TRX/artifact pending); no L3 claim for `6f47ae209274dd312c30499e8028ab059b68df72` yet.
+- No local checkout/runtime is available; no local tests/build are claimed for this follow-up. Exact-head USB/Process/AI runs and XY-C1 Build/TRX/artifact are pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve NVRAM failures in USB modem boot selection
 
 - Beijing time: 2026-11-21 19:20 (UTC+8). Parent main SHA: `cd04be437693e91e029f4b2f64d415ae7017e9eb`.
