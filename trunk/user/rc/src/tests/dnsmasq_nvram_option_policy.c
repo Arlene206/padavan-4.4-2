@@ -110,6 +110,37 @@ test_integer_boolean_preserves_nonzero_nvram_get_int_semantics(void)
 }
 
 static void
+test_checked_integer_range_options(void)
+{
+	int value = 77;
+
+	/* dhcp_verbose exposes the four values 0..3 in the web UI. */
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "0", 0, 0, 3, &value) == 0 && value == 0);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "3", 0, 0, 3, &value) == 0 && value == 3);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "4", 0, 0, 3, &value) == ERANGE);
+	assert(value == 3);
+
+	/* dhcp_lease UI range is 120..604800 seconds. */
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "120", 0, 120, 604800, &value) == 0 && value == 120);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "604800", 0, 120, 604800, &value) == 0 && value == 604800);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "119", 0, 120, 604800, &value) == ERANGE);
+	assert(value == 604800);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "604801", 0, 120, 604800, &value) == ERANGE);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "-1", 0, 120, 604800, &value) == ERANGE);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "120junk", 0, 120, 604800, &value) == EINVAL);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "999999999999999999999", 0, 120, 604800, &value) == ERANGE);
+
+	/* Legacy nvram_get_int() returned zero for an absent key. */
+	assert(dnsmasq_nvram_integer_range_status(0, 0, NULL, 0, 120, 604800, &value) == 0 && value == 0);
+	assert(dnsmasq_nvram_integer_range_status(-1, EACCES, NULL, 0, 0, 3, &value) == EACCES);
+	assert(dnsmasq_nvram_integer_range_status(-1, 0, NULL, 0, 0, 3, &value) == EIO);
+	assert(dnsmasq_nvram_integer_range_status(2, 0, "1", 0, 0, 3, &value) == EIO);
+	assert(dnsmasq_nvram_integer_range_status(0, 0, "0", 0, 0, 3, &value) == EIO);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "1", 0, 3, 0, &value) == EINVAL);
+	assert(dnsmasq_nvram_integer_range_status(1, 0, "1", 0, 0, 3, NULL) == EINVAL);
+}
+
+static void
 test_checked_string_option_and_output_preservation(void)
 {
 	char value[16] = "unchanged";
@@ -194,6 +225,7 @@ main(void)
 	test_invmatch_backend_errors_preserve_output();
 	test_invmatch_invalid_arguments_are_rejected();
 	test_integer_boolean_preserves_nonzero_nvram_get_int_semantics();
+	test_checked_integer_range_options();
 	test_checked_string_option_and_output_preservation();
 	test_missing_keys_use_explicit_legacy_defaults();
 	test_backend_errors_preserve_errno_and_output();

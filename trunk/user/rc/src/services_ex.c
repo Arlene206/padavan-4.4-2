@@ -672,6 +672,32 @@ dnsmasq_read_boolean_option(const char *param_name, int *enabled)
 	return status;
 }
 
+static int
+dnsmasq_read_integer_range_option(const char *param_name, int missing_value,
+				  int minimum, int maximum, int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !value || minimum > maximum) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &text);
+	saved_errno = errno;
+	status = dnsmasq_nvram_integer_range_status(
+		api_result, saved_errno, text, missing_value,
+		minimum, maximum, value);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read or validate DNSMasq integer option '%s'; preserving last-known-good configuration (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
 #if defined(APP_SMBD) || defined(APP_NMBD)
 static int
 dnsmasq_read_integer_boolean_option(const char *param_name, int *enabled)
@@ -809,6 +835,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
+	int dhcp_lease = 0;
 	int dhcp_filter_aaaa_enabled = 0, dhcp_all_servers_enabled = 0;
 	int dhcp_strict_order_enabled = 0, dhcp_stop_dns_rebind_enabled = 0;
 	int dhcp_proxy_dnssec_enabled = 0, option_status;
@@ -862,6 +889,13 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	if (option_status != 0)
 		return option_status;
 	if (i_dhcp_enable) {
+		/* The DHCP UI permits lease durations from 120 to 604800 seconds.
+		 * Validate the setting before touching any generated files. */
+		option_status = dnsmasq_read_integer_range_option(
+			"dhcp_lease", 0, 120, 604800, &dhcp_lease);
+		if (option_status != 0)
+			return option_status;
+
 		/* Snapshot the optional address; do not let a failed read masquerade
 		 * as an empty value and silently fall back to the router's own IP. */
 		option_status = dnsmasq_read_string_option("dhcp_wins_x", "",
@@ -883,7 +917,10 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			return option_status;
 	}
 #endif
-	i_verbose = nvram_get_int("dhcp_verbose");
+	option_status = dnsmasq_read_integer_range_option(
+		"dhcp_verbose", 0, 0, 3, &i_verbose);
+	if (option_status != 0)
+		return option_status;
 
 	ipaddr  = nvram_safe_get("lan_ipaddr");
 	netmask = nvram_safe_get("lan_netmask");
@@ -1051,7 +1088,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	is_dhcp_used = 0;
 	if (i_dhcp_enable) {
 		fprintf(fp, "dhcp-range=set:%s,%s,%s,%s,%d\n",
-			DHCPD_RANGE_DEF_TAG, dhcp_start, dhcp_end, netmask, nvram_get_int("dhcp_lease"));
+			DHCPD_RANGE_DEF_TAG, dhcp_start, dhcp_end, netmask, dhcp_lease);
 		
 		/* GATEWAY */
 		gw = nvram_safe_get("dhcp_gateway_x");

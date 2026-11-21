@@ -7,6 +7,7 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/dnsmasq_nvram_option_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c"
+      - "scripts/check_dnsmasq_integer_options.py"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/create_file_policy.h"
       - "trunk/user/rc/src/tests/create_file_policy.c"
@@ -156,6 +157,9 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c -o "$RUNNER_TEMP/dnsmasq-nvram-option-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-nvram-option-policy"
+
+      - name: Verify DHCP integer snapshots precede generated-file changes
+        run: python3 scripts/check_dnsmasq_integer_options.py
       - name: Compile and run DNSMasq restart policy regression
         run: |
           set -eu

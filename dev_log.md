@@ -1,3 +1,13 @@
+## 2026-11-21 — Check DNSMasq DHCP lease and verbosity integers
+
+- Parent main SHA: `4b9f9c2dd2d1a8d736ab8d78a30cd007a39a3c42`.
+- `prepare_dns_dhcpd()` used unchecked `nvram_get_int("dhcp_lease")` and `nvram_get_int("dhcp_verbose")`. Backend errors could silently become zero and change generated lease/logging behavior; malformed present values could create unsupported configuration.
+- Added checked NVRAM integer/range policy: present lease values must satisfy the UI's 120..604800 seconds and verbosity must be 0..3. Missing keys preserve legacy integer-getter zero defaults. Both are read before any generated hosts, resolver or DNSMasq config file is modified.
+- Added ASan/UBSan range, boundary, malformed, overflow, backend, inconsistent-result and missing-key tests, plus an exact workflow source-order checker.
+- Exact-head DNSMasq, Process, NVRAM and XY-C1 Build/TRX/artifact results are pending for this source SHA. Hardware DHCP L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on Samba local-master NVRAM errors
 
 - Parent main SHA: `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`.

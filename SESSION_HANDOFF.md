@@ -25,8 +25,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Fix the unchecked Samba local-master configuration input in `trunk/user/rc/src/services_ex.c`. `write_smb_conf_header()` formerly called `nvram_get_int("st_samba_lmb")`, silently treating NVRAM backend/close errors as zero and accepting malformed values outside 0..2.
-- This checkpoint uses `nvram_get_checked()`, `rc_wan_nvram_read_int_status()`, and the new `samba_local_master_value_status()` policy to preserve missing-key default 0 while rejecting backend errors and out-of-range values before writing staged smb.conf content. Adds GNU89 boundary/error tests and Samba inline source-contract assertions. Valid 0/1/2 behavior is unchanged.
+- DNSMasq `prepare_dns_dhcpd()` previously read `dhcp_lease` and `dhcp_verbose` through unchecked `nvram_get_int()`. Backend read/close failures silently became zero, and invalid present values could produce an invalid lease directive or unsupported verbosity state.
+- This checkpoint adds a checked integer/range reader through `nvram_get_checked()` and the shared strict parser. Present DHCP lease values must be 120..604800 seconds (the web UI range), and verbosity must be 0..3. Missing keys preserve the old integer-getter zero fallback. The reads happen before static host, resolver or config files are touched; policy boundary tests and a source-ordering workflow checker are added.
 
 ## Verification boundary
 

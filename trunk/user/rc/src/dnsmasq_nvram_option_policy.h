@@ -75,6 +75,36 @@ dnsmasq_nvram_integer_boolean_status(int api_result, int saved_errno,
 	return 0;
 }
 
+/*
+ * Parse an integer option completely and enforce its documented live range.
+ * Missing keys retain the caller's historical default, even if it is outside
+ * the range for a present value; malformed present values never fall back.
+ */
+static inline int
+dnsmasq_nvram_integer_range_status(int api_result, int saved_errno,
+				   const char *text, int missing_value,
+				   int minimum, int maximum, int *result)
+{
+	int parsed, status;
+
+	if (!result || minimum > maximum)
+		return EINVAL;
+	if (api_result == 0) {
+		if (text)
+			return EIO;
+		*result = missing_value;
+		return 0;
+	}
+	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+					     text, missing_value, &parsed);
+	if (status != 0)
+		return status;
+	if (parsed < minimum || parsed > maximum)
+		return ERANGE;
+	*result = parsed;
+	return 0;
+}
+
 static inline int
 dnsmasq_nvram_string_status(int api_result, int saved_errno,
 			    const char *value, const char *missing_value,
