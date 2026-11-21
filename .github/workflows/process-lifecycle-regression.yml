@@ -1377,7 +1377,11 @@ jobs:
           assert "int switch_vlan_status = 0;" in init_body
           assert "boot_services_status, bridge_start_status);" in init_body
           assert "init_bridge(is_ap_mode, &switch_vlan_status);" in init_body
-          assert "rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()))" in body(init, "handle_notifications(void)")
+          switch_notifications = body(init, "handle_notifications(void)")
+          assert "get_ap_mode_status(&is_ap_mode)" in switch_notifications
+          assert "bridge configuration skipped because AP/router mode cannot be verified" in switch_notifications
+          assert "config_bridge(is_ap_mode)" in switch_notifications
+          assert "config_bridge(get_ap_mode())" not in switch_notifications
           assert "rc_notify_merge_action_result(action_result, restart_switch_config_vlan())" in body(init, "handle_notifications(void)")
           assert "test_bridge_add_idempotency_requires_confirmed_bridge();" in bridge_init_regression
           assert "rc_bridge_init_record" in bridge_init_policy
