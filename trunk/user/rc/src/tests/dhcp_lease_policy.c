@@ -100,7 +100,10 @@ struct dhcp_nvram_fake {
 	const char *names[3];
 	const char *old_values[3];
 	const char *new_values[3];
-	char current[3][16];
+	char current[3][32];
+	int fail_get_enabled;
+	int fail_get_index;
+	int fail_get_status;
 	int fail_new_index;
 	int fail_new_status;
 	int fail_new_after_write;
@@ -154,6 +157,26 @@ dhcp_nvram_fake_set(void *context, const char *name, const char *value)
 
 	return ENOENT;
 }
+
+static int
+dhcp_nvram_fake_get(void *context, const char *name,
+                    const char **value)
+{
+	struct dhcp_nvram_fake *fake = (struct dhcp_nvram_fake *)context;
+	int i;
+
+	for (i = 0; i < 3; ++i) {
+		if (strcmp(name, fake->names[i]) != 0)
+			continue;
+		dhcp_nvram_fake_event(fake, 'r');
+		if (fake->fail_get_enabled && i == fake->fail_get_index)
+			return fake->fail_get_status;
+		*value = fake->current[i][0] ? fake->current[i] : NULL;
+		return 0;
+	}
+	return ENOENT;
+}
+
 
 static void
 test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
@@ -258,6 +281,93 @@ test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
 	for (i = 0; i < 3; ++i)
 		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
 }
+
+static void
+test_dhcp_lease_nvram_publish_rejects_stale_snapshot(void)
+{
+	struct dhcp_nvram_fake fake;
+	struct dhcp_lease_nvram_value values[3];
+	int publish_attempted, rollback_status, status, i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_ipaddr";
+	fake.names[1] = "wan0_gateway";
+	fake.names[2] = "wan0_dns";
+	fake.old_values[0] = "192.0.2.10";
+	fake.old_values[1] = "192.0.2.1";
+	fake.old_values[2] = "";
+	fake.new_values[0] = "198.51.100.10";
+	fake.new_values[1] = "198.51.100.1";
+	fake.new_values[2] = "203.0.113.53";
+	fake.fail_new_index = -1;
+	fake.fail_restore_index = -1;
+	for (i = 0; i < 3; ++i) {
+		values[i].name = fake.names[i];
+		values[i].value = fake.new_values[i];
+		values[i].previous_value = fake.old_values[i];
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.old_values[i]);
+	}
+
+	/* The expected tuple is current: verify all fields before any write. */
+	status = dhcp_lease_nvram_publish_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&publish_attempted, &rollback_status);
+	assert(status == 0);
+	assert(publish_attempted == 1 && rollback_status == 0);
+	assert(strcmp(fake.events, "rrrABC") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.new_values[i]) == 0);
+
+	/* A newer callback committed between snapshot and publish. Refuse the
+	 * stale lease and never compensate over the newer value. */
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.old_values[i]);
+	snprintf(fake.current[1], sizeof(fake.current[1]), "%s", "newer-gateway");
+	status = dhcp_lease_nvram_publish_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&publish_attempted, &rollback_status);
+	assert(status == EAGAIN);
+	assert(publish_attempted == 0 && rollback_status == 0);
+	assert(strcmp(fake.events, "rr") == 0);
+	assert(strcmp(fake.current[0], fake.old_values[0]) == 0);
+	assert(strcmp(fake.current[1], "newer-gateway") == 0);
+	assert(strcmp(fake.current[2], fake.old_values[2]) == 0);
+
+	/* A read failure also precedes all writes and must not trigger rollback. */
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.old_values[i]);
+	fake.fail_get_enabled = 1;
+	fake.fail_get_index = 2;
+	fake.fail_get_status = EIO;
+	status = dhcp_lease_nvram_publish_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&publish_attempted, &rollback_status);
+	assert(status == EIO);
+	assert(publish_attempted == 0 && rollback_status == 0);
+	assert(strcmp(fake.events, "rrr") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+
+	/* A missing NVRAM key is equivalent to the captured empty default. */
+	fake.fail_get_enabled = 0;
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	status = dhcp_lease_nvram_publish_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&publish_attempted, &rollback_status);
+	assert(status == 0);
+	assert(publish_attempted == 1);
+	assert(strcmp(fake.events, "rrrABC") == 0);
+	assert(strcmp(fake.current[2], fake.new_values[2]) == 0);
+}
+
 
 static void
 test_dhcp_lease_nvram_publish_attempts_all_and_restores_all(void)
@@ -900,6 +1010,7 @@ main(void)
 
 	test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple();
 	test_lan_dhcp_nvram_publish_compensates_partial_updates();
+	test_dhcp_lease_nvram_publish_rejects_stale_snapshot();
 	test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();
 	test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();
 	test_dhcp_lease_text_fits_buffer();

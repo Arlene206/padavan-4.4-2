@@ -359,6 +359,78 @@ dhcp_lease_nvram_publish(const struct dhcp_lease_nvram_value *values,
 	return first_status;
 }
 
+
+/*
+ * Guard a delayed lease publication against a newer callback that committed
+ * after the caller captured its rollback tuple. The caller must hold the same
+ * exclusive NVRAM transaction for this comparison and the subsequent writes.
+ * A NULL current value represents a missing key, whose legacy value is "".
+ */
+typedef int (*dhcp_lease_nvram_get_operation)(void *context,
+                                               const char *name,
+                                               const char **value);
+
+static inline int
+dhcp_lease_nvram_snapshot_matches(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	dhcp_lease_nvram_get_operation get_value, void *context)
+{
+	const char *current_value;
+	size_t i;
+	int status;
+
+	if (!values || count == 0 || !get_value)
+		return EINVAL;
+	for (i = 0; i < count; ++i) {
+		if (!values[i].name || !values[i].name[0] ||
+		    !values[i].value || !values[i].previous_value)
+			return EINVAL;
+	}
+
+	for (i = 0; i < count; ++i) {
+		current_value = NULL;
+		status = get_value(context, values[i].name, &current_value);
+		if (status != 0)
+			return status;
+		if (!current_value)
+			current_value = "";
+		if (strcmp(current_value, values[i].previous_value) != 0)
+			return EAGAIN;
+	}
+	return 0;
+}
+
+/*
+ * Compare-and-publish a lease tuple while a transaction lock is held. The
+ * attempted flag distinguishes stale/read-failed preflight from a write or
+ * commit failure, so callers never roll a concurrent writer back to stale
+ * values when no publication was attempted.
+ */
+static inline int
+dhcp_lease_nvram_publish_if_current(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	dhcp_lease_nvram_get_operation get_value,
+	dhcp_lease_nvram_set_operation set_value, void *context,
+	int *publish_attempted, int *rollback_status)
+{
+	int status;
+
+	if (!publish_attempted)
+		return EINVAL;
+	*publish_attempted = 0;
+	if (rollback_status)
+		*rollback_status = 0;
+
+	status = dhcp_lease_nvram_snapshot_matches(
+		values, count, get_value, context);
+	if (status != 0)
+		return status;
+
+	*publish_attempted = 1;
+	return dhcp_lease_nvram_publish(
+		values, count, set_value, context, rollback_status);
+}
+
 /*
  * Best-effort restoration is intentionally different from publish rollback:
  * it attempts every old tuple even if one setter reports an error. It must

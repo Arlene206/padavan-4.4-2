@@ -540,9 +540,19 @@ jobs:
           publisher_anchor = source.index("static int\nwan_dhcp_nvram_restore_values(")
           publisher_start = source.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
           renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish(")
-          assert "dhcp_lease_nvram_publish(" in renew_publisher
+          assert "dhcp_lease_nvram_publish_if_current(" in renew_publisher
+          assert "wan_dhcp_nvram_transaction_get_value" in renew_publisher
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
+          assert "if (publish_attempted && status != 0)" in renew_publisher
+          assert "publish_attempted" in renew_publisher
           assert "nvram_transaction_begin(&transaction)" in renew_publisher
+          snapshot_guard = body(lease_policy, "dhcp_lease_nvram_publish_if_current(")
+          assert "dhcp_lease_nvram_snapshot_matches(" in snapshot_guard
+          assert "*publish_attempted = 1;" in snapshot_guard
+          assert "dhcp_lease_nvram_publish(" in snapshot_guard
+          assert "test_dhcp_lease_nvram_publish_rejects_stale_snapshot" in lease_policy_test
+          assert "status == EAGAIN" in lease_policy_test
+          assert "publish_attempted == 0" in lease_policy_test
           lease_policy = (rc / "dhcp_lease_policy.h").read_text()
           lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
           assert "dhcp_lease_text_fits_buffer" in lease_policy

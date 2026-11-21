@@ -1,3 +1,14 @@
+## 2026-11-21 — Reject stale WAN DHCP rollback snapshots before publication
+
+- Parent main SHA: `ef85dc0c5528b7a0e6e5fe87767ee0c515c42453`.
+- Follow-up review found a TOCTOU gap in DHCP/IPTV/ZeroConf callback rollback handling: callbacks captured a checked prior tuple under a transaction, performed interface/route operations, then published that candidate under a later transaction without checking whether another callback had already changed the tuple. On a conflict, the old compensation path could overwrite the newer callback's committed state.
+- Added an under-lock compare-and-publish guard. It checks every expected prior value under the same exclusive transaction used for publication and returns `EAGAIN` on a stale tuple. The publisher records whether writes actually began and only runs recovery for a failed attempted publication; stale/read-failed preflight never restores stale data.
+- Added GNU89/ASan/UBSan policy regressions for current snapshots, stale-key conflicts with zero writes, checked read errors, and missing-key empty defaults. Extended the WAN callback workflow source contract. A standalone GNU89/ASan/UBSan harness passed locally; the checked-in full policy test and exact-head Actions are pending.
+- The earlier optional-daemon enable reader implementation defect was fixed in source commit `c812c6759791`; exact-head Process run on that source is tracked separately.
+- Next: inspect exact current-head Process/WAN/NVRAM/XY-C1 results; fix first failure, and require Build + TRX + artifact upload before claiming L3.
+
+---
+
 ## 2026-11-21 — Restore checked optional-daemon enable reader
 
 - Parent main SHA: `ac05b377f8cb4cd28ac68f426bf6280bb6abeb6c`.

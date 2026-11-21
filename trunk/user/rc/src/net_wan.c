@@ -279,6 +279,34 @@ wan_nvram_transaction_end_callback(void *context)
 }
 
 
+static int
+wan_dhcp_nvram_transaction_get_value(void *context, const char *param_name,
+                                     const char **value)
+{
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)context;
+	char *stored_value = NULL;
+	int api_result, saved_errno;
+
+	if (!transaction || !param_name || !param_name[0] || !value)
+		return EINVAL;
+	*value = NULL;
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, param_name, &stored_value);
+	saved_errno = errno;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		*value = "";
+		return 0;
+	}
+	if (api_result != 1 || !stored_value)
+		return EIO;
+	*value = stored_value;
+	return 0;
+}
+
+
 #define WAN_DHCP_RENEW_ROUTE_TEXT_SIZE 2049
 
 struct wan_dhcp_renew_nvram_state {
@@ -7175,6 +7203,7 @@ wan_dhcp_nvram_state_publish(
 {
 	struct nvram_transaction transaction;
 	int status, end_status, recovery_status, recovery_detail = 0;
+	int publish_attempted = 0;
 
 	if (rollback_status)
 		*rollback_status = 0;
@@ -7183,9 +7212,10 @@ wan_dhcp_nvram_state_publish(
 	errno = 0;
 	if (nvram_transaction_begin(&transaction) != 0)
 		return errno ? errno : EIO;
-	status = dhcp_lease_nvram_publish(values, count,
-					  wan_dhcp_nvram_transaction_set,
-					  &transaction, rollback_status);
+	status = dhcp_lease_nvram_publish_if_current(
+		values, count, wan_dhcp_nvram_transaction_get_value,
+		wan_dhcp_nvram_transaction_set, &transaction,
+		&publish_attempted, rollback_status);
 	errno = 0;
 	if (nvram_transaction_end(&transaction) != 0) {
 		end_status = errno ? errno : EIO;
@@ -7194,8 +7224,8 @@ wan_dhcp_nvram_state_publish(
 		else if (rollback_status && *rollback_status == 0)
 			*rollback_status = end_status;
 	}
-	if (status != 0) {
-		/* Retry the entire previous tuple while holding a fresh lock. */
+	if (publish_attempted && status != 0) {
+		/* Only a failed attempted publication may restore this snapshot. */
 		recovery_status = wan_dhcp_nvram_restore_values(
 			values, count, &recovery_detail);
 		if (rollback_status)
@@ -7205,6 +7235,8 @@ wan_dhcp_nvram_state_publish(
 	}
 	return status;
 }
+
+
 
 static int
 wan_dhcp_bound_snapshot_add(struct dhcp_lease_nvram_value *values,
