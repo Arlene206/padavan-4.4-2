@@ -69,6 +69,7 @@ jobs:
           source = (rc / "net_wifi.c").read_text()
           rc_source = (rc / "rc.c").read_text()
           workflow = Path(".github/workflows/wireless-radio-state.yml").read_text()
+          notification_test = (rc / "tests/wireless_radio_policy.c").read_text()
           shared = root / "trunk/user/shared/src"
           netutils_source = (shared / "netutils.c").read_text()
           bridge_policy_header = (shared / "bridge_membership_policy.h").read_text()
@@ -173,8 +174,8 @@ jobs:
           assert "if (status != 0)" in publish
           assert publish.index("if (status != 0)") < publish.index("LED_CONTROL(")
           assert "return status;" in publish and "return 0;" in publish
-          assert "test_inic_radio_enable_publication_failure_rolls_back" in regression
-          assert "test_inic_radio_disable_publication_failure_is_reported" in regression
+          assert "test_inic_radio_enable_publication_failure_rolls_back" in notification_test
+          assert "test_inic_radio_disable_publication_failure_is_reported" in notification_test
 
           inic_transition = function_body(notification_policy,
               "wireless_inic_radio_transition(int is_on,")
