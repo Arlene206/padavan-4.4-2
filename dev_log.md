@@ -1,3 +1,13 @@
+## 2026-11-21 — Place the NFS restart preflight at its destructive boundary
+
+- Parent main SHA: `ce227363a7cd0aee0beab112bca9773a79e4630f`; exact NFS source-contract Action #44903638098 failed after the policy compile/run passed. The checker showed the enable-read block had been placed in unrelated `storage_has_mounted_devices()`, while `restart_nfsd()` still stopped the server before checking enablement. This was a genuine placement defect.
+- Removed the misplaced block from the storage inventory helper. The checked `nfsd_enabled_config_read()` now runs immediately after acquiring the NFS storage lock and before mount inventory, `stop_nfsd_locked()`, or module unload. Restart passes that same validated decision to `run_nfsd_enabled_locked()`.
+- Strengthened the NFS workflow source contract to require this ordering and forbid NFS config state in `storage_has_mounted_devices()`; no test was weakened.
+- Exact NFS rerun pending. On parent `ce227363`, AI docs #44903638076 and Samba #44903638071 PASS; XY-C1 #44903638079 and NVRAM audit #44903638191 were IN_PROGRESS. No current-source firmware result claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve NFS daemon state when enable NVRAM read fails
 
 - Parent main SHA: `0b0df9fd43ab9d674ed4a55d1d6c52857cca7c61`.

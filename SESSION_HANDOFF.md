@@ -8,32 +8,29 @@
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending and compare it with this handoff: engineering/source baseline, active task, exact-head Actions, validation boundary, blockers and the exact first action. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no commit. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information when it changes the validation gate or next action.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live repository state and compare it with this handoff: source baseline, active task, exact-head Actions, validation boundary, blockers and first action. If all remain accurate, conclude the checkpoint without a file change or commit. Record relevant exact-head Action status changes when they alter validation gates.
 
 ## Current repository state
-- Parent main before this NFS service-enable fix: `0b0df9fd43ab9d674ed4a55d1d6c52857cca7c61`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- MiniUPnP checked service-policy fix `0b0df9fd43ab9d674ed4a55d1d6c52857cca7c61`: MiniUPnP lifecycle #44903303300 PASS; AI handoff #44903303195 PASS; Samba #44903303343, Process fail-closed #44903303308, Process inventory #44903303227, HTTPD #44903303211, WAN route #44903303205, DNSMasq #44903303199 and Inadyn #44903303186 PASS. NVRAM audit #44903303263 and XY-C1 #44903303317 remain IN_PROGRESS. UPnP start/update use checked transactional reads of `upnp_enable_x`, `wan_nat_x`, and `wan_route_x`; errors abort without stopping a live daemon.
-- Older exact source gates on `f99d7a43`: Firewall #44902745711, WAN route #44902745725, WAN DHCP #44902745734, HTTPD #44902745884, Process inventory #44902745720, FULLCONENAT #44902745686, AI docs #44902745743 and NVRAM audit #44902745715 PASS. XY-C1 #44902745804 is stale to newer product source.
-- WAN route #44902460823 PASS and AI docs #44902460812 PASS on `dffca184e64dc44d8cfae11a43bbcebe21d9e0b6`; DNSMasq #44902327424 PASS and AI docs #44902327438 PASS on `5a4366981557ddef27f4bb0717543f84b353b36c`.
-- XY-C1 #44902070311 on product source `232e31d7eeaa5a6a5e7510ce74a59d9b2f9a7950` passed Build, TRX and artifact upload, but that does not validate newer production commits. Physical router L4 remains NOT VERIFIED.
-- NFS issue now addressed in this slice: `run_nfsd_locked()` and `reload_nfsd_locked()` previously collapsed `nfsd_enable` read errors through `nvram_invmatch()`; `restart_nfsd()` checked `nvram_match()` only after stopping NFS. New checked exact-match status preserves absent-as-disabled behavior and ensures restart preflights configuration before any stop.
-- Legacy PR #1 remains closed/unmerged; backup unchanged.
+- Parent before NFS restart preflight correction: `ce227363a7cd0aee0beab112bca9773a79e4630f`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- NFS enablement fix initially had a misplaced preflight block: exact NFS Action #44903638098 on `ce227363` failed only at source checker after GNU89 policy tests passed. Root cause was enable read inserted in `storage_has_mounted_devices()`, leaving `restart_nfsd()` stopping before checking. This correction relocates it directly after lock acquisition and before inventory/stop/unload, and asserts the unrelated inventory function stays clean.
+- MiniUPnP checked service-policy fix `0b0df9fd`: MiniUPnP lifecycle #44903303300 and AI docs #44903303195 PASS; Samba, Process, HTTPD, WAN route, DNSMasq, WAN DHCP and Inadyn exact-head gates PASS. Earlier XY-C1/NVRAM gates were pending at checkpoint.
+- WAN route #44902460823 and AI docs #44902460812 PASS on `dffca184`; DNSMasq #44902327424 and AI docs #44902327438 PASS on `5a436698`.
+- Older XY-C1 #44902070311 on product SHA `232e31d7` passed Build/TRX/artifact for that historical baseline only; not current source. Physical L4 remains NOT VERIFIED.
+- Legacy PR #1 closed/unmerged; backup unchanged.
 
 ## Active task
-- Verify exact-head NFS host/source-contract regression, NVRAM audit and XY-C1 Build/TRX/artifact for the checked enablement gate.
-- Confirm run/reload use checked `nfsd_enable` reads; restart reads before the first stop side effect and reuses the validated decision. No `nvram_match/invmatch("nfsd_enable", "1")` may remain in this code.
-- Repair any exact-head failure at its first causal step. Keep independent PENDING work moving.
-- Continue a distinct P1 defect in an unexamined userland subsystem only after the NFS gates are understood.
+1. Inspect exact-head NFS regression after this placement correction, plus current NVRAM audit and XY-C1 Build/TRX/artifact runs.
+2. If NFS fails, read the exact causal log. `restart_nfsd()` must checked-read after lock acquisition and before mount count/stop/unload; `storage_has_mounted_devices()` must contain no NFS config state.
+3. Continue independent P1 reliability/security work while Actions are PENDING; do not repeat completed audits.
 
 ## Verification boundary
-- MiniUPnP lifecycle and AI handoff Actions PASS on `0b0df9fd43ab9d674ed4a55d1d6c52857cca7c61`; that SHA's XY-C1 and NVRAM audit were pending at last poll.
-- NFS policy regression/source assertions are committed but exact-head run pending; no local compile was run here.
-- Earlier XY-C1 #44902070311 passed only on `232e31d7`; no current-source firmware/TRX success claimed until exact latest source build completes.
-- Hardware L4 NOT VERIFIED.
+- On `ce227363`, NFS policy compile/run passed but source-contract failed at restart-order assertions; this repair awaits exact-head rerun.
+- AI docs #44903638076 and Samba #44903638071 PASS on `ce227363`. NVRAM audit #44903638191 and XY-C1 #44903638079 were IN_PROGRESS at last poll.
+- No local RC compile, current-source MIPS firmware/TRX success or hardware L4 is claimed.
 
 ## Exact first action for the next GPT
-1. Fetch live main; inspect exact-SHA NFS source/host contract, NVRAM audit and XY-C1 Build/TRX/artifact results.
-2. Fix any FAIL from its exact job log; do not weaken tests or wait on PENDING.
-3. Continue a distinct P1 userland reliability/security fix outside NFS, MiniUPnP, WAN, DNSMasq and firewall.
+1. Fetch live main and exact-SHA NFS regression result; verify source-contract PASS after relocation.
+2. Inspect NVRAM audit and XY-C1 Build/TRX/artifact results for the same SHA.
+3. Fix any exact-head FAIL at its cause and continue independent P1 userland work while PENDING.
 
-Before context exhaustion, update this handoff only when active task, exact-head status, validation boundary or first next action materially changes; no no-op commit.
+Before context exhaustion, update this handoff only when active task, exact-head status, validation boundary or first action materially changes; no no-op commit.

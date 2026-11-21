@@ -119,14 +119,6 @@ storage_has_mounted_devices(const char *operation)
 {
 	int mount_count;
 
-	config_status = nfsd_enabled_config_read(&nfsd_enabled);
-	if (config_status != 0) {
-		logmessage("Storage",
-			   "NFS restart aborted before stop because enable configuration is unreadable");
-		file_unlock(storage_lock);
-		return -1;
-	}
-
 	mount_count = count_stor_mountpoint();
 	if (!storage_mount_inventory_is_complete(mount_count)) {
 		logmessage("Storage", "cannot determine mounted storage from %s while %s; refusing storage-dependent service start",
@@ -2093,6 +2085,14 @@ int restart_nfsd(void)
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
 		logmessage("Storage", "cannot acquire storage operation lock; refusing NFS restart");
+		return -1;
+	}
+
+	config_status = nfsd_enabled_config_read(&nfsd_enabled);
+	if (config_status != 0) {
+		logmessage("Storage",
+			   "NFS restart aborted before stop because enable configuration is unreadable");
+		file_unlock(storage_lock);
 		return -1;
 	}
 

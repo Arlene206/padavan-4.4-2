@@ -213,6 +213,10 @@ jobs:
           assert restart_nfsd.index("storage_operation_lock_acquire") < restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)")
           assert restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)") < restart_nfsd.index("count_stor_mountpoint()")
           assert restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)") < restart_nfsd.index("stop_nfsd_locked()")
+          storage_inventory = function_body(service, "storage_has_mounted_devices(const char *operation)")
+          assert "nfsd_enabled_config_read" not in storage_inventory
+          assert "nfsd_enabled" not in storage_inventory
+          assert "config_status" not in storage_inventory
           assert "run_nfsd_enabled_locked(nfsd_enabled)" in restart_nfsd
           assert 'nvram_match("nfsd_enable", "1")' not in restart_nfsd
           assert "file_unlock(storage_lock)" in restart_nfsd
