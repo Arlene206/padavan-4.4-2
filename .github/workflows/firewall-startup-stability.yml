@@ -605,6 +605,7 @@ jobs:
           assert "firewall_mac_filter_mode_is_safe(3)" in filter_test
 
           route_policy = Path("trunk/user/rc/src/static_route_policy.h").read_text()
+          httpd_nvram_groups = Path("trunk/user/httpd/src/nvram_x.h").read_text()
           route_test = Path("trunk/user/rc/src/tests/static_route_policy.c").read_text()
           route_ui = Path("trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp").read_text()
           route_count_reader = body(firewall_source, "firewall_read_static_route_entry_count(int *entry_count)")
@@ -613,9 +614,12 @@ jobs:
           route_control = body(Path("trunk/user/rc/src/net.c").read_text(), "control_static_routes(char *ift, char *ifname, int is_add)")
           assert "document.form.sr_num_x_0.value >= c" in route_ui
           assert "document.form.sr_num_x_0.value > c" not in route_ui
-          assert "#define STATIC_ROUTE_MAX_ENTRIES 64" in route_policy
+          assert "#define STATIC_ROUTE_MAX_ENTRIES 128" in route_policy
+          assert "#define MAX_GROUP_COUNT\t\t128" in httpd_nvram_groups
           assert "static_route_entry_count_is_safe(64)" in route_test
-          assert "static_route_entry_count_is_safe(65)" in route_test
+          assert "static_route_entry_count_is_safe(128)" in route_test
+          assert "static_route_entry_count_is_safe(129)" in route_test
+          assert "STATIC_ROUTE_MAX_SNAPSHOT_SIZE < 8192" in route_test
           assert "static_route_metric_parse" in route_test
           assert "static_route_ipv4_field_is_safe" in route_test
           assert 'nvram_get_checked("sr_num_x", &value)' in route_count_reader

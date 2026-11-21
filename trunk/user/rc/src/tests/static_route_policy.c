@@ -12,8 +12,11 @@ main(void)
 
 	assert(static_route_entry_count_is_safe(0));
 	assert(static_route_entry_count_is_safe(64));
+	assert(static_route_entry_count_is_safe(128));
 	assert(!static_route_entry_count_is_safe(-1));
-	assert(!static_route_entry_count_is_safe(65));
+	assert(!static_route_entry_count_is_safe(129));
+	assert(STATIC_ROUTE_MAX_SNAPSHOT_SIZE == 7552);
+	assert(STATIC_ROUTE_MAX_SNAPSHOT_SIZE < 8192);
 
 	assert(static_route_metric_parse("", &metric) == 0 && metric == 0);
 	assert(static_route_metric_parse("0", &metric) == 0 && metric == 0);

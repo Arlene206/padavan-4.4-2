@@ -6,8 +6,19 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Advanced_GWStaticRoute_Content.asp exposes at most 64 configured routes. */
-#define STATIC_ROUTE_MAX_ENTRIES 64
+/*
+ * The generic HTTPD NVRAM group accepts up to 128 rows, while the current
+ * WebUI prevents adding more than 64. Continue to apply older/manual entries
+ * above the UI limit rather than dropping routes on upgrade.
+ */
+#define STATIC_ROUTE_MAX_ENTRIES 128
+#define STATIC_ROUTE_IPV4_TEXT_MAX 15
+#define STATIC_ROUTE_METRIC_TEXT_MAX 10
+#define STATIC_ROUTE_MAX_ENTRY_TEXT \
+	(3 * STATIC_ROUTE_IPV4_TEXT_MAX + 3 + STATIC_ROUTE_METRIC_TEXT_MAX)
+#define STATIC_ROUTE_MAX_SNAPSHOT_SIZE \
+	(STATIC_ROUTE_MAX_ENTRIES * STATIC_ROUTE_MAX_ENTRY_TEXT + \
+	 (STATIC_ROUTE_MAX_ENTRIES - 1) + 1)
 
 static int
 static_route_entry_count_is_safe(int count)
