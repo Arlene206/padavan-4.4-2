@@ -13,6 +13,8 @@ struct fixture {
 	unsigned int waits[16];
 	unsigned int wait_count;
 	int wait_error;
+	int stop_status;
+	unsigned int stop_count;
 };
 
 static enum process_presence
@@ -41,6 +43,114 @@ wait_seconds(void *context, unsigned int seconds)
 		return -1;
 	}
 	return 0;
+}
+
+static int
+stop_process(void *context)
+{
+	struct fixture *fixture = (struct fixture *)context;
+
+	fixture->stop_count++;
+	return fixture->stop_status;
+}
+
+static void
+test_failed_start_rolls_back_and_preserves_primary_error(void)
+{
+	struct fixture fixture;
+	int stop_status = -1;
+	int scan_error = -1;
+	enum process_presence final_state = PROCESS_PRESENCE_UNKNOWN;
+
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.states[0] = PROCESS_PRESENCE_ABSENT;
+	fixture.state_count = 1;
+	errno = 0;
+	assert(detached_daemon_start_rollback_with_ops(
+		ETIMEDOUT, ETIMEDOUT, stop_process, scan_process, &fixture,
+		&stop_status, &final_state, &scan_error) == ETIMEDOUT);
+	assert(errno == ETIMEDOUT);
+	assert(fixture.stop_count == 1 && fixture.state_index == 1);
+	assert(stop_status == 0);
+	assert(final_state == PROCESS_PRESENCE_ABSENT);
+	assert(scan_error == 0);
+}
+
+static void
+test_running_child_after_failed_cleanup_keeps_primary_status(void)
+{
+	struct fixture fixture;
+	int stop_status = 0;
+	int scan_error = 0;
+	enum process_presence final_state = PROCESS_PRESENCE_ABSENT;
+
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.states[0] = PROCESS_PRESENCE_RUNNING;
+	fixture.state_count = 1;
+	fixture.stop_status = EBUSY;
+	errno = 0;
+	assert(detached_daemon_start_rollback_with_ops(
+		ETIMEDOUT, ETIMEDOUT, stop_process, scan_process, &fixture,
+		&stop_status, &final_state, &scan_error) == ETIMEDOUT);
+	assert(errno == ETIMEDOUT);
+	assert(fixture.stop_count == 1 && fixture.state_index == 1);
+	assert(stop_status == EBUSY);
+	assert(final_state == PROCESS_PRESENCE_RUNNING);
+}
+
+static void
+test_unknown_rollback_inventory_preserves_primary_status(void)
+{
+	struct fixture fixture;
+	int stop_status = 0;
+	int scan_error = 0;
+	enum process_presence final_state = PROCESS_PRESENCE_ABSENT;
+
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.states[0] = PROCESS_PRESENCE_UNKNOWN;
+	fixture.errors[0] = EACCES;
+	fixture.state_count = 1;
+	fixture.stop_status = EIO;
+	errno = 0;
+	assert(detached_daemon_start_rollback_with_ops(
+		ETIMEDOUT, ETIMEDOUT, stop_process, scan_process, &fixture,
+		&stop_status, &final_state, &scan_error) == ETIMEDOUT);
+	assert(errno == ETIMEDOUT);
+	assert(fixture.stop_count == 1 && fixture.state_index == 1);
+	assert(stop_status == EIO);
+	assert(final_state == PROCESS_PRESENCE_UNKNOWN);
+	assert(scan_error == EACCES);
+}
+
+static void
+test_successful_start_skips_rollback(void)
+{
+	struct fixture fixture;
+	int stop_status = -1;
+	int scan_error = -1;
+	enum process_presence final_state = PROCESS_PRESENCE_RUNNING;
+
+	memset(&fixture, 0, sizeof(fixture));
+	assert(detached_daemon_start_rollback_with_ops(
+		0, 0, stop_process, scan_process, &fixture,
+		&stop_status, &final_state, &scan_error) == 0);
+	assert(fixture.stop_count == 0 && fixture.state_index == 0);
+	assert(stop_status == 0);
+	assert(final_state == PROCESS_PRESENCE_UNKNOWN);
+	assert(scan_error == 0);
+}
+
+static void
+test_invalid_rollback_callbacks_preserve_primary_status(void)
+{
+	struct fixture fixture;
+	memset(&fixture, 0, sizeof(fixture));
+	errno = 0;
+	assert(detached_daemon_start_rollback_with_ops(
+		ETIMEDOUT, ETIMEDOUT, NULL, scan_process, &fixture,
+		NULL, NULL, NULL) == ETIMEDOUT);
+	assert(errno == EINVAL);
+	assert(fixture.state_index == 0 && fixture.stop_count == 0);
 }
 
 static void
@@ -154,12 +264,17 @@ int
 main(void)
 {
 	test_launcher_failure_is_preserved_without_probing();
+	test_failed_start_rolls_back_and_preserves_primary_error();
+	test_running_child_after_failed_cleanup_keeps_primary_status();
+	test_unknown_rollback_inventory_preserves_primary_status();
+	test_successful_start_skips_rollback();
+	test_invalid_rollback_callbacks_preserve_primary_status();
 	test_running_process_is_required_after_launcher();
 	test_delayed_daemon_appearance_is_accepted();
 	test_absent_child_times_out();
 	test_unknown_inventory_fails_closed();
 	test_unknown_without_error_and_invalid_state_fail_closed();
 	test_wait_interruption_and_invalid_arguments_fail();
-	puts("Detached-daemon startup postcondition regression: PASS");
+	puts("Detached-daemon startup and rollback postcondition regression: PASS");
 	return 0;
 }

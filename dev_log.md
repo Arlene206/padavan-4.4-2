@@ -1,3 +1,14 @@
+## 2026-11-21 — Roll back IPTV daemons after failed detached startup
+
+- Parent main SHA: `9df0573782afb3a3e19864ac17250d7358ef26ca`.
+- Fixed a lifecycle gap shared by UDPXY/MSD Lite, XUPnPD and IGMPproxy: each launcher required a bounded RUNNING postcondition, but a failed launcher/readiness check returned without reaping a child that appeared late or survived a nonzero launcher result. RC could report startup failure while the proxy remained active.
+- Added a generic detached-daemon rollback policy that invokes a targeted stop callback, re-inventories process state, and preserves the primary startup status/errno. Production IPTV callbacks use `kill_services()` with only the failed daemon name; that existing stop path is PID/start-time identity checked. Cleanup logs confirmed absence versus remaining RUNNING/UNKNOWN state.
+- Applied rollback independently to each failed IPTV daemon, leaving successfully started sibling services alone. Added GNU89 ASan/UBSan unit coverage for confirmed absence, stubborn RUNNING child, UNKNOWN inventory, successful-start no-op, invalid callbacks and primary-error preservation.
+- Extended Process Lifecycle triggers and compilation, plus XY-C1 source-path filters. No local checkout was available; exact-SHA host CI and XY-C1 build are the required verification. Physical-router IPTV behavior remains unverified.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Reset preserved UNKNOWN PID fixture before symlink case
 
 - Parent main SHA: `bc72bd5df72543ced814d565177932db253c47a6`.

@@ -430,6 +430,48 @@ iptv_proxy_confirm_started(const char *process_name, int launch_status)
 		PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
 }
 
+static int
+iptv_proxy_process_stop(void *context)
+{
+	char *service_names[2];
+
+	if (!context) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	service_names[0] = (char *)context;
+	service_names[1] = NULL;
+	return kill_services(service_names, 3, 1);
+}
+
+static int
+iptv_proxy_rollback_failed_start(const char *process_name,
+				 int start_status, int start_errno)
+{
+	int stop_status = 0;
+	int scan_error = 0;
+	int saved_errno;
+	int result;
+	enum process_presence final_state = PROCESS_PRESENCE_UNKNOWN;
+
+	result = detached_daemon_start_rollback_with_ops(
+		start_status, start_errno, iptv_proxy_process_stop,
+		iptv_proxy_process_presence, (void *)process_name, &stop_status,
+		&final_state, &scan_error);
+	saved_errno = errno;
+	if (final_state == PROCESS_PRESENCE_ABSENT) {
+		logmessage(LOGNAME,
+			   "%s startup rollback confirmed process absent (stop_status=%d)",
+			   process_name, stop_status);
+	} else {
+		logmessage(LOGNAME,
+			   "%s startup rollback incomplete (primary_status=%d, stop_status=%d, process_state=%d, scan_error=%d)",
+			   process_name, start_status, stop_status, final_state, scan_error);
+	}
+	errno = saved_errno;
+	return result;
+}
+
 void
 stop_udpxy(void)
 {
@@ -442,7 +484,7 @@ int
 start_udpxy(char *wan_ifname)
 {
 	int port = nvram_get_int("udpxy_enable_x");
-	int launch_status, scan_error = 0, saved_errno;
+	int launch_status, scan_error = 0, saved_errno, launch_errno;
 	enum process_presence process_state;
 	const char *process_name;
 
@@ -499,9 +541,13 @@ start_udpxy(char *wan_ifname)
 #endif
 
 	launch_status = iptv_proxy_confirm_started(process_name, launch_status);
-	if (launch_status != 0)
+	if (launch_status != 0) {
+		launch_errno = errno;
 		logmessage(LOGNAME, "%s launch/readiness failed (status=%d errno=%d)",
-			   process_name, launch_status, errno ? errno : EIO);
+			   process_name, launch_status, launch_errno ? launch_errno : EIO);
+		launch_status = iptv_proxy_rollback_failed_start(
+			process_name, launch_status, launch_errno);
+	}
 	return launch_status;
 }
 
@@ -570,6 +616,7 @@ start_xupnpd(char *wan_ifname)
 {
 	int i, xport, has_daemon, launch_status;
 	int config_status, saved_errno, sync_status, config_fd, scan_error;
+	int launch_errno;
 	enum process_presence process_state;
 	int copy_storage, directory_status, copy_status;
 	FILE *fp1, *fp2;
@@ -878,15 +925,20 @@ start_xupnpd(char *wan_ifname)
 		return EBUSY;
 	}
 
+	errno = 0;
 	if (has_daemon)
 		launch_status = eval("/usr/bin/xupnpd");
 	else
 		launch_status = system("/usr/bin/xupnpd &");
 	launch_status = xupnpd_confirm_started(launch_status);
-	if (launch_status != 0)
+	if (launch_status != 0) {
+		launch_errno = errno;
 		logmessage(LOGNAME,
 			   "xupnpd launch/readiness failed (status=%d errno=%d)",
-			   launch_status, errno ? errno : EIO);
+			   launch_status, launch_errno ? launch_errno : EIO);
+		launch_status = iptv_proxy_rollback_failed_start(
+			"xupnpd", launch_status, launch_errno);
+	}
 	return launch_status;
 }
 
@@ -915,6 +967,7 @@ start_igmpproxy(char *wan_ifname)
 	const char *altnet_mask;
 	char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	int config_status, launch_status, scan_error = 0, saved_errno;
+	int launch_errno;
 	int start_status = 0;
 	enum process_presence process_state;
 
@@ -977,11 +1030,16 @@ start_igmpproxy(char *wan_ifname)
 		return rc_first_service_start_status(start_status, config_status);
 	}
 
+	errno = 0;
 	launch_status = eval("/bin/igmpproxy", igmpproxy_conf);
 	launch_status = iptv_proxy_confirm_started("igmpproxy", launch_status);
-	if (launch_status != 0)
+	if (launch_status != 0) {
+		launch_errno = errno;
 		logmessage("IPTV", "igmpproxy launch/readiness failed (status=%d errno=%d)",
-			   launch_status, errno ? errno : EIO);
+			   launch_status, launch_errno ? launch_errno : EIO);
+		launch_status = iptv_proxy_rollback_failed_start(
+			"igmpproxy", launch_status, launch_errno);
+	}
 	return rc_first_service_start_status(start_status, launch_status);
 }
 

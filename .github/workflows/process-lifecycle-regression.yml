@@ -129,6 +129,8 @@ on:
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/tests/pppoe_relay_policy.c"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/detached_daemon_start_policy.h"
+      - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
       - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
@@ -331,6 +333,8 @@ on:
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/tests/pppoe_relay_policy.c"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/detached_daemon_start_policy.h"
+      - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
       - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
@@ -610,6 +614,14 @@ jobs:
             trunk/user/rc/src/tests/process_presence_start_policy.c \
             -o "$RUNNER_TEMP/process-presence-start-policy"
           "$RUNNER_TEMP/process-presence-start-policy"
+
+      - name: Compile and run detached-daemon startup rollback regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detached_daemon_start_policy.c \
+            -o "$RUNNER_TEMP/detached-daemon-start-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/detached-daemon-start-policy"
       - name: Compile and run Ralink 802.1X child readiness handshake regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
