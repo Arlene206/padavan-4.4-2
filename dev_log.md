@@ -1,3 +1,13 @@
+## 2026-11-21 — Align crond lifecycle contracts with checked enable reads
+
+- Parent main SHA: `fac45a05fa27110c2301e72829666e2fbe0d32fc`.
+- Exact-head Process regression #44928653157 reached the final process/lifecycle integration checks, then failed because two duplicated checker sections still expected the retired `nvram_invmatch("crond_enable", "1")` enable gate. Production `start_crond()` now uses `service_nvram_match_status()`, aborts on read error, and returns a disabled no-op before process preflight. Updated both checker paths to assert that checked read/error/disabled ordering while retaining RUNNING no-op and UNKNOWN fail-closed assertions.
+- XY-C1 firmware validation #44927981534 completed successfully on product-source SHA `335fddd5b61d20e22987da948136c412cf4bbf81`: cross-build, TRX output verification and artifact upload all PASS. L3 is VERIFIED for that exact product-source SHA only; this does not establish hardware L4.
+- fac45 WAN route #44928653174 and AI handoff #44928653213 passed; Process regression #44928653157 needs a fresh rerun after this checker-only correction.
+- No production source changed in this slice.
+
+---
+
 ## 2026-11-21 — Restore WAN route workflow YAML and ttyd rollback contracts
 
 - Parent main SHA: `a77ed612c19ac0b4c29d88f4b547fb7e077bd0d9`.
