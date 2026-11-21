@@ -799,7 +799,7 @@ jobs:
           assert "status = route_status_accumulate(status, route_snapshot_status);" in wan_down
           assert "wan_addr_status = route_snapshot_status;" in wan_down
           assert "wan_mask_status = route_snapshot_status;" in wan_down
-          assert 'wan_gate_status = get_wan_unit_value_copy_status(unit, "gateway", wan_gate, sizeof(wan_gate));' in " ".join(wan_down.split())
+          assert 'wan_gate_status=get_wan_unit_value_copy_status(unit,"gateway",wan_gate,sizeof(wan_gate));' in wan_down_compact
           assert "cannot read coherent WAN route snapshot during teardown" in wan_down
           assert "cannot read WAN gateway fallback during teardown" in wan_down
           assert "cannot read WAN gateway snapshot during teardown" in wan_down

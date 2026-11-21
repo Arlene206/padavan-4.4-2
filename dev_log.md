@@ -1,3 +1,13 @@
+## 2026-11-21 — Fix the WAN route snapshot source-contract formatting
+
+- Parent main SHA: `a760c37dd793f0497907fb5b30a871be6497415b`.
+- Exact-head WAN route #44929756615 on `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192` passed compilation, policy tests and the standalone DNS/read checker, then failed at inline workflow assertion 366. The production fallback call is formatted across C lines; the assertion searched for an unnormalized spaced token after joining source lines. Updated it to compare the already whitespace-compacted function body, preserving the requirement that a checked gateway-only fallback follows a failed route tuple.
+- WAN DHCP callback #44929756539 passed on d0. WAN teardown #44929756599, Process inventory #44929756463, AI docs #44929756531, and the listed userland stability workflows on d0 passed. XY-C1 #44929756345 and NVRAM audit #44929756500 were still running at last poll.
+- Current process checker corrections are on a760; Process regression #44929876370 and AI handoff #44929876383 both passed on that exact SHA.
+- Workflow assertion/docs only; no production source changed.
+
+---
+
 ## 2026-11-21 — Align optional boot-daemon checks with checked enable gates
 
 - Parent main SHA: `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192`.
