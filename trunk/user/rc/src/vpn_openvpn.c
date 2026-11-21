@@ -1960,8 +1960,6 @@ on_client_ifup(void)
 	vpnc_pdns = 0;
 	pdns_status = vpn_client_nvram_read_bool_status(
 		api_result, read_errno, pdns_value, 0, &vpnc_pdns);
-						  pdns_value, 0, 0, 1,
-						  &vpnc_pdns);
 	if (pdns_status != 0) {
 		status = route_status_accumulate(status, pdns_status);
 		logmessage(CLIENT_LOG_NAME,

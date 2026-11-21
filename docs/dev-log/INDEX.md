@@ -29,7 +29,7 @@
 | `docs/dev-log/2026/11/part-020.md` | 100 | 2026-11-19 — Transactional LAN DHCP deconfig snapshot → 2026-11-20 — Escape untrusted UPnP mapping output before SOAP XML serialization | 129506 | `ca34b9403978210508f3102ec5cbd01579ecd198` |
 | `docs/dev-log/2026/11/part-021.md` | 100 | 2026-11-20 → 2026-11-21 | 107650 | `f80bf2d087fa1c313cb671f2108e3279092db234` |
 | `docs/dev-log/2026/11/part-022.md` | 100 | Correct watchdog PID-file and procfs fixture escaping → PPP and WAN rollback-state consistency | 113949 | `3bb594ab26cd04f116c9f63f9489ee8d6d8be9d6` |
-| `docs/dev-log/2026/11/part-023.md` | 100 | 2026-11-21 → 2026-11-21 | 109434 | `d896a53f5bd56915dbabb5ec4987a2dc069d8388` |
+| `docs/dev-log/2026/11/part-023.md` | 100 | 2026-11-21 → 2026-11-21 | 109696 | `d896a53f5bd56915dbabb5ec4987a2dc069d8388` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.

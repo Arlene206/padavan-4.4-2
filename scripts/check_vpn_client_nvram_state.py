@@ -218,7 +218,7 @@ assert 'nvram_get_int("vpnc_pdns")' not in openvpn_up
 ordered(openvpn_up, [
     'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);',
     "read_errno = errno;",
-    "pdns_status = vpn_server_config_int_status(",
+    "pdns_status = vpn_client_nvram_read_bool_status(",
     "if (pdns_status != 0)",
     "status = route_status_accumulate(status, pdns_status);",
     "for (i = 0; i < ENV_SCAN_MAX; i++)",
@@ -232,6 +232,9 @@ ordered(openvpn_up, [
     "return status;"
 ], "OpenVPN client up checked DNS policy and mandatory state/hook")
 assert "preserving existing resolver state" in openvpn_up
+assert "vpn_server_config_int_status" not in openvpn_up
+assert "pdns_value, 0, 0, 1," not in openvpn_up
+assert openvpn_up.count("vpn_client_nvram_read_bool_status(") == 1
 assert "if (pdns_status == 0 && vpnc_pdns > 0)" in openvpn_up
 ordered(openvpn_down, [
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_state_t", "0")',

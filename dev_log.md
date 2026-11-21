@@ -1,3 +1,13 @@
+## 2026-11-22 — Repair shared VPN DNS policy integration and archive byte index
+
+- Parent main SHA: `418373c53d35051fc316c67f119d372126a08f89`.
+- The shared VPN DNS policy migration changed `on_client_ifup()` to `vpn_client_nvram_read_bool_status()`, but a trailing fragment from the previous six-argument parser call remained after the new five-argument call. Removed the invalid fragment so the C function has one complete, correctly typed helper invocation.
+- The exact-head VPN lifecycle checker also still expected `vpn_server_config_int_status()` in the OpenVPN callback. Updated it to require the shared helper and explicitly reject the stale argument tail. The shared GNU89 policy unit test had already passed on parent 418.
+- Exact-head AI handoff docs #44939242988 found the part-023 index byte count was 109434 while the archived file was 109696 bytes. Corrected the index metadata without modifying the immutable archive blob or its SHA.
+- Parent #44939242958 failed at the stale OpenVPN source contract before the new source correction; #44939242892 XY-C1 was still in progress before Build XY-C1. No target build or L3 result is claimed for parent 418. Verify current exact-SHA Actions after this repair; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Share checked boolean reads across both VPN DNS callbacks
 
 - Parent main SHA: `7ad1cb24f67b9c9dffafeb1a492b2a41343a8413`.
