@@ -1,3 +1,15 @@
+## 2026-11-21 — Correct DNSMasq and WAN checker formatting assumptions
+
+- Parent main SHA: `232e31d7eeaa5a6a5e7510ce74a59d9b2f9a7950`.
+- DNSMasq exact run #44902070166 passed the new GNU89/ASan policy test and all preceding lifecycle regressions, then failed at the Python source checker because the inserted signature contained a literal double-backslash-n rather than the actual newline escape. Corrected the checker to search for the actual C source signature.
+- WAN route exact run #44902070187 passed WAN DNS-mode, MTU, EAPOL and firewall result checks, then failed one transaction helper token because the implementation ternary did not wrap the entire expression in an extra pair of parentheses. Corrected the expected normalized expression; transaction ordering and read-error-before-write assertions remain.
+- AI handoff exact run #44902070141 PASS; miniupnpd #44902070251, HTTPD #44902070259, Samba #44902070353, Inadyn #44902070265, WAN DHCP #44902070191 and Process inventory #44902070152 PASS on `232e31d7`.
+- XY-C1 #44902070311 and NVRAM audit #44902070127 were in progress at the last exact-head poll.
+- No production source changed in this checker repair; exact-head reruns pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Keep DNSMasq resolver security options enabled across NVRAM read failures
 
 - Parent main SHA: `04b8537ac3810740e15ec901fe14594b7383d3df`.

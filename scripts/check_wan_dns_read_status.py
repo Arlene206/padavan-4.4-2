@@ -303,7 +303,7 @@ for token in (
     "nvram_transaction_begin(&transaction)",
     "nvram_transaction_get(&transaction, wan_param, &source_value)",
     "status = rc_wan_nvram_read_status(read_result, saved_errno)",
-    '((read_result == 1) ? source_value : "")',
+    '(read_result == 1) ? source_value : ""',
     "nvram_transaction_set(&transaction, wanN_param",
     "nvram_transaction_end(&transaction)",
 ):

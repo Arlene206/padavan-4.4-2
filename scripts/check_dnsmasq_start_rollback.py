@@ -115,7 +115,7 @@ assert "int stop_dns_dhcpd_locked(void);" in RC_H
 # config or generated host input is staged.
 prepare = compact(body(
     SERVICES,
-    "static int\\nprepare_dns_dhcpd(int is_ap_mode, int *service_enabled)",
+    "static int\nprepare_dns_dhcpd(int is_ap_mode, int *service_enabled)",
 ))
 option_reader = compact(body(
     SERVICES,
