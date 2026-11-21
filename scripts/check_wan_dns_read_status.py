@@ -304,13 +304,13 @@ for token in (
     "nvram_transaction_get(&transaction, wan_param, &source_value)",
     "status = rc_wan_nvram_read_status(read_result, saved_errno)",
     '(read_result == 1) ? source_value : ""',
-    "nvram_transaction_set(&transaction, wanN_param",
+    "nvram_transaction_set( &transaction, wanN_param",
     "nvram_transaction_end(&transaction)",
 ):
     require(token in param_copy_compact,
             "WAN protocol copy must remain checked and transactional: " + token)
 read_error = param_copy_compact.index("status = rc_wan_nvram_read_status(read_result, saved_errno)")
-write_value = param_copy_compact.index("nvram_transaction_set(&transaction, wanN_param")
+write_value = param_copy_compact.index("nvram_transaction_set( &transaction, wanN_param")
 require(read_error < write_value and
         "if (status == 0) {" in param_copy_compact[read_error:write_value],
         "a failed shared WAN protocol read must stop before wan0_proto is written")

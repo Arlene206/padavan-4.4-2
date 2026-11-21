@@ -21,6 +21,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 - On SHA `2a2238af`, the DNSMasq option source checker uses the actual `prepare_dns_dhcpd()` newline signature. A final whitespace-normalization review found the five multiline option calls compact to one space after `(`, so the checker is now aligned to that representation without changing production code.
 
+- On exact SHA `5a4366981557ddef27f4bb0717543f84b353b36c`, DNSMasq lifecycle #44902327424 PASS and AI handoff #44902327438 PASS. The DNSMasq source gate, GNU89/Werror/ASan/UBSan policy test and existing lifecycle checks are green. WAN route #44902224203 on its parent SHA failed only because the whitespace-normalized setter assertion omitted the space after `nvram_transaction_set(`; this commit corrects that token and its ordering lookup. NVRAM audit #44902070127 on `232e31d7` PASS. XY-C1 #44902070311 on the `232e31d7` production-input SHA was still running its actual Build XY-C1 step at last poll; TRX verification and artifact upload remain pending.
+
 ## Active task
 - Verify exact-head WAN route, XY-C1 and AI handoff reruns for `04b8537a`, and DNSMasq regression plus XY-C1 for this new source slice.
 - For DNSMasq, confirm all five checked reads happen before DHCP range persistence, hosts writes, resolver file creation and opening staged config. Missing values retain false defaults; API/read errors abort before new config publication.
