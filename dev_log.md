@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize MAN DNS-route source contracts
+
+- Parent main SHA: `590ae64484500b91695076220961e3baabc929bc`.
+- Exact-head WAN route run `#44893438430` passed the GNU89/ASan/UBSan policy binary, DNS, PPPoE, WAN MTU and EAPOL/Kabinet checks, then failed at the MAN route-creation assertion. The checked `dnsenable_x` call is split over lines; the test flattened line breaks but still required the exact unflattened call string.
+- Compacted both MAN route setup and teardown slices before matching their checked getters and fail-closed/best-effort cleanup branches. No source behavior changed.
+- AI handoff documentation run `#44893438413` passed on the same parent SHA.
+
+---
+
 ## 2026-11-21 — Normalize EAPOL checked-read contract
 
 - Parent main SHA: `ef17608b90343776a20ec2e7591b885b8be54359`.
