@@ -25,24 +25,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Firewall IPv4 and IPv6 URL filters now share the bounded, checked keyword reader. A URL keyword backend/API/close error aborts the staged family-specific restore rather than publishing a partial policy.
-- Parent main SHA `4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9` exposed an IPv6 integration defect: the helper signature had changed to require the cached entry count, but the IPv6 call still passed one argument; its function declaration had also become `static intip6t_filter_rules`. This atomic main checkpoint restores the proper symbol and adds the IPv6 checked-read abort path.
-- The same parent caused a stale HTTPD source-contract assertion: it compared the VPN lease abort against the first firewall abort globally, which now belongs to earlier URL/LWF staging. The contract now scopes the abort search to after the VPN lease include call; VPN lease regression itself passed.
-- Next engineering target after exact-head verification: audit Lightweight Filter schedule reads for fail-open NVRAM errors, then continue MAC-filter and static-route count/value review.
+- IPv4/IPv6 listener preflight, UDPXY 1024..65535 bounds, VTS 0..64 count/protocol handling, LWF checked mode/count/field reads and URL filter 0..128 count/checked keyword reads are in main ancestry.
+- The latest URL filter source validates keyword content before emitting quoted iptables rules and makes IPv6 URL read failures abort its staged firewall transaction. Exact-head checks on a16cd7b95d19ccd9057fdf117d794071ead768c4 exposed two workflow-only stale assertions:
+  - Firewall Startup expected an escaped literal newline between static int and the IPv6 function name; the Python source therefore looked for backslash+n rather than a newline. Replace with whitespace-tolerant regex.
+  - HTTPD's URL-filter contract still searches the old include_webstr_filter(FILE *fp) signature; update it for the new (FILE *fp, int num_entries) signature.
+- Next source slice: harden MAC filtering. The UI caps macfilter_num_x at 64; inspect checked count, mode, entry-address and schedule reads before refactoring.
 
 ## Verification boundary
 
-- Exact parent `4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9` push Actions: Process inventory #44952467224 PASS; AI handoff #44952467200 PASS; WAN DHCP #44952467197 PASS; FULLCONENAT #44952467198 PASS; NVRAM audit #44952467177 PASS; WAN route #44952467210 PASS.
-- Firewall Startup #44952467207 failed at the IPv6 URL source contract (Python line 500): the IPv6 function still called the changed helper with the old arity and did not propagate the checked-read failure. The three preceding compiled firewall regression steps passed. The source integration and regression contract are corrected in this checkpoint.
-- HTTPD #44952467237 reached the VPN lease policy regression successfully, then failed because its source-order assertion selected earlier, unrelated URL/LWF abort calls. The checker now anchors the abort lookup after `include_vpns_clients()`.
-- XY-C1 #44952467208 was still in progress at last query; Build XY-C1, TRX verification and artifact upload had not started. No L3 claim. No local C test or firmware build was available in this Git-data-only workspace. Hardware L4 remains NOT VERIFIED.
-- The exact SHA for this checkpoint is the live main ref created by the commit containing this file; fetch `refs/heads/main` before any further work and validate only its push-event runs.
+- Exact-head SHA a16cd7b95d19ccd9057fdf117d794071ead768c4: WAN route #44952833895 PASS; FULLCONENAT #44952833882 PASS; WAN DHCP #44952833872 PASS; Process inventory #44952833889 PASS; AI docs #44952833861 PASS. NVRAM #44952833900 and XY-C1 #44952833916 were IN_PROGRESS. Firewall Startup #44952833879 FAIL at Python stdin line 500 due the escaped-newline source assertion; HTTPD #44952833897 FAIL at Python stdin line 793 due the stale URL-filter signature. Both are checker-only; earlier HTTPD security checks passed.
+- Previous source SHA 4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9: NVRAM #44952467177, WAN DHCP #44952467197, WAN route #44952467210, FULLCONENAT #44952467198, Process #44952467224 and AI docs #44952467200 PASS. Firewall Startup #44952467207 and HTTPD #44952467237 hit the checker defects updated here; XY-C1 #44952467208 was in progress.
+- No local C test or firmware build was run. No L3 claim without Build XY-C1, TRX verification and artifact upload PASS on one exact source SHA; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head Firewall Startup, HTTPD, NVRAM and XY-C1 Actions for this checkpoint. Diagnose any new failure from its first causal log; do not borrow results from parent SHA `4f59f6c...`.
-2. Confirm same-SHA XY-C1 Build, TRX and artifact-upload completion before assigning L3.
-3. Continue the checked LWF schedule audit: `timematch_conv()` currently uses unchecked `nvram_get()` for `filter_lw_date_x` and `filter_lw_time_x`, where backend failure can be mistaken for legacy defaults. Preserve missing-key defaults while aborting on actual read/close errors. Then audit MAC-filter and static-route loops.
+1. Query exact-head Firewall Startup and HTTPD on the checker-fix commit; require both source-contract suites to pass. Inspect the first causal line if they still fail.
+2. Re-query XY-C1 #44952833916 and NVRAM #44952833900 for parent a16cd7... as historical evidence only; require new exact-head Build/TRX/artifact checks.
+3. Continue with checked MAC filter mode/count and per-entry address reads (UI cap 64), then review static routes only after confirming their UI bound.
 
 ## Workflow and preservation rules
 

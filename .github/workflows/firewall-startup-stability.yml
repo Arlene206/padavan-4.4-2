@@ -642,7 +642,7 @@ jobs:
           assert 'foreach_x("url_num_x")' not in url_builder
           assert 'firewall_read_indexed_string_setting("url_keyword_x", i,' in url_builder
           assert "firewall_url_filter_read_failure(i)" in url_builder
-          assert "static int\\nip6t_filter_rules(char *man_if" in firewall_source
+          assert re.search(r"static int\\s+ip6t_filter_rules\\(char \\*man_if", firewall_source)
           assert 'include_webstr_filter(fp)' not in ipv6_filter
           assert "url_status = include_webstr_filter(fp, i_url_count)" in ipv6_filter
           assert "if (url_status < 0)" in ipv6_filter

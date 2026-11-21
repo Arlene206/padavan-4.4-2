@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct URL-filter source-contract assumptions
+
+- Parent main SHA: a16cd7b95d19ccd9057fdf117d794071ead768c4.
+- Firewall Startup #44952833879 failed at Python stdin line 500. The contract used a Python string containing a double-escaped newline, so it searched for a literal backslash+n between static int and ip6t_filter_rules rather than the real source newline. Replaced with whitespace-tolerant regex.
+- HTTPD #44952833897 failed at Python stdin line 793 with ValueError: substring not found because its URL-filter source contract still searched for the old include_webstr_filter(FILE *fp) signature after the checked bounded-list change added the num_entries parameter. Updated the contract to the actual signature.
+- These are checker-only corrections; no production source behavior changed. On parent a16cd7..., WAN route #44952833895, FULLCONENAT #44952833882, WAN DHCP #44952833872, Process #44952833889 and AI docs #44952833861 PASS; NVRAM #44952833900 and XY-C1 #44952833916 were in progress. Firewall Startup #44952833879 and HTTPD #44952833897 failed only at the stale assertions above.
+- No local test/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Restore checked IPv6 URL-filter staging
 
 - Parent main SHA: `4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9`.

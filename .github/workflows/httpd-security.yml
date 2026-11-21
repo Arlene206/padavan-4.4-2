@@ -4881,7 +4881,7 @@ jobs:
           # URL values are written into quoted iptables-restore rules.
           assert "firewall_url_filter_value_is_safe(filterstr)" in firewall
           assert "firewall_url_filter_value_is_safe" in firewall_test
-          firewall_start = firewall.index("include_webstr_filter(FILE *fp)")
+          firewall_start = firewall.index("include_webstr_filter(FILE *fp, int num_entries)")
           firewall_end = firewall.index(chr(10) + "static int" + chr(10) + "include_lw_filter", firewall_start)
           url_filter = firewall[firewall_start:firewall_end]
           safe_value = url_filter.index("if (!firewall_url_filter_value_is_safe(filterstr))")
