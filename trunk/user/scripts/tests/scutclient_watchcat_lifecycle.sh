@@ -100,6 +100,7 @@ run_watchcat 1
 }
 
 # Never follow a symlink supplied as the PID file.
+rm -f "$PIDFILE"
 printf '71717171\n' > "$OUTSIDE"
 ln -s "$OUTSIDE" "$PIDFILE"
 run_watchcat 1

@@ -1,3 +1,12 @@
+## 2026-11-21 — Reset preserved UNKNOWN PID fixture before symlink case
+
+- Parent main SHA: `bc72bd5df72543ced814d565177932db253c47a6`.
+- The next exact-SHA watchdog run progressed through active-instance, recycled-PID, malformed-PID and UNKNOWN-procfs checks, then found the test reused the intentionally preserved UNKNOWN PID file when creating the symlink fixture. The fixture now explicitly removes that prior file before creating the symlink case.
+- The failure was confined to test setup; production source behavior was not implicated.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Correct watchdog PID-file and procfs fixture escaping
 
 - Parent main SHA: `59284736191e9480cdd7fcc77156bd8a1f9925a4`.
