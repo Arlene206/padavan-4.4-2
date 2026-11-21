@@ -1,3 +1,13 @@
+## 2026-11-21 — Ensure crond timeout always executes rollback
+
+- Parent main SHA: `7085606f16b27e7ebc693cb0c3d3af29eb8e117b`.
+- A post-commit source review caught a real status-propagation bug not covered by the current static tests: after a successful retry sleep followed by all-ABSENT probes, `crond` retained `status == 0`. Passing that zero into `detached_daemon_start_rollback_with_ops()` made its documented success fast path skip cleanup even though the function logged a startup timeout.
+- The timeout now passes the explicit failure status `-1`; the crond lifecycle contract asserts this exact argument. Other core daemon timeout paths already pass `-1`/ETIMEDOUT.
+- This is a production correctness fix discovered during review after the preceding Actions passed; exact-head Process Lifecycle and XY-C1 source validation are required again.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Update daemon lifecycle source contracts for rollback
 
 - Parent main SHA: `1b25077e6e5a9f8750d4b5c76637beec5ca354d1`.

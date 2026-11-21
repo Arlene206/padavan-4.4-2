@@ -517,7 +517,7 @@ start_crond(void)
 
 	logmessage(LOGNAME, "crond daemon did not remain running after launch");
 	errno = ETIMEDOUT;
-	return optional_daemon_rollback_failed_start("crond", status, ETIMEDOUT);
+	return optional_daemon_rollback_failed_start("crond", -1, ETIMEDOUT);
 }
 
 int

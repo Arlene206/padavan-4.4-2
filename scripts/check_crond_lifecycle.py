@@ -125,7 +125,7 @@ assert start.index('return optional_daemon_rollback_failed_start("crond", status
 assert 'pids("crond")' not in start
 assert "crond daemon did not remain running after launch" in start
 assert 'errno = ETIMEDOUT;' in start
-assert 'return optional_daemon_rollback_failed_start("crond", status, ETIMEDOUT);' in start
+assert 'return optional_daemon_rollback_failed_start("crond", -1, ETIMEDOUT);' in start
 
 restart = function_body(services, "restart_crond(void)")
 stop_call = restart.index("stop_status = stop_crond();")
