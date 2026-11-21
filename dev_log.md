@@ -1,4 +1,14 @@
-## 2026-11-21  17:3 ET — Fail closed on shared FTP/Samba session-limit NVRAM reads
+## 2026-11-21 — Correct Samba connection-limit workflow source contract
+
+- Parent main SHA: `d2890e3fa3930e64d909df8feeeaff3ad87439a4`.
+- Exact VSFTPD run #44957924406 passed, including GNU89/Werror compile+execution of the shared connection-limit policy test and the updated FTP source contract.
+- Samba run #44957924306 compiled and ran the new GNU89 policy test successfully, then failed only in the Python source contract: its token included the C string's escaped newline, so the checker could not locate the max-connections emission with `str.index()`. Simplified the locator to the stable `fprintf(fp,"max connections = %d` prefix without weakening the read-before-write order assertion.
+- Exact AI handoff docs #44957924341 passed. XY-C1 run #44957924444 was in progress at last poll; no L3 or L4 claim.
+- Next: inspect the corrected Samba exact-SHA run and current XY-C1 build, then continue an independent storage defect.
+
+---
+
+## 2026-11-21 — Fail closed on shared FTP/Samba session-limit NVRAM reads
 
 - Parent main SHA: `119e323e545c243b7a0edfe0aa20b2c8483db77d`.
 - Both `write_vsftpd_conf()` and `write_smb_conf_unlocked()` used unchecked `nvram_get_int("st_max_user")`. A transient NVRAM/backend/close failure could be read as zero, silently clamp both daemons to one connection, and publish an unintended service configuration.
