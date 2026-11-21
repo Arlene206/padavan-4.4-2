@@ -1,3 +1,13 @@
+## 2026-11-21 — Remove stale 6rd status from WAN bound callback
+
+- Parent main SHA: `3f5b12d138085b21c4919e3f5596a4bfa668ca4c`.
+- The XY-C1 cross-build for `943b2a3` reached `net_wan.c` and failed at line 6546 because an obsolete `ip6rd_status` accumulator remained after the callback was restored to the all-or-nothing `snapshot_status` path. The variable was no longer declared or assigned.
+- Removed the one stale accumulator line. The 6rd writer failure still enters the guarded reverse-tuple rollback path; the callback result continues to use the existing snapshot/route failure statuses.
+- The prior exact-head WAN callback static test passed, but Build had failed before TRX/artifact; reruns on the corrected SHA are pending.
+- Next: verify GNU89 compile and Build/TRX/artifact on one SHA.
+
+---
+
 ## 2026-11-21 — Correct the conditional-restore read-error fixture
 
 - Parent main SHA: `114a7711d29303b7b860ab31bdf4910dfd826a7b`.

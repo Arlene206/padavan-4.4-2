@@ -6580,7 +6580,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	}
 
 	callback_status = route_status_accumulate(route_setup_status, mtu_status);
-	callback_status = route_status_accumulate(callback_status, ip6rd_status);
 	publish_status = wan_nvram_int_temp_status(
 		strcat_r(prefix, "mtu_err", tmp), mtu_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
