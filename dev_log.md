@@ -1,3 +1,13 @@
+## 2026-11-21 — Complete shared daemon-wait CI migration and dependency filters
+
+- Parent main SHA: `1f0ad9ebc63406564ba78bc74e36e2eee6b542a7`.
+- The shared-wait extraction left stale consumers: `check_storage_safe_remove.py` still expected UNKNOWN handling in the FTP-only policy header; `check_process_lifecycle_integration.py` expected the logger's old ambient-`errno` fallback; and the vsftpd checker still looked up removed FTP-specific callbacks/policy functions.
+- Updated storage and process checker assertions to inspect `service_daemon_wait_policy.h` and the explicit `process_error` path. Updated the vsftpd source-contract test to validate the shared callbacks and generic wait policy without relaxing FTP rollback checks.
+- Added the common header to push/PR filters for Process lifecycle and vsftpd, and the XY-C1 push filter; added path-contract assertions so a header-only change triggers every dependent suite.
+- These are CI-contract/filter corrections, not a claim that the MiniDLNA/Firefly target build has passed. Exact-SHA Actions will be inspected after publication.
+
+---
+
 ## 2026-11-21 — Keep HTTPD/Samba security workflow aligned with generic FTP readiness callbacks
 
 - Parent main SHA: `d83cb745c4a0f9b502cc5a4d8c13e3e2cfac98da`; HTTPD Authentication and Security run #44880376165 failed in the Samba/FTP trust-boundary source checker with `ValueError: substring not found`.

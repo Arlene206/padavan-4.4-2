@@ -110,8 +110,7 @@ optware_policy_test = read("trunk/user/rc/src/tests/storage_optware_start_policy
 policy = read("trunk/user/rc/src/storage_service_stop_policy.h")
 ftp_policy = read("trunk/user/rc/src/ftp_daemon_policy.h")
 ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
-ftp_policy = read("trunk/user/rc/src/ftp_daemon_policy.h")
-ftp_test = read("trunk/user/rc/src/tests/ftp_daemon_policy.c")
+daemon_wait_policy = read("trunk/user/rc/src/service_daemon_wait_policy.h")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
@@ -530,8 +529,9 @@ require("stop_status = stop_daemon();" in rollback and
         "storage_service_failed_start_may_leave_daemon(presence)" in rollback and
         "errno = start_errno > 0 ? start_errno : EIO;" in rollback,
         "failed fresh-start rollback must stop, re-inventory and preserve the original error")
-require("PROCESS_PRESENCE_UNKNOWN" in ftp_policy and "return -1;" in ftp_policy and "EIO" in ftp_policy,
-        "FTP daemon wait must fail immediately on unknown process state")
+require("PROCESS_PRESENCE_UNKNOWN" in daemon_wait_policy and
+        "return -1;" in daemon_wait_policy and "EIO" in daemon_wait_policy,
+        "generic detached-daemon wait must fail immediately on unknown process state")
 require("PROCESS_PRESENCE_UNKNOWN" in ftp_test and "EACCES" in ftp_test,
         "FTP wait regression must cover process-inventory failures")
 
@@ -620,9 +620,9 @@ require(storage_start.count("rc_first_service_start_status(") == 8 and
         storage_start.index("return start_status;"),
         "all seven storage service statuses and firewall refresh result must be aggregated")
 
-require("PROCESS_PRESENCE_UNKNOWN" in ftp_policy and
-        "return -1;" in ftp_policy and "EIO" in ftp_policy,
-        "FTP daemon wait must fail immediately on unknown process state")
+require("PROCESS_PRESENCE_UNKNOWN" in daemon_wait_policy and
+        "return -1;" in daemon_wait_policy and "EIO" in daemon_wait_policy,
+        "generic detached-daemon wait must fail immediately on unknown process state")
 require("PROCESS_PRESENCE_UNKNOWN" in ftp_test and "EACCES" in ftp_test,
         "FTP wait regression must cover process-inventory failures")
 
@@ -844,6 +844,7 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/rc/src/tests/storage_swap_policy.c",
              "scripts/check_storage_safe_remove.py",
              "trunk/user/rc/src/optional_daemon_policy.h",
+             "trunk/user/rc/src/service_daemon_wait_policy.h",
              "trunk/user/shared/src/process_inventory.h"):
     require('"' + path + '"' in push_filters, "storage push filter missing " + path)
     require('"' + path + '"' in pull_filters, "storage pull_request filter missing " + path)
@@ -857,7 +858,8 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/rc/src/tests/storage_hotplug_name_policy.c",
              "trunk/user/rc/src/storage_service_stop_policy.h",
              "trunk/user/rc/src/storage_optware_start_policy.h",
-             "trunk/user/rc/src/optional_daemon_policy.h"):
+             "trunk/user/rc/src/optional_daemon_policy.h",
+             "trunk/user/rc/src/service_daemon_wait_policy.h"):
     require('"' + path + '"' in xy_workflow, "XY-C1 target build does not watch " + path)
 
 

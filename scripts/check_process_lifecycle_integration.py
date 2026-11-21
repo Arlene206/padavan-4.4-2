@@ -197,7 +197,7 @@ assert "#if defined (APP_MINIDLNA) || defined (APP_FIREFLY) || defined (APP_TRMD
 assert "PROCESS_PRESENCE_RUNNING" in start_result
 assert "PROCESS_PRESENCE_ABSENT" in start_result
 assert "cannot verify daemon startup (scan error=%d)" in start_result
-assert "errno ? errno : EIO" in start_result
+assert "process_error > 0 ? process_error : EIO" in start_result
 assert '"trunk/user/rc/src/services_stor.c"' in process_workflow
 assert '"trunk/user/rc/src/services_stor.c"' in xy_workflow
 assert '#include "firefly_config_file.h"' in storage_services
@@ -3259,6 +3259,7 @@ print("crond duplicate-start preflight preserves RUNNING no-op and UNKNOWN fail-
 # includes shared process_inventory.h. Changes to either header must trigger
 # this umbrella suite, and both compiler commands must resolve the shared API.
 assert process_workflow.count('"trunk/user/rc/src/optional_daemon_policy.h"') == 2
+assert process_workflow.count('"trunk/user/rc/src/service_daemon_wait_policy.h"') == 2
 assert process_workflow.count('"trunk/user/shared/src/process_inventory.h"') == 2
 process_service_build = process_workflow.split(
     "      - name: Compile and run RC boot service status aggregation regression", 1
@@ -3269,6 +3270,7 @@ xy_service_build = xy_workflow.split(
 )[1].split("\n      - name:", 1)[0]
 assert "-I trunk/user/shared/src -I trunk/user/rc/src" in xy_service_build
 assert '"trunk/user/rc/src/optional_daemon_policy.h"' in xy_workflow
+assert '"trunk/user/rc/src/service_daemon_wait_policy.h"' in xy_workflow
 assert '"trunk/user/shared/src/process_inventory.h"' in xy_workflow
 print("crond shared-header compiler and Process/XY-C1 path dependencies: PASS")
 
@@ -3313,6 +3315,8 @@ assert set(push_paths) == set(pull_request_paths), (
 assert ".github/workflows/process-lifecycle-regression.yml" in push_paths
 assert "scripts/check_process_lifecycle_integration.py" in push_paths
 assert "trunk/user/shared/src/process_inventory.c" in push_paths
+assert "trunk/user/rc/src/service_daemon_wait_policy.h" in push_paths
+assert "trunk/user/rc/src/service_daemon_wait_policy.h" in pull_request_paths
 
 # WAN ifname originates in NVRAM (get_man_ifname); never interpolate it into
 # a sysfs path until a single bounded interface component has been validated.

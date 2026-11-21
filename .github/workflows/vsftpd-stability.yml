@@ -23,6 +23,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
   pull_request:
@@ -47,6 +48,7 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
 
@@ -172,8 +174,8 @@ jobs:
           stable_wait = function_body(
               service_wait_policy, "service_daemon_wait_for_stable_presence(")
           assert "presence == PROCESS_PRESENCE_UNKNOWN" in stable_wait
-          running_fn = function_body(source, "ftp_daemon_is_running(")
-          sleep_fn = function_body(source, "ftp_daemon_sleep(")
+          running_fn = function_body(source, "storage_daemon_wait_is_running(")
+          sleep_fn = function_body(source, "storage_daemon_wait_sleep_us(")
           assert "return storage_daemon_presence(daemon, NULL);" in running_fn
           assert "return service_wait_microseconds(microseconds);" in sleep_fn
           assert "int (*sleep_us)(void *context, unsigned int microseconds);" in service_wait_policy
@@ -487,12 +489,12 @@ jobs:
           assert "return renameat(source_dir_fd, source_leaf" in acl_path_policy
           assert '"../shareB/file"' in acl_path_test
           assert "symlinked parent was not canonicalized" in acl_path_test
-          policy_fn = function_body(daemon_policy, "ftp_daemon_wait_for_stable_presence(")
+          policy_fn = function_body(service_wait_policy, "service_daemon_wait_for_stable_presence(")
           assert "ops->is_running(context, daemon)" in policy_fn
           assert "ops->sleep_us(context, 500000U)" in policy_fn
           assert "ops->sleep_us(context, 100000U)" in policy_fn
           assert "errno = ETIMEDOUT" in policy_fn
-          assert "ftp_daemon_wait_for_stable_presence" in daemon_test
+          assert "service_daemon_wait_for_stable_presence" in daemon_test
 
           open_fn = function_body(helper, "ftp_config_file_open(")
           publish_fn = function_body(helper, "ftp_config_file_publish(")
@@ -568,6 +570,7 @@ jobs:
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/ftp_daemon_policy.h",
+              "trunk/user/rc/src/service_daemon_wait_policy.h",
               "trunk/user/rc/src/tests/ftp_daemon_policy.c",
               "trunk/user/shared/src/process_inventory.h",
               "trunk/user/vsftpd/src/asus_ext.c",
