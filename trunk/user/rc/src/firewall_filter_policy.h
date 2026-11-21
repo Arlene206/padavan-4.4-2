@@ -146,6 +146,13 @@ firewall_vts_entry_count_is_safe(int count)
 	return count >= 0 && count <= 64;
 }
 
+/* The Lightweight Filter UI also caps the stored rules at 64 entries. */
+static int
+firewall_lw_entry_count_is_safe(int count)
+{
+	return count >= 0 && count <= 64;
+}
+
 static int
 firewall_port_span_is_safe(const char *start, const char *end,
                            unsigned int *number)

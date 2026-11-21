@@ -25,23 +25,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4/IPv6 filter listener preflight, UDPXY 1024..65535 bounds and VTS count snapshot limit (0..64) are implemented in current main ancestry.
-- The current VTS protocol-read hardening uses `nvram_get_checked()` and skips a single mapping on backend/API/close failure. Review of parent `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3` found a behavior regression in its normalizer: it returned `tcpudp` although the emitters require `both`, and omitted the `OTHER` token, which consequently fell back to TCP. The corrected protocol classifier preserves all legacy tokens (`tcp`, `udp`, `both`, `other`) while retaining checked-read fail-closed behavior; unit cases now pin each mode and default.
-- The same parent Firewall Startup run failed at Python stdin line 405 with `AssertionError: VTS filter`. The workflow's brace-extracted `body()` deliberately excludes the function signature; its `int num_entries` assertion therefore looked in the wrong text. The source contract now checks each full signature in the source and the bounded loop in each body. No production behavior change is attached to this checker correction.
-- The exact-head Firewall Startup run on `79cfb79099f40e3b67b6c23a520c623c422c2d16` and its child `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3` both failed at this same VTS count assertion before later tests ran. The b60 protocol classifier and the corrected source/test contract now require a fresh exact-head run.
+- IPv4/IPv6 filter listener preflight, UDPXY 1024..65535 range validation and VTS count/protocol safety are implemented in current main ancestry.
+- A new LWF audit found two real policy defects: the rule count used unchecked `foreach_x("filter_lw_num_x")` despite the UI's hard cap of 64, and `nvram_match("filter_lw_default_x", "DROP")` collapsed backend/close errors into false. That could silently switch a configured whitelist (`DROP`) to blacklist behavior, removing the whitelist's terminal drop.
+- This slice snapshots the exact `DROP` mode and bounded rule count through checked NVRAM reads before filter rule staging; missing mode retains the legacy false/blacklist default, while backend errors abort the restore transaction before publication. The rule builder consumes only the cached mode/count.
+- Exact-head validation of the preceding VTS slice on `fc208c6baf1956855799c3d3320b5d88ae440d7a`: Firewall Startup #44951481093 PASS; HTTPD #44951481068 PASS; HTTPD lifecycle #44951481171 PASS; FULLCONENAT #44951481035 PASS; WAN DHCP #44951481067 PASS; WAN route #44951481066 PASS; Process lifecycle #44951481091 PASS; Process inventory fail-closed #44951481191 PASS; AI docs #44951481072 PASS. NVRAM #44951481074 and XY-C1 #44951481069 were IN_PROGRESS; Build XY-C1 was running and TRX/artifact pending.
 
 ## Verification boundary
 
-- Parent `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3`: Firewall Startup #44951308314 FAIL at source-contract line 405 (`AssertionError: VTS filter`), identical to parent `79cf...`; HTTPD security #44951308243, HTTPD lifecycle #44951308276, FULLCONENAT #44951308225, WAN route #44951308283, WAN DHCP #44951308315, Process #44951308244 and AI docs #44951308326 were IN_PROGRESS at last poll; NVRAM #44951308249 was QUEUED; XY-C1 #44951308274 was IN_PROGRESS.
-- Parent `79cfb79099f40e3b67b6c23a520c623c422c2d16`: Firewall Startup #44951249909 failed at the same assertion; HTTPD #44951249893, FULLCONENAT #44951249935, WAN route #44951249881, WAN DHCP #44951249917, AI docs #44951249876 and Process #44951249977 PASS; NVRAM #44951250016 was cancelled by the later push; XY-C1 #44951249880 remained IN_PROGRESS at last poll.
-- Product-source SHA `aea6b95138171a165edec978680d6fb14913a640`: Firewall Startup #44950937394, HTTPD #44950937384, FULLCONENAT #44950937401, WAN route #44950937440, WAN DHCP #44950937407, AI docs #44950937391, Process #44950937421 and NVRAM #44950937375 PASS; XY-C1 #44950937424 was still IN_PROGRESS at last poll.
-- No local C tests or firmware builds are claimed. The new exact-head Firewall Startup run must pass its GNU89/Werror/ASan/UBSan NVRAM test step plus source-contract checks. No L3 claim until Build XY-C1, TRX verification and artifact upload all PASS on one source SHA; hardware L4 remains NOT VERIFIED.
+- Parent product SHA `fc208c6baf1956855799c3d3320b5d88ae440d7a`: Firewall Startup #44951481093 PASS (GNU89/Werror/ASan/UBSan tests and source contracts); HTTPD auth #44951481068 PASS; HTTPD lifecycle #44951481171 PASS; FULLCONENAT #44951481035 PASS; WAN DHCP #44951481067 PASS; WAN route #44951481066 PASS; Process lifecycle #44951481091 PASS; Process inventory fail-closed #44951481191 PASS; AI docs #44951481072 PASS. NVRAM #44951481074 and XY-C1 #44951481069 were still running at last query. XY-C1 Build was IN_PROGRESS; TRX verification and artifact upload pending.
+- VTS count parents `79cfb79099f40e3b67b6c23a520c623c422c2d16` and `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3` failed Firewall Startup only at the signature/body contract. This was corrected in `fc208c6...`; the descendant exact-head check passes.
+- No local C tests or firmware build were run. No L3 claim without Build XY-C1, TRX verification and artifact upload PASS on one SHA; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and query exact-head Firewall Startup, XY-C1, NVRAM, HTTPD, Process, WAN, FULLCONENAT and AI Actions for the protocol-normalization/checker correction. Inspect the first causal log on any failure.
-2. Confirm the classifier regression preserves TCP, UDP, BOTH and OTHER semantics while a failed checked NVRAM read still skips only the affected VTS mapping.
-3. Continue the firewall input audit after exact-head validation. Preserve the 64-entry bound and valid port/IP/protocol mappings.
+1. Fetch live `main` and exact-head Actions for the LWF mode/count fix. Require Firewall Startup and NVRAM checks to pass; inspect the earliest failure log if not.
+2. Re-query XY-C1 #44951481069 and NVRAM #44951481074 for parent `fc208c6...` only as historical evidence.
+3. Continue reviewing LWF raw values (protocol flags, ICMP list and schedule) after the checked mode/count slice validates. Preserve absent-key defaults and never change whitelist/blacklist semantics.
 
 ## Workflow and preservation rules
 

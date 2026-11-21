@@ -150,6 +150,21 @@ test_vts_protocol_name_preserves_legacy_modes(void)
     assert(strcmp(firewall_vts_protocol_name("invalid"), "tcp") == 0);
     assert(firewall_vts_protocol_name(NULL) == NULL);
 }
+static void
+test_lightweight_filter_drop_mode_match_uses_legacy_defaults(void)
+{
+	int matches = 23;
+
+	assert(firewall_nvram_match_status(1, 0, "DROP", "DROP", 0, &matches) == 0);
+	assert(matches == 1);
+	assert(firewall_nvram_match_status(1, 0, "ACCEPT", "DROP", 0, &matches) == 0);
+	assert(matches == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "DROP", 0, &matches) == 0);
+	assert(matches == 0);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "DROP", 0, &matches) == EIO);
+	assert(matches == 23);
+}
+
 int
 main(void)
 {
@@ -164,5 +179,6 @@ main(void)
 	test_integer_errors_are_fail_closed_and_preserve_output();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
+	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
 	return 0;
 }

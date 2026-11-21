@@ -607,6 +607,21 @@ jobs:
           assert "test_nvram_read_status_distinguishes_missing_and_backend_error" in firewall_nvram_test
           assert "test_vts_protocol_name_preserves_legacy_modes" in firewall_nvram_test
           assert "api_result < 0" in firewall_nvram_policy
+          assert "test_lightweight_filter_drop_mode_match_uses_legacy_defaults" in firewall_nvram_test
+          assert "firewall_lw_entry_count_is_safe(64)" in filter_test
+          assert "firewall_lw_entry_count_is_safe(65)" in filter_test
+          lw_filter_builder = body(firewall_source, "include_lw_filter(FILE *fp")
+          assert "include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop," in firewall_source
+          assert "int num_entries, int lw_need_drop" in firewall_source
+          assert "for (i = 0; i < num_entries; ++i)" in lw_filter_builder
+          assert 'foreach_x("filter_lw_num_x")' not in lw_filter_builder
+          assert 'nvram_match("filter_lw_default_x", "DROP")' not in lw_filter_builder
+          lw_mode_gate = 'firewall_read_match_setting("filter_lw_default_x", "DROP", 0,'
+          lw_count_gate = "firewall_read_lw_entry_count(&i_lw_count)"
+          assert lw_mode_gate in ipv4_filter and lw_count_gate in ipv4_filter
+          assert ipv4_filter.index(lw_mode_gate) < ipv4_filter.index("firewall_open_rule_file(")
+          assert ipv4_filter.index(lw_count_gate) < ipv4_filter.index("firewall_open_rule_file(")
+          assert "include_lw_filter(fp, wan_if, logaccept, logdrop," in ipv4_filter
           for signature, checked in (
               ("ipt_filter_rules(char *man_if", (
                   'firewall_read_enabled_setting("url_enable_x", &is_url_enabled)',

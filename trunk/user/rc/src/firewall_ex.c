@@ -348,6 +348,33 @@ firewall_read_enabled_setting(const char *param_name, int *enabled)
 	return status;
 }
 
+static int
+firewall_read_match_setting(const char *param_name, const char *expected,
+			    int missing_match, int *matches)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !expected || !matches) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = firewall_nvram_match_status(api_result, saved_errno,
+					     value, expected, missing_match, matches);
+	if (status != 0) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "cannot read firewall setting '%s'; refusing ruleset publication (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
 
 static int
 firewall_read_not_zero_setting(const char *param_name, int *enabled)
@@ -418,6 +445,31 @@ firewall_read_vts_entry_count(int *entry_count)
 		firewall_abort_core_restore_after_staging_failure();
 		logmessage(LOGNAME,
 			   "invalid virtual-server entry count %d; refusing firewall ruleset publication",
+			   *entry_count);
+		errno = ERANGE;
+		return ERANGE;
+	}
+
+	return 0;
+}
+
+static int
+firewall_read_lw_entry_count(int *entry_count)
+{
+	int status;
+
+	if (!entry_count) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	status = firewall_read_integer_setting("filter_lw_num_x", 0, entry_count);
+	if (status != 0)
+		return status;
+	if (!firewall_lw_entry_count_is_safe(*entry_count)) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "invalid lightweight-filter entry count %d; refusing firewall ruleset publication",
 			   *entry_count);
 		errno = ERANGE;
 		return ERANGE;
@@ -1188,24 +1240,22 @@ include_webstr_filter(FILE *fp)
 }
 
 static int
-include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop)
+include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
+			int num_entries, int lw_need_drop)
 {
-	int i, lw_need_drop, lw_items;
+	int i, lw_items;
 	char icmp_ptr[64], *icmplist, *filterstr, *ftype;
 	char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
 	const char *dtype = IPT_CHAIN_NAME_LWF_LIST;
 
-	if (nvram_match("filter_lw_default_x", "DROP")) {
+	if (lw_need_drop)
 		ftype = logaccept;
-		lw_need_drop = 1;
-	} else {
+	else
 		ftype = logdrop;
-		lw_need_drop = 0;
-	}
 
 	lw_items = 0;
 
-	foreach_x("filter_lw_num_x") {
+	for (i = 0; i < num_entries; ++i) {
 		g_buf_init();
 		
 		proto = protoflag_conv("filter_lw_proto_x", i, 0);
@@ -1488,6 +1538,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
+	int is_lw_need_drop = 0, i_lw_count = 0;
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
 	int is_sshd_enabled = 1, is_ftp_enabled = 1;
@@ -1564,6 +1615,15 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_enabled_setting("fw_lw_enable_x", &is_lwf_enabled);
 	if (ret != 0)
 		return ret;
+	if (is_lwf_enabled) {
+		ret = firewall_read_match_setting("filter_lw_default_x", "DROP", 0,
+						  &is_lw_need_drop);
+		if (ret != 0)
+			return ret;
+		ret = firewall_read_lw_entry_count(&i_lw_count);
+		if (ret != 0)
+			return ret;
+	}
 	is_url_inverse = 0;
 	if (is_url_enabled) {
 		ret = firewall_read_enabled_setting("url_inv_x", &is_url_inverse);
@@ -2067,7 +2127,8 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	/* FILTER from LAN to WAN */
 	if (is_lwf_enabled &&
 	    timematch_conv(timematch, "filter_lw_date_x", "filter_lw_time_x") &&
-	    include_lw_filter(fp, wan_if, logaccept, logdrop) > 0) {
+	    include_lw_filter(fp, wan_if, logaccept, logdrop,
+			      i_lw_count, is_lw_need_drop) > 0) {
 		fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_LWF_LIST);
 	}
 

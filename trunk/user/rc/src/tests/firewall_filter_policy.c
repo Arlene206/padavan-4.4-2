@@ -121,6 +121,12 @@ main(void)
 	assert(!firewall_vts_entry_count_is_safe(-1));
 	assert(!firewall_vts_entry_count_is_safe(65));
 
+	/* Lightweight Filter entries are bounded by the WebUI's 64-entry cap. */
+	assert(firewall_lw_entry_count_is_safe(0));
+	assert(firewall_lw_entry_count_is_safe(64));
+	assert(!firewall_lw_entry_count_is_safe(-1));
+	assert(!firewall_lw_entry_count_is_safe(65));
+
 	assert(firewall_port_range_is_safe("80", 0));
 	assert(firewall_port_range_is_safe("1:65535", 0));
 	assert(firewall_port_range_is_safe("", 1));

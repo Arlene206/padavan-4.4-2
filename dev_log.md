@@ -1,3 +1,14 @@
+## 2026-11-21 — Snapshot Lightweight Filter mode and bounded rule count
+
+- Parent main SHA: `fc208c6baf1956855799c3d3320b5d88ae440d7a`.
+- The LWF UI caps `markGroupLWF(..., 64, " Add ")`, but `include_lw_filter()` used `foreach_x("filter_lw_num_x")`, which repeatedly evaluated an unchecked NVRAM count. More seriously, `nvram_match("filter_lw_default_x", "DROP")` collapsed backend/close failures into false, silently changing a configured whitelist (per-rule ACCEPT plus terminal DROP) into blacklist behavior and potentially removing the terminal drop.
+- Added `firewall_read_match_setting()` to retain exact-match/missing-key semantics while propagating NVRAM errors. Added checked `firewall_read_lw_entry_count()` and the policy predicate `firewall_lw_entry_count_is_safe()` (0..64).
+- `ipt_filter_rules()` snapshots the mode and count before opening its filter rules file. `include_lw_filter()` now receives cached values and uses a bounded loop; it no longer re-reads the default mode or count during rule generation.
+- Added filter-policy unit tests for counts 0,64,-1,65 and NVRAM status tests for exact DROP match, ACCEPT mismatch, missing-key blacklist default and backend-error output preservation. Added source-contract assertions for checked preflight before rule-file staging and for the bounded loop.
+- Parent exact-head SHA `fc208c6...`: Firewall Startup #44951481093 PASS; HTTPD #44951481068 PASS; HTTPD lifecycle #44951481171 PASS; FULLCONENAT #44951481035 PASS; WAN DHCP #44951481067 PASS; WAN route #44951481066 PASS; Process lifecycle #44951481091 PASS; Process inventory #44951481191 PASS; AI docs #44951481072 PASS. NVRAM #44951481074 and XY-C1 #44951481069 remained IN_PROGRESS; Build XY-C1 was running. No local tests/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Restore VTS protocol mapping semantics and correct count contract
 
 - Parent main SHA: `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3`.
