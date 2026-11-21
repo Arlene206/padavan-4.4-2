@@ -1,3 +1,13 @@
+## 2026-11-22 — Correct server callback checker function locators
+
+- Parent main SHA: `bdb0ecf22351f910d1185bf2434a27417e5ecf99`.
+- The client callback source-contract locator fix was committed in bdb0ecf, but inspection found the new server callback assertions in `scripts/check_vpn_server_lifecycle.py` also used double-escaped newlines in `body()` function signatures.
+- Corrected those locators to actual Python newline escapes before the assertions execute. The production callback change and assertions are unchanged.
+- Exact-head VPN lifecycle #44938509538 on bdb0ecf and AI docs #44938509917 were in progress at the last poll. Earlier 040b/88b VPN failures were confined to the client checker locator; compiled policy steps passed. Exact-head rerun is required for both source-contract layers.
+- `dev_log.md` now reaches 119 root entries; archive the oldest 100 before appending another record. XY-C1 L3 and hardware L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Correct escaped function locators in OpenVPN callback contract
 
 - Parent main SHA: `88b8124bfa1363b8f6f066e66b4e2c6db80e26f6`.
