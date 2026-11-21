@@ -1,3 +1,12 @@
+## 2026-11-21 — Check WAN gateway/address/netmask reads during teardown
+
+- Parent main SHA: 7f3a752aec75f9b59984bd83cb40d8cbf0cbc5af.
+- `wan_down_internal()` previously used `get_wan_unit_value()` (backed by `nvram_safe_get()`) for the WAN gateway, address and netmask. A transient backend failure was indistinguishable from an empty value: teardown could skip default-route removal and conntrack cleanup without reporting it, or guess incorrectly whether to remove the off-subnet gateway /32 route.
+- Replaced those reads with bounded `get_wan_unit_value_copy_status()` calls. The address is read once and reused for conntrack and the post-WAN hook; gateway/address/netmask read errors enter the first-error accumulator and are logged. Default-route removal proceeds when the checked gateway is valid; host-/32 removal requires all relevant reads to succeed and the original off-subnet condition; conntrack flush runs only for a successfully read valid IPv4 address, otherwise the hook receives the legacy `0.0.0.0` sentinel.
+- Added GNU89 policy coverage proving host-route removal is denied on gateway/address/netmask read errors, with source-contract assertions for checked copies and error propagation. Exact-head WAN route/teardown and XY-C1 Build/TRX/artifact checks pending; L3/L4 not claimed.
+
+---
+
 ## 2026-11-21 — Preserve checked service-enable errors through boot
 
 - Parent main SHA: 38bc699b31a449f9708daf57e114de02560f17cc.

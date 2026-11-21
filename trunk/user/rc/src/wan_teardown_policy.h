@@ -29,6 +29,24 @@ wan_teardown_should_clear_dns_snapshot(int force_clear, int read_status,
 	return 0;
 }
 
+/*
+ * A WAN gateway /32 route is removed only when the checked gateway, address
+ * and netmask snapshot is complete. On a read error, keep the host route
+ * rather than guessing whether it is an off-subnet route installed by WAN-up.
+ */
+static inline int
+wan_teardown_gateway_host_route_required(int gateway_read_status,
+					 int address_read_status,
+					 int netmask_read_status,
+					 int gateway_valid,
+					 int ppp_index,
+					 int gateway_off_subnet)
+{
+	return gateway_read_status == 0 && address_read_status == 0 &&
+		netmask_read_status == 0 && gateway_valid &&
+		ppp_index < 0 && gateway_off_subnet;
+}
+
 struct wan_teardown_interface_ops {
 	int (*ifdown)(void *context, const char *ifname);
 };

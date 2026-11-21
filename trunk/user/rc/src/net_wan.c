@@ -4708,7 +4708,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		{ "uptime", "0" }, { "dltime", "0" },
 		{ "bytes_rx", "0" }, { "bytes_tx", "0" }
 	};
-	char *wan_addr, *wan_gate, *wan_route_addr, *wan_mask;
+	char wan_addr[16], wan_gate[16], wan_mask[16];
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
 	int ppp_index, gateway_valid, gateway_off_subnet;
@@ -4716,6 +4716,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	int auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
 	int statistics_status;
+	int wan_addr_status, wan_gate_status, wan_mask_status;
 	int force_clear_wan_dns, wan_dns_read_status, clear_wan_dns;
 	char wanx_dns[256];
 #if defined (USE_IPV6)
@@ -4801,9 +4802,27 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		}
 	}
 
-	/* Remove the default route and the matching off-subnet gateway /32 route. */
-	wan_gate = get_wan_unit_value(unit, "gateway");
-	gateway_valid = is_valid_ipv4(wan_gate);
+	/*
+	 * Snapshot route inputs through the checked NVRAM API. A backend error must
+	 * be visible to WAN-down rather than looking like an empty gateway/address.
+	 */
+	wan_addr_status = get_wan_unit_value_copy_status(
+		unit, "ipaddr", wan_addr, sizeof(wan_addr));
+	if (wan_addr_status != 0) {
+		status = route_status_accumulate(status, wan_addr_status);
+		logmessage(LOGNAME,
+			   "cannot read WAN IPv4 address snapshot during teardown on %s (status=%d)",
+			   wan_ifname, wan_addr_status);
+	}
+	wan_gate_status = get_wan_unit_value_copy_status(
+		unit, "gateway", wan_gate, sizeof(wan_gate));
+	if (wan_gate_status != 0) {
+		status = route_status_accumulate(status, wan_gate_status);
+		logmessage(LOGNAME,
+			   "cannot read WAN gateway snapshot during teardown on %s (status=%d)",
+			   wan_ifname, wan_gate_status);
+	}
+	gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);
 	if (gateway_valid) {
 		route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
 		if (!dhcp_lease_route_delete_is_ok(route_status)) {
@@ -4812,12 +4831,24 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 				   wan_gate, wan_ifname, route_status);
 		}
 
-		wan_route_addr = get_wan_unit_value(unit, "ipaddr");
-		wan_mask = get_wan_unit_value(unit, "netmask");
 		ppp_index = ppp_ifindex(wan_ifname);
-		gateway_off_subnet = ppp_index < 0 &&
-			!is_same_subnet(wan_gate, wan_route_addr, wan_mask);
-		if (route_status_wan_gateway_host_route_required(
+		wan_mask_status = 0;
+		gateway_off_subnet = 0;
+		if (ppp_index < 0 && wan_addr_status == 0) {
+			wan_mask_status = get_wan_unit_value_copy_status(
+				unit, "netmask", wan_mask, sizeof(wan_mask));
+			if (wan_mask_status != 0) {
+				status = route_status_accumulate(status, wan_mask_status);
+				logmessage(LOGNAME,
+					   "cannot read WAN netmask snapshot during teardown on %s (status=%d)",
+					   wan_ifname, wan_mask_status);
+			} else {
+				gateway_off_subnet =
+					!is_same_subnet(wan_gate, wan_addr, wan_mask);
+			}
+		}
+		if (wan_teardown_gateway_host_route_required(
+			    wan_gate_status, wan_addr_status, wan_mask_status,
 			    gateway_valid, ppp_index, gateway_off_subnet)) {
 			route_status = route_del(wan_ifname, 1, wan_gate, NULL,
 						 "255.255.255.255");
@@ -4884,16 +4915,15 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		}
 	}
 
-	/* flush conntrack table (only old WAN IP records) */
-	wan_addr = get_wan_unit_value(unit, "ipaddr");
-	if (is_valid_ipv4(wan_addr)) {
+	/* Flush conntrack only when the checked previous WAN address is valid. */
+	if (wan_addr_status == 0 && is_valid_ipv4(wan_addr)) {
 		route_status = flush_conntrack_table(wan_addr);
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
 			logmessage(LOGNAME, "WAN conntrack cleanup failed on %s (status=%d)",
 				   wan_ifname, route_status);
 	} else
-		wan_addr = "0.0.0.0";
+		snprintf(wan_addr, sizeof(wan_addr), "0.0.0.0");
 
 	control_wan_led_isp_state(0, 0);
 

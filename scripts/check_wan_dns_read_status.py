@@ -564,3 +564,56 @@ for case in (
 ):
     require(case in test, "exact NVRAM match regression missing " + case)
 print("WAN PPPoE-MWAN event gates preserve checked exact-string NVRAM status: PASS")
+
+
+# WAN-down route and conntrack cleanup must use checked, bounded copies of
+# the last WAN gateway/address/netmask. Missing keys remain empty; backend
+# errors are reported, and /32 removal is gated on a complete snapshot.
+wan_down = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+wan_down_compact = "".join(wan_down.split())
+for key, destination in (
+    ("ipaddr", "wan_addr"),
+    ("gateway", "wan_gate"),
+    ("netmask", "wan_mask"),
+):
+    require(
+        f'get_wan_unit_value_copy_status(unit,"{key}",{destination},sizeof({destination}))'
+        in wan_down_compact,
+        "WAN teardown must use a checked " + key + " copy",
+    )
+    assert f'get_wan_unit_value(unit, "{key}")' not in wan_down
+for status_var, label in (
+    ("wan_addr_status", "WAN IPv4 address"),
+    ("wan_gate_status", "WAN gateway"),
+    ("wan_mask_status", "WAN netmask"),
+):
+    require(
+        f"if({status_var}!=0)" in wan_down_compact
+        and f"status=route_status_accumulate(status,{status_var});" in wan_down_compact
+        and f"cannot read {label} snapshot during teardown" in wan_down,
+        "WAN teardown must report " + label + " read failure",
+    )
+gateway_policy = body(
+    (ROOT / "trunk/user/rc/src/wan_teardown_policy.h").read_text(),
+    "wan_teardown_gateway_host_route_required(int gateway_read_status",
+)
+for token in (
+    "gateway_read_status == 0",
+    "address_read_status == 0",
+    "netmask_read_status == 0",
+    "gateway_valid",
+    "ppp_index < 0",
+    "gateway_off_subnet",
+):
+    require(token in gateway_policy, "WAN host-route read gate missing " + token)
+require(
+    "wan_teardown_gateway_host_route_required(" in wan_down
+    and "if(wan_addr_status==0&&is_valid_ipv4(wan_addr))" in wan_down_compact
+    and 'snprintf(wan_addr,sizeof(wan_addr),"0.0.0.0")' in wan_down_compact,
+    "WAN host-route and conntrack cleanup must use the checked previous-WAN snapshot",
+)
+require(
+    "test_gateway_host_route_requires_a_complete_checked_snapshot" in teardown_test,
+    "WAN gateway host-route checked-read regression is missing",
+)
+print("WAN teardown route and conntrack snapshots preserve checked NVRAM read failures: PASS")
