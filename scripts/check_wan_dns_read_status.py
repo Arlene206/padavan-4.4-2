@@ -226,12 +226,16 @@ require(demand_match is not None,
         "PPPoE demand publication must follow the checked idle-time read")
 idle_end = idle_position + demand_match.start()
 idle_failure = wan_start[idle_position:idle_end]
+restore_start = idle_failure.find("restore_wan_after_firewall_failure(")
+restore_end = idle_failure.find(")", restore_start) if restore_start >= 0 else -1
+restore_call = (
+    "".join(idle_failure[restore_start:restore_end + 1].split())
+    if restore_end >= 0 else ""
+)
+continue_position = idle_failure.find("continue;")
 require("if (nvram_status != 0)" in idle_failure and
-        re.search(
-            r"restore_wan_after_firewall_failure\s*\(\s*unit,\s*wan_ifname\s*\)",
-            idle_failure,
-        ) is not None and
-        "continue;" in idle_failure,
+        restore_call == "restore_wan_after_firewall_failure(unit,wan_ifname)" and
+        continue_position > restore_start >= 0,
         "PPPoE idle-time read failure must restore WAN before demand publication")
 assert 'get_wan_unit_value_int(unit, "pppoe_idletime")' not in wan_start
 print("PPPoE manual-mode and demand NVRAM errors abort WAN activation: PASS")

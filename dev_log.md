@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize PPPoE rollback call arguments in source checker
+
+- Parent main SHA: `7f5221f1fc861e1b9191ddec2ba5aca106741bc8`.
+- Exact-head WAN route run `#44892863922` reached the idle-time rollback assertion but rejected the source call because the regex was emitted with doubled backslashes. The C branch uses the expected restore helper and arguments; this checker-only issue does not imply missing rollback.
+- Replaced the regex with a whitespace-insensitive extraction of the call expression, then compare its compact form to the exact helper, unit and interface arguments and require the subsequent `continue;`.
+- WAN DHCP and AI handoff checks passed on the same parent SHA.
+
+---
+
 ## 2026-11-21 — Correct WAN rollback regex escaping
 
 - Parent main SHA: `49cde0cd18521a94466b3bac2017d3edab346e88`.
