@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve IPTV VLAN settings across NVRAM cache reuse
+
+- Parent main SHA: `87807147e186061a8450680de567edc13311826a`.
+- `launch_viptv_wan()` retained pointers returned by `get_wan_unit_value()` / `nvram_safe_get()` across later reads. The shared `nvr_cache` buffer was overwritten between the old WAN VLAN and IPTV interface names, and between static IPTV address and netmask; the old code could remove the wrong VLAN or use the netmask as the static address. The WAN MAC pointer was also retained through VLAN setup.
+- Replaced these pointers with checked, bounded copies into local arrays. VLAN filtering, VID, priority and IPTV address mode now use checked reads and fail before any VLAN removal/creation if configuration cannot be read. Static address/netmask/gateway and WAN MAC are separately copied; missing gateway retains the previous empty/default behavior.
+- Added a fake backend with a single mutable cache slot and a regression proving the old/new VLAN names, address, mask, gateway and WAN MAC remain distinct after six sequential reads. Extended the WAN route source contract to require checked configuration reads and reject the legacy pointer pattern.
+
+---
+
 ## 2026-11-21 — Update HTTPD DHCP renew contract for checked-state retry flow
 
 - Parent main SHA: c14651353b1096db701f560729c0052d0275f560.

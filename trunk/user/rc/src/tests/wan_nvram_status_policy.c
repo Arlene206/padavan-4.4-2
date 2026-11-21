@@ -704,6 +704,76 @@ test_checked_nvram_copy_survives_shared_cache_overwrite(void)
 	assert(strcmp(lan_mask, "255.255.255.0") == 0);
 }
 
+struct fake_nvram_text_cache {
+	const char *names[6];
+	const char *values[6];
+	unsigned int calls;
+	char cache_slot[32];
+};
+
+
+static int
+fake_nvram_text_cache_get(void *opaque, const char *param_name,
+			  char **value)
+{
+	struct fake_nvram_text_cache *fake =
+		(struct fake_nvram_text_cache *)opaque;
+	unsigned int index = fake->calls++;
+
+	assert(index < 6);
+	assert(strcmp(param_name, fake->names[index]) == 0);
+	snprintf(fake->cache_slot, sizeof(fake->cache_slot), "%s",
+		 fake->values[index]);
+	*value = fake->cache_slot;
+	return 1;
+}
+
+
+static void
+test_viptv_settings_survive_shared_cache_overwrite(void)
+{
+	struct fake_nvram_text_cache fake;
+	char vinet_iflast[24], viptv_iflast[24];
+	char address[16], netmask[16], gateway[16], wan_hwaddr[24];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_viflast";
+	fake.names[1] = "viptv_ifname";
+	fake.names[2] = "viptv_ipaddr";
+	fake.names[3] = "viptv_netmask";
+	fake.names[4] = "viptv_gateway";
+	fake.names[5] = "wan_hwaddr";
+	fake.values[0] = "eth2.10";
+	fake.values[1] = "eth2.20";
+	fake.values[2] = "198.51.100.2";
+	fake.values[3] = "255.255.255.0";
+	fake.values[4] = "198.51.100.1";
+	fake.values[5] = "02:00:00:00:00:01";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[0], vinet_iflast,
+				       sizeof(vinet_iflast)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[1], viptv_iflast,
+				       sizeof(viptv_iflast)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[2], address, sizeof(address)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[3], netmask, sizeof(netmask)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[4], gateway, sizeof(gateway)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[5], wan_hwaddr, sizeof(wan_hwaddr)) == 0);
+	assert(fake.calls == 6);
+	assert(strcmp(vinet_iflast, "eth2.10") == 0);
+	assert(strcmp(viptv_iflast, "eth2.20") == 0);
+	assert(strcmp(address, "198.51.100.2") == 0);
+	assert(strcmp(netmask, "255.255.255.0") == 0);
+	assert(strcmp(gateway, "198.51.100.1") == 0);
+	assert(strcmp(wan_hwaddr, "02:00:00:00:00:01") == 0);
+}
+
+
 static void
 test_wan_interface_names_survive_shared_cache_overwrite(void)
 {
@@ -1247,6 +1317,7 @@ main(void)
 	test_all_value_sequence_validates_before_writing();
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
 	test_wan_interface_names_survive_shared_cache_overwrite();
+	test_viptv_settings_survive_shared_cache_overwrite();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_checked_nvram_copy_treats_missing_key_as_empty();
 	test_checked_nvram_copy_preserves_backend_failure();

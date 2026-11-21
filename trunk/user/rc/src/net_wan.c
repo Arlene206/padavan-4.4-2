@@ -2186,8 +2186,9 @@ launch_viptv_wan(void)
 	int is_vlan_filter, viptv_mode;
 	int vlan_flags, saved_errno, rollback_status;
 	char viptv_ifname[24], viptv_addr[16], viptv_mask[16], viptv_gate[16];
-	const char *viptv_iflast, *vinet_iflast, *wan_hwaddr;
-	const char *viptv_addr_setting, *viptv_mask_setting, *viptv_gate_setting;
+	char viptv_iflast[24], vinet_iflast[24], wan_hwaddr[24];
+	char viptv_addr_setting[16], viptv_mask_setting[16], viptv_gate_setting[16];
+	char vlan_filter[8];
 	struct soft_bridge_other_entry rollback_entry;
 	struct wan_viptv_ifname_publish_context ifname_context;
 	struct wan_viptv_old_vlan_context old_vlan_context;
@@ -2198,11 +2199,24 @@ launch_viptv_wan(void)
 	const char *ifname_wan_cpu = IFNAME_MAC2;
 #endif
 
-	is_vlan_filter = (nvram_match("vlan_filter", "1")) ? 1 : 0;
+	ret = rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL,
+				      "vlan_filter", vlan_filter,
+				      sizeof(vlan_filter));
+	if (ret != 0)
+		return ret;
+	is_vlan_filter = (strcmp(vlan_filter, "1") == 0);
 	if (is_vlan_filter) {
-		vlan_vid[0] = nvram_get_int("vlan_vid_cpu");
-		vlan_vid[1] = nvram_get_int("vlan_vid_iptv");
-		vlan_pri = nvram_get_int("vlan_pri_iptv") & 0x07;
+		ret = get_nvram_int_checked_status("vlan_vid_cpu", &vlan_vid[0]);
+		if (ret == 0)
+			ret = get_nvram_int_checked_status("vlan_vid_iptv", &vlan_vid[1]);
+		if (ret == 0)
+			ret = get_nvram_int_checked_status("vlan_pri_iptv", &vlan_pri);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read IPTV VLAN configuration (status=%d)", ret);
+			return ret;
+		}
+		vlan_pri &= 0x07;
 	} else {
 		vlan_vid[0] = 0;
 		vlan_vid[1] = 0;
@@ -2238,8 +2252,15 @@ launch_viptv_wan(void)
 		if (!is_vlan_vid_valid(configured_vid))
 			vlan_pri = 0;
 	}
-	vinet_iflast = get_wan_unit_value(0, "viflast");
-	viptv_iflast = nvram_safe_get("viptv_ifname");
+	ret = get_wan_unit_value_copy_status(0, "viflast",
+					   vinet_iflast, sizeof(vinet_iflast));
+	if (ret != 0)
+		return ret;
+	ret = rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL,
+				      "viptv_ifname", viptv_iflast,
+				      sizeof(viptv_iflast));
+	if (ret != 0)
+		return ret;
 
 	if (vlan_vid[1] == vlan_vid[0]) {
 		/* case1: CPU Internet tagged: n, CPU IPTV tagged: n */
@@ -2261,36 +2282,57 @@ launch_viptv_wan(void)
 	/* case3: CPU Internet tagged: y, CPU IPTV tagged: y (different VID) */
 	/* case4: CPU Internet tagged: n, CPU IPTV tagged: y (different VID) */
 	/* case5: CPU Internet tagged: y, CPU IPTV tagged: n */
-	viptv_mode = nvram_get_int("viptv_mode");
-	viptv_addr_setting = nvram_safe_get("viptv_ipaddr");
-	viptv_mask_setting = nvram_safe_get("viptv_netmask");
+	ret = get_nvram_int_checked_status("viptv_mode", &viptv_mode);
+	if (ret != 0) {
+		logmessage(LOGNAME, "cannot read IPTV address mode (status=%d)", ret);
+		return ret;
+	}
 	viptv_gate[0] = 0;
 	if (viptv_mode == 2) {
-		/* Snapshot NVRAM-backed strings before any temporary value is changed. */
+		/* Copy each cache-backed value before the next NVRAM lookup. */
+		ret = rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL,
+					      "viptv_ipaddr", viptv_addr_setting,
+					      sizeof(viptv_addr_setting));
+		if (ret == 0)
+			ret = rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,
+						      NULL, "viptv_netmask",
+						      viptv_mask_setting,
+						      sizeof(viptv_mask_setting));
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read static IPTV address/netmask (status=%d)", ret);
+			return ret;
+		}
 		if (!is_valid_ipv4(viptv_addr_setting) ||
-		    !is_valid_ipv4(viptv_mask_setting) ||
-		    strlen(viptv_addr_setting) >= sizeof(viptv_addr) ||
-		    strlen(viptv_mask_setting) >= sizeof(viptv_mask)) {
+		    !is_valid_ipv4(viptv_mask_setting)) {
 			logmessage(LOGNAME, "rejecting invalid static IPTV address or netmask");
 			return EINVAL;
 		}
 		strcpy(viptv_addr, viptv_addr_setting);
 		strcpy(viptv_mask, viptv_mask_setting);
 
-		viptv_gate_setting = nvram_safe_get("viptv_gateway");
-		if (is_valid_ipv4(viptv_gate_setting)) {
-			if (strlen(viptv_gate_setting) >= sizeof(viptv_gate)) {
-				logmessage(LOGNAME, "rejecting oversized static IPTV gateway");
-				return EINVAL;
-			}
-			strcpy(viptv_gate, viptv_gate_setting);
+		ret = rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL,
+					      "viptv_gateway", viptv_gate_setting,
+					      sizeof(viptv_gate_setting));
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read static IPTV gateway (status=%d)", ret);
+			return ret;
 		}
+		if (is_valid_ipv4(viptv_gate_setting))
+			strcpy(viptv_gate, viptv_gate_setting);
 	}
 
 	/* VLAN interface for IPTV */
 	snprintf(viptv_ifname, sizeof(viptv_ifname), "%s.%d", ifname_wan_cpu, vlan_vid[1]);
 
-	wan_hwaddr = nvram_safe_get("wan_hwaddr");
+	ret = rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL,
+				      "wan_hwaddr", wan_hwaddr,
+				      sizeof(wan_hwaddr));
+	if (ret != 0) {
+		logmessage(LOGNAME, "cannot read WAN MAC for IPTV VLAN (status=%d)", ret);
+		return ret;
+	}
 	memset(&rollback_entry, 0, sizeof(rollback_entry));
 	snprintf(rollback_entry.port_ifname, sizeof(rollback_entry.port_ifname),
 		 "%s", viptv_ifname);

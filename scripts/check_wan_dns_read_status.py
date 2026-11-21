@@ -402,6 +402,34 @@ assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ip4
 require("test_wan_interface_names_survive_shared_cache_overwrite" in test,
         "WAN interface-name cache overwrite regression missing")
 
+# IPTV VLAN config used to retain pointers into nvram_linux.c's reusable
+# cache; copy every value before the next NVRAM lookup.
+viptv = "".join(function_body_at_column_zero_terminator(
+    source, "launch_viptv_wan(void)"
+).split())
+require('rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"vlan_filter",vlan_filter,sizeof(vlan_filter))' in viptv,
+        "IPTV VLAN filter must use the checked value-copy helper")
+for key in ("vlan_vid_cpu", "vlan_vid_iptv", "vlan_pri_iptv", "viptv_mode"):
+    require(f'get_nvram_int_checked_status("{key}",' in viptv,
+            "IPTV VLAN configuration must use checked reads: " + key)
+require('get_wan_unit_value_copy_status(0,"viflast",vinet_iflast,sizeof(vinet_iflast))' in viptv and
+        'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"viptv_ifname",viptv_iflast,sizeof(viptv_iflast))' in viptv,
+        "IPTV VLAN must preserve both previous interface identities")
+for key, destination in (
+    ("viptv_ipaddr", "viptv_addr_setting"),
+    ("viptv_netmask", "viptv_mask_setting"),
+    ("viptv_gateway", "viptv_gate_setting"),
+    ("wan_hwaddr", "wan_hwaddr"),
+):
+    require(f'"{key}"' in viptv and f'{destination},sizeof({destination})' in viptv,
+            "IPTV VLAN setting must be copied before cache reuse: " + key)
+assert 'get_wan_unit_value(0,"viflast")' not in viptv
+for key in ("vlan_filter", "viptv_ifname", "viptv_ipaddr",
+            "viptv_netmask", "viptv_gateway", "wan_hwaddr"):
+    assert f'nvram_safe_get("{key}")' not in viptv
+require("test_viptv_settings_survive_shared_cache_overwrite" in test,
+        "IPTV shared-cache overwrite regression missing")
+
 
 # The EAPOL read/start failure guard must close before the WAN protocol's
 # success path; otherwise start_wan() becomes syntactically unbalanced.# The EAPOL read/start failure guard must close before the WAN protocol's
