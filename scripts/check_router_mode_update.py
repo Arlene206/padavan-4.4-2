@@ -62,8 +62,13 @@ for marker in (
 assert "int update_router_mode(void);" in header
 
 full_wan = body(wan, "full_restart_wan(void)")
-assert full_wan.index("if (get_ap_mode())") < full_wan.index("update_router_mode()")
-assert full_wan.index("update_router_mode()") < full_wan.index("stop_wan()")
+mode_read = full_wan.index("ap_mode_status = get_ap_mode_status(&is_ap_mode)")
+mode_error = full_wan.index("if (ap_mode_status != 0)", mode_read)
+mode_noop = full_wan.index("if (is_ap_mode)", mode_error)
+router_mode_update = full_wan.index("update_router_mode()")
+assert mode_read < mode_error < mode_noop < router_mode_update
+assert "return ap_mode_status;" in full_wan[mode_error:mode_noop]
+assert router_mode_update < full_wan.index("stop_wan()")
 assert full_wan.count("update_router_mode()") == 1
 
 branch_start = rc.index("else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)")
