@@ -461,7 +461,7 @@ jobs:
           rollback = function_body(services, "static void\nsamba_rollback_failed_nmbd_start(int start_errno, const char *operation)")
           assert rollback.index("stop_nmbd()") < rollback.index('process_inventory_scan("nmbd", &snapshot)')
           assert rollback.index('process_inventory_scan("nmbd", &snapshot)') < rollback.index("samba_failed_start_may_leave_daemon")
-          assert rollback.index("samba_failed_start_may_leave_daemon") < rollback.index("errno = start_errno;")
+          assert rollback.index("samba_failed_start_may_leave_daemon") < rollback.index("errno = start_errno > 0")
           assert "samba_daemon_signal_snapshot(" in restart_nmbd
           assert "killall" not in restart_nmbd and "pids(" not in restart_nmbd
           assert "process_snapshot_release(&smbd_snapshot)" in restart_nmbd
