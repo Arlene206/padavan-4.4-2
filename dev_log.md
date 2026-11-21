@@ -1,3 +1,11 @@
+## 2026-11-21 — Remove obsolete watchdog ETIMEDOUT errno checker assertions
+
+- Parent main SHA: `6ce50b1f558a99db1569fa6fd1a03aff4075e012`.
+- Exact Process lifecycle run #44885848598 failed in `scripts/check_process_lifecycle_integration.py` at two duplicate assertions requiring `errno = ETIMEDOUT;` inside `start_watchdog()`.
+- Production watchdog now supplies `ETIMEDOUT` as the explicit primary error argument to `watchdog_rollback_failed_start(-1, ETIMEDOUT, "readiness timeout")`; the preceding source-contract loop already verifies that exact readiness-timeout rollback call in both duplicated checker sections. Removed only the obsolete errno-in-body assertions, leaving the timeout policy check intact.
+- AI handoff #44885848590 passed on the same parent SHA. Exact Process lifecycle Actions must rerun after this checker-only correction; no production code changed.
+
+---
 ## 2026-11-21 — Correct Process watchdog rollback contract and handoff execution metadata
 
 - Beijing time: 2026-11-21 16:31 (UTC+8). Parent main SHA: `accf1726b163d54bd269019fd590554fc430fa0e`.
