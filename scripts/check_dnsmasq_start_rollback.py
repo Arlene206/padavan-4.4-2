@@ -201,9 +201,14 @@ assert prepare.index("is_dhcpd_enabled_status(") < prepare.index('dnsmasq_read_s
 assert prepare.index("is_dhcpd_enabled_status(") < prepare.index("fill_static_ethers(ipaddr, netmask)")
 
 smb_header = compact(body(SERVICES, "int\nwrite_smb_conf_header(FILE *fp)"))
-assert "if (!i_wins_enable) { dhcp_status = is_dhcpd_enabled_status(get_ap_mode(), &dhcp_enabled);" in smb_header
+smb_mode_read = smb_header.index("get_ap_mode_status(&is_ap_mode)")
+smb_mode_error = smb_header.index("if (ap_mode_status != 0)", smb_mode_read)
+smb_dhcp_check = smb_header.index("is_dhcpd_enabled_status(is_ap_mode, &dhcp_enabled)")
+assert smb_mode_read < smb_mode_error < smb_dhcp_check
+assert "cannot determine AP/router mode; refusing smb.conf header publication" in smb_header
+assert "errno = ap_mode_status;" in smb_header
 assert "if (dhcp_status != 0)" in smb_header and "return -1;" in smb_header
-assert smb_header.index("is_dhcpd_enabled_status(get_ap_mode(), &dhcp_enabled)") < smb_header.index('fprintf(fp, "[global]\\n")')
+assert smb_dhcp_check < smb_header.index('fprintf(fp, "[global]\\n")')
 assert "else if (dhcp_enabled)" in smb_header
 assert "is_dhcpd_enabled(get_ap_mode())" not in smb_header
 

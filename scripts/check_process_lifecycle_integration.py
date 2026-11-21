@@ -736,9 +736,9 @@ assert "custom shutdown script failed" in shutdown
 assert "shutdown_script_status == 0" in shutdown
 assert shutdown.count('doSystem("%s %d", script_name, level);') == 1
 assert shutdown.index("shutdown_script_status = doSystem(") < shutdown.index("safe_remove_all_stor_devices(")
-assert shutdown.index("shutdown_script_status = doSystem(") < shutdown.index("if (storage_remove_status == 0")
-assert shutdown.index("logger_stop_status = stop_logger();") < shutdown.index("if (storage_remove_status == 0")
-assert shutdown.index("if (storage_remove_status == 0") < shutdown.index("write_storage_to_mtd()")
+assert shutdown.index("shutdown_script_status = doSystem(") < shutdown.index("storage_remove_status == 0")
+assert shutdown.index("logger_stop_status = stop_logger();") < shutdown.index("storage_remove_status == 0")
+assert shutdown.index("storage_remove_status == 0") < shutdown.index("write_storage_to_mtd()")
 assert "logger_stop_status != 0" in syslog_restart
 assert syslog_restart.index("logger_stop_status != 0") < syslog_restart.index("start_logger(0)")
 assert "action_result = -1;" in syslog_restart
