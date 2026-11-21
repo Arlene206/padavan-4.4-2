@@ -251,13 +251,16 @@ require(wanx_start.index("if (nvram_status != 0)") < wanx_start.index("wan_stati
 require("return nvram_status" in wanx_start,
         "MAN MTU read errors must propagate to the launch caller")
 wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
-require('get_wan_unit_value_int_status(unit, "mtu", &wan_mtu)' in wan_start,
+wan_start_compact = "".join(wan_start.split())
+mtu_read_call = 'get_wan_unit_value_int_status(unit,"mtu",&wan_mtu)'
+mtu_ifup_call = 'ifconfig(wan_ifname,IFUP,"0.0.0.0",NULL)'
+require(mtu_read_call in wan_start_compact,
         "physical WAN MTU must use checked NVRAM reads")
-mtu_read = wan_start.index('get_wan_unit_value_int_status(unit, "mtu", &wan_mtu)')
-mtu_error = wan_start.index("if (nvram_status != 0)", mtu_read)
-mtu_ifup = wan_start.index('ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL)', mtu_read)
+mtu_read = wan_start_compact.index(mtu_read_call)
+mtu_error = wan_start_compact.index("if(nvram_status!=0)", mtu_read)
+mtu_ifup = wan_start_compact.index(mtu_ifup_call, mtu_read)
 require(mtu_read < mtu_error < mtu_ifup and
-        "continue;" in wan_start[mtu_error:mtu_ifup],
+        "continue;" in wan_start_compact[mtu_error:mtu_ifup],
         "physical MTU read errors must abort the unit before interface activation")
 assert 'get_wan_unit_value_int(unit, "man_mtu")' not in source
 assert 'get_wan_unit_value_int(unit, "mtu")' not in wan_start

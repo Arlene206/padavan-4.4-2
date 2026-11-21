@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize physical WAN MTU checked-read contract
+
+- Parent main SHA: `35f7f642c0115cbb238190256d498ad75cbb4fc1`.
+- Exact-head WAN route run `#44893239999` passed the GNU89/ASan/UBSan policy binary, DNS-mode checks and PPPoE read/rollback contracts, and the MAN MTU contract after its whitespace normalization. It then exposed the same newline-sensitive source assertion for the physical WAN MTU getter.
+- The production `start_wan()` call is split across lines. Updated the contract to compact the extracted C body before matching the checked getter, finding the NVRAM failure guard and verifying the unit is skipped before `ifconfig(...IFUP...)`.
+- AI handoff documentation run `#44893240012` passed on the same parent SHA. No production C behavior changed.
+
+---
+
 ## 2026-11-21 — Normalize multiline MAN MTU checked-read contract
 
 - Parent main SHA: `703ff6abcffa17313482ac2ca772fc0c79afb826`.
