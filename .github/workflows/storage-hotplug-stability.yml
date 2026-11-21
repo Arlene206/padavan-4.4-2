@@ -975,6 +975,15 @@ jobs:
           assert "partial-start rollback" in opt_startup_test
           assert "startup hook inherited lifecycle lock fd 9" in opt_startup_test
           assert opt_umount.index("optware_lifecycle_lock_try_acquire") < opt_umount.index("mountpoint -q /opt")
+          assert "optware_lifecycle_mount_matches()" in opt_lock
+          assert "NF != 6" in opt_lock and "found > 1" in opt_lock
+          assert 'if optware_lifecycle_mount_matches "$1" "$2" /proc/mounts; then' in opt_umount
+          assert "grep ' /opt ' /proc/mounts" not in opt_umount
+          assert "grep $1" not in opt_umount
+          assert "mount_match_status" in opt_umount
+          assert 'expect_mount_status /dev/sda1 /opt 1' in opt_teardown_test
+          assert 'expect_mount_status /dev/sda10 /opt 0' in opt_teardown_test
+          assert 'expect_mount_status /dev/sda10 /opt 2' in opt_teardown_test
           assert opt_umount.index("optware_lifecycle_stop_services") < opt_umount.index("optware_lifecycle_umount_opt")
           assert '"$_optware_service" stop 9>&-' in opt_lock
           assert opt_umount.index("optware_lifecycle_umount_opt") < opt_umount.rindex("optware_lifecycle_lock_release")

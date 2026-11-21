@@ -45,6 +45,35 @@ optware_lifecycle_lock_try_acquire()
 	return 0
 }
 
+# Return 0 only for one complete /proc/mounts row matching the exact
+# source device and /opt mountpoint. Return 1 for a different mount entry;
+# return 2 when arguments or the mount inventory cannot be trusted.
+optware_lifecycle_mount_matches()
+{
+	[ "$#" -eq 3 ] || return 2
+	[ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] || return 2
+	[ "$2" = "/opt" ] || return 1
+
+	awk -v wanted_device="$1" -v wanted_mountpoint="$2" '
+	{
+		records++
+		if (NF != 6 || $1 == "" || $2 == "" || $3 == "" ||
+		    $4 == "" || $5 !~ /^[0-9]+$/ || $6 !~ /^[0-9]+$/) {
+			invalid = 1
+			next
+		}
+		if ($1 == wanted_device && $2 == wanted_mountpoint)
+			found++
+	}
+	END {
+		if (records == 0 || invalid || found > 1)
+			exit 2
+		if (found == 1)
+			exit 0
+		exit 1
+	}' "$3" 2>/dev/null
+}
+
 # Start services in S??* order. If a hook fails, stop that possibly partially
 # started hook and every earlier successful hook in reverse order. Positional
 # parameters retain complete pathnames (including spaces and newlines), unlike

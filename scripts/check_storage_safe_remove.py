@@ -114,6 +114,9 @@ daemon_wait_policy = read("trunk/user/rc/src/service_daemon_wait_policy.h")
 workflow = read(".github/workflows/storage-hotplug-stability.yml")
 xy_workflow = read(".github/workflows/xy-c1-firmware-validation.yml")
 mtd_storage = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
+opt_umount = read("trunk/user/optware/opt-umount.sh")
+opt_lock = read("trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh")
+opt_teardown_test = read("trunk/user/scripts/tests/optware_lifecycle_teardown.sh")
 httpd_header = read("trunk/user/httpd/src/httpd.h")
 httpd_upload = read("trunk/user/httpd/src/upload.c")
 httpd_web_ex = read("trunk/user/httpd/src/web_ex.c")
@@ -818,6 +821,17 @@ ubi_presence = body(common_ex_source, "rwfs_ubi_attachment_presence(int mtd_rwfs
 require('"/sys/class/ubi/ubi%d"' in ubi_presence and '"%s/mtd_num"' in ubi_presence and
         'fscanf(fp, "%d", &attached_mtd)' in ubi_presence,
         "UBI identity must be read from its kernel mtd_num attribute")
+require("optware_lifecycle_mount_matches()" in opt_lock and
+        "NF != 6" in opt_lock and "found > 1" in opt_lock,
+        "Optware ownership check must validate one complete unique mount-table source/mountpoint record")
+require('if optware_lifecycle_mount_matches "$1" "$2" /proc/mounts; then' in opt_umount and
+        "grep ' /opt ' /proc/mounts" not in opt_umount and "grep $1" not in opt_umount and
+        "mount_match_status" in opt_umount,
+        "Optware teardown must not use unquoted substring matching for the source device")
+require('expect_mount_status /dev/sda1 /opt 1' in opt_teardown_test and
+        'expect_mount_status /dev/sda10 /opt 0' in opt_teardown_test and
+        'expect_mount_status /dev/sda10 /opt 2' in opt_teardown_test,
+        "Optware regression must cover device-prefix collision, exact ownership and UNKNOWN inventory")
 require("storage_optware_ubi_detach_complete" in optware_policy and
         "STORAGE_OPTWARE_STOP_UNKNOWN" in optware_policy_test,
         "UBI detach policy must have regression coverage")
@@ -1319,5 +1333,11 @@ for path in ("trunk/user/rc/src/storage_hotplug_notify_policy.h",
 require("Compile and run storage hotplug notification failure regression" in workflow and
         "storage_hotplug_notify_policy.c" in workflow,
         "storage workflow must execute the notification regression")
+
+for path in ("trunk/user/optware/opt-umount.sh",
+             "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh",
+             "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"):
+    require(workflow.count('"' + path + '"') == 2,
+            "Optware storage workflow push/PR filters must include " + path)
 
 print("Storage eject inventory, mount-link errno, failure propagation and persistence gates: PASS")

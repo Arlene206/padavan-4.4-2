@@ -101,6 +101,40 @@ chmod +x "$tmpdir"/services-fail/S??* "$tmpdir"/services-ok/S??*
 
 . "$helper"
 
+# The source device and mountpoint must match one exact /proc/mounts row.
+# In particular, /dev/sda10 must never be treated as /dev/sda1.
+MOUNTS_FILE="$tmpdir/proc-mounts"
+expect_mount_status()
+{
+	_expected=$3
+	if optware_lifecycle_mount_matches "$1" "$2" "$MOUNTS_FILE"; then
+		_actual=0
+	else
+		_actual=$?
+	fi
+	[ "$_actual" -eq "$_expected" ] || {
+		echo "mount match [$1] [$2] returned $_actual, expected $_expected" >&2
+		exit 1
+	}
+}
+
+printf '%s\n' '/dev/sda10 /opt ext4 rw,relatime 0 0' > "$MOUNTS_FILE"
+expect_mount_status /dev/sda10 /opt 0
+expect_mount_status /dev/sda1 /opt 1
+expect_mount_status /dev/sda10 /mnt/share 1
+expect_mount_status /dev/sda11 /opt 1
+
+# Incomplete, duplicated, empty, or unreadable inventories are UNKNOWN.
+printf '%s\n' '/dev/sda10 /opt ext4 rw,relatime 0' > "$MOUNTS_FILE"
+expect_mount_status /dev/sda10 /opt 2
+printf '%s\n' '/dev/sda10 /opt ext4 rw,relatime 0 0' '/dev/sda10 /opt ext4 rw,relatime 0 0' > "$MOUNTS_FILE"
+expect_mount_status /dev/sda10 /opt 2
+: > "$MOUNTS_FILE"
+expect_mount_status /dev/sda10 /opt 2
+rm -f "$MOUNTS_FILE"
+expect_mount_status /dev/sda10 /opt 2
+expect_mount_status "" /opt 2
+
 LOCK_FILE="$tmpdir/optware-lifecycle.lock"
 optware_lifecycle_lock_acquire "$LOCK_FILE"
 
@@ -259,4 +293,4 @@ if ! optware_lifecycle_stop_services "$tmpdir/services-empty"; then
 fi
 
 optware_lifecycle_lock_release
-echo "Optware teardown, exact swap inventory, and fail-closed swapoff policy: PASS"
+echo "Optware exact mount ownership, teardown, swap inventory, and fail-closed swapoff policy: PASS"

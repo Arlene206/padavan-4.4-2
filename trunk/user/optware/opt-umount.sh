@@ -17,11 +17,20 @@ if ! mountpoint -q /opt ; then
 	exit 0
 fi
 
-# check is this partition mounted to /opt
-mountres=`grep ' /opt ' /proc/mounts | grep $1`
-if [ -z "$mountres" ]; then
+# Only the exact device+mountpoint row owns the Optware teardown. A
+# substring match could mistake /dev/sda10 for /dev/sda1 and stop services
+# while the actual /opt filesystem belongs to a different partition.
+if optware_lifecycle_mount_matches "$1" "$2" /proc/mounts; then
+	:
+else
+	mount_match_status=$?
+	if [ "$mount_match_status" -eq 1 ]; then
+		optware_lifecycle_lock_release
+		exit 0
+	fi
+	logger -t "$self_name" "cannot verify exact /opt mount owner for [$1] [$2]; refusing teardown"
 	optware_lifecycle_lock_release
-	exit 0
+	exit 1
 fi
 
 logger -t "${self_name}" "started [$@]"

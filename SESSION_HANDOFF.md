@@ -14,32 +14,33 @@ The checkpoint is mandatory; a document edit is conditional. At every session en
 
 ## Current repository state
 
-- Live `main` before this workflow-indentation correction: `20e139d230b73eabc5f25a2b17d56a3a5768af11`. Current production-source baseline is `8a55d24a4b797c96ca94bc8ece112966d86fa204`.
+- Live `main` before this Optware ownership fix: `94c0e2c11f6e73b90366ed6e74cb292858acb6e7`. Latest shared-source product baseline: `20e139d230b73eabc5f25a2b17d56a3a5768af11`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- On exact SHA `20e139d2`, AI handoff `#44887656223` and Process inventory `#44887656234` completed SUCCESS. The standalone Process workflow launch record `#44887655190` failed before creating a job because the newly inserted parser step had one extra leading space, invalidating YAML structure. This correction restores the normal six-space step indentation and eight-space run key; a new exact-head Process workflow is required to validate parsing and execute the test.
-- XY-C1 `#44885238962` completed SUCCESS on exact source SHA `8a55d24a4b797c96ca94bc8ece112966d86fa204`: firmware build, TRX output verification and artifact upload all passed. L3 is VERIFIED for that source SHA; physical hardware L4 remains NOT VERIFIED.
-- The previous `kill_pidfile_s()` used `fgets` plus `strtoul(..., NULL, 0)`, accepted numeric prefixes with trailing garbage, and cast before range-checking. The compatibility helper remains exported for PID-only files. This source patch adds nonblocking open, regular-file validation and bounded full-record parsing while preserving historical decimal/octal/hex syntax and surrounding whitespace; malformed/NUL/overflow values are rejected before signal delivery.
-- Audit coverage found no direct old-helper calls in 383 selected active-package C files and separately examined RC/shared/HTTPD code. This is not a repository-wide exhaustive result; continue remaining package scanning after validating this fix.
+- Process lifecycle regression `#44887824016` and AI handoff `#44887824043` passed on exact SHA `94c0e2c`; the legacy shared PID-file parser integration is validated.
+- XY-C1 run `#44887656164` completed SUCCESS on exact product-source SHA `20e139d230b73eabc5f25a2b17d56a3a5768af11`: Build XY-C1, Verify TRX output and artifact upload all passed. Firmware build L3 is VERIFIED for this source SHA; physical-router L4 remains NOT VERIFIED.
+- The exported `kill_pidfile_s()` compatibility helper now strictly validates numeric PID-only records without changing the on-disk format. A full tracked-text inventory found no external direct callers; `kill_pidfile()` wrapper is the only internal call site, so retain the exported helper for unknown external consumers.
+- New bug found in `trunk/user/optware/opt-umount.sh`: unquoted `grep ' /opt ' /proc/mounts | grep $1` was substring matching and ignored the supplied mountpoint. A request for `/dev/sda1` could match `/dev/sda10`, stopping Optware while ejecting a different partition. This patch uses exact source+mountpoint fields in a validated six-field mount inventory and fails closed on malformed, duplicate or unavailable inventory.
 
 ## Active task
 
-1. Validate exact-head Process lifecycle Actions after this YAML correction. Confirm workflow parses, standalone GNU89/ASan/UBSan parser regression runs, and source integration checker passes; fix the first causal failure without weakening coverage.
-2. Continue remaining high-value PID-file caller/producer scan in unreviewed packages (including LPRng, u2ec, DNS and other daemons). Map format, path, owner and signal semantics before migration; preserve numeric-only external records.
-3. Keep XY-C1 L3 evidence tied to `8a55d24a`; no physical L4 claim.
+1. Validate the Optware ownership fix with exact-head Storage Hotplug Actions: shell syntax, POSIX /bin/sh, BusyBox ash teardown tests, source assertions and standalone checker.
+2. Fix the earliest causal CI failure without weakening exact source/mountpoint coverage; while Actions run, continue independent userland stability/security tasks.
+3. Keep XY-C1 L3 attached to exact source SHA `20e139d2`; physical-router L4 remains unverified.
 
 ## Verification boundary
 
-- Source helper and parser tests were committed on `20e139d2`; the local standalone test compiled and ran under GNU89, warnings-as-errors, ASan and UBSan: PASS.
-- Repository integration is not yet validated: the exact commit's standalone Process workflow failed at YAML parsing before job creation. The other exact-SHA Process inventory and AI handoff runs passed.
-- XY-C1 firmware L3 is VERIFIED on source SHA `8a55d24a`; physical-router L4 remains NOT VERIFIED.
+- Shared PID-only parser hardening and its tests are merged at product-source SHA `20e139d2`; Process integration passed at `94c0e2c`.
+- XY-C1 build, TRX verification and artifact upload all passed on exact product-source SHA `20e139d2`; L3 is VERIFIED for that source SHA.
+- Optware mount matching source/test/checker changes require exact-head Storage Hotplug Actions before being treated as validated.
+- Physical-router L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect the new exact-head Process workflow run for the indentation repair; confirm the parser test and source-contract checks pass, then continue scanning remaining packages for old PID-only helper callers/producers.
+Fetch live `main` and verify frozen backup SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect exact-head Storage Hotplug Actions for this Optware patch, fix the earliest causal failure without weakening checks, then continue independent stability/security tasks outside completed audits.
 
 ## Handoff maintenance
 
 - Keep `dev_log.md` newest-first; archive only at 120 root records, retaining newest 20.
 - Update `REFACTOR_ROADMAP.md` only when module status, evidence or priority materially changes.
 - Keep frozen backup permanently unchanged.
-- Host regression, exact-source firmware L3 and physical hardware L4 are separate evidence levels.
+- Host regressions, exact-source firmware L3 and physical hardware L4 are separate evidence levels.

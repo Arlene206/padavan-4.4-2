@@ -1,3 +1,15 @@
+## 2026-11-21 — Match Optware teardown to exact mount ownership
+
+- Parent main SHA: `94c0e2c11f6e73b90366ed6e74cb292858acb6e7`.
+- Fixed an unsafe `opt-umount.sh` source check that grepped `/proc/mounts` for an unquoted device substring and ignored the supplied mountpoint. For example, `/dev/sda1` could match `/dev/sda10`, causing Optware teardown during an unrelated partition eject.
+- Added `optware_lifecycle_mount_matches()`: require target `/opt`, validate every six-field mount record, compare source and mountpoint as exact fields, reject duplicate matches and return UNKNOWN for malformed/empty/unreadable inventory. Teardown proceeds only on one exact owner row and fails closed on UNKNOWN.
+- Added shell regression cases for exact match, device-prefix collision, wrong mountpoint, malformed row, duplicate row, empty/unreadable inventory; mirrored these contracts in the Storage Hotplug workflow and standalone static checker.
+- Prior validations: Process lifecycle `#44887824016` and AI handoff `#44887824043` PASS on `94c0e2c`; XY-C1 Build, TRX verification and artifact upload `#44887656164` PASS on product source `20e139d2` (L3 verified on that SHA).
+- No physical-router L4 evidence is available. This Optware patch requires exact-head Storage Hotplug Actions after publication.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Repair PID-file regression workflow YAML indentation
 
 - Parent main SHA: `20e139d230b73eabc5f25a2b17d56a3a5768af11`.
