@@ -25,21 +25,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- IPv4/IPv6 filter and IPv4 NAT builders now reject UDPXY listener values outside 1024..65535 before emitting accept/DNAT rules. Shared `firewall_unprivileged_port_is_safe()` policy covers the preflight reads and rule emission; GNU89 regression cases cover 0, 1023, 1024, 65535, 65536 and negative values. This closes the malformed-port path where a corrupted `udpxy_enable_x=65536` could produce an invalid `--dport 65536` rule.
-- The IPv6 HTTP listener block boundary fix is validated: Firewall Startup #44950737943 PASS on source SHA `e1e48877d521ef9b4559ade13568ff4d97de59ad`. Process #44950737903, WAN DHCP #44950737926, AI docs #44950737855, HTTPD #44950738016, WAN route #44950737937 and FULLCONENAT #44950737844 also PASS on that exact SHA.
-- NVRAM audit #44950737906 and XY-C1 Firmware Validation #44950737940 were IN_PROGRESS at the last poll. Re-query; do not infer full target-build validation until Build XY-C1, TRX verification and artifact upload all succeed on one SHA.
+- UDPXY listener values are constrained to 1024..65535 in IPv4/IPv6 filters and IPv4 NAT. Shared policy helper plus regression boundary cases are in `aea6b951...`.
+- Virtual-server rules now snapshot `vts_enable_x` and `vts_num_x` with checked NVRAM readers before opening IPv4 filter/NAT rule files. The backend rejects negative counts and counts above the WebUI maximum of 64, then passes the same bounded count into INPUT/FORWARD filter and DNAT builders. This avoids repeatedly reading a mutable, unchecked loop bound from NVRAM and prevents an oversized/corrupt count from creating unbounded firewall generation work.
+- Exact-head Firewall Startup on `aea6b95138171a165edec978680d6fb14913a640` PASS (#44950937394), including the UDPXY unit test under GNU89/Werror/ASan/UBSan and the IPv6 HTTP brace contract. AI docs #44950937391, HTTPD #44950937384, FULLCONENAT #44950937401, WAN DHCP #44950937407, WAN route #44950937440 and Process inventory #44950937421 also PASS. NVRAM #44950937375 and XY-C1 #44950937424 were IN_PROGRESS at last poll.
 
 ## Verification boundary
 
-- Product-source SHA before the UDPXY range slice: `e1e48877d521ef9b4559ade13568ff4d97de59ad`. Firewall Startup #44950737943 PASS; HTTPD #44950738016 PASS; Process inventory #44950737903 PASS; WAN DHCP #44950737926 PASS; WAN route #44950737937 PASS; FULLCONENAT #44950737844 PASS; AI docs #44950737855 PASS. NVRAM #44950737906 and XY-C1 #44950737940 remained IN_PROGRESS at last query.
-- Parent of the brace fix `4cd3b21733ad373d2cb0f9adb418bef2df277458`: HTTPD #44950534996, AI docs #44950535073, Process #44950535022, WAN route #44950534986, WAN DHCP #44950534973 and FULLCONENAT #44950534983 PASS; Firewall Startup #44950535060 failed the missing-brace contract now repaired in `e1e488...`; NVRAM #44950535055 / XY-C1 #44950534974 were pending.
-- No local checkout/build or host test run is available in this session. The Firewall Startup CI compiles `firewall_filter_policy.c` under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan; this next slice's exact-head run is required before claiming test completion. No L3 claim without Build + TRX + artifact PASS on one SHA; hardware L4 remains NOT VERIFIED.
+- Product-source SHA `aea6b95138171a165edec978680d6fb14913a640`: Firewall Startup #44950937394 PASS; Process #44950937421 PASS; WAN DHCP #44950937407 PASS; AI docs #44950937391 PASS; HTTPD #44950937384 PASS; FULLCONENAT #44950937401 PASS; WAN route #44950937440 PASS. NVRAM #44950937375 and XY-C1 #44950937424 were IN_PROGRESS.
+- Prior SHA `e1e48877d521ef9b4559ade13568ff4d97de59ad`: Firewall Startup #44950737943, Process #44950737903, WAN DHCP #44950737926, AI docs #44950737855, HTTPD #44950738016, WAN route #44950737937 and FULLCONENAT #44950737844 PASS. NVRAM #44950737906 / XY-C1 #44950737940 were still in progress at last poll.
+- No local build or unit test was run in this environment. The next exact-head Firewall Startup run must compile/run the modified filter policy unit test and execute the new source contracts. Do not claim L3 until Build XY-C1, TRX verification and artifact upload are all PASS on the same SHA; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and query exact-head Firewall Startup, NVRAM, HTTPD, Process inventory, AI docs and XY-C1 Actions for the UDPXY range-bound commit. Inspect first failing job logs rather than waiting.
-2. Re-query `e1e48877...` NVRAM #44950737906 and XY-C1 #44950737940 as parent evidence only.
-3. Continue the virtual-server/port-forward input audit in `include_vts_nat()` after the UDPXY bound regression passes. Keep backup branch immutable and use atomic expected-SHA, non-force updates.
+1. Fetch live `main` and exact-head Actions for the VTS-count commit. Require Firewall Startup PASS; inspect the earliest failing job/log if it does not.
+2. Re-query pending XY-C1 #44950937424 and NVRAM #44950937375 for parent SHA `aea6b951...` as historical evidence only.
+3. Continue auditing firewall port-forward/virtual-server rule semantics and other network-service boundaries. Preserve the 64-entry UI limit, valid port-range behavior, and atomic expected-SHA updates.
 
 ## Workflow and preservation rules
 

@@ -115,6 +115,12 @@ main(void)
 	assert(!firewall_unprivileged_port_is_safe(65536));
 	assert(!firewall_unprivileged_port_is_safe(-1));
 
+	/* The virtual-server list is bounded by the WebUI's 64-entry limit. */
+	assert(firewall_vts_entry_count_is_safe(0));
+	assert(firewall_vts_entry_count_is_safe(64));
+	assert(!firewall_vts_entry_count_is_safe(-1));
+	assert(!firewall_vts_entry_count_is_safe(65));
+
 	assert(firewall_port_range_is_safe("80", 0));
 	assert(firewall_port_range_is_safe("1:65535", 0));
 	assert(firewall_port_range_is_safe("", 1));

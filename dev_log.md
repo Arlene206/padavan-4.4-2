@@ -1,3 +1,13 @@
+## 2026-11-21 — Bound virtual-server rule count before firewall generation
+
+- Parent main SHA: `aea6b95138171a165edec978680d6fb14913a640`.
+- The UI's `Advanced_VirtualServer_Content.asp` limits additions using `markGroupVS(..., 64, " Add ")`, but both `include_vts_filter()` and `include_vts_nat()` used `foreach_x("vts_num_x")`, which repeatedly read an unchecked persistent count as the loop condition. A corrupted or oversized count could make firewall generation iterate far beyond the 64 supported entries; read failures were also not distinguished from a legitimate empty list.
+- Added `firewall_vts_entry_count_is_safe()` (0..64), a checked `firewall_read_vts_entry_count()`, and a cached count parameter to the VTS filter/NAT builders. Both IPv4 builders now read `vts_enable_x` and, when enabled, validate the count before opening rule files; all three VTS rule-generation call sites use the same bounded snapshot.
+- Added policy unit cases for counts 0, 64, -1 and 65. The workflow source contract checks preflight order, cached count use and removal of the unchecked `foreach_x` loops. Existing filter-policy CI compiles with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan.
+- Parent exact-head `aea6b951...`: Firewall Startup #44950937394, AI docs #44950937391, HTTPD #44950937384, FULLCONENAT #44950937401, WAN DHCP #44950937407, WAN route #44950937440 and Process #44950937421 PASS; NVRAM #44950937375 and XY-C1 #44950937424 remained IN_PROGRESS. No local test/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Bound UDPXY listener ports to valid unprivileged range
 
 - Parent main SHA: `e1e48877d521ef9b4559ade13568ff4d97de59ad`.

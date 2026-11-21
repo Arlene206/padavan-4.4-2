@@ -139,6 +139,13 @@ firewall_unprivileged_port_is_safe(int port)
 	return port >= 1024 && port <= 65535;
 }
 
+/* The WebUI permits at most 64 virtual-server entries. */
+static int
+firewall_vts_entry_count_is_safe(int count)
+{
+	return count >= 0 && count <= 64;
+}
+
 static int
 firewall_port_span_is_safe(const char *start, const char *end,
                            unsigned int *number)

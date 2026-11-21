@@ -402,6 +402,31 @@ firewall_read_integer_setting(const char *param_name, int missing_value, int *nu
 }
 
 static int
+firewall_read_vts_entry_count(int *entry_count)
+{
+	int status;
+
+	if (!entry_count) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	status = firewall_read_integer_setting("vts_num_x", 0, entry_count);
+	if (status != 0)
+		return status;
+	if (!firewall_vts_entry_count_is_safe(*entry_count)) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "invalid virtual-server entry count %d; refusing firewall ruleset publication",
+			   *entry_count);
+		errno = ERANGE;
+		return ERANGE;
+	}
+
+	return 0;
+}
+
+static int
 firewall_read_mac_filter_settings(int *mode, int *drop_enabled)
 {
 	int status;
@@ -1229,7 +1254,7 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop)
 }
 
 static void
-include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int forward_chain)
+include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int forward_chain)
 {
 	int i;
 	char *proto, *protono, *port, *lport, *srcip, *dstip, *dtype;
@@ -1237,7 +1262,7 @@ include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int forward_chain)
 
 	dtype = (forward_chain) ? "FORWARD" : "INPUT";
 
-	foreach_x("vts_num_x")
+	for (i = 0; i < num_entries; ++i)
 	{
 		g_buf_init();
 		srcaddrs[0] = 0;
@@ -1294,7 +1319,7 @@ include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int forward_chain)
 }
 
 static void
-include_vts_nat(FILE *fp)
+include_vts_nat(FILE *fp, int num_entries)
 {
 	int i;
 	char *proto, *protono, *port, *lport, *srcip, *dstip, *dtype;
@@ -1302,7 +1327,7 @@ include_vts_nat(FILE *fp)
 
 	dtype = IPT_CHAIN_NAME_VSERVER;
 
-	foreach_x("vts_num_x")
+	for (i = 0; i < num_entries; ++i)
 	{
 		g_buf_init();
 		srcaddrs[0] = 0;
@@ -1441,6 +1466,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
+	int is_vts_enabled = 0, i_vts_count = 0;
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
 	int is_sshd_enabled = 1, is_ftp_enabled = 1;
@@ -1495,6 +1521,16 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
 	if (ret != 0)
 		return ret;
+	if (is_nat_enabled) {
+		ret = firewall_read_enabled_setting("vts_enable_x", &is_vts_enabled);
+		if (ret != 0)
+			return ret;
+		if (is_vts_enabled) {
+			ret = firewall_read_vts_entry_count(&i_vts_count);
+			if (ret != 0)
+				return ret;
+		}
+	}
 	ret = firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled);
 	if (ret != 0)
 		return ret;
@@ -1914,8 +1950,8 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 		
 		/* add Virtual Server rules for router host */
-		if (is_nat_enabled && nvram_match("vts_enable_x", "1"))
-			include_vts_filter(fp, lan_ip, logaccept, 0);
+		if (is_nat_enabled && is_vts_enabled)
+			include_vts_filter(fp, lan_ip, logaccept, i_vts_count, 0);
 		
 		/* Accept ICMPv4 packets */
 		if (is_ping_enabled) {
@@ -2069,8 +2105,8 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 				fprintf(fp, "-A %s -d %s -j %s\n", dtype, dmz_ip, logaccept);
 			
 			/* Accept to Virtual Servers */
-			if (nvram_match("vts_enable_x", "1"))
-				include_vts_filter(fp, lan_ip, logaccept, 1);
+			if (is_vts_enabled)
+				include_vts_filter(fp, lan_ip, logaccept, i_vts_count, 1);
 			
 			/* Jump to IGD UPnP/NAT-PMP (miniupnpd chain) */
 			if (is_upnp_enabled)
@@ -2961,6 +2997,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	int i_aria_pport = 0, i_aria_rport = 0;
 #endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
+	int is_vts_enabled = 0, i_vts_count = 0;
 #if defined (APP_SSHD)
 	int is_sshd_enabled = 1;
 #endif
@@ -2976,6 +3013,16 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	firewall_status = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
 	if (firewall_status != 0)
 		return firewall_status;
+	if (is_nat_enabled) {
+		firewall_status = firewall_read_enabled_setting("vts_enable_x", &is_vts_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+		if (is_vts_enabled) {
+			firewall_status = firewall_read_vts_entry_count(&i_vts_count);
+			if (firewall_status != 0)
+				return firewall_status;
+		}
+	}
 	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (firewall_status != 0)
 		return firewall_status;
@@ -3348,8 +3395,8 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		}
 		
 		/* Port Forwarding (Virtual Server) mappings */
-		if (nvram_match("vts_enable_x", "1"))
-			include_vts_nat(fp);
+		if (is_vts_enabled)
+			include_vts_nat(fp, i_vts_count);
 		
 		/* IGD UPnP mappings */
 		if (is_upnp_enabled)
