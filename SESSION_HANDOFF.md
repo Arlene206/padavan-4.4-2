@@ -12,29 +12,29 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending, verify this handoff's source baseline, active task, exact-head Actions, validation boundary, blockers and first next action. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no no-op commit. Update this handoff only when next-session-critical facts materially change.
 
 ## Current repository state
-- Live main parent for this watchdog config-read slice: `47335ed2ce9e949aded6c361e7164ac51851ff95`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- Samba config-mode fix on parent `47335ed2ce9e949aded6c361e7164ac51851ff95`: Samba host regression #44900045476 PASS; Process inventory #44900045461 PASS; USB modem identity #44900045444 PASS; vsftpd #44900045350 PASS; NFS #44900045396 PASS; AI docs #44900045349 PASS. XY-C1 #44900045362 pending (Build/TRX/artifact not yet verified).
-- New watchdog defect fixed in current commit: unchecked `nvram_get_int("watchdog_cpu")` converted backend errors to zero, skipping CPU watchdog boot startup and potentially unloading a live module on restart. Checked NVRAM + strict integer parse now distinguishes absent-key default zero from read/parse failures. Both start and restart return the read error without changing module state.
-- Existing watchdog GNU89/Werror/ASan/UBSan fixture now covers missing default, enabled values, backend/malformed/overflow error-status preservation and invalid output. Workflow source contracts and XY-C1 input test cover the checked reader/header.
-- Radio source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e` previously L3 VERIFIED; USB source `c58272b9` and OpenVPN source `c9eff6c6` host checks passed but exact-source XY-C1 remained pending at their last recorded poll.
-- Frozen backup immutable; legacy PR #1 closed/unmerged.
+- Parent main for this watchdog workflow-filter repair: `fee2d5d2d016853fc6d35c4f4247c3fc451f2323`; current product source is in `fee2d5d2`.
+- The checked `watchdog_cpu` NVRAM reader now protects both `start_watchdog_cpu()` and `restart_watchdog_cpu()` from backend, malformed and overflow failures; absent key remains disabled default. Module load/unload is not attempted when config is unreadable.
+- Exact-head watchdog run #44900457471: GNU89 signal regression PASS; NTP/service-lifecycle regression PASS; CPU watchdog module restart policy compile + GNU89/Werror/ASan/UBSan regression PASS; NTP/service integration PASS. Embedded contract failed only because `wan_nvram_status_policy.h` was missing from the pull_request path filter. This docs/workflow-only commit adds the missing PR path; the push filter and contract inventory already contain it.
+- Exact-head XY-C1 #44900457461 is IN_PROGRESS (Build job active; verify Build XY-C1, TRX and artifact before L3 claim). Process lifecycle inventory #44900457378, Process fail-closed umbrella #44900457513, AI docs #44900457357, and several independent runs are at mixed PASS/PENDING states.
+- Samba parent host regressions #44900045476, #44900045461, #44900045444, #44900045350, #44900045396 and #44900045349 passed; Samba source exact XY-C1 #44900045362 remained pending at last poll.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; legacy PR #1 closed/unmerged.
 
 ## Active task
-- Verify exact-head watchdog-signal, Process inventory/lifecycle, AI handoff and XY-C1 Actions for this commit.
-- Inspect parent XY-C1 #44900045362 separately; it validates the preceding Samba production input.
-- Keep watchdog configuration UNKNOWN fail-closed: do not translate backend or parse errors into disabled or perform a load/unload operation.
-- Continue an independent P1 reliability/security issue once this host regression passes; do not wait on pending firmware builds.
+- Verify this workflow-filter repair's exact-head watchdog Action; it should now pass the previously missing PR filter assertion.
+- Keep the watchdog source read/parse failure fail-closed; do not relax C tests or source contracts.
+- Inspect XY-C1 #44900457461 for the CPU watchdog production-source SHA `fee2d5d2`; L3 only after Build, TRX verification and artifact all pass.
+- Continue independent reliability/security work while other Action runs remain pending.
 
 ## Verification boundary
-- Watchdog checked-config reader and test committed; exact-head host Actions pending. No local run claimed.
-- Samba parent `47335ed2ce9e949aded6c361e7164ac51851ff95`: dedicated Samba + Process inventory + USB + vsftpd + NFS + AI host Actions PASS; XY-C1 #44900045362 pending.
-- Radio source `60ad278e`: L3 VERIFIED; USB/OpenVPN exact-source XY-C1 L3 pending at last documented poll.
+- CPU watchdog C policy regression on `fee2d5d2`: PASS on exact-head host Action before the integration checker failure.
+- Watchdog integration contract: failed only because the workflow PR filter omitted the new NVRAM header; corrected here, exact-head rerun pending.
+- Same-source XY-C1 #44900457461: IN_PROGRESS; no L3 claim yet.
 - Hardware/router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head watchdog-signal, Process inventory/lifecycle, AI handoff and XY-C1 runs.
-2. Triage the first causal failing step; retain strict checked NVRAM and the no-module-side-effect-on-error rule.
-3. Inspect parent XY-C1 #44900045362 as Samba source validation only, and the new run for watchdog source validation.
-4. Continue with another distinct P1 reliability/security issue outside the just-closed watchdog config slice.
+1. Fetch live main and inspect the new exact-head watchdog Action; confirm all tests and filter contract PASS.
+2. Inspect #44900457461 for Build XY-C1, TRX verification and artifact upload.
+3. Continue with an independent P1 reliability/security defect if CI is pending; retain fail-closed watchdog config semantics.
+4. Update the handoff when exact-head statuses or the next task materially change.
 
 Before context exhaustion, update this handoff only when active task, exact-head status or validation boundary changes; no no-op commit.

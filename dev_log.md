@@ -1,3 +1,14 @@
+## 2026-11-21 — Complete the watchdog NVRAM regression pull-request path filter
+
+- Parent main SHA: `fee2d5d2d016853fc6d35c4f4247c3fc451f2323`.
+- Exact-head watchdog Action #44900457471 compiled and passed the GNU89/Werror/ASan/UBSan CPU watchdog policy regression, including the new missing/default, nonzero enable and backend-error-preserves-output cases. Its embedded integration contract then failed because the new `wan_nvram_status_policy.h` dependency had been added to the workflow push filter and embedded filter inventory, but not to the workflow's pull_request path list.
+- Added the same production header to the PR filter. This restores push/PR symmetry; no product source or regression condition changed.
+- Exact-head XY-C1 #44900457461 remains IN_PROGRESS (cross-build job active; Build XY-C1, TRX verification and artifact upload have not yet completed). Exact-head Process #44900457513 and other independent jobs remain in progress.
+- No local checkout/runtime; no local test/build claimed. The follow-up has its own push workflow run pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve CPU watchdog module state when its NVRAM setting is unreadable
 
 - Parent main SHA: `47335ed2ce9e949aded6c361e7164ac51851ff95`.
