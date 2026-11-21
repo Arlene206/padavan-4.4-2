@@ -1176,9 +1176,20 @@ jobs:
           static_call = static_start.index("wan_viptv_static_start(")
           assert static_mode < static_validation < static_address_copy < static_mask_copy < static_gateway_copy < old_vlan_cleanup < static_call
           assert "return EINVAL;" in static_start[static_validation:static_address_copy]
-          assert "strlen(viptv_addr_setting) >= sizeof(viptv_addr)" in static_start
-          assert "strlen(viptv_mask_setting) >= sizeof(viptv_mask)" in static_start
-          assert "strlen(viptv_gate_setting) >= sizeof(viptv_gate)" in static_start
+          static_start_compact = "".join(static_start.split())
+          for key, target in (
+              ("viptv_ipaddr", "viptv_addr_setting"),
+              ("viptv_netmask", "viptv_mask_setting"),
+              ("viptv_gateway", "viptv_gate_setting"),
+          ):
+              assert (
+                  'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"'
+                  + key + '",' + target + ',sizeof(' + target + '))'
+              ) in static_start_compact
+          assert "if(ret!=0)returnret;" in static_start_compact
+          assert "strlen(viptv_addr_setting)" not in static_start
+          assert "strlen(viptv_mask_setting)" not in static_start
+          assert "strlen(viptv_gate_setting)" not in static_start
           assert "return ret;" in static_start[static_call:]
           assert "wan_viptv_static_start(is_valid_ipv4(viptv_gate)," in static_start
           assert "IPTV VLAN or service setup incomplete" in source

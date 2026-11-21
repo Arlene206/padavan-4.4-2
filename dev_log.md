@@ -1,3 +1,13 @@
+## 2026-11-21 — Align IPTV static-copy bounds contract with shared helper
+
+- Parent main SHA: `8a2f50bedb44fdff0cb8b322372090fc190d978c`.
+- Exact-head WAN DHCP callback `#44896283833` passed all earlier policy/renewal and callback checks, then failed because the static IPTV startup checker still required three hand-written `strlen() >= sizeof()` checks. Production now uses `rc_wan_nvram_copy_value()` for IP address, netmask and gateway; that shared helper validates destination size and returns `ENAMETOOLONG` rather than truncating. Updated the embedded contract to require the three checked bounded-copy calls with `sizeof(destination)`, their shared error-return gate, and absence of obsolete manual checks.
+- AI docs `#44896283589` and WAN route `#44896283559` passed on the exact parent SHA. This fix is checker + handoff only; no product source changed.
+- No local tests/build claimed. Exact-head WAN DHCP and docs Actions on the resulting SHA are required.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Align IPTV renewal and MTU checks with checked NVRAM status
 
 - Parent main SHA: `728468e145d625164bf2a6aaba6883b183cb20c2`.
