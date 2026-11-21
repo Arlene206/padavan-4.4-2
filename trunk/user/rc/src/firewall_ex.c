@@ -1415,7 +1415,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
-	int is_url_enabled, is_lwf_enabled, is_mac_filter_drop;
+	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
 #if defined (APP_OPENVPN)
@@ -1438,8 +1438,18 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (ret != 0)
 		return ret;
-	is_url_enabled = nvram_match("url_enable_x", "1");
-	is_lwf_enabled = nvram_match("fw_lw_enable_x", "1");
+	ret = firewall_read_enabled_setting("url_enable_x", &is_url_enabled);
+	if (ret != 0)
+		return ret;
+	ret = firewall_read_enabled_setting("fw_lw_enable_x", &is_lwf_enabled);
+	if (ret != 0)
+		return ret;
+	is_url_inverse = 0;
+	if (is_url_enabled) {
+		ret = firewall_read_enabled_setting("url_inv_x", &is_url_inverse);
+		if (ret != 0)
+			return ret;
+	}
 
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
@@ -1707,7 +1717,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			mac_conv("url_mac_x", -1, mac_buf);
 			if (strlen(mac_buf) == 17) {
 				strcat(timematch, " -m mac");
-				if (nvram_match("url_inv_x", "1"))
+				if (is_url_inverse)
 					strcat(timematch, " !");
 				strcat(timematch, " --mac-source ");
 				strcat(timematch, mac_buf);
@@ -2090,7 +2100,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	FILE *fp;
 	char timematch[160], *ftype, *dtype;
 	int ret, wport, lport;
-	int ipv6_type, is_fw_enabled, is_url_enabled, is_logaccept, is_logdrop;
+	int ipv6_type, is_fw_enabled, is_url_enabled, is_url_inverse, is_logaccept, is_logdrop;
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	char ipt_file[] = "/tmp/ip6t_filter.XXXXXX";
 
@@ -2102,7 +2112,15 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	ret = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (ret != 0)
 		return ret;
-	is_url_enabled = nvram_match("url_enable_x", "1");
+	ret = firewall_read_enabled_setting("url_enable_x", &is_url_enabled);
+	if (ret != 0)
+		return ret;
+	is_url_inverse = 0;
+	if (is_url_enabled) {
+		ret = firewall_read_enabled_setting("url_inv_x", &is_url_inverse);
+		if (ret != 0)
+			return ret;
+	}
 
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
@@ -2280,7 +2298,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			mac_conv("url_mac_x", -1, mac_buf);
 			if (strlen(mac_buf) == 17) {
 				strcat(timematch, " -m mac");
-				if (nvram_match("url_inv_x", "1"))
+				if (is_url_inverse)
 					strcat(timematch, " !");
 				strcat(timematch, " --mac-source ");
 				strcat(timematch, mac_buf);

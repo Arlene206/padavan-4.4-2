@@ -1,3 +1,15 @@
+## 2026-11-21 — Preserve URL and LWF firewall filtering on NVRAM read errors
+
+- Parent main SHA: `dffca184e64dc44d8cfae11a43bbcebe21d9e0b6`.
+- Source review found unchecked `nvram_match()` reads for `url_enable_x` in both IPv4/IPv6 filter builders, `fw_lw_enable_x` in IPv4, and `url_inv_x` at both URL-filter policy sites. A backend error was interpreted as false, which could silently omit an enabled URL/webstr filter chain, LWF chain or inverse-MAC policy from a newly staged firewall ruleset.
+- Replaced those reads with the existing `firewall_read_enabled_setting()` checked helper. IPv4 checks URL, LWF and (only when URL filtering is enabled) inverse mode before opening its rule file; IPv6 checks URL and inverse mode before staging. Missing keys keep the previous false default. Backend/invalid results abort and invoke the existing multi-table restore rollback path.
+- Extended the Firewall Startup Stability source contract to require each checked gate before `firewall_open_rule_file()` and reject all three unchecked `nvram_match()` patterns. The existing GNU89/Werror/ASan/UBSan firewall NVRAM test fixture is reused unchanged.
+- Exact WAN route #44902460823 PASS and AI docs #44902460812 PASS on parent `dffca184`; DNSMasq #44902327424 PASS and AI docs #44902327438 PASS on `5a436698`. XY-C1 #44902070311 on production SHA `232e31d7` had passed all pre-build checks but its Build XY-C1 job remained IN_PROGRESS at last poll; TRX/artifact pending.
+- No local full RC/MIPS build or hardware L4 is claimed. Exact firewall/XY-C1 validation for this slice pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Match DNSMasq preflight assertion to normalized call formatting
 
 - Parent main SHA: `2a2238af3fb43b28a1147fa264459f004359795f`.

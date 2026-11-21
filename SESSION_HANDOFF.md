@@ -11,34 +11,31 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending and compare it with this handoff: engineering/source baseline, active task, exact-head Actions, validation boundary, blockers and the exact first action. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no commit. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information when it changes the validation gate or next action.
 
 ## Current repository state
-- Parent main before this DNSMasq hardening slice: `04b8537ac3810740e15ec901fe14594b7383d3df`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- WAN protocol copy fix is commit `b4bdfa7803678887021284b8876251043e723d85`. A checker-only repair commit `04b8537ac3810740e15ec901fe14594b7383d3df` now normalizes whitespace in the transactional helper assertion, updates XY-C1's protocol reset assertion to the checked transaction helper, and restores the exact AI handoff checkpoint wording. Its exact Actions are not yet polled.
-- Previous b4 Actions: WAN route #44901566662 and XY-C1 #44901566573 failed due stale source checker assertions; XY-C1 Build/TRX/artifact were SKIPPED because the contract step failed before build. AI docs #44901566570 failed because the exact conditional checkpoint sentence was omitted. Firewall #44901566561, Process inventory #44901566665, WAN DHCP #44901566634, WAN teardown #44901566648, HTTPD #44901566615, watchdog #44901566575, ZeroTier #44901566677, miniupnpd #44901566667, wireless #44901566613, VPN #44901566558, DNSMasq #44901566564, detect_link #44901566586, detect_internet #44901566699 and USB modem #44901566582 passed on b4. NVRAM audit #44901566629 was in progress.
-- Firewall fail-closed NVRAM commits remain `ee01141a` and `4a02532f`; these enforce checked `fw_enable_x`, `fw_dos_x`, `macfilter_enable_x`, `fw_mac_drop`, preserve absent-key defaults, and abort core table staging/rollback on read errors.
-- This DNSMasq slice closes a resolver-policy gap: five `nvram_match()` reads could silently remove configured filter-AAAA, all-servers, strict-order, DNS-rebinding protection or DNSSEC proxy directives after an NVRAM backend failure. The new checked reader runs before any staged host/resolver/config writes and preserves the last-known-good configuration.
-
-- On exact SHA `232e31d7eeaa5a6a5e7510ce74a59d9b2f9a7950`, DNSMasq #44902070166 passed the new GNU89/ASan policy binary and preceding lifecycle regressions, then hit a checker `ValueError` caused by an over-escaped newline in the new C signature. WAN route #44902070187 passed WAN DNS-mode, MTU, EAPOL and firewall propagation checks, then failed the new ternary token only because the checker expected extra outer parentheses. This commit corrects both checker expressions; source behavior is unchanged. AI docs #44902070141, miniupnpd #44902070251, HTTPD #44902070259, Samba #44902070353, Inadyn #44902070265, WAN DHCP #44902070191 and Process inventory #44902070152 passed. XY-C1 #44902070311 and NVRAM audit #44902070127 were in progress at last poll.
-
-- On SHA `2a2238af`, the DNSMasq option source checker uses the actual `prepare_dns_dhcpd()` newline signature. A final whitespace-normalization review found the five multiline option calls compact to one space after `(`, so the checker is now aligned to that representation without changing production code.
-
-- On exact SHA `5a4366981557ddef27f4bb0717543f84b353b36c`, DNSMasq lifecycle #44902327424 PASS and AI handoff #44902327438 PASS. The DNSMasq source gate, GNU89/Werror/ASan/UBSan policy test and existing lifecycle checks are green. WAN route #44902224203 on its parent SHA failed only because the whitespace-normalized setter assertion omitted the space after `nvram_transaction_set(`; this commit corrects that token and its ordering lookup. NVRAM audit #44902070127 on `232e31d7` PASS. XY-C1 #44902070311 on the `232e31d7` production-input SHA was still running its actual Build XY-C1 step at last poll; TRX verification and artifact upload remain pending.
+- Parent main before the URL-filter fail-closed slice: `dffca184e64dc44d8cfae11a43bbcebe21d9e0b6`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- Firewall global enable, DoS and MAC policy fail-closed changes are committed in `ee01141a` and `4a02532f`. Exact Firewall runs #44900939770 and #44901320517 passed respectively; AI/Process checks also passed.
+- WAN protocol reset now uses checked transactional `set_wan_unit_param_status(unit, "proto")` (source commit `b4bdfa78`). WAN source-contract whitespace issues were fixed in the script; exact WAN route run #44902460823 and AI handoff #44902460812 both PASS on `dffca184e64dc44d8cfae11a43bbcebe21d9e0b6`.
+- DNSMasq now checks `dhcp_filter_aaaa`, `dhcp_all_servers`, `dhcp_strict_order`, `dhcp_stop_dns_rebind`, and `dhcp_proxy_dnssec` before generating/publishing config. Exact DNSMasq #44902327424 PASS and AI docs #44902327438 PASS on `5a4366981557ddef27f4bb0717543f84b353b36c`.
+- XY-C1 #44902070311 on the production input SHA `232e31d7eeaa5a6a5e7510ce74a59d9b2f9a7950` was still building when last checked: Build XY-C1 IN_PROGRESS, TRX and artifact steps PENDING. This exact run has already passed the full pre-build source/test suite, including WAN reset, firewall and detector contracts. No firmware/TRX/artifact result is claimed yet.
+- New firewall review found three additional unchecked filtering switches: `url_enable_x` enabled URL/webstr filtering, `fw_lw_enable_x` enabled LWF chain generation, and `url_inv_x` selected the inverse MAC match used by URL filtering. Their `nvram_match()` calls collapsed backend errors to false, silently removing configured URL/LWF policy from a regenerated firewall ruleset.
+- Frozen backup remains immutable; legacy PR #1 remains closed/unmerged.
 
 ## Active task
-- Verify exact-head WAN route, XY-C1 and AI handoff reruns for `04b8537a`, and DNSMasq regression plus XY-C1 for this new source slice.
-- For DNSMasq, confirm all five checked reads happen before DHCP range persistence, hosts writes, resolver file creation and opening staged config. Missing values retain false defaults; API/read errors abort before new config publication.
-- Inspect Build XY-C1, TRX validation and artifact upload as separate steps; distinguish source-contract failure from actual firmware compilation.
-- Continue wider userland P1 security/stability work once these checks are understood; do not return to repeated audits of completed firewall changes.
+- Verify exact-head Firewall Startup Stability and XY-C1 actions for the URL/LWF fail-closed change.
+- Ensure IPv4 checks URL enable, LWF enable and (when URL filtering is active) URL inverse mode before opening the staged filter file. Ensure IPv6 checks URL enable and inverse mode likewise. Backend/invalid read errors must abort the existing core restore transaction; missing keys retain false defaults.
+- Confirm both `url_inv_x` call sites consume the checked local state and no unchecked match remains for these three settings.
+- After exact tests, continue independent P1 stability/security work in another Padavan userland subsystem, not another broad audit of already-fixed DHCP/DNS/WAN paths.
 
 ## Verification boundary
-- WAN protocol source regression on b4 previously failed only because its new checker expected a whitespace-specific helper string; XY-C1 WAN firewall assertion likewise expected the removed `nvram_safe_get("wan_proto")` call. Both checker contracts are corrected in `04b8537a`; exact reruns pending.
-- AI handoff docs exact sentence is restored in `04b8537a`; exact rerun pending.
-- DNSMasq standalone policy binary: GNU89, `-Wall -Wextra -Werror`, ASan/UBSan: PASS locally. Full `services_ex.c` RC cross-build, MIPS firmware, TRX/artifact and hardware router behavior are pending.
-- Backup SHA remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no L4 hardware claim.
+- Latest standalone firewall boolean policy fixture (GNU89, `-Wall -Wextra -Werror`, ASan/UBSan) passed on prior firewall changes; this slice reuses that unchanged helper.
+- WAN route run #44902460823 PASS and AI docs #44902460812 PASS on `dffca184`.
+- DNSMasq run #44902327424 PASS and AI docs #44902327438 PASS on `5a436698`.
+- XY-C1 run #44902070311 on `232e31d7`: all pre-build source/test steps PASS; Build XY-C1 still IN_PROGRESS at last poll, TRX/artifact PENDING. No L3 claim.
+- Current URL/LWF source test and firmware build are pending exact-head Actions; hardware/router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head DNSMasq, WAN route, AI docs and XY-C1 Actions for the current main SHA.
-2. Confirm checker fixes on `04b8537a` pass, then inspect the new DNSMasq option policy test/source contract.
-3. Verify Build XY-C1, TRX output and uploaded artifact independently; no build success claim while earlier checker steps are skipped.
-4. Continue one new P1 userland reliability/security defect outside the just-fixed DNSMasq/WAN/firewall areas.
+1. Fetch live main and inspect exact-head Firewall Startup Stability and XY-C1 results for this URL/LWF slice.
+2. Confirm the five URL/LWF checked gates, no remaining direct `nvram_match()` for those settings, and GNU89 regression results.
+3. Inspect Build XY-C1, TRX verification and artifact upload separately; do not conflate pending build with completed tests.
+4. Continue one confirmed P1 defect in a separate userland subsystem, preserving the atomic main workflow.
 
 Before context exhaustion, update this handoff only when active task, exact-head status, validation boundary or first next action materially changes; no no-op commit.

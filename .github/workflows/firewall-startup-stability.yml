@@ -361,6 +361,24 @@ jobs:
               assert filter_builder.index(enabled_gate) < filter_builder.index("firewall_open_rule_file(")
           assert 'nvram_match("fw_enable_x", "1")' not in firewall_source
           assert "api_result < 0" in firewall_nvram_policy
+          for signature, checked in (
+              ("ipt_filter_rules(char *man_if", (
+                  'firewall_read_enabled_setting("url_enable_x", &is_url_enabled)',
+                  'firewall_read_enabled_setting("fw_lw_enable_x", &is_lwf_enabled)',
+                  'firewall_read_enabled_setting("url_inv_x", &is_url_inverse)',
+              )),
+              ("ip6t_filter_rules(char *man_if", (
+                  'firewall_read_enabled_setting("url_enable_x", &is_url_enabled)',
+                  'firewall_read_enabled_setting("url_inv_x", &is_url_inverse)',
+              )),
+          ):
+              filter_builder = body(firewall_source, signature)
+              for gate in checked:
+                  assert gate in filter_builder, signature + ": " + gate
+                  assert filter_builder.index(gate) < filter_builder.index("firewall_open_rule_file(")
+          assert 'nvram_match("url_enable_x", "1")' not in firewall_source
+          assert 'nvram_match("fw_lw_enable_x", "1")' not in firewall_source
+          assert 'nvram_match("url_inv_x", "1")' not in firewall_source
           assert "api_result != 1 || !value" in firewall_nvram_policy
 
           paths = (
