@@ -300,14 +300,15 @@ static const char *wsd_tag_find(const char *xml,
 		if (!p)
 			continue;
 		p += strlen(tag[i][0]);
-		while (isspace(*p))
+		while (*p && isspace((unsigned char)*p))
 			p++;
 
 		const char *q = strstr(p, tag[i][1]);
-		if (!q || strchr(p, '<') < q)
+		const char *nested = strchr(p, '<');
+		if (!q || (nested && nested < q))
 			continue;
 
-		while(p < q && isspace(q[-1]))
+		while (p < q && isspace((unsigned char)q[-1]))
 			q--;
 		*len = q - p;
 		return p;
@@ -347,8 +348,19 @@ static struct wsd_req_info *wsd_req_parse(const char *xml, size_t length)
 	if (!info)
 		return NULL;
 
+	if (action_len == 0 || msgid_len == 0) {
+		free(info);
+		return NULL;
+	}
+
 	info->action = strndup(action, action_len);
 	info->msgid = strndup(msgid, msgid_len);
+	if (!info->action || !info->msgid) {
+		free(info->action);
+		free(info->msgid);
+		free(info);
+		return NULL;
+	}
 
 	return info;
 }

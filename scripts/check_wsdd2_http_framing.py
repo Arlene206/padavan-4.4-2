@@ -29,6 +29,19 @@ assert "atoi(val)" not in parser
 assert "wsd_http_read_exact(fd, buf, &len, contentlength)" in parser
 assert re.search(r"memmove\(buf, p, len\); p = buf;", parser), parser
 assert "errno == EMSGSIZE" in parser
+tag_finder = SOURCE[SOURCE.index("static const char *wsd_tag_find("):
+                     SOURCE.index("static struct wsd_req_info *wsd_req_parse(")]
+assert "const char *nested = strchr(p, '<');" in tag_finder
+assert "nested && nested < q" in tag_finder
+assert "isspace((unsigned char)*p)" in tag_finder
+assert "isspace((unsigned char)q[-1])" in tag_finder
+
+request_parser = SOURCE[SOURCE.index("static struct wsd_req_info *wsd_req_parse("):
+                         SOURCE.index("static void wsd_req_destruct(")]
+assert "action_len == 0 || msgid_len == 0" in request_parser
+assert "if (!info->action || !info->msgid)" in request_parser
+assert "free(info->action);" in request_parser
+assert "free(info->msgid);" in request_parser
 
 policy = compact(POLICY)
 for token in (
