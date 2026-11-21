@@ -94,12 +94,13 @@ disabled = start.split('if (nvram_invmatch("crond_enable", "1"))', 1)[1].split(
 assert "return 0;" in disabled
 assert "return 1;" not in disabled
 launch_failure = function_body(start, "if (launch_status != 0)")
-assert "return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in launch_failure
+assert 'optional_daemon_rollback_failed_start("crond", -1, launch_errno)' in launch_failure
+assert "launch_errno = errno;" in launch_failure
 initial_wait = start.index(
     'service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS)'
 )
 initial_wait_failure = start.index("if (status != 0)", initial_wait)
-initial_wait_return = start.index("return status;", initial_wait_failure)
+initial_wait_return = start.index('return optional_daemon_rollback_failed_start("crond", status, launch_errno);', initial_wait_failure)
 assert start.index("launch_status = _eval(crond_argv") < initial_wait < initial_wait_failure < initial_wait_return < start.index("crond_process_presence(&scan_error)")
 assert "attempt < CROND_START_PROBE_ATTEMPTS" in start
 assert "attempt + 1 < CROND_START_PROBE_ATTEMPTS" in start
@@ -107,7 +108,7 @@ retry_wait = start.index(
     'service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)'
 )
 retry_wait_failure = start.index("if (status != 0)", retry_wait)
-assert retry_wait_failure < start.index("return status;", retry_wait_failure)
+assert retry_wait_failure < start.index('return optional_daemon_rollback_failed_start("crond", status, launch_errno);', retry_wait_failure)
 presence_helper = function_body(services, "crond_process_presence(int *scan_error)")
 assert 'process_inventory_scan("crond", &snapshot)' in presence_helper
 assert "*scan_error = snapshot.error;" in presence_helper
@@ -120,10 +121,11 @@ assert "presence = crond_process_presence(&scan_error);" in start
 assert "crond_start_postcondition(launch_status, presence)" in start
 assert "presence == PROCESS_PRESENCE_RUNNING" in start
 unknown = start.index("presence == PROCESS_PRESENCE_UNKNOWN")
-assert start.index("break;", unknown) < start.index('service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)', unknown)
+assert start.index('return optional_daemon_rollback_failed_start("crond", status, errno);', unknown) < start.index('service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)', unknown)
 assert 'pids("crond")' not in start
 assert "crond daemon did not remain running after launch" in start
-assert "return status;" in start
+assert 'errno = ETIMEDOUT;' in start
+assert 'return optional_daemon_rollback_failed_start("crond", status, ETIMEDOUT);' in start
 
 restart = function_body(services, "restart_crond(void)")
 stop_call = restart.index("stop_status = stop_crond();")

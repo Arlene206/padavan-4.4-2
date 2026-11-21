@@ -71,13 +71,14 @@ running = start.index("if (start_status > 0)")
 unknown = start.index("if (start_status < 0)")
 launch_status = start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR);')
 launch_log = start.index('logmessage("infosvr", "infosvr launch failed (status=%d)",')
-launch_return = start.index("return infosvr_start_postcondition(start_status,", launch_log)
+launch_return = start.index('return optional_daemon_rollback_failed_start("infosvr", -1, start_errno);', launch_log)
 launch_failure = start.split("if (start_status != 0)", 1)[1].split("\n\t}", 1)[0]
 assert disabled < running < unknown < launch_status < launch_log < launch_return
 assert "return 0;" in start[disabled:launch_status]
 assert "return 1;" not in start[disabled:launch_status]
 assert "if (start_status != 0)" in start
-assert "return infosvr_start_postcondition(start_status," in launch_failure
+assert 'optional_daemon_rollback_failed_start("infosvr", -1, start_errno)' in launch_failure
+assert "start_errno = errno;" in launch_failure
 assert "return start_status;" not in launch_failure
 postcondition = function_body(policy, "infosvr_start_postcondition(")
 assert "if (launch_status != 0)" in postcondition

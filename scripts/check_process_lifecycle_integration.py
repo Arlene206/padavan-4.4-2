@@ -3499,7 +3499,8 @@ infosvr_launch = infosvr_start.index('start_status = eval("/usr/sbin/infosvr", I
 infosvr_failure = infosvr_start.index("if (start_status != 0)", infosvr_launch)
 infosvr_failure_branch = infosvr_start[infosvr_failure:].split("\n\t}", 1)[0]
 assert "errno = EIO;" in infosvr_failure_branch
-assert "return infosvr_start_postcondition(start_status," in infosvr_failure_branch
+assert "start_errno = errno;" in infosvr_failure_branch
+assert 'optional_daemon_rollback_failed_start("infosvr", -1, start_errno)' in infosvr_failure_branch
 assert "return start_status;" not in infosvr_failure_branch
 infosvr_policy = (root / "trunk/user/rc/src/infosvr_daemon_policy.h").read_text()
 infosvr_test = (root / "trunk/user/rc/src/tests/infosvr_daemon_policy.c").read_text()

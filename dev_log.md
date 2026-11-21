@@ -1,3 +1,13 @@
+## 2026-11-21 — Update daemon lifecycle source contracts for rollback
+
+- Parent main SHA: `1b25077e6e5a9f8750d4b5c76637beec5ca354d1`.
+- The core RC daemon rollback change is now present on main. Its first exact-head test run compiled and passed the crond/infosvr C policy unit tests and most Process Lifecycle contracts, then failed three Python source validators that still expected the old direct-return behavior: infosvr, crond and the aggregated Process Lifecycle checker.
+- Updated those validators to require the new targeted `optional_daemon_rollback_failed_start()` path, primary errno capture, UNKNOWN rollback handling and bounded timeout cleanup instead of the previous direct postcondition/status returns. The Process Lifecycle checker already verifies the shared adapter uses identity-fenced `kill_services()` and a fresh inventory.
+- No production source changed in this commit. Exact-head CI is the verification target; no local checkout was available.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Serialize the SCUT watchdog stale-PID reclaim transaction
 
 - Parent main SHA: `9ff6c64b9731a848ed07c0a08500d2c8608b09e7`.
