@@ -262,6 +262,41 @@ ordered(sp,[
 ],"VPN startup must validate the client pool before publishing PPTP configuration")
 require("int get_vpns_pool(unsigned int *ip_v" in rc_header,
         "VPN pool API must propagate validation/read failures")
+
+ppp_options=body(vpn,"gen_vpns_pppd_options(int vpns_type)")
+ppp_snapshot=body(vpn,"vpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options)")
+ordered(ppp_snapshot,[
+    "is_dhcpd_enabled_status(0, &options->dhcp_enabled)",
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_auth"',
+    '"vpns_mppe"',
+    '"vpns_vuse"',
+    '"vpns_mtu"',
+    '"vpns_mru"',
+    '"lan_ipaddr"',
+    "vpn_server_pool_parse_ipv4(options->lan_ip",
+    "nvram_transaction_end(&transaction)"
+],"VPN PPP options checked NVRAM snapshot")
+ordered(ppp_options,[
+    "vpn_server_read_ppp_options_snapshot(&options)",
+    "ppp_options_file_open(vpns_opt)"
+],"VPN PPP options must be snapshotted before opening the options file")
+require('nvram_get_int("vpns_auth")' not in ppp_options and
+        'nvram_get_int("vpns_mppe")' not in ppp_options and
+        'nvram_get_int("vpns_vuse")' not in ppp_options and
+        'is_dhcpd_enabled(0)' not in ppp_options and
+        'nvram_safe_get("lan_ipaddr")' not in ppp_options and
+        'nvram_safe_get("dhcp_dns1_x")' not in ppp_options and
+        'nvram_safe_get("dhcp_dns2_x")' not in ppp_options and
+        'nvram_safe_get("dhcp_wins_x")' not in ppp_options and
+        'nvram_safe_get_int("vpns_mtu"' not in ppp_options and
+        'nvram_safe_get_int("vpns_mru"' not in ppp_options and
+        'nvram_get_int("wins_enable")' not in ppp_options,
+        "VPN PPP options must not use unchecked compatibility NVRAM getters")
+require('is_dhcpd_enabled_status(0, &options->dhcp_enabled)' in ppp_snapshot and
+        "vpn_server_transaction_get_int" in ppp_snapshot and
+        "vpn_server_transaction_copy_text" in ppp_snapshot,
+        "VPN PPP options snapshot must fail on checked DHCP/NVRAM read errors")
 require("acl_entries[i].username" in sp and "acl_entries[i].password" in sp and
         "acl_entries[i].address" in sp,
         "VPN CHAP secrets must be emitted from the validated credential snapshot")

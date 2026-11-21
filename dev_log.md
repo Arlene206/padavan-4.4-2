@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot checked VPN PPP options before opening the options file
+
+- Parent main SHA: `38ee9eee6c84afee3f4d9d118ac8d5ddd2f61145`.
+- `gen_vpns_pppd_options()` previously fetched `vpns_auth`, `vpns_mppe`, `vpns_vuse`, LAN IP, DHCP DNS/WINS, WINS enablement and MTU/MRU through compatibility getters. In particular, backend errors were collapsed into zero/defaults, and the options file was opened/truncated before those reads; a transient backend fault could publish a partial or unintended PPP policy.
+- Added a transaction snapshot for the PPP option values. DHCP enablement now uses `is_dhcpd_enabled_status()`; integer fields are checked and bounded (auth 0..1, MPPE 0..3, virtual mode 0..2, MTU/MRU 1000..1460); LAN IP is strictly parsed; optional DNS/WINS values are copied into bounded buffers. Missing numeric keys preserve legacy defaults and missing optional strings preserve fallback behavior. Read/parse failures abort before `ppp_options_file_open()`.
+- Existing DNS/WINS validity filtering and pppd option formatting remain unchanged. Lifecycle source contract now requires the snapshot-before-open ordering and disallows the unchecked getters in the generator. Exact-head VPN lifecycle and XY-C1 checks are pending for this new SHA.
+- The previous pool-validation commit d59 VPN lifecycle, WAN DHCP callback, WAN route, AI handoff docs and Process inventory passed; its XY-C1, NVRAM audit, Process lifecycle and FRP runs were still in progress at the previous poll.
+
+---
+
 ## 2026-11-21 — Align HTTPD source contract with checked VPN pool API
 
 - Parent main SHA: `d59d266a0e37436e1d5fc8ffb708ef20112b301d`.

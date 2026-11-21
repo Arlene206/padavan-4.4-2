@@ -49,6 +49,24 @@ struct vpn_server_acl_entry {
 	unsigned int address;
 	int present;
 };
+
+struct vpn_server_ppp_options {
+	int auth;
+	int mppe;
+	int vuse;
+	int dhcp_enabled;
+	int mtu;
+	int mru;
+	int wins_enabled;
+	char lan_ip[16];
+	char dns1[16];
+	char dns2[16];
+	char wins[16];
+};
+
+static int
+vpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options);
+
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
 #define VPNS_PPP_DW_SCRIPT	"/tmp/ppp/ip-down.vpns"
 
@@ -219,16 +237,28 @@ static int
 gen_vpns_pppd_options(int vpns_type)
 {
 	FILE *fp;
-	int i_mppe, i_auth, i_vuse, i_dhcp, i_items;
+	struct vpn_server_ppp_options options;
+	int i_mppe, i_auth, i_vuse, i_dhcp, i_items, saved_errno;
 	char *lanip, *wins, *dns1, *dns2;
 	const char *vpns_opt = VPN_SERVER_PPPD_OPTIONS;
 
-	i_auth = nvram_get_int("vpns_auth");
-	i_mppe = nvram_get_int("vpns_mppe");
-	i_vuse = nvram_get_int("vpns_vuse");
-	i_dhcp = is_dhcpd_enabled(0);
+	if (vpn_server_read_ppp_options_snapshot(&options) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read PPP VPN options; refusing publication (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
-	lanip  = nvram_safe_get("lan_ipaddr");
+	i_auth = options.auth;
+	i_mppe = options.mppe;
+	i_vuse = options.vuse;
+	i_dhcp = options.dhcp_enabled;
+	lanip = options.lan_ip;
+	dns1 = options.dns1;
+	dns2 = options.dns2;
+	wins = options.wins;
 
 	fp = ppp_options_file_open(vpns_opt);
 	if (!fp) {
@@ -277,8 +307,6 @@ gen_vpns_pppd_options(int vpns_type)
 	// DNS Server
 	i_items = 0;
 	if (i_dhcp) {
-		dns1 = nvram_safe_get("dhcp_dns1_x");
-		dns2 = nvram_safe_get("dhcp_dns2_x");
 		if (is_valid_ipv4(dns1)) {
 			i_items++;
 			fprintf(fp, "ms-dns %s\n", dns1);
@@ -295,7 +323,6 @@ gen_vpns_pppd_options(int vpns_type)
 	// WINS Server
 	i_items = 0;
 	if (i_dhcp) {
-		wins = nvram_safe_get("dhcp_wins_x");
 		if (is_valid_ipv4(wins)) {
 			i_items++;
 			fprintf(fp, "ms-wins %s\n", wins);
@@ -303,12 +330,12 @@ gen_vpns_pppd_options(int vpns_type)
 	}
 
 #if defined(APP_SMBD) || defined(APP_NMBD)
-	if ((i_items < 1) && nvram_get_int("wins_enable"))
+	if ((i_items < 1) && options.wins_enabled)
 		fprintf(fp, "ms-wins %s\n", lanip);
 #endif
 
-	fprintf(fp, "mtu %d\n", nvram_safe_get_int("vpns_mtu", 1450, 1000, 1460));
-	fprintf(fp, "mru %d\n", nvram_safe_get_int("vpns_mru", 1450, 1000, 1460));
+	fprintf(fp, "mtu %d\n", options.mtu);
+	fprintf(fp, "mru %d\n", options.mru);
 	fprintf(fp, "ipcp-accept-remote ipcp-accept-local\n");
 	fprintf(fp, "nodefaultroute\n");
 
@@ -1196,6 +1223,85 @@ vpn_server_transaction_get_int(struct nvram_transaction *transaction,
 	return vpn_server_config_int_status(read_status, read_errno,
 					    value, default_value,
 					    minimum, maximum, result);
+}
+
+static int
+vpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options)
+{
+	struct nvram_transaction transaction;
+	uint32_t lan_address;
+	int result = -1, saved_errno = 0, end_status, dhcp_status;
+
+	if (!options) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(options, 0, sizeof(*options));
+
+	/* The DHCP helper has its own checked reads; do not nest it under the
+	 * NVRAM transaction lock. */
+	dhcp_status = is_dhcpd_enabled_status(0, &options->dhcp_enabled);
+	if (dhcp_status != 0) {
+		errno = dhcp_status;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	if (vpn_server_transaction_get_int(&transaction, "vpns_auth",
+					   0, 0, 1, &options->auth) != 0 ||
+	    vpn_server_transaction_get_int(&transaction, "vpns_mppe",
+					   0, 0, 3, &options->mppe) != 0 ||
+	    vpn_server_transaction_get_int(&transaction, "vpns_vuse",
+					   0, 0, 2, &options->vuse) != 0 ||
+	    vpn_server_transaction_get_int(&transaction, "vpns_mtu",
+					   1450, 1000, 1460, &options->mtu) != 0 ||
+	    vpn_server_transaction_get_int(&transaction, "vpns_mru",
+					   1450, 1000, 1460, &options->mru) != 0)
+		goto finish_transaction;
+
+	if (vpn_server_transaction_copy_text(&transaction, "lan_ipaddr",
+					     options->lan_ip,
+					     sizeof(options->lan_ip)) != 0 ||
+	    vpn_server_pool_parse_ipv4(options->lan_ip, &lan_address) != 0) {
+		if (errno == 0)
+			errno = EINVAL;
+		goto finish_transaction;
+	}
+
+	if (options->dhcp_enabled) {
+		if (vpn_server_transaction_copy_text(&transaction, "dhcp_dns1_x",
+						     options->dns1,
+						     sizeof(options->dns1)) != 0 ||
+		    vpn_server_transaction_copy_text(&transaction, "dhcp_dns2_x",
+						     options->dns2,
+						     sizeof(options->dns2)) != 0 ||
+		    vpn_server_transaction_copy_text(&transaction, "dhcp_wins_x",
+						     options->wins,
+						     sizeof(options->wins)) != 0)
+			goto finish_transaction;
+	}
+#if defined(APP_SMBD) || defined(APP_NMBD)
+	if (vpn_server_transaction_get_int(&transaction, "wins_enable",
+					   0, 0, 1, &options->wins_enabled) != 0)
+		goto finish_transaction;
+#endif
+
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
 }
 
 int
