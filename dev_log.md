@@ -1,3 +1,12 @@
+## 2026-11-21 — Align HTTPD source contract with checked VPN pool API
+
+- Parent main SHA: `d59d266a0e37436e1d5fc8ffb708ef20112b301d`.
+- Exact-head HTTPD Authentication and Security Regression #44933121393 on d59 reached the final VPN lease/firewall source-contract block, then raised `ValueError: substring not found` at Python line 892. Both range delimiters still searched for `void get_vpns_pool()`; the production API now returns `int` so callers can reject invalid pools. Updated the two delimiters to the current signature. This is a checker-only correction; it does not alter production behavior or weaken the existing checks.
+- On exact d59, VPN server lifecycle #44933121391, WAN DHCP callback #44933121789, WAN route #44933121597, AI handoff docs #44933121473 and Process inventory #44933121412 passed. HTTPD exact-head rerun is pending after this change. XY-C1 #44933121304, Process lifecycle #44933121578, NVRAM audit #44933121469 and FRP #44933121501 were still running at last observation.
+- L3 remains VERIFIED only for product-source SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192`; exact d59 Build/TRX/artifact has not yet been confirmed. L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Validate VPN client address pools from checked NVRAM snapshots
 
 - Parent main SHA: `aaf58991f43d0a1093a5d8d89034cf0ed9259e8f`.

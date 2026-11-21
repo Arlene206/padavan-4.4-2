@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Main HEAD immediately before the VPN server configuration-gate slice: `4e2e701f33d2be2c35004015d6625b718be67a7f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest main product-source checkpoint: `d59d266a0e37436e1d5fc8ffb708ef20112b301d` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 
@@ -27,12 +27,14 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - VPN LAN-backed and custom address-pool selection reads `vpns_vuse`, LAN IPv4/netmask, custom subnet and pool offsets inside one exclusive NVRAM transaction. Strict IPv4/contiguous-mask checks reject missing or malformed values; LAN pools clamp to usable host offsets and reject router-address collisions/oversized ranges; custom pools must be RFC1918 and must not overlap LAN. `get_vpns_pool()` now returns status so invalid configuration aborts before PPTP config publication.
 
+- Exact-head validation of pool commit `d59d266a0e37436e1d5fc8ffb708ef20112b301d`: VPN server lifecycle #44933121391 PASS; WAN DHCP callback #44933121789 and WAN route #44933121597 PASS; AI handoff docs #44933121473 PASS; Process inventory #44933121412 PASS. HTTPD security #44933121393 failed only in its final inline source-contract block: two function-boundary lookups still expected `void get_vpns_pool()` after the API became status-returning `int get_vpns_pool()`. This commit updates both stale delimiters, without changing production code or weakening assertions. XY-C1 #44933121304, Process lifecycle #44933121578, NVRAM audit #44933121469 and FRP #44933121501 were in progress at the last observation.
+
 ## Verification boundary
 
-- L1: coherent WAN route ownership snapshot, transactional failure invalidation and PPP conntrack fallback are implemented; WAN route workflow passed on exact SHA 951, and WAN teardown / DHCP callback / NVRAM audit passed on d0.
-- L2: On exact 91ab, AI handoff #44931678330 PASS, Process inventory #44931678314 PASS, VPN server lifecycle #44931678366 PASS. HTTPD security #44931678295 failed at Python line 1012 due the stale auth-gate assertion; current workflow correction needs exact-head rerun. XY-C1 #44931678300 and NVRAM audit #44931678280 pending.
-- L3: VERIFIED on exact product-source SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192`: XY-C1 Build, TRX output verification and artifact upload all PASS. The 4e2 #44931211445 host-only success SKIPPED all three product-build stages, so it does not validate HTTPD. Exact 91ab XY-C1 #44931678300 is still in progress; require Build, TRX verification and artifact upload all PASS on one exact SHA to verify current VPN/HTTPD code.
-- L4: hardware WAN routing, concurrent callback behavior and on-device HTTPD duplicate-header behavior remain NOT VERIFIED.
+- L1: VPN enable/type fail-closed reads, transactional CHAP credential snapshot and transactional/validated LAN or RFC1918 custom address-pool selection are implemented. WAN route teardown retains the transactional ownership snapshot and separate PPP conntrack address read.
+- L2: On exact pool-source SHA `d59d266a0e37436e1d5fc8ffb708ef20112b301d`, VPN server lifecycle #44933121391 PASS, WAN DHCP callback #44933121789 PASS, WAN route #44933121597 PASS, AI handoff #44933121473 PASS, Process inventory #44933121412 PASS. HTTPD security #44933121393 failed at its final Python source-contract locator because two old delimiters expected the previous void pool API; both are corrected by this checker-only commit. Exact-head rerun is required. Process lifecycle #44933121578, NVRAM audit #44933121469, FRP #44933121501 and XY-C1 #44933121304 were PENDING at the last observation.
+- L3: VERIFIED only on product-source SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192` where Build, TRX verification and artifact upload all passed. This does not verify the later VPN source changes at d59; its exact XY-C1 run #44933121304 was PENDING. L4 hardware validation remains NOT VERIFIED.
+- L4: Hardware WAN routing, concurrent callback behavior and on-device HTTPD duplicate-header behavior remain NOT VERIFIED.
 
 ## Workflow and preservation rules
 
@@ -52,6 +54,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, NVRAM audit, AI docs and XY-C1 Actions for the pool-validation commit. Repair only failures supported by exact logs.
-2. Continue auditing VPN PPP options: `gen_vpns_pppd_options()` still reads `vpns_auth`, `vpns_mppe`, `vpns_vuse`, DNS/WINS and LAN IP through compatibility getters. Snapshot critical settings transactionally, preserve defaults only for genuinely absent keys, and fail before opening/truncating the options file on backend errors.
-3. Review route ACL callbacks for remaining unchecked account/network reads; do not reopen the CHAP credential or pool fixes without new failure evidence.
+1. Inspect the exact-head HTTPD security rerun for this checker correction and the existing d59 pending runs. If a run fails, diagnose its exact log; do not treat host checks as target-build validation.
+2. Continue the highest-value unfinished VPN task: replace unchecked reads in `gen_vpns_pppd_options()` (`vpns_auth`, `vpns_mppe`, `vpns_vuse`, DHCP enable, LAN IP, DNS/WINS, MTU/MRU and WINS enable) with a checked transactional configuration snapshot. Preserve defaults only for genuinely absent keys and abort before opening/truncating `options.vpns` on read/validation failure. Add GNU89 policy/source-contract regression coverage.
+3. Then inspect `vpns_route_to_remote_lan()` account/network NVRAM reads for cache-pointer lifetime, transaction consistency and fail-closed behavior; keep the change separate from the PPP-options slice.
