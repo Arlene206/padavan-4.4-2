@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize EAPOL checked-read contract
+
+- Parent main SHA: `ef17608b90343776a20ec2e7591b885b8be54359`.
+- Exact-head WAN route run `#44893354019` passed the GNU89/ASan/UBSan policy binary, DNS-mode and PPPoE checks, and both MAN/physical MTU checks. It then failed the EAPOL checked-read source assertion because `start_wan()` splits the getter call over multiple lines.
+- Updated the checker to compact the extracted function body and compare the exact checked getter, key and output variable without formatting sensitivity. The existing `auth_status` cleanup-path requirements remain.
+- AI handoff documentation run `#44893354037` passed on the same parent SHA. No product C behavior changed.
+
+---
+
 ## 2026-11-21 — Normalize physical WAN MTU checked-read contract
 
 - Parent main SHA: `35f7f642c0115cbb238190256d498ad75cbb4fc1`.

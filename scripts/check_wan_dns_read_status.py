@@ -269,7 +269,8 @@ print("WAN MTU reads fail closed before MAN/physical interface activation: PASS"
 
 # EAPOL and IPoE/Kabinet authentication-mode decisions must use checked reads.
 wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
-require('get_wan_unit_value_int_status(unit, "auth_mode", &wan_auth_mode)' in wan_start,
+wan_start_compact = "".join(wan_start.split())
+require('get_wan_unit_value_int_status(unit,"auth_mode",&wan_auth_mode)' in wan_start_compact,
         "EAPOL mode must use checked NVRAM reads")
 require("auth_status = nvram_status" in wan_start and "if (auth_status != 0)" in wan_start,
         "EAPOL read failures must use the existing startup cleanup path")
