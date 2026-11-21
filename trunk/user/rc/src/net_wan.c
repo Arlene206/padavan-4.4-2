@@ -4417,6 +4417,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
+	int gateway_arp_status, gateway_arp_enabled;
 	int wan_addr_status, wan_mask_status, wan_gate_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
@@ -4595,32 +4596,44 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		logmessage(LOGNAME, "WAN VPN client start notification incomplete (status=%d)",
 			   route_status);
 
-	/* Start the gateway ARP checker only after a complete ABSENT scan. */
-	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP &&
-	    nvram_match("gw_arp_ping", "1")) {
-		struct process_snapshot snapshot;
-		enum process_presence presence;
-		enum process_presence_start_action action;
-		int scan_error;
+	/*
+	 * A failed gateway-ARP enable read is not equivalent to a disabled setting:
+	 * preserve the error in the WAN-up result rather than silently skipping
+	 * the configured checker.
+	 */
+	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP) {
+		gateway_arp_status = get_nvram_match_checked_status(
+			"gw_arp_ping", "1", &gateway_arp_enabled);
+		if (gateway_arp_status != 0) {
+			status = route_status_accumulate(status, gateway_arp_status);
+			logmessage(LOGNAME,
+				   "cannot read gateway ARP checker enable setting (status=%d)",
+				   gateway_arp_status);
+		} else if (gateway_arp_enabled) {
+			struct process_snapshot snapshot;
+			enum process_presence presence;
+			enum process_presence_start_action action;
+			int scan_error;
 
-		presence = process_inventory_scan("detect_wan", &snapshot);
-		scan_error = snapshot.error;
-		process_snapshot_release(&snapshot);
-		action = process_presence_start_action_for_state(presence);
-		route_status = 0;
-		if (action == PROCESS_PRESENCE_START_NEW)
-			route_status = eval("detect_wan");
-		route_status = process_presence_start_status_for_action(
-			action, scan_error, route_status);
-		if (route_status != 0) {
-			status = route_status_accumulate(status, route_status);
-			if (action == PROCESS_PRESENCE_START_ABORT)
-				logmessage(LOGNAME,
-					   "skipping gateway ARP checker start because process inventory is unknown (status=%d)",
-					   route_status);
-			else
-				logmessage(LOGNAME, "WAN gateway ARP checker startup incomplete (status=%d)",
-					   route_status);
+			presence = process_inventory_scan("detect_wan", &snapshot);
+			scan_error = snapshot.error;
+			process_snapshot_release(&snapshot);
+			action = process_presence_start_action_for_state(presence);
+			route_status = 0;
+			if (action == PROCESS_PRESENCE_START_NEW)
+				route_status = eval("detect_wan");
+			route_status = process_presence_start_status_for_action(
+				action, scan_error, route_status);
+			if (route_status != 0) {
+				status = route_status_accumulate(status, route_status);
+				if (action == PROCESS_PRESENCE_START_ABORT)
+					logmessage(LOGNAME,
+						   "skipping gateway ARP checker start because process inventory is unknown (status=%d)",
+						   route_status);
+				else
+					logmessage(LOGNAME, "WAN gateway ARP checker startup incomplete (status=%d)",
+						   route_status);
+			}
 		}
 	}
 

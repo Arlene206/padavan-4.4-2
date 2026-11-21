@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Production source slices: preserve indexed demand-PPP DNS on WAN teardown when global MAN DNS cannot be read; use checked exact-string PPPoE-MWAN enable reads in both WAN-up and WAN-down; check rstats/LLTD enable state before daemon startup.
-- Current task: repair three stale regression assertions. The WAN route checker must accept the checked PPPoE-MWAN read/error/launch sequence after the WAN post-down hook; the PPPoE-MWAN checker must test that same checked read in both event handlers; the Process checker must normalize whitespace across multi-line C rollback calls.
-- Earlier route/ZeroTier/firewall contracts now pass on the 855d ancestry; WAN route #44925135400 failed later at check_wan_detect_wan_status.py. XY-C1 #44925135581 passed the PPPoE shell tests and failed at the old PPPoE-MWAN caller assertion. Process #44925135670 failed only at the whitespace-sensitive rollback assertion. Exact-head reruns pending.
-- After these contracts pass, continue the WAN event NVRAM audit with the DHCP gateway-ARP enable decision.
+- Production source slices: checked PPPoE-MWAN exact-enable decisions in WAN-up/down; checked rstats/LLTD enable reads; and preserving indexed demand-PPP DNS when global MAN DNS cannot be read.
+- Current new fix: DHCP/no-modem gateway-ARP enable gating now uses the checked exact-string NVRAM reader. Missing/non-"1" keeps disabled behavior, backend failure is accumulated/logged, and process inventory/start status continues to be handled by the existing tri-state policy.
+- Regression: scripts/check_wan_detect_wan_status.py asserts checked gateway-ARP read/error/launch order; wan_nvram_status_policy.c already tests exact-string semantics and backend errors. Exact-head WAN route/XY-C1 checks pending.
+- First independent follow-up: continue auditing the WAN-up/down callbacks for remaining unchecked configuration reads that suppress required route/service work; avoid redoing the fixed PPPoE-MWAN, DNS and gateway-ARP gates.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and verify the frozen backup remains unchanged. Check exact-head WAN route, XY-C1 Build/TRX/artifact, and Process Actions for the checker repair; inspect any failure logs and fix only the true failing contract/implementation. Then implement the DHCP gateway-ARP enable check using the checked exact-string NVRAM reader and add regression coverage.
+Fetch live main and verify the frozen backup remains unchanged. Check exact-head WAN route, Process, ZeroTier and XY-C1 Build/TRX/artifact Actions for the latest checked WAN-event changes; inspect failures and repair. Then audit the remaining WAN-up/down configuration reads for another confirmed silent-skip/error-collapse path.
 

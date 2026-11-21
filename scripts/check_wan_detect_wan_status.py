@@ -65,7 +65,36 @@ def require(condition, message):
 
 
 wan_up = body(WAN, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
-scan = wan_up.index('presence = process_inventory_scan("detect_wan", &snapshot);')
+gateway_scope = wan_up.rindex(
+    "if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)"
+)
+gateway_read = wan_up.index(
+    'gateway_arp_status = get_nvram_match_checked_status("gw_arp_ping", "1", &gateway_arp_enabled);'
+    .replace(" ", ""),
+) if False else wan_up.index(
+    'gateway_arp_status = get_nvram_match_checked_status('
+)
+gateway_error = wan_up.index("if (gateway_arp_status != 0)", gateway_read)
+gateway_merge = wan_up.index(
+    "status = route_status_accumulate(status, gateway_arp_status);",
+    gateway_error,
+)
+gateway_log = wan_up.index(
+    "cannot read gateway ARP checker enable setting", gateway_error
+)
+gateway_enabled = wan_up.index("else if (gateway_arp_enabled)", gateway_error)
+scan = wan_up.index(
+    'presence = process_inventory_scan("detect_wan", &snapshot);', gateway_enabled
+)
+require(
+    gateway_scope < gateway_read < gateway_error < gateway_merge
+    < gateway_log < gateway_enabled < scan,
+    "DHCP gateway ARP must use checked enable state and preserve read errors before process inventory",
+)
+require(
+    'nvram_match("gw_arp_ping", "1")' not in wan_up,
+    "gateway ARP enable must not collapse NVRAM read errors to a disabled result",
+)
 release = wan_up.index("process_snapshot_release(&snapshot);", scan)
 decision = wan_up.index("action = process_presence_start_action_for_state(presence);", release)
 start_gate = wan_up.index("if (action == PROCESS_PRESENCE_START_NEW)", decision)

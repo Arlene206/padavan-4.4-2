@@ -1,3 +1,12 @@
+## 2026-11-21 — Propagate gateway-ARP enable-state read failures
+
+- Parent main SHA: dc9a86c9f74a6b327d215bfdb26ac63420060e59.
+- The DHCP WAN-up gateway ARP checker still used unchecked nvram_match("gw_arp_ping", "1"). If the NVRAM backend failed, a requested optional checker was silently skipped as though disabled, and WAN-up could return success.
+- The DHCP/no-modem branch now uses the checked exact-string reader already exercised by wan_nvram_status_policy tests. Missing or values other than exact "1" remain a disabled no-op; read errors enter the WAN-up first-error accumulator and are logged before skipping checker startup. Existing process tri-state inventory/start semantics are unchanged.
+- Extended check_wan_detect_wan_status.py to assert checked-read → error aggregation/logging → enabled gate → process inventory order and reject the old raw matcher. Exact-head WAN route and XY-C1 Build/TRX/artifact verification pending; L3/L4 not claimed.
+
+---
+
 ## 2026-11-21 — Update PPPoE-MWAN and detached-daemon source contracts
 
 - Parent main SHA: 6f90222e0d35cb04bf640aef51957b02efa3cf60.
