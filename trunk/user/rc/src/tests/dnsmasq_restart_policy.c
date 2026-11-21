@@ -30,6 +30,10 @@ main(void)
 	assert(dnsmasq_start_policy_status(0, PROCESS_PRESENCE_UNKNOWN) == EIO);
 	assert(dnsmasq_start_policy_status(0, (enum process_presence)7) == EIO);
 	assert(dnsmasq_start_policy_status(EIO, PROCESS_PRESENCE_RUNNING) == EIO);
+	assert(!dnsmasq_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
+	assert(dnsmasq_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
+	assert(dnsmasq_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));
+	assert(dnsmasq_failed_start_may_leave_daemon((enum process_presence)7));
 	assert(dnsmasq_stop_policy_should_clear_arp(0));
 	assert(!dnsmasq_stop_policy_should_clear_arp(EBUSY));
 	assert(dnsmasq_stop_policy_cleanup_status(0, 0) == 0);

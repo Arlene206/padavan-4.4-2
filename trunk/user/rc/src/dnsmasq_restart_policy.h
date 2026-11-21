@@ -95,4 +95,11 @@ dnsmasq_start_policy_status(int launch_status,
 	return EIO;
 }
 
+/* A failed detached launch must treat UNKNOWN as possibly still active. */
+static int
+dnsmasq_failed_start_may_leave_daemon(enum process_presence state)
+{
+	return state != PROCESS_PRESENCE_ABSENT;
+}
+
 #endif /* PADAVAN_DNSMASQ_RESTART_POLICY_H */

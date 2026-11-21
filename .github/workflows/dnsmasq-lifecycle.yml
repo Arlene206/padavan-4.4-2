@@ -36,6 +36,8 @@ on:
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - ".github/workflows/inadyn-lifecycle-stability.yml"
       - "trunk/user/rc/src/dnsmasq_restart_policy.h"
+      - "scripts/check_dnsmasq_start_rollback.py"
+      - "scripts/check_dnsmasq_start_rollback.py"
       - "trunk/user/rc/src/tests/dnsmasq_restart_policy.c"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
@@ -153,6 +155,8 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_restart_policy.c \
             -o "$RUNNER_TEMP/dnsmasq-restart-policy"
           "$RUNNER_TEMP/dnsmasq-restart-policy"
+      - name: Verify DNSMasq failed-start rollback and lock contract
+        run: python3 scripts/check_dnsmasq_start_rollback.py
       - name: Compile and run DNSMasq resolver-file creation policy regression
         run: |
           set -eu
