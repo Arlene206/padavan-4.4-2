@@ -432,7 +432,8 @@ jobs:
           report = json.load(open(sys.argv[1], encoding="utf-8"))
           print("PROCESS LIFECYCLE INVENTORY:", report["revision"])
           print("Coverage:", json.dumps(report["coverage"], sort_keys=True))
-          for symbol in ("pids", "is_dns_dhcpd_run", "dnsmasq_process_status"):
+          for symbol in ("pids", "is_dns_dhcpd_run", "dnsmasq_process_status",
+                          "kill_pidfile", "kill_pidfile_s"):
               hits = report["api_symbols"][symbol]["hits"]
               calls = [hit for hit in hits if hit["role"] == "call_or_macro"]
               print(f"\n{symbol}: {len(hits)} lexical occurrences; {len(calls)} call candidates")
