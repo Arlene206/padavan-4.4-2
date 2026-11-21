@@ -11,6 +11,8 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/static_route_policy.h"
+      - "trunk/user/rc/src/tests/static_route_policy.c"
       - "scripts/check_forwarding_control_status.py"
       - "trunk/user/rc/src/tests/ipv4_forward_policy.c"
       - "trunk/user/rc/src/ipv4_forward_policy.h"
@@ -67,6 +69,8 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/static_route_policy.h"
+      - "trunk/user/rc/src/tests/static_route_policy.c"
       - "scripts/check_forwarding_control_status.py"
       - "trunk/user/rc/src/tests/ipv4_forward_policy.c"
       - "trunk/user/rc/src/ipv4_forward_policy.h"
@@ -139,6 +143,12 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_nvram_match_policy.c -o "$RUNNER_TEMP/firewall-nvram-match-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall-nvram-match-policy"
+
+      - name: Compile and run static-route bounds and input policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/static_route_policy.c -o "$RUNNER_TEMP/static-route-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/static-route-policy"
 
       - name: Verify required NAT restore gates WAN startup
         run: |
@@ -593,6 +603,39 @@ jobs:
           assert "firewall_mac_filter_mode_is_safe(2)" in filter_test
           assert "firewall_mac_filter_mode_is_safe(-1)" in filter_test
           assert "firewall_mac_filter_mode_is_safe(3)" in filter_test
+
+          route_policy = Path("trunk/user/rc/src/static_route_policy.h").read_text()
+          route_test = Path("trunk/user/rc/src/tests/static_route_policy.c").read_text()
+          route_ui = Path("trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp").read_text()
+          route_count_reader = body(firewall_source, "firewall_read_static_route_entry_count(int *entry_count)")
+          route_copy_reader = body(firewall_source, "firewall_copy_static_route_setting(const char *name, int index,")
+          route_emitter = body(firewall_source, "fill_static_routes(char *buf, int len, const char *ift)")
+          route_control = body(Path("trunk/user/rc/src/net.c").read_text(), "control_static_routes(char *ift, char *ifname, int is_add)")
+          assert "document.form.sr_num_x_0.value >= c" in route_ui
+          assert "document.form.sr_num_x_0.value > c" not in route_ui
+          assert "#define STATIC_ROUTE_MAX_ENTRIES 64" in route_policy
+          assert "static_route_entry_count_is_safe(64)" in route_test
+          assert "static_route_entry_count_is_safe(65)" in route_test
+          assert "static_route_metric_parse" in route_test
+          assert "static_route_ipv4_field_is_safe" in route_test
+          assert 'nvram_get_checked("sr_num_x", &value)' in route_count_reader
+          assert "static_route_entry_count_is_safe(*entry_count)" in route_count_reader
+          assert "firewall_read_indexed_string_setting(name, index, &value)" in route_copy_reader
+          assert "firewall_read_static_route_entry_count(&entry_count)" in route_emitter
+          assert "for (i = 0; i < entry_count; ++i)" in route_emitter
+          for key in ("sr_if_x", "sr_ipaddr_x", "sr_netmask_x", "sr_gateway_x", "sr_matric_x"):
+              assert 'firewall_copy_static_route_setting("' + key + '", i' in route_emitter
+          assert "static_route_metric_parse(metric, &metric_value)" in route_emitter
+          assert "foreach_x(" not in route_emitter and "general_conv(" not in route_emitter
+          assert "firewall_read_indexed_string_setting(" in route_copy_reader
+          assert "buf[0] = '\\0';" in route_emitter
+          route_fill_pos = route_control.index("fill_static_routes(route_buf, SR_BUF_LEN, ift)")
+          route_fill_abort = route_control.index("if (status != 0)", route_fill_pos)
+          assert route_fill_pos < route_fill_abort < route_control.index("foreach(word, route_buf, next)")
+          assert "int fill_static_routes(char *buf, int len, const char *ift);" in Path("trunk/user/rc/src/rc.h").read_text()
+          assert "void fill_static_routes(char *buf, int len, const char *ift);" not in Path("trunk/user/rc/src/rc.h").read_text()
+          assert 'trunk/user/rc/src/static_route_policy.h' in workflow
+          assert 'trunk/user/rc/src/tests/static_route_policy.c' in workflow
           assert 'nvram_get_int("macfilter_enable_x")' not in firewall_source
           assert 'nvram_match("fw_mac_drop", "1")' not in firewall_source
           assert 'nvram_match("fw_dos_x", "1")' not in firewall_source
@@ -768,6 +811,8 @@ jobs:
               "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c",
               "trunk/user/rc/src/tests/firewall_command_status.c",
               "trunk/user/rc/src/tests/firewall_filter_policy.c",
+              "trunk/user/rc/src/static_route_policy.h",
+              "trunk/user/rc/src/tests/static_route_policy.c",
               "trunk/user/rc/src/tests/firewall_hook_file.c",
               "trunk/user/rc/src/tests/firewall_rule_file.c",
               "trunk/user/rc/src/tests/firewall_snapshot_fd.c",

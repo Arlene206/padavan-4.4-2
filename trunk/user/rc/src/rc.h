@@ -766,7 +766,7 @@ int try_start_usb_modem_to_wan(void);
 /* firewall_ex.c */
 int ipt_nat_default(void);
 int ipt_filter_default(void);
-void fill_static_routes(char *buf, int len, const char *ift);
+int fill_static_routes(char *buf, int len, const char *ift);
 void ip2class(const char *addr, const char *mask, char *out_buf, size_t out_len);
 int start_firewall_ex(void);
 

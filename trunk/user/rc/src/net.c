@@ -146,7 +146,12 @@ control_static_routes(char *ift, char *ifname, int is_add)
 		logmessage(LOGNAME, "failed to allocate static route list (errno=%d)", ENOMEM);
 		return ENOMEM;
 	}
-	fill_static_routes(route_buf, SR_BUF_LEN, ift);
+	status = fill_static_routes(route_buf, SR_BUF_LEN, ift);
+	if (status != 0) {
+		free(route_buf);
+		return status;
+	}
+	status = 0;
 	foreach(word, route_buf, next) {
 		netmask = word;
 		ipaddr = strsep(&netmask, ":");

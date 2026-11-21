@@ -35,6 +35,7 @@
 #include "vpn_server_lease_policy.h"
 #include "vpn_server_lease_lock.h"
 #include "firewall_filter_policy.h"
+#include "static_route_policy.h"
 #include "firewall_rule_file.h"
 #include "firewall_command_status.h"
 #include "firewall_restore_transaction.h"
@@ -907,17 +908,6 @@ ip_conv(const char *ip_name, int idx)
 }
 
 static char *
-general_conv(const char *ip_name, int idx)
-{
-	char itemname_arr[32];
-
-	snprintf(itemname_arr, sizeof(itemname_arr), "%s%d", ip_name, idx);
-	g_buf_set(nvram_safe_get(itemname_arr));
-
-	return (g_buf_alloc(g_buf));
-}
-
-static char *
 filter_conv(char *proto, char *flag, char *srcip, char *srcport, char *dstip, char *dstport)
 {
 	char newstr[128];
@@ -1256,45 +1246,161 @@ ip2class(const char *addr, const char *mask, char *out_buf, size_t out_len)
 	snprintf(out_buf, out_len, "%s/%d", inet_ntoa(in), i);
 }
 
-// WAN, MAN, LAN
-void
-fill_static_routes(char *buf, int len, const char *ift)
+static int
+firewall_read_static_route_entry_count(int *entry_count)
 {
-	int i, len_iter;
-	char buf_iter[128];
-	char *ip, *netmask, *gateway, *metric, *interface;
+	char *value = NULL;
+	int api_result, saved_errno, status;
 
-	if (!buf || len < 32)
-		return;
-
-	buf[0] = '\0';
-
-	foreach_x("sr_num_x") {
-		g_buf_init();
-		
-		ip = general_conv("sr_ipaddr_x", i);
-		netmask = general_conv("sr_netmask_x", i);
-		gateway = general_conv("sr_gateway_x", i);
-		metric = general_conv("sr_matric_x", i);
-		interface = general_conv("sr_if_x", i);
-		
-		if (strcmp(interface, ift) == 0)
-		{
-			snprintf(buf_iter, sizeof(buf_iter), "%s:%s:%s:%d ", ip, netmask, gateway, atoi(metric));
-			len_iter = strlen(buf_iter);
-			if (len < (len_iter + 1))
-				break;
-			
-			strcat(buf, buf_iter);
-			
-			len -= len_iter;
-		}
+	if (!entry_count) {
+		errno = EINVAL;
+		return EINVAL;
 	}
 
-	/* remove last space */
-	len_iter = strlen(buf);
-	if (len_iter > 0)
-		buf[len_iter-1] = '\0';
+	errno = 0;
+	api_result = nvram_get_checked("sr_num_x", &value);
+	saved_errno = errno;
+	status = firewall_nvram_int_status(api_result, saved_errno, value, 0,
+					   entry_count);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot read static-route entry count (errno=%d)", status);
+		return status;
+	}
+	if (!static_route_entry_count_is_safe(*entry_count)) {
+		errno = ERANGE;
+		logmessage(LOGNAME,
+			   "invalid static-route entry count %d; refusing route update",
+			   *entry_count);
+		return ERANGE;
+	}
+
+	return 0;
+}
+
+static int
+firewall_copy_static_route_setting(const char *name, int index,
+				   char *buffer, size_t buffer_size)
+{
+	const char *value;
+	size_t value_length;
+	int status;
+
+	if (!buffer || buffer_size == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	status = firewall_read_indexed_string_setting(name, index, &value);
+	if (status != 0)
+		return status;
+
+	value_length = strlen(value);
+	if (value_length >= buffer_size) {
+		errno = ERANGE;
+		return ERANGE;
+	}
+	memcpy(buffer, value, value_length + 1);
+	return 0;
+}
+
+/* WAN, MAN, LAN. Build a complete checked snapshot before the caller mutates routes. */
+int
+fill_static_routes(char *buf, int len, const char *ift)
+{
+	int entry_count = 0, i, status, metric_value, written;
+	size_t used = 0, remaining;
+	char ip[16], netmask[16], gateway[16], metric[16], interface[8];
+	struct in_addr parsed_address;
+
+	if (!buf || len < 32 || !ift || !ift[0] ||
+	    !static_route_interface_is_safe(ift)) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	buf[0] = '\0';
+
+	status = firewall_read_static_route_entry_count(&entry_count);
+	if (status != 0)
+		goto failed;
+
+	for (i = 0; i < entry_count; ++i) {
+		status = firewall_copy_static_route_setting("sr_if_x", i,
+							    interface,
+							    sizeof(interface));
+		if (status != 0)
+			goto failed;
+		if (!static_route_interface_is_safe(interface)) {
+			status = EINVAL;
+			goto failed;
+		}
+		if (!interface[0] || strcmp(interface, ift) != 0)
+			continue;
+
+		status = firewall_copy_static_route_setting("sr_ipaddr_x", i,
+							    ip, sizeof(ip));
+		if (status != 0)
+			goto failed;
+		status = firewall_copy_static_route_setting("sr_netmask_x", i,
+							    netmask, sizeof(netmask));
+		if (status != 0)
+			goto failed;
+		status = firewall_copy_static_route_setting("sr_gateway_x", i,
+							    gateway, sizeof(gateway));
+		if (status != 0)
+			goto failed;
+		status = firewall_copy_static_route_setting("sr_matric_x", i,
+							    metric, sizeof(metric));
+		if (status != 0)
+			goto failed;
+
+		if (!ip[0] || !netmask[0] ||
+		    !static_route_ipv4_field_is_safe(ip) ||
+		    !static_route_ipv4_field_is_safe(netmask) ||
+		    !static_route_ipv4_field_is_safe(gateway) ||
+		    inet_aton(ip, &parsed_address) == 0 ||
+		    inet_aton(netmask, &parsed_address) == 0 ||
+		    (gateway[0] && inet_aton(gateway, &parsed_address) == 0)) {
+			status = EINVAL;
+			goto failed;
+		}
+		status = static_route_metric_parse(metric, &metric_value);
+		if (status != 0)
+			goto failed;
+
+		if (used != 0) {
+			if (used + 1 >= (size_t)len) {
+				status = ENOSPC;
+				goto failed;
+			}
+			buf[used++] = ' ';
+			buf[used] = '\0';
+		}
+		remaining = (size_t)len - used;
+		written = snprintf(buf + used, remaining, "%s:%s:%s:%d",
+				   ip, netmask, gateway, metric_value);
+		if (written < 0) {
+			status = EIO;
+			goto failed;
+		}
+		if ((size_t)written >= remaining) {
+			status = ENOSPC;
+			goto failed;
+		}
+		used += (size_t)written;
+	}
+
+	return 0;
+
+failed:
+	buf[0] = '\0';
+	if (status <= 0)
+		status = EIO;
+	errno = status;
+	logmessage(LOGNAME,
+		   "cannot build static-route snapshot at entry %d (errno=%d); refusing route update",
+		   i, status);
+	return status;
 }
 
 static int
