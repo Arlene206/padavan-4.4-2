@@ -626,6 +626,10 @@ jobs:
           for key in ("sr_if_x", "sr_ipaddr_x", "sr_netmask_x", "sr_gateway_x", "sr_matric_x"):
               assert 'firewall_copy_static_route_setting("' + key + '", i' in route_emitter
           assert "static_route_metric_parse(metric, &metric_value)" in route_emitter
+          assert "int entry_count = 0, i = 0," in route_emitter
+          assert "if (gateway[0] && !is_valid_ipv4(gateway))" in route_emitter
+          assert "gateway[0] = '\\0';" in route_emitter
+          assert "!static_route_interface_is_safe(interface)" in route_emitter
           assert "foreach_x(" not in route_emitter and "general_conv(" not in route_emitter
           assert "firewall_read_indexed_string_setting(" in route_copy_reader
           assert "buf[0] = '\\0';" in route_emitter

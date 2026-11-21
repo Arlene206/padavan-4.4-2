@@ -1308,17 +1308,20 @@ firewall_copy_static_route_setting(const char *name, int index,
 int
 fill_static_routes(char *buf, int len, const char *ift)
 {
-	int entry_count = 0, i, status, metric_value, written;
+	int entry_count = 0, i = 0, status, metric_value, written;
 	size_t used = 0, remaining;
 	char ip[16], netmask[16], gateway[16], metric[16], interface[8];
 	struct in_addr parsed_address;
 
-	if (!buf || len < 32 || !ift || !ift[0] ||
-	    !static_route_interface_is_safe(ift)) {
+	if (!buf || len < 32) {
 		errno = EINVAL;
 		return EINVAL;
 	}
 	buf[0] = '\0';
+	if (!ift || !ift[0] || !static_route_interface_is_safe(ift)) {
+		errno = EINVAL;
+		return EINVAL;
+	}
 
 	status = firewall_read_static_route_entry_count(&entry_count);
 	if (status != 0)
@@ -1330,11 +1333,8 @@ fill_static_routes(char *buf, int len, const char *ift)
 							    sizeof(interface));
 		if (status != 0)
 			goto failed;
-		if (!static_route_interface_is_safe(interface)) {
-			status = EINVAL;
-			goto failed;
-		}
-		if (!interface[0] || strcmp(interface, ift) != 0)
+		if (!static_route_interface_is_safe(interface) ||
+		    !interface[0] || strcmp(interface, ift) != 0)
 			continue;
 
 		status = firewall_copy_static_route_setting("sr_ipaddr_x", i,
@@ -1357,13 +1357,14 @@ fill_static_routes(char *buf, int len, const char *ift)
 		if (!ip[0] || !netmask[0] ||
 		    !static_route_ipv4_field_is_safe(ip) ||
 		    !static_route_ipv4_field_is_safe(netmask) ||
-		    !static_route_ipv4_field_is_safe(gateway) ||
 		    inet_aton(ip, &parsed_address) == 0 ||
-		    inet_aton(netmask, &parsed_address) == 0 ||
-		    (gateway[0] && inet_aton(gateway, &parsed_address) == 0)) {
+		    inet_aton(netmask, &parsed_address) == 0) {
 			status = EINVAL;
 			goto failed;
 		}
+		/* Preserve the legacy Oleg fallback for absent or invalid gateways. */
+		if (gateway[0] && !is_valid_ipv4(gateway))
+			gateway[0] = '\0';
 		status = static_route_metric_parse(metric, &metric_value);
 		if (status != 0)
 			goto failed;
