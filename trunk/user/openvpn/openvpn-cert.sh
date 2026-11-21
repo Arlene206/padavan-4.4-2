@@ -6,7 +6,7 @@ if [ ! -x /usr/bin/openssl ] && [ ! -x /opt/bin/openssl ] ; then
   exit 1
 fi
 
-umask 0022
+umask 0077
 
 ## path to openvpn binary
 OPENVPN=/usr/sbin/openvpn
@@ -205,29 +205,61 @@ make_ta_tc2() {
   # $2 --> server tc2 key name
   #
 
-  if [ ! -x $OPENVPN ] ; then
+  if [ ! -x "$OPENVPN" ] ; then
     echo_process "Skipping TLS Auth/Crypt key. $OPENVPN not found."
     echo_done
     return 1
   fi
-  if [ -f $1 ] ; then
-    echo_process "Skipping TLS Auth/Crypt key. File exists"
-    echo_done
+
+  if [ -s "$1" ] ; then
+    echo_process "Skipping TLS Auth key. File exists"
   else
-    echo_process "Creating TLS Auth/Crypt key"
-    $OPENVPN --genkey secret $1 &>/dev/null
-    [ -s $1 ] && chmod 600 $1
-    echo_done
+    echo_process "Creating TLS Auth key"
+    if "$OPENVPN" --genkey secret "$1" &>/dev/null; then
+      :
+    else
+      key_status=$?
+      echo "Error: TLS Auth key generation failed (status=$key_status)" >&2
+      return "$key_status"
+    fi
+    if [ ! -s "$1" ] ; then
+      echo "Error: TLS Auth key generator produced no key" >&2
+      return 1
+    fi
   fi
-  if [ -f $2 ] ; then
+  if chmod 600 "$1"; then
+    :
+  else
+    key_status=$?
+    echo "Error: cannot protect TLS Auth key (status=$key_status)" >&2
+    return "$key_status"
+  fi
+  echo_done
+
+  if [ -s "$2" ] ; then
     echo_process "Skipping TLS Crypt v2 server key. File exists"
-    echo_done
   else
     echo_process "Creating TLS Crypt v2 server key"
-    $OPENVPN --genkey tls-crypt-v2-server $2 &>/dev/null
-    [ -s $2 ] && chmod 644 $2
-    echo_done
+    if "$OPENVPN" --genkey tls-crypt-v2-server "$2" &>/dev/null; then
+      :
+    else
+      key_status=$?
+      echo "Error: TLS Crypt v2 server key generation failed (status=$key_status)" >&2
+      return "$key_status"
+    fi
+    if [ ! -s "$2" ] ; then
+      echo "Error: TLS Crypt v2 server key generator produced no key" >&2
+      return 1
+    fi
   fi
+  if chmod 600 "$2"; then
+    :
+  else
+    key_status=$?
+    echo "Error: cannot protect TLS Crypt v2 server key (status=$key_status)" >&2
+    return "$key_status"
+  fi
+  echo_done
 }
 
 server() {

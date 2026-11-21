@@ -159,6 +159,7 @@ on:
       - "trunk/user/rc/src/vpn_server_lifecycle_lock.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/vpn_openvpn.c"
+      - "trunk/user/openvpn/openvpn-cert.sh"
       - "trunk/user/rc/src/openvpn_process_stop_policy.h"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/hotplug_usb.c"

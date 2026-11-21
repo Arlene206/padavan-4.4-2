@@ -1,3 +1,15 @@
+## 2026-11-21 — Protect OpenVPN TLS-crypt-v2 server keys at creation and on reuse
+
+- Beijing time: 2026-11-21 19:36 (UTC+8). Parent main SHA: `c58272b954ad175b16bb85879d3913d384035704`.
+- Security review of `trunk/user/openvpn/openvpn-cert.sh` found `make_ta_tc2()` explicitly applied mode 0644 to `stc2.key` after generating it with OpenVPN's `--genkey tls-crypt-v2-server`. This is the server-side wrapping key used to create client-specific TLS-crypt-v2 keys; exposing it to every local user lets them produce client keys accepted by the router. The routine also skipped permission repair when a key already existed, and process umask 0022 left RSA/private key files readable during creation before their later chmod.
+- Changed the script-wide umask to 0077. TLS-auth and TLS-crypt-v2 server keys now require successful generation, non-empty output and chmod 0600; existing files are also re-protected on every invocation. Generation and chmod errors propagate instead of being hidden by the progress message.
+- Added a mocked OpenSSL/OpenVPN shell regression. It checks initial private-key modes at file creation, verifies repair of pre-existing 0644 TLS keys, and confirms TLS-crypt-v2 server-key generation failure returns nonzero. Added a dedicated push/PR workflow and ensured the installed certificate-generation script triggers the XY-C1 firmware workflow and its firmware-input regression.
+- Parent USB modem-removal slice on `c58272b954ad175b16bb85879d3913d384035704`: USB identity #44898901905 PASS, Process inventory #44898901784 PASS, AI handoff docs #44898901797 PASS; WAN DHCP callback #44898901879 and WAN teardown #44898901886 PASS. XY-C1 #44898901805 was IN_PROGRESS at last check (Build XY-C1 running, TRX/artifact pending); L3 not claimed for `c58272b954ad175b16bb85879d3913d384035704`.
+- No local checkout/runtime is available; no local shell regression or MIPS firmware build is claimed. New OpenVPN, XY-C1, and handoff Actions require exact-head verification.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Fail closed when USB modem removal cannot read its transport type
 
 - Beijing time: 2026-11-21 19:26 (UTC+8). Parent main SHA: `6f47ae209274dd312c30499e8028ab059b68df72`.

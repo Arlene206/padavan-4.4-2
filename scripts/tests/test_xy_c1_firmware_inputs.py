@@ -41,8 +41,14 @@ class FirmwareInputPathTests(unittest.TestCase):
                 self.assertTrue(is_non_firmware_input(path))
 
     def test_production_sources_and_configuration_require_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        self.assertEqual(
+            workflow.count('      - "trunk/user/openvpn/openvpn-cert.sh"'),
+            1,
+        )
         paths = [
             "trunk/user/rc/src/init.c",
+            "trunk/user/openvpn/openvpn-cert.sh",
             "trunk/user/rc/src/detect_wan_arp_result_policy.h",
             "trunk/user/httpd/src/httpd.c",
             "trunk/user/shared/scripts/process_lifecycle.sh",
