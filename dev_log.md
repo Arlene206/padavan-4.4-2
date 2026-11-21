@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair DHCP timestamp regression fixture and handoff wording
+
+- Exact-head WAN DHCP run #44874862762 caught an ASan/UBSan stack overflow in the new 12-field full-WAN tuple test: its local dhcp_lease_nvram_value array remained length 11 while the fixture and loop were expanded to 12. Corrected the declaration; production code was not implicated by this failure.
+- Exact-head AI docs run #44874862864 rejected the handoff because it paraphrased the mandatory checkpoint sentence. Restored the exact required wording: "The checkpoint is mandatory; a document edit is conditional."
+- MiniUPnP run #44874862770 PASS on parent 4e4b1e51ec58958823e2c94890d4e073450bcb87. XY-C1 run #44874862823 and several independent workflows were still running at the last poll; Build/TRX/artifact conclusions remain to be checked.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Commit WAN DHCP timestamp only with an accepted lease
 
 - Parent main SHA: b2971b23154c1dac6794cf3ff1295ae0632e7cf4. MiniUPnP exact-head regression #44874295877 PASS. XY-C1 run #44874295896 passed host validation only; Build XY-C1/TRX/artifact were skipped, so this is not new L3 evidence. Last complete L3 evidence remains #44809783977 on product-source SHA 0b5eef8bd00fd6e732449bcf241949df84b4f40c.

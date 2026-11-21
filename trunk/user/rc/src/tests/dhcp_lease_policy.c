@@ -599,7 +599,7 @@ test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple(void)
 		"new-lease", "new-gateway", "new-dltime"
 	};
 	struct dhcp_nvram_tuple_fake fake;
-	struct dhcp_lease_nvram_value values[11];
+	struct dhcp_lease_nvram_value values[12];
 	int rollback_status, i;
 
 	memset(&fake, 0, sizeof(fake));

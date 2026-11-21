@@ -10,33 +10,34 @@
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; document edits are conditional. Inspect live `main`, verify the frozen backup SHA and check exact-SHA Actions at session end. Update this file only when the baseline, evidence, blocker or first next action materially changes. Do not make no-op commits.
+The checkpoint is mandatory; a document edit is conditional. Inspect live `main`, verify the frozen backup SHA and check exact-SHA Actions at session end. Update this file only when the baseline, evidence, blocker or first next action materially changes. Do not make no-op commits.
 
 ## Current repository state
 
-- Parent `main` SHA for this slice: `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`.
+- Parent `main` SHA for the validation follow-up: `4e4b1e51ec58958823e2c94890d4e073450bcb87`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- MiniUPnP exact-head run `#44874295877` PASSED on `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`; its first-error errno delete contract, GNU89/Werror/ASan/UBSan policy suite and both IPTC API variants passed.
-- XY-C1 validation run `#44874295896` PASSED host validation on `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`, but Build XY-C1, TRX verification and artifact upload were SKIPPED. Do not claim L3 for this run. The last complete Build/TRX/artifact L3 evidence remains run `#44809783977` on product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c`.
+- WAN DHCP run `#44874862762` failed at the DHCP lease policy binary under ASan: the expanded 12-value tuple test still declared its local `values` array with 11 elements. The fake tuple and 12 loop iterations correctly expanded; this one declaration was missed and is corrected in this commit.
+- AI docs run `#44874862864` failed because the handoff paragraph paraphrased rather than exactly preserving the checker-required sentence `The checkpoint is mandatory; a document edit is conditional.`. The exact required sentence is restored here.
+- MiniUPnP exact-head run `#44874862770` PASSED on `4e4b1e51ec58958823e2c94890d4e073450bcb87`, including the first-error delete contract and both IPTC API variants.
+- XY-C1 run `#44874862823` was still in progress at the last poll. Its Build/TRX/artifact steps must be checked before making any L3 claim. The prior full L3 evidence remains run `#44809783977` on product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c`.
 - Physical-router L4 remains NOT VERIFIED.
-- New defect found in `net_wan.c`: physical WAN `udhcpc_bound()` and fast `udhcpc_renew()` wrote `wanN_dltime` at callback entry using a void setter, before validation or successful DHCP state publication. A rejected lease or failed transition could alter the timestamp while retaining the old lease. This commit moves BOUND timestamp into its compensatable 12-field lease tuple and fast RENEW timestamp after successful option reconciliation, with checked transactional publication.
 
 ## Active task
 
-1. Validate this dltime change on its exact pushed SHA: GNU89/Werror/ASan/UBSan DHCP lease regression, source-order checker, WAN DHCP callback Action and AI documentation contract.
-2. Inspect exact-head XY-C1 steps. Record L3 only if Build, TRX verification and artifact upload all PASS on the same product-source SHA.
-3. After validation, continue the broader user-space reliability queue outside the recently completed MiniUPnP delete-compensation work. Prefer a concrete P1/P2 defect with a focused regression; avoid repeated audits.
+1. Recheck the exact-head WAN DHCP callback and AI documentation Actions after this focused test/handoff correction.
+2. Inspect exact-head XY-C1 Build, TRX and artifact step conclusions, and diagnose any other failed exact-head workflow at its earliest causal step.
+3. When validations are green, continue the user-space reliability queue outside MiniUPnP, prioritizing a concrete P1/P2 defect with a focused regression.
 
 ## Verification boundary
 
-- The DHCP lease tuple regression and source checker are added in this commit; exact-head Actions are pending. No local checkout/compiler execution was available.
-- MiniUPnP passed on parent `b2971b23154c1dac6794cf3ff1295ae0632e7cf4` (run `#44874295877`).
-- XY-C1 passed host validation only on `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`; Build/TRX/artifact were skipped. Earlier full L3 evidence is limited to `0b5eef8bd00fd6e732449bcf241949df84b4f40c` / run `#44809783977`.
-- Physical-router L4 is NOT VERIFIED.
+- In the failed WAN run, both DHCP policy C source compilation and ASan execution reached the 12-value tuple function; UBSan/ASan pinpointed the exact out-of-bounds array declaration described above. Later workflow steps were skipped. The corrected declaration requires a fresh exact-head run.
+- AI docs failed only on the exact wording requirement; the rule itself was already present semantically. The exact sentence is restored for a fresh run.
+- MiniUPnP PASS on `4e4b1e51ec58958823e2c94890d4e073450bcb87` (run `#44874862770`).
+- XY-C1 run `#44874862823` was pending; do not claim L3 until Build/TRX/artifact all PASS on one SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch latest `main` and inspect exact-head WAN DHCP callback, AI docs and XY-C1 Actions created by this commit. Confirm the dltime regression/checker passes and inspect Build XY-C1, TRX and artifact conclusions. Repair the earliest causal failure if any; otherwise continue with the next ranked user-space reliability issue outside MiniUPnP.
+Fetch latest `main` and inspect the exact-head WAN DHCP callback, AI docs, XY-C1, HTTPD authentication and other in-progress/failed Actions. Confirm the corrected 12-entry fixture and handoff wording pass; read the first causal failure log for any other red workflow. Continue with the next independent P1/P2 source defect once the current slice is green.
 
 ## Handoff maintenance
 
