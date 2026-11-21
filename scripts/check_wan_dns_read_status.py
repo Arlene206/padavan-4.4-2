@@ -346,7 +346,47 @@ require(modem_pos < modem_error < modem_cleanup < modem_continue < modem_branch,
 assert 'nvram_get_int("modem_type")' not in wan_start_compact
 print("USB modem startup fails closed when transport type is unreadable: PASS")
 
+# USB modem stop-path and interface selection must not collapse an NVRAM
+# transport-type read error into the legacy RAS default.
+modem_policy = body(policy, "rc_wan_nvram_modem_is_ndis_status(int read_status")
+for token in ("if (!is_ndis)", "if (read_status != 0)", "(modem_type == 3)"):
+    require(token in modem_policy, "checked modem transport policy missing " + token)
+require("test_modem_transport_selection_fails_closed_on_read_error" in test,
+        "modem transport read-error regression missing")
+
+modem_reader = body(source, "get_wan_modem_is_ndis_status(int *is_ndis)")
+require('get_nvram_int_checked_status("modem_type", &modem_type)' in modem_reader and
+        "rc_wan_nvram_modem_is_ndis_status(status, modem_type, is_ndis)" in modem_reader,
+        "modem transport helper must preserve checked NVRAM errors")
+
+stop_locked = function_body_at_column_zero_terminator(source, "stop_wan_locked(void)")
+stop_locked_compact = "".join(stop_locked.split())
+require("is_usb_modem=get_usb_modem_wan(unit)" in stop_locked_compact and
+        "modem_status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in stop_locked_compact,
+        "full WAN teardown must check modem transport before side effects")
+require(stop_locked_compact.index("modem_status=get_wan_modem_is_ndis_status(&is_ndis_modem)") <
+        stop_locked_compact.index("notify_pause_detect_internet()"),
+        "full WAN teardown must read modem transport before stopping services")
+assert 'nvram_get_int("modem_type")' not in stop_locked_compact
+
+manual_disconnect = "".join(body(source, "manual_wan_disconnect(void)").split())
+require("status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in manual_disconnect and
+        "if(status!=0)" in manual_disconnect and
+        "errno=status" in manual_disconnect and
+        "if(is_ndis_modem)status=stop_wan()" in manual_disconnect and
+        "elsestatus=stop_wan_ppp()" in manual_disconnect,
+        "manual disconnect must not guess the modem stop path after a read error")
+assert 'nvram_get_int("modem_type")' not in manual_disconnect
+
+wan_ifname = "".join(body(source, "get_wan_ifname(char wan_ifname[16])").split())
+require("status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in wan_ifname and
+        "if(status!=0)" in wan_ifname and "returnstatus" in wan_ifname,
+        "WAN interface selection must propagate modem-type read errors")
+assert 'nvram_get_int("modem_type")' not in wan_ifname
+
+
 # The EAPOL read/start failure guard must close before the WAN protocol's
+# success path; otherwise start_wan() becomes syntactically unbalanced.# The EAPOL read/start failure guard must close before the WAN protocol's
 # success path; otherwise start_wan() becomes syntactically unbalanced.
 wan_start = function_body_at_column_zero_terminator(source, "start_wan(void)")
 require("if (auth_status != 0) {" in wan_start and

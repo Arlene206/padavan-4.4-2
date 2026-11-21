@@ -149,6 +149,19 @@ set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 
 
 static int
+get_wan_modem_is_ndis_status(int *is_ndis)
+{
+	int modem_type = 0;
+	int status;
+
+	if (!is_ndis)
+		return EINVAL;
+	status = get_nvram_int_checked_status("modem_type", &modem_type);
+	return rc_wan_nvram_modem_is_ndis_status(status, modem_type, is_ndis);
+}
+
+
+static int
 wan_nvram_int_temp_status(const char *param_name, int value)
 {
 	int api_result, saved_errno;
@@ -3476,7 +3489,8 @@ static int
 stop_wan_locked(void)
 {
 	int unit, wan_proto, ifdown_status, stop_status = -1;
-	int callback_cleanup_status;
+	int callback_cleanup_status, modem_status;
+	int is_usb_modem, is_ndis_modem = 0;
 	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0;
@@ -3499,6 +3513,17 @@ stop_wan_locked(void)
 	};
 
 	unit = 0;
+	is_usb_modem = get_usb_modem_wan(unit);
+	if (is_usb_modem) {
+		modem_status = get_wan_modem_is_ndis_status(&is_ndis_modem);
+		if (modem_status != 0) {
+			logmessage(LOGNAME,
+				   "refusing WAN teardown because USB modem transport type cannot be read (status=%d)",
+				   modem_status);
+			errno = modem_status;
+			return modem_status;
+		}
+	}
 	pause_status = notify_pause_detect_internet();
 	if (pause_status != 0) {
 		logmessage(LOGNAME,
@@ -3610,7 +3635,7 @@ stop_wan_locked(void)
 				   man_ifname, stop_status);
 	}
 #if defined (USE_USB_SUPPORT)
-	if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)
+	if (is_usb_modem && is_ndis_modem)
 		usbnet_ifname = get_wan_unit_value(unit, "ifname_t");
 	{
 		int modem_stop_status = stop_wan_usbnet();
@@ -4743,13 +4768,21 @@ deferred_wan_connect(void)
 int
 manual_wan_disconnect(void)
 {
-	int wan_proto, status;
+	int wan_proto, status, is_ndis_modem = 0;
 	logmessage(LOGNAME, "Perform WAN %s %s", "manual", "disconnect");
 	if (get_ap_mode())
 		return 0;
 	wan_proto = get_wan_proto(0);
 	if (get_usb_modem_wan(0)) {
-		if (nvram_get_int("modem_type") == 3)
+		status = get_wan_modem_is_ndis_status(&is_ndis_modem);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "refusing manual WAN disconnect because USB modem transport type cannot be read (status=%d)",
+				   status);
+			errno = status;
+			return status;
+		}
+		if (is_ndis_modem)
 			status = stop_wan();
 		else
 			status = stop_wan_ppp();
@@ -5546,12 +5579,18 @@ int
 get_wan_ifname(char wan_ifname[16])
 {
 	int unit = 0;
-	int status;
+	int status, is_usb_modem, is_ndis_modem = 0;
 	char *ifname = get_man_ifname(unit);
 	char *ifname_temp = get_wan_unit_value(unit, "ifname_t");
 
-	if (get_usb_modem_wan(unit)){
-		if (nvram_get_int("modem_type") == 3) {
+	is_usb_modem = get_usb_modem_wan(unit);
+	if (is_usb_modem) {
+		status = get_wan_modem_is_ndis_status(&is_ndis_modem);
+		if (status != 0) {
+			errno = status;
+			return status;
+		}
+		if (is_ndis_modem) {
 			if (is_usbnet_interface(ifname_temp))
 				ifname = ifname_temp;
 		} else {

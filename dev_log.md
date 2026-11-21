@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on unreadable USB modem transport during stop
+
+- Parent main SHA: `19b5cdee226daa53db575fb82b02dd8b5c3c4077`.
+- Source review found three remaining unchecked `nvram_get_int("modem_type")` decisions in WAN teardown/interface selection. A backend error was collapsed to the legacy zero/RAS value: manual disconnect could select the PPP-only stop path for an NDIS modem, the full stop could omit the USBnet interface from ifdown, and `get_wan_ifname()` could report the wrong transport interface.
+- Added one checked transport-selection helper and a GNU89 policy regression for NDIS, legacy RAS default, invalid output and backend-error preservation. Full WAN stop now reads the type before pausing/stopping services; manual disconnect and interface lookup propagate the read failure instead of choosing a guessed path.
+- The WAN route workflow already compiles the checked NVRAM policy regression and runs the expanded source contract. Firmware Build/TRX/artifact verification remains a separate exact-SHA requirement.
+
+---
+
 ## 2026-11-21 — Normalize SYN-cookie and modem-type checked-read contracts
 
 - Parent main SHA: `35967d072836add527cbfec20d1865088b5cd8c3`.

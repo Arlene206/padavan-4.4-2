@@ -88,6 +88,23 @@ rc_wan_nvram_read_int_status(int api_result, int saved_errno,
 	return rc_wan_nvram_parse_int_value(text, value);
 }
 
+/*
+ * Transport selection affects both the PPP/NDIS stop path and interface
+ * identity. Never map an NVRAM backend error to the legacy RAS default.
+ */
+static inline int
+rc_wan_nvram_modem_is_ndis_status(int read_status, int modem_type,
+				  int *is_ndis)
+{
+	if (!is_ndis)
+		return EINVAL;
+	if (read_status != 0)
+		return read_status;
+	*is_ndis = (modem_type == 3);
+	return 0;
+}
+
+
 typedef int (*rc_wan_nvram_get_fn)(void *context,
 					 const char *param_name,
 					 char **value);

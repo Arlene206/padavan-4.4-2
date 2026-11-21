@@ -125,6 +125,21 @@ test_unexpected_nonzero_result_is_not_success(void)
 
 
 
+static void
+test_modem_transport_selection_fails_closed_on_read_error(void)
+{
+	int is_ndis = -1;
+
+	assert(rc_wan_nvram_modem_is_ndis_status(EACCES, 3, &is_ndis) == EACCES);
+	assert(is_ndis == -1);
+	assert(rc_wan_nvram_modem_is_ndis_status(0, 3, &is_ndis) == 0);
+	assert(is_ndis == 1);
+	assert(rc_wan_nvram_modem_is_ndis_status(0, 0, &is_ndis) == 0);
+	assert(is_ndis == 0);
+	assert(rc_wan_nvram_modem_is_ndis_status(0, 3, NULL) == EINVAL);
+}
+
+
 struct fake_missing_default {
 	const char *target_name;
 	const char *target_value;
@@ -1139,6 +1154,7 @@ main(void)
 	test_checked_read_preserves_backend_error();
 	test_checked_read_without_errno_falls_back_to_eio();
 	test_checked_read_rejects_unexpected_result();
+	test_modem_transport_selection_fails_closed_on_read_error();
 	test_checked_integer_read_preserves_missing_default();
 	test_checked_integer_read_accepts_complete_decimal_values();
 	test_checked_integer_read_rejects_malformed_and_overflow_values();
