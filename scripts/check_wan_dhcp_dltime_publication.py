@@ -41,6 +41,16 @@ assert '"gateway", "dltime"' in source
 assert 'set_wan_unit_value(unit, "dltime", tmp)' not in bound
 assert "if (is_man && i == WAN_DHCP_BOUND_DLTIME)" in bound
 
+previous_snapshot = bound.index("rc_wan_nvram_copy_snapshot(")
+interface_apply = bound.index("dhcp_wan_interface_apply(")
+assert previous_snapshot < interface_apply
+assert "struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_DHCP_BOUND_SNAPSHOT_COUNT];" in bound
+assert "wan_nvram_transaction_begin_callback" in bound[previous_snapshot:]
+assert "wan_nvram_transaction_get_callback" in bound[previous_snapshot:]
+assert "wan_nvram_transaction_end_callback" in bound[previous_snapshot:]
+assert "cannot snapshot previous DHCP NVRAM tuple" in bound
+assert "nvram_safe_get(bound_names[i])" not in bound
+
 bound_dltime = bound.index("bound_names[WAN_DHCP_BOUND_DLTIME]")
 bound_publish = bound.index("snapshot_status = wan_dhcp_nvram_state_publish(")
 assert bound.rfind("if (!is_man)", 0, bound_dltime) >= 0

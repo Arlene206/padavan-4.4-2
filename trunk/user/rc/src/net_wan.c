@@ -6037,13 +6037,12 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char *lease_ip, *lease_netmask, *lease_dns, *lease_wins, *lease_domain;
 	char *lease_routes, *lease_routes_ms, *lease_routes_rfc, *route_value;
-	char *previous_value;
 	char bound_names[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX];
 	char previous_text[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char routes_rfc_parse[WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char mtu_text[16], lease_text[16], dltime_text[16];
 	unsigned int parsed_value;
-	size_t i, snapshot_count;
+	size_t i, snapshot_count, previous_snapshot_count;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
 	int wan_proto, modem_unit_id, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
@@ -6053,6 +6052,8 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int snapshot_abort_status, callback_status, publish_status;
 	int dltime_length;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
+	struct nvram_transaction previous_transaction;
+	struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
 
@@ -6098,27 +6099,37 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	 * deleting routes. Route options can be 2048 bytes; refuse an oversized
 	 * old value rather than risk a truncated rollback snapshot.
 	 */
+	previous_snapshot_count = 0;
 	for (i = 0; i < WAN_DHCP_BOUND_SNAPSHOT_COUNT; ++i) {
 		/* MAN uses a separate metadata namespace and has no WAN dltime. */
-		if (is_man && i == WAN_DHCP_BOUND_DLTIME)
+		if (is_man && i == WAN_DHCP_BOUND_DLTIME) {
+			previous_text[i][0] = '\0';
 			continue;
+		}
 		key_length = snprintf(bound_names[i], sizeof(bound_names[i]),
 				      "%s%s", prefix,
 				      wan_dhcp_bound_snapshot_params[i]);
 		if (key_length < 0 ||
 		    (size_t)key_length >= sizeof(bound_names[i]))
 			return ENAMETOOLONG;
-		previous_value = nvram_safe_get(bound_names[i]);
-		if (!previous_value)
-			previous_value = "";
-		if (strlen(previous_value) >= sizeof(previous_text[i])) {
-			logmessage(log_prefix,
-				   "%s (%s) rejected oversized previous DHCP snapshot field %s",
-				   udhcpc_state, wan_ifname, wan_dhcp_bound_snapshot_params[i]);
-			return ENAMETOOLONG;
-		}
-		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
-			 previous_value);
+		previous_snapshot_fields[previous_snapshot_count].param_name =
+			bound_names[i];
+		previous_snapshot_fields[previous_snapshot_count].destination =
+			previous_text[i];
+		previous_snapshot_fields[previous_snapshot_count].destination_size =
+			sizeof(previous_text[i]);
+		++previous_snapshot_count;
+	}
+	snapshot_status = rc_wan_nvram_copy_snapshot(
+		previous_snapshot_fields, (unsigned int)previous_snapshot_count,
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &previous_transaction);
+	if (snapshot_status != 0) {
+		logmessage(log_prefix,
+			   "%s (%s) cannot snapshot previous DHCP NVRAM tuple (status=%d)",
+			   udhcpc_state, wan_ifname, snapshot_status);
+		return snapshot_status;
 	}
 	if (!dhcp_lease_text_fits_buffer(previous_text[WAN_DHCP_BOUND_GATEWAY], sizeof(old_gateway)) ||
 	    !dhcp_lease_text_fits_buffer(previous_text[WAN_DHCP_BOUND_IPADDR], sizeof(old_ip)) ||
