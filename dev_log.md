@@ -1,3 +1,13 @@
+## 2026-11-21 — Align IPTV rollback regressions with existing checker contracts
+
+- Parent main SHA: `daf8248436c650eb10429d7098e52535c436ae4d`.
+- Exact-SHA Actions for the IPTV rollback patch compiled and passed the new GNU89/ASan/UBSan unit test, but two existing source-check contracts needed alignment: the process checker assumed XUPnPD used the generic `iptv_proxy_confirm_started` wrapper (it has its own `xupnpd_confirm_started` wrapper), and the UDpxy checker deliberately expects the original test PASS line. Corrected the per-daemon confirm expectation and preserved the established stdout string.
+- Extended the UDpxy checker to verify the new rollback policy, targeted identity-safe stop callback and rollback test cases across UDPXY/MSD Lite, XUPnPD and IGMPproxy.
+- Run failures on SHA `734f8116` were checker-contract mismatches after the C unit itself passed; exact-head reruns on this fix and current main are authoritative.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Reset errno before UDPXY/MSD Lite launch
 
 - Parent main SHA: `734f811620f596b9ea72863261d8cc4a7103bee2`.

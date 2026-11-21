@@ -275,6 +275,6 @@ main(void)
 	test_unknown_inventory_fails_closed();
 	test_unknown_without_error_and_invalid_state_fail_closed();
 	test_wait_interruption_and_invalid_arguments_fail();
-	puts("Detached-daemon startup and rollback postcondition regression: PASS");
+	puts("Detached-daemon startup postcondition regression: PASS");
 	return 0;
 }

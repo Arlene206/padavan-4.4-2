@@ -362,13 +362,13 @@ assert "iptv_proxy_process_presence" in rollback_helper
 assert "PROCESS_PRESENCE_ABSENT" in rollback_helper
 assert "kill_services(service_names, 3, 1)" in rollback_stop
 assert "service_names[0] = (char *)context;" in rollback_stop
-for signature, process_name in (
-    ("start_udpxy(char *wan_ifname)", "process_name"),
-    ("start_xupnpd(char *wan_ifname)", '"xupnpd"'),
-    ("start_igmpproxy(char *wan_ifname)", '"igmpproxy"'),
+for signature, confirm_name, process_name in (
+    ("start_udpxy(char *wan_ifname)", "iptv_proxy_confirm_started(", "process_name"),
+    ("start_xupnpd(char *wan_ifname)", "xupnpd_confirm_started(", '"xupnpd"'),
+    ("start_igmpproxy(char *wan_ifname)", "iptv_proxy_confirm_started(", '"igmpproxy"'),
 ):
     body = c_function_body(net_source, signature)
-    assert "iptv_proxy_confirm_started(" in body
+    assert confirm_name in body
     assert "iptv_proxy_rollback_failed_start(" in body
     assert process_name in body
 

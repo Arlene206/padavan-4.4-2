@@ -87,6 +87,19 @@ assert "test_absent_child_times_out" in test
 assert "test_unknown_inventory_fails_closed" in test
 assert "test_wait_interruption_and_invalid_arguments_fail" in test
 assert "Detached-daemon startup postcondition regression: PASS" in test
+assert "detached_daemon_start_rollback_with_ops" in policy
+assert "test_failed_start_rolls_back_and_preserves_primary_error" in test
+assert "test_running_child_after_failed_cleanup_keeps_primary_status" in test
+assert "test_unknown_rollback_inventory_preserves_primary_status" in test
+rollback_stop = function_body(net, "iptv_proxy_process_stop(void *context)")
+rollback = function_body(net, "iptv_proxy_rollback_failed_start(")
+assert "kill_services(service_names, 3, 1)" in rollback_stop
+assert "detached_daemon_start_rollback_with_ops(" in rollback
+assert "PROCESS_PRESENCE_ABSENT" in rollback
+assert "iptv_proxy_rollback_failed_start(" in startup
+assert "iptv_proxy_rollback_failed_start(" in igmpproxy_start
+xupnpd_start = function_body(net, "start_xupnpd(char *wan_ifname)")
+assert "iptv_proxy_rollback_failed_start(" in xupnpd_start
 
 igmpproxy_start = function_body(net, "start_igmpproxy(char *wan_ifname)")
 assert "PKG_VERSION:=0.3" in (ROOT / "trunk/user/igmpproxy/Makefile").read_text()
