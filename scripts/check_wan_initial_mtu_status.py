@@ -62,25 +62,109 @@ def require(condition, message):
         raise SystemExit("WAN initial MTU status contract: FAIL: " + message)
 
 
-start_wan = body(WAN, "start_wan(void)")
+def code_characters(text, start):
+    """Yield C code characters while ignoring comments and literals."""
+    position = start
+    while position < len(text):
+        if text.startswith("//", position):
+            newline = text.find(chr(10), position + 2)
+            position = len(text) if newline < 0 else newline + 1
+            continue
+        if text.startswith("/*", position):
+            close = text.find("*/", position + 2)
+            position = len(text) if close < 0 else close + 2
+            continue
+        character = text[position]
+        if character in ('"', "'"):
+            quote = character
+            position += 1
+            while position < len(text):
+                if text[position] == chr(92):
+                    position += 2
+                elif text[position] == quote:
+                    position += 1
+                    break
+                else:
+                    position += 1
+            continue
+        yield position, character
+        position += 1
+
+
+def body_at_column_zero_terminator(text, signature):
+    """Extract C bodies despite mutually exclusive preprocessor brace branches."""
+    search_from = 0
+    opening = -1
+    while True:
+        start = text.find(signature, search_from)
+        if start < 0:
+            break
+        for position, character in code_characters(text, start + len(signature)):
+            if character == ";":
+                break
+            if character == "{":
+                opening = position
+                break
+        if opening >= 0:
+            break
+        search_from = start + len(signature)
+    if opening < 0:
+        raise AssertionError("missing function body: " + signature)
+
+    for position, character in code_characters(text, opening):
+        if character != "}":
+            continue
+        line_start = text.rfind(chr(10), 0, position) + 1
+        if line_start == position:
+            return text[opening + 1:position]
+    raise AssertionError("unterminated function: " + signature)
+
+
+_conditional_probe = r'''
+int conditional_probe(int value) {
+#if defined(LEFT_BRANCH)
+    if (value) {
+#else
+    if (!value) {
+#endif
+        value++;
+    }
+    return value;
+}
+'''
+_conditional_body = body_at_column_zero_terminator(
+    _conditional_probe, "conditional_probe(int value)"
+)
+for marker in ("if (value)", "if (!value)", "return value;"):
+    require(marker in _conditional_body,
+            "preprocessor-aware function extraction regression: " + marker)
+
+
+start_wan = body_at_column_zero_terminator(WAN, "start_wan(void)")
 require("int unit, wan_proto, wan_mtu;" in start_wan,
         "configured WAN MTU must be available to both initial and static setup")
 proto = start_wan.index("wan_proto = get_wan_proto(unit);")
-read_mtu = start_wan.index('wan_mtu = get_wan_unit_value_int(unit, "mtu");', proto)
-prepare = start_wan.index("if (wan_default_mtu_should_be_set(", read_mtu)
-default_set = start_wan.index("mtu_status = set_interface_mtu(wan_ifname, 1500);", prepare)
-failure = start_wan.index("if (mtu_status != 0)", default_set)
-aggregate = start_wan.index(
-    "wan_start_status = rc_first_service_start_status(", failure
+start_wan_compact = "".join(start_wan.split())
+read_mtu_call = 'get_wan_unit_value_int_status(unit,"mtu",&wan_mtu);'
+read_mtu = start_wan_compact.index(read_mtu_call, proto)
+read_failure = start_wan_compact.index("if(nvram_status!=0)", read_mtu)
+read_abort = start_wan_compact.index("continue;", read_failure)
+prepare = start_wan_compact.index("if(wan_default_mtu_should_be_set(", read_abort)
+default_set = start_wan_compact.index("mtu_status=set_interface_mtu(wan_ifname,1500);", prepare)
+failure = start_wan_compact.index("if(mtu_status!=0)", default_set)
+aggregate = start_wan_compact.index(
+    "wan_start_status=rc_first_service_start_status(", failure
 )
-diagnostic = start_wan.index("WAN interface %s default MTU setup incomplete", aggregate)
-ifup = start_wan.index(
-    'interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
+diagnostic = start_wan_compact.index("WANinterfacedefaultMTUsetupincomplete", aggregate)
+ifup = start_wan_compact.index(
+    'interface_status=ifconfig(wan_ifname,IFUP,"0.0.0.0",NULL);',
     diagnostic,
 )
 require(
-    proto < read_mtu < prepare < default_set < failure < aggregate < diagnostic < ifup,
-    "read protocol/MTU, attempt default, aggregate and log failure before interface bring-up",
+    proto < read_mtu < read_failure < read_abort < prepare < default_set
+    < failure < aggregate < diagnostic < ifup,
+    "checked MTU read must abort only the affected unit on error before default setup; "
+    "default write errors are aggregated/logged before interface bring-up",
 )
 default_block = start_wan[prepare:ifup]
 require(

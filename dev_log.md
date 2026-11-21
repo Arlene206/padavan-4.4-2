@@ -1,3 +1,12 @@
+## 2026-11-21 — Align WAN MTU and teardown checks with checked NVRAM reads
+
+- Parent main SHA: `2811673b34fdf7629dc5bb04d1e488a2a56d4a23`.
+- WAN route run `#44893956383` reached `scripts/check_wan_initial_mtu_status.py` after the WAN sysctl and earlier route contracts passed, then failed because this older checker still expected the removed unchecked `get_wan_unit_value_int()` MTU read. Updated it to require `get_wan_unit_value_int_status()`, verify the per-unit error/continue path occurs before default MTU setup, and keep the default-write error aggregation ordering. Its `start_wan()` extraction now handles mutually exclusive preprocessor brace branches with a regression fixture.
+- The WAN teardown contract previously expected the removed direct `nvram_get_int("modem_type")` branch. It now requires checked transport selection before monitor pause and the NDIS decision before adding the USBnet interface to teardown.
+- No product behavior changed in this commit; this aligns source-contract checks with the checked modem-type and MTU changes already present.
+
+---
+
 ## 2026-11-21 — Align network sysctl checker with checked SYN-cookie gate
 
 - Parent main SHA: `7af88e6e0cf704717511efd808a758611d2fca2b`.
