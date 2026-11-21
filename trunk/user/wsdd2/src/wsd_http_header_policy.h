@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
+#include <strings.h>
 #include <sys/socket.h>
 
 /* Locate CRLF without reading beyond the bytes currently buffered. */
@@ -114,6 +115,14 @@ wsd_http_parse_content_length(const char *value, size_t *length)
 	}
 	*length = parsed;
 	return 0;
+}
+/* This endpoint accepts bounded Content-Length bodies, not transfer coding. */
+static inline int
+wsd_http_is_transfer_encoding_header(const char *line)
+{
+	static const char field[] = "Transfer-Encoding:";
+
+	return line && strncasecmp(line, field, sizeof(field) - 1) == 0;
 }
 
 #endif

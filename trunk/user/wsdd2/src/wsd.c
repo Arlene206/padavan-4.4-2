@@ -933,6 +933,9 @@ again:
 						": Unsupported Content-Type";
 				return 400;
 			}
+		} else if (wsd_http_is_transfer_encoding_header(p)) {
+			ep->errstr = __FUNCTION__ ": Transfer-Encoding is unsupported";
+			return 400;
 		} else if ((val = HEADER_IS(p, "Content-Length: "))) {
 			if (contentlength ||
 			    wsd_http_parse_content_length(val, &contentlength) != 0) {

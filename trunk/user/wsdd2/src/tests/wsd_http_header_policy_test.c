@@ -44,6 +44,18 @@ test_content_length(void)
 }
 
 static void
+test_transfer_encoding_is_rejected(void)
+{
+	assert(wsd_http_is_transfer_encoding_header("Transfer-Encoding: chunked"));
+	assert(wsd_http_is_transfer_encoding_header("transfer-encoding: gzip"));
+	assert(wsd_http_is_transfer_encoding_header("TRANSFER-ENCODING: chunked"));
+	assert(!wsd_http_is_transfer_encoding_header("Transfer-EncodingX: chunked"));
+	assert(!wsd_http_is_transfer_encoding_header("Content-Length: 10"));
+	assert(!wsd_http_is_transfer_encoding_header(""));
+	assert(!wsd_http_is_transfer_encoding_header(NULL));
+}
+
+static void
 test_fragmented_line_and_body(void)
 {
 	int sockets[2];
@@ -127,6 +139,7 @@ main(void)
 {
 	test_find_crlf_bounds();
 	test_content_length();
+	test_transfer_encoding_is_rejected();
 	test_fragmented_line_and_body();
 	test_unterminated_line_is_bounded();
 	test_eof_is_reported();

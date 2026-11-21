@@ -24,6 +24,10 @@ assert parser.count("wsd_http_read_until_crlf(fd, buf, &len, bsize)") == 2
 assert "eol = wsd_http_find_crlf(p, len)" in parser
 assert "char *eol = strstr(p" not in parser
 assert "wsd_http_parse_content_length(val, &contentlength)" in parser
+assert "wsd_http_is_transfer_encoding_header(p)" in parser
+assert "Transfer-Encoding is unsupported" in parser
+assert parser.index("wsd_http_is_transfer_encoding_header(p)") < parser.index("wsd_http_parse_content_length(val, &contentlength)")
+assert "wsd_http_is_transfer_encoding_header" in POLICY
 assert "Invalid or duplicate Content-Length" in parser
 assert "atoi(val)" not in parser
 assert "wsd_http_read_exact(fd, buf, &len, contentlength)" in parser
