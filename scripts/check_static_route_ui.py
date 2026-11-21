@@ -23,10 +23,10 @@ def main():
         r"GWStatic_markGroup\(this,\s*64,\s*' Add '\)",
         source,
     ), "static-route Add button must keep the 64-entry limit"
-    assert re.search(
-        r"GWStatic_markGroup\(this,\s*64,\s*' Del '\)",
-        source,
-    ), "static-route Delete button must keep the same 64-entry limit"
+    # The Delete call is emitted from a JavaScript string, so its quotes are escaped.
+    assert "GWStatic_markGroup(this, 64,\\' Del \\');" in source, (
+        "static-route Delete button must keep the same 64-entry limit"
+    )
 
 
 if __name__ == "__main__":
