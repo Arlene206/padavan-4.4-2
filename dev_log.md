@@ -1,3 +1,13 @@
+## 2026-11-21 — Check IPv4/IPv6 remote-listener filter selectors
+
+- Parent main SHA: `13a229e14833708e70f0da7d541fb4aee8396459`.
+- Both filter builders still used unchecked port reads after firewall rules were staged: HTTP/HTTPS listener pairs, SSH/FTP WAN ports, UDPXY internal/external ports and Transmission/Aria primary/remote ports. Their service flags were also read through unchecked exact-match helpers. This could desynchronize filter exceptions from the already-checked NAT mapping and enabled service configuration.
+- Added preflight reads before `firewall_open_rule_file()` in both `ipt_filter_rules()` and `ip6t_filter_rules()`. Exact service-enable and remote-open flags now use `firewall_read_enabled_setting()`; listener ports and HTTP protocol use strict `firewall_read_integer_setting()`. Reads are conditional on protocol, compiled feature and active service/remote-open state. Existing Transmission/Aria port range fallback (1024..65535 to built-in defaults) is preserved.
+- Rule bodies now use cached settings rather than re-reading NVRAM. Extended Firewall Startup CI source contracts to require every checked flag/port in both functions before file-open and ban the previous unchecked getters. Existing helper tests run under GNU89/Werror/ASan/UBSan. No local test execution claimed.
+- Parent `6e67...` Firewall Startup #44950120695, AI #44950120745, Process #44950120902, WAN route #44950120777, FULLCONENAT #44950120775 and WAN DHCP #44950120688 PASS; HTTPD #44950120693 failed on the old DMZ literal corrected by `13a229...`; NVRAM #44950120698 and XY-C1 #44950120665 were pending at Build XY-C1. Current exact-head checks pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Correct stale HTTPD firewall source assertion
 
 - Parent main SHA: `6e67a918cf560634fa597fcdfd2ea35df96a78c3`.

@@ -1449,6 +1449,27 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 #endif
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
+	int is_misc_http_enabled = 0, is_https_wopen = 0;
+	int is_sshd_wopen = 0, is_ftpd_wopen = 0, is_udpxy_wopen = 0;
+	int i_misc_httpport = 0, i_http_lanport = 0;
+	int i_udpxy_port = 0, i_udpxy_wport = 0;
+#if defined (SUPPORT_HTTPS)
+	int i_https_wport = 0, i_https_lport = 0;
+#endif
+#if defined (APP_SSHD)
+	int i_sshd_wport = 0;
+#endif
+#if defined (APP_FTPD)
+	int i_ftpd_wport = 0;
+#endif
+#if defined (APP_TRMD)
+	int is_trmd_supported = 0, is_trmd_enabled = 0, is_trmd_ropen = 0;
+	int i_trmd_pport = 0, i_trmd_rport = 0;
+#endif
+#if defined (APP_ARIA)
+	int is_aria_supported = 0, is_aria_enabled = 0, is_aria_ropen = 0;
+	int i_aria_pport = 0, i_aria_rport = 0;
+#endif
 #if defined (APP_OPENVPN)
 	int i_vpns_ov_mode = 0, i_vpns_ov_prot = 0, i_vpns_ov_port = 1194;
 	int i_vpnc_ov_mode = 0, i_vpnc_ov_cnat = 0;
@@ -1563,6 +1584,130 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	}
 #endif
 
+	/* Check remote-listener policy and ports before staging any filter rules. */
+	if (is_fw_enabled) {
+		i_http_proto = 0;
+#if defined (SUPPORT_HTTPS)
+		ret = firewall_read_integer_setting("http_proto", 0, &i_http_proto);
+		if (ret != 0)
+			return ret;
+#endif
+		if (i_http_proto == 0 || i_http_proto == 2) {
+			ret = firewall_read_enabled_setting("misc_http_x", &is_misc_http_enabled);
+			if (ret != 0)
+				return ret;
+			if (is_misc_http_enabled) {
+				ret = firewall_read_integer_setting("misc_httpport_x", 0, &i_misc_httpport);
+				if (ret != 0)
+					return ret;
+				ret = firewall_read_integer_setting("http_lanport", 0, &i_http_lanport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#if defined (SUPPORT_HTTPS)
+		if (i_http_proto == 1 || i_http_proto == 2) {
+			ret = firewall_read_enabled_setting("https_wopen", &is_https_wopen);
+			if (ret != 0)
+				return ret;
+			if (is_https_wopen) {
+				ret = firewall_read_integer_setting("https_wport", 0, &i_https_wport);
+				if (ret != 0)
+					return ret;
+				ret = firewall_read_integer_setting("https_lport", 0, &i_https_lport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#endif
+#if defined (APP_SSHD)
+		if (is_sshd_enabled) {
+			ret = firewall_read_enabled_setting("sshd_wopen", &is_sshd_wopen);
+			if (ret != 0)
+				return ret;
+			if (is_sshd_wopen) {
+				ret = firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#endif
+#if defined (APP_FTPD)
+		if (is_ftp_enabled) {
+			ret = firewall_read_enabled_setting("ftpd_wopen", &is_ftpd_wopen);
+			if (ret != 0)
+				return ret;
+			if (is_ftpd_wopen) {
+				ret = firewall_read_integer_setting("ftpd_wport", 0, &i_ftpd_wport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#endif
+		ret = firewall_read_enabled_setting("udpxy_wopen", &is_udpxy_wopen);
+		if (ret != 0)
+			return ret;
+		if (is_udpxy_wopen) {
+			ret = firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port);
+			if (ret != 0)
+				return ret;
+			if (i_udpxy_port > 1023) {
+				ret = firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#if defined (APP_TRMD)
+		is_trmd_supported = is_torrent_support();
+		if (is_trmd_supported) {
+			ret = firewall_read_enabled_setting("trmd_enable", &is_trmd_enabled);
+			if (ret != 0)
+				return ret;
+			if (is_trmd_enabled) {
+				ret = firewall_read_integer_setting("trmd_pport", 0, &i_trmd_pport);
+				if (ret != 0)
+					return ret;
+				if (i_trmd_pport < 1024 || i_trmd_pport > 65535)
+					i_trmd_pport = TRANSMISSION_PPORT;
+				ret = firewall_read_enabled_setting("trmd_ropen", &is_trmd_ropen);
+				if (ret != 0)
+					return ret;
+				if (is_trmd_ropen) {
+					ret = firewall_read_integer_setting("trmd_rport", 0, &i_trmd_rport);
+					if (ret != 0)
+						return ret;
+					if (i_trmd_rport < 1024 || i_trmd_rport > 65535)
+						i_trmd_rport = TRANSMISSION_RPORT;
+				}
+			}
+		}
+#endif
+#if defined (APP_ARIA)
+		is_aria_supported = is_aria_support();
+		if (is_aria_supported) {
+			ret = firewall_read_enabled_setting("aria_enable", &is_aria_enabled);
+			if (ret != 0)
+				return ret;
+			if (is_aria_enabled) {
+				ret = firewall_read_integer_setting("aria_pport", 0, &i_aria_pport);
+				if (ret != 0)
+					return ret;
+				if (i_aria_pport < 1024 || i_aria_pport > 65535)
+					i_aria_pport = ARIA_PPORT;
+				ret = firewall_read_enabled_setting("aria_ropen", &is_aria_ropen);
+				if (ret != 0)
+					return ret;
+				if (is_aria_ropen) {
+					ret = firewall_read_integer_setting("aria_rport", 0, &i_aria_rport);
+					if (ret != 0)
+						return ret;
+					if (i_aria_rport < 1024 || i_aria_rport > 65535)
+						i_aria_rport = ARIA_RPORT;
+				}
+			}
+		}
+#endif
+	}
 	vpnc_if = NULL;
 	if (i_vpnc_enable) {
 #if defined (APP_OPENVPN)
@@ -1654,23 +1799,18 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		/* Accept DHCPv4 */
 		fprintf(fp, "-A %s -p udp --sport %d --dport %d -j %s\n", dtype, 67, 68, logaccept);
 		
-#if defined (SUPPORT_HTTPS)
-		i_http_proto = nvram_get_int("http_proto");
-#else
-		i_http_proto = 0;
-#endif
-		if ((i_http_proto == 0 || i_http_proto == 2) && nvram_match("misc_http_x", "1")) {
-			wport = nvram_get_int("misc_httpport_x");
-			lport = nvram_get_int("http_lanport");
+		if ((i_http_proto == 0 || i_http_proto == 2) && is_misc_http_enabled) {
+			wport = i_misc_httpport;
+			lport = i_http_lanport;
 			if (wport == lport || !is_nat_enabled)
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 			else
 				fprintf(fp, "-A %s -p tcp -d %s --dport %d -j %s\n", dtype, lan_ip, lport, logaccept);
 		}
 #if defined (SUPPORT_HTTPS)
-		if ((i_http_proto == 1 || i_http_proto == 2) && nvram_match("https_wopen", "1")) {
-			wport = nvram_get_int("https_wport");
-			lport = nvram_get_int("https_lport");
+		if ((i_http_proto == 1 || i_http_proto == 2) && is_https_wopen) {
+			wport = i_https_wport;
+			lport = i_https_lport;
 			if (wport == lport || !is_nat_enabled)
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 			else
@@ -1678,9 +1818,9 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 #endif
 #if defined (APP_SSHD)
-		if (is_sshd_enabled && nvram_match("sshd_wopen", "1")) {
+		if (is_sshd_enabled && is_sshd_wopen) {
 			i_bfplimit_ref++;
-			wport = nvram_get_int("sshd_wport");
+			wport = i_sshd_wport;
 			lport = 22;
 			if (wport == lport || !is_nat_enabled)
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, IPT_CHAIN_NAME_BFP_LIMIT);
@@ -1689,8 +1829,8 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 #endif
 #if defined (APP_FTPD)
-		if (is_ftp_enabled && nvram_match("ftpd_wopen", "1")) {
-			wport = nvram_get_int("ftpd_wport");
+		if (is_ftp_enabled && is_ftpd_wopen) {
+			wport = i_ftpd_wport;
 			lport = 21;
 			if (wport == lport || !is_nat_enabled)
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
@@ -1698,38 +1838,34 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 				fprintf(fp, "-A %s -p tcp -d %s --dport %d -j %s\n", dtype, lan_ip, lport, logaccept);
 		}
 #endif
-		lport = nvram_get_int("udpxy_enable_x");
-		if (lport > 1023 && nvram_match("udpxy_wopen", "1")) {
-			wport = nvram_get_int("udpxy_wport");
+		lport = i_udpxy_port;
+		if (lport > 1023 && is_udpxy_wopen) {
+			wport = i_udpxy_wport;
 			if (wport == lport || !is_nat_enabled)
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 			else
 				fprintf(fp, "-A %s -p tcp -d %s --dport %d -j %s\n", dtype, lan_ip, lport, logaccept);
 		}
 #if defined (APP_TRMD)
-		if (nvram_match("trmd_enable", "1") && is_torrent_support()) {
-			wport = nvram_get_int("trmd_pport");
-			if (wport < 1024 || wport > 65535) wport = TRANSMISSION_PPORT;
+		if (is_trmd_enabled && is_trmd_supported) {
+			wport = i_trmd_pport;
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			fprintf(fp, "-A %s -p udp --dport %d -j %s\n", dtype, wport, logaccept);
 			
-			if (nvram_match("trmd_ropen", "1")) {
-				wport = nvram_get_int("trmd_rport");
-				if (wport < 1024 || wport > 65535) wport = TRANSMISSION_RPORT;
+			if (is_trmd_ropen) {
+				wport = i_trmd_rport;
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			}
 		}
 #endif
 #if defined (APP_ARIA)
-		if (nvram_match("aria_enable", "1") && is_aria_support()) {
-			wport = nvram_get_int("aria_pport");
-			if (wport < 1024 || wport > 65535) wport = ARIA_PPORT;
+		if (is_aria_enabled && is_aria_supported) {
+			wport = i_aria_pport;
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			fprintf(fp, "-A %s -p udp --dport %d -j %s\n", dtype, wport, logaccept);
 			
-			if (nvram_match("aria_ropen", "1")) {
-				wport = nvram_get_int("aria_rport");
-				if (wport < 1024 || wport > 65535) wport = ARIA_RPORT;
+			if (is_aria_ropen) {
+				wport = i_aria_rport;
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			}
 		}
@@ -2202,6 +2338,27 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
 	int is_vpns_enabled = 0, i_vpns_type = 0;
+	int is_misc_http_enabled = 0, is_https_wopen = 0;
+	int is_sshd_wopen = 0, is_ftpd_wopen = 0, is_udpxy_wopen = 0;
+	int i_misc_httpport = 0, i_http_lanport = 0;
+	int i_udpxy_port = 0, i_udpxy_wport = 0;
+#if defined (SUPPORT_HTTPS)
+	int i_https_wport = 0, i_https_lport = 0;
+#endif
+#if defined (APP_SSHD)
+	int i_sshd_wport = 0;
+#endif
+#if defined (APP_FTPD)
+	int i_ftpd_wport = 0;
+#endif
+#if defined (APP_TRMD)
+	int is_trmd_supported = 0, is_trmd_enabled = 0, is_trmd_ropen = 0;
+	int i_trmd_pport = 0, i_trmd_rport = 0;
+#endif
+#if defined (APP_ARIA)
+	int is_aria_supported = 0, is_aria_enabled = 0, is_aria_ropen = 0;
+	int i_aria_pport = 0, i_aria_rport = 0;
+#endif
 #if defined (APP_OPENVPN)
 	int i_vpns_ov_prot = 0, i_vpns_ov_port = 1194;
 #endif
@@ -2278,7 +2435,131 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			return ret;
 	}
 
-	is_logaccept = (strcmp(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT) == 0) ? 1 : 0;
+	/* Check remote-listener policy and ports before staging any IPv6 rules. */
+	if (is_fw_enabled) {
+		i_http_proto = 0;
+#if defined (SUPPORT_HTTPS)
+		ret = firewall_read_integer_setting("http_proto", 0, &i_http_proto);
+		if (ret != 0)
+			return ret;
+#endif
+		if (i_http_proto == 0 || i_http_proto == 2) {
+			ret = firewall_read_enabled_setting("misc_http_x", &is_misc_http_enabled);
+			if (ret != 0)
+				return ret;
+			if (is_misc_http_enabled) {
+				ret = firewall_read_integer_setting("misc_httpport_x", 0, &i_misc_httpport);
+				if (ret != 0)
+					return ret;
+				ret = firewall_read_integer_setting("http_lanport", 0, &i_http_lanport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#if defined (SUPPORT_HTTPS)
+		if (i_http_proto == 1 || i_http_proto == 2) {
+			ret = firewall_read_enabled_setting("https_wopen", &is_https_wopen);
+			if (ret != 0)
+				return ret;
+			if (is_https_wopen) {
+				ret = firewall_read_integer_setting("https_wport", 0, &i_https_wport);
+				if (ret != 0)
+					return ret;
+				ret = firewall_read_integer_setting("https_lport", 0, &i_https_lport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#endif
+#if defined (APP_SSHD)
+		if (is_sshd_enabled) {
+			ret = firewall_read_enabled_setting("sshd_wopen", &is_sshd_wopen);
+			if (ret != 0)
+				return ret;
+			if (is_sshd_wopen) {
+				ret = firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#endif
+#if defined (APP_FTPD)
+		if (is_ftp_enabled) {
+			ret = firewall_read_enabled_setting("ftpd_wopen", &is_ftpd_wopen);
+			if (ret != 0)
+				return ret;
+			if (is_ftpd_wopen) {
+				ret = firewall_read_integer_setting("ftpd_wport", 0, &i_ftpd_wport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#endif
+		ret = firewall_read_enabled_setting("udpxy_wopen", &is_udpxy_wopen);
+		if (ret != 0)
+			return ret;
+		if (is_udpxy_wopen) {
+			ret = firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port);
+			if (ret != 0)
+				return ret;
+			if (i_udpxy_port > 1023) {
+				ret = firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport);
+				if (ret != 0)
+					return ret;
+			}
+		}
+#if defined (APP_TRMD)
+		is_trmd_supported = is_torrent_support();
+		if (is_trmd_supported) {
+			ret = firewall_read_enabled_setting("trmd_enable", &is_trmd_enabled);
+			if (ret != 0)
+				return ret;
+			if (is_trmd_enabled) {
+				ret = firewall_read_integer_setting("trmd_pport", 0, &i_trmd_pport);
+				if (ret != 0)
+					return ret;
+				if (i_trmd_pport < 1024 || i_trmd_pport > 65535)
+					i_trmd_pport = TRANSMISSION_PPORT;
+				ret = firewall_read_enabled_setting("trmd_ropen", &is_trmd_ropen);
+				if (ret != 0)
+					return ret;
+				if (is_trmd_ropen) {
+					ret = firewall_read_integer_setting("trmd_rport", 0, &i_trmd_rport);
+					if (ret != 0)
+						return ret;
+					if (i_trmd_rport < 1024 || i_trmd_rport > 65535)
+						i_trmd_rport = TRANSMISSION_RPORT;
+				}
+			}
+		}
+#endif
+#if defined (APP_ARIA)
+		is_aria_supported = is_aria_support();
+		if (is_aria_supported) {
+			ret = firewall_read_enabled_setting("aria_enable", &is_aria_enabled);
+			if (ret != 0)
+				return ret;
+			if (is_aria_enabled) {
+				ret = firewall_read_integer_setting("aria_pport", 0, &i_aria_pport);
+				if (ret != 0)
+					return ret;
+				if (i_aria_pport < 1024 || i_aria_pport > 65535)
+					i_aria_pport = ARIA_PPORT;
+				ret = firewall_read_enabled_setting("aria_ropen", &is_aria_ropen);
+				if (ret != 0)
+					return ret;
+				if (is_aria_ropen) {
+					ret = firewall_read_integer_setting("aria_rport", 0, &i_aria_rport);
+					if (ret != 0)
+						return ret;
+					if (i_aria_rport < 1024 || i_aria_rport > 65535)
+						i_aria_rport = ARIA_RPORT;
+				}
+			}
+		}
+#endif
+	}
+
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv6 filter")))
@@ -2339,63 +2620,55 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		// Firewall between WAN and Local
 		
 		/* http/https/ssh/ftp/udpxy accepted from wan only for original ports (no NAT in IPv6) */
-#if defined (SUPPORT_HTTPS)
-		i_http_proto = nvram_get_int("http_proto");
-#else
-		i_http_proto = 0;
-#endif
-		wport = nvram_get_int("misc_httpport_x");
-		lport = nvram_get_int("http_lanport");
-		if ((i_http_proto == 0 || i_http_proto == 2) && nvram_match("misc_http_x", "1") && (wport == lport))
+		if ((i_http_proto == 0 || i_http_proto == 2) && is_misc_http_enabled) {
+			wport = i_misc_httpport;
+			lport = i_http_lanport;
+			if (wport == lport)
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 #if defined (SUPPORT_HTTPS)
-		wport = nvram_get_int("https_wport");
-		lport = nvram_get_int("https_lport");
-		if ((i_http_proto == 1 || i_http_proto == 2) && nvram_match("https_wopen", "1") && (wport == lport))
+		wport = i_https_wport;
+		lport = i_https_lport;
+		if ((i_http_proto == 1 || i_http_proto == 2) && is_https_wopen && (wport == lport))
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 #endif
 #if defined (APP_SSHD)
-		wport = nvram_get_int("sshd_wport");
+		wport = i_sshd_wport;
 		lport = 22;
-		if (is_sshd_enabled && nvram_match("sshd_wopen", "1") && (wport == lport)) {
+		if (is_sshd_enabled && is_sshd_wopen && (wport == lport)) {
 			i_bfplimit_ref++;
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, IPT_CHAIN_NAME_BFP_LIMIT);
 		}
 #endif
 #if defined (APP_FTPD)
-		wport = nvram_get_int("ftpd_wport");
+		wport = i_ftpd_wport;
 		lport = 21;
-		if (is_ftp_enabled && nvram_match("ftpd_wopen", "1") && (wport == lport))
+		if (is_ftp_enabled && is_ftpd_wopen && (wport == lport))
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 #endif
-		wport = nvram_get_int("udpxy_wport");
-		lport = nvram_get_int("udpxy_enable_x");
-		if (lport > 1023 && nvram_match("udpxy_wopen", "1") && (wport == lport))
+		wport = i_udpxy_wport;
+		lport = i_udpxy_port;
+		if (lport > 1023 && is_udpxy_wopen && (wport == lport))
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 #if defined (APP_TRMD)
-		if (nvram_match("trmd_enable", "1") && is_torrent_support()) {
-			wport = nvram_get_int("trmd_pport");
-			if (wport < 1024 || wport > 65535) wport = TRANSMISSION_PPORT;
+		if (is_trmd_enabled && is_trmd_supported) {
+			wport = i_trmd_pport;
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			fprintf(fp, "-A %s -p udp --dport %d -j %s\n", dtype, wport, logaccept);
 			
-			if (nvram_match("trmd_ropen", "1")) {
-				wport = nvram_get_int("trmd_rport");
-				if (wport < 1024 || wport > 65535) wport = TRANSMISSION_RPORT;
+			if (is_trmd_ropen) {
+				wport = i_trmd_rport;
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			}
 		}
 #endif
 #if defined (APP_ARIA)
-		if (nvram_match("aria_enable", "1") && is_aria_support()) {
-			wport = nvram_get_int("aria_pport");
-			if (wport < 1024 || wport > 65535) wport = ARIA_PPORT;
+		if (is_aria_enabled && is_aria_supported) {
+			wport = i_aria_pport;
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			fprintf(fp, "-A %s -p udp --dport %d -j %s\n", dtype, wport, logaccept);
 			
-			if (nvram_match("aria_ropen", "1")) {
-				wport = nvram_get_int("aria_rport");
-				if (wport < 1024 || wport > 65535) wport = ARIA_RPORT;
+			if (is_aria_ropen) {
+				wport = i_aria_rport;
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, wport, logaccept);
 			}
 		}

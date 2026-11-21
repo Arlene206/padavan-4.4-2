@@ -25,22 +25,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4 DMZ service-exception preflight and cached OpenVPN protocol identifier correction are committed in product-source baseline `6e67a918cf560634fa597fcdfd2ea35df96a78c3`. The OpenVPN correction replaces four stale `i_ov_prot` identifiers with the checked `i_vpns_ov_prot` cache in both IPv4 and IPv6 filter families; the existing protocol-value sets are unchanged.
-- Exact-head HTTPD Security #44949890929 on parent `da169515...` exposed an unrelated but real cross-workflow checker defect at Python stdin line 874. The source assignment is `is_use_dmz = firewall_ipv4_address_is_safe(dmz_ip) ? 1 : 0;`; the HTTPD workflow required unnecessary parentheses. This commit makes the check whitespace-tolerant and consistent with the production expression. No production code is changed by the checker correction.
-- Once the exact-head checker rerun passes, continue the firewall audit with IPv6 remote-open listener exceptions and the port-forward helper's value validation. Preserve all prior checked NVRAM gates and valid-input behavior.
-
+- The IPv4 and IPv6 filter builders still re-read WAN-facing listener selectors with unchecked `nvram_get_int()` / `nvram_match()` after the NAT builder had been hardened. A transient read error could make an active listener's filter exception disagree with its NAT mapping or service config; HTTP/HTTPS could also compare zero ports and emit a meaningless `--dport 0` rule. Transmission/Aria primary and remote-open port rules likewise used separate unchecked reads.
+- This slice resolves the HTTP protocol, HTTP/HTTPS, SSH, FTP, UDPXY, Transmission and Aria enable flags and listener ports through checked NVRAM wrappers before opening either filter rule file. Feature guards and enabled-state conditions avoid reads for unsupported/inactive daemons; Transmission/Aria retain the existing 1024..65535 fallback defaults. Rule generation now reuses cached settings and does not perform a second unchecked read.
+- The Firewall Startup workflow pins every required checked flag/port before `firewall_open_rule_file()` for both filter builders and forbids the previous direct getters. The existing GNU89/Werror/ASan/UBSan NVRAM policy test covers strict parse, missing-key defaults and backend-error propagation.
 ## Verification boundary
 
-- Product-source SHA `6e67a918cf560634fa597fcdfd2ea35df96a78c3` was current `main` when this checkpoint was prepared. Exact-head push runs were all IN_PROGRESS at the last query: Firewall Startup #44950120695; XY-C1 Firmware Validation #44950120665; NVRAM audit #44950120698; WAN route #44950120777; FULLCONENAT #44950120775; WAN DHCP #44950120688; HTTPD Security #44950120693; Process inventory #44950120902; AI docs #44950120745. All returned `head_sha=6e67a918cf560634fa597fcdfd2ea35df96a78c3`.
-- Parent DMZ source SHA `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`: Firewall Startup #44949891033, AI docs #44949890928, Process inventory #44949890931, WAN route #44949890950, FULLCONENAT #44949890994 and WAN DHCP #44949890952 PASS. HTTPD Security #44949890929 failed only at its final source assertion; the exact mismatch and correction are recorded above. NVRAM #44949890937 and XY-C1 #44949891023 were IN_PROGRESS at the last query.
-- No local repository checkout or local workflow execution is available in this environment. Do not claim L3 unless a single exact source SHA completes Build XY-C1, TRX verification and artifact upload. No new L3 claim; hardware L4 remains NOT VERIFIED.
-
+- Current parent main before this filter-listener slice: `13a229e14833708e70f0da7d541fb4aee8396459`, which updates the HTTPD workflow's stale DMZ source-spelling assertion. Exact-head HTTPD and AI actions for that commit were newly queued/pending at last check.
+- OpenVPN source correction `6e67a918cf560634fa597fcdfd2ea35df96a78c3`: Firewall Startup #44950120695, AI docs #44950120745, Process inventory #44950120902, WAN route #44950120777, FULLCONENAT #44950120775 and WAN DHCP #44950120688 PASS. HTTPD #44950120693 failed only the obsolete DMZ source expression literal; corrected by parent commit `13a229...`. NVRAM #44950120698 and XY-C1 #44950120665 were still in progress at Build XY-C1.
+- Current IPv4/IPv6 listener-cache slice requires exact-head Firewall Startup/HTTPD/AI/NVRAM/Process runs. L3 needs Build XY-C1 + TRX verification + artifact upload all PASS on one source SHA. No local build/test or hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and query exact-head push Actions for this checker-correction commit. Require HTTPD Security to pass; inspect the first causal log if it does not.
-2. Re-query the exact `6e67a918...` runs above as needed, especially Firewall Startup, NVRAM and XY-C1; do not treat PENDING as a reason to wait idly or infer target-build success.
-3. Continue with IPv6 remote-open listener handling and the port-forward helper's input/value validation. Implement source fixes and regression coverage directly on the current `main`.
-
+1. Query exact-head Firewall Startup, HTTPD, NVRAM, Process inventory and AI-doc checks for this IPv4/IPv6 listener preflight. Diagnose the first source/test failure rather than waiting; the checker now pins both builders' enabled flags and port values before file-open.
+2. Track XY-C1 Build, TRX and artifact upload on the same exact SHA. Re-query the earlier `6e67a918...` XY/NVRAM runs only as parent evidence.
+3. Continue auditing `include_vts_nat()`/IPv6 filter and remaining port-forward helpers for malformed numeric ranges, unchecked port reads and rule staging. Preserve old listener defaults and remote-open enable semantics.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

@@ -485,6 +485,45 @@ jobs:
           assert 'nvram_get_int("vpns_type")' not in ipv6_filter
           assert 'nvram_get_int("vpns_ov_prot")' not in ipv6_filter
           assert 'nvram_safe_get_int("vpns_ov_port"' not in ipv6_filter
+
+          listener_flags = (
+              'firewall_read_enabled_setting("misc_http_x", &is_misc_http_enabled)',
+              'firewall_read_enabled_setting("https_wopen", &is_https_wopen)',
+              'firewall_read_enabled_setting("sshd_wopen", &is_sshd_wopen)',
+              'firewall_read_enabled_setting("ftpd_wopen", &is_ftpd_wopen)',
+              'firewall_read_enabled_setting("udpxy_wopen", &is_udpxy_wopen)',
+              'firewall_read_enabled_setting("trmd_enable", &is_trmd_enabled)',
+              'firewall_read_enabled_setting("trmd_ropen", &is_trmd_ropen)',
+              'firewall_read_enabled_setting("aria_enable", &is_aria_enabled)',
+              'firewall_read_enabled_setting("aria_ropen", &is_aria_ropen)',
+          )
+          listener_ports = (
+              'firewall_read_integer_setting("http_proto", 0, &i_http_proto)',
+              'firewall_read_integer_setting("misc_httpport_x", 0, &i_misc_httpport)',
+              'firewall_read_integer_setting("http_lanport", 0, &i_http_lanport)',
+              'firewall_read_integer_setting("https_wport", 0, &i_https_wport)',
+              'firewall_read_integer_setting("https_lport", 0, &i_https_lport)',
+              'firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport)',
+              'firewall_read_integer_setting("ftpd_wport", 0, &i_ftpd_wport)',
+              'firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port)',
+              'firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport)',
+              'firewall_read_integer_setting("trmd_pport", 0, &i_trmd_pport)',
+              'firewall_read_integer_setting("trmd_rport", 0, &i_trmd_rport)',
+              'firewall_read_integer_setting("aria_pport", 0, &i_aria_pport)',
+              'firewall_read_integer_setting("aria_rport", 0, &i_aria_rport)',
+          )
+          for signature, builder in (("ipt_filter_rules(char *man_if", ipv4_filter),
+                                      ("ip6t_filter_rules(char *man_if", ipv6_filter)):
+              for gate in listener_flags + listener_ports:
+                  assert gate in builder, (signature, gate)
+                  assert builder.index(gate) < builder.index("firewall_open_rule_file("), (signature, gate)
+              for key in ("misc_http_x", "https_wopen", "sshd_wopen", "ftpd_wopen",
+                          "udpxy_wopen", "trmd_enable", "trmd_ropen", "aria_enable", "aria_ropen"):
+                  assert f'nvram_match("{key}", "1")' not in builder, (signature, key)
+              for key in ("http_proto", "misc_httpport_x", "http_lanport", "https_wport",
+                          "https_lport", "sshd_wport", "ftpd_wport", "udpxy_enable_x",
+                          "udpxy_wport", "trmd_pport", "trmd_rport", "aria_pport", "aria_rport"):
+                  assert f'nvram_get_int("{key}")' not in builder, (signature, key)
           nat_dmz = nat_builder
           dmz_gates = (
               'firewall_read_enabled_setting("trmd_enable", &is_trmd_enabled)',
