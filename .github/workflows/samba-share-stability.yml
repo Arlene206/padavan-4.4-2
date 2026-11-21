@@ -137,6 +137,12 @@ jobs:
           assert "fopen(SAMBA_CONF" not in header_body
           assert "unlink(SAMBA_CONF)" not in header_body
           assert "ferror(fp)" in header_body
+          header_body_compact = "".join(header_body.split())
+          wins_header_read = 'samba_ex_read_boolean_status("wins_enable",0,&i_wins_enable)'
+          assert wins_header_read in header_body_compact
+          assert header_body_compact.index(wins_header_read) < header_body_compact.index('fprintf(fp,"[global]')
+          assert 'nvram_get_int("wins_enable")' not in header_body_compact
+          assert services.index("samba_ex_read_boolean_status(const char *name, int missing_value,") < services.index("write_smb_conf_header(FILE *fp)")
 
           smb = function_body(stor, "write_smb_conf_unlocked(void)")
           integer_reader = function_body(stor, "samba_read_integer_status(const char *name, int missing_value, int *value)")

@@ -1433,6 +1433,9 @@ samba_ex_wait_for_daemon(const char *daemon)
 	return samba_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
 }
 
+static int
+samba_ex_read_boolean_status(const char *name, int missing_value,
+			     int *enabled);
 
 int
 write_smb_conf_header(FILE *fp)
@@ -1443,8 +1446,19 @@ write_smb_conf_header(FILE *fp)
 	if (!fp)
 		return -1;
 
+	/* A backend failure must not silently disable WINS in the published file. */
+	if (samba_ex_read_boolean_status("wins_enable", 0,
+					 &i_wins_enable) != 0) {
+		int read_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot read WINS enable state; refusing smb.conf header publication (errno %d)",
+			   read_error);
+		errno = read_error;
+		return -1;
+	}
+
 	i_lmb = nvram_get_int("st_samba_lmb");
-	i_wins_enable = nvram_get_int("wins_enable");
 	p_workgroup = nvram_safe_get("st_samba_workgroup");
 	p_computer_name = get_our_hostname();
 

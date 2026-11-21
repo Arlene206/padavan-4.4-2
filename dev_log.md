@@ -1,3 +1,11 @@
+## 2026-11-21 — Fail closed on Samba WINS state before smb.conf header publication
+
+- Parent main SHA: bd63d60932e5c1d7a90cbe9a19a3d8a0c72c153c.
+- Exact-head Samba regression #44917367040 passed both the GNU89 policy/config test step and the complete source-contract step. AI handoff documentation #44917367092 also passed on this parent; XY-C1 #44917367085 was still running at the last poll.
+- Follow-up source inspection found write_smb_conf_header() still used unchecked nvram_get_int("wins_enable"). A NVRAM backend failure could silently omit WINS support from the generated global config. It now uses the checked boolean adapter with the legacy absent-key default 0 and returns before the first fprintf on failure.
+- Added a source-contract requirement for the checked call, its declaration before the caller, read-before-first-output ordering and removal of the unchecked read. The existing GNU89 test binaries remain unchanged; the new exact-head Samba and XY-C1 gates are pending.
+
+---
 ## 2026-11-21 — Align Samba restart and optional-daemon mode source contracts
 
 - Parent main SHA: `b0a6a07f6bbb533867a300603d1c1a379e2ea4be`.

@@ -14,24 +14,27 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Product-source SHA `bc3cceebfcc4423d03acd30a5604e01c63b13419` contains fail-closed Samba runtime/WINS reads and passed the GNU89 policy binary in Samba regression.
-- Samba checker #44917175074 failed on a stale assertion requiring unchecked `nvram_match()` in `restart_smbd()`; updated to require the checked runtime enable read and absence of unchecked matches.
-- USB storage hotplug #44916836630 exposed a stale generic restart assertion for SCUT: source correctly uses `start_scutclient_with_mode(enabled)` (and the corresponding MentoHUST mode helper) after checking stop status. Updated the checker and made stop-before-start ordering explicit.
-- XY-C1 #44916836560 status `in_progress/pending`; NVRAM audit #44916836473 `completed/success`; AI handoff #44917017123 `completed/success`. L3 remains NOT VERIFIED until Build/TRX/artifact pass together.
+- Product-source SHA at the start of this slice: bd63d60932e5c1d7a90cbe9a19a3d8a0c72c153c; this patch adds a checked WINS NVRAM gate to smb.conf header generation before any file output.
+- Exact-head Samba regression #44917367040 passed GNU89 policy/config binaries and all existing source contracts. AI handoff docs #44917367092 passed; XY-C1 #44917367085 was still in progress at the last poll.
+- This patch adds a static forward declaration for the checked WINS adapter, uses its legacy missing-key default 0 in write_smb_conf_header(), and adds source contracts for declaration/call order and absence of the unchecked read.
+
 
 
 ## Active task
 
-1. Inspect exact-head Samba share-stability, XY-C1, AI handoff and applicable Process/NVRAM push Actions after THIS COMMIT; diagnose the first causal failure.
-2. Require XY-C1 Build, TRX verification and artifact upload to PASS on the same product-source SHA before claiming L3.
-3. Continue the next unfinished storage/userland reliability issue while Actions are pending; do not repeat these Samba audits without fresh failure evidence.
+1. Inspect exact-head Samba and XY-C1 push Actions for this patch. Correct real source or source-contract failures without weakening coverage.
+2. Require Build XY-C1, TRX verification and artifact upload to PASS on one exact product-source SHA before marking L3 verified.
+3. Assess the separate remaining unchecked nvram_get_int("wins_enable") use in DNSMasq DHCP-option generation in services_ex.c; define an explicit safe error policy before changing that independent caller.
+4. Continue other independent reliability issues in the userland while Actions are pending; do not wait idly.
+
 
 ## Verification boundary
 
-- L1: WAN lease tuple publication remains compare-and-publish under the NVRAM transaction; stale tuple conflicts return `EAGAIN`; recovery is fenced against a newer writer and retries only after failed compensation. Samba service-state reads now fail closed on unavailable or malformed enable flags; exact-head verification is pending.
-- L2: Samba unit binary passed on `bc3cceeb`; its source-contract step failed only on the multiline runtime-reader assertion and is corrected in THIS COMMIT. AI handoff, Process inventory, WAN route and DNSMasq PASS on `bc3cceeb`; NVRAM audit was pending at the last poll.
-- L3: NOT VERIFIED until this production-source SHA passes Build XY-C1, TRX verification and artifact upload on the same SHA.
-- L4: physical router flash, boot and runtime validation NOT VERIFIED.
+- L1: run_samba(), restart_smbd(), selective Samba stop and WINS startup already use checked NVRAM reads. This patch extends fail-closed behavior to global smb.conf header generation, before any file output.
+- L2: parent Samba regression #44917367040 and AI handoff #44917367092 PASS. The checked-header source contract and exact-head regression for this patch are pending.
+- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on the same source SHA.
+- L4: physical router flash/boot, Samba authentication/share behavior and runtime WINS transitions NOT VERIFIED.
+
 
 ## Workflow and preservation rules
 
@@ -51,4 +54,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
+Fetch live main; inspect exact-head Samba source-contract and XY-C1 Build/TRX/artifact runs for this WINS-header patch. Then assess the independent DNSMasq DHCP WINS NVRAM read and continue the next userland reliability issue.
 Fetch live `main`; inspect exact-head WAN callback, WAN route, AI handoff and XY-C1 Build/TRX/artifact runs after THIS COMMIT. Then continue the Samba checked-NVRAM fail-closed implementation while any firmware Actions are pending.
