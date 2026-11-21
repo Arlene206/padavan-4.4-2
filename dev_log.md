@@ -1,3 +1,14 @@
+## 2026-11-21 — Restore indentation in Wireless inline source contract
+
+- Parent main SHA: 7344df1f59b04155c8cbffd8a96ee3a34600ac9d; production source is unchanged from 75d7dee28c30bca036a0287c5124dfb475e3b684.
+- The workflow event #44907150820 on 7344df1 registered zero jobs. Inspection of the committed YAML diff found one added Python assertion missing the ten-space block indentation, which moved it outside the existing run script and made the workflow invalid.
+- Restored the assertion's indentation. Its contract remains unchanged: require the new single inic_enabled health-monitor gate and forbid unchecked nvram_get_int("inic_disable") reads.
+- AI handoff docs #44907152023 PASS on 7344df1. Process lifecycle #44907026283, process inventory #44907026337, HTTPD #44907026445, NVRAM audit #44907026244, iNIC signal #44907026286 and watchdog signal #44907026275 PASS on product SHA 75d7dee.
+- XY-C1 #44907026295 remains at Build XY-C1 on 75d7dee; TRX/artifact pending. Correctly parsed Wireless rerun awaits this commit. No L3/L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Align iNIC monitor gate contract with single checked snapshot
 
 - Parent main SHA: 75d7dee28c30bca036a0287c5124dfb475e3b684; product source contains the one-read fail-closed inic_disable transition.

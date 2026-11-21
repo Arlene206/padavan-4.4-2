@@ -382,7 +382,7 @@ jobs:
           monitor_success = "wireless_radio_status_success(inicd_start_status)"
           monitor_result = "return wireless_radio_startup_result(all_started);"
           assert monitor_gate in inic_ap_start
-assert 'nvram_get_int("inic_disable")' not in inic_ap_start
+          assert 'nvram_get_int("inic_disable")' not in inic_ap_start
           assert monitor_launch in inic_ap_start
           assert monitor_log in inic_ap_start
           assert monitor_merge in inic_ap_start
