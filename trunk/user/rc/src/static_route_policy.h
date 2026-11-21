@@ -20,7 +20,7 @@
 	(STATIC_ROUTE_MAX_ENTRIES * STATIC_ROUTE_MAX_ENTRY_TEXT + \
 	 (STATIC_ROUTE_MAX_ENTRIES - 1) + 1)
 
-static int
+static inline int
 static_route_entry_count_is_safe(int count)
 {
 	return count >= 0 && count <= STATIC_ROUTE_MAX_ENTRIES;
@@ -30,7 +30,7 @@ static_route_entry_count_is_safe(int count)
  * Checked replacement for nvram_invmatch("sr_enable_x", "1"). Missing keys
  * retain the legacy disabled default; backend errors must not skip updates.
  */
-static int
+static inline int
 static_route_nvram_enabled_status(int api_result, int saved_errno,
 				  const char *value, int missing_enabled,
 				  int *enabled)
@@ -56,7 +56,7 @@ static_route_nvram_enabled_status(int api_result, int saved_errno,
  * Empty metrics retain the old atoi("") == 0 behavior. Non-empty values must
  * be unsigned decimal and leave room for route_add()'s metric + 1 adjustment.
  */
-static int
+static inline int
 static_route_metric_parse(const char *value, int *metric)
 {
 	unsigned int parsed = 0;
@@ -83,7 +83,7 @@ static_route_metric_parse(const char *value, int *metric)
 	return 0;
 }
 
-static int
+static inline int
 static_route_interface_is_safe(const char *value)
 {
 	if (!value)
@@ -92,8 +92,8 @@ static_route_interface_is_safe(const char *value)
 	       strcmp(value, "MAN") == 0 || strcmp(value, "WAN") == 0;
 }
 
-/* Strict dotted-quad validation for a configured route gateway. */
-static int
+/* Strict dotted-quad validation for route destinations, masks and gateways. */
+static inline int
 static_route_ipv4_address_is_valid(const char *value)
 {
 	unsigned int octet = 0;
