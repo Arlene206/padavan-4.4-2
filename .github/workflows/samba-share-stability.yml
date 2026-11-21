@@ -140,7 +140,11 @@ jobs:
           header_body_compact = "".join(header_body.split())
           wins_header_read = 'samba_ex_read_boolean_status("wins_enable",0,&i_wins_enable)'
           assert wins_header_read in header_body_compact
-          assert header_body_compact.index(wins_header_read) < header_body_compact.index('fprintf(fp,"[global]')
+          header_read = header_body_compact.index(wins_header_read)
+          header_error = header_body_compact.index("errno=read_error;return-1;", header_read)
+          header_first_write = header_body_compact.index('fprintf(fp,"[global]')
+          assert header_read < header_error < header_first_write
+          assert "intread_error=errno?errno:EIO;" in header_body_compact
           assert 'nvram_get_int("wins_enable")' not in header_body_compact
           assert services.index("samba_ex_read_boolean_status(const char *name, int missing_value,") < services.index("write_smb_conf_header(FILE *fp)")
 

@@ -1,3 +1,11 @@
+## 2026-11-21 — Restore the complete repository tree after Git tree assembly error
+
+- The Samba WINS header source slice was first committed as b53d27269e6de0a3b56f51e044714f7a4fa91dd1. That tree accidentally omitted the base tree SHA when calling the Git tree API and therefore contained only the five updated paths; the exact-head Samba job #44917536389 correctly failed because tests/samba_config_file.c was absent.
+- Rebuilt a complete tree from the actual parent Git tree 12f4a8fe707916dc3fb2550850642b1c9c3b5dae and made a normal non-forced child commit 954d1dc4d11e5518e6e69e86a167fcfd0e5efd33; no history was rewritten. Verified README.md, the restored Samba test source, the firmware build workflow, services_stor.c and services_ex.c are readable on main.
+- The recovery commit queued the full exact-head workflow suite, including XY-C1 #44917653757. The source change remains intentionally unclaimed at L2/L3 until the Samba regression recompiles/runs against the restored tree and the same-SHA XY-C1 Build/TRX/artifact gates pass.
+- Added one more Samba source-contract assertion to prove the WINS NVRAM error is propagated before the first global smb.conf output. This change triggers a fresh Samba run on the complete tree.
+
+---
 ## 2026-11-21 — Fail closed on Samba WINS state before smb.conf header publication
 
 - Parent main SHA: bd63d60932e5c1d7a90cbe9a19a3d8a0c72c153c.
