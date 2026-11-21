@@ -1011,6 +1011,47 @@ ordered(server_options_snapshot,[
     "nvram_transaction_end(&transaction)",
     "*options = pending"
 ],"OpenVPN server option snapshot must check every scalar and copied DHCP option before publication")
+client_config_snapshot=body(vpn_openvpn,"openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *config)")
+ordered(client_config_snapshot,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpnc_ov_mode"',
+    '"vpnc_ov_auth"',
+    '"vpnc_ov_atls"',
+    '"vpnc_ov_prot"',
+    '"vpnc_ov_port"',
+    '"vpnc_ov_mdig"',
+    '"vpnc_ov_ciph"',
+    '"vpnc_ov_compress"',
+    '"vpnc_dgw"',
+    '"vpnc_ov_cnat"',
+    '"vpnc_peer"',
+    '"vpnc_ov_ncp_clist"',
+    "openvpn_safe_remote_host(pending.peer)",
+    "nvram_transaction_end(&transaction)",
+    "*config = pending"
+],"OpenVPN client settings must be validated as one transactionally copied snapshot")
+client_writer=body(vpn_openvpn,"openvpn_create_client_conf(const char *conf_file,")
+require("config->peer" in client_writer and
+        "config->port" in client_writer and
+        "config->auth_mode" in client_writer and
+        "config->tls_mode" in client_writer and
+        "config->ncp_cipher_list" in client_writer and
+        "nvram_get_int" not in client_writer and
+        "nvram_safe_get" not in client_writer and
+        "nvram_get(" not in client_writer and
+        "nvram_match" not in client_writer and
+        "nvram_set_int" not in client_writer,
+        "OpenVPN client config writer must consume only the checked client snapshot")
+client_start=body(vpn_openvpn,"start_openvpn_client(void)")
+ordered(client_start,[
+    "openvpn_read_client_config_snapshot(&config)",
+    'doSystem("mkdir -p -m %s %s", "755", CLIENT_ROOT_DIR)',
+    "openvpn_create_client_conf(vpnc_cfg, &config)",
+    "config.is_tun",
+    "config.client_nat"
+],"OpenVPN client startup must validate and reuse one snapshot before filesystem/interface side effects")
+require("test_openvpn_client_option_bounds" in config_policy_test,
+        "OpenVPN client option bounds regression missing")
 server_network_snapshot=body(vpn_openvpn,"openvpn_read_server_network_snapshot(struct openvpn_server_network_config *network)")
 ordered(server_network_snapshot,[
     "nvram_transaction_begin(&transaction)",

@@ -1,3 +1,14 @@
+## 2026-11-21 — Snapshot OpenVPN client settings before config and interface side effects
+
+- Parent main SHA: 48c23d6cad5313bd1d62416097d12b2169c64b8b.
+- The client config writer still read authentication mode, TLS mode, transport protocol, peer, port, digest, cipher/NCP list, compression and redirect-gateway independently through compatibility getters. start_openvpn_client() also selected TUN/TAP mode and TAP bridge/NAT behavior via unchecked getters after creating the client directory. Backend failures could silently produce mixed settings or route to an unintended peer/interface.
+- Added one checked NVRAM transaction snapshot for all client options, including a bounded copied peer host validated by openvpn_safe_remote_host(). UI values are range-checked (auth 0..1, TLS 0..3, protocol 0..5, digest 0..5, cipher 0..15, compression 0..4, port 1..65535 with legacy default 1194, mode and flags 0..1). NCP cipher string is copied into a bounded buffer.
+- Client startup now validates the entire snapshot before creating directories, staging credentials/config or creating TUN/TAP interfaces; config writer and interface selection consume the same snapshot. IPv4/IPv6 peer-family adjustment remains local to emitted config rather than persisting a silent NVRAM mutation. Existing private secret staging and atomic config publication are unchanged.
+- Added UI-range/default regression tests and source contracts requiring complete snapshot before side effects and no compatibility getter/writes in the config writer.
+- Exact 48c23d6 VPN lifecycle #44936185717, AI docs #44936185688, OpenVPN credential staging #44936185574, Process #44936185621 and HTTPD #44936185598 PASS. NVRAM audit #44936185600 and XY-C1 #44936185654 were pending at last poll.
+
+---
+
 ## 2026-11-21 — Snapshot OpenVPN server options before staged config publication
 
 - Parent main SHA: 6d1019d4b8da56ab545be67038934e57a65b631a.

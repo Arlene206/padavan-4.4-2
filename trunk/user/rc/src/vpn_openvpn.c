@@ -263,6 +263,27 @@ struct openvpn_server_options_config {
 	char wins[INET_ADDRSTRLEN];
 };
 
+struct openvpn_client_config_snapshot {
+	int is_tun;
+	int auth_mode;
+	int tls_mode;
+	int protocol;
+	int port;
+	int auth_digest;
+	int cipher;
+	int compression;
+	int redirect_gateway;
+	int client_nat;
+	char peer[257];
+	char ncp_cipher_list[257];
+};
+
+static int
+openvpn_server_transaction_get_int(struct nvram_transaction *transaction,
+				   const char *key, int default_value,
+				   int minimum, int maximum, int *result);
+
+
 static int
 openvpn_server_acl_copy_text(struct nvram_transaction *transaction,
 			     const char *name, char *destination,
@@ -1185,15 +1206,133 @@ openvpn_create_server_conf(const char *conf_file,
 }
 
 static int
-openvpn_create_client_conf(const char *conf_file, int is_tun)
+openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *config)
+{
+	struct nvram_transaction transaction;
+	struct openvpn_client_config_snapshot pending;
+	int status, result = -1, saved_errno = 0, end_status;
+
+	if (!config) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(&pending, 0, sizeof(pending));
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_mode", 0, 0, 1,
+						    &pending.is_tun);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_auth", 0, 0, 1,
+						    &pending.auth_mode);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_atls", 0, 0, 3,
+						    &pending.tls_mode);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_prot", 0, 0, 5,
+						    &pending.protocol);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_port", 1194, 1, 65535,
+						    &pending.port);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_mdig", 0, 0, 5,
+						    &pending.auth_digest);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_ciph", 0, 0, 15,
+						    &pending.cipher);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_compress", 0, 0, 4,
+						    &pending.compression);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_dgw", 0, 0, 1,
+						    &pending.redirect_gateway);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpnc_ov_cnat", 0, 0, 1,
+						    &pending.client_nat);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	if (openvpn_server_acl_copy_text(&transaction, "vpnc_peer",
+					 pending.peer, sizeof(pending.peer)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "vpnc_ov_ncp_clist",
+					 pending.ncp_cipher_list,
+					 sizeof(pending.ncp_cipher_list)) != 0)
+		goto finish_transaction;
+	if (!openvpn_safe_remote_host(pending.peer)) {
+		errno = EINVAL;
+		goto finish_transaction;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	*config = pending;
+	return 0;
+}
+
+static int
+openvpn_create_client_conf(const char *conf_file,
+			   const struct openvpn_client_config_snapshot *config)
 {
 	FILE *fp;
 	char staged_conf[128];
 	int i, i_prot, i_prot_ori, i_auth, i_atls;
 	const char *p_peer, *p_prot;
 
-	i_auth = nvram_get_int("vpnc_ov_auth");
-	i_atls = nvram_get_int("vpnc_ov_atls");
+	if (!config) {
+		errno = EINVAL;
+		return 1;
+	}
+	i_auth = config->auth_mode;
+	i_atls = config->tls_mode;
 
 	for (i=0; i<4; i++) {
 		if (i_auth == 1 && (i == 1 || i == 2))
@@ -1204,16 +1343,12 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 			return 1;
 	}
 
-	i_prot = nvram_get_int("vpnc_ov_prot");
+	i_prot = config->protocol;
 	i_prot_ori = i_prot;
 	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
 		i_prot &= 1;
 
-	p_peer = nvram_safe_get("vpnc_peer");
-	if (!openvpn_safe_remote_host(p_peer)) {
-		logmessage(CLIENT_LOG_NAME, "Invalid VPN server address.");
-		return 1;
-	}
+	p_peer = config->peer;
 
 	/* note: upcoming openvpn 2.4 will need direct set udp4/tcp4-client for ipv4 only */
 #if defined (USE_IPV6)
@@ -1239,9 +1374,7 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 	else
 		p_prot = "udp4";
 
-	/* fixup ipv4/ipv6 mismatch */
-	if (i_prot != i_prot_ori)
-		nvram_set_int("vpnc_ov_prot", i_prot);
+	/* The detected peer family affects this generated config only. */
 
 	/* Publish auth credentials privately before writing a config that uses them. */
 	if (i_auth == 1 && openvpn_create_client_secret("secret") != 0) {
@@ -1258,11 +1391,11 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 
 	fprintf(fp, "client\n");
 	fprintf(fp, "proto %s\n", p_prot);
-	fprintf(fp, "remote %s %d\n", p_peer, nvram_safe_get_int("vpnc_ov_port", 1194, 1, 65535));
+	fprintf(fp, "remote %s %d\n", p_peer, config->port);
 	fprintf(fp, "resolv-retry %s\n", "infinite");
 	fprintf(fp, "nobind\n");
 
-	fprintf(fp, "dev %s\n", (is_tun) ? IFNAME_CLIENT_TUN : IFNAME_CLIENT_TAP);
+	fprintf(fp, "dev %s\n", (config->is_tun) ? IFNAME_CLIENT_TUN : IFNAME_CLIENT_TAP);
 
 	fprintf(fp, "ca %s/%s\n", CLIENT_CERT_DIR, openvpn_client_keys[0]);
 	if (i_auth == 0) {
@@ -1278,14 +1411,14 @@ openvpn_create_client_conf(const char *conf_file, int is_tun)
 		fprintf(fp, "tls-crypt-v2 %s/%s\n", CLIENT_CERT_DIR, openvpn_client_keys[3]);
 	}
 
-	openvpn_add_auth(fp, nvram_get_int("vpnc_ov_mdig"));
-	openvpn_add_cipher(fp, nvram_get_int("vpnc_ov_ciph"), nvram_get("vpnc_ov_ncp_clist"));
-	openvpn_add_compress(fp, nvram_get_int("vpnc_ov_compress"), 0);
+	openvpn_add_auth(fp, config->auth_digest);
+	openvpn_add_cipher(fp, config->cipher, config->ncp_cipher_list);
+	openvpn_add_compress(fp, config->compression, 0);
 
 	if (i_auth == 1)
 		fprintf(fp, "auth-user-pass %s\n", "secret");
 
-	if (nvram_match("vpnc_dgw", "1"))
+	if (config->redirect_gateway)
 		fprintf(fp, "redirect-gateway def1 bypass-dhcp\n");
 
 	fprintf(fp, "persist-key\n");
@@ -1976,7 +2109,7 @@ start_openvpn_server(void)
 int
 start_openvpn_client(void)
 {
-	int i_mode_tun;
+	struct openvpn_client_config_snapshot config;
 	int interface_status;
 	char vpnc_cfg[64], vpnc_scr[64];
 	char *client_conf = "client.conf";
@@ -1991,19 +2124,27 @@ start_openvpn_client(void)
 	snprintf(vpnc_cfg, sizeof(vpnc_cfg), "%s/%s", CLIENT_ROOT_DIR, client_conf);
 	snprintf(vpnc_scr, sizeof(vpnc_scr), "%s/%s", CLIENT_ROOT_DIR, SCRIPT_OVPN_CLIENT);
 
+	if (openvpn_read_client_config_snapshot(&config) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot read/validate OpenVPN client configuration; refusing startup (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
+
 	doSystem("mkdir -p -m %s %s", "755", CLIENT_ROOT_DIR);
 
-	i_mode_tun = (nvram_get_int("vpnc_ov_mode") == 1) ? 1 : 0;
-
 	/* create conf file */
-	if (openvpn_create_client_conf(vpnc_cfg, i_mode_tun))
+	if (openvpn_create_client_conf(vpnc_cfg, &config))
 		return 1;
 
 	/* create tun or tap device */
-	if (i_mode_tun)
+	if (config.is_tun)
 		interface_status = openvpn_tunif_start(IFNAME_CLIENT_TUN, 0);
 	else
-		interface_status = openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, (nvram_get_int("vpnc_ov_cnat") == 1) ? 0 : 1);
+		interface_status = openvpn_tapif_start(IFNAME_CLIENT_TAP, 0, config.client_nat ? 0 : 1);
 	if (interface_status != 0) {
 		logmessage(CLIENT_LOG_NAME, "cannot prepare OpenVPN client interface (status=%d)", interface_status);
 		return interface_status;

@@ -256,6 +256,27 @@ test_vpn_callback_mode_bounds(void)
 }
 
 static void
+test_openvpn_client_option_bounds(void)
+{
+	int value = -1;
+
+	assert(vpn_server_config_int_status(1, 0, "1", 0, 0, 1, &value) == 0);
+	assert(value == 1);
+	assert(vpn_server_config_int_status(1, 0, "2", 0, 0, 1, &value) == EINVAL);
+	assert(vpn_server_config_int_status(1, 0, "3", 0, 0, 3, &value) == 0);
+	assert(value == 3);
+	assert(vpn_server_config_int_status(1, 0, "5", 0, 0, 5, &value) == 0);
+	assert(value == 5);
+	assert(vpn_server_config_int_status(1, 0, "6", 0, 0, 5, &value) == EINVAL);
+	assert(vpn_server_config_int_status(1, 0, "65535", 1194, 1, 65535,
+					    &value) == 0);
+	assert(value == 65535);
+	assert(vpn_server_config_int_status(0, 0, NULL, 1194, 1, 65535,
+					    &value) == 0);
+	assert(value == 1194);
+}
+
+static void
 test_openvpn_server_option_bounds(void)
 {
 	int value = -1;
@@ -332,6 +353,7 @@ main(void)
 	test_pool_lan_rejects_invalid_masks_hosts_and_gateway_overlap();
 	test_pool_virtual_private_network_and_lan_separation();
 	test_vpn_callback_mode_bounds();
+	test_openvpn_client_option_bounds();
 	test_openvpn_server_option_bounds();
 	test_openvpn_server_mode_bounds();
 	test_xl2tpd_stop_set_ownership_policy();
