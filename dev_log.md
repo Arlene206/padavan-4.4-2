@@ -1,3 +1,14 @@
+## 2026-11-21 — Align firewall reset contract with checked WAN protocol reader
+
+- Parent main SHA: `b2d084d7ffb7d756b60e159a38b93f6f31d4f1b0`.
+- WAN route run `#44963233289` failed only in `scripts/check_wan_firewall_status.py`: the static contract still required the removed `wan_proto = get_wan_proto(unit)` call. The WAN VLAN/bridge checker passed immediately before that step; inspection confirms the source now uses `get_wan_unit_proto_checked_status()` and aborts on read failure before protocol branching.
+- XY-C1 run `#44963233214` was marked failure because the workflow's prerequisite firewall contract failed; Build XY-C1, Verify TRX and artifact upload were all SKIPPED. This was not a compiler or TRX failure.
+- THIS COMMIT updates the firewall contract to require checked unit-protocol retrieval, the post-read error gate, ordering before protocol branches, and absence of the error-collapsing legacy getter. Exact-head WAN route and XY-C1 must rerun after this checker-only correction.
+- All other b2 exact-head host workflows, including Process, NVRAM, HTTPD, Router mode, WAN callbacks/teardown, Firewall, DNSMasq, Wireless, VPN, ZeroTier, miniupnpd, ARP probe, watchdog, USB modem and AI handoff, passed.
+- Next: verify this corrected exact SHA; after host checks pass, inspect the MAC/protocol reset identity path for any further error-collapsing reads. No firmware build or L3 result is claimed for b2 because build stages were skipped.
+
+---
+
 ## 2026-11-21 — Fail closed on WAN reset protocol-read errors
 
 - Parent main SHA: `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01`.

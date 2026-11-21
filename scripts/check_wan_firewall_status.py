@@ -262,22 +262,30 @@ for marker in (
 
 start = body(wan, "start_wan(void)")
 
-# Protocol selection must never consume a stale wanN_proto after a failed
-# copy from the configured wan_proto key. Keep reset_wan_vars() as the legacy
-# ABI and expose only the narrow read-only failure latch to PID 1.
+# Protocol selection must consume only a successfully copied configured value.
+# Keep reset_wan_vars() as the legacy ABI and expose only the narrow read-only
+# failure latch to PID 1.
 reset = body(wan, "reset_wan_vars_status(void)")
+reset_code = " ".join(reset.split())
 proto_write = 'proto_status = set_wan_unit_param_status(unit, "proto");'
 proto_failure = "if (proto_status != 0)"
-proto_read = "wan_proto = get_wan_proto(unit);"
-require(proto_write in reset and proto_failure in reset and proto_read in reset,
-        "WAN reset must check the configured protocol copy before reading it")
+proto_read = "proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);"
+proto_read_failure = ('if (proto_status != 0) { reset_failure_context = '
+                      '"WAN protocol snapshot"; goto reset_failed; }')
+require(proto_write in reset and proto_failure in reset and proto_read in reset_code,
+        "WAN reset must check configured protocol staging and checked protocol read")
 proto_write_at = reset.index(proto_write)
 proto_failure_at = reset.index(proto_failure, proto_write_at)
 proto_return_at = reset.index("return proto_status;", proto_failure_at)
-proto_read_at = reset.index(proto_read)
+proto_read_at = reset_code.index(proto_read)
+proto_read_failure_at = reset_code.index(proto_read_failure, proto_read_at)
+proto_branch_at = reset_code.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)", proto_read_at)
 require(reset.index("wan_vars_reset_status = 0;") < proto_write_at <
-        proto_failure_at < proto_return_at < proto_read_at,
-        "failed WAN protocol publication must latch and return before protocol selection")
+        proto_failure_at < proto_return_at and
+        proto_return_at < proto_read_at < proto_read_failure_at < proto_branch_at,
+        "WAN reset must return failed protocol staging and fail closed on checked read before protocol branching")
+require("wan_proto = get_wan_proto(unit);" not in reset,
+        "WAN reset must not use the error-collapsing legacy protocol getter")
 for marker in (
     "wan_vars_reset_status = proto_status;",
     "errno = proto_status;",

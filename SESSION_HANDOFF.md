@@ -28,24 +28,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- The P1 audit of `set_wan_unit_value_int()` / `set_wan_unit_param()` void wrappers is closed: neither has a C callsite in the 36 files under `trunk/user/rc/src`; `set_wan_unit_value()` is used only for optional uptime/RX/TX telemetry. Mandatory WAN writes use status-returning helpers with caller error propagation.
-- Commit `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01` hardens manual underlay reset: it checks `x_DHCPClient` and `wan_pppoe_man` via exact-match status reads and snapshots `wan_ipaddr`, `wan_netmask`, `wan_gateway`, `wan_mtu` under one NVRAM transaction. Exact-head host checks passed for WAN route, WAN DHCP callback, HTTPD, Router mode, DNSMasq, Firewall, Wireless, ZeroTier, VPN server, miniupnpd, WAN teardown, ARP probe, detect_link/internet, watchdog, USB modem and AI docs. Process inventory, NVRAM audit and XY-C1 were still in progress at last poll.
-- The follow-up review found that `reset_wan_vars_status()` still called shared `get_wan_proto()`, which uses `nvram_safe_get()` and returns `-1` on backend failure or unknown protocol. Reset could then branch as if a non-static default had been selected and continue publication. THIS source/test slice adds a checked unit-protocol text reader, validates all five supported protocol strings, and aborts reset on a read/missing/unknown value before protocol-dependent cleanup.
-- The existing WAN NVRAM policy regression already tests checked bounded copies, missing values, backend errors and transactional snapshot invalidation; `scripts/check_wan_vlan_setup.py` now pins the reset helper's mapping and fail-closed ordering.
-- Next audit: `wan_hwaddr_x` / `il1macaddr` are still read through lossy `mac_conv()` / `nvram_safe_get()` at WAN reset. Determine whether they require a checked transactional snapshot before changing fallback semantics.
+- The P1 `set_wan_unit_value_int()` / `set_wan_unit_param()` void-wrapper audit is closed: neither has a C callsite among the 36 RC C files; `set_wan_unit_value()` is used only for optional uptime/RX/TX telemetry.
+- `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01` checks manual WAN selectors and transactionally snapshots `wan_ipaddr`, `wan_netmask`, `wan_gateway`, `wan_mtu`. Its exact-head NVRAM, Process, WAN route/callback, HTTPD, Router mode, Firewall, DNSMasq, Wireless, VPN, ZeroTier, miniupnpd, WAN teardown, ARP probe, watchdog, USB modem, detect and AI checks passed.
+- `b2d084d7ffb7d756b60e159a38b93f6f31d4f1b0` adds a checked, bounded `wanN_proto` reader; it validates `pppoe/pptp/l2tp/dhcp/static` and aborts reset for backend, missing or unknown values. Most exact-head Actions passed, including Process and NVRAM audit.
+- b2 WAN route `#44963233289` failed only because `scripts/check_wan_firewall_status.py` still expected the removed legacy `get_wan_proto()` call. WAN VLAN/bridge contracts passed. XY-C1 `#44963233214` was blocked by that prerequisite: Build, TRX and artifact upload were SKIPPED, not compiler failures.
+- THIS COMMIT updates the firewall contract to check the new status-returning protocol reader and fail-closed ordering before protocol-dependent branches. Its exact-head WAN route and XY-C1 reruns are pending.
+- Next source slice after verification: audit `wan_hwaddr_x` and fallback `il1macaddr` in WAN reset; preserve historical `mac_conv()` formatting/fallback while surfacing checked NVRAM errors. Do not repeat the completed void-setter audit.
 
 ## Verification boundary
 
-- The current source/checker commit has not yet run its exact-head Actions. Inspect WAN route, HTTPD, Process inventory/lifecycle, NVRAM boundary audit and XY-C1 for the new main SHA.
-- Parent `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01`: WAN route `#44962992252`, WAN DHCP callback `#44962992396`, HTTPD `#44962992270`, Router mode NVRAM `#44962992231`, WAN teardown `#44962992316`, DNSMasq `#44962992400`, Firewall `#44962992346`, Wireless `#44962992331`, ZeroTier `#44962992253`, VPN server `#44962992220`, miniupnpd `#44962992249`, ARP probe `#44962992415`, detect_link/internet `#44962992392`/`#44962992426`, watchdog `#44962992403`, USB modem `#44962992356` and AI docs `#44962992444` passed. Process inventory `#44962992368`, NVRAM audit `#44962992800` and XY-C1 `#44962992266` were in progress at last poll.
-- For XY-C1, inspect Build XY-C1, Verify TRX and artifact upload individually. L3 is verified only when all three pass on this same product-source SHA; hardware/device L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- The b2 protocol source commit passed all Actions except WAN route contract `#44963233289`; XY-C1 `#44963233214` was blocked and all firmware build/TRX/artifact steps were skipped. The failure is a stale checker assertion, not a source compiler result.
+- THIS checker-only correction has not yet run exact-head Actions. Check WAN route and XY-C1 first, then confirm all other required workflows for the same SHA.
+- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one exact product-source SHA. Hardware/device L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head WAN route, HTTPD, Process, NVRAM and XY-C1 results for THIS commit.
-2. Inspect XY-C1 Build, TRX and artifact upload separately; fix only current-SHA failures.
-3. Continue the `wan_hwaddr_x` / `il1macaddr` checked-read audit and then address other independent P1 network lifecycle gaps.
+1. Fetch live `main` and inspect exact-head WAN route and XY-C1 runs for THIS checker fix; confirm Build XY-C1, Verify TRX and artifact upload individually.
+2. Fix only failures tied to this SHA; the previous XY-C1 run had skipped build stages because the WAN firewall contract failed.
+3. Continue with checked WAN hardware-MAC override/factory fallback reads (`wan_hwaddr_x` / `il1macaddr`) after the prerequisite checks pass.
 
 
 ## Workflow and preservation rules
