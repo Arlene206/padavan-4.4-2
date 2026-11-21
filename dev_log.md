@@ -1,3 +1,12 @@
+## 2026-11-21 — Scope DNSMasq resolver-lock assertion to its failure branch
+
+- Parent main SHA: `68e10bad396c35c000a17cd26c6763573b13413e`.
+- Re-examined DNSMasq lifecycle run `#44891688020` on c930b7e. The C implementation correctly returns on resolver-lock acquisition failure without unlocking an invalid descriptor. The workflow sliced from that branch through the later staging-file open, inadvertently including a separate, valid `file_unlock(lock)` when WAN DNS-mode lookup fails after lock acquisition.
+- Changed the regression to extract only the `if (lock < 0)` block before asserting that it never unlocks. This preserves the lock-failure guarantee while permitting cleanup on subsequent post-acquisition failures.
+- No production source changed. The DNSMasq workflow will rerun on this workflow-file update.
+
+---
+
 ## 2026-11-21 — Require an actual column-zero C function terminator
 
 - Parent main SHA: `c3fe4cfceb16f9fb140316ad789a45bebe2a60cb`.

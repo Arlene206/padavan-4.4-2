@@ -489,7 +489,7 @@ jobs:
           wan_failure = wan_resolver.index("if (lock < 0)", wan_lock)
           wan_open = wan_resolver.index("fp = dnsmasq_file_open(resolv_temp);")
           assert wan_lock < wan_failure < wan_open
-          wan_guard = wan_resolver[wan_failure:wan_open]
+          wan_guard = function_body(wan_resolver, "if (lock < 0)")
           assert "saved_errno = errno ? errno : EIO;" in wan_guard
           assert "errno = saved_errno;" in wan_guard
           assert "return saved_errno;" in wan_guard
