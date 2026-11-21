@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include "wan_nvram_status_policy.h"
+
 /*
  * nvram_get_checked() returns 1 for a present value, 0 for a missing key,
  * and -1 for a backend/read/close failure. Preserve nvram_match(..., "1")
@@ -28,6 +30,25 @@ dnsmasq_nvram_option_status(int api_result, int saved_errno,
 		return EIO;
 
 	*enabled = strcmp(value, "1") == 0;
+	return 0;
+}
+
+static inline int
+dnsmasq_nvram_integer_boolean_status(int api_result, int saved_errno,
+				     const char *value, int missing_enabled,
+				     int *enabled)
+{
+	int parsed, status;
+
+	if (!enabled || (missing_enabled != 0 && missing_enabled != 1))
+		return EINVAL;
+
+	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+					      value, missing_enabled, &parsed);
+	if (status != 0)
+		return status;
+
+	*enabled = parsed != 0;
 	return 0;
 }
 

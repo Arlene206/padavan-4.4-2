@@ -681,6 +681,33 @@ dnsmasq_read_boolean_option(const char *param_name, int *enabled)
 	return status;
 }
 
+#if defined(APP_SMBD) || defined(APP_NMBD)
+static int
+dnsmasq_read_integer_boolean_option(const char *param_name, int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = dnsmasq_nvram_integer_boolean_status(api_result, saved_errno,
+						       value, 0, enabled);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read integer DNSMasq option '%s'; preserving last-known-good configuration (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+#endif
+
 static int
 prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
@@ -743,8 +770,8 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	 */
 	if (i_dhcp_enable &&
 	    !is_valid_ipv4(nvram_safe_get("dhcp_wins_x"))) {
-		option_status = dnsmasq_read_boolean_option("wins_enable",
-							    &wins_enabled);
+		option_status = dnsmasq_read_integer_boolean_option("wins_enable",
+								    &wins_enabled);
 		if (option_status != 0)
 			return option_status;
 	}

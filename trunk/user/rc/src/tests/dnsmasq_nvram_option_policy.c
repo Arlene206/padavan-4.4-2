@@ -19,6 +19,32 @@ test_present_values_keep_nvram_match_semantics(void)
 }
 
 static void
+test_integer_boolean_preserves_nonzero_nvram_get_int_semantics(void)
+{
+	int enabled = 9;
+
+	assert(dnsmasq_nvram_integer_boolean_status(1, 0, "1", 0, &enabled) == 0);
+	assert(enabled == 1);
+	assert(dnsmasq_nvram_integer_boolean_status(1, 0, "2", 0, &enabled) == 0);
+	assert(enabled == 1);
+	assert(dnsmasq_nvram_integer_boolean_status(1, 0, "-1", 0, &enabled) == 0);
+	assert(enabled == 1);
+	assert(dnsmasq_nvram_integer_boolean_status(1, 0, "0", 0, &enabled) == 0);
+	assert(enabled == 0);
+
+	enabled = 9;
+	assert(dnsmasq_nvram_integer_boolean_status(1, 0, "1junk", 0, &enabled) == EINVAL);
+	assert(enabled == 9);
+	assert(dnsmasq_nvram_integer_boolean_status(1, 0, "999999999999999999999999",
+						    0, &enabled) == ERANGE);
+	assert(enabled == 9);
+	assert(dnsmasq_nvram_integer_boolean_status(0, 0, NULL, 0, &enabled) == 0);
+	assert(enabled == 0);
+	assert(dnsmasq_nvram_integer_boolean_status(-1, EACCES, NULL, 0, &enabled) == EACCES);
+	assert(enabled == 0);
+}
+
+static void
 test_missing_keys_use_explicit_legacy_defaults(void)
 {
 	int enabled = -1;
@@ -63,6 +89,7 @@ int
 main(void)
 {
 	test_present_values_keep_nvram_match_semantics();
+	test_integer_boolean_preserves_nonzero_nvram_get_int_semantics();
 	test_missing_keys_use_explicit_legacy_defaults();
 	test_backend_errors_preserve_errno_and_output();
 	test_inconsistent_results_fail_closed();

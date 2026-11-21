@@ -644,8 +644,12 @@ jobs:
           assert '#include "dnsmasq_domain_policy.h"' in services
           assert "if (!domain || (*domain && !dnsmasq_valid_server_domain(domain)))" in prepare
           assert "int wins_enabled = 0;" in prepare
-          wins_flag_read = 'dnsmasq_read_boolean_option("wins_enable",'
+          dnsmasq_nvram_test = Path("trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c").read_text()
+          wins_flag_read = 'dnsmasq_read_integer_boolean_option("wins_enable",'
           assert wins_flag_read in prepare
+          assert "dnsmasq_nvram_integer_boolean_status" in services
+          assert "test_integer_boolean_preserves_nonzero_nvram_get_int_semantics" in dnsmasq_nvram_test
+          assert 'dnsmasq_nvram_integer_boolean_status(1, 0, "2", 0' in dnsmasq_nvram_test
           wins_flag_read_at = prepare.index(wins_flag_read)
           assert prepare.index("i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);") < wins_flag_read_at
           assert wins_flag_read_at < prepare.index("fill_static_ethers(ipaddr, netmask)")

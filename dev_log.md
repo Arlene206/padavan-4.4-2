@@ -1,3 +1,11 @@
+## 2026-11-21 — Preserve integer WINS flag semantics in DNSMasq checked reads
+
+- Parent main SHA: a27d1c9b91e31f173bcf36860029a3e16a77af77.
+- Review after the DHCP WINS fail-closed patch found a compatibility mismatch: the former call was `nvram_get_int("wins_enable")`, which treats any nonzero integer as enabled; the generic optional-option policy intentionally preserves `nvram_match(...,"1")` and would treat `2` as disabled.
+- Added a distinct checked integer-boolean parser using the shared complete-decimal NVRAM parser. It preserves zero/nonzero integer semantics and the absent-key default 0 while distinguishing backend failures and rejecting malformed/overflow values. The DHCP WINS preflight now uses it; ordinary resolver flags continue exact `nvram_match("1")` semantics.
+- Added GNU89 regression cases for `2`, `-1`, `0`, malformed suffixes, overflow, missing key and backend failure, plus source contracts. Exact-head DNSMasq, Samba and XY-C1 runs pending.
+
+---
 ## 2026-11-21 — Correct storage hotplug checker for checked-mode restart wrappers
 
 - Parent main SHA: bd0a0252aacbcf63ee0525d017236c23a4b52aa7.
