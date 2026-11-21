@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize multiline Samba runtime flag source assertions
+
+- Parent main SHA: `bc3cceebfcc4423d03acd30a5604e01c63b13419`.
+- Samba regression #44916836779 compiled and ran the expanded GNU89 mode/boolean policy test successfully, then failed in the inline source checker at its first runtime-reader assertion. The production code wraps `samba_read_integer_status()` arguments over multiple lines, while the new assertion expected a single-line substring.
+- Changed the contract to normalize whitespace before checking both calls; no production source or assertion coverage was weakened.
+- Exact-head AI handoff #44916836461 PASS; Process inventory #44916836495 PASS; WAN route #44916836585 and DNSMasq #44916836494 PASS. NVRAM audit #44916836473 was still running. XY-C1 #44916836560 had completed all host checks and was compiling Build XY-C1; TRX and artifact upload remained pending. New push reruns Samba contract; no L3 claim yet.
+
+---
+
 ## 2026-11-21 — Fail closed on Samba enable and WINS NVRAM read errors
 
 - Parent main SHA: `fbec957a7aa7ecb91ec538b7fa0ebe8acfd324af`.

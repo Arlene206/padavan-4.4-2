@@ -7,17 +7,17 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only.
-- Main at the start of this slice: `6882aefa2c70b7bfc53da5e770610dc45dc802ba`. The WAN DHCP NVRAM state publisher separates publication failure from compensation failure; its guarded fresh-transaction retry runs only when compensation itself failed.
+- Main at the start of this slice: `bc3cceebfcc4423d03acd30a5604e01c63b13419`. Samba checked NVRAM gates were added in this commit; their first source-contract run failed on a multiline assertion and is corrected in THIS COMMIT. The WAN DHCP NVRAM state publisher separates publication failure from compensation failure; its guarded fresh-transaction retry runs only when compensation itself failed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
 - Legacy PR #1 remains closed and unmerged; do not reopen or develop through its branch.
 - Protected reliability work includes checked optional-daemon settings, ttyd/SSH mode wrappers and detached-child probes, WAN DHCP compare-and-publish, stale-writer guarded recovery and validate-first reverse tuple construction for post-commit 6rd failure.
 
 ### Current source slice
 
-- Parent main SHA: `fbec957a7aa7ecb91ec538b7fa0ebe8acfd324af`; this commit implements fail-closed checked reads for Samba global enable, share mode, WINS stop policy and WINS startup.
-- The mode policy validates booleans (only 0/1), share modes (0/1/3/4) and checked-read status. GNU89 tests cover backend errors, malformed values and disabled-global short-circuit.
-- `run_samba()` validates runtime flags before inventory, passdb and configuration operations. `restart_smbd()` checks flags before stopping existing daemons and preflights WINS if that is the restart target. Non-forced stop refuses selective nmbd termination on failed WINS read. `start_wins()` refuses launch after failed WINS read.
-- Parent `fbec957`: WAN callback #44915851413, WAN route #44915851347 and AI docs #44915851360 PASS. XY-C1 #44915851356 host-only PASS; Build/TRX/artifact were SKIPPED because that parent had no production-source changes. Current commit changes `services_stor.c` and `services_ex.c`, which XY-C1 watches; require same-SHA Build + TRX + artifact upload before L3.
+- Latest product-source SHA: `bc3cceebfcc4423d03acd30a5604e01c63b13419`; Samba runtime decision points now fail closed on checked NVRAM read errors and invalid boolean/mode values.
+- Samba policy/unit tests compiled and passed in exact-head run #44916836779 before the source-check step failed at a whitespace-sensitive assertion. The contract now normalizes whitespace in THIS COMMIT.
+- XY-C1 run #44916836560 passed all host-side validation and was running the cross-build for this product-source SHA; TRX verification and artifact upload were pending. Do not claim L3 until all three steps pass.
+- AI handoff #44916836461, Process inventory #44916836495, WAN route #44916836585 and DNSMasq #44916836494 PASS on `bc3cceebfcc4423d03acd30a5604e01c63b13419`; NVRAM audit #44916836473 was still running.
 
 
 ## Active task
@@ -29,7 +29,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Verification boundary
 
 - L1: WAN lease tuple publication remains compare-and-publish under the NVRAM transaction; stale tuple conflicts return `EAGAIN`; recovery is fenced against a newer writer and retries only after failed compensation. Samba service-state reads now fail closed on unavailable or malformed enable flags; exact-head verification is pending.
-- L2: Parent `fbec957` WAN callback, WAN route and AI docs PASS. Its XY-C1 run passed host checks but skipped Build/TRX/artifact because no production source changed. Current Samba policy/unit/source contracts need exact-head PASS.
+- L2: Samba unit binary passed on `bc3cceeb`; its source-contract step failed only on the multiline runtime-reader assertion and is corrected in THIS COMMIT. AI handoff, Process inventory, WAN route and DNSMasq PASS on `bc3cceeb`; NVRAM audit was pending at the last poll.
 - L3: NOT VERIFIED until this production-source SHA passes Build XY-C1, TRX verification and artifact upload on the same SHA.
 - L4: physical router flash, boot and runtime validation NOT VERIFIED.
 

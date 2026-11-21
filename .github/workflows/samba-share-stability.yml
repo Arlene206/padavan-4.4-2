@@ -150,8 +150,9 @@ jobs:
           assert 'samba_read_integer_status("st_samba_mode", missing_value, mode)' in mode_reader
           assert "samba_config_mode_is_valid(*mode)" in mode_reader
           assert "samba_read_mode_status(0, mode)" in config_mode_reader
-          assert 'samba_read_integer_status("enable_samba", 1, &enable_value)' in runtime_reader
-          assert 'samba_read_integer_status("st_samba_mode", 1, &mode_value)' in runtime_reader
+          runtime_reader_compact = "".join(runtime_reader.split())
+          assert 'samba_read_integer_status("enable_samba",1,&enable_value)' in runtime_reader_compact
+          assert 'samba_read_integer_status("st_samba_mode",1,&mode_value)' in runtime_reader_compact
           assert "samba_runtime_enabled_status(" in runtime_reader
           assert "rc_wan_nvram_parse_int_value" in nvram_policy
           assert 'nvram_get_int("st_samba_mode")' not in smb
