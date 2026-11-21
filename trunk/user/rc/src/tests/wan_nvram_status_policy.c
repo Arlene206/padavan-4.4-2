@@ -1241,7 +1241,7 @@ test_transactional_wan_route_snapshot_reads_one_generation(void)
 		assert(fake.read_calls == fail_at + 1);
 		assert(fake.end_calls == 1);
 		for (i = 0; i < 3; ++i)
-			assert(destinations[i][0] == '\\0');
+			assert(destinations[i][0] == '\0');
 	}
 }
 

@@ -3456,16 +3456,17 @@ assert "detached_daemon_start_rollback_with_ops(" in rc_services
 # crond must not start a second BusyBox scheduler when a prior start already
 # succeeded. RUNNING is a no-op, UNKNOWN fails closed, and ABSENT alone reaches _eval().
 crond_start = c_function_body(rc_services, "start_crond(void)")
-crond_config_read = crond_start.index('service_nvram_match_status("crond_enable", "1", 0, &enabled);')
-crond_config_error = crond_start.index("if (config_status != 0)", crond_config_read)
-crond_disabled = crond_start.index("if (!enabled)", crond_config_error)
-crond_preflight = crond_start.index('preflight_status = optional_daemon_start_status("crond", "crond");')
-crond_running_noop = crond_start.index("if (preflight_status > 0)")
-crond_unknown_abort = crond_start.index("if (preflight_status < 0)")
-crond_launcher = crond_start.index("launch_status = _eval(crond_argv, NULL, 0, NULL);")
+crond_start_compact = "".join(crond_start.split())
+crond_config_read = crond_start_compact.index('service_nvram_match_status("crond_enable","1",0,&enabled);')
+crond_config_error = crond_start_compact.index("if(config_status!=0)", crond_config_read)
+crond_disabled = crond_start_compact.index("if(!enabled)", crond_config_error)
+crond_preflight = crond_start_compact.index('preflight_status=optional_daemon_start_status("crond","crond");')
+crond_running_noop = crond_start_compact.index("if(preflight_status>0)")
+crond_unknown_abort = crond_start_compact.index("if(preflight_status<0)")
+crond_launcher = crond_start_compact.index("launch_status=_eval(crond_argv,NULL,0,NULL);")
 assert crond_config_read < crond_config_error < crond_disabled < crond_preflight < crond_running_noop < crond_unknown_abort < crond_launcher
-assert "return config_status;" in crond_start[crond_config_error:crond_disabled]
-assert "return 0;" in crond_start[crond_disabled:crond_preflight]
+assert "return config_status;" in crond_start_compact[crond_config_error:crond_disabled]
+assert "return 0;" in crond_start_compact[crond_disabled:crond_preflight]
 assert 'logmessage(LOGNAME, "crond start skipped: scheduler is already running")' in crond_start
 assert "return preflight_status;" in crond_start[crond_unknown_abort:crond_launcher]
 print("crond duplicate-start preflight preserves RUNNING no-op and UNKNOWN fail-closed behavior: PASS")
@@ -3605,13 +3606,14 @@ print("SkipDBv2 detached startup postcondition and graceful persistence shutdown
 # crond returns positive errno-style errors too. Disabled scheduling is a
 # successful no-op; restart failures must reach both boot and PID 1 callers.
 crond_start = c_function_body(services_source, "start_crond(void)")
-crond_config_read = crond_start.index('service_nvram_match_status("crond_enable", "1", 0, &enabled);')
-crond_config_error = crond_start.index("if (config_status != 0)", crond_config_read)
-crond_disabled = crond_start.index("if (!enabled)", crond_config_error)
-crond_preflight = crond_start.index('preflight_status = optional_daemon_start_status("crond", "crond");')
+crond_start_compact = "".join(crond_start.split())
+crond_config_read = crond_start_compact.index('service_nvram_match_status("crond_enable","1",0,&enabled);')
+crond_config_error = crond_start_compact.index("if(config_status!=0)", crond_config_read)
+crond_disabled = crond_start_compact.index("if(!enabled)", crond_config_error)
+crond_preflight = crond_start_compact.index('preflight_status=optional_daemon_start_status("crond","crond");')
 assert crond_config_read < crond_config_error < crond_disabled < crond_preflight
-assert "return config_status;" in crond_start[crond_config_error:crond_disabled]
-disabled_crond = crond_start[crond_disabled:crond_preflight]
+assert "return config_status;" in crond_start_compact[crond_config_error:crond_disabled]
+disabled_crond = crond_start_compact[crond_disabled:crond_preflight]
 assert "return 0;" in disabled_crond
 init_router = c_function_body(rc_source, "init_router(void)")
 assert "int crontab_status = init_crontab();" in init_router

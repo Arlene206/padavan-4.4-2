@@ -469,6 +469,7 @@ jobs:
           route_status_test = (rc / "tests/route_status_policy.c").read_text()
           wan_teardown_policy = (rc / "wan_teardown_policy.h").read_text()
           wan_teardown_test = (rc / "tests/wan_teardown_policy.c").read_text()
+          wan_nvram_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
           wan_route_policy = (rc / "wan_route_flush_policy.h").read_text()
           wan_route_test = (rc / "tests/wan_route_flush_policy.c").read_text()
           fib_trie = Path("trunk/linux-4.4.x/net/ipv4/fib_trie.c").read_text()

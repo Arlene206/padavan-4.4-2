@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct the next CI-exposed checker and C test issues
+
+- Parent main SHA: `74329b3f1e1ae376930dbeb1143d305fb3f6d646`.
+- Exact-head Process integration on `0b97739fdc80a5273b5388f327469e95df4bfb05` exposed that the checker matched a split C call as though the function name and string argument were adjacent. Both duplicated crond contracts now normalize C whitespace before asserting the checked enable/error/disabled sequence.
+- Exact-head WAN route, WAN DHCP callback and USB modem regressions on `74329b3f1e1ae376930dbeb1143d305fb3f6d646` found the new test used a two-character C literal for NUL; corrected it to the single-character `'\\0'`. The WAN workflow checker also now loads the WAN NVRAM test source before asserting the new test marker, avoiding an undefined Python variable.
+- These are test/checker corrections only; no production source changed. Re-run exact-head Process, WAN route, WAN DHCP callback, USB modem and affected XY-C1 validations.
+
+---
+
 ## 2026-11-21 — Serialize WAN route ownership snapshot across NVRAM reads
 
 - Parent main SHA: `0b97739fdc80a5273b5388f327469e95df4bfb05`.

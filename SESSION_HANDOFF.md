@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Main HEAD immediately before the latest NVRAM route-snapshot change: `0b97739fdc80a5273b5388f327469e95df4bfb05`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main HEAD immediately before the checker/test correction: `74329b3f1e1ae376930dbeb1143d305fb3f6d646`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 - Recent WAN-up ZeroTier changes removed the unchecked NVRAM pre-gate so the checked service wrapper's read/launch status reaches the WAN-up accumulator.
@@ -44,4 +44,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Inspect exact-head Process regression for commit `0b97739fdc80a5273b5388f327469e95df4bfb05`; repair any remaining checker failures from the job log. Then inspect exact-head WAN route and XY-C1 firmware Actions for the new transactional route snapshot commit. L3 is VERIFIED only for old product-source SHA 335f; the new production-source SHA needs a fresh XY-C1 Build/TRX/artifact run before claiming L3. Continue with broader userland stability issues after those exact-head checks.
+Inspect exact-head Process, WAN route, WAN DHCP callback and USB modem Actions after the current checker/test correction. The previous run on `74329b3f1e1ae376930dbeb1143d305fb3f6d646` exposed the two-backslash NUL literal in the added test; this correction fixes it and the WAN check's missing source binding. The transactional WAN route snapshot production change in SHA `74329b3f1e1ae376930dbeb1143d305fb3f6d646` must pass the new exact-head WAN regression; XY-C1 Build/TRX/artifact must also pass on a product SHA containing this code before L3 can be claimed for it.
