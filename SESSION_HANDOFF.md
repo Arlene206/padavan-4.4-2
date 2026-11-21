@@ -16,26 +16,25 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Parent main SHA: `ae4ae4a57b2c34d6dccf2541161a51606170047c`; current source contains Samba checked global-enable/mode/WINS state and guarded WAN DHCP publication/rollback.
-- FTP enablement now uses a checked NVRAM read, strict integer parsing and explicit 0/1 validation while preserving the historical missing-key default of enabled. Both `run_ftp()` and `restart_ftpd()` refuse side effects after an unreadable enable flag; restart checks before inventory and stop. This commit adds GNU89 policy tests and source-contract coverage.
-- `auto_wan_reconnect_pause()` previously passed `nvram_get_int("di_recon_pause")` directly into `try_wan_reconnect()`. A transient read/parse failure therefore became zero and immediately stopped/restarted WAN services instead of honoring the configured delay. It now performs the shared checked integer read first, preserves the missing-key zero default, and aborts before any reconnect side effect on read failure; the WAN watchdog source contract pins this ordering.
-- Recovery commit `954d1dc4d11e5518e6e69e86a167fcfd0e5efd33` restored the full repository tree after a transient concurrent partial-tree update. Main remains the only development branch; backup is immutable.
-- This source commit requires same-SHA XY-C1 Build + TRX verification + artifact upload. L3/L4 are NOT VERIFIED until their full gates pass.
+- Main at the start of this slice: 9341a1ce8e47c74787c4db5426ecdd49eab0392f.
+- The prior exact-head FTP, Samba, Process, DNSMasq and storage checker work is recorded in the previous dev_log entries. A deferred WAN reconnect NVRAM preflight was added in commit `136db90e2f84513d9bf3da297802b708b0811b44`; its checker corrections are also on main.
+- This slice addresses the remaining unchecked `dhcp_wins_x` NVRAM reads in `prepare_dns_dhcpd()`: explicit WINS address read errors could be mistaken for no explicit address and silently choose router-IP fallback.
+- New checked string parser, output-preservation tests and source-order contract are committed atomically here; exact-head DNSMasq and XY-C1 actions pending.
 
 
 ## Active task
 
-1. Inspect the exact-head WAN route status workflow for the checked `di_recon_pause` preflight; resolve any checker failure without relaxing coverage.
-2. Inspect exact-SHA XY-C1 Build, TRX verification and artifact upload for source SHA `8c79215790b8e56300d0c07201d62c90dfcd76e2`; L3 is not established until all three pass on the same source SHA.
-3. Continue the next independent whole-userland stability/security defect; do not repeat the FTP or captured-mode storage fixes.
+1. Inspect exact-head DNSMasq policy/source-contract Action for the checked `dhcp_wins_x` snapshot.
+2. Require same-source-SHA XY-C1 Build, TRX verification and artifact upload to PASS before marking L3.
+3. Continue the next independent whole-userland stability/security issue; do not re-audit completed FTP/Samba/storage fixes.
 
 
 ## Verification boundary
 
-- L1: FTP startup/restart now fail closed on enable-state NVRAM errors; delayed automatic WAN reconnect now also fails closed on delay-read errors and preserves the absent-key zero default.
-- L2: FTP exact-head regression and Process inventory passed on `8c79215790b8e56300d0c07201d62c90dfcd76e2`. Deferred reconnect GNU89 policy regression and exact-head WAN route check are pending on the next source commit.
-- L3: NOT VERIFIED for the delayed reconnect change until Build XY-C1, TRX verification and artifact upload pass on one exact product-source SHA.
-- L4: Physical router reconnect timing, DHCP recovery and WAN failover remain NOT VERIFIED.
+- L1: `dhcp_wins_x` is read through `nvram_get_checked()` before DHCP-pool or generated-file side effects; backend/inconsistent/oversized values abort preparation, absent key remains empty, and a private bounded snapshot is reused when writing option 44.
+- L2: New GNU89 string policy regressions and exact source-order contracts are part of this atomic commit; exact-head result pending.
+- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on one exact product-source SHA.
+- L4: Physical DHCP client lease/WINS behavior and live router operation NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -56,4 +55,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
+Fetch live main; inspect the exact-head DNSMasq string-policy/source-order regression and XY-C1 Build/TRX/artifact for this DHCP WINS snapshot. Then continue the next independent whole-userland stability issue.
 Fetch live main; inspect the exact-head WAN route status result for the checked delayed-reconnect NVRAM preflight and inspect XY-C1 Build/TRX/artifact for the FTP source SHA. Then continue an independent reliability/security defect outside the completed storage and FTP slices.

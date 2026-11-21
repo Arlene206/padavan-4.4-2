@@ -709,6 +709,33 @@ dnsmasq_read_integer_boolean_option(const char *param_name, int *enabled)
 #endif
 
 static int
+dnsmasq_read_string_option(const char *param_name, const char *missing_value,
+			   char *destination, size_t destination_size)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !destination || destination_size == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = dnsmasq_nvram_string_status(api_result, saved_errno, value,
+					     missing_value, destination,
+					     destination_size);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read DNSMasq string option '%s'; preserving last-known-good configuration (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
@@ -725,6 +752,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	char dhcp_start[32], dhcp_end[32], old_dhcp_start[32], old_dhcp_end[32];
 	char dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
+	char dhcp_wins_value[128] = "";
 	const char *storage_dir = "/etc/storage/dnsmasq";
 
 	if (!service_enabled) {
@@ -762,14 +790,22 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	}
 
 	i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);
+	if (i_dhcp_enable) {
+		/* Snapshot the optional address; do not let a failed read masquerade
+		 * as an empty value and silently fall back to the router's own IP. */
+		option_status = dnsmasq_read_string_option("dhcp_wins_x", "",
+							   dhcp_wins_value,
+							   sizeof(dhcp_wins_value));
+		if (option_status != 0)
+			return option_status;
+	}
 #if defined(APP_SMBD) || defined(APP_NMBD)
 	/*
 	 * When DHCP is asked to advertise the router as WINS, validate the
 	 * service switch before changing any generated inputs or opening a stage.
 	 * A configured explicit WINS address keeps precedence and needs no flag.
 	 */
-	if (i_dhcp_enable &&
-	    !is_valid_ipv4(nvram_safe_get("dhcp_wins_x"))) {
+	if (i_dhcp_enable && !is_valid_ipv4(dhcp_wins_value)) {
 		option_status = dnsmasq_read_integer_boolean_option("wins_enable",
 								    &wins_enabled);
 		if (option_status != 0)
@@ -981,7 +1017,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 15, domain);
 		
 		/* WINS */
-		wins = nvram_safe_get("dhcp_wins_x");
+		wins = dhcp_wins_value;
 		if (is_valid_ipv4(wins))
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 44, wins);
 #if defined(APP_SMBD) || defined(APP_NMBD)

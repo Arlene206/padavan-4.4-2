@@ -45,6 +45,42 @@ test_integer_boolean_preserves_nonzero_nvram_get_int_semantics(void)
 }
 
 static void
+test_checked_string_option_and_output_preservation(void)
+{
+	char value[16] = "unchanged";
+
+	assert(dnsmasq_nvram_string_status(1, 0, "192.0.2.10", "",
+					   value, sizeof(value)) == 0);
+	assert(strcmp(value, "192.0.2.10") == 0);
+
+	assert(dnsmasq_nvram_string_status(0, 0, NULL, "",
+					   value, sizeof(value)) == 0);
+	assert(value[0] == '\0');
+
+	strcpy(value, "unchanged");
+	assert(dnsmasq_nvram_string_status(-1, EACCES, NULL, "",
+					   value, sizeof(value)) == EACCES);
+	assert(strcmp(value, "unchanged") == 0);
+	assert(dnsmasq_nvram_string_status(-1, 0, NULL, "",
+					   value, sizeof(value)) == EIO);
+	assert(strcmp(value, "unchanged") == 0);
+	assert(dnsmasq_nvram_string_status(2, 0, "x", "",
+					   value, sizeof(value)) == EIO);
+	assert(strcmp(value, "unchanged") == 0);
+	assert(dnsmasq_nvram_string_status(0, 0, "unexpected", "",
+					   value, sizeof(value)) == EIO);
+	assert(strcmp(value, "unchanged") == 0);
+	assert(dnsmasq_nvram_string_status(1, 0, NULL, "",
+					   value, sizeof(value)) == EIO);
+	assert(strcmp(value, "unchanged") == 0);
+	assert(dnsmasq_nvram_string_status(1, 0, "1234567890123456", "",
+					   value, sizeof(value)) == ENAMETOOLONG);
+	assert(strcmp(value, "unchanged") == 0);
+	assert(dnsmasq_nvram_string_status(1, 0, "1", "", NULL, 1) == EINVAL);
+	assert(dnsmasq_nvram_string_status(1, 0, "1", "", value, 0) == EINVAL);
+}
+
+static void
 test_missing_keys_use_explicit_legacy_defaults(void)
 {
 	int enabled = -1;
@@ -90,6 +126,7 @@ main(void)
 {
 	test_present_values_keep_nvram_match_semantics();
 	test_integer_boolean_preserves_nonzero_nvram_get_int_semantics();
+	test_checked_string_option_and_output_preservation();
 	test_missing_keys_use_explicit_legacy_defaults();
 	test_backend_errors_preserve_errno_and_output();
 	test_inconsistent_results_fail_closed();

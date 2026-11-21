@@ -1,3 +1,11 @@
+## 2026-11-21 — Fail closed on DNSMasq explicit DHCP WINS address reads
+
+- Parent main SHA: 9341a1ce8e47c74787c4db5426ecdd49eab0392f.
+- The DHCP WINS preflight checked `wins_enable`, but still used unchecked `nvram_safe_get("dhcp_wins_x")` twice. A NVRAM backend failure could look like an absent explicit address, causing the generated DHCP config to fall back to the router LAN IP when global WINS is enabled.
+- Added a checked string-value policy and GNU89 regressions for present/missing/backend/inconsistent/oversized values, with output preservation on every failure. `prepare_dns_dhcpd()` now snapshots `dhcp_wins_x` before DHCP-pool repair or generated-file changes, fails on read errors, and uses that same bounded snapshot for both precedence and emitted option 44; valid explicit WINS addresses still bypass the global WINS flag.
+- Added source-contract checks for checked-read ordering, last-known-good behavior and removal of the second unchecked getter. Exact-head DNSMasq/XY-C1 tests are pending; no firmware build or target-router DHCP behavior is claimed yet.
+
+---
 ## 2026-11-21 — Align XY-C1 WAN caller contract with checked delay read
 
 - Parent main SHA: `0097f377a1155be4ec09c2fe38334aa985c39b2b`.

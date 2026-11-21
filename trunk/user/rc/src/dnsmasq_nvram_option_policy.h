@@ -52,4 +52,31 @@ dnsmasq_nvram_integer_boolean_status(int api_result, int saved_errno,
 	return 0;
 }
 
+static inline int
+dnsmasq_nvram_string_status(int api_result, int saved_errno,
+			    const char *value, const char *missing_value,
+			    char *destination, size_t destination_size)
+{
+	size_t value_length;
+
+	if (!destination || destination_size == 0)
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		if (value)
+			return EIO;
+		value = missing_value ? missing_value : "";
+	} else if (api_result != 1 || !value) {
+		return EIO;
+	}
+
+	value_length = strlen(value);
+	if (value_length >= destination_size)
+		return ENAMETOOLONG;
+
+	memcpy(destination, value, value_length + 1);
+	return 0;
+}
+
 #endif /* PADAVAN_DNSMASQ_NVRAM_OPTION_POLICY_H */
