@@ -789,9 +789,25 @@ assert wan_stop.index("stop_status = wan_down(man_ifname, unit, 1);") < wan_stop
 for signature, call in (
     ("manual_wan_reconnect(void)", "try_wan_reconnect(1, 0)"),
     ("auto_wan_reconnect(void)", "try_wan_reconnect(1, 0)"),
-    ("auto_wan_reconnect_pause(void)", 'try_wan_reconnect(1, nvram_get_int("di_recon_pause"))'),
+    ("auto_wan_reconnect_pause(void)", "try_wan_reconnect(1, pause_seconds)"),
 ):
     assert f"return {call};" in compact(body(WAN_SOURCE, signature))
+
+pause_reconnect = compact(body(WAN_SOURCE, "auto_wan_reconnect_pause(void)"))
+pause_read = 'status=get_nvram_int_checked_status("di_recon_pause",&pause_seconds);'
+pause_gate = "if(status!=0){"
+pause_error = "aborting automatic WAN reconnect because delay configuration is unavailable"
+pause_return = "return status;"
+pause_start = "return try_wan_reconnect(1,pause_seconds);"
+pause_positions = (
+    pause_reconnect.index(pause_read),
+    pause_reconnect.index(pause_gate),
+    pause_reconnect.index(pause_error),
+    pause_reconnect.index(pause_return, pause_reconnect.index(pause_gate)),
+    pause_reconnect.index(pause_start),
+)
+assert pause_positions == tuple(sorted(pause_positions))
+assert 'nvram_get_int("di_recon_pause")' not in pause_reconnect
 
 init = compact(body(RC_SOURCE, "init_router(void)"))
 assert "wan_start_status = start_wan();" in init

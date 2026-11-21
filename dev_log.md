@@ -1,3 +1,12 @@
+## 2026-11-21 — Align XY-C1 WAN caller contract with checked delay read
+
+- Parent main SHA: `0097f377a1155be4ec09c2fe38334aa985c39b2b`.
+- The first XY-C1 validation of the deferred reconnect source change stopped before firmware compilation at an older `check_modem_wan_start_status.py` assertion that still expected `nvram_get_int("di_recon_pause")`. The production function correctly uses the checked integer reader introduced in `136db90e2f84513d9bf3da297802b708b0811b44`.
+- The checker now asserts the checked read, fail-closed return before `try_wan_reconnect()`, and absence of the legacy unchecked getter. The XY-C1 workflow already includes and executes this checker; this is a test-only correction.
+- The XY-C1 Build/TRX/artifact gate for the product-source SHA must be rerun to establish L3. The WAN-route checker correction is on main and its exact-head rerun is queued.
+
+---
+
 ## 2026-11-21 — Normalize deferred WAN reconnect source-check formatting
 
 - Parent main SHA: `136db90e2f84513d9bf3da297802b708b0811b44`.
