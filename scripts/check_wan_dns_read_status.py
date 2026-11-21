@@ -486,7 +486,7 @@ require(
     "wan_teardown_should_clear_dns_snapshot(" in wan_down_compact
     and "if(route_status!=0)" in wan_down_compact
     and "status=route_status_accumulate(status,route_status);" in wan_down_compact
-    and "else if(clear_wan_dns)" in wan_down_compact,
+    and "elseif(clear_wan_dns)" in wan_down_compact,
     "WAN teardown must preserve/report DNS-read failure and gate indexed DNS removal",
 )
 assert 'strlen(nvram_safe_get("wanx_dns"))' not in wan_down

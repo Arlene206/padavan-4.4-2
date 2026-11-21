@@ -1,3 +1,11 @@
+## 2026-11-21 — Normalize the WAN DNS teardown checker token
+
+- Parent main SHA: b1e1927079a6189fbf5cb95460a45b294b97b51c.
+- WAN teardown regression #44924417107 passed, including the new GNU89 DNS-clear policy cases. WAN route #44924416973 then failed only in the new source contract: the checker removes all whitespace from the function body but expected the branch token `else if(clear_wan_dns)`, which normalizes to `elseif(clear_wan_dns)`.
+- Corrected only that expected token. The production change and policy implementation are unchanged; exact-head WAN-route rerun is pending.
+
+---
+
 ## 2026-11-21 — Preserve demand-PPP DNS when MAN DNS state is unreadable
 
 - Parent main SHA: 9bdc5821ada33a0983a3c4c0c5fda1999e1df68f.

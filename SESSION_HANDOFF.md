@@ -15,9 +15,9 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Active task
 
 - Current source slice: preserve demand-PPP DNS snapshot on WAN teardown when the global MAN DNS key cannot be read.
-- `wan_down_internal()` now uses the checked bounded NVRAM copy for `wanx_dns`. Static/DHCP IPoE retains its unconditional clear; other protocols preserve indexed DNS on backend/truncation errors and accumulate/log the failure.
-- GNU89 regression: `trunk/user/rc/src/tests/wan_teardown_policy.c`; semantic caller contract: `scripts/check_wan_dns_read_status.py`. Both must pass on the exact source SHA.
-- First independent follow-up: continue the WAN/service NVRAM state audit for another confirmed fail-open/fail-silent path. Do not repeat the checked optional-daemon enable reads or already corrected ZeroTier pre-gate.
+- Production correction and GNU89 policy tests are committed in the current main ancestry. WAN teardown regression #44924417107 passed on source SHA `b1e1927079a6189fbf5cb95460a45b294b97b51c`.
+- WAN route #44924416973 failed only because its new source contract expected a whitespace-bearing `else if` token after removing all whitespace. The checker-only correction now expects `elseif`; the exact-head rerun is pending.
+- After rerun, continue the independent PPPoE-MWAN checked-enable-read slice in `wan_up_internal()` and `wan_down_internal()`; both currently use unchecked `nvram_match("pppoemwan_enable", "1")`.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm the frozen backup is unchanged. Check exact-head WAN route, WAN teardown and AI handoff Actions for the DNS teardown commit; inspect any FAIL logs and fix the root cause. Check XY-C1 Build + TRX + artifact on the same product-source SHA. Then continue the next independent P1 reliability/security defect in WAN/service NVRAM state propagation.
+Fetch live `main` and confirm the frozen backup is unchanged. Check exact-head WAN route, WAN teardown and AI handoff Actions for the DNS teardown source-checker correction; inspect any FAIL logs and fix the root cause. Check XY-C1 Build + TRX + artifact on the same product-source SHA. Then implement the checked `pppoemwan_enable` reads in WAN-up/down and extend exact-string policy regression coverage.
 
