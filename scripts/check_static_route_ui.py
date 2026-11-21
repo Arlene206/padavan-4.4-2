@@ -11,7 +11,7 @@ PAGE = ROOT / "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.a
 def main():
     source = PAGE.read_text(encoding="utf-8")
     add_guard = re.search(
-        r"document\\.form\\.sr_num_x_0\\.value\\s*(>=|>)\\s*c",
+        r"document\.form\.sr_num_x_0\.value\s*(>=|>)\s*c",
         source,
     )
     assert add_guard, "static-route add guard was not found"
@@ -20,11 +20,11 @@ def main():
     )
 
     assert re.search(
-        r"GWStatic_markGroup\\(this,\\s*64,\\s*' Add '\\)",
+        r"GWStatic_markGroup\(this,\s*64,\s*' Add '\)",
         source,
     ), "static-route Add button must keep the 64-entry limit"
     assert re.search(
-        r"GWStatic_markGroup\\(this,\\s*64,\\s*' Del '\\)",
+        r"GWStatic_markGroup\(this,\s*64,\s*' Del '\)",
         source,
     ), "static-route Delete button must keep the same 64-entry limit"
 
