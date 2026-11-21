@@ -1,3 +1,11 @@
+## 2026-11-21 — Keep HTTPD/Samba security workflow aligned with generic FTP readiness callbacks
+
+- Parent main SHA: `d83cb745c4a0f9b502cc5a4d8c13e3e2cfac98da`; HTTPD Authentication and Security run #44880376165 failed in the Samba/FTP trust-boundary source checker with `ValueError: substring not found`.
+- The checker still used the old end marker `ftp_daemon_is_running`, which was intentionally replaced by the shared `storage_wait_for_daemon` adapter when the FTP wait policy was generalized for MiniDLNA/Firefly. Updated the FTP configuration slice boundary to the surviving `ftp_wait_for_daemon` wrapper; the configuration assertions themselves are unchanged.
+- This is a checker-only alignment, not a security-policy relaxation. The exact-SHA HTTPD/Samba security workflow must be rerun.
+
+---
+
 ## 2026-11-21 — Wait for detached MiniDLNA and Firefly children before declaring storage startup success
 
 - Parent main SHA: `1fd04b9224460af23f6f63fa667c95e0edcbc045`.
