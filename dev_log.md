@@ -1,3 +1,12 @@
+## 2026-11-21 — Make late-child PIDOF race fixture one-shot
+
+- Parent main SHA: `b5052e9f49edb751f1c68cfe7f848bbdb47bc8a6`.
+- The first exact-SHA Process lifecycle run caught a defect in the new regression fixture, not in the production rollback code: after simulating a child at the post-timeout recheck, the mock kept reintroducing it on every subsequent PIDOF call, even after TERM removed it. The mock now transitions to RUNNING on exactly one configured inventory call, allowing the subsequent absence probe to observe the TERM result.
+- The first run's other completed steps passed; exact-SHA Process and XY-C1 workflows are being rerun on this correction.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Roll back late SCUT/MentoHUST children after startup readiness failure
 
 - Parent main SHA: `3301df972d42fbeff8ccde3835642c15421b997d`.

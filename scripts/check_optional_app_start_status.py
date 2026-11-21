@@ -343,7 +343,7 @@ count=0
 count=$((count + 1))
 echo "$count" > "$MOCK_PIDOF_COUNT_FILE"
 if [ "${MOCK_PIDOF_RUNNING_AT:-0}" -gt 0 ] &&
-   [ "$count" -ge "$MOCK_PIDOF_RUNNING_AT" ]; then
+   [ "$count" -eq "$MOCK_PIDOF_RUNNING_AT" ]; then
     echo running > "$MOCK_STATE_FILE"
 fi
 case "$(cat "$MOCK_STATE_FILE")" in
@@ -654,7 +654,7 @@ count=0
 count=$((count + 1))
 echo "$count" > "$MOCK_PIDOF_COUNT_FILE"
 if [ "${MOCK_PIDOF_RUNNING_AT:-0}" -gt 0 ] &&
-   [ "$count" -ge "$MOCK_PIDOF_RUNNING_AT" ]; then
+   [ "$count" -eq "$MOCK_PIDOF_RUNNING_AT" ]; then
     echo running > "$MOCK_STATE_FILE"
 fi
 case "$(cat "$MOCK_STATE_FILE")" in
