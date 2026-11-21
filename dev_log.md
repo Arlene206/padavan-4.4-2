@@ -1,3 +1,14 @@
+## 2026-11-21 — Check manual WAN reset selectors and endpoint snapshot
+
+- Parent main SHA: `9373ac1e3907be3e11d8538485bb38748ab0654e`.
+- Closed the P1 `set_wan_unit_value_int()` / `set_wan_unit_param()` audit across all 36 `trunk/user/rc/src/*.c` files: neither void wrapper has a C callsite. The only `set_wan_unit_value()` calls publish optional uptime/RX/TX telemetry. Mandatory WAN protocol/parameter publication uses `set_wan_unit_param_status()` with propagated status; checked integer writes use `set_wan_unit_value_int_status()`. No speculative public API changes were made.
+- The audit found `reset_wan_vars_status()` still collapsed backend failures for `x_DHCPClient` and `wan_pppoe_man` via `nvram_match()`, then fetched four manual underlay values with independent `nvram_safe_get()`. A transient ioctl/close failure could silently publish empty or stale PPTP/L2TP/manual-PPPoE endpoint settings.
+- THIS COMMIT replaces both selectors with checked exact-match reads and reads `wan_ipaddr`, `wan_netmask`, `wan_gateway`, `wan_mtu` as one transactionally consistent bounded snapshot. Any selector, backend, close or truncation error aborts reset before the manual endpoint is published; missing keys retain the old false/empty defaults.
+- Extended `scripts/check_wan_vlan_setup.py` to pin selector error propagation, four-field snapshot membership/order, snapshot-before-publication ordering and removal of all six lossy calls. Existing `wan_nvram_status_policy.c` already exercises snapshot coherence, cache-copy stability, absent values, backend errors, close failure and invalidation under GNU89/ASan/UBSan.
+- Next: inspect exact-head WAN/HTTPD/NVRAM/Process/XY-C1 Actions, then harden the remaining checked-read gap at `wan_hwaddr_x` / `il1macaddr` and `get_wan_proto()`. No L3/L4 claim until the exact source build and hardware boundaries pass.
+
+---
+
 ## 2026-11-21 — Restore the third LAN VLAN priority mask
 
 - Parent main SHA: `88054b9f272d9f673dabf45df60d497de441b2d2`.

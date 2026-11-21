@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest product-source baseline before the current LAN QoS fix: `88054b9f272d9f673dabf45df60d497de441b2d2` (checker-only correction for WAN dynamic-route source contracts). The preceding source commit `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` adds checked `dr_enable_x` selector reads to WAN/IPTV DHCP option setup and route additions while keeping cleanup unconditional. Exact-head WAN/HTTPD reruns for the checker repair must still be inspected. Re-fetch live `main` on takeover.
+- Latest product-source baseline before this WAN reset slice: `9373ac1e3907be3e11d8538485bb38748ab0654e` (`fix(lan): restore LAN3 VLAN priority normalization`). Exact-source Actions for the LAN QoS fix: WAN route `#44962557350`, NVRAM audit `#44962557340`, Process inventory `#44962557466`, HTTPD `#44962557478`, WAN DHCP callback `#44962557507`, Firewall `#44962557397`, Wireless `#44962557352`, DNSMasq `#44962557355`, watchdog `#44962557416`, detect_link `#44962557389`, detect_internet `#44962557388` and AI docs `#44962557391` passed. XY-C1 `#44962557368` remained in progress at last check (Build in progress; TRX/artifact pending).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -28,21 +28,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- THIS source/test slice restores `vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3] &= 0x07` immediately after the successful checked NVRAM read. The original `f20473f` implementation masked all six 802.1p priorities; the checked-read migration in `ebc799f` dropped only the LAN3 mask. Both RTL8367 and MTK ESW PHY encoders pack priority using an eight-bit field, so the omitted normalization could change LAN3 QoS values above seven.
-- `scripts/check_wan_vlan_setup.py` now requires all six priority masks, each after its own checked read and before the first `phy_vlan_rule_set()`. Targeted preflight confirmed this contract rejects the parent source and passes the fix.
-- Parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` WAN route `#44962248260` and HTTPD `#44962248262` failed only on static contracts for the new dynamic-route selector. The checker-only fix is `88054b9f272d9f673dabf45df60d497de441b2d2`; its exact-head reruns had not appeared at the last poll. Parent XY-C1 `#44962248242` Build was pending, and NVRAM `#44962248222` was in progress.
-- LAN checked-read work remains in place: WAN VLAN config, soft/core bridge multicast/router settings, switch mode/isolation/filter, six VIDs, six priorities/four tags, storm-control and jumbo/green/EEE preflights. Do not redo those audits.
-- After exact-head verification of the new source commit, continue the ranked P1 PID-1 WAN NVRAM publication review at `set_wan_unit_value_int()` / `set_wan_unit_param()`.
+- Audit of the roadmap's `set_wan_unit_value_int()` / `set_wan_unit_param()` wrappers is closed: there are no C callsites in the 36 files under `trunk/user/rc/src`; the only calls to the void `set_wan_unit_value()` wrapper publish optional uptime/RX/TX telemetry. Critical WAN protocol/parameter writes use `set_wan_unit_param_status()` via checked callbacks, and `set_wan_unit_value_int_status()` is used with propagated status. No speculative API conversion was made.
+- The audit found a concrete reset-path defect: `reset_wan_vars_status()` used lossy `nvram_match()` for `x_DHCPClient` / `wan_pppoe_man`, then four independent `nvram_safe_get()` calls for the PPTP/L2TP/manual-PPPoE underlay. Backend failures could silently select defaults and publish an empty/stale manual endpoint.
+- THIS source/test slice replaces both selectors with checked exact-match reads and copies `wan_ipaddr`, `wan_netmask`, `wan_gateway`, and `wan_mtu` as one checked NVRAM transaction. It aborts reset on selector/read/close/truncation errors before publishing `man_ipaddr` and related fields. Missing keys still map to the legacy empty-string/false defaults.
+- `scripts/check_wan_vlan_setup.py` now pins selector status propagation, all four fields in one snapshot, ordering before endpoint publication, and absence of the six lossy legacy calls. The existing WAN NVRAM GNU89/ASan/UBSan policy regression already tests transactional snapshots, cache-copy stability, missing values, backend errors, close failures and invalidation.
+- Prior exact LAN QoS SHA `9373ac1e3907be3e11d8538485bb38748ab0654e`: WAN route, Process, HTTPD, NVRAM, WAN DHCP callback, Firewall, Wireless, DNSMasq, watchdog, detect_link, detect_internet and AI docs all PASS; XY-C1 `#44962557368` was still building at the last poll.
+- Next independent check after this slice: audit the remaining unchecked `wan_hwaddr_x` / `il1macaddr` reads and the implementation of `get_wan_proto()` in the reset path; do not repeat the closed void-setter caller audit.
 
 ## Verification boundary
 
-- This LAN priority source/checker commit has not yet run its exact-head Actions. Inspect WAN route, HTTPD, Process, NVRAM and XY-C1 results for its live main SHA.
-- The preceding checker correction `88054b9f272d9f673dabf45df60d497de441b2d2` had no exact-head run visible at the last poll; do not treat the c4 parent failures as resolved until the corrected SHA passes.
-- L3 requires Bui## Exact first action for the next GPT
+- The current source/checker commit has not yet run its exact-head Actions. Inspect WAN route (including the WAN source contract and GNU89/ASan/UBSan NVRAM binary), HTTPD, Process, NVRAM audit and XY-C1 for the new main SHA.
+- For XY-C1, inspect Build XY-C1, Verify TRX and artifact upload individually. L3 is VERIFIED only when all three pass on this same product-source SHA; hardware/device L4 remains NOT VERIFIED.
+- Earlier checker-only correction `88054b9f272d9f673dabf45df60d497de441b2d2` passed WAN route `#44962481865`, HTTPD `#44962481912` and AI docs `#44962481991`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
 
-1. Fetch live `main` and inspect exact-head WAN route, HTTPD, NVRAM and XY-C1 runs for THIS source/test commit; inspect Build XY-C1, Verify TRX and artifact upload individually.
-2. Repair only current-SHA failures. Also inspect the corrected WAN/HTTPD reruns for `88054b9f272d9f673dabf45df60d497de441b2d2`; do not claim the c4 failures resolved without those checks.
-3. Continue the P1 `set_wan_unit_value_int()` / `set_wan_unit_param()` NVRAM publication audit after the LAN VLAN path validates.
+## Exact first action for the next GPT
+
+1. Fetch live `main` and inspect exact-head WAN route, HTTPD, NVRAM, Process and XY-C1 runs for THIS source/test commit.
+2. For XY-C1, verify Build XY-C1, TRX verification and artifact upload individually; diagnose only exact-SHA failures.
+3. Continue with the reset-path `wan_hwaddr_x` / `il1macaddr` and checked `get_wan_proto()` audit after these tests pass.
 
 
 ## Workflow and preservation rules

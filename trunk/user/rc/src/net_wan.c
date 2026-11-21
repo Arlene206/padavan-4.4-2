@@ -867,13 +867,57 @@ reset_man_vars(void)
 			   status);
 }
 
+/*
+ * Read the manual WAN endpoint as one checked NVRAM generation. These values
+ * control the address assigned to the PPTP/L2TP/PPPoE underlay; a backend or
+ * transaction-close error must not silently turn a configured endpoint into
+ * four empty defaults.
+ */
+static int
+wan_manual_endpoint_snapshot(char *wan_addr, size_t wan_addr_size,
+			     char *wan_mask, size_t wan_mask_size,
+			     char *wan_gateway, size_t wan_gateway_size,
+			     char *wan_mtu, size_t wan_mtu_size)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[4];
+
+	if (!wan_addr || !wan_addr_size || !wan_mask || !wan_mask_size ||
+	    !wan_gateway || !wan_gateway_size || !wan_mtu || !wan_mtu_size)
+		return EINVAL;
+
+	fields[0].param_name = "wan_ipaddr";
+	fields[0].destination = wan_addr;
+	fields[0].destination_size = wan_addr_size;
+	fields[1].param_name = "wan_netmask";
+	fields[1].destination = wan_mask;
+	fields[1].destination_size = wan_mask_size;
+	fields[2].param_name = "wan_gateway";
+	fields[2].destination = wan_gateway;
+	fields[2].destination_size = wan_gateway_size;
+	fields[3].param_name = "wan_mtu";
+	fields[3].destination = wan_mtu;
+	fields[3].destination_size = wan_mtu_size;
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, 4, wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &transaction);
+}
+
+
 static int wan_vars_reset_status;
 
 static int
 reset_wan_vars_status(void)
 {
 	int unit, wan_proto, proto_status;
-	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
+	int manual_endpoint_enabled = 0, manual_pppoe_enabled = 0;
+	char mac_buf[24];
+	char man_addr[INET_ADDRSTRLEN] = "0.0.0.0";
+	char man_mask[INET_ADDRSTRLEN] = "0.0.0.0";
+	char man_gate[INET_ADDRSTRLEN] = "0.0.0.0";
+	char man_mtu[16] = "";
 	const char *wan_hwaddr;
 	const char *reset_failure_context = NULL;
 	static const char *const dhcp_ppp_params[] = {
@@ -991,14 +1035,33 @@ reset_wan_vars_status(void)
 	man_gate = "0.0.0.0";
 	man_mtu  = "";
 
-	if (nvram_match("x_DHCPClient", "0")) {
-		if (wan_proto == IPV4_WAN_PROTO_PPTP ||
-		    wan_proto == IPV4_WAN_PROTO_L2TP ||
-		   (wan_proto == IPV4_WAN_PROTO_PPPOE && nvram_match("wan_pppoe_man", "1"))) {
-			man_addr = nvram_safe_get("wan_ipaddr");
-			man_mask = nvram_safe_get("wan_netmask");
-			man_gate = nvram_safe_get("wan_gateway");
-			man_mtu  = nvram_safe_get("wan_mtu");
+	proto_status = get_nvram_match_checked_status(
+		"x_DHCPClient", "0", &manual_endpoint_enabled);
+	if (proto_status != 0) {
+		reset_failure_context = "manual WAN address-mode selector";
+		goto reset_failed;
+	}
+	if (manual_endpoint_enabled) {
+		if (wan_proto == IPV4_WAN_PROTO_PPPOE) {
+			proto_status = get_nvram_match_checked_status(
+				"wan_pppoe_man", "1", &manual_pppoe_enabled);
+			if (proto_status != 0) {
+				reset_failure_context = "manual PPPoE selector";
+				goto reset_failed;
+			}
+			manual_endpoint_enabled = manual_pppoe_enabled;
+		} else if (wan_proto != IPV4_WAN_PROTO_PPTP &&
+			   wan_proto != IPV4_WAN_PROTO_L2TP) {
+			manual_endpoint_enabled = 0;
+		}
+	}
+	if (manual_endpoint_enabled) {
+		proto_status = wan_manual_endpoint_snapshot(
+			man_addr, sizeof(man_addr), man_mask, sizeof(man_mask),
+			man_gate, sizeof(man_gate), man_mtu, sizeof(man_mtu));
+		if (proto_status != 0) {
+			reset_failure_context = "manual WAN endpoint snapshot";
+			goto reset_failed;
 		}
 	}
 

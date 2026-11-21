@@ -2,7 +2,9 @@
 
 - LAN source chain: checked VLAN selector/VID/priority; checked soft-bridge/core-bridge multicast and router settings; checked switch VLAN snapshot before first rule apply; checked storm-control rates and switch jumbo/green/EEE before PHY writes. Latest switch source corrected a missing local `status` declaration and checker token whitespace; exact WAN route #44961918900 PASS.
 - WAN dynamic-route source checks on parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` exposed two stale contracts (short function locators and an old unchecked `nvram_match()` assertion). Checker-only correction `88054b9f272d9f673dabf45df60d497de441b2d2` fixes both; exact-head WAN/HTTPD reruns were not yet visible.
-- VLAN QoS compatibility fix: checked-read migration had omitted the original `& 0x07` mask for `vlan_pri_lan3`; THIS COMMIT restores it and tests that all six checked priority values are normalized before hardware programming. Exact-head WAN/HTTPD/XY-C1 Actions pending.
+- VLAN QoS compatibility fix: the checked-read migration had omitted the original `& 0x07` mask for `vlan_pri_lan3`; commit `9373ac1e3907be3e11d8538485bb38748ab0654e` restores it. Exact-head WAN route, HTTPD, NVRAM, Process and other host workflows PASS; XY-C1 #44962557368 was still building at last check.
+- WAN reset configuration: THIS COMMIT checks `x_DHCPClient` / `wan_pppoe_man` selectors and snapshots all four manual underlay values transactionally; the prior lossy NVRAM calls could silently publish empty configuration after backend errors. Exact-head WAN/HTTPD/XY-C1 verification pending.
+- The `set_wan_unit_value_int()` / `set_wan_unit_param()` void-wrapper audit found no C callsites across `trunk/user/rc/src`; the only `set_wan_unit_value()` calls are optional uptime/RX/TX telemetry. Mandatory protocol and identity publication already uses result-returning helpers.
 - Same-source L3 still requires XY-C1 Build, TRX and artifact upload all PASS. Frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21

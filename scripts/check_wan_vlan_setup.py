@@ -758,3 +758,46 @@ require(route_add_code.index("if (is_add)") < route_add_code.index(checked_dr_re
 for code in (wan_dhcp_code, iptv_dhcp_code):
     require(code.index(checked_dr_read) < code.index("if (dr_enable_value)"),
             "DHCP clients must check the dynamic-route selector before adding option requests")
+
+# Manual WAN underlay selectors and endpoint values are required startup inputs.
+manual_snapshot = body(
+    wan,
+    "wan_manual_endpoint_snapshot(char *wan_addr, size_t wan_addr_size"
+)
+manual_snapshot_code = " ".join(manual_snapshot.split())
+manual_keys = ("wan_ipaddr", "wan_netmask", "wan_gateway", "wan_mtu")
+manual_key_positions = [
+    manual_snapshot_code.index(f'fields[{index}].param_name = "{key}"')
+    for index, key in enumerate(manual_keys)
+]
+require(manual_key_positions == sorted(manual_key_positions) and
+        "return rc_wan_nvram_copy_snapshot(" in manual_snapshot_code and
+        "fields, 4, wan_nvram_transaction_begin_callback" in manual_snapshot_code and
+        "wan_nvram_transaction_get_callback" in manual_snapshot_code and
+        "wan_nvram_transaction_end_callback" in manual_snapshot_code,
+        "manual WAN underlay address/netmask/gateway/MTU must be one checked transactional snapshot")
+
+wan_reset = body(wan, "reset_wan_vars_status(void)")
+wan_reset_code = " ".join(wan_reset.split())
+manual_mode_read = 'get_nvram_match_checked_status( "x_DHCPClient", "0", &manual_endpoint_enabled)'
+manual_pppoe_read = 'get_nvram_match_checked_status( "wan_pppoe_man", "1", &manual_pppoe_enabled)'
+require(manual_mode_read in wan_reset_code and
+        manual_pppoe_read in wan_reset_code and
+        "if (proto_status != 0)" in wan_reset_code and
+        'reset_failure_context = "manual WAN address-mode selector";' in wan_reset_code and
+        'reset_failure_context = "manual PPPoE selector";' in wan_reset_code,
+        "manual WAN selector backend errors must abort WAN reset instead of selecting empty defaults")
+require(wan_reset_code.index(manual_mode_read) <
+        wan_reset_code.index("wan_manual_endpoint_snapshot(") <
+        wan_reset_code.index('set_wan_unit_value_status(unit, "man_ipaddr", man_addr)'),
+        "manual WAN settings must be snapshotted before publishing the unit endpoint")
+for lossy_read in (
+    'nvram_match("x_DHCPClient", "0")',
+    'nvram_match("wan_pppoe_man", "1")',
+    'nvram_safe_get("wan_ipaddr")',
+    'nvram_safe_get("wan_netmask")',
+    'nvram_safe_get("wan_gateway")',
+    'nvram_safe_get("wan_mtu")',
+):
+    require(lossy_read not in wan_reset_code,
+            f"manual WAN reset must not collapse NVRAM errors for {lossy_read}")
