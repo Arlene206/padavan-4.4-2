@@ -344,6 +344,52 @@ jobs:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
 
+          def body_at_column_zero_terminator(text, signature):
+              """Extract a function with mutually exclusive preprocessor brace branches."""
+              search_from = 0
+              brace = -1
+              while True:
+                  start = text.find(signature, search_from)
+                  if start < 0:
+                      break
+                  for pos, char in code_characters(text, start + len(signature)):
+                      if char == ";":
+                          break
+                      if char == "{":
+                          brace = pos
+                          break
+                  if brace >= 0:
+                      break
+                  search_from = start + len(signature)
+              if brace < 0:
+                  raise AssertionError(f"missing function body: {signature}")
+              for pos, char in code_characters(text, brace):
+                  if char != "}":
+                      continue
+                  line_start = text.rfind(chr(10), 0, pos) + 1
+                  if not text[line_start:pos].strip():
+                      return text[brace + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          _conditional_body_probe = r'''
+          int conditional_probe(int value) {
+          #if defined(LEFT_BRANCH)
+              if (value) {
+          #else
+              if (!value) {
+          #endif
+                  value++;
+              }
+              return value;
+          }
+          '''
+          conditional_body = body_at_column_zero_terminator(
+              _conditional_body_probe, "conditional_probe(int value)"
+          )
+          assert "if (value)" in conditional_body
+          assert "if (!value)" in conditional_body
+          assert "return value;" in conditional_body
+
           _body_probe = r'''
           int callback_probe(void);
           int callback_probe(void) {
@@ -1054,7 +1100,7 @@ jobs:
           launch_wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
           assert "int ipv6_status = wan6_up(man_ifname, unit);" in launch_wanx
           assert "WAN physical IPv6 setup incomplete" in launch_wanx
-          start_wan = body(source, "start_wan(void)")
+          start_wan = body_at_column_zero_terminator(source, "start_wan(void)")
           assert "int ipv6_status = wan6_up(wan_ifname, unit);" in start_wan
           assert "WAN IPv6 setup incomplete" in start_wan
           wan_up_internal = body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
@@ -1312,7 +1358,7 @@ jobs:
           assert 'strcmp(fake.events, "ABCDEedcba") == 0' in deconfig_policy_test
           assert "dhcp_lease_viptv_deconfig_apply" in deconfig_policy_test
 
-          wan_start = body(source, "start_wan(void)")
+          wan_start = body_at_column_zero_terminator(source, "start_wan(void)")
           apcli_wisp = body(source, "static int" + chr(10) + "config_apcli_wisp(void)")
           assert "static int man_up_internal(char *, int, int, int *);" in source
           gateway_helper = body(source, "static int" + chr(10) + "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")

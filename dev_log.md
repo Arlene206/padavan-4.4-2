@@ -1,3 +1,12 @@
+## 2026-11-21 — Use preprocessor-aware extraction in WAN DHCP regression
+
+- Parent main SHA: `a4a60944890edae9dc6821eec906d3c4c6d881b0`.
+- Exact-head WAN DHCP callback run `#44892451936` passed the updated checked-MTU read assertions, then failed at the ordering assertion between default MTU setup and physical interface activation. The source order is correct, but the existing C brace counter treated mutually exclusive `#if/#else` branches in `start_wan()` as simultaneously active and terminated the extracted body at the wrong closing brace.
+- Added a focused extractor that finds this repository's column-zero function terminator while continuing to skip comments and literals, with an alternate-preprocessor-branch regression fixture. The two WAN DHCP workflow extractions of `start_wan()` now use it; other function-body extraction remains unchanged.
+- No production C behavior changed. Rerun the WAN DHCP exact-SHA Action after this checker correction.
+
+---
+
 ## 2026-11-21 — Handle conditional-compilation braces in WAN startup checker
 
 - Parent main SHA: `fee0fe11f4a7d12da0238e3f548fcc7b57b93215`.
