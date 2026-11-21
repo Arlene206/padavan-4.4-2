@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only.
-- Main at the start of this slice: `bc3cceebfcc4423d03acd30a5604e01c63b13419`. Samba checked NVRAM gates were added in this commit; their first source-contract run failed on a multiline assertion and is corrected in THIS COMMIT. The WAN DHCP NVRAM state publisher separates publication failure from compensation failure; its guarded fresh-transaction retry runs only when compensation itself failed.
+- Main at the start of this slice: `8c79215790b8e56300d0c07201d62c90dfcd76e2`. FTP enable-state reads now fail closed in startup/restart; its exact-head vsftpd, Process inventory, NFS, firewall, Samba, HTTPD, USB modem and handoff checks passed. Process lifecycle passed; storage hotplug and the repository-wide NVRAM audit were still running, and XY-C1 was in Build.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
 - Legacy PR #1 remains closed and unmerged; do not reopen or develop through its branch.
 - Protected reliability work includes checked optional-daemon settings, ttyd/SSH mode wrappers and detached-child probes, WAN DHCP compare-and-publish, stale-writer guarded recovery and validate-first reverse tuple construction for post-commit 6rd failure.
@@ -16,23 +16,24 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - Parent main SHA: `ae4ae4a57b2c34d6dccf2541161a51606170047c`; current source contains Samba checked global-enable/mode/WINS state and guarded WAN DHCP publication/rollback.
 - FTP enablement now uses a checked NVRAM read, strict integer parsing and explicit 0/1 validation while preserving the historical missing-key default of enabled. Both `run_ftp()` and `restart_ftpd()` refuse side effects after an unreadable enable flag; restart checks before inventory and stop. This commit adds GNU89 policy tests and source-contract coverage.
+- `auto_wan_reconnect_pause()` previously passed `nvram_get_int("di_recon_pause")` directly into `try_wan_reconnect()`. A transient read/parse failure therefore became zero and immediately stopped/restarted WAN services instead of honoring the configured delay. It now performs the shared checked integer read first, preserves the missing-key zero default, and aborts before any reconnect side effect on read failure; the WAN watchdog source contract pins this ordering.
 - Recovery commit `954d1dc4d11e5518e6e69e86a167fcfd0e5efd33` restored the full repository tree after a transient concurrent partial-tree update. Main remains the only development branch; backup is immutable.
 - This source commit requires same-SHA XY-C1 Build + TRX verification + artifact upload. L3/L4 are NOT VERIFIED until their full gates pass.
 
 
 ## Active task
 
-1. Verify storage-hotplug source contract after all seven captured-mode wrappers are represented.
-2. Inspect exact-head DNSMasq/Samba and XY-C1 Build/TRX/artifact Actions for 985e86b3; require Build + TRX + artifact on a single latest SHA for L3.
-3. Continue the next distinct stability/security item outside these completed wrapper contracts.
+1. Inspect the exact-head WAN route status workflow for the checked `di_recon_pause` preflight; resolve any checker failure without relaxing coverage.
+2. Inspect exact-SHA XY-C1 Build, TRX verification and artifact upload for source SHA `8c79215790b8e56300d0c07201d62c90dfcd76e2`; L3 is not established until all three pass on the same source SHA.
+3. Continue the next independent whole-userland stability/security defect; do not repeat the FTP or captured-mode storage fixes.
 
 
 ## Verification boundary
 
-- L1: Seven restart wrappers use checked preflight configuration, preserve captured startup mode and refuse launch after failed stop; source behavior was inspected for all seven.
-- L2: Storage-hotplug checker follow-up is pending. DNSMasq integer WINS test and source contracts are wired but exact-head results pending.
-- L3: NOT VERIFIED until Build XY-C1, TRX and artifact upload all pass on the same SHA.
-- L4: Physical router USB eject/reinsert, DHCP and WINS runtime NOT VERIFIED.
+- L1: FTP startup/restart now fail closed on enable-state NVRAM errors; delayed automatic WAN reconnect now also fails closed on delay-read errors and preserves the absent-key zero default.
+- L2: FTP exact-head regression and Process inventory passed on `8c79215790b8e56300d0c07201d62c90dfcd76e2`. Deferred reconnect GNU89 policy regression and exact-head WAN route check are pending on the next source commit.
+- L3: NOT VERIFIED for the delayed reconnect change until Build XY-C1, TRX verification and artifact upload pass on one exact product-source SHA.
+- L4: Physical router reconnect timing, DHCP recovery and WAN failover remain NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -53,10 +54,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main; inspect the exact-head storage-hotplug run for the seven mode wrappers, DNSMasq/Samba policy Actions and XY-C1 Build/TRX/artifact results. Continue broader userland reliability work.
-Fetch live main; inspect the exact-head numeric WINS regression, storage-hotplug check and XY-C1 Build/TRX/artifact results. Then continue the next independent whole-userland stability issue.
-Fetch live main; inspect exact-head storage-hotplug, XY-C1 Build/TRX/artifact and other affected Actions for the checked-mode wrapper contract correction. Then continue the next independent whole-userland stability issue.
-Fetch live main; inspect the exact-head DNSMasq WINS source-order regression, Samba regression and XY-C1 Build/TRX/artifact runs for this patch. Then continue the next independent whole-userland stability issue.
-Fetch live main; inspect the fresh Samba run from the strengthened WINS-header contract and XY-C1 #44917653757 (Build/TRX/artifact) against the complete restored tree. Then assess the independent DNSMasq WINS read and continue broader userland reliability work.
-Fetch live main; inspect exact-head Samba source-contract and XY-C1 Build/TRX/artifact runs for this WINS-header patch. Then assess the independent DNSMasq DHCP WINS NVRAM read and continue the next userland reliability issue.
-Fetch live `main`; inspect exact-head WAN callback, WAN route, AI handoff and XY-C1 Build/TRX/artifact runs after THIS COMMIT. Then continue the Samba checked-NVRAM fail-closed implementation while any firmware Actions are pending.
+Fetch live main; inspect the exact-head WAN route status result for the checked delayed-reconnect NVRAM preflight and inspect XY-C1 Build/TRX/artifact for the FTP source SHA. Then continue an independent reliability/security defect outside the completed storage and FTP slices.

@@ -5018,8 +5018,19 @@ auto_wan_reconnect(void)
 int
 auto_wan_reconnect_pause(void)
 {
+	int pause_seconds = 0;
+	int status;
+
+	status = get_nvram_int_checked_status("di_recon_pause", &pause_seconds);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "aborting automatic WAN reconnect because delay configuration is unavailable (status=%d)",
+			   status);
+		return status;
+	}
+
 	logmessage(LOGNAME, "Perform WAN %s %s", "auto", "reconnect");
-	return try_wan_reconnect(1, nvram_get_int("di_recon_pause"));
+	return try_wan_reconnect(1, pause_seconds);
 }
 
 void

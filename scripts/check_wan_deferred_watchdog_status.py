@@ -139,4 +139,26 @@ require('nvram_set_int_temp("deferred_wanup_t"' not in WAN,
 policy = (RC / "wan_deferred_reconnect_policy.h").read_text()
 require("wan_deferred_reconnect_schedule" in policy and "INT_MAX" in policy,
         "deferred reconnect policy must enforce the watchdog integer deadline domain")
+pause_reader = body(WAN, "get_nvram_int_checked_status(const char *param_name, int *value)")
+require("rc_wan_nvram_read_int_status(api_result, saved_errno, stored_value, 0, value)" in pause_reader,
+        "deferred reconnect delay must retain the legacy missing-key zero default")
+
+pause = body(WAN, "auto_wan_reconnect_pause(void)")
+pause_read = 'status = get_nvram_int_checked_status("di_recon_pause", &pause_seconds);'
+pause_gate = "if (status != 0)"
+pause_abort = "aborting automatic WAN reconnect because delay configuration is unavailable"
+pause_return = "return status;"
+pause_start = "return try_wan_reconnect(1, pause_seconds);"
+pause_positions = (
+    pause.index(pause_read),
+    pause.index(pause_gate),
+    pause.index(pause_abort),
+    pause.index(pause_return, pause.index(pause_gate)),
+    pause.index(pause_start),
+)
+require(pause_positions == tuple(sorted(pause_positions)),
+        "automatic reconnect must abort before stop/start when its delay NVRAM read fails")
+require('nvram_get_int("di_recon_pause")' not in pause,
+        "automatic reconnect delay must not collapse NVRAM errors into immediate reconnect")
+
 print("Deferred WAN reconnect reports publication and watchdog failures: PASS")

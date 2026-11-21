@@ -1,3 +1,12 @@
+## 2026-11-21 — Abort deferred WAN reconnect when delay cannot be read
+
+- Parent main SHA: `8c79215790b8e56300d0c07201d62c90dfcd76e2`.
+- `auto_wan_reconnect_pause()` previously used unchecked `nvram_get_int("di_recon_pause")`. A transient NVRAM read or malformed-value failure became zero, bypassing the configured delay and immediately invoking `try_wan_reconnect()`, which can stop and restart the live WAN path.
+- The wrapper now uses the shared checked integer reader before logging/dispatching the reconnect. Backend and parse errors return before any WAN stop/start; a genuinely absent key keeps the legacy zero-second default. The existing GNU89/ASan/UBSan NVRAM policy regression already covers absent defaults, malformed values and backend failures; the deferred-watchdog source contract now pins the caller ordering and forbids the unchecked read.
+- Exact-head WAN route and XY-C1 Build/TRX/artifact checks are pending. Physical router reconnect timing remains L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on FTP enable-state read errors
 
 - Parent main SHA: `ae4ae4a57b2c34d6dccf2541161a51606170047c`.
