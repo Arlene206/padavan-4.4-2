@@ -160,6 +160,13 @@ firewall_lw_entry_count_is_safe(int count)
 	return count >= 0 && count <= 64;
 }
 
+/* The MAC filter WebUI exposes Disabled, whitelist and blacklist modes. */
+static int
+firewall_mac_filter_mode_is_safe(int mode)
+{
+	return mode >= 0 && mode <= 2;
+}
+
 /* The MAC filter page permits at most 64 stored client entries. */
 static int
 firewall_mac_filter_entry_count_is_safe(int count)

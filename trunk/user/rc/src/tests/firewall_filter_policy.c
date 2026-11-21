@@ -187,6 +187,13 @@ main(void)
 	assert(!strcmp(firewall_schedule_value_or_default(1, "", "1111111"), ""));
 	assert(!strcmp(firewall_schedule_value_or_default(1, "0101010", "1111111"), "0101010"));
 
+	/* The MAC filter UI exposes only disabled, allowlist and denylist modes. */
+	assert(firewall_mac_filter_mode_is_safe(0));
+	assert(firewall_mac_filter_mode_is_safe(1));
+	assert(firewall_mac_filter_mode_is_safe(2));
+	assert(!firewall_mac_filter_mode_is_safe(-1));
+	assert(!firewall_mac_filter_mode_is_safe(3));
+
 	/* MAC filter entries are bounded by the WebUI's 64-row limit. */
 	assert(firewall_mac_filter_entry_count_is_safe(0));
 	assert(firewall_mac_filter_entry_count_is_safe(64));

@@ -577,6 +577,11 @@ jobs:
               assert f'nvram_match("{key}", "1")' not in nat_dmz
           for key in ("trmd_pport", "trmd_rport", "aria_pport", "aria_rport"):
               assert f'nvram_get_int("{key}")' not in nat_dmz
+          mac_settings_reader = body(firewall_source, "firewall_read_mac_filter_settings(int *mode, int *drop_enabled)")
+          assert 'firewall_read_integer_setting("macfilter_enable_x", 0, mode)' in mac_settings_reader
+          assert "firewall_mac_filter_mode_is_safe(*mode)" in mac_settings_reader
+          assert "invalid MAC-filter mode" in mac_settings_reader
+          assert "firewall_abort_core_restore_after_staging_failure();" in mac_settings_reader
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               filter_builder = body(firewall_source, signature)
               mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"
@@ -584,6 +589,10 @@ jobs:
               assert mac_gate in filter_builder
               assert mac_count_gate in filter_builder
               assert filter_builder.index(mac_gate) < filter_builder.index(mac_count_gate) < filter_builder.index("firewall_open_rule_file(")
+          assert "firewall_mac_filter_mode_is_safe(0)" in filter_test
+          assert "firewall_mac_filter_mode_is_safe(2)" in filter_test
+          assert "firewall_mac_filter_mode_is_safe(-1)" in filter_test
+          assert "firewall_mac_filter_mode_is_safe(3)" in filter_test
           assert 'nvram_get_int("macfilter_enable_x")' not in firewall_source
           assert 'nvram_match("fw_mac_drop", "1")' not in firewall_source
           assert 'nvram_match("fw_dos_x", "1")' not in firewall_source

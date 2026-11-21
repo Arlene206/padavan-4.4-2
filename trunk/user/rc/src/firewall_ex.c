@@ -540,6 +540,14 @@ firewall_read_mac_filter_settings(int *mode, int *drop_enabled)
 	status = firewall_read_integer_setting("macfilter_enable_x", 0, mode);
 	if (status != 0)
 		return status;
+	if (!firewall_mac_filter_mode_is_safe(*mode)) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "invalid MAC-filter mode %d; refusing firewall ruleset publication",
+			   *mode);
+		errno = ERANGE;
+		return ERANGE;
+	}
 
 	*drop_enabled = 0;
 	if (*mode <= 0)
