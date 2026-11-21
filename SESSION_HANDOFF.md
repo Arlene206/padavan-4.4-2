@@ -8,13 +8,13 @@
 - PENDING Actions do not block independent work. Diagnose the earliest causal failure log.
 - Before context exhaustion, finish the current safe slice, publish atomically and leave the exact first next action here.
 
-## Mandatory end-of-session handoff checkpoint
+## Mandatory handoff checkpoint — end-of-session accuracy
 
 The checkpoint is mandatory; a document edit is conditional. Every session must inspect live `main`, verify the frozen backup SHA and inspect exact-SHA Actions at session end. Update this document only when baseline, evidence, blocker or first next action materially changes; do not create a no-op commit.
 
 ## Current repository state
 
-- Parent main SHA before this workflow-filter/documentation correction: `759eb1181483a74f8f4103ec7a5827fcac375dd4`.
+- Parent main SHA before this handoff heading correction: `9a1175e8c5332751b68b7861c1ea5b043a67547d`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain read-only.
 - `1b25077e6e5a9f8750d4b5c76637beec5ca354d1` SCUT watchdog #44884209161, AI handoff #44884209044 and Process inventory #44884209082 passed; XY-C1 #44884209133 completed Build, TRX verification and artifact upload on that same SHA (L3 pass for those inputs).
 - `f530b3a75684feae8490bb3e33044df8034e48b1` Crond #44884633405, Process inventory #44884633475, Process fail-closed #44884633485 and watchdog #44884633410 passed. Its XY-C1 #44884633378 was still building at last poll.
@@ -24,8 +24,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session must 
 
 ## Active task
 
-1. Inspect exact-SHA Watchdog and AI handoff runs for this path-filter/checkpoint correction; then inspect current exact-SHA Process/XY-C1 runs.
-2. Verify the corrected watchdog path filter now contains exactly one copy of each changed path in both push and pull_request sections; do not repeat the stale inline assertion or duplicate-path failures.
+1. Inspect exact-SHA AI handoff after this exact-heading correction; Watchdog #44885579764 already PASS on parent SHA `9a1175e`.
+2. Check exact-SHA XY-C1 gates and the older `8a55d24` Build/TRX/artifact run; do not infer firmware success from PENDING.
 3. If all relevant checks pass, continue mapping `kill_pidfile_s()` and `kill_pidfile()` consumers to exact PID-file producers before any shared-helper migration.
 
 ## Verification boundary
@@ -36,7 +36,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session must 
 
 ## Exact first action for the next GPT
 
-Fetch live `main`, confirm the frozen backup SHA, inspect exact-SHA Watchdog and AI handoff Actions for this correction and resolve first-cause failures. Then inspect XY-C1 Build/TRX/artifact status on this SHA before resuming PID-file consumer/producer mapping in `trunk/user/shared/src/shutils.c`.
+Fetch live `main`, confirm the frozen backup SHA, inspect exact-SHA AI handoff for this heading correction and verify the older `8a55d24` XY-C1 Build/TRX/artifact. Then continue focused stability work; the shared PID-file helper remains unactioned until its actual consumers and writers are found.
 
 ## Handoff maintenance
 

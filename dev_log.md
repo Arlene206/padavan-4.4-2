@@ -1,3 +1,11 @@
+## 2026-11-21 — Match the handoff checkpoint heading to the exact validator contract
+
+- Parent main SHA: `9a1175e8c5332751b68b7861c1ea5b043a67547d`.
+- The exact Watchdog workflow passed on parent SHA (`44885579764`). AI handoff `44885579772` still failed: the validator requires the literal heading text `Mandatory handoff checkpoint` plus the exact conditional-document-edit sentence. The prior heading inserted `end-of-session` between those words, so it did not satisfy the contract.
+- Changed the heading to `## Mandatory handoff checkpoint — end-of-session accuracy`; the required sentence remains present. This is a material correction to a failed exact-SHA contract, not a no-op documentation rewrite.
+- Exact-SHA AI handoff must be rechecked after publication; no production files changed.
+
+---
 ## 2026-11-21 — Fix duplicate watchdog workflow filters and restore mandatory handoff checkpoint wording
 
 - Parent main SHA: `759eb1181483a74f8f4103ec7a5827fcac375dd4`.
