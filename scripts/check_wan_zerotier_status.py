@@ -84,8 +84,20 @@ require(
     and "return status;" in wan_up[log:],
     "WAN-up must return the accumulated ZeroTier startup result",
 )
-mwan = wan_up.index('if (nvram_match("pppoemwan_enable", "1"))', log)
-require(log < mwan, "ZeroTier result must be processed before WAN-up returns")
+mwan_read = wan_up.index(
+    'pppoemwan_status = get_nvram_match_checked_status(',
+    log,
+)
+mwan_error = wan_up.index("if (pppoemwan_status != 0)", mwan_read)
+mwan_enabled = wan_up.index("else if (pppoemwan_enabled)", mwan_error)
+mwan_launch = wan_up.index('eval("/usr/bin/detect.sh")', mwan_enabled)
+require(
+    log < mwan_read < mwan_error < mwan_enabled < mwan_launch
+    and "status = route_status_accumulate(status, pppoemwan_status);" in wan_up[mwan_error:mwan_enabled]
+    and "cannot read PPPoE-MWAN enable setting during WAN-up" in wan_up[mwan_error:mwan_enabled]
+    and 'nvram_match("pppoemwan_enable", "1")' not in wan_up,
+    "ZeroTier status must precede checked PPPoE-MWAN read; PPPoE-MWAN errors must be accumulated before detect.sh",
+)
 
 start_wrapper = body(SERVICES, "int start_zerotier(void)")
 compact_start_wrapper = "".join(start_wrapper.split())

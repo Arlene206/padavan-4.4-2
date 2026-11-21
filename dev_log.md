@@ -1,3 +1,12 @@
+## 2026-11-21 — Align WAN firewall/ZeroTier contracts with checked WAN status
+
+- Parent main SHA: dd84e61cee454714642c3677e9223da732b3f2ec.
+- Exact-head ZeroTier #44924793056 and WAN route #44924793115 failed only in stale source-contract assertions: the ZeroTier checker still searched for the removed unchecked PPPoE-MWAN `nvram_match()` gate, and the firewall checker still searched for the removed raw `strlen(nvram_safe_get("wanx_dns"))` condition.
+- The current implementation correctly uses `get_nvram_match_checked_status()` to accumulate PPPoE-MWAN read failures before `detect.sh`, and uses a checked bounded MAN DNS snapshot plus `wan_teardown_should_clear_dns_snapshot()` to retain indexed WAN DNS on read error while continuing resolver refresh. Updated both contracts to assert read → error/status accumulation → conditional clear ordering and forbid the raw getter. Product source unchanged.
+- Exact-head ZeroTier/WAN route reruns pending. XY-C1 validation status must be read for the resulting source SHA before claiming L3; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Point WAN DNS teardown assertions at the correct regression file
 
 - Parent main SHA: 5ffef15005c54494712920ae2cf3983c648c6384.

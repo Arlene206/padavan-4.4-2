@@ -1022,20 +1022,31 @@ vpn_dns_block = wan_down[vpn_dns_at:vpn_dns_next]
 require("status = route_status_accumulate(status, route_status);" in vpn_dns_block and
         "failed to clear VPN resolver snapshot during WAN teardown" in vpn_dns_block,
         "WAN teardown must report a failed VPN resolver-marker clear without skipping later cleanup")
-wan_dns_guard = wan_down.index('strlen(nvram_safe_get("wanx_dns")) > 6)')
-wan_dns_clear = 'route_status = set_wan_unit_value_status(unit, "dns", "");'
-wan_dns_at = wan_down.index(wan_dns_clear, wan_dns_guard)
-wan_dns_refresh = wan_down.index('refresh_resolvconf_nonfatal("WAN down", 0);', wan_dns_at)
-wan_dns_if = wan_down.rindex("if (wan_proto", 0, wan_dns_guard + 1)
-wan_dns_block = wan_down[wan_dns_if:wan_dns_refresh]
-require("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC" in wan_dns_block and
-        "status = route_status_accumulate(status, route_status);" in wan_dns_block and
-        "failed to clear indexed WAN DNS snapshot" in wan_dns_block,
-        "conditional indexed WAN DNS clear must be checked and included in teardown status")
-require(wan_dns_at < wan_dns_refresh and
-        '\n\t}\n\n\t/* Resolver refresh failure must not block WAN teardown/cleanup. */\n\t'
-        'refresh_resolvconf_nonfatal("WAN down", 0);' in wan_down[wan_dns_at:],
-        "resolver refresh must still run after a failed DNS snapshot clear")
+wan_dns_compact = "".join(wan_down.split())
+wan_dns_read = wan_dns_compact.index(
+    'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"wanx_dns",wanx_dns,sizeof(wanx_dns))'
+)
+wan_dns_policy = wan_dns_compact.index(
+    "wan_teardown_should_clear_dns_snapshot("
+)
+wan_dns_error = wan_dns_compact.index("if(route_status!=0)", wan_dns_policy)
+wan_dns_clear_gate = wan_dns_compact.index("elseif(clear_wan_dns)", wan_dns_error)
+wan_dns_clear = wan_dns_compact.index(
+    'set_wan_unit_value_status(unit,"dns","");', wan_dns_clear_gate
+)
+wan_dns_refresh = wan_dns_compact.index(
+    'refresh_resolvconf_nonfatal("WANdown",0);', wan_dns_clear
+)
+require(
+    wan_dns_read < wan_dns_policy < wan_dns_error < wan_dns_clear_gate
+    < wan_dns_clear < wan_dns_refresh
+    and "status=route_status_accumulate(status,route_status);" in wan_dns_compact[wan_dns_error:wan_dns_clear_gate]
+    and "retainingindexedWANDNS" in wan_dns_compact[wan_dns_error:wan_dns_clear_gate]
+    and "failedtoclearindexedWANDNSsnapshot" in wan_dns_compact[wan_dns_clear_gate:wan_dns_refresh],
+    "checked MAN DNS read must gate indexed DNS removal, report read/clear failures, and still refresh resolvers",
+)
+require('nvram_safe_get("wanx_dns")' not in wan_down,
+        "WAN-down DNS decision must not use an unchecked global NVRAM read")
 require('nvram_set_temp("vpnc_dns_t", "")' not in wan_down and
         'set_wan_unit_value(unit, "dns", "")' not in wan_down,
         "unchecked VPN/WAN resolver snapshot clears remain")
