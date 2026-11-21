@@ -1,0 +1,46 @@
+name: SCUT watchdog PID safety regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/scutclient-watchcat-safety.yml"
+      - "trunk/user/scutclient/scripts/scutclient_watchcat.sh"
+      - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/scutclient-watchcat-safety.yml"
+      - "trunk/user/scutclient/scripts/scutclient_watchcat.sh"
+      - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  scutclient-watchcat-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          sh -n trunk/user/scutclient/scripts/scutclient_watchcat.sh
+          sh -n trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh
+      - name: Exercise watchdog PID identity and stale PID safety
+        run: sh trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh
+      - name: Verify fail-closed source contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/scutclient/scripts/scutclient_watchcat.sh").read_text()
+          assert 'pidfile="${SCUTCLIENT_WATCHCAT_PIDFILE:-/var/scutclient_watchcat.pid}"' in source
+          assert 'proc_root="${SCUTCLIENT_WATCHCAT_PROC_ROOT:-/proc}"' in source
+          assert 'watchcat_pid_status "$previous_pid"' in source
+          assert 'process_cmdline=$(tr' in source
+          assert 'script_path="/usr/bin/scutclient_watchcat.sh"' in source
+          assert 'if (set -C; printf' in source
+          assert 'kill -9' not in source
+          assert 'kill "$previous_pid"' not in source
+          assert '[ "$current_pid" = "$$" ] && rm -f "$pidfile"' in source
+          print("SCUT watchdog refuses stale/reused PID signals and unknown process identity: PASS")
+          PY

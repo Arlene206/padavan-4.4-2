@@ -1,3 +1,14 @@
+## 2026-11-21 — Stop SCUT watchdog from killing recycled unrelated PIDs
+
+- Parent main SHA: `5869188f5f174746cc2dea43c2938be55378c87c`.
+- Fixed a concrete stale-PID safety defect in `scutclient_watchcat.sh`: every cron invocation previously sent SIGKILL to whatever process currently owned the numeric PID in `/var/scutclient_watchcat.pid`. After a watchdog exit/crash and PID reuse, this could terminate an unrelated system process.
+- The watchdog now identifies an existing owner by its `/proc/<pid>/cmdline` before treating the PID file as an active instance; it never signals the recorded PID. A verified watchdog already running makes the new invocation exit without duplicating the health check. Missing/reused/malformed PIDs can be reclaimed; unreadable procfs identity and symlink/non-regular PID files fail closed. Cleanup removes the PID file only if it still contains this process's PID.
+- Added a host regression for active-instance preservation, a recycled PID owned by another program, malformed PID data, UNKNOWN process identity, symlink rejection and concurrent PID-file replacement. Added a dedicated Actions workflow and included the installed script in XY-C1 firmware path filters.
+- Local hardware/runtime validation was not available; the new workflow and XY-C1 cross-build are the verification targets.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Bound rpcbind daemon readiness after asynchronous launch
 
 - Parent main SHA: `4806c8fd5e387e93fcbe832679efcb0f1a97b095`.
