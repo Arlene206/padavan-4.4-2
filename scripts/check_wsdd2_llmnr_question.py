@@ -7,6 +7,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/wsdd2/src/llmnr.c").read_text()
 POLICY = (ROOT / "trunk/user/wsdd2/src/llmnr_question_policy.h").read_text()
+TEST = (ROOT / "trunk/user/wsdd2/src/tests/llmnr_question_policy_test.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wsdd2-llmnr-question-regression.yml").read_text()
 XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
@@ -36,6 +37,7 @@ for token in (
     "wire_len >= 255",
     "(size_t)(end - cursor) < 4",
     "separator_len + label_len >= name_capacity - name_len",
+    "memset(packet, 0, 12 + labels_len + 4)" in TEST,
 ):
     assert token in policy, token
 

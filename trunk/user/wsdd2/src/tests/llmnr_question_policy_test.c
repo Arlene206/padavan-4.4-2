@@ -11,7 +11,7 @@ make_question(uint8_t *packet, const uint8_t *labels, size_t labels_len,
 {
 	size_t len = 12;
 
-	memset(packet, 0, 300);
+	memset(packet, 0, 12 + labels_len + 4);
 	memcpy(packet + len, labels, labels_len);
 	len += labels_len;
 	packet[len++] = (uint8_t)(qtype >> 8);
