@@ -13,7 +13,7 @@ XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_te
 
 
 def compact(text):
-    return re.sub(r"\\s+", " ", text).strip()
+    return re.sub(r"\s+", " ", text).strip()
 
 
 assert '#include "llmnr_question_policy.h"' in SOURCE
@@ -37,9 +37,9 @@ for token in (
     "wire_len >= 255",
     "(size_t)(end - cursor) < 4",
     "separator_len + label_len >= name_capacity - name_len",
-    "memset(packet, 0, 12 + labels_len + 4)" in TEST,
 ):
     assert token in policy, token
+assert "memset(packet, 0, 12 + labels_len + 4)" in TEST
 
 for path in (
     "trunk/user/wsdd2/src/llmnr.c",
