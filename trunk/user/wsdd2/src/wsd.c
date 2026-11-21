@@ -53,6 +53,7 @@
 #include "wsd.h"
 #include "wsd_xml_text_policy.h"
 #include "wsd_http_header_policy.h"
+#include "wsd_stream_send_policy.h"
 #include <nvram_linux.h>
 
 #define UUIDLEN	37
@@ -420,7 +421,7 @@ static int wsd_send_msg(int fd, struct endpoint *ep, const _saddr_t *sa,
 			const char *msg, size_t msglen, unsigned int rwait)
 {
 	char ip[_ADDRSTRLEN];
-	int ret;
+	ssize_t ret;
 
 	inet_ntop(sa->ss.ss_family, _SIN_ADDR(sa), ip, sizeof ip);
 	DEBUG(3, W, "TO: %s:%u (fd=%d)\n%s\n", ip, _SIN_PORT(sa), fd, msg);
@@ -431,15 +432,15 @@ static int wsd_send_msg(int fd, struct endpoint *ep, const _saddr_t *sa,
 	}
 
 	if (ep->type == SOCK_STREAM)
-		ret = send(fd, msg, msglen, MSG_NOSIGNAL);
-	else
-		ret = sendto(fd, msg, msglen, MSG_NOSIGNAL,
-				(struct sockaddr *)sa,
-				(ep->family == AF_INET)
-					? sizeof sa->in
-					: sizeof sa->in6);
+		return wsd_stream_send_all(fd, msg, msglen, send) != 0;
 
-	return !(ret == msglen);
+	ret = sendto(fd, msg, msglen, MSG_NOSIGNAL,
+			(struct sockaddr *)sa,
+			(ep->family == AF_INET)
+				? sizeof sa->in
+				: sizeof sa->in6);
+
+	return ret != (ssize_t)msglen;
 }
 
 /*

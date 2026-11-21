@@ -1,3 +1,13 @@
+## 2026-11-21 — Complete WSD TCP response writes
+
+- Parent main SHA: `a293665472f8f5cef0ce80a928730b6c9ab66980`.
+- `wsd_send_msg()` used one `send()` call for TCP responses and treated a positive short write as fatal, dropping the unsent suffix. It also failed immediately on `EINTR`.
+- Added `wsd_stream_send_all()` to advance over partial writes, retry `EINTR`, reject zero progress as `EPIPE` and impossible over-count as `EIO`; the UDP/datagram `sendto()` path is unchanged.
+- Added GNU89 `-Werror` ASan/UBSan tests for short writes, EINTR, errors after a sent prefix, zero progress, impossible byte counts and invalid arguments, plus source-contract coverage and an exact-path workflow. The XY-C1 workflow already covers `trunk/user/wsdd2/**`.
+- Local isolated C regression PASS. No complete repository checkout or MIPS cross-build was available locally; this checkpoint's exact-head source workflow and XY-C1 Build/TRX/artifact gates remain to be checked. Hardware L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Escape configured metadata in wsdd2 WSD GetResponse XML
 
 - Parent main: `202266c59eafb6c1afff9205ef793f5818ce5ea6`; source commit: `edc9d59456fe40d5c991b3a07507515ddf2c5eaf`.
