@@ -244,7 +244,9 @@ assert "process_state = is_dms_run();" in minidlna_post_launch
 normalized_minidlna_post_launch = " ".join(minidlna_post_launch.split())
 minidlna_logger = "storage_log_daemon_start_result( apps_name, launch_status,"
 assert minidlna_logger in normalized_minidlna_post_launch
-assert "(enum process_presence)process_state);" in normalized_minidlna_post_launch
+assert "(enum process_presence)process_state, process_error);" in normalized_minidlna_post_launch
+assert 'storage_wait_for_daemon("minidlna")' in normalized_minidlna_post_launch
+assert "process_error == ETIMEDOUT" in normalized_minidlna_post_launch
 assert normalized_minidlna_post_launch.index("process_state = is_dms_run();") < normalized_minidlna_post_launch.index(minidlna_logger)
 assert dms_start.index("if (config_status != 0)") < dms_start.index("_eval(minidlna_argv, NULL, 0, NULL);")
 assert "mkstemp(temporary_path)" in minidlna_config_header
@@ -258,6 +260,12 @@ assert "0600" in minidlna_config_test
 assert "trunk/user/rc/src/minidlna_config_file.h" in process_workflow
 assert "trunk/user/rc/src/tests/minidlna_config_file.c" in process_workflow
 assert "trunk/user/rc/src/minidlna_config_file.h" in xy_workflow
+firefly_start = storage_services.split("int run_itunes(void)", 1)[1].split("void restart_itunes(void)", 1)[0]
+normalized_firefly_start = " ".join(firefly_start.split())
+assert 'storage_wait_for_daemon("mt-daapd")' in normalized_firefly_start
+assert "process_error == ETIMEDOUT" in normalized_firefly_start
+assert "storage_log_daemon_start_result( apps_name, launch_status," in normalized_firefly_start
+assert "(enum process_presence)process_state, process_error);" in normalized_firefly_start
 print("MiniDLNA configuration publication and fail-closed startup contracts: PASS")
 
 mount_link = c_function_body(storage_services, "int create_mp_link(")

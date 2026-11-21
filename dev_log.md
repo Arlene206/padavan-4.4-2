@@ -1,3 +1,12 @@
+## 2026-11-21 — Align MiniDLNA/Firefly lifecycle checker with explicit process-error reporting
+
+- Parent main SHA: `646615093f93ca01ea5cbef7dac6b4937a9a5cfa`.
+- Exact-SHA results on `646615093f93ca01ea5cbef7dac6b4937a9a5cfa`: Storage hotplug #44880983834 PASS (including the bounded daemon policy compile/test and BusyBox ash regressions); XY-C1 Firmware Validation #44880983910 PASS; vsftpd stability #44880983843 PASS; AI handoff #44880983833 PASS. Process lifecycle #44880983839 failed only in its source-contract assertion, after prior integration checks had passed.
+- Root cause: the MiniDLNA checker still required the old three-argument `storage_log_daemon_start_result(..., process_state)` call. The implementation deliberately added `process_error` as a fourth argument so the scan failure survives intervening logging. Updated the assertion and made the MiniDLNA/Firefly bounded wait and timeout-state contracts explicit.
+- This is checker alignment only; the XY-C1 cross-build is verified by its exact-SHA Action, but no physical-router test is claimed.
+
+---
+
 ## 2026-11-21 — Complete shared daemon-wait CI migration and dependency filters
 
 - Parent main SHA: `1f0ad9ebc63406564ba78bc74e36e2eee6b542a7`.
