@@ -910,6 +910,58 @@ test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation(void)
 
 
 static void
+test_legacy_mac_override_preserves_mac_conv_formatting(void)
+{
+	char formatted[18];
+
+	assert(rc_wan_nvram_format_mac_override(
+		"001122aAbBcC", formatted, sizeof(formatted)) == 0);
+	assert(strcmp(formatted, "00:11:22:aA:bB:cC") == 0);
+
+	/* The legacy converter accepts any twelve characters, not only hex. */
+	assert(rc_wan_nvram_format_mac_override(
+		"zz1122334455", formatted, sizeof(formatted)) == 0);
+	assert(strcmp(formatted, "zz:11:22:33:44:55") == 0);
+}
+
+static void
+test_legacy_mac_override_zero_and_broadcast_values_use_fallback(void)
+{
+	char formatted[18] = "stale";
+
+	assert(rc_wan_nvram_format_mac_override(
+		"000000000000", formatted, sizeof(formatted)) == 0);
+	assert(formatted[0] == '\0');
+	assert(rc_wan_nvram_format_mac_override(
+		"ffffffffffff", formatted, sizeof(formatted)) == 0);
+	assert(formatted[0] == '\0');
+	assert(rc_wan_nvram_format_mac_override(
+		"FFFFFFFFFFFF", formatted, sizeof(formatted)) == 0);
+	assert(formatted[0] == '\0');
+	assert(rc_wan_nvram_format_mac_override(
+		"00112233445", formatted, sizeof(formatted)) == 0);
+	assert(formatted[0] == '\0');
+	assert(rc_wan_nvram_format_mac_override(
+		NULL, formatted, sizeof(formatted)) == 0);
+	assert(formatted[0] == '\0');
+}
+
+static void
+test_legacy_mac_override_rejects_invalid_destination(void)
+{
+	char formatted[17] = "stale";
+
+	assert(rc_wan_nvram_format_mac_override(
+		"001122334455", formatted, sizeof(formatted)) == ENAMETOOLONG);
+	assert(formatted[0] == '\0');
+	assert(rc_wan_nvram_format_mac_override(
+		"001122334455", NULL, 18) == EINVAL);
+	assert(rc_wan_nvram_format_mac_override(
+		"001122334455", formatted, 0) == EINVAL);
+}
+
+
+static void
 test_checked_nvram_copy_treats_missing_key_as_empty(void)
 {
 	struct fake_nvram_reader fake;
@@ -1522,6 +1574,10 @@ main(void)
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
+	test_legacy_mac_override_preserves_mac_conv_formatting();
+	test_legacy_mac_override_zero_and_broadcast_values_use_fallback();
+	test_legacy_mac_override_rejects_invalid_destination();
+
 	test_checked_nvram_copy_treats_missing_key_as_empty();
 	test_checked_nvram_copy_preserves_backend_failure();
 	test_checked_nvram_copy_rejects_truncation();

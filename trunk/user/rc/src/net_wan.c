@@ -904,6 +904,50 @@ get_wan_unit_proto_checked_status(int unit, int *wan_proto)
 
 
 static int
+wan_hardware_address_copy_status(char *hardware_address,
+				 size_t hardware_address_size)
+{
+	char *custom_mac = NULL;
+	char formatted_mac[18];
+	char factory_mac[64];
+	int api_result, saved_errno, status;
+
+	if (!hardware_address || hardware_address_size == 0)
+		return EINVAL;
+	hardware_address[0] = '\0';
+
+	errno = 0;
+	api_result = wan_nvram_checked_get_callback(
+		NULL, "wan_hwaddr_x", &custom_mac);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (api_result == 1) {
+		if (!custom_mac)
+			return EIO;
+		status = rc_wan_nvram_format_mac_override(
+			custom_mac, formatted_mac, sizeof(formatted_mac));
+		if (status != 0)
+			return status;
+		if (formatted_mac[0] != '\0')
+			return rc_wan_nvram_copy_text(
+				formatted_mac, hardware_address,
+				hardware_address_size);
+	}
+
+	/* Missing/invalid/zero/broadcast override retains il1macaddr fallback. */
+	status = rc_wan_nvram_copy_value(
+		wan_nvram_checked_get_callback, NULL, "il1macaddr",
+		factory_mac, sizeof(factory_mac));
+	if (status != 0)
+		return status;
+	return rc_wan_nvram_copy_text(
+		factory_mac, hardware_address, hardware_address_size);
+}
+
+
+static int
 wan_manual_endpoint_snapshot(char *wan_addr, size_t wan_addr_size,
 			     char *wan_mask, size_t wan_mask_size,
 			     char *wan_gateway, size_t wan_gateway_size,
@@ -1156,10 +1200,13 @@ reset_wan_vars_status(void)
 		}
 	}
 
-	mac_buf[0] = 0;
-	mac_conv("wan_hwaddr_x", -1, mac_buf);
-	wan_hwaddr = (strlen(mac_buf) == 17) ?
-		mac_buf : nvram_safe_get("il1macaddr");
+	proto_status = wan_hardware_address_copy_status(
+		mac_buf, sizeof(mac_buf));
+	if (proto_status != 0) {
+		reset_failure_context = "WAN hardware address configuration";
+		goto reset_failed;
+	}
+	wan_hwaddr = mac_buf;
 	proto_status = set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr);
 	if (proto_status == 0)
 		proto_status = set_wan_unit_value_status(unit, "hwaddr", wan_hwaddr);

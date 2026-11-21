@@ -780,6 +780,29 @@ require(checked_proto_read in wan_reset_code and
         "wan_proto = get_wan_proto(unit);" not in wan_reset_code,
         "WAN reset must abort on protocol-read errors before branching on protocol")
 
+# WAN interface identity must not collapse custom/factory NVRAM read failures.
+wan_mac_reader = body(
+    wan,
+    "wan_hardware_address_copy_status(char *hardware_address,"
+)
+wan_mac_reader_code = " ".join(wan_mac_reader.split())
+custom_mac_read = 'wan_nvram_checked_get_callback( NULL, "wan_hwaddr_x", &custom_mac)'
+fallback_mac_read = 'rc_wan_nvram_copy_value( wan_nvram_checked_get_callback, NULL, "il1macaddr", factory_mac, sizeof(factory_mac))'
+require(custom_mac_read in wan_mac_reader_code and
+        'rc_wan_nvram_format_mac_override( custom_mac, formatted_mac, sizeof(formatted_mac))' in wan_mac_reader_code and
+        fallback_mac_read in wan_mac_reader_code and
+        wan_mac_reader_code.index(custom_mac_read) <
+        wan_mac_reader_code.index(fallback_mac_read) and
+        "if (formatted_mac[0] != '\\0')" in wan_mac_reader_code,
+        "WAN custom MAC must be checked and retain legacy factory fallback")
+require('wan_hardware_address_copy_status( mac_buf, sizeof(mac_buf))' in wan_reset_code and
+        'reset_failure_context = "WAN hardware address configuration";' in wan_reset_code and
+        wan_reset_code.index("wan_hardware_address_copy_status(") <
+        wan_reset_code.index('set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr)') and
+        'mac_conv("wan_hwaddr_x"' not in wan_reset_code and
+        'nvram_safe_get("il1macaddr")' not in wan_reset_code,
+        "WAN reset must check MAC source reads before persistent/runtime identity publication")
+
 # Manual WAN underlay selectors and endpoint values are required startup inputs.
 manual_snapshot = body(
     wan,

@@ -1,3 +1,14 @@
+## 2026-11-21 — Check WAN custom and factory hardware-MAC reads
+
+- Parent main SHA: `ff3ad9d49680d7097a265d1a66dd8b7e14efddee`.
+- After the checked protocol change, WAN reset still called `mac_conv("wan_hwaddr_x")` and fallback `nvram_safe_get("il1macaddr")`. Both helpers collapse backend/close errors into empty strings, allowing reset to overwrite persistent and runtime WAN identity with an empty value.
+- THIS COMMIT checks `wan_hwaddr_x` using the checked NVRAM reader, formats it into stable local storage before any next read can overwrite the NVRAM cache, and only reads `il1macaddr` as a fallback when the custom value is missing, malformed-length, all-zero or all-FF. Both reads propagate backend and truncation errors before identity publication.
+- Added `rc_wan_nvram_format_mac_override()` with exact compatibility: 12 characters become colon-delimited; all-zero and case-insensitive all-FF return empty for fallback; historical non-hex 12-character values remain accepted. Three C host tests cover normal/non-hex formatting, zero/broadcast/invalid-length fallback, and destination bounds.
+- Extended the WAN source contract to pin custom/fallback status checks and order them before persistent and per-unit identity publication. Exact-head WAN/XY-C1 checks pending.
+- Next: audit shared `get_wan_proto()` callers in WAN/PPP consumers for unsafe `-1` fallthrough.
+
+---
+
 ## 2026-11-21 — Align firewall reset contract with checked WAN protocol reader
 
 - Parent main SHA: `b2d084d7ffb7d756b60e159a38b93f6f31d4f1b0`.

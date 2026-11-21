@@ -180,6 +180,43 @@ rc_wan_nvram_copy_text(const char *source, char *destination,
 
 
 /*
+ * Reproduce mac_conv() formatting and fallback markers for a 12-character
+ * custom WAN MAC. Historical behavior does not validate hexadecimal digits;
+ * keep that compatibility while avoiding a lossy NVRAM read at the call site.
+ */
+static inline int
+rc_wan_nvram_format_mac_override(const char *source, char *destination,
+				 size_t destination_size)
+{
+	size_t i, output_index;
+	int all_zero = 1, all_ff = 1;
+
+	if (!destination || destination_size == 0)
+		return EINVAL;
+	destination[0] = '\0';
+	if (!source || strlen(source) != 12)
+		return 0;
+	if (destination_size < 18)
+		return ENAMETOOLONG;
+
+	for (i = 0, output_index = 0; i < 12; ++i) {
+		if (i != 0 && (i % 2) == 0)
+			destination[output_index++] = ':';
+		destination[output_index++] = source[i];
+		if (source[i] != '0')
+			all_zero = 0;
+		if (toupper((unsigned char)source[i]) != 'F')
+			all_ff = 0;
+	}
+	destination[output_index] = '\0';
+	if (all_zero || all_ff)
+		destination[0] = '\0';
+
+	return 0;
+}
+
+
+/*
  * Copy one checked value before the next cache-backed NVRAM read. A missing
  * key is an empty setting; a backend failure or truncation is never hidden.
  * Callers that need a coherent tuple must hold a transaction around the reads.
