@@ -1,3 +1,13 @@
+## 2026-11-21 — Check Transmission/Aria2 DMZ exception selectors
+
+- Parent main SHA: `f35638a262b7d0ce797aa41576161713933fb687`.
+- When the IPv4 DMZ catch-all is active, unchecked `trmd_enable` / `aria_enable` failures could suppress the local-router RETURN exception and allow the DMZ host DNAT to receive packets destined for a router daemon. Unchecked primary/remote port reads could also use fallback values inconsistent with the actual listener.
+- Moved DMZ target detection before NAT rule-file opening. If a valid DMZ target and daemon binary exist, exact service enable / remote-open flags and primary / remote ports are checked via the shared helpers; the old default port-range fallback is retained. The rule body uses cached values only. Backend/parser/close failures now abort before a DMZ catch-all can publish an incomplete exclusion set.
+- Extended the Firewall Startup source checker to require all eight checked settings before rule-file creation and reject their unchecked legacy accessors. No local tests claimed.
+- Parent `f356...` Firewall Startup #44949762834, Process inventory #44949762882, WAN route #44949762889, HTTPD #44949762946, FULLCONENAT #44949762933 and WAN DHCP #44949762871 PASS; AI docs #44949762939, NVRAM #44949762990 and XY-C1 #44949762845 were pending. Current exact-head checks pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Restore SSH/FTP enabled gates in NAT listener preflight
 
 - Parent main SHA: `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79`.

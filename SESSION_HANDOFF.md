@@ -25,19 +25,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The remote-DNAT listener-port preflight in `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79` accidentally replaced the earlier checked SSH/FTP enable reads instead of preserving them. The workflow caught this: exact-head Firewall Startup #44949619993 failed its source contract because `ipt_nat_rules()` no longer called `firewall_read_not_zero_setting()` for `sshd_enable` and `enable_ftp`. The variables remained initialized to enabled, so open-WAN flags could emit DNAT despite those services being disabled.
-- This follow-up restores both checked not-zero enable reads at the start of the NAT listener preflight, before port reads and before `firewall_open_rule_file()`. Existing service feature guards and missing-key legacy defaults are retained. This is a production behavior correction, not merely weakening the test.
-- The listener-port checks remain intact: HTTP protocol and active HTTP/HTTPS/SSH/FTP/UDPXY ports are read with strict checked integer helpers before staging; backend/parse/close errors abort instead of generating default WAN DNAT ports.
+- The NAT DMZ exception block still used unchecked `nvram_match()` / `nvram_get_int()` for Transmission and Aria2 service state and ports. With DMZ enabled, a transient enable-flag read failure could omit the RETURN exception, letting the blanket DMZ DNAT send the router-daemon port to the exposed host; a port-read failure could also silently replace the router's configured listener with a built-in fallback.
+- This slice moves DMZ IPv4/enable/remote-open/port selection before `firewall_open_rule_file()`. When a safe DMZ target exists and the optional daemon binary is present, it checks exact service-enable and remote-open flags, plus the corresponding primary/remote ports. Invalid/missing ports preserve the established Transmission/Aria defaults and valid range; backend/parser/close failures abort NAT generation before the DMZ catch-all is published.
+- The DMZ block now reuses the cached checked values, so it no longer performs unchecked service-state/port reads. Workflow source contracts require all eight checked settings before the rule file is opened and reject the former getters.
 ## Verification boundary
 
-- IPv4 NAT/IPv6 firewall source `70c0d4c097d68177d698bc88031f829d2a6ecd9a`: Firewall Startup #44949461661 and AI docs #44949461610 PASS; XY-C1 #44949461605 and NVRAM #44949461623 were still running at the last check.
-- Remote-DNAT listener preflight commit `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79`: AI docs #44949620120 PASS; Firewall Startup #44949619993 FAIL due missing rechecked SSH/FTP enabled flags; NVRAM #44949620067 and XY-C1 #44949620017 were in progress. Failure logs pinpointed the source-contract assertion; the current commit restores the missing reads.
-- Current follow-up requires a fresh exact-head Firewall Startup/AI/NVRAM/Process check and XY-C1 Build/TRX/artifact. No L3/hardware L4 claim.
+- IPv4 NAT listener/IPv6 VPN source `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79`: Firewall Startup #44949619993 FAIL due the listener preflight dropping checked SSH/FTP enable reads; AI docs #44949620120 PASS; NVRAM #44949620067 and XY-C1 #44949620017 in progress.
+- The exact-head failure was corrected in `f35638a262b7d0ce797aa41576161713933fb687`: Firewall Startup #44949762834, Process inventory #44949762882, WAN route #44949762889, HTTPD #44949762946, FULLCONENAT #44949762933 and WAN DHCP #44949762871 all PASS; AI docs #44949762939, NVRAM #44949762990 and XY-C1 #44949762845 were in progress at last poll.
+- Current DMZ optional-service preflight requires fresh exact-head Firewall Startup/AI/NVRAM and XY-C1 Build/TRX/artifact checks. No L3/hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup and AI docs for the restored SSH/FTP preflight; require its C policy tests and all IPv4 NAT / IPv6 contracts to pass. Confirm the new `sshd_enable` / `enable_ftp` gate assertions now match source.
-2. Track XY-C1 build, TRX and artifact upload on a single exact source SHA; re-query the parent build only as parent evidence. Check NVRAM and Process exact-head results.
-3. Continue auditing DMZ bypass exception rules for Transmission/Aria service-enable and port reads; backend failure must not omit router-service exclusions from DMZ forwarding.
+1. Query exact-head Firewall Startup and documentation contract for the DMZ Transmission/Aria2 preflight. Check C helper regression and verify all DMZ gates are before file-open; inspect any failed log.
+2. Track same-SHA XY-C1 Build, TRX verification and artifact upload. Re-query the preceding `f35638a...` build only as parent evidence; do not reuse it for this commit.
+3. Continue checking IPv6 remote-open listener handling and the port-forward helper's value validation; keep malformed NVRAM from weakening DMZ or WAN exposure.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

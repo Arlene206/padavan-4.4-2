@@ -2647,6 +2647,8 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	FILE *fp;
 	char *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
+	char dmz_ip[16] = {0};
+	int is_use_dmz = 0;
 	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled = 0;
 	int i_vpns_enable, i_vpnc_enable, i_vpns_type, i_vpnc_type, i_vpnc_sfw, i_http_proto;
 	int i_misc_httpport = 0, i_http_lanport = 0;
@@ -2659,6 +2661,14 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 #if defined (APP_FTPD)
 	int i_ftpd_wport = 0;
+#endif
+#if defined (APP_TRMD)
+	int is_trmd_supported = 0, is_trmd_enabled = 0, is_trmd_ropen = 0;
+	int i_trmd_pport = 0, i_trmd_rport = 0;
+#endif
+#if defined (APP_ARIA)
+	int is_aria_supported = 0, is_aria_enabled = 0, is_aria_ropen = 0;
+	int i_aria_pport = 0, i_aria_rport = 0;
 #endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
 #if defined (APP_SSHD)
@@ -2827,6 +2837,63 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	if (!firewall_ipv4_address_is_safe(man_ip))
 		man_ip = NULL;
 
+	if (is_nat_enabled) {
+		snprintf(dmz_ip, sizeof(dmz_ip), "%s", nvram_safe_get("dmz_ip"));
+		is_use_dmz = firewall_ipv4_address_is_safe(dmz_ip) ? 1 : 0;
+	}
+	if (is_use_dmz) {
+#if defined (APP_TRMD)
+		is_trmd_supported = is_torrent_support();
+		if (is_trmd_supported) {
+			firewall_status = firewall_read_enabled_setting("trmd_enable", &is_trmd_enabled);
+			if (firewall_status != 0)
+				return firewall_status;
+			if (is_trmd_enabled) {
+				firewall_status = firewall_read_integer_setting("trmd_pport", 0, &i_trmd_pport);
+				if (firewall_status != 0)
+					return firewall_status;
+				if (i_trmd_pport < 1024 || i_trmd_pport > 65535)
+					i_trmd_pport = TRANSMISSION_PPORT;
+				firewall_status = firewall_read_enabled_setting("trmd_ropen", &is_trmd_ropen);
+				if (firewall_status != 0)
+					return firewall_status;
+				if (is_trmd_ropen) {
+					firewall_status = firewall_read_integer_setting("trmd_rport", 0, &i_trmd_rport);
+					if (firewall_status != 0)
+						return firewall_status;
+					if (i_trmd_rport < 1024 || i_trmd_rport > 65535)
+						i_trmd_rport = TRANSMISSION_RPORT;
+				}
+			}
+		}
+#endif
+#if defined (APP_ARIA)
+		is_aria_supported = is_aria_support();
+		if (is_aria_supported) {
+			firewall_status = firewall_read_enabled_setting("aria_enable", &is_aria_enabled);
+			if (firewall_status != 0)
+				return firewall_status;
+			if (is_aria_enabled) {
+				firewall_status = firewall_read_integer_setting("aria_pport", 0, &i_aria_pport);
+				if (firewall_status != 0)
+					return firewall_status;
+				if (i_aria_pport < 1024 || i_aria_pport > 65535)
+					i_aria_pport = ARIA_PPORT;
+				firewall_status = firewall_read_enabled_setting("aria_ropen", &is_aria_ropen);
+				if (firewall_status != 0)
+					return firewall_status;
+				if (is_aria_ropen) {
+					firewall_status = firewall_read_integer_setting("aria_rport", 0, &i_aria_rport);
+					if (firewall_status != 0)
+						return firewall_status;
+					if (i_aria_rport < 1024 || i_aria_rport > 65535)
+						i_aria_rport = ARIA_RPORT;
+				}
+			}
+		}
+#endif
+	}
+
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 NAT")))
 		return 0;
 
@@ -2854,11 +2921,6 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		fprintf(fp, "-A PREROUTING -i %s ! -d %s -j %s\n", vpnc_if, lan_net, dtype);
 
 	if (is_nat_enabled) {
-		char dmz_ip[16];
-		int is_use_dmz;
-		
-		snprintf(dmz_ip, sizeof(dmz_ip), "%s", nvram_safe_get("dmz_ip"));
-		is_use_dmz = (firewall_ipv4_address_is_safe(dmz_ip)) ? 1 : 0;
 		/* redirect all LAN clients' DNS queries (PREROUTING) */
 		if (wan_ip && nvram_match("redirect_all_dns", "1")) {
 			fprintf(fp, "-I %s -i %s -p tcp --dport 53 -j DNAT --to %s\n", "PREROUTING", lan_if, lan_ip);
@@ -3095,14 +3157,14 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 #if defined (APP_TRMD)
 			/* skip DMZ for local Transmission */
-			if (nvram_match("trmd_enable", "1") && is_torrent_support()) {
-				wport = nvram_get_int("trmd_pport");
+			if (is_trmd_enabled && is_trmd_supported) {
+				wport = i_trmd_pport;
 				if (wport < 1024 || wport > 65535) wport = TRANSMISSION_PPORT;
 				fprintf(fp, "-A %s -p %s --dport %d -j RETURN\n", dtype, "tcp", wport);
 				fprintf(fp, "-A %s -p %s --dport %d -j RETURN\n", dtype, "udp", wport);
 				
-				if (nvram_match("trmd_ropen", "1")) {
-					wport = nvram_get_int("trmd_rport");
+				if (is_trmd_ropen) {
+					wport = i_trmd_rport;
 					if (wport < 1024 || wport > 65535) wport = TRANSMISSION_RPORT;
 					fprintf(fp, "-A %s -p %s --dport %d -j RETURN\n", dtype, "tcp", wport);
 				}
@@ -3110,14 +3172,14 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 #if defined (APP_ARIA)
 			/* skip DMZ for local Aria2 */
-			if (nvram_match("aria_enable", "1") && is_aria_support()) {
-				wport = nvram_get_int("aria_pport");
+			if (is_aria_enabled && is_aria_supported) {
+				wport = i_aria_pport;
 				if (wport < 1024 || wport > 65535) wport = ARIA_PPORT;
 				fprintf(fp, "-A %s -p %s --dport %d -j RETURN\n", dtype, "tcp", wport);
 				fprintf(fp, "-A %s -p %s --dport %d -j RETURN\n", dtype, "udp", wport);
 				
-				if (nvram_match("aria_ropen", "1")) {
-					wport = nvram_get_int("aria_rport");
+				if (is_aria_ropen) {
+					wport = i_aria_rport;
 					if (wport < 1024 || wport > 65535) wport = ARIA_RPORT;
 					fprintf(fp, "-A %s -p %s --dport %d -j RETURN\n", dtype, "tcp", wport);
 				}
