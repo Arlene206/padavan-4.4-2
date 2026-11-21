@@ -1,3 +1,14 @@
+## 2026-11-21 — Snapshot OpenVPN server network topology before side effects
+
+- Parent main SHA: cb06dfd4d1135414c231726f19ab635a91f3af85.
+- The previous mode-only transaction left a race: LAN address/netmask, TUN virtual network or TAP client range were fetched later through compatibility getters while server.conf was being written. Failures silently became 0.0.0.0/empty strings/default pool values, and config/interface behavior could combine different NVRAM generations.
+- Replaced the mode-only reader with one transaction covering mode, LAN IPv4/netmask and the mode-specific TUN virtual network or TAP client offsets. Required IPv4 text is strictly parsed; LAN netmask and host address are validated; TUN networks must be private and non-overlapping with LAN; TAP offsets use the previous defaults and numeric bounds. Transaction-end errors abort the snapshot.
+- start_openvpn_server() now resolves the complete topology before creating directories or config; config generation and TUN/TAP interface setup consume the same snapshot. Removed compatibility reads of the mode, LAN, virtual network and TAP offsets from the server config writer. Existing CCD ACL snapshot stays independent and unchanged.
+- Added source contracts requiring the complete read/validation transaction before filesystem/config/interface side effects and prohibiting topology rereads. Existing policy tests cover strict LAN validation, private TUN networks and overlap; mode boundaries remain covered.
+- Prior dfd2 VPN lifecycle #44935459202 failed only because its regression wrongly expected leading-zero decimal `01` to be rejected. cb06dfd corrects that test; exact rerun and same-head product verification pending. dfd2 NVRAM/HTTPD/OpenVPN-client/Process/AI passed; XY-C1 was pending.
+
+---
+
 ## 2026-11-21 — Correct OpenVPN server mode decimal regression
 
 - Parent main SHA: dfd2f275ecc1b56c7cfd251790ea609db38d8ad7.

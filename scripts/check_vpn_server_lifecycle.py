@@ -991,25 +991,44 @@ require("nvram_match" not in xl2tpd_stop_set and
         "test_xl2tpd_stop_set_ownership_policy" in config_policy_test,
         "VPN shared xl2tpd stop-set must use checked ownership reads and tested dependency policy")
 
-openvpn_mode_reader=body(vpn_openvpn,"openvpn_read_server_mode_status(int *is_tun)")
-ordered(openvpn_mode_reader,[
+server_network_snapshot=body(vpn_openvpn,"openvpn_read_server_network_snapshot(struct openvpn_server_network_config *network)")
+ordered(server_network_snapshot,[
     "nvram_transaction_begin(&transaction)",
     '"vpns_ov_mode"',
-    "vpn_server_config_int_status",
+    '"lan_ipaddr"',
+    '"lan_netmask"',
+    "vpn_server_pool_parse_ipv4",
+    "vpn_server_pool_validate_lan",
+    '"vpns_vnet"',
+    "vpn_server_pool_resolve_virtual",
+    '"vpns_cli0"',
+    '"vpns_cli1"',
     "nvram_transaction_end(&transaction)",
-    "*is_tun = mode"
-],"OpenVPN server interface-mode read must be checked and transaction-scoped")
+    "*network = pending"
+],"OpenVPN server network snapshot must read and validate mode/LAN/TUN-or-TAP settings atomically")
 openvpn_server_start=body(vpn_openvpn,"start_openvpn_server(void)")
 ordered(openvpn_server_start,[
-    "openvpn_read_server_mode_status(&i_mode_tun)",
-    "openvpn_create_server_conf(vpns_cfg, i_mode_tun)",
-    "if (i_mode_tun)",
+    "openvpn_read_server_network_snapshot(&network)",
+    "mkdir_if_none(SERVER_ROOT_DIR, \"755\")",
+    "openvpn_create_server_conf(vpns_cfg, &network)",
+    "if (network.is_tun)",
     "openvpn_tunif_start(IFNAME_SERVER_TUN, 1)",
     "openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1)"
-],"OpenVPN config and interface must use the same checked server mode")
-require('nvram_get_int("vpns_ov_mode")' not in openvpn_server_start and
+],"OpenVPN must validate topology before filesystem/config/interface side effects and reuse one mode snapshot")
+openvpn_server_writer=body(vpn_openvpn,"openvpn_create_server_conf(const char *conf_file,")
+require("network->lan_ip" in openvpn_server_writer and
+        "network->lan_netmask" in openvpn_server_writer and
+        "network->virtual_network" in openvpn_server_writer and
+        "network->tap_client_start" in openvpn_server_writer and
+        'nvram_safe_get("vpns_vnet")' not in openvpn_server_writer and
+        'nvram_safe_get("lan_ipaddr")' not in openvpn_server_writer and
+        'nvram_safe_get("lan_netmask")' not in openvpn_server_writer and
+        'nvram_safe_get_int("vpns_cli0"' not in openvpn_server_writer and
+        'nvram_safe_get_int("vpns_cli1"' not in openvpn_server_writer,
+        "OpenVPN writer must consume the checked topology snapshot without legacy NVRAM rereads")
+require("test_pool_virtual_private_network_and_lan_separation" in config_policy_test and
         "test_openvpn_server_mode_bounds" in config_policy_test,
-        "OpenVPN server startup mode read must fail closed and have boundary regression coverage")
+        "OpenVPN topology policy regression coverage is missing")
 
 server_acl_snapshot=body(vpn_openvpn,"openvpn_server_acl_read_snapshot(struct openvpn_server_acl_entry *entries,")
 ordered(server_acl_snapshot,[

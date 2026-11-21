@@ -234,6 +234,18 @@ struct openvpn_server_acl_entry {
 	char remote_netmask[16];
 };
 
+struct openvpn_server_network_config {
+	int is_tun;
+	char lan_ip[INET_ADDRSTRLEN];
+	char lan_netmask[INET_ADDRSTRLEN];
+	uint32_t lan_address;
+	uint32_t lan_mask;
+	uint32_t virtual_network;
+	uint32_t virtual_netmask;
+	int tap_client_start;
+	int tap_client_end;
+};
+
 static int
 openvpn_server_acl_copy_text(struct nvram_transaction *transaction,
 			     const char *name, char *destination,
@@ -708,28 +720,113 @@ openvpn_export_remove_tempdir(const char *tmp_dir)
 }
 
 static int
-openvpn_read_server_mode_status(int *is_tun)
+openvpn_server_transaction_get_int(struct nvram_transaction *transaction,
+				   const char *key, int default_value,
+				   int minimum, int maximum, int *result)
 {
-	struct nvram_transaction transaction;
 	char *value = NULL;
-	int read_status, read_errno, mode = 0, status;
-	int result = -1, saved_errno = 0, end_status;
+	int read_status, read_errno;
 
-	if (!is_tun) {
+	if (!transaction || !key || !result) {
 		errno = EINVAL;
 		return -1;
 	}
+	errno = 0;
+	read_status = nvram_transaction_get(transaction, key, &value);
+	read_errno = errno;
+	return vpn_server_config_int_status(read_status, read_errno, value,
+					    default_value, minimum, maximum,
+					    result);
+}
+
+static int
+openvpn_read_server_network_snapshot(struct openvpn_server_network_config *network)
+{
+	struct nvram_transaction transaction;
+	struct openvpn_server_network_config pending;
+	char virtual_network_text[INET_ADDRSTRLEN];
+	uint32_t lan_network, lan_broadcast, configured_virtual;
+	uint32_t virtual_local, virtual_mask, virtual_start, virtual_end;
+	int status, result = -1, saved_errno = 0, end_status;
+
+	if (!network) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(&pending, 0, sizeof(pending));
 	if (nvram_transaction_begin(&transaction) != 0)
 		return -1;
 
-	errno = 0;
-	read_status = nvram_transaction_get(&transaction, "vpns_ov_mode", &value);
-	read_errno = errno;
-	status = vpn_server_config_int_status(read_status, read_errno, value,
-					      0, 0, 1, &mode);
+	status = openvpn_server_transaction_get_int(&transaction,
+						     "vpns_ov_mode", 0, 0, 1,
+						     &pending.is_tun);
 	if (status != 0) {
 		errno = status;
 		goto finish_transaction;
+	}
+	if (openvpn_server_acl_copy_text(&transaction, "lan_ipaddr",
+					 pending.lan_ip,
+					 sizeof(pending.lan_ip)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "lan_netmask",
+					 pending.lan_netmask,
+					 sizeof(pending.lan_netmask)) != 0)
+		goto finish_transaction;
+	if (vpn_server_pool_parse_ipv4(pending.lan_ip,
+				       &pending.lan_address) != 0 ||
+	    vpn_server_pool_parse_ipv4(pending.lan_netmask,
+				       &pending.lan_mask) != 0) {
+		errno = EINVAL;
+		goto finish_transaction;
+	}
+	status = vpn_server_pool_validate_lan(pending.lan_address,
+					      pending.lan_mask,
+					      &lan_network, &lan_broadcast);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+
+	if (pending.is_tun) {
+		if (openvpn_server_acl_copy_text(&transaction, "vpns_vnet",
+						 virtual_network_text,
+						 sizeof(virtual_network_text)) != 0)
+			goto finish_transaction;
+		if (vpn_server_pool_parse_ipv4(virtual_network_text,
+					       &configured_virtual) != 0) {
+			errno = EINVAL;
+			goto finish_transaction;
+		}
+		status = vpn_server_pool_resolve_virtual(configured_virtual,
+							 pending.lan_address,
+							 pending.lan_mask,
+							 MAX_CLIENTS_NUM,
+							 &virtual_local,
+							 &virtual_mask,
+							 &virtual_start,
+							 &virtual_end);
+		if (status != 0) {
+			errno = status;
+			goto finish_transaction;
+		}
+		pending.virtual_network = virtual_local & virtual_mask;
+		pending.virtual_netmask = virtual_mask;
+	} else {
+		status = openvpn_server_transaction_get_int(&transaction,
+							    "vpns_cli0", 245,
+							    1, 254,
+							    &pending.tap_client_start);
+		if (status != 0) {
+			errno = status;
+			goto finish_transaction;
+		}
+		status = openvpn_server_transaction_get_int(&transaction,
+							    "vpns_cli1", 254,
+							    2, 254,
+							    &pending.tap_client_end);
+		if (status != 0) {
+			errno = status;
+			goto finish_transaction;
+		}
 	}
 	result = 0;
 
@@ -745,18 +842,20 @@ finish_transaction:
 		errno = saved_errno;
 		return -1;
 	}
-	*is_tun = mode;
+	*network = pending;
 	return 0;
 }
 
 static int
-openvpn_create_server_conf(const char *conf_file, int is_tun)
+openvpn_create_server_conf(const char *conf_file,
+				 const struct openvpn_server_network_config *network)
 {
 	FILE *fp;
 	char staged_conf[128];
 	int i, i_prot, i_prot_ori, i_atls, i_tcv2, i_rdgw, i_dhcp, i_items;
 	unsigned int laddr, lmask;
-	char *lanip, *lannm, *wins, *dns1, *dns2;
+	const char *lanip, *lannm;
+	char *wins, *dns1, *dns2;
 	const char *p_prot;
 	struct in_addr pool_in;
 
@@ -772,16 +871,20 @@ openvpn_create_server_conf(const char *conf_file, int is_tun)
 			return 1;
 	}
 
+	if (!network) {
+		errno = EINVAL;
+		return 1;
+	}
+	lanip = network->lan_ip;
+	lannm = network->lan_netmask;
+	laddr = network->lan_address;
+	lmask = network->lan_mask;
+
+
 	i_prot = nvram_get_int("vpns_ov_prot");
 	i_rdgw = nvram_get_int("vpns_ov_rdgw");
 
 	i_dhcp = is_dhcpd_enabled(0);
-
-	lanip = nvram_safe_get("lan_ipaddr");
-	lannm = nvram_safe_get("lan_netmask");
-
-	laddr = ntohl(inet_addr(lanip));
-	lmask = ntohl(inet_addr(lannm));
 
 	i_prot_ori = i_prot;
 	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
@@ -816,11 +919,11 @@ openvpn_create_server_conf(const char *conf_file, int is_tun)
 	fprintf(fp, "proto %s\n", p_prot);
 	fprintf(fp, "port %d\n", nvram_safe_get_int("vpns_ov_port", 1194, 1, 65535));
 
-	if (is_tun) {
+	if (network->is_tun) {
 		unsigned int vnet, vmsk;
-		
-		vnet = ntohl(inet_addr(nvram_safe_get("vpns_vnet")));
-		vmsk = ntohl(inet_addr(VPN_SERVER_SUBNET_MASK));
+
+		vnet = network->virtual_network;
+		vmsk = network->virtual_netmask;
 		pool_in.s_addr = htonl(vnet & vmsk);
 		
 		fprintf(fp, "dev %s\n", IFNAME_SERVER_TUN);
@@ -847,8 +950,8 @@ openvpn_create_server_conf(const char *conf_file, int is_tun)
 		unsigned int vp_b, vp_e, lnet;
 		
 		lnet = ~(lmask) - 1;
-		vp_b = (unsigned int)nvram_safe_get_int("vpns_cli0", 245, 1, 254);
-		vp_e = (unsigned int)nvram_safe_get_int("vpns_cli1", 254, 2, 254);
+		vp_b = (unsigned int)network->tap_client_start;
+		vp_e = (unsigned int)network->tap_client_end;
 		if (vp_b > lnet)
 			vp_b = lnet;
 		if (vp_e > lnet)
@@ -1675,7 +1778,7 @@ on_client_ifdown(void)
 int
 start_openvpn_server(void)
 {
-	int i_mode_tun;
+	struct openvpn_server_network_config network;
 	int interface_status;
 	char vpns_cfg[64], vpns_scr[64];
 	char *server_conf = "server.conf";
@@ -1690,25 +1793,25 @@ start_openvpn_server(void)
 	snprintf(vpns_cfg, sizeof(vpns_cfg), "%s/%s", SERVER_ROOT_DIR, server_conf);
 	snprintf(vpns_scr, sizeof(vpns_scr), "%s/%s", SERVER_ROOT_DIR, SCRIPT_OVPN_SERVER);
 
-	mkdir_if_none(SERVER_ROOT_DIR, "755");
-	mkdir_if_none(COMMON_TEMP_DIR, "777");
-
-	if (openvpn_read_server_mode_status(&i_mode_tun) != 0) {
+	if (openvpn_read_server_network_snapshot(&network) != 0) {
 		int saved_errno = errno ? errno : EIO;
 
 		logmessage(SERVER_LOG_NAME,
-			   "cannot read OpenVPN server interface mode; refusing startup (errno=%d)",
+			   "cannot read/validate OpenVPN server network snapshot; refusing startup (errno=%d)",
 			   saved_errno);
 		errno = saved_errno;
 		return 1;
 	}
 
+	mkdir_if_none(SERVER_ROOT_DIR, "755");
+	mkdir_if_none(COMMON_TEMP_DIR, "777");
+
 	/* create conf file */
-	if (openvpn_create_server_conf(vpns_cfg, i_mode_tun))
+	if (openvpn_create_server_conf(vpns_cfg, &network))
 		return 1;
 
 	/* create tun or tap device (and add tap to bridge) */
-	if (i_mode_tun)
+	if (network.is_tun)
 		interface_status = openvpn_tunif_start(IFNAME_SERVER_TUN, 1);
 	else
 		interface_status = openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1);
