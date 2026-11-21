@@ -3465,8 +3465,8 @@ crond_running_noop = crond_start_compact.index("if(preflight_status>0)")
 crond_unknown_abort = crond_start_compact.index("if(preflight_status<0)")
 crond_launcher = crond_start_compact.index("launch_status=_eval(crond_argv,NULL,0,NULL);")
 assert crond_config_read < crond_config_error < crond_disabled < crond_preflight < crond_running_noop < crond_unknown_abort < crond_launcher
-assert "return config_status;" in crond_start_compact[crond_config_error:crond_disabled]
-assert "return 0;" in crond_start_compact[crond_disabled:crond_preflight]
+assert "returnconfig_status;" in crond_start_compact[crond_config_error:crond_disabled]
+assert "return0;" in crond_start_compact[crond_disabled:crond_preflight]
 assert 'logmessage(LOGNAME, "crond start skipped: scheduler is already running")' in crond_start
 assert "return preflight_status;" in crond_start[crond_unknown_abort:crond_launcher]
 print("crond duplicate-start preflight preserves RUNNING no-op and UNKNOWN fail-closed behavior: PASS")
@@ -3612,9 +3612,9 @@ crond_config_error = crond_start_compact.index("if(config_status!=0)", crond_con
 crond_disabled = crond_start_compact.index("if(!enabled)", crond_config_error)
 crond_preflight = crond_start_compact.index('preflight_status=optional_daemon_start_status("crond","crond");')
 assert crond_config_read < crond_config_error < crond_disabled < crond_preflight
-assert "return config_status;" in crond_start_compact[crond_config_error:crond_disabled]
+assert "returnconfig_status;" in crond_start_compact[crond_config_error:crond_disabled]
 disabled_crond = crond_start_compact[crond_disabled:crond_preflight]
-assert "return 0;" in disabled_crond
+assert "return0;" in disabled_crond
 init_router = c_function_body(rc_source, "init_router(void)")
 assert "int crontab_status = init_crontab();" in init_router
 assert "if (init_crontab())" not in init_router

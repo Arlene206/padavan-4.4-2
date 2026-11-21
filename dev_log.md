@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize crond return-value contracts with compact source
+
+- Parent main SHA: `a1c74ff496f9302f76310e3fd6fbd51e43192735`.
+- Follow-up inspection of the whitespace-normalized crond checker found three return-value expectations still searched for spaced C tokens inside the compacted function body. Corrected them to match the normalized source, so the test still verifies the config-read error return and disabled no-op return rather than weakening the checks.
+- Exact-head Process/WAN/XY-C1 runs for the transactional route snapshot are still being evaluated; the prior WAN route and WAN DHCP failures on SHA 743 were due to the two-backslash NUL literal and have been fixed in `a1c74ff496f9302f76310e3fd6fbd51e43192735`.
+- Checker-only correction; no production source changed.
+
+---
+
 ## 2026-11-21 — Correct the next CI-exposed checker and C test issues
 
 - Parent main SHA: `74329b3f1e1ae376930dbeb1143d305fb3f6d646`.
