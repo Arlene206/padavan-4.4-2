@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent main SHA before the IPv6 inverted-selector preflight: `3447846b0f81fb252f313cd6c7fe6c429645e673`. The IPv4 NAT builder checked VPN/UPnP/SSH/FTP selectors in this parent; this slice closes remaining inverted booleans in the IPv6 filter builder.
+- Parent main SHA before the IPv4 NAT listener-port fail-closed preflight: `70c0d4c097d68177d698bc88031f829d2a6ecd9a`. That parent includes checked IPv4 NAT VPN/UPnP and IPv6 inverted/VPN selector work; this slice prevents NVRAM port-read failures from silently selecting permissive remote DNAT defaults.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -25,18 +25,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv6 filter's VPN-server exception still depended on `nvram_match("vpns_enable", "1")` plus unchecked `nvram_get_int("vpns_type")`. A backend failure in the type read defaulted to zero and could generate the PPTP TCP/47 ACCEPT exceptions for a server configured as OpenVPN/L2TP. OpenVPN protocol and port were also read unchecked, potentially making the firewall's exception disagree with the configured listener.
-- This slice checks `vpns_enable` as an exact legacy match and `vpns_type` with the strict integer reader before staging IPv6 rules. For an enabled type-2 server, it also checks protocol and port (retaining the 1194 fallback outside 1..65535) and reuses the checked values when generating exceptions. Backend/parser errors abort the ruleset before `firewall_open_rule_file()`.
-- Firewall source-contract assertions now pin the checked gates and reject the old unchecked reads; the shared GNU89/Werror/ASan/UBSan integer helper tests cover parse/default/backend behavior.
+- In `ipt_nat_rules()`, remote-management DNAT ports still used unchecked integer getters. A failed `sshd_wport` read collapsed to zero, then triggered the legacy invalid-value fallback to port 10022 and created a WAN SSH DNAT rule; analogous fallback behavior affected HTTP (8080), HTTPS (8443), and FTP (21). UDPXY's external-port read failure could silently fall back to its internal port and publish a different WAN mapping.
+- This slice preflights HTTP protocol and active HTTP/HTTPS/SSH/FTP/UDPXY port pairs through `firewall_read_integer_setting()` before opening the NAT rules file. It reads only feature/remote-open paths that the existing flags select, keeps missing-key zero values and the established port-range fallback behavior, but aborts staged rule generation on backend/read/close or malformed-present-value errors instead of synthesizing a new externally reachable port.
+- The firewall workflow now requires all nine listener selectors to be checked before `firewall_open_rule_file()` and rejects the old direct getters. The existing GNU89/Werror/ASan/UBSan policy helper regression covers strict integers and backend errors.
 ## Verification boundary
 
-- IPv4 NAT builder source `3447846b0f81fb252f313cd6c7fe6c429645e673`: Firewall Startup #44949286687 and AI docs #44949286648 passed; Process inventory #44949286668, NVRAM #44949286631 and XY-C1 #44949291903 were in progress at the last check.
-- IPv6 inverted-selector source `f30820395919fb0650a4f0e4ad3889115b1206cc`: Firewall Startup #44949377270, AI docs #44949377241 and XY-C1 #44949377343 were running; NVRAM #44949377281 was pending. The current IPv6 VPN-source extension requires fresh exact-head runs. No L3/hardware L4 claim.
+- IPv4 NAT VPN/UPnP and IPv6 inverted selectors source `70c0d4c097d68177d698bc88031f829d2a6ecd9a`: Firewall Startup #44949461661 and AI docs #44949461610 passed; XY-C1 #44949461605 and NVRAM #44949461623 were still running at last poll. Parent NAT source `3447846...` Firewall Startup #44949286687 passed and AI docs #44949286648 passed; XY-C1 #44949291903 was still running and NVRAM #44949286631 was canceled after subsequent pushes.
+- The current remote-DNAT listener-port slice requires fresh exact-head Firewall Startup, Process/NVRAM/AI, and XY-C1 Build/TRX/artifact. No local test/build or L3/L4 claim.
 ## Exact first action for the next GPT
 
-1. Query exact-head Actions for the IPv6 VPN exception source and inspect Firewall Startup source-contract results. Then close out parent `f3082039...` NAT build/TRX/artifact and NVRAM runs separately; never reuse parent results.
-2. Continue the firewall review of remaining IPv6 listener ports/flags and NAT remap selectors only where unchecked reads can alter WAN exposure. Keep parser/range semantics and stage-abort behavior explicit.
-3. Preserve the backup and make all main changes as complete trees with expected-SHA non-force updates.
+1. Query exact current main SHA and inspect Firewall Startup for checked remote-DNAT listener preflight. Confirm source contracts and GNU89/ASan/UBSan helper run; inspect all exact-head checks and XY-C1 Build/TRX/artifact.
+2. Continue the IPv6 listener-port review and inspect `include_vts_nat()` for unchecked user-controlled port/range reads. Preserve existing default/range behavior while ensuring NVRAM backend errors cannot publish new WAN exposure.
+3. Preserve backup and atomic non-force expected-SHA commits only.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

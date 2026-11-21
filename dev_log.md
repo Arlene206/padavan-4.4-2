@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on IPv4 remote-DNAT listener port reads
+
+- Parent main SHA: `70c0d4c097d68177d698bc88031f829d2a6ecd9a`.
+- `ipt_nat_rules()` used unchecked `nvram_get_int()` for HTTP/HTTPS, SSH, FTP and UDPXY listener ports. A backend error could be collapsed to zero and then interpreted as an invalid configured port, invoking legacy fallback values (notably SSH 10022, HTTP 8080 and HTTPS 8443) and creating a new WAN DNAT mapping. UDPXY could fall back to its internal port.
+- Added checked integer preflight for the HTTP protocol and only the active/externally-open listener pairs before `firewall_open_rule_file()`. Existing missing-key zero defaults and later port-range normalization remain intact; failed backend/parser/close checks now abort before a different WAN-facing port is published.
+- Extended the firewall workflow source contract to require each of the nine listener-setting reads before NAT rule staging and forbid the former direct integer getters. Existing GNU89/Werror/ASan/UBSan helper coverage verifies strict integer/default/backend semantics. No local test execution claimed.
+- Parent `70c...` Firewall Startup #44949461661 and AI #44949461610 passed; XY-C1 #44949461605 and NVRAM #44949461623 were running. Current exact-head checks pending, no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Check IPv6 VPN exception policy reads
 
 - Parent main SHA: `f30820395919fb0650a4f0e4ad3889115b1206cc`.

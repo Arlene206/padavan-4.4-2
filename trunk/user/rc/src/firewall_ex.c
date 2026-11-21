@@ -2649,6 +2649,17 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
 	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled = 0;
 	int i_vpns_enable, i_vpnc_enable, i_vpns_type, i_vpnc_type, i_vpnc_sfw, i_http_proto;
+	int i_misc_httpport = 0, i_http_lanport = 0;
+	int i_udpxy_port = 0, i_udpxy_wport = 0;
+#if defined (SUPPORT_HTTPS)
+	int i_https_wport = 0, i_https_lport = 0;
+#endif
+#if defined (APP_SSHD)
+	int i_sshd_wport = 0;
+#endif
+#if defined (APP_FTPD)
+	int i_ftpd_wport = 0;
+#endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
 #if defined (APP_SSHD)
 	int is_sshd_enabled = 1;
@@ -2735,16 +2746,55 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	}
 
 	if (is_nat_enabled && is_fw_enabled) {
-#if defined (APP_SSHD)
-		firewall_status = firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled);
+#if defined (SUPPORT_HTTPS)
+		firewall_status = firewall_read_integer_setting("http_proto", 0, &i_http_proto);
 		if (firewall_status != 0)
 			return firewall_status;
+#else
+		i_http_proto = 0;
+#endif
+		if ((i_http_proto == 0 || i_http_proto == 2) && nvram_match("misc_http_x", "1")) {
+			firewall_status = firewall_read_integer_setting("misc_httpport_x", 0, &i_misc_httpport);
+			if (firewall_status != 0)
+				return firewall_status;
+			firewall_status = firewall_read_integer_setting("http_lanport", 0, &i_http_lanport);
+			if (firewall_status != 0)
+				return firewall_status;
+		}
+#if defined (SUPPORT_HTTPS)
+		if ((i_http_proto == 1 || i_http_proto == 2) && nvram_match("https_wopen", "1")) {
+			firewall_status = firewall_read_integer_setting("https_wport", 0, &i_https_wport);
+			if (firewall_status != 0)
+				return firewall_status;
+			firewall_status = firewall_read_integer_setting("https_lport", 0, &i_https_lport);
+			if (firewall_status != 0)
+				return firewall_status;
+		}
+#endif
+#if defined (APP_SSHD)
+		if (is_sshd_enabled && nvram_match("sshd_wopen", "1")) {
+			firewall_status = firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport);
+			if (firewall_status != 0)
+				return firewall_status;
+		}
 #endif
 #if defined (APP_FTPD)
-		firewall_status = firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled);
-		if (firewall_status != 0)
-			return firewall_status;
+		if (is_ftp_enabled && nvram_match("ftpd_wopen", "1")) {
+			firewall_status = firewall_read_integer_setting("ftpd_wport", 0, &i_ftpd_wport);
+			if (firewall_status != 0)
+				return firewall_status;
+		}
 #endif
+		if (nvram_match("udpxy_wopen", "1")) {
+			firewall_status = firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port);
+			if (firewall_status != 0)
+				return firewall_status;
+			if (i_udpxy_port > 1023) {
+				firewall_status = firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport);
+				if (firewall_status != 0)
+					return firewall_status;
+			}
+		}
 	}
 
 
@@ -2871,14 +2921,10 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		
 		/* Local ports remap (http/https/ssh/ftp/udpxy) */
 		if (is_fw_enabled) {
-#if defined (SUPPORT_HTTPS)
-			i_http_proto = nvram_get_int("http_proto");
-#else
-			i_http_proto = 0;
-#endif
+
 			if ((i_http_proto == 0 || i_http_proto == 2) && nvram_match("misc_http_x", "1")) {
-				wport = nvram_get_int("misc_httpport_x");
-				lport = nvram_get_int("http_lanport");
+				wport = i_misc_httpport;
+				lport = i_http_lanport;
 				if (wport < 80 || wport > 65535) {
 					wport = 8080;
 					nvram_set_int("misc_httpport_x", wport);
@@ -2889,8 +2935,8 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			}
 #if defined (SUPPORT_HTTPS)
 			if ((i_http_proto == 1 || i_http_proto == 2) && nvram_match("https_wopen", "1")) {
-				wport = nvram_get_int("https_wport");
-				lport = nvram_get_int("https_lport");
+				wport = i_https_wport;
+				lport = i_https_lport;
 				if (wport < 81 || wport > 65535) {
 					wport = 8443;
 					nvram_set_int("https_wport", wport);
@@ -2902,7 +2948,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 #if defined (APP_SSHD)
 			if (is_sshd_enabled && nvram_match("sshd_wopen", "1")) {
-				wport = nvram_get_int("sshd_wport");
+				wport = i_sshd_wport;
 				lport = 22;
 				if (wport < 22 || wport > 65535) {
 					wport = 10022;
@@ -2915,7 +2961,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 #if defined (APP_FTPD)
 			if (is_ftp_enabled && nvram_match("ftpd_wopen", "1")) {
-				wport = nvram_get_int("ftpd_wport");
+				wport = i_ftpd_wport;
 				lport = 21;
 				if (wport < 21 || wport > 65535) {
 					wport = 21;
@@ -2926,9 +2972,9 @@ ipt_nat_rules(char *man_if, char *man_ip,
 							dtype, wport, lan_ip, lport);
 			}
 #endif
-			lport = nvram_get_int("udpxy_enable_x");
+			lport = i_udpxy_port;
 			if (lport > 1023 && nvram_match("udpxy_wopen", "1")) {
-				wport = nvram_get_int("udpxy_wport");
+				wport = i_udpxy_wport;
 				if (wport < 1024 || wport > 65535) {
 					wport = lport;
 					nvram_set_int("udpxy_wport", wport);

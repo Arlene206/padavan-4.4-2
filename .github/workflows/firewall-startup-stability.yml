@@ -427,6 +427,23 @@ jobs:
           for gate in nat_inverted:
               assert gate in nat_builder, gate
               assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file("), gate
+          nat_listener_reads = (
+              'firewall_read_integer_setting("http_proto", 0, &i_http_proto)',
+              'firewall_read_integer_setting("misc_httpport_x", 0, &i_misc_httpport)',
+              'firewall_read_integer_setting("http_lanport", 0, &i_http_lanport)',
+              'firewall_read_integer_setting("https_wport", 0, &i_https_wport)',
+              'firewall_read_integer_setting("https_lport", 0, &i_https_lport)',
+              'firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport)',
+              'firewall_read_integer_setting("ftpd_wport", 0, &i_ftpd_wport)',
+              'firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port)',
+              'firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport)',
+          )
+          for gate in nat_listener_reads:
+              assert gate in nat_builder, gate
+              assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file("), gate
+          for key in ("http_proto", "misc_httpport_x", "http_lanport", "https_wport",
+                      "https_lport", "sshd_wport", "ftpd_wport", "udpxy_enable_x", "udpxy_wport"):
+              assert f'nvram_get_int("{key}")' not in nat_builder
           for key in ("vpns_enable", "vpnc_enable", "vpns_type", "vpnc_type", "vpnc_sfw", "vpns_vuse", "vpns_actl"):
               assert f'nvram_get_int("{key}")' not in nat_builder
           assert 'nvram_match("wan_nat_x", "1")' not in nat_builder
