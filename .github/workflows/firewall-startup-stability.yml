@@ -327,6 +327,27 @@ jobs:
           assert "firewall_abort_core_restore_after_staging_failure();" in firewall_nvram_reader
           assert "test_backend_errors_preserve_status_and_output" in firewall_nvram_test
           assert "test_missing_key_uses_explicit_legacy_default" in firewall_nvram_test
+          mac_integer_reader = body(firewall_source, "firewall_read_integer_setting(const char *param_name, int missing_value, int *number)")
+          mac_settings_reader = body(firewall_source, "firewall_read_mac_filter_settings(int *mode, int *drop_enabled)")
+          assert "nvram_get_checked(param_name, &value)" in mac_integer_reader
+          assert "firewall_nvram_int_status(" in mac_integer_reader
+          assert "firewall_abort_core_restore_after_staging_failure();" in mac_integer_reader
+          assert 'firewall_read_integer_setting("macfilter_enable_x", 0, mode)' in mac_settings_reader
+          assert 'firewall_read_enabled_setting("fw_mac_drop", drop_enabled)' in mac_settings_reader
+          assert "test_integer_modes_preserve_decimal_semantics" in firewall_nvram_test
+          assert "test_integer_errors_are_fail_closed_and_preserve_output" in firewall_nvram_test
+          assert "test_backend_errors_preserve_status_and_output" in firewall_nvram_test
+          assert "test_missing_key_uses_explicit_legacy_default" in firewall_nvram_test
+          dos_gate = 'firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled)'
+          assert dos_gate in body(firewall_source, "ipt_filter_rules(char *man_if")
+          for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
+              filter_builder = body(firewall_source, signature)
+              mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"
+              assert mac_gate in filter_builder
+              assert filter_builder.index(mac_gate) < filter_builder.index("firewall_open_rule_file(")
+          assert 'nvram_get_int("macfilter_enable_x")' not in firewall_source
+          assert 'nvram_match("fw_mac_drop", "1")' not in firewall_source
+          assert 'nvram_match("fw_dos_x", "1")' not in firewall_source
           for signature in (
               "ipt_filter_rules(char *man_if",
               "ipt_filter_default(void)",
@@ -359,6 +380,8 @@ jobs:
               "trunk/user/rc/src/tests/sfe_config_policy.c",
               "trunk/user/rc/src/tests/hwnat_config_policy.c",
               "trunk/user/rc/src/firewall_ex.c",
+              "trunk/user/rc/src/firewall_nvram_match_policy.h",
+              "trunk/user/rc/src/tests/firewall_nvram_match_policy.c",
               "trunk/user/rc/src/firewall_lifecycle_lock.h",
               "trunk/user/rc/src/tests/firewall_lifecycle_lock.c",
               "trunk/user/rc/src/firewall_restore_transaction.h",

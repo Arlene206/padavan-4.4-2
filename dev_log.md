@@ -1,3 +1,14 @@
+## 2026-11-21 — Preserve MAC access-control and DoS gates on NVRAM errors
+
+- Parent main SHA: `ee01141a9761cd702ef71b6f8dbae2ad48604f6a`.
+- Follow-on review found three more firewall policy reads that were still error-collapsing: `macfilter_enable_x` was read with `nvram_get_int()`, and `fw_mac_drop` and `fw_dos_x` with `nvram_match()`. A transient backend failure could silently remove the MAC filtering chain/jump or DoS limit rules from a newly generated IPv4/IPv6 ruleset.
+- Extended the checked firewall NVRAM policy with strict, range-checked decimal parsing. Both IPv4/IPv6 builders now read the MAC mode plus its enforcement flag before opening a rule file; IPv4 also checks the DoS enable flag. Missing keys retain zero/disabled defaults; malformed, overflow and backend errors abort staging and roll back the active core restore transaction.
+- Extended the existing GNU89/Werror/ASan/UBSan fixture for MAC modes 0/1/2, negative and INT_MAX values, missing defaults, backend errors, malformed values, and overflow. Workflow source contracts prohibit the error-collapsing reads and require checked gates before file staging.
+- Local standalone policy regression: GNU89, `-Wall -Wextra -Werror`, ASan/UBSan: PASS. Full RC/MIPS build and router L4 not claimed. Exact-head Firewall and XY-C1 Actions pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Fail closed when firewall enable NVRAM reads fail
 
 - Parent main SHA: `6dc8c0bb9759e63624b65a8285a86a9a408cc9cf`.

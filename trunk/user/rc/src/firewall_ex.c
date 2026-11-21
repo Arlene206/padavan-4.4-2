@@ -350,6 +350,51 @@ firewall_read_enabled_setting(const char *param_name, int *enabled)
 
 
 static int
+firewall_read_integer_setting(const char *param_name, int missing_value, int *number)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !number) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = firewall_nvram_int_status(api_result, saved_errno,
+					   value, missing_value, number);
+	if (status != 0) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "cannot read firewall integer setting '%s'; refusing ruleset publication (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
+firewall_read_mac_filter_settings(int *mode, int *drop_enabled)
+{
+	int status;
+
+	if (!mode || !drop_enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	status = firewall_read_integer_setting("macfilter_enable_x", 0, mode);
+	if (status != 0)
+		return status;
+
+	*drop_enabled = 0;
+	if (*mode <= 0)
+		return 0;
+	return firewall_read_enabled_setting("fw_mac_drop", drop_enabled);
+}
+
+static int
 firewall_disable_forwarding(const char *operation)
 {
 	int status = 0, next_status;
@@ -1370,7 +1415,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
-	int is_url_enabled, is_lwf_enabled;
+	int is_url_enabled, is_lwf_enabled, is_mac_filter_drop;
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
 #if defined (APP_OPENVPN)
@@ -1387,14 +1432,18 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
 
 	is_nat_enabled = nvram_match("wan_nat_x", "1");
-	is_dos_enabled = nvram_match("fw_dos_x", "1");
+	ret = firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled);
+	if (ret != 0)
+		return ret;
 	ret = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (ret != 0)
 		return ret;
 	is_url_enabled = nvram_match("url_enable_x", "1");
 	is_lwf_enabled = nvram_match("fw_lw_enable_x", "1");
 
-	i_mac_filter   = nvram_get_int("macfilter_enable_x");
+	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
+	if (ret != 0)
+		return ret;
 
 	i_vpns_enable  = nvram_get_int("vpns_enable");
 	i_vpns_type    = nvram_get_int("vpns_type");
@@ -1447,7 +1496,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	dtype = "INPUT";
 
 	/* Policy for all traffic from MAC-filtered LAN clients */
-	if (i_mac_filter > 0 && nvram_match("fw_mac_drop", "1"))
+	if (i_mac_filter > 0 && is_mac_filter_drop)
 		fprintf(fp, "-A %s -i %s -j %s\n", dtype, lan_if, IPT_CHAIN_NAME_MAC_LIST);
 
 	/* Accept related connections, skip rest of checks */
@@ -2042,7 +2091,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	char timematch[160], *ftype, *dtype;
 	int ret, wport, lport;
 	int ipv6_type, is_fw_enabled, is_url_enabled, is_logaccept, is_logdrop;
-	int i_http_proto, i_bfplimit_ref, i_mac_filter;
+	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	char ipt_file[] = "/tmp/ip6t_filter.XXXXXX";
 
 	ret = 0;
@@ -2055,7 +2104,9 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		return ret;
 	is_url_enabled = nvram_match("url_enable_x", "1");
 
-	i_mac_filter = nvram_get_int("macfilter_enable_x");
+	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
+	if (ret != 0)
+		return ret;
 
 	is_logaccept = (strcmp(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT) == 0) ? 1 : 0;
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
@@ -2085,7 +2136,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	dtype = "INPUT";
 
 	/* Policy for all traffic from MAC-filtered LAN clients */
-	if (i_mac_filter > 0 && nvram_match("fw_mac_drop", "1"))
+	if (i_mac_filter > 0 && is_mac_filter_drop)
 		fprintf(fp, "-A %s -i %s -j %s\n", dtype, lan_if, IPT_CHAIN_NAME_MAC_LIST);
 
 	/* Accept related connections, skip rest of checks */
