@@ -1,3 +1,12 @@
+## 2026-11-22 — Align handoff heading with required recovery contract
+
+- Parent main SHA: `dde4c69fc39bff9a9521de16aab9eee995d75cbe`.
+- Exact-head AI handoff run #44939899882 still failed after the missing `## Active task` section was restored, because the validator requires the singular heading `## Exact first action for the next GPT`; the handoff used the plural form. Corrected the heading without changing its actionable content.
+- Exact-head VPN lifecycle #44939760147 on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1` passed. The d3b7 source SHA's XY-C1 #44939588534 was still building at the previous poll; no L3 result is claimed.
+- This is a docs-contract correction only; the next exact-head AI handoff workflow is the validation gate.
+
+---
+
 ## 2026-11-22 — Restore mandatory active-task handoff section
 
 - Parent main SHA: `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`.

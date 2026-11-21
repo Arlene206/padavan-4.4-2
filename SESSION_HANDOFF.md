@@ -29,7 +29,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - XY-C1 #44939588534 remained in progress before Build XY-C1 at last poll; Build, TRX verification and artifact upload had not yet run. No L3 result is established. Process #44939588492, NVRAM #44939588487 and HTTPD #44939588574 were also in progress.
 - The parent source SHA `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a` still requires same-SHA XY-C1 Build, TRX and artifact upload. No local tests/build are claimed; hardware L4 remains NOT VERIFIED.
 
-## Exact first actions for the next GPT
+## Exact first action for the next GPT
 
 1. Fetch live main and inspect exact-head VPN lifecycle, AI docs, NVRAM, Process and XY-C1 Actions for the current profile commit. The VPN checker must validate server EKU and dual-stack fallback; XY-C1 Build, TRX and artifact upload must all PASS on the same SHA.
 2. Diagnose any first causal failure without weakening checks; PENDING may be followed by independent work.
