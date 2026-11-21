@@ -38,7 +38,6 @@
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "ppp_wan_option_policy.h"
-#include "ppp_wan_option_policy.h"
 #include "wan_ifname_policy.h"
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
