@@ -40,6 +40,7 @@ def ordered(txt,tokens,label):
         pos=found
 
 vpn=read("trunk/user/rc/src/vpn_server.c")
+vpn_openvpn=read("trunk/user/rc/src/vpn_openvpn.c")
 config_policy=read("trunk/user/rc/src/vpn_server_config_policy.h")
 config_policy_test=read("trunk/user/rc/src/tests/vpn_server_config_policy.c")
 route_status_policy=read("trunk/user/rc/src/route_status_policy.h")
