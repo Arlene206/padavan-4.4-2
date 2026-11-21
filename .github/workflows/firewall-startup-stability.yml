@@ -523,6 +523,7 @@ jobs:
               assert enabled_gate in filter_builder, signature
               assert filter_builder.index(enabled_gate) < filter_builder.index("firewall_open_rule_file(")
           assert 'nvram_match("fw_enable_x", "1")' not in firewall_source
+          assert "i_ov_prot" not in firewall_source
           assert "api_result < 0" in firewall_nvram_policy
           for signature, checked in (
               ("ipt_filter_rules(char *man_if", (

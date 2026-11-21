@@ -25,19 +25,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The NAT DMZ exception block still used unchecked `nvram_match()` / `nvram_get_int()` for Transmission and Aria2 service state and ports. With DMZ enabled, a transient enable-flag read failure could omit the RETURN exception, letting the blanket DMZ DNAT send the router-daemon port to the exposed host; a port-read failure could also silently replace the router's configured listener with a built-in fallback.
-- This slice moves DMZ IPv4/enable/remote-open/port selection before `firewall_open_rule_file()`. When a safe DMZ target exists and the optional daemon binary is present, it checks exact service-enable and remote-open flags, plus the corresponding primary/remote ports. Invalid/missing ports preserve the established Transmission/Aria defaults and valid range; backend/parser/close failures abort NAT generation before the DMZ catch-all is published.
-- The DMZ block now reuses the cached checked values, so it no longer performs unchecked service-state/port reads. Workflow source contracts require all eight checked settings before the rule file is opened and reject the former getters.
+- The IPv4 NAT DMZ-exclusion slice is committed as `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`. Follow-up review found four stale `i_ov_prot` identifiers in the IPv4 and IPv6 filter builders after the earlier unchecked OpenVPN local variable had been removed. Both functions already have the checked cached field `i_vpns_ov_prot`; the stale identifiers would leave the OpenVPN-enabled compile paths referring to an undeclared variable.
+- This slice replaces all four stale identifiers with the checked cached field in both protocol-selection predicates in each family. It preserves the existing protocol-number sets and removes any dependence on the deleted local NVRAM value. The Firewall Startup source contract now explicitly asserts that the undefined old identifier never reappears.
+- The preceding DMZ slice remains in place: Transmission/Aria2 service enable, remote-open and port values are checked before NAT rule-file creation when DMZ is active and the binary exists; checked values are reused by catch-all exclusions.
 ## Verification boundary
 
-- IPv4 NAT listener/IPv6 VPN source `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79`: Firewall Startup #44949619993 FAIL due the listener preflight dropping checked SSH/FTP enable reads; AI docs #44949620120 PASS; NVRAM #44949620067 and XY-C1 #44949620017 in progress.
-- The exact-head failure was corrected in `f35638a262b7d0ce797aa41576161713933fb687`: Firewall Startup #44949762834, Process inventory #44949762882, WAN route #44949762889, HTTPD #44949762946, FULLCONENAT #44949762933 and WAN DHCP #44949762871 all PASS; AI docs #44949762939, NVRAM #44949762990 and XY-C1 #44949762845 were in progress at last poll.
-- Current DMZ optional-service preflight requires fresh exact-head Firewall Startup/AI/NVRAM and XY-C1 Build/TRX/artifact checks. No L3/hardware L4 claim.
+- Parent `f35638a262b7d0ce797aa41576161713933fb687`: Firewall Startup #44949762834, Process inventory #44949762882, WAN route #44949762889, HTTPD #44949762946, FULLCONENAT #44949762933 and WAN DHCP #44949762871 all PASS; AI docs #44949762939, NVRAM #44949762990 and XY-C1 #44949762845 were in progress at last poll.
+- DMZ source commit `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`: Firewall Startup #44949891033, AI docs #44949890928, Process inventory #44949890931, WAN route #44949890950, FULLCONENAT #44949890994 and WAN DHCP #44949890952 PASS. HTTPD #44949890929 FAIL at its final Python source contract (line 874, after preceding HTTPD assertions passed); failure still needs independent diagnosis and must not be attributed to firewall code without evidence. NVRAM #44949890937 and XY-C1 #44949891023 were still running at last poll.
+- Current OpenVPN identifier correction requires fresh exact-head Firewall Startup and XY-C1 Build/TRX/artifact checks. No local build/test or hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup and documentation contract for the DMZ Transmission/Aria2 preflight. Check C helper regression and verify all DMZ gates are before file-open; inspect any failed log.
-2. Track same-SHA XY-C1 Build, TRX verification and artifact upload. Re-query the preceding `f35638a...` build only as parent evidence; do not reuse it for this commit.
-3. Continue checking IPv6 remote-open listener handling and the port-forward helper's value validation; keep malformed NVRAM from weakening DMZ or WAN exposure.
+1. Query exact-head Firewall Startup and XY-C1 for the OpenVPN identifier fix. The firewall workflow now forbids `i_ov_prot`; inspect any build failure logs and require Build + TRX + artifact upload on one source SHA before claiming L3.
+2. Diagnose unrelated HTTPD run #44949890929 on parent `da169515...`: final source-contract assertion failed at Python line 874 after HTTPD auth/route/upload assertions passed. Inspect the exact assertion and distinguish stale checker versus real defect; do not weaken it blindly.
+3. Close parent NVRAM #44949890937 / XY-C1 #44949891023 results separately, then continue IPv6 listener-port validation.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

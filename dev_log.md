@@ -1,3 +1,12 @@
+## 2026-11-21 — Use checked OpenVPN protocol cache in both filter families
+
+- Parent main SHA: `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`.
+- Source review found four stale `i_ov_prot` references remaining across `ipt_filter_rules()` and `ip6t_filter_rules()`. Their old local getter declarations had already been removed when the checked `i_vpns_ov_prot` value was introduced, so APP_OPENVPN builds could fail on an undeclared identifier.
+- Replaced all four references with the checked function-scope `i_vpns_ov_prot` cache, preserving the original protocol-value sets. Added a Firewall Startup source-contract assertion prohibiting `i_ov_prot` in the complete source file.
+- Parent `da169...` Firewall Startup #44949891033, AI docs #44949890928, Process inventory #44949890931, WAN route #44949890950, FULLCONENAT #44949890994 and WAN DHCP #44949890952 PASS. HTTPD #44949890929 failed its final Python source contract at line 874 (investigate separately); NVRAM #44949890937 and XY-C1 #44949891023 were in progress. Current exact-head validation pending. No local build/test claim.
+
+---
+
 ## 2026-11-21 — Check Transmission/Aria2 DMZ exception selectors
 
 - Parent main SHA: `f35638a262b7d0ce797aa41576161713933fb687`.

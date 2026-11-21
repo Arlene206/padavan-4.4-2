@@ -1742,9 +1742,9 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 				
 				if (i_vpns_ov_mode == 0)
 					i_need_vpnlist = 0;
-				if (i_vpns_ov_prot == 1 || i_ov_prot == 3 || i_ov_prot == 5)
+				if (i_vpns_ov_prot == 1 || i_vpns_ov_prot == 3 || i_vpns_ov_prot == 5)
 					ov_prot = "tcp";
-				if (i_ov_prot == 0 || i_ov_prot == 1 || i_ov_prot == 4 || i_ov_prot == 5)
+				if (i_vpns_ov_prot == 0 || i_vpns_ov_prot == 1 || i_vpns_ov_prot == 4 || i_vpns_ov_prot == 5)
 					fprintf(fp, "-A %s -p %s --dport %d -j %s\n", dtype, ov_prot, i_vpns_ov_port, logaccept);
 			} else
 #endif
@@ -2406,9 +2406,9 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 				const char *ov_prot = "udp";
 
 				
-				if (i_vpns_ov_prot == 1 || i_ov_prot == 3 || i_ov_prot == 5)
+				if (i_vpns_ov_prot == 1 || i_vpns_ov_prot == 3 || i_vpns_ov_prot == 5)
 					ov_prot = "tcp";
-				if (i_ov_prot == 2 || i_ov_prot == 3 || i_ov_prot == 4 || i_ov_prot == 5)
+				if (i_vpns_ov_prot == 2 || i_vpns_ov_prot == 3 || i_vpns_ov_prot == 4 || i_vpns_ov_prot == 5)
 					fprintf(fp, "-A %s -p %s --dport %d -j %s\n", dtype, ov_prot, i_vpns_ov_port, logaccept);
 			} else
 #endif
