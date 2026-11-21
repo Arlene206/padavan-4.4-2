@@ -1,3 +1,11 @@
+## 2026-11-22 — Restore mandatory active-task handoff section
+
+- Parent main SHA: `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`.
+- Exact-head AI handoff docs #44939760108 failed after the mandatory checkpoint was restored, because its validator separately requires the `## Active task` heading. Restored that required section with current OpenVPN profile scope and exact-head validation status.
+- Exact-head VPN lifecycle #44939760147 passed after the export contract ordering correction. On the profile source parent `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`, credential staging #44939588500 and Process inventory #44939588492 passed; XY-C1 #44939588534 remained building, with Build/TRX/artifact not yet all confirmed. No L3 result is claimed.
+
+---
+
 ## 2026-11-22 — Correct OpenVPN export contract ordering and restore mandatory handoff gate
 
 - Parent main SHA: `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`.

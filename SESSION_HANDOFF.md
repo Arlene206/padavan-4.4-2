@@ -16,6 +16,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - OpenVPN server callbacks prefer event-supplied `dev`, use checked topology fallback only when absent, and preserve disconnect hook cleanup. Client DNS policy errors preserve last-good DNS/domain state while mandatory state/hook work continues.
 - This commit hardens exported client profiles: activate `remote-cert-tls server` to match the generated server certificate's `serverAuth` EKU, and use a validated WAN IPv4 endpoint only as a final fallback for dual-stack modes 4/5 after DDNS and both IPv6 sources fail. IPv6-only modes remain unchanged. The VPN lifecycle checker cross-validates the directive against `openvpn-cert.sh` and checks profile option mapping/fallback order.
 
+## Active task
+
+- The exported OpenVPN client profile now actively requires `remote-cert-tls server`, matching the server certificate's `serverAuth` EKU. Dual-stack modes 4/5 fall back to a validated WAN IPv4 endpoint only after DDNS and IPv6 WAN/LAN lookup fail; IPv6-only modes remain unchanged.
+- The follow-up exact-head VPN lifecycle run #44939760147 on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1` passed the corrected profile and certificate-role contracts. OpenVPN client credential staging #44939588500 and Process inventory #44939588492 also passed on the profile's source parent `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`.
+- The d3b7 XY-C1 run #44939588534 was still building at the last poll; same-SHA Build XY-C1, TRX and artifact upload remain required for L3. Hardware L4 is NOT VERIFIED.
+
 ## Verification boundary
 
 - On parent `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`, OpenVPN client credential staging #44939588500 PASS. VPN lifecycle #44939588479 failed in the new exported-profile source contract because the ordered assertion searched for nested `options.auth_digest` before the containing `openvpn_add_auth()` call; this follow-up separates field-presence checks from ordered helper calls. Production source is unchanged by this checker correction.
