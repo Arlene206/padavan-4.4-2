@@ -1545,8 +1545,13 @@ int stop_adguardhome(void){
 
 void start_adguardhome(void){
 	int start_status;
-	int adg_mode = nvram_get_int("adg_enable");
-	if ( adg_mode == 1) {
+	int adg_mode;
+	int config_status = service_enabled_mode_status(
+		"AdGuardHome", "adg_enable", &adg_mode);
+
+	if (config_status != 0)
+		return;
+	if (adg_mode == 1) {
 		start_status = eval("/usr/bin/adguardhome.sh","start");
 		if (start_status != 0)
 			logmessage(LOGNAME, "AdGuardHome launcher failed (status=%d)", start_status);
@@ -1566,7 +1571,12 @@ int stop_zerotier(void){
 }
 
 int start_zerotier(void){
-	int zerotier_enable = nvram_get_int("zerotier_enable");
+	int zerotier_enable;
+	int config_status = service_enabled_mode_status(
+		"ZeroTier", "zerotier_enable", &zerotier_enable);
+
+	if (config_status != 0)
+		return config_status;
 	if (zerotier_enable != 1)
 		return 0;
 	return eval("/usr/bin/zerotier.sh","start");
@@ -1590,8 +1600,13 @@ int stop_ddnsto(void){
 
 void start_ddnsto(void){
 	int start_status;
-	int ddnsto_enable = nvram_get_int("ddnsto_enable");
-	if ( ddnsto_enable == 1) {
+	int ddnsto_enable;
+	int config_status = service_enabled_mode_status(
+		"DDNS.to", "ddnsto_enable", &ddnsto_enable);
+
+	if (config_status != 0)
+		return;
+	if (ddnsto_enable == 1) {
 		start_status = eval("/usr/bin/ddnsto.sh","start");
 		if (start_status != 0)
 			logmessage(LOGNAME, "DDNS.to launcher failed (status=%d)", start_status);
@@ -1610,7 +1625,12 @@ int stop_sqm(void){
 }
 
 int start_sqm(void){
-	int sqm_mode = nvram_get_int("sqm_enable");
+	int sqm_mode;
+	int config_status = service_enabled_mode_status(
+		"SQM", "sqm_enable", &sqm_mode);
+
+	if (config_status != 0)
+		return config_status;
 	if (sqm_mode != 1)
 		return 0;
 	return eval("/usr/lib/sqm/run.sh");
@@ -1633,7 +1653,12 @@ int stop_aldriver(void){
 }
 
 int start_aldriver(void){
-	int aldriver_enable = nvram_get_int("aliyundrive_enable");
+	int aldriver_enable;
+	int config_status = service_enabled_mode_status(
+		"AliyunDrive WebDAV", "aliyundrive_enable", &aldriver_enable);
+
+	if (config_status != 0)
+		return config_status;
 	if (aldriver_enable != 1)
 		return 0;
 	return eval("/usr/bin/aliyundrive-webdav.sh","start");
@@ -1656,7 +1681,12 @@ int stop_wireguard(void){
 }
 
 int start_wireguard(void){
-	int wireguard_enable = nvram_get_int("wireguard_enable");
+	int wireguard_enable;
+	int config_status = service_enabled_mode_status(
+		"WireGuard", "wireguard_enable", &wireguard_enable);
+
+	if (config_status != 0)
+		return config_status;
 	if (wireguard_enable != 1)
 		return 0;
 	return eval("/usr/bin/wireguard.sh","start");
@@ -1680,8 +1710,13 @@ int stop_adbyby(void){
 
 void start_adbyby(void){
 	int start_status;
-	int adbyby_mode = nvram_get_int("adbyby_enable");
-	if ( adbyby_mode == 1) {
+	int adbyby_mode;
+	int config_status = service_enabled_mode_status(
+		"Adbyby", "adbyby_enable", &adbyby_mode);
+
+	if (config_status != 0)
+		return;
+	if (adbyby_mode == 1) {
 		start_status = eval("/usr/bin/adbyby.sh","start");
 		if (start_status != 0)
 			logmessage(LOGNAME, "Adbyby launcher failed (status=%d)", start_status);

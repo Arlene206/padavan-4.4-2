@@ -325,6 +325,44 @@ def check_rc_optional_daemon_enable_reads():
     assert "rc_service_enabled_mode_decide(" in reader
     assert "preserving existing daemon state" in reader
 
+    for name, service_name, key in (
+        ("adguardhome", "AdGuardHome", "adg_enable"),
+        ("zerotier", "ZeroTier", "zerotier_enable"),
+        ("ddnsto", "DDNS.to", "ddnsto_enable"),
+        ("sqm", "SQM", "sqm_enable"),
+        ("aldriver", "AliyunDrive WebDAV", "aliyundrive_enable"),
+        ("wireguard", "WireGuard", "wireguard_enable"),
+        ("adbyby", "Adbyby", "adbyby_enable"),
+    ):
+        start_body = extract_c_function_body(services, "start_" + name + "(void)")
+        compact_start = "".join(start_body.split())
+        mode_var = {
+            "adguardhome": "adg_mode",
+            "zerotier": "zerotier_enable",
+            "ddnsto": "ddnsto_enable",
+            "sqm": "sqm_mode",
+            "aldriver": "aldriver_enable",
+            "wireguard": "wireguard_enable",
+            "adbyby": "adbyby_mode",
+        }[name]
+        read_call = (
+            'service_enabled_mode_status("' + service_name + '","' + key +
+            '",&' + mode_var + ');'
+        )
+        assert read_call in compact_start, name
+        assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)"), name
+        if name in ("adguardhome", "ddnsto", "adbyby"):
+            assert compact_start.index("if(config_status!=0)") < compact_start.index("return;"), name
+            assert "nvram_get_int(" not in start_body
+            assert "nvram_safe_get(" not in start_body
+        else:
+            assert compact_start.index("if(config_status!=0)") < compact_start.index(
+                "returnconfig_status;"
+            ), name
+            assert compact_start.index("if(config_status!=0)") < compact_start.index("return0;"), name
+            assert "nvram_get_int(" not in start_body
+            assert "nvram_safe_get(" not in start_body
+
     smartdns_start = extract_c_function_body(services, "start_smartdns(void)")
     smartdns_compact = "".join(smartdns_start.split())
     smartdns_read = 'service_enabled_mode_status("SmartDNS","sdns_enable",&smartdns_mode);'

@@ -1,3 +1,12 @@
+## 2026-11-21 — Check optional add-on enable reads before daemon startup
+
+- Parent main SHA: 1f6de563ff8ac2b748368bb96101e8759ec42e04.
+- Seven optional RC startup wrappers still treated unchecked `nvram_get_int()` errors as a disabled setting: AdGuardHome, ZeroTier, DDNS.to, SQM, AliyunDrive WebDAV, WireGuard and Adbyby. This silently skipped requested service startup during transient backend/parse failures and made the integer getter's fallback indistinguishable from a readable disabled value.
+- Replaced each wrapper's raw read with the existing checked `service_enabled_mode_status()` gate. Integer-returning wrappers propagate the read status; legacy void wrappers keep the running state untouched and rely on the shared reader's explicit error log. No shell launcher is invoked after an unsuccessful read. Extended the optional-app checker with source-order and unchecked-reader assertions for all seven wrappers.
+- GNU89 compile and exact-head Process/XY-C1 workflows pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Check SmartDNS and AliDDNS enable reads before launch
 
 - Parent main SHA: 6875d107ea47ab16ee9549ee780f878f29d50276.
