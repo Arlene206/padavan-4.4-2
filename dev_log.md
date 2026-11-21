@@ -1,3 +1,10 @@
+## 2026-11-21 — Make WAN source-contract parser skip prototypes
+
+- Parent main SHA: `de62205e3e02687e5908e863312945ff4b81bc39`.
+- Hardened the WAN source-contract helper so function lookups skip forward declarations and select the actual implementation body. This matters for `get_wan_dns_static_status()` and route helpers, where a prototype can precede the definition; the previous naïve first-brace search could inspect the next function body and produce a false failure.
+- No production code changed. Exact-head WAN route CI will validate the current DNS, PPPoE, MTU, authentication and MAN route assertions.
+
+---
 ## 2026-11-21 — Preserve WAN DNS-mode NVRAM read failures
 
 - Parent main SHA: `f2920b4d320be4bbb7340673f1b29a9c7c0d2b62`.

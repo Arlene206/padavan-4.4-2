@@ -9,12 +9,22 @@ test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 
 
 def body(text, signature):
+    # A matching forward declaration may occur before the implementation.
+    # Select the first occurrence whose opening brace precedes its semicolon.
     start = text.find(signature)
-    if start < 0:
-        raise AssertionError("missing function: " + signature)
-    opening = text.find("{", start + len(signature))
-    if opening < 0:
-        raise AssertionError("missing body: " + signature)
+    opening = -1
+    while start >= 0:
+        after = start + len(signature)
+        candidate_open = text.find("{", after)
+        candidate_semicolon = text.find(";", after)
+        if candidate_open >= 0 and (
+            candidate_semicolon < 0 or candidate_open < candidate_semicolon
+        ):
+            opening = candidate_open
+            break
+        start = text.find(signature, start + 1)
+    if start < 0 or opening < 0:
+        raise AssertionError("missing function body: " + signature)
     depth = 0
     for index in range(opening, len(text)):
         if text[index] == "{":
