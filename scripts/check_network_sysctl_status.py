@@ -99,9 +99,17 @@ wan_start=body(WAN,"start_wan(void)")
 for name in ("set_nf_conntrack","set_igmp_mld_version"):
     require(name+"();" in wan_start and "= "+name+"();" in wan_start,
             "WAN startup must capture "+name+" result")
-require("tcp_syncookies_enabled = nvram_get_int(\"fw_syn_cook\") ? 1 : 0;" in wan_start and
-        "sysctl_status = set_tcp_syncookies(tcp_syncookies_enabled, &tcp_syncookies_status);" in wan_start,
-        "WAN startup must capture exact SYN-cookie write status")
+wan_start_compact = "".join(wan_start.split())
+syncookie_read = 'nvram_status=get_nvram_int_checked_status("fw_syn_cook",&tcp_syncookies_enabled);'
+syncookie_write = "sysctl_status=set_tcp_syncookies(tcp_syncookies_enabled,&tcp_syncookies_status);"
+require(syncookie_read in wan_start_compact and syncookie_write in wan_start_compact,
+        "WAN startup must use checked SYN-cookie reads and capture exact write status")
+syncookie_read_pos = wan_start_compact.index(syncookie_read)
+syncookie_error_pos = wan_start_compact.index("if(nvram_status!=0)", syncookie_read_pos)
+syncookie_return_pos = wan_start_compact.index("returnnvram_status;", syncookie_error_pos)
+syncookie_write_pos = wan_start_compact.index(syncookie_write, syncookie_read_pos)
+require(syncookie_read_pos < syncookie_error_pos < syncookie_return_pos < syncookie_write_pos,
+        "WAN startup must abort on SYN-cookie NVRAM read errors before applying sysctls")
 require("int tcp_syncookies_status = 0;" in wan_start,
         "WAN startup must initialize dedicated SYN-cookie status")
 wan_compact=" ".join(wan_start.split())

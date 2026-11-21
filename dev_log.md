@@ -1,3 +1,12 @@
+## 2026-11-21 — Align network sysctl checker with checked SYN-cookie gate
+
+- Parent main SHA: `7af88e6e0cf704717511efd808a758611d2fca2b`.
+- WAN route run `#44893645481` on its exact parent exposed a stale integration assertion: production `start_wan()` had moved `fw_syn_cook` from `nvram_get_int()` to `get_nvram_int_checked_status()`, but `scripts/check_network_sysctl_status.py` still required the old getter. The same checker assertion remained at step 29 of WAN run `#44893837491` on this descendant while that workflow was in progress.
+- Updated the contract to require the checked read, preserve the separate `tcp_syncookies_status` write result, and prove the NVRAM error return precedes sysctl application. Production behavior and workflow coverage are unchanged.
+- AI handoff run `#44893837451` and XY-C1 run `#44893837554` were in progress on the parent SHA when inspected. New exact-head runs are required; no current-source L3 or hardware L4 claim is made.
+
+---
+
 ## 2026-11-21 — Fail closed on unreadable USB modem transport during stop
 
 - Parent main SHA: `19b5cdee226daa53db575fb82b02dd8b5c3c4077`.
