@@ -44,6 +44,7 @@ case "$name" in
 		exit 1
 		;;
 	logger)
+		[ "$FAIL_LOGGER" != "1" ] || exit 19
 		exit 0
 		;;
 	sleep)
@@ -157,8 +158,10 @@ run_command()
 	no_pid_command=$2
 	action=$3
 	delay_pid_command=${4:-}
+	fail_logger=${5:-}
 	if FAIL_COMMAND="$fail_command" NO_PID_COMMAND="$no_pid_command" \
-	   DELAY_PID_COMMAND="$delay_pid_command" /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
+	   DELAY_PID_COMMAND="$delay_pid_command" FAIL_LOGGER="$fail_logger" \
+	   /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
 		status=0
 	else
 		status=$?
@@ -495,6 +498,20 @@ mountd_line=$(grep -n '^rpc.mountd ' "$COMMAND_LOG" | cut -d: -f1)
 	echo "NFS start returned success without both daemons" >&2
 	exit 1
 }
+
+# A noncritical syslog failure after both daemons are ready must not
+# turn a successful NFS start into a reported service failure.
+reset_fixture
+status=$(run_command "" "" start "" 1)
+[ "$status" -eq 0 ] || {
+	echo "successful NFS start was reported as failed when logger returned nonzero: $status" >&2
+	exit 1
+}
+[ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS daemon state was lost after noncritical logger failure" >&2
+	exit 1
+}
+assert_command logger
 
 # An unrelated filesystem at the reserved nfsd mountpoint must not be
 # accepted as the control filesystem or removed during startup rollback.

@@ -278,7 +278,8 @@ func_start()
 		return 1
 	fi
 
-	logger -t "NFS server" "daemon is started"
+	# Logging is best-effort after both NFS daemons have passed readiness checks.
+	logger -t "NFS server" "daemon is started" >/dev/null 2>&1 || true
 	return 0
 }
 
