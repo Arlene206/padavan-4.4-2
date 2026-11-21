@@ -88,8 +88,46 @@ static void test_firewall_refresh_policy(void)
 					      PROCESS_PRESENCE_UNKNOWN));
 }
 
+
+static void test_checked_sshd_enable_mode_read(void)
+{
+    int mode = 77;
+
+    assert(sshd_nvram_mode_status(1, 0, "1", &mode) == 0);
+    assert(mode == 1);
+    assert(sshd_nvram_mode_status(1, 0, "2", &mode) == 0);
+    assert(mode == 2);
+    assert(sshd_nvram_mode_status(1, 0, "0", &mode) == 0);
+    assert(mode == 0);
+    assert(sshd_nvram_mode_status(0, 0, NULL, &mode) == 0);
+    assert(mode == 0);
+    assert(sshd_nvram_mode_status(1, 0, "", &mode) == 0);
+    assert(mode == 0);
+    assert(sshd_nvram_mode_status(1, 0, " 2 \t", &mode) == 0);
+    assert(mode == 2);
+
+    mode = 77;
+    assert(sshd_nvram_mode_status(-1, EACCES, NULL, &mode) == EACCES);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(-1, 0, NULL, &mode) == EIO);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(0, 0, "1", &mode) == EIO);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(1, 0, NULL, &mode) == EIO);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(2, 0, "1", &mode) == EIO);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(1, 0, "2junk", &mode) == EINVAL);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(1, 0, "9999999999999999999",
+                                  &mode) == ERANGE);
+    assert(mode == 77);
+    assert(sshd_nvram_mode_status(1, 0, "1", NULL) == EINVAL);
+}
+
 int main(void)
 {
+	test_checked_sshd_enable_mode_read();
 	test_process_name_selection_matches_inventory_backend();
 	test_direct_start_requires_confirmed_absence();
 	test_restart_initial_inventory_gates_name_based_stop();

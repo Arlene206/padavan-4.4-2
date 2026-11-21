@@ -1,3 +1,15 @@
+## 2026-11-21 — Preserve SSH remote management on enable NVRAM read errors
+
+- Parent main SHA: e84b9a30b63f1ed62ed96e361d5b085f70f8be3c.
+- Confirmed availability defect in services.c: start_sshd() read sshd_enable through nvram_get_int(), so backend errors collapsed to disabled/success. restart_sshd() stopped the active SSH/Dropbear listener before calling start_sshd(), leaving remote management unavailable on the same transient failure.
+- Added a strict checked mode parser for sshd_enable. Missing/empty remains mode 0; valid modes 1/2 retain Dropbear/OpenSSH behavior; malformed, overflowing and inconsistent API results return errors without overwriting the output. Direct start reads the mode before process inventory/start.
+- Restart now checks sshd_enable before process inventory or stop, then passes the same validated mode into the start implementation, avoiding a second read failure after teardown. The public start API retains its signature.
+- Extended the existing SSH lifecycle policy tests with GNU89-compatible cases for modes 0/1/2, missing/empty, API failure, inconsistent pointer/status, malformed values, overflow, null output and output preservation. Extended the existing source contract to enforce checked reads and read-before-stop.
+- Exact process-lifecycle regression and XY-C1 production-source build are pending for this SHA. No local RC compile, MIPS firmware/TRX or hardware L4 result is claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Repair required handoff headings and correct firmware validation boundary
 
 - Parent main SHA: 2222f27be79a7f785a48887047403e29f360ef59; AI handoff documentation #44905479770 failed because the handoff used noncanonical headings instead of required "## Current repository state" and "## Active task".

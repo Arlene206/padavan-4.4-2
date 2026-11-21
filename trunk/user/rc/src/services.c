@@ -25,6 +25,7 @@
 #include <sys/types.h>
 
 #include "rc.h"
+#include "nvram_linux.h"
 #include "process_inventory.h"
 #include "optional_daemon_policy.h"
 #include "process_presence_start_policy.h"
@@ -795,9 +796,32 @@ int stop_sshd(void)
 	return kill_services(service_names, 3, 1);
 }
 
-int start_sshd(void)
+static int
+sshd_enabled_mode_read(int *sshd_mode)
 {
-	int sshd_mode = nvram_get_int("sshd_enable");
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!sshd_mode)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked("sshd_enable", &value);
+	saved_errno = errno;
+	status = sshd_nvram_mode_status(api_result, saved_errno,
+					value, sshd_mode);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read SSH enable configuration; preserving current daemon state (errno=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+	return 0;
+}
+
+static int
+start_sshd_with_mode(int sshd_mode)
+{
 	enum process_presence state;
 	int scan_error = 0;
 	int start_status;
@@ -855,6 +879,16 @@ int start_sshd(void)
 	return sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT);
 }
 
+int start_sshd(void)
+{
+	int sshd_mode, config_status;
+
+	config_status = sshd_enabled_mode_read(&sshd_mode);
+	if (config_status != 0)
+		return -1;
+	return start_sshd_with_mode(sshd_mode);
+}
+
 int restart_sshd(void)
 {
 	enum process_presence before_state;
@@ -868,6 +902,16 @@ int restart_sshd(void)
 	int firewall_stop_status;
 	int firewall_stop_scan_error = 0;
 	enum process_presence firewall_stop_state;
+	int sshd_mode, config_status;
+
+	config_status = sshd_enabled_mode_read(&sshd_mode);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "SSH restart aborted before stop because enable configuration is unreadable (errno=%d)",
+			   config_status);
+		errno = config_status;
+		return -1;
+	}
 
 	before_state = sshd_process_presence(&scan_error);
 	if (!sshd_restart_before_state_allows_stop(before_state)) {
@@ -898,7 +942,7 @@ int restart_sshd(void)
 		return -1;
 	}
 
-	start_status = start_sshd();
+	start_status = start_sshd_with_mode(sshd_mode);
 	after_state = sshd_process_presence(&scan_error);
 
 	if (sshd_firewall_refresh_required(before_state, after_state) &&

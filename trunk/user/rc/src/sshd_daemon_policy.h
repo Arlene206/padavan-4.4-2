@@ -1,7 +1,62 @@
 #ifndef PADAVAN_SSHD_DAEMON_POLICY_H
 #define PADAVAN_SSHD_DAEMON_POLICY_H
 
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
+
 #include "process_presence_start_policy.h"
+
+
+/*
+ * Read sshd_enable without collapsing an NVRAM backend error into the
+ * historical disabled default. Missing/empty keeps mode zero; malformed,
+ * out-of-range and inconsistent API results are rejected.
+ */
+static inline int
+sshd_nvram_mode_status(int api_result, int saved_errno,
+                       const char *value, int *mode)
+{
+    const char *cursor;
+    char *end;
+    long parsed;
+
+    if (!mode)
+        return EINVAL;
+    if (api_result < 0)
+        return saved_errno > 0 ? saved_errno : EIO;
+    if (api_result == 0) {
+        if (value)
+            return EIO;
+        *mode = 0;
+        return 0;
+    }
+    if (api_result != 1 || !value)
+        return EIO;
+
+    cursor = value;
+    while (*cursor && isspace((unsigned char)*cursor))
+        ++cursor;
+    if (!*cursor) {
+        *mode = 0;
+        return 0;
+    }
+
+    errno = 0;
+    parsed = strtol(cursor, &end, 10);
+    if (end == cursor)
+        return EINVAL;
+    if (errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX)
+        return ERANGE;
+    while (*end && isspace((unsigned char)*end))
+        ++end;
+    if (*end)
+        return EINVAL;
+
+    *mode = (int)parsed;
+    return 0;
+}
 
 /* Direct starts also require a complete inventory confirming absence. */
 static inline int

@@ -71,11 +71,26 @@ print("SSH public-firewall failure listener shutdown contract: PASS")
 
 # SSH/Dropbear detach from their launcher: verify the child, not eval(), before
 # reporting success. Also gate the broad stop wrapper on a known initial state.
-start = body(SERVICES, "int start_sshd(void)")
+start_wrapper = body(SERVICES, "int start_sshd(void)")
+start = body(SERVICES, "start_sshd_with_mode(int sshd_mode)")
+mode_reader = body(SERVICES, "sshd_enabled_mode_read(int *sshd_mode)")
+mode_policy = body(POLICY, "sshd_nvram_mode_status(")
 start_policy = body(POLICY, "sshd_start_postcondition(")
 restart_preflight_policy = body(POLICY, "sshd_restart_before_state_allows_stop(")
 restart_stop_policy = body(POLICY, "sshd_restart_requires_stop(")
 restart = body(SERVICES, "int restart_sshd(void)")
+
+assert 'nvram_get_checked("sshd_enable", &value)' in mode_reader
+assert "sshd_nvram_mode_status(api_result, saved_errno" in mode_reader
+assert "sshd_nvram_mode_status" in mode_policy
+assert "strtol(cursor, &end, 10)" in mode_policy
+assert "api_result == 0" in mode_policy
+assert "if (api_result < 0)" in mode_policy
+assert "sshd_enabled_mode_read(&sshd_mode)" in start_wrapper
+assert "start_sshd_with_mode(sshd_mode)" in start_wrapper
+assert 'nvram_get_int("sshd_enable")' not in start_wrapper
+assert 'nvram_get_int("sshd_enable")' not in start
+assert "test_checked_sshd_enable_mode_read();" in TEST
 
 assert "process_presence_start_postcondition" in start_policy
 assert "PROCESS_PRESENCE_ABSENT" in restart_preflight_policy
@@ -98,7 +113,9 @@ assert "if (state == PROCESS_PRESENCE_UNKNOWN)" in start
 assert "errno = scan_error > 0 ? scan_error : EIO;" in start
 assert "errno = ETIMEDOUT;" in start
 assert "sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT)" in start
+assert "if (sshd_mode != 1 && sshd_mode != 2)" in start
 start_order = (
+    start.index("if (sshd_mode != 1 && sshd_mode != 2)"),
     start.index("if (!sshd_start_allowed(state))"),
     start.index('start_status = eval("/usr/bin/sshd.sh", "start"'),
     start.index("if (start_status != 0)"),
@@ -109,6 +126,11 @@ start_order = (
 )
 assert start_order == tuple(sorted(start_order))
 
+assert "sshd_enabled_mode_read(&sshd_mode)" in restart
+assert restart.index("sshd_enabled_mode_read(&sshd_mode)") < restart.index("before_state = sshd_process_presence(&scan_error);")
+assert restart.index("sshd_enabled_mode_read(&sshd_mode)") < restart.index("stop_status = stop_sshd();")
+assert "start_sshd_with_mode(sshd_mode)" in restart
+assert 'nvram_get_int("sshd_enable")' not in restart
 assert "before_state = sshd_process_presence(&scan_error);" in restart
 assert "if (!sshd_restart_before_state_allows_stop(before_state))" in restart
 assert "if (sshd_restart_requires_stop(before_state))" in restart
