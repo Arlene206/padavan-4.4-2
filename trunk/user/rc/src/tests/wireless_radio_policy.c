@@ -1,5 +1,6 @@
 #include "wireless_radio_policy.h"
 
+#include <limits.h>
 #include <stdio.h>
 
 static int
@@ -328,10 +329,23 @@ static int test_inic_radio_policy_rejects_incomplete_operations(void)
 	return wireless_inic_radio_transition(1, NULL, NULL) != -EINVAL;
 }
 
+static int
+test_txpower_config_value_is_normalized(void)
+{
+	return wireless_txpower_config_value(INT_MIN) != 100 ||
+	       wireless_txpower_config_value(-1) != 100 ||
+	       wireless_txpower_config_value(0) != 0 ||
+	       wireless_txpower_config_value(1) != 1 ||
+	       wireless_txpower_config_value(100) != 100 ||
+	       wireless_txpower_config_value(101) != 100 ||
+	       wireless_txpower_config_value(INT_MAX) != 100;
+}
+
 int
 main(void)
 {
-	if (test_success_is_published() ||
+	if (test_txpower_config_value_is_normalized() ||
+	    test_success_is_published() ||
 	    test_interface_failures_are_not_published() ||
 	    test_interface_and_hw_nat_failures_preserve_first_error() ||
 	    test_shutdown_failure_is_sticky() ||

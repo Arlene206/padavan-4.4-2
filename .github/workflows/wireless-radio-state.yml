@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -24,6 +25,7 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/ralink.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -67,6 +69,7 @@ jobs:
           root = Path(".")
           rc = root / "trunk/user/rc/src"
           source = (rc / "net_wifi.c").read_text()
+          ralink_source = (rc / "ralink.c").read_text()
           rc_source = (rc / "rc.c").read_text()
           workflow = Path(".github/workflows/wireless-radio-state.yml").read_text()
           notification_policy = (rc / "wireless_radio_policy.h").read_text()
@@ -89,6 +92,14 @@ jobs:
               raise AssertionError(f"unterminated function: {signature}")
 
           assert '#include "wireless_radio_policy.h"' in source
+          assert '#include "wireless_radio_policy.h"' in ralink_source
+          txpower_prepare = function_body(source, "wireless_inic_radio_prepare_on(void *opaque)")
+          assert 'wireless_txpower_config_value(nvram_wlan_get_int(0, "TxPower"))' in txpower_prepare
+          txpower_config = function_body(
+              ralink_source,
+              "gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)")
+          assert "wireless_txpower_config_value(i_val)" in txpower_config
+          assert "test_txpower_config_value_is_normalized" in notification_test
           header = (rc / "rc.h").read_text()
           wan_source = (rc / "net_wan.c").read_text()
 
@@ -782,6 +793,7 @@ jobs:
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
+              "trunk/user/rc/src/ralink.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/shared/src/netutils.c",
               "trunk/user/shared/src/bridge_membership_policy.h",

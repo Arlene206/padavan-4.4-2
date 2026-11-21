@@ -399,7 +399,7 @@ static int
 wireless_inic_radio_prepare_on(void *opaque)
 {
 	wireless_inic_radio_context_t *context = (wireless_inic_radio_context_t *)opaque;
-	int i_val = nvram_wlan_get_int(0, "TxPower");
+	int i_val = wireless_txpower_config_value(nvram_wlan_get_int(0, "TxPower"));
 	int status = doSystem("iwpriv %s set %s=%d", context->ifname, "TxPower", i_val);
 
 	if (!wireless_radio_status_success(status)) {

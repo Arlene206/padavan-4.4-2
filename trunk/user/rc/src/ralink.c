@@ -32,6 +32,7 @@
 #include "rc.h"
 #include "ralink_config_file.h"
 #include "wireless_ioctl_policy.h"
+#include "wireless_radio_policy.h"
 
 #define MAX_FRW 64
 
@@ -858,7 +859,7 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 
 	//TxPower [0..100], default 100
 	i_val = nvram_wlan_get_int(is_aband, "TxPower");
-	if (i_val < 0 || i_val > 100) i_val = 100;
+	i_val = wireless_txpower_config_value(i_val);
 	fprintf(fp, "TxPower=%d\n", i_val);
 
 	//DisableOLBC

@@ -7,6 +7,18 @@
  * A radio operation is considered successful only when the driver command or
  * the enclosing restart transaction returns the conventional zero status.
  */
+/*
+ * The Ralink config generator has historically clamped invalid TxPower
+ * settings to 100. Keep the live iNIC radio-toggle path on the same bounded
+ * value so a stale/corrupt NVRAM value cannot send an out-of-range iwpriv
+ * command or prevent radio recovery.
+ */
+static inline int
+wireless_txpower_config_value(int configured_value)
+{
+	return (configured_value < 0 || configured_value > 100) ? 100 : configured_value;
+}
+
 static inline int
 wireless_radio_status_success(int operation_status)
 {

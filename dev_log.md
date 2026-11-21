@@ -1,3 +1,14 @@
+## 2026-11-21 — Normalize RT3352 MII TxPower across config and live radio paths
+
+- Parent main SHA: `b33f359bf38874d530db2a99c7ca345cb55f0a80`.
+- Found a real config/runtime mismatch in RT3352 MII: `ralink.c` clamps invalid persisted TxPower outside 0..100 to 100 while emitting AP.dat, but `net_wifi.c:wireless_inic_radio_prepare_on()` passed the raw NVRAM integer to `iwpriv`. A malformed/stale value could therefore fail a live radio-enable transaction despite the generated driver configuration using 100.
+- Added the shared GNU89-compatible `wireless_txpower_config_value()` policy (valid 0..100 preserved, all out-of-range values default to 100); used it in both the Ralink config writer and live iNIC radio enable path.
+- Extended `wireless_radio_policy.c` with INT_MIN, -1, 0, 1, 100, 101 and INT_MAX regression cases. Updated Wireless CI source assertions and push/PR path filters to cover `ralink.c`, runtime helper use, config helper use and the regression.
+- PID-1 queue #44906182543 and AI handoff docs #44906182540 PASS on parent `b33f359`. Process lifecycle #44906182539 was still running at the required PID 1 boot-environment source gate. Earlier XY-C1 #44905883001 on source `79e1932` remained at Build XY-C1 with TRX/artifact pending. The TxPower product commit should trigger new same-SHA Wireless and XY-C1 checks.
+- Resulting main commit: THIS COMMIT. Exact-head verification pending; no current L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Align SSH lifecycle contracts with checked start wrapper
 
 - Parent main SHA: `79e1932c74dc289e710c82ba3f184c9ee2bd785e`; production source SHA includes the checked SSH mode read and restart preflight.
