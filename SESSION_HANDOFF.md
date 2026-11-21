@@ -14,30 +14,29 @@ Inspect live `main`, verify the frozen backup SHA and inspect exact-SHA Actions 
 
 ## Current repository state
 
-- Parent main SHA before this watchdog rollback slice: `e6b112eb34b7e7fc7f3571e8e823e1ee91a9ea19`.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (permanently read-only).
-- `1b25077e6e5a9f8750d4b5c76637beec5ca354d1`: SCUT watchdog PID safety #44884209161, AI handoff #44884209044 and Process inventory #44884209082 passed. XY-C1 #44884209133 completed Build, TRX verification and artifact upload on that same SHA; valid L3 evidence for that source revision.
-- Process fail-closed #44884209089 failed on an outdated infosvr source-contract assertion. It was corrected in `7085606f16b27e7ebc693cb0c3d3af29eb8e117b`; infosvr #44884338900, crond #44884338915, Process inventory #44884338972 and AI handoff #44884338928 passed.
-- On `f530b3a75684feae8490bb3e33044df8034e48b1`, Crond #44884633405, Process inventory #44884633475, Process fail-closed #44884633485, watchdog #44884633410, and independent HTTPD/DNSMasq/WAN/ZeroTier/DDNSTO/VPN/NVRAM/Storage checks passed. XY-C1 #44884633378 was still in progress at last poll.
-- `start_watchdog()` launched `/sbin/watchdog` through `eval()` even though `watchdog_main()` daemonizes before publishing its PID. Post-launch failure returns previously skipped rollback, allowing a delayed daemon child to appear after the caller had received failure. This slice targets only the watchdog process, verifies post-stop inventory and preserves the original failure status/errno.
-- The initial UNKNOWN process inventory still aborts before launch; an existing watchdog remains a no-op/notification path. New post-launch failure branches route through `detached_daemon_start_rollback_with_ops()`.
-- No force push or backup mutation. Physical-router L4 remains NOT VERIFIED.
+- Parent main SHA before this workflow-contract correction: `8a55d24a4b797c96ca94bc8ece112966d86fa204`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain read-only.
+- `1b25077e6e5a9f8750d4b5c76637beec5ca354d1` SCUT watchdog #44884209161, AI handoff #44884209044 and Process inventory #44884209082 passed; XY-C1 #44884209133 completed Build, TRX verification and artifact upload on that same SHA (L3 pass for those inputs).
+- `f530b3a75684feae8490bb3e33044df8034e48b1` Crond #44884633405, Process inventory #44884633475, Process fail-closed #44884633485 and watchdog #44884633410 passed. Its XY-C1 #44884633378 was still building at last poll.
+- Watchdog rollback source commit `8a55d24a4b797c96ca94bc8ece112966d86fa204` has exact-SHA Watchdog #44885239087, Process inventory #44885238990, XY-C1 #44885238962, DNSMasq #44885238979 and HTTPD #44885238949 running. The source/checker/workflow contract must pass; no success is inferred from PENDING.
+- The first watchdog Action uses an inline workflow contract that still expected `return launch_status;`. The production source now returns through the new rollback helper. This commit updates that stale contract and includes the detached rollback policy header/test in the workflow path contract; it does not change production behavior.
+- No force push, no backup mutation and no physical-router L4 claim.
 
 ## Active task
 
-1. Inspect exact-SHA watchdog signal lifecycle, Process lifecycle, AI handoff and XY-C1 Actions for this watchdog rollback commit; diagnose any first-cause failure without weakening coverage.
-2. Check whether XY-C1 #44884633378 completed Build, TRX validation and artifact upload on the same `f530b3a` SHA.
-3. Continue the shared PID-file audit at `trunk/user/shared/src/shutils.c::kill_pidfile_s()` only after mapping all consumers and writer formats. Do not change numeric-only external PID-file semantics speculatively.
+1. Inspect exact-SHA Watchdog, Process lifecycle, HTTPD/DNSMasq and XY-C1 runs for this workflow-contract commit.
+2. Recheck `8a55d24a4b797c96ca94bc8ece112966d86fa204` Actions, especially whether its stale inline watchdog contract failed before this correction.
+3. If all relevant checks pass, continue mapping `kill_pidfile_s()` and `kill_pidfile()` consumers to exact PID-file producers before any shared-helper migration.
 
 ## Verification boundary
 
-- Exact-SHA host Actions above apply only to their named SHAs. The current watchdog rollback change has not yet been verified by its own exact-SHA workflows.
-- The existing `detached_daemon_start_policy.c` regression covers cleanup success/failure, UNKNOWN cleanup inventory and primary status/errno preservation. New watchdog source contracts require all six post-launch failure paths to invoke that policy.
-- No local compiler, shell or Python run is claimed; this session has no local checkout. XY-C1 L3 requires Build, TRX and artifact upload on one SHA. Physical hardware L4 is NOT VERIFIED.
+- The `8a55d24` source slice's generic rollback behavior is covered by `detached_daemon_start_policy.c` tests: cleanup success, failed cleanup with child still running, UNKNOWN cleanup inventory and primary status/errno preservation. Exact production wiring is source-checked.
+- The workflow-contract correction is not yet verified on its own SHA. No local compile or test run is claimed.
+- XY-C1 L3 requires Build, TRX and artifact upload on one SHA. Physical hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm backup `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect the exact-SHA watchdog, Process lifecycle, AI handoff and XY-C1 Actions for this commit. Resolve any first-cause failure; then resume the PID-file consumer/producer mapping in `trunk/user/shared/src/shutils.c`.
+Fetch live `main`, confirm the frozen backup SHA, and inspect the exact-SHA Watchdog, Process lifecycle, HTTPD/DNSMasq and XY-C1 Actions for this commit. Resolve first-cause failures; then resume the shared PID-file consumer/producer mapping in `trunk/user/shared/src/shutils.c`.
 
 ## Handoff maintenance
 

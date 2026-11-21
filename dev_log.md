@@ -1,3 +1,12 @@
+## 2026-11-21 — Align watchdog workflow contract with targeted startup rollback
+
+- Parent main SHA: `8a55d24a4b797c96ca94bc8ece112966d86fa204`.
+- The first exact-head watchdog run for the detached-start rollback change still contained a stale inline assertion requiring `return launch_status;`. Production correctly routes the launcher failure through `watchdog_rollback_failed_start()` and therefore the old assertion would fail despite correct behavior.
+- Updated the workflow to require all six post-launch failure exits to use the rollback helper, check the stop/inventory adapters, and include the shared rollback policy header/test in push and PR path coverage.
+- No production source changed in this follow-up. Exact-SHA Watchdog, Process lifecycle and XY-C1 Actions must pass after publication.
+- Resulting main commit: THIS COMMIT.
+
+---
 ## 2026-11-21 — Roll back the watchdog daemon when detached startup cannot be verified
 
 - Parent main SHA: `e6b112eb34b7e7fc7f3571e8e823e1ee91a9ea19`.
