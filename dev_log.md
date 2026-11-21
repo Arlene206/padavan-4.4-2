@@ -1,3 +1,12 @@
+## 2026-11-21 — Handle conditional-compilation braces in WAN startup checker
+
+- Parent main SHA: `fee0fe11f4a7d12da0238e3f548fcc7b57b93215`.
+- Exact-head WAN route run `#44892366354` passed the policy binaries and initial DNS-mode checks, then failed the PPPoE idle-time failure-path assertion. The production function contains the checked read, WAN restoration and `continue`; the generic brace counter counted both mutually exclusive `#if/#else` branches as simultaneous C blocks and truncated the extracted function body.
+- Added a regression fixture with alternate preprocessor branches and a function extractor that uses the repository's column-zero C function terminator while still ignoring comments/literals. All `start_wan()` source-contract slices now use this preprocessor-aware boundary; the existing generic extractor remains unchanged for other functions.
+- This repairs a false-negative static contract, not WAN runtime behavior. Rerun WAN route Actions on the resulting exact SHA.
+
+---
+
 ## 2026-11-21 — Align WAN DHCP MTU regression with checked NVRAM read
 
 - Parent main SHA: `b816880f652adcec58168be3911d38dec75a22b1`.

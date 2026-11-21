@@ -96,6 +96,53 @@ if "if (open_brace == '{')" not in _parser_probe or "return 0;" not in _parser_p
     raise AssertionError("C-aware function body parser regression")
 
 
+def function_body_at_column_zero_terminator(text, signature):
+    """Extract a function despite mutually exclusive preprocessor brace branches."""
+    start = text.find(signature)
+    opening = -1
+    while start >= 0:
+        after = start + len(signature)
+        for position, character in code_characters(text, after):
+            if character == ";":
+                break
+            if character == "{":
+                opening = position
+                break
+        if opening >= 0:
+            break
+        start = text.find(signature, start + 1)
+    if start < 0 or opening < 0:
+        raise AssertionError("missing function body: " + signature)
+
+    for index, character in code_characters(text, opening):
+        if character != "}":
+            continue
+        line_start = text.rfind(chr(10), 0, index) + 1
+        if not text[line_start:index].strip():
+            return text[opening + 1:index]
+    raise AssertionError("unterminated function: " + signature)
+
+
+_parser_conditional_source = r'''
+int conditional_probe(int value) {
+#if defined(LEFT_BRANCH)
+    if (value) {
+#else
+    if (!value) {
+#endif
+        value++;
+    }
+    return value;
+}
+'''
+_parser_conditional_body = function_body_at_column_zero_terminator(
+    _parser_conditional_source, "conditional_probe(int value)"
+)
+_require_markers = ("if (value)", "if (!value)", "return value;")
+if not all(marker in _parser_conditional_body for marker in _require_markers):
+    raise AssertionError("C preprocessor alternate-brace function extraction regression")
+
+
 def require(condition, message):
     if not condition:
         raise AssertionError(message)
@@ -153,7 +200,7 @@ print("WAN DNS-mode checked-read and resolver fail-closed contract: PASS")
 
 # PPPoE manual mode and demand are control-plane decisions: backend errors
 # must abort and restore WAN state, while missing keys retain their zero default.
-wan_start = " ".join(body(source, "start_wan(void)").split())
+wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
 manual_pattern = r'nvram_status\s*=\s*get_wan_unit_value_int_status\s*\(\s*unit,\s*"pppoe_man",\s*&i_pppoe_man\s*\)\s*;'
 manual_matches = list(re.finditer(manual_pattern, wan_start))
 manual_positions = [match.start() for match in manual_matches]
@@ -195,7 +242,7 @@ require(wanx_start.index("if (nvram_status != 0)") < wanx_start.index("wan_stati
         "MAN MTU read errors must stop before address snapshot/client setup")
 require("return nvram_status" in wanx_start,
         "MAN MTU read errors must propagate to the launch caller")
-wan_start = " ".join(body(source, "start_wan(void)").split())
+wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
 require('get_wan_unit_value_int_status(unit, "mtu", &wan_mtu)' in wan_start,
         "physical WAN MTU must use checked NVRAM reads")
 mtu_read = wan_start.index('get_wan_unit_value_int_status(unit, "mtu", &wan_mtu)')
@@ -210,7 +257,7 @@ print("WAN MTU reads fail closed before MAN/physical interface activation: PASS"
 
 
 # EAPOL and IPoE/Kabinet authentication-mode decisions must use checked reads.
-wan_start = " ".join(body(source, "start_wan(void)").split())
+wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
 require('get_wan_unit_value_int_status(unit, "auth_mode", &wan_auth_mode)' in wan_start,
         "EAPOL mode must use checked NVRAM reads")
 require("auth_status = nvram_status" in wan_start and "if (auth_status != 0)" in wan_start,
@@ -255,7 +302,7 @@ checked_global = body(source, "get_nvram_int_checked_status(const char *param_na
 for token in ("nvram_get_checked(param_name, &stored_value)",
               "rc_wan_nvram_read_int_status(api_result, saved_errno"):
     require(token in checked_global, "global checked NVRAM getter missing " + token)
-wan_start = " ".join(body(source, "start_wan(void)").split())
+wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
 require('get_nvram_int_checked_status("fw_syn_cook", &tcp_syncookies_enabled)' in wan_start,
         "TCP SYN-cookie startup gate must use checked NVRAM reads")
 require("if (nvram_status != 0)" in wan_start and
@@ -268,7 +315,7 @@ print("WAN SYN-cookie security policy read fails closed before activation: PASS"
 
 
 # USB modem startup must not silently interpret NVRAM read failure as RAS mode.
-wan_start = " ".join(body(source, "start_wan(void)").split())
+wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
 modem_read = 'get_nvram_int_checked_status("modem_type", &modem_type)'
 require(modem_read in wan_start,
         "USB modem startup must use checked transport-type reads")
@@ -284,7 +331,7 @@ print("USB modem startup fails closed when transport type is unreadable: PASS")
 
 # The EAPOL read/start failure guard must close before the WAN protocol's
 # success path; otherwise start_wan() becomes syntactically unbalanced.
-wan_start = body(source, "start_wan(void)")
+wan_start = function_body_at_column_zero_terminator(source, "start_wan(void)")
 require("if (auth_status != 0) {" in wan_start and
         "continue;\n\t\t\t\t}\n\n\t\t\t/* We are done configuration */" in wan_start,
         "EAPOL failure branch must close before WAN protocol activation")
