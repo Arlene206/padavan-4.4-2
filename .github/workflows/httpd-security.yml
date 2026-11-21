@@ -5599,6 +5599,11 @@ jobs:
           assert "stop_httpd_locked()" in restart and "start_httpd_locked(1)" in restart
           assert "stop_httpd()" not in restart and "start_httpd(1)" not in restart
           assert "httpd_process_presence(&scan_error)" in start_locked
+          assert "httpd_start_postcondition_requires_recovery(presence)" in start_locked
+          assert 'httpd_start_wait_failure_recover(status, "postcondition")' in start_locked
+          assert "errno = scan_error > 0 ? scan_error : EIO;" in start_locked
+          assert "httpd_start_postcondition_requires_recovery" in (root / "httpd_daemon_policy.h").read_text()
+          assert "httpd_start_postcondition_requires_recovery(PROCESS_PRESENCE_UNKNOWN)" in httpd_policy_test
           httpd_config_reader = body(services, "httpd_nvram_read_int_status(")
           assert "nvram_get_checked(param_name, &text)" in httpd_config_reader
           assert "rc_wan_nvram_read_int_status(" in httpd_config_reader

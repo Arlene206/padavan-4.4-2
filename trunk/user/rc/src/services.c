@@ -2124,11 +2124,12 @@ start_httpd_locked(int restart_fw)
 		status = httpd_start_postcondition(launch_status, presence);
 		if (presence == PROCESS_PRESENCE_RUNNING)
 			break;
-		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+		if (httpd_start_postcondition_requires_recovery(presence)) {
 			logmessage(LOGNAME,
-				   "cannot verify HTTPD startup postcondition (scan_error=%d)",
+				   "cannot verify HTTPD startup postcondition; attempting listener rollback (scan_error=%d)",
 				   scan_error ? scan_error : EIO);
-			break;
+			errno = scan_error > 0 ? scan_error : EIO;
+			return httpd_start_wait_failure_recover(status, "postcondition");
 		}
 
 		if (attempt + 1 < HTTPD_START_PROBE_ATTEMPTS) {

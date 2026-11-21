@@ -30,6 +30,11 @@ static void test_detached_child_must_be_confirmed_running(void)
 	assert(httpd_start_postcondition(0, PROCESS_PRESENCE_RUNNING) == 0);
 	assert(httpd_start_postcondition(0, PROCESS_PRESENCE_UNKNOWN) == EIO);
 	assert(httpd_start_postcondition(0, (enum process_presence)99) == EIO);
+	assert(!httpd_start_postcondition_requires_recovery(PROCESS_PRESENCE_ABSENT));
+	assert(!httpd_start_postcondition_requires_recovery(PROCESS_PRESENCE_RUNNING));
+	assert(httpd_start_postcondition_requires_recovery(PROCESS_PRESENCE_UNKNOWN));
+	assert(httpd_start_postcondition_requires_recovery((enum process_presence)99));
+	assert(httpd_start_postcondition_requires_recovery((enum process_presence)-1));
 	assert(httpd_start_postcondition(EPERM, PROCESS_PRESENCE_RUNNING) == EPERM);
 	assert(httpd_start_postcondition(127, PROCESS_PRESENCE_UNKNOWN) == 127);
 }

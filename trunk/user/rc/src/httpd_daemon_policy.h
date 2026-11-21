@@ -87,6 +87,17 @@ httpd_start_postcondition(int launcher_status,
 	return EIO;
 }
 
+/*
+ * A post-launch UNKNOWN/invalid scan is not the same as confirmed absence:
+ * the detached listener may already be live and must enter rollback.
+ */
+static inline int
+httpd_start_postcondition_requires_recovery(enum process_presence process_presence)
+{
+	return process_presence != PROCESS_PRESENCE_RUNNING &&
+	       process_presence != PROCESS_PRESENCE_ABSENT;
+}
+
 /* Only a complete scan that confirms absence authorizes configuration/start. */
 static inline int
 httpd_start_can_launch(enum process_presence process_presence)
