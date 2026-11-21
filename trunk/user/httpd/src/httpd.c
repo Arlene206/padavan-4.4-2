@@ -902,7 +902,9 @@ static void
 handle_request(FILE *conn_fp, const conn_item_t *item)
 {
 	char line[4096];
-	char *method, *path, *protocol, *authorization, *boundary;
+	char *method, *path, *protocol, *boundary;
+	const char *authorization;
+	struct httpd_basic_auth_header authorization_header;
 	char *cur, *end, *cp, *file, *query;
 	char origin_header[HTTPD_CSRF_ORIGIN_MAX];
 	char referer_header[HTTPD_CSRF_REFERER_MAX];
@@ -926,6 +928,7 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 
 	/* Initialize the request variables. */
 	authorization = boundary = NULL;
+	memset(&authorization_header, 0, sizeof(authorization_header));
 	origin_header[0] = referer_header[0] = host_header[0] = '\0';
 
 	/* Parse the first line of the request. */
@@ -1011,7 +1014,8 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 		else if (strncasecmp( cur, "Authorization:", 14) == 0) {
 			cp = cur + 14;
 			cp += strspn( cp, " \t" );
-			authorization = cp;
+			(void)httpd_basic_auth_header_record(&authorization_header, cp);
+			authorization = authorization_header.value;
 			cur = cp + strlen(cp) + 1;
 		}
 		else if (strncasecmp(cur, "Transfer-Encoding:", 18) == 0) {
@@ -1189,7 +1193,7 @@ handle_request(FILE *conn_fp, const conn_item_t *item)
 	}
 
 	if (handler->need_auth && login_state > 1 && !do_logout) {
-		if (!auth_check(authorization)) {
+		if (authorization_header.duplicate || !auth_check(authorization)) {
 			http_logout(&conn_ip);
 			if (method_id == HTTP_METHOD_POST)
 				eat_post_data(conn_fp, clen);

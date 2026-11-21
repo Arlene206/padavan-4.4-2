@@ -10,6 +10,34 @@
 extern int b64_decode_strict(const char *str, unsigned char *space, int size);
 
 /*
+ * A request may carry at most one Authorization field. Repeated fields are
+ * ambiguous across HTTP parsers, so invalidate the credential rather than
+ * letting the last header silently replace the first.
+ */
+struct httpd_basic_auth_header {
+	const char *value;
+	int seen;
+	int duplicate;
+};
+
+static int
+httpd_basic_auth_header_record(struct httpd_basic_auth_header *header,
+			       const char *value)
+{
+	if (!header || !value)
+		return 0;
+	if (header->seen) {
+		header->duplicate = 1;
+		header->value = NULL;
+		return 0;
+	}
+	header->seen = 1;
+	header->value = value;
+	return 1;
+}
+
+
+/*
  * Decode one HTTP Basic Authorization field. The caller's header parser
  * removes leading field whitespace; this helper accepts the RFC case-
  * insensitive scheme, one or more SP separators, and normal trailing OWS

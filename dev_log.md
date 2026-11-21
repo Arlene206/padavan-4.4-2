@@ -1,3 +1,13 @@
+## 2026-11-21 — Reject ambiguous duplicate HTTP Authorization fields
+
+- Parent main SHA: `95180e9d7b1d86676928ebb4c58c8af4af4adbab`.
+- HTTPD request parsing previously overwrote the saved `Authorization` pointer whenever another case-insensitive Authorization field arrived. That made credentials depend on the last repeated field, while intermediaries and parsers can interpret repeated authentication fields differently. Added an explicit one-field state helper: the first value is retained, any second value marks the request credential ambiguous and clears the value, and subsequent duplicates remain invalid. Protected routes now fail the Basic-auth check when the duplicate flag is set.
+- Added GNU89 unit coverage for first-header acceptance, duplicate invalidation, and continued invalidity after a third header; extended the HTTPD security workflow's source contract to require the parser/state/auth-gate wiring.
+- Previous WAN route verification on exact SHA `95180e9d7b1d86676928ebb4c58c8af4af4adbab` passed (#44930698354), as did AI handoff (#44930698407). XY-C1 Build, TRX verification and artifact upload all passed on product SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192` (#44929756345); L3 is VERIFIED for that product-source SHA. Hardware L4 remains NOT VERIFIED.
+- This is a production HTTPD security change. Fresh exact-head HTTPD security and XY-C1 Build/TRX/artifact Actions are required for this commit; no local build is claimed.
+
+---
+
 ## 2026-11-21 — Normalize gateway-read count in WAN teardown contract
 
 - Parent main SHA: `7de7b00754ffcb5c34b20db82e60c0069efd204c`.

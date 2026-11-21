@@ -75,6 +75,21 @@ main(void)
 	expect_auth_failure("Basic  ");
 	expect_auth_failure("Bearer dXNlcjpwYXNz");
 
+	/* Duplicate Authorization fields must not select either credential. */
+	{
+		struct httpd_basic_auth_header header;
+		const char first[] = "Basic dXNlcjpwYXNz";
+		const char second[] = "Basic YWRtaW46cGFzcw==";
+
+		memset(&header, 0, sizeof(header));
+		assert(httpd_basic_auth_header_record(&header, first));
+		assert(header.seen && !header.duplicate && header.value == first);
+		assert(!httpd_basic_auth_header_record(&header, second));
+		assert(header.seen && header.duplicate && header.value == NULL);
+		assert(!httpd_basic_auth_header_record(&header, first));
+		assert(header.duplicate && header.value == NULL);
+	}
+
 	/* A decoded credential larger than the destination must fail closed. */
 	memset(decoded, 'X', sizeof(decoded));
 	assert(httpd_decode_basic_authorization("Basic dXNlcjpwYXNz", decoded, 5) < 0);

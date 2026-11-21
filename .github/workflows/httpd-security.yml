@@ -4579,6 +4579,15 @@ jobs:
           assert "authorization[5] != ' '" in basic
           assert "b64_decode_strict" in basic and "b64_decode_strict" in base64
           assert "memchr(decoded," in basic
+          assert "struct httpd_basic_auth_header" in basic
+          assert "httpd_basic_auth_header_record" in basic
+          request_start = httpd.index("handle_request(FILE *conn_fp")
+          request_end = httpd.index("\\nstatic void\\nreset_lang_dict", request_start)
+          request = httpd[request_start:request_end]
+          assert "memset(&authorization_header, 0, sizeof(authorization_header));" in request
+          assert "httpd_basic_auth_header_record(&authorization_header, cp)" in request
+          assert "authorization = authorization_header.value;" in request
+          assert "authorization_header.duplicate || !auth_check(authorization)" in request
           assert "static const signed char b64_decode_table[256]" in base64
           assert "base64.o" in makefile
 
