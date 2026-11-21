@@ -805,7 +805,9 @@ require("int restart_iptv(int is_ap_mode);" in rc_header and
         "int start_igmpproxy(char *wan_ifname);" in rc_header,
         "IPTV start/restart declarations must return checked status")
 iptv_dispatch = body(rc, 'else if (!strcmp(entry->d_name, RCN_RESTART_IPTV))')
-require("rc_notify_merge_action_result(action_result, restart_iptv(is_ap_mode))" in iptv_dispatch,
+iptv_dispatch_compact = "".join(iptv_dispatch.split())
+require("rc_notify_merge_action_result(action_result,restart_iptv(is_ap_mode))" in
+        iptv_dispatch_compact,
         "PID 1 IPTV notification must return restart status to queue")
 require("int stop_igmpproxy(char *wan_ifname);" in rc_header,
         "RC header must export checked IPTV stop status")
