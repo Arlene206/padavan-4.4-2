@@ -991,6 +991,26 @@ require("nvram_match" not in xl2tpd_stop_set and
         "test_xl2tpd_stop_set_ownership_policy" in config_policy_test,
         "VPN shared xl2tpd stop-set must use checked ownership reads and tested dependency policy")
 
+server_options_snapshot=body(vpn_openvpn,"openvpn_read_server_options_snapshot(struct openvpn_server_options_config *options)")
+ordered(server_options_snapshot,[
+    "is_dhcpd_enabled_status(0, &pending.dhcp_enabled)",
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_ov_atls"',
+    '"vpns_ov_tcv2"',
+    '"vpns_ov_prot"',
+    '"vpns_ov_rdgw"',
+    '"vpns_ov_port"',
+    '"vpns_ov_mdig"',
+    '"vpns_ov_ciph"',
+    '"vpns_ov_compress"',
+    '"wins_enable"',
+    '"vpns_ov_ncp_clist"',
+    '"dhcp_dns1_x"',
+    '"dhcp_dns2_x"',
+    '"dhcp_wins_x"',
+    "nvram_transaction_end(&transaction)",
+    "*options = pending"
+],"OpenVPN server option snapshot must check every scalar and copied DHCP option before publication")
 server_network_snapshot=body(vpn_openvpn,"openvpn_read_server_network_snapshot(struct openvpn_server_network_config *network)")
 ordered(server_network_snapshot,[
     "nvram_transaction_begin(&transaction)",
@@ -1009,26 +1029,33 @@ ordered(server_network_snapshot,[
 openvpn_server_start=body(vpn_openvpn,"start_openvpn_server(void)")
 ordered(openvpn_server_start,[
     "openvpn_read_server_network_snapshot(&network)",
+    "openvpn_read_server_options_snapshot(&options)",
     "mkdir_if_none(SERVER_ROOT_DIR, \"755\")",
-    "openvpn_create_server_conf(vpns_cfg, &network)",
+    "openvpn_create_server_conf(vpns_cfg, &network, &options)",
     "if (network.is_tun)",
     "openvpn_tunif_start(IFNAME_SERVER_TUN, 1)",
     "openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1)"
-],"OpenVPN must validate topology before filesystem/config/interface side effects and reuse one mode snapshot")
+],"OpenVPN must validate topology and service options before filesystem/config/interface side effects")
 openvpn_server_writer=body(vpn_openvpn,"openvpn_create_server_conf(const char *conf_file,")
 require("network->lan_ip" in openvpn_server_writer and
         "network->lan_netmask" in openvpn_server_writer and
         "network->virtual_network" in openvpn_server_writer and
         "network->tap_client_start" in openvpn_server_writer and
-        'nvram_safe_get("vpns_vnet")' not in openvpn_server_writer and
-        'nvram_safe_get("lan_ipaddr")' not in openvpn_server_writer and
-        'nvram_safe_get("lan_netmask")' not in openvpn_server_writer and
-        'nvram_safe_get_int("vpns_cli0"' not in openvpn_server_writer and
-        'nvram_safe_get_int("vpns_cli1"' not in openvpn_server_writer,
-        "OpenVPN writer must consume the checked topology snapshot without legacy NVRAM rereads")
+        "options->port" in openvpn_server_writer and
+        "options->auth_digest" in openvpn_server_writer and
+        "options->cipher" in openvpn_server_writer and
+        "options->compression" in openvpn_server_writer and
+        "options->dns1" in openvpn_server_writer and
+        "options->wins" in openvpn_server_writer and
+        "nvram_get_int" not in openvpn_server_writer and
+        "nvram_safe_get" not in openvpn_server_writer and
+        "nvram_get(" not in openvpn_server_writer and
+        "nvram_set_int" not in openvpn_server_writer,
+        "OpenVPN writer must consume checked topology/options snapshots without compatibility NVRAM rereads or writes")
 require("test_pool_virtual_private_network_and_lan_separation" in config_policy_test and
-        "test_openvpn_server_mode_bounds" in config_policy_test,
-        "OpenVPN topology policy regression coverage is missing")
+        "test_openvpn_server_mode_bounds" in config_policy_test and
+        "test_openvpn_server_option_bounds" in config_policy_test,
+        "OpenVPN topology/mode/options policy regression coverage is missing")
 
 server_acl_snapshot=body(vpn_openvpn,"openvpn_server_acl_read_snapshot(struct openvpn_server_acl_entry *entries,")
 ordered(server_acl_snapshot,[

@@ -1,3 +1,14 @@
+## 2026-11-21 — Snapshot OpenVPN server options before staged config publication
+
+- Parent main SHA: 6d1019d4b8da56ab545be67038934e57a65b631a.
+- The server config writer still fetched protocol, port, TLS flags, auth/cipher/compression, NCP cipher list, redirect-gateway, DHCP DNS/WINS and Samba WINS enablement through compatibility NVRAM getters. Backend failures could silently select defaults or leave pointer-backed values stale while writing server.conf.
+- Added a checked DHCP enable status read and one NVRAM transaction for OpenVPN server option scalars and bounded copied DNS/WINS/NCP strings. Scalar ranges match the UI enumerations; port defaults to 1194 and is constrained to 1..65535. Missing optional strings remain empty. Read/parse/transaction-end errors abort before opening the staged server configuration.
+- Config generation now consumes the immutable options snapshot and contains no compatibility NVRAM reads or writes. The IPv6-unavailable protocol fallback remains local to emitted config instead of mutating persistent vpns_ov_prot.
+- Added numeric boundary/default policy tests and source contracts requiring DHCP status + transaction completion before staged-file publication. Existing topology and CCD snapshots remain intact.
+- Exact 6d1019d4b8da56ab545be67038934e57a65b631a VPN #44935854519 PASS, AI #44935854512 PASS, HTTPD #44935854556 PASS, OpenVPN client staging #44935854570 PASS, Process #44935854615 PASS; NVRAM #44935854517 and XY-C1 #44935854504 were pending at last poll.
+
+---
+
 ## 2026-11-21 — Snapshot OpenVPN server network topology before side effects
 
 - Parent main SHA: cb06dfd4d1135414c231726f19ab635a91f3af85.

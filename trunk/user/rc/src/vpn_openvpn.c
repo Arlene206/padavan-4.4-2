@@ -246,6 +246,23 @@ struct openvpn_server_network_config {
 	int tap_client_end;
 };
 
+struct openvpn_server_options_config {
+	int tls_auth_mode;
+	int tls_crypt_v2;
+	int protocol;
+	int redirect_gateway;
+	int dhcp_enabled;
+	int port;
+	int auth_digest;
+	int cipher;
+	int compression;
+	int wins_enabled;
+	char ncp_cipher_list[257];
+	char dns1[INET_ADDRSTRLEN];
+	char dns2[INET_ADDRSTRLEN];
+	char wins[INET_ADDRSTRLEN];
+};
+
 static int
 openvpn_server_acl_copy_text(struct nvram_transaction *transaction,
 			     const char *name, char *destination,
@@ -847,8 +864,128 @@ finish_transaction:
 }
 
 static int
+openvpn_read_server_options_snapshot(struct openvpn_server_options_config *options)
+{
+	struct nvram_transaction transaction;
+	struct openvpn_server_options_config pending;
+	int status, result = -1, saved_errno = 0, end_status;
+
+	if (!options) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(&pending, 0, sizeof(pending));
+
+	/* This checked helper reads dhcp_enable_x without nesting transaction locks. */
+	status = is_dhcpd_enabled_status(0, &pending.dhcp_enabled);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	if (pending.dhcp_enabled != 0 && pending.dhcp_enabled != 1) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_atls", 0, 0, 2,
+						    &pending.tls_auth_mode);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_tcv2", 0, 0, 1,
+						    &pending.tls_crypt_v2);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_prot", 0, 0, 5,
+						    &pending.protocol);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_rdgw", 0, 0, 1,
+						    &pending.redirect_gateway);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_port", 1194, 1, 65535,
+						    &pending.port);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_mdig", 0, 0, 5,
+						    &pending.auth_digest);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_ciph", 0, 0, 15,
+						    &pending.cipher);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "vpns_ov_compress", 0, 0, 4,
+						    &pending.compression);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = openvpn_server_transaction_get_int(&transaction,
+						    "wins_enable", 0, 0, 1,
+						    &pending.wins_enabled);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+
+	if (openvpn_server_acl_copy_text(&transaction, "vpns_ov_ncp_clist",
+					 pending.ncp_cipher_list,
+					 sizeof(pending.ncp_cipher_list)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "dhcp_dns1_x",
+					 pending.dns1, sizeof(pending.dns1)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "dhcp_dns2_x",
+					 pending.dns2, sizeof(pending.dns2)) != 0 ||
+	    openvpn_server_acl_copy_text(&transaction, "dhcp_wins_x",
+					 pending.wins, sizeof(pending.wins)) != 0)
+		goto finish_transaction;
+
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	*options = pending;
+	return 0;
+}
+
+static int
 openvpn_create_server_conf(const char *conf_file,
-				 const struct openvpn_server_network_config *network)
+				 const struct openvpn_server_network_config *network,
+				 const struct openvpn_server_options_config *options)
 {
 	FILE *fp;
 	char staged_conf[128];
@@ -859,8 +996,12 @@ openvpn_create_server_conf(const char *conf_file,
 	const char *p_prot;
 	struct in_addr pool_in;
 
-	i_atls = nvram_get_int("vpns_ov_atls");
-	i_tcv2 = nvram_get_int("vpns_ov_tcv2");
+	if (!network || !options) {
+		errno = EINVAL;
+		return 1;
+	}
+	i_atls = options->tls_auth_mode;
+	i_tcv2 = options->tls_crypt_v2;
 
 	for (i=0; i<6; i++) {
 		if (!i_atls && (i == 4))
@@ -871,20 +1012,15 @@ openvpn_create_server_conf(const char *conf_file,
 			return 1;
 	}
 
-	if (!network) {
-		errno = EINVAL;
-		return 1;
-	}
 	lanip = network->lan_ip;
 	lannm = network->lan_netmask;
 	laddr = network->lan_address;
 	lmask = network->lan_mask;
 
 
-	i_prot = nvram_get_int("vpns_ov_prot");
-	i_rdgw = nvram_get_int("vpns_ov_rdgw");
-
-	i_dhcp = is_dhcpd_enabled(0);
+	i_prot = options->protocol;
+	i_rdgw = options->redirect_gateway;
+	i_dhcp = options->dhcp_enabled;
 
 	i_prot_ori = i_prot;
 	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
@@ -907,9 +1043,7 @@ openvpn_create_server_conf(const char *conf_file,
 	else
 		p_prot = "udp4";
 
-	/* fixup ipv4/ipv6 mismatch */
-	if (i_prot != i_prot_ori)
-		nvram_set_int("vpns_ov_prot", i_prot);
+	/* Keep the configured protocol unchanged; use the supported IPv4 fallback only here. */
 
 	fp = openvpn_config_file_open(conf_file, staged_conf,
 				       sizeof(staged_conf));
@@ -917,7 +1051,7 @@ openvpn_create_server_conf(const char *conf_file,
 		return 1;
 
 	fprintf(fp, "proto %s\n", p_prot);
-	fprintf(fp, "port %d\n", nvram_safe_get_int("vpns_ov_port", 1194, 1, 65535));
+	fprintf(fp, "port %d\n", options->port);
 
 	if (network->is_tun) {
 		unsigned int vnet, vmsk;
@@ -969,17 +1103,17 @@ openvpn_create_server_conf(const char *conf_file,
 		fprintf(fp, "server-bridge %s %s %s %s\n", lanip, lannm, sp_b, sp_e);
 	}
 
-	openvpn_add_auth(fp, nvram_get_int("vpns_ov_mdig"));
-	openvpn_add_cipher(fp, nvram_get_int("vpns_ov_ciph"), nvram_get("vpns_ov_ncp_clist"));
-	openvpn_add_compress(fp, nvram_get_int("vpns_ov_compress"), 1);
+	openvpn_add_auth(fp, options->auth_digest);
+	openvpn_add_cipher(fp, options->cipher, options->ncp_cipher_list);
+	openvpn_add_compress(fp, options->compression, 1);
 
 	i_items = 0;
 	if (i_rdgw) {
 		fprintf(fp, "push \"redirect-gateway def1 %s\"\n", "bypass-dhcp");
 		
 		if (i_dhcp) {
-			dns1 = nvram_safe_get("dhcp_dns1_x");
-			dns2 = nvram_safe_get("dhcp_dns2_x");
+			dns1 = (char *)options->dns1;
+			dns2 = (char *)options->dns2;
 			if (is_valid_ipv4(dns1)) {
 				i_items++;
 				fprintf(fp, "push \"dhcp-option %s %s\"\n", "DNS", dns1);
@@ -996,7 +1130,7 @@ openvpn_create_server_conf(const char *conf_file,
 
 	i_items = 0;
 	if (i_dhcp) {
-		wins = nvram_safe_get("dhcp_wins_x");
+		wins = (char *)options->wins;
 		if (is_valid_ipv4(wins)) {
 			i_items++;
 			fprintf(fp, "push \"dhcp-option %s %s\"\n", "WINS", wins);
@@ -1004,7 +1138,7 @@ openvpn_create_server_conf(const char *conf_file,
 	}
 
 #if defined(APP_SMBD) || defined(APP_NMBD)
-	if ((i_items < 1) && nvram_get_int("wins_enable"))
+	if ((i_items < 1) && options->wins_enabled)
 		fprintf(fp, "push \"dhcp-option %s %s\"\n", "WINS", lanip);
 #endif
 
@@ -1779,6 +1913,7 @@ int
 start_openvpn_server(void)
 {
 	struct openvpn_server_network_config network;
+	struct openvpn_server_options_config options;
 	int interface_status;
 	char vpns_cfg[64], vpns_scr[64];
 	char *server_conf = "server.conf";
@@ -1803,11 +1938,21 @@ start_openvpn_server(void)
 		return 1;
 	}
 
+	if (openvpn_read_server_options_snapshot(&options) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage(SERVER_LOG_NAME,
+			   "cannot read/validate OpenVPN server options; refusing startup (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
+
 	mkdir_if_none(SERVER_ROOT_DIR, "755");
 	mkdir_if_none(COMMON_TEMP_DIR, "777");
 
 	/* create conf file */
-	if (openvpn_create_server_conf(vpns_cfg, &network))
+	if (openvpn_create_server_conf(vpns_cfg, &network, &options))
 		return 1;
 
 	/* create tun or tap device (and add tap to bridge) */

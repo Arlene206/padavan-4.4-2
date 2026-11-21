@@ -77,6 +77,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle/NVRAM/XY-C1 results for the OpenVPN topology snapshot. Require Build, TRX verification and artifact upload all PASS on the same product-source SHA.
-2. Continue OpenVPN server option snapshot: protocol/port/redirect/DHCP/WINS, TLS flags, auth/cipher/compression and NCP cipher list must be read and validated transactionally before the staged server config is opened. Preserve legacy defaults and IPv6 protocol fallback; remove any NVRAM mutation from the config writer.
-3. Audit remaining OpenVPN callbacks and client configuration reads independently from the completed client-secret and CCD ACL staging work.
+1. Inspect exact-head NVRAM audit, XY-C1 Build, TRX verification and artifact upload for the current OpenVPN server option snapshot SHA; require all target build steps PASS on one exact SHA.
+2. Audit any remaining server-side DHCP/DNS/WINS behavior against UI semantics. OpenVPN server scalar options and DNS/WINS values are now transactionally snapshotted; fix only concrete gaps without duplicating the snapshot.
+3. Review OpenVPN client config generation for independent unchecked values, preserving successful client-secret staging.
