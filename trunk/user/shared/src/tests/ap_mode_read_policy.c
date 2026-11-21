@@ -49,6 +49,15 @@ test_inconsistent_results_are_rejected_without_changing_output(void)
     assert(rc_ap_mode_read_status(1, 0, "IP_Routed", NULL) == EINVAL);
 }
 
+static void
+test_legacy_boolean_fallback_blocks_router_mode_on_read_error(void)
+{
+    assert(rc_ap_mode_read_legacy_fallback(0, 0) == 0);
+    assert(rc_ap_mode_read_legacy_fallback(0, 1) == 1);
+    assert(rc_ap_mode_read_legacy_fallback(EIO, 0) == 1);
+    assert(rc_ap_mode_read_legacy_fallback(EACCES, 1) == 1);
+}
+
 int
 main(void)
 {
@@ -56,6 +65,7 @@ main(void)
     test_bridged_setting_selects_access_point_mode_exactly();
     test_backend_failures_preserve_output_and_errno();
     test_inconsistent_results_are_rejected_without_changing_output();
+    test_legacy_boolean_fallback_blocks_router_mode_on_read_error();
     puts("AP/router mode checked NVRAM read regression: PASS");
     return 0;
 }

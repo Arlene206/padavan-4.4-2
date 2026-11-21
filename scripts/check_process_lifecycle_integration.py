@@ -1891,7 +1891,7 @@ assert "extern int       get_ap_mode_status(int *is_ap_mode);" in netutils_heade
 assert "rc_ap_mode_read_status" in ap_mode_policy
 legacy_ap_mode = c_function_body(netutils_source, "get_ap_mode(void)")
 assert "get_ap_mode_status(&is_ap_mode)" in legacy_ap_mode
-assert "return 0;" in legacy_ap_mode
+assert "rc_ap_mode_read_legacy_fallback(status, is_ap_mode)" in legacy_ap_mode
 
 usb_modules = c_function_body(rc_source, "load_usb_modules(void)")
 assert "ap_mode_status = get_ap_mode_status(&is_ap_mode);" in usb_modules
@@ -1941,6 +1941,7 @@ for case in (
 ):
     assert case in ap_mode_test and case + "();" in ap_mode_test
 assert "AP/router mode checked NVRAM read regression: PASS" in ap_mode_test
+assert "test_legacy_boolean_fallback_blocks_router_mode_on_read_error();" in ap_mode_test
 assert '"trunk/user/shared/src/ap_mode_read_policy.h"' in process_workflow
 assert '"trunk/user/shared/src/tests/ap_mode_read_policy.c"' in process_workflow
 assert "Compile and run AP/router mode checked-read regression" in process_workflow

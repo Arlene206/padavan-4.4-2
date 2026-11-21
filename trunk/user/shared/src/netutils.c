@@ -281,11 +281,14 @@ int
 get_ap_mode(void)
 {
 	int is_ap_mode = 0;
+	int status;
 
-	/* Keep the legacy Boolean fallback for non-critical callers. */
-	if (get_ap_mode_status(&is_ap_mode) != 0)
-		return 0;
-	return is_ap_mode;
+	/*
+	 * Legacy callers have no error channel. Unknown mode must never enable
+	 * router-only actions, so conservatively fall back to AP/bridge mode.
+	 */
+	status = get_ap_mode_status(&is_ap_mode);
+	return rc_ap_mode_read_legacy_fallback(status, is_ap_mode);
 }
 
 int

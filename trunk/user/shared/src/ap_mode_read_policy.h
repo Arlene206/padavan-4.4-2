@@ -32,4 +32,15 @@ rc_ap_mode_read_status(int api_result, int saved_errno, const char *value,
     return 0;
 }
 
+/*
+ * Legacy Boolean callers cannot propagate a read error. Choose the
+ * conservative AP value so unknown NVRAM state cannot enable router-only
+ * WAN/firewall actions.
+ */
+static inline int
+rc_ap_mode_read_legacy_fallback(int read_status, int is_ap_mode)
+{
+    return read_status == 0 ? is_ap_mode : 1;
+}
+
 #endif /* AP_MODE_READ_POLICY_H */
