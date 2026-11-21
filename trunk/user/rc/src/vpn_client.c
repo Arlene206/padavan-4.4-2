@@ -743,7 +743,9 @@ vpnc_route_to_remote_lan(char *ifname, char *gw, int add)
 int
 ipup_vpnc_main(int argc, char **argv)
 {
-	int status = 0, route_status;
+	int status = 0, route_status, api_result, read_errno;
+	int pdns_status, vpnc_pdns = 0;
+	char *pdns_value = NULL;
 	char buf[256];
 	char *script_name = VPN_CLIENT_UPDOWN_SCRIPT;
 	char *ifname = safe_getenv("IFNAME");
@@ -763,32 +765,46 @@ ipup_vpnc_main(int argc, char **argv)
 	status = route_status_accumulate(status, route_status);
 	if (route_status != 0)
 		logmessage(VPNC_LOG_NAME,
-			   "cannot publish VPN client up state (status=%d)",
-			   route_status);
+			   "cannot publish VPN client up state (status=%d)", route_status);
 
-	buf[0] = 0;
-	if (nvram_get_int("vpnc_pdns") > 0) {
-		char *value;
-		
-		value = getenv("DNS1");
-		if (value)
-			snprintf(buf, sizeof(buf), "%s", value);
-		value = getenv("DNS2");
-		if (value && strcmp(value, buf) != 0) {
-			int buf_len = strlen(buf);
-			snprintf(buf + buf_len, sizeof(buf) - buf_len, "%s%s", (buf_len) ? " " : "", value);
-		}
+	/* A failed policy read must not erase the previous DNS snapshot. */
+	errno = 0;
+	api_result = nvram_get_checked("vpnc_pdns", &pdns_value);
+	read_errno = errno;
+	pdns_status = vpn_client_nvram_read_bool_status(
+		api_result, read_errno, pdns_value, 0, &vpnc_pdns);
+	if (pdns_status != 0) {
+		status = route_status_accumulate(status, pdns_status);
+		logmessage(VPNC_LOG_NAME,
+			   "cannot read VPN DNS push policy; preserving existing resolver state (status=%d)",
+			   pdns_status);
 	}
 
-	route_status = vpn_client_nvram_set_temp_status(
-		NULL, "vpnc_dns_t", buf);
-	status = route_status_accumulate(status, route_status);
-	if (route_status == 0)
-		refresh_resolvconf_nonfatal("VPN client DNS update", 0);
-	else
-		logmessage(VPNC_LOG_NAME,
-			   "cannot publish VPN client DNS snapshot (status=%d)",
-			   route_status);
+	buf[0] = 0;
+	if (pdns_status == 0) {
+		if (vpnc_pdns > 0) {
+			char *value;
+
+			value = getenv("DNS1");
+			if (value)
+				snprintf(buf, sizeof(buf), "%s", value);
+			value = getenv("DNS2");
+			if (value && strcmp(value, buf) != 0) {
+				int buf_len = strlen(buf);
+				snprintf(buf + buf_len, sizeof(buf) - buf_len, "%s%s", (buf_len) ? " " : "", value);
+			}
+		}
+
+		route_status = vpn_client_nvram_set_temp_status(
+			NULL, "vpnc_dns_t", buf);
+		status = route_status_accumulate(status, route_status);
+		if (route_status == 0)
+			refresh_resolvconf_nonfatal("VPN client DNS update", 0);
+		else
+			logmessage(VPNC_LOG_NAME,
+				   "cannot publish VPN client DNS snapshot (status=%d)",
+				   route_status);
+	}
 
 	if (check_if_file_exist(script_name)) {
 		route_status = doSystem("%s %s", script_name, "up");
@@ -799,7 +815,6 @@ ipup_vpnc_main(int argc, char **argv)
 
 	return status;
 }
-
 int
 ipdown_vpnc_main(int argc, char **argv)
 {

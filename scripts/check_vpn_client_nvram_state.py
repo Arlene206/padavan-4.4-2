@@ -152,11 +152,19 @@ ordered(restart, [
 ipup = body(vpn, "ipup_vpnc_main(int argc, char **argv)")
 ordered(ipup, [
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "1")',
-    'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_dns_t", buf)',
-    'if (route_status == 0)',
+    "errno = 0;",
+    'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);',
+    "read_errno = errno;",
+    "pdns_status = vpn_client_nvram_read_bool_status(",
+    "if (pdns_status != 0)",
+    "status = route_status_accumulate(status, pdns_status);",
+    "if (pdns_status == 0) {",
+    'vpn_client_nvram_set_temp_status(\n\t\t\tNULL, "vpnc_dns_t", buf)',
     'refresh_resolvconf_nonfatal("VPN client DNS update", 0);',
     'if (check_if_file_exist(script_name))'
-], "VPN up callback NVRAM status")
+], "VPN up callback checked DNS policy and mandatory state/hook")
+assert 'nvram_get_int("vpnc_pdns")' not in ipup
+assert "preserving existing resolver state" in ipup
 assert 'if (strlen(buf) > 0)' not in ipup
 
 restore = body(vpn, "int\nrestore_dns_from_vpnc(void)")
@@ -182,6 +190,7 @@ for token in (
     "test_cache_backed_text_is_copied_without_truncation",
     "test_write_status_preserves_errno",
     "test_read_status_distinguishes_absence_from_failure",
+    "test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values",
     "test_runtime_clear_publishes_dns_domain_and_state_in_order",
     "test_runtime_clear_stops_at_first_failed_write",
     "test_domain_snapshot_clear_publishes_empty_value_and_reports_failure",
@@ -193,6 +202,7 @@ assert "ppp_option_text_escape_alloc" in ppp_policy and "ppp_option_text_escape_
 for token in (
     "vpn_client_nvram_write_status",
     "vpn_client_nvram_read_status",
+    "vpn_client_nvram_read_bool_status",
     "vpn_client_nvram_clear_runtime_state",
     "vpn_client_nvram_copy_text",
 ):
@@ -203,7 +213,7 @@ openvpn_down = body(openvpn, "static int\non_client_ifdown(void)")
 openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
 openvpn_up_compact = " ".join(openvpn_up.split())
 assert 'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);' in openvpn_up
-assert "pdns_status = vpn_server_config_int_status(" in openvpn_up
+assert "pdns_status = vpn_client_nvram_read_bool_status(" in openvpn_up
 assert 'nvram_get_int("vpnc_pdns")' not in openvpn_up
 ordered(openvpn_up, [
     'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);',

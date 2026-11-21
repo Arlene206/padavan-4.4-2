@@ -37,6 +37,46 @@ reset_fake(struct fake_nvram *fake)
 }
 
 static void
+test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values(void)
+{
+    int result;
+
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(0, 0, NULL, 0, &result) == 0);
+    assert(result == 0);
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(0, 0, NULL, 1, &result) == 0);
+    assert(result == 1);
+
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(1, 0, "0", 0, &result) == 0);
+    assert(result == 0);
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(1, 0, " 01 \t", 0, &result) == 0);
+    assert(result == 1);
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(1, 0, "", 0, &result) == 0);
+    assert(result == 0);
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(1, 0, "   ", 0, &result) == 0);
+    assert(result == 0);
+
+    result = 77;
+    assert(vpn_client_nvram_read_bool_status(-1, EACCES, "1", 0, &result) == EACCES);
+    assert(result == 77);
+    assert(vpn_client_nvram_read_bool_status(-1, 0, "1", 0, &result) == EIO);
+    assert(vpn_client_nvram_read_bool_status(1, 0, NULL, 0, &result) == EIO);
+    assert(vpn_client_nvram_read_bool_status(2, 0, "1", 0, &result) == EIO);
+    assert(vpn_client_nvram_read_bool_status(1, 0, "-1", 0, &result) == EINVAL);
+    assert(vpn_client_nvram_read_bool_status(1, 0, "2", 0, &result) == EINVAL);
+    assert(vpn_client_nvram_read_bool_status(1, 0, "1x", 0, &result) == EINVAL);
+    assert(vpn_client_nvram_read_bool_status(1, 0, "+1", 0, &result) == EINVAL);
+    assert(vpn_client_nvram_read_bool_status(1, 0, "1", 2, &result) == EINVAL);
+    assert(vpn_client_nvram_read_bool_status(1, 0, "1", 0, NULL) == EINVAL);
+    assert(result == 77);
+}
+
+static void
 test_cache_backed_text_is_copied_without_truncation(void)
 {
     char destination[8];
@@ -167,6 +207,7 @@ main(void)
     test_independent_runtime_writes_attempt_all_and_keep_first_error();
     test_write_status_preserves_errno();
     test_read_status_distinguishes_absence_from_failure();
+    test_boolean_read_status_preserves_legacy_defaults_and_rejects_invalid_values();
     test_runtime_clear_publishes_dns_domain_and_state_in_order();
     test_domain_snapshot_clear_publishes_empty_value_and_reports_failure();
     test_runtime_clear_stops_at_first_failed_write();

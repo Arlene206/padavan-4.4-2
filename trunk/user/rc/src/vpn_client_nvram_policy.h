@@ -1,8 +1,10 @@
 #ifndef VPN_CLIENT_NVRAM_POLICY_H
 #define VPN_CLIENT_NVRAM_POLICY_H
 
+#include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 static inline int
@@ -23,6 +25,53 @@ vpn_client_nvram_read_status(int api_result, int saved_errno,
     if (api_result < 0)
         return saved_errno > 0 ? saved_errno : EIO;
     return EIO;
+}
+
+static inline int
+vpn_client_nvram_read_bool_status(int api_result, int saved_errno,
+                                  const char *value, int default_value,
+                                  int *result)
+{
+    const unsigned char *cursor;
+    char *end;
+    long parsed;
+
+    if (!result || (default_value != 0 && default_value != 1))
+        return EINVAL;
+    if (api_result < 0)
+        return saved_errno > 0 ? saved_errno : EIO;
+    if (api_result == 0) {
+        *result = default_value;
+        return 0;
+    }
+    if (api_result != 1 || !value)
+        return EIO;
+
+    cursor = (const unsigned char *)value;
+    while (*cursor && isspace(*cursor))
+        ++cursor;
+    if (!*cursor) {
+        *result = default_value;
+        return 0;
+    }
+    if (!isdigit(*cursor))
+        return EINVAL;
+    while (isdigit(*cursor))
+        ++cursor;
+    while (*cursor && isspace(*cursor))
+        ++cursor;
+    if (*cursor)
+        return EINVAL;
+
+    errno = 0;
+    parsed = strtol(value, &end, 10);
+    if (errno == ERANGE)
+        return ERANGE;
+    if (end == value || parsed < 0 || parsed > 1)
+        return EINVAL;
+
+    *result = (int)parsed;
+    return 0;
 }
 
 /* NVRAM getter results are cache-backed; copy before subsequent reads. */

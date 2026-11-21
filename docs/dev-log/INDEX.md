@@ -29,6 +29,7 @@
 | `docs/dev-log/2026/11/part-020.md` | 100 | 2026-11-19 — Transactional LAN DHCP deconfig snapshot → 2026-11-20 — Escape untrusted UPnP mapping output before SOAP XML serialization | 129506 | `ca34b9403978210508f3102ec5cbd01579ecd198` |
 | `docs/dev-log/2026/11/part-021.md` | 100 | 2026-11-20 → 2026-11-21 | 107650 | `f80bf2d087fa1c313cb671f2108e3279092db234` |
 | `docs/dev-log/2026/11/part-022.md` | 100 | Correct watchdog PID-file and procfs fixture escaping → PPP and WAN rollback-state consistency | 113949 | `3bb594ab26cd04f116c9f63f9489ee8d6d8be9d6` |
+| `docs/dev-log/2026/11/part-023.md` | 100 | 2026-11-21 → 2026-11-21 | 109434 | `d896a53f5bd56915dbabb5ec4987a2dc069d8388` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -100,3 +101,5 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries at parent main `065837e4dcc383ebe2d5276b8165ffa834f9dd3f` are preserved verbatim, oldest first, in `part-021.md`; root retains the newest 20 complete records.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 records at parent main `6882aefa2c70b7bfc53da5e770610dc45dc802ba` are preserved verbatim, oldest first, in `part-022.md`; pre-rotation root blob: `7784a0c51d20d27de06d009aea7aa9b669479fbb`. Root retains the newest 20 complete records, including the new WAN checker correction.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 records at parent main `7ad1cb24f67b9c9dffafeb1a492b2a41343a8413` are preserved verbatim, oldest first, in part-023; pre-rotation root blob: `7fc5db49fc36bc93efc1ee25e707d828304115de`. Root retains the newest 20 complete records.
