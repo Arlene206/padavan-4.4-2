@@ -608,7 +608,7 @@ jobs:
           assert "miniupnpd_test_identity_bound_signal" in daemon_test
           assert "miniupnpd_signal_snapshot" in policy
 
-          stop = function_body(service, "stop_upnp_locked(void)")
+          stop = function_body(service, "static int\\nstop_upnp_locked(void)")
           assert "kill_services(svcs, 3, 1)" in stop
           assert "miniupnpd_process_presence(&scan_error)" in stop
           assert "miniupnpd_presence_error(state, scan_error)" in stop
