@@ -375,13 +375,14 @@ jobs:
           # On RT3352 MII, the iNIC health monitor is part of radio readiness.
           # Preserve its launch error rather than logging and returning success.
           inic_ap_start = function_body(source, "start_wifi_ap_rt(int radio_on)")
-          monitor_gate = 'if (nvram_get_int("inic_disable") != 1) {'
+          monitor_gate = "if (inic_enabled) {"
           monitor_launch = "int inicd_start_status = start_inicd();"
           monitor_log = 'logmessage(LOGNAME, "failed to start iNIC health monitor (status=%d)",'
           monitor_merge = "all_started = wireless_radio_startup_status("
           monitor_success = "wireless_radio_status_success(inicd_start_status)"
           monitor_result = "return wireless_radio_startup_result(all_started);"
           assert monitor_gate in inic_ap_start
+assert 'nvram_get_int("inic_disable")' not in inic_ap_start
           assert monitor_launch in inic_ap_start
           assert monitor_log in inic_ap_start
           assert monitor_merge in inic_ap_start

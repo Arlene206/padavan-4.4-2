@@ -1,3 +1,12 @@
+## 2026-11-21 — Align iNIC monitor gate contract with single checked snapshot
+
+- Parent main SHA: 75d7dee28c30bca036a0287c5124dfb475e3b684; product source contains the one-read fail-closed inic_disable transition.
+- Wireless radio #44907026259 passed the GNU89 wireless policy binary, bridge membership/teardown and guest-LAN policy regressions, then failed only at Python source contract line 318. The checker still required the old health-monitor condition nvram_get_int("inic_disable") != 1, but the production fix intentionally reuses the single checked inic_enabled value for monitor, radio and guest gates. Updated the test to require that same gate and assert unchecked reads are absent; no test stage or substantive guard was removed.
+- Process lifecycle and AI docs PASS on exact checker/document SHA c1d2f8d. XY-C1 #44907026295 is still running on product SHA 75d7dee; build/TRX/artifact pending. NVRAM audit #44907026244 is still in the kernel/user caller audit. No current L3/L4 claim.
+- Resulting main commit: THIS COMMIT. Exact-head Wireless/XY reruns pending.
+
+---
+
 ## 2026-11-21 — Fail closed on RT3352 iNIC disable-flag read errors
 
 - Parent main SHA: c1d2f8d9dee93bb374d3674958d6090d5de1e68a; product-source base includes the RT3352 MII TxPower fix in 917415b.
