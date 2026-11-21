@@ -489,6 +489,9 @@ jobs:
                           return source[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
           
+          def require(condition, message):
+              assert condition, message
+          
           flush_apply = body(conntrack_policy, "rc_conntrack_flush_apply(")
           assert 'return write_file("/proc/net/nf_conntrack", ip ? ip : "f");' in flush_apply
           flush_entry = body(net, "flush_conntrack_table(char *ip)")

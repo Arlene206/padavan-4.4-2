@@ -1,3 +1,11 @@
+## 2026-11-21 — Repair WAN and telnetd integration contracts
+
+- Parent main SHA: 335fddd5b61d20e22987da948136c412cf4bbf81.
+- Exact-head 285f WAN route #44927593606 failed because the inline Python checker invoked require() without defining an assertion helper. Process inventory #44927593544 failed at telnetd because its static contract still required the removed raw nvram_match("telnetd", "1") gate, while production already uses service_nvram_match_status().
+- Added the local require(condition, message) helper to the WAN workflow inline checker and updated both duplicated telnetd source contracts to verify checked enable read, error propagation, disabled no-op, and ordering before optional daemon startup. No production behavior changed in this correction.
+- On 335f, WAN gateway ARP, wireless radio, USB modem identity, ZeroTier, detect_link, router-mode NVRAM, firewall, VPN, detect_internet, watchdog, AI handoff and WAN interface teardown passed. Process, WAN DHCP, NVRAM audit and XY-C1 Build/TRX/artifact were still in progress at the last poll. Fresh exact-head WAN route and Process runs are pending.
+
+---
 ## 2026-11-21 — Fail closed WAN gateway host-route cleanup on invalid snapshot values
 
 - Parent main SHA: 285f00cc0b4918670afbeed98e6848de2c9b93d0.

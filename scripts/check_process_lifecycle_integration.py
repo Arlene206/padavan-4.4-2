@@ -1597,8 +1597,16 @@ telnetd_impl = (root / "trunk/user/busybox/busybox-1.24.x/networking/telnetd.c")
 assert "if (!(opt & OPT_FOREGROUND))" in telnetd_impl
 assert "bb_daemonize_or_rexec(0 /*was DAEMON_CHDIR_ROOT*/, argv);" in telnetd_impl
 assert telnetd_impl.index("bb_daemonize_or_rexec(0") < telnetd_impl.index("create_and_bind_stream_or_die")
-assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
-assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+assert "service_nvram_match_status(" in telnetd_start
+assert '"telnetd", "1", 0, &telnet_enabled' in telnetd_start
+telnet_enable_read = telnetd_start.index('"telnetd", "1", 0, &telnet_enabled')
+telnet_config_failure = telnetd_start.index("if (config_status != 0)", telnet_enable_read)
+telnet_disabled = telnetd_start.index("if (!telnet_enabled)", telnet_config_failure)
+telnet_start_gate = telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+assert "return config_status;" in telnetd_start[telnet_config_failure:telnet_disabled]
+assert "return 0;" in telnetd_start[telnet_disabled:telnet_start_gate]
+assert telnet_config_failure < telnet_disabled < telnet_start_gate
+assert 'nvram_match("telnetd", "1")' not in telnetd_start
 telnetd_start_compact = " ".join(telnetd_start.split())
 assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
 assert 'start_status = eval("telnetd");' in telnetd_start
@@ -2633,8 +2641,16 @@ telnetd_impl = (root / "trunk/user/busybox/busybox-1.24.x/networking/telnetd.c")
 assert "if (!(opt & OPT_FOREGROUND))" in telnetd_impl
 assert "bb_daemonize_or_rexec(0 /*was DAEMON_CHDIR_ROOT*/, argv);" in telnetd_impl
 assert telnetd_impl.index("bb_daemonize_or_rexec(0") < telnetd_impl.index("create_and_bind_stream_or_die")
-assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
-assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+assert "service_nvram_match_status(" in telnetd_start
+assert '"telnetd", "1", 0, &telnet_enabled' in telnetd_start
+telnet_enable_read = telnetd_start.index('"telnetd", "1", 0, &telnet_enabled')
+telnet_config_failure = telnetd_start.index("if (config_status != 0)", telnet_enable_read)
+telnet_disabled = telnetd_start.index("if (!telnet_enabled)", telnet_config_failure)
+telnet_start_gate = telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+assert "return config_status;" in telnetd_start[telnet_config_failure:telnet_disabled]
+assert "return 0;" in telnetd_start[telnet_disabled:telnet_start_gate]
+assert telnet_config_failure < telnet_disabled < telnet_start_gate
+assert 'nvram_match("telnetd", "1")' not in telnetd_start
 telnetd_start_compact = " ".join(telnetd_start.split())
 assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
 assert 'start_status = eval("telnetd");' in telnetd_start

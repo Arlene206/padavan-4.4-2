@@ -7,25 +7,25 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Main HEAD at this handoff refresh: `285f00cc0b4918670afbeed98e6848de2c9b93d0`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main HEAD at this handoff refresh: `335fddd5b61d20e22987da948136c412cf4bbf81`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 - Recent WAN-up ZeroTier changes removed the unchecked NVRAM pre-gate so the checked service wrapper's read/launch status reaches the WAN-up accumulator.
 
 ## Active task
 
-- WAN-down uses bounded checked NVRAM copies for gateway, address and netmask. This repair adds semantic validation: dhcp_lease_ipv4_is_valid() for the previous host address and dhcp_lease_netmask_is_valid() for a contiguous nonzero mask before subnet classification or gateway /32 deletion.
-- Exact-head 387591: infosvr #44927382658 PASS; crond #44927382660 PASS; AI handoff #44927382685 PASS; Process inventory #44927382674 failed on a stale restart-function signature lookup; WAN route #44927382675 failed on an incorrectly escaped newline assertion. Both checker defects were corrected in 285f00cc0b4918670afbeed98e6848de2c9b93d0.
-- On 285f, AI handoff #44927593523 PASS; WAN route #44927593606 and Process inventory #44927593544 were IN_PROGRESS when last checked.
-- Invalid address/netmask values now fail closed for gateway /32 ownership and report EINVAL, while independent default/static-route/conntrack cleanup remains reachable.
-- Next: inspect exact-head WAN route, Process inventory and XY-C1 Build/TRX/artifact for this commit. Then determine whether gateway/address/netmask need one transaction snapshot to avoid mixing values across concurrent writers.
+- Latest product-source commit 335fddd5b61d20e22987da948136c412cf4bbf81 hardens WAN-down gateway /32 ownership: checked reads are insufficient unless the prior IP passes dhcp_lease_ipv4_is_valid() and the mask passes dhcp_lease_netmask_is_valid() before subnet classification. Invalid values accumulate EINVAL and cannot authorize /32 deletion.
+- 335f Actions already PASS: WAN gateway ARP #44927981584, wireless radio #44927981647, USB modem identity #44927981598, ZeroTier #44927981613, detect_link #44927981597, router-mode NVRAM #44927981587, firewall #44927981595, VPN server #44927981510, detect_internet #44927981557, watchdog #44927981486, AI handoff #44927981573 and WAN interface teardown #44927981495.
+- 335f Actions still running at the last poll: XY-C1 Build #44927981534; Process integration #44927981517 and Process inventory #44927981473; WAN DHCP callback #44927981545; NVRAM audit #44927981607; DNSMasq #44927981567; HTTPD security #44927981580; miniupnpd config #44927981612.
+- Exact-head 285f WAN route #44927593606 failed because its inline contract called require() without defining it. Process inventory #44927593544 failed because its contract still required the retired telnetd raw nvram_match gate. This slice defines require() in the inline script and validates telnetd's checked service_nvram_match_status() error/disabled branches.
+- Next: inspect exact-head WAN route and Process integration/inventory runs plus XY-C1 Build/TRX/artifact. Fix failures from logs; then assess whether gateway/address/netmask should be fetched in one transaction to avoid mixed tuples during concurrent NVRAM writes.
 
 ## Verification boundary
 
-- L1: checked NVRAM and teardown policy have GNU89 regressions. WAN route workflow compiles/runs wan_teardown_policy.c under ASan/UBSan and statically checks validators precede subnet classification.
-- L2: infosvr, crond and AI handoff passed on 387591. On 285f, AI handoff passed; WAN route and Process inventory were pending when this semantic-validation slice began. New policy tests and source assertions await exact-head Actions.
-- L3: NOT VERIFIED until XY-C1 firmware Build, TRX verification and artifact upload all PASS on one exact product-source SHA.
-- L4: host-route ownership and concurrent WAN reconfiguration behavior remain NOT VERIFIED on hardware.
+- L1: gateway route-selection policy covers NVRAM read errors and invalid prior address/netmask; the WAN route workflow runs the GNU89 policy test under ASan/UBSan. Exact-head WAN interface teardown passed on 335f.
+- L2: WAN ARP, wireless, USB modem, ZeroTier, detect_link, router NVRAM, firewall, VPN, detect_internet, watchdog and AI handoff suites passed on 335f. Process, WAN DHCP, NVRAM audit and XY-C1 remained in progress at last poll. Exact corrected WAN route/Process source contracts are pending.
+- L3: NOT VERIFIED until XY-C1 Build, TRX verification and artifact upload all PASS on one exact product-source SHA.
+- L4: hardware route ownership and concurrent teardown/callback behavior remain NOT VERIFIED.
 
 ## Workflow and preservation rules
 
