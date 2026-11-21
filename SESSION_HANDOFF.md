@@ -14,27 +14,25 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Current main at handoff preparation: 954d1dc4d11e5518e6e69e86a167fcfd0e5efd33. The WINS-header source patch is present and the repository's complete base tree has been restored.
-- Important recovery: commit b53d27269e6de0a3b56f51e044714f7a4fa91dd1 accidentally had a tree containing only five changed paths because its create-tree call lacked the full base tree SHA. Its exact-head Samba build failed on missing tests/samba_config_file.c. Commit 954d1dc4d11e5518e6e69e86a167fcfd0e5efd33 is a normal non-forced child that re-applies the same five updates on the full base tree 12f4a8fe707916dc3fb2550850642b1c9c3b5dae; key repository files are restored and accessible.
-- Parent code validation: Samba #44917367040 and AI handoff #44917367092 PASS on bd63d609; XY-C1 #44917367085 completed host-only PASS but Build XY-C1, TRX and artifact upload were SKIPPED because the input detector found no firmware production changes.
-- On the recovery SHA, XY-C1 #44917653757 was queued at last poll. Samba's b53 job #44917536389 failed at the initial compile solely because the tree omitted existing test files; the test sources are now restored. This patch strengthens the header error-before-write contract and triggers a fresh Samba regression.
-
+- Main at the start of this DNSMasq slice: e9ce710c6acc5138400faf6238d85fcd0197ce23. The patch reuses the existing checked optional-NVRAM reader for the DHCP WINS option.
+- The preceding complete-tree recovery restored all repository paths; tests/samba_config_file.c, README.md, services_stor.c and the top-level firmware build workflow were verified readable. Do not repeat the recovery audit.
+- Samba share config exact-head regression #44917799137 passed on e9ce710; it includes GNU89 compile/policy tests and the source-contract step.
+- XY-C1 recovery run #44917653757 on 954d1dc was still in progress at last poll, with Build XY-C1 active and TRX/artifact pending. That run does not include this new DNSMasq code.
 
 
 ## Active task
 
-1. Inspect exact-head Samba and XY-C1 push runs for the restored full-tree source. Verify the Samba GNU89 policy/config binaries and source contracts now run on the complete repository.
-2. Require Build XY-C1, TRX verification and artifact upload to PASS on one exact product-source SHA before claiming L3; do not treat host-only SKIP as a firmware build.
-3. Assess the separate unchecked nvram_get_int("wins_enable") use in DNSMasq DHCP-option generation in services_ex.c. Establish a safe failure/default policy before changing it.
-4. Continue other independent userland reliability issues while Actions are pending.
+1. Inspect exact-head DNSMasq/Samba and XY-C1 push Actions for the checked DHCP WINS patch.
+2. Require Build XY-C1, TRX verification and artifact upload to PASS on the same product-source SHA before marking L3 verified.
+3. Continue the next independent stability issue elsewhere in the Padavan userland; do not wait for pending runs.
 
 
 ## Verification boundary
 
-- L1: Samba run/restart/selective stop/WINS start and global smb.conf header paths use checked enable/WINS state. The header returns before output if the WINS flag read is unavailable or malformed.
-- L2: Parent code run #44917367040 passed existing GNU89 policy/config binaries and source contracts; the first source-patch run on b53 failed before compilation because the commit tree omitted existing test files. Full tree restored by 954d1dc4; fresh Samba rerun is pending.
-- L3: NOT VERIFIED. XY-C1 #44917653757 is the exact-recovery-SHA run; only mark L3 after Build XY-C1, TRX and artifact upload all PASS on one SHA.
-- L4: Physical router flash/boot, Samba authentication/share behavior and runtime WINS transitions NOT VERIFIED.
+- L1: DHCP option 44 now consumes the checked wins_enable result only when DHCP is active and no explicit WINS address is configured; backend errors abort before generated input or staged-config changes; missing key stays disabled (0).
+- L2: Existing dnsmasq_nvram_option_policy tests cover missing defaults/backend errors/output preservation; new source-order contract is wired but exact-head result is pending.
+- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on one exact SHA.
+- L4: Physical router DHCP client lease, WINS resolution and live DNSMasq restart behavior NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -55,6 +53,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
+Fetch live main; inspect the exact-head DNSMasq WINS source-order regression, Samba regression and XY-C1 Build/TRX/artifact runs for this patch. Then continue the next independent whole-userland stability issue.
 Fetch live main; inspect the fresh Samba run from the strengthened WINS-header contract and XY-C1 #44917653757 (Build/TRX/artifact) against the complete restored tree. Then assess the independent DNSMasq WINS read and continue broader userland reliability work.
 Fetch live main; inspect exact-head Samba source-contract and XY-C1 Build/TRX/artifact runs for this WINS-header patch. Then assess the independent DNSMasq DHCP WINS NVRAM read and continue the next userland reliability issue.
 Fetch live `main`; inspect exact-head WAN callback, WAN route, AI handoff and XY-C1 Build/TRX/artifact runs after THIS COMMIT. Then continue the Samba checked-NVRAM fail-closed implementation while any firmware Actions are pending.

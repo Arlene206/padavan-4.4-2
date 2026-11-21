@@ -1,3 +1,11 @@
+## 2026-11-21 — Check DNSMasq WINS advertisement before preparing DHCP configuration
+
+- Parent main SHA: e9ce710c6acc5138400faf6238d85fcd0197ce23.
+- prepare_dns_dhcpd() previously used nvram_get_int("wins_enable") only when no explicit DHCP WINS address was configured. A backend read failure was indistinguishable from disabled, silently removing DHCP option 44 while the rest of the new config was still published.
+- Reused the existing checked dnsmasq_read_boolean_option() / dnsmasq_nvram_option_status() contract. When DHCP is enabled and dhcp_wins_x is not a valid explicit address, wins_enable is now read before DHCP pool correction, generated host/ARP updates, resolver creation or staged config open. Backend/inconsistent results abort preparation; a genuinely missing flag retains the legacy default 0. An explicit valid WINS address still bypasses the optional flag read and keeps precedence.
+- The DNSMasq NVRAM policy tests already cover missing-key defaults, malformed/present values, backend errors and output preservation. Added workflow source contracts for preflight ordering and removal of the unchecked getter. Exact-head DNSMasq/Samba/XY-C1 checks are pending; L3 requires Build + TRX + artifact on one SHA.
+
+---
 ## 2026-11-21 — Restore the complete repository tree after Git tree assembly error
 
 - The Samba WINS header source slice was first committed as b53d27269e6de0a3b56f51e044714f7a4fa91dd1. That tree accidentally omitted the base tree SHA when calling the Git tree API and therefore contained only the five updated paths; the exact-head Samba job #44917536389 correctly failed because tests/samba_config_file.c was absent.

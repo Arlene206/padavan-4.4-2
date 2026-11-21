@@ -643,6 +643,16 @@ jobs:
           assert '#include "dnsmasq_static_host_policy.h"' in services
           assert '#include "dnsmasq_domain_policy.h"' in services
           assert "if (!domain || (*domain && !dnsmasq_valid_server_domain(domain)))" in prepare
+          assert "int wins_enabled = 0;" in prepare
+          wins_flag_read = 'dnsmasq_read_boolean_option("wins_enable",'
+          assert wins_flag_read in prepare
+          wins_flag_read_at = prepare.index(wins_flag_read)
+          assert prepare.index("i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);") < wins_flag_read_at
+          assert wins_flag_read_at < prepare.index("fill_static_ethers(ipaddr, netmask)")
+          assert wins_flag_read_at < prepare.index("fp = dnsmasq_file_open(config_path);")
+          assert 'else if (wins_enabled)' in prepare
+          assert 'nvram_get_int("wins_enable")' not in prepare
+          assert "return option_status;" in prepare
           assert prepare.index("dnsmasq_valid_server_domain(domain)") < prepare.index("fill_static_ethers(ipaddr, netmask)")
           assert '#include "dnsmasq_resolv_file_policy.h"' in services
           assert '#include "create_file_policy.h"' in common_ex

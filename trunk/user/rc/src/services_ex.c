@@ -689,6 +689,9 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	int dhcp_filter_aaaa_enabled = 0, dhcp_all_servers_enabled = 0;
 	int dhcp_strict_order_enabled = 0, dhcp_stop_dns_rebind_enabled = 0;
 	int dhcp_proxy_dnssec_enabled = 0, option_status;
+#if defined(APP_SMBD) || defined(APP_NMBD)
+	int wins_enabled = 0;
+#endif
 	int saved_errno, validation_errno, pool_status, pool_rollback_failed;
 	int resolv_create_status, resolv_status;
 	char config_path[] = "/etc/dnsmasq.conf.XXXXXX";
@@ -732,6 +735,20 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	}
 
 	i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);
+#if defined(APP_SMBD) || defined(APP_NMBD)
+	/*
+	 * When DHCP is asked to advertise the router as WINS, validate the
+	 * service switch before changing any generated inputs or opening a stage.
+	 * A configured explicit WINS address keeps precedence and needs no flag.
+	 */
+	if (i_dhcp_enable &&
+	    !is_valid_ipv4(nvram_safe_get("dhcp_wins_x"))) {
+		option_status = dnsmasq_read_boolean_option("wins_enable",
+							    &wins_enabled);
+		if (option_status != 0)
+			return option_status;
+	}
+#endif
 	i_verbose = nvram_get_int("dhcp_verbose");
 
 	ipaddr  = nvram_safe_get("lan_ipaddr");
@@ -941,7 +958,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		if (is_valid_ipv4(wins))
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 44, wins);
 #if defined(APP_SMBD) || defined(APP_NMBD)
-		else if (nvram_get_int("wins_enable"))
+		else if (wins_enabled)
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 44, ipaddr);
 #endif
 #if defined(APP_VLMCSD)
