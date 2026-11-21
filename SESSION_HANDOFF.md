@@ -18,20 +18,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- MiniUPnP redirect-description output previously used unbounded-to-termination `strncpy()` into caller-supplied buffers. A SOAP-controlled description can be at least 64 bytes, while `GetSpecificPortMappingEntry()` copies into `char desc[64]` and passes the result to XML escaping and `%s` logging. This slice adds a NUL-preserving bounded-copy helper for stored and default descriptions, GNU89 sanitizer regression coverage and a source contract tied to the SOAP consumer.
-- The recent current-head Inadyn repair `1af2d134760bef0ade9054dfb88f67f641759ced` passed AI docs #44940632808, Inadyn lifecycle #44940632768 and DNSMasq #44940632885. The previous helper-definition failure on parent f27f was corrected without weakening the source checks.
-- The MiniUPnP slice must pass its exact-head stability workflow and same-SHA XY-C1 Build/TRX/artifact. Hardware L4 remains NOT VERIFIED.
+- The MiniUPnP description-copy implementation is committed in `4a5139f484943abe3a5ac9cf0f6d56bc70067a56`: both stored and fallback metadata copies use the bounded helper. The GNU89 ASan/UBSan test passes exact, truncated, 1-byte, empty and invalid argument cases.
+- Exact-head MiniUPnP run #44940761661 failed only in the source-contract assertion: C formatting split the helper call after its opening parenthesis, while the checker expected no space after whitespace normalization. This checker-only child compacts that call-site spacing before matching.
+- XY-C1 #44940761694 and NVRAM #44940761781 were pending at the last poll; Process inventory #44940761713 and AI handoff #44940761657 passed. Hardware L4 remains NOT VERIFIED.
 ## Verification boundary
 
-- Parent `1af2d134760bef0ade9054dfb88f67f641759ced`: AI handoff #44940632808 PASS, Inadyn lifecycle #44940632768 PASS, DNSMasq lifecycle #44940632885 PASS. Process inventory, WAN route, WAN DHCP, Samba, HTTPD and MiniUPnP configuration publication also passed on parent f27f `#44940446796`, `#44940446824`, `#44940446779`, `#44940446725`, `#44940446885` and `#44940446973` respectively.
-- The earlier Inadyn workflow #44940446835 failed only after all GNU89 sanitizer binaries passed, because its checker called undefined `ordered()`; commit `1af2d134760bef0ade9054dfb88f67f641759ced` corrected the contract and exact-head Inadyn rerun passed.
-- The d3b7 OpenVPN source SHA `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a` has VPN lifecycle PASS on checker child `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`. Its same-source XY-C1 run #44939588534 had Build/TRX PASS and artifact upload still running at the last poll; do not claim L3 until artifact upload completes.
-- No local test/build is run or claimed for this MiniUPnP slice. Its exact-head MiniUPnP workflow and XY-C1 are pending after commit; L3 and hardware L4 are NOT VERIFIED.
+- Source commit `4a5139f484943abe3a5ac9cf0f6d56bc70067a56`: AI handoff #44940761657 PASS; Process inventory #44940761713 PASS; MiniUPnP workflow #44940761661 FAIL only at checker whitespace assertion. Its preceding GNU89/ASan/UBSan binaries, including the new bounded-description regression, all passed.
+- XY-C1 #44940761694: in progress at last poll; require Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA. NVRAM #44940761781 also in progress. No L3 claim yet.
+- The checker-only correction must pass a new exact-head MiniUPnP run. No local tests/build or hardware L4 are claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head MiniUPnP config-stability and XY-C1 Actions for the bounded redirect-description commit. Confirm the GNU89 ASan/UBSan regression and source contract pass; require Build XY-C1, TRX verification and artifact upload all PASS on this same production-source SHA before claiming L3.
-2. Diagnose any CI failure from its first causal log error and fix source/tests atomically without weakening checks. PENDING runs do not block independent tasks.
-3. After this bounded MiniUPnP security issue validates, continue the highest-risk unfinished defect in another Padavan userland module.
+1. Inspect the exact-head MiniUPnP rerun for this checker correction. Confirm the bounded-description policy binary and SOAP consumer source contract both pass. Poll XY-C1 and require Build, TRX and artifact upload all PASS on one exact source SHA before L3 is recorded.
+2. If a contract fails, inspect the normalized source and first causal log error; fix the assertion or source without weakening coverage.
+3. After the MiniUPnP security slice validates, continue the next highest-risk unfinished Padavan userland defect.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history, create branches or PRs.

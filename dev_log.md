@@ -1,3 +1,11 @@
+## 2026-11-22 — Normalize bounded-description source contract spacing
+
+- Parent main SHA: `4a5139f484943abe3a5ac9cf0f6d56bc70067a56`.
+- Exact-head MiniUPnP run #44940761661 passed all GNU89/ASan/UBSan binaries, including the new bounded-description copy regression, then failed in `check_miniupnpd_redirect_desc.py` because the source normalizer collapses newlines to a space after the function's opening parenthesis. The C call is correctly `miniupnpd_redirect_desc_copy_bounded( desc, ...)`; the assertion expected no space. Normalize only the call's post-parenthesis whitespace before checking both stored and fallback call tokens.
+- AI handoff #44940761657 and Process inventory #44940761713 passed on the source SHA. XY-C1 #44940761694 and NVRAM audit #44940761781 were still pending. The source sanitizer regression passes, but the lifecycle workflow remains FAIL until the corrected source contract passes; same-SHA Build/TRX/artifact and L3 are not yet claimed.
+
+---
+
 ## 2026-11-22 — Bound MiniUPnP redirect-description reads
 
 - Parent main SHA: `1af2d134760bef0ade9054dfb88f67f641759ced`.

@@ -92,8 +92,9 @@ assert "free(desc_entry);" in update[rollback:]
 assert "return update_portmapping_desc_timestamp(" not in update
 
 get_description = normalized("get_redirect_desc(unsigned short eport, int proto,")
-assert "miniupnpd_redirect_desc_copy_bounded(desc, (size_t)desclen, p->str)" in get_description
-assert 'miniupnpd_redirect_desc_copy_bounded(desc, (size_t)desclen, "miniupnpd")' in get_description
+get_description_compact = get_description.replace("( ", "(")
+assert "miniupnpd_redirect_desc_copy_bounded(desc, (size_t)desclen, p->str)" in get_description_compact
+assert 'miniupnpd_redirect_desc_copy_bounded(desc, (size_t)desclen, "miniupnpd")' in get_description_compact
 assert "strncpy(desc" not in get_description
 
 soap_get_specific = function_body(SOAP_SOURCE, "GetSpecificPortMappingEntry(struct upnphttp * h,")
