@@ -1,3 +1,14 @@
+## 2026-11-21 — Restore the indexed November log archive object
+
+- Parent main SHA: `3791719dff38276df830dafe1ffbb2f501f0b13b`.
+- Exact-head AI handoff run `#44889614300` on `3791719dff38276df830dafe1ffbb2f501f0b13b` failed because `docs/dev-log/2026/11/part-021.md` was referenced by `docs/dev-log/INDEX.md` but missing from the Git tree.
+- Recovered the original complete 107,416-byte archive from its existing Git blob `f80bf2d087fa1c313cb671f2108e3279092db234` and restored the exact indexed path; no archive content was regenerated or truncated.
+- At last poll, Storage Hotplug run `#44889614290` and XY-C1 firmware run `#44889614321` were still in progress on exact SHA `3791719dff38276df830dafe1ffbb2f501f0b13b`. Their results must remain attached only to that source SHA.
+- Re-run AI handoff and Storage Hotplug exact-head checks on this archive-restoration commit. Product L3 remains verified only on `20e139d230b73eabc5f25a2b17d56a3a5768af11`; physical-router L4 remains unverified.
+- Resulting main commit: THIS COMMIT
+
+---
+
 ## 2026-11-21 — Align Optware tri-state checker and end-session handoff contract
 
 - Parent main SHA: `fa888e9c9323a555d63b2d84a9bd4bd82a181764`.
