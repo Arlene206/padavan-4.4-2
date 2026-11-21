@@ -482,9 +482,15 @@ jobs:
           ip6rd_start = callback.index('value = getenv("ip6rd");')
           ip6rd_end = callback.index("#endif", ip6rd_start)
           ip6rd_block = callback[ip6rd_start:ip6rd_end]
-          assert "ip6rd_status = store_ip6rd_from_dhcp_status(value, prefix);" in ip6rd_block
-          assert "keeping accepted IPv4 lease" in ip6rd_block
-          assert "goto snapshot_publication_failed" not in ip6rd_block
+          assert "snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);" in ip6rd_block
+          assert "goto snapshot_publication_failed" in ip6rd_block
+          published_state = callback.index("snapshot_published = 1;")
+          rollback_state = callback.index("if (snapshot_published)", callback.index("snapshot_publication_failed:"))
+          restore_publish = callback.index("wan_dhcp_nvram_state_publish(", rollback_state)
+          route_abort = callback.index("dhcp_wan_route_transition_abort_snapshot(", rollback_state)
+          assert published_state < rollback_state < restore_publish < route_abort
+          assert "rollback_values[i].previous_value = snapshot_values[i].value;" in callback
+          assert "preserving current interface/routes" in callback
           callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
           assert "callback_status = route_status_accumulate(callback_status, ip6rd_status);" in callback
           route_err_publish = callback.index("wan_nvram_int_temp_status(")

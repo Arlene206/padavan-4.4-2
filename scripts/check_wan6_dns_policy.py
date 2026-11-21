@@ -123,7 +123,14 @@ assert "status != 0" in sixrd_store
 wan_bound = body(wan_source, "static int\nudhcpc_bound(")
 sixrd_call = wan_bound.index("snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);")
 sixrd_abort = wan_bound.index("goto snapshot_publication_failed;", sixrd_call)
-assert sixrd_call < sixrd_abort
+sixrd_publish = wan_bound.index("snapshot_published = 1;")
+sixrd_recovery = wan_bound.index("if (snapshot_published)", wan_bound.index("snapshot_publication_failed:"))
+sixrd_restore = wan_bound.index("wan_dhcp_nvram_state_publish(", sixrd_recovery)
+sixrd_route_abort = wan_bound.index("dhcp_wan_route_transition_abort_snapshot(", sixrd_recovery)
+assert sixrd_publish < sixrd_call < sixrd_abort
+assert sixrd_recovery < sixrd_restore < sixrd_route_abort
+assert "rollback_values[i].previous_value = snapshot_values[i].value;" in wan_bound
+assert "preserving current interface/routes" in wan_bound
 assert "test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple" in lease_policy_test
 assert "test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();" in lease_policy_test
 assert "dhcp_lease_nvram_publish" in lease_policy

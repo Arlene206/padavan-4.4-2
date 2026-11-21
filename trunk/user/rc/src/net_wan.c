@@ -6155,9 +6155,11 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
 	int key_length, snapshot_status, snapshot_rollback_status;
-	int snapshot_abort_status, callback_status, publish_status, ip6rd_status;
-	int dltime_length;
+	int snapshot_abort_status, callback_status, publish_status;
+	int dltime_length, snapshot_published = 0;
+	int snapshot_restore_status = 0, snapshot_restore_rollback_status = 0;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
+	struct dhcp_lease_nvram_value rollback_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct nvram_transaction previous_transaction;
 	struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
@@ -6167,7 +6169,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	is_man = is_ifunit_man(wan_ifname, unit);
 	route_setup_status = 0;
 	mtu_status = 0;
-	ip6rd_status = 0;
 
 	if (is_man) {
 		strcpy(prefix, "wanx_");
@@ -6507,20 +6508,14 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		snapshot_values, snapshot_count, &snapshot_rollback_status);
 	if (snapshot_status != 0)
 		goto snapshot_publication_failed;
+	snapshot_published = 1;
 
 #if defined (USE_IPV6)
-	/*
-	 * The IPv4 lease tuple is already committed. A failed optional 6rd
-	 * metadata update must not roll the accepted IPv4 address/routes back
-	 * while leaving that committed tuple visible in NVRAM.
-	 */
 	value = getenv("ip6rd");
 	if (value) {
-		ip6rd_status = store_ip6rd_from_dhcp_status(value, prefix);
-		if (ip6rd_status != 0)
-			logmessage(log_prefix,
-				   "DHCP 6rd metadata update incomplete on %s (status=%d); keeping accepted IPv4 lease",
-				   wan_ifname, ip6rd_status);
+		snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);
+		if (snapshot_status != 0)
+			goto snapshot_publication_failed;
 	}
 #endif
 
@@ -6576,6 +6571,30 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	return callback_status;
 
 snapshot_publication_failed:
+	if (snapshot_published) {
+		/*
+		 * The later optional 6rd write failed after the IPv4 tuple was
+		 * committed. Compare-and-restore only while every current field
+		 * still matches this callback's committed lease; never undo a
+		 * newer DHCP callback.
+		 */
+		for (i = 0; i < snapshot_count; ++i) {
+			rollback_values[i].name = snapshot_values[i].name;
+			rollback_values[i].value = snapshot_values[i].previous_value;
+			rollback_values[i].previous_value = snapshot_values[i].value;
+		}
+		snapshot_restore_status = wan_dhcp_nvram_state_publish(
+			rollback_values, snapshot_count,
+			&snapshot_restore_rollback_status);
+		if (snapshot_restore_status != 0) {
+			logmessage(log_prefix,
+				   "cannot restore committed DHCP lease snapshot after 6rd failure on %s (status=%d, rollback=%d); preserving current interface/routes",
+				   wan_ifname, snapshot_restore_status,
+				   snapshot_restore_rollback_status);
+			return snapshot_status;
+		}
+		snapshot_published = 0;
+	}
 	logmessage(log_prefix,
 		   "%s (%s) cannot publish complete DHCP lease snapshot (status=%d)",
 		   udhcpc_state, wan_ifname, snapshot_status);

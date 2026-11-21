@@ -286,7 +286,7 @@ static void
 test_dhcp_lease_nvram_publish_rejects_stale_snapshot(void)
 {
 	struct dhcp_nvram_fake fake;
-	struct dhcp_lease_nvram_value values[3];
+	struct dhcp_lease_nvram_value values[3], restore_values[3];
 	int publish_attempted, rollback_status, status, i;
 
 	memset(&fake, 0, sizeof(fake));
@@ -318,6 +318,40 @@ test_dhcp_lease_nvram_publish_rejects_stale_snapshot(void)
 	assert(strcmp(fake.events, "rrrABC") == 0);
 	for (i = 0; i < 3; ++i)
 		assert(strcmp(fake.current[i], fake.new_values[i]) == 0);
+
+	/* Reverse publication restores this tuple only while it remains current. */
+	for (i = 0; i < 3; ++i) {
+		restore_values[i].name = values[i].name;
+		restore_values[i].value = values[i].previous_value;
+		restore_values[i].previous_value = values[i].value;
+	}
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	status = dhcp_lease_nvram_publish_if_current(
+		restore_values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&publish_attempted, &rollback_status);
+	assert(status == 0);
+	assert(publish_attempted == 1 && rollback_status == 0);
+	assert(strcmp(fake.events, "rrrabc") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+
+	/* A newer callback's different tuple blocks this stale restoration. */
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
+	snprintf(fake.current[1], sizeof(fake.current[1]), "%s", "newer-gateway");
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	status = dhcp_lease_nvram_publish_if_current(
+		restore_values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&publish_attempted, &rollback_status);
+	assert(status == EAGAIN);
+	assert(publish_attempted == 0 && rollback_status == 0);
+	assert(strcmp(fake.events, "rr") == 0);
+	assert(strcmp(fake.current[0], fake.new_values[0]) == 0);
+	assert(strcmp(fake.current[1], "newer-gateway") == 0);
+	assert(strcmp(fake.current[2], fake.new_values[2]) == 0);
 
 	/* A newer callback committed between snapshot and publish. Refuse the
 	 * stale lease and never compensate over the newer value. */

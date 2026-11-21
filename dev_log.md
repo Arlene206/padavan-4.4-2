@@ -1,3 +1,13 @@
+## 2026-11-21 — Make post-commit 6rd failure roll back the committed DHCP tuple safely
+
+- Parent main SHA: `36b227a751934a9efafb42884e7795cb86fcc271`.
+- Review of the existing DHCPv6 DNS contract showed that a failed 6rd NVRAM write is intended to abort the bound transition, not silently keep only the IPv4 half. Restored the original abort semantics and fixed the missing NVRAM compensation: when the IPv4 tuple has already committed, build a reverse tuple and use the same compare-and-publish transaction before restoring the interface/routes.
+- Reverse publication verifies every current field still matches this callback's committed tuple. A newer callback wins with `EAGAIN`; in that case the failure path preserves current interface/routes rather than overwriting newer state.
+- Extended GNU89/ASan/UBSan policy coverage for successful reverse publication and stale-writer rejection, plus WAN callback and WAN6 source contracts. Exact-head WAN callback and XY-C1 validation are pending.
+- Next: fix any subsequent checker/build issue and require Build, TRX and artifact upload on one SHA.
+
+---
+
 ## 2026-11-21 — Keep committed IPv4 lease when optional 6rd metadata fails
 
 - Parent main SHA: `6144640848b15f47a8e6df2e9f679421a45fcddc`.
