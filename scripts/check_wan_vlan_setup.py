@@ -291,6 +291,30 @@ require('nvram_match("vlan_filter", "1")' not in switch_vlan_code and
         "get_wan_bridge_iso_mode(" not in switch_vlan_code,
         "switch VLAN selector/bridge modes must not use lossy getters")
 
+storm = body(lan, "switch_config_storm(void)")
+storm_code = " ".join(storm.split())
+storm_keys = (
+    "controlrate_unknown_unicast",
+    "controlrate_unknown_multicast",
+    "controlrate_multicast",
+    "controlrate_broadcast",
+)
+storm_positions = [
+    storm_code.index(f'lan_nvram_get_int_range_logged_status( "{key}", 1, 1024, 1024,')
+    for key in storm_keys
+]
+first_storm_apply = storm_code.index("phy_storm_unicast_unknown(")
+require(storm_positions == sorted(storm_positions) and
+        storm_positions[-1] < first_storm_apply and
+        "if (read_status != 0) return read_status;" in storm_code,
+        "all storm-control rates must be checked and range-normalized before any switch storm-control operation")
+require("rc_wan_nvram_int_range_status( status, configured_value, minimum, maximum, fallback, normalized)" in
+        " ".join(body(lan, "lan_nvram_get_int_range_logged_status(").split()),
+        "storm-control rate helper must preserve legacy fallback only for successfully read out-of-range values")
+for key in storm_keys:
+    require(f'nvram_get_int("{key}")' not in storm_code,
+            f"storm-control rate {key} must not collapse NVRAM read errors")
+
 other = body(wan, "config_soft_bridges_other(")
 port_reader = body(wan, "read_soft_bridge_port_vlan_config(")
 require('get_nvram_int_checked_status(param_name, &configured_vid)' in port_reader and

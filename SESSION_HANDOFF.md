@@ -28,22 +28,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Current product slice: THIS COMMIT hardens `switch_config_vlan()` in `net_lan.c`. It now checks WAN bridge mode/isolation, exact `vlan_filter`, six VID values, six priority values and four LAN tag values before the first `phy_vlan_rule_set()`. Read or parse errors preserve errno and abort before hardware VLAN rules/bridge mode programming. Legacy missing-key defaults, priority masking, VID validity behavior and readable bridge-mode fallback remain.
-- Local checked NVRAM wrappers in `net_lan.c` use the shared `wan_nvram_status_policy.h`; a logged read helper records the setting and status. The static checker now enforces the complete ordered snapshot and bans old fallible getters. The same WAN route workflow includes GNU89/Werror/ASan/UBSan policy tests for parser/match/error handling.
-- Previous source slices in this chain: WAN VLAN settings in `config_vinet_wan()` at `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`; whitespace checker fix `cfc41b84b12004bc43d1a0a136072a8ef53c5727`; LAN soft-bridge checked reads `7f66b9d41d7244265bf7292e89d5b8400da4080a`; LAN core bridge checked reads `f20473f17034ca1188abb3226533e2eb0e6564d3`. Exact WAN route/XY-C1 for f204 was not visible at last poll.
-- THIS source commit requires exact WAN route and XY-C1 checks. L3 only after Build XY-C1, TRX and artifact upload all PASS; hardware L4 remains NOT VERIFIED.
+- Latest source slice: THIS COMMIT hardens `switch_config_storm()`. All four storm-control rates are checked before hardware programming. Backend/malformed-value errors abort before any `phy_storm_*` call; valid 1..1024 values and the old 1024 fallback for readable missing/out-of-range values remain unchanged.
+- New `lan_nvram_get_int_range_logged_status()` uses the existing checked parser/range policy; `scripts/check_wan_vlan_setup.py` asserts ordered reads, error gates and normalization. Existing sanitizer tests cover bounds, fallback and backend errors.
+- Source history: WAN VLAN `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`; checker normalization `cfc41b84b12004bc43d1a0a136072a8ef53c5727`; LAN soft bridge `7f66b9d41d7244265bf7292e89d5b8400da4080a`; core LAN bridge `f20473f17034ca1188abb3226533e2eb0e6564d3`; switch VLAN `ebc799f8bb49b9258ae9e0206ec48c69b0772e7a`; THIS is storm control.
+- Exact WAN route on cfc PASS. 7f66/f204 WAN route PASS; XY-C1 Build/NVRAM audits were in progress. ebc WAN route was executing. Check this new product SHA exactly; no L3/hardware L4 claim.
 
 ## Verification boundary
 
-- Source preflight: checked source tokens and order verified before tree creation; exact compile and CI results pending.
-- Existing policy test covers shared checked-reader parser/match and backend failure semantics, but does not replace current-head compile/build.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
+- Source preflight checks pass; exact current-head WAN route/XY-C1 pending.
+- Existing NVRAM sanitizer covers shared integer/range policy; exact same-source Build/TRX/artifact all must pass for L3.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head WAN route, XY-C1 and NVRAM audit jobs for THIS commit. Read step conclusions, especially Build XY-C1, Verify TRX output and upload-artifact.
-2. Fix any checker/compiler/build regression from same-SHA logs; do not infer from ancestor or checker-only runs.
-3. After the complete LAN/WAN VLAN preflight validates, select another independent whole-userland stability/security issue.
+1. Fetch exact-head WAN route, NVRAM audit and XY-C1 Actions for THIS commit; verify Build XY-C1, Verify TRX and upload-artifact individually.
+2. Diagnose and repair any same-SHA checker/compiler/firmware failure from exact logs.
+3. After VLAN/bridge/storm-control preflights validate, continue an independent Padavan userland reliability/security issue.
 
 ## Workflow and preservation rules
 

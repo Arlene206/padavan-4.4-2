@@ -177,6 +177,27 @@ lan_nvram_get_int_before_vlan_apply(const char *param_name, int *value)
 	return status;
 }
 
+static int
+lan_nvram_get_int_range_logged_status(const char *param_name,
+				      int minimum, int maximum,
+				      int fallback, int *normalized)
+{
+	int configured_value = 0;
+	int status;
+
+	status = lan_nvram_get_int_status(param_name, &configured_value);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read switch storm-control setting %s (status=%d)",
+			   param_name ? param_name : "(null)", status);
+		errno = status;
+		return status;
+	}
+	return rc_wan_nvram_int_range_status(
+		status, configured_value, minimum, maximum,
+		fallback, normalized);
+}
+
 in_addr_t get_lan_ip4(void)
 {
 	return get_interface_addr4(IFNAME_BR);
@@ -762,24 +783,33 @@ switch_config_storm(void)
 {
 	rc_bridge_init_status_t storm_status;
 	int operation_status;
+	int read_status;
 	int controlrate_unknown_unicast;
 	int controlrate_unknown_multicast;
 	int controlrate_multicast;
 	int controlrate_broadcast;
 
 	rc_bridge_init_status_reset(&storm_status);
-	controlrate_unknown_unicast = nvram_get_int("controlrate_unknown_unicast");
-	if (controlrate_unknown_unicast <= 0 || controlrate_unknown_unicast > 1024)
-		controlrate_unknown_unicast = 1024;
-	controlrate_unknown_multicast = nvram_get_int("controlrate_unknown_multicast");
-	if (controlrate_unknown_multicast <= 0 || controlrate_unknown_multicast > 1024)
-		controlrate_unknown_multicast = 1024;
-	controlrate_multicast = nvram_get_int("controlrate_multicast");
-	if (controlrate_multicast <= 0 || controlrate_multicast > 1024)
-		controlrate_multicast = 1024;
-	controlrate_broadcast = nvram_get_int("controlrate_broadcast");
-	if (controlrate_broadcast <= 0 || controlrate_broadcast > 1024)
-		controlrate_broadcast = 1024;
+	read_status = lan_nvram_get_int_range_logged_status(
+		"controlrate_unknown_unicast", 1, 1024, 1024,
+		&controlrate_unknown_unicast);
+	if (read_status != 0)
+		return read_status;
+	read_status = lan_nvram_get_int_range_logged_status(
+		"controlrate_unknown_multicast", 1, 1024, 1024,
+		&controlrate_unknown_multicast);
+	if (read_status != 0)
+		return read_status;
+	read_status = lan_nvram_get_int_range_logged_status(
+		"controlrate_multicast", 1, 1024, 1024,
+		&controlrate_multicast);
+	if (read_status != 0)
+		return read_status;
+	read_status = lan_nvram_get_int_range_logged_status(
+		"controlrate_broadcast", 1, 1024, 1024,
+		&controlrate_broadcast);
+	if (read_status != 0)
+		return read_status;
 
 	operation_status = phy_storm_unicast_unknown(controlrate_unknown_unicast);
 	rc_bridge_init_record(&storm_status, "unknown-unicast storm control", operation_status);

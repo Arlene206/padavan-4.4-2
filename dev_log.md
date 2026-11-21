@@ -1,3 +1,14 @@
+## 2026-11-22 08:48 CST — Preserve switch storm-control rates on NVRAM read errors
+
+- Parent main SHA: `ebc799f8bb49b9258ae9e0206ec48c69b0772e7a`.
+- `switch_config_storm()` used four unchecked `nvram_get_int()` calls; read failure became zero and then normalized to rate 1024, the most permissive fallback. This could silently weaken unknown-unicast, unknown-multicast, multicast and broadcast storm controls when NVRAM was unavailable.
+- THIS COMMIT checks all four values through `rc_wan_nvram_int_range_status()`: valid 1..1024 values are retained, readable missing/out-of-range values preserve the historical 1024 fallback, but backend/malformed-value errors abort before the first `phy_storm_*` operation.
+- Extended `scripts/check_wan_vlan_setup.py` to pin the four checked reads and range normalization before hardware operations. Existing `wan_nvram_status_policy.c` covers range bounds, fallback and EACCES/EIO propagation without altering outputs on errors.
+- Exact route results: checker-normalization SHA `cfc41b84b12004bc43d1a0a136072a8ef53c5727` WAN route + AI docs PASS. `7f66b9d41d7244265bf7292e89d5b8400da4080a` WAN route PASS and other completed checks PASS; XY-C1/NVRAM were still running. `f20473f17034ca1188abb3226533e2eb0e6564d3` WAN route PASS; XY-C1/NVRAM still running. Latest source `ebc799f8bb49b9258ae9e0206ec48c69b0772e7a` WAN route was running its regression matrix at last check.
+- Next: inspect exact-head WAN route/XY-C1 Build/TRX/artifact for this change; fix any same-SHA failure before advancing.
+
+---
+
 ## 2026-11-22 08:34 CST — Fail closed on LAN switch VLAN snapshot errors
 
 - Parent main SHA: `f20473f17034ca1188abb3226533e2eb0e6564d3`.

@@ -1,10 +1,11 @@
 ## Current checkpoint — 2026-11-22
 
-- WAN `config_vinet_wan()` now checks `vlan_filter`, CPU/IPTV VIDs and CPU priority before hardware mapping; checker normalization `cfc41b84b12004bc43d1a0a136072a8ef53c5727` passed WAN route + AI docs.
-- LAN `config_soft_bridge_lan()` checked IGMP/M2U reads in source `7f66b9d41d7244265bf7292e89d5b8400da4080a`; its 21 Actions include WAN route PASS and all remaining completed subsystem checks PASS, with XY-C1 Build and NVRAM audit pending at last poll.
-- LAN core `config_bridge()` checked IGMP/M2U/router/AP-uport/WAN-mode reads in source `f20473f17034ca1188abb3226533e2eb0e6564d3`.
-- THIS COMMIT checks bridge mode/isolation, VLAN filter, all six VIDs, six priorities and four LAN tag values in `switch_config_vlan()` before the first hardware VLAN programming call. Source checker extended; exact actions pending.
-- Frozen backup remains read-only; L3 still requires a same-source successful XY-C1 firmware/TRX/artifact run.
+- WAN `config_vinet_wan()` checked VLAN selector/IDs/priority before mapping; checker normalization cfc WAN route + AI docs PASS.
+- LAN `config_soft_bridge_lan()` checked IGMP/M2U before topology (7f66); WAN route PASS; XY-C1/NVRAM still running at last poll.
+- LAN `config_bridge()` checked IGMP/M2U/router/AP-uport/WAN mode before apply (f204); WAN route PASS; XY-C1/NVRAM still running.
+- LAN `switch_config_vlan()` checked mode/isolation/filter, six VIDs, six priorities and four tags before first hardware rule call (ebc); exact WAN route running.
+- THIS COMMIT checks four storm-control rates before hardware programming. 1024 fallback applies only to successfully read missing/out-of-range values; backend/parse failures abort. Existing range sanitizer tests cover policy.
+- Frozen backup read-only; L3 requires same-source XY-C1 Build/TRX/artifact PASS.
 
 ## Historical checkpoint — 2026-11-21
 
