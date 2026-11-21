@@ -1640,14 +1640,17 @@ assert ttyd_launch < ttyd_launch_failure < ttyd_launcher_return < ttyd_initial_w
 assert ttyd_start.count("return process_presence_start_postcondition(start_status,") == 2
 
 ttyd_read = 'service_enabled_mode_status("ttyd", "ttyd_enable", &ttyd_mode);'
-assert ttyd_read in ttyd_start_wrapper
-assert ttyd_start_wrapper.index(ttyd_read) < ttyd_start_wrapper.index("if (config_status != 0)")
-assert ttyd_start_wrapper.index("if (config_status != 0)") < ttyd_start_wrapper.index("return start_ttyd_with_mode(ttyd_mode);")
-assert ttyd_read in ttyd_restart_wrapper
-assert ttyd_restart_wrapper.index(ttyd_read) < ttyd_restart_wrapper.index("if (config_status != 0)")
-assert ttyd_restart_wrapper.index("if (config_status != 0)") < ttyd_restart_wrapper.index("stop_status = stop_ttyd();")
-assert ttyd_restart_wrapper.index("stop_status = stop_ttyd();") < ttyd_restart_wrapper.index("if (stop_status != 0)")
-assert ttyd_restart_wrapper.index("if (stop_status != 0)") < ttyd_restart_wrapper.index("return start_ttyd_with_mode(ttyd_mode);")
+ttyd_read_compact = "".join(ttyd_read.split())
+ttyd_start_wrapper_compact = "".join(ttyd_start_wrapper.split())
+ttyd_restart_wrapper_compact = "".join(ttyd_restart_wrapper.split())
+assert ttyd_read_compact in ttyd_start_wrapper_compact
+assert ttyd_start_wrapper_compact.index(ttyd_read_compact) < ttyd_start_wrapper_compact.index("if(config_status!=0)")
+assert ttyd_start_wrapper_compact.index("if(config_status!=0)") < ttyd_start_wrapper_compact.index("returnstart_ttyd_with_mode(ttyd_mode);")
+assert ttyd_read_compact in ttyd_restart_wrapper_compact
+assert ttyd_restart_wrapper_compact.index(ttyd_read_compact) < ttyd_restart_wrapper_compact.index("if(config_status!=0)")
+assert ttyd_restart_wrapper_compact.index("if(config_status!=0)") < ttyd_restart_wrapper_compact.index("stop_status=stop_ttyd();")
+assert ttyd_restart_wrapper_compact.index("stop_status=stop_ttyd();") < ttyd_restart_wrapper_compact.index("if(stop_status!=0)")
+assert ttyd_restart_wrapper_compact.index("if(stop_status!=0)") < ttyd_restart_wrapper_compact.index("returnstart_ttyd_with_mode(ttyd_mode);")
 assert "nvram_get_int(" not in ttyd_start_wrapper
 assert "nvram_safe_get(" not in ttyd_start_wrapper
 assert "nvram_get_int(" not in ttyd_restart_wrapper

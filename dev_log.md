@@ -1,3 +1,13 @@
+## 2026-11-21 — Make ttyd enable-reader checker whitespace-independent
+
+- Parent main SHA: `9a25b71fb74932dc27063432b2f342d9724d60e2`.
+- The Process inventory contract compared an exact single-line literal against a deliberately wrapped multi-line `service_enabled_mode_status()` call in `start_ttyd()` and `restart_ttyd()`. This produced a false failure even though the checked read precedes all start/stop operations.
+- Normalize whitespace in the ttyd wrapper bodies and retain the existing ordering/fail-closed assertions.
+- Exact-head Process regression #44913492523 failed only on this raw-whitespace assertion; a new Process run on this corrected checker is pending.
+- Next: verify the latest Process integration result and keep the XY-C1 build attempt focused on the fixed WAN DHCP source.
+
+---
+
 ## 2026-11-21 — Remove stale 6rd status from WAN bound callback
 
 - Parent main SHA: `3f5b12d138085b21c4919e3f5596a4bfa668ca4c`.
