@@ -126,3 +126,23 @@ require(mtu_read < mtu_error < mtu_ifup and
 assert 'get_wan_unit_value_int(unit, "man_mtu")' not in source
 assert 'get_wan_unit_value_int(unit, "mtu")' not in wan_start
 print("WAN MTU reads fail closed before MAN/physical interface activation: PASS")
+
+
+# EAPOL and IPoE/Kabinet authentication-mode decisions must use checked reads.
+wan_start = " ".join(body(source, "start_wan(void)").split())
+require('get_wan_unit_value_int_status(unit, "auth_mode", &wan_auth_mode)' in wan_start,
+        "EAPOL mode must use checked NVRAM reads")
+require("auth_status = nvram_status" in wan_start and "if (auth_status != 0)" in wan_start,
+        "EAPOL read failures must use the existing startup cleanup path")
+wan_up = " ".join(body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)").split())
+require('get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode)' in wan_up,
+        "Kabinet startup must use checked auth-mode reads")
+require("if (auth_status != 0)" in wan_up and "start_auth_kabinet()" in wan_up,
+        "Kabinet startup must not run when mode read fails")
+wan_down = " ".join(body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)").split())
+require('get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode)' in wan_down,
+        "Kabinet teardown must use checked auth-mode reads")
+require("if (auth_status != 0 || auth_mode == 1)" in wan_down and "stop_auth_kabinet()" in wan_down,
+        "Kabinet teardown must attempt defensive stop when auth mode is unknown")
+assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
+print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")

@@ -3257,10 +3257,13 @@ start_wan(void)
 			}
 
 			/* Start eapol authenticator */
-			wan_auth_mode = get_wan_unit_value_int(unit, "auth_mode");
-			if (wan_auth_mode > 1) {
-				auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);
-				if (auth_status != 0) {
+			nvram_status = get_wan_unit_value_int_status(
+				unit, "auth_mode", &wan_auth_mode);
+			auth_status = nvram_status;
+			if (nvram_status == 0 && wan_auth_mode > 1)
+				auth_status = start_auth_eapol(
+					wan_ifname, unit, wan_auth_mode - 2);
+			if (auth_status != 0) {
 					wan_start_status = rc_first_service_start_status(
 						wan_start_status, auth_status);
 					logmessage(LOGNAME, "WAN EAPOL authentication startup failed on %s (status=%d); skipping address/lease setup",
@@ -3286,8 +3289,8 @@ start_wan(void)
 						}
 					}
 					continue;
-				}
-			}
+				
+
 			
 			/* We are done configuration */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
@@ -3996,7 +3999,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
 	int ppp_index, gateway_valid, gateway_off_subnet;
-	int status = 0, route_status;
+	int status = 0, route_status, auth_status, auth_mode;
 	int wan_addr_status, wan_mask_status, wan_gate_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
@@ -4131,9 +4134,14 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		status = route_status_accumulate(status, route_status);
 	}
 
-	/* Start kabinet authenticator (for IPoE) */
+	/* Start Kabinet only when the checked auth-mode read succeeds. */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
-		if (get_wan_unit_value_int(unit, "auth_mode") == 1) {
+		auth_status = get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode);
+		if (auth_status != 0) {
+			status = route_status_accumulate(status, auth_status);
+			logmessage(LOGNAME,
+				   "cannot read WAN Kabinet authentication mode (status=%d)", auth_status);
+		} else if (auth_mode == 1) {
 			route_status = start_auth_kabinet();
 			status = route_status_accumulate(status, route_status);
 			if (route_status != 0)
@@ -4264,6 +4272,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	int wan_proto, modem_unit_id;
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
+	int auth_status, auth_mode;
 	int statistics_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
@@ -4331,9 +4340,16 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 				   wan_ifname, route_status);
 	}
 
-	/* Stop kabinet authenticator (for IPoE) */
+	/* Stop explicitly enabled auth; on read failure, stop defensively too. */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
-		if (get_wan_unit_value_int(unit, "auth_mode") == 1) {
+		auth_status = get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode);
+		if (auth_status != 0) {
+			status = route_status_accumulate(status, auth_status);
+			logmessage(LOGNAME,
+				   "cannot read WAN Kabinet auth mode during teardown (status=%d); stopping defensively",
+				   auth_status);
+		}
+		if (auth_status != 0 || auth_mode == 1) {
 			route_status = stop_auth_kabinet();
 			status = route_status_accumulate(status, route_status);
 			if (route_status != 0)
