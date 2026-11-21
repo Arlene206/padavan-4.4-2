@@ -1,3 +1,15 @@
+## 2026-11-21 — Repair required handoff headings and correct firmware validation boundary
+
+- Parent main SHA: 2222f27be79a7f785a48887047403e29f360ef59; AI handoff documentation #44905479770 failed because the handoff used noncanonical headings instead of required "## Current repository state" and "## Active task".
+- Renamed those headings and retained the mandatory checkpoint, verification boundary and exact first action.
+- Corrected XY-C1 status: run #44905479795 concluded success on 2222f27, but Build XY-C1, TRX verification and artifact upload were all SKIPPED because that head contained checker/documentation changes only. It does not prove L3 for product-source baseline d9bffce5.
+- Process inventory #44905479794, USB modem #44905479781 and Firewall Startup #44905479780 PASS on 2222f27. AI docs rerun pending. NVRAM transaction audit #44904764756 PASS on d9bffce5; router-mode policy/wiring #44904910387 PASS on 0398903.
+- Verified MiniUPnP internal-port-zero handling already exists in source and workflow tests (commit 1eb75818300dbefc79fbd3f706670df0e3011a6a); do not repeat it.
+- Next P1 item: preserve SSH daemon state when sshd_enable NVRAM reads fail during start/restart.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Normalize whitespace inside shared WAN NVRAM call contracts
 
 - Parent main SHA: `a0b9a4f09d8091b427eda457a3a06b78e3cfd1df`; product source baseline remains `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`.
