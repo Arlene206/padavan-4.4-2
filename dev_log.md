@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on Samba local-master NVRAM errors
+
+- Parent main SHA: `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`.
+- `write_smb_conf_header()` used `nvram_get_int("st_samba_lmb")`; transient NVRAM backend/close errors collapsed to zero and could publish `local master = no`. Invalid values outside 0..2 could select domain-master configuration.
+- Added checked `nvram_get_checked()` plus the common strict decimal reader, retained missing-key default 0, and reject backend errors or values outside 0..2 before the first smb.conf write.
+- Added local-master policy boundary/error tests and exact Samba workflow assertions for checked-read/error ordering and removal of the raw getter.
+- Local GNU89/Werror/ASan/UBSan regression and exact-head Samba, Process, XY-C1 Build/TRX/artifact remain to be verified after this source commit. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Complete WSD TCP response writes
 
 - Parent main SHA: `a293665472f8f5cef0ce80a928730b6c9ab66980`.

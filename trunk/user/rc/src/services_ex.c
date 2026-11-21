@@ -1596,6 +1596,30 @@ static int
 samba_ex_read_boolean_status(const char *name, int missing_value,
 			     int *enabled);
 
+static int
+samba_ex_read_local_master_status(int *local_master)
+{
+	char *value = NULL;
+	int api_result, saved_errno, read_status, parsed = 0;
+	int status;
+
+	if (!local_master) {
+		errno = EINVAL;
+		return -1;
+	}
+	*local_master = 0;
+	errno = 0;
+	api_result = nvram_get_checked("st_samba_lmb", &value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_int_status(
+		api_result, saved_errno, value, 0, &parsed);
+	status = samba_local_master_value_status(
+		read_status, parsed, local_master);
+	if (status != 0)
+		errno = status;
+	return status == 0 ? 0 : -1;
+}
+
 int
 write_smb_conf_header(FILE *fp)
 {
@@ -1638,7 +1662,15 @@ write_smb_conf_header(FILE *fp)
 		}
 	}
 
-	i_lmb = nvram_get_int("st_samba_lmb");
+	if (samba_ex_read_local_master_status(&i_lmb) != 0) {
+		int read_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot read or validate local-master mode; refusing smb.conf header publication (errno %d)",
+			   read_error);
+		errno = read_error;
+		return -1;
+	}
 	p_workgroup = nvram_safe_get("st_samba_workgroup");
 	p_computer_name = get_our_hostname();
 

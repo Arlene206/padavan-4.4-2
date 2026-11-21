@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent main SHA for this WSD TCP send-all source/test checkpoint: `a293665472f8f5cef0ce80a928730b6c9ab66980`. The new source, regression, workflow and handoff changes are included in one atomic commit. Resolve its exact SHA from live `refs/heads/main` after the commit is installed.
+- Parent main SHA for this Samba local-master NVRAM source/test checkpoint: `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`. The new source, regression, workflow and handoff changes are included in one atomic commit. Resolve its exact SHA from live `refs/heads/main` after the commit is installed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -25,14 +25,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Fix the WSD/WS-Discovery TCP response send path. `wsd_send_msg()` previously called `send()` once for `SOCK_STREAM`; POSIX permits short positive writes, so the unsent suffix was dropped, and `EINTR` was treated as a terminal failure.
-- This checkpoint adds `wsd_stream_send_all()`: it advances over partial writes, retries `EINTR`, rejects zero progress as `EPIPE`, rejects impossible over-count as `EIO`, and keeps the datagram `sendto()` path unchanged. The send helper has injectable send semantics for deterministic regression.
-- Added `trunk/user/wsdd2/src/wsd_stream_send_policy.h`, `trunk/user/wsdd2/src/tests/wsd_stream_send_policy_test.c`, `scripts/test_wsdd2_stream_send.sh`, `scripts/check_wsdd2_stream_send.py` and `.github/workflows/wsdd2-stream-send-regression.yml`. The existing XY-C1 workflow already includes `trunk/user/wsdd2/**`.
+- Fix the unchecked Samba local-master configuration input in `trunk/user/rc/src/services_ex.c`. `write_smb_conf_header()` formerly called `nvram_get_int("st_samba_lmb")`, silently treating NVRAM backend/close errors as zero and accepting malformed values outside 0..2.
+- This checkpoint uses `nvram_get_checked()`, `rc_wan_nvram_read_int_status()`, and the new `samba_local_master_value_status()` policy to preserve missing-key default 0 while rejecting backend errors and out-of-range values before writing staged smb.conf content. Adds GNU89 boundary/error tests and Samba inline source-contract assertions. Valid 0/1/2 behavior is unchanged.
 
 ## Verification boundary
 
 - Local C policy regression: PASS under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan in an isolated temporary workspace. It covers short writes plus EINTR, permanent error after a sent prefix, zero progress, impossible send count and invalid arguments. The full repository integration checker has not been run locally because no complete checkout is present; the exact-head Actions workflow is authoritative for integration.
-- The new stream-send workflow and same-SHA XY-C1 Build/TRX/artifact for this checkpoint are pending until the new commit is pushed. Do not claim L3 until Build, TRX verification and artifact upload all pass on the same exact source SHA.
+- The WSD stream-send workflow #44946503639 passed on source 9a0ed45. Parent XY-C1 #44946503534 was still building (TRX/artifact pending); no L3 claim applies to that source SHA. The new Samba source checkpoint must obtain its own exact-head Samba/Process/XY-C1 checks; do not claim L3 until Build, TRX verification and artifact upload all pass on that exact SHA.
 - WSD metadata source `edc9d594...` has exact HTTP, XML, Process inventory, NVRAM and XY-C1 Build/TRX/artifact PASS. The earlier WSD framing source `1c0ac607...` also has same-SHA XY-C1 Build/TRX/artifact PASS.
 - Parent main source `f56fe999363645a737233a6721261f82ceb1cd2b`: NVRAM #44945662395 PASS and HTTPD security #44945662341 PASS; XY-C1 #44945662439 was still in progress (Build in progress, TRX/artifact pending) at last poll. Documentation parent `a293665472f8f5cef0ce80a928730b6c9ab66980`: AI handoff check #44945838044 PASS. These parent checks do not validate the new WSD source checkpoint.
 - L3 is established only for the exact named source SHAs: WSD framing `1c0ac607`, WSD metadata/XML `edc9d594`, p910nd `23248f7`, MiniUPnP checked configuration `be4952e`, and earlier MiniUPnP redirect-description `4a5139f`. Hardware L4 is NOT VERIFIED.
