@@ -1,3 +1,13 @@
+## 2026-11-21 — Align modem unplug retry gate with shared source checker
+
+- Parent main SHA: `f29b64cccedf3fddbf8c0e4f04f3c28aefe2d5e0`.
+- Exact SHA `0d37d2c1049788176bdbf4b95562a027f5436afc` exposed two defects in the first modem-unplug patch: its static host test was initially nested inside `main()` (moved to file scope by `f29b64cccedf3fddbf8c0e4f04f3c28aefe2d5e0`), and the shared WAN-start checker expected the established `if (unplug_modem)` guard.
+- THIS COMMIT keeps that legacy outer guard and nests the checked `modem_rule_status == 0` condition inside it, then extends the shared WAN-start checker to pin checked-read → policy decision → event acknowledgement order, reject the unchecked getter and test the retry state.
+- The earlier compile failure is corrected by the separate file-scope test move. Exact current-head USB modem/storage and XY-C1 reruns are pending; no L3/L4 claim until current source SHA completes.
+- Next: inspect exact-head USB modem, USB storage, firewall/process and XY-C1 jobs; fix only failures tied to current source/checks.
+
+---
+
 ## 2026-11-21 — Preserve Optware startup requests when NVRAM reads fail
 
 - Parent main SHA: `5be0434769a37b94703676e99ed797095626368f`.

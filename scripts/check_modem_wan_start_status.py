@@ -860,6 +860,17 @@ assert "plug_modem = 1;" in plug_capture
 assert "if (!unplug_modem)" in plug_capture
 assert plug_capture.index("if (!unplug_modem)") < plug_capture.index('nvram_set_int_temp("usb_hotplug_md", 0)')
 assert "modem_unplug_status = try_wan_reconnect(1, 0);" in deferred_hotplug
+assert 'storage_read_integer_status("modem_rule",0,&modem_rule_value)' in deferred_hotplug
+assert 'modem_wan_unplug_event_status(modem_rule_status,modem_rule_value,&unplug_modem)' in deferred_hotplug
+assert 'nvram_get_int("modem_rule")' not in deferred_hotplug
+unplug_capture = deferred_hotplug[unplug_event:plug_event]
+assert unplug_capture.index('storage_read_integer_status("modem_rule",0,&modem_rule_value)') < unplug_capture.index("modem_wan_unplug_event_status(") < unplug_capture.index("if(modem_rule_status==0)") < unplug_capture.index('nvram_set_int_temp("usb_unplug_md",0)')
+unplug_attempt_block = deferred_hotplug[unplug_attempt:plug_attempt]
+assert "if(modem_rule_status==0)" in unplug_attempt_block
+assert "modem_unplug_status=try_wan_reconnect(1,0)" in unplug_attempt_block
+modem_test = (RC / "tests/modem_wan_start_policy.c").read_text()
+assert "test_modem_unplug_rule_read_fails_closed" in modem_test
+assert "test_modem_unplug_rule_read_fails_closed();" in modem_test
 assert "modem_plug_status = try_start_usb_modem_to_wan();" in deferred_hotplug
 assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in deferred_hotplug
 assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in deferred_hotplug

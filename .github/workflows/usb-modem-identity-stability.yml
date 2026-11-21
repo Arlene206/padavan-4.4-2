@@ -395,7 +395,8 @@ jobs:
           assert "unplug_modem = 1;" in deferred_hotplug
           assert "modem_unplug_status = modem_rule_status;" in deferred_hotplug
           assert "cannot read modem WAN policy; deferring unplug transition" in deferred_hotplug
-          assert "if (unplug_modem && modem_rule_status == 0)" in deferred_hotplug
+          assert "if (unplug_modem)" in deferred_hotplug
+          assert "if (modem_rule_status == 0)" in deferred_hotplug
           assert "test_modem_unplug_rule_read_fails_closed" in retry_test
           assert "test_modem_unplug_rule_read_fails_closed();" in retry_test
 

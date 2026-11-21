@@ -4431,14 +4431,16 @@ on_deferred_hotplug_dev(void)
 			nvram_set_int_temp("usb_hotplug_md", 0);
 	}
 
-	if (unplug_modem && modem_rule_status == 0) {
-		modem_unplug_status = try_wan_reconnect(1, 0);
-		if (modem_unplug_status != 0)
-			logmessage("USB hotplug",
-				   "WAN reconnect after USB modem unplug failed (status=%d)",
-				   modem_unplug_status);
+	if (unplug_modem) {
+		if (modem_rule_status == 0) {
+			modem_unplug_status = try_wan_reconnect(1, 0);
+			if (modem_unplug_status != 0)
+				logmessage("USB hotplug",
+					   "WAN reconnect after USB modem unplug failed (status=%d)",
+					   modem_unplug_status);
+	
+		}
 	}
-
 	if (plug_modem && !unplug_modem) {
 		modem_plug_status = try_start_usb_modem_to_wan();
 		if (modem_plug_status != 0)
