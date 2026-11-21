@@ -966,6 +966,30 @@ require("test_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails" in 
         "vpn_server_restart_should_attempt_restore_shared_xl2tpd" in restart_policy_test,
         "VPN shared xl2tpd read-error restoration regression missing")
 
+xl2tpd_stop_set=body(vpn,"vpn_server_read_xl2tpd_stop_set_status(int *xl2tpd_active)")
+ordered(xl2tpd_stop_set,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_enable"',
+    "vpn_server_config_enable_status",
+    '"vpns_type"',
+    "vpn_server_config_type_status",
+    '"l2tp_srv_t"',
+    "nvram_transaction_end(&transaction)",
+    "vpn_server_xl2tpd_should_be_in_stop_set"
+],"VPN shared xl2tpd stop-set ownership snapshot")
+stop_server=body(vpn,"stop_vpn_server_locked(void)")
+ordered(stop_server,[
+    "vpn_server_read_xl2tpd_stop_set_status(&xl2tpd_active)",
+    "if (config_status != 0)",
+    'svcs[2] = "xl2tpd";',
+    "xl2tpd_stop_attempted_vpns = xl2tpd_active;",
+    "kill_services_with_pidfiles"
+],"VPN stop must resolve shared xl2tpd dependencies before any daemon mutation")
+require("nvram_match" not in xl2tpd_stop_set and
+        "nvram_match" not in stop_server and
+        "test_xl2tpd_stop_set_ownership_policy" in config_policy_test,
+        "VPN shared xl2tpd stop-set must use checked ownership reads and tested dependency policy")
+
 callback_modes=body(vpn,"vpn_server_read_callback_mode_snapshot(int *virtual_mode, int *cast_mode)")
 ordered(callback_modes,[
     "nvram_transaction_begin(&transaction)",

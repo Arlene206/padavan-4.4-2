@@ -241,11 +241,72 @@ out:
 
 
 static int
-get_xl2tpd_vpns_active(void)
+vpn_server_read_xl2tpd_stop_set_status(int *xl2tpd_active)
 {
-	return ((nvram_match("vpns_enable", "1") && nvram_match("vpns_type", "1")) || 
-		 nvram_match("l2tp_srv_t", "1"));
+	struct nvram_transaction transaction;
+	char *value = NULL;
+	int read_status, read_errno, status;
+	int vpn_enabled = 0, vpn_type = 0, l2tp_server_enabled = 0;
+	int result = -1, saved_errno = 0, end_status;
+
+	if (!xl2tpd_active) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "vpns_enable", &value);
+	read_errno = errno;
+	status = vpn_server_config_enable_status(read_status, read_errno,
+						 value, &vpn_enabled);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+
+	value = NULL;
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "vpns_type", &value);
+	read_errno = errno;
+	status = vpn_server_config_type_status(read_status, read_errno,
+					       value, &vpn_type);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+
+	value = NULL;
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "l2tp_srv_t", &value);
+	read_errno = errno;
+	status = vpn_server_config_enable_status(read_status, read_errno,
+						 value, &l2tp_server_enabled);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	*xl2tpd_active = vpn_server_xl2tpd_should_be_in_stop_set(
+		vpn_enabled, vpn_type, l2tp_server_enabled);
+	return 0;
 }
+
 
 static int
 gen_vpns_pppd_options(int vpns_type)
@@ -741,12 +802,20 @@ start_vpn_server(void)
 static int
 stop_vpn_server_locked(void)
 {
-	int i, xl2tpd_active, path_length;
+	int i, xl2tpd_active, path_length, config_status, saved_errno;
 	char pppd_pidfiles[MAX_CLIENTS_NUM][64];
 	const char *pidfile_paths[MAX_CLIENTS_NUM + 1];
 	char *svcs[] = { "bcrelay", "pptpd", NULL, NULL };
 
-	xl2tpd_active = get_xl2tpd_vpns_active();
+	config_status = vpn_server_read_xl2tpd_stop_set_status(&xl2tpd_active);
+	if (config_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot determine shared xl2tpd ownership; refusing partial VPN teardown (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 	if (xl2tpd_active)
 		svcs[2] = "xl2tpd";
 	for (i = 0; i < MAX_CLIENTS_NUM; i++) {

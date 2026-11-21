@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed before VPN teardown when xl2tpd ownership is unreadable
+
+- Parent main SHA: b1c2a8743ac7232ba4ad5fe3cc53a5e6eca03110.
+- stop_vpn_server_locked() selected xl2tpd for the stop target set through get_xl2tpd_vpns_active(), which chained nvram_match() compatibility reads. Backend read failures collapsed to false. A failed dependency read could therefore omit a shared xl2tpd daemon from the identity-preflighted stop set while the rest of VPN teardown continued and cleared l2tp_srv_t, leaving ownership ambiguous.
+- Replaced the helper with one checked NVRAM transaction snapshot of vpns_enable, vpns_type and l2tp_srv_t. Missing keys preserve legacy defaults; backend errors, malformed enable/type values, or transaction-end failure return before any daemon stop. The exact historical membership rule is now an explicit pure policy helper and has combination regression tests.
+- Extended the lifecycle source contract to require transaction reads and ensure stop_vpn_server_locked() resolves xl2tpd ownership before adding targets, recording stop attempts or invoking the multi-process stop routine.
+- Exact b1c2 VPN lifecycle #44934740188 and AI docs #44934740177 PASS. Exact 6569 NVRAM #44934446421 and Process #44934446571/#44934446418 PASS; HTTPD #44934446395, Firewall #44934446425, OpenVPN #44934446352 and AI #44934446376 PASS. 6569 XY-C1 #44934446423 remained pending at last poll; L3 remains verified only on d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192.
+
+---
+
 ## 2026-11-21 — Correct the remaining shared-xl2tpd success-sentinel contract
 
 - Parent main SHA: 75351d845a23d351c3d6e44a682257693be90d8a.

@@ -250,4 +250,11 @@ vpn_server_route_netmask_status(uint32_t mask)
 	return 0;
 }
 
+static inline int
+vpn_server_xl2tpd_should_be_in_stop_set(int vpn_enabled, int vpn_type,
+					int l2tp_server_enabled)
+{
+	return (vpn_enabled && vpn_type == 1) || l2tp_server_enabled;
+}
+
 #endif /* PADAVAN_VPN_SERVER_CONFIG_POLICY_H */

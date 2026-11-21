@@ -256,6 +256,16 @@ test_vpn_callback_mode_bounds(void)
 }
 
 static void
+test_xl2tpd_stop_set_ownership_policy(void)
+{
+	assert(!vpn_server_xl2tpd_should_be_in_stop_set(0, 1, 0));
+	assert(!vpn_server_xl2tpd_should_be_in_stop_set(1, 0, 0));
+	assert(vpn_server_xl2tpd_should_be_in_stop_set(1, 1, 0));
+	assert(vpn_server_xl2tpd_should_be_in_stop_set(0, 0, 1));
+	assert(vpn_server_xl2tpd_should_be_in_stop_set(1, 1, 1));
+}
+
+static void
 test_route_netmask_validation(void)
 {
 	assert(vpn_server_route_netmask_status(0xffffff00U) == 0);
@@ -287,6 +297,7 @@ main(void)
 	test_pool_lan_rejects_invalid_masks_hosts_and_gateway_overlap();
 	test_pool_virtual_private_network_and_lan_separation();
 	test_vpn_callback_mode_bounds();
+	test_xl2tpd_stop_set_ownership_policy();
 	test_route_netmask_validation();
 
 	puts("VPN server configuration read gate policy: PASS");
