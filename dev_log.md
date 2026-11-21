@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve demand-PPP DNS when MAN DNS state is unreadable
+
+- Parent main SHA: 9bdc5821ada33a0983a3c4c0c5fda1999e1df68f.
+- `wan_down_internal()` decided whether to erase the indexed WAN DNS snapshot with unchecked `strlen(nvram_safe_get("wanx_dns"))`. A transient NVRAM read failure collapsed to an empty string, so PPP teardown could erase the demand-DNS snapshot even though the code could not establish whether MAN DNS remained configured.
+- The teardown now reads `wanx_dns` through the checked bounded-copy helper. Static/DHCP IPoE retains its unconditional clear; other protocols clear only on a successful read proving the global MAN DNS value is longer than six bytes. Missing remains empty. Backend/truncation errors preserve the indexed snapshot, enter the first-error accumulator, and do not block independent cleanup.
+- Added GNU89 policy cases for forced IPoE clear, present/short/empty MAN DNS, backend failure and invalid arguments; extended the WAN DNS caller contract. Exact-head WAN-route, WAN-teardown and XY-C1 Build/TRX/artifact checks are pending; L3/L4 are not claimed.
+
+---
+
 ## 2026-11-21 — Fix optional-daemon source checker path NameError
 
 - Parent main SHA: af276eab4c5af6750345da77274a2271d1910b5c.

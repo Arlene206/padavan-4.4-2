@@ -4669,6 +4669,8 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	int status = 0, route_status, interface_cleanup_status;
 	int auth_status, auth_mode;
 	int statistics_status;
+	int force_clear_wan_dns, wan_dns_read_status, clear_wan_dns;
+	char wanx_dns[256];
 #if defined (USE_IPV6)
 	int ipv6_status;
 #endif
@@ -4788,9 +4790,28 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		logmessage(LOGNAME, "failed to delete static WAN routes on %s (error=%d)",
 			   wan_ifname, route_status);
 
-	/* Preserve the demand-PPP DNS snapshot only when no MAN DNS remains. */
-	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
-	    strlen(nvram_safe_get("wanx_dns")) > 6) {
+	/*
+	 * Preserve the demand-PPP DNS snapshot unless MAN DNS is known to remain.
+	 * A failed global NVRAM read is not an empty setting: retain the indexed
+	 * snapshot and report the read failure while continuing independent cleanup.
+	 */
+	force_clear_wan_dns =
+		wan_proto == IPV4_WAN_PROTO_IPOE_STATIC ||
+		wan_proto == IPV4_WAN_PROTO_IPOE_DHCP;
+	wan_dns_read_status = 0;
+	if (!force_clear_wan_dns)
+		wan_dns_read_status = rc_wan_nvram_copy_value(
+			wan_nvram_checked_get_callback, NULL, "wanx_dns",
+			wanx_dns, sizeof(wanx_dns));
+	route_status = wan_teardown_should_clear_dns_snapshot(
+		force_clear_wan_dns, wan_dns_read_status,
+		force_clear_wan_dns ? NULL : wanx_dns, &clear_wan_dns);
+	if (route_status != 0) {
+		status = route_status_accumulate(status, route_status);
+		logmessage(LOGNAME,
+			   "cannot determine whether MAN DNS remains during WAN teardown on %s (status=%d); retaining indexed WAN DNS",
+			   wan_ifname, route_status);
+	} else if (clear_wan_dns) {
 		route_status = set_wan_unit_value_status(unit, "dns", "");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)

@@ -1,7 +1,33 @@
 #ifndef WAN_TEARDOWN_POLICY_H
 #define WAN_TEARDOWN_POLICY_H
 
+#include <errno.h>
 #include <string.h>
+
+/*
+ * Static/DHCP IPoE always clears its indexed DNS snapshot. Other WAN modes
+ * clear it only when a checked global MAN DNS snapshot proves one is present.
+ * A failed read must preserve the demand-PPP snapshot rather than look empty.
+ */
+static inline int
+wan_teardown_should_clear_dns_snapshot(int force_clear, int read_status,
+				       const char *global_dns,
+				       int *clear_dns)
+{
+	if (!clear_dns)
+		return EINVAL;
+	*clear_dns = 0;
+	if (force_clear) {
+		*clear_dns = 1;
+		return 0;
+	}
+	if (read_status != 0)
+		return read_status;
+	if (!global_dns)
+		return EINVAL;
+	*clear_dns = strlen(global_dns) > 6;
+	return 0;
+}
 
 struct wan_teardown_interface_ops {
 	int (*ifdown)(void *context, const char *ifname);

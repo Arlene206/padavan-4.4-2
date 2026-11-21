@@ -117,6 +117,56 @@ test_abort_status_preserves_primary_and_reports_resume_failures(void)
 	assert(wan_teardown_abort_status(0, 0) == -1);
 }
 
+static void
+test_ipoe_dns_snapshot_is_always_cleared(void)
+{
+	int clear_dns = 0;
+
+	assert(wan_teardown_should_clear_dns_snapshot(1, EIO, NULL,
+						       &clear_dns) == 0);
+	assert(clear_dns == 1);
+}
+
+static void
+test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present(void)
+{
+	int clear_dns = -1;
+
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, "1.1.1.1",
+						       &clear_dns) == 0);
+	assert(clear_dns == 1);
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, "123456",
+						       &clear_dns) == 0);
+	assert(clear_dns == 0);
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, "",
+						       &clear_dns) == 0);
+	assert(clear_dns == 0);
+}
+
+static void
+test_ppp_dns_snapshot_survives_global_read_failure(void)
+{
+	int clear_dns = 1;
+
+	assert(wan_teardown_should_clear_dns_snapshot(0, EACCES, NULL,
+						       &clear_dns) == EACCES);
+	assert(clear_dns == 0);
+	assert(wan_teardown_should_clear_dns_snapshot(0, EIO, "1.1.1.1",
+						       &clear_dns) == EIO);
+	assert(clear_dns == 0);
+}
+
+static void
+test_dns_snapshot_clear_policy_rejects_invalid_arguments(void)
+{
+	int clear_dns = 1;
+
+	assert(wan_teardown_should_clear_dns_snapshot(0, 0, NULL,
+						       &clear_dns) == EINVAL);
+	assert(clear_dns == 0);
+	assert(wan_teardown_should_clear_dns_snapshot(1, 0, NULL, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -128,5 +178,9 @@ main(void)
 	test_invalid_required_inputs_fail_without_side_effects();
 	test_status_update_handles_errno_and_ioctl_failures();
 	test_abort_status_preserves_primary_and_reports_resume_failures();
+	test_ipoe_dns_snapshot_is_always_cleared();
+	test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present();
+	test_ppp_dns_snapshot_survives_global_read_failure();
+	test_dns_snapshot_clear_policy_rejects_invalid_arguments();
 	return 0;
 }

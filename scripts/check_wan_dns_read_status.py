@@ -467,3 +467,44 @@ wan_start = function_body_at_column_zero_terminator(source, "start_wan(void)")
 require("if (auth_status != 0) {" in wan_start and
         "continue;\n\t\t\t\t}\n\n\t\t\t/* We are done configuration */" in wan_start,
         "EAPOL failure branch must close before WAN protocol activation")
+
+
+# WAN teardown must not treat a failed global MAN DNS read as an empty DNS
+# setting, because that would erase the per-WAN demand-PPP DNS snapshot.
+wan_down = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+wan_down_compact = "".join(wan_down.split())
+dns_policy = body(
+    (ROOT / "trunk/user/rc/src/wan_teardown_policy.h").read_text(),
+    "wan_teardown_should_clear_dns_snapshot(int force_clear",
+)
+require(
+    'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"wanx_dns",wanx_dns,sizeof(wanx_dns))'
+    in wan_down_compact,
+    "WAN teardown must use a checked bounded global MAN DNS read",
+)
+require(
+    "wan_teardown_should_clear_dns_snapshot(" in wan_down_compact
+    and "if(route_status!=0)" in wan_down_compact
+    and "status=route_status_accumulate(status,route_status);" in wan_down_compact
+    and "else if(clear_wan_dns)" in wan_down_compact,
+    "WAN teardown must preserve/report DNS-read failure and gate indexed DNS removal",
+)
+assert 'strlen(nvram_safe_get("wanx_dns"))' not in wan_down
+assert 'nvram_safe_get("wanx_dns")' not in wan_down
+for token in (
+    "if (!clear_dns)",
+    "*clear_dns = 0;",
+    "if (force_clear)",
+    "if (read_status != 0)",
+    "if (!global_dns)",
+    "strlen(global_dns) > 6",
+):
+    require(token in dns_policy, "WAN DNS teardown decision is incomplete: " + token)
+for case in (
+    "test_ipoe_dns_snapshot_is_always_cleared",
+    "test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present",
+    "test_ppp_dns_snapshot_survives_global_read_failure",
+    "test_dns_snapshot_clear_policy_rejects_invalid_arguments",
+):
+    require(case in test, "WAN DNS teardown regression missing " + case)
+print("WAN teardown preserves demand-PPP DNS when global MAN DNS cannot be read: PASS")
