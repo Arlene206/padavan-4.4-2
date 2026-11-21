@@ -1,3 +1,12 @@
+## 2026-11-21 — Fix VPN PPP snapshot source-contract function extraction
+
+- Parent main SHA: `67274f90f6da54c8688f238e78327543e046ca7b`.
+- Exact VPN lifecycle #44933545249 completed FAIL. The new checked VPN configuration C regression and all other compiled policy tests passed. The only failing step was the Python lifecycle source contract at line 268: `body()` found the earlier forward declaration of `vpn_server_read_ppp_options_snapshot()`, then extracted the next brace-delimited function, so the contract could not find the DHCP status read.
+- Corrected the checker to locate the actual `static int` function definition with `rfind`, then pass a source slice to the existing balanced-brace extractor. No production code is changed by this correction; exact-head VPN and dependent checks will rerun.
+- Exact 67274 AI docs #44933545221, Firewall #44933545219, Process lifecycle #44933545218 and HTTPD security #44933545181 passed. XY-C1 #44933545304 and NVRAM audit #44933545190 were pending at the last check.
+
+---
+
 ## 2026-11-21 — Snapshot checked VPN PPP options before opening the options file
 
 - Parent main SHA: `38ee9eee6c84afee3f4d9d118ac8d5ddd2f61145`.

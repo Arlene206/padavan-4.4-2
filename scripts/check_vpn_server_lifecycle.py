@@ -264,7 +264,9 @@ require("int get_vpns_pool(unsigned int *ip_v" in rc_header,
         "VPN pool API must propagate validation/read failures")
 
 ppp_options=body(vpn,"gen_vpns_pppd_options(int vpns_type)")
-ppp_snapshot=body(vpn,"vpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options)")
+ppp_snapshot_start=vpn.rfind("static int\nvpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options)")
+require(ppp_snapshot_start>=0,"missing PPP options snapshot definition")
+ppp_snapshot=body(vpn[ppp_snapshot_start:],"vpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options)")
 ordered(ppp_snapshot,[
     "is_dhcpd_enabled_status(0, &options->dhcp_enabled)",
     "nvram_transaction_begin(&transaction)",

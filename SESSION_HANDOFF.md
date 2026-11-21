@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest main product-source checkpoint before PPP options snapshot: `38ee9eee6c84afee3f4d9d118ac8d5ddd2f61145` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest main source checkpoint: `67274f90f6da54c8688f238e78327543e046ca7b` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 
@@ -56,6 +56,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, HTTPD security, AI docs, NVRAM audit and XY-C1 Actions for the PPP options snapshot commit; fix only confirmed failures from logs.
-2. Audit the remaining VPN lifecycle reads outside `gen_vpns_pppd_options()`: `vpns_route_to_remote_lan()` and route/firewall callbacks may still use compatibility getters for account count and network prefixes. Snapshot/validate critical values before route changes.
-3. Check whether the separate VPN pool and PPP-options snapshots can share one read transaction without changing OpenVPN startup ordering; avoid reopening the completed CHAP credential snapshot or pool arithmetic unless tests show regressions.
+1. Check exact-head VPN lifecycle and NVRAM audit after the PPP snapshot checker now extracts the actual function definition rather than its forward declaration. Recheck XY-C1 Build/TRX/artifact for the same source SHA; do not claim L3 before it passes.
+2. Continue VPN remote-LAN route ACL hardening in `vpns_route_to_remote_lan()`: its current compatibility reads of `vpns_num_x`, username, remote network/mask and LAN IP/netmask can silently suppress a route or use mixed policy on NVRAM errors. Snapshot the row policy transactionally and fail before route mutation when a backend read fails.
+3. Audit residual VPN hostname and DHCP-derived option inputs only after route ACL regression is committed.
