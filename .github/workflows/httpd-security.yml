@@ -3006,12 +3006,23 @@ jobs:
           cleanup_retry = public_eject.index("storage_schedule_ejected_cleanup_retry();", cleanup_gate)
           assert public_eject.index("file_unlock(storage_lock);") < cleanup_gate < cleanup_retry
           deferred_start = service[service.index("on_deferred_hotplug_dev(void)"):]
-          assert 'nvram_match("usb_unplug_ms", "1")' in deferred_start
-          assert 'nvram_set_int_temp("usb_unplug_ms", 0);' in deferred_start
-          assert "storage_unplug_status = umount_ejected();" in deferred_start
-          assert '!nvram_match("usb_unplug_ms", "1")' in deferred_start
-          assert deferred_start.index("storage_unplug_status = umount_ejected();") < deferred_start.index("storage_start_result = try_start_stor_apps();")
-          assert deferred_start.index('!nvram_match("usb_unplug_ms", "1")') < deferred_start.index("storage_start_result = try_start_stor_apps();")
+          deferred_code = "".join(deferred_start.split())
+          unplug_read = 'storage_read_integer_status("usb_unplug_ms",0,&storage_unplug_value)'
+          hotplug_read = 'storage_read_integer_status("usb_hotplug_ms",0,&storage_hotplug_value)'
+          optware_read = 'storage_read_integer_status("usb_opt_start",0,&storage_optware_value)'
+          assert unplug_read in deferred_code
+          assert hotplug_read in deferred_code
+          assert optware_read in deferred_code
+          storage_callback = deferred_start.split("#else", 1)[0]
+          storage_callback_code = "".join(storage_callback.split())
+          assert "storage_deferred_start_dispatch_status(" in storage_callback
+          assert 'nvram_match("usb_unplug_ms","1")' not in storage_callback_code
+          assert 'nvram_match("usb_hotplug_ms","1")' not in storage_callback_code
+          assert 'nvram_match("usb_opt_start","1")' not in storage_callback_code
+          assert "storage_unplug_pending=1;" in storage_callback_code
+          assert "cannot read deferred storage event markers; preserving pending events for retry" in storage_callback
+          assert "alarm(5);" in storage_callback
+          assert storage_callback_code.index(unplug_read) < storage_callback_code.index(hotplug_read) < storage_callback_code.index(optware_read) < storage_callback_code.index("storage_deferred_start_dispatch_status(") < storage_callback_code.index("storage_start_result=try_start_stor_apps();")
 
           path_start = service.index("umount_stor_path_range(")
           path_end = service.index("umount_stor_path(disk_info_t", path_start)

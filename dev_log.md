@@ -1,3 +1,13 @@
+## 2026-11-21 — Update storage/HTTPD safe-eject contracts for checked event dispatch
+
+- Parent main SHA: `a6188035614e198c9983d7dea0bb86d1499b1629`.
+- Exact a618 SHA `a6188035614e198c9983d7dea0bb86d1499b1629`: USB storage L2 failed only in its whole-caller-graph checker because it still searched for removed `nvram_match("usb_unplug_ms")` conditions; HTTPD Auth similarly failed its cross-subsystem safe-eject/spindown checker on the same retired dispatch pattern. The new callback deliberately checks unplug/hotplug/Optware markers before acknowledging/dispatching and schedules retry on read error.
+- THIS COMMIT updates both independent regression contracts to assert checked marker reads, exact ordering, no unchecked matches in the `USE_STORAGE` branch, unplug cleanup sequencing, and the fail-closed five-second retry. Production source is unchanged in this checker-only commit.
+- On exact a618 SHA, VSFTPD, Samba, Firewall Startup, USB modem, NFS, Process inventory and NVRAM audit passed; USB storage and HTTPD failed only at these stale legacy assertions. XY-C1 Firmware Validation was still building; Build XY-C1 active, TRX and artifact upload pending at last poll.
+- Next: inspect this commit's exact USB storage/HTTPD and XY-C1 results; repair any source- or contract-level failure before further subsystem work. No L3/L4 claim until this SHA completes firmware/TRX/artifact verification.
+
+---
+
 ## 2026-11-21 — Preserve storage hotplug wakeups on NVRAM marker read failures
 
 - Parent main SHA: `711269a797bc8fb06da5cf8e48b6bf449451eb46`.

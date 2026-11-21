@@ -559,13 +559,25 @@ jobs:
           cleanup_retry = public_eject.index("storage_schedule_ejected_cleanup_retry();", cleanup_gate)
           assert public_eject.index("file_unlock(storage_lock);") < cleanup_gate < cleanup_retry
           deferred_storage = function_body(storage, "on_deferred_hotplug_dev(void)")
-          unplug_retry = deferred_storage.index('nvram_match("usb_unplug_ms", "1")')
-          unplug_clear = deferred_storage.index('nvram_set_int_temp("usb_unplug_ms", 0);')
-          unplug_call = deferred_storage.index("storage_unplug_status = umount_ejected();")
+          deferred_code = "".join(deferred_storage.split())
+          unplug_read = 'storage_read_integer_status("usb_unplug_ms",0,&storage_unplug_value)'
+          hotplug_read = 'storage_read_integer_status("usb_hotplug_ms",0,&storage_hotplug_value)'
+          optware_read = 'storage_read_integer_status("usb_opt_start",0,&storage_optware_value)'
+          assert unplug_read in deferred_code
+          assert hotplug_read in deferred_code
+          assert optware_read in deferred_code
+          assert "storage_deferred_start_dispatch_status(" in deferred_storage
+          assert 'nvram_match("usb_unplug_ms","1")' not in deferred_storage.split("#else", 1)[0]
+          assert 'nvram_match("usb_hotplug_ms","1")' not in deferred_storage.split("#else", 1)[0]
+          assert 'nvram_match("usb_opt_start","1")' not in deferred_storage.split("#else", 1)[0]
+          unplug_event = deferred_storage[deferred_storage.index('storage_read_integer_status(\\n\\t\\t"usb_unplug_ms"'):deferred_storage.index('storage_read_integer_status(\\n\\t\\t"usb_hotplug_ms"')]
+          assert unplug_event.index("if (storage_unplug_read_status != 0)") < unplug_event.index('nvram_set_int_temp("usb_unplug_ms", 0);') < unplug_event.index("storage_unplug_status = umount_ejected();")
+          assert "storage_unplug_pending = 1;" in unplug_event
+          assert "if (storage_dispatch_status != 0)" in deferred_storage
+          assert "cannot read deferred storage event markers; preserving pending events for retry" in deferred_storage
+          assert "alarm(5);" in deferred_storage
           storage_start = deferred_storage.index("storage_start_result = try_start_stor_apps();")
-          assert unplug_retry < unplug_clear < unplug_call < storage_start
-          assert '!nvram_match("usb_unplug_ms", "1")' in deferred_storage
-          assert deferred_storage.index('!nvram_match("usb_unplug_ms", "1")') < storage_start
+          assert deferred_code.index(unplug_read) < deferred_code.index(hotplug_read) < deferred_code.index(optware_read) < deferred_code.index("storage_deferred_start_dispatch_status(") < storage_start
           targeted_eject = function_body(storage, "safe_remove_stor_device(")
           assert "umount_ejected_locked(1, 0)" in targeted_eject
 
