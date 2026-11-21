@@ -7242,7 +7242,7 @@ wan_dhcp_nvram_state_publish(
 {
 	struct nvram_transaction transaction;
 	int status, end_status, recovery_status, recovery_detail = 0;
-	int publish_attempted = 0;
+	int publish_attempted = 0, publish_rollback_status = 0;
 
 	if (rollback_status)
 		*rollback_status = 0;
@@ -7254,23 +7254,25 @@ wan_dhcp_nvram_state_publish(
 	status = dhcp_lease_nvram_publish_if_current(
 		values, count, wan_dhcp_nvram_transaction_get_value,
 		wan_dhcp_nvram_transaction_set, &transaction,
-		&publish_attempted, rollback_status);
+		&publish_attempted, &publish_rollback_status);
 	errno = 0;
 	if (nvram_transaction_end(&transaction) != 0) {
 		end_status = errno ? errno : EIO;
 		if (status == 0)
 			status = end_status;
-		else if (rollback_status && *rollback_status == 0)
-			*rollback_status = end_status;
+		if (publish_attempted && publish_rollback_status == 0)
+			publish_rollback_status = end_status;
 	}
-	if (publish_attempted && status != 0) {
-		/* Only a failed attempted publication may restore this snapshot. */
+	if (publish_attempted && publish_rollback_status != 0) {
+		/* Retry only failed compensation under a guarded fresh transaction. */
 		recovery_status = wan_dhcp_nvram_restore_values(
 			values, count, &recovery_detail);
 		if (rollback_status)
 			*rollback_status = recovery_status != 0 ?
 				(recovery_detail != 0 ? recovery_detail :
 				 recovery_status) : 0;
+	} else if (rollback_status) {
+		*rollback_status = publish_rollback_status;
 	}
 	return status;
 }

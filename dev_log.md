@@ -1,3 +1,15 @@
+## 2026-11-21 — Gate WAN DHCP recovery retry on actual rollback failure
+
+- Parent main SHA: `067d41bbfc677e65867a3ce434c688a4a04f29f9`.
+- The publisher was retrying its guarded restore after any failed candidate publication, even when the first transaction had already compensated all attempted writes successfully. That redundantly re-applied the previous tuple and could convert a successful rollback into a spurious recovery failure.
+- Split candidate-publication status from the in-transaction rollback status. The fresh guarded recovery now runs only when compensation failed or the transaction close itself failed; stale/read-preflight failures do not enter recovery, and successful in-lock compensation is reported as rollback status zero.
+- Extended the WAN callback source contract to require the separate rollback-status output, the guarded retry predicate and exactly one publisher implementation.
+- Exact-head WAN callback #44915189957 and AI handoff docs #44915189829 passed on the parent SHA `067d41b`. XY-C1 #44914789805 on `2bfb2aa` was still running at the last poll (Build in progress; TRX/artifact pending); this source change requires a fresh exact-SHA build.
+- Updated `SESSION_HANDOFF.md` with the live source/checker evidence and first next action. The backup branch remains untouched.
+- Next: inspect WAN callback and XY-C1 Build/TRX/artifact on this patch's SHA.
+
+---
+
 ## 2026-11-21 — Fix WAN callback checker use-before-initialization
 
 - Parent main SHA: `0c172fa0e5c7454af1052aa2fee84c2803d6e6b8`.

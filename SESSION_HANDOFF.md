@@ -6,34 +6,33 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; develop on main only.
-- Current main at checkpoint preparation: 0c172fa0e5c7454af1052aa2fee84c2803d6e6b8. It includes the WAN publisher forward-declaration fix and the YAML/handoff corrections; the remaining WAN checker use-before-assignment is fixed in THIS COMMIT.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
-- Legacy PR #1 is closed and unmerged. Do not reopen or develop through its branch.
-- The previous product-source baseline was 9a25b71fb74932dc27063432b2f342d9724d60e2. Recent protected functionality includes checked optional-daemon settings, ttyd/SSH mode handling, WAN DHCP compare-and-publish and stale-callback rollback fencing.
+- Repository `Arlene206/padavan-4.4-2`; develop on `main` only.
+- Main at the start of this slice: `067d41bbfc677e65867a3ce434c688a4a04f29f9`. The WAN DHCP NVRAM state publisher has one forward declaration before the bound callbacks and one implementation after the transaction get/set and guarded restore adapters.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
+- Legacy PR #1 remains closed and unmerged; do not reopen or develop through its branch.
+- Protected reliability work includes checked optional-daemon settings, ttyd/SSH mode wrappers and detached-child probes, WAN DHCP compare-and-publish, stale-writer guarded recovery and validate-first reverse tuple construction for post-commit 6rd failure.
 
 ### Relevant exact-SHA evidence
 
-- Latest production-source SHA: `2bfb2aa93f525762685d49ad50ff89d498eacdde`. It restores the WAN DHCP state-publisher forward declaration after a prior accidental duplicate body caused MIPS compiler errors; the original single lower implementation retains compare-and-publish and guarded stale-writer restoration.
-- XY-C1 run #44914789805 on product-source SHA `2bfb2aa` remained IN_PROGRESS at the last poll. Its Build XY-C1 step was running and TRX verification/artifact upload were pending. Do not claim L3 until all three pass on that same SHA.
-- NVRAM transaction-boundary audit #44914790008: SUCCESS on product-source SHA `2bfb2aa`.
-- Process lifecycle regression #44914789828 and Process inventory #44914790193: SUCCESS on `2bfb2aa`. HTTPD, Wireless, Firewall, WAN interface teardown, miniupnpd, VPN server, WAN route, WAN gateway ARP, ZeroTier, USB modem, watchdog, detect_link, detect_internet and DNSMasq workflows also PASS on the same SHA.
-- AI handoff docs #44915003659: SUCCESS on exact main SHA `0c172fa`.
-- WAN DHCP callback #44915003721: FAILURE on `0c172fa`; all earlier compile/policy checks passed, then the inline contract referenced `lease_policy` before its later initialization. This is a test ordering bug, not a production source failure. The policy-header/test reads are moved before first use in THIS COMMIT.
-- L3 still depends on completion of XY-C1 Build, TRX verification and artifact upload on `2bfb2aa`; L4 physical router validation remains NOT VERIFIED.
-
+- XY-C1 #44914789805 on `2bfb2aa93f525762685d49ad50ff89d498eacdde`: the firmware Build step was IN_PROGRESS at last poll; TRX verification and artifact upload were pending. This source SHA includes the compile fix that removed duplicate WAN publisher definitions. The present retry-semantics patch changes `net_wan.c`, so it requires a new same-SHA firmware run; do not substitute the older run.
+- NVRAM transaction-boundary audit #44914790008: SUCCESS on `2bfb2aa`.
+- Process lifecycle regression #44914789828 and Process inventory #44914790193: SUCCESS on `2bfb2aa`.
+- WAN DHCP callback #44915189957: SUCCESS on exact `067d41bbfc677e65867a3ce434c688a4a04f29f9`.
+- AI handoff documentation contract #44915189829: SUCCESS on exact `067d41b`.
+- The prior WAN callback #44915003721 on `0c172fa` failed only from a use-before-assignment in its embedded source contract; the reads were moved ahead of first use, and the corrected exact-head callback passed on `067d41b`.
+- Multiple independent regression workflows also passed on `2bfb2aa`: HTTPD, Wireless, Firewall, WAN teardown, miniupnpd, VPN, WAN route, gateway ARP, ZeroTier, USB modem, watchdog, detect_link, detect_internet and DNSMasq.
 
 ## Active task
 
-1. Inspect exact-head WAN callback, XY-C1, AI handoff and Process lifecycle Actions after THIS COMMIT. Fix the first causal failure without weakening checks.
-2. Require XY-C1 Build, TRX verification and artifact upload to PASS on the same new product-source SHA before claiming L3.
-3. After the build correction is validated, continue the next confirmed reliability issue. While Actions are pending, keep progressing on independent source/test work.
+1. Verify the current source patch's exact-head WAN callback and XY-C1 firmware jobs.
+2. Require XY-C1 Build, TRX verification and artifact upload to PASS on one SHA before claiming firmware L3.
+3. Inspect the NVRAM audit on the current source SHA, then continue the next independent reliability/security defect.
 
 ## Verification boundary
 
-- L1: source review confirms the first WAN publisher is now a forward declaration and only the later implementation remains. The guarded stale-writer rollback logic is retained.
-- L2: Process regression and process inventory PASS on 2bfb2aa; NVRAM audit PASS on the same SHA. AI handoff docs PASS on 0c172fa. WAN callback failed due to checker use-before-initialization; fixed in THIS COMMIT and requires exact-head rerun.
-- L3: NOT VERIFIED. XY-C1 run #44914789805 is still running on 2bfb2aa; require Build + TRX + artifact upload all PASS on that same SHA.
+- L1: lease tuple publication is compare-and-publish under the NVRAM transaction; stale tuple conflicts return `EAGAIN`; recovery is fenced against a newer writer. This patch further avoids a redundant fresh restore when in-transaction compensation succeeded.
+- L2: Process lifecycle/inventory, NVRAM audit and WAN callback each have PASS evidence on the preceding source/checker SHAs noted above. The current production-source patch still needs exact-head validation.
+- L3: NOT VERIFIED for the current source until XY-C1 Build, TRX verification and artifact upload all pass on that same SHA.
 - L4: physical router flash, boot and runtime validation NOT VERIFIED.
 
 ## Workflow and preservation rules
@@ -54,4 +53,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect its exact-head WAN callback and AI handoff push runs. Recheck XY-C1 #44914789805 on product-source SHA 2bfb2aa, including Build/TRX/artifact; NVRAM #44914790008 already PASSed. Diagnose failures from the first causal job step and continue independent reliability work while the build is pending.
+Fetch live `main`, inspect exact-head WAN callback and XY-C1 Build/TRX/artifact results, then inspect NVRAM audit status. Fix the first causal failure without weakening regression coverage; keep independent source work moving while Actions are pending.
