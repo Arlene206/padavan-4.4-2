@@ -32,6 +32,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "vpn_server_restart_policy.h"
 #include "vpn_server_callback_policy.h"
+#include "vpn_server_config_policy.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "process_presence_start_policy.h"
@@ -335,23 +336,65 @@ gen_vpns_pppd_options(int vpns_type)
 }
 
 static int
+vpn_server_read_enabled_status(int *enabled)
+{
+	char *value = NULL;
+	int read_status, read_errno;
+
+	errno = 0;
+	read_status = nvram_get_checked("vpns_enable", &value);
+	read_errno = errno;
+	return vpn_server_config_enable_status(read_status, read_errno, value, enabled);
+}
+
+static int
+vpn_server_read_type_status(int *type)
+{
+	char *value = NULL;
+	int read_status, read_errno;
+
+	errno = 0;
+	read_status = nvram_get_checked("vpns_type", &value);
+	read_errno = errno;
+	return vpn_server_config_type_status(read_status, read_errno, value, type);
+}
+
+
+static int
 start_vpn_server_locked(void)
 {
 	FILE *fp;
 	int i, i_type, i_vuse, xl2tpd_status, saved_errno;
+	int enabled, config_status;
 	char *vpns_cfg = "/etc/pptpd.conf";
 	const char *vpns_sec = "/tmp/ppp/chap-secrets";
 	unsigned int vaddr, vmask, vp_b, vp_e;
 	struct in_addr pool_in;
 
-	if (nvram_invmatch("vpns_enable", "1") || get_ap_mode())
+	config_status = vpn_server_read_enabled_status(&enabled);
+	if (config_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read VPN server enable state; refusing startup (errno=%d)",
+			   config_status);
+		errno = config_status;
+		return -1;
+	}
+	if (!enabled || get_ap_mode())
 		return 0;
+
+	config_status = vpn_server_read_type_status(&i_type);
+	if (config_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read or validate VPN server type; refusing startup (errno=%d)",
+			   config_status);
+		errno = config_status;
+		return -1;
+	}
 
 	if (clear_vpns_lease_file() != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
 		return -1;
 	}
-	i_type = nvram_get_int("vpns_type");
 #if defined(APP_OPENVPN)
 	if (i_type == 2)
 		return start_openvpn_server();
@@ -686,12 +729,27 @@ restart_vpn_server(void)
 static int
 reapply_vpn_server_locked(void)
 {
-	int i_type;
+	int i_type, enabled, config_status;
 
-	if (nvram_invmatch("vpns_enable", "1") || get_ap_mode())
+	config_status = vpn_server_read_enabled_status(&enabled);
+	if (config_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read VPN server enable state; refusing reapply (errno=%d)",
+			   config_status);
+		errno = config_status;
+		return -1;
+	}
+	if (!enabled || get_ap_mode())
 		return 0;
 
-	i_type = nvram_get_int("vpns_type");
+	config_status = vpn_server_read_type_status(&i_type);
+	if (config_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read or validate VPN server type; refusing reapply (errno=%d)",
+			   config_status);
+		errno = config_status;
+		return -1;
+	}
 #if defined(APP_OPENVPN)
 	if (i_type == 2)
 		return restart_openvpn_server();

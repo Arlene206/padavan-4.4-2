@@ -40,6 +40,8 @@ def ordered(txt,tokens,label):
         pos=found
 
 vpn=read("trunk/user/rc/src/vpn_server.c")
+config_policy=read("trunk/user/rc/src/vpn_server_config_policy.h")
+config_policy_test=read("trunk/user/rc/src/tests/vpn_server_config_policy.c")
 route_status_policy=read("trunk/user/rc/src/route_status_policy.h")
 route_status_test=read("trunk/user/rc/src/tests/route_status_policy.c")
 rc_header=read("trunk/user/rc/src/rc.h")
@@ -180,6 +182,65 @@ require("attempt++ >= wait_seconds" in lock,"lock retry must be bounded")
 s=body(vpn,"start_vpn_server(void)")
 sp=body(vpn,"start_vpn_server_locked(void)")
 t=body(vpn,"stop_vpn_server(void)")
+start_gate=sp
+enabled_reader=body(vpn,"vpn_server_read_enabled_status(int *enabled)")
+type_reader=body(vpn,"vpn_server_read_type_status(int *type)")
+ordered(start_gate,[
+    "config_status = vpn_server_read_enabled_status(&enabled);",
+    "if (config_status != 0)",
+    "if (!enabled || get_ap_mode())",
+    "config_status = vpn_server_read_type_status(&i_type);",
+    "if (config_status != 0)",
+    "if (clear_vpns_lease_file() != 0)"
+],"VPN server fail-closed startup configuration")
+require('nvram_invmatch("vpns_enable", "1")' not in start_gate and
+        'nvram_get_int("vpns_type")' not in start_gate,
+        "VPN startup must not collapse missing/failed NVRAM reads into implicit defaults")
+require('nvram_get_checked("vpns_enable", &value)' in enabled_reader and
+        "vpn_server_config_enable_status" in enabled_reader,
+        "VPN startup must use the checked enable-state reader")
+require('nvram_get_checked("vpns_type", &value)' in type_reader and
+        "vpn_server_config_type_status" in type_reader,
+        "VPN startup must distinguish a missing/default type from a backend error")
+reapply_gate=body(vpn,"reapply_vpn_server_locked(void)")
+ordered(reapply_gate,[
+    "config_status = vpn_server_read_enabled_status(&enabled);",
+    "if (config_status != 0)",
+    "if (!enabled || get_ap_mode())",
+    "config_status = vpn_server_read_type_status(&i_type);",
+    "if (config_status != 0)"
+],"VPN server fail-closed reapply configuration")
+require('nvram_invmatch("vpns_enable", "1")' not in reapply_gate and
+        'nvram_get_int("vpns_type")' not in reapply_gate,
+        "VPN reapply must not collapse missing/failed NVRAM reads into implicit defaults")
+for marker in (
+    "test_enable_missing_key_is_disabled",
+    "test_enable_requires_exact_one",
+    "test_enable_backend_error_fails_closed",
+    "test_type_missing_key_preserves_pptp_default",
+    "test_type_accepts_only_supported_modes",
+    "test_type_rejects_malformed_and_unknown_values",
+    "test_type_backend_error_fails_closed",
+):
+    require(marker in config_policy_test,f"VPN config-read regression missing {marker}")
+require("read_status < 0" in config_policy and "read_status == 0" in config_policy and
+        'strcmp(value, "1") == 0' in config_policy and
+        "strtol(value, &end, 10)" in config_policy and
+        "parsed > 2" in config_policy,
+        "VPN config policy must distinguish absent/error and validate type bounds")
+for path in (
+    "trunk/user/rc/src/vpn_server_config_policy.h",
+    "trunk/user/rc/src/tests/vpn_server_config_policy.c",
+):
+    push, pull_section = workflow.split("  pull_request:",1)
+    pull = pull_section.split("  workflow_dispatch:",1)[0]
+    require(push.count("      - '"+path+"'") == 1 and
+            pull.count("      - '"+path+"'") == 1,
+            f"VPN config policy workflow path missing or duplicated: {path}")
+require("vpn-server-config-policy" in workflow and
+        "tests/vpn_server_config_policy.c" in workflow,
+        "VPN configuration gate unit test is not compiled by the VPN workflow")
+
 tp=body(vpn,"stop_vpn_server_locked(void)")
 r=body(vpn,"restart_vpn_server(void)")
 a=body(vpn,"reapply_vpn_server(void)")

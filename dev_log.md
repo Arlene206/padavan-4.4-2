@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed VPN server startup on unreadable enable/type configuration
+
+- Parent main SHA: `4e2e701f33d2be2c35004015d6625b718be67a7f`.
+- `start_services_once()` invokes `start_vpn_server()` unconditionally. Its private helper used `nvram_invmatch("vpns_enable", "1")`; the compatibility getter maps backend errors to NULL and `nvram_invmatch()` returns false for NULL, so an absent or failed enable read could fall through to the PPTP startup path. The type reader used `nvram_get_int()`, which also maps backend errors to 0 (PPTP). The reapply helper repeated both unsafe reads.
+- Added checked enable/type readers shared by startup and reapply. Missing enable means disabled; backend errors abort. Missing type retains the old PPTP default only after an explicit enable; malformed, unsupported and failed type reads abort before lease inventory cleanup.
+- Added GNU89 ASan/UBSan policy regression for missing, explicit, malformed, unsupported and failed reads; added exact workflow filters, test execution and semantic source contracts. Exact-head VPN stability and XY-C1 Build/TRX/artifact checks are pending for the new code.
+- On parent 4e2, XY-C1 #44931211445 and Process #44931212103 passed. HTTPD #44931211349 remains failed at source-contract line 1012; AI handoff #44931211395 failed because the required `## Active task` heading was missing. This commit restores that heading; HTTPD source-contract follow-up remains an independent correction.
+
+---
+
 ## 2026-11-21 — Repair HTTPD regression locator and enable XY-C1 coverage
 
 - Parent main SHA: `f7a3a520f9ae0df659c651ce99b4ced20d103e23`.
