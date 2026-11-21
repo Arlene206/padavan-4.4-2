@@ -3367,14 +3367,15 @@ for signature, service_name, initial, retry in (
     ("start_networkmap(int first_call)", "networkmap", "NETWORKMAP_START_INITIAL_WAIT_SECONDS", "NETWORKMAP_START_RETRY_WAIT_SECONDS"),
     ("start_telnetd(void)", "telnetd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_sshd_with_mode(int sshd_mode)", "SSH", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
-    ("start_ttyd(void)", "ttyd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_ttyd_with_mode(int ttyd_mode)", "ttyd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_httpd_locked(int restart_fw)", "HTTPD", "HTTPD_START_INITIAL_WAIT_SECONDS", "HTTPD_START_RETRY_WAIT_SECONDS"),
     ("start_rstats(void)", "rstats", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_lltd(void)", "LLTD", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
 ):
     daemon_start = c_function_body(rc_services, signature)
-    assert f'service_start_probe_wait("{service_name}", {initial})' in daemon_start
-    assert f'service_start_probe_wait("{service_name}", {retry})' in daemon_start
+    daemon_start_compact = "".join(daemon_start.split())
+    assert f'service_start_probe_wait("{service_name}",{initial})' in daemon_start_compact
+    assert f'service_start_probe_wait("{service_name}",{retry})' in daemon_start_compact
     assert "sleep(" not in daemon_start and "usleep(" not in daemon_start, signature
 print("RC detached-daemon startup probes preserve full wait intervals across EINTR: PASS")
 for signature in (

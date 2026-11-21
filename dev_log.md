@@ -1,3 +1,13 @@
+## 2026-11-21 — Normalize WAN6 and detached-daemon source contracts
+
+- Parent main SHA: `e86520924f8e4bee54ba744d7506d9966e5e4291`.
+- Exact-head WAN callback #44914227457 reached the WAN6 policy checker and failed because its reverse-snapshot assertion expected one-line spacing while the production helper call is intentionally wrapped over three C lines. The helper call and guarded rollback are present; the checker now compacts whitespace before comparing.
+- Process integration #44914308142 failed in its generic detached-daemon probe loop because it extracted public `start_ttyd()` (the NVRAM mode wrapper) while checking startup waits that belong to `start_ttyd_with_mode()`. Pointed the probe contract at the actual launch helper and made the call assertions whitespace-independent; the public wrapper's NVRAM-read ordering remains covered by separate checks.
+- The policy regression and WAN callback source checks before the WAN6 assertion passed on #44914227457. Exact corrected WAN/Process runs and XY-C1 Build/TRX/artifact are still required.
+- Next: verify these exact-head checker changes, then fix the first genuine source/build regression.
+
+---
+
 ## 2026-11-21 — Align PID 1 optional-daemon queue contract with mode wrappers
 
 - Parent main SHA: `a275bd99a3f4c3ac6c0ab67b7ddcb9a81eff27d5`.
