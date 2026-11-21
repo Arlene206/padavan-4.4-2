@@ -155,7 +155,8 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           modem_selector = body(wan_network, "select_usb_modem_to_wan(void)")
-          assert 'get_nvram_int_checked_status("modem_prio", &modem_priority)' in modem_selector
+          modem_selector_compact = "".join(modem_selector.split())
+          assert 'get_nvram_int_checked_status("modem_prio",&modem_priority)' in modem_selector_compact
           assert "modem_wan_select_device_status(" in modem_selector
           assert 'nvram_get_int("modem_prio")' not in modem_selector
           assert "if (has_link < 0)" in modem_selector

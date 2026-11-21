@@ -15,26 +15,26 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Main at the start of this slice: `939e06459c5cb83b563758c30fc7371141e673f1`.
-- Deferred WAN reconnect NVRAM preflight: `136db90e2f84513d9bf3da297802b708b0811b44`. Checked `di_recon_pause` errors now abort before WAN stop/start; absent key retains the zero-second default.
-- Explicit DHCP WINS snapshot: `1770074742e98f13155fab91703fc74ca975c248`. Checked `dhcp_wins_x` is bounded and captured before generated DHCP config side effects; exact-head DNSMasq lifecycle passed.
-- Physical-link DHCP renew signal retry: `939e06459c5cb83b563758c30fc7371141e673f1`. Exact-head detect_link signal workflow passed its source contract and GNU89 sanitizer regression; XY-C1 Build was still running, so L3 remains pending.
-- This slice makes USB modem selection fail closed when `modem_prio` or the physical Ethernet link/port probe is unavailable. It preserves the absent-key zero default and APCLI/WISP / priority-2 behavior; errors now abort before `wan0_modem_dev` publication rather than silently selecting the modem or wired path.
+- Main at the start of this slice: `af16c58c166b915e8847d1e30325ccea5bc78460`.
+- Deferred WAN reconnect delay read: `136db90e2f84513d9bf3da297802b708b0811b44`; checked `di_recon_pause` errors abort before WAN stop/start and the absent-key zero default is preserved.
+- DHCP WINS snapshot: `1770074742e98f13155fab91703fc74ca975c248`; the checked bounded `dhcp_wins_x` value is captured before config staging and reused for option 44; its exact-head DNSMasq regression passed.
+- WAN physical-link DHCP renew retry: `939e06459c5cb83b563758c30fc7371141e673f1`; exact-head detect-link signal regression and source contract passed.
+- USB modem selector: `af16c58c166b915e8847d1e30325ccea5bc78460`; `modem_prio` and `wan_src_phy` now use checked integer reads, and priority-2 modem selection aborts on an unknown Ethernet link rather than treating probe failure as link absence. Its GNU89/ASAN/UBSAN policy binary passed, but the first exact-head USB workflow run failed in the new source assertion because its expected checked-reader call did not normalize a multiline C expression. This commit corrects only that assertion; production source and test behavior are unchanged.
 
 
 ## Active task
 
-1. Inspect exact-head USB modem selection, USB identity, WAN route, Process and Firewall runs for this checked-priority/link-probe slice; resolve any failure without weakening coverage.
-2. Require XY-C1 Build, TRX verification and artifact upload to PASS on the same exact product-source SHA covering the WAN reconnect NVRAM, DHCP WINS, link-restoration retry and modem-selection fixes.
-3. Continue independent whole-userland reliability/security work while CI is pending; do not repeat completed FTP, storage or DNSMasq slices.
+1. Inspect exact-head USB modem identity, WAN route, Process and XY-C1 results after the whitespace-normalized selector assertion; resolve any remaining failures from their logs without weakening the contracts.
+2. Require XY-C1 Build, TRX verification and artifact upload to PASS on one exact product-source SHA containing the WAN reconnect, DHCP WINS, link-restoration retry and USB modem-selection fixes.
+3. Continue independent whole-userland stability/security work while CI is pending; do not re-audit completed FTP, storage or DNSMasq slices.
 
 
 ## Verification boundary
 
-- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on relevant NVRAM read errors; DHCP WINS reads are checked before config staging; failed physical-link DHCP renew signals receive two bounded retries; USB modem selection now aborts on unknown priority or link state without publishing a speculative device.
-- L2: WAN route and DNSMasq exact-head checks passed on prior source SHAs; the detect_link GNU89/ASAN/UBSAN and source contract passed on `939e06459c5cb83b563758c30fc7371141e673f1`. USB selector regression and exact-head USB / WAN-route / Process checks are pending on this commit.
-- L3: NOT VERIFIED until XY-C1 Build, TRX verification and artifact upload PASS on one exact product-source SHA; the previous XY-C1 Build on `939e...` was still in progress.
-- L4: Physical WAN link behavior, DHCP renewal delivery, modem failover timing and router runtime remain NOT VERIFIED.
+- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on relevant NVRAM read errors; DHCP WINS is checked before config staging; failed physical-link DHCP renew signals receive two bounded retries; modem selection aborts on unknown priority/Ethernet state without publishing a speculative transport.
+- L2: WAN route, DNSMasq and detect-link regressions passed on prior exact heads. On `af16c58c`, the new modem selector GNU89/ASAN/UBSAN policy binary passed; the USB workflow then failed at a whitespace-sensitive source assertion before its source contract completed. The assertion is corrected in this commit; exact-head rerun is pending.
+- L3: NOT VERIFIED until XY-C1 Build, TRX verification and artifact upload all PASS on the same exact product-source SHA. The XY-C1 Build associated with `af16c58c` was still in progress at this handoff update.
+- L4: Physical WAN reconnect, DHCP lease renewal, modem failover timing and router runtime remain NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -55,4 +55,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main; inspect exact-head USB modem identity / WAN route / Process / Firewall checks for the new checked-priority and checked-Ethernet-link selection. Confirm GNU89 ASAN/UBSAN modem policy tests and source contracts pass, then require XY-C1 Build + TRX + artifact on the same exact product-source SHA.
+Fetch live main; inspect the exact-head USB modem workflow and WAN route / Process / XY-C1 checks for the normalized multiline selector assertion. Confirm the modem policy tests and source contract pass, then require Build + TRX + artifact on the same product-source SHA.

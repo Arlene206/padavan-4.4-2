@@ -1,3 +1,11 @@
+## 2026-11-21 — Normalize multiline USB modem selector source assertion
+
+- Parent main SHA: `af16c58c166b915e8847d1e30325ccea5bc78460`.
+- The exact-head `usb-modem-identity` workflow (#44920895340, job `136896471678`) passed its GNU89/ASAN/UBSAN policy binaries, including `USB modem WAN startup status policy: PASS`, then failed in the Python source contract at the assertion for `get_nvram_int_checked_status("modem_prio", &modem_priority)`.
+- The production call is intentionally split across lines; the checker expected one contiguous string. It now removes whitespace from the extracted selector before matching the complete checked-reader invocation. This is checker-only; no policy or product code was changed. Exact-head USB, WAN and Process reruns are pending; XY-C1 Build on the preceding product-source SHA was still running, so L3 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on uncertain USB modem WAN selection
 
 - Parent main SHA: `939e06459c5cb83b563758c30fc7371141e673f1`.
