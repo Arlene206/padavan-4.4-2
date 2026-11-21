@@ -172,7 +172,7 @@ require(idle_match is not None,
 idle_read = idle_match.group(0)
 idle_position = idle_match.start()
 demand_match = re.search(
-    r'set_wan_unit_value_int_status\\s*\\(\\s*unit,\\s*"pppoe_demand",\\s*i_demand\\s*\\)\\s*;',
+    r'set_wan_unit_value_int_status\s*\(\s*unit,\s*"pppoe_demand",\s*i_demand\s*\)\s*;',
     wan_start[idle_position:],
 )
 require(demand_match is not None,

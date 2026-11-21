@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct PPPoE whitespace regex escape in WAN checker
+
+- Parent main SHA: `d2e41ab61db5607c7d075b65df3de9ae081cc83a`.
+- Exact-head WAN route run `#44892123843` passed the GNU89/ASan/UBSan policy binaries and the preceding WAN DNS-mode contract, then failed the PPPoE demand-publication assertion.
+- The C source confirms the demand setter is present immediately after the checked idle-time read; inspection found the raw Python regex contained doubled backslashes (`\\s`) and therefore searched for literal backslash characters instead of whitespace.
+- Corrected the raw regex to use single regex escapes (`\s`), retaining the requirement that demand publication follows the checked read.
+- XY-C1 run `#44892123837` and process lifecycle run `#44892123811` both completed SUCCESS on this parent SHA; XY-C1 Build/TRX/artifact details must be checked before assigning L3.
+
+---
+
 ## 2026-11-21 — Align WAN regression contracts with checked EAPOL and PPPoE reads
 
 - Parent main SHA: `cb21893b8651dc975646c9ac0bb08cf923a29030`.
