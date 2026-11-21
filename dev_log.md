@@ -1,3 +1,12 @@
+## 2026-11-21 — Reuse checked ping selector in IPv4 FORWARD policy
+
+- Parent main SHA: `fb8b82f4af18601e5745929fc0bc10d9b4bd8919`.
+- Final scan of `ipt_filter_rules()` found the INPUT-chain `misc_ping_x` inverted read was converted, but a second FORWARD-chain occurrence remained because the original replacement changed only its first occurrence.
+- Replaced the remaining FORWARD-chain `nvram_invmatch("misc_ping_x", "0")` with the same pre-checked `is_ping_enabled` value used by INPUT. Both rule sections now share one checked read before staging; backend errors abort ruleset construction.
+- Existing firewall workflow source contract rejects any direct inverted getter for `misc_ping_x` in the complete function; current exact-head Firewall Startup and XY-C1 validation pending.
+
+---
+
 ## 2026-11-21 — Fail closed on inverted firewall enable selectors
 
 - Parent main SHA: `bbd199ab0458296efacd741b473d0ef6d3853f93`.

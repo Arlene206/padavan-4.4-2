@@ -1876,7 +1876,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		
 		/* Pass ICMPv4 in gateway mode w/o NAT */
 		if (!is_nat_enabled) {
-			if (nvram_invmatch("misc_ping_x", "0"))
+			if (is_ping_enabled)
 				fprintf(fp, "-A %s -p icmp -j %s\n", dtype, logaccept);
 			else
 				fprintf(fp, "-A %s -p icmp ! --icmp-type %s -j %s\n", dtype, "echo-request", logaccept);
