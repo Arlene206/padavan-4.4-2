@@ -830,9 +830,28 @@ require("service shutdown incomplete; continuing system power-down" in shutdown 
         "LAN/WAN service shutdown incomplete; continuing power-down without storage persistence" in shutdown,
         "safe reboot/halt must proceed even when daemon stop fails")
 shutdown_gate = shutdown.index("storage_remove_status = safe_remove_all_stor_devices(use_halt)")
-persist_gate = shutdown.index("if (storage_remove_status == 0 && misc_stop_status == 0")
-require("wan_stop_status == 0" in shutdown[persist_gate:],
-        "shutdown must not persist storage when WAN stop failed")
+persist_gate = shutdown.index("if (ap_mode_status == 0 &&")
+persist_end = shutdown.index(") {", persist_gate)
+persist_condition = " ".join(shutdown[persist_gate:persist_end + 1].split())
+for status_marker in (
+    "ap_mode_status == 0",
+    "storage_remove_status == 0",
+    "misc_stop_status == 0",
+    "service_stop_status == 0",
+    "printer_stop_status == 0",
+    "wan_stop_status == 0",
+    "lan_wan_stop_status == 0",
+    "auth_stop_status == 0",
+    "logger_stop_status == 0",
+    "wifi_wl_stop_status == 0",
+    "wifi_rt_stop_status == 0",
+    "lan_stop_status == 0",
+    "optware_stop_status == 0",
+    "rwfs_unmount_status == 0",
+    "shutdown_script_status == 0",
+):
+    require(status_marker in persist_condition,
+            "shutdown persistence gate is missing " + status_marker)
 require(shutdown_gate < persist_gate < shutdown.index("storage_save_time(") <
         shutdown.index("write_storage_to_mtd("),
         "shutdown must power down but gate storage persistence on all service-stop/eject results")
