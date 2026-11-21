@@ -67,14 +67,23 @@ rc_wan_restore_lan_routes_after_failed_step(
 	if (primary_status == 0)
 		return 0;
 
-	if (!lan_ifname || !lan_ifname[0] || !restore)
+	if (!lan_ifname || !lan_ifname[0] || !restore) {
 		route_status = EINVAL;
-	else
+	} else {
+		/*
+		 * Route flush/reset failures can race transient route-table
+		 * updates. Re-adds are idempotent (EEXIST is normalized), so
+		 * make one bounded recovery retry before abandoning LAN reachability.
+		 */
 		route_status = restore(lan_ifname);
+		if (route_status != 0)
+			route_status = restore(lan_ifname);
+	}
 
 	if (restore_status)
 		*restore_status = route_status;
 
+	/* Recovery must never replace the original failed restart step. */
 	return rc_first_service_start_status(primary_status, route_status);
 }
 

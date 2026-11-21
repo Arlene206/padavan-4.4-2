@@ -11,6 +11,8 @@ static char *mock_ifnames[2];
 static int mock_cache_status;
 static int mock_cache_calls;
 static int mock_route_restore_status;
+static int mock_route_restore_sequence[2];
+static unsigned int mock_route_restore_sequence_count;
 static int mock_route_restore_calls;
 static char *mock_route_restore_ifname;
 
@@ -33,8 +35,11 @@ mock_flush_route_cache(void)
 static int
 mock_restore_static_lan_routes(char *lan_ifname)
 {
-	++mock_route_restore_calls;
+	int call = mock_route_restore_calls++;
+
 	mock_route_restore_ifname = lan_ifname;
+	if ((unsigned int)call < mock_route_restore_sequence_count)
+		return mock_route_restore_sequence[call];
 	return mock_route_restore_status;
 }
 
@@ -47,6 +52,9 @@ reset_case(int first_status, int second_status)
 	mock_cache_status = 0;
 	mock_cache_calls = 0;
 	mock_route_restore_status = 0;
+	mock_route_restore_sequence[0] = 0;
+	mock_route_restore_sequence[1] = 0;
+	mock_route_restore_sequence_count = 0;
 	mock_route_restore_calls = 0;
 	mock_route_restore_ifname = NULL;
 	mock_ifnames[0] = NULL;
@@ -126,28 +134,67 @@ test_global_cache_flush_is_attempted_and_errors_are_preserved(void)
 }
 
 static void
+test_transient_route_restore_failure_is_retried(void)
+{
+	int restore_status;
+	int status;
+
+	reset_case(0, 0);
+	mock_route_restore_sequence[0] = EAGAIN;
+	mock_route_restore_sequence[1] = 0;
+	mock_route_restore_sequence_count = 2;
+	status = rc_wan_restore_lan_routes_after_failed_reset(
+		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
+	assert(status == EIO);
+	assert(restore_status == 0);
+	assert(mock_route_restore_calls == 2);
+}
+
+static void
+test_persistent_route_restore_failure_preserves_primary_error(void)
+{
+	int restore_status;
+	int status;
+
+	reset_case(0, 0);
+	mock_route_restore_sequence[0] = EACCES;
+	mock_route_restore_sequence[1] = EPERM;
+	mock_route_restore_sequence_count = 2;
+	status = rc_wan_restore_lan_routes_after_failed_reset(
+		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
+	assert(status == EIO);
+	assert(restore_status == EPERM);
+	assert(mock_route_restore_calls == 2);
+}
+
+static void
 test_failed_reset_restores_lan_routes_and_preserves_first_error(void)
 {
 	int restore_status;
 	int status;
 
-	/* The original reset error must survive a successful LAN route repair. */
+	/* A transient failure is retried; a successful repair keeps reset first. */
 	reset_case(0, 0);
+	mock_route_restore_sequence[0] = EAGAIN;
+	mock_route_restore_sequence[1] = 0;
+	mock_route_restore_sequence_count = 2;
 	status = rc_wan_restore_lan_routes_after_failed_reset(
 		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
 	assert(status == EIO);
 	assert(restore_status == 0);
-	assert(mock_route_restore_calls == 1);
+	assert(mock_route_restore_calls == 2);
 	assert(strcmp(mock_route_restore_ifname, "br0") == 0);
 
-	/* A route repair error is reported separately without replacing reset error. */
+	/* Persistent repair failure is observable without replacing reset error. */
 	reset_case(0, 0);
-	mock_route_restore_status = EPERM;
+	mock_route_restore_sequence[0] = EACCES;
+	mock_route_restore_sequence[1] = EPERM;
+	mock_route_restore_sequence_count = 2;
 	status = rc_wan_restore_lan_routes_after_failed_reset(
 		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
 	assert(status == EIO);
 	assert(restore_status == EPERM);
-	assert(mock_route_restore_calls == 1);
+	assert(mock_route_restore_calls == 2);
 
 	/* Successful protocol staging must not invoke the recovery callback. */
 	reset_case(0, 0);
@@ -188,7 +235,7 @@ test_failed_step_restores_lan_routes_and_preserves_first_error(void)
 		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
 	assert(status == EIO);
 	assert(restore_status == EPERM);
-	assert(mock_route_restore_calls == 1);
+	assert(mock_route_restore_calls == 2);
 
 	/* A zero primary status never invokes the recovery callback. */
 	reset_case(0, 0);
@@ -229,7 +276,7 @@ test_failed_route_flush_restores_lan_routes_and_preserves_first_error(void)
 		ENOSPC, "br0", mock_restore_static_lan_routes, &restore_status);
 	assert(status == ENOSPC);
 	assert(restore_status == EPERM);
-	assert(mock_route_restore_calls == 1);
+	assert(mock_route_restore_calls == 2);
 }
 
 static void
@@ -250,10 +297,12 @@ main(void)
 	test_successful_flush_returns_zero();
 	test_invalid_interface_does_not_skip_other_cleanup();
 	test_global_cache_flush_is_attempted_and_errors_are_preserved();
+	test_transient_route_restore_failure_is_retried();
+	test_persistent_route_restore_failure_preserves_primary_error();
 	test_failed_reset_restores_lan_routes_and_preserves_first_error();
 	test_failed_step_restores_lan_routes_and_preserves_first_error();
 	test_failed_route_flush_restores_lan_routes_and_preserves_first_error();
 	test_invalid_policy_arguments_fail_closed();
-	puts("WAN route flush attempt and first-error policy: PASS");
+	puts("WAN route flush, bounded LAN recovery retry and first-error policy: PASS");
 	return 0;
 }

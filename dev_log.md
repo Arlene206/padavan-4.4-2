@@ -1,3 +1,12 @@
+## 2026-11-21 — Retry static LAN route recovery after a failed WAN restart stage
+
+- Parent main SHA: `ce0f46dcdca763e68302ea81d00fbc59cb92e380`.
+- Full WAN restart already restored static LAN routes on a failed runtime protocol snapshot, but the recovery callback was attempted only once. A transient route-table update failure could leave LAN static routes absent after WAN activation correctly aborted.
+- Added one bounded retry to the common LAN-route recovery policy. Static-route adds normalize `EEXIST`, so repeating the add is idempotent. A successful retry clears the recovery status; if both attempts fail, the final recovery failure is logged separately while `rc_first_service_start_status` preserves the original WAN protocol-staging error and `full_restart_wan()` still exits before `start_wan()`.
+- Added transient and persistent failure regressions and extended the WAN workflow source contract to assert recovery, diagnostic and abort ordering. Exact-SHA WAN route, Process and XY-C1 checks will validate this slice; no physical-router result is claimed.
+
+---
+
 ## 2026-11-21 — Align MiniDLNA/Firefly lifecycle checker with explicit process-error reporting
 
 - Parent main SHA: `646615093f93ca01ea5cbef7dac6b4937a9a5cfa`.

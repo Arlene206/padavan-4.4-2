@@ -574,6 +574,20 @@ jobs:
           assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in " ".join(full_wan_restart.split())
           assert "interface routes or the global route cache could not be flushed" in full_wan_restart
           assert full_wan_restart.index("rc_wan_route_flush_and_cache_apply(") < full_wan_restart.index("if (route_flush_status != 0)") < full_wan_restart.index("phy_clear_mac_table()")
+          reset_stage = full_wan_restart.index("reset_status = reset_wan_vars_status();")
+          reset_restore = full_wan_restart.index("rc_wan_restore_lan_routes_after_failed_reset(")
+          reset_recovery_log = full_wan_restart.index("static LAN route restoration also failed after WAN protocol staging error")
+          reset_abort = full_wan_restart.index("aborting full WAN restart because configured WAN protocol staging failed")
+          assert reset_stage < reset_restore < reset_recovery_log < reset_abort
+          assert full_wan_restart.index("return status;", reset_abort) > reset_abort
+          restore_policy = body(wan_route_policy, "rc_wan_restore_lan_routes_after_failed_step(")
+          first_restore = restore_policy.index("route_status = restore(lan_ifname);")
+          retry_restore = restore_policy.index("if (route_status != 0)", first_restore)
+          second_restore = restore_policy.index("route_status = restore(lan_ifname);", first_restore + 1)
+          first_error = restore_policy.index("rc_first_service_start_status(primary_status, route_status)")
+          assert first_restore < retry_restore < second_restore < first_error
+          assert "test_transient_route_restore_failure_is_retried" in wan_route_test
+          assert "test_persistent_route_restore_failure_preserves_primary_error" in wan_route_test
 
           wan_down_body = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           assert "route_status = flush_conntrack_table(wan_addr);" in wan_down_body
