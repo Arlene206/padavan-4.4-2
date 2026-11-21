@@ -57,6 +57,7 @@
 #include "rc_notify_batch_policy.h"
 #include "service_wait_policy.h"
 #include "init_router_result_policy.h"
+#include "router_runtime_nvram_reset_policy.h"
 #include "wireless_radio_policy.h"
 #include "ddns_restart_policy.h"
 #if defined (USE_IPV6)
@@ -97,6 +98,57 @@ rc_nvram_policy_commit(void *context)
 {
     (void)context;
     return nvram_commit();
+}
+
+static int
+rc_router_runtime_nvram_set(void *context, const char *name,
+			    const char *string_value, int integer_value,
+			    int is_integer)
+{
+	(void)context;
+	if (is_integer)
+		return nvram_set_int_temp(name, integer_value);
+	return nvram_set_temp(name, string_value);
+}
+
+static int
+reset_router_runtime_nvram_state(int sw_mode)
+{
+#define ROUTER_RUNTIME_STRING(name, value) { name, value, 0, 0 }
+#define ROUTER_RUNTIME_INTEGER(name, value) { name, NULL, value, 1 }
+	const struct router_runtime_nvram_entry entries[] = {
+		ROUTER_RUNTIME_STRING("login_timestamp", "0000000000"),
+		ROUTER_RUNTIME_INTEGER("networkmap_fullscan", 0),
+		ROUTER_RUNTIME_INTEGER("link_internet", 2),
+		ROUTER_RUNTIME_INTEGER("link_wan", 0),
+		ROUTER_RUNTIME_INTEGER("led_front_t", 1),
+		ROUTER_RUNTIME_INTEGER("led_ether_t", 1),
+		ROUTER_RUNTIME_INTEGER("reload_svc_wl", 0),
+		ROUTER_RUNTIME_INTEGER("reload_svc_rt", 0),
+		ROUTER_RUNTIME_INTEGER("usb_hotplug_ms", 0),
+		ROUTER_RUNTIME_INTEGER("usb_hotplug_lp", 0),
+		ROUTER_RUNTIME_INTEGER("usb_hotplug_md", 0),
+		ROUTER_RUNTIME_INTEGER("usb_unplug_lp", 0),
+		ROUTER_RUNTIME_INTEGER("usb_unplug_md", 0),
+		ROUTER_RUNTIME_INTEGER("usb_opt_start", 0),
+		ROUTER_RUNTIME_INTEGER("l2tp_wan_t", 0),
+		ROUTER_RUNTIME_INTEGER("l2tp_cli_t", 0),
+		ROUTER_RUNTIME_INTEGER("l2tp_srv_t", 0),
+		ROUTER_RUNTIME_INTEGER("vpnc_state_t", 0),
+		ROUTER_RUNTIME_STRING("deferred_wanup_t", "0000000000"),
+		ROUTER_RUNTIME_STRING("vpnc_dns_t", ""),
+		ROUTER_RUNTIME_STRING("vpnc_dom_t", ""),
+		ROUTER_RUNTIME_STRING("viptv_ifname", ""),
+		ROUTER_RUNTIME_STRING(RSTATS_NVKEY_24,
+				      (sw_mode != 3) ? IFDESC_WAN : IFDESC_LAN),
+		ROUTER_RUNTIME_STRING(RSTATS_NVKEY_DM, IFDESC_WAN)
+	};
+#undef ROUTER_RUNTIME_STRING
+#undef ROUTER_RUNTIME_INTEGER
+
+	return router_runtime_nvram_reset_apply(
+		entries, sizeof(entries) / sizeof(entries[0]),
+		rc_router_runtime_nvram_set, NULL);
 }
 
 static const struct rc_nvram_policy_ops rc_nvram_ops = {
@@ -707,36 +759,18 @@ nvram_convert_misc_values(void)
 			   ntpc_counter_reset_status, ntp_ready_reset_status);
 		return INIT_ROUTER_RESULT_FATAL;
 	}
-	nvram_set_temp("login_timestamp", "0000000000");
-
-	nvram_set_int_temp("networkmap_fullscan", 0);
-	nvram_set_int_temp("link_internet", 2);
-	nvram_set_int_temp("link_wan", 0);
-
-	nvram_set_int_temp("led_front_t", 1);
-	nvram_set_int_temp("led_ether_t", 1);
-
-	nvram_set_int_temp("reload_svc_wl", 0);
-	nvram_set_int_temp("reload_svc_rt", 0);
-
-	nvram_set_int_temp("usb_hotplug_ms", 0);
-	nvram_set_int_temp("usb_hotplug_lp", 0);
-	nvram_set_int_temp("usb_hotplug_md", 0);
-	nvram_set_int_temp("usb_unplug_lp", 0);
-	nvram_set_int_temp("usb_unplug_md", 0);
-	nvram_set_int_temp("usb_opt_start", 0);
-
-	nvram_set_int_temp("l2tp_wan_t", 0);
-	nvram_set_int_temp("l2tp_cli_t", 0);
-	nvram_set_int_temp("l2tp_srv_t", 0);
-	nvram_set_int_temp("vpnc_state_t", 0);
-	nvram_set_temp("deferred_wanup_t", "0000000000");
-	nvram_set_temp("vpnc_dns_t", "");
-	nvram_set_temp("vpnc_dom_t", "");
-	nvram_set_temp("viptv_ifname", "");
-
-	nvram_set_temp(RSTATS_NVKEY_24, (sw_mode != 3) ? IFDESC_WAN : IFDESC_LAN);
-	nvram_set_temp(RSTATS_NVKEY_DM, IFDESC_WAN);
+	/*
+	 * These per-boot event and runtime markers must not retain a previous
+	 * boot's values. Attempt every reset, but do not continue startup when
+	 * any write failed: stale hotplug/reconnect state can trigger false work.
+	 */
+	status = reset_router_runtime_nvram_state(sw_mode);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "Router initialization stopped: cannot reset volatile runtime NVRAM state (status=%d)",
+			   status);
+		return status;
+	}
 
 	/* Do not continue boot with a partially published WAN0 configuration. */
 	status = set_wan0_vars();
