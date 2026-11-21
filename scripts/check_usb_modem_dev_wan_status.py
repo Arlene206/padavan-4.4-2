@@ -60,7 +60,8 @@ def main() -> None:
     require("nvram_set_int_temp(name, value)" in write_callback,
             "the checked publisher must wrap the actual temporary NVRAM API")
     publisher = function_body(netutils, "set_usb_modem_dev_wan(int unit, int devnum)")
-    require("usb_modem_wan_publish_nvram(unit, devnum" in publisher and
+    publisher = " ".join(publisher.split())
+    require("usb_modem_wan_publish_nvram( unit, devnum," in publisher and
             "errno = status;" in publisher,
             "set_usb_modem_dev_wan must return the policy result and preserve errno")
     require("extern int       set_usb_modem_dev_wan(int unit, int devnum);" in netutils_header,
