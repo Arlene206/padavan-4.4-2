@@ -6563,6 +6563,8 @@ snapshot_publication_failed:
 static int
 udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 {
+	char log_prefix[32];
+	const char *udhcpc_state;
 	char *value, *lan_ip, *lan_nm, *ip, *nm, *gw, *rt, *rt_ms, *rt_rfc;
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
@@ -6890,6 +6892,11 @@ snapshot_publication_failed:
 static int
 zcip_bound(char *man_ifname)
 {
+	char *value, *ip;
+	char log_prefix[32];
+	const char *udhcpc_state;
+	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "ZeroConf", "WAN");
+	udhcpc_state = "bound";
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char previous_text[WAN_ZCIP_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *zeroconf_mask = "255.255.0.0";
@@ -7006,6 +7013,11 @@ zcip_bound(char *man_ifname)
 static int
 zcip_viptv_bound(char *man_ifname)
 {
+	char *value, *ip;
+	char log_prefix[32];
+	const char *udhcpc_state;
+	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "ZeroConf", "IPTV");
+	udhcpc_state = "bound";
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *zeroconf_mask = "255.255.0.0";

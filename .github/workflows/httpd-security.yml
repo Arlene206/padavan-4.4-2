@@ -2725,7 +2725,21 @@ jobs:
           assert "dhcp_lease_router_is_changed(" in tv_router
           assert "value ? trim_r(value) : NULL" in tv_router
           assert "if (value)" not in tv_router
-          assert 'if (strcmp(old_domain, lease_domain) != 0)' in renew
+          for signature in (
+              "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)",
+              "zcip_bound(char *man_ifname)",
+              "zcip_viptv_bound(char *man_ifname)",
+          ):
+              callback = body(wan, signature)
+              assert "char log_prefix[32];" in callback
+              assert "const char *udhcpc_state;" in callback
+          assert 'udhcpc_state = "bound";' in body(wan, "zcip_bound(char *man_ifname)")
+          assert 'udhcpc_state = "bound";' in body(wan, "zcip_viptv_bound(char *man_ifname)")
+          assert 'if (strcmp(previous_state.domain, lease_domain) != 0)' in renew
+          assert 'if (strcmp(previous_state.dns, lease_dns) != 0)' in renew
+          assert 'if (strcmp(previous_state.wins, lease_wins) != 0)' in renew
+          assert 'if (strcmp(previous_state.lease, lease_text) != 0)' in renew
+          assert 'renew_values[renew_count].previous_value = previous_state.domain' in renew
           assert "resolver_changed = 1;" in renew
           resolver_publish_failure = renew.index("if (nvram_status != 0)")
           resolver_refresh_gate = renew.index("if (resolver_changed)")
