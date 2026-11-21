@@ -214,6 +214,7 @@ for callback_body, copy_marker in (
 wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 
 net_core = (RC / "net.c").read_text()
+firewall_source = (RC / "firewall_ex.c").read_text()
 ppp = (RC / "net_ppp.c").read_text()
 ppp_ipup_policy = (RC / "ppp_wan_ipup_policy.h").read_text()
 ppp_ipup_test = (RC / "tests/ppp_wan_ipup_policy.c").read_text()
@@ -930,9 +931,17 @@ require(gateway_publish_at < gateway_gate_at < skip_log_at < dependent_route_at 
         "failed gateway publication must be reported and block dependent static route creation")
 require("nvram_set_temp(\"wanx_gateway\"" not in wan_up,
         "unchecked MAN gateway snapshot publication remains in WAN-up")
-require('gateway = nvram_safe_get("wanx_gateway");' in net_core and
-        "if (!is_valid_ipv4(gateway))" in net_core,
-        "static-route implementation must continue to identify the global MAN gateway fallback dependency")
+route_control = body(net_core, "control_static_routes(char *ift, char *ifname, int is_add)")
+route_emitter = body(firewall_source, "fill_static_routes(char *buf, int len, const char *ift)")
+route_fallback = body(firewall_source, "firewall_copy_static_route_global_setting(const char *name,")
+require('nvram_safe_get("wanx_gateway")' not in route_control and
+        "if (!is_valid_ipv4(gateway))" not in route_control,
+        "static-route updates must not use an unchecked global MAN gateway read")
+require('firewall_copy_static_route_global_setting(' in route_emitter and
+        '"wanx_gateway"' in route_emitter and
+        "static_route_ipv4_address_is_valid(fallback_gateway)" in route_emitter and
+        'firewall_read_string_setting(name, &value)' in route_fallback,
+        "static-route implementation must retain the checked global MAN gateway fallback dependency")
 
 
 wait_ppp = body(wan, "wait_ppp_up(char *ppp_ifname, int unit)")
