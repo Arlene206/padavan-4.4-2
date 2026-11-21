@@ -650,6 +650,7 @@ jobs:
           assert "static_route_nvram_enabled_status(api_result, saved_errno" in static
           assert "if (!enabled)" in static
           assert 'nvram_invmatch("sr_enable_x", "1")' not in static
+          assert 'nvram_safe_get("wanx_gateway")' not in static
           assert "route_status = is_add ?" in static
           assert "status = route_status_accumulate(status, route_status);" in static
           assert "return status;" in static

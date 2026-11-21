@@ -1304,13 +1304,40 @@ firewall_copy_static_route_setting(const char *name, int index,
 	return 0;
 }
 
+static int
+firewall_copy_static_route_global_setting(const char *name, char *buffer,
+					  size_t buffer_size)
+{
+	const char *value;
+	size_t value_length;
+	int status;
+
+	if (!name || !name[0] || !buffer || buffer_size == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	status = firewall_read_string_setting(name, &value);
+	if (status != 0)
+		return status;
+
+	value_length = strlen(value);
+	if (value_length >= buffer_size) {
+		errno = ERANGE;
+		return ERANGE;
+	}
+	memcpy(buffer, value, value_length + 1);
+	return 0;
+}
+
 /* WAN, MAN, LAN. Build a complete checked snapshot before the caller mutates routes. */
 int
 fill_static_routes(char *buf, int len, const char *ift)
 {
 	int entry_count = 0, i = 0, status, metric_value, written;
+	int fallback_gateway_loaded = 0;
 	size_t used = 0, remaining;
 	char ip[16], netmask[16], gateway[16], metric[16], interface[8];
+	char fallback_gateway[16];
 	struct in_addr parsed_address;
 
 	if (!buf || len < 32) {
@@ -1362,9 +1389,23 @@ fill_static_routes(char *buf, int len, const char *ift)
 			status = EINVAL;
 			goto failed;
 		}
-		/* Preserve the legacy Oleg fallback for absent or invalid gateways. */
-		if (gateway[0] && !static_route_ipv4_address_is_valid(gateway))
-			gateway[0] = '\0';
+		/* Resolve the legacy WAN gateway fallback with a checked read before
+		 * any route mutation. Cache it for all entries in this snapshot. */
+		if (!static_route_ipv4_address_is_valid(gateway)) {
+			if (!fallback_gateway_loaded) {
+				status = firewall_copy_static_route_global_setting(
+					"wanx_gateway", fallback_gateway,
+					sizeof(fallback_gateway));
+				if (status != 0)
+					goto failed;
+				if (!static_route_ipv4_address_is_valid(fallback_gateway)) {
+					status = EINVAL;
+					goto failed;
+				}
+				fallback_gateway_loaded = 1;
+			}
+			memcpy(gateway, fallback_gateway, strlen(fallback_gateway) + 1);
+		}
 		status = static_route_metric_parse(metric, &metric_value);
 		if (status != 0)
 			goto failed;

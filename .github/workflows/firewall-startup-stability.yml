@@ -609,6 +609,7 @@ jobs:
           route_test = Path("trunk/user/rc/src/tests/static_route_policy.c").read_text()
           route_ui = Path("trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp").read_text()
           route_count_reader = body(firewall_source, "firewall_read_static_route_entry_count(int *entry_count)")
+          route_fallback_reader = body(firewall_source, "firewall_copy_static_route_global_setting(const char *name,")
           route_enable_control = body(Path("trunk/user/rc/src/net.c").read_text(), "control_static_routes(char *ift, char *ifname, int is_add)")
           route_copy_reader = body(firewall_source, "firewall_copy_static_route_setting(const char *name, int index,")
           route_emitter = body(firewall_source, "fill_static_routes(char *buf, int len, const char *ift)")
@@ -637,9 +638,13 @@ jobs:
               assert 'firewall_copy_static_route_setting("' + key + '", i' in route_emitter
           assert "static_route_metric_parse(metric, &metric_value)" in route_emitter
           assert "int entry_count = 0, i = 0," in route_emitter
-          assert "if (gateway[0] && !static_route_ipv4_address_is_valid(gateway))" in route_emitter
+          route_emitter_compact = " ".join(route_emitter.split())
+          assert "if (!static_route_ipv4_address_is_valid(gateway))" in route_emitter
+          assert 'firewall_copy_static_route_global_setting("wanx_gateway", fallback_gateway, sizeof(fallback_gateway))' in route_emitter_compact
+          assert "static_route_ipv4_address_is_valid(fallback_gateway)" in route_emitter
           assert "static_route_ipv4_address_is_valid" in route_test
-          assert "gateway[0] = '\\0';" in route_emitter
+          assert 'firewall_read_string_setting(name, &value)' in route_fallback_reader
+          assert "fallback_gateway_loaded = 1;" in route_emitter
           assert "!static_route_interface_is_safe(interface)" in route_emitter
           assert "foreach_x(" not in route_emitter and "general_conv(" not in route_emitter
           assert "firewall_read_indexed_string_setting(" in route_copy_reader

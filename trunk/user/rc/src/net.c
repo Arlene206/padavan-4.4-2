@@ -181,8 +181,7 @@ control_static_routes(char *ift, char *ifname, int is_add)
 		gateway = strsep(&metric, ":");
 		if (!gateway || !metric)
 			continue;
-		if (!is_valid_ipv4(gateway))
-			gateway = nvram_safe_get("wanx_gateway");	// oleg patch
+		/* fill_static_routes() resolves and validates the WAN fallback. */
 		errno = 0;
 		metric_value = strtol(metric, &metric_end, 10);
 		if (errno == ERANGE || metric_end == metric || *metric_end ||
