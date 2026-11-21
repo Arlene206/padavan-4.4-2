@@ -23,6 +23,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
+      - "trunk/user/rc/src/tests/firewall_nvram_match_policy.c"
       - "trunk/user/rc/src/firewall_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/firewall_lifecycle_lock.c"
       - "trunk/user/rc/src/firewall_module_table_policy.h"
@@ -77,6 +79,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
+      - "trunk/user/rc/src/tests/firewall_nvram_match_policy.c"
       - "trunk/user/rc/src/firewall_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/firewall_lifecycle_lock.c"
       - "trunk/user/rc/src/firewall_module_table_policy.h"
@@ -129,6 +133,12 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_startup_policy.c -o "$RUNNER_TEMP/firewall_startup_policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall_startup_policy"
+
+      - name: Compile and run checked firewall-enable NVRAM regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_nvram_match_policy.c -o "$RUNNER_TEMP/firewall-nvram-match-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall-nvram-match-policy"
 
       - name: Verify required NAT restore gates WAN startup
         run: |
@@ -277,6 +287,8 @@ jobs:
           module_policy = Path("trunk/user/rc/src/firewall_module_table_policy.h").read_text()
           module_test = Path("trunk/user/rc/src/tests/firewall_module_table_policy.c").read_text()
           firewall_source = Path("trunk/user/rc/src/firewall_ex.c").read_text()
+          firewall_nvram_policy = Path("trunk/user/rc/src/firewall_nvram_match_policy.h").read_text()
+          firewall_nvram_test = Path("trunk/user/rc/src/tests/firewall_nvram_match_policy.c").read_text()
           firewall_reconcile = body(firewall_source, "start_firewall_ex_locked(void)")
           firewall_entry = body(firewall_source, "start_firewall_ex(void)")
           assert '#include "firewall_lifecycle_lock.h"' in firewall_source
@@ -308,6 +320,27 @@ jobs:
           assert "INT_MIN" in module_policy
           assert "test_unknown_aborts" in module_test
           assert "test_invalid_probe_fails_closed" in module_test
+
+          firewall_nvram_reader = body(firewall_source, "firewall_read_enabled_setting(const char *param_name, int *enabled)")
+          assert "nvram_get_checked(param_name, &value)" in firewall_nvram_reader
+          assert "firewall_nvram_match_status(" in firewall_nvram_reader
+          assert "firewall_abort_core_restore_after_staging_failure();" in firewall_nvram_reader
+          assert "test_backend_errors_preserve_status_and_output" in firewall_nvram_test
+          assert "test_missing_key_uses_explicit_legacy_default" in firewall_nvram_test
+          for signature in (
+              "ipt_filter_rules(char *man_if",
+              "ipt_filter_default(void)",
+              "ip6t_filter_rules(char *man_if",
+              "ip6t_filter_default(void)",
+              "ipt_nat_rules(char *man_if",
+          ):
+              filter_builder = body(firewall_source, signature)
+              enabled_gate = 'firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled)'
+              assert enabled_gate in filter_builder, signature
+              assert filter_builder.index(enabled_gate) < filter_builder.index("firewall_open_rule_file(")
+          assert 'nvram_match("fw_enable_x", "1")' not in firewall_source
+          assert "api_result < 0" in firewall_nvram_policy
+          assert "api_result != 1 || !value" in firewall_nvram_policy
 
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",

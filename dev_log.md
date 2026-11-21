@@ -1,3 +1,15 @@
+## 2026-11-21 — Fail closed when firewall enable NVRAM reads fail
+
+- Parent main SHA: `6dc8c0bb9759e63624b65a8285a86a9a408cc9cf`.
+- Five firewall builders in `firewall_ex.c` used `nvram_match("fw_enable_x", "1")`. `nvram_match()` hides checked-read failures as false, making an unavailable NVRAM setting indistinguishable from an absent/disabled setting. The four IPv4/IPv6 filter builders could therefore generate ACCEPT base-chain policies after a backend/lock/ioctl/close error.
+- Added a checked reader backed by `nvram_get_checked()` and a GNU89 policy helper: key absence retains the legacy disabled default; present values compare exactly; backend errors and inconsistent API results return errno/EIO without modifying the result. All five firewall enable reads (IPv4/IPv6 filter, both default filter builders and IPv4 NAT/local-port policy) now fail before opening a rule file.
+- A failed read aborts the active multi-table core restore transaction through the existing rollback path, preventing earlier table changes from being published as a partial ruleset. Added GNU89/Werror/ASan/UBSan regression coverage and firewall/XY-C1 workflow source contracts.
+- Local host test: the standalone policy binary compiled with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan and passed. No full RC cross-build, MIPS firmware, TRX/artifact or router L4 is claimed.
+- Exact-head Firewall and same-source XY-C1 Actions: pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Complete the watchdog NVRAM regression pull-request path filter
 
 - Parent main SHA: `fee2d5d2d016853fc6d35c4f4247c3fc451f2323`.

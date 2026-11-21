@@ -12,29 +12,27 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending, verify this handoff's source baseline, active task, exact-head Actions, validation boundary, blockers and first next action. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no no-op commit. Update this handoff only when next-session-critical facts materially change.
 
 ## Current repository state
-- Parent main for this watchdog workflow-filter repair: `fee2d5d2d016853fc6d35c4f4247c3fc451f2323`; current product source is in `fee2d5d2`.
-- The checked `watchdog_cpu` NVRAM reader now protects both `start_watchdog_cpu()` and `restart_watchdog_cpu()` from backend, malformed and overflow failures; absent key remains disabled default. Module load/unload is not attempted when config is unreadable.
-- Exact-head watchdog run #44900457471: GNU89 signal regression PASS; NTP/service-lifecycle regression PASS; CPU watchdog module restart policy compile + GNU89/Werror/ASan/UBSan regression PASS; NTP/service integration PASS. Embedded contract failed only because `wan_nvram_status_policy.h` was missing from the pull_request path filter. This docs/workflow-only commit adds the missing PR path; the push filter and contract inventory already contain it.
-- Exact-head XY-C1 #44900457461 is IN_PROGRESS (Build job active; verify Build XY-C1, TRX and artifact before L3 claim). Process lifecycle inventory #44900457378, Process fail-closed umbrella #44900457513, AI docs #44900457357, and several independent runs are at mixed PASS/PENDING states.
-- Samba parent host regressions #44900045476, #44900045461, #44900045444, #44900045350, #44900045396 and #44900045349 passed; Samba source exact XY-C1 #44900045362 remained pending at last poll.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; legacy PR #1 closed/unmerged.
+- Parent main before this firewall NVRAM slice: `6dc8c0bb9759e63624b65a8285a86a9a408cc9cf`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- CPU watchdog checked NVRAM source was committed on `fee2d5d2`; the watchdog workflow PR path contract was repaired on `6dc8c0bb`. Exact watchdog run #44900574845 and AI handoff docs #44900574762 passed on `6dc8c0bb`.
+- Same-source XY-C1 run #44900457461 for CPU watchdog production source `fee2d5d2` remained IN_PROGRESS at last poll (Build/TRX/artifact not yet verified).
+- New P1 firewall defect fixed in this slice: five `firewall_ex.c` builders previously collapsed `nvram_match("fw_enable_x", "1")` backend errors to false, which can render IPv4/IPv6 filter base policies ACCEPT. A checked reader now preserves absence as the historical disabled default, but treats backend/invalid status as an error and aborts the existing core restore transaction before ruleset publication.
+- Frozen backup remains read-only; legacy PR #1 remains closed/unmerged.
 
 ## Active task
-- Verify this workflow-filter repair's exact-head watchdog Action; it should now pass the previously missing PR filter assertion.
-- Keep the watchdog source read/parse failure fail-closed; do not relax C tests or source contracts.
-- Inspect XY-C1 #44900457461 for the CPU watchdog production-source SHA `fee2d5d2`; L3 only after Build, TRX verification and artifact all pass.
-- Continue independent reliability/security work while other Action runs remain pending.
+- Verify exact-head Firewall Startup Stability regression and XY-C1 Build/TRX/artifact for this firewall source change.
+- Preserve the restore transaction rollback path on every checked-read failure; do not map UNKNOWN to disabled or change the legacy missing-key default.
+- If exact-head tests fail, inspect the first causal step and fix source/contracts without weakening coverage. Pending XY-C1 does not block independent host-level work.
 
 ## Verification boundary
-- CPU watchdog C policy regression on `fee2d5d2`: PASS on exact-head host Action before the integration checker failure.
-- Watchdog integration contract: failed only because the workflow PR filter omitted the new NVRAM header; corrected here, exact-head rerun pending.
-- Same-source XY-C1 #44900457461: IN_PROGRESS; no L3 claim yet.
+- Standalone firewall NVRAM policy test compiled locally with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan: PASS.
+- Full `firewall_ex.c` RC compile, MIPS/uClibc firmware build, TRX verification and artifact upload: pending exact-head Actions; no L3 claim.
+- Exact watchdog and AI-doc checks on `6dc8c0bb` passed; watchdog-source XY-C1 #44900457461 was still IN_PROGRESS at the last poll.
 - Hardware/router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect the new exact-head watchdog Action; confirm all tests and filter contract PASS.
-2. Inspect #44900457461 for Build XY-C1, TRX verification and artifact upload.
-3. Continue with an independent P1 reliability/security defect if CI is pending; retain fail-closed watchdog config semantics.
-4. Update the handoff when exact-head statuses or the next task materially change.
+1. Fetch live main and inspect exact-head Firewall Startup Stability and XY-C1 Actions.
+2. Confirm the checked-reader policy binary, five source gates, workflow contracts and Build/TRX/artifact status.
+3. Diagnose the first failing step without weakening transaction rollback or the UNKNOWN-vs-absent distinction.
+4. Continue a separate P1 stability/security issue across the wider Padavan userland.
 
 Before context exhaustion, update this handoff only when active task, exact-head status or validation boundary changes; no no-op commit.

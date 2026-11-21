@@ -29,6 +29,7 @@ on:
       - "trunk/user/rc/src/sfe_config_policy.h"
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/firewall_restore_transaction.h"
       - "trunk/user/rc/src/xupnpd_config_file.h"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"

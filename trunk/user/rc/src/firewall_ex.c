@@ -43,6 +43,7 @@
 #include "firewall_mangle_ttl_policy.h"
 #include "firewall_rp_filter_policy.h"
 #include "firewall_hook_file.h"
+#include "firewall_nvram_match_policy.h"
 #if defined (APP_ADBYBY)
 #include "firewall_adbyby_restore_policy.h"
 #endif
@@ -320,6 +321,33 @@ firewall_abort_core_restore_after_staging_failure(void)
 		(void)firewall_restore_transaction_abort(&firewall_core_restore_transaction,
 			firewall_restore_core_table, firewall_remove_restore_snapshot, NULL);
 }
+
+static int
+firewall_read_enabled_setting(const char *param_name, int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = firewall_nvram_match_status(api_result, saved_errno,
+					     value, "1", 0, enabled);
+	if (status != 0) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "cannot read firewall setting '%s'; refusing ruleset publication (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
 
 static int
 firewall_disable_forwarding(const char *operation)
@@ -1360,7 +1388,9 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 
 	is_nat_enabled = nvram_match("wan_nat_x", "1");
 	is_dos_enabled = nvram_match("fw_dos_x", "1");
-	is_fw_enabled  = nvram_match("fw_enable_x", "1");
+	ret = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
+	if (ret != 0)
+		return ret;
 	is_url_enabled = nvram_match("url_enable_x", "1");
 	is_lwf_enabled = nvram_match("fw_lw_enable_x", "1");
 
@@ -1839,10 +1869,12 @@ ipt_filter_default(void)
 {
 	FILE *fp;
 	char *ftype, *dtype;
-	int is_fw_enabled, result = -1;
+	int is_fw_enabled, result = -1, firewall_status;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 
-	is_fw_enabled = nvram_match("fw_enable_x", "1");
+	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
+	if (firewall_status != 0)
+		return firewall_status;
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default filter")))
 		return -1;
@@ -2018,7 +2050,9 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 
 	ipv6_type = get_ipv6_type();
 
-	is_fw_enabled = nvram_match("fw_enable_x", "1");
+	ret = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
+	if (ret != 0)
+		return ret;
 	is_url_enabled = nvram_match("url_enable_x", "1");
 
 	i_mac_filter = nvram_get_int("macfilter_enable_x");
@@ -2290,10 +2324,12 @@ ip6t_filter_default(void)
 {
 	FILE *fp;
 	char *ftype, *dtype;
-	int is_fw_enabled, result = -1;
+	int is_fw_enabled, result = -1, firewall_status;
 	char ipt_file[] = "/tmp/ip6t_filter.XXXXXX";
 
-	is_fw_enabled = nvram_match("fw_enable_x", "1");
+	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
+	if (firewall_status != 0)
+		return firewall_status;
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv6 default filter")))
 		return -1;
@@ -2394,12 +2430,15 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
 	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled;
 	int i_vpns_enable, i_vpnc_enable, i_vpns_type, i_vpnc_type, i_vpnc_sfw, i_http_proto;
+	int firewall_status;
 #if defined (APP_OPENVPN)
 	int i_vpns_ov_mode = nvram_get_int("vpns_ov_mode");
 #endif
 
 	is_nat_enabled = nvram_match("wan_nat_x", "1");
-	is_fw_enabled = nvram_match("fw_enable_x", "1");
+	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
+	if (firewall_status != 0)
+		return firewall_status;
 	is_upnp_enabled = nvram_invmatch("upnp_enable_x", "0");
 
 	i_vpns_enable = nvram_get_int("vpns_enable");
