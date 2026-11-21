@@ -95,6 +95,13 @@ sshd_restart_can_start(int stop_status, enum process_presence process_state)
 	return stop_status == 0 && process_state == PROCESS_PRESENCE_ABSENT;
 }
 
+/* Preserve a conservative warning when startup rollback cannot prove absence. */
+static inline int
+sshd_failed_start_preserve_running_state(enum process_presence after_stop)
+{
+	return after_stop != PROCESS_PRESENCE_ABSENT;
+}
+
 /* An unknown before/after state requires conservative firewall reconciliation. */
 static inline int
 sshd_firewall_refresh_required(enum process_presence before,

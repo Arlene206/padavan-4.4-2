@@ -99,6 +99,15 @@ static void test_firewall_failure_requires_listener_shutdown(void)
 	assert(sshd_firewall_failure_requires_stop(1, (enum process_presence)9));
 }
 
+static void
+test_failed_start_rollback_reports_unconfirmed_absence(void)
+{
+	assert(!sshd_failed_start_preserve_running_state(PROCESS_PRESENCE_ABSENT));
+	assert(sshd_failed_start_preserve_running_state(PROCESS_PRESENCE_RUNNING));
+	assert(sshd_failed_start_preserve_running_state(PROCESS_PRESENCE_UNKNOWN));
+	assert(sshd_failed_start_preserve_running_state((enum process_presence)9));
+}
+
 static void test_firewall_refresh_policy(void)
 {
 	assert(!sshd_firewall_refresh_required(PROCESS_PRESENCE_ABSENT,
@@ -162,6 +171,7 @@ int main(void)
 	test_stop_failure_blocks_start();
 	test_running_or_unknown_blocks_start();
 	test_confirmed_absence_allows_start();
+	test_failed_start_rollback_reports_unconfirmed_absence();
 	test_firewall_refresh_policy();
 	test_sshd_firewall_config_read_preserves_match_and_backend_errors();
 	test_firewall_failure_requires_listener_shutdown();

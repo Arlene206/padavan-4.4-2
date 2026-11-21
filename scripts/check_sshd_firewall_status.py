@@ -108,6 +108,13 @@ assert 'nvram_get_int("sshd_enable")' not in start
 assert "test_checked_sshd_enable_mode_read();" in TEST
 
 assert "process_presence_start_postcondition" in start_policy
+recovery = body(SERVICES, "sshd_start_failure_recover(int failure_status, const char *phase)")
+assert "stop_sshd()" in recovery
+assert "sshd_process_presence(&scan_error)" in recovery
+assert "sshd_failed_start_preserve_running_state(after_stop)" in recovery
+assert recovery.index("stop_sshd()") < recovery.index("sshd_process_presence(&scan_error)") < recovery.index("sshd_failed_start_preserve_running_state(after_stop)") < recovery.index("errno = failure_errno;") < recovery.index("return failure_status;")
+assert "test_failed_start_rollback_reports_unconfirmed_absence();" in TEST
+assert "PROCESS_PRESENCE_UNKNOWN" in body(POLICY, "sshd_failed_start_preserve_running_state(")
 assert "PROCESS_PRESENCE_ABSENT" in restart_preflight_policy
 assert "PROCESS_PRESENCE_RUNNING" in restart_preflight_policy
 assert "process_state == PROCESS_PRESENCE_RUNNING" in restart_stop_policy
@@ -119,6 +126,10 @@ assert "if (!sshd_start_allowed(state))" in start
 assert 'start_status = eval("/usr/bin/sshd.sh", "start", "-s");' in start
 assert 'start_status = eval("/usr/bin/sshd.sh", "start");' in start
 assert "if (start_status != 0)" in start
+assert 'sshd_start_failure_recover(start_status, "launcher")' in start
+assert 'sshd_start_failure_recover(start_status, "initial startup")' in start
+assert 'sshd_start_failure_recover(-1, "process inventory")' in start
+assert 'sshd_start_failure_recover(start_status, "retry")' in start
 assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in start
 assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in start
 assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in start

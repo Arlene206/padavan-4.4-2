@@ -868,6 +868,34 @@ sshd_enabled_mode_read(int *sshd_mode)
 }
 
 static int
+sshd_start_failure_recover(int failure_status, const char *phase)
+{
+	int failure_errno = errno > 0 ? errno : EIO;
+	int stop_status;
+	int scan_error = 0;
+	enum process_presence after_stop;
+
+	/*
+	 * The launcher may have forked the daemon before reporting an error, and
+	 * a failed wait/procfs scan does not prove the listener is absent.
+	 */
+	stop_status = stop_sshd();
+	after_stop = sshd_process_presence(&scan_error);
+	if (sshd_failed_start_preserve_running_state(after_stop)) {
+		logmessage(LOGNAME,
+			   "SSH daemon may remain active after %s startup failure (stop_status=%d, state=%d, scan_error=%d)",
+			   phase, stop_status, after_stop, scan_error);
+	} else if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "SSH daemon confirmed absent after %s startup failure but stop reported status=%d",
+			   phase, stop_status);
+	}
+
+	errno = failure_errno;
+	return failure_status;
+}
+
+static int
 start_sshd_with_mode(int sshd_mode)
 {
 	enum process_presence state;
@@ -894,7 +922,7 @@ start_sshd_with_mode(int sshd_mode)
 		start_status = eval("/usr/bin/sshd.sh", "start");
 	if (start_status != 0) {
 		logmessage(LOGNAME, "SSH launcher failed (status=%d)", start_status);
-		return sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT);
+		return sshd_start_failure_recover(start_status, "launcher");
 	}
 
 	/*
@@ -904,7 +932,7 @@ start_sshd_with_mode(int sshd_mode)
 	 */
 	start_status = service_start_probe_wait("SSH", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
 	if (start_status != 0)
-		return start_status;
+		return sshd_start_failure_recover(start_status, "initial startup");
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		state = sshd_process_presence(&scan_error);
 		if (sshd_start_postcondition(start_status, state) == 0)
@@ -913,12 +941,12 @@ start_sshd_with_mode(int sshd_mode)
 			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage(LOGNAME, "cannot verify SSH startup (scan_error=%d)",
 				   errno);
-			return -1;
+			return sshd_start_failure_recover(-1, "process inventory");
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("SSH", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
-				return start_status;
+				return sshd_start_failure_recover(start_status, "retry");
 		}
 	}
 

@@ -1,3 +1,12 @@
+## 2026-11-21 — Roll back SSH after an unconfirmed detached start
+
+- Parent main SHA: 9d65ccd958bafeb9bd38820978ff38641721aa04.
+- SSH/Dropbear detached startup returned immediately after launcher failure, initial/retry wait failure, or an UNKNOWN process inventory. In those cases the launcher could have forked a listener, or the process scan could not prove it absent; a direct start therefore could leave an untracked SSH listener.
+- Added a shared failure recovery path that invokes the identity-bound SSH stop operation, performs a fresh process-inventory scan, reports RUNNING/UNKNOWN as a possible survivor, and restores the original launcher/wait/scan errno and status. Launcher, initial wait, retry wait and unknown inventory branches now use it; repeatedly confirmed ABSENT still ends with the existing timeout result.
+- Added GNU89 tri-state regression coverage and exact source ordering assertions for stop → rescan → conservative survivor report → original error return. Exact-head Process/SSH and XY-C1 validation pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on SSH public-firewall NVRAM errors
 
 - Parent main SHA: d399f744701e24284cbc0ca92d4b314d44e20ae2.
