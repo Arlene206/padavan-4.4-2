@@ -209,7 +209,8 @@ jobs:
           max_user_failure = smb.index("cannot read max-connection limit")
           assert "result = -1;" in smb[max_user_failure:]
           assert "goto confpage;" in smb[max_user_failure:]
-          assert "service_connection_limit_value_status" in config_mode_policy
+          connection_limit_policy = Path("trunk/user/rc/src/service_connection_limit_policy.h").read_text()
+          assert "service_connection_limit_value_status" in connection_limit_policy
           assert "service_connection_limit_value_status(EIO, 0, 16, &connections)" in Path("trunk/user/rc/src/tests/service_connection_limit_policy.c").read_text()
           assert "samba_config_mode_is_valid" in config_mode_policy
           assert "samba_boolean_value_status" in config_mode_policy

@@ -1,3 +1,12 @@
+## 2026-11-21 — Point Samba contract at the shared connection-limit policy
+
+- Parent main SHA: `a5be39915259794a7a7f17447c401ca9f6f52801`.
+- Exact Samba source-contract run #44958170852 advanced past the compacted-emission locator but failed at line 99: the new helper belongs to `service_connection_limit_policy.h`, not the pre-existing `samba_config_mode_policy.h`. The checker now reads and asserts against the correct shared header; production source and the GNU89 policy test were unchanged by this workflow-only correction.
+- Exact current SHA `a5be39915259794a7a7f17447c401ca9f6f52801` runs #44958245707 (Samba), #44958245789 (VSFTPD), and #44958245688 (XY-C1) were pending at last poll. The next pushed SHA will re-run relevant checks.
+- Next: inspect exact-head Samba/VSFTPD/XY-C1 results, then continue the next independent service-hardening slice.
+
+---
+
 ## 2026-11-21 — Fail closed on FTP mode and audit-setting NVRAM errors
 
 - Parent main SHA: `88f545440c24761c046eb03d3954287db3088ca4`.
