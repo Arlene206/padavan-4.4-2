@@ -66,17 +66,18 @@ def require(condition, message):
 
 
 wan_up = body(WAN, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
-gate = wan_up.index('if (nvram_match("zerotier_enable", "1"))')
-start = wan_up.index("route_status = start_zerotier();", gate)
+start = wan_up.index("route_status = start_zerotier();")
 merge = wan_up.index(
     "status = route_status_accumulate(status, route_status);", start
 )
 log = wan_up.index("WAN ZeroTier startup incomplete", merge)
+guard = wan_up.rfind("#if defined(APP_ZEROTIER)", 0, start)
 require(
-    "#if defined(APP_ZEROTIER)" in wan_up[:gate]
-    and gate < start < merge < log
-    and "if (route_status != 0)" in wan_up[merge:log],
-    "enabled ZeroTier start must be checked, aggregated and logged",
+    guard >= 0
+    and guard < start < merge < log
+    and "if (route_status != 0)" in wan_up[merge:log]
+    and 'nvram_match("zerotier_enable", "1")' not in wan_up,
+    "WAN-up must always call the checked RC wrapper under APP_ZEROTIER and aggregate/log its status",
 )
 require(
     'doSystem("/usr/bin/zerotier.sh start")' not in wan_up
@@ -87,12 +88,16 @@ mwan = wan_up.index('if (nvram_match("pppoemwan_enable", "1"))', log)
 require(log < mwan, "ZeroTier result must be processed before WAN-up returns")
 
 start_wrapper = body(SERVICES, "int start_zerotier(void)")
+compact_start_wrapper = "".join(start_wrapper.split())
 require(
-    'nvram_get_int("zerotier_enable")' in start_wrapper
-    and "if (zerotier_enable != 1)" in start_wrapper
-    and "return 0;" in start_wrapper
-    and 'return eval("/usr/bin/zerotier.sh","start");' in start_wrapper,
-    "RC wrapper must preserve disabled no-op and launcher exit status",
+    'service_nvram_match_status("zerotier_enable","1",0,&zerotier_enabled);' in compact_start_wrapper
+    and "if(config_status!=0)returnconfig_status;" in compact_start_wrapper
+    and "if(!zerotier_enabled)return0;" in compact_start_wrapper
+    and 'returneval("/usr/bin/zerotier.sh","start");' in compact_start_wrapper
+    and "nvram_get_int(" not in start_wrapper
+    and "nvram_match(" not in start_wrapper
+    and "nvram_safe_get(" not in start_wrapper,
+    "RC wrapper must propagate checked configuration errors and preserve exact disabled no-op / launcher status",
 )
 require("int start_zerotier(void);" in HEADER, "RC header must declare the wrapper")
 

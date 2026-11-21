@@ -4623,13 +4623,16 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		}
 	}
 #if defined(APP_ZEROTIER)
-	if (nvram_match("zerotier_enable", "1")) {
-		route_status = start_zerotier();
-		status = route_status_accumulate(status, route_status);
-		if (route_status != 0)
-			logmessage(LOGNAME, "WAN ZeroTier startup incomplete (status=%d)",
-				   route_status);
-	}
+	/*
+	 * start_zerotier() owns the checked exact-string enable read and preserves
+	 * the disabled no-op. Do not pre-gate it with an unchecked NVRAM matcher:
+	 * a backend error must reach the WAN-up status accumulator.
+	 */
+	route_status = start_zerotier();
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "WAN ZeroTier startup incomplete (status=%d)",
+			   route_status);
 #endif
 	if (nvram_match("pppoemwan_enable", "1")) {
 		route_status = eval("/usr/bin/detect.sh");

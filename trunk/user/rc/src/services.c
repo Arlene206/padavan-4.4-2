@@ -1576,13 +1576,13 @@ int stop_zerotier(void){
 }
 
 int start_zerotier(void){
-	int zerotier_enable;
-	int config_status = service_enabled_mode_status(
-		"ZeroTier", "zerotier_enable", &zerotier_enable);
+	int zerotier_enabled = 0;
+	int config_status = service_nvram_match_status(
+		"zerotier_enable", "1", 0, &zerotier_enabled);
 
 	if (config_status != 0)
 		return config_status;
-	if (zerotier_enable != 1)
+	if (!zerotier_enabled)
 		return 0;
 	return eval("/usr/bin/zerotier.sh","start");
 }

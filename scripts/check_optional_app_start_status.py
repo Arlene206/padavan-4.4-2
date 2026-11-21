@@ -327,7 +327,6 @@ def check_rc_optional_daemon_enable_reads():
 
     for name, service_name, key in (
         ("adguardhome", "AdGuardHome", "adg_enable"),
-        ("zerotier", "ZeroTier", "zerotier_enable"),
         ("ddnsto", "DDNS.to", "ddnsto_enable"),
         ("sqm", "SQM", "sqm_enable"),
         ("aldriver", "AliyunDrive WebDAV", "aliyundrive_enable"),
@@ -345,8 +344,9 @@ def check_rc_optional_daemon_enable_reads():
             "wireguard": "wireguard_enable",
             "adbyby": "adbyby_mode",
         }[name]
+        compact_service_name = service_name.replace(" ", "")
         read_call = (
-            'service_enabled_mode_status("' + service_name + '","' + key +
+            'service_enabled_mode_status("' + compact_service_name + '","' + key +
             '",&' + mode_var + ');'
         )
         assert read_call in compact_start, name
@@ -372,6 +372,21 @@ def check_rc_optional_daemon_enable_reads():
         "if(!telnet_enabled)"
     )
     assert 'nvram_match("telnetd", "1")' not in telnetd_start
+
+    zerotier_start = extract_c_function_body(services, "start_zerotier(void)")
+    zerotier_compact = "".join(zerotier_start.split())
+    zerotier_read = 'service_nvram_match_status("zerotier_enable","1",0,&zerotier_enabled);'
+    assert zerotier_read in zerotier_compact
+    assert zerotier_compact.index(zerotier_read) < zerotier_compact.index("if(config_status!=0)")
+    assert zerotier_compact.index("if(config_status!=0)") < zerotier_compact.index(
+        "if(!zerotier_enabled)"
+    )
+    assert zerotier_compact.index("if(!zerotier_enabled)") < zerotier_compact.index(
+        'returneval("/usr/bin/zerotier.sh","start");'
+    )
+    assert "nvram_get_int(" not in zerotier_start
+    assert "nvram_match(" not in zerotier_start
+    assert "nvram_safe_get(" not in zerotier_start
 
     smartdns_start = extract_c_function_body(services, "start_smartdns(void)")
     smartdns_compact = "".join(smartdns_start.split())

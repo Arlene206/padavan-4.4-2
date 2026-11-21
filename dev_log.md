@@ -1,3 +1,12 @@
+## 2026-11-21 — Remove the unchecked WAN-up ZeroTier pre-gate
+
+- Parent main SHA: 5c2123ee1810790fb19e0b8a9a24f47ae2f8012f.
+- Exact-head ZeroTier and WAN-route checks failed because WAN-up still wrapped the checked RC ZeroTier start function in an older unchecked `nvram_match("zerotier_enable", "1")` pre-gate. A read error was therefore swallowed as “disabled” before the new checked reader could propagate its status. The old source contract also still required the removed raw integer getter.
+- WAN-up now always invokes `start_zerotier()` under `APP_ZEROTIER`; that wrapper owns a checked exact-string `"1"` read, preserves the legacy disabled no-op, propagates backend errors, and returns the launcher status. Updated the ZeroTier/WAN checker and optional-app checker; the latter also normalizes whitespace inside the AliyunDrive WebDAV service-name literal.
+- Exact-head WAN/ZeroTier and Process regression reruns pending. No L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Propagate checked Telnet service-enable reads
 
 - Parent main SHA: 4c79d11ce89248d828f8f4ae263fa918081c2797.
