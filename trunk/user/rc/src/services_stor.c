@@ -4327,6 +4327,7 @@ on_deferred_hotplug_dev(void)
 	int printer_start_status;
 	int modem_unplug_status = 0;
 	int modem_plug_status = 0;
+	int modem_rule_value = 0, modem_rule_status = 0;
 	unsigned int modem_retry_mask;
 #endif
 	int storage_start_result;
@@ -4383,9 +4384,21 @@ on_deferred_hotplug_dev(void)
 
 	if (nvram_match("usb_unplug_md", "1"))
 	{
-		nvram_set_int_temp("usb_unplug_md", 0);
-		if (nvram_get_int("modem_rule") > 0)
+		modem_rule_status = storage_read_integer_status(
+			"modem_rule", 0, &modem_rule_value);
+		modem_rule_status = modem_wan_unplug_event_status(
+			modem_rule_status, modem_rule_value, &unplug_modem);
+		if (modem_rule_status == 0) {
+			/* Only acknowledge detach after the modem policy was read. */
+			nvram_set_int_temp("usb_unplug_md", 0);
+		} else {
+			/* Keep detach queued and block a coalesced replug until retry. */
 			unplug_modem = 1;
+			modem_unplug_status = modem_rule_status;
+			logmessage("USB hotplug",
+				   "cannot read modem WAN policy; deferring unplug transition (status=%d)",
+				   modem_rule_status);
+		}
 	}
 
 	if (nvram_match("usb_hotplug_md", "1"))
@@ -4399,7 +4412,7 @@ on_deferred_hotplug_dev(void)
 			nvram_set_int_temp("usb_hotplug_md", 0);
 	}
 
-	if (unplug_modem) {
+	if (unplug_modem && modem_rule_status == 0) {
 		modem_unplug_status = try_wan_reconnect(1, 0);
 		if (modem_unplug_status != 0)
 			logmessage("USB hotplug",

@@ -636,8 +636,30 @@ main(void)
 	test_static_ipoe_upnp_reload_failure_reaches_start_status();
 	test_hotplug_notification_queue_failure_reaches_handler_result();
 	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
+	test_modem_unplug_rule_read_fails_closed();
 	test_unplug_ifdown_failure_is_distinguished_from_removed_interface();
 	test_static_wan_address_and_netmask_validation();
+static void
+test_modem_unplug_rule_read_fails_closed(void)
+{
+	int unplug_required = -1;
+
+	/* A missing key retains the historical modem_rule == 0 behavior. */
+	assert(modem_wan_unplug_event_status(0, 0, &unplug_required) == 0);
+	assert(unplug_required == 0);
+	assert(modem_wan_unplug_event_status(0, 1, &unplug_required) == 0);
+	assert(unplug_required == 1);
+	assert(modem_wan_unplug_event_status(0, -1, &unplug_required) == 0);
+	assert(unplug_required == 0);
+
+	/* Failed reads never masquerade as "no configured modem". */
+	assert(modem_wan_unplug_event_status(EIO, 1, &unplug_required) == EIO);
+	assert(unplug_required == 0);
+	assert(modem_wan_unplug_event_status(-1, 1, &unplug_required) == EIO);
+	assert(unplug_required == 0);
+	assert(modem_wan_unplug_event_status(0, 1, NULL) == EINVAL);
+}
+
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
 }

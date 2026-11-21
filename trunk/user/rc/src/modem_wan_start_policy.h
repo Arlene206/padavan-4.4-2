@@ -188,4 +188,22 @@ modem_wan_publish_ndis_identity(modem_wan_nvram_set_value_fn set_value,
 	return status;
 }
 
+/*
+ * Decide whether a deferred USB unplug needs WAN reconnection only from a
+ * successful modem_rule read. An absent NVRAM key is passed as zero, matching
+ * the historical no-modem default; backend errors must keep the event queued.
+ */
+static inline int
+modem_wan_unplug_event_status(int read_status, int modem_rule,
+			      int *unplug_required)
+{
+	if (!unplug_required)
+		return EINVAL;
+	*unplug_required = 0;
+	if (read_status != 0)
+		return read_status > 0 ? read_status : EIO;
+	*unplug_required = modem_rule > 0;
+	return 0;
+}
+
 #endif

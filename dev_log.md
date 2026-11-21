@@ -1,3 +1,14 @@
+## 2026-11-21  17:4 ET — Keep deferred modem unplug queued when modem_rule cannot be read
+
+- Parent main SHA: `6f8be6b66bd9974390b29556ff9a671d67d9e0b6`.
+- Confirmed defect in `on_deferred_hotplug_dev()`: it cleared `usb_unplug_md` before an unchecked `nvram_get_int("modem_rule")`. A transient NVRAM backend/read/close error collapsed to zero, permanently acknowledged the detach and skipped WAN reconnection. If detach and replug were coalesced, the replug could then start against stale WAN transport state.
+- THIS COMMIT reads `modem_rule` through the shared checked NVRAM reader and a pure policy helper. A missing key retains the historical zero/no-configured-modem behavior. On a real read failure, the code does not acknowledge the unplug event, records the read error in the existing retry state, blocks a coalesced replug, and uses the existing hotplug retry mask/alarm to retry.
+- Added GNU89 modem policy regression cases for missing/positive/negative values, backend error, negative status normalization and null output. The USB-modem Actions source contract now verifies checked-read → decision → event acknowledgement ordering, retry preservation, and the absence of the unchecked getter.
+- Current main before this slice: `6f8be6b66bd9974390b29556ff9a671d67d9e0b6`. Exact-head USB modem L2 and XY-C1 Build/TRX/artifact checks are pending for this source change; no L3 or L4 claim.
+- Next: inspect exact-head USB modem and XY-C1 results; then continue a separate concrete RC/storage reliability defect.
+
+---
+
 ## 2026-11-21 — Align VSFTPD source contract with combined NVRAM failure gate
 
 - Parent main SHA: `21124596ab9442c2c1bb00669c351e66313aea0c`.
