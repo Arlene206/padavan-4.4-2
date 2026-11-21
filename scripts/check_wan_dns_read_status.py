@@ -298,20 +298,21 @@ assert 'nvram_safe_get("wan_proto")' not in reset_wan
 param_copy = function_body_at_column_zero_terminator(
     source, "set_wan_unit_param_status(int unit, const char *param_name)"
 )
+param_copy_compact = " ".join(param_copy.split())
 for token in (
     "nvram_transaction_begin(&transaction)",
     "nvram_transaction_get(&transaction, wan_param, &source_value)",
-    "rc_wan_nvram_read_status(read_result, saved_errno)",
+    "status = rc_wan_nvram_read_status(read_result, saved_errno)",
     '((read_result == 1) ? source_value : "")',
     "nvram_transaction_set(&transaction, wanN_param",
     "nvram_transaction_end(&transaction)",
 ):
-    require(token in param_copy,
+    require(token in param_copy_compact,
             "WAN protocol copy must remain checked and transactional: " + token)
-read_error = param_copy.index("status = rc_wan_nvram_read_status(read_result, saved_errno)")
-write_value = param_copy.index("nvram_transaction_set(&transaction, wanN_param")
+read_error = param_copy_compact.index("status = rc_wan_nvram_read_status(read_result, saved_errno)")
+write_value = param_copy_compact.index("nvram_transaction_set(&transaction, wanN_param")
 require(read_error < write_value and
-        "if (status == 0) {" in param_copy[read_error:write_value],
+        "if (status == 0) {" in param_copy_compact[read_error:write_value],
         "a failed shared WAN protocol read must stop before wan0_proto is written")
 print("WAN protocol reset uses checked transactional NVRAM copy: PASS")
 

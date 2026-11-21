@@ -252,7 +252,7 @@ start = body(wan, "start_wan(void)")
 # copy from the configured wan_proto key. Keep reset_wan_vars() as the legacy
 # ABI and expose only the narrow read-only failure latch to PID 1.
 reset = body(wan, "reset_wan_vars_status(void)")
-proto_write = 'proto_status = set_wan_unit_value_status(\n\t\tunit, "proto", nvram_safe_get("wan_proto"));'
+proto_write = 'proto_status = set_wan_unit_param_status(unit, "proto");'
 proto_failure = "if (proto_status != 0)"
 proto_read = "wan_proto = get_wan_proto(unit);"
 require(proto_write in reset and proto_failure in reset and proto_read in reset,

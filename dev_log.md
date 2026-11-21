@@ -1,3 +1,14 @@
+## 2026-11-21 — Repair exact WAN protocol-copy checker and handoff wording
+
+- Parent main SHA: `b4bdfa7803678887021284b8876251043e723d85`.
+- Exact WAN route #44901566662 failed only in the new checker section: the source uses multiline formatting for the transaction copy expression. Updated the checker to normalize whitespace, then check the same transaction begin/get/status/set/end sequence and verify the read-status gate precedes the write.
+- Exact XY-C1 #44901566573 failed the WAN firewall source contract because its assertion still expected the old unsafe `nvram_safe_get("wan_proto")` expression; updated it to require `set_wan_unit_param_status(unit, "proto")` while retaining status-latch and pre-`get_wan_proto` ordering checks. Firmware Build, TRX and artifact steps were skipped by this earlier checker failure.
+- AI handoff docs #44901566570 required the exact sentence `The checkpoint is mandatory; a document edit is conditional.`; restored it and documented the exact CI outcomes, including that Build XY-C1 was skipped rather than failed.
+- No production source changed in this checker repair. The existing checked NVRAM transaction behavior is unchanged.
+- Resulting main commit: THIS COMMIT; exact-head reruns pending.
+
+---
+
 ## 2026-11-21 — Stop WAN reset from publishing an empty protocol on NVRAM read failure
 
 - Parent main SHA: `4a02532fb9082af0872240cd7b70330426332b2a`.
