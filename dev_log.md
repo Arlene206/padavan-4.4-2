@@ -1,3 +1,11 @@
+## 2026-11-21 — Fix MiniUPnP checked-config workflow variable references
+
+- Parent main SHA: `27c02048027d50435f2d18665bbe74aaddc90fc9`.
+- Exact-head MiniUPnP run #44941367108 reached the final inline-Python source contract after the C policy/build regressions had passed, then failed with `NameError: config_file_header is not defined`. The same block had already loaded the config header and test source as `helper` and `test`; corrected the two assertions to use those existing variables. No source implementation or assertion coverage was weakened.
+- On the parent, Process inventory #44941366957, DNSMasq #44941367068, Samba #44941367014, WAN route #44941367033, Inadyn #44941366953, WAN DHCP #44941366980 and AI handoff #44941366962 passed. XY-C1 #44941367009, HTTPD #44941366939 and NVRAM #44941367101 were still in progress at last poll. No L3 or hardware L4 claim is made.
+
+---
+
 ## 2026-11-21 — Fail closed on MiniUPnP protocol and secure-mode reads
 
 - Parent main SHA: `1a13b60672917c55b0075d8c015522b87d37fea6`.

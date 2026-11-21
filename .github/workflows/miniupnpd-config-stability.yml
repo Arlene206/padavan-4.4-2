@@ -644,8 +644,8 @@ jobs:
           assert "miniupnpd_config_file_read_integer_status(" in config_reader
           assert "saved_errno = errno;" in config_reader
           assert "errno = status;" in config_reader
-          assert "miniupnpd_config_file_read_integer_status" in config_file_header
-          assert "test_checked_integer_read_preserves_defaults_and_rejects_errors" in config_file_test
+          assert "miniupnpd_config_file_read_integer_status" in helper
+          assert "test_checked_integer_read_preserves_defaults_and_rejects_errors" in test
           option_tokens = [
               'miniupnpd_read_nvram_integer("upnp_proto", 0, 0, 2,',
               'miniupnpd_read_nvram_integer("upnp_secure", 0, 0, 1,',

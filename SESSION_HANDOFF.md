@@ -18,22 +18,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The exported OpenVPN client profile requires `remote-cert-tls server`, matching the generated certificate's `serverAuth` EKU. Dual-stack modes 4/5 use validated WAN IPv4 only as a final fallback after DDNS and IPv6 sources fail; IPv6-only modes remain unchanged.
-- MiniUPnP redirect-description output is bounded and always NUL-terminated. MiniUPnP config regression #44940897575 and AI handoff docs #44940897569 passed on `1a13b60672917c55b0075d8c015522b87d37fea6`. XY-C1 #44940897544 passed host checks but explicitly SKIPPED Build, TRX verification and artifact upload; it does not establish firmware L3.
-- `start_upnp_locked()` previously read `upnp_proto`, `upnp_secure` and `http_lanport` through error-collapsing getters. A backend failure could silently choose the less restrictive zero-value policy and publish a replacement daemon configuration.
-- This slice adds strict checked-integer parsing and a three-key NVRAM preflight. Any backend, malformed or out-of-range value now aborts before configuration publication; missing keys retain their legacy defaults.
-
+- The MiniUPnP protocol/secure-mode checked NVRAM preflight is committed in `27c02048027d50435f2d18665bbe74aaddc90fc9`. Missing keys retain legacy defaults; backend errors, malformed and out-of-range values fail before publishing a new daemon configuration.
+- Exact-head MiniUPnP run #44941367108 failed only because the inline Python source contract referenced undefined names `config_file_header` and `config_file_test`. The workflow already loads the same files as `helper` and `test`; this correction points the two assertions at those existing variables without changing production code or weakening checks.
+- XY-C1 #44941367009 was in progress before Build XY-C1 at last poll; same-SHA Build/TRX/artifact still required for L3. Hardware L4 remains NOT VERIFIED.
 ## Verification boundary
 
-- On exact main parent `1a13b60672917c55b0075d8c015522b87d37fea6`, MiniUPnP regression #44940897575 PASS and AI handoff docs #44940897569 PASS.
-- XY-C1 #44940897544 completed host regression successfully, but Build XY-C1, TRX verification and artifact upload were explicitly SKIPPED because firmware production inputs were unchanged. This is not L3 validation.
-- The checked `upnp_proto` / `upnp_secure` / `http_lanport` source change has not yet been validated by exact-head Actions. No local test, cross-build or hardware run is claimed.
-- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one exact SHA. Hardware L4 remains NOT VERIFIED.
+- Parent `27c02048027d50435f2d18665bbe74aaddc90fc9`: MiniUPnP configuration publication/lifecycle run #44941367108 failed at the final inline-Python source contract with `NameError: config_file_header is not defined`; all preceding policy and sanitizer steps passed. The cause is a checker variable-name mismatch: the workflow reads the header into `helper` and test into `test`.
+- XY-C1 #44941367009 was still preparing the build (Build XY-C1 pending, TRX and artifact upload pending). Process inventory #44941366957 passed; DNSMasq #44941367068, Samba #44941367014, WAN route #44941367033, Inadyn #44941366953, WAN DHCP #44941366980 and AI docs #44941366962 passed on the same parent. HTTPD #44941366939 and NVRAM #44941367101 were still in progress.
+- No same-SHA L3 Build/TRX/artifact pass is established for `27c02048027d50435f2d18665bbe74aaddc90fc9`. No local tests/build or hardware L4 are claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head MiniUPnP regression and AI handoff Actions for the checked `upnp_proto`, `upnp_secure` and `http_lanport` preflight. Fix test/source-contract failures from their first causal log error.
-2. Inspect exact-head XY-C1 and NVRAM audit. Do not claim L3 unless Build, TRX verification and artifact upload all pass on one SHA; the prior 1a13 host-only run skipped those three steps.
-3. Continue the next whole-userland reliability/security defect after this MiniUPnP security preflight, without reopening passed OpenVPN profile, redirect-copy or Inadyn parser slices absent same-SHA regressions.
+1. Inspect exact-head MiniUPnP config-stability rerun for this workflow-variable correction; the checked integer parser regression and config/daemon gates must pass, and the source contract must complete without NameError.
+2. Poll XY-C1 #44941367009 for the `27c02048027d50435f2d18665bbe74aaddc90fc9` source. Require Build XY-C1, TRX verification and artifact upload all PASS on the same SHA before marking L3.
+3. After these gates, continue the highest-risk unfinished userland reliability/security task outside MiniUPnP; PENDING workflows do not block independent work.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history, create branches or PRs.
