@@ -484,8 +484,9 @@ assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_po
 
 aggregate_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;"
 aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
-# Five checked WAN error-state publications also feed the first-error result.
-assert len(aggregate_matches) == 35
+# Checked NVRAM failures now also feed first-error aggregation for modem
+# transport, both PPPoE manual-mode branches, idle-time and WAN interface setup.
+assert len(aggregate_matches) == 39
 
 # Each checked protocol/interface pair publication failure retains both
 # results: the failed NVRAM write and the physical-WAN recovery attempt.

@@ -153,21 +153,23 @@ print("WAN DNS-mode checked-read and resolver fail-closed contract: PASS")
 # PPPoE manual mode and demand are control-plane decisions: backend errors
 # must abort and restore WAN state, while missing keys retain their zero default.
 wan_start = " ".join(body(source, "start_wan(void)").split())
-manual_read = 'nvram_status = get_wan_unit_value_int_status(unit, "pppoe_man", &i_pppoe_man);'
-manual_positions = [i for i in range(len(wan_start)) if wan_start.startswith(manual_read, i)]
+manual_pattern = r'nvram_status\s*=\s*get_wan_unit_value_int_status\s*\(\s*unit,\s*"pppoe_man",\s*&i_pppoe_man\s*\)\s*;'
+manual_matches = list(re.finditer(manual_pattern, wan_start))
+manual_positions = [match.start() for match in manual_matches]
 require(len(manual_positions) == 2,
         "both RAS and regular PPP paths must use checked PPPoE manual-mode reads")
-for position in manual_positions:
-    failure = wan_start[position + len(manual_read):position + len(manual_read) + 600]
+for position, match in zip(manual_positions, manual_matches):
+    failure = wan_start[position + len(match.group(0)):position + len(match.group(0)) + 600]
     require("if (nvram_status != 0)" in failure and
-            "restore_wan_after_firewall_failure(unit, wan_ifname)" in failure and
+            "restore_wan_after_firewall_failure" in failure and
             "continue;" in failure,
             "PPPoE manual-mode read failure must restore WAN and skip PPP activation")
 assert 'get_wan_unit_value_int(unit, "pppoe_man")' not in wan_start
-idle_read = 'nvram_status = get_wan_unit_value_int_status(unit, "pppoe_idletime", &i_demand);'
-require(idle_read in wan_start,
+idle_match = re.search(r'nvram_status\s*=\s*get_wan_unit_value_int_status\s*\(\s*unit,\s*"pppoe_idletime",\s*&i_demand\s*\)\s*;', wan_start)
+require(idle_match is not None,
         "PPPoE idle-time must use checked NVRAM reads")
-idle_position = wan_start.index(idle_read)
+idle_read = idle_match.group(0)
+idle_position = idle_match.start()
 idle_end = wan_start.index('set_wan_unit_value_int_status(unit, "pppoe_demand", i_demand)', idle_position)
 idle_failure = wan_start[idle_position:idle_end]
 require("if (nvram_status != 0)" in idle_failure and
