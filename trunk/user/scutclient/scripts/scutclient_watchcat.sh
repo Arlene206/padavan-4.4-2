@@ -39,7 +39,7 @@ watchcat_claim_pidfile()
 		return 1
 	fi
 
-	if (set -C; printf '%s\\n' "$$" > "$pidfile") 2>/dev/null; then
+	if (set -C; printf '%s\n' "$$" > "$pidfile") 2>/dev/null; then
 		return 0
 	fi
 	[ -f "$pidfile" ] && [ ! -L "$pidfile" ] || return 1
@@ -63,7 +63,7 @@ watchcat_claim_pidfile()
 	IFS= read -r current_pid < "$pidfile" || :
 	[ "$current_pid" = "$previous_pid" ] || return 2
 	rm -f "$pidfile" || return 1
-	(set -C; printf '%s\\n' "$$" > "$pidfile") 2>/dev/null || return 2
+	(set -C; printf '%s\n' "$$" > "$pidfile") 2>/dev/null || return 2
 	return 0
 }
 

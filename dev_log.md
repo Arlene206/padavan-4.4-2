@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct watchdog PID-file and procfs fixture escaping
+
+- Parent main SHA: `59284736191e9480cdd7fcc77156bd8a1f9925a4`.
+- The exact-SHA watchdog test exposed an escaping error in the generated shell text: the PID writer used a literal backslash-`n` instead of a line terminator, and the mock procfs fixture used literal backslash sequences instead of NUL delimiters. Corrected the two PID writes and all mock `printf` formats. The process-command-line reader already used the proper single-backslash `tr '\\000'` syntax.
+- The earlier watchdog Actions failed only in the fixture path (first workspace allocation, then active-PID identity); this change addresses the second root cause. No extra production behavior was added beyond proper PID-file line termination.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Use non-routable synthetic PIDs in SCUT watchdog tests
 
 - Parent main SHA: `9785630f590415d58d9fad62a8b08d659520e5d1`.

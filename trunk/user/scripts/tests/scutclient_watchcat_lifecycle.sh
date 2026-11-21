@@ -50,8 +50,8 @@ run_watchcat()
 # A second watchdog must leave a verified instance alone and must not run
 # another health check or send it a signal.
 mkdir -p "$PROC_ROOT/42424242"
-printf '/bin/sh\\000/usr/bin/scutclient_watchcat.sh\\000' > "$PROC_ROOT/42424242/cmdline"
-printf '42424242\\n' > "$PIDFILE"
+printf '/bin/sh\000/usr/bin/scutclient_watchcat.sh\000' > "$PROC_ROOT/42424242/cmdline"
+printf '42424242\n' > "$PIDFILE"
 : > "$NVRAM_LOG"
 : > "$KILL_LOG"
 run_watchcat 0
@@ -64,8 +64,8 @@ run_watchcat 0
 
 # A recycled PID now belonging to another process is stale; never kill it.
 mkdir -p "$PROC_ROOT/51515151"
-printf '/usr/sbin/other-service\\000' > "$PROC_ROOT/51515151/cmdline"
-printf '51515151\\n' > "$PIDFILE"
+printf '/usr/sbin/other-service\000' > "$PROC_ROOT/51515151/cmdline"
+printf '51515151\n' > "$PIDFILE"
 : > "$NVRAM_LOG"
 : > "$KILL_LOG"
 run_watchcat 0
@@ -77,7 +77,7 @@ run_watchcat 0
 }
 
 # Malformed and exited PIDs may be replaced without signalling anything.
-printf 'not-a-pid\\n' > "$PIDFILE"
+printf 'not-a-pid\n' > "$PIDFILE"
 run_watchcat 0
 [ ! -e "$PIDFILE" ] || {
 	echo "watchdog did not replace and clean up malformed PID state" >&2; exit 1;
@@ -89,7 +89,7 @@ run_watchcat 0
 # If a numeric PID exists but its cmdline is unreadable, identity is UNKNOWN.
 # Preserve the existing lock and skip this run rather than guessing.
 mkdir -p "$PROC_ROOT/61616161"
-printf '61616161\\n' > "$PIDFILE"
+printf '61616161\n' > "$PIDFILE"
 : > "$NVRAM_LOG"
 run_watchcat 1
 [ "$(cat "$PIDFILE")" = "61616161" ] || {
@@ -100,7 +100,7 @@ run_watchcat 1
 }
 
 # Never follow a symlink supplied as the PID file.
-printf '71717171\\n' > "$OUTSIDE"
+printf '71717171\n' > "$OUTSIDE"
 ln -s "$OUTSIDE" "$PIDFILE"
 run_watchcat 1
 [ -L "$PIDFILE" ] && [ "$(cat "$OUTSIDE")" = "71717171" ] || {
