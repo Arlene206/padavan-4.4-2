@@ -393,6 +393,52 @@ jobs:
               assert f'nvram_invmatch("{key}", "0")' not in ipv4_filter
           dos_gate = 'firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled)'
           assert dos_gate in ipv4_filter
+          nat_builder = body(firewall_source, "ipt_nat_rules(char *man_if")
+          nat_checked = (
+              'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)',
+              'firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable)',
+              'firewall_read_integer_setting("vpnc_enable", 0, &i_vpnc_enable)',
+              'firewall_read_integer_setting("vpns_type", 0, &i_vpns_type)',
+              'firewall_read_integer_setting("vpnc_type", 0, &i_vpnc_type)',
+              'firewall_read_integer_setting("vpnc_sfw", 0, &i_vpnc_sfw)',
+          )
+          for gate in nat_checked:
+              assert gate in nat_builder, gate
+              assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file("), gate
+          nat_extra = (
+              'firewall_read_integer_setting("vpns_vuse", 0, &i_vpns_vuse)',
+              'firewall_read_integer_setting("vpns_actl", 0, &i_vpns_actl)',
+              'firewall_read_integer_setting("vpns_ov_mode", 0, &i_vpns_ov_mode)',
+              'firewall_read_integer_setting("vpns_ov_prot", 0, &i_vpns_ov_prot)',
+              'firewall_read_integer_setting("vpns_ov_port", 1194, &i_vpns_ov_port)',
+              'firewall_read_integer_setting("vpnc_ov_mode", 0, &i_vpnc_ov_mode)',
+              'firewall_read_integer_setting("vpnc_ov_cnat", 0, &i_vpnc_ov_cnat)',
+              'firewall_read_integer_setting("vpnc_ov_prot", 0, &i_vpnc_ov_prot)',
+              'firewall_read_integer_setting("vpnc_ov_port", 1194, &i_vpnc_ov_port)',
+          )
+          for gate in nat_extra:
+              assert gate in nat_builder, gate
+              assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file("), gate
+          nat_inverted = (
+              'firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled)',
+              'firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled)',
+              'firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled)',
+          )
+          for gate in nat_inverted:
+              assert gate in nat_builder, gate
+              assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file("), gate
+          for key in ("vpns_enable", "vpnc_enable", "vpns_type", "vpnc_type", "vpnc_sfw", "vpns_vuse", "vpns_actl"):
+              assert f'nvram_get_int("{key}")' not in nat_builder
+          assert 'nvram_match("wan_nat_x", "1")' not in nat_builder
+          for key in ("upnp_enable_x", "sshd_enable", "enable_ftp"):
+              assert f'nvram_invmatch("{key}", "0")' not in nat_builder
+          assert 'nvram_get_int("vpns_ov_mode")' not in nat_builder
+          assert 'nvram_get_int("vpns_ov_prot")' not in nat_builder
+          assert 'nvram_get_int("vpnc_ov_mode")' not in nat_builder
+          assert 'nvram_get_int("vpnc_ov_cnat")' not in nat_builder
+          assert 'nvram_get_int("vpnc_ov_prot")' not in nat_builder
+          assert 'nvram_safe_get_int("vpns_ov_port"' not in nat_builder
+          assert 'nvram_safe_get_int("vpnc_ov_port"' not in nat_builder
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               filter_builder = body(firewall_source, signature)
               mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"

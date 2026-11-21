@@ -1,3 +1,13 @@
+## 2026-11-21 — Check IPv4 NAT builder VPN and exposure selectors
+
+- Parent main SHA: `27cee43d08d3a66c741b0ca61e1496d243e7bd80`.
+- `ipt_nat_rules()` still had a separate set of unchecked reads for `wan_nat_x`, VPN enable/type and `vpnc_sfw`, plus inverted UPnP/SSH/FTP gates. The DMZ VPN exceptions also reread OpenVPN mode/protocol/port values through unchecked accessors. These values select NAT, VPN masquerade/PREROUTING, UPnP chain jumps and WAN remote-management DNAT.
+- Replaced the NAT and VPN selectors with checked readers before `firewall_open_rule_file()`. Conditional server `vpns_vuse/actl` and enabled type-2 OpenVPN server/client mode/protocol/port fields are checked and reused in the DMZ policy. Out-of-range OpenVPN ports retain the 1194 default.
+- Replaced inverted UPnP, SSH and FTP enable reads with the checked not-zero wrapper, retaining missing-key defaults but propagating backend errors. Extended the firewall workflow with NAT-builder exact source-order assertions and checks forbidding the old getters. Existing helper test runs under GNU89/Werror/ASan/UBSan in CI. No local test execution is claimed.
+- Parent `27cee...` Firewall Startup #44948947193, Process inventory #44948947321, AI docs #44948947163, HTTPD #44948947166, FULLCONENAT #44948947177, WAN route #44948947181 and WAN DHCP #44948947214 all PASS. Parent XY-C1 #44948947161 and NVRAM audit #44948947164 were still running at last poll. Current exact-head checks pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Reuse checked ping selector in IPv4 FORWARD policy
 
 - Parent main SHA: `fb8b82f4af18601e5745929fc0bc10d9b4bd8919`.

@@ -2595,32 +2595,114 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	FILE *fp;
 	char *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
-	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled;
+	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled = 0;
 	int i_vpns_enable, i_vpnc_enable, i_vpns_type, i_vpnc_type, i_vpnc_sfw, i_http_proto;
-	int firewall_status;
+	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
+#if defined (APP_SSHD)
+	int is_sshd_enabled = 1;
+#endif
+#if defined (APP_FTPD)
+	int is_ftp_enabled = 1;
+#endif
 #if defined (APP_OPENVPN)
-	int i_vpns_ov_mode = nvram_get_int("vpns_ov_mode");
+	int i_vpns_ov_mode = 0, i_vpns_ov_prot = 0, i_vpns_ov_port = 1194;
+	int i_vpnc_ov_mode = 0, i_vpnc_ov_cnat = 0;
+	int i_vpnc_ov_prot = 0, i_vpnc_ov_port = 1194;
 #endif
 
-	is_nat_enabled = nvram_match("wan_nat_x", "1");
+	firewall_status = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
+	if (firewall_status != 0)
+		return firewall_status;
 	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (firewall_status != 0)
 		return firewall_status;
-	is_upnp_enabled = nvram_invmatch("upnp_enable_x", "0");
+	is_upnp_enabled = 0;
+	if (is_nat_enabled) {
+		firewall_status = firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+	}
 
-	i_vpns_enable = nvram_get_int("vpns_enable");
-	i_vpnc_enable = nvram_get_int("vpnc_enable");
-	i_vpns_type = nvram_get_int("vpns_type");
-	i_vpnc_type = nvram_get_int("vpnc_type");
-	i_vpnc_sfw = nvram_get_int("vpnc_sfw");
+	firewall_status = firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable);
+	if (firewall_status != 0)
+		return firewall_status;
+	firewall_status = firewall_read_integer_setting("vpnc_enable", 0, &i_vpnc_enable);
+	if (firewall_status != 0)
+		return firewall_status;
+	firewall_status = firewall_read_integer_setting("vpns_type", 0, &i_vpns_type);
+	if (firewall_status != 0)
+		return firewall_status;
+	firewall_status = firewall_read_integer_setting("vpnc_type", 0, &i_vpnc_type);
+	if (firewall_status != 0)
+		return firewall_status;
+	firewall_status = firewall_read_integer_setting("vpnc_sfw", 0, &i_vpnc_sfw);
+	if (firewall_status != 0)
+		return firewall_status;
+
+#if defined (APP_OPENVPN)
+	if (i_vpnc_enable && i_vpnc_type == 2) {
+		firewall_status = firewall_read_integer_setting("vpnc_ov_mode", 0, &i_vpnc_ov_mode);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_integer_setting("vpnc_ov_cnat", 0, &i_vpnc_ov_cnat);
+		if (firewall_status != 0)
+			return firewall_status;
+	}
+	if (is_nat_enabled && i_vpns_enable && i_vpns_type == 2) {
+		firewall_status = firewall_read_integer_setting("vpns_ov_mode", 0, &i_vpns_ov_mode);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_integer_setting("vpns_ov_prot", 0, &i_vpns_ov_prot);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_integer_setting("vpns_ov_port", 1194, &i_vpns_ov_port);
+		if (firewall_status != 0)
+			return firewall_status;
+		if (i_vpns_ov_port < 1 || i_vpns_ov_port > 65535)
+			i_vpns_ov_port = 1194;
+	}
+	if (is_nat_enabled && i_vpnc_enable && i_vpnc_type == 2) {
+		firewall_status = firewall_read_integer_setting("vpnc_ov_prot", 0, &i_vpnc_ov_prot);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_integer_setting("vpnc_ov_port", 1194, &i_vpnc_ov_port);
+		if (firewall_status != 0)
+			return firewall_status;
+		if (i_vpnc_ov_port < 1 || i_vpnc_ov_port > 65535)
+			i_vpnc_ov_port = 1194;
+	}
+#endif
+
+	if (is_nat_enabled && i_vpns_enable) {
+		firewall_status = firewall_read_integer_setting("vpns_vuse", 0, &i_vpns_vuse);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_integer_setting("vpns_actl", 0, &i_vpns_actl);
+		if (firewall_status != 0)
+			return firewall_status;
+	}
+
+	if (is_nat_enabled && is_fw_enabled) {
+#if defined (APP_SSHD)
+		firewall_status = firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+#endif
+#if defined (APP_FTPD)
+		firewall_status = firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+#endif
+	}
+
 
 	vpnc_if = NULL;
 	if (i_vpnc_enable) {
 #if defined (APP_OPENVPN)
 		if (i_vpnc_type == 2) {
-			if (nvram_get_int("vpnc_ov_mode") == 1)
+			if (i_vpnc_ov_mode == 1)
 				vpnc_if = IFNAME_CLIENT_TUN;
-			else if (nvram_get_int("vpnc_ov_cnat") == 1)
+			else if (i_vpnc_ov_cnat == 1)
 				vpnc_if = IFNAME_CLIENT_TAP;
 		} else
 #endif
@@ -2708,8 +2790,6 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			char vpn_net[24] = {0};
 			ip2class(nvram_safe_get("vpns_vnet"), VPN_SERVER_SUBNET_MASK, vpn_net, sizeof(vpn_net));
 			if (strcmp(vpn_net, lan_net) != 0) {
-				int i_vpns_vuse = nvram_get_int("vpns_vuse");
-				int i_vpns_actl = nvram_get_int("vpns_actl");
 #if defined (APP_OPENVPN)
 				if (i_vpns_type == 2) {
 					if (i_vpns_ov_mode == 1) {
@@ -2769,7 +2849,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			}
 #endif
 #if defined (APP_SSHD)
-			if (nvram_invmatch("sshd_enable", "0") && nvram_match("sshd_wopen", "1")) {
+			if (is_sshd_enabled && nvram_match("sshd_wopen", "1")) {
 				wport = nvram_get_int("sshd_wport");
 				lport = 22;
 				if (wport < 22 || wport > 65535) {
@@ -2782,7 +2862,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			}
 #endif
 #if defined (APP_FTPD)
-			if (nvram_invmatch("enable_ftp", "0") && nvram_match("ftpd_wopen", "1")) {
+			if (is_ftp_enabled && nvram_match("ftpd_wopen", "1")) {
 				wport = nvram_get_int("ftpd_wport");
 				lport = 21;
 				if (wport < 21 || wport > 65535) {
@@ -2825,12 +2905,12 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			if (i_vpns_enable) {
 #if defined (APP_OPENVPN)
 				if (i_vpns_type == 2) {
-					int i_prot = nvram_get_int("vpns_ov_prot");
+					int i_prot = i_vpns_ov_prot;
 					
 					/* OpenVPN IPv4 */
 					if (i_prot < 2) {
 						vpn_proto_mask |= 0x04;
-						ovpns_hash = nvram_safe_get_int("vpns_ov_port", 1194, 1, 65535);
+						ovpns_hash = i_vpns_ov_port;
 						if (i_prot == 1)
 							ovpns_hash |= (1u << 16);
 					}
@@ -2849,12 +2929,12 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			if (i_vpnc_enable) {
 #if defined (APP_OPENVPN)
 				if (i_vpnc_type == 2) {
-					int i_prot = nvram_get_int("vpnc_ov_prot");
+					int i_prot = i_vpnc_ov_prot;
 					
 					/* OpenVPN IPv4 */
 					if (i_prot < 2) {
 						vpn_proto_mask |= 0x04;
-						ovpnc_hash = nvram_safe_get_int("vpnc_ov_port", 1194, 1, 65535);
+						ovpnc_hash = i_vpnc_ov_port;
 						if (i_prot == 1)
 							ovpnc_hash |= (1u << 16);
 					}
