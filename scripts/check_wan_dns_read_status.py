@@ -500,13 +500,16 @@ for token in (
     "strlen(global_dns) > 6",
 ):
     require(token in dns_policy, "WAN DNS teardown decision is incomplete: " + token)
+teardown_test = (
+    ROOT / "trunk/user/rc/src/tests/wan_teardown_policy.c"
+).read_text()
 for case in (
     "test_ipoe_dns_snapshot_is_always_cleared",
     "test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present",
     "test_ppp_dns_snapshot_survives_global_read_failure",
     "test_dns_snapshot_clear_policy_rejects_invalid_arguments",
 ):
-    require(case in test, "WAN DNS teardown regression missing " + case)
+    require(case in teardown_test, "WAN DNS teardown regression missing " + case)
 print("WAN teardown preserves demand-PPP DNS when global MAN DNS cannot be read: PASS")
 
 

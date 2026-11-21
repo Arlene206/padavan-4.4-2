@@ -1,3 +1,11 @@
+## 2026-11-21 — Point WAN DNS teardown assertions at the correct regression file
+
+- Parent main SHA: 5ffef15005c54494712920ae2cf3983c648c6384.
+- WAN route run #44924697344 on `cd33dbd6c9fa9797edb495f07cf40b7018099a67` passed all prior policy checks but failed at the new DNS teardown test-name assertions. The checker was looking for cases implemented in `tests/wan_teardown_policy.c` inside the unrelated `tests/wan_nvram_status_policy.c` file.
+- Corrected the checker to read the dedicated WAN teardown policy test file. This fixes a test-source selection mistake only; production source/policy and the four DNS regression cases are unchanged. The same checker now also contains PPPoE-MWAN exact-match assertions for both WAN event handlers.
+
+---
+
 ## 2026-11-21 — Check PPPoE-MWAN enable state in WAN-up/down callbacks
 
 - Parent main SHA: 782adf90be019c2a9741a3e57cb981e4989207fc.

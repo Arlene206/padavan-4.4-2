@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Current source slice: check PPPoE-MWAN enable state before WAN-up/down calls to `detect.sh`.
-- Both event handlers use a checked exact-string NVRAM reader. Missing remains disabled; backend/API errors propagate into the WAN event's first-error accumulator; launcher results remain preserved.
-- Regression: exact string-match cases in `tests/wan_nvram_status_policy.c`; caller ordering in `scripts/check_wan_dns_read_status.py`. Exact-head WAN-route rerun and XY-C1 validation must be inspected after push.
-- First independent follow-up: continue the WAN control-plane NVRAM read audit; avoid redoing checked DNS teardown and already completed optional-daemon gates.
+- Current source slice: checked PPPoE-MWAN exact-enable decisions in WAN-up/down, plus the preceding demand-PPP DNS teardown preservation fix.
+- PPPoE-MWAN WAN-up/down gates now use `get_nvram_match_checked_status()`; missing remains disabled, backend errors enter the first-error accumulator, exact `"1"` is required to launch `detect.sh`.
+- The WAN route checker had a test ownership error: its four DNS teardown cases reside in `tests/wan_teardown_policy.c`, not `tests/wan_nvram_status_policy.c`. This checker-only correction reads the proper file. Exact-head rerun must verify the new checker and PPPoE policy tests.
+- First independent follow-up: continue the WAN control-plane NVRAM read audit after the PPPoE-MWAN and gateway-ARP decisions; avoid redoing already fixed DNS, ZeroTier and optional-daemon gates.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm the frozen backup is unchanged. Check exact-head WAN route, AI handoff and XY-C1 Build/TRX/artifact Actions for the PPPoE-MWAN checked-reader commit; inspect and fix any FAIL logs. Then continue one independent P1 network/service reliability defect.
+Fetch live `main` and verify the frozen backup remains unchanged. Check exact-head WAN route, teardown, AI handoff and XY-C1 Build/TRX/artifact Actions for the WAN checker correction; inspect failures and repair. Then continue the WAN event NVRAM audit with the DHCP gateway-ARP enable decision, using checked exact-string reads and regression coverage.
 
