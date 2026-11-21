@@ -187,5 +187,39 @@ main(void)
 	assert(!strcmp(firewall_schedule_value_or_default(1, "", "1111111"), ""));
 	assert(!strcmp(firewall_schedule_value_or_default(1, "0101010", "1111111"), "0101010"));
 
+	/* MAC filter entries are bounded by the WebUI's 64-row limit. */
+	assert(firewall_mac_filter_entry_count_is_safe(0));
+	assert(firewall_mac_filter_entry_count_is_safe(64));
+	assert(!firewall_mac_filter_entry_count_is_safe(-1));
+	assert(!firewall_mac_filter_entry_count_is_safe(65));
+
+	/* MAC values are validated before they become bare iptables tokens. */
+	{
+		char formatted[18];
+		assert(firewall_mac_filter_address_format("A1B2C3D4E5F6",
+							  formatted, sizeof(formatted)) == 1);
+		assert(!strcmp(formatted, "A1:B2:C3:D4:E5:F6"));
+		assert(firewall_mac_filter_address_format("a1b2c3d4e5f6",
+							  formatted, sizeof(formatted)) == 1);
+		assert(!strcmp(formatted, "a1:b2:c3:d4:e5:f6"));
+		assert(firewall_mac_filter_address_format("", formatted,
+							  sizeof(formatted)) == 0);
+		assert(formatted[0] == '\0');
+		assert(firewall_mac_filter_address_format("000000000000", formatted,
+							  sizeof(formatted)) == 0);
+		assert(firewall_mac_filter_address_format("ffffffffffff", formatted,
+							  sizeof(formatted)) == 0);
+		assert(firewall_mac_filter_address_format("A1B2C3D4E5G6", formatted,
+							  sizeof(formatted)) < 0);
+		assert(firewall_mac_filter_address_format("A1B2C3D4E5F", formatted,
+							  sizeof(formatted)) < 0);
+		assert(firewall_mac_filter_address_format("A1B2C3D4E5F6\nCOMMIT",
+							  formatted, sizeof(formatted)) < 0);
+		assert(firewall_mac_filter_address_format(NULL, formatted,
+							  sizeof(formatted)) < 0);
+		assert(firewall_mac_filter_address_format("A1B2C3D4E5F6",
+							  formatted, sizeof(formatted) - 1) < 0);
+	}
+
 	return 0;
 }

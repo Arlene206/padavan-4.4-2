@@ -344,6 +344,14 @@ jobs:
           assert "test_integer_errors_are_fail_closed_and_preserve_output" in firewall_nvram_test
           assert "test_backend_errors_preserve_status_and_output" in firewall_nvram_test
           assert "test_missing_key_uses_explicit_legacy_default" in firewall_nvram_test
+          mac_count_reader = body(firewall_source, "firewall_read_mac_filter_entry_count(int *entry_count)")
+          assert 'firewall_read_integer_setting("macfilter_num_x", 0, entry_count)' in mac_count_reader
+          assert "firewall_mac_filter_entry_count_is_safe(*entry_count)" in mac_count_reader
+          assert "firewall_abort_core_restore_after_staging_failure();" in mac_count_reader
+          assert "firewall_mac_filter_entry_count_is_safe(64)" in filter_test
+          assert "firewall_mac_filter_entry_count_is_safe(65)" in filter_test
+          assert "firewall_mac_filter_address_format" in filter_test
+          assert 'A1:B2:C3:D4:E5:F6' in filter_test
           ipv4_filter = body(firewall_source, "ipt_filter_rules(char *man_if")
           nat_gate = 'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)'
           assert nat_gate in ipv4_filter
@@ -572,11 +580,38 @@ jobs:
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               filter_builder = body(firewall_source, signature)
               mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"
+              mac_count_gate = "firewall_read_mac_filter_entry_count(&i_mac_filter_count)"
               assert mac_gate in filter_builder
-              assert filter_builder.index(mac_gate) < filter_builder.index("firewall_open_rule_file(")
+              assert mac_count_gate in filter_builder
+              assert filter_builder.index(mac_gate) < filter_builder.index(mac_count_gate) < filter_builder.index("firewall_open_rule_file(")
           assert 'nvram_get_int("macfilter_enable_x")' not in firewall_source
           assert 'nvram_match("fw_mac_drop", "1")' not in firewall_source
           assert 'nvram_match("fw_dos_x", "1")' not in firewall_source
+          mac_builder = body(firewall_source, "include_mac_filter(FILE *fp")
+          assert "include_mac_filter(FILE *fp, int mac_filter_mode, int num_entries," in firewall_source
+          assert "for (i = 0; i < num_entries; ++i)" in mac_builder
+          assert 'firewall_read_indexed_string_setting("macfilter_list_x", i,' in mac_builder
+          assert "firewall_mac_filter_address_format(" in mac_builder
+          assert "firewall_read_mac_filter_schedule(mac_timematch, i)" in mac_builder
+          assert "foreach_x(" not in mac_builder
+          assert "mac_conv(" not in mac_builder
+          assert "timematch_conv(" not in mac_builder
+          assert "cannot read or validate MAC-filter entry" in mac_builder
+          mac_schedule = body(firewall_source, "firewall_read_mac_filter_schedule(char *match, int index)")
+          mac_schedule_compact = " ".join(mac_schedule.split())
+          assert 'firewall_read_indexed_string_setting_with_presence("macfilter_date_x", index, &date_value, &date_present)' in mac_schedule_compact
+          assert 'firewall_read_indexed_string_setting_with_presence("macfilter_time_x", index, &time_value, &time_present)' in mac_schedule_compact
+          assert 'firewall_schedule_value_or_default(date_present, date_value, "1111111")' in mac_schedule_compact
+          assert 'firewall_schedule_value_or_default(time_present, time_value, "00002359")' in mac_schedule_compact
+          assert "return timematch_conv_values(match, date_buffer, time_buffer);" in mac_schedule
+          for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
+              builder = body(firewall_source, signature)
+              mac_call = "include_mac_filter(fp, i_mac_filter, i_mac_filter_count,"
+              assert mac_call in builder, signature
+              mac_abort = builder.index("firewall_abort_core_restore_after_staging_failure();", builder.index(mac_call))
+              mac_cleanup = builder.index("firewall_rule_file_remove(ipt_file);", mac_abort)
+              mac_return = builder.index("return -1;", mac_cleanup)
+              assert builder.index(mac_call) < mac_abort < mac_cleanup < mac_return
           for signature in (
               "ipt_filter_rules(char *man_if",
               "ipt_filter_default(void)",

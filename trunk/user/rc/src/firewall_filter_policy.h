@@ -160,6 +160,60 @@ firewall_lw_entry_count_is_safe(int count)
 	return count >= 0 && count <= 64;
 }
 
+/* The MAC filter page permits at most 64 stored client entries. */
+static int
+firewall_mac_filter_entry_count_is_safe(int count)
+{
+	return count >= 0 && count <= 64;
+}
+
+/*
+ * Convert the WebUI's 12-hex-digit MAC representation into an iptables token.
+ * Return 1 for a usable address, 0 for legacy empty/zero/broadcast sentinels,
+ * and -1 for malformed nonempty input or an invalid output buffer.
+ */
+static int
+firewall_mac_filter_address_format(const char *value, char *formatted,
+				   size_t formatted_size)
+{
+	size_t len;
+	int i, all_zero = 1, all_broadcast = 1;
+
+	if (!value || !formatted || formatted_size < 18)
+		return -1;
+
+	formatted[0] = '\0';
+	len = strlen(value);
+	if (len == 0)
+		return 0;
+	if (len != 12)
+		return -1;
+
+	for (i = 0; i < 12; ++i) {
+		unsigned char c = (unsigned char)value[i];
+
+		if (!((c >= '0' && c <= '9') ||
+		      (c >= 'a' && c <= 'f') ||
+		      (c >= 'A' && c <= 'F')))
+			return -1;
+		if (c != '0')
+			all_zero = 0;
+		if (c != 'f' && c != 'F')
+			all_broadcast = 0;
+	}
+	if (all_zero || all_broadcast)
+		return 0;
+
+	for (i = 0; i < 12; ++i) {
+		size_t out = (size_t)i + (size_t)i / 2U;
+		if (i != 0 && (i % 2) == 0)
+			formatted[out++] = ':';
+		formatted[out] = value[i];
+	}
+	formatted[17] = '\0';
+	return 1;
+}
+
 static int
 firewall_port_span_is_safe(const char *start, const char *end,
                            unsigned int *number)

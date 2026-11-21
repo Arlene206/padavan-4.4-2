@@ -504,6 +504,31 @@ firewall_read_lw_entry_count(int *entry_count)
 }
 
 static int
+firewall_read_mac_filter_entry_count(int *entry_count)
+{
+	int status;
+
+	if (!entry_count) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	status = firewall_read_integer_setting("macfilter_num_x", 0, entry_count);
+	if (status != 0)
+		return status;
+	if (!firewall_mac_filter_entry_count_is_safe(*entry_count)) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "invalid MAC-filter entry count %d; refusing firewall ruleset publication",
+			   *entry_count);
+		errno = ERANGE;
+		return ERANGE;
+	}
+
+	return 0;
+}
+
+static int
 firewall_read_mac_filter_settings(int *mode, int *drop_enabled)
 {
 	int status;
@@ -783,6 +808,28 @@ firewall_read_string_setting(const char *param_name, const char **value)
 }
 
 static int
+firewall_read_indexed_string_setting_with_presence(const char *param_name,
+						   int idx, const char **value,
+						   int *present)
+{
+	char nvram_name[64];
+	int name_len;
+
+	if (!param_name || !param_name[0] || idx < 0 || !value) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	name_len = snprintf(nvram_name, sizeof(nvram_name), "%s%d", param_name, idx);
+	if (name_len < 0 || name_len >= (int)sizeof(nvram_name)) {
+		errno = ERANGE;
+		return ERANGE;
+	}
+
+	return firewall_read_string_setting_with_presence(nvram_name, value, present);
+}
+
+static int
 firewall_read_indexed_string_setting(const char *param_name, int idx,
 				     const char **value)
 {
@@ -1027,6 +1074,56 @@ timematch_lw_filter_conv(char *mstr)
 	memcpy(time_buffer, time_value, value_len + 1);
 
 	return timematch_conv_values(mstr, date_buffer, time_buffer);
+}
+
+/*
+ * MAC schedules use the same legacy defaults as timematch_conv(), but checked
+ * reads distinguish absent keys from backend/close failures. Copy the first
+ * value before the next NVRAM access invalidates the shared cache pointer.
+ */
+static int
+firewall_read_mac_filter_schedule(char *match, int index)
+{
+	const char *date_value, *time_value;
+	char date_buffer[8], time_buffer[9];
+	size_t value_len;
+	int date_present, time_present, status;
+
+	if (!match || index < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	match[0] = '\0';
+
+	status = firewall_read_indexed_string_setting_with_presence(
+		"macfilter_date_x", index, &date_value, &date_present);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	date_value = firewall_schedule_value_or_default(date_present, date_value,
+							"1111111");
+	value_len = strlen(date_value);
+	if (value_len >= sizeof(date_buffer))
+		date_buffer[0] = '\0';
+	else
+		memcpy(date_buffer, date_value, value_len + 1);
+
+	status = firewall_read_indexed_string_setting_with_presence(
+		"macfilter_time_x", index, &time_value, &time_present);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	time_value = firewall_schedule_value_or_default(time_present, time_value,
+							"00002359");
+	value_len = strlen(time_value);
+	if (value_len >= sizeof(time_buffer))
+		time_buffer[0] = '\0';
+	else
+		memcpy(time_buffer, time_value, value_len + 1);
+
+	return timematch_conv_values(match, date_buffer, time_buffer);
 }
 
 static char *
@@ -1274,42 +1371,76 @@ failed:
 
 
 static int
-include_mac_filter(FILE *fp, int mac_filter_mode, char *logdrop)
+include_mac_filter(FILE *fp, int mac_filter_mode, int num_entries,
+		   char *logdrop, int *effective_mode)
 {
-	int i, mac_num;
-	char mac_timematch[128], mac_buf[24], nv_date[32], nv_time[32];
-	char *filter_mac, *ftype;
+	int i, mac_num, address_status, schedule_status, status, saved_errno;
+	char mac_timematch[128], mac_buf[24];
+	const char *mac_value, *ftype;
 	const char *dtype = IPT_CHAIN_NAME_MAC_LIST;
 
-	if (mac_filter_mode > 0) {
-		if (mac_filter_mode == 2)
-			ftype = logdrop;
-		else
-			ftype = "RETURN";
-		
-		mac_num = 0;
-		foreach_x("macfilter_num_x") {
-			g_buf_init();
-			
-			filter_mac = mac_conv("macfilter_list_x", i, mac_buf);
-			if (*filter_mac) {
-				mac_num++;
-				sprintf(nv_date, "macfilter_date_x%d", i);
-				sprintf(nv_time, "macfilter_time_x%d", i);
-				if (!timematch_conv(mac_timematch, nv_date, nv_time))
-					continue;
-				fprintf(fp, "-A %s -m mac --mac-source %s%s -j %s\n", dtype, filter_mac, mac_timematch, ftype);
-			}
+	if (!fp || !effective_mode || !firewall_mac_filter_entry_count_is_safe(num_entries)) {
+		errno = EINVAL;
+		return -1;
+	}
+	*effective_mode = mac_filter_mode;
+	if (mac_filter_mode <= 0)
+		return 0;
+
+	if (mac_filter_mode == 2)
+		ftype = logdrop;
+	else
+		ftype = "RETURN";
+
+	mac_num = 0;
+	for (i = 0; i < num_entries; ++i) {
+		status = firewall_read_indexed_string_setting("macfilter_list_x", i,
+							      &mac_value);
+		if (status != 0)
+			goto failed;
+
+		address_status = firewall_mac_filter_address_format(mac_value,
+								     mac_buf,
+								     sizeof(mac_buf));
+		if (address_status < 0) {
+			errno = EINVAL;
+			goto failed;
 		}
-		
-		if (mac_filter_mode != 2 && mac_num > 0)
-			fprintf(fp, "-A %s -j %s\n", dtype, logdrop);
-		
-		if (mac_num < 1)
-			mac_filter_mode = 0;
+		if (address_status == 0)
+			continue;
+
+		/* Preserve legacy accounting: configured rows count even if their
+		 * explicit schedule is currently inactive. */
+		mac_num++;
+		schedule_status = firewall_read_mac_filter_schedule(mac_timematch, i);
+		if (schedule_status < 0)
+			goto failed;
+		if (schedule_status == 0)
+			continue;
+
+		if (fprintf(fp, "-A %s -m mac --mac-source %s%s -j %s\n",
+			    dtype, mac_buf, mac_timematch, ftype) < 0) {
+			if (!errno)
+				errno = EIO;
+			goto failed;
+		}
 	}
 
-	return mac_filter_mode;
+	if (mac_filter_mode != 2 && mac_num > 0)
+		fprintf(fp, "-A %s -j %s\n", dtype, logdrop);
+
+	if (mac_num < 1)
+		*effective_mode = 0;
+
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	logmessage(LOGNAME,
+		   "cannot read or validate MAC-filter entry %d; refusing ruleset publication (errno=%d)",
+		   i, saved_errno);
+	errno = saved_errno;
+	return -1;
 }
 
 static int
@@ -1722,6 +1853,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
 	int is_lw_need_drop = 0, i_lw_count = 0, i_url_count = 0;
+	int i_mac_filter_count = 0;
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
 	int is_sshd_enabled = 1, is_ftp_enabled = 1;
@@ -1822,6 +1954,12 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
 		return ret;
+
+	if (i_mac_filter > 0) {
+		ret = firewall_read_mac_filter_entry_count(&i_mac_filter_count);
+		if (ret != 0)
+			return ret;
+	}
 
 	/* Preserve legacy nvram_invmatch(..., "0") defaults, but fail closed
 	 * on NVRAM read/close errors before any filter rules are staged. */
@@ -2058,7 +2196,15 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		fprintf(fp, ":%s - [0:0]\n", IPT_CHAIN_NAME_LOG_DROP);
 
 	// maclist chain
-	i_mac_filter = include_mac_filter(fp, i_mac_filter, logdrop);
+	if (include_mac_filter(fp, i_mac_filter, i_mac_filter_count,
+				    logdrop, &i_mac_filter) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)fclose(fp);
+		firewall_abort_core_restore_after_staging_failure();
+		firewall_rule_file_remove(ipt_file);
+		errno = saved_errno;
+		return -1;
+	}
 
 	// INPUT chain
 	dtype = "INPUT";
@@ -2690,7 +2836,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	char timematch[160], *ftype, *dtype;
 	int ret, saved_errno, wport, lport;
 	int ipv6_type, is_fw_enabled, is_url_enabled, is_url_inverse, is_logaccept, is_logdrop;
-	int i_url_count = 0;
+	int i_url_count = 0, i_mac_filter_count = 0;
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
 	int is_vpns_enabled = 0, i_vpns_type = 0;
@@ -2760,6 +2906,12 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
 		return ret;
+
+	if (i_mac_filter > 0) {
+		ret = firewall_read_mac_filter_entry_count(&i_mac_filter_count);
+		if (ret != 0)
+			return ret;
+	}
 
 	if (is_fw_enabled) {
 		ret = firewall_read_enabled_setting("vpns_enable", &is_vpns_enabled);
@@ -2950,7 +3102,15 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		fprintf(fp, ":%s - [0:0]\n", IPT_CHAIN_NAME_LOG_DROP);
 
 	// maclist chain
-	i_mac_filter = include_mac_filter(fp, i_mac_filter, logdrop);
+	if (include_mac_filter(fp, i_mac_filter, i_mac_filter_count,
+				    logdrop, &i_mac_filter) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)fclose(fp);
+		firewall_abort_core_restore_after_staging_failure();
+		firewall_rule_file_remove(ipt_file);
+		errno = saved_errno;
+		return -1;
+	}
 
 	// INPUT chain (accept_source_route=0 by default, no needed drop RH0 packet)
 	dtype = "INPUT";
