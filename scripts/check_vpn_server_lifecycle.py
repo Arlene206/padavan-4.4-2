@@ -990,6 +990,34 @@ require("nvram_match" not in xl2tpd_stop_set and
         "test_xl2tpd_stop_set_ownership_policy" in config_policy_test,
         "VPN shared xl2tpd stop-set must use checked ownership reads and tested dependency policy")
 
+server_acl_snapshot=body(vpn_openvpn,"openvpn_server_acl_read_snapshot(struct openvpn_server_acl_entry *entries,")
+ordered(server_acl_snapshot,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_num_x"',
+    "vpn_server_config_int_status",
+    '"vpns_user_x%d"',
+    "openvpn_server_acl_copy_text",
+    '"vpns_rnet_x%d"',
+    '"vpns_rmsk_x%d"',
+    "vpn_server_pool_parse_ipv4",
+    "vpn_server_route_netmask_status",
+    '"vpns_addr_x%d"',
+    "nvram_transaction_end(&transaction)",
+    "memcpy(entries, pending, sizeof(pending))"
+],"OpenVPN server ACL atomic snapshot")
+server_acl_writer=body(vpn_openvpn,"openvpn_create_server_acl(FILE *fp, const char *ccd, unsigned int vnet, unsigned int vmsk)")
+ordered(server_acl_writer,[
+    "openvpn_server_acl_read_snapshot(entries, &entry_count)",
+    "mkdir(vpns_ccd, 0755)",
+    "lstat(vpns_ccd, &ccd_stat)",
+    "for (i = 0; i < entry_count; ++i)",
+    "openvpn_config_file_open(ccf, staged_ccf",
+    "openvpn_config_file_publish(&fp_ccf, staged_ccf, ccf, 0644)"
+],"OpenVPN CCD publication must consume a complete validated ACL snapshot")
+require("nvram_get_int" not in server_acl_writer and
+        "nvram_safe_get" not in server_acl_writer and
+        "test_route_netmask_validation" in config_policy_test,
+        "OpenVPN server CCD writer must not use unchecked per-row NVRAM reads")
 callback_modes=body(vpn,"vpn_server_read_callback_mode_snapshot(int *virtual_mode, int *cast_mode)")
 ordered(callback_modes,[
     "nvram_transaction_begin(&transaction)",

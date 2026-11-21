@@ -54,7 +54,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 - Exact-head VPN lifecycle #44934584827 after the first checker correction reached a second stale assertion at line 498: an older shared-xl2tpd test still required the removed vpn_server_restart_should_restore_shared_xl2tpd() call. The conservative path now uses a transaction-read dependency snapshot and vpn_server_restart_should_attempt_restore_shared_xl2tpd(), then starts the daemon and propagates dependency-read failure. All compiled VPN regression steps passed before this source-contract failure. This commit aligns that remaining assertion with the new flow.
 
 
-- Exact-head checker correction b1c2a8743ac7232ba4ad5fe3cc53a5e6eca03110: VPN lifecycle #44934740188 PASS and AI handoff #44934740177 PASS. The callback-mode source checks therefore pass. On 6569, NVRAM audit #44934446421 and Process inventory #44934446571/#44934446418 PASS; HTTPD #44934446395, Firewall #44934446425, OpenVPN #44934446352 and AI docs #44934446376 PASS. XY-C1 #44934446423 remained in progress at the last poll; L3 remains verified only through d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192.
+- Exact-head xl2tpd stop-set ownership snapshot commit d93dc94dd989bf81049cd041b0b7bf4d3876a326: VPN lifecycle #44934938301, Firewall #44934938310, OpenVPN credential staging #44934938321, AI docs #44934938340, Process inventory #44934938302/#44934938299 and HTTPD #44934938324 PASS. NVRAM audit #44934938318 and XY-C1 #44934938330 were in progress at last poll. The task here is separate OpenVPN server CCD ACL read consistency; it does not change OpenVPN client credential staging.
 
 ## Workflow and preservation rules
 
@@ -74,6 +74,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, NVRAM audit and XY-C1 Actions for the shared-xl2tpd stop-set ownership snapshot. Require Build, TRX verification and artifact upload all PASS on the same product-source SHA.
-2. Continue the remaining VPN hardening through the OpenVPN callback/start-stop paths and audit any NVRAM-backed host or route inputs that still use compatibility getters. Do not affect unrelated OpenVPN client staging behavior.
-3. Preserve mandatory disconnect cleanup and existing shared-xl2tpd restart semantics; revisit this task only on same-SHA regression evidence.
+1. Inspect exact-head VPN lifecycle, NVRAM audit, and XY-C1 results for the OpenVPN server CCD ACL transaction snapshot. Confirm same-SHA Build, TRX verification and artifact upload all PASS before updating L3.
+2. Audit OpenVPN server config generation for remaining unchecked NVRAM-backed options: port/protocol/mode, virtual network, LAN DNS/WINS and cipher/auth/compression. Keep this independent from client secret staging.
+3. Then inspect OpenVPN server/client callbacks for remaining environment/NVRAM input validation gaps; preserve existing config-file atomic publication and certificate staging contracts.

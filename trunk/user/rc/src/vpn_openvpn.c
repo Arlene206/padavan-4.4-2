@@ -39,6 +39,7 @@
 #include "vpn_server_restart_policy.h"
 #include "route_status_policy.h"
 #include "vpn_client_nvram_policy.h"
+#include "vpn_server_config_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -225,13 +226,191 @@ openvpn_safe_path_component(const char *name)
 	return 1;
 }
 
+struct openvpn_server_acl_entry {
+	int present;
+	unsigned int address_offset;
+	char username[64];
+	char remote_network[16];
+	char remote_netmask[16];
+};
+
+static int
+openvpn_server_acl_copy_text(struct nvram_transaction *transaction,
+			     const char *name, char *destination,
+			     size_t destination_size)
+{
+	char *value = NULL;
+	size_t length = 0;
+	int read_status, read_errno;
+
+	if (!transaction || !name || !destination || destination_size == 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	errno = 0;
+	read_status = nvram_transaction_get(transaction, name, &value);
+	read_errno = errno;
+	if (read_status < 0) {
+		errno = read_errno > 0 ? read_errno : EIO;
+		return -1;
+	}
+	if (read_status == 0) {
+		destination[0] = '\0';
+		return 0;
+	}
+	if (read_status != 1 || !value) {
+		errno = EIO;
+		return -1;
+	}
+	while (length < destination_size && value[length])
+		++length;
+	if (length >= destination_size) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	memcpy(destination, value, length);
+	destination[length] = '\0';
+	return 0;
+}
+
+static int
+openvpn_server_acl_read_snapshot(struct openvpn_server_acl_entry *entries,
+				 int *entry_count)
+{
+	struct nvram_transaction transaction;
+	struct openvpn_server_acl_entry pending[MAX_CLIENTS_NUM];
+	char key[32], *value = NULL;
+	uint32_t parsed_address, parsed_mask;
+	int count = 0, address_offset = 0, read_status, read_errno;
+	int status, key_length, i;
+	int result = -1, saved_errno = 0, end_status;
+
+	if (!entries || !entry_count) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(pending, 0, sizeof(pending));
+	*entry_count = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "vpns_num_x", &value);
+	read_errno = errno;
+	status = vpn_server_config_int_status(read_status, read_errno, value,
+					      0, 0, MAX_CLIENTS_NUM, &count);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+
+	for (i = 0; i < count; ++i) {
+		key_length = snprintf(key, sizeof(key), "vpns_user_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (openvpn_server_acl_copy_text(&transaction, key,
+						 pending[i].username,
+						 sizeof(pending[i].username)) != 0)
+			goto finish_transaction;
+		if (!pending[i].username[0])
+			continue;
+		if (!openvpn_safe_path_component(pending[i].username)) {
+			errno = EINVAL;
+			goto finish_transaction;
+		}
+
+		key_length = snprintf(key, sizeof(key), "vpns_rnet_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (openvpn_server_acl_copy_text(&transaction, key,
+						 pending[i].remote_network,
+						 sizeof(pending[i].remote_network)) != 0)
+			goto finish_transaction;
+
+		key_length = snprintf(key, sizeof(key), "vpns_rmsk_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (openvpn_server_acl_copy_text(&transaction, key,
+						 pending[i].remote_netmask,
+						 sizeof(pending[i].remote_netmask)) != 0)
+			goto finish_transaction;
+
+		/* Empty network and mask mean this account has no CCD route. */
+		if (!pending[i].remote_network[0] && !pending[i].remote_netmask[0])
+			continue;
+		if (!pending[i].remote_network[0] || !pending[i].remote_netmask[0] ||
+		    vpn_server_pool_parse_ipv4(pending[i].remote_network,
+					       &parsed_address) != 0 ||
+		    vpn_server_pool_parse_ipv4(pending[i].remote_netmask,
+					       &parsed_mask) != 0 ||
+		    vpn_server_route_netmask_status(parsed_mask) != 0) {
+			errno = EINVAL;
+			goto finish_transaction;
+		}
+
+		key_length = snprintf(key, sizeof(key), "vpns_addr_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		value = NULL;
+		errno = 0;
+		read_status = nvram_transaction_get(&transaction, key, &value);
+		read_errno = errno;
+		status = vpn_server_config_int_status(read_status, read_errno,
+						      value, 0, 0, 255,
+						      &address_offset);
+		if (status != 0) {
+			errno = status;
+			goto finish_transaction;
+		}
+		pending[i].address_offset =
+			(address_offset > 1 && address_offset < 255) ?
+			(unsigned int)address_offset : 0U;
+		pending[i].present = 1;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	memcpy(entries, pending, sizeof(pending));
+	*entry_count = count;
+	return 0;
+}
+
 static int
 openvpn_create_server_acl(FILE *fp, const char *ccd, unsigned int vnet, unsigned int vmsk)
 {
-	int i, i_max, ccd_len;
-	char *acl_user, *acl_rnet, *acl_rmsk;
-	char acl_user_var[16], acl_rnet_var[16], acl_rmsk_var[16], vpns_ccd[64];
+	int i, entry_count, ccd_len;
+	char vpns_ccd[64];
+	struct openvpn_server_acl_entry entries[MAX_CLIENTS_NUM];
 	struct stat ccd_stat;
+
+	if (openvpn_server_acl_read_snapshot(entries, &entry_count) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage(SERVER_LOG_NAME,
+			   "cannot read complete OpenVPN server ACL snapshot (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 0;
+	}
 
 	ccd_len = snprintf(vpns_ccd, sizeof(vpns_ccd), "%s/%s", SERVER_ROOT_DIR, ccd);
 	if (ccd_len < 0 || ccd_len >= (int)sizeof(vpns_ccd)) {
@@ -257,60 +436,47 @@ openvpn_create_server_acl(FILE *fp, const char *ccd, unsigned int vnet, unsigned
 		return 0;
 	}
 
-	i_max = nvram_get_int("vpns_num_x");
-	if (i_max > MAX_CLIENTS_NUM)
-		i_max = MAX_CLIENTS_NUM;
+	for (i = 0; i < entry_count; ++i) {
+		FILE *fp_ccf;
+		char ccf[80], staged_ccf[128];
+		int ccf_len;
+		unsigned int address_offset;
 
-	for (i = 0; i < i_max; i++) {
-		snprintf(acl_user_var, sizeof(acl_user_var), "vpns_user_x%d", i);
-		snprintf(acl_rnet_var, sizeof(acl_rnet_var), "vpns_rnet_x%d", i);
-		snprintf(acl_rmsk_var, sizeof(acl_rmsk_var), "vpns_rmsk_x%d", i);
-		acl_user = nvram_safe_get(acl_user_var);
-		acl_rnet = nvram_safe_get(acl_rnet_var);
-		acl_rmsk = nvram_safe_get(acl_rmsk_var);
-		if (openvpn_safe_path_component(acl_user) &&
-		    is_valid_ipv4(acl_rnet) && is_valid_ipv4(acl_rmsk)) {
-			FILE *fp_ccf;
-			char ccf[80], staged_ccf[128];
-			int ccf_len;
+		if (!entries[i].present)
+			continue;
+		ccf_len = snprintf(ccf, sizeof(ccf), "%s/%s",
+				   vpns_ccd, entries[i].username);
+		if (ccf_len < 0 || ccf_len >= (int)sizeof(ccf)) {
+			errno = ENAMETOOLONG;
+			logmessage(SERVER_LOG_NAME,
+				   "client-config path too long for user entry %d", i);
+			return 0;
+		}
+		fp_ccf = openvpn_config_file_open(ccf, staged_ccf, sizeof(staged_ccf));
+		if (!fp_ccf) {
+			logmessage(SERVER_LOG_NAME,
+				   "cannot stage client-config file %s (errno=%d)", ccf, errno);
+			return 0;
+		}
+		address_offset = entries[i].address_offset;
+		if (address_offset > 1U && address_offset < 255U) {
+			struct in_addr pool_in;
 
-			ccf_len = snprintf(ccf, sizeof(ccf), "%s/%s", vpns_ccd, acl_user);
-			if (ccf_len < 0 || ccf_len >= (int)sizeof(ccf)) {
-				errno = ENAMETOOLONG;
-				logmessage(SERVER_LOG_NAME,
-					   "client-config path too long for user entry %d", i);
-				return 0;
-			}
-			fp_ccf = openvpn_config_file_open(ccf, staged_ccf, sizeof(staged_ccf));
-			if (!fp_ccf) {
-				logmessage(SERVER_LOG_NAME,
-					   "cannot stage client-config file %s (errno=%d)", ccf, errno);
-				return 0;
-			}
-			{
-				char acl_addr_var[16];
-				struct in_addr pool_in;
-				unsigned int vp_a;
-
-				snprintf(acl_addr_var, sizeof(acl_addr_var), "vpns_addr_x%d", i);
-				vp_a = (unsigned int)nvram_get_int(acl_addr_var);
-				if (vp_a > 1 && vp_a < 255) {
-					pool_in.s_addr = htonl((vnet & vmsk) | vp_a);
-					fprintf(fp_ccf, "ifconfig-push %s %s\n",
-						inet_ntoa(pool_in), VPN_SERVER_SUBNET_MASK);
-					fprintf(fp, "route %s %s %s\n",
-						acl_rnet, acl_rmsk, inet_ntoa(pool_in));
-				}
-				fprintf(fp_ccf, "iroute %s %s\n", acl_rnet, acl_rmsk);
-			}
-			if (openvpn_config_file_publish(&fp_ccf, staged_ccf, ccf, 0644) != 0) {
-				logmessage(SERVER_LOG_NAME,
-					   "cannot publish client-config file %s (errno=%d)", ccf, errno);
-				return 0;
-			}
+			pool_in.s_addr = htonl((vnet & vmsk) | address_offset);
+			fprintf(fp_ccf, "ifconfig-push %s %s\n",
+				inet_ntoa(pool_in), VPN_SERVER_SUBNET_MASK);
+			fprintf(fp, "route %s %s %s\n",
+				entries[i].remote_network,
+				entries[i].remote_netmask, inet_ntoa(pool_in));
+		}
+		fprintf(fp_ccf, "iroute %s %s\n",
+			entries[i].remote_network, entries[i].remote_netmask);
+		if (openvpn_config_file_publish(&fp_ccf, staged_ccf, ccf, 0644) != 0) {
+			logmessage(SERVER_LOG_NAME,
+				   "cannot publish client-config file %s (errno=%d)", ccf, errno);
+			return 0;
 		}
 	}
-
 	return 1;
 }
 

@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot OpenVPN server CCD ACL policy before file publication
+
+- Parent main SHA: d93dc94dd989bf81049cd041b0b7bf4d3876a326.
+- openvpn_create_server_acl() previously read the ACL row count, usernames, remote networks/masks and per-client address offsets with compatibility NVRAM getters while creating and publishing CCD files row-by-row. Backend failures collapsed to empty strings or zero, cached pointers were exposed to later getters, and an invalid/partial network pair could silently omit a client route.
+- Added one checked NVRAM transaction snapshot for the complete bounded ACL table. Each username and address is copied before another read; names must remain safe single path components; remote network/mask must be both empty or both present, parse as IPv4, and use a nonzero contiguous netmask; optional address offsets are bounded 0..255. Backend, parse, overlong-field and transaction-end errors abort before CCD directory creation or file publication.
+- CCD file publication now consumes only the completed snapshot, and no longer performs direct NVRAM reads. Existing route/iroute and static-address output rules remain unchanged for valid rows. Existing policy tests cover strict IPv4, bounded integer and contiguous netmask behavior; the lifecycle checker now asserts transaction-before-filesystem ordering and absence of compatibility getters.
+- Exact d93dc94 VPN lifecycle #44934938301, Firewall #44934938310, OpenVPN client credential #44934938321, AI docs #44934938340, Process #44934938302/#44934938299 and HTTPD #44934938324 PASS. NVRAM #44934938318 and XY-C1 #44934938330 were pending at last poll.
+
+---
+
 ## 2026-11-21 — Fail closed before VPN teardown when xl2tpd ownership is unreadable
 
 - Parent main SHA: b1c2a8743ac7232ba4ad5fe3cc53a5e6eca03110.
