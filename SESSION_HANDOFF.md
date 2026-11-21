@@ -25,24 +25,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- IPv4/IPv6 URL filters use bounded, checked keyword loading; IPv6 has the correct `ip6t_filter_rules()` symbol and aborts its staged transaction on URL keyword read failure.
-- The IPv6 URL rule emitter now writes a real newline, not a literal backslash-n.
-- Lightweight Filter schedule reads for `filter_lw_date_x` and `filter_lw_time_x` distinguish genuinely absent keys from backend/API/close errors. Missing keys keep legacy defaults; present-empty or malformed values remain inactive; checked-read errors abort staged IPv4 publication before ruleset apply.
-- Workflow contracts now match the checked LWF API. The `ee47e7f` checker fixes were incomplete: Firewall Startup used undefined Python `re`, and HTTPD still expected the removed unchecked LWF schedule expression. Both are corrected in this checkpoint.
-- Next source target: audit MAC-filter mode/count and per-entry address reads (UI cap 64), then establish the static-route UI bound before auditing its loops.
+- The IPv6 URL rule terminator is corrected, and Lightweight Filter schedule gating now uses presence-aware checked NVRAM reads. Missing keys preserve the legacy all-days/all-day defaults; present-empty/invalid/overlong entries remain inactive; backend/API/close errors abort staged IPv4 publication.
+- Exact-head CI on `ef324cc77a34420655ab63cb856120c5fad59dc7`: Firewall Startup #44953373884 failed in its source contract at the new reader-body substring count; HTTPD #44953373906 failed in its private-rule cleanup-count contract after the fail-closed URL/LWF staging paths added cleanup sites. Both are workflow-contract brittleness, not failures in the preceding compiled tests.
+- The firewall contract now slices the LWF helper by its actual source boundaries rather than the generic function-body parser. HTTPD now requires at least the original cleanup count rather than a brittle exact count.
+- Next source target: harden MAC filtering. The WebUI is expected to cap `macfilter_num_x` at 64; confirm the input and count contract, then make per-entry MAC/schedule reads checked and propagate errors before publishing rules. Follow with static routes after confirming their UI cap.
 
 ## Verification boundary
 
-- Exact parent `ee47e7f79e400d79361a62d2582816fd54652ad1` Actions: AI handoff #44953071474 PASS; Firewall Startup #44953071424 FAIL with `NameError: re is not defined` at Python line 500; HTTPD #44953071413 FAIL with an assertion at Python line 831 because it still required the old unchecked LWF schedule expression.
-- Parent `a16cd7b95d19ccd9057fdf117d794071ead768c4`: WAN route #44952833895, FULLCONENAT #44952833882, WAN DHCP #44952833872, Process #44952833889 and AI docs #44952833861 PASS; Firewall Startup #44952833879 and HTTPD #44952833897 failed at source-contract assertions. NVRAM #44952833900 and XY-C1 #44952833916 were still in progress at last query; XY was at Build XY-C1.
-- No local C test or firmware build is available in this Git-data-only workspace. No L3 claim without same-SHA Build XY-C1, TRX and artifact-upload PASS; hardware L4 remains NOT VERIFIED.
-- This checkpoint's exact SHA is the new live `main` commit containing this file. Fetch `refs/heads/main` and validate only its push-event runs.
+- Exact parent `ef324cc77a34420655ab63cb856120c5fad59dc7`: WAN route #44953373909 PASS; Process inventory #44953373841 PASS; AI handoff #44953373949 PASS; FULLCONENAT #44953373928 PASS; WAN DHCP #44953373881 PASS. Firewall Startup #44953373884 failed at source-contract line 511; HTTPD #44953373906 failed in the later firewall private-rule cleanup-count contract. NVRAM #44953373840 and XY-C1 #44953373845 remained IN_PROGRESS at last poll (XY-C1 had reached toolchain setup before Build).
+- Earlier C regression steps within Firewall Startup completed PASS before the source-contract assertion. HTTPD's URL sanitizer, firewall token-validation and VPN lease contracts preceding the cleanup check completed PASS.
+- No local test/build and no completed same-SHA XY-C1 build/TRX/artifact evidence. No L3 claim; hardware L4 remains NOT VERIFIED.
+- This checkpoint's exact SHA is the new main commit made from this parent. Re-fetch main and only use its exact push-event Actions.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; query exact-head Firewall Startup, HTTPD, NVRAM and any XY-C1 Actions for this checkpoint. Diagnose the first causal failure from its logs.
-2. Continue the MAC-filter audit using the WebUI's 64-entry cap: check count/mode reads, per-entry addresses, schedules, and whether read errors can omit or broaden a deny policy. Add C/source regressions.
-3. Inspect static-route UI code to establish its actual entry cap before reviewing count and per-entry reads. Do not modify the frozen backup branch.
+1. Re-fetch main; query its exact-head Firewall Startup, HTTPD, NVRAM and XY-C1 runs. Confirm both repaired source-contract suites pass; inspect logs if not.
+2. Continue MAC filter audit: inspect WebUI cap, checked mode/count and per-entry address/date/time reads. Preserve absent-key defaults while failing closed on actual read errors.
+3. Audit static-route UI input maximum and all per-entry conversions only after the limit is proven. Do not modify the frozen backup branch.
 
 ## Workflow and preservation rules
 

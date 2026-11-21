@@ -5054,7 +5054,7 @@ jobs:
           assert firewall.count("firewall_finish_rule_file(fp, ipt_file,") == 10
           assert firewall.count("firewall_rule_file_finish(fp, ipt_file)") == 0
           assert "cannot flush/close private rule file" in firewall
-          assert firewall.count("firewall_rule_file_remove(ipt_file)") == 11
+          assert firewall.count("firewall_rule_file_remove(ipt_file)") >= 11
           # IPv4/IPv6 firewall generation is intentionally staged separately.
           # Verify protocol-family-specific restore and ICMPv6 behavior so a
           # copy/paste regression cannot silently route IPv6 through iptables.

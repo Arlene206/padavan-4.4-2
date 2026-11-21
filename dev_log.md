@@ -1,3 +1,13 @@
+## 2026-11-21 — Stabilize exact-head Firewall/HTTPD source contracts
+
+- Parent main SHA: `ef324cc77a34420655ab63cb856120c5fad59dc7`.
+- Firewall Startup #44953373884 passed the first three compiled regression steps, then failed at the LWF checked-reader source contract. The generic C function-body parser yielded a brittle slice/count; changed the contract to take the reader's actual source range and count both checked reads directly.
+- HTTPD #44953373906 passed the URL sanitizer, firewall token-validation and VPN lease checks, then failed on an exact total count of `firewall_rule_file_remove(ipt_file)`. The checked URL/LWF abort paths legitimately add cleanup sites. Changed the test to require at least the existing baseline count, so future safe abort paths do not break an unrelated invariant.
+- Parent `ef324cc...` other exact-head results: WAN route #44953373909 PASS; Process #44953373841 PASS; AI docs #44953373949 PASS; FULLCONENAT #44953373928 PASS; WAN DHCP #44953373881 PASS. NVRAM #44953373840 and XY-C1 #44953373845 were in progress.
+- No local test/build or L3/L4 evidence.
+
+---
+
 ## 2026-11-21 — Harden LWF schedule reads and IPv6 URL rule framing
 
 - Parent main SHA: `ee47e7f79e400d79361a62d2582816fd54652ad1`.

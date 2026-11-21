@@ -651,7 +651,9 @@ jobs:
           assert ipv4_filter.index(lw_mode_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert ipv4_filter.index(lw_count_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert "include_lw_filter(fp, wan_if, logaccept, logdrop," in ipv4_filter
-          lw_schedule_reader = body(firewall_source, "timematch_lw_filter_conv(char *mstr)")
+          lw_schedule_start = firewall_source.index("timematch_lw_filter_conv(char *mstr)")
+          lw_schedule_end = firewall_source.index("\\nstatic char *\\niprange_ex_conv", lw_schedule_start)
+          lw_schedule_reader = firewall_source[lw_schedule_start:lw_schedule_end]
           assert lw_schedule_reader.count("firewall_read_string_setting_with_presence(") == 2
           assert 'firewall_read_string_setting_with_presence("filter_lw_date_x", &date_value, &date_present)' in lw_schedule_reader
           assert 'firewall_read_string_setting_with_presence("filter_lw_time_x", &time_value, &time_present)' in lw_schedule_reader
