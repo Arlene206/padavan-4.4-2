@@ -1845,10 +1845,15 @@ miniupnpd_write_config(FILE *fp, void *opaque)
 	return 0;
 }
 
+static int stop_upnp_locked(void);
+
 static int
 start_upnp_locked(void)
 {
-	int ret, i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
+	int ret, launch_status, start_status, start_errno;
+	int rollback_status, rollback_scan_error = 0;
+	int i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
+	enum process_presence rollback_presence;
 	int scan_error, presence_error;
 	int url_error;
 	enum process_presence state;
@@ -1965,10 +1970,34 @@ start_upnp_locked(void)
 		return presence_error;
 	}
 
-	ret = eval("/usr/bin/miniupnpd");
-	ret = miniupnpd_confirm_started(ret);
-	if (ret != 0)
-		logmessage(LOGNAME, "miniupnpd failed to remain active after start (status %d)", ret);
+	launch_status = eval("/usr/bin/miniupnpd");
+	start_status = miniupnpd_confirm_started(launch_status);
+	if (start_status != 0) {
+		/*
+		 * eval() only reports the launcher result. The detached daemon may
+		 * already be active even when the startup wait/inventory fails.
+		 * Roll it back under the already-held MiniUPnP lifecycle lock.
+		 */
+		start_errno = errno > 0 ? errno :
+			(start_status > 0 ? start_status : EIO);
+		rollback_status = stop_upnp_locked();
+		rollback_presence = miniupnpd_process_presence(&rollback_scan_error);
+		if (miniupnpd_failed_start_may_leave_daemon(rollback_presence)) {
+			logmessage(LOGNAME,
+				   "miniupnpd may remain active after failed start (start_status=%d, rollback_status=%d, state=%d, scan_error=%d)",
+				   start_status, rollback_status, rollback_presence,
+				   rollback_scan_error);
+		} else if (rollback_status != 0) {
+			logmessage(LOGNAME,
+				   "miniupnpd is absent after failed-start rollback but stop reported status=%d",
+				   rollback_status);
+		}
+		/* Rollback diagnostics must never replace the original start error. */
+		errno = start_errno;
+		ret = start_status;
+	} else {
+		ret = 0;
+	}
 	return ret;
 }
 

@@ -12,6 +12,8 @@ INADYN_LOCK = (RC / "inadyn_lifecycle_lock.h").read_text()
 DNSMASQ_LOCK = (RC / "dnsmasq_lifecycle_lock.h").read_text()
 VPN_SERVER_LOCK = (RC / "vpn_server_lifecycle_lock.h").read_text()
 RC_H = (RC / "rc.h").read_text()
+DAEMON_POLICY = (RC / "miniupnpd_daemon_policy.h").read_text()
+DAEMON_TEST = (RC / "tests/miniupnpd_daemon_policy_test.c").read_text()
 
 
 def body(source: str, signature: str) -> str:
@@ -132,7 +134,21 @@ assert start.index("miniupnpd_config_publish(") < start.index(
     "miniupnpd launch aborted: daemon appeared during configuration"
 ) < start.index('eval("/usr/bin/miniupnpd")')
 assert start.count("miniupnpd_process_presence(&scan_error)") >= 2
-assert "miniupnpd_confirm_started(ret)" in start
+assert "miniupnpd_confirm_started(launch_status)" in start
+assert "if (start_status != 0)" in start
+assert "start_errno = errno > 0 ? errno :" in start
+assert "rollback_status = stop_upnp_locked()" in start
+assert "rollback_presence = miniupnpd_process_presence(&rollback_scan_error)" in start
+assert "miniupnpd_failed_start_may_leave_daemon(rollback_presence)" in start
+assert "errno = start_errno;" in start
+assert "ret = start_status;" in start
+assert start.index("miniupnpd_confirm_started(launch_status)") < start.index("stop_upnp_locked()")
+assert start.index("stop_upnp_locked()") < start.index("miniupnpd_process_presence(&rollback_scan_error)")
+assert start.index("miniupnpd_process_presence(&rollback_scan_error)") < start.index("miniupnpd_failed_start_may_leave_daemon")
+assert start.index("miniupnpd_failed_start_may_leave_daemon") < start.index("errno = start_errno;")
+assert "miniupnpd_failed_start_may_leave_daemon(enum process_presence state)" in DAEMON_POLICY
+assert "return state != PROCESS_PRESENCE_ABSENT;" in DAEMON_POLICY
+assert "miniupnpd_test_failed_start_rollback_policy" in DAEMON_TEST
 
 stop = body(SERVICES, "stop_upnp_locked(void)")
 assert stop.index("kill_services(svcs, 3, 1)") < stop.index(

@@ -161,12 +161,22 @@ miniupnpd_test_update_desired_state(void)
 	assert(miniupnpd_update_should_stop(0, 0, 0));
 }
 
+static void
+miniupnpd_test_failed_start_rollback_policy(void)
+{
+	assert(!miniupnpd_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
+	assert(miniupnpd_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
+	assert(miniupnpd_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));
+	assert(miniupnpd_failed_start_may_leave_daemon((enum process_presence)7));
+}
+
 int
 main(void)
 {
 	miniupnpd_test_presence_policy();
 	miniupnpd_test_identity_bound_signal();
 	miniupnpd_test_update_desired_state();
+	miniupnpd_test_failed_start_rollback_policy();
 
 	assert(miniupnpd_start_policy_status(EIO, 0) == EIO);
 	assert(miniupnpd_start_policy_status(EIO, 1) == EIO);

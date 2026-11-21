@@ -26,6 +26,13 @@ miniupnpd_stop_policy_status(int stop_status, int daemon_running)
 	return daemon_running ? EBUSY : 0;
 }
 
+/* A failed detached start must treat UNKNOWN as possibly still active. */
+static int
+miniupnpd_failed_start_may_leave_daemon(enum process_presence state)
+{
+	return state != PROCESS_PRESENCE_ABSENT;
+}
+
 
 enum miniupnpd_daemon_action {
 	MINIUPNPD_DAEMON_ABORT = -1,
