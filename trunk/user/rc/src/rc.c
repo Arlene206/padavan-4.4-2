@@ -742,7 +742,13 @@ nvram_convert_misc_values(void)
 	status = set_wan0_vars();
 	if (status != 0)
 		return status;
-	set_usb_modem_dev_wan(0, 0);
+	status = set_usb_modem_dev_wan(0, 0);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "Router initialization stopped: cannot clear USB modem WAN selection (status=%d)",
+			   status);
+		return status;
+	}
 	/*
 	 * WAN reset stages the protocol, route, credentials and runtime address
 	 * tuple. Do not let PID 1 continue boot with a partially reset WAN.

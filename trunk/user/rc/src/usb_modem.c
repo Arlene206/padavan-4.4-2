@@ -946,7 +946,7 @@ int
 safe_remove_usb_modem(void)
 {
 	const char *pidfiles[2];
-	int stop_status;
+	int stop_status, publish_status;
 
 	/* Never terminate unrelated USB mode-switch or storage eject jobs. */
 	if (usb_modem_require_no_active_process("usb_modeswitch") != 0 ||
@@ -979,7 +979,13 @@ safe_remove_usb_modem(void)
 		}
 	}
 
-	set_usb_modem_dev_wan(0, 0);
+	publish_status = set_usb_modem_dev_wan(0, 0);
+	if (publish_status != 0) {
+		logmessage(LOGNAME,
+			   "USB modem processes stopped, but WAN modem selection could not be cleared (status=%d)",
+			   publish_status);
+		return publish_status;
+	}
 	return 0;
 }
 

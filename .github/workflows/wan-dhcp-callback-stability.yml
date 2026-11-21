@@ -59,6 +59,11 @@ on:
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
       - "trunk/user/rc/src/bridge_init_policy.h"
       - "trunk/user/rc/src/tests/bridge_init_policy.c"
+      - "scripts/check_usb_modem_dev_wan_status.py"
+      - "trunk/user/shared/src/usb_modem_wan_policy.h"
+      - "trunk/user/rc/src/tests/usb_modem_wan_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/usb_modem.c"
   pull_request:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
@@ -118,11 +123,25 @@ on:
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
       - "trunk/user/rc/src/bridge_init_policy.h"
       - "trunk/user/rc/src/tests/bridge_init_policy.c"
+      - "scripts/check_usb_modem_dev_wan_status.py"
+      - "trunk/user/shared/src/usb_modem_wan_policy.h"
+      - "trunk/user/rc/src/tests/usb_modem_wan_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/usb_modem.c"
 jobs:
   wan-dhcp-callback:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run USB modem WAN selection publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/usb_modem_wan_policy.c \
+            -o /tmp/usb-modem-wan-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/usb-modem-wan-policy
+          python3 scripts/check_usb_modem_dev_wan_status.py
       - name: Compile and run WAN interface-name bounds regression
         run: |
           set -eu

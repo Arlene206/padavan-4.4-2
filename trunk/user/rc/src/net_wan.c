@@ -4466,7 +4466,13 @@ full_restart_wan(void)
 			   status);
 		return status;
 	}
-	select_usb_modem_to_wan();
+	status = select_usb_modem_to_wan();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "aborting full WAN restart because USB modem selection could not be published (status=%d)",
+			   status);
+		return status;
+	}
 	notify_reset_detect_link();
 	switch_vlan_status = switch_config_vlan(0);
 	if (switch_vlan_status != 0) {
@@ -4533,8 +4539,15 @@ try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 		logmessage(LOGNAME, "WAN up delay: %lds.", pause_in_seconds);
 		return 0;
 	}
-	if (try_use_modem)
-		select_usb_modem_to_wan();
+	if (try_use_modem) {
+		status = select_usb_modem_to_wan();
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "aborting WAN reconnect because USB modem selection could not be published (status=%d)",
+				   status);
+			return status;
+		}
+	}
 	notify_reset_detect_link();
 	status = start_wan();
 	return merge_l2tp_server_start_status(status);
@@ -4553,7 +4566,13 @@ deferred_wan_connect(void)
 			   status);
 		return status;
 	}
-	select_usb_modem_to_wan();
+	status = select_usb_modem_to_wan();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "aborting deferred WAN startup because USB modem selection could not be published (status=%d)",
+			   status);
+		return status;
+	}
 	notify_reset_detect_link();
 	status = start_wan();
 	return merge_l2tp_server_start_status(status);
@@ -5232,10 +5251,11 @@ del_static_man_routes(char *man_ifname)
 	return control_static_routes(SR_PREFIX_MAN, man_ifname, 0);
 }
 
-void
+int
 select_usb_modem_to_wan(void)
 {
 	int modem_devnum = 0;
+	int status;
 
 #if defined (USE_USB_SUPPORT)
 	/* check modem enabled and ready */
@@ -5257,7 +5277,14 @@ select_usb_modem_to_wan(void)
 		}
 	}
 #endif
-	set_usb_modem_dev_wan(0, modem_devnum);
+	status = set_usb_modem_dev_wan(0, modem_devnum);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish selected USB modem device for WAN0 (devnum=%d, status=%d)",
+			   modem_devnum, status);
+		return status;
+	}
+	return 0;
 }
 
 int

@@ -171,7 +171,7 @@ extern int       get_wan_proto(int unit);
 extern char*     get_man_ifname(int unit);
 extern int       get_usb_modem_wan(int unit);
 extern int       get_usb_modem_dev_wan(int unit, int devnum);
-extern void      set_usb_modem_dev_wan(int unit, int devnum);
+extern int       set_usb_modem_dev_wan(int unit, int devnum);
 extern int       get_wan_ether_link_cached(void);
 extern int       get_internet_state_cached(void);
 extern int       ifconfig(const char *ifname, int flags, const char *addr, const char *mask);

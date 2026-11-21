@@ -286,7 +286,7 @@ void man_up(char *man_ifname, int unit, int is_static);
 void man_down(char *man_ifname, int unit);
 int wan_up(char *wan_ifname, int unit, int is_static);
 int wan_down(char *wan_ifname, int unit, int is_static);
-void select_usb_modem_to_wan(void);
+int select_usb_modem_to_wan(void);
 int full_restart_wan(void);
 int try_wan_reconnect(int try_use_modem, long pause_in_seconds);
 int auto_wan_reconnect(void);

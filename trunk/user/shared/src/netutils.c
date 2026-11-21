@@ -43,6 +43,7 @@
 #include <ifaddrs.h>
 
 #include "nvram_linux.h"
+#include "usb_modem_wan_policy.h"
 #include "netutils.h"
 #include "shutils.h"
 #include "bridge_membership_policy.h"
@@ -322,13 +323,23 @@ get_usb_modem_dev_wan(int unit, int devnum)
 		return 0;
 }
 
-void
+static int
+usb_modem_wan_set_temp_int(void *context, const char *name, int value)
+{
+	(void)context;
+	return nvram_set_int_temp(name, value);
+}
+
+int
 set_usb_modem_dev_wan(int unit, int devnum)
 {
-	char tmp[32], prefix[16];
+	int status;
 
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-	nvram_set_int_temp(strcat_r(prefix, "modem_dev", tmp), devnum);
+	status = usb_modem_wan_publish_nvram(
+		unit, devnum, usb_modem_wan_set_temp_int, NULL);
+	if (status != 0)
+		errno = status;
+	return status;
 }
 
 int
