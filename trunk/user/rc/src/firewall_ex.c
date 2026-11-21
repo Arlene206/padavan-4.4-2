@@ -2746,6 +2746,16 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	}
 
 	if (is_nat_enabled && is_fw_enabled) {
+#if defined (APP_SSHD)
+		firewall_status = firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+#endif
+#if defined (APP_FTPD)
+		firewall_status = firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+#endif
 #if defined (SUPPORT_HTTPS)
 		firewall_status = firewall_read_integer_setting("http_proto", 0, &i_http_proto);
 		if (firewall_status != 0)

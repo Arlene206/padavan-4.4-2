@@ -1,3 +1,12 @@
+## 2026-11-21 — Restore SSH/FTP enabled gates in NAT listener preflight
+
+- Parent main SHA: `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79`.
+- Exact-head Firewall Startup #44949619993 failed in `Verify required NAT restore gates WAN startup`: the source checker expected `firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled)` and the FTP equivalent inside `ipt_nat_rules()`. The previous listener-port change had replaced the earlier service-enable reads and omitted them in the new block, leaving the locals at legacy-enabled initial values.
+- Restored both checked inverted enable reads before the HTTP/HTTPS/SSH/FTP/UDPXY port checks. The same workflow assertion remains in place and now guards against this regression.
+- Parent 29a AI docs #44949620120 PASS; Firewall Startup #44949619993 FAIL (fixed here); NVRAM #44949620067 and XY-C1 #44949620017 were running. New exact-head validation pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Fail closed on IPv4 remote-DNAT listener port reads
 
 - Parent main SHA: `70c0d4c097d68177d698bc88031f829d2a6ecd9a`.

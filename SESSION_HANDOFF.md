@@ -25,18 +25,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- In `ipt_nat_rules()`, remote-management DNAT ports still used unchecked integer getters. A failed `sshd_wport` read collapsed to zero, then triggered the legacy invalid-value fallback to port 10022 and created a WAN SSH DNAT rule; analogous fallback behavior affected HTTP (8080), HTTPS (8443), and FTP (21). UDPXY's external-port read failure could silently fall back to its internal port and publish a different WAN mapping.
-- This slice preflights HTTP protocol and active HTTP/HTTPS/SSH/FTP/UDPXY port pairs through `firewall_read_integer_setting()` before opening the NAT rules file. It reads only feature/remote-open paths that the existing flags select, keeps missing-key zero values and the established port-range fallback behavior, but aborts staged rule generation on backend/read/close or malformed-present-value errors instead of synthesizing a new externally reachable port.
-- The firewall workflow now requires all nine listener selectors to be checked before `firewall_open_rule_file()` and rejects the old direct getters. The existing GNU89/Werror/ASan/UBSan policy helper regression covers strict integers and backend errors.
+- The remote-DNAT listener-port preflight in `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79` accidentally replaced the earlier checked SSH/FTP enable reads instead of preserving them. The workflow caught this: exact-head Firewall Startup #44949619993 failed its source contract because `ipt_nat_rules()` no longer called `firewall_read_not_zero_setting()` for `sshd_enable` and `enable_ftp`. The variables remained initialized to enabled, so open-WAN flags could emit DNAT despite those services being disabled.
+- This follow-up restores both checked not-zero enable reads at the start of the NAT listener preflight, before port reads and before `firewall_open_rule_file()`. Existing service feature guards and missing-key legacy defaults are retained. This is a production behavior correction, not merely weakening the test.
+- The listener-port checks remain intact: HTTP protocol and active HTTP/HTTPS/SSH/FTP/UDPXY ports are read with strict checked integer helpers before staging; backend/parse/close errors abort instead of generating default WAN DNAT ports.
 ## Verification boundary
 
-- IPv4 NAT VPN/UPnP and IPv6 inverted selectors source `70c0d4c097d68177d698bc88031f829d2a6ecd9a`: Firewall Startup #44949461661 and AI docs #44949461610 passed; XY-C1 #44949461605 and NVRAM #44949461623 were still running at last poll. Parent NAT source `3447846...` Firewall Startup #44949286687 passed and AI docs #44949286648 passed; XY-C1 #44949291903 was still running and NVRAM #44949286631 was canceled after subsequent pushes.
-- The current remote-DNAT listener-port slice requires fresh exact-head Firewall Startup, Process/NVRAM/AI, and XY-C1 Build/TRX/artifact. No local test/build or L3/L4 claim.
+- IPv4 NAT/IPv6 firewall source `70c0d4c097d68177d698bc88031f829d2a6ecd9a`: Firewall Startup #44949461661 and AI docs #44949461610 PASS; XY-C1 #44949461605 and NVRAM #44949461623 were still running at the last check.
+- Remote-DNAT listener preflight commit `29a7c9a5e41bf8444a1a782b26ad0ecb2b8f1e79`: AI docs #44949620120 PASS; Firewall Startup #44949619993 FAIL due missing rechecked SSH/FTP enabled flags; NVRAM #44949620067 and XY-C1 #44949620017 were in progress. Failure logs pinpointed the source-contract assertion; the current commit restores the missing reads.
+- Current follow-up requires a fresh exact-head Firewall Startup/AI/NVRAM/Process check and XY-C1 Build/TRX/artifact. No L3/hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Query exact current main SHA and inspect Firewall Startup for checked remote-DNAT listener preflight. Confirm source contracts and GNU89/ASan/UBSan helper run; inspect all exact-head checks and XY-C1 Build/TRX/artifact.
-2. Continue the IPv6 listener-port review and inspect `include_vts_nat()` for unchecked user-controlled port/range reads. Preserve existing default/range behavior while ensuring NVRAM backend errors cannot publish new WAN exposure.
-3. Preserve backup and atomic non-force expected-SHA commits only.
+1. Query exact-head Firewall Startup and AI docs for the restored SSH/FTP preflight; require its C policy tests and all IPv4 NAT / IPv6 contracts to pass. Confirm the new `sshd_enable` / `enable_ftp` gate assertions now match source.
+2. Track XY-C1 build, TRX and artifact upload on a single exact source SHA; re-query the parent build only as parent evidence. Check NVRAM and Process exact-head results.
+3. Continue auditing DMZ bypass exception rules for Transmission/Aria service-enable and port reads; backend failure must not omit router-service exclusions from DMZ forwarding.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.
