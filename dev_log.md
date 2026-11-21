@@ -1,3 +1,14 @@
+## 2026-11-21 — Serialize WAN route ownership snapshot across NVRAM reads
+
+- Parent main SHA: `0b97739fdc80a5273b5388f327469e95df4bfb05`.
+- Fixed a concrete teardown TOCTOU hazard: `wan_down_internal()` previously read `wanN_ipaddr`, `wanN_gateway` and `wanN_netmask` through three separately locked API calls, allowing a concurrent writer to mix generations before deciding whether the WAN-owned gateway /32 should be deleted.
+- Added `wan_unit_route_snapshot()`, which reads the three route-ownership fields under one exclusive NVRAM transaction using the existing checked snapshot helper. PPP links continue to use a gateway-only checked read because they do not own this /32 route.
+- Failure handling deliberately preserves default-route cleanup: when the complete snapshot fails, every ownership field is invalidated and its status denies /32 deletion, then a separate checked gateway-only fallback may still remove the default route. A successful tuple uses the same generation for default and host-route decisions.
+- Added a three-field transactional regression with success and failure-at-each-field coverage; updated the exact WAN route workflow's source contract to enforce transaction wiring, deny-on-failure and the separate default-route fallback.
+- XY-C1 validation remains VERIFIED only for product-source SHA `335fddd5b61d20e22987da948136c412cf4bbf81`; this changes production source, so the current WAN behavior needs a fresh exact-head regression and XY-C1 L3 validation. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Align crond lifecycle contracts with checked enable reads
 
 - Parent main SHA: `fac45a05fa27110c2301e72829666e2fbe0d32fc`.

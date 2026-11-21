@@ -462,6 +462,61 @@ wan_static_ipv4_snapshot(int unit, const char *wan_addr_suffix,
 }
 
 
+/*
+ * WAN gateway, address and netmask must describe one NVRAM generation before
+ * teardown can decide whether WAN-up owns an off-subnet gateway /32 route.
+ */
+static int
+wan_unit_route_snapshot(int unit,
+			char *gateway, size_t gateway_size,
+			char *wan_addr, size_t wan_addr_size,
+			char *wan_mask, size_t wan_mask_size)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[3];
+	char gateway_key[64], address_key[64], netmask_key[64];
+	int length;
+
+	if (unit < 0 || !gateway || !gateway_size ||
+	    !wan_addr || !wan_addr_size || !wan_mask || !wan_mask_size)
+		return EINVAL;
+
+	length = snprintf(gateway_key, sizeof(gateway_key),
+			  "wan%d_gateway", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(gateway_key))
+		return ENAMETOOLONG;
+	length = snprintf(address_key, sizeof(address_key),
+			  "wan%d_ipaddr", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(address_key))
+		return ENAMETOOLONG;
+	length = snprintf(netmask_key, sizeof(netmask_key),
+			  "wan%d_netmask", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(netmask_key))
+		return ENAMETOOLONG;
+
+	fields[0].param_name = gateway_key;
+	fields[0].destination = gateway;
+	fields[0].destination_size = gateway_size;
+	fields[1].param_name = address_key;
+	fields[1].destination = wan_addr;
+	fields[1].destination_size = wan_addr_size;
+	fields[2].param_name = netmask_key;
+	fields[2].destination = wan_mask;
+	fields[2].destination_size = wan_mask_size;
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, 3, wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &transaction);
+}
+
+
 #define WAN_MAN_DNS_SNAPSHOT_MAX 512
 
 static int
@@ -4717,6 +4772,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	int pppoemwan_status, pppoemwan_enabled;
 	int statistics_status;
 	int wan_addr_status, wan_gate_status, wan_mask_status;
+	int route_snapshot_status;
 	int force_clear_wan_dns, wan_dns_read_status, clear_wan_dns;
 	char wanx_dns[256];
 #if defined (USE_IPV6)
@@ -4803,25 +4859,52 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 	/*
-	 * Snapshot route inputs through the checked NVRAM API. A backend error must
-	 * be visible to WAN-down rather than looking like an empty gateway/address.
+	 * The default route can be removed with a checked gateway-only read, but
+	 * the optional gateway /32 is owned by this WAN only when gateway,
+	 * address and netmask came from one NVRAM transaction. Never combine
+	 * independently read generations to make that ownership decision.
 	 */
-	wan_addr_status = get_wan_unit_value_copy_status(
-		unit, "ipaddr", wan_addr, sizeof(wan_addr));
-	if (wan_addr_status != 0) {
-		status = route_status_accumulate(status, wan_addr_status);
-		logmessage(LOGNAME,
-			   "cannot read WAN IPv4 address snapshot during teardown on %s (status=%d)",
-			   wan_ifname, wan_addr_status);
+	ppp_index = ppp_ifindex(wan_ifname);
+	wan_addr_status = 0;
+	wan_gate_status = 0;
+	wan_mask_status = 0;
+	address_valid = 0;
+	netmask_valid = 0;
+	gateway_off_subnet = 0;
+	if (ppp_index < 0) {
+		route_snapshot_status = wan_unit_route_snapshot(
+			unit, wan_gate, sizeof(wan_gate),
+			wan_addr, sizeof(wan_addr),
+			wan_mask, sizeof(wan_mask));
+		if (route_snapshot_status != 0) {
+			status = route_status_accumulate(status, route_snapshot_status);
+			logmessage(LOGNAME,
+				   "cannot read coherent WAN route snapshot during teardown on %s (status=%d)",
+				   wan_ifname, route_snapshot_status);
+			/* Preserve best-effort default-route cleanup without authorizing /32 deletion. */
+			wan_addr_status = route_snapshot_status;
+			wan_mask_status = route_snapshot_status;
+			wan_gate_status = get_wan_unit_value_copy_status(
+				unit, "gateway", wan_gate, sizeof(wan_gate));
+			if (wan_gate_status != 0) {
+				status = route_status_accumulate(status, wan_gate_status);
+				logmessage(LOGNAME,
+					   "cannot read WAN gateway fallback during teardown on %s (status=%d)",
+					   wan_ifname, wan_gate_status);
+			}
+		}
+	} else {
+		/* PPP links never own the WAN gateway /32, but still remove their default route. */
+		wan_gate_status = get_wan_unit_value_copy_status(
+			unit, "gateway", wan_gate, sizeof(wan_gate));
+		if (wan_gate_status != 0) {
+			status = route_status_accumulate(status, wan_gate_status);
+			logmessage(LOGNAME,
+				   "cannot read WAN gateway snapshot during teardown on %s (status=%d)",
+				   wan_ifname, wan_gate_status);
+		}
 	}
-	wan_gate_status = get_wan_unit_value_copy_status(
-		unit, "gateway", wan_gate, sizeof(wan_gate));
-	if (wan_gate_status != 0) {
-		status = route_status_accumulate(status, wan_gate_status);
-		logmessage(LOGNAME,
-			   "cannot read WAN gateway snapshot during teardown on %s (status=%d)",
-			   wan_ifname, wan_gate_status);
-	}
+
 	gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);
 	if (gateway_valid) {
 		route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
@@ -4831,12 +4914,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 				   wan_gate, wan_ifname, route_status);
 		}
 
-		ppp_index = ppp_ifindex(wan_ifname);
-		wan_mask_status = 0;
-		address_valid = 0;
-		netmask_valid = 0;
-		gateway_off_subnet = 0;
-		if (ppp_index < 0 && wan_addr_status == 0) {
+		if (ppp_index < 0 && wan_addr_status == 0 && wan_mask_status == 0) {
 			address_valid = dhcp_lease_ipv4_is_valid(wan_addr);
 			if (!address_valid) {
 				status = route_status_accumulate(status, EINVAL);
@@ -4844,25 +4922,16 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 					   "invalid WAN IPv4 address snapshot during teardown on %s",
 					   wan_ifname);
 			} else {
-				wan_mask_status = get_wan_unit_value_copy_status(
-					unit, "netmask", wan_mask, sizeof(wan_mask));
-				if (wan_mask_status != 0) {
-					status = route_status_accumulate(status, wan_mask_status);
+				netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);
+				if (!netmask_valid) {
+					wan_mask_status = EINVAL;
+					status = route_status_accumulate(status, EINVAL);
 					logmessage(LOGNAME,
-						   "cannot read WAN netmask snapshot during teardown on %s (status=%d)",
-						   wan_ifname, wan_mask_status);
+						   "invalid WAN netmask snapshot during teardown on %s",
+						   wan_ifname);
 				} else {
-					netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);
-					if (!netmask_valid) {
-						wan_mask_status = EINVAL;
-						status = route_status_accumulate(status, EINVAL);
-						logmessage(LOGNAME,
-							   "invalid WAN netmask snapshot during teardown on %s",
-							   wan_ifname);
-					} else {
-						gateway_off_subnet =
-							!is_same_subnet(wan_gate, wan_addr, wan_mask);
-					}
+					gateway_off_subnet =
+						!is_same_subnet(wan_gate, wan_addr, wan_mask);
 				}
 			}
 		}

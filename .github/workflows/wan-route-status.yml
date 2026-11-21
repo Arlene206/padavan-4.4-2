@@ -785,16 +785,25 @@ jobs:
           assert "static int" + chr(10) + "wan_down_internal(" in wan
           assert "char wan_addr[16], wan_gate[16], wan_mask[16];" in wan_down
           assert "int wan_addr_status, wan_gate_status, wan_mask_status;" in wan_down
+          assert "int route_snapshot_status;" in wan_down
           wan_down_compact = "".join(wan_down.split())
-          for status_var, key, destination, label in (
-              ("wan_addr_status", "ipaddr", "wan_addr", "WAN IPv4 address"),
-              ("wan_gate_status", "gateway", "wan_gate", "WAN gateway"),
-              ("wan_mask_status", "netmask", "wan_mask", "WAN netmask"),
-          ):
-              require(f'get_wan_unit_value_copy_status(unit,"{key}",{destination},sizeof({destination}))' in wan_down_compact, "WAN teardown must use a checked " + key + " copy")
-              require(f"if({status_var}!=0)" in wan_down_compact and f"status=route_status_accumulate(status,{status_var});" in wan_down_compact and f"cannot read {label} snapshot during teardown" in wan_down, "WAN teardown must report " + label + " read failure")
-          for key in ("gateway", "ipaddr", "netmask"):
-              assert f'get_wan_unit_value(unit, "{key}")' not in wan_down
+          route_snapshot = body(wan, "wan_unit_route_snapshot(int unit,")
+          route_snapshot_compact = "".join(route_snapshot.split())
+          for token in ("wan%d_gateway", "wan%d_ipaddr", "wan%d_netmask",
+                        "rc_wan_nvram_copy_snapshot(", "wan_nvram_transaction_begin_callback",
+                        "wan_nvram_transaction_get_callback", "wan_nvram_transaction_end_callback"):
+              require(token in route_snapshot_compact, "coherent WAN route snapshot missing " + token)
+          assert "wan_unit_route_snapshot(unit,wan_gate,sizeof(wan_gate),wan_addr,sizeof(wan_addr),wan_mask,sizeof(wan_mask))" in wan_down_compact
+          assert "if (route_snapshot_status != 0)" in wan_down
+          assert "status = route_status_accumulate(status, route_snapshot_status);" in wan_down
+          assert "wan_addr_status = route_snapshot_status;" in wan_down
+          assert "wan_mask_status = route_snapshot_status;" in wan_down
+          assert 'wan_gate_status = get_wan_unit_value_copy_status(unit, "gateway", wan_gate, sizeof(wan_gate));' in " ".join(wan_down.split())
+          assert "cannot read coherent WAN route snapshot during teardown" in wan_down
+          assert "cannot read WAN gateway fallback during teardown" in wan_down
+          assert "cannot read WAN gateway snapshot during teardown" in wan_down
+          assert 'get_wan_unit_value_copy_status(unit, "ipaddr"' not in " ".join(wan_down.split())
+          assert 'get_wan_unit_value_copy_status(unit, "netmask"' not in " ".join(wan_down.split())
           assert "address_valid = dhcp_lease_ipv4_is_valid(wan_addr);" in wan_down
           assert "netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);" in wan_down
           assert "if (!address_valid)" in wan_down
@@ -805,16 +814,21 @@ jobs:
           assert '"255.255.255.255");' in wan_down
           assert "route_status = route_status_idempotent_delete(route_status);" in wan_down
           assert "failed to delete WAN gateway host route" in wan_down
+          snapshot_pos = wan_down.index("route_snapshot_status = wan_unit_route_snapshot(")
+          snapshot_error = wan_down.index("if (route_snapshot_status != 0)", snapshot_pos)
+          fallback_gateway = wan_down.index("wan_gate_status = get_wan_unit_value_copy_status(", snapshot_error)
           gateway_default_delete = wan_down.index('route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");')
           gateway_host_gate = wan_down.index("if (wan_teardown_gateway_host_route_required(")
           gateway_host_delete = wan_down.index('route_status = route_del(wan_ifname, 1, wan_gate, NULL,')
           static_route_delete = wan_down.index("route_status = del_static_wan_routes(wan_ifname);")
-          assert gateway_default_delete < gateway_host_gate < gateway_host_delete < static_route_delete
+          assert snapshot_pos < snapshot_error < fallback_gateway < gateway_default_delete < gateway_host_gate < gateway_host_delete < static_route_delete
+          assert wan_down.count('get_wan_unit_value_copy_status(unit, "gateway"') == 2
           gateway_policy = body(wan_teardown_policy, "wan_teardown_gateway_host_route_required(int gateway_read_status")
           for token in ("gateway_read_status == 0", "address_read_status == 0", "netmask_read_status == 0", "gateway_valid", "address_valid", "netmask_valid", "ppp_index < 0", "gateway_off_subnet"):
               require(token in gateway_policy, "WAN host-route read gate missing " + token)
           assert "test_gateway_host_route_requires_a_complete_checked_snapshot" in wan_teardown_test
           assert "test_gateway_host_route_rejects_invalid_address_and_netmask" in wan_teardown_test
+          assert "test_transactional_wan_route_snapshot_reads_one_generation" in wan_nvram_test
           assert "route_status_wan_gateway_host_route_required" in route_status_test
           assert "test_wan_gateway_host_route_cleanup_matches_setup_conditions" in route_status_test
           
