@@ -18,9 +18,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The exported OpenVPN client profile now actively requires `remote-cert-tls server`, matching the server certificate's `serverAuth` EKU. Dual-stack modes 4/5 fall back to a validated WAN IPv4 endpoint only after DDNS and IPv6 WAN/LAN lookup fail; IPv6-only modes remain unchanged.
-- The follow-up exact-head VPN lifecycle run #44939760147 on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1` passed the corrected profile and certificate-role contracts. OpenVPN client credential staging #44939588500 and Process inventory #44939588492 also passed on the profile's source parent `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`.
-- The d3b7 XY-C1 run #44939588534 was still building at the last poll; same-SHA Build XY-C1, TRX and artifact upload remain required for L3. Hardware L4 is NOT VERIFIED.
+- The exported OpenVPN client profile actively requires `remote-cert-tls server`, matching the generated certificate's `serverAuth` EKU. Dual-stack modes 4/5 use validated WAN IPv4 only as a final fallback after DDNS and IPv6 sources fail; IPv6-only modes remain unchanged.
+- VPN lifecycle #44939760147 passed on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`; AI handoff docs #44940022312 passed on `96de0aedf60c0605cbead65e50f69aa31483e82b`. d3b7 XY-C1 run #44939588534 was still in progress at last poll; inspect its final result.
+- Inadyn `write_inadyn_conf()` used error-collapsing reads for `ddns_ssl`, `ddns2_ssl`, wildcard flags, `ddns_ipv6` and `ddns_source`. A backend failure could turn TLS off and publish a configuration that transmits credentials without encryption.
+- This slice adds a strict checked integer parser and preflights six security/endpoint options via `nvram_get_checked()` before staging a replacement. Missing/empty values preserve legacy defaults; read/parse/range/overflow errors leave the last-known-good config intact. The existing Inadyn workflow gains GNU89/ASan/UBSan tests and source-contract assertions.
 
 ## Verification boundary
 
@@ -31,9 +32,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head VPN lifecycle, AI docs, NVRAM, Process and XY-C1 Actions for the current profile commit. The VPN checker must validate server EKU and dual-stack fallback; XY-C1 Build, TRX and artifact upload must all PASS on the same SHA.
-2. Diagnose any first causal failure without weakening checks; PENDING may be followed by independent work.
-3. Continue the highest-risk remaining stability/security defect in a different Padavan userland module after this bounded OpenVPN export slice; do not stay in VPN indefinitely.
+1. Fetch live main and inspect exact-head Inadyn lifecycle, AI docs, NVRAM/Process and XY-C1 Actions for the checked TLS-option preflight. Diagnose any failure from its first causal log error; preserve the last-good DDNS configuration.
+2. Require Build XY-C1, TRX verification and artifact upload on one exact SHA before recording L3. Independently resolve d3b7 XY-C1 run #44939588534; it was pending at last observation.
+3. Continue the next highest-risk stability/security defect in a different Padavan userland module after this Inadyn slice.
 
 ## Workflow and preservation rules
 

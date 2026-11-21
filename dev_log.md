@@ -1,3 +1,14 @@
+## 2026-11-21 — Fail closed on Inadyn TLS and endpoint-option NVRAM reads
+
+- Parent main SHA: `96de0aedf60c0605cbead65e50f69aa31483e82b`.
+- `write_inadyn_conf()` used error-collapsing NVRAM reads for `ddns_ssl` / `ddns2_ssl` and wildcard flags; `ddns_ipv6` and `ddns_source` also collapsed failures into zero. A transient SSL-policy read failure could publish `ssl=false` and expose provider credentials over plaintext.
+- Added `inadyn_config_file_read_integer_status()`. Missing/empty keys retain legacy defaults; backend errors, malformed text, overflow and out-of-range values return errno-style failures without changing the output.
+- Added `inadyn_read_nvram_integer()` and moved six endpoint/security settings into a checked preflight before opening the staged config. Any failure preserves the last-known-good Inadyn configuration. Both providers' SSL and wildcard directives now use validated local values; the duplicated unchecked secondary SSL read is removed.
+- Added GNU89/ASan/UBSan regression coverage for missing/default, valid and whitespace values, malformed/range/overflow, backend errors and output preservation. The Inadyn integration checker now enforces checked reads and preflight-before-stage ordering. No local test or target cross-build is claimed.
+- Before this slice: AI docs #44940022312 PASS on `96de0aedf60c0605cbead65e50f69aa31483e82b`; VPN lifecycle #44939760147 PASS on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`. d3b7 XY-C1 #44939588534 was in progress at last poll. New Inadyn CI and same-SHA Build/TRX/artifact are pending; L3 is not verified for this change and L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align handoff heading with required recovery contract
 
 - Parent main SHA: `dde4c69fc39bff9a9521de16aab9eee995d75cbe`.

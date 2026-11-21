@@ -1,6 +1,7 @@
 #ifndef PADAVAN_INADYN_CONFIG_FILE_H
 #define PADAVAN_INADYN_CONFIG_FILE_H
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -13,6 +14,54 @@
 #define PATH_MAX 4096
 #endif
 
+
+/* Parse checked NVRAM integers without turning backend failures into defaults. */
+static inline int
+inadyn_config_file_read_integer_status(int api_result, int saved_errno,
+                                       const char *value, int default_value,
+                                       int minimum, int maximum, int *result)
+{
+	const unsigned char *cursor;
+	char *end;
+	long parsed;
+
+	if (!result || minimum > maximum ||
+	    default_value < minimum || default_value > maximum)
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		*result = default_value;
+		return 0;
+	}
+	if (api_result != 1 || !value)
+		return EIO;
+
+	cursor = (const unsigned char *)value;
+	while (*cursor && isspace(*cursor))
+		++cursor;
+	if (!*cursor) {
+		*result = default_value;
+		return 0;
+	}
+	if (!isdigit(*cursor))
+		return EINVAL;
+
+	errno = 0;
+	parsed = strtol(value, &end, 10);
+	if (errno == ERANGE)
+		return ERANGE;
+	if (end == value)
+		return EINVAL;
+	cursor = (const unsigned char *)end;
+	while (*cursor && isspace(*cursor))
+		++cursor;
+	if (*cursor || parsed < minimum || parsed > maximum)
+		return EINVAL;
+
+	*result = (int)parsed;
+	return 0;
+}
 
 /* Emit a libConfuse string fragment. Never let NVRAM values create new
  * directives or change the surrounding quoted-string syntax. */

@@ -44,6 +44,48 @@ count_staged_files(const char *directory, const char *prefix)
 }
 
 static void
+test_checked_integer_status_preserves_defaults_and_rejects_errors(void)
+{
+	int result;
+
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(0, 0, NULL, 0, 0, 2, &result) == 0);
+	assert(result == 0);
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(0, 0, NULL, 1, 0, 2, &result) == 0);
+	assert(result == 1);
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(1, 0, "2", 0, 0, 2, &result) == 0);
+	assert(result == 2);
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(1, 0, " \t1 \r\n", 0, 0, 1, &result) == 0);
+	assert(result == 1);
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(1, 0, "", 0, 0, 1, &result) == 0);
+	assert(result == 0);
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(1, 0, " \t ", 1, 0, 2, &result) == 0);
+	assert(result == 1);
+
+	result = 77;
+	assert(inadyn_config_file_read_integer_status(-1, EACCES, "1", 0, 0, 1, &result) == EACCES);
+	assert(result == 77);
+	assert(inadyn_config_file_read_integer_status(-1, 0, "1", 0, 0, 1, &result) == EIO);
+	assert(inadyn_config_file_read_integer_status(2, 0, "1", 0, 0, 1, &result) == EIO);
+	assert(inadyn_config_file_read_integer_status(1, 0, NULL, 0, 0, 1, &result) == EIO);
+	assert(inadyn_config_file_read_integer_status(1, 0, "-1", 0, 0, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "+1", 0, 0, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "1x", 0, 0, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "1.0", 0, 0, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "2", 0, 0, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "999999999999999999999999999999999999", 0, 0, 1, &result) == ERANGE);
+	assert(inadyn_config_file_read_integer_status(1, 0, "1", 2, 0, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "1", 0, 2, 1, &result) == EINVAL);
+	assert(inadyn_config_file_read_integer_status(1, 0, "1", 0, 0, 1, NULL) == EINVAL);
+	assert(result == 77);
+}
+
+static void
 test_quoted_setting_escapes_configuration_delimiters(void)
 {
 	static const char input[] = "quote\" slash\\ line\ncarriage\r tab\t";
@@ -196,6 +238,7 @@ main(void)
 	assert(rmdir(blocked) == 0);
 	assert(rmdir(directory) == 0);
 
+	test_checked_integer_status_preserves_defaults_and_rejects_errors();
 	test_quoted_setting_escapes_configuration_delimiters();
 	test_quoted_setting_rejects_control_bytes();
 	puts("Inadyn private atomic configuration publication and quoted-value escaping: PASS");

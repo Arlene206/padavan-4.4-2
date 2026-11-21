@@ -77,7 +77,30 @@ assert "process_snapshot_release(&snapshot)" in notify
 assert 'doSystem("killall %s %s", "-SIGHUP", "inadyn")' not in notify
 assert "pids(\"inadyn\")" not in notify
 
+config_reader = body("inadyn_read_nvram_integer(const char *name,")
+assert 'nvram_get_checked(name, &value)' in config_reader
+assert "inadyn_config_file_read_integer_status(" in config_reader
+assert "saved_errno = errno;" in config_reader
+assert "errno = status;" in config_reader
+assert "inadyn_config_file_read_integer_status" in config_file_header
+assert "test_checked_integer_status_preserves_defaults_and_rejects_errors" in config_file_test
+
 config_writer = body("write_inadyn_conf(const char *conf_file)")
+ordered(config_writer, [
+    'inadyn_read_nvram_integer("ddns_source", 0, 0, 2,',
+    'inadyn_read_nvram_integer("ddns_ipv6", 0, 0, 1,',
+    'inadyn_read_nvram_integer("ddns_ssl", 0, 0, 1,',
+    'inadyn_read_nvram_integer("ddns_wildcard_x", 0, 0, 1,',
+    'inadyn_read_nvram_integer("ddns2_ssl", 0, 0, 1,',
+    'inadyn_read_nvram_integer("ddns2_wildcard_x", 0, 0, 1,',
+    'inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path))'
+], "Inadyn checked security-option preflight before staging")
+for key in ("ddns_source", "ddns_ipv6", "ddns_ssl", "ddns_wildcard_x",
+            "ddns2_ssl", "ddns2_wildcard_x"):
+    assert f'nvram_get_int("{key}")' not in config_writer
+assert 'i_ddns1_wildcard ? "true" : "false"' in config_writer
+assert 'i_ddns2_ssl ? "true" : "false"' in config_writer
+assert 'i_ddns2_wildcard ? "true" : "false"' in config_writer
 assert config_writer.count("inadyn_config_file_write_quoted_setting(fp,") == 10
 for value in ("ddns1_user", "ddns1_pass", "ddns1_svr", "ddns1_url",
               "ddns1_hname[0]", "ddns1_hname[1]", "ddns1_hname[2]",

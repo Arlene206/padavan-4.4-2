@@ -2809,14 +2809,36 @@ get_inadyn_system(const char *alias)
 }
 
 static int
+inadyn_read_nvram_integer(const char *name, int default_value,
+                          int minimum, int maximum, int *result)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	errno = 0;
+	api_result = nvram_get_checked(name, &value);
+	saved_errno = errno;
+	status = inadyn_config_file_read_integer_status(
+		api_result, saved_errno, value, default_value, minimum, maximum,
+		result);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read or validate Inadyn option %s (status=%d)",
+			   name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 write_inadyn_conf(const char *conf_file)
 {
 	FILE *fp;
 	char staged_path[PATH_MAX];
-	int saved_errno, interface_status;
+	int saved_errno, interface_status, read_status;
 	int i_max, i_ddns_source, i_ddns_period, i_ddns_forced, i_ddns_ipv6;
-	int i_ddns1_ssl, i_ddns1_checkip;
-	int i_ddns2_ssl, i_ddns2_checkip;
+	int i_ddns1_ssl, i_ddns1_checkip, i_ddns1_wildcard;
+	int i_ddns2_ssl, i_ddns2_checkip, i_ddns2_wildcard;
 	char *ddns1_hname[3], *ddns1_user, *ddns1_pass, *ddns1_svr, *ddns1_url;
 	char *ddns2_hname,    *ddns2_user, *ddns2_pass;
 	const char *ddns1_svc, *ddns2_svc;
@@ -2831,8 +2853,29 @@ write_inadyn_conf(const char *conf_file)
 	i_ddns_forced = nvram_safe_get_int("ddns_forced", 10, 3, 50);
 	i_ddns_forced *= (24 * 3600);
 
+	/*
+	 * These options control endpoint selection and whether DDNS credentials
+	 * are sent over TLS. Never turn a failed read into "SSL off"; retain the
+	 * last-known-good configuration unless every policy value is validated.
+	 */
+	if ((read_status = inadyn_read_nvram_integer("ddns_source", 0, 0, 2,
+						     &i_ddns_source)) != 0 ||
+	    (read_status = inadyn_read_nvram_integer("ddns_ipv6", 0, 0, 1,
+						     &i_ddns_ipv6)) != 0 ||
+	    (read_status = inadyn_read_nvram_integer("ddns_ssl", 0, 0, 1,
+						     &i_ddns1_ssl)) != 0 ||
+	    (read_status = inadyn_read_nvram_integer("ddns_wildcard_x", 0, 0, 1,
+						     &i_ddns1_wildcard)) != 0 ||
+	    (read_status = inadyn_read_nvram_integer("ddns2_ssl", 0, 0, 1,
+						     &i_ddns2_ssl)) != 0 ||
+	    (read_status = inadyn_read_nvram_integer("ddns2_wildcard_x", 0, 0, 1,
+						     &i_ddns2_wildcard)) != 0) {
+		saved_errno = read_status;
+		errno = saved_errno;
+		return 0;
+	}
+
 	wan_ifname[0] = 0;
-	i_ddns_source = nvram_get_int("ddns_source");
 	if (i_ddns_source == 1) {
 		interface_status = get_wan_ifname(wan_ifname);
 		if (interface_status != 0) {
@@ -2855,14 +2898,9 @@ write_inadyn_conf(const char *conf_file)
 		}
 	}
 
-	i_ddns_ipv6 = nvram_get_int("ddns_ipv6");
-
 	i_max = ARRAY_SIZE(checkip_urls) - 1;
 	i_ddns1_checkip = nvram_safe_get_int("ddns_checkip", 0, 0, i_max);
 	i_ddns2_checkip = nvram_safe_get_int("ddns2_checkip", 0, 0, i_max);
-
-	i_ddns1_ssl = nvram_get_int("ddns_ssl");
-	i_ddns2_ssl = nvram_get_int("ddns2_ssl");
 
 	ddns1_svc = get_inadyn_system(nvram_safe_get("ddns_server_x"));
 	if (!ddns1_svc) {
@@ -2916,7 +2954,7 @@ write_inadyn_conf(const char *conf_file)
 		fprintf(fp, "provider %s:1 {\n", ddns1_svc);
 	}
 	fprintf(fp, "  ssl = %s\n", i_ddns1_ssl ? "true" : "false");
-	fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns_wildcard_x") ? "true" : "false");
+	fprintf(fp, "  wildcard = %s\n", i_ddns1_wildcard ? "true" : "false");
 	if (strlen(ddns1_user) > 0 &&
 	    inadyn_config_file_write_quoted_setting(fp, "  username = \"", ddns1_user,
 					    "\"\n") != 0)
@@ -2954,8 +2992,8 @@ write_inadyn_conf(const char *conf_file)
 	/* DDNS 2*/
 	if (ddns2_svc) {
 		fprintf(fp, "provider %s:2 {\n", ddns2_svc);
-		fprintf(fp, "  ssl = %s\n", nvram_get_int("ddns2_ssl") ? "true" : "false");
-		fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns2_wildcard_x") ? "true" : "false");
+		fprintf(fp, "  ssl = %s\n", i_ddns2_ssl ? "true" : "false");
+		fprintf(fp, "  wildcard = %s\n", i_ddns2_wildcard ? "true" : "false");
 		if (i_ddns_source == 0 && strlen(checkip_urls[i_ddns2_checkip].server) > 0) {
 			fprintf(fp, "  checkip-server = \"%s\"\n", checkip_urls[i_ddns2_checkip].server);
 			fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns2_checkip].path);
