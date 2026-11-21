@@ -91,6 +91,16 @@ class FirmwareInputPathTests(unittest.TestCase):
         for path in (
             "trunk/user/rc/src/watchdog_ntp_policy.h",
             "trunk/user/rc/src/watchdog_signal_policy.h",
+            "trunk/user/rc/src/detached_daemon_start_policy.h",
+        ):
+            with self.subTest(path=path):
+                self.assertIn('      - "' + path + '"', workflow)
+                self.assertFalse(is_non_firmware_input(path))
+
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        for path in (
+            "trunk/user/rc/src/watchdog_ntp_policy.h",
+            "trunk/user/rc/src/watchdog_signal_policy.h",
         ):
             with self.subTest(path=path):
                 self.assertIn('      - "' + path + '"', workflow)

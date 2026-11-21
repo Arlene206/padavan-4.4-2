@@ -173,3 +173,29 @@ assert "init_router_ntp_state_reset_succeeded" in _ntp_router_test
 assert _ntp_dispatcher.count('nvram_set_int("ntp_ready", 0)') == 1
 assert "#endif /* PADAVAN_INIT_ROUTER_RESULT_POLICY_H */" in _ntp_router_policy
 
+# A watchdog launcher daemonizes before it publishes its PID. Every failure
+# after launching must roll back the late child, not just return to callers.
+_start_stop = function_body(_ntp_watchdog, "watchdog_start_rollback_stop(void *context)")
+_start_scan = function_body(_ntp_watchdog, "watchdog_start_rollback_scan(void *context, int *scan_error)")
+_start_rollback = function_body(_ntp_watchdog, "watchdog_rollback_failed_start(int start_status, int start_errno,")
+_start_watchdog = function_body(_ntp_watchdog, "start_watchdog(void)")
+assert '#include "detached_daemon_start_policy.h"' in _ntp_watchdog
+assert 'service_names[0] = (char *)context;' in _start_stop
+assert 'kill_services(service_names, 3, 1)' in _start_stop
+assert 'process_inventory_scan((const char *)context, &snapshot)' in _start_scan
+assert 'process_snapshot_release(&snapshot)' in _start_scan
+assert 'detached_daemon_start_rollback_with_ops(' in _start_rollback
+assert 'watchdog_start_rollback_stop' in _start_rollback
+assert 'watchdog_start_rollback_scan' in _start_rollback
+assert 'errno = saved_errno;' in _start_rollback
+assert _start_watchdog.count('watchdog_rollback_failed_start(') == 6
+for marker in (
+    'launch_status, launch_errno, "launcher"',
+    'wait_status, wait_errno, "initial readiness wait"',
+    '-1, scan_error, "process inventory"',
+    '-1, EIO, "invalid process inventory state"',
+    'wait_status, wait_errno, "retry readiness wait"',
+    '-1, ETIMEDOUT, "readiness timeout"',
+):
+    assert marker in _start_watchdog, marker
+assert 'return -1;' in _start_watchdog[:_start_watchdog.index('if (action == PROCESS_PRESENCE_START_NEW)')]

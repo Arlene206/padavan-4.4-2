@@ -1,3 +1,14 @@
+## 2026-11-21 — Roll back the watchdog daemon when detached startup cannot be verified
+
+- Parent main SHA: `e6b112eb34b7e7fc7f3571e8e823e1ee91a9ea19`.
+- `start_watchdog()` launched `/sbin/watchdog` through `eval()`, but `watchdog_main()` daemonizes before publishing its PID. Launcher failure, interrupted initial/retry waits, UNKNOWN/invalid process inventory and readiness timeout all returned directly without stopping a child that could still appear later.
+- Added a targeted detached-start rollback adapter: stop only the `watchdog` process family, perform a fresh tri-state inventory scan, log incomplete cleanup, and preserve the original launch/wait/scan/timeout status and errno.
+- Existing-running startup remains a no-op, and UNKNOWN preflight still fails closed before launch. The shared rollback policy regression already covers confirmed cleanup, a still-running child, UNKNOWN cleanup inventory and primary error preservation.
+- Extended the watchdog source contract to require every post-launch failure branch to use rollback. Added the rollback-policy header and unit test to watchdog workflow path filters; XY-C1 already tracks the header and its input contract now asserts it remains a firmware input.
+- Exact-SHA watchdog, Process lifecycle, AI handoff and XY-C1 Actions are required after publication; no local tests or new firmware L3 result are claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
 ## 2026-11-21 — Ensure crond timeout always executes rollback
 
 - Parent main SHA: `7085606f16b27e7ebc693cb0c3d3af29eb8e117b`.

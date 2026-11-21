@@ -37,6 +37,7 @@
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
+#include "detached_daemon_start_policy.h"
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
 #include "service_wait_policy.h"
@@ -700,13 +701,77 @@ watchdog_start_probe_wait(unsigned int seconds)
 	return status;
 }
 
+static int
+watchdog_start_rollback_stop(void *context)
+{
+	char *service_names[2];
+
+	if (!context) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	service_names[0] = (char *)context;
+	service_names[1] = NULL;
+	return kill_services(service_names, 3, 1);
+}
+
+static enum process_presence
+watchdog_start_rollback_scan(void *context, int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	if (!context) {
+		if (scan_error)
+			*scan_error = EINVAL;
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	presence = process_inventory_scan((const char *)context, &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	return presence;
+}
+
+static int
+watchdog_rollback_failed_start(int start_status, int start_errno,
+			       const char *operation)
+{
+	int stop_status = 0;
+	int scan_error = 0;
+	int saved_errno;
+	int result;
+	enum process_presence final_state = PROCESS_PRESENCE_UNKNOWN;
+
+	if (start_status == 0)
+		start_status = -1;
+	if (start_errno <= 0)
+		start_errno = start_status > 0 ? start_status : EIO;
+	result = detached_daemon_start_rollback_with_ops(
+		start_status, start_errno, watchdog_start_rollback_stop,
+		watchdog_start_rollback_scan, (void *)"watchdog",
+		&stop_status, &final_state, &scan_error);
+	saved_errno = errno;
+	if (final_state == PROCESS_PRESENCE_ABSENT && stop_status == 0) {
+		logmessage("watchdog",
+			   "startup rollback after %s confirmed watchdog absent",
+			   operation);
+	} else {
+		logmessage("watchdog",
+			   "startup rollback after %s incomplete (primary_status=%d, stop_status=%d, process_state=%d, scan_error=%d)",
+			   operation, start_status, stop_status, final_state, scan_error);
+	}
+	errno = saved_errno;
+	return result;
+}
 int
 start_watchdog(void)
 {
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error, launch_status, wait_status, attempt;
+	int scan_error, launch_status, launch_errno, wait_status, wait_errno, attempt;
 
 	presence = process_inventory_scan("watchdog", &snapshot);
 	scan_error = snapshot.error;
@@ -727,17 +792,24 @@ start_watchdog(void)
 		 * arming the timer. eval() only waits for the exiting launcher; it
 		 * cannot prove the detached child survived initialization.
 		 */
+		errno = 0;
 		launch_status = eval("/sbin/watchdog");
 		if (launch_status != 0) {
+			launch_errno = errno > 0 ? errno :
+				(launch_status > 0 ? launch_status : EIO);
 			logmessage("watchdog", "watchdog launcher failed (status=%d)",
 				   launch_status);
-			return launch_status;
+			return watchdog_rollback_failed_start(
+				launch_status, launch_errno, "launcher");
 		}
 
 		wait_status = watchdog_start_probe_wait(
 			PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-		if (wait_status != 0)
-			return wait_status;
+		if (wait_status != 0) {
+			wait_errno = errno > 0 ? errno : wait_status;
+			return watchdog_rollback_failed_start(
+				wait_status, wait_errno, "initial readiness wait");
+		}
 		for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 			presence = process_inventory_scan("watchdog", &snapshot);
 			if (process_presence_start_postcondition(launch_status, presence) == 0) {
@@ -747,25 +819,34 @@ start_watchdog(void)
 			if (presence == PROCESS_PRESENCE_UNKNOWN) {
 				scan_error = snapshot.error > 0 ? snapshot.error : EIO;
 				process_snapshot_release(&snapshot);
-				errno = scan_error;
 				logmessage("watchdog",
 					   "cannot verify detached watchdog startup (errno=%d)",
 					   scan_error);
-				return -1;
+				return watchdog_rollback_failed_start(
+					-1, scan_error, "process inventory");
+			}
+			if (presence != PROCESS_PRESENCE_ABSENT) {
+				process_snapshot_release(&snapshot);
+				logmessage("watchdog",
+					   "invalid process-presence state while verifying watchdog startup");
+				return watchdog_rollback_failed_start(
+					-1, EIO, "invalid process inventory state");
 			}
 			process_snapshot_release(&snapshot);
 			if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 				wait_status = watchdog_start_probe_wait(
 					PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-				if (wait_status != 0)
-					return wait_status;
+				if (wait_status != 0) {
+					wait_errno = errno > 0 ? errno : wait_status;
+					return watchdog_rollback_failed_start(
+						wait_status, wait_errno, "retry readiness wait");
+				}
 			}
 		}
 
-		errno = ETIMEDOUT;
 		logmessage("watchdog", "watchdog daemon did not remain running after launch");
-		return process_presence_start_postcondition(launch_status,
-						     PROCESS_PRESENCE_ABSENT);
+		return watchdog_rollback_failed_start(
+			-1, ETIMEDOUT, "readiness timeout");
 	}
 
 	/* Only a confirmed ABSENT inventory may authorize a new daemon. */
@@ -774,7 +855,6 @@ start_watchdog(void)
 		   "refusing watchdog start because process-presence policy is invalid");
 	return -1;
 }
-
 int
 notify_watchdog_time(void)
 {
