@@ -8,32 +8,81 @@ policy = (ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 
 
+def code_characters(text, start):
+    """Yield C source characters while ignoring comments and literals."""
+    index = start
+    length = len(text)
+    while index < length:
+        if text.startswith("//", index):
+            newline = text.find("\\n", index + 2)
+            index = length if newline < 0 else newline + 1
+            continue
+        if text.startswith("/*", index):
+            close = text.find("*/", index + 2)
+            index = length if close < 0 else close + 2
+            continue
+        character = text[index]
+        if character in ('"', "'"):
+            quote = character
+            index += 1
+            while index < length:
+                if text[index] == "\\\\":
+                    index += 2
+                elif text[index] == quote:
+                    index += 1
+                    break
+                else:
+                    index += 1
+            continue
+        yield index, character
+        index += 1
+
+
 def body(text, signature):
-    # A matching forward declaration may occur before the implementation.
-    # Select the first occurrence whose opening brace precedes its semicolon.
+    # Find a real definition, not a forward declaration. Ignore braces and
+    # semicolons occurring in comments, string literals or character literals.
     start = text.find(signature)
     opening = -1
     while start >= 0:
         after = start + len(signature)
-        candidate_open = text.find("{", after)
-        candidate_semicolon = text.find(";", after)
-        if candidate_open >= 0 and (
-            candidate_semicolon < 0 or candidate_open < candidate_semicolon
-        ):
-            opening = candidate_open
+        for position, character in code_characters(text, after):
+            if character == ";":
+                break
+            if character == "{":
+                opening = position
+                break
+        if opening >= 0:
             break
         start = text.find(signature, start + 1)
     if start < 0 or opening < 0:
         raise AssertionError("missing function body: " + signature)
+
     depth = 0
-    for index in range(opening, len(text)):
-        if text[index] == "{":
+    for index, character in code_characters(text, opening):
+        if character == "{":
             depth += 1
-        elif text[index] == "}":
+        elif character == "}":
             depth -= 1
             if depth == 0:
                 return text[opening + 1:index]
     raise AssertionError("unterminated function: " + signature)
+
+
+# Regression-test the brace scanner with braces inside comments/literals and
+# with a forward declaration before the implementation.
+_parser_probe_source = r'''
+int probe(void);
+int probe(void) {
+    const char *close_brace = "}";
+    char open_brace = '{';
+    /* ignored: } { */
+    if (open_brace == '{') { return close_brace[0] == '}' ? 1 : 0; }
+    return 0;
+}
+'''
+_parser_probe = body(_parser_probe_source, "probe(void)")
+if "if (open_brace == '{')" not in _parser_probe or "return 0;" not in _parser_probe:
+    raise AssertionError("C-aware function body parser regression")
 
 
 def require(condition, message):
