@@ -3711,7 +3711,8 @@ is_ifunit_modem(char *wan_ifname, int unit)
 static int
 add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)
 {
-	int is_man_dns_auto, is_modem_active, wan_proto;
+	int is_man_dns_auto, is_modem_active, wan_proto, dns_enabled;
+	int dns_mode_status;
 	int status = 0, route_status, snapshot_status;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
 	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
@@ -3740,7 +3741,20 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 
 	wan_proto = get_wan_proto(unit);
 	is_modem_active = get_usb_modem_wan(unit);
-	is_man_dns_auto = (get_wan_unit_value_int(unit, "dnsenable_x") > 0) ? 1 : 0;
+	dns_mode_status = get_wan_unit_value_int_status(
+		unit, "dnsenable_x", &dns_enabled);
+	if (dns_mode_status != 0) {
+		status = route_status_accumulate(status, dns_mode_status);
+		if (gateway_route_status)
+			*gateway_route_status = route_status_accumulate(
+				*gateway_route_status, dns_mode_status);
+		logmessage(LOGNAME,
+			   "cannot read MAN DNS mode on %s; skipping optional DNS routes (status=%d)",
+			   man_ifname, dns_mode_status);
+		is_man_dns_auto = 0;
+	} else {
+		is_man_dns_auto = dns_enabled > 0;
+	}
 
 	/*
 	 * Do not blindly roll back successful additions after a later failure:
@@ -3860,7 +3874,8 @@ man_up(char *man_ifname, int unit, int is_static)
 static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
-	int wan_proto, is_modem_active, is_man_dns_auto;
+	int wan_proto, is_modem_active, is_man_dns_auto, dns_enabled;
+	int dns_mode_status;
 	int status = 0, route_status, snapshot_status;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
 	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
@@ -3903,7 +3918,18 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	}
 	wan_proto = get_wan_proto(unit);
 	is_modem_active = get_usb_modem_wan(unit);
-	is_man_dns_auto = (get_wan_unit_value_int(unit, "dnsenable_x") > 0) ? 1 : 0;
+	dns_mode_status = get_wan_unit_value_int_status(
+		unit, "dnsenable_x", &dns_enabled);
+	if (dns_mode_status != 0) {
+		status = route_status_accumulate(status, dns_mode_status);
+		logmessage(LOGNAME,
+			   "cannot read MAN DNS mode during teardown on %s (status=%d); attempting DNS route removal",
+			   man_ifname, dns_mode_status);
+		/* Cleanup is idempotent: attempt removal even when the mode is unknown. */
+		is_man_dns_auto = 1;
+	} else {
+		is_man_dns_auto = dns_enabled > 0;
+	}
 
 	if (dhcp_lease_ipv4_is_valid(man_gate)) {
 		if (dhcp_lease_ipv4_is_valid(man_addr) && dhcp_lease_netmask_is_valid(man_mask) &&

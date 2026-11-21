@@ -146,3 +146,23 @@ require("if (auth_status != 0 || auth_mode == 1)" in wan_down and "stop_auth_kab
         "Kabinet teardown must attempt defensive stop when auth mode is unknown")
 assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
 print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
+
+
+# MAN DNS-route creation is fail-closed; teardown still attempts idempotent removal.
+add_man_routes = " ".join(body(source, "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)").split())
+require('get_wan_unit_value_int_status(unit, "dnsenable_x", &dns_enabled)' in add_man_routes,
+        "MAN route creation must use checked DNS-mode reads")
+require("is_man_dns_auto = 0" in add_man_routes and
+        "skipping optional DNS routes" in add_man_routes and
+        "if (is_man_dns_auto && !is_modem_active" in add_man_routes,
+        "MAN DNS route creation must skip optional routes when mode is unknown")
+teardown_man_routes = " ".join(body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)").split())
+require('get_wan_unit_value_int_status(unit, "dnsenable_x", &dns_enabled)' in teardown_man_routes,
+        "MAN route teardown must use checked DNS-mode reads")
+require("is_man_dns_auto = 1" in teardown_man_routes and
+        "attempting DNS route removal" in teardown_man_routes and
+        "if (is_man_dns_auto && !is_modem_active" in teardown_man_routes,
+        "MAN route teardown must attempt best-effort DNS route removal when mode is unknown")
+assert 'get_wan_unit_value_int(unit, "dnsenable_x")' not in add_man_routes
+assert 'get_wan_unit_value_int(unit, "dnsenable_x")' not in teardown_man_routes
+print("MAN DNS-route setup/teardown preserves NVRAM read errors and best-effort cleanup: PASS")
