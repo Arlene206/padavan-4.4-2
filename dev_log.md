@@ -1,3 +1,14 @@
+## 2026-11-21 — Fail closed on deferred printer/modem USB event-marker reads
+
+- Parent main SHA: `b69c759d94c2091996b78efe196a21eecaa5f3f7`.
+- `on_deferred_hotplug_dev()` still used unchecked `nvram_match()` for `usb_unplug_lp`, `usb_hotplug_lp`, `usb_unplug_md` and `usb_hotplug_md`. A transient NVRAM/backend error could look like an absent event and silently skip printer teardown/startup or modem WAN transition without scheduling a retry. The previously checked `modem_rule` read did not protect the marker reads that determine whether an event exists.
+- THIS COMMIT reads each unplug/plug marker pair with the checked storage reader and a pure pair-status policy. Both output flags stay clear unless both reads succeed; on error neither marker is acknowledged and no transition runs for that pair, with an explicit five-second retry. Successful values preserve the prior exact numeric value 1 behavior. Printer and modem pairs fail independently.
+- Added GNU89/ASan/UBSan regression for no events, coalesced events, non-1 values, each backend error, negative-status normalization and null outputs. USB modem and storage workflows compile/run it and assert checked reads plus absence of all four unchecked marker matches.
+- Exact a618 storage/HTTPD failures were stale safe-eject caller-graph assertions; corrected in `b69c759d94c2091996b78efe196a21eecaa5f3f7`. That checker-only SHA's USB storage/HTTPD reruns were pending at last poll. No L3/L4 claim yet.
+- Next: validate this USB marker commit together with pending safe-eject and XY-C1 checks; then continue another independent reliability defect.
+
+---
+
 ## 2026-11-21 — Update storage/HTTPD safe-eject contracts for checked event dispatch
 
 - Parent main SHA: `a6188035614e198c9983d7dea0bb86d1499b1629`.

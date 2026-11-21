@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/modem_sr_status_policy.h"
       - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
+      - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
@@ -41,6 +43,8 @@ on:
       - "trunk/user/rc/src/modem_sr_status_policy.h"
       - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
+      - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
@@ -106,6 +110,14 @@ jobs:
             trunk/user/rc/src/tests/modem_wan_start_policy.c \
             -o /tmp/modem-wan-start-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/modem-wan-start-policy
+      - name: Compile and run checked USB event-marker pair regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_hotplug_event_policy.c \
+            -o /tmp/usb-hotplug-event-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-hotplug-event-policy
       - name: Compile and run checked WAN NVRAM read policy regression
         run: |
           set -eu
@@ -399,6 +411,23 @@ jobs:
           assert "if (modem_rule_status == 0)" in deferred_hotplug
           assert "test_modem_unplug_rule_read_fails_closed" in retry_test
           assert "test_modem_unplug_rule_read_fails_closed();" in retry_test
+          printer_unplug_read = 'storage_read_integer_status("usb_unplug_lp",0,&printer_unplug_value)'
+          printer_hotplug_read = 'storage_read_integer_status("usb_hotplug_lp",0,&printer_hotplug_value)'
+          modem_unplug_read = 'storage_read_integer_status("usb_unplug_md",0,&modem_unplug_value)'
+          modem_hotplug_read = 'storage_read_integer_status("usb_hotplug_md",0,&modem_hotplug_value)'
+          assert printer_unplug_read in deferred_compact
+          assert printer_hotplug_read in deferred_compact
+          assert modem_unplug_read in deferred_compact
+          assert modem_hotplug_read in deferred_compact
+          assert deferred_compact.count("usb_hotplug_event_pair_status(") == 2
+          for marker in ("usb_unplug_lp", "usb_hotplug_lp", "usb_unplug_md", "usb_hotplug_md"):
+              assert f'nvram_match("{marker}","1")' not in deferred_compact
+          assert "cannot read deferred printer event markers; preserving pending events for retry" in deferred_hotplug
+          assert "cannot read deferred modem event markers; preserving pending events for retry" in deferred_hotplug
+          event_policy = (rc / "usb_hotplug_event_policy.h").read_text()
+          event_test = (rc / "tests/usb_hotplug_event_policy.c").read_text()
+          assert "usb_hotplug_event_pair_status" in event_policy
+          assert "test_each_failed_marker_read_preserves_the_pair" in event_test
 
           plug_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem && !unplug_modem)"): ]
           assert "modem_plug_status = try_start_usb_modem_to_wan();" in plug_start

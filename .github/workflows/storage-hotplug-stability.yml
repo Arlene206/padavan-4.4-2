@@ -50,6 +50,8 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
+      - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
       - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
       - "trunk/user/transmission/transmission.sh"
@@ -128,6 +130,8 @@ on:
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/tests/usb_hotplug_event_policy.c"
+      - "trunk/user/rc/src/usb_hotplug_event_policy.h"
       - "trunk/user/rc/src/storage_nfs_export_policy.h"
       - "trunk/user/rc/src/tests/storage_nfs_export_policy.c"
       - "trunk/user/transmission/transmission.sh"
@@ -372,6 +376,14 @@ jobs:
             trunk/user/rc/src/tests/storage_nfs_export_policy.c \
             -o /tmp/storage-nfs-export-policy
           /tmp/storage-nfs-export-policy
+      - name: Compile and run checked USB event-marker pair regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_hotplug_event_policy.c \
+            -o /tmp/usb-hotplug-event-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-hotplug-event-policy
       - name: Compile and run checked deferred-storage dispatch policy regression
         run: |
           set -eu
@@ -928,6 +940,13 @@ jobs:
           assert "cannot read deferred storage event markers; preserving pending events for retry" in storage_callback_code
           dispatch_policy = (rc_dir / "storage_deferred_start_policy.h").read_text()
           dispatch_test = (rc_dir / "tests/storage_deferred_start_policy.c").read_text()
+          usb_event_header = (rc_dir / "usb_hotplug_event_policy.h").read_text()
+          usb_event_test = (rc_dir / "tests/usb_hotplug_event_policy.c").read_text()
+          usb_event_code = "".join(deferred_callback.split("#else", 1)[0].split())
+          assert "usb_hotplug_event_pair_status" in usb_event_header
+          assert "test_each_failed_marker_read_preserves_the_pair" in usb_event_test
+          for marker in ("usb_unplug_lp", "usb_hotplug_lp", "usb_unplug_md", "usb_hotplug_md"):
+              assert f'nvram_match("{marker}","1")' not in usb_event_code
           assert "storage_deferred_start_dispatch_status" in dispatch_policy
           assert "test_each_marker_read_error_fails_closed" in dispatch_test
           assert "test_each_pending_trigger_starts_services" in dispatch_test

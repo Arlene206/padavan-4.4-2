@@ -42,6 +42,7 @@
 #include "nvram_linux.h"
 #include "service_start_status.h"
 #include "modem_wan_start_policy.h"
+#include "usb_hotplug_event_policy.h"
 #include "process_inventory.h"
 #include "service_wait_policy.h"
 #include "service_daemon_wait_policy.h"
@@ -4360,6 +4361,13 @@ on_deferred_hotplug_dev(void)
 	int modem_unplug_status = 0;
 	int modem_plug_status = 0;
 	int modem_rule_value = 0, modem_rule_status = 0;
+	int printer_unplug_value = 0, printer_hotplug_value = 0;
+	int printer_unplug_status, printer_hotplug_status, printer_marker_status;
+	int printer_unplug_pending = 0, printer_hotplug_pending = 0;
+	int modem_unplug_value = 0, modem_hotplug_value = 0;
+	int modem_unplug_marker_status, modem_hotplug_marker_status;
+	int modem_marker_status, modem_unplug_pending = 0, modem_hotplug_pending = 0;
+	int marker_read_error;
 	unsigned int modem_retry_mask;
 #endif
 	int storage_start_result;
@@ -4424,54 +4432,82 @@ on_deferred_hotplug_dev(void)
 #endif
 
 #if defined (USE_USB_SUPPORT)
-	if (nvram_match("usb_unplug_lp", "1"))
-	{
-		nvram_set_int_temp("usb_unplug_lp", 0);
-		if (!usb_port_module_used("usblp"))
-			stop_usb_printer_spoolers();
-	}
-
-	if (nvram_match("usb_hotplug_lp", "1"))
-	{
-		nvram_set_int_temp("usb_hotplug_lp", 0);
-		printer_start_status = try_start_usb_printer_spoolers();
-		if (printer_start_status != 0) {
-			logmessage("USB Printer",
-				   "deferred printer startup failed; preserving pending event for retry (status=%d)",
-				   printer_start_status);
-			nvram_set_int_temp("usb_hotplug_lp", 1);
-			alarm(5);
+	printer_unplug_status = storage_read_integer_status(
+		"usb_unplug_lp", 0, &printer_unplug_value);
+	printer_hotplug_status = storage_read_integer_status(
+		"usb_hotplug_lp", 0, &printer_hotplug_value);
+	printer_marker_status = usb_hotplug_event_pair_status(
+		printer_unplug_status, printer_unplug_value,
+		printer_hotplug_status, printer_hotplug_value,
+		&printer_unplug_pending, &printer_hotplug_pending);
+	if (printer_marker_status != 0) {
+		marker_read_error = printer_marker_status > 0 ?
+			printer_marker_status : EIO;
+		logmessage("USB Printer",
+			   "cannot read deferred printer event markers; preserving pending events for retry (status=%d)",
+			   marker_read_error);
+		alarm(5);
+	} else {
+		if (printer_unplug_pending) {
+			nvram_set_int_temp("usb_unplug_lp", 0);
+			if (!usb_port_module_used("usblp"))
+				stop_usb_printer_spoolers();
+		}
+		if (printer_hotplug_pending) {
+			nvram_set_int_temp("usb_hotplug_lp", 0);
+			printer_start_status = try_start_usb_printer_spoolers();
+			if (printer_start_status != 0) {
+				logmessage("USB Printer",
+					   "deferred printer startup failed; preserving pending event for retry (status=%d)",
+					   printer_start_status);
+				nvram_set_int_temp("usb_hotplug_lp", 1);
+				alarm(5);
+			}
 		}
 	}
 
-	if (nvram_match("usb_unplug_md", "1"))
-	{
-		modem_rule_status = storage_read_integer_status(
-			"modem_rule", 0, &modem_rule_value);
-		modem_rule_status = modem_wan_unplug_event_status(
-			modem_rule_status, modem_rule_value, &unplug_modem);
-		if (modem_rule_status == 0) {
-			/* Only acknowledge detach after the modem policy was read. */
-			nvram_set_int_temp("usb_unplug_md", 0);
-		} else {
-			/* Keep detach queued and block a coalesced replug until retry. */
-			unplug_modem = 1;
-			modem_unplug_status = modem_rule_status;
-			logmessage("USB hotplug",
-				   "cannot read modem WAN policy; deferring unplug transition (status=%d)",
-				   modem_rule_status);
+	modem_unplug_marker_status = storage_read_integer_status(
+		"usb_unplug_md", 0, &modem_unplug_value);
+	modem_hotplug_marker_status = storage_read_integer_status(
+		"usb_hotplug_md", 0, &modem_hotplug_value);
+	modem_marker_status = usb_hotplug_event_pair_status(
+		modem_unplug_marker_status, modem_unplug_value,
+		modem_hotplug_marker_status, modem_hotplug_value,
+		&modem_unplug_pending, &modem_hotplug_pending);
+	if (modem_marker_status != 0) {
+		marker_read_error = modem_marker_status > 0 ?
+			modem_marker_status : EIO;
+		logmessage("USB hotplug",
+			   "cannot read deferred modem event markers; preserving pending events for retry (status=%d)",
+			   marker_read_error);
+		alarm(5);
+	} else {
+		if (modem_unplug_pending) {
+			modem_rule_status = storage_read_integer_status(
+				"modem_rule", 0, &modem_rule_value);
+			modem_rule_status = modem_wan_unplug_event_status(
+				modem_rule_status, modem_rule_value, &unplug_modem);
+			if (modem_rule_status == 0) {
+				/* Only acknowledge detach after all policy reads succeeded. */
+				nvram_set_int_temp("usb_unplug_md", 0);
+			} else {
+				/* Keep detach queued and block a coalesced replug. */
+				unplug_modem = 1;
+				modem_unplug_status = modem_rule_status;
+				logmessage("USB hotplug",
+					   "cannot read modem WAN policy; deferring unplug transition (status=%d)",
+					   modem_rule_status);
+			}
 		}
-	}
-
-	if (nvram_match("usb_hotplug_md", "1"))
-	{
-		plug_modem = 1;
-		/*
-		 * If detach and re-enumeration arrived together, leave the plug event
-		 * pending until the unplug reconnect has completed successfully.
-		 */
-		if (!unplug_modem)
-			nvram_set_int_temp("usb_hotplug_md", 0);
+		if (modem_hotplug_pending) {
+			plug_modem = 1;
+			/*
+			 * If detach and re-enumeration arrived together, leave the plug
+			 * event pending until the unplug reconnect completes.
+			 */
+			if (!unplug_modem)
+				nvram_set_int_temp("usb_hotplug_md", 0);
+		}
 	}
 
 	if (unplug_modem) {
