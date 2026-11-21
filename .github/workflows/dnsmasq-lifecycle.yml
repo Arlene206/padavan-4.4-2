@@ -332,7 +332,11 @@ jobs:
           )[1].split(
               'else if (strcmp(entry->d_name, RCN_RESTART_DI)', 1
           )[0]
-          assert "rc_ddns_restart_run(get_ap_mode()," in ddns_restart
+          mode_read = ddns_restart.index("get_ap_mode_status(&is_ap_mode)")
+          mode_error = ddns_restart.index("if (ap_mode_status != 0)", mode_read)
+          mode_error_result = ddns_restart.index("ddns_status = ap_mode_status;", mode_error)
+          ddns_call = ddns_restart.index("rc_ddns_restart_run(is_ap_mode,", mode_error_result)
+          assert mode_read < mode_error < mode_error_result < ddns_call
           assert 'nvram_match("ddns_enable_x", "1")' in ddns_restart
           assert "start_ddns, stop_ddns" in ddns_restart
           assert "action_result = rc_notify_merge_action_result(action_result, ddns_status);" in ddns_restart
