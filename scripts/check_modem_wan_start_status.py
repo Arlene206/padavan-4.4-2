@@ -50,18 +50,78 @@ PPP_VALUE_POLICY_SOURCE = (RC / "ppp_option_value_policy.h").read_text()
 PPP_VALUE_POLICY_TEST = (RC / "tests/ppp_option_value_policy.c").read_text()
 
 
+def code_characters(source: str, start: int):
+    """Yield C code characters, excluding comments and string/char literals."""
+    position = start
+    while position < len(source):
+        if source.startswith("//", position):
+            newline = source.find(chr(10), position + 2)
+            position = len(source) if newline < 0 else newline + 1
+            continue
+        if source.startswith("/*", position):
+            close = source.find("*/", position + 2)
+            position = len(source) if close < 0 else close + 2
+            continue
+        character = source[position]
+        if character in ('"', "'"):
+            quote = character
+            position += 1
+            while position < len(source):
+                if ord(source[position]) == 92:
+                    position += 2
+                elif source[position] == quote:
+                    position += 1
+                    break
+                else:
+                    position += 1
+            continue
+        yield position, character
+        position += 1
+
+
 def body(source: str, signature: str) -> str:
-    start = source.index(signature)
-    opening = source.index("{", start)
+    # Ignore earlier call sites/prototypes and braces inside C comments/literals.
+    start = source.find(signature)
+    opening = -1
+    while start >= 0:
+        for position, character in code_characters(source, start + len(signature)):
+            if character == ";":
+                break
+            if character == "{":
+                opening = position
+                break
+        if opening >= 0:
+            break
+        start = source.find(signature, start + 1)
+    if opening < 0:
+        raise AssertionError(f"missing function body: {signature}")
+
     depth = 0
-    for position in range(opening, len(source)):
-        if source[position] == "{":
+    for position, character in code_characters(source, opening):
+        if character == "{":
             depth += 1
-        elif source[position] == "}":
+        elif character == "}":
             depth -= 1
             if depth == 0:
                 return source[opening + 1:position]
     raise AssertionError(f"unterminated function: {signature}")
+
+
+# Keep the scanner honest about braces inside strings, character literals,
+# line comments and block comments, with a declaration before the definition.
+_parser_probe = r'''
+int parser_probe(void);
+int parser_probe(void) {
+    const char *brace = "}";
+    char open = '{';
+    /* ignored: } { */
+    // ignored: } {
+    if (open == '{') { return brace[0] == '}' ? 1 : 0; }
+    return 0;
+}
+'''
+if "if (open == '{')" not in body(_parser_probe, "parser_probe(void)"):
+    raise AssertionError("C-aware body parser regression")
 
 
 def compact(source: str) -> str:
