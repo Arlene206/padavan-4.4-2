@@ -2,7 +2,7 @@
 
 ## Cross-session execution mandate
 
-- Continue development on `main` only. Each logical task is one atomic main commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
+- Continue development on main only. Each logical task is one atomic main commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
 - Never amend, force-push, create development branches/PRs, or modify the frozen backup.
 - Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Fix real source defects with focused regressions; do not weaken checks.
 - PENDING Actions do not block independent work. Diagnose the earliest causal failure log.
@@ -10,60 +10,38 @@
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Inspect live `main`, verify the frozen backup SHA and check exact-SHA Actions at session end. Update this file only when the baseline, evidence, blocker or first next action materially changes. Do not make no-op commits.
+The checkpoint is mandatory; a document edit is conditional. Inspect live main, verify the frozen backup SHA and check exact-SHA Actions at session end. Update this file only when the baseline, evidence, blocker or first next action materially changes. Do not make no-op commits.
 
 ## Current repository state
 
-- Source parent SHA: `8f21e7fc31609caae6ab0d2260e4b345f3e6d487`. The present checkpoint is a documentation-only child of this exact source tip.
+- Parent main SHA before this slice: `41023c0835fc399ea521e397a8fb5563dd86f02e`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move it).
-- This development window's source work is already integrated in the recent main history: HTTPD startup-wait rollback (`ab866c3e93c5131ed6723c7a2a7d3de5df0e693c`); MiniUPnP failed-start rollback (`b55d97afc5b09fed7658785f6415023ddb2934e7`); DNSMasq failed-start rollback (`ba695e6f523b1218bd7486fb77b9b42e4e1e4138`); Samba nmbd/shared-daemon rollback (`f8fc45e7ad1479e2544e093a6e52a074c35bf256`, `3da546fd4e58d09e50cdbc0c872289e7a5504dd0`); vsftpd rollback (`66edbcb149c7332c76330b4cb33c8847db21ac31`); storage application failed-start rollback (`acbc93decc462e5e0360552ef0da83310fed5512`); Inadyn failed-start rollback (`41b18c57237e70171e338ec6f416b5a613643fda`).
-- The storage lifecycle validator required follow-up changes because source behavior now returns a checked start status and invokes fail-closed rollback rather than returning the old launch-result expression. The current checker contains the newer contract: `present`. It must be exercised by an exact-SHA Storage Hotplug run before marking PASS.
-- Exact-SHA Actions for current source parent `8f21e7fc31609caae6ab0d2260e4b345f3e6d487`: XY-C1 Firmware Validation: in_progress (#44878734942); USB storage hotplug stability regression: in_progress (#44878734891).
-- Inadyn source SHA `41b18c57237e70171e338ec6f416b5a613643fda`: XY-C1 Firmware Validation: in_progress (#44877952694); HTTPD Authentication and Security Regression: success (#44877952674); miniupnpd atomic configuration publication regression: success (#44877952721); Process lifecycle inventory - 41b18c57237e70171e338ec6f416b5a613643fda: success (#44877952692); DNSMasq lifecycle stability regression: success (#44877952738); Samba share configuration stability regression: success (#44877952776); Inadyn fail-closed lifecycle regression: success (#44877952666); WAN DHCP callback state stability regression: success (#44877952702); WAN route operation status regression: success (#44877952689); Process inventory and lifecycle fail-closed regression: success (#44877952774); NVRAM transaction boundary audit: success (#44877952690).
-- Storage checker slice SHA `6c4e923fcd6ae1b7937617327c6dda2c800d9ab5`: AI handoff documentation contract: success (#44878146492); USB storage hotplug stability regression: failure (#44878146416).
-- Latest branch Actions snapshot:
-```
-XY-C1 Firmware Validation: in_progress @ 8f21e7fc (#44878734942)
-USB storage hotplug stability regression: in_progress @ 8f21e7fc (#44878734891)
-USB storage hotplug stability regression: failure @ 671eb14b (#44878632870)
-XY-C1 Firmware Validation: success @ 671eb14b (#44878632886)
-WAN route operation status regression: success @ a9333978 (#44878517256)
-GPIO button daemon startup and press timing stability regression: success @ a9333978 (#44878517295)
-DDNSTO lifecycle stability regression: success @ a9333978 (#44878517091)
-Firewall Startup Stability Regression: success @ a9333978 (#44878517202)
-AdGuardHome config security regression: success @ a9333978 (#44878517217)
-networkmap signal lifecycle stability regression: success @ a9333978 (#44878517201)
-vsftpd configuration publication stability regression: success @ a9333978 (#44878517293)
-watchdog signal lifecycle stability regression: success @ a9333978 (#44878517203)
-Samba share configuration stability regression: success @ a9333978 (#44878517257)
-FRP asynchronous startup lifecycle regression: success @ a9333978 (#44878517274)
-DNSMasq lifecycle stability regression: success @ a9333978 (#44878517252)
-HTTPD Authentication and Security Regression: success @ a9333978 (#44878517198)
-```
-- XY-C1 L3 is NOT VERIFIED unless Build, TRX validation and artifact upload all PASS on one identical source SHA. Physical-router L4 remains NOT VERIFIED.
-- No local firmware build or cross-compile was performed in this continuation. Do not convert CI status into physical-device validation.
+- Exact-SHA AI handoff contract #44883618619: SUCCESS; Process lifecycle inventory #44883618647: SUCCESS; Process inventory and lifecycle fail-closed #44883618648: SUCCESS.
+- Exact-SHA WAN route regression #44883618627: FAILURE. Its final policy binaries passed, including the detached-daemon GNU89/ASan/UBSan regression and `check_udpxy_startup.py` assertions up to rollback wiring. The first remaining error was a Python `NameError`: `igmpproxy_start` was referenced before its function-body assignment in `scripts/check_udpxy_startup.py`.
+- Exact-SHA XY-C1 Firmware Validation #44883618696 and NVRAM transaction audit #44883618624 were PENDING at the last query. Inspect exact results after this commit; PENDING must not stop other independent work.
+- The prior detached-daemon rollback and readiness C code is not changed in this slice. The failure is in validator statement order, not a failed production C regression.
+- Earlier independent evidence remains: SCUT PID-identity #44882660640 PASS on `9df0573782afb3a3e19864ac17250d7358ef26ca`; NFS rpcbind readiness #44881990807 PASS on `5869188f5f174746cc2dea43c2938be55378c87c`; historical Storage/XY-C1 pass #44880983834/#44880983910 on `646615093f93ca01ea5cbef7dac6b4937a9a5cfa`.
+- XY-C1 L3 is NOT VERIFIED unless Build, TRX validation and artifact upload all pass on one identical source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Inspect the exact-SHA Storage Hotplug result after the safe-remove checker update. Diagnose the first remaining failing assertion; do not weaken the test to accommodate a source regression.
-2. Inspect exact-SHA Inadyn, Process Lifecycle, WAN, NVRAM transaction and XY-C1 actions. PENDING does not block other independent work; record exact run IDs and SHA.
-3. Continue the stability queue outside already-covered daemons. Re-examine the NFS server start/stop path (`trunk/user/nfs-utils/nfsd.sh`) and other RC userland process launch paths; implement only a reproduced/clear defect with a focused regression.
-4. Preserve the loop: modify source -> test -> one atomic main commit -> inspect that exact SHA's Actions. FAIL means fix the earliest causal defect; PASS means move on.
+1. Inspect the exact-SHA WAN route run for this checker-order correction; fix any remaining first-cause failure without relaxing coverage.
+2. Inspect the exact-SHA XY-C1 and NVRAM results and any other newly triggered checks.
+3. Once green, return to an independent production stability defect. The next candidate is remaining `kill_pidfile_s()` usage in `trunk/user/shared/src/shutils.c`, traced to its exact PID writers before making any coordinated identity-format change.
 
 ## Verification boundary
 
-- Existing verified historical exact-SHA passes remain: HTTPD daemon lifecycle #44875048202; HTTPD authentication/security #44875048156; Process lifecycle inventory #44875048297; WAN route status #44875048033 (all on source SHA `ab866c3e93c5131ed6723c7a2a7d3de5df0e693c`).
-- These historical results do not certify the later daemon rollback slices. For those, use only the exact-SHA status recorded above or re-run the relevant workflows on the current source parent.
-- Storage fresh-start rollback covers minidlna, mt-daapd, transmission-daemon and aria2c; policy tests cover ABSENT/RUNNING/UNKNOWN/invalid states. The dedicated storage workflow must PASS after the checker was updated.
-- Inadyn rollback covers launcher failure and startup-confirmation failure; it stops under the existing lifecycle lock, re-inventories state and preserves the original error. Check its exact-SHA run above.
-- No claim of whole-repository runtime completeness, XY-C1 L3, or physical-router L4 is made here.
+- On `41023c0835fc399ea521e397a8fb5563dd86f02e`, WAN route's C policy binaries and detached-daemon policy binary passed; the script failed only on the variable-order `NameError` recorded above.
+- Process inventory and lifecycle fail-closed run #44883618648 passed on that exact SHA. AI handoff run #44883618619 also passed.
+- This checker-order follow-up requires exact-head WAN route success. Firmware Build/TRX/artifact status is a separate XY-C1 L3 gate; hardware L4 is not verified.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm the archival backup is still `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect the exact-SHA workflow records listed in Current repository state; first close the Storage Hotplug checker result and any Inadyn/Process Lifecycle failure. Then take one independently testable userland stability bug, implement it with a regression test, and commit the full Git tree atomically using expected-SHA non-forced update.
+Fetch live main and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Resolve this commit SHA and inspect the exact-head WAN route Action first, then XY-C1 and NVRAM. If all relevant checks pass, continue with one focused production fix outside the completed IPTV readiness work; avoid repeating this checker-order issue.
 
 ## Handoff maintenance
 
 - Keep `dev_log.md` newest-first; archive only at 120 root records, retaining the newest 20.
 - Update `REFACTOR_ROADMAP.md` only when module status, evidence or priority materially changes.
+- Keep the frozen backup permanently unchanged.
 - Host regression, exact-source firmware L3 and physical hardware L4 are separate evidence levels.

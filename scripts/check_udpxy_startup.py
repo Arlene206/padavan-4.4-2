@@ -96,12 +96,12 @@ rollback = function_body(net, "iptv_proxy_rollback_failed_start(")
 assert "kill_services(service_names, 3, 1)" in rollback_stop
 assert "detached_daemon_start_rollback_with_ops(" in rollback
 assert "PROCESS_PRESENCE_ABSENT" in rollback
+igmpproxy_start = function_body(net, "start_igmpproxy(char *wan_ifname)")
+xupnpd_start = function_body(net, "start_xupnpd(char *wan_ifname)")
+
 assert "iptv_proxy_rollback_failed_start(" in startup
 assert "iptv_proxy_rollback_failed_start(" in igmpproxy_start
-xupnpd_start = function_body(net, "start_xupnpd(char *wan_ifname)")
 assert "iptv_proxy_rollback_failed_start(" in xupnpd_start
-
-igmpproxy_start = function_body(net, "start_igmpproxy(char *wan_ifname)")
 assert "PKG_VERSION:=0.3" in (ROOT / "trunk/user/igmpproxy/Makefile").read_text()
 assert 'iptv_proxy_process_presence((void *)"igmpproxy", &scan_error)' in igmpproxy_start
 assert "PROCESS_PRESENCE_UNKNOWN" in igmpproxy_start

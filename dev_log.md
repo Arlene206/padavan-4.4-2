@@ -1,3 +1,12 @@
+## 2026-11-21 — Fix UDPXY checker NameError after detached-daemon policy validation
+
+- Parent main SHA: `41023c0835fc399ea521e397a8fb5563dd86f02e`.
+- Exact WAN route Action #44883618627 compiled and passed the detached-daemon policy regression, then failed in `scripts/check_udpxy_startup.py` because `igmpproxy_start` was used in a rollback assertion before the checker assigned its function body.
+- Moved the XUPnPD and IGMPproxy function-body extraction ahead of their rollback assertions. No production behavior or assertions were removed or relaxed.
+- Process lifecycle inventory #44883618647, process fail-closed regression #44883618648 and AI handoff contract #44883618619 passed on the parent SHA. Exact-head WAN route, XY-C1 and NVRAM runs remain required.
+- Resulting main commit: THIS COMMIT.
+
+---
 ## 2026-11-21 — Align IPTV rollback regressions with existing checker contracts
 
 - Parent main SHA: `daf8248436c650eb10429d7098e52535c436ae4d`.
