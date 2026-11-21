@@ -650,14 +650,23 @@ jobs:
               'miniupnpd_read_nvram_integer("upnp_proto", 0, 0, 2,',
               'miniupnpd_read_nvram_integer("upnp_secure", 0, 0, 1,',
               'miniupnpd_read_nvram_integer("http_lanport", 0, 0, 65535,',
+              'miniupnpd_read_nvram_integer("upnp_clean_min", 10, 1, 999,',
+              'miniupnpd_read_nvram_integer("upnp_clean_int", 600, 0, 86400,',
+              'miniupnpd_read_nvram_integer("upnp_iport_min", 21, 1, 65535,',
+              'miniupnpd_read_nvram_integer("upnp_iport_max", 65535, 1, 65535,',
+              'miniupnpd_read_nvram_integer("upnp_eport_min", 21, 1, 65535,',
+              'miniupnpd_read_nvram_integer("upnp_eport_max", 65535, 1, 65535,',
           ]
           option_positions = [start.index(token) for token in option_tokens]
           assert option_positions == sorted(option_positions)
           preflight_error = start.index("return read_status;")
           config_publish = start.index('miniupnpd_config_publish("/etc/miniupnpd.conf"')
           assert option_positions[-1] < preflight_error < config_publish
-          for key in ("upnp_proto", "upnp_secure", "http_lanport"):
+          for key in ("upnp_proto", "upnp_secure", "http_lanport",
+                      "upnp_clean_min", "upnp_clean_int", "upnp_iport_min",
+                      "upnp_iport_max", "upnp_eport_min", "upnp_eport_max"):
               assert f'nvram_get_int("{key}")' not in start
+          assert 'nvram_safe_get_int("upnp_' not in start
           assert 'secured = i_upnp_secure ? "yes" : "no";' in start
           assert "miniupnpd_format_lan_url(lan_addr, i_http_lanport," in start
           transaction_integer = function_body(service, "miniupnpd_read_transaction_int(")

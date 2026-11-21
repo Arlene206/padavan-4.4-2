@@ -2348,29 +2348,35 @@ start_upnp_locked(void)
 	}
 
 	/*
-	 * Protocol selection and secure_mode define the exposure boundary.
-	 * Never replace an unreadable setting with the less restrictive zero
-	 * default or publish a partially refreshed daemon configuration.
+	 * Protocol, security, presentation-port and mapping-range settings define
+	 * the exposure boundary. Cleanup timers also participate in the published
+	 * daemon configuration. Never substitute a permissive default on a backend
+	 * error, malformed value or out-of-range policy.
 	 */
 	if ((read_status = miniupnpd_read_nvram_integer("upnp_proto", 0, 0, 2,
 						       &i_proto_use)) != 0 ||
 	    (read_status = miniupnpd_read_nvram_integer("upnp_secure", 0, 0, 1,
 						       &i_upnp_secure)) != 0 ||
 	    (read_status = miniupnpd_read_nvram_integer("http_lanport", 0, 0, 65535,
-						       &i_http_lanport)) != 0) {
+						       &i_http_lanport)) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_clean_min", 10, 1, 999,
+						       &i_clean_min)) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_clean_int", 600, 0, 86400,
+						       &i_clean_int)) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_iport_min", 21, 1, 65535,
+						       &i_iports[0])) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_iport_max", 65535, 1, 65535,
+						       &i_iports[1])) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_eport_min", 21, 1, 65535,
+						       &i_eports[0])) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_eport_max", 65535, 1, 65535,
+						       &i_eports[1])) != 0) {
 		errno = read_status;
 		logmessage(LOGNAME,
-			   "miniupnpd start aborted: protocol/security/HTTP policy is unreadable (status=%d)",
+			   "miniupnpd start aborted: protocol/security/HTTP/port/cleanup policy is unreadable (status=%d)",
 			   read_status);
 		return read_status;
 	}
-
-	i_clean_min = nvram_safe_get_int("upnp_clean_min", 10, 1, 999);
-	i_clean_int = nvram_safe_get_int("upnp_clean_int", 600, 0, 86400);
-	i_iports[0] = nvram_safe_get_int("upnp_iport_min", 21, 1, 65535);
-	i_iports[1] = nvram_safe_get_int("upnp_iport_max", 65535, 1, 65535);
-	i_eports[0] = nvram_safe_get_int("upnp_eport_min", 21, 1, 65535);
-	i_eports[1] = nvram_safe_get_int("upnp_eport_max", 65535, 1, 65535);
 
 	if (i_iports[0] > i_iports[1])
 		i_iports[0] = i_iports[1];

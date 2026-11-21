@@ -18,19 +18,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The MiniUPnP protocol/secure-mode checked NVRAM preflight is committed in `27c02048027d50435f2d18665bbe74aaddc90fc9`. Missing keys retain legacy defaults; backend errors, malformed and out-of-range values fail before publishing a new daemon configuration.
-- Exact-head MiniUPnP run #44941367108 failed only because the inline Python source contract referenced undefined names `config_file_header` and `config_file_test`. The workflow already loads the same files as `helper` and `test`; this correction points the two assertions at those existing variables without changing production code or weakening checks.
-- XY-C1 #44941367009 was in progress before Build XY-C1 at last poll; same-SHA Build/TRX/artifact still required for L3. Hardware L4 remains NOT VERIFIED.
+- `start_upnp_locked()` now reads protocol, secure mode, HTTP presentation port, both cleanup timer settings, and all internal/external mapping port-range bounds through `miniupnpd_read_nvram_integer()`. Missing/empty values preserve defaults; backend, malformed and out-of-range values fail before publishing a replacement daemon configuration. Existing min>max normalization is unchanged.
+- The preceding checked config preflight on parent `27c02048027d50435f2d18665bbe74aaddc90fc9` had a workflow-only NameError from two undefined checker identifiers; fixed in child `6c48528d8ec5c746de31f9d25b2016504e9aa831`. Exact-head MiniUPnP and AI docs checks on that child both passed (#44941570192 and #44941570201).
+- This expanded preflight is the next source validation target. Require its MiniUPnP host/source-contract run and XY-C1 Build/TRX/artifact on the same source SHA; hardware L4 remains NOT VERIFIED.
 ## Verification boundary
 
-- Parent `27c02048027d50435f2d18665bbe74aaddc90fc9`: MiniUPnP configuration publication/lifecycle run #44941367108 failed at the final inline-Python source contract with `NameError: config_file_header is not defined`; all preceding policy and sanitizer steps passed. The cause is a checker variable-name mismatch: the workflow reads the header into `helper` and test into `test`.
-- XY-C1 #44941367009 was still preparing the build (Build XY-C1 pending, TRX and artifact upload pending). Process inventory #44941366957 passed; DNSMasq #44941367068, Samba #44941367014, WAN route #44941367033, Inadyn #44941366953, WAN DHCP #44941366980 and AI docs #44941366962 passed on the same parent. HTTPD #44941366939 and NVRAM #44941367101 were still in progress.
-- No same-SHA L3 Build/TRX/artifact pass is established for `27c02048027d50435f2d18665bbe74aaddc90fc9`. No local tests/build or hardware L4 are claimed.
+- Parent `23248f7df1575885e991fe518629bb974fc05c35`: p910nd SIGPIPE regression #44941685747 PASS; AI handoff #44941685744 PASS. XY-C1 #44941685839 remained before Build XY-C1 (Build/TRX/artifact pending) at the last poll. Process inventory #44941685697 and NVRAM audit #44941685864 were still in progress.
+- The preceding MiniUPnP checked protocol/security/HTTP preflight was validated on child `6c48528d8ec5c746de31f9d25b2016504e9aa831`: MiniUPnP config regression #44941570192 PASS and AI handoff #44941570201 PASS. The prior failure #44941367108 was a Python NameError, corrected without altering production policy.
+- The current full preflight change has not yet run Actions. Same-SHA Build XY-C1, TRX and artifact upload are required for L3. No local build or hardware L4 is claimed.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head MiniUPnP config-stability rerun for this workflow-variable correction; the checked integer parser regression and config/daemon gates must pass, and the source contract must complete without NameError.
-2. Poll XY-C1 #44941367009 for the `27c02048027d50435f2d18665bbe74aaddc90fc9` source. Require Build XY-C1, TRX verification and artifact upload all PASS on the same SHA before marking L3.
-3. After these gates, continue the highest-risk unfinished userland reliability/security task outside MiniUPnP; PENDING workflows do not block independent work.
+1. Inspect exact-head MiniUPnP config regression for this change. Confirm its parser tests pass and the source contract requires all nine checked NVRAM settings, rejecting any unchecked `nvram_safe_get_int("upnp_...")` fallback in `start_upnp_locked()`.
+2. Inspect the XY-C1 run for this same production-source SHA; require Build XY-C1, TRX verification and artifact upload all PASS before recording L3.
+3. Continue the highest-risk remaining reliability/security defect in another Padavan userland module once these independent checks are running; PENDING does not block work.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history, create branches or PRs.

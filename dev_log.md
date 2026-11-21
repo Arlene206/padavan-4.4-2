@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on MiniUPnP port-range and cleanup policy reads
+
+- Parent main SHA: `23248f7df1575885e991fe518629bb974fc05c35`.
+- `start_upnp_locked()` already used checked NVRAM reads for protocol, secure-mode and HTTP presentation port, but still loaded six related configuration values with `nvram_safe_get_int()`: cleanup minimum/interval and the internal/external mapping port-range bounds. A transient NVRAM backend failure or malformed value could silently replace a configured restrictive port range with the permissive legacy defaults (21–65535) and publish a daemon config with different exposure policy.
+- Migrated all six values to the existing checked integer reader in the same preflight gate. Missing/empty keys retain their previous defaults; read errors, malformed values and out-of-range values abort before config publication. Existing min>max normalization remains unchanged.
+- Extended the existing MiniUPnP workflow source contract to require all nine checked settings in order and reject any remaining `nvram_safe_get_int("upnp_...")` read in this start path. The generic GNU89 parser regression already covers defaults, backend errors, malformed values and range rejection; no duplicate test harness added.
+- Parent 6c485 MiniUPnP workflow #44941570192 and AI docs #44941570201 passed. Parent 23248 XY-C1 #44941685839 had not reached Build XY-C1 at last poll; no L3 or hardware L4 claim is made.
+
+---
+
 ## 2026-11-21 — Fix MiniUPnP checked-config workflow variable references
 
 - Parent main SHA: `27c02048027d50435f2d18665bbe74aaddc90fc9`.
