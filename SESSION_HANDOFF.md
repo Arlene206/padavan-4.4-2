@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest product-source baseline: `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` (`fix(usb): preserve deferred event markers on NVRAM errors`), which moves deferred printer/modem event pairs to checked reads and preserves markers on NVRAM errors. THIS COMMIT is a checker-only follow-up for the exact 7e2e stale contracts. Re-fetch live `main` on takeover.
+- Latest product-source baseline: `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` (`fix(wan): check dynamic route flag before DHCP setup`). This source commit checks the `dr_enable_x` selector in WAN/IPTV DHCP option producers and route addition while keeping route cleanup unconditional. Its two exact-head checker failures were traced to stale function locators and a retired `nvram_match()` assertion; THIS COMMIT repairs those contracts only. Re-fetch live `main` on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -28,10 +28,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Latest product slice: THIS COMMIT hardens DHCP dynamic-route option handling. `start_udhcpc_wan()`, `start_udhcpc_viptv()`, and `control_dhcp_routes()` now read `dr_enable_x` through checked exact-match status. Backend/read/close errors return their actual status instead of silently omitting DHCP dynamic-route option requests or suppressing route additions. Route-removal/cleanup remains unconditional.
-- Static integration checker `scripts/check_wan_vlan_setup.py` now verifies the three checked reads, error propagation and route-cleanup independence. Existing `wan_nvram_status_policy.c` covers exact-match and backend errors.
-- Parent main SHA: `b7f0e368c742172d3ef5b0e0b6273fe341f9007b`. On this parent, WAN route workflow #44961918900 passed after the VLAN helper token normalization and local `status` declaration. XY-C1 workflow #44961919041 was still running at last poll; same-SHA Build/TRX/artifact outcome remains unverified.
-- Previous LAN/WAN switch settings hardening remains in history: checked WAN VLAN, LAN soft-bridge/core bridge, switch VLAN, storm-control and base PHY settings.
+- Product source `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` adds checked `dr_enable_x` reads to `control_dhcp_routes()`, `start_udhcpc_wan()` and `start_udhcpc_viptv()`. The route cleanup path remains unconditional; only add operations use the selector.
+- Exact c4 WAN route run `#44962248260` failed in the newly added source checker because short `body()` signatures matched earlier callers rather than the function definitions. HTTPD `#44962248262` failed on one stale assertion for the old unchecked `nvram_match()` condition. Both failures are checker-only; the exact c4 WAN source confirms checked NVRAM status and error returns.
+- THIS COMMIT fixes the WAN checker to use exact function signatures and the HTTPD contract to require checked selector status, error propagation and cleanup independence. Targeted preflight against exact c4 source passes all three sites and HTTPD's route-add contract.
+- Parent c4's other completed checks include DNSMasq, WAN DHCP callback, Firewall Startup, Wireless, VPN server, USB modem, ZeroTier, watchdog, detect_link, detect_internet, ARP probe, miniupnpd, router-mode NVRAM and AI docs. WAN route/HTTPD were FAIL; Process/NVRAM/XY-C1 were PENDING at last poll.
+- After exact-head WAN/HTTPD reruns and XY-C1 status are inspected, continue the known LAN VLAN QoS follow-up: restore the legacy `& 0x07` mask omitted for `vlan_pri_lan3`; require all six masks in the source contract.
 
 ## Verification boundary
 

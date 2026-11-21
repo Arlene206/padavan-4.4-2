@@ -1,3 +1,13 @@
+## 2026-11-21 — Repair DHCP dynamic-route source-contract locators
+
+- Parent main SHA: `c4a3bb279d23ca331572a91ab8ca85acfff8edc7`; this is a checker-only follow-up.
+- Exact-head WAN route run `#44962248260` reached the new dynamic-route assertions after the prior GNU89/ASan/UBSan and LAN/WAN regressions passed, then reported that WAN DHCP lost the checked flag read. Inspection showed the checker used short signatures that matched earlier call sites, not the `start_udhcpc_wan()` / `start_udhcpc_viptv()` definitions. THIS COMMIT uses full function signatures so it inspects the intended function bodies.
+- Exact-head HTTPD run `#44962248262` failed on a stale assertion that required the retired `nvram_match("dr_enable_x")` check. THIS COMMIT updates that contract to require checked exact-match status, error propagation and selector-independent route cleanup. No new production-source defect was shown by either failure.
+- Parent c4 exact actions also had DNSMasq, WAN DHCP, Firewall Startup, Wireless, VPN server, USB modem, ZeroTier, watchdog, detect_link, detect_internet, ARP probe, miniupnpd, router NVRAM and AI handoff PASS; Process, NVRAM and XY-C1 were still in progress.
+- Targeted preflight against exact c4 source confirms all three dynamic-route call sites use checked reads and propagate failures; cleanup remains independent. Next: rerun exact-head WAN route and HTTPD contracts, then inspect XY-C1 Build/TRX/artifact on the same product-source SHA. No L3/L4 claim is made.
+
+---
+
 ## 2026-11-21 — Preserve DHCP dynamic routes when the NVRAM selector read fails
 
 - Parent main SHA: `b7f0e368c742172d3ef5b0e0b6273fe341f9007b`.

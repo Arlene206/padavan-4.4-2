@@ -721,9 +721,9 @@ print("WAN VLAN/bridge and IGMP proxy result-propagation contracts: PASS")
 
 
 # DHCP dynamic-route selector reads must preserve backend errors in both producers and route consumer.
-route_add = body(wan, "control_dhcp_routes(")
-wan_dhcp = body(wan, "start_udhcpc_wan(")
-iptv_dhcp = body(wan, "start_udhcpc_viptv(")
+route_add = body(wan, "control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms")
+wan_dhcp = body(wan, "start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)")
+iptv_dhcp = body(wan, "start_udhcpc_viptv(char *man_ifname)")
 route_add_code = " ".join(route_add.split())
 wan_dhcp_code = " ".join(wan_dhcp.split())
 iptv_dhcp_code = " ".join(iptv_dhcp.split())
