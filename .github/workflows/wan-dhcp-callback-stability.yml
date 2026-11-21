@@ -490,7 +490,8 @@ jobs:
           route_abort = callback.index("dhcp_wan_route_transition_abort_snapshot(", rollback_state)
           assert published_state < rollback_state < restore_publish < route_abort
           assert "dhcp_lease_nvram_reverse_snapshot(" in callback
-          assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values, snapshot_count, rollback_values)" in callback
+          callback_compact = "".join(callback.split())
+assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values,snapshot_count,rollback_values)" in callback_compact
           assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
           assert "preserving current interface/routes" in callback
           callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
@@ -557,11 +558,18 @@ jobs:
           lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
           publisher_anchor = source.index("static int\nwan_dhcp_nvram_restore_values(")
           publisher_start = source.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
+          publisher_signature = (
+              "static int\nwan_dhcp_nvram_state_publish(\n"
+              "\tconst struct dhcp_lease_nvram_value *values, size_t count,\n"
+              "\tint *rollback_status)"
+          )
+          assert publisher_signature + ";" in source
+          assert source.count(publisher_signature + "\n{") == 1
           renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish(")
           assert "dhcp_lease_nvram_publish_if_current(" in renew_publisher
           assert "wan_dhcp_nvram_transaction_get_value" in renew_publisher
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
-          assert "if (publish_attempted && publish_rollback_status != 0)" in renew_publisher
+          assert "if (publish_attempted && status != 0)" in renew_publisher
           restore_guard = body(lease_policy, "dhcp_lease_nvram_restore_if_current(")
           assert "values[i].value" in restore_guard
           assert "values[i].previous_value" in restore_guard

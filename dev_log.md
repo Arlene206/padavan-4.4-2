@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore the WAN DHCP publisher forward declaration and remove duplicate definition
+
+- Parent main SHA: 188a2b85bc0b80246bfc1a37f2030f7ceec85e29; the latest product-source baseline had failed XY-C1 Build #44913834107.
+- The MIPS compiler found a real blocker in net_wan.c: an earlier prototype at line 6127 had been accidentally replaced by a full wan_dhcp_nvram_state_publish definition in commit 114a7711. The existing implementation remained later in the same translation unit. This produced an undeclared transaction-set callback, an implicit restore helper declaration, and a duplicate static definition. The first block is restored to its forward declaration; the single lower implementation retains compare-and-publish and guarded stale-writer rollback behavior.
+- Extended the WAN callback source contract to require exactly one function definition plus the forward declaration, normalized the multiline reverse-snapshot call, and aligned the rollback assertion with the lower implementation's publish_attempted && status != 0 guard.
+- Previous XY-C1 run #44913834107 on source baseline 9a25b71 failed at net_wan.c before Build completion; TRX verification and artifact upload were skipped. NVRAM transaction audit #44913834104 passed on that baseline. WAN callback #44914630325 failed at the multiline reverse-snapshot source assertion; Process #44914630350 was pending at last inspection. Exact-head reruns after THIS COMMIT are required.
+- No claim of local compilation, L3 firmware validation, or hardware L4 validation.
+
+---
+
 ## 2026-11-21 — Normalize WAN6 and detached-daemon source contracts
 
 - Parent main SHA: `e86520924f8e4bee54ba744d7506d9966e5e4291`.
