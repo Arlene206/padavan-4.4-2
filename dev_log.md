@@ -1,3 +1,12 @@
+## 2026-11-21 — Align HTTPD security contract with checked startup snapshot
+
+- Parent main SHA: `6976792a61c28d782232e13a576e806e05b35731`.
+- Exact-head HTTPD daemon lifecycle run #44921484050 passed, including the new GNU89/ASAN/UBSAN startup-settings snapshot regression and its source contract. The separate HTTPD security umbrella #44921484155 failed only because its duplicate lifecycle checker still expected the removed single-field `http_proto` read and the old insecure-fallback diagnostic.
+- Updated that contract to require the checked adapter and all-or-nothing `httpd_start_config_read()` gate before listener selection, port writes, service-state publication and daemon launch. It rejects all four unchecked port/firewall-setting getters and pins the new policy regression; both new helper/test paths are now in the security workflow's push and PR path filters.
+- No production code changed in this checker follow-up. Exact-head HTTPD security / Process / XY-C1 reruns are pending. XY-C1 run #44921484318 on `6976792a61c28d782232e13a576e806e05b35731` had not yet reached Build; L3 and L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on HTTPD startup setting read errors
 
 - Parent main SHA: `772916f1f377917ba9c6262b7b421f61dc79e6b6`.

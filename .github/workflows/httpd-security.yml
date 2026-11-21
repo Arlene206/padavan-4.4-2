@@ -202,6 +202,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
       - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
@@ -468,6 +470,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
       - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
@@ -5570,16 +5574,22 @@ jobs:
           httpd_config_reader = body(services, "httpd_nvram_read_int_status(")
           assert "nvram_get_checked(param_name, &text)" in httpd_config_reader
           assert "rc_wan_nvram_read_int_status(" in httpd_config_reader
-          assert 'httpd_nvram_read_int_status("http_proto", 0, &http_proto)' in start_locked
-          assert 'http_proto = nvram_get_int("http_proto")' not in start_locked
+          config_adapter = body(services, "httpd_nvram_read_int_adapter(")
+          assert "httpd_nvram_read_int_status(param_name, missing_value, value)" in config_adapter
+          assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start_locked
+          assert 'httpd_nvram_read_int_status("http_proto", 0, &http_proto)' not in start_locked
           compact_start_locked = "".join(start_locked.split())
-          protocol_read = compact_start_locked.index('httpd_nvram_read_int_status("http_proto",0,&http_proto);')
-          protocol_error = compact_start_locked.index("if(status!=0)", protocol_read)
-          listener_selection = compact_start_locked.index("if(http_proto==0||http_proto==2)", protocol_error)
+          config_read = compact_start_locked.index("httpd_start_config_read(httpd_nvram_read_int_adapter")
+          config_error = compact_start_locked.index("if(status!=0)", config_read)
+          listener_selection = compact_start_locked.index("if(http_proto==0||http_proto==2)", config_error)
           stale_state_clear = compact_start_locked.index('httpd_started_state_publish_status(0)', listener_selection)
           httpd_launch = compact_start_locked.index("_eval(httpd_argv", stale_state_clear)
-          assert protocol_read < protocol_error < listener_selection < stale_state_clear < httpd_launch
-          assert "refusing insecure fallback" in start_locked
+          assert config_read < config_error < listener_selection < stale_state_clear < httpd_launch
+          for key in ("http_lanport", "misc_http_x", "https_lport", "https_wopen"):
+              assert 'nvram_get_int("' + key + '")' not in start_locked
+          assert "refusing listener launch" in start_locked
+          assert "httpd_start_config_read" in (root / "httpd_daemon_policy.h").read_text()
+          assert "test_start_config_fails_closed_without_partial_snapshot();" in (root / "tests/httpd_daemon_policy.c").read_text()
           assert 'process_inventory_scan("httpd", &snapshot)' in presence
           recovery = body(watchdog, "static void httpd_process_check(void)")
           assert "restart_status = restart_httpd();" in recovery
@@ -5588,6 +5598,8 @@ jobs:
           for path in ("trunk/user/rc/src/services.c","trunk/user/rc/src/watchdog.c",
                        "trunk/user/rc/src/httpd_lifecycle_lock.h",
                        "trunk/user/rc/src/tests/httpd_lifecycle_lock.c",
+                       "trunk/user/rc/src/httpd_daemon_policy.h",
+                       "trunk/user/rc/src/tests/httpd_daemon_policy.c",
                        ".github/workflows/httpd-security.yml"):
               entry = '      - "' + path + '"'
               assert entry in push and entry in pull, "path filter missing " + path
