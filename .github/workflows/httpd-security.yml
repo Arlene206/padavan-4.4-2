@@ -269,6 +269,8 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_policy.h"
       - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp"
+      - "scripts/check_static_route_ui.py"
   pull_request:
     paths:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
@@ -536,6 +538,8 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_policy.h"
       - "trunk/user/rc/src/tests/vpn_server_lease_policy.c"
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp"
+      - "scripts/check_static_route_ui.py"
   workflow_dispatch:
 
 permissions:
@@ -5926,3 +5930,6 @@ jobs:
 
           print("NVRAM shared-userland API lock and profile-restore transaction source contracts: OK")
           PY
+
+      - name: Verify gateway static-route UI capacity boundary
+        run: python3 scripts/check_static_route_ui.py

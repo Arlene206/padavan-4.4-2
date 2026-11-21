@@ -64,7 +64,7 @@ function change_sr_enabled(){
 function GWStatic_markGroup(o, c, b) {
 	document.form.group_id.value = "GWStatic";
 	if(b == " Add "){
-		if (document.form.sr_num_x_0.value > c){
+		if (document.form.sr_num_x_0.value >= c){
 			alert("<#JS_itemlimit1#> " + c + " <#JS_itemlimit2#>");
 			return false;
 		}
