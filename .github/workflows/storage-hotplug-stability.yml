@@ -1387,10 +1387,15 @@ jobs:
               locked_name = stop_name + "_locked"
               public_body = function_body(storage, signature)
               # Search the definition, not an earlier forward declaration or call.
-              locked_definition = "static int\n" + locked_name + "("
-              if locked_definition not in storage:
-                  locked_definition = "static int " + locked_name + "("
-              locked_body = function_body(storage, locked_definition)
+              locked_definitions = {
+                  "stop_ftp_locked": "static int\nstop_ftp_locked(void)\n{",
+                  "stop_samba_locked": "static int\nstop_samba_locked(int force_stop)\n{",
+                  "stop_dms_locked": "static int\nstop_dms_locked(void)\n{",
+                  "stop_itunes_locked": "static int\nstop_itunes_locked(void)\n{",
+                  "stop_torrent_locked": "static int\nstop_torrent_locked(void)\n{",
+                  "stop_aria_locked": "static int\nstop_aria_locked(void)\n{",
+              }
+              locked_body = function_body(storage, locked_definitions[locked_name])
               lock_pos = public_body.index("storage_operation_lock_acquire(file_lock)")
               call_pos = public_body.index(locked_name + "(")
               unlock_pos = public_body.index("file_unlock(storage_lock);")
