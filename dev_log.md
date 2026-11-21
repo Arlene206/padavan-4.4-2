@@ -1,3 +1,11 @@
+## 2026-11-21 — Use non-routable synthetic PIDs in SCUT watchdog tests
+
+- Parent main SHA: `9785630f590415d58d9fad62a8b08d659520e5d1`.
+- Moved the mocked procfs PID values above Linux's maximum task PID. This makes the stale/reused-PID regression safe even if a future source regression accidentally restores a real shell-builtin `kill` call; the test still detects unsafe source patterns separately.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Create SCUT watchdog regression workspace as a directory
 
 - Parent main SHA: `068762548f4004200bbf42e49423eac1da09997f`.
