@@ -1704,7 +1704,12 @@ int stop_smartdns(void){
 }
 
 int start_smartdns(void){
-	int smartdns_mode = nvram_get_int("sdns_enable");
+	int smartdns_mode;
+	int config_status = service_enabled_mode_status(
+		"SmartDNS", "sdns_enable", &smartdns_mode);
+
+	if (config_status != 0)
+		return config_status;
 	if (smartdns_mode != 1)
 		return 0;
 	return eval("/usr/bin/smartdns.sh","start");
@@ -1723,8 +1728,13 @@ int stop_aliddns(void){
 
 void start_aliddns(void){
 	int start_status;
-	int aliddns_mode = nvram_get_int("aliddns_enable");
-	if ( aliddns_mode == 1) {
+	int aliddns_mode;
+	int config_status = service_enabled_mode_status(
+		"AliDDNS", "aliddns_enable", &aliddns_mode);
+
+	if (config_status != 0)
+		return;
+	if (aliddns_mode == 1) {
 		start_status = eval("/usr/bin/aliddns.sh","start");
 		if (start_status != 0)
 			logmessage(LOGNAME, "AliDDNS launcher failed (status=%d)", start_status);

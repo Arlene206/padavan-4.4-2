@@ -1,3 +1,12 @@
+## 2026-11-21 — Check SmartDNS and AliDDNS enable reads before launch
+
+- Parent main SHA: 6875d107ea47ab16ee9549ee780f878f29d50276.
+- The RC wrappers for SmartDNS and AliDDNS still used unchecked `nvram_get_int()` reads for `sdns_enable` and `aliddns_enable`. A transient NVRAM backend/parse failure was indistinguishable from a readable disabled setting; SmartDNS reported a successful no-op and AliDDNS silently skipped startup.
+- Both wrappers now use the existing `service_enabled_mode_status()` checked reader. SmartDNS returns the read error to its caller; the legacy void AliDDNS API logs through the shared reader and leaves the current daemon state untouched. No command launches when the setting is unreadable. Extended the optional-app source checker to enforce read → error gate → launch ordering and forbid unchecked getters.
+- GNU89 firmware build and exact-head Process regression pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Correct HTTPD security policy-test source contract
 
 - Parent main SHA: a655d440c8c77fd46160f81344ad5912b8082b4b.

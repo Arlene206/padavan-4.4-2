@@ -325,6 +325,28 @@ def check_rc_optional_daemon_enable_reads():
     assert "rc_service_enabled_mode_decide(" in reader
     assert "preserving existing daemon state" in reader
 
+    smartdns_start = extract_c_function_body(services, "start_smartdns(void)")
+    smartdns_compact = "".join(smartdns_start.split())
+    smartdns_read = 'service_enabled_mode_status("SmartDNS","sdns_enable",&smartdns_mode);'
+    assert smartdns_read in smartdns_compact
+    assert smartdns_compact.index(smartdns_read) < smartdns_compact.index("if(config_status!=0)")
+    assert smartdns_compact.index("if(config_status!=0)") < smartdns_compact.index(
+        'returneval("/usr/bin/smartdns.sh","start");'
+    )
+    assert "nvram_get_int(" not in smartdns_start
+    assert "nvram_safe_get(" not in smartdns_start
+
+    aliddns_start = extract_c_function_body(services, "start_aliddns(void)")
+    aliddns_compact = "".join(aliddns_start.split())
+    aliddns_read = 'service_enabled_mode_status("AliDDNS","aliddns_enable",&aliddns_mode);'
+    assert aliddns_read in aliddns_compact
+    assert aliddns_compact.index(aliddns_read) < aliddns_compact.index("if(config_status!=0)")
+    assert aliddns_compact.index("if(config_status!=0)") < aliddns_compact.index(
+        "if(aliddns_mode==1)"
+    )
+    assert "nvram_get_int(" not in aliddns_start
+    assert "nvram_safe_get(" not in aliddns_start
+
     for name, key, stop_name, start_helper in (
         ("scutclient", "scutclient_enable", "stop_scutclient()", "start_scutclient_with_mode(enabled)"),
         ("mentohust", "mentohust_enable", "stop_mentohust()", "start_mentohust_with_mode(enabled)"),
