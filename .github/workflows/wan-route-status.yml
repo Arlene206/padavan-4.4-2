@@ -803,8 +803,8 @@ jobs:
           assert "cannot read coherent WAN route snapshot during teardown" in wan_down
           assert "cannot read WAN gateway fallback during teardown" in wan_down
           assert "cannot read WAN gateway snapshot during teardown" in wan_down
-          assert wan_down.count('get_wan_unit_value_copy_status(unit, "ipaddr"') == 1
-          assert 'get_wan_unit_value_copy_status(unit, "netmask"' not in " ".join(wan_down.split())
+          assert wan_down_compact.count('get_wan_unit_value_copy_status(unit,"ipaddr",wan_addr,sizeof(wan_addr))') == 1
+          assert 'get_wan_unit_value_copy_status(unit,"netmask",wan_mask,sizeof(wan_mask))' not in wan_down_compact
           assert "address_valid = dhcp_lease_ipv4_is_valid(wan_addr);" in wan_down
           assert "netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);" in wan_down
           assert "if (!address_valid)" in wan_down

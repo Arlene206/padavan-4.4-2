@@ -1,3 +1,13 @@
+## 2026-11-21 — Normalize PPP-only WAN address checker
+
+- Parent main SHA: `4dc1e9db6dd81451530593170d0679c79d4aab91`.
+- Exact-head WAN route #44930083634 progressed through all policy and sanitizer tests and the standalone DNS checker, then failed at inline workflow assertion 370. The PPP address getter is intentionally split across C source lines, so direct substring counting returned zero. Changed the assertion to count the complete getter call in `wan_down_compact`; changed the independent-netmask exclusion to use the same compact representation.
+- The prior exact-head WAN route failed at assertion 366 for the same formatting class; the new commit already corrected the gateway fallback contract.
+- AI handoff #44930083703 passed on exact SHA 4dc. d0 NVRAM audit #44929756500 passed; XY-C1 #44929756345 remains in progress at last poll. WAN teardown and DHCP callback passed on d0.
+- Workflow contract/docs only; no production source changed.
+
+---
+
 ## 2026-11-21 — Fix the WAN route snapshot source-contract formatting
 
 - Parent main SHA: `a760c37dd793f0497907fb5b30a871be6497415b`.
