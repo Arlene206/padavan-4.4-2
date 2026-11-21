@@ -1388,18 +1388,45 @@ full_restart_lan(void)
 {
 	int is_wan_err = 0, is_lan_stp = 0;
 	int is_ap_mode, log_remote, lan_status;
+	int ap_mode_status, wan_err_status, lan_stp_status;
+	int api_result, saved_errno;
 	int dnsmasq_lock, dnsmasq_lock_errno, release_status;
 	int dnsmasq_status, dnsmasq_start_status, vpn_status;
 	int lan_start_status, wait_status;
 	int logger_stop_status = 0, lltd_stop_status;
 	int infosvr_stop_status, networkmap_stop_status;
 	int restart_status = 0;
+	char *lan_stp_value = NULL;
 
-	is_ap_mode = get_ap_mode();
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "LAN restart aborted because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
 	log_remote = nvram_invmatch("log_ipaddr", "");
 	if (!is_ap_mode) {
-		is_wan_err = get_wan_unit_value_int(0, "err");
-		is_lan_stp = nvram_get_int("lan_stp");
+		wan_err_status = get_wan_unit_value_int_status(0, "err",
+							      &is_wan_err);
+		if (wan_err_status != 0) {
+			logmessage(LOGNAME,
+				   "LAN restart aborted because WAN error state cannot be read (status=%d)",
+				   wan_err_status);
+			return wan_err_status;
+		}
+
+		errno = 0;
+		api_result = nvram_get_checked("lan_stp", &lan_stp_value);
+		saved_errno = errno;
+		lan_stp_status = rc_wan_nvram_read_int_status(
+			api_result, saved_errno, lan_stp_value, 0, &is_lan_stp);
+		if (lan_stp_status != 0) {
+			logmessage(LOGNAME,
+				   "LAN restart aborted because bridge STP state cannot be read (status=%d)",
+				   lan_stp_status);
+			return lan_stp_status;
+		}
 	}
 
 	/* Stop VPN under its own lifecycle lock before taking the DNSMasq lock.
