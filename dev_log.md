@@ -1,3 +1,12 @@
+## 2026-11-21 — Update HTTPD retry rollback integration contract
+
+- Parent main SHA: `955c3130f9d9aa3d750da39ef3080a728eaaa070`.
+- The exact-head HTTPD daemon lifecycle run #44921809902 compiled and passed the GNU89/ASAN/UBSAN policy regression, then failed a stale source contract that still expected the initial wait-failure cleanup to be inlined inside `start_httpd_locked()`.
+- The code intentionally centralizes initial and retry wait cleanup in `httpd_start_wait_failure_recover()`. Updated the contract to require the initial wait branch to call that helper and validate the complete stop/rescan/conservative-state-publication/errno sequence in the shared helper. The retry branch assertion remains in place. No product source or policy was changed.
+- Exact-head rerun pending. HTTPD security, Process inventory, WAN route, networkmap, detect-link, AI handoff docs and several unrelated exact-head checks passed; XY-C1 remains pending build/TRX/artifact on this source SHA.
+
+---
+
 ## 2026-11-21 — Roll back HTTPD when a delayed startup probe wait fails
 
 - Parent main SHA: `4aead28cd9b3e2802922e4935bad22fbe742c3a9`.
