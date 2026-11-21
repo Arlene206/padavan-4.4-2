@@ -3328,9 +3328,8 @@ start_wan(void)
 						}
 					}
 					continue;
-				
+				}
 
-			
 			/* We are done configuration */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 				if (!wan_err) {

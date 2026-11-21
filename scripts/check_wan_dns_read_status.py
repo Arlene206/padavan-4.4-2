@@ -272,3 +272,10 @@ require(modem_pos < modem_error < modem_cleanup < modem_continue < modem_branch,
         "modem type read failure must restore WAN and skip transport activation")
 assert 'nvram_get_int("modem_type")' not in wan_start
 print("USB modem startup fails closed when transport type is unreadable: PASS")
+
+# The EAPOL read/start failure guard must close before the WAN protocol's
+# success path; otherwise start_wan() becomes syntactically unbalanced.
+wan_start = body(source, "start_wan(void)")
+require("if (auth_status != 0) {" in wan_start and
+        "continue;\n\t\t\t\t}\n\n\t\t\t/* We are done configuration */" in wan_start,
+        "EAPOL failure branch must close before WAN protocol activation")
