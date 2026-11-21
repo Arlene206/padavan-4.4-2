@@ -7,25 +7,25 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Main SHA before current service-enable startup repair: `38bc699b31a449f9708daf57e114de02560f17cc`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main HEAD at this handoff refresh: `43fb2c87c144efe369970cd3ad6e0b43a0ba174a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 - Recent WAN-up ZeroTier changes removed the unchecked NVRAM pre-gate so the checked service wrapper's read/launch status reaches the WAN-up accumulator.
 
 ## Active task
 
-- WAN teardown checked route snapshot fix committed at `cb3a9460635a3754e3317d6340ac6b6749aef4ff`: gateway/address/netmask now use bounded checked copies; error states are logged/accumulated; off-subnet host /32 removal requires a complete checked tuple; conntrack uses the same verified old address.
-- Current Process source fix: `restart_lltd()` and `restart_rstats()` no longer re-read their enable keys with unchecked `nvram_match()` after the checked start function; they return its status directly. This prevents NVRAM/start errors being converted to success while retaining disabled-service no-op behavior.
-- Regression contract in `scripts/check_process_lifecycle_integration.py` verifies both wrappers propagate the checked start result.
-- Last exact-head Actions for `cb3a946...` were queued/in progress: WAN teardown #44926424756, WAN route #44926424777, Process inventory #44926424612, XY-C1 #44926424759, USB modem #44926424748; poll these against their exact SHA and inspect failures before claiming success.
-- First next task: continue the WAN-down/control-plane status audit after exact-head verification.
+- WAN teardown uses bounded checked gateway/address/netmask reads, accumulates backend errors, and gates off-subnet gateway /32 removal on the checked-read policy helper. The production change is committed at cb3a9460635a3754e3317d6340ac6b6749aef4ff.
+- Latest main 43fb2c87c144efe369970cd3ad6e0b43a0ba174a also fixes LLTD/rstats restart wrappers to preserve their checked start result. Process inventory integration passed on this SHA.
+- Exact-head Actions for 43fb: Process inventory #44926550385 PASS; WAN gateway ARP #44926550439 PASS; WAN route #44926550424 FAIL at a stale assertion requiring pre-refactor WAN-down pointer variables; infosvr #44926550285 and crond #44926550347 FAIL because their checkers still expected raw nvram_invmatch gates; Process integration #44926550298 FAIL because it expected the postcondition helper to be returned directly rather than tested as a predicate. XY-C1 #44926550475 was still in progress when checked.
+- Current slice aligns those four source contracts with the checked-reader/postcondition implementation and wires the WAN teardown policy regression into the WAN route workflow, including push/PR filters and an ASan/UBSan build.
+- Next production check: WAN teardown must not classify an invalid or empty IPv4 address/netmask as off-subnet. Keep gateway /32 cleanup fail-closed until both are valid IPv4 strings; preserve default-route deletion and independent conntrack cleanup.
 
 ## Verification boundary
 
-- L1: checked-NVRAM policy and service-start helpers have host regression coverage; the current boot integration contract verifies all four optional-service entry points retain their checked-read boundary and feed status aggregation.
-- L2: exact-head WAN route and gateway-ARP socket suites passed on 432005050395db4136cd80407f37000c5dede114; Process integration #44925798100 failed at the stale LLTD expectation. Exact-head Process and WAN-route results for this boot-gate repair are pending.
-- L3: NOT VERIFIED until XY-C1 firmware Build, TRX verification and artifact upload all PASS on one exact product-source SHA. The services.c change should trigger the XY-C1 firmware validation workflow; the outstanding modem policy header fix also awaits same-SHA verification.
-- L4: boot-time NVRAM error propagation, WAN route cleanup and resolver continuity remain NOT VERIFIED on hardware.
+- L1: checked NVRAM policy helpers and WAN teardown host-route selection have GNU89 regression coverage; the WAN teardown regression is now compiled with ASan/UBSan in the WAN route workflow.
+- L2: exact-head Process inventory and gateway-ARP suites passed on 43fb2c87c144efe369970cd3ad6e0b43a0ba174a. WAN route, infosvr, crond and Process integration failures were stale source-checker expectations; corrected checks and WAN teardown test wiring await validation on the next exact SHA.
+- L3: NOT VERIFIED until XY-C1 firmware Build, TRX verification and artifact upload all PASS on one exact product-source SHA. XY-C1 #44926550475 was in progress at the last check.
+- L4: WAN route ownership, daemon status propagation and resolver continuity remain NOT VERIFIED on hardware.
 
 ## Workflow and preservation rules
 
@@ -45,5 +45,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and confirm backup `backup/pre-plugin-overhaul-2026-11-14` is unchanged. Check exact-head Process inventory, WAN route, WAN teardown, USB modem, XY-C1 Build/TRX/artifact and AI handoff Actions for the LLTD/rstats restart status-propagation fix. Inspect all failures and fix root causes. Then continue one independent WAN/service reliability slice, maintaining exact-SHA tests and atomic commits.
+Check exact-head WAN route, infosvr, crond, Process integration, Process inventory and XY-C1 Build/TRX/artifact Actions for this regression-alignment commit. Repair any remaining failures from exact logs. Then harden WAN teardown host-route classification against missing/invalid address or netmask values while retaining independent cleanup, and continue the WAN control-plane audit.
 

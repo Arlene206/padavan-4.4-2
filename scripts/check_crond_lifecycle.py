@@ -88,11 +88,15 @@ assert "errno = status;" not in wait_helper
 assert "return status;" not in wait_helper
 
 start = function_body(services, "start_crond(void)")
-disabled = start.split('if (nvram_invmatch("crond_enable", "1"))', 1)[1].split(
-    "/* Do not spawn a second scheduler", 1
-)[0]
-assert "return 0;" in disabled
-assert "return 1;" not in disabled
+enable_read = start.index('"crond_enable", "1", 0, &enabled')
+config_failure = start.index("if (config_status != 0)", enable_read)
+disabled = start.index("if (!enabled)", config_failure)
+preflight = start.index("/* Do not spawn a second scheduler", disabled)
+disabled_section = start[disabled:preflight]
+assert "return config_status;" in start[config_failure:disabled]
+assert "return 0;" in disabled_section
+assert "return 1;" not in disabled_section
+assert 'nvram_invmatch("crond_enable", "1")' not in start
 launch_failure = function_body(start, "if (launch_status != 0)")
 assert 'optional_daemon_rollback_failed_start("crond", -1, launch_errno)' in launch_failure
 assert "launch_errno = errno;" in launch_failure

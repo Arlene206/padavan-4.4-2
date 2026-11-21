@@ -66,14 +66,18 @@ assert "INFOSVR_START_PROBE_ATTEMPTS 4" in policy
 
 start = function_body(services, "start_infosvr(void)")
 assert 'optional_daemon_start_status("infosvr", "infosvr")' in start
-disabled = start.index('if (nvram_invmatch("adsc_enable", "1"))')
+enable_read = start.index('"adsc_enable", "1", 0, &enabled')
+config_failure = start.index("if (config_status != 0)", enable_read)
+disabled = start.index("if (!enabled)", config_failure)
 running = start.index("if (start_status > 0)")
 unknown = start.index("if (start_status < 0)")
+assert 'nvram_invmatch("adsc_enable", "1")' not in start
+assert "return config_status;" in start[config_failure:disabled]
 launch_status = start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR);')
 launch_log = start.index('logmessage("infosvr", "infosvr launch failed (status=%d)",')
 launch_return = start.index('return optional_daemon_rollback_failed_start("infosvr", -1, start_errno);', launch_log)
 launch_failure = start.split("if (start_status != 0)", 1)[1].split("\n\t}", 1)[0]
-assert disabled < running < unknown < launch_status < launch_log < launch_return
+assert enable_read < config_failure < disabled < running < unknown < launch_status < launch_log < launch_return
 assert "return 0;" in start[disabled:launch_status]
 assert "return 1;" not in start[disabled:launch_status]
 assert "if (start_status != 0)" in start

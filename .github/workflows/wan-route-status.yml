@@ -80,6 +80,8 @@ on:
       - "trunk/user/rc/src/tests/xl2tpd_start_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/route_status_policy.h"
+      - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan_teardown_policy.c"
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/tests/route_status_policy.c"
@@ -179,6 +181,8 @@ on:
       - "trunk/user/rc/src/tests/xl2tpd_start_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/route_status_policy.h"
+      - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/tests/wan_teardown_policy.c"
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/tests/route_status_policy.c"
@@ -211,6 +215,15 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+
+      - name: Compile and run WAN teardown route-selection policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_teardown_policy.c \
+            -o /tmp/wan-teardown-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-teardown-policy
 
       - name: Compile and run PPP callback link ownership regression
         run: |
@@ -454,13 +467,15 @@ jobs:
           service_start_test = (rc / "tests/service_start_status.c").read_text()
           policy = (rc / "route_status_policy.h").read_text()
           route_status_test = (rc / "tests/route_status_policy.c").read_text()
+          wan_teardown_policy = (rc / "wan_teardown_policy.h").read_text()
+          wan_teardown_test = (rc / "tests/wan_teardown_policy.c").read_text()
           wan_route_policy = (rc / "wan_route_flush_policy.h").read_text()
           wan_route_test = (rc / "tests/wan_route_flush_policy.c").read_text()
           fib_trie = Path("trunk/linux-4.4.x/net/ipv4/fib_trie.c").read_text()
           fib_semantics = Path("trunk/linux-4.4.x/net/ipv4/fib_semantics.c").read_text()
           fib_frontend = Path("trunk/linux-4.4.x/net/ipv4/fib_frontend.c").read_text()
           workflow = Path(".github/workflows/wan-route-status.yml").read_text()
-
+          
           def body(source, signature):
               start = source.index(signature)
               brace = source.index("{", start)
@@ -473,7 +488,7 @@ jobs:
                       if depth == 0:
                           return source[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
-
+          
           flush_apply = body(conntrack_policy, "rc_conntrack_flush_apply(")
           assert 'return write_file("/proc/net/nf_conntrack", ip ? ip : "f");' in flush_apply
           flush_entry = body(net, "flush_conntrack_table(char *ip)")
@@ -482,7 +497,7 @@ jobs:
           assert "void flush_conntrack_table(char *ip);" not in header
           assert 'rc_conntrack_flush_apply(NULL, fake_write)' in conntrack_test
           assert '== EACCES' in conntrack_test
-
+          
           stop_lan_body = body(net_lan, "stop_lan(int is_ap_mode)")
           assert "conntrack_status = flush_conntrack_table(lan_ip);" in stop_lan_body
           stop_lan_compact = "".join(stop_lan_body.split())
@@ -509,7 +524,7 @@ jobs:
           ipv6_cleanup_at = stop_lan_compact.index("ipv6_status=clear_lan_addr6();")
           bridge_down_at = stop_lan_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
           assert route_flush_at < ipv6_cleanup_at < bridge_down_at
-
+          
           reload_lan6 = body(net_lan6, "reload_lan_addr6(void)")
           reload_policy = body(lan6_reload_policy, "rc_lan_addr6_reload_apply(")
           assert "status = clear_address();" in reload_policy
@@ -564,7 +579,7 @@ jobs:
           assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart
           assert "test_clear_failure_prevents_new_address_publication" in lan6_reload_test
           assert "test_add_failure_is_returned_after_successful_clear" in lan6_reload_test
-
+          
           # Runtime interface names must stay argv elements, never shell syntax.
           ipv6_flush_cases = (
               ("clear_if_addr6(char *ifname)", 'return eval("ip", "-6", "addr", "flush", "dev", ifname, "scope", "global");'),
@@ -578,8 +593,8 @@ jobs:
               assert "if (!is_interface_exist(ifname)) return 0;" in flush_compact
               assert argv_call in flush_body
               assert "doSystem(" not in flush_body
-
-
+          
+          
           route_cache = body(net, "flush_route_caches(void)")
           assert 'return eval("ip", "route", "flush", "cache");' in route_cache
           assert 'system("ip route flush cache")' not in route_cache
@@ -609,20 +624,20 @@ jobs:
           assert first_restore < retry_restore < second_restore < first_error
           assert "test_transient_route_restore_failure_is_retried" in wan_route_test
           assert "test_persistent_route_restore_failure_preserves_primary_error" in wan_route_test
-
+          
           wan_down_body = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           assert "route_status = flush_conntrack_table(wan_addr);" in wan_down_body
           assert "status = route_status_accumulate(status, route_status);" in wan_down_body
           deconfig_body = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
           assert "conntrack_status = flush_conntrack_table(man_addr);" in deconfig_body
           assert "returnroute_status_accumulate(route_status_accumulate(interface_status,conntrack_status),cleanup_status);" in "".join(deconfig_body.split())
-
+          
           netfilter_start = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)')
           netfilter_end = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_FIREWALL) == 0)', netfilter_start)
           netfilter_case = rc_source[netfilter_start:netfilter_end]
           assert "conntrack_status = flush_conntrack_table(NULL);" in netfilter_case
           assert "action_result = rc_notify_merge_action_result(action_result, conntrack_status);" in netfilter_case
-
+          
           assert '#include "route_status_policy.h"' in net
           assert '#include "route_status_policy.h"' in wan
           static = body(net, "control_static_routes(char *ift, char *ifname, int is_add)")
@@ -657,12 +672,12 @@ jobs:
           assert "test_manual_lan_gateway_route_retry_after_resolver_failure" in route_status_test
           demand_ready = body(policy, "route_status_demand_ready(")
           assert "return route_status == 0;" in demand_ready
-
+          
           route_manip = body(net, "route_manip(int cmd, char *ifname, int metric, char *dst, char *gateway, char *genmask)")
           route_add = body(net, "route_add(char *ifname, int metric, char *dst, char *gateway, char *genmask)")
           assert "saved_errno = errno;" in route_manip and "return saved_errno;" in route_manip
           assert "route_manip(SIOCADDRT, ifname" in route_add
-
+          
           # Linux 4.4's SIOCADDRT path returns EEXIST only for an identical FIB route.
           rtentry_config = body(fib_frontend, "rtentry_to_fib_config(struct net *net, int cmd, struct rtentry *rt,")
           assert "cfg->fc_nlflags = NLM_F_CREATE;" in rtentry_config
@@ -681,7 +696,7 @@ jobs:
           assert "nh_comp(fi, nfi) == 0" in fib_find
           fib_create = body(fib_semantics, "fib_create_info(struct fib_config *cfg)")
           assert "ofi = fib_find_info(fi);" in fib_create and "return ofi;" in fib_create
-
+          
           dynamic = body(wan, "control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,")
           assert "static int\ncontrol_dhcp_routes(" in wan
           assert dynamic.count("route_status_accumulate(status, route_status)") == 2
@@ -690,7 +705,7 @@ jobs:
           assert dynamic.count("route_status = is_add ?") == 2
           assert "return status;" in dynamic and "errno == ERANGE" in dynamic
           assert "return;" not in dynamic
-
+          
           wrappers = (
               ("add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric)",
                "return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);"),
@@ -704,7 +719,7 @@ jobs:
               assert expected in body(wan, signature)
               name = signature.split("(")[0]
               assert "int  " + name in header and "void " + name not in header
-
+          
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           dns_loop_start = man_down.index("foreach(word, man_dns, next)")
           dns_loop_end = man_down.index("\n\t\t\t}", dns_loop_start)
@@ -762,24 +777,38 @@ jobs:
           public_man_down = body(wan, "man_down(char *man_ifname, int unit)")
           assert "man_down_internal(man_ifname, unit, 0)" in public_man_down
           assert "MAN route teardown incomplete" in public_man_down
-
+          
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
-          assert "static int\nwan_down_internal(" in wan
-          assert "char *wan_addr, *wan_gate, *wan_route_addr, *wan_mask;" in wan_down
-          assert "int ppp_index, gateway_valid, gateway_off_subnet;" in wan_down
-          assert "route_status_wan_gateway_host_route_required(gateway_valid,ppp_index,gateway_off_subnet)" in "".join(wan_down.split())
-          assert 'wan_route_addr = get_wan_unit_value(unit, "ipaddr");' in wan_down
-          assert 'wan_mask = get_wan_unit_value(unit, "netmask");' in wan_down
+          assert "static int\\nwan_down_internal(" in wan
+          assert "char wan_addr[16], wan_gate[16], wan_mask[16];" in wan_down
+          assert "int wan_addr_status, wan_gate_status, wan_mask_status;" in wan_down
+          wan_down_compact = "".join(wan_down.split())
+          for status_var, key, destination, label in (
+              ("wan_addr_status", "ipaddr", "wan_addr", "WAN IPv4 address"),
+              ("wan_gate_status", "gateway", "wan_gate", "WAN gateway"),
+              ("wan_mask_status", "netmask", "wan_mask", "WAN netmask"),
+          ):
+              require(f'get_wan_unit_value_copy_status(unit,"{key}",{destination},sizeof({destination}))' in wan_down_compact, "WAN teardown must use a checked " + key + " copy")
+              require(f"if({status_var}!=0)" in wan_down_compact and f"status=route_status_accumulate(status,{status_var});" in wan_down_compact and f"cannot read {label} snapshot during teardown" in wan_down, "WAN teardown must report " + label + " read failure")
+          for key in ("gateway", "ipaddr", "netmask"):
+              assert f'get_wan_unit_value(unit, "{key}")' not in wan_down
+          assert "wan_teardown_gateway_host_route_required(" in wan_down
           assert 'route_status = route_del(wan_ifname, 1, wan_gate, NULL,' in wan_down
           assert '"255.255.255.255");' in wan_down
           assert "route_status = route_status_idempotent_delete(route_status);" in wan_down
           assert "failed to delete WAN gateway host route" in wan_down
           gateway_default_delete = wan_down.index('route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");')
+          gateway_host_gate = wan_down.index("if (wan_teardown_gateway_host_route_required(")
           gateway_host_delete = wan_down.index('route_status = route_del(wan_ifname, 1, wan_gate, NULL,')
           static_route_delete = wan_down.index("route_status = del_static_wan_routes(wan_ifname);")
-          assert gateway_default_delete < gateway_host_delete < static_route_delete
+          assert gateway_default_delete < gateway_host_gate < gateway_host_delete < static_route_delete
+          gateway_policy = body(wan_teardown_policy, "wan_teardown_gateway_host_route_required(int gateway_read_status")
+          for token in ("gateway_read_status == 0", "address_read_status == 0", "netmask_read_status == 0", "gateway_valid", "ppp_index < 0", "gateway_off_subnet"):
+              require(token in gateway_policy, "WAN host-route read gate missing " + token)
+          assert "test_gateway_host_route_requires_a_complete_checked_snapshot" in wan_teardown_test
           assert "route_status_wan_gateway_host_route_required" in route_status_test
           assert "test_wan_gateway_host_route_cleanup_matches_setup_conditions" in route_status_test
+          
           wan_pause = wan_down.index("route_status = notify_pause_detect_internet();")
           wan_pause_accumulate = wan_down.index("status = route_status_accumulate(status, route_status);", wan_pause)
           wan_pause_log = wan_down.index("Internet monitor pause incomplete during WAN teardown", wan_pause_accumulate)
@@ -798,7 +827,7 @@ jobs:
           public_wan_down = body(wan, "wan_down(char *wan_ifname, int unit, int is_static)")
           assert "wan_down_internal(wan_ifname, unit, is_static)" in public_wan_down
           assert "WAN route teardown incomplete" in public_wan_down
-
+          
           gateway_add = body(wan, "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
           assert "static int" + chr(10) + "add_man_gateway_routes(" in wan
           gateway_snapshot_call = gateway_add.index("snapshot_status = wan_man_gateway_snapshot(")
@@ -824,7 +853,7 @@ jobs:
           assert "if (gateway_route_status != 0)" in wan
           assert "launch_status = route_status_accumulate(launch_status, route_status);" in wan
           assert "launch_status = route_status_accumulate(launch_status, gateway_route_status);" in wan
-
+          
           man_up = body(wan, "man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)")
           assert "static int" + chr(10) + "man_up_internal(" in wan
           assert man_up.count("route_status_accumulate(status, route_status)") >= 3
@@ -832,7 +861,7 @@ jobs:
           assert 'route_status = add_dhcp_routes_by_prefix("wanx_", man_ifname, 0);' in man_up
           assert "route_status = add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status);" in man_up
           assert "return status;" in man_up
-
+          
           notification_status = body(wan, "queue_wan_firewall_restart(const char *context)")
           assert 'notify_rc_status("restart_firewall_wan")' in notification_status
           assert "status != 0" in notification_status
@@ -848,20 +877,20 @@ jobs:
           assert "test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions" in route_status_test
           assert "int notify_rc_status(const char *event_name)" in notify_api_source
           assert "extern int notify_rc_status(const char *event_name);" in notify_api_header
-
+          
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           assert 'queue_wan_firewall_restart("MAN down")' in man_down
           assert "status = route_status_accumulate(status, route_status);" in man_down
           assert "return status;" in man_down
-
+          
           assert 'queue_wan_firewall_restart("MAN up")' in man_up
           assert "status = route_status_accumulate(status, route_status);" in man_up
-
+          
           public_man_up = body(wan, "man_up(char *man_ifname, int unit, int is_static)")
           assert "man_up_internal(man_ifname, unit, is_static, NULL)" in public_man_up
           assert "MAN route setup incomplete" in public_man_up
           assert "void man_up(char *man_ifname, int unit, int is_static);" in header
-
+          
           wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int" + chr(10) + "wan_up_internal(" in wan
           assert "gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);" in wan_up
@@ -888,13 +917,13 @@ jobs:
           assert "return status;" in public_wan_up
           assert "int wan_up(char *wan_ifname, int unit, int is_static);" in header
           assert "void wan_up(char *wan_ifname, int unit, int is_static);" not in header
-
+          
           public_wan_down = body(wan, "wan_down(char *wan_ifname, int unit, int is_static)")
           assert "wan_down_internal(wan_ifname, unit, is_static)" in public_wan_down
           assert "return status;" in public_wan_down
           assert "int wan_down(char *wan_ifname, int unit, int is_static);" in header
           assert "void wan_down(char *wan_ifname, int unit, int is_static);" not in header
-
+          
           assert '#include "route_status_policy.h"' in ppp
           preset = body(ppp, "preset_wan_ppp_routes(char *ppp_ifname, int unit)")
           assert "int status = 0, route_status, primary = 0;" in preset
@@ -910,7 +939,7 @@ jobs:
           assert "return status;" in preset
           assert "int preset_wan_ppp_routes(char *ppp_ifname, int unit);" in header
           assert "void preset_wan_ppp_routes(char *ppp_ifname, int unit);" not in header
-
+          
           assert '#include "route_status_policy.h"' in vpn_client
           vpnc_default = body(vpn_client, "vpnc_route_dgw(")
           assert "static int" + chr(10) + "vpnc_route_dgw(" in vpn_client
@@ -935,7 +964,7 @@ jobs:
           assert "return status;" in vpnc_down
           assert "route_status_idempotent_delete(ESRCH) == 0" in route_status_test
           assert "route_status_idempotent_delete(EIO) == EIO" in route_status_test
-
+          
           demand_wait = body(wan, "wait_ppp_up(char *ppp_ifname, int unit)")
           preset_call = demand_wait.index("route_status = preset_wan_ppp_routes(ppp_ifname, unit);")
           ready_gate = demand_wait.index("if (!route_status_demand_ready(route_status))")
@@ -946,7 +975,7 @@ jobs:
           assert "PPP demand route preinstallation incomplete" in demand_wait
           assert "EEXIST-normalized entries may predate this" in demand_wait
           assert "return 0;" in demand_wait[demand_ping:]
-
+          
           demand_start = body(wan, "start_wan(void)")
           demand_start_gate = demand_start.index("vlan_result = wait_ppp_up(ppp_ifname, unit);")
           demand_start_error = demand_start.index("if (vlan_result != 0)", demand_start_gate)
@@ -961,17 +990,17 @@ jobs:
           assert "set_wan_unit_value_status(unit, param_name, value)" in legacy_value_setter
           assert "cannot publish WAN unit value" in legacy_value_setter
           assert "nvram_set_temp(" not in legacy_value_setter
-
+          
           legacy_integer_setter = body(wan, "set_wan_unit_value_int(int unit")
           assert "set_wan_unit_value_int_status(unit, param_name, value)" in legacy_integer_setter
           assert "cannot publish WAN unit integer" in legacy_integer_setter
           assert "nvram_set_int_temp(" not in legacy_integer_setter
-
+          
           legacy_param_setter = body(wan, "set_wan_unit_param(int unit")
           assert "set_wan_unit_param_status(unit, param_name)" in legacy_param_setter
           assert "cannot copy WAN unit parameter" in legacy_param_setter
           assert "nvram_set_temp(" not in legacy_param_setter
-
+          
           demand_restore = body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")
           demand_publish = demand_restore.index('nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);')
           demand_publish_check = demand_restore.index("if (nvram_status != 0)", demand_publish)
@@ -980,7 +1009,7 @@ jobs:
           assert demand_publish < demand_publish_check < demand_publish_return < demand_firewall
           assert "kill_services(" not in demand_restore
           assert "successful ip-up callback may switch the active WAN back to ppp0." in wan
-
+          
           ppp_launch = body(ppp, "launch_wan_pppd_locked(int unit, int wan_proto)")
           assert 'fprintf(fp, "demand\\n");' in ppp_launch
           assert 'fprintf(fp, "persist\\n");' in ppp_launch
@@ -989,7 +1018,7 @@ jobs:
           ipup = body(ppp, "ipup_main(int argc, char **argv)")
           assert "route_status = wan_up(ppp_ifname, unit, 0);" in ipup
           assert "route_status = add_static_wan_routes(ppp_ifname);" in preset
-
+          
           ipdown = body(ppp, "ipdown_main(int argc, char **argv)")
           down_teardown = ipdown.index("teardown_status = wan_down(ppp_ifname, unit, 0);")
           down_restore = ipdown.index("restore_status = preset_wan_ppp_routes(ppp_ifname, unit);")
@@ -1000,7 +1029,7 @@ jobs:
           assert "Disconnected but WAN route cleanup/restoration is incomplete" in ipdown
           finish_status = body((rc / "route_status_policy.h").read_text(), "route_status_finish(")
           assert "return unlock_status ? unlock_status : operation_status;" in finish_status
-
+          
           wanx = body(wan, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
           assert "address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);" in wanx
           assert "route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);" in wanx
@@ -1009,7 +1038,7 @@ jobs:
           assert "launch_status = route_status_accumulate(launch_status, ipv6_status);" in wanx
           assert "MAN route setup incomplete" in wanx
           assert "WAN physical IPv6 setup incomplete" in wanx
-
+          
           bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in bound
           assert "mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);" in bound
@@ -1024,12 +1053,12 @@ jobs:
           assert "callback_status = route_status_accumulate(route_setup_status, mtu_status);" in bound
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound
           assert "return callback_status;" in bound
-
+          
           deconfig = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
           assert "cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)" in deconfig
           assert "cleanup_status = wan_down_internal(wan_ifname, unit, 0)" in deconfig
           assert "returnroute_status_accumulate(route_status_accumulate(interface_status,conntrack_status),cleanup_status);" in "".join(deconfig.split())
-
+          
           paths = (
               ".github/workflows/wan-route-status.yml",
               "trunk/user/rc/src/net.c",
@@ -1084,7 +1113,7 @@ jobs:
           assert "return validation_status != 0 ? validation_status : EIO;" in resolver_policy
           for token in ("(1, 0) == 0", "(0, EPERM) == EPERM", "(0, EACCES) == EACCES", "(0, 0) == EIO"):
               assert token in resolver_test, token
-
+          
           assert '#include "service_start_status.h"' in net6
           assert '#include "ipv6_restart_policy.h"' in rc_source
           assert "int full_restart_ipv6(int ipv6_type_old);" in header
@@ -1146,7 +1175,7 @@ jobs:
               "IPv6 restart runtime-mode commit policy: PASS",
           ):
               assert marker in ipv6_test, marker
-
+          
           wan6_up = body(wan6, "int wan6_up(char *wan_ifname, int unit)")
           native_dhcp6 = wan6_up.split("} else if (ipv6_type == IPV6_NATIVE_DHCP6) {", 1)[1].split("} else {", 1)[0]
           assert '#include "service_wait_policy.h"' in wan6
@@ -1160,7 +1189,7 @@ jobs:
           start_at = native_dhcp6.index("start_dhcp6c(wan_ifname)")
           assert wait_at < attempted_at < start_at
           assert "sleep(2);" not in native_dhcp6
-
+          
           wan6_down = body(wan6, "int wan6_down(char *wan_ifname, int unit)")
           assert '#include "wan6_teardown_policy.h"' in wan6
           assert 'previous_ifname = get_wan_unit_value(unit, "ifname6");' in wan6_down
@@ -1190,13 +1219,13 @@ jobs:
               "test_reconfiguration_prefers_previous_live_interface",
           ):
               assert case in wan6_test, case
-
+          
           assert 'doSystem("ip -6 addr add %s dev %s"' not in wan6
           assert wan6.count('eval("ip", "-6", "addr", "add",') == 3
           assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'format_ipv6_literal(wan_addr6, addr6_text,' in wan6
-
+          
           callback_create = body(wan, "create_cb_links(void)")
           callback_remove = body(wan, "remove_cb_links(void)")
           callback_start = body(wan, "start_wan(void)")

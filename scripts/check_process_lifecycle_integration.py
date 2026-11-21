@@ -1477,7 +1477,8 @@ lltd_probe_at = lltd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_S
 lltd_inventory_at = lltd_start.index('optional_daemon_presence("lld2d", &scan_error)', lltd_probe_at)
 lltd_postcondition_at = lltd_start.index("process_presence_start_postcondition(start_status, process_state)", lltd_inventory_at)
 assert lltd_preflight < lltd_launch_at < lltd_wait_at < lltd_probe_at < lltd_inventory_at < lltd_postcondition_at
-assert "return process_presence_start_postcondition(start_status," in lltd_start
+assert "if (process_presence_start_postcondition(start_status, process_state) == 0)" in lltd_start
+assert "return 0;" in lltd_start[lltd_postcondition_at:]
 
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
 rstats_launcher = 'start_status = eval("/sbin/rstats");'
@@ -1503,7 +1504,8 @@ rstats_probe_at = rstats_start.index("for (attempt = 0; attempt < PROCESS_PRESEN
 rstats_inventory_at = rstats_start.index('optional_daemon_presence("rstats", &scan_error)', rstats_probe_at)
 rstats_postcondition_at = rstats_start.index("process_presence_start_postcondition(start_status, process_state)", rstats_inventory_at)
 assert rstats_preflight < rstats_launch_at < rstats_wait_at < rstats_probe_at < rstats_inventory_at < rstats_postcondition_at
-assert "return process_presence_start_postcondition(start_status," in rstats_start
+assert "if (process_presence_start_postcondition(start_status, process_state) == 0)" in rstats_start
+assert "return 0;" in rstats_start[rstats_postcondition_at:]
 
 # start_lltd()/start_rstats() already implement a checked enable read and
 # return zero when disabled. Re-reading the same key with nvram_match() here
@@ -2524,7 +2526,8 @@ lltd_probe_at = lltd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_S
 lltd_inventory_at = lltd_start.index('optional_daemon_presence("lld2d", &scan_error)', lltd_probe_at)
 lltd_postcondition_at = lltd_start.index("process_presence_start_postcondition(start_status, process_state)", lltd_inventory_at)
 assert lltd_preflight < lltd_launch_at < lltd_wait_at < lltd_probe_at < lltd_inventory_at < lltd_postcondition_at
-assert "return process_presence_start_postcondition(start_status," in lltd_start
+assert "if (process_presence_start_postcondition(start_status, process_state) == 0)" in lltd_start
+assert "return 0;" in lltd_start[lltd_postcondition_at:]
 
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
 rstats_launcher = 'start_status = eval("/sbin/rstats");'
@@ -2550,7 +2553,8 @@ rstats_probe_at = rstats_start.index("for (attempt = 0; attempt < PROCESS_PRESEN
 rstats_inventory_at = rstats_start.index('optional_daemon_presence("rstats", &scan_error)', rstats_probe_at)
 rstats_postcondition_at = rstats_start.index("process_presence_start_postcondition(start_status, process_state)", rstats_inventory_at)
 assert rstats_preflight < rstats_launch_at < rstats_wait_at < rstats_probe_at < rstats_inventory_at < rstats_postcondition_at
-assert "return process_presence_start_postcondition(start_status," in rstats_start
+assert "if (process_presence_start_postcondition(start_status, process_state) == 0)" in rstats_start
+assert "return 0;" in rstats_start[rstats_postcondition_at:]
 
 rstats_main = c_function_body(rstats_source, "int rstats_main(int argc, char *argv[])")
 assert rstats_main.index("if (daemon(0, 0) < 0)") < rstats_main.index("if (alloc_rstats() < 0)")

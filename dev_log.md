@@ -1,3 +1,12 @@
+## 2026-11-21 — Align service and WAN teardown regressions with checked readers
+
+- Parent main SHA: 43fb2c87c144efe369970cd3ad6e0b43a0ba174a.
+- Exact-head Process inventory #44926550385 and WAN gateway ARP #44926550439 passed. WAN route #44926550424 failed at its old pointer-variable expectation after the WAN teardown checked-read refactor. Infosvr #44926550285 and crond #44926550347 expected raw nvram_invmatch gates, while their service start routines now use service_nvram_match_status(). Process integration #44926550298 expected process_presence_start_postcondition() to be returned directly, while production evaluates it as a predicate and returns zero in the success branch.
+- Updated the four stale source contracts to test checked configuration-read/error/disabled branches and actual postcondition control flow. Updated the WAN route inline contract for checked gateway/address/netmask copies and helper-gated host-route deletion; added trigger paths and a GNU89 ASan/UBSan execution step for wan_teardown_policy.c. No production behavior changed in this checker-alignment slice.
+- Exact-head validation for the resulting commit is pending; XY-C1 #44926550475 was still in progress at the parent SHA.
+
+---
+
 ## 2026-11-21 — Preserve checked LLTD/rstats restart failures
 
 - Parent main SHA: cb3a9460635a3754e3317d6340ac6b6749aef4ff.
