@@ -104,7 +104,7 @@ ppp_wan_option_text_values_read(int is_pppoe, int is_pptp,
 
 	if ((is_pppoe != 0 && is_pppoe != 1) ||
 	    (is_pptp != 0 && is_pptp != 1) ||
-	    is_pppoe + is_pptp != 1 || !read_text || !values)
+	    (is_pppoe && is_pptp) || !read_text || !values)
 		return EINVAL;
 	memset(values, 0, sizeof(*values));
 #define PPP_WAN_READ_TEXT(name, member) \

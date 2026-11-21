@@ -126,8 +126,8 @@ require("status = route_status_accumulate(status, route_status)" in routes,
         "PPP primary read error must be reported")
 
 text_policy = body(policy, "ppp_wan_option_text_values_read(int is_pppoe, int is_pptp")
-require("is_pppoe + is_pptp != 1" in text_policy,
-        "PPP text snapshot must accept exactly one protocol")
+require("(is_pppoe && is_pptp)" in text_policy,
+        "PPP text snapshot must reject conflicting PPPoE/PPTP flags")
 peer_gate = text_policy.index("if (is_pptp)")
 peer_read = text_policy.index('PPP_WAN_READ_TEXT("ppp_peer", peer)', peer_gate)
 pppoe_gate = text_policy.index("if (is_pppoe)")
@@ -143,7 +143,8 @@ for name in ("test_pppoe_options","test_pptp_and_l2tp_options",
              "test_l2tp_string_snapshot_skips_inactive_peer_and_pppoe_fields",
              "test_empty_peer_uses_checked_management_gateway_fallback",
              "test_text_backend_failure_discards_partial_values",
-             "test_empty_text_defaults_and_oversize_failure"):
+             "test_empty_text_defaults_and_oversize_failure",
+             "test_text_snapshot_rejects_invalid_protocol_flags"):
     require(name in test, "missing PPP option regression: " + name)
 
 push, pr = workflow.split("  pull_request:", 1)

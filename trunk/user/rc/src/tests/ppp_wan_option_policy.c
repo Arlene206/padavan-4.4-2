@@ -248,6 +248,26 @@ test_empty_text_defaults_and_oversize_failure(void)
 	assert(fake.calls == 1 && values.username[0] == '\0');
 }
 
+static void
+test_text_snapshot_rejects_invalid_protocol_flags(void)
+{
+	struct fake_text_reader fake;
+	struct ppp_wan_option_text_values values;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(ppp_wan_option_text_values_read(1, 1, fake_read_text,
+					       &fake, &values) == EINVAL);
+	assert(ppp_wan_option_text_values_read(2, 0, fake_read_text,
+					       &fake, &values) == EINVAL);
+	assert(ppp_wan_option_text_values_read(0, 2, fake_read_text,
+					       &fake, &values) == EINVAL);
+	assert(ppp_wan_option_text_values_read(1, 0, NULL,
+					       &fake, &values) == EINVAL);
+	assert(ppp_wan_option_text_values_read(1, 0, fake_read_text,
+					       &fake, NULL) == EINVAL);
+	assert(fake.calls == 0);
+}
+
 int main(void)
 {
 	test_pppoe_options();
@@ -260,6 +280,7 @@ int main(void)
 	test_empty_peer_uses_checked_management_gateway_fallback();
 	test_text_backend_failure_discards_partial_values();
 	test_empty_text_defaults_and_oversize_failure();
+	test_text_snapshot_rejects_invalid_protocol_flags();
 	puts("PPP WAN option checked-read preflight regression: PASS");
 	return 0;
 }
