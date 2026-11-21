@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot VPN remote-LAN route ACL before route mutation
+
+- Parent main SHA: `47f339f6c51b64f75963c0e743db51285e8be897`.
+- `vpns_route_to_remote_lan()` previously read ACL count, usernames, remote networks/masks and LAN address/netmask with compatibility getters. Backend errors collapsed into empty strings or integer zero, so an ACL could be partially observed and the callback could silently skip or mis-evaluate a route on connection/disconnection.
+- Added one exclusive NVRAM transaction snapshot of all ACL rows and LAN addressing. Each shared-cache value is copied before the next read; count is bounded, LAN address/netmask are validated, remote rows are normalized to their masked network, and remote masks must be contiguous/non-zero. Missing/partial/invalid rows retain the legacy skip behavior; transaction/backend errors abort before any route add/delete call.
+- Added unit coverage for zero, contiguous and non-contiguous masks, plus lifecycle source contracts enforcing transaction-complete-before-route-mutation and no compatibility getters in the callback.
+- Exact 67274 VPN policy/C regression steps passed; its lifecycle source contract failed only because the checker selected the PPP snapshot forward declaration. The correction commit 47f339f6c51b64f75963c0e743db51285e8be897 passed exact VPN lifecycle #44933768307 and AI docs #44933768276. XY-C1 for 67274 was still building at last check; the current route ACL slice needs its own exact-head checks.
+
+---
+
 ## 2026-11-21 — Fix VPN PPP snapshot source-contract function extraction
 
 - Parent main SHA: `67274f90f6da54c8688f238e78327543e046ca7b`.

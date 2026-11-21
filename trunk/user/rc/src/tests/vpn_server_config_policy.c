@@ -238,6 +238,18 @@ test_pool_virtual_private_network_and_lan_separation(void)
 					       50, &local, &mask, &begin, &end) == EINVAL);
 }
 
+static void
+test_route_netmask_validation(void)
+{
+	assert(vpn_server_route_netmask_status(0xffffff00U) == 0);
+	assert(vpn_server_route_netmask_status(0xffff0000U) == 0);
+	assert(vpn_server_route_netmask_status(0x80000000U) == 0);
+	assert(vpn_server_route_netmask_status(0xffffffffU) == 0);
+	assert(vpn_server_route_netmask_status(0) == EINVAL);
+	assert(vpn_server_route_netmask_status(0xff00ff00U) == EINVAL);
+	assert(vpn_server_route_netmask_status(0xffffff01U) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -257,6 +269,7 @@ main(void)
 	test_pool_lan_small_subnet_is_clamped_safely();
 	test_pool_lan_rejects_invalid_masks_hosts_and_gateway_overlap();
 	test_pool_virtual_private_network_and_lan_separation();
+	test_route_netmask_validation();
 
 	puts("VPN server configuration read gate policy: PASS");
 	return 0;

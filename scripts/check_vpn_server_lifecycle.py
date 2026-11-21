@@ -899,6 +899,40 @@ require("l2tp-config-file" in workflow and
         "tests/l2tp_config_file.c" in workflow,
         "VPN workflow does not compile and run rp-L2TP config regression")
 
+
+route_snapshot=body(vpn,"vpn_server_read_route_acl_snapshot(struct vpn_server_route_acl_snapshot *snapshot)")
+route_callback=body(vpn,"vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)")
+ordered(route_snapshot,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_num_x"',
+    '"lan_ipaddr"',
+    '"lan_netmask"',
+    '"vpns_user_x%d"',
+    '"vpns_rnet_x%d"',
+    '"vpns_rmsk_x%d"',
+    "vpn_server_route_netmask_status(remote_mask)",
+    "nvram_transaction_end(&transaction)"
+],"VPN remote-LAN ACL transactional snapshot")
+require("vpn_server_transaction_copy_text" in route_snapshot and
+        "vpn_server_pool_validate_lan" in route_snapshot and
+        "vpn_server_pool_parse_ipv4" in route_snapshot,
+        "VPN remote-LAN ACL snapshot must use copied checked NVRAM and validated LAN/subnet addresses")
+ordered(route_callback,[
+    "vpn_server_read_route_acl_snapshot(&snapshot)",
+    "for (i = 0; i < snapshot.entry_count; ++i)",
+    "strcmp(snapshot.entries[i].username, cname)",
+    "is_same_subnet2(",
+    "route_add(ifname, 0",
+],"VPN remote-LAN routes must use one completed ACL snapshot before mutation")
+require("nvram_safe_get" not in route_callback and
+        "nvram_get_int" not in route_callback and
+        "nvram_safe_get" not in route_snapshot and
+        "nvram_get_int" not in route_snapshot,
+        "VPN remote-LAN route handling must not use unchecked NVRAM compatibility getters")
+require("vpn_server_route_netmask_status" in config_policy and
+        "test_route_netmask_validation" in config_policy_test,
+        "VPN remote-LAN ACL mask validation needs unit regression")
+
 print("VPN server lifecycle, identity-bound OpenVPN stop and callback source contract: PASS")
 
 # The bcrelay presence policy and its shared scanner are VPN callback dependencies.

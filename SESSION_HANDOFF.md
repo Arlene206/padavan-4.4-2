@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest main source checkpoint: `67274f90f6da54c8688f238e78327543e046ca7b` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest main source checkpoint before remote-LAN ACL snapshot: `47f339f6c51b64f75963c0e743db51285e8be897` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 
@@ -30,6 +30,8 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 - Exact-head validation of pool commit `d59d266a0e37436e1d5fc8ffb708ef20112b301d`: VPN server lifecycle #44933121391 PASS; WAN DHCP callback #44933121789 and WAN route #44933121597 PASS; AI handoff docs #44933121473 PASS; Process inventory #44933121412 PASS. HTTPD security #44933121393 failed only in its final inline source-contract block: two function-boundary lookups still expected `void get_vpns_pool()` after the API became status-returning `int get_vpns_pool()`. This commit updates both stale delimiters, without changing production code or weakening assertions. XY-C1 #44933121304, Process lifecycle #44933121578, NVRAM audit #44933121469 and FRP #44933121501 were in progress at the last observation.
 
 - PPP options generation now snapshots checked auth mode, MPPE mode, virtual-address mode, MTU/MRU, LAN address and optional DHCP DNS/WINS inside one NVRAM transaction; DHCP service enablement uses its checked status API. Missing numeric keys retain legacy defaults; backend errors, malformed/out-of-range numbers, overlong strings and invalid LAN IPv4 abort before the PPP options file is opened/truncated. DNS/WINS values still use the existing validity filter when emitted.
+
+- VPN remote-LAN route callbacks now build one exclusive NVRAM transaction snapshot of the ACL count, LAN address/netmask and all username/remote-network/remote-mask rows. Cache-backed values are copied before subsequent reads; remote networks are normalized to their masked network address and masks must be contiguous/non-zero. Backend errors abort before `route_add()`/`route_del()`, preventing partial ACL generations from mutating routes.
 
 ## Verification boundary
 
@@ -56,6 +58,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VPN lifecycle and NVRAM audit after the PPP snapshot checker now extracts the actual function definition rather than its forward declaration. Recheck XY-C1 Build/TRX/artifact for the same source SHA; do not claim L3 before it passes.
-2. Continue VPN remote-LAN route ACL hardening in `vpns_route_to_remote_lan()`: its current compatibility reads of `vpns_num_x`, username, remote network/mask and LAN IP/netmask can silently suppress a route or use mixed policy on NVRAM errors. Snapshot the row policy transactionally and fail before route mutation when a backend read fails.
-3. Audit residual VPN hostname and DHCP-derived option inputs only after route ACL regression is committed.
+1. Check exact-head VPN stability, NVRAM transaction audit and XY-C1 Build/TRX/artifact for the remote-LAN route ACL snapshot commit; repair any confirmed failures from exact logs.
+2. Audit remaining VPN route/firewall hooks and hostname inputs for unchecked NVRAM reads; keep all route mutations behind a complete checked snapshot.
+3. Do not reopen completed PPP options snapshot, CHAP credential snapshot or VPN pool arithmetic unless a same-SHA regression demonstrates a fault.

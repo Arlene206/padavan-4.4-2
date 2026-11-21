@@ -237,4 +237,17 @@ vpn_server_pool_resolve_virtual(uint32_t virtual_address,
 	return 0;
 }
 
+static inline int
+vpn_server_route_netmask_status(uint32_t mask)
+{
+	uint32_t host_mask;
+
+	if (mask == 0)
+		return EINVAL;
+	host_mask = ~mask;
+	if ((host_mask & (host_mask + 1U)) != 0)
+		return EINVAL;
+	return 0;
+}
+
 #endif /* PADAVAN_VPN_SERVER_CONFIG_POLICY_H */

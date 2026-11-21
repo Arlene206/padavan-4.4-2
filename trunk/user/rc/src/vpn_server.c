@@ -64,6 +64,20 @@ struct vpn_server_ppp_options {
 	char wins[16];
 };
 
+struct vpn_server_route_acl_entry {
+	char username[VPN_SERVER_ACL_CREDENTIAL_MAX + 1];
+	char remote_network[16];
+	char remote_mask[16];
+	int present;
+};
+
+struct vpn_server_route_acl_snapshot {
+	char lan_ip[16];
+	char lan_mask[16];
+	int entry_count;
+	struct vpn_server_route_acl_entry entries[MAX_CLIENTS_NUM];
+};
+
 static int
 vpn_server_read_ppp_options_snapshot(struct vpn_server_ppp_options *options);
 
@@ -1387,46 +1401,168 @@ finish_transaction:
 
 
 
+static int
+vpn_server_read_route_acl_snapshot(struct vpn_server_route_acl_snapshot *snapshot)
+{
+	struct nvram_transaction transaction;
+	char *unused = NULL;
+	char key[32];
+	uint32_t lan_address, lan_mask, remote_address, remote_mask;
+	uint32_t lan_network, lan_broadcast;
+	int key_length, i, status, result = -1, saved_errno = 0;
+	int end_status;
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	if (vpn_server_transaction_get_int(&transaction, "vpns_num_x",
+					   0, 0, MAX_CLIENTS_NUM,
+					   &snapshot->entry_count) != 0)
+		goto finish_transaction;
+	if (vpn_server_transaction_copy_text(&transaction, "lan_ipaddr",
+					     snapshot->lan_ip,
+					     sizeof(snapshot->lan_ip)) != 0 ||
+	    vpn_server_transaction_copy_text(&transaction, "lan_netmask",
+					     snapshot->lan_mask,
+					     sizeof(snapshot->lan_mask)) != 0)
+		goto finish_transaction;
+	if (vpn_server_pool_parse_ipv4(snapshot->lan_ip, &lan_address) != 0 ||
+	    vpn_server_pool_parse_ipv4(snapshot->lan_mask, &lan_mask) != 0 ||
+	    vpn_server_pool_validate_lan(lan_address, lan_mask,
+					 &lan_network, &lan_broadcast) != 0) {
+		errno = EINVAL;
+		goto finish_transaction;
+	}
+
+	for (i = 0; i < snapshot->entry_count; ++i) {
+		key_length = snprintf(key, sizeof(key), "vpns_user_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (vpn_server_transaction_copy_text(&transaction, key,
+						     snapshot->entries[i].username,
+						     sizeof(snapshot->entries[i].username)) != 0)
+			goto finish_transaction;
+
+		key_length = snprintf(key, sizeof(key), "vpns_rnet_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (vpn_server_transaction_copy_text(&transaction, key,
+						     snapshot->entries[i].remote_network,
+					     sizeof(snapshot->entries[i].remote_network)) != 0)
+			goto finish_transaction;
+
+		key_length = snprintf(key, sizeof(key), "vpns_rmsk_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (vpn_server_transaction_copy_text(&transaction, key,
+						     snapshot->entries[i].remote_mask,
+					     sizeof(snapshot->entries[i].remote_mask)) != 0)
+			goto finish_transaction;
+
+		/* Empty/partial rows were ignored by the legacy callback too. */
+		if (!snapshot->entries[i].username[0] ||
+		    !snapshot->entries[i].remote_network[0] ||
+		    !snapshot->entries[i].remote_mask[0])
+			continue;
+		if (vpn_server_pool_parse_ipv4(snapshot->entries[i].remote_network,
+					       &remote_address) != 0 ||
+		    vpn_server_pool_parse_ipv4(snapshot->entries[i].remote_mask,
+					       &remote_mask) != 0 ||
+		    vpn_server_route_netmask_status(remote_mask) != 0)
+			continue;
+
+		/* Normalize the route destination exactly as the web form does. */
+		remote_address &= remote_mask;
+		{
+			struct in_addr normalized;
+			normalized.s_addr = htonl(remote_address);
+			if (!inet_ntop(AF_INET, &normalized,
+				       snapshot->entries[i].remote_network,
+				       sizeof(snapshot->entries[i].remote_network))) {
+				errno = EINVAL;
+				goto finish_transaction;
+			}
+		}
+		snapshot->entries[i].present = 1;
+	}
+
+	(void)unused;
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0)
+		errno = saved_errno;
+	return result;
+}
+
+
 int
 vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)
 {
-	int i, i_max, route_status;
-	char *acl_user, *acl_rnet, *acl_rmsk, *lnet, *lmsk;
-	char acl_user_var[22], acl_rnet_var[22], acl_rmsk_var[22];
+	struct vpn_server_route_acl_snapshot snapshot;
+	int i, route_status;
+	int saved_errno;
 
-	if (!cname || !ifname || !ifname[0]) {
+	if (!cname || !cname[0] || !ifname || !ifname[0] ||
+	    strlen(cname) > VPN_SERVER_ACL_CREDENTIAL_MAX) {
 		errno = EINVAL;
 		return EINVAL;
 	}
 
-	lnet = nvram_safe_get("lan_ipaddr");
-	lmsk = nvram_safe_get("lan_netmask");
+	if (vpn_server_read_route_acl_snapshot(&snapshot) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read remote-LAN route ACL snapshot for peer %s (errno=%d)",
+			   cname, saved_errno);
+		errno = saved_errno;
+		return saved_errno;
+	}
 
-	i_max = nvram_get_int("vpns_num_x");
-	if (i_max > MAX_CLIENTS_NUM) i_max = MAX_CLIENTS_NUM;
-	for (i = 0; i < i_max; i++) {
-		snprintf(acl_user_var, sizeof(acl_user_var), "vpns_user_x%d", i);
-		snprintf(acl_rnet_var, sizeof(acl_rnet_var), "vpns_rnet_x%d", i);
-		snprintf(acl_rmsk_var, sizeof(acl_rmsk_var), "vpns_rmsk_x%d", i);
-		acl_user = nvram_safe_get(acl_user_var);
-		acl_rnet = nvram_safe_get(acl_rnet_var);
-		acl_rmsk = nvram_safe_get(acl_rmsk_var);
-		if (*acl_user && strcmp(acl_user, cname) == 0 && is_valid_ipv4(acl_rnet) && is_valid_ipv4(acl_rmsk)) {
-			if (!is_same_subnet2(acl_rnet, lnet, acl_rmsk, lmsk)) {
-				route_status = add ?
-					route_add(ifname, 0, acl_rnet, gw, acl_rmsk) :
-					route_del(ifname, 0, acl_rnet, gw, acl_rmsk);
-				if (add)
-					route_status = route_status_idempotent_add(route_status);
-				else
-					route_status = route_status_idempotent_delete(route_status);
-				if (route_status != 0)
-					logmessage(VPNS_LOG_NAME, "remote-LAN route %s failed for peer %s on %s (status=%d)",
-						   add ? "add" : "delete", cname, ifname, route_status);
-				return route_status;
-			}
-			break;
+	for (i = 0; i < snapshot.entry_count; ++i) {
+		if (!snapshot.entries[i].present ||
+		    strcmp(snapshot.entries[i].username, cname) != 0)
+			continue;
+		if (!is_same_subnet2(snapshot.entries[i].remote_network,
+				    snapshot.lan_ip,
+				    snapshot.entries[i].remote_mask,
+				    snapshot.lan_mask)) {
+			route_status = add ?
+				route_add(ifname, 0,
+					  snapshot.entries[i].remote_network,
+					  gw, snapshot.entries[i].remote_mask) :
+				route_del(ifname, 0,
+					  snapshot.entries[i].remote_network,
+					  gw, snapshot.entries[i].remote_mask);
+			if (add)
+				route_status = route_status_idempotent_add(route_status);
+			else
+				route_status = route_status_idempotent_delete(route_status);
+			if (route_status != 0)
+				logmessage(VPNS_LOG_NAME,
+					   "remote-LAN route %s failed for peer %s on %s (status=%d)",
+					   add ? "add" : "delete", cname, ifname,
+					   route_status);
+			return route_status;
 		}
+		break;
 	}
 
 	/* No matching remote-LAN ACL, or the network is directly connected. */
