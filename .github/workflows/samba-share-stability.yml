@@ -199,7 +199,8 @@ jobs:
           smb_compact = "".join(smb.split())
           max_user_read = 'storage_read_integer_status("st_max_user",0,&i_maxuser_value)'
           max_user_policy = 'service_connection_limit_value_status(i_maxuser_status,i_maxuser_value,MAX_CLIENTS_NUM,&i_maxuser)'
-          max_user_emit = 'fprintf(fp,"max connections = %d'
+          # smb_compact removes whitespace from the C string literal too.
+          max_user_emit = 'fprintf(fp,"maxconnections=%d'
           assert max_user_read in smb_compact
           assert max_user_policy in smb_compact
           assert smb_compact.index(max_user_read) < smb_compact.index(max_user_policy) < smb_compact.index(max_user_emit)
