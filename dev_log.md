@@ -1,3 +1,13 @@
+## 2026-11-22 — Fix xl2tpd caller for the checked VPN address-pool API
+
+- Parent main SHA: `5365b10a5136e479e9db91079eb525634c3fcfa8`.
+- Exact-head XY-C1 run #44936762599 failed in `trunk/user/rc/src/net_ppp.c`: `safe_start_xl2tpd_locked()` still passed `nvram_get_int("vpns_vuse")` plus four outputs to `get_vpns_pool()`, while the transactional API now takes four output pointers and reads the mode itself.
+- Updated the xl2tpd caller to use the checked four-output API and one immutable pool snapshot for local/range address generation. Pool read/validation/transaction-end failures now preserve errno and abort before `/etc/xl2tpd.conf` is opened or truncated.
+- Extended `scripts/check_vpn_server_lifecycle.py` to assert the four-argument API, snapshot-before-open ordering, fail-closed error return, and use of the checked snapshot outputs. Existing workflow already covers `net_ppp.c` and the checker.
+- This commit's exact-head VPN lifecycle, NVRAM and XY-C1 Actions must be read from live main; no local cross-build or test run is claimed. L3 remains NOT VERIFIED until same-SHA Build, TRX and artifact upload pass; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Snapshot OpenVPN server settings for exported client profiles
 
 - Parent main SHA: 2e99cd420a33c4e23bbfe866fba502c3cd59ca80.

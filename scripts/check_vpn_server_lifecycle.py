@@ -471,6 +471,24 @@ require('process_inventory_scan("xl2tpd", &process_snapshot)' in safe_start_lock
 require(safe_start_locked.index('process_inventory_scan("xl2tpd", &process_snapshot)') <
         safe_start_locked.index('fopen(l2tp_conf, "w")'),
         "unknown process state must be rejected before live config truncation")
+pool_compact = re.sub(r"\s+", " ", safe_start_locked)
+require("get_vpns_pool(&vpn_server_address, &vpn_server_mask, &vpn_pool_start, &vpn_pool_end) != 0" in pool_compact,
+        "xl2tpd must consume the checked four-output VPN pool API")
+pool_gate = safe_start_locked.index("if (use_vpn_server &&")
+pool_call = safe_start_locked.index("get_vpns_pool(", pool_gate)
+config_open = safe_start_locked.index('fopen(l2tp_conf, "w")')
+require(pool_gate < pool_call < config_open,
+        "VPN address-pool snapshot must complete before live xl2tpd config truncation")
+pool_failure = safe_start_locked[pool_call:config_open]
+require("saved_errno = errno ? errno : EIO;" in pool_failure and
+        "errno = saved_errno;" in pool_failure and "return -1;" in pool_failure,
+        "VPN address-pool read errors must fail closed before xl2tpd config publication")
+require('nvram_get_int("vpns_vuse")' not in safe_start_locked and
+        "get_vpns_pool(nvram_get_int" not in safe_start_locked,
+        "xl2tpd must not bypass the checked VPN address-pool snapshot")
+require("(vpn_server_address & vpn_server_mask) | vpn_pool_start" in safe_start_locked and
+        "(vpn_server_address & vpn_server_mask) | vpn_pool_end" in safe_start_locked,
+        "xl2tpd address ranges must use the validated snapshot outputs")
 require("presence_status < 0" in safe_start_locked and
         "scan_error ? scan_error : EIO" in safe_start_locked,
         "unknown xl2tpd presence must not look like already-running success")

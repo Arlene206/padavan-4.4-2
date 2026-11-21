@@ -306,6 +306,8 @@ safe_start_xl2tpd_locked(void)
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
 	int wan_value_status;
+	unsigned int vpn_server_address, vpn_server_mask;
+	unsigned int vpn_pool_start, vpn_pool_end;
 	struct process_snapshot process_snapshot;
 	enum process_presence daemon_presence;
 	const char *invalid_value = NULL;
@@ -380,6 +382,22 @@ safe_start_xl2tpd_locked(void)
 		return -1;
 	}
 
+	/*
+	 * Resolve the VPN server pool before opening the live configuration.
+	 * The checked reader owns its NVRAM snapshot; a failure must not leave
+	 * xl2tpd with a truncated or partially regenerated configuration.
+	 */
+	if (use_vpn_server &&
+	    get_vpns_pool(&vpn_server_address, &vpn_server_mask,
+			  &vpn_pool_start, &vpn_pool_end) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot read or validate VPN server address pool; refusing xl2tpd config (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
 	if (!(fp = fopen(l2tp_conf, "w"))) {
 		perror(l2tp_conf);
 		return -1;
@@ -394,18 +412,15 @@ safe_start_xl2tpd_locked(void)
 
 	if (use_vpn_server) {
 		char sa_v[INET_ADDRSTRLEN], sp_b[INET_ADDRSTRLEN], sp_e[INET_ADDRSTRLEN];
-		unsigned int vaddr, vmask, vp_b, vp_e;
 		struct in_addr pool_in;
 
-		get_vpns_pool(nvram_get_int("vpns_vuse"), &vaddr, &vmask, &vp_b, &vp_e);
-
-		pool_in.s_addr = htonl(vaddr);
+		pool_in.s_addr = htonl(vpn_server_address);
 		strcpy(sa_v, inet_ntoa(pool_in));
 
-		pool_in.s_addr = htonl((vaddr & vmask) | vp_b);
+		pool_in.s_addr = htonl((vpn_server_address & vpn_server_mask) | vpn_pool_start);
 		strcpy(sp_b, inet_ntoa(pool_in));
 
-		pool_in.s_addr = htonl((vaddr & vmask) | vp_e);
+		pool_in.s_addr = htonl((vpn_server_address & vpn_server_mask) | vpn_pool_end);
 		strcpy(sp_e, inet_ntoa(pool_in));
 
 		fprintf(fp, "[lns default]\n");
