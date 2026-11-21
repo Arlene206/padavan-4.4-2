@@ -2201,6 +2201,10 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	int ipv6_type, is_fw_enabled, is_url_enabled, is_url_inverse, is_logaccept, is_logdrop;
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
+	int is_vpns_enabled = 0, i_vpns_type = 0;
+#if defined (APP_OPENVPN)
+	int i_vpns_ov_prot = 0, i_vpns_ov_port = 1194;
+#endif
 #if defined (APP_SSHD)
 	int is_sshd_enabled = 1;
 #endif
@@ -2230,6 +2234,29 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
 		return ret;
+
+	if (is_fw_enabled) {
+		ret = firewall_read_enabled_setting("vpns_enable", &is_vpns_enabled);
+		if (ret != 0)
+			return ret;
+		if (is_vpns_enabled) {
+			ret = firewall_read_integer_setting("vpns_type", 0, &i_vpns_type);
+			if (ret != 0)
+				return ret;
+#if defined (APP_OPENVPN)
+			if (i_vpns_type == 2) {
+				ret = firewall_read_integer_setting("vpns_ov_prot", 0, &i_vpns_ov_prot);
+				if (ret != 0)
+					return ret;
+				ret = firewall_read_integer_setting("vpns_ov_port", 1194, &i_vpns_ov_port);
+				if (ret != 0)
+					return ret;
+				if (i_vpns_ov_port < 1 || i_vpns_ov_port > 65535)
+					i_vpns_ov_port = 1194;
+			}
+#endif
+		}
+	}
 
 	/* Resolve inverted IPv6 filter selectors before opening the rule file. */
 	if (is_fw_enabled) {
@@ -2373,18 +2400,16 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			}
 		}
 #endif
-		if (nvram_match("vpns_enable", "1")) {
-			int i_vpns_type = nvram_get_int("vpns_type");
+		if (is_vpns_enabled) {
 #if defined (APP_OPENVPN)
 			if (i_vpns_type == 2) {
 				const char *ov_prot = "udp";
-				int i_ov_port = nvram_safe_get_int("vpns_ov_port", 1194, 1, 65535);
-				int i_ov_prot = nvram_get_int("vpns_ov_prot");
+
 				
-				if (i_ov_prot == 1 || i_ov_prot == 3 || i_ov_prot == 5)
+				if (i_vpns_ov_prot == 1 || i_ov_prot == 3 || i_ov_prot == 5)
 					ov_prot = "tcp";
 				if (i_ov_prot == 2 || i_ov_prot == 3 || i_ov_prot == 4 || i_ov_prot == 5)
-					fprintf(fp, "-A %s -p %s --dport %d -j %s\n", dtype, ov_prot, i_ov_port, logaccept);
+					fprintf(fp, "-A %s -p %s --dport %d -j %s\n", dtype, ov_prot, i_vpns_ov_port, logaccept);
 			} else
 #endif
 			if (i_vpns_type == 1) {

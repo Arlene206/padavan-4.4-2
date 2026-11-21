@@ -451,6 +451,23 @@ jobs:
               assert ipv6_filter.index(gate) < ipv6_filter.index("firewall_open_rule_file("), gate
           for key in ("misc_ping_x", "sshd_enable", "enable_ftp", "upnp_enable_x"):
               assert f'nvram_invmatch("{key}", "0")' not in ipv6_filter
+          ipv6_vpn_gate = 'firewall_read_enabled_setting("vpns_enable", &is_vpns_enabled)'
+          ipv6_vpn_type = 'firewall_read_integer_setting("vpns_type", 0, &i_vpns_type)'
+          assert ipv6_vpn_gate in ipv6_filter
+          assert ipv6_vpn_type in ipv6_filter
+          assert ipv6_filter.index(ipv6_vpn_gate) < ipv6_filter.index("firewall_open_rule_file(")
+          assert ipv6_filter.index(ipv6_vpn_type) < ipv6_filter.index("firewall_open_rule_file(")
+          ipv6_openvpn = (
+              'firewall_read_integer_setting("vpns_ov_prot", 0, &i_vpns_ov_prot)',
+              'firewall_read_integer_setting("vpns_ov_port", 1194, &i_vpns_ov_port)',
+          )
+          for gate in ipv6_openvpn:
+              assert gate in ipv6_filter, gate
+              assert ipv6_filter.index(gate) < ipv6_filter.index("firewall_open_rule_file("), gate
+          assert 'nvram_match("vpns_enable", "1")' not in ipv6_filter
+          assert 'nvram_get_int("vpns_type")' not in ipv6_filter
+          assert 'nvram_get_int("vpns_ov_prot")' not in ipv6_filter
+          assert 'nvram_safe_get_int("vpns_ov_port"' not in ipv6_filter
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               filter_builder = body(firewall_source, signature)
               mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"

@@ -1,3 +1,13 @@
+## 2026-11-21 — Check IPv6 VPN exception policy reads
+
+- Parent main SHA: `f30820395919fb0650a4f0e4ad3889115b1206cc`.
+- `ip6t_filter_rules()` still used unchecked exact `vpns_enable` matching, `nvram_get_int("vpns_type")`, and unchecked OpenVPN protocol/port values when emitting WAN ACCEPT exceptions. If the server was configured for another VPN type but the type read failed to zero, the firewall could instead emit the legacy PPTP TCP/47 holes.
+- Added checked exact enable and strict integer/type reads before ruleset staging. For enabled type-2 OpenVPN servers, protocol and port are also checked and cached; invalid-range ports retain the 1194 default. The rules builder now reuses the validated settings rather than silently selecting PPTP or a mismatched OpenVPN exception on NVRAM failure.
+- Extended the firewall workflow source contract to require all checked gates before `firewall_open_rule_file()` and reject the direct getters. Shared host helper regression covers integer parsing, missing defaults and backend errors under GNU89/Werror/ASan/UBSan.
+- Parent `f308...` Firewall Startup #44949377270, AI #44949377241 and XY-C1 #44949377343 were in progress; NVRAM audit #44949377281 was pending. New exact-head checks pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Fail closed on IPv6 filter inverted enable selectors
 
 - Parent main SHA: `3447846b0f81fb252f313cd6c7fe6c429645e673`.

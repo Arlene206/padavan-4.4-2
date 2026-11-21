@@ -25,18 +25,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv6 filter builder `ip6t_filter_rules()` still used unchecked `nvram_invmatch(key, "0")` for `misc_ping_x` (INPUT, FORWARD ICMPv6 and traceroute), `sshd_enable`, `enable_ftp`, and `upnp_enable_x`. As in IPv4, a failed legacy NVRAM read returns an empty string and is treated as enabled, risking an exposed service/pinhole or extra firewall exception.
-- This slice resolves the inverted IPv6 selectors through `firewall_read_not_zero_setting()` before opening the IPv6 rule file, preserving the missing-key enabled default and aborting ruleset publication on backend/read/close errors. A single checked `misc_ping_x` snapshot now controls all three ICMPv6/traceroute rule sites; SSH/FTP reads remain compile-guarded.
-- The firewall workflow's existing GNU89/Werror/ASan/UBSan policy helper test exercises inverted-default/error semantics; its source-contract step now requires all four IPv6 checked gates to precede `firewall_open_rule_file()` and forbids remaining direct inverted reads in `ip6t_filter_rules()`.
+- The IPv6 filter's VPN-server exception still depended on `nvram_match("vpns_enable", "1")` plus unchecked `nvram_get_int("vpns_type")`. A backend failure in the type read defaulted to zero and could generate the PPTP TCP/47 ACCEPT exceptions for a server configured as OpenVPN/L2TP. OpenVPN protocol and port were also read unchecked, potentially making the firewall's exception disagree with the configured listener.
+- This slice checks `vpns_enable` as an exact legacy match and `vpns_type` with the strict integer reader before staging IPv6 rules. For an enabled type-2 server, it also checks protocol and port (retaining the 1194 fallback outside 1..65535) and reuses the checked values when generating exceptions. Backend/parser errors abort the ruleset before `firewall_open_rule_file()`.
+- Firewall source-contract assertions now pin the checked gates and reject the old unchecked reads; the shared GNU89/Werror/ASan/UBSan integer helper tests cover parse/default/backend behavior.
 ## Verification boundary
 
-- IPv4 NAT selector source `3447846b0f81fb252f313cd6c7fe6c429645e673`: exact-head Actions were launched: Firewall Startup #44949286687, AI handoff #44949286648, Process inventory #44949286668, NVRAM audit #44949286631 and XY-C1 #44949291903 were IN_PROGRESS at last poll. Parent `27cee43d...` Firewall Startup #44948947193, WAN route #44948947181, WAN DHCP #44948947214, Process inventory #44948947321, HTTPD #44948947166, FULLCONENAT #44948947177 and AI docs #44948947163 all PASS.
-- The current IPv6 selector slice needs fresh exact-head Firewall Startup/Process/NVRAM/AI checks and XY-C1 Build/TRX/artifact for L3. No local build/test or hardware L4 claim.
+- IPv4 NAT builder source `3447846b0f81fb252f313cd6c7fe6c429645e673`: Firewall Startup #44949286687 and AI docs #44949286648 passed; Process inventory #44949286668, NVRAM #44949286631 and XY-C1 #44949291903 were in progress at the last check.
+- IPv6 inverted-selector source `f30820395919fb0650a4f0e4ad3889115b1206cc`: Firewall Startup #44949377270, AI docs #44949377241 and XY-C1 #44949377343 were running; NVRAM #44949377281 was pending. The current IPv6 VPN-source extension requires fresh exact-head runs. No L3/hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Fetch exact current main and inspect Firewall Startup on this IPv6 inverted-selector change. Require the C policy test and full IPv6 source contract to pass; inspect Process/NVRAM/AI checks and XY-C1 Build/TRX/artifact.
-2. Reconcile results on parent NAT builder SHA `3447846b0f81fb252f313cd6c7fe6c429645e673` separately; do not promote parent results to the IPv6 descendant.
-3. Continue reviewing `ip6t_filter_rules()`/`ipt_nat_rules()` numeric listener and service exposure reads only when they change WAN policy; maintain legacy defaults and range semantics.
+1. Query exact-head Actions for the IPv6 VPN exception source and inspect Firewall Startup source-contract results. Then close out parent `f3082039...` NAT build/TRX/artifact and NVRAM runs separately; never reuse parent results.
+2. Continue the firewall review of remaining IPv6 listener ports/flags and NAT remap selectors only where unchecked reads can alter WAN exposure. Keep parser/range semantics and stage-abort behavior explicit.
+3. Preserve the backup and make all main changes as complete trees with expected-SHA non-force updates.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.
