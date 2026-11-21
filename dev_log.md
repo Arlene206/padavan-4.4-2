@@ -1,3 +1,14 @@
+## 2026-11-21 — Serialize the SCUT watchdog stale-PID reclaim transaction
+
+- Parent main SHA: `9ff6c64b9731a848ed07c0a08500d2c8608b09e7`.
+- The stale-PID branch compared the old PID twice and then unlinked/recreated the PID file without inter-process serialization. Two overlapping cron invocations could both validate the stale record, race at unlink, and allow one invocation to remove the PID record claimed by the other.
+- Added a stable adjacent lock file and BusyBox `flock -n 9` around the complete identity-check/reclaim/publish transaction. The persistent lock inode is never unlinked; FD 9 is closed immediately after the PID claim so health-check children and restarted daemons do not inherit the lock.
+- Added a deterministic race regression that blocks the first invocation inside PID-file `rm` after the stale comparison, then starts a second invocation. It requires exactly one health check, retains the stable lock inode and rejects a symlink lock path.
+- Confirmed BusyBox 1.24.x `CONFIG_FLOCK` defaults to y. Dedicated SCUT workflow guards the Kconfig dependency and host utility; XY-C1 path classification/trigger tests include the config source.
+- Exact-head SCUT, AI handoff and XY-C1 Actions are required; no firmware L3 or hardware L4 result is claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
 ## 2026-11-21 — Roll back failed detached starts for core RC daemons
 
 - Parent main SHA: `c8923187b3027da02b41dd6d76ae00b2dc0b12cd`.

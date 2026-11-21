@@ -14,30 +14,31 @@ The checkpoint is mandatory; a document edit is conditional. Inspect live main, 
 
 ## Current repository state
 
-- Parent main SHA before this slice: `41023c0835fc399ea521e397a8fb5563dd86f02e`.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move it).
-- Exact-SHA AI handoff contract #44883618619: SUCCESS; Process lifecycle inventory #44883618647: SUCCESS; Process inventory and lifecycle fail-closed #44883618648: SUCCESS.
-- Exact-SHA WAN route regression #44883618627: FAILURE. Its final policy binaries passed, including the detached-daemon GNU89/ASan/UBSan regression and `check_udpxy_startup.py` assertions up to rollback wiring. The first remaining error was a Python `NameError`: `igmpproxy_start` was referenced before its function-body assignment in `scripts/check_udpxy_startup.py`.
-- Exact-SHA XY-C1 Firmware Validation #44883618696 and NVRAM transaction audit #44883618624 were PENDING at the last query. Inspect exact results after this commit; PENDING must not stop other independent work.
-- The prior detached-daemon rollback and readiness C code is not changed in this slice. The failure is in validator statement order, not a failed production C regression.
-- Earlier independent evidence remains: SCUT PID-identity #44882660640 PASS on `9df0573782afb3a3e19864ac17250d7358ef26ca`; NFS rpcbind readiness #44881990807 PASS on `5869188f5f174746cc2dea43c2938be55378c87c`; historical Storage/XY-C1 pass #44880983834/#44880983910 on `646615093f93ca01ea5cbef7dac6b4937a9a5cfa`.
-- XY-C1 L3 is NOT VERIFIED unless Build, TRX validation and artifact upload all pass on one identical source SHA. Physical-router L4 remains NOT VERIFIED.
+- Parent main SHA before the SCUT stale-PID serialization slice: `9ff6c64b9731a848ed07c0a08500d2c8608b09e7`.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not move or modify it.
+- Parent core RC rollback Action runs queued/in progress at the last snapshot: WAN route #44884091464; Process fail-closed #44884091402; XY-C1 #44884091334; AI handoff #44884091323; Storage #44884091287; NVRAM #44884091423. Many independent product regressions were also queued/in progress on the same exact SHA.
+- This source slice closes a race between SCUT stale PID equality validation and `rm -f`: overlapping cron invocations could both validate the same stale PID, then one could unlink a PID file just claimed by the other. A persistent adjacent lock inode and `flock -n 9` serialize the complete check/reclaim/publish transaction.
+- FD 9 is explicitly closed immediately after the PID claim completes, before NVRAM, ping, authentication or daemon-restart commands; this prevents child processes from inheriting and accidentally extending the lock. The lock file itself is never unlinked; symlink, non-regular and unavailable lock paths fail closed.
+- BusyBox 1.24.x `CONFIG_FLOCK` is enabled by default. The SCUT workflow checks that Kconfig dependency and host flock; XY-C1 trigger/test coverage includes the BusyBox Kconfig source because firmware availability is a production dependency.
+- Regression pauses the first process inside `rm` after stale-PID comparison, then launches a competing invocation. Exactly one health/NVRAM run must occur. Lock-file symlink refusal is also tested.
+- Independent evidence: SCUT PID-identity #44882660640 PASS on `9df0573782afb3a3e19864ac17250d7358ef26ca`; NFS rpcbind readiness #44881990807 PASS on `5869188f5f174746cc2dea43c2938be55378c87c`. Historical Storage/XY pass on `646615093f93ca01ea5cbef7dac6b4937a9a5cfa` does not validate this source tip.
+- XY-C1 L3 requires Build, TRX verification and artifact upload to pass on one identical source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Inspect the exact-SHA WAN route run for this checker-order correction; fix any remaining first-cause failure without relaxing coverage.
-2. Inspect the exact-SHA XY-C1 and NVRAM results and any other newly triggered checks.
-3. Once green, return to an independent production stability defect. The next candidate is remaining `kill_pidfile_s()` usage in `trunk/user/shared/src/shutils.c`, traced to its exact PID writers before making any coordinated identity-format change.
+1. Inspect exact-SHA SCUT watchdog, AI handoff and XY-C1 Actions for this serialization commit; repair any first-cause failure without relaxing tests.
+2. While PENDING Actions run, continue independent userland stability work.
+3. Next candidate: remaining `kill_pidfile_s()` consumers in `trunk/user/shared/src/shutils.c`; trace each to its PID producer and coordinate identity-bound format changes, especially BusyBox udhcpc and PPPD numeric PID files.
 
 ## Verification boundary
 
-- On `41023c0835fc399ea521e397a8fb5563dd86f02e`, WAN route's C policy binaries and detached-daemon policy binary passed; the script failed only on the variable-order `NameError` recorded above.
-- Process inventory and lifecycle fail-closed run #44883618648 passed on that exact SHA. AI handoff run #44883618619 also passed.
-- This checker-order follow-up requires exact-head WAN route success. Firmware Build/TRX/artifact status is a separate XY-C1 L3 gate; hardware L4 is not verified.
+- The new lock covers only PID claim/reclaim and is released before health work, avoiding descriptor inheritance by daemon children while preventing overlapping stale-PID unlink transactions.
+- BusyBox `flock` source and Kconfig were previously verified: `util-linux/flock.c` accepts an existing FD with `-n`, and `util-linux/Config.src` defaults `CONFIG_FLOCK` to y. This change still requires exact-head SCUT regression and XY-C1 verification.
+- No host test or cross-compile was run locally in this connector-only session. Exact-SHA CI is authoritative; XY-C1 L3 and physical L4 are separate.
 
 ## Exact first action for the next GPT
 
-Fetch live main and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Resolve this commit SHA and inspect the exact-head WAN route Action first, then XY-C1 and NVRAM. If all relevant checks pass, continue with one focused production fix outside the completed IPTV readiness work; avoid repeating this checker-order issue.
+Fetch live main and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect exact-SHA SCUT, AI handoff and XY-C1 Actions for the lock-scope commit. If SCUT passes, begin a focused shared PID-file producer/consumer review in `trunk/user/shared/src/shutils.c`; do not repeat completed NFS readiness or SCUT PID-identity work.
 
 ## Handoff maintenance
 

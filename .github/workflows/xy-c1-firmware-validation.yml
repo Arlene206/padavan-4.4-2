@@ -58,6 +58,7 @@ on:
       - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c"
       - "trunk/user/busybox/Makefile"
+      - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/httpd/src/upload.c"

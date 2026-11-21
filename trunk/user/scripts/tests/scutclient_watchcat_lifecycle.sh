@@ -7,8 +7,10 @@ mkdir -p "$TEST_TMP"
 TEST_BIN="$TEST_TMP/bin"
 PROC_ROOT="$TEST_TMP/proc"
 PIDFILE="$TEST_TMP/watchcat.pid"
+LOCKFILE="${PIDFILE}.lock"
 NVRAM_LOG="$TEST_TMP/nvram.log"
 KILL_LOG="$TEST_TMP/kill.log"
+RM_BLOCKED="$TEST_TMP/rm-blocked"
 OUTSIDE="$TEST_TMP/outside.pid"
 mkdir -p "$TEST_BIN" "$PROC_ROOT"
 trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
@@ -26,12 +28,26 @@ cat > "$TEST_BIN/kill" <<'MOCK'
 printf '%s\n' "$*" >> "$KILL_LOG"
 exit 0
 MOCK
+cat > "$TEST_BIN/rm" <<'MOCK'
+#!/bin/sh
+if [ "${BLOCK_FIRST_RM:-0}" = "1" ] && [ "$#" -eq 2 ] && \
+   [ "$1" = "-f" ] && [ "$2" = "$SCUTCLIENT_WATCHCAT_PIDFILE" ] && \
+   [ ! -e "$RM_BLOCKED" ]; then
+	: > "$RM_BLOCKED"
+	sleep 1
+fi
+exec /bin/rm "$@"
+MOCK
 chmod 755 "$TEST_BIN/"*
 
 export PATH="$TEST_BIN:$PATH"
 export SCUTCLIENT_WATCHCAT_PIDFILE="$PIDFILE"
 export SCUTCLIENT_WATCHCAT_PROC_ROOT="$PROC_ROOT"
-export NVRAM_LOG KILL_LOG
+export NVRAM_LOG KILL_LOG RM_BLOCKED
+
+command -v flock >/dev/null 2>&1 || {
+	echo "host flock utility is required for the kernel-lock regression" >&2; exit 1;
+}
 
 run_watchcat()
 {
@@ -76,6 +92,45 @@ run_watchcat 0
 	echo "watchdog signalled a recycled PID owned by another process" >&2; exit 1;
 }
 
+
+# Race the stale-PID equality check against unlink. The first process pauses
+# inside rm after validation; a second invocation must be excluded by flock.
+mkdir -p "$PROC_ROOT/81818181"
+printf '/usr/sbin/other-service\000' > "$PROC_ROOT/81818181/cmdline"
+printf '81818181\n' > "$PIDFILE"
+: > "$NVRAM_LOG"
+: > "$KILL_LOG"
+rm -f "$RM_BLOCKED"
+BLOCK_FIRST_RM=1
+export BLOCK_FIRST_RM
+/bin/sh "$ROOT/trunk/user/scutclient/scripts/scutclient_watchcat.sh" &
+FIRST_WATCHCAT_PID=$!
+i=0
+while [ ! -e "$RM_BLOCKED" ]; do
+	i=$((i + 1))
+	if [ "$i" -gt 100 ]; then
+		kill "$FIRST_WATCHCAT_PID" 2>/dev/null || :
+		wait "$FIRST_WATCHCAT_PID" 2>/dev/null || :
+		echo "first watchdog did not reach the locked stale-PID unlink" >&2
+		exit 1
+	fi
+	sleep 0.02
+done
+run_watchcat 0
+wait "$FIRST_WATCHCAT_PID"
+unset BLOCK_FIRST_RM
+[ ! -e "$PIDFILE" ] || {
+	echo "concurrent watchdog left a stale/replaced PID file behind" >&2; exit 1;
+}
+nvram_calls=$(wc -l < "$NVRAM_LOG")
+[ "$nvram_calls" -eq 1 ] || {
+	echo "overlapping stale-PID reclaim ran $nvram_calls health checks; expected one" >&2
+	exit 1
+}
+[ -f "$LOCKFILE" ] && [ ! -L "$LOCKFILE" ] || {
+	echo "watchdog did not retain its stable regular lock inode" >&2; exit 1;
+}
+
 # Malformed and exited PIDs may be replaced without signalling anything.
 printf 'not-a-pid\n' > "$PIDFILE"
 run_watchcat 0
@@ -99,6 +154,19 @@ run_watchcat 1
 	echo "watchdog acted while process identity was UNKNOWN" >&2; exit 1;
 }
 
+# Never follow a symlink supplied as the lock file.
+LOCK_OUTSIDE="$TEST_TMP/lock-outside"
+printf 'lock-sentinel\n' > "$LOCK_OUTSIDE"
+rm -f "$LOCKFILE"
+ln -s "$LOCK_OUTSIDE" "$LOCKFILE"
+printf '91919191\n' > "$PIDFILE"
+run_watchcat 1
+[ -L "$LOCKFILE" ] && [ "$(cat "$LOCK_OUTSIDE")" = "lock-sentinel" ] && \
+  [ "$(cat "$PIDFILE")" = "91919191" ] || {
+	echo "watchdog followed/replaced a symlink lock file or changed the PID file" >&2; exit 1;
+}
+rm -f "$LOCKFILE" "$PIDFILE"
+
 # Never follow a symlink supplied as the PID file.
 rm -f "$PIDFILE"
 printf '71717171\n' > "$OUTSIDE"
@@ -118,4 +186,4 @@ run_watchcat 0
 }
 unset REPLACE_PIDFILE_ON_NVRAM
 
-echo "SCUT watchdog PID identity, stale/reused PID and fail-closed lock regression: PASS"
+echo "SCUT watchdog PID identity, serialized stale-PID reclaim and fail-closed lock regression: PASS"

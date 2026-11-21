@@ -7,11 +7,13 @@ on:
       - ".github/workflows/scutclient-watchcat-safety.yml"
       - "trunk/user/scutclient/scripts/scutclient_watchcat.sh"
       - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
+      - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
   pull_request:
     paths:
       - ".github/workflows/scutclient-watchcat-safety.yml"
       - "trunk/user/scutclient/scripts/scutclient_watchcat.sh"
       - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
+      - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
 
 permissions:
   contents: read
@@ -25,6 +27,7 @@ jobs:
         run: |
           sh -n trunk/user/scutclient/scripts/scutclient_watchcat.sh
           sh -n trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh
+          command -v flock >/dev/null 2>&1
       - name: Exercise watchdog PID identity and stale PID safety
         run: sh trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh
       - name: Verify fail-closed source contract
@@ -33,11 +36,24 @@ jobs:
           from pathlib import Path
 
           source = Path("trunk/user/scutclient/scripts/scutclient_watchcat.sh").read_text()
+          busybox_config = Path("trunk/user/busybox/busybox-1.24.x/util-linux/Config.src").read_text()
+          assert 'config FLOCK\n\tbool "flock"\n\tdefault y' in busybox_config
           assert 'pidfile="${SCUTCLIENT_WATCHCAT_PIDFILE:-/var/scutclient_watchcat.pid}"' in source
           assert 'proc_root="${SCUTCLIENT_WATCHCAT_PROC_ROOT:-/proc}"' in source
           assert 'watchcat_pid_status "$previous_pid"' in source
           assert 'process_cmdline=$(tr' in source
           assert 'script_path="/usr/bin/scutclient_watchcat.sh"' in source
+          assert 'lockfile="${pidfile}.lock"' in source
+          assert 'exec 9>>"$lockfile"' in source
+          assert "flock -n 9" in source
+          assert "exec 9>&-" in source
+          claim = source.index("watchcat_claim_pidfile\nclaim_status=$?")
+          assert claim < source.index("exec 9>&-", claim) < source.index('if [ "$(nvram get scutclient_watchcat)"')
+          filters = Path(".github/workflows/scutclient-watchcat-safety.yml").read_text().split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for section in (push_filters, pr_filters):
+              assert section.count('"trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"') == 1
+          assert "locked stale-PID unlink" in Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()
           assert 'if (set -C; printf' in source
           assert 'kill -9' not in source
           assert 'kill "$previous_pid"' not in source

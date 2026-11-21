@@ -1,5 +1,6 @@
 #!/bin/sh
 pidfile="${SCUTCLIENT_WATCHCAT_PIDFILE:-/var/scutclient_watchcat.pid}"
+lockfile="${pidfile}.lock"
 proc_root="${SCUTCLIENT_WATCHCAT_PROC_ROOT:-/proc}"
 script_path="/usr/bin/scutclient_watchcat.sh"
 net="114.114.114.114 119.29.29.29"
@@ -28,6 +29,43 @@ watchcat_pid_status()
 	esac
 	return 1
 }
+
+# Serialize only the PID claim transaction. Close FD 9 immediately after
+# publishing the current PID so child processes and restarted daemons do
+# not inherit the lock descriptor.
+watchcat_claim_lock()
+{
+	[ ! -L "$lockfile" ] || return 1
+	if [ -e "$lockfile" ] && [ ! -f "$lockfile" ]; then
+		return 1
+	fi
+	lock_umask=$(umask)
+	umask 077
+	exec 9>>"$lockfile" || {
+		umask "$lock_umask"
+		return 1
+	}
+	umask "$lock_umask"
+	[ -f "$lockfile" ] && [ ! -L "$lockfile" ] || return 1
+	command -v flock >/dev/null 2>&1 || return 1
+	if flock -n 9; then
+		return 0
+	fi
+	return 2
+}
+
+watchcat_claim_lock
+lock_status=$?
+case "$lock_status" in
+0)
+	;;
+2)
+	exit 0
+	;;
+*)
+	exit 1
+	;;
+esac
 
 # Claim a new PID file without ever signalling a PID read from stale state.
 # A live watchdog already owns the check; an UNKNOWN procfs result fails
@@ -69,6 +107,7 @@ watchcat_claim_pidfile()
 
 watchcat_claim_pidfile
 claim_status=$?
+exec 9>&-
 case "$claim_status" in
 0)
 	;;

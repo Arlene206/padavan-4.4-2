@@ -48,6 +48,7 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/user/shared/scripts/process_lifecycle.sh",
             "trunk/linux-4.4.x/net/ipv4/tcp.c",
             "trunk/configs/boards/XY-C1/kernel-4.4.x.config",
+            "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src",
             "trunk/user/rc/Makefile",
             "trunk/user/802.1x/src/config.c",
         ]
@@ -71,6 +72,16 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
         )
         for path in paths:
+            with self.subTest(path=path):
+                self.assertIn('      - "' + path + '"', workflow)
+                self.assertFalse(is_non_firmware_input(path))
+
+    def test_scut_watchdog_flock_dependency_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        for path in (
+            "trunk/user/scutclient/scripts/scutclient_watchcat.sh",
+            "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src",
+        ):
             with self.subTest(path=path):
                 self.assertIn('      - "' + path + '"', workflow)
                 self.assertFalse(is_non_firmware_input(path))
