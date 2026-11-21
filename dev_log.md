@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot VPN CHAP credentials before publishing secrets
+
+- Parent main SHA: `8c3fc25fdec2bd2a7de3bf05baf2f73b77caf613`.
+- `start_vpn_server_locked()` previously read ACL count, username/password and static client address through compatibility getters. `nvram_get_int("vpns_addr_xN")` maps both absent keys and NVRAM backend failures to zero; zero becomes wildcard `*`, so a failed read could broaden a configured source-address restriction. Independent reads could also combine different ACL generations.
+- Added one exclusive NVRAM transaction to snapshot count, active credentials and address octets before lease cleanup or opening/truncating CHAP secrets. Cache-backed values are copied immediately; credential strings are bounded to the UI's 32-character field and reject control bytes, quotes and backslashes. Backend, parse/range, buffer and transaction-end failures abort without publishing secrets. Missing/empty credential pairs remain skipped; absent/empty address retains wildcard behavior.
+- Added strict bounded integer policy tests under GNU89 ASan/UBSan and extended VPN lifecycle source contracts to enforce snapshot and publication ordering. Exact-head VPN stability and XY-C1 Build/TRX/artifact checks are pending.
+- Previous exact-head results: VPN/Process/Firewall/OpenVPN staging and NVRAM audit passed on 91ab; HTTPD/docs passed on 588b; DNSMasq/docs passed on 8c3.
+
+---
+
 ## 2026-11-21 — Update DNSMasq lifecycle contract for checked DHCP status API
 
 - Parent main SHA: `7bd6693df1091b8d7e067e9292c8bf4108608faf`.

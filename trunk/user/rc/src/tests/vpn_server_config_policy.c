@@ -103,6 +103,68 @@ test_type_backend_error_fails_closed(void)
 	assert(vpn_server_config_type_status(0, 0, NULL, NULL) == EINVAL);
 }
 
+static void
+test_int_missing_and_empty_values_use_default(void)
+{
+	int value = 99;
+
+	assert(vpn_server_config_int_status(0, 0, NULL, 0, 0, 50, &value) == 0);
+	assert(value == 0);
+	assert(vpn_server_config_int_status(1, 0, "", 0, 0, 50, &value) == 0);
+	assert(value == 0);
+	assert(vpn_server_config_int_status(1, 0, "  \t", 7, 0, 50, &value) == 0);
+	assert(value == 7);
+}
+
+static void
+test_int_accepts_only_complete_bounded_decimal(void)
+{
+	int value = -1;
+
+	assert(vpn_server_config_int_status(1, 0, "0", 0, 0, 50, &value) == 0);
+	assert(value == 0);
+	assert(vpn_server_config_int_status(1, 0, " 25 \t", 0, 0, 50, &value) == 0);
+	assert(value == 25);
+	assert(vpn_server_config_int_status(1, 0, "50", 0, 0, 50, &value) == 0);
+	assert(value == 50);
+}
+
+static void
+test_int_rejects_malformed_and_out_of_range_values(void)
+{
+	int value = 19;
+
+	assert(vpn_server_config_int_status(1, 0, "10x", 0, 0, 50, &value) == EINVAL);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(1, 0, "-1", 0, 0, 50, &value) == EINVAL);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(1, 0, "+1", 0, 0, 50, &value) == EINVAL);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(1, 0, "51", 0, 0, 50, &value) == EINVAL);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(1, 0, "999999999999999999999999", 0, 0, 50, &value) == ERANGE);
+	assert(value == 19);
+}
+
+static void
+test_int_backend_error_fails_closed(void)
+{
+	int value = 19;
+
+	assert(vpn_server_config_int_status(-1, EACCES, NULL, 0, 0, 50, &value) == EACCES);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(-1, 0, NULL, 0, 0, 50, &value) == EIO);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(2, 0, "1", 0, 0, 50, &value) == EIO);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(1, 0, NULL, 0, 0, 50, &value) == EIO);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(0, 0, NULL, 99, 0, 50, &value) == EINVAL);
+	assert(value == 19);
+	assert(vpn_server_config_int_status(0, 0, NULL, 0, 51, 50, &value) == EINVAL);
+	assert(value == 19);
+}
+
 int
 main(void)
 {
@@ -113,6 +175,10 @@ main(void)
 	test_type_accepts_only_supported_modes();
 	test_type_rejects_malformed_and_unknown_values();
 	test_type_backend_error_fails_closed();
+	test_int_missing_and_empty_values_use_default();
+	test_int_accepts_only_complete_bounded_decimal();
+	test_int_rejects_malformed_and_out_of_range_values();
+	test_int_backend_error_fails_closed();
 
 	puts("VPN server configuration read gate policy: PASS");
 	return 0;

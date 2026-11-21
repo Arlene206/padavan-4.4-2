@@ -21,6 +21,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - VPN server startup has a fail-open NVRAM gate: PID 1 invokes `start_vpn_server()` unconditionally, and `nvram_invmatch("vpns_enable", "1")` treats both a missing key and backend read failure as “not a mismatch”. With `vpns_type` also read through `nvram_get_int()`, a failed type read becomes PPTP (0). This slice replaces startup and reapply gates with checked reads: missing enable is disabled; read errors abort; absent type preserves the historical PPTP default only when enabled; malformed, unsupported or failed type reads abort before lease state is cleared. GNU89 ASan/UBSan policy tests and VPN source/workflow contracts are included. Exact-head VPN and XY-C1 validation pending.
 
+- VPN enable/type startup gate commit `91ab0fb6ceaf0c2fa068cd9cad32f57422bfa438` uses checked NVRAM reads for startup/reapply. VPN lifecycle, AI handoff, Process, Firewall startup, OpenVPN credential staging and NVRAM audit passed on the recorded exact 91ab; HTTPD security and AI handoff source-contract correction passed on exact 588b; DNSMasq and AI handoff passed on exact 8c3. XY-C1 #44931678300 was still in progress at the last poll.
+
+- VPN PPP CHAP credentials now use one exclusive NVRAM transaction snapshot for `vpns_num_x`, username/password pairs and each active row's address octet. Every cache-backed NVRAM value is copied before the next read; strings are bounded to the UI's 32-character field and reject control bytes, quotes and backslashes. Backend, parse/range, buffer and transaction-end failures abort before lease cleanup or truncating CHAP secrets. This fixes the fail-open case where `nvram_get_int("vpns_addr_xN")` converted backend errors to zero and wrote wildcard `*`.
+
 ## Verification boundary
 
 - L1: coherent WAN route ownership snapshot, transactional failure invalidation and PPP conntrack fallback are implemented; WAN route workflow passed on exact SHA 951, and WAN teardown / DHCP callback / NVRAM audit passed on d0.
@@ -46,5 +50,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Re-run exact-head DNSMasq lifecycle after the stale `is_dhcpd_enabled()` source contract is updated to `is_dhcpd_enabled_status()`; then inspect exact HTTPD security, Process lifecycle regression, WAN route, NVRAM audit and XY-C1 results for the same 7bd product source. Require Build, TRX verification and artifact upload all PASS on one exact SHA before claiming L3.
-2. Audit remaining VPN server config reads in `gen_vpns_pppd_options()` and `start_vpn_server_locked()` (`vpns_auth`, `vpns_mppe`, `vpns_vuse`, `vpns_num_x`, `vpns_user_x*`, `vpns_pass_x*`, and pool/interface values) for backend failure modes and add checked copied reads only where they protect credential/pool publication. Do not reopen WAN route snapshot or duplicate-Authorization production logic.
+1. Inspect exact-head VPN lifecycle and XY-C1 Actions for the CHAP credential snapshot slice; fix only failures supported by their exact logs.
+2. Continue auditing VPN runtime values: `gen_vpns_pppd_options()` still reads `vpns_auth`, `vpns_mppe`, `vpns_vuse`, DNS/WINS and LAN IP through compatibility getters; `get_vpns_pool()` still trusts LAN/VPN subnet strings and pool offsets. Convert critical reads to checked copies and validate subnet/pool arithmetic while preserving defaults only for genuinely missing keys.
+3. Do not reopen the duplicate-Authorization HTTPD parser or completed WAN route transaction.

@@ -41,6 +41,14 @@
 #include <file_write_status.h>
 
 #define VPNS_LOG_NAME		"VPN server"
+#define VPN_SERVER_ACL_CREDENTIAL_MAX 32
+
+struct vpn_server_acl_entry {
+	char username[VPN_SERVER_ACL_CREDENTIAL_MAX + 1];
+	char password[VPN_SERVER_ACL_CREDENTIAL_MAX + 1];
+	unsigned int address;
+	int present;
+};
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
 #define VPNS_PPP_DW_SCRIPT	"/tmp/ppp/ip-down.vpns"
 
@@ -361,11 +369,153 @@ vpn_server_read_type_status(int *type)
 
 
 static int
+vpn_server_transaction_copy_acl_text(struct nvram_transaction *transaction,
+				     const char *name, char *buffer,
+				     size_t buffer_size)
+{
+	char *value = NULL;
+	const unsigned char *cursor;
+	size_t length;
+	int read_status, read_errno;
+
+	if (!transaction || !name || !buffer || buffer_size < 1) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	errno = 0;
+	read_status = nvram_transaction_get(transaction, name, &value);
+	read_errno = errno;
+	if (read_status < 0) {
+		errno = read_errno > 0 ? read_errno : EIO;
+		return -1;
+	}
+	if (read_status == 0) {
+		buffer[0] = '\0';
+		return 0;
+	}
+	if (read_status != 1 || !value) {
+		errno = EIO;
+		return -1;
+	}
+
+	length = strlen(value);
+	if (length >= buffer_size) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	for (cursor = (const unsigned char *)value; *cursor; ++cursor) {
+		if (*cursor < 0x20 || *cursor == 0x7f ||
+		    *cursor == '"' || *cursor == '\\') {
+			errno = EINVAL;
+			return -1;
+		}
+	}
+	memcpy(buffer, value, length + 1);
+	return 0;
+}
+
+static int
+vpn_server_read_acl_snapshot(struct vpn_server_acl_entry *entries,
+			     int *entry_count)
+{
+	struct nvram_transaction transaction;
+	char *value = NULL;
+	char key[32];
+	int key_length, read_status, read_errno, parse_status;
+	int parsed_count = 0, parsed_address, i;
+	int end_status, result = -1, saved_errno = 0;
+
+	if (!entries || !entry_count) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(entries, 0, sizeof(*entries) * MAX_CLIENTS_NUM);
+	*entry_count = 0;
+
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "vpns_num_x", &value);
+	read_errno = errno;
+	parse_status = vpn_server_config_int_status(read_status, read_errno,
+						    value, 0, 0,
+						    MAX_CLIENTS_NUM, &parsed_count);
+	if (parse_status != 0) {
+		errno = parse_status;
+		goto finish_transaction;
+	}
+
+	for (i = 0; i < parsed_count; ++i) {
+		key_length = snprintf(key, sizeof(key), "vpns_user_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (vpn_server_transaction_copy_acl_text(&transaction, key,
+							  entries[i].username,
+							  sizeof(entries[i].username)) != 0)
+			goto finish_transaction;
+
+		key_length = snprintf(key, sizeof(key), "vpns_pass_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		if (vpn_server_transaction_copy_acl_text(&transaction, key,
+							  entries[i].password,
+							  sizeof(entries[i].password)) != 0)
+			goto finish_transaction;
+
+		/* Preserve legacy behavior: incomplete credential pairs are ignored. */
+		if (!entries[i].username[0] || !entries[i].password[0])
+			continue;
+
+		key_length = snprintf(key, sizeof(key), "vpns_addr_x%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = EOVERFLOW;
+			goto finish_transaction;
+		}
+		value = NULL;
+		errno = 0;
+		read_status = nvram_transaction_get(&transaction, key, &value);
+		read_errno = errno;
+		parse_status = vpn_server_config_int_status(read_status, read_errno,
+							    value, 0, 0, 254,
+							    &parsed_address);
+		if (parse_status != 0) {
+			errno = parse_status;
+			goto finish_transaction;
+		}
+		entries[i].address = (unsigned int)parsed_address;
+		entries[i].present = 1;
+	}
+
+	*entry_count = parsed_count;
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0)
+		errno = saved_errno;
+	return result;
+}
+
+
+static int
 start_vpn_server_locked(void)
 {
 	FILE *fp;
 	int i, i_type, i_vuse, xl2tpd_status, saved_errno;
-	int enabled, config_status;
+	int enabled, config_status, acl_count = 0;
+	struct vpn_server_acl_entry acl_entries[MAX_CLIENTS_NUM];
 	char *vpns_cfg = "/etc/pptpd.conf";
 	const char *vpns_sec = "/tmp/ppp/chap-secrets";
 	unsigned int vaddr, vmask, vp_b, vp_e;
@@ -391,14 +541,28 @@ start_vpn_server_locked(void)
 		return -1;
 	}
 
+#if defined(APP_OPENVPN)
+	if (i_type == 2) {
+		if (clear_vpns_lease_file() != 0) {
+			logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
+			return -1;
+		}
+		return start_openvpn_server();
+	}
+#endif
+
+	if (vpn_server_read_acl_snapshot(acl_entries, &acl_count) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read VPN client credential policy; refusing startup (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 	if (clear_vpns_lease_file() != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
 		return -1;
 	}
-#if defined(APP_OPENVPN)
-	if (i_type == 2)
-		return start_openvpn_server();
-#endif
 
 	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
 	    ppp_options_symlink_ready(VPNS_PPP_UP_SCRIPT, "/sbin/rc") != 0 ||
@@ -461,28 +625,22 @@ start_vpn_server_locked(void)
 		return -1;
 	}
 	{
-		char *acl_user, *acl_pass;
-		char acl_user_var[32], acl_pass_var[32], acl_addr_var[32];
+		char acl_addr[32];
 		unsigned int vp_a;
-		int i_max = nvram_get_int("vpns_num_x");
-		
-		if (i_max > MAX_CLIENTS_NUM) i_max = MAX_CLIENTS_NUM;
-		for (i = 0; i < i_max; i++) {
-			snprintf(acl_user_var, sizeof(acl_user_var), "vpns_user_x%d", i);
-			snprintf(acl_pass_var, sizeof(acl_pass_var), "vpns_pass_x%d", i);
-			acl_user = nvram_safe_get(acl_user_var);
-			acl_pass = nvram_safe_get(acl_pass_var);
-			if (*acl_user && *acl_pass) {
-				snprintf(acl_addr_var, sizeof(acl_addr_var), "vpns_addr_x%d", i);
-				vp_a = (unsigned int)nvram_get_int(acl_addr_var);
-				if (vp_a >= vp_b && vp_a <= vp_e ) {
-					pool_in.s_addr = htonl((vaddr & vmask) | vp_a);
-					strcpy(acl_addr_var, inet_ntoa(pool_in));
-				} else
-					strcpy(acl_addr_var, "*");
-				
-				fprintf(fp, "\"%s\"	*	\"%s\"	%s\n", acl_user, acl_pass, acl_addr_var);
+
+		for (i = 0; i < acl_count; ++i) {
+			if (!acl_entries[i].present)
+				continue;
+			vp_a = acl_entries[i].address;
+			if (vp_a >= vp_b && vp_a <= vp_e) {
+				pool_in.s_addr = htonl((vaddr & vmask) | vp_a);
+				snprintf(acl_addr, sizeof(acl_addr), "%s", inet_ntoa(pool_in));
+			} else {
+				snprintf(acl_addr, sizeof(acl_addr), "*");
 			}
+			fprintf(fp, "\"%s\"\t*\t\"%s\"\t%s\n",
+				acl_entries[i].username, acl_entries[i].password,
+				acl_addr);
 		}
 		if (ppp_options_file_finish(fp, vpns_sec) != 0) {
 			saved_errno = errno ? errno : EIO;

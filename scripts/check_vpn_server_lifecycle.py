@@ -213,6 +213,36 @@ ordered(reapply_gate,[
 require('nvram_invmatch("vpns_enable", "1")' not in reapply_gate and
         'nvram_get_int("vpns_type")' not in reapply_gate,
         "VPN reapply must not collapse missing/failed NVRAM reads into implicit defaults")
+
+acl_reader=body(vpn,"vpn_server_read_acl_snapshot(struct vpn_server_acl_entry *entries,")
+acl_copy=body(vpn,"vpn_server_transaction_copy_acl_text(struct nvram_transaction *transaction,")
+ordered(acl_reader,[
+    "nvram_transaction_begin(&transaction)",
+    'nvram_transaction_get(&transaction, "vpns_num_x", &value)',
+    "vpn_server_config_int_status(read_status, read_errno",
+    "vpn_server_transaction_copy_acl_text(&transaction, key",
+    'nvram_transaction_get(&transaction, key, &value)',
+    "nvram_transaction_end(&transaction)"
+],"VPN CHAP credential transactional snapshot")
+require("length >= buffer_size" in acl_copy and
+        "*cursor < 0x20" in acl_copy and "*cursor == 0x7f" in acl_copy and
+        "memcpy(buffer, value, length + 1)" in acl_copy,
+        "VPN CHAP credentials must be bounded, copied and free of control characters")
+ordered(sp,[
+    "vpn_server_read_enabled_status(&enabled)",
+    "vpn_server_read_type_status(&i_type)",
+    "vpn_server_read_acl_snapshot(acl_entries, &acl_count)",
+    "clear_vpns_lease_file()",
+    "ppp_options_file_open(vpns_sec)"
+],"VPN credentials must be snapshotted before destructive publication")
+require('nvram_get_int("vpns_num_x")' not in sp and
+        'nvram_get_int(acl_addr_var)' not in sp and
+        'nvram_safe_get(acl_user_var)' not in sp and
+        'nvram_safe_get(acl_pass_var)' not in sp,
+        "VPN CHAP publication must not use unchecked per-row NVRAM getters")
+require("acl_entries[i].username" in sp and "acl_entries[i].password" in sp and
+        "acl_entries[i].address" in sp,
+        "VPN CHAP secrets must be emitted from the validated credential snapshot")
 for marker in (
     "test_enable_missing_key_is_disabled",
     "test_enable_requires_exact_one",
@@ -221,6 +251,10 @@ for marker in (
     "test_type_accepts_only_supported_modes",
     "test_type_rejects_malformed_and_unknown_values",
     "test_type_backend_error_fails_closed",
+    "test_int_missing_and_empty_values_use_default",
+    "test_int_accepts_only_complete_bounded_decimal",
+    "test_int_rejects_malformed_and_out_of_range_values",
+    "test_int_backend_error_fails_closed",
 ):
     require(marker in config_policy_test,f"VPN config-read regression missing {marker}")
 require("read_status < 0" in config_policy and "read_status == 0" in config_policy and
@@ -228,6 +262,9 @@ require("read_status < 0" in config_policy and "read_status == 0" in config_poli
         "strtol(value, &end, 10)" in config_policy and
         "parsed > 2" in config_policy,
         "VPN config policy must distinguish absent/error and validate type bounds")
+require("vpn_server_config_int_status" in config_policy and
+        "parsed < minimum || parsed > maximum" in config_policy,
+        "VPN ACL integer policy must distinguish absent/error and enforce bounds")
 for path in (
     "trunk/user/rc/src/vpn_server_config_policy.h",
     "trunk/user/rc/src/tests/vpn_server_config_policy.c",
