@@ -2258,8 +2258,16 @@ start_rstats(void)
 	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
-	if (nvram_invmatch("rstats_enable", "1"))
-		return 0;
+	{
+		int enabled = 0;
+		int config_status = service_nvram_match_status(
+			"rstats_enable", "1", 0, &enabled);
+
+		if (config_status != 0)
+			return config_status;
+		if (!enabled)
+			return 0;
+	}
 
 	start_status = optional_daemon_start_status("rstats", "rstats");
 	if (start_status > 0)
@@ -2335,8 +2343,16 @@ start_lltd(void)
 	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
-	if (nvram_invmatch("lltd_enable", "1"))
-		return 0;
+	{
+		int enabled = 0;
+		int config_status = service_nvram_match_status(
+			"lltd_enable", "1", 0, &enabled);
+
+		if (config_status != 0)
+			return config_status;
+		if (!enabled)
+			return 0;
+	}
 
 	start_status = optional_daemon_start_status("lld2d", "lld2d");
 	if (start_status > 0)

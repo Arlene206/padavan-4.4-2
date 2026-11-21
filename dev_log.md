@@ -1,3 +1,12 @@
+## 2026-11-21 — Check rstats and LLTD enable reads before daemon startup
+
+- Parent main SHA: f64ba04148274ce2433e4028eae50efd28b047fb.
+- `start_rstats()` and `start_lltd()` still used unchecked `nvram_invmatch(..., "1")` gates. Backend/parse failures were indistinguishable from disabled state, so a requested daemon could be silently skipped with a successful return.
+- Both now use the shared checked exact-string reader and propagate read errors before inventory probing or launching. Missing keys and values other than exact `"1"` retain the disabled no-op. Added Process source-contract assertions for checked-read → error gate → disabled gate ordering and rejection of unchecked NVRAM readers; existing matcher regressions cover backend failure and exact string semantics.
+- Exact-head Process/XY-C1 verification pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Align WAN firewall/ZeroTier contracts with checked WAN status
 
 - Parent main SHA: dd84e61cee454714642c3677e9223da732b3f2ec.

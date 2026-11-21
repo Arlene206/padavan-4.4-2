@@ -334,6 +334,22 @@ def check_rc_optional_daemon_enable_reads():
     assert "optional_daemon_rollback_scan" in rollback_helper
     assert "errno = saved_errno;" in rollback_helper
 
+    for signature, key in (
+        ("start_rstats(void)", "rstats_enable"),
+        ("start_lltd(void)", "lltd_enable"),
+    ):
+        start_body = extract_c_function_body(services, signature)
+        compact_start = "".join(start_body.split())
+        read_call = (
+            'service_nvram_match_status("' + key + '","1",0,&enabled);'
+        )
+        assert read_call in compact_start, signature
+        assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)")
+        assert compact_start.index("if(config_status!=0)") < compact_start.index("if(!enabled)")
+        assert "nvram_invmatch(" not in start_body
+        assert "nvram_match(" not in start_body
+        assert "nvram_get_int(" not in start_body
+
     detached_start_cases = (
         ("start_ttyd_with_mode(int ttyd_mode)", "ttyd", "start_status", "start_errno"),
         ("start_rstats(void)", "rstats", "start_status", "start_errno"),
