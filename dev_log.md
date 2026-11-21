@@ -1,3 +1,11 @@
+## 2026-11-21 — Update HTTPD DHCP renew contract for checked-state retry flow
+
+- Parent main SHA: c14651353b1096db701f560729c0052d0275f560.
+- HTTPD security run #44895295713 on 8700539 failed in its embedded Python source contract after the WAN renewal migration. The contract still required dhcp_wan_bound_retry_required() and three nvram_get_int() reads in both the physical WAN and IPTV renew callbacks.
+- Updated the workflow contract to require all three get_nvram_int_checked_status() reads, dhcp_wan_bound_retry_decide(), checked stored-MTU reads, and error-return ordering before retry/bind side effects. It still rejects the old error-collapsing getters and preserves the surrounding DNS/resolver/route assertions.
+- This is a checker-only change; exact-head HTTPD, WAN DHCP and WAN route Actions on the new SHA are required. No local workflow script execution is claimed.
+
+---
 ## 2026-11-21 — Tighten RAS credential snapshot source-contract ordering
 
 - Parent main SHA: 72b789bc6c027d1bb9d36fdbc9473a00de9bb13f.
