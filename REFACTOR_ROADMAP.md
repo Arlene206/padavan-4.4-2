@@ -1,12 +1,10 @@
-## Current checkpoint — 2026-11-22
+## Current checkpoint — 2026-11-21
 
-- WAN `config_vinet_wan()` checked VLAN selector/IDs/priority before mapping; checker normalization cfc WAN route + AI docs PASS.
-- LAN soft bridge checked IGMP/M2U before topology (7f66); WAN route PASS, XY-C1/NVRAM were in progress at last poll.
-- LAN core bridge checked IGMP/M2U/router/AP-uport/WAN mode before apply (f204); WAN route PASS, XY-C1/NVRAM still running.
-- LAN switch VLAN checked bridge mode/isolation, filter, six VIDs, six priorities and four tags before hardware rule call (ebc); exact WAN route was running.
-- LAN switch storm-control rates checked before hardware writes (991); 1024 fallback retained only for readable missing/out-of-range values.
-- THIS COMMIT checks `ether_jumbo`, `ether_green` and `ether_eee` before first switch base PHY call; source contract extended; exact CI pending.
-- Frozen backup read-only; L3 requires same-source XY-C1 Build/TRX/artifact PASS.
+- WAN `config_vinet_wan()` uses checked selector/VID/priority reads before hardware mapping; checker whitespace normalization and source flow had already passed.
+- LAN `config_soft_bridge_lan()` and `config_bridge()` use checked multicast, router-mode, AP-uport and WAN-bridge settings before topology changes.
+- LAN `switch_config_vlan()` checks bridge mode/isolation, filter, six VIDs, six priorities and four tags before first hardware rule call. Exact e66 WAN route run #44961762404 exposed a checker formatting mismatch; review also found the function used an undeclared local `status`. THIS COMMIT adds the declaration and corrects only the checker token normalization.
+- LAN storm-control rates use checked/range-normalized reads; switch base jumbo/green/EEE reads are checked before PHY operations.
+- Same-source XY-C1 Build/TRX/artifact is pending for the current source chain; frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21
 

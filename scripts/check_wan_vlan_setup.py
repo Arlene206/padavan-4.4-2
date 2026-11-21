@@ -246,6 +246,13 @@ for old_read in ('nvram_get_int("ether_igmp")','nvram_get_int("ether_m2u")',
 
 switch_vlan = body(lan, "switch_config_vlan(int first_call)")
 switch_vlan_code = " ".join(switch_vlan.split())
+# Match the wrapped C calls independent of the line break after the opening parenthesis.
+switch_vlan_code = switch_vlan_code.replace(
+    "lan_nvram_get_int_before_vlan_apply( ",
+    "lan_nvram_get_int_before_vlan_apply("
+)
+require("int status;" in switch_vlan_code,
+        "switch VLAN checked-read status must be declared locally")
 mode_read = 'lan_wan_bridge_mode_status(&bridge_mode)'
 isolation_read = 'lan_wan_bridge_iso_mode_status(bridge_mode, &bwan_isolation)'
 filter_read = 'lan_nvram_get_match_status("vlan_filter", "1", &is_vlan_filter)'

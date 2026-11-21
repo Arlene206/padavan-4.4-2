@@ -863,6 +863,7 @@ switch_config_vlan(int first_call)
 {
 	rc_bridge_init_status_t vlan_status;
 	int operation_status;
+	int status;
 	int bridge_mode, bwan_isolation, is_vlan_filter;
 	int vlan_vid[SWAPI_VLAN_RULE_NUM] = {0};
 	int vlan_pri[SWAPI_VLAN_RULE_NUM] = {0};

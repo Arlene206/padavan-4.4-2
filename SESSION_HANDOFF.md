@@ -28,22 +28,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Latest product source: THIS COMMIT hardens `switch_config_base()`: `ether_jumbo`, `ether_green` and `ether_eee` use checked NVRAM integer reads; backend/read/close/malformed-value errors abort before the first PHY call. Valid integer and absent-key semantics remain; best-effort LED operation is after the checked snapshot.
-- New `lan_nvram_get_int_before_switch_apply()` wraps the checked integer reader; checker enforces reads before `phy_jumbo_frames()` and rejects old getters. Existing NVRAM sanitizer test covers shared parsing backend.
-- Prior source sequence: WAN VLAN `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`; checker normalization `cfc41b84b12004bc43d1a0a136072a8ef53c5727`; LAN soft bridge `7f66b9d41d7244265bf7292e89d5b8400da4080a`; core LAN bridge `f20473f17034ca1188abb3226533e2eb0e6564d3`; switch VLAN `ebc799f8bb49b9258ae9e0206ec48c69b0772e7a`; storm control `991bc8cb3cc9be8a223f8d6646df3f8384a4f590`; THIS is switch base features.
-- Exact current product source checks were pending at last poll; confirm WAN route and XY-C1 Build/TRX/artifact on THIS SHA. No L3 or hardware L4 claim yet.
+- Latest product slice: THIS COMMIT fixes two issues in `switch_config_vlan()` validation. Production code now declares local `int status;` for its checked NVRAM read/error paths; without it the source did not compile. The WAN route checker normalizes spaces immediately after the wrapped `lan_nvram_get_int_before_vlan_apply(` calls, then verifies all checked fields in order before `phy_vlan_rule_set()` and verifies the local declaration.
+- Parent exact SHA: `e66b1172069763f08aab52df5a08431a10000fd6`. WAN route run #44961762404 failed only at the checker token lookup on multiline call formatting; the sanitizer/policy steps preceding it had passed. Exact parent XY-C1 #44961762400 had Cross-build XY-C1 IN_PROGRESS; no Build/TRX/artifact result yet. e66 Firewall Startup, WAN DHCP callback, detect_link, watchdog, detect_internet, wireless, DNSMasq and AI docs PASS; HTTPD, process checks, NVRAM audit and XY-C1 still running at last poll.
+- Previous product work: WAN VLAN checked reads, LAN soft-bridge and core-bridge settings, switch VLAN snapshot, storm-control rates, and switch base PHY settings. Current correction must be validated on its own exact SHA.
 
 ## Verification boundary
 
-- Source preflight passes; exact current-head check/build pending.
-- Existing NVRAM sanitizer covers the shared read semantics. XY-C1 Build, TRX and artifact upload must all PASS on the same product-source SHA for L3. Device testing remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
+- Source checker token preflight passes against the current C body; exact WAN route Actions and XY-C1 build results pending.
+- Build XY-C1, TRX verification and artifact upload must all PASS on the same product-source SHA for L3. Hardware/device L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head WAN route, NVRAM audit and XY-C1 Actions for THIS commit; inspect Build XY-C1, Verify TRX and upload-artifact individually.
-2. Fix any same-SHA source checker, compile or firmware failure from its exact job log.
-3. After LAN base, storm, VLAN and bridge NVRAM preflights validate, continue the next independent reliability/security issue across Padavan userland.
+1. Fetch exact-head WAN route and XY-C1 Actions for THIS commit. Verify Build XY-C1, Verify TRX and upload-artifact step conclusions individually.
+2. Diagnose any current-SHA checker/compile/build failure from the exact job log and fix it without relying on ancestor results.
+3. Continue another independent stability/security slice after the full checked LAN/WAN setup validates.
 
 ## Workflow and preservation rules
 

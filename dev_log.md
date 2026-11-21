@@ -1,3 +1,13 @@
+## 2026-11-21 — Fix switch VLAN status declaration and checker token normalization
+
+- Parent main SHA: `e66b1172069763f08aab52df5a08431a10000fd6`.
+- Exact-head WAN route run #44961762404 failed in `scripts/check_wan_vlan_setup.py:275`: the source body formats checked VLAN helper calls across lines, so whitespace compaction leaves a space after the opening parenthesis while the expected tokens did not. This was a static-checker mismatch.
+- Reviewing the same source uncovered a production compile defect introduced in the checked-read conversion: `switch_config_vlan()` assigned to `status` but did not declare it locally. THIS COMMIT adds the local `int status`; it also normalizes only the helper-call whitespace in the checker and asserts the local declaration, all 19 checked inputs in order, and reads before `phy_vlan_rule_set()`.
+- Exact current-head XY-C1 run #44961762400 had reached the Cross-build XY-C1 step IN_PROGRESS at last poll; no firmware/ TRX/artifact result was yet known. Other e66 actions included PASS for Firewall Startup, WAN DHCP callback, detect_link, watchdog, detect_internet, wireless, DNSMasq and AI docs; HTTPD, process checks, NVRAM audit and XY-C1 were still running.
+- Next: inspect exact-head WAN route and XY-C1 Build/TRX/artifact for THIS COMMIT; fix any remaining source/checker failure. Do not treat the parent build as validation of this correction.
+
+---
+
 ## 2026-11-22 09:03 CST — Check switch base feature settings before hardware writes
 
 - Parent main SHA: `991bc8cb3cc9be8a223f8d6646df3f8384a4f590`.
