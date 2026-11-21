@@ -28,22 +28,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Product-source slice `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` replaces unchecked deferred printer/modem marker reads in `on_deferred_hotplug_dev()` with checked `storage_read_integer_status()` pairs via `usb_hotplug_event_pair_status()`. Both events in a pair are acted on only if both reads succeed; failures preserve both markers and arm a five-second retry. The standalone GNU89/ASan/UBSan pair regression passed in both USB and storage workflows.
-- Exact 7e2e failures were checker-only: USB modem #44960208387's inline contract still searched for the deleted `nvram_match("usb_hotplug_md")`; Firewall Startup #44960208310 and Process fail-closed #44960208466 hit the stale `usb_unplug_md` search in the shared WAN-start checker; XY-C1 #44960208271 stopped at that same shared checker before Build; USB storage #44960208338 used a fragile escaped-newline read slice. The exact-head checkers are refreshed in THIS COMMIT.
-- Files in THIS COMMIT: `.github/workflows/storage-hotplug-stability.yml`, `.github/workflows/usb-modem-identity-stability.yml`, `scripts/check_modem_wan_start_status.py`, plus `dev_log.md`, `REFACTOR_ROADMAP.md`, and this handoff. Production source is unchanged.
-- PASS on exact 7e2e: HTTPD #44960208345, NFS #44960208262, VSFTPD #44960208366, Samba #44960208251, Process lifecycle inventory #44960208452, AI handoff docs #44960209215. NVRAM #44960208335 was IN_PROGRESS at last poll; exact XY-C1 and affected checker reruns remain pending for THIS checker commit.
+- Product-source baseline: `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`, which checks deferred printer and modem event-marker pairs and preserves them on NVRAM read failure. Its sanitizer pair test passed.
+- Checker-only commit `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` repaired the obsolete USB modem and global WAN-start assertions. Exact-head Firewall Startup #44960542648, Process fail-closed #44960542623, USB modem #44960542688, AI docs #44960542624 passed. USB storage #44960542709 then exposed one final stale safe-remove checker at `scripts/check_storage_safe_remove.py:310`; the caller-graph and storage policy tests themselves passed. THIS COMMIT replaces that deleted `nvram_match("usb_unplug_ms")` locator with checked-dispatch order assertions.
+- XY-C1 #44960542641 host/detector checks passed, but firmware Build/TRX/artifact steps were skipped because the checker-only commit did not change production firmware inputs. NVRAM audit #44960208335 passed on source SHA 7e2e. Hardware L4 remains unverified.
 
 ## Verification boundary
 
-- Exact source SHA `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`: USB event-pair sanitizer binary passed in USB modem and USB storage Actions; source checker contracts failed as above. XY-C1 Build/TRX/artifact did not run, so L3 is NOT VERIFIED.
-- Exact 7e2e affected failures: USB modem #44960208387, Firewall Startup #44960208310, Process fail-closed #44960208466, XY-C1 #44960208271 and USB storage #44960208338; all diagnosed as stale checker assumptions/locator, not a confirmed source regression. NVRAM #44960208335 remained IN_PROGRESS at last poll.
-- Hardware/device L4 remains NOT VERIFIED. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- Current checker slice is production-independent; verify its exact-head USB storage run. No product-source L3 verification is claimed by the checker-only commits.
+- The next product-source change must trigger same-SHA XY-C1 Build, TRX verification and artifact upload. Do not infer L3 from a workflow whose detector skips the build.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and exact-head Actions for THIS checker commit. Confirm USB modem, Firewall Startup, Process fail-closed, USB storage, NVRAM and XY-C1 checks. Do not infer from parent SHA.
-2. If any check still fails, diagnose the failing job/log and fix the actual assertion or source issue. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload before any L3 claim.
-3. Once these regressions are closed, continue with a different P1 stability/security issue in Padavan userland; printer and modem event-marker handling are already covered by the checked-pair source slice.
+1. Check USB storage run for THIS commit, expected to validate the checked-marker safe-eject source contract.
+2. Continue a distinct whole-userland source hardening task; require its exact source SHA to build XY-C1, verify TRX and upload the artifact.
+3. If the detector skips Build XY-C1 for an RC source change, inspect the detector input manifest and fix the detection contract rather than claim firmware validation.
 
 ## Workflow and preservation rules
 

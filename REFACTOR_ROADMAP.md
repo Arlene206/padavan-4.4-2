@@ -1,8 +1,8 @@
 ## Current checkpoint — 2026-11-22
 
-- Product source `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` adds checked deferred printer/modem marker-pair reads with event preservation and a five-second retry. The new GNU89/ASan/UBSan event-pair regression passed in both USB modem and storage jobs.
-- Exact 7e2e source Actions revealed stale regression contracts: USB modem #44960208387, Firewall Startup #44960208310, Process fail-closed #44960208466, XY-C1 #44960208271 and USB storage #44960208338 failed at legacy source-match assertions or an escaped-whitespace locator. THIS COMMIT repairs only those checkers. Exact reruns and same-SHA firmware validation are pending; no L3 claim.
-- NVRAM audit #44960208335 was in progress at last poll. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Product-source SHA `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`: checked USB printer/modem marker pairs and sanitizer regressions pass. USB modem, Firewall Startup, Process fail-closed, AI docs exact-head reruns on checker-only SHA `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` PASS.
+- USB storage `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` failed only on stale safe-remove checker lookup for deleted `nvram_match("usb_unplug_ms")`; THIS COMMIT updates it to require checked event dispatch and retry ordering. Exact-head storage rerun pending.
+- XY-C1 on checker-only dadb SHA passed source/host preflight but skipped Build/TRX/artifact because no firmware input changed. It is not L3 validation. NVRAM audit #44960208335 on source SHA 7e2e PASS. Frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21
 

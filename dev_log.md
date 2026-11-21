@@ -1,3 +1,13 @@
+## 2026-11-22 07:19 CST — Align safe-eject checker with checked storage marker dispatch
+
+- Parent main SHA: `dadb757d3bd255e8a1b49b1b50aa31ef4084db36`.
+- Exact parent Actions: Firewall Startup #44960542648 PASS; Process fail-closed #44960542623 PASS; USB modem #44960542688 PASS; AI handoff #44960542624 PASS. XY-C1 #44960542641 completed the full detector/host checks successfully, but Build XY-C1, TRX and artifact upload were SKIPPED because this checker-only SHA contained no production build-input change; it is not an L3 verification. NVRAM transaction audit on source SHA 7e2e #44960208335 PASS.
+- USB storage #44960542709 failed only in `scripts/check_storage_safe_remove.py:310`, which still located the now-removed `nvram_match("usb_unplug_ms")` branch. The full storage caller graph passed; the checked deferred dispatch policy binary passed.
+- THIS COMMIT replaces that stale assertion with source-order checks for checked unplug/hotplug/Optware reads, pending-on-error, successful-read-only acknowledgement, failed-unmount requeue, checked dispatch and startup gating. Production code unchanged.
+- Next: confirm exact-head USB storage rerun PASS. Then perform a distinct source hardening slice and require a same-source XY-C1 Build/TRX/artifact run; do not claim hardware L4.
+
+---
+
 ## 2026-11-22 07:12 CST — Align USB marker regression contracts with checked pair dispatch
 
 - Parent main SHA: `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`; source/test slice `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` replaces four deferred printer/modem marker `nvram_match()` gates with checked pair reads, failure preservation and five-second retry.
