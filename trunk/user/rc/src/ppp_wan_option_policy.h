@@ -78,4 +78,58 @@ failed:
 	return status > 0 ? status : EIO;
 }
 
+
+struct ppp_wan_option_text_values {
+	char username[256];
+	char password[256];
+	char peer[256];
+	char access_concentrator[256];
+	char service[256];
+	char user_options[256];
+};
+
+typedef int (*ppp_wan_option_read_text_fn)(void *context,
+					   const char *param_name,
+					   char *value,
+					   size_t value_size);
+
+/* Read all PPP option strings before any session or shared-file mutation. */
+static inline int
+ppp_wan_option_text_values_read(int is_pppoe,
+				ppp_wan_option_read_text_fn read_text,
+				void *context,
+				struct ppp_wan_option_text_values *values)
+{
+	int status;
+
+	if ((is_pppoe != 0 && is_pppoe != 1) || !read_text || !values)
+		return EINVAL;
+	memset(values, 0, sizeof(*values));
+#define PPP_WAN_READ_TEXT(name, member) \
+	do { \
+		status = read_text(context, name, values->member, \
+				   sizeof(values->member)); \
+		if (status != 0) \
+			goto text_failed; \
+	} while (0)
+
+	PPP_WAN_READ_TEXT("pppoe_username", username);
+	PPP_WAN_READ_TEXT("pppoe_passwd", password);
+	PPP_WAN_READ_TEXT("ppp_peer", peer);
+	if (!values->peer[0])
+		PPP_WAN_READ_TEXT("man_gateway", peer);
+	if (is_pppoe) {
+		PPP_WAN_READ_TEXT("pppoe_ac", access_concentrator);
+		PPP_WAN_READ_TEXT("pppoe_service", service);
+	}
+	PPP_WAN_READ_TEXT("ppp_pppd", user_options);
+
+#undef PPP_WAN_READ_TEXT
+	return 0;
+
+text_failed:
+	memset(values, 0, sizeof(*values));
+	return status > 0 ? status : EIO;
+}
+
 #endif /* PADAVAN_PPP_WAN_OPTION_POLICY_H */

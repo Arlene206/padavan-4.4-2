@@ -73,17 +73,36 @@ reader = body(net_ppp,
 require("get_wan_unit_value_int_status(*unit, param_name, value)" in reader and
         "errno = status" in reader, "PPP read callback must preserve status")
 
+copy_reader = body(net_wan,
+    "get_wan_unit_value_copy_status(int unit, const char *param_name,")
+require("rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL" in copy_reader,
+        "WAN string accessor must use checked NVRAM copies")
+require("int get_wan_unit_value_copy_status" in rc_header,
+        "checked WAN string accessor prototype missing")
+text_reader = body(net_ppp,
+    "ppp_wan_option_read_text(void *context, const char *param_name,")
+require("get_wan_unit_value_copy_status(*unit, param_name" in text_reader and
+        "errno = status" in text_reader, "PPP string callback must preserve status")
+peer_copy = body(net_ppp,
+    "get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)")
+require('get_wan_unit_value_copy_status(unit, "ppp_peer"' in peer_copy and
+        'get_wan_unit_value_copy_status(unit, "man_gateway"' in peer_copy,
+        "PPP peer fallback must use checked local copies")
+
 launch = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto)")
 preflight = launch.index("ppp_wan_option_values_read(")
+text_preflight = launch.index("ppp_wan_option_text_values_read(")
 generation = launch.index("ppp_wan_session_generation_change(&callback_generation)")
 options_open = launch.index("ppp_options_file_open(options)")
 stop = launch.find("kill_services(svcs, 5, 1)")
-require(preflight < generation < options_open,
-        "PPP options must be checked before session invalidation and file open")
-require(stop < 0 or preflight < stop,
+require(preflight < generation and text_preflight < generation < options_open,
+        "PPP integer and string options must be checked before session changes and file open")
+require(stop < 0 or (preflight < stop and text_preflight < stop),
         "L2TP daemon stop must follow checked option reads")
-require("get_wan_unit_value_int(" not in launch,
-        "PPP builder still uses error-collapsing integer accessor")
+require("get_wan_unit_value_int(" not in launch and "get_wan_unit_value(" not in launch,
+        "PPP builder still consumes unchecked NVRAM options")
+for field in ("username", "password", "peer", "access_concentrator", "service", "user_options"):
+    require("text_values." + field in launch, "PPP writer omits checked string option " + field)
 for field in ("auth_type","mtu","mru","pppoe_idletime","pppoe_demand",
               "pppoe_txonly_x","dnsenable_x","mppe_mode","lcp_echo","adaptive_lcp"):
     require("option_values." + field in launch, "unchecked PPP option: " + field)
@@ -109,7 +128,11 @@ require("status = route_status_accumulate(status, route_status)" in routes,
 for name in ("test_pppoe_options","test_pptp_and_l2tp_options",
              "test_missing_values_keep_zero_defaults",
              "test_failures_stop_and_clear_snapshot",
-             "test_invalid_arguments_fail_closed"):
+             "test_invalid_arguments_fail_closed",
+             "test_pppoe_string_snapshot_reads_all_fields",
+             "test_empty_peer_uses_checked_management_gateway_fallback",
+             "test_text_backend_failure_discards_partial_values",
+             "test_empty_text_defaults_and_oversize_failure"):
     require(name in test, "missing PPP option regression: " + name)
 
 push, pr = workflow.split("  pull_request:", 1)

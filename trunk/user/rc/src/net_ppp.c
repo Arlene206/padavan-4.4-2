@@ -38,6 +38,7 @@
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "ppp_wan_option_policy.h"
+#include "ppp_wan_option_policy.h"
 #include "wan_ifname_policy.h"
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
@@ -280,14 +281,22 @@ ppp_wan_callback_session_enter(int argc, char **argv, int *state_fd)
 }
 
 
-static char *
-get_wan_ppp_peer(int unit)
+static int
+get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)
 {
-	char *ppp_peer = get_wan_unit_value(unit, "ppp_peer");
+	int status;
 
-	if (strlen(ppp_peer) < 1)
-		ppp_peer = get_wan_unit_value(unit, "man_gateway");
-	return ppp_peer;
+	status = get_wan_unit_value_copy_status(unit, "ppp_peer", peer, peer_size);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	if (peer[0])
+		return 0;
+	status = get_wan_unit_value_copy_status(unit, "man_gateway", peer, peer_size);
+	if (status != 0)
+		errno = status;
+	return status;
 }
 
 int
@@ -297,11 +306,12 @@ safe_start_xl2tpd_locked(void)
 	int unit;
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
+	int wan_value_status;
 	struct process_snapshot process_snapshot;
 	enum process_presence daemon_presence;
 	const char *invalid_value = NULL;
 	const char *l2tp_conf = "/etc/xl2tpd.conf";
-	char hostname[256], wan_peer[256], wan_user[256];
+	char hostname[256], wan_peer[256], wan_user[256], wan_value_check[256];
 	char vpnc_peer[256], vpnc_user[256];
 
 	hostname[0] = wan_peer[0] = wan_user[0] = '\0';
@@ -336,12 +346,27 @@ safe_start_xl2tpd_locked(void)
 	if (use_vpn_server &&
 	    ppp_config_line_value_copy(get_our_hostname(), hostname, sizeof(hostname)) != 0)
 		invalid_value = "hostname";
-	if (!invalid_value && use_wan_lac &&
-	    ppp_config_line_value_copy(get_wan_ppp_peer(unit), wan_peer, sizeof(wan_peer)) != 0)
-		invalid_value = "wan peer";
-	if (!invalid_value && use_wan_lac &&
-	    ppp_config_line_value_copy(get_wan_unit_value(unit, "pppoe_username"), wan_user, sizeof(wan_user)) != 0)
-		invalid_value = "wan username";
+	if (!invalid_value && use_wan_lac) {
+		wan_value_status = get_wan_ppp_peer_copy(unit, wan_peer, sizeof(wan_peer));
+		if (wan_value_status != 0) {
+			errno = wan_value_status;
+			invalid_value = "wan peer";
+		} else if (ppp_config_line_value_copy(wan_peer, wan_value_check,
+						     sizeof(wan_value_check)) != 0) {
+			invalid_value = "wan peer";
+		}
+	}
+	if (!invalid_value && use_wan_lac) {
+		wan_value_status = get_wan_unit_value_copy_status(
+			unit, "pppoe_username", wan_user, sizeof(wan_user));
+		if (wan_value_status != 0) {
+			errno = wan_value_status;
+			invalid_value = "wan username";
+		} else if (ppp_config_line_value_copy(wan_user, wan_value_check,
+						      sizeof(wan_value_check)) != 0) {
+			invalid_value = "wan username";
+		}
+	}
 	if (!invalid_value && use_vpnc &&
 	    ppp_config_line_value_copy(nvram_safe_get("vpnc_peer"), vpnc_peer, sizeof(vpnc_peer)) != 0)
 		invalid_value = "VPN client peer";
@@ -555,12 +580,15 @@ static int
 start_rpl2tp(int unit)
 {
 	struct rpl2tp_config_values config;
-	char options[64], peer[256];
+	char options[64], peer[256], peer_check[256];
 	int status, saved_errno, length;
 
-	if (ppp_config_line_value_copy(get_wan_ppp_peer(unit), peer, sizeof(peer)) != 0) {
-		saved_errno = errno ? errno : EINVAL;
-		logmessage(LOGNAME, "refusing unsafe or oversized rp-l2tp peer (errno=%d)", saved_errno);
+	status = get_wan_ppp_peer_copy(unit, peer, sizeof(peer));
+	if (status == 0 && ppp_config_line_value_copy(peer, peer_check, sizeof(peer_check)) != 0)
+		status = errno ? errno : EINVAL;
+	if (status != 0) {
+		saved_errno = status > 0 ? status : EIO;
+		logmessage(LOGNAME, "refusing unsafe or unreadable rp-l2tp peer (errno=%d)", saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
@@ -668,12 +696,30 @@ ppp_wan_option_read_int(void *context, const char *param_name, int *value)
 
 
 static int
+ppp_wan_option_read_text(void *context, const char *param_name,
+			 char *value, size_t value_size)
+{
+	int *unit = (int *)context;
+	int status;
+
+	if (!unit)
+		return EINVAL;
+	status = get_wan_unit_value_copy_status(*unit, param_name,
+					value, value_size);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+
+static int
 launch_wan_pppd_locked(int unit, int wan_proto)
 {
 	FILE *fp;
 	struct ppp_wan_option_values option_values;
-	int auth_type, mtu, mru, mtu_max, mru_max, mtu_def, mru_def;
-	int option_status, saved_errno, launch_status, cleanup_status;
+	struct ppp_wan_option_text_values text_values;
+	int auth_type, mtu, mru, mtu_max, mru_def, mru_max;
+	int option_status, text_status, saved_errno, launch_status, cleanup_status;
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];
 	char pppoe_ifname[16];
@@ -702,6 +748,18 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		saved_errno = option_status > 0 ? option_status : EIO;
 		logmessage(LOGNAME,
 			   "refusing WAN PPP launch because a required option read failed (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	text_status = ppp_wan_option_text_values_read(
+		(wan_proto == IPV4_WAN_PROTO_PPPOE),
+		ppp_wan_option_read_text, &unit, &text_values);
+	if (text_status != 0) {
+		saved_errno = text_status > 0 ? text_status : EIO;
+		logmessage(LOGNAME,
+			   "refusing WAN PPP launch because a required text option read failed (status=%d)",
 			   saved_errno);
 		errno = saved_errno;
 		return -1;
@@ -787,10 +845,10 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	/* do not authenticate peer and do not use eap */
 	fprintf(fp, "noauth\n");
 	failed_option = "user";
-	if (ppp_options_write_quoted(fp, "user", get_wan_unit_value(unit, "pppoe_username"), tmp, sizeof(tmp)) != 0)
+	if (ppp_options_write_quoted(fp, "user", text_values.username, tmp, sizeof(tmp)) != 0)
 		goto invalid_options;
 	failed_option = "password";
-	if (ppp_options_write_quoted(fp, "password", get_wan_unit_value(unit, "pppoe_passwd"), tmp, sizeof(tmp)) != 0)
+	if (ppp_options_write_quoted(fp, "password", text_values.password, tmp, sizeof(tmp)) != 0)
 		goto invalid_options;
 	fprintf(fp, "refuse-eap\n");
 
@@ -832,7 +890,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		
 		fprintf(fp, "plugin pptp.so\n");
 		failed_option = "pptp_server";
-		if (ppp_options_write_quoted(fp, "pptp_server", get_wan_ppp_peer(unit), tmp, sizeof(tmp)) != 0)
+		if (ppp_options_write_quoted(fp, "pptp_server", text_values.peer, tmp, sizeof(tmp)) != 0)
 			goto invalid_options;
 		fprintf(fp, "route_rdgw %d\n", 1);
 	}
@@ -859,14 +917,14 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		fprintf(fp, "plugin rp-pppoe.so\n");
 		fprintf(fp, "nic-%s\n", pppoe_ifname);
 		
-		pppoe_ac = get_wan_unit_value(unit, "pppoe_ac");
+		pppoe_ac = text_values.access_concentrator;
 		if (*pppoe_ac) {
 			failed_option = "rp_pppoe_ac";
 			if (ppp_options_write_quoted(fp, "rp_pppoe_ac", pppoe_ac, tmp, sizeof(tmp)) != 0)
 				goto invalid_options;
 		}
 		
-		pppoe_sv = get_wan_unit_value(unit, "pppoe_service");
+		pppoe_sv = text_values.service;
 		if (*pppoe_sv) {
 			failed_option = "rp_pppoe_service";
 			if (ppp_options_write_quoted(fp, "rp_pppoe_service", pppoe_sv, tmp, sizeof(tmp)) != 0)
@@ -954,7 +1012,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 
 	/* user specific options */
 	failed_option = "ppp_pppd";
-	if (ppp_options_write_text(fp, get_wan_unit_value(unit, "ppp_pppd"), tmp, sizeof(tmp)) != 0)
+	if (ppp_options_write_text(fp, text_values.user_options, tmp, sizeof(tmp)) != 0)
 		goto invalid_options;
 	if (fprintf(fp, "ipparam %s\n", callback_generation_text) < 0) {
 		if (!errno)

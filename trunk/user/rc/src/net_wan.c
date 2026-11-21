@@ -85,7 +85,7 @@ wan_nvram_checked_get_callback(void *context, const char *param_name,
 }
 
 
-static int
+int
 get_wan_unit_value_copy_status(int unit, const char *param_name,
 			       char *destination, size_t destination_size)
 {
