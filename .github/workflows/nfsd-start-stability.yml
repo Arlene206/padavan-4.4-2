@@ -146,7 +146,8 @@ jobs:
           assert "NFS startup cleanup after export publication failure was incomplete" in start
           assert "refusing to reset NFS state while only one server daemon is running" in start
           assert "rpc.nfsd returned success but nfsd is not running" in start
-          assert "rpc.mountd returned success but the daemon is not running" in start
+          assert "func_wait_process_running rpc.mountd" in start
+          assert "rpc.mountd returned success but the daemon did not become ready" in start
 
           reload = function_body(script, "func_reload()")
           for prerequisite in ("func_process_presence rpcbind", "func_process_presence nfsd",

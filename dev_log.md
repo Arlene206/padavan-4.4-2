@@ -1,3 +1,11 @@
+## 2026-11-21 — Align NFS source contract with daemon readiness regression
+
+- Parent main SHA: `c7e52aac41df195d68bcf49c9cd33e2153b2810a`; NFS daemon lifecycle run #44879119916 failed only in its final Python source-contract step. Shell syntax, the full NFS start/reload integration (including the delayed rpc.mountd child test), IPv4/IPv6 export-policy binary, and EINTR-safe service-wait policy all passed.
+- Root cause: the static checker still required the removed one-shot readiness log string. Updated the checker to require the bounded `func_wait_process_running rpc.mountd` call and its explicit not-ready failure log. Runtime assertions are unchanged; no test was weakened.
+- Re-run the exact-SHA NFS workflow after this checker-only follow-up. No target firmware build or physical-router validation is claimed.
+
+---
+
 ## 2026-11-21 — Wait for daemonized rpc.mountd child before treating NFS startup as failed
 
 - Parent main SHA: `32101ce99fa668c986871b5eff306fe90d18683d`.
