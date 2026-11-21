@@ -566,33 +566,61 @@ for case in (
 print("WAN PPPoE-MWAN event gates preserve checked exact-string NVRAM status: PASS")
 
 
-# WAN-down route and conntrack cleanup must use checked, bounded copies of
-# the last WAN gateway/address/netmask. Missing keys remain empty; backend
-# errors are reported, and /32 removal is gated on a complete snapshot.
+# Route ownership must use one locked tuple; PPP keeps a checked address for conntrack.
 wan_down = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
 wan_down_compact = "".join(wan_down.split())
-for key, destination in (
-    ("ipaddr", "wan_addr"),
-    ("gateway", "wan_gate"),
-    ("netmask", "wan_mask"),
+route_snapshot = body(source, "wan_unit_route_snapshot(int unit,")
+route_snapshot_compact = "".join(route_snapshot.split())
+for token in (
+    '"wan%d_gateway"',
+    '"wan%d_ipaddr"',
+    '"wan%d_netmask"',
+    "rc_wan_nvram_copy_snapshot(",
+    "wan_nvram_transaction_begin_callback",
+    "wan_nvram_transaction_get_callback",
+    "wan_nvram_transaction_end_callback",
 ):
-    require(
-        f'get_wan_unit_value_copy_status(unit,"{key}",{destination},sizeof({destination}))'
-        in wan_down_compact,
-        "WAN teardown must use a checked " + key + " copy",
-    )
-    assert f'get_wan_unit_value(unit, "{key}")' not in wan_down
-for status_var, label in (
-    ("wan_addr_status", "WAN IPv4 address"),
-    ("wan_gate_status", "WAN gateway"),
-    ("wan_mask_status", "WAN netmask"),
-):
-    require(
-        f"if({status_var}!=0)" in wan_down_compact
-        and f"status=route_status_accumulate(status,{status_var});" in wan_down_compact
-        and f"cannot read {label} snapshot during teardown" in wan_down,
-        "WAN teardown must report " + label + " read failure",
-    )
+    require(token in route_snapshot_compact,
+            "WAN route snapshot must use one NVRAM transaction: " + token)
+require(
+    "wan_unit_route_snapshot(unit,wan_gate,sizeof(wan_gate),wan_addr,sizeof(wan_addr),wan_mask,sizeof(wan_mask))"
+    in wan_down_compact,
+    "non-PPP WAN teardown must use the coherent route tuple",
+)
+require(
+    "wan_addr_status=route_snapshot_status;" in wan_down_compact
+    and "wan_mask_status=route_snapshot_status;" in wan_down_compact
+    and "if(route_snapshot_status!=0)" in wan_down_compact
+    and "status=route_status_accumulate(status,route_snapshot_status);" in wan_down_compact,
+    "failed tuple snapshot must be reported and must deny gateway /32 cleanup",
+)
+require(
+    'get_wan_unit_value_copy_status(unit,"gateway",wan_gate,sizeof(wan_gate))' in wan_down_compact
+    and 'get_wan_unit_value_copy_status(unit,"ipaddr",wan_addr,sizeof(wan_addr))' in wan_down_compact,
+    "WAN teardown must retain checked gateway and PPP-address fallbacks",
+)
+require(
+    'get_wan_unit_value_copy_status(unit,"netmask",wan_mask,sizeof(wan_mask))' not in wan_down_compact,
+    "netmask must not be independently read outside the route tuple",
+)
+require(
+    "cannot read coherent WAN route snapshot during teardown" in wan_down
+    and "cannot read WAN gateway fallback during teardown" in wan_down
+    and "cannot read WAN IPv4 address snapshot during teardown" in wan_down,
+    "WAN route snapshot and PPP fallback failures must be visible",
+)
+ppp_pos = wan_down.index("if (ppp_index < 0) {")
+ppp_else = wan_down.index("} else {", ppp_pos)
+ppp_branch_compact = "".join(wan_down[ppp_else:].split())
+require(
+    'get_wan_unit_value_copy_status(unit,"ipaddr",wan_addr,sizeof(wan_addr))' in ppp_branch_compact,
+    "PPP teardown must retain a checked conntrack address read",
+)
+require(
+    "if(wan_addr_status==0&&is_valid_ipv4(wan_addr))" in wan_down_compact
+    and 'snprintf(wan_addr,sizeof(wan_addr),"0.0.0.0")' in wan_down_compact,
+    "conntrack flush must require a checked valid previous WAN address",
+)
 gateway_policy = body(
     (ROOT / "trunk/user/rc/src/wan_teardown_policy.h").read_text(),
     "wan_teardown_gateway_host_route_required(int gateway_read_status",
@@ -602,18 +630,24 @@ for token in (
     "address_read_status == 0",
     "netmask_read_status == 0",
     "gateway_valid",
+    "address_valid",
+    "netmask_valid",
     "ppp_index < 0",
     "gateway_off_subnet",
 ):
     require(token in gateway_policy, "WAN host-route read gate missing " + token)
 require(
     "wan_teardown_gateway_host_route_required(" in wan_down
-    and "if(wan_addr_status==0&&is_valid_ipv4(wan_addr))" in wan_down_compact
-    and 'snprintf(wan_addr,sizeof(wan_addr),"0.0.0.0")' in wan_down_compact,
-    "WAN host-route and conntrack cleanup must use the checked previous-WAN snapshot",
+    and "route_status = route_status_idempotent_delete(route_status);" in wan_down,
+    "host-route cleanup must retain its checked policy and idempotent delete semantics",
 )
 require(
     "test_gateway_host_route_requires_a_complete_checked_snapshot" in teardown_test,
     "WAN gateway host-route checked-read regression is missing",
 )
-print("WAN teardown route and conntrack snapshots preserve checked NVRAM read failures: PASS")
+require(
+    "test_transactional_wan_route_snapshot_reads_one_generation" in
+    (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text(),
+    "WAN transactional route snapshot regression is missing",
+)
+print("WAN route ownership uses a coherent tuple while preserving PPP conntrack cleanup: PASS")

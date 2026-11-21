@@ -1,3 +1,13 @@
+## 2026-11-21 — Preserve PPP conntrack address after coherent route snapshot
+
+- Parent main SHA: `e302ebc82d5c6b7b464db9c153dbdae1e740580d`.
+- Review of the transactional route snapshot exposed an adjacent regression: the old unconditional address read also supplied the later WAN conntrack flush. The first snapshot implementation skipped that read for PPP links, leaving `wan_addr` uninitialized while `wan_addr_status` remained zero. PPP teardown now initializes all route buffers and performs a separate checked address read solely for conntrack; PPP remains excluded from gateway /32 ownership decisions and still uses a checked gateway-only read for default-route cleanup.
+- Exact-head WAN route #44929460883 on `a1c74ff496f9302f76310e3fd6fbd51e43192735` failed in `scripts/check_wan_dns_read_status.py`, whose route contract still required three independent address/gateway/netmask getters. Replaced that contract with transactional tuple, fail-closed /32, PPP conntrack-address and default-route fallback assertions; updated the WAN workflow's corresponding source contract.
+- Exact-head WAN DHCP callback #44929461023, USB modem #44929460928, Process inventory #44929461012 and AI handoff #44929460906 passed on `a1c74ff496f9302f76310e3fd6fbd51e43192735`. XY-C1 #44929461024 and NVRAM audit #44929460857 were still running at latest poll; the corrected crond Process integration run is pending.
+- This changes production WAN source; fresh exact-head WAN, DHCP, Process and XY-C1 Build/TRX/artifact results are required. L3 remains VERIFIED only for product SHA 335f.
+
+---
+
 ## 2026-11-21 — Normalize crond return-value contracts with compact source
 
 - Parent main SHA: `a1c74ff496f9302f76310e3fd6fbd51e43192735`.

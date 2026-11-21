@@ -4868,6 +4868,9 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	wan_addr_status = 0;
 	wan_gate_status = 0;
 	wan_mask_status = 0;
+	wan_addr[0] = '\0';
+	wan_gate[0] = '\0';
+	wan_mask[0] = '\0';
 	address_valid = 0;
 	netmask_valid = 0;
 	gateway_off_subnet = 0;
@@ -4894,7 +4897,18 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 			}
 		}
 	} else {
-		/* PPP links never own the WAN gateway /32, but still remove their default route. */
+		/*
+		 * PPP links do not use the gateway /32 ownership decision, but retain
+		 * the checked address needed by the later conntrack flush.
+		 */
+		wan_addr_status = get_wan_unit_value_copy_status(
+			unit, "ipaddr", wan_addr, sizeof(wan_addr));
+		if (wan_addr_status != 0) {
+			status = route_status_accumulate(status, wan_addr_status);
+			logmessage(LOGNAME,
+				   "cannot read WAN IPv4 address snapshot during teardown on %s (status=%d)",
+				   wan_ifname, wan_addr_status);
+		}
 		wan_gate_status = get_wan_unit_value_copy_status(
 			unit, "gateway", wan_gate, sizeof(wan_gate));
 		if (wan_gate_status != 0) {
