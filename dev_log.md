@@ -1,3 +1,11 @@
+## 2026-11-21 — Cover all captured-mode restart wrappers in storage contract
+
+- Parent main SHA: 985e86b3d85cfc3abf99ec5c13d5988eb3acd866.
+- The next USB storage hotplug rerun passed the SCUT/MentoHUST checker branch but exposed the same stale inline-declaration assumption at `ttyd`. Inspection confirmed `ttyd`, `ss`, `ss_tunnel`, `vlmcsd` and `iperf3` also preflight their exact NVRAM key, preserve the captured mode, stop with a checked status and call `start_*_with_mode()` only after stop succeeds.
+- Generalized the checker over all seven captured-mode wrappers with per-service key, display name and mode variable assertions. Kept the stricter inline `int stop_status = stop_*()` check for `sqm`, `aldriver` and `wireguard`, which use that actual pattern. Production code unchanged; no test relaxed.
+- Fresh USB storage hotplug and exact-head Actions pending.
+
+---
 ## 2026-11-21 — Preserve integer WINS flag semantics in DNSMasq checked reads
 
 - Parent main SHA: a27d1c9b91e31f173bcf36860029a3e16a77af77.

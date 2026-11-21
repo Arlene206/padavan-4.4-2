@@ -14,26 +14,24 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Main at the start of this numeric-compatibility slice: a27d1c9b91e31f173bcf36860029a3e16a77af77.
-- Exact-head DNSMasq #44918016034, Samba #44918015899, AI docs #44918016020, Inadyn #44918016009, Process inventory #44918015910, miniupnpd #44918015959, WAN route #44918015928, WAN DHCP #44918015926 and HTTPD security #44918015945 all passed on bd0a0252.
-- Storage hotplug checker correction is committed at a27d1c9b; its exact-head workflow #44918173009 and XY-C1 #44918172983 were starting at last poll.
-- This follow-up retains the prior `nvram_get_int("wins_enable")` nonzero-integer semantics rather than conflating it with flags whose legacy implementation was exact string matching.
+- Main at the start of the mode-wrapper checker follow-up: 985e86b3d85cfc3abf99ec5c13d5988eb3acd866.
+- The integer WINS compatibility patch is now on main (985e86b3); exact-head DNSMasq/Samba runs for it are queued, and its policy test covers nonzero integer values and invalid numeric input.
+- USB hotplug run #44918173009 passed earlier storage checks and failed only because the checker handled captured-mode SCUT/MentoHUST wrappers but omitted five other wrappers with the same validated-mode design. This patch covers all seven.
 
 
 ## Active task
 
-1. Inspect exact-head DNSMasq integer WINS policy, Samba and XY-C1 Actions for this compatibility fix.
-2. Inspect storage hotplug checker result for a27d1c9b; fix any subsequent distinct failure.
-3. Require Build XY-C1, TRX and artifact upload to PASS on the same exact product-source SHA before marking L3.
-4. Continue broader userland reliability/security work without waiting for pending actions.
+1. Verify storage-hotplug source contract after all seven captured-mode wrappers are represented.
+2. Inspect exact-head DNSMasq/Samba and XY-C1 Build/TRX/artifact Actions for 985e86b3; require Build + TRX + artifact on a single latest SHA for L3.
+3. Continue the next distinct stability/security item outside these completed wrapper contracts.
 
 
 ## Verification boundary
 
-- L1: DHCP WINS option preserves nonzero integer semantics of the former `nvram_get_int()` while checked backend errors abort before preparation side effects; absent key remains 0.
-- L2: Integer-boolean GNU89 regression and exact source contract are wired; results pending. Other bd0a exact-head DNSMasq/Samba/HTTPD/WAN/Process checks passed.
-- L3: NOT VERIFIED until Build XY-C1, TRX and artifact upload all pass on the same latest source SHA.
-- L4: Physical router DHCP/WINS and Samba runtime NOT VERIFIED.
+- L1: Seven restart wrappers use checked preflight configuration, preserve captured startup mode and refuse launch after failed stop; source behavior was inspected for all seven.
+- L2: Storage-hotplug checker follow-up is pending. DNSMasq integer WINS test and source contracts are wired but exact-head results pending.
+- L3: NOT VERIFIED until Build XY-C1, TRX and artifact upload all pass on the same SHA.
+- L4: Physical router USB eject/reinsert, DHCP and WINS runtime NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -54,6 +52,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
+Fetch live main; inspect the exact-head storage-hotplug run for the seven mode wrappers, DNSMasq/Samba policy Actions and XY-C1 Build/TRX/artifact results. Continue broader userland reliability work.
 Fetch live main; inspect the exact-head numeric WINS regression, storage-hotplug check and XY-C1 Build/TRX/artifact results. Then continue the next independent whole-userland stability issue.
 Fetch live main; inspect exact-head storage-hotplug, XY-C1 Build/TRX/artifact and other affected Actions for the checked-mode wrapper contract correction. Then continue the next independent whole-userland stability issue.
 Fetch live main; inspect the exact-head DNSMasq WINS source-order regression, Samba regression and XY-C1 Build/TRX/artifact runs for this patch. Then continue the next independent whole-userland stability issue.

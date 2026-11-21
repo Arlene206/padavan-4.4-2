@@ -738,17 +738,24 @@ for name in ("scutclient", "mentohust", "ttyd", "ss", "ss_tunnel",
              "vlmcsd", "iperf3", "sqm", "aldriver", "wireguard"):
     restart_body = body(services, "int restart_" + name + "(void)")
     start_call = "start_" + name + "();"
-    if name in ("scutclient", "mentohust"):
-        # These wrappers validate and retain the mode before stopping, so the
-        # replacement launch neither re-reads mutable NVRAM nor races a config
-        # change between stop and start. Their locals are declared together.
-        option_name = "scutclient_enable" if name == "scutclient" else "mentohust_enable"
-        display_name = "SCUT client" if name == "scutclient" else "MentoHUST"
-        start_call = "return start_" + name + "_with_mode(enabled);"
+    mode_wrappers = {
+        "scutclient": ("SCUT client", "scutclient_enable", "enabled"),
+        "mentohust": ("MentoHUST", "mentohust_enable", "enabled"),
+        "ttyd": ("ttyd", "ttyd_enable", "ttyd_mode"),
+        "ss": ("Shadowsocks", "ss_enable", "ss_enable"),
+        "ss_tunnel": ("Shadowsocks tunnel", "ss-tunnel_enable", "ss_tunnel_mode"),
+        "vlmcsd": ("vlmcsd", "vlmcsd_enable", "enabled"),
+        "iperf3": ("iperf3", "iperf3_enable", "enabled"),
+    }
+    if name in mode_wrappers:
+        # These wrappers validate and retain a configured mode before stopping,
+        # so they never re-read mutable NVRAM between stop and replacement start.
+        display_name, option_name, mode_variable = mode_wrappers[name]
+        start_call = "return start_" + name + "_with_mode(" + mode_variable + ");"
         config_read = "config_status = service_enabled_mode_status("
         require("int config_status, stop_status;" in restart_body and
                 config_read in restart_body and
-                '"' + display_name + '", "' + option_name + '", &enabled' in restart_body and
+                '"' + display_name + '", "' + option_name + '", &' + mode_variable in restart_body and
                 "if (config_status != 0)" in restart_body and
                 "return config_status;" in restart_body and
                 "stop_status = stop_" + name + "();" in restart_body and
