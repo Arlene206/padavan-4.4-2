@@ -994,25 +994,26 @@ lan_vpn_abort = lan_restart_transaction.index("return vpn_status;", lan_vpn_fail
 lan_first_other_stop = lan_restart_transaction.index("lltd_stop_status = stop_lltd();")
 assert lan_vpn_stop < lan_vpn_failure < lan_vpn_abort < lan_first_other_stop
 assert lan_restart_transaction.count("stop_vpn_server();") == 1
-lan_mode_read = lan_restart_transaction.index(
-    "ap_mode_status = get_ap_mode_status(&is_ap_mode);"
+lan_restart_compact = "".join(lan_restart_transaction.split())
+lan_mode_read = lan_restart_compact.index(
+    "ap_mode_status=get_ap_mode_status(&is_ap_mode);"
 )
-lan_mode_error = lan_restart_transaction.index(
-    "if (ap_mode_status != 0)", lan_mode_read
+lan_mode_error = lan_restart_compact.index(
+    "if(ap_mode_status!=0)", lan_mode_read
 )
-wan_error_read = lan_restart_transaction.index(
-    'get_wan_unit_value_int_status(0, "err", &is_wan_err)'
+wan_error_read = lan_restart_compact.index(
+    'get_wan_unit_value_int_status(0,"err",&is_wan_err)'
 )
-lan_stp_read = lan_restart_transaction.index(
-    'nvram_get_checked("lan_stp", &lan_stp_value)'
+lan_stp_read = lan_restart_compact.index(
+    'nvram_get_checked("lan_stp",&lan_stp_value)'
 )
-lan_first_side_effect = lan_restart_transaction.index(
-    "vpn_status = stop_vpn_server();"
+lan_first_side_effect = lan_restart_compact.index(
+    "vpn_status=stop_vpn_server();"
 )
 assert lan_mode_read < lan_mode_error < wan_error_read < lan_stp_read < lan_first_side_effect
-assert "get_ap_mode()" not in lan_restart_transaction
-assert 'get_wan_unit_value_int(0, "err")' not in lan_restart_transaction
-assert "rc_wan_nvram_read_int_status(" in lan_restart_transaction
+assert "get_ap_mode()" not in lan_restart_compact
+assert 'get_wan_unit_value_int(0,"err")' not in lan_restart_compact
+assert "rc_wan_nvram_read_int_status(" in lan_restart_compact
 assert "LAN restart aborted because AP/router mode cannot be verified" in lan_restart_transaction
 assert "LAN restart aborted because WAN error state cannot be read" in lan_restart_transaction
 assert "LAN restart aborted because bridge STP state cannot be read" in lan_restart_transaction
