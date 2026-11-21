@@ -25,22 +25,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- UDPXY listener values are constrained to 1024..65535 in IPv4/IPv6 filters and IPv4 NAT. Shared policy helper plus regression boundary cases are in `aea6b951...`.
-- Virtual-server rules now snapshot `vts_enable_x` and `vts_num_x` with checked NVRAM readers before opening IPv4 filter/NAT rule files. The backend rejects negative counts and counts above the WebUI maximum of 64, then passes the same bounded count into INPUT/FORWARD filter and DNAT builders. This avoids repeatedly reading a mutable, unchecked loop bound from NVRAM and prevents an oversized/corrupt count from creating unbounded firewall generation work.
-- Exact-head Firewall Startup on `aea6b95138171a165edec978680d6fb14913a640` PASS (#44950937394), including the UDPXY unit test under GNU89/Werror/ASan/UBSan and the IPv6 HTTP brace contract. AI docs #44950937391, HTTPD #44950937384, FULLCONENAT #44950937401, WAN DHCP #44950937407, WAN route #44950937440 and Process inventory #44950937421 also PASS. NVRAM #44950937375 and XY-C1 #44950937424 were IN_PROGRESS at last poll.
-
+- The IPv4/IPv6 filter listener preflight and NAT/DMZ hardening are in the current main ancestry. The next firewall review found one remaining policy ambiguity in Virtual Server (VTS) mappings: `proto_conv("vts_proto_x", i)` used the legacy safe getter and defaulted unknown/empty strings to TCP. An NVRAM backend read/close failure is also surfaced as an empty string by the legacy API, so a transient fault could synthesize a TCP DNAT/ACCEPT mapping for a rule that was intended to be UDP or another protocol.
+- This slice adds a tested classifier for `nvram_get_checked()` results and updates `proto_conv()` to distinguish absent from backend failure. Missing or unrecognized values preserve the historical TCP fallback; backend/API/close failures return NULL. Both VTS filter and NAT loops now log and skip only the affected mapping instead of publishing the wrong TCP rule.
+- The Firewall Startup workflow now asserts the checked protocol reader, both fail-closed call sites, and the C regression that distinguishes absent-key defaults from backend failures.
 ## Verification boundary
 
-- Product-source SHA `aea6b95138171a165edec978680d6fb14913a640`: Firewall Startup #44950937394 PASS; Process #44950937421 PASS; WAN DHCP #44950937407 PASS; AI docs #44950937391 PASS; HTTPD #44950937384 PASS; FULLCONENAT #44950937401 PASS; WAN route #44950937440 PASS. NVRAM #44950937375 and XY-C1 #44950937424 were IN_PROGRESS.
-- Prior SHA `e1e48877d521ef9b4559ade13568ff4d97de59ad`: Firewall Startup #44950737943, Process #44950737903, WAN DHCP #44950737926, AI docs #44950737855, HTTPD #44950738016, WAN route #44950737937 and FULLCONENAT #44950737844 PASS. NVRAM #44950737906 / XY-C1 #44950737940 were still in progress at last poll.
-- No local build or unit test was run in this environment. The next exact-head Firewall Startup run must compile/run the modified filter policy unit test and execute the new source contracts. Do not claim L3 until Build XY-C1, TRX verification and artifact upload are all PASS on the same SHA; hardware L4 remains NOT VERIFIED.
-
+- Current main parent before VTS protocol-read hardening: `79cfb79099f40e3b67b6c23a520c623c422c2d16` (`fix(firewall): bound virtual server rule count`). The IPv4/IPv6 filter listener source must be considered unverified until this exact descendant passes Firewall Startup and XY-C1 Build/TRX/artifact checks.
+- Earlier exact-head listener parent `8a7cf932879931c7df25708a9290dcc8eba2ed89` had Firewall Startup parser failure due the extra IPv6 HTTP block opener; fixed in descendant `e1e48877d521ef9b4559ade13568ff4d97de59ad`, which the current main ancestry contains. The immediate parent and current workflows must be polled from live Actions; no L3/hardware L4 claim is made.
+- No local C test/build execution is claimed. The new NVRAM status unit regression runs only through exact-head Firewall Startup CI.
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and exact-head Actions for the VTS-count commit. Require Firewall Startup PASS; inspect the earliest failing job/log if it does not.
-2. Re-query pending XY-C1 #44950937424 and NVRAM #44950937375 for parent SHA `aea6b951...` as historical evidence only.
-3. Continue auditing firewall port-forward/virtual-server rule semantics and other network-service boundaries. Preserve the 64-entry UI limit, valid port-range behavior, and atomic expected-SHA updates.
-
+1. Query exact-head Firewall Startup and XY-C1 for the VTS protocol hardening. Require the GNU89/Werror/ASan/UBSan helper regression and the two VTS checked-read assertions to pass; inspect the first failing source/test line rather than weakening the assertion.
+2. Track XY-C1 Build, TRX verification and artifact upload on the same exact SHA. Re-query the current parent's Actions only as parent evidence.
+3. Continue the firewall audit of VTS enable/count/port/address parsing and `include_vts_filter`/`include_vts_nat` semantics. Preserve legacy absent defaults; ensure backend errors or malformed WAN-facing fields cannot synthesize a more permissive mapping.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

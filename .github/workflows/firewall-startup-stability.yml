@@ -589,6 +589,17 @@ jobs:
               assert filter_builder.index(enabled_gate) < filter_builder.index("firewall_open_rule_file(")
           assert 'nvram_match("fw_enable_x", "1")' not in firewall_source
           assert "i_ov_prot" not in firewall_source
+          assert "firewall_nvram_read_status(api_result, saved_errno, value)" in firewall_source
+          vts_proto_at = firewall_source.index("proto_conv(")
+          vts_proto_end = firewall_source.index("\nstatic", vts_proto_at)
+          vts_proto_reader = firewall_source[vts_proto_at:vts_proto_end]
+          assert "nvram_get_checked(nvram_name, &value)" in vts_proto_reader
+          assert "firewall_nvram_read_status(api_result, saved_errno, value)" in vts_proto_reader
+          assert "nvram_safe_get" not in vts_proto_reader
+          assert firewall_source.count('proto = proto_conv("vts_proto_x", i);') == 2
+          assert firewall_source.count("if (!proto) {") >= 2
+          assert "skipping virtual-server rule %d: cannot read protocol" in firewall_source
+          assert "test_nvram_read_status_distinguishes_missing_and_backend_error" in firewall_nvram_test
           assert "api_result < 0" in firewall_nvram_policy
           for signature, checked in (
               ("ipt_filter_rules(char *man_if", (

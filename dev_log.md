@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on VTS protocol NVRAM backend errors
+
+- Parent main SHA: `79cfb79099f40e3b67b6c23a520c623c422c2d16`.
+- The shared VTS `proto_conv()` path used the unchecked legacy getter and defaulted an empty/unknown protocol to TCP. Because legacy NVRAM APIs also collapse transient backend/close failures to an empty value, a failed read could silently convert a configured UDP rule into a TCP mapping/ACCEPT exception.
+- Added `firewall_nvram_read_status()` to distinguish present, absent and failed `nvram_get_checked()` results. Its regression covers valid/missing, explicit backend errno, errno-less backend failure, invalid API return and NULL-on-present cases.
+- `proto_conv()` now builds the dynamic indexed key and reads it through `nvram_get_checked()`. Absent and unrecognized values retain historical TCP fallback; backend failure returns NULL. `include_vts_filter()` and `include_vts_nat()` log and skip the single affected mapping, failing closed without discarding unrelated firewall rules.
+- Extended Firewall Startup's source checker to require the checked status path and both skip-on-error call sites. No local build/test execution claimed; exact-head Firewall Startup and XY-C1 checks pending.
+
+---
+
 ## 2026-11-21 — Bound virtual-server rule count before firewall generation
 
 - Parent main SHA: `aea6b95138171a165edec978680d6fb14913a640`.

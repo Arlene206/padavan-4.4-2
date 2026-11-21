@@ -87,4 +87,15 @@ firewall_nvram_not_zero_status(int api_result, int saved_errno,
     return 0;
 }
 
+/* Classify nvram_get_checked() results without converting an ioctl/close
+ * failure into a legacy empty-string value. Missing keys remain valid. */
+static inline int
+firewall_nvram_read_status(int api_result, int saved_errno, const char *value)
+{
+    if (api_result < 0)
+        return saved_errno ? saved_errno : EIO;
+    if (api_result > 1 || (api_result == 1 && !value))
+        return EIO;
+    return 0;
+}
 #endif /* PADAVAN_FIREWALL_NVRAM_MATCH_POLICY_H */

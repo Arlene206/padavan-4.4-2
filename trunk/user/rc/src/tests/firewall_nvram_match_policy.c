@@ -127,6 +127,16 @@ test_integer_errors_are_fail_closed_and_preserve_output(void)
 	assert(number == 41);
 }
 
+static void
+test_nvram_read_status_distinguishes_missing_and_backend_error(void)
+{
+    assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
+    assert(firewall_nvram_read_status(0, 0, NULL) == 0);
+    assert(firewall_nvram_read_status(-1, EACCES, NULL) == EACCES);
+    assert(firewall_nvram_read_status(-1, 0, NULL) == EIO);
+    assert(firewall_nvram_read_status(2, 0, "TCP") == EIO);
+    assert(firewall_nvram_read_status(1, 0, NULL) == EIO);
+}
 int
 main(void)
 {
@@ -139,5 +149,6 @@ main(void)
 	test_not_zero_backend_failure_preserves_output();
 	test_integer_modes_preserve_decimal_semantics();
 	test_integer_errors_are_fail_closed_and_preserve_output();
+	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	return 0;
 }

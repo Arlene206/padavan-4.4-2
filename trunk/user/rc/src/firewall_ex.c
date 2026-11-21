@@ -639,24 +639,39 @@ g_buf_alloc(char *g_buf_now)
 static char *
 proto_conv(const char *proto_name, int idx)
 {
-	char *proto;
-	char itemname_arr[32];
+    char nvram_name[64];
+    char *value = NULL;
+    int api_result, saved_errno, status;
 
-	snprintf(itemname_arr, sizeof(itemname_arr), "%s%d", proto_name, idx);
-	proto = nvram_safe_get(itemname_arr);
+    if (!proto_name || !proto_name[0] || idx < 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+    if (snprintf(nvram_name, sizeof(nvram_name), "%s%d", proto_name, idx) >= (int)sizeof(nvram_name)) {
+        errno = ERANGE;
+        return NULL;
+    }
 
-	if (!strncasecmp(proto, "Both", 4))
-		g_buf_set("both");
-	else if (!strncasecmp(proto, "TCP", 3))
-		g_buf_set("tcp");
-	else if (!strncasecmp(proto, "UDP", 3))
-		g_buf_set("udp");
-	else if (!strncasecmp(proto, "OTHER", 5))
-		g_buf_set("other");
-	else
-		g_buf_set("tcp");
+    errno = 0;
+    api_result = nvram_get_checked(nvram_name, &value);
+    saved_errno = errno;
+    status = firewall_nvram_read_status(api_result, saved_errno, value);
+    if (status != 0) {
+        errno = status;
+        return NULL;
+    }
+    if (api_result == 0)
+        value = "";
 
-	return (g_buf_alloc(g_buf));
+    /* Preserve proto_conv()'s historical default-to-TCP behavior for an
+     * absent or unrecognized value, but never for a failed NVRAM read. */
+    if (!strncasecmp(value, "TCP", 3))
+        return "tcp";
+    if (!strncasecmp(value, "UDP", 3))
+        return "udp";
+    if (!strncasecmp(value, "BOTH", 4))
+        return "tcpudp";
+    return "tcp";
 }
 
 static char *
@@ -1256,7 +1271,7 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop)
 static void
 include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int forward_chain)
 {
-	int i;
+	int i, proto_status;
 	char *proto, *protono, *port, *lport, *srcip, *dstip, *dtype;
 	char srcaddrs[64], dstports[32];
 
@@ -1286,6 +1301,11 @@ include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int
 			snprintf(srcaddrs, sizeof(srcaddrs), " -s %s", srcip);
 		
 		proto = proto_conv("vts_proto_x", i);
+if (!proto) {
+    proto_status = errno ? errno : EIO;
+    logmessage(LOGNAME, "skipping virtual-server rule %d: cannot read protocol (errno=%d)", i, proto_status);
+    continue;
+}
 		port = portrange_conv("vts_port_x", i);
 		lport = portrange_conv("vts_lport_x", i);
 		if (strcmp(proto, "other") == 0) {
@@ -1321,7 +1341,7 @@ include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int
 static void
 include_vts_nat(FILE *fp, int num_entries)
 {
-	int i;
+	int i, proto_status;
 	char *proto, *protono, *port, *lport, *srcip, *dstip, *dtype;
 	char srcaddrs[64];
 
@@ -1343,6 +1363,11 @@ include_vts_nat(FILE *fp, int num_entries)
 			snprintf(srcaddrs, sizeof(srcaddrs), " -s %s", srcip);
 		
 		proto = proto_conv("vts_proto_x", i);
+if (!proto) {
+    proto_status = errno ? errno : EIO;
+    logmessage(LOGNAME, "skipping virtual-server rule %d: cannot read protocol (errno=%d)", i, proto_status);
+    continue;
+}
 		port = portrange_conv("vts_port_x", i);
 		lport = portrange_conv("vts_lport_x", i);
 		if (strcmp(proto, "other") == 0) {
