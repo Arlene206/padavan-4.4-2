@@ -1,3 +1,12 @@
+## 2026-11-21 — Roll back ttyd, rstats, LLTD and SkipDBv2 after uncertain detached starts
+
+- Parent main SHA: cd33dbd6c9fa9797edb495f07cf40b7018099a67.
+- `ttyd`, `rstats`, `lld2d` and `skipd` daemonize before their startup wrappers can prove the child survived. Launcher failure, initial/retry wait failure and UNKNOWN process-inventory branches previously returned without stopping a possible child; final timeout likewise did not perform a post-stop rescan.
+- Routed every such failure and the bounded startup timeout through the established `optional_daemon_rollback_failed_start()` helper. It performs daemon-name-specific stop, fresh process-inventory scan, conservative RUNNING/UNKNOWN reporting and preserves the original status/errno. SkipDBv2 passes its executable name `skipd`, not its UI service label.
+- Extended the Process source regression to assert the generic rollback helper's stop/scan operations and every failure branch for each daemon. Existing ASAN/UBSAN optional-daemon policy tests cover conservative tri-state handling. Exact-head Process and XY-C1 validation pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Normalize the WAN DNS teardown checker token
 
 - Parent main SHA: b1e1927079a6189fbf5cb95460a45b294b97b51c.

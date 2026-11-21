@@ -1241,7 +1241,7 @@ int stop_ttyd(void){
 static int
 start_ttyd_with_mode(int ttyd_mode)
 {
-	int start_status, attempt, scan_error;
+	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
 	if (ttyd_mode != 1)
@@ -1261,37 +1261,47 @@ start_ttyd_with_mode(int ttyd_mode)
 	 * wrapper exit only confirms that launch was requested; require the
 	 * detached ttyd child to remain visible before reporting startup success.
 	 */
+	errno = 0;
 	start_status = eval("/usr/bin/ttyd.sh", "start");
 	if (start_status != 0) {
+		start_errno = errno > 0 ? errno :
+			(start_status > 0 ? start_status : EIO);
 		logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);
-		return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+		return optional_daemon_rollback_failed_start(
+			"ttyd", start_status, start_errno);
 	}
 
 	start_status = service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (start_status != 0)
-		return start_status;
+	if (start_status != 0) {
+		start_errno = errno > 0 ? errno : EIO;
+		return optional_daemon_rollback_failed_start(
+			"ttyd", start_status, start_errno);
+	}
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("ttyd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
 			return 0;
 		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
-			errno = scan_error > 0 ? scan_error : EIO;
+			start_errno = scan_error > 0 ? scan_error : EIO;
+			errno = start_errno;
 			logmessage(LOGNAME, "cannot verify ttyd startup (scan_error=%d)",
 				   errno);
-			return -1;
+			return optional_daemon_rollback_failed_start(
+				"ttyd", -1, start_errno);
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (start_status != 0)
-				return start_status;
+			if (start_status != 0) {
+				start_errno = errno > 0 ? errno : EIO;
+				return optional_daemon_rollback_failed_start(
+					"ttyd", start_status, start_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "ttyd daemon did not remain running after launch");
-	return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+	return optional_daemon_rollback_failed_start("ttyd", -1, ETIMEDOUT);
 }
 
 int start_ttyd(void)
@@ -2245,7 +2255,7 @@ stop_rstats(void)
 int
 start_rstats(void)
 {
-	int start_status, attempt, scan_error;
+	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
 	if (nvram_invmatch("rstats_enable", "1"))
@@ -2262,37 +2272,47 @@ start_rstats(void)
 	 * eval() only observes the parent; verify that the child completes this
 	 * startup work and remains present before reporting success.
 	 */
+	errno = 0;
 	start_status = eval("/sbin/rstats");
 	if (start_status != 0) {
+		start_errno = errno > 0 ? errno :
+			(start_status > 0 ? start_status : EIO);
 		logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);
-		return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+		return optional_daemon_rollback_failed_start(
+			"rstats", start_status, start_errno);
 	}
 
 	start_status = service_start_probe_wait("rstats", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (start_status != 0)
-		return start_status;
+	if (start_status != 0) {
+		start_errno = errno > 0 ? errno : EIO;
+		return optional_daemon_rollback_failed_start(
+			"rstats", start_status, start_errno);
+	}
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("rstats", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
 			return 0;
 		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
-			errno = scan_error > 0 ? scan_error : EIO;
+			start_errno = scan_error > 0 ? scan_error : EIO;
+			errno = start_errno;
 			logmessage(LOGNAME, "cannot verify rstats startup (scan_error=%d)",
 				   errno);
-			return -1;
+			return optional_daemon_rollback_failed_start(
+				"rstats", -1, start_errno);
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("rstats", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (start_status != 0)
-				return start_status;
+			if (start_status != 0) {
+				start_errno = errno > 0 ? errno : EIO;
+				return optional_daemon_rollback_failed_start(
+					"rstats", start_status, start_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "rstats daemon did not remain running after launch");
-	return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+	return optional_daemon_rollback_failed_start("rstats", -1, ETIMEDOUT);
 }
 
 int
@@ -2312,7 +2332,7 @@ restart_rstats(void)
 int
 start_lltd(void)
 {
-	int start_status, attempt, scan_error;
+	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
 	if (nvram_invmatch("lltd_enable", "1"))
@@ -2328,37 +2348,47 @@ start_lltd(void)
 	 * lld2d double-forks before publishing its per-interface PID file and
 	 * entering the packet event loop. eval() observes only the exiting parent.
 	 */
+	errno = 0;
 	start_status = eval("/bin/lld2d", IFNAME_BR);
 	if (start_status != 0) {
+		start_errno = errno > 0 ? errno :
+			(start_status > 0 ? start_status : EIO);
 		logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);
-		return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+		return optional_daemon_rollback_failed_start(
+			"lld2d", start_status, start_errno);
 	}
 
 	start_status = service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (start_status != 0)
-		return start_status;
+	if (start_status != 0) {
+		start_errno = errno > 0 ? errno : EIO;
+		return optional_daemon_rollback_failed_start(
+			"lld2d", start_status, start_errno);
+	}
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("lld2d", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
 			return 0;
 		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
-			errno = scan_error > 0 ? scan_error : EIO;
+			start_errno = scan_error > 0 ? scan_error : EIO;
+			errno = start_errno;
 			logmessage(LOGNAME, "cannot verify LLTD startup (scan_error=%d)",
 				   errno);
-			return -1;
+			return optional_daemon_rollback_failed_start(
+				"lld2d", -1, start_errno);
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (start_status != 0)
-				return start_status;
+			if (start_status != 0) {
+				start_errno = errno > 0 ? errno : EIO;
+				return optional_daemon_rollback_failed_start(
+					"lld2d", start_status, start_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "LLTD daemon did not remain running after launch");
-	return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+	return optional_daemon_rollback_failed_start("lld2d", -1, ETIMEDOUT);
 }
 
 int
@@ -2540,7 +2570,7 @@ restart_watchdog_cpu(void)
 static int
 start_skipdbv2(void)
 {
-	int preflight_status, launch_status, attempt, scan_error;
+	int preflight_status, launch_status, attempt, scan_error, launch_errno;
 	enum process_presence process_state;
 
 	preflight_status = optional_daemon_start_status("SkipDBv2", "skipd");
@@ -2549,39 +2579,50 @@ start_skipdbv2(void)
 	if (preflight_status < 0)
 		return preflight_status;
 
+	errno = 0;
 	launch_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");
 	if (launch_status != 0) {
+		launch_errno = errno > 0 ? errno :
+			(launch_status > 0 ? launch_status : EIO);
 		logmessage(LOGNAME, "SkipDBv2 launcher failed (status=%d)", launch_status);
-		return launch_status;
+		return optional_daemon_rollback_failed_start(
+			"skipd", launch_status, launch_errno);
 	}
 
 	launch_status = service_start_probe_wait(
 		"SkipDBv2", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (launch_status != 0)
-		return launch_status;
+	if (launch_status != 0) {
+		launch_errno = errno > 0 ? errno : EIO;
+		return optional_daemon_rollback_failed_start(
+			"skipd", launch_status, launch_errno);
+	}
 
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("skipd", &scan_error);
 		if (process_presence_start_postcondition(launch_status, process_state) == 0)
 			return 0;
 		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
-			scan_error = scan_error > 0 ? scan_error : EIO;
-			errno = scan_error;
+			launch_errno = scan_error > 0 ? scan_error : EIO;
+			errno = launch_errno;
 			logmessage(LOGNAME,
-				   "SkipDBv2 startup inventory unknown (errno=%d)", scan_error);
-			return -1;
+				   "SkipDBv2 startup inventory unknown (errno=%d)", launch_errno);
+			return optional_daemon_rollback_failed_start(
+				"skipd", -1, launch_errno);
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			launch_status = service_start_probe_wait(
 				"SkipDBv2", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (launch_status != 0)
-				return launch_status;
+			if (launch_status != 0) {
+				launch_errno = errno > 0 ? errno : EIO;
+				return optional_daemon_rollback_failed_start(
+					"skipd", launch_status, launch_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "SkipDBv2 daemon did not remain running after launch");
-	return -1;
+	return optional_daemon_rollback_failed_start("skipd", -1, ETIMEDOUT);
 }
 #endif
 

@@ -326,6 +326,35 @@ def check_rc_optional_daemon_enable_reads():
     assert "rc_service_enabled_mode_decide(" in reader
     assert "preserving existing daemon state" in reader
 
+    rollback_helper = extract_c_function_body(
+        services, "optional_daemon_rollback_failed_start("
+    )
+    assert "detached_daemon_start_rollback_with_ops(" in rollback_helper
+    assert "optional_daemon_rollback_stop" in rollback_helper
+    assert "optional_daemon_rollback_scan" in rollback_helper
+    assert "errno = saved_errno;" in rollback_helper
+
+    detached_start_cases = (
+        ("start_ttyd_with_mode(int ttyd_mode)", "ttyd", "start_status", "start_errno"),
+        ("start_rstats(void)", "rstats", "start_status", "start_errno"),
+        ("start_lltd(void)", "lld2d", "start_status", "start_errno"),
+        ("start_skipdbv2(void)", "skipd", "launch_status", "launch_errno"),
+    )
+    for signature, process_name, status_var, errno_var in detached_start_cases:
+        start_body = extract_c_function_body(services, signature)
+        assert ('optional_daemon_presence("' + process_name + '", &scan_error)') in start_body
+        for call in (
+            'optional_daemon_rollback_failed_start("' + process_name + '", ' +
+            status_var + ", " + errno_var + ")",
+            'optional_daemon_rollback_failed_start("' + process_name + '", -1, ' +
+            errno_var + ")",
+            'optional_daemon_rollback_failed_start("' + process_name + '", -1, ETIMEDOUT)',
+        ):
+            assert call in start_body, signature + ": " + call
+        assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in start_body
+        assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in start_body
+        assert "PROCESS_PRESENCE_UNKNOWN" in start_body
+
     telnetd_recovery = extract_c_function_body(
         services, "telnetd_start_failure_recover(int failure_status, const char *phase)"
     )
