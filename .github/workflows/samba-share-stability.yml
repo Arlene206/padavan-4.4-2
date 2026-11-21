@@ -456,7 +456,8 @@ jobs:
           assert "launched_new_daemon = 1;" in restart_nmbd
           assert "samba_rollback_failed_nmbd_start(failure_errno, \"restart\")" in restart_nmbd
           assert restart_nmbd.index("launched_new_daemon = 1;") < restart_nmbd.index('eval("/sbin/nmbd"')
-          assert restart_nmbd.index("samba_rollback_failed_nmbd_start") < restart_nmbd.index("goto out;")
+          rollback_call = restart_nmbd.index("samba_rollback_failed_nmbd_start")
+          assert rollback_call < restart_nmbd.index("goto out;", rollback_call)
           rollback = function_body(services, "static void\nsamba_rollback_failed_nmbd_start(int start_errno, const char *operation)")
           assert rollback.index("stop_nmbd()") < rollback.index('process_inventory_scan("nmbd", &snapshot)')
           assert rollback.index('process_inventory_scan("nmbd", &snapshot)') < rollback.index("samba_failed_start_may_leave_daemon")
