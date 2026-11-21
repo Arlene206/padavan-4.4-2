@@ -1,3 +1,11 @@
+## 2026-11-21 — Correct RAS modem snapshot source-contract whitespace
+
+- Parent main SHA: c6c1d7a78213f9525560a5fe8602a6ec07957357.
+- Firewall startup run #44895295888 on ancestor 8700539 passed the native UPnP/firewall policy binary then failed at scripts/check_modem_wan_start_status.py:162. Production write_pppd_ras_conf() correctly snapshots modem type/user/password/ISP transactionally, parses the copied modem-type string, and refuses to open the peer file on snapshot or parse error. The checker compared a whitespace-compacted C function against an expected token that still contained a space after the comma.
+- Corrected the token and strengthened ordering assertions: snapshot -> strict modem-type parse -> PPP peer open, with both snapshot and parse failure gates before file creation. No production code or coverage is weakened.
+- Exact-head c6c1d7a actions were in progress at this checkpoint; the new commit must rerun Firewall startup and related suites. HTTPD security has a separate stale DHCP-renew source assertion queued for repair.
+
+---
 ## 2026-11-21 — Repair shared-cache NVRAM test fixture for interface names
 
 - Parent main SHA: `8700539128d7865df7d4e706fe710603e772c2c9`; exact-head commit `8700539128d7865df7d4e706fe710603e772c2c9`.

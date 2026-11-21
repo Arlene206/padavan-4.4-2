@@ -2,36 +2,33 @@
 
 ## Execution rules
 
-- Continue on `main` only. One complete Git tree and atomic commit per logical task; update main non-forcibly with the exact expected parent SHA.
-- Never amend, force-push, create development branches/PRs, or alter the frozen backup `backup/pre-plugin-overhaul-2026-11-14` (`72f4f157a084f8184b9597ca5bf334b8080e5807`).
-- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Do not weaken regression contracts.
-- PENDING workflows do not block independent fixes. Diagnose exact-SHA FAIL causes and continue; don't make unverified CI claims.
-- Maintain root `dev_log.md` at 20–119 newest-first records; preserve November archive `part-021.md` and its index.
+- Continue on main only. Publish each logical task as one complete tree/commit and update main with a non-forced expected-SHA ref update.
+- Never amend, force-push, create development branches/PRs, or modify frozen backup backup/pre-plugin-overhaul-2026-11-14 (72f4f157a084f8184b9597ca5bf334b8080e5807).
+- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4. Do not weaken regression checks.
+- PENDING workflows do not block independent tasks. Diagnose exact-SHA failures and continue.
+- Preserve November archive part-021 and index; root dev_log.md remains 20–119 newest-first records.
 
 ## Current repository state
 
-- Current parent/main before the shared NVRAM fixture correction: `8700539128d7865df7d4e706fe710603e772c2c9`.
-- Exact-head `8700539128d7865df7d4e706fe710603e772c2c9` CI:
-  - WAN DHCP callback run `#44895295803` FAIL at GNU89/ASan test `wan_nvram_status_policy.c`, `fake_nvram_get()` line 660: newly added interface-name test asked for `wan0_man_ifname` and `wan0_ifname_t` but the fixture had only hardcoded legacy address/mask names.
-  - WAN route `#44895295721` FAIL at its checked WAN interface-publication test for the same fake-reader name mismatch.
-  - USB modem identity `#44895295781` FAIL at the shared NVRAM policy test for the same mismatch.
-  - Firewall startup `#44895295888` FAIL at `scripts/check_modem_wan_start_status.py:162`: stale checker still requires `rc_wan_nvram_parse_int_value(modem_type_value, &modem_type)` inside `write_pppd_ras_conf()`, although the modem credentials/type now use a transactional snapshot.
-  - HTTPD security `#44895295713` FAIL at inline Python assertion line 230 in DHCP lease/deconfig contract; inspect the embedded workflow to locate the precise assertion and compare current `man_down_internal()`.
-  - Other exact-head runs that completed successfully include watchdog signal, wireless radio, detect_link, detect_internet, WAN teardown, WAN ARP probe, VPN lifecycle, ZeroTier, miniupnpd, DNSMasq and AI handoff docs (`#44895295660`). XY-C1, Process inventory and NVRAM transaction were still in progress/queued at the last recorded inspection.
-- WAN DHCP renewal checked-read fix is in main commit `8700539128d7865df7d4e706fe710603e772c2c9`: physical and IPTV renewers now use checked reads for previous `err/route_err/mtu_err` state and stored MTU; a policy helper preserves first read failure and refuses partial retry tuples. New source-contract and GNU89 regressions are present but not yet reached in the failed callback/route runs.
-- Earlier source fixes in the current chain include transactional modem credential snapshot (`f268eab8f685b67a59736ce716a9bf88e031f69c`) and copying cache-backed interface names before further NVRAM reads (`a68bac734fd3f232fb16f095bed9bba83813da24`).
-- Last established XY-C1 L3 baseline remains `20e139d230b73eabc5f25a2b17d56a3a5768af11`, run `#44887656164`, successful Build + TRX + artifact upload on that exact source SHA. No current-source L3 claim; physical router L4 NOT VERIFIED.
+- Parent main: c6c1d7a78213f9525560a5fe8602a6ec07957357; frozen backup remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact 8700539 CI exposed four independent problems:
+  - WAN DHCP callback #44895295803, WAN route #44895295721, USB modem identity #44895295781: shared fake reader test aborted because the new interface-name case used custom NVRAM keys while the fake callback required legacy fixed names. Fixed on main by c6c1d7a78213f9525560a5fe8602a6ec07957357: optional key overrides added to test fixture; old defaults retained.
+  - Firewall startup #44895295888: stale source-contract whitespace in checker line 162; corrected in this current slice.
+  - HTTPD security #44895295713: inline DHCP-renew source contract still requires old dhcp_wan_bound_retry_required() and three unchecked nvram_get_int() calls after production moved to checked status reads. This remains the next failure to fix.
+- DHCP production slice in 8700539128d7865df7d4e706fe710603e772c2c9: physical and IPTV renewers use checked err/route_err/mtu_err status reads, preserve first read error through dhcp_wan_bound_retry_decide(), and use checked stored-MTU reads; added GNU89 policy tests and extended WAN DHCP callback checker. Exact-head Actions still need to reach/validate those new test stages.
+- The modem RAS snapshot in f268eab8f685b67a59736ce716a9bf88e031f69c safely copies all four fields under one NVRAM transaction; strict integer parsing and both fail-closed gates precede PPP peer file creation. This commit fixes only checker whitespace and asserts this sequence.
+- Current c6c1d7a exact-head actions were still in progress/queued at last inspection after fake-reader fixture correction. Check exact SHA runs afresh after this commit; don't assume previous failures are resolved until rerun.
+- Last proven XY-C1 L3 remains 20e139d230b73eabc5f25a2b17d56a3a5768af11, run #44887656164, successful Build+TRX+artifact on that exact source SHA. No current SHA L3; hardware L4 unverified.
 
-## Immediate next actions
+## Exact next actions
 
-1. Finish the current atomic fixture correction. It adds optional per-call expected keys to `fake_nvram_reader`; existing tests retain legacy defaults and the interface-name regression now supplies `wan0_man_ifname` / `wan0_ifname_t`.
-2. Fix the RAS credential checker to validate the new transactional snapshot contract (strict modem type parse and fail-closed-before-open semantics, snapshot-before-open, no unsafe direct cache getters), not the removed old call site.
-3. Diagnose the HTTPD embedded assertion around line 230 in run `#44895295713`; distinguish a stale whitespace/ordering assumption from a real DHCP/MAN teardown ordering bug.
-4. Fetch live main and exact-head workflows for each new commit. Once DHCP callback runs reach the new tests, verify the checked-renew source contract passes; repair any genuine failures.
-5. After these fail causes converge, choose next independent P1 stability/security issue across the broader Padavan userland. Do not stay confined to WAN.
+1. Inspect new current-head exact Actions for WAN DHCP callback, WAN route, Firewall, USB modem, AI docs, Process inventory/lifecycle, and XY-C1.
+2. Correct the HTTPD inline DHCP-renew contract in .github/workflows/httpd-security.yml to check the checked-read helper/order in both WAN and IPTV renewers. Its failure is at the assertion requiring dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error), followed by three old direct getters.
+3. Verify DHCP callback and WAN route workflows reach the new policy binary and check_wan_dhcp_dltime_publication.py; repair any causal new failure.
+4. After convergence, choose a distinct P1 stability/security defect across the broader Padavan userland rather than remaining confined to WAN.
 
 ## Verification boundary
 
-- No local checkout/runtime exists in this environment; no local Python/C tests or firmware compile are claimed.
-- The exact failures above are observed Actions logs, not inferred.
-- Host CI = L2; XY-C1 L3 needs Build, TRX verification and artifact upload passing on a single exact production-source SHA; hardware/router L4 remains unverified.
+- No local checkout/runtime was available; no local C/Python tests or firmware compile are claimed.
+- Exact CI failures observed: WAN DHCP, WAN route, USB modem fixture failures; Firewall stale compact-string assertion; HTTPD stale renew assertion. No newer current-head pass is asserted until Actions on the new SHA complete.
+- Host CI = L2; XY-C1 Build, TRX, artifact must pass on one exact production-source SHA for L3; hardware/router L4 NOT VERIFIED.
