@@ -2339,10 +2339,19 @@ static int
 launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 {
 	int launch_status = 0;
-	int man_mtu = get_wan_unit_value_int(unit, "man_mtu");
-	int snapshot_status;
+	int man_mtu = 0;
+	int snapshot_status, nvram_status;
 	char man_addr_storage[16], man_mask_storage[16], lan_addr[16], lan_mask[16];
 	char *man_addr = man_addr_storage, *man_mask = man_mask_storage;
+
+	nvram_status = get_wan_unit_value_int_status(
+		unit, "man_mtu", &man_mtu);
+	if (nvram_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read MAN MTU for %s (status=%d)",
+			   man_ifname, nvram_status);
+		return nvram_status;
+	}
 
 	snapshot_status = wan_static_ipv4_snapshot(
 		unit, "man_ipaddr", "man_netmask",
@@ -2776,7 +2785,16 @@ start_wan(void)
 			continue;
 		
 		/* Read the configured MTU before applying the physical default. */
-		wan_mtu = get_wan_unit_value_int(unit, "mtu");
+		nvram_status = get_wan_unit_value_int_status(
+			unit, "mtu", &wan_mtu);
+		if (nvram_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, nvram_status);
+			logmessage(LOGNAME,
+				   "aborting WAN setup for unit %d: cannot read configured MTU (status=%d)",
+				   unit, nvram_status);
+			continue;
+		}
 
 		/*
 		 * Static IPoE applies its requested MTU later, immediately before

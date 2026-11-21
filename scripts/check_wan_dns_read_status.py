@@ -104,3 +104,25 @@ require("if (nvram_status != 0)" in idle_failure and
         "PPPoE idle-time read failure must restore WAN before demand publication")
 assert 'get_wan_unit_value_int(unit, "pppoe_idletime")' not in wan_start
 print("PPPoE manual-mode and demand NVRAM errors abort WAN activation: PASS")
+
+
+# MAN and physical WAN MTUs must be checked before any interface/client setup.
+wanx_start = " ".join(body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)").split())
+require('get_wan_unit_value_int_status(unit, "man_mtu", &man_mtu)' in wanx_start,
+        "MAN MTU must use checked NVRAM reads")
+require(wanx_start.index("if (nvram_status != 0)") < wanx_start.index("wan_static_ipv4_snapshot("),
+        "MAN MTU read errors must stop before address snapshot/client setup")
+require("return nvram_status" in wanx_start,
+        "MAN MTU read errors must propagate to the launch caller")
+wan_start = " ".join(body(source, "start_wan(void)").split())
+require('get_wan_unit_value_int_status(unit, "mtu", &wan_mtu)' in wan_start,
+        "physical WAN MTU must use checked NVRAM reads")
+mtu_read = wan_start.index('get_wan_unit_value_int_status(unit, "mtu", &wan_mtu)')
+mtu_error = wan_start.index("if (nvram_status != 0)", mtu_read)
+mtu_ifup = wan_start.index('ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL)', mtu_read)
+require(mtu_read < mtu_error < mtu_ifup and
+        "continue;" in wan_start[mtu_error:mtu_ifup],
+        "physical MTU read errors must abort the unit before interface activation")
+assert 'get_wan_unit_value_int(unit, "man_mtu")' not in source
+assert 'get_wan_unit_value_int(unit, "mtu")' not in wan_start
+print("WAN MTU reads fail closed before MAN/physical interface activation: PASS")
