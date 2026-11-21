@@ -118,6 +118,29 @@ for token in ('PPP_WAN_READ_OPTION("ppp_auth", auth_type)',
               "memset(values, 0, sizeof(*values))"):
     require(token in policy_body, "PPP option policy missing " + token)
 
+ipup_reader = body(net_ppp,
+    "ppp_wan_ipup_get_nvram_value(void *opaque, const char *param_name,")
+require("nvram_transaction_get(context->transaction, wan_param, value)" in ipup_reader,
+        "PPP ip-up prior-state read must use the active NVRAM transaction")
+require('snprintf(wan_param, sizeof(wan_param), "wan%d_%s"' in ipup_reader,
+        "PPP ip-up checked getter must resolve unit-scoped keys")
+
+ipup_publish = body(net_ppp,
+    "ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,")
+begin = ipup_publish.index("nvram_transaction_begin(&transaction)")
+snapshot = ipup_publish.index("rc_wan_nvram_copy_value(")
+publish = ipup_publish.index("dhcp_lease_nvram_publish(")
+end_transaction = ipup_publish.index("nvram_transaction_end(&transaction)")
+require(begin < snapshot < publish < end_transaction,
+        "PPP ip-up must read and publish its prior/current tuple under one transaction")
+require("get_wan_unit_value(" not in ipup_publish,
+        "PPP ip-up prior tuple must not use cache-backed unchecked getters")
+require("publish_attempted = 1" in ipup_publish and
+        ipup_publish.index("publish_attempted = 1") < publish,
+        "PPP ip-up recovery must know whether any writes were attempted")
+require("if (!publish_attempted)" in ipup_publish,
+        "a failed preflight read must not trigger an unnecessary restore transaction")
+
 routes = body(net_ppp, "preset_wan_ppp_routes(char *ppp_ifname, int unit)")
 primary = routes.index('get_wan_unit_value_int_status(unit, "primary", &primary)')
 default_route = routes.index('route_add(ppp_ifname, 1, "0.0.0.0"')

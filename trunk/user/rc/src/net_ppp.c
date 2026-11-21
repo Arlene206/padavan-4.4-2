@@ -1229,6 +1229,32 @@ ppp_wan_ipup_set_nvram_value_status(void *opaque, const char *param_name,
 }
 
 static int
+ppp_wan_ipup_get_nvram_value(void *opaque, const char *param_name,
+			     char **value)
+{
+	struct ppp_wan_ipup_context *context =
+		(struct ppp_wan_ipup_context *)opaque;
+	char wan_param[64];
+	int length;
+
+	if (!context || !context->transaction || !param_name ||
+	    !param_name[0] || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	length = snprintf(wan_param, sizeof(wan_param), "wan%d_%s",
+			  context->unit, param_name);
+	if (length < 0)
+		return -1;
+	if ((size_t)length >= sizeof(wan_param)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return nvram_transaction_get(context->transaction, wan_param, value);
+}
+
+
+static int
 ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
 			     const char *netmask)
 {
@@ -1242,6 +1268,7 @@ ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
 	char previous_text[5][256];
 	unsigned int i;
 	int status, end_status, rollback_status = 0;
+	int publish_attempted = 0;
 	int recovery_status, recovery_detail = 0;
 
 	if (!context || !context->ifname || !context->ifname[0] ||
@@ -1254,8 +1281,6 @@ ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
 	values[4].value = context->dns;
 	for (i = 0; i < 5; ++i) {
 		values[i].name = param_names[i];
-		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
-			 get_wan_unit_value(context->unit, param_names[i]));
 		values[i].previous_value = previous_text[i];
 	}
 
@@ -1263,20 +1288,34 @@ ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
 	if (nvram_transaction_begin(&transaction) != 0)
 		return errno ? errno : EIO;
 	context->transaction = &transaction;
-	status = dhcp_lease_nvram_publish(
-		values, 5, ppp_wan_ipup_set_nvram_value_status,
-		context, &rollback_status);
+	status = 0;
+	for (i = 0; i < 5; ++i) {
+		status = rc_wan_nvram_copy_value(
+			ppp_wan_ipup_get_nvram_value, context, param_names[i],
+			previous_text[i], sizeof(previous_text[i]));
+		if (status != 0)
+			break;
+	}
+	if (status == 0) {
+		/* Keep the lock from the coherent old-tuple read through publish. */
+		publish_attempted = 1;
+		status = dhcp_lease_nvram_publish(
+			values, 5, ppp_wan_ipup_set_nvram_value_status,
+			context, &rollback_status);
+	}
 	errno = 0;
 	if (nvram_transaction_end(&transaction) != 0) {
 		end_status = errno ? errno : EIO;
 		if (status == 0)
 			status = end_status;
-		else if (rollback_status == 0)
+		else if (publish_attempted && rollback_status == 0)
 			rollback_status = end_status;
 	}
 	context->transaction = NULL;
 	if (status == 0)
 		return 0;
+	if (!publish_attempted)
+		return status;
 
 	/* Restore the full old tuple under a fresh NVRAM transaction. */
 	errno = 0;
