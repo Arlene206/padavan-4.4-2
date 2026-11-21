@@ -1,3 +1,11 @@
+## 2026-11-21 — Correct SSHD rollback policy assertion to inspect test cases
+
+- Parent main SHA: 8b0c30acf066c10beb620236210ae9cb5661047b.
+- The new rollback policy intentionally encodes the conservative rule as “anything other than confirmed ABSENT”, not as an explicit UNKNOWN enum comparison. Updated the source checker to assert that implementation and inspect the regression function's ABSENT/RUNNING/UNKNOWN/invalid-state cases, instead of demanding an implementation spelling that was not part of the policy contract.
+- Checker-only; no product source changed. Exact-head Process lifecycle and XY-C1 reruns pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Roll back SSH after an unconfirmed detached start
 
 - Parent main SHA: 9d65ccd958bafeb9bd38820978ff38641721aa04.

@@ -114,7 +114,12 @@ assert "sshd_process_presence(&scan_error)" in recovery
 assert "sshd_failed_start_preserve_running_state(after_stop)" in recovery
 assert recovery.index("stop_sshd()") < recovery.index("sshd_process_presence(&scan_error)") < recovery.index("sshd_failed_start_preserve_running_state(after_stop)") < recovery.index("errno = failure_errno;") < recovery.index("return failure_status;")
 assert "test_failed_start_rollback_reports_unconfirmed_absence();" in TEST
-assert "PROCESS_PRESENCE_UNKNOWN" in body(POLICY, "sshd_failed_start_preserve_running_state(")
+rollback_policy = body(POLICY, "sshd_failed_start_preserve_running_state(")
+rollback_test = body(TEST, "test_failed_start_rollback_reports_unconfirmed_absence(void)")
+assert "after_stop != PROCESS_PRESENCE_ABSENT" in rollback_policy
+for state in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
+              "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)9"):
+    assert state in rollback_test
 assert "PROCESS_PRESENCE_ABSENT" in restart_preflight_policy
 assert "PROCESS_PRESENCE_RUNNING" in restart_preflight_policy
 assert "process_state == PROCESS_PRESENCE_RUNNING" in restart_stop_policy
