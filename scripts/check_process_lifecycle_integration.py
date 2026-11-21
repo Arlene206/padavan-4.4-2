@@ -1510,12 +1510,12 @@ assert "return 0;" in rstats_start[rstats_postcondition_at:]
 # start_lltd()/start_rstats() already implement a checked enable read and
 # return zero when disabled. Re-reading the same key with nvram_match() here
 # used to swallow a real start/configuration error when that second read failed.
-lltd_restart = c_function_body(services_source, "int restart_lltd(void)")
+lltd_restart = c_function_body(services_source, "restart_lltd(void)")
 assert "return start_lltd();" in lltd_restart
 assert 'nvram_match("lltd_enable", "1")' not in lltd_restart
 assert "return stop_status;" in lltd_restart
 
-rstats_restart = c_function_body(services_source, "int restart_rstats(void)")
+rstats_restart = c_function_body(services_source, "restart_rstats(void)")
 assert "return start_rstats();" in rstats_restart
 assert 'nvram_match("rstats_enable", "1")' not in rstats_restart
 assert "return stop_status;" in rstats_restart

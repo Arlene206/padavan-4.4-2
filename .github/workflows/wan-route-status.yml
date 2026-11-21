@@ -779,7 +779,7 @@ jobs:
           assert "MAN route teardown incomplete" in public_man_down
           
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
-          assert "static int\\nwan_down_internal(" in wan
+          assert "static int" + chr(10) + "wan_down_internal(" in wan
           assert "char wan_addr[16], wan_gate[16], wan_mask[16];" in wan_down
           assert "int wan_addr_status, wan_gate_status, wan_mask_status;" in wan_down
           wan_down_compact = "".join(wan_down.split())

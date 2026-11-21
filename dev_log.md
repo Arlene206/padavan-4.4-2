@@ -1,3 +1,11 @@
+## 2026-11-21 — Correct remaining exact-head checker mismatches
+
+- Parent main SHA: 387591fe0a0bdc20507f8853e70d033ffa3661c4.
+- Exact-head infosvr #44927382658, crond #44927382660 and AI handoff #44927382685 passed. WAN route #44927382675 failed at a checker assertion whose Python string represented backslash+n instead of the newline in the C definition. Process inventory #44927382674 failed because the checker passed a combined return-type/signature token, while the source definition has the return type and function name on separate lines; the function parser should key off restart_lltd(void) and restart_rstats(void).
+- Corrected the WAN function-definition assertion with chr(10) and normalized the LLTD/rstats restart signature lookups. No production source changes in this correction. Exact-head checks and XY-C1 #44927382664 remain pending.
+
+---
+
 ## 2026-11-21 — Align service and WAN teardown regressions with checked readers
 
 - Parent main SHA: 43fb2c87c144efe369970cd3ad6e0b43a0ba174a.
