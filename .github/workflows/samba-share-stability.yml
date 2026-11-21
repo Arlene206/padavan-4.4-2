@@ -189,9 +189,10 @@ jobs:
           assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in wins_reader
           assert "samba_boolean_value_status(read_status, parsed, enabled)" in wins_reader
           wins = function_body(services, "start_wins(void)")
-          assert 'samba_ex_read_boolean_status("wins_enable", 1, &wins_enabled)' in wins
-          assert wins.index('samba_ex_read_boolean_status("wins_enable", 1, &wins_enabled)') < wins.index("samba_config_transaction_lock_acquire(")
-          assert 'nvram_match("wins_enable", "0")' not in wins
+          wins_compact = "".join(wins.split())
+          assert 'samba_ex_read_boolean_status("wins_enable",1,&wins_enabled)' in wins_compact
+          assert wins_compact.index('samba_ex_read_boolean_status("wins_enable",1,&wins_enabled)') < wins_compact.index("samba_config_transaction_lock_acquire(")
+          assert 'nvram_match("wins_enable","0")' not in wins_compact
           assert "samba_config_transaction_prepare_parent_directory(" in wins
           assert wins.index("samba_config_transaction_prepare_parent_directory(") < wins.index("samba_config_transaction_recover(")
           assert "samba_config_transaction_lock_acquire(" in wins
@@ -443,9 +444,10 @@ jobs:
               assert token in process_test
 
           stop_samba = function_body(stor, "stop_samba_locked(int force_stop)")
-          assert 'samba_read_boolean_status("wins_enable", 0, &wins_enabled)' in stop_samba
-          assert stop_samba.index('samba_read_boolean_status("wins_enable", 0, &wins_enabled)') < stop_samba.index("stop_status = kill_services(svcs, 5, 1)")
-          assert 'nvram_match("wins_enable", "1")' not in stop_samba
+          stop_samba_compact = "".join(stop_samba.split())
+          assert 'samba_read_boolean_status("wins_enable",0,&wins_enabled)' in stop_samba_compact
+          assert stop_samba_compact.index('samba_read_boolean_status("wins_enable",0,&wins_enabled)') < stop_samba_compact.index("stop_status=kill_services(svcs,5,1)")
+          assert 'nvram_match("wins_enable","1")' not in stop_samba_compact
           assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba
           assert "if (stop_status != 0)" in stop_samba
           assert 'samba_require_daemon_absent("smbd", "after stop")' in stop_samba

@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize multiline WINS flag call contracts
+
+- Parent main SHA: `90de7e3f2ea3d246738ccabc9148810c1104b45d`.
+- Samba run #44917017193 reached source-contract line 88 after the policy unit binary passed. It failed because production `start_wins()` and non-forced stop split checked WINS helper arguments across lines; fixed both call-presence/order assertions by normalizing function-body whitespace. Behaviour assertions remain intact.
+- Parent product-source XY-C1 #44916836560 status: `in_progress/pending`; NVRAM audit #44916836473: `completed/success`. XY-C1 had reached the Build XY-C1 step; TRX and artifact gates had not yet completed.
+- AI handoff #44917017123 was in progress on parent `90de7e3`; exact-head Samba and docs reruns follow THIS COMMIT. Production source SHA remains `bc3cceeb`; no L3 claim until Build/TRX/artifact all pass on that exact SHA.
+
+---
+
 ## 2026-11-21 — Normalize multiline Samba runtime flag source assertions
 
 - Parent main SHA: `bc3cceebfcc4423d03acd30a5604e01c63b13419`.

@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Latest product-source SHA: `bc3cceebfcc4423d03acd30a5604e01c63b13419`; Samba runtime decision points now fail closed on checked NVRAM read errors and invalid boolean/mode values.
-- Samba policy/unit tests compiled and passed in exact-head run #44916836779 before the source-check step failed at a whitespace-sensitive assertion. The contract now normalizes whitespace in THIS COMMIT.
-- XY-C1 run #44916836560 passed all host-side validation and was running the cross-build for this product-source SHA; TRX verification and artifact upload were pending. Do not claim L3 until all three steps pass.
-- AI handoff #44916836461, Process inventory #44916836495, WAN route #44916836585 and DNSMasq #44916836494 PASS on `bc3cceebfcc4423d03acd30a5604e01c63b13419`; NVRAM audit #44916836473 was still running.
+- Product-source SHA: `bc3cceebfcc4423d03acd30a5604e01c63b13419`; Samba enable and WINS gates use checked NVRAM status and fail closed. The GNU89 policy unit binary PASSed.
+- Samba source-contract run #44917017193 on docs child `90de7e3` failed at WINS call assertions due to production line wrapping. Both start and selective-stop call contracts now normalize whitespace. No production code changed in THIS checker-only correction.
+- XY-C1 #44916836560 on `bc3cceeb`: `in_progress/pending`; NVRAM audit #44916836473: `completed/success`. Keep L3 unverified until Build XY-C1 + TRX + artifact upload pass on the same product-source SHA.
+- AI handoff #44917017123 was in progress on parent `90de7e3`; a new exact-head docs run is expected after THIS COMMIT.
 
 
 ## Active task
