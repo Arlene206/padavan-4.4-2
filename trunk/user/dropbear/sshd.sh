@@ -15,6 +15,46 @@ func_log()
 	logger -t "dropbear" "$1"
 }
 
+# Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN.
+# BusyBox pidof can return 1 after a failed procfs scan, so validate both
+# its status and output before authorizing any daemon lifecycle action.
+dropbear_process_state()
+{
+	if dropbear_pid_output=$(pidof dropbear 2>/dev/null); then
+		dropbear_pidof_status=0
+	else
+		dropbear_pidof_status=$?
+	fi
+	case "$dropbear_pidof_status" in
+	0)
+		[ -n "$dropbear_pid_output" ] || return 2
+		case "$dropbear_pid_output" in
+			*[!0123456789\\ ]*) return 2 ;;
+		esac
+		case $- in
+			*f*) dropbear_restore_noglob=0 ;;
+			*) set -f; dropbear_restore_noglob=1 ;;
+		esac
+		set -- $dropbear_pid_output
+		[ "$dropbear_restore_noglob" -eq 0 ] || set +f
+		[ "$#" -gt 0 ] || return 2
+		for dropbear_pid in "$@"; do
+			case "$dropbear_pid" in
+				''|0*|*[!0-9]*) return 2 ;;
+			esac
+		done
+		return 0
+		;;
+	1)
+		[ -z "$dropbear_pid_output" ] && return 1
+		return 2
+		;;
+	*)
+		return 2
+		;;
+	esac
+}
+
 func_keygen()
 {
 	key_type="$1"
@@ -72,6 +112,19 @@ func_get_extra_args()
 
 func_start()
 {
+	# Do not launch another listener, or mutate key/config state, unless an
+	# incomplete process inventory has been ruled out.
+	dropbear_process_state
+	process_status=$?
+	case "$process_status" in
+	0) return 0 ;;
+	1) ;;
+	*)
+		func_log "cannot verify existing daemon state; refusing start"
+		return 2
+		;;
+	esac
+
 	if [ ! -d "$dir_storage" ]; then
 		if mkdir -p -m 755 "$dir_storage"; then :; else
 			storage_status=$?
@@ -119,23 +172,85 @@ func_start()
 	set -f
 	set -- $args
 	if "$dropbear_bin" "$@"; then
-		return 0
+		:
 	else
 		launch_status=$?
 		func_log "daemon launch failed (status=$launch_status)"
 		return "$launch_status"
 	fi
+
+	attempt=0
+	while :; do
+		dropbear_process_state
+		process_status=$?
+		case "$process_status" in
+		0) return 0 ;;
+		1) ;;
+		*)
+			func_log "cannot verify daemon startup postcondition"
+			return 2
+			;;
+		esac
+		if [ "$attempt" -ge 3 ]; then
+			func_log "launcher returned success but daemon did not appear"
+			return 1
+		fi
+		attempt=$((attempt + 1))
+		sleep 1 || return 2
+	done
 }
 
 func_stop()
 {
+	dropbear_process_state
+	process_status=$?
+	case "$process_status" in
+	1) return 0 ;;
+	0) ;;
+	*)
+		func_log "cannot verify daemon state; refusing stop"
+		return 2
+		;;
+	esac
+
 	if killall -q dropbear; then
-		return 0
+		:
 	else
 		stop_status=$?
-		func_log "daemon stop failed (status=$stop_status)"
-		return "$stop_status"
+		dropbear_process_state
+		process_status=$?
+		case "$process_status" in
+		1) return 0 ;;
+		0)
+			func_log "daemon stop failed (status=$stop_status)"
+			return "$stop_status"
+			;;
+		*)
+			func_log "cannot verify daemon after failed stop signal"
+			return 2
+			;;
+		esac
 	fi
+
+	attempt=0
+	while :; do
+		dropbear_process_state
+		process_status=$?
+		case "$process_status" in
+		1) return 0 ;;
+		0) ;;
+		*)
+			func_log "cannot verify daemon stop postcondition"
+			return 2
+			;;
+		esac
+		if [ "$attempt" -ge 5 ]; then
+			func_log "daemon is still running after the bounded stop wait"
+			return 1
+		fi
+		attempt=$((attempt + 1))
+		sleep 1 || return 2
+	done
 }
 
 action_status=0

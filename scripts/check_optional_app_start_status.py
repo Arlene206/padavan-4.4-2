@@ -1236,21 +1236,43 @@ def check_dropbear():
         legacy = base / "legacy"
         legacy.mkdir()
         daemon_log = base / "dropbear.log"
+        stop_log = base / "dropbear-stop.log"
+        state = base / "dropbear-running"
+        stop_log.touch()
         executable(bin_dir / "dropbear", """#!/bin/sh
 printf '%s\\n' "$*" >> "$MOCK_DROPBEAR_LOG"
-exit "$MOCK_DROPBEAR_STATUS"
+status="$MOCK_DROPBEAR_STATUS"
+[ "$status" -eq 0 ] || exit "$status"
+[ "${MOCK_DROPBEAR_NO_PID:-0}" = 1 ] || printf '%s\\n' 123 > "$MOCK_DROPBEAR_STATE"
+exit 0
 """)
         executable(bin_dir / "dropbearkey", """#!/bin/sh
 exit "$MOCK_KEYGEN_STATUS"
 """)
         executable(bin_dir / "killall", """#!/bin/sh
-exit "$MOCK_KILLALL_STATUS"
+printf '%s\\n' "$*" >> "$MOCK_DROPBEAR_STOP_LOG"
+status="$MOCK_KILLALL_STATUS"
+[ "$status" -eq 0 ] || exit "$status"
+[ "${MOCK_DROPBEAR_KEEP:-0}" = 1 ] || rm -f "$MOCK_DROPBEAR_STATE"
+exit 0
 """)
+        executable(bin_dir / "pidof", """#!/bin/sh
+[ "$1" = dropbear ] || exit 2
+if [ "${MOCK_PIDOF_OVERRIDE:-0}" = 1 ]; then
+    [ -z "${MOCK_PIDOF_OUTPUT:-}" ] || printf '%s\\n' "$MOCK_PIDOF_OUTPUT"
+    exit "${MOCK_PIDOF_STATUS:-0}"
+fi
+[ -s "$MOCK_DROPBEAR_STATE" ] || exit 1
+printf '%s\\n' 123
+""")
+        executable(bin_dir / "sleep", "#!/bin/sh\\nexit 0\\n")
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "MOCK_LOG": str(base / "logger.log"),
             "MOCK_DROPBEAR_LOG": str(daemon_log),
+            "MOCK_DROPBEAR_STOP_LOG": str(stop_log),
+            "MOCK_DROPBEAR_STATE": str(state),
             "MOCK_DROPBEAR_STATUS": "53",
             "MOCK_KEYGEN_STATUS": "71",
             "MOCK_KILLALL_STATUS": "54",
@@ -1271,12 +1293,65 @@ exit "$MOCK_KILLALL_STATUS"
         started = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start", "-s"], env)
         assert started.returncode == 0, started.stderr
         assert daemon_log.read_text().splitlines()[-1] == "-s -p 2222"
+        assert state.exists()
 
+        # A running daemon makes start idempotent: no second listener is launched.
+        env["MOCK_DROPBEAR_STATUS"] = "53"
+        launches_before = len(daemon_log.read_text().splitlines())
+        duplicate = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env)
+        assert duplicate.returncode == 0, duplicate.stderr
+        assert len(daemon_log.read_text().splitlines()) == launches_before
+
+        # Unknown/inconsistent pidof results must not permit launch or signal.
+        env["MOCK_PIDOF_OVERRIDE"] = "1"
+        env["MOCK_PIDOF_STATUS"] = "2"
+        env["MOCK_PIDOF_OUTPUT"] = ""
+        stops_before = len(stop_log.read_text().splitlines())
+        unknown_start = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env)
+        unknown_stop = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env)
+        assert unknown_start.returncode == 2
+        assert unknown_stop.returncode == 2
+        assert len(daemon_log.read_text().splitlines()) == launches_before
+        assert len(stop_log.read_text().splitlines()) == stops_before
+        assert state.exists()
+
+        env["MOCK_PIDOF_STATUS"] = "0"
+        env["MOCK_PIDOF_OUTPUT"] = ""
+        assert run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env).returncode == 2
+        assert run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env).returncode == 2
+        env["MOCK_PIDOF_STATUS"] = "1"
+        env["MOCK_PIDOF_OUTPUT"] = "123"
+        assert run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env).returncode == 2
+        assert run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env).returncode == 2
+        env.pop("MOCK_PIDOF_OVERRIDE")
+        env.pop("MOCK_PIDOF_STATUS")
+        env.pop("MOCK_PIDOF_OUTPUT")
+
+        # A failed signal must propagate while the daemon remains present.
+        env["MOCK_KILLALL_STATUS"] = "54"
         stopped = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env)
         assert stopped.returncode == 54, (
             f"dropbear must propagate killall status 54, got {stopped.returncode}"
         )
         assert "daemon stop failed (status=54)" in (base / "logger.log").read_text()
+        assert state.exists()
+
+        # Successful signal is accepted only after a confirmed ABSENT snapshot.
+        env["MOCK_KILLALL_STATUS"] = "0"
+        stopped = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env)
+        assert stopped.returncode == 0, stopped.stderr
+        assert not state.exists()
+        stops_before = len(stop_log.read_text().splitlines())
+        stopped_again = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "stop"], env)
+        assert stopped_again.returncode == 0, stopped_again.stderr
+        assert len(stop_log.read_text().splitlines()) == stops_before
+
+        # A successful launcher without a visible process is not readiness.
+        env["MOCK_DROPBEAR_NO_PID"] = "1"
+        ready_failure = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env)
+        assert ready_failure.returncode == 1
+        assert not state.exists()
+        env.pop("MOCK_DROPBEAR_NO_PID")
 
         keygen = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "newkeys"], env)
         assert keygen.returncode == 71, (

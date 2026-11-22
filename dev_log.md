@@ -1,3 +1,9 @@
+## 2026-11-22 — Dropbear start/stop now verify process identity state
+
+- Source baseline: `ccb9c0ac835291901b46734b9c84a912a18c2524`. `func_start()` launched Dropbear without checking whether the listener was already running or verifying that a successful fork produced a daemon; `func_stop()` returned success solely from `killall` status and treated an already-absent daemon as failure. Both operations ignored UNKNOWN procfs state.
+- Added a strict RUNNING/ABSENT/UNKNOWN `pidof dropbear` parser. Start now refuses UNKNOWN before key/config mutation or launch, returns idempotently when already running, and verifies bounded startup readiness. Stop is an idempotent no-op only for confirmed absence, refuses UNKNOWN before signaling, and confirms the daemon has disappeared after a successful signal; it preserves signal failures if the daemon remains.
+- Expanded the existing `check_dropbear()` executable integration with a fake procfs/daemon state, duplicate-start suppression, UNKNOWN and inconsistent pidof outputs, failed/successful stop postconditions, absent-stop idempotence, and launcher-without-daemon readiness failure. The process lifecycle regression workflow runs this checker. Exact-head CI pending; no router build claimed.
+
 ## 2026-11-22 — DNS Forwarder treats pidof scan failures as UNKNOWN
 
 - Source baseline: `17402ad9b359b388b292c960964ab4224b91def7`. `dns_forwarder_is_running()` reduced `pidof` to a Boolean. On BusyBox, the same status 1 is used for no matching process and for some procfs enumeration failures, so an UNKNOWN process table could authorize duplicate startup or a false successful stop.
