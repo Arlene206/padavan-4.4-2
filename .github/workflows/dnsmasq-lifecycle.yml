@@ -523,12 +523,25 @@ jobs:
           lock_failure = servers_writer.index("if (lock < 0)", lock_acquire)
           stage_open = servers_writer.index("fp = dnsmasq_file_open(servers_path);")
           assert lock_acquire < lock_failure < stage_open
-          failure_guard = servers_writer[lock_failure:stage_open]
-          assert "saved_errno = errno ? errno : EIO;" in failure_guard
-          assert "refusing publication" in failure_guard
-          assert "errno = saved_errno;" in failure_guard
-          assert "return -1;" in failure_guard
-          assert "file_unlock(lock)" not in failure_guard
+          snapshot_marker = servers_writer.index("/* Snapshot complete split-DNS policy before creating a replacement. */")
+          snapshot_read = servers_writer.index("snapshot_status = dnsmasq_split_dns_nvram_snapshot_read(")
+          assert lock_acquire < lock_failure < snapshot_marker < snapshot_read < stage_open
+
+          # A failed lock acquisition owns no lock and must not unlock it.
+          lock_failure_guard = servers_writer[lock_failure:snapshot_marker]
+          assert "saved_errno = errno ? errno : EIO;" in lock_failure_guard
+          assert "refusing publication" in lock_failure_guard
+          assert "errno = saved_errno;" in lock_failure_guard
+          assert "return -1;" in lock_failure_guard
+          assert "file_unlock(lock)" not in lock_failure_guard
+
+          # A snapshot failure happens after acquiring the lock and must release it.
+          snapshot_failure_start = servers_writer.index("if (snapshot_status != 0)")
+          snapshot_failure_guard = servers_writer[snapshot_failure_start:stage_open]
+          assert "file_unlock(lock);" in snapshot_failure_guard
+          assert "preserving existing server file" in snapshot_failure_guard
+          assert "errno = saved_errno;" in snapshot_failure_guard
+          assert "return -1;" in snapshot_failure_guard
           publish_call = servers_writer.index("dnsmasq_file_publish(")
           assert servers_writer.index("file_unlock(lock);", publish_call) > publish_call
           assert servers_writer.count("file_unlock(lock);") == 3

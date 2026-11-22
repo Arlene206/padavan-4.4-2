@@ -2,64 +2,62 @@
 
 ## Current checkpoint
 
-- Active development branch: main. Do not create/use development branches or PRs; never force-push.
-- Frozen archive branch: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; do not modify, checkout, rename or delete.
-- Latest source implementation checkpoint: d73ba6d2b9df959b73f0c0cf283d9694362b85c3 — fix(dnsmasq): preserve private-domain routing on NVRAM faults.
-- The current main head may be a subsequent documentation-only commit; fetch live main and match exact head SHAs before any write or CI claim.
+- Development branch: main only. Do not create or use feature branches/PRs; do not force-push.
+- Frozen archive: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; do not modify, checkout, rename or delete.
+- Latest source fix: 4fad5ae2ac97a35d79031c3a18e828702d010109 — split-DNS NVRAM snapshot error handling and preserved diagnostics. Main subsequently received 3adf4cc9d94bd930b6504b0dd11cc1fa109852fd, a separate storage restore symlink guard; fetch live main before future writes.
+- Current slice: fix the DNSMasq CI contract that incorrectly rejects the required unlock on a post-acquisition snapshot failure. Then continue PID1 robustness work in BusyBox init.
 
-## Recovery correction
+## Work closed during this continuation
 
-The previous handoff's active SCUTClient credential-file task has since been implemented on main. Do not restart it unless a new exact-head failure proves a defect. The source and subsequent hardening are recorded in dev_log.md, including commits ea5264dfbdb9470bc29971dee053503e8177b3aa and b30aeaf66d022f53061fd3433e98277131cbeda8.
+- Split-DNS read-collapse defect: fill_dnsmasq_servers() now takes one bounded NVRAM transaction snapshot of vpnc_pdns, vpnc_dom_t, vpnc_dns_t, wanx_domain and wanx_dns; snapshot errors abort before stage creation and preserve the prior server file. Source commit d73ba6d2b9df959b73f0c0cf283d9694362b85c3.
+- Snapshot test uncovered partial remnants in the generic snapshot helper; a full memset on copy error was added in b642c460539c93e71c6b05a7b913a964e4cdd44a.
+- A separate existing HTTPD source contract required the legacy common invalid-domain log message twice; restored it in 4fad5ae2ac97a35d79031c3a18e828702d010109.
+- Storage restore security: main commit 3adf4cc9d94bd930b6504b0dd11cc1fa109852fd rejects a symlinked restore start_script.sh before staging, stopping rstats, or replacing the prior storage tree.
+- Old handoff SCUTClient credential-file task is complete on main. Do not restart absent a newly demonstrated failure. Existing commits ea5264dfbdb9470bc29971dee053503e8177b3aa and b30aeaf66d022f53061fd3433e98277131cbeda8 plus subsequent hardening cover it.
 
-During this takeover, two other concurrent main fixes were identified:
-- a8e1f92e1b1bfb95015eca73f8eaf94fa57d552d fixed AliyunDrive's lifecycle-lock parent-directory expansion; exact SHA run 45083513060 passed.
-- 898fb503994e4e301c95fab4a0c05824ca44885e fixed missing Process checker inputs; exact SHA AI handoff documentation run 45083559512 passed. The older Process umbrella run 45083559492 was pending at last observation; do not carry that stale status forward without checking live Actions.
+## DNSMasq exact-SHA verification
 
-## Implemented source slice — split-DNS NVRAM failure
+For code SHA 4fad5ae2ac97a35d79031c3a18e828702d010109:
+- DNSMasq lifecycle run 45084767538 FAILED in step "Verify daemon start postconditions and RC exit status propagation", due to a stale contract assertion: it required no file_unlock() between lock acquisition failure and stage opening, inadvertently including the new post-lock NVRAM snapshot error branch. The source behavior is correct: after acquiring the lock, a snapshot failure must unlock before returning. Update the contract to isolate the lock-acquisition branch and explicitly require unlock in the snapshot-failure branch.
+- HTTPD security 45084767484 PASS.
+- Process inventory/lifecycle 45084767501 PASS.
+- Process lifecycle inventory 45084767638 PASS.
+- Inadyn lifecycle 45084767520 PASS.
+- miniupnpd config publication 45084767512 PASS.
+- WAN route status 45084767491 PASS.
+- WAN DHCP callback state 45084767478 PASS.
+- Samba config stability 45084767463 PASS.
+- NVRAM transaction boundary audit 45084767487 and XY-C1 Firmware Validation 45084767430 were IN_PROGRESS at last check; recheck exact SHA/head_sha before claiming any result.
+All statuses above belong only to 4fad5ae2..., not the new workflow-contract commit or its descendants.
 
-In source SHA d73ba6d2b9df959b73f0c0cf283d9694362b85c3, fill_dnsmasq_servers() was changed from lossy nvram_get_int()/nvram_safe_get() reads to one bounded NVRAM transaction snapshot over:
-- vpnc_pdns
-- vpnc_dom_t
-- vpnc_dns_t
-- wanx_domain
-- wanx_dns
+## Active atomic change
 
-The change preserves the original vpnc_pdns > 0 behavior and empty/missing-key defaults. Any backend read, transaction-close, malformed integer, or truncation error aborts before dnsmasq_file_open(), leaving the previous server snapshot intact instead of publishing a file that silently drops VPN/MAN routes and exposes those scoped queries to the default resolver path.
+The current update narrows the DNSMasq workflow assertion:
+- The branch from if (lock < 0) to the snapshot marker must preserve errno/return failure and must not unlock.
+- The snapshot read must occur after acquiring the lock and before dnsmasq_file_open(servers_path).
+- The if (snapshot_status != 0) branch must call file_unlock(lock), preserve the existing server file, restore errno and return failure.
 
-Regression coverage was added in trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c for atomic generation copying, missing/negative flag values, failures at every key, begin/end errors, malformed integers, and oversized values. scripts/check_dnsmasq_integer_options.py now checks the source/data-flow contract. The DNSMasq workflow pull_request.paths was corrected to include that checker (push.paths already included it).
-
-Changed in source SHA d73ba6d2b9df959b73f0c0cf283d9694362b85c3:
-- trunk/user/rc/src/services_ex.c
-- trunk/user/rc/src/dnsmasq_nvram_option_policy.h
-- trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c
-- scripts/check_dnsmasq_integer_options.py
+Changed paths in this pending logical slice:
 - .github/workflows/dnsmasq-lifecycle.yml
-- REFACTOR_ROADMAP.md
 - dev_log.md
+- SESSION_HANDOFF.md
 
-## Exact-SHA verification state
+No local compile/test has been run in this connector-only session. Exact-head Actions for this workflow follow-up are not yet known.
 
-The push event created these runs on exactly d73ba6d2b9df959b73f0c0cf283d9694362b85c3. They were QUEUED at first observation; check current live status and do not treat queued/in-progress as PASS:
-- DNSMasq lifecycle stability regression: 45084574655
-- NVRAM transaction boundary audit: 45084574653
-- Process inventory and lifecycle fail-closed regression: 45084574525
-- Process lifecycle inventory: 45084574515
-- XY-C1 Firmware Validation: 45084574492
-- WAN DHCP callback state stability regression: 45084574658
-- miniupnpd atomic configuration publication regression: 45084574657
-- Inadyn fail-closed lifecycle regression: 45084574546
-- AI handoff documentation contract: 45084574530
-- WAN route operation status regression: 45084574493
-- HTTPD Authentication and Security Regression: 45084574469
-- Samba share configuration stability regression: 45084574447
+## PID1 investigation target
 
-No local host test, local compile, MIPS firmware build, TRX check, artifact upload, or physical XY-C1 test was executed in this connector-only session. Source review for the NVRAM failure path is complete; exact-SHA Actions were queued at last observation. Do not claim L3/L4 verification without matching evidence.
+BusyBox PID1 implementation is trunk/user/busybox/busybox-1.24.x/init/init.c (at prior fetch: 80c5d0f74cb8fac6b1de810d9bf4897433a3e12f). Initial source inspection identified these areas to inspect before selecting a safe, testable fix:
+- mark_terminated() calls update_utmp_DEAD_PROCESS() while reaping.
+- stop_handler() runs as SIGTSTP handler and calls wait_any_nohang() then mark_terminated(), which may execute non-async-signal-safe utmp operations in signal context.
+- reload_inittab() has an optional delayed SIGKILL child under ENABLE_FEATURE_KILL_REMOVED/CONFIG_FEATURE_KILL_DELAY; inspect config enablement and assess stale numeric PID reuse after parent reaping before changing it.
+- waitfor() and the main waitpid(-1, ...) loop must remain compatible with the special stop handler and exact child reap semantics.
+Do not edit this area until the precise invariant/bug is established. Add host regression coverage or an appropriate BusyBox test hook before claiming a fix.
 
-## First actions for next continuation
+## First actions
 
-1. Fetch current main and branch inventory once. Confirm frozen backup SHA remains 72f4f157a084f8184b9597ca5bf334b8080e5807; do not touch it.
-2. Check the above Action run IDs and ensure each result's head_sha equals d73ba6d2b9df959b73f0c0cf283d9694362b85c3. Start with DNSMasq and the NVRAM transaction boundary audit. If failures occur, inspect first causal logs and fix them without weakening the fail-closed policy.
-3. While any runs are pending, continue independent high-priority work outside the heavily modified DNSMasq path. Focus on core stability/security defects in WAN/PPP, storage, USB, process/service lifecycle or privileged management.
-4. Use one full Git tree and one atomic commit per logical change; update main only with force:false and expected_sha from a freshly fetched main. Check all triggered runs against the resulting exact SHA.
+1. Check live main and exact Actions for this workflow-contract commit. Verify the backup still points to 72f4f157a084f8184b9597ca5bf334b8080e5807.
+2. Confirm the DNSMasq workflow now passes on the new exact SHA; inspect exact-head job logs for failures. Also recheck NVRAM audit and XY-C1 result for 4fad5ae2... using the proper head_sha.
+3. Continue PID1 implementation/testing on main while independent Actions are pending.
+4. Update this handoff with the next source SHA, test commands/outcomes and exact CI run IDs/statuses.
 
-Follow AI_BOOTSTRAP_PROMPT.md and AI_DEVELOPMENT_PROTOCOL.md. Keep all development on main, preserve process-identity tri-state semantics and fail-closed UNKNOWN handling, and never invent test/CI/build/device results.
+Use complete Git trees and one atomic commit per logical change. Update main with force:false and expected_sha from a fresh branch read. Preserve process identity tri-state semantics and fail-closed UNKNOWN behavior. Do not report local tests, firmware/TRX/artifacts or physical-device validation unless actually observed.

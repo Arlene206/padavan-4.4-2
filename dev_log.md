@@ -1,3 +1,12 @@
+## 2026-11-23 04:55 UTC+8 — Align DNSMasq lock contract with fail-closed split-DNS snapshot
+
+- The first DNSMasq run on source SHA 4fad5ae2ac97a35d79031c3a18e828702d010109 failed in the generated-file/RC status contract, not in compilation or the split-DNS unit test. The old assertion treated every line between failed lock acquisition and staged-file open as the lock-acquisition failure branch; the new snapshot-error path correctly calls file_unlock() because that branch has already acquired the lock.
+- Narrowed the no-unlock assertion to the actual lock-acquisition failure branch, and added explicit assertions that snapshot reads happen after lock acquisition and before stage creation, and that snapshot failure releases the held lock, preserves the existing server file, restores errno and returns failure.
+- Exact source SHA 4fad5ae2ac97a35d79031c3a18e828702d010109: HTTPD, Process inventory/lifecycle, Inadyn, miniupnpd, WAN route, WAN DHCP and Samba workflows PASS; DNSMasq run 45084767538 FAIL only on the stale assertion above; NVRAM audit 45084767487 and XY-C1 firmware validation 45084767430 were still in progress at last check. No local compile/test was run.
+- This commit updates only the workflow contract and handoff/log state; its exact-head Actions remain pending until the push creates them.
+
+---
+
 ## 2026-11-22 — Reject symlinked MTD restore startup scripts
 
 - The restore guard used `[ -f start_script.sh ]`, which follows symlinks. An archive containing `start_script.sh -> /bin/sh` therefore passed the required-file check and was copied into the live storage tree; the firmware later executes that path as root during boot.
