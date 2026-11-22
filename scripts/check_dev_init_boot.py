@@ -269,7 +269,7 @@ assert "copyscripts_ca_status=0" in copyscripts
 assert "if ! install_ca_trust_store; then" in copyscripts
 assert "copyscripts_ca_status=1" in copyscripts
 assert "copyscripts_seed_status=0" in copyscripts
-seed_body = copyscripts.split("seed_storage_file() {", 1)[1].split("\\n}", 1)[0]
+seed_body = copyscripts.split("seed_storage_file() {", 1)[1].split("\n}", 1)[0]
 assert seed_body.count("return 1") == seed_body.count("copyscripts_seed_status=1")
 assert 'copyscripts_seed_status=1' in copyscripts.split('frp_script_path=', 1)[1].split('seed_storage_file "/etc_ro/caddy_script.sh"', 1)[0]
 assert 'copyscripts_seed_status=1' in copyscripts.split('ddns_script_path=', 1)[1].split('seed_storage_file "/etc_ro/adbyby_adblack.sh"', 1)[0]
