@@ -16,6 +16,7 @@ OPTIONAL_DAEMON_POLICY = ROOT / "trunk/user/rc/src/optional_daemon_policy.h"
 RC_SOURCE = ROOT / "trunk/user/rc/src/rc.c"
 IAPPD_SCRIPT = ROOT / "trunk/user/ralinkiappd/iappd.sh"
 ARIA2_SCRIPT = ROOT / "trunk/user/aria2/aria.sh"
+ARIA2_MAKEFILE = ROOT / "trunk/user/aria2/Makefile"
 IAPPD_TEST = ROOT / "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
 IAPPD_MAKEFILE = ROOT / "trunk/user/ralinkiappd/Makefile"
 PROCESS_WORKFLOW = ROOT / ".github/workflows/process-lifecycle-regression.yml"
@@ -1373,6 +1374,8 @@ printf '%s\\n' 123
 
 def check_aria2_reload():
     source = ARIA2_SCRIPT.read_text()
+    makefile = ARIA2_MAKEFILE.read_text()
+    assert "--no-check-certificate" not in makefile
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
     reload_start = source.index("func_reload()")

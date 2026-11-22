@@ -14,7 +14,7 @@ all: download_test extract_test config_test
 	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 ifeq ($(CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL),y)
 	( if [ ! -f $(THISDIR)/$(SRC_ARIA_NG_NAME).zip ]; then \
-		wget -t5 --timeout=20 --no-check-certificate -O $(SRC_ARIA_NG_NAME).zip $(SRC_ARIA_NG_URL); \
+		wget -t5 --timeout=20 -O $(SRC_ARIA_NG_NAME).zip $(SRC_ARIA_NG_URL); \
 	fi )
 	( if [ ! -d $(THISDIR)/ariaweb ]; then \
 		mkdir -p ariaweb; \
@@ -24,7 +24,7 @@ endif
 
 download_test:
 	( if [ ! -f $(SRC_NAME).tar.xz ]; then \
-		wget -t5 --timeout=20 --no-check-certificate -O $(SRC_NAME).tar.xz $(SRC_URL); \
+		wget -t5 --timeout=20 -O $(SRC_NAME).tar.xz $(SRC_URL); \
 	fi )
 
 extract_test:

@@ -1,3 +1,9 @@
+## 2026-11-22 — Aria2 build downloads must verify TLS certificates
+
+- Source baseline: `cb2cf663a60f5e06dded99b4b55b248a9ce95b38`. The Aria2 build Makefile passed `--no-check-certificate` to wget for both the upstream aria2 source tarball and the AriaNg web UI archive, disabling server certificate authentication on two supply-chain inputs fetched over HTTPS.
+- Removed the bypass from both download rules so wget verifies the GitHub TLS certificate chain using the build host trust store. Kept the URLs HTTPS. Added an exact source-contract assertion to the process-lifecycle checker to prevent the bypass from returning.
+- This change intentionally fails the build instead of silently accepting an untrusted/mismatched TLS endpoint; exact-head CI pending. No local firmware build claimed.
+
 ## 2026-11-22 — Correct Aria2 checker function-boundary extraction
 
 - Exact SHA `ef3ee77898620902bbc5bb98e4bc0ed75241a38e` reached `check_aria2_reload()` after the SCUTClient 59-assertion parser test passed, but the checker raised `ValueError: substring not found`. Its source slice searched for the two-character literal `\\n` before `case`, while `aria.sh` contains an actual line break.
