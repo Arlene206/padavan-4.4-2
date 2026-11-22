@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <stddef.h>
 
 #include "rc_notify_batch_policy.h"
 

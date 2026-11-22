@@ -164,6 +164,7 @@ static const struct rc_nvram_policy_ops rc_nvram_ops = {
 static int nvram_modem_type = 0;
 static int nvram_modem_rule = 0;
 static int nvram_ipv6_type = 0;
+static unsigned int rc_deferred_hotplug_retry_mask = 0;
 
 static int
 nvram_restore_defaults(void)
@@ -1866,6 +1867,65 @@ rc_notify_apply_radio_control(int is_5g, int radio_on, int manual)
 	return status;
 }
 
+
+#if defined (USE_USB_SUPPORT) || defined (USE_STORAGE)
+static int
+rc_notify_set_deferred_hotplug_marker(const char *event_name, const char *marker_name)
+{
+	int marker_status = nvram_set_int_temp(marker_name, 1);
+	if (marker_status != 0) {
+		rc_deferred_hotplug_retry_mask = rc_notify_hotplug_retry_record(
+			rc_deferred_hotplug_retry_mask, event_name, marker_status);
+		logmessage(LOGNAME, "cannot persist deferred event %s in %s (status=%d); retry scheduled",
+			   event_name, marker_name, marker_status);
+	}
+	return marker_status;
+}
+#endif
+
+
+void
+rc_notify_retry_deferred_hotplug_events(void)
+{
+	static const struct { const char *event_name; unsigned int flag; } retry_events[] = {
+		{ "on_hotplug_usb_printer", RC_NOTIFY_HOTPLUG_RETRY_PRINTER_PLUG },
+		{ "on_unplug_usb_printer", RC_NOTIFY_HOTPLUG_RETRY_PRINTER_UNPLUG },
+		{ "on_hotplug_usb_modem", RC_NOTIFY_HOTPLUG_RETRY_MODEM_PLUG },
+		{ "on_unplug_usb_modem", RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG },
+		{ "on_hotplug_mass_storage", RC_NOTIFY_HOTPLUG_RETRY_STORAGE_PLUG }
+	};
+	unsigned int pending = rc_deferred_hotplug_retry_mask, queued = 0;
+	int queue_fd, i, marker_status, signal_status, saved_errno;
+	if (!pending) return;
+	queue_fd = rc_notify_queue_open_dir(DIR_RC_NOTIFY, 0);
+	if (queue_fd < 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot open RC notification queue for deferred USB retry (errno=%d)", saved_errno);
+		alarm(5);
+		return;
+	}
+	for (i = 0; i < (int)(sizeof(retry_events) / sizeof(retry_events[0])); ++i) {
+		if (!(pending & retry_events[i].flag)) continue;
+		marker_status = rc_notify_queue_touch_at(queue_fd, retry_events[i].event_name, 0);
+		if (marker_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME, "cannot requeue deferred USB event %s (errno=%d)", retry_events[i].event_name, saved_errno);
+			continue;
+		}
+		queued |= retry_events[i].flag;
+	}
+	close(queue_fd);
+	if (queued) {
+		signal_status = kill(1, SIGUSR1);
+		if (signal_status != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME, "cannot wake PID 1 for deferred USB event retry (errno=%d)", saved_errno);
+		}
+		rc_deferred_hotplug_retry_mask = rc_notify_hotplug_retry_complete(pending, queued, signal_status);
+	}
+	if (rc_deferred_hotplug_retry_mask) alarm(5);
+}
+
 void
 handle_notifications(void)
 {
@@ -2108,25 +2168,33 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, "on_hotplug_usb_printer"))
 		{
 			// deferred run usb printer daemons
-			nvram_set_int_temp("usb_hotplug_lp", 1);
+			action_result = rc_notify_merge_action_result(
+				action_result,
+				rc_notify_set_deferred_hotplug_marker("on_hotplug_usb_printer", "usb_hotplug_lp"));
 			alarm(5);
 		}
 		else if (!strcmp(entry->d_name, "on_unplug_usb_printer"))
 		{
 			// deferred stop usb printer daemons
-			nvram_set_int_temp("usb_unplug_lp", 1);
+			action_result = rc_notify_merge_action_result(
+				action_result,
+				rc_notify_set_deferred_hotplug_marker("on_unplug_usb_printer", "usb_unplug_lp"));
 			alarm(5);
 		}
 		else if (!strcmp(entry->d_name, "on_hotplug_usb_modem"))
 		{
 			// deferred run usb modem to wan
-			nvram_set_int_temp("usb_hotplug_md", 1);
+			action_result = rc_notify_merge_action_result(
+				action_result,
+				rc_notify_set_deferred_hotplug_marker("on_hotplug_usb_modem", "usb_hotplug_md"));
 			alarm(5);
 		}
 		else if (!strcmp(entry->d_name, "on_unplug_usb_modem"))
 		{
 			// deferred restart wan
-			nvram_set_int_temp("usb_unplug_md", 1);
+			action_result = rc_notify_merge_action_result(
+				action_result,
+				rc_notify_set_deferred_hotplug_marker("on_unplug_usb_modem", "usb_unplug_md"));
 			alarm(5);
 		}
 #endif
@@ -2134,7 +2202,9 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, "on_hotplug_mass_storage"))
 		{
 			// deferred run stor apps
-			nvram_set_int_temp("usb_hotplug_ms", 1);
+			action_result = rc_notify_merge_action_result(
+				action_result,
+				rc_notify_set_deferred_hotplug_marker("on_hotplug_mass_storage", "usb_hotplug_ms"));
 			alarm(5);
 		}
 		else if (!strcmp(entry->d_name, "on_unplug_mass_storage"))

@@ -330,7 +330,8 @@ require(
 )
 require(
     "storage_unplug_pending=1;" in deferred_storage_code
-    and "storage_should_start=0;" not in deferred_storage_code
+    and deferred_storage_code.count("storage_should_start=0;") == 1
+    and deferred_storage_code.index("storage_should_start=0;") < deferred_storage_code.index(unplug_read)
     and "if(storage_dispatch_status!=0)" in deferred_storage_code
     and "alarm(5);" in deferred_storage_code
     and "if(storage_should_start)" in deferred_storage_code,

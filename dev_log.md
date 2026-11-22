@@ -1,3 +1,15 @@
+## 2026-11-22 — Retry failed deferred USB event marker writes
+
+- Parent main SHA: `e26890edfef8dd47aa1bbb1d514a315933de2571`.
+- `rc.c::handle_notifications()` removed queued RC events before writing temporary NVRAM markers for printer add/remove, modem add/remove and mass-storage add. The ignored setter result could discard the only wakeup when NVRAM write failed; the existing alarm did not recreate the notification.
+- Added a fixed-event retry mask and queue recovery worker. Marker failures now propagate to `action_result`, preserving the incomplete marker. PID 1 retries safe queue marker creation on SIGALRM and sends SIGUSR1; retry bits clear only after queue marker creation and wakeup succeed.
+- Added GNU89 policy tests for all five mappings, unknown names, failure recording and wakeup completion. Extended the RC notification source contract.
+- Corrected `check_storage_safe_remove.py`: it incorrectly prohibited the single initial `storage_should_start = 0` output initializer. The check now requires exactly one initializer before checked marker reads and dispatch.
+- Parent exact-SHA Actions: USB modem identity #44972041142 PASS; PID 1 notification #44972041292 PASS; USB storage #44972041244 failed only on the stale checker assertion; AI handoff #44972041355 PASS; XY-C1 #44972041318 still IN_PROGRESS. Fresh source-SHA tests/build/TRX/artifact are required; no target or hardware pass is claimed.
+- THIS COMMIT atomically includes RC source/API, policy and regression, notification contracts, storage checker correction, handoff and log.
+
+---
+
 ## 2026-11-22 — Gate modem link, module restart and WAN LED decisions on checked identity
 
 - Parent main SHA: `4949f8f41ccd23df2e657477ede2e667410f2e19`.

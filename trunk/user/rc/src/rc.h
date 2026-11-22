@@ -149,6 +149,7 @@ void setkernel_tz(void);
 int init_router(void);
 void shutdown_router(int level);
 void handle_notifications(void);
+void rc_notify_retry_deferred_hotplug_events(void);
 void LED_CONTROL(int gpio_led, int flag);
 int storage_save_time(time_t delta);
 int write_storage_to_mtd(void);
