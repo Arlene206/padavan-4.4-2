@@ -334,6 +334,9 @@ write_vsftpd_conf(void)
 	int max_user_status, ftp_mode_status, ftp_log_status;
 	int ftp_min_status, ftp_max_status, ftp_passive_port_status;
 	int config_status, saved_errno, i_ftp_mode;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 	const char *banner_product;
 
 	ftp_mode_status = storage_read_integer_status(
@@ -363,6 +366,18 @@ write_vsftpd_conf(void)
 		return -1;
 	}
 
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		saved_errno = ipv6_type_status > 0 ? ipv6_type_status : EIO;
+		logmessage("FTP server",
+			   "cannot determine IPv6 listener mode; preserving active configuration (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+#endif
+
 	if (ftp_config_file_open("/etc/vsftpd.conf", staged_path,
 				 sizeof(staged_path), &fp) != 0)
 		return -1;
@@ -372,7 +387,7 @@ write_vsftpd_conf(void)
 		banner_product = "Padavan";
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED) {
+	if (ipv6_type != IPV6_DISABLED) {
 		fprintf(fp, "listen_ipv6=%s\n", "YES");
 		fprintf(fp, "listen=%s\n", "NO");
 	} else
@@ -1994,7 +2009,7 @@ write_nfsd_exports(void)
 	int exports_override_state;
 	int acl_ipv4_status, acl_vpn_status = 0;
 #if defined (USE_IPV6)
-	int ipv6_type, acl_ipv6_status = 0;
+	int ipv6_type, ipv6_type_status, acl_ipv6_status = 0;
 	char *acl_addr6 = NULL, *acl_len6 = NULL;
 	char acl_addr6_export[INET6_ADDRSTRLEN + 4];
 #endif
@@ -2070,6 +2085,18 @@ write_nfsd_exports(void)
 		return 0;
 	}
 
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		saved_errno = ipv6_type_status > 0 ? ipv6_type_status : EIO;
+		logmessage("Storage",
+			   "refusing generated NFS exports without verified IPv6 service state (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+#endif
+
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
 	if (!procpt) {
 		saved_errno = errno ? errno : EIO;
@@ -2126,7 +2153,6 @@ write_nfsd_exports(void)
 	}
 
 #if defined (USE_IPV6)
-	ipv6_type = get_ipv6_type();
 	if (ipv6_type != IPV6_DISABLED) {
 		acl_addr6 = nvram_safe_get("ip6_lan_addr");
 		acl_len6 = nvram_safe_get("ip6_lan_size");

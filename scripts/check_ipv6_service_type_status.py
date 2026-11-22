@@ -48,6 +48,7 @@ wan6 = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
 rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
 net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
 net_lan = (ROOT / "trunk/user/rc/src/net_lan.c").read_text()
+storage = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 
 reader = function_body(netutils, "int get_ipv6_type_status(")
 assert 'nvram_get_checked("ip6_service", &service_value)' in reader
@@ -179,5 +180,25 @@ start_bridge = lan_start.index("config_bridge(is_ap_mode)", start_aggregate)
 assert start_read < start_error < start_reload < start_aggregate < start_bridge
 assert "operation_status = ipv6_type_status;" in lan_start[start_error:start_reload]
 assert "get_ipv6_type()" not in lan_start
+
+
+ftp_config = function_body(storage, "write_vsftpd_conf(void)")
+ftp_read = ftp_config.index("get_ipv6_type_status(&ipv6_type)")
+ftp_error = ftp_config.index("if (ipv6_type_status != 0)", ftp_read)
+ftp_return = ftp_config.index("return -1;", ftp_error)
+ftp_stage = ftp_config.index("ftp_config_file_open(", ftp_return)
+ftp_listener = ftp_config.index("if (ipv6_type != IPV6_DISABLED)")
+assert ftp_read < ftp_error < ftp_return < ftp_stage < ftp_listener
+assert "get_ipv6_type()" not in ftp_config
+
+nfs_exports = function_body(storage, "write_nfsd_exports(void)")
+nfs_override = nfs_exports.index("if (exports_override_state == 1)")
+nfs_read = nfs_exports.index("get_ipv6_type_status(&ipv6_type)")
+nfs_error = nfs_exports.index("if (ipv6_type_status != 0)", nfs_read)
+nfs_return = nfs_exports.index("return -1;", nfs_error)
+nfs_mounts = nfs_exports.index("procpt = fopen(PROC_MOUNTS_FILE")
+nfs_acl = nfs_exports.index("if (ipv6_type != IPV6_DISABLED)", nfs_mounts)
+assert nfs_override < nfs_read < nfs_error < nfs_return < nfs_mounts < nfs_acl
+assert "get_ipv6_type()" not in nfs_exports
 
 print("IPv6 service-type checked-read source contract: PASS")

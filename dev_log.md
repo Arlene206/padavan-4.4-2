@@ -1,3 +1,12 @@
+## 2026-11-22 13:32 UTC+8 — Fail closed in FTP and NFS IPv6 config generation
+
+- Parent main SHA: `0673248bc999e9e06f4f69c8d1b0bb2d05c6bea3`. Exact IPv6 service-type #44989677353 and AI docs #44989677501 PASS; DNSMasq #44989677293, Firewall #44989677298, WAN DHCP #44989677276, watchdog #44989677335, detect-internet #44989677332, detect-link #44989677304 and wireless #44989677260 PASS on that SHA. XY-C1 #44989677285 and several long jobs were still in progress at last poll.
+- `write_vsftpd_conf()` previously treated an unreadable IPv6 service key as disabled and staged IPv4-only listener config. It now checks service state before opening its stage file and preserves the active config on read/close failure.
+- Generated NFS exports now check service type before opening procfs/staging resources, so transient errors cannot produce/publish IPv4-only ACL output. Valid operator-provided custom exports keep the existing override path.
+- Added order/no-legacy assertions to the IPv6 source checker. `services_stor.c` already triggers storage-hotplug; it is also added to the IPv6 workflow push/PR filters. New SHA Actions pending; no local compile or L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:30 UTC+8 — Preserve LAN hosts and IPv6 state on service read errors
 
 - Parent main SHA: `c29cb02e1536627abb824379ba92c8dc3d9cd8af`. The IPv6 checker correction #44989518974 and AI docs #44989518977 PASS on this exact SHA; the prior GNU89 ASan/UBSan policy and LAN6/firewall contracts are green.
