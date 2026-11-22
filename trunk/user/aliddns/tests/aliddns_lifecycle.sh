@@ -86,21 +86,21 @@ nvram() {
 	case "${1:-} ${2:-}" in
 		"get_checked aliddns_enable")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_enable ] || return "$NVRAM_READ_STATUS"
-			printf '%s\\n' "$NVRAM_ENABLE_VALUE"
+			printf '%s\n' "$NVRAM_ENABLE_VALUE"
 			;;
 		"get_checked aliddns_interval")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_interval ] || return "$NVRAM_READ_STATUS"
-			printf '%s\\n' "300"
+			printf '%s\n' "300"
 			;;
 		"set aliddns_enable=0")
-			printf '%s\\n' "$*" >> "$NVRAM_WRITES"
+			printf '%s\n' "$*" >> "$NVRAM_WRITES"
 			[ "$NVRAM_SET_STATUS" -eq 0 ] || return "$NVRAM_SET_STATUS"
 			NVRAM_ENABLE_VALUE=0
 			;;
 		*) return 2 ;;
 	esac
 }
-logger() { printf '%s\\n' "$*" >> "$NVRAM_LOG"; }
+logger() { printf '%s\n' "$*" >> "$NVRAM_LOG"; }
 
 # A transient read failure must never be mistaken for an uninitialized key.
 aliddns_enable=1
