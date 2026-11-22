@@ -28,22 +28,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- WAN protocol hardening source slice `4a6df662b6c34d2282e81b3ef8054e80e0894393` protects MAN DNS route setup/teardown, WAN-up, DHCP bound and WAN-stop first-error handling. The exposed XY-C1 compile blocker was removed in `02857320194ebdda3b451ea3d6de07fa212995c0`; exact XY-C1 Build, TRX and artifact upload all passed on that SHA (#44968037242).
-- Current source slice adds `get_usb_modem_wan_status()` using `nvram_get_checked()`, preserving legacy `atoi()` numeric-prefix and missing-key zero semantics while surfacing backend and integer-overflow errors. GNU89 parser regressions and the USB-modem identity workflow are extended. The old boolean API remains a compatibility wrapper.
-- Next source slice migrates WAN lifecycle consumers to distinguish identity-read failure from “not a modem”, while preserving independent best-effort cleanup.
+- WAN protocol hardening and XY-C1 compile fix are complete through product source SHA `02857320194ebdda3b451ea3d6de07fa212995c0`; exact XY-C1 Build/TRX/artifact all passed on that SHA.
+- Source commit `f1327a7988b9552c2ce3294c641d27838efd9664` added `get_usb_modem_wan_status()` using `nvram_get_checked()`, preserving legacy numeric-prefix/default semantics, with GNU89 regressions and USB modem workflow triggers/source checks.
+- The first exact-head USB modem workflow found an escaping bug in the new test step: literal backslash arguments reached the linker. The parser source compiled up to link; this commit simplifies its compiler invocation to one command line.
+- Next: inspect the exact rerun, then migrate WAN lifecycle consumers to checked modem identity and checked `ifname_t` reads.
 
 ## Verification boundary
 
-- Parent main SHA: `c6bda35a8e872f040534ef67069e3f30af467928`; latest archive metadata correction `c6bda35a8e872f040534ef67069e3f30af467928` passed the AI handoff validator (#44969060601). Root rolling log contains 21 entries; part-024 metadata records 129424 UTF-8 bytes.
-- Prior exact product source `02857320194ebdda3b451ea3d6de07fa212995c0`: XY-C1 Build step 37, TRX step 38 and artifact upload step 39 all SUCCESS (#44968037242); WAN teardown, DHCP callback and USB modem identity checks passed on that SHA.
-- This commit adds a shared API and pure parser tests. Exact-head USB modem identity and XY-C1 validation remain required; no physical modem hardware result is claimed.
+- Parent main SHA: `f1327a7988b9552c2ce3294c641d27838efd9664`; source/API commit under test: `f1327a7988b9552c2ce3294c641d27838efd9664`.
+- Exact USB modem identity run #44969481834 on f1327: FAIL only at the added parser test compile/link step because over-escaped line continuations passed backslash arguments to the linker. Earlier host-policy steps passed. The test invocation is now flattened; exact-head rerun is required.
+- XY-C1 run #44969481753 was in progress at the last poll on f1327, including the shared API. Build, TRX and artifact status must be checked on the exact source SHA.
+- Other f1327 checks were queued/in progress; no outcomes are inferred.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB modem identity and XY-C1 Build/TRX/artifact checks for the checked `get_usb_modem_wan_status()` API commit; fix actual parser/compiler/contract failures.
-2. Migrate `is_ifunit_modem()` plus WAN-up/down and DHCP-bound consumers to status-returning modem and checked `ifname_t` reads; preserve independent cleanup when identity is unknown.
-3. Migrate remaining direct modem identity reads in WAN stop, MAN routes, manual disconnect, auto reconnect and DNS notification; add source contracts forbidding lifecycle-critical legacy reads.
+1. Inspect exact-SHA USB modem identity and XY-C1 results for the corrected test command; fix any parser/compiler/test issue.
+2. Migrate `is_ifunit_modem()` to a status-returning helper using `get_usb_modem_wan_status()` and checked `ifname_t` reads; wire status into WAN-up/down and DHCP bound while preserving independent cleanup.
+3. Migrate remaining direct modem identity reads in WAN stop, MAN routes, manual disconnect, reconnect priority and DNS selection; add source contracts preventing legacy reads in critical paths.
 
 ## Workflow and preservation rules
 

@@ -1,3 +1,11 @@
+## 2026-11-22 — Repair checked modem identity workflow compiler command
+
+- Parent main SHA: `f1327a7988b9552c2ce3294c641d27838efd9664`; source/API commit under test: `f1327a7988b9552c2ce3294c641d27838efd9664`.
+- Exact USB modem identity run #44969481834 failed in the added parser compile step because over-escaped line continuations passed backslash arguments to the linker. Earlier host policy steps passed. Flattened the GNU89/ASan compiler invocation to one shell line; production source and parser tests are unchanged.
+- XY-C1 run #44969481753 remained in progress on f1327 at last poll. Exact rerun and Build/TRX/artifact results remain required.
+
+---
+
 ## 2026-11-22 — Add checked USB modem WAN identity reader
 
 - Parent main SHA: `c6bda35a8e872f040534ef67069e3f30af467928`.
