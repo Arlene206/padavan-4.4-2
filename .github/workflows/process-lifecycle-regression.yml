@@ -269,6 +269,8 @@ on:
       - "trunk/user/rc/src/hwnat_config_policy.h"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/tests/pid1_signal_policy.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
       - "trunk/user/rc/src/boot_device_node_policy.h"
       - "trunk/user/rc/src/tests/boot_device_node_policy.c"
       - "trunk/user/rc/src/init_mdev_retry_policy.h"

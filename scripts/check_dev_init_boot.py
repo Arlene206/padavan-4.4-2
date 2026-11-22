@@ -207,7 +207,7 @@ assert "sigemptyset(&sa.sa_mask)" not in signal_init
 assert "sigaddset(&sa.sa_mask" not in signal_init
 assert "pid1_signal_empty_set" in signal_policy and "pid1_signal_add_set" in signal_policy
 for token in ("fake_signal_empty", "fake_signal_add", "fake_empty_errno = 0",
-              "fake_add_errno = 0", "== EIO", "== EACCES", "== ERANGE"):
+              "fake_add_errno = 0", "!= EIO", "!= EACCES", "!= ERANGE"):
     assert token in signal_test, "PID 1 signal mask unit case missing: " + token
 assert "return first_status;" in signal_init
 assert "signal_status = init_signals();" in loop
