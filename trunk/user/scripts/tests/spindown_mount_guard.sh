@@ -110,9 +110,10 @@ sed \
 	-e "s|/proc/mounts|$tmp/mounts|g" \
 	-e "s|/proc/swaps|$tmp/swaps|g" \
 	-e "s|/sys/block|$tmp/sys/block|g" \
-	-e "s|/var/lock/automount_mountpoint.lock|$tmp/mountpoint.lock|g" \
+	-e "s|/tmp/automount_mountpoint.lock|$tmp/mountpoint.lock|g" \
 	"$script" > "$tmp/spindown.sh"
 chmod 755 "$tmp/spindown.sh"
+(umask 077; : > "$tmp/mountpoint.lock")
 # A complete non-empty mount table with only another disk proves sda is unused.
 printf '/dev/sdb1 /mnt/other ext4 rw 0 0\\n' > "$tmp/mounts"
 cat > "$tmp/swaps" <<'EOF_SWAP'

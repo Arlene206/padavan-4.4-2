@@ -44,6 +44,8 @@ on:
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/scripts/files/sbin/automount.sh"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
+      - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
       - "trunk/user/scripts/tests/storage_mountpoint_inventory.sh"
       - "trunk/user/scripts/tests/storage_module_load_lock.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
@@ -125,6 +127,8 @@ on:
       - "trunk/user/libdisk/src/storage_swap_policy.h"
       - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/scripts/files/sbin/automount.sh"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
+      - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
       - "trunk/user/scripts/tests/storage_mountpoint_inventory.sh"
       - "trunk/user/scripts/tests/storage_module_load_lock.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
@@ -445,6 +449,12 @@ jobs:
           set -eu
           sh -n trunk/user/scripts/files/sbin/automount.sh
           sh trunk/user/scripts/tests/storage_module_load_lock.sh
+      - name: Verify dev_init provisions a private storage lock before hotplug scan
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/dev_init.sh
+          sh -n trunk/user/scripts/tests/dev_init_boot_policy.sh
+          sh trunk/user/scripts/tests/dev_init_boot_policy.sh
       - name: Verify automount mount-owner inventory fails closed
         run: |
           set -eu
@@ -755,6 +765,10 @@ jobs:
           assert "Unable to verify mount ownership" in automount
           assert "func_load_module vfat" not in automount
           spindown = Path("trunk/user/scripts/files/sbin/spindown.sh").read_text()
+          assert 'automount_lock_file="/tmp/automount_mountpoint.lock"' in automount
+          assert 'if [ -L "$automount_lock_file" ] || [ ! -f "$automount_lock_file" ]; then' in automount
+          assert 'spindown_lock_file=/tmp/automount_mountpoint.lock' in spindown
+          assert 'if [ -L "$spindown_lock_file" ] || [ ! -f "$spindown_lock_file" ]; then' in spindown
           opt_mount = Path("trunk/user/optware/opt-mount.sh").read_text()
           lock_policy = (rc_dir / "storage_operation_lock.h").read_text()
           lock_test = (rc_dir / "tests/storage_operation_lock.c").read_text()

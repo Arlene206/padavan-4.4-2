@@ -9,17 +9,13 @@ case "$1" in
 	[!A-Za-z0-9]*|*[!A-Za-z0-9_-]*) exit 1 ;;
 esac
 
-# Share automount.sh's mountpoint lock across the inventory check and
+# Share automount.sh's pre-created root-owned mountpoint lock across the inventory check and
 # hdparm command. Keep FD 9 open until hdparm returns so a hotplug mount cannot
 # start between the snapshot and the power command.
-spindown_lock_file=/var/lock/automount_mountpoint.lock
-spindown_old_umask=$(umask)
-umask 077
-if ! ( : >> "$spindown_lock_file" ); then
-	umask "$spindown_old_umask"
+spindown_lock_file=/tmp/automount_mountpoint.lock
+if [ -L "$spindown_lock_file" ] || [ ! -f "$spindown_lock_file" ]; then
 	exit 1
 fi
-umask "$spindown_old_umask"
 exec 9>>"$spindown_lock_file" || exit 1
 if ! flock 9; then
 	exec 9>&-

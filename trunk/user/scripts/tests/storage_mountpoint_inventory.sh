@@ -54,9 +54,10 @@ expect_status 3 /media/usb "$mounts"
 echo "Automount mount ownership tri-state inventory policy: PASS"
 # The lock helper is shared with swap activation. Verify private creation,
 # umask restoration and exclusion of a competing worker.
-sed -e "s|/var/lock/automount_mountpoint.lock|$tmpdir/automount.lock|g" \
+sed -e "s|/tmp/automount_mountpoint.lock|$tmpdir/automount.lock|g" \
 	-n -e '/^automount_acquire_mountpoint_lock()$/,/^}$/p' "$automount" > "$tmpdir/lock-function.sh"
 [ -s "$tmpdir/lock-function.sh" ]
+(umask 077; : > "$tmpdir/automount.lock")
 logger() { :; }
 . "$tmpdir/lock-function.sh"
 saved_umask=$(umask)
@@ -72,6 +73,20 @@ if (
 	exit 1
 fi
 exec 8>&-
+
+# The runtime helper must reject symlinks even if the pre-boot provisioner is
+# bypassed or the /tmp entry is unexpectedly replaced.
+sed -e "s|/tmp/automount_mountpoint.lock|$tmpdir/unsafe-lock|g" \
+	-n -e '/^automount_acquire_mountpoint_lock()$/,/^}$/p' "$automount" > "$tmpdir/unsafe-lock-function.sh"
+ln -s "$tmpdir/target" "$tmpdir/unsafe-lock"
+if (
+	logger() { :; }
+	. "$tmpdir/unsafe-lock-function.sh"
+	automount_acquire_mountpoint_lock
+); then
+	echo "automount lock helper followed a symlink" >&2
+	exit 1
+fi
 
 # Swap activation must take the same lock before swapon runs.
 lock_line=$(grep -nF 'if ! automount_acquire_mountpoint_lock; then' "$automount" | head -n 1 | cut -d: -f1)

@@ -144,26 +144,17 @@ ID_FS_LABEL=$(/sbin/blkid -s LABEL -o value "$dev_full" 2>/dev/null)
 # spindown holds the same lock while checking both inventories and issuing hdparm.
 automount_acquire_mountpoint_lock()
 {
-	automount_lock_file="/var/lock/automount_mountpoint.lock"
-	automount_old_umask=$(umask)
-	umask 077
-	if ! ( : >> "$automount_lock_file" ); then
-		umask "$automount_old_umask"
-		logger -t "automount" "Unable to create mountpoint lock $automount_lock_file"
+	automount_lock_file="/tmp/automount_mountpoint.lock"
+	if [ -L "$automount_lock_file" ] || [ ! -f "$automount_lock_file" ]; then
+		logger -t "automount" "Refusing unsafe or missing mountpoint lock $automount_lock_file"
 		return 1
 	fi
-	if ! exec 8>>"$automount_lock_file"; then
-		umask "$automount_old_umask"
-		logger -t "automount" "Unable to open mountpoint lock $automount_lock_file"
-		return 1
-	fi
+	exec 8>>"$automount_lock_file" || return 1
 	if ! flock 8; then
 		exec 8>&-
-		umask "$automount_old_umask"
 		logger -t "automount" "Unable to acquire mountpoint lock $automount_lock_file"
 		return 1
 	fi
-	umask "$automount_old_umask"
 	return 0
 }
 
