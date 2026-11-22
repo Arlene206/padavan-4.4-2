@@ -1775,5 +1775,31 @@ jobs:
           assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in lan_callback_test
           assert "test_transaction_failure_remains_fatal" in lan_callback_test
 
+          reset_lan_temp = body(lan_source, "reset_lan_temp_status(void)")
+          reset_lan_compact = "".join(reset_lan_temp.split())
+          reset_ip_field = reset_lan_compact.index('snapshot_fields[0].param_name="lan_ipaddr";')
+          reset_mask_field = reset_lan_compact.index('snapshot_fields[1].param_name="lan_netmask";')
+          reset_snapshot = reset_lan_compact.index("status=rc_wan_nvram_copy_snapshot(")
+          assert reset_ip_field < reset_mask_field < reset_snapshot
+          assert "lan_dhcp_snapshot_begin" in reset_lan_temp
+          assert "lan_dhcp_snapshot_get" in reset_lan_temp
+          assert "lan_dhcp_snapshot_end" in reset_lan_temp
+          assert reset_lan_compact.index("rc_wan_nvram_set_required_values(") > reset_snapshot
+
+          start_lan = body(lan_source, "start_lan(int is_ap_mode, int do_wait)")
+          start_lan_compact = "".join(start_lan.split())
+          start_ip_field = start_lan_compact.index('identity_fields[0].param_name="lan_ipaddr";')
+          start_mask_field = start_lan_compact.index('identity_fields[1].param_name="lan_netmask";')
+          start_snapshot = start_lan_compact.index("operation_status=rc_wan_nvram_copy_snapshot(")
+          start_apply = start_lan_compact.index("ifconfig(lan_ifname,IFUP,lan_ipaddr,lan_netmsk)")
+          assert start_ip_field < start_mask_field < start_snapshot < start_apply
+          assert 'identity_fields[2].param_name="lan_domain";' in start_lan_compact
+          assert "if(is_ap_mode)" in start_lan_compact
+          assert "lan_dhcp_snapshot_begin" in start_lan
+          assert "lan_dhcp_snapshot_get" in start_lan
+          assert "lan_dhcp_snapshot_end" in start_lan
+          assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked,NULL,"lan_ipaddr"' not in start_lan_compact
+          assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked,NULL,"lan_netmask"' not in start_lan_compact
+
           print("WAN DHCP callback ordering, rollback, IPTV LAN subnet snapshot and static-interface failure contracts: PASS")
           PY

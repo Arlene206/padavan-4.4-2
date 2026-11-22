@@ -88,6 +88,9 @@ static const rc_udhcpc_script_link_ops_t udhcpc_lan_script_link_ops = {
 };
 
 static int lan_nvram_get_checked(void *context, const char *param_name, char **value);
+static int lan_dhcp_snapshot_begin(void *opaque);
+static int lan_dhcp_snapshot_get(void *opaque, const char *name, char **value);
+static int lan_dhcp_snapshot_end(void *opaque);
 
 /*
  * Keep NVRAM read failures distinct from absent keys before applying bridge
@@ -1145,6 +1148,8 @@ int
 reset_lan_temp_status(void)
 {
 	char lan_ipaddr[16], lan_netmask[16];
+	struct nvram_transaction snapshot_transaction;
+	struct rc_wan_nvram_snapshot_field snapshot_fields[2];
 	struct rc_wan_nvram_value persistent_values[2];
 	struct rc_wan_nvram_value runtime_values[5];
 	const struct lan_nvram_set_context persistent_context = { 0 };
@@ -1152,14 +1157,20 @@ reset_lan_temp_status(void)
 	unsigned int persistent_count = 0;
 	int status;
 
-	status = rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL,
-					 "lan_ipaddr", lan_ipaddr,
-					 sizeof(lan_ipaddr));
-	if (status != 0)
-		goto failed;
-	status = rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL,
-					 "lan_netmask", lan_netmask,
-					 sizeof(lan_netmask));
+	/*
+	 * Defaulting and runtime publication operate on one persistent subnet
+	 * generation; never combine an address and mask across separate commits.
+	 */
+	snapshot_fields[0].param_name = "lan_ipaddr";
+	snapshot_fields[0].destination = lan_ipaddr;
+	snapshot_fields[0].destination_size = sizeof(lan_ipaddr);
+	snapshot_fields[1].param_name = "lan_netmask";
+	snapshot_fields[1].destination = lan_netmask;
+	snapshot_fields[1].destination_size = sizeof(lan_netmask);
+	status = rc_wan_nvram_copy_snapshot(
+		snapshot_fields, 2, lan_dhcp_snapshot_begin,
+		lan_dhcp_snapshot_get, lan_dhcp_snapshot_end,
+		&snapshot_transaction);
 	if (status != 0)
 		goto failed;
 
@@ -1472,6 +1483,9 @@ start_lan(int is_ap_mode, int do_wait)
 	char lan_ipaddr[16];
 	char lan_netmsk[16];
 	char lan_dname[256];
+	struct nvram_transaction identity_transaction;
+	struct rc_wan_nvram_snapshot_field identity_fields[3];
+	unsigned int identity_count = 2;
 	char *lan_ifname = IFNAME_BR;
 	int start_status = 0;
 	int operation_status;
@@ -1482,20 +1496,26 @@ start_lan(int is_ap_mode, int do_wait)
 #endif
 
 	/*
-	 * Keep the address, mask and (in AP mode) domain in owned buffers.
-	 * NVRAM getters return shared cache storage that later reads may reuse.
+	 * Snapshot the LAN address, mask and (in AP mode) domain together.
+	 * Owned buffers prevent cache reuse; one NVRAM transaction also prevents
+	 * a concurrent config commit from mixing subnet generations.
 	 */
-	operation_status = rc_wan_nvram_copy_value(
-		lan_nvram_get_checked, NULL, "lan_ipaddr",
-		lan_ipaddr, sizeof(lan_ipaddr));
-	if (operation_status == 0)
-		operation_status = rc_wan_nvram_copy_value(
-			lan_nvram_get_checked, NULL, "lan_netmask",
-			lan_netmsk, sizeof(lan_netmsk));
-	if (operation_status == 0 && is_ap_mode)
-		operation_status = rc_wan_nvram_copy_value(
-			lan_nvram_get_checked, NULL, "lan_domain",
-			lan_dname, sizeof(lan_dname));
+	identity_fields[0].param_name = "lan_ipaddr";
+	identity_fields[0].destination = lan_ipaddr;
+	identity_fields[0].destination_size = sizeof(lan_ipaddr);
+	identity_fields[1].param_name = "lan_netmask";
+	identity_fields[1].destination = lan_netmsk;
+	identity_fields[1].destination_size = sizeof(lan_netmsk);
+	if (is_ap_mode) {
+		identity_fields[2].param_name = "lan_domain";
+		identity_fields[2].destination = lan_dname;
+		identity_fields[2].destination_size = sizeof(lan_dname);
+		identity_count = 3;
+	}
+	operation_status = rc_wan_nvram_copy_snapshot(
+		identity_fields, identity_count,
+		lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		lan_dhcp_snapshot_end, &identity_transaction);
 	if (operation_status != 0) {
 		errno = operation_status;
 		logmessage(LOGNAME,
