@@ -817,10 +817,10 @@ for name, mode in (("address", addr_mode), ("DNS", dns_mode), ("SIT", sit_mode))
     require("get_ipv6_type()" not in mode,
             name + " mode selector must not use the legacy error-collapsing getter")
 
-require('wan6_read_nvram_match_status("ip6_6rd_dhcp", "0", &sixrd_is_manual)' in
+require('wan6_read_nvram_match_status("ip6_6rd_dhcp","0",&sixrd_is_manual)' in
         "".join(addr_mode.split()),
         "6rd address mode must use a checked DHCP-mode read")
-require('wan6_read_nvram_match_status("ip6_dns_auto", "0", &dns_auto_is_manual)' in
+require('wan6_read_nvram_match_status("ip6_dns_auto","0",&dns_auto_is_manual)' in
         "".join(dns_mode.split()),
         "native DHCPv6 DNS mode must use a checked auto/manual read")
 
@@ -891,10 +891,14 @@ require(down_mode.index("ipv6_status=wan6_down(wan_ifname,unit)") <
         down_mode.index("cannotdetermineWANIPv6transportduringteardown"),
         "WAN-down must attempt best-effort DHCPv6 callback stop on a mode-read error")
 
-assert not re.search(r"\bis_wan_(?:addr6_static|dns6_static|ipv6_type_sit)\s*\(",
-                     reset_ipv6 + dns_export),
-       "state-changing WAN IPv6 paths must use checked mode predicates"
-assert not re.search(r"\bget_ipv6_type\s*\(", wan6_source),
-       "net_wan6.c must not consume the legacy IPv6 service getter"
+require(
+    not re.search(r"\bis_wan_(?:addr6_static|dns6_static|ipv6_type_sit)\s*\(",
+                  reset_ipv6 + dns_export),
+    "state-changing WAN IPv6 paths must use checked mode predicates",
+)
+require(
+    not re.search(r"\bget_ipv6_type\s*\(", wan6_source),
+    "net_wan6.c must not consume the legacy IPv6 service getter",
+)
 
 print("WAN IPv6 service-mode checked reads and caller error propagation: PASS")
