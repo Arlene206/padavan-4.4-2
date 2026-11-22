@@ -2079,11 +2079,19 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int i_vpnc_ov_mode = 0, i_vpnc_ov_cnat = 0;
 #endif
 #if defined (USE_IPV6)
-	int ipv6_type = get_ipv6_type();
+	int ipv6_type, ipv6_type_status;
 #endif
 
 	ret = 0;
 	i_bfplimit_ref = 0;
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage("Firewall", "refusing IPv4 filter rules: cannot read IPv6 service configuration (status=%d)", ipv6_type_status);
+		return ipv6_type_status;
+	}
+#endif
 
 	is_logaccept = (strcmp(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT) == 0) ? 1 : 0;
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
@@ -3090,7 +3098,13 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	ret = 0;
 	i_bfplimit_ref = 0;
 
-	ipv6_type = get_ipv6_type();
+
+	ret = get_ipv6_type_status(&ipv6_type);
+	if (ret != 0) {
+		errno = ret;
+		logmessage("Firewall", "refusing IPv6 filter rules: cannot read IPv6 service configuration (status=%d)", ret);
+		return ret;
+	}
 
 	ret = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (ret != 0)
@@ -3714,6 +3728,9 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	int i_aria_pport = 0, i_aria_rport = 0;
 #endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
+#if defined (USE_IPV6)
+	int ipv6_type;
+#endif
 	int is_vts_enabled = 0, i_vts_count = 0;
 #if defined (APP_SSHD)
 	int is_sshd_enabled = 1;
@@ -3982,6 +3999,17 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 	}
 
+#if defined (USE_IPV6)
+	if (is_use_dmz) {
+		firewall_status = get_ipv6_type_status(&ipv6_type);
+		if (firewall_status != 0) {
+			errno = firewall_status;
+			logmessage("Firewall", "refusing DMZ rules: cannot read IPv6 service configuration (status=%d)", firewall_status);
+			return firewall_status;
+		}
+	}
+#endif
+
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 NAT")))
 		return 0;
 
@@ -4238,8 +4266,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #if defined (USE_IPV6)
 			/* skip DMZ for local IPv6 (SIT) */
 			{
-				int ipv6_type = get_ipv6_type();
-				if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD)
+			if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD)
 					fprintf(fp, "-A %s -p %d -j RETURN\n", dtype, 41);
 			}
 #endif

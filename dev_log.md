@@ -1,3 +1,13 @@
+## 2026-11-22 14:06 UTC+8 — Fail closed in firewall IPv6-dependent rule builders
+
+- Main parent at start of slice: `e85eaf114556844668acaaea9fe4d9d7afd60406`. Recovery record: commit `0608bf0` had been assembled against a stale pre-`915456f` tree, reverting nine checked-IPv6 files; `250ebfd2` restored those exact blobs on top of the correct tree.
+- Migrated the three remaining `firewall_ex.c` IPv6-service reads (IPv4 filter, IPv6 filter, and IPv4 NAT/DMZ) to `get_ipv6_type_status()`. Each read fails closed before its rule file is opened/staged; NAT only reads the service value when DMZ is enabled. The protocol-41 exception uses the checked type rather than a second lossy read.
+- Extended the dedicated IPv6 source checker to enforce function-local ordering and no legacy getters; included `firewall_ex.c` in both workflow path filters. Fixed Firewall workflow's prior `rc_source` NameError by using its actual `rc` source variable.
+- Validation: no local firmware toolchain is available, so no local C compile claimed. Parent exact-SHA IPv6-service #44988923829, HTTPD #44988923791 and WAN-route #44988923630 passed; Firewall #44988923723 failed only at the checker NameError. New SHA checks pending; L3/L4 unverified.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` / `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged.
+
+---
+
 ## 2026-11-22 13:25 UTC+8 — Preserve LAN IPv6 state on service-type read failure
 
 - Parent main SHA: `7e8fa44420f186bea85ed9dc5cdef5990665913a`; product-source parent: `250ebfd2babb558957924e18033db434976fdbfe`.

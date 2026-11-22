@@ -44,7 +44,6 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-`head_sha` push Actions for THIS LAN IPv6 source commit. Require IPv6 service-type checker and ASan/UBSan policy tests to pass; fix any failure at its first cause.
-2. Inspect XY-C1 run for THIS exact source SHA. Claim L3 only if Build XY-C1, Verify TRX output and upload-artifact all pass on that SHA. Recheck any still-pending parent run separately; never reuse it as proof for the new source.
-3. Continue remaining state-changing `get_ipv6_type()` migrations in `net_lan.c`, `firewall_ex.c`, `net_wan.c`, `services_stor.c` and `vpn_openvpn.c`, one bounded regression-backed main commit at a time.
-4. Hardware L4 remains unverified until actual device flash/boot/runtime checks are performed.
+1. Validate the exact-SHA IPv6 service-type and Firewall workflows, plus HTTPD, WAN route, WAN DHCP and XY-C1. The firewall IPv4/IPv6 filter and NAT/DMZ builders now require `get_ipv6_type_status()` and return before staging rules when `ip6_service` cannot be read; NAT checks only when DMZ is enabled.
+2. Continue migrating remaining legacy `get_ipv6_type()` callers in LAN IPv6 policy, WAN interface setup, storage services and OpenVPN. Keep each change small, with a source-order or runtime regression before side effects.
+3. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only; PR #1 remains closed/unmerged.

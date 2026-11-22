@@ -13,6 +13,7 @@ on:
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/firewall_ex.c"
   pull_request:
     paths:
       - ".github/workflows/ipv6-service-type-stability.yml"
@@ -25,6 +26,7 @@ on:
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/firewall_ex.c"
 
 jobs:
   ipv6-service-type:

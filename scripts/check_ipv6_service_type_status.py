@@ -129,4 +129,31 @@ assert "lan_addr6_static_for_type(ipv6_type)" in function_body(
     net_lan6, "int is_lan_addr6_static(void)"
 )
 
+
+firewall = (ROOT / "trunk/user/rc/src/firewall_ex.c").read_text()
+ipv4_filter = function_body(firewall, "static int\\nipt_filter_rules(")
+ipv4_read = ipv4_filter.index("get_ipv6_type_status(&ipv6_type)")
+ipv4_error = ipv4_filter.index("if (ipv6_type_status != 0)", ipv4_read)
+ipv4_file = ipv4_filter.index('firewall_open_rule_file(ipt_file, "IPv4 filter")')
+assert ipv4_read < ipv4_error < ipv4_file
+assert "return ipv6_type_status;" in ipv4_filter[ipv4_error:ipv4_file]
+assert "get_ipv6_type()" not in ipv4_filter
+
+ipv6_filter = function_body(firewall, "static int\\nip6t_filter_rules(")
+ipv6_read = ipv6_filter.index("get_ipv6_type_status(&ipv6_type)")
+ipv6_error = ipv6_filter.index("if (ret != 0)", ipv6_read)
+ipv6_file = ipv6_filter.index('firewall_open_rule_file(ipt_file, "IPv6 filter")')
+assert ipv6_read < ipv6_error < ipv6_file
+assert "return ret;" in ipv6_filter[ipv6_error:ipv6_file]
+assert "get_ipv6_type()" not in ipv6_filter
+
+nat_rules = function_body(firewall, "static int\\nipt_nat_rules(")
+nat_read = nat_rules.index("get_ipv6_type_status(&ipv6_type)")
+nat_guard = nat_rules.rfind("if (is_use_dmz) {", 0, nat_read)
+nat_error = nat_rules.index("if (firewall_status != 0)", nat_read)
+nat_file = nat_rules.index('firewall_open_rule_file(ipt_file, "IPv4 NAT")')
+assert 0 <= nat_guard < nat_read < nat_error < nat_file
+assert "return firewall_status;" in nat_rules[nat_error:nat_file]
+assert "get_ipv6_type()" not in nat_rules
+
 print("IPv6 service-type checked-read source contract: PASS")
