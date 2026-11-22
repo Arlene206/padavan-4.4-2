@@ -49,7 +49,7 @@
 #define CONSOLE_TERMINAL	"vt100"
 #define INIT_HOME_PATH		"/home/root"
 
-static pid1_signal_state_t signal_state = { 0, 0, 0, 0 };
+static pid1_signal_state_t signal_state = { 0, 0, 0, 0, 0 };
 static int noconsole = 0;
 
 /* Synchronous faults cannot safely return to the faulting instruction. */
@@ -153,8 +153,10 @@ catch_sig_reap(int sig)
 	(void)sig;
 	for (;;) {
 		pid = waitpid(-1, NULL, WNOHANG);
-		if (pid > 0)
+		if (pid > 0) {
+			pid1_signal_record_child_reaped(&signal_state, (sig_atomic_t)pid);
 			continue;
+		}
 		if (pid < 0 && errno == EINTR)
 			continue;
 		break;
@@ -259,6 +261,8 @@ static pid_t
 run_shell(int timeout, int nowait)
 {
 	pid_t pid;
+	sigset_t child_mask, saved_mask;
+	int child_mask_blocked = 0;
 	char tz[128];
 	char *envp[] = {
 		"TERM=" CONSOLE_TERMINAL,
@@ -275,10 +279,45 @@ run_shell(int timeout, int nowait)
 //	if (waitfor (STDIN_FILENO, timeout) <= 0)
 //		return 0;
 
+	/*
+	 * Publish the child PID before allowing SIGCHLD to run, preventing a
+	 * short-lived recovery shell from being reaped before it is tracked.
+	 */
+	if (nowait) {
+		sigemptyset(&child_mask);
+		sigaddset(&child_mask, SIGCHLD);
+		if (sigprocmask(SIG_BLOCK, &child_mask, &saved_mask) < 0) {
+			int mask_error = errno ? errno : EIO;
+
+			logmessage(LOGNAME,
+				   "cannot block SIGCHLD before starting recovery shell (status=%d)",
+				   mask_error);
+			errno = mask_error;
+			return -1;
+		}
+		child_mask_blocked = 1;
+	}
+
 	switch ((pid = fork())) {
-	case -1:
+	case -1: {
+		int fork_error = errno ? errno : EIO;
+
+		if (child_mask_blocked &&
+		    sigprocmask(SIG_SETMASK, &saved_mask, NULL) < 0) {
+			int mask_error = errno ? errno : EIO;
+
+			logmessage(LOGNAME,
+				   "cannot restore signal mask after recovery shell fork failure (status=%d)",
+				   mask_error);
+			if (sigprocmask(SIG_UNBLOCK, &child_mask, NULL) < 0)
+				logmessage(LOGNAME,
+					   "cannot unblock SIGCHLD after recovery shell fork failure (status=%d)",
+					   errno ? errno : EIO);
+		}
+		errno = fork_error;
 		perror("fork");
-		return 0;
+		return -1;
+	}
 	case 0:
 		/* Reset signal handlers set for parent process */
 		reset_signals();
@@ -298,12 +337,24 @@ run_shell(int timeout, int nowait)
 		perror(SYS_SHELL);
 		exit(errno);
 	default:
-		if (nowait)
+		if (nowait) {
+			pid1_signal_record_console_shell(&signal_state, (sig_atomic_t)pid);
+			if (child_mask_blocked &&
+			    sigprocmask(SIG_SETMASK, &saved_mask, NULL) < 0) {
+				int mask_error = errno ? errno : EIO;
+
+				logmessage(LOGNAME,
+					   "cannot restore SIGCHLD mask after recovery shell start (status=%d)",
+					   mask_error);
+				if (sigprocmask(SIG_UNBLOCK, &child_mask, NULL) < 0)
+					logmessage(LOGNAME,
+						   "cannot unblock SIGCHLD after recovery shell start (status=%d)",
+						   errno ? errno : EIO);
+			}
 			return pid;
-		else {
-			waitpid(pid, NULL, 0);
-			return 0;
 		}
+		waitpid(pid, NULL, 0);
+		return 0;
 	}
 }
 
@@ -727,7 +778,6 @@ init_sysctl(void)
 void
 init_main_loop(void)
 {
-	pid_t shell_pid = 0;
 	int shutdown_handled = 0;
 	int router_ready;
 	int router_init_status = INIT_ROUTER_RESULT_FATAL;
@@ -837,10 +887,11 @@ init_main_loop(void)
 		while (!signal_state.usr1_pending &&
 		       !signal_state.alarm_pending &&
 		       (!signal_state.shutdown_pending || shutdown_handled)) {
-			if (!noconsole && (!shell_pid || kill(shell_pid, 0) != 0)) {
+			if (!noconsole && !signal_state.console_shell_pid) {
 				/* Keep console setup from starving a signal that arrives now. */
 				sigprocmask(SIG_SETMASK, &original_mask, NULL);
-				shell_pid = run_shell(0, 1);
+				if (run_shell(0, 1) < 0)
+					sleep(1);
 				sigprocmask(SIG_BLOCK, &wait_mask, NULL);
 			} else {
 				sigsuspend(&original_mask);

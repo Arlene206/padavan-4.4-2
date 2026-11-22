@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before THIS inline-contract correction: `de582a224e9bb20c3e6dbfe311d926f5096de19d`; exact WAN-route #44979536359 failed at the final route-result source contract because it required standalone `int route_snapshot_status;`, while production declares the four WAN route status locals together. Shared checker fix was already passing; XY-C1 #44979536417 status was in progress at last poll.
+- Live `main` before THIS PID1 console-recovery correction: `b1c2d3fde5caa330f36715c11f270cff728bd6ec`; WAN route #44979699090 and AI docs #44979698998 PASS on this exact SHA.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -28,23 +28,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, and FTP passive-port range policy are completed source slices.
-- Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487; artifact #14737425993). This is L3 only for `5b93812`; hardware L4 not verified.
-- WAN route-up source fix `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` now uses a coherent checked gateway/address/netmask transaction plus a separately checked gateway-only fallback. Exact de582a2 WAN-route #44979536359 passed the shared umbrella checker update and policy binaries, then failed at the final inline source contract because it required standalone `int route_snapshot_status;` while production uses a combined declaration. THIS commit corrects that matcher only; same-SHA reruns remain required.
-- Exact `de582a2` AI docs #44979536437 PASS. XY-C1 #44979536417 was running at last poll. No L3 claim for the WAN change until Build, TRX and artifact all pass on one exact source SHA; hardware L4 NOT VERIFIED.
+- Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, FTP passive-port range policy and checked WAN-up route tuple work are in the completed source history.
+- Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487; artifact #14737425993); this establishes L3 only for that SHA. Hardware L4 not verified.
+- WAN route-up product SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` uses a coherent checked route tuple and checked gateway-only fallback. Checker-only descendants `de582a2` and `b1c2d3f` aligned both source contracts; exact WAN route #44979699090 and AI docs #44979698998 PASS on `b1c2d3f`. A checker-only XY run skipped Build/TRX; current WAN product source still needs same-SHA Build/TRX/artifact before L3.
+- THIS commit fixes a P1 PID 1 console-recovery bug: a reaped shell PID stayed cached and `kill(pid,0)` could mistake an unrelated PID-reusing daemon for the live shell. The new signal-safe tracked PID is published with SIGCHLD blocked across fork, cleared only by reaping that exact child, and used directly by the main loop. Test and source-order checks are wired into init security workflow.
+- Full RC production-source scan of public WAN NVRAM integer/parameter void setters found only best-effort WAN counter telemetry; no speculative migration was made.
+- No L3 claim for current source until exact-head XY-C1 Build, TRX verification and artifact upload pass; hardware L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: XY-C1 Build, TRX verification and artifact upload all PASS (artifact #14737425993).
-- SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`: Samba #44979351865, Process inventory #44979351880, WAN teardown #44979351818, miniupnpd #44979351879, USB modem #44979351908 and AI docs #44979354664 PASS. WAN route #44979351874 and XY-C1 #44979351755 stopped before firmware build due the old shared checker; NVRAM transaction boundary #44979351940 was still running at last poll.
-- SHA `de582a224e9bb20c3e6dbfe311d926f5096de19d`: AI docs #44979536437 PASS; WAN route #44979536359 failed only at an inline combined-declaration matcher after shared checker and policy binaries passed; XY-C1 #44979536417 had not yet completed. THIS commit is workflow/docs only; exact reruns required.
+- SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: XY-C1 Build, TRX verification and artifact upload all PASS (artifact #14737425993). L3 applies only to `5b93812`.
+- WAN product SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`: Samba, Process inventory, WAN teardown, miniupnpd, USB modem and AI docs PASS. WAN route and XY initially failed stale checker assertions; checker fixes in descendants `de582a2` and `b1c2d3f` resulted in exact WAN route PASS on `b1c2d3f`. The XY run on `de582a2` reported success but skipped actual firmware build and TRX because the commit was checker/docs only.
+- Exact `b1c2d3f` WAN route #44979699090 PASS and AI docs #44979698998 PASS. THIS commit changes PID1 production source, test and workflow; exact-head init policy tests and XY-C1 Build/TRX/artifact are required.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN route and XY-C1 Actions for current `main`; check matching `head_sha` and inspect any further failed contract assertions.
-2. Require Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA before claiming L3 for WAN route-up.
-3. Continue independent stability/security work across RC userland while Actions run; the first full RC source scan found only legacy best-effort WAN counter telemetry via void wrappers, with all critical WAN state publication paths using status-returning helpers. Keep frozen backup untouched.
+1. Inspect exact-head init-mdev security, Process lifecycle and XY-C1 Actions on THIS commit; match each run's `head_sha` to current main.
+2. Fix any PID1 compile/policy/source-contract failure using the exact job log. Require Build XY-C1, TRX verification and artifact upload on one exact source SHA before L3.
+3. Continue independent stability/security slices across RC userland while Actions run; keep frozen backup untouched.
 
 ## Workflow and preservation rules
 

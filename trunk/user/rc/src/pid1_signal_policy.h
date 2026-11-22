@@ -8,6 +8,7 @@ typedef struct {
 	volatile sig_atomic_t shutdown_signal;
 	volatile sig_atomic_t usr1_pending;
 	volatile sig_atomic_t alarm_pending;
+	volatile sig_atomic_t console_shell_pid;
 } pid1_signal_state_t;
 
 /* First shutdown request wins; discard lower-priority queued events. */
@@ -20,6 +21,26 @@ pid1_signal_record_shutdown(pid1_signal_state_t *state, int sig)
 	}
 	state->usr1_pending = 0;
 	state->alarm_pending = 0;
+}
+
+/*
+ * The console is tracked by its direct-child PID. SIGCHLD stays blocked from
+ * fork until publication; the reaper clears only the exact collected PID.
+ */
+static inline void
+pid1_signal_record_console_shell(pid1_signal_state_t *state, sig_atomic_t pid)
+{
+	state->console_shell_pid = pid > 0 ? pid : 0;
+}
+
+static inline int
+pid1_signal_record_child_reaped(pid1_signal_state_t *state, sig_atomic_t pid)
+{
+	if (pid <= 0 || state->console_shell_pid != pid)
+		return 0;
+
+	state->console_shell_pid = 0;
+	return 1;
 }
 
 /* This routine is signal-context safe: it only reads/writes sig_atomic_t. */

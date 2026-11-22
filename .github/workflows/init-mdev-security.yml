@@ -12,6 +12,8 @@ on:
       - "trunk/user/rc/src/tests/tun_device_node_policy.c"
       - "trunk/user/rc/src/boot_device_node_policy.h"
       - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - ".github/workflows/init-mdev-security.yml"
   pull_request:
     paths:
@@ -24,6 +26,8 @@ on:
       - "trunk/user/rc/src/tests/tun_device_node_policy.c"
       - "trunk/user/rc/src/boot_device_node_policy.h"
       - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - ".github/workflows/init-mdev-security.yml"
   workflow_dispatch:
 
@@ -62,6 +66,14 @@ jobs:
             -fsanitize=address,undefined -fno-omit-frame-pointer \
             trunk/user/rc/src/tests/boot_device_node_policy.c -o /tmp/boot_device_node_policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/boot_device_node_policy
+      - name: Build and run PID 1 exact child-reap policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/pid1_signal_policy.c \
+            -o /tmp/pid1_signal_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/pid1_signal_policy
       - name: Check PID 1 hotplug policy publication contract
         run: |
           python3 - <<'PY'
@@ -76,6 +88,8 @@ jobs:
           tun_test = Path("trunk/user/rc/src/tests/tun_device_node_policy.c").read_text()
           boot_device_policy = Path("trunk/user/rc/src/boot_device_node_policy.h").read_text()
           boot_device_test = Path("trunk/user/rc/src/tests/boot_device_node_policy.c").read_text()
+          pid1_policy = Path("trunk/user/rc/src/pid1_signal_policy.h").read_text()
+          pid1_test = Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()
           workflow = Path(".github/workflows/init-mdev-security.yml").read_text()
 
           def body(source, signature):
@@ -168,6 +182,30 @@ jobs:
           assert "if (mdev_init_status == 0)" in retry_policy
           assert "deferred mdev hotplug recovery policy: PASS" in retry_test
 
+          reaper = body(init, "catch_sig_reap(int sig)")
+          shell = body(init, "run_shell(int timeout, int nowait)")
+          assert '#include "pid1_signal_policy.h"' in init
+          assert "pid1_signal_record_child_reaped(&signal_state, (sig_atomic_t)pid);" in reaper
+          assert "waitpid(-1, NULL, WNOHANG)" in reaper
+          assert "volatile sig_atomic_t console_shell_pid;" in pid1_policy
+          assert "state->console_shell_pid != pid" in pid1_policy
+          assert "state->console_shell_pid = 0;" in pid1_policy
+          shell_compact = "".join(shell.split())
+          mask_at = shell_compact.index("sigprocmask(SIG_BLOCK,&child_mask,&saved_mask)")
+          fork_at = shell_compact.index("fork()", mask_at)
+          publish_at = shell_compact.index("pid1_signal_record_console_shell(&signal_state,(sig_atomic_t)pid)", fork_at)
+          restore_at = shell_compact.index("sigprocmask(SIG_SETMASK,&saved_mask,NULL)", publish_at)
+          assert mask_at < fork_at < publish_at < restore_at
+          assert "return-1;" in shell_compact
+          main_compact = "".join(main_loop.split())
+          assert "if(!noconsole&&!signal_state.console_shell_pid)" in main_compact
+          assert "kill(shell_pid,0)" not in main_compact
+          for token in ("pid1_signal_record_console_shell", "pid1_signal_record_child_reaped",
+                        "state.console_shell_pid == (sig_atomic_t)1234",
+                        "state.console_shell_pid == 0"):
+              assert token in pid1_test
+          assert "Build and run PID 1 exact child-reap policy regression" in workflow
+
           for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
                         "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
                         "while (sync_result < 0 && errno == EINTR)",
@@ -184,6 +222,8 @@ jobs:
               "trunk/user/rc/src/init.c",
               "trunk/user/rc/src/boot_device_node_policy.h",
               "trunk/user/rc/src/tests/boot_device_node_policy.c",
+              "trunk/user/rc/src/pid1_signal_policy.h",
+              "trunk/user/rc/src/tests/pid1_signal_policy.c",
               "trunk/user/rc/src/init_mdev_config_file.h",
               "trunk/user/rc/src/init_mdev_retry_policy.h",
               "trunk/user/rc/src/tests/init_mdev_config_file.c",

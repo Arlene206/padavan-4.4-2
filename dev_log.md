@@ -1,3 +1,13 @@
+## 2026-11-21 19:48 PST — Track the exact PID1 recovery-shell child
+
+- Parent main SHA: `b1c2d3fde5caa330f36715c11f270cff728bd6ec`.
+- Source audit found a concrete PID 1 recovery-console liveness defect. `init_main_loop()` kept the shell's numeric PID after `catch_sig_reap()` reaped it, then used `kill(shell_pid, 0)` to decide whether to launch another shell. If a long-running daemon reused that PID, the probe succeeded for the unrelated process and PID 1 could leave recovery console unavailable indefinitely.
+- Added `console_shell_pid` as volatile `sig_atomic_t` state. `run_shell()` blocks SIGCHLD before fork, publishes the exact child PID, then restores the previous mask; this closes the race where a fast-exiting shell could be reaped before its PID was tracked. SIGCHLD reaping clears only the exact tracked shell PID. The main loop now consults this tracked state, not a recyclable PID.
+- Added policy regressions showing unrelated-child reap preserves the console and exact-child reap clears the tracked state; wired the test/header into both init workflow path filters, GNU89/Werror/ASan/UBSan, and Python source-order checks. Fork/mask failures are logged and retried with a one-second backoff rather than spinning.
+- Exact init-mdev security and Process lifecycle runs for THIS source are pending; exact XY-C1 must build, verify TRX and upload artifact on the same SHA before L3. Hardware L4 not verified.
+
+---
+
 ## 2026-11-21 19:35 PST — Match combined WAN route status declaration in inline contract
 
 - Parent main SHA: `de582a224e9bb20c3e6dbfe311d926f5096de19d`.
