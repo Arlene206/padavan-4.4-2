@@ -11,8 +11,9 @@ PIDOF_OUTPUT=
 KILLALL_CALLS=0
 KILLALL_GRACEFUL_BEHAVIOR=clear
 KILLALL_FORCE_BEHAVIOR=clear
+PIDOF_EXPECTED_NAME=smartdns
 pidof() {
-    [ "$1" = smartdns ] || return 2
+    [ "$1" = "$PIDOF_EXPECTED_NAME" ] || return 2
     printf '%s' "$PIDOF_OUTPUT"
     return "$PIDOF_STATUS"
 }
@@ -129,5 +130,55 @@ if smartdns_prepare_adblock_filter "$tmpdir/adblock/missing.txt" "$tmpdir/adbloc
 fi
 grep -Fxq 'preserve-on-error' "$tmpdir/adblock/preserved.conf" || fail "missing input replaced the previous output"
 pass "failed adblock conversion preserves the previous output"
+
+# Adbyby shares the strict tri-state parser: a failed lookup must not
+# masquerade as "not running" and silently skip a DNS ownership update.
+SMARTDNS_TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_TEST_DIR/../smartdns.sh" > "$tmpdir/change-adbyby.sh"
+[ -s "$tmpdir/change-adbyby.sh" ] || fail "Change_adbyby helper missing"
+. "$tmpdir/change-adbyby.sh"
+smartdns_nvram_read_checked() {
+    ADDBYBY_NVRAM_READS=$((ADDBYBY_NVRAM_READS + 1))
+    case "$1" in
+        adbyby_enable|adbyby_add) smartdns_nvram_value=1; return 0 ;;
+        *) return 2 ;;
+    esac
+}
+nvram() {
+    ADDBYBY_NVRAM_WRITES=$((ADDBYBY_NVRAM_WRITES + 1))
+    return 0
+}
+logger() { :; }
+PIDOF_EXPECTED_NAME=adbyby
+ADDBYBY_NVRAM_READS=0
+ADDBYBY_NVRAM_WRITES=0
+sdns_enable=0
+hosts_type=SmartDNS
+action=start
+PIDOF_STATUS=1; PIDOF_OUTPUT=
+Change_adbyby || fail "confirmed-absent Adbyby was not a safe no-op"
+[ "$ADDBYBY_NVRAM_READS" -eq 0 ] || fail "absent Adbyby triggered NVRAM reads"
+for mode in unknown empty_success inconsistent malformed; do
+    case "$mode" in
+        unknown) PIDOF_STATUS=2; PIDOF_OUTPUT= ;;
+        empty_success) PIDOF_STATUS=0; PIDOF_OUTPUT= ;;
+        inconsistent) PIDOF_STATUS=1; PIDOF_OUTPUT=123 ;;
+        malformed) PIDOF_STATUS=0; PIDOF_OUTPUT="123 bad" ;;
+    esac
+    if Change_adbyby; then
+        fail "Adbyby process state $mode was accepted"
+    else
+        adbyby_status=$?
+    fi
+    [ "$adbyby_status" -eq 2 ] || fail "Adbyby process state $mode returned $adbyby_status"
+    [ "$ADDBYBY_NVRAM_READS" -eq 0 ] || fail "unknown Adbyby state $mode changed DNS policy"
+    [ "$ADDBYBY_NVRAM_WRITES" -eq 0 ] || fail "unknown Adbyby state $mode wrote NVRAM"
+done
+PIDOF_STATUS=0; PIDOF_OUTPUT=123
+Change_adbyby || fail "running Adbyby process did not permit the configured transition"
+[ "$ADDBYBY_NVRAM_READS" -eq 2 ] || fail "running Adbyby did not read both owner settings"
+[ "$ADDBYBY_NVRAM_WRITES" -eq 1 ] || fail "running Adbyby did not apply its single owner update"
+[ "$hosts_type" = dnsmasq ] || fail "running Adbyby transition did not update the DNS owner"
+pass "Adbyby process inventory errors preserve DNS ownership"
 
 echo "SmartDNS process lifecycle regression: PASS"

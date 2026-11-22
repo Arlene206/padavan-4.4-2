@@ -20,6 +20,13 @@ assert 'smartdns_process_lifecycle_lib="/usr/bin/smartdns_process_lifecycle.sh"'
 assert '. "$smartdns_process_lifecycle_lib"' in script
 assert '$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh' in makefile
 assert 'smartdns_process_state()' in helper and 'smartdns_stop_process()' in helper
+assert '_smartdns_process_name=${1:-smartdns}' in helper
+assert 'pidof "$_smartdns_process_name"' in helper
+change_adbyby = body(script, 'Change_adbyby () {', "\n}\n\nChange_dnsmasq")
+assert 'smartdns_process_state adbyby' in change_adbyby
+assert 'Cannot determine Adbyby process state' in change_adbyby
+assert 'pidof adbyby' not in script
+assert 'Adbyby process inventory errors preserve DNS ownership' in test
 assert '[ -z "$_smartdns_pid_output" ] && return 1' in helper
 assert '*)\n            return 2' in helper
 assert 'killall smartdns' in helper and 'killall -9 smartdns' in helper

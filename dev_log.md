@@ -1,3 +1,10 @@
+## 2026-11-22 — SmartDNS Adbyby process inventory must be tri-state
+
+- Source baseline: `8ecb9cdbdc34dc62f8b774a227b217afdc47f251`. `Change_adbyby()` piped `pidof adbyby` through `awk`, discarding pidof's status; a failed or malformed process scan therefore became an empty string and was treated as confirmed absence. SmartDNS could then report a successful DNS-owner transition without updating Adbyby's DNSMasq/SmartDNS ownership.
+- Generalized the existing strict SmartDNS process-state helper to accept an explicit process name, removed the unused early pidof/awk probe, and made `Change_adbyby()` distinguish RUNNING, confirmed ABSENT, and UNKNOWN. Unknown/inconsistent output now aborts before Adbyby NVRAM reads or DNS ownership changes.
+- Extended the exact SmartDNS lifecycle regression to exercise the extracted `Change_adbyby()` function with absent, pidof-error, empty-success, inconsistent, malformed, and running Adbyby states. The process-lifecycle workflow already executes this test and its static checker. No router or firmware build is claimed.
+- Exact-head validation pending.
+
 ## 2026-11-22 — Preserve UNKNOWN process state in Ralink IAPP lifecycle
 
 - Source baseline: `55be802fbc344d9809c9f1a9eb283debb6f64ebf`. The existing IAPP controller delegated process discovery to BusyBox `pidof`, whose exit status 1 is also used for an empty result; it therefore could not distinguish confirmed absence from a failed `/proc` scan. Both start and stop trusted that status as ABSENT, so a procfs inventory failure could launch a duplicate daemon or remove its firewall rules while the daemon remained alive.

@@ -105,7 +105,6 @@ sdns_white=$(nvram get sdns_white)
 sdns_black=$(nvram get sdns_black)
 sdns_coredump=$(nvram get sdns_coredump)
 
-adbyby_process=$(pidof adbyby | awk '{ print $1 }')
 IPS4="$(ifconfig br0 | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}')"
 IPS6="$(ifconfig br0 | grep "inet6 addr" | grep -v "fe80::" | grep -v "::1" | grep "Global" | awk '{print $3}')"
 dnsmasq_md5=$(md5sum  "$dnsmasq_Conf" | awk '{ print $1 }')
@@ -523,8 +522,17 @@ Start_AD () {
 
 Change_adbyby () {
 # 【】
-    adbyby_process=$(pidof adbyby | awk '{ print $1 }')
-    [ -n "$adbyby_process" ] || return 0
+    # DNS ownership must not change unless Adbyby process state is known.
+    smartdns_process_state adbyby
+    adbyby_process_status=$?
+    case "$adbyby_process_status" in
+        0) ;;
+        1) return 0 ;;
+        *)
+            logger -t "SmartDNS" "Cannot determine Adbyby process state; refusing DNS ownership transition"
+            return 2
+            ;;
+    esac
     smartdns_nvram_read_checked adbyby_enable || return $?
     [ "$smartdns_nvram_value" = "1" ] || return 0
 

@@ -3,7 +3,9 @@
 # Return states: 0 running, 1 absent, 2 unknown.
 smartdns_process_state()
 {
-    _smartdns_pid_output=$(pidof smartdns 2>/dev/null)
+    _smartdns_process_name=${1:-smartdns}
+    [ "$#" -le 1 ] && [ -n "$_smartdns_process_name" ] || return 2
+    _smartdns_pid_output=$(pidof "$_smartdns_process_name" 2>/dev/null)
     _smartdns_pid_status=$?
     case "$_smartdns_pid_status" in
         0)
