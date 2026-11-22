@@ -298,6 +298,7 @@ for marker in (
     "AliDDNS restart refuses to launch when keeper remains alive: PASS",
     "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS",
     "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS",
+    "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS",
 ):
     require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and
@@ -554,7 +555,6 @@ for marker in (
     require(marker in custom_script_test, f"custom-script host regression missing result marker: {marker}")
 
 for marker in (
-    "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS",
     "CA trust-store bootstrap success regression: PASS",
     "CA trust-store bootstrap failure propagation regression: PASS",
 ):
