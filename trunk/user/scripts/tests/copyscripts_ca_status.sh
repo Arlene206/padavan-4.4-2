@@ -70,7 +70,7 @@ sed -e "s|/etc/storage|$tmp/storage|g" \
 	exit 1
 }
 mkdir -p "$tmp/storage/nested" "$tmp/external"
-printf 'factory default\\n' > "$tmp/source.sh"
+printf 'factory default\n' > "$tmp/source.sh"
 logger() { :; }
 . "$tmp/seed-function.sh"
 
@@ -80,7 +80,7 @@ seed_storage_file "$tmp/source.sh" "$tmp/storage/default.sh" 755
 [ "$(find "$tmp/storage" -name 'default.sh.tmp.*' | wc -l)" -eq 0 ]
 
 # Existing operator-managed regular files are preserved.
-printf 'operator config\\n' > "$tmp/storage/existing.sh"
+printf 'operator config\n' > "$tmp/storage/existing.sh"
 chmod 600 "$tmp/storage/existing.sh"
 seed_storage_file "$tmp/source.sh" "$tmp/storage/existing.sh" 755
 [ "$(cat "$tmp/storage/existing.sh")" = "operator config" ]
@@ -88,7 +88,7 @@ seed_storage_file "$tmp/source.sh" "$tmp/storage/existing.sh" 755
 
 # A symlink to an existing sensitive file and a dangling symlink are both
 # refused without following either destination.
-printf 'outside sentinel\\n' > "$tmp/external/sentinel"
+printf 'outside sentinel\n' > "$tmp/external/sentinel"
 ln -s "$tmp/external/sentinel" "$tmp/storage/linked.sh"
 if seed_storage_file "$tmp/source.sh" "$tmp/storage/linked.sh" 755; then
 	echo "symlink destination was accepted" >&2
