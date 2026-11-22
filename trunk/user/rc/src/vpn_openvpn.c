@@ -40,6 +40,7 @@
 #include "route_status_policy.h"
 #include "vpn_client_nvram_policy.h"
 #include "vpn_server_config_policy.h"
+#include "openvpn_ipv6_protocol_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -69,6 +70,32 @@ static const char *openvpn_client_keys[4] = {
 	"client.key",
 	"ta.key"
 };
+
+static int
+openvpn_resolve_protocol_family(int *protocol, const char *operation)
+{
+	int ipv6_type = IPV6_DISABLED;
+	int service_status, policy_status;
+
+	if (!protocol || !operation) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	if (*protocol <= 1)
+		return 0;
+
+	service_status = get_ipv6_type_status(&ipv6_type);
+	policy_status = openvpn_ipv6_protocol_apply_service_state(
+		protocol, service_status, ipv6_type, IPV6_DISABLED);
+	if (policy_status != 0) {
+		errno = policy_status;
+		logmessage("OpenVPN",
+			   "cannot resolve IPv6 transport for %s (status=%d)",
+			   operation, policy_status);
+		return policy_status;
+	}
+	return 0;
+}
 
 static const char *env_ovpn[3] = {
 	"dev",
@@ -1011,6 +1038,7 @@ openvpn_create_server_conf(const char *conf_file,
 	FILE *fp;
 	char staged_conf[128];
 	int i, i_prot, i_prot_ori, i_atls, i_tcv2, i_rdgw, i_dhcp, i_items;
+	int protocol_status;
 	unsigned int laddr, lmask;
 	const char *lanip, *lannm;
 	char *wins, *dns1, *dns2;
@@ -1044,8 +1072,10 @@ openvpn_create_server_conf(const char *conf_file,
 	i_dhcp = options->dhcp_enabled;
 
 	i_prot_ori = i_prot;
-	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
-		i_prot &= 1;
+	protocol_status = openvpn_resolve_protocol_family(
+		&i_prot, "server configuration");
+	if (protocol_status != 0)
+		return 1;
 
 	/* note: upcoming openvpn 2.4 will need direct set udp4/tcp4-server for ipv4 only */
 #if defined (USE_IPV6)
@@ -1325,6 +1355,7 @@ openvpn_create_client_conf(const char *conf_file,
 	FILE *fp;
 	char staged_conf[128];
 	int i, i_prot, i_prot_ori, i_auth, i_atls;
+	int protocol_status;
 	const char *p_peer, *p_prot;
 
 	if (!config) {
@@ -1345,8 +1376,10 @@ openvpn_create_client_conf(const char *conf_file,
 
 	i_prot = config->protocol;
 	i_prot_ori = i_prot;
-	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
-		i_prot &= 1;
+	protocol_status = openvpn_resolve_protocol_family(
+		&i_prot, "client configuration");
+	if (protocol_status != 0)
+		return 1;
 
 	p_peer = config->peer;
 
@@ -2344,6 +2377,7 @@ ovpn_server_expcli_main(int argc, char **argv)
 	struct openvpn_server_options_config options;
 	int i, i_prot, i_atls, i_tcv2, days_valid, config_status;
 	int cert_status, keygen_status, env_set = 0, temp_dir_created = 0;
+	int protocol_status;
 	int saved_errno, path_len;
 	const char *p_prot, *wan_addr, *rsa_bits;
 	char tmp_ovpn_path[] = "/tmp/export_ovpn.XXXXXX";
@@ -2388,6 +2422,12 @@ ovpn_server_expcli_main(int argc, char **argv)
 			return 1;
 		}
 	}
+	i_prot = options.protocol;
+	protocol_status = openvpn_resolve_protocol_family(
+		&i_prot, "client profile export");
+	if (protocol_status != 0)
+		return 1;
+
 	if (unlink(tmp_ovpn_conf) != 0 && errno != ENOENT) {
 		logmessage(SERVER_LOG_NAME,
 			   "cannot remove previous OpenVPN client export (errno=%d)", errno);
@@ -2424,9 +2464,6 @@ ovpn_server_expcli_main(int argc, char **argv)
 			   cert_status, errno);
 		goto failed;
 	}
-	i_prot = options.protocol;
-	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
-		i_prot &= 1;
 #if defined (USE_IPV6)
 	if (i_prot == 3)
 		p_prot = "tcp6-client";

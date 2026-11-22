@@ -1,3 +1,12 @@
+## 2026-11-22 13:42 UTC+8 — Fail closed in all OpenVPN IPv6 protocol selection paths
+
+- Parent main SHA: `db34350f72614bb891d62f512beced599cd7c5d2`. Its exact IPv6 service workflow #44990186172 and VPN lifecycle workflow #44990186063 PASS; WAN DHCP callback #44990186358, WAN teardown #44990186114, Firewall Startup #44990186002, HTTPD #44990185966, USB modem #44990185945, router NVRAM #44990186271, miniupnpd #44990186168, DNSMasq #44990186281, watchdog #44990186297, detect-internet #44990186254, detect-link #44990186417, wireless #44990186268, ZeroTier #44990185935, ARP #44990186025 and AI docs #44990186377 also PASS.
+- Remaining work was in `vpn_openvpn.c`: server config, client config and downloadable client-profile export all treated an unreadable `ip6_service` as disabled IPv6 and silently downgraded requested IPv6 transports. They now share a checked resolver; errors abort before staged config/secret publication and, for export, before unlinking the prior profile, creating temp files/dirs or invoking certificate generation.
+- Valid disabled IPv6 retains the existing IPv4 fallback. Added pure protocol policy plus GNU89 ASan/UBSan regression for EIO/EACCES, disabled UDP/TCP fallback, enabled transport, IPv4 no-read and NULL handling. Extended source checker and both IPv6/VPN workflow path filters; VPN workflow runs the new test.
+- Previous XY-C1 #44990186127, NVRAM #44990186139, Process #44990186133/#44990186174 and WAN route #44990186395 were still in progress at last poll. No local compile. This commit's CI pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:36 UTC+8 — Fail closed when WAN DHCP 6rd policy cannot be read
 
 - Parent main SHA: `a753477f00b5748533d4d01e2a1d862908c9ba53`. Prior main `66944d56ea2da8a129f557f1d385a875f74e0333` had the WAN checker correction pending. IPv6 service #44990023843 passed; Firewall Startup #44990023829, USB modem WDM/NDIS #44990024050 and XY-C1 #44990024029/Process #44990024080 failed at the stale WAN source-guard checker (first cause documented in the preceding entry), while multiple unrelated suites passed.

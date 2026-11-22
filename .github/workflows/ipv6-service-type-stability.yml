@@ -15,6 +15,9 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/vpn_openvpn.c"
+      - "trunk/user/rc/src/openvpn_ipv6_protocol_policy.h"
+      - "trunk/user/rc/src/tests/openvpn_ipv6_protocol_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/firewall_ex.c"
   pull_request:
@@ -31,6 +34,9 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/vpn_openvpn.c"
+      - "trunk/user/rc/src/openvpn_ipv6_protocol_policy.h"
+      - "trunk/user/rc/src/tests/openvpn_ipv6_protocol_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/firewall_ex.c"
 

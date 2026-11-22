@@ -50,6 +50,7 @@ net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
 net_lan = (ROOT / "trunk/user/rc/src/net_lan.c").read_text()
 storage = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 net_wan = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
+openvpn = (ROOT / "trunk/user/rc/src/vpn_openvpn.c").read_text()
 
 reader = function_body(netutils, "int get_ipv6_type_status(")
 assert 'nvram_get_checked("ip6_service", &service_value)' in reader
@@ -242,5 +243,41 @@ assert dhcp_ipv6_read < dhcp_ipv6_error < dhcp_ipv6_return < dhcp_6rd_gate < dhc
 assert 'dhcp_argv[index++] = "-O212";' in wan_udhcpc[dhcp_6rd_gate:dhcp_start]
 assert 'dhcp_argv[index++] = "-O150";' in wan_udhcpc[dhcp_6rd_gate:dhcp_start]
 assert "get_ipv6_type()" not in wan_udhcpc
+
+
+openvpn_server_conf = function_body(openvpn, "openvpn_create_server_conf(")
+server_protocol_gate = openvpn_server_conf.index(
+    'openvpn_resolve_protocol_family(&i_prot, "server configuration")'
+)
+server_protocol_error = openvpn_server_conf.index("if (protocol_status != 0)", server_protocol_gate)
+server_protocol_return = openvpn_server_conf.index("return 1;", server_protocol_error)
+server_config_stage = openvpn_server_conf.index("openvpn_config_file_open(", server_protocol_return)
+assert server_protocol_gate < server_protocol_error < server_protocol_return < server_config_stage
+assert "get_ipv6_type()" not in openvpn_server_conf
+
+openvpn_client_conf = function_body(openvpn, "openvpn_create_client_conf(")
+client_protocol_gate = openvpn_client_conf.index(
+    'openvpn_resolve_protocol_family(&i_prot, "client configuration")'
+)
+client_protocol_error = openvpn_client_conf.index("if (protocol_status != 0)", client_protocol_gate)
+client_protocol_return = openvpn_client_conf.index("return 1;", client_protocol_error)
+client_secret_publish = openvpn_client_conf.index("openvpn_create_client_secret(", client_protocol_return)
+client_config_stage = openvpn_client_conf.index("openvpn_config_file_open(", client_secret_publish)
+assert client_protocol_gate < client_protocol_error < client_protocol_return < client_secret_publish < client_config_stage
+assert "get_ipv6_type()" not in openvpn_client_conf
+
+openvpn_export = function_body(openvpn, "ovpn_server_expcli_main(")
+export_protocol_gate = openvpn_export.index(
+    'openvpn_resolve_protocol_family(&i_prot, "client profile export")'
+)
+export_protocol_error = openvpn_export.index("if (protocol_status != 0)", export_protocol_gate)
+export_protocol_return = openvpn_export.index("return 1;", export_protocol_error)
+export_previous_remove = openvpn_export.index("unlink(tmp_ovpn_conf)", export_protocol_return)
+export_temp_dir = openvpn_export.index("mkdtemp(tmp_ovpn_path)", export_previous_remove)
+export_certgen = openvpn_export.index("_eval(cert_argv", export_temp_dir)
+export_config_stage = openvpn_export.index("openvpn_config_file_open(tmp_ovpn_conf", export_certgen)
+assert export_protocol_gate < export_protocol_error < export_protocol_return < export_previous_remove < export_temp_dir < export_certgen < export_config_stage
+assert "get_ipv6_type()" not in openvpn_export
+assert "get_ipv6_type()" not in openvpn
 
 print("IPv6 service-type checked-read source contract: PASS")
