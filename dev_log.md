@@ -1,3 +1,11 @@
+## 2026-11-22 — Make libdisk readdir source contract whitespace-independent
+
+- Product commit `c24dd1f0a513864249ae7817db7d3ddc6077f21b` compiled and passed the GNU89 Address/UndefinedBehaviorSanitizer policy regression. The exact libdisk workflow #45015397360 then failed only in the Python source checker: its locator expected a space before the call's closing parenthesis, while the production call had the normal `&read_error);` layout.
+- Replaced the brittle literal locator with a whitespace-tolerant regular expression. The existing order assertions still require the adapter call, clean-EOF branch, error branch and errno propagation in that order; this is a checker-only correction, not a relaxation of product semantics.
+- XY-C1 run #45015397223 for the same product SHA `c24dd1f` remained IN_PROGRESS in Build XY-C1 at last poll; TRX and artifact upload await that build. Process inventory #45015397306, Process lifecycle #45015397230, HTTPD security #45015397324 and AI handoff docs #45015397283 PASS. NVRAM audit #45015397192 remained IN_PROGRESS. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fail closed on libdisk directory enumeration errors
 
 - Source commit: `c24dd1f0a513864249ae7817db7d3ddc6077f21b` (parent `faed38733360380c55b605c0ec9a0f34538877b4`). `get_all_folder_in_mount_path()` previously treated every `readdir()` NULL as clean EOF, so a directory read error could publish and persist an incomplete share list. The new injectable status policy distinguishes entry, clean EOF and I/O failure; production code frees partial results, preserves errno across cleanup, and only publishes after successful enumeration/close.

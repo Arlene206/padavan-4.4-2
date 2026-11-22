@@ -2,6 +2,7 @@
 """Guard libdisk share-list output initialization and Samba error cleanup."""
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 LIBDISK = ROOT / "trunk/user/libdisk/src"
@@ -82,9 +83,13 @@ require("disk_share_list_next_entry" in POLICY,
 all_folders = function_body(DISK_SOURCE,
                             "int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)")
 compact_all_folders = " ".join(all_folders.split())
-read_entry = compact_all_folders.index(
-    "disk_share_list_next_entry( pool_to_open, readdir, &dp, &read_error )"
+read_entry_match = re.search(
+    r"disk_share_list_next_entry\(\s*pool_to_open,\s*readdir,\s*&dp,\s*&read_error\s*\)",
+    compact_all_folders,
 )
+require(read_entry_match is not None,
+        "directory loop must use the checked readdir adapter")
+read_entry = read_entry_match.start()
 eof_gate = compact_all_folders.index("if (read_status == 0)", read_entry)
 error_gate = compact_all_folders.index("if (read_status < 0)", eof_gate)
 errno_restore = compact_all_folders.index(
@@ -131,4 +136,4 @@ for path in (
             not is_non_firmware_input(path),
             "XY-C1 firmware path filter must watch production libdisk input: " + path)
 
-print("libdisk share-list share-list iteration and Samba cleanup regression: PASS")
+print("libdisk share-list enumeration and Samba cleanup regression: PASS")
