@@ -83,6 +83,36 @@ test_dynamic_static_mode_preserves_nvram_match_defaults(void)
 	assert(is_static == 1);
 }
 
+
+static void
+test_legacy_integer_parser_preserves_nvram_get_int_defaults(void)
+{
+	int value = -99;
+
+	assert(rc_lan_addr6_legacy_integer_status(0, NULL, &value) == 0);
+	assert(value == 0);
+	assert(rc_lan_addr6_legacy_integer_status(0, "", &value) == 0);
+	assert(value == 0);
+	assert(rc_lan_addr6_legacy_integer_status(0, "not-a-number", &value) == 0);
+	assert(value == 0);
+	assert(rc_lan_addr6_legacy_integer_status(0, "2trailing", &value) == 0);
+	assert(value == 2);
+	assert(rc_lan_addr6_legacy_integer_status(0, "-1", &value) == 0);
+	assert(value == -1);
+	assert(rc_lan_addr6_legacy_integer_status(
+		0, "999999999999999999999", &value) == 0);
+	assert(value == 0);
+}
+
+static void
+test_legacy_integer_backend_failure_is_not_zero_default(void)
+{
+	int value = 73;
+
+	assert(rc_lan_addr6_legacy_integer_status(EIO, "1", &value) == EIO);
+	assert(value == 73);
+}
+
 static void
 test_prefix_size_preserves_atoi_legacy_defaults(void)
 {
@@ -262,6 +292,9 @@ main(void)
 	test_static_mode_policy_preserves_service_type_overrides();
 	test_dynamic_static_mode_read_failure_is_not_a_default();
 	test_dynamic_static_mode_preserves_nvram_match_defaults();
+
+	test_legacy_integer_parser_preserves_nvram_get_int_defaults();
+	test_legacy_integer_backend_failure_is_not_zero_default();
 	test_prefix_size_preserves_atoi_legacy_defaults();
 	test_prefix_size_backend_error_is_not_a_legacy_default();
 	test_ipv6_prefix_format_is_bounded_and_non_overlapping();

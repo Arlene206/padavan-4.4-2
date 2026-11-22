@@ -60,13 +60,13 @@ rc_lan_addr6_radv_enabled_status(int read_status, const char *value,
  * that compatibility, but keep backend failures distinct from bad values.
  */
 static inline int
-rc_lan_addr6_legacy_prefix_size(int read_status, const char *text,
-				int *prefix_size)
+rc_lan_addr6_legacy_integer_status(int read_status, const char *text,
+				   int *value)
 {
 	char *end;
 	long parsed = 0;
 
-	if (!prefix_size)
+	if (!value)
 		return EINVAL;
 	if (read_status != 0)
 		return read_status;
@@ -78,10 +78,27 @@ rc_lan_addr6_legacy_prefix_size(int read_status, const char *text,
 		    parsed < INT_MIN || parsed > INT_MAX)
 			parsed = 0;
 	}
+	*value = (int)parsed;
+	return 0;
+}
+
+static inline int
+rc_lan_addr6_legacy_prefix_size(int read_status, const char *text,
+				int *prefix_size)
+{
+	int parsed;
+	int status;
+
+	if (!prefix_size)
+		return EINVAL;
+	status = rc_lan_addr6_legacy_integer_status(
+		read_status, text, &parsed);
+	if (status != 0)
+		return status;
+
 	if (parsed < 48 || parsed > 64)
 		parsed = 64;
-
-	*prefix_size = (int)parsed;
+	*prefix_size = parsed;
 	return 0;
 }
 

@@ -296,13 +296,26 @@ int is_lan_addr6_static(void)
 
 int get_lan_dhcp6s_mode(void)
 {
-	int ipv6_type, status;
+	char mode_value[LAN6_RESET_INTEGER_SIZE] = {0};
+	int ipv6_type, mode, status;
 
 	status = get_lan6_service_type(&ipv6_type);
 	if (status != 0 || ipv6_type == IPV6_DISABLED)
 		return -1;
 
-	return nvram_get_int("ip6_lan_dhcp");
+	status = lan6_read_config_value_status(
+		"ip6_lan_dhcp", mode_value, sizeof(mode_value));
+	if (status == 0)
+		status = rc_lan_addr6_legacy_integer_status(
+			0, mode_value, &mode);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot read DHCPv6 server mode (status=%d)",
+			   status);
+		return -1;
+	}
+	return mode;
 }
 
 int get_lan_dhcp6s_irt(void)

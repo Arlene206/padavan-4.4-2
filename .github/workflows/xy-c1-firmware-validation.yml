@@ -663,6 +663,12 @@ jobs:
           assert "rc_lan_addr6_radv_enabled_status(" in radv_getter
           assert "if (status != 0)" in radv_getter and "return -1;" in radv_getter
           assert 'nvram_invmatch("ip6_lan_radv", "0")' not in radv_getter
+          dhcp_mode_getter = lan6.split("int get_lan_dhcp6s_mode(void)", 1)[1].split("int get_lan_dhcp6s_irt(void)", 1)[0]
+          assert '"ip6_lan_dhcp"' in dhcp_mode_getter
+          assert "lan6_read_config_value_status(" in dhcp_mode_getter
+          assert "rc_lan_addr6_legacy_integer_status(" in dhcp_mode_getter
+          assert "if (status != 0)" in dhcp_mode_getter and "return -1;" in dhcp_mode_getter
+          assert 'nvram_get_int("ip6_lan_dhcp")' not in dhcp_mode_getter
           reset = lan6.split("int reset_lan6_vars(void)", 1)[1].split("int is_lan_radv_on", 1)[0]
           assert "status = lan6_read_reset_snapshot(ipv6_type, &snapshot);" in reset
           assert reset.index("if (status != 0)") < reset.index('nvram_set_temp("lan_addr6", addr6s)')
@@ -693,6 +699,8 @@ jobs:
           assert "return errno ? errno : EIO;" in lan_publish
 
           for case in (
+              "test_legacy_integer_parser_preserves_nvram_get_int_defaults",
+              "test_legacy_integer_backend_failure_is_not_zero_default",
               "test_radv_read_failure_is_not_enabled_by_default",
               "test_radv_missing_key_preserves_nvram_invmatch_default",
               "test_radv_literal_zero_disables_and_other_values_enable",

@@ -1,3 +1,13 @@
+## 2026-11-22 — Preserve DHCPv6 server mode read failures
+
+- Parent main SHA: `d7b9063ffd43613534909b7707783c7b9f967d12`. The exact-head IPv6 service-type run for `e3cc86e9503b978ddbe2ab49ff498db81076da54` passed the compiled GNU89/ASan/UBSan policy binary and failed only in the source checker due to its local variable typo; `d7b9063ffd43613534909b7707783c7b9f967d12` corrected that typo and started a fresh exact-SHA run. WAN teardown #45028413713 and WAN route #45028413724 on `e3cc86e...` PASS; AI docs #45028413690 PASS. XY-C1 #45028413654 and NVRAM #45028413627 were still running at handoff.
+- `get_lan_dhcp6s_mode()` still used `nvram_get_int("ip6_lan_dhcp")`, collapsing backend/transaction errors into a legacy numeric default even though this getter already returns `-1` for other unavailable states. It now uses the checked one-key transaction reader and returns `-1` on read/release failure.
+- Refactored the legacy integer parser so missing, empty, malformed, trailing-junk and out-of-range values retain `atoi()` defaults; valid leading numeric values (including negative values) are preserved. Prefix-size normalization reuses the parser and still defaults to /64 outside 48..64.
+- Added two parser regressions and source contracts for checked mode read/error propagation. Local tests were not run in this connector-only runtime; exact-SHA Actions are required.
+- Result: THIS COMMIT. Next: inspect the new exact-head service/XY workflows, then review `get_lan_addr6_host()` and related cached LAN address readers for stale-pointer/error fallback behavior; do not change cached reads unless a caller-visible defect is proven.
+
+---
+
 ## 2026-11-22 — Fix LAN RA source checker policy handle
 
 - Parent main SHA: `e3cc86e9503b978ddbe2ab49ff498db81076da54`. Exact-head IPv6 service-type run #45028413750 compiled and passed its GNU89/ASan/UBSan policy binary, then the source checker stopped at the new RA assertion with `NameError: policy is not defined`. This checker loads the relevant header as a distinct source, so the assertion used the wrong local variable.

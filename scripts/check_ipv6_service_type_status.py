@@ -148,6 +148,16 @@ assert "lan_addr6_static_for_type(ipv6_type)" in function_body(
     net_lan6, "int is_lan_addr6_static(void)"
 )
 
+dhcp_mode_getter = function_body(net_lan6, "int get_lan_dhcp6s_mode(void)")
+assert 'lan6_read_config_value_status(\n\t\t"ip6_lan_dhcp"' in dhcp_mode_getter
+assert "rc_lan_addr6_legacy_integer_status(" in dhcp_mode_getter
+assert "if (status != 0)" in dhcp_mode_getter and "return -1;" in dhcp_mode_getter
+assert 'nvram_get_int("ip6_lan_dhcp")' not in dhcp_mode_getter
+integer_policy = function_body(
+    lan6_policy, "rc_lan_addr6_legacy_integer_status("
+)
+assert "if (read_status != 0)" in integer_policy
+
 radv_reader = function_body(
     net_lan6, "lan6_read_config_value_status(const char *param_name,"
 )
