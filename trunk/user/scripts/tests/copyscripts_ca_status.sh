@@ -58,7 +58,8 @@ fi
 grep -Fq 'copyscripts_ca_status=0' "$copyscripts"
 grep -Fq 'if ! install_ca_trust_store; then' "$copyscripts"
 grep -Fq 'copyscripts_ca_status=1' "$copyscripts"
-grep -Fq 'exit "$copyscripts_ca_status"' "$copyscripts"
+grep -Fq 'copyscripts_seed_status=0' "$copyscripts"
+grep -Fq 'if [ "$copyscripts_ca_status" -ne 0 ] || [ "$copyscripts_seed_status" -ne 0 ]; then' "$copyscripts"
 echo "copyscripts CA trust-store result propagation: PASS"
 
 # Exercise the production default-file helper against ordinary files and
@@ -130,3 +131,31 @@ fi
 grep -Fq 'seed_storage_file "/etc_ro/koolproxy_rules_script.sh" "/etc/storage/koolproxy_rules_script.sh" 755' "$copyscripts"
 grep -Fq 'seed_storage_file "/etc_ro/oversea_list.conf" "/etc/storage/dnsmasq.oversea/oversea_list.conf" 755' "$copyscripts"
 echo "copyscripts default-file symlink-safe publication: PASS"
+
+# Exercise the exact final status gate. A failed CA extraction or a failed
+# default-file publication must both be visible to PID 1; clean setup succeeds.
+sed -n '/^if \[ "$copyscripts_ca_status" -ne 0 \] || \[ "$copyscripts_seed_status" -ne 0 \]; then$/,/^exit 0$/p' \
+	"$copyscripts" > "$tmp/status-gate.sh"
+[ -s "$tmp/status-gate.sh" ] || {
+	echo "could not extract copyscripts result gate" >&2
+	exit 1
+}
+expect_status_gate()
+{
+	expected=$1
+	ca_status=$2
+	seed_status=$3
+	if ( copyscripts_ca_status=$ca_status; copyscripts_seed_status=$seed_status; . "$tmp/status-gate.sh" ); then
+		actual=0
+	else
+		actual=$?
+	fi
+	[ "$actual" -eq "$expected" ] || {
+		echo "copyscripts result gate returned $actual, expected $expected (CA=$ca_status seed=$seed_status)" >&2
+		exit 1
+	}
+}
+expect_status_gate 0 0 0
+expect_status_gate 1 1 0
+expect_status_gate 1 0 1
+echo "copyscripts CA and default-seed status aggregation: PASS"
