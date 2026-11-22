@@ -46,6 +46,7 @@ netutils_h = (ROOT / "trunk/user/shared/src/netutils.h").read_text()
 net6 = (ROOT / "trunk/user/rc/src/net6.c").read_text()
 wan6 = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
 rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
+net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
 
 reader = function_body(netutils, "int get_ipv6_type_status(")
 assert 'nvram_get_checked("ip6_service", &service_value)' in reader
@@ -96,5 +97,36 @@ assert "return -1;" in restore[ri:]
 assert "ipv6_disable_required = (nvram_ipv6_type == IPV6_DISABLED);" in rc
 assert "type_read_status = get_ipv6_type_status(&updated_ipv6_type);" in rc
 assert 'nvram_safe_get("ip6_service")' not in netutils
+
+
+lan6_reader = function_body(net_lan6, "get_lan6_service_type(")
+assert "get_ipv6_type_status(ipv6_type)" in lan6_reader
+assert "if (status != 0)" in lan6_reader
+assert "errno = status;" in lan6_reader
+assert "return status;" in lan6_reader
+assert "get_ipv6_type()" not in net_lan6
+
+reset_lan6 = function_body(net_lan6, "int reset_lan6_vars(void)")
+service_read = reset_lan6.index("get_lan6_service_type(&ipv6_type)")
+service_error = reset_lan6.index("if (service_status != 0)", service_read)
+service_return = reset_lan6.index("return service_status;", service_error)
+lan_config_read = reset_lan6.index('nvram_safe_get("ip6_lan_addr")')
+lan_publish = reset_lan6.index('nvram_set_temp("lan_addr6", addr6s)')
+assert service_read < service_error < service_return < lan_config_read < lan_publish
+assert "lan_addr6_static_for_type(ipv6_type)" in reset_lan6
+
+for signature in (
+    "int is_lan_radv_on(void)",
+    "int is_lan_addr6_static(void)",
+    "int get_lan_dhcp6s_mode(void)",
+):
+    getter = function_body(net_lan6, signature)
+    read = getter.index("get_lan6_service_type(&ipv6_type)")
+    error = getter.index("if (status != 0)", read)
+    assert read < error
+    assert "return -1;" in getter[error:]
+assert "lan_addr6_static_for_type(ipv6_type)" in function_body(
+    net_lan6, "int is_lan_addr6_static(void)"
+)
 
 print("IPv6 service-type checked-read source contract: PASS")

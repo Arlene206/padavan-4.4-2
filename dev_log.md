@@ -1,3 +1,13 @@
+## 2026-11-22 13:25 UTC+8 — Preserve LAN IPv6 state on service-type read failure
+
+- Parent main SHA: `7e8fa44420f186bea85ed9dc5cdef5990665913a`; product-source parent: `250ebfd2babb558957924e18033db434976fdbfe`.
+- `net_lan6.c` used the lossy `get_ipv6_type()` in its Router Advertisement/static-prefix/DHCPv6 mode predicates. More critically, `reset_lan6_vars()` treated a failed service-type read as disabled/not-static and then published an empty `lan_addr6`, clearing last-known-good LAN IPv6 state during a transient NVRAM backend/close error.
+- Added a checked LAN service-type reader, reused one already-checked type for static-prefix classification, and made `reset_lan6_vars()` return before its address read/write on service-type error. The three mode predicates retain the legacy `-1` sentinel but preserve errno/log the read failure.
+- Extended `scripts/check_ipv6_service_type_status.py` to require checked reader ordering and prove the reset error return precedes NVRAM address publication. Added `net_lan6.c` to aligned push/pull_request triggers for the GNU89 ASan/UBSan-backed IPv6 service regression.
+- Firewall Startup #44989237566 and AI handoff docs #44989237640 PASS on prior exact push SHA `7e8fa44420f186bea85ed9dc5cdef5990665913a`. NVRAM audit #44988923766 and USB #44988923719 PASS on product parent `250ebfd`; XY-C1 #44988923611 was still IN_PROGRESS there. This new source SHA's CI/build is pending. No local execution; no L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:23 UTC+8 — Fix Firewall Actions source-contract NameError
 
 - Parent main SHA: `250ebfd2babb558957924e18033db434976fdbfe`. Exact Firewall Startup run #44988923723 reached the inline “Verify required NAT restore gates WAN startup” checker after four earlier host regression steps passed, then failed with Python `NameError: name 'rc_source' is not defined`.

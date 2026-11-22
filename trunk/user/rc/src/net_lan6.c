@@ -35,16 +35,54 @@
 
 #if defined (USE_IPV6)
 
+static int
+get_lan6_service_type(int *ipv6_type)
+{
+	int status = get_ipv6_type_status(ipv6_type);
+
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot read IPv6 service configuration (status=%d)",
+			   status);
+	}
+
+	return status;
+}
+
+static int
+lan_addr6_static_for_type(int ipv6_type)
+{
+	if (ipv6_type == IPV6_DISABLED)
+		return -1;
+
+	if (ipv6_type == IPV6_6TO4 ||
+	    ipv6_type == IPV6_6RD)
+		return 0;
+
+	if (nvram_match("ip6_lan_auto", "0") ||
+	    ipv6_type == IPV6_NATIVE_STATIC ||
+	    ipv6_type == IPV6_6IN4)
+		return 1;
+
+	return 0;
+}
+
 int reset_lan6_vars(void)
 {
 	int api_result, saved_errno, status;
+	int ipv6_type, service_status;
 	struct in6_addr addr6;
 	char addr6_text[INET6_ADDRSTRLEN];
 	char addr6s[INET6_ADDRSTRLEN] = {0};
 	char *lan_addr6;
 	int lan_size6;
 
-	if (is_lan_addr6_static() == 1)
+	service_status = get_lan6_service_type(&ipv6_type);
+	if (service_status != 0)
+		return service_status;
+
+	if (lan_addr6_static_for_type(ipv6_type) == 1)
 	{
 		lan_addr6 = nvram_safe_get("ip6_lan_addr");
 		lan_size6 = nvram_get_int("ip6_lan_size");
@@ -78,9 +116,10 @@ int reset_lan6_vars(void)
 
 int is_lan_radv_on(void)
 {
-	int ipv6_type = get_ipv6_type();
+	int ipv6_type, status;
 
-	if (ipv6_type == IPV6_DISABLED)
+	status = get_lan6_service_type(&ipv6_type);
+	if (status != 0 || ipv6_type == IPV6_DISABLED)
 		return -1;
 
 	if (nvram_invmatch("ip6_lan_radv", "0"))
@@ -91,26 +130,21 @@ int is_lan_radv_on(void)
 
 int is_lan_addr6_static(void)
 {
-	int ipv6_type = get_ipv6_type();
+	int ipv6_type, status;
 
-	if (ipv6_type == IPV6_DISABLED)
+	status = get_lan6_service_type(&ipv6_type);
+	if (status != 0)
 		return -1;
 
-	if (ipv6_type == IPV6_6TO4 ||
-	    ipv6_type == IPV6_6RD)
-		return 0;
-
-	if (nvram_match("ip6_lan_auto", "0") || 
-	    ipv6_type == IPV6_NATIVE_STATIC || 
-	    ipv6_type == IPV6_6IN4)
-		return 1;
-	
-	return 0;
+	return lan_addr6_static_for_type(ipv6_type);
 }
 
 int get_lan_dhcp6s_mode(void)
 {
-	if (get_ipv6_type() == IPV6_DISABLED)
+	int ipv6_type, status;
+
+	status = get_lan6_service_type(&ipv6_type);
+	if (status != 0 || ipv6_type == IPV6_DISABLED)
 		return -1;
 
 	return nvram_get_int("ip6_lan_dhcp");
