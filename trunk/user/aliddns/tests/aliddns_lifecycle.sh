@@ -30,6 +30,8 @@ extract_function() {
 	' "$SOURCE" >> "$FUNCTIONS"
 }
 extract_function "aliddns_interval_normalize() {"
+extract_function "aliddns_nvram_read_checked() {"
+extract_function "aliddns_enable_initialize() {"
 extract_function "aliddns_lifecycle_lock_path() {"
 extract_function "aliddns_lifecycle_lock_prepare() {"
 extract_function "aliddns_lifecycle_lock_execute() {"
@@ -70,6 +72,85 @@ expect_interval "12;touch /tmp/aliddns-interval-injected" 600
 expect_interval -1 600
 expect_interval 1.5 600
 echo "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS"
+
+# Checked reads distinguish an absent/default key from a transient NVRAM failure.
+NVRAM_ENABLE_VALUE=1
+NVRAM_READ_FAIL_KEY=
+NVRAM_READ_STATUS=61
+NVRAM_SET_STATUS=0
+NVRAM_WRITES="$TEST_DIR/nvram-writes"
+NVRAM_LOG="$TEST_DIR/nvram-read.log"
+: > "$NVRAM_WRITES"
+: > "$NVRAM_LOG"
+nvram() {
+	case "${1:-} ${2:-}" in
+		"get_checked aliddns_enable")
+			[ "$NVRAM_READ_FAIL_KEY" != aliddns_enable ] || return "$NVRAM_READ_STATUS"
+			printf '%s\\n' "$NVRAM_ENABLE_VALUE"
+			;;
+		"get_checked aliddns_interval")
+			[ "$NVRAM_READ_FAIL_KEY" != aliddns_interval ] || return "$NVRAM_READ_STATUS"
+			printf '%s\\n' "300"
+			;;
+		"set aliddns_enable=0")
+			printf '%s\\n' "$*" >> "$NVRAM_WRITES"
+			[ "$NVRAM_SET_STATUS" -eq 0 ] || return "$NVRAM_SET_STATUS"
+			NVRAM_ENABLE_VALUE=0
+			;;
+		*) return 2 ;;
+	esac
+}
+logger() { printf '%s\\n' "$*" >> "$NVRAM_LOG"; }
+
+# A transient read failure must never be mistaken for an uninitialized key.
+aliddns_enable=1
+NVRAM_READ_FAIL_KEY=aliddns_enable
+if aliddns_enable_initialize; then
+	echo "AliDDNS enable initialization accepted a failed NVRAM read" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 61 ] || { echo "enable read status changed to $nvram_status" >&2; exit 1; }
+[ "$aliddns_enable" = "1" ] || { echo "failed enable read overwrote the active setting" >&2; exit 1; }
+[ ! -s "$NVRAM_WRITES" ] || { echo "failed enable read persisted a false disabled value" >&2; exit 1; }
+grep -Fq 'NVRAM read failed for aliddns_enable' "$NVRAM_LOG" || { echo "enable read error was not logged" >&2; exit 1; }
+
+# A missing key (successful empty read) still receives the legacy default.
+NVRAM_READ_FAIL_KEY=
+NVRAM_ENABLE_VALUE=
+aliddns_enable=1
+aliddns_enable_initialize || { echo "missing enable key did not initialize safely" >&2; exit 1; }
+[ "$aliddns_enable" = "0" ] || { echo "missing enable key did not default to disabled" >&2; exit 1; }
+[ "$(cat "$NVRAM_WRITES")" = "set aliddns_enable=0" ] || { echo "missing enable key was not persisted exactly once" >&2; exit 1; }
+
+# Failure to persist that default is itself fatal; do not publish a default in memory.
+: > "$NVRAM_WRITES"
+NVRAM_ENABLE_VALUE=
+NVRAM_SET_STATUS=62
+aliddns_enable=1
+if aliddns_enable_initialize; then
+	echo "AliDDNS accepted a failed default write" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 62 ] || { echo "default-write status changed to $nvram_status" >&2; exit 1; }
+[ "$aliddns_enable" = "1" ] || { echo "failed default write changed active enable state" >&2; exit 1; }
+
+# An interval read error must fail before the caller normalizes it to 600
+# and writes that fallback over a previously configured interval.
+NVRAM_READ_FAIL_KEY=aliddns_interval
+NVRAM_READ_STATUS=63
+if aliddns_nvram_read_checked aliddns_interval; then
+	echo "AliDDNS accepted a failed interval read" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 63 ] || { echo "interval read status changed to $nvram_status" >&2; exit 1; }
+[ "$(wc -l < "$NVRAM_WRITES" | tr -d ' ')" -eq 1 ] || { echo "interval read failure caused another NVRAM write" >&2; exit 1; }
+echo "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS"
 
 logger() {
 	:

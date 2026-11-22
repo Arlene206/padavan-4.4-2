@@ -35,26 +35,61 @@ aliddns_interval_normalize() {
 	printf '%s\n' "$aliddns_interval_value"
 }
 
-aliddns_enable=`nvram get aliddns_enable`
-[ -z $aliddns_enable ] && aliddns_enable=0 && nvram set aliddns_enable=0
+aliddns_nvram_read_checked() {
+	aliddns_nvram_value=$(nvram get_checked "$1")
+	aliddns_nvram_status=$?
+	if [ "$aliddns_nvram_status" -ne 0 ]; then
+		logger -t "AliDDNS" "NVRAM read failed for $1 (status=$aliddns_nvram_status)"
+		return "$aliddns_nvram_status"
+	fi
+	return 0
+}
+
+aliddns_enable_initialize() {
+	aliddns_nvram_read_checked aliddns_enable || return $?
+	if [ -z "$aliddns_nvram_value" ]; then
+		if nvram set aliddns_enable=0; then
+			aliddns_enable=0
+		else
+			aliddns_nvram_status=$?
+			logger -t "AliDDNS" "NVRAM default for aliddns_enable could not be saved (status=$aliddns_nvram_status)"
+			return "$aliddns_nvram_status"
+		fi
+	else
+		aliddns_enable=$aliddns_nvram_value
+	fi
+	return 0
+}
+
+aliddns_enable_initialize || exit $?
 if [ "$aliddns_enable" != "0" ] ; then
 #nvramshow=`nvram showall | grep '=' | grep aliddns | awk '{print gensub(/'"'"'/,"'"'"'\"'"'"'\"'"'"'","g",$0);}'| awk '{print gensub(/=/,"='\''",1,$0)"'\'';";}'` && eval $nvramshow
 
-aliddns_interval_raw=`nvram get aliddns_interval`
+aliddns_nvram_read_checked aliddns_interval || exit $?
+aliddns_interval_raw=$aliddns_nvram_value
 aliddns_interval=$(aliddns_interval_normalize "$aliddns_interval_raw")
 if [ "$aliddns_interval" != "$aliddns_interval_raw" ]; then
 	nvram set aliddns_interval="$aliddns_interval" ||
 		logger -t "AliDDNS" "无法持久化安全检查周期，当前运行使用 $aliddns_interval 秒"
 fi
-aliddns_ak=`nvram get aliddns_ak`
-aliddns_sk=`nvram get aliddns_sk`
-aliddns_domain=`nvram get aliddns_domain`
-aliddns_name=`nvram get aliddns_name`
-aliddns_domain2=`nvram get aliddns_domain2`
-aliddns_name2=`nvram get aliddns_name2`
-aliddns_domain6=`nvram get aliddns_domain6`
-aliddns_name6=`nvram get aliddns_name6`
-aliddns_ttl=`nvram get aliddns_ttl`
+aliddns_nvram_read_checked aliddns_ak || exit $?
+aliddns_ak=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_sk || exit $?
+aliddns_sk=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_domain || exit $?
+aliddns_domain=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_name || exit $?
+aliddns_name=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_domain2 || exit $?
+aliddns_domain2=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_name2 || exit $?
+aliddns_name2=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_domain6 || exit $?
+aliddns_domain6=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_name6 || exit $?
+aliddns_name6=$aliddns_nvram_value
+aliddns_nvram_read_checked aliddns_ttl || exit $?
+aliddns_ttl=$aliddns_nvram_value
 
 if [ "$aliddns_domain"x != "x" ] && [ "$aliddns_name"x = "x" ] ; then
 	aliddns_name="www"
@@ -78,7 +113,8 @@ name1=""
 timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
 aliddns_record_id=""
 [ -z $aliddns_ttl ] && aliddns_ttl=600 && nvram set aliddns_ttl=$aliddns_ttl
-aliddns_renum=`nvram get aliddns_renum`
+aliddns_nvram_read_checked aliddns_renum || exit $?
+aliddns_renum=$aliddns_nvram_value
 
 fi
 
@@ -254,9 +290,15 @@ while true; do
 sleep "$aliddns_interval"
 [ ! -s "`which curl`" ] && aliddns_restart
 #nvramshow=`nvram showall | grep '=' | grep aliddns | awk '{print gensub(/'"'"'/,"'"'"'\"'"'"'\"'"'"'","g",$0);}'| awk '{print gensub(/=/,"='\''",1,$0)"'\'';";}'` && eval $nvramshow
-aliddns_enable=`nvram get aliddns_enable`
-[ "$aliddns_enable" = "0" ] && aliddns_close && exit 0;
-if [ "$aliddns_enable" = "1" ] ; then
+if aliddns_nvram_read_checked aliddns_enable; then
+	aliddns_runtime_enable=$aliddns_nvram_value
+else
+	aliddns_runtime_read_status=$?
+	logger -t "AliDDNS" "无法读取服务开关，保留当前 keeper 并稍后重试 (status=$aliddns_runtime_read_status)"
+	continue
+fi
+[ "$aliddns_runtime_enable" = "0" ] && aliddns_close && exit 0;
+if [ "$aliddns_runtime_enable" = "1" ] ; then
 	aliddns_start
 fi
 done

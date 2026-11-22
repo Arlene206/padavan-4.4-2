@@ -497,6 +497,24 @@ require("curl -k" not in initconfig_body and "--no-check-certificate" not in ini
 require("curl -k" not in source and "--no-check-certificate" not in source and
         "http://119.29.29.29" not in source,
         "stock AliDDNS source retains an insecure public-IP or DNS lookup")
+nvram_reader = function_body(source, "aliddns_nvram_read_checked() {")
+enable_initializer = function_body(source, "aliddns_enable_initialize() {")
+require('nvram get_checked "$1"' in nvram_reader and
+        'NVRAM read failed for $1' in nvram_reader and
+        'return "$aliddns_nvram_status"' in nvram_reader,
+        "AliDDNS NVRAM reads must distinguish backend errors from missing keys")
+require('aliddns_nvram_read_checked aliddns_enable || return $?' in enable_initializer and
+        'nvram set aliddns_enable=0' in enable_initializer and
+        enable_initializer.index('nvram set aliddns_enable=0') < enable_initializer.index('aliddns_enable=0'),
+        "AliDDNS must persist a missing-key default only after a successful checked read and write")
+for key in ("aliddns_interval", "aliddns_ak", "aliddns_sk", "aliddns_domain",
+            "aliddns_name", "aliddns_domain2", "aliddns_name2",
+            "aliddns_domain6", "aliddns_name6", "aliddns_ttl", "aliddns_renum"):
+    require('aliddns_nvram_read_checked ' + key + ' || exit $?' in source,
+            "AliDDNS startup must fail closed on NVRAM read failure: " + key)
+require('if aliddns_nvram_read_checked aliddns_enable; then' in source and
+        '无法读取服务开关，保留当前 keeper 并稍后重试' in source,
+        "keeper must not interpret a failed service-enable read as a disable request")
 require('$(ROMFSINST) -p +x $(THISDIR)/aliddns-ipv4.sh /usr/bin/aliddns-ipv4.sh' in package,
         "IPv4 helper must be installed executable in ROMFS")
 require("tls-failure)" in ipv4_test and "timeout)" in ipv4_test and
@@ -536,6 +554,7 @@ for marker in (
     require(marker in custom_script_test, f"custom-script host regression missing result marker: {marker}")
 
 for marker in (
+    "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS",
     "CA trust-store bootstrap success regression: PASS",
     "CA trust-store bootstrap failure propagation regression: PASS",
 ):
