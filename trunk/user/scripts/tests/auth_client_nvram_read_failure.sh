@@ -90,8 +90,14 @@ cat > "$TEST_ROOT/bin/start-stop-daemon" <<'STUB'
 #!/bin/sh
 printf '%s\n' "$*" >> "$START_LOG"
 credentials_file=
+program=
 while [ "$#" -gt 0 ]; do
 	case "$1" in
+		-x)
+			shift
+			[ "$#" -gt 0 ] || exit 64
+			program=$1
+			;;
 		--credentials-file)
 			shift
 			[ "$#" -gt 0 ] || exit 64
@@ -100,11 +106,21 @@ while [ "$#" -gt 0 ]; do
 	esac
 	shift
 done
-[ -n "$credentials_file" ] || exit 65
-[ -f "$credentials_file" ] || exit 66
-grep -Fqx 'username=' "$credentials_file" || exit 67
-grep -Fqx 'password=' "$credentials_file" || exit 68
-rm -f "$credentials_file"
+case "$program" in
+	bin_scutclient)
+		[ -n "$credentials_file" ] || exit 65
+		[ -f "$credentials_file" ] || exit 66
+		grep -Fqx 'username=' "$credentials_file" || exit 67
+		grep -Fqx 'password=' "$credentials_file" || exit 68
+		rm -f "$credentials_file"
+		;;
+	bin_mentohust)
+		[ -z "$credentials_file" ] || exit 69
+		;;
+	*)
+		exit 70
+		;;
+esac
 STUB
 cat > "$TEST_ROOT/bin/bin_scutclient" <<'STUB'
 #!/bin/sh
