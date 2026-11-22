@@ -171,7 +171,7 @@ static int
 nvram_restore_defaults(void)
 {
 	int restore_defaults;
-	int need_commit, ipv6_type_status;
+	int need_commit;
 	char lan_mac[] = "FFFF";
 	unsigned char buffer[2] = {0};
 	int i_offset = get_wired_mac_e2p_offset(0) + 4;
@@ -199,14 +199,7 @@ nvram_restore_defaults(void)
 	/* load static values */
 	nvram_modem_type = nvram_get_int("modem_type");
 	nvram_modem_rule = nvram_get_int("modem_rule");
-	ipv6_type_status = get_ipv6_type_status(&nvram_ipv6_type);
-	if (ipv6_type_status != 0) {
-		errno = ipv6_type_status;
-		logmessage(LOGNAME,
-			   "cannot read IPv6 service configuration; aborting router startup (status=%d)",
-			   ipv6_type_status);
-		return -1;
-	}
+	nvram_ipv6_type = get_ipv6_type();
 
 	return need_commit;
 }
@@ -1480,7 +1473,7 @@ init_router(void)
 			boot_services_status, bridge_start_status);
 	}
 #if defined (USE_IPV6)
-	ipv6_disable_required = (nvram_ipv6_type == IPV6_DISABLED);
+	ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);
 	ipv6_init_status = init_ipv6();
 	boot_services_status = rc_first_service_start_status(
 		boot_services_status, ipv6_init_status);
@@ -2062,21 +2055,8 @@ handle_notifications(void)
 
 				action_result = rc_notify_merge_action_result(
 					action_result, ipv6_restart_status);
-				if (ipv6_restart_should_publish_type(ipv6_restart_status)) {
-					int updated_ipv6_type, type_read_status;
-
-					type_read_status = get_ipv6_type_status(&updated_ipv6_type);
-					if (type_read_status == 0)
-						nvram_ipv6_type = updated_ipv6_type;
-					else {
-						errno = type_read_status;
-						logmessage(LOGNAME,
-							   "IPv6 restart completed but service type cache could not be refreshed (status=%d)",
-							   type_read_status);
-						action_result = rc_notify_merge_action_result(
-							action_result, type_read_status);
-					}
-				}
+				if (ipv6_restart_should_publish_type(ipv6_restart_status))
+					nvram_ipv6_type = get_ipv6_type();
 			}
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_RADV) == 0)

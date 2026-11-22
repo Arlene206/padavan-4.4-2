@@ -3936,7 +3936,8 @@ jobs:
           assert "ipv4_filter_status = ipt_filter_default();" in boot
           assert "ipv6_filter_status = ip6t_filter_default();" in boot
           assert "ipv6_filter_required = !ipv6_disable_required;" in boot
-          assert "ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);" in rc_source
+          assert "get_ipv6_type_status(&nvram_ipv6_type)" in rc_source
+          assert "ipv6_disable_required = (nvram_ipv6_type == IPV6_DISABLED);" in rc_source
           assert "ipv6_init_status = init_ipv6();" in rc_source
           assert "Blocking WAN startup: IPv6 is configured disabled but global disable sysctls could not be verified" in rc_source
           assert "firewall_startup_policy_allows_wan_checked(" in boot

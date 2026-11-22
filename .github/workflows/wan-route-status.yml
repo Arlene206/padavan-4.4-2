@@ -1225,8 +1225,10 @@ jobs:
           mode_error_merge = ipv6_case.index("action_result, ap_mode_status)", mode_error)
           restart_call = ipv6_case.index("full_restart_ipv6(")
           restart_merge = ipv6_case.index("action_result, ipv6_restart_status);", restart_call)
-          runtime_publish = ipv6_case.index("nvram_ipv6_type = get_ipv6_type();")
-          assert mode_read < mode_error < mode_error_merge < restart_call < restart_merge < runtime_publish
+          runtime_read = ipv6_case.index("type_read_status = get_ipv6_type_status(&updated_ipv6_type);")
+          runtime_gate = ipv6_case.index("if (type_read_status == 0)", runtime_read)
+          runtime_publish = ipv6_case.index("nvram_ipv6_type = updated_ipv6_type;", runtime_gate)
+          assert mode_read < mode_error < mode_error_merge < restart_call < restart_merge < runtime_read < runtime_gate < runtime_publish
           for marker in (
               "check_runtime_type(EBUSY, 0, 1, 0)",
               "check_runtime_type(EIO, 1, 0, 1)",

@@ -1,3 +1,12 @@
+## 2026-11-22 13:52 UTC+8 — Align exact-source gates with checked IPv6 service cache
+
+- Parent main SHA: `915456f9e919badaa489713ce62f6017c5787808`. The new IPv6 service-type regression #44988532661 and WAN DHCP callback regression #44988532640 PASS on that exact SHA.
+- Firewall #44988532674 and HTTPD #44988532650 source contracts still asserted that boot derived `ipv6_disable_required` by calling the legacy `get_ipv6_type()` wrapper. WAN route #44988532603 asserted the RCN_RESTART_IPV6 handler refreshed its runtime `nvram_ipv6_type` cache directly through that wrapper. Product code now validates and cache-loads service type using `get_ipv6_type_status()` and publishes runtime cache only after a successful checked read. Updated these three exact-source contracts to enforce the new checked behavior rather than revert product code to the lossy API.
+- No production C source changed in this contract-only slice. Parent XY-C1 #44988532602 remained at Build XY-C1 with TRX/artifact pending; NVRAM audit #44988532630 remained in progress. No L3/L4 claim; exact new-SHA workflows pending.
+- Remaining legacy service-type callsite migration is active; frozen backup branch and closed PR #1 remain untouched.
+
+---
+
 ## 2026-11-22 13:40 UTC+8 — Preserve IPv6 service-type NVRAM read failures
 
 - Parent main SHA: `445e03f5b18aa185934ad145fc41a7953f82cdc0`. Shared `get_ipv6_type()` in `trunk/user/shared/src/netutils.c` read `ip6_service` via `nvram_safe_get()`. That API converts backend/read/close errors into an empty string; the parser then reports `IPV6_DISABLED`, which can disable host-wide IPv6 at boot or make WAN IPv6 transitions skip required state while configuration is merely unreadable.

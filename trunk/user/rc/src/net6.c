@@ -44,18 +44,9 @@
 
 int init_ipv6(void)
 {
-	int ipv6_type, ipv6_type_status;
-	int conf_status, gai_status, operation_status;
-
-	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
-	if (ipv6_type_status != 0) {
-		errno = ipv6_type_status;
-		logmessage(LOGNAME,
-			   "IPv6 initialization refused: cannot read service configuration (status=%d)",
-			   ipv6_type_status);
-		return ipv6_type_status;
-	}
-	conf_status = control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
+	int ipv6_type = get_ipv6_type();
+	int conf_status = control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
+	int gai_status, operation_status;
 
 	if (conf_status != 0)
 		logmessage(LOGNAME, "IPv6 global sysctl initialization incomplete (status=%d)", conf_status);
@@ -191,7 +182,8 @@ int clear_all_route6(void)
 int
 full_restart_ipv6(int ipv6_type_old)
 {
-	int ipv6_type, ipv6_type_status, ipv6_toggled;
+	int ipv6_type = get_ipv6_type();
+	int ipv6_toggled = ((ipv6_type == IPV6_DISABLED || ipv6_type_old == IPV6_DISABLED) && (ipv6_type != ipv6_type_old)) ? 1 : 0;
 	int dnsmasq_status, dnsmasq_start_status, dnsmasq_stop_status, scan_error = 0;
 	int dnsmasq_lock, dnsmasq_lock_errno;
 	int restart_status = 0, operation_status, lock_release_status;
@@ -199,18 +191,6 @@ full_restart_ipv6(int ipv6_type_old)
 #if defined (APP_NFSD)
 	int nfs_stop_status;
 #endif
-
-	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
-	if (ipv6_type_status != 0) {
-		errno = ipv6_type_status;
-		logmessage(LOGNAME,
-			   "IPv6 restart refused: cannot read service configuration (status=%d)",
-			   ipv6_type_status);
-		return ipv6_type_status;
-	}
-	ipv6_toggled = ((ipv6_type == IPV6_DISABLED ||
-			 ipv6_type_old == IPV6_DISABLED) &&
-			(ipv6_type != ipv6_type_old)) ? 1 : 0;
 
 	/*
 	 * Serialize the IPv6-only DNSMasq configuration changes with watchdog and
