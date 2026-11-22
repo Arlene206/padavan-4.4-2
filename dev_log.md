@@ -1,3 +1,12 @@
+## 2026-11-22 — Fail closed on libdisk directory enumeration errors
+
+- Source commit: `c24dd1f0a513864249ae7817db7d3ddc6077f21b` (parent `faed38733360380c55b605c0ec9a0f34538877b4`). `get_all_folder_in_mount_path()` previously treated every `readdir()` NULL as clean EOF, so a directory read error could publish and persist an incomplete share list. The new injectable status policy distinguishes entry, clean EOF and I/O failure; production code frees partial results, preserves errno across cleanup, and only publishes after successful enumeration/close.
+- Added GNU89/ASan/UBSan policy cases for entry, EOF, EIO and invalid adapters. The source contract checks fail-closed ordering and protects the XY-C1 production-input path filter.
+- Corrected the previous handoff's incorrect statement that libdisk sources were already watched by XY-C1. The main-push filter now includes the libdisk Makefile, `disk_share.c`, `disk_share.h` and installed `disk_share_list_policy.h`; the focused libdisk workflow continues to cover push and PR host tests.
+- Exact source SHA Actions at last poll: libdisk share-list #45015397360 IN_PROGRESS; XY-C1 #45015397223 IN_PROGRESS with Build XY-C1 running; Process inventory #45015397306 IN_PROGRESS; Process lifecycle #45015397230 IN_PROGRESS; AI docs #45015397283 IN_PROGRESS; NVRAM #45015397192 QUEUED; HTTPD #45015397324 QUEUED. No firmware L3 or hardware L4 claim until same-SHA Build/TRX/artifact all pass.
+
+---
+
 ## 2026-11-22 — Handoff and CI checkpoint refresh
 
 - Parent main SHA: `1991166437f832772a8c9a0dc785f5a1f12d78c3`; frozen backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
