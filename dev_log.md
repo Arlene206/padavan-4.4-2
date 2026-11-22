@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve checked interface identity in get_wan_ifname
+
+- Parent main SHA: `2b2c2e6c1ef1ca9fc41dd39ebb88858e33cf1bcb`. Exact 2b WAN DHCP callback #44995928887 PASS, WAN route status #44995928825 PASS and AI handoff #44995928838 PASS. Exact XY-C1 #44995928841 remained IN_PROGRESS at last poll; no L3 claim.
+- Continued the same concrete NVRAM failure path beyond `start_wan()`: `get_wan_ifname()` also used `get_man_ifname()` backed by `nvram_safe_get()`, then copied the lossy value through `rc_wan_nvram_copy_text()`. A backend/read/close error could be rewritten as an empty-interface `EINVAL` instead of preserving the actual NVRAM error.
+- Removed the lossy getter from `get_wan_ifname()`. The function now performs checked bounded read and token validation only if its selected interface still uses the configured manual name; modem/PPP overrides do not gain an unrelated read dependency. Checked status is returned with `errno` preserved.
+- Extended the existing WAN interface source contract to pin that conditional checked read, validation, error propagation and lack of the lossy getter. Exact-head WAN DHCP/route/XY verification is pending for this commit.
+
+---
 ## 2026-11-22 — Align WAN startup source contracts with checked interface identity
 
 - Parent main SHA: `e34444ae55651085a157996f4c6b5699b20066c9`. Exact 6ec WAN DHCP #44995722211 first failed because the first version of the new checker searched for literal `\\n`; the e344 follow-up corrected this, but WAN DHCP #44995792863 then exposed two additional whitespace-sensitive expectations that omitted the space after `(`. The underlying WAN interface-name GNU89/ASan/UBSan executable passed on both source SHAs before the Python checker stopped the job.

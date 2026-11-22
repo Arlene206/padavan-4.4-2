@@ -6709,17 +6709,9 @@ get_wan_ifname(char wan_ifname[16])
 {
 	int unit = 0;
 	int status, is_usb_modem, is_ndis_modem = 0, wan_proto;
-	char man_ifname[16], ifname_temp[16];
-	char *man_ifname_value;
+	char man_ifname[16], man_ifname_nvram[16], ifname_temp[16];
 	const char *ifname = man_ifname;
 
-	man_ifname_value = get_man_ifname(unit);
-	status = rc_wan_nvram_copy_text(man_ifname_value, man_ifname,
-					 sizeof(man_ifname));
-	if (status != 0) {
-		errno = status;
-		return status;
-	}
 	status = get_wan_unit_value_copy_status(unit, "ifname_t",
 					       ifname_temp, sizeof(ifname_temp));
 	if (status != 0) {
@@ -6760,6 +6752,26 @@ get_wan_ifname(char wan_ifname[16])
 				ifname = ifname_temp;
 			else
 				ifname = IFNAME_PPP;
+		}
+	}
+
+	/*
+	 * Only the manual interface is needed when no PPP/modem interface
+	 * overrides it. Read it through the checked API so transient NVRAM
+	 * errors cannot be converted into a misleading empty/invalid name.
+	 */
+	if (ifname == man_ifname) {
+		status = get_wan_unit_value_copy_status(
+			unit, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+		if (status != 0) {
+			errno = status;
+			return status;
+		}
+		status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (status != 0) {
+			errno = status;
+			return status;
 		}
 	}
 

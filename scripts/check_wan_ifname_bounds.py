@@ -38,6 +38,14 @@ wan_end = net_wan.index("\n}\n", wan_start)
 wan_get = net_wan[wan_start:wan_end]
 assert "wan_ifname_copy(wan_ifname, 16, ifname)" in wan_get
 assert "strcpy(wan_ifname" not in wan_get
+wan_get_compact = " ".join(wan_get.split())
+assert "if (ifname == man_ifname)" in wan_get
+assert "get_wan_unit_value_copy_status( unit, \"ifname\", man_ifname_nvram, sizeof(man_ifname_nvram))" in wan_get_compact
+assert "wan_ifname_copy( man_ifname, sizeof(man_ifname), man_ifname_nvram)" in wan_get_compact
+assert "get_man_ifname(unit)" not in wan_get
+assert "man_ifname_value" not in wan_get
+assert wan_get.index("get_wan_unit_value_copy_status(") < wan_get.index("wan_ifname_copy(\n\t\t\tman_ifname")
+assert "errno = status;" in wan_get
 assert "int get_wan_ifname(char wan_ifname[16]);" in rc_header
 
 assert "ret = get_wan_ifname(wan_ifname);" in services
