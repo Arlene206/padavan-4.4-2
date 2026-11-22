@@ -704,15 +704,15 @@ jobs:
           assert "dnsmasq_nvram_string_status(" in string_reader
           assert "value_length >= destination_size" in Path("trunk/user/rc/src/dnsmasq_nvram_option_policy.h").read_text()
           assert "test_checked_string_option_and_output_preservation" in dnsmasq_nvram_test
-          explicit_wins_read = 'dnsmasq_read_string_option("dhcp_wins_x",'
-          assert explicit_wins_read in prepare
-          explicit_wins_read_at = prepare.index(explicit_wins_read)
+          wins_snapshot_read = "dnsmasq_dhcp_config_nvram_snapshot_read("
+          assert wins_snapshot_read in prepare
+          wins_snapshot_read_at = prepare.index(wins_snapshot_read)
           wins_flag_read = 'dnsmasq_read_integer_boolean_option("wins_enable",'
           assert wins_flag_read in prepare
-          assert explicit_wins_read_at < prepare.index(wins_flag_read)
-          assert explicit_wins_read_at < prepare.index("fill_static_ethers(ipaddr, netmask)")
-          assert explicit_wins_read_at < prepare.index("fp = dnsmasq_file_open(config_path);")
-          assert "wins = dhcp_wins_value;" in prepare
+          assert "wins = dhcp_nvram_snapshot.dhcp_wins;" in prepare
+          assert wins_snapshot_read_at < prepare.index(wins_flag_read)
+          assert wins_snapshot_read_at < prepare.index("fill_static_ethers(ipaddr, netmask)")
+          assert wins_snapshot_read_at < prepare.index("fp = dnsmasq_file_open(config_path);")
           assert 'nvram_safe_get("dhcp_wins_x")' not in prepare
           assert 'nvram_get_int("wins_enable")' not in prepare
           assert "return option_status;" in prepare
