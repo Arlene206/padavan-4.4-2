@@ -1,3 +1,11 @@
+## 2026-11-22 — Fail closed when previous IPv6 interface identity cannot be read
+
+- Parent main SHA: `273db47f11e6d8f5f71d387456677d47141282d3`. `wan6_down()` used the pointer-returning `get_wan_unit_value(unit, "ifname6")`. A failed/missing cached read was indistinguishable from an absent identity, so teardown could silently choose the current WAN/SIT fallback and leave addresses/routes on a previous PPP/device interface.
+- Replaced it with a bounded `get_wan_unit_value_copy_status()` read into a stable interface-name buffer. Read errors now return before any interface existence probe or address/route mutation; an actually missing key remains an empty string and keeps the existing fallback policy.
+- Both WAN source contracts enforce the checked read/error gate before fallback selection. Existing checked-copy regression coverage exercises missing, backend-error and truncation outcomes.
+- Next task: audit `get_wan_addr6_host()` and `store_wan_dns6()` callers for pointer lifetime and error-propagation after the checked DNS fix, then continue the IPv6 teardown side-effect order.
+
+---
 ## 2026-11-22 — Preserve DHCPv6 DNS withdrawal when the old NVRAM value is unreadable
 
 - Parent main SHA: `ced9b3e9ff811d6ed140e4ebad7a288dd907e8b2`. `store_wan_dns6()` fetched the previous `wan0_dns6` with the lossy pointer getter. If the NVRAM backend failed while the DHCPv6 lease withdrew its DNS option (new value empty), the read became an empty fallback and `wan6_dns_store_if_changed()` skipped the write, leaving stale DNS servers published.

@@ -446,3 +446,11 @@ assert "if (read_status != 0)" in dns_policy
 assert "test_dns_store_fails_closed_when_current_value_read_fails" in dns_policy_test
 assert "test_dns_store_fails_closed_when_current_value_read_fails();" in dns_policy_test
 assert "test_dns_store_treats_missing_current_value_as_empty();" in dns_policy_test
+
+# IPv6 teardown must not substitute a fallback interface when the previous identity read failed.
+wan6_down_body = body(source, "int wan6_down(char *wan_ifname, int unit)")
+identity_read = wan6_down_body.index('get_wan_unit_value_copy_status(\n\t\tunit, "ifname6", previous_ifname_buffer')
+identity_error = wan6_down_body.index("if (status != 0)", identity_read)
+first_interface_probe = wan6_down_body.index("is_interface_exist(previous_ifname)")
+assert identity_read < identity_error < first_interface_probe
+assert 'get_wan_unit_value(unit, "ifname6")' not in wan6_down_body

@@ -1553,6 +1553,7 @@ int wan6_down(char *wan_ifname, int unit)
 {
 	int ipv6_type, stop_status, status, operation_status;
 	int clear_status, previous_if_exists, sit_if_exists, ipv6_sit;
+	char previous_ifname_buffer[IFNAMSIZ] = {0};
 	char *previous_ifname, *wan6_ifname;
 
 	stop_status = stop_dhcp6c();
@@ -1570,8 +1571,18 @@ int wan6_down(char *wan_ifname, int unit)
 		return status;
 	}
 
-	previous_ifname = get_wan_unit_value(unit, "ifname6");
-	previous_if_exists = previous_ifname && previous_ifname[0] &&
+	status = get_wan_unit_value_copy_status(
+		unit, "ifname6", previous_ifname_buffer,
+		sizeof(previous_ifname_buffer));
+	if (status != 0) {
+		errno = status;
+		logmessage("WAN IPv6",
+			   "refusing IPv6 teardown because previous interface identity cannot be read for unit %d (status=%d)",
+			   unit, status);
+		return status;
+	}
+	previous_ifname = previous_ifname_buffer;
+	previous_if_exists = previous_ifname[0] &&
 		is_interface_exist(previous_ifname);
 	sit_if_exists = is_interface_exist(IFNAME_SIT);
 	ipv6_sit = ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 ||

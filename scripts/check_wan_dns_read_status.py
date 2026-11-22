@@ -1210,3 +1210,13 @@ for test_name in ("test_wan6_unit_address_snapshot_copies_one_coherent_tuple",
                   "test_wan6_unit_address_snapshot_discards_partial_tuple_on_each_read_error"):
     require(test_name in unit_snapshot_tests and test_name + "();" in unit_snapshot_tests,
             "WAN IPv6 unit tuple regression is not registered: " + test_name)
+
+# IPv6 teardown must not substitute a fallback interface when the previous identity read failed.
+wan6_down_body = body(wan6_source, "int wan6_down(char *wan_ifname, int unit)")
+identity_read = wan6_down_body.index('get_wan_unit_value_copy_status(\n\t\tunit, "ifname6", previous_ifname_buffer')
+identity_error = wan6_down_body.index("if (status != 0)", identity_read)
+first_interface_probe = wan6_down_body.index("is_interface_exist(previous_ifname)")
+require(identity_read < identity_error < first_interface_probe,
+        "WAN IPv6 teardown must reject an unreadable previous interface before probing a fallback")
+require('get_wan_unit_value(unit, "ifname6")' not in wan6_down_body,
+        "WAN IPv6 teardown must not use the error-collapsing pointer getter")
