@@ -1,3 +1,12 @@
+## 2026-11-21 — Check NAT remote-listener gates before staging DNAT rules
+
+- Parent main SHA: `7f88931cf6c433eab982878aa4c9a8037481e28d`. Exact Firewall Startup #44983346287, WAN DHCP #44983346264, WAN route #44983346267, HTTPD #44983346285, FULLCONENAT #44983346271, Process inventory #44983346353 and AI handoff #44983346275 all PASS. The firewall log includes the rp_filter source contracts and `Firewall rp_filter sysctl status policy: PASS`. XY-C1 #44983346281 and NVRAM #44983346304 were still running at the last poll.
+- Review of `ipt_nat_rules()` found the remote-listener gates `misc_http_x`, `https_wopen`, `sshd_wopen`, `ftpd_wopen` and `udpxy_wopen` still used unchecked `nvram_match()` both to decide which external port values to pre-read and again while emitting DNAT rules. An NVRAM error could silently omit a configured port mapping or desynchronize the gate used by snapshot and emission.
+- Each applicable listener toggle is now read once with `firewall_read_enabled_setting()` before NAT rule-file staging; the same local boolean controls port snapshot reads and rule generation. Missing keys preserve the exact-match legacy disabled default; backend errors abort before NAT publication.
+- Added GNU89 sanitizer coverage for all five absent/default and backend-error cases, plus exact workflow assertions that checked gates precede staging and no unchecked legacy gate remains. Exact-head Firewall Startup / XY-C1 verification pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Check rp_filter feature flags before relaxing anti-spoofing
 
 - Parent main SHA: `6fda27da8b7834297a96e0e363b2df8fa9608d4d`. DNS redirect correction `6fda27da8b7834297a96e0e363b2df8fa9608d4d` has Firewall Startup #44983258834, WAN DHCP #44983258898, WAN route #44983258810, FULLCONENAT #44983258808, process inventory #44983258806 and AI handoff #44983258870 PASS. HTTPD #44983258852 and XY-C1 #44983258842 were IN_PROGRESS; NVRAM #44983258826 was pending at the last poll.

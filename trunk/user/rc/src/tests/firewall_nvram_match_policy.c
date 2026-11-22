@@ -215,6 +215,32 @@ test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed(void)
 }
 
 static void
+test_nat_remote_listener_toggles_missing_default_and_backend_failure(void)
+{
+	int misc_http = 19;
+	int https = 19;
+	int ssh = 19;
+	int ftp = 19;
+	int udpxy = 19;
+
+	/* All five exact-match listener gates historically default to disabled. */
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &misc_http) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &https) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &ssh) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &ftp) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &udpxy) == 0);
+	assert(misc_http == 0 && https == 0 && ssh == 0 && ftp == 0 && udpxy == 0);
+
+	misc_http = https = ssh = ftp = udpxy = 19;
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &misc_http) == EIO);
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "1", 0, &https) == EACCES);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &ssh) == EIO);
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "1", 0, &ftp) == EACCES);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &udpxy) == EIO);
+	assert(misc_http == 19 && https == 19 && ssh == 19 && ftp == 19 && udpxy == 19);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -269,6 +295,7 @@ main(void)
 	test_wan_ttl_policy_reads_keep_legacy_defaults_and_fail_closed();
 	test_dns_redirect_toggle_missing_default_and_backend_failure();
 	test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed();
+	test_nat_remote_listener_toggles_missing_default_and_backend_failure();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

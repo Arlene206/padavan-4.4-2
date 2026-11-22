@@ -867,6 +867,28 @@ jobs:
           assert 'nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")' not in rp_filter_source
           assert "test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed" in firewall_nvram_test
 
+          # Remote-listener publication and port snapshots must share checked toggles.
+          nat_builder = body(firewall_source, "ipt_nat_rules(char *man_if")
+          listener_gates = (
+              'firewall_read_enabled_setting("misc_http_x", &is_misc_http_enabled)',
+              'firewall_read_enabled_setting("https_wopen", &is_https_wopen)',
+              'firewall_read_enabled_setting("sshd_wopen", &is_sshd_wopen)',
+              'firewall_read_enabled_setting("ftpd_wopen", &is_ftpd_wopen)',
+              'firewall_read_enabled_setting("udpxy_wopen", &is_udpxy_wopen)',
+          )
+          for gate in listener_gates:
+              assert gate in nat_builder
+              assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file(")
+          for old_gate in (
+              'nvram_match("misc_http_x", "1")',
+              'nvram_match("https_wopen", "1")',
+              'nvram_match("sshd_wopen", "1")',
+              'nvram_match("ftpd_wopen", "1")',
+              'nvram_match("udpxy_wopen", "1")',
+          ):
+              assert old_gate not in nat_builder
+          assert "test_nat_remote_listener_toggles_missing_default_and_backend_failure" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",
