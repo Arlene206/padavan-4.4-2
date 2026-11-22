@@ -1,3 +1,11 @@
+## 2026-11-22 — Update HTTPD firewall snapshot source contract
+
+- Parent main SHA: `595b2dcb7a927a369d3e29a0aef75a5431fc7e74`. Storage firewall-refresh source commit #595 was under exact-head validation; its storage hotplug, Process, AI docs, NVRAM, Firewall Startup and XY-C1 checks were IN_PROGRESS at last inspection.
+- HTTPD Authentication and Security Regression #45005080682 on firewall source SHA `cea789c171d0698f32cbe1d188ce8dda79c43353` failed at the first inline checker because it still searched for the removed `nvram_safe_get("lan_ipaddr")` assignment. The unchanged HTTPD workflow on source parent 595 was also IN_PROGRESS as run #45005582489.
+- THIS workflow-only change replaces the stale locator with status-bearing copy/error-order assertions for LAN IP, manual WAN IP, WAN-unit IP and LAN netmask. It ensures all four inputs are copied and errors returned before network side effects, while retaining address validation/fallback and netmask-before-subnet behavior. Exact-head HTTPD/AI reruns pending; product behavior unchanged; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Always reconcile firewall after storage daemon presence changes
 
 - Parent main SHA: 005d1e340cfc7a68b0686833c8ab96d30122fe73. Exact 005 Firewall Startup Stability #45005183052 PASS and AI docs #45005183110 PASS; exact cea NVRAM audit #45005080676 PASS. Exact cea XY-C1 #45005080673 remained in progress; no current product L3 claim.

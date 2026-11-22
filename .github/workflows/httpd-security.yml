@@ -5020,12 +5020,47 @@ jobs:
           assert "get_man_ifname(unit)" not in firewall_main
           assert firewall_main.index('wan_if_value = get_wan_unit_value(unit, "ifname_t");') < raw_rules
           print("Firewall raw interface-token validation: OK")
-          lan_copy = firewall_main.index('snprintf(lan_ip, sizeof(lan_ip), "%s", nvram_safe_get("lan_ipaddr"));')
+          lan_copy = firewall_main.index(
+              'firewall_read_string_setting_copy_status(\n\t\t"lan_ipaddr", lan_ip, sizeof(lan_ip));'
+          )
+          lan_read_error = firewall_main.index("if (status != 0)", lan_copy)
           lan_guard = firewall_main.index("if (!firewall_ipv4_address_is_safe(lan_ip))")
           lan_fallback = firewall_main.index('strcpy(lan_ip, "0.0.0.0");')
           lan_network = firewall_main.index("ip2class(lan_ip,")
           firewall_build = firewall_main.index("ipt_nat_rules(")
-          assert lan_copy < lan_guard < lan_fallback < lan_network < firewall_build
+          assert lan_copy < lan_read_error < lan_guard < lan_fallback < lan_network < firewall_build
+
+          # All network-address settings must be copied through status-bearing
+          # NVRAM readers before the first host-network/firewall side effect.
+          first_network_write = firewall_main.index("set_interface_conf_int(")
+          for key, destination in (
+              ("lan_ipaddr", "lan_ip"),
+              ("wanx_ipaddr", "man_ip"),
+              ("lan_netmask", "lan_netmask"),
+          ):
+              checked_read = firewall_main.index(
+                  'firewall_read_string_setting_copy_status(\n\t\t"' +
+                  key + '", ' + destination + ', sizeof(' + destination + '));'
+              )
+              read_error = firewall_main.index("if (status != 0)", checked_read)
+              assert checked_read < read_error < first_network_write
+              assert 'nvram_safe_get("' + key + '")' not in firewall_main
+
+          wan_ip_copy = firewall_main.index(
+              'get_wan_unit_value_copy_status(\n\t\tunit, "ipaddr", wan_ip, sizeof(wan_ip));'
+          )
+          wan_ip_error = firewall_main.index("if (status != 0)", wan_ip_copy)
+          assert wan_ip_copy < wan_ip_error < first_network_write
+          assert 'get_wan_unit_value(unit, "ipaddr")' not in firewall_main
+
+          netmask_copy = firewall_main.index(
+              'firewall_read_string_setting_copy_status(\n\t\t"lan_netmask", lan_netmask, sizeof(lan_netmask));'
+          )
+          netmask_read_error = firewall_main.index("if (status != 0)", netmask_copy)
+          netmask_validate = firewall_main.index(
+              "if (!ipv4_netmask_is_contiguous(lan_netmask))", netmask_read_error
+          )
+          assert netmask_copy < netmask_read_error < netmask_validate < lan_network < firewall_build
           vts_filter_start = firewall.index("include_vts_filter(FILE *fp")
           vts_nat_start = firewall.index("include_vts_nat(FILE *fp")
           assert "if (!firewall_ipv4_address_is_safe(dstip))" in firewall[vts_filter_start:vts_nat_start]
