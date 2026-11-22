@@ -48,6 +48,21 @@
 #include "gpio_pins.h"
 #include "storage_hotplug_name_policy.h"
 #include "modem_wan_start_policy.h"
+#include "usb_printer_nvram_policy.h"
+
+static int
+usb_printer_nvram_get_checked(void *context, const char *name, char **value)
+{
+    (void)context;
+    return nvram_get_checked(name, value);
+}
+
+static int
+read_usb_printer_setting_status(const char *name, char *value, size_t size)
+{
+    return usb_printer_nvram_copy_setting_status(
+        usb_printer_nvram_get_checked, NULL, name, value, size);
+}
 
 int
 safe_remove_usb_device(int port, const char *dev_name)
@@ -206,10 +221,16 @@ start_usb_printer_daemon(char *const argv[])
 int
 start_u2ec(void)
 {
-	int start_status;
+	int start_status, setting_status;
+	char setting[16];
 	char *argv[] = { "/usr/sbin/u2ec", NULL };
 
-	if (nvram_match("u2ec_enable", "0"))
+	setting_status = read_usb_printer_setting_status("u2ec_enable", setting, sizeof(setting));
+	if (setting_status != 0) {
+		logmessage("USB Printer", "cannot read u2ec_enable; refusing printer daemon start (status=%d)", setting_status);
+		return setting_status;
+	}
+	if (strcmp(setting, "0") == 0)
 		return 0;
 
 	unlink("/var/run/u2ec.pid");
@@ -235,10 +256,16 @@ stop_u2ec(void)
 int
 start_lpd(void)
 {
-	int start_status;
+	int start_status, setting_status;
+	char setting[16];
 	char *argv[] = { "/usr/sbin/lpd", NULL };
 
-	if (nvram_match("lprd_enable", "0"))
+	setting_status = read_usb_printer_setting_status("lprd_enable", setting, sizeof(setting));
+	if (setting_status != 0) {
+		logmessage("USB Printer", "cannot read lprd_enable; refusing printer daemon start (status=%d)", setting_status);
+		return setting_status;
+	}
+	if (strcmp(setting, "0") == 0)
 		return 0;
 
 	unlink("/var/run/lpdparent.pid");
@@ -266,12 +293,18 @@ stop_lpd(void)
 int
 start_p910nd(char *devlp)
 {
-	int start_status;
+	int start_status, setting_status;
+	char setting[16];
 
-	if (nvram_match("rawd_enable", "0"))
+	setting_status = read_usb_printer_setting_status("rawd_enable", setting, sizeof(setting));
+	if (setting_status != 0) {
+		logmessage("USB Printer", "cannot read rawd_enable; refusing printer daemon start for %s (status=%d)", devlp, setting_status);
+		return setting_status;
+	}
+	if (strcmp(setting, "0") == 0)
 		return 0;
 
-	if (nvram_match("rawd_enable", "2"))
+	if (strcmp(setting, "2") == 0)
 		start_status = eval("/usr/sbin/p910nd", "-b", "-f", devlp, "0");
 	else
 		start_status = eval("/usr/sbin/p910nd", "-f", devlp, "0");

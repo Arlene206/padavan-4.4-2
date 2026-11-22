@@ -19,6 +19,9 @@ on:
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/usb_printer_nvram_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_nvram_policy.c"
+      - "scripts/check_usb_printer_nvram.py"
       - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
@@ -54,6 +57,9 @@ on:
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/usb_printer_nvram_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_nvram_policy.c"
+      - "scripts/check_usb_printer_nvram.py"
       - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
@@ -136,6 +142,14 @@ jobs:
             trunk/user/rc/src/tests/wan_nvram_status_policy.c \
             -o /tmp/wan-nvram-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
+      - name: Compile and run checked USB printer NVRAM policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/usb_printer_nvram_policy.c \
+            -o /tmp/usb-printer-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-printer-nvram-policy
       - name: Compile and run checked USB modem WAN identity-read regression
         run: |
           set -eu
@@ -719,3 +733,5 @@ jobs:
         run: python3 scripts/check_modem_module_reload.py
       - name: Verify WAN startup and firewall result propagation
         run: python3 scripts/check_modem_wan_start_status.py
+      - name: Verify USB printer NVRAM failures stop daemon launch
+        run: python3 scripts/check_usb_printer_nvram.py

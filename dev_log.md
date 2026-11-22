@@ -1,3 +1,12 @@
+## 2026-11-22 — Fail closed on unreadable USB printer service configuration
+
+- Parent main SHA: `e29431f47e51c48bcbe0e8c4cf1adec51b55f36b`. Exact e294 IAPP #45004292701, Process umbrella #45004292730, Process inventory #45004292778 and AI docs #45004292741 PASS; XY-C1 #45004292784 was building, so no same-SHA L3 claim.
+- `start_u2ec()`, `start_lpd()` and `start_p910nd()` used lossy `nvram_match()` reads. A backend failure could look like a missing/default setting and start a daemon despite unknown enable/raw mode.
+- This fix reads each value with `nvram_get_checked()` and copies the shared-cache value immediately. Missing keys retain the empty legacy default; backend errors, invalid result states, NULL values and overlong data abort before PID-file unlink or daemon launch. The raw spooler reads `rawd_enable` once.
+- Added GNU89/ASan/UBSan tests, source-order checks, dedicated USB workflow coverage and XY-C1 path filters. Exact-head verification pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Correct IAPP firewall reconciliation command and verify ACCEPT target
 
 - Parent main SHA: `117ae6e88894827d7340cd2f53d10b5b569c86b9`. Exact 117 AI docs #45004170577 and Process inventory #45004170607 PASS; IAPP lifecycle #45004170579 failed because the appended iptables command was split after a double-backslash, causing `-m` to execute as a command.
