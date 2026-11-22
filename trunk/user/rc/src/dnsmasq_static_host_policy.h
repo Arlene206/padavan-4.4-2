@@ -95,13 +95,15 @@ static inline int
 dnsmasq_static_arp_header_is_valid(const char *line)
 {
 	char ip[16], address[16], hw[16], type[16], flags[16];
-	char hw_label[16], hw_address[16], mask[16], device[16], extra;
+	char hw_label[16], hw_address[16], mask[16], device[16];
+	int consumed = -1;
 
 	if (!line)
 		return 0;
-	if (sscanf(line, "%15s %15s %15s %15s %15s %15s %15s %15s %15s %c",
+	if (sscanf(line, "%15s %15s %15s %15s %15s %15s %15s %15s %15s %n",
 		   ip, address, hw, type, flags, hw_label, hw_address,
-		   mask, device, &extra) != 9)
+		   mask, device, &consumed) != 9 || consumed < 0 ||
+	    line[consumed] != '\0')
 		return 0;
 	return strcmp(ip, "IP") == 0 &&
 	       strcmp(address, "address") == 0 &&
