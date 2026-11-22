@@ -45,9 +45,61 @@ for marker in (
     "MentoHUST accepted a line-break-bearing setting",
     "MentoHUST accepted a carriage-return-bearing setting",
     r"printf 'invalid-secret\rInjected=1'",
-    "Legacy wrappers preserve stale-pidfile safety and MentoHUST credential confidentiality",
+    "SCUTClient credentials appeared in process argv",
+    "SCUTClient accepted an unconsumed private credential file",
+    "SCUTClient accepted a newline-bearing password",
+    "SCUTClient accepted a carriage-return-bearing password",
+    "Legacy wrappers preserve stale-pidfile safety and SCUTClient/MentoHUST credential confidentiality",
 ):
     if marker not in test:
         raise SystemExit(f"legacy wrapper security: FAIL: missing regression marker {marker}")
 
 print("Legacy wrapper stale-pidfile and MentoHUST credential security contracts: PASS")
+
+scutclient = SOURCES[0].read_text()
+credentials_source = (ROOT / "trunk/user/scutclient/patches/scutclient_credentials.c").read_text()
+credentials_patch = (ROOT / "trunk/user/scutclient/patches/0001-private-credentials-file.patch").read_text()
+scutclient_makefile = (ROOT / "trunk/user/scutclient/Makefile").read_text()
+for token in (
+    'mktemp -d "${TMPDIR:-/tmp}/scutclient-auth.XXXXXX"',
+    'chmod 700 "$scutclient_credentials_dir"',
+    'chmod 600 "$scutclient_credentials_file"',
+    'printf \'username=%s\\npassword=%s\\n\'',
+    '--credentials-file "$scutclient_credentials_file"',
+    'func_wait_credentials_consumed',
+    "trap 'func_credentials_cleanup' 0",
+    'scutclient_cr=$(printf \'\\r\')',
+):
+    if token not in scutclient:
+        raise SystemExit(f"SCUTClient credential security: FAIL: missing wrapper contract {token}")
+if '-u "$scutclient_username_value" -p "$scutclient_password_value"' in scutclient:
+    raise SystemExit("SCUTClient credential security: FAIL: plaintext credentials remain in process argv")
+for token in (
+    "O_NOFOLLOW",
+    "fstat(fd, &opened_stat)",
+    "S_ISREG(opened_stat.st_mode)",
+    "opened_stat.st_uid != geteuid()",
+    "(opened_stat.st_mode & 0777) != 0600",
+    "opened_stat.st_nlink != 1",
+    "lstat(path, &path_stat)",
+    "unlink(path)",
+    "SCUTCLIENT_CREDENTIALS_MAX 4096",
+    'memcmp(buffer, "username=",',
+    'memcmp(pass_start, "password=",',
+):
+    if token not in credentials_source:
+        raise SystemExit(f"SCUTClient credential parser: FAIL: missing private-file validation {token}")
+for token in (
+    '{"credentials-file", required_argument, NULL, \'F\'}',
+    "scutclient_load_credentials_file(credentials_file, &UserName, &Password)",
+    "src/scutclient_credentials.c",
+):
+    if token not in credentials_patch:
+        raise SystemExit(f"SCUTClient upstream overlay: FAIL: missing patch contract {token}")
+if not all(token in scutclient_makefile for token in (
+    "apply_credentials_overlay: extract_test",
+    "config_test: apply_credentials_overlay",
+    "patch -d $(SRC_NAME) -p1",
+    "scutclient_credentials.c",
+)):
+    raise SystemExit("SCUTClient package integration: FAIL: overlay is not applied before configuration")

@@ -7,6 +7,13 @@ on:
       - "scripts/check_legacy_wrapper_pidfile_safety.py"
       - "scripts/tests/legacy_wrapper_pidfile_safety.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "scripts/tests/scutclient_credentials_file.sh"
+
+      - "scripts/tests/scutclient_credentials_file.c"
+
+      - "trunk/user/scutclient/Makefile"
+
+      - "trunk/user/scutclient/patches/**"
       - "trunk/user/mentohust/scripts/mentohust.sh"
   pull_request:
     paths:
@@ -14,6 +21,13 @@ on:
       - "scripts/check_legacy_wrapper_pidfile_safety.py"
       - "scripts/tests/legacy_wrapper_pidfile_safety.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "scripts/tests/scutclient_credentials_file.sh"
+
+      - "scripts/tests/scutclient_credentials_file.c"
+
+      - "trunk/user/scutclient/Makefile"
+
+      - "trunk/user/scutclient/patches/**"
       - "trunk/user/mentohust/scripts/mentohust.sh"
 
 permissions:
@@ -29,7 +43,10 @@ jobs:
           sh -n trunk/user/scutclient/scripts/scutclient.sh
           sh -n trunk/user/mentohust/scripts/mentohust.sh
           sh -n scripts/tests/legacy_wrapper_pidfile_safety.sh
+          sh -n scripts/tests/scutclient_credentials_file.sh
       - name: Test stale pidfile safety
         run: sh scripts/tests/legacy_wrapper_pidfile_safety.sh
+      - name: Test SCUTClient private credential parser and pinned overlay
+        run: sh scripts/tests/scutclient_credentials_file.sh
       - name: Check source contracts
         run: python3 scripts/check_legacy_wrapper_pidfile_safety.py
