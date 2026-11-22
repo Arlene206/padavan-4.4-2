@@ -64,12 +64,16 @@ def main() -> None:
     assert '"private-credentials-file"' in uqmi_main
     assert '"d:k:C:"' in uqmi_main
     assert "uqmi_private_credentials_load(" in uqmi_main
-    assert "uqmi_add_command(private_credentials.pin" in uqmi_main
+    assert "uqmi_add_command_before_requests(private_credentials.pin" in uqmi_main
     assert "uqmi_add_command(private_credentials.username" in uqmi_main
     assert "uqmi_add_command(private_credentials.password" in uqmi_main
     assert "uqmi_private_credentials_clear(&private_credentials)" in uqmi_main
 
     assert "cmds[idx].arg = arg;" in uqmi_commands
+    insert = body(uqmi_commands, "uqmi_add_command_before_requests(")
+    assert "cmds[insert_at].handler->type == CMD_TYPE_OPTION" in insert
+    assert "memmove(&cmds[insert_at + 1]" in insert
+    assert "return -1;" in insert
     assert "cmds[idx].arg = optarg;" not in uqmi_commands
     assert "uqmi_wipe_memory(uqmi_command_buffer" in uqmi_commands
     assert "uqmi_wds_clear_sensitive_options();" in uqmi_commands

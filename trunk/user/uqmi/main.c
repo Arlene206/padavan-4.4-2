@@ -131,9 +131,13 @@ int main(int argc, char **argv)
 			uqmi_private_credentials_clear(&private_credentials);
 			return 1;
 		}
-		if (private_credentials.has_pin)
-			uqmi_add_command(private_credentials.pin,
-					 __UQMI_COMMAND_dms_verify_pin1);
+		if (private_credentials.has_pin &&
+		    uqmi_add_command_before_requests(private_credentials.pin,
+						     __UQMI_COMMAND_dms_verify_pin1) < 0) {
+			fprintf(stderr, "Failed to queue private PIN verification command\\n");
+			uqmi_private_credentials_clear(&private_credentials);
+			return 1;
+		}
 		if (private_credentials.has_username) {
 			uqmi_add_command(private_credentials.username,
 					 __UQMI_COMMAND_wds_set_username);

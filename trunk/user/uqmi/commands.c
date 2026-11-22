@@ -180,6 +180,32 @@ void uqmi_add_command(char *arg, int cmd)
 	cmds[idx].arg = arg;
 }
 
+/*
+ * Internal credential requests must precede user-supplied request commands.
+ * Option handlers are run in a separate first phase by uqmi_run_commands().
+ */
+int
+uqmi_add_command_before_requests(char *arg, int longidx)
+{
+	struct uqmi_cmd *new_cmds;
+	int insert_at = 0;
+
+	while (insert_at < n_cmds &&
+	       cmds[insert_at].handler->type == CMD_TYPE_OPTION)
+		insert_at++;
+
+	new_cmds = realloc(cmds, (n_cmds + 1) * sizeof(*cmds));
+	if (!new_cmds)
+		return -1;
+	cmds = new_cmds;
+	memmove(&cmds[insert_at + 1], &cmds[insert_at],
+		(n_cmds - insert_at) * sizeof(*cmds));
+	cmds[insert_at].handler = &uqmi_cmd_handler[longidx];
+	cmds[insert_at].arg = arg;
+	n_cmds++;
+	return 0;
+}
+
 static void uqmi_print_result(struct blob_attr *data)
 {
 	struct blob_attr *cur;
