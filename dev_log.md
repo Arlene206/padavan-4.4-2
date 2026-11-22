@@ -1,3 +1,15 @@
+## 2026-11-22 — Fail closed on USB modem identity in WAN start/stop and MAN routes
+
+- Parent main SHA: a103c9ac29a3c353592119bbb3e458529378c1f1. The previous checker-only correction commit a103c9ac29a3c353592119bbb3e458529378c1f1 passed AI handoff documentation check #44969951549. Exact reruns of the updated DHCP and WAN-route contracts had not yet appeared at the last poll.
+- WAN startup now checks modem identity after the configured interface is resolved but before MTU/interface-up changes; selector errors are retained and the unit is skipped instead of falling through to ordinary Ethernet/PPP startup.
+- stop_wan_locked() checks the selector before pausing the monitor or stopping services, and refuses teardown when identity is unknown.
+- MAN route setup records identity errors but still adds required gateway/default routes while suppressing optional DNS route additions; MAN teardown preserves the error and still attempts scoped idempotent DNS route cleanup when modem identity is unknown.
+- Manual WAN disconnect refuses to stop services until modem identity is verified. Added USB identity workflow source contracts covering these orderings and cleanup semantics.
+- Exact-head USB identity, WAN DHCP, WAN route, WAN teardown and XY-C1 Build/TRX/artifact checks are pending; no runtime hardware result is claimed.
+- Next: migrate remaining boolean selectors in automatic reconnect, resolver notification, DNS-mode selection and WAN interface/address getters, then search the wider RC userland for lifecycle-critical reads.
+
+---
+
 ## 2026-11-22 — Align WAN lifecycle regression contracts with checked modem identity
 
 - Parent main SHA: 4a353d031429acdb49c6fe8a6d8aebedda9a6846. The committed lifecycle change 4a353d031429acdb49c6fe8a6d8aebedda9a6846 passed USB modem identity #44969756150, WAN interface teardown #44969756159 and AI handoff validation #44969756161.

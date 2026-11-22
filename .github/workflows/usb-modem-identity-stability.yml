@@ -530,6 +530,41 @@ jobs:
           assert "if (modem_status != 0 || (!modem_unit_id &&" in teardown
           assert "if (modem_status == 0 && !modem_unit_id && proto_status == 0" in teardown
 
+
+          startup = body(wan_network, "start_wan(void)")
+          startup_read = startup.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          startup_failed = startup.index("if (nvram_status != 0)", startup_read)
+          startup_continue = startup.index("continue;", startup_failed)
+          startup_ifup = startup.index("interface_status = ifconfig(wan_ifname, IFUP")
+          startup_branch = startup.index("if (is_usb_modem)", startup_read)
+          assert startup_read < startup_failed < startup_continue < startup_ifup < startup_branch
+
+          stop = body(wan_network, "stop_wan_locked(void)")
+          stop_read = stop.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
+          stop_failed = stop.index("if (modem_status != 0)", stop_read)
+          stop_return = stop.index("return modem_status;", stop_failed)
+          stop_pause = stop.index("notify_pause_detect_internet()", stop_read)
+          assert stop_read < stop_failed < stop_return < stop_pause
+
+          man_add = body(wan_network, "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
+          assert "get_usb_modem_wan_status(unit, &is_modem_active)" in man_add
+          assert "status = route_status_accumulate(status, modem_status);" in man_add
+          assert "is_modem_active = 1;" in man_add
+          assert 'route_add(man_ifname, metric, "0.0.0.0", man_gate' in man_add
+
+          man_down = body(wan_network, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          assert "get_usb_modem_wan_status(unit, &is_modem_active)" in man_down
+          assert "status = route_status_accumulate(status, modem_status);" in man_down
+          assert "is_modem_active = 0;" in man_down
+          assert 'route_del(man_ifname, 2, "0.0.0.0", man_gate' in man_down
+
+          manual = body(wan_network, "manual_wan_disconnect(void)")
+          manual_read = manual.index("get_usb_modem_wan_status(0, &is_usb_modem)")
+          manual_failed = manual.index("if (status != 0)", manual_read)
+          manual_return = manual.index("return status;", manual_failed)
+          manual_stop = min(x for x in (manual.find("stop_wan()"), manual.find("stop_wan_ppp()")) if x >= 0)
+          assert manual_read < manual_failed < manual_return < manual_stop
+
           print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY
       - name: Verify modem module alternatives and readiness propagation

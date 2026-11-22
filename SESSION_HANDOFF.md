@@ -31,7 +31,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - WAN protocol hardening and XY-C1 compile fix are complete through product source SHA `02857320194ebdda3b451ea3d6de07fa212995c0`; exact XY-C1 Build/TRX/artifact all passed on that SHA.
 - Source commit `f1327a7988b9552c2ce3294c641d27838efd9664` added `get_usb_modem_wan_status()` using `nvram_get_checked()` with legacy `atoi()` semantics and GNU89 regressions. Workflow compiler command was corrected in `7f44877976cd0c2399975adf09eb97c24a366aee`; AI handoff validator #44969661965 passed and exact USB identity rerun #44969661943 was in progress at last poll.
 - This source slice migrates WAN-up, WAN-down and DHCP-bound to status-returning modem classification and checked ifname_t reads. Unknown identity aborts startup/lease publication, while teardown continues conservative DHCP-route and authentication cleanup and preserves DNS/static-IP state.
-- Next source audit: migrate the remaining direct get_usb_modem_wan() consumers in start_wan(), stop_wan_locked(), MAN route setup/teardown, manual disconnect, reconnect priority, resolver notification, DNS mode and interface/address selectors. Preserve conservative cleanup and add exact source-order contracts.
+- The checker correction commit a103c9ac29a3c353592119bbb3e458529378c1f1 passed AI handoff check #44969951549. This source slice now migrates startup, stop, MAN route add/remove and manual disconnect to checked modem identity reads. Remaining direct callsites are reconnect priority, resolver notification, DNS mode and interface/address selectors.
 
 ## Verification boundary
 
@@ -44,9 +44,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Check exact-head reruns for the updated DHCP and WAN DNS source contracts and finish XY-C1 Build/TRX/artifact verification for the checked identity/WAN lifecycle source.
-2. Continue the direct modem-selector migration in WAN startup/stop, MAN setup/teardown, manual disconnect, automatic reconnect priority and resolver notifications; include get_wan_dns_static_status(), get_wan_ifname() and get_wan_ip4().
-3. Add regression checks for every unknown-identity branch; do not treat backend read failure as "not a modem".
+1. Verify exact-head Actions for this commit: USB identity, WAN DHCP, WAN route, WAN teardown and XY-C1 Build/TRX/artifact. Diagnose only failures on this SHA.
+2. Migrate the remaining direct selectors in automatic reconnect priority, resolver notification, DNS-mode selection and WAN interface/address getters.
+3. Search other userland modules for remaining get_usb_modem_wan() callers and route every lifecycle-critical caller through the status API; keep the legacy boolean symbol for compatibility only.
 
 ## Workflow and preservation rules
 

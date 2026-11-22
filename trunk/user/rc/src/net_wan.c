@@ -3403,6 +3403,9 @@ start_wan(void)
 	for (unit = 0; unit < 1; unit++)
 	{
 		int static_address_cleanup_failed = 0;
+#if defined (USE_USB_SUPPORT)
+		int is_usb_modem = 0;
+#endif
 
 		nvram_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
 		if (nvram_status != 0) {
@@ -3418,6 +3421,19 @@ start_wan(void)
 		wan_ifname = get_man_ifname(unit);
 		if (strlen(wan_ifname) < 1)
 			continue;
+
+#if defined (USE_USB_SUPPORT)
+		/* Do not configure ordinary PPP/Ethernet when modem identity is unknown. */
+		nvram_status = get_usb_modem_wan_status(unit, &is_usb_modem);
+		if (nvram_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, nvram_status);
+			logmessage(LOGNAME,
+				   "aborting WAN setup for unit %d: cannot read USB modem identity (status=%d)",
+				   unit, nvram_status);
+			continue;
+		}
+#endif
 		
 		/* Read the configured MTU before applying the physical default. */
 		nvram_status = get_wan_unit_value_int_status(
@@ -3469,7 +3485,7 @@ start_wan(void)
 		}
 		
 #if defined (USE_USB_SUPPORT)
-		if (get_usb_modem_wan(unit))
+		if (is_usb_modem)
 		{
 			nvram_status = get_nvram_int_checked_status(
 				"modem_type", &modem_type);
@@ -4110,7 +4126,14 @@ stop_wan_locked(void)
 	};
 
 	unit = 0;
-	is_usb_modem = get_usb_modem_wan(unit);
+	modem_status = get_usb_modem_wan_status(unit, &is_usb_modem);
+	if (modem_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because USB modem identity cannot be read (status=%d)",
+			   modem_status);
+		errno = modem_status;
+		return modem_status;
+	}
 	if (is_usb_modem) {
 		modem_status = get_wan_modem_is_ndis_status(&is_ndis_modem);
 		if (modem_status != 0) {
@@ -4397,7 +4420,7 @@ static int
 add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)
 {
 	int is_man_dns_auto, is_modem_active, wan_proto = 0, dns_enabled;
-	int dns_mode_status, proto_status;
+	int dns_mode_status, proto_status, modem_status;
 	int status = 0, route_status, snapshot_status;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
 	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
@@ -4434,7 +4457,17 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 			   "cannot read WAN protocol for MAN DNS routes on %s; skipping optional DNS routes (status=%d)",
 			   man_ifname, proto_status);
 	}
-	is_modem_active = get_usb_modem_wan(unit);
+	modem_status = get_usb_modem_wan_status(unit, &is_modem_active);
+	if (modem_status != 0) {
+		status = route_status_accumulate(status, modem_status);
+		if (gateway_route_status)
+			*gateway_route_status = route_status_accumulate(
+				*gateway_route_status, modem_status);
+		logmessage(LOGNAME,
+			   "cannot read modem identity for MAN DNS routes on %s; skipping optional DNS route additions (status=%d)",
+			   man_ifname, modem_status);
+		is_modem_active = 1;
+	}
 	dns_mode_status = get_wan_unit_value_int_status(
 		unit, "dnsenable_x", &dns_enabled);
 	if (dns_mode_status != 0) {
@@ -4571,7 +4604,7 @@ static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto = 0, proto_status, is_modem_active, is_man_dns_auto, dns_enabled;
-	int dns_mode_status;
+	int dns_mode_status, modem_status;
 	int status = 0, route_status, snapshot_status;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
 	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
@@ -4619,7 +4652,15 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 			   "cannot read WAN protocol during MAN teardown on %s (status=%d); attempting conservative route cleanup",
 			   man_ifname, proto_status);
 	}
-	is_modem_active = get_usb_modem_wan(unit);
+	modem_status = get_usb_modem_wan_status(unit, &is_modem_active);
+	if (modem_status != 0) {
+		status = route_status_accumulate(status, modem_status);
+		logmessage(LOGNAME,
+			   "cannot read modem identity during MAN teardown on %s (status=%d); attempting scoped DNS route cleanup",
+			   man_ifname, modem_status);
+		/* Unknown is not proof that this path owns no routes; cleanup is idempotent. */
+		is_modem_active = 0;
+	}
 	dns_mode_status = get_wan_unit_value_int_status(
 		unit, "dnsenable_x", &dns_enabled);
 	if (dns_mode_status != 0) {
@@ -5610,7 +5651,14 @@ manual_wan_disconnect(void)
 	if (is_ap_mode)
 		return 0;
 
-	is_usb_modem = get_usb_modem_wan(0);
+	status = get_usb_modem_wan_status(0, &is_usb_modem);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "refusing manual WAN disconnect because USB modem identity cannot be read (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
 	if (!is_usb_modem) {
 		status = get_wan_unit_proto_checked_status(0, &wan_proto);
 		if (status != 0) {
