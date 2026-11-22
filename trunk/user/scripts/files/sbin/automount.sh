@@ -178,27 +178,27 @@ automount_swap_status()
 	fi
 
 	printf '%s\n' "$automount_swap_inventory" | awk -v dev="$automount_swap_device" '
-NR == 1 {
-	if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
-	    $4 != "Used" || $5 != "Priority")
-		invalid = 1
-	next
-}
-NF == 0 { next }
-{
-	if (NF != 5 || ($2 != "partition" && $2 != "file") ||
-	    $3 !~ /^[0-9]+$/ || $4 !~ /^[0-9]+$/ || $5 !~ /^-?[0-9]+$/) {
-		invalid = 1
+	NR == 1 {
+		if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
+		    $4 != "Used" || $5 != "Priority")
+			invalid = 1
 		next
 	}
-	if ($1 == dev)
-		found = 1
-}
-END {
-	if (NR == 0 || invalid)
-		exit 2
-	exit !found
-}'
+	NF == 0 { next }
+	{
+		if (NF != 5 || ($2 != "partition" && $2 != "file") ||
+		    $3 !~ /^[0-9]+$/ || $4 !~ /^[0-9]+$/ || $5 !~ /^-?[0-9]+$/) {
+			invalid = 1
+			next
+		}
+		if ($1 == dev)
+			found = 1
+	}
+	END {
+		if (NR == 0 || invalid)
+			exit 2
+		exit !found
+	}'
 	automount_swap_awk_status=$?
 	case "$automount_swap_awk_status" in
 		0|1) return "$automount_swap_awk_status" ;;
