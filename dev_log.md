@@ -1,3 +1,12 @@
+## 2026-11-22 — Snapshot WAN IPv6 unit address settings before runtime changes
+
+- Parent main SHA: `ce01fb84ca28cf0b4faca46c6d28a8b7557c134d`. `wan6_up()` used four pointer-returning `get_wan_unit_value()` reads for SIT IPv4 address/gateway/IPv6 prefix and native-static IPv6 address/gateway after it had already stopped DHCPv6, published DNS and changed bridge DAD. Cache reuse could invalidate earlier pointers, and a failed NVRAM read was indistinguishable from an empty setting.
+- Added `wan6_read_unit_address_snapshot()` to copy each mode's required `wanN_*` fields through the existing transaction callbacks and bounded copy-snapshot policy. SIT 6in4/6rd captures the three-value tuple; 6to4 captures only IPv4 address/gateway; native-static captures address/gateway. Missing values remain empty and checked read/close/truncation errors abort before stopping the old DHCPv6 client.
+- Native-static IPv6 literals and the SIT WAN IPv4/prefix inputs are now validated from the stable copies before any stop/DNS/DAD/route/interface side effect. Removed the late pointer getters.
+- Added GNU89 regression coverage for one-generation three-field copies and each backend read failure discarding the entire partial tuple. Both WAN source contracts require the transaction and pre-stop order.
+- Next task: audit `wan6_up()` global native DHCP6 selectors and `start_dhcp6c()` callback identity for duplicate reads versus transaction coherence; then continue to route/neighbor data selectors.
+
+---
 ## 2026-11-22 — Correct SIT source-contract assertion for macro scope
 
 - Parent main SHA: `129697133e29a7757adeff9c61e590b825aba915`. The exact-SHA `wan-dhcp-callback` and `wan-route-status` runs both compiled and ran the GNU89 ASan/UBSan `wan_nvram_status_policy` binary successfully, and all preceding source contracts passed. Their final checker assertions failed because `errno = status;` is in the file-scope `WAN6_SIT_READ_CHECK` macro, outside the extracted `start_sit_tunnel()` function body.

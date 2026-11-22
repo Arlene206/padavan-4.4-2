@@ -414,3 +414,23 @@ for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
                   "test_checked_integer_read_preserves_missing_default",
                   "test_checked_integer_read_propagates_backend_errors"):
     assert test_name in nvram_status_test and test_name + "();" in nvram_status_test
+
+# wan6_up must obtain per-unit address settings as one checked tuple before stopping clients.
+unit_snapshot_body = body(source, "wan6_read_unit_address_snapshot(int unit, int ipv6_type,")
+wan6_up_body = body(source, "int wan6_up(")
+for token in ("rc_wan_nvram_copy_snapshot(", "wan6_snapshot_transaction_begin",
+              "wan6_snapshot_transaction_get", "wan6_snapshot_transaction_end",
+              '"wan%d_%s"', "return ENAMETOOLONG"):
+    assert token in unit_snapshot_body
+assert "wan6_read_unit_address_snapshot(" in wan6_up_body
+assert "errno = status;" in wan6_up_body
+assert wan6_up_body.index("wan6_read_unit_address_snapshot(") < wan6_up_body.index("status = stop_dhcp6c();")
+assert wan6_up_body.index("format_ipv6_literal(wan_addr6, addr6_text") < wan6_up_body.index("status = stop_dhcp6c();")
+for lossy in ('get_wan_unit_value(unit, "ipaddr")',
+              'get_wan_unit_value(unit, "gateway")',
+              'get_wan_unit_value(unit, "addr6")',
+              'get_wan_unit_value(unit, "gate6")'):
+    assert lossy not in wan6_up_body
+for test_name in ("test_wan6_unit_address_snapshot_copies_one_coherent_tuple",
+                  "test_wan6_unit_address_snapshot_discards_partial_tuple_on_each_read_error"):
+    assert test_name in nvram_status_test and test_name + "();" in nvram_status_test

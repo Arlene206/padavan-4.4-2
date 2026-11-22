@@ -130,6 +130,99 @@ dhcp6c_callback_session_advance(int fd, unsigned long *generation)
 	return 0;
 }
 
+/*
+ * Copy the unit address/gateway fields used by IPv6 activation as one
+ * transaction. Do this before stopping the old client or changing routes,
+ * so a failed read cannot activate from a mixed or incomplete NVRAM tuple.
+ */
+static int
+wan6_read_unit_address_snapshot(int unit, int ipv6_type,
+				char *wan_addr4, size_t wan_addr4_size,
+				char *wan_gate4, size_t wan_gate4_size,
+				char *wan_addr6, size_t wan_addr6_size,
+				char *wan_gate6, size_t wan_gate6_size)
+{
+	static const char *const sit_sixin_sixrd_names[3] = {
+		"ipaddr", "gateway", "addr6"
+	};
+	static const char *const sit_six_to_four_names[2] = {
+		"ipaddr", "gateway"
+	};
+	static const char *const native_static_names[2] = {
+		"addr6", "gate6"
+	};
+	const char *const *param_suffixes;
+	char param_names[3][64];
+	char *destinations[3];
+	size_t destination_sizes[3];
+	struct rc_wan_nvram_snapshot_field fields[3];
+	struct nvram_transaction transaction;
+	unsigned int count, i;
+	int length;
+
+	if (unit < 0)
+		return EINVAL;
+	if (wan_addr4 && wan_addr4_size)
+		wan_addr4[0] = '\0';
+	if (wan_gate4 && wan_gate4_size)
+		wan_gate4[0] = '\0';
+	if (wan_addr6 && wan_addr6_size)
+		wan_addr6[0] = '\0';
+	if (wan_gate6 && wan_gate6_size)
+		wan_gate6[0] = '\0';
+
+	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6RD) {
+		if (!wan_addr4 || !wan_addr4_size || !wan_gate4 || !wan_gate4_size ||
+		    !wan_addr6 || !wan_addr6_size)
+			return EINVAL;
+		param_suffixes = sit_sixin_sixrd_names;
+		destinations[0] = wan_addr4;
+		destinations[1] = wan_gate4;
+		destinations[2] = wan_addr6;
+		destination_sizes[0] = wan_addr4_size;
+		destination_sizes[1] = wan_gate4_size;
+		destination_sizes[2] = wan_addr6_size;
+		count = 3;
+	} else if (ipv6_type == IPV6_6TO4) {
+		if (!wan_addr4 || !wan_addr4_size || !wan_gate4 || !wan_gate4_size)
+			return EINVAL;
+		param_suffixes = sit_six_to_four_names;
+		destinations[0] = wan_addr4;
+		destinations[1] = wan_gate4;
+		destination_sizes[0] = wan_addr4_size;
+		destination_sizes[1] = wan_gate4_size;
+		count = 2;
+	} else if (ipv6_type == IPV6_NATIVE_STATIC) {
+		if (!wan_addr6 || !wan_addr6_size || !wan_gate6 || !wan_gate6_size)
+			return EINVAL;
+		param_suffixes = native_static_names;
+		destinations[0] = wan_addr6;
+		destinations[1] = wan_gate6;
+		destination_sizes[0] = wan_addr6_size;
+		destination_sizes[1] = wan_gate6_size;
+		count = 2;
+	} else {
+		return 0;
+	}
+
+	for (i = 0; i < count; ++i) {
+		length = snprintf(param_names[i], sizeof(param_names[i]),
+				  "wan%d_%s", unit, param_suffixes[i]);
+		if (length < 0)
+			return errno ? errno : EIO;
+		if ((size_t)length >= sizeof(param_names[i]))
+			return ENAMETOOLONG;
+		fields[i].param_name = param_names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = destination_sizes[i];
+	}
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, count, wan6_snapshot_transaction_begin,
+		wan6_snapshot_transaction_get, wan6_snapshot_transaction_end,
+		&transaction);
+}
+
 static int
 format_ipv4_literal(const char *input, char *output, size_t output_size)
 {
@@ -1162,7 +1255,14 @@ int wan6_up(char *wan_ifname, int unit)
 	int routes_touched, addresses_touched, radv_touched;
 	int autoconf_touched, privacy_touched, dhcp6_start_attempted;
 	int identity_publish_failed, rollback_status;
-	char *wan_addr6, *wan_gate6, *wan_addr4, *wan_gate4;
+	char wan_addr4_value[INET_ADDRSTRLEN] = {0};
+	char wan_gate4_value[INET_ADDRSTRLEN] = {0};
+	char wan_addr6_value[INET6_ADDRSTRLEN + 5] = {0};
+	char wan_gate6_value[INET6_ADDRSTRLEN + 5] = {0};
+	char wan_addr4_text[INET_ADDRSTRLEN];
+	struct in6_addr preflight_addr6;
+	char *wan_addr6 = wan_addr6_value, *wan_gate6 = wan_gate6_value;
+	char *wan_addr4 = wan_addr4_value, *wan_gate4 = wan_gate4_value;
 	char addr6_text[INET6_ADDRSTRLEN + 5];
 	char gate6_text[INET6_ADDRSTRLEN];
 	const char *failure = "invalid parameters";
@@ -1207,6 +1307,53 @@ int wan6_up(char *wan_ifname, int unit)
 		privacy_enabled = allow_ra && wan_priv_enabled;
 	}
 
+	/* Snapshot every per-unit address field needed by this mode before stop. */
+	status = wan6_read_unit_address_snapshot(
+		unit, ipv6_type,
+		wan_addr4_value, sizeof(wan_addr4_value),
+		wan_gate4_value, sizeof(wan_gate4_value),
+		wan_addr6_value, sizeof(wan_addr6_value),
+		wan_gate6_value, sizeof(wan_gate6_value));
+	if (status != 0) {
+		errno = status;
+		logmessage("WAN IPv6",
+			   "cannot read WAN IPv6 address configuration for unit %d (status=%d)",
+			   unit, status);
+		return status;
+	}
+	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 ||
+	    ipv6_type == IPV6_6RD) {
+		if (format_ipv4_literal(wan_addr4, wan_addr4_text,
+					 sizeof(wan_addr4_text)) < 0) {
+			errno = EINVAL;
+			logmessage("WAN IPv6", "invalid WAN IPv4 address for unit %d", unit);
+			return EINVAL;
+		}
+		if (!is_valid_ipv4(wan_gate4))
+			wan_gate4 = NULL;
+		if ((ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6RD) &&
+		    (!wan_addr6[0] || ipv6_from_string(wan_addr6, &preflight_addr6) < 0)) {
+			errno = EINVAL;
+			logmessage("WAN IPv6", "invalid WAN IPv6 prefix address for unit %d", unit);
+			return EINVAL;
+		}
+	} else if (ipv6_type == IPV6_NATIVE_STATIC) {
+		if (!wan_addr6[0] ||
+		    format_ipv6_literal(wan_addr6, addr6_text,
+					 sizeof(addr6_text), 1) < 0) {
+			errno = EINVAL;
+			logmessage("WAN IPv6", "invalid native static IPv6 address for unit %d", unit);
+			return EINVAL;
+		}
+		if (wan_gate6[0] &&
+		    format_ipv6_literal(wan_gate6, gate6_text,
+					 sizeof(gate6_text), 0) < 0) {
+			errno = EINVAL;
+			logmessage("WAN IPv6", "invalid native static IPv6 gateway for unit %d", unit);
+			return EINVAL;
+		}
+	}
+
 	status = stop_dhcp6c();
 	if (status != 0) {
 		logmessage("WAN IPv6", "failed to stop previous DHCPv6 client on %s (status=%d)",
@@ -1233,12 +1380,6 @@ int wan6_up(char *wan_ifname, int unit)
 
 	if (ipv6_type == IPV6_6IN4 || ipv6_type == IPV6_6TO4 ||
 	    ipv6_type == IPV6_6RD) {
-		wan_addr4 = get_wan_unit_value(unit, "ipaddr");
-		wan_gate4 = get_wan_unit_value(unit, "gateway");
-		wan_addr6 = get_wan_unit_value(unit, "addr6");
-		if (!is_valid_ipv4(wan_gate4))
-			wan_gate4 = NULL;
-
 		status = start_sit_tunnel(ipv6_type, wan_ifname, wan_addr4,
 					  wan_gate4, wan_addr6);
 		if (status != 0) {
@@ -1279,25 +1420,6 @@ int wan6_up(char *wan_ifname, int unit)
 	rollback_status = 0;
 
 	if (ipv6_type == IPV6_NATIVE_STATIC) {
-		wan_addr6 = get_wan_unit_value(unit, "addr6");
-		wan_gate6 = get_wan_unit_value(unit, "gate6");
-		if (!wan_addr6 || !*wan_addr6 ||
-		    format_ipv6_literal(wan_addr6, addr6_text,
-					 sizeof(addr6_text), 1) < 0) {
-			errno = EINVAL;
-			status = -1;
-			failure = "invalid native static IPv6 address";
-			goto native_failed;
-		}
-		if (*wan_gate6 &&
-		    format_ipv6_literal(wan_gate6, gate6_text,
-					 sizeof(gate6_text), 0) < 0) {
-			errno = EINVAL;
-			status = -1;
-			failure = "invalid native static IPv6 gateway";
-			goto native_failed;
-		}
-
 		privacy_touched = 1;
 		WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname, 0),
 				  "disable native static privacy addresses");

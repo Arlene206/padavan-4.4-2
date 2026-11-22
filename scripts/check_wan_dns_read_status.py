@@ -1185,3 +1185,28 @@ for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
                   "test_checked_integer_read_propagates_backend_errors"):
     require(test_name in sit_policy_test and test_name + "();" in sit_policy_test,
             "SIT checked-read regression must be registered: " + test_name)
+
+# wan6_up must obtain per-unit address settings as one checked tuple before stopping clients.
+unit_snapshot_body = body(wan6_source, "wan6_read_unit_address_snapshot(int unit, int ipv6_type,")
+wan6_up_body = body(wan6_source, "int wan6_up(")
+for token in ("rc_wan_nvram_copy_snapshot(", "wan6_snapshot_transaction_begin",
+              "wan6_snapshot_transaction_get", "wan6_snapshot_transaction_end",
+              '"wan%d_%s"', "return ENAMETOOLONG"):
+    require(token in unit_snapshot_body, "WAN IPv6 per-unit snapshot must be transactional and bounded: " + token)
+require("wan6_read_unit_address_snapshot(" in wan6_up_body and
+        "errno = status;" in wan6_up_body,
+        "WAN IPv6 startup must fail closed when per-unit snapshot fails")
+require(wan6_up_body.index("wan6_read_unit_address_snapshot(") < wan6_up_body.index("status = stop_dhcp6c();"),
+        "WAN IPv6 per-unit snapshot must precede stopping the DHCPv6 client")
+require(wan6_up_body.index("format_ipv6_literal(wan_addr6, addr6_text") < wan6_up_body.index("status = stop_dhcp6c();"),
+        "native static address must be validated before WAN IPv6 startup side effects")
+for lossy in ('get_wan_unit_value(unit, "ipaddr")',
+              'get_wan_unit_value(unit, "gateway")',
+              'get_wan_unit_value(unit, "addr6")',
+              'get_wan_unit_value(unit, "gate6")'):
+    require(lossy not in wan6_up_body, "WAN IPv6 startup retained a lossy per-unit getter: " + lossy)
+unit_snapshot_tests = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+for test_name in ("test_wan6_unit_address_snapshot_copies_one_coherent_tuple",
+                  "test_wan6_unit_address_snapshot_discards_partial_tuple_on_each_read_error"):
+    require(test_name in unit_snapshot_tests and test_name + "();" in unit_snapshot_tests,
+            "WAN IPv6 unit tuple regression is not registered: " + test_name)
