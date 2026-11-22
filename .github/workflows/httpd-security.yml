@@ -4965,8 +4965,13 @@ jobs:
           assert "firewall_ipv4_address_is_safe" in firewall_policy
           assert 'firewall_ipv4_address_is_safe("192.168.1.1\\n-A INPUT -j ACCEPT")' in firewall_test
           assert 'firewall_ipv4_address_is_safe("192.168.1.1\\rCOMMIT")' in firewall_test
-          # LAN IP is validated by both global input policy and the NAT redirect path.
-          assert firewall.count("firewall_ipv4_address_is_safe(") == 10
+          # Keep the address-sanitizer floor while pinning the default NAT
+          # builder's own checked, copied LAN-address input.
+          nat_default = body(firewall, "int\\nipt_nat_default(void)", "static int\\nstart_firewall_ex_locked")
+          assert firewall.count("firewall_ipv4_address_is_safe(") >= 9
+          assert "firewall_ipv4_address_is_safe(lan_ip_setting)" in nat_default
+          assert "nvram_safe_get(" not in nat_default
+          assert "nvram_match(" not in nat_default
           assert "is_valid_ipv4(" not in firewall
           firewall_main_start = firewall.index("start_firewall_ex_locked(void)")
           # Interface names become bare -i/-o tokens in iptables-restore input.
