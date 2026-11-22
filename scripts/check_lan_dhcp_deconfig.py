@@ -447,7 +447,15 @@ assert safe_static_hosts < static_hosts_load < hosts_lock_acquire
 assert 'else if (errno != ENOENT)' in host_body[static_hosts_load:hosts_lock_acquire]
 assert "#if defined (USE_IPV6)" in host_body
 assert 'fprintf(hosts_fp, "%s %s %s\\n", "::1", "localhost.localdomain", "localhost");' in host_body
-assert "get_lan_addr6_host(addr6s)" in host_body
+lan_addr6_read = host_body.index("lan_addr6_status = get_lan_addr6_host_status(")
+lan_addr6_error = host_body.index("if (lan_addr6_status != 0)", lan_addr6_read)
+lan_addr6_return = host_body.index("return lan_addr6_status;", lan_addr6_error)
+lan_hostname_stage = host_body.index("dnsmasq_file_open(hostname_temp)")
+lan_ipv6_preflight = host_body.index("if (ipv6_type != IPV6_DISABLED)")
+assert lan_addr6_read < lan_addr6_error < lan_addr6_return < lan_hostname_stage
+assert "get_lan_addr6_host(addr6s)" not in host_body
+assert lan_ipv6_preflight < lan_addr6_read
+assert "lan_addr6_host[0]" in host_body
 assert 'fprintf(hosts_fp, "%s %s\\n", lan_addr6_host, "my.router");' in host_body
 
 

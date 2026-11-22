@@ -7,34 +7,37 @@ The checkpoint is mandatory; a document edit is conditional.
 Every session MUST inspect the live repository state and complete an end-of-session accuracy checkpoint before ending. Record the current source SHA, exact-SHA Action state, test/build boundaries, and next concrete task. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no commit. Make one atomic main commit for a material checkpoint change; never create a no-op commit. Before context exhaustion, leave the next GPT a precise first action and truthful verification status.
 
 - Work only on `main`. Never force-push, use side branches/PRs, or modify the frozen backup.
-- Each logical slice is one complete Git tree and one atomic commit; update `main` only with a non-forced expected-SHA compare-and-swap.
-- Inspect exact product-source-SHA Actions. PASS permits continued work; FAIL requires diagnosis and correction; PENDING does not block independent work.
-- Do not claim unrun local tests, target builds, artifacts or hardware checks.
+- Every logical slice creates all blobs, one full Git tree and one commit; update `main` only with `force:false` and a fetched expected SHA.
+- Check push Actions for the exact source SHA. PASS continues; FAIL must be diagnosed and fixed; PENDING never blocks unrelated work.
+- Do not claim tests, firmware builds, artifacts or hardware results that were not performed.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch `main`.
-- Parent for the current PPP contract normalization: `1e6238117d62087ea9eb5e99384b3ad2c65d1511`; fetch live `main` after this atomic commit for current SHA.
-- Immutable backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Legacy PR #1 is closed/unmerged.
-- PPP launch mode is read using one checked NVRAM transaction for `pppoemwan_enable` and (APP_RPL2TP L2TP only) `wan_l2tpd`; lock, daemon stop/start, multi-WAN start and rollback consume its immutable result.
-- Downstream WAN DHCP, VPN, HTTPD, XY-C1, PPPoE-MWAN and PPP option contracts have been migrated to the updated worker signature and mode fields in the current series.
-- The IPv6 service-type standalone source checker was corrected and its exact-head run #45031159848 PASS; AI handoff run #45031159852 PASS.
+- Repository `Arlene206/padavan-4.4-2`, development branch `main`.
+- Parent for this LAN IPv6 source-contract correction: `592ce6b42c4c1f3ff473cdfb8839959c2fb4b5da`; fetch live main after the commit for the current SHA.
+- Immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Legacy PR #1 is closed/unmerged.
+- PPP launch mode is a checked immutable NVRAM transaction snapshot for `pppoemwan_enable` and APP_RPL2TP L2TP `wan_l2tpd`; all lifecycle decisions reuse it.
+- The router-hosts IPv6 checker now distinguishes address preflight and hosts emission; exact IPv6 service-type #45031159848 and AI handoff #45031159852 passed on ancestor `1e6238117d62087ea9eb5e99384b3ad2c65d1511`.
+- `SESSION_HANDOFF.md` and `dev_log.md` remain the sole root handoff/history records.
 
 ## Active task
 
-This small slice corrects two remaining PPP dependent contracts. The VPN lifecycle checker now tests the RPL2TP start-result helper using substring presence rather than a brittle escaped-newline comparison. The PPPoE-MWAN checker now uses the three-argument locked-worker signature and verifies partial-session cleanup is gated by the same immutable multi-WAN flag.
+Two shared source contracts are being updated for status-bearing IPv6 APIs already used by production:
+- `reload_lan_addr6()` reads a checked NVRAM snapshot before invoking `rc_lan_addr6_reload_from_snapshot()`; that helper returns read errors before clearing/publishing a live IPv6 address. Its regression test covers zero callbacks on read failure.
+- `create_hosts_lan()` reads `get_lan_addr6_host_status()` before staging files and returns immediately on error; emitted IPv6 host rows use the captured address, not a later unchecked getter.
+
+This changes test contracts only, not runtime code.
 
 ## Verification boundary
 
 - Local tests were not run in this connector-only session.
-- The PPP integration parent `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` had AI handoff #45031084508 PASS and HTTPD #45031084503 PASS; process inventory #45031084490 PASS.
-- On that parent VPN lifecycle #45031084455 failed at the whitespace-fragile launch-result contract; WAN route #45031084451 failed on the outdated worker signature. These are addressed by this commit.
-- On that parent check_modem-related source contracts still failed because `reload_lan_addr6()` now uses the checked `lan6_read_config_value_status()` plus `rc_lan_addr6_reload_from_snapshot()`, not the retired helper expected by the checker. LAN DHCP #45031084413 also failed because its hosts contract expects the obsolete unchecked `get_lan_addr6_host()` path; current production code reads via `get_lan_addr6_host_status()` before staging. Further source-contract repairs are pending.
-- NVRAM transaction audit #45031084347 was still in progress at last observation. XY-C1 #45031084406 failed in the same stale checked-LAN-IPv6 source-contract stage before target build. No full firmware Build/TRX/artifact or hardware result is claimed.
+- Exact parent `592ce6b42c4c1f3ff473cdfb8839959c2fb4b5da` was reached after PPP contract fixes. The earlier PPP integration source `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` had AI handoff #45031084508 PASS, HTTPD #45031084503 PASS and process lifecycle inventory #45031084490 PASS.
+- Ancestor WAN DHCP #45031084413 failed on an outdated unchecked LAN IPv6 getter contract; modem/USB/firewall/process/XY Actions #45031084464/#45031084376/#45031084483/#45031084406 failed on an outdated LAN IPv6 reload call contract. The source code already uses the checked snapshot APIs; these checker fixes must rerun.
+- Ancestor PPP VPN lifecycle #45031084455 and WAN route #45031084451 failed at stale dependent contracts, now fixed in `592ce6b42c4c1f3ff473cdfb8839959c2fb4b5da`.
+- NVRAM audit #45031084347 was still in progress at last observation. XY-C1 had not reached target firmware build after its earlier source-contract failure. No Build/TRX/artifact or hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Actions for this correction SHA and update any source-contract failures.
-2. Fix the checked LAN IPv6 reload and LAN DHCP hostname source contracts to assert the actual status-bearing snapshot APIs and their read/error-before-stage order. Preserve the current product-code behavior.
-3. Re-check the NVRAM audit and XY-C1 job states on their exact SHA; continue broader stability/security tasks while any unrelated jobs are pending.
-4. XY-C1 L3 requires Build, TRX validation and artifact upload all PASS on the same source SHA. Do not claim hardware L4 without hardware validation.
+1. Fetch live main and inspect exact-head WAN DHCP, USB modem, firewall, process inventory, VPN, WAN route, XY-C1, AI and NVRAM Actions for this checker correction. Fix any new concrete failures.
+2. Continue the wider Padavan stability/security rotation after exact-head feedback; do not redo startup audits.
+3. XY-C1 L3 requires firmware Build, TRX validation and artifact upload all PASS on the same source SHA. Hardware L4 is unverified without device testing.

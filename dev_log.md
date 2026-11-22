@@ -1,3 +1,14 @@
+## 2026-11-22 — Align LAN IPv6 read-failure contracts with snapshot APIs
+
+- Parent main SHA: `592ce6b42c4c1f3ff473cdfb8839959c2fb4b5da`. The latest exact-head IPv6 service-type run #45031159848 and AI handoff run #45031159852 on ancestor `1e6238117d62087ea9eb5e99384b3ad2c65d1511` both PASS.
+- Exact PPP contract descendant `592ce6b42c4c1f3ff473cdfb8839959c2fb4b5da` fixes the stale PPPoE-MWAN worker signature and removes a whitespace-sensitive VPN source assertion. Its exact-head Actions are expected to rerun from this source tree.
+- The shared modem/USB/firewall/process/XY checker failed because it expected the retired `rc_lan_addr6_reload_apply()` call inside `reload_lan_addr6()`. Production code now first reads `lan_addr6` with `lan6_read_config_value_status()` then calls `rc_lan_addr6_reload_from_snapshot()`; that helper returns a backend read error before invoking clear/add callbacks. The checker now pins this order and the existing no-mutation-on-read-error regression test.
+- WAN DHCP checker #45031084413 also expected an unchecked compatibility getter `get_lan_addr6_host()`, but `create_hosts_lan()` correctly uses `get_lan_addr6_host_status()`, aborts on read error and only stages hostname/hosts files after the checked address snapshot. The source contract now asserts the read/error/return path precedes stage-file opening and the emitted rows use the snapshot.
+- No product source changes were needed; these were stale source contracts against previously hardened production code. No local tests were run in this connector-only session.
+- Result: THIS COMMIT. Next: inspect exact-head WAN DHCP/modem/USB/firewall/process/XY workflows after the checker corrections; then continue any remaining concrete userland stability/security issue.
+
+---
+
 ## 2026-11-22 — Normalize PPP lifecycle and multi-WAN source contracts
 
 - Parent main SHA: `1e6238117d62087ea9eb5e99384b3ad2c65d1511`. IPv6 service-type #45031159848 and AI handoff #45031159852 passed on this parent.
