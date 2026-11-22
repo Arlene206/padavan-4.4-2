@@ -223,4 +223,11 @@ modem_wan_auto_start_allowed(int identity_status, int is_modem)
 	return identity_status == 0 && is_modem == 0;
 }
 
+/* Never reload/unload modem modules against an unknown WAN identity. */
+static inline int
+modem_wan_restart_allowed(int identity_status)
+{
+	return identity_status == 0;
+}
+
 #endif

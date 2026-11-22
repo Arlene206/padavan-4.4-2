@@ -33,6 +33,7 @@
 #include <gpioutils.h>
 
 #include "rc.h"
+#include "usb_modem_wan_policy.h"
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "detect_link_signal_policy.h"
@@ -129,7 +130,8 @@ dl_publish_wan_nvram_status(void)
 static void
 dl_handle_link_wan(void)
 {
-	int front_led_x;
+	int front_led_x, dl_state;
+	int modem_identity_status, is_modem_wan = 0;
 
 	dl_publish_wan_nvram_status();
 
@@ -147,9 +149,18 @@ dl_handle_link_wan(void)
 		if (front_led_x == 1) {
 			LED_CONTROL(LED_WAN, (dl_status_wan) ? LED_ON : LED_OFF);
 		} else if (front_led_x == 2) {
-			if (!get_wan_wisp_active(NULL) && !get_usb_modem_wan(0)) {
-				int dl_state = (dl_status_wan && has_wan_gw4() && has_wan_ip4(1)) ? 1 : 0;
-				LED_CONTROL(LED_WAN, (dl_state) ? LED_ON : LED_OFF);
+			if (!get_wan_wisp_active(NULL)) {
+				modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+				if (modem_identity_status != 0)
+					logmessage("detect_link",
+						   "WAN LED modem identity unavailable; using conservative modem state (status=%d)",
+						   modem_identity_status);
+				is_modem_wan = usb_modem_wan_legacy_boolean(
+					modem_identity_status, is_modem_wan);
+				if (!is_modem_wan) {
+					dl_state = (dl_status_wan && has_wan_gw4() && has_wan_ip4(1)) ? 1 : 0;
+					LED_CONTROL(LED_WAN, (dl_state) ? LED_ON : LED_OFF);
+				}
 			}
 		}
 
@@ -342,6 +353,7 @@ dl_update_leds(void)
 
 	int front_led_x;
 	int dl_state;
+	int modem_identity_status, is_modem_wan = 0;
 
 	front_led_x = nvram_get_int("front_led_wan");
 	dl_state = 0;
@@ -349,12 +361,21 @@ dl_update_leds(void)
 		if (front_led_x == 1) {
 			dl_state = dl_status_wan;
 		} else if (front_led_x == 2) {
-			if (get_wan_wisp_active(&dl_status_wisp))
+			if (get_wan_wisp_active(&dl_status_wisp)) {
 				dl_state = (dl_status_wisp && has_wan_gw4() && has_wan_ip4(1)) ? 1 : 0;
-			else if (!get_usb_modem_wan(0))
-				dl_state = (dl_status_wan && has_wan_gw4() && has_wan_ip4(1)) ? 1 : 0;
-			else
-				dl_state = (has_wan_gw4() && has_wan_ip4(0)) ? 1 : 0;
+			} else {
+				modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+				if (modem_identity_status != 0)
+					logmessage("detect_link",
+						   "WAN LED modem identity unavailable; using conservative modem state (status=%d)",
+						   modem_identity_status);
+				is_modem_wan = usb_modem_wan_legacy_boolean(
+					modem_identity_status, is_modem_wan);
+				if (!is_modem_wan)
+					dl_state = (dl_status_wan && has_wan_gw4() && has_wan_ip4(1)) ? 1 : 0;
+				else
+					dl_state = (has_wan_gw4() && has_wan_ip4(0)) ? 1 : 0;
+			}
 		} else if (front_led_x == 3) {
 			dl_state = get_internet_state_cached();
 		}

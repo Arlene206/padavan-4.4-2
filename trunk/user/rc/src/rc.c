@@ -43,6 +43,7 @@
 #endif
 
 #include "rc.h"
+#include "modem_wan_start_policy.h"
 #include "storage_hotplug_name_policy.h"
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
@@ -2035,9 +2036,21 @@ handle_notifications(void)
 			int stop_failed = 0;
 			int wan_stop_status = 0;
 			int modules_reloaded = 0;
-			int need_restart_wan = get_usb_modem_wan(0);
+			int modem_identity_status;
+			int need_restart_wan = 0;
 			int modem_rule = nvram_get_int("modem_rule");
 			int modem_type = nvram_get_int("modem_type");
+
+			modem_identity_status = get_usb_modem_wan_status(0, &need_restart_wan);
+			if (!modem_wan_restart_allowed(modem_identity_status)) {
+				logmessage("USB",
+					   "refusing modem module/service restart: WAN modem identity is unknown (status=%d)",
+					   modem_identity_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, modem_identity_status);
+				stop_failed = 1;
+			}
+
 			if (nvram_modem_rule != modem_rule)
 			{
 				if (need_restart_wan) {

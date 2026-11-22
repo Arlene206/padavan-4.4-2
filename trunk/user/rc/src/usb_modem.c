@@ -955,7 +955,7 @@ reload_modem_modules(int modem_type, int reload)
 void
 notify_modem_on_wan_ether_link_changed(int has_link)
 {
-	int modem_used, link_wan;
+	int modem_used, link_wan, modem_identity_status, is_modem_wan = 0;
 
 	if (nvram_get_int("modem_prio") != 2)
 		return;
@@ -966,8 +966,16 @@ notify_modem_on_wan_ether_link_changed(int has_link)
 	if (!get_modem_devnum())
 		return;
 
+	modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+	if (modem_identity_status != 0) {
+		logmessage(LOGNAME,
+			   "skipping modem WAN reconnect: identity read failed (status=%d)",
+			   modem_identity_status);
+		return;
+	}
+
 	link_wan = (has_link) ? 1 : 0;
-	modem_used = (get_usb_modem_wan(0)) ? 1 : 0;
+	modem_used = is_modem_wan ? 1 : 0;
 
 	if (modem_used == link_wan)
 		notify_rc("auto_wan_reconnect");
@@ -977,13 +985,16 @@ notify_modem_on_wan_ether_link_changed(int has_link)
 void
 notify_modem_on_internet_state_changed(int has_internet)
 {
+	int modem_identity_status, is_modem_wan = 0;
+
 	if (has_internet)
 		return;
 
 	if (nvram_get_int("modem_prio") != 3)
 		return;
 
-	if (get_usb_modem_wan(0))
+	modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+	if (modem_identity_status != 0 || is_modem_wan)
 		return;
 
 	if (!get_modem_devnum())

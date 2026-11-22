@@ -639,6 +639,15 @@ test_modem_auto_start_requires_known_non_modem_identity(void)
 	assert(!modem_wan_auto_start_allowed(ENOSPC, 1));
 }
 
+
+static void
+test_modem_restart_requires_known_identity(void)
+{
+	assert(modem_wan_restart_allowed(0));
+	assert(!modem_wan_restart_allowed(EIO));
+	assert(!modem_wan_restart_allowed(ENOSPC));
+}
+
 int
 main(void)
 {
@@ -679,6 +688,7 @@ main(void)
 	test_hotplug_notification_queue_failure_reaches_handler_result();
 	test_unplug_notification_is_conservative_on_unknown_identity();
 	test_modem_auto_start_requires_known_non_modem_identity();
+	test_modem_restart_requires_known_identity();
 	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
 	test_modem_unplug_rule_read_fails_closed();
 	test_unplug_ifdown_failure_is_distinguished_from_removed_interface();

@@ -1,3 +1,15 @@
+## 2026-11-22 — Gate modem link, module restart and WAN LED decisions on checked identity
+
+- Parent main SHA: `4949f8f41ccd23df2e657477ede2e667410f2e19`.
+- `usb_modem.c::notify_modem_on_wan_ether_link_changed()` previously used the legacy boolean selector and could queue an automatic reconnect from ambiguous state. It now uses `get_usb_modem_wan_status()`, logs and returns on failure. The disabled legacy internet-state helper was migrated as well.
+- `rc.c::RCN_RESTART_MODEM` previously used the conservative legacy boolean as a destructive restart decision. It now gates WAN stop, modem module load/unload/reload, persistent runtime rule/type checkpoints and full WAN restart on a successful identity read, preserving a read error in the RC action result.
+- Both WAN LED paths in `detect_link.c` now use the checked selector plus `usb_modem_wan_legacy_boolean()`; errors conservatively select the modem display branch. The USB identity workflow reads these sources, asserts their ordering/gates, and includes `detect_link.c` symmetrically in push/pull_request triggers and its inline source allowlist.
+- Added a pure regression for the modem restart identity gate to the existing GNU89/ASan/UBSan policy test.
+- THIS COMMIT atomically includes three source migrations, policy/test, workflow contracts and handoff/log. Current exact-head CI must confirm the full regression suite and XY-C1 target stages; no local target or hardware result is claimed.
+- Next: reconcile exact-head CI, then select a distinct whole-userland P1/P2 stability/security defect from the roadmap ledger.
+
+---
+
 ## 2026-11-22 — Align unplug identity source contract with conservative cleanup
 
 - Parent main SHA: `be7b6c73d92af9de68a365156d69ad84e1eb81ab`.

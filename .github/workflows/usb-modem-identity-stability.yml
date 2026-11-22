@@ -27,6 +27,7 @@ on:
       - "trunk/user/rc/src/tests/modem_node_file.c"
       - "scripts/check_modem_module_reload.py"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/modem_module_reload_policy.h"
       - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
@@ -61,6 +62,7 @@ on:
       - "trunk/user/rc/src/tests/modem_node_file.c"
       - "scripts/check_modem_module_reload.py"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/modem_module_reload_policy.h"
       - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
@@ -160,6 +162,8 @@ jobs:
           sg_policy = (rc / "modem_sg_module_policy.h").read_text()
           sg_test = (rc / "tests/modem_sg_module_policy.c").read_text()
           modem = (rc / "usb_modem.c").read_text()
+          rc_source = (rc / "rc.c").read_text()
+          detect_link_source = (rc / "detect_link.c").read_text()
           services_stor = (rc / "services_stor.c").read_text()
           retry_policy = (rc / "modem_wan_start_policy.h").read_text()
           retry_test = (rc / "tests/modem_wan_start_policy.c").read_text()
@@ -495,6 +499,7 @@ jobs:
               "trunk/user/rc/src/tests/usb_modem_wan_policy.c",
               "trunk/user/rc/src/modem_wan_start_policy.h",
               "trunk/user/rc/src/tests/modem_wan_start_policy.c",
+              "trunk/user/rc/src/detect_link.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -637,6 +642,39 @@ jobs:
               assert marker in retry_test and marker + "();" in retry_test
           assert "modem_wan_unplug_notification_required" in retry_policy
           assert "modem_wan_auto_start_allowed" in retry_policy
+
+          link_change = body(modem, "notify_modem_on_wan_ether_link_changed(int has_link)")
+          link_identity = link_change.index("get_usb_modem_wan_status(0, &is_modem_wan)")
+          link_identity_error = link_change.index("if (modem_identity_status != 0)", link_identity)
+          link_identity_return = link_change.index("return;", link_identity_error)
+          link_reconnect = link_change.index('notify_rc("auto_wan_reconnect")')
+          assert link_identity < link_identity_error < link_identity_return < link_reconnect
+          assert "get_usb_modem_wan(" not in modem
+
+          restart = body(rc_source, "else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))")
+          restart_identity = restart.index("get_usb_modem_wan_status(0, &need_restart_wan)")
+          restart_unknown = restart.index("if (!modem_wan_restart_allowed(modem_identity_status))", restart_identity)
+          restart_error_merge = restart.index("rc_notify_merge_action_result(", restart_unknown)
+          restart_abort = restart.index("stop_failed = 1;", restart_error_merge)
+          restart_module_gate = restart.index("if (!stop_failed)", restart_abort)
+          restart_reload = restart.index("reload_modem_modules(", restart_module_gate)
+          restart_final_gate = restart.index("if (!stop_failed && need_restart_wan)", restart_module_gate)
+          restart_final = restart.index("full_restart_wan()", restart_final_gate)
+          assert restart_identity < restart_unknown < restart_error_merge < restart_abort < restart_module_gate < restart_reload < restart_final_gate < restart_final
+          assert "get_usb_modem_wan(" not in restart
+
+          led_link = body(detect_link_source, "dl_handle_link_wan(void)")
+          led_link_identity = led_link.index("get_usb_modem_wan_status(0, &is_modem_wan)")
+          led_link_fallback = led_link.index("usb_modem_wan_legacy_boolean(", led_link_identity)
+          assert led_link_identity < led_link_fallback < led_link.index("if (!is_modem_wan)", led_link_fallback)
+          led_refresh = body(detect_link_source, "dl_update_leds(void)")
+          led_refresh_identity = led_refresh.index("get_usb_modem_wan_status(0, &is_modem_wan)")
+          led_refresh_fallback = led_refresh.index("usb_modem_wan_legacy_boolean(", led_refresh_identity)
+          assert led_refresh_identity < led_refresh_fallback < led_refresh.index("if (!is_modem_wan)", led_refresh_fallback)
+          assert "get_usb_modem_wan(" not in detect_link_source
+          assert "modem_wan_restart_allowed" in retry_policy
+          assert "test_modem_restart_requires_known_identity" in retry_test
+          assert "test_modem_restart_requires_known_identity();" in retry_test
 
           print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY
