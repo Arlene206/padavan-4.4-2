@@ -1,3 +1,11 @@
+## 2026-11-22 — Snapshot DHCP route options transactionally
+
+- Parent main SHA: `789ca3e5000e677f3e3c9e46609f64e9e771b469`. The DHCP route wrappers retained three pointers returned by `nvram_safe_get()` for `routes`, `routes_rfc`, and `routes_ms` while retrieving the remaining values. Those pointers refer to reusable NVRAM cache-ring storage and are not safe to retain across a wrap or concurrent NVRAM activity.
+- Replaced the three unchecked reads with a single `rc_wan_nvram_copy_snapshot()` under the existing exclusive NVRAM transaction callbacks. Each value is copied to a bounded `NVRAM_MAX_VALUE_LEN + 1` buffer before the next read; key construction is length-checked, and failed reads/transaction close abort add/delete instead of silently applying an incomplete tuple.
+- Added GNU89 regression for three route option values, reusable-cache overwrite, optional missing fields, every individual read failure and transaction-end failure; extended WAN route source-order contract. Exact-head route regression pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align IPv6 workflow with pre-mount NFS ACL snapshot
 
 - Parent main SHA: `01ccfa38a77c2d54327a7c96dfd9c8e4c10cfe26`. Exact IPv6 service-type run #45006965726 compiled and passed the checked service-type C policy tests, then failed only in `scripts/check_ipv6_service_type_status.py` line 202. That assertion expected NFS to read its IPv6 ACL after opening `/proc/mounts`.

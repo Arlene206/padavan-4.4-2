@@ -6619,31 +6619,105 @@ add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric)
 	return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 1);
 }
 
+static int
+snapshot_dhcp_route_options(const char *prefix,
+			    char *rt, size_t rt_size,
+			    char *rt_rfc, size_t rt_rfc_size,
+			    char *rt_ms, size_t rt_ms_size)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[3];
+	char key_routes[NVRAM_MAX_PARAM_LEN];
+	char key_routes_rfc[NVRAM_MAX_PARAM_LEN];
+	char key_routes_ms[NVRAM_MAX_PARAM_LEN];
+	int length;
+
+	if (!prefix || !prefix[0] ||
+	    !rt || rt_size == 0 ||
+	    !rt_rfc || rt_rfc_size == 0 ||
+	    !rt_ms || rt_ms_size == 0)
+		return EINVAL;
+
+	length = snprintf(key_routes, sizeof(key_routes), "%sroutes", prefix);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(key_routes))
+		return ENAMETOOLONG;
+	length = snprintf(key_routes_rfc, sizeof(key_routes_rfc),
+			  "%sroutes_rfc", prefix);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(key_routes_rfc))
+		return ENAMETOOLONG;
+	length = snprintf(key_routes_ms, sizeof(key_routes_ms),
+			  "%sroutes_ms", prefix);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(key_routes_ms))
+		return ENAMETOOLONG;
+
+	fields[0].param_name = key_routes;
+	fields[0].destination = rt;
+	fields[0].destination_size = rt_size;
+	fields[1].param_name = key_routes_rfc;
+	fields[1].destination = rt_rfc;
+	fields[1].destination_size = rt_rfc_size;
+	fields[2].param_name = key_routes_ms;
+	fields[2].destination = rt_ms;
+	fields[2].destination_size = rt_ms_size;
+
+	/*
+	 * These NVRAM values live in a reusable cache ring. Hold one transaction
+	 * and copy each field before the next read can recycle its storage.
+	 */
+	return rc_wan_nvram_copy_snapshot(
+		fields, 3,
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback,
+		&transaction);
+}
+
+
 int
 add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)
 {
-	char buf[32];
-	char *rt, *rt_rfc, *rt_ms;
+	char rt[NVRAM_MAX_VALUE_LEN + 1];
+	char rt_rfc[NVRAM_MAX_VALUE_LEN + 1];
+	char rt_ms[NVRAM_MAX_VALUE_LEN + 1];
+	int read_status;
 
-	if (!prefix || !*prefix)
-		return EINVAL;
-	rt     = nvram_safe_get(strcat_r(prefix, "routes", buf));
-	rt_rfc = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
-	rt_ms  = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
+	read_status = snapshot_dhcp_route_options(
+		prefix, rt, sizeof(rt), rt_rfc, sizeof(rt_rfc),
+		rt_ms, sizeof(rt_ms));
+	if (read_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot DHCP route settings for %s (error=%d)",
+			   prefix ? prefix : "(null)", read_status);
+		errno = read_status;
+		return read_status;
+	}
 	return add_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric);
 }
 
 int
 del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)
 {
-	char buf[32];
-	char *rt, *rt_rfc, *rt_ms;
+	char rt[NVRAM_MAX_VALUE_LEN + 1];
+	char rt_rfc[NVRAM_MAX_VALUE_LEN + 1];
+	char rt_ms[NVRAM_MAX_VALUE_LEN + 1];
+	int read_status;
 
-	if (!prefix || !*prefix)
-		return EINVAL;
-	rt     = nvram_safe_get(strcat_r(prefix, "routes", buf));
-	rt_rfc = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
-	rt_ms  = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
+	read_status = snapshot_dhcp_route_options(
+		prefix, rt, sizeof(rt), rt_rfc, sizeof(rt_rfc),
+		rt_ms, sizeof(rt_ms));
+	if (read_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot DHCP route settings for %s (error=%d)",
+			   prefix ? prefix : "(null)", read_status);
+		errno = read_status;
+		return read_status;
+	}
 	return control_dhcp_routes(rt, rt_rfc, rt_ms, ifname, metric, 0);
 }
 

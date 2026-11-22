@@ -1367,6 +1367,102 @@ test_transactional_wan_route_snapshot_reads_one_generation(void)
 
 
 static void
+test_transactional_dhcp_route_options_snapshot(void)
+{
+	static const char *const names[] = {
+		"wan0_routes", "wan0_routes_rfc", "wan0_routes_ms"
+	};
+	static const char *const values[] = {
+		"10.0.0.0/8 192.0.2.1",
+		"172.16.0.0/16 192.0.2.1",
+		"198.18.0.0/15 192.0.2.1"
+	};
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[3];
+	char destinations[3][128];
+	unsigned int i, fail_at;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	for (i = 0; i < 3; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 3);
+	assert(fake.end_calls == 1);
+	assert(strcmp(fake.cache_slot, values[2]) == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(destinations[i], values[i]) == 0);
+
+	/* A missing optional route format stays empty without corrupting peers. */
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = 1;
+	for (i = 0; i < 3; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+		strcpy(destinations[i], "stale");
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(destinations[0][0] == '\0');
+	assert(destinations[1][0] == '\0');
+	assert(strcmp(destinations[2], values[2]) == 0);
+
+	/* Any failed key or transaction close invalidates the entire tuple. */
+	for (fail_at = 0; fail_at < 3; ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.read_fail_at = (int)fail_at;
+		fake.read_error = EACCES;
+		fake.missing_at = -1;
+		for (i = 0; i < 3; ++i) {
+			fake.names[i] = names[i];
+			fake.values[i] = values[i];
+			fields[i].param_name = names[i];
+			fields[i].destination = destinations[i];
+			fields[i].destination_size = sizeof(destinations[i]);
+			strcpy(destinations[i], "stale");
+		}
+		assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+						  fake_snapshot_get, fake_snapshot_end,
+						  &fake) == EACCES);
+		for (i = 0; i < 3; ++i)
+			assert(destinations[i][0] == '\0');
+	}
+
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	fake.end_error = EIO;
+	for (i = 0; i < 3; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+		strcpy(destinations[i], "stale");
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EIO);
+	for (i = 0; i < 3; ++i)
+		assert(destinations[i][0] == '\0');
+}
+
+
+static void
 test_transactional_snapshot_treats_missing_key_as_empty(void)
 {
 	struct fake_nvram_transaction fake;
@@ -1744,6 +1840,7 @@ main(void)
 	test_checked_nvram_copy_rejects_invalid_arguments();
 	test_transactional_dhcp_renew_snapshot_copies_complete_state();
 	test_transactional_wan_route_snapshot_reads_one_generation();
+	test_transactional_dhcp_route_options_snapshot();
 	test_transactional_snapshot_copies_coherent_tuple();
 	test_transactional_snapshot_copies_modem_ras_credentials_before_cache_overwrite();
 	test_transactional_snapshot_treats_missing_key_as_empty();

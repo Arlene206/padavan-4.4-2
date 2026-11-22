@@ -740,6 +740,26 @@ jobs:
               assert expected in body(wan, signature)
               name = signature.split("(")[0]
               assert "int  " + name in header and "void " + name not in header
+
+          route_snapshot = body(wan, "snapshot_dhcp_route_options(const char *prefix")
+          route_snapshot_compact = "".join(route_snapshot.split())
+          assert "structnvram_transactiontransaction;" in route_snapshot_compact
+          assert "structrc_wan_nvram_snapshot_fieldfields[3];" in route_snapshot_compact
+          assert 'snprintf(key_routes,sizeof(key_routes),"%sroutes",prefix)' in route_snapshot_compact
+          assert 'snprintf(key_routes_rfc,sizeof(key_routes_rfc),"%sroutes_rfc",prefix)' in route_snapshot_compact
+          assert 'snprintf(key_routes_ms,sizeof(key_routes_ms),"%sroutes_ms",prefix)' in route_snapshot_compact
+          assert "rc_wan_nvram_copy_snapshot(fields,3,wan_nvram_transaction_begin_callback,wan_nvram_transaction_get_callback,wan_nvram_transaction_end_callback,&transaction)" in route_snapshot_compact
+          assert "test_transactional_dhcp_route_options_snapshot" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+          for signature in (
+              "add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
+              "del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
+          ):
+              route_wrapper = body(wan, signature)
+              route_compact = "".join(route_wrapper.split())
+              assert "snapshot_dhcp_route_options(prefix,rt,sizeof(rt),rt_rfc,sizeof(rt_rfc),rt_ms,sizeof(rt_ms))" in route_compact
+              assert "nvram_safe_get(" not in route_wrapper
+              assert "if(read_status!=0)" in route_compact
+              assert "returnread_status;" in route_compact
           
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           dns_loop_start = man_down.index("foreach(word, man_dns, next)")
