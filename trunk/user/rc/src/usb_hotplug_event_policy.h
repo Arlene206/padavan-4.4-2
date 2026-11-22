@@ -26,4 +26,11 @@ usb_hotplug_event_pair_status(int unplug_read_status, int unplug_value,
 	return 0;
 }
 
+/* A queued event is acknowledged only after its action has succeeded. */
+static inline int
+usb_hotplug_event_ack_allowed(int event_pending, int action_status)
+{
+	return event_pending && action_status == 0;
+}
+
 #endif /* PADAVAN_USB_HOTPLUG_EVENT_POLICY_H */

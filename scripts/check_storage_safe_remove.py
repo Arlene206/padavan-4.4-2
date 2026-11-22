@@ -1455,3 +1455,43 @@ for token in ("storage_optware_ack_state(1, EACCES, &ack_pending) == EACCES",
               "storage_optware_ack_state(1, EIO, NULL) == EINVAL"):
     require(token in optware_test,
             "Optware acknowledgement regression missing " + token)
+
+
+# USB printer/modem events must remain queued while their start/reconnect
+# action fails; clearing before the action and trying to recreate the marker
+# afterward can lose the only retry event if the recreate write also fails.
+deferred_hotplug = body(storage, "on_deferred_hotplug_dev(void)")
+printer_events = deferred_hotplug[deferred_hotplug.index("printer_unplug_status ="):]
+printer_unplug = printer_events[printer_events.index("if (printer_unplug_pending)"):
+                               printer_events.index("modem_unplug_marker_status =")]
+require(printer_unplug.index("stop_usb_printer_spoolers()") <
+        printer_unplug.index('storage_ack_event_marker_status("usb_unplug_lp")'),
+        "printer unplug marker must be acknowledged after its stop action")
+printer_start = printer_unplug[printer_unplug.index("if (printer_hotplug_pending)"):]
+require(printer_start.index("try_start_usb_printer_spoolers()") <
+        printer_start.index('storage_ack_event_marker_status("usb_hotplug_lp")'),
+        "printer start marker must be acknowledged only after a successful start")
+require("if (printer_start_status != 0)" in printer_start and
+        printer_start.index("if (printer_start_status != 0)") <
+        printer_start.index('storage_ack_event_marker_status("usb_hotplug_lp")'),
+        "failed printer start must leave its marker queued")
+modem_unplug = deferred_hotplug[
+    deferred_hotplug.index("if (modem_unplug_pending)"):
+    deferred_hotplug.index("if (modem_hotplug_pending)", deferred_hotplug.index("if (modem_unplug_pending)"))
+    if "if (modem_hotplug_pending)" in deferred_hotplug[deferred_hotplug.index("if (modem_unplug_pending)"):]
+    else len(deferred_hotplug)
+]
+require(modem_unplug.index("try_wan_reconnect(1, 0)") <
+        modem_unplug.index('storage_ack_event_marker_status("usb_unplug_md")'),
+        "modem unplug marker must be acknowledged after reconnect")
+modem_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem &&"):]
+require(modem_start.index("try_start_usb_modem_to_wan()") <
+        modem_start.index('storage_ack_event_marker_status("usb_hotplug_md")'),
+        "modem replug marker must be acknowledged after successful startup")
+require("nvram_set_int_temp(\"usb_hotplug_md\", 1)" not in deferred_hotplug and
+        "nvram_set_int_temp(\"usb_unplug_md\", 1)" not in deferred_hotplug and
+        "nvram_set_int_temp(\"usb_hotplug_lp\", 1)" not in deferred_hotplug,
+        "USB retries must preserve the original marker instead of relying on unchecked requeue writes")
+require("usb_hotplug_event_ack_allowed" in read("trunk/user/rc/src/usb_hotplug_event_policy.h") and
+        "usb_hotplug_event_ack_allowed(1, EIO)" in read("trunk/user/rc/src/tests/usb_hotplug_event_policy.c"),
+        "USB event acknowledgement must have action-success regression coverage")

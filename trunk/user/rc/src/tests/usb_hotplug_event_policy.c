@@ -65,6 +65,10 @@ test_null_outputs_are_rejected(void)
 		NULL, &pending) == EINVAL);
 	assert(usb_hotplug_event_pair_status(0, 0, 0, 0,
 		&pending, NULL) == EINVAL);
+	assert(!usb_hotplug_event_ack_allowed(0, 0));
+	assert(!usb_hotplug_event_ack_allowed(1, EIO));
+	assert(!usb_hotplug_event_ack_allowed(1, -1));
+	assert(usb_hotplug_event_ack_allowed(1, 0));
 }
 
 int

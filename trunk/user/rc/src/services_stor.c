@@ -4662,19 +4662,34 @@ on_deferred_hotplug_dev(void)
 		alarm(5);
 	} else {
 		if (printer_unplug_pending) {
-			nvram_set_int_temp("usb_unplug_lp", 0);
 			if (!usb_port_module_used("usblp"))
 				stop_usb_printer_spoolers();
+			if (usb_hotplug_event_ack_allowed(printer_unplug_pending, 0)) {
+				printer_marker_status = storage_ack_event_marker_status("usb_unplug_lp");
+				if (printer_marker_status != 0) {
+					logmessage("USB Printer",
+						   "cannot acknowledge printer unplug event; keeping it queued (status=%d)",
+						   printer_marker_status);
+					alarm(5);
+				}
+			}
 		}
 		if (printer_hotplug_pending) {
-			nvram_set_int_temp("usb_hotplug_lp", 0);
 			printer_start_status = try_start_usb_printer_spoolers();
 			if (printer_start_status != 0) {
 				logmessage("USB Printer",
-					   "deferred printer startup failed; preserving pending event for retry (status=%d)",
+					   "deferred printer startup failed; keeping event queued for retry (status=%d)",
 					   printer_start_status);
-				nvram_set_int_temp("usb_hotplug_lp", 1);
 				alarm(5);
+			} else if (usb_hotplug_event_ack_allowed(printer_hotplug_pending,
+								 printer_start_status)) {
+				printer_marker_status = storage_ack_event_marker_status("usb_hotplug_lp");
+				if (printer_marker_status != 0) {
+					logmessage("USB Printer",
+						   "cannot acknowledge printer startup event; keeping it queued (status=%d)",
+						   printer_marker_status);
+					alarm(5);
+				}
 			}
 		}
 	}
@@ -4700,10 +4715,7 @@ on_deferred_hotplug_dev(void)
 				"modem_rule", 0, &modem_rule_value);
 			modem_rule_status = modem_wan_unplug_event_status(
 				modem_rule_status, modem_rule_value, &unplug_modem);
-			if (modem_rule_status == 0) {
-				/* Only acknowledge detach after all policy reads succeeded. */
-				nvram_set_int_temp("usb_unplug_md", 0);
-			} else {
+			if (modem_rule_status != 0) {
 				/* Keep detach queued and block a coalesced replug. */
 				unplug_modem = 1;
 				modem_unplug_status = modem_rule_status;
@@ -4712,41 +4724,63 @@ on_deferred_hotplug_dev(void)
 					   modem_rule_status);
 			}
 		}
-		if (modem_hotplug_pending) {
-			plug_modem = 1;
-			/*
-			 * If detach and re-enumeration arrived together, leave the plug
-			 * event pending until the unplug reconnect completes.
-			 */
-			if (!unplug_modem)
-				nvram_set_int_temp("usb_hotplug_md", 0);
-		}
-	}
-
-	if (unplug_modem) {
-		if (modem_rule_status == 0) {
+		if (modem_unplug_pending && modem_rule_status == 0 && unplug_modem) {
 			modem_unplug_status = try_wan_reconnect(1, 0);
-			if (modem_unplug_status != 0)
+			if (modem_unplug_status != 0) {
 				logmessage("USB hotplug",
-					   "WAN reconnect after USB modem unplug failed (status=%d)",
+					   "WAN reconnect after USB modem unplug failed; keeping event queued (status=%d)",
 					   modem_unplug_status);
-	
+			} else if (usb_hotplug_event_ack_allowed(modem_unplug_pending,
+								 modem_unplug_status)) {
+				marker_read_error = storage_ack_event_marker_status("usb_unplug_md");
+				if (marker_read_error != 0) {
+					modem_unplug_status = marker_read_error;
+					logmessage("USB hotplug",
+						   "cannot acknowledge modem unplug after reconnect; keeping event queued (status=%d)",
+						   marker_read_error);
+				} else {
+					modem_unplug_pending = 0;
+				}
+			}
+		} else if (modem_unplug_pending && modem_rule_status == 0 && !unplug_modem) {
+			/* No WAN transition is required; acknowledge the policy no-op. */
+			marker_read_error = storage_ack_event_marker_status("usb_unplug_md");
+			if (marker_read_error != 0) {
+				modem_unplug_status = marker_read_error;
+				logmessage("USB hotplug",
+					   "cannot acknowledge modem unplug policy no-op (status=%d)",
+					   marker_read_error);
+			} else {
+				modem_unplug_pending = 0;
+			}
 		}
-	}
-	if (plug_modem && !unplug_modem) {
-		modem_plug_status = try_start_usb_modem_to_wan();
-		if (modem_plug_status != 0)
-			logmessage("USB hotplug",
-				   "USB modem WAN startup failed (status=%d)",
-				   modem_plug_status);
+		if (modem_hotplug_pending)
+			plug_modem = 1;
 	}
 
-	modem_retry_mask = modem_wan_hotplug_retry_mask(unplug_modem, plug_modem,
-						 modem_unplug_status, modem_plug_status);
-	if (modem_retry_mask & MODEM_WAN_HOTPLUG_RETRY_UNPLUG)
-		nvram_set_int_temp("usb_unplug_md", 1);
-	if (modem_retry_mask & MODEM_WAN_HOTPLUG_RETRY_PLUG)
-		nvram_set_int_temp("usb_hotplug_md", 1);
+	if (plug_modem && !unplug_modem && !modem_unplug_pending) {
+		modem_plug_status = try_start_usb_modem_to_wan();
+		if (modem_plug_status != 0) {
+			logmessage("USB hotplug",
+				   "USB modem WAN startup failed; keeping event queued (status=%d)",
+				   modem_plug_status);
+		} else if (usb_hotplug_event_ack_allowed(modem_hotplug_pending,
+							 modem_plug_status)) {
+			marker_read_error = storage_ack_event_marker_status("usb_hotplug_md");
+			if (marker_read_error != 0) {
+				modem_plug_status = marker_read_error;
+				logmessage("USB hotplug",
+					   "cannot acknowledge modem replug after startup; keeping event queued (status=%d)",
+					   marker_read_error);
+			} else {
+				modem_hotplug_pending = 0;
+			}
+		}
+	}
+
+	modem_retry_mask = modem_wan_hotplug_retry_mask(
+		unplug_modem || modem_unplug_pending, modem_hotplug_pending,
+		modem_unplug_status, modem_plug_status);
 	if (modem_retry_mask != 0) {
 		logmessage("USB hotplug",
 			   "deferring modem WAN hotplug transition for retry (mask=%u)",
