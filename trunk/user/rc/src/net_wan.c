@@ -5959,6 +5959,7 @@ notify_on_wan_ether_link_restored(void)
 	int unit = 0, wan_proto;
 	int is_wisp_active = 0, manual_dhcp_disabled = 0;
 	int status, saved_errno;
+	char wan_ifname_temp[IFNAMSIZ];
 
 	status = get_wan_unit_proto_checked_status(unit, &wan_proto);
 	if (status != 0) {
@@ -5984,7 +5985,16 @@ notify_on_wan_ether_link_restored(void)
 	if (manual_dhcp_disabled)
 		return 0;
 
-	if (is_usbnet_interface(get_wan_unit_value(unit, "ifname_t")))
+	status = get_wan_unit_value_copy_status(
+		unit, "ifname_t", wan_ifname_temp, sizeof(wan_ifname_temp));
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot read WAN transport interface before link-restored DHCP renew (status=%d)",
+			   status);
+		return status;
+	}
+	if (is_usbnet_interface(wan_ifname_temp))
 		return 0;
 
 	status = get_wan_wisp_active_status(&is_wisp_active, NULL);

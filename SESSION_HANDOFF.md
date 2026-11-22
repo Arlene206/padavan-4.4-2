@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; active branch `main`; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- Current source/checker parent: `59fa3e95dc9cb7228837afda278023c3825aa0b4`. WISP checked interface identity API and fail-closed LED/link-restored callers are committed; test checker variable name has been corrected in the previous commit.
-- The parent exact WAN route #44998472638 and AI handoff #44998472600 were IN_PROGRESS at last poll. Exact b436 AI handoff #44998355100 and HTTPD Authentication/Security #44998355033 PASS; b436 WAN route #44998355043 previously failed only because the checker referenced undefined `nvram_policy_test`, now fixed.
-- New `x_DHCPClient` checked selector fix is in THIS COMMIT; exact-head WAN route check pending. No same-SHA XY-C1 Build + TRX + artifact verification; hardware L4 NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; active branch `main`; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Current parent main: `103281fb037a380dfa177edb6cf3b7c5acd7582f`. WISP checked interface identity API and manual DHCP-client selector are implemented. Exact 59fa WAN route #44998472638 and AI handoff #44998472600 passed after the checker variable correction.
+- Exact parent runs #44998542768 (WAN route), #44998542701 (AI handoff), #44998542772 (XY-C1), #44998542802 (NVRAM audit) and #44998542654 (HTTPD security) were IN_PROGRESS at last poll.
+- THIS COMMIT additionally checks transport `ifname_t` before USB classification in the link-restored DHCP path; exact-head WAN route/firmware results pending. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,18 +30,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- In `notify_on_wan_ether_link_restored()`, replaced lossy `nvram_match("x_DHCPClient", "0")` with checked `get_nvram_match_checked_status()`. A backend/close error now aborts and reports instead of allowing DHCP renewal; missing-key/normal false and static-IP short-circuit compatibility are retained.
-- Added a source-order test requiring checked selector → error gate → confirmed manual-client disable → USB-net/WISP gates → DHCP renew. Shared WAN NVRAM C regression already exercises checked string-match behavior.
+- In `notify_on_wan_ether_link_restored()`, replaced the remaining safe_get-backed `get_wan_unit_value(unit, "ifname_t")` with bounded checked copy. Backend/close/size errors now return before USB-net classification, WISP lookup or DHCP signalling.
+- Source checker now enforces checked `x_DHCPClient` selector and transport read/error gates before DHCP renew and rejects both old lossy NVRAM calls.
 
 ## Verification boundary
 
-- Prior checker-only commit `59fa3e95dc9cb7228837afda278023c3825aa0b4`: exact WAN route #44998472638 and AI handoff #44998472600 were IN_PROGRESS at last poll.
-- Exact b436 AI handoff #44998355100 PASS and HTTPD Security #44998355033 PASS. Exact b436 WAN route #44998355043 FAILED at `NameError: nvram_policy_test is not defined`; variable reference corrected in 59fa.
-- This source change has a new source-order regression in the same WAN route workflow. Exact-head result pending; no XY-C1 L3 or hardware L4 claim.
+- Exact 59fa WAN route #44998472638 PASS and AI handoff #44998472600 PASS (WISP API, caller and checker correction).
+- Parent 103281f WAN route #44998542768, AI handoff #44998542701, XY-C1 #44998542772, NVRAM audit #44998542802 and HTTPD #44998542654 were IN_PROGRESS at last poll.
+- Current transport identity checked-read change includes an additional source-order assertion in WAN route workflow; exact-head runs pending.
+- Same-SHA XY-C1 Build/TRX/artifact not confirmed; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route Actions for THIS COMMIT. Require both WISP checked identity assertions and the new checked `x_DHCPClient` selector assertion to pass; investigate the exact first failed line if not.
-2. Confirm WAN link-restored DHCP renewal returns selector read/close errors before any DHCP signal, while static-IP and configured manual-client-disabled behavior remain unchanged.
-3. Poll XY-C1 exact SHA and require Build + TRX + artifact all succeed on that same SHA for L3. Hardware L4 remains NOT VERIFIED.
-4. Continue across-userland security/stability only after current-head failures are triaged; backup remains read-only.
+1. Check exact-head WAN route for THIS COMMIT; require checked `x_DHCPClient` and `ifname_t` read/error gates plus WISP contracts to pass.
+2. Inspect any actual source/checker failure at its exact log line and repair it without falling back to safe_get or weakening the source contract.
+3. Poll exact-head XY-C1 Build, TRX and artifact steps; all three must pass on one SHA for L3.
+4. Continue independent high-severity userland stability/security work while unrelated CI is pending; keep the backup read-only and hardware L4 unverified.

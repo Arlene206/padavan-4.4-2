@@ -1030,16 +1030,21 @@ selector_read = 'status=get_nvram_match_checked_status("x_DHCPClient","0",&manua
 selector_read_at = renew_selector.index(selector_read)
 selector_error_at = renew_selector.index("if(status!=0)", selector_read_at)
 selector_disabled_at = renew_selector.index("if(manual_dhcp_disabled)return0;", selector_error_at)
-usbnet_guard_at = renew_selector.index("if(is_usbnet_interface(", selector_disabled_at)
+ifname_temp_read = 'status=get_wan_unit_value_copy_status(unit,"ifname_t",wan_ifname_temp,sizeof(wan_ifname_temp));'
+ifname_temp_read_at = renew_selector.index(ifname_temp_read, selector_disabled_at)
+ifname_temp_error_at = renew_selector.index("if(status!=0)", ifname_temp_read_at)
+usbnet_guard_at = renew_selector.index("if(is_usbnet_interface(wan_ifname_temp))", ifname_temp_error_at)
 wisp_read_at = renew_selector.index("status=get_wan_wisp_active_status(", usbnet_guard_at)
 dhcp_start_at = renew_selector.index("status=renew_udhcpc_wan(unit)", wisp_read_at)
 require(static_proto_guard in renew_selector and
         renew_selector.index(static_proto_guard) < selector_read_at <
-        selector_error_at < selector_disabled_at < usbnet_guard_at <
-        wisp_read_at < dhcp_start_at and
+        selector_error_at < selector_disabled_at < ifname_temp_read_at <
+        ifname_temp_error_at < usbnet_guard_at < wisp_read_at < dhcp_start_at and
         'nvram_match("x_DHCPClient","0")' not in renew_selector and
-        "cannot read manual WAN DHCP-client selector" in renew_selector,
-        "link-restored DHCP renewal must fail closed on unreadable manual-client NVRAM state")
+        'get_wan_unit_value(unit,"ifname_t")' not in renew_selector and
+        "cannot read manual WAN DHCP-client selector" in renew_selector and
+        "cannot read WAN transport interface" in renew_selector,
+        "link-restored DHCP renewal must check both the manual-client selector and transport-interface NVRAM before classifying the device")
 
 require("int get_wan_wisp_active_status(int *p_is_active, int *p_has_link);" in rc_header,
         "checked WISP status API must be declared in rc.h")

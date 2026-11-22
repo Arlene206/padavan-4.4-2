@@ -1,3 +1,12 @@
+## 2026-11-22 16:18 CST — Fail closed on unreadable WAN transport identity before DHCP renew
+
+- Parent main SHA: `103281fb037a380dfa177edb6cf3b7c5acd7582f`. Exact parent WAN route #44998542768, AI handoff #44998542701 and XY-C1 #44998542772 were IN_PROGRESS at last poll; NVRAM audit #44998542802 and HTTPD #44998542654 were also running. Previous exact 59fa source/checker parent: WAN route #44998472638 PASS and AI handoff #44998472600 PASS, confirming WISP identity and matcher correction.
+- Continued the link-restored DHCP state transition review and found `get_wan_unit_value(unit, "ifname_t")` was still a lossy safe_get read. A backend/close error could be treated as a non-USB transport and let the callback proceed without knowing the configured transport identity.
+- Replaced it with bounded `get_wan_unit_value_copy_status()`; backend/close/size errors are returned before USB-net classification, WISP classification and DHCP signal. A genuinely missing/empty legacy key remains a non-USB interface, as before.
+- Extended the WAN source contract to require checked transport read → error gate → USB classification → WISP read → DHCP renew, and forbid the old lossy getter. This is a source/checker slice only; exact-head Actions and firmware build remain pending.
+
+---
+
 ## 2026-11-22 16:07 CST — Check the manual DHCP-client selector before link-restored renew
 
 - Parent main SHA: `59fa3e95dc9cb7228837afda278023c3825aa0b4`. The prior WAN route checker variable-binding fix is now being validated by exact run #44998472638; its AI handoff run #44998472600 is also in progress. Exact b436 AI handoff #44998355100 and HTTPD Authentication/Security #44998355033 passed; b436 WAN route #44998355043 had failed only on the subsequently corrected undefined test variable.
