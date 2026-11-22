@@ -2,9 +2,69 @@
 #include <errno.h>
 #include "xl2tpd_start_policy.h"
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); return 1; } } while (0)
+
+static int
+test_config_flags(void)
+{
+	struct xl2tpd_config_flags flags;
+
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 3, 3, 0, "1", "1", "1", "1", "1", "",
+		&flags) == 0);
+	CHECK(flags.use_vpn_server == 1);
+	CHECK(flags.use_wan_lac == 1);
+	CHECK(flags.use_vpnc == 1);
+	CHECK(flags.vpnc_default_route == 2);
+
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 3, 3, 1, "1", "0", "0", "1", "", "1",
+		&flags) == 0);
+	CHECK(flags.use_vpn_server == 0);
+	CHECK(flags.use_wan_lac == 0);
+	CHECK(flags.use_vpnc == 0);
+	CHECK(flags.vpnc_default_route == 0);
+
+	/* Missing/empty selector keys preserve nvram_match defaults. */
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 3, 3, 0, "", "", "", "", "", "",
+		&flags) == 0);
+	CHECK(flags.use_vpn_server == 0 && flags.use_vpnc == 0);
+	CHECK(flags.use_wan_lac == 1); /* nvram_invmatch("", "1") */
+	CHECK(flags.vpnc_default_route == 0);
+
+	/* The RPL2TP transport selector preserves nvram_invmatch semantics. */
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 3, 3, 1, "", "", "", "", "", "0",
+		&flags) == 0);
+	CHECK(flags.use_wan_lac == 1);
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 3, 3, 1, "", "", "", "", "", "1",
+		&flags) == 0);
+	CHECK(flags.use_wan_lac == 0);
+
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 2, 3, 0, "", "", "", "", "", "",
+		&flags) == 0);
+	CHECK(flags.use_wan_lac == 0);
+
+	flags.use_vpn_server = 1;
+	flags.use_wan_lac = 1;
+	flags.use_vpnc = 1;
+	flags.vpnc_default_route = 2;
+	CHECK(xl2tpd_start_policy_config_flags(
+		EIO, 3, 3, 0, "1", "1", "1", "1", "1", "",
+		&flags) == EIO);
+	CHECK(flags.use_vpn_server == 0 && flags.use_wan_lac == 0 &&
+	      flags.use_vpnc == 0 && flags.vpnc_default_route == 0);
+	CHECK(xl2tpd_start_policy_config_flags(
+		0, 3, 3, 0, "1", "1", "1", "1", "1", "", NULL) == EINVAL);
+	return 0;
+}
+
 int
 main(void)
 {
+	CHECK(test_config_flags() == 0);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_RUNNING) == 1);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_ABSENT) == 0);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_UNKNOWN) == -1);

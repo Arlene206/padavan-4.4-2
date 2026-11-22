@@ -1,6 +1,52 @@
 #ifndef XL2TPD_START_POLICY_H
 #define XL2TPD_START_POLICY_H
 #include <process_inventory.h>
+#include <errno.h>
+#include <string.h>
+
+struct xl2tpd_config_flags {
+	int use_vpn_server;
+	int use_wan_lac;
+	int use_vpnc;
+	int vpnc_default_route;
+};
+
+/*
+ * Preserve nvram_match()/nvram_invmatch() legacy semantics, but never
+ * interpret a failed transaction as a disabled VPN or optional LAC.
+ */
+static inline int
+xl2tpd_start_policy_config_flags(int read_status, int wan_proto,
+				 int l2tp_proto, int rpl2tp_build,
+				 const char *vpns_enable,
+				 const char *vpns_type,
+				 const char *vpnc_enable,
+				 const char *vpnc_type,
+				 const char *vpnc_dgw,
+				 const char *wan_l2tpd,
+				 struct xl2tpd_config_flags *flags)
+{
+	if (!flags)
+		return EINVAL;
+	memset(flags, 0, sizeof(*flags));
+	if (read_status != 0)
+		return read_status;
+	if (!vpns_enable || !vpns_type || !vpnc_enable ||
+	    !vpnc_type || !vpnc_dgw || !wan_l2tpd)
+		return EINVAL;
+
+	flags->use_vpn_server =
+		(strcmp(vpns_enable, "1") == 0 && strcmp(vpns_type, "1") == 0);
+	flags->use_wan_lac =
+		(wan_proto == l2tp_proto &&
+		 (!rpl2tp_build || strcmp(wan_l2tpd, "1") != 0));
+	flags->use_vpnc =
+		(strcmp(vpnc_enable, "1") == 0 && strcmp(vpnc_type, "1") == 0);
+	flags->vpnc_default_route =
+		(strcmp(vpnc_dgw, "1") == 0) ? 2 : 0;
+	return 0;
+}
+
 /* 1 = running, 0 = absent, -1 = unknown (fail closed). */
 static inline int
 xl2tpd_start_policy_result(enum process_presence presence)

@@ -470,6 +470,45 @@ require('eval("/usr/sbin/xl2tpd"' in safe_start_locked,
 require('#include <process_inventory.h>' in net_ppp and
         '#include "xl2tpd_start_policy.h"' in net_ppp,
         "xl2tpd start must use tri-state process inventory policy")
+
+# Every NVRAM selector and optional VPN-client credential consumed by
+# xl2tpd must come from one checked snapshot before process scan/config I/O.
+xl2tpd_snapshot = body(
+    net_ppp, "xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)"
+)
+for key in ('"vpns_enable"', '"vpns_type"', '"vpnc_enable"', '"vpnc_type"',
+            '"vpnc_dgw"', '"wan_l2tpd"', '"vpnc_peer"', '"vpnc_user"'):
+    require(key in xl2tpd_snapshot,
+            "xl2tpd selector/credential snapshot is missing " + key)
+for token in ("nvram_transaction_begin", "nvram_transaction_get",
+              "nvram_transaction_end", "rc_wan_nvram_copy_snapshot("):
+    require(token in xl2tpd_snapshot,
+            "xl2tpd configuration must use checked NVRAM transaction: " + token)
+require("xl2tpd_read_config_snapshot(&config_snapshot)" in safe_start_locked and
+        safe_start_locked.index("xl2tpd_read_config_snapshot(&config_snapshot)") <
+        safe_start_locked.index('process_inventory_scan("xl2tpd", &process_snapshot)') <
+        safe_start_locked.index('fopen(l2tp_conf, "w")'),
+        "xl2tpd snapshot failures must stop before scan and live config truncation")
+require("xl2tpd_start_policy_config_flags(" in safe_start_locked and
+        "config_snapshot.vpns_enable" in safe_start_locked and
+        "config_snapshot.vpnc_enable" in safe_start_locked and
+        "config_snapshot.wan_l2tpd" in safe_start_locked,
+        "xl2tpd mode flags must derive only from the checked snapshot")
+for forbidden in ('nvram_match("vpns_enable"',
+                  'nvram_match("vpns_type"',
+                  'nvram_match("vpnc_enable"',
+                  'nvram_match("vpnc_type"',
+                  'nvram_invmatch("wan_l2tpd"',
+                  'nvram_match("vpnc_dgw"',
+                  'nvram_safe_get("vpnc_peer"',
+                  'nvram_safe_get("vpnc_user"'):
+    require(forbidden not in safe_start_locked,
+            "xl2tpd config must not use lossy NVRAM getter: " + forbidden)
+for case in ("test_config_flags",
+             "xl2tpd_start_policy_config_flags",
+             "nvram_invmatch", "xl2tpd process-presence and launch-result policy: PASS"):
+    require(case in xl2tpd_policy + xl2tpd_test,
+            "xl2tpd checked configuration policy regression is missing: " + case)
 require('process_inventory_scan("xl2tpd", &process_snapshot)' in safe_start_locked and
         "process_snapshot_release(&process_snapshot)" in safe_start_locked,
         "xl2tpd must obtain and release a complete process snapshot")

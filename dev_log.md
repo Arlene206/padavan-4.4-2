@@ -1,3 +1,13 @@
+## 2026-11-22 — Snapshot xl2tpd VPN selectors and credentials before config rewrite
+
+- Parent main SHA: `47f458e55610dcb91703e72b0e8a236ec0ca75e1`. At that SHA the exact-head source workflows for DNSMasq #45028829756, WAN DHCP #45028829655, Samba #45028829731, WAN route #45028829637, process lifecycle #45028829646/#45028829818, HTTPD security #45028829630, Inadyn #45028829709, miniupnpd #45028829662 and AI handoff #45028829822 PASS. NVRAM transaction audit #45028829724 and XY-C1 firmware #45028829692 were still in progress at last observation.
+- `safe_start_xl2tpd_locked()` still used lossy `nvram_match()/nvram_invmatch()` for VPN server/client/L2TP selectors and `nvram_safe_get()` for VPN-client peer/username and default route. A backend read/transaction failure could therefore be interpreted as a disabled optional VPN and cause the shared `xl2tpd.conf` to be rewritten without a required LAC/LNS section.
+- Added one bounded NVRAM transaction snapshot for `vpns_enable/type`, `vpnc_enable/type`, `vpnc_dgw`, `wan_l2tpd`, `vpnc_peer` and `vpnc_user`. Backend, copy/truncation and transaction-close failures now abort before process scan or opening/truncating the live config. Empty/missing values retain legacy `nvram_match/invmatch` defaults.
+- Added a pure flag policy and GNU89 regression cases for active VPN server/client, disabled/missing selectors, APP_RPL2TP inversion, WAN protocol mismatch and backend error. Extended the existing VPN lifecycle source contract to pin all snapshot fields, transaction adapters and failure ordering. Local tests were not run in this connector-only runtime; exact-head VPN Actions must verify this slice.
+- Result: THIS COMMIT. Next: inspect exact-head VPN and AI handoff runs; then review `launch_wan_pppd()` / L2TP protocol selectors for remaining unchecked NVRAM-dependent launch decisions without reopening completed lifecycle-lock work.
+
+---
+
 ## 2026-11-22 — Preserve DHCPv6 server mode read failures
 
 - Parent main SHA: `d7b9063ffd43613534909b7707783c7b9f967d12`. The exact-head IPv6 service-type run for `e3cc86e9503b978ddbe2ab49ff498db81076da54` passed the compiled GNU89/ASan/UBSan policy binary and failed only in the source checker due to its local variable typo; `d7b9063ffd43613534909b7707783c7b9f967d12` corrected that typo and started a fresh exact-SHA run. WAN teardown #45028413713 and WAN route #45028413724 on `e3cc86e...` PASS; AI docs #45028413690 PASS. XY-C1 #45028413654 and NVRAM #45028413627 were still running at handoff.

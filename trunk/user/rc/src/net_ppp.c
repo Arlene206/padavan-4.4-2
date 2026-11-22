@@ -298,6 +298,82 @@ get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)
 	return status;
 }
 
+
+#define XL2TPD_CONFIG_VALUE_SIZE 256
+
+struct xl2tpd_config_snapshot {
+	char vpns_enable[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpns_type[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpnc_enable[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpnc_type[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpnc_dgw[XL2TPD_CONFIG_VALUE_SIZE];
+	char wan_l2tpd[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpnc_peer[XL2TPD_CONFIG_VALUE_SIZE];
+	char vpnc_user[XL2TPD_CONFIG_VALUE_SIZE];
+};
+
+static int
+xl2tpd_snapshot_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+xl2tpd_snapshot_transaction_get(void *context, const char *param_name,
+				char **value)
+{
+	if (!context || !param_name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+static int
+xl2tpd_snapshot_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+static int
+xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)
+{
+	static const char *const names[8] = {
+		"vpns_enable", "vpns_type", "vpnc_enable", "vpnc_type",
+		"vpnc_dgw", "wan_l2tpd", "vpnc_peer", "vpnc_user"
+	};
+	struct rc_wan_nvram_snapshot_field fields[8];
+	struct nvram_transaction transaction;
+	char *destinations[8];
+	size_t destination_sizes[8];
+	unsigned int i;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+	destinations[0] = snapshot->vpns_enable;
+	destinations[1] = snapshot->vpns_type;
+	destinations[2] = snapshot->vpnc_enable;
+	destinations[3] = snapshot->vpnc_type;
+	destinations[4] = snapshot->vpnc_dgw;
+	destinations[5] = snapshot->wan_l2tpd;
+	destinations[6] = snapshot->vpnc_peer;
+	destinations[7] = snapshot->vpnc_user;
+	for (i = 0; i < 8; ++i) {
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = XL2TPD_CONFIG_VALUE_SIZE;
+		destination_sizes[i] = XL2TPD_CONFIG_VALUE_SIZE;
+	}
+	(void)destination_sizes;
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, 8, xl2tpd_snapshot_transaction_begin,
+		xl2tpd_snapshot_transaction_get,
+		xl2tpd_snapshot_transaction_end, &transaction);
+}
+
 int
 safe_start_xl2tpd_locked(void)
 {
@@ -305,7 +381,10 @@ safe_start_xl2tpd_locked(void)
 	int unit, wan_proto;
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
-	int wan_value_status;
+	int wan_value_status, config_status;
+	int vpnc_default_route;
+	struct xl2tpd_config_snapshot config_snapshot;
+	struct xl2tpd_config_flags config_flags;
 	unsigned int vpn_server_address, vpn_server_mask;
 	unsigned int vpn_pool_start, vpn_pool_end;
 	struct process_snapshot process_snapshot;
@@ -318,8 +397,33 @@ safe_start_xl2tpd_locked(void)
 	hostname[0] = wan_peer[0] = wan_user[0] = '\0';
 	vpnc_peer[0] = vpnc_user[0] = '\0';
 	unit = 0; /* todo */
-	use_vpn_server = nvram_match("vpns_enable", "1") &&
-		nvram_match("vpns_type", "1");
+	config_status = xl2tpd_read_config_snapshot(&config_snapshot);
+	if (config_status != 0) {
+		saved_errno = config_status;
+		logmessage(LOGNAME,
+			   "cannot read coherent xl2tpd selector/credential snapshot; refusing config update (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	config_status = xl2tpd_start_policy_config_flags(
+		0, IPV4_WAN_PROTO_L2TP, IPV4_WAN_PROTO_L2TP,
+#if defined (APP_RPL2TP)
+		1,
+#else
+		0,
+#endif
+		config_snapshot.vpns_enable, config_snapshot.vpns_type,
+		config_snapshot.vpnc_enable, config_snapshot.vpnc_type,
+		config_snapshot.vpnc_dgw, config_snapshot.wan_l2tpd,
+		&config_flags);
+	if (config_status != 0) {
+		errno = config_status;
+		return -1;
+	}
+	use_vpn_server = config_flags.use_vpn_server;
+	use_vpnc = config_flags.use_vpnc;
+	vpnc_default_route = config_flags.vpnc_default_route;
 	/*
 	 * A failed protocol read is not proof that the WAN is not L2TP. Refuse
 	 * to replace the daemon configuration rather than silently omitting a
@@ -334,13 +438,22 @@ safe_start_xl2tpd_locked(void)
 		errno = saved_errno;
 		return -1;
 	}
-	use_wan_lac = (wan_proto == IPV4_WAN_PROTO_L2TP
+	config_status = xl2tpd_start_policy_config_flags(
+		0, wan_proto, IPV4_WAN_PROTO_L2TP,
 #if defined (APP_RPL2TP)
-		&& nvram_invmatch("wan_l2tpd", "1")
+		1,
+#else
+		0,
 #endif
-		);
-	use_vpnc = nvram_match("vpnc_enable", "1") &&
-		nvram_match("vpnc_type", "1");
+		config_snapshot.vpns_enable, config_snapshot.vpns_type,
+		config_snapshot.vpnc_enable, config_snapshot.vpnc_type,
+		config_snapshot.vpnc_dgw, config_snapshot.wan_l2tpd,
+		&config_flags);
+	if (config_status != 0) {
+		errno = config_status;
+		return -1;
+	}
+	use_wan_lac = config_flags.use_wan_lac;
 
 	/* UNKNOWN is not proof of a running daemon; reject before config I/O. */
 	daemon_presence = process_inventory_scan("xl2tpd", &process_snapshot);
@@ -383,10 +496,10 @@ safe_start_xl2tpd_locked(void)
 		}
 	}
 	if (!invalid_value && use_vpnc &&
-	    ppp_config_line_value_copy(nvram_safe_get("vpnc_peer"), vpnc_peer, sizeof(vpnc_peer)) != 0)
+	    ppp_config_line_value_copy(config_snapshot.vpnc_peer, vpnc_peer, sizeof(vpnc_peer)) != 0)
 		invalid_value = "VPN client peer";
 	if (!invalid_value && use_vpnc &&
-	    ppp_config_line_value_copy(nvram_safe_get("vpnc_user"), vpnc_user, sizeof(vpnc_user)) != 0)
+	    ppp_config_line_value_copy(config_snapshot.vpnc_user, vpnc_user, sizeof(vpnc_user)) != 0)
 		invalid_value = "VPN client username";
 	if (invalid_value) {
 		saved_errno = errno ? errno : EINVAL;
@@ -483,7 +596,7 @@ safe_start_xl2tpd_locked(void)
 		fprintf(fp, "name = %s\n", vpnc_user);
 		fprintf(fp, "require authentication = no\n");
 		fprintf(fp, "tunnel rws = %d\n", 8);
-		fprintf(fp, "route_rdgw = %d\n", (nvram_match("vpnc_dgw", "1")) ? 2 : 0);
+		fprintf(fp, "route_rdgw = %d\n", vpnc_default_route);
 		fprintf(fp,
 			"autodial = yes\n"
 			"redial = yes\n"
