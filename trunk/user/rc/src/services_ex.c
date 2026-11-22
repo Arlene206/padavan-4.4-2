@@ -3528,6 +3528,9 @@ start_ddns_locked(int clear_cache)
 	int restore_status;
 	int saved_status;
 	int is_ap_mode, ap_mode_status;
+	int enabled_api_result, enabled_status, ddns_enabled;
+	int saved_errno;
+	char *enabled_value = NULL;
 	enum process_presence previous_presence;
 
 	ap_mode_status = get_ap_mode_status(&is_ap_mode);
@@ -3540,6 +3543,25 @@ start_ddns_locked(int clear_cache)
 	}
 	if (is_ap_mode)
 		return -1;
+
+	/*
+	 * Read the enable flag before stopping the existing daemon. An NVRAM
+	 * backend error must not masquerade as "disabled" and take DDNS offline.
+	 * A confirmed disabled value still follows the legacy stop-then-return
+	 * behavior below.
+	 */
+	errno = 0;
+	enabled_api_result = nvram_get_checked("ddns_enable_x", &enabled_value);
+	saved_errno = errno;
+	enabled_status = inadyn_ddns_enabled_status(
+		enabled_api_result, saved_errno, enabled_value, &ddns_enabled);
+	if (enabled_status != 0) {
+		errno = enabled_status;
+		logmessage(LOGNAME,
+			   "Inadyn start aborted because enable state cannot be read (status=%d)",
+			   enabled_status);
+		return enabled_status;
+	}
 
 	/* Do not destroy the current DDNS service when its state is unknown. */
 	previous_presence = inadyn_process_presence(&scan_error);
@@ -3566,7 +3588,7 @@ start_ddns_locked(int clear_cache)
 		return stop_status;
 	}
 
-	if (!nvram_match("ddns_enable_x", "1"))
+	if (!ddns_enabled)
 		return -1;
 
 	cache_status = inadyn_prepare_cache_directory(

@@ -1,3 +1,13 @@
+## 2026-11-22 — Keep Inadyn running when DDNS enable-state reads fail
+
+- Parent main SHA: `97c7286aedd02a97e784482981fa2c51d916297e`. The Inadyn lifecycle path already had a checked `inadyn_ddns_enabled_status()` policy and ASan/UBSan regression for missing, enabled, disabled, malformed and failed NVRAM reads, used by the update-notification path. `start_ddns_locked()` still used unchecked `nvram_match("ddns_enable_x", "1")` after stopping the existing daemon.
+- A transient NVRAM backend error could therefore be interpreted as DDNS disabled: the old daemon had already been stopped, the unchecked match returned false and the function exited without restoring it. The new path reads the enable state through `nvram_get_checked()` and the shared policy before process inventory/stop. Read errors now abort without touching the running daemon. A confirmed disabled value intentionally retains legacy stop-then-return behavior.
+- Extended `scripts/check_inadyn_lifecycle.py` to enforce checked-read/error-return before process scan and stop, followed by the disabled gate before cache/config mutation. Existing `test_ddns_enabled_read_status` in the GNU89/ASan/UBSan Inadyn policy test covers backend error mapping and output reset; its workflow already compiles and runs it.
+- No local tests were run in this connector-only session. Exact-head Inadyn, XY-C1 and AI Actions will determine verification; no firmware build or hardware result is claimed.
+- Result: THIS COMMIT. Next: inspect exact-SHA Inadyn/XY-C1/Process/AI Actions and continue the remaining userland stability rotation.
+
+---
+
 ## 2026-11-22 — Align USB modem Actions link-change contract with checked recovery logic
 
 - Parent main SHA: `33e87d4540698ef87226715fd3fa8e967243cb01`. Exact source run USB modem identity #45032550398 failed in its embedded Python source contract at the old assertion requiring the former standalone `get_usb_modem_wan_status()` flow. The new checked startup config/WISP snapshot implementation and its policy had already compiled and passed the preceding GNU89/ASan/UBSan test step.

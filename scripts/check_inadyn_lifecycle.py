@@ -136,6 +136,17 @@ assert "trunk/user/rc/src/inadyn_config_file.h" in workflow
 assert "trunk/user/rc/src/tests/inadyn_config_file.c" in workflow
 
 start = body("start_ddns_locked(int clear_cache)")
+start_enable_read = start.index('enabled_api_result = nvram_get_checked("ddns_enable_x", &enabled_value)')
+start_enable_policy = start.index("enabled_status = inadyn_ddns_enabled_status(", start_enable_read)
+start_enable_error = start.index("if (enabled_status != 0)", start_enable_policy)
+start_enable_return = start.index("return enabled_status;", start_enable_error)
+start_inventory = start.index("inadyn_process_presence(&scan_error)", start_enable_return)
+start_stop = start.index("stop_status = stop_ddns_locked()", start_inventory)
+start_disabled_gate = start.index("if (!ddns_enabled)", start_stop)
+start_cache = start.index("inadyn_prepare_cache_directory(", start_disabled_gate)
+assert start_enable_read < start_enable_policy < start_enable_error < start_enable_return
+assert start_enable_return < start_inventory < start_stop < start_disabled_gate < start_cache
+assert 'nvram_match("ddns_enable_x", "1")' not in start
 assert "stop_status = stop_ddns_locked()" in start
 assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
 assert 'launch_status = eval("/bin/inadyn"' in start
