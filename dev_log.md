@@ -1,3 +1,20 @@
+## 2026-11-22 — Reconcile HTTPD firewall validator source contract
+
+- HTTPD #44974691100 on source SHA `6ca55ecdaca95858aadbf77c4fd1af49b0e1644c` failed because the workflow hard-coded ten occurrences of `firewall_ipv4_address_is_safe()`, while the committed production source has nine. This was a stale checker expectation, not a C source or regression-test failure.
+- Checker-only commit `544ef61b244c13b8a2220f3e21d91a257f065fd3` changes the brittle exact count to a minimum floor and directly asserts the default NAT builder validates its copied LAN IP and contains no unchecked NVRAM reads. Follow-up `a05cb570eea8deb76d67fece4994ee415924c67e` replaces escaped-newline function markers with stable source slicing.
+- Exact rerun HTTPD #44974951724 PASS and AI docs #44974951739 PASS on `a05cb57`; no production HTTPD code changed.
+
+---
+
+## 2026-11-22 — Transactional LAN DHCP bound-state snapshot
+
+- Parent main SHA: `6d03a4b1d63ab5cf058e8c270a76c50740de6c2b`; production source commit: `6ca55ecdaca95858aadbf77c4fd1af49b0e1644c`.
+- `udhcpc_lan_bound()` previously read the seven old DHCP tuple fields individually with `nvram_safe_get()`. A transient NVRAM read/close error was indistinguishable from a missing/empty key, so rollback and changed-field detection could consume an incomplete previous tuple. The no-`subnet` path also read the lease netmask and configured fallback separately without status.
+- Added one transaction snapshot for `lan_ipaddr_t`, `lan_netmask_t`, `lan_gateway_t`, `lan_dns_t`, `lan_domain_t`, `lan_wins_t`, `lan_lease_t` and `lan_netmask`. The callback rejects the event on any backend, close or destination-capacity error before kernel, file or NVRAM publication. Both rollback comparisons and netmask fallback use the copied snapshot.
+- Updated DNSMasq source contract to pin the eight-key list, begin/get/end transaction callbacks, fail-closed ordering and removal of unchecked getters. DNSMasq #44974691080 PASS, WAN DHCP callback #44974691075 PASS and NVRAM transaction boundary #44974691126 PASS on this exact source SHA. XY-C1 #44974691162 was still building; TRX and artifact upload pending.
+
+---
+
 ## 2026-11-22 10:07 CST — Align HTTPD firewall boot contract and correct L3 checkpoint
 
 - Parent main SHA: `ac8436355e5081e81737ffa758bd78fc2d73112e`; firewall product-source SHA: `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`.
