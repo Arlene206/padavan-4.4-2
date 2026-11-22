@@ -1,3 +1,12 @@
+## 2026-11-22 13:36 UTC+8 — Align WAN startup source test with checked IPv6 reader
+
+- Parent main SHA: `66944d56ea2da8a129f557f1d385a875f74e0333`. Source commit `80f478f76dfb6caf2c73ba774358201757a065e8` passed IPv6 service #44989981542 and multiple network/security regressions, but Firewall Startup #44989981636 and USB modem WDM/NDIS #44989981642 failed in `scripts/check_modem_wan_start_status.py`.
+- Both first causes were stale source-contract checks: checker lines 292/303/318 expected old `get_ipv6_type()` guards after `config_vinet_wan()` and `config_apcli_wisp()` had been migrated to checked service reads. All earlier C compile/runtime steps in those jobs passed.
+- This correction verifies the checked read and fail-closed return before VLAN hardware changes or WISP WAN mutation, while preserving required IPv6-control failure and interface-publication assertions. Product C is unchanged in this correction.
+- Main `66944d56ea2da8a129f557f1d385a875f74e0333` still had in-progress Actions at last poll; this correction must be checked by exact SHA. No local C build or L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:34 UTC+8 — Preserve router hosts across IPv6 service-read failure
 
 - Parent main SHA: `80f478f76dfb6caf2c73ba774358201757a065e8`. Previous storage commit's exact IPv6 service-type regression #44989861751 PASS; the generic run list showed Process inventory #44989861714, AI docs #44989861727, USB modem #44989861748, HTTPD #44989861752, vsftpd #44989861707, Samba #44989861773, NFS lifecycle #44989861848, Firewall Startup #44989861713 and USB storage #44989861711 PASS. NVRAM #44989861835 and XY-C1 #44989861708 were still IN_PROGRESS at last poll.

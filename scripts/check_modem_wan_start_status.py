@@ -288,11 +288,17 @@ assert "return control_required && control_status != 0;" in POLICY_SOURCE
 assert "test_first_wan_error_survives_usb_modem_and_later_wan_failures();" in WAN_TEST
 
 vinet_setup = compact(body(WAN_SOURCE, "config_vinet_wan(void)"))
+vinet_read = vinet_setup.index("get_ipv6_type_status(&ipv6_type)")
+vinet_error = vinet_setup.index("if (ipv6_type_status != 0)", vinet_read)
+vinet_error_return = vinet_setup.index("return ipv6_type_status;", vinet_error)
+vinet_vlan_side_effect = vinet_setup.index("hw_vlan_tx_map(", vinet_error_return)
+assert vinet_read < vinet_error < vinet_error_return < vinet_vlan_side_effect
+
 parent_ipv6_call = vinet_setup.index("ret = control_if_ipv6(ifname_wan_cpu, 0);")
-parent_ipv6_guard = vinet_setup.rfind("if (get_ipv6_type() != IPV6_DISABLED)", 0, parent_ipv6_call)
+parent_ipv6_guard = vinet_setup.rfind("if (ipv6_type != IPV6_DISABLED)", 0, parent_ipv6_call)
 parent_ipv6_end = vinet_setup.index("ret = create_vlan_iface(", parent_ipv6_call)
 parent_ipv6 = vinet_setup[parent_ipv6_guard:parent_ipv6_end]
-assert parent_ipv6_guard >= 0
+assert parent_ipv6_guard >= vinet_error_return
 assert re.search(r"ret\s*=\s*control_if_ipv6\(ifname_wan_cpu,\s*0\)\s*;", parent_ipv6)
 assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", parent_ipv6), (
     "WAN VLAN creation must stop when required IPv6 disable on the parent fails"
@@ -300,9 +306,9 @@ assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", parent_ipv6
 
 vinet_publish = vinet_setup.index('ret = set_wan_unit_value_status(0, "ifname", vinet_ifname);')
 vinet_enable_call = vinet_setup.index("ret = control_if_ipv6(vinet_ifname, 1);")
-vinet_enable_guard = vinet_setup.rfind("if (get_ipv6_type() != IPV6_DISABLED)", 0, vinet_enable_call)
+vinet_enable_guard = vinet_setup.rfind("if (ipv6_type != IPV6_DISABLED)", 0, vinet_enable_call)
 vinet_enable = vinet_setup[vinet_enable_guard:vinet_publish]
-assert vinet_enable_guard >= 0
+assert vinet_enable_guard >= vinet_error_return
 assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", vinet_enable), (
     "WAN interface publication must wait for successful IPv6 enable"
 )
@@ -313,14 +319,21 @@ assert "return ret;" in vinet_publish_failure, (
 )
 
 wisp_setup = compact(body(WAN_SOURCE, "config_apcli_wisp(void)"))
+wisp_read = wisp_setup.index("get_ipv6_type_status(&ipv6_type)")
+wisp_error = wisp_setup.index("if (ipv6_type_status != 0)", wisp_read)
+wisp_error_return = wisp_setup.index("return ipv6_type_status;", wisp_error)
+wisp_mutation = wisp_setup.index("ifconfig(man_ifname", wisp_error_return)
 wisp_publish = wisp_setup.index('publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);')
 wisp_enable_call = wisp_setup.index("int ipv6_status = control_if_ipv6(wisp_ifname, 1);")
-wisp_enable_guard = wisp_setup.rfind("if (get_ipv6_type() != IPV6_DISABLED)", 0, wisp_enable_call)
+wisp_enable_guard = wisp_setup.rfind("if (ipv6_type != IPV6_DISABLED)", 0, wisp_enable_call)
 wisp_enable = wisp_setup[wisp_enable_guard:wisp_publish]
-assert wisp_enable_guard >= 0
+assert wisp_read < wisp_error < wisp_error_return < wisp_mutation < wisp_enable_guard < wisp_enable_call
 assert re.search(r"if\s*\(ipv6_status\s*!=\s*0\)\s*\{[^}]*return\s+ipv6_status\s*;", wisp_enable), (
     "AP-client WAN publication must wait for successful IPv6 enable"
 )
+assert "get_ipv6_type()" not in vinet_setup
+assert "get_ipv6_type()" not in wisp_setup
+
 wisp_publish_gate = wisp_setup.index("if (publication_status != 0)", wisp_publish)
 wisp_publish_failure = wisp_setup[wisp_publish_gate:wisp_setup.index("return 0;", wisp_publish_gate)]
 assert "return publication_status;" in wisp_publish_failure, (
