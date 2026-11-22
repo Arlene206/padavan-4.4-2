@@ -1,3 +1,8 @@
+## 2026-11-22 — Use portable octal newline in the Transmission pidof stub
+
+- The PID-output fixture normalizer used a doubled backslash in the `tr` set, which translates literal backslash/letter bytes instead of line-feed bytes. Corrected it to the POSIX octal newline escape `\012`, preserving the production parser's strict space-separated pidof contract.
+- This is a test-fixture-only correction; exact-head USB hotplug regression rerun pending.
+
 ## 2026-11-22 — Match Transmission stop PID fixture to pidof output framing
 
 - The first exact USB storage run after the Transmission stop preflight failed at the existing graceful-stop case. The new validator correctly rejected the test stub's newline-separated PID file, but the stub had returned raw file lines rather than pidof's whitespace-separated output. Updated only the fixture to convert the state records to a space-separated PID snapshot; the production parser continues to accept spaces and reject embedded newlines.
