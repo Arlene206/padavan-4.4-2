@@ -667,68 +667,151 @@ int create_if_no_var_files(const char *const mount_path)
 	return 0;
 }
 
-int modify_if_exist_new_folder(const char *const account, const char *const mount_path)
+int modify_if_exist_new_folder(const char *const account,
+                                  const char *const mount_path)
 {
-	int sh_num = 0;
-	char **folder_list = NULL, *target;
-	int result, i, len;
-	char var_file[256];
-	FILE *fp;
-	int samba_right, ftp_right;
+	int sh_num = 0, missing_count = 0, fd = -1, temp_created = 0;
+	char **folder_list = NULL, **missing_folders = NULL;
+	char *old_info = NULL, *var_file = NULL, *temp_file = NULL;
+	FILE *fp = NULL;
+	int result, i, samba_right, ftp_right, saved_errno;
+	size_t mount_len, account_len, base_len, var_len, temp_len, old_len;
+	const char prefix[] = "/.__";
+	const char suffix[] = "_var.txt";
+	const char temp_suffix[] = ".tmp.XXXXXX";
 
-	if (!is_valid_account_name(account) || !mount_path || !*mount_path)
+	if (!is_valid_account_name(account) || !mount_path || !*mount_path) {
+		errno = EINVAL;
 		return -1;
+	}
 
-	// 1. get all folder in mount_path
 	result = get_all_folder_in_mount_path(mount_path, &sh_num, &folder_list);
 	if (result != 0) {
 		free_2_dimension_list(&sh_num, &folder_list);
 		return -1;
 	}
 
+	if (sh_num > 0) {
+		if ((size_t)sh_num > (size_t)-1 / sizeof(*missing_folders)) {
+			errno = EOVERFLOW;
+			goto failed;
+		}
+		missing_folders = (char **)malloc((size_t)sh_num *
+		                                  sizeof(*missing_folders));
+		if (!missing_folders)
+			goto failed;
+	}
+
 	for (i = 0; i < sh_num; ++i) {
 		result = test_if_exist_folder_in_mount_path(mount_path, folder_list[i]);
-		if (result != 0) {
-			continue;
-		}
-		
-		// get the target
-		len = strlen("*")+strlen(folder_list[i])+strlen("=");
-		target = (char *)malloc(sizeof(char)*(len+1));
-		if (target == NULL) {
-			free_2_dimension_list(&sh_num, &folder_list);
-			
-			return -1;
-		}
-		sprintf(target, "*%s=", folder_list[i]);
-		target[len] = 0;
-		
-		// get the samba right and ftp right
-		if (strcmp(account, FTP_ANONYMOUS_USER) == 0) {
-			samba_right = 1;
-			ftp_right = 1;
-		}
-		else {
-			samba_right = DEFAULT_SAMBA_RIGHT;
-			ftp_right = DEFAULT_FTP_RIGHT;
-		}
-		
-		// add the information of the new folder
-		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
-		fp = fopen(var_file, "a+");
-		if (fp == NULL) {
-			free_2_dimension_list(&sh_num, &folder_list);
-			free(target);
-			return -1;
-		}
-		
-		fprintf(fp, "%s%d%d%d\n", target, samba_right, ftp_right, DEFAULT_DMS_RIGHT);
-		free(target);
-		fclose(fp);
+		if (result < 0)
+			goto failed;
+		if (result == 0)
+			missing_folders[missing_count++] = folder_list[i];
 	}
-	free_2_dimension_list(&sh_num, &folder_list);
 
+	if (missing_count == 0) {
+		free(missing_folders);
+		free_2_dimension_list(&sh_num, &folder_list);
+		return 0;
+	}
+
+	if (!strcmp(account, FTP_ANONYMOUS_USER)) {
+		samba_right = 1;
+		ftp_right = 1;
+	} else {
+		samba_right = DEFAULT_SAMBA_RIGHT;
+		ftp_right = DEFAULT_FTP_RIGHT;
+	}
+
+	mount_len = strlen(mount_path);
+	account_len = strlen(account);
+	if (mount_len > (size_t)-1 - (sizeof(prefix) - 1))
+		goto path_too_long;
+	base_len = mount_len + sizeof(prefix) - 1;
+	if (account_len > (size_t)-1 - base_len)
+		goto path_too_long;
+	base_len += account_len;
+	if (sizeof(suffix) - 1 > (size_t)-1 - base_len)
+		goto path_too_long;
+	var_len = base_len + sizeof(suffix) - 1;
+	if (var_len == (size_t)-1 ||
+	    sizeof(temp_suffix) - 1 > (size_t)-1 - var_len - 1)
+		goto path_too_long;
+	temp_len = var_len + sizeof(temp_suffix) - 1;
+
+	var_file = (char *)malloc(var_len + 1);
+	temp_file = (char *)malloc(temp_len + 1);
+	if (!var_file || !temp_file)
+		goto failed;
+
+	memcpy(var_file, mount_path, mount_len);
+	memcpy(var_file + mount_len, prefix, sizeof(prefix) - 1);
+	memcpy(var_file + base_len - account_len, account, account_len);
+	memcpy(var_file + var_len - (sizeof(suffix) - 1), suffix,
+	       sizeof(suffix));
+	memcpy(temp_file, var_file, var_len);
+	memcpy(temp_file + var_len, temp_suffix, sizeof(temp_suffix));
+
+	old_info = read_whole_file(var_file);
+	if (!old_info)
+		goto failed;
+	old_len = strlen(old_info);
+
+	fd = mkstemp(temp_file);
+	if (fd < 0)
+		goto failed;
+	temp_created = 1;
+	fp = fdopen(fd, "w");
+	if (!fp)
+		goto failed;
+	fd = -1;
+
+	if (old_len > 0 && fwrite(old_info, 1, old_len, fp) != old_len)
+		goto failed;
+	if (old_len > 0 && old_info[old_len - 1] != '\n' &&
+	    fputc('\n', fp) == EOF)
+		goto failed;
+	if (disk_share_write_account_defaults(fp, missing_count,
+	                                      missing_folders, samba_right,
+	                                      ftp_right, DEFAULT_DMS_RIGHT) != 0)
+		goto failed;
+	if (fsync(fileno(fp)) != 0)
+		goto failed;
+	if (fclose(fp) != 0) {
+		fp = NULL;
+		goto failed;
+	}
+	fp = NULL;
+
+	if (rename(temp_file, var_file) != 0)
+		goto failed;
+	temp_created = 0;
+
+	free(old_info);
+	free(temp_file);
+	free(var_file);
+	free(missing_folders);
+	free_2_dimension_list(&sh_num, &folder_list);
 	return 0;
+
+path_too_long:
+	errno = ENAMETOOLONG;
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fp)
+		(void)fclose(fp);
+	else if (fd >= 0)
+		(void)close(fd);
+	if (temp_created)
+		(void)unlink(temp_file);
+	free(old_info);
+	free(temp_file);
+	free(var_file);
+	free(missing_folders);
+	free_2_dimension_list(&sh_num, &folder_list);
+	errno = saved_errno;
+	return -1;
 }
 
 int get_permission(const char *account,

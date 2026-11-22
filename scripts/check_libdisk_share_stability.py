@@ -150,6 +150,35 @@ require("unlink(temp_file)" in account_failure and
 require('fopen(var_file, "w")' not in account_writer,
         "account defaults must not truncate the last complete permission file")
 
+
+modify_writer = function_body(
+    DISK_SOURCE,
+    "int modify_if_exist_new_folder(const char *const account,"
+)
+compact_modify = " ".join(modify_writer.split())
+folder_lookup = compact_modify.index(
+    "test_if_exist_folder_in_mount_path(mount_path, folder_list[i])"
+)
+lookup_error = compact_modify.index("if (result < 0)", folder_lookup)
+lookup_missing = compact_modify.index("if (result == 0)", lookup_error)
+modify_mkstemp = compact_modify.index("fd = mkstemp(temp_file)", lookup_missing)
+modify_copy = compact_modify.index("fwrite(old_info, 1, old_len, fp)", modify_mkstemp)
+modify_write = compact_modify.index(
+    "disk_share_write_account_defaults(fp, missing_count", modify_copy
+)
+modify_sync = compact_modify.index("fsync(fileno(fp))", modify_write)
+modify_close = compact_modify.index("if (fclose(fp) != 0)", modify_sync)
+modify_rename = compact_modify.index("rename(temp_file, var_file)", modify_close)
+require(folder_lookup < lookup_error < lookup_missing < modify_mkstemp <
+        modify_copy < modify_write < modify_sync < modify_close < modify_rename,
+        "new-folder permission updates must fail closed and atomically publish")
+modify_failure = compact_modify[compact_modify.index("failed:"):]
+require("unlink(temp_file)" in modify_failure and
+        "errno = saved_errno;" in modify_failure,
+        "failed new-folder updates must discard the temporary file")
+require('fopen(var_file, "a+")' not in modify_writer,
+        "new-folder updates must not append unchecked partial rows")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
