@@ -237,7 +237,7 @@ struct fake_dhcp_nvram {
 	int begin_error;
 	int end_error;
 	int active;
-	char rotating_cache[DNSMASQ_DHCP_DOMAIN_VALUE_SIZE + 1];
+	char rotating_cache[DNSMASQ_SPLIT_DNS_LIST_VALUE_SIZE + 1];
 };
 
 static void
@@ -553,6 +553,145 @@ test_dhcp6_snapshot_rejects_invalid_mode_and_arguments(void)
 }
 
 
+
+static int
+fake_split_dns_nvram_snapshot(struct dnsmasq_split_dns_nvram_snapshot *snapshot,
+			      struct fake_dhcp_nvram *fake)
+{
+	return dnsmasq_split_dns_nvram_snapshot_read(
+		snapshot, fake_dhcp_nvram_begin, fake_dhcp_nvram_get,
+		fake_dhcp_nvram_end, fake);
+}
+
+static void
+fake_add_split_dns_defaults(struct fake_dhcp_nvram *fake)
+{
+	fake_dhcp_nvram_add(fake, "vpnc_pdns", "1");
+	fake_dhcp_nvram_add(fake, "vpnc_dom_t", "vpn.example");
+	fake_dhcp_nvram_add(fake, "vpnc_dns_t", "10.8.0.1 10.8.0.2");
+	fake_dhcp_nvram_add(fake, "wanx_domain", "man.example");
+	fake_dhcp_nvram_add(fake, "wanx_dns", "192.0.2.53 192.0.2.54");
+}
+
+static void
+test_split_dns_snapshot_copies_one_generation(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	fake_add_split_dns_defaults(&fake);
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1 && !fake.active);
+	assert(fake.read_calls == 5);
+	assert(snapshot.vpn_private_dns_enabled == 1);
+	assert(strcmp(snapshot.vpn_domain, "vpn.example") == 0);
+	assert(strcmp(snapshot.vpn_dns_servers, "10.8.0.1 10.8.0.2") == 0);
+	assert(strcmp(snapshot.man_domain, "man.example") == 0);
+	assert(strcmp(snapshot.man_dns_servers, "192.0.2.53 192.0.2.54") == 0);
+}
+
+static void
+test_split_dns_snapshot_preserves_missing_and_nonpositive_defaults(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1 && fake.read_calls == 5);
+	assert(snapshot.vpn_private_dns_enabled == 0);
+	assert(snapshot.vpn_domain[0] == '\0');
+	assert(snapshot.vpn_dns_servers[0] == '\0');
+	assert(snapshot.man_domain[0] == '\0');
+	assert(snapshot.man_dns_servers[0] == '\0');
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "vpnc_pdns", "-1");
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == 0);
+	assert(snapshot.vpn_private_dns_enabled == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+}
+
+static void
+test_split_dns_snapshot_read_failure_at_every_key_invalidates_tuple(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot, zero;
+	int failure_index;
+
+	memset(&zero, 0, sizeof(zero));
+	for (failure_index = 0; failure_index < 5; ++failure_index) {
+		fake_dhcp_nvram_init(&fake);
+		fake_add_split_dns_defaults(&fake);
+		fake.fail_read_at = failure_index;
+		fake.read_error = EACCES;
+		memset(&snapshot, 0xa5, sizeof(snapshot));
+		assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EACCES);
+		assert(fake.end_calls == 1 && !fake.active);
+		assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+	}
+}
+
+static void
+test_split_dns_snapshot_begin_close_and_parse_errors_fail_closed(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot, zero;
+
+	memset(&zero, 0, sizeof(zero));
+	fake_dhcp_nvram_init(&fake);
+	fake.begin_error = EBUSY;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EBUSY);
+	assert(fake.end_calls == 0);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	fake_add_split_dns_defaults(&fake);
+	fake.end_error = EIO;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EIO);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "vpnc_pdns", "1junk");
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EINVAL);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+}
+
+static void
+test_split_dns_snapshot_rejects_oversized_domain_and_server_lists(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot, zero;
+	char oversized_domain[DNSMASQ_SPLIT_DNS_DOMAIN_VALUE_SIZE + 1];
+	char oversized_dns[DNSMASQ_SPLIT_DNS_LIST_VALUE_SIZE + 1];
+
+	memset(&zero, 0, sizeof(zero));
+	memset(oversized_domain, 'd', sizeof(oversized_domain) - 1);
+	oversized_domain[sizeof(oversized_domain) - 1] = '\0';
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "vpnc_dom_t", oversized_domain);
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == ENAMETOOLONG);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	memset(oversized_dns, '1', sizeof(oversized_dns) - 1);
+	oversized_dns[sizeof(oversized_dns) - 1] = '\0';
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "wanx_dns", oversized_dns);
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == ENAMETOOLONG);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+}
+
+
 int
 main(void)
 {
@@ -576,5 +715,10 @@ main(void)
 	test_dhcp6_snapshot_defaults_and_rejects_invalid_ranges();
 	test_dhcp6_snapshot_read_and_close_failures_clear_all_fields();
 	test_dhcp6_snapshot_rejects_invalid_mode_and_arguments();
+	test_split_dns_snapshot_copies_one_generation();
+	test_split_dns_snapshot_preserves_missing_and_nonpositive_defaults();
+	test_split_dns_snapshot_read_failure_at_every_key_invalidates_tuple();
+	test_split_dns_snapshot_begin_close_and_parse_errors_fail_closed();
+	test_split_dns_snapshot_rejects_oversized_domain_and_server_lists();
 	return 0;
 }

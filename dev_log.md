@@ -1,3 +1,12 @@
+## 2026-11-23 04:30 UTC+8 — Fail closed when split-DNS routing NVRAM is unreadable
+
+- fill_dnsmasq_servers() used error-collapsing reads for vpnc_pdns, VPN domain/server values and MAN domain/server values. A transient NVRAM fault could silently omit private-domain routing rules from the newly published DNSMasq server file, allowing VPN/MAN-specific queries to fall back to the default resolver path.
+- Added one bounded, transactionally copied snapshot for all five inputs. The VPN private-DNS flag preserves the original integer-greater-than-zero semantics; missing keys retain empty/disabled defaults. Read, transaction-close, parse and truncation failures now abort before staging/publication, leaving the previous DNS server snapshot intact.
+- Added injected host regressions for every read position, begin/end failure, absent and negative flags, malformed integers, and oversized domain/server lists. The DNSMasq source checker now enforces snapshot-before-stage ordering and rejects the old lossy reads.
+- Local compile/test: NOT RUN (GitHub-only editing session). Exact-head DNSMasq, Process and XY-C1 Actions: PENDING after this commit; no L3/TRX/artifact or L4 hardware claim.
+
+---
+
 ## 2026-11-22 — Protect Optware startup and teardown from shared /var/lock replacement
 
 - Optware's default lock lived at `/var/lock/optware-lifecycle.lock`, while this firmware creates `/var/lock` world-writable without the sticky bit. A local user could unlink or replace the pathname while startup held the old inode, allowing teardown/startup to lock a different inode and bypass serialization.

@@ -162,4 +162,46 @@ for token in (
 ):
     assert token in TEST
 assert "net_lan6.c" in WORKFLOW
+
+split_dns_snapshot = function_body(POLICY, "dnsmasq_split_dns_nvram_snapshot_read(")
+for token in (
+    'fields[0].param_name = "vpnc_pdns"',
+    'fields[1].param_name = "vpnc_dom_t"',
+    'fields[2].param_name = "vpnc_dns_t"',
+    'fields[3].param_name = "wanx_domain"',
+    'fields[4].param_name = "wanx_dns"',
+    "rc_wan_nvram_copy_snapshot(",
+    "rc_wan_nvram_parse_int_snapshot(",
+    "memset(snapshot, 0, sizeof(*snapshot))",
+    "vpn_private_dns > 0",
+):
+    assert token in split_dns_snapshot, token
+
+split_dns_publish = function_body(SERVICES, "fill_dnsmasq_servers(void)")
+assert "dnsmasq_split_dns_nvram_snapshot_read(" in split_dns_publish
+assert split_dns_publish.index('file_lock("dservers")') < split_dns_publish.index(
+    "dnsmasq_split_dns_nvram_snapshot_read("
+) < split_dns_publish.index("dnsmasq_file_open(servers_path)")
+for key in ("vpnc_pdns", "vpnc_dom_t", "vpnc_dns_t", "wanx_domain", "wanx_dns"):
+    assert f'nvram_safe_get("{key}")' not in split_dns_publish, key
+assert 'nvram_get_int("vpnc_pdns")' not in split_dns_publish
+for token in (
+    "nvram_snapshot.vpn_private_dns_enabled",
+    "nvram_snapshot.vpn_domain",
+    "nvram_snapshot.vpn_dns_servers",
+    "nvram_snapshot.man_domain",
+    "nvram_snapshot.man_dns_servers",
+    "file_unlock(lock);",
+    "preserving existing server file",
+):
+    assert token in split_dns_publish, token
+for marker in (
+    "test_split_dns_snapshot_copies_one_generation",
+    "test_split_dns_snapshot_preserves_missing_and_nonpositive_defaults",
+    "test_split_dns_snapshot_read_failure_at_every_key_invalidates_tuple",
+    "test_split_dns_snapshot_begin_close_and_parse_errors_fail_closed",
+    "test_split_dns_snapshot_rejects_oversized_domain_and_server_lists",
+):
+    assert marker in TEST and marker + "();" in TEST, marker
+
 print("DNSMasq checked DHCP integer options, bounded MAC validation and fail-closed static-host NVRAM snapshots: PASS")

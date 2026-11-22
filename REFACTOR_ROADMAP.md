@@ -122,6 +122,8 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 
+- P1 — DNSMasq split-DNS routing failure fixed in source; exact-head verification pending. fill_dnsmasq_servers() previously collapsed reads of vpnc_pdns, vpnc_dom_t, vpnc_dns_t, wanx_domain and wanx_dns. A backend fault could remove VPN/MAN domain routing rules and leak those queries to the default resolver. One bounded NVRAM transaction now snapshots the five inputs and aborts before file staging/publication on read/close/parse/truncation errors. Host regression and source contract are added. Exact DNSMasq/Process/XY-C1 Actions pending; target build and hardware remain unverified.
+
 - WAN DHCP renew callbacks previously used error-collapsing NVRAM reads for previous lease/route/MTU status and stored MTU. THIS SLICE switches physical and IPTV renew paths to checked reads, returns first read errors before renewal side effects, and adds GNU89 policy/source regressions. Exact-head WAN DHCP/route validation pending.
 
 - Full WAN restart restores static LAN routes if the checked runtime WAN-protocol snapshot fails after the earlier route flush. A route-recovery failure is logged and merged without masking the primary protocol-staging error; WAN activation remains aborted. Semantic checker coverage requires retry-before-return and first-error ordering. Exact-head checks pending.

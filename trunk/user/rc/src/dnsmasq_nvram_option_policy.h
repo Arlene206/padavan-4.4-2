@@ -306,4 +306,67 @@ dnsmasq_dhcp6_nvram_snapshot_read(
 	return status;
 }
 
+
+#define DNSMASQ_SPLIT_DNS_DOMAIN_VALUE_SIZE 256
+#define DNSMASQ_SPLIT_DNS_LIST_VALUE_SIZE 1024
+
+struct dnsmasq_split_dns_nvram_snapshot {
+	int vpn_private_dns_enabled;
+	char vpn_domain[DNSMASQ_SPLIT_DNS_DOMAIN_VALUE_SIZE];
+	char vpn_dns_servers[DNSMASQ_SPLIT_DNS_LIST_VALUE_SIZE];
+	char man_domain[DNSMASQ_SPLIT_DNS_DOMAIN_VALUE_SIZE];
+	char man_dns_servers[DNSMASQ_SPLIT_DNS_LIST_VALUE_SIZE];
+};
+
+static inline int
+dnsmasq_split_dns_nvram_snapshot_read(
+	struct dnsmasq_split_dns_nvram_snapshot *snapshot,
+	rc_wan_nvram_transaction_fn begin_transaction,
+	rc_wan_nvram_get_fn get_value,
+	rc_wan_nvram_transaction_fn end_transaction,
+	void *context)
+{
+	char vpn_private_dns_text[32] = {0};
+	const char *integer_texts[1];
+	struct rc_wan_nvram_snapshot_field fields[5];
+	int vpn_private_dns, status;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (!begin_transaction || !get_value || !end_transaction)
+		return EINVAL;
+
+	fields[0].param_name = "vpnc_pdns";
+	fields[0].destination = vpn_private_dns_text;
+	fields[0].destination_size = sizeof(vpn_private_dns_text);
+	fields[1].param_name = "vpnc_dom_t";
+	fields[1].destination = snapshot->vpn_domain;
+	fields[1].destination_size = sizeof(snapshot->vpn_domain);
+	fields[2].param_name = "vpnc_dns_t";
+	fields[2].destination = snapshot->vpn_dns_servers;
+	fields[2].destination_size = sizeof(snapshot->vpn_dns_servers);
+	fields[3].param_name = "wanx_domain";
+	fields[3].destination = snapshot->man_domain;
+	fields[3].destination_size = sizeof(snapshot->man_domain);
+	fields[4].param_name = "wanx_dns";
+	fields[4].destination = snapshot->man_dns_servers;
+	fields[4].destination_size = sizeof(snapshot->man_dns_servers);
+
+	status = rc_wan_nvram_copy_snapshot(
+		fields, 5, begin_transaction, get_value, end_transaction, context);
+	if (status != 0)
+		return status;
+
+	integer_texts[0] = vpn_private_dns_text;
+	status = rc_wan_nvram_parse_int_snapshot(
+		integer_texts, 1, &vpn_private_dns);
+	if (status != 0) {
+		memset(snapshot, 0, sizeof(*snapshot));
+		return status;
+	}
+	snapshot->vpn_private_dns_enabled = vpn_private_dns > 0;
+	return 0;
+}
+
 #endif /* PADAVAN_DNSMASQ_NVRAM_OPTION_POLICY_H */

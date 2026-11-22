@@ -117,6 +117,7 @@ on:
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "scripts/check_inadyn_lifecycle.py"
+      - "scripts/check_dnsmasq_integer_options.py"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - ".github/workflows/inadyn-lifecycle-stability.yml"

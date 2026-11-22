@@ -543,20 +543,57 @@ cleanup:
 	return 0;
 }
 
+static int
+dnsmasq_split_dns_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+dnsmasq_split_dns_transaction_get(void *context, const char *name, char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context, name, value);
+}
+
+static int
+dnsmasq_split_dns_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
 int
 fill_dnsmasq_servers(void)
 {
 	FILE *fp;
-	int lock, saved_errno;
+	int lock, saved_errno, snapshot_status;
 	char word[256], *next, *wan_dns, *wan_dom;
 	char servers_path[] = "/tmp/dnsmasq.servers.XXXXXX";
 	const char *storage_dir = "/etc/storage/dnsmasq";
+	struct nvram_transaction transaction;
+	struct dnsmasq_split_dns_nvram_snapshot nvram_snapshot;
 
 	lock = file_lock("dservers");
 	if (lock < 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot acquire DNS server snapshot lock; refusing publication (errno=%d)",
 			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	/* Snapshot complete split-DNS policy before creating a replacement. */
+	memset(&transaction, 0, sizeof(transaction));
+	transaction.lock_fd = -1;
+	snapshot_status = dnsmasq_split_dns_nvram_snapshot_read(
+		&nvram_snapshot, dnsmasq_split_dns_transaction_begin,
+		dnsmasq_split_dns_transaction_get,
+		dnsmasq_split_dns_transaction_end, &transaction);
+	if (snapshot_status != 0) {
+		saved_errno = snapshot_status > 0 ? snapshot_status : EIO;
+		logmessage(LOGNAME,
+			   "cannot snapshot VPN/MAN domain-specific DNS routing policy; preserving existing server file (status=%d)",
+			   saved_errno);
+		file_unlock(lock);
 		errno = saved_errno;
 		return -1;
 	}
@@ -574,34 +611,32 @@ fill_dnsmasq_servers(void)
 	}
 
 	/* add DNS servers (via specific domain) for static VPN client */
-	if (nvram_get_int("vpnc_pdns") > 0) {
-		wan_dom = nvram_safe_get("vpnc_dom_t");
-		wan_dns = nvram_safe_get("vpnc_dns_t");
+	if (nvram_snapshot.vpn_private_dns_enabled) {
+		wan_dom = nvram_snapshot.vpn_domain;
+		wan_dns = nvram_snapshot.vpn_dns_servers;
 		if (dnsmasq_valid_server_domain(wan_dom) && strlen(wan_dns) > 6) {
 			foreach(word, wan_dns, next) {
 				if (is_valid_ipv4(word))
 					fprintf(fp, "server=/%s/%s\n", wan_dom, word);
 			}
 		} else if (wan_dom[0]) {
-			logmessage(LOGNAME, "ignoring invalid domain-specific DNS routing domain");
+			logmessage(LOGNAME, "ignoring invalid domain-specific VPN DNS routing domain");
 		}
 	}
 
 	/* add DNS servers (via specific domain) for MAN subnet */
-	wan_dom = nvram_safe_get("wanx_domain");
-	wan_dns = nvram_safe_get("wanx_dns");
+	wan_dom = nvram_snapshot.man_domain;
+	wan_dns = nvram_snapshot.man_dns_servers;
 	if (dnsmasq_valid_server_domain(wan_dom) && strlen(wan_dns) > 6) {
 		foreach(word, wan_dns, next) {
 			if (is_valid_ipv4(word))
 				fprintf(fp, "server=/%s/%s\n", wan_dom, word);
 		}
 	} else if (wan_dom[0]) {
-		logmessage(LOGNAME, "ignoring invalid domain-specific DNS routing domain");
+		logmessage(LOGNAME, "ignoring invalid domain-specific MAN DNS routing domain");
 	}
 
-	/* fill from user dnsmasq.servers */
 	load_user_config(fp, storage_dir, "dnsmasq.servers", NULL);
-
 	if (dnsmasq_file_publish(fp, servers_path, DNS_SERVERS_FILE, 0644) != 0) {
 		saved_errno = errno ? errno : EIO;
 		if (dnsmasq_file_discard(servers_path) != 0)
@@ -614,7 +649,6 @@ fill_dnsmasq_servers(void)
 	}
 
 	file_unlock(lock);
-
 	return 0;
 }
 
