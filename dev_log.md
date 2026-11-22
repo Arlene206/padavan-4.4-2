@@ -1,3 +1,11 @@
+## 2026-11-22 20:06 CST (UTC+8) — Fix the remaining libdisk source-contract whitespace mismatch
+
+- Parent main SHA: 00e3dd6c9bdfa3e5186a25b3c69524bafae4d7d0. On #45019603097, both GNU89 ASan/UBSan binaries passed, but the source contract still failed because the actual function call was whitespace-compacted while the expected-call literal was not. Normalize both sides before comparison; no C behavior or safety assertion is relaxed.
+- The AI handoff contract #45019602967 passed on the same parent after restoring the required mandatory checkpoint and cross-session sections.
+- The first attempt at removing source whitespace was incomplete: the expected call string itself retained spaces after commas. The checker now removes whitespace from both the actual and expected strings. Exact-head libdisk validation must pass on this new commit before moving the account lifecycle fix into main.
+- Next source slice remains add_account(): propagate all mounted-volume permission-file initialization failures, continue independent volumes, and return the first failure only after cleanup/reloading Samba.
+
+---
 ## 2026-11-22 20:02 CST (UTC+8) — Correct libdisk checker normalization and preserve mandatory handoff checkpoint
 
 - Parent main SHA: 68b4958d3b6bc6ee3636e8ff1f479fbabdecc679. Exact-head libdisk run #45019373684 passed both GNU89 ASan/UBSan executables but failed the Python source checker because " ".join(split()) left a space after the updater function's opening parenthesis. The checker now removes all whitespace before comparing its compact call contract; this preserves the behavioral gate rather than relaxing it.

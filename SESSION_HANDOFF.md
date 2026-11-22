@@ -30,13 +30,13 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 ## Verification boundary
 
 - On parent SHA `68b4958d3b6bc6ee3636e8ff1f479fbabdecc679`, libdisk run #45019373684: both GNU89 `-Wall -Wextra -Werror` ASan/UBSan executables passed; Python source contract failed on the whitespace-normalization false negative. No C test failure was observed.
-- On the same SHA, AI handoff run #45019373672 failed because the previous handoff rewrite omitted this mandatory checkpoint statement. The current file restores the required exact phrases and cross-session sections.
+- AI handoff run #45019373672 failed on the previous handoff rewrite; the required exact checkpoint phrases and cross-session sections were restored, and run #45019602967 passed on parent `00e3dd6c9bdfa3e5186a25b3c69524bafae4d7d0`.
 - On the same SHA, Process lifecycle inventory #45019373666 PASS and HTTPD Authentication/Security #45019373705 PASS. XY-C1 #45019373712 and NVRAM transaction audit #45019373665 were in progress at the last completed inspection; fetch current live results before using them.
 - XY-C1 firmware L3 remains NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head libdisk, AI handoff, Process inventory, HTTPD, NVRAM and XY-C1 Actions for the latest commit. Fix real failures from logs; do not infer PASS from an ancestor SHA.
+1. Fetch live `main` and inspect exact-head libdisk and AI handoff Actions for this checker-fix commit. The last exact-head libdisk run #45019603097 failed only because the expected source-call string was not whitespace-normalized; confirm the new run passes.
 2. Once libdisk and handoff checks pass, implement the `add_account()` / `del_account()` per-volume metadata lifecycle defects with bounded paths, per-volume error handling, correct account-list cleanup, and source/host regression coverage. Keep account add and delete changes independently reviewable.
 3. Preserve the frozen backup branch. Claim XY-C1 L3 only after same-SHA Build, TRX and artifact upload pass.
 
