@@ -1217,6 +1217,20 @@ for path in (
 ):
     assert '"{}"'.format(path) in dnsmasq_workflow, "DNSMasq workflow missing {}".format(path)
 assert "Compile and run DNSMasq reload identity policy regression" in dnsmasq_workflow
+resolver_body = c_function_body(
+    net_wan, "update_resolvconf(int is_first_run, int do_not_notify)"
+)
+assert "rc_wan_nvram_copy_snapshot(" in resolver_body
+assert all(f'"wan_dns{i}_x"' in resolver_body for i in range(1, 4))
+assert 'get_wan_unit_value_copy_status(\n\t\t\t0, "dns"' in resolver_body
+assert 'wan_nvram_checked_get_callback, NULL, "wanx_dns"' in resolver_body
+assert 'get_wan_unit_value_copy_status(\n\t\t\t0, "dns6"' in resolver_body
+assert "preserving existing resolver file" in resolver_body
+assert 'nvram_safe_get(dns_name_x)' not in resolver_body
+assert 'get_wan_unit_value(0, "dns")' not in resolver_body
+assert 'nvram_safe_get("wanx_dns")' not in resolver_body
+assert 'get_wan_unit_value(0, "dns6")' not in resolver_body
+
 print("DNSMasq resolver notification tri-state integration: PASS")
 
 presence_policy = (root / "trunk/user/rc/src/process_presence_start_policy.h").read_text()

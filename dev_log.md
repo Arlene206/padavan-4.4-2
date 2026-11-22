@@ -1,3 +1,11 @@
+## 2026-11-22 — Keep the last-good resolver on WAN DNS NVRAM read failures
+
+- `update_resolvconf()` carefully checked the VPN DNS snapshot and static/dynamic DNS mode, but subsequently used `nvram_safe_get()` / `get_wan_unit_value()` for WAN DNS values. A transient NVRAM backend/close failure was converted to an empty list, then the function published the public `8.8.8.8` fallback over the previously valid resolver configuration.
+- Static DNS entries now use one bounded transactional snapshot; dynamic WAN DNS, MAN fallback and (when enabled) IPv6 DNS use checked bounded reads. All inputs are validated before a staging file is opened. Any read error is surfaced and leaves the existing resolver file untouched; genuinely absent keys keep the prior empty/default behavior.
+- Added integration contracts for all checked source keys and the no-lossy-get requirement. Existing NVRAM copy/snapshot unit cases cover absent values, backend errors, truncation, and transaction rollback. Exact-SHA Process and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-22 — Preserve WAN MAN conntrack cleanup errors on NVRAM read failure
 
 - `udhcpc_deconfig()` already checked the MAN protocol, but still used `nvram_safe_get("wanx_ipaddr")` for the old address used by conntrack cleanup. A transient backend error was therefore indistinguishable from an absent key and silently skipped flushing stale conntrack entries; the existing return status also stayed successful.

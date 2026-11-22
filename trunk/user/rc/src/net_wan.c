@@ -6273,7 +6273,13 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	FILE *fp;
 	char word[512], *next, *wan_dns;
 	char vpnc_dns_snapshot[512] = {0};
-	struct nvram_transaction vpnc_dns_transaction;
+	char static_wan_dns[3][INET_ADDRSTRLEN] = {{0}};
+	char unit_wan_dns[512] = {0}, man_wan_dns[512] = {0};
+#if defined (USE_IPV6)
+	char wan_dns6_snapshot[512] = {0};
+#endif
+	struct nvram_transaction vpnc_dns_transaction, wan_dns_transaction;
+	struct rc_wan_nvram_snapshot_field static_dns_fields[3];
 	const char *google_dns = "8.8.8.8";
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int i, i_pdns, i_total_dns = 0;
@@ -6330,6 +6336,49 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		return dns_static_status;
 	}
 
+	/*
+	 * Resolve every WAN DNS input with checked reads before staging a new
+	 * resolver file. A backend error must preserve the last-known-good file,
+	 * not silently publish the public fallback as if the custom DNS were empty.
+	 */
+	if (dns_static) {
+		static_dns_fields[0].param_name = "wan_dns1_x";
+		static_dns_fields[0].destination = static_wan_dns[0];
+		static_dns_fields[0].destination_size = sizeof(static_wan_dns[0]);
+		static_dns_fields[1].param_name = "wan_dns2_x";
+		static_dns_fields[1].destination = static_wan_dns[1];
+		static_dns_fields[1].destination_size = sizeof(static_wan_dns[1]);
+		static_dns_fields[2].param_name = "wan_dns3_x";
+		static_dns_fields[2].destination = static_wan_dns[2];
+		static_dns_fields[2].destination_size = sizeof(static_wan_dns[2]);
+		dns_servers_error = rc_wan_nvram_copy_snapshot(
+			static_dns_fields, 3, wan_nvram_transaction_begin_callback,
+			wan_nvram_transaction_get_callback,
+			wan_nvram_transaction_end_callback, &wan_dns_transaction);
+	} else if (!is_first_run) {
+		dns_servers_error = get_wan_unit_value_copy_status(
+			0, "dns", unit_wan_dns, sizeof(unit_wan_dns));
+		if (dns_servers_error == 0 && strlen(unit_wan_dns) < 7)
+			dns_servers_error = rc_wan_nvram_copy_value(
+				wan_nvram_checked_get_callback, NULL, "wanx_dns",
+				man_wan_dns, sizeof(man_wan_dns));
+		if (dns_servers_error == 0 && strlen(unit_wan_dns) >= 7)
+			man_wan_dns[0] = '\0';
+	}
+#if defined (USE_IPV6)
+	if (dns_servers_error == 0)
+		dns_servers_error = get_wan_unit_value_copy_status(
+			0, "dns6", wan_dns6_snapshot, sizeof(wan_dns6_snapshot));
+#endif
+	if (dns_servers_error != 0) {
+		errno = dns_servers_error;
+		logmessage(LOGNAME,
+			   "cannot read configured WAN DNS servers; preserving existing resolver file (status=%d)",
+			   dns_servers_error);
+		file_unlock(lock);
+		return dns_servers_error;
+	}
+
 	/* Never truncate /etc/resolv.conf or use a predictable temporary path. */
 	fp = dnsmasq_file_open(resolv_temp);
 	if (!fp) {
@@ -6362,14 +6411,11 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	/* DNS servers for WAN/MAN */
 	if (i_pdns != 2 || i_total_dns < 1) {
 		if (dns_static) {
-			char dns_name_x[16];
-
 			if (is_first_run)
 				resolv_changed = 1;
 
-			for (i = 1; i <= 3; i++) {
-				sprintf(dns_name_x, "wan_dns%d_x", i);
-				wan_dns = nvram_safe_get(dns_name_x);
+			for (i = 0; i < 3; i++) {
+				wan_dns = static_wan_dns[i];
 				if (is_valid_ipv4(wan_dns)) {
 					fprintf(fp, "nameserver %s\n", wan_dns);
 					i_total_dns++;
@@ -6377,9 +6423,8 @@ update_resolvconf(int is_first_run, int do_not_notify)
 			}
 
 		} else if (!is_first_run) {
-			wan_dns = get_wan_unit_value(0, "dns");
-			if (strlen(wan_dns) < 7)
-				wan_dns = nvram_safe_get("wanx_dns");
+			wan_dns = (strlen(unit_wan_dns) >= 7) ?
+				unit_wan_dns : man_wan_dns;
 
 			foreach(word, wan_dns, next) {
 				if (is_valid_ipv4(word)) {
@@ -6395,7 +6440,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 
 #if defined (USE_IPV6)
 	/* DNSv6 servers */
-	wan_dns = get_wan_unit_value(0, "dns6");
+	wan_dns = wan_dns6_snapshot;
 	foreach(word, wan_dns, next) {
 		if (strlen(word) > 0) {
 			char dns6s[INET6_ADDRSTRLEN] = {0};
