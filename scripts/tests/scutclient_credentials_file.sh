@@ -18,7 +18,7 @@ patch --dry-run -d "$SOURCE_DIR" -p1 < "$PATCH_FILE"
 patch -d "$SOURCE_DIR" -p1 < "$PATCH_FILE"
 cp "$ROOT/trunk/user/scutclient/patches/scutclient_credentials.c" "$SOURCE_DIR/src/scutclient_credentials.c"
 cp "$ROOT/trunk/user/scutclient/patches/scutclient_credentials.h" "$SOURCE_DIR/src/scutclient_credentials.h"
-cmake -S "$SOURCE_DIR" -B "$TEST_TMP/build" -DCMAKE_BUILD_TYPE=Release
+cmake -S "$SOURCE_DIR" -B "$TEST_TMP/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build "$TEST_TMP/build" --parallel 2
 if "$TEST_TMP/build/scutclient" --credentials-file "$TEST_TMP/missing-credentials" >/dev/null 2>&1; then
   echo "FAIL: patched SCUTClient accepted a missing credential file" >&2; exit 1;
