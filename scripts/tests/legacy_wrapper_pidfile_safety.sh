@@ -20,14 +20,17 @@ MOCK
 cat > "$TEST_BIN/bin_scutclient" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$SCUT_LOG"
-exit 0
+exit "${SCUT_LOGOUT_STATUS:-0}"
 MOCK
 cat > "$TEST_BIN/nvram" <<'MOCK'
 #!/bin/sh
 case "$1" in
   get)
     case "$2" in
-      wan_ifname) printf '%s\n' br0 ;;
+      wan_ifname)
+        [ "${SCUT_NVRAM_FAIL_STATUS:-0}" -eq 0 ] || exit "$SCUT_NVRAM_FAIL_STATUS"
+        printf '%s\n' br0
+        ;;
       mentohust_nic) printf '%s\n' "${MENTOHUST_NIC:-br0}" ;;
       mentohust_username) printf '%s\n' "${MENTOHUST_USERNAME:-}" ;;
       mentohust_password) printf '%s\n' "${MENTOHUST_PASSWORD:-}" ;;
@@ -36,7 +39,10 @@ case "$1" in
     ;;
   get_checked)
     case "$2" in
-      wan_ifname) printf '%s\n' br0 ;;
+      wan_ifname)
+        [ "${SCUT_NVRAM_FAIL_STATUS:-0}" -eq 0 ] || exit "$SCUT_NVRAM_FAIL_STATUS"
+        printf '%s\n' br0
+        ;;
       mentohust_nic) printf '%s\n' "${MENTOHUST_NIC:-br0}" ;;
       mentohust_username) printf '%s\n' "${MENTOHUST_USERNAME:-}" ;;
       mentohust_password) printf '%s\n' "${MENTOHUST_PASSWORD:-}" ;;
@@ -87,10 +93,42 @@ MENTOHUST_PIDFILE="$MENTO_PIDFILE" sh "$ROOT/trunk/user/mentohust/scripts/mentoh
 cat > "$TEST_TMP/process_lifecycle_mock.sh" <<'MOCK'
 pl_process_state() { return 1; }
 pl_wait_started() { return 0; }
-pl_stop_named() { return 0; }
+pl_stop_named() { printf '%s\n' "$1" >> "$SCUT_STOP_LOG"; return 0; }
 MOCK
 PROCESS_LIFECYCLE_LIB="$TEST_TMP/process_lifecycle_mock.sh"
-export PROCESS_LIFECYCLE_LIB
+SCUT_STOP_LOG="$TEST_TMP/scut-stop.log"
+: > "$SCUT_STOP_LOG"
+export PROCESS_LIFECYCLE_LIB SCUT_STOP_LOG
+
+# A transient WAN-interface read failure must leave the local client running;
+# otherwise its server-side session cannot be logged out.
+SCUT_LOG_LINES_BEFORE=$(wc -l < "$SCUT_LOG" | tr -d ' ')
+if SCUT_NVRAM_FAIL_STATUS=37 SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+   sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" stop nolog >/dev/null; then
+  echo "FAIL: scutclient stop accepted an unreadable WAN interface" >&2; exit 1
+else
+  STOP_STATUS=$?
+fi
+[ "$STOP_STATUS" -eq 37 ] || { echo "FAIL: scutclient NVRAM read status changed to $STOP_STATUS" >&2; exit 1; }
+[ ! -s "$SCUT_STOP_LOG" ] || { echo "FAIL: scutclient stopped before resolving logout interface" >&2; exit 1; }
+[ "$(wc -l < "$SCUT_LOG" | tr -d ' ')" = "$SCUT_LOG_LINES_BEFORE" ] || {
+  echo "FAIL: scutclient attempted logout with an unknown interface" >&2; exit 1;
+}
+
+# Successful logout is part of the stop contract.
+SCUT_LOGOUT_STATUS=0 SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+  sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" stop nolog >/dev/null
+[ "$(cat "$SCUT_STOP_LOG")" = "bin_scutclient" ] || {
+  echo "FAIL: scutclient stop did not use the lifecycle manager" >&2; exit 1;
+}
+if SCUT_LOGOUT_STATUS=42 SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+   sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" stop nolog >/dev/null; then
+  echo "FAIL: scutclient reported a failed server logout as success" >&2; exit 1
+else
+  STOP_STATUS=$?
+fi
+[ "$STOP_STATUS" -eq 42 ] || { echo "FAIL: scutclient logout failure status changed to $STOP_STATUS" >&2; exit 1; }
+
 MENTOHUST_NIC=br0
 MENTOHUST_USERNAME='test-user'
 MENTOHUST_PASSWORD='test&secret\value%'

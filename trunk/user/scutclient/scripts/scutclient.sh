@@ -119,6 +119,16 @@ func_start(){
 
 func_stop(){
 	echo -n "Stopping scutclient:..."
+	# Resolve the logout interface before stopping the daemon. A transient
+	# NVRAM read error must not leave a stopped client with an unlogged session.
+	if func_read_nvram_checked wan_ifname; then
+		scutclient_wan_ifname=$scut_nvram_value
+	else
+		config_status=$?
+		echo "[FAILED]"
+		func_log "Cannot resolve WAN interface for logout; leaving daemon running (status=$config_status)"
+		return "$config_status"
+	fi
 	if pl_stop_named "$scutclient_exec" 3 2; then
 		:
 	else
@@ -127,16 +137,16 @@ func_stop(){
 		func_log "Daemon stop failed (status=$stop_status)"
 		return "$stop_status"
 	fi
-	if func_read_nvram_checked wan_ifname; then
-		scutclient_wan_ifname=$scut_nvram_value
+	if "$scutclient_exec" -o -i "$scutclient_wan_ifname" >/dev/null 2>&1; then
+		echo "[  OK  ]"
+		func_log "Stopped and logout request completed"
+		return 0
 	else
-		config_status=$?
-		return "$config_status"
+		logout_status=$?
+		echo "[FAILED]"
+		func_log "Daemon stopped but server logout request failed (status=$logout_status)"
+		return "$logout_status"
 	fi
-	"$scutclient_exec" -o -i "$scutclient_wan_ifname" >/dev/null 2>&1
-	echo "[  OK  ]"
-	func_log "Stopped"
-	return 0
 }
 
 action_status=0
