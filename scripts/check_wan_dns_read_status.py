@@ -1186,19 +1186,41 @@ for forbidden in ("nvram_safe_get(", "nvram_get_int(", "get_wan_unit_value(", "g
 for required in ("rc_wan_nvram_copy_value(", "nvram_get_checked(", "rc_wan_nvram_read_int_status("):
     require(required in sit_copy_helper + sit_int_helper,
             "SIT startup checked-read helper missing: " + required)
-for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
-                 '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
+for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"',
+                 '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
     require(required in sit_body, "SIT configuration selector missing: " + required)
-for required in ("get_wan_unit_value_int_status(", "get_wan_unit_value_copy_status(",
-                 "WAN6_SIT_READ_CHECK("):
-    require(required in sit_body, "SIT read errors must be propagated: " + required)
+require("get_wan_unit_value_copy_status(" in sit_body,
+        "SIT checked text setting read must be retained")
+require("WAN6_SIT_READ_CHECK(" in sit_body,
+        "SIT read errors must be propagated")
+sixrd_snapshot = body(wan6_source, "wan6_read_sit_6rd_parameters(int unit,")
+for required in ('"wan%d_6rd_size"', '"wan%d_6rd_relay"',
+                 "rc_wan_nvram_copy_int_text_snapshot(",
+                 "wan6_snapshot_transaction_begin",
+                 "wan6_snapshot_transaction_get",
+                 "wan6_snapshot_transaction_end"):
+    require(required in sixrd_snapshot, "SIT 6rd pair must use one NVRAM snapshot: " + required)
+sixrd_start = sit_body.index("} else if (ipv6_type == IPV6_6RD)")
+sixrd_end = sit_body.index("\n\t} else {", sixrd_start)
+sixrd_body = sit_body[sixrd_start:sixrd_end]
+require("wan6_read_sit_6rd_parameters(" in sixrd_body and
+        "get_wan_unit_value_int_status(" not in sixrd_body and
+        "get_wan_unit_value_copy_status(" not in sixrd_body,
+        "SIT 6rd size/relay must be read together, not by separate getters")
+for test_name in ("test_wan6_sit_6rd_parameters_share_one_transaction",
+                  "test_wan6_sit_6rd_snapshot_discards_both_values_on_read_errors",
+                  "test_wan6_sit_6rd_snapshot_preserves_missing_and_rejects_bad_size"):
+    require(test_name in sit_policy_test and test_name + "();" in sit_policy_test,
+            "SIT 6rd snapshot regression must be registered: " + test_name)
 require("#define WAN6_SIT_READ_CHECK" in wan6_source and "errno = status;" in wan6_source,
         "SIT read macro must preserve the checked NVRAM error code")
 first_mutation = sit_body.index("if (is_interface_exist(IFNAME_SIT))")
-for key in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
-            '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
+for key in ('"ip6_6in4_remote"', '"ip6_6to4_relay"',
+            '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
     require(sit_body.index(key) < first_mutation,
             "SIT selector read must precede tunnel mutation: " + key)
+require(sit_body.index("wan6_read_sit_6rd_parameters(") < first_mutation,
+        "SIT 6rd tuple must be snapshotted before tunnel mutation")
 sit_policy_test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
                   "test_checked_nvram_copy_preserves_backend_failure",

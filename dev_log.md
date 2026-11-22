@@ -1,3 +1,11 @@
+## 2026-11-22 — Update WAN DNS source contract for atomic SIT 6rd tuple
+
+- Parent main SHA: `b4c59675fa4d34edfe4bb5a28a590aff5b7f2313`. Exact WAN DHCP callback #45046472587 PASS, including the GNU89/ASan/UBSan compile and execution of the new two-field 6rd snapshot regression tests.
+- WAN route #45046472456 failed only at `scripts/check_wan_dns_read_status.py:1191`, whose older SIT source contract still required the removed `"6rd_size"` and `"6rd_relay"` independent reads in `start_sit_tunnel()`. All preceding policy tests and other WAN checked-read source assertions passed. Updated this contract to require `wan6_read_sit_6rd_parameters()`, the `wan%d_6rd_size`/`wan%d_6rd_relay` pair under `rc_wan_nvram_copy_int_text_snapshot()`, no individual getter calls in the 6rd branch, and snapshot-before-tunnel-mutation ordering.
+- On `b4c5967`, the new helper tests passed inside WAN DHCP; the exact WAN route source contract is being rerun on this checker-only commit. XY-C1 #45046472404 was still running through build dependency installation; Build/TRX/artifact status was not yet known at this log entry.
+- No local tests/build or hardware check was performed. Firmware L3 and hardware L4 remain NOT VERIFIED.
+
+---
 ## 2026-11-22 — Read SIT 6rd size and relay from one NVRAM generation
 
 - Parent main SHA: `cee3941a374c410a208f64aef8fa3f214d5d2be1`. The DHCP lease path publishes the 6rd tuple (`addr6`, `6rd_size`, `6rd_relay`) under one NVRAM transaction with rollback, but `start_sit_tunnel()` previously read `wan0_6rd_size` and `wan0_6rd_relay` with separate getters. A lease renewal could commit between those reads, resulting in a mixed-generation prefix length and relay during tunnel activation/replacement.
