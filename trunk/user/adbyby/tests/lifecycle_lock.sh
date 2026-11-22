@@ -57,6 +57,7 @@ adbyby_uprules() { printf 'update\n' >> "$events"; }
 adbyby_refresh_blockip_set() { printf 'blockip\n' >> "$events"; }
 adbyby_process_state() { printf '%s\n' "$switch_state"; }
 adbyby_publish_started_service() {
+    adbyby_publish_failure_stage="test publication"
     printf 'publish-%s\n' "$1" >> "$events"
     return "$switch_publish_status"
 }
