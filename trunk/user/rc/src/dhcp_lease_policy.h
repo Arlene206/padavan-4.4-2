@@ -174,15 +174,18 @@ dhcp_lease_deconfig_address_ready(int route_status, int ifconfig_status)
 }
 
 /* Deconfig may publish static LAN state only after the old DHCP route is
- * absent and both interface and resolver cleanup have completed. */
+ * absent, the static interface and gateway are restored, and resolver
+ * cleanup has completed. */
 static inline int
 dhcp_lease_deconfig_status(int route_status, int ifconfig_status,
-			   int resolver_status)
+			   int static_gateway_status, int resolver_status)
 {
 	if (!dhcp_lease_route_delete_is_ok(route_status))
 		return route_status;
 	if (ifconfig_status != 0)
 		return ifconfig_status;
+	if (static_gateway_status != 0)
+		return static_gateway_status;
 	return resolver_status;
 }
 

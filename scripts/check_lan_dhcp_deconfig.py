@@ -99,13 +99,29 @@ snapshot_call = cleanup.index("snapshot_status = lan_dhcp_deconfig_snapshot(")
 snapshot_failure = cleanup.index("if (snapshot_status != 0)", snapshot_call)
 route_delete = cleanup.index("route_status = route_del(", snapshot_failure)
 static_restore = cleanup.index("ifconfig_status = ifconfig(lan_ifname, IFUP,")
-status_update = cleanup.index("status = dhcp_lease_deconfig_status(route_status, ifconfig_status,")
-ready = cleanup.index("if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status))", status_update)
+status_update = cleanup.index(
+    "status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0, 0);"
+)
+static_gateway_restore = cleanup.index(
+    "static_gateway_status = route_status_idempotent_add(", status_update
+)
+static_gateway_add = cleanup.index(
+    'route_add(lan_ifname, 0, "0.0.0.0", snapshot.static_gateway, "0.0.0.0")',
+    static_gateway_restore,
+)
+resolver_stage = cleanup.index('lock = file_lock("resolv");', static_gateway_add)
+final_status_update = cleanup.index(
+    "status = dhcp_lease_deconfig_status(route_status, ifconfig_status,",
+    resolver_stage,
+)
+ready = cleanup.index("if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status))", final_status_update)
 restore = cleanup.index("hosts_status = create_hosts_lan(snapshot.static_address,", ready)
 hosts_error = cleanup.index("if (hosts_status != 0)", restore)
 preserve = cleanup.index("if (status == 0)", hosts_error)
 failure = cleanup.index("if (status != 0)", preserve)
-assert snapshot_call < snapshot_failure < route_delete < static_restore < status_update < ready < restore < hosts_error < preserve < failure
+assert snapshot_call < snapshot_failure < route_delete < static_restore < status_update < static_gateway_restore < static_gateway_add < resolver_stage < final_status_update < ready < restore < hosts_error < preserve < failure
+assert "if (is_valid_ipv4(snapshot.static_gateway))" in cleanup
+assert "failed to restore static LAN gateway route" in cleanup
 assert "status = hosts_status;" in cleanup[preserve:failure]
 for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
     assert 'nvram_safe_get("' + key + '")' not in cleanup
@@ -128,6 +144,10 @@ for key in ("lan_dns_t", "lan_wins_t", "lan_lease_t"):
 assert "lan_dhcp_deconfig_metadata_prepare" in callback_policy
 assert '#include "dhcp_lease_policy.h"' in callback_policy
 assert "test_deconfig_metadata_restores_static_values_and_clears_dhcp_options" in callback_test
+assert "static_gateway_status != 0" in policy
+assert "return static_gateway_status;" in policy
+assert "route_status_idempotent_add(EEXIST) == 0" in test
+assert "route_status_idempotent_add(EHOSTUNREACH) == EHOSTUNREACH" in test
 
 deconfig_start = lan.index("udhcpc_lan_deconfig(char *lan_ifname)")
 deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)

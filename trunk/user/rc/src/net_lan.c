@@ -2260,6 +2260,7 @@ lan_down_auto(char *lan_ifname)
 	struct dhcp_lease_nvram_value metadata[LAN_DHCP_DECONFIG_METADATA_COUNT];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int snapshot_status, route_status = 0, ifconfig_status, resolver_status = 0;
+	int static_gateway_status = 0;
 	int lock, status, hosts_status = 0;
 	int metadata_status, metadata_rollback_status = 0;
 
@@ -2286,7 +2287,7 @@ lan_down_auto(char *lan_ifname)
 	if (is_valid_ipv4(snapshot.lease_gateway)) {
 		route_status = route_del(lan_ifname, 0, "0.0.0.0",
 					 snapshot.lease_gateway, "0.0.0.0");
-		status = dhcp_lease_deconfig_status(route_status, 0, 0);
+		status = dhcp_lease_deconfig_status(route_status, 0, 0, 0);
 		if (status != 0) {
 			logmessage("DHCP LAN Client",
 				   "failed to remove previous gateway route on %s during deconfig (status=%d); retaining lease state",
@@ -2297,12 +2298,27 @@ lan_down_auto(char *lan_ifname)
 
 	ifconfig_status = ifconfig(lan_ifname, IFUP,
 				   snapshot.static_address, snapshot.static_netmask);
-	status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0);
+	status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0, 0);
 	if (status != 0) {
 		logmessage("DHCP LAN Client",
 			   "failed to restore static LAN address on %s during deconfig (status=%d); retaining lease state",
 			   lan_ifname, status);
 		return status;
+	}
+
+	/*
+	 * Restore the configured static default route after the lease route
+	 * is removed and the static interface address is back. EEXIST is
+	 * accepted because DECONFIG_PENDING can retry after later cleanup fails.
+	 */
+	if (is_valid_ipv4(snapshot.static_gateway)) {
+		static_gateway_status = route_status_idempotent_add(
+			route_add(lan_ifname, 0, "0.0.0.0",
+				  snapshot.static_gateway, "0.0.0.0"));
+		if (static_gateway_status != 0)
+			logmessage("DHCP LAN Client",
+				   "failed to restore static LAN gateway route on %s during deconfig (status=%d)",
+				   lan_ifname, static_gateway_status);
 	}
 
 	/* Stage an empty resolver file beside the destination and atomically
@@ -2330,7 +2346,7 @@ lan_down_auto(char *lan_ifname)
 		file_unlock(lock);
 	}
 	status = dhcp_lease_deconfig_status(route_status, ifconfig_status,
-					    resolver_status);
+					    static_gateway_status, resolver_status);
 
 	/*
 	 * A DHCP address may have been published into /etc/hostname and /etc/hosts.

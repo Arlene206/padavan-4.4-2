@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore static LAN gateway after AP DHCP deconfig
+
+- Parent main SHA: `d0bfd9407f50cad01cc683a7d7b8069bc15eb5d6`.
+- Source audit found `lan_down_auto()` deleted the active DHCP default route and restored the configured static LAN address, but never re-added the configured static `lan_gateway`. This left AP-mode LAN without its configured fallback default route after a lease deconfig. The manual/static bring-up path already installs that same route.
+- Added a checked/idempotent static gateway route restore after successful interface-address restoration. `EEXIST` is accepted for DECONFIG_PENDING retries; other route-add failures are returned before clearing the last-known-good lease metadata, allowing BusyBox to retry. Resolver/hosts cleanup still proceeds and preserves first-error semantics.
+- Expanded the GNU89 policy regression to prove route-restore failure blocks deconfig commit and resolver errors remain lower priority; expanded the source checker to pin route-add ordering and fail-closed metadata publication.
+- Exact WAN DHCP callback regression and production-source XY-C1 Build/TRX/artifact have not run on this commit yet. No L2/L3/L4 claim until those exact-head checks finish.
+
+---
+
 ## 2026-11-21 19:52 PST — Add source include path for PID1 child-reap regression
 
 - Parent main SHA: `b76d4764438ed923f3f20ccc272914d8f79cf96c`.

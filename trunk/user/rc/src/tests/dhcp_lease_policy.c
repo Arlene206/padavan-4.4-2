@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "dhcp_lease_policy.h"
+#include "route_status_policy.h"
 #include "dnsmasq_domain_policy.h"
 
 
@@ -943,17 +944,22 @@ main(void)
 	assert(dhcp_lease_route_delete_is_ok(0));
 	assert(dhcp_lease_route_delete_is_ok(ESRCH));
 	assert(!dhcp_lease_route_delete_is_ok(EIO));
+	assert(route_status_idempotent_add(EEXIST) == 0);
+	assert(route_status_idempotent_add(EHOSTUNREACH) == EHOSTUNREACH);
 	assert(dhcp_lease_deconfig_address_ready(0, 0));
 	assert(dhcp_lease_deconfig_address_ready(ESRCH, 0));
 	assert(!dhcp_lease_deconfig_address_ready(EIO, 0));
 	assert(!dhcp_lease_deconfig_address_ready(0, EIO));
-	assert(dhcp_lease_deconfig_status(0, 0, 0) == 0);
-	assert(dhcp_lease_deconfig_status(ESRCH, 0, 0) == 0);
-	assert(dhcp_lease_deconfig_status(EIO, 0, 0) == EIO);
-	assert(dhcp_lease_deconfig_status(0, EIO, 0) == EIO);
-	assert(dhcp_lease_deconfig_status(0, -1, 0) == -1);
-	assert(dhcp_lease_deconfig_status(0, 0, ENOSPC) == ENOSPC);
-	assert(dhcp_lease_deconfig_status(EIO, EIO, ENOSPC) == EIO);
+	assert(dhcp_lease_deconfig_status(0, 0, 0, 0) == 0);
+	assert(dhcp_lease_deconfig_status(ESRCH, 0, 0, 0) == 0);
+	assert(dhcp_lease_deconfig_status(EIO, 0, 0, 0) == EIO);
+	assert(dhcp_lease_deconfig_status(0, EIO, 0, 0) == EIO);
+	assert(dhcp_lease_deconfig_status(0, -1, 0, 0) == -1);
+	assert(dhcp_lease_deconfig_status(0, 0, 0, ENOSPC) == ENOSPC);
+	assert(dhcp_lease_deconfig_status(EIO, EIO, EACCES, ENOSPC) == EIO);
+	assert(dhcp_lease_deconfig_status(0, 0, EHOSTUNREACH, 0) == EHOSTUNREACH);
+	assert(dhcp_lease_deconfig_status(0, 0, EHOSTUNREACH, ENOSPC) == EHOSTUNREACH);
+	assert(dhcp_lease_deconfig_status(0, 0, 0, ENOSPC) == ENOSPC);
 	assert(!dhcp_lease_route_destination_is_valid("192.0.2.0", 33));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1;reboot"));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1\n"));

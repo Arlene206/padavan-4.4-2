@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before THIS PID1 test build-path correction: `b76d4764438ed923f3f20ccc272914d8f79cf96c`; exact init-mdev #44980178644 FAILED at the new policy-test compile because `pid1_signal_policy.h` is in the parent `src/` directory and the command lacked `-I trunk/user/rc/src`. Pre-existing policy tests passed; Process lifecycle #44980178618 PASS; XY-C1 #44980178569 was pending at last poll.
+- Live `main` before THIS LAN DHCP static-gateway recovery slice: `d0bfd9407f50cad01cc683a7d7b8069bc15eb5d6`. PID1 mdev #44980343980 and AI handoff docs #44980343898 PASS on exact `d0bfd`; XY-C1 #44980343904 completed host checks but skipped Build/TRX/artifact because this parent was workflow/docs-only. Production-source XY-C1 #44980178569 on `b76d476` was still IN_PROGRESS inside Build XY-C1 at last poll; TRX/artifact pending.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -31,7 +31,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, FTP passive-port range policy and checked WAN-up route tuple work are in completed source history.
 - Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has exact same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487, artifact #14737425993); L3 applies only to that SHA. Hardware L4 not verified.
 - WAN route source `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` uses coherent checked tuple + checked gateway-only fallback; exact WAN route #44979699090 and AI docs #44979698998 PASS on contract/doc descendant `b1c2d3f`. This is not L3 for the WAN source.
-- PID1 recovery-shell exact-child tracking fix is in `b76d4764438ed923f3f20ccc272914d8f79cf96c`. Init-mdev #44980178644 failed only because the new regression compile omitted `-I trunk/user/rc/src`; earlier policy tests passed, but the new test and Python contract were skipped. THIS workflow follow-up adds/pins the parent source include path. Process lifecycle #44980178618 PASS; XY-C1 #44980178569 was pending at last poll.
+- PID1 recovery-shell exact-child tracking fix is in `b76d4764438ed923f3f20ccc272914d8f79cf96c`; missing test include path was repaired in `d0bfd9407f50cad01cc683a7d7b8069bc15eb5d6`. Init-mdev #44980343980 and AI docs #44980343898 PASS on exact `d0bfd`. XY-C1 #44980178569 for the production PID1 source was still building at last poll; the d0-only XY run #44980343904 skipped target Build/TRX/artifact.
+- THIS slice fixes a LAN AP DHCP deconfig gap: after deleting the lease-installed default route and restoring the configured static address, the callback did not reinstall the configured static `lan_gateway` route. It now adds that route (EEXIST is idempotent), and a route-add failure keeps DHCP metadata uncommitted so BusyBox retries DECONFIG_PENDING. GNU89 regression and exact workflow checker are updated; exact-head tests/Build pending.
 - Full RC production-source scan of WAN NVRAM public integer/parameter void setters found only best-effort WAN counter telemetry; no speculative migration was made.
 - No L3 claim for current source until same-SHA XY-C1 Build, TRX and artifact all PASS; hardware L4 NOT VERIFIED.
 
@@ -45,9 +46,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head init-mdev security and XY-C1 runs for THIS include-path correction, matching each `head_sha` to current main.
-2. Fix any further PID1 policy/compiler/source-contract issue from exact job logs; do not weaken exact-child matching or SIGCHLD-block-before-publication.
-3. Continue independent P1/P2 reliability/security work across RC userland while Actions are pending; keep the frozen backup untouched.
+1. Inspect exact-head WAN DHCP callback regression and XY-C1 runs for THIS static-gateway restoration fix; match each `head_sha` to current main and require same-SHA Build/TRX/artifact for L3.
+2. Recheck XY-C1 #44980178569 for PID1 source `b76d476` (Build was still running at last poll); the exact-head PID1 workflow and AI docs already PASS on `d0bfd`.
+3. Continue independent P1/P2 stability/security work while Actions are pending; keep the frozen backup untouched.
 
 ## Workflow and preservation rules
 
