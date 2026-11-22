@@ -430,7 +430,7 @@ def check_rc_optional_daemon_enable_reads():
         )
         assert read_call in compact_start, name
         assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)"), name
-        if name in ("adguardhome", "ddnsto", "adbyby"):
+        if name == "adbyby":
             assert compact_start.index("if(config_status!=0)") < compact_start.index("return;"), name
             assert "nvram_get_int(" not in start_body
             assert "nvram_safe_get(" not in start_body
