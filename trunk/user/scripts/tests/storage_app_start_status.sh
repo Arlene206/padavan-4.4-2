@@ -473,6 +473,12 @@ case "${STORAGE_TEST_STOP_PIDOF_STATUS:-0}" in
 	*) exit "$STORAGE_TEST_STOP_PIDOF_STATUS" ;;
 esac
 [ -s "$STORAGE_TEST_STOP_STATE" ] || exit 1
+if [ -e "$STORAGE_TEST_STOP_KILLALL_LOG" ] &&
+   [ -n "${STORAGE_TEST_STOP_POST_PIDOF_STATUS:-}" ]; then
+	[ -z "${STORAGE_TEST_STOP_POST_PIDOF_OUTPUT:-}" ] ||
+		printf '%s\\n' "$STORAGE_TEST_STOP_POST_PIDOF_OUTPUT"
+	exit "$STORAGE_TEST_STOP_POST_PIDOF_STATUS"
+fi
 # Match pidof's whitespace-separated output, not the test file's line records.
 tr '\012' ' ' < "$STORAGE_TEST_STOP_STATE"
 EOF
@@ -525,6 +531,8 @@ run_stop_runner()
 	pidof_status=$7
 	killall_status=$8
 	pidof_empty_success=${9:-0}
+	pidof_post_status=${10:-}
+	pidof_post_output=${11:-}
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
 		PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
 			STORAGE_TEST_STOP_SERVICE_NAME="$service_name" \
@@ -536,6 +544,8 @@ run_stop_runner()
 			STORAGE_TEST_STOP_KILLALL_STATUS="$killall_status" \
 			STORAGE_TEST_STOP_KILLALL_LOG="$TMP_DIR/$service_name-killall.log" \
 			STORAGE_TEST_STOP_PIDOF_EMPTY_SUCCESS="$pidof_empty_success" \
+			STORAGE_TEST_STOP_POST_PIDOF_STATUS="$pidof_post_status" \
+			STORAGE_TEST_STOP_POST_PIDOF_OUTPUT="$pidof_post_output" \
 			"$BUSYBOX_BIN" ash "$runner_file" >/dev/null 2>&1
 	else
 		PATH="$STOP_STUB_DIR:$STUB_DIR:$PATH" \
@@ -548,6 +558,8 @@ run_stop_runner()
 			STORAGE_TEST_STOP_KILLALL_STATUS="$killall_status" \
 			STORAGE_TEST_STOP_KILLALL_LOG="$TMP_DIR/$service_name-killall.log" \
 			STORAGE_TEST_STOP_PIDOF_EMPTY_SUCCESS="$pidof_empty_success" \
+			STORAGE_TEST_STOP_POST_PIDOF_STATUS="$pidof_post_status" \
+			STORAGE_TEST_STOP_POST_PIDOF_OUTPUT="$pidof_post_output" \
 			"$runner_file" >/dev/null 2>&1
 	fi
 }
@@ -613,6 +625,19 @@ check_stop_contracts()
 	fi
 	[ -s "$stop_state" ] || { echo "$stop_service failed-kill fixture unexpectedly removed daemon PIDs" >&2; exit 1; }
 	[ "$(wc -l < "$stop_signals")" -eq 2 ] || { echo "$stop_service did not attempt SIGKILL for every remaining PID" >&2; exit 1; }
+
+	# Revalidate a fresh pidof snapshot after the graceful signal before
+	# authorizing per-PID SIGKILL escalation.
+	stop_state="$TMP_DIR/$stop_prefix-stop-post-invalid-pids"
+	stop_signals="$TMP_DIR/$stop_prefix-stop-post-invalid-signals"
+	printf '%s\\n' 707 > "$stop_state"
+	: > "$stop_signals"
+	rm -f "$stop_killall"
+	if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 0 0 0 0 0707; then
+		echo "$stop_service accepted a leading-zero PID in the refreshed stop snapshot" >&2
+		exit 1
+	fi
+	[ ! -s "$stop_signals" ] || { echo "$stop_service sent SIGKILL for an invalid refreshed snapshot" >&2; exit 1; }
 
 	# Reject malformed and unsafe PID lists before sending any signal.
 	for invalid_pids in "505 invalid" "0" "1" "0123" "   "; do

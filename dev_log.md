@@ -1,3 +1,8 @@
+## 2026-11-22 — Revalidate Transmission and Aria2 PID snapshots before escalation
+
+- Review found that Transmission's post-graceful-stop snapshot still used the weaker \`''|0|1\` token check, so a refreshed leading-zero PID such as \`0707\` could reach \`kill -9\` even though the initial snapshot had been validated strictly.
+- Tightened the refreshed Transmission snapshot to validate the complete character set, positive PID tokens and nonempty count before per-PID escalation. Added a post-killall pidof override to the shared storage regression, proving both Transmission and Aria2 reject a leading-zero refreshed PID without issuing SIGKILL. Exact-head USB/Process CI pending.
+
 ## 2026-11-22 — Correct Aria2 stop PID pattern for dash
 
 - The follow-up USB run on \`0fd18d97a70df0cccc487492922cfbe578bb33a0\` did not yet reach the new leading-zero test: \`sh -n\` rejected the Aria2 stop controller because both new character-class patterns contained two literal backslashes before the space. This is the same dash portability issue previously corrected in the reload path.
