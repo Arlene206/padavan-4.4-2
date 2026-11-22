@@ -2620,11 +2620,20 @@ jobs:
           assert 'fopen("/etc/hosts", "w+")' not in hosts_writer
           assert "int update_hosts_ap(void);" in header
           lan_update_ap_compact = " ".join(lan_update_ap.split())
-          assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_ipaddr_t"' in lan_update_ap_compact
-          assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_domain_t"' in lan_update_ap_compact
-          assert "create_hosts_lan(lan_ipaddr, lan_dname)" in lan_update_ap_compact
+          assert 'fields[0].param_name = "lan_ipaddr_t";' in lan_update_ap
+          assert 'fields[1].param_name = "lan_domain_t";' in lan_update_ap
+          assert "rc_wan_nvram_copy_snapshot(" in lan_update_ap
+          assert "lan_dhcp_snapshot_begin" in lan_update_ap
+          assert "lan_dhcp_snapshot_get" in lan_update_ap
+          assert "lan_dhcp_snapshot_end" in lan_update_ap
+          snapshot_call = lan_update_ap_compact.index("rc_wan_nvram_copy_snapshot(")
+          snapshot_failure = lan_update_ap_compact.index("if (status != 0)", snapshot_call)
+          publish_hosts = lan_update_ap_compact.index("create_hosts_lan(lan_ipaddr, lan_dname)")
+          assert snapshot_call < snapshot_failure < publish_hosts
+          assert "rc_wan_nvram_copy_value(" not in lan_update_ap
           assert "nvram_safe_get(" not in lan_update_ap
           assert "lan_hosts_retry" not in lan_update_ap
+          assert "test_transactional_ap_host_identity_snapshot" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
           dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')
           dhcpd_notify_end = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)', dhcpd_notify_start)
           dhcpd_notify = rc_main[dhcpd_notify_start:dhcpd_notify_end]
