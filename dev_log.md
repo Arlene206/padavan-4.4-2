@@ -1,3 +1,12 @@
+## 2026-11-22 — Update DHCP callback workflow assertion for checked LAN lookup
+
+- Parent main SHA: `98b54718077878a93758c327277ce10fc8c6a44f`. Exact-head AI handoff #45027419717 PASS. WAN route #45027298482 PASS on the preceding source/checker state. WAN DHCP #45027419733 passed its first 20 steps, including `check_wan6_dns_policy.py`, the WAN6 identity sanitizer binary (all new fake-backend cases), DHCPv6 DNS, DUID/config publication, callback generation fencing, and lease/rollback binaries. It failed only in the final inline Python assertion at workflow line 956, which still required a direct `store_lan_addr6()` call inside `dhcp6c_main()`.
+- Updated that workflow contract to require the `wan6_identity_publish_lan_addr6()` gate, callback error propagation, and absence of the old unchecked direct address lookup/publication. The direct store remains inside its checked adapter.
+- NVRAM audit, HTTPD security, Process lifecycle and XY-C1 build runs from `a9aa6ba...` were in progress at last check. Exact new-main SHA Actions must be rechecked after this workflow-only correction. No firmware PASS is claimed; local tests are not run in this connector-only runtime.
+- Result: THIS COMMIT. Next: inspect the exact-head callback workflow, then continue the wider userland stability/security rotation.
+
+---
+
 ## 2026-11-22 — Update DHCPv6 callback ordering contract for LAN address policy
 
 - Parent main SHA: `a9aa6ba87339b0e21d1deed8464723a4aba50e9d`. Exact-head WAN route #45027298482 PASS, including all route sanitizer and source-contract steps; AI handoff #45027298505 PASS; IPv6 service-type #45027298602 PASS.

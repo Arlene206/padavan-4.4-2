@@ -953,10 +953,14 @@ jobs:
           callback = body(wan6_source, "int dhcp6c_main(int argc, char **argv)")
           callback_lock = callback.index("dhcp6c_callback_session_lock(")
           callback_validate = callback.index("dhcp6c_callback_generation_matches(")
-          callback_lan = callback.index("store_lan_addr6(")
+          callback_lan = callback.index("wan6_identity_publish_lan_addr6(")
           callback_dns = callback.index("store_wan_dns6(")
           callback_unlock = callback.index("dhcp6c_callback_session_unlock(callback_fd)", callback_dns)
           assert callback_lock < callback_validate < callback_lan < callback_dns < callback_unlock
+          assert "if (lan_addr_status != 0)" in callback
+          assert "callback_status = -1;" in callback
+          assert "store_lan_addr6(" not in callback
+          assert "get_ifaddr6(IFNAME_BR, 0, addr6s)" not in callback
           assert 'getenv("interface")' in callback
           assert "DHCP6C_CALLBACK_GENERATION_ENV" in callback
           assert "DHCP6C_CALLBACK_IFNAME_ENV" in callback
