@@ -1,3 +1,12 @@
+## 2026-11-22 17:41 CST — Fail closed when PID 1 cannot install signal handlers
+
+- Parent main SHA: `9a3b2a3f60ae9da088e5de17cda252172b418067`. Networkmap ARP receive source parent 2cd6cbb has three GNU89 sanitizer-backed C regressions PASS; exact checker correction on 9a3 is awaiting rerun #44999591254 with AI docs #44999591228. Exact 2cd Process inventory #44999477626, NVRAM #44999477587 and AI docs #44999477625 PASS; no same-SHA XY-C1 proof for 2cd.
+- `init_signals()` previously ignored every `sigaction()` result for fatal, shutdown, SIGCHLD-reaping and event handlers. A failed installation could leave PID 1 running router services without required signal-driven shutdown, notification or child-reaping behavior.
+- Added an injectable checked sigaction wrapper that returns the actual errno (or EIO if libc fails without errno), records first-error status while still attempting independent handlers, and logs each failed signal. PID 1 now suppresses deferred mdev alarms and skips router startup when handler installation is incomplete, while keeping the recovery event loop available.
+- Added GNU89 policy coverage for successful installation, invalid inputs, EACCES, errno-less EIO and sticky first-error behavior; expanded the existing mdev/boot-device source contract. Exact-head CI and XY-C1 Build/TRX/artifact are pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 17:24 CST — Update networkmap main-loop contract for propagated status
 
 - Parent main SHA: `2cd6cbb65590408bd14f2843f3187d3ed2d3010f`. Exact networkmap workflow #44999477629 compiled and passed the signal policy, daemon policy and new ARP receive error policy C executables; it failed only at `scripts/check_networkmap_signals.py:134` because an older source assertion still searched for the former standalone `nmap_iterate();` statement.

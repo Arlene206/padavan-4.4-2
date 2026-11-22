@@ -183,6 +183,29 @@ jobs:
           assert "if (mdev_init_status == 0)" in retry_policy
           assert "deferred mdev hotplug recovery policy: PASS" in retry_test
 
+          signal_init = body(init, "init_signals(void)")
+          signal_installer = body(init, "init_signal_install_status(int first_status,")
+          signal_installer_compact = "".join(signal_installer.split())
+          signal_init_compact = "".join(signal_init.split())
+          assert "pid1_signal_install_action(sigaction,signal_number,action)" in signal_installer_compact
+          assert "pid1_signal_status_merge(first_status,status)" in signal_installer_compact
+          assert "init_signal_install_status(first_status,signals_fatal[i],&sa)" in signal_init_compact
+          assert "init_signal_install_status(first_status,signals_shutdown[i],&sa)" in signal_init_compact
+          assert "init_signal_install_status(first_status,SIGCHLD,&sa)" in signal_init_compact
+          assert "init_signal_install_status(first_status,signals_event[i],&sa)" in signal_init_compact
+          assert "returnfirst_status;" in signal_init_compact
+          for token in ("pid1_signal_install_action", "pid1_signal_status_merge",
+                        "if (!install || !action)", "return errno > 0 ? errno : EIO;"):
+              assert token in pid1_policy, token
+          assert "test_pid1_signal_installation_reports_failures" in pid1_test
+          assert "fake_sigaction" in pid1_test
+          assert "fake_signal_errno = EACCES" in pid1_test
+          main_compact = "".join(main_loop.split())
+          assert "signal_status=init_signals();" in main_compact
+          assert "signal_status==0&&init_mdev_retry_state_is_pending(&mdev_retry_state)" in main_compact
+          assert "dev_init_status==0&&nvram_node_result==0&&signal_status==0" in main_compact
+          assert "signal_status==0&&init_router_status_is_ready(router_init_status)" in main_compact
+          assert "PID1signalsetupincomplete" in main_compact
           reaper = body(init, "catch_sig_reap(int sig)")
           shell = body(init, "run_shell(int timeout, int nowait)")
           assert '#include "pid1_signal_policy.h"' in init

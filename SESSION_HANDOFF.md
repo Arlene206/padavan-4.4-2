@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; active `main`; atomic complete-tree commits and expected-SHA non-force ref updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Parent main `2cd6cbb65590408bd14f2843f3187d3ed2d3010f`: networkmap ARP receive change and all three GNU89 sanitizer-backed C policy executables are in place. Exact networkmap #44999477629 failed only at the stale source checker which still expected the former `nmap_iterate();` call form; checker correction is THIS COMMIT.
-- Exact parent Process lifecycle #44999477626 and AI handoff #44999477625 were IN_PROGRESS at last poll; NVRAM audit #44999477587 also in progress.
-- No current same-SHA XY-C1 Build/TRX/artifact proof; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; active branch main; atomic full-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
+- Parent main before this PID 1 signal slice: 9a3b2a3f60ae9da088e5de17cda252172b418067. Networkmap ARP receive error propagation is in source parent 2cd6cbb65590408bd14f2843f3187d3ed2d3010f; three GNU89 sanitizer-backed C regressions passed, and its checker-only descendant 9a3 corrected the stale main-loop matcher. Exact networkmap rerun #44999591254 and AI docs #44999591228 were IN_PROGRESS at last poll.
+- Exact 2cd Process inventory #44999477626, NVRAM audit #44999477587 and AI docs #44999477625 PASS. Exact networkmap #44999477629 failed only at the old `nmap_iterate();` matcher; that assertion was corrected in 9a3.
+- No same-SHA XY-C1 Build/TRX/artifact evidence for 2cd; L3 NOT VERIFIED. THIS COMMIT adds checked PID 1 signal installation and router-start gating with a GNU89 injectable regression.
 
 ## Completed source slices
 
@@ -30,16 +30,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Align networkmap checker main-loop assertion with the new propagated receive-status call: it must locate `nmap_iterate() < 0` after the refresh-state reset, then validate cleanup order.
-- Product source unchanged. Exact #44999477629 already proved signal C test, daemon C test and ARP errno policy C test pass.
+- PID 1's `init_signals()` ignored every `sigaction()` return value for fatal, shutdown, SIGCHLD reaping and event handlers. A failed install could silently leave PID 1 running router services without required child reaping or signal-driven lifecycle behavior.
+- THIS COMMIT returns the first positive errno while attempting all independent handler installations; `init_main_loop()` logs incomplete setup, suppresses deferred mdev alarms and skips router startup while retaining the recovery console/event loop.
+- The regression injects success, EACCES and errno-less failures into the sigaction wrapper; the source contract pins all four handler groups and the router-start gate.
 
 ## Verification boundary
 
-- Exact #44999477629: three GNU89 `-Wall -Wextra -Werror` ASan/UBSan C regressions PASS; Python source checker FAILED at line 134 due solely to the obsolete `nmap_iterate();` string matcher.
-- This checker-only correction awaits exact-head networkmap workflow rerun. No L3 / hardware L4 claim.
+- The prior networkmap signal setup slice passed exact L2 on ef3b (#44999104161); the newer ARP receive source slice's C tests passed on 2cd, and its checker correction is now in 9a3. Exact 9a3 networkmap #44999591254 and AI docs #44999591228 were still running at last poll.
+- PID 1 signal-install regression / mdev security workflow and Process exact-head runs for THIS COMMIT are pending.
+- No same-SHA XY-C1 Build + TRX + artifact proof exists for networkmap source SHA 2cd or this new PID 1 slice. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head networkmap run for this checker update; require C tests and the complete Python source checker to pass.
-2. If there is another checker mismatch, use exact log line and correct the source matcher only; preserve fatal receive propagation and cleanup behavior.
-3. Poll XY-C1 only against one exact source SHA for Build + TRX + artifact; do not claim L3 until all pass. Hardware L4 remains NOT VERIFIED.
+1. Check exact-head `init-mdev-security.yml` and Process lifecycle/inventory workflows for the PID 1 signal status slice; inspect any failing step/log and repair only the demonstrated defect.
+2. Check exact-head XY-C1 Build, TRX verification and artifact upload; claim L3 only if all three pass on the same product-source SHA.
+3. After those checks, continue with a different unfinished userland P1/P2 stability/security issue. Keep hardware L4 NOT VERIFIED.

@@ -367,10 +367,24 @@ control_signal(int sig, int how)
 	sigprocmask(how, &ss, NULL);
 }
 
-static void
+static int
+init_signal_install_status(int first_status, int signal_number,
+			   const struct sigaction *action)
+{
+	int status = pid1_signal_install_action(sigaction, signal_number, action);
+
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "failed to install PID 1 handler for signal %d (status=%d)",
+			   signal_number, status);
+	return pid1_signal_status_merge(first_status, status);
+}
+
+static int
 init_signals(void)
 {
 	int i;
+	int first_status = 0;
 	struct sigaction sa;
 
 	/* Prevent nested lifecycle handlers from observing partial state. */
@@ -386,17 +400,19 @@ init_signals(void)
 	/* Synchronous faults retain the emergency path; shutdown requests defer. */
 	sa.sa_handler = catch_sig_fatal;
 	for (i = 0; i < ARRAY_SIZE(signals_fatal); i++)
-		sigaction(signals_fatal[i], &sa, NULL);
+		first_status = init_signal_install_status(
+			first_status, signals_fatal[i], &sa);
 
 	sa.sa_handler = catch_sig_shutdown;
 	for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++)
-		sigaction(signals_shutdown[i], &sa, NULL);
+		first_status = init_signal_install_status(
+			first_status, signals_shutdown[i], &sa);
 
 	/* SIGCHLD reaping performs waitpid only; no stdio in signal context. */
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_reap;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGCHLD, &sa, NULL);
+	first_status = init_signal_install_status(first_status, SIGCHLD, &sa);
 
 	/* Event handlers only set their corresponding sig_atomic_t flags. */
 	memset(&sa, 0, sizeof(sa));
@@ -405,7 +421,10 @@ init_signals(void)
 	for (i = 0; i < ARRAY_SIZE(signals_event); i++)
 		sigaddset(&sa.sa_mask, signals_event[i]);
 	for (i = 0; i < ARRAY_SIZE(signals_event); i++)
-		sigaction(signals_event[i], &sa, NULL);
+		first_status = init_signal_install_status(
+			first_status, signals_event[i], &sa);
+
+	return first_status;
 }
 
 static void
@@ -786,6 +805,7 @@ init_main_loop(void)
 	int dev_init_status;
 	int sysctl_status;
 	int mdev_status;
+	int signal_status;
 	init_mdev_retry_state_t mdev_retry_state = { 0 };
 	int i;
 	sigset_t wait_mask, original_mask;
@@ -840,10 +860,14 @@ init_main_loop(void)
 	}
 
 	/* Setup signal handlers */
-	init_signals();
+	signal_status = init_signals();
+	if (signal_status != 0)
+		logmessage(LOGNAME,
+			   "PID 1 signal setup incomplete (status=%d); router startup disabled",
+			   signal_status);
 
 	/* Schedule retry only after SIGALRM handler installation. */
-	if (init_mdev_retry_state_is_pending(&mdev_retry_state))
+	if (signal_status == 0 && init_mdev_retry_state_is_pending(&mdev_retry_state))
 		alarm(INIT_MDEV_RETRY_DELAY_SECONDS);
 
 	/* block SIGUSR1 during init_router() */
@@ -853,12 +877,13 @@ init_main_loop(void)
 	control_signal(SIGUSR2, SIG_BLOCK);
 
 	/* Required host prerequisites gate router init; service errors are degraded, not fatal. */
-	if (dev_init_status == 0 && nvram_node_result == 0)
+	if (dev_init_status == 0 && nvram_node_result == 0 && signal_status == 0)
 		router_init_status = init_router();
 	router_init_status = init_router_result_merge_sysctl_status(
 		router_init_status, sysctl_status);
 	router_ready = (dev_init_status == 0 &&
 		       nvram_node_result == 0 &&
+		       signal_status == 0 &&
 		       init_router_status_is_ready(router_init_status));
 	if (!router_ready)
 		logmessage(LOGNAME, "Router startup failed; console recovery remains available");

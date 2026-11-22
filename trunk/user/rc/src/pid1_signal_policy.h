@@ -1,7 +1,30 @@
 #ifndef PID1_SIGNAL_POLICY_H
 #define PID1_SIGNAL_POLICY_H
 
+#include <errno.h>
 #include <signal.h>
+
+typedef int (*pid1_signal_action_fn)(int, const struct sigaction *,
+					 struct sigaction *);
+
+static inline int
+pid1_signal_install_action(pid1_signal_action_fn install, int signal_number,
+			   const struct sigaction *action)
+{
+	if (!install || !action)
+		return EINVAL;
+
+	errno = 0;
+	if (install(signal_number, action, NULL) < 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
+static inline int
+pid1_signal_status_merge(int first_status, int next_status)
+{
+	return first_status != 0 ? first_status : next_status;
+}
 
 typedef struct {
 	volatile sig_atomic_t shutdown_pending;

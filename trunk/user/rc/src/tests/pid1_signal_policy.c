@@ -1,11 +1,75 @@
 #include <assert.h>
 #include <signal.h>
+#include <errno.h>
+#include <string.h>
+
+static int fake_signal_number;
+static int fake_signal_result;
+static int fake_signal_errno;
+static void (*fake_signal_handler)(int);
+
+static int
+fake_sigaction(int signal_number, const struct sigaction *action,
+	       struct sigaction *old_action)
+{
+	(void)old_action;
+	fake_signal_number = signal_number;
+	fake_signal_handler = action ? action->sa_handler : NULL;
+	if (fake_signal_result < 0) {
+		errno = fake_signal_errno;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_signal_handler(int signal_number)
+{
+	(void)signal_number;
+}
+
+static int
+test_pid1_signal_installation_reports_failures(void)
+{
+	struct sigaction action;
+
+	memset(&action, 0, sizeof(action));
+	action.sa_handler = test_signal_handler;
+	if (pid1_signal_install_action(NULL, SIGTERM, &action) != EINVAL ||
+	    pid1_signal_install_action(fake_sigaction, SIGTERM, NULL) != EINVAL)
+		return 1;
+
+	fake_signal_result = 0;
+	fake_signal_errno = 0;
+	fake_signal_number = 0;
+	fake_signal_handler = NULL;
+	if (pid1_signal_install_action(fake_sigaction, SIGTERM, &action) != 0 ||
+	    fake_signal_number != SIGTERM ||
+	    fake_signal_handler != test_signal_handler)
+		return 1;
+
+	fake_signal_result = -1;
+	fake_signal_errno = EACCES;
+	if (pid1_signal_install_action(fake_sigaction, SIGCHLD, &action) != EACCES)
+		return 1;
+
+	/* A failed libc call without errno still fails closed as EIO. */
+	fake_signal_errno = 0;
+	if (pid1_signal_install_action(fake_sigaction, SIGALRM, &action) != EIO)
+		return 1;
+
+	return pid1_signal_status_merge(0, EACCES) != EACCES ||
+	       pid1_signal_status_merge(EACCES, 0) != EACCES ||
+	       pid1_signal_status_merge(EACCES, EIO) != EACCES;
+}
+
 
 #include "pid1_signal_policy.h"
 
 int
 main(void)
 {
+	assert(test_pid1_signal_installation_reports_failures() == 0);
 	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };
 
 	pid1_signal_record_event(&state, SIGUSR1);
