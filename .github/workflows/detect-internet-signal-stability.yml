@@ -144,8 +144,10 @@ jobs:
           for marker in ("test_failed_unknown_state_publication_is_retried",
                          "test_changed_connectivity_state_keeps_previous_cache_on_failure",
                          "test_invalid_policy_arguments_fail_closed",
-                         "test_runtime_integer_backend_error_is_not_replaced_by_default"):
+                         "test_invalid_policy_arguments_fail_closed"):
               assert marker in nvram_test and marker + "();" in nvram_test
+          assert ("test_runtime_integer_backend_error_is_not_replaced_by_default" in host_test and
+                  "test_runtime_integer_backend_error_is_not_replaced_by_default();" in host_test)
           assert "detect_internet NVRAM mirror retry policy: PASS" in nvram_test
           handler = body(detect, "catch_sig_detect_internet(int sig)")
           assert "detect_internet_record_signal(&di_pending_events, &di_pending_control" in handler
@@ -237,7 +239,7 @@ jobs:
           resume_failure = resume_compact.index("if(settings_status!=0)", resume_load)
           resume_retry = resume_compact.index("di_alarmtimer(1);", resume_failure)
           resume_return = resume_compact.index("return;", resume_retry)
-          resume_delay = resume_compact.index('delay_time=nvram_get_int("di_notify_delay");')
+          resume_delay = resume_compact.index('settings_status=detect_internet_read_int_setting(detect_internet_nvram_get_checked,NULL,"di_notify_delay",INT_MIN,INT_MAX,0,&delay_time);')
           assert resume_load < resume_failure < resume_retry < resume_return < resume_delay
           assert "nvram_get_int(" not in resume_settings and "nvram_safe_get_int(" not in resume_settings
           assert 'detect_internet_read_int_setting(detect_internet_nvram_get_checked,NULL,"di_notify_delay",INT_MIN,INT_MAX,0,&delay_time)' in resume_compact
@@ -368,6 +370,8 @@ jobs:
           paths = (
               ".github/workflows/detect-internet-signal-stability.yml",
               "trunk/user/rc/src/detect_internet.c",
+              "trunk/user/rc/src/detect_internet_host_policy.h",
+              "trunk/user/rc/src/tests/detect_internet_host_policy.c",
               "trunk/user/rc/src/detect_internet_signal_policy.h",
               "trunk/user/rc/src/detect_internet_nvram_policy.h",
               "trunk/user/rc/src/tests/detect_internet_nvram_policy.c",
