@@ -306,13 +306,17 @@ run_shell(int timeout, int nowait)
 	 * short-lived recovery shell from being reaped before it is tracked.
 	 */
 	if (nowait) {
-		sigemptyset(&child_mask);
-		sigaddset(&child_mask, SIGCHLD);
-		if (sigprocmask(SIG_BLOCK, &child_mask, &saved_mask) < 0) {
-			int mask_error = errno ? errno : EIO;
+		int mask_error;
 
+		mask_error = pid1_signal_empty_set(sigemptyset, &child_mask);
+		if (mask_error == 0)
+			mask_error = pid1_signal_add_set(sigaddset, &child_mask, SIGCHLD);
+		if (mask_error == 0)
+			mask_error = pid1_signal_update_mask(
+				sigprocmask, SIG_BLOCK, &child_mask, &saved_mask);
+		if (mask_error != 0) {
 			logmessage(LOGNAME,
-				   "cannot block SIGCHLD before starting recovery shell (status=%d)",
+				   "cannot prepare SIGCHLD mask before starting recovery shell (status=%d)",
 				   mask_error);
 			errno = mask_error;
 			return -1;
@@ -403,16 +407,55 @@ init_signal_mask_update(int how, const sigset_t *set, sigset_t *old_set,
 }
 
 static int
+init_signal_set_empty(sigset_t *set, const char *operation)
+{
+	int status = pid1_signal_empty_set(sigemptyset, set);
+
+	if (status != 0)
+		logmessage(LOGNAME, "PID 1 failed to %s (status=%d)",
+			   operation, status);
+	return status;
+}
+
+static int
+init_signal_set_add(sigset_t *set, int signal_number, const char *operation)
+{
+	int status = pid1_signal_add_set(sigaddset, set, signal_number);
+
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "PID 1 failed to add signal %d while trying to %s (status=%d)",
+			   signal_number, operation, status);
+	return status;
+}
+
+static int
+init_signal_mask_add_group(sigset_t *set, const int *signals, int count,
+			   const char *operation)
+{
+	int i;
+	int status;
+
+	for (i = 0; i < count; i++) {
+		status = init_signal_set_add(set, signals[i], operation);
+		if (status != 0)
+			return status;
+	}
+	return 0;
+}
+
+static int
 control_signal(int sig, int how)
 {
 	sigset_t set;
+	int status;
 
-	errno = 0;
-	if (sigemptyset(&set) < 0)
-		return errno > 0 ? errno : EIO;
-	errno = 0;
-	if (sigaddset(&set, sig) < 0)
-		return errno > 0 ? errno : EIO;
+	status = init_signal_set_empty(&set, "initialize a control signal mask");
+	if (status != 0)
+		return status;
+	status = init_signal_set_add(&set, sig, "initialize a control signal mask");
+	if (status != 0)
+		return status;
 
 	return init_signal_mask_update(how, &set, NULL,
 				       "update a control signal mask");
@@ -436,44 +479,68 @@ init_signals(void)
 {
 	int i;
 	int first_status = 0;
+	int mask_status;
 	struct sigaction sa;
 
 	/* Prevent nested lifecycle handlers from observing partial state. */
 	memset(&sa, 0, sizeof(sa));
-	sigemptyset(&sa.sa_mask);
-	for (i = 0; i < ARRAY_SIZE(signals_event); i++)
-		sigaddset(&sa.sa_mask, signals_event[i]);
-	for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++)
-		sigaddset(&sa.sa_mask, signals_shutdown[i]);
-	for (i = 0; i < ARRAY_SIZE(signals_fatal); i++)
-		sigaddset(&sa.sa_mask, signals_fatal[i]);
+	mask_status = init_signal_set_empty(&sa.sa_mask,
+					    "initialize lifecycle signal mask");
+	if (mask_status == 0)
+		mask_status = init_signal_mask_add_group(
+			&sa.sa_mask, signals_event, ARRAY_SIZE(signals_event),
+			"initialize lifecycle signal mask");
+	if (mask_status == 0)
+		mask_status = init_signal_mask_add_group(
+			&sa.sa_mask, signals_shutdown, ARRAY_SIZE(signals_shutdown),
+			"initialize lifecycle signal mask");
+	if (mask_status == 0)
+		mask_status = init_signal_mask_add_group(
+			&sa.sa_mask, signals_fatal, ARRAY_SIZE(signals_fatal),
+			"initialize lifecycle signal mask");
 
-	/* Synchronous faults retain the emergency path; shutdown requests defer. */
-	sa.sa_handler = catch_sig_fatal;
-	for (i = 0; i < ARRAY_SIZE(signals_fatal); i++)
-		first_status = init_signal_install_status(
-			first_status, signals_fatal[i], &sa);
+	if (mask_status == 0) {
+		/* Synchronous faults retain the emergency path; shutdown requests defer. */
+		sa.sa_handler = catch_sig_fatal;
+		for (i = 0; i < ARRAY_SIZE(signals_fatal); i++)
+			first_status = init_signal_install_status(
+				first_status, signals_fatal[i], &sa);
 
-	sa.sa_handler = catch_sig_shutdown;
-	for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++)
-		first_status = init_signal_install_status(
-			first_status, signals_shutdown[i], &sa);
+		sa.sa_handler = catch_sig_shutdown;
+		for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++)
+			first_status = init_signal_install_status(
+				first_status, signals_shutdown[i], &sa);
+	} else {
+		first_status = pid1_signal_status_merge(first_status, mask_status);
+	}
 
 	/* SIGCHLD reaping performs waitpid only; no stdio in signal context. */
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_reap;
-	sigemptyset(&sa.sa_mask);
-	first_status = init_signal_install_status(first_status, SIGCHLD, &sa);
+	mask_status = init_signal_set_empty(&sa.sa_mask,
+					    "initialize SIGCHLD handler mask");
+	if (mask_status == 0)
+		first_status = init_signal_install_status(
+			first_status, SIGCHLD, &sa);
+	else
+		first_status = pid1_signal_status_merge(first_status, mask_status);
 
 	/* Event handlers only set their corresponding sig_atomic_t flags. */
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_event;
-	sigemptyset(&sa.sa_mask);
-	for (i = 0; i < ARRAY_SIZE(signals_event); i++)
-		sigaddset(&sa.sa_mask, signals_event[i]);
-	for (i = 0; i < ARRAY_SIZE(signals_event); i++)
-		first_status = init_signal_install_status(
-			first_status, signals_event[i], &sa);
+	mask_status = init_signal_set_empty(&sa.sa_mask,
+					    "initialize event signal mask");
+	if (mask_status == 0)
+		mask_status = init_signal_mask_add_group(
+			&sa.sa_mask, signals_event, ARRAY_SIZE(signals_event),
+			"initialize event signal mask");
+	if (mask_status == 0) {
+		for (i = 0; i < ARRAY_SIZE(signals_event); i++)
+			first_status = init_signal_install_status(
+				first_status, signals_event[i], &sa);
+	} else {
+		first_status = pid1_signal_status_merge(first_status, mask_status);
+	}
 
 	return first_status;
 }

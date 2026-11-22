@@ -5,6 +5,87 @@
 
 #include "pid1_signal_policy.h"
 
+static int fake_empty_result;
+static int fake_empty_errno;
+static int fake_empty_calls;
+static int fake_add_result;
+static int fake_add_errno;
+static int fake_add_calls;
+static int fake_add_signal;
+
+static int
+fake_signal_empty(sigset_t *set)
+{
+	fake_empty_calls++;
+	if (fake_empty_result < 0) {
+		errno = fake_empty_errno;
+		return -1;
+	}
+	return sigemptyset(set);
+}
+
+static int
+fake_signal_add(sigset_t *set, int signal_number)
+{
+	fake_add_calls++;
+	fake_add_signal = signal_number;
+	if (fake_add_result < 0) {
+		errno = fake_add_errno;
+		return -1;
+	}
+	return sigaddset(set, signal_number);
+}
+
+static int
+test_pid1_signal_set_initialization_reports_failures(void)
+{
+	sigset_t set;
+
+	if (pid1_signal_empty_set(NULL, &set) != EINVAL ||
+	    pid1_signal_empty_set(fake_signal_empty, NULL) != EINVAL ||
+	    pid1_signal_add_set(NULL, &set, SIGUSR1) != EINVAL ||
+	    pid1_signal_add_set(fake_signal_add, NULL, SIGUSR1) != EINVAL)
+		return 1;
+
+	fake_empty_result = 0;
+	fake_empty_errno = EBUSY;
+	fake_empty_calls = 0;
+	sigemptyset(&set);
+	sigaddset(&set, SIGUSR1);
+	errno = EINTR;
+	if (pid1_signal_empty_set(fake_signal_empty, &set) != 0 ||
+	    fake_empty_calls != 1 || sigismember(&set, SIGUSR1) != 0 ||
+	    errno != 0)
+		return 1;
+
+	fake_empty_result = -1;
+	fake_empty_errno = EACCES;
+	if (pid1_signal_empty_set(fake_signal_empty, &set) != EACCES)
+		return 1;
+	fake_empty_errno = 0;
+	if (pid1_signal_empty_set(fake_signal_empty, &set) != EIO)
+		return 1;
+
+	fake_add_result = 0;
+	fake_add_errno = EBUSY;
+	fake_add_calls = 0;
+	errno = EINTR;
+	if (pid1_signal_add_set(fake_signal_add, &set, SIGUSR2) != 0 ||
+	    fake_add_calls != 1 || fake_add_signal != SIGUSR2 ||
+	    sigismember(&set, SIGUSR2) != 1 || errno != 0)
+		return 1;
+
+	fake_add_result = -1;
+	fake_add_errno = ERANGE;
+	if (pid1_signal_add_set(fake_signal_add, &set, SIGTERM) != ERANGE)
+		return 1;
+	fake_add_errno = 0;
+	if (pid1_signal_add_set(fake_signal_add, &set, SIGTERM) != EIO)
+		return 1;
+
+	return 0;
+}
+
 static int fake_mask_how;
 static int fake_mask_result;
 static int fake_mask_errno;
@@ -145,6 +226,7 @@ test_pid1_signal_installation_reports_failures(void)
 int
 main(void)
 {
+	assert(test_pid1_signal_set_initialization_reports_failures() == 0);
 	assert(test_pid1_signal_installation_reports_failures() == 0);
 	assert(test_pid1_signal_mask_update_reports_failures() == 0);
 	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };

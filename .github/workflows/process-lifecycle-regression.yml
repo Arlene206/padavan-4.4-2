@@ -55,6 +55,8 @@ on:
       - "trunk/user/rc/src/hwnat_config_policy.h"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/tests/pid1_signal_policy.c"
+      - "trunk/user/rc/src/pid1_signal_policy.h"
       - "trunk/user/rc/src/boot_device_node_policy.h"
       - "trunk/user/rc/src/tests/boot_device_node_policy.c"
       - "trunk/user/rc/src/init_mdev_retry_policy.h"
@@ -728,6 +730,11 @@ jobs:
             trunk/user/rc/src/tests/boot_device_node_policy.c \
             -o "$RUNNER_TEMP/boot-device-node-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/boot-device-node-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/pid1_signal_policy.c \
+            -o "$RUNNER_TEMP/pid1-signal-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/pid1-signal-policy"
           sh trunk/user/scripts/tests/dev_init_boot_policy.sh
           sh trunk/user/scripts/tests/copyscripts_ca_status.sh
           python3 scripts/check_dev_init_boot.py

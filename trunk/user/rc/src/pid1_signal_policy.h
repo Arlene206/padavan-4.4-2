@@ -4,6 +4,33 @@
 #include <errno.h>
 #include <signal.h>
 
+typedef int (*pid1_signal_set_empty_fn)(sigset_t *);
+typedef int (*pid1_signal_set_add_fn)(sigset_t *, int);
+
+static inline int
+pid1_signal_empty_set(pid1_signal_set_empty_fn empty_set, sigset_t *set)
+{
+	if (!empty_set || !set)
+		return EINVAL;
+
+	errno = 0;
+	if (empty_set(set) < 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
+static inline int
+pid1_signal_add_set(pid1_signal_set_add_fn add_set, sigset_t *set, int sig)
+{
+	if (!add_set || !set)
+		return EINVAL;
+
+	errno = 0;
+	if (add_set(set, sig) < 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
 typedef int (*pid1_signal_mask_fn)(int, const sigset_t *, sigset_t *);
 
 static inline int

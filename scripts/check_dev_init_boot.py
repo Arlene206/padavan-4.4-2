@@ -5,6 +5,8 @@ import re
 
 root = Path(__file__).resolve().parents[1]
 init = (root / "trunk/user/rc/src/init.c").read_text()
+signal_policy = (root / "trunk/user/rc/src/pid1_signal_policy.h").read_text()
+signal_test = (root / "trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()
 net = (root / "trunk/user/rc/src/net.c").read_text()
 net6 = (root / "trunk/user/rc/src/net6.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
@@ -188,10 +190,25 @@ assert "if (dev_init_status != 0)" in loop
 assert "router_ready = (dev_init_status == 0 && nvram_node_result == 0 && signal_status == 0 && init_router_status_is_ready(router_init_status))" in " ".join(loop.split())
 signal_init = c_function(init, "init_signals(void)")
 signal_installer = c_function(init, "init_signal_install_status(int first_status,")
+signal_empty = c_function(init, "init_signal_set_empty(")
+signal_add = c_function(init, "init_signal_set_add(")
+signal_group = c_function(init, "init_signal_mask_add_group(")
 assert "pid1_signal_install_action(sigaction, signal_number, action)" in signal_installer
 assert "pid1_signal_status_merge(first_status, status)" in signal_installer
+assert "pid1_signal_empty_set(sigemptyset, set)" in signal_empty
+assert "pid1_signal_add_set(sigaddset, set, signal_number)" in signal_add
+assert "init_signal_set_add(set, signals[i], operation)" in signal_group
 for token in ("signals_fatal[i]", "signals_shutdown[i]", "SIGCHLD", "signals_event[i]"):
     assert token in signal_init, "PID 1 signal install group missing: " + token
+for token in ("init_signal_set_empty", "init_signal_mask_add_group",
+              "if (mask_status == 0)", "pid1_signal_status_merge(first_status, mask_status)"):
+    assert token in signal_init, "PID 1 signal mask error propagation missing: " + token
+assert "sigemptyset(&sa.sa_mask)" not in signal_init
+assert "sigaddset(&sa.sa_mask" not in signal_init
+assert "pid1_signal_empty_set" in signal_policy and "pid1_signal_add_set" in signal_policy
+for token in ("fake_signal_empty", "fake_signal_add", "fake_empty_errno = 0",
+              "fake_add_errno = 0", "== EIO", "== EACCES", "== ERANGE"):
+    assert token in signal_test, "PID 1 signal mask unit case missing: " + token
 assert "return first_status;" in signal_init
 assert "signal_status = init_signals();" in loop
 assert "signal_status != 0" in loop and "PID 1 signal setup incomplete" in loop
