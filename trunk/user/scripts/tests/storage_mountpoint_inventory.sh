@@ -107,6 +107,12 @@ Filename Type Size Used Priority
 EOF_SWAPS
 expect_swap_status 2 /dev/sda1 "$swaps"
 
+# Command substitution must not manufacture a missing procfs record terminator.
+printf 'Filename Type Size Used Priority' > "$swaps"
+expect_swap_status 2 /dev/sda1 "$swaps"
+printf 'Filename Type Size Used Priority\n/dev/sdb1 partition 1024 0 -2' > "$swaps"
+expect_swap_status 2 /dev/sda1 "$swaps"
+
 : > "$swaps"
 expect_swap_status 2 /dev/sda1 "$swaps"
 expect_swap_status 2 /dev/sda1 "$tmpdir/missing-swaps"

@@ -171,13 +171,21 @@ automount_swap_status()
 	   [ ! -r "$automount_swap_file" ]; then
 		return 2
 	fi
-	if automount_swap_inventory=$(cat "$automount_swap_file" 2>/dev/null); then
-		:
+	if automount_swap_inventory=$(cat "$automount_swap_file" 2>/dev/null && printf '.'); then
+		case "$automount_swap_inventory" in
+			*.) automount_swap_inventory=${automount_swap_inventory%.} ;;
+			*) return 2 ;;
+		esac
 	else
 		return 2
 	fi
+	case "$automount_swap_inventory" in
+		*'
+') ;;
+		*) return 2 ;;
+	esac
 
-	printf '%s\n' "$automount_swap_inventory" | awk -v dev="$automount_swap_device" '
+	printf '%s' "$automount_swap_inventory" | awk -v dev="$automount_swap_device" '
 	NR == 1 {
 		if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
 		    $4 != "Used" || $5 != "Priority")

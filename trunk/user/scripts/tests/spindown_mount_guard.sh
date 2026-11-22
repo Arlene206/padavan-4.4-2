@@ -70,6 +70,13 @@ Filename Type Size Used Priority
 EOF_SWAP
 spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
 [ "$status" -eq 2 ]
+# Command substitution must preserve the source's final newline.
+printf 'Filename Type Size Used Priority' > "$tmp/swaps"
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 2 ]
+printf 'Filename Type Size Used Priority\n/dev/sdb1 partition 1024 0 -2' > "$tmp/swaps"
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 2 ]
 : > "$tmp/swaps"
 spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
 [ "$status" -eq 2 ]

@@ -72,8 +72,20 @@ spindown_swap_status() {
 	   [ ! -r "$spindown_swaps_file" ]; then
 		return 2
 	fi
-	spindown_swap_snapshot=$(cat "$spindown_swaps_file") || return 2
-	printf '%s\n' "$spindown_swap_snapshot" | awk -v dev="/dev/$spindown_device" '
+	if spindown_swap_snapshot=$(cat "$spindown_swaps_file" && printf '.'); then
+		case "$spindown_swap_snapshot" in
+			*.) spindown_swap_snapshot=${spindown_swap_snapshot%.} ;;
+			*) return 2 ;;
+		esac
+	else
+		return 2
+	fi
+	case "$spindown_swap_snapshot" in
+		*'
+') ;;
+		*) return 2 ;;
+	esac
+	printf '%s' "$spindown_swap_snapshot" | awk -v dev="/dev/$spindown_device" '
 NR == 1 {
 	if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
 	    $4 != "Used" || $5 != "Priority")

@@ -1,3 +1,10 @@
+## 2026-11-23 04:05 CST (UTC+8) — Preserve original /proc/swaps record terminators
+
+- Parent main SHA: 5c929dbe5b40cdc7414bfa9997cf3edce834714e. Both automount_swap_status() and spindown_swap_status() captured procfs with command substitution, which strips trailing LF bytes, then appended a replacement LF before awk. That could normalize a truncated snapshot and falsely prove a disk inactive/unused.
+- Both shell readers now append a sentinel inside command substitution, remove exactly that sentinel, require the captured source to retain its final LF, and pass original bytes to awk. Missing final terminators return UNKNOWN.
+- Added automount and spindown regressions for a header-only snapshot without LF and a full-looking final swap row without LF. Existing workflow push/PR filters already include both scripts and tests.
+- Parent USB storage #45060433291 on 80bfd667 PASS includes the physical-eject parser changes; AI docs #45060286887, Process #45060286908 and HTTPD #45060286954 PASS on 64d3b46. XY-C1 #45060433345 still building; DNSMasq checker-only failure #45060433306 was fixed by 5c929db, rerun #45060566217 in progress. Local execution NOT RUN. Fresh exact-head Storage and XY-C1 required; L3/L4 NOT VERIFIED.
+
 ## 2026-11-23 03:30 CST (UTC+8) — Validate physical-eject swap inventory semantics
 
 - Parent main SHA: `4c6d1b9c4c0258641da90f7a1511b775a5fb70ea`. After hardening automount and global `umount_all_storage()` swap inventories, a separate physical-eject parser in `storage_ejected_inventory_policy.h` still accepted any five tokens before the ejected-device `swapoff()` stage.
