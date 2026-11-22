@@ -6,11 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; active branch `main`; atomic complete-tree commits and non-forced expected-SHA updates only.
-- Parent main SHA for the checker variable-binding fix: `b4366cb27be501905e3c5c7a3a73e8e2e5f9302d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- WISP checked identity API and fail-closed callers are committed. The WAN route matcher was corrected on b436 and reaches the final source assertion, but fails because it references an undefined Python name `nvram_policy_test` instead of the existing `test` fixture.
-- Exact b436 HTTPD Authentication/Security #44998355033 PASS; AI handoff #44998355100 PASS. WAN route #44998355043 failed only at that NameError after the C policy regression compile/run passed.
-- Parent a41 exact XY-C1 was running; no same-SHA Build + TRX + artifact result has been established. Hardware L4 NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; active branch `main`; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Current source/checker parent: `59fa3e95dc9cb7228837afda278023c3825aa0b4`. WISP checked interface identity API and fail-closed LED/link-restored callers are committed; test checker variable name has been corrected in the previous commit.
+- The parent exact WAN route #44998472638 and AI handoff #44998472600 were IN_PROGRESS at last poll. Exact b436 AI handoff #44998355100 and HTTPD Authentication/Security #44998355033 PASS; b436 WAN route #44998355043 previously failed only because the checker referenced undefined `nvram_policy_test`, now fixed.
+- New `x_DHCPClient` checked selector fix is in THIS COMMIT; exact-head WAN route check pending. No same-SHA XY-C1 Build + TRX + artifact verification; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -31,18 +30,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Correct the final WAN route checker failure in `scripts/check_wan_dns_read_status.py`: bind WISP helper regression checks to the script's existing `test` fixture rather than an undefined `nvram_policy_test` name. No product source change.
-- After it passes, resume WAN reliability work. One remaining checked-read opportunity is the `x_DHCPClient` NVRAM selector inside `notify_on_wan_ether_link_restored()`; unchecked `nvram_match()` can hide a backend error before DHCP renewal.
+- In `notify_on_wan_ether_link_restored()`, replaced lossy `nvram_match("x_DHCPClient", "0")` with checked `get_nvram_match_checked_status()`. A backend/close error now aborts and reports instead of allowing DHCP renewal; missing-key/normal false and static-IP short-circuit compatibility are retained.
+- Added a source-order test requiring checked selector → error gate → confirmed manual-client disable → USB-net/WISP gates → DHCP renew. Shared WAN NVRAM C regression already exercises checked string-match behavior.
 
 ## Verification boundary
 
-- Exact b436 WAN route #44998355043 FAILED at line 1030 with `NameError: nvram_policy_test is not defined`; preceding C policy compile/run and source-contract checks passed.
-- Exact b436 HTTPD Authentication/Security #44998355033 PASS and AI handoff #44998355100 PASS.
-- Checker-only variable correction THIS COMMIT awaits exact-head WAN route rerun. WISP source is not claimed host-verified until it passes.
-- No same-SHA XY-C1 Build/TRX/artifact completion verified; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
+- Prior checker-only commit `59fa3e95dc9cb7228837afda278023c3825aa0b4`: exact WAN route #44998472638 and AI handoff #44998472600 were IN_PROGRESS at last poll.
+- Exact b436 AI handoff #44998355100 PASS and HTTPD Security #44998355033 PASS. Exact b436 WAN route #44998355043 FAILED at `NameError: nvram_policy_test is not defined`; variable reference corrected in 59fa.
+- This source change has a new source-order regression in the same WAN route workflow. Exact-head result pending; no XY-C1 L3 or hardware L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route after this one-line checker fix; require `scripts/check_wan_dns_read_status.py` to pass its WISP policy registration assertions.
-2. If it passes, implement the checked-read replacement for `nvram_match("x_DHCPClient", "0")` in the link-restored WAN DHCP path, with a focused source contract.
-3. Continue polling exact-head XY-C1; only claim L3 after Build, TRX and artifact all pass on one SHA. Hardware L4 remains unverified.
+1. Check exact-head WAN route Actions for THIS COMMIT. Require both WISP checked identity assertions and the new checked `x_DHCPClient` selector assertion to pass; investigate the exact first failed line if not.
+2. Confirm WAN link-restored DHCP renewal returns selector read/close errors before any DHCP signal, while static-IP and configured manual-client-disabled behavior remain unchanged.
+3. Poll XY-C1 exact SHA and require Build + TRX + artifact all succeed on that same SHA for L3. Hardware L4 remains NOT VERIFIED.
+4. Continue across-userland security/stability only after current-head failures are triaged; backup remains read-only.

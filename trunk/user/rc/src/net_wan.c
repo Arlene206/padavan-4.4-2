@@ -5957,7 +5957,7 @@ int
 notify_on_wan_ether_link_restored(void)
 {
 	int unit = 0, wan_proto;
-	int is_wisp_active = 0;
+	int is_wisp_active = 0, manual_dhcp_disabled = 0;
 	int status, saved_errno;
 
 	status = get_wan_unit_proto_checked_status(unit, &wan_proto);
@@ -5969,7 +5969,19 @@ notify_on_wan_ether_link_restored(void)
 		return status;
 	}
 
-	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || nvram_match("x_DHCPClient", "0"))
+	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
+		return 0;
+
+	status = get_nvram_match_checked_status(
+		"x_DHCPClient", "0", &manual_dhcp_disabled);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot read manual WAN DHCP-client selector before link-restored renew (status=%d)",
+			   status);
+		return status;
+	}
+	if (manual_dhcp_disabled)
 		return 0;
 
 	if (is_usbnet_interface(get_wan_unit_value(unit, "ifname_t")))

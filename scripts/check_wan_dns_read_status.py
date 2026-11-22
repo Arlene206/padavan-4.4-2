@@ -1024,6 +1024,23 @@ require(renew_read_at < renew_error_at < renew_active_at < renew_dhcp_at and
         "get_wan_wisp_active(" not in renew_wisp,
         "Ethernet link restoration must not renew DHCP when WISP identity is unknown")
 
+renew_selector = "".join(body(source, "notify_on_wan_ether_link_restored(void)").split())
+static_proto_guard = "if(wan_proto==IPV4_WAN_PROTO_IPOE_STATIC)return0;"
+selector_read = 'status=get_nvram_match_checked_status("x_DHCPClient","0",&manual_dhcp_disabled);'
+selector_read_at = renew_selector.index(selector_read)
+selector_error_at = renew_selector.index("if(status!=0)", selector_read_at)
+selector_disabled_at = renew_selector.index("if(manual_dhcp_disabled)return0;", selector_error_at)
+usbnet_guard_at = renew_selector.index("if(is_usbnet_interface(", selector_disabled_at)
+wisp_read_at = renew_selector.index("status=get_wan_wisp_active_status(", usbnet_guard_at)
+dhcp_start_at = renew_selector.index("status=renew_udhcpc_wan(unit)", wisp_read_at)
+require(static_proto_guard in renew_selector and
+        renew_selector.index(static_proto_guard) < selector_read_at <
+        selector_error_at < selector_disabled_at < usbnet_guard_at <
+        wisp_read_at < dhcp_start_at and
+        'nvram_match("x_DHCPClient","0")' not in renew_selector and
+        "cannot read manual WAN DHCP-client selector" in renew_selector,
+        "link-restored DHCP renewal must fail closed on unreadable manual-client NVRAM state")
+
 require("int get_wan_wisp_active_status(int *p_is_active, int *p_has_link);" in rc_header,
         "checked WISP status API must be declared in rc.h")
 require("rc_wan_nvram_wisp_active_status" in policy and

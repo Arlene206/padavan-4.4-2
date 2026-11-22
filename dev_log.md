@@ -1,3 +1,12 @@
+## 2026-11-22 16:07 CST — Check the manual DHCP-client selector before link-restored renew
+
+- Parent main SHA: `59fa3e95dc9cb7228837afda278023c3825aa0b4`. The prior WAN route checker variable-binding fix is now being validated by exact run #44998472638; its AI handoff run #44998472600 is also in progress. Exact b436 AI handoff #44998355100 and HTTPD Authentication/Security #44998355033 passed; b436 WAN route #44998355043 had failed only on the subsequently corrected undefined test variable.
+- Found another real fail-open control read in `notify_on_wan_ether_link_restored()`: `nvram_match("x_DHCPClient", "0")` hides NVRAM backend/close errors. That allows an Ethernet link-restored event to reach DHCP renewal without knowing whether the manual DHCP-client mode is enabled.
+- Replaced the boolean lookup with `get_nvram_match_checked_status()`, preserving missing-key false compatibility. Static-IP protocol still short-circuits first. A read error is logged and returned before USB/WISP checks or DHCP signalling; a confirmed disabled manual client still suppresses renew.
+- Added a source-order regression ensuring the checked selector read/error gate precedes DHCP renewal and forbidding the old lossy `nvram_match()` predicate. The shared WAN NVRAM policy executable already covers checked string-match error, missing-key and output semantics. Exact-head route run pending; no target firmware build or L3 claim.
+
+---
+
 ## 2026-11-22 15:55 CST — Fix WAN checker regression-test variable binding
 
 - Parent main SHA: `b4366cb27be501905e3c5c7a3a73e8e2e5f9302d`. Exact b436 WAN route #44998355043 failed at `scripts/check_wan_dns_read_status.py:1030` with `NameError: nvram_policy_test is not defined`. The test source is already loaded as `test`; WISP policy compile and execution, existing WAN DNS checks and earlier route source contracts all passed. This is a checker-only variable-name defect, not a WISP product-source failure.
