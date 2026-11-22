@@ -14,14 +14,14 @@ Every session MUST inspect live repository state and complete an end-of-session 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Parent main SHA for this checkpoint: `0502c7ab3b3ad32c0682a0c372b79789174bfe7e` (`docs: refresh session handoff for continued stability work`). The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- Parent main SHA for this checkpoint: `4a39de2f31404d94ed342a1468de57b88997151a` (`docs: refresh session handoff for continued stability work`). The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
 - The previous exact-SHA handoff run #45051742269 failed because root `dev_log.md` had reached 120 complete records. The rotation is complete: 101 records are archived in `docs/dev-log/2026/11/part-027.md`, with the newest 20 retained in the root. The follow-up exact-SHA run #45052323259 then identified the missing literal handoff clause; this commit adds it.
 - Exact parent SHA Actions: AI handoff run #45051742269 = completed/failure at the 120-entry rolling-log check. No other workflow run was returned for this exact SHA. Process inventory run #45051059927 passed on ancestor `372451d468fd772858635590f1c1c10bccf95dc0`; it is not an exact-parent result.
 - XY-C1 L3 is NOT VERIFIED on current main. Historical XY-C1 run #45047957843 fully passed host validation, Build XY-C1, TRX verification and artifact upload on older SHA `c139dd5da2cbce53ee683d303f56e66d6b55dca0`. The later exact-source run #45050810796 on `6418e87add0ffce79fd918077bb1e7dfdded2fc0` passed host checks but skipped Build, TRX and artifact upload because no production input changed. Do not reuse ancestor results as current-SHA verification.
 - Earlier XY-C1 run #45050298446 on `b5fbcebd47fa735f70d06064a8a8cb682f4b0229` failed in a stale source checker before firmware production stages; the L2TP checker contract was subsequently corrected and Process passed on `372451d...`. Current-head Build/TRX/artifact remains unverified.
 - No local test suite, compiler, firmware build or router hardware validation was run in this session. L4 hardware remains NOT VERIFIED.
 
-## Active engineering task
+## Active task
 
 Fix the two-phase publication gap in `trunk/user/shared/src/shutils.c::recreate_passwd_unix()`.
 
@@ -39,6 +39,10 @@ Do not repeat completed WAN DHCP snapshot, LAN subnet snapshot, L2TP selector or
 
 - Documentation parent: `ff25eacd70dccd78c6416c76ad199ad69aa8f61d`.
 - This rotation includes 101 archived records, oldest-first, preserving the complete prior root records verbatim. Root `dev_log.md` is reduced to 20 complete entries.
+- Exact source SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`: Process regression #45052382237 completed/success. Its `Verify Unix account bootstrap status and private password staging` step passed, including the GNU89 `-Wall -Wextra -Werror` build and ASan/UBSan run of `passwd_temp_file_policy.c`, plus the updated Python source contract.
+- Exact source SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`: XY-C1 run #45052382239 detected production input changes and was building XY-C1 at last inspection; TRX validation and artifact upload were still pending. Do not claim L3 until all three pass on that same SHA.
+- Exact source SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`: NVRAM transaction audit #45052382219 remained in progress during raw userland ioctl/kernel API audit. Pending does not block independent work.
+- The previous process/XY source tree at `d1d26ed9305792ba5810634e660420a75ad9c837` also had DNS Forwarder, GPIO, WAN DHCP and Process inventory runs pass; its umbrella Process run was cancelled when the follow-up SHA was pushed. Do not treat those cancelled/ancestor results as current-head checks.
 - Local documentation checker was not run. Exact-SHA Actions results must be queried after the atomic commit is published.
 - XY-C1 L3 and hardware L4 are NOT VERIFIED for this checkpoint.
 

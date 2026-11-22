@@ -1,3 +1,12 @@
+## 2026-11-22 — Restore the required Active task handoff section
+
+- Exact-SHA AI handoff run #45052462155 on `4a39de2f31404d94ed342a1468de57b88997151a` accepted the mandatory checkpoint clause and rolling-log rotation, then failed because `SESSION_HANDOFF.md` used `## Active engineering task` instead of the required `## Active task` heading.
+- Restored the exact section heading and advanced the handoff parent SHA to `4a39de2f31404d94ed342a1468de57b88997151a`. This is a documentation contract correction; the production account rollback source changes remain on SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`.
+- On `0502c7a`, Process regression #45052382237 passed including the account publication GNU89/ASan/UBSan tests and source contract. XY-C1 #45052382239 was still building, with TRX/artifact pending. NVRAM transaction audit #45052382219 was still running.
+- No local test or hardware validation was run for this documentation-only correction.
+
+---
+
 ## 2026-11-22 — Match the handoff checkpoint sentence to the enforced contract
 
 - Exact source SHA `d1d26ed9305792ba5810634e660420a75ad9c837` AI handoff run #45052323259 passed the 20-entry rolling-log check but failed the handoff contract: `SESSION_HANDOFF.md` lacked the literal sentence `The checkpoint is mandatory; a document edit is conditional.`.
