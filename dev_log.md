@@ -1,3 +1,11 @@
+## 2026-11-22 — Derive uploaded ZeroTier planet file and NVRAM from one snapshot
+
+- Parent main SHA: `587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c`. Review of the remaining uploaded `/etc/storage/planet` writer found a transaction-coherence race: it Base64-encoded the upload first, then copied the upload in a second read. If the source changed between those reads, the persistent `planet` file and `zerotier_planet` NVRAM value could represent different contents despite a successful commit.
+- The import now copies the upload once into its private same-filesystem stage and derives Base64 from that staged snapshot before publishing either value. Rollback behavior and source deletion ordering are unchanged.
+- Added a shell regression that replaces the upload immediately after Base64 reads the staged file; it proves the published file and persisted Base64 still match the original private snapshot. The lifecycle checker asserts copy → encode-stage → file publish → NVRAM publish ordering. Exact ZeroTier Actions pending; no L3/L4 claim.
+ 
+---
+
 ## 2026-11-22 — Preserve LAN teardown cleanup identity read failures
 
 - Parent main SHA: `f475d1f3d10d8e7eb8cd028520aa57704a8d6062`. `stop_lan()` still used lossy `nvram_safe_get()` for two teardown-critical identities. AP mode copied `lan_gateway_t` before pausing the WAN detector; a failed read looked like an empty gateway and could skip deleting the installed default route. Router mode used `lan_ipaddr_t` to scope conntrack flush; a failed read silently skipped cleanup and left `conntrack_status == 0`, allowing teardown to report success.

@@ -305,14 +305,16 @@ zerotier_import_planet_file() {
 		fi
 
 		if [ -s "$zt_planet_source" ]; then
-			if ! base64 "$zt_planet_source" > "$zt_planet_encoded"; then
-				logger -t "zerotier" "无法编码上传的planet文件"
-				exit 1
-			fi
-			if [ ! -s "$zt_planet_encoded" ] ||
-			   ! cp "$zt_planet_source" "$zt_planet_stage" ||
+			# Snapshot the upload once; both the published file and NVRAM
+			# payload must describe the same bytes even if the upload changes.
+			if ! cp "$zt_planet_source" "$zt_planet_stage" ||
 			   [ ! -s "$zt_planet_stage" ]; then
 				logger -t "zerotier" "无法暂存上传的planet文件"
+				exit 1
+			fi
+			if ! base64 "$zt_planet_stage" > "$zt_planet_encoded" ||
+			   [ ! -s "$zt_planet_encoded" ]; then
+				logger -t "zerotier" "无法编码暂存的planet文件"
 				exit 1
 			fi
 			if ! chmod 600 "$zt_planet_stage"; then

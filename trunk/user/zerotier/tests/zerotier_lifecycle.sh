@@ -683,6 +683,30 @@ zerotier_import_planet_file "$TEST_TMP/planet-upload" ||
 [ ! -e "$TEST_TMP/planet-upload" ] ||
 	fail "successfully imported planet upload was not removed"
 
+# A concurrent upload replacement after the private snapshot is created must
+# not split the disk file from the Base64 value persisted in NVRAM.
+printf 'snapshot-before-mutation\n' > "$TEST_TMP/planet-upload-race"
+expected_race_planet_nvram="$(command base64 "$TEST_TMP/planet-upload-race")"
+TEST_PLANET_RACE_SOURCE="$TEST_TMP/planet-upload-race"
+TEST_PLANET_MUTATE_AFTER_BASE64=1
+base64() {
+	command base64 "$@" || return $?
+	if [ "${TEST_PLANET_MUTATE_AFTER_BASE64:-0}" = 1 ]; then
+		TEST_PLANET_MUTATE_AFTER_BASE64=0
+		printf 'changed-after-snapshot\n' > "$TEST_PLANET_RACE_SOURCE"
+	fi
+}
+zerotier_import_planet_file "$TEST_PLANET_RACE_SOURCE" ||
+	fail "planet import failed while the upload changed after snapshot"
+unset -f base64
+TEST_PLANET_MUTATE_AFTER_BASE64=0
+[ "$(cat "$TEST_CONFIG/planet")" = "snapshot-before-mutation" ] ||
+	fail "planet import published a file that differs from the pre-encoding upload snapshot"
+[ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "$expected_race_planet_nvram" ] ||
+	fail "planet import NVRAM does not encode the published snapshot"
+[ ! -e "$TEST_PLANET_RACE_SOURCE" ] ||
+	fail "successful snapshot import did not remove the upload source"
+
 # Empty uploads clear both the disk file and the NVRAM value.
 : > "$TEST_TMP/planet-upload-empty"
 zerotier_import_planet_file "$TEST_TMP/planet-upload-empty" ||

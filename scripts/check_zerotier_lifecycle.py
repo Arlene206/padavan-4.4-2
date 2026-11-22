@@ -165,6 +165,14 @@ require('[ -n "$zt_network_id" ] || return 0' in add_join_body and
         'chmod 600 "$zt_network_file"' in add_join_body and
         'if [ -L "$zt_network_file" ]' in add_join_body,
         "network join writer must validate 16 hex digits and refuse path/symlink abuse")
+planet_snapshot_copy = planet_import_body.index('! cp "$zt_planet_source" "$zt_planet_stage"')
+planet_snapshot_encode = planet_import_body.index('! base64 "$zt_planet_stage" > "$zt_planet_encoded"')
+planet_snapshot_publish = planet_import_body.index('mv -f "$zt_planet_stage" "$zt_planet_target"')
+planet_snapshot_nvram = planet_import_body.index('zt_planet_new_value="$(cat "$zt_planet_encoded")"')
+require(planet_snapshot_copy < planet_snapshot_encode < planet_snapshot_publish <
+        planet_snapshot_nvram and
+        '! base64 "$zt_planet_source" > "$zt_planet_encoded"' not in planet_import_body,
+        "uploaded planet file and NVRAM value must derive from one private snapshot")
 require('mktemp -d "$config_path/.planet-import.XXXXXX"' in planet_import_body and
         planet_import_body.index("trap 'zerotier_planet_import_cleanup") <
         planet_import_body.index('zt_planet_old_value="$(nvram get zerotier_planet)"') and
@@ -192,7 +200,9 @@ for marker in ("uploaded planet contents were not published",
                "failed planet NVRAM rollback did not retain its old-value recovery snapshot",
                "planet NVRAM recovery snapshot was not private",
                "failed planet publish changed NVRAM",
-               "failed NVRAM read leaked the private import directory"):
+               "failed NVRAM read leaked the private import directory",
+               "planet import published a file that differs from the pre-encoding upload snapshot",
+               "planet import NVRAM does not encode the published snapshot"):
     require(marker in test, f"uploaded planet import regression omits {marker}")
 require('mktemp "$config_path/.planet.XXXXXX"' in planet_body and
         'printf \'%s\' "$1" | base64 -d > "$zt_planet_tmp"' in planet_body and
