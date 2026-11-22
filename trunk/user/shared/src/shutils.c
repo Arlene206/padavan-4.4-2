@@ -791,7 +791,7 @@ kill_pidfile_s(char *pidfile, int sig)
 	}
 
 	/* O_NONBLOCK prevents a stale FIFO path from hanging callers. */
-	fd = open(pidfile, O_RDONLY | O_NONBLOCK);
+	fd = shutils_pidfile_open(pidfile);
 	if (fd < 0)
 		return -1;
 	if (fstat(fd, &st) != 0)

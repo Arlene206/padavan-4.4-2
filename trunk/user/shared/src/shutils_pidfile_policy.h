@@ -3,6 +3,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -65,6 +66,20 @@ shutils_pidfile_parse_record(const char *text, size_t length, pid_t *pid)
 
 	*pid = (pid_t)value;
 	return 0;
+}
+
+/*
+ * PID files are control inputs to privileged signal delivery. Never follow a
+ * symlink supplied at the configured pathname.
+ */
+static inline int
+shutils_pidfile_open(const char *pidfile)
+{
+	if (pidfile == NULL || pidfile[0] == '\0') {
+		errno = EINVAL;
+		return -1;
+	}
+	return open(pidfile, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
 }
 
 #endif

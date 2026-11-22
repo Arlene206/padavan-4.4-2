@@ -1,3 +1,11 @@
+## 2026-11-22 — Reject symlink PID files before privileged signalling
+
+- `kill_pidfile_s()` opened its PID-file path with `O_RDONLY|O_NONBLOCK` and then checked only the opened descriptor's file type. Because `open()` followed symlinks, a writable PID-file directory or replaced path could redirect this privileged helper to an attacker-controlled regular file containing an unrelated PID.
+- Added a shared no-follow open helper and routed `kill_pidfile_s()` through `O_NOFOLLOW`; the existing nonblocking FIFO protection and subsequent regular-file/size/strict-record checks remain intact. Symlink paths now fail with `ELOOP` instead of supplying a PID to `kill()`.
+- Added a GNU89 ASan/UBSan regression covering regular-file compatibility and symlink rejection, plus source contracts that pin the production call path. Exact-head legacy PID-file and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-22 — Normalize resolver errno-preservation source contract
 
 - Exact-head Process run 45082141507 on 631aa825873d7f69087ec735a40046eefc4d49f5 progressed past the WAN MAC check, then failed on a DNS resolver source contract that searched for double-escaped newline/tab text. The production early-return path unlocks the resolver lock, restores the saved NVRAM error to errno, and returns that status; the checker compared literal backslash sequences instead of C source whitespace.

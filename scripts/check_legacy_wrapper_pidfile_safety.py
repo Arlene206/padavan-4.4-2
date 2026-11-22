@@ -18,6 +18,22 @@ for source in SOURCES:
             + str(source.relative_to(ROOT))
         )
 
+pidfile_source = (ROOT / "trunk/user/shared/src/shutils.c").read_text()
+pidfile_policy = (ROOT / "trunk/user/shared/src/shutils_pidfile_policy.h").read_text()
+pidfile_test = (ROOT / "trunk/user/shared/tests/shutils_pidfile_open.c").read_text()
+if "fd = shutils_pidfile_open(pidfile);" not in pidfile_source:
+    raise SystemExit("legacy pidfile open: FAIL: production helper does not use the no-follow path")
+if "O_NOFOLLOW" not in pidfile_policy or "O_NONBLOCK" not in pidfile_policy:
+    raise SystemExit("legacy pidfile open: FAIL: symlink/FIFO-safe flags are missing")
+for marker in (
+    "regular_pidfile_opens",
+    "symlink_pidfile_is_rejected",
+    "errno == ELOOP",
+    "shutils_pidfile_open",
+):
+    if marker not in pidfile_test:
+        raise SystemExit("legacy pidfile open regression: FAIL: missing " + marker)
+
 mentohust = SOURCES[1].read_text()
 for token in (
     "umask 077",
