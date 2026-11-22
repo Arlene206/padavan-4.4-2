@@ -51,6 +51,94 @@ expect_status 3 /media/usb "$tmpdir/not-a-mount-table"
 printf '/dev/sda1 /media/usb ext4 rw\n' > "$mounts"
 expect_status 3 /media/usb "$mounts"
 
+# Swap activation must distinguish an active device, a fully inventoried
+# inactive device, and an unreadable or malformed /proc/swaps snapshot.
+sed -n '/^automount_swap_status()$/,/^}/p' "$automount" > "$tmpdir/swap-function.sh"
+[ -s "$tmpdir/swap-function.sh" ]
+. "$tmpdir/swap-function.sh"
+
+expect_swap_status()
+{
+	expected=$1
+	device=$2
+	swap_file=$3
+	if automount_swap_status "$device" "$swap_file"; then
+		actual=0
+	else
+		actual=$?
+	fi
+	if [ "$actual" -ne "$expected" ]; then
+		echo "automount_swap_status returned $actual, expected $expected for $device" >&2
+		exit 1
+	fi
+}
+
+swaps="$tmpdir/swaps"
+cat > "$swaps" <<'EOF_SWAPS'
+Filename Type Size Used Priority
+/dev/sdb1 partition 1024 0 -2
+EOF_SWAPS
+expect_swap_status 1 /dev/sda1 "$swaps"
+expect_swap_status 0 /dev/sdb1 "$swaps"
+
+# Exact path matching must not treat /dev/sda10 as /dev/sda1.
+cat > "$swaps" <<'EOF_SWAPS'
+Filename Type Size Used Priority
+/dev/sda10 partition 1024 0 -2
+EOF_SWAPS
+expect_swap_status 1 /dev/sda1 "$swaps"
+
+# Every row is validated, including unrelated active swap devices.
+cat > "$swaps" <<'EOF_SWAPS'
+Filename Type Size Used Priority
+/dev/sdb1 partition 1024 0
+EOF_SWAPS
+expect_swap_status 2 /dev/sda1 "$swaps"
+
+cat > "$swaps" <<'EOF_SWAPS'
+Filename Type Size Used
+/dev/sdb1 partition 1024 0 -2
+EOF_SWAPS
+expect_swap_status 2 /dev/sda1 "$swaps"
+
+cat > "$swaps" <<'EOF_SWAPS'
+Filename Type Size Used Priority
+/dev/sdb1 partition invalid 0 -2
+EOF_SWAPS
+expect_swap_status 2 /dev/sda1 "$swaps"
+
+: > "$swaps"
+expect_swap_status 2 /dev/sda1 "$swaps"
+expect_swap_status 2 /dev/sda1 "$tmpdir/missing-swaps"
+mkdir "$tmpdir/swaps-is-directory"
+expect_swap_status 2 /dev/sda1 "$tmpdir/swaps-is-directory"
+
+# Only a fully parsed inventory proving absence may reach swapon.
+python3 - "$automount" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1]).read_text()
+start = source.index('if [ "$ID_FS_TYPE" == "swap" ] ; then')
+end = source.index('\n\t# always return !=0 for swap', start)
+block = source[start:end]
+assert block.index("automount_acquire_mountpoint_lock") < block.index(
+    'automount_swap_status "$dev_full" /proc/swaps'
+)
+case_start = block.index('case "$swap_status" in')
+case_end = block.index("\n\tesac", case_start)
+dispatch = block[case_start:case_end]
+active = dispatch.split("0)", 1)[1].split("1)", 1)[0]
+inactive = dispatch.split("1)", 1)[1].split("*)", 1)[0]
+unknown = dispatch.split("*)", 1)[1]
+assert 'swapon "$dev_full"' not in active
+assert 'swapon "$dev_full"' in inactive
+assert 'swapon "$dev_full"' not in unknown
+assert "refusing to activate" in unknown
+assert "Unable to activate swap partition" in inactive
+print("Automount swap activation fail-closed caller contract: PASS")
+PY
+
 echo "Automount mount ownership tri-state inventory policy: PASS"
 # The lock helper is shared with swap activation. Verify private creation,
 # umask restoration and exclusion of a competing worker.

@@ -14,38 +14,34 @@ Every session MUST inspect live repository state and complete an end-of-session 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Parent main SHA for this checkpoint: `4a39de2f31404d94ed342a1468de57b88997151a` (`docs: refresh session handoff for continued stability work`). The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
-- The previous exact-SHA handoff run #45051742269 failed because root `dev_log.md` had reached 120 complete records. The rotation is complete: 101 records are archived in `docs/dev-log/2026/11/part-027.md`, with the newest 20 retained in the root. The follow-up exact-SHA run #45052323259 then identified the missing literal handoff clause; this commit adds it.
-- Exact parent SHA Actions: AI handoff run #45051742269 = completed/failure at the 120-entry rolling-log check. No other workflow run was returned for this exact SHA. Process inventory run #45051059927 passed on ancestor `372451d468fd772858635590f1c1c10bccf95dc0`; it is not an exact-parent result.
-- XY-C1 L3 is NOT VERIFIED on current main. Historical XY-C1 run #45047957843 fully passed host validation, Build XY-C1, TRX verification and artifact upload on older SHA `c139dd5da2cbce53ee683d303f56e66d6b55dca0`. The later exact-source run #45050810796 on `6418e87add0ffce79fd918077bb1e7dfdded2fc0` passed host checks but skipped Build, TRX and artifact upload because no production input changed. Do not reuse ancestor results as current-SHA verification.
-- Earlier XY-C1 run #45050298446 on `b5fbcebd47fa735f70d06064a8a8cb682f4b0229` failed in a stale source checker before firmware production stages; the L2TP checker contract was subsequently corrected and Process passed on `372451d...`. Current-head Build/TRX/artifact remains unverified.
-- No local test suite, compiler, firmware build or router hardware validation was run in this session. L4 hardware remains NOT VERIFIED.
+- Parent main SHA immediately before this atomic slice: `b794d511f0a70d77cc046090b39c416f89c64006`. This commit advances only `main`; fetch the live head before resuming.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it remains immutable and must never be modified or deleted.
+- The only remote branches are `main` and that explicitly preserved backup. Legacy PR #1 is closed and unmerged; do not use its branch as a workspace.
+- Exact parent-main push checks: Process lifecycle inventory #45058824811 PASS and Adbyby configuration stability #45058824804 PASS on `b794d511f0a70d77cc046090b39c416f89c64006`.
+- XY-C1 run #45058706199 is for product-source commit `2b41f5aa8d322def2cc22621b09fc2fdf4687367`, an ancestor of the parent main. The firmware detector passed and Build XY-C1 was in progress at last inspection; TRX and artifact upload were pending. The next main commit below changes production storage script input, so re-check the fresh run for the new exact source SHA.
+- Historical XY-C1 run #45057859268 passed Build, TRX verification and artifact upload on `ae53025f281eef66057fde793731ee06477822a2`; this is not current L3 evidence because later product-source changes landed in `2b41f5a`.
+- Storage workflow #45058110639 passed on ancestor `ca8e79ec28c4f2fe4a20be62b1d0766f9c4ba283`, including the filesystem-module lock, storage caller-graph and mount-inventory regressions. This new swap-inventory regression requires a fresh exact-head storage run.
+- No local checkout or hardware device is available in this execution. L4 hardware validation remains NOT VERIFIED.
 
 ## Active task
 
-Fix the two-phase publication gap in `trunk/user/shared/src/shutils.c::recreate_passwd_unix()`.
+The prior passwd/group/shadow two-phase publication task is already implemented on main. `recreate_passwd_unix()` retains hard-link recovery points across `change_passwd_unix()`, rolls back in reverse order on password-install failure and finalizes the links only after success. The GNU89/ASan/UBSan regression and Process source contract passed on exact SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e` in run #45052382237. Do not repeat that task.
 
-Current flow stages passwd/group/shadow files, retains hard-link backups through the multi-file rename sequence, but `passwd_file_publish_transaction()` deletes those backups as soon as all renames succeed. Only afterwards does `recreate_passwd_unix()` call `change_passwd_unix(rootnm, root_password)`. If `chpasswd` or the subsequent shadow permission operation fails, the function returns an error while leaving the replacement shadow file (whose staged root entry is locked with `!`) in place; there is no longer a prior account database to restore. This can leave the device inaccessible after a password-provisioning fault.
+This slice fixes a separate USB storage stability gap in `trunk/user/scripts/files/sbin/automount.sh`: the swap hotplug path previously interpreted every nonzero `awk` result from `/proc/swaps` as “target absent,” so unreadable, empty or malformed inventory could still reach `swapon`. It now uses `automount_swap_status()` to validate the five-column header and every complete row, returning ACTIVE, INACTIVE or UNKNOWN. Only a complete INACTIVE result permits activation; UNKNOWN refuses it, and a failed `swapon` is logged. `storage_mountpoint_inventory.sh` covers active/inactive/exact-path and malformed/empty/unreadable cases plus the caller's lock and swapon ordering.
 
-First implementation slice:
-1. Extend `trunk/user/shared/src/passwd_temp_file_policy.h` with a retain-backups publish path plus explicit finalize and reverse-rollback helpers. Preserve the current `passwd_file_publish_transaction()` contract for its callers.
-2. Update `recreate_passwd_unix()` to retain old passwd/group/shadow recovery links until `change_passwd_unix()` succeeds. On password-install failure, restore the prior files in reverse order and preserve recovery links if restoration fails. On success, finalize by deleting the backups; report cleanup failures without reverting a successfully installed password.
-3. Extend `trunk/user/shared/src/tests/passwd_temp_file_policy.c` with successful post-publish rollback, successful finalize, and rollback-failure/recovery-link tests. Update the process-lifecycle workflow's source contract accordingly.
-4. Validate the GNU89 `-Wall -Wextra -Werror` and ASan/UBSan test step on the exact SHA; also check exact-SHA Process and XY-C1 workflows. A source change in shared RC support should trigger production input detection; only mark L3 after Build, TRX and artifact upload all pass on that same SHA.
-
-Do not repeat completed WAN DHCP snapshot, LAN subnet snapshot, L2TP selector or VLAN-ID audits unless a new independent defect is demonstrated. Continue with other userland stability/security work once this slice is committed and its exact-SHA Actions state is known.
+First verification step: inspect exact-head storage, AI-handoff and XY-C1 Actions for this commit; resolve any failure using its first causal log. Do not infer L3 until Build XY-C1, TRX verification and artifact upload all pass on the same production-source SHA.
 
 ## Verification boundary
 
-- Documentation parent: `ff25eacd70dccd78c6416c76ad199ad69aa8f61d`.
-- This rotation includes 101 archived records, oldest-first, preserving the complete prior root records verbatim. Root `dev_log.md` is reduced to 20 complete entries.
-- Exact source SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`: Process regression #45052382237 completed/success. Its `Verify Unix account bootstrap status and private password staging` step passed, including the GNU89 `-Wall -Wextra -Werror` build and ASan/UBSan run of `passwd_temp_file_policy.c`, plus the updated Python source contract.
-- Exact source SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`: XY-C1 run #45052382239 detected production input changes and was building XY-C1 at last inspection; TRX validation and artifact upload were still pending. Do not claim L3 until all three pass on that same SHA.
-- Exact source SHA `0502c7ab3b3ad32c0682a0c372b79789174bfe7e`: NVRAM transaction audit #45052382219 remained in progress during raw userland ioctl/kernel API audit. Pending does not block independent work.
-- The previous process/XY source tree at `d1d26ed9305792ba5810634e660420a75ad9c837` also had DNS Forwarder, GPIO, WAN DHCP and Process inventory runs pass; its umbrella Process run was cancelled when the follow-up SHA was pushed. Do not treat those cancelled/ancestor results as current-head checks.
-- Local documentation checker was not run. Exact-SHA Actions results must be queried after the atomic commit is published.
-- XY-C1 L3 and hardware L4 are NOT VERIFIED for this checkpoint.
+- Parent main immediately before this source/test/documentation slice: `b794d511f0a70d77cc046090b39c416f89c64006`; the resulting main SHA is the live commit containing this entry and must be resolved from GitHub on the next recovery.
+- Source change: `automount.sh` now fails closed on incomplete or malformed `/proc/swaps`; the existing storage-hotplug workflow already includes the source and regression test paths in both push and pull_request filters, so no trigger semantics were changed.
+- Regression coverage: `storage_mountpoint_inventory.sh` exercises active, inactive, exact-path, malformed header/row, invalid numeric fields, empty inventory, missing file and non-file read failure; it also checks that only INACTIVE reaches `swapon`.
+- Local test state: NOT RUN; no repository checkout was available. Exact-head Actions after this commit are the L2 evidence source.
+- Before this slice, exact parent checks #45058824811 (Process inventory) and #45058824804 (Adbyby) passed on `b794d511f0a70d77cc046090b39c416f89c64006`; neither verifies the new automount code.
+- XY-C1 #45058706199 was pending on older product-source `2b41f5aa8d322def2cc22621b09fc2fdf4687367`. It cannot verify this new automount source. The new exact-head XY workflow must pass detector, Build XY-C1, TRX and artifact upload before L3 can be marked VERIFIED.
+- L4 device behavior is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Implement the two-phase passwd/group/shadow transaction described above. Fetch the current versions of `passwd_temp_file_policy.h`, `shutils.c`, `passwd_temp_file_policy.c` and `.github/workflows/process-lifecycle-regression.yml`, make the helper and caller changes together, then run/check the exact-SHA regressions and firmware workflow. Continue from the freshly fetched `main`; never assume a SHA from an earlier chat is still HEAD.
+Fetch live `main` and query Actions runs for that exact SHA. Inspect the storage-hotplug regression, AI handoff documentation and XY-C1 workflow; match every run's `head_sha`, inspect any failed job's first causal log, and do not wait idly on pending checks. Confirm Build XY-C1, TRX verification and artifact upload all succeeded on the same new production-source SHA before claiming L3. Once those checks are clear, continue the storage lifecycle review at `trunk/user/libdisk/src/disk_initial.c`: trace `try_device_swapoff()` and the global cleanup path through their hotplug/eject callers, focusing on incomplete inventory and swapoff failure handling; add a regression only for a new independent defect.
+

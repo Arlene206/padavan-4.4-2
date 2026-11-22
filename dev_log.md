@@ -1,3 +1,11 @@
+## 2026-11-23 03:07 CST (UTC+8) — Fail closed on automount swap inventory errors
+
+- Parent main SHA: `b794d511f0a70d77cc046090b39c416f89c64006`. `automount.sh` previously treated any nonzero `awk` result while reading `/proc/swaps` as proof that the hotplug partition was inactive, so a failed read or malformed inventory could still issue `swapon`.
+- Added a tri-state inventory reader that validates the exact five-column header and every complete swap row, including type and numeric fields. Only a complete inventory proving the target inactive reaches `swapon`; UNKNOWN refuses activation, and command failure is now logged.
+- Extended `storage_mountpoint_inventory.sh` with active/inactive/exact-device, malformed-header/row, invalid-number, empty, missing-file and non-file inventory cases, plus a caller-order contract. The existing storage workflow already watches both changed paths for push and pull_request; no trigger was weakened or broadened.
+- Validation before publication: local execution NOT RUN (no checkout). Exact-head storage, AI-handoff and XY-C1 Actions are pending. XY-C1 L3 and device L4 are NOT VERIFIED.
+- Next: resolve exact-head Action failures first; after passing checks, inspect disk-removal swapoff lifecycle in `disk_initial.c` for a separate failure-propagation gap.
+
 ## 2026-11-22 — Restore the required Active task handoff section
 
 - Exact-SHA AI handoff run #45052462155 on `4a39de2f31404d94ed342a1468de57b88997151a` accepted the mandatory checkpoint clause and rolling-log rotation, then failed because `SESSION_HANDOFF.md` used `## Active engineering task` instead of the required `## Active task` heading.

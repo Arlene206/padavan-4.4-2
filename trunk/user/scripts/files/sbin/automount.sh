@@ -162,16 +162,71 @@ automount_acquire_mountpoint_lock()
 	return 0
 }
 
+automount_swap_status()
+{
+	automount_swap_device=$1
+	automount_swap_file=${2:-/proc/swaps}
+
+	if [ -z "$automount_swap_device" ] || [ -z "$automount_swap_file" ] ||
+	   [ ! -r "$automount_swap_file" ]; then
+		return 2
+	fi
+	if automount_swap_inventory=$(cat "$automount_swap_file" 2>/dev/null); then
+		:
+	else
+		return 2
+	fi
+
+	printf '%s\\n' "$automount_swap_inventory" | awk -v dev="$automount_swap_device" '
+NR == 1 {
+	if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
+	    $4 != "Used" || $5 != "Priority")
+		invalid = 1
+	next
+}
+NF == 0 { next }
+{
+	if (NF != 5 || ($2 != "partition" && $2 != "file") ||
+	    $3 !~ /^[0-9]+$/ || $4 !~ /^[0-9]+$/ || $5 !~ /^-?[0-9]+$/) {
+		invalid = 1
+		next
+	}
+	if ($1 == dev)
+		found = 1
+}
+END {
+	if (NR == 0 || invalid)
+		exit 2
+	exit !found
+}'
+	automount_swap_awk_status=$?
+	case "$automount_swap_awk_status" in
+		0|1) return "$automount_swap_awk_status" ;;
+		*) return 2 ;;
+	esac
+}
+
 if [ "$ID_FS_TYPE" == "swap" ] ; then
 	[ ! -x /sbin/swapon ] && exit 1
 	if ! automount_acquire_mountpoint_lock; then
 		exit 1
 	fi
-	if ! awk -v dev="$dev_full" '$1 == dev { found=1 } END { exit !found }' /proc/swaps; then
-		if swapon "$dev_full" ; then
-			logger -t "automount" "Activate swap partition $dev_full SUCCESS!"
-		fi
-	fi
+	automount_swap_status "$dev_full" /proc/swaps
+	swap_status=$?
+	case "$swap_status" in
+		0) ;; # Already active; do not re-enable it.
+		1)
+			if swapon "$dev_full"; then
+				logger -t "automount" "Activate swap partition $dev_full SUCCESS!"
+			else
+				swapon_status=$?
+				logger -t "automount" "Unable to activate swap partition $dev_full (status=$swapon_status)"
+			fi
+			;;
+		*)
+			logger -t "automount" "Unable to verify active swap inventory; refusing to activate $dev_full (status=$swap_status)"
+			;;
+	esac
 	exec 8>&-
 
 	# always return !=0 for swap
