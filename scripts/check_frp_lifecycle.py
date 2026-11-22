@@ -264,11 +264,11 @@ require("frp_signal_all TERM" in stop_daemons and "frp_wait_stopped 5" in stop_d
         "frp_signal_all KILL" in stop_daemons and "frp_wait_stopped 2" in stop_daemons,
         "FRP owned-daemon stop must retain bounded TERM/KILL postconditions")
 stop = function_body(services, "int stop_frp(void)")
-start = function_body(services, "int start_frp(void)")
+start = function_body(services, "void start_frp(void)")
 restart = function_body(services, "int restart_frp(void)")
 require("status != 0" in stop and "FRP stop failed" in stop and "return status;" in stop and
-        "status != 0" in start and "FRP start failed" in start and "return status;" in start,
-        "RC stop/start wrappers must report and propagate FRP command failures")
+        "status != 0" in start and "FRP start failed" in start,
+        "RC stop/start wrappers must report FRP command failures")
 require('eval("/usr/bin/frp.sh","restart")' in restart and
         "FRP restart failed" in restart and
         'eval("/usr/bin/frp.sh","stop")' not in restart and

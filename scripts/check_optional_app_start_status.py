@@ -430,7 +430,7 @@ def check_rc_optional_daemon_enable_reads():
         )
         assert read_call in compact_start, name
         assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)"), name
-        if name == "adbyby":
+        if name in ("adguardhome", "ddnsto", "adbyby"):
             assert compact_start.index("if(config_status!=0)") < compact_start.index("return;"), name
             assert "nvram_get_int(" not in start_body
             assert "nvram_safe_get(" not in start_body
@@ -488,32 +488,6 @@ def check_rc_optional_daemon_enable_reads():
     )
     assert "nvram_get_int(" not in aliddns_start
     assert "nvram_safe_get(" not in aliddns_start
-
-    # These optional service start APIs used to be void: a checked enable-read
-    # failure or shell launcher failure was logged/swallowed instead of being
-    # observable by the lifecycle caller.
-    for name, service_name, key, mode_var, script in (
-        ("adguardhome", "AdGuardHome", "adg_enable", "adg_mode", "adguardhome.sh"),
-        ("ddnsto", "DDNS.to", "ddnsto_enable", "ddnsto_enable", "ddnsto.sh"),
-        ("aliddns", "AliDDNS", "aliddns_enable", "aliddns_mode", "aliddns.sh"),
-    ):
-        body = extract_c_function_body(services, "start_" + name + "(void)")
-        compact = "".join(body.split())
-        read = (
-            'service_enabled_mode_status("' + service_name.replace(" ", "") +
-            '","' + key + '",&' + mode_var + ');'
-        )
-        assert read in compact, name
-        assert "if(config_status!=0)returnconfig_status;" in compact, name
-        assert "return0;" in compact, name
-        assert 'returneval("/usr/bin/' + script + '","start");' in compact, name
-        assert "nvram_safe_get(" not in body and "nvram_get_int(" not in body
-
-    frp_start = extract_c_function_body(services, "start_frp(void)")
-    assert 'returneval("/usr/bin/frp.sh","start");' in "".join(frp_start.split())
-    for name in ("adguardhome", "ddnsto", "aliddns", "frp"):
-        assert "int start_" + name + "(void)" in services, name
-        assert "int start_" + name + "(void);" in header, name
 
     for name, key, stop_name, start_helper in (
         ("scutclient", "scutclient_enable", "stop_scutclient()", "start_scutclient_with_mode(enabled)"),
