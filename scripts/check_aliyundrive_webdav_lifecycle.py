@@ -256,7 +256,9 @@ require('set -- "$@" --domain-id "$domain_id"' in start and
 require('while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do' in wait_started and
         'ald_process_state' in wait_started and 'sleep 1 || return 2' in wait_started and
         'return 1' in wait_started and 'return 2' in wait_started and
-        start.index('ald_wait_started') > start.index('"$ALD_BIN"'),
+        start.count('ald_wait_started') == 2 and
+        start.index('ald_wait_started') < start.index('"$ALD_BIN"') <
+        start.rindex('ald_wait_started'),
         "start must wait a bounded interval and fail unless the daemon becomes observable")
 
 require('flock -n 9' in lock and 'flock -u 9' in lock and

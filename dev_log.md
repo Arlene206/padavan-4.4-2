@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct AliyunDrive readiness checker call ordering
+
+- Parent main SHA: `9aa369f4f8ef8cb1c9832073411e42268a0e976f`. Exact AliyunDrive run #45043816997 on `72ffcb355cff70e8dc7b54f708b3806e3eac7e66` passed MIPSel QEMU CLI compatibility and the full host lifecycle regression, then failed the Python source contract: `start.index('ald_wait_started')` selected the first call, which correctly checks an already-running daemon before attempting a duplicate launch. The actual new-daemon readiness call occurs after `"$ALD_BIN"`; the contract incorrectly ordered the first occurrence after that launch.
+- Strengthened the assertion to require exactly two calls: the existing-instance HTTP readiness check before the launch command and the new-instance readiness check after it. Production behavior and test expectations are unchanged.
+- On parent `9aa369f`, AliDDNS #45043936130 and AI handoff #45043936175 were IN_PROGRESS at last inspection. The prior AliDDNS shell suite and fingerprint regression passed on 3556d29; its checker variable typo was corrected in 9aa369f.
+- No local test, production build, TRX/artifact or hardware validation was performed. L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fix AliDDNS fingerprint source-checker variable typo
 
 - Parent main SHA: `72ffcb355cff70e8dc7b54f708b3806e3eac7e66`. Exact AliDDNS workflow #45043730798 on `3556d297e887ad81b5457e16a33b32eafadafa9a` ran the full shell suite successfully, including the new configuration-fingerprint regression, then failed in `scripts/check_aliddns_api_transport.py:542` with `NameError: name 'SOURCE' is not defined`. The checker loads the production script into lowercase `source`, but its three new fingerprint/get-status/check assertions referenced uppercase `SOURCE`.
