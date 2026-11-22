@@ -475,8 +475,12 @@ require("storage_ejected_storage_start_retry_required( mount_count, start_status
         "storage_ejected_storage_start_retry_required( mount_count, 0)" not in targeted_eject_contract,
         "targeted eject must retry failed app starts after successful cleanup, but never restart from unknown/failed cleanup")
 retry_schedule = targeted_eject.rsplit("if (retry_storage_start)", 1)[-1]
-require('nvram_set_int_temp("usb_hotplug_ms", 1);' in retry_schedule and "alarm(5);" in retry_schedule,
-        "targeted eject must re-arm the existing five-second deferred storage retry")
+require('notify_rc_status("on_hotplug_mass_storage")' in retry_schedule and
+        "nvram_set_int_temp(" not in retry_schedule and "alarm(5);" not in retry_schedule and
+        "cannot queue storage application restart after safe removal" in retry_schedule and
+        "queued storage application restart with PID 1 after safe removal" in retry_schedule and
+        "saved_errno = notify_errno;" in retry_schedule,
+        "targeted eject must queue a PID 1 restart and report notification failure without using the short-lived applet alarm")
 require(targeted_eject.rfind("file_unlock(storage_lock);") < targeted_eject.rfind("if (retry_storage_start)"),
         "deferred storage retry must be scheduled only after releasing the storage operation lock")
 

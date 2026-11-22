@@ -6,12 +6,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop/validate on `main` only. Each logical multi-file slice uses one complete tree/commit and a non-forced expected-SHA ref update.
-- Current parent main before this workflow correction: `89a6e740e24a63142a56e3406136e86a514ce1a2`. Current storage source includes the durable `usb_unplug_ms` cleanup/ack latch and the follow-up PID-1 notification queue for safe-removal restarts.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, do not merge, modify or delete. Main is intentionally divergent.
-- PR #1 remains closed/unmerged; historical changes were already ported.
-- On exact parent SHA `89a6e740e24a63142a56e3406136e86a514ce1a2`: USB storage #44994003668 failed only at the embedded printer source-order assertion (start → ack → failure/retry was incorrectly asserted as start → failure → ack); all prior storage regression/build/MTD steps passed. XY-C1 #44994003623, Process inventory #44994003659, NVRAM #44994003791 and Process fail-closed #44994003779 were in progress at last poll. vsftpd #44994003699, IPv6 service type #44994003664, Firewall #44994003687, USB modem #44994003656, Samba #44994003868, NFS #44994003629 and HTTPD #44994003660 passed on the exact parent SHA.
-- Host `cc` is available; no local full product checkout/MIPS uClibc toolchain. L3 still requires XY-C1 Build, TRX verification and artifact upload PASS on one identical product-source SHA.
+- Repository `Arlene206/padavan-4.4-2`; all development on `main`, using one full tree/commit plus non-forced expected-SHA ref update. Current parent before this checker correction: `9110090e4886d5a183dfe21dfbd26fde08698aea`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Main intentionally diverges; PR #1 stays closed/unmerged.
+- Storage product source includes durable physical-unplug marker acknowledgement (commit `d414a788`) and safe-remove retry queued via PID 1 after releasing the storage lock (commit `89a6e740`). The most recent storage workflow passed its full caller-graph contract but then found a stale safe-remove checker that still expected the removed short-lived `alarm(5)`/NVRAM retry.
+- Exact-source checks on product SHA `89a6e740e24a63142a56e3406136e86a514ce1a2`: NVRAM #44994003791 and Process fail-closed #44994003779 passed; vsftpd #44994003699, IPv6 service type #44994003664, Firewall #44994003687, USB modem #44994003656, Samba #44994003868, NFS #44994003629 and HTTPD #44994003660 passed. XY-C1 #44994003623 and Process lifecycle #44994003659 remained in progress at last poll.
+- Host `cc` is available; no local full product checkout/MIPS uClibc toolchain. L3 requires XY-C1 Build, TRX verification and artifact upload PASS on one identical product-source SHA; hardware L4 is unverified.
 
 ## Completed source slices
 
@@ -32,18 +31,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Product source changes on the active storage slice are in `d414a788` (durable physical-unplug acknowledgement) and `89a6e740` (safe-remove restart queued through PID 1 after releasing `storage_lock`). Frozen backup is untouched.
-- Storage workflow #44994003668 on parent `89a6e740e24a63142a56e3406136e86a514ce1a2` ran the BusyBox ash Optware, MTD persistence, safe-remove inventory, deferred-marker acknowledgement, event-pair, Optware child-result, FTP stop and other host regressions successfully, then failed at one stale embedded printer checker assertion. Source order is: launch printer services → acknowledge marker only if launch/ack success → combined failure branch logs and arms `alarm(5)`. Corrected checker must assert this order; do not move acknowledgement before a failed start.
+- The storage code now uses `notify_rc_status("on_hotplug_mass_storage")` from `safe_remove_stor_device()` after releasing `storage_lock`; it must not rely on the short-lived applet's alarm to wake PID 1. The notification failure path logs status/errno and preserves the first operation error.
+- Exact SHA `9110090e4886d5a183dfe21dfbd26fde08698aea`: the storage workflow's embedded whole-caller-graph contract passed after the printer-order checker correction. It then failed in `scripts/check_storage_safe_remove.py` because line 478 still required the old direct NVRAM marker plus local alarm. This checker-only slice now matches the PID 1 queue design.
 
 ## Verification boundary
 
-- USB storage parent #44994003668: all steps before the final embedded whole-storage source contract passed, including BusyBox ash Optware lifecycle, MTD persistence/restore/erase/backup, ejected inventory, deferred storage cleanup/acknowledgement GNU89/ASan/UBSan binary, marker pair, Optware child result and operation-lock/caller regressions. The final checker failed at the stale printer ordering assertion, not in a product compile or unit test.
-- Parent SHA `89a6e740e24a63142a56e3406136e86a514ce1a2`: XY-C1 #44994003623, Process inventory #44994003659, NVRAM boundary #44994003791 and Process fail-closed #44994003779 were in progress at the last poll. Exact new-head reruns are required after this checker correction.
-- No local MIPS firmware build is claimed. L3 only when Build XY-C1, TRX verification and artifact upload all PASS on one identical source SHA. Hardware L4 NOT VERIFIED.
+- On exact 9110090e storage run #44994229595, all earlier storage source/unit/shell regressions passed, and the embedded whole-storage caller graph passed. The final failure was the stale checker assertion at line 478 demanding `nvram_set_int_temp("usb_hotplug_ms", 1)` and `alarm(5)` in the short-lived caller.
+- AI handoff documentation contract #44994229636 passed on 9110090e. Exact product-source SHA `89a6e740e24a63142a56e3406136e86a514ce1a2`: NVRAM and Process fail-closed completed successfully; XY-C1 and Process lifecycle were pending at last poll.
+- No full MIPS build run locally. Claim L3 only after XY-C1 Build, TRX verification and artifact upload all pass on one identical product-source SHA. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect live `main` and exact-SHA Actions for this workflow-only correction. Confirm the USB printer checker now accepts start → conditional marker acknowledgement → failure/retry, then follow any remaining first failure in the whole-storage caller graph.
-2. Confirm storage workflow #44994003668's previously green Optware ash, MTD persistence, deferred-ack and inventory tests are green again on the new SHA.
-3. Poll XY-C1 and Process/NVRAM checks for the same product source. Claim L3 only when XY-C1 Build, TRX verification and artifact upload pass on one identical SHA.
-4. Continue a separate whole-userland stability/security defect while Actions are pending; do not repeat completed audits. Keep backup read-only and hardware L4 unverified.
+1. Check live `main`, then inspect exact-SHA storage run created by this safe-remove checker correction. Confirm `check_storage_safe_remove.py` and the two downstream checked-eject/persistence gates pass.
+2. If a further checker fails, identify its first concrete stale assertion and update only the contract to reflect the current product behavior; do not weaken the safe-remove postconditions.
+3. Poll XY-C1 #44994003623 and Process lifecycle #44994003659 for product SHA `89a6e740`. Claim L3 only if Build, TRX and artifact upload all pass on that same product-source content.
+4. While CI is pending, continue a separate whole-userland stability/security fix. Frozen backup remains read-only; no hardware L4 claim.

@@ -1,3 +1,13 @@
+## 2026-11-22 — Update safe-remove retry checker for PID 1 queue handoff
+
+- Parent main SHA: `9110090e4886d5a183dfe21dfbd26fde08698aea`. The corrected whole-storage caller graph passed on exact SHA `9110090e4886d5a183dfe21dfbd26fde08698aea`; the workflow then reached `scripts/check_storage_safe_remove.py` and failed at its stale line 478, which still demanded `nvram_set_int_temp("usb_hotplug_ms", 1)` and `alarm(5)` inside `safe_remove_stor_device()`.
+- The product fix at `89a6e740e24a63142a56e3406136e86a514ce1a2` intentionally replaced that short-lived applet's local alarm with `notify_rc_status("on_hotplug_mass_storage")` after releasing `storage_lock`. PID 1 then owns the deferred event/alarm lifecycle; queue failure is logged and propagated rather than falsely reported as scheduled.
+- Updated the source contract to require the PID 1 event name, verify no direct NVRAM marker/alarm remains in the short-lived retry block, require both success/failure logging and preservation of the notification errno. No product source changed in this checker-only slice.
+- Exact 9110090e storage run #44994229595: the embedded whole-storage caller graph passed; the workflow failed in this stale safe-remove checker. The AI handoff contract #44994229636 passed. XY-C1 #44994003623 and Process lifecycle #44994003659 on product source ancestor `89a6e740` remained in progress; Process fail-closed #44994003779 and NVRAM boundary #44994003791 passed.
+- Next: rerun storage checker and downstream firmware persistence gates on the corrected SHA; inspect XY-C1 Build/TRX/artifact on the same product-source content. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Match USB printer acknowledgement checker to the retry-safe source order
 
 - Parent main SHA: `89a6e740e24a63142a56e3406136e86a514ce1a2`. Exact-head USB storage run #44994003668 passed the BusyBox ash Optware lifecycle checks, MTD save/restore/erase/backup transaction checks, persistence gate, eject inventory regression, deferred storage cleanup/ack regression, checked event-marker and Optware child-result tests, FTP daemon and storage-stop regressions, RC service-launch test, filesystem module-load lock checks and automount ownership checks.
