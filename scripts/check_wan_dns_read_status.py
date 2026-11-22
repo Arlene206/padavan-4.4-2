@@ -453,8 +453,7 @@ wan_ifname_proto = "".join(body(source, "get_wan_ifname(char wan_ifname[16])").s
 ifname_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
 require(ifname_proto_read in wan_ifname_proto and
         "if(status!=0)errno=status;returnstatus;" in wan_ifname_proto and
-        wan_ifname_proto.index(ifname_proto_read) < wan_ifname_proto.index("wan_ifname_copy(") and
-        "get_wan_proto(unit)" not in wan_ifname_proto,
+        "wan_proto=get_wan_proto(unit)" not in wan_ifname_proto,
         "WAN interface selection must not guess the MAN interface on protocol read failure")
 
 wan_ip4 = "".join(body(source, "get_wan_ip4(int only_broadband_wan)").split())

@@ -33,7 +33,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - The boolean manual-PPP classifier uses a checked protocol wrapper that returns a negative error sentinel on read failure; `is_ifunit_man()` maps the sentinel explicitly to `true` so an unreadable protocol cannot trigger destructive IPoE cleanup.
 - The first follow-up checker correction (`dc5df775b1ec1043b5f4c1ce42f472533f886682`) removed the stale PPTP expectation, but exact WAN route #44965681798 and XY-C1 #44965681825 exposed a second checker extraction bug: a comment occurrence of `is_ifunit_man(` preceded the function definition, so the generic matcher extracted the wrong body. THIS checker-only fix now scopes to the exact function signature. XY-C1 also surfaced an independent `run_samba` source-contract extraction failure, tracked separately.
 - THIS source slice closes five more protocol-error fallthroughs: DNS mode, WAN interface-name selection, WAN IPv4 lookup, link-restored DHCP renewal and `udhcpc_deconfig()`. The latter preserves the MAN underlay when protocol is unreadable but still calls `man_down_internal()` and aggregates the protocol error with teardown status.
-- Next: audit `stop_wan_locked()` and `wan_down_internal()` for skipped static-address/DHCP-route/auth cleanup on protocol-read failures; keep teardown and unrelated cleanup unconditional.
+- Exact WAN route #44966179307 failed only at the new `get_wan_ifname()` source-contract assertion after prior host regressions passed; the assertion's broad getter substring check is being narrowed to the obsolete assignment. WAN DHCP callback #44966179303 and AI handoff #44966179398 passed on the same SHA.
+- Next: rerun WAN route, then audit `stop_wan_locked()` / `wan_down_internal()` for skipped static-address/DHCP-route/auth cleanup on protocol-read failures; keep teardown and unrelated cleanup unconditional.
 
 ## Verification boundary
 

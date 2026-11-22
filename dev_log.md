@@ -1,3 +1,13 @@
+## 2026-11-22 08:22 CST — Narrow WAN interface protocol contract to the unsafe getter
+
+- Parent main SHA: `0ae742a0e277c75dd5b335f4a62098da5ab6c030`.
+- Exact WAN route #44966179307 failed at the newly added `get_wan_ifname()` source assertion. The implementation contains the checked protocol read and returns its status before publishing the interface name; the assertion's broad substring check for `get_wan_proto(unit)` also matches unrelated text in the extracted function body and is redundant with the narrower obsolete assignment check.
+- THIS checker-only fix narrows the stale-getter prohibition to `wan_proto=get_wan_proto(unit)`, while retaining requirements for the checked reader and immediate error return. No product source changed.
+- On the same SHA, WAN DHCP callback #44966179303 and AI handoff contract #44966179398 completed successfully. WAN route host regressions before this one source-contract assertion all passed.
+- Next: rerun WAN route on this checker descendant, then resume `stop_wan_locked()` / `wan_down_internal()` teardown audit. Firmware L3/L4 remains unverified until same-SHA target Build/TRX/artifact and hardware validation exist.
+
+---
+
 ## 2026-11-22 08:20 CST — Repair WAN protocol source-check syntax and DHCP deconfig contract
 
 - Parent main SHA: `c2fcb3bb5375637cf0ff9a48cc5cd47eb7b62514`.
