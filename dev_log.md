@@ -1,3 +1,11 @@
+## 2026-11-22 16:04 CST — Load PID 1 test source in HTTPD contract
+
+- Parent main SHA: `1a5bb1367ba92b39f46a89b7172b9f816cc19f56`. Exact PID1 mdev #45001003224, Process lifecycle inventory #45001003203 and AI handoff #45001003376 PASS.
+- Exact HTTPD #45001003234 passed its GNU89/Werror PID1 policy executable and all prior checks, then failed in the embedded Python source contract with `NameError: name 'pid1_test' is not defined`. The assertion referenced the test file but this HTTPD step loaded only `init.c` and `pid1_signal_policy.h`; the parallel mdev contract already loaded the test file explicitly.
+- THIS COMMIT adds the missing `Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()` binding. No product C behavior changed. NVRAM #45001003186 and XY-C1 #45001003215 were IN_PROGRESS at last poll; exact new-head Actions required. No L3/L4 claim.
+
+---
+
 ## 2026-11-21 23:51 PST — Correct errno matcher in PID 1 mask contracts
 
 - Parent main `80ad0e36e6c2ebca9dd2347f2dee484ee50915f6`. Exact 80ad Process lifecycle #45000794677 and AI docs #45000794731 PASS; NVRAM #45000794652 was still running. PID1 mdev #45000794651 and HTTPD #45000794708 failed in their newly added source contracts, not in the checked mask logic: the raw helper line is `errno = 0;`, while our matcher expected `errno=0;`. HTTPD's GNU89 C policy regression compiled and executed before the Python contract failed.

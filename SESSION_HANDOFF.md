@@ -5,11 +5,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-
 - Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: 80ad0e36e6c2ebca9dd2347f2dee484ee50915f6. Exact 80ad Process lifecycle inventory #45000794677 and AI docs #45000794731 PASS; NVRAM #45000794652 was still running at last poll.
-- Exact 80ad PID1 mdev #45000794651 and HTTPD #45000794708 failed only at newly added source-contract assertions for the policy helper's errno reset. The helper spells this as `errno = 0;`; the matchers mistakenly required whitespace-free `errno=0;`. HTTPD's GNU89 policy C test compiled and ran before the Python source contract failed. THIS COMMIT fixes the raw-source spelling and adds an explicit SIGALRM membership case for the helper's optional old-set path.
-- The previous 34d HTTPD/mdev matcher failures caused by checking the wrong wrapper layer were corrected in c9. The 80ad failures are this separate whitespace-sensitive assertion; exact reruns are required. XY-C1 34d #45000637923 was still building; NVRAM 34d #45000638001 had been cancelled by the newer SHA. No L3 or L4 claim.
+- Parent main for this checkpoint: 1a5bb1367ba92b39f46a89b7172b9f816cc19f56. PR #1's 17-commit head was compared read-only with current main; its unmerged ALIDDNS changes remain to be inventoried for safe porting after this active CI failure is resolved.
+- Exact 1a5bb Process lifecycle inventory #45001003203, PID1 mdev #45001003224 and AI docs #45001003376 PASS. NVRAM #45001003186 and XY-C1 #45001003215 were IN_PROGRESS at last inspection. HTTPD #45001003234 FAILED only at the final embedded PID1 source-contract step: it referenced `pid1_test` without loading the test file into that Python namespace. The GNU89/Werror policy C executable and all preceding HTTPD checks passed.
+- The earlier mask-contract corrections are validated by same-SHA mdev PASS; this HTTPD failure is an independent missing test-source binding, not a production C regression. The C test covers optional `old_set == NULL`, SIGALRM forwarding and stale errno clearing.
 
 ## Completed source slices
 
@@ -29,18 +28,15 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-
-- Correct the exact 80ad mdev/HTTPD contract failure. Logs identify a single source-checker mismatch: the header contains `errno = 0;`, while the newly added checker assertion searched for `errno=0;`. Both C files and the checked-mask logic were already present; HTTPD compiled and executed the GNU89 test successfully before failing at the final Python contract.
-- THIS COMMIT corrects the whitespace-sensitive matcher in both workflows and strengthens the mask test to pass a SIGALRM-only set on the SIG_UNBLOCK / NULL old-mask path.
+- Fix the exact 1a5bb HTTPD failure in `.github/workflows/httpd-security.yml`: the PID1 signal source-contract block reads `init.c` and `pid1_signal_policy.h`, then references `pid1_test` without loading `trunk/user/rc/src/tests/pid1_signal_policy.c`. Add the missing `Path(...).read_text()` binding beside the other source loads.
+- The production PID1 mask regression already compiled and executed successfully with GNU89/Werror; the parallel mdev contract passes on 1a5bb. This is a workflow-only correction, with no runtime C behavior change. Exact-head reruns are required.
 
 ## Verification boundary
-
-- Exact 80ad Process lifecycle #45000794677 and AI docs #45000794731 PASS. NVRAM #45000794652 was in progress. PID1 mdev #45000794651 and HTTPD #45000794708 failed only at the errno spelling in the new source contract.
-- Exact 34d XY-C1 #45000637923 was still building; its NVRAM #45000638001 was cancelled after SHA supersession. Do not infer L3.
-- Hardware L4 NOT VERIFIED.
+- Exact 1a5bb Process lifecycle inventory #45001003203, PID1 mdev #45001003224 and AI docs #45001003376 PASS.
+- Exact 1a5bb HTTPD #45001003234 failed only because `pid1_test` was undefined in its embedded Python contract; its GNU89/Werror C regression passed. NVRAM #45001003186 and XY-C1 #45001003215 were PENDING/IN_PROGRESS at last inspection.
+- No same-SHA L3 claim: confirm Build XY-C1, TRX verification and artifact upload all execute and pass on one product-source SHA. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-
-1. Check mdev, HTTPD, NVRAM, Process lifecycle and XY-C1 exact-head runs after this checker/test correction, then inspect exact failing logs if any.
-2. Confirm a real XY-C1 firmware build, TRX verification and artifact upload on one product-source SHA before claiming L3.
-3. Continue the next independent stability/security source fix. Keep hardware L4 NOT VERIFIED.
+1. Add the missing `pid1_test = Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()` binding to the HTTPD workflow's PID1 signal contract, then inspect its exact-head rerun and fix only the first causal failure.
+2. Recheck the NVRAM and XY-C1 runs on the current source; do not wait on pending CI. Claim L3 only when Build XY-C1, TRX verification and artifact upload all pass on the same product-source SHA.
+3. Once the HTTPD contract passes, resume the next highest-priority independent stability/security issue from the roadmap. Hardware L4 remains NOT VERIFIED.

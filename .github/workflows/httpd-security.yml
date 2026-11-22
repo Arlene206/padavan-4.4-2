@@ -5387,6 +5387,7 @@ jobs:
 
           init = Path("trunk/user/rc/src/init.c").read_text()
           policy = Path("trunk/user/rc/src/pid1_signal_policy.h").read_text()
+          pid1_test = Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
           def body(source, signature):
