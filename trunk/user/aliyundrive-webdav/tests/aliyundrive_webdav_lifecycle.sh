@@ -407,12 +407,13 @@ if start_ald; then
   echo "FAIL: process presence without an HTTP listener was reported ready" >&2
   exit 1
 fi
-[ -e "$TEST_RUN_MARKER" ] &&
-[ "$(wc -l < "$TEST_HTTP_LOG")" -eq 11 ] &&
-[ "$TEST_SLEEP_COUNT" -eq "$ALD_START_WAIT_SECONDS" ] || {
-  echo "FAIL: HTTP readiness timeout was not bounded or did not retain the live process" >&2
+test_http_probe_lines=$(wc -l < "$TEST_HTTP_LOG")
+if [ ! -e "$TEST_RUN_MARKER" ] ||
+   [ "$test_http_probe_lines" -ne 11 ] ||
+   [ "$TEST_SLEEP_COUNT" -ne "$ALD_START_WAIT_SECONDS" ]; then
+  echo "FAIL: HTTP timeout state marker=$([ -e "$TEST_RUN_MARKER" ] && echo present || echo absent) probes=$test_http_probe_lines sleeps=$TEST_SLEEP_COUNT expected_sleeps=$ALD_START_WAIT_SECONDS" >&2
   exit 1
-}
+fi
 
 # A listener that becomes ready later must be accepted without duplicate launch.
 rm -f "$TEST_RUN_MARKER" "$TEST_ARG_LOG"

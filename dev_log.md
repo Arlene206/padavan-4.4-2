@@ -1,3 +1,11 @@
+## 2026-11-22 — Add diagnostics to AliyunDrive HTTP readiness timeout regression
+
+- Parent main SHA: `4b01a3e8638bb0fd94f7ca7f38d5556bb61a2c27`. AliyunDrive lifecycle Action #45042609844 failed in the new "live PID but no HTTP listener" case with only a generic assertion message. The process/HTTP logic reached the timeout test, but the failure did not reveal which of the marker, HTTP probe count or bounded sleep count differed.
+- Changed the regression failure branch to print all three observed values and the expected sleep bound. This is diagnostic-only; no production code or expected behavior changed. Exact rerun needed to expose the real cause before changing the implementation or test contract.
+- The parallel main fix for the initial shell parameter-expansion typo is at `4b01a3e8638bb0fd94f7ca7f38d5556bb61a2c27`; #45042609844 still failed after reaching the timeout assertion. Other exact-source actions for this latest AliyunDrive head remain to be checked. No firmware build or local test claim.
+
+---
+
 ## 2026-11-22 — Expand HTTP readiness response fields in the AliyunDrive launcher
 
 - Parent main SHA: `af2144472068de1d02c5067d968958bdbc926d62`. Review of the newly added HTTP readiness probe found that the three parameter expansions were written with escaped dollar signs. The assignments therefore stored literal placeholders, so a healthy HTTP/1.1 200 or authentication-required 401 response could never be recognized as readiness.
