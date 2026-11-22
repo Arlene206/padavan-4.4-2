@@ -1,3 +1,8 @@
+## 2026-11-22 — Match Transmission stop PID fixture to pidof output framing
+
+- The first exact USB storage run after the Transmission stop preflight failed at the existing graceful-stop case. The new validator correctly rejected the test stub's newline-separated PID file, but the stub had returned raw file lines rather than pidof's whitespace-separated output. Updated only the fixture to convert the state records to a space-separated PID snapshot; the production parser continues to accept spaces and reject embedded newlines.
+- Re-run required to validate both normal multi-PID stop and the new no-signal malformed-snapshot cases.
+
 ## 2026-11-22 — Reject malformed Transmission PID snapshots before stop signals
 
 - Review of `func_stop()` found that it checked pidof's exit status and empty/nonempty consistency, but called `killall transmission-daemon` before validating the successful PID output. A status-0 response containing malformed, unsafe or whitespace-only data could therefore authorize a broad signal despite an UNKNOWN snapshot.

@@ -473,7 +473,8 @@ case "${STORAGE_TEST_STOP_PIDOF_STATUS:-0}" in
 	*) exit "$STORAGE_TEST_STOP_PIDOF_STATUS" ;;
 esac
 [ -s "$STORAGE_TEST_STOP_STATE" ] || exit 1
-exec /bin/cat "$STORAGE_TEST_STOP_STATE"
+# Match pidof's whitespace-separated output, not the test file's line records.
+tr '\\n' ' ' < "$STORAGE_TEST_STOP_STATE"
 EOF
 cat > "$STOP_STUB_DIR/killall" <<'EOF'
 #!/bin/sh
