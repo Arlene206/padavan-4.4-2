@@ -206,4 +206,21 @@ modem_wan_unplug_event_status(int read_status, int modem_rule,
 	return 0;
 }
 
+/*
+ * A physical modem unplug must notify WAN even when its identity snapshot is
+ * unreadable; skipping the event would leave stale WAN ownership behind.
+ */
+static inline int
+modem_wan_unplug_notification_required(int identity_status, int is_modem)
+{
+	return identity_status != 0 || is_modem != 0;
+}
+
+/* Do not auto-select a modem unless the current WAN identity is known. */
+static inline int
+modem_wan_auto_start_allowed(int identity_status, int is_modem)
+{
+	return identity_status == 0 && is_modem == 0;
+}
+
 #endif

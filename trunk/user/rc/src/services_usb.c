@@ -383,6 +383,7 @@ int
 try_start_usb_modem_to_wan(void)
 {
 	int modem_prio, has_link;
+	int modem_identity_status, is_modem_wan = 0;
 
 	if (get_ap_mode())
 		return 0;
@@ -392,9 +393,17 @@ try_start_usb_modem_to_wan(void)
 	if (modem_prio < 1)
 		return 0;
 
-	/* check modem already selected to WAN */
-	if (get_usb_modem_wan(0))
+	/* Do not auto-start when the current modem-WAN identity is unknown. */
+	modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+	if (!modem_wan_auto_start_allowed(modem_identity_status, is_modem_wan)) {
+		if (modem_identity_status != 0) {
+			logmessage("USB hotplug",
+				   "refusing modem auto-start because WAN modem identity cannot be read (status=%d)",
+				   modem_identity_status);
+			return modem_identity_status;
+		}
 		return 0;
+	}
 
 	/* check modem enabled and ready */
 	if (!get_modem_devnum())

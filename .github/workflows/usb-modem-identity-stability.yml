@@ -493,6 +493,8 @@ jobs:
               "trunk/user/shared/src/netutils.h",
               "trunk/user/shared/src/usb_modem_wan_policy.h",
               "trunk/user/rc/src/tests/usb_modem_wan_policy.c",
+              "trunk/user/rc/src/modem_wan_start_policy.h",
+              "trunk/user/rc/src/tests/modem_wan_start_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -595,12 +597,46 @@ jobs:
           assert ip4_identity < ip4_failed < ip4_return < ip4_proto
 
           reconnect = body(wan_network, "\nnotify_on_internet_state_changed(int has_internet, long elapsed)\n{")
-          reconnect_identity = reconnect.index("get_usb_modem_wan_status(0, &is_modem_wan)")
-          reconnect_failed = reconnect.index("if (modem_identity_status != 0)", reconnect_identity)
+          reconnect_identity = reconnect.index("get_usb_modem_wan_status(")
+          reconnect_arguments = reconnect.index("0, &is_modem_wan);", reconnect_identity)
+          reconnect_failed = reconnect.index("if (modem_identity_status != 0)", reconnect_arguments)
           reconnect_break = reconnect.index("break;", reconnect_failed)
           reconnect_queue = reconnect.index('queue_internet_lost_action("auto_wan_reconnect"', reconnect_break)
-          assert reconnect_identity < reconnect_failed < reconnect_break < reconnect_queue
+          assert reconnect_identity < reconnect_arguments < reconnect_failed < reconnect_break < reconnect_queue
           assert "get_usb_modem_wan(" not in wan_network
+
+          net_unplug_start = net.index("if(!get_hotplug_action(action)){")
+          net_unplug_end = net.index("goto out_unlock;", net_unplug_start)
+          net_unplug = net[net_unplug_start:net_unplug_end]
+          assert "get_usb_modem_wan_status(0, &is_modem_wan)" in net_unplug
+          assert "modem_identity_status != 0" in net_unplug
+          assert "modem_wan_unplug_notification_required(modem_identity_status, is_modem_wan)" in " ".join(net_unplug.split())
+          assert net_unplug.index("get_usb_modem_wan_status(") < net_unplug.index("modem_wan_unplug_notification_required(") < net_unplug.index('notify_usb_hotplug_event("on_unplug_usb_modem"')
+
+          tty = body(hotplug, "int mdev_tty_main(")
+          tty_unplug_start = tty.index("if(!get_hotplug_action(action)){")
+          tty_unplug_end = tty.index("goto out_unlock;", tty_unplug_start)
+          tty_unplug = tty[tty_unplug_start:tty_unplug_end]
+          assert "get_usb_modem_wan_status(0, &is_modem_wan)" in tty_unplug
+          assert "modem_identity_status != 0" in tty_unplug
+          assert "modem_wan_unplug_notification_required(modem_identity_status, is_modem_wan)" in " ".join(tty_unplug.split())
+          assert tty_unplug.index("get_usb_modem_wan_status(") < tty_unplug.index("modem_wan_unplug_notification_required(") < tty_unplug.index('notify_usb_hotplug_event("on_unplug_usb_modem"')
+
+          modem_start = body(services_usb, "try_start_usb_modem_to_wan(void)")
+          modem_identity_read = modem_start.index("get_usb_modem_wan_status(")
+          modem_identity_gate = modem_start.index("modem_wan_auto_start_allowed(", modem_identity_read)
+          modem_identity_error = modem_start.index("if (modem_identity_status != 0)", modem_identity_gate)
+          modem_identity_return = modem_start.index("return modem_identity_status;", modem_identity_error)
+          modem_start_call = modem_start.index("return try_wan_reconnect(1, 0);")
+          assert modem_identity_read < modem_identity_gate < modem_identity_error < modem_identity_return < modem_start_call
+          assert "get_usb_modem_wan(" not in modem_start
+          for marker in (
+              "test_unplug_notification_is_conservative_on_unknown_identity",
+              "test_modem_auto_start_requires_known_non_modem_identity",
+          ):
+              assert marker in retry_test and marker + "();" in retry_test
+          assert "modem_wan_unplug_notification_required" in retry_policy
+          assert "modem_wan_auto_start_allowed" in retry_policy
 
           print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY

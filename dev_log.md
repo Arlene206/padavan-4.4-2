@@ -1,3 +1,15 @@
+## 2026-11-22 — Preserve modem unplug cleanup and reject ambiguous auto-start
+
+- Parent main SHA: `6444ce9468a81e8f52b7636990b93ba994b7235a`.
+- Exact parent-head Actions: USB modem identity #44971100959 failed only in the final source contract because it searched for the checked modem identity call on one line; production wraps the call across two lines. AI handoff #44971100969, WAN route #44971100970 and Process lifecycle #44971100963 passed. The eight preceding USB host compile/regression steps passed.
+- `hotplug_usb.c`: both NDIS and TTY physical-unplug handlers now use `get_usb_modem_wan_status()`. A confirmed modem or an unreadable identity queues `on_unplug_usb_modem`; known non-modem state does not. This preserves mandatory WAN teardown when NVRAM identity reads fail.
+- `services_usb.c`: automatic modem selection now requires a successful identity read proving that the current WAN is not already a modem. Read errors are logged and returned before any reconnect request.
+- Added policy regressions for unknown-identity unplug cleanup and auto-start rejection, and source contracts for both physical unplug paths and the modem start gate. Repaired the multiline reconnect contract in the existing USB identity workflow. Existing GNU89/ASan/UBSan test integration is retained.
+- THIS COMMIT includes source, tests, workflow contract, handoff and this log entry atomically. Exact-head Actions and XY-C1 target Build/TRX/artifact are required; no local target build or hardware result is claimed.
+- Next: verify exact-head Actions, then migrate the remaining selectors in `usb_modem.c`, `rc.c` and `detect_link.c`.
+
+---
+
 ## 2026-11-22 — Correct exact-SHA WAN route, modem identity and process lifecycle contracts
 
 - Parent main SHA: `c4a27498de42e68bf21a358e4938008ff43ba0e7`. AI handoff #44970629909 PASS, Wireless #44970629880 PASS, WAN DHCP #44970629930 PASS, NVRAM transaction #44970629921 PASS and process lifecycle inventory scan #44970629864 PASS. XY-C1 #44970629875 remained IN_PROGRESS at last poll.

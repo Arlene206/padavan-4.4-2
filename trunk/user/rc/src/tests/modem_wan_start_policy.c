@@ -618,6 +618,27 @@ test_modem_unplug_rule_read_fails_closed(void)
 	assert(modem_wan_unplug_event_status(0, 1, NULL) == EINVAL);
 }
 
+
+static void
+test_unplug_notification_is_conservative_on_unknown_identity(void)
+{
+	assert(!modem_wan_unplug_notification_required(0, 0));
+	assert(modem_wan_unplug_notification_required(0, 1));
+	assert(modem_wan_unplug_notification_required(EIO, 0));
+	assert(modem_wan_unplug_notification_required(ENOSPC, 0));
+	assert(modem_wan_unplug_notification_required(ENOSPC, 1));
+}
+
+static void
+test_modem_auto_start_requires_known_non_modem_identity(void)
+{
+	assert(modem_wan_auto_start_allowed(0, 0));
+	assert(!modem_wan_auto_start_allowed(0, 1));
+	assert(!modem_wan_auto_start_allowed(EIO, 0));
+	assert(!modem_wan_auto_start_allowed(ENOSPC, 0));
+	assert(!modem_wan_auto_start_allowed(ENOSPC, 1));
+}
+
 int
 main(void)
 {
@@ -656,6 +677,8 @@ main(void)
 	test_wan_adjunct_service_failures_reach_start_status();
 	test_static_ipoe_upnp_reload_failure_reaches_start_status();
 	test_hotplug_notification_queue_failure_reaches_handler_result();
+	test_unplug_notification_is_conservative_on_unknown_identity();
+	test_modem_auto_start_requires_known_non_modem_identity();
 	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
 	test_modem_unplug_rule_read_fails_closed();
 	test_unplug_ifdown_failure_is_distinguished_from_removed_interface();

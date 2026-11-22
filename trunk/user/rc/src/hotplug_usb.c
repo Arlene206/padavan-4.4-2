@@ -359,6 +359,7 @@ int mdev_net_main(int argc, char **argv)
 	int isLock, devnum, data_len, publish_status, metadata_status = 0;
 	int interface_down_status, interface_down_errno;
 	int interface_flags, interface_error, interface_cleanup_status;
+	int modem_identity_status, is_modem_wan = 0;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -409,8 +410,17 @@ int mdev_net_main(int argc, char **argv)
 			}
 		}
 
-		/* Always notify the WAN owner even when best-effort interface cleanup fails. */
-		if (get_usb_modem_wan(0))
+		/*
+		 * Preserve mandatory WAN cleanup on physical unplug. If the identity
+		 * read fails, conservatively notify rather than leave stale WAN state.
+		 */
+		modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+		if (modem_identity_status != 0)
+			logmessage("USB",
+				   "cannot read modem WAN identity during NDIS unplug; queueing conservative cleanup (status=%d)",
+				   modem_identity_status);
+		if (modem_wan_unplug_notification_required(modem_identity_status,
+							   is_modem_wan))
 			metadata_status = modem_wan_hotplug_notification_result(
 				metadata_status,
 				notify_usb_hotplug_event("on_unplug_usb_modem", device_name));
@@ -471,6 +481,7 @@ out_unlock:
 int mdev_tty_main(int argc, char **argv)
 {
 	int isLock, devnum, has_int_pipe, data_len, publish_status, metadata_status = 0;
+	int modem_identity_status, is_modem_wan = 0;
 	char usb_port_id[64], usb_interface_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -498,7 +509,14 @@ int mdev_tty_main(int argc, char **argv)
 			metadata_status = 1;
 		}
 		
-		if (get_usb_modem_wan(0))
+		/* Unknown identity must not suppress physical-unplug WAN cleanup. */
+		modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+		if (modem_identity_status != 0)
+			logmessage("USB",
+				   "cannot read modem WAN identity during TTY unplug; queueing conservative cleanup (status=%d)",
+				   modem_identity_status);
+		if (modem_wan_unplug_notification_required(modem_identity_status,
+							   is_modem_wan))
 			metadata_status = modem_wan_hotplug_notification_result(
 				metadata_status,
 				notify_usb_hotplug_event("on_unplug_usb_modem", device_name));
