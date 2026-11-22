@@ -879,9 +879,13 @@ for signature, required_effect in wan_ipv6_callers:
 stop_mode = "".join(
     function_body_at_column_zero_terminator(source, "stop_wan_locked(void)").split()
 )
-require(stop_mode.index("ipv6_status=wan6_down(man_ifname,unit)") <
-        stop_mode.index("gotoabort_resume_detect;"),
-        "WAN stop must still fence DHCPv6 callbacks on a mode-read error")
+stop_mode_error = stop_mode.index("if(ipv6_type_status!=0)")
+stop_mode_fence = stop_mode.index(
+    "ipv6_status=wan6_down(man_ifname,unit)", stop_mode_error
+)
+stop_mode_abort = stop_mode.index("gotoabort_resume_detect;", stop_mode_fence)
+require(stop_mode_error < stop_mode_fence < stop_mode_abort,
+        "WAN stop must fence DHCPv6 callbacks before aborting on a mode-read error")
 down_mode = "".join(
     function_body_at_column_zero_terminator(
         source, "wan_down_internal(char *wan_ifname, int unit, int is_static)"
