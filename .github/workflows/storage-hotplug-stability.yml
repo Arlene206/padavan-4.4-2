@@ -1441,7 +1441,9 @@ jobs:
           # independently rejects a mounted whole-disk or partition path.
           spindown_fn = function_body(storage, "spindown_hdd(")
           assert 'argv[0] = "/sbin/spindown.sh";' in spindown_fn
-          assert "_eval(argv, NULL, 0, NULL);" in spindown_fn
+          assert "spindown_status = _eval(argv, NULL, 0, NULL);" in spindown_fn
+          assert "if (spindown_status != 0)" in spindown_fn
+          assert 'logmessage("Storage", "disk spindown failed for %s (status=%d)"' in spindown_fn
           assert 'spindown_mount_snapshot=$(cat "$spindown_mounts_file") || return 2' in spindown
           assert "suffix ~ /^[0-9]+$/ || suffix ~ /^p[0-9]+$/" in spindown
           assert '0) exit 1 ;; # mounted; do not spin down' in spindown

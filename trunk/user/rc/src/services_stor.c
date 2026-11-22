@@ -82,6 +82,7 @@ void
 spindown_hdd(char *sd_dev)
 {
 	char *argv[3];
+	int spindown_status;
 
 	if (!sd_dev)
 		return;
@@ -92,7 +93,10 @@ spindown_hdd(char *sd_dev)
 	argv[0] = "/sbin/spindown.sh";
 	argv[1] = sd_dev;
 	argv[2] = NULL;
-	_eval(argv, NULL, 0, NULL);
+	spindown_status = _eval(argv, NULL, 0, NULL);
+	if (spindown_status != 0)
+		logmessage("Storage", "disk spindown failed for %s (status=%d)",
+			   sd_dev, spindown_status);
 }
 
 static int storage_optware_result_fd = -1;
