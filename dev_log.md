@@ -1,3 +1,10 @@
+## 2026-11-22 — Align firewall NAT preflight checker with single-snapshot API
+
+- Parent main SHA: `ba4db5fa752074d89e99413642327fba5985aae1`. Exact-head USB workflow #44985821796 PASS; exact-head handoff validation #44985821715 PASS; process lifecycle #44985821691 PASS. Firewall workflow #44985821682 failed its inline source contract at `Verify required NAT restore gates WAN startup`, Python line 239: it still required `wan_nat_x` to be read inside `ipt_filter_rules()`.
+- The current firewall implementation intentionally reads the NAT toggle once in the outer restore/preflight path and passes `is_nat_enabled` into `ipt_filter_rules()`. The workflow already verifies checked preflight ordering in `start_firewall_ex_locked()`; requiring a second read inside the builder was stale and contradicted the single-snapshot design. Updated the assertion to require the passed boolean gate and explicitly reject a second raw NAT toggle read. The remaining VPN integer preflight checks are unchanged.
+- The ba4 XY-C1 check-run completed SUCCESS but `Build XY-C1`, `Verify TRX output` and `upload-artifact` were SKIPPED because ba4 changed only workflow/checker/documentation; therefore no L3 evidence. Next source slice is the manual USB modem control-node pin read fail-closed fix. Frozen backup unchanged.
+
+---
 ## 2026-11-22 — Align USB hotplug and NVRAM snapshot source contracts with checked implementation
 
 - Parent main SHA: `7744265e95743f832e51d6b0b041fc14167d175b` (includes the independent firewall NAT/DMZ transactional snapshot commit `7744265e95743f832e51d6b0b041fc14167d175b`).

@@ -390,8 +390,8 @@ jobs:
           assert "firewall_mac_filter_address_format" in filter_test
           assert 'A1:B2:C3:D4:E5:F6' in filter_test
           ipv4_filter = body(firewall_source, "ipt_filter_rules(char *man_if")
-          nat_gate = 'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)'
-          assert nat_gate in ipv4_filter
+          assert "if (is_nat_enabled)" in ipv4_filter
+          assert 'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)' not in ipv4_filter
           vpn_integer_gates = (
               'firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable)',
               'firewall_read_integer_setting("vpns_type", 0, &i_vpns_type)',
@@ -400,7 +400,7 @@ jobs:
               'firewall_read_integer_setting("vpnc_type", 0, &i_vpnc_type)',
               'firewall_read_integer_setting("vpnc_sfw", 0, &i_vpnc_sfw)',
           )
-          for gate in (nat_gate,) + vpn_integer_gates:
+          for gate in vpn_integer_gates:
               assert gate in ipv4_filter, gate
               assert ipv4_filter.index(gate) < ipv4_filter.index("firewall_open_rule_file("), gate
           for key in ("wan_nat_x", "vpns_enable", "vpns_type", "vpns_actl",
