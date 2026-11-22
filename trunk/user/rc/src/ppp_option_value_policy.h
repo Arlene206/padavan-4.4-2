@@ -76,40 +76,95 @@ ppp_option_value_escape(const char *value, char *out, size_t out_size)
 static int
 ppp_option_text_reject_ipparam(const char *value)
 {
-	const unsigned char *p, *start;
-	size_t key_len;
+	static const char forbidden[] = "ipparam";
+	const unsigned char *p;
+	size_t key_length;
+	int quoted, escaped, matches;
 
 	if (!value) {
 		errno = EINVAL;
 		return -1;
 	}
+
 	p = (const unsigned char *)value;
 	while (*p) {
-		while (*p == ' ' || *p == '\t')
+		/* pppd getword() accepts multiple options on one physical line. */
+		while (*p == ' ' || *p == '\t' || *p == '\n')
 			++p;
 		if (*p == '#') {
 			while (*p && *p != '\n')
 				++p;
-			if (*p == '\n')
+			continue;
+		}
+		if (!*p)
+			break;
+
+		/*
+		 * Follow getword() token boundaries: remove quote delimiters,
+		 * preserve escaped characters and treat a comment marker outside
+		 * quotes as the start of a comment. This catches quoted or adjacent
+		 * fragments such as "ipparam", ip"param" and "ip"param.
+		 */
+		key_length = 0;
+		matches = 1;
+		quoted = 0;
+		escaped = 0;
+		while (*p) {
+			unsigned char c = *p;
+
+			if (escaped) {
+				escaped = 0;
+				if (c != '\n') {
+					if (key_length >= sizeof(forbidden) - 1 ||
+					    forbidden[key_length] != c)
+						matches = 0;
+					++key_length;
+				}
 				++p;
-			continue;
-		}
-		if (*p == '\n') {
+				continue;
+			}
+			if (c == '\\') {
+				escaped = 1;
+				++p;
+				continue;
+			}
+			if (quoted) {
+				if (c == (unsigned char)quoted) {
+					quoted = 0;
+				} else {
+					if (key_length >= sizeof(forbidden) - 1 ||
+					    forbidden[key_length] != c)
+						matches = 0;
+					++key_length;
+				}
+				++p;
+				continue;
+			}
+			if (c == '"' || c == '\'') {
+				quoted = c;
+				++p;
+				continue;
+			}
+			if (c == ' ' || c == '\t' || c == '\n' ||
+			    c == '#' || c == '=')
+				break;
+			if (key_length >= sizeof(forbidden) - 1 ||
+			    forbidden[key_length] != c)
+				matches = 0;
+			++key_length;
 			++p;
-			continue;
 		}
-		start = p;
-		while (*p && *p != '\n' && *p != ' ' && *p != '\t' && *p != '=')
-			++p;
-		key_len = (size_t)(p - start);
-		if (key_len == 7 && memcmp(start, "ipparam", 7) == 0) {
+
+		if (matches && key_length == sizeof(forbidden) - 1) {
 			errno = EPERM;
 			return -1;
 		}
-		while (*p && *p != '\n')
-			++p;
-		if (*p == '\n')
-			++p;
+
+		/* Keep rejecting the legacy key=value spelling as a safety guard. */
+		if (*p == '=') {
+			while (*p && *p != ' ' && *p != '\t' && *p != '\n')
+				++p;
+		}
 	}
 	return 0;
 }

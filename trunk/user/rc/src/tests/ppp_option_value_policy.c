@@ -34,6 +34,33 @@ test_multiline_allocator_preserves_format_and_blocks_ipparam(void)
 	assert(errno == EPERM);
 	assert(escaped == NULL);
 
+	assert(ppp_option_text_escape_alloc(
+		"debug ipparam attacker", &escaped) == -1);
+	assert(errno == EPERM);
+	assert(escaped == NULL);
+
+	assert(ppp_option_text_escape_alloc(
+		"debug ipparam=attacker", &escaped) == -1);
+	assert(errno == EPERM);
+	assert(escaped == NULL);
+
+	assert(ppp_option_text_escape_alloc(
+		"debug \"ipparam\" attacker", &escaped) == -1);
+	assert(errno == EPERM);
+	assert(escaped == NULL);
+
+	assert(ppp_option_text_escape_alloc(
+		"debug ip\"param\" attacker", &escaped) == -1);
+	assert(errno == EPERM);
+	assert(escaped == NULL);
+
+	assert(ppp_option_text_escape_alloc(
+		"debug # ipparam is only a comment\nlogfile /tmp/ppp.log",
+		&escaped) == 0);
+	assert(strcmp(escaped,
+		"debug # ipparam is only a comment\nlogfile /tmp/ppp.log") == 0);
+	free(escaped);
+
 	assert(ppp_option_text_escape_alloc(NULL, &escaped) == -1);
 	assert(errno == EINVAL);
 	assert(escaped == NULL);
