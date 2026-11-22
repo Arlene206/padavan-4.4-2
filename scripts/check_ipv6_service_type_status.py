@@ -231,4 +231,16 @@ router_hosts_ipv6 = wan_router_hosts.index("if (ipv6_type != IPV6_DISABLED)")
 assert router_hosts_read < router_hosts_error < router_hosts_return < router_hosts_stage < router_hosts_ipv6
 assert "get_ipv6_type()" not in wan_router_hosts
 
+
+wan_udhcpc = function_body(net_wan, "start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)")
+dhcp_ipv6_read = wan_udhcpc.index("get_ipv6_type_status(&ipv6_type)")
+dhcp_ipv6_error = wan_udhcpc.index("if (ipv6_type_status != 0)", dhcp_ipv6_read)
+dhcp_ipv6_return = wan_udhcpc.index("return ipv6_type_status;", dhcp_ipv6_error)
+dhcp_6rd_gate = wan_udhcpc.index("if (ipv6_type == IPV6_6RD)", dhcp_ipv6_return)
+dhcp_start = wan_udhcpc.index("udhcpc_start_and_verify(", dhcp_6rd_gate)
+assert dhcp_ipv6_read < dhcp_ipv6_error < dhcp_ipv6_return < dhcp_6rd_gate < dhcp_start
+assert 'dhcp_argv[index++] = "-O212";' in wan_udhcpc[dhcp_6rd_gate:dhcp_start]
+assert 'dhcp_argv[index++] = "-O150";' in wan_udhcpc[dhcp_6rd_gate:dhcp_start]
+assert "get_ipv6_type()" not in wan_udhcpc
+
 print("IPv6 service-type checked-read source contract: PASS")

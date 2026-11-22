@@ -1,3 +1,11 @@
+## 2026-11-22 13:36 UTC+8 — Fail closed when WAN DHCP 6rd policy cannot be read
+
+- Parent main SHA: `a753477f00b5748533d4d01e2a1d862908c9ba53`. Prior main `66944d56ea2da8a129f557f1d385a875f74e0333` had the WAN checker correction pending. IPv6 service #44990023843 passed; Firewall Startup #44990023829, USB modem WDM/NDIS #44990024050 and XY-C1 #44990024029/Process #44990024080 failed at the stale WAN source-guard checker (first cause documented in the preceding entry), while multiple unrelated suites passed.
+- `start_udhcpc_wan()` no longer treats an unreadable `ip6_service` as “not 6rd”. It now returns the checked-read error before starting udhcpc; valid 6rd retains both DHCP options `-O212` and `-O150`.
+- Added explicit source-order checks for the read/error return, both DHCP options and process launch. Product source has no remaining legacy service-type getter in this function. No local compile; exact-head CI pending, L3/L4 not claimed.
+
+---
+
 ## 2026-11-22 13:36 UTC+8 — Align WAN startup source test with checked IPv6 reader
 
 - Parent main SHA: `66944d56ea2da8a129f557f1d385a875f74e0333`. Source commit `80f478f76dfb6caf2c73ba774358201757a065e8` passed IPv6 service #44989981542 and multiple network/security regressions, but Firewall Startup #44989981636 and USB modem WDM/NDIS #44989981642 failed in `scripts/check_modem_wan_start_status.py`.

@@ -8911,6 +8911,9 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 {
 	int dr_enable_value = 0;
 	int dr_enable_status;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 
 	int index, is_man;
 	char log_prefix[32], pidfile[32] = {0};
@@ -8978,7 +8981,15 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 	}
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() == IPV6_6RD) {
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage(LOGNAME,
+			   "cannot determine 6rd DHCP option policy; refusing WAN DHCP start (status=%d)",
+			   ipv6_type_status);
+		return ipv6_type_status;
+	}
+	if (ipv6_type == IPV6_6RD) {
 		dhcp_argv[index++] = "-O212";	/* "6rd" */
 		dhcp_argv[index++] = "-O150";	/* "comcast6rd" */
 	}

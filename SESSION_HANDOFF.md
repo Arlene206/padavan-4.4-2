@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop and verify on `main` only.
-- Live main before THIS WAN regression-checker correction: `66944d56ea2da8a129f557f1d385a875f74e0333`. Product source has checked IPv6 reads for WAN VLAN/WISP setup and LAN router-hosts generation, plus LAN/LANv6, firewall, FTP and generated NFS paths.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify/delete. PR #1 remains closed/unmerged.
-- GitHub Git data APIs are the edit/push path; no local firmware checkout/toolchain available.
+- Repository `Arlene206/padavan-4.4-2`; active branch `main` only.
+- Live main before THIS WAN DHCP 6rd option slice: `a753477f00b5748533d4d01e2a1d862908c9ba53`. Checked IPv6 reads cover LAN, LANv6, firewall, storage FTP/NFS, WAN VLAN/WISP and WAN resolver hosts generation.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve unchanged. PR #1 remains closed/unmerged.
+- GitHub Git data API is used for atomic tree/commit/expected-SHA update; no local toolchain checkout.
 
 ## Completed source slices
 
@@ -28,20 +28,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-1. Repair the stale WAN source assertions in `scripts/check_modem_wan_start_status.py`. The first source commit `80f478f76dfb6caf2c73ba774358201757a065e8` caused Firewall Startup #44989981636 and USB modem WDM/NDIS #44989981642 to FAIL only because the checker still searched for the old `if (get_ipv6_type() != IPV6_DISABLED)` guard. Product now uses checked preflight + `if (ipv6_type != IPV6_DISABLED)`; assert that checked read/error return happens before VLAN/WISP side effects and retain the control-if and interface-publication assertions.
-2. Once fixed, continue the final direct `get_ipv6_type()` calls in `net_wan.c` (6rd DHCP option) and `vpn_openvpn.c` (protocol fallback) with regression coverage.
+- THIS slice migrates the remaining direct WAN caller in `start_udhcpc_wan()`. The 6rd option decision now uses `get_ipv6_type_status()`; a service-state read/close error is returned before `udhcpc_start_and_verify()`, preventing a DHCP client from starting with a silently omitted 6rd option.
+- Valid `IPV6_6RD` still adds DHCP options `-O212` and `-O150`; every other valid mode retains the prior omission behavior.
+- The IPv6 source checker pins checked-read/error-return ordering before the process launch and asserts both 6rd options. No direct legacy getter remains in this function.
+- Remaining direct service-type caller from the earlier inventory: `vpn_openvpn.c` protocol fallback (three functions). Continue with fail-closed configuration semantics and tests.
 
 ## Verification boundary
 
-- Exact source SHA `80f478f76dfb6caf2c73ba774358201757a065e8`: IPv6 service-type #44989981542 PASS; WAN route #44989981485 PASS; WAN teardown #44989981553 PASS; HTTPD #44989981516 PASS; DNSMasq #44989981686 PASS; miniupnpd #44989981611 PASS; watchdog #44989981627 PASS; detect-link #44989981481 PASS; detect-internet #44989981458 PASS; ZeroTier #44989981539 PASS; wireless #44989981457 PASS.
-- Two non-product checker failures on that SHA: Firewall Startup #44989981636 and USB modem WDM/NDIS #44989981642 both passed all preceding compile/runtime steps but failed when invoking `scripts/check_modem_wan_start_status.py` at obsolete assertion `parent_ipv6_guard >= 0`. Root cause: checker expected legacy getter; product now uses checked type/status guard. No C test failures reported in either job.
-- XY-C1 #44989981487, WAN DHCP #44989981651, VPN lifecycle #44989981591, Process #44989981564 and ARP probe #44989981574 were IN_PROGRESS at last poll; follow up by exact SHA.
-- Main `66944d56ea2da8a129f557f1d385a875f74e0333` has pending Firewall, IPv6, WAN route/teardown, NVRAM, AI docs, XY-C1 and other exact-head Actions.
-- No local C build. L3 NOT VERIFIED until same-SHA XY-C1 Build, TRX verification and artifact upload pass; L4 hardware NOT VERIFIED.
+- WAN regression checker correction `a753477f00b5748533d4d01e2a1d862908c9ba53` fixes the stale `get_ipv6_type()` guard assumptions found in Firewall Startup #44990023829 and USB modem WDM/NDIS #44990024050 on parent source SHA `66944d56ea2da8a129f557f1d385a875f74e0333`. Exact-head validation for the correction is pending.
+- On `66944d5`, IPv6 service-type #44990023843 PASS; WAN route #44990023904, WAN teardown #44990023958, WAN DHCP callback #44990023901, ARP probe #44990023982, watchdog #44990023872, wireless #44990023825, HTTPD #44990023956, DNSMasq #44990024125, Process inventory #44990024054, ZeroTier #44990023976, miniupnpd #44990024006, AI docs #44990023851 and router NVRAM #44990023867 PASS.
+- On the same parent `66944d5`, XY-C1 #44990024029 and Process lifecycle #44990024080 failed at the same stale `check_modem_wan_start_status.py` assertion during the embedded test step (all preceding C policy binaries passed); the checker correction is intended to resolve this. NVRAM transaction audit #44990023959 was IN_PROGRESS at last poll.
+- THIS DHCP 6rd source SHA awaits exact-head CI. No local C compile/build or L3/L4 claim. L3 requires same-SHA XY-C1 build, TRX verification and artifact upload all PASS.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head IPv6 service, Firewall Startup and USB modem WDM/NDIS Actions on THIS checker correction; confirm the stale-source checks are fully green.
-2. Continue WAN DHCPv4 6rd option with checked service-type status before starting udhcpc; then finish OpenVPN protocol fallback so NVRAM read failure cannot silently downgrade IPv6 transport to IPv4.
-3. Recheck XY-C1/NVRAM/Process and WAN jobs by exact `head_sha`; do not infer current results from older SHA.
-4. L3/L4 remain unverified until explicit target/device gates pass.
+1. Verify exact-head IPv6 service, Firewall Startup, USB WDM/NDIS, XY-C1 and Process lifecycle jobs after the stale WAN source checker correction. Only close those failures if the corrected checks PASS on the exact SHA.
+2. Check THIS 6rd DHCP source commit by exact SHA; require checked service-type source checker and WAN DHCP test.
+3. Migrate the three OpenVPN protocol-fallback callsites so unreadable service state does not silently downgrade transport to IPv4; add a targeted checker/regression.
+4. Keep L3/L4 unverified until same-SHA build/TRX/artifacts and actual hardware checks pass.
