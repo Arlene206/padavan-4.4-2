@@ -1,3 +1,12 @@
+## 2026-11-22 — Keep full WAN restart safe when manual interface is unset
+
+- Parent main SHA: `11576ae4e50f8bb063682bbb94929a7bae394a47`. Current code explicitly accepts an empty `wan0_ifname` and sets `man_ifname[0] = '\\0'`, but then passed that empty string as one of two required devices to `rc_wan_route_flush_and_cache_apply()`. The policy correctly returns `EINVAL` for empty device names; this happened only after `stop_wan()`, so a restart with no manual WAN device could stop services, flush the global cache, then abort before the remaining restart sequence.
+- Added a route-selection policy that always includes the required LAN bridge and includes the manual WAN device only when nonempty. The selection/validation now occurs before `update_router_mode()` and `stop_wan()`; the existing strict flush helper still rejects empty names. Added host regressions for empty optional device, configured two-device order, missing bridge and insufficient capacity, plus exact source-contract assertions.
+- Exact SHA `11576ae4e50f8bb063682bbb94929a7bae394a47` checks PASS: HTTPD #45044509138, AliyunDrive #45044509155, AI handoff #45044509168, Process inventory #45044509233, NVRAM boundary #45044509202. NVRAM regression included the newly-added checked-get CLI test. XY-C1 push workflow did not trigger on that SHA because path filters omitted the AliyunDrive and NVRAM source locations; older #45043730811 passed on product source SHA `3556d297e887ad81b5457e16a33b32eafadafa9a` and does not cover `11576ae`. The present `net_wan.c` change is included in the XY-C1 path filter.
+- No local C test, firmware build, TRX/artifact or hardware validation was performed during this session. L3/L4 remain NOT VERIFIED until same-source build/TRX/artifact and physical-router checks respectively.
+
+---
+
 ## 2026-11-22 — Distinguish NVRAM backend errors in AliyunDrive startup
 
 - Parent main SHA: `26d91277af7c0983a4a031f280bdef72ed4010ba`. The legacy CLI `nvram get` uses `nvram_get()`, which collapses missing keys and `/dev/nvram` open/ioctl/close failures to NULL with status 0. A transient error reading `aliyundrive_enable` could therefore be treated as disabled and stop a healthy daemon; failures for other settings or credentials could silently become empty values.

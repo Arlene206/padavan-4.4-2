@@ -5699,7 +5699,9 @@ full_restart_wan(void)
 	int static_lan_route_status;
 	int switch_vlan_status;
 	int route_flush_status;
+	int route_ifname_status;
 	int is_ap_mode, ap_mode_status, ifname_status;
+	unsigned int route_ifname_count;
 	char man_ifname[16], man_ifname_nvram[16];
 	char *route_ifnames[2];
 
@@ -5741,6 +5743,23 @@ full_restart_wan(void)
 		man_ifname[0] = '\0';
 	}
 
+	/*
+	 * No manual interface is a valid empty configuration: still flush the
+	 * bridge and global route cache, but never pass an empty device to ip.
+	 * Select and validate the complete route set before stopping WAN services.
+	 */
+	route_ifname_status = rc_wan_route_flush_select_interfaces(
+		man_ifname, IFNAME_BR, route_ifnames,
+		sizeof(route_ifnames) / sizeof(route_ifnames[0]),
+		&route_ifname_count);
+	if (route_ifname_status != 0) {
+		errno = route_ifname_status;
+		logmessage(LOGNAME,
+			   "aborting full WAN restart because route-flush interface selection failed (status=%d)",
+			   route_ifname_status);
+		return route_ifname_status;
+	}
+
 	status = update_router_mode();
 	if (status != 0) {
 		logmessage(LOGNAME,
@@ -5754,10 +5773,8 @@ full_restart_wan(void)
 			   status);
 		return status;
 	}
-	route_ifnames[0] = man_ifname;
-	route_ifnames[1] = IFNAME_BR;
 	route_flush_status = rc_wan_route_flush_and_cache_apply(
-		route_ifnames, 2, clear_if_route4, flush_route_caches);
+		route_ifnames, route_ifname_count, clear_if_route4, flush_route_caches);
 	if (route_flush_status != 0) {
 		status = rc_wan_restore_lan_routes_after_failed_step(
 			route_flush_status, IFNAME_BR, add_static_lan_routes,

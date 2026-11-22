@@ -13,24 +13,25 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `26d91277af7c0983a4a031f280bdef72ed4010ba`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `11576ae4e50f8bb063682bbb94929a7bae394a47`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and untouched.
 - Recent work includes EAPoL orphan-tail cleanup, p910nd transient I/O handling, checked iNIC TxPower preflight, AliyunDrive process/HTTP readiness and AliDDNS NUL-delimited configuration fingerprint. See exact-SHA entries in `dev_log.md` for validation boundaries.
-- This slice adds opt-in `nvram get_checked` (legacy `get` unchanged) and makes all AliyunDrive startup setting reads fail closed on backend errors.
+- The checked NVRAM CLI and AliyunDrive fail-closed startup-read slice is now closed at L1/L2 on exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`.
+- New WAN route slice: `full_restart_wan()` explicitly permits an empty `wan0_ifname` but previously passed it as a required flush target after `stop_wan()`. The route-flush policy returns `EINVAL` for an empty device, so a restart with no manual interface would stop WAN and then abort. The in-progress change selects the manual WAN interface only when nonempty, always retains `br0`, and validates the route set before stopping services.
 
 ## Active task
 
-Validate the checked NVRAM CLI and AliyunDrive startup hardening. A failed `aliyundrive_enable` read must not be treated as disabled or stop a running service. Failure reading any subsequent setting must abort before workdir hardening or daemon launch.
+Close the optional-manual-interface WAN route-flush defect with policy regression and exact source contract. Confirm empty `wan0_ifname` selects only `br0`, while a configured manual interface still flushes both devices. Then verify the exact-head WAN route and XY-C1 workflows.
 
 ## Verification boundary
 
-- Exact parent `26d91277af7c0983a4a031f280bdef72ed4010ba`: AliDDNS signed API #45044076046 PASS; AI handoff #45044076040 PASS.
-- AliyunDrive ancestor `72ffcb355cff70e8dc7b54f708b3806e3eac7e66` passed shell syntax, QEMU binary compatibility and host lifecycle but failed a source checker ordering assertion; later main history corrected it. Re-run on this source SHA.
-- No local C/shell test, target build, TRX/artifact or hardware validation was performed for this slice.
+- Exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`: HTTPD security #45044509138 PASS; AliyunDrive WebDAV #45044509155 PASS (shell syntax, QEMU MIPSel CLI, lifecycle regression and source/RC contract); AI handoff #45044509168 PASS; Process inventory #45044509233 PASS; NVRAM transaction boundary #45044509202 PASS (including new checked-get regression and all prior boundary tests).
+- The XY-C1 push workflow did not trigger on `11576ae` because its path filter omitted the newly changed AliyunDrive and NVRAM CLI locations. The older XY-C1 run #45043730811 on source SHA `3556d297e887ad81b5457e16a33b32eafadafa9a` passed, but is not evidence for `11576ae`. The next `net_wan.c` source change is in the XY-C1 path filter and should trigger a current-source validation.
+- No local C/shell test, target build, TRX/artifact or hardware validation was performed for `11576ae`.
 - L3 remains NOT VERIFIED until XY-C1 Build, TRX validation and artifact upload all PASS on one identical production source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head NVRAM CLI, NVRAM transaction-boundary and AliyunDrive lifecycle Actions; inspect every job step and diagnose any failure.
-2. Inspect XY-C1 Build, TRX and artifact upload for the latest production source SHA; do not reuse ancestor results.
-3. Continue another independent confirmed userland stability/security issue while Actions are pending. Keep the frozen backup read-only and develop only on main.
+1. Inspect exact-head WAN route operation regression after the optional-interface selection change; review every step and diagnose the first failure.
+2. Inspect the triggered XY-C1 Build, TRX validation and artifact-upload results on the exact same source SHA; do not reuse the older 3556d29 artifact.
+3. Continue an independent stability/security defect while any Actions remain pending. Keep the frozen backup read-only and develop only on main.

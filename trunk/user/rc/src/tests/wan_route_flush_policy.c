@@ -77,6 +77,57 @@ test_all_interfaces_are_attempted_and_first_error_is_preserved(void)
 	assert(mock_calls == 2);
 }
 
+
+static void
+test_empty_optional_interface_selects_only_required_bridge(void)
+{
+	char *ifnames[2] = { NULL, NULL };
+	unsigned int count = 99;
+
+	assert(rc_wan_route_flush_select_interfaces(
+		"", "br0", ifnames, 2, &count) == 0);
+	assert(count == 1);
+	assert(strcmp(ifnames[0], "br0") == 0);
+
+	/* An empty optional interface must not become an EINVAL flush target. */
+	reset_case(0, 0);
+	assert(rc_wan_route_flush_and_cache_apply(
+		ifnames, count, mock_flush_route, mock_flush_route_cache) == 0);
+	assert(mock_calls == 1);
+	assert(strcmp(mock_ifnames[0], "br0") == 0);
+	assert(mock_cache_calls == 1);
+}
+
+static void
+test_manual_interface_and_bridge_are_both_selected_in_order(void)
+{
+	char *ifnames[2] = { NULL, NULL };
+	unsigned int count = 0;
+
+	assert(rc_wan_route_flush_select_interfaces(
+		"eth3", "br0", ifnames, 2, &count) == 0);
+	assert(count == 2);
+	assert(strcmp(ifnames[0], "eth3") == 0);
+	assert(strcmp(ifnames[1], "br0") == 0);
+}
+
+static void
+test_route_interface_selection_rejects_missing_bridge_and_small_buffer(void)
+{
+	char *ifnames[2] = { NULL, NULL };
+	unsigned int count = 99;
+
+	assert(rc_wan_route_flush_select_interfaces(
+		"eth3", "", ifnames, 2, &count) == EINVAL);
+	assert(count == 0);
+	assert(rc_wan_route_flush_select_interfaces(
+		"eth3", "br0", ifnames, 1, &count) == ENOSPC);
+	assert(count == 0);
+	assert(rc_wan_route_flush_select_interfaces(
+		NULL, "br0", ifnames, 0, &count) == EINVAL);
+	assert(count == 0);
+}
+
 static void
 test_successful_flush_returns_zero(void)
 {
@@ -294,6 +345,9 @@ int
 main(void)
 {
 	test_all_interfaces_are_attempted_and_first_error_is_preserved();
+	test_empty_optional_interface_selects_only_required_bridge();
+	test_manual_interface_and_bridge_are_both_selected_in_order();
+	test_route_interface_selection_rejects_missing_bridge_and_small_buffer();
 	test_successful_flush_returns_zero();
 	test_invalid_interface_does_not_skip_other_cleanup();
 	test_global_cache_flush_is_attempted_and_errors_are_preserved();

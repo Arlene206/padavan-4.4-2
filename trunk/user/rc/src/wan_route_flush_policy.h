@@ -8,6 +8,39 @@
 typedef int (*rc_wan_route_flush_fn)(char *ifname);
 
 /*
+ * The manual WAN interface is optional while WAN configuration is staged.
+ * The LAN bridge is always a required route domain for a full restart.
+ */
+static inline int
+rc_wan_route_flush_select_interfaces(const char *optional_ifname,
+				     const char *required_ifname,
+				     char **ifnames,
+				     unsigned int capacity,
+				     unsigned int *count_out)
+{
+	unsigned int count = 0;
+
+	if (count_out)
+		*count_out = 0;
+	if (!required_ifname || !required_ifname[0] || !ifnames ||
+	    !count_out || capacity == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	if (optional_ifname && optional_ifname[0]) {
+		if (capacity < 2) {
+			errno = ENOSPC;
+			return ENOSPC;
+		}
+		ifnames[count++] = (char *)optional_ifname;
+	}
+	ifnames[count++] = (char *)required_ifname;
+	*count_out = count;
+	return 0;
+}
+
+
+/*
  * Flush every requested interface even if an earlier flush fails. Returning
  * the first error prevents a WAN restart from rebuilding routes on top of
  * stale interface routes, while independent cleanup attempts still run.
