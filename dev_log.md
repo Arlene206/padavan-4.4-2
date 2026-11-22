@@ -1,3 +1,13 @@
+## 2026-11-22 — Preserve checked AP/router mode in the detect-link monitor
+
+- Parent main SHA: `e615c1538ce45af6969a27fd24de50f25565ab7c`. `dl_reset_state()` used unchecked `get_ap_mode()`, whose safe NVRAM fallback can turn a transient read failure into mode 0 (router). The link monitor then used that unverified mode to decide WAN-link checks.
+- Replaced the lossy mode read with `get_ap_mode_status()` and a tested cache-update policy. A failed startup read removes the just-published PID file and aborts before timer scheduling; a failed runtime refresh preserves the last-known-good mode and leaves other reset state untouched.
+- Added policy cases for successful AP/router transitions, error preservation and invalid output pointers. Extended the detect-link workflow to require checked-read and fail-closed ordering for startup and runtime refresh.
+- On parent SHA `e615c15`, detect-internet #45037219732, XY-C1 #45037219745, AI docs #45037219756, NVRAM #45037219754, Process inventory #45037219761 and Process lifecycle #45037219775 were in progress at last check. No local tests were run; new exact-head detect-link/process/XY-C1 Actions are required.
+- Result: THIS COMMIT. No L3 or hardware L4 claim. Next: inspect exact-head detect-link validation, then continue in a different subsystem.
+
+---
+
 ## 2026-11-22 — Guard detect_internet FD_SET against oversized socket descriptors
 
 - Parent main SHA: `913c512d2b18079113c521508bb446a7d534100c`. `di_connect_to_host()` passed the descriptor returned by `socket()` directly to `FD_SET()`; a valid descriptor at or above `FD_SETSIZE` can index beyond the fixed-size `fd_set` object and corrupt stack memory.

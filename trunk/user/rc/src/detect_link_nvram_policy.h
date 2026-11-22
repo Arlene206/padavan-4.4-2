@@ -24,4 +24,20 @@ detect_link_publish_wan_status(int status, int *last_published,
 	return result;
 }
 
+/*
+ * Update the cached AP/router topology only after a status-bearing NVRAM
+ * read succeeds. On failure the caller keeps its last-known-good mode.
+ */
+static inline int
+detect_link_apply_ap_mode_read(int read_status, int ap_mode,
+			       int *cached_ap_mode)
+{
+	if (!cached_ap_mode)
+		return EINVAL;
+	if (read_status != 0)
+		return read_status;
+	*cached_ap_mode = ap_mode ? 1 : 0;
+	return 0;
+}
+
 #endif

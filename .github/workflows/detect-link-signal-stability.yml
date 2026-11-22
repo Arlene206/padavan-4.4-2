@@ -147,6 +147,27 @@ jobs:
                          "test_invalid_policy_arguments_fail_closed"):
               assert marker in mirror_test and marker + "();" in mirror_test
           assert "detect_link WAN NVRAM mirror retry policy: PASS" in mirror_test
+          ap_mode_policy = (rc / "detect_link_nvram_policy.h").read_text()
+          assert "detect_link_apply_ap_mode_read(" in ap_mode_policy
+          assert "test_ap_mode_cache_changes_only_after_successful_read" in mirror_test
+          assert "test_ap_mode_cache_changes_only_after_successful_read();" in mirror_test
+          reset_body = body(detect, "dl_reset_state(void)")
+          reset_compact = "".join(reset_body.split())
+          assert "get_ap_mode_status(&ap_mode)" in reset_body
+          assert "detect_link_apply_ap_mode_read(status,ap_mode,&dl_is_ap_mode)" in reset_compact
+          assert "if(status!=0)returnstatus;" in reset_compact
+          assert "get_ap_mode()" not in reset_body
+          main = body(detect, "detect_link_main(int argc, char *argv[])")
+          startup_reset = main.index("reset_status = dl_reset_state();")
+          startup_failure = main.index("if (reset_status != 0)", startup_reset)
+          startup_return = main.index("return reset_status;", startup_failure)
+          timer_start = main.index("dl_alarmtimer(DL_POLL_INTERVAL)", startup_return)
+          startup_cleanup = main.index("remove(DL_PID_FILE)", startup_failure)
+          assert startup_reset < startup_failure < startup_cleanup < startup_return < timer_start
+          reset_dispatch = main.index("if (events & DL_PENDING_RESET)")
+          timer_dispatch = main.index("if (events & DL_PENDING_TIMER)", reset_dispatch)
+          assert "reset_status = dl_reset_state();" in main[reset_dispatch:timer_dispatch]
+          assert "retaining last-known-good topology" in main[reset_dispatch:timer_dispatch]
           handler = body(detect, "catch_sig_detect_link(int sig)")
           assert "detect_link_record_signal(&dl_pending_events, sig)" in handler
           for forbidden in ("dl_on_timer(", "dl_update_leds(", "dl_reset_state(",

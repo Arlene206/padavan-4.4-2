@@ -81,10 +81,18 @@ dl_alarmtimer(unsigned long sec)
 	setitimer(ITIMER_REAL, &itv, NULL);
 }
 
-static void
+static int
 dl_reset_state(void)
 {
-	dl_is_ap_mode = get_ap_mode();
+	int ap_mode, status;
+
+	/* Never collapse an AP/router NVRAM read error into router mode. */
+	ap_mode = dl_is_ap_mode;
+	status = get_ap_mode_status(&ap_mode);
+	status = detect_link_apply_ap_mode_read(status, ap_mode,
+						&dl_is_ap_mode);
+	if (status != 0)
+		return status;
 
 	dl_counter_total = 0;
 	dl_counter_wan_down = 0;
@@ -94,6 +102,7 @@ dl_reset_state(void)
 
 	dl_status_wisp = 0;
 	dl_status_wisp_old = 0;
+	return 0;
 }
 
 static int
@@ -478,7 +487,7 @@ int
 detect_link_main(int argc, char *argv[])
 {
 	pid_t pid;
-	int saved_errno;
+	int saved_errno, reset_status;
 	sig_atomic_t events;
 	sigset_t managed_signals, original_mask, wait_mask;
 	struct sigaction sa;
@@ -557,7 +566,17 @@ detect_link_main(int argc, char *argv[])
 		return saved_errno;
 	}
 
-	dl_reset_state();
+	reset_status = dl_reset_state();
+	if (reset_status != 0) {
+		if (remove(DL_PID_FILE) != 0 && errno != ENOENT)
+			logmessage("detect_link",
+				   "cannot remove PID file after AP/router mode read failure (errno=%d)",
+				   errno);
+		(void)sigprocmask(SIG_SETMASK, &original_mask, NULL);
+		errno = reset_status;
+		perror("detect_link startup AP/router mode");
+		return reset_status;
+	}
 	dl_alarmtimer(DL_POLL_INTERVAL);
 
 	while (1) {
@@ -588,8 +607,13 @@ detect_link_main(int argc, char *argv[])
 		}
 
 		/* Re-read topology before applying a queued poll to old state. */
-		if (events & DL_PENDING_RESET)
-			dl_reset_state();
+		if (events & DL_PENDING_RESET) {
+			reset_status = dl_reset_state();
+			if (reset_status != 0)
+				logmessage("detect_link",
+					   "AP/router mode refresh failed; retaining last-known-good topology (status=%d)",
+					   reset_status);
+		}
 
 		if (events & DL_PENDING_TIMER)
 			dl_on_timer();
