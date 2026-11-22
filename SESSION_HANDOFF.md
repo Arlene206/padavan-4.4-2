@@ -30,8 +30,11 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 - Checked libdisk get_account_list() transaction snapshot is implemented; ten fake-backend cases run from test main(). Account mutation setter/commit rollback remains separate and unchanged.
 - After this checker correction, inspect exact-head WAN DHCP, WAN route, AI, Process, NVRAM and XY-C1 Actions. Then continue with another bounded WAN/service lifecycle defect outside IPTV and libdisk.
 
-- Next: audit remaining DHCPv6 lease/service startup inputs for error-collapsing NVRAM getters that can change routes, DNS, DUID or client lifetime.
+- Next: audit remaining DHCPv6 lease/service startup inputs for error-collapsing NVRAM getters that affect routes, DNS, DUID or client lifetime.
 
+
+- `start_dhcp6c()` now snapshots `wan_hwaddr` before DUID/file/session side effects; missing/invalid MAC keeps legacy skip behavior while backend/close errors abort startup. Three fake-backend regressions cover missing key, read failure and close failure.
+- `reset_wan6_vars_status()` uses a mode-selected checked snapshot for static WAN identity and 6rd settings; three fake-backend tests cover coherent tuple, per-field failure and dynamic-mode selection.
 ## Verification boundary
 
 - Exact source SHA fe22b9fae01db2bb9fe57f2fffe67cee067ea364: WAN route #45022142699 PASS; AI handoff #45022142702 PASS; WAN DHCP callback #45022142584 FAILED only at stale inline source assertion after all preceding C sanitizer regressions passed, including the new IPTV test. The assertion expected direct launch calls inside launch_viptv_wan(); the source now delegates through its tested callback. WAN teardown #45022142730 PASS; HTTPD #45022142700 PASS; IPv6 service-type #45022142701 PASS; NVRAM boundary #45022142711 and XY-C1 #45022142628 remained in progress at last check; Process inventory #45022142755 was still in progress after inventory upload.

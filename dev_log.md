@@ -1,3 +1,14 @@
+## 2026-11-22 — Read DHCPv6 DUID hardware address before resource acquisition
+
+- Parent main SHA: df210641d1dcaaba795dde2c672e753643547f04. start_dhcp6c() used nvram_safe_get("wan_hwaddr") directly as the DUID/IAID hardware-address source, collapsing NVRAM backend failures to an empty value. A transient store error could thus be treated like a missing MAC while the client proceeded.
+- It now reads the key through rc_wan_nvram_copy_snapshot() and the existing begin/get/end transaction callbacks before the first callback-session/file resource side effect. Missing or invalid MAC remains a legacy no-DUID case; backend get or transaction-close errors return before starting the client.
+- Added three fake NVRAM tests: missing value compatibility, backend read failure, and transaction-close failure. Both WAN source-check scripts now require the checked one-field snapshot and reject nvram_safe_get("wan_hwaddr").
+- Reset-input snapshot is present on this branch: confirmed in the live net_wan6.c source.
+- Exact-head WAN DHCP, WAN route and AI handoff runs for this commit require live inspection. Do not infer a current-SHA PASS from a parent.
+- XY-C1 Build/TRX/artifact L3 and hardware L4 remain NOT VERIFIED.
+- Next: audit remaining DHCPv6 startup/lease configuration inputs for backend errors collapsed to defaults.
+
+---
 ## 2026-11-22 — Fail closed on DHCPv6 DUID hardware-address NVRAM errors
 
 - Parent main SHA: c338dc336ac798e6d319fb50fd0d3ec801fbc434. start_dhcp6c() used nvram_safe_get("wan_hwaddr") directly in ether_atoe(), so backend read failure was indistinguishable from a missing/invalid MAC and could be silently treated as normal while the DHCPv6 client started.

@@ -1557,6 +1557,16 @@ int start_dhcp6c(char *wan_ifname)
 	char staged_path[] = "/etc/.dhcp6c.conf.XXXXXX";
 	char generation_text[sizeof(unsigned long) * CHAR_BIT + 2];
 
+	wan6_hwaddr_field.param_name = "wan_hwaddr";
+	wan6_hwaddr_field.destination = wan6_hwaddr_snapshot;
+	wan6_hwaddr_field.destination_size = sizeof(wan6_hwaddr_snapshot);
+	wan6_hwaddr_status = rc_wan_nvram_copy_snapshot(
+		&wan6_hwaddr_field, 1, wan6_snapshot_transaction_begin,
+		wan6_snapshot_transaction_get, wan6_snapshot_transaction_end,
+		&wan6_hwaddr_transaction);
+	if (wan6_hwaddr_status != 0)
+		return wan6_hwaddr_status;
+
 	if (!wan_ifname || !wan_ifname[0] || strlen(wan_ifname) >= IFNAMSIZ) {
 		errno = EINVAL;
 		return -1;
@@ -1578,16 +1588,7 @@ int start_dhcp6c(char *wan_ifname)
 	if (!wan6_dhcp && !dns6_auto && !lan6_auto)
 		return 0; /* No DHCPv6 client work is configured. */
 
-	wan6_hwaddr_field.param_name = "wan_hwaddr";
-	wan6_hwaddr_field.destination = wan6_hwaddr_snapshot;
-	wan6_hwaddr_field.destination_size = sizeof(wan6_hwaddr_snapshot);
-	wan6_hwaddr_status = rc_wan_nvram_copy_snapshot(
-		&wan6_hwaddr_field, 1, wan6_snapshot_transaction_begin,
-		wan6_snapshot_transaction_get, wan6_snapshot_transaction_end,
-		&wan6_hwaddr_transaction);
-	if (wan6_hwaddr_status != 0)
-		return wan6_hwaddr_status;
-
+	
 	session_fd = dhcp6c_callback_session_lock(DHCP6C_CALLBACK_STATE_FILE,
 						  &generation, 1);
 	if (session_fd < 0) {
