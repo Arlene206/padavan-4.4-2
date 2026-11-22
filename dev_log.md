@@ -1,3 +1,11 @@
+## 2026-11-22 — Remove obsolete DHCPv6 callback local
+
+- Parent main SHA: `9e77c6924cc6bce18cb3fcb93d2e0b20ecd27f9c`. The LAN address callback now uses the bounded `addr6s` buffer directly through `wan6_identity_publish_lan_addr6()`; the old `lan_addr6_new` pointer local became unused after that refactor and would fail the project’s `-Werror` C build.
+- Removed the dead local only. No runtime behavior changed.
+- Result: THIS COMMIT. Exact-head WAN DHCP/route sanitizer workflows will validate the callback policy and production source contracts.
+
+---
+
 ## 2026-11-22 — Propagate DHCPv6 LAN address enumeration failures
 
 - Parent main SHA: `72a1ca0a81a3cc7a30183bfb6527337c00bf94f8`. The DHCPv6 lease callback previously called `get_ifaddr6(IFNAME_BR,...)` and passed its nullable result to `store_lan_addr6()`; the latter treats NULL/empty as a successful no-op. Since `get_ifaddr6()` also returns NULL with errno set when `getifaddrs()` fails, the callback silently reported success and left the last published LAN address untouched after an actual lookup failure.

@@ -1760,7 +1760,7 @@ int dhcp6c_main(int argc, char **argv)
 	int callback_fd, unlock_status, callback_status = 0, saved_errno = 0;
 	int dns_status, dns_errno, settings_status, lan_addr_status;
 	unsigned long generation;
-	char *dns6_new, *lan_addr6_new;
+	char *dns6_new;
 	char addr6s[INET6_ADDRSTRLEN + 5];
 	const char *callback_generation, *expected_ifname, *callback_ifname;
 
