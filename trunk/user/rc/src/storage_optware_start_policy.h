@@ -1,6 +1,7 @@
 #ifndef PADAVAN_STORAGE_OPTWARE_START_POLICY_H
 #define PADAVAN_STORAGE_OPTWARE_START_POLICY_H
 
+#include <errno.h>
 #include <fcntl.h>
 
 /*
