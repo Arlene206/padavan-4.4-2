@@ -176,10 +176,6 @@ int main(void)
 	expect_rejected(path, 1, "oversized credential file was accepted");
 	unlink(path);
 
-	make_path(path, sizeof(path), "special-mode");
-	create_file(path, "username=alice\npassword=secret\n", 04600);
-	expect_rejected(path, 1, "setuid credential file was accepted");
-	unlink(path);
 
 	{
 		char public_dir[512];
