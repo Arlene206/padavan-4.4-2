@@ -911,20 +911,34 @@ require("cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)
 wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
 require("char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];" in wan_up,
         "WAN-up must retain IPv4 NVRAM metadata in local bounded buffers")
-for copy_statement in (
-    'wan_addr_status = rc_wan_nvram_copy_text( get_wan_unit_value(unit, "ipaddr"), wan_addr, sizeof(wan_addr));',
-    'wan_mask_status = rc_wan_nvram_copy_text( get_wan_unit_value(unit, "netmask"), wan_mask, sizeof(wan_mask));',
-    'wan_gate_status = rc_wan_nvram_copy_text( get_wan_unit_value(unit, "gateway"), wan_gate, sizeof(wan_gate));',
+require("int route_snapshot_status," in wan_up,
+        "WAN-up must preserve the checked route-snapshot transaction status")
+wan_up_compact = "".join(wan_up.split())
+route_snapshot_call = "route_snapshot_status=wan_unit_route_snapshot(unit,wan_gate,sizeof(wan_gate),wan_addr,sizeof(wan_addr),wan_mask,sizeof(wan_mask));"
+route_snapshot_error = "if(route_snapshot_status!=0)"
+gateway_fallback = 'wan_gate_status=get_wan_unit_value_copy_status(unit,"gateway",wan_gate,sizeof(wan_gate));'
+gateway_decision = "gateway_valid=wan_gate_status==0&&is_valid_ipv4(wan_gate);"
+require(route_snapshot_call in wan_up_compact and
+        gateway_fallback in wan_up_compact and
+        gateway_decision in wan_up_compact,
+        "WAN-up must use one checked route tuple and a separately checked gateway fallback")
+snapshot_at = wan_up_compact.index(route_snapshot_call)
+snapshot_error_at = wan_up_compact.index(route_snapshot_error, snapshot_at)
+fallback_at = wan_up_compact.index(gateway_fallback, snapshot_error_at)
+gateway_decision_at = wan_up_compact.index(gateway_decision, fallback_at)
+require(snapshot_at < snapshot_error_at < fallback_at < gateway_decision_at and
+        "wan_addr_status=route_snapshot_status;" in wan_up_compact and
+        "wan_mask_status=route_snapshot_status;" in wan_up_compact and
+        "status=route_status_accumulate(status,route_snapshot_status);" in wan_up_compact,
+        "failed tuple snapshots must invalidate address/netmask and propagate before gateway routing")
+for unchecked_read in (
+    'get_wan_unit_value(unit,"ipaddr")',
+    'get_wan_unit_value(unit,"netmask")',
+    'get_wan_unit_value(unit,"gateway")',
+    "rc_wan_nvram_copy_text(",
 ):
-    require(copy_statement in " ".join(wan_up.split()),
-            "WAN-up must copy every rotating-cache address field before the next read: " + copy_statement)
-copy_positions = [wan_up.index('wan_addr_status = rc_wan_nvram_copy_text('),
-                  wan_up.index('wan_mask_status = rc_wan_nvram_copy_text('),
-                  wan_up.index('wan_gate_status = rc_wan_nvram_copy_text(')]
-require(copy_positions == sorted(copy_positions) and
-        wan_up.index("wan_gate_status = rc_wan_nvram_copy_text(") <
-        wan_up.index("route_status = set_nvram_snapshot_value_status("),
-        "WAN-up must snapshot all cache-backed IPv4 fields before NVRAM mutation")
+    require(unchecked_read not in wan_up_compact,
+            "WAN-up must not use independent unchecked rotating-cache reads: " + unchecked_read)
 require("if (wan_addr_status != 0)" in wan_up and
         "skipping WAN post-up script" in wan_up and
         'eval(script_postw, "up", wan_ifname, wan_addr)' in wan_up,

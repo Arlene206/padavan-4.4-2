@@ -1,3 +1,13 @@
+## 2026-11-21 19:27 PST — Align WAN firewall umbrella contract with checked route snapshot
+
+- Parent main SHA: `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`.
+- Exact WAN route run #44979351874 and XY-C1 run #44979351755 both failed at step 28/30, `Verify WAN firewall result propagation`, before later checks/build. The job log confirms GNU89/Werror/ASan/UBSan route-policy, teardown, PPP callback, and WAN NVRAM regressions had already passed, including the new `wan_nvram_status_policy.c` test.
+- Root cause is a stale shared checker, `scripts/check_wan_firewall_status.py` lines 912–927, which still required WAN-up to independently copy three rotating-cache values through `rc_wan_nvram_copy_text(get_wan_unit_value(...))`. The product fix intentionally replaced that pattern with a coherent checked `wan_unit_route_snapshot()` plus checked gateway-only fallback after tuple failure.
+- Updated the shared source contract to pin the checked snapshot, failure propagation, invalid address/netmask ownership, checked gateway fallback ordering, and absence of all three unchecked tuple getters. Both WAN-route and XY-C1 workflows explicitly include this script in their path filters.
+- No product source changed in THIS checker correction. Exact reruns must pass the source contract; current-source XY-C1 Build/TRX/artifact remains pending. Earlier product source `5b93812` separately has L3 Build/TRX/artifact PASS; that does not validate WAN change SHA `06604d0`.
+
+---
+
 ## 2026-11-21 19:18 PST — Use coherent checked WAN tuple during route-up
 
 - Parent main SHA: `9dfdae39490d7486f5dd33ff2b3ad68f23f1a0b0`; Samba workflow contract locator correction `9dfdae39490d7486f5dd33ff2b3ad68f23f1a0b0` has Samba #44979109639 PASS and AI docs #44979110109 PASS on its exact SHA.
