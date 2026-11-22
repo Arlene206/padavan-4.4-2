@@ -402,17 +402,34 @@ for forbidden in ("nvram_safe_get(", "nvram_get_int(", "get_wan_unit_value(", "g
     assert forbidden not in sit_body
 for required in ("rc_wan_nvram_copy_value(", "nvram_get_checked(", "rc_wan_nvram_read_int_status("):
     assert required in sit_copy_helper + sit_int_helper
-for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
-                 '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
+for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"',
+                 '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
     assert required in sit_body
-for required in ("get_wan_unit_value_int_status(", "get_wan_unit_value_copy_status(",
-                 "WAN6_SIT_READ_CHECK("):
-    assert required in sit_body
+assert "get_wan_unit_value_copy_status(" in sit_body
+assert "WAN6_SIT_READ_CHECK(" in sit_body
+sixrd_snapshot = body(source, "wan6_read_sit_6rd_parameters(int unit,")
+for required in ('"wan%d_6rd_size"', '"wan%d_6rd_relay"',
+                 "rc_wan_nvram_copy_int_text_snapshot(",
+                 "wan6_snapshot_transaction_begin",
+                 "wan6_snapshot_transaction_get",
+                 "wan6_snapshot_transaction_end"):
+    assert required in sixrd_snapshot
+sixrd_start = sit_body.index("} else if (ipv6_type == IPV6_6RD)")
+sixrd_end = sit_body.index("\n\t} else {", sixrd_start)
+sixrd_body = sit_body[sixrd_start:sixrd_end]
+assert "wan6_read_sit_6rd_parameters(" in sixrd_body
+assert "get_wan_unit_value_int_status(" not in sixrd_body
+assert "get_wan_unit_value_copy_status(" not in sixrd_body
+for marker in ("test_wan6_sit_6rd_parameters_share_one_transaction",
+               "test_wan6_sit_6rd_snapshot_discards_both_values_on_read_errors",
+               "test_wan6_sit_6rd_snapshot_preserves_missing_and_rejects_bad_size"):
+    assert marker in nvram_status_test and marker + "();" in nvram_status_test
 assert "#define WAN6_SIT_READ_CHECK" in source and "errno = status;" in source
 sit_first_mutation = sit_body.index("if (is_interface_exist(IFNAME_SIT))")
 assert all(sit_body.index(token) < sit_first_mutation for token in (
-    '"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"', '"6rd_relay"',
+    '"ip6_6in4_remote"', '"ip6_6to4_relay"',
     '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'))
+assert sit_body.index("wan6_read_sit_6rd_parameters(") < sit_first_mutation
 for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
                   "test_checked_nvram_copy_preserves_backend_failure",
                   "test_checked_nvram_copy_rejects_truncation",

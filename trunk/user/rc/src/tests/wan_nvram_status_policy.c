@@ -1915,6 +1915,122 @@ test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing(void)
 
 
 static void
+test_wan6_sit_6rd_parameters_share_one_transaction(void)
+{
+	static const char *const names[2] = {
+		"wan0_6rd_size", "wan0_6rd_relay"
+	};
+	static const char *const values[2] = { "32", "192.0.2.1" };
+	struct fake_nvram_transaction fake;
+	int size4 = 99;
+	char relay4[64] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = names[0];
+	fake.names[1] = names[1];
+	fake.values[0] = values[0];
+	fake.values[1] = values[1];
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	assert(rc_wan_nvram_copy_int_text_snapshot(
+		names[0], names[1], &size4, relay4, sizeof(relay4),
+		fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+		&fake) == 0);
+	assert(fake.begin_calls == 1 && fake.read_calls == 2 &&
+	       fake.end_calls == 1);
+	assert(size4 == 32 && strcmp(relay4, "192.0.2.1") == 0);
+}
+
+static void
+test_wan6_sit_6rd_snapshot_discards_both_values_on_read_errors(void)
+{
+	static const char *const names[2] = {
+		"wan0_6rd_size", "wan0_6rd_relay"
+	};
+	static const char *const values[2] = { "24", "198.51.100.1" };
+	struct fake_nvram_transaction fake;
+	int size4;
+	char relay4[64];
+	unsigned int failed;
+
+	for (failed = 0; failed < 2; ++failed) {
+		memset(&fake, 0, sizeof(fake));
+		fake.names[0] = names[0];
+		fake.names[1] = names[1];
+		fake.values[0] = values[0];
+		fake.values[1] = values[1];
+		fake.read_fail_at = (int)failed;
+		fake.missing_at = -1;
+		fake.read_error = EACCES;
+		size4 = 99;
+		strcpy(relay4, "stale");
+		assert(rc_wan_nvram_copy_int_text_snapshot(
+			names[0], names[1], &size4, relay4, sizeof(relay4),
+			fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+			&fake) == EACCES);
+		assert(fake.begin_calls == 1 && fake.end_calls == 1);
+		assert(size4 == 0 && relay4[0] == '\0');
+	}
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = names[0];
+	fake.names[1] = names[1];
+	fake.values[0] = values[0];
+	fake.values[1] = values[1];
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	fake.end_error = EIO;
+	size4 = 99;
+	strcpy(relay4, "stale");
+	assert(rc_wan_nvram_copy_int_text_snapshot(
+		names[0], names[1], &size4, relay4, sizeof(relay4),
+		fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+		&fake) == EIO);
+	assert(fake.begin_calls == 1 && fake.read_calls == 2 &&
+	       fake.end_calls == 1);
+	assert(size4 == 0 && relay4[0] == '\0');
+}
+
+static void
+test_wan6_sit_6rd_snapshot_preserves_missing_and_rejects_bad_size(void)
+{
+	static const char *const names[2] = {
+		"wan0_6rd_size", "wan0_6rd_relay"
+	};
+	struct fake_nvram_transaction fake;
+	int size4 = 99;
+	char relay4[64] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = names[0];
+	fake.names[1] = names[1];
+	fake.values[0] = "unused";
+	fake.values[1] = "192.0.2.9";
+	fake.read_fail_at = -1;
+	fake.missing_at = 0;
+	assert(rc_wan_nvram_copy_int_text_snapshot(
+		names[0], names[1], &size4, relay4, sizeof(relay4),
+		fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+		&fake) == 0);
+	assert(size4 == 0 && strcmp(relay4, "192.0.2.9") == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = names[0];
+	fake.names[1] = names[1];
+	fake.values[0] = "32trailing";
+	fake.values[1] = "192.0.2.9";
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	size4 = 99;
+	strcpy(relay4, "stale");
+	assert(rc_wan_nvram_copy_int_text_snapshot(
+		names[0], names[1], &size4, relay4, sizeof(relay4),
+		fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+		&fake) == EINVAL);
+	assert(size4 == 0 && relay4[0] == '\0');
+}
+
+static void
 test_wan6_unit_address_snapshot_copies_one_coherent_tuple(void)
 {
 	static const char *const names[3] = {
@@ -2219,6 +2335,9 @@ main(void)
 	test_transactional_snapshot_begin_failure_does_not_read_or_end();
 	test_transactional_snapshot_end_failure_invalidates_values();
 	test_transactional_snapshot_validates_before_opening_lock();
+	test_wan6_sit_6rd_parameters_share_one_transaction();
+	test_wan6_sit_6rd_snapshot_discards_both_values_on_read_errors();
+	test_wan6_sit_6rd_snapshot_preserves_missing_and_rejects_bad_size();
 	test_wan6_unit_address_snapshot_copies_one_coherent_tuple();
 	test_wan6_unit_address_snapshot_discards_partial_tuple_on_each_read_error();
 	test_wan6_reset_snapshot_copies_static_identity_and_6rd_settings();

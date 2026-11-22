@@ -76,6 +76,37 @@ wan6_snapshot_transaction_end(void *context)
 }
 
 /*
+ * DHCP 6rd publication updates size and relay together. SIT activation must
+ * read the same pair under one lock, otherwise it can combine generations.
+ */
+static int
+wan6_read_sit_6rd_parameters(int unit, int *size4, char *relay4,
+			     size_t relay4_size)
+{
+	char size_name[64], relay_name[64];
+	struct nvram_transaction transaction;
+	int length;
+
+	if (unit < 0 || !size4 || !relay4 || relay4_size == 0)
+		return EINVAL;
+	length = snprintf(size_name, sizeof(size_name), "wan%d_6rd_size", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(size_name))
+		return ENAMETOOLONG;
+	length = snprintf(relay_name, sizeof(relay_name), "wan%d_6rd_relay", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(relay_name))
+		return ENAMETOOLONG;
+
+	return rc_wan_nvram_copy_int_text_snapshot(
+		size_name, relay_name, size4, relay4, relay4_size,
+		wan6_snapshot_transaction_begin, wan6_snapshot_transaction_get,
+		wan6_snapshot_transaction_end, &transaction);
+}
+
+/*
  * DHCPv6 startup and lease callbacks must not interpret an NVRAM ioctl/read/
  * close error as a disabled flag. Copy the complete set under one lock,
  * preserve the legacy zero value for absent keys, then parse all members
@@ -1065,11 +1096,9 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 			errno = EINVAL;
 			return -1;
 		}
-		WAN6_SIT_READ_CHECK(get_wan_unit_value_int_status(
-			0, "6rd_size", &size4), "read 6rd IPv4 prefix length");
-		WAN6_SIT_READ_CHECK(get_wan_unit_value_copy_status(
-			0, "6rd_relay", sit_relay_value, sizeof(sit_relay_value)),
-			"read 6rd relay endpoint");
+		WAN6_SIT_READ_CHECK(wan6_read_sit_6rd_parameters(
+			0, &size4, sit_relay_value, sizeof(sit_relay_value)),
+			"snapshot 6rd IPv4 prefix length and relay endpoint");
 		if (size4 < 0 || size4 > 32 ||
 		    size6 + 32 - size4 > 128 ||
 		    format_ipv4_literal(sit_relay_value, sit_relay_text,

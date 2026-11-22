@@ -464,6 +464,53 @@ rc_wan_nvram_copy_snapshot(const struct rc_wan_nvram_snapshot_field *fields,
 }
 
 
+/*
+ * Read an integer selector and its associated text from one NVRAM generation.
+ * Parse only after the transaction closes; expose neither member if a read,
+ * close or parse step fails.
+ */
+static inline int
+rc_wan_nvram_copy_int_text_snapshot(
+	const char *integer_param_name, const char *text_param_name,
+	int *integer_value, char *text_value, size_t text_value_size,
+	rc_wan_nvram_transaction_fn begin_transaction,
+	rc_wan_nvram_get_fn get_value,
+	rc_wan_nvram_transaction_fn end_transaction, void *context)
+{
+	char integer_text[32] = {0};
+	const char *integer_texts[1];
+	struct rc_wan_nvram_snapshot_field fields[2];
+	int parsed_value, status;
+
+	if (!integer_value || !text_value || text_value_size == 0)
+		return EINVAL;
+	*integer_value = 0;
+	text_value[0] = '\0';
+	if (!integer_param_name || !integer_param_name[0] ||
+	    !text_param_name || !text_param_name[0])
+		return EINVAL;
+
+	fields[0].param_name = integer_param_name;
+	fields[0].destination = integer_text;
+	fields[0].destination_size = sizeof(integer_text);
+	fields[1].param_name = text_param_name;
+	fields[1].destination = text_value;
+	fields[1].destination_size = text_value_size;
+	status = rc_wan_nvram_copy_snapshot(
+		fields, 2, begin_transaction, get_value, end_transaction, context);
+	if (status != 0)
+		return status;
+
+	integer_texts[0] = integer_text;
+	status = rc_wan_nvram_parse_int_snapshot(
+		integer_texts, 1, &parsed_value);
+	if (status != 0) {
+		text_value[0] = '\0';
+		return status;
+	}
+	*integer_value = parsed_value;
+	return 0;
+}
 typedef int (*rc_wan_nvram_param_set_fn)(void *context,
 					 const char *param_name);
 

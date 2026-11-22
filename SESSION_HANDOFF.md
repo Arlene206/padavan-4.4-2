@@ -13,7 +13,7 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `45a78362cb1c4a6082514049d309508f80e9e28a`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `cee3941a374c410a208f64aef8fa3f214d5d2be1`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and untouched.
 - Recent work includes EAPoL orphan-tail cleanup, p910nd transient I/O handling, checked iNIC TxPower preflight, AliyunDrive process/HTTP readiness and AliDDNS NUL-delimited configuration fingerprint. See exact-SHA entries in `dev_log.md` for validation boundaries.
 - The checked NVRAM CLI and AliyunDrive fail-closed startup-read slice is now closed at L1/L2 on exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`.
@@ -21,14 +21,14 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Active task
 
-Verify the corrected route-source contracts across WAN DNS-read, modem WAN-start, HTTPD security and XY-C1 checks. The first b56e0b5 run passed the new C policy test but failed three contracts that still expected the old two-interface call; close all remaining stale contracts and then inspect the exact source SHA's XY-C1 Build/TRX/artifact stages.
+Audit the SIT 6rd activation tuple: the DHCP lease writer publishes `wan0_6rd_size` and `wan0_6rd_relay` under one NVRAM transaction, but SIT startup previously read them independently and could combine two lease generations. This commit adds an atomic two-field reader and pre-mutation regression; inspect exact-head WAN DHCP and XY-C1 Build/TRX/artifact.
 
 ## Verification boundary
 
-- Exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`: HTTPD security #45044509138 PASS; AliyunDrive WebDAV #45044509155 PASS (shell syntax, QEMU MIPSel CLI, lifecycle regression and source/RC contract); AI handoff #45044509168 PASS; Process inventory #45044509233 PASS; NVRAM transaction boundary #45044509202 PASS (including new checked-get regression and all prior boundary tests).
-- The XY-C1 push workflow did not trigger on `11576ae` because its path filter omitted the newly changed AliyunDrive and NVRAM CLI locations. The older XY-C1 run #45043730811 on source SHA `3556d297e887ad81b5457e16a33b32eafadafa9a` passed, but is not evidence for `11576ae`. The next `net_wan.c` source change is in the XY-C1 path filter and should trigger a current-source validation.
-- No local C/shell test, target build, TRX/artifact or hardware validation was performed for `11576ae`.
-- L3 remains NOT VERIFIED until XY-C1 Build, TRX validation and artifact upload all PASS on one identical production source SHA. Hardware L4 remains NOT VERIFIED.
+- Exact `cee3941a374c410a208f64aef8fa3f214d5d2be1` Actions: WAN route #45045448318 PASS; HTTPD security #45045448442 PASS; firewall #45045448338 PASS; USB modem identity #45045448331 PASS; Process inventory/lifecycle #45045448370 PASS; AI handoff #45045448321 PASS.
+- XY-C1 #45045448352 completed host regressions successfully, but Build, TRX verification and artifact upload were all SKIPPED because the parent commit changed only checkers/docs, not firmware production inputs. Do not claim L3 from this host-only workflow.
+- The present change modifies `net_wan6.c`, which is included in the XY-C1 push path filter and should trigger a product build on the new exact SHA. Confirm Build, TRX and artifact upload individually.
+- No local tests/build were run by this session. L3 is NOT VERIFIED until exact-source Build/TRX/artifact PASS; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 

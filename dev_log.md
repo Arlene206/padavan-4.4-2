@@ -1,3 +1,12 @@
+## 2026-11-22 — Read SIT 6rd size and relay from one NVRAM generation
+
+- Parent main SHA: `cee3941a374c410a208f64aef8fa3f214d5d2be1`. The DHCP lease path publishes the 6rd tuple (`addr6`, `6rd_size`, `6rd_relay`) under one NVRAM transaction with rollback, but `start_sit_tunnel()` previously read `wan0_6rd_size` and `wan0_6rd_relay` with separate getters. A lease renewal could commit between those reads, resulting in a mixed-generation prefix length and relay during tunnel activation/replacement.
+- Added `rc_wan_nvram_copy_int_text_snapshot()` to copy an integer selector and associated text under one lock, then parse only after a successful transaction close. SIT now uses it for the 6rd size/relay pair before deleting an existing tunnel. Missing size preserves the legacy zero default; malformed integer, backend read, truncation or transaction-close errors discard both outputs and abort before mutation.
+- Added GNU89 fake-backend regressions for same-transaction reads, failure at either field, transaction-close failure, missing-size compatibility and malformed-size rejection. Updated the SIT source contract to require the transactional pair and ensure independent getters are absent from the 6rd branch.
+- Exact parent `cee3941a374c410a208f64aef8fa3f214d5d2be1` Actions: WAN route #45045448318 PASS; HTTPD security #45045448442 PASS; firewall #45045448338 PASS; USB modem identity #45045448331 PASS; Process lifecycle #45045448370 PASS; AI handoff #45045448321 PASS. XY-C1 #45045448352 passed host tests but skipped Build/TRX/artifact because no production source changed on that parent SHA. The present `net_wan6.c` source change should trigger full XY-C1 validation; inspect exact SHA.
+- No local tests or firmware build were run. L3 and hardware L4 remain NOT VERIFIED pending exact-source Build/TRX/artifact and physical-router checks.
+
+---
 ## 2026-11-22 — Align WAN route contracts with optional-device selection
 
 - Parent main SHA: `45a78362cb1c4a6082514049d309508f80e9e28a`; production change is `b56e0b5c14a7b15dfe39a973dfa38eea7b2dda70`.
