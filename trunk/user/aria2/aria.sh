@@ -285,16 +285,30 @@ func_stop()
 		return 0
 	fi
 
-	# Validate every PID before using any PID as a signal target.
+	# Validate the complete PID snapshot before the broad graceful signal.
+	case "$aria_pid" in
+		*[!0-9\\ ]*)
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+			return 1
+			;;
+	esac
+	aria_pid_count=0
 	for aria_pid_one in $aria_pid; do
 		case "$aria_pid_one" in
-			''|0|1|*[!0-9]*)
+			''|0*|1|*[!0-9]*)
 				echo "[FAILED]"
 				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
 				return 1
 				;;
 		esac
+		aria_pid_count=$((aria_pid_count + 1))
 	done
+	if [ "$aria_pid_count" -eq 0 ]; then
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
+		return 1
+	fi
 
 	echo -n "Stopping $SVC_NAME:."
 
@@ -320,15 +334,29 @@ func_stop()
 
 	if [ -n "$aria_pid" ]; then
 		# Validate the refreshed snapshot before sending individual signals.
+		case "$aria_pid" in
+			*[!0-9\\ ]*)
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+				;;
+		esac
+		aria_pid_count=0
 		for aria_pid_one in $aria_pid; do
 			case "$aria_pid_one" in
-				''|0|1|*[!0-9]*)
+				''|0*|1|*[!0-9]*)
 					echo "[FAILED]"
 					logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
 					return 1
 					;;
 			esac
+			aria_pid_count=$((aria_pid_count + 1))
 		done
+		if [ "$aria_pid_count" -eq 0 ]; then
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
+			return 1
+		fi
 		for aria_pid_one in $aria_pid; do
 			kill -9 "$aria_pid_one" >/dev/null 2>&1 || true
 		done

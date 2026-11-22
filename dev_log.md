@@ -1,3 +1,8 @@
+## 2026-11-22 — Reject malformed Aria2 stop PID snapshots before signaling
+
+- The exact USB storage regression on `9686ad35850b6e183c65b8e8408fce1e62088410` exposed that Aria2's stop controller still accepted PID tokens with leading zeroes (`0123`). Its `''|0|1` pattern rejected only the single token `0`, and whitespace-only successful output was also able to pass an empty `for` loop and reach the name-wide graceful `killall`.
+- Added complete character-set, positive-token and nonempty-token-count validation before graceful stop, then repeated the same validation on the refreshed snapshot before per-PID SIGKILL. The existing shared Transmission/Aria stop regression now covers leading-zero and whitespace-only PID lists and asserts no signal is sent. Exact-head USB/Process Actions pending.
+
 ## 2026-11-22 — Shared process lifecycle confirms ABSENT through procfs
 
 - Source baseline: `9686ad35850b6e183c65b8e8408fce1e62088410`. The shared shell helper `pl_process_state()` classified `pidof` status 1 with empty output as confirmed ABSENT. BusyBox pidof can also return this status when procfs enumeration is incomplete, so the helper could authorize duplicate ttyd startup or report an already-stopped daemon when it was still present but omitted from the scan.
