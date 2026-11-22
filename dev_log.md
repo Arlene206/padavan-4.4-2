@@ -1,3 +1,8 @@
+## 2026-11-22 — Correct Aria2 stop PID pattern for dash
+
+- The follow-up USB run on \`0fd18d97a70df0cccc487492922cfbe578bb33a0\` did not yet reach the new leading-zero test: \`sh -n\` rejected the Aria2 stop controller because both new character-class patterns contained two literal backslashes before the space. This is the same dash portability issue previously corrected in the reload path.
+- Corrected both stop-path classes to a single escaped space and extended the optional-app source checker to require that exact form, reject the doubled escape and verify the nonempty token-count guard. Exact-head USB/Process validation pending.
+
 ## 2026-11-22 — Validate procfs stat PID and state fields before classifying absence
 
 - Review of the new pidof-absence fallback found that it treated any nonempty token after \`") "\` as a valid task state. A malformed record such as \`323 (test-daemon) BROKEN ...\` could therefore be misclassified as RUNNING instead of UNKNOWN; it also did not verify that the stat record's PID matched the enumerated procfs directory.

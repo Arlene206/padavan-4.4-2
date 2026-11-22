@@ -1386,6 +1386,12 @@ def check_aria2_reload():
     assert "kill -1 \"$aria_reload_pid\"" in reload_body
     assert "if kill -1 \"$aria_reload_pid\"; then" in reload_body
     assert "aria_reload_kill_status=$?" in reload_body
+    stop_start = source.index("func_stop()")
+    stop_end = source.index("func_reload()", stop_start)
+    stop_body = source[stop_start:stop_end]
+    assert "*[!0-9" + chr(92) + " ]*" in stop_body
+    assert "*[!0-9" + chr(92) + chr(92) + " ]*" not in stop_body
+    assert "aria_pid_count" in stop_body
 
     with tempfile.TemporaryDirectory(prefix="aria2-reload-") as tmp:
         base = Path(tmp)

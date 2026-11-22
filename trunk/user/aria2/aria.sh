@@ -287,7 +287,7 @@ func_stop()
 
 	# Validate the complete PID snapshot before the broad graceful signal.
 	case "$aria_pid" in
-		*[!0-9\\ ]*)
+		*[!0-9\ ]*)
 			echo "[FAILED]"
 			logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
 			return 1
@@ -335,7 +335,7 @@ func_stop()
 	if [ -n "$aria_pid" ]; then
 		# Validate the refreshed snapshot before sending individual signals.
 		case "$aria_pid" in
-			*[!0-9\\ ]*)
+			*[!0-9\ ]*)
 				echo "[FAILED]"
 				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
 				return 1
