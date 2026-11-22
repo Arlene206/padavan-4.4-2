@@ -1,3 +1,14 @@
+## 2026-11-22 — Propagate checked USB modem identity through WAN lifecycle
+
+- Parent main SHA: 7f44877976cd0c2399975adf09eb97c24a366aee. The checked selector API landed in f1327a7988b9552c2ce3294c641d27838efd9664; its identity workflow command escaping was corrected separately in 7f44877976cd0c2399975adf09eb97c24a366aee.
+- Replaced is_ifunit_modem() with is_ifunit_modem_status(), which surfaces get_usb_modem_wan_status() failures and uses a bounded checked ifname_t copy. WAN-up and DHCP-bound now abort before interface/lease/route/NVRAM side effects when identity is unknown.
+- WAN-down accumulates the selector error, still removes DHCP lease routes conservatively, retains WAN DNS snapshots and avoids static-IPoE address clearing when modem identity is unknown. Independent auth teardown remains best-effort.
+- Extended the USB modem identity workflow source contract to guard the classifier, both early-abort paths and conservative teardown behavior.
+- Exact-head USB identity, WAN DHCP, WAN route, AI docs and XY-C1 Build/TRX/artifact checks are pending for this source SHA; no target-side execution is claimed.
+- Next source audit: remaining direct get_usb_modem_wan() consumers in WAN start/stop, MAN route setup/teardown, manual disconnect and resolver notification.
+
+---
+
 ## 2026-11-22 — Repair checked modem identity workflow compiler command
 
 - Parent main SHA: `f1327a7988b9552c2ce3294c641d27838efd9664`; source/API commit under test: `f1327a7988b9552c2ce3294c641d27838efd9664`.

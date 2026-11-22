@@ -29,23 +29,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Active task
 
 - WAN protocol hardening and XY-C1 compile fix are complete through product source SHA `02857320194ebdda3b451ea3d6de07fa212995c0`; exact XY-C1 Build/TRX/artifact all passed on that SHA.
-- Source commit `f1327a7988b9552c2ce3294c641d27838efd9664` added `get_usb_modem_wan_status()` using `nvram_get_checked()`, preserving legacy numeric-prefix/default semantics, with GNU89 regressions and USB modem workflow triggers/source checks.
-- The first exact-head USB modem workflow found an escaping bug in the new test step: literal backslash arguments reached the linker. The parser source compiled up to link; this commit simplifies its compiler invocation to one command line.
-- Next: inspect the exact rerun, then migrate WAN lifecycle consumers to checked modem identity and checked `ifname_t` reads.
+- Source commit `f1327a7988b9552c2ce3294c641d27838efd9664` added `get_usb_modem_wan_status()` using `nvram_get_checked()` with legacy `atoi()` semantics and GNU89 regressions. Workflow compiler command was corrected in `7f44877976cd0c2399975adf09eb97c24a366aee`; AI handoff validator #44969661965 passed and exact USB identity rerun #44969661943 was in progress at last poll.
+- This source slice migrates WAN-up, WAN-down and DHCP-bound to status-returning modem classification and checked ifname_t reads. Unknown identity aborts startup/lease publication, while teardown continues conservative DHCP-route and authentication cleanup and preserves DNS/static-IP state.
+- Next source audit: migrate remaining direct modem identity reads in WAN startup/stop, MAN routes, manual disconnect and DNS notification.
 
 ## Verification boundary
 
-- Parent main SHA: `f1327a7988b9552c2ce3294c641d27838efd9664`; source/API commit under test: `f1327a7988b9552c2ce3294c641d27838efd9664`.
-- Exact USB modem identity run #44969481834 on f1327: FAIL only at the added parser test compile/link step because over-escaped line continuations passed backslash arguments to the linker. Earlier host-policy steps passed. The test invocation is now flattened; exact-head rerun is required.
-- XY-C1 run #44969481753 was in progress at the last poll on f1327, including the shared API. Build, TRX and artifact status must be checked on the exact source SHA.
-- Other f1327 checks were queued/in progress; no outcomes are inferred.
+- Parent main SHA: `7f44877976cd0c2399975adf09eb97c24a366aee`. Exact identity rerun #44969661943 was IN_PROGRESS and AI handoff docs #44969661965 PASS at the last poll.
+- The prior f1327 identity run #44969481834 failed at the new test compiler command due an extra backslash; the corrected one-line invocation is now in main. f1327 AI handoff docs passed (#44969481777). XY-C1 run #44969481753 was still IN_PROGRESS on f1327 at last poll; the current source commit will trigger exact-head product validation.
+- The current source commit migrates status-bearing modem identity into WAN-up/down and DHCP-bound. Exact-head USB identity, WAN DHCP, WAN route, AI docs and XY-C1 Build/TRX/artifact results are required before closure.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA USB modem identity and XY-C1 results for the corrected test command; fix any parser/compiler/test issue.
-2. Migrate `is_ifunit_modem()` to a status-returning helper using `get_usb_modem_wan_status()` and checked `ifname_t` reads; wire status into WAN-up/down and DHCP bound while preserving independent cleanup.
-3. Migrate remaining direct modem identity reads in WAN stop, MAN routes, manual disconnect, reconnect priority and DNS selection; add source contracts preventing legacy reads in critical paths.
+1. Check exact-head USB identity, WAN DHCP, WAN route, AI docs and XY-C1 results for this source commit; fix any exact-SHA failure and verify Build/TRX/artifact together.
+2. Migrate remaining direct get_usb_modem_wan() consumers in start_wan(), stop_wan_locked(), MAN route setup/teardown, manual disconnect and DNS notification.
+3. Preserve conservative cleanup semantics whenever checked modem identity or related ifname_t reads fail; add regression assertions before moving to the next consumer.
 
 ## Workflow and preservation rules
 

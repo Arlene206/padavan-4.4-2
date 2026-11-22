@@ -4358,19 +4358,37 @@ is_ifunit_man(char *wan_ifname, int unit)
 }
 
 static int
-is_ifunit_modem(char *wan_ifname, int unit)
+is_ifunit_modem_status(char *wan_ifname, int unit, int *modem_unit_id)
 {
-	char *ifname_temp;
+	char ifname_temp[IFNAMSIZ];
+	int is_modem, status;
 
-	if (!get_usb_modem_wan(unit))
+	if (!wan_ifname || !modem_unit_id)
+		return EINVAL;
+	*modem_unit_id = 0;
+
+	status = get_usb_modem_wan_status(unit, &is_modem);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	if (!is_modem)
 		return 0;
 
-	if (ppp_ifindex(wan_ifname) >= RAS_PPP_UNIT)
-		return 1;
+	if (ppp_ifindex(wan_ifname) >= RAS_PPP_UNIT) {
+		*modem_unit_id = 1;
+		return 0;
+	}
 
-	ifname_temp = get_wan_unit_value(unit, "ifname_t");
-	if (is_usbnet_interface(ifname_temp) && strcmp(wan_ifname, ifname_temp) == 0)
-		return 2;
+	status = get_wan_unit_value_copy_status(
+		unit, "ifname_t", ifname_temp, sizeof(ifname_temp));
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	if (is_usbnet_interface(ifname_temp) &&
+	    strcmp(wan_ifname, ifname_temp) == 0)
+		*modem_unit_id = 2;
 
 	return 0;
 }
@@ -4709,7 +4727,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 {
 	char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];
 	const char *script_postw = SCRIPT_POST_WAN;
-	int wan_proto = 0, modem_unit_id, proto_status;
+	int wan_proto = 0, modem_unit_id, modem_status, proto_status;
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
@@ -4721,7 +4739,14 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "up", wan_ifname);
 
-	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
+	modem_status = is_ifunit_modem_status(wan_ifname, unit, &modem_unit_id);
+	if (modem_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting WAN-up on %s because USB modem identity cannot be read (status=%d)",
+			   wan_ifname, modem_status);
+		errno = modem_status;
+		return modem_status;
+	}
 	if (!modem_unit_id) {
 		proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
 		if (proto_status != 0) {
@@ -5014,7 +5039,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	};
 	char wan_addr[16], wan_gate[16], wan_mask[16];
 	const char *script_postw = SCRIPT_POST_WAN;
-	int wan_proto = 0, proto_status, modem_unit_id;
+	int wan_proto = 0, proto_status, modem_unit_id, modem_status;
 	int ppp_index, gateway_valid, address_valid, netmask_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
 	int auth_status, auth_mode;
@@ -5073,10 +5098,16 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 			   "cannot determine WAN protocol during teardown on %s (status=%d); preserving protocol-dependent state",
 			   wan_ifname, proto_status);
 	}
-	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
+	modem_status = is_ifunit_modem_status(wan_ifname, unit, &modem_unit_id);
+	if (modem_status != 0) {
+		status = route_status_accumulate(status, modem_status);
+		logmessage(LOGNAME,
+			   "cannot read USB modem identity during WAN teardown on %s (status=%d); cleaning DHCP lease routes conservatively",
+			   wan_ifname, modem_status);
+	}
 
 	/* Remove only the lease-derived routes that this WAN path installed. */
-	if (modem_unit_id == 2 ||
+	if (modem_status != 0 || modem_unit_id == 2 ||
 	    (!modem_unit_id && (proto_status != 0 ||
 			       wan_proto == IPV4_WAN_PROTO_IPOE_DHCP))) {
 		char prefix[16];
@@ -5098,9 +5129,9 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 	/* Stop explicitly enabled auth; on read failure, stop defensively too. */
-	if (!modem_unit_id && (proto_status != 0 ||
+	if (modem_status != 0 || (!modem_unit_id && (proto_status != 0 ||
 			wan_proto == IPV4_WAN_PROTO_IPOE_STATIC ||
-			wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
+			wan_proto == IPV4_WAN_PROTO_IPOE_DHCP))) {
 		auth_status = get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode);
 		if (auth_status != 0) {
 			status = route_status_accumulate(status, auth_status);
@@ -5235,11 +5266,11 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	 * snapshot and report the read failure while continuing independent cleanup.
 	 */
 	force_clear_wan_dns =
-		proto_status == 0 &&
+		modem_status == 0 && proto_status == 0 &&
 		(wan_proto == IPV4_WAN_PROTO_IPOE_STATIC ||
 		 wan_proto == IPV4_WAN_PROTO_IPOE_DHCP);
-	wan_dns_read_status = proto_status;
-	if (proto_status == 0 && !force_clear_wan_dns)
+	wan_dns_read_status = route_status_accumulate(proto_status, modem_status);
+	if (wan_dns_read_status == 0 && !force_clear_wan_dns)
 		wan_dns_read_status = rc_wan_nvram_copy_value(
 			wan_nvram_checked_get_callback, NULL, "wanx_dns",
 			wanx_dns, sizeof(wanx_dns));
@@ -5263,7 +5294,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	/* Resolver refresh failure must not block WAN teardown/cleanup. */
 	refresh_resolvconf_nonfatal("WAN down", 0);
 
-	if (!modem_unit_id && proto_status == 0 &&
+	if (modem_status == 0 && !modem_unit_id && proto_status == 0 &&
 	    wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 		route_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 		status = route_status_accumulate(status, route_status);
@@ -6887,7 +6918,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	size_t i, snapshot_count, previous_snapshot_count;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
-	int wan_proto = 0, modem_unit_id, proto_status, route_result, route_metric;
+	int wan_proto = 0, modem_unit_id, modem_status, proto_status, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
@@ -6903,7 +6934,14 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	struct wan_dhcp_route_transition_context route_context;
 
 	unit = get_wan_unit(wan_ifname);
-	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
+	modem_status = is_ifunit_modem_status(wan_ifname, unit, &modem_unit_id);
+	if (modem_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing DHCP bound callback on %s because USB modem identity cannot be read (status=%d)",
+			   wan_ifname, modem_status);
+		errno = modem_status;
+		return modem_status;
+	}
 	proto_status = 0;
 	if (modem_unit_id) {
 		is_man = 0;

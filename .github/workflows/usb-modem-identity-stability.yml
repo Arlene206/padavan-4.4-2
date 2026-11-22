@@ -510,6 +510,25 @@ jobs:
           assert "nvram_get_int(" not in legacy_identity_reader
           assert "atoi() accepts a numeric prefix" in shared_policy
           assert "test_backend_read_errors_are_not_treated_as_absent_key" in identity_test
+          classifier = body(wan_network, "is_ifunit_modem_status(char *wan_ifname, int unit, int *modem_unit_id)")
+          assert "get_usb_modem_wan_status(unit, &is_modem)" in classifier
+          assert "get_wan_unit_value_copy_status(" in classifier
+          for signature, stop_before in (
+              ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "snprintf(wan_cnt"),
+              ("udhcpc_bound(char *wan_ifname, int is_renew_mode)", "snprintf(prefix"),
+          ):
+              lifecycle = body(wan_network, signature)
+              selected = lifecycle.index("modem_status = is_ifunit_modem_status(")
+              failed = lifecycle.index("if (modem_status != 0)", selected)
+              returned = lifecycle.index("return modem_status;", failed)
+              side_effect = lifecycle.index(stop_before)
+              assert selected < failed < returned < side_effect, signature + " must abort before side effects"
+          teardown = body(wan_network, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          assert "status = route_status_accumulate(status, modem_status);" in teardown
+          assert "if (modem_status != 0 || modem_unit_id == 2 ||" in teardown
+          assert "wan_dns_read_status = route_status_accumulate(proto_status, modem_status);" in teardown
+          assert "if (modem_status != 0 || (!modem_unit_id &&" in teardown
+          assert "if (modem_status == 0 && !modem_unit_id && proto_status == 0" in teardown
 
           print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY
