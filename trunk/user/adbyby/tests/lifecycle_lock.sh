@@ -180,6 +180,7 @@ awk '
 [ -s "$del_dns_file" ] || fail "could not extract del_dns"
 (
     . "$del_dns_file"
+    ADBYBY_DNSMASQ_AD_DIR=/etc/storage/dnsmasq-adbyby.d
     events="$test_root/del-dns-events"
     fail_stages=""
     fail() { echo "Adbyby del_dns regression: FAIL: $*" >&2; exit 1; }

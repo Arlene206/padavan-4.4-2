@@ -529,6 +529,7 @@ smartdns_dnsmasq_publish_managed_block "$dnsmasq_Conf" port=0 ||
     fail "could not install SmartDNS port-53 ownership marker"
 smartdns_state_saved=1
 smartdns_state_version=managed-v1
+NVRAM_ADDBYBY_VALUE=1
 sdns_redirected=0
 sdns_ported=53
 sdns_enable=0
