@@ -28,8 +28,8 @@ def main() -> None:
     parser_header = (UQMI / "uqmi-private-credentials.h").read_text()
     parser_test = (UQMI / "tests/private_credentials.c").read_text()
     uqmi_main = (UQMI / "main.c").read_text()
-    uqmi_commands = (UQMI / "commands.c").read_text()
     uqmi_header = (UQMI / "commands.h").read_text()
+    uqmi_commands = (UQMI / "commands.c").read_text()
     uqmi_wds = (UQMI / "commands-wds.c").read_text()
     makefile = (UQMI / "Makefile").read_text()
     workflow = Path(".github/workflows/usb-modem-identity-stability.yml").read_text()
@@ -74,11 +74,27 @@ def main() -> None:
     assert "uqmi_add_command(private_credentials.password" in uqmi_main
     assert "uqmi_private_credentials_clear(&private_credentials)" in uqmi_main
 
-    assert "cmds[idx].arg = arg;" in uqmi_commands
+    queue_header = (UQMI / "uqmi-command-queue-policy.h").read_text()
+    queue_test = (UQMI / "tests/command_queue.c").read_text()
+    append = body(uqmi_commands, "uqmi_add_command(")
+    insert = body(uqmi_commands, "uqmi_add_command_before_requests(")
+    queue_insert = body(queue_header, "uqmi_cmd_queue_insert(")
+    assert "uqmi_cmd_queue_insert(&cmds, &n_cmds, n_cmds" in append
+    assert "uqmi_cmd_queue_insert(&cmds, &n_cmds, insert_at" in insert
+    assert "int uqmi_add_command(char *arg, int longidx);" in uqmi_header
+    assert "if (uqmi_add_command(optarg, cmd_opt) < 0)" in uqmi_main
+    assert "uqmi_add_command(private_credentials.username" in uqmi_main
+    assert "uqmi_add_command(private_credentials.password" in uqmi_main
+    assert "if (!resized)" in queue_insert
+    assert "*commands = resized;" in queue_insert
+    assert "(*count)++;" in queue_insert
+    assert "test_allocation_failure_preserves_existing_queue" in queue_test
+    assert "test_invalid_index_and_count_overflow_are_rejected" in queue_test
     insert = body(uqmi_commands, "uqmi_add_command_before_requests(")
     assert "cmds[insert_at].handler->type == CMD_TYPE_OPTION" in insert
-    assert "memmove(&cmds[insert_at + 1]" in insert
+    assert "memmove(&resized[index + 1]" in queue_insert
     assert "return -1;" in insert
+    assert "reallocate" in queue_insert
     assert "cmds[idx].arg = optarg;" not in uqmi_commands
     assert "uqmi_wipe_memory(uqmi_command_buffer" in uqmi_commands
     assert "uqmi_wds_clear_sensitive_options();" in uqmi_commands
@@ -106,6 +122,8 @@ def main() -> None:
     for path in (
         "trunk/user/uqmi/main.c",
         "trunk/user/uqmi/commands.c",
+        "trunk/user/uqmi/uqmi-command-queue-policy.h",
+        "trunk/user/uqmi/tests/command_queue.c",
         "trunk/user/uqmi/commands.h",
         "trunk/user/uqmi/commands-wds.c",
         "trunk/user/uqmi/uqmi-private-credentials.c",

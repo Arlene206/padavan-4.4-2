@@ -27,6 +27,8 @@ on:
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/uqmi/main.c"
       - "trunk/user/uqmi/commands.c"
+      - "trunk/user/uqmi/uqmi-command-queue-policy.h"
+      - "trunk/user/uqmi/tests/command_queue.c"
       - "trunk/user/uqmi/commands.h"
       - "trunk/user/uqmi/commands-wds.c"
       - "trunk/user/uqmi/uqmi-private-credentials.c"
@@ -76,6 +78,8 @@ on:
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/uqmi/main.c"
       - "trunk/user/uqmi/commands.c"
+      - "trunk/user/uqmi/uqmi-command-queue-policy.h"
+      - "trunk/user/uqmi/tests/command_queue.c"
       - "trunk/user/uqmi/commands.h"
       - "trunk/user/uqmi/commands-wds.c"
       - "trunk/user/uqmi/uqmi-private-credentials.c"
@@ -811,3 +815,12 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/modem-qmi-credentials-file
       - name: Verify QMI modem credentials never enter process arguments
         run: python3 scripts/check_uqmi_private_credentials.py
+
+      - name: Compile and run uqmi command queue allocation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi \
+            trunk/user/uqmi/tests/command_queue.c \
+            -o /tmp/uqmi-command-queue
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-command-queue

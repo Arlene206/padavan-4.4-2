@@ -92,7 +92,12 @@ int main(int argc, char **argv)
 		int cmd_opt = CMD_OPT(ch);
 
 		if (ch < 0 && cmd_opt >= 0 && cmd_opt < __UQMI_COMMAND_LAST) {
-			uqmi_add_command(optarg, cmd_opt);
+			if (uqmi_add_command(optarg, cmd_opt) < 0) {
+				fprintf(stderr, "Failed to queue QMI request: %s\n",
+					strerror(errno));
+				uqmi_private_credentials_clear(&private_credentials);
+				return 1;
+			}
 			continue;
 		}
 
@@ -134,15 +139,20 @@ int main(int argc, char **argv)
 		if (private_credentials.has_pin &&
 		    uqmi_add_command_before_requests(private_credentials.pin,
 						     __UQMI_COMMAND_dms_verify_pin1) < 0) {
-			fprintf(stderr, "Failed to queue private PIN verification command\\n");
+			fprintf(stderr, "Failed to queue private PIN verification command: %s\n",
+				strerror(errno));
 			uqmi_private_credentials_clear(&private_credentials);
 			return 1;
 		}
-		if (private_credentials.has_username) {
-			uqmi_add_command(private_credentials.username,
-					 __UQMI_COMMAND_wds_set_username);
-			uqmi_add_command(private_credentials.password,
-					 __UQMI_COMMAND_wds_set_password);
+		if (private_credentials.has_username &&
+		    (uqmi_add_command(private_credentials.username,
+				      __UQMI_COMMAND_wds_set_username) < 0 ||
+		     uqmi_add_command(private_credentials.password,
+				      __UQMI_COMMAND_wds_set_password) < 0)) {
+			fprintf(stderr, "Failed to queue private modem authentication commands: %s\n",
+				strerror(errno));
+			uqmi_private_credentials_clear(&private_credentials);
+			return 1;
 		}
 	}
 

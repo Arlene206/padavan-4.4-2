@@ -25,10 +25,7 @@ struct uqmi_cmd_handler {
 	void (*cb)(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg);
 };
 
-struct uqmi_cmd {
-	const struct uqmi_cmd_handler *handler;
-	char *arg;
-};
+#include "uqmi-command-queue-policy.h"
 
 #define __uqmi_commands \
 	__uqmi_command(version, get-versions, no, QMI_SERVICE_CTL), \
@@ -48,7 +45,7 @@ enum uqmi_command {
 #undef __uqmi_command
 
 extern const struct uqmi_cmd_handler uqmi_cmd_handler[];
-void uqmi_add_command(char *arg, int longidx);
+int uqmi_add_command(char *arg, int longidx);
 int uqmi_add_command_before_requests(char *arg, int longidx);
 bool uqmi_run_commands(struct qmi_dev *qmi);
 void uqmi_wds_clear_sensitive_options(void);

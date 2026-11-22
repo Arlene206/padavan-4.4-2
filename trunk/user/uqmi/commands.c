@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -171,13 +172,29 @@ const struct uqmi_cmd_handler uqmi_cmd_handler[__UQMI_COMMAND_LAST] = {
 static struct uqmi_cmd *cmds;
 static int n_cmds;
 
-void uqmi_add_command(char *arg, int cmd)
+static void *
+uqmi_command_reallocate(void *memory, size_t size)
 {
-	int idx = n_cmds++;
+	return realloc(memory, size);
+}
 
-	cmds = realloc(cmds, n_cmds * sizeof(*cmds));
-	cmds[idx].handler = &uqmi_cmd_handler[cmd];
-	cmds[idx].arg = arg;
+int
+uqmi_add_command(char *arg, int cmd)
+{
+	int status;
+
+	if (cmd < 0 || cmd >= __UQMI_COMMAND_LAST) {
+		errno = EINVAL;
+		return -1;
+	}
+	status = uqmi_cmd_queue_insert(&cmds, &n_cmds, n_cmds,
+				       &uqmi_cmd_handler[cmd], arg,
+				       uqmi_command_reallocate);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	return 0;
 }
 
 /*
@@ -187,22 +204,24 @@ void uqmi_add_command(char *arg, int cmd)
 int
 uqmi_add_command_before_requests(char *arg, int longidx)
 {
-	struct uqmi_cmd *new_cmds;
 	int insert_at = 0;
+	int status;
 
+	if (longidx < 0 || longidx >= __UQMI_COMMAND_LAST) {
+		errno = EINVAL;
+		return -1;
+	}
 	while (insert_at < n_cmds &&
 	       cmds[insert_at].handler->type == CMD_TYPE_OPTION)
 		insert_at++;
 
-	new_cmds = realloc(cmds, (n_cmds + 1) * sizeof(*cmds));
-	if (!new_cmds)
+	status = uqmi_cmd_queue_insert(&cmds, &n_cmds, insert_at,
+				       &uqmi_cmd_handler[longidx], arg,
+				       uqmi_command_reallocate);
+	if (status != 0) {
+		errno = status;
 		return -1;
-	cmds = new_cmds;
-	memmove(&cmds[insert_at + 1], &cmds[insert_at],
-		(n_cmds - insert_at) * sizeof(*cmds));
-	cmds[insert_at].handler = &uqmi_cmd_handler[longidx];
-	cmds[insert_at].arg = arg;
-	n_cmds++;
+	}
 	return 0;
 }
 
