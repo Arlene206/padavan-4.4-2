@@ -80,6 +80,37 @@ wan_teardown_first_error_status(int stop_status, int protocol_status,
 	return callback_status;
 }
 
+/*
+ * Select static-route and USB network teardown targets from one checked
+ * transport-interface snapshot. A failed read must not silently erase the
+ * name and skip cleanup; empty configuration remains a valid no-interface
+ * result. Returned USB names borrow the caller's validated snapshot buffer.
+ */
+static inline int
+wan_teardown_select_interfaces(int snapshot_status,
+			       const char *management_ifname,
+			       const char *transport_ifname,
+			       int is_usb_modem, int is_ndis_modem,
+			       int *management_uses_transport,
+			       const char **usbnet_ifname)
+{
+	if (!management_uses_transport || !usbnet_ifname)
+		return EINVAL;
+	*management_uses_transport = 0;
+	*usbnet_ifname = NULL;
+	if (snapshot_status != 0)
+		return snapshot_status;
+	if (!management_ifname || !transport_ifname)
+		return EINVAL;
+
+	if (transport_ifname[0] &&
+	    strcmp(management_ifname, transport_ifname) == 0)
+		*management_uses_transport = 1;
+	if (is_usb_modem && is_ndis_modem && transport_ifname[0])
+		*usbnet_ifname = transport_ifname;
+	return 0;
+}
+
 struct wan_teardown_interface_ops {
 	int (*ifdown)(void *context, const char *ifname);
 };

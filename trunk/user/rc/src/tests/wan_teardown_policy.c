@@ -144,6 +144,49 @@ test_abort_status_preserves_primary_and_reports_resume_failures(void)
 }
 
 static void
+test_transport_interface_snapshot_fails_closed_and_selects_targets(void)
+{
+	int manual_uses_transport = 1;
+	const char *usbnet_ifname = "stale";
+
+	assert(wan_teardown_select_interfaces(EIO, "eth2.1", "eth2.1",
+					      1, 1, &manual_uses_transport,
+					      &usbnet_ifname) == EIO);
+	assert(manual_uses_transport == 0);
+	assert(usbnet_ifname == NULL);
+
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "eth2.1",
+					      0, 0, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(manual_uses_transport == 1);
+	assert(usbnet_ifname == NULL);
+
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 1, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(manual_uses_transport == 0);
+	assert(usbnet_ifname != NULL);
+	assert(strcmp(usbnet_ifname, "wwan0") == 0);
+
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 0, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(usbnet_ifname == NULL);
+	assert(wan_teardown_select_interfaces(0, "", "",
+					      0, 0, &manual_uses_transport,
+					      &usbnet_ifname) == 0);
+	assert(manual_uses_transport == 0);
+	assert(usbnet_ifname == NULL);
+	assert(wan_teardown_select_interfaces(0, NULL, "wwan0",
+					      1, 1, &manual_uses_transport,
+					      &usbnet_ifname) == EINVAL);
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 1, NULL, &usbnet_ifname) == EINVAL);
+	assert(wan_teardown_select_interfaces(0, "eth2.1", "wwan0",
+					      1, 1, &manual_uses_transport, NULL) == EINVAL);
+}
+
+static void
 test_gateway_host_route_requires_a_complete_checked_snapshot(void)
 {
 	assert(wan_teardown_gateway_host_route_required(
@@ -232,7 +275,8 @@ main(void)
 	test_duplicate_names_are_attempted_once();
 	test_invalid_required_inputs_fail_without_side_effects();
 	test_status_update_handles_errno_and_ioctl_failures();
-test_gateway_host_route_requires_a_complete_checked_snapshot();
+	test_transport_interface_snapshot_fails_closed_and_selects_targets();
+	test_gateway_host_route_requires_a_complete_checked_snapshot();
 	test_gateway_host_route_rejects_invalid_address_and_netmask();
 	test_man_dns_route_policy_fails_closed_on_unknown_protocol();
 	test_protocol_error_survives_successful_independent_wan_teardown();

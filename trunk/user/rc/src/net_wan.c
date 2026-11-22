@@ -4311,12 +4311,14 @@ stop_wan_locked(void)
 	int unit, wan_proto = 0, proto_status, ifdown_status, stop_status = -1;
 	int callback_cleanup_status, modem_status, ifname_status;
 	int is_usb_modem, is_ndis_modem = 0;
+	int manual_ifname_is_current_wan = 0;
 	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0, ipv6_type_status, ipv6_is_sit;
 #endif
 	char man_ifname[16], man_ifname_nvram[16];
-	char *usbnet_ifname;
+	char wan_ifname_nvram[16], wan_ifname_temp[16] = "";
+	const char *usbnet_ifname;
 	char* svcs_ppp[] = {
 		"ip-up", "ip-down",
 #if defined (USE_IPV6)
@@ -4380,6 +4382,26 @@ stop_wan_locked(void)
 	} else {
 		man_ifname[0] = '\0';
 	}
+	/*
+	 * Snapshot the effective transport interface before pausing monitors or
+	 * cancelling callbacks. A lossy NVRAM read here can skip static-route
+	 * teardown or leave an NDIS interface outside the ifdown inventory.
+	 */
+	ifname_status = get_wan_unit_value_copy_status(
+		unit, "ifname_t", wan_ifname_nvram, sizeof(wan_ifname_nvram));
+	if (ifname_status == 0 && wan_ifname_nvram[0])
+		ifname_status = wan_ifname_copy(
+			wan_ifname_temp, sizeof(wan_ifname_temp), wan_ifname_nvram);
+	ifname_status = wan_teardown_select_interfaces(
+		ifname_status, man_ifname, wan_ifname_temp, is_usb_modem,
+		is_ndis_modem, &manual_ifname_is_current_wan, &usbnet_ifname);
+	if (ifname_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because transport interface cannot be read or validated (status=%d)",
+			   ifname_status);
+		errno = ifname_status;
+		return ifname_status;
+	}
 	pause_status = notify_pause_detect_internet();
 	if (pause_status != 0) {
 		logmessage(LOGNAME,
@@ -4407,7 +4429,6 @@ stop_wan_locked(void)
 			   "cannot determine WAN protocol during stop; continuing conservative teardown (status=%d)",
 			   proto_status);
 		}
-	usbnet_ifname = NULL;
 	stop_status = stop_vpn_client_under_lifecycle_lock();
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
@@ -4499,15 +4520,13 @@ stop_wan_locked(void)
 		goto abort_resume_detect;
 	}
 	if ((proto_status != 0 || wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) &&
-	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0) {
+	    manual_ifname_is_current_wan) {
 		stop_status = wan_down(man_ifname, unit, 1);
 		if (stop_status != 0)
 			logmessage(LOGNAME, "static WAN route teardown incomplete on %s (status=%d)",
 				   man_ifname, stop_status);
 	}
 #if defined (USE_USB_SUPPORT)
-	if (is_usb_modem && is_ndis_modem)
-		usbnet_ifname = get_wan_unit_value(unit, "ifname_t");
 	{
 		int modem_stop_status = stop_wan_usbnet();
 		stop_status = rc_first_service_start_status(stop_status, modem_stop_status);

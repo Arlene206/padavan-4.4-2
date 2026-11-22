@@ -111,19 +111,29 @@ jobs:
           failure_gate = "stop_status = wan_teardown_first_error_status("
           modem_type_read = "modem_status = get_wan_modem_is_ndis_status(&is_ndis_modem);"
           usbnet_gate = "if (is_usb_modem && is_ndis_modem)"
-          assert "usbnet_ifname = NULL;" in stop
           identity_read = "modem_status = get_usb_modem_wan_status(unit, &is_usb_modem);"
           identity_error = "if (modem_status != 0)"
           assert identity_read in stop and identity_error in stop
           assert "return modem_status;" in stop
           assert modem_type_read in stop
+          transport_read = 'ifname_status = get_wan_unit_value_copy_status(\n\t\tunit, "ifname_t"'
+          transport_select = "ifname_status = wan_teardown_select_interfaces("
+          assert transport_read in stop and transport_select in stop
+          assert "wan_ifname_copy(\n\t\t\twan_ifname_temp" in stop
+          assert "manual_ifname_is_current_wan" in stop
+          assert 'get_wan_unit_value(unit, "ifname_t")' not in stop
           assert stop.index(identity_read) < stop.index(identity_error) < stop.index("return modem_status;")
           assert stop.index("return modem_status;") < stop.index(modem_type_read)
-          assert stop.index(modem_type_read) < stop.index("pause_status = notify_pause_detect_internet();")
+          assert stop.index(modem_type_read) < stop.index(transport_read) < stop.index(transport_select)
+          assert stop.index(transport_select) < stop.index("pause_status = notify_pause_detect_internet();")
           assert 'nvram_get_int("modem_type")' not in stop
-          assert usbnet_gate in stop
-          assert stop.index(usbnet_gate) < stop.index('usbnet_ifname = get_wan_unit_value(unit, "ifname_t");') < stop.index("stop_wan_usbnet();")
           assert "stop_status = stop_wan_usbnet();" in stop
+          assert stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
+          interface_select = function_body(policy, "wan_teardown_select_interfaces(")
+          assert "*management_uses_transport = 0;" in interface_select
+          assert "*usbnet_ifname = NULL;" in interface_select
+          assert "if (snapshot_status != 0)" in interface_select
+          assert "test_transport_interface_snapshot_fails_closed_and_selects_targets" in test
           assert "control_required = 0;" in usbnet_stop
           assert "ndis_control_network(ndis_ifname, modem_devnum, 0, &control_required)" in " ".join(usbnet_stop.split())
           assert "modem_ndis_control_failed(control_required, control_status)" in usbnet_stop
