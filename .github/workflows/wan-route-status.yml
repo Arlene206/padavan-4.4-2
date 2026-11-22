@@ -749,7 +749,7 @@ jobs:
           assert 'snprintf(key_routes_rfc,sizeof(key_routes_rfc),"%sroutes_rfc",prefix)' in route_snapshot_compact
           assert 'snprintf(key_routes_ms,sizeof(key_routes_ms),"%sroutes_ms",prefix)' in route_snapshot_compact
           assert "rc_wan_nvram_copy_snapshot(fields,3,wan_nvram_transaction_begin_callback,wan_nvram_transaction_get_callback,wan_nvram_transaction_end_callback,&transaction)" in route_snapshot_compact
-          assert "test_transactional_dhcp_route_options_snapshot" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+          assert "test_transactional_dhcp_route_options_snapshot" in wan_nvram_test
           for signature in (
               "add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",
               "del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric)",

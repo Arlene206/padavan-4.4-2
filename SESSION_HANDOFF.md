@@ -5,12 +5,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; development remains on `main` at `d1cd34322e3ce8058cf7fc363fbabaa8b4696247`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Repository Arlene206/padavan-4.4-2; development remains on `main` at `4c0906ac9c8c79eb5e6f4119a002578366fd539d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 - NFS export ACL cache-ownership fix `67514d707a91ac3e34bd513032a6a85a29e0f2d3`: exact NFS start/reload workflow #45006783321 PASS.
-- WAN DHCP hostname/VCI ownership fix `01ccfa38a77c2d54327a7c96dfd9c8e4c10cfe26`: exact WAN DHCP callback regression #45006965680 PASS; broad exact-SHA fan-out passed, including Wireless, router-mode, Firewall Startup, HTTPD security, WAN route, ZeroTier, miniupnpd, watchdog, Process, DNSMasq, Samba, USB modem, VPN and link-detection suites. NVRAM audit #45006965617 PASS.
-- IPv6 service-type workflow contract correction `789ca3e5000e677f3e3c9e46609f64e9e771b469`: exact IPv6 #45007160869 and AI docs #45007160819 PASS.
-- DHCP route snapshot source fix `d1cd34322e3ce8058cf7fc363fbabaa8b4696247`: `routes`, `routes_rfc`, and `routes_ms` now use one checked transaction snapshot and owned buffers. Pre-commit inspection found an incorrect missing-key test expectation: fixture omits only the middle `routes_rfc` entry, while first/third values should remain. THIS test-only commit corrects the fixture expectation; production source unchanged.
-- Exact-head fan-out for `d1cd34322e3ce8058cf7fc363fbabaa8b4696247` was queued at last poll; its WAN-route workflow and all dependent checks still need completion. XY-C1 on earlier source SHA `01ccfa...` remained IN_PROGRESS; no same-SHA Build/TRX/artifact evidence, so no L3 claim. Hardware L4 NOT VERIFIED.
+- WAN DHCP hostname/VCI cache-ownership fix `01ccfa38a77c2d54327a7c96dfd9c8e4c10cfe26`: exact WAN DHCP callback #45006965680 PASS; broad fan-out PASS including Wireless, router mode, Firewall Startup, HTTPD security, WAN route, ZeroTier, miniupnpd, watchdog, Process, DNSMasq, Samba, USB modem, VPN and link-detection suites. NVRAM audit #45006965617 PASS.
+- IPv6 service-type NFS ordering checker correction `789ca3e5000e677f3e3c9e46609f64e9e771b469`: exact IPv6 #45007160869 and AI docs #45007160819 PASS.
+- DHCP route snapshot production fix `d1cd34322e3ce8058cf7fc363fbabaa8b4696247` uses one checked transaction snapshot for `routes/routes_rfc/routes_ms`. Follow-up `4c0906ac9c8c79eb5e6f4119a002578366fd539d` corrected the optional-missing regression expectation; exact 4c WAN route #45007745240 then passed compilation and the shared WAN NVRAM policy suite but failed later in DDNS source checking because a new inline assertion added a third quoted occurrence of the test path, violating the checker’s push/PR trigger-count contract. The workflow already had both push and pull_request triggers for the test file; THIS CI-only correction reuses the existing `wan_nvram_test` variable.
+- Exact 4c NVRAM audit #45007745300 and Process lifecycle #45007745378 were IN_PROGRESS at last poll. Exact-head fan-out for THIS correction pending. No current L3 claim; Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -31,15 +31,15 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- Complete exact-SHA validation for the DHCP route transactional snapshot. The regression fixture sets `missing_at = 1`, so only `wan0_routes_rfc` should be empty; the `wan0_routes` and `wan0_routes_ms` copies must retain their values.
-- THIS test-only correction fixes that expectation. The source implementation reads all three route keys under one exclusive NVRAM transaction, copies values into bounded buffers, and aborts route mutation on read/transaction-close failure.
+- Finish the DHCP route snapshot regression and its workflow contract. The optional missing-key test is now correct: only `routes_rfc` is empty. The 4c run compiled and passed the shared WAN NVRAM policy suite, then a DDNS checker failed because the added path literal increased the trigger-path count from two (push + pull_request) to three.
+- THIS workflow-only correction references the already loaded `wan_nvram_test` content instead of adding a third path literal. The path filters themselves remain present for both push and pull_request.
 
 ## Verification boundary
-- DHCP route source commit `d1cd34322e3ce8058cf7fc363fbabaa8b4696247` exact fan-out was queued at last poll. In particular, exact WAN route workflow status is not yet known; this test correction requires its own exact-head rerun.
-- NFS ACL fix #45006783321 PASS; WAN DHCP hostname/VCI #45006965680 PASS; IPv6 source-contract correction #45007160869 PASS and AI docs #45007160819 PASS; NVRAM transaction audit #45006965617 PASS on the prior DHCP callback source SHA.
-- XY-C1 #45006965654 on source SHA `01ccfa...` had no same-SHA Build/TRX/artifact completion recorded. No current product L3 evidence; Hardware L4 NOT VERIFIED.
+- Exact d1 source SHA #45007626392 and shared fan-out WAN DHCP #45007626462, USB modem #45007626350, XY-C1 #45007626484 and Process #45007626481 all stopped at the original erroneous missing-route assertion.
+- Exact 4c test-correction SHA: WAN route #45007745240 FAILED only at `Verify WAN DDNS update status propagation`, where the checker counted three occurrences of the test file path. Earlier shared WAN NVRAM policy compile/run and route-related contracts passed. NVRAM audit #45007745300 and Process #45007745378 were IN_PROGRESS at last poll.
+- THIS trigger-count correction needs its exact-head WAN route rerun; all dependent exact-head results remain to be checked. Product L3 not verified; Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact-head WAN route regression for this test correction and the preceding source commit; inspect the first failing step from its job log.
-2. Recheck XY-C1 and any new Build/TRX/artifact runs. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on one identical source SHA.
-3. Continue an independent stability/security defect across Padavan userland after exact-head route validation. Hardware L4 remains NOT VERIFIED.
+1. Check exact-head WAN route status after the DDNS path-count correction; inspect any next failure and fix its real cause.
+2. Recheck NVRAM audit, Process lifecycle, WAN DHCP, USB modem, and XY-C1 exact-head fan-out for the route snapshot SHA. Claim L3 only if same-SHA Build XY-C1, TRX, and artifact upload all pass.
+3. Continue an independent stability/security defect across userland after route snapshot verification. Hardware L4 remains NOT VERIFIED.

@@ -1,3 +1,10 @@
+## 2026-11-22 — Keep WAN route test assertion out of trigger-path count
+
+- Parent main SHA: `4c0906ac9c8c79eb5e6f4119a002578366fd539d`. Exact WAN route workflow #45007745240 compiled and passed the shared WAN NVRAM policy regression after the missing-route expectation correction. It then failed at the DDNS status checker because the inline assertion added a third exact quoted occurrence of `trunk/user/rc/src/tests/wan_nvram_status_policy.c`; the checker intentionally requires exactly two occurrences for push and pull_request.
+- The workflow already reads the test into `wan_nvram_test`. Changed the assertion to reuse that variable, preserving both trigger filters and reducing the exact path count back to two. No production behavior changed; exact-head WAN rerun pending.
+
+---
+
 ## 2026-11-22 — Correct missing-route snapshot regression expectation
 
 - Parent main SHA: `d1cd34322e3ce8058cf7fc363fbabaa8b4696247`. Pre-commit review found one incorrect assertion in the new DHCP route snapshot regression: the fixture marks only `wan0_routes_rfc` absent, so the first and third route strings must remain present.
