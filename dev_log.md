@@ -1,3 +1,10 @@
+## 2026-11-22 — Align DNS checker with the checked old-value gate
+
+- Parent main SHA: `5247382388b17f4fdeb0a60fa46599583ce39e17`. The exact-SHA `wan-dhcp-callback` run compiled and executed its preceding GNU89/ASan policy programs successfully; the final Python contract failed because the existing checker expected `wan6_dns_store_if_changed()` to be called directly in `store_wan_dns6()`, while the new fail-closed wrapper now calls that lower-level helper after verifying the old-value read status.
+- Updated the source contract to require the integration wrapper in `store_wan_dns6()` and the delegated compare/write policy in `wan6_dns_policy.h`. No runtime code changed.
+- Next task: audit `get_wan_addr6_host()`'s interface-name read for error and pointer-lifetime handling.
+
+---
 ## 2026-11-22 — Fail closed when previous IPv6 interface identity cannot be read
 
 - Parent main SHA: `273db47f11e6d8f5f71d387456677d47141282d3`. `wan6_down()` used the pointer-returning `get_wan_unit_value(unit, "ifname6")`. A failed/missing cached read was indistinguishable from an absent identity, so teardown could silently choose the current WAN/SIT fallback and leave addresses/routes on a previous PPP/device interface.
