@@ -1,3 +1,10 @@
+## 2026-11-22 — Normalize resolver errno-preservation source contract
+
+- Exact-head Process run 45082141507 on 631aa825873d7f69087ec735a40046eefc4d49f5 progressed past the WAN MAC check, then failed on a DNS resolver source contract that searched for double-escaped newline/tab text. The production early-return path unlocks the resolver lock, restores the saved NVRAM error to errno, and returns that status; the checker compared literal backslash sequences instead of C source whitespace.
+- Replaced the formatting-sensitive assertion with a whitespace-normalized contract for the full unlock/errno/return sequence. Production resolver code is unchanged; exact-head Process rerun pending.
+
+---
+
 ## 2026-11-22 — Make WAN MAC contract insensitive to escaped whitespace
 
 - Exact-head Process run 45081952718 on b4f3e3dbd7563b7ea5d339b14f5df390595d256e reached the WAN VLAN source contracts, then failed because the WAN MAC assertion contained double-escaped newline/tab sequences and searched for literal backslashes rather than the production call's actual whitespace.
