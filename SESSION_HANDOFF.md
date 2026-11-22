@@ -20,23 +20,26 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 - add_account() propagates every mounted-volume permission initializer failure after attempting all volumes and reloading Samba; the existing NVRAM ordering is retained.
 - del_account() frees the complete original account list, uses bounded metadata paths, ignores only missing-file unlink errors, continues through all mounted volumes, and reports the first cleanup failure after ftpsamba reload.
 - mod_account() now formats both old/new per-volume metadata paths with the bounded formatter; ignores only missing old files, aggregates other rename/path errors across volumes, frees disk inventory and reloads ftpsamba before returning the first failure. The existing NVRAM commit ordering is unchanged.
+- mod_account() also uses the checked storage inventory API, rejects non-regular source metadata and checks for existing target files before rename rather than overwriting stale per-volume permissions.
 
 ## Active task
 
-- Next: inspect remaining libdisk account bootstrap/removal call sites and the NVRAM status contract for ignored errors. Then broaden into WAN/service lifecycle stability rather than remaining only in libdisk.
-- Do not redesign NVRAM transaction/rollback semantics without inspecting the NVRAM API and current regression contract.
+- `mod_account()` now uses `read_disk_data_checked()` so an incomplete inventory is not treated as an empty disk set after the account name has been committed to NVRAM.
+- Both metadata paths use the bounded formatter. The old source must be a regular file; an existing new-account metadata destination is rejected with EEXIST rather than overwritten. Missing source metadata is idempotent. Other per-volume path/stat/rename errors are aggregated while continuing independent volumes, followed by inventory cleanup and ftpsamba reload.
+- GNU89 policy regressions cover rename success, ENOENT, real errors and missing errno normalization; source contracts pin the complete path/error ordering. Exact-head libdisk CI for this commit must be checked after push.
+- NVRAM account name/password updates still precede filesystem migration. A migration failure may leave NVRAM updated while some per-volume metadata remains under the old name; no rollback is claimed.
 
 ## Verification boundary
 
-- Parent exact-head libdisk run #45019979218, AI handoff #45019979195, HTTPD #45019979197, Process inventory #45019979224, NVRAM audit #45019979154 and XY-C1 #45019979256 were in progress at last inspection. Fresh exact-head Actions for this commit are required.
-- Earlier parent #45019873074 passed libdisk sanitizers and source contracts; #45019873116 passed the AI handoff contract. Exact-head status does not transfer to a later SHA.
-- XY-C1 L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all pass on one identical product-source SHA. Hardware L4 remains NOT VERIFIED.
+- Parent `074bc11b3338917d1472e5146b31f9c0c59cca25`: AI handoff #45020129047 PASS; libdisk #45020129064 PASS; Process #45020129138 PASS; HTTPD #45020129049 PASS. NVRAM audit #45020129046 was still scanning ioctl/API callers. XY-C1 #45020129134 was building, with TRX and artifact upload pending.
+- These are ancestor results only. Inspect exact-head Actions for THIS COMMIT; do not transfer ancestor PASS results.
+- XY-C1 L3 remains NOT VERIFIED until Build, TRX verification and artifact upload all PASS on the same exact product/source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head libdisk, handoff, Process, HTTPD, NVRAM and XY-C1 Actions for this commit; fix causal failures from logs.
-2. Review remaining account lifecycle/NVRAM API call sites, then select a WAN/service lifecycle stability defect outside libdisk and add a focused regression.
-3. Keep the backup branch immutable. Claim L3 only after same-SHA Build, TRX and artifact upload PASS.
+1. Fetch live `main` and inspect exact-head libdisk, AI handoff, Process, HTTPD, NVRAM and XY-C1 push Actions for this commit. Resolve failures from causal logs; do not count ancestor PASS results.
+2. Continue outside libdisk: inspect the WAN/service lifecycle inventory for a concrete unchecked failure path (especially start/stop/cleanup paths that report success after partial state change), then add a focused regression and atomic fix.
+3. Preserve the frozen backup. Claim XY-C1 L3 only after Build, TRX and artifact upload pass on one exact product/source SHA; keep hardware L4 NOT VERIFIED.
 
 ## Documentation anti-churn guard
 

@@ -239,5 +239,14 @@ disk_share_permission_rewrite(const char *source, const char *target,
 }
 
 
+/* Missing source metadata is an idempotent no-op; preserve other rename errors. */
+static inline int
+disk_share_account_rename_status(int rename_result, int saved_errno)
+{
+	if (rename_result == 0 || saved_errno == ENOENT)
+		return 0;
+	return saved_errno != 0 ? saved_errno : EIO;
+}
+
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

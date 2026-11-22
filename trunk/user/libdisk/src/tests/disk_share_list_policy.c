@@ -254,6 +254,21 @@ test_permission_rewrite_reports_missing_record_and_clears_outputs(void)
 	assert(updated == NULL);
 	assert(updated_len == 0);
 }
+
+static void
+test_account_rename_status_accepts_success_and_missing_source(void)
+{
+	assert(disk_share_account_rename_status(0, EACCES) == 0);
+	assert(disk_share_account_rename_status(-1, ENOENT) == 0);
+}
+
+static void
+test_account_rename_status_preserves_real_errors(void)
+{
+	assert(disk_share_account_rename_status(-1, EACCES) == EACCES);
+	assert(disk_share_account_rename_status(-1, 0) == EIO);
+}
+
 static void
 test_account_var_path_rejects_truncation(void)
 {
@@ -282,6 +297,8 @@ main(void)
 	test_missing_output_parameters_are_safe();
 	test_valid_mount_path_starts_with_empty_outputs();
 	test_account_var_path_rejects_truncation();
+	test_account_rename_status_accepts_success_and_missing_source();
+	test_account_rename_status_preserves_real_errors();
 	test_permission_rewrite_removes_complete_record();
 	test_permission_rewrite_renames_key_and_preserves_rights();
 	test_permission_rewrite_reports_missing_record_and_clears_outputs();

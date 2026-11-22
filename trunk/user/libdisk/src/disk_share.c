@@ -1372,14 +1372,15 @@ int del_account(const char *const account)
 // "new_account" can be the same with "account"!
 int mod_account(const char *const account, const char *const new_account, const char *const new_password)
 {
-	disk_info_t *disk_list, *follow_disk;
+disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
 	int i, acc_num = 0;
 	char **account_list = NULL;
 	char nvram_name[16];
 	int account_order = -1;
 	char var_file[256], new_var_file[256];
-	int first_error = 0;
+	struct stat old_stat, new_stat;
+	int first_error = 0, saved_errno, rename_result, rename_errno, rename_status;
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
@@ -1436,10 +1437,10 @@ int mod_account(const char *const account, const char *const new_account, const 
 	if (!strcmp(new_account, account))
 		goto rerun;
 
-	disk_list = read_disk_data();
-	if (!disk_list)
-		return 0;
-
+	/* An incomplete inventory must not masquerade as no mounted volumes. */
+	if (read_disk_data_checked(&disk_list) != 0) {
+		first_error = errno ? errno : EIO;
+	} else {
 	for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
 		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
 			if (follow_partition->mount_point == NULL)
@@ -1460,11 +1461,39 @@ int mod_account(const char *const account, const char *const new_account, const 
 				continue;
 			}
 
-			/* Missing old metadata is harmless; all other rename errors matter. */
-			if (rename(var_file, new_var_file) != 0 &&
-			    errno != ENOENT && first_error == 0)
-				first_error = errno ? errno : EIO;
+			/* Missing sources are idempotent; reject malformed metadata. */
+			if (lstat(var_file, &old_stat) != 0) {
+				saved_errno = errno ? errno : EIO;
+				rename_status = disk_share_account_rename_status(-1, saved_errno);
+				if (rename_status != 0 && first_error == 0)
+					first_error = rename_status;
+				continue;
+			}
+			if (!S_ISREG(old_stat.st_mode)) {
+				if (first_error == 0)
+					first_error = EINVAL;
+				continue;
+			}
+			/* Never overwrite a stale destination permission file. */
+			if (lstat(new_var_file, &new_stat) == 0) {
+				if (first_error == 0)
+					first_error = EEXIST;
+				continue;
+			}
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno != ENOENT) {
+				if (first_error == 0)
+					first_error = saved_errno;
+				continue;
+			}
+			rename_result = rename(var_file, new_var_file);
+			rename_errno = errno;
+			rename_status = disk_share_account_rename_status(
+				rename_result, rename_errno);
+			if (rename_status != 0 && first_error == 0)
+				first_error = rename_status;
 		}
+	}
 	}
 	free_disk_data(disk_list);
 

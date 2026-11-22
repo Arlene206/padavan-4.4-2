@@ -1,3 +1,15 @@
+## 2026-11-22 — Fail closed on incomplete mod-account inventory and metadata collisions
+
+- Parent main SHA: `074bc11b3338917d1472e5146b31f9c0c59cca25`.
+- `mod_account()` used legacy `read_disk_data()`, which returns NULL both when there are no disks and when the storage inventory cannot be read completely. After the account name was committed to NVRAM, this could silently skip all per-volume metadata migration and return success. It now uses `read_disk_data_checked()` and reports inventory failure after service reload.
+- The per-volume rename used plain `rename(old,new)`, which can replace an existing destination metadata file. It now validates the old metadata is regular, treats only ENOENT as an absent source, checks that the new path does not already exist (EEXIST rather than clobbering stale permissions), and preserves the first path/stat/rename error while continuing across volumes.
+- NVRAM-before-filesystem ordering is unchanged. A migration failure may leave NVRAM updated while some per-volume metadata remains under the old name; no rollback is claimed. The destination pre-check prevents ordinary stale-file clobbering but is not a kernel-atomic no-replace operation against an external race.
+- Added GNU89 policy regressions for rename success, ENOENT idempotency, real errno preservation and EIO normalization, plus source contracts for checked inventory, bounded paths, target collision checks and cleanup/service ordering.
+- Parent exact-head #45020129047 AI handoff, #45020129064 libdisk, #45020129138 Process and #45020129049 HTTPD were PASS. #45020129046 NVRAM audit was still scanning ioctl/API callers; #45020129134 XY-C1 Build was running, with TRX and artifact upload pending. These ancestor results do not validate this commit.
+- L3 remains NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all PASS on this exact product/source SHA. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 20:23 CST (UTC+8) — Bound mod-account metadata renames and propagate failures
 
 - Parent main SHA: 5f00e014e746562927ffe73b75db82333c170300. mod_account() changed the NVRAM username/password first, then formatted old/new per-volume metadata paths with unchecked snprintf() and ignored every rename() result. Long mount paths could silently target truncated paths; failed renames were reported as success.
