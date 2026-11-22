@@ -46,6 +46,7 @@
 #include "modem_wan_start_policy.h"
 #include "storage_hotplug_name_policy.h"
 #include "firewall_startup_policy.h"
+#include "firewall_nvram_match_policy.h"
 #include "rc_nvram_policy.h"
 #include "wan_nvram_status_policy.h"
 #include "router_mode_nvram_policy.h"
@@ -1305,6 +1306,27 @@ init_crontab(void)
 	return ret;
 }
 
+static int
+rc_read_firewall_boot_enabled(const char *param_name, int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = firewall_nvram_match_status(api_result, saved_errno,
+					     value, "1", 0, enabled);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 int 
 init_router(void)
 {
@@ -1508,18 +1530,35 @@ init_router(void)
 
 	if (!is_ap_mode) {
 		int nat_restore_status;
-		int nat_required;
+		int nat_required = 0;
 		int ipv4_filter_status;
 		int ipv6_filter_status = 0;
-		int firewall_enabled;
+		int firewall_enabled = 0;
+		int firewall_enable_status, nat_enable_status;
 		int ipv6_filter_required = 0;
 		int ipv4_forward_disable_status;
 #if defined (USE_IPV6)
 		int ipv6_forward_disable_status;
 #endif
 
-		firewall_enabled = nvram_match("fw_enable_x", "1");
-		nat_required = nvram_match("wan_nat_x", "1");
+		firewall_enable_status = rc_read_firewall_boot_enabled(
+			"fw_enable_x", &firewall_enabled);
+		nat_enable_status = rc_read_firewall_boot_enabled(
+			"wan_nat_x", &nat_required);
+		if (firewall_enable_status != 0) {
+			logmessage(LOGNAME,
+				   "Cannot read firewall enable state during boot (status=%d)",
+				   firewall_enable_status);
+			boot_services_status = rc_first_service_start_status(
+				boot_services_status, firewall_enable_status);
+		}
+		if (nat_enable_status != 0) {
+			logmessage(LOGNAME,
+				   "Cannot read NAT enable state during boot (status=%d)",
+				   nat_enable_status);
+			boot_services_status = rc_first_service_start_status(
+				boot_services_status, nat_enable_status);
+		}
 		nat_restore_status = ipt_nat_default();
 		ipv4_filter_status = ipt_filter_default();
 #if defined (USE_IPV6)
@@ -1530,7 +1569,10 @@ init_router(void)
 			logmessage(LOGNAME, "Initial IPv4 NAT table restore failed (NAT enabled=%d)",
 				   nat_required);
 
-		if (!firewall_startup_policy_allows_wan(firewall_enabled,
+		if (!firewall_startup_policy_allows_wan_checked(
+							firewall_enable_status,
+							nat_enable_status,
+							firewall_enabled,
 							ipv4_filter_status,
 							ipv6_filter_required,
 							ipv6_filter_status,
@@ -1539,7 +1581,11 @@ init_router(void)
 							switch_vlan_status,
 							ipv6_disable_required,
 							ipv6_init_status)) {
-			if (switch_vlan_status != 0)
+			if (firewall_enable_status != 0 || nat_enable_status != 0)
+				logmessage(LOGNAME,
+					   "Blocking WAN startup: firewall/NAT enable state could not be read (firewall=%d NAT=%d)",
+					   firewall_enable_status, nat_enable_status);
+			else if (switch_vlan_status != 0)
 				logmessage(LOGNAME, "Blocking WAN startup: required switch VLAN isolation could not be verified (status=%d)",
 					   switch_vlan_status);
 			else if (ipv6_disable_required && ipv6_init_status != 0)

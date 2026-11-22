@@ -25,6 +25,22 @@ test_disabled_ipv6_requires_verified_global_disable(void)
 	assert(firewall_startup_policy_allows_wan(0, -1, 1, -1, 0, -1, 0, 0, EIO));
 }
 
+static void
+test_unreadable_firewall_enable_state_blocks_wan(void)
+{
+	/* A failed checked NVRAM read must never collapse to "firewall disabled". */
+	assert(!firewall_startup_policy_allows_wan_checked(
+		EIO, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+	assert(!firewall_startup_policy_allows_wan_checked(
+		0, EIO, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+	assert(!firewall_startup_policy_allows_wan_checked(
+		EIO, EIO, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+
+	/* Successful reads retain explicit disabled-feature compatibility. */
+	assert(firewall_startup_policy_allows_wan_checked(
+		0, 0, 0, -1, 0, -1, 0, -1, 0, 0, 0));
+}
+
 int
 main(void)
 {
@@ -49,6 +65,7 @@ main(void)
 	assert(firewall_startup_policy_allows_wan(1, 0, 1, 0, 0, 0, 0, 0, 0));
 	assert(!firewall_startup_policy_allows_wan(1, -1, 1, 0, 0, 0, 0, 0, 0));
 
+	test_unreadable_firewall_enable_state_blocks_wan();
 	test_switch_vlan_isolation_is_always_required();
 	test_disabled_ipv6_requires_verified_global_disable();
 	return 0;

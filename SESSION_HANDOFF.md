@@ -28,25 +28,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- USB modem-WAN identity is status-aware across `net_wan.c`, `hotplug_usb.c`, `services_usb.c`, `usb_modem.c`, `rc.c` and `detect_link.c`; parent exact-head modem identity and related WAN/Process checks passed.
-- New stability defect: `handle_notifications()` removed the RC queue item and ignored `nvram_set_int_temp(..., 1)` results for printer add/remove, modem add/remove and mass-storage add. A temporary-NVRAM failure therefore discarded the only queued wakeup and incorrectly completed the RC notification. The existing `alarm(5)` only ran the deferred worker; it did not recreate the lost notification.
-- `rc.c` now merges all five marker-write results into `action_result`, retains a retry bit for failed writes, and exposes a PID 1 retry worker. On SIGALRM, PID 1 recreates only fixed-name safe queue markers and re-signals itself; retry bits clear only after queue marker creation and wakeup succeed. The original incomplete marker remains until successful event handling.
-- Added GNU89 policy regressions for all event mappings, unknown names, marker-write status recording and successful/failed wakeup completion. Extended the RC notification source contract. Corrected a stale USB storage checker assertion that incorrectly prohibited the single initial `storage_should_start = 0` initializer.
-- Next: inspect exact-SHA RC notification, USB storage, AI handoff and XY-C1 Build/TRX/artifact results; then select a distinct whole-userland stability/security issue.
+- Prior RC deferred hotplug-marker retry slice: GNU89/ASan/UBSan regression and source contracts passed; PID 1 queue #44973220815 and AI docs #44973220818 PASS on `9743262f0235b3b4ec8636d9fc28559757828c3e`; USB storage #44973128576 PASS on source `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`.
+- Current P1 firewall correction: `init_router()` no longer collapses failed `fw_enable_x` / `wan_nat_x` reads to false. Checked reads retain legacy missing-key defaults, propagate backend/close errors, and force the WAN startup policy to block when either selector is unknown. The default NAT builder now checks and snapshots LAN IP, netmask and NAT-loopback enable before opening its temporary restore file.
+- Added GNU89 policy regressions for each read failure plus explicit-disabled compatibility; updated the Firewall Startup source contract to pin checked-read ordering. No local MIPS firmware checkout/toolchain is available here.
+- Exact first follow-up: inspect this commit's Firewall Startup and XY-C1 Actions, then Process inventory and AI docs on the same SHA. Require Build XY-C1, TRX verification and artifact upload together for L3; physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- Parent source SHA: `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`.
-- Exact parent-SHA Actions: PID 1 notification #44973128571 FAIL only in the final Python source contract with `NameError: main_loop is not defined`; all GNU89/ASan/UBSan regression executables, including the now-registered deferred retry test functions, passed. This commit defines the existing PID 1 main-loop body before asserting that SIGALRM retries the event queue before deferred device handling.
-- HTTPD authentication/security #44973128500 PASS; HTTPD daemon lifecycle #44973128575 PASS; PID 1 mdev hotplug security #44973128472 PASS; AI handoff #44973128460 PASS; DNS Forwarder #44973128486 PASS; DNSMasq #44973128493 PASS; Process inventory #44973128482 PASS.
-- USB storage hotplug #44973128576 and XY-C1 Firmware Validation #44973128574 remained IN_PROGRESS at last poll. No same-SHA Build/TRX/artifact result or L3 firmware claim yet; hardware L4 remains NOT VERIFIED.
-- The preceding init-source compatibility expectation is now satisfied and did not require a security-workflow weakening. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent main SHA for this firewall source slice: `9743262f0235b3b4ec8636d9fc28559757828c3e`.
+- Prior exact-SHA checks: PID 1 queue #44973220815 PASS and AI docs #44973220818 PASS on `9743262f0235b3b4ec8636d9fc28559757828c3e`; USB storage #44973128576 PASS on `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`; HTTPD auth/security #44973128500 PASS; HTTPD daemon lifecycle #44973128575 PASS.
+- XY-C1 #44973128574 belongs to source `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`, not the firewall slice; Build XY-C1 was IN_PROGRESS at last check, and TRX/artifact were not confirmed. No L3 claim.
+- This firewall source/test/workflow change requires exact-head reruns. No new compile, target build or hardware L4 result is claimed yet.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 stays closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Check the new exact-head PID 1 notification, USB storage, XY-C1 Build/TRX/artifact, AI handoff and Process lifecycle Actions. Fix any red check against its exact SHA.
-2. Validate the retry lifecycle end-to-end in the RC queue contract: failed marker persistence must retain incomplete status, PID 1 must recreate only the five fixed safe markers, and retries must stop only after queue wakeup and successful event handling.
-3. Once this slice is green, continue with a distinct whole-userland P1/P2 stability/security defect from the roadmap. Do not repeat the modem identity audit.
+1. Inspect exact-head Firewall Startup and XY-C1 runs for the new commit; also inspect Process inventory and AI handoff docs on that same source SHA. Diagnose real failed steps and fix the source or the specific stale contract.
+2. Do not mark L3 complete until Build XY-C1, TRX verification and artifact upload pass on that exact SHA. Physical-router L4 remains NOT VERIFIED until directly tested.
+3. While any CI job is pending, continue an independent P1/P2 whole-userland stability/security slice; do not repeat deferred-marker or USB modem identity audits.
 
 ## Workflow and preservation rules
 

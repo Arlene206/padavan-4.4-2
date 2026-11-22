@@ -206,16 +206,26 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           startup = body(rc, "init_router(void)")
-          assert "nat_required = nvram_match(\"wan_nat_x\", \"1\");" in startup
-          assert startup.index("nat_required = nvram_match") < startup.index("nat_restore_status = ipt_nat_default();")
-          assert startup.index("nat_restore_status = ipt_nat_default();") < startup.index("firewall_startup_policy_allows_wan(")
+          boot_reader = body(rc, "rc_read_firewall_boot_enabled(const char *param_name, int *enabled)")
+          assert "nvram_get_checked(param_name, &value)" in boot_reader
+          assert "firewall_nvram_match_status(" in boot_reader
+          assert "errno = status;" in boot_reader
+          assert 'firewall_enable_status = rc_read_firewall_boot_enabled(' in startup
+          assert '"fw_enable_x", &firewall_enabled' in startup
+          assert 'nat_enable_status = rc_read_firewall_boot_enabled(' in startup
+          assert '"wan_nat_x", &nat_required' in startup
+          assert startup.index('"fw_enable_x", &firewall_enabled') < startup.index("nat_restore_status = ipt_nat_default();")
+          assert startup.index('"wan_nat_x", &nat_required') < startup.index("nat_restore_status = ipt_nat_default();")
+          assert "firewall_startup_policy_allows_wan_checked(" in startup
+          assert "test_unreadable_firewall_enable_state_blocks_wan" in startup_test
+          assert startup.index("nat_restore_status = ipt_nat_default();") < startup.index("firewall_startup_policy_allows_wan_checked(")
           startup_compact = " ".join(startup.split())
           assert "nat_required, nat_restore_status, switch_vlan_status, ipv6_disable_required, ipv6_init_status))" in startup_compact
           assert "ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);" in startup
           assert "ipv6_init_status = init_ipv6();" in startup
           assert "ipv6_filter_required = !ipv6_disable_required;" in startup
-          assert startup.index("ipv6_init_status = init_ipv6();") < startup.index("firewall_startup_policy_allows_wan(")
-          assert startup.index("if (!firewall_startup_policy_allows_wan(") < startup.index("start_wan();")
+          assert startup.index("ipv6_init_status = init_ipv6();") < startup.index("firewall_startup_policy_allows_wan_checked(")
+          assert startup.index("if (!firewall_startup_policy_allows_wan_checked(") < startup.index("start_wan();")
           assert "set_ipv4_forward(0);" in startup
           assert "required NAT table or restrictive IPv4/IPv6 firewall filters" in startup
           assert "required switch VLAN isolation could not be verified" in startup
@@ -233,7 +243,7 @@ jobs:
           router_compact = " ".join(router_init.split())
           assert "int switch_vlan_status = 0;" in router_compact
           assert "init_bridge(is_ap_mode, &switch_vlan_status)" in router_compact
-          policy_call = router_compact.index("firewall_startup_policy_allows_wan(")
+          policy_call = router_compact.index("firewall_startup_policy_allows_wan_checked(")
           policy_vlan_arg = router_compact.index("switch_vlan_status", policy_call)
           wan_start = router_compact.index("start_wan();")
           assert policy_call < policy_vlan_arg < wan_start
@@ -261,9 +271,18 @@ jobs:
           assert mask_read < mask_check < subnet_derive
           assert "Invalid LAN IPv4 netmask for firewall; refusing rebuild" in firewall_entry_for_mask
           nat_default = body(firewall_source_for_ttl, "ipt_nat_default(void)")
-          nat_mask_check = nat_default.index('ipv4_netmask_is_contiguous(nvram_safe_get("lan_netmask"))')
+          nat_enable_read = nat_default.index('firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)')
+          nat_ip_read = nat_default.index('firewall_read_string_setting("lan_ipaddr", &lan_ip_setting)')
+          nat_mask_read = nat_default.index('firewall_read_string_setting("lan_netmask", &lan_netmask_setting)')
+          nat_mask_check = nat_default.index("ipv4_netmask_is_contiguous(lan_netmask_setting)")
+          nat_loop_read = nat_default.index('firewall_read_enabled_setting("nf_nat_loop", &is_nat_loopback_enabled)')
           nat_file_open = nat_default.index('firewall_open_rule_file(ipt_file, "IPv4 default NAT")')
-          assert nat_mask_check < nat_file_open
+          assert nat_enable_read < nat_file_open
+          assert nat_ip_read < nat_mask_read < nat_mask_check < nat_file_open
+          assert nat_mask_check < nat_loop_read < nat_file_open
+          assert "nvram_safe_get(" not in nat_default
+          assert "nvram_match(" not in nat_default
+          assert "ip2class(lan_ip, lan_netmask, lan_net" in nat_default
           assert "Invalid LAN IPv4 netmask for default NAT; refusing restore" in nat_default
           filter_policy = Path("trunk/user/rc/src/firewall_filter_policy.h").read_text()
           filter_test = Path("trunk/user/rc/src/tests/firewall_filter_policy.c").read_text()

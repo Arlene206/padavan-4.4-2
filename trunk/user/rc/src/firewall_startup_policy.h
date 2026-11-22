@@ -39,4 +39,33 @@ firewall_startup_policy_allows_wan(int firewall_enabled,
 	return 1;
 }
 
+/* An unreadable enable switch is not equivalent to a configured-disabled
+ * feature: otherwise PID 1 could skip firewall prerequisites and bring WAN up. */
+static int
+firewall_startup_policy_allows_wan_checked(int firewall_enable_read_status,
+                                           int nat_enable_read_status,
+                                           int firewall_enabled,
+                                           int ipv4_filter_status,
+                                           int ipv6_filter_required,
+                                           int ipv6_filter_status,
+                                           int nat_required,
+                                           int nat_restore_status,
+                                           int switch_vlan_status,
+                                           int ipv6_disable_required,
+                                           int ipv6_disable_status)
+{
+	if (firewall_enable_read_status != 0 || nat_enable_read_status != 0)
+		return 0;
+
+	return firewall_startup_policy_allows_wan(firewall_enabled,
+						  ipv4_filter_status,
+						  ipv6_filter_required,
+						  ipv6_filter_status,
+						  nat_required,
+						  nat_restore_status,
+						  switch_vlan_status,
+						  ipv6_disable_required,
+						  ipv6_disable_status);
+}
+
 #endif

@@ -4182,18 +4182,35 @@ int
 ipt_nat_default(void)
 {
 	FILE *fp;
-	int is_nat_enabled, result = -1;
+	int is_nat_enabled, is_nat_loopback_enabled = 0;
+	int result = -1, status;
+	const char *lan_ip_setting = NULL, *lan_netmask_setting = NULL;
+	char lan_ip[16] = {0}, lan_netmask[16] = {0};
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
 
-	is_nat_enabled = nvram_match("wan_nat_x", "1");
+	status = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
+	if (status != 0)
+		return status;
 
-	/* Never publish a baseline NAT table derived from a malformed LAN mask. */
-	if (is_nat_enabled &&
-	    firewall_ipv4_address_is_safe(nvram_safe_get("lan_ipaddr")) &&
-	    !ipv4_netmask_is_contiguous(nvram_safe_get("lan_netmask"))) {
-		logmessage(LOGNAME, "Invalid LAN IPv4 netmask for default NAT; refusing restore");
-		errno = EINVAL;
-		return EINVAL;
+	if (is_nat_enabled) {
+		status = firewall_read_string_setting("lan_ipaddr", &lan_ip_setting);
+		if (status != 0)
+			return status;
+		if (firewall_ipv4_address_is_safe(lan_ip_setting)) {
+			snprintf(lan_ip, sizeof(lan_ip), "%s", lan_ip_setting);
+			status = firewall_read_string_setting("lan_netmask", &lan_netmask_setting);
+			if (status != 0)
+				return status;
+			if (!ipv4_netmask_is_contiguous(lan_netmask_setting)) {
+				logmessage(LOGNAME, "Invalid LAN IPv4 netmask for default NAT; refusing restore");
+				errno = EINVAL;
+				return EINVAL;
+			}
+			snprintf(lan_netmask, sizeof(lan_netmask), "%s", lan_netmask_setting);
+			status = firewall_read_enabled_setting("nf_nat_loop", &is_nat_loopback_enabled);
+			if (status != 0)
+				return status;
+		}
 	}
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default NAT")))
@@ -4207,18 +4224,15 @@ ipt_nat_default(void)
 	fprintf(fp, ":%s - [0:0]\n", MINIUPNPD_CHAIN_IP4_NAT);
 	fprintf(fp, ":%s - [0:0]\n", MINIUPNPD_CHAIN_IP4_NAT_POST);
 
-	if (is_nat_enabled) {
+	if (is_nat_enabled && lan_ip[0]) {
 		char *lan_if = IFNAME_BR;
-		char *lan_ip = nvram_safe_get("lan_ipaddr");
-		if (firewall_ipv4_address_is_safe(lan_ip)) {
-			char lan_net[24] = {0};
-			ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_net, sizeof(lan_net));
-			
-			/* masquerade lan to lan (NAT loopback) */
-			if (nvram_match("nf_nat_loop", "1")) {
-				fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j SNAT --to-source %s\n",
-					lan_if, lan_net, lan_net, lan_ip);
-			}
+		char lan_net[24] = {0};
+		ip2class(lan_ip, lan_netmask, lan_net, sizeof(lan_net));
+
+		/* masquerade lan to lan (NAT loopback) */
+		if (is_nat_loopback_enabled) {
+			fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j SNAT --to-source %s\n",
+				lan_if, lan_net, lan_net, lan_ip);
 		}
 	}
 
