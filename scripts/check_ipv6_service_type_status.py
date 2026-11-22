@@ -295,9 +295,19 @@ wan_router_hosts = function_body(net_wan, "update_hosts_router(const char *lan_i
 router_hosts_read = wan_router_hosts.index("get_ipv6_type_status(&ipv6_type)")
 router_hosts_error = wan_router_hosts.index("if (ipv6_type_status != 0)", router_hosts_read)
 router_hosts_return = wan_router_hosts.index("return ipv6_type_status;", router_hosts_error)
+router_hosts_addr_read = wan_router_hosts.index("get_lan_addr6_host_status(", router_hosts_return)
+router_hosts_addr_error = wan_router_hosts.index("if (lan_addr6_status != 0)", router_hosts_addr_read)
+router_hosts_addr_return = wan_router_hosts.index("return lan_addr6_status;", router_hosts_addr_error)
 router_hosts_stage = wan_router_hosts.index("dnsmasq_file_open(hostname_temp)")
-router_hosts_ipv6 = wan_router_hosts.index("if (ipv6_type != IPV6_DISABLED)")
-assert router_hosts_read < router_hosts_error < router_hosts_return < router_hosts_stage < router_hosts_ipv6
+router_hosts_ipv6 = wan_router_hosts.index(
+    "if (ipv6_type != IPV6_DISABLED)", router_hosts_stage
+)
+assert (
+    router_hosts_read < router_hosts_error < router_hosts_return <
+    router_hosts_addr_read < router_hosts_addr_error < router_hosts_addr_return <
+    router_hosts_stage < router_hosts_ipv6
+)
+assert "get_lan_addr6_host(" not in wan_router_hosts
 assert "get_ipv6_type()" not in wan_router_hosts
 
 

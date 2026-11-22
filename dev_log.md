@@ -1,3 +1,13 @@
+## 2026-11-22 — Distinguish router-hosts IPv6 preflight from emission
+
+- Parent main SHA: `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`. The PPP launch-selector integration correction `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` has triggered exact-head WAN route #45031084451, WAN DHCP #45031084413, USB modem #45031084464, VPN lifecycle #45031084455, XY-C1 #45031084406, NVRAM audit #45031084347, AI handoff #45031084508, firewall startup #45031084376 and process-inventory #45031084490/#45031084483; all were queued at the last observation. Do not infer a result from those queued runs.
+- Exact-head IPv6 service-type #45030079720 on ancestor `0af768201a45cf28482ffa4e8c42b6846e16081a` passed its GNU89/ASan/UBSan policy binary but failed in the standalone source checker. `update_hosts_router()` intentionally has two separate IPv6 branches: checked LAN address preflight before stage-file creation, then IPv6 hosts-row emission after the files have been staged. The checker used an unscoped `.index()` and selected the first conditional as the emission gate.
+- Corrected the source contract to verify the checked IPv6 service/address read and error returns before staging, then locate the later emission conditional after `dnsmasq_file_open(hostname_temp)`. It also asserts that the obsolete unchecked `get_lan_addr6_host()` call is absent. Production source and runtime behavior are unchanged.
+- No local tests were run in this connector-only session. The IPv6 service-type workflow should validate this checker correction on this exact commit; the pending PPP integration workflows remain independent.
+- Result: THIS COMMIT. Next: inspect exact-head IPv6 service-type and PPP integration Actions; address only real failures before continuing the userland stability/security rotation.
+
+---
+
 ## 2026-11-22 — Correct PPP launch selector integration contracts
 
 - Parent main SHA: `d3805365ca95a17d5bd54736f29d5627580fa305`. On that exact source SHA, AI handoff #45030597515 and process lifecycle inventory #45030597384 passed; NVRAM audit #45030597487 was still pending at last check.

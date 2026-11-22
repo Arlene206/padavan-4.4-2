@@ -13,29 +13,30 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; default branch: `main`.
-- Parent of the current PPP integration correction: `d3805365ca95a17d5bd54736f29d5627580fa305`; the current source checkpoint must be obtained from live `main` after this atomic commit.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable/read-only.
-- Branch inventory remains `main` plus the frozen backup only. Legacy PR #1 is closed/unmerged; do not merge it wholesale.
-- WAN PPP mode selection uses one checked NVRAM transaction for `pppoemwan_enable` and, only for APP_RPL2TP L2TP, `wan_l2tpd`. One immutable selector result drives lifecycle lock selection, daemon stop/start, multi-WAN launch and rollback.
-- `safe_start_xl2tpd_locked()` already snapshots VPN server/client selectors and credentials before process scan/config truncation.
-- Root records remain `SESSION_HANDOFF.md` and `dev_log.md`; do not repeat startup audits or create snapshot archives.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
+- Parent SHA for the current IPv6 checker correction: `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`. Fetch live `main` after this atomic commit for the current source SHA.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable/read-only. Legacy PR #1 is closed/unmerged.
+- WAN PPP launch mode now uses a checked NVRAM transaction for `pppoemwan_enable` and, only for APP_RPL2TP L2TP, `wan_l2tpd`. Same immutable flags drive lifecycle lock choice, daemon stop/start, multi-WAN startup and rollback.
+- All downstream contracts for WAN interface-name bounds, VPN lifecycle, modem WAN startup, WAN route and HTTPD have been changed to recognize the new PPP worker signature and checked mode snapshot.
+- `safe_start_xl2tpd_locked()` already takes its VPN selector/credential snapshot before process scanning or rewriting the shared configuration file.
+- Root files `SESSION_HANDOFF.md` and `dev_log.md` are the live checkpoint/history; avoid repeating initial audits or creating history snapshots.
 
 ## Active task
 
-The parent commit `d3805365ca95a17d5bd54736f29d5627580fa305` exposed five dependent contract failures and one true production defect in the PPP launch-mode slice. The APP_RPL2TP start path still referenced a removed local selector, while the stop path used the new checked mode field; the correction switches startup to the same immutable `launch_mode->use_rpl2tp`. The WAN DHCP, VPN lifecycle, WAN route, HTTPD and XY-C1 source contracts have been updated for the new worker signature and selector model. The WAN PPP option checker now correctly inspects pointer-member usage inside the locked worker.
+The standalone IPv6 service-type checker previously chose the wrong branch in `update_hosts_router()`. The valid production code first checks the IPv6 service type and snapshots the LAN IPv6 address before staging either hostname file, then later emits IPv6 host records after the stage files exist. The checker now explicitly verifies that two-phase order, without modifying product code.
+
+The PPP selector integration correction is committed as `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`; its exact-head Actions were all queued when last polled.
 
 ## Verification boundary
 
 - Local C/Python tests were not run in this connector-only session.
-- On parent `d3805365ca95a17d5bd54736f29d5627580fa305`: AI handoff #45030597515 PASS; process lifecycle inventory #45030597384 PASS; NVRAM transaction audit #45030597487 was pending at the last check.
-- On parent `d3805365ca95a17d5bd54736f29d5627580fa305`: WAN DHCP #45030597508 failed at the WAN interface-name checker because it indexed the removed two-argument worker signature; VPN lifecycle #45030597433 failed on the same stale signature in its caller contract; WAN route #45030597395 failed because the new PPP mode source-contract asserted the wrong member syntax; HTTPD #45030597411 failed in the embedded L2TP contract which expected the old signature and deleted direct NVRAM selector; XY-C1 #45030597436 failed in the modem WAN checker before the cross-build step because of its stale signature.
-- On that parent the PPP WAN option regression binary compiled and passed with GNU89, ASan and UBSan. No full firmware build, TRX validation, artifact upload or hardware result is claimed.
-- The backup branch remains untouched. A green parent Action is not evidence for this corrective SHA.
+- On ancestor `0af768201a45cf28482ffa4e8c42b6846e16081a`, IPv6 service-type #45030079720 passed the GNU89/ASan/UBSan policy binary and failed only in the stale standalone source-checker ordering assertion.
+- On parent `d3805365ca95a17d5bd54736f29d5627580fa305`, AI handoff #45030597515 and process lifecycle inventory #45030597384 passed. WAN DHCP #45030597508, VPN lifecycle #45030597433, WAN route #45030597395, HTTPD #45030597411 and XY-C1 #45030597436 failed on dependent source contracts; the next commit `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` corrected those contracts and fixed one real remaining undefined RPL2TP selector reference.
+- Exact-head runs on `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`: WAN route #45031084451, WAN DHCP #45031084413, USB modem #45031084464, VPN lifecycle #45031084455, XY-C1 #45031084406, NVRAM audit #45031084347, AI handoff #45031084508, firewall #45031084376 and process-inventory #45031084490/#45031084483 were queued at last observation. No result is claimed until they complete.
+- No full XY-C1 firmware Build, TRX validation, artifact upload or hardware check is claimed for these commits. XY-C1 L3 requires all three CI steps to PASS on the same source SHA.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head WAN DHCP, VPN lifecycle, WAN route, HTTPD, XY-C1, AI handoff and NVRAM transaction Actions for the correction commit. Fix any concrete failure; treat PENDING as non-blocking.
-2. Resolve the independent IPv6 source-contract failure from exact parent run #45030079720: in `scripts/check_ipv6_service_type_status.py`, select the later `update_hosts_router()` IPv6 hosts-emission conditional after `dnsmasq_file_open(hostname_temp)`, while keeping the earlier checked LAN IPv6-address read/error gate before staging. Do not change valid production code for a checker-only failure.
-3. Continue broader Padavan userland stability/security work; do not reopen completed LAN/WAN IPv6 product paths without new evidence.
-4. XY-C1 L3 requires Build, TRX validation and artifact upload all PASS on the same source SHA. Do not claim L4 without router hardware verification.
+1. Fetch live `main` and inspect exact-SHA IPv6 service-type Actions for this correction plus all PPP selector integration workflows for `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`. Diagnose and fix concrete failures; treat pending checks as non-blocking.
+2. Continue the wider Padavan userland stability/security rotation after those checks; do not reopen completed LAN/WAN IPv6 product code absent new evidence.
+3. Before context exhaustion, update this handoff only when the resumable facts or first action materially change; if still accurate, explicitly conclude the check without a no-op commit.
