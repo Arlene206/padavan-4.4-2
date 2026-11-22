@@ -1,3 +1,10 @@
+## 2026-11-21 — Clear policy output before rejecting invalid modem match flags
+
+- Parent main SHA: `06556f943016bbb0a8dd988d89e3892dc487402e`. Exact USB workflow #44985455596 failed at the new GNU89 policy regression: the invalid-presence case returned `EINVAL` before zeroing the caller's output flag (assertion at `modem_wan_start_policy.c:48`). Earlier USB policy executables in that job passed. XY-C1 #44985455464 was still building at the last poll.
+- Move output initialization ahead of all input-flag validation whenever the output pointer itself is valid. The regression already asserts this fail-safe output contract; no rule-selection semantics are relaxed.
+- Exact-head USB rerun and same-SHA XY-C1 Build/TRX/artifact are required; no L3 claim until all target steps pass.
+
+---
 ## 2026-11-21 — Make USB modem hotplug and startup configuration reads retry-safe
 
 - Parent main SHA: `40f639ad8d647dc1239e0041796c03af8eaed876`. Its exact-head AI handoff #44984119963, WAN route #44984119975, Firewall Startup #44984119979 and XY-C1 host-contract run #44984119951 completed SUCCESS. The XY-C1 run skipped Build XY-C1, TRX verification and artifact upload because the parent was checker-only; it is not L3 evidence.

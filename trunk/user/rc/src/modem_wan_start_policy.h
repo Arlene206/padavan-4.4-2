@@ -141,12 +141,14 @@ modem_wan_hotplug_notification_enabled(int priority_present,
 				       int type_present, const char *type,
 				       int is_ndis, int *notify)
 {
-	if (!notify || (is_ndis != 0 && is_ndis != 1) ||
+	if (!notify)
+		return EINVAL;
+	*notify = 0;
+	if ((is_ndis != 0 && is_ndis != 1) ||
 	    (priority_present != 0 && priority_present != 1) ||
 	    (rule_present != 0 && rule_present != 1) ||
 	    (type_present != 0 && type_present != 1))
 		return EINVAL;
-	*notify = 0;
 	if (!priority_present || !rule_present || !type_present)
 		return 0;
 	if (!priority || !rule || !type)
