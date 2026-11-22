@@ -307,7 +307,8 @@ jobs:
           assert 'nvram_set("ddns_server_x", inadyn_systems[0].alias) != 0' in provider_repair
           assert "cannot persist fallback Inadyn provider" in provider_repair
           assert "errno = saved_errno;" in writer
-          assert "return 0;" in provider_repair
+          assert "goto failed;" in provider_repair
+          assert provider_repair.index("cannot persist fallback Inadyn provider") < provider_repair.index("goto failed;")
           assert "inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path))" in writer
           assert "inadyn_config_file_publish(fp, staged_path, conf_file)" in writer
           assert 'fopen(conf_file, "w")' not in writer
