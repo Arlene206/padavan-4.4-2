@@ -1710,7 +1710,7 @@ jobs:
           # service_start_status.c now imports the shared process inventory API.
           service_start_build = workflow.split(
               "- name: Compile and run RC service launch status regression", 1
-          )[1].split("\\n      - name:", 1)[0]
+          )[1].split("\n      - name:", 1)[0]
           assert "-I trunk/user/shared/src -I trunk/user/rc/src" in service_start_build
           for header_path in (
               "trunk/user/rc/src/optional_daemon_policy.h",
