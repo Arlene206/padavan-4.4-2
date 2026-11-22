@@ -1625,7 +1625,7 @@ int start_adguardhome(void){
 	if (adg_mode != 1)
 		return 0;
 
-	start_status = eval("/usr/bin/adguardhome.sh", "start");
+	start_status = eval("/usr/bin/adguardhome.sh","start");
 	if (start_status != 0)
 		logmessage(LOGNAME, "AdGuardHome launcher failed (status=%d)", start_status);
 	return start_status;
@@ -1682,7 +1682,7 @@ int start_ddnsto(void){
 	if (ddnsto_enable != 1)
 		return 0;
 
-	start_status = eval("/usr/bin/ddnsto.sh", "start");
+	start_status = eval("/usr/bin/ddnsto.sh","start");
 	if (start_status != 0)
 		logmessage(LOGNAME, "DDNS.to launcher failed (status=%d)", start_status);
 	return start_status;
@@ -1847,7 +1847,7 @@ int start_aliddns(void){
 	if (aliddns_mode != 1)
 		return 0;
 
-	start_status = eval("/usr/bin/aliddns.sh", "start");
+	start_status = eval("/usr/bin/aliddns.sh","start");
 	if (start_status != 0)
 		logmessage(LOGNAME, "AliDDNS launcher failed (status=%d)", start_status);
 	return start_status;
@@ -1868,7 +1868,7 @@ int stop_frp(void){
 }
 
 int start_frp(void){
-	int status = eval("/usr/bin/frp.sh", "start");
+	int status = eval("/usr/bin/frp.sh","start");
 
 	if (status != 0)
 		logmessage(LOGNAME, "FRP start failed: %d", status);
