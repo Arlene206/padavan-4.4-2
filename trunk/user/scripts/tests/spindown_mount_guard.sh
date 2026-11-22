@@ -30,6 +30,15 @@ EOF
 spindown_mount_status sda "$tmp/mounts" && status=0 || status=$?
 [ "$status" -eq 1 ]
 
+# A malformed/truncated record makes the inventory UNKNOWN, even if no
+# row names the target disk. It must not be accepted as proof of absence.
+cat > "$tmp/mounts" <<'EOF'
+/dev/sdb1 /mnt/other ext4 rw 0 0
+/dev/sdc1 /mnt/truncated ext4 rw
+EOF
+spindown_mount_status sda "$tmp/mounts" && status=0 || status=$?
+[ "$status" -eq 2 ]
+
 # A missing/unreadable mount table is not evidence that the disk is unused.
 spindown_mount_status sda "$tmp/missing" && status=0 || status=$?
 [ "$status" -eq 2 ]

@@ -38,6 +38,11 @@ spindown_mount_status() {
 	fi
 	spindown_mount_snapshot=$(cat "$spindown_mounts_file") || return 2
 	printf '%s\n' "$spindown_mount_snapshot" | awk -v dev="/dev/$spindown_device" '
+NF == 0 { next }
+NF < 6 {
+	invalid = 1
+	next
+}
 {
 	source = $1
 	if (source == dev) {
@@ -48,8 +53,11 @@ spindown_mount_status() {
 			found = 1
 	}
 }
-END { exit !found }
-'
+END {
+	if (invalid)
+		exit 2
+	exit !found
+}
 	spindown_awk_status=$?
 	case "$spindown_awk_status" in
 		0|1) return "$spindown_awk_status" ;;
