@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-script=\${1:-trunk/user/scripts/files/sbin/spindown.sh}
+script=${1:-trunk/user/scripts/files/sbin/spindown.sh}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' 0 HUP INT TERM
 
