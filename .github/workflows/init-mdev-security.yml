@@ -194,6 +194,19 @@ jobs:
           assert "init_signal_install_status(first_status,SIGCHLD,&sa)" in signal_init_compact
           assert "init_signal_install_status(first_status,signals_event[i],&sa)" in signal_init_compact
           assert "returnfirst_status;" in signal_init_compact
+          signal_mask = body(pid1_policy, "pid1_signal_update_mask")
+          signal_mask_control = body(init, "control_signal(int sig, int how)")
+          signal_mask_setup = body(init, "init_signal_mask_update(int how,")
+          main_loop_compact = "".join(main_loop.split())
+          assert "errno=0;" in signal_mask
+          assert "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
+          assert "pid1_signal_update_mask(sigprocmask,how,&set,NULL)" in "".join(signal_mask_control.split())
+          assert "pid1_signal_update_mask(sigprocmask,how,set,old_set)" in "".join(signal_mask_setup.split())
+          assert "test_pid1_signal_mask_update_reports_failures" in pid1_test
+          assert "wait_mask_build_status" in main_loop
+          assert "if (!wait_mask_ready)" in main_loop
+          assert "original_mask_ready ? NULL : &original_mask" in main_loop
+          assert "if (sigsuspend(&original_mask) < 0 && errno != EINTR)" in main_loop
           for token in ("pid1_signal_install_action", "pid1_signal_status_merge",
                         "if (!install || !action)", "return errno > 0 ? errno : EIO;"):
               assert token in pid1_policy, token

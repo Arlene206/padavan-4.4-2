@@ -4,6 +4,21 @@
 #include <errno.h>
 #include <signal.h>
 
+typedef int (*pid1_signal_mask_fn)(int, const sigset_t *, sigset_t *);
+
+static inline int
+pid1_signal_update_mask(pid1_signal_mask_fn update, int how,
+			const sigset_t *set, sigset_t *old_set)
+{
+	if (!update || !set)
+		return EINVAL;
+
+	errno = 0;
+	if (update(how, set, old_set) < 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
 typedef int (*pid1_signal_action_fn)(int, const struct sigaction *,
 					 struct sigaction *);
 

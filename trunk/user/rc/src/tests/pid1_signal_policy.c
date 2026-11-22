@@ -5,6 +5,68 @@
 
 #include "pid1_signal_policy.h"
 
+static int fake_mask_how;
+static int fake_mask_result;
+static int fake_mask_errno;
+static int fake_mask_saw_sigusr1;
+static int fake_mask_old_written;
+
+static int
+fake_sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
+{
+	fake_mask_how = how;
+	fake_mask_saw_sigusr1 = sigismember(set, SIGUSR1);
+	fake_mask_old_written = 0;
+	if (old_set) {
+		sigemptyset(old_set);
+		sigaddset(old_set, SIGCHLD);
+		fake_mask_old_written = 1;
+	}
+	if (fake_mask_result < 0) {
+		errno = fake_mask_errno;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+test_pid1_signal_mask_update_reports_failures(void)
+{
+	sigset_t set;
+	sigset_t old_set;
+
+	sigemptyset(&set);
+	sigaddset(&set, SIGUSR1);
+	if (pid1_signal_update_mask(NULL, SIG_BLOCK, &set, NULL) != EINVAL ||
+	    pid1_signal_update_mask(fake_sigprocmask, SIG_BLOCK, NULL, NULL) != EINVAL)
+		return 1;
+
+	fake_mask_result = 0;
+	fake_mask_errno = EBUSY;
+	fake_mask_how = -1;
+	fake_mask_saw_sigusr1 = 0;
+	fake_mask_old_written = 0;
+	errno = EINTR;
+	if (pid1_signal_update_mask(fake_sigprocmask, SIG_BLOCK, &set, &old_set) != 0 ||
+	    fake_mask_how != SIG_BLOCK || fake_mask_saw_sigusr1 != 1 ||
+	    !fake_mask_old_written || sigismember(&old_set, SIGCHLD) != 1 ||
+	    errno != 0)
+		return 1;
+
+	fake_mask_result = -1;
+	fake_mask_errno = EBUSY;
+	if (pid1_signal_update_mask(fake_sigprocmask, SIG_SETMASK, &set, NULL) != EBUSY)
+		return 1;
+
+	fake_mask_errno = 0;
+	if (pid1_signal_update_mask(fake_sigprocmask, SIG_UNBLOCK, &set, NULL) != EIO)
+		return 1;
+
+	return pid1_signal_status_merge(0, EBUSY) != EBUSY ||
+	       pid1_signal_status_merge(EBUSY, 0) != EBUSY ||
+	       pid1_signal_status_merge(EBUSY, EIO) != EBUSY;
+}
+
 static int fake_signal_number;
 static int fake_signal_result;
 static int fake_signal_errno;
@@ -73,6 +135,7 @@ int
 main(void)
 {
 	assert(test_pid1_signal_installation_reports_failures() == 0);
+	assert(test_pid1_signal_mask_update_reports_failures() == 0);
 	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };
 
 	pid1_signal_record_event(&state, SIGUSR1);

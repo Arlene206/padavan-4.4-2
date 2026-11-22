@@ -1,3 +1,11 @@
+## 2026-11-21 23:37 PST — Check PID 1 signal masks and avoid invalid sigsuspend state
+
+- Parent main `deaca535575f3032b02c53a52667f8eb74494fe2`. Exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process lifecycle inventory #45000188627 and AI handoff #45000188637 PASS. Exact deaca XY-C1 #45000188681 is HOST-ONLY success: production-input detector found no firmware build inputs changed, so Build, TRX and artifact steps were SKIPPED; not L3. Exact f6a NVRAM #44999987551 PASS; deaca NVRAM #45000188665 was running at last poll.
+- PID 1 main loop ignored queued-work sigemptyset/sigaddset/sigprocmask failures, could pass an uninitialized original_mask to sigsuspend, and ignored console-shell mask restore/reblock failures. The two early control_signal mask changes were also unchecked.
+- Added an injectable pid1_signal_update_mask() returning errno or EIO, checked control-signal masks and router-readiness gates, mask-construction status, original-mask validity, checked block/restore/reblock transitions and a bounded polling fallback that never suspends with invalid state. Failed SIGUSR1 unblock disables router notifications. Added GNU89 regression coverage for null args, stale errno clearing on success, old-mask publication, EBUSY and errno-less EIO; expanded mdev and HTTPD source contracts. Exact-head L2 reruns pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 18:31 CST — Cover successful signal installer errno reset
 
 - Parent main `52e6692cd806abdb4c52ae2fd42271a3f085aed9`. The 8a66 HTTPD run #44999904303 passed all preceding tests and failed on the old direct-`sigaction` expectation. The checker update in 52e has not yet been exercised because its commit touched only the workflow and documentation.

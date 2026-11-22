@@ -7,9 +7,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: 52e6692cd806abdb4c52ae2fd42271a3f085aed9. The PID1 include-order fix and Process/shared-boot checker correction landed in 8a66; exact PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325, and AI docs #44999904265 passed there. The HTTPD checker's follow-up is in 52e; no run appeared for that checker-only commit because only the workflow/doc paths changed.
-- The HTTPD inline contract now expects every signal group through the checked installer, but its previous exact 8a66 run #44999904303 had failed only at the legacy direct-`sigaction` assertion. THIS COMMIT strengthens the C regression to verify that successful installation clears stale caller errno, and adds an explicit workflow assertion for that test case. The C test path is in the HTTPD and mdev workflow filters, forcing fresh exact-head execution.
-- Exact f6a NVRAM audit #44999987551 was still in progress; 8a66 NVRAM #44999904244 was cancelled when a newer SHA superseded it. c74 XY-C1 #44999684046 remained in progress at last poll; no same-SHA Build/TRX/artifact result. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
+- Current parent main: deaca535575f3032b02c53a52667f8eb74494fe2. Exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process lifecycle inventory #45000188627 and AI handoff #45000188637 PASS.
+- Exact deaca XY-C1 #45000188681 completed SUCCESS as HOST-ONLY validation: production-input detector found no firmware build inputs changed, so Build XY-C1, TRX and artifact steps were SKIPPED. Not L3. Exact deaca NVRAM #45000188665 was still running at last poll; exact f6a NVRAM #44999987551 PASS.
+- THIS COMMIT adds an injectable checked sigprocmask adapter and fail-safe main-loop mask state. It prevents uninitialized original_mask use in sigsuspend, checks control-signal block/unblock calls, retries mask transitions, and falls back to one-second polling when queued-work mask construction is invalid. The PID1 mdev and HTTPD contracts are updated to verify this behavior.
 
 ## Completed source slices
 

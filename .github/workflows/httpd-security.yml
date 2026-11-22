@@ -5437,10 +5437,20 @@ jobs:
           assert "pid1_signal_install_action(sigaction, signal_number, action)" in init
           assert "handle_sig_fatal((int)signal_state.shutdown_signal);" in main_loop
           assert "signal_state.shutdown_pending && !shutdown_handled" in main_loop
-          assert "sigprocmask(SIG_BLOCK, &wait_mask, &original_mask);" in main_loop
-          assert "sigsuspend(&original_mask);" in main_loop
-          assert "sigprocmask(SIG_SETMASK, &original_mask, NULL);" in main_loop
-          assert "sigprocmask(SIG_BLOCK, &wait_mask, NULL);" in main_loop
+          signal_mask = body(policy, "pid1_signal_update_mask")
+          signal_mask_control = body(init, "control_signal(int sig, int how)")
+          signal_mask_setup = body(init, "init_signal_mask_update(int how,")
+          main_loop_compact = "".join(main_loop.split())
+          assert "pid1_signal_update_mask(sigprocmask,how,&set,NULL)" in "".join(signal_mask_control.split())
+          assert "pid1_signal_update_mask(sigprocmask,how,set,old_set)" in "".join(signal_mask_setup.split())
+          assert "errno=0;" in signal_mask and "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
+          assert "wait_mask_build_status" in main_loop
+          assert "if(!wait_mask_ready)" in main_loop_compact
+          assert "original_mask_ready?NULL:&original_mask" in main_loop_compact
+          assert "init_signal_mask_update(SIG_SETMASK,&original_mask,NULL," in main_loop_compact
+          assert "init_signal_mask_update(SIG_BLOCK,&wait_mask,NULL," in main_loop_compact
+          assert "if(sigsuspend(&original_mask)<0&&errno!=EINTR)" in main_loop_compact
+          assert "test_pid1_signal_mask_update_reports_failures" in pid1_test
           assert "shutdown_router(0);" in fatal and "reboot(RB_AUTOBOOT);" in fatal
           assert "static inline void" in policy
           assert "volatile sig_atomic_t shutdown_pending;" in policy

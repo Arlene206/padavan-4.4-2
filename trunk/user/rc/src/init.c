@@ -358,13 +358,33 @@ run_shell(int timeout, int nowait)
 	}
 }
 
-static void
+static int
+init_signal_mask_update(int how, const sigset_t *set, sigset_t *old_set,
+			const char *operation)
+{
+	int status = pid1_signal_update_mask(sigprocmask, how, set, old_set);
+
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "PID 1 failed to %s (status=%d)",
+			   operation, status);
+	return status;
+}
+
+static int
 control_signal(int sig, int how)
 {
-	sigset_t ss;
-	sigemptyset(&ss);
-	sigaddset(&ss, sig);
-	sigprocmask(how, &ss, NULL);
+	sigset_t set;
+
+	errno = 0;
+	if (sigemptyset(&set) < 0)
+		return errno > 0 ? errno : EIO;
+	errno = 0;
+	if (sigaddset(&set, sig) < 0)
+		return errno > 0 ? errno : EIO;
+
+	return init_signal_mask_update(how, &set, NULL,
+				       "update a control signal mask");
 }
 
 static int
@@ -806,6 +826,10 @@ init_main_loop(void)
 	int sysctl_status;
 	int mdev_status;
 	int signal_status;
+	int mask_status;
+	int wait_mask_build_status = 0;
+	int wait_mask_ready = 0;
+	int original_mask_ready = 0;
 	init_mdev_retry_state_t mdev_retry_state = { 0 };
 	int i;
 	sigset_t wait_mask, original_mask;
@@ -870,11 +894,13 @@ init_main_loop(void)
 	if (signal_status == 0 && init_mdev_retry_state_is_pending(&mdev_retry_state))
 		alarm(INIT_MDEV_RETRY_DELAY_SECONDS);
 
-	/* block SIGUSR1 during init_router() */
-	control_signal(SIGUSR1, SIG_BLOCK);
+	/* block SIGUSR1 during init_router(); mask failures gate router startup. */
+	mask_status = control_signal(SIGUSR1, SIG_BLOCK);
+	signal_status = pid1_signal_status_merge(signal_status, mask_status);
 
 	/* SIGUSR2 remains a reserved, currently no-op event signal. */
-	control_signal(SIGUSR2, SIG_BLOCK);
+	mask_status = control_signal(SIGUSR2, SIG_BLOCK);
+	signal_status = pid1_signal_status_merge(signal_status, mask_status);
 
 	/* Required host prerequisites gate router init; service errors are degraded, not fatal. */
 	if (dev_init_status == 0 && nvram_node_result == 0 && signal_status == 0)
@@ -891,20 +917,52 @@ init_main_loop(void)
 		logmessage(LOGNAME,
 			   "Router startup reached ready state with degraded service status; PID 1 event handling remains enabled");
 
-	/* unblock SIGUSR1 */
-	control_signal(SIGUSR1, SIG_UNBLOCK);
+	/* Unblock SIGUSR1 after startup; failed delivery disables notifications. */
+	mask_status = control_signal(SIGUSR1, SIG_UNBLOCK);
+	if (mask_status != 0) {
+		signal_status = pid1_signal_status_merge(signal_status, mask_status);
+		router_ready = 0;
+		logmessage(LOGNAME,
+			   "PID 1 cannot unblock SIGUSR1; router notifications disabled (status=%d)",
+			   mask_status);
+	}
 
 	/*
-	 * Block queued work signals while inspecting their flags. sigsuspend()
-	 * atomically restores the prior mask while sleeping, so a signal cannot
-	 * land between the flag check and the wait.
+	 * Build the queued-work mask before using it. A failed mask operation
+	 * falls back to polling; never pass an uninitialized old mask to
+	 * sigsuspend().
 	 */
-	sigemptyset(&wait_mask);
-	sigaddset(&wait_mask, SIGUSR1);
-	sigaddset(&wait_mask, SIGALRM);
-	for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++)
-		sigaddset(&wait_mask, signals_shutdown[i]);
-	sigprocmask(SIG_BLOCK, &wait_mask, &original_mask);
+	errno = 0;
+	if (sigemptyset(&wait_mask) < 0)
+		wait_mask_build_status = errno > 0 ? errno : EIO;
+	if (wait_mask_build_status == 0) {
+		errno = 0;
+		if (sigaddset(&wait_mask, SIGUSR1) < 0)
+			wait_mask_build_status = errno > 0 ? errno : EIO;
+		errno = 0;
+		if (sigaddset(&wait_mask, SIGALRM) < 0 &&
+		    wait_mask_build_status == 0)
+			wait_mask_build_status = errno > 0 ? errno : EIO;
+		for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++) {
+			errno = 0;
+			if (sigaddset(&wait_mask, signals_shutdown[i]) < 0 &&
+			    wait_mask_build_status == 0)
+				wait_mask_build_status = errno > 0 ? errno : EIO;
+		}
+	}
+	if (wait_mask_build_status == 0) {
+		mask_status = init_signal_mask_update(SIG_BLOCK, &wait_mask,
+						     &original_mask,
+						     "block queued work signals");
+		if (mask_status == 0) {
+			wait_mask_ready = 1;
+			original_mask_ready = 1;
+		}
+	} else {
+		logmessage(LOGNAME,
+			   "PID 1 could not build queued-work signal mask; using recovery polling (status=%d)",
+			   wait_mask_build_status);
+	}
 
 	/* Loop forever */
 	for (;;) {
@@ -912,14 +970,52 @@ init_main_loop(void)
 		while (!signal_state.usr1_pending &&
 		       !signal_state.alarm_pending &&
 		       (!signal_state.shutdown_pending || shutdown_handled)) {
+			if (!wait_mask_ready) {
+				if (wait_mask_build_status != 0) {
+					sleep(1);
+					continue;
+				}
+				mask_status = init_signal_mask_update(
+					SIG_BLOCK, &wait_mask,
+					original_mask_ready ? NULL : &original_mask,
+					"retry blocking queued work signals");
+				if (mask_status != 0) {
+					sleep(1);
+					continue;
+				}
+				original_mask_ready = 1;
+				wait_mask_ready = 1;
+			}
 			if (!noconsole && !signal_state.console_shell_pid) {
 				/* Keep console setup from starving a signal that arrives now. */
-				sigprocmask(SIG_SETMASK, &original_mask, NULL);
+				mask_status = init_signal_mask_update(
+					SIG_SETMASK, &original_mask, NULL,
+					"restore original mask for console shell");
+				if (mask_status != 0) {
+					wait_mask_ready = 0;
+					sleep(1);
+					continue;
+				}
+				wait_mask_ready = 0;
 				if (run_shell(0, 1) < 0)
 					sleep(1);
-				sigprocmask(SIG_BLOCK, &wait_mask, NULL);
+				mask_status = init_signal_mask_update(
+					SIG_BLOCK, &wait_mask, NULL,
+					"reblock queued work signals after console shell");
+				if (mask_status == 0)
+					wait_mask_ready = 1;
+				else
+					sleep(1);
 			} else {
-				sigsuspend(&original_mask);
+				errno = 0;
+				if (sigsuspend(&original_mask) < 0 && errno != EINTR) {
+					mask_status = errno > 0 ? errno : EIO;
+					wait_mask_ready = 0;
+					logmessage(LOGNAME,
+						   "PID 1 sigsuspend failed; retrying mask setup (status=%d)",
+						   mask_status);
+					sleep(1);
+				}
 			}
 		}
 
