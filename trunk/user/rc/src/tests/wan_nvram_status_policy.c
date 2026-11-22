@@ -1375,6 +1375,87 @@ test_transactional_dhcp_renew_snapshot_copies_complete_state(void)
 
 
 static void
+test_transactional_iptv_overlap_lan_subnet_snapshot(void)
+{
+	static const char *const names[2] = {
+		"lan_ipaddr", "lan_netmask"
+	};
+	static const char *const values[2] = {
+		"192.168.33.1", "255.255.255.0"
+	};
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[2];
+	char destinations[2][64];
+	unsigned int i, fail_at;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	for (i = 0; i < 2; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+	}
+	assert(rc_wan_nvram_copy_snapshot(
+		fields, 2, fake_snapshot_begin, fake_snapshot_get,
+		fake_snapshot_end, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.read_calls == 2 &&
+	       fake.end_calls == 1);
+	assert(strcmp(destinations[0], "192.168.33.1") == 0);
+	assert(strcmp(destinations[1], "255.255.255.0") == 0);
+	/* The callback copies cache-backed text before the next transaction read. */
+	assert(strcmp(fake.cache_slot, "255.255.255.0") == 0);
+
+	/* A failure at either member discards the complete subnet tuple. */
+	for (fail_at = 0; fail_at < 2; ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.read_fail_at = (int)fail_at;
+		fake.read_error = EACCES;
+		fake.missing_at = -1;
+		for (i = 0; i < 2; ++i) {
+			fake.names[i] = names[i];
+			fake.values[i] = values[i];
+			fields[i].param_name = names[i];
+			fields[i].destination = destinations[i];
+			fields[i].destination_size = sizeof(destinations[i]);
+			strcpy(destinations[i], "stale");
+		}
+		assert(rc_wan_nvram_copy_snapshot(
+			fields, 2, fake_snapshot_begin, fake_snapshot_get,
+			fake_snapshot_end, &fake) == EACCES);
+		assert(fake.begin_calls == 1);
+		assert(fake.read_calls == fail_at + 1);
+		assert(fake.end_calls == 1);
+		assert(destinations[0][0] == '\0');
+		assert(destinations[1][0] == '\0');
+	}
+
+	/* A transaction-close error invalidates both successful reads too. */
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	fake.end_error = EIO;
+	for (i = 0; i < 2; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+		strcpy(destinations[i], "stale");
+	}
+	assert(rc_wan_nvram_copy_snapshot(
+		fields, 2, fake_snapshot_begin, fake_snapshot_get,
+		fake_snapshot_end, &fake) == EIO);
+	assert(fake.begin_calls == 1 && fake.read_calls == 2 &&
+	       fake.end_calls == 1);
+	assert(destinations[0][0] == '\0');
+	assert(destinations[1][0] == '\0');
+}
+
+
+static void
 test_transactional_snapshot_copies_coherent_tuple(void)
 {
 	struct fake_nvram_transaction fake;
@@ -2426,6 +2507,7 @@ main(void)
 	test_checked_nvram_copy_rejects_truncation();
 	test_checked_nvram_copy_rejects_invalid_arguments();
 	test_transactional_dhcp_renew_snapshot_copies_complete_state();
+	test_transactional_iptv_overlap_lan_subnet_snapshot();
 	test_transactional_wan_route_snapshot_reads_one_generation();
 	test_transactional_dhcp_route_options_snapshot();
 	test_transactional_snapshot_copies_coherent_tuple();

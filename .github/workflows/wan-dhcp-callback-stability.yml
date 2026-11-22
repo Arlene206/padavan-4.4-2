@@ -1766,5 +1766,20 @@ jobs:
           assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in lan_callback_test
           assert "test_transaction_failure_remains_fatal" in lan_callback_test
 
-          print("WAN DHCP callback ordering, rollback, launcher status and static-interface failure contracts: PASS")
+          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+          viptv_compact = "".join(viptv_bound.split())
+          lan_snapshot = "lan_config_status=rc_wan_nvram_copy_snapshot("
+          lan_overlap = "is_same_subnet2(ip,lan_ip,nm,lan_nm)"
+          assert lan_snapshot in viptv_compact
+          assert 'lan_snapshot_fields[0].param_name="lan_ipaddr";' in viptv_compact
+          assert 'lan_snapshot_fields[1].param_name="lan_netmask";' in viptv_compact
+          assert "wan_nvram_transaction_begin_callback" in viptv_bound
+          assert "wan_nvram_transaction_get_callback" in viptv_bound
+          assert "wan_nvram_transaction_end_callback" in viptv_bound
+          assert viptv_compact.index(lan_snapshot) < viptv_compact.index(lan_overlap)
+          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr"' not in viptv_compact
+          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask"' not in viptv_compact
+          assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in wan_nvram_test
+
+          print("WAN DHCP callback ordering, rollback, IPTV LAN subnet snapshot and static-interface failure contracts: PASS")
           PY
