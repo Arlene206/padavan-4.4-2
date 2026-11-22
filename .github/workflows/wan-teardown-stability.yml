@@ -57,6 +57,7 @@ jobs:
           source = (rc / "net_wan.c").read_text()
           lan6 = (rc / "net_lan6.c").read_text()
           lan6_policy = (rc / "lan_addr6_reload_policy.h").read_text()
+          policy = (rc / "wan_teardown_policy.h").read_text()
           workflow = Path(".github/workflows/wan-teardown-stability.yml").read_text()
 
           def function_body(text, signature):
