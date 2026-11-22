@@ -50,6 +50,7 @@ net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
 lan6_policy = (ROOT / "trunk/user/rc/src/lan_addr6_reload_policy.h").read_text()
 net_lan = (ROOT / "trunk/user/rc/src/net_lan.c").read_text()
 storage = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
+nfs_export_policy = (ROOT / "trunk/user/rc/src/storage_nfs_export_policy.h").read_text()
 net_wan = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
 openvpn = (ROOT / "trunk/user/rc/src/vpn_openvpn.c").read_text()
 
@@ -281,28 +282,24 @@ nfs_override = nfs_exports.index("if (exports_override_state == 1)")
 nfs_read = nfs_exports.index("get_ipv6_type_status(&ipv6_type)")
 nfs_error = nfs_exports.index("if (ipv6_type_status != 0)", nfs_read)
 nfs_return = nfs_exports.index("return -1;", nfs_error)
+nfs_snapshot_read = nfs_exports.index("storage_nfs_export_read_acl_snapshot(")
 nfs_acl = nfs_exports.index("if (ipv6_type != IPV6_DISABLED)")
 nfs_mounts = nfs_exports.index("procpt = fopen(PROC_MOUNTS_FILE")
 nfs_stage = nfs_exports.index("fd = mkstemp(staged_path)", nfs_mounts)
-nfs_exports_compact = "".join(nfs_exports.split())
-for key, destination in (
-    ("lan_ipaddr_t", "acl_lan_addr"),
-    ("lan_netmask_t", "acl_lan_mask"),
-    ("lan_ipaddr", "acl_fallback_addr"),
-    ("lan_netmask", "acl_fallback_mask"),
-    ("ip6_lan_addr", "acl_addr6"),
-    ("ip6_lan_size", "acl_len6"),
-    ("vpns_vnet", "acl_vpn_addr"),
+nfs_snapshot = function_body(
+    nfs_export_policy, "storage_nfs_export_read_acl_snapshot("
+)
+for key in (
+    "lan_ipaddr_t", "lan_netmask_t", "lan_ipaddr", "lan_netmask",
+    "ip6_lan_addr", "ip6_lan_size", "sw_mode", "vpns_enable",
+    "vpns_vuse", "vpns_vnet", "vpns_type", "vpns_ov_mode",
 ):
-    checked_copy = (
-        'storage_nfs_export_nvram_copy("' + key + '",' + destination
-    )
-    assert checked_copy in nfs_exports_compact, checked_copy
-    assert nfs_exports_compact.index(checked_copy) < nfs_exports_compact.index(
-        'procpt=fopen(PROC_MOUNTS_FILE,"r")'
-    )
+    assert '"' + key + '"' in nfs_snapshot, key
 assert "goto acl_nvram_error;" in nfs_exports
-assert nfs_override < nfs_read < nfs_error < nfs_return < nfs_acl < nfs_mounts < nfs_stage
+assert nfs_override < nfs_read < nfs_error < nfs_return < nfs_snapshot_read < nfs_acl < nfs_mounts < nfs_stage
+assert "storage_nfs_export_nvram_copy(" not in nfs_exports
+assert "nvram_get_int(" not in nfs_exports
+assert "get_ap_mode()" not in nfs_exports
 assert "get_ipv6_type()" not in nfs_exports
 
 
