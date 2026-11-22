@@ -1,3 +1,24 @@
+## 2026-11-22 — Propagate account permission bootstrap errors
+
+- Latest product source SHA: `c08483beb90245f70fabe5edb74fa6e6658f2bb6`.
+- `set_permission()` no longer ignores a failed `initial_one_var_file_in_mount_path()` or sleeps a fixed second before retrying. It returns immediately on initialization failure, then verifies the subsequent file read before editing permission data.
+- The adjacent bounded-path helper ensures both permission reads and writes reject a truncated account-var pathname; read failures remain fail-closed and write/initialization failures are explicit.
+- Exact-head Actions at this checkpoint:
+- Firewall Startup Stability Regression #45018314341: IN_PROGRESS.
+- Process inventory and lifecycle fail-closed regression #45018314337: IN_PROGRESS.
+- HTTPD Authentication and Security Regression #45018314301: IN_PROGRESS.
+- Process lifecycle inventory - c08483beb90245f70fabe5edb74fa6e6658f2bb6 #45018314273: IN_PROGRESS.
+- XY-C1 Firmware Validation #45018314239: IN_PROGRESS.
+- NVRAM transaction boundary audit #45018314219: PENDING.
+- WAN route operation status regression #45018314198: IN_PROGRESS.
+- HTTPD daemon lifecycle stability #45018314192: IN_PROGRESS.
+- WAN DHCP callback state stability regression #45018314188: IN_PROGRESS.
+- FULLCONENAT lifecycle regression #45018314180: IN_PROGRESS.
+- IPv6 service-type checked-read regression #45018314178: IN_PROGRESS.
+- Keep L3 unverified until same-SHA XY-C1 Build, TRX verification and artifact upload all pass; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Bound permission paths and make add-folder setup fail closed
 
 - `fb430cb0adea84a06b14ef6f33579ea42e7d8106` hardened `read_whole_file()`: 1 MiB bound, EINVAL/EFBIG/EIO/ENOMEM handling, checked successful close and errno-preserving failure cleanup; added GNU89 ASan/UBSan regression for normal, empty, invalid, missing, oversized and directory-read cases.
