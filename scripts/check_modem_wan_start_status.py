@@ -858,10 +858,14 @@ assert 'nvram_get_int("modem_prio")' not in modem_start
 assert "!get_modem_devnum()" not in modem_start
 
 modem_snapshot = compact(body(USB_SOURCE, "usb_modem_read_start_config_snapshot("))
+modem_field_reader = compact(body(USB_SOURCE, "usb_modem_read_start_config_field("))
 for key in ("modem_prio", "modem_rule", "modem_type"):
     assert '"' + key + '"' in modem_snapshot
-for marker in ("usb_modem_nvram_transaction_begin", "usb_modem_nvram_transaction_get", "usb_modem_nvram_transaction_end", "usb_modem_read_start_config_field("):
+for marker in ("usb_modem_nvram_transaction_begin", "usb_modem_nvram_transaction_end", "usb_modem_read_start_config_field("):
     assert marker in modem_snapshot
+assert "usb_modem_nvram_transaction_get" in modem_field_reader
+assert "rc_wan_nvram_read_status(" in modem_field_reader
+assert "rc_wan_nvram_copy_text(" in modem_field_reader
 
 modem_config = compact(body(USB_SOURCE, "get_modem_wan_start_config_status("))
 for key in ("config.modem_prio", "config.modem_rule", "config.modem_type"):

@@ -1,3 +1,12 @@
+## 2026-11-22 — Align USB hotplug and NVRAM snapshot source contracts with checked implementation
+
+- Parent main SHA: `7744265e95743f832e51d6b0b041fc14167d175b` (includes the independent firewall NAT/DMZ transactional snapshot commit `7744265e95743f832e51d6b0b041fc14167d175b`).
+- On USB commit `06556f943016bbb0a8dd988d89e3892dc487402e`, SCSI, modem-node identity and module-readiness host regressions passed, then the new policy test found that an invalid flag returned `EINVAL` before clearing a valid output. Commit `b6e8d07b51569502afe10a5a1ea8d0f211b09415` moved the output initialization before flag validation; the GNU89/ASan/UBSan policy regression passed on the exact b6 SHA.
+- Exact b6 USB run #44985580053 then failed in the workflow's inline WDM/NDIS checker because it still searched for the removed raw `nvram_invmatch("modem_prio", "0")` gate. Exact b6 XY-C1 run #44985580063 reached later host tests but stopped at the existing LAN restart first-error regression; Build XY-C1, TRX verification and artifact upload were skipped. No L3.
+- Updated the inline NDIS/RAS checks to require the checked `get_modem_hotplug_notification_status()` call, conservative queue-on-read-failure path, event-result propagation and absence of the old raw match gates. Corrected `check_modem_wan_start_status.py` to test `nvram_transaction_get` within the field-reader helper rather than incorrectly requiring it in the outer snapshot function. Exact-head USB rerun pending.
+- The LAN restart failure is outside this USB change; inspect its failed test output before changing that code. No L3/L4 claim.
+
+---
 ## 2026-11-21 — Clear policy output before rejecting invalid modem match flags
 
 - Parent main SHA: `06556f943016bbb0a8dd988d89e3892dc487402e`. Exact USB workflow #44985455596 failed at the new GNU89 policy regression: the invalid-presence case returned `EINVAL` before zeroing the caller's output flag (assertion at `modem_wan_start_policy.c:48`). Earlier USB policy executables in that job passed. XY-C1 #44985455464 was still building at the last poll.

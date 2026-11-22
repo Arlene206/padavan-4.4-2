@@ -242,10 +242,15 @@ jobs:
           assert "Preserve mandatory WAN cleanup on physical unplug" in net_remove
           assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in net_remove
           assert "modem_wan_hotplug_notification_result(" in net_remove
-          net_plug_start = net.index('if (nvram_invmatch("modem_prio", "0")')
+          net_plug_start = net.index("modem_hotplug_policy_status = get_modem_hotplug_notification_status(1, &notify_modem);")
           net_plug = net[net_plug_start:]
+          assert "if (modem_hotplug_policy_status != 0)" in net_plug
+          assert "notify_modem = 1;" in net_plug
+          assert "if (notify_modem)" in net_plug
           assert "notify_usb_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in net_plug
           assert "modem_wan_hotplug_notification_result(" in net_plug
+          assert 'nvram_invmatch("modem_prio"' not in net
+          assert 'nvram_match("modem_rule"' not in net
           assert "notify_rc(" not in net
           assert '#include "modem_wan_start_policy.h"' in hotplug
           assert "test_unplug_ifdown_failure_is_distinguished_from_removed_interface" in (
@@ -277,10 +282,15 @@ jobs:
           assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in tty_remove
           assert "modem_wan_hotplug_notification_result(" in tty_remove
           assert "notify_rc(" not in tty
-          tty_plug_start = tty.index('if (nvram_invmatch("modem_prio", "0")')
+          tty_plug_start = tty.index("modem_hotplug_policy_status = get_modem_hotplug_notification_status(0, &notify_modem);")
           tty_plug = tty[tty_plug_start:]
+          assert "if (modem_hotplug_policy_status != 0)" in tty_plug
+          assert "notify_modem = 1;" in tty_plug
+          assert "if (notify_modem)" in tty_plug
           assert "notify_usb_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in tty_plug
           assert "modem_wan_hotplug_notification_result(" in tty_plug
+          assert 'nvram_invmatch("modem_prio"' not in tty
+          assert 'nvram_match("modem_rule"' not in tty
 
           tty = body(hotplug, "int mdev_tty_main(")
           assert "publish_status = modem_node_file_publish_identity(" in tty
