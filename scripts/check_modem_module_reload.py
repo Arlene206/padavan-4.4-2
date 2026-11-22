@@ -117,6 +117,8 @@ assert notify_config < notify_config_error < notify_identity
 assert 'nvram_get_int("modem_rule")' not in notify
 assert 'nvram_get_int("modem_type")' not in notify
 assert "if (!stop_failed && nvram_modem_rule != modem_rule)" in notify
+assert notify.count("if (!modem_wan_restart_allowed(modem_identity_status))") == 1
+assert notify.count("modem_identity_status = get_usb_modem_wan_status(") == 1
 assert notify.index("if (!stop_failed && nvram_modem_rule != modem_rule)") > notify_config_error
 notify_pattern = (
     r"rc_notify_merge_action_result\s*\(\s*action_result\s*,\s*"

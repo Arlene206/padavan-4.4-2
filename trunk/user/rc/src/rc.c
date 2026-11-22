@@ -2237,15 +2237,6 @@ handle_notifications(void)
 					stop_failed = 1;
 				}
 			}
-			if (!modem_wan_restart_allowed(modem_identity_status)) {
-				logmessage("USB",
-					   "refusing modem module/service restart: WAN modem identity is unknown (status=%d)",
-					   modem_identity_status);
-				action_result = rc_notify_merge_action_result(
-					action_result, modem_identity_status);
-				stop_failed = 1;
-			}
-
 			if (!stop_failed && nvram_modem_rule != modem_rule)
 			{
 				if (need_restart_wan) {
