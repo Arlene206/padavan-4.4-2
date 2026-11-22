@@ -342,6 +342,7 @@ on:
       - "trunk/user/shared/src/net_ifstats_policy.h"
       - "trunk/user/shared/src/netutils.c"
       - "trunk/user/shared/src/include/router_account_policy.h"
+      - "trunk/user/shared/src/router_account_nvram_policy.h"
       - "trunk/user/Makefile"
       - "scripts/check_samba_shared_header.py"
       - "scripts/check_dhcp6c_duid_header_staging.py"

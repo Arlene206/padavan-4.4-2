@@ -1,3 +1,12 @@
+## 2026-11-22 — Reconcile IAPP firewall rules on duplicate start
+
+- Parent main SHA: `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`. Exact-head Process lifecycle #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 PASS.
+- `iappd.sh start` treated a live PID as sufficient proof of healthy startup and returned before checking the owned TCP/UDP 3517 firewall rules. If a partial rollback or external rule deletion left one rule absent, subsequent starts falsely reported success and never restored connectivity.
+- THIS FIX reconciles the two tagged rules on an already-running daemon, appends only a missing rule, verifies the resulting filter inventory, and returns an error when rule inspection or repair fails. Added tests for missing-UDP recovery without daemon relaunch and failed repair without false success.
+- The XY-C1 push path filter omitted `trunk/user/shared/src/router_account_nvram_policy.h`; adding it ensures future changes to this linked production header trigger firmware validation. IAPP's source path triggers the exact build on this commit. Current-head firmware validation pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Parse oversized account counts without temporary-buffer truncation
 
 - Parent main SHA: `7c4121b3c2d54e82931374015488d54401b4e784`. Exact 7c Process lifecycle #45003679784 failed at the oversized count case: `"999999999999999999"` exceeded the helper's 16-byte copy buffer, so it returned `ENAMETOOLONG` before the numeric parser could return the expected `ERANGE`.

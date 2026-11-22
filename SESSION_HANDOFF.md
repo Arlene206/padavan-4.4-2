@@ -5,13 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; active branch main; correction parent `1ba086afc059a4188884475532011bc27581c5bc`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
-- Account NVRAM snapshot implementation is on main as `1ba086afc059a4188884475532011bc27581c5bc`; this correction removes an unused local, initializes the password buffer and fixes a test's destination capacity.
-- Exact 7c Process lifecycle #45003679784 FAILED in `test_account_nvram_count_is_strict_and_bounded`: a long all-digit value was rejected as `ENAMETOOLONG` because the helper copied it through a 16-byte temporary before parsing. THIS correction parses the checked NVRAM value in place and returns `ERANGE` as soon as it exceeds the configured maximum; it consumes the cache pointer before another NVRAM read.
-- Exact 7c AI docs #45003679754, Process inventory #45003679750, HTTPD #45003679789, WAN DHCP #45003679775, DNS forwarder #45003679778 and GPIO #45003679755 PASS. NVRAM audit #45003679838 and XY-C1 #45003679777 were IN_PROGRESS at last poll.
-- Exact 1ba Process lifecycle #45003414996 FAILED only in the original new C regression: test copied five-byte `admin` into a five-byte destination, which correctly returned `ENAMETOOLONG` because NUL storage is required. Exact 1ba AI docs #45003415008 FAILED because the handoff rewrite removed mandatory section headings. Both were corrected on 7c. test copied 5-byte `admin` into a 5-byte destination, which correctly returns `ENAMETOOLONG` because NUL storage is required. Exact 1ba AI docs #45003415008 FAILED because a previous handoff rewrite removed the required `## Current repository state` and subsequent section headings. Both are corrected here.
-- Exact 1ba Process inventory #45003414964, HTTPD #45003415121, NVRAM audit #45003414955, WAN DHCP #45003415094, DNS forwarder #45003414947 and GPIO #45003414983 PASS. XY-C1 #45003414994 was still IN_PROGRESS at last poll.
-- Previous verified L3 product SHA remains `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff` (Build, TRX and artifact all PASS); that result does not certify this later account-source change. Hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; active branch `main`; parent for the current source slice: `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
+- Account NVRAM snapshots and strict oversized-count parsing are on main through `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`. Exact-head Process lifecycle #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 all PASS.
+- Exact 46a had no XY-C1 run because the XY workflow path filter omitted the newly added `trunk/user/shared/src/router_account_nvram_policy.h`; this slice adds it. The IAPP production-source change also triggers the XY workflow, so the resulting head validates both code paths.
+- Earlier 1ba and 7c Process failures were resolved: 7c expanded the five-byte test destination and restored required handoff headings; 46a replaced the fixed-size count copy with immediate bounded decimal parsing. Do not repeat these investigations.
+- The last verified L3 remains only for product SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; it does not certify later source changes. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,22 +28,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - MAC-filter hardening complete: supported WebUI modes are enforced, indexed MAC/date/time values use checked NVRAM reads, address tokens are validated, and absent schedule keys preserve legacy defaults. Exact source commit `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49` passed HTTPD, NVRAM, Firewall Startup, WAN DHCP, WAN route, FULLCONENAT, inventory and AI docs; exact XY-C1 #44955441811 passed Build/TRX/artifact (L3 only for that SHA).
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
+
 ## Active task
-- Fix strict account-count parsing: read the checked NVRAM shared-cache value and parse it immediately, without copying through a 16-byte buffer that masked numeric overflow as `ENAMETOOLONG`. The maximum remains 100; malformed text returns `EINVAL`, out-of-range decimal values return `ERANGE`, and a missing key remains zero.
-- Preserve the checked owned-snapshot behavior for all account names/passwords. This slice does not change account file staging or rollback. The 1ba Process failure was an undersized test buffer (not a helper defect); the source fix also removes the now-unused `sh_num` local and initializes the conditional password buffer.
-- The exact 1ba AI failure was documentation structure only; this checkpoint restores all required handoff headings and preserves the current/verified SHA boundary.
+- `iappd.sh start` previously returned success immediately whenever the daemon was already running, without checking its owned TCP/UDP firewall rules for port 3517. A failed partial start/rollback or later rule loss could therefore leave a live daemon without its required firewall allowance while a repeated start falsely reported healthy.
+- This slice reconciles each tagged rule on duplicate start, adds only a genuinely missing rule, verifies the postcondition with `iptables-save`, and propagates inspection/append failures. Regression cases cover repair without relaunch and fail-reporting on append failure while preserving the existing daemon.
+- XY-C1 workflow trigger coverage now includes the account NVRAM policy header; the IAPP source path already triggers the target workflow. Firmware validation must still pass on the exact new commit.
 
 ## Verification boundary
-- Exact 7c Process lifecycle #45003679784 failed only at the oversized numeric account-count regression: fixed-size temporary-copy boundary returned `ENAMETOOLONG` instead of expected `ERANGE`. This commit corrects the policy implementation; exact corrected-head Process rerun pending.
-- Exact 7c AI docs #45003679754, Process inventory #45003679750, HTTPD #45003679789, WAN DHCP #45003679775, DNS Forwarder #45003679778 and GPIO #45003679755 PASS. NVRAM audit #45003679838 and XY-C1 #45003679777 were still running; no L3 claim.
-- Exact 1ba Process lifecycle #45003414996 and AI docs #45003415008 exposed the earlier test-buffer and handoff-heading issues, both fixed by 7c. Exact 1ba Process inventory #45003414964, HTTPD #45003415121, NVRAM audit #45003414955, WAN DHCP #45003415094, DNS Forwarder #45003414947 and GPIO #45003414983 PASS.
-- Previous verified L3 product SHA remains `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; it does not certify current account-source changes. Hardware L4 NOT VERIFIED. #45003414996 failed at `test_account_nvram_copy_rejects_invalid_and_overlong_values` because the test buffer lacked room for the terminating NUL. Exact 1ba AI docs #45003415008 failed on missing handoff section headings. No production regression was indicated by either failure.
-- Exact 1ba Process inventory #45003414964, HTTPD #45003415121, NVRAM audit #45003414955, WAN DHCP #45003415094, DNS Forwarder #45003414947 and GPIO #45003414983 PASS.
-- Exact 1ba XY-C1 #45003414994 remained IN_PROGRESS at last poll. Hardware L4 NOT VERIFIED; L3 remains verified only on a5.
+- Exact 46a Process lifecycle #45003857329 PASS, Process inventory #45003857277 PASS, NVRAM audit #45003857261 PASS and AI docs #45003857267 PASS.
+- Exact 46a did not run XY-C1 due the missing path-filter entry; this commit repairs that trigger. No current-head Build/TRX/artifact evidence yet.
+- Account test failures at 1ba and 7c were corrected and passed on exact 46a Process regression. Prior L3 evidence is only for the older a5 product SHA. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact corrected-head Process lifecycle, AI docs, NVRAM audit and XY-C1 workflows; inspect the first failure by step and fix it without weakening fail-closed behavior.
-2. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on one exact product-source SHA.
-3. Continue the next independent P1 stability/security source fix. Do not repeat the prior WAN route or account snapshot audits; hardware L4 remains NOT VERIFIED.
-2. If Process fails again, inspect the first failing step and distinguish unit-test error from integration/source-contract issue before modifying production code.
-3. Continue the next independent security/stability source fix once account snapshot verification passes. Hardware L4 remains NOT VERIFIED.
+1. Check exact-head IAPP lifecycle and Process lifecycle runs; confirm both duplicate-start recovery tests and the wider regression complete successfully.
+2. Check exact-head XY-C1 Build, TRX verification and artifact upload. Claim L3 only if all three pass on that same source SHA.
+3. Continue the next independent P1 stability/security source fix; do not repeat the completed WAN route or account NVRAM investigations. Hardware L4 remains NOT VERIFIED.

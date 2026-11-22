@@ -64,6 +64,61 @@ iapp_remove_firewall_rules() {
   return "$status"
 }
 
+
+iapp_ensure_firewall_rule() {
+  local proto tag rules rc
+  proto="$1"
+  case "$proto" in tcp|udp) ;; *) return 2 ;; esac
+  tag="ralinkiappd-$proto"
+
+  for cmd in grep iptables iptables-save; do
+    command -v "$cmd" >/dev/null 2>&1 || {
+      log_iapp "required command unavailable while reconciling $tag: $cmd"
+      return 127
+    }
+  done
+
+  rules=$(iptables-save -t filter) || {
+    rc=$?
+    log_iapp "cannot inspect filter rules while reconciling $tag (status=$rc)"
+    return "$rc"
+  }
+  if printf '%s\\n' "$rules" |
+      grep -F -- "-A INPUT -i br0 -p $proto " |
+      grep -F -- "--dport 3517" |
+      grep -F -- "--comment $tag" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  case "$rules" in
+    *"$tag"*)
+      log_iapp "found a conflicting rule using owned tag $tag; refusing to add a duplicate"
+      return 1
+      ;;
+  esac
+
+  iptables -A INPUT -i br0 -p "$proto" --dport 3517 \\
+    -m comment --comment "$tag" -j ACCEPT || {
+    rc=$?
+    log_iapp "failed to restore missing $tag firewall rule (status=$rc)"
+    return "$rc"
+  }
+
+  rules=$(iptables-save -t filter) || {
+    rc=$?
+    log_iapp "cannot verify restored $tag firewall rule (status=$rc)"
+    return "$rc"
+  }
+  if ! printf '%s\\n' "$rules" |
+      grep -F -- "-A INPUT -i br0 -p $proto " |
+      grep -F -- "--dport 3517" |
+      grep -F -- "--comment $tag" >/dev/null 2>&1; then
+    log_iapp "restored $tag firewall rule did not appear in filter inventory"
+    return 1
+  fi
+  return 0
+}
+
 process_state() {
   command -v pidof >/dev/null 2>&1 || { log_iapp "pidof unavailable"; return 127; }
   pidof ralinkiappd >/dev/null 2>&1; rc=$?
@@ -95,7 +150,18 @@ wait_stopped() {
 
 start() {
   process_state; rc=$?
-  case "$rc" in 0) log_iapp "already running; duplicate start skipped"; return 0 ;; 1) ;; *) return "$rc" ;; esac
+  case "$rc" in
+    0)
+      # A live daemon does not prove that both tagged firewall rules survived.
+      # Reconcile missing rules before reporting an idempotent start as healthy.
+      log_iapp "already running; reconciling tagged firewall rules"
+      iapp_ensure_firewall_rule tcp || return $?
+      iapp_ensure_firewall_rule udp || return $?
+      return 0
+      ;;
+    1) ;;
+    *) return "$rc" ;;
+  esac
   for cmd in grep ralinkiappd iptables iptables-save; do
     command -v "$cmd" >/dev/null 2>&1 || { log_iapp "required command unavailable: $cmd"; return 127; }
   done
