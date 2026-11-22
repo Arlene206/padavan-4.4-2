@@ -1,3 +1,12 @@
+## 2026-11-22 13:34 UTC+8 — Check IPv6 service policy before WAN VLAN/WISP mutation
+
+- Parent main SHA: `573ccf369c58088ca1576b43b0b9d8e75dd9c7b1`. The previous storage commit introduced checked FTP/NFS reads; its exact-head jobs were queued/in progress at last poll, so this commit does not claim their results.
+- `config_vinet_wan()` now checks `ip6_service` once before the first VLAN hardware/interface/NVRAM side effect and reuses that type for WAN parent IPv6 disable and final interface IPv6 enable. Backend read/close failure aborts before topology mutation.
+- `config_apcli_wisp()` now checks service state before clearing/shutting down the current WAN interface; failure refuses migration rather than continuing with unknown IPv6 policy.
+- Added read-before-side-effect source assertions and `net_wan.c` to IPv6 workflow push/PR path filters. No local C compile; exact-head Actions pending, L3/L4 not claimed.
+
+---
+
 ## 2026-11-22 13:32 UTC+8 — Fail closed in FTP and NFS IPv6 config generation
 
 - Parent main SHA: `0673248bc999e9e06f4f69c8d1b0bb2d05c6bea3`. Exact IPv6 service-type #44989677353 and AI docs #44989677501 PASS; DNSMasq #44989677293, Firewall #44989677298, WAN DHCP #44989677276, watchdog #44989677335, detect-internet #44989677332, detect-link #44989677304 and wireless #44989677260 PASS on that SHA. XY-C1 #44989677285 and several long jobs were still in progress at last poll.

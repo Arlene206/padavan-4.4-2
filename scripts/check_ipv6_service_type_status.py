@@ -49,6 +49,7 @@ rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
 net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
 net_lan = (ROOT / "trunk/user/rc/src/net_lan.c").read_text()
 storage = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
+net_wan = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
 
 reader = function_body(netutils, "int get_ipv6_type_status(")
 assert 'nvram_get_checked("ip6_service", &service_value)' in reader
@@ -200,5 +201,24 @@ nfs_mounts = nfs_exports.index("procpt = fopen(PROC_MOUNTS_FILE")
 nfs_acl = nfs_exports.index("if (ipv6_type != IPV6_DISABLED)", nfs_mounts)
 assert nfs_override < nfs_read < nfs_error < nfs_return < nfs_mounts < nfs_acl
 assert "get_ipv6_type()" not in nfs_exports
+
+
+wan_vlan = function_body(net_wan, "config_vinet_wan(void)")
+wan_ipv6_read = wan_vlan.index("get_ipv6_type_status(&ipv6_type)")
+wan_ipv6_error = wan_vlan.index("if (ipv6_type_status != 0)", wan_ipv6_read)
+wan_vlan_side_effect = wan_vlan.index("hw_vlan_tx_map(", wan_ipv6_error)
+wan_vlan_parent = wan_vlan.index("if (ipv6_type != IPV6_DISABLED)", wan_vlan_side_effect)
+wan_vlan_final = wan_vlan.index("if (ipv6_type != IPV6_DISABLED)", wan_vlan_parent + 1)
+assert wan_ipv6_read < wan_ipv6_error < wan_vlan_side_effect < wan_vlan_parent < wan_vlan_final
+assert "get_ipv6_type()" not in wan_vlan
+
+wan_wisp = function_body(net_wan, "config_apcli_wisp(void)")
+wisp_read = wan_wisp.index("get_ipv6_type_status(&ipv6_type)")
+wisp_error = wan_wisp.index("if (ipv6_type_status != 0)", wisp_read)
+wisp_mutation = wan_wisp.index("ifconfig(man_ifname", wisp_error)
+wisp_ipv6 = wan_wisp.index("if (ipv6_type != IPV6_DISABLED)", wisp_mutation)
+wisp_publish = wan_wisp.index('set_wan_unit_value_status(0, "ifname"', wisp_ipv6)
+assert wisp_read < wisp_error < wisp_mutation < wisp_ipv6 < wisp_publish
+assert "get_ipv6_type()" not in wan_wisp
 
 print("IPv6 service-type checked-read source contract: PASS")

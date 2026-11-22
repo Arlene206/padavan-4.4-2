@@ -2312,6 +2312,9 @@ config_vinet_wan(void)
 	int vlan_vid[2], vlan_pri, pvid_wan;
 	int is_vlan_filter, is_vlan_ifname;
 	int need_pvid, pvid_result = 0, ret;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 	char vinet_ifname[24], vlan_iflast[24];
 	const char *vinet_iflast, *wan_hwaddr;
 #if defined (USE_SINGLE_MAC)
@@ -2411,6 +2414,17 @@ config_vinet_wan(void)
 			return ret;
 	}
 
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage(LOGNAME,
+			   "cannot configure WAN VLAN interfaces without verified IPv6 service state (status=%d)",
+			   ipv6_type_status);
+		return ipv6_type_status;
+	}
+#endif
+
 	/* update VLAN VID for raeth (HW_VLAN_TX) */
 	hw_vlan_tx_map(6, vlan_vid[0]);
 	hw_vlan_tx_map(7, vlan_vid[1]);
@@ -2479,7 +2493,7 @@ config_vinet_wan(void)
 	/* create VLAN interface for INET */
 	if (is_vlan_ifname) {
 #if defined (USE_IPV6)
-		if (get_ipv6_type() != IPV6_DISABLED) {
+		if (ipv6_type != IPV6_DISABLED) {
 			ret = control_if_ipv6(ifname_wan_cpu, 0);
 			if (ret != 0) {
 				logmessage(LOGNAME, "failed to disable IPv6 on WAN VLAN parent %s (status=%d)",
@@ -2514,7 +2528,7 @@ config_vinet_wan(void)
 
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED) {
+	if (ipv6_type != IPV6_DISABLED) {
 		ret = control_if_ipv6(vinet_ifname, 1);
 		if (ret != 0) {
 			logmessage(LOGNAME, "failed to enable IPv6 on WAN interface %s (status=%d)",
@@ -2537,11 +2551,25 @@ static int
 config_apcli_wisp(void)
 {
 	int unit = 0, publication_status;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 	char *man_ifname;
 	char *wisp_ifname = get_apcli_wisp_ifname();
 
 	if (!wisp_ifname)
 		return 0;
+
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage(LOGNAME,
+			   "cannot migrate AP-client WAN interface without verified IPv6 service state (status=%d)",
+			   ipv6_type_status);
+		return ipv6_type_status;
+	}
+#endif
 
 	man_ifname = get_man_ifname(unit);
 	if (strlen(man_ifname) > 0 && !is_man_wisp(man_ifname)) {
@@ -2576,7 +2604,7 @@ config_apcli_wisp(void)
 	}
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED) {
+	if (ipv6_type != IPV6_DISABLED) {
 		int ipv6_status = control_if_ipv6(wisp_ifname, 1);
 		if (ipv6_status != 0) {
 			logmessage(LOGNAME, "failed to enable IPv6 on AP-client WAN interface %s (status=%d)",
