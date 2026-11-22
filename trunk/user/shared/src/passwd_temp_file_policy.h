@@ -117,98 +117,223 @@ passwd_temp_file_backup_create(const char *source_path,
  * leaves its backup link in place for manual recovery.
  */
 static int
-passwd_file_publish_transaction(passwd_file_update_t *updates, size_t count,
-				 passwd_file_rename_fn rename_fn,
-				 passwd_file_unlink_fn unlink_fn,
-				 int *rollback_failed)
+passwd_file_publish_transaction_internal(
+    passwd_file_update_t *updates, size_t count,
+    passwd_file_rename_fn rename_fn, passwd_file_unlink_fn unlink_fn,
+    int retain_backups, int *rollback_failed)
 {
-	size_t i, published, failed_at;
-	int saved_errno, rollback_errno, cleanup_errno;
+    size_t i, published, failed_at;
+    int saved_errno, rollback_errno, cleanup_errno;
 
-	if (!updates || count == 0 || !rename_fn || !unlink_fn ||
-	    !rollback_failed) {
-		errno = EINVAL;
-		return -1;
-	}
-	*rollback_failed = 0;
-	for (i = 0; i < count; ++i) {
-		if (!updates[i].staged_path || !updates[i].staged_path[0] ||
-		    !updates[i].destination_path || !updates[i].destination_path[0] ||
-		    !updates[i].backup_path ||
-		    (updates[i].had_original && !updates[i].backup_path[0])) {
-			errno = EINVAL;
-			return -1;
-		}
-	}
+    if (!updates || count == 0 || !rename_fn || !unlink_fn ||
+        (retain_backups != 0 && retain_backups != 1) || !rollback_failed) {
+        errno = EINVAL;
+        return -1;
+    }
+    *rollback_failed = 0;
+    for (i = 0; i < count; ++i) {
+        if (!updates[i].staged_path || !updates[i].staged_path[0] ||
+            !updates[i].destination_path || !updates[i].destination_path[0] ||
+            !updates[i].backup_path ||
+            (updates[i].had_original != 0 && updates[i].had_original != 1) ||
+            (updates[i].had_original && !updates[i].backup_path[0])) {
+            errno = EINVAL;
+            return -1;
+        }
+    }
 
-	published = 0;
-	for (i = 0; i < count; ++i) {
-		if (rename_fn(updates[i].staged_path,
-			      updates[i].destination_path) != 0) {
-			saved_errno = errno ? errno : EIO;
-			failed_at = i;
-			goto rollback;
-		}
-		published++;
-	}
+    published = 0;
+    for (i = 0; i < count; ++i) {
+        if (rename_fn(updates[i].staged_path,
+                      updates[i].destination_path) != 0) {
+            saved_errno = errno ? errno : EIO;
+            failed_at = i;
+            goto rollback;
+        }
+        published++;
+    }
 
-	cleanup_errno = 0;
-	for (i = 0; i < count; ++i) {
-		if (updates[i].backup_path[0]) {
-			if (unlink_fn(updates[i].backup_path) != 0 && errno != ENOENT) {
-				if (cleanup_errno == 0)
-					cleanup_errno = errno ? errno : EIO;
-			} else {
-				updates[i].backup_path[0] = '\0';
-			}
-		}
-	}
-	if (cleanup_errno != 0) {
-		errno = cleanup_errno;
-		return -1;
-	}
-	return 0;
+    if (!retain_backups) {
+        cleanup_errno = 0;
+        for (i = 0; i < count; ++i) {
+            if (updates[i].backup_path[0]) {
+                if (unlink_fn(updates[i].backup_path) != 0 && errno != ENOENT) {
+                    if (cleanup_errno == 0)
+                        cleanup_errno = errno ? errno : EIO;
+                } else {
+                    updates[i].backup_path[0] = '\0';
+                }
+            }
+        }
+        if (cleanup_errno != 0) {
+            errno = cleanup_errno;
+            return -1;
+        }
+    }
+    return 0;
 
 rollback:
-	rollback_errno = 0;
-	for (i = published; i > 0; --i) {
-		passwd_file_update_t *update = &updates[i - 1];
+    rollback_errno = 0;
+    for (i = published; i > 0; --i) {
+        passwd_file_update_t *update = &updates[i - 1];
 
-		if (update->had_original) {
-			if (!update->backup_path[0] ||
-			    rename_fn(update->backup_path,
-				      update->destination_path) != 0) {
-				if (rollback_errno == 0)
-					rollback_errno = errno ? errno : EIO;
-			} else {
-				update->backup_path[0] = '\0';
-			}
-		} else if (unlink_fn(update->destination_path) != 0 &&
-			   errno != ENOENT) {
-			if (rollback_errno == 0)
-				rollback_errno = errno ? errno : EIO;
-		}
-	}
-	cleanup_errno = 0;
-	for (i = failed_at; i < count; ++i) {
-		if (updates[i].backup_path[0]) {
-			if (unlink_fn(updates[i].backup_path) != 0 && errno != ENOENT) {
-				if (cleanup_errno == 0)
-					cleanup_errno = errno ? errno : EIO;
-			} else {
-				updates[i].backup_path[0] = '\0';
-			}
-		}
-	}
-	if (rollback_errno != 0) {
-		*rollback_failed = 1;
-		errno = rollback_errno;
-	} else if (cleanup_errno != 0) {
-		errno = cleanup_errno;
-	} else {
-		errno = saved_errno;
-	}
-	return -1;
+        if (update->had_original) {
+            if (!update->backup_path[0] ||
+                rename_fn(update->backup_path,
+                          update->destination_path) != 0) {
+                if (rollback_errno == 0)
+                    rollback_errno = errno ? errno : EIO;
+            } else {
+                update->backup_path[0] = '\0';
+            }
+        } else if (unlink_fn(update->destination_path) != 0 &&
+                   errno != ENOENT) {
+            if (rollback_errno == 0)
+                rollback_errno = errno ? errno : EIO;
+        }
+    }
+    cleanup_errno = 0;
+    for (i = failed_at; i < count; ++i) {
+        if (updates[i].backup_path[0]) {
+            if (unlink_fn(updates[i].backup_path) != 0 && errno != ENOENT) {
+                if (cleanup_errno == 0)
+                    cleanup_errno = errno ? errno : EIO;
+            } else {
+                updates[i].backup_path[0] = '\0';
+            }
+        }
+    }
+    if (rollback_errno != 0) {
+        *rollback_failed = 1;
+        errno = rollback_errno;
+    } else if (cleanup_errno != 0) {
+        errno = cleanup_errno;
+    } else {
+        errno = saved_errno;
+    }
+    return -1;
+}
+
+/* Preserve the historical one-phase API for callers that do not need a
+ * post-publication validation step. */
+static int
+passwd_file_publish_transaction(passwd_file_update_t *updates, size_t count,
+                                passwd_file_rename_fn rename_fn,
+                                passwd_file_unlink_fn unlink_fn,
+                                int *rollback_failed)
+{
+    return passwd_file_publish_transaction_internal(
+        updates, count, rename_fn, unlink_fn, 0, rollback_failed);
+}
+
+/* Keep old inodes until the caller confirms post-publication work, such as
+ * installing the configured root password hash. */
+static int
+passwd_file_publish_transaction_retain(passwd_file_update_t *updates,
+                                       size_t count,
+                                       passwd_file_rename_fn rename_fn,
+                                       passwd_file_unlink_fn unlink_fn,
+                                       int *rollback_failed)
+{
+    return passwd_file_publish_transaction_internal(
+        updates, count, rename_fn, unlink_fn, 1, rollback_failed);
+}
+
+/* Restore a completed publication in reverse order. Empty backup paths mark
+ * entries already restored (or entries that had no original). */
+static int
+passwd_file_rollback_transaction(passwd_file_update_t *updates, size_t count,
+                                 passwd_file_rename_fn rename_fn,
+                                 passwd_file_unlink_fn unlink_fn,
+                                 int *rollback_failed)
+{
+    size_t i;
+    int first_error = 0;
+
+    if (!updates || count == 0 || !rename_fn || !unlink_fn ||
+        !rollback_failed) {
+        errno = EINVAL;
+        return -1;
+    }
+    *rollback_failed = 0;
+    for (i = 0; i < count; ++i) {
+        if (!updates[i].destination_path || !updates[i].destination_path[0] ||
+            !updates[i].backup_path ||
+            (updates[i].had_original != 0 && updates[i].had_original != 1)) {
+            errno = EINVAL;
+            return -1;
+        }
+    }
+
+    for (i = count; i > 0; --i) {
+        passwd_file_update_t *update = &updates[i - 1];
+
+        if (update->had_original) {
+            if (!update->backup_path[0])
+                continue;
+            if (rename_fn(update->backup_path,
+                          update->destination_path) != 0) {
+                if (first_error == 0)
+                    first_error = errno ? errno : EIO;
+            } else {
+                update->backup_path[0] = '\0';
+            }
+        } else if (unlink_fn(update->destination_path) != 0 &&
+                   errno != ENOENT) {
+            if (first_error == 0)
+                first_error = errno ? errno : EIO;
+        }
+    }
+
+    if (first_error != 0) {
+        *rollback_failed = 1;
+        errno = first_error;
+        return -1;
+    }
+    return 0;
+}
+
+/* Delete retained recovery links only after the caller's postcondition passed.
+ * Failed paths remain populated for manual recovery. */
+static int
+passwd_file_finalize_transaction(passwd_file_update_t *updates, size_t count,
+                                 passwd_file_unlink_fn unlink_fn,
+                                 int *cleanup_failed)
+{
+    size_t i;
+    int first_error = 0;
+
+    if (!updates || count == 0 || !unlink_fn || !cleanup_failed) {
+        errno = EINVAL;
+        return -1;
+    }
+    *cleanup_failed = 0;
+    for (i = 0; i < count; ++i) {
+        if (!updates[i].destination_path || !updates[i].destination_path[0] ||
+            !updates[i].backup_path ||
+            (updates[i].had_original != 0 && updates[i].had_original != 1)) {
+            errno = EINVAL;
+            return -1;
+        }
+    }
+
+    for (i = 0; i < count; ++i) {
+        if (updates[i].backup_path[0]) {
+            if (unlink_fn(updates[i].backup_path) != 0 && errno != ENOENT) {
+                if (first_error == 0)
+                    first_error = errno ? errno : EIO;
+            } else {
+                updates[i].backup_path[0] = '\0';
+            }
+        }
+    }
+
+    if (first_error != 0) {
+        *cleanup_failed = 1;
+        errno = first_error;
+        return -1;
+    }
+    return 0;
 }
 
 #endif

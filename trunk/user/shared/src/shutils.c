@@ -285,7 +285,8 @@ recreate_passwd_unix(int force_create)
 	FILE *fp1 = NULL, *fp2 = NULL;
 	int passwd_fd = -1, group_fd = -1, shadow_fd = -1;
 	int i, j, uid, duplicate, status = 0, file_status, password_status;
-	int update_count, rollback_failed = 0;
+	int update_count, rollback_failed = 0, backup_cleanup_failed = 0;
+	int password_rollback_status;
 	int passwd_had_original = 0, group_had_original = 0, shadow_had_original = 0;
 	char account_key[32], *rootnm, *usernm;
 	char root_name[ROUTER_ACCOUNT_NV_NAME_SIZE];
@@ -446,9 +447,9 @@ recreate_passwd_unix(int force_create)
 		file_updates[2].had_original = shadow_had_original;
 		update_count = 3;
 	}
-	if (passwd_file_publish_transaction(file_updates, update_count,
-					    rename, unlink,
-					    &rollback_failed) != 0) {
+	if (passwd_file_publish_transaction_retain(file_updates, update_count,
+						    rename, unlink,
+						    &rollback_failed) != 0) {
 		status = errno ? errno : EIO;
 		if (rollback_failed) {
 			syslog(LOG_ERR,
@@ -463,7 +464,32 @@ recreate_passwd_unix(int force_create)
 	if (force_create) {
 		shadow_temp[0] = '\0';
 		password_status = change_passwd_unix(rootnm, root_password);
-		if (password_status != 0) status = password_status;
+		if (password_status != 0) {
+			status = password_status;
+			if (passwd_file_rollback_transaction(
+				file_updates, update_count, rename, unlink,
+				&rollback_failed) != 0) {
+				password_rollback_status = errno ? errno : EIO;
+				syslog(LOG_ERR,
+				       "root password installation failed (status=%d) and account database rollback was incomplete (status=%d); recovery links retained: passwd=%s group=%s shadow=%s",
+				       password_status, password_rollback_status,
+				       passwd_backup, group_backup, shadow_backup);
+			}
+		} else if (passwd_file_finalize_transaction(
+				   file_updates, update_count, unlink,
+				   &backup_cleanup_failed) != 0) {
+			status = errno ? errno : EIO;
+			syslog(LOG_ERR,
+			       "root password installed but account database recovery-link cleanup failed (status=%d); links retained where present: passwd=%s group=%s shadow=%s",
+			       status, passwd_backup, group_backup, shadow_backup);
+		}
+	} else if (passwd_file_finalize_transaction(
+			   file_updates, update_count, unlink,
+			   &backup_cleanup_failed) != 0) {
+		status = errno ? errno : EIO;
+		syslog(LOG_ERR,
+		       "account database recovery-link cleanup failed (status=%d); links retained where present: passwd=%s group=%s",
+		       status, passwd_backup, group_backup);
 	}
 
 cleanup:
@@ -475,7 +501,7 @@ cleanup:
 	if (passwd_temp[0]) (void)unlink(passwd_temp);
 	if (group_temp[0]) (void)unlink(group_temp);
 	if (shadow_temp[0]) (void)unlink(shadow_temp);
-	if (!rollback_failed) {
+	if (!rollback_failed && !backup_cleanup_failed) {
 		if (passwd_backup[0]) (void)unlink(passwd_backup);
 		if (group_backup[0]) (void)unlink(group_backup);
 		if (force_create && shadow_backup[0]) (void)unlink(shadow_backup);

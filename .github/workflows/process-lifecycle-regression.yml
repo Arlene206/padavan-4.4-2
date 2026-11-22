@@ -863,7 +863,7 @@ jobs:
           assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate
           assert "passwd_temp_file_backup_create(\"/etc/passwd\"" in recreate
           assert "passwd_temp_file_backup_create(\"/etc/group\"" in recreate
-          assert "passwd_file_publish_transaction(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate_compact
+          assert "passwd_file_publish_transaction_retain(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate_compact
           assert "if (rollback_failed)" in recreate
           assert "passwd_backup[0]" in recreate and "group_backup[0]" in recreate
           assert "passwd_file_publish_transaction(" in header
@@ -871,6 +871,13 @@ jobs:
           assert "rollback_failed" in header
           assert 'fprintf(fp1, "%s:!:' in recreate
           assert "password_status = change_passwd_unix(" in recreate
+          assert recreate.index("passwd_file_publish_transaction_retain(") < recreate.index("password_status = change_passwd_unix(")
+          assert "passwd_file_rollback_transaction(" in recreate
+          assert recreate.index("if (password_status != 0)") < recreate.index("passwd_file_rollback_transaction(")
+          assert "passwd_file_finalize_transaction(" in recreate
+          assert "test_post_publish_rollback_restores_previous_files();" in test
+          assert "test_post_publish_success_finalizes_recovery_links();" in test
+          assert "test_post_publish_rollback_failure_preserves_recovery_link();" in test
           assert '#include "router_account_nvram_policy.h"' in shared
           assert "nvram_get_checked(name, value)" in shared
           assert "router_account_nvram_read_copy(" in recreate

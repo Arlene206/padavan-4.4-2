@@ -315,6 +315,90 @@ test_missing_original_is_removed_on_rollback(void)
 }
 
 
+static void
+test_post_publish_rollback_restores_previous_files(void)
+{
+    struct passwd_transaction_fixture fixture;
+    int rollback_failed = 0;
+
+    fixture_init(&fixture);
+    assert(passwd_file_publish_transaction_retain(
+        fixture.updates, 3, rename, unlink, &rollback_failed) == 0);
+    assert(rollback_failed == 0);
+    assert_text_file(fixture.live_passwd, "new-passwd\n");
+    assert_text_file(fixture.live_group, "new-group\n");
+    assert_text_file(fixture.live_shadow, "new-shadow\n");
+    assert(fixture.backup_passwd[0] != '\0');
+    assert(fixture.backup_group[0] != '\0');
+    assert(fixture.backup_shadow[0] != '\0');
+
+    assert(passwd_file_rollback_transaction(
+        fixture.updates, 3, rename, unlink, &rollback_failed) == 0);
+    assert(rollback_failed == 0);
+    assert_text_file(fixture.live_passwd, "old-passwd\n");
+    assert_text_file(fixture.live_group, "old-group\n");
+    assert_text_file(fixture.live_shadow, "old-shadow\n");
+    assert(fixture.backup_passwd[0] == '\0');
+    assert(fixture.backup_group[0] == '\0');
+    assert(fixture.backup_shadow[0] == '\0');
+    fixture_cleanup(&fixture);
+}
+
+static void
+test_post_publish_success_finalizes_recovery_links(void)
+{
+    struct passwd_transaction_fixture fixture;
+    int rollback_failed = 0, cleanup_failed = 0;
+
+    fixture_init(&fixture);
+    assert(passwd_file_publish_transaction_retain(
+        fixture.updates, 3, rename, unlink, &rollback_failed) == 0);
+    assert(passwd_file_finalize_transaction(
+        fixture.updates, 3, unlink, &cleanup_failed) == 0);
+    assert(cleanup_failed == 0);
+    assert_text_file(fixture.live_passwd, "new-passwd\n");
+    assert_text_file(fixture.live_group, "new-group\n");
+    assert_text_file(fixture.live_shadow, "new-shadow\n");
+    assert(fixture.backup_passwd[0] == '\0');
+    assert(fixture.backup_group[0] == '\0');
+    assert(fixture.backup_shadow[0] == '\0');
+    fixture_cleanup(&fixture);
+}
+
+static void
+test_post_publish_rollback_failure_preserves_recovery_link(void)
+{
+    struct passwd_transaction_fixture fixture;
+    int rollback_failed = 0;
+
+    fixture_init(&fixture);
+    assert(passwd_file_publish_transaction_retain(
+        fixture.updates, 3, rename, unlink, &rollback_failed) == 0);
+    rename_calls = 0;
+    fail_rename_first = 2;
+    fail_rename_second = 0;
+    errno = 0;
+    assert(passwd_file_rollback_transaction(
+        fixture.updates, 3, injected_rename, unlink, &rollback_failed) == -1);
+    assert(errno == EIO);
+    assert(rollback_failed == 1);
+    assert_text_file(fixture.live_passwd, "old-passwd\n");
+    assert_text_file(fixture.live_group, "new-group\n");
+    assert_text_file(fixture.backup_group, "old-group\n");
+    assert_text_file(fixture.live_shadow, "old-shadow\n");
+    assert(fixture.backup_passwd[0] == '\0');
+    assert(fixture.backup_group[0] != '\0');
+    assert(fixture.backup_shadow[0] == '\0');
+
+    /* A retained hard link is sufficient to recover the failed member. */
+    assert(rename(fixture.backup_group, fixture.live_group) == 0);
+    fixture.backup_group[0] = '\0';
+    assert_text_file(fixture.live_group, "old-group\n");
+    fixture_cleanup(&fixture);
+}
+
+
+
 struct account_nvram_fixture {
 	const char *value;
 	int result;
@@ -415,6 +499,9 @@ main(void)
 	test_failed_rollback_preserves_recovery_link();
 	test_third_rename_failure_restores_passwd_and_group();
 	test_missing_original_is_removed_on_rollback();
+	test_post_publish_rollback_restores_previous_files();
+	test_post_publish_success_finalizes_recovery_links();
+	test_post_publish_rollback_failure_preserves_recovery_link();
 	test_account_nvram_values_are_copied_before_cache_reuse();
 	test_account_nvram_missing_defaults_and_backend_errors();
 	test_account_nvram_copy_rejects_invalid_and_overlong_values();
