@@ -48,7 +48,7 @@ assert "callback_status = dns_status;" in source
 # DHCPv6 DNS publication is successful only when the checked NVRAM setter succeeds.
 dns_store = body(source, "int store_wan_dns6(")
 assert "wan6_dns_store_after_checked_read" in dns_store
-assert "wan6_dns_store_if_changed" in dns_policy
+assert "wan6_dns_store_if_changed" in policy
 assert "wan6_dns_set_status" in dns_store
 assert "errno = -status;" in dns_store
 assert 'set_wan_unit_value(0, "dns6", dns6s);' not in dns_store

@@ -1,3 +1,11 @@
+## 2026-11-22 — Fix DNS checker policy-variable reference
+
+- Parent main SHA: `f2765a60ea34a6174fa3e2ad7202cce818c7d683`. The WAN DHCP exact-head rerun #45025732489 passed all preceding compiled policy binaries and contracts, then the corrected DNS assertion itself failed with `NameError: dns_policy is not defined`. The script already loads the policy header as `policy`; the new assertion used the wrong variable name.
+- Corrected the checker to inspect the existing `policy` variable. This is a test harness correction only; production C code is unchanged.
+- Result: THIS COMMIT. Next: audit `get_wan_addr6_host()` for checked interface identity reads and pointer lifetime; migrate call sites to a status-bearing API only where callers can consume the error.
+
+---
+
 ## 2026-11-22 — Align DNS checker with the checked old-value gate
 
 - Parent main SHA: `5247382388b17f4fdeb0a60fa46599583ce39e17`. The exact-SHA `wan-dhcp-callback` run compiled and executed its preceding GNU89/ASan policy programs successfully; the final Python contract failed because the existing checker expected `wan6_dns_store_if_changed()` to be called directly in `store_wan_dns6()`, while the new fail-closed wrapper now calls that lower-level helper after verifying the old-value read status.
