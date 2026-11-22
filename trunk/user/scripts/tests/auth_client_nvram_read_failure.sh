@@ -228,8 +228,16 @@ MENTOHUST_SERVICE=
 NVRAM_FAIL_KEY=
 export MENTOHUST_CONF_FILE MENTOHUST_BIN_CONF_FILE MENTOHUST_NIC WAN_IFNAME MENTOHUST_SERVICE NVRAM_FAIL_KEY
 : > "$START_LOG"
-sh "$MENTOHUST_SOURCE" start >/dev/null 2>&1 ||
+if sh "$MENTOHUST_SOURCE" start >"$TEST_ROOT/mentohust-missing-start.log" 2>&1; then
+	:
+else
+	status=$?
+	echo "MentoHUST missing-key startup exited with status $status" >&2
+	cat "$TEST_ROOT/mentohust-missing-start.log" >&2
+	[ ! -f "$TEST_ROOT/logger.log" ] || cat "$TEST_ROOT/logger.log" >&2
+	[ ! -f "$NVRAM_LOG" ] || cat "$NVRAM_LOG" >&2
 	fail "MentoHUST rejected successful missing-key reads"
+fi
 [ -f "$MENTOHUST_CONF_FILE" ] || fail "MentoHUST did not publish missing-key config"
 [ -L "$MENTOHUST_BIN_CONF_FILE" ] || fail "MentoHUST did not publish compatibility link"
 [ "$(stat -c '%a' "$MENTOHUST_CONF_FILE")" = 600 ] ||
