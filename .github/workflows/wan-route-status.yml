@@ -662,7 +662,7 @@ jobs:
           assert "test_global_cache_flush_is_attempted_and_errors_are_preserved" in wan_route_test
           select_policy = body(wan_route_policy, "rc_wan_route_flush_select_interfaces(")
           assert "optional_ifname && optional_ifname[0]" in select_policy
-          assert "required_ifname && !required_ifname[0]" in select_policy
+          assert "!required_ifname || !required_ifname[0]" in select_policy
           assert "capacity < 2" in select_policy and "return ENOSPC;" in select_policy
           assert "test_empty_optional_interface_selects_only_required_bridge" in wan_route_test
           assert "test_manual_interface_and_bridge_are_both_selected_in_order" in wan_route_test
