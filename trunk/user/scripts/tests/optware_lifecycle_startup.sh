@@ -40,6 +40,8 @@ export PATH
 
 . "$helper"
 lock_file="$tmpdir/optware-lifecycle.lock"
+(umask 077; : > "$lock_file")
+[ "$(stat -c %a "$lock_file")" = 600 ]
 optware_lifecycle_lock_acquire "$lock_file"
 
 EVENTS_FILE="$tmpdir/events"

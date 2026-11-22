@@ -5,16 +5,48 @@
 
 _optware_lifecycle_lock_open()
 {
-	optware_lock_file=${1:-/var/lock/optware-lifecycle.lock}
-	optware_lock_old_umask=`umask`
-	umask 077
-	if ! ( : >> "$optware_lock_file" ); then
-		umask "$optware_lock_old_umask"
+	optware_lock_file=${1:-/tmp/optware-lifecycle.lock}
+
+	case "$optware_lock_file" in
+	/*) ;;
+	*) return 1 ;;
+	esac
+	optware_lock_dir=${optware_lock_file%/*}
+	[ -n "$optware_lock_dir" ] || optware_lock_dir=/
+
+	# The production directory is root-owned sticky /tmp. Test callers may
+	# use a private owner-only directory. Never follow a replaceable path.
+	if [ -L "$optware_lock_dir" ] || [ ! -d "$optware_lock_dir" ] ||
+	   [ -L "$optware_lock_file" ] || [ ! -f "$optware_lock_file" ]; then
 		return 1
 	fi
 
-	exec 9>>"$optware_lock_file"
-	umask "$optware_lock_old_umask"
+	optware_lock_uid=$(id -u 2>/dev/null) || return 1
+	optware_lock_dir_owner=$(stat -c %u "$optware_lock_dir" 2>/dev/null) || return 1
+	optware_lock_dir_mode=$(stat -c %a "$optware_lock_dir" 2>/dev/null) || return 1
+	case "$optware_lock_dir_mode" in
+	''|*[!01234567]*) return 1 ;;
+	esac
+	optware_lock_dir_mode_value=$((0$optware_lock_dir_mode))
+	optware_lock_dir_write_bits=$((optware_lock_dir_mode_value & 0022))
+	optware_lock_dir_sticky=$((optware_lock_dir_mode_value & 01000))
+	if [ "$optware_lock_dir_owner" != "$optware_lock_uid" ] ||
+	   { [ "$optware_lock_dir_write_bits" -ne 0 ] &&
+	     [ "$optware_lock_dir_sticky" -eq 0 ]; }; then
+		return 1
+	fi
+
+	optware_lock_owner=$(stat -c %u "$optware_lock_file" 2>/dev/null) || return 1
+	optware_lock_links=$(stat -c %h "$optware_lock_file" 2>/dev/null) || return 1
+	optware_lock_mode=$(stat -c %a "$optware_lock_file" 2>/dev/null) || return 1
+	if [ "$optware_lock_owner" != "$optware_lock_uid" ] ||
+	   [ "$optware_lock_links" != 1 ] || [ "$optware_lock_mode" != 600 ]; then
+		return 1
+	fi
+
+	# dev_init provisions this inode before mdev. Open only after all
+	# ownership, mode, link-count and directory checks have succeeded.
+	exec 9>>"$optware_lock_file" || return 1
 	return 0
 }
 

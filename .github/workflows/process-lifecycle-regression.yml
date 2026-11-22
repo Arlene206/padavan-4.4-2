@@ -7,6 +7,11 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
+      - "scripts/check_optware_lifecycle_lock.py"
+      - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_startup.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
       - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
       - "scripts/check_crontab_startup_status.py"
@@ -228,6 +233,11 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
+      - "scripts/check_optware_lifecycle_lock.py"
+      - "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_startup.sh"
+      - "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
       - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
       - "scripts/check_crontab_startup_status.py"
@@ -757,6 +767,17 @@ jobs:
           sh trunk/user/scripts/tests/dev_init_boot_policy.sh
           sh trunk/user/scripts/tests/copyscripts_ca_status.sh
           python3 scripts/check_dev_init_boot.py
+      - name: Verify Optware lifecycle lock and startup/teardown regressions
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh
+          sh -n trunk/user/scripts/tests/optware_lifecycle_lock.sh
+          sh -n trunk/user/scripts/tests/optware_lifecycle_startup.sh
+          sh -n trunk/user/scripts/tests/optware_lifecycle_teardown.sh
+          sh trunk/user/scripts/tests/optware_lifecycle_lock.sh
+          sh trunk/user/scripts/tests/optware_lifecycle_startup.sh
+          sh trunk/user/scripts/tests/optware_lifecycle_teardown.sh
+          python3 scripts/check_optware_lifecycle_lock.py
       - name: Verify PID 1 TCP sysctl failure propagation
         run: |
           set -eu

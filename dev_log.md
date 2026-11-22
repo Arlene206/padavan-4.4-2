@@ -1,3 +1,11 @@
+## 2026-11-22 — Protect Optware startup and teardown from shared /var/lock replacement
+
+- Optware's default lock lived at `/var/lock/optware-lifecycle.lock`, while this firmware creates `/var/lock` world-writable without the sticky bit. A local user could unlink or replace the pathname while startup held the old inode, allowing teardown/startup to lock a different inode and bypass serialization.
+- Moved the default to `/tmp/optware-lifecycle.lock`, provisioned atomically as owner-only mode 0600 by `dev_init` after sticky `/tmp` setup and before mdev coldplug. The helper now refuses missing, relative, symlinked, hard-linked, non-private, wrongly-owned or unsafe-directory lock paths; it no longer creates the lock itself. Blocking startup/mount and nonblocking teardown retain the existing lock-order behavior.
+- Added negative-path lock regressions (symlink, hardlink, permissive mode, missing file, relative path and non-sticky writable directory), updated startup/teardown fixtures, pinned dev_init ordering, and wired the three Optware test scripts plus source contracts into Process lifecycle CI. Exact-head Actions pending; no device runtime claim.
+
+---
+
 ## 2026-11-22 — Load process-inventory sources before asserting their parser contract
 
 - Exact-head Process inventory run 45083076267 on 5e15ed4dec1dd59ea3953d2873dbea8cc73bfb9f failed with `NameError: process_inventory is not defined`. The new source-contract assertions referenced `process_inventory` and `process_inventory_test`, but the checker had not loaded either source file.

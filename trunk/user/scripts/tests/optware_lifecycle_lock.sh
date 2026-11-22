@@ -19,7 +19,62 @@ cleanup()
 trap cleanup 0 HUP INT TERM
 
 lock_file="$tmpdir/optware-lifecycle.lock"
+(umask 077; : > "$lock_file")
+[ "$(stat -c %a "$lock_file")" = 600 ] || {
+	echo "Optware lock fixture was not created with mode 0600" >&2
+	exit 1
+}
 . "$helper"
+
+# Lock paths are pre-provisioned. Reject redirection, aliases, weak modes,
+# missing files and writable non-sticky parent directories before opening.
+target="$tmpdir/lock-target"
+printf '%s\n' sentinel > "$target"
+symlink="$tmpdir/lock-symlink"
+ln -s "$target" "$symlink"
+if _optware_lifecycle_lock_open "$symlink"; then
+	echo "Optware lifecycle lock followed a symbolic link" >&2
+	exit 1
+fi
+grep -Fqx sentinel "$target"
+
+hardlink="$tmpdir/lock-hardlink"
+ln "$lock_file" "$hardlink"
+if _optware_lifecycle_lock_open "$hardlink"; then
+	echo "Optware lifecycle lock accepted a multiply-linked inode" >&2
+	exit 1
+fi
+rm -f "$hardlink"
+
+chmod 644 "$lock_file"
+if _optware_lifecycle_lock_open "$lock_file"; then
+	echo "Optware lifecycle lock accepted a non-private file mode" >&2
+	exit 1
+fi
+chmod 600 "$lock_file"
+
+missing="$tmpdir/missing.lock"
+if _optware_lifecycle_lock_open "$missing"; then
+	echo "Optware lifecycle lock implicitly created a missing file" >&2
+	exit 1
+fi
+[ ! -e "$missing" ]
+
+if _optware_lifecycle_lock_open relative.lock; then
+	echo "Optware lifecycle lock accepted a relative pathname" >&2
+	exit 1
+fi
+[ ! -e "$tmpdir/relative.lock" ]
+
+untrusted_dir="$tmpdir/untrusted"
+mkdir "$untrusted_dir"
+chmod 777 "$untrusted_dir"
+(umask 077; : > "$untrusted_dir/lock")
+if _optware_lifecycle_lock_open "$untrusted_dir/lock"; then
+	echo "Optware lifecycle lock accepted a writable non-sticky directory" >&2
+	exit 1
+fi
+
 optware_lifecycle_lock_acquire "$lock_file"
 
 (

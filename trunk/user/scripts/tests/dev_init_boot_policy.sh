@@ -71,6 +71,8 @@ required_lock_file "$tmpdir/mountpoint.lock"
 required_lock_file "$tmpdir/fs-module.lock"
 required_lock_file "$tmpdir/aliyundrive-webdav.lock"
 [ "$(stat -c %a "$tmpdir/aliyundrive-webdav.lock")" = 600 ]
+required_lock_file "$tmpdir/optware-lifecycle.lock"
+[ "$(stat -c %a "$tmpdir/optware-lifecycle.lock")" = 600 ]
 [ "$(stat -c %a "$tmpdir/fs-module.lock")" = 600 ]
 [ "$(umask)" = "$saved_umask" ]
 [ -f "$tmpdir/mountpoint.lock" ] && [ ! -L "$tmpdir/mountpoint.lock" ]

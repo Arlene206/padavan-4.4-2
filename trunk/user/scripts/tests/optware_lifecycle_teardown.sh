@@ -136,6 +136,8 @@ expect_mount_status /dev/sda10 /opt 2
 expect_mount_status "" /opt 2
 
 LOCK_FILE="$tmpdir/optware-lifecycle.lock"
+(umask 077; : > "$LOCK_FILE")
+[ "$(stat -c %a "$LOCK_FILE")" = 600 ]
 optware_lifecycle_lock_acquire "$LOCK_FILE"
 
 SERVICE_LOG="$tmpdir/service.log"

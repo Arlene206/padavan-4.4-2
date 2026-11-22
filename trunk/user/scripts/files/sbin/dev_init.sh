@@ -67,6 +67,7 @@ required_dir 1777 /tmp || exit 1
 required_lock_file /tmp/automount_mountpoint.lock || exit 1
 required_lock_file /tmp/automount_fs_module.lock || exit 1
 required_lock_file /tmp/aliyundrive-webdav.lock || exit 1
+required_lock_file /tmp/optware-lifecycle.lock || exit 1
 
 # PID 1 notification queues carry privileged service actions.
 required_dir 700 /tmp/rc_notification || exit 1

@@ -93,8 +93,10 @@ assert "[ ! -f \"$lock_path\" ]" in lock_policy
 lock_provision = normalized.index("required_lock_file /tmp/automount_mountpoint.lock || exit 1")
 module_lock_provision = normalized.index("required_lock_file /tmp/automount_fs_module.lock || exit 1")
 aliyundrive_lock_provision = normalized.index("required_lock_file /tmp/aliyundrive-webdav.lock || exit 1")
+optware_lock_provision = normalized.index("required_lock_file /tmp/optware-lifecycle.lock || exit 1")
 assert normalized.index("required_dir 1777 /tmp || exit 1") < lock_provision < module_lock_provision < normalized.index("mdev -s || exit 1")
 assert module_lock_provision < aliyundrive_lock_provision < normalized.index("mdev -s || exit 1")
+assert aliyundrive_lock_provision < optware_lock_provision < normalized.index("mdev -s || exit 1")
 assert normalized.index("required_dir 1777 /tmp || exit 1") < lock_provision < normalized.index("mdev -s || exit 1")
 assert "chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete" not in script
 assert "mdev -s || exit 1" in normalized
