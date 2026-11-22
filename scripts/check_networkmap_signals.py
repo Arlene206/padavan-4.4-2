@@ -88,6 +88,19 @@ assert "static int networkmap_fullscan = 1;" in source
 assert "volatile unsigned int scan_now" not in source
 assert "static volatile int networkmap_fullscan" not in source
 
+install = function_body(policy, "networkmap_signal_install_handlers(")
+assert "if (!refresh_handler || !exit_handler)" in install
+assert "errno = EINVAL;" in install
+assert install.index("action.sa_handler = SIG_IGN") < install.index("sigaction(SIGPIPE") < install.index("sigaction(SIGHUP") < install.index("sigaction(SIGUSR2")
+assert install.index("action.sa_handler = refresh_handler") < install.index("sigaction(SIGUSR1")
+assert install.index("action.sa_handler = exit_handler") < install.index("sigaction(SIGTERM")
+assert install.count("return -1;") == 5
+assert "networkmap_signal_install_handlers(NULL, test_signal_handler)" in test
+for signal_name in ("SIGPIPE", "SIGHUP", "SIGUSR2", "SIGUSR1", "SIGTERM"):
+    assert "sigaction(" + signal_name in test
+assert "action.sa_handler != SIG_IGN" in test
+assert "networkmap signal setup" in source
+
 take = function_body(policy, "networkmap_signal_take_refresh(")
 block = take.index("sigprocmask(SIG_BLOCK")
 snapshot = take.index("requested = *refresh_requested")
@@ -100,10 +113,16 @@ assert "if (sigprocmask(SIG_SETMASK" in take
 assert "*refresh_requested = 1;" in take[restore:]
 
 main = function_body(source, "main(int argc, char *argv[])")
-usr1_install = main.index("signal(SIGUSR1, sig_refresh);")
-term_install = main.index("signal(SIGTERM, sig_exit);")
+signal_install = main.index("networkmap_signal_install_handlers(sig_refresh, sig_exit)")
+signal_failure = main.index("if (networkmap_signal_install_handlers(sig_refresh, sig_exit) < 0)")
+signal_cleanup = main.index("clear_resources();", signal_failure)
+signal_return = main.index("return exit_status;", signal_failure)
 daemonize = main.index("daemon(0, 0)")
-assert usr1_install < term_install < daemonize < main.index("while (!daemon_exit)")
+assert signal_install < signal_failure < signal_cleanup < signal_return < daemonize < main.index("while (!daemon_exit)")
+assert "exit_status = errno ? errno : EIO;" in main[signal_failure:signal_cleanup]
+assert "networkmap signal setup" in main[signal_failure:signal_cleanup]
+assert "signal(SIGUSR1, sig_refresh);" not in main
+assert "signal(SIGTERM, sig_exit);" not in main
 loop = main.index("while (!daemon_exit)")
 consume = main.index("networkmap_signal_take_refresh(&networkmap_refresh_requested)", loop)
 mask_failure = main.index("if (refresh < 0)", consume)

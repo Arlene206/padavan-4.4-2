@@ -740,11 +740,12 @@ int main(int argc, char *argv[])
 		exit(errno);
 	}
 
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP,  SIG_IGN);
-	signal(SIGUSR2, SIG_IGN);
-	signal(SIGUSR1, sig_refresh); //catch UI refresh signal
-	signal(SIGTERM, sig_exit);
+	if (networkmap_signal_install_handlers(sig_refresh, sig_exit) < 0) {
+		exit_status = errno ? errno : EIO;
+		perror("networkmap signal setup");
+		clear_resources();
+		return exit_status;
+	}
 
 	if (!no_daemon) {
 		if (daemon(0, 0) < 0) {

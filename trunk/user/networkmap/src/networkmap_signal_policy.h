@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 
 /*
  * Expand to direct volatile sig_atomic_t assignments inside signal handlers.
@@ -17,6 +18,42 @@
 			*(exit_state) = 1; \
 		} \
 	} while (0)
+
+/*
+ * Install every signal disposition the daemon relies on and propagate setup
+ * failures to main(), which can then release its socket/client state.
+ */
+static inline int
+networkmap_signal_install_handlers(void (*refresh_handler)(int),
+				   void (*exit_handler)(int))
+{
+	struct sigaction action;
+
+	if (!refresh_handler || !exit_handler) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	memset(&action, 0, sizeof(action));
+	if (sigemptyset(&action.sa_mask) < 0)
+		return -1;
+
+	action.sa_handler = SIG_IGN;
+	if (sigaction(SIGPIPE, &action, NULL) < 0 ||
+	    sigaction(SIGHUP, &action, NULL) < 0 ||
+	    sigaction(SIGUSR2, &action, NULL) < 0)
+		return -1;
+
+	action.sa_handler = refresh_handler;
+	if (sigaction(SIGUSR1, &action, NULL) < 0)
+		return -1;
+
+	action.sa_handler = exit_handler;
+	if (sigaction(SIGTERM, &action, NULL) < 0)
+		return -1;
+
+	return 0;
+}
 
 /*
  * Consume a refresh event without losing a SIGUSR1 delivered between the

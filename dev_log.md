@@ -1,3 +1,12 @@
+## 2026-11-22 16:43 CST — Make networkmap signal disposition setup fail closed
+
+- Parent main SHA: `b809d95f35efebeb7e653feb2f96e1a0c9c8fb69`. Exact WAN route #44998743083 and AI handoff #44998743195 were in progress at last poll; previous exact WAN route #44998472638 and AI handoff #44998472600 PASS. The WISP and checked DHCP selector/transport changes await the combined WAN rerun; no L3 claim.
+- Cross-userland stability review found networkmap's five `signal()` registrations (SIGPIPE/HUP/USR2 ignore and SIGUSR1/TERM event handlers) ignored all setup return values. If registration fails, the daemon can run without required shutdown/refresh/pipe protections; a later SIGTERM can terminate it without `clear_resources()`.
+- Added `networkmap_signal_install_handlers()` using checked `sigaction()` for all dispositions. Main checks the installer before daemonization and on failure logs, releases socket/client resources and returns the errno status. Signal handlers remain async-signal-safe flag writers.
+- Extended the GNU89 policy regression to install/query all five dispositions and reject null handlers, plus source contracts for installer error returns and main's cleanup-before-daemonize failure path. Exact workflow run pending; no local target or firmware build claimed.
+
+---
+
 ## 2026-11-22 16:27 CST — Match compacted WAN callback diagnostics in source checker
 
 - Parent main SHA: `fe1533a05beed4d2a9f3a40b7945a2cc25cc6d20`. Exact WAN route #44998650856 FAILED in `scripts/check_wan_dns_read_status.py:1039`. All C policy and earlier WAN source tests passed; the final assertion searched for spaced diagnostic strings after compacting the entire C function with `"".join(...split())`. The source literals were therefore correctly compacted too, so only the Python matcher was wrong.

@@ -6,11 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; active branch `main`; full-tree atomic commits with expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` is `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- Parent main: `fe1533a05beed4d2a9f3a40b7945a2cc25cc6d20`. Link-restored DHCP flow now checks protocol, manual DHCP selector, transport `ifname_t`, then WISP identity before signalling udhcpc; each relevant NVRAM state can return an error.
-- Exact WAN route #44998650856 failed only in the checker because diagnostic literals were whitespace-compacted along with source; product source tests preceding it passed. THIS COMMIT fixes those two matcher strings.
-- Exact parent HTTPD #44998651042 PASS, firewall #44998650885 PASS, WAN DHCP callback #44998650941 PASS, AI handoff #44998650835 PASS. XY-C1 #44998650971 still in progress at last poll.
-- This matcher-only commit awaits its exact WAN route run. No same-SHA Build + TRX + artifact evidence; L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; active branch `main`; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Parent main: `b809d95f35efebeb7e653feb2f96e1a0c9c8fb69`. WAN link-restored DHCP callback checks WAN protocol, `x_DHCPClient`, transport `ifname_t` and WISP identity before udhcpc signalling; exact combined WAN rerun pending after checker normalization repairs.
+- Exact WAN route #44998743083 and AI handoff #44998743195 were IN_PROGRESS at last poll; previous exact 59fa route #44998472638 and AI handoff #44998472600 PASS.
+- New networkmap signal setup hardening is in THIS COMMIT: checked `sigaction()` dispositions and cleanup-before-daemonize on setup failure. Networkmap lifecycle exact-head workflow pending. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -31,17 +30,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Correct the final WAN route source checker expectation: it normalizes `renew_selector` by removing all whitespace, including spaces inside C string literals, so newly added diagnostic checks must use compact literals `cannotreadmanualWANDHCP-clientselector` and `cannotreadWANtransportinterface`.
-- No production source change in THIS COMMIT. The checked transport identity path already stops before classification/renew on an NVRAM error.
+- Networkmap previously ignored all five `signal()` registration return values. THIS COMMIT adds checked `sigaction()` installation for ignored/handled dispositions, a startup failure gate that cleans up before daemonization, and unit/source regression coverage.
+- Signal handlers remain async-signal-safe flag assignments; networkmap no longer enters daemon mode unless required signal behavior was installed.
 
 ## Verification boundary
 
-- Exact FE parent WAN route #44998650856 FAILED at line 1039 with the source-checker assertion `link-restored DHCP renewal must check both the manual-client selector and transport-interface NVRAM before classifying the device`; cause is literal whitespace normalization only.
-- Prior exact FE checks: HTTPD #44998651042 PASS; Firewall Startup #44998650885 PASS; WAN DHCP callback #44998650941 PASS; AI handoff #44998650835 PASS.
-- XY-C1 #44998650971 IN_PROGRESS at last poll. No L3 because same-SHA Build, TRX and artifact are not all verified; hardware L4 NOT VERIFIED.
+- Exact 59fa WAN route #44998472638 PASS and AI handoff #44998472600 PASS; exact b809 WAN route #44998743083 and AI handoff #44998743195 were in progress at last poll.
+- Networkmap GNU89 signal regression and source checker are wired into `.github/workflows/networkmap-signal-stability.yml`; exact-head workflow not yet observed.
+- XY-C1 L3 requires same-SHA Build, TRX and artifact; not verified. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route after compacting the two diagnostic string expectations; require the complete WAN DNS/source checker to pass.
-2. If route passes, treat the checked WISP, `x_DHCPClient` and `ifname_t` reads as host-verified on that exact SHA and continue another concrete stability/security task.
-3. Poll XY-C1 Build, TRX and artifact on one identical source SHA before assigning L3. Hardware L4 remains NOT VERIFIED.
+1. Check exact-head networkmap signal lifecycle workflow for this commit; require installer regression and main cleanup-before-daemonize source contract to pass.
+2. Check current-head WAN route rerun for checked WISP/manual-DHCP/transport identity path; repair any exact failed matcher/source assertion.
+3. Poll exact-head XY-C1 Build/TRX/artifact and only claim L3 when all three pass on one SHA. Hardware L4 remains NOT VERIFIED.

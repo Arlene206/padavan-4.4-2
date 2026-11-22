@@ -34,15 +34,40 @@ main(void)
 	refresh_requested = 0;
 	daemon_exit = 0;
 
-	memset(&action, 0, sizeof(action));
-	sigemptyset(&action.sa_mask);
-	action.sa_handler = test_signal_handler;
-	if (sigaction(SIGUSR1, &action, NULL) < 0) {
-		perror("sigaction SIGUSR1");
+	if (networkmap_signal_install_handlers(NULL, test_signal_handler) != -1 ||
+	    errno != EINVAL) {
+		fprintf(stderr, "FAIL: NULL signal handlers are rejected\\n");
 		return 1;
 	}
-	if (sigaction(SIGTERM, &action, NULL) < 0) {
-		perror("sigaction SIGTERM");
+	if (networkmap_signal_install_handlers(test_signal_handler,
+					       test_signal_handler) < 0) {
+		perror("networkmap_signal_install_handlers");
+		return 1;
+	}
+
+	if (sigaction(SIGPIPE, NULL, &action) < 0 ||
+	    action.sa_handler != SIG_IGN) {
+		fprintf(stderr, "FAIL: SIGPIPE disposition is ignored\\n");
+		return 1;
+	}
+	if (sigaction(SIGHUP, NULL, &action) < 0 ||
+	    action.sa_handler != SIG_IGN) {
+		fprintf(stderr, "FAIL: SIGHUP disposition is ignored\\n");
+		return 1;
+	}
+	if (sigaction(SIGUSR2, NULL, &action) < 0 ||
+	    action.sa_handler != SIG_IGN) {
+		fprintf(stderr, "FAIL: SIGUSR2 disposition is ignored\\n");
+		return 1;
+	}
+	if (sigaction(SIGUSR1, NULL, &action) < 0 ||
+	    action.sa_handler != test_signal_handler) {
+		fprintf(stderr, "FAIL: SIGUSR1 refresh handler is installed\\n");
+		return 1;
+	}
+	if (sigaction(SIGTERM, NULL, &action) < 0 ||
+	    action.sa_handler != test_signal_handler) {
+		fprintf(stderr, "FAIL: SIGTERM shutdown handler is installed\\n");
 		return 1;
 	}
 
