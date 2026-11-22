@@ -1237,7 +1237,7 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 	launch_status = 0;
 	if (wan_proto == IPV4_WAN_PROTO_L2TP) {
 #if defined (APP_RPL2TP)
-		if (use_rpl2tp) {
+		if (launch_mode->use_rpl2tp) {
 			nvram_set_int_temp("l2tp_wan_t", 0);
 			launch_status = start_rpl2tp(unit);
 		} else

@@ -160,7 +160,7 @@ require(snapshot_read < snapshot_error < lock_acquire and
         "launch_wan_pppd_locked(unit, wan_proto, &launch_mode)" in wrapper and
         "!launch_mode.multiwan_enabled" in wrapper,
         "PPP launch snapshot error must abort before lock/session effects and drive lock selection")
-require("launch_mode.multiwan_enabled" in launch and launch.count("launch_mode->multiwan_enabled") >= 3,
+require("launch_mode->multiwan_enabled" in launch and launch.count("launch_mode->multiwan_enabled") >= 3,
         "WAN PPP multi-WAN stop/start/rollback must share one selector snapshot")
 
 policy_body = body(policy, "ppp_wan_option_values_read(int is_pppoe")

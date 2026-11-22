@@ -579,29 +579,30 @@ require("restore_status < 0" in client_restart and "start_status = -1" in client
         "VPNC restart must propagate failed shared daemon restoration")
 
 wan_launch=body(net_ppp,"launch_wan_pppd(int unit, int wan_proto)")
-wan_launch_locked=body(net_ppp,"launch_wan_pppd_locked(int unit, int wan_proto)")
-ordered(wan_launch,["if (unit < 0)",
-                    "if (wan_proto != IPV4_WAN_PROTO_L2TP &&",
-                    '!nvram_match("pppoemwan_enable", "1"))',
-                    "return launch_wan_pppd_locked(unit, wan_proto)",
-                    "vpn_server_lifecycle_lock_acquire()",
-                    "launch_wan_pppd_locked(unit, wan_proto)",
-                    "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN L2TP/multi-WAN launch")
+wan_launch_locked=body(net_ppp,"launch_wan_pppd_locked(int unit, int wan_proto,")
+snapshot_read=wan_launch.index("ppp_wan_launch_mode_snapshot_read(wan_proto, &launch_mode)")
+snapshot_error=wan_launch.index("if (mode_status != 0)", snapshot_read)
+single_wan=wan_launch.index("if (wan_proto != IPV4_WAN_PROTO_L2TP && !launch_mode.multiwan_enabled)")
+single_fastpath=wan_launch.index("return launch_wan_pppd_locked(unit, wan_proto, &launch_mode)", single_wan)
+lifecycle_lock=wan_launch.index("vpn_server_lifecycle_lock_acquire()")
+locked_launch=wan_launch.index("result = launch_wan_pppd_locked(unit, wan_proto, &launch_mode)")
+lifecycle_release=wan_launch.index("vpn_server_lifecycle_lock_release(lock_fd)")
+require(snapshot_read < snapshot_error < single_wan < single_fastpath < lifecycle_lock < locked_launch < lifecycle_release,
+        "WAN PPP selector transaction must fail closed before lock selection and all locked paths reuse its snapshot")
 require("kill_services(svcs, 5, 1)" in wan_launch_locked and
         "xl2tpd_start_policy_wan_launch_result(" in wan_launch_locked,
         "WAN L2TP stop/config/start must remain in one locked helper")
-require("xl2tpd_start_policy_wan_launch_result(\n\t\t\t\tsafe_start_xl2tpd_locked())" in wan_launch_locked,
+require("xl2tpd_start_policy_wan_launch_result(\\n\\t\\t\\t\\tsafe_start_xl2tpd_locked())" in wan_launch_locked,
         "WAN L2TP launch must accept already-running xl2tpd as success")
 ordered(wan_launch_locked,["ppp_wan_session_generation_change(&callback_generation)",
-                           'nvram_match("pppoemwan_enable", "1")',
+                           "launch_mode->multiwan_enabled",
                            "kill_services(svcs_pppd, 5, 1)",
                            'eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked")'],
         "multi-WAN PPP stop before helper launch")
-require('doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked")' not in wan_launch_locked,
-        "multi-WAN lifecycle helper must be launched without a shell")
-require("refusing multi-WAN PPP launch: pppd did not stop" in wan_launch_locked and
-        "EBUSY" in wan_launch_locked,
-        "multi-WAN PPP launch must fail closed if the previous pppd processes remain")
+require("launch_mode->use_rpl2tp" in wan_launch_locked and
+        'nvram_match("pppoemwan_enable"' not in wan_launch_locked and
+        'nvram_match("wan_l2tpd"' not in wan_launch_locked,
+        "WAN PPP L2TP daemon and multi-WAN decisions must use the checked immutable snapshot")
 require("killall pppd" not in mwan and "pidof pppd" not in mwan and
         'kill -9 "$pppd_process"' not in mwan,
         "mwan.sh must not kill pppd outside the lifecycle-locked RC caller")

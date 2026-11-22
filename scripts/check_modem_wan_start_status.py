@@ -620,7 +620,7 @@ assert not re.search(r"\b(?:system|doSystem)\s*\(", PPP_SOURCE), "PPP source mus
 rpl2tp_start = compact(body(PPP_SOURCE, "start_rpl2tp(int unit)"))
 assert 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");' in rpl2tp_start
 assert "if (status != 0)" in rpl2tp_start
-ppp_launch = compact(body(PPP_SOURCE, "launch_wan_pppd_locked(int unit, int wan_proto)"))
+ppp_launch = compact(body(PPP_SOURCE, "launch_wan_pppd_locked(int unit, int wan_proto,"))
 assert 'launch_status = eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked");' in ppp_launch
 assert "if (launch_status != 0)" in ppp_launch
 

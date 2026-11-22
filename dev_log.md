@@ -1,3 +1,14 @@
+## 2026-11-22 — Correct PPP launch selector integration contracts
+
+- Parent main SHA: `d3805365ca95a17d5bd54736f29d5627580fa305`. On that exact source SHA, AI handoff #45030597515 and process lifecycle inventory #45030597384 passed; NVRAM audit #45030597487 was still pending at last check.
+- WAN DHCP #45030597508, VPN lifecycle #45030597433, WAN route #45030597395, HTTPD security #45030597411 and XY-C1 #45030597436 failed at source-contract steps. The WAN DHCP, VPN, WAN route and XY-C1 checkers still located the former two-argument `launch_wan_pppd_locked()` signature. The HTTPD inline contract expected the deleted unchecked `nvram_match("wan_l2tpd")` selector. The PPP options checker also asserted a non-pointer `launch_mode.multiwan_enabled` token inside the locked worker although the worker correctly uses `launch_mode->multiwan_enabled`.
+- Production inspection uncovered an additional real compile defect: the RPL2TP daemon-stop branch used the new checked `launch_mode->use_rpl2tp`, but the daemon-start branch still referenced the deleted local `use_rpl2tp`. Both paths now use the same immutable snapshot flag.
+- Updated the independent source contracts for WAN interface-name bounds, VPN lifecycle, modem WAN startup, WAN route and HTTPD lifecycle to follow the new locked-worker signature and checked selector. The PPP option contract now tests the pointer-member field and preserves the wrapper's separate value-member check.
+- The WAN PPP option policy test binary compiled and passed GNU89 with ASan/UBSan on parent `d3805365ca95a17d5bd54736f29d5627580fa305`; no local tests or firmware build were run in this connector-only session. Exact-head reruns of WAN DHCP/VPN/WAN route/HTTPD/XY-C1/AI are required for this correction.
+- Result: THIS COMMIT. Next: inspect exact-head Actions for the corrective commit, then resolve the known independent IPv6 router-hosts checker ordering assertion.
+
+---
+
 ## 2026-11-22 — Snapshot WAN PPP launch selectors before lifecycle changes
 
 - Parent main SHA: `0af768201a45cf28482ffa4e8c42b6846e16081a`. On this exact SHA, WAN route #45030079767 passed; IPv6 service-type #45030079720 passed its GNU89 sanitizer binary but failed in a stale ordering assertion that selected the early IPv6 address-read branch instead of the later file-emission branch. AI handoff #45030079766 exposed missing mandatory checkpoint wording/section names in the current handoff; this commit restores the canonical required sections.

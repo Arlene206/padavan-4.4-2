@@ -70,7 +70,7 @@ assert "No safe WAN interface token; refusing firewall rebuild (status=%d)" in f
 assert "if (status != 0)" in firewall
 
 assert '#include "wan_ifname_policy.h"' in ppp
-ppp_start = ppp.index("launch_wan_pppd_locked(int unit, int wan_proto)")
+ppp_start = ppp.index("launch_wan_pppd_locked(int unit, int wan_proto,")
 ppp_launch = ppp[ppp_start:]
 assert "char pppoe_ifname[16];" in ppp_launch
 ppp_compact = " ".join(ppp_launch.split())

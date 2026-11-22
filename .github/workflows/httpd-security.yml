@@ -5714,7 +5714,7 @@ jobs:
           assert "int stop_wan(void);" in header
           assert "int stop_misc(void);" in header
 
-          launch_pppd = body(ppp, "launch_wan_pppd_locked(int unit, int wan_proto)")
+          launch_pppd = body(ppp, "launch_wan_pppd_locked(int unit, int wan_proto,")
           l2tp_stop = body(launch_pppd, "if (wan_proto == IPV4_WAN_PROTO_L2TP)")
           launch_phase = launch_pppd[launch_pppd.index("errno = 0;"):]
           l2tp_start = body(launch_phase, "if (wan_proto == IPV4_WAN_PROTO_L2TP)")
@@ -5727,9 +5727,9 @@ jobs:
           assert launch_pppd.index("ppp_options_file_finish(fp, options)") < launch_pppd.index("safe_start_xl2tpd_locked()")
           assert "kill_services(svcs, 5, 1);" not in launch_pppd
           if '#if defined (APP_RPL2TP)' in l2tp_stop:
-              assert l2tp_stop.index('use_rpl2tp = nvram_match("wan_l2tpd", "1")') < l2tp_stop.index("kill_services(svcs, 5, 1)")
+              assert l2tp_stop.index("if (launch_mode->use_rpl2tp)") < l2tp_stop.index("kill_services(svcs, 5, 1)")
               assert 'svcs[0] = "l2tpd";' in l2tp_stop and 'svcs[0] = "xl2tpd";' in l2tp_stop
-              assert launch_phase.index("if (use_rpl2tp)") < launch_phase.index("start_rpl2tp(unit)")
+              assert launch_phase.index("if (launch_mode->use_rpl2tp)") < launch_phase.index("start_rpl2tp(unit)")
               assert launch_phase.index('nvram_set_int_temp("l2tp_wan_t", 0);') < launch_phase.index("start_rpl2tp(unit)")
           assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 1);') < l2tp_start.index("safe_start_xl2tpd_locked()")
           print("Service termination, WAN stop gates and L2TP transport startup contracts: OK")
