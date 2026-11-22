@@ -476,8 +476,11 @@ require(dns_proto in dns_status and
 
 wan_ifname_proto = "".join(body(source, "get_wan_ifname(char wan_ifname[16])").split())
 ifname_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+ifname_proto_error_gate = "if(status!=0){errno=status;returnstatus;}"
 require(ifname_proto_read in wan_ifname_proto and
-        "if(status!=0)errno=status;returnstatus;" in wan_ifname_proto and
+        ifname_proto_error_gate in wan_ifname_proto and
+        wan_ifname_proto.index(ifname_proto_read) < wan_ifname_proto.index(ifname_proto_error_gate) <
+        wan_ifname_proto.index("if(wan_proto==") and
         "wan_proto=get_wan_proto(unit)" not in wan_ifname_proto,
         "WAN interface selection must not guess the MAN interface on protocol read failure")
 

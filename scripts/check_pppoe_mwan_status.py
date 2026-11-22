@@ -295,7 +295,9 @@ wan_down_lifecycle = function_body(
 ipv6_call = "ipv6_status = wan6_down(wan_ifname, unit);"
 ipv6_merge = "status = route_status_accumulate(status, ipv6_status);"
 ipv6_error_check = "if (ipv6_status != 0)"
-ipv4_teardown = "wan_proto = get_wan_proto(unit);"
+ipv4_teardown = "proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);"
+protocol_error = "if (proto_status != 0)"
+ipv4_lease_cleanup = "del_dhcp_routes_by_prefix(prefix, wan_ifname, 0)"
 require(
     ipv6_call in wan_down_lifecycle
     and ipv6_merge in wan_down_lifecycle
@@ -304,8 +306,14 @@ require(
     and wan_down_lifecycle.index(ipv6_call)
         < wan_down_lifecycle.index(ipv6_merge)
         < wan_down_lifecycle.index(ipv6_error_check)
-        < wan_down_lifecycle.index(ipv4_teardown),
-    "WAN-down must retain IPv6 failure and continue to independent IPv4 cleanup",
+        < wan_down_lifecycle.index(ipv4_teardown)
+        < wan_down_lifecycle.index(protocol_error)
+        < wan_down_lifecycle.index(ipv4_lease_cleanup),
+    "WAN-down must retain IPv6/protocol errors and continue to independent IPv4 cleanup",
+)
+require(
+    "status = route_status_accumulate(status, proto_status);" in wan_down_lifecycle,
+    "WAN-down must report a checked protocol read failure",
 )
 require(
     "return ipv6_status;" not in wan_down_lifecycle,

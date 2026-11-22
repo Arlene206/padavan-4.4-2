@@ -197,8 +197,12 @@ jobs:
           assert ppp_stop.index(clear_call) < ppp_stop.index(
               "stop_status = stop_vpn_client_under_lifecycle_lock();") < ppp_stop.index(
               "stop_status = kill_services(svcs_ppp, 6, 1);")
+          checked_proto_read = "proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);"
+          checked_proto_error = "if (proto_status != 0)"
+          checked_proto_log = "cannot determine WAN protocol during stop; continuing conservative teardown"
           assert stop.index(clear_call) < stop.index(clear_log) < stop.index(
-              "wan_proto = get_wan_proto(unit);") < stop.index(
+              checked_proto_read) < stop.index(checked_proto_error) < stop.index(
+              checked_proto_log) < stop.index(
               "stop_status = stop_vpn_client_under_lifecycle_lock();")
 
           reconnect = function_body(source, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")

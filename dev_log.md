@@ -1,3 +1,14 @@
+## 2026-11-22 — Align WAN source contracts with checked protocol reads
+
+- Parent main SHA: `d004901f403430f32fd73ea950ed947bc287a6f1`.
+- Exact-head WAN route #44966559531 reached the WAN DNS/interface source contract after its host regressions passed, then failed because the checker expected a brace-less error block while `get_wan_ifname()` correctly uses a braced checked-read gate. WAN DHCP callback #44966559464 and the WAN teardown contract #44966559612 likewise reached stale assertions expecting the old unchecked `get_wan_proto()` assignment after `wan_down_internal()` and `stop_wan_locked()` had migrated to the checked reader. Their preceding host regression binaries passed.
+- XY-C1 #44966559594 reached the PPPoE-MWAN lifecycle contract and stopped at the same stale WAN-down getter anchor; the preceding detector and multi-WAN host tests passed. Firmware input detection/Build/TRX/artifact were not reached on that SHA.
+- THIS checker-only slice updates the four affected contracts to require the actual checked protocol read, its error gate/status aggregation, and ordering before independent IPv4 cleanup. No product source changed.
+- Exact-head reruns are required before claiming these checks pass. The same-source WAN-route/DHCP/teardown and XY-C1 results remain pending.
+- Next: inspect exact-head reruns; continue the live audit of `udhcpc_bound()`, `add_man_gateway_routes()`, `man_down_internal()` and other remaining direct protocol consumers, preserving best-effort teardown.
+
+---
+
 ## 2026-11-22 08:25 CST — Preserve cleanup while failing closed on WAN teardown protocol errors
 
 - Parent main SHA: `14791ee073da672bb0a66c2ac618b786e9b57890`.
