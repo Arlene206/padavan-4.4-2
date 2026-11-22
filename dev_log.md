@@ -1,3 +1,12 @@
+## 2026-11-22 — Update WSDD2 XML reflection contract for strict UTF-8 validation
+
+- Parent main SHA: `d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963`. Exact WSDD2 XML regression #45040593359 compiled and ran the GNU99 ASan/UBSan policy test binary, then failed only in `scripts/check_wsdd2_xml_reflection.py:20`, which still required the removed byte-only C0 precheck (`if (ch < 0x20 ...)`). The production policy now performs strict UTF-8 decoding and validates XML 1.0 code points in one pass before allocation.
+- Updated the source contract to require 2/3/4-byte UTF-8 lead validation, EILSEQ/EINVAL paths, overlong/surrogate/out-of-range rejection, XML legal ranges, and validation-before-allocation. Also pinned the new regression cases for valid multibyte text and malformed/forbidden values.
+- On exact SHA `d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963`: process lifecycle inventory #45040593394 PASS and AI handoff #45040593406 PASS; NVRAM audit #45040593403 and XY-C1 #45040593342 were in progress. WSDD2 XML Action #45040593359 failed only at the stale checker assertion; exact rerun required. No L3/L4 or local test claim.
+- ttyd checker-only follow-up commit `30a1e775fef4ab92288e81a9f4eb1ade048993a4` corrected the success-line assertion after the readiness test was extended; exact Process umbrella #45040464894 PASS and AI docs #45040464926 PASS.
+
+---
+
 ## 2026-11-22 — Reject malformed UTF-8 and XML 1.0-forbidden WSD metadata
 
 - Parent main SHA: `30a1e775fef4ab92288e81a9f4eb1ade048993a4`. WSDD2's XML text escaping already removed markup metacharacters and C0 controls, but it copied every other byte unchanged. Configured manufacturer/model URLs and workgroup names can contain malformed UTF-8, overlong encodings, surrogate code points or values above U+10FFFF; reflecting these bytes produces invalid XML 1.0 SOAP metadata and can break Windows device discovery.

@@ -13,24 +13,25 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `30a1e775fef4ab92288e81a9f4eb1ade048993a4`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- EAPoL stop function/file-scope config helper restored; ttyd detached startup now waits for confirmed child readiness; WSDD2 XML escaping now rejects malformed UTF-8 and XML 1.0-forbidden text.
-- Rstats periodic MTD save remains due and retries after save failure; push/pull workflow filters include its persistence policy header.
+- EAPoL stop body/helper file scope restored. ttyd uses bounded child-readiness probes; exact Process regression PASS after updating its expected shell-test output marker.
+- WSDD2 XML metadata policy now validates strict UTF-8 and XML 1.0 legal code points before escaping. Its compiler/sanitizer test binary passed; source checker required updating.
+- Rstats periodic MTD persistence retries failed periodic writes; push/pull path filters include its policy header.
 
 ## Active task
 
-WSDD2 reflects NVRAM/configuration and hostname metadata into XML 1.0 SOAP discovery responses. The prior escaping helper removed markup characters and most C0 controls, but did not validate UTF-8 or the XML 1.0 Char production; malformed encodings, surrogate encodings, out-of-range code points and U+FFFE could produce invalid response XML. Strict validation now runs before escaping, with distinct EILSEQ/EINVAL failure status.
+The WSDD2 XML reflection policy change is implemented and its GNU99 ASan/UBSan binary completed successfully, but its exact Action then failed because the Python source checker still searched for the deleted old C0-only validation expression. The checker is updated to require the strict UTF-8/XML 1.0 validator, including sequence bounds, EILSEQ/EINVAL error classification and validation-before-allocation.
 
 ## Verification boundary
 
-- Parent SHA 30a1e775fef4ab92288e81a9f4eb1ade048993a4: ttyd checker output-marker correction committed; exact process and AI runs #45040464894/#45040464926 were in progress at last inspection.
-- Previous ttyd source SHA 764042628a2ccd7b90a722d408c10a3d4cfb9056: AI handoff #45040236379 PASS; process inventory #45040236380 PASS; process lifecycle regression #45040236371 failed only on the old output-marker assertion, now corrected in parent 30a1; exact rerun pending. XY-C1 #45040236370 remained in progress.
-- This WSDD2 policy/test change has not yet run its exact-head GNU99 ASan/UBSan workflow. No local checkout/tests were run.
+- Exact parent SHA d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963: WSDD2 XML run #45040593359 FAILED only at the stale checker assertion after the compile/run step; process inventory #45040593394 PASS; AI docs #45040593406 PASS; NVRAM #45040593403 and XY-C1 #45040593342 were in progress at last inspection.
+- ttyd readiness source SHA 764042628a2ccd7b90a722d408c10a3d4cfb9056: the first process regression failed only on the checker’s old expected success line; correction commit 30a1e775fef4ab92288e81a9f4eb1ade048993a4 reran Process #45040464894 PASS and AI docs #45040464926 PASS.
+- No local checkout/tests were run. WSDD2 exact-source Action rerun is required.
 - L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. L3 and hardware L4 are NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WSDD2 XML regression, process-lifecycle regression and XY-C1 results after this commit; fix only demonstrated failures.
-2. Confirm whether ttyd readiness tests pass on source SHA 764042628a2ccd7b90a722d408c10a3d4cfb9056 and whether XY-C1 Build/TRX/artifact all PASS on one current exact SHA.
+1. Inspect exact-head WSDD2 XML Action and the XY-C1 / NVRAM runs after this checker correction; fix demonstrated failures only.
+2. Confirm whether the XY-C1 Build, TRX verification and artifact upload all PASS on one identical source SHA; do not infer L3 from a pending or failed build.
 3. Continue an independent userland stability/security slice outside completed WAN/PPP, USB modem, Inadyn, DNSMasq, EAPoL and ttyd work. Keep backup immutable and work only on main.

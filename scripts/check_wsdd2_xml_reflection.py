@@ -17,7 +17,18 @@ assert "escaped_relates = wsd_xml_escape_text(relates)" in sender
 assert sender.index("wsd_xml_escape_text(relates)") < sender.index("asprintf(&soap_relates")
 assert "free(escaped_relates);" in sender
 assert '"<wsa:RelatesTo>%s</wsa:RelatesTo>"' in sender
-assert "if (ch < 0x20 && ch != '\\t' && ch != '\\n' && ch != '\\r')" in POLICY
+assert "wsd_xml_text_is_valid_xml10_utf8(" in POLICY
+assert "errno = EILSEQ;" in POLICY
+assert "errno = EINVAL;" in POLICY
+assert "first >= 0xc2 && first <= 0xdf" in POLICY
+assert "first >= 0xe0 && first <= 0xef" in POLICY
+assert "first >= 0xf0 && first <= 0xf4" in POLICY
+assert "codepoint < 0x800" in POLICY
+assert "codepoint >= 0xd800 && codepoint <= 0xdfff" in POLICY
+assert "codepoint > 0x10ffff" in POLICY
+assert "codepoint >= 0xe000 && codepoint <= 0xfffd" in POLICY
+assert "if (wsd_xml_text_is_valid_xml10_utf8(" in POLICY
+assert POLICY.index("if (wsd_xml_text_is_valid_xml10_utf8(") < POLICY.index("escaped = malloc(capacity)")
 for marker in (
     'case \'&\':',
     'case \'<\':',
