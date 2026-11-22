@@ -67,6 +67,8 @@ shutils_header = read("trunk/user/shared/src/shutils.h")
 package_makefile = read("trunk/user/dns-forwarder/Makefile")
 launcher_script = read("trunk/user/dns-forwarder/dns-forwarder.sh")
 lifecycle_test = read("trunk/user/dns-forwarder/tests/dns_forwarder_lifecycle.sh")
+assert r"*[!0123456789\ ]*" in launcher_script
+subprocess.run(["/bin/sh", "-n", str(ROOT / "trunk/user/dns-forwarder/dns-forwarder.sh")], check=True)
 workflow = read(".github/workflows/dns-forwarder-launch-path.yml")
 busybox_config = read("trunk/configs/boards/busybox.config")
 assert "CONFIG_FLOCK=y" in busybox_config

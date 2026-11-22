@@ -113,7 +113,7 @@ dns_forwarder_process_state() {
     0)
       [ -n "$dns_forwarder_pid_output" ] || return 2
       case "$dns_forwarder_pid_output" in
-        *[!0123456789 ]*) return 2 ;;
+        *[!0123456789\ ]*) return 2 ;;
       esac
       case $- in
         *f*) dns_forwarder_restore_noglob=0 ;;
