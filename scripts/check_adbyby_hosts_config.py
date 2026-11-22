@@ -178,7 +178,7 @@ require('name="scripts.adbyby_host.sh"' in host_ui and
         "the Adbyby UI no longer exposes the stored source list and enable toggle")
 require('{"scripts.adbyby_host.sh", "File", NULL, EVM_RESTART_ADBYBY}' in httpd_variables,
         "HTTPD must persist the configured host source list as a file and restart Adbyby")
-require('cp -rf /etc_ro/adbyby_host.sh /etc/storage/' in copy_scripts,
+require('seed_storage_file "/etc_ro/adbyby_host.sh" "/etc/storage/adbyby_host.sh" 755' in copy_scripts,
         "boot-time default seeding must preserve the operator's configured host list")
 require("<% adbyby_action(); %>" in host_action,
         "manual Adbyby action dispatch endpoint is missing")

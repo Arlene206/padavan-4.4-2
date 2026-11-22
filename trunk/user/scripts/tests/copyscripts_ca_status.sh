@@ -64,7 +64,7 @@ echo "copyscripts CA trust-store result propagation: PASS"
 # Exercise the production default-file helper against ordinary files and
 # hostile leaf/parent symlinks without touching /etc/storage.
 sed -e "s|/etc/storage|$tmp/storage|g" \
-	-n '/^seed_storage_file() {$/,/^}$/p' "$copyscripts" > "$tmp/seed-function.sh"
+	-n -e '/^seed_storage_file() {$/,/^}$/p' "$copyscripts" > "$tmp/seed-function.sh"
 [ -s "$tmp/seed-function.sh" ] || {
 	echo "could not extract seed_storage_file" >&2
 	exit 1
