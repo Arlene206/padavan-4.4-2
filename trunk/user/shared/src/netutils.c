@@ -49,6 +49,7 @@
 #include "shutils.h"
 #include "bridge_membership_policy.h"
 #include "net_ifstats_policy.h"
+#include "ipv6_service_type_policy.h"
 
 static int
 copy_ifname(char *dest, size_t dest_size, const char *ifname)
@@ -1122,29 +1123,44 @@ brport_set_m2u(const char *ifname, int m2u_on)
 	return status;
 }
 
-int get_ipv6_type(void)
+int get_ipv6_type_status(int *ipv6_type)
 {
 #if defined (USE_IPV6)
-	int i;
-	const char *ipv6_svc_type;
-	const char *ipv6_svc_names[] = {
-		"static",	// IPV6_NATIVE_STATIC
-		"dhcp6",	// IPV6_NATIVE_DHCP
-		"6in4",		// IPV6_6IN4
-		"6to4",		// IPV6_6TO4
-		"6rd",		// IPV6_6RD
-		NULL
+	static const char *const service_names[] = {
+		"static", "dhcp6", "6in4", "6to4", "6rd"
 	};
+	char *service_value = NULL;
+	int api_result, saved_errno;
 
-	ipv6_svc_type = nvram_safe_get("ip6_service");
-	if (!(*ipv6_svc_type))
-		return IPV6_DISABLED;
-	
-	for (i = 0; ipv6_svc_names[i] != NULL; i++) {
-		if (strcmp(ipv6_svc_type, ipv6_svc_names[i]) == 0) return i + 1;
-	}
+	if (!ipv6_type)
+		return EINVAL;
+	*ipv6_type = IPV6_DISABLED;
+	errno = 0;
+	api_result = nvram_get_checked("ip6_service", &service_value);
+	saved_errno = errno;
+	return ipv6_service_type_parse_status(
+		api_result, saved_errno, service_value, service_names,
+		(unsigned int)(sizeof(service_names) / sizeof(service_names[0])),
+		IPV6_DISABLED, IPV6_NATIVE_STATIC, ipv6_type);
+#else
+	if (!ipv6_type)
+		return EINVAL;
+	*ipv6_type = IPV6_DISABLED;
+	return 0;
 #endif
-	return IPV6_DISABLED;
+}
+
+/* Legacy wrapper: state-changing code must use get_ipv6_type_status(). */
+int get_ipv6_type(void)
+{
+	int ipv6_type = IPV6_DISABLED;
+	int status = get_ipv6_type_status(&ipv6_type);
+
+	if (status != 0) {
+		errno = status;
+		return IPV6_DISABLED;
+	}
+	return ipv6_type;
 }
 
 #if defined (USE_IPV6)

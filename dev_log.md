@@ -1,3 +1,13 @@
+## 2026-11-22 13:40 UTC+8 — Preserve IPv6 service-type NVRAM read failures
+
+- Parent main SHA: `445e03f5b18aa185934ad145fc41a7953f82cdc0`. Shared `get_ipv6_type()` in `trunk/user/shared/src/netutils.c` read `ip6_service` via `nvram_safe_get()`. That API converts backend/read/close errors into an empty string; the parser then reports `IPV6_DISABLED`, which can disable host-wide IPv6 at boot or make WAN IPv6 transitions skip required state while configuration is merely unreadable.
+- Added `get_ipv6_type_status(int *)` on `nvram_get_checked()` and a pure mapping policy. Missing, empty and unknown legacy service values still map to disabled; backend failures and malformed API results remain explicit errno statuses. Kept the legacy wrapper for compatibility; state-changing callers in this slice use the checked API.
+- Migrated `init_ipv6()` and `full_restart_ipv6()` to refuse global sysctl/service changes before side effects on read failure. Router boot validates/caches the service type; IPv6 restart notifications update that cache only after a successful read. WAN6 up/down and DHCPv6 callback gates now use checked reads; callback lock is released before reporting read failure.
+- Added GNU89 ASan/UBSan policy cases for all five service types, absent/empty/unknown legacy values, backend EACCES/fallback EIO, malformed API results and NULL output; added exact-source ordering checker and dedicated Actions workflow. No local firmware checkout/toolchain is available; new-SHA source and sanitizer CI pending. Parent `445e03f` exact-SHA WAN DHCP #44987846226, WAN route #44987846238, USB #44987846271, AI docs #44987846250, Process #44987846220/#44987846198, Samba #44987846169, watchdog #44987846136, HTTPD #44987846117 and NVRAM #44987846132 PASS. XY-C1 #44987846160 was still at Build, TRX/artifact pending; L3/L4 not verified for this slice.
+- Remaining legacy `get_ipv6_type()` callers in LAN policy, firewall, WAN interface setup, storage and OpenVPN are the next migration slice. Backup remains frozen at `backup/pre-plugin-overhaul-2026-11-14` / `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged.
+
+---
+
 ## 2026-11-22 13:18 UTC+8 — Fail closed on DHCPv6 client flag read errors
 
 - Parent main SHA: `b47e570c4001c00962bcb93dd4d1dd8a503f59ab`. Whole-source review of `trunk/user/rc/src/net_wan6.c` found `start_dhcp6c()` reading `ip6_wan_dhcp`, `ip6_dns_auto` and `ip6_lan_auto` with `nvram_get_int()`, and `dhcp6c_main()` independently reading the two automatic flags the same way. The lossy getter maps NVRAM backend read/close errors to integer zero; startup could silently skip an enabled DHCPv6 client, and a valid Reply callback could silently skip automatic LAN-prefix or DNS publication.
