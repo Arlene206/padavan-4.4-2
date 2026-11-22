@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/detect-internet-signal-stability.yml"
       - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_host_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_host_policy.c"
       - "trunk/user/rc/src/detect_internet_signal_policy.h"
       - "trunk/user/rc/src/detect_internet_nvram_policy.h"
       - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
@@ -20,6 +22,8 @@ on:
     paths:
       - ".github/workflows/detect-internet-signal-stability.yml"
       - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_host_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_host_policy.c"
       - "trunk/user/rc/src/detect_internet_signal_policy.h"
       - "trunk/user/rc/src/detect_internet_nvram_policy.h"
       - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
@@ -48,6 +52,14 @@ jobs:
             trunk/user/rc/src/tests/detect_internet_signal_policy.c \
             -o /tmp/detect-internet-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-signal-policy
+      - name: Compile and run checked probe endpoint settings regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_internet_host_policy.c \
+            -o /tmp/detect-internet-host-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-host-policy
       - name: Compile and run Internet status NVRAM retry regression
         run: |
           set -eu
@@ -88,7 +100,19 @@ jobs:
           assert '#include "detect_internet_nvram_policy.h"' in detect
           nvram_policy = (rc / "detect_internet_nvram_policy.h").read_text()
           nvram_test = (rc / "tests/detect_internet_nvram_policy.c").read_text()
+          host_policy = (rc / "detect_internet_host_policy.h").read_text()
+          host_test = (rc / "tests/detect_internet_host_policy.c").read_text()
           assert "detect_internet_publish_status(" in nvram_policy
+          assert "detect_internet_read_endpoint(" in host_policy
+          assert "rc_wan_nvram_copy_value(" in host_policy
+          assert "rc_wan_nvram_read_status(" in host_policy
+          assert "rc_wan_nvram_int_range_status(" in host_policy
+          for marker in ("test_endpoint_address_survives_port_cache_reuse",
+                         "test_address_backend_error_is_not_treated_as_missing_host",
+                         "test_port_backend_error_invalidates_entire_endpoint",
+                         "test_oversized_address_fails_without_truncation"):
+              assert marker in host_test and marker + "();" in host_test
+          assert "detect_internet checked endpoint settings policy: PASS" in host_test
           assert "di_status_nvram_old" in detect
           assert "di_status_nvram_target" in detect
           publisher = body(detect, "di_publish_nvram_status(int status)")
@@ -100,6 +124,18 @@ jobs:
           reset_state = body(detect, "di_reset_state(void)")
           assert "status = di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
           assert "if (status != 0 && di_pause_received)" in reset_state
+          assert '#include "detect_internet_host_policy.h"' in detect
+          assert "di_settings_error;" in detect
+          load_settings = body(detect, "di_load_settings(void)")
+          load_settings_compact = "".join(load_settings.split())
+          assert "struct sockaddr_in host_snapshot[DI_MAX_HOSTS];" in load_settings
+          assert "detect_internet_read_endpoint(" in load_settings
+          assert 'detect_internet_read_int_setting(detect_internet_nvram_get_checked,NULL,"di_poll_mode",0,1,0,&poll_mode)' in load_settings_compact
+          assert "nvram_safe_get(" not in load_settings
+          assert "nvram_safe_get_int(" not in load_settings
+          assert "memcpy(di_host_sa,host_snapshot,sizeof(di_host_sa));" in load_settings_compact
+          assert "di_settings_error=0;" in load_settings_compact
+          assert "di_settings_error=status;" in load_settings_compact
           timer_body = body(detect, "di_on_timer(void)")
           assert "di_publish_nvram_status(di_status_nvram_target)" in timer_body
           pause_state = body(detect, "di_on_sigusr2(void)")
@@ -123,6 +159,11 @@ jobs:
           assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < main.index("sigaction(SIGHUP")
           assert "sa.sa_mask = managed_signals;" in main
           assert "sigsuspend(&wait_mask)" in main
+          initial_settings = main.index("settings_status = di_load_settings();")
+          initial_failure = main.index("if (settings_status != 0)", initial_settings)
+          initial_retry = main.index("di_alarmtimer(1);", initial_failure)
+          initial_autorun = main.index("di_alarmtimer(auto_run_time);", initial_retry)
+          assert initial_settings < initial_failure < initial_retry < initial_autorun
           assert "sigprocmask(SIG_SETMASK, &run_mask, NULL)" in main
           assert "sigprocmask(SIG_BLOCK, &managed_signals, NULL)" in main
           terminate = main.index("if (events & DI_PENDING_TERMINATE)")
@@ -138,7 +179,13 @@ jobs:
           assert "(!di_pause_received || di_status_nvram_error != 0)" in main
 
           timer = body(detect, "di_on_timer(void)")
+          settings_guard = timer.index("if (di_settings_error != 0)")
+          settings_reload = timer.index("settings_status = di_load_settings();", settings_guard)
+          settings_error = timer.index("if (settings_status != 0)", settings_reload)
+          settings_retry = timer.index("di_alarmtimer(1);", settings_error)
+          settings_return = timer.index("return;", settings_retry)
           connect = timer.index("di_connect_to_host(")
+          assert settings_guard < settings_reload < settings_error < settings_retry < settings_return < connect
           pause_fence = timer.index("if (di_pause_received)", connect)
           publish = timer.index("di_publish_nvram_status(link_internet)")
           assert timer.index("di_publish_nvram_status(di_status);") < connect
@@ -169,6 +216,14 @@ jobs:
           assert "test_pause_treats_absence_as_noop_and_reports_identity_failure" in test
           assert '#include "detect_internet_notification_policy.h"' in detect
 
+          resume_settings = body(detect, "di_on_sigusr1(void)")
+          resume_compact = "".join(resume_settings.split())
+          resume_load = resume_compact.index("settings_status=di_load_settings();")
+          resume_failure = resume_compact.index("if(settings_status!=0)", resume_load)
+          resume_retry = resume_compact.index("di_alarmtimer(1);", resume_failure)
+          resume_return = resume_compact.index("return;", resume_retry)
+          resume_delay = resume_compact.index('delay_time=nvram_get_int("di_notify_delay");')
+          assert resume_load < resume_failure < resume_retry < resume_return < resume_delay
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
           assert "int\nnotify_run_detect_internet(int delay_time)" in detect
           assert "operation_status = start_detect_internet(delay_time);" in notify_run

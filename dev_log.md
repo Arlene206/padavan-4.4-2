@@ -1,3 +1,11 @@
+## 2026-11-22 — Fail closed and retry when Internet probe settings cannot be read
+
+- Parent main SHA: `a5c583ca01a807501388a246cb5e4c7b32071fab`. `di_load_settings()` used lossy `nvram_safe_get()` / `nvram_safe_get_int()` for its six probe endpoints and polling mode. A transient backend read/close error could be mistaken for a missing or invalid endpoint; if all six addresses looked empty, the monitor silently substituted Google DNS and could incorrectly infer WAN state from a probe the user had not configured.
+- Added a checked endpoint policy that snapshots each address before reading its port, preserves legacy empty/malformed/out-of-range defaults, and propagates backend failures and address truncation. `di_load_settings()` now builds a local candidate and publishes it only after every address/port and polling-mode read succeeds. Startup, resume and timer refresh paths retry after one second and never probe with a failed/incomplete settings snapshot.
+- Added GNU89 ASan/UBSan regression coverage for shared-cache reuse, missing/default values, malformed/out-of-range ports, backend errors and truncation; wired it into the existing detect-internet workflow with source-order contracts. Exact-head CI pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fix detect-WAN compact-source assertion
 
 - Parent main SHA: `00fb9c342a11e5be57b6662d9442adacbcd20fd4`. Exact detect-WAN run #45011007427 compiled and ran the checked-NVRAM sanitizer regression successfully, then failed at the source checker because it compared a whitespace-compacted function body against a string containing a space after `return`.

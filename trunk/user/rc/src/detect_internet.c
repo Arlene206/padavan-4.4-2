@@ -28,6 +28,7 @@
 #include "rc.h"
 #include "detect_internet_signal_policy.h"
 #include "detect_internet_nvram_policy.h"
+#include "detect_internet_host_policy.h"
 #include "process_presence_start_policy.h"
 #include "detect_internet_notification_policy.h"
 #include <process_inventory.h>
@@ -42,6 +43,7 @@ static struct sockaddr_in    di_host_sa[DI_MAX_HOSTS];
 static int                   di_host_ok[DI_MAX_HOSTS];
 static int                   di_host_next;
 static int                   di_host_total;
+static int                   di_settings_error;
 static int                   di_poll_mode;
 static int                   di_status;
 static int                   di_status_nvram_old = -1;
@@ -198,42 +200,87 @@ di_reset_state(void)
 		di_alarmtimer(1);
 }
 
-static void
+static int
+detect_internet_nvram_get_checked(void *context, const char *param_name,
+				  char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+static int
 di_load_settings(void)
 {
-	int i, i_items;
-	char nvram_addr[16], nvram_port[16];
+	struct sockaddr_in host_snapshot[DI_MAX_HOSTS];
+	int host_ok_snapshot[DI_MAX_HOSTS];
+	int i, i_items, port, poll_mode, status, previous_error;
+	char nvram_addr[16], nvram_port[16], address[16];
+	in_addr_t address_value;
 
-	memset(di_host_sa, 0, sizeof(di_host_sa));
+	memset(host_snapshot, 0, sizeof(host_snapshot));
+	for (i = 0; i < DI_MAX_HOSTS; ++i)
+		host_ok_snapshot[i] = DI_STATUS_INIT;
 
 	i_items = 0;
-	for (i = 0; i < DI_MAX_HOSTS; i++) {
+	for (i = 0; i < DI_MAX_HOSTS; ++i) {
 		snprintf(nvram_addr, sizeof(nvram_addr), "di_addr%d", i);
 		snprintf(nvram_port, sizeof(nvram_port), "di_port%d", i);
-		
-		di_host_sa[i_items].sin_family = AF_INET;
-		di_host_sa[i_items].sin_addr.s_addr = inet_addr_safe(nvram_safe_get(nvram_addr));
-		di_host_sa[i_items].sin_port = htons(nvram_safe_get_int(nvram_port, 53, 1, 65535));
-		
-		if (di_host_sa[i_items].sin_addr.s_addr != INADDR_ANY &&
-		    di_host_sa[i_items].sin_addr.s_addr != INADDR_NONE)
-			i_items++;
+
+		status = detect_internet_read_endpoint(
+			detect_internet_nvram_get_checked, NULL,
+			nvram_addr, nvram_port, address, sizeof(address), &port);
+		if (status != 0)
+			goto read_failed;
+
+		address_value = inet_addr_safe(address);
+		if (address_value == INADDR_ANY || address_value == INADDR_NONE)
+			continue;
+
+		host_snapshot[i_items].sin_family = AF_INET;
+		host_snapshot[i_items].sin_addr.s_addr = address_value;
+		host_snapshot[i_items].sin_port = htons((unsigned short)port);
+		++i_items;
 	}
 
 	if (i_items < 1) {
-		di_host_sa[0].sin_family = AF_INET;
-		di_host_sa[0].sin_addr.s_addr = 0x08080808;
-		di_host_sa[0].sin_port = htons(53);
+		host_snapshot[0].sin_family = AF_INET;
+		host_snapshot[0].sin_addr.s_addr = 0x08080808;
+		host_snapshot[0].sin_port = htons(53);
 		i_items = 1;
 	}
 
+	status = detect_internet_read_int_setting(
+		detect_internet_nvram_get_checked, NULL,
+		"di_poll_mode", 0, 1, 0, &poll_mode);
+	if (status != 0)
+		goto read_failed;
+
+	/*
+	 * Commit the complete candidate only after every NVRAM read succeeds.
+	 * Failed refreshes keep the previous snapshot but suppress probes until
+	 * a later one-second retry can publish a complete replacement.
+	 */
+	previous_error = di_settings_error;
+	memcpy(di_host_sa, host_snapshot, sizeof(di_host_sa));
+	memcpy(di_host_ok, host_ok_snapshot, sizeof(di_host_ok));
 	di_host_total = i_items;
-	if (i_items > 1)
-		di_host_next = rand_seed_by_time() % i_items;
-
-	di_poll_mode = nvram_safe_get_int("di_poll_mode", 0, 0, 1);
-
+	di_host_next = (i_items > 1) ? rand_seed_by_time() % i_items : 0;
+	di_poll_mode = poll_mode;
 	di_is_ap_mode = get_ap_mode();
+	di_settings_error = 0;
+	if (previous_error != 0)
+		logmessage("detect_internet",
+			   "Internet probe settings recovered after NVRAM read failure");
+	return 0;
+
+read_failed:
+	previous_error = di_settings_error;
+	di_settings_error = status;
+	if (previous_error != status)
+		logmessage("detect_internet",
+			   "cannot load Internet probe settings (status=%d); retrying",
+			   status);
+	return status;
 }
 
 static void
@@ -256,7 +303,7 @@ static void
 di_on_timer(void)
 {
 	int i, link_error, link_internet, has_unchecked;
-	int publish_status;
+	int publish_status, settings_status;
 	long now;
 	unsigned long period_next;
 
@@ -265,6 +312,15 @@ di_on_timer(void)
 		publish_status = di_publish_nvram_status(di_status_nvram_target);
 		di_alarmtimer(publish_status != 0 ? 1 : 0);
 		return;
+	}
+
+	/* Never probe with an incomplete/failed NVRAM endpoint snapshot. */
+	if (di_settings_error != 0) {
+		settings_status = di_load_settings();
+		if (settings_status != 0) {
+			di_alarmtimer(1);
+			return;
+		}
 	}
 
 	/* Retry a failed mirror even when connectivity itself did not change. */
@@ -368,13 +424,17 @@ di_on_timer(void)
 static void
 di_on_sigusr1(void)
 {
-	int delay_time;
+	int delay_time, settings_status;
 
 	di_pause_received = 0;
 
 	di_alarmtimer(0);
 	di_reset_state();
-	di_load_settings();
+	settings_status = di_load_settings();
+	if (settings_status != 0) {
+		di_alarmtimer(1);
+		return;
+	}
 
 	delay_time = nvram_get_int("di_notify_delay");
 	if (delay_time < 1)
@@ -496,6 +556,7 @@ detect_internet_main(int argc, char *argv[])
 {
 	pid_t pid;
 	int c, auto_run_time = 0;
+	int settings_status;
 	int saved_errno;
 	sigset_t managed_signals, original_mask, wait_mask, run_mask;
 	struct sigaction sa;
@@ -586,9 +647,10 @@ detect_internet_main(int argc, char *argv[])
 	di_time_last_activity = 0;
 
 	di_reset_state();
-	di_load_settings();
-
-	if (auto_run_time > 0)
+	settings_status = di_load_settings();
+	if (settings_status != 0)
+		di_alarmtimer(1);
+	else if (auto_run_time > 0)
 		di_alarmtimer(auto_run_time);
 
 	for (;;) {
