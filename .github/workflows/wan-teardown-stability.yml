@@ -57,7 +57,7 @@ jobs:
           source = (rc / "net_wan.c").read_text()
           lan6 = (rc / "net_lan6.c").read_text()
           lan6_policy = (rc / "lan_addr6_reload_policy.h").read_text()
-          policy = (rc / "wan_teardown_policy.h").read_text()
+          wan_teardown_policy = (rc / "wan_teardown_policy.h").read_text()
           teardown_test = (rc / "tests/wan_teardown_policy.c").read_text()
           workflow = Path(".github/workflows/wan-teardown-stability.yml").read_text()
 
@@ -131,7 +131,7 @@ jobs:
           assert 'nvram_get_int("modem_type")' not in stop
           assert "stop_status = stop_wan_usbnet();" in stop
           assert stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
-          interface_select = function_body(policy, "wan_teardown_select_interfaces(")
+          interface_select = function_body(wan_teardown_policy, "wan_teardown_select_interfaces(")
           assert "*management_uses_transport = 0;" in interface_select
           assert "*usbnet_ifname = NULL;" in interface_select
           assert "if (snapshot_status != 0)" in interface_select
@@ -267,8 +267,8 @@ jobs:
           assert "if (stop_status != 0)" in stop
           assert stop.index("stop_status = invalidate_wan_ppp_callback_session();") < stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
 
-          policy = (rc / "wan_teardown_policy.h").read_text()
-          abort_status = function_body(policy, "wan_teardown_abort_status(")
+          abort_policy = (rc / "wan_teardown_policy.h").read_text()
+          abort_status = function_body(abort_policy, "wan_teardown_abort_status(")
           assert "if (operation_status != 0)" in abort_status
           assert "return operation_status;" in abort_status
           assert "if (resume_status != 0)" in abort_status
