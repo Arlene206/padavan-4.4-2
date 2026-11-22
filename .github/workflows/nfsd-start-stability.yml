@@ -241,31 +241,35 @@ jobs:
           assert try_start.index("storage_operation_lock_acquire(file_lock)") < try_start.index("start_stor_apps()")
 
           export_writer = function_body(service, "write_nfsd_exports(void)")
-          nvram_getter = function_body(service, "storage_nfs_export_nvram_get(void *context")
-          nvram_copy = function_body(service, "storage_nfs_export_nvram_copy(const char *param_name")
-          assert "return nvram_get_checked(param_name, value);" in nvram_getter
-          assert "storage_nfs_export_copy_nvram_value(" in nvram_copy
+          snapshot_begin = function_body(service, "storage_nfs_export_transaction_begin(void *context)")
+          snapshot_get = function_body(service, "storage_nfs_export_transaction_get(void *context")
+          snapshot_end = function_body(service, "storage_nfs_export_transaction_end(void *context)")
+          assert "nvram_transaction_begin" in snapshot_begin
+          assert "nvram_transaction_get" in snapshot_get
+          assert "nvram_transaction_end" in snapshot_end
+          snapshot_reader = function_body(policy, "storage_nfs_export_read_acl_snapshot(")
+          assert "rc_wan_nvram_copy_snapshot(" in snapshot_reader
           export_compact = "".join(export_writer.split())
           for key in ("lan_ipaddr_t", "lan_netmask_t", "lan_ipaddr",
                       "lan_netmask", "ip6_lan_addr", "ip6_lan_size", "vpns_vnet"):
               assert 'nvram_safe_get("' + key + '")' not in export_writer
           assert "char*acl_addr" not in export_compact
           assert "char*acl_mask" not in export_compact
-          for key, destination in (
-              ("lan_ipaddr_t", "acl_lan_addr"),
-              ("lan_netmask_t", "acl_lan_mask"),
-              ("lan_ipaddr", "acl_fallback_addr"),
-              ("lan_netmask", "acl_fallback_mask"),
-              ("ip6_lan_addr", "acl_addr6"),
-              ("ip6_lan_size", "acl_len6"),
-              ("vpns_vnet", "acl_vpn_addr"),
-          ):
-              call = 'storage_nfs_export_nvram_copy("' + key + '",' + destination
-              assert call in export_compact, call
-              assert export_compact.index(call) < export_compact.index('procpt=fopen(PROC_MOUNTS_FILE,"r")')
+          for key in ("lan_ipaddr_t", "lan_netmask_t", "lan_ipaddr",
+                      "lan_netmask", "ip6_lan_addr", "ip6_lan_size",
+                      "sw_mode", "vpns_enable", "vpns_vuse", "vpns_vnet",
+                      "vpns_type", "vpns_ov_mode"):
+              assert '"' + key + '"' in snapshot_reader
+          assert "storage_nfs_export_read_acl_snapshot(" in export_writer
+          assert export_writer.index("storage_nfs_export_read_acl_snapshot(") < export_writer.index('procpt = fopen(PROC_MOUNTS_FILE, "r")')
+          assert "nvram_get_int(" not in export_writer
+          assert "get_ap_mode()" not in export_writer
+          assert "rc_wan_nvram_parse_int_value(" in export_writer
           assert "gotoacl_nvram_error;" in export_compact
           assert "test_acl_nvram_copies_survive_shared_cache_reuse" in policy_test
           assert "test_acl_nvram_copy_fails_closed_on_missing_error_and_truncation" in policy_test
+          assert "test_nfs_acl_inputs_are_copied_from_one_transaction" in policy_test
+          assert "test_nfs_acl_snapshot_discards_all_fields_on_read_or_close_error" in policy_test
           assert 'strcmp(fake.cache_slot, "10.8.0.1")' in policy_test
           assert "STORAGE_NFS_EXPORT_DEFAULT_OPTIONS" in export_writer
           assert "#define STORAGE_NFS_EXPORT_DEFAULT_OPTIONS" in policy

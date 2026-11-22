@@ -155,6 +155,191 @@ test_acl_nvram_copy_fails_closed_on_missing_error_and_truncation(void)
 }
 
 
+struct fake_nfs_nvram_transaction {
+	const char *names[12];
+	const char *values[12];
+	unsigned int calls;
+	unsigned int count;
+	int read_fail_at;
+	int missing_at;
+	int read_error;
+	int end_error;
+	int begin_calls;
+	int end_calls;
+	char cache_slot[128];
+};
+
+
+static int
+fake_nfs_transaction_begin(void *opaque)
+{
+	struct fake_nfs_nvram_transaction *fake =
+		(struct fake_nfs_nvram_transaction *)opaque;
+
+	fake->begin_calls++;
+	return 0;
+}
+
+
+static int
+fake_nfs_transaction_get(void *opaque, const char *param_name,
+			 char **value)
+{
+	struct fake_nfs_nvram_transaction *fake =
+		(struct fake_nfs_nvram_transaction *)opaque;
+	unsigned int index = fake->calls++;
+
+	if (index >= fake->count) {
+		*value = NULL;
+		return -1;
+	}
+	assert(strcmp(param_name, fake->names[index]) == 0);
+	if ((int)index == fake->read_fail_at) {
+		*value = NULL;
+		errno = fake->read_error;
+		return -1;
+	}
+	if ((int)index == fake->missing_at) {
+		*value = NULL;
+		return 0;
+	}
+	snprintf(fake->cache_slot, sizeof(fake->cache_slot), "%s",
+		 fake->values[index]);
+	*value = fake->cache_slot;
+	return 1;
+}
+
+
+static int
+fake_nfs_transaction_end(void *opaque)
+{
+	struct fake_nfs_nvram_transaction *fake =
+		(struct fake_nfs_nvram_transaction *)opaque;
+
+	fake->end_calls++;
+	if (fake->end_error != 0) {
+		errno = fake->end_error;
+		return -1;
+	}
+	return 0;
+}
+
+
+static void
+fake_nfs_transaction_init(struct fake_nfs_nvram_transaction *fake)
+{
+	static const char *const names[12] = {
+		"lan_ipaddr_t", "lan_netmask_t", "lan_ipaddr",
+		"lan_netmask", "ip6_lan_addr", "ip6_lan_size",
+		"sw_mode", "vpns_enable", "vpns_vuse", "vpns_vnet",
+		"vpns_type", "vpns_ov_mode"
+	};
+	static const char *const values[12] = {
+		"192.168.1.1", "255.255.255.0", "10.0.0.1",
+		"255.0.0.0", "2001:db8::1", "64", "1",
+		"1", "1", "10.8.0.1", "2", "1"
+	};
+
+	memset(fake, 0, sizeof(*fake));
+	memcpy(fake->names, names, sizeof(names));
+	memcpy(fake->values, values, sizeof(values));
+	fake->count = 12;
+	fake->read_fail_at = -1;
+	fake->missing_at = -1;
+}
+
+
+static void
+test_nfs_acl_inputs_are_copied_from_one_transaction(void)
+{
+	struct fake_nfs_nvram_transaction fake;
+	struct storage_nfs_export_acl_snapshot snapshot;
+	int parsed_value;
+
+	fake_nfs_transaction_init(&fake);
+	assert(storage_nfs_export_read_acl_snapshot(
+		&snapshot, fake_nfs_transaction_begin, fake_nfs_transaction_get,
+		fake_nfs_transaction_end, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.calls == fake.count &&
+	       fake.end_calls == 1);
+	assert(strcmp(snapshot.lan_address, "192.168.1.1") == 0);
+	assert(strcmp(snapshot.lan_netmask, "255.255.255.0") == 0);
+	assert(strcmp(snapshot.fallback_address, "10.0.0.1") == 0);
+	assert(strcmp(snapshot.fallback_netmask, "255.0.0.0") == 0);
+	assert(strcmp(snapshot.ipv6_address, "2001:db8::1") == 0);
+	assert(strcmp(snapshot.ipv6_prefix, "64") == 0);
+	assert(strcmp(snapshot.router_mode, "1") == 0);
+	assert(strcmp(snapshot.vpn_enabled, "1") == 0);
+	assert(strcmp(snapshot.vpn_use, "1") == 0);
+	assert(strcmp(snapshot.vpn_address, "10.8.0.1") == 0);
+	assert(strcmp(snapshot.vpn_type, "2") == 0);
+	assert(strcmp(snapshot.vpn_openvpn_mode, "1") == 0);
+	assert(rc_wan_nvram_parse_int_value(
+		snapshot.vpn_enabled, &parsed_value) == 0 && parsed_value == 1);
+	assert(rc_wan_nvram_parse_int_value(
+		snapshot.vpn_use, &parsed_value) == 0 && parsed_value == 1);
+
+	/* A genuinely absent key retains the legacy empty-string/zero default. */
+	fake_nfs_transaction_init(&fake);
+	fake.missing_at = 0;
+	assert(storage_nfs_export_read_acl_snapshot(
+		&snapshot, fake_nfs_transaction_begin, fake_nfs_transaction_get,
+		fake_nfs_transaction_end, &fake) == 0);
+	assert(snapshot.lan_address[0] == '\0' &&
+	       strcmp(snapshot.lan_netmask, "255.255.255.0") == 0);
+}
+
+
+static void
+test_nfs_acl_snapshot_discards_all_fields_on_read_or_close_error(void)
+{
+	struct fake_nfs_nvram_transaction fake;
+	struct storage_nfs_export_acl_snapshot snapshot;
+
+	fake_nfs_transaction_init(&fake);
+	fake.read_fail_at = 5;
+	fake.read_error = EACCES;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(storage_nfs_export_read_acl_snapshot(
+		&snapshot, fake_nfs_transaction_begin, fake_nfs_transaction_get,
+		fake_nfs_transaction_end, &fake) == EACCES);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(snapshot.lan_address[0] == '\0' &&
+	       snapshot.lan_netmask[0] == '\0' &&
+	       snapshot.fallback_address[0] == '\0' &&
+	       snapshot.fallback_netmask[0] == '\0' &&
+	       snapshot.ipv6_address[0] == '\0' &&
+	       snapshot.ipv6_prefix[0] == '\0' &&
+	       snapshot.router_mode[0] == '\0' &&
+	       snapshot.vpn_enabled[0] == '\0' &&
+	       snapshot.vpn_use[0] == '\0' &&
+	       snapshot.vpn_address[0] == '\0' &&
+	       snapshot.vpn_type[0] == '\0' &&
+	       snapshot.vpn_openvpn_mode[0] == '\0');
+
+	fake_nfs_transaction_init(&fake);
+	fake.end_error = EIO;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(storage_nfs_export_read_acl_snapshot(
+		&snapshot, fake_nfs_transaction_begin, fake_nfs_transaction_get,
+		fake_nfs_transaction_end, &fake) == EIO);
+	assert(fake.begin_calls == 1 && fake.calls == fake.count &&
+	       fake.end_calls == 1);
+	assert(snapshot.lan_address[0] == '\0' &&
+	       snapshot.lan_netmask[0] == '\0' &&
+	       snapshot.fallback_address[0] == '\0' &&
+	       snapshot.fallback_netmask[0] == '\0' &&
+	       snapshot.ipv6_address[0] == '\0' &&
+	       snapshot.ipv6_prefix[0] == '\0' &&
+	       snapshot.router_mode[0] == '\0' &&
+	       snapshot.vpn_enabled[0] == '\0' &&
+	       snapshot.vpn_use[0] == '\0' &&
+	       snapshot.vpn_address[0] == '\0' &&
+	       snapshot.vpn_type[0] == '\0' &&
+	       snapshot.vpn_openvpn_mode[0] == '\0');
+}
+
+
 int
 main(void)
 {
@@ -164,6 +349,9 @@ main(void)
 #if defined (USE_IPV6)
 	char ipv6_acl[INET6_ADDRSTRLEN + 4];
 #endif
+
+	test_nfs_acl_inputs_are_copied_from_one_transaction();
+	test_nfs_acl_snapshot_discards_all_fields_on_read_or_close_error();
 
 	/* Keep client source ports privileged without changing legacy root mapping. */
 	assert(strcmp(STORAGE_NFS_EXPORT_DEFAULT_OPTIONS,

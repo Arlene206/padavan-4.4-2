@@ -7,6 +7,82 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include "wan_nvram_status_policy.h"
+
+struct storage_nfs_export_acl_snapshot {
+	char lan_address[32];
+	char lan_netmask[32];
+	char fallback_address[32];
+	char fallback_netmask[32];
+	char ipv6_address[INET6_ADDRSTRLEN + 5];
+	char ipv6_prefix[8];
+	char router_mode[16];
+	char vpn_enabled[16];
+	char vpn_use[16];
+	char vpn_type[16];
+	char vpn_openvpn_mode[16];
+	char vpn_address[32];
+};
+
+/*
+ * The ACL writer consumes related NVRAM values as one authorization snapshot.
+ * LAN address/netmask, IPv6 address/prefix and VPN enable/type/address must
+ * never be combined across concurrent configuration generations.
+ */
+static inline int
+storage_nfs_export_read_acl_snapshot(
+	struct storage_nfs_export_acl_snapshot *snapshot,
+	rc_wan_nvram_transaction_fn begin_transaction,
+	rc_wan_nvram_get_fn get_value,
+	rc_wan_nvram_transaction_fn end_transaction, void *context)
+{
+	struct rc_wan_nvram_snapshot_field fields[12];
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+
+	fields[0].param_name = "lan_ipaddr_t";
+	fields[0].destination = snapshot->lan_address;
+	fields[0].destination_size = sizeof(snapshot->lan_address);
+	fields[1].param_name = "lan_netmask_t";
+	fields[1].destination = snapshot->lan_netmask;
+	fields[1].destination_size = sizeof(snapshot->lan_netmask);
+	fields[2].param_name = "lan_ipaddr";
+	fields[2].destination = snapshot->fallback_address;
+	fields[2].destination_size = sizeof(snapshot->fallback_address);
+	fields[3].param_name = "lan_netmask";
+	fields[3].destination = snapshot->fallback_netmask;
+	fields[3].destination_size = sizeof(snapshot->fallback_netmask);
+	fields[4].param_name = "ip6_lan_addr";
+	fields[4].destination = snapshot->ipv6_address;
+	fields[4].destination_size = sizeof(snapshot->ipv6_address);
+	fields[5].param_name = "ip6_lan_size";
+	fields[5].destination = snapshot->ipv6_prefix;
+	fields[5].destination_size = sizeof(snapshot->ipv6_prefix);
+	fields[6].param_name = "sw_mode";
+	fields[6].destination = snapshot->router_mode;
+	fields[6].destination_size = sizeof(snapshot->router_mode);
+	fields[7].param_name = "vpns_enable";
+	fields[7].destination = snapshot->vpn_enabled;
+	fields[7].destination_size = sizeof(snapshot->vpn_enabled);
+	fields[8].param_name = "vpns_vuse";
+	fields[8].destination = snapshot->vpn_use;
+	fields[8].destination_size = sizeof(snapshot->vpn_use);
+	fields[9].param_name = "vpns_vnet";
+	fields[9].destination = snapshot->vpn_address;
+	fields[9].destination_size = sizeof(snapshot->vpn_address);
+	fields[10].param_name = "vpns_type";
+	fields[10].destination = snapshot->vpn_type;
+	fields[10].destination_size = sizeof(snapshot->vpn_type);
+	fields[11].param_name = "vpns_ov_mode";
+	fields[11].destination = snapshot->vpn_openvpn_mode;
+	fields[11].destination_size = sizeof(snapshot->vpn_openvpn_mode);
+
+	return rc_wan_nvram_copy_snapshot(fields,
+		(unsigned int)(sizeof(fields) / sizeof(fields[0])),
+		begin_transaction, get_value, end_transaction, context);
+}
 
 /*
  * AUTH_SYS takes numeric UID/GID values from each client request. Keep the

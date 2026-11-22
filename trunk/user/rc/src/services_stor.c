@@ -2011,21 +2011,29 @@ out:
 
 #if defined (APP_NFSD)
 static int
-storage_nfs_export_nvram_get(void *context, const char *param_name,
-			     char **value)
+storage_nfs_export_transaction_begin(void *context)
 {
-	(void)context;
-	return nvram_get_checked(param_name, value);
+	return nvram_transaction_begin((struct nvram_transaction *)context);
 }
 
 
 static int
-storage_nfs_export_nvram_copy(const char *param_name, char *destination,
-			      size_t destination_size)
+storage_nfs_export_transaction_get(void *context, const char *param_name,
+				   char **value)
 {
-	return storage_nfs_export_copy_nvram_value(
-		storage_nfs_export_nvram_get, NULL, param_name,
-		destination, destination_size);
+	if (!context || !param_name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+
+static int
+storage_nfs_export_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
 }
 
 
@@ -2037,7 +2045,7 @@ write_nfsd_exports(void)
 	char line[512], devname[32], mpname[256], fstype[32], fsmode[256];
 	char acl_lan[32], acl_vpn[32], staged_path[] = "/etc/.exports.XXXXXX";
 	char acl_lan_addr[32], acl_lan_mask[32];
-	char acl_fallback_addr[32], acl_fallback_mask[32], acl_vpn_addr[32];
+	char acl_vpn_addr[32];
 	const char *exports_link = "/etc/storage/exports";
 	const char *exports_file = "/etc/exports";
 	const char *exports_rule = STORAGE_NFS_EXPORT_DEFAULT_OPTIONS;
@@ -2137,28 +2145,31 @@ write_nfsd_exports(void)
 	}
 #endif
 
-	/* Snapshot cache-backed NVRAM strings before another lookup can replace them. */
-	acl_nvram_status = storage_nfs_export_nvram_copy(
-		"lan_ipaddr_t", acl_lan_addr, sizeof(acl_lan_addr));
+	/*
+	 * Read every address, prefix and VPN selector under the same NVRAM lock.
+	 * Separate getters could combine an old LAN address with a new netmask,
+	 * widening the generated NFS client ACL across a configuration update.
+	 */
+	acl_nvram_status = storage_nfs_export_read_acl_snapshot(
+		&acl_snapshot, storage_nfs_export_transaction_begin,
+		storage_nfs_export_transaction_get,
+		storage_nfs_export_transaction_end, &acl_transaction);
 	if (acl_nvram_status != 0)
 		goto acl_nvram_error;
-	acl_nvram_status = storage_nfs_export_nvram_copy(
-		"lan_netmask_t", acl_lan_mask, sizeof(acl_lan_mask));
-	if (acl_nvram_status != 0)
-		goto acl_nvram_error;
-
+	strcpy(acl_lan_addr, acl_snapshot.lan_address);
+	strcpy(acl_lan_mask, acl_snapshot.lan_netmask);
 	if (!is_valid_ipv4(acl_lan_addr) || !is_valid_ipv4(acl_lan_mask)) {
-		acl_nvram_status = storage_nfs_export_nvram_copy(
-			"lan_ipaddr", acl_fallback_addr, sizeof(acl_fallback_addr));
-		if (acl_nvram_status != 0)
-			goto acl_nvram_error;
-		acl_nvram_status = storage_nfs_export_nvram_copy(
-			"lan_netmask", acl_fallback_mask, sizeof(acl_fallback_mask));
-		if (acl_nvram_status != 0)
-			goto acl_nvram_error;
-		strcpy(acl_lan_addr, acl_fallback_addr);
-		strcpy(acl_lan_mask, acl_fallback_mask);
+		strcpy(acl_lan_addr, acl_snapshot.fallback_address);
+		strcpy(acl_lan_mask, acl_snapshot.fallback_netmask);
 	}
+	acl_nvram_status = rc_wan_nvram_parse_int_value(
+		acl_snapshot.vpn_enabled, &vpn_enabled);
+	if (acl_nvram_status != 0)
+		goto acl_nvram_error;
+	acl_nvram_status = rc_wan_nvram_parse_int_value(
+		acl_snapshot.vpn_use, &vpn_use);
+	if (acl_nvram_status != 0)
+		goto acl_nvram_error;
 	acl_lan[0] = '\0';
 	acl_ipv4_status = storage_nfs_export_format_ipv4_acl(
 		acl_lan_addr, acl_lan_mask, acl_lan, sizeof(acl_lan));
@@ -2171,14 +2182,8 @@ write_nfsd_exports(void)
 
 #if defined (USE_IPV6)
 	if (ipv6_type != IPV6_DISABLED) {
-		acl_nvram_status = storage_nfs_export_nvram_copy(
-			"ip6_lan_addr", acl_addr6, sizeof(acl_addr6));
-		if (acl_nvram_status != 0)
-			goto acl_nvram_error;
-		acl_nvram_status = storage_nfs_export_nvram_copy(
-			"ip6_lan_size", acl_len6, sizeof(acl_len6));
-		if (acl_nvram_status != 0)
-			goto acl_nvram_error;
+		strcpy(acl_addr6, acl_snapshot.ipv6_address);
+		strcpy(acl_len6, acl_snapshot.ipv6_prefix);
 		acl_ipv6_status = storage_nfs_export_format_ipv6_acl(
 			acl_addr6, acl_len6, acl_addr6_export,
 			sizeof(acl_addr6_export));
@@ -2192,15 +2197,20 @@ write_nfsd_exports(void)
 #endif
 
 	acl_vpn[0] = '\0';
-	if (!get_ap_mode() && nvram_get_int("vpns_enable") &&
-	    nvram_get_int("vpns_vuse")) {
-		acl_nvram_status = storage_nfs_export_nvram_copy(
-			"vpns_vnet", acl_vpn_addr, sizeof(acl_vpn_addr));
+	if (strcmp(acl_snapshot.router_mode, "3") != 0 &&
+	    vpn_enabled && vpn_use) {
+		strcpy(acl_vpn_addr, acl_snapshot.vpn_address);
+#if defined (APP_OPENVPN)
+		acl_nvram_status = rc_wan_nvram_parse_int_value(
+			acl_snapshot.vpn_type, &vpn_type);
 		if (acl_nvram_status != 0)
 			goto acl_nvram_error;
-#if defined (APP_OPENVPN)
-		if (nvram_get_int("vpns_type") == 2) {
-			if (nvram_get_int("vpns_ov_mode") == 1)
+		acl_nvram_status = rc_wan_nvram_parse_int_value(
+			acl_snapshot.vpn_openvpn_mode, &vpn_openvpn_mode);
+		if (acl_nvram_status != 0)
+			goto acl_nvram_error;
+		if (vpn_type == 2) {
+			if (vpn_openvpn_mode == 1)
 				acl_vpn_status = storage_nfs_export_format_ipv4_acl(
 					acl_vpn_addr, VPN_SERVER_SUBNET_MASK,
 					acl_vpn, sizeof(acl_vpn));

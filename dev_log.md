@@ -1,3 +1,13 @@
+## 2026-11-22 — Generate NFS export ACLs from one NVRAM configuration generation
+
+- Parent main SHA: `cd92a56405e96a08ab9c64e45cc345828ba5a37d`. `write_nfsd_exports()` independently fetched the LAN address/netmask, fallback LAN pair, IPv6 address/prefix, router mode and VPN selectors/address. A concurrent configuration commit could pair an old LAN address with a newer, broader netmask and publish an NFS client CIDR that authorizes hosts outside the intended LAN; IPv6 and VPN ACL inputs could similarly be mixed across generations.
+- Added a transaction-backed ACL snapshot for all 12 related NVRAM keys. `nvram_transaction_begin/get/end` keep the tuple coherent, `rc_wan_nvram_copy_snapshot()` copies shared-cache values immediately, and every field is discarded if a read or transaction close fails. The export writer now consumes this snapshot and parses VPN selectors with the checked integer parser before formatting ACLs.
+- Added GNU89 regression coverage for one-transaction/cache-slot reuse, missing-key empty defaults, mid-snapshot read failure and transaction-close failure; updated the NFS workflow contracts to require the atomic snapshot and forbid independent VPN/IPv6 getters.
+- Parent exact-SHA checks: WAN route #45047446525 PASS; AI handoff #45047446469 PASS. The previous XY-C1 run #45047262320 on `690dc9` had reached Build with TRX/artifact pending. The new `services_stor.c` source change should trigger NFS and XY-C1 validation on the new exact SHA; inspect those runs before making any L3 claim.
+- No local tests/build or hardware validation were performed. Firmware L3 and hardware L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Keep VPN-only DNS fail-closed during NVRAM faults
 
 - Parent main SHA: `e49224f71f90339247917b66d8a9add54228e8a1`. In `update_resolvconf()`, `nvram_get_int("vpnc_pdns")` and `nvram_safe_get("vpnc_dns_t")` hid GET/read/close failures. With `vpnc_pdns=2` (prefer VPN DNS), a transient backend failure looked like mode 0 or an empty VPN server list and caused fallback to WAN/public DNS, leaking queries outside the VPN.

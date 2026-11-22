@@ -21,17 +21,17 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Active task
 
-Prevent resolver DNS leaks when VPN-only DNS policy cannot be read. `update_resolvconf()` previously used lossy `nvram_get_int("vpnc_pdns")` and `nvram_safe_get("vpnc_dns_t")`; backend errors could become policy 0/empty list, after which the code deliberately falls back to WAN or public DNS. This change snapshots both values in one checked NVRAM transaction and aborts before staging `/etc/resolv.conf` on any backend/close/parse/truncation error, preserving the last-known-good resolver file. Missing values retain prior fallback semantics.
+Audit and harden NFS export ACL generation. `write_nfsd_exports()` previously read LAN IPv4 address/netmask, fallback pair, IPv6 address/prefix and VPN mode/address selectors through independent NVRAM getters. A configuration update between reads could mix generations; an old LAN address combined with a newer, broader netmask could widen the generated NFS client CIDR. The current slice replaces those reads with one all-or-nothing 12-key NVRAM transaction snapshot, parses VPN selectors strictly, and adds cache-reuse/read-failure/close-failure regressions. Verify exact-SHA NFS and XY-C1 workflows.
 
 ## Verification boundary
 
-- Exact `e49224f71f90339247917b66d8a9add54228e8a1` WAN route #45047446525 PASS; AI handoff #45047446469 PASS.
-- Exact parent `690dc90846b959d05a5ee51e8f5d9cfa5c960408`: WAN DHCP callback #45047262363 PASS (including SIT 6rd tuple tests); ZeroTier #45047262287 PASS; Samba #45047262278 PASS; WAN signal tests #45047262383/#45047262340 PASS; Wireless #45047262438 PASS; IPv6 service type #45047262463 PASS; AI handoff #45047262377 PASS.
-- XY-C1 #45047262320 for source `690dc9` was still in the `Build XY-C1` step, with TRX/artifact pending on last inspection. L3 remains NOT VERIFIED until same-source Build/TRX/artifact all pass.
-- No local tests/build or hardware validation was performed. L4 remains NOT VERIFIED.
+- Exact parent main SHA `cd92a56405e96a08ab9c64e45cc345828ba5a37d`: WAN route #45047446525 PASS and AI handoff #45047446469 PASS. These checks did not build firmware.
+- Exact source SHA `690dc90846b959d05a5ee51e8f5d9cfa5c960408`: WAN DHCP callback #45047262363 PASS, including checked SIT 6rd tuple tests; ZeroTier #45047262287 PASS; Samba #45047262278 PASS; link/detect Internet signals #45047262383/#45047262340 PASS; Wireless #45047262438 PASS; IPv6 service type #45047262463 PASS; AI handoff #45047262377 PASS. The WAN route failure on this SHA was checker-only and corrected by parent `e49224f`.
+- XY-C1 #45047262320 on `690dc9` had completed host validation and reached `Build XY-C1`; TRX and artifact upload were still pending at the last check. This NFS source change modifies `services_stor.c`, included in the XY-C1 path filter; inspect the exact new SHA's Build/TRX/artifact run rather than reusing ancestor output.
+- The new NFS slice is not yet verified: its exact-head NFS GNU89 regression, sanitizer/source-contract workflow and XY-C1 production stages must be checked. No local C tests, firmware build or hardware validation were performed. L3/L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN route # (including the DNS-read script contract) and HTTPD # jobs; verify all updated source-contract steps pass.
-2. Inspect XY-C1 host validation and actual Build, TRX and artifact-upload steps on the exact same source SHA. Do not reuse ancestor artifacts.
-3. Continue an independent stability/security defect while Actions are pending; keep the frozen backup read-only and work only on main.
+1. Inspect NFS daemon workflow on the exact new main SHA: GNU89 `-Wall -Wextra -Werror` policy test, ASan/UBSan regressions and Python source contracts.
+2. Inspect XY-C1 on that same SHA. Require Build, TRX validation and artifact upload all to succeed before claiming firmware verification.
+3. If either workflow is pending, continue an independent stability/security fix; if one fails, diagnose the failing step without repeating completed audits.
