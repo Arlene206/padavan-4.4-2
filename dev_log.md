@@ -1,3 +1,12 @@
+## 2026-11-22 — Simplify xl2tpd snapshot policy evaluation
+
+- Parent main SHA: `dcda9e5a118711d1b35b8e347e5fde54ccdc8270`. The xl2tpd selector/credential snapshot implementation and GNU89 policy tests are committed in `dcda9e5a118711d1b35b8e347e5fde54ccdc8270`; exact-SHA VPN, AI, WAN, HTTPD, process and XY-C1 workflows are queued/in progress.
+- Removed a redundant provisional flag evaluation before the checked WAN protocol read. The complete policy now runs exactly once, with the actual checked protocol, before process discovery or live configuration I/O. Also removed an unnecessary destination-size array and corrected a test comment describing non-RPL2TP WAN LAC behavior.
+- No behavioral change beyond removing duplicate calculation. Local tests remain unrun; exact-SHA CI remains authoritative.
+- Result: THIS COMMIT. Next: inspect this new SHA's VPN-server regression output and fix any compiler or source-contract failure.
+
+---
+
 ## 2026-11-22 — Snapshot xl2tpd VPN selectors and credentials before config rewrite
 
 - Parent main SHA: `47f458e55610dcb91703e72b0e8a236ec0ca75e1`. At that SHA the exact-head source workflows for DNSMasq #45028829756, WAN DHCP #45028829655, Samba #45028829731, WAN route #45028829637, process lifecycle #45028829646/#45028829818, HTTPD security #45028829630, Inadyn #45028829709, miniupnpd #45028829662 and AI handoff #45028829822 PASS. NVRAM transaction audit #45028829724 and XY-C1 firmware #45028829692 were still in progress at last observation.

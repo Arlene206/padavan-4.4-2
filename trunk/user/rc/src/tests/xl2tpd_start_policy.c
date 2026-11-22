@@ -29,7 +29,7 @@ test_config_flags(void)
 		0, 3, 3, 0, "", "", "", "", "", "",
 		&flags) == 0);
 	CHECK(flags.use_vpn_server == 0 && flags.use_vpnc == 0);
-	CHECK(flags.use_wan_lac == 1); /* nvram_invmatch("", "1") */
+	CHECK(flags.use_wan_lac == 1); /* non-RPL2TP builds always use WAN LAC */
 	CHECK(flags.vpnc_default_route == 0);
 
 	/* The RPL2TP transport selector preserves nvram_invmatch semantics. */

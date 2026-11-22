@@ -346,7 +346,6 @@ xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)
 	struct rc_wan_nvram_snapshot_field fields[8];
 	struct nvram_transaction transaction;
 	char *destinations[8];
-	size_t destination_sizes[8];
 	unsigned int i;
 
 	if (!snapshot)
@@ -364,9 +363,7 @@ xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)
 		fields[i].param_name = names[i];
 		fields[i].destination = destinations[i];
 		fields[i].destination_size = XL2TPD_CONFIG_VALUE_SIZE;
-		destination_sizes[i] = XL2TPD_CONFIG_VALUE_SIZE;
-	}
-	(void)destination_sizes;
+		}
 
 	return rc_wan_nvram_copy_snapshot(
 		fields, 8, xl2tpd_snapshot_transaction_begin,
@@ -406,24 +403,6 @@ safe_start_xl2tpd_locked(void)
 		errno = saved_errno;
 		return -1;
 	}
-	config_status = xl2tpd_start_policy_config_flags(
-		0, IPV4_WAN_PROTO_L2TP, IPV4_WAN_PROTO_L2TP,
-#if defined (APP_RPL2TP)
-		1,
-#else
-		0,
-#endif
-		config_snapshot.vpns_enable, config_snapshot.vpns_type,
-		config_snapshot.vpnc_enable, config_snapshot.vpnc_type,
-		config_snapshot.vpnc_dgw, config_snapshot.wan_l2tpd,
-		&config_flags);
-	if (config_status != 0) {
-		errno = config_status;
-		return -1;
-	}
-	use_vpn_server = config_flags.use_vpn_server;
-	use_vpnc = config_flags.use_vpnc;
-	vpnc_default_route = config_flags.vpnc_default_route;
 	/*
 	 * A failed protocol read is not proof that the WAN is not L2TP. Refuse
 	 * to replace the daemon configuration rather than silently omitting a
@@ -453,7 +432,10 @@ safe_start_xl2tpd_locked(void)
 		errno = config_status;
 		return -1;
 	}
+	use_vpn_server = config_flags.use_vpn_server;
 	use_wan_lac = config_flags.use_wan_lac;
+	use_vpnc = config_flags.use_vpnc;
+	vpnc_default_route = config_flags.vpnc_default_route;
 
 	/* UNKNOWN is not proof of a running daemon; reject before config I/O. */
 	daemon_presence = process_inventory_scan("xl2tpd", &process_snapshot);
