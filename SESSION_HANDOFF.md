@@ -14,7 +14,7 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; branch: main; current source commit: THIS COMMIT (parent b7185685f1868b72ad48e87fadf434bdf7f7f0ee).
+- Repository: Arlene206/padavan-4.4-2; branch: main; current source commit: THIS COMMIT (parent fe22b9fae01db2bb9fe57f2fffe67cee067ea364).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable.
 - libdisk now uses checked directory enumeration and folder snapshots, bounded metadata reads and account paths, atomic permission-file publication, fail-closed folder/account initialization, and first-error propagation for folder delete/rename and account add/delete operations.
 - add_account() propagates every mounted-volume permission initializer failure after attempting all volumes and reloading Samba; the existing NVRAM ordering is retained.
@@ -25,21 +25,20 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 
 ## Active task
 
-- launch_viptv_wan() publishes the IPTV VLAN recovery identity before starting DHCP/ZeroConf, but previously returned a failed dynamic client startup without stopping a possibly detached child or rolling back the owned VLAN. It now stops the udhcpc PID-file client or zcip process before VLAN rollback; only a confirmed stop allows rollback. An uncertain stop deliberately retains the VLAN and recovery identity.
-- Regression covers successful start, start-failure cleanup order, stop failure preserving the recovery handle, rollback failure preserving the primary error and invalid callbacks. scripts/check_wan_vlan_setup.py checks production adapter wiring and test registration.
-- The checked libdisk get_account_list() transaction snapshot is implemented; ten fake-backend cases run from test main(). Account mutation setter/commit rollback remains separate and is not changed here.
-- Next: verify exact-head WAN/XY-C1/Process/AI Actions for this SHA, then select another bounded WAN/service lifecycle failure outside IPTV and libdisk.
+- Dynamic IPTV launch failure compensation is implemented in launch_viptv_wan(): stop the udhcpc PID-file client or zcip service first; only a confirmed stop permits ownership-aware VLAN rollback. If stop is uncertain, retain the VLAN recovery identity. Five sanitizer cases cover success, cleanup order, uncertain stop, rollback failure and invalid callbacks.
+- Exact-head WAN route #45022142699 passed the WAN route suite, including the IPTV policy sanitizer tests and scripts/check_wan_vlan_setup.py. WAN DHCP callback #45022142584 passed all C regressions (including the IPTV test) but failed only because its inline Python contract still required direct start_zcip_viptv/start_udhcpc_viptv calls inside launch_viptv_wan(). The new launcher delegates through wan_viptv_dynamic_start_callback(); that assertion is corrected in this follow-up.
+- Checked libdisk get_account_list() transaction snapshot is implemented; ten fake-backend cases run from test main(). Account mutation setter/commit rollback remains separate and unchanged.
+- After this checker correction, inspect exact-head WAN DHCP, WAN route, AI, Process, NVRAM and XY-C1 Actions. Then continue with another bounded WAN/service lifecycle defect outside IPTV and libdisk.
 
 ## Verification boundary
 
-- Parent b7185685f1868b72ad48e87fadf434bdf7f7f0ee: AI handoff #45021657238, WAN DHCP callback #45021657373 and WAN route #45021657378 PASS on this exact parent. These do not verify the new source SHA.
-- Existing WAN route workflow watches net_wan.c, the IPTV policy/test and scripts/check_wan_vlan_setup.py and runs the sanitizer test plus source checker. XY-C1 watches net_wan.c.
-- XY-C1 L3 remains NOT VERIFIED until Build, TRX verification and artifact upload all PASS on one identical product/source SHA. Hardware L4 remains NOT VERIFIED.
+- Exact source SHA fe22b9fae01db2bb9fe57f2fffe67cee067ea364: WAN route #45022142699 PASS; AI handoff #45022142702 PASS; WAN DHCP callback #45022142584 FAILED only at stale inline source assertion after all preceding C sanitizer regressions passed, including the new IPTV test. The assertion expected direct launch calls inside launch_viptv_wan(); the source now delegates through its tested callback. WAN teardown #45022142730 PASS; HTTPD #45022142700 PASS; IPv6 service-type #45022142701 PASS; NVRAM boundary #45022142711 and XY-C1 #45022142628 remained in progress at last check; Process inventory #45022142755 was still in progress after inventory upload.
+- The checker-only follow-up must be verified on its own exact SHA. XY-C1 L3 remains NOT VERIFIED until same-SHA Build, TRX verification and artifact upload all PASS. Hardware L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Fetch exact-head push Actions for latest main. Resolve failures from that SHA's logs; do not transfer parent PASS results.
-2. Continue with a different bounded WAN/service lifecycle reliability issue outside libdisk and IPTV; add focused regression and atomic source fix.
-3. Keep frozen backup immutable. XY-C1 L3 only after same-SHA Build, TRX and artifact upload all PASS; hardware L4 remains NOT VERIFIED.
+1. Fetch exact-head WAN DHCP and all other push Actions after the inline contract correction; resolve any remaining causal failure.
+2. Continue with a different bounded WAN/service lifecycle reliability defect outside IPTV/libdisk; add a focused regression and atomic fix.
+3. Preserve the frozen backup. XY-C1 L3 only after same-SHA Build, TRX and artifact upload all PASS; hardware L4 remains NOT VERIFIED.
 ## Documentation anti-churn guard
 
 Recovery is read-only by default. Never commit merely because a GPT has taken over. This is not a ban on useful documentation-only work. If the current handoff remains accurate, leave it untouched.

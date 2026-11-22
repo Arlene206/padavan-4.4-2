@@ -1490,16 +1490,18 @@ jobs:
           ):
               assert marker in native_start, f"native IPv6 operation not status-gated: {marker}"
 
-          # The dynamic IPTV client launchers return status, so a failed
-          # udhcpc/zcip exec reaches start_wan()'s existing failure logger.
+          # Dynamic IPTV callbacks return status to the compensated launcher.
           viptv_start = body(source, "launch_viptv_wan(void)")
-          zcip_launch = "ret = start_zcip_viptv(viptv_ifname);"
-          dhcp_launch = "ret = start_udhcpc_viptv(viptv_ifname);"
-          assert zcip_launch in viptv_start
-          assert dhcp_launch in viptv_start
+          dynamic_start = body(source, "wan_viptv_dynamic_start_callback(void *opaque)")
+          dynamic_stop = body(source, "wan_viptv_dynamic_stop_callback(void *opaque)")
+          dynamic_launch = "ret = wan_viptv_dynamic_start_with_rollback("
+          assert "return start_zcip_viptv((char *)context->ifname);" in dynamic_start
+          assert "return start_udhcpc_viptv((char *)context->ifname);" in dynamic_start
+          assert "stop_udhcpc_viptv()" in dynamic_stop
+          assert '"zcip"' in dynamic_stop and "kill_services(services, 3, 1)" in dynamic_stop
+          assert dynamic_launch in viptv_start
           dynamic_return = viptv_start.rindex("return ret;")
-          assert viptv_start.index(zcip_launch) < dynamic_return
-          assert viptv_start.index(dhcp_launch) < dynamic_return
+          assert viptv_start.index(dynamic_launch) < dynamic_return
 
           # IPTV and ZeroConf teardown publish all lease identity fields as
           # one compensatable NVRAM tuple, only after address/route cleanup.

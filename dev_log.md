@@ -1,3 +1,10 @@
+## 2026-11-22 — Align WAN DHCP source contract with compensated IPTV startup
+- Parent main SHA: fe22b9fae01db2bb9fe57f2fffe67cee067ea364. WAN DHCP callback run #45022142584 passed every preceding host C regression, including the five new dynamic IPTV start/stop/rollback tests, then failed in its inline Python source contract at line 1242.
+- The stale contract required literal assignments calling start_zcip_viptv(viptv_ifname) and start_udhcpc_viptv(viptv_ifname) inside launch_viptv_wan(). Those calls now sit behind wan_viptv_dynamic_start_callback() so failed launch can invoke stop-before-VLAN-rollback compensation.
+- Updated the inline workflow contract to validate both real client start callbacks, the udhcpc/zcip stop callbacks and the compensated launcher call inside launch_viptv_wan(). Checker-only; no production behavior changed.
+- Exact parent WAN route #45022142699, AI handoff #45022142702, WAN interface teardown #45022142730, HTTPD #45022142700 and IPv6 service-type #45022142701 PASS. Parent WAN DHCP failed only at the outdated assertion; NVRAM #45022142711 and XY-C1 #45022142628 remained in progress. New-SHA Actions must be checked independently.
+
+---
 ## 2026-11-22 — Roll back IPTV VLAN after failed dynamic client start
 - Parent main SHA: b7185685f1868b72ad48e87fadf434bdf7f7f0ee. launch_viptv_wan() published viptv_ifname as a recovery handle and tracked VLAN/bridge ownership, but DHCP/ZeroConf client launch errors returned directly. A failed detached udhcpc readiness check could leave the client/process uncertain while the newly-owned VLAN remained unreconciled.
 - Added a dynamic IPTV start policy: start failure invokes the client-specific stop (udhcpc PID-file no-force stop, or the zcip process stop). Only a confirmed stop permits rollback_viptv_vlan_setup(); if stop is uncertain, the VLAN and recovery identity remain intact for later teardown. The primary launch status/errno remains authoritative; cleanup statuses are logged separately.
