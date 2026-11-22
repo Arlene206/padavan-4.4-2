@@ -1432,7 +1432,7 @@ int add_folder(const char *const mount_path, const char *const folder)
 
 int del_folder(const char *const mount_path, const char *const folder)
 {
-	int result, i, len;
+int result, i, len, saved_errno;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
@@ -1455,6 +1455,12 @@ int del_folder(const char *const mount_path, const char *const folder)
 	full_path[len] = 0;
 
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+	if (result < 0) {
+		saved_errno = errno ? errno : EIO;
+		free(full_path);
+		errno = saved_errno;
+		return -1;
+	}
 	if (result == 0) {
 		result = test_if_dir(full_path);
 		
@@ -1480,14 +1486,27 @@ int del_folder(const char *const mount_path, const char *const folder)
 	target[len] = 0;
 
 	// 3. del folder's right to every var file
-	get_account_list(&acc_num, &account_list);
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(target);
+		free_2_dimension_list(&acc_num, &account_list);
+		errno = saved_errno;
+		return -1;
+	}
 
 	for (i = 0; i < acc_num; ++i) {
 		// delete the content about the folder
 		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account_list[i]);
 		var_info = read_whole_file(var_file);
-		if (!var_info)
-			continue;
+		if (!var_info) {
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno == ENOENT)
+				continue;
+			free_2_dimension_list(&acc_num, &account_list);
+			free(target);
+			errno = saved_errno;
+			return -1;
+		}
 		
 		follow_info = upper_strstr(var_info, target);
 		if (!follow_info) {
@@ -1523,6 +1542,12 @@ int del_folder(const char *const mount_path, const char *const folder)
 	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, FTP_ANONYMOUS_USER);
 	var_info = read_whole_file(var_file);
 	if (var_info == NULL) {
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno != ENOENT) {
+			free(target);
+			errno = saved_errno;
+			return -1;
+		}
 		goto MOD_FOLDER_END;
 	}
 
@@ -1557,17 +1582,20 @@ int del_folder(const char *const mount_path, const char *const folder)
 
 MOD_FOLDER_END:
 
+	if (initial_folder_list_in_mount_path(mount_path) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(target);
+		errno = saved_errno;
+		return -1;
+	}
 	free(target);
-
-	// 9. modify the folder's info in the folder list
-	initial_folder_list_in_mount_path(mount_path);
 
 	return 0;
 }
 
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
-	int result, i, len;
+int result, i, len, saved_errno;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
@@ -1658,14 +1686,28 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	new_target[len] = 0;
 
 	// 3. add folder's right to every var file
-	get_account_list(&acc_num, &account_list);
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(target);
+		free(new_target);
+		free_2_dimension_list(&acc_num, &account_list);
+		errno = saved_errno;
+		return -1;
+	}
 
 	for (i = 0; i < acc_num; ++i) {
 		// check if the created target is exist in the var file
 		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account_list[i]);
 		var_info = read_whole_file(var_file);
 		if (var_info == NULL) {
-			continue;
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno == ENOENT)
+				continue;
+			free_2_dimension_list(&acc_num, &account_list);
+			free(target);
+			free(new_target);
+			errno = saved_errno;
+			return -1;
 		}
 		
 		if ((follow_info = strstr(var_info, target)) == NULL) {
@@ -1700,7 +1742,15 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	// get the var_file for anonymous ftp
 	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, FTP_ANONYMOUS_USER);
 	var_info = read_whole_file(var_file);
-	if (var_info) {
+	if (var_info == NULL) {
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno != ENOENT) {
+			free(target);
+			free(new_target);
+			errno = saved_errno;
+			return -1;
+		}
+	} else {
 		if ((follow_info = strstr(var_info, target))) {
 			fp = fopen(var_file, "w");
 			if (fp) {
@@ -1727,8 +1777,12 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	free(target);
 	free(new_target);
 
-	// 9. modify the folder's info in the folder list
-	initial_folder_list_in_mount_path(mount_path);
+	/* The renamed directory is live; report a failed snapshot publication. */
+	if (initial_folder_list_in_mount_path(mount_path) != 0) {
+		if (!errno)
+			errno = EIO;
+		return -1;
+	}
 
 	return 0;
 }

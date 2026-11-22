@@ -290,6 +290,29 @@ require("get_account_list(" not in add_folder_body and
         'fopen(var_file, "a+")' not in add_folder_body,
         "add_folder must use the checked per-account metadata updater")
 
+
+del_folder = function_body(
+    DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
+)
+del_lookup = del_folder.index("test_if_exist_folder_in_mount_path(mount_path, folder)")
+del_error = del_folder.index("if (result < 0)", del_lookup)
+del_remove = del_folder.index("result = rmdir(full_path)", del_error)
+require(del_lookup < del_error < del_remove,
+        "folder deletion must not proceed when the share-list lookup fails")
+for signature in (
+    "int del_folder(const char *const mount_path, const char *const folder)",
+    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
+):
+    folder_mutation = function_body(DISK_SOURCE, signature)
+    require("get_account_list(&acc_num, &account_list) != 0" in folder_mutation,
+            signature + " must not continue with an incomplete account inventory")
+    require("saved_errno = errno ? errno : EIO;" in folder_mutation and
+            "if (saved_errno == ENOENT)" in folder_mutation and
+            "if (saved_errno != ENOENT)" in folder_mutation,
+            signature + " may skip absent metadata, but must surface other read errors")
+    require("initial_folder_list_in_mount_path(mount_path) != 0" in folder_mutation,
+            signature + " must propagate the final folder-list publication failure")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
