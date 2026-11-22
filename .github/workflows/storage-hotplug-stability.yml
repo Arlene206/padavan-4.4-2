@@ -980,14 +980,19 @@ jobs:
           inventory_check = deferred_start.index('mounted_devices = storage_has_mounted_devices("starting storage applications");')
           start_apps_call = deferred_start.index("start_stor_apps();")
           assert inventory_check < start_apps_call
-          hotplug_flag_clear = deferred_start.index('nvram_set_int_temp("usb_hotplug_ms", 0)', start_apps_call)
+          hotplug_flag_clear = deferred_start.index('storage_ack_event_marker_status("usb_hotplug_ms")', start_apps_call)
           assert start_apps_call < hotplug_flag_clear
           storage_unlock = deferred_start.rindex("file_unlock(storage_lock);")
           optware_launch = deferred_start.index("storage_optware_start_async()")
           assert storage_unlock < optware_launch
           assert "STORAGE_OPTWARE_START_CHILD_SUCCESS" in deferred_start
-          success_gate = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS)")
-          assert deferred_start.index('nvram_set_int_temp("usb_opt_start", 0);', success_gate) > success_gate
+          child_success = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS)")
+          child_latch = deferred_start.index("storage_optware_start_ack_pending = 1", child_success)
+          ack_retry_gate = deferred_start.index("if (storage_optware_start_ack_pending)", child_latch)
+          optware_ack = deferred_start.index('storage_ack_event_marker_status("usb_opt_start")', ack_retry_gate)
+          assert child_success < child_latch < ack_retry_gate < optware_ack
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 0)' not in deferred_start
+          assert 'nvram_set_int_temp("usb_opt_start", 0)' not in deferred_start
           assert "STORAGE_OPTWARE_START_CHILD_FAILURE" in deferred_start
           assert "preserving pending state for retry" in deferred_start
           assert 'system("/usr/bin/opt-start.sh &")' not in deferred_start
