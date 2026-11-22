@@ -1,3 +1,11 @@
+## 2026-11-22 — Add rstats persistence policy to both workflow path filters
+
+- Parent main SHA: \`e7d0cc1cb95e5b93387bd8362d5af77447105838\`. Rstats workflow #45039333829 on product SHA \`5be7fe1\` passed the policy test and preceding source assertions, then failed the final watched-path contract because \`rstats_persistence_policy.h\` was absent from both push and pull_request filters.
+- Added the policy header to both workflow trigger lists. The Python watched-path tuple already contained it.
+- Process lifecycle #45039420819 on \`7c44583\` failed because the detect-link dispatch did not explicitly name START_NOTIFY; commit \`e7d0cc1\` corrected NEW/NOTIFY/ABORT handling and the UNKNOWN-inventory diagnostic. AI docs #45039420870 on \`7c44583\` failed because the mandatory literal \`Before context exhaustion\` was missing; commit \`6dfdf5c\` restored it.
+- XY-C1 #45039333875 for product SHA \`5be7fe1\` remained in Build XY-C1 at last check; no TRX/artifact or same-SHA L3 result is claimed. No local tests were run.
+- Next: inspect exact-head rstats/process/AI checks and continue another userland subsystem.
+
 ## 2026-11-22 — Make detect-link notification tri-state handling explicit
 
 - Parent main SHA: \`6dfdf5c86fbbee4a29538401b9702b74a473ad6a\`. Process lifecycle run #45039420819 on SHA \`7c445837a2eb9ffa747e5c2b5d94b88d58276903\` failed at the source contract assertion \`PROCESS_PRESENCE_START_NOTIFY in body\`; \`notify_reset_detect_link()\` had used a generic \`else\` after the NEW branch. The contract additionally requires the UNKNOWN-inventory skip diagnostic.
