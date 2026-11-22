@@ -319,7 +319,7 @@ func_stop()
 	if [ -n "$tr_pid" ]; then
 		# Validate the refreshed snapshot before sending per-PID SIGKILL.
 		case "$tr_pid" in
-			*[!0-9\\ ]*)
+			*[!0-9\ ]*)
 				echo "[FAILED]"
 				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
 				return 1

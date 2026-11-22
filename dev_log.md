@@ -1,3 +1,8 @@
+## 2026-11-22 — Correct Transmission refreshed-PID pattern for dash
+
+- The USB regression on \`a7316d47ecbfd70b356667b4acf949685c480355\` stopped at \`sh -n\`: the new post-graceful PID pattern had two literal backslashes before the space, which dash does not accept in a case pattern. The existing initial-snapshot pattern was already correct.
+- Reduced the new pattern to one escaped space; verified the source contains five single-escaped PID character classes and no doubled form. Exact-head USB rerun pending.
+
 ## 2026-11-22 — Emit real line records in refreshed PID regression fixtures
 
 - A source review of the new refreshed-PID test found that its two \`printf\` format strings contained doubled backslashes, so the fixture would emit literal \`\\n\` characters rather than line terminators. That would reject the initial fixture for the wrong reason and fail to isolate the post-graceful leading-zero PID case.
