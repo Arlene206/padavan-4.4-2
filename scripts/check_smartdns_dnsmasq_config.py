@@ -200,7 +200,7 @@ assert "[ \"${smartdns_previous_running:-0}\" = 1 ] || return 0" in restore_prev
 assert 'smartdns_process_state' in restore_previous
 assert '"$smartdns_Bin" -f -c "$smartdns_Conf" "${args:-}"' in restore_previous
 assert 'smartdns_previous_running=1' in start
-assert start.count("smartdns_restore_previous_instance") == 3
+assert start.count("smartdns_restore_previous_instance") == 4
 assert 'smartdns_restore_previous_instance || :' in rollback
 lifecycle_lock = (root / "trunk/user/smartdns/smartdns_lifecycle_lock.sh").read_text()
 lifecycle_lock_test = (root / "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh").read_text()
