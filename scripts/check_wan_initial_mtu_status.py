@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 POLICY = (RC / "wan_mtu_setup_policy.h").read_text()
+DHCP_POLICY = (RC / "dhcp_lease_policy.h").read_text()
 TEST = (RC / "tests/service_start_status.c").read_text()
 DHCP_TEST = (RC / "tests/dhcp_wan_interface_policy.c").read_text()
 WAN_WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
@@ -416,7 +417,7 @@ assert "nvram_get_int(" not in viptv_renew
 assert "dhcp_wan_bound_retry_required(" not in viptv_renew
 
 dhcp_mtu_policy = body(POLICY, "wan_dhcp_mtu_is_supported(")
-dhcp_mtu_option_policy = body(POLICY, "dhcp_lease_mtu_option_value(")
+dhcp_mtu_option_policy = body(DHCP_POLICY, "dhcp_lease_mtu_option_value(")
 require(
     "dhcp_lease_decimal_is_valid(option, 576U, 1500U" in dhcp_mtu_option_policy,
     "DHCP option parser must enforce the same 576..1500 range as the interface setter",

@@ -1,3 +1,11 @@
+## 2026-11-22 — Load the DHCP option parser contract from its owning header
+
+- Parent main SHA: `874278785995f29628f39cad26d03e6d0054758c`. Exact 874 HTTPD #45002311801 and AI handoff #45002311684 PASS.
+- Exact 874 WAN route #45002311669 failed after the prior source-contract update: `check_wan_initial_mtu_status.py` called its function extractor on `wan_mtu_setup_policy.h`, but `dhcp_lease_mtu_option_value()` is defined in `dhcp_lease_policy.h`. The production parser and callback source were unchanged; this was a test-checker file-binding error.
+- THIS COMMIT loads the owning DHCP policy header and extracts the parser there. No product-source change. Exact WAN route rerun pending; a5 XY-C1 #45002087905 was still building at last poll. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Align DHCP MTU source contracts with the shared parser
 
 - Parent main SHA: `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`. Exact a5 WAN DHCP callback #45002087932, Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router-mode NVRAM #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service type #45002087857, WAN ARP #45002087845 and detect-internet #45002087952 PASS.

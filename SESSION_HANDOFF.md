@@ -5,12 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; active branch main; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 is closed/unmerged.
-- Current parent main for this correction: `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`. Source fix for DHCP option-26 withdrawal is in a5; this commit only reconciles two stale source contracts after parser centralization.
-- Exact a5 PASS: WAN DHCP callback stability #45002087932 (including new option-withdrawal test/check), Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router-mode NVRAM #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service type #45002087857, WAN ARP #45002087845, detect-internet #45002087952.
-- Exact a5 HTTPD #45002087808 FAILED at embedded DHCP contract line 214 because it still expected inline `dhcp_lease_decimal_is_valid(value,...)` in `udhcpc_bound()`; parser validation now correctly resides in `dhcp_lease_mtu_option_value()`. Exact a5 WAN route #45002087933 FAILED in `check_wan_initial_mtu_status.py` for the same stale inline-parser assumption. The DHCP C regression passed, the DHCP WAN-specific checker passed, and route workflow sanitizer C policy regressions passed before its checker failed.
-- Exact a5 XY-C1 #45002087905 was still IN_PROGRESS at last poll; confirm Build XY-C1, TRX verification and artifact upload on one product-source SHA. No L3/L4 claim.
-- Other a5 jobs still running at last poll: Firewall #45002087962 and NVRAM transaction audit #45002087864. Do not wait; handle exact failures as they materialize.
+- Repository Arlene206/padavan-4.4-2; active main `874278785995f29628f39cad26d03e6d0054758c`; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Production DHCP option-26 withdrawal fix is in `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`. `874278785995f29628f39cad26d03e6d0054758c` reconciled the HTTPD/WAN-route source contracts with the shared parser.
+- Exact 874 HTTPD #45002311801 PASS; AI handoff #45002311684 PASS. WAN route #45002311669 FAILED inside `check_wan_initial_mtu_status.py`: first correction looked for the new helper in `wan_mtu_setup_policy.h`, but the shared DHCP helper is correctly defined in `dhcp_lease_policy.h`. This correction loads the proper header; no production behavior change.
+- Exact a5 WAN DHCP callback #45002087932, Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router NVRAM #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service #45002087857, WAN ARP #45002087845 and detect-internet #45002087952 PASS.
+- Exact a5 XY-C1 #45002087905 was still in Build XY-C1 at latest poll; TRX and artifact pending. No L3/L4 claim.
 
 ## Completed source slices
 
@@ -30,16 +29,15 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-- Correct two workflow contracts that assumed the DHCP option range check remained inline in the bound callback. The implementation intentionally centralizes parsing in `dhcp_lease_mtu_option_value()` in `dhcp_lease_policy.h`, while `wan_dhcp_mtu_is_supported()` independently gates the setter with the same 576..1500 range.
-- THIS COMMIT changes no production C code: the HTTPD embedded DHCP source contract now pins the callback's shared-parser call and the helper's exact parser bounds; `check_wan_initial_mtu_status.py` makes the same assertions for physical WAN and IPTV. Existing sanitizer-enabled policy tests and new option-withdrawal check already passed on a5.
-- Exact-head HTTPD and WAN route reruns are required; then continue other independent work while pending jobs run.
+- Correct `check_wan_initial_mtu_status.py` so the shared option parser contract is loaded from `dhcp_lease_policy.h`, not the unrelated `wan_mtu_setup_policy.h`. The checker must verify the actual helper's 576..1500 validation and ensure both physical and IPTV callbacks call it.
+- Exact 874 HTTPD #45002311801 and AI docs #45002311684 PASS. WAN route #45002311669 failed only because the checker tried to extract the shared parser from the wrong header. THIS COMMIT fixes that file binding only; exact route rerun required.
 
 ## Verification boundary
-- Exact a5 WAN DHCP callback #45002087932, Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router mode #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service type #45002087857, WAN ARP #45002087845 and detect-internet #45002087952 PASS.
-- Exact a5 HTTPD #45002087808 and WAN route #45002087933 failed only at stale source assertions expecting the MTU parser inline; checker correction prepared here. No production failure identified by those two logs.
-- Exact a5 XY-C1 #45002087905, Firewall #45002087962 and NVRAM transaction audit #45002087864 were IN_PROGRESS at last poll. L3 requires same-SHA Build, TRX and artifact success; hardware L4 NOT VERIFIED.
+- Exact a5 WAN DHCP callback #45002087932, Process inventory #45002087966, AI #45002088016 and 15 other workflow contracts listed in the prior state PASS; the option-withdrawal regression itself passed.
+- Exact 874 HTTPD #45002311801 and AI docs #45002311684 PASS. WAN route #45002311669 FAILED due solely to checker extracting the helper from the wrong header; corrected on this checkpoint.
+- a5 XY-C1 #45002087905 remained in Build XY-C1 at last detailed poll (TRX/artifact pending). Hardware L4 NOT VERIFIED; do not claim L3.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head HTTPD and WAN route Actions for this correction SHA; fix the first genuine failure if any.
-2. Recheck a5 XY-C1 #45002087905 and confirm whether Build, TRX and artifact upload completed on that exact SHA; also resolve any exact-a5 Firewall/NVRAM failures without waiting on unrelated jobs.
-3. Continue the next concrete P1 WAN restart/route-restoration defect from the roadmap. Keep L3/L4 claims strictly tied to exact successful checks.
+1. Check exact-head WAN route Actions for this checker fix; inspect the next failure only if it remains.
+2. Poll a5 XY-C1 #45002087905; claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on a5.
+3. Continue the next concrete P1 WAN route/restart or cross-userland stability issue; pending unrelated Actions must not block independent work.
