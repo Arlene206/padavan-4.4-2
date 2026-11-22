@@ -48,30 +48,43 @@ router_account_nvram_read_count(router_account_nvram_get_fn get_value,
                                 void *context, const char *name,
                                 int maximum, int *count)
 {
-	char text[16];
+	char *value = NULL;
+	const unsigned char *cursor;
 	unsigned int parsed = 0;
-	size_t i;
-	int status;
+	unsigned int limit;
+	int result, saved_errno;
 
-	if (!count || maximum < 0)
+	if (!get_value || !name || !count || maximum < 0)
 		return EINVAL;
-	status = router_account_nvram_read_copy(get_value, context, name,
-						"0", text, sizeof(text));
-	if (status != 0)
-		return status;
-	if (text[0] == '\0') {
+	errno = 0;
+	result = get_value(context, name, &value);
+	saved_errno = errno;
+	if (result < 0)
+		return saved_errno ? saved_errno : EIO;
+	if (result == 0) {
 		*count = 0;
 		return 0;
 	}
-	for (i = 0; text[i] != '\0'; ++i) {
+	if (result != 1 || !value)
+		return EIO;
+
+	/*
+	 * Consume the shared-cache pointer in this call, before another NVRAM
+	 * read can invalidate it. Parse in place so arbitrarily long decimal
+	 * values are classified as ERANGE rather than copy-buffer ENAMETOOLONG.
+	 */
+	limit = (unsigned int)maximum;
+	cursor = (const unsigned char *)value;
+	while (*cursor != '\0') {
 		unsigned int digit;
-		if (text[i] < '0' || text[i] > '9')
+		if (*cursor < '0' || *cursor > '9')
 			return EINVAL;
-		digit = (unsigned int)(text[i] - '0');
-		if (digit > (unsigned int)maximum ||
-		    parsed > ((unsigned int)maximum - digit) / 10U)
+		digit = (unsigned int)(*cursor - '0');
+		if (parsed > limit / 10U ||
+		    (parsed == limit / 10U && digit > limit % 10U))
 			return ERANGE;
 		parsed = parsed * 10U + digit;
+		++cursor;
 	}
 	*count = (int)parsed;
 	return 0;

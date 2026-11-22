@@ -1,3 +1,11 @@
+## 2026-11-22 — Parse oversized account counts without temporary-buffer truncation
+
+- Parent main SHA: `7c4121b3c2d54e82931374015488d54401b4e784`. Exact 7c Process lifecycle #45003679784 failed at the oversized count case: `"999999999999999999"` exceeded the helper's 16-byte copy buffer, so it returned `ENAMETOOLONG` before the numeric parser could return the expected `ERANGE`.
+- THIS FIX consumes the `nvram_get_checked()` shared-cache pointer immediately and parses decimal digits in place. The configured maximum is checked before each multiply/add, so arbitrarily long numeric input fails with `ERANGE` without integer overflow or truncation; malformed characters fail with `EINVAL`, missing keys remain zero.
+- Exact 7c AI docs #45003679754, Process inventory #45003679750, HTTPD #45003679789, WAN DHCP #45003679775, DNS forwarder #45003679778 and GPIO #45003679755 PASS. NVRAM audit #45003679838 and XY-C1 #45003679777 were in progress; exact corrected-head Process regression and XY-C1 remain pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Correct account snapshot regression and restore handoff headings
 
 - Parent main SHA: `1ba086afc059a4188884475532011bc27581c5bc`. Exact 1ba Process lifecycle #45003414996 failed in the new unit test because a 5-byte test buffer cannot hold the five-character string `admin` plus its NUL terminator; the helper correctly returned `ENAMETOOLONG`. This follow-up enlarges the test buffer to 6 bytes.
