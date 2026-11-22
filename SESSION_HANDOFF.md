@@ -13,25 +13,26 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; branch `main`.
-- Current source baseline: `9a1d4e442da2af1d64cef9397fcd973386831617`. DHCPv6 status getters and pre-stage NVRAM snapshot landed in `e100bb3b88a68e3db6e23721bf6852631126895e`; later commits align its regression/source contracts.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 is closed/unmerged.
-- WAN PPP launch mode uses a checked NVRAM transaction snapshot and immutable flags for lock selection, daemon stop/start, multi-WAN startup and rollback. Invalid WAN unit inputs return deterministic EINVAL.
-- Modem WAN link-change reconnect uses checked modem readiness/WISP state; Inadyn startup checks DDNS enable state before stopping the existing daemon.
-- DNSMasq resolver flags, DHCP integers, static-host snapshots, domain validation, resolver-file creation and lifecycle publication are covered by its workflow; this slice adds DHCPv6 status/snapshot preflight.
+- Repository: `Arlene206/padavan-4.4-2`; branch: `main`.
+- Parent main SHA for the current engineering milestone: `280c05e3f96205377b8a4515a8f62b787782b484`. The source/test milestone in the commit containing this handoff is the active product baseline; resolve its exact SHA from the live main ref.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio checked-read fixes remain in main; do not repeat those completed slices without new evidence.
 
 ## Active task
 
-Manual RT/WL radio changes previously used `nvram_wlan_get_int()` (safe_get + atoi, collapsing backend errors to zero) and `nvram_wlan_set_int()` (discarding write status). The common `manual_change_radio_status()` now reads the precise `rt_radio_x`/`wl_radio_x` key with `nvram_get_checked()`, parses it fail-closed, propagates read errors before no-op, and persists through checked `nvram_set_int()` before hardware changes. PID-1's radio applet now obtains the same checked prior state from this operation instead of making a second unchecked read. The wireless workflow contains a GNU89 policy regression and source-order contract.
+`notify_run_detect_internet()` previously ignored the return value from `nvram_set_int_temp("di_notify_delay", delay_time)` and proceeded to process discovery, process launch or SIGUSR1 notification. For an already-running monitor, SIGUSR1 causes the daemon to read this NVRAM value; a failed write could therefore resume probing with a stale delay and still report success.
+
+The current milestone now checks the write result and errno, normalizes an opaque failure to EIO, logs it, and returns before process inventory or launch/resume signaling. A GNU89 test pins success, errno-preserving failure, errno-less failure and positive status normalization. The existing detect-internet workflow now asserts the fail-before-side-effect ordering.
+
 ## Verification boundary
 
-- Local C/Python tests were not run in this connector-only session.
-- Wi-Fi manual-radio source SHA `9957ef226468e6766fdd222b53551459d7a7d3d3`: GNU89/ASan/UBSan wireless policy binary PASS; embedded wireless source-contract failed at Python assertion line 93 because the new “no unchecked safe getter” assertion matched the literal function name inside its explanatory C comment. The production behavior/order assertions before that check passed. A comment-only source correction removes the false-positive, and this follow-up re-runs the workflow.
-- Previous exact XY-C1 SHA `9a1d4e442da2af1d64cef9397fcd973386831617`: run #45035251615 PASS including Build XY-C1, TRX verification and artifact upload. This is historical L3 evidence for that SHA only, not for Wi-Fi descendants.
-- No current-SHA XY-C1 L3 result or router hardware L4 result is claimed.
+- No local repository checkout or local C/Python execution was available in this connector-only session.
+- Parent SHA `280c05e3f96205377b8a4515a8f62b787782b484`: Wireless radio regression #45035999914 PASS; AI handoff #45035999840, HTTPD #45035999885, Process inventory #45035999887, Process lifecycle #45035999801, NVRAM #45035999880, watchdog #45035999886 and iNIC #45035999873 PASS on the exact SHA.
+- Parent XY-C1 run #45035999874 is a push run on that exact SHA. All host/policy steps passed; `Build XY-C1` was in progress at takeover, with TRX verification and artifact upload pending. This is not an L3 pass.
+- Current detect-internet regression and XY-C1 results must be checked on the exact new main source SHA. L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA wireless radio rerun for the comment/source-contract false-positive correction, and verify XY-C1 Build/TRX/artifact on one identical current source SHA.
-2. Continue broad userland stability/security work outside WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio controls.
-3. Keep backup immutable. XY-C1 L3 requires Build, TRX and artifact upload all PASS on one SHA; L4 requires physical device verification.
+1. Inspect the exact-head `detect-internet signal lifecycle stability regression` and XY-C1 run for the current source SHA. Diagnose any failure; do not infer success from the parent run above.
+2. Continue repository-wide stability/security implementation outside the already-completed WAN/PPP, USB modem, Inadyn, DNSMasq and manual-radio slices. Prefer the next concrete, independent caller/lifecycle failure from the roadmap.
+3. Keep the backup immutable and continue all development directly on `main`.

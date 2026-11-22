@@ -544,9 +544,24 @@ notify_run_detect_internet(int delay_time)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error, operation_status, operation_errno, operation_error;
+	int scan_error, delay_write_status, delay_write_errno;
+	int operation_status, operation_errno, operation_error;
 
-	nvram_set_int_temp("di_notify_delay", delay_time);
+	/*
+	 * A live monitor consumes this delay after SIGUSR1. Do not signal it
+	 * with a stale delay when the temporary NVRAM write failed.
+	 */
+	errno = 0;
+	delay_write_status = nvram_set_int_temp("di_notify_delay", delay_time);
+	delay_write_errno = errno;
+	if (delay_write_status != 0) {
+		operation_error = detect_internet_operation_error(
+			delay_write_status, delay_write_errno);
+		logmessage("detect_internet",
+			   "cannot store Internet monitor resume delay (status=%d, errno=%d)",
+			   delay_write_status, operation_error);
+		return operation_error;
+	}
 
 	presence = process_inventory_scan("detect_internet", &snapshot);
 	scan_error = snapshot.error;

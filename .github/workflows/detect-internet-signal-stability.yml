@@ -244,6 +244,19 @@ jobs:
           assert "nvram_get_int(" not in resume_settings and "nvram_safe_get_int(" not in resume_settings
           assert 'detect_internet_read_int_setting(detect_internet_nvram_get_checked,NULL,"di_notify_delay",INT_MIN,INT_MAX,0,&delay_time)' in resume_compact
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
+          notify_run_compact = "".join(notify_run.split())
+          delay_write = notify_run_compact.index(
+              'delay_write_status=nvram_set_int_temp("di_notify_delay",delay_time);')
+          delay_errno = notify_run_compact.index("delay_write_errno=errno;", delay_write)
+          delay_gate = notify_run_compact.index("if(delay_write_status!=0)", delay_errno)
+          delay_normalize = notify_run_compact.index(
+              "detect_internet_operation_error(delay_write_status,delay_write_errno)", delay_gate)
+          delay_return = notify_run_compact.index("returnoperation_error;", delay_normalize)
+          process_scan = notify_run_compact.index("process_inventory_scan(", delay_write)
+          assert delay_write < delay_errno < delay_gate < delay_normalize < delay_return < process_scan
+          assert "cannot store Internet monitor resume delay" in notify_run
+          assert "test_resume_delay_store_failure_is_not_ignored" in test
+          assert "CHECK(test_resume_delay_store_failure_is_not_ignored() == 0);" in test
           assert "int\nnotify_run_detect_internet(int delay_time)" in detect
           assert "operation_status = start_detect_internet(delay_time);" in notify_run
           assert "operation_error = detect_internet_operation_error(-1, scan_error);" in notify_run

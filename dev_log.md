@@ -1,3 +1,13 @@
+## 2026-11-22 — Propagate Internet monitor resume-delay NVRAM write failures
+
+- Parent main SHA: `280c05e3f96205377b8a4515a8f62b787782b484`. `notify_run_detect_internet()` wrote `di_notify_delay` through `nvram_set_int_temp()` but discarded its result, then continued into process discovery and either launched a new monitor or signalled an existing one. For an existing monitor, SIGUSR1 makes the daemon consume that value; an NVRAM failure could therefore resume with a stale delay while the caller reported success.
+- The function now captures the setter result and errno, normalizes opaque negative failures to EIO, logs the storage error and returns before any process scan, launch or resume signal. This preserves the existing launch path's command-line delay and only gates the existing-monitor notification on successful temporary-state publication.
+- Added GNU89 policy regression cases for success, errno-preserving failure, errno-less failure and positive status normalization. Extended the detect-internet workflow source contract to require the checked write/error gate/return before process inventory.
+- No local tests were run in this connector-only session. Parent exact-head Wireless radio #45035999914 PASS; parent XY-C1 #45035999874 was still in Build XY-C1, with TRX/artifact pending. New exact-head detect-internet and XY-C1 Actions must be inspected after publication.
+- Result: THIS COMMIT. No L3 or hardware L4 claim. Next: inspect exact-SHA detect-internet and XY-C1 results, then continue the broader userland stability rotation.
+
+---
+
 ## 2026-11-22 — Remove a comment-token false positive from wireless radio contract
 
 - Parent main SHA: `9957ef226468e6766fdd222b53551459d7a7d3d3`. Wireless run #45035810443 compiled and ran the GNU89/ASan/UBSan policy binary successfully, then failed at embedded Python line 93: the new negative assertion `"nvram_wlan_get_int(" not in radio_manual` matched the same literal in a descriptive comment explaining the old getter. The executable source order checks before it passed; this was a contract false positive, not a code/test compile failure.
