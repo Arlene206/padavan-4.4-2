@@ -433,7 +433,7 @@ func_restore()
 		logger -t "Storage restore" "Unable to extract BZ2 file: $tbz"
 		return 1
 	fi
-	if [ ! -f "$tmp_storage/start_script.sh" ] ; then
+	if [ -L "$tmp_storage/start_script.sh" ] || [ ! -f "$tmp_storage/start_script.sh" ] ; then
 		result=1
 		rm -rf "$tmp_storage"
 		logger -t "Storage restore" "Invalid content of BZ2 file: $tbz"

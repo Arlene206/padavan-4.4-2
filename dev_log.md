@@ -1,3 +1,10 @@
+## 2026-11-22 — Reject symlinked MTD restore startup scripts
+
+- The restore guard used `[ -f start_script.sh ]`, which follows symlinks. An archive containing `start_script.sh -> /bin/sh` therefore passed the required-file check and was copied into the live storage tree; the firmware later executes that path as root during boot.
+- Require the extracted `start_script.sh` to be a non-symlink regular file before staging or stopping rstats. Added an end-to-end restore regression with an archive symlink to an existing executable and assertions that the previous storage tree and running rstats remain untouched, no rename occurs, and the archive is retained. The test rebuilds a normal archive before its existing successful restore case.
+
+---
+
 ## 2026-11-23 04:30 UTC+8 — Fail closed when split-DNS routing NVRAM is unreadable
 
 - fill_dnsmasq_servers() used error-collapsing reads for vpnc_pdns, VPN domain/server values and MAN domain/server values. A transient NVRAM fault could silently omit private-domain routing rules from the newly published DNSMasq server file, allowing VPN/MAN-specific queries to fall back to the default resolver path.

@@ -220,6 +220,32 @@ set -- "$sandbox"/storage.restore.*
 test ! -e "$1"
 rm -rf "$sandbox"/storage.rollback.*
 
+# A symlink to an existing executable satisfies -f, but must not be
+# published as /etc/storage/start_script.sh and executed at the next boot.
+mkdir -p "$sandbox/symlink-incoming"
+ln -s /bin/sh "$sandbox/symlink-incoming/start_script.sh"
+"$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/symlink-incoming" .
+mkdir -p "$sandbox/storage"
+printf '%s\n' 'old=preserve-after-symlink' > "$sandbox/storage/original.conf"
+mkdir -p "$RSTAT_PROC_ROOT/321"
+printf '%s\n' '321 (rstats) S 1 321 321' > "$RSTAT_PROC_ROOT/321/stat"
+: > "$RSTAT_KILL_LOG"
+: > "$MV_COUNT_FILE"
+if run_restore; then
+	echo "symlinked restore startup script unexpectedly succeeded" >&2
+	exit 1
+fi
+grep -Fqx 'old=preserve-after-symlink' "$sandbox/storage/original.conf"
+test -f "$RSTAT_PROC_ROOT/321/stat"
+test ! -s "$RSTAT_KILL_LOG"
+test ! -s "$MV_COUNT_FILE"
+test -s "$sandbox/private/storage-restore.tar.bz2"
+test -f "$sandbox/private/storage_locked"
+test ! -e "$sandbox/restore"
+
+# Rebuild the ordinary archive before the existing successful restore case.
+"$real_tar" -cjf "$sandbox/private/storage-restore.tar.bz2" -C "$sandbox/incoming" .
+: > "$RSTAT_KILL_LOG"
 : > "$MV_COUNT_FILE"
 RSTAT_DAEMON_TEST=1
 export RSTAT_DAEMON_TEST
