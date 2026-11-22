@@ -58,6 +58,7 @@ jobs:
           lan6 = (rc / "net_lan6.c").read_text()
           lan6_policy = (rc / "lan_addr6_reload_policy.h").read_text()
           policy = (rc / "wan_teardown_policy.h").read_text()
+          teardown_test = (rc / "tests/wan_teardown_policy.c").read_text()
           workflow = Path(".github/workflows/wan-teardown-stability.yml").read_text()
 
           def function_body(text, signature):
@@ -134,7 +135,7 @@ jobs:
           assert "*management_uses_transport = 0;" in interface_select
           assert "*usbnet_ifname = NULL;" in interface_select
           assert "if (snapshot_status != 0)" in interface_select
-          assert "test_transport_interface_snapshot_fails_closed_and_selects_targets" in test
+          assert "test_transport_interface_snapshot_fails_closed_and_selects_targets" in teardown_test
           assert "control_required = 0;" in usbnet_stop
           assert "ndis_control_network(ndis_ifname, modem_devnum, 0, &control_required)" in " ".join(usbnet_stop.split())
           assert "modem_ndis_control_failed(control_required, control_status)" in usbnet_stop
