@@ -7,9 +7,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; active branch main; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: 0b22c9729e6abce02181e96c7a60560342db2b29. The 17-commit PR #1 head has been compared read-only with main; its unmerged ALIDDNS changes remain to be inventoried for safe porting after the active signal-stability work is closed.
-- Exact 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS. HTTPD #45001003234 failed only because the embedded checker referenced pid1_test without loading the source; the binding fix is in parent 0b22. Exact parent 0b22 AI #45001261547 PASS and HTTPD #45001261606 was IN_PROGRESS at last poll.
-- Exact XY-C1 #45001003215 on 1a5 completed HOST-ONLY success: Build XY-C1, TRX verification and artifact upload were SKIPPED because no production build input changed. Not L3.
+- Current parent main: e72a377025dbd4e42cbbfe0186689b5e6e57720b. The 17-commit PR #1 head has been compared read-only with main; its unmerged ALIDDNS changes remain to be inventoried for safe porting after the active signal-stability work is closed.
+- Exact prior 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS. HTTPD #45001003234 failed only because its embedded checker referenced pid1_test without loading the source; parent 0b22 fixed that binding.
+- Exact e72 XY-C1 #45001383211, Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163 and PID1 mdev #45001383227 were IN_PROGRESS at last poll; AI docs #45001383224 PASS.
+- Exact prior 1a5 XY-C1 #45001003215 completed HOST-ONLY success: Build XY-C1, TRX verification and artifact upload were SKIPPED because no production build input changed. Not L3.
 - THIS COMMIT checks reset_signals() disposition reset and signal-mask unblocking, preserves SIGCHLD reaper behavior, reports the first error and prevents recovery-shell setup/exec on reset failure. Both PID1 mdev and HTTPD workflows pin these gates.
 
 ## Completed source slices
@@ -33,16 +34,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 - Close the remaining PID1 inherited signal-state gap. reset_signals() previously ignored sigaction, sigfillset and sigprocmask failures and attempted invalid numeric signal IDs rather than only the fatal/shutdown/event groups installed by PID1.
 - THIS COMMIT makes reset_signals() return the first errno while attempting all relevant groups, checks sigfillset, and unblocks via the checked SIG_UNBLOCK adapter. The forked recovery-shell child logs and _exit(126)s before console setup/exec if reset fails; the fatal emergency-shutdown caller logs reset failure and continues best-effort shutdown.
-- Both mdev and HTTPD contracts pin the reset helper and both call sites. HTTPD's missing pid1_test binding was independently fixed in parent 0b22.
+- Both mdev and HTTPD contracts pin the reset helper and both call sites. The HTTPD pid1_test binding fix is in parent 0b22.
 
 ## Verification boundary
 
-- Exact 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS.
-- Exact 1a5 HTTPD #45001003234 failed with NameError because pid1_test was not loaded. Parent 0b22 added the missing binding; its AI #45001261547 PASS and HTTPD #45001261606 was running at last poll.
+- Exact e72 PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM, USB, DNSMasq, DNS forwarder, PID1 notification and XY-C1 runs were still in progress at the last poll; exact e72 AI handoff #45001383224 PASS.
+- Exact prior 1a5 PID1 mdev #45001003224, Process inventory #45001003203, AI #45001003376 and NVRAM #45001003186 PASS; HTTPD NameError was fixed in parent 0b22.
 - Exact 1a5 XY-C1 #45001003215 was HOST-ONLY: Build/TRX/artifact skipped, not L3. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM and AI actions for this reset_signals change; diagnose only demonstrated failures.
-2. Check whether any exact product-source SHA has a real XY-C1 Build + TRX verification + artifact upload all PASS. The 1a5 host-only run is not L3.
-3. Once PID1 signal work is verified, resume the next P1/P2 userland stability/security item; after that inventory PR #1's unmerged ALIDDNS changes for safe porting. Keep hardware L4 NOT VERIFIED.
+1. Check exact-head e72 Actions for PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM, USB, DNSMasq, DNS forwarder, PID1 notification and XY-C1 after this reset-signals source change; diagnose only demonstrated failures.
+2. Confirm actual XY-C1 Build + TRX verification + artifact upload on one identical source SHA; host-only or skipped steps are not L3.
+3. Once PID1 signal work is verified, resume the next independent P1/P2 userland stability/security item, then inventory PR #1's unmerged ALIDDNS changes for safe porting. Keep hardware L4 NOT VERIFIED.
