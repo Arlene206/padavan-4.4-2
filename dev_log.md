@@ -1,3 +1,10 @@
+## 2026-11-22 — Require decimal-only procfs process start times
+
+- Hardened the procfs stat parser against signed start-time tokens. `strtoull()` accepts a leading sign (including `-1` as an unsigned value), but the kernel's `starttime` field is an unsigned decimal counter; accepting a signed token could turn malformed procfs data into a valid process identity.
+- The parser now validates every start-time character as an ASCII decimal digit before conversion. Added injected regressions for both positive-sign and negative-sign tokens; each must return `PROCESS_PRESENCE_UNKNOWN/EPROTO` and discard the partial inventory.
+
+---
+
 ## 2026-11-22 — Validate procfs task-state codes before process matching
 
 - The shared C process scanner accepted any one-character `/proc/<pid>/stat` state and treated every state except uppercase `Z`/`X` as live. A malformed state could therefore be promoted to a process match and authorize lifecycle actions; Linux's lowercase `x` dead state was also incorrectly reported as present.

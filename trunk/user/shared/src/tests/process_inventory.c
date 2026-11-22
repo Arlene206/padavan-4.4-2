@@ -391,6 +391,28 @@ test_pid_vector_growth_failure_discards_partial_inventory(void)
 }
 
 static void
+test_proc_start_time_requires_unsigned_decimal(void)
+{
+	const char *entries[] = { "123" };
+	const char *invalid_values[] = { "-1 1024 1", "+1 1024 1" };
+	struct fake_context context;
+	struct process_snapshot snapshot;
+	char *start_time;
+	size_t i;
+
+	for (i = 0; i < sizeof(invalid_values) / sizeof(invalid_values[0]); i++) {
+		fake_init(&context, entries, 1);
+		fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+		start_time = strstr(context.processes[0].stat_text, " 98765");
+		assert(start_time != NULL);
+		strcpy(start_time + 1, invalid_values[i]);
+		assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_UNKNOWN);
+		assert(snapshot.error == EPROTO);
+		assert(snapshot.count == 0 && snapshot.items == NULL);
+	}
+}
+
+static void
 test_one_and_multiple_matches(void)
 {
 	const char *one_entries[] = { "123" };
@@ -459,6 +481,7 @@ main(void)
 	test_permission_and_io_failures_are_unknown();
 	test_malformed_stat_and_missing_cmdline_are_unknown();
 	test_proc_state_codes_are_validated();
+	test_proc_start_time_requires_unsigned_decimal();
 	test_argv0_allocation_failure_is_unknown();
 	test_first_pid_vector_allocation_failure_is_unknown();
 	test_pid_vector_growth_failure_discards_partial_inventory();

@@ -269,10 +269,16 @@ proc_parse_stat(const char *buffer, size_t length, pid_t expected_pid,
 		}
 		if (field == 20) {
 			char number[32];
-			char *number_end;
+			char *number_end, *digit;
 			if (token_length == 0 || token_length >= sizeof(number)) {
 				errno = EPROTO;
 				return -1;
+			}
+			for (digit = cursor; digit < token_end; digit++) {
+				if (*digit < '0' || *digit > '9') {
+					errno = EPROTO;
+					return -1;
+				}
 			}
 			memcpy(number, cursor, token_length);
 			number[token_length] = '\0';
