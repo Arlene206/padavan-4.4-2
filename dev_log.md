@@ -1,3 +1,12 @@
+## 2026-11-21 19:52 PST — Add source include path for PID1 child-reap regression
+
+- Parent main SHA: `b76d4764438ed923f3f20ccc272914d8f79cf96c`.
+- Exact init-mdev security #44980178644 on `b76d476` passed the four pre-existing GNU89/Werror/ASan/UBSan policy binaries; the new `pid1_signal_policy.c` compile failed because its quoted header `pid1_signal_policy.h` is in parent `src/`, not adjacent `src/tests/`. The Python source contract was skipped.
+- Added `-I trunk/user/rc/src` to the new test compiler command and pinned that include path in the workflow's source contract. No production source change.
+- Process lifecycle #44980178618 PASS on `b76d476`; XY-C1 #44980178569 was still pending at the last poll. New exact-head init test and product Build/TRX/artifact results remain required; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 19:48 PST — Track the exact PID1 recovery-shell child
 
 - Parent main SHA: `b1c2d3fde5caa330f36715c11f270cff728bd6ec`.

@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before THIS PID1 console-recovery correction: `b1c2d3fde5caa330f36715c11f270cff728bd6ec`; WAN route #44979699090 and AI docs #44979698998 PASS on this exact SHA.
+- Live `main` before THIS PID1 test build-path correction: `b76d4764438ed923f3f20ccc272914d8f79cf96c`; exact init-mdev #44980178644 FAILED at the new policy-test compile because `pid1_signal_policy.h` is in the parent `src/` directory and the command lacked `-I trunk/user/rc/src`. Pre-existing policy tests passed; Process lifecycle #44980178618 PASS; XY-C1 #44980178569 was pending at last poll.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -28,25 +28,26 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, FTP passive-port range policy and checked WAN-up route tuple work are in the completed source history.
-- Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487; artifact #14737425993); this establishes L3 only for that SHA. Hardware L4 not verified.
-- WAN route-up product SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` uses a coherent checked route tuple and checked gateway-only fallback. Checker-only descendants `de582a2` and `b1c2d3f` aligned both source contracts; exact WAN route #44979699090 and AI docs #44979698998 PASS on `b1c2d3f`. A checker-only XY run skipped Build/TRX; current WAN product source still needs same-SHA Build/TRX/artifact before L3.
-- THIS commit fixes a P1 PID 1 console-recovery bug: a reaped shell PID stayed cached and `kill(pid,0)` could mistake an unrelated PID-reusing daemon for the live shell. The new signal-safe tracked PID is published with SIGCHLD blocked across fork, cleared only by reaping that exact child, and used directly by the main loop. Test and source-order checks are wired into init security workflow.
-- Full RC production-source scan of public WAN NVRAM integer/parameter void setters found only best-effort WAN counter telemetry; no speculative migration was made.
-- No L3 claim for current source until exact-head XY-C1 Build, TRX verification and artifact upload pass; hardware L4 NOT VERIFIED.
+- Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, FTP passive-port range policy and checked WAN-up route tuple work are in completed source history.
+- Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has exact same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487, artifact #14737425993); L3 applies only to that SHA. Hardware L4 not verified.
+- WAN route source `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` uses coherent checked tuple + checked gateway-only fallback; exact WAN route #44979699090 and AI docs #44979698998 PASS on contract/doc descendant `b1c2d3f`. This is not L3 for the WAN source.
+- PID1 recovery-shell exact-child tracking fix is in `b76d4764438ed923f3f20ccc272914d8f79cf96c`. Init-mdev #44980178644 failed only because the new regression compile omitted `-I trunk/user/rc/src`; earlier policy tests passed, but the new test and Python contract were skipped. THIS workflow follow-up adds/pins the parent source include path. Process lifecycle #44980178618 PASS; XY-C1 #44980178569 was pending at last poll.
+- Full RC production-source scan of WAN NVRAM public integer/parameter void setters found only best-effort WAN counter telemetry; no speculative migration was made.
+- No L3 claim for current source until same-SHA XY-C1 Build, TRX and artifact all PASS; hardware L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: XY-C1 Build, TRX verification and artifact upload all PASS (artifact #14737425993). L3 applies only to `5b93812`.
-- WAN product SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`: Samba, Process inventory, WAN teardown, miniupnpd, USB modem and AI docs PASS. WAN route and XY initially failed stale checker assertions; checker fixes in descendants `de582a2` and `b1c2d3f` resulted in exact WAN route PASS on `b1c2d3f`. The XY run on `de582a2` reported success but skipped actual firmware build and TRX because the commit was checker/docs only.
-- Exact `b1c2d3f` WAN route #44979699090 PASS and AI docs #44979698998 PASS. THIS commit changes PID1 production source, test and workflow; exact-head init policy tests and XY-C1 Build/TRX/artifact are required.
+- SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: XY-C1 Build, TRX verification and artifact upload PASS (artifact #14737425993). L3 only for `5b93812`.
+- WAN route source SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`: checked tuple and gateway fallback source change committed; exact WAN route #44979699090 and AI docs #44979698998 PASS on checker/doc descendant `b1c2d3f`. No exact current-WAN-source XY Build/TRX/artifact result is recorded.
+- PID1 product SHA `b76d4764438ed923f3f20ccc272914d8f79cf96c`: Process lifecycle #44980178618 PASS; init-mdev #44980178644 FAILED at new policy-test compilation due omitted parent include path, after earlier tests passed; Python contract did not execute. XY-C1 #44980178569 was pending at last poll.
+- THIS commit changes only init workflow, roadmap, handoff and log to add/pin `-I trunk/user/rc/src`. Exact init rerun must compile/run the PID1 policy test and pass source contract; current product-source XY-C1 Build/TRX/artifact remains required.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head init-mdev security, Process lifecycle and XY-C1 Actions on THIS commit; match each run's `head_sha` to current main.
-2. Fix any PID1 compile/policy/source-contract failure using the exact job log. Require Build XY-C1, TRX verification and artifact upload on one exact source SHA before L3.
-3. Continue independent stability/security slices across RC userland while Actions run; keep frozen backup untouched.
+1. Inspect exact-head init-mdev security and XY-C1 runs for THIS include-path correction, matching each `head_sha` to current main.
+2. Fix any further PID1 policy/compiler/source-contract issue from exact job logs; do not weaken exact-child matching or SIGCHLD-block-before-publication.
+3. Continue independent P1/P2 reliability/security work across RC userland while Actions are pending; keep the frozen backup untouched.
 
 ## Workflow and preservation rules
 

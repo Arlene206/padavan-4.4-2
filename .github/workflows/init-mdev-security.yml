@@ -70,6 +70,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
             -fsanitize=address,undefined -fno-omit-frame-pointer \
             trunk/user/rc/src/tests/pid1_signal_policy.c \
             -o /tmp/pid1_signal_policy
@@ -205,6 +206,7 @@ jobs:
                         "state.console_shell_pid == 0"):
               assert token in pid1_test
           assert "Build and run PID 1 exact child-reap policy regression" in workflow
+          assert "-I trunk/user/rc/src" in workflow
 
           for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
                         "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
