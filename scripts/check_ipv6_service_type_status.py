@@ -85,8 +85,11 @@ down = function_body(wan6, "int wan6_down(char *wan_ifname, int unit)")
 ds = down.index("stop_dhcp6c(")
 dr = down.index("get_ipv6_type_status(", ds)
 de = down.index("if (status != 0)", dr)
-di = down.index('get_wan_unit_value(unit, "ifname6")', de)
-assert ds < dr < de < di and "return status;" in down[de:di]
+di = down.index('get_wan_unit_value_copy_status(\n\t\tunit, "ifname6", previous_ifname_buffer', de)
+die = down.index("if (status != 0)", di)
+dip = down.index("is_interface_exist(previous_ifname)", die)
+assert ds < dr < de < di < die < dip and "return status;" in down[de:di]
+assert 'get_wan_unit_value(unit, "ifname6")' not in down
 
 callback = function_body(wan6, "int dhcp6c_main(int argc, char **argv)")
 cr = callback.index("get_ipv6_type_status(")

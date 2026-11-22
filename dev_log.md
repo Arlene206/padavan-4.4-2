@@ -1,3 +1,11 @@
+## 2026-11-22 — Align WAN6 teardown source contracts with checked identity reads
+
+- Parent main SHA: `475053e6acf945b73d91b630a4fc1f3ff5e14839`. Exact-SHA checks exposed two stale assertions after `wan6_down()` moved from the lossy `get_wan_unit_value(unit, "ifname6")` getter to a bounded status-bearing copy: the IPv6 service-type checker still searched for the old getter, and the earlier WAN route workflow assertion still required the old pointer assignment. The later route-workflow contract had already been migrated, but its earlier sibling had not.
+- Updated both contracts to require checked-copy, early error-return and interface-probe ordering, and to forbid the old getter. The production teardown implementation is unchanged.
+- Prior exact-SHA run results: `f2765a6` WAN DHCP failed on `dns_policy` NameError; `a4f550a` fixed that and then the WAN DHCP workflow reached the stale `wan6_down` contract; `4258f28` updated one route contract but malformed its YAML indentation; `475053e` repaired the indentation. A fresh exact-SHA run is required for the corrected contracts.
+- Next task: finish `get_wan_addr6_host()` checked identity and pointer lifetime audit, then inspect exact-SHA WAN DHCP/route/IPv6 checks.
+
+---
 ## 2026-11-22 — Repair YAML indentation in WAN DHCP teardown contract
 
 - Parent main SHA: `4258f281fe2f5bc6d5705004d0a1cea33e101b3a`. The workflow-contract change in `4258f281fe2f5bc6d5705004d0a1cea33e101b3a` correctly replaced the stale pointer-getter assertion but omitted the YAML block-scalar indentation on five continuation lines. GitHub consequently registered the push under the workflow path with no job records; this was a malformed workflow definition, not a test result.
