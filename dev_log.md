@@ -1,3 +1,10 @@
+## 2026-11-22 — Restore the mandatory pre-exhaustion handoff rule
+
+- Parent main SHA: \`7c445837a2eb9ffa747e5c2b5d94b88d58276903\`. Exact-head AI handoff documentation run #45039420870 rejected the new handoff because its continuous-execution contract omitted the required literal \`Before context exhaustion\` marker. The process-lifecycle checker update itself remained unchanged. Restored the pre-exhaustion instruction in \`SESSION_HANDOFF.md\`; the current Process regression #45039420819 was still in progress at inspection.
+- This is a documentation-contract correction only. No local checkout or local checker execution was available; exact-head AI handoff and Process reruns are required. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Repair process-lifecycle contract for status-bearing detect-link notification
 
 - Parent main SHA: \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\`. Exact-head Process lifecycle regression #45038940342 on ancestor source SHA \`661924b3b5cb309988758820c285f6bedeab3c23\` failed only in \`scripts/check_process_lifecycle_integration.py:1224\`: its source parser still split \`void\nnotify_reset_detect_link(void)\` after the API had correctly changed to an \`int\` result. All preceding GNU89 C/ASan/UBSan regressions and integration assertions passed. Exact-head detect-link regression #45038940465, process-lifecycle inventory #45038940527, AI handoff docs #45038940232, DNS Forwarder launch path #45038940423 and router-mode update #45038940605 passed on SHA 661924b. Corrected the parser for the int-returning API and explicitly require the normalized status to be returned; production behavior is unchanged.

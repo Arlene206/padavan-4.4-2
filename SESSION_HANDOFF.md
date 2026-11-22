@@ -4,7 +4,7 @@
 
 The checkpoint is mandatory; a document edit is conditional.
 
-Every session MUST inspect live repository state and complete an end-of-session accuracy checkpoint. Record the exact main source SHA, exact-SHA Actions, test/build boundaries, and the next precise task. If facts and first action remain accurate, explicitly conclude the check with no file change and no commit. Use one atomic main commit for material changes only; never create a no-op commit.
+Every session MUST inspect live repository state and complete an end-of-session accuracy checkpoint. Record the exact main source SHA, exact-SHA Actions, test/build boundaries, and the next precise task. If facts and first action remain accurate, explicitly conclude the check with no file change and no commit. Use one atomic main commit for material changes only; never create a no-op commit. Before context exhaustion, leave an accurate handoff and complete any safe bounded engineering slice.
 
 - Work only on \`main\`; never force-push, use side branches/PRs, or modify the frozen backup.
 - Each logical slice creates all blobs, one complete Git tree and one atomic main commit; update \`main\` only with \`force:false\` and a freshly fetched expected SHA.
