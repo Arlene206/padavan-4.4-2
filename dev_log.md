@@ -1,3 +1,11 @@
+## 2026-11-22 — Roll back IPTV VLAN after failed dynamic client start
+- Parent main SHA: b7185685f1868b72ad48e87fadf434bdf7f7f0ee. launch_viptv_wan() published viptv_ifname as a recovery handle and tracked VLAN/bridge ownership, but DHCP/ZeroConf client launch errors returned directly. A failed detached udhcpc readiness check could leave the client/process uncertain while the newly-owned VLAN remained unreconciled.
+- Added a dynamic IPTV start policy: start failure invokes the client-specific stop (udhcpc PID-file no-force stop, or the zcip process stop). Only a confirmed stop permits rollback_viptv_vlan_setup(); if stop is uncertain, the VLAN and recovery identity remain intact for later teardown. The primary launch status/errno remains authoritative; cleanup statuses are logged separately.
+- Added five GNU89 ASan/UBSan policy regressions and expanded scripts/check_wan_vlan_setup.py to pin stop-before-rollback ordering, callback wiring, recovery identity retention and main() registration. The existing WAN workflow already watches source, policy and test and runs the Python checker.
+- Parent exact-head AI handoff #45021657238, WAN DHCP callback #45021657373 and WAN route #45021657378 PASS. New-SHA results must be queried separately; XY-C1 will be triggered by net_wan.c.
+- XY-C1 L3 remains unverified until same-SHA Build, TRX and artifact upload all pass; hardware L4 remains unverified.
+
+---
 ## 2026-11-22 — Update WAN DNS source contracts for transactional static configuration reads
 
 - Parent main SHA: 2d98a256c0703d02688de4ab88bb470bd1d5ee3d. Exact-head WAN DHCP callback run #45021524741 and WAN route status run #45021524732 exposed two stale Python source contracts after the DNS getter was correctly replaced. Both failures were in checkers, not C sanitizer tests.

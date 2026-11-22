@@ -657,6 +657,7 @@ require("python3 scripts/check_wan_vlan_setup.py" in workflow,
         "WAN workflow must execute the VLAN/bridge source contract")
 
 viptv_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
+viptv_test_main = body(viptv_test, "main(void)")
 for case in ("test_old_vlan_metadata_is_cleared_before_vlan_removal",
              "test_old_vlan_clear_failure_preserves_vlan_and_skips_removal",
              "test_old_vlan_remove_failure_restores_recovery_identity",
@@ -711,6 +712,40 @@ for signature, operation, description in (
     require(f"route_status = {operation};" in function and
             "status = route_status_accumulate(status, route_status);" in function,
             f"{description} must preserve IGMP proxy status")
+dynamic_policy = body(viptv_policy, "wan_viptv_dynamic_start_with_rollback(")
+dynamic_policy_code = " ".join(dynamic_policy.split())
+require(dynamic_policy_code.index("ops->start(context)") <
+        dynamic_policy_code.index("ops->stop_client(context)") <
+        dynamic_policy_code.index("ops->rollback_vlan(context)") and
+        "if (result->stop_status == 0)" in dynamic_policy_code and
+        "errno = start_errno;" in dynamic_policy_code,
+        "dynamic IPTV must stop the child before VLAN rollback and preserve the primary error")
+dynamic_start_callback = body(wan, "wan_viptv_dynamic_start_callback(void *opaque)")
+dynamic_stop_callback = body(wan, "wan_viptv_dynamic_stop_callback(void *opaque)")
+dynamic_rollback_callback = body(wan, "wan_viptv_dynamic_rollback_callback(void *opaque)")
+require("start_zcip_viptv(" in dynamic_start_callback and
+        "start_udhcpc_viptv(" in dynamic_start_callback and
+        "stop_udhcpc_viptv()" in dynamic_stop_callback and
+        '"zcip"' in dynamic_stop_callback and
+        "kill_services(services, 3, 1)" in dynamic_stop_callback and
+        "rollback_viptv_vlan_setup(context->rollback_entry)" in dynamic_rollback_callback,
+        "dynamic IPTV cleanup must use client stop and owned VLAN rollback")
+dynamic_launch = body(wan, "launch_viptv_wan(void)")
+require(dynamic_launch.index("wan_viptv_ifname_publish_or_rollback(") <
+        dynamic_launch.index("wan_viptv_dynamic_start_with_rollback(") and
+        "dynamic_context.rollback_entry = &rollback_entry;" in dynamic_launch and
+        "retaining VLAN recovery identity" in dynamic_launch,
+        "IPTV must publish recovery identity before starting and retain it on uncertain stop")
+for case in (
+    "test_dynamic_start_success_does_not_stop_or_rollback",
+    "test_dynamic_start_failure_stops_before_vlan_rollback",
+    "test_dynamic_stop_failure_preserves_vlan_recovery_handle",
+    "test_dynamic_rollback_failure_preserves_start_error",
+    "test_dynamic_start_rejects_incomplete_callbacks",
+):
+    require(case in viptv_test and case + "();" in viptv_test_main,
+            "dynamic IPTV regression missing or unregistered: " + case)
+
 iptv_dhcp = body(wan, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
 require("multicast_status = start_igmpproxy(man_ifname);" in iptv_dhcp and
         "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in iptv_dhcp and

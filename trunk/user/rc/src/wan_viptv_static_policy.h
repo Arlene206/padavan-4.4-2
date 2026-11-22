@@ -113,4 +113,55 @@ wan_viptv_ifname_remove_old_vlan(
 }
 
 
+
+struct wan_viptv_dynamic_start_ops {
+	int (*start)(void *context);
+	int (*stop_client)(void *context);
+	int (*rollback_vlan)(void *context);
+};
+
+struct wan_viptv_dynamic_start_result {
+	int stop_status;
+	int stop_errno;
+	int rollback_status;
+	int rollback_errno;
+};
+
+/* Stop a possibly detached DHCP/ZeroConf child before removing its VLAN.
+ * If stop is uncertain, retain the published interface recovery identity. */
+static inline int
+wan_viptv_dynamic_start_with_rollback(
+	const struct wan_viptv_dynamic_start_ops *ops, void *context,
+	struct wan_viptv_dynamic_start_result *result)
+{
+	int start_status, start_errno;
+
+	if (!ops || !ops->start || !ops->stop_client ||
+	    !ops->rollback_vlan || !result)
+		return EINVAL;
+	result->stop_status = 0;
+	result->stop_errno = 0;
+	result->rollback_status = 0;
+	result->rollback_errno = 0;
+
+	errno = 0;
+	start_status = ops->start(context);
+	start_errno = errno;
+	if (start_status == 0)
+		return 0;
+	if (start_status < 0 && start_errno == 0)
+		start_errno = EIO;
+
+	errno = 0;
+	result->stop_status = ops->stop_client(context);
+	result->stop_errno = errno;
+	if (result->stop_status == 0) {
+		errno = 0;
+		result->rollback_status = ops->rollback_vlan(context);
+		result->rollback_errno = errno;
+	}
+	errno = start_errno;
+	return start_status;
+}
+
 #endif /* WAN_VIPTV_STATIC_POLICY_H */

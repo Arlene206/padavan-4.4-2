@@ -2758,6 +2758,57 @@ static const struct wan_viptv_static_ops wan_viptv_static_start_ops = {
 	wan_viptv_static_add_default_route,
 	wan_viptv_static_start_multicast
 };
+
+struct wan_viptv_dynamic_start_context {
+	const char *ifname;
+	int zeroconf;
+	struct soft_bridge_other_entry *rollback_entry;
+};
+
+static int
+wan_viptv_dynamic_start_callback(void *opaque)
+{
+	struct wan_viptv_dynamic_start_context *context =
+		(struct wan_viptv_dynamic_start_context *)opaque;
+
+	if (!context || !context->ifname || !context->ifname[0])
+		return EINVAL;
+	if (context->zeroconf)
+		return start_zcip_viptv((char *)context->ifname);
+	return start_udhcpc_viptv((char *)context->ifname);
+}
+
+static int
+wan_viptv_dynamic_stop_callback(void *opaque)
+{
+	struct wan_viptv_dynamic_start_context *context =
+		(struct wan_viptv_dynamic_start_context *)opaque;
+
+	if (!context)
+		return EINVAL;
+	if (context->zeroconf) {
+		char *services[] = { "zcip", NULL };
+		return kill_services(services, 3, 1);
+	}
+	return stop_udhcpc_viptv();
+}
+
+static int
+wan_viptv_dynamic_rollback_callback(void *opaque)
+{
+	struct wan_viptv_dynamic_start_context *context =
+		(struct wan_viptv_dynamic_start_context *)opaque;
+
+	if (!context || !context->rollback_entry)
+		return EINVAL;
+	return rollback_viptv_vlan_setup(context->rollback_entry);
+}
+
+static const struct wan_viptv_dynamic_start_ops wan_viptv_dynamic_start_ops = {
+	wan_viptv_dynamic_start_callback, wan_viptv_dynamic_stop_callback,
+	wan_viptv_dynamic_rollback_callback
+};
+
 static int
 launch_viptv_wan(void)
 {
@@ -3008,10 +3059,33 @@ launch_viptv_wan(void)
 		else
 			logmessage(LOGNAME, "%s %s (%s)", "IPTV MAN", "up", viptv_ifname);
 		return ret;
-	} else if (viptv_mode == 1) {
-		ret = start_zcip_viptv(viptv_ifname);
 	} else {
-		ret = start_udhcpc_viptv(viptv_ifname);
+		struct wan_viptv_dynamic_start_context dynamic_context;
+		struct wan_viptv_dynamic_start_result dynamic_result;
+
+		dynamic_context.ifname = viptv_ifname;
+		dynamic_context.zeroconf = (viptv_mode == 1);
+		dynamic_context.rollback_entry = &rollback_entry;
+		ret = wan_viptv_dynamic_start_with_rollback(
+			&wan_viptv_dynamic_start_ops, &dynamic_context,
+			&dynamic_result);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "%s IPTV client startup failed on %s (status=%d)",
+				   dynamic_context.zeroconf ? "ZeroConf" : "DHCP",
+				   viptv_ifname, ret);
+			if (dynamic_result.stop_status != 0) {
+				logmessage(LOGNAME,
+					   "IPTV client stop is unconfirmed (status=%d errno=%d); retaining VLAN recovery identity",
+					   dynamic_result.stop_status,
+					   dynamic_result.stop_errno);
+			} else if (dynamic_result.rollback_status != 0) {
+				logmessage(LOGNAME,
+					   "IPTV VLAN rollback after client startup failure is incomplete (status=%d errno=%d)",
+					   dynamic_result.rollback_status,
+					   dynamic_result.rollback_errno);
+			}
+		}
 	}
 	return ret;
 }
