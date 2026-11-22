@@ -18,7 +18,7 @@ test_private_qmi_credentials_round_trip_and_cleanup(void)
 	struct modem_qmi_credentials_file file;
 	struct uqmi_private_credentials credentials;
 	struct stat directory_stat, file_stat;
-	char directory[512];
+	char directory[PATH_MAX];
 
 	assert(modem_qmi_credentials_file_create(NULL, "alice", "secret",
 						 &file) == 0);
@@ -86,7 +86,7 @@ static void
 test_cleanup_removes_unconsumed_file(void)
 {
 	struct modem_qmi_credentials_file file;
-	char directory[512];
+	char directory[PATH_MAX];
 
 	assert(modem_qmi_credentials_file_create(NULL, "alice", "secret", &file) == 0);
 	snprintf(directory, sizeof(directory), "%s", file.directory);
