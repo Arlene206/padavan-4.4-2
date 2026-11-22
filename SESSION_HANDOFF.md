@@ -21,8 +21,7 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Active task
 
-Validate the AliDDNS configuration fingerprint regression after correcting its test root. Its first exact run failed because the test computed the repository root as the parent of the checkout. The new helper already produces the final digest; the previous legacy wrapper was redundant and has been removed.
-
+Two exact-head regressions need closure while independent work continues. AliyunDrive's host lifecycle regression passed on c32d2d3, but its source checker failed because `require()` was defined below its first call; this commit moves the helper above that call. AliDDNS's fingerprint test root and redundant digest were fixed in 3556d29; verify its exact SHA action as well.
 ## Verification boundary
 
 - Ancestor SHA 129372718e1241823d785da6455abb46d03869c1: Process inventory #45043414729 PASS; AI handoff #45043414763 PASS; HTTPD auth #45043414724 PASS; AliDDNS #45043414686 FAILED at test path resolution; XY-C1 #45043414723 was pending then.

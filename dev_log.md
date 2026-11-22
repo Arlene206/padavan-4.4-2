@@ -1,3 +1,11 @@
+## 2026-11-22 — Define AliyunDrive source-contract helper before first use
+
+- Parent main SHA: `3556d297e887ad81b5457e16a33b32eafadafa9a`. The exact AliyunDrive lifecycle run #45043595742 passed shell syntax, MIPSel QEMU binary compatibility and the full host lifecycle regression, including the 11-probe no-listener and 3-probe delayed-listener cases. It then failed in the Python source-contract step with `NameError: name 'require' is not defined`: a new BusyBox `CONFIG_NC` assertion had been placed above the helper definition.
+- Moved the existing `require()` helper above its first call. This is a checker ordering fix only; production launcher and test behavior are unchanged.
+- Parent `3556d297e887ad81b5457e16a33b32eafadafa9a`: XY-C1 #45043730811, AI handoff #45043730831, Process inventory #45043730778, HTTPD security #45043730763 and AliDDNS #45043730798 were IN_PROGRESS at inspection. Current exact-head AliyunDrive and AI reruns are required.
+- No local test, firmware build or hardware validation was performed. L3/L4 remain NOT VERIFIED.
+
+---
 ## 2026-11-22 — Fix AliDDNS fingerprint test root and remove redundant digest
 
 - Parent main SHA: `c32d2d3955b2f986494f070c1272d9fac4add50e`. Exact AliDDNS workflow #45043414686 reached the new fingerprint regression but failed before executing its assertions: the script resolved `ROOT` using `scripts/../..`, which points one directory above the repository; the resulting `sed` path to `trunk/user/aliddns/aliddns.sh` did not exist. Corrected the test root to `scripts/..`.

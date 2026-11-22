@@ -38,6 +38,10 @@ web_ex = WEB_EX_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 binary_test = (ROOT / "scripts/test_aliyundrive_webdav_binary.py").read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(f"AliyunDrive WebDAV lifecycle contract: FAIL: {message}")
+
 require("CONFIG_NC=y" in busybox_config, "BusyBox netcat applet must be enabled for local HTTP readiness probes")
 flock_source = FLOCK_SOURCE_PATH.read_text()
 arch_config = ARCH_CONFIG_PATH.read_text()
@@ -126,10 +130,6 @@ board_aldriver_enabled = sorted(name for name, value in board_template_settings.
 board_aldriver_disabled = sorted(name for name, value in board_template_settings.items() if value == "n")
 board_aldriver_unset = sorted(name for name, value in board_template_settings.items() if value == "unset")
 
-
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise SystemExit(f"AliyunDrive WebDAV lifecycle contract: FAIL: {message}")
 
 
 require(daemon_has_env_credentials,
