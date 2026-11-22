@@ -1,3 +1,9 @@
+## 2026-11-22 — Correct whitespace-free MAN teardown return assertion
+
+- The first checker normalization removed all whitespace from the C function, but its expected literal still retained spaces after commas. This was a second test-only false negative; the expected nested `route_status_accumulate()` string now uses the same whitespace-free form as the normalized source.
+
+---
+
 ## 2026-11-22 — Keep PID 1 boot console setup out of the recovery-child session path
 
 - Review of the first console-attachment commit found an important caller-context distinction: init_console() is called both by PID 1 during normal boot and by a forked recovery-shell child. PID 1 is already a session/process-group leader, so setsid() fails with EPERM there; making that failure fatal would incorrectly mark the normal boot console unavailable.

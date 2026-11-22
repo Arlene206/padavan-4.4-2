@@ -829,7 +829,7 @@ assert "cannot read MAN old address for conntrack cleanup" in man_deconfig
 man_deconfig_compact = "".join(man_deconfig.split())
 assert (
     "route_status_accumulate(route_status_accumulate("
-    "route_status_accumulate(proto_status, interface_status), conntrack_status), cleanup_status)"
+    "route_status_accumulate(proto_status,interface_status),conntrack_status),cleanup_status)"
 ) in man_deconfig_compact
 print("WAN/LAN udhcpc PID-bound no-force stop and AP teardown-abort integration: PASS")
 
