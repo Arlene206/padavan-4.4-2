@@ -90,6 +90,30 @@ dnsmasq_static_arp_hex_value(const char *text, unsigned int *value)
  * Parse one complete /proc/net/arp record. The caller removes its trailing
  * newline first. A seventh token is rejected; trailing whitespace is fine.
  */
+
+static inline int
+dnsmasq_static_arp_header_is_valid(const char *line)
+{
+	char ip[16], address[16], hw[16], type[16], flags[16];
+	char hw_address[16], mask[16], device[16], extra;
+
+	if (!line)
+		return 0;
+	if (sscanf(line, "%15s %15s %15s %15s %15s %15s %15s %15s %15s %c",
+		   ip, address, hw, type, flags, hw_address, mask,
+		   device, &extra) != 9)
+		return 0;
+	return strcmp(ip, "IP") == 0 &&
+	       strcmp(address, "address") == 0 &&
+	       strcmp(hw, "HW") == 0 &&
+	       strcmp(type, "type") == 0 &&
+	       strcmp(flags, "Flags") == 0 &&
+	       strcmp(hw_address, "HW") == 0 &&
+	       strcmp(mask, "address") == 0 &&
+	       strcmp(device, "Mask") == 0 &&
+	       strcmp(extra, "Device") == 0;
+}
+
 static inline int
 dnsmasq_static_arp_record_parse(const char *line,
 				char *ip, size_t ip_size,

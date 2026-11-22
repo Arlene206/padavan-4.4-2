@@ -701,7 +701,11 @@ jobs:
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert '#include "dnsmasq_static_host_policy.h"' in services
           arp_clear = function_body(services, "arpbind_clear(void)")
+          assert "dnsmasq_static_arp_header_is_valid(buffer)" in arp_clear
+          assert "malformed /proc/net/arp header" in arp_clear
           assert "dnsmasq_static_arp_record_parse(" in arp_clear
+          assert "test_static_arp_header_parser" in static_mac_test
+          assert "dnsmasq_static_arp_header_is_valid" in static_mac_policy
           assert "if (!line_end)" in arp_clear
           assert "malformed or truncated /proc/net/arp row" in arp_clear
           assert "if (parse_status != 0)" in arp_clear

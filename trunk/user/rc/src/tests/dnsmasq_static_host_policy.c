@@ -7,6 +7,24 @@
 #include "dnsmasq_static_host_policy.h"
 
 
+
+static void
+test_static_arp_header_parser(void)
+{
+	assert(dnsmasq_static_arp_header_is_valid(
+		"IP address HW type Flags HW address Mask Device"));
+	assert(dnsmasq_static_arp_header_is_valid(
+		"IP address       HW type     Flags       HW address            Mask     Device   "));
+	assert(!dnsmasq_static_arp_header_is_valid(""));
+	assert(!dnsmasq_static_arp_header_is_valid(
+		"IP address HW type Flags HW address Mask"));
+	assert(!dnsmasq_static_arp_header_is_valid(
+		"IP address HW type Flags HW address Mask Device extra"));
+	assert(!dnsmasq_static_arp_header_is_valid(
+		"IP address HW type Flags HW address Device Mask"));
+	assert(!dnsmasq_static_arp_header_is_valid(NULL));
+}
+
 static void
 test_static_arp_record_parser(void)
 {
@@ -232,6 +250,7 @@ test_static_arp_transaction_prevalidates_all_entries(void)
 int
 main(void)
 {
+	test_static_arp_header_parser();
 	test_static_arp_record_parser();
 	test_valid_unicast_mac_text();
 	test_rejects_non_unicast_addresses();

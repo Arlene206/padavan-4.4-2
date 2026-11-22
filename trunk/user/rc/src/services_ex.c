@@ -138,9 +138,23 @@ arpbind_clear(void)
 	if (!fp)
 		return errno ? errno : EIO;
 
-	/* A missing header is not a complete view of the ARP table. */
+	/* A missing, truncated or malformed header is not a complete view. */
 	if (!fgets(buffer, sizeof(buffer), fp)) {
 		result = ferror(fp) ? (errno ? errno : EIO) : EIO;
+		goto done;
+	}
+	line_end = strchr(buffer, '\n');
+	if (!line_end) {
+		result = EIO;
+		logmessage(LOGNAME,
+			   "truncated /proc/net/arp header; static ARP cleanup is incomplete");
+		goto done;
+	}
+	*line_end = '\0';
+	if (!dnsmasq_static_arp_header_is_valid(buffer)) {
+		result = EIO;
+		logmessage(LOGNAME,
+			   "malformed /proc/net/arp header; static ARP cleanup is incomplete");
 		goto done;
 	}
 
