@@ -244,11 +244,15 @@ jobs:
           assert "state->console_shell_pid != pid" in pid1_policy
           assert "state->console_shell_pid = 0;" in pid1_policy
           shell_compact = "".join(shell.split())
-          mask_at = shell_compact.index("sigprocmask(SIG_BLOCK,&child_mask,&saved_mask)")
-          fork_at = shell_compact.index("fork()", mask_at)
+          mask_at = shell_compact.index("pid1_signal_empty_set(sigemptyset,&child_mask)")
+          add_at = shell_compact.index("pid1_signal_add_set(sigaddset,&child_mask,SIGCHLD)", mask_at)
+          block_at = shell_compact.index("pid1_signal_update_mask(sigprocmask,SIG_BLOCK,&child_mask,&saved_mask)", add_at)
+          fork_at = shell_compact.index("fork()", block_at)
           publish_at = shell_compact.index("pid1_signal_record_console_shell(&signal_state,(sig_atomic_t)pid)", fork_at)
           restore_at = shell_compact.index("sigprocmask(SIG_SETMASK,&saved_mask,NULL)", publish_at)
-          assert mask_at < fork_at < publish_at < restore_at
+          assert mask_at < add_at < block_at < fork_at < publish_at < restore_at
+          assert "sigemptyset(&child_mask)" not in shell_compact
+          assert "sigaddset(&child_mask,SIGCHLD)" not in shell_compact
           assert "return-1;" in shell_compact
           main_compact = "".join(main_loop.split())
           assert "if(!noconsole&&!signal_state.console_shell_pid)" in main_compact

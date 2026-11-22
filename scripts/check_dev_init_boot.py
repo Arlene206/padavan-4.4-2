@@ -206,6 +206,16 @@ for token in ("init_signal_set_empty", "init_signal_mask_add_group",
 assert "sigemptyset(&sa.sa_mask)" not in signal_init
 assert "sigaddset(&sa.sa_mask" not in signal_init
 assert "pid1_signal_empty_set" in signal_policy and "pid1_signal_add_set" in signal_policy
+child_shell = c_function(init, "run_shell(int timeout, int nowait)")
+child_shell_compact = "".join(child_shell.split())
+child_mask_at = child_shell_compact.index("pid1_signal_empty_set(sigemptyset,&child_mask)")
+child_add_at = child_shell_compact.index("pid1_signal_add_set(sigaddset,&child_mask,SIGCHLD)", child_mask_at)
+child_block_at = child_shell_compact.index(
+    "pid1_signal_update_mask(sigprocmask,SIG_BLOCK,&child_mask,&saved_mask)", child_add_at)
+child_fork_at = child_shell_compact.index("fork()", child_block_at)
+assert child_mask_at < child_add_at < child_block_at < child_fork_at
+assert "sigemptyset(&child_mask)" not in child_shell_compact
+assert "sigaddset(&child_mask,SIGCHLD)" not in child_shell_compact
 for token in ("fake_signal_empty", "fake_signal_add", "fake_empty_errno = 0",
               "fake_add_errno = 0", "!= EIO", "!= EACCES", "!= ERANGE"):
     assert token in signal_test, "PID 1 signal mask unit case missing: " + token
