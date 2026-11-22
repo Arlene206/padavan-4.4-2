@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prevent stale-pidfile signals and plaintext MentoHUST credential exposure."""
+"""Prevent stale-pidfile signals and plaintext credential exposure in legacy wrappers."""
 from pathlib import Path
 import re
 
@@ -54,8 +54,6 @@ for marker in (
     if marker not in test:
         raise SystemExit(f"legacy wrapper security: FAIL: missing regression marker {marker}")
 
-print("Legacy wrapper stale-pidfile and MentoHUST credential security contracts: PASS")
-
 scutclient = SOURCES[0].read_text()
 credentials_source = (ROOT / "trunk/user/scutclient/patches/scutclient_credentials.c").read_text()
 credentials_patch = (ROOT / "trunk/user/scutclient/patches/0001-private-credentials-file.patch").read_text()
@@ -87,8 +85,8 @@ for token in (
     "opened_stat.st_uid != geteuid()",
     "(opened_stat.st_mode & 07777) != 0600",
     "opened_stat.st_nlink != 1",
-    "lstat(path, &path_stat)",
-    "unlink(path)",
+    "fstatat(dirfd, basename, &path_stat, AT_SYMLINK_NOFOLLOW)",
+    "unlinkat(dirfd, basename, 0)",
     "SCUTCLIENT_CREDENTIALS_MAX 4096",
     "private parent directory",
     'memcmp(buffer, "username=",',
@@ -110,3 +108,5 @@ if not all(token in scutclient_makefile for token in (
     "scutclient_credentials.c",
 )):
     raise SystemExit("SCUTClient package integration: FAIL: overlay is not applied before configuration")
+
+print("Legacy wrapper stale-pidfile and SCUTClient/MentoHUST credential security contracts: PASS")

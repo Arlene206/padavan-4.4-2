@@ -8,11 +8,8 @@ on:
       - "scripts/tests/legacy_wrapper_pidfile_safety.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "scripts/tests/scutclient_credentials_file.sh"
-
       - "scripts/tests/scutclient_credentials_file.c"
-
       - "trunk/user/scutclient/Makefile"
-
       - "trunk/user/scutclient/patches/**"
       - "trunk/user/mentohust/scripts/mentohust.sh"
   pull_request:
@@ -22,11 +19,8 @@ on:
       - "scripts/tests/legacy_wrapper_pidfile_safety.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "scripts/tests/scutclient_credentials_file.sh"
-
       - "scripts/tests/scutclient_credentials_file.c"
-
       - "trunk/user/scutclient/Makefile"
-
       - "trunk/user/scutclient/patches/**"
       - "trunk/user/mentohust/scripts/mentohust.sh"
 
