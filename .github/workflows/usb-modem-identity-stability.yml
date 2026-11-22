@@ -432,7 +432,7 @@ jobs:
           assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
 
           deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
-          assert "modem_wan_hotplug_retry_mask(unplug_modem, plug_modem, modem_unplug_status, modem_plug_status)" in " ".join(deferred_hotplug.split())
+          assert "modem_wan_hotplug_retry_mask(unplug_modem || modem_unplug_pending, modem_hotplug_pending, modem_unplug_status, modem_plug_status)" in " ".join(deferred_hotplug.split())
           deferred_event_code = "".join(deferred_hotplug.split())
           assert 'storage_read_integer_status("usb_unplug_md",0,&modem_unplug_value)' in deferred_event_code
           assert 'storage_read_integer_status("usb_hotplug_md",0,&modem_hotplug_value)' in deferred_event_code
@@ -451,22 +451,26 @@ jobs:
           deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
           assert "int modem_unplug_status = 0;" in deferred_hotplug
           assert "int modem_plug_status = 0;" in deferred_hotplug
-          unplug_start = deferred_hotplug[deferred_hotplug.index("if (unplug_modem)"):deferred_hotplug.index("if (plug_modem && !unplug_modem)")]
-          assert "modem_unplug_status = try_wan_reconnect(1, 0);" in unplug_start
-          assert "modem_unplug_status != 0" in unplug_start
           deferred_compact = "".join(deferred_hotplug.split())
           modem_rule_read = 'storage_read_integer_status("modem_rule",0,&modem_rule_value)'
           modem_rule_policy = 'modem_wan_unplug_event_status(modem_rule_status,modem_rule_value,&unplug_modem)'
-          unplug_ack = 'nvram_set_int_temp("usb_unplug_md",0)'
+          unplug_ack = 'storage_ack_event_marker_status("usb_unplug_md")'
           assert modem_rule_read in deferred_compact
           assert modem_rule_policy in deferred_compact
-          assert deferred_compact.index(modem_rule_read) < deferred_compact.index(modem_rule_policy) < deferred_compact.index('if(modem_rule_status==0)') < deferred_compact.index(unplug_ack)
+          rule_read_pos = deferred_compact.index(modem_rule_read)
+          rule_policy_pos = deferred_compact.index(modem_rule_policy, rule_read_pos)
+          rule_error_pos = deferred_compact.index("if(modem_rule_status!=0)", rule_policy_pos)
+          unplug_start_pos = deferred_compact.index(
+              "if(modem_unplug_pending&&modem_rule_status==0&&unplug_modem)", rule_policy_pos)
+          reconnect_pos = deferred_compact.index("modem_unplug_status=try_wan_reconnect(1,0)", unplug_start_pos)
+          unplug_ack_pos = deferred_compact.index(unplug_ack, reconnect_pos)
+          assert rule_read_pos < rule_policy_pos < rule_error_pos < unplug_start_pos < reconnect_pos < unplug_ack_pos
           assert 'nvram_get_int("modem_rule")' not in deferred_hotplug
           assert "unplug_modem = 1;" in deferred_hotplug
           assert "modem_unplug_status = modem_rule_status;" in deferred_hotplug
           assert "cannot read modem WAN policy; deferring unplug transition" in deferred_hotplug
-          assert "if (unplug_modem)" in deferred_hotplug
-          assert "if (modem_rule_status == 0)" in deferred_hotplug
+          assert "if (modem_rule_status == 0)" not in deferred_hotplug
+          assert "modem_unplug_pending && modem_rule_status == 0 && !unplug_modem" in deferred_hotplug
           assert "test_modem_unplug_rule_read_fails_closed" in retry_test
           assert "test_modem_unplug_rule_read_fails_closed();" in retry_test
           printer_unplug_read = 'storage_read_integer_status("usb_unplug_lp",0,&printer_unplug_value)'
@@ -487,13 +491,13 @@ jobs:
           assert "usb_hotplug_event_pair_status" in event_policy
           assert "test_each_failed_marker_read_preserves_the_pair" in event_test
 
-          plug_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem && !unplug_modem)"): ]
-          assert "modem_plug_status = try_start_usb_modem_to_wan();" in plug_start
-          assert "modem_plug_status != 0" in plug_start
-          assert 'nvram_set_int_temp("usb_unplug_md", 1)' in plug_start
-          assert 'nvram_set_int_temp("usb_hotplug_md", 1)' in plug_start
-          assert plug_start.index('nvram_set_int_temp("usb_unplug_md", 1)') < plug_start.index("alarm(5)")
-          assert plug_start.index('nvram_set_int_temp("usb_hotplug_md", 1)') < plug_start.index("alarm(5)")
+          plug_start = deferred_hotplug[deferred_hotplug.index("if (plug_modem && !unplug_modem && !modem_unplug_pending)"): ]
+          modem_start_pos = plug_start.index("modem_plug_status = try_start_usb_modem_to_wan();")
+          modem_ack_pos = plug_start.index('storage_ack_event_marker_status("usb_hotplug_md")', modem_start_pos)
+          assert modem_start_pos < plug_start.index("modem_plug_status != 0", modem_start_pos) < modem_ack_pos
+          assert 'nvram_set_int_temp("usb_unplug_md", 1)' not in deferred_hotplug
+          assert 'nvram_set_int_temp("usb_hotplug_md", 1)' not in deferred_hotplug
+          assert "alarm(5);" in deferred_hotplug
 
           for marker in (
               'modem_node_manual_index_matches(-1, 0)',

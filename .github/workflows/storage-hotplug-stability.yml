@@ -670,9 +670,14 @@ jobs:
           deferred_printer = function_body(storage, "on_deferred_hotplug_dev(void)")
           assert "printer_start_status = try_start_usb_printer_spoolers();" in deferred_printer
           assert "if (printer_start_status != 0)" in deferred_printer
-          assert deferred_printer.index('nvram_set_int_temp("usb_hotplug_lp", 0)') < deferred_printer.index("printer_start_status = try_start_usb_printer_spoolers();")
-          retry_block = deferred_printer[deferred_printer.index("if (printer_start_status != 0)"): ]
-          assert retry_block.index('nvram_set_int_temp("usb_hotplug_lp", 1)') < retry_block.index("alarm(5)")
+          printer_start_pos = deferred_printer.index("printer_start_status = try_start_usb_printer_spoolers();")
+          printer_ack_pos = deferred_printer.index('storage_ack_event_marker_status("usb_hotplug_lp")', printer_start_pos)
+          printer_failure_pos = deferred_printer.index("if (printer_start_status != 0)", printer_start_pos)
+          assert printer_start_pos < printer_failure_pos < printer_ack_pos
+          assert 'nvram_set_int_temp("usb_hotplug_lp", 0)' not in deferred_printer
+          assert 'nvram_set_int_temp("usb_hotplug_lp", 1)' not in deferred_printer
+          retry_block = deferred_printer[printer_failure_pos:printer_ack_pos]
+          assert "alarm(5)" in retry_block
 
           service_start_test = (rc_dir / "tests/service_start_status.c").read_text()
           assert "test_usb_printer_launchers_preserve_first_failure_and_continue" in service_start_test
