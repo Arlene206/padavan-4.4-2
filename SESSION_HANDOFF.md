@@ -7,11 +7,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; active branch `main`; atomic complete-tree commits and non-forced expected-SHA updates only.
-- Parent main SHA for the checker corrections: `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- WISP checked identity API and fail-closed callers are committed on parent `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`; exact WAN route failed in the new source-check step due to a whitespace-matcher defect, not a C policy test failure.
-- Parent exact runs PASS: NFS #44998118113, DDNSTO #44998118172, Inadyn #44998118085, Wireless #44998117958, Samba #44998117976, OpenVPN client credential #44998118157, DNS Forwarder #44998118065, vsftpd #44998117964, detect_link #44998118027, miniupnpd #44998118058, AliyunDrive #44998118108, Process inventory #44998118134, WAN teardown #44998118022 and IPv6 #44998118141.
-- Parent WAN route #44998118160 failed in its new source contract due to whitespace normalization; HTTPD security #44998118167 failed a stale firewall-source assertion. Both test-contract failures are corrected in THIS COMMIT; no product-source rollback is indicated.
-- Parent XY-C1 #44998117945, AI handoff #44998118765 and several independent suites were still running at last poll. L3 requires same-SHA Build + TRX + artifact; hardware L4 NOT VERIFIED.
+- Parent main SHA for the checker variable-binding fix: `b4366cb27be501905e3c5c7a3a73e8e2e5f9302d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- WISP checked identity API and fail-closed callers are committed. The WAN route matcher was corrected on b436 and reaches the final source assertion, but fails because it references an undefined Python name `nvram_policy_test` instead of the existing `test` fixture.
+- Exact b436 HTTPD Authentication/Security #44998355033 PASS; AI handoff #44998355100 PASS. WAN route #44998355043 failed only at that NameError after the C policy regression compile/run passed.
+- Parent a41 exact XY-C1 was running; no same-SHA Build + TRX + artifact result has been established. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -32,19 +31,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- WISP checked identity source is committed on parent `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`: NVRAM read/validation policy helper and C regression built successfully, but the WAN route Python contract stopped on a formatting-sensitive substring lookup. THIS COMMIT changes only test contracts: strip all C whitespace in WISP assertions and update HTTPD firewall assertions for the checked-MAN input path.
-- Keep the WISP implementation unchanged unless the corrected exact-head contract exposes a real source failure. Then fix any demonstrated product defect and rerun affected SHA checks.
+- Correct the final WAN route checker failure in `scripts/check_wan_dns_read_status.py`: bind WISP helper regression checks to the script's existing `test` fixture rather than an undefined `nvram_policy_test` name. No product source change.
+- After it passes, resume WAN reliability work. One remaining checked-read opportunity is the `x_DHCPClient` NVRAM selector inside `notify_on_wan_ether_link_restored()`; unchecked `nvram_match()` can hide a backend error before DHCP renewal.
 
 ## Verification boundary
 
-- Parent WAN route #44998118160 FAILED at `scripts/check_wan_dns_read_status.py:988` with `ValueError: substring not found`; all C compile/run steps before the checker passed, including the WAN NVRAM policy regression.
-- Parent HTTPD Security #44998118167 FAILED at embedded Python line 863 because its assertion still required the old `man_if_value` getter; earlier HTTPD subchecks in that job passed. The checked firewall source is independently covered by Firewall Startup #44997818203 PASS on ancestor `5a86cca`.
-- Checker-only corrections THIS COMMIT align both consumers; exact reruns must pass before WISP is host-verified.
-- Parent AI docs #44998118765 and XY-C1 #44998117945 were IN_PROGRESS at last poll. No same-SHA L3 result; hardware L4 NOT VERIFIED.
+- Exact b436 WAN route #44998355043 FAILED at line 1030 with `NameError: nvram_policy_test is not defined`; preceding C policy compile/run and source-contract checks passed.
+- Exact b436 HTTPD Authentication/Security #44998355033 PASS and AI handoff #44998355100 PASS.
+- Checker-only variable correction THIS COMMIT awaits exact-head WAN route rerun. WISP source is not claimed host-verified until it passes.
+- No same-SHA XY-C1 Build/TRX/artifact completion verified; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route and HTTPD Authentication/Security runs for THIS COMMIT. WISP source matching must pass with all-whitespace normalization; HTTPD must assert checked MAN read → error gate → token validation → raw rules.
-2. If either checker fails, inspect the exact failed step/log and correct only the demonstrated contract or product defect; do not weaken the behavior.
-3. Poll exact-head XY-C1, AI handoff and independent security/stability runs; L3 requires Build + TRX + artifact on one SHA.
-4. After WISP contracts pass, continue other concrete WAN checked-read gaps or cross-userland high-severity issues; keep backup read-only and hardware L4 unverified.
+1. Check exact-head WAN route after this one-line checker fix; require `scripts/check_wan_dns_read_status.py` to pass its WISP policy registration assertions.
+2. If it passes, implement the checked-read replacement for `nvram_match("x_DHCPClient", "0")` in the link-restored WAN DHCP path, with a focused source contract.
+3. Continue polling exact-head XY-C1; only claim L3 after Build, TRX and artifact all pass on one SHA. Hardware L4 remains unverified.

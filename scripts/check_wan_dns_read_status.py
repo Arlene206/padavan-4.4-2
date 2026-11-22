@@ -1027,8 +1027,8 @@ require(renew_read_at < renew_error_at < renew_active_at < renew_dhcp_at and
 require("int get_wan_wisp_active_status(int *p_is_active, int *p_has_link);" in rc_header,
         "checked WISP status API must be declared in rc.h")
 require("rc_wan_nvram_wisp_active_status" in policy and
-        "test_wisp_active_status_requires_checked_identity" in nvram_policy_test and
-        "test_wisp_active_status_requires_checked_identity();" in nvram_policy_test,
+        "test_wisp_active_status_requires_checked_identity" in test and
+        "test_wisp_active_status_requires_checked_identity();" in test,
         "checked WISP status mapping must have a registered error-precedence regression")
 
 print("WAN IPv6 and WISP checked interface identity/error propagation: PASS")

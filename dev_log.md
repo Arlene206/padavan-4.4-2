@@ -1,3 +1,11 @@
+## 2026-11-22 15:55 CST — Fix WAN checker regression-test variable binding
+
+- Parent main SHA: `b4366cb27be501905e3c5c7a3a73e8e2e5f9302d`. Exact b436 WAN route #44998355043 failed at `scripts/check_wan_dns_read_status.py:1030` with `NameError: nvram_policy_test is not defined`. The test source is already loaded as `test`; WISP policy compile and execution, existing WAN DNS checks and earlier route source contracts all passed. This is a checker-only variable-name defect, not a WISP product-source failure.
+- Exact b436 HTTPD Authentication/Security #44998355033 PASS; AI handoff #44998355100 PASS. The earlier HTTPD stale firewall assertion is resolved.
+- Rebind the new WISP unit-test presence/registration assertions to the existing `test` variable. The WISP C implementation is unchanged. Exact rerun must pass before the WISP slice is called host-verified; no same-SHA L3 claim.
+
+---
+
 ## 2026-11-22 15:47 CST — Align WISP and HTTPD firewall source contracts
 
 - Parent main SHA: `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`. Exact WAN route #44998118160 FAILED in `scripts/check_wan_dns_read_status.py:988`: the new WISP source matcher collapsed runs of whitespace but retained a single separator after a wrapped function-call opening parenthesis. The WISP policy C executable compiled and ran successfully before the Python checker step.
