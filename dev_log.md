@@ -1,3 +1,13 @@
+## 2026-11-22 — Fail closed when WAN startup cannot read its configured interface
+
+- Parent main SHA: `7bd0c10e867a429dfbc7dc2573e211c1963aa580`. Exact 7bd storage hotplug #44995310447 and AI handoff #44995310444 passed. Exact XY-C1 #44995310496 completed host-only validation successfully, but Build XY-C1, TRX verification and artifact upload were skipped because 7bd changed only tests/checkers/handoff; no L3 claim.
+- Confirmed a P1 startup-status loss in `start_wan()`: it called `get_man_ifname()`, which uses `nvram_safe_get()`. A transient NVRAM backend/read/close error was therefore indistinguishable from an empty configured interface and silently skipped WAN startup.
+- Replaced the pointer lookup with `get_wan_unit_value_copy_status()` into a bounded local buffer, retained the established empty/unconfigured no-op, validated non-empty names through `wan_ifname_copy()`, and merged both read/validation failures into the first WAN startup status before any interface setup.
+- Extended `scripts/check_wan_ifname_bounds.py` to pin checked read → empty legacy no-op → validated interface token → network side effects, plus status propagation and removal of the lossy getter from `start_wan()`. Existing WAN interface-name GNU89/ASan/UBSan policy cases and checked NVRAM-copy regression are reused by the existing WAN DHCP workflow.
+- Exact-head WAN DHCP/route and XY-C1 Actions are pending for the new product-source SHA. No local MIPS build or hardware test is claimed. L3/L4 remain unverified.
+
+---
+
 ## 2026-11-22 — Align printer hotplug checker with start-before-ack semantics
 
 - Parent main SHA: `886f9cf54a6abafad251fb444de199e0930446f8`. Exact 1160 storage run #44995018412 passed the storage policy regressions and whole caller graph, then failed in `scripts/check_storage_safe_remove.py:1512`. Its assertion required the printer failure branch to precede `storage_ack_event_marker_status("usb_hotplug_lp")`.

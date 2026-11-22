@@ -7,10 +7,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
-- Parent before current checker correction: `886f9cf54a6abafad251fb444de199e0930446f8`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- Product source includes physical-unplug marker-retention and retry-queue fixes; the notification policy regression passes on exact 886. Storage CI failure on 1160 was a stale printer-start source assertion, now corrected to match start → success-only marker ack → retry branch.
-- Exact 886 notification #44995118883 and AI handoff #44995119002 passed. XY-C1 #44995118906 completed SUCCESS, but Build/TRX/artifact steps were skipped because 886 changed only tests/docs and the firmware-input detector saw no production source diff.
-- Host `cc` available; no local full MIPS toolchain. L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on identical product-source SHA. Hardware L4 NOT VERIFIED.
+- Current product/checker parent for this slice: `7bd0c10e867a429dfbc7dc2573e211c1963aa580`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- Storage retry durability: physical-unplug marker retention and PID 1 retry-queue fallback are in product source; the retry-policy mask regression was corrected. Exact 7bd storage run #44995310447 PASS and AI handoff #44995310444 PASS.
+- Exact 7bd XY-C1 run #44995310496 completed SUCCESS in host-only mode; firmware input detection and host regression steps passed, but Build XY-C1, TRX verification and artifact upload were SKIPPED because the commit only changed tests/checkers/handoff. This is not an L3 firmware build.
+- Newly confirmed P1 WAN startup defect: `start_wan()` used lossy `get_man_ifname()` (`nvram_safe_get`) for `wan0_ifname`; backend/read/close errors became an empty string and silently skipped WAN startup. Current slice replaces it with checked bounded NVRAM copy plus the existing interface-token validator, preserving the legacy empty/unconfigured no-op while propagating failures into `wan_start_status`.
+- No local full MIPS toolchain and no hardware test. L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on an identical product-source SHA; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -31,19 +32,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Exact 1160 storage run #44995018412 passed prior regressions and whole caller graph, then failed at checker line 1512. The checker expected failure branch before marker acknowledgement, but product code correctly launches printer spoolers, acknowledges only after successful start, then executes the error/retry branch on start or acknowledgement failure.
-- Updated assertion to verify start → success guard → marker acknowledgement → failure/retry branch, plus retained-event logging and five-second alarm.
-- 1160 also had a separate PID1 retry-mask test failure; commit 886 corrected its expected mask, and exact PID1 queue workflow now passes.
+- Replaced `start_wan()`'s lossy `get_man_ifname(unit)` lookup with `get_wan_unit_value_copy_status(unit, "ifname", ...)` and `wan_ifname_copy()`. NVRAM backend/read/close errors and invalid interface tokens now contribute to the first WAN startup error; an actually empty legacy interface setting remains a successful no-op.
+- Extended `scripts/check_wan_ifname_bounds.py` to pin the checked read, legacy empty-key handling, checked error aggregation, validation ordering and absence of the lossy getter in `start_wan()`. Existing GNU89/ASan/UBSan WAN interface-name and NVRAM policy regressions remain the runtime/unit coverage.
 
 ## Verification boundary
 
-- Exact 886 SHA: PID 1 notification queue #44995118883 PASS; AI handoff docs #44995119002 PASS; XY-C1 validation #44995118906 SUCCESS, but Build XY-C1, TRX and artifact upload were SKIPPED (no production source input changed). No L3 build is verified.
-- Exact 1160 storage #44995018412 failed at stale printer source-order assertion, after prior C regressions and full caller graph passed. This checker correction requires a fresh storage Actions run.
-- Backup branch unchanged. No local MIPS build and no hardware test; L3/L4 are not verified.
+- Exact 7bd storage #44995310447 PASS and AI handoff docs #44995310444 PASS.
+- Exact 7bd XY-C1 #44995310496 completed SUCCESS in host-only mode, but Build XY-C1, TRX verification and artifact upload were SKIPPED by the production-input detector. No L3 claim for 7bd.
+- This WAN interface-read repair has not yet run exact-head Actions; require WAN DHCP callback/route and XY-C1 checks on the resulting SHA. A product-source change should cause XY-C1 Build/TRX/artifact to execute, but L3 is only verified after all three pass.
+- Backup branch remains unchanged/read-only. No local MIPS build and no hardware test; L3/L4 are not currently verified.
 
 ## Exact first action for the next GPT
 
-1. Poll storage workflow triggered by this checker correction. Confirm safe-remove checker and following persistence gates pass; fix only the next stale contract or real failure.
-2. Review 1160 storage retry implementation against the passing PID1 queue policy; verify no retry-marker error path remains unhandled.
-3. After checker passes, push a genuinely firmware-relevant source slice and verify XY-C1 Build, TRX and artifact upload execute and pass on one SHA. Do not claim L3 from skipped steps.
+1. Check exact-SHA WAN DHCP callback and WAN route runs for the new checked `wan0_ifname` path; fix the first real regression or stale assertion without weakening the fail-closed contract.
+2. Check exact-SHA XY-C1: confirm Build XY-C1, TRX verification and artifact upload actually execute and pass on this production-source SHA. Do not claim L3 if any of the three is skipped.
+3. Continue P1 WAN startup result-propagation review after this interface-name read; avoid repeating completed storage marker/retry work.
 4. Keep backup read-only; hardware L4 remains unverified.

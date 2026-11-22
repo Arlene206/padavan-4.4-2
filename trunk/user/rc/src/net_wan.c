@@ -3328,11 +3328,11 @@ start_wan(void)
 	int wan_start_status = 0, wan_up_status, sysctl_status;
 	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
-	int nvram_status, modem_type;
+	int nvram_status, modem_type, ifname_status;
 #if defined (USE_IPV6)
 	int ipv6_type_status, ipv6_is_sit;
 #endif
-	char *wan_ifname;
+	char wan_ifname[16], wan_ifname_nvram[16];
 
 	if (wan_vars_reset_status != 0) {
 		wan_start_status = wan_vars_reset_status;
@@ -3457,10 +3457,34 @@ start_wan(void)
 			continue;
 		}
 		
-		/* make sure the connection exists and is enabled */
-		wan_ifname = get_man_ifname(unit);
-		if (strlen(wan_ifname) < 1)
+		/*
+		 * Do not let nvram_safe_get() turn a temporary NVRAM read/close error
+		 * into an empty interface name and a successful no-op WAN startup.
+		 * Preserve the legacy empty/unconfigured interface behavior, but make
+		 * backend errors and invalid interface tokens visible to PID 1.
+		 */
+		ifname_status = get_wan_unit_value_copy_status(
+			unit, "ifname", wan_ifname_nvram, sizeof(wan_ifname_nvram));
+		if (ifname_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, ifname_status);
+			logmessage(LOGNAME,
+				   "aborting WAN setup for unit %d: cannot read configured interface name (status=%d)",
+				   unit, ifname_status);
 			continue;
+		}
+		if (!wan_ifname_nvram[0])
+			continue;
+		ifname_status = wan_ifname_copy(
+			wan_ifname, sizeof(wan_ifname), wan_ifname_nvram);
+		if (ifname_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, ifname_status);
+			logmessage(LOGNAME,
+				   "aborting WAN setup for unit %d: invalid configured interface name (status=%d)",
+				   ifname_status);
+			continue;
+		}
 
 #if defined (USE_USB_SUPPORT)
 		/* Do not configure ordinary PPP/Ethernet when modem identity is unknown. */
