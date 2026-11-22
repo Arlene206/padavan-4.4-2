@@ -1,3 +1,10 @@
+## 2026-11-22 — Preserve UNKNOWN process state in Ralink IAPP lifecycle
+
+- Source baseline: `55be802fbc344d9809c9f1a9eb283debb6f64ebf`. The existing IAPP controller delegated process discovery to BusyBox `pidof`, whose exit status 1 is also used for an empty result; it therefore could not distinguish confirmed absence from a failed `/proc` scan. Both start and stop trusted that status as ABSENT, so a procfs inventory failure could launch a duplicate daemon or remove its firewall rules while the daemon remained alive.
+- Replaced the ambiguous `pidof` probe with a bounded procfs inventory: verify the root can be enumerated, inspect every numeric PID's `stat` record, skip processes that disappear during the scan and zombies/dead tasks, and return UNKNOWN when a still-present process cannot be read or parsed. The service only treats a complete scan with no live `ralinkiappd` as ABSENT.
+- Reworked lifecycle fixtures around an injectable procfs root and added regressions for unavailable procfs on start/stop, unreadable per-PID state, and zombie exclusion. CI is the execution boundary; no local router or firmware test is claimed.
+- Exact-head validation pending.
+
 ## 2026-11-22 — QMI credential cleanup inode binding
 
 - Source baseline: `fa03ddb1a15b32552a4ee20dddeee635a468d6f9`. QMI private-credential staging and parser were already integrated; exact USB modem workflow #45073574933, Process lifecycle #45073574919 and NVRAM transaction audit #45073574859 passed on this baseline. XY-C1 run #45073574883 was still in progress at the last poll.

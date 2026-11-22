@@ -120,10 +120,62 @@ iapp_ensure_firewall_rule() {
   return 0
 }
 
+# Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. BusyBox pidof returns
+# the same status for an empty process list and some /proc scan failures, so
+# inspect the complete procfs listing and classify per-PID read failures.
 process_state() {
-  command -v pidof >/dev/null 2>&1 || { log_iapp "pidof unavailable"; return 127; }
-  pidof ralinkiappd >/dev/null 2>&1; rc=$?
-  case "$rc" in 0) return 0 ;; 1) return 1 ;; *) log_iapp "pidof failed (status=$rc)"; return "$rc" ;; esac
+  local proc_root proc_listing proc_pid proc_dir proc_stat proc_name proc_fields proc_state
+
+  proc_root="$IAPPD_PROC_ROOT"
+  [ -n "$proc_root" ] || proc_root=/proc
+  if [ ! -d "$proc_root" ] || [ ! -r "$proc_root" ] || [ ! -x "$proc_root" ]; then
+    log_iapp "process inventory directory is unavailable: $proc_root"
+    return 2
+  fi
+  command -v ls >/dev/null 2>&1 || { log_iapp "ls unavailable for process inventory"; return 127; }
+  proc_listing=$(ls -1 "$proc_root" 2>/dev/null) || {
+    rc=$?
+    log_iapp "cannot enumerate process inventory (status=$rc)"
+    return 2
+  }
+
+  for proc_pid in $proc_listing; do
+    case "$proc_pid" in ''|*[!0-9]*) continue ;; esac
+    proc_dir="$proc_root/$proc_pid"
+    [ -d "$proc_dir" ] || continue
+
+    if IFS= read -r proc_stat < "$proc_dir/stat"; then
+      :
+    else
+      # A disappearing PID is normal. A still-present directory with an
+      # unreadable stat file means the snapshot is incomplete, not ABSENT.
+      if [ -d "$proc_dir" ]; then
+        log_iapp "cannot read process stat for PID $proc_pid"
+        return 2
+      fi
+      continue
+    fi
+
+    case "$proc_stat" in
+      *") "*) ;;
+      *)
+        log_iapp "malformed process stat for PID $proc_pid"
+        return 2
+        ;;
+    esac
+    proc_name=${proc_stat#*(}
+    proc_name=${proc_name%)*}
+    proc_fields=${proc_stat##*) }
+    set -- $proc_fields
+    if [ "$#" -lt 1 ]; then
+      log_iapp "incomplete process stat for PID $proc_pid"
+      return 2
+    fi
+    proc_state=$1
+    case "$proc_state" in Z|X|x) continue ;; esac
+    [ "$proc_name" = "ralinkiappd" ] && return 0
+  done
+  return 1
 }
 
 wait_running() {

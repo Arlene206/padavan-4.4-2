@@ -3,8 +3,9 @@ set -u
 base=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/iappd-test.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
-mkdir -p "$tmp/bin" "$tmp/no-pidof" "$tmp/state"
+mkdir -p "$tmp/bin" "$tmp/state" "$tmp/proc"
 : > "$tmp/commands"; : > "$tmp/daemon"
+PROC_ROOT="$tmp/proc"
 printf "mt76x3_ap\n" > "$tmp/modules"
 printf "rai0: 1\n" > "$tmp/interrupts"
 cat > "$tmp/mock" <<'EOF'
@@ -12,16 +13,17 @@ cat > "$tmp/mock" <<'EOF'
 name=${0##*/}
 echo "$name $*" >> "$COMMAND_LOG"
 case "$name" in
-  pidof)
-    [ "$MOCK_PIDOF" -le 1 ] || exit "$MOCK_PIDOF"
-    [ -f "$STATE_DIR/daemon" ] && { echo 123; exit 0; }
-    exit 1 ;;
   ralinkiappd)
     echo "$*" >> "$DAEMON_LOG"
     if [ "$MOCK_START" -eq 0 ] || [ "$MOCK_PARTIAL_START" -eq 1 ]; then
       : > "$STATE_DIR/daemon"
+      mkdir -p "$PROC_ROOT/123"
+      printf '%s\\n' '123 (ralinkiappd) S 1 2 3' > "$PROC_ROOT/123/stat"
     fi
-    [ "$MOCK_EXIT_AFTER_LAUNCH" -eq 1 ] && rm -f "$STATE_DIR/daemon"
+    if [ "$MOCK_EXIT_AFTER_LAUNCH" -eq 1 ]; then
+      rm -f "$STATE_DIR/daemon"
+      rm -rf "$PROC_ROOT/123"
+    fi
     exit "$MOCK_START" ;;
   sysctl) exit "$MOCK_SYSCTL" ;;
   iptables)
@@ -51,39 +53,63 @@ case "$name" in
     cat "$RULES_FILE"
     exit 0 ;;
   killall)
-    [ "$MOCK_KILLALL" -eq 0 ] && [ "$MOCK_REMOVE" -eq 1 ] && rm -f "$STATE_DIR/daemon"
+    if [ "$MOCK_KILLALL" -eq 0 ] && [ "$MOCK_REMOVE" -eq 1 ]; then
+      rm -f "$STATE_DIR/daemon"
+      rm -rf "$PROC_ROOT/123"
+    fi
     exit "$MOCK_KILLALL" ;;
   sleep|logger) exit 0 ;;
   *) exit 127 ;;
 esac
 EOF
 chmod +x "$tmp/mock"
-for c in pidof ralinkiappd sysctl iptables iptables-save killall sleep logger; do ln -s "$tmp/mock" "$tmp/bin/$c"; done
+for c in ralinkiappd sysctl iptables iptables-save killall sleep logger; do ln -s "$tmp/mock" "$tmp/bin/$c"; done
 ln -s /bin/grep "$tmp/bin/grep"
-ln -s "$tmp/bin/logger" "$tmp/no-pidof/logger"
 export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" DAEMON_LOG="$tmp/daemon" RULES_FILE="$tmp/state/firewall.rules"
 : > "$RULES_FILE"
-export MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1
+export PROC_ROOT IAPPD_PROC_ROOT="$PROC_ROOT"
+export MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1
 export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
 status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
-reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; : > "$RULES_FILE"; MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
+mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\\n' '123 (ralinkiappd) S 1 2 3' > "$PROC_ROOT/123/stat"; : > "$STATE_DIR/daemon"; }
+mark_stopped() { rm -f "$STATE_DIR/daemon"; rm -rf "$PROC_ROOT/123"; }
+reset() { mark_stopped; IAPPD_PROC_ROOT="$PROC_ROOT"; export IAPPD_PROC_ROOT; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; : > "$RULES_FILE"; MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
 
 reset
-rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
-status "$rc" 127
-! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started without pidof"
-
-reset; : > "$STATE_DIR/daemon"
-rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" stop)
-status "$rc" 127
-[ -f "$STATE_DIR/daemon" ] || fail "missing pidof changed daemon state"
-
-reset; MOCK_PIDOF=2
+IAPPD_PROC_ROOT="$tmp/missing-proc"
+export IAPPD_PROC_ROOT
 rc=$(capture_status run start); status "$rc" 2
-! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started with UNKNOWN inventory"
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started with unavailable process inventory"
+! grep -q "^iptables -A " "$COMMAND_LOG" || fail "published firewall with unavailable process inventory"
+
+reset
+mark_running
+IAPPD_PROC_ROOT="$tmp/missing-proc"
+export IAPPD_PROC_ROOT
+rc=$(capture_status run stop); status "$rc" 2
+[ -f "$STATE_DIR/daemon" ] || fail "unknown inventory changed daemon state"
+! grep -q "^killall " "$COMMAND_LOG" || fail "stopped with unavailable process inventory"
+IAPPD_PROC_ROOT="$PROC_ROOT"
+export IAPPD_PROC_ROOT
+
+# A PID that remains present but cannot be inspected makes the snapshot
+# UNKNOWN; do not interpret a partial listing as confirmed absence.
+reset
+mkdir -p "$PROC_ROOT/234/stat"
+rc=$(capture_status run start); status "$rc" 2
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started with an unreadable process stat"
+rm -rf "$PROC_ROOT/234"
+
+# Zombies are not live service instances and must not suppress a fresh launch.
+reset
+mkdir -p "$PROC_ROOT/123"
+printf '%s\\n' '123 (ralinkiappd) Z 1 2 3' > "$PROC_ROOT/123/stat"
+rc=$(capture_status run start); status "$rc" 0
+[ -f "$STATE_DIR/daemon" ] || fail "zombie process suppressed service launch"
+grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "zombie process was treated as running"
 
 reset; MOCK_START=53; MOCK_PARTIAL_START=1
 rc=$(capture_status run start); status "$rc" 53
@@ -174,7 +200,7 @@ rc=$(capture_status run stop); status "$rc" 0
 # An already-running daemon must repair a missing managed firewall rule rather
 # than returning success while its required UDP listener is unreachable.
 reset
-: > "$STATE_DIR/daemon"
+mark_running
 printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
 rc=$(capture_status run start); status "$rc" 0
 [ "$(grep -c "^ralinkiappd " "$COMMAND_LOG")" -eq 0 ] || fail "reconciled start relaunched the daemon"
@@ -183,7 +209,7 @@ rc=$(capture_status run start); status "$rc" 0
 
 # If repair fails, preserve the existing daemon but never report start success.
 reset
-: > "$STATE_DIR/daemon"
+mark_running
 printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
 MOCK_IPTABLES=47; MOCK_IPTABLES_FAIL_AT=1
 rc=$(capture_status run start); status "$rc" 47
@@ -194,7 +220,7 @@ rc=$(capture_status run start); status "$rc" 47
 # A tagged rule with the wrong target is not accepted as a healthy firewall rule.
 # Fail closed rather than treating a tagged DROP rule as an existing ACCEPT rule.
 reset
-: > "$STATE_DIR/daemon"
+mark_running
 printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j DROP' > "$RULES_FILE"
 rc=$(capture_status run start); status "$rc" 1
 [ -f "$STATE_DIR/daemon" ] || fail "conflicting tagged rule stopped the pre-existing daemon"
@@ -236,25 +262,25 @@ rc=$(capture_status run stop); status "$rc" 0
 reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=1
 rc=$(capture_status run start); status "$rc" 42
 
-reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
+reset; mark_running; MOCK_KILLALL=54
 rc=$(capture_status run stop); status "$rc" 54
 [ -f "$STATE_DIR/daemon" ] || fail "failed killall lost daemon marker"
 
-reset; : > "$STATE_DIR/daemon"; MOCK_REMOVE=0
+reset; mark_running; MOCK_REMOVE=0
 rc=$(capture_status run stop); status "$rc" 1
 [ -f "$STATE_DIR/daemon" ] || fail "stop postcondition false positive"
 
-reset; : > "$STATE_DIR/daemon"
+reset; mark_running
 rc=$(capture_status run stop); status "$rc" 0
 [ ! -f "$STATE_DIR/daemon" ] || fail "successful stop left daemon marker"
 
-reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
+reset; mark_running; MOCK_KILLALL=54
 rc=$(capture_status run restart); status "$rc" 54
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "restart ran after failed stop"
 
 reset
 rc=$(capture_status run test); status "$rc" 1
-: > "$STATE_DIR/daemon"
+mark_running
 rc=$(capture_status run test); status "$rc" 0
 rc=$(capture_status run invalid); status "$rc" 1
 echo "Ralink IAPP daemon lifecycle regressions: PASS"
