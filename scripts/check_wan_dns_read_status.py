@@ -480,7 +480,7 @@ cleanup_call = "man_down_internal(wan_ifname,unit,reset_man_address)"
 require(deconfig_proto_read in deconfig and
         "if(proto_status!=0)" in deconfig and
         preserve_underlay in deconfig and
-        deconfig.index(deconfig_proto_read) < deconfig.index("ifconfig(wan_ifname,IFUP,\\"0.0.0.0\\",NULL)") and
+        deconfig.index(deconfig_proto_read) < deconfig.index("ifconfig(wan_ifname,IFUP,") and
         cleanup_call in deconfig and
         deconfig.index(cleanup_call) > deconfig.index("leaseislost") and
         "route_status_accumulate(proto_status" in deconfig,

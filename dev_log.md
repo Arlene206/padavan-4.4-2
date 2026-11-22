@@ -1,3 +1,13 @@
+## 2026-11-22 08:20 CST — Repair WAN protocol source-check syntax and DHCP deconfig contract
+
+- Parent main SHA: `c2fcb3bb5375637cf0ff9a48cc5cd47eb7b62514`.
+- Exact WAN route #44965962990 failed in `check_wan_dns_read_status.py` because a newly added source-contract assertion used an over-escaped quote sequence in a Python string literal. THIS fix shortens the ordering anchor to `ifconfig(wan_ifname,IFUP,`, which still proves the checked protocol read precedes address clearing.
+- Exact WAN DHCP callback run #44965963007 failed its previous return-contract assertion: `udhcpc_deconfig()` now correctly folds `proto_status` into the first-error accumulator, but the older workflow assertion still expected the pre-change two-status expression. THIS workflow-only adjustment now requires the nested `proto_status` → interface → conntrack → route-cleanup aggregation.
+- All other WAN callback test stages before these assertions passed. XY-C1 #44965962988 was still in progress at this checkpoint; target Build/TRX/artifact outcomes must be verified separately on the exact source SHA.
+- Next: check exact-head WAN route, DHCP callback and XY-C1 reruns; then continue the `stop_wan_locked()` / `wan_down_internal()` cleanup audit. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 08:18 CST — Preserve WAN identity and MAN underlay on protocol-read errors
 
 - Parent main SHA: `e29f9cd724cd52d1f501ec48425e4f96fd080587`.
