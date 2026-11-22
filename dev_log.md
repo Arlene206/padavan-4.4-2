@@ -1,3 +1,11 @@
+## 2026-11-22 — Update storage firewall-refresh presence contract
+
+- Parent main SHA: 9553ea5c4331d15f85db2842765dd82cfd428e4d. Exact 595 Storage hotplug #45005582512 failed at the embedded whole-caller-graph checker: lines 473–474 still expected Transmission and Aria start-presence to equal RUNNING, although the new source intentionally requests firewall reconciliation for every state except confirmed ABSENT.
+- THIS CI-only follow-up updates both assertions to the UNKNOWN-inclusive fail-closed condition. The actual 595 caller graph had passed preceding storage lock, mount inventory, eject and Optware assertions; the dedicated source checker for the new firewall-refresh gates had not yet been reached.
+- HTTPD firewall snapshot checker fix at 9553 exact HTTPD Authentication #45005694009 and AI docs #45005694083 PASS. Corrected storage workflow rerun pending; no current product L3 claim.
+
+---
+
 ## 2026-11-22 — Update HTTPD firewall snapshot source contract
 
 - Parent main SHA: `595b2dcb7a927a369d3e29a0aef75a5431fc7e74`. Storage firewall-refresh source commit #595 was under exact-head validation; its storage hotplug, Process, AI docs, NVRAM, Firewall Startup and XY-C1 checks were IN_PROGRESS at last inspection.
