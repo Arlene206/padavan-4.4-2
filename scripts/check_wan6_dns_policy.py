@@ -364,7 +364,7 @@ assert "control_if_ipv6_privacy(wan_ifname, privacy_enabled)" in native_body
 assert "control_if_ipv6_autoconf(wan_ifname, allow_ra)" in native_body
 assert "test_checked_string_match_requires_an_exact_value();" in nvram_test_source
 assert "test_checked_string_match_preserves_backend_errors();" in nvram_test_source
- 
+
 # PPP/non-PPP WAN interface selection is a status-bearing NVRAM input.
 nvram_policy = (ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 nvram_status_test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
@@ -387,3 +387,29 @@ assert "else if (!ipv6_is_ppp)" in ppp_launch_body
 assert "is_wan_ipv6_if_ppp()" not in ppp_launch_body
 assert "test_ipv6_if_ppp_status_preserves_missing_default_and_errors" in nvram_status_test
 assert "test_ipv6_if_ppp_status_preserves_missing_default_and_errors();" in nvram_status_test
+
+# SIT tunnel configuration must be read with checked NVRAM APIs before replacing the existing tunnel.
+nvram_status_test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+sit_body = body(source, "int start_sit_tunnel(")
+sit_copy_helper = body(source, "wan6_read_nvram_copy_status(const char *param_name,")
+sit_int_helper = body(source, "wan6_read_nvram_int_status(const char *param_name,")
+for forbidden in ("nvram_safe_get(", "nvram_get_int(", "get_wan_unit_value(", "get_wan_unit_value_int("):
+    assert forbidden not in sit_body
+for required in ("rc_wan_nvram_copy_value(", "nvram_get_checked(", "rc_wan_nvram_read_int_status("):
+    assert required in sit_copy_helper + sit_int_helper
+for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
+                 '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
+    assert required in sit_body
+for required in ("get_wan_unit_value_int_status(", "get_wan_unit_value_copy_status(",
+                 "WAN6_SIT_READ_CHECK(", "errno = status;"):
+    assert required in sit_body
+sit_first_mutation = sit_body.index("if (is_interface_exist(IFNAME_SIT))")
+assert all(sit_body.index(token) < sit_first_mutation for token in (
+    '"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"', '"6rd_relay"',
+    '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'))
+for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
+                  "test_checked_nvram_copy_preserves_backend_failure",
+                  "test_checked_nvram_copy_rejects_truncation",
+                  "test_checked_integer_read_preserves_missing_default",
+                  "test_checked_integer_read_propagates_backend_errors"):
+    assert test_name in nvram_status_test and test_name + "();" in nvram_status_test

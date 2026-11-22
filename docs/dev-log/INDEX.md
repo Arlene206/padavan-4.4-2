@@ -32,6 +32,7 @@
 | `docs/dev-log/2026/11/part-023.md` | 100 | 2026-11-21 → 2026-11-21 | 109696 | `d896a53f5bd56915dbabb5ec4987a2dc069d8388` |
 | `docs/dev-log/2026/11/part-024.md` | 100 | 2026-11-21 — Snapshot VPN remote-LAN route ACL before route mutation → 2026-11-21 — Fail closed on WAN startup protocol reads | 129424 | `359eae06c5b550cf68dc48710a91ea546551ec8f` |
 | `docs/dev-log/2026/11/part-025.md` | 101 | 2026-11-22 08:04 CST — Repair WAN startup checker to scope the matching error gate → 2026-11-22 — Keep physical storage-unplug cleanup durable until marker acknowledgement | 126105 | `daf3875420e99758082b0d43ab2e4b4b2cd57ab2` |
+| `docs/dev-log/2026/11/part-026.md` | 104 | 2026-11-22 — Align the storage caller-graph regression with durable marker acknowledgement → 2026-11-22 20:06 CST (UTC+8) — Fix the remaining libdisk source-contract whitespace mismatch | 115941 | `1207154a43fd80df1b59c40eb191ec4f73b1dedf` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.

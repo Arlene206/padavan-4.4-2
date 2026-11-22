@@ -764,6 +764,47 @@ char *get_wan_addr6_host(char *p_addr6s)
 	return NULL;
 }
 
+static int
+wan6_checked_nvram_get_callback(void *context, const char *param_name,
+				char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+static int
+wan6_read_nvram_copy_status(const char *param_name, char *destination,
+			    size_t destination_size)
+{
+	return rc_wan_nvram_copy_value(wan6_checked_nvram_get_callback, NULL,
+				       param_name, destination,
+				       destination_size);
+}
+
+static int
+wan6_read_nvram_int_status(const char *param_name, int *value)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &stored_value);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    stored_value, 0, value);
+}
+
+#define WAN6_SIT_READ_CHECK(operation, description) do { \
+	status = (operation); \
+	if (status != 0) { \
+		errno = status; \
+		failure = (description); \
+		goto failed; \
+	} \
+} while (0)
+
 #define WAN6_SIT_CHECK(operation, description) do { \
 	status = (operation); \
 	if (status != 0) { \
@@ -779,6 +820,9 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	int tunnel_created, wan_route_added, written;
 	char *sit_remote, *sit_relay, *sit_ep, *wan_gate6;
 	char wan_addr4_text[INET_ADDRSTRLEN];
+	char sit_remote_value[INET_ADDRSTRLEN];
+	char sit_relay_value[INET_ADDRSTRLEN];
+	char sit_gate6_value[INET6_ADDRSTRLEN + 5];
 	char sit_remote_text[INET_ADDRSTRLEN];
 	char sit_relay_text[INET_ADDRSTRLEN];
 	char wan_gate6_text[INET6_ADDRSTRLEN];
@@ -818,15 +862,21 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	size4 = 0;
 
 	if (ipv6_type == IPV6_6IN4) {
+		WAN6_SIT_READ_CHECK(wan6_read_nvram_copy_status(
+			"ip6_6in4_remote", sit_remote_value,
+			sizeof(sit_remote_value)), "read 6in4 remote endpoint");
 		if (!wan_addr6 || !*wan_addr6 || size6 < 0 ||
-		    format_ipv4_literal(nvram_safe_get("ip6_6in4_remote"),
-				       sit_remote_text, sizeof(sit_remote_text)) < 0) {
+		    format_ipv4_literal(sit_remote_value, sit_remote_text,
+				       sizeof(sit_remote_text)) < 0) {
 			errno = EINVAL;
 			return -1;
 		}
 		sit_remote = sit_remote_text;
 		sit_ep = sit_remote_text;
-		wan_gate6 = get_wan_unit_value(0, "gate6");
+		WAN6_SIT_READ_CHECK(get_wan_unit_value_copy_status(
+			0, "gate6", sit_gate6_value, sizeof(sit_gate6_value)),
+			"read 6in4 IPv6 gateway");
+		wan_gate6 = sit_gate6_value;
 		if (*wan_gate6) {
 			if (format_ipv6_literal(wan_gate6, wan_gate6_text,
 						sizeof(wan_gate6_text), 0) < 0) {
@@ -836,8 +886,11 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 			wan_gate6 = wan_gate6_text;
 		}
 	} else if (ipv6_type == IPV6_6TO4) {
-		if (format_ipv4_literal(nvram_safe_get("ip6_6to4_relay"),
-				       sit_relay_text, sizeof(sit_relay_text)) < 0) {
+		WAN6_SIT_READ_CHECK(wan6_read_nvram_copy_status(
+			"ip6_6to4_relay", sit_relay_value,
+			sizeof(sit_relay_value)), "read 6to4 relay endpoint");
+		if (format_ipv4_literal(sit_relay_value, sit_relay_text,
+				       sizeof(sit_relay_text)) < 0) {
 			errno = EINVAL;
 			return -1;
 		}
@@ -883,11 +936,15 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 			errno = EINVAL;
 			return -1;
 		}
-		size4 = get_wan_unit_value_int(0, "6rd_size");
+		WAN6_SIT_READ_CHECK(get_wan_unit_value_int_status(
+			0, "6rd_size", &size4), "read 6rd IPv4 prefix length");
+		WAN6_SIT_READ_CHECK(get_wan_unit_value_copy_status(
+			0, "6rd_relay", sit_relay_value, sizeof(sit_relay_value)),
+			"read 6rd relay endpoint");
 		if (size4 < 0 || size4 > 32 ||
 		    size6 + 32 - size4 > 128 ||
-		    format_ipv4_literal(get_wan_unit_value(0, "6rd_relay"),
-				       sit_relay_text, sizeof(sit_relay_text)) < 0) {
+		    format_ipv4_literal(sit_relay_value, sit_relay_text,
+			       sizeof(sit_relay_text)) < 0) {
 			errno = EINVAL;
 			return -1;
 		}
@@ -943,8 +1000,10 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 		return -1;
 	}
 
-	sit_mtu = nvram_get_int("ip6_sit_mtu");
-	sit_ttl = nvram_get_int("ip6_sit_ttl");
+	WAN6_SIT_READ_CHECK(wan6_read_nvram_int_status(
+		"ip6_sit_mtu", &sit_mtu), "read SIT MTU");
+	WAN6_SIT_READ_CHECK(wan6_read_nvram_int_status(
+		"ip6_sit_ttl", &sit_ttl), "read SIT TTL");
 	if (sit_mtu < 1280)
 		sit_mtu = 1280;
 	if (sit_ttl < 1)
@@ -1065,6 +1124,7 @@ failed:
 	return status ? status : -1;
 }
 #undef WAN6_SIT_CHECK
+#undef WAN6_SIT_READ_CHECK
 int stop_sit_tunnel(void)
 {
 	if (is_interface_exist(IFNAME_SIT))

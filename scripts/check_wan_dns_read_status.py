@@ -1154,3 +1154,32 @@ ppp_regression = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").re
 require("test_ipv6_if_ppp_status_preserves_missing_default_and_errors" in ppp_regression and
         "test_ipv6_if_ppp_status_preserves_missing_default_and_errors();" in ppp_regression,
         "WAN IPv6 PPP selector missing-default/backend-error regression must be registered")
+
+# SIT tunnel configuration must be read with checked NVRAM APIs before replacing the existing tunnel.
+sit_body = body(wan6_source, "int start_sit_tunnel(")
+sit_copy_helper = body(wan6_source, "wan6_read_nvram_copy_status(const char *param_name,")
+sit_int_helper = body(wan6_source, "wan6_read_nvram_int_status(const char *param_name,")
+for forbidden in ("nvram_safe_get(", "nvram_get_int(", "get_wan_unit_value(", "get_wan_unit_value_int("):
+    require(forbidden not in sit_body, "SIT startup must not collapse NVRAM read errors: " + forbidden)
+for required in ("rc_wan_nvram_copy_value(", "nvram_get_checked(", "rc_wan_nvram_read_int_status("):
+    require(required in sit_copy_helper + sit_int_helper,
+            "SIT startup checked-read helper missing: " + required)
+for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
+                 '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
+    require(required in sit_body, "SIT configuration selector missing: " + required)
+for required in ("get_wan_unit_value_int_status(", "get_wan_unit_value_copy_status(",
+                 "WAN6_SIT_READ_CHECK(", "errno = status;"):
+    require(required in sit_body, "SIT read errors must be propagated: " + required)
+first_mutation = sit_body.index("if (is_interface_exist(IFNAME_SIT))")
+for key in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
+            '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
+    require(sit_body.index(key) < first_mutation,
+            "SIT selector read must precede tunnel mutation: " + key)
+sit_policy_test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
+                  "test_checked_nvram_copy_preserves_backend_failure",
+                  "test_checked_nvram_copy_rejects_truncation",
+                  "test_checked_integer_read_preserves_missing_default",
+                  "test_checked_integer_read_propagates_backend_errors"):
+    require(test_name in sit_policy_test and test_name + "();" in sit_policy_test,
+            "SIT checked-read regression must be registered: " + test_name)
