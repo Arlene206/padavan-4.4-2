@@ -90,7 +90,16 @@ assert "sed -i" not in change
 assert "server=127.0.0.1#$sdns_port" in change
 assert 'smartdns_dnsmasq_publish_managed_block "$@"' in change
 assert '>> "$dnsmasq_Conf"' not in change
+adbyby_change = body(smartdns, "Change_adbyby")
+for token in ("if nvram set adbyby_add=0; then", "if nvram set adbyby_add=1; then",
+              'return "$adbyby_nvram_status"'):
+    assert token in adbyby_change, token
+assert adbyby_change.index("nvram set adbyby_add=0") < adbyby_change.index('hosts_type="dnsmasq"')
+assert adbyby_change.index("nvram set adbyby_add=1") < adbyby_change.index('hosts_type="SmartDNS"')
+
 start = body(smartdns, "Start_smartdns")
+assert 'if Change_adbyby; then' in start
+assert 'smartdns_restore_previous_instance || :' in start[start.index('if Change_adbyby; then'):start.index('sdns_redirected=')]
 clean_at = start.find("smartdns_dnsmasq_remove_saved_directives")
 write_at = start.find("smartdns_write_ini_state")
 publish_at = start.find("Change_dnsmasq start")
@@ -98,6 +107,9 @@ assert clean_at >= 0 and write_at > clean_at and publish_at > write_at
 assert 'sdns_ported="$sdns_port"' in start and 'sdns_redirected="$sdns_redirect"' in start
 assert "smartdns_state_version=managed-v1" in start
 stop = body(smartdns, "Stop_smartdns")
+assert 'if Change_adbyby; then' in stop
+assert stop.index("smartdns_stop_process") < stop.index('if Change_adbyby; then') < stop.index("Change_iptable")
+assert 'return "$smartdns_adbyby_status"' in stop
 assert "Change_dnsmasq stop" in stop and "DNSMasq resolver cleanup incomplete" in stop
 assert 'return "$smartdns_dnsmasq_status"' in stop
 
@@ -114,6 +126,7 @@ for token in ("managed-block publication is atomic and preserves same-valued use
               "all DNSMasq preliminary AWK scan failures propagate without changing live config",
               "rename failure preserves original config",
               "failed managed-block publication leaves original config intact",
+              "Adbyby NVRAM failures preserve the active DNS target and propagate status",
               "SmartDNS DNSMasq configuration preservation regression: PASS"):
     assert token in test, token
 

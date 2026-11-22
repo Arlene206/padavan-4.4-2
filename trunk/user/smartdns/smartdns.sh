@@ -511,7 +511,13 @@ Change_adbyby () {
     case $sdns_enable in
     0)
         if [ $(nvram get adbyby_add) = 1 ] && [ "$hosts_type" != "dnsmasq" ]; then
-            nvram set adbyby_add=0
+            if nvram set adbyby_add=0; then
+                :
+            else
+                adbyby_nvram_status=$?
+                logger -t "SmartDNS" "Failed to persist adbyby_add=0 (status=$adbyby_nvram_status)"
+                return "$adbyby_nvram_status"
+            fi
             /usr/bin/adbyby.sh switch
             logger -t "SmartDNS" "DNS 去广告规则: SmartDNS ⇒ DNSmasq"
             hosts_type="dnsmasq"
@@ -520,7 +526,13 @@ Change_adbyby () {
     1)
         if [ "$hosts_type" != "SmartDNS" ] && [ "$action" = "start" ] ; then
             if [ "$sdns_port" = "53" ] || [ $(nvram get adbyby_add) = 1 ] || [ "$sdns_redirect" = "2" ] ; then
-                nvram set adbyby_add=1
+                if nvram set adbyby_add=1; then
+                    :
+                else
+                    adbyby_nvram_status=$?
+                    logger -t "SmartDNS" "Failed to persist adbyby_add=1 (status=$adbyby_nvram_status)"
+                    return "$adbyby_nvram_status"
+                fi
                 /usr/bin/adbyby.sh switch
                 logger -t "SmartDNS" "DNS 去广告规则: DNSmasq ⇒ SmartDNS"
                 hosts_type="SmartDNS"
@@ -738,7 +750,14 @@ Start_smartdns () {
         fi
     fi
     [ "$sdns_enable" -eq 0 ] && nvram set sdns_enable=1 && sdns_enable=1
-    Change_adbyby
+    if Change_adbyby; then
+        :
+    else
+        smartdns_adbyby_status=$?
+        logger -t "SmartDNS" "Adbyby DNS target transition failed; restoring previous SmartDNS instance (status=$smartdns_adbyby_status)"
+        smartdns_restore_previous_instance || :
+        return "$smartdns_adbyby_status"
+    fi
     sdns_redirected="$sdns_redirect"
     sdns_ported="$sdns_port"
     smartdns_state_version=managed-v1
@@ -924,7 +943,13 @@ Stop_smartdns () {
     fi
 
     logger -t "SmartDNS" "结束 SmartDNS 进程..."
-    Change_adbyby
+    if Change_adbyby; then
+        :
+    else
+        smartdns_adbyby_status=$?
+        logger -t "SmartDNS" "Adbyby DNS target transition failed; preserving SmartDNS retry state (status=$smartdns_adbyby_status)"
+        return "$smartdns_adbyby_status"
+    fi
     Change_iptable
     if [ "$sdns_enable" = 0 ] ; then
         rm -f "$smartdns_Ini"

@@ -188,6 +188,58 @@ cmp -s "$F" "$T/publish-before-mv" || fail "failed publication changed live DNSM
 for tmp in "$F".tmp.*; do [ ! -e "$tmp" ] || fail "publish leaked temporary file"; done
 pass "failed managed-block publication leaves original config intact"
 
+# A failed NVRAM update must not make the active host mode disagree with
+# the persistent adbyby_add setting. Exercise both transition directions.
+SMARTDNS_SOURCE="$HERE/../smartdns.sh"
+sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE" > "$T/change-adbyby.sh"
+[ -s "$T/change-adbyby.sh" ] || fail "Change_adbyby helper missing"
+. "$T/change-adbyby.sh"
+NVRAM_ADDBYBY_VALUE=1
+NVRAM_SET_STATUS=37
+pidof() { [ "${1:-}" = adbyby ] || return 1; printf '123\n'; }
+nvram() {
+    case "${1:-} ${2:-}" in
+        "get adbyby_enable") printf '1\n' ;;
+        "get adbyby_add") printf '%s\n' "$NVRAM_ADDBYBY_VALUE" ;;
+        "set adbyby_add=0"|"set adbyby_add=1") return "$NVRAM_SET_STATUS" ;;
+        *) return 2 ;;
+    esac
+}
+logger() { printf '%s\n' "$*" >> "$T/adbyby.log"; }
+
+: > "$T/adbyby.log"
+sdns_enable=0
+hosts_type=SmartDNS
+action=start
+if Change_adbyby; then
+    fail "failed SmartDNS-to-DNSMasq NVRAM transition was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 37 ] || fail "SmartDNS-to-DNSMasq NVRAM status changed to $status"
+[ "$hosts_type" = SmartDNS ] || fail "failed DNSMasq transition changed active host mode"
+[ "$NVRAM_ADDBYBY_VALUE" = 1 ] || fail "failed DNSMasq transition changed mock persistent value"
+grep -Fq 'Failed to persist adbyby_add=0' "$T/adbyby.log" || fail "DNSMasq transition failure was not logged"
+! grep -Fq 'DNS 去广告规则:' "$T/adbyby.log" || fail "failed DNSMasq transition was reported as successful"
+
+: > "$T/adbyby.log"
+NVRAM_ADDBYBY_VALUE=0
+sdns_enable=1
+hosts_type=dnsmasq
+sdns_port=6053
+sdns_redirect=2
+if Change_adbyby; then
+    fail "failed DNSMasq-to-SmartDNS NVRAM transition was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 37 ] || fail "SmartDNS transition NVRAM status changed to $status"
+[ "$hosts_type" = dnsmasq ] || fail "failed SmartDNS transition changed active host mode"
+[ "$NVRAM_ADDBYBY_VALUE" = 0 ] || fail "failed SmartDNS transition changed mock persistent value"
+grep -Fq 'Failed to persist adbyby_add=1' "$T/adbyby.log" || fail "SmartDNS transition failure was not logged"
+! grep -Fq 'DNS 去广告规则:' "$T/adbyby.log" || fail "failed SmartDNS transition was reported as successful"
+pass "Adbyby NVRAM failures preserve the active DNS target and propagate status"
+
 [ "$(smartdns_dnsmasq_normalize_port 00053)" = 53 ] || fail "port normalization failed"
 for bad in '' 0 65536 999999 abc 000000; do
 	if smartdns_dnsmasq_normalize_port "$bad" >/dev/null; then fail "invalid port accepted"; fi
