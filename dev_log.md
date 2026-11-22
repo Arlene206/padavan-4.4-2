@@ -1,3 +1,11 @@
+## 2026-11-21 19:35 PST — Match combined WAN route status declaration in inline contract
+
+- Parent main SHA: `de582a224e9bb20c3e6dbfe311d926f5096de19d`.
+- Exact WAN-route #44979536359 passed the updated shared `check_wan_firewall_status.py` and all preceding GNU89/Werror/ASan/UBSan route and NVRAM policy binaries, then failed at inline Python line 491. The checker expected standalone `int route_snapshot_status;`; `wan_up_internal()` actually declares `int route_snapshot_status, wan_addr_status, wan_mask_status, wan_gate_status;`.
+- Updated the assertion to match the exact combined production declaration. No product source or behavioral assertion changed; the current XY-C1 run #44979536417 was pending at this check. Exact WAN/XY reruns required, no L3 claim for the WAN source SHA.
+
+---
+
 ## 2026-11-21 19:27 PST — Align WAN firewall umbrella contract with checked route snapshot
 
 - Parent main SHA: `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`.

@@ -924,7 +924,7 @@ jobs:
           wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int" + chr(10) + "wan_up_internal(" in wan
           assert "gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);" in wan_up
-          assert "int route_snapshot_status;" in wan_up
+          assert "int route_snapshot_status, wan_addr_status, wan_mask_status, wan_gate_status;" in wan_up
           wan_up_compact = "".join(wan_up.split())
           route_snapshot_call = "route_snapshot_status=wan_unit_route_snapshot(unit,wan_gate,sizeof(wan_gate),wan_addr,sizeof(wan_addr),wan_mask,sizeof(wan_mask));"
           route_snapshot_fallback = 'wan_gate_status=get_wan_unit_value_copy_status(unit,"gateway",wan_gate,sizeof(wan_gate));'
