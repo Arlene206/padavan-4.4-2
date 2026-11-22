@@ -76,14 +76,21 @@ if '-u "$scutclient_username_value" -p "$scutclient_password_value"' in scutclie
     raise SystemExit("SCUTClient credential security: FAIL: plaintext credentials remain in process argv")
 for token in (
     "O_NOFOLLOW",
+    "O_DIRECTORY",
+    "AT_SYMLINK_NOFOLLOW",
+    "openat(dirfd, basename",
+    "fstatat(dirfd, basename",
+    "unlinkat(dirfd, basename",
+    "(directory_stat.st_mode & 07777) != 0700",
     "fstat(fd, &opened_stat)",
     "S_ISREG(opened_stat.st_mode)",
     "opened_stat.st_uid != geteuid()",
-    "(opened_stat.st_mode & 0777) != 0600",
+    "(opened_stat.st_mode & 07777) != 0600",
     "opened_stat.st_nlink != 1",
     "lstat(path, &path_stat)",
     "unlink(path)",
     "SCUTCLIENT_CREDENTIALS_MAX 4096",
+    "private parent directory",
     'memcmp(buffer, "username=",',
     'memcmp(pass_start, "password=",',
 ):

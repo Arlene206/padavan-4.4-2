@@ -176,6 +176,51 @@ int main(void)
 	expect_rejected(path, 1, "oversized credential file was accepted");
 	unlink(path);
 
+	make_path(path, sizeof(path), "special-mode");
+	create_file(path, "username=alice\npassword=secret\n", 04600);
+	expect_rejected(path, 1, "setuid credential file was accepted");
+	unlink(path);
+
+	{
+		char public_dir[512];
+		if (snprintf(public_dir, sizeof(public_dir), "%s/public-dir", test_dir) >= (int)sizeof(public_dir))
+			fail("public directory test path overflow");
+		if (mkdir(public_dir, 0755) < 0)
+			fail("cannot create public directory fixture");
+		if (snprintf(path, sizeof(path), "%s/credentials", public_dir) >= (int)sizeof(path))
+			fail("public credential test path overflow");
+		create_file(path, "username=alice\npassword=secret\n", 0600);
+		expect_rejected(path, 1, "credential file in non-private directory was accepted");
+		unlink(path);
+		if (rmdir(public_dir) < 0)
+			fail("public directory fixture was not cleaned");
+	}
+
+	{
+		char target_dir[512];
+		char link_dir[512];
+		if (snprintf(target_dir, sizeof(target_dir), "%s/private-target", test_dir) >= (int)sizeof(target_dir) ||
+		    snprintf(link_dir, sizeof(link_dir), "%s/private-link", test_dir) >= (int)sizeof(link_dir))
+			fail("symlink directory test path overflow");
+		if (mkdir(target_dir, 0700) < 0)
+			fail("cannot create private target directory");
+		if (snprintf(path, sizeof(path), "%s/credentials", target_dir) >= (int)sizeof(path))
+			fail("symlink directory credential path overflow");
+		create_file(path, "username=alice\npassword=secret\n", 0600);
+		if (symlink(target_dir, link_dir) < 0)
+			fail("cannot create directory symlink fixture");
+		{
+			char link_path[512];
+			if (snprintf(link_path, sizeof(link_path), "%s/credentials", link_dir) >= (int)sizeof(link_path))
+				fail("symlink directory path overflow");
+			expect_rejected(link_path, 1, "symlink credential directory was accepted");
+		}
+		unlink(path);
+		if (rmdir(target_dir) < 0)
+			fail("private target directory was not cleaned");
+		unlink(link_dir);
+	}
+
 	if (rmdir(test_dir) < 0)
 		fail("credential test directory was not clean");
 	puts("SCUTClient private credential file validation: PASS");

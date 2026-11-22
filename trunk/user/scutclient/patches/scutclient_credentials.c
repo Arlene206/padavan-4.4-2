@@ -15,6 +15,12 @@
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
 #endif
+#ifndef O_DIRECTORY
+#error "SCUTClient credential directories require O_DIRECTORY support"
+#endif
+#ifndef AT_SYMLINK_NOFOLLOW
+#error "SCUTClient credential directories require AT_SYMLINK_NOFOLLOW support"
+#endif
 
 #define SCUTCLIENT_CREDENTIALS_MAX 4096
 
@@ -33,9 +39,15 @@ static void scutclient_credentials_wipe(void *memory, size_t length)
 int scutclient_load_credentials_file(const char *path, char **username, char **password)
 {
 	int fd = -1;
+	int dirfd = -1;
 	int saved_errno = 0;
+	struct stat directory_stat;
 	struct stat opened_stat;
 	struct stat path_stat;
+	char *path_copy = NULL;
+	char *directory_path = NULL;
+	char *basename = NULL;
+	char *slash;
 	char buffer[SCUTCLIENT_CREDENTIALS_MAX + 1];
 	size_t used = 0;
 	ssize_t count;
@@ -55,30 +67,70 @@ int scutclient_load_credentials_file(const char *path, char **username, char **p
 	*username = NULL;
 	*password = NULL;
 
-	fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
-	if (fd < 0)
-		return -1;
+	/* Split the path, then pin its private parent directory with a file descriptor. */
+	path_copy = strdup(path);
+	if (!path_copy)
+		goto fail;
+	slash = strrchr(path_copy, '/');
+	if (!slash) {
+		directory_path = strdup(".");
+		basename = strdup(path_copy);
+	} else {
+		basename = strdup(slash + 1);
+		if (slash == path_copy)
+			directory_path = strdup("/");
+		else {
+			*slash = '\0';
+			directory_path = strdup(path_copy);
+		}
+	}
+	if (!directory_path || !basename) {
+		errno = ENOMEM;
+		goto fail;
+	}
+	if (!basename[0] || strcmp(basename, ".") == 0 || strcmp(basename, "..") == 0) {
+		errno = EINVAL;
+		goto fail;
+	}
+	dirfd = open(directory_path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	if (dirfd < 0)
+		goto fail;
+	if (fstat(dirfd, &directory_stat) < 0)
+		goto fail;
+	if (!S_ISDIR(directory_stat.st_mode) || directory_stat.st_uid != geteuid() ||
+	    (directory_stat.st_mode & 07777) != 0700) {
+		errno = EPERM;
+		goto fail;
+	}
 
+	fd = openat(dirfd, basename, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0)
+		goto fail;
 	if (fstat(fd, &opened_stat) < 0)
 		goto fail;
 	if (!S_ISREG(opened_stat.st_mode) || opened_stat.st_uid != geteuid() ||
-	    (opened_stat.st_mode & 0777) != 0600 || opened_stat.st_nlink != 1 ||
+	    (opened_stat.st_mode & 07777) != 0600 || opened_stat.st_nlink != 1 ||
 	    opened_stat.st_size < 1 ||
 	    opened_stat.st_size > SCUTCLIENT_CREDENTIALS_MAX) {
 		errno = EPERM;
 		goto fail;
 	}
 
-	/* The wrapper stores this in a private mode-0700 directory. Verify inode. */
-	if (lstat(path, &path_stat) < 0)
+	/* Verify the pinned directory entry still names the file we opened. */
+	if (fstatat(dirfd, basename, &path_stat, AT_SYMLINK_NOFOLLOW) < 0)
 		goto fail;
 	if (!S_ISREG(path_stat.st_mode) || path_stat.st_dev != opened_stat.st_dev ||
 	    path_stat.st_ino != opened_stat.st_ino) {
 		errno = EPERM;
 		goto fail;
 	}
-	if (unlink(path) < 0)
+	if (unlinkat(dirfd, basename, 0) < 0)
 		goto fail;
+	if (close(dirfd) < 0) {
+		dirfd = -1;
+		goto fail;
+	}
+	dirfd = -1;
 
 	/* Remove the pathname before reading or parsing credential bytes. */
 	while (used < sizeof(buffer)) {
@@ -147,12 +199,17 @@ int scutclient_load_credentials_file(const char *path, char **username, char **p
 	scutclient_credentials_wipe(buffer, sizeof(buffer));
 	*username = user_copy;
 	*password = pass_copy;
+	free(basename);
+	free(directory_path);
+	free(path_copy);
 	return 0;
 
 fail:
 	saved_errno = errno ? errno : EINVAL;
 	if (fd >= 0)
 		close(fd);
+	if (dirfd >= 0)
+		close(dirfd);
 	if (user_copy) {
 		scutclient_credentials_wipe(user_copy, strlen(user_copy));
 		free(user_copy);
@@ -162,6 +219,9 @@ fail:
 		free(pass_copy);
 	}
 	scutclient_credentials_wipe(buffer, sizeof(buffer));
+	free(basename);
+	free(directory_path);
+	free(path_copy);
 	errno = saved_errno;
 	return -1;
 }
