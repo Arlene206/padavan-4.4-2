@@ -33,6 +33,9 @@ extract_function "aliddns_interval_normalize() {"
 extract_function "aliddns_nvram_read_checked() {"
 extract_function "aliddns_enable_initialize() {"
 extract_function "aliddns_nvram_write_checked() {"
+extract_function "aliddns_restart_lock_write() {"
+extract_function "aliddns_restart_lock_remove() {"
+extract_function "aliddns_restart () {"
 extract_function "aliddns_get_status () {"
 extract_function "aliddns_restart_cancel_requested() {"
 extract_function "aliddns_lifecycle_lock_path() {"
@@ -276,6 +279,42 @@ fi
 [ "$nvram_status" -eq 68 ] || { echo "status reset write status changed to $nvram_status" >&2; exit 1; }
 grep -Fq 'NVRAM write failed for aliddns_status' "$NVRAM_LOG" || { echo "status reset write failure was not logged" >&2; exit 1; }
 echo "AliDDNS retry and relaunch NVRAM writes propagate backend errors: PASS"
+
+# The retry lock is authoritative: failed writes/removals and symlink paths
+# must not be reported as a successful retry-state transition.
+: > "$TEST_DIR/restart-lock-target"
+ln -s "$TEST_DIR/restart-lock-target" "$TEST_DIR/restart-lock-symlink"
+if aliddns_restart_lock_write "$TEST_DIR/restart-lock-symlink" 19; then
+	echo "AliDDNS followed a symlink while writing the retry lock" >&2
+	exit 1
+else
+	lock_status=$?
+fi
+[ "$lock_status" -ne 0 ] || { echo "symlink retry-lock write returned success" >&2; exit 1; }
+[ ! -s "$TEST_DIR/restart-lock-target" ] || { echo "symlink retry-lock write modified its target" >&2; exit 1; }
+if aliddns_restart_lock_write "$LOCK_DIR" 19; then
+	echo "AliDDNS accepted a retry-lock write to a directory" >&2
+	exit 1
+else
+	lock_status=$?
+fi
+[ "$lock_status" -ne 0 ] || { echo "directory retry-lock write returned success" >&2; exit 1; }
+ALIDDNS_RELOCK_PATH="$TEST_DIR/restart-lock"
+printf '%s\n' 19 > "$ALIDDNS_RELOCK_PATH"
+rm() { return 69; }
+if aliddns_restart o; then
+	echo "AliDDNS accepted a failed retry-lock removal" >&2
+	exit 1
+else
+	lock_status=$?
+fi
+[ "$lock_status" -eq 69 ] || { echo "retry-lock removal status changed to $lock_status" >&2; exit 1; }
+[ -f "$ALIDDNS_RELOCK_PATH" ] || { echo "failed retry-lock removal lost the lock file" >&2; exit 1; }
+rm() { command rm "$@"; }
+aliddns_restart_lock_remove "$ALIDDNS_RELOCK_PATH" || { echo "retry-lock removal failed unexpectedly" >&2; exit 1; }
+[ ! -e "$ALIDDNS_RELOCK_PATH" ] || { echo "retry-lock removal left a stale lock file" >&2; exit 1; }
+unset ALIDDNS_RELOCK_PATH
+echo "AliDDNS retry lock writes and removals fail closed on filesystem errors: PASS"
 
 logger() {
 	:

@@ -302,6 +302,7 @@ for marker in (
     "AliDDNS fingerprint NVRAM read/write failures preserve the last-known restart state: PASS",
     "AliDDNS retry cancellation checks preserve state on NVRAM read errors: PASS",
     "AliDDNS retry and relaunch NVRAM writes propagate backend errors: PASS",
+    "AliDDNS retry lock writes and removals fail closed on filesystem errors: PASS",
 ):
     require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and
@@ -595,6 +596,17 @@ require('nvram set "$1=$2"' in nvram_writer and
         "nvram set aliddns_renum" not in restart_loop and
         "nvram set aliddns_status=0" not in restart_loop,
         "retry and relaunch state writes must not be silently discarded")
+lock_writer = function_body(source, "aliddns_restart_lock_write() {")
+lock_remover = function_body(source, "aliddns_restart_lock_remove() {")
+require('[ -L "$1" ]' in lock_writer and
+        'return "$aliddns_lock_status"' in lock_writer and
+        'rm -f "$1"' in lock_remover and
+        'return "$aliddns_lock_status"' in lock_remover and
+        'aliddns_restart_lock_write "$relock" "$I" || return $?' in restart_loop and
+        'aliddns_restart_lock_remove "$relock" || return $?' in restart_loop and
+        "echo $I > $relock" not in restart_loop and
+        "rm -f $relock" not in restart_loop,
+        "retry-lock filesystem operations must be checked and reject symlinks")
 require("aliddns_config_fingerprint.sh" in workflow and
         "AliDDNS unambiguous configuration fingerprint regression: PASS" in
         (ROOT / "scripts/test_aliddns_config_fingerprint.sh").read_text(),

@@ -146,10 +146,10 @@ fi
 
 aliddns_restart () {
 
-relock="/var/lock/aliddns_restart.lock"
+relock="${ALIDDNS_RELOCK_PATH:-/var/lock/aliddns_restart.lock}"
 if [ "$1" = "o" ] ; then
 	aliddns_nvram_write_checked aliddns_renum 0 || return $?
-	[ -f $relock ] && rm -f $relock
+	aliddns_restart_lock_remove "$relock" || return $?
 	return 0
 fi
 if [ "$1" = "x" ] ; then
@@ -162,11 +162,11 @@ if [ "$1" = "x" ] ; then
 	aliddns_nvram_write_checked aliddns_renum "$aliddns_renum" || return $?
 	if [ "$aliddns_renum" -gt "2" ] ; then
 		I=19
-		echo $I > $relock
+		aliddns_restart_lock_write "$relock" "$I" || return $?
 		logger -t "【aliddns】" "多次尝试启动失败，等待【"`cat $relock`"分钟】后自动尝试重新启动"
 		while [ $I -gt 0 ]; do
 			I=$(($I - 1))
-			echo $I > $relock
+			aliddns_restart_lock_write "$relock" "$I" || return $?
 			sleep 60
 			if aliddns_restart_cancel_requested; then
 				exit 0
@@ -175,11 +175,43 @@ if [ "$1" = "x" ] ; then
 		done
 		aliddns_nvram_write_checked aliddns_renum 0 || return $?
 	fi
-	[ -f $relock ] && rm -f $relock
+	aliddns_restart_lock_remove "$relock" || return $?
 fi
 aliddns_nvram_write_checked aliddns_status 0 || return $?
 "$scriptfilepath" start 9>&- &
 exit 0
+}
+
+aliddns_restart_lock_write() {
+	[ "$#" -eq 2 ] || return 2
+	if [ -L "$1" ]; then
+		logger -t "AliDDNS" "拒绝写入符号链接重启锁：$1"
+		return 1
+	fi
+	printf '%s\n' "$2" > "$1"
+	aliddns_lock_status=$?
+	if [ "$aliddns_lock_status" -ne 0 ]; then
+		logger -t "AliDDNS" "重启锁写入失败：$1 (status=$aliddns_lock_status)"
+		return "$aliddns_lock_status"
+	fi
+	return 0
+}
+
+aliddns_restart_lock_remove() {
+	[ "$#" -eq 1 ] || return 2
+	if [ -e "$1" ] || [ -L "$1" ]; then
+		if [ ! -f "$1" ] && [ ! -L "$1" ]; then
+			logger -t "AliDDNS" "拒绝移除非普通文件重启锁：$1"
+			return 1
+		fi
+		rm -f "$1"
+		aliddns_lock_status=$?
+		if [ "$aliddns_lock_status" -ne 0 ]; then
+			logger -t "AliDDNS" "重启锁移除失败：$1 (status=$aliddns_lock_status)"
+			return "$aliddns_lock_status"
+		fi
+	fi
+	return 0
 }
 
 aliddns_restart_cancel_requested() {
