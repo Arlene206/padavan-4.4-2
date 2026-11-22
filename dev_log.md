@@ -1,3 +1,11 @@
+## 2026-11-22 10:18 CST — Remove certificate private keys after mode-protection failure
+
+- Parent main SHA: `456c8176cc81209f0b75c2bc5f7d156589810870`; exact OpenVPN certificate private-key workflow #44975381015 PASS on that SHA, including `bash -n` and the expanded crypto failure/permissions regression.
+- Follow-up review found `make_cert()` returned on a failed chmod but left the key pathname behind. It now removes the key before returning; regression injects CA-key and server-key chmod failures and verifies no key/CSR is left. TLS-Auth/TLS-Crypt v2 cleanup cases are also covered.
+- VPN server lifecycle #44975380856 and XY-C1 #44975380833 were still running against `456c817` at last poll; do not claim firmware or target verification from them until exact-stage results complete.
+
+---
+
 ## 2026-11-22 10:17 CST — Close OpenVPN key-cleanup follow-up
 
 - Parent main SHA: `ddef1929c2c2799a464d8d397597f1e7d9f64b51`. Review of the first implementation found the function-slice generator had joined adjacent shell function declarations without a newline; this follow-up restores explicit shell delimiters before validation.

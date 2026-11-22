@@ -169,7 +169,10 @@ make_cert() {
     return 1
   fi
   if chmod 600 "$1"; then :; else
-    key_status=$?; echo "Error: cannot protect private key $1 (status=$key_status)" >&2; return "$key_status"
+    key_status=$?
+    rm -f "$1"
+    echo "Error: cannot protect private key $1 (status=$key_status)" >&2
+    return "$key_status"
   fi
   echo_process "Creating $2: $5"
   if openssl req -nodes $CA_TRUE -days "$3" -new -outform PEM -out "$2" -key "$1" "$6" -subj "/CN=$5" &>/dev/null; then

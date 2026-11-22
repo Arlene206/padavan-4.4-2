@@ -174,6 +174,17 @@ if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=ca.key PATH="$TMP/bin:
 	exit 1
 fi
 [ ! -e "$SERVER_DIR/ca.crt" ]
+[ ! -e "$SERVER_DIR/ca.key" ]
+
+# A server-key mode failure must also stop before CSR publication.
+rm -rf "$SERVER_DIR"
+if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=server.key PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server >/dev/null 2>&1; then
+	echo "Expected server-key chmod failure to abort certificate generation" >&2
+	exit 1
+fi
+[ ! -e "$SERVER_DIR/server.key" ]
+[ ! -e "$SERVER_DIR/server.csr" ]
+
 # TLS key protection failures remove the exposed key and abort the action.
 rm -rf "$SERVER_DIR"
 if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=ta.key PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server >/dev/null 2>&1; then
