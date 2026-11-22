@@ -1377,8 +1377,10 @@ def check_aria2_reload():
     assert syntax.returncode == 0, syntax.stderr
     reload_body = source[source.index("func_reload()"):source.index("\\ncase \"$1\"")]
     assert "pidof aria2c 2>/dev/null" in reload_body
+    assert "*[!0-9" + chr(92) + " ]*" in reload_body
     assert "kill -1 \"$aria_reload_pid\"" in reload_body
-    assert "aria_reload_kill_status" in reload_body
+    assert "if kill -1 \"$aria_reload_pid\"; then" in reload_body
+    assert "aria_reload_kill_status=$?" in reload_body
 
     with tempfile.TemporaryDirectory(prefix="aria2-reload-") as tmp:
         base = Path(tmp)

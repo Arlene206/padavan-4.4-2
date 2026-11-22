@@ -372,7 +372,7 @@ func_reload()
 				return 1
 			fi
 			case "$aria_reload_pids" in
-				*[!0-9\\ ]*)
+				*[!0-9\ ]*)
 					echo "Error: invalid $SVC_NAME process list!"
 					logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
 					return 1
@@ -412,7 +412,9 @@ func_reload()
 
 	echo -n "Reload $SVC_NAME config:."
 	for aria_reload_pid in $aria_reload_pids; do
-		if ! kill -1 "$aria_reload_pid"; then
+		if kill -1 "$aria_reload_pid"; then
+			:
+		else
 			aria_reload_kill_status=$?
 			echo "[FAILED]"
 			logger -t "$SVC_NAME" "Cannot reload: SIGHUP failed for PID $aria_reload_pid (status=$aria_reload_kill_status)" >/dev/null 2>&1 || true
