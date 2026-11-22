@@ -1,3 +1,10 @@
+## 2026-11-22 — Fix escaped newline in WAN route teardown contract
+
+- Parent main SHA: `da151744e963da9ae5af21227fe8bd42a97c6797`. The exact-SHA `wan-route-status` job reached the refreshed `wan6_down()` contract and failed with `ValueError: substring not found`: the inserted Python search needle contained two literal backslashes before `n`/`t`, while the extracted C source contains actual newline/tab characters. The IPv6 service-type checker and handoff validator both passed on this SHA.
+- Corrected the workflow needle to use the same single-escaped newline/tab pattern as the already-updated later teardown assertion. Runtime code is unchanged.
+- Next task: finish the `get_wan_addr6_host()` checked interface-identity audit and rerun current main SHA checks.
+
+---
 ## 2026-11-22 — Align WAN6 teardown source contracts with checked identity reads
 
 - Parent main SHA: `475053e6acf945b73d91b630a4fc1f3ff5e14839`. Exact-SHA checks exposed two stale assertions after `wan6_down()` moved from the lossy `get_wan_unit_value(unit, "ifname6")` getter to a bounded status-bearing copy: the IPv6 service-type checker still searched for the old getter, and the earlier WAN route workflow assertion still required the old pointer assignment. The later route-workflow contract had already been migrated, but its earlier sibling had not.

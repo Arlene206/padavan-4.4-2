@@ -1302,7 +1302,7 @@ jobs:
           
           wan6_down = body(wan6, "int wan6_down(char *wan_ifname, int unit)")
           assert '#include "wan6_teardown_policy.h"' in wan6
-          identity_read = wan6_down.index('get_wan_unit_value_copy_status(\\n\\t\\tunit, "ifname6", previous_ifname_buffer')
+          identity_read = wan6_down.index('get_wan_unit_value_copy_status(\n\t\tunit, "ifname6", previous_ifname_buffer')
           identity_read_error = wan6_down.index("if (status != 0)", identity_read)
           first_identity_probe = wan6_down.index("is_interface_exist(previous_ifname)", identity_read_error)
           assert identity_read < identity_read_error < first_identity_probe
