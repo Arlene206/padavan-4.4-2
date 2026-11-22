@@ -2,9 +2,129 @@
 #define PADAVAN_DNSMASQ_STATIC_HOST_POLICY_H
 
 #include <stddef.h>
+#include <limits.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+
+
+/* /proc/net/arp exposes six whitespace-delimited columns. Validate every
+ * column rather than allowing a truncated row to disappear from cleanup. */
+static inline int
+dnsmasq_static_arp_ipv4_is_valid(const char *address)
+{
+	unsigned int octet = 0;
+	unsigned int digits = 0;
+	unsigned int separators = 0;
+	const unsigned char *p = (const unsigned char *)address;
+
+	if (!address || !*address)
+		return 0;
+	for (; *p; p++) {
+		if (*p >= '0' && *p <= '9') {
+			if (++digits > 3)
+				return 0;
+			octet = octet * 10U + (*p - '0');
+			if (octet > 255U)
+				return 0;
+		} else if (*p == '.' && digits > 0 && separators < 3) {
+			separators++;
+			digits = 0;
+			octet = 0;
+		} else {
+			return 0;
+		}
+	}
+	return separators == 3 && digits > 0;
+}
+
+static inline int
+dnsmasq_static_arp_mac_is_valid(const char *address)
+{
+	size_t i;
+
+	if (!address || strlen(address) != 17)
+		return 0;
+	for (i = 0; i < 17; i++) {
+		unsigned char value = (unsigned char)address[i];
+
+		if (i % 3 == 2) {
+			if (value != ':')
+				return 0;
+		} else if (!((value >= '0' && value <= '9') ||
+			    (value >= 'a' && value <= 'f') ||
+			    (value >= 'A' && value <= 'F'))) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static inline int
+dnsmasq_static_arp_hex_value(const char *text, unsigned int *value)
+{
+	char *end;
+	unsigned long parsed;
+
+	if (!text || !value || text[0] != '0' ||
+	    (text[1] != 'x' && text[1] != 'X') || text[2] == '\\0')
+		return EIO;
+	errno = 0;
+	parsed = strtoul(text + 2, &end, 16);
+	if (errno == ERANGE || end == text + 2 || *end != '\\0' ||
+	    parsed > UINT_MAX)
+		return EIO;
+	*value = (unsigned int)parsed;
+	return 0;
+}
+
+/*
+ * Parse one complete /proc/net/arp record. The caller removes its trailing
+ * newline first. A seventh token is rejected; trailing whitespace is fine.
+ */
+static inline int
+dnsmasq_static_arp_record_parse(const char *line,
+				char *ip, size_t ip_size,
+				unsigned int *flags,
+				char *ifname, size_t ifname_size)
+{
+	char parsed_ip[16], hardware_type[8], flag_text[16];
+	char hardware_address[18], mask[16], parsed_ifname[32], extra;
+	unsigned int ignored_hardware_type, parsed_flags;
+	int fields;
+	size_t ip_length, ifname_length;
+	int status;
+
+	if (!line || !ip || !flags || !ifname)
+		return EINVAL;
+	fields = sscanf(line, "%15s %7s %15s %17s %15s %31s %c",
+			parsed_ip, hardware_type, flag_text, hardware_address,
+			mask, parsed_ifname, &extra);
+	if (fields != 6)
+		return EIO;
+	if (!dnsmasq_static_arp_ipv4_is_valid(parsed_ip) ||
+	    !dnsmasq_static_arp_mac_is_valid(hardware_address) ||
+	    (strcmp(mask, "*") != 0 &&
+	     !dnsmasq_static_arp_ipv4_is_valid(mask)))
+		return EIO;
+	status = dnsmasq_static_arp_hex_value(hardware_type,
+					      &ignored_hardware_type);
+	if (status != 0)
+		return status;
+	status = dnsmasq_static_arp_hex_value(flag_text, &parsed_flags);
+	if (status != 0)
+		return status;
+
+	ip_length = strlen(parsed_ip);
+	ifname_length = strlen(parsed_ifname);
+	if (ip_length + 1 > ip_size || ifname_length + 1 > ifname_size)
+		return ENOSPC;
+	memcpy(ip, parsed_ip, ip_length + 1);
+	memcpy(ifname, parsed_ifname, ifname_length + 1);
+	*flags = parsed_flags;
+	return 0;
+}
 
 /* A dnsmasq --dhcp-host MAC field must contain exactly twelve hex digits. */
 static int

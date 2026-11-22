@@ -130,6 +130,7 @@ arpbind_clear(void)
 {
 	FILE *fp;
 	char buffer[256], arp_ip[16], arp_if[32];
+	char *line_end;
 	unsigned int arp_flags;
 	int result = 0;
 
@@ -144,12 +145,26 @@ arpbind_clear(void)
 	}
 
 	while (fgets(buffer, sizeof(buffer), fp)) {
-		int command_status, command_errno, arp_errno;
+		int command_status, command_errno, arp_errno, parse_status;
 
-		arp_flags = 0;
-		if (sscanf(buffer, "%15s %*s 0x%x %*s %*s %31s",
-			   arp_ip, &arp_flags, arp_if) != 3 ||
-		    !(arp_flags & 0x04) || strcmp(arp_if, IFNAME_BR) != 0)
+		line_end = strchr(buffer, '\\n');
+		if (!line_end) {
+			parse_status = EIO;
+		} else {
+			*line_end = '\\0';
+			parse_status = dnsmasq_static_arp_record_parse(
+				buffer, arp_ip, sizeof(arp_ip), &arp_flags,
+				arp_if, sizeof(arp_if));
+		}
+		if (parse_status != 0) {
+			if (!result)
+				result = parse_status;
+			logmessage(LOGNAME,
+				   "malformed or truncated /proc/net/arp row; static ARP cleanup is incomplete (status=%d)",
+				   parse_status);
+			break;
+		}
+		if (!(arp_flags & 0x04) || strcmp(arp_if, IFNAME_BR) != 0)
 			continue;
 
 		errno = 0;

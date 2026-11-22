@@ -700,6 +700,14 @@ jobs:
           dnsmasq_file_helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
           assert '#include "dnsmasq_dhcp_range_policy.h"' in services
           assert '#include "dnsmasq_static_host_policy.h"' in services
+          arp_clear = function_body(services, "arpbind_clear(void)")
+          assert "dnsmasq_static_arp_record_parse(" in arp_clear
+          assert "if (!line_end)" in arp_clear
+          assert "malformed or truncated /proc/net/arp row" in arp_clear
+          assert "if (parse_status != 0)" in arp_clear
+          assert "continue;" not in arp_clear[arp_clear.index("if (parse_status != 0)"):arp_clear.index("if (!(arp_flags & 0x04)")]
+          assert "test_static_arp_record_parser" in static_mac_test
+          assert "dnsmasq_static_arp_record_parse" in static_mac_policy
           assert '#include "dnsmasq_domain_policy.h"' in services
           assert "if (!domain || (*domain && !dnsmasq_valid_server_domain(domain)))" in prepare
           assert "int wins_enabled = 0;" in prepare

@@ -6,6 +6,67 @@
 #include <sys/wait.h>
 #include "dnsmasq_static_host_policy.h"
 
+
+static void
+test_static_arp_record_parser(void)
+{
+	char ip[16], ifname[32];
+	unsigned int flags = 0;
+	int status;
+
+	status = dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname));
+	assert(status == 0);
+	assert(strcmp(ip, "192.0.2.1") == 0);
+	assert(flags == 0x04);
+	assert(strcmp(ifname, "br0") == 0);
+
+	status = dnsmasq_static_arp_record_parse(
+		"10.0.0.254 0x1 0x2 aa:bb:cc:dd:ee:ff 255.255.255.0 eth2.1",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname));
+	assert(status == 0);
+	assert(flags == 0x02);
+	assert(strcmp(ip, "10.0.0.254") == 0);
+	assert(strcmp(ifname, "eth2.1") == 0);
+
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0 extra",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"999.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0xGG 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4junk 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 999.0.0.0 br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 *",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0",
+		ip, 8, &flags, ifname, sizeof(ifname)) == ENOSPC);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, 3) == ENOSPC);
+	assert(dnsmasq_static_arp_record_parse(
+		NULL, ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EINVAL);
+	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x1 0x4 00:11:22:33:44:55 * br0",
+		NULL, sizeof(ip), &flags, ifname, sizeof(ifname)) == EINVAL);
+}
+
 static void
 test_valid_unicast_mac_text(void)
 {
@@ -168,6 +229,7 @@ test_static_arp_transaction_prevalidates_all_entries(void)
 int
 main(void)
 {
+	test_static_arp_record_parser();
 	test_valid_unicast_mac_text();
 	test_rejects_non_unicast_addresses();
 	test_rejects_injection_characters();
