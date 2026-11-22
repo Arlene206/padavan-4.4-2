@@ -81,6 +81,7 @@ usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
 lifecycle_test = (root / "trunk/user/rc/src/tests/service_lifecycle_policy.c").read_text()
 net_lan_notification = (root / "trunk/user/rc/src/net_lan.c").read_text()
+bridge_init_regression = (root / "trunk/user/rc/src/tests/bridge_init_policy.c").read_text()
 assert "service_lifecycle_notification_allowed" in policy
 assert "service_lifecycle_notify(" in policy
 assert "service_lifecycle_preflight(targets, count, ops, context, 1)" in policy

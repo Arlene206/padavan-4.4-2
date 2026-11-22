@@ -1,3 +1,11 @@
+## 2026-11-22 — Load LAN bridge teardown regression source in Process integration contract
+
+- Parent main SHA: `c0ccc7d14448edccacda7b9a62719f96840bcc23`. Process lifecycle regression run #45010423695 on product source SHA `587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c` completed all preceding host C/shell and integration checks, then failed at `scripts/check_process_lifecycle_integration.py:1009`: the new LAN teardown assertions referenced `bridge_init_regression` without loading `tests/bridge_init_policy.c`.
+- Added an explicit read of the existing bridge-init policy regression source before those assertions. This restores the intended test-presence checks; it does not weaken source/behavior assertions or change production code.
+- The paired stale WAN route contract was independently corrected on main in `c0ccc7d`; exact route rerun #45010773255 PASS. ZeroTier lifecycle + host race regression + Python source contract PASS on exact source/checker SHA `2db8f2afc34cfa133e8f0940d3f99f90d99a43ba` (run #45010582528); AI handoff #45010582559 PASS. XY-C1 run #45010582583 remained in Build XY-C1 at last poll, with TRX and artifact steps pending. Exact Process rerun for THIS checker change pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align route contract with checked AP gateway preflight
 
 - Parent main SHA: `2db8f2afc34cfa133e8f0940d3f99f90d99a43ba`. Exact WAN route run #45010582579 on this SHA failed in the route source checker because it still searched for `nvram_safe_get("lan_gateway_t")` in AP `stop_lan()`. The checked bounded snapshot is now the intentional preflight gate.
