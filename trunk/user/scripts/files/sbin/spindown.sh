@@ -126,11 +126,27 @@ case "$swap_status" in
 	*) exit 1 ;; # cannot prove the disk has no active swap
 esac
 
-if [ -r "/sys/block/$1/removable" ] ; then
-	dev_removable=`cat "/sys/block/$1/removable"`
-	if [ "$dev_removable" = "0" ] ; then
-		/sbin/hdparm -y "/dev/$1"
-	fi
+if [ ! -r "/sys/block/$1/removable" ]; then
+	logger -t "Storage" "cannot verify removable state for /dev/$1"
+	exit 1
 fi
+if ! dev_removable=$(cat "/sys/block/$1/removable" 2>/dev/null); then
+	logger -t "Storage" "cannot read removable state for /dev/$1"
+	exit 1
+fi
+case "$dev_removable" in
+	0) ;;
+	1) exit 0 ;; # Removable media is intentionally not spun down here.
+	*)
+		logger -t "Storage" "invalid removable state for /dev/$1: $dev_removable"
+		exit 1
+		;;
+esac
 
-exit 0
+if /sbin/hdparm -y "/dev/$1"; then
+	exit 0
+else
+	hdparm_status=$?
+	logger -t "Storage" "hdparm failed for /dev/$1 (status=$hdparm_status)"
+	exit "$hdparm_status"
+fi

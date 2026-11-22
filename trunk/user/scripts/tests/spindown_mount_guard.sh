@@ -98,6 +98,7 @@ printf '0\n' > "$tmp/sys/block/sda/removable"
 cat > "$tmp/bin/hdparm" <<'EOF_HDPARM'
 #!/bin/sh
 printf '%s\n' "$*" >> "$HDPARM_LOG"
+exit "${HDPARM_STATUS:-0}"
 EOF_HDPARM
 cat > "$tmp/bin/flock" <<'EOF_FLOCK'
 #!/bin/sh
@@ -124,6 +125,46 @@ env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
 	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
 	sh "$tmp/spindown.sh" sda
 grep -Fqx -- '-y /dev/sda' "$tmp/hdparm.log"
+
+# A failed hdparm operation is reported to the caller, not hidden by the
+# script's final success exit.
+: > "$tmp/hdparm.log"
+if env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
+	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
+	HDPARM_STATUS=37 sh "$tmp/spindown.sh" sda; then
+	echo "spindown hid the hdparm failure status" >&2
+	exit 1
+else
+	hdparm_status=$?
+fi
+[ "$hdparm_status" -eq 37 ]
+grep -Fqx -- '-y /dev/sda' "$tmp/hdparm.log"
+
+# Removable media is intentionally skipped, but missing/malformed sysfs
+# state is unknown and must fail closed without calling hdparm.
+: > "$tmp/hdparm.log"
+printf '1\n' > "$tmp/sys/block/sda/removable"
+env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
+	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
+	sh "$tmp/spindown.sh" sda
+[ ! -s "$tmp/hdparm.log" ]
+printf 'invalid\n' > "$tmp/sys/block/sda/removable"
+if env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
+	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
+	sh "$tmp/spindown.sh" sda; then
+	echo "spindown accepted malformed removable state" >&2
+	exit 1
+fi
+[ ! -s "$tmp/hdparm.log" ]
+rm -f "$tmp/sys/block/sda/removable"
+if env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
+	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
+	sh "$tmp/spindown.sh" sda; then
+	echo "spindown accepted missing removable state" >&2
+	exit 1
+fi
+[ ! -s "$tmp/hdparm.log" ]
+printf '0\n' > "$tmp/sys/block/sda/removable"
 
 # Hold the same lock automount holds, start spindown while blocked, then add
 # a mount record before releasing the lock. A stale pre-lock snapshot would

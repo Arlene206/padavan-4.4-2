@@ -1446,9 +1446,15 @@ jobs:
           assert "suffix ~ /^[0-9]+$/ || suffix ~ /^p[0-9]+$/" in spindown
           assert '0) exit 1 ;; # mounted; do not spin down' in spindown
           assert '*) exit 1 ;; # cannot prove the disk is unused' in spindown
+          assert 'if [ ! -r "/sys/block/$1/removable" ]; then' in spindown
+          assert '1) exit 0 ;; # Removable media is intentionally not spun down here.' in spindown
+          assert 'exit "$hdparm_status"' in spindown
+          spindown_test = Path("trunk/user/scripts/tests/spindown_mount_guard.sh").read_text()
+          assert "HDPARM_STATUS=37" in spindown_test
+          assert "invalid\\n' > \"$tmp/sys/block/sda/removable\"" in spindown_test
           assert 'spindown_mount_status "$1" /proc/mounts' in spindown
           assert spindown.index('spindown_mount_status "$1" /proc/mounts') < spindown.index("/sbin/hdparm -y")
-          assert "spindown_mount_status" in Path("trunk/user/scripts/tests/spindown_mount_guard.sh").read_text()
+          assert "spindown_mount_status" in spindown_test
 
           # RC-facing caller edges: mdev applets, unplug notification, explicit
           # ATA/MMC/eject-all requests, firmware update and shutdown.
