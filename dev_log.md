@@ -1,3 +1,10 @@
+## 2026-11-22 — Align HTTPD security cross-check with AP host snapshot
+
+- Parent main SHA: `2f6231349eaf3fafe0c1885a95afa887d82c11c5`. HTTPD Security run #45008874461 on `56137665cea32ba5d5befce235889f996e4c9fa3` passed the DHCP lease tests, then stopped at the stale AP hostname source assertion in `.github/workflows/httpd-security.yml` (embedded Python line 154). It still required the two direct `nvram_safe_get()` arguments removed in `update_hosts_ap()`.
+- Updated the contract to require ordered checked copies into owned `lan_ipaddr` / `lan_dname` buffers before `create_hosts_lan`, and to forbid direct borrowed NVRAM pointers. Exact-head HTTPD rerun pending.
+
+---
+
 ## 2026-11-22 — Update XUPnPD integration check for owned LAN address
 
 - Parent main SHA: `3664d438d7b2ed36957b45b91b8e647f1a592deb`. The Process integration checker still required the old direct `xupnpd_config_valid_ipv4(nvram_safe_get(...))` expression after `start_xupnpd()` was correctly changed to a bounded checked copy. Exact Process run #45008874486 on `56137665cea32ba5d5befce235889f996e4c9fa3` completed the preceding regression and source checks, then failed specifically at `scripts/check_process_lifecycle_integration.py:406`.

@@ -2597,8 +2597,11 @@ jobs:
           assert 'fopen("/etc/hostname", "w+")' not in hosts_writer
           assert 'fopen("/etc/hosts", "w+")' not in hosts_writer
           assert "int update_hosts_ap(void);" in header
-          assert 'create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),' in lan_update_ap
-          assert 'nvram_safe_get("lan_domain_t")' in lan_update_ap
+          lan_update_ap_compact = " ".join(lan_update_ap.split())
+          assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_ipaddr_t"' in lan_update_ap_compact
+          assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_domain_t"' in lan_update_ap_compact
+          assert "create_hosts_lan(lan_ipaddr, lan_dname)" in lan_update_ap_compact
+          assert "nvram_safe_get(" not in lan_update_ap
           assert "lan_hosts_retry" not in lan_update_ap
           dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')
           dhcpd_notify_end = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)', dhcpd_notify_start)
