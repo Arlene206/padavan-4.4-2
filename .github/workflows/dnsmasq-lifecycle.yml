@@ -345,14 +345,15 @@ jobs:
           mode_error_result = ddns_restart.index("ddns_status = ap_mode_status;", mode_error)
           ddns_call = ddns_restart.index("rc_ddns_restart_run(is_ap_mode,", mode_error_result)
           assert mode_read < mode_error < mode_error_result < ddns_call
-          enable_read = ddns_restart.index('ddns_enabled_api_result = nvram_get_checked("ddns_enable_x", &ddns_enabled_value);')
-          enable_status = ddns_restart.index("ddns_enabled_status = inadyn_ddns_enabled_status(", enable_read)
-          enable_error = ddns_restart.index("if (ddns_enabled_status != 0)", enable_status)
-          enable_result = ddns_restart.index("ddns_status = ddns_enabled_status;", enable_error)
-          ddns_call = ddns_restart.index("rc_ddns_restart_run(is_ap_mode,", enable_result)
+          ddns_restart_compact = " ".join(ddns_restart.split())
+          enable_read = ddns_restart_compact.index('ddns_enabled_api_result = nvram_get_checked("ddns_enable_x", &ddns_enabled_value);')
+          enable_status = ddns_restart_compact.index("ddns_enabled_status = inadyn_ddns_enabled_status(", enable_read)
+          enable_error = ddns_restart_compact.index("if (ddns_enabled_status != 0)", enable_status)
+          enable_result = ddns_restart_compact.index("ddns_status = ddns_enabled_status;", enable_error)
+          ddns_call = ddns_restart_compact.index("rc_ddns_restart_run(is_ap_mode,", enable_result)
           assert enable_read < enable_status < enable_error < enable_result < ddns_call
           assert "inadyn_ddns_enabled_status(" in ddns_enabled_policy
-          assert 'nvram_match("ddns_enable_x", "1")' not in ddns_restart
+          assert 'nvram_match("ddns_enable_x", "1")' not in ddns_restart_compact
           assert "start_ddns, stop_ddns" in ddns_restart
           assert "action_result = rc_notify_merge_action_result(action_result, ddns_status);" in ddns_restart
           assert "start_ddns(1);" not in ddns_restart

@@ -190,9 +190,9 @@ ddns_end = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_DI)', ddn
 ddns_restart = RC_SOURCE[ddns_start:ddns_end]
 ddns_restart_compact = " ".join(ddns_restart.split())
 require('nvram_get_checked("ddns_enable_x", &ddns_enabled_value)' in ddns_restart_compact and
-        "inadyn_ddns_enabled_status(" in ddns_restart and
-        "ddns_status = ddns_enabled_status;" in ddns_restart and
-        'nvram_match("ddns_enable_x", "1")' not in ddns_restart,
+        "inadyn_ddns_enabled_status(" in ddns_restart_compact and
+        "ddns_status = ddns_enabled_status;" in ddns_restart_compact and
+        'nvram_match("ddns_enable_x", "1")' not in ddns_restart_compact,
         "RC DDNS restart must preserve state on a backend error")
 
 for marker in (
