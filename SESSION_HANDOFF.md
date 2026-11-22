@@ -7,9 +7,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: c74ba42e7bab3eba8d89b4931873bce37a83cba5. PID 1 checked signal installer source is committed. Exact c74 Process lifecycle #44999683951, USB storage #44999683921, DNSMasq #44999683891, DNS Forwarder #44999684058 and AI handoff #44999683893 PASS.
-- Exact c74 PID1 mdev #44999683905 failed because the new C policy test's header include followed its references. HTTPD #44999683880 failed because its inline boot contract expected the pre-signal-gate router condition; Process inventory #44999683934 failed because `scripts/check_dev_init_boot.py` had the same stale conditions. THIS COMMIT corrects both test contracts and moves the include before use.
-- Exact c74 XY-C1 #44999684046 and NVRAM #44999683896 were in progress at last poll. Same-SHA L3 remains unverified until Build, TRX and artifact all pass. Hardware L4 NOT VERIFIED.
+- Current parent main: 8a66f03a5c0e1d7a73e1ee038c1d8f92be15ad79. The PID 1 signal regression header-order issue is fixed and exact 8a66 PID1 mdev #44999904281 and AI handoff #44999904265 PASS.
+- Exact c74 Process lifecycle #44999683951, USB storage #44999683921, DNSMasq #44999683891, DNS Forwarder #44999684058 and PID1 notification #44999683888 PASS. Networkmap checker/ARP sequence #44999591254 and AI #44999591228 on 9a3 PASS.
+- c74's NVRAM audit #44999683896 failed only because `scripts/check_nvram_transaction_boundary.py` still asserted the pre-signal router-start and ready expressions. THIS COMMIT updates that checker to the signal-aware gate and asserts all signal groups plus mdev retry suppression. Exact 8a66 HTTPD #44999904303, Process inventory #44999904395, Process lifecycle #44999904325 and NVRAM #44999904244 were still running at last poll.
+- Exact same-SHA XY-C1 Build + TRX + artifact proof is still not confirmed; L3 NOT VERIFIED. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,17 +31,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Repair the exact c74 regression failures caused by PID 1's new checked signal-install gate: move `pid1_signal_policy.h` before its new test call sites, and update both the process boot checker and HTTPD's inlined boot checker for the new `signal_status == 0` gates.
-- Both checkers now verify the fatal/shutdown/SIGCHLD/event handler installer groups, the first-error wrapper, deferred-mdev suppression and router readiness/startup gates.
+- Align NVRAM's source-boundary audit with PID 1's new checked-signal startup gate. c74 NVRAM run #44999683896 showed all transaction/lock/device-node tests passing, and failed only in the final source contract because it still expected the old no-signal-status router-start and ready expressions.
+- THIS COMMIT updates `scripts/check_nvram_transaction_boundary.py` to require the signal-status router gate and readiness condition, validate checked fatal/shutdown/SIGCHLD/event registrations and confirm the deferred mdev retry is suppressed when signal setup is incomplete.
 
 ## Verification boundary
 
-- c74 exact: Process lifecycle #44999683951 PASS, USB storage #44999683921 PASS, DNSMasq #44999683891 PASS, DNS Forwarder #44999684058 PASS, PID 1 notification #44999683888 PASS and AI handoff #44999683893 PASS.
-- c74 PID1 mdev #44999683905 failed at C compile due header include order; HTTPD #44999683880 and Process inventory #44999683934 failed at stale boot-contract assertions. This follow-up is corrective; all need exact-head reruns.
-- c74 XY-C1 #44999684046 and NVRAM #44999683896 were in progress at last poll. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
+- Exact 8a66 PID1 mdev #44999904281 and AI handoff #44999904265 PASS.
+- Exact 8a66 HTTPD #44999904303, Process inventory #44999904395, Process lifecycle #44999904325 and NVRAM #44999904244 were in progress when last observed. c74 NVRAM #44999683896 failed only at the stale source contract; the underlying NVRAM C tests and transaction lock tests all passed.
+- No same-SHA XY-C1 Build/TRX/artifact completion is confirmed. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head PID1 mdev/security, HTTPD, Process inventory/lifecycle and NVRAM reruns; inspect and fix any remaining failed step.
-2. Check XY-C1 Build + TRX + artifact completion on one identical product-source SHA; only then claim L3.
-3. Continue the next independent P1/P2 stability/security issue while unrelated Actions are pending. Keep hardware L4 NOT VERIFIED.
+1. Check exact-head NVRAM, HTTPD, Process inventory/lifecycle and PID1 mdev runs after this checker correction. Resolve only exact failing assertions or compiler/runtime defects.
+2. Confirm XY-C1 Build, TRX verification and artifact upload on one exact product-source SHA.
+3. Continue another independent P1/P2 userland stability/security issue while Actions are pending; do not wait idly. Keep hardware L4 NOT VERIFIED.

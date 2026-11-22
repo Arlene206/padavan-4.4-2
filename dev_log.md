@@ -1,3 +1,11 @@
+## 2026-11-22 18:11 CST — Update NVRAM audit for checked PID 1 signal gate
+
+- Parent main `8a66f03a5c0e1d7a73e1ee038c1d8f92be15ad79`. Exact c74 NVRAM audit #44999683896 passed ioctl/close, transaction lock, compaction, snapshot and NVRAM device-node regression steps, then failed only at the final PID 1 source assertion that still expected router startup/readiness without `signal_status`.
+- Updated `scripts/check_nvram_transaction_boundary.py` to require both signal-aware router predicates, every checked fatal/shutdown/SIGCHLD/event installation, the first-error helper and suppression of deferred mdev retries on incomplete signal setup. Production sources and C tests unchanged.
+- Exact 8a66 PID1 mdev #44999904281 and AI docs #44999904265 PASS. HTTPD #44999904303, Process inventory #44999904395, Process lifecycle #44999904325 and NVRAM #44999904244 were still running at first poll. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 18:02 CST — Correct PID 1 signal regression and shared boot checks
 
 - Parent main: `c74ba42e7bab3eba8d89b4931873bce37a83cba5`. Exact PID1 mdev workflow #44999683905 failed because policy functions were used before `pid1_signal_policy.h` appeared in the test translation unit. Exact HTTPD #44999683880 failed its inline router-start/readiness contract because it did not include the new signal-status prerequisite. Exact Process inventory #44999683934 failed the same old conditions in `scripts/check_dev_init_boot.py`.

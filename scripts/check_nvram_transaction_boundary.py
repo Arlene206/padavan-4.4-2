@@ -345,9 +345,23 @@ def run() -> int:
         if "nvram_result=init_nvram_node()" not in init_nodes_body or "returnnvram_result;" not in init_nodes_body:
             failures.append("init_nodes does not propagate an NVRAM device setup failure")
         main_body = re.sub(r"\s+", "", extract_function(init_source, "init_main_loop"))
+        signal_init_body = re.sub(r"\s+", "", extract_function(init_source, "init_signals"))
+        signal_installer_body = re.sub(r"\s+", "", extract_function(init_source, "init_signal_install_status"))
+        for token in (
+                "pid1_signal_install_action(sigaction,signal_number,action)",
+                "pid1_signal_status_merge(first_status,status)",
+        ):
+            if token not in signal_installer_body:
+                failures.append(f"PID 1 signal installer omits checked status handling: {token}")
+        for token in ("signals_fatal[i]", "signals_shutdown[i]", "SIGCHLD", "signals_event[i]", "returnfirst_status;"):
+            if token not in signal_init_body:
+                failures.append(f"PID 1 signal setup does not check every signal group: {token}")
+        if ("signal_status=init_signals();" not in main_body or
+                "signal_status==0&&init_mdev_retry_state_is_pending" not in main_body):
+            failures.append("PID 1 must suppress deferred mdev retry when signal handler setup fails")
         if ("router_init_status=INIT_ROUTER_RESULT_FATAL;" not in main_body or
-                "if(dev_init_status==0&&nvram_node_result==0)router_init_status=init_router();" not in main_body or
-                "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router_status_is_ready(router_init_status));" not in main_body):
+                "if(dev_init_status==0&&nvram_node_result==0&&signal_status==0)router_init_status=init_router();" not in main_body or
+                "router_ready=(dev_init_status==0&&nvram_node_result==0&&signal_status==0&&init_router_status_is_ready(router_init_status));" not in main_body):
             failures.append("PID 1 must fail closed for an unsafe NVRAM device while allowing only READY/DEGRADED router results")
     except ValueError as error:
         failures.append(str(error))
