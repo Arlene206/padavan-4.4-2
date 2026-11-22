@@ -512,6 +512,26 @@ jobs:
           assert "return saved_errno;" in wan_guard
           assert "file_unlock(lock)" not in wan_guard
 
+          bound_snapshot = function_body(net_lan, "lan_dhcp_bound_snapshot(struct lan_dhcp_bound_nvram_state *snapshot)")
+          bound_callback = function_body(net_lan, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
+          assert "rc_wan_nvram_copy_snapshot(" in bound_snapshot
+          assert "lan_dhcp_snapshot_begin" in bound_snapshot
+          assert "lan_dhcp_snapshot_get" in bound_snapshot
+          assert "lan_dhcp_snapshot_end" in bound_snapshot
+          for key in ("lan_ipaddr_t", "lan_netmask_t", "lan_gateway_t", "lan_dns_t",
+                      "lan_domain_t", "lan_wins_t", "lan_lease_t", "lan_netmask"):
+              assert '"' + key + '"' in bound_snapshot, key
+          assert "status = lan_dhcp_bound_snapshot(&nvram_state);" in bound_callback
+          assert "cannot snapshot last-known-good LAN DHCP state" in bound_callback
+          assert "return status;" in bound_callback
+          assert 'lease_netmask = nvram_state.previous_netmask;' in bound_callback
+          assert 'lease_netmask = nvram_state.configured_netmask;' in bound_callback
+          for key in ("lan_ipaddr_t", "lan_netmask_t", "lan_gateway_t", "lan_dns_t",
+                      "lan_domain_t", "lan_wins_t", "lan_lease_t"):
+              assert 'nvram_safe_get("' + key + '")' not in bound_callback, key
+          assert "nvram_state.previous_address" in bound_callback
+          assert "nvram_state.previous_lease" in bound_callback
+
           lan_manual = function_body(net_lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
           lan_domain_check = lan_manual.index("dnsmasq_valid_server_domain(lan_dname)")
           lan_lock = lan_manual.index('lock = file_lock("resolv");')

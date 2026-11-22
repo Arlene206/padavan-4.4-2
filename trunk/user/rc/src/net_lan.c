@@ -2667,6 +2667,61 @@ lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,
 	return status;
 }
 
+struct lan_dhcp_bound_nvram_state {
+	char previous_address[16];
+	char previous_netmask[16];
+	char previous_gateway[16];
+	char previous_dns[256];
+	char previous_domain[256];
+	char previous_wins[256];
+	char previous_lease[16];
+	char configured_netmask[16];
+};
+
+static int
+lan_dhcp_bound_snapshot(struct lan_dhcp_bound_nvram_state *snapshot)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[8];
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	/* Keep the rollback tuple and the static-netmask fallback from one
+	 * generation. A failed read or transaction close invalidates all fields. */
+	fields[0].param_name = "lan_ipaddr_t";
+	fields[0].destination = snapshot->previous_address;
+	fields[0].destination_size = sizeof(snapshot->previous_address);
+	fields[1].param_name = "lan_netmask_t";
+	fields[1].destination = snapshot->previous_netmask;
+	fields[1].destination_size = sizeof(snapshot->previous_netmask);
+	fields[2].param_name = "lan_gateway_t";
+	fields[2].destination = snapshot->previous_gateway;
+	fields[2].destination_size = sizeof(snapshot->previous_gateway);
+	fields[3].param_name = "lan_dns_t";
+	fields[3].destination = snapshot->previous_dns;
+	fields[3].destination_size = sizeof(snapshot->previous_dns);
+	fields[4].param_name = "lan_domain_t";
+	fields[4].destination = snapshot->previous_domain;
+	fields[4].destination_size = sizeof(snapshot->previous_domain);
+	fields[5].param_name = "lan_wins_t";
+	fields[5].destination = snapshot->previous_wins;
+	fields[5].destination_size = sizeof(snapshot->previous_wins);
+	fields[6].param_name = "lan_lease_t";
+	fields[6].destination = snapshot->previous_lease;
+	fields[6].destination_size = sizeof(snapshot->previous_lease);
+	fields[7].param_name = "lan_netmask";
+	fields[7].destination = snapshot->configured_netmask;
+	fields[7].destination_size = sizeof(snapshot->configured_netmask);
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, 8, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		lan_dhcp_snapshot_end, &transaction);
+}
+
+
 static int
 udhcpc_lan_bound(char *lan_ifname, int is_renew)
 {
@@ -2687,9 +2742,18 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	int refresh_hosts;
 	struct dhcp_lease_nvram_value lease_state[7];
 	struct lan_dhcp_bound_context context;
+	struct lan_dhcp_bound_nvram_state nvram_state;
 
 	if (!lan_ifname || !*lan_ifname)
 		return EINVAL;
+
+	status = lan_dhcp_bound_snapshot(&nvram_state);
+	if (status != 0) {
+		logmessage("DHCP LAN Client",
+			   "cannot snapshot last-known-good LAN DHCP state on %s (status=%d); rejecting bound/renew",
+			   lan_ifname, status);
+		return status;
+	}
 
 	/* Do not publish any part of a lease until its required address data is
 	 * valid. The AP-mode LAN address is supplied by an untrusted DHCP server. */
@@ -2699,9 +2763,9 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	if (value) {
 		lease_netmask = trim_r(value);
 	} else {
-		lease_netmask = nvram_safe_get("lan_netmask_t");
+		lease_netmask = nvram_state.previous_netmask;
 		if (!dhcp_lease_netmask_is_valid(lease_netmask))
-			lease_netmask = nvram_safe_get("lan_netmask");
+			lease_netmask = nvram_state.configured_netmask;
 	}
 
 	if (!dhcp_lease_ipv4_is_valid(lease_ip) ||
@@ -2765,19 +2829,19 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	 * changes. A failed bound callback must leave these values available for
 	 * the next DHCP event, since BusyBox discards this callback's return code. */
 	snprintf(old_ipaddr, sizeof(old_ipaddr), "%s",
-		nvram_safe_get("lan_ipaddr_t"));
+		nvram_state.previous_address);
 	snprintf(old_netmask, sizeof(old_netmask), "%s",
-		nvram_safe_get("lan_netmask_t"));
+		nvram_state.previous_netmask);
 	snprintf(old_gateway, sizeof(old_gateway), "%s",
-		nvram_safe_get("lan_gateway_t"));
+		nvram_state.previous_gateway);
 	snprintf(old_dns, sizeof(old_dns), "%s",
-		nvram_safe_get("lan_dns_t"));
+		nvram_state.previous_dns);
 	snprintf(old_domain, sizeof(old_domain), "%s",
-		nvram_safe_get("lan_domain_t"));
+		nvram_state.previous_domain);
 	snprintf(old_wins, sizeof(old_wins), "%s",
-		nvram_safe_get("lan_wins_t"));
+		nvram_state.previous_wins);
 	snprintf(old_lease, sizeof(old_lease), "%s",
-		nvram_safe_get("lan_lease_t"));
+		nvram_state.previous_lease);
 
 	ip_changed = strcmp(old_ipaddr, lease_ip) != 0;
 	netmask_changed = strcmp(old_netmask, lease_netmask) != 0;
