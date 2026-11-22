@@ -33,6 +33,7 @@ extract_function "aliddns_interval_normalize() {"
 extract_function "aliddns_nvram_read_checked() {"
 extract_function "aliddns_enable_initialize() {"
 extract_function "aliddns_get_status () {"
+extract_function "aliddns_restart_cancel_requested() {"
 extract_function "aliddns_lifecycle_lock_path() {"
 extract_function "aliddns_lifecycle_lock_prepare() {"
 extract_function "aliddns_lifecycle_lock_execute() {"
@@ -80,6 +81,7 @@ NVRAM_READ_FAIL_KEY=
 NVRAM_READ_STATUS=61
 NVRAM_SET_STATUS=0
 NVRAM_STATUS_VALUE=stored-fingerprint
+NVRAM_RENUM_VALUE=1
 NVRAM_STATUS_SET_STATUS=0
 NVRAM_STATUS_WRITES="$TEST_DIR/nvram-status-writes"
 : > "$NVRAM_STATUS_WRITES"
@@ -96,6 +98,10 @@ nvram() {
 		"get_checked aliddns_interval")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_interval ] || return "$NVRAM_READ_STATUS"
 			printf '%s\n' "300"
+			;;
+		"get_checked aliddns_renum")
+			[ "$NVRAM_READ_FAIL_KEY" != aliddns_renum ] || return "$NVRAM_READ_STATUS"
+			printf '%s\\n' "$NVRAM_RENUM_VALUE"
 			;;
 		"get_checked aliddns_status")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_status ] || return "$NVRAM_READ_STATUS"
@@ -209,6 +215,29 @@ aliddns_get_status || { echo "changed fingerprint was not handled" >&2; exit 1; 
 [ "$needed_restart" = "1" ] || { echo "changed fingerprint did not request a restart" >&2; exit 1; }
 [ "$(cat "$NVRAM_STATUS_WRITES")" = "set aliddns_status=fixture-fingerprint" ] || { echo "fingerprint update was not persisted" >&2; exit 1; }
 echo "AliDDNS fingerprint NVRAM read/write failures preserve the last-known restart state: PASS"
+
+# A failed retry-counter read is not interpreted as a request to cancel the cooldown.
+NVRAM_READ_FAIL_KEY=aliddns_renum
+NVRAM_READ_STATUS=66
+if aliddns_restart_cancel_requested; then
+	echo "AliDDNS accepted a failed retry-cancellation read" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 66 ] || { echo "retry-cancellation read status changed to $nvram_status" >&2; exit 1; }
+NVRAM_READ_FAIL_KEY=
+NVRAM_RENUM_VALUE=0
+aliddns_restart_cancel_requested || { echo "zero retry counter did not request cancellation" >&2; exit 1; }
+NVRAM_RENUM_VALUE=1
+if aliddns_restart_cancel_requested; then
+	echo "nonzero retry counter incorrectly requested cancellation" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 1 ] || { echo "nonzero retry counter returned status $nvram_status" >&2; exit 1; }
+echo "AliDDNS retry cancellation checks preserve state on NVRAM read errors: PASS"
 
 logger() {
 	:

@@ -157,7 +157,9 @@ if [ "$1" = "x" ] ; then
 			I=$(($I - 1))
 			echo $I > $relock
 			sleep 60
-			[ "$(nvram get aliddns_renum)" = "0" ] && exit 0
+			if aliddns_restart_cancel_requested; then
+				exit 0
+			fi
 			[ $I -lt 0 ] && break
 		done
 		nvram set aliddns_renum="0"
@@ -167,6 +169,11 @@ fi
 nvram set aliddns_status=0
 "$scriptfilepath" start 9>&- &
 exit 0
+}
+
+aliddns_restart_cancel_requested() {
+	aliddns_nvram_read_checked aliddns_renum || return $?
+	[ "$aliddns_nvram_value" = "0" ]
 }
 
 aliddns_config_fingerprint () {

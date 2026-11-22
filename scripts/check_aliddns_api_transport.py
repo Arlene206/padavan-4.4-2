@@ -300,6 +300,7 @@ for marker in (
     "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS",
     "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS",
     "AliDDNS fingerprint NVRAM read/write failures preserve the last-known restart state: PASS",
+    "AliDDNS retry cancellation checks preserve state on NVRAM read errors: PASS",
 ):
     require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and
@@ -577,6 +578,13 @@ require("aliddns_nvram_read_checked aliddns_status || return $?" in status_reade
         'if nvram set aliddns_status="$B_restart"; then' in status_reader and
         'return "$aliddns_nvram_status"' in status_reader,
         "fingerprint read/write errors must not publish an unknown restart decision")
+restart_cancel = function_body(source, "aliddns_restart_cancel_requested() {")
+restart_loop = function_body(source, "aliddns_restart () {")
+require("aliddns_nvram_read_checked aliddns_renum || return $?" in restart_cancel and
+        '[ "$aliddns_nvram_value" = "0" ]' in restart_cancel and
+        "if aliddns_restart_cancel_requested; then" in restart_loop and
+        "nvram get aliddns_renum" not in source,
+        "retry cooldown cancellation must distinguish NVRAM failure from a zero counter")
 require("aliddns_config_fingerprint.sh" in workflow and
         "AliDDNS unambiguous configuration fingerprint regression: PASS" in
         (ROOT / "scripts/test_aliddns_config_fingerprint.sh").read_text(),
