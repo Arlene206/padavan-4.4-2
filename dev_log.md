@@ -1,3 +1,8 @@
+## 2026-11-22 — Emit real line records in refreshed PID regression fixtures
+
+- A source review of the new refreshed-PID test found that its two \`printf\` format strings contained doubled backslashes, so the fixture would emit literal \`\\n\` characters rather than line terminators. That would reject the initial fixture for the wrong reason and fail to isolate the post-graceful leading-zero PID case.
+- Corrected both fixture writes to emit actual newline-terminated records; the pidof stub then normalizes the state file to the expected space-separated PID output. Production source unchanged in this follow-up; exact-head USB regression pending.
+
 ## 2026-11-22 — Revalidate Transmission and Aria2 PID snapshots before escalation
 
 - Review found that Transmission's post-graceful-stop snapshot still used the weaker \`''|0|1\` token check, so a refreshed leading-zero PID such as \`0707\` could reach \`kill -9\` even though the initial snapshot had been validated strictly.

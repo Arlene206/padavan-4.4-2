@@ -476,7 +476,7 @@ esac
 if [ -e "$STORAGE_TEST_STOP_KILLALL_LOG" ] &&
    [ -n "${STORAGE_TEST_STOP_POST_PIDOF_STATUS:-}" ]; then
 	[ -z "${STORAGE_TEST_STOP_POST_PIDOF_OUTPUT:-}" ] ||
-		printf '%s\\n' "$STORAGE_TEST_STOP_POST_PIDOF_OUTPUT"
+		printf '%s\n' "$STORAGE_TEST_STOP_POST_PIDOF_OUTPUT"
 	exit "$STORAGE_TEST_STOP_POST_PIDOF_STATUS"
 fi
 # Match pidof's whitespace-separated output, not the test file's line records.
@@ -630,7 +630,7 @@ check_stop_contracts()
 	# authorizing per-PID SIGKILL escalation.
 	stop_state="$TMP_DIR/$stop_prefix-stop-post-invalid-pids"
 	stop_signals="$TMP_DIR/$stop_prefix-stop-post-invalid-signals"
-	printf '%s\\n' 707 > "$stop_state"
+	printf '%s\n' 707 > "$stop_state"
 	: > "$stop_signals"
 	rm -f "$stop_killall"
 	if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 0 0 0 0 0707; then
