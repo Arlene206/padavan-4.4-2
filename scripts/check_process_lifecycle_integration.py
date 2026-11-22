@@ -96,7 +96,9 @@ legacy_pidfile_body = c_function_body(
     shared_source, "kill_pidfile_s(char *pidfile, int sig)"
 )
 assert "#include \"shutils_pidfile_policy.h\"" in shared_source
-assert "open(pidfile, O_RDONLY | O_NONBLOCK)" in legacy_pidfile_body
+assert "shutils_pidfile_open(pidfile)" in legacy_pidfile_body
+assert "O_NOFOLLOW" in shared_pidfile_policy
+assert "O_NONBLOCK" in shared_pidfile_policy
 assert "fstat(fd, &st)" in legacy_pidfile_body
 assert "S_ISREG(st.st_mode)" in legacy_pidfile_body
 assert "fdopen(fd, \"r\")" in legacy_pidfile_body

@@ -1,3 +1,10 @@
+## 2026-11-22 — Align process checker with no-follow PID-file open
+
+- Process lifecycle run `45082617344` on `489d1a1a4f90816adcf24b069a3505b31a8d038d` failed because the integration checker still required a direct `open(pidfile, O_RDONLY | O_NONBLOCK)` call. Production now routes this through `shutils_pidfile_open()`, adding `O_NOFOLLOW` while preserving `O_NONBLOCK`; the legacy PID-file workflow separately tests regular-file compatibility and symlink rejection.
+- Updated the Process contract to require the helper and both flags. This is a checker-only correction; process inventory unit tests passed on the prior SHA.
+
+---
+
 ## 2026-11-22 — Protect AliyunDrive lifecycle serialization from shared /var/lock replacement
 
 - The target boot setup creates `/var/lock` with mode 0777 and no sticky bit, while the AliyunDrive launcher previously created/opened a predictable lock there. A local user could unlink or replace that path while a transition held the old inode, allowing another start/stop operation to acquire a different inode and bypass serialization; a symlink/hardlink could also redirect the lock to an unrelated inode.
