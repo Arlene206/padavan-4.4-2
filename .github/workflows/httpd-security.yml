@@ -271,6 +271,7 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp"
       - "scripts/check_static_route_ui.py"
+      - "scripts/check_dev_init_boot.py"
   pull_request:
     paths:
       - "trunk/user/shared/src/dhcp6c_duid_file_policy.h"
@@ -540,6 +541,7 @@ on:
       - "trunk/user/rc/src/vpn_server_lease_lock.h"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp"
       - "scripts/check_static_route_ui.py"
+      - "scripts/check_dev_init_boot.py"
   workflow_dispatch:
 
 permissions:
@@ -929,9 +931,20 @@ jobs:
           assert "nvram_result = init_nvram_node();" in node_init
           assert "return nvram_result;" in node_init
           main_loop_compact = "".join(main_loop.split())
+          signal_init = body(init, "init_signals(void)")
+          signal_installer = body(init, "init_signal_install_status(int first_status,")
+          signal_installer_compact = "".join(signal_installer.split())
+          signal_init_compact = "".join(signal_init.split())
+          assert "pid1_signal_install_action(sigaction,signal_number,action)" in signal_installer_compact
+          assert "pid1_signal_status_merge(first_status,status)" in signal_installer_compact
+          for token in ("signals_fatal[i]", "signals_shutdown[i]", "SIGCHLD", "signals_event[i]"):
+              assert token in signal_init
+          assert "returnfirst_status;" in signal_init_compact
+          assert "signal_status=init_signals();" in main_loop_compact
+          assert "signal_status==0&&init_mdev_retry_state_is_pending" in main_loop_compact
           assert "router_init_status=INIT_ROUTER_RESULT_FATAL;" in main_loop_compact
-          assert "if(dev_init_status==0&&nvram_node_result==0)router_init_status=init_router();" in main_loop_compact
-          assert "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router_status_is_ready(router_init_status));" in main_loop_compact
+          assert "if(dev_init_status==0&&nvram_node_result==0&&signal_status==0)router_init_status=init_router();" in main_loop_compact
+          assert "router_ready=(dev_init_status==0&&nvram_node_result==0&&signal_status==0&&init_router_status_is_ready(router_init_status));" in main_loop_compact
           assert "elseif(init_router_status_is_degraded(router_init_status))" in main_loop_compact
           assert "if (router_ready)\n\t\t\t\thandle_notifications();" in main_loop
           assert "if (router_ready)\n\t\t\t\ton_deferred_hotplug_dev();" in main_loop

@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include "pid1_signal_policy.h"
+
 static int fake_signal_number;
 static int fake_signal_result;
 static int fake_signal_errno;
@@ -63,8 +65,6 @@ test_pid1_signal_installation_reports_failures(void)
 	       pid1_signal_status_merge(EACCES, EIO) != EACCES;
 }
 
-
-#include "pid1_signal_policy.h"
 
 int
 main(void)

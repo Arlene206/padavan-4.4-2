@@ -1,3 +1,11 @@
+## 2026-11-22 18:02 CST — Correct PID 1 signal regression and shared boot checks
+
+- Parent main: `c74ba42e7bab3eba8d89b4931873bce37a83cba5`. Exact PID1 mdev workflow #44999683905 failed because policy functions were used before `pid1_signal_policy.h` appeared in the test translation unit. Exact HTTPD #44999683880 failed its inline router-start/readiness contract because it did not include the new signal-status prerequisite. Exact Process inventory #44999683934 failed the same old conditions in `scripts/check_dev_init_boot.py`.
+- Moved the policy header above all test references. Updated the shared Process boot checker and HTTPD's inline contract to require signal setup success before mdev deferred retry or router startup; both now pin all four signal handler groups, first-error propagation and the signal gate. The HTTPD workflow also watches the shared checker path explicitly.
+- Exact c74 Process lifecycle #44999683951, USB storage #44999683921, DNSMasq #44999683891, DNS Forwarder #44999684058 and AI docs #44999683893 PASS. XY-C1 #44999684046 and NVRAM #44999683896 were still running at first poll; PID1, HTTPD and Process inventory require exact-head reruns. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 17:41 CST — Fail closed when PID 1 cannot install signal handlers
 
 - Parent main SHA: `9a3b2a3f60ae9da088e5de17cda252172b418067`. Networkmap ARP receive source parent 2cd6cbb has three GNU89 sanitizer-backed C regressions PASS; exact checker correction on 9a3 is awaiting rerun #44999591254 with AI docs #44999591228. Exact 2cd Process inventory #44999477626, NVRAM #44999477587 and AI docs #44999477625 PASS; no same-SHA XY-C1 proof for 2cd.

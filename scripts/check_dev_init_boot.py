@@ -177,9 +177,19 @@ for token in ("rc_boot_device_node_is_secure(&st, expected)",
     assert token in boot_device_test, "missing optional node policy regression: " + token
 assert 'dev_init_status = system("dev_init.sh -l")' in loop
 assert "if (dev_init_status != 0)" in loop
-assert "router_ready = (dev_init_status == 0 && nvram_node_result == 0 && init_router_status_is_ready(router_init_status))" in " ".join(loop.split())
+assert "router_ready = (dev_init_status == 0 && nvram_node_result == 0 && signal_status == 0 && init_router_status_is_ready(router_init_status))" in " ".join(loop.split())
+signal_init = c_function(init, "init_signals(void)")
+signal_installer = c_function(init, "init_signal_install_status(int first_status,")
+assert "pid1_signal_install_action(sigaction, signal_number, action)" in signal_installer
+assert "pid1_signal_status_merge(first_status, status)" in signal_installer
+for token in ("signals_fatal[i]", "signals_shutdown[i]", "SIGCHLD", "signals_event[i]"):
+    assert token in signal_init, "PID 1 signal install group missing: " + token
+assert "return first_status;" in signal_init
+assert "signal_status = init_signals();" in loop
+assert "signal_status != 0" in loop and "PID 1 signal setup incomplete" in loop
+assert "signal_status == 0 && init_mdev_retry_state_is_pending" in loop
 assert "router_init_status = INIT_ROUTER_RESULT_FATAL;" in loop
-assert "if (dev_init_status == 0 && nvram_node_result == 0)" in loop
+assert "if (dev_init_status == 0 && nvram_node_result == 0 && signal_status == 0)" in loop
 assert "router_init_status = init_router();" in loop
 assert "sysctl_status = init_sysctl();" in loop
 assert "init_router_result_merge_sysctl_status" in loop
