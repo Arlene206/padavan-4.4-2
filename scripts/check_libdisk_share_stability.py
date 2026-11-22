@@ -125,6 +125,31 @@ require("unlink(temp_file)" in write_failure and
         "errno = saved_errno;" in write_failure,
         "failed snapshot writes must remove the temporary file and preserve errno")
 
+
+require("disk_share_write_account_defaults" in POLICY and
+        "if (fflush(stream) != 0)" in POLICY,
+        "account defaults writer must report buffered stream failures")
+account_writer = function_body(
+    DISK_SOURCE,
+    "int initial_one_var_file_in_mount_path(const char *const account,"
+)
+account_mkstemp = account_writer.index("fd = mkstemp(temp_file)")
+account_content = account_writer.index(
+    "disk_share_write_account_defaults(fp, sh_num, folder_list",
+    account_mkstemp
+)
+account_sync = account_writer.index("fsync(fileno(fp))", account_content)
+account_close = account_writer.index("if (fclose(fp) != 0)", account_sync)
+account_publish = account_writer.index("rename(temp_file, var_file)", account_close)
+require(account_mkstemp < account_content < account_sync < account_close < account_publish,
+        "account defaults must be fully written and closed before atomic publish")
+account_failure = account_writer[account_writer.index("failed:"):]
+require("unlink(temp_file)" in account_failure and
+        "errno = saved_errno;" in account_failure,
+        "failed account defaults writes must discard the temporary file")
+require('fopen(var_file, "w")' not in account_writer,
+        "account defaults must not truncate the last complete permission file")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
@@ -143,6 +168,9 @@ for marker in (
     "test_snapshot_write_flushes_complete_content",
     "test_snapshot_write_reports_io_failure",
     "test_snapshot_write_rejects_invalid_data",
+    "test_account_defaults_write_complete_content",
+    "test_account_defaults_write_reports_io_failure",
+    "test_account_defaults_write_rejects_invalid_data",
 ):
     require(marker in REGRESSION and marker + "();" in REGRESSION,
             "missing output initialization regression: " + marker)

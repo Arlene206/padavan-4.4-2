@@ -89,5 +89,38 @@ disk_share_list_write_snapshot(FILE *stream, int folder_count,
 	return 0;
 }
 
+/*
+ * Write all default permission records and surface buffered I/O errors.
+ * The caller publishes this content only after fsync and successful close.
+ */
+static inline int
+disk_share_write_account_defaults(FILE *stream, int folder_count,
+                                  char *const *folder_list,
+                                  int samba_right, int ftp_right,
+                                  int dms_right)
+{
+	int i;
+
+	if (!stream || folder_count < 0 ||
+	    (folder_count > 0 && !folder_list)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = 0; i < folder_count; ++i) {
+		if (!folder_list[i]) {
+			errno = EINVAL;
+			return -1;
+		}
+		if (fprintf(stream, "*%s=%d%d%d\n", folder_list[i],
+		             samba_right, ftp_right, dms_right) < 0)
+			return -1;
+	}
+	if (fflush(stream) != 0)
+		return -1;
+
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

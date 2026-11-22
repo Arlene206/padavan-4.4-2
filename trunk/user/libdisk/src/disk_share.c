@@ -453,54 +453,113 @@ failed:
 	return -1;
 }
 
-int initial_one_var_file_in_mount_path(const char *const account, const char *const mount_path)
+int initial_one_var_file_in_mount_path(const char *const account,
+                                      const char *const mount_path)
 {
-	FILE *fp;
-	char var_file[256];
-	int result, i;
-	int sh_num = 0;
+	int sh_num = 0, fd = -1, temp_created = 0;
 	char **folder_list = NULL;
+	FILE *fp = NULL;
+	char *var_file = NULL, *temp_file = NULL;
+	int result, saved_errno;
+	size_t mount_len, account_len, var_len, temp_len, base_len;
+	const char prefix[] = "/.__";
+	const char suffix[] = "_var.txt";
+	const char temp_suffix[] = ".tmp.XXXXXX";
 	int samba_right, ftp_right;
 
-	if (!is_valid_account_name(account))
+	if (!is_valid_account_name(account) || !mount_path || !*mount_path) {
+		errno = EINVAL;
 		return -1;
-	if (mount_path == NULL || strlen(mount_path) <= 0)
-		return -1;
+	}
 
-	// get the folder number and folder_list
 	result = get_all_folder_in_mount_path(mount_path, &sh_num, &folder_list);
 	if (result != 0) {
 		free_2_dimension_list(&sh_num, &folder_list);
 		return -1;
 	}
 
-	// get the samba right and ftp right
-	if (strcmp(account, FTP_ANONYMOUS_USER) == 0/* || strcmp(account, SMB_GUEST_USER) == 0*/) {
+	if (!strcmp(account, FTP_ANONYMOUS_USER)) {
 		samba_right = 0;
 		ftp_right = 1;
-	}
-	else {
+	} else {
 		samba_right = DEFAULT_SAMBA_RIGHT;
 		ftp_right = DEFAULT_FTP_RIGHT;
 	}
 
-	// write the default content in the var file
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
-	if ((fp = fopen(var_file, "w")) == NULL) {
-		free_2_dimension_list(&sh_num, &folder_list);
-		return -1;
-	}
-	for (i = 0; i < sh_num; ++i) {
-		fprintf(fp, "*");
-		
-		fprintf(fp, "%s", folder_list[i]);
-		fprintf(fp, "=%d%d%d\n", samba_right, ftp_right, DEFAULT_DMS_RIGHT);
-	}
+	mount_len = strlen(mount_path);
+	account_len = strlen(account);
+	if (mount_len > (size_t)-1 - (sizeof(prefix) - 1))
+		goto path_too_long;
+	base_len = mount_len + sizeof(prefix) - 1;
+	if (account_len > (size_t)-1 - base_len)
+		goto path_too_long;
+	base_len += account_len;
+	if (sizeof(suffix) - 1 > (size_t)-1 - base_len)
+		goto path_too_long;
+	var_len = base_len + sizeof(suffix) - 1;
+	if (var_len == (size_t)-1 ||
+	    sizeof(temp_suffix) - 1 > (size_t)-1 - var_len - 1)
+		goto path_too_long;
+	temp_len = var_len + sizeof(temp_suffix) - 1;
 
-	fclose(fp);
+	var_file = (char *)malloc(var_len + 1);
+	temp_file = (char *)malloc(temp_len + 1);
+	if (!var_file || !temp_file)
+		goto failed;
+
+	memcpy(var_file, mount_path, mount_len);
+	memcpy(var_file + mount_len, prefix, sizeof(prefix) - 1);
+	memcpy(var_file + base_len - account_len, account, account_len);
+	memcpy(var_file + var_len - (sizeof(suffix) - 1), suffix,
+	       sizeof(suffix));
+	memcpy(temp_file, var_file, var_len);
+	memcpy(temp_file + var_len, temp_suffix, sizeof(temp_suffix));
+
+	fd = mkstemp(temp_file);
+	if (fd < 0)
+		goto failed;
+	temp_created = 1;
+	fp = fdopen(fd, "w");
+	if (!fp)
+		goto failed;
+	fd = -1;
+
+	if (disk_share_write_account_defaults(fp, sh_num, folder_list,
+	                                      samba_right, ftp_right,
+	                                      DEFAULT_DMS_RIGHT) != 0)
+		goto failed;
+	if (fsync(fileno(fp)) != 0)
+		goto failed;
+	if (fclose(fp) != 0) {
+		fp = NULL;
+		goto failed;
+	}
+	fp = NULL;
+
+	if (rename(temp_file, var_file) != 0)
+		goto failed;
+	temp_created = 0;
+
+	free(temp_file);
+	free(var_file);
 	free_2_dimension_list(&sh_num, &folder_list);
-
 	return 0;
+
+path_too_long:
+	errno = ENAMETOOLONG;
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fp)
+		(void)fclose(fp);
+	else if (fd >= 0)
+		(void)close(fd);
+	if (temp_created)
+		(void)unlink(temp_file);
+	free(temp_file);
+	free(var_file);
+	free_2_dimension_list(&sh_num, &folder_list);
+	errno = saved_errno;
+	return -1;
 }
 
 static void

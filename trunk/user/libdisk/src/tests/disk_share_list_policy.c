@@ -168,6 +168,50 @@ test_snapshot_write_rejects_invalid_data(void)
 	(void)fclose(stream);
 }
 
+static void
+test_account_defaults_write_complete_content(void)
+{
+	char *folders[] = { "Public", "Media" };
+	char buffer[64];
+	FILE *stream = tmpfile();
+
+	assert(stream != NULL);
+	assert(disk_share_write_account_defaults(stream, 2, folders, 3, 2, 1) == 0);
+	rewind(stream);
+	assert(fgets(buffer, sizeof(buffer), stream) != NULL);
+	assert(strcmp(buffer, "*Public=321\n") == 0);
+	assert(fgets(buffer, sizeof(buffer), stream) != NULL);
+	assert(strcmp(buffer, "*Media=321\n") == 0);
+	assert(fclose(stream) == 0);
+}
+
+static void
+test_account_defaults_write_reports_io_failure(void)
+{
+	char *folders[] = { "Public" };
+	FILE *stream = fopen("/dev/full", "w");
+
+	assert(stream != NULL);
+	errno = 0;
+	assert(disk_share_write_account_defaults(stream, 1, folders, 3, 2, 1) == -1);
+	assert(errno != 0);
+	(void)fclose(stream);
+}
+
+static void
+test_account_defaults_write_rejects_invalid_data(void)
+{
+	char *folders[] = { NULL };
+	FILE *stream = tmpfile();
+
+	assert(stream != NULL);
+	assert(disk_share_write_account_defaults(stream, 1, NULL, 3, 2, 1) == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(disk_share_write_account_defaults(stream, 1, folders, 3, 2, 1) == -1);
+	assert(errno == EINVAL);
+	(void)fclose(stream);
+}
 int
 main(void)
 {
@@ -180,5 +224,8 @@ main(void)
 	test_snapshot_write_flushes_complete_content();
 	test_snapshot_write_reports_io_failure();
 	test_snapshot_write_rejects_invalid_data();
+	test_account_defaults_write_complete_content();
+	test_account_defaults_write_reports_io_failure();
+	test_account_defaults_write_rejects_invalid_data();
 	return 0;
 }
