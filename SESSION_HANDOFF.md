@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before THIS LAN DNS-mode restoration correction: `51ff4552ae4b66dc6df736a9a61836fec8637a94`. Exact WAN DHCP #44981845607 and HTTPD security #44981845582 PASS. Exact XY-C1 #44981845610 completed with Build/TRX/artifact skipped because the commit changed only test contracts/docs. Production-source XY-C1 #44981685710 on SHA `1483e35` was still IN_PROGRESS inside `Build XY-C1` (TRX and artifact pending); NVRAM audit #44981685780 PASS. No L3 claim until all three target steps pass on one production-source SHA.
+- Parent `main` before THIS AP DHCP host-file compatibility fix: `e8b4de14f3355bef5754c780bb6ff96ea88609b8`. Exact WAN DHCP #44982248186 and HTTPD security #44982248126 PASS. XY-C1 #44982248169 remained IN_PROGRESS in `Cross-build XY-C1 firmware`; NVRAM audit #44982248197 remained IN_PROGRESS. The current atomic source/test/documentation slice must be validated on its resulting exact `main` SHA; no new L3 claim until Build, TRX verification and artifact upload all pass on that same SHA.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -32,7 +32,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has exact same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487, artifact #14737425993); L3 applies only to that SHA. Hardware L4 not verified.
 - WAN route source `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` uses coherent checked tuple + checked gateway-only fallback; exact WAN route #44979699090 and AI docs #44979698998 PASS on contract/doc descendant `b1c2d3f`. This is not L3 for the WAN source.
 - PID1 recovery-shell exact-child tracking fix is in `b76d4764438ed923f3f20ccc272914d8f79cf96c`; missing test include path was repaired in `d0bfd9407f50cad01cc683a7d7b8069bc15eb5d6`. Init-mdev #44980343980 and AI docs #44980343898 PASS on exact `d0bfd`. XY-C1 #44980178569 for the production PID1 source was still building at last poll; the d0-only XY run #44980343904 skipped target Build/TRX/artifact.
-- LAN AP DHCP deconfig restores static gateway and resolver settings from a coherent NVRAM snapshot. The manual/static LAN resolver uses configured `lan_dns1`/`lan_dns2` only when `nvram_get_int("lan_dns_x") == 0`; nonzero selects lease-supplied DNS. The previous deconfig implementation always wrote DNS1/DNS2, overriding automatic DNS mode after lease withdrawal. THIS slice snapshots `lan_dns_x`, gates static DNS1/DNS2 on `atoi(snapshot.static_dns_mode) == 0`, and uses the configured gateway as fallback DNS in automatic mode. GNU89 policy tests and Python source-contract assertions cover both modes; exact-head validation pending.
+- LAN AP DHCP deconfig restores static gateway and resolver settings from a coherent NVRAM snapshot. The manual/static LAN resolver uses configured `lan_dns1`/`lan_dns2` only when `nvram_get_int("lan_dns_x") == 0`; nonzero selects lease-supplied DNS. The previous deconfig implementation always wrote DNS1/DNS2, overriding automatic DNS mode after lease withdrawal. THIS slice snapshots `lan_dns_x`, gates static DNS1/DNS2 on `atoi(snapshot.static_dns_mode) == 0`, and uses the configured gateway as fallback DNS in automatic mode. GNU89 policy tests and Python source-contract assertions cover both modes; exact-head validation pending. The current follow-up closes a separate AP compatibility gap: `create_hosts_lan()` was replacing `/etc/hosts` without the safe `/tmp/hosts.static` entries, IPv4 `my.router`, or IPv6 localhost/LAN aliases. THIS slice restores the router-mode host-file content contract before atomic publish and adds source assertions; its exact-head WAN DHCP/XY-C1 validation is pending.
 - Full RC production-source scan of WAN NVRAM public integer/parameter void setters found only best-effort WAN counter telemetry; no speculative migration was made.
 - No L3 claim for current source until same-SHA XY-C1 Build, TRX and artifact all PASS; hardware L4 NOT VERIFIED.
 
@@ -42,13 +42,14 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - WAN route source SHA `06604d0e6261efbf264fbe16c1eca5a6dc90cb13`: checked tuple and gateway fallback source change committed; exact WAN route #44979699090 and AI docs #44979698998 PASS on checker/doc descendant `b1c2d3f`. No exact current-WAN-source XY Build/TRX/artifact result is recorded.
 - PID1 product SHA `b76d4764438ed923f3f20ccc272914d8f79cf96c`: Process lifecycle #44980178618 PASS; init-mdev #44980178644 FAILED at new policy-test compilation due omitted parent include path, after earlier tests passed; Python contract did not execute. XY-C1 #44980178569 was pending at last poll.
 - THIS commit changes only init workflow, roadmap, handoff and log to add/pin `-I trunk/user/rc/src`. Exact init rerun must compile/run the PID1 policy test and pass source contract; current product-source XY-C1 Build/TRX/artifact remains required.
+- Parent `e8b4de14f3355bef5754c780bb6ff96ea88609b8`: WAN DHCP #44982248186 and HTTPD security #44982248126 PASS; XY-C1 #44982248169 was building and NVRAM audit #44982248197 was running. THIS AP host-file parity correction is committed atomically with its checker/log/roadmap/handoff; fetch resulting `main` and inspect exact-head WAN DHCP, NVRAM and XY-C1 runs. L3 is unverified until same-SHA Build/TRX/artifact pass.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN DHCP, HTTPD and XY-C1 Actions for the `lan_dns_x` mode correction; investigate any first failing regression from its job log.
-2. Recheck production-source XY-C1 #44981685710 for SHA `1483e35`; require Build XY-C1, TRX verification and artifact upload all PASS on the same production-source SHA before L3.
-3. Continue independent stability/security work while pending target build work runs; keep the frozen backup untouched.
+1. Fetch the resulting live `main` SHA and inspect its exact-head WAN DHCP and NVRAM Actions; repair any first failing regression from the job log. The new host-file source contract must pass, including static-host preservation and IPv4/IPv6 aliases.
+2. Inspect the exact-head XY-C1 run; require Build XY-C1, TRX verification and artifact upload all PASS on that same SHA before claiming L3. Do not use older green source SHAs as evidence for this source change.
+3. Continue other independent repository-wide stability/security work while any target build remains pending; keep the frozen backup untouched.
 
 ## Workflow and preservation rules
 

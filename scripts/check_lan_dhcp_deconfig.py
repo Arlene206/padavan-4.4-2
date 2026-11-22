@@ -426,6 +426,16 @@ assert "errno = saved_errno;" in host_body
 assert "return saved_errno;" in host_body
 assert "sethostname(lan_hname" not in host_body
 assert "setdomainname(lan_dname" not in host_body
+assert 'fprintf(hosts_fp, "%s %s\\n", lan_ipaddr, "my.router");' in host_body
+safe_static_hosts = host_body.index('dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0')
+static_hosts_load = host_body.index('load_user_config(hosts_fp, "/tmp", "hosts.static", NULL)', safe_static_hosts)
+hosts_lock_acquire = host_body.index("dnsmasq_lifecycle_lock_acquire_path(", static_hosts_load)
+assert safe_static_hosts < static_hosts_load < hosts_lock_acquire
+assert 'else if (errno != ENOENT)' in host_body[safe_static_hosts:static_hosts_load]
+assert "#if defined (USE_IPV6)" in host_body
+assert 'fprintf(hosts_fp, "%s %s %s\\n", "::1", "localhost.localdomain", "localhost");' in host_body
+assert "get_lan_addr6_host(addr6s)" in host_body
+assert 'fprintf(hosts_fp, "%s %s\\n", lan_addr6_host, "my.router");' in host_body
 
 
 # IPTV route teardown snapshots the gateway and all route inventories as

@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve static host entries and IPv4/IPv6 aliases on AP DHCP updates
+
+- Parent main SHA: `e8b4de14f3355bef5754c780bb6ff96ea88609b8`. Exact WAN DHCP regression #44982248186 and HTTPD security #44982248126 PASS on that parent. XY-C1 #44982248169 was still in `Cross-build XY-C1 firmware`; NVRAM audit #44982248197 was still running. No current-parent L3 claim.
+- Comparing AP-mode `create_hosts_lan()` with router-mode `update_hosts_router()` exposed a real compatibility regression: AP BOUND/RENEW/DECONFIG atomically replaces `/etc/hosts` but omitted the administrator-managed `/tmp/hosts.static`, the `my.router` alias, and IPv6 localhost/LAN aliases. Each AP lease refresh could therefore discard custom host mappings and IPv6 host identity.
+- AP host generation now retains the same safe-regular-file check and static-host import used by router mode, adds the IPv4 `my.router` alias, and restores `::1`, the active LAN IPv6 hostname and IPv6 `my.router` alias when IPv6 is enabled. Lease-supplied domain handling, paired atomic publish, lifecycle lock and kernel hostname update remain unchanged.
+- Extended `check_lan_dhcp_deconfig.py` to pin the static-host safety gate, import-before-publish ordering and all aliases. The existing WAN DHCP workflow already includes both changed paths in push and pull_request filters and compiles the GNU89/Werror/ASan/UBSan DHCP regressions. Exact-head Actions required; no local checkout/toolchain or L3/L4 result is claimed.
+
+---
+
 ## 2026-11-21 — Preserve LAN automatic DNS mode on DHCP deconfig
 
 - Parent main SHA: `51ff4552ae4b66dc6df736a9a61836fec8637a94`. Exact WAN DHCP #44981845607 and HTTPD security #44981845582 PASS. XY-C1 #44981845610 completed with Build/TRX/artifact skipped because the parent changed only test contracts/docs. Production-source XY-C1 #44981685710 on `1483e35` was still building; NVRAM audit #44981685780 PASS.

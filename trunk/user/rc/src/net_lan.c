@@ -1287,6 +1287,30 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 		fprintf(hosts_fp, "%s %s.%s %s\n", lan_ipaddr, lan_hname, lan_dname, lan_hname);
 	else
 		fprintf(hosts_fp, "%s %s\n", lan_ipaddr, lan_hname);
+	fprintf(hosts_fp, "%s %s\n", lan_ipaddr, "my.router");
+
+	/* Preserve administrator-defined host entries across AP lease updates. */
+	if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)
+		load_user_config(hosts_fp, "/tmp", "hosts.static", NULL);
+	else if (errno != ENOENT)
+		logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno);
+
+#if defined (USE_IPV6)
+	if (get_ipv6_type() != IPV6_DISABLED) {
+		fprintf(hosts_fp, "%s %s %s\n", "::1", "localhost.localdomain", "localhost");
+		{
+			char addr6s[INET6_ADDRSTRLEN];
+			char *lan_addr6_host = get_lan_addr6_host(addr6s);
+			if (lan_addr6_host) {
+				if (strlen(lan_dname) > 0)
+					fprintf(hosts_fp, "%s %s.%s %s\n", lan_addr6_host, lan_hname, lan_dname, lan_hname);
+				else
+					fprintf(hosts_fp, "%s %s\n", lan_addr6_host, lan_hname);
+				fprintf(hosts_fp, "%s %s\n", lan_addr6_host, "my.router");
+			}
+		}
+	}
+#endif
 
 	hosts_lock = dnsmasq_lifecycle_lock_acquire_path(
 		DNSMASQ_HOSTNAME_LOCK_FILE, DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS);
