@@ -620,7 +620,7 @@ fill_dnsmasq_servers(void)
 					fprintf(fp, "server=/%s/%s\n", wan_dom, word);
 			}
 		} else if (wan_dom[0]) {
-			logmessage(LOGNAME, "ignoring invalid domain-specific VPN DNS routing domain");
+			logmessage(LOGNAME, "ignoring invalid domain-specific DNS routing domain");
 		}
 	}
 
@@ -633,7 +633,7 @@ fill_dnsmasq_servers(void)
 				fprintf(fp, "server=/%s/%s\n", wan_dom, word);
 		}
 	} else if (wan_dom[0]) {
-		logmessage(LOGNAME, "ignoring invalid domain-specific MAN DNS routing domain");
+		logmessage(LOGNAME, "ignoring invalid domain-specific DNS routing domain");
 	}
 
 	load_user_config(fp, storage_dir, "dnsmasq.servers", NULL);
