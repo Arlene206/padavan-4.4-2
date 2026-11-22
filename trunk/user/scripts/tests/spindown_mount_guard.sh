@@ -81,7 +81,8 @@ sed \
 	-e "s|/var/lock/automount_mountpoint.lock|$tmp/mountpoint.lock|g" \
 	"$script" > "$tmp/spindown.sh"
 chmod 755 "$tmp/spindown.sh"
-: > "$tmp/mounts"
+# A complete non-empty mount table with only another disk proves sda is unused.
+printf '/dev/sdb1 /mnt/other ext4 rw 0 0\\n' > "$tmp/mounts"
 : > "$tmp/hdparm.log"
 env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
 	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
