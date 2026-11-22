@@ -919,6 +919,35 @@ test_wan_interface_names_survive_shared_cache_overwrite(void)
 
 
 static void
+test_dhcp_fallback_netmask_survives_previous_tuple_reads(void)
+{
+	struct fake_nvram_text_cache fake;
+	char lease_netmask[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_netmask";
+	fake.names[1] = "wan0_ipaddr";
+	fake.names[2] = "wan0_gateway";
+	fake.values[0] = "255.255.255.0";
+	fake.values[1] = "198.51.100.2";
+	fake.values[2] = "198.51.100.1";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[0], lease_netmask,
+				       sizeof(lease_netmask)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[1], fake.cache_slot,
+				       sizeof(fake.cache_slot)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[2], fake.cache_slot,
+				       sizeof(fake.cache_slot)) == 0);
+	assert(fake.calls == 3);
+	assert(strcmp(fake.cache_slot, "198.51.100.1") == 0);
+	assert(strcmp(lease_netmask, "255.255.255.0") == 0);
+}
+
+
+static void
 test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation(void)
 {
 	char cache_slot[32] = "198.51.100.27";
@@ -1829,6 +1858,7 @@ main(void)
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();
 	test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite();
+	test_dhcp_fallback_netmask_survives_previous_tuple_reads();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_legacy_mac_override_preserves_mac_conv_formatting();
 	test_legacy_mac_override_zero_and_broadcast_values_use_fallback();

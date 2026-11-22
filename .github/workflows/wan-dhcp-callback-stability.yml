@@ -441,6 +441,18 @@ jobs:
           assert "launch_status = route_status_accumulate(launch_status, publish_status);" in source
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           callback_compact = "".join(callback.split())
+          assert "char lease_netmask_storage[INET_ADDRSTRLEN];" in callback
+          assert "netmask_read_status" in callback
+          assert 'nvram_safe_get(strcat_r(prefix, "netmask", tmp))' not in callback
+          fallback_netmask_read = callback_compact.index(
+              'netmask_read_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,strcat_r(prefix,"netmask",tmp),lease_netmask_storage,sizeof(lease_netmask_storage));')
+          fallback_netmask_error = callback_compact.index("if(netmask_read_status!=0)", fallback_netmask_read)
+          fallback_netmask_return = callback_compact.index("returnnetmask_read_status;", fallback_netmask_error)
+          fallback_netmask_assign = callback_compact.index("lease_netmask=lease_netmask_storage;", fallback_netmask_return)
+          fallback_netmask_validate = callback_compact.index("dhcp_lease_netmask_is_valid(lease_netmask)")
+          fallback_tuple_snapshot = callback_compact.index("rc_wan_nvram_copy_snapshot(")
+          assert fallback_netmask_read < fallback_netmask_error < fallback_netmask_return < fallback_netmask_assign < fallback_netmask_validate < fallback_tuple_snapshot
+          assert "test_dhcp_fallback_netmask_survives_previous_tuple_reads" in lease_policy_test
           callback_identity = re.search(
               r"([A-Za-z_]\w*)=is_ifunit_modem_status\(wan_ifname,unit,&modem_unit_id\)",
               callback_compact,

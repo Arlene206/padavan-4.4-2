@@ -7398,6 +7398,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char *lease_ip, *lease_netmask, *lease_dns, *lease_wins, *lease_domain;
+	char lease_netmask_storage[INET_ADDRSTRLEN];
 	char *lease_routes, *lease_routes_ms, *lease_routes_rfc, *route_value;
 	char bound_names[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX];
 	char previous_text[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
@@ -7412,6 +7413,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
 	int key_length, snapshot_status, snapshot_rollback_status;
+	int netmask_read_status;
 	int snapshot_abort_status, callback_status, publish_status;
 	int dltime_length, snapshot_published = 0;
 	int snapshot_restore_status = 0, snapshot_restore_rollback_status = 0;
@@ -7472,10 +7474,22 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	value = getenv("ip");
 	lease_ip = value ? trim_r(value) : "";
 	value = getenv("subnet");
-	if (value)
+	if (value) {
 		lease_netmask = trim_r(value);
-	else
-		lease_netmask = nvram_safe_get(strcat_r(prefix, "netmask", tmp));
+	} else {
+		netmask_read_status = rc_wan_nvram_copy_value(
+			wan_nvram_checked_get_callback, NULL,
+			strcat_r(prefix, "netmask", tmp),
+			lease_netmask_storage, sizeof(lease_netmask_storage));
+		if (netmask_read_status != 0) {
+			errno = netmask_read_status;
+			logmessage(log_prefix,
+				   "cannot read fallback DHCP netmask on %s (status=%d)",
+				   wan_ifname, netmask_read_status);
+			return netmask_read_status;
+		}
+		lease_netmask = lease_netmask_storage;
+	}
 	if (!dhcp_lease_ipv4_is_valid(lease_ip) ||
 	    !dhcp_lease_netmask_is_valid(lease_netmask)) {
 		logmessage(log_prefix, "%s (%s) rejected invalid DHCP address/netmask",

@@ -1,3 +1,11 @@
+## 2026-11-22 — Copy fallback WAN DHCP netmask before previous-lease reads
+
+- Parent main SHA: `afb7b19f7d91b61912abfbc89da4032dcb24e59b`. In `udhcpc_bound()`, when the DHCP environment omitted `subnet`, the callback retained `nvram_safe_get("<wan>_netmask")` storage across its subsequent transactional snapshot of the previous lease. That snapshot reads many NVRAM keys and can overwrite the shared cache before the fallback mask is passed to subnet comparison/interface configuration.
+- Replaced the borrowed pointer with a bounded `INET_ADDRSTRLEN` buffer and checked `rc_wan_nvram_copy_value()`. Backend errors and truncation now return before lease validation or interface/route changes; a missing optional key still maps to empty text and is rejected by the existing netmask validator.
+- Added a shared-cache overwrite regression and WAN DHCP source-order assertions. Exact-head WAN DHCP/route/XY-C1 validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Snapshot LAN gateway and router domain before resolver/IPv6 reads
 
 - Parent main SHA: `bccd3fc915e963d4cb6ddeab223f02edf3fef57b`. Two remaining cache-lifetime defects were found in the LAN resolver/hostname path: `lan_up_manual()` kept `lan_gateway` borrowed while later reading both DNS server keys and then used it as fallback; `update_hosts_router()` kept `lan_domain` borrowed across IPv6 service-state probing before writing hostname files.
