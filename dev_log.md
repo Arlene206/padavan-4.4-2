@@ -1,3 +1,10 @@
+## 2026-11-22 — Complete the firewall NAT single-snapshot source contract
+
+- Parent main SHA: 675466a45ee1d6cef1f121c22d3914225c2c1d90. Exact #1705 Firewall Startup failed again in the NAT-builder contract: the prior correction removed the stale raw read expectation from ipt_filter_rules(), but left the same assertion in the ipt_nat_rules() builder. Source ipt_nat_rules() already receives is_nat_enabled as an argument and gates NAT work with that snapshot; the toggle is checked once in the outer firewall startup preflight.
+- Updated the NAT builder contract to require the passed is_nat_enabled guard and reject a duplicate firewall_read_enabled_setting("wan_nat_x", ...) inside the builder. VPN integer settings remain independently checked and ordered before rule-file access.
+- USB manual modem-node implementation commit 675466a45ee1d6cef1f121c22d3914225c2c1d90 is under exact-head validation: USB identity, firewall, XY-C1 firmware build, HTTPD, WAN DHCP and NVRAM checks were still running at last poll; handoff and WAN teardown had passed. No L3 claim until same-SHA Build, TRX and artifact steps all pass.
+
+---
 ## 2026-11-22 — Fail closed on USB modem manual control-node selection read errors
 
 - Parent main SHA: 1705d60b42615f370ead7575b2545c082b336fdf. Exact ba4 USB workflow #44985821796 PASS; handoff #44985821715 and process lifecycle #44985821691 PASS. Firewall #44985821682 exposed a stale NAT builder read expectation; #1705 corrected the filter-builder check but its exact-head rerun still failed on the same stale expectation in the NAT builder. That separate workflow contract needs a second correction. ba4 XY-C1 ran host-only and skipped Build/TRX/artifact because product source was unchanged; no L3.

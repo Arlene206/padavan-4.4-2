@@ -439,8 +439,9 @@ jobs:
           dos_gate = 'firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled)'
           assert dos_gate in ipv4_filter
           nat_builder = body(firewall_source, "ipt_nat_rules(char *man_if")
+          assert "if (is_nat_enabled)" in nat_builder
+          assert 'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)' not in nat_builder
           nat_checked = (
-              'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)',
               'firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable)',
               'firewall_read_integer_setting("vpnc_enable", 0, &i_vpnc_enable)',
               'firewall_read_integer_setting("vpns_type", 0, &i_vpns_type)',
