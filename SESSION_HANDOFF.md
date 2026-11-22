@@ -28,23 +28,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Firewall boot checked-read, LAN DHCP rollback snapshot, OpenVPN crypto failure/digest and FTP passive-port policy slices are committed and have the previously recorded exact Actions.
-- Samba account-count state guard: `45d052982bd51efcbdc47e5c818544f95d4d5689` changed `run_samba()` to status-check `acc_num` before process scan/cleanup/passdb staging, retaining zero default and historical range clamping. Policy tests were added.
-- Samba exact workflow #44976440925 on `45d0529` FAILED at the newly-added source-order assertion, not compilation: it called `.index()` on the whitespace-preserving function body using compact token strings. THIS commit normalizes `run_samba` once before the ordering assertions. Need a new exact-head Samba rerun before treating this slice green.
-- On `45d0529`, Process #44976440957, NVRAM #44976440845, AI docs #44976440883, VSFTPD #44976441057, Firewall #44976440998, NFS #44976440973, USB storage #44976440904, USB modem #44976440961 and HTTPD #44976440933 PASS. XY-C1 #44976440932 still IN_PROGRESS; no L3 claim.
-- No local MIPS toolchain/device; L4 NOT VERIFIED.
+- Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, and FTP passive-port range policy are completed source slices with exact workflow results in the dev log.
+- Samba `acc_num` status guard is committed in `45d052982bd51efcbdc47e5c818544f95d4d5689`; checker correction `909a0095de86a88f7dfb8343923e641f466ac923`. Exact Samba #44976705529 PASS and AI docs #44976705516 PASS on `909a009`.
+- THIS commit closes the Samba credential-read gap: `http_username`, `acc_usernameN` and `acc_passwordN` previously used unchecked `nvram_safe_get()`. The new preflight copies them via the status-bearing NVRAM API into bounded local buffers and validates every accepted credential before process inventory, cleanup, config or passdb staging. Read errors/truncation/unsafe passwords/duplicate identities abort and preserve last-good state; the passdb publisher consumes the validated snapshots only. Password buffers are cleared on every locked exit.
+- No local MIPS toolchain or physical router; firmware L3/L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- Parent of this workflow-only correction: `45d052982bd51efcbdc47e5c818544f95d4d5689`.
-- Samba #44976440925 FAILED at the raw-vs-whitespace-normalized assertion. Its error was Python `ValueError: substring not found`; this was checker construction, not source compilation/test evidence. Source account-count guard remains unverified until exact-head Samba passes.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No L3/L4 claim.
+- Parent main for THIS checked-credential snapshot slice: `909a0095de86a88f7dfb8343923e641f466ac923`.
+- Exact Samba #44976705529 PASS and AI docs #44976705516 PASS on `909a009`, validating the prior account-count guard. This commit changes production source and Samba workflow contract; exact-head checks are pending.
+- No same-SHA XY-C1 Build/TRX/artifact completion is recorded; no L3 claim. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check the new exact-head Samba share stability workflow and ensure account-count regression compiles/runs and source ordering passes.
-2. Continue Samba credential-source auditing: individual `acc_usernameN` values and `http_username` currently use unchecked `nvram_safe_get()`; backend errors can silently look like empty/unknown users. Convert to copied status-bearing reads and fail closed before passdb publication.
-3. Recheck XY-C1 Build, TRX and artifact on one exact SHA; no L3 until all stages pass. Continue other independent fixes while pending.
+1. Inspect exact-head Samba workflow for checked-string helper, account snapshot ordering, compile and existing NVRAM copy-value regressions; fix actual failures without weakening fail-closed behavior.
+2. Inspect Process inventory, NVRAM audit and AI docs on the same SHA, and continue an independent whole-userland security/stability slice while Actions are pending.
+3. Require Build XY-C1, TRX verification and artifact upload all PASS on one exact product source SHA before claiming L3; keep frozen backup untouched.
 
 ## Workflow and preservation rules
 

@@ -1,3 +1,12 @@
+## 2026-11-22 10:38 CST — Snapshot checked Samba account identities and secrets before publication
+
+- Parent main SHA: `909a0095de86a88f7dfb8343923e641f466ac923`; exact Samba #44976705529 and AI docs #44976705516 PASS on this parent, validating the prior account-count guard.
+- Audit found `run_samba()` still used `nvram_safe_get()` for `http_username`, `acc_usernameN` and `acc_passwordN`. Those reads did not distinguish NVRAM backend errors from empty values, and cache-backed pointers could be invalidated by the next NVRAM read.
+- Added a copied status-bearing string reader around `rc_wan_nvram_copy_value()`. `run_samba()` now snapshots router identity, each configured username and each accepted password into bounded buffers before process inventory, cleanup, config or passdb staging; it validates duplicate identities and password policy in the preflight. Read error, overlong value or invalid password aborts without replacing the last-good passdb/config. The passdb loop consumes only validated snapshots and clears password buffers on every locked exit.
+- Updated Samba workflow source/order assertions, roadmap and handoff. Exact-head Actions pending; no local target build or L3/L4 claim.
+
+---
+
 ## 2026-11-22 CST — Normalize Samba account-count source-order contract
 
 - Parent main SHA: `45d052982bd51efcbdc47e5c818544f95d4d5689`.

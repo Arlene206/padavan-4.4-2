@@ -302,6 +302,25 @@ storage_read_integer_status(const char *name, int missing_value, int *value)
 					    text, missing_value, value);
 }
 
+static int
+storage_read_nvram_string(void *context, const char *name, char **value)
+{
+	(void)context;
+	return nvram_get_checked(name, value);
+}
+
+static int
+storage_read_string_status(const char *name, char *value, size_t value_size)
+{
+	int status;
+
+	status = rc_wan_nvram_copy_value(storage_read_nvram_string, NULL,
+					 name, value, value_size);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 
 int
 write_vsftpd_conf(void)
@@ -575,10 +594,11 @@ out:
 
 #if defined (APP_SMBD)
 static int
-samba_service_account_is_safe(const char *name)
+samba_service_account_is_safe(const char *name,
+			      const char *router_username)
 {
 	return samba_acl_user_is_safe(name) &&
-	       !router_account_name_is_reserved(name, nvram_safe_get("http_username"));
+	       !router_account_name_is_reserved(name, router_username);
 }
 static int
 samba_write_all(int fd, const char *data, size_t length)
@@ -1523,10 +1543,13 @@ samba_ensure_daemon(const char *daemon,
 int run_samba(void)
 {
 	int lock_fd, sh_num = 0, account_count_value = 0;
-	int account_count_status, i, j;
+	int account_count_status, account_value_status, i, j;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
 	int runtime_enabled;
 	char tmpuser[40], tmp2[40];
+	char router_username[128];
+	char account_usernames[MAX_ACCOUNT_NUM][128];
+	char account_passwords[MAX_ACCOUNT_NUM][128];
 	enum process_presence smbd_presence, nmbd_presence;
 	struct process_snapshot smbd_snapshot, nmbd_snapshot;
 #if defined (APP_SMBD36)
@@ -1560,6 +1583,10 @@ int run_samba(void)
 		return -1;
 	}
 
+	memset(router_username, 0, sizeof(router_username));
+	memset(account_usernames, 0, sizeof(account_usernames));
+	memset(account_passwords, 0, sizeof(account_passwords));
+
 	/*
 	 * acc_num controls how many credential rows are rebuilt. A failed read
 	 * previously became zero via nvram_safe_get_int(), allowing an empty
@@ -1579,6 +1606,70 @@ int run_samba(void)
 			   account_error);
 		errno = account_error;
 		goto out;
+	}
+
+	/*
+	 * Snapshot every credential value before process scans, cleanup or
+	 * passdb staging. nvram_get_checked() values are cache-backed and can be
+	 * invalidated by the next NVRAM read, so copy each one immediately.
+	 * Any backend error or overlong value must preserve the current passdb.
+	 */
+	if (sh_num > 0) {
+		account_value_status = storage_read_string_status(
+			"http_username", router_username, sizeof(router_username));
+		if (account_value_status != 0) {
+			logmessage("Samba Server",
+				   "cannot read router account identity; preserving passdb and configuration (errno %d)",
+				   account_value_status);
+			errno = account_value_status;
+			goto out;
+		}
+	}
+
+	for (i = 0; i < sh_num; i++) {
+		snprintf(tmpuser, sizeof(tmpuser), "acc_username%d", i);
+		account_value_status = storage_read_string_status(
+			tmpuser, account_usernames[i], sizeof(account_usernames[i]));
+		if (account_value_status != 0) {
+			logmessage("Samba Server",
+				   "cannot read SMB account identity %s; preserving passdb and configuration (errno %d)",
+				   tmpuser, account_value_status);
+			errno = account_value_status;
+			goto out;
+		}
+
+		if (!samba_service_account_is_safe(
+			    account_usernames[i], router_username))
+			continue;
+
+		/* Preserve the existing duplicate-identity rejection semantics. */
+		for (j = 0; j < i; j++) {
+			if (!strcmp(account_usernames[i], account_usernames[j])) {
+				logmessage("Samba Server",
+					   "duplicate SMB account identity %s; preserving passdb and configuration",
+					   account_usernames[i]);
+				errno = EEXIST;
+				goto out;
+			}
+		}
+
+		snprintf(tmp2, sizeof(tmp2), "acc_password%d", i);
+		account_value_status = storage_read_string_status(
+			tmp2, account_passwords[i], sizeof(account_passwords[i]));
+		if (account_value_status != 0) {
+			logmessage("Samba Server",
+				   "cannot read SMB account password for %s; preserving passdb and configuration (errno %d)",
+				   account_usernames[i], account_value_status);
+			errno = account_value_status;
+			goto out;
+		}
+		if (!samba_passdb_password_is_safe(account_passwords[i])) {
+			logmessage("Samba Server",
+				   "unsafe SMB account password for %s; preserving passdb and configuration",
+				   account_usernames[i]);
+			errno = EINVAL;
+			goto out;
+		}
 	}
 
 	/* Inventory every daemon before account, config or cleanup mutation. */
@@ -1637,32 +1728,17 @@ int run_samba(void)
 #endif
 
 	for (i = 0; i < sh_num; i++) {
-		snprintf(tmpuser, sizeof(tmpuser), "acc_username%d", i);
-		snprintf(tmp2, sizeof(tmp2), "acc_password%d", i);
-		if (!samba_service_account_is_safe(nvram_safe_get(tmpuser)))
+		if (!samba_service_account_is_safe(
+			    account_usernames[i], router_username))
 			continue;
 
-		/* Reject duplicate NVRAM identities instead of writing ambiguous rows. */
-		for (j = 0; j < i; j++) {
-			char previous_user[40];
-
-			snprintf(previous_user, sizeof(previous_user), "acc_username%d", j);
-			if (!strcmp(nvram_safe_get(tmpuser), nvram_safe_get(previous_user))) {
-				credential_failed = 1;
-				break;
-			}
-		}
-		if (credential_failed)
-			break;
-
-		if (!samba_passdb_password_is_safe(nvram_safe_get(tmp2)) ||
-		    samba_run_smbpasswd(
+		if (samba_run_smbpasswd(
 #if defined (APP_SMBD36)
 			staged_passdb,
 #else
 			NULL,
 #endif
-			nvram_safe_get(tmpuser), nvram_safe_get(tmp2)) != 0) {
+			account_usernames[i], account_passwords[i]) != 0) {
 			credential_failed = 1;
 			break;
 		}
@@ -1764,6 +1840,10 @@ int run_samba(void)
 	result = 0;
 
 out:
+	/* Remove credential material from the stack on every locked exit path. */
+	memset(account_passwords, 0, sizeof(account_passwords));
+	memset(account_usernames, 0, sizeof(account_usernames));
+	memset(router_username, 0, sizeof(router_username));
 	process_snapshot_release(&smbd_snapshot);
 	process_snapshot_release(&nmbd_snapshot);
 #if defined (APP_SMBD36)
