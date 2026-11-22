@@ -1,3 +1,11 @@
+## 2026-11-21 23:41 PST — Correct PID 1 signal-mask workflow matcher
+
+- Parent main `34d7b3cb77426c41e077e47c85da81b0441560a4`. The signal-mask change was committed with mdev and HTTPD inline contracts. Review found one test-only mismatch: control_signal() calls `init_signal_mask_update()`, while that wrapper calls `pid1_signal_update_mask()`; the new assertion incorrectly expected the lower-level call in control_signal().
+- Corrected both inline workflows to verify the actual wrapper call chain. No production source changes.
+- Exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process inventory #45000188627, AI #45000188637 and NVRAM #45000188665 PASS. deaca XY-C1 #45000188681 was host-only (production Build/TRX/artifact skipped), not L3. The 34d exact-head workflows were queued at first poll; this test correction now triggers fresh runs.
+
+---
+
 ## 2026-11-21 23:37 PST — Check PID 1 signal masks and avoid invalid sigsuspend state
 
 - Parent main `deaca535575f3032b02c53a52667f8eb74494fe2`. Exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process lifecycle inventory #45000188627 and AI handoff #45000188637 PASS. Exact deaca XY-C1 #45000188681 is HOST-ONLY success: production-input detector found no firmware build inputs changed, so Build, TRX and artifact steps were SKIPPED; not L3. Exact f6a NVRAM #44999987551 PASS; deaca NVRAM #45000188665 was running at last poll.

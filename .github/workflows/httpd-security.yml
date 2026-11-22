@@ -5441,7 +5441,7 @@ jobs:
           signal_mask_control = body(init, "control_signal(int sig, int how)")
           signal_mask_setup = body(init, "init_signal_mask_update(int how,")
           main_loop_compact = "".join(main_loop.split())
-          assert "pid1_signal_update_mask(sigprocmask,how,&set,NULL)" in "".join(signal_mask_control.split())
+          assert "init_signal_mask_update(how,&set,NULL," in "".join(signal_mask_control.split())
           assert "pid1_signal_update_mask(sigprocmask,how,set,old_set)" in "".join(signal_mask_setup.split())
           assert "errno=0;" in signal_mask and "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
           assert "wait_mask_build_status" in main_loop

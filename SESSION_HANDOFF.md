@@ -7,9 +7,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: deaca535575f3032b02c53a52667f8eb74494fe2. Exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process lifecycle inventory #45000188627 and AI handoff #45000188637 PASS.
-- Exact deaca XY-C1 #45000188681 completed SUCCESS as HOST-ONLY validation: production-input detector found no firmware build inputs changed, so Build XY-C1, TRX and artifact steps were SKIPPED. Not L3. Exact deaca NVRAM #45000188665 was still running at last poll; exact f6a NVRAM #44999987551 PASS.
-- THIS COMMIT adds an injectable checked sigprocmask adapter and fail-safe main-loop mask state. It prevents uninitialized original_mask use in sigsuspend, checks control-signal block/unblock calls, retries mask transitions, and falls back to one-second polling when queued-work mask construction is invalid. The PID1 mdev and HTTPD contracts are updated to verify this behavior.
+- Current parent main: 34d7b3cb77426c41e077e47c85da81b0441560a4. The checked signal-handler install and mask-transition source changes are committed. Previous exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process lifecycle #45000188627 and AI #45000188637 PASS; NVRAM #45000188665 subsequently finished PASS. deaca XY-C1 #45000188681 was HOST-ONLY: Build, TRX and artifact were SKIPPED because no production build input changed; not L3.
+- This commit initially updated the two inline mask contracts, but a post-commit review found that their control_signal matcher named the low-level adapter instead of the wrapper actually called by control_signal. THIS follow-up corrects those two source assertions to require init_signal_mask_update(how, &set, NULL, ...). The 34d exact-head workflows were queued at first poll and must be inspected after this correction.
 
 ## Completed source slices
 
@@ -30,16 +29,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Strengthen the PID 1 checked sigaction regression and force exact-head revalidation of the just-corrected HTTPD contract. On a successful libc sigaction, the wrapper intentionally clears stale caller `errno`; the regression now seeds `EINTR`, uses a successful fake installer, and requires `errno == 0`.
-- The mdev workflow source contract now pins that successful errno-reset case. The touched C test is watched by both mdev and HTTPD workflow path filters, so this commit should produce exact-head reruns.
+- Reconcile the exact control-signal source contract with the new wrapper chain. control_signal() calls init_signal_mask_update(how, &set, NULL, ...), while init_signal_mask_update() calls pid1_signal_update_mask(sigprocmask, how, set, old_set). The first workflow matcher incorrectly asserted the lower-level adapter directly inside control_signal.
+- THIS COMMIT fixes the mdev and HTTPD inline assertions to reflect the actual checked call chain; no production source changes.
 
 ## Verification boundary
 
-- Exact 8a66 PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325 and AI docs #44999904265 PASS. Its HTTPD run #44999904303 failed only on a stale direct-sigaction matcher; 52e corrected that matcher but triggered no runs by itself.
-- Exact f6a NVRAM #44999987551 remained in progress at last poll. c74 XY-C1 #44999684046 remained in progress; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
+- Exact deaca PID1 mdev #45000188630, HTTPD #45000188641, Process lifecycle inventory #45000188627, AI #45000188637 and NVRAM #45000188665 PASS.
+- Exact deaca XY-C1 #45000188681 HOST-ONLY success; Build/TRX/artifact skipped because production build inputs were unchanged. Not L3. Hardware L4 NOT VERIFIED.
+- The 34d signal-mask change exact-head Actions were queued at last poll; this corrective matcher commit will trigger a fresh set.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head HTTPD and PID1 mdev runs for the errno-reset regression plus the checked-handler matcher; inspect any failing assertion/log before making another correction.
-2. Check NVRAM #44999987551 and XY-C1 build/TRX/artifact; claim L3 only when all three firmware checks pass on one identical source SHA.
-3. Continue a new independent stability/security item while pending work runs; keep hardware L4 NOT VERIFIED.
+1. Check exact-head mdev, HTTPD, Process inventory/lifecycle, NVRAM, DNSMasq, DNS forwarder, USB, AI and XY-C1 runs for this matcher correction. Fix any remaining demonstrated failure.
+2. Confirm an actual XY-C1 Build + TRX + artifact set on one product-source SHA; do not treat host-only detector success as L3.
+3. Continue the next independent P1/P2 userland stability/security issue while pending actions run. Keep hardware L4 NOT VERIFIED.
