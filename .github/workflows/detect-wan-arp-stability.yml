@@ -171,6 +171,7 @@ jobs:
           assert "nvram_get_checked(param_name, value)" in checked_callback
           chk = body(detect, "chk_udhcpc(int ap_mode)")
           chk_compact = "".join(chk.split())
+          assert chk.rstrip().endswith("return 0;")
           assert "char gateway_storage[16];" in chk
           assert "get_wan_unit_proto_checked_status(0,&wan_proto)" in chk_compact
           assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in chk_compact

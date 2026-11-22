@@ -135,35 +135,32 @@ chk_udhcpc(int ap_mode)
 		return 0;
 
 	presence = process_inventory_scan("udhcpc", &snapshot);
-		scan_error = snapshot.error;
-		renew_decision = detect_wan_udhcpc_should_renew(presence);
-		process_snapshot_release(&snapshot);
+	scan_error = snapshot.error;
+	renew_decision = detect_wan_udhcpc_should_renew(presence);
+	process_snapshot_release(&snapshot);
 
-		if (renew_decision < 0)
-		{
-			errno = scan_error ? scan_error : EIO;
-			logmessage("detect_wan",
-				   "Unable to verify udhcpc state; refusing gateway DHCP renew (error %d)",
-				   errno);
-			return -1;
-		}
-		if (renew_decision == 0)
-			return 0;
+	if (renew_decision < 0) {
+		errno = scan_error ? scan_error : EIO;
+		logmessage("detect_wan",
+			   "Unable to verify udhcpc state; refusing gateway DHCP renew (error %d)",
+			   errno);
+		return -1;
+	}
+	if (renew_decision == 0)
+		return 0;
 
-		if (dw_stopping)
-			return 0;
-		logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_storage);
-		renew_status = process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode),
-						     "udhcpc", SIGUSR1);
-		if (renew_status != 0)
-		{
-			if (renew_status != -1 || errno == 0)
-				errno = EIO;
-			logmessage("detect_wan",
-				   "Failed to request udhcpc renewal (status %d, error %d)",
-				   renew_status, errno);
-			return -1;
-		}
+	if (dw_stopping)
+		return 0;
+	logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_storage);
+	renew_status = process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode),
+					     "udhcpc", SIGUSR1);
+	if (renew_status != 0) {
+		if (renew_status != -1 || errno == 0)
+			errno = EIO;
+		logmessage("detect_wan",
+			   "Failed to request udhcpc renewal (status %d, error %d)",
+			   renew_status, errno);
+		return -1;
 	}
 
 	return 0;
