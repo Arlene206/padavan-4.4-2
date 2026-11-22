@@ -57,6 +57,7 @@ on:
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "trunk/user/smartdns/smartdns.sh"
+      - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
       - "trunk/user/smartdns/smartdns_config_file.sh"
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
@@ -120,6 +121,7 @@ on:
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - ".github/workflows/inadyn-lifecycle-stability.yml"
       - "trunk/user/smartdns/smartdns.sh"
+      - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
       - "trunk/user/smartdns/smartdns_config_file.sh"
       - "trunk/user/smartdns/smartdns_lifecycle_lock.sh"
@@ -429,6 +431,7 @@ jobs:
               "trunk/user/rc/src/rc_notify_batch_policy.h",
               "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
               "trunk/user/smartdns/smartdns.sh",
+              "trunk/user/adbyby/adbyby.sh",
               "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
               "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",
               "trunk/user/smartdns/Makefile",
@@ -902,6 +905,7 @@ jobs:
               "trunk/user/rc/src/rc_notify_batch_policy.h",
               "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
               "trunk/user/smartdns/smartdns.sh",
+              "trunk/user/adbyby/adbyby.sh",
               "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
               "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",
               "trunk/user/smartdns/Makefile",
