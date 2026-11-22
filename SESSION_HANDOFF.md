@@ -32,20 +32,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - WAN reset manual endpoints are transactionally snapshotted with checked NVRAM APIs; protocol reset is bounded and status-bearing; WAN custom/factory MAC identity reads preserve legacy formatter behavior and have C host tests (`b75f4cc`, `b2d084d`, `49bed878`).
 - Firewall contract correction `f58d4b1e557d0b1da8843436554ae421fdee1698` passed WAN route `#44964031249` and AI docs `#44964031268`; XY-C1 `#44964031316` host validation passed but firmware Build/TRX/artifact were skipped because the SHA changed only checker/docs.
 - `start_wan()` now uses checked unit protocol reads, first-error retention and fail-closed interface setup. THIS source slice also fixes `is_ifunit_man()`: its boolean ABI now uses a checked wrapper and conservatively treats protocol-read errors as manual PPP, preserving the underlay rather than allowing destructive IPoE cleanup.
-- Next: continue the remaining direct `get_wan_proto()` consumers in WAN teardown, route-gateway and DHCP callbacks; never gate unconditional cleanup on a protocol-read error.
+- Next: continue direct `get_wan_proto()` consumers for non-USB manual disconnect, `get_wan_ifname()` / `get_wan_ip4()` and `safe_start_xl2tpd_locked()`. For DHCP/deconfig work preserve unconditional route, DNS, conntrack and lease cleanup when protocol reads fail.
 
 ## Verification boundary
 
-- Current source/checker commit has not run exact-head Actions. Inspect WAN route, NVRAM audit, Process and XY-C1 for the live main SHA; inspect Build XY-C1, Verify TRX and artifact upload separately.
+- Exact main `f1fc3d9d03ed18b6f432a5b1591b8ce2d4a031ab`: WAN route #44964927034 failed in `check_wan_initial_mtu_status.py` because it searched for the retired unchecked `wan_proto = get_wan_proto(unit);` locator. The firewall contract passed; earlier host regressions reached that checker. XY-C1 #44964927130 was still running at last inspection. This is a stale checker failure, not a product compiler failure.
+- Checker-only descendant updates the locator to the checked protocol read and retains MTU setup ordering assertions; exact reruns remain pending. Since `net_wan.c` is unchanged by the repair, firmware input detection may skip Build; confirm the workflow result.
+- L3 requires Build XY-C1, TRX and artifact upload all PASS on one product-source SHA. Hardware L4 remains NOT VERIFIED.
 - Parent checker-only SHA `f58d4b1e557d0b1da8843436554ae421fdee1698`: WAN route and AI docs PASS; XY-C1 host validation PASS, firmware stages skipped because no product source changed.
 - L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head WAN route, NVRAM, Process and XY-C1 runs for THIS source slice.
-2. Inspect Build XY-C1, Verify TRX and upload-artifact independently.
-3. Continue direct `get_wan_proto()` audit in teardown, gateway-route and DHCP callbacks, preserving cleanup regardless of protocol-read status.
+1. Inspect exact-head WAN route and XY-C1 reruns after this MTU checker locator fix.
+2. Confirm firmware input detection, Build, TRX and artifact result separately; do not claim L3 from host-only PASS.
+3. Continue checked protocol handling for manual disconnect/xl2tpd and WAN interface selection; preserve DHCP cleanup.
 
 
 ## Workflow and preservation rules

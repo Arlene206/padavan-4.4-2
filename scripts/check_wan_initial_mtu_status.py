@@ -143,7 +143,7 @@ for marker in ("if (value)", "if (!value)", "return value;"):
 start_wan = body_at_column_zero_terminator(WAN, "start_wan(void)")
 require("int unit, wan_proto, wan_mtu;" in start_wan,
         "configured WAN MTU must be available to both initial and static setup")
-proto = start_wan.index("wan_proto = get_wan_proto(unit);")
+proto = start_wan.index("nvram_status = get_wan_unit_proto_checked_status(unit, &wan_proto);")
 read_mtu = start_wan.index("get_wan_unit_value_int_status(", proto)
 read_mtu_argument = start_wan.index('unit, "mtu", &wan_mtu);', read_mtu)
 read_failure = start_wan.index("if (nvram_status != 0)", read_mtu_argument)

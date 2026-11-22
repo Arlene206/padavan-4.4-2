@@ -1,3 +1,14 @@
+## 2026-11-22 08:07 CST — Update initial-MTU contract for checked WAN protocol acquisition
+
+- Parent main SHA: `f1fc3d9d03ed18b6f432a5b1591b8ce2d4a031ab`.
+- Exact WAN route run #44964927034 failed after the firewall status contract passed. The WAN initial-MTU checker raised `ValueError: substring not found` because it still located `wan_proto = get_wan_proto(unit);` inside `start_wan()`; the startup protocol read had already migrated to the checked status-bearing helper.
+- THIS checker-only fix anchors MTU-order validation to `nvram_status = get_wan_unit_proto_checked_status(unit, &wan_proto);`, then retains all existing assertions that the checked MTU read/failure gate precede default MTU configuration and interface bring-up.
+- Exact-source preflight confirmed the checked protocol assignment occurs before `get_wan_unit_value_int_status()`. No product source changed in this repair.
+- Exact WAN route/XY-C1 runs for the previous source SHA were still underway at inspection; this descendant's exact-head reruns remain pending.
+- Next: inspect exact-head WAN route and XY-C1; continue direct protocol-reader auditing for WAN interface selection, manual disconnect and xl2tpd. L3/L4 remain unverified until same-SHA Build/TRX/artifact and hardware evidence exist.
+
+---
+
 ## 2026-11-21 — Preserve manual PPP underlay on protocol-read errors
 
 - Parent main SHA: `506a91e599331c58caf6582b9de6075c472455da`.
