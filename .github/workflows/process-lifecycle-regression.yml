@@ -176,6 +176,8 @@ on:
       - "trunk/user/scripts/files/sbin/check_crontab.sh"
       - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
+      - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
       - "trunk/user/shared/src/Makefile"
@@ -1039,6 +1041,12 @@ jobs:
           sh -n trunk/user/scripts/files/usr/bin/autostart.sh
           sh -n trunk/user/scripts/tests/autostart_optional_start_status.sh
           sh trunk/user/scripts/tests/autostart_optional_start_status.sh
+      - name: Check SCUT and MentoHUST checked NVRAM startup failures
+        run: |
+          sh -n trunk/user/scutclient/scripts/scutclient.sh
+          sh -n trunk/user/mentohust/scripts/mentohust.sh
+          sh -n trunk/user/scripts/tests/auth_client_nvram_read_failure.sh
+          sh trunk/user/scripts/tests/auth_client_nvram_read_failure.sh
       - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
       - name: Exercise Ralink IAPP daemon lifecycle postconditions

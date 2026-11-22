@@ -13,12 +13,44 @@ func_log(){
 	[ "$LOG" != "nolog" ] && logger -st "scutclient" "$1"
 }
 
-get_arg_debug(){
-	[ "$(nvram get scutclient_debug)" = "1" ] && echo "-D"
+# Read NVRAM through the status-bearing CLI so backend failures cannot
+# silently turn credentials, hooks or the effective WAN interface into blanks.
+func_read_nvram_checked(){
+	scut_nvram_value=$(nvram get_checked "$1")
+	scut_nvram_status=$?
+	if [ "$scut_nvram_status" -ne 0 ]; then
+		func_log "Cannot read NVRAM setting $1 (status=$scut_nvram_status)"
+		return "$scut_nvram_status"
+	fi
+	return 0
 }
 
-get_arg_skip_udp_hb(){
-	[ "$(nvram get scutclient_skip_udp_hb)" = "1" ] && echo "-b"
+func_load_nvram_config(){
+	func_read_nvram_checked scutclient_debug || return $?
+	scutclient_debug_value=$scut_nvram_value
+	func_read_nvram_checked scutclient_skip_udp_hb || return $?
+	scutclient_skip_udp_hb_value=$scut_nvram_value
+	func_read_nvram_checked scutclient_auth_exec || return $?
+	auth_hook=$scut_nvram_value
+	func_read_nvram_checked scutclient_fail_exec || return $?
+	fail_hook=$scut_nvram_value
+	func_read_nvram_checked wan_dns1_x || return $?
+	sysdns=${scut_nvram_value%% *}
+	func_read_nvram_checked scutclient_username || return $?
+	scutclient_username_value=$scut_nvram_value
+	func_read_nvram_checked scutclient_password || return $?
+	scutclient_password_value=$scut_nvram_value
+	func_read_nvram_checked wan_ifname || return $?
+	scutclient_wan_ifname=$scut_nvram_value
+	func_read_nvram_checked scutclient_hostname || return $?
+	scutclient_hostname_value=$scut_nvram_value
+	func_read_nvram_checked scutclient_server_auth_ip || return $?
+	scutclient_server_auth_ip_value=$scut_nvram_value
+	func_read_nvram_checked scutclient_version || return $?
+	scutclient_version_value=$scut_nvram_value
+	func_read_nvram_checked scutclient_hash || return $?
+	scutclient_hash_value=$scut_nvram_value
+	return 0
 }
 
 func_start(){
@@ -33,18 +65,25 @@ func_start(){
 		return 2
 	fi
 #	[ "$(mtk_esw 11)" = "WAN ports link state: 0" ] && func_log "WAN has no link!" && exit 1
-	auth_hook=$(nvram get scutclient_auth_exec)
-	fail_hook=$(nvram get scutclient_fail_exec)
-	sysdns=$(nvram get wan_dns1_x | cut -d ' ' -f 1)
+	if func_load_nvram_config; then
+		:
+	else
+		config_status=$?
+		return "$config_status"
+	fi
+	scutclient_debug_arg=
+	scutclient_skip_udp_hb_arg=
+	[ "$scutclient_debug_value" = "1" ] && scutclient_debug_arg="-D"
+	[ "$scutclient_skip_udp_hb_value" = "1" ] && scutclient_skip_udp_hb_arg="-b"
 	echo -n "Starting scutclient:..."
-	if start-stop-daemon -S -b -x "$scutclient_exec" -- -u "$(nvram get scutclient_username)" -p "$(nvram get scutclient_password)" \
-	-i "$(nvram get wan_ifname)" \
+	if start-stop-daemon -S -b -x "$scutclient_exec" -- -u "$scutclient_username_value" -p "$scutclient_password_value" \
+	-i "$scutclient_wan_ifname" \
 	-n "${sysdns:-"114.114.114.114"}" \
-	-H "$(nvram get scutclient_hostname)" \
-	-s "$(nvram get scutclient_server_auth_ip)" \
-	-c "$(nvram get scutclient_version)" \
-	-h "$(nvram get scutclient_hash)" \
-	"$(get_arg_debug)" "$(get_arg_skip_udp_hb)" \
+	-H "$scutclient_hostname_value" \
+	-s "$scutclient_server_auth_ip_value" \
+	-c "$scutclient_version_value" \
+	-h "$scutclient_hash_value" \
+	"$scutclient_debug_arg" "$scutclient_skip_udp_hb_arg" \
 	-E "${auth_hook:-"echo 0 > /tmp/scutclient_status"}" \
 	-Q "${fail_hook:-"echo 1 > /tmp/scutclient_status"}"; then
 		if pl_wait_started "$scutclient_exec" 1 4 1; then
@@ -88,7 +127,13 @@ func_stop(){
 		func_log "Daemon stop failed (status=$stop_status)"
 		return "$stop_status"
 	fi
-	"$scutclient_exec" -o -i "$(nvram get wan_ifname)" >/dev/null 2>&1
+	if func_read_nvram_checked wan_ifname; then
+		scutclient_wan_ifname=$scut_nvram_value
+	else
+		config_status=$?
+		return "$config_status"
+	fi
+	"$scutclient_exec" -o -i "$scutclient_wan_ifname" >/dev/null 2>&1
 	echo "[  OK  ]"
 	func_log "Stopped"
 	return 0

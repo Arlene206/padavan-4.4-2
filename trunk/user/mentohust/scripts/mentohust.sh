@@ -17,6 +17,16 @@ func_log(){
 	logger -st "mentohust" "$1"
 }
 
+func_nvram_get_checked(){
+	mentohust_nvram_value=$(nvram get_checked "$1")
+	mentohust_nvram_status=$?
+	if [ "$mentohust_nvram_status" -ne 0 ]; then
+		func_log "Cannot read NVRAM setting $1 (status=$mentohust_nvram_status)"
+		return "$mentohust_nvram_status"
+	fi
+	return 0
+}
+
 func_restrict_private_config(){
 	local path owner effective_uid
 	path=$1
@@ -71,14 +81,18 @@ func_gen_conf(){
 		fi
 	fi
 
-	if ! nic_value=$(nvram get mentohust_nic); then
-		func_log "Cannot read MentoHUST network interface setting"
-		return 1
+	if func_nvram_get_checked mentohust_nic; then
+		nic_value=$mentohust_nvram_value
+	else
+		nvram_status=$?
+		return "$nvram_status"
 	fi
 	if [ -z "$nic_value" ]; then
-		if ! wan_ifname=$(nvram get wan_ifname); then
-			func_log "Cannot read WAN interface for MentoHUST config"
-			return 1
+		if func_nvram_get_checked wan_ifname; then
+			wan_ifname=$mentohust_nvram_value
+		else
+			nvram_status=$?
+			return "$nvram_status"
 		fi
 		if ! nvram set "mentohust_nic=$wan_ifname"; then
 			func_log "Cannot save default MentoHUST network interface"
@@ -133,10 +147,13 @@ func_gen_conf(){
 	do
 		nvram_name=${mapping%%:*}
 		config_name=${mapping#*:}
-		if ! value=$(nvram get "mentohust_${nvram_name}"); then
-			func_log "Cannot read MentoHUST setting: $nvram_name"
+		if func_nvram_get_checked "mentohust_${nvram_name}"; then
+			value=$mentohust_nvram_value
+		else
+			nvram_status=$?
+			func_log "MentoHUST config generation aborted after NVRAM read failure: $nvram_name"
 			rm -f "$conf_tmp"
-			return 1
+			return "$nvram_status"
 		fi
 		case "$value" in
 			*"$newline"*|*"$carriage_return"*)
@@ -197,9 +214,12 @@ func_start(){
 		fi
 		func_log "Using existing private config: $bin_conf_file"
 	else
-		if ! func_gen_conf; then
-			func_log "MentoHUST config generation failed; refusing daemon start"
-			return 1
+		if func_gen_conf; then
+			:
+		else
+			config_status=$?
+			func_log "MentoHUST config generation failed; refusing daemon start (status=$config_status)"
+			return "$config_status"
 		fi
 	fi
 
