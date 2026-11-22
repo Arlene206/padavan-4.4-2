@@ -571,7 +571,7 @@ jobs:
           assert "strchr(lan_addr6, '/')" in host_status
           for signature, source in (
               ("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)", net_lan),
-              ("update_hosts_router(const char *lan_ipaddr)", net_wan),
+              ("update_hosts_router(const char *lan_ipaddr)", wan),
           ):
               publisher = body(source, signature)
               assert "get_lan_addr6_host_status(" in publisher

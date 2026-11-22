@@ -206,9 +206,17 @@ lan_hosts = function_body(net_lan, "create_hosts_lan(")
 hosts_read = lan_hosts.index("get_ipv6_type_status(&ipv6_type)")
 hosts_error = lan_hosts.index("if (ipv6_type_status != 0)", hosts_read)
 hosts_return = lan_hosts.index("return ipv6_type_status;", hosts_error)
+hosts_addr_read = lan_hosts.index("get_lan_addr6_host_status(", hosts_return)
+hosts_addr_error = lan_hosts.index("if (lan_addr6_status != 0)", hosts_addr_read)
+hosts_addr_return = lan_hosts.index("return lan_addr6_status;", hosts_addr_error)
 hosts_open = lan_hosts.index("dnsmasq_file_open(hostname_temp)")
-hosts_ipv6 = lan_hosts.index("if (ipv6_type != IPV6_DISABLED)")
-assert hosts_read < hosts_error < hosts_return < hosts_open < hosts_ipv6
+hosts_ipv6 = lan_hosts.index("if (ipv6_type != IPV6_DISABLED)", hosts_open)
+assert (
+    hosts_read < hosts_error < hosts_return <
+    hosts_addr_read < hosts_addr_error < hosts_addr_return <
+    hosts_open < hosts_ipv6
+)
+assert "get_lan_addr6_host(" not in lan_hosts
 assert "get_ipv6_type()" not in lan_hosts
 
 lan_start = function_body(net_lan, "start_lan(int is_ap_mode")
