@@ -1,3 +1,12 @@
+## 2026-11-22 — Update WAN route contract for checked protocol lookup
+
+- Parent main SHA: `8ed832e39248e1ac0011dccfd247fba0414bac30`.
+- Exact `8ed832e39248e1ac0011dccfd247fba0414bac30` WAN route run #44968296991 failed at embedded checker Python line 465. The checker still located `wan_proto = get_wan_proto(unit);` after the VPN-stop notification, but WAN teardown now uses `proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);`. Updated the contract to require the checked call and explicitly forbid the legacy getter in `wan_down_internal()`.
+- On that same SHA, HTTPD authentication/disclosure policy and AI handoff checks passed. This change is checker-only.
+- The next source task is an unchecked modem identity read: legacy `get_usb_modem_wan()` collapses an NVRAM backend read error into zero, potentially treating a modem as non-modem in lifecycle paths. A status-returning migration is queued as the next source slice.
+
+---
+
 ## 2026-11-22 — Align WAN route and HTTPD source contracts with retained status
 
 - Parent main SHA: `02857320194ebdda3b451ea3d6de07fa212995c0`; source under test: `02857320194ebdda3b451ea3d6de07fa212995c0`.

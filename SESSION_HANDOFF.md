@@ -28,25 +28,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Current production source includes checked WAN protocol handling (commit `4a6df662b6c34d2282e81b3ef8054e80e0894393`) and the follow-up XY-C1 compile fix (commit `02857320194ebdda3b451ea3d6de07fa212995c0`). The latter removes four invalid assignments to already-initialized fixed-size MAN endpoint buffers in `reset_wan_vars_status()`.
-- Current failure triage is now focused on source-contract drift rather than additional production failures: WAN route checker expected an older DHCP deconfig return expression without the newly retained `proto_status`; HTTPD security workflow expected the old combined stop gate instead of the new first-error aggregation after independent cleanup. Both contracts are corrected in this checkpoint.
-- The prior teardown workflow de-indentation was also corrected in `0285732...`; its exact-head run on that commit passed, as did the handoff docs validator.
+- Production source `4a6df662b6c34d2282e81b3ef8054e80e0894393` hardens MAN DNS setup/teardown, WAN-up, DHCP bound and first-error preservation during WAN stop using checked protocol reads. Its exposed XY-C1 compile blocker was fixed in `02857320194ebdda3b451ea3d6de07fa212995c0`: four redundant illegal array assignments were removed from `reset_wan_vars_status()`.
+- Test harness repairs are applied only when exact-SHA failures show stale source contracts. This checkpoint replaces the last WAN-route checker assertion that expected unchecked `wan_proto = get_wan_proto(unit)` in `wan_down_internal()`, now migrated to `get_wan_unit_proto_checked_status()`.
+- Next source audit issue: `get_usb_modem_wan()` reads `wanN_modem_dev` through legacy `nvram_get_int()`; backend read failure silently appears as 0 (non-modem), risking incorrect modem classification in WAN lifecycle and DHCP callback paths. Add status-returning API and migrate the lifecycle-critical consumers with regressions.
 
 ## Verification boundary
 
-- Main before this checker-only slice: `02857320194ebdda3b451ea3d6de07fa212995c0`; production source changes under validation are in `02857320194ebdda3b451ea3d6de07fa212995c0`.
-- Exact SHA `0285732...`: WAN interface teardown PASS; WAN DHCP callback PASS; USB modem identity PASS; AI handoff PASS; plus inventory, WAN ARP socket, watchdog, miniupnpd, firewall, router mode, link/internet detection, VPN server, dnsmasq, ZeroTier and wireless checks PASS.
-- On the same SHA, WAN route #44968037254 failed at the inline source contract requiring the old `udhcpc_deconfig()` return accumulation that omitted `proto_status`. The source now intentionally returns `route_status_accumulate(route_status_accumulate(route_status_accumulate(proto_status, interface_status), conntrack_status), cleanup_status)`; the workflow assertion was updated accordingly.
-- HTTPD security #44968037240 failed in the service-lifecycle check at the old combined `stop_status/ifdown_status/callback_cleanup_status` gate. The actual source now uses `wan_teardown_first_error_status()` after callback cleanup; the workflow contract now checks that ordering and the subsequent final WAN-state clear gate.
-- XY-C1 #44968037242 was in progress on `0285732...` at the last poll; the four known C array assignment errors were removed. Verify Build, TRX and artifact upload on its exact SHA before claiming L3.
-- NVRAM transaction boundary and process lifecycle inventory checks were still running at last poll. Exact-head reruns of route and HTTPD contracts are pending for this commit.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent main SHA: `8ed832e39248e1ac0011dccfd247fba0414bac30`; production-source fix SHA: `02857320194ebdda3b451ea3d6de07fa212995c0`; this commit is checker-only.
+- Exact `8ed832e...`: HTTPD authentication/disclosure security PASS (#44968296908); AI handoff docs PASS (#44968296933); WAN route FAIL (#44968296991) at embedded Python line 465, still locating the deleted `wan_proto = get_wan_proto(unit)` after VPN-stop notification. Replaced with the checked getter and explicit absence of legacy getter.
+- Exact `0285732...`: WAN teardown PASS (#44968037351), WAN DHCP callback PASS, USB modem identity PASS; WAN route and HTTPD security failed at stale source assertions, subsequently corrected in `8ed832e...`.
+- XY-C1 run #44968037242 remained in progress on exact product SHA `0285732...` at last poll. The initial build on `4a6df66...` failed at four illegal array assignments which were removed in 0285732; verify the later build, TRX and artifact on one exact SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN route, HTTPD security and AI handoff runs for this checker-only commit, repairing only failures that still reproduce.
-2. Verify the XY-C1 run on `0285732...`: Build, TRX validation and artifact upload must all pass on that SHA.
-3. Continue the WAN modem identity audit around `is_ifunit_modem()` and `get_usb_modem_wan()`, especially how NVRAM read failures affect WAN DHCP callback classification.
+1. Check exact-SHA WAN route and handoff Actions for this checker commit, and XY-C1 Build/TRX/artifact for product SHA `0285732...`.
+2. Implement status-returning `get_usb_modem_wan_status()` using checked `wanN_modem_dev` NVRAM reads; migrate `is_ifunit_modem`, WAN-up/down and DHCP-bound to distinguish read failure from “not a modem” while preserving best-effort cleanup.
+3. Add C regressions for missing key, modem_dev=0/nonzero, malformed integer and backend errors; run USB-modem identity and XY-C1 exact-head checks.
 
 ## Workflow and preservation rules
 

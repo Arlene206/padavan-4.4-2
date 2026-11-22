@@ -898,9 +898,10 @@ jobs:
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           vpn_stop_notify = wan_down.index('route_status = notify_rc_status("stop_vpn_client");')
           vpn_stop_merge = wan_down.index("status = route_status_accumulate(status, route_status);", vpn_stop_notify)
-          vpn_stop_continue = wan_down.index("wan_proto = get_wan_proto(unit);")
+          vpn_stop_continue = wan_down.index("proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);")
           assert "notify_rc(\"stop_vpn_client\")" not in wan_down
           assert vpn_stop_notify < vpn_stop_merge < vpn_stop_continue
+          assert "wan_proto = get_wan_proto(unit);" not in wan_down
           assert "WAN VPN client stop notification incomplete" in wan_down
           assert "test_wan_vpn_stop_notification_failure_is_reported_without_skipping_later_cleanup" in route_status_test
           assert "test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions" in route_status_test
