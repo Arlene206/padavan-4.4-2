@@ -282,7 +282,8 @@ add_permissions = add_compact.index(
 require(add_lookup < add_mkdir < add_publish < add_permissions and
         "errno = EEXIST;" in add_compact and
         "errno = ENAMETOOLONG;" in add_compact and
-        "if (result != 0)" in add_compact[add_publish:],
+        "if (initial_folder_list_in_mount_path(mount_path) != 0)" in add_compact and
+        "if (create_if_no_var_files(mount_path) != 0)" in add_compact,
         "add_folder must fail closed and propagate every metadata initialization stage")
 require("get_account_list(" not in add_folder_body and
         "read_whole_file(" not in add_folder_body and
