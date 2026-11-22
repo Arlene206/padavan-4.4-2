@@ -1,3 +1,10 @@
+## 2026-11-22 — Refresh DNSMasq split-DNS unlock-path contract
+
+- Exact-head DNSMasq run 45085012107 on 5866501d8fd54f35c30d28b3b442924ed6e8e650 failed at the split-DNS server writer assertion. Production now unlocks on four distinct paths: NVRAM snapshot failure, temporary-file open failure, publish failure, and success. The checker still expected the previous three-path count.
+- Updated the source contract to require four unlocks. Existing assertions continue to pin unlock on the snapshot failure and after publish, and no unlock on failed lock acquisition. Production behavior is unchanged.
+
+---
+
 ## 2026-11-22 — Align HTTPD security workflow with MTD restore symlink rejection
 
 - Exact-head HTTPD security run 45084820446 on 3adf4cc9d94bd930b6504b0dd11cc1fa109852fd failed at the archive-restore source contract. The production guard had already been hardened to reject a symlinked `start_script.sh`, but the workflow still required the old `[ ! -f ... ]`-only condition.

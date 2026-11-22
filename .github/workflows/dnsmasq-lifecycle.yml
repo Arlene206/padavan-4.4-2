@@ -544,7 +544,7 @@ jobs:
           assert "return -1;" in snapshot_failure_guard
           publish_call = servers_writer.index("dnsmasq_file_publish(")
           assert servers_writer.index("file_unlock(lock);", publish_call) > publish_call
-          assert servers_writer.count("file_unlock(lock);") == 3
+          assert servers_writer.count("file_unlock(lock);") == 4
 
           wan_resolver = function_body(net_wan, "update_resolvconf(int is_first_run, int do_not_notify)")
           wan_lock = wan_resolver.index('lock = file_lock("resolv");')
