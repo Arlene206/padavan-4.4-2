@@ -1,3 +1,13 @@
+## 2026-11-22 — Repair WAN DHCP callback snapshot regression contract
+
+- Parent main SHA: `1da00c08b8e6b5c51675cbe6138df6c2af9369c9`. The earlier exact-head WAN DHCP run on `f5b93cf324f5d0f46d2218cc6b1e2705c01759ba` failed because its source contract still expected separate LAN address/netmask getters after the callback had moved to one NVRAM snapshot. That stale ordering check was replaced before the current checkpoint.
+- The subsequent exact-head run `45049080840` on `1da00c08b8e6b5c51675cbe6138df6c2af9369c9` passed all C policy tests and the added LAN reset/start snapshot checks, then failed on a Python `NameError`: the IPTV snapshot assertion referenced undefined `wan_nvram_test`. The same test file was already read directly with `Path(...).read_text()` for the WAN callback assertion.
+- Fixed the remaining assertion to read the test file explicitly. The production change remains transactional: both WAN and IPTV DHCP callbacks snapshot LAN address/netmask together before the subnet-overlap decision. No production behavior was changed in this checker repair.
+- Exact-head Actions for the repair commit are pending; no local full workflow, MIPS build, TRX, artifact or hardware verification is claimed here.
+- Next: inspect the WAN DHCP callback workflow on the repair commit, then check the NFS ACL source/workflow and XY-C1 exact-SHA Build/TRX/artifact stages that remain relevant to the active handoff.
+
+---
+
 ## 2026-11-22 — Generate NFS export ACLs from one NVRAM configuration generation
 
 - Parent main SHA: `cd92a56405e96a08ab9c64e45cc345828ba5a37d`. `write_nfsd_exports()` independently fetched the LAN address/netmask, fallback LAN pair, IPv6 address/prefix, router mode and VPN selectors/address. A concurrent configuration commit could pair an old LAN address with a newer, broader netmask and publish an NFS client CIDR that authorizes hosts outside the intended LAN; IPv6 and VPN ACL inputs could similarly be mixed across generations.

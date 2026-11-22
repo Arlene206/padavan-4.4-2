@@ -509,7 +509,7 @@ jobs:
           assert "wan_nvram_transaction_begin_callback" in viptv_bound
           assert "wan_nvram_transaction_get_callback" in viptv_bound
           assert "wan_nvram_transaction_end_callback" in viptv_bound
-          assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in wan_nvram_test
+          assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
           assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in viptv_bound
           apply = callback.index("dhcp_wan_interface_apply(")
