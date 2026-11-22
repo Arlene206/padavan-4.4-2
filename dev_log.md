@@ -1,3 +1,10 @@
+## 2026-11-22 — Update PID 1 recovery call-site source contract
+
+- Exact-head Process run 45081733777 on 96d0037e76b41214c865b9cff45b7579677d92e9 failed in scripts/check_dev_init_boot.py. The integration checker had been updated to require init_console(int create_session) and both new caller modes, but a second legacy assertion still required the old zero-argument recovery call.
+- Updated that remaining assertion to require init_console(1). The production caller and explicit PID 1 boot call init_console(0) are unchanged by this test-only follow-up. Process exact-head rerun pending.
+
+---
+
 ## 2026-11-22 — Fix Aria2 default-config staging collision during concurrent start
 
 - Exact-head Storage run 45081558026 on ebbff58e321030829cc517fd0f1da21ed5923660 failed in the existing two-process Aria start regression. The default config path used the literal suffix .tmp.$ instead of shell PID expansion .tmp.$$, so both launchers collided on one noclobber staging file; one aborted and the other timed out at the test barrier.

@@ -383,7 +383,7 @@ for token in ("test_attach_requires_complete_standard_io_and_terminal_setup",
     assert token in console_test, "missing PID 1 console attach regression: " + token
 assert "terminal_status = setup_term();" in console_init
 assert "if (ret == 0)" in console_init and "ret = terminal_status;" in console_init
-assert 'console_status = init_console();' in recovery_shell
+assert 'console_status = init_console(1);' in recovery_shell
 assert "recovery shell aborted: console setup failed" in recovery_shell
 assert "_exit(125);" in recovery_shell
 exec_failure = recovery_shell.split("execve(SYS_SHELL", 1)[1]
