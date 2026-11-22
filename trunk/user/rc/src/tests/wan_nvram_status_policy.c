@@ -983,6 +983,36 @@ test_dhcp_fallback_netmask_survives_previous_tuple_reads(void)
 
 
 static void
+test_gateway_arp_identity_snapshots_survive_cache_reuse(void)
+{
+	struct fake_nvram_text_cache fake;
+	char gateway[16], hardware_address[18], overwritten[32];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "lan_gateway_t";
+	fake.names[1] = "lan_hwaddr";
+	fake.names[2] = "vlan_vid_cpu";
+	fake.values[0] = "192.0.2.1";
+	fake.values[1] = "02:11:22:33:44:55";
+	fake.values[2] = "7";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[0], gateway,
+				       sizeof(gateway)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[1], hardware_address,
+				       sizeof(hardware_address)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[2], overwritten,
+				       sizeof(overwritten)) == 0);
+	assert(fake.calls == 3);
+	assert(strcmp(fake.cache_slot, "7") == 0);
+	assert(strcmp(gateway, "192.0.2.1") == 0);
+	assert(strcmp(hardware_address, "02:11:22:33:44:55") == 0);
+}
+
+
+static void
 test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation(void)
 {
 	char cache_slot[32] = "198.51.100.27";
@@ -1895,6 +1925,7 @@ main(void)
 	test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite();
 	test_lan_subnet_identity_survives_shared_cache_overwrite();
 	test_dhcp_fallback_netmask_survives_previous_tuple_reads();
+	test_gateway_arp_identity_snapshots_survive_cache_reuse();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_legacy_mac_override_preserves_mac_conv_formatting();
 	test_legacy_mac_override_zero_and_broadcast_values_use_fallback();

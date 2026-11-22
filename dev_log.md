@@ -1,3 +1,11 @@
+## 2026-11-22 — Snapshot detect-WAN gateway identity before process scan and ARP setup
+
+- Parent main SHA: `1f7add7650acf76f7eb0c3d37cf9e7530612ded9`. `chk_udhcpc()` retained a shared-cache gateway pointer across `process_inventory_scan()`, and its AP path used a lossy unchecked read. `arpping_gateway()` also read WAN/AP gateway and hardware addresses through unchecked pointer-returning getters, so NVRAM backend failures or oversized values could be mistaken for normal no-response behavior.
+- The DHCP monitor now checks WAN protocol selection and copies the gateway into a bounded owned buffer before scanning process state. ARP probing now checked-copies gateway and hardware address in both router-WAN and AP modes and returns a local probe error before socket setup on read/truncation failure.
+- Added a shared-cache overwrite regression, wired the NVRAM sanitizer test into the detect-WAN workflow, and added source contracts for both production paths. Exact-head detect-WAN / WAN DHCP / XY-C1 validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Load LAN bridge teardown regression source in Process integration contract
 
 - Parent main SHA: `c0ccc7d14448edccacda7b9a62719f96840bcc23`. Process lifecycle regression run #45010423695 on product source SHA `587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c` completed all preceding host C/shell and integration checks, then failed at `scripts/check_process_lifecycle_integration.py:1009`: the new LAN teardown assertions referenced `bridge_init_regression` without loading `tests/bridge_init_policy.c`.

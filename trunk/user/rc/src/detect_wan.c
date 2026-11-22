@@ -33,6 +33,7 @@
 #include "detect_wan_signal_policy.h"
 #include "detect_wan_arp_result_policy.h"
 #include "detect_wan_udhcpc_policy.h"
+#include "wan_nvram_status_policy.h"
 
 //#define DEBUG		1
 #define MAX_ARP_WAIT	5
@@ -40,6 +41,15 @@
 #define DW_PID_FILE	"/var/run/detect_wan.pid"
 
 static volatile sig_atomic_t dw_stopping;
+
+static int
+detect_wan_nvram_get_checked(void *context, const char *param_name,
+			     char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
 
 
 struct arpMsg {
@@ -77,32 +87,54 @@ detect_wan_wait(unsigned int seconds)
 static int
 chk_udhcpc(int ap_mode)
 {
-	char *gateway_str;
+	char gateway_storage[16];
 	in_addr_t ip;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	int scan_error, renew_decision, renew_status;
+	int gateway_status, wan_proto = 0;
 
 	if (dw_stopping)
 		return 0;
 
-	if (ap_mode || get_wan_proto(0) == IPV4_WAN_PROTO_IPOE_DHCP)
-	{
-		if (!ap_mode)
-		{
-			ip = get_wan_ip4(1);
-			gateway_str = get_wan_unit_value(0, "gateway");
+	if (!ap_mode) {
+		gateway_status = get_wan_unit_proto_checked_status(0, &wan_proto);
+		if (gateway_status != 0) {
+			errno = gateway_status;
+			logmessage("detect_wan",
+				   "cannot read WAN protocol before DHCP health check (status=%d)",
+				   gateway_status);
+			return gateway_status;
 		}
-		else
-		{
-			ip = get_lan_ip4();
-			gateway_str = nvram_safe_get("lan_gateway_t");
-		}
-
-		if (!is_valid_ipv4(gateway_str) || ip == INADDR_ANY)
+		if (wan_proto != IPV4_WAN_PROTO_IPOE_DHCP)
 			return 0;
+	}
 
-		presence = process_inventory_scan("udhcpc", &snapshot);
+	if (!ap_mode)
+		ip = get_wan_ip4(1);
+	else
+		ip = get_lan_ip4();
+	if (ip == INADDR_ANY)
+		return 0;
+
+	if (ap_mode)
+		gateway_status = rc_wan_nvram_copy_value(
+			detect_wan_nvram_get_checked, NULL, "lan_gateway_t",
+			gateway_storage, sizeof(gateway_storage));
+	else
+		gateway_status = get_wan_unit_value_copy_status(
+			0, "gateway", gateway_storage, sizeof(gateway_storage));
+	if (gateway_status != 0) {
+		errno = gateway_status;
+		logmessage("detect_wan",
+			   "cannot read gateway before DHCP health check (status=%d)",
+			   gateway_status);
+		return gateway_status;
+	}
+	if (!is_valid_ipv4(gateway_storage))
+		return 0;
+
+	presence = process_inventory_scan("udhcpc", &snapshot);
 		scan_error = snapshot.error;
 		renew_decision = detect_wan_udhcpc_should_renew(presence);
 		process_snapshot_release(&snapshot);
@@ -120,7 +152,7 @@ chk_udhcpc(int ap_mode)
 
 		if (dw_stopping)
 			return 0;
-		logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_str);
+		logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_storage);
 		renew_status = process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode),
 						     "udhcpc", SIGUSR1);
 		if (renew_status != 0)
@@ -145,9 +177,11 @@ arpping_gateway(int ap_mode)
     in_addr_t ip;
     uint8_t mac[6];
     char wanmac[18];
+    char gateway_storage[16];
+    char hardware_address_storage[18];
     char tmp[3];
     char *ifname;
-    int s, i, rv, rcv_bytes, probe_errno = 0;
+    int s, i, rv, rcv_bytes, probe_errno = 0, config_status;
     struct sockaddr addr;
     struct ifreq ifr;
     struct arpMsg arp;
@@ -162,15 +196,33 @@ arpping_gateway(int ap_mode)
     if (!ap_mode)
     {
         ip = get_wan_ip4(1);
-        gateway_ip = inet_addr_safe(get_wan_unit_value(0, "gateway"));
-        snprintf(wanmac, sizeof(wanmac), "%s", get_wan_unit_value(0, "hwaddr"));
+        config_status = get_wan_unit_value_copy_status(
+            0, "gateway", gateway_storage, sizeof(gateway_storage));
+        if (config_status == 0)
+            config_status = get_wan_unit_value_copy_status(
+                0, "hwaddr", hardware_address_storage,
+                sizeof(hardware_address_storage));
     }
     else
     {
         ip = get_lan_ip4();
-        gateway_ip = inet_addr_safe(nvram_safe_get("lan_gateway_t"));
-        snprintf(wanmac, sizeof(wanmac), "%s", nvram_safe_get("lan_hwaddr"));
+        config_status = rc_wan_nvram_copy_value(
+            detect_wan_nvram_get_checked, NULL, "lan_gateway_t",
+            gateway_storage, sizeof(gateway_storage));
+        if (config_status == 0)
+            config_status = rc_wan_nvram_copy_value(
+                detect_wan_nvram_get_checked, NULL, "lan_hwaddr",
+                hardware_address_storage, sizeof(hardware_address_storage));
     }
+    if (config_status != 0) {
+        errno = config_status;
+        logmessage("detect_wan",
+                   "cannot read gateway ARP identity (status=%d)",
+                   config_status);
+        return detect_wan_arp_probe_result(0, config_status);
+    }
+    gateway_ip = inet_addr_safe(gateway_storage);
+    snprintf(wanmac, sizeof(wanmac), "%s", hardware_address_storage);
 
     if (gateway_ip == INADDR_ANY || ip == INADDR_ANY || gateway_ip == ip)
         return DETECT_WAN_ARP_PROBE_REPLY;

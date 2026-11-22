@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/detect-wan-arp-stability.yml"
       - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c"
       - "trunk/user/rc/src/detect_wan_signal_policy.h"
@@ -20,6 +22,8 @@ on:
     paths:
       - ".github/workflows/detect-wan-arp-stability.yml"
       - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_arp_result_policy.c"
       - "trunk/user/rc/src/detect_wan_signal_policy.h"
@@ -56,6 +60,14 @@ jobs:
             trunk/user/rc/src/tests/detect_wan_arp_result_policy.c \
             -o /tmp/detect-wan-arp-result-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-arp-result-policy
+      - name: Compile and run GNU89 checked NVRAM copy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_nvram_status_policy.c \
+            -o /tmp/wan-nvram-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
       - name: Compile and run GNU89 signal deferral policy regression
         run: |
           set -eu
@@ -77,6 +89,7 @@ jobs:
           signal_test = (rc / "tests/detect_wan_signal_policy.c").read_text()
           probe_policy = (rc / "detect_wan_arp_result_policy.h").read_text()
           probe_test = (rc / "tests/detect_wan_arp_result_policy.c").read_text()
+          nvram_status_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
           wan = (rc / "net_wan.c").read_text()
           services = (rc / "services.c").read_text()
           dispatcher = (rc / "rc.c").read_text()
@@ -153,6 +166,19 @@ jobs:
           assert "test_malformed_and_unrelated_arp_replies_are_rejected" in probe_test
           assert "test_probe_result_keeps_local_errors_distinct" in probe_test
           assert "test_dhcp_renew_requires_three_real_no_reply_probes" in probe_test
+          assert '#include "wan_nvram_status_policy.h"' in detect
+          checked_callback = body(detect, "detect_wan_nvram_get_checked(void *context, const char *param_name,")
+          assert "nvram_get_checked(param_name, value)" in checked_callback
+          chk = body(detect, "chk_udhcpc(int ap_mode)")
+          chk_compact = "".join(chk.split())
+          assert "char gateway_storage[16];" in chk
+          assert "get_wan_unit_proto_checked_status(0,&wan_proto)" in chk_compact
+          assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in chk_compact
+          assert 'get_wan_unit_value_copy_status(0,"gateway",gateway_storage,sizeof(gateway_storage))' in chk_compact
+          assert 'nvram_safe_get("lan_gateway_t")' not in chk
+          assert 'get_wan_unit_value(0,"gateway")' not in chk_compact
+          assert chk_compact.index("get_wan_unit_proto_checked_status(0,&wan_proto)") < chk_compact.index('get_wan_unit_value_copy_status(0,"gateway"') < chk_compact.index("process_inventory_scan(")
+          assert "test_gateway_arp_identity_snapshots_survive_cache_reuse" in nvram_status_test
           arp_probe = body(detect, "arpping_gateway(int ap_mode)")
           assert "errno == EINTR" in arp_probe
           assert "errno == EAGAIN || errno == EWOULDBLOCK" in arp_probe
@@ -160,6 +186,17 @@ jobs:
           assert "if (close(s) < 0 && probe_errno == 0)" in arp_probe
           assert "return detect_wan_arp_probe_result(rv, probe_errno);" in arp_probe
           assert "detect_wan_arp_reply_matches(&arp_reply, mac, gateway_ip, ip)" in arp_probe
+          arp_compact = "".join(arp_probe.split())
+          assert "char gateway_storage[16];" in arp_probe
+          assert "char hardware_address_storage[18];" in arp_probe
+          assert 'get_wan_unit_value_copy_status(0,"gateway",gateway_storage,sizeof(gateway_storage))' in arp_compact
+          assert 'get_wan_unit_value_copy_status(0,"hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
+          assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in arp_compact
+          assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
+          assert "config_status!=0" in arp_compact
+          assert "return detect_wan_arp_probe_result(0,config_status);" in arp_compact
+          assert "nvram_safe_get(" not in arp_probe
+          assert "get_wan_unit_value(" not in arp_probe
           assert "arp_reply.ethernet_source = arp.h_source;" in arp_probe
           assert "arp_reply.ethernet_destination = arp.h_dest;" in arp_probe
           assert "arp_reply.sender_hardware = arp.sHaddr;" in arp_probe
