@@ -1,3 +1,11 @@
+## 2026-11-22 — Check PID 1 recovery console attachment and post-fork exec failure
+
+- init_console() previously ignored failures from setsid(), all three dup2() operations, TIOCSCTTY and tcsetpgrp(). A recovery child could continue to termios setup and exec an interactive shell without valid standard descriptors or a controlling foreground terminal. The new checked attachment policy fails at the first failed operation, avoids terminal ioctls on the intentional /dev/null fallback, and preserves the first error.
+- The execve() failure path also used exit() after fork(), potentially running PID 1's inherited exit handlers in the child. It now preserves the exec errno and terminates with _exit().
+- Added GNU89/ASan/UBSan policy coverage for descriptor duplication, controlling-terminal acquisition, foreground-group setup, fallback behavior and failure gates; extended the PID 1 integration checker. Exact-head Process and XY-C1 verification required; no router/hardware validation claimed.
+
+---
+
 ## 2026-11-22 — Make Aria2 RPC-secret fixture emit a valid deterministic token
 
 - Exact-SHA Storage Actions failed the legacy RPC migration test before any production daemon launch. The test's `hexdump` stub ran `printf '%032x' "$"`; a bare dollar sign is not a numeric shell argument, so POSIX `printf` returned status 1 and Aria2 correctly aborted secret creation.

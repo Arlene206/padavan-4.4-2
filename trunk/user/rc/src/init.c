@@ -177,11 +177,18 @@ setup_term(void)
 }
 
 static int
+init_console_take_control(int fd, unsigned long request, int argument)
+{
+	return ioctl(fd, request, argument);
+}
+
+static int
 init_console(void)
 {
 	int fd;
 	int ret = 0;
 	int console_available = 1;
+	int attach_status;
 	int terminal_status;
 
 	/* Clean up */
@@ -189,7 +196,13 @@ init_console(void)
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
 	close(STDERR_FILENO);
-	setsid();
+
+	errno = 0;
+	if (setsid() < 0) {
+		ret = errno > 0 ? errno : EIO;
+		logmessage(LOGNAME, "cannot create recovery shell session (status=%d)", ret);
+		return ret;
+	}
 
 	/* Reopen console */
 	if ((fd = open(_PATH_CONSOLE, O_RDWR)) < 0) {
@@ -202,15 +215,21 @@ init_console(void)
 		}
 	}
 
-	dup2(fd, STDIN_FILENO);
-	dup2(fd, STDOUT_FILENO);
-	dup2(fd, STDERR_FILENO);
-
-	ioctl(STDIN_FILENO, TIOCSCTTY, 1);
-	tcsetpgrp(STDIN_FILENO, getpgrp());
+	attach_status = pid1_console_attach(
+		fd, getpgrp(), console_available, dup2,
+		console_available ? init_console_take_control : NULL,
+		console_available ? tcsetpgrp : NULL);
+	if (fd > STDERR_FILENO)
+		close(fd);
+	if (attach_status != 0) {
+		logmessage(LOGNAME, "cannot attach recovery shell console (status=%d)",
+			   attach_status);
+		if (ret == 0)
+			ret = attach_status;
+	}
 
 	/* /dev/null is a deliberate fallback, not a terminal to configure. */
-	if (console_available) {
+	if (console_available && attach_status == 0) {
 		terminal_status = setup_term();
 		if (terminal_status != 0) {
 			logmessage(LOGNAME, "console termios setup failed (status=%d)", terminal_status);
@@ -221,7 +240,6 @@ init_console(void)
 
 	return ret;
 }
-
 /* Reset signal handlers installed by PID 1 and release inherited masks. */
 static int
 reset_signals(void)
@@ -357,9 +375,14 @@ run_shell(int timeout, int nowait)
 		 * so nothing further in init.c should be run. */
 		execve(SYS_SHELL, (char *[]) { SYS_SHELL, NULL }, envp);
 
-		/* We're still here?  Some error happened. */
-		perror(SYS_SHELL);
-		exit(errno);
+		/* Never run PID 1's inherited exit handlers in the post-fork child. */
+		{
+			int exec_error = errno > 0 ? errno : EIO;
+
+			errno = exec_error;
+			perror(SYS_SHELL);
+			_exit(exec_error);
+		}
 	default:
 		if (nowait) {
 			pid1_signal_record_console_shell(&signal_state, (sig_atomic_t)pid);

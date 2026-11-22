@@ -363,12 +363,30 @@ assert "tcgetattr(" not in console_setup
 assert "tcsetattr(" not in console_setup
 assert "int console_available = 1;" in console_init
 assert "console_available = 0;" in console_init
-assert "if (console_available)" in console_init
+assert "if (console_available && attach_status == 0)" in console_init
+assert "if (setsid() < 0)" in console_init
+assert "pid1_console_attach(" in console_init
+assert "console_available ? init_console_take_control : NULL" in console_init
+assert "console_available ? tcsetpgrp : NULL" in console_init
+assert "cannot attach recovery shell console" in console_init
+assert "pid1_console_attach" in console_policy
+for token in ("duplicate_fd(fd, descriptors[i])", "TIOCSCTTY",
+              "set_foreground(STDIN_FILENO, foreground_group)",
+              "errno > 0 ? errno : EIO"):
+    assert token in console_policy
+for token in ("test_attach_requires_complete_standard_io_and_terminal_setup",
+              "duplicate_failure_target = STDOUT_FILENO", "claim_status = -1",
+              "foreground_status = -1", "TIOCSCTTY", "STDERR_FILENO"):
+    assert token in console_test, "missing PID 1 console attach regression: " + token
 assert "terminal_status = setup_term();" in console_init
 assert "if (ret == 0)" in console_init and "ret = terminal_status;" in console_init
 assert 'console_status = init_console();' in recovery_shell
 assert "recovery shell aborted: console setup failed" in recovery_shell
 assert "_exit(125);" in recovery_shell
+exec_failure = recovery_shell.split("execve(SYS_SHELL", 1)[1]
+assert "_exit(exec_error);" in exec_failure
+assert "exit(errno);" not in exec_failure
+assert "int exec_error = errno > 0 ? errno : EIO;" in exec_failure
 for token in ("fake_getattr", "fake_setattr", "getter_errno = 0",
               "setter_errno = 0", "setter_calls == 0", "== EIO",
               "CBAUD", "HUPCL", "TCSANOW"):

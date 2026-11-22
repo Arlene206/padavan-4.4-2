@@ -4,6 +4,9 @@
 #include <errno.h>
 #include <termios.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 typedef int (*pid1_console_getattr_fn)(int, struct termios *);
 typedef int (*pid1_console_setattr_fn)(int, int, const struct termios *);
@@ -52,6 +55,46 @@ pid1_console_configure(int fd, pid1_console_getattr_fn get_attributes,
 	errno = 0;
 	if (set_attributes(fd, TCSANOW, &tty) < 0)
 		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
+
+typedef int (*pid1_console_dup_fn)(int, int);
+typedef int (*pid1_console_tty_ioctl_fn)(int, unsigned long, int);
+typedef int (*pid1_console_foreground_fn)(int, pid_t);
+
+/* Build a usable stdio/controlling-terminal context or fail before shell exec. */
+static inline int
+pid1_console_attach(int fd, pid_t foreground_group, int terminal_available,
+		    pid1_console_dup_fn duplicate_fd,
+		    pid1_console_tty_ioctl_fn claim_terminal,
+		    pid1_console_foreground_fn set_foreground)
+{
+	int descriptors[] = { STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO };
+	int i;
+
+	if (fd < 0 || !duplicate_fd ||
+	    (terminal_available && (!claim_terminal || !set_foreground)))
+		return EINVAL;
+
+	for (i = 0; i < (int)(sizeof(descriptors) / sizeof(descriptors[0])); i++) {
+		errno = 0;
+		if (duplicate_fd(fd, descriptors[i]) != descriptors[i])
+			return errno > 0 ? errno : EIO;
+	}
+
+	/* A /dev/null fallback supplies stdio only, never a controlling tty. */
+	if (!terminal_available)
+		return 0;
+
+	errno = 0;
+	if (claim_terminal(STDIN_FILENO, TIOCSCTTY, 1) < 0)
+		return errno > 0 ? errno : EIO;
+
+	errno = 0;
+	if (set_foreground(STDIN_FILENO, foreground_group) < 0)
+		return errno > 0 ? errno : EIO;
+
 	return 0;
 }
 
