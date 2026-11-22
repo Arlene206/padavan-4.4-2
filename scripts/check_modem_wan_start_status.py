@@ -53,6 +53,7 @@ PPP_VALUE_POLICY_SOURCE = (RC / "ppp_option_value_policy.h").read_text()
 PPP_VALUE_POLICY_TEST = (RC / "tests/ppp_option_value_policy.c").read_text()
 WAN_NVRAM_POLICY_SOURCE = (RC / "wan_nvram_status_policy.h").read_text()
 WAN_NVRAM_POLICY_TEST = (RC / "tests/wan_nvram_status_policy.c").read_text()
+ROUTE_STATUS_TEST = (RC / "tests/route_status_policy.c").read_text()
 
 
 def code_characters(source: str, start: int):

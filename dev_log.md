@@ -1,3 +1,12 @@
+## 2026-11-22 — Repair WAN source-checker runtime imports
+
+- Exact parent main SHA: `9056ed1235425ca1c30657b59ff36c268758a937`. The first exact-SHA validation on 9056 exposed two pure-checker runtime defects: WAN route #45050500613, USB modem #45050500601, Firewall #45050500619 and Process #45050500590 failed because `check_wan_vlan_setup.py` called `re.search` without importing `re`, and `check_modem_wan_start_status.py` referenced `ROUTE_STATUS_TEST` without loading `tests/route_status_policy.c`. These failures occurred before the related source-contract assertions could execute; they do not establish a C implementation failure.
+- Added the missing standard-library import and loaded the route regression source used by the L2TP fail-closed assertion. No production C source changed in this slice.
+- Re-run WAN route, USB modem, Firewall and Process at the new exact SHA; continue beyond the source-contract stage. XY-C1 #45050500629 was PENDING at last inspection and must complete Build, TRX and artifact upload on an exact SHA before L3 can be marked verified.
+- Firmware L3 and hardware L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Make WAN selector source contracts whitespace-tolerant
 
 - Parent main SHA: `55e39b6a3756e7cb5fae92cfcc59bced6a61a056`. The previous L2TP checker correction still omitted the single space inserted after a line-broken opening parenthesis by its `compact()` helper. The new HW-NAT VLAN checker had the same issue: its source compactor also joins tokens with one space, so the exact `get_nvram_match_checked_status(` substring was absent despite correct production code. WAN route #45050298583 failed at that checker; Firewall/USB modem checks on the prior HEAD were still blocked at the L2TP assertion.

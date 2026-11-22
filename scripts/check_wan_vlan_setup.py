@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static contract checks for WAN VLAN and bridge configuration error handling."""
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
