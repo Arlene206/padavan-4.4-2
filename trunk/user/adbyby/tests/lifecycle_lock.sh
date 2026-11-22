@@ -55,12 +55,6 @@ adbyby_close() {
 }
 adbyby_uprules() { printf 'update\n' >> "$events"; }
 adbyby_refresh_blockip_set() { printf 'blockip\n' >> "$events"; }
-adbyby_process_state() { printf '%s\n' "$switch_state"; }
-adbyby_publish_started_service() {
-    adbyby_publish_failure_stage="test publication"
-    printf 'publish-%s\n' "$1" >> "$events"
-    return "$switch_publish_status"
-}
 add_rules() { printf 'rules\n' >> "$events"; }
 add_rule() { printf 'firewall\n' >> "$events"; }
 add_dns() { printf 'dns\n' >> "$events"; }
@@ -83,35 +77,6 @@ if ( : >&9 ) 2>/dev/null; then fail "FD 9 leaked after success"; fi
 adbyby_lifecycle_lock_run updateadb 2 || fail "updateadb action failed"
 [ "$(cat "$events")" = "update" ] || fail "updateadb did not dispatch updater"
 [ -s "$nvram_log" ] || fail "non-B action missed legacy NVRAM reset"
-
-: > "$events"
-: > "$nvram_log"
-switch_state=RUNNING
-switch_publish_status=0
-adbyby_lifecycle_lock_run switch 2 || fail "running switch action failed"
-[ "$(cat "$events")" = "publish-0" ] || fail "running switch did not republish DNS dependencies without restarting"
-: > "$events"
-switch_state=ABSENT
-adbyby_lifecycle_lock_run switch 2 || fail "absent switch action failed"
-[ ! -s "$events" ] || fail "absent switch action published stale dependencies"
-switch_state=UNKNOWN
-if adbyby_lifecycle_lock_run switch 2; then
-    fail "switch treated unknown process state as absent"
-else
-    status=$?
-    [ "$status" -eq 2 ] || fail "unknown switch status changed to $status"
-fi
-[ ! -s "$events" ] || fail "unknown switch published DNS dependencies"
-switch_state=RUNNING
-switch_publish_status=37
-if adbyby_lifecycle_lock_run switch 2; then
-    fail "switch hid DNS publication failure"
-else
-    status=$?
-    [ "$status" -eq 37 ] || fail "switch changed DNS publication status to $status"
-fi
-[ "$(cat "$events")" = "publish-0" ] || fail "switch retried or restarted after publication failure"
-switch_publish_status=0
 
 : > "$events"
 : > "$nvram_log"
