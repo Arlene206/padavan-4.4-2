@@ -1,3 +1,14 @@
+## 2026-11-22 — Include modem WAN start policy in USB service translation unit
+
+- Parent main SHA: `ff6e5b90051317d81b14427829ccc1999c2f572b`.
+- Post-commit source integration review found that `services_usb.c` called the newly added `modem_wan_auto_start_allowed()` static-inline policy without including its defining header. Added the explicit `modem_wan_start_policy.h` include to prevent an implicit declaration/unresolved external at compile/link time.
+- This is a build-integration correction to the preceding modem identity source slice; no behavior or configuration format changed.
+- Exact Actions for preceding SHA `ff6e5b90051317d81b14427829ccc1999c2f572b` were still in progress at review: AI docs #44971644605, XY-C1 #44971644588, NVRAM audit #44971644611, Process inventory #44971644652, USB storage #44971644630, HTTPD #44971644660, process fail-closed #44971644640 and USB identity #44971644620. The new SHA must independently pass.
+- THIS COMMIT changes the include and updates the handoff/log as one atomic source-integration correction. No local target build or hardware result is claimed.
+- Next: verify exact-head checks, then migrate the remaining checked modem selectors in `usb_modem.c`, `rc.c` and `detect_link.c`.
+
+---
+
 ## 2026-11-22 — Preserve modem unplug cleanup and reject ambiguous auto-start
 
 - Parent main SHA: `6444ce9468a81e8f52b7636990b93ba994b7235a`.

@@ -47,6 +47,7 @@
 #include "switch.h"
 #include "gpio_pins.h"
 #include "storage_hotplug_name_policy.h"
+#include "modem_wan_start_policy.h"
 
 int
 safe_remove_usb_device(int port, const char *dev_name)
