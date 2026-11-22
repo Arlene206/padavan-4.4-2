@@ -1,3 +1,14 @@
+## 2026-11-22 — Make LAN IPv6 reload source contract whitespace-robust
+
+- Parent main SHA: `a624157703da1feabe5838db691b4b28e4d68328`. Exact-head WAN DHCP callback run #45031431084 PASS confirms the LAN DHCP hostname status-snapshot contract correction. AI handoff #45031431144 PASS. NVRAM transaction audit #45031084347 on earlier exact source `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` PASS.
+- The first update to `check_modem_wan_start_status.py` still failed on exact-head USB modem #45031431089 and firewall #45031431129: its new contract matched an entire multiline call after the helper `compact()` had collapsed whitespace but retained a single space after the opening parenthesis. This was a checker formatting error, not a source/API mismatch.
+- Reworked the assertion to locate the status-read and snapshot-apply calls by function token, then separately assert the key and clear/add callbacks are passed. It still verifies read-before-apply, error-return ordering, and the existing no-mutation-on-read-failure policy test.
+- Process inventory #45031431085 and XY-C1 #45031431087 were still running at last observation; the prior XY-C1 exact run #45031330348 failed at the same stale LAN reload check before firmware build. No build/TRX/artifact result is claimed.
+- No local tests were run in this connector-only session. This checker correction needs exact-head process/USB/firewall/XY reruns.
+- Result: THIS COMMIT. Next: inspect exact-head Actions after the corrected modem checker; continue any remaining concrete CI failure.
+
+---
+
 ## 2026-11-22 — Align LAN IPv6 read-failure contracts with snapshot APIs
 
 - Parent main SHA: `592ce6b42c4c1f3ff473cdfb8839959c2fb4b5da`. The latest exact-head IPv6 service-type run #45031159848 and AI handoff run #45031159852 on ancestor `1e6238117d62087ea9eb5e99384b3ad2c65d1511` both PASS.
