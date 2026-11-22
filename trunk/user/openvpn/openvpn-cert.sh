@@ -139,66 +139,98 @@ echo_process() {
 }
 
 make_cert() {
-  #
-  # $1 --> key file name
-  # $2 --> cert file name
-  # $3 --> days valid
-  # $4 --> rsa bits
-  # $5 --> CN
-  # $6 --> signature algorithm
-  # $7 --> ca if cert is CA
-  #
-  [ "$7" == "ca" ] && local CA_TRUE="-x509"
-    if  [ ! -s $1 ] ; then
-         [[ `echo $4 | grep '^[bpsw]'` ]] && openssl ecparam -name $4 -genkey -out $1
-         [[ `echo $4 | grep '^ed'` ]] && openssl genpkey -algorithm $4 -out $1
-         [[ `echo $4 | grep '^[1-9]'` ]] && openssl genrsa -out $1 $4
+  local CA_TRUE="" key_status req_status
+  [ "${7:-}" = "ca" ] && CA_TRUE="-x509"
+  if [ ! -s "$1" ]; then
+    echo_process "Creating private key: $1"
+    case "$4" in
+      [bpsw]*)
+        if openssl ecparam -name "$4" -genkey -out "$1"; then :; else
+          key_status=$?; rm -f "$1"; echo "Error: private key generation failed for $1 (status=$key_status)" >&2; return "$key_status"
+        fi ;;
+      ed*)
+        if openssl genpkey -algorithm "$4" -out "$1"; then :; else
+          key_status=$?; rm -f "$1"; echo "Error: private key generation failed for $1 (status=$key_status)" >&2; return "$key_status"
+        fi ;;
+      [1-9]*)
+        if openssl genrsa -out "$1" "$4"; then :; else
+          key_status=$?; rm -f "$1"; echo "Error: private key generation failed for $1 (status=$key_status)" >&2; return "$key_status"
+        fi ;;
+      *) echo "Error: unsupported private key type: $4" >&2; return 1 ;;
+    esac
+    if [ ! -s "$1" ]; then
+      rm -f "$1"
+      echo "Error: private key generator produced no key for $1" >&2
+      return 1
     fi
-    echo_process "Creating ${2}: $5"
-    openssl req -nodes $CA_TRUE -days $3 -new -outform PEM \
-            -out $2 -key $1 $6 -subj "/CN=$5" &>/dev/null
-  [ -f $1 ] && chmod 600 $1
-  echo_done
-}
-
-sign_cert() {
-  #
-  # $1 --> ca key file name
-  # $2 --> ca crt file name
-  # $3 --> csr input file name
-  # $4 --> crt output file name
-  # $5 --> days valid
-  # $6 --> signature algorithm
-  # $7 --> extensions to use (server or client)
-  #
-  if [ ! -f $1 ] || [ ! -f $2 ] ; then
-    echo "Error: CA not found" >&2
+  fi
+  if [ ! -f "$1" ] || [ ! -s "$1" ]; then
+    echo "Error: private key is missing or empty: $1" >&2
     return 1
   fi
-  write_ext_cfs
-  echo_process "Signing $4"
-  openssl x509 -req -in $3 -CA $2 -CAkey $1 -CAcreateserial \
-               -clrext -out $4 -$6 -extfile $SSL_EXT_FILE \
-               -days $5 -extensions $7 &>/dev/null
-  rm -f $3
-  rm -f ca.srl
+  if chmod 600 "$1"; then :; else
+    key_status=$?; echo "Error: cannot protect private key $1 (status=$key_status)" >&2; return "$key_status"
+  fi
+  echo_process "Creating $2: $5"
+  if openssl req -nodes $CA_TRUE -days "$3" -new -outform PEM -out "$2" -key "$1" "$6" -subj "/CN=$5" &>/dev/null; then
+    :
+  else
+    req_status=$?; rm -f "$2"; echo "Error: certificate request generation failed for $2 (status=$req_status)" >&2; return "$req_status"
+  fi
+  if [ ! -s "$2" ]; then
+    rm -f "$2"
+    echo "Error: certificate request generator produced no output: $2" >&2
+    return 1
+  fi
   echo_done
-}
-
-make_dh() {
-  #
-  # $1 --> dh bits
-  #
-  if [ -f dh1024.pem ] ; then
+  return 0
+}sign_cert() {
+  local sign_status cleanup_status
+  if [ ! -s "$1" ] || [ ! -s "$2" ]; then
+    echo "Error: CA key or certificate not found" >&2
+    return 1
+  fi
+  if [ ! -s "$3" ]; then
+    echo "Error: certificate signing request not found: $3" >&2
+    return 1
+  fi
+  if write_ext_cfs; then :; else
+    sign_status=$?; echo "Error: cannot prepare certificate extensions (status=$sign_status)" >&2; return "$sign_status"
+  fi
+  echo_process "Signing $4"
+  if openssl x509 -req -in "$3" -CA "$2" -CAkey "$1" -CAcreateserial -clrext -out "$4" "-$6" -extfile "$SSL_EXT_FILE" -days "$5" -extensions "$7" &>/dev/null; then
+    :
+  else
+    sign_status=$?; rm -f "$4"; echo "Error: certificate signing failed for $4 (status=$sign_status)" >&2; return "$sign_status"
+  fi
+  if [ ! -s "$4" ]; then
+    rm -f "$4"
+    echo "Error: certificate signer produced no output: $4" >&2
+    return 1
+  fi
+  if rm -f "$3" && rm -f ca.srl; then :; else
+    cleanup_status=$?; echo "Error: certificate generated but signing-request cleanup failed (status=$cleanup_status)" >&2; return "$cleanup_status"
+  fi
+  echo_done
+  return 0
+}make_dh() {
+  local dh_status
+  if [ -s dh1024.pem ]; then
     echo_process "Skipping DH Parameters. File exists"
   else
     echo_process "Creating DH Parameters (may take long time, be patient)"
-    openssl dhparam -out dh1024.pem $1 &>/dev/null
+    if openssl dhparam -out dh1024.pem "$1" &>/dev/null; then :; else
+      dh_status=$?; rm -f dh1024.pem; echo "Error: DH parameter generation failed (status=$dh_status)" >&2; return "$dh_status"
+    fi
+    if [ ! -s dh1024.pem ]; then
+      rm -f dh1024.pem
+      echo "Error: DH parameter generator produced no output" >&2
+      return 1
+    fi
   fi
   echo_done
-}
-
-make_ta_tc2() {
+  return 0
+}make_ta_tc2() {
   #
   # $1 --> ta key name
   #
@@ -219,10 +251,12 @@ make_ta_tc2() {
       :
     else
       key_status=$?
+      rm -f "$1"
       echo "Error: TLS Auth key generation failed (status=$key_status)" >&2
       return "$key_status"
     fi
     if [ ! -s "$1" ] ; then
+      rm -f "$1"
       echo "Error: TLS Auth key generator produced no key" >&2
       return 1
     fi
@@ -244,10 +278,12 @@ make_ta_tc2() {
       :
     else
       key_status=$?
+      rm -f "$2"
       echo "Error: TLS Crypt v2 server key generation failed (status=$key_status)" >&2
       return "$key_status"
     fi
     if [ ! -s "$2" ] ; then
+      rm -f "$2"
       echo "Error: TLS Crypt v2 server key generator produced no key" >&2
       return 1
     fi
@@ -263,61 +299,46 @@ make_ta_tc2() {
 }
 
 server() {
-  local CRT_PATH_X=$CRT_PATH_SRV
-  [ -d $CRT_PATH_X ] || mkdir -m 755 -p $CRT_PATH_X
-  if ! cd $CRT_PATH_X ; then
-    echo "Error: can't cd to $CRT_PATH_X" >&2
-    return 1
+  local CRT_PATH_X=$CRT_PATH_SRV setup_status
+  if [ ! -d "$CRT_PATH_X" ]; then
+    if mkdir -m 755 -p "$CRT_PATH_X"; then :; else
+      setup_status=$?; echo "Error: cannot create certificate directory $CRT_PATH_X (status=$setup_status)" >&2; return "$setup_status"
+    fi
   fi
-  ## Create CA
-  make_cert $CA_KEY $CA_CRT $CA_DAYS $RSA_BITS "$CA_CN" $DGST_ALG ca
-  ## Create server csr
+  if ! cd "$CRT_PATH_X"; then echo "Error: can't cd to $CRT_PATH_X" >&2; return 1; fi
+  make_cert "$CA_KEY" "$CA_CRT" "$CA_DAYS" "$RSA_BITS" "$CA_CN" "$DGST_ALG" ca || return $?
   [ -z "$CN" ] && CN="OpenVPN Server"
-  make_cert $SERVER_KEY server.csr $CERT_DAYS $RSA_BITS "$CN" $DGST_ALG
-  ## Sign server csr
-  sign_cert $CA_KEY $CA_CRT server.csr $SERVER_CRT $CERT_DAYS $DGST_ALG server
-  ## Create DH param
-  make_dh $DH_BITS
-  ## Create TLS Auth/Crypt key and TLS Crypt v2 server key
-  make_ta_tc2 $TA_KEY $STC2_KEY
-}
-
-client_csr() {
-  local CRT_PATH_X=$CRT_PATH_CLI
-  [ -d $CRT_PATH_X ] || mkdir -m 755 -p $CRT_PATH_X
-  if ! cd $CRT_PATH_X ; then
-    echo "Error: can't cd to $CRT_PATH_X" >&2
-    return 1
+  make_cert "$SERVER_KEY" server.csr "$CERT_DAYS" "$RSA_BITS" "$CN" "$DGST_ALG" || return $?
+  sign_cert "$CA_KEY" "$CA_CRT" server.csr "$SERVER_CRT" "$CERT_DAYS" "$DGST_ALG" server || return $?
+  make_dh "$DH_BITS" || return $?
+  make_ta_tc2 "$TA_KEY" "$STC2_KEY"
+}client_csr() {
+  local CRT_PATH_X=$CRT_PATH_CLI setup_status
+  if [ ! -d "$CRT_PATH_X" ]; then
+    if mkdir -m 755 -p "$CRT_PATH_X"; then :; else
+      setup_status=$?; echo "Error: cannot create client certificate directory $CRT_PATH_X (status=$setup_status)" >&2; return "$setup_status"
+    fi
   fi
+  if ! cd "$CRT_PATH_X"; then echo "Error: can't cd to $CRT_PATH_X" >&2; return 1; fi
   [ -z "$CN" ] && func_help
-  make_cert $CLIENT_KEY client.csr $CERT_DAYS $RSA_BITS "$CN" $DGST_ALG
-}
-
-client_sign() {
+  make_cert "$CLIENT_KEY" client.csr "$CERT_DAYS" "$RSA_BITS" "$CN" "$DGST_ALG"
+}client_sign() {
   [ -z "$CSR_PATH" ] && func_help
-  if [ "${CSR_PATH:0:1}" != "/" ] ; then
-    CSR_PATH=`pwd`/$CSR_PATH
+  if [ "${CSR_PATH:0:1}" != "/" ]; then CSR_PATH=`pwd`/"$CSR_PATH"; fi
+  local CRT_PATH_X=$CRT_PATH_SRV setup_status
+  if [ ! -d "$CRT_PATH_X" ]; then
+    if mkdir -m 755 -p "$CRT_PATH_X"; then :; else
+      setup_status=$?; echo "Error: cannot create server certificate directory $CRT_PATH_X (status=$setup_status)" >&2; return "$setup_status"
+    fi
   fi
-  local CRT_PATH_X=$CRT_PATH_SRV
-  [ -d $CRT_PATH_X ] || mkdir -m 755 -p $CRT_PATH_X
-  if ! cd $CRT_PATH_X ; then
-    echo "Error: can't cd to $CRT_PATH_X" >&2
-    return 1
-  fi
-  if [ ! -f $CSR_PATH ] ; then
-    echo "Error: $CSR_PATH - file not found" >&2
-    return 1
-  fi
-  sign_cert $CA_KEY $CA_CRT $CSR_PATH ${CSR_PATH%.*}.crt $CERT_DAYS $DGST_ALG client
-}
-
-client() {
-  client_csr
+  if ! cd "$CRT_PATH_X"; then echo "Error: can't cd to $CRT_PATH_X" >&2; return 1; fi
+  if [ ! -f "$CSR_PATH" ]; then echo "Error: $CSR_PATH - file not found" >&2; return 1; fi
+  sign_cert "$CA_KEY" "$CA_CRT" "$CSR_PATH" "${CSR_PATH%.*}.crt" "$CERT_DAYS" "$DGST_ALG" client
+}client() {
+  client_csr || return $?
   CSR_PATH="$CRT_PATH_CLI/client.csr"
   client_sign
-}
-
-ssl_view () {
+}ssl_view () {
   [ -z "$CSR_PATH" ] && func_help
 case ${CSR_PATH##*.} in
 	crt) openssl x509 -in "$CSR_PATH" -noout -text ;;

@@ -19,6 +19,18 @@ list)
 	exit 0
 	;;
 genrsa|ecparam|genpkey|req|x509|dhparam)
+	if [ "${MOCK_OPENSSL_FAIL_COMMAND:-}" = "$command_name" ]; then
+		output=
+		while [ "$#" -gt 0 ]; do
+			if [ "$1" = "-out" ]; then shift; output=$1; fi
+			shift
+		done
+		[ -n "$output" ] && printf 'partial\\n' > "$output"
+		exit 74
+	fi
+	if [ "${MOCK_OPENSSL_EMPTY_COMMAND:-}" = "$command_name" ]; then
+		exit 0
+	fi
 	output=
 	while [ "$#" -gt 0 ]; do
 		if [ "$1" = "-out" ]; then
@@ -53,6 +65,13 @@ printf '%s %s %s\n' "$key_type" "$output" "$mode" >> "$OPENSSL_MODE_LOG"
 MOCK_OPENVPN
 chmod 755 "$TMP/bin/openvpn"
 
+cat > "$TMP/bin/chmod" <<'MOCK_CHMOD'
+#!/bin/sh
+if [ "${MOCK_CHMOD_FAIL_FILE:-}" = "${2##*/}" ]; then exit 75; fi
+exec /bin/chmod "$@"
+MOCK_CHMOD
+chmod 755 "$TMP/bin/chmod"
+
 # Relocate only the three fixed paths in a disposable copy; production
 # continues to use its configured /usr/sbin and /etc/storage paths.
 sed \
@@ -65,7 +84,7 @@ chmod 755 "$TMP/openvpn-cert-test.sh"
 run_server()
 {
 	OPENSSL_MODE_LOG="$TMP/modes.log" PATH="$TMP/bin:$PATH" \
-		bash "$TMP/openvpn-cert-test.sh" server >/dev/null
+		bash "$TMP/openvpn-cert-test.sh" server "$@" >/dev/null
 }
 
 assert_private()
@@ -102,4 +121,64 @@ if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_OPENVPN_FAIL_TYPE=tls-crypt-v2-server 
 fi
 [ ! -e "$SERVER_DIR/stc2.key" ]
 
-echo "OpenVPN private-key permission regression: PASS"
+
+# OpenSSL errors must stop the compound server workflow immediately.
+assert_server_openssl_failure()
+{
+	failure_command=$1
+	shift
+	rm -rf "$SERVER_DIR"
+	if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_OPENSSL_FAIL_COMMAND="$failure_command" PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server "$@" >/dev/null 2>&1; then
+		echo "Expected OpenSSL $failure_command failure to abort server generation" >&2
+		exit 1
+	fi
+}
+assert_server_openssl_empty_output()
+{
+	empty_command=$1
+	shift
+	rm -rf "$SERVER_DIR"
+	if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_OPENSSL_EMPTY_COMMAND="$empty_command" PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server "$@" >/dev/null 2>&1; then
+		echo "Expected empty OpenSSL $empty_command output to abort server generation" >&2
+		exit 1
+	fi
+}
+assert_server_openssl_failure genrsa
+[ ! -e "$SERVER_DIR/ca.key" ]
+assert_server_openssl_failure ecparam -b secp256r1
+[ ! -e "$SERVER_DIR/ca.key" ]
+assert_server_openssl_failure genpkey -b ed25519
+[ ! -e "$SERVER_DIR/ca.key" ]
+assert_server_openssl_failure req
+[ ! -e "$SERVER_DIR/ca.crt" ]
+assert_server_openssl_empty_output genrsa
+[ ! -e "$SERVER_DIR/ca.key" ]
+assert_server_openssl_empty_output req
+[ ! -s "$SERVER_DIR/ca.crt" ]
+# A failed signer must leave its CSR available for retry and must not proceed.
+assert_server_openssl_failure x509
+[ -s "$SERVER_DIR/server.csr" ]
+[ ! -e "$SERVER_DIR/server.crt" ]
+[ ! -e "$SERVER_DIR/stc2.key" ]
+assert_server_openssl_failure dhparam
+[ ! -e "$SERVER_DIR/dh1024.pem" ]
+[ ! -e "$SERVER_DIR/ta.key" ]
+assert_server_openssl_empty_output dhparam
+[ ! -s "$SERVER_DIR/dh1024.pem" ]
+[ ! -e "$SERVER_DIR/ta.key" ]
+# A key-protection failure aborts before a CSR can be generated.
+rm -rf "$SERVER_DIR"
+if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=ca.key PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server >/dev/null 2>&1; then
+	echo "Expected failed private-key chmod to abort certificate generation" >&2
+	exit 1
+fi
+[ ! -e "$SERVER_DIR/ca.crt" ]
+# Client orchestration must not continue after CSR generation fails.
+rm -rf "$TMP/storage/client"
+if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_OPENSSL_FAIL_COMMAND=req PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" client -n client-test >/dev/null 2>&1; then
+	echo "Expected failed client CSR generation to abort client signing" >&2
+	exit 1
+fi
+[ ! -e "$TMP/storage/client/client.csr" ]
+[ ! -e "$TMP/storage/client/client.crt" ]
+echo "OpenVPN private-key permissions and certificate failure propagation regression: PASS"

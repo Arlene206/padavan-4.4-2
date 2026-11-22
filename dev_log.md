@@ -1,3 +1,12 @@
+## 2026-11-22 10:16 CST — Propagate OpenVPN certificate generation failures
+
+- Parent main SHA: `3118578664b49741a149c40fdd509b9a0bd807ef`. Audit found `make_cert()` ignored EC/RSA/Ed keygen and CSR return codes, `sign_cert()` removed the CSR even when signing failed and returned success, `make_dh()` ignored DH generation errors, and server/client wrappers continued after a failed prerequisite.
+- Production script now checks OpenSSL keygen/CSR/sign/DH command results and non-empty outputs, removes incomplete newly generated key/DH outputs, protects private keys before request generation, propagates chmod errors, stops server/client workflows at the first failure, and preserves the CSR when signing fails.
+- The mocked crypto regression now injects partial files plus failure/empty-output paths across RSA/EC/Ed keygen, CSR, signer, DH and chmod, and verifies client orchestration stops. Existing TLS-key permission repair and TLS-crypt-v2 error checks remain.
+- Exact OpenVPN private-key workflow is triggered by the changed script/test paths; results pending. No local test run or XY-C1 result is claimed.
+
+---
+
 ## 2026-11-22 — Reconcile HTTPD firewall validator source contract
 
 - HTTPD #44974691100 on source SHA `6ca55ecdaca95858aadbf77c4fd1af49b0e1644c` failed because the workflow hard-coded ten occurrences of `firewall_ipv4_address_is_safe()`, while the committed production source has nine. This was a stale checker expectation, not a C source or regression-test failure.
