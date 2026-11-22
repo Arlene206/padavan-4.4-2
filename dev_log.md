@@ -1,3 +1,11 @@
+## 2026-11-22 — Fail closed when firewall cannot read its management interface
+
+- Parent main SHA: `b9964bf12272c2f18d5fbc92f1fd9a155c6f4fe5`. Exact b996 AI handoff #44997591604 PASS after lossless `dev_log.md` rotation. Exact a3 WAN route #44997377580, DHCP #44997377452, teardown #44997377521, wireless #44997377474, Process lifecycle #44997377507, Process inventory #44997377633 and NVRAM transaction #44997377584 PASS; XY-C1 #44997377413 remains in Build XY-C1.
+- Confirmed a P1 firewall fail-open input-read path in `start_firewall_ex_locked()`: `get_man_ifname()` uses `nvram_safe_get()`, which collapses NVRAM read/backend/close errors into an empty interface. The empty value was accepted, then used to build interface-dependent firewall/rp_filter policy.
+- Replaced that getter with checked bounded `get_wan_unit_value_copy_status(unit, "ifname", man_if, sizeof(man_if))`. Real errors now set `errno` and return before firewall/rp_filter rules are applied; nonempty values keep the existing safe-token check; an actually empty legacy value remains compatible.
+- Extended `check_wan_firewall_status.py` to pin checked read/error/validation before the first per-interface rp_filter write and forbid the lossy getter in `start_firewall_ex_locked()`. Exact-head firewall Actions are pending.
+
+---
 ## 2026-11-22 — Rotate the rolling development log and preserve full-restart verification
 
 - Root `dev_log.md` had 121 complete records. Archived the 101 oldest records byte-for-byte in chronological order in `docs/dev-log/2026/11/part-025.md`; retained the 20 newest original records at the root, then prepended this rotation checkpoint. Archive SHA: `daf3875420e99758082b0d43ab2e4b4b2cd57ab2`; pre-rotation root blob SHA: `418727893b781c626ffa7995bc378ac8b5cff66f`.

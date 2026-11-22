@@ -4398,7 +4398,7 @@ start_firewall_ex_locked(void)
 	char logaccept[16], logdrop[16];
 	int is_fw_log_accept = 0, is_fw_log_drop = 0, is_fw_log_both = 0;
 	char wan_if[16], man_if[16], lan_if[16];
-	const char *man_if_value, *wan_if_value;
+	const char *wan_if_value;
 	char wan_ip[16], man_ip[16], lan_ip[16], lan_net[24] = {0};
 	char dmz_ip[16] = {0};
 	const char *lan_netmask;
@@ -4434,14 +4434,25 @@ start_firewall_ex_locked(void)
 	/* These names are interpolated into iptables-restore rule tokens. Validate
 	 * NVRAM-backed values before copying, and validate the fallback output
 	 * before use, so no newline or option-like token reaches a table writer. */
-	man_if_value = get_man_ifname(unit);
-	if (man_if_value && *man_if_value &&
-	    !firewall_interface_name_is_safe(man_if_value)) {
+	/*
+	 * A safe_get-backed getter hides NVRAM read/close failures as an empty
+	 * interface. Do not build/apply firewall rules with an unknown MAN
+	 * interface; keep a genuinely empty legacy setting compatible.
+	 */
+	status = get_wan_unit_value_copy_status(
+		unit, "ifname", man_if, sizeof(man_if));
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "Cannot read management interface for firewall rebuild (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+	if (man_if[0] && !firewall_interface_name_is_safe(man_if)) {
 		logmessage(LOGNAME, "Unsafe management interface token; refusing firewall rebuild");
 		errno = EINVAL;
 		return EINVAL;
 	}
-	snprintf(man_if, sizeof(man_if), "%s", man_if_value ? man_if_value : "");
 
 	wan_if_value = get_wan_unit_value(unit, "ifname_t");
 	if (wan_if_value && *wan_if_value) {

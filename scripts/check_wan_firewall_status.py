@@ -215,6 +215,7 @@ wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 
 net_core = (RC / "net.c").read_text()
 firewall_source = (RC / "firewall_ex.c").read_text()
+firewall_locked = "".join(body(firewall_source, "start_firewall_ex_locked(void)").split())
 ppp = (RC / "net_ppp.c").read_text()
 ppp_ipup_policy = (RC / "ppp_wan_ipup_policy.h").read_text()
 ppp_ipup_test = (RC / "tests/ppp_wan_ipup_policy.c").read_text()
@@ -239,6 +240,20 @@ require("test_static_ipoe_address_cleanup_failure_blocks_eapol" in policy_test a
         "partial static IPoE address cleanup must have a registered protocol-gating regression")
 require("int start_firewall_ex(void);" in header,
         "firewall rebuild API must expose its status")
+
+firewall_man_read = "status=get_wan_unit_value_copy_status(unit,\"ifname\",man_if,sizeof(man_if))"
+firewall_man_read_at = firewall_locked.index(firewall_man_read)
+firewall_man_read_error_at = firewall_locked.index("if(status!=0)", firewall_man_read_at)
+firewall_man_validate_at = firewall_locked.index("if(man_if[0]&&!firewall_interface_name_is_safe(man_if))", firewall_man_read_error_at)
+firewall_man_validate_error_at = firewall_locked.index("returnEINVAL", firewall_man_validate_at)
+firewall_man_side_effect_at = firewall_locked.index("set_interface_conf_int(\"ipv4\",man_if,\"rp_filter\",i_rp)")
+require(firewall_man_read_at < firewall_man_read_error_at <
+        firewall_man_validate_at < firewall_man_validate_error_at <
+        firewall_man_side_effect_at and
+        "errno=status;" in firewall_locked and
+        "returnstatus;" in firewall_locked and
+        "get_man_ifname(unit)" not in firewall_locked,
+        "firewall rebuild must reject MAN-interface NVRAM errors before changing firewall/network policy")
 
 restore = body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")
 firewall_recovery = body(wan, "restore_wan_after_firewall_failure(int unit, char *wan_ifname)")
