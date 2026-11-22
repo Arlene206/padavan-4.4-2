@@ -562,23 +562,37 @@ failed:
 	return -1;
 }
 
-static void
+static int
 clear_share_var_files(const char *mount_path)
 {
 	DIR *dir;
 	struct dirent *entry;
-	char path[512], account[32 + 1];
-	int path_len, managed;
-	size_t name_len, account_len;
+	char account[32 + 1], *path;
+	int read_status, read_error, managed, saved_errno;
+	size_t mount_len, name_len, account_len, path_len;
+
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	dir = opendir(mount_path);
 	if (!dir)
-		return;
+		return -1;
+	mount_len = strlen(mount_path);
 
-	while ((entry = readdir(dir)) != NULL) {
+	for (;;) {
+		read_status = disk_share_list_next_entry(dir, readdir,
+		                                         &entry, &read_error);
+		if (read_status == 0)
+			break;
+		if (read_status < 0) {
+			errno = read_error ? read_error : EIO;
+			goto failed;
+		}
+
 		name_len = strlen(entry->d_name);
 		managed = 0;
-
 		if (strcmp(entry->d_name, ".__folder_list.txt") == 0) {
 			managed = 1;
 		} else if (name_len > 3 + 8 &&
@@ -591,19 +605,41 @@ clear_share_var_files(const char *mount_path)
 				managed = is_valid_account_name(account);
 			}
 		}
-
-		/* Only remove metadata files owned by this subsystem. */
 		if (!managed)
 			continue;
 
-		path_len = snprintf(path, sizeof(path), "%s/%s", mount_path, entry->d_name);
-		if (path_len < 0 || path_len >= (int)sizeof(path))
-			continue;
-
-		unlink(path);
+		if (mount_len > (size_t)-1 - name_len - 2) {
+			errno = ENAMETOOLONG;
+			goto failed;
+		}
+		path_len = mount_len + 1 + name_len;
+		path = (char *)malloc(path_len + 1);
+		if (!path)
+			goto failed;
+		memcpy(path, mount_path, mount_len);
+		path[mount_len] = '/';
+		memcpy(path + mount_len + 1, entry->d_name, name_len + 1);
+		if (unlink(path) != 0 && errno != ENOENT) {
+			saved_errno = errno ? errno : EIO;
+			free(path);
+			errno = saved_errno;
+			goto failed;
+		}
+		free(path);
 	}
 
-	closedir(dir);
+	if (closedir(dir) != 0) {
+		dir = NULL;
+		goto failed;
+	}
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (dir)
+		(void)closedir(dir);
+	errno = saved_errno;
+	return -1;
 }
 
 int initial_all_var_file_in_mount_path(const char *const mount_path)
@@ -616,22 +652,34 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 		return -1;
 
 	/* Delete managed files without interpolating the mount path into a shell. */
-	clear_share_var_files(mount_path);
-
-	// initial the var file for ftp anonymous
-	initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER, mount_path);
-
-	// get the account number and account_list
-	if (get_account_list(&acc_num, &account_list) != 0)
+	if (clear_share_var_files(mount_path) != 0)
 		return -1;
 
-	// initial the var file
-	for (i = 0; i < acc_num; ++i)
-		initial_one_var_file_in_mount_path(account_list[i], mount_path);
+	/* Initialize anonymous defaults before account-specific permissions. */
+	if (initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,
+	                                       mount_path) != 0)
+		return -1;
+
+	/* Get and initialize every configured account. */
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		free_2_dimension_list(&acc_num, &account_list);
+		return -1;
+	}
+	for (i = 0; i < acc_num; ++i) {
+		if (initial_one_var_file_in_mount_path(account_list[i],
+		                                       mount_path) != 0) {
+			int saved_errno = errno ? errno : EIO;
+
+			free_2_dimension_list(&acc_num, &account_list);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 	free_2_dimension_list(&acc_num, &account_list);
 
-	// initial the folder list
-	initial_folder_list_in_mount_path(mount_path);
+	/* Publish the folder-list snapshot only after all account files exist. */
+	if (initial_folder_list_in_mount_path(mount_path) != 0)
+		return -1;
 
 	return 0;
 }
@@ -640,30 +688,58 @@ int create_if_no_var_files(const char *const mount_path)
 {
 	int acc_num = 0;
 	char **account_list = NULL;
-	int i;
+	int i, path_len, result;
 	char var_file[256];
 
-	// process aninymous user
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, FTP_ANONYMOUS_USER);
-	if (!test_if_file(var_file))
-		initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER, mount_path);
-	else
-		modify_if_exist_new_folder(FTP_ANONYMOUS_USER, mount_path);
-
-	// get the account number and account_list
-	if (get_account_list(&acc_num, &account_list) != 0)
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
 		return -1;
-
-	for (i = 0; i < acc_num; ++i) {
-		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account_list[i]);
-		if (!test_if_file(var_file))
-			initial_one_var_file_in_mount_path(account_list[i], mount_path);
-		else
-			modify_if_exist_new_folder(account_list[i], mount_path);
 	}
 
-	free_2_dimension_list(&acc_num, &account_list);
+	path_len = snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt",
+	                    mount_path, FTP_ANONYMOUS_USER);
+	if (path_len < 0 || path_len >= (int)sizeof(var_file)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	if (!test_if_file(var_file))
+		result = initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,
+		                                           mount_path);
+	else
+		result = modify_if_exist_new_folder(FTP_ANONYMOUS_USER, mount_path);
+	if (result != 0)
+		return -1;
 
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		free_2_dimension_list(&acc_num, &account_list);
+		return -1;
+	}
+
+	for (i = 0; i < acc_num; ++i) {
+		path_len = snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt",
+		                    mount_path, account_list[i]);
+		if (path_len < 0 || path_len >= (int)sizeof(var_file)) {
+			errno = ENAMETOOLONG;
+			result = -1;
+			break;
+		}
+		if (!test_if_file(var_file))
+			result = initial_one_var_file_in_mount_path(account_list[i],
+			                                           mount_path);
+		else
+			result = modify_if_exist_new_folder(account_list[i], mount_path);
+		if (result != 0)
+			break;
+	}
+
+	if (result != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		free_2_dimension_list(&acc_num, &account_list);
+		errno = saved_errno;
+		return -1;
+	}
+	free_2_dimension_list(&acc_num, &account_list);
 	return 0;
 }
 

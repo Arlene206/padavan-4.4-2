@@ -179,6 +179,37 @@ require("unlink(temp_file)" in modify_failure and
 require('fopen(var_file, "a+")' not in modify_writer,
         "new-folder updates must not append unchecked partial rows")
 
+
+clear_body = function_body(DISK_SOURCE, "clear_share_var_files(const char *mount_path)")
+clear_compact = " ".join(clear_body.split())
+clear_read = clear_compact.index(
+    "disk_share_list_next_entry(dir, readdir, &entry, &read_error)"
+)
+clear_eof = clear_compact.index("if (read_status == 0)", clear_read)
+clear_error = clear_compact.index("if (read_status < 0)", clear_eof)
+clear_unlink = clear_compact.index("if (unlink(path) != 0 && errno != ENOENT)", clear_error)
+require(clear_read < clear_eof < clear_error < clear_unlink and
+        "if (closedir(dir) != 0)" in clear_compact and
+        "return -1;" in clear_compact,
+        "managed metadata cleanup must fail closed on directory and unlink errors")
+initial_all = function_body(
+    DISK_SOURCE,
+    "int initial_all_var_file_in_mount_path(const char *const mount_path)"
+)
+require("if (clear_share_var_files(mount_path) != 0)" in initial_all and
+        "if (initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER," in initial_all and
+        "if (initial_one_var_file_in_mount_path(account_list[i]," in initial_all and
+        "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all,
+        "full share metadata initialization must propagate every stage failure")
+create_all = function_body(
+    DISK_SOURCE, "int create_if_no_var_files(const char *const mount_path)"
+)
+require("path_len >= (int)sizeof(var_file)" in create_all and
+        "result = modify_if_exist_new_folder" in create_all and
+        "result = initial_one_var_file_in_mount_path" in create_all and
+        "if (result != 0)" in create_all,
+        "incremental account metadata initialization must check path and write results")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
