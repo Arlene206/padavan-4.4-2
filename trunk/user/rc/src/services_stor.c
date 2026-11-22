@@ -834,12 +834,14 @@ samba_read_runtime_enabled_status(int *enabled)
 
 
 static int
-write_smb_conf_unlocked(void)
+write_smb_conf_unlocked(const char *router_username)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
 	int i_maxuser = 0, i_maxuser_value = 0, i_maxuser_status;
-	int i_smb_mode, result = 0;
+	int i_smb_mode, result = 0, account_status;
+	char local_router_username[128];
+	const char *safe_router_username = router_username;
 	disk_info_t *follow_disk, *disks_info = NULL;
 	partition_info_t *follow_partition;
 
@@ -851,6 +853,26 @@ write_smb_conf_unlocked(void)
 			   mode_error);
 		errno = mode_error;
 		return -1;
+	}
+
+	/*
+	 * Private per-user shares must exclude the router's administrative account.
+	 * run_samba() supplies its preflight snapshot; standalone callers acquire
+	 * one checked copy before any staged configuration file is opened.
+	 */
+	if (i_smb_mode != 0 && i_smb_mode != 1 && i_smb_mode != 3 &&
+	    !safe_router_username) {
+		account_status = storage_read_string_status(
+			"http_username", local_router_username,
+			sizeof(local_router_username));
+		if (account_status != 0) {
+			logmessage("Samba Server",
+				   "cannot read router account identity; refusing private share publication (errno %d)",
+				   account_status);
+			errno = account_status;
+			return -1;
+		}
+		safe_router_username = local_router_username;
 	}
 
 	if (samba_config_file_open(SAMBA_CONF, staged_path,
@@ -1072,7 +1094,7 @@ write_smb_conf_unlocked(void)
 						fprintf(fp, "%s", "nobody");
 					}
 					for (i = 0; i < acc_num; ++i) {
-						if (!samba_service_account_is_safe(account_list[i]))
+						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
 						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
 						if (first == 1)
@@ -1087,7 +1109,7 @@ write_smb_conf_unlocked(void)
 					fprintf(fp, "invalid users = ");
 					first = 1;
 					for (i = 0; i < acc_num; ++i) {
-						if (!samba_service_account_is_safe(account_list[i]))
+						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
 						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
 						/* A write-only grant must not be negated by invalid users. */
@@ -1114,7 +1136,7 @@ write_smb_conf_unlocked(void)
 						fprintf(fp, "%s", "nobody");
 					}
 					for (i = 0; i < acc_num; ++i) {
-						if (!samba_service_account_is_safe(account_list[i]))
+						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
 						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
 						if (!samba_acl_right_can_read(right))
@@ -1136,7 +1158,7 @@ write_smb_conf_unlocked(void)
 						fprintf(fp, "%s", "nobody");
 					}
 					for (i = 0; i < acc_num; ++i) {
-						if (!samba_service_account_is_safe(account_list[i]))
+						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
 						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
 						if (!samba_acl_right_can_write(right))
@@ -1210,7 +1232,7 @@ write_smb_conf(void)
 		return -1;
 	}
 
-	result = write_smb_conf_unlocked();
+	result = write_smb_conf_unlocked(NULL);
 	if (samba_config_transaction_lock_release(lock_fd) != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage("Samba Server", "cannot release Samba configuration lock (errno %d)",
@@ -1780,7 +1802,7 @@ int run_samba(void)
 		goto out;
 	}
 
-	if (write_smb_conf_unlocked() != 0) {
+	if (write_smb_conf_unlocked(router_username) != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage("Samba Server", "configuration publication failed; paired rollback requested (errno %d)",
 			   saved_errno);
@@ -1805,7 +1827,7 @@ int run_samba(void)
 			logmessage("Samba Server", "passdb/config pair committed; transaction snapshot cleanup will be retried");
 	}
 #else
-	if (write_smb_conf_unlocked() != 0) {
+	if (write_smb_conf_unlocked(router_username) != 0) {
 		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
 		goto out;
 	}

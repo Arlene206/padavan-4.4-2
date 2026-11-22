@@ -309,10 +309,17 @@ jobs:
           string_reader = function_body(stor, "storage_read_string_status(")
           string_getter = function_body(stor, "storage_read_nvram_string(")
           account_safety = function_body(stor, "samba_service_account_is_safe(")
+          writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
+          writer_compact = "".join(writer.split())
+          standalone_writer = function_body(stor, "int write_smb_conf(void)")
           assert "rc_wan_nvram_copy_value(storage_read_nvram_string,NULL,name,value,value_size)" in "".join(string_reader.split())
           assert "nvram_get_checked(name,value)" in "".join(string_getter.split())
           assert "router_username" in account_safety
           assert 'nvram_safe_get("http_username")' not in account_safety
+          assert 'storage_read_string_status("http_username",local_router_username,sizeof(local_router_username))' in writer_compact
+          assert writer_compact.index('storage_read_string_status("http_username",local_router_username,sizeof(local_router_username))') < writer_compact.index("samba_config_file_open(")
+          assert writer_compact.count("samba_service_account_is_safe(account_list[i],safe_router_username)") == 4
+          assert "write_smb_conf_unlocked(NULL)" in standalone_writer
           assert "rc_wan_nvram_copy_value" in nvram_policy
           assert "EIO" in nvram_policy_test and "ENAMETOOLONG" in nvram_policy_test
           run_samba = function_body(stor, "int run_samba(void)")
@@ -353,8 +360,9 @@ jobs:
           assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")
           assert run_samba.index("if (credential_failed)") < run_samba.index("samba_config_transaction_begin(")
           assert run_samba.index("samba_config_transaction_begin(") < run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
-          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked() != 0")
-          assert run_samba.index("write_smb_conf_unlocked() != 0") < run_samba.index("samba_config_transaction_commit(")
+          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked(router_username) != 0")
+          assert run_samba.count("write_smb_conf_unlocked(router_username) != 0") == 2
+          assert run_samba.index("write_smb_conf_unlocked(router_username) != 0") < run_samba.index("samba_config_transaction_commit(")
           assert run_samba.index("samba_config_transaction_commit(") < run_samba.index('samba_ensure_daemon("nmbd"')
           assert "samba_config_transaction_abort(" in run_samba
           transaction = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()

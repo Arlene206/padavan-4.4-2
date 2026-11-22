@@ -1,3 +1,13 @@
+## 2026-11-22 10:57 CST — Fix Samba ACL writer after exact XY-C1 compile failure
+
+- Parent main SHA: `4f5fa861c2702ead3c3fcbe6a871fad6639f6089`; product-source SHA that exposed the defect: `feb5dfe55704a253cea979454cdad439d715596a`.
+- Exact XY-C1 run #44977071471 reached the RC build and failed compilation in `services_stor.c`: four private-share ACL loops passed only `account_list[i]` to `samba_service_account_is_safe()` after its signature changed to require the router-account name. Build failed; TRX and artifact upload were skipped. All preceding host/policy stages in that run passed.
+- Exact HTTPD security #44977071470 passed its earlier compiled and static checks, then failed because its Samba source contract still searched for the removed `nvram_safe_get(tmpuser/tmp2)` account reads. Updated the contract to pin the new copied username/password snapshots and the two-argument ACL helper.
+- Production fix: `write_smb_conf_unlocked()` now accepts the preflight router-username snapshot from `run_samba()`; all four share ACL lists use it. The standalone `write_smb_conf()` entry passes a null sentinel and causes a checked `http_username` copy only in private-user modes, before the staged config file is opened. Samba and HTTPD workflows now assert the read-before-open ordering and all four helper calls.
+- On the product parent `feb5dfe`, Samba #44977071563, Process inventory #44977071505, Process fail-closed #44977071916, NVRAM #44977071500, USB storage #44977071530, NFS #44977071428, Firewall #44977071404, USB modem #44977071499, vsftpd #44977071617 and AI docs #44977071668 passed. Workflow-only parent `4f5fa861` had Samba #44978305350 and AI docs #44978305586 PASS. Fresh exact-head source/HTTPD/Samba/XY-C1 reruns are pending for THIS commit. No local checkout test or L3/L4 claim.
+
+---
+
 ## 2026-11-22 10:52 CST — Trigger Samba stability when its NVRAM regression input changes
 
 - Parent main SHA: `feb5dfe55704a253cea979454cdad439d715596a`.

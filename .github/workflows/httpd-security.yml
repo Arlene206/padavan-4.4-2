@@ -3468,7 +3468,7 @@ jobs:
           assert partition.index("samba_conf_text_is_safe(disk_tag)") < partition.index('fprintf(fp, "comment = %s')
 
           # Per-folder names/paths are checked before permission lookup and config output.
-          folder_writer_start = source.index("write_smb_conf_unlocked(void)")
+          folder_writer_start = source.index("write_smb_conf_unlocked(const char *router_username)")
           folder_writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", folder_writer_start)
           folder_writer = source[folder_writer_start:folder_writer_end]
           folder_start = folder_writer.index("// 2. start to get every share")
@@ -3476,7 +3476,7 @@ jobs:
           folder_block = folder_writer[folder_start:folder_end]
           assert folder_block.index("samba_share_name_is_safe(folder_list[n])") < folder_block.index('fprintf(fp, "[%s]\\n", share)')
           assert folder_block.index("samba_mount_path_is_safe(follow_partition->mount_point)") < folder_block.index('fprintf(fp, "path = %s/%s\\n"')
-          assert folder_block.count("if (!samba_service_account_is_safe(account_list[i]))") == 4
+          assert folder_block.count("if (!samba_service_account_is_safe(account_list[i], safe_router_username))") == 4
           invalid_users_start = folder_block.index('fprintf(fp, "invalid users = ");')
           read_list_start = folder_block.index('fprintf(fp, "read list = ");', invalid_users_start)
           invalid_users_block = folder_block[invalid_users_start:read_list_start]
@@ -3495,11 +3495,22 @@ jobs:
           assert 'SYS_USER_NOBODY, "*", 16000' in accounts_compact
           assert 'assert(strcmp(SAMBA_GUEST_ACCOUNT, "nobody") == 0);' in Path("trunk/user/rc/src/tests/samba_share_policy.c").read_text()
 
-          account_guard = source.index("if (!samba_service_account_is_safe(nvram_safe_get(tmpuser)))")
           run_start = source.index("int run_samba(void)")
           run_body = source[run_start:]
-          assert account_guard < source.index("samba_run_smbpasswd(", account_guard)
-          assert "samba_passdb_password_is_safe(nvram_safe_get(tmp2))" in run_body
+          run_body_compact = "".join(run_body.split())
+          router_identity_read = 'storage_read_string_status("http_username",router_username,sizeof(router_username))'
+          user_identity_read = 'storage_read_string_status(tmpuser,account_usernames[i],sizeof(account_usernames[i]))'
+          password_read = 'storage_read_string_status(tmp2,account_passwords[i],sizeof(account_passwords[i]))'
+          assert router_identity_read in run_body_compact
+          assert user_identity_read in run_body_compact
+          assert password_read in run_body_compact
+          assert run_body_compact.index(router_identity_read) < run_body_compact.index(user_identity_read)
+          assert run_body_compact.index(user_identity_read) < run_body_compact.index(password_read)
+          first_inventory = run_body_compact.index('process_inventory_scan("smbd",&smbd_snapshot)')
+          assert run_body_compact.index(password_read) < first_inventory
+          assert "samba_passdb_password_is_safe(account_passwords[i])" in run_body
+          assert "nvram_safe_get(tmpuser)" not in run_body
+          assert "nvram_safe_get(tmp2)" not in run_body
           assert "_eval(smb_args" not in run_body
           assert 'execl("/bin/smbpasswd", "smbpasswd", "-s", "-f"' in source
           assert 'execl("/bin/smbpasswd", "smbpasswd", "-s"' in source
@@ -3508,7 +3519,7 @@ jobs:
           # lstat/chmod helper and must run before transaction recovery.
           parent_guard = run_body.index("samba_config_transaction_prepare_parent_directory(")
           assert parent_guard < run_body.index("samba_config_transaction_recover(")
-          assert "write_smb_conf_unlocked() != 0" in run_body
+          assert "write_smb_conf_unlocked(router_username) != 0" in run_body
           assert "samba_prepare_private_passdb(staged_passdb" in run_body
           assert 'rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)' in run_body
           assert "fchmod(input_fd, 0600)" in source
@@ -3538,7 +3549,7 @@ jobs:
 
           # A failed disk/account discovery, append open, or stream close must
           # abort configuration generation instead of returning false success.
-          writer_start = source.index("write_smb_conf_unlocked(void)")
+          writer_start = source.index("write_smb_conf_unlocked(const char *router_username)")
           writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", writer_start)
           writer = source[writer_start:writer_end]
           assert "if (!disks_info)" in writer
@@ -5311,9 +5322,13 @@ jobs:
           assert "duplicate" in recreate and "acc_username%d" in recreate
           assert "router_account_name_is_reserved(name, NULL)" in samba_policy
           assert 'strcmp(name, "anonymous")' in samba_policy
+          services_compact = "".join(services.split())
           assert "samba_service_account_is_safe" in services
-          assert 'nvram_safe_get("http_username")' in services
-          assert "samba_service_account_is_safe(nvram_safe_get(tmpuser))" in services
+          assert 'storage_read_string_status("http_username",router_username' in services_compact
+          assert "samba_service_account_is_safe(account_usernames[i],router_username)" in services_compact
+          assert "samba_service_account_is_safe(account_list[i],safe_router_username)" in services_compact
+          assert 'nvram_safe_get("http_username")' not in services
+          assert "samba_service_account_is_safe(nvram_safe_get(tmpuser))" not in services
           for trigger in (
               "trunk/user/libdisk/src/disk_share.c",
               "trunk/user/shared/src/include/router_account_policy.h",
