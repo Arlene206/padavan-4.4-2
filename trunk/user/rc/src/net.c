@@ -530,6 +530,10 @@ start_udpxy(char *wan_ifname)
 {
 	int port = nvram_get_int("udpxy_enable_x");
 	int launch_status, scan_error = 0, saved_errno, launch_errno;
+#if !defined (APP_MSD_LITE)
+	char udpxy_port[16], udpxy_clients[16], udpxy_renew_period[16];
+	int config_status;
+#endif
 	enum process_presence process_state;
 	const char *process_name;
 
@@ -577,13 +581,28 @@ start_udpxy(char *wan_ifname)
 		launch_status = eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
 	}
 #else
+	config_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+						"udpxy_clients", udpxy_clients,
+						sizeof(udpxy_clients));
+	if (config_status == 0)
+		config_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+							"udpxy_renew_period", udpxy_renew_period,
+							sizeof(udpxy_renew_period));
+	if (config_status != 0) {
+		errno = config_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot udpxy launch options (status=%d)",
+			   config_status);
+		return config_status;
+	}
+	snprintf(udpxy_port, sizeof(udpxy_port), "%d", port);
 	errno = 0;
 	launch_status = eval("/usr/sbin/udpxy",
 		"-m", wan_ifname,
-		"-p", nvram_safe_get("udpxy_enable_x"),
+		"-p", udpxy_port,
 		"-B", "65536",
-		"-c", nvram_safe_get("udpxy_clients"),
-		"-M", nvram_safe_get("udpxy_renew_period")
+		"-c", udpxy_clients,
+		"-M", udpxy_renew_period
 		);
 #endif
 

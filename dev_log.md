@@ -1,3 +1,11 @@
+## 2026-11-22 — Copy udpxy argv options before the NVRAM cache can wrap
+
+- Parent main SHA: `56137665cea32ba5d5befce235889f996e4c9fa3`. `start_udpxy()` passed three `nvram_safe_get()` pointers directly through the variadic `eval()` call. These pointers are backed by the shared NVRAM cache ring and can be invalidated by later reads before exec constructs argv.
+- The enable port is now serialized from its already-parsed integer; client limit and renew interval are copied with checked bounded reads into owned buffers before launch. Read/truncation errors abort startup instead of passing stale or mixed arguments.
+- Added cache-overwrite regression coverage and Process source-contract assertions; removed two accidental dead-negative source assertions from the preceding XUPnPD checker. Exact-head Process and XY-C1 validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Own hostname and XUPnPD address across NVRAM reads
 
 - Parent main SHA: `c4bc1f86973e9f45fd53f74c7bd613edc48da6d7`. `get_our_hostname()` kept the shared-cache pointer for `computer_name` while falling back to `productid`, and returned a borrowed cache pointer to callers. `start_xupnpd()` retained `lan_ipaddr_t` across later port/enable NVRAM reads before serializing its URL.

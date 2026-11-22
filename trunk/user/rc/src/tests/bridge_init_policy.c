@@ -42,6 +42,10 @@ fake_bridge_nvram_get(void *opaque, const char *param_name, char **value)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "Padavan-Router");
 	else if (strcmp(param_name, "udpxy_enable_x") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "4022");
+	else if (strcmp(param_name, "udpxy_clients") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "100");
+	else if (strcmp(param_name, "udpxy_renew_period") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "30");
 	else if (strcmp(param_name, "xupnpd_udpxy") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "1");
 	else
@@ -175,6 +179,26 @@ test_xupnpd_lan_address_is_owned_across_port_reads(void)
 }
 
 static void
+test_udpxy_launch_options_are_owned_across_reads(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char udpxy_clients[16], udpxy_renew_period[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "udpxy_clients", udpxy_clients,
+				       sizeof(udpxy_clients)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "udpxy_renew_period", udpxy_renew_period,
+				       sizeof(udpxy_renew_period)) == 0);
+	assert(strcmp(fake.cache, "30") == 0);
+	assert(strcmp(udpxy_clients, "100") == 0);
+	assert(strcmp(udpxy_renew_period, "30") == 0);
+	assert(fake.calls == 2);
+}
+
+static void
 test_empty_and_success_status(void)
 {
 	rc_bridge_init_status_t status;
@@ -280,6 +304,7 @@ test_bridge_add_idempotency_requires_confirmed_bridge(void)
 int
 main(void)
 {
+	test_udpxy_launch_options_are_owned_across_reads();
 	test_hostname_fallback_is_owned_across_cache_reuse();
 	test_xupnpd_lan_address_is_owned_across_port_reads();
 	test_bridge_lan_hwaddr_cache_copy_is_stable();
@@ -293,6 +318,6 @@ main(void)
 	test_wireless_config_generation_failure_reaches_bridge_status();
 	test_reload_marker_write_failures_are_reported_and_aggregated();
 	test_bridge_add_idempotency_requires_confirmed_bridge();
-	puts("RC bridge/LAN hostname/XUPnPD NVRAM cache ownership policy: PASS");
+	puts("RC bridge/LAN/hostname/IPTV NVRAM cache ownership policy: PASS");
 	return 0;
 }
