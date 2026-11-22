@@ -162,6 +162,7 @@ dnsmasq_dhcp_config_nvram_snapshot_read(
 {
 	struct rc_wan_nvram_snapshot_field fields[10];
 	unsigned int count = 0;
+	int status;
 
 	if (!snapshot)
 		return EINVAL;
@@ -204,8 +205,11 @@ dnsmasq_dhcp_config_nvram_snapshot_read(
 		fields[count++].destination_size = sizeof(snapshot->dhcp_wins);
 	}
 
-	return rc_wan_nvram_copy_snapshot(fields, count, begin_transaction,
-					  get_value, end_transaction, context);
+	status = rc_wan_nvram_copy_snapshot(fields, count, begin_transaction,
+					    get_value, end_transaction, context);
+	if (status != 0)
+		memset(snapshot, 0, sizeof(*snapshot));
+	return status;
 }
 
 #endif /* PADAVAN_DNSMASQ_NVRAM_OPTION_POLICY_H */

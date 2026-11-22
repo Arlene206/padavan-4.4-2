@@ -1,3 +1,13 @@
+## 2026-11-22 — Zero the entire DHCP snapshot after transaction failure
+
+- Parent main SHA: `22f626cc2ac7f207edd6c554fda6a1d9ab563838`. Exact-head AI handoff #45033357885 PASS. DNSMasq lifecycle #45033357912 failed in the new checked-option GNU89/ASan/UBSan test: read/close failure left copied bytes past the first NUL in destination buffers because the generic `rc_wan_nvram_copy_snapshot()` helper intentionally clears only each destination's first byte.
+- Fixed the higher-level DNSMasq snapshot helper to clear the complete `dnsmasq_dhcp_config_nvram_snapshot` struct whenever begin/read/end/copy returns an error. This preserves the generic helper's behavior for unrelated callers while ensuring all copied LAN/DHCP strings are erased and the tuple is fully zeroed after failure.
+- The existing regression already asserts byte-for-byte zeroing on read, close, begin and truncation errors; the source checker now requires the full-struct `memset` failure path.
+- XY-C1 #45033357945 was running the real cross-build step when the failure was found; its TRX/artifact result must be checked on its own source SHA. No firmware result is inferred.
+- No local tests were run in this connector-only session. Result: THIS COMMIT. Next: inspect exact-head DNSMasq regression and XY-C1 result, then continue the separate DHCPv6 configuration preflight slice.
+
+---
+
 ## 2026-11-22 — Snapshot DNSMasq LAN/DHCP strings before publishing files
 
 - Parent main SHA: `7f6ccc6246fd9267c35195e3b2187a7a473fcd05`. This source slice covers DNSMasq IPv4/DHCP inputs only; DHCPv6 inputs are intentionally reserved for a separate next slice.

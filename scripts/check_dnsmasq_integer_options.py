@@ -59,6 +59,8 @@ for token in (
     'fields[count].param_name = "dhcp_dns3_x"',
     'fields[count].param_name = "dhcp_wins_x"',
     "rc_wan_nvram_copy_snapshot(",
+    "if (status != 0)",
+    "memset(snapshot, 0, sizeof(*snapshot))",
 ):
     assert token in snapshot, token
 
