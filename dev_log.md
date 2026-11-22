@@ -1,3 +1,12 @@
+## 2026-11-22 — Make the XY-C1 firmware gate self-triggering after its contract fix
+
+- Parent main SHA: `9a1d4e442da2af1d64cef9397fcd973386831617`. The embedded DHCPv6 source contract is corrected in the prior commit, but the XY-C1 workflow's push path filter did not include its own workflow file. Therefore the workflow edit itself could not launch a verification run.
+- Added `.github/workflows/xy-c1-firmware-validation.yml` to the workflow's push path filter so future embedded contract/build changes trigger the production firmware gate. This commit also records the current source SHA and exact test boundaries in the handoff.
+- Parent XY-C1 run #45034779614 failed before Build at the old DHCPv6 getter-shape assertion; Build/TRX/artifact were skipped. The previous source checker reruns on `69d316e7909fa2143b12e786260d61ed9cb6cf4a` passed DNSMasq #45035039314, IPv6 #45035039316 and AI docs #45035039283.
+- No local tests were run. Result: THIS COMMIT should trigger the workflow by its own path filter; next verify exact-SHA Build XY-C1, TRX verification and artifact upload.
+
+---
+
 ## 2026-11-22 — Align XY-C1's embedded LAN6 contract with status-bearing DHCPv6 getters
 
 - Parent main SHA: `69d316e7909fa2143b12e786260d61ed9cb6cf4a`. DNSMasq #45035039314 PASS, IPv6 service-type #45035039316 PASS and AI handoff #45035039283 PASS on this exact SHA.

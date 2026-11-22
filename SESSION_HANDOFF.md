@@ -14,7 +14,7 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`.
-- Parent of this DHCPv6 preflight slice: `2a92404d63b739c38453b4d15cfbbe8219ae8773`; the IPv4/DHCP snapshot and cleanup commits are already in main.
+- Current source baseline: `9a1d4e442da2af1d64cef9397fcd973386831617`. DHCPv6 status getters and pre-stage NVRAM snapshot landed in `e100bb3b88a68e3db6e23721bf6852631126895e`; later commits align its regression/source contracts.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 is closed/unmerged.
 - WAN PPP launch mode uses a checked NVRAM transaction snapshot and immutable flags for lock selection, daemon stop/start, multi-WAN startup and rollback. Invalid WAN unit inputs return deterministic EINVAL.
 - Modem WAN link-change reconnect uses checked modem readiness/WISP state; Inadyn startup checks DDNS enable state before stopping the existing daemon.
@@ -22,7 +22,7 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 
 ## Active task
 
-The DHCPv6 DNSMasq path previously treated failed RA/mode reads as disabled/default state, used `nvram_safe_get("dhcp_dnsv6_x")`, and read stateful lifetime/interface-ID bounds with unchecked safe getters after staging began. This slice adds status-returning LAN6 APIs and a single checked NVRAM transaction snapshot for the DHCPv6 DNS address and stateful lifetime/range, validating all fields before staged config open. The rollback checker is also aligned with the completed IPv4 WINS snapshot contract.
+The DHCPv6 DNSMasq path now uses status-returning LAN6 APIs for RA state, DHCPv6 mode and IRT, plus a checked one-generation snapshot for DNS address and stateful lifetime/interface-ID bounds before staged config open. Its GNU89/ASan/UBSan regression and source contract passed on `69d316e7909fa2143b12e786260d61ed9cb6cf4a`. The remaining current task is to get XY-C1's embedded source contract/build flow green with the updated status-bearing getter.
 
 ## Verification boundary
 
