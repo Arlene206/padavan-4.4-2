@@ -13,6 +13,9 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
+- Latest parent main SHA: `af2144472068de1d02c5067d968958bdbc926d62`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The HTTP readiness parser used escaped dollar signs and compared literal variable placeholders; the production launcher and contract now use real POSIX parameter expansion. The 200/401/503/missing-listener host cases already exist and must rerun on the current exact SHA.
+
 - Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `2144925dd276279d7113dd1e5c16d7855202bcde`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
 - p910nd I/O EINTR/EAGAIN/zero-write fix committed in 7a136bb; exact GNU89/ASan/UBSan/source-contract Action #45041698560 PASS.

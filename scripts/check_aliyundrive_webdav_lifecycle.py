@@ -154,6 +154,11 @@ lock = function_body(launcher, "ald_run_locked() {")
 stop = function_body(launcher, "ald_kill_unlocked() {")
 start = function_body(launcher, "ald_start_unlocked() {")
 stop_wrapper = function_body(launcher, "stop_ald() {")
+require("ald_http_protocol=${ald_http_status_line%% *}" in http_ready and
+        "ald_http_status=${ald_http_status_line#* }" in http_ready and
+        "ald_http_status=${ald_http_status%% *}" in http_ready,
+        "HTTP readiness must expand the response status line in POSIX shell")
+
 require("HEAD / HTTP/1.0" in http_ready and
         'nc -w 1 "$1" "$2"' in http_ready and
         'HTTP/1.0|HTTP/1.1' in http_ready and

@@ -1,3 +1,11 @@
+## 2026-11-22 — Expand HTTP readiness response fields in the AliyunDrive launcher
+
+- Parent main SHA: `af2144472068de1d02c5067d968958bdbc926d62`. Review of the newly added HTTP readiness probe found that the three parameter expansions were written with escaped dollar signs. The assignments therefore stored literal placeholders, so a healthy HTTP/1.1 200 or authentication-required 401 response could never be recognized as readiness.
+- Removed the accidental backslashes and pinned the exact protocol/status expansion in the AliyunDrive source contract. The existing host regression already exercises HTTP 200, 401, 503 and missing-listener behavior.
+- Parent AliyunDrive lifecycle #45042467281 was IN_PROGRESS and Process inventory #45042467247 plus AI handoff #45042467359 passed on `af2144472068de1d02c5067d968958bdbc926d62`. Exact-head reruns are required; no local shell test was run.
+- This is a production-source correction, but no firmware artifact or hardware L4 claim is made.
+
+---
 ## 2026-11-22 — Require AliyunDrive WebDAV HTTP listener readiness
 
 - Parent main SHA: `2144925dd276279d7113dd1e5c16d7855202bcde`. The roadmap marked AliyunDrive WebDAV startup as PARTIAL because its tri-state `pidof` inventory only proved that the daemon process existed; a process could remain alive while the configured HTTP port was not listening or returning server errors, and duplicate-start requests also reported success on process presence alone.

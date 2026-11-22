@@ -75,9 +75,9 @@ ald_http_ready() {
     printf 'HEAD / HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n' |
       nc -w 1 "$1" "$2" 2>/dev/null | head -n 1
   ) || return 1
-  ald_http_protocol=\${ald_http_status_line%% *}
-  ald_http_status=\${ald_http_status_line#* }
-  ald_http_status=\${ald_http_status%% *}
+  ald_http_protocol=${ald_http_status_line%% *}
+  ald_http_status=${ald_http_status_line#* }
+  ald_http_status=${ald_http_status%% *}
   case "$ald_http_protocol" in
     HTTP/1.0|HTTP/1.1) ;;
     *) return 1 ;;
