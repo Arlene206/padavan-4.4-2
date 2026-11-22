@@ -1,3 +1,10 @@
+## 2026-11-22 — Make Aria2 RPC-secret fixture emit a valid deterministic token
+
+- Exact-SHA Storage Actions failed the legacy RPC migration test before any production daemon launch. The test's `hexdump` stub ran `printf '%032x' "$"`; a bare dollar sign is not a numeric shell argument, so POSIX `printf` returned status 1 and Aria2 correctly aborted secret creation.
+- Replaced the malformed numeric conversion with a fixed 32-character lowercase hexadecimal fixture. The secret remains deterministic for tests; production still reads random bytes from `/dev/urandom`.
+
+---
+
 ## 2026-11-22 — Make MAN cleanup checker whitespace invariant
 
 - Exact-SHA Process Actions exposed a checker false negative: `" ".join(source.split())` inserted spaces after multiline opening parentheses, while the expected nested `route_status_accumulate()` expression had none. The checker now removes all whitespace before matching the return expression; production code is unchanged.

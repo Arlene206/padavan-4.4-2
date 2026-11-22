@@ -56,7 +56,7 @@ cat > "$STUB_DIR/hexdump" <<'EOF'
 if [ "${STORAGE_TEST_HEXDUMP_STATUS:-0}" -ne 0 ]; then
 	exit "$STORAGE_TEST_HEXDUMP_STATUS"
 fi
-printf '%032x' "$"
+printf '%s' '0123456789abcdef0123456789abcdef'
 EOF
 chmod 755 "$STUB_DIR/hexdump"
 
