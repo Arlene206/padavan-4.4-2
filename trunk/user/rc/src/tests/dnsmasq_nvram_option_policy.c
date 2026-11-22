@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 
 #include "dnsmasq_nvram_option_policy.h"
 
@@ -217,6 +218,215 @@ test_invalid_arguments_are_rejected(void)
 	assert(dnsmasq_nvram_option_status(1, 0, "1", 0, NULL) == EINVAL);
 }
 
+
+#define FAKE_DHCP_NVRAM_KEYS 10
+
+struct fake_dhcp_nvram_item {
+	const char *name;
+	const char *value;
+};
+
+struct fake_dhcp_nvram {
+	struct fake_dhcp_nvram_item items[FAKE_DHCP_NVRAM_KEYS];
+	unsigned int item_count;
+	unsigned int read_calls;
+	unsigned int begin_calls;
+	unsigned int end_calls;
+	int fail_read_at;
+	int read_error;
+	int begin_error;
+	int end_error;
+	int active;
+	char rotating_cache[DNSMASQ_DHCP_DOMAIN_VALUE_SIZE + 1];
+};
+
+static void
+fake_dhcp_nvram_add(struct fake_dhcp_nvram *fake, const char *name,
+		    const char *value)
+{
+	assert(fake->item_count < FAKE_DHCP_NVRAM_KEYS);
+	fake->items[fake->item_count].name = name;
+	fake->items[fake->item_count].value = value;
+	fake->item_count++;
+}
+
+static void
+fake_dhcp_nvram_init(struct fake_dhcp_nvram *fake)
+{
+	memset(fake, 0, sizeof(*fake));
+	fake->fail_read_at = -1;
+}
+
+static int
+fake_dhcp_nvram_begin(void *opaque)
+{
+	struct fake_dhcp_nvram *fake = (struct fake_dhcp_nvram *)opaque;
+
+	fake->begin_calls++;
+	if (fake->begin_error) {
+		errno = fake->begin_error;
+		return -1;
+	}
+	fake->active = 1;
+	return 0;
+}
+
+static int
+fake_dhcp_nvram_get(void *opaque, const char *name, char **value)
+{
+	struct fake_dhcp_nvram *fake = (struct fake_dhcp_nvram *)opaque;
+	unsigned int i, call = fake->read_calls++;
+
+	assert(fake->active);
+	if ((int)call == fake->fail_read_at) {
+		errno = fake->read_error ? fake->read_error : EIO;
+		return -1;
+	}
+	for (i = 0; i < fake->item_count; ++i) {
+		if (strcmp(fake->items[i].name, name) == 0) {
+			assert(strlen(fake->items[i].value) < sizeof(fake->rotating_cache));
+			snprintf(fake->rotating_cache, sizeof(fake->rotating_cache),
+				 "%s", fake->items[i].value);
+			*value = fake->rotating_cache;
+			return 1;
+		}
+	}
+	*value = NULL;
+	return 0;
+}
+
+static int
+fake_dhcp_nvram_end(void *opaque)
+{
+	struct fake_dhcp_nvram *fake = (struct fake_dhcp_nvram *)opaque;
+
+	fake->end_calls++;
+	assert(fake->active);
+	fake->active = 0;
+	if (fake->end_error) {
+		errno = fake->end_error;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fake_dhcp_nvram_snapshot(struct dnsmasq_dhcp_config_nvram_snapshot *snapshot,
+			 int dhcp_enabled, struct fake_dhcp_nvram *fake)
+{
+	return dnsmasq_dhcp_config_nvram_snapshot_read(
+		snapshot, dhcp_enabled, fake_dhcp_nvram_begin,
+		fake_dhcp_nvram_get, fake_dhcp_nvram_end, fake);
+}
+
+static void
+test_dhcp_snapshot_copies_rotating_cache_as_one_tuple(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp_config_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "lan_ipaddr", "192.168.1.1");
+	fake_dhcp_nvram_add(&fake, "lan_netmask", "255.255.255.0");
+	fake_dhcp_nvram_add(&fake, "lan_domain", "router.example");
+	fake_dhcp_nvram_add(&fake, "dhcp_start", "192.168.1.100");
+	fake_dhcp_nvram_add(&fake, "dhcp_end", "192.168.1.200");
+	fake_dhcp_nvram_add(&fake, "dhcp_gateway_x", "192.168.1.254");
+	fake_dhcp_nvram_add(&fake, "dhcp_dns1_x", "192.168.1.53");
+	fake_dhcp_nvram_add(&fake, "dhcp_dns2_x", "192.168.1.54");
+	fake_dhcp_nvram_add(&fake, "dhcp_dns3_x", "192.168.1.55");
+	fake_dhcp_nvram_add(&fake, "dhcp_wins_x", "192.168.1.56");
+
+	assert(fake_dhcp_nvram_snapshot(&snapshot, 1, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1 && !fake.active);
+	assert(fake.read_calls == 10);
+	assert(strcmp(snapshot.lan_ipaddr, "192.168.1.1") == 0);
+	assert(strcmp(snapshot.lan_netmask, "255.255.255.0") == 0);
+	assert(strcmp(snapshot.lan_domain, "router.example") == 0);
+	assert(strcmp(snapshot.dhcp_start, "192.168.1.100") == 0);
+	assert(strcmp(snapshot.dhcp_end, "192.168.1.200") == 0);
+	assert(strcmp(snapshot.dhcp_gateway, "192.168.1.254") == 0);
+	assert(strcmp(snapshot.dhcp_dns1, "192.168.1.53") == 0);
+	assert(strcmp(snapshot.dhcp_dns2, "192.168.1.54") == 0);
+	assert(strcmp(snapshot.dhcp_dns3, "192.168.1.55") == 0);
+	assert(strcmp(snapshot.dhcp_wins, "192.168.1.56") == 0);
+}
+
+static void
+test_dhcp_snapshot_skips_optional_keys_when_dhcp_disabled(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp_config_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "lan_ipaddr", "192.168.1.1");
+	fake_dhcp_nvram_add(&fake, "lan_netmask", "255.255.255.0");
+	fake_dhcp_nvram_add(&fake, "lan_domain", "router.example");
+
+	assert(fake_dhcp_nvram_snapshot(&snapshot, 0, &fake) == 0);
+	assert(fake.read_calls == 3 && fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(strcmp(snapshot.lan_ipaddr, "192.168.1.1") == 0);
+	assert(snapshot.dhcp_start[0] == '\0');
+	assert(snapshot.dhcp_dns1[0] == '\0');
+	assert(snapshot.dhcp_wins[0] == '\0');
+}
+
+static void
+test_dhcp_snapshot_read_and_close_errors_invalidate_all_values(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp_config_nvram_snapshot snapshot;
+	struct dnsmasq_dhcp_config_nvram_snapshot zero;
+
+	memset(&zero, 0, sizeof(zero));
+	fake_dhcp_nvram_init(&fake);
+	fake.fail_read_at = 7;
+	fake.read_error = EACCES;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp_nvram_snapshot(&snapshot, 1, &fake) == EACCES);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	fake.end_error = EBUSY;
+	fake_dhcp_nvram_add(&fake, "lan_ipaddr", "192.168.1.1");
+	fake_dhcp_nvram_add(&fake, "lan_netmask", "255.255.255.0");
+	fake_dhcp_nvram_add(&fake, "lan_domain", "router.example");
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp_nvram_snapshot(&snapshot, 0, &fake) == EBUSY);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+}
+
+static void
+test_dhcp_snapshot_begin_and_truncation_errors_fail_closed(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp_config_nvram_snapshot snapshot;
+	struct dnsmasq_dhcp_config_nvram_snapshot zero;
+	char oversized[DNSMASQ_DHCP_DOMAIN_VALUE_SIZE + 1];
+
+	memset(&zero, 0, sizeof(zero));
+	fake_dhcp_nvram_init(&fake);
+	fake.begin_error = EIO;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp_nvram_snapshot(&snapshot, 0, &fake) == EIO);
+	assert(fake.read_calls == 0 && fake.end_calls == 0);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	memset(oversized, 'x', sizeof(oversized) - 1);
+	oversized[sizeof(oversized) - 1] = '\0';
+	fake_dhcp_nvram_add(&fake, "lan_ipaddr", "192.168.1.1");
+	fake_dhcp_nvram_add(&fake, "lan_netmask", "255.255.255.0");
+	fake_dhcp_nvram_add(&fake, "lan_domain", oversized);
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp_nvram_snapshot(&snapshot, 0, &fake) == ENAMETOOLONG);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+}
+
+
 int
 main(void)
 {
@@ -231,5 +441,9 @@ main(void)
 	test_backend_errors_preserve_errno_and_output();
 	test_inconsistent_results_fail_closed();
 	test_invalid_arguments_are_rejected();
+	test_dhcp_snapshot_copies_rotating_cache_as_one_tuple();
+	test_dhcp_snapshot_skips_optional_keys_when_dhcp_disabled();
+	test_dhcp_snapshot_read_and_close_errors_invalidate_all_values();
+	test_dhcp_snapshot_begin_and_truncation_errors_fail_closed();
 	return 0;
 }

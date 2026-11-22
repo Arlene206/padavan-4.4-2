@@ -1,3 +1,15 @@
+## 2026-11-22 — Snapshot DNSMasq LAN/DHCP strings before publishing files
+
+- Parent main SHA: `7f6ccc6246fd9267c35195e3b2187a7a473fcd05`. This source slice covers DNSMasq IPv4/DHCP inputs only; DHCPv6 inputs are intentionally reserved for a separate next slice.
+- `prepare_dns_dhcpd()` checked lease/verbosity and resolver policy flags, but still read LAN IP/netmask/domain, DHCP pool endpoints, gateway, DNS1–DNS3 and WINS through unchecked `nvram_safe_get()`. A transient NVRAM error could appear as an empty value, trigger fallback DHCP gateway/DNS options, or cause a pool rewrite from incomplete data; some options were read only after generated host/resolver files were already published.
+- Added one bounded transaction snapshot for all ten strings. It copies each NVRAM cache-backed value before the next getter can rotate it, includes DHCP-only fields only when DHCP is active, retains empty missing-key defaults, and invalidates the complete tuple on begin/read/end/truncation failure. `prepare_dns_dhcpd()` now completes the snapshot before `fill_static_ethers()`, `update_hosts_router()`, resolver creation and main-config staging, then uses the copied values throughout IPv4 DHCP emission.
+- The optional WINS service switch is checked after the copied WINS address is known. Under APP_VLMCSD, its enable value is now read via the checked integer API before staging, preserving the legacy `== 1` decision.
+- Added GNU89 regression tests for rotating-cache pointer lifetime, ten-field copy, DHCP-disabled scoping, transaction begin/read/close failures and oversized input. Extended `check_dnsmasq_integer_options.py` to pin the field set, no-lossy-read rule, pre-mutation order and tests.
+- Local C/Python tests were not run in this connector-only session. Exact-head DNSMasq and XY-C1 Actions are required; no firmware or router runtime result is claimed.
+- Result: THIS COMMIT. Next: inspect exact-head DNSMasq lifecycle and XY-C1 checks, then harden the remaining DHCPv6 option reads as a separate atomic slice.
+
+---
+
 ## 2026-11-22 — Repair Inadyn roadmap entry and refresh handoff
 
 - Parent main SHA: `c34e54b200272f17682cab1c98a2ad922ef43728`. Exact source commit `c34e54b200272f17682cab1c98a2ad922ef43728` implements checked `ddns_enable_x` read before Inadyn process scan/stop. The new exact Actions were all in_progress at the last poll: Inadyn #45032859299, DNSMasq #45032859372, HTTPD #45032859349, XY-C1 #45032859323, Process inventory #45032859409, WAN route #45032859347, miniupnpd #45032859331, Process lifecycle #45032859298, NVRAM #45032859363, WAN DHCP #45032859313, Samba #45032859405 and AI docs #45032859440.

@@ -886,7 +886,11 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	char dhcp_start[32], dhcp_end[32], old_dhcp_start[32], old_dhcp_end[32];
 	char dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
-	char dhcp_wins_value[128] = "";
+	struct dnsmasq_dhcp_config_nvram_snapshot dhcp_nvram_snapshot;
+	struct nvram_transaction dhcp_nvram_transaction;
+#if defined(APP_VLMCSD)
+	int vlmcsd_mode = 0;
+#endif
 	const char *storage_dir = "/etc/storage/dnsmasq";
 
 	if (!service_enabled) {
@@ -934,35 +938,45 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		if (option_status != 0)
 			return option_status;
 
-		/* Snapshot the optional address; do not let a failed read masquerade
-		 * as an empty value and silently fall back to the router's own IP. */
-		option_status = dnsmasq_read_string_option("dhcp_wins_x", "",
-							   dhcp_wins_value,
-							   sizeof(dhcp_wins_value));
-		if (option_status != 0)
-			return option_status;
 	}
+	option_status = dnsmasq_read_integer_range_option(
+		"dhcp_verbose", 0, 0, 3, &i_verbose);
+	if (option_status != 0)
+		return option_status;
+
+	/* Snapshot every LAN/IPv4-DHCP string before generated files are touched. */
+	option_status = dnsmasq_dhcp_config_nvram_snapshot_read(
+		&dhcp_nvram_snapshot, i_dhcp_enable,
+		dnsmasq_static_host_nvram_begin, dnsmasq_static_host_nvram_get,
+		dnsmasq_static_host_nvram_end, &dhcp_nvram_transaction);
+	if (option_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read DNSMasq LAN/DHCP configuration snapshot; preserving last-known-good files (errno=%d)",
+			   option_status);
+		errno = option_status;
+		return option_status;
+	}
+
+	ipaddr = dhcp_nvram_snapshot.lan_ipaddr;
+	netmask = dhcp_nvram_snapshot.lan_netmask;
+	domain = dhcp_nvram_snapshot.lan_domain;
+	wins = dhcp_nvram_snapshot.dhcp_wins;
 #if defined(APP_SMBD) || defined(APP_NMBD)
-	/*
-	 * When DHCP is asked to advertise the router as WINS, validate the
-	 * service switch before changing any generated inputs or opening a stage.
-	 * A configured explicit WINS address keeps precedence and needs no flag.
-	 */
-	if (i_dhcp_enable && !is_valid_ipv4(dhcp_wins_value)) {
+	if (i_dhcp_enable && !is_valid_ipv4(wins)) {
 		option_status = dnsmasq_read_integer_boolean_option("wins_enable",
 								    &wins_enabled);
 		if (option_status != 0)
 			return option_status;
 	}
 #endif
-	option_status = dnsmasq_read_integer_range_option(
-		"dhcp_verbose", 0, 0, 3, &i_verbose);
-	if (option_status != 0)
-		return option_status;
-
-	ipaddr  = nvram_safe_get("lan_ipaddr");
-	netmask = nvram_safe_get("lan_netmask");
-	domain  = nvram_safe_get("lan_domain");
+#if defined(APP_VLMCSD)
+	if (i_dhcp_enable) {
+		option_status = dnsmasq_read_integer_range_option(
+			"vlmcsd_enable", 0, INT_MIN, INT_MAX, &vlmcsd_mode);
+		if (option_status != 0)
+			return option_status;
+	}
+#endif
 
 	/* This value is emitted as a raw dnsmasq directive in both router and
 	 * AP mode. Reject control characters and option separators before any
@@ -975,8 +989,8 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 
 	/* Validate the DHCP pool before changing generated host/ARP files. */
 	if (i_dhcp_enable) {
-		snprintf(dhcp_start, sizeof(dhcp_start), "%s", nvram_safe_get("dhcp_start"));
-		snprintf(dhcp_end, sizeof(dhcp_end), "%s", nvram_safe_get("dhcp_end"));
+		snprintf(dhcp_start, sizeof(dhcp_start), "%s", dhcp_nvram_snapshot.dhcp_start);
+		snprintf(dhcp_end, sizeof(dhcp_end), "%s", dhcp_nvram_snapshot.dhcp_end);
 		snprintf(old_dhcp_start, sizeof(old_dhcp_start), "%s", dhcp_start);
 		snprintf(old_dhcp_end, sizeof(old_dhcp_end), "%s", dhcp_end);
 		pool_status = chk_valid_subnet_pool(ipaddr, dhcp_start, dhcp_end, netmask);
@@ -1129,7 +1143,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			DHCPD_RANGE_DEF_TAG, dhcp_start, dhcp_end, netmask, dhcp_lease);
 		
 		/* GATEWAY */
-		gw = nvram_safe_get("dhcp_gateway_x");
+		gw = dhcp_nvram_snapshot.dhcp_gateway;
 		if (!is_valid_ipv4(gw))
 			gw = (!is_ap_mode) ? ipaddr : NULL;
 		if (gw)
@@ -1137,9 +1151,9 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		
 		/* DNS server */
 		memset(dns_all, 0, sizeof(dns_all));
-		dns1 = nvram_safe_get("dhcp_dns1_x");
-		dns2 = nvram_safe_get("dhcp_dns2_x");
-		dns3 = nvram_safe_get("dhcp_dns3_x");
+		dns1 = dhcp_nvram_snapshot.dhcp_dns1;
+		dns2 = dhcp_nvram_snapshot.dhcp_dns2;
+		dns3 = dhcp_nvram_snapshot.dhcp_dns3;
 		
 		if (is_valid_ipv4(dns1))
 			strcat(dns_all, dns1);
@@ -1163,7 +1177,6 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 15, domain);
 		
 		/* WINS */
-		wins = dhcp_wins_value;
 		if (is_valid_ipv4(wins))
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 44, wins);
 #if defined(APP_SMBD) || defined(APP_NMBD)
@@ -1171,8 +1184,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			fprintf(fp, "dhcp-option=tag:%s,%d,%s\n", DHCPD_RANGE_DEF_TAG, 44, ipaddr);
 #endif
 #if defined(APP_VLMCSD)
-		int vlmcsd_mode = nvram_get_int("vlmcsd_enable");
-		if ( vlmcsd_mode == 1)	
+		if (vlmcsd_mode == 1)	
 			fprintf(fp, "srv-host=%s.%s,%s,%d\n", "_VLMCS", "_tcp", ipaddr, 1688);
 #endif
 		if (i_verbose == 0 || i_verbose == 2)

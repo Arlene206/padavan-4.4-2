@@ -45,6 +45,53 @@ assert prepare.index('"dhcp_verbose"') < prepare.index("fill_static_ethers(")
 assert prepare.index('"dhcp_lease"') < prepare.index("fill_static_ethers(")
 assert "dhcp_lease);" in prepare
 
+
+snapshot = function_body(POLICY, "dnsmasq_dhcp_config_nvram_snapshot_read(")
+for token in (
+    'fields[count].param_name = "lan_ipaddr"',
+    'fields[count].param_name = "lan_netmask"',
+    'fields[count].param_name = "lan_domain"',
+    'fields[count].param_name = "dhcp_start"',
+    'fields[count].param_name = "dhcp_end"',
+    'fields[count].param_name = "dhcp_gateway_x"',
+    'fields[count].param_name = "dhcp_dns1_x"',
+    'fields[count].param_name = "dhcp_dns2_x"',
+    'fields[count].param_name = "dhcp_dns3_x"',
+    'fields[count].param_name = "dhcp_wins_x"',
+    "rc_wan_nvram_copy_snapshot(",
+):
+    assert token in snapshot, token
+
+for marker in (
+    "test_dhcp_snapshot_copies_rotating_cache_as_one_tuple",
+    "test_dhcp_snapshot_skips_optional_keys_when_dhcp_disabled",
+    "test_dhcp_snapshot_read_and_close_errors_invalidate_all_values",
+    "test_dhcp_snapshot_begin_and_truncation_errors_fail_closed",
+):
+    assert marker in TEST and marker + "();" in TEST, marker
+
+snapshot_call = prepare.index("dnsmasq_dhcp_config_nvram_snapshot_read(")
+fill_static = prepare.index("fill_static_ethers(")
+router_hosts = prepare.index("update_hosts_router(")
+config_stage = prepare.index("dnsmasq_file_open(config_path)")
+assert snapshot_call < fill_static < router_hosts < config_stage
+
+for key in (
+    "lan_ipaddr", "lan_netmask", "lan_domain", "dhcp_start", "dhcp_end",
+    "dhcp_gateway_x", "dhcp_dns1_x", "dhcp_dns2_x", "dhcp_dns3_x", "dhcp_wins_x",
+):
+    assert 'nvram_safe_get("' + key + '")' not in prepare, key
+for token in (
+    "dhcp_nvram_snapshot.dhcp_gateway",
+    "dhcp_nvram_snapshot.dhcp_dns1",
+    "dhcp_nvram_snapshot.dhcp_dns2",
+    "dhcp_nvram_snapshot.dhcp_dns3",
+    "dhcp_nvram_snapshot.dhcp_wins",
+):
+    assert token in prepare, token
+assert 'nvram_get_int("vlmcsd_enable")' not in prepare
+assert prepare.index('"vlmcsd_enable"') < fill_static
+
 for token in (
     "api_result == 0",
     "rc_wan_nvram_read_int_status(",
