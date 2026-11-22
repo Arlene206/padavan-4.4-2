@@ -18,7 +18,7 @@ case "$name" in
     if [ "$MOCK_START" -eq 0 ] || [ "$MOCK_PARTIAL_START" -eq 1 ]; then
       : > "$STATE_DIR/daemon"
       mkdir -p "$PROC_ROOT/123"
-      printf '%s\\n' '123 (ralinkiappd) S 1 2 3' > "$PROC_ROOT/123/stat"
+      printf '%s\n' '123 (ralinkiappd) S 1 2 3' > "$PROC_ROOT/123/stat"
     fi
     if [ "$MOCK_EXIT_AFTER_LAUNCH" -eq 1 ]; then
       rm -f "$STATE_DIR/daemon"
@@ -74,7 +74,7 @@ fail() { echo "$*" >&2; exit 1; }
 status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
-mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\\n' '123 (ralinkiappd) S 1 2 3' > "$PROC_ROOT/123/stat"; : > "$STATE_DIR/daemon"; }
+mark_running() { mkdir -p "$PROC_ROOT/123"; printf '%s\n' '123 (ralinkiappd) S 1 2 3' > "$PROC_ROOT/123/stat"; : > "$STATE_DIR/daemon"; }
 mark_stopped() { rm -f "$STATE_DIR/daemon"; rm -rf "$PROC_ROOT/123"; }
 reset() { mark_stopped; IAPPD_PROC_ROOT="$PROC_ROOT"; export IAPPD_PROC_ROOT; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; : > "$RULES_FILE"; MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
 
@@ -106,7 +106,7 @@ rm -rf "$PROC_ROOT/234"
 # Zombies are not live service instances and must not suppress a fresh launch.
 reset
 mkdir -p "$PROC_ROOT/123"
-printf '%s\\n' '123 (ralinkiappd) Z 1 2 3' > "$PROC_ROOT/123/stat"
+printf '%s\n' '123 (ralinkiappd) Z 1 2 3' > "$PROC_ROOT/123/stat"
 rc=$(capture_status run start); status "$rc" 0
 [ -f "$STATE_DIR/daemon" ] || fail "zombie process suppressed service launch"
 grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "zombie process was treated as running"

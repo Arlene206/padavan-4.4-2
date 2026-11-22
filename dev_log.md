@@ -2,7 +2,7 @@
 
 - Source baseline: `55be802fbc344d9809c9f1a9eb283debb6f64ebf`. The existing IAPP controller delegated process discovery to BusyBox `pidof`, whose exit status 1 is also used for an empty result; it therefore could not distinguish confirmed absence from a failed `/proc` scan. Both start and stop trusted that status as ABSENT, so a procfs inventory failure could launch a duplicate daemon or remove its firewall rules while the daemon remained alive.
 - Replaced the ambiguous `pidof` probe with a bounded procfs inventory: verify the root can be enumerated, inspect every numeric PID's `stat` record, skip processes that disappear during the scan and zombies/dead tasks, and return UNKNOWN when a still-present process cannot be read or parsed. The service only treats a complete scan with no live `ralinkiappd` as ABSENT.
-- Reworked lifecycle fixtures around an injectable procfs root and added regressions for unavailable procfs on start/stop, unreadable per-PID state, and zombie exclusion. CI is the execution boundary; no local router or firmware test is claimed.
+- Reworked lifecycle fixtures around an injectable procfs root and added regressions for unavailable procfs on start/stop, unreadable per-PID state, and zombie exclusion. Corrected the three new fixture writes to emit actual newline-terminated proc stat records (not literal backslash-n bytes). CI is the execution boundary; no local router or firmware test is claimed.
 - Exact-head validation pending.
 
 ## 2026-11-22 — QMI credential cleanup inode binding
