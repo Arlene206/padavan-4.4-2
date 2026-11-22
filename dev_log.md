@@ -1,3 +1,13 @@
+## 2026-11-22 — Refresh WAN-up and interface-teardown contracts for status API
+
+- Parent main SHA: 7e8aee2ce10e3ad893015516395d82317d06a77d. The code commit 7e8aee2ce10e3ad893015516395d82317d06a77d passed USB identity #44970128339, WAN DHCP #44970128247 and AI handoff #44970128213.
+- WAN route #44970128170 passed all compiled route, teardown-policy, PPP and interface-copy regressions, then failed at scripts/check_wan_dns_read_status.py line 320 because its WAN-up assertion still named the removed is_ifunit_modem() helper. Updated it to require is_ifunit_modem_status(), its explicit error return and ordering before checked protocol selection. The existing WAN-down status assertions remain in place.
+- WAN interface teardown #44970128270 failed at an embedded workflow assertion requiring is_usb_modem = get_usb_modem_wan(unit) in stop_wan_locked(); production code now uses get_usb_modem_wan_status() and returns before transport/teardown side effects on read failure. Updated the workflow assertion to verify this checked order.
+- XY-C1 run #44970128330 was still in progress at last poll. No target build or artifact outcome is claimed.
+- Next source slice migrates reconnect-priority, resolver-notification, DNS-mode and WAN interface/address selectors.
+
+---
+
 ## 2026-11-22 — Fail closed on USB modem identity in WAN start/stop and MAN routes
 
 - Parent main SHA: a103c9ac29a3c353592119bbb3e458529378c1f1. The previous checker-only correction commit a103c9ac29a3c353592119bbb3e458529378c1f1 passed AI handoff documentation check #44969951549. Exact reruns of the updated DHCP and WAN-route contracts had not yet appeared at the last poll.

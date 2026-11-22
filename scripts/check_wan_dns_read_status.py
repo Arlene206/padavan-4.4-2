@@ -314,12 +314,16 @@ require("if (auth_status != 0 || auth_mode == 1)" in wan_down and "stop_auth_kab
         "Kabinet teardown must attempt defensive stop when auth mode is unknown")
 assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
 wan_up_protocol = "".join(body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)").split())
-wan_up_modem_check = "modem_unit_id=is_ifunit_modem(wan_ifname,unit)"
+wan_up_modem_check = "modem_status=is_ifunit_modem_status(wan_ifname,unit,&modem_unit_id)"
+wan_up_modem_error = "if(modem_status!=0)"
+wan_up_modem_return = "returnmodem_status;"
 wan_up_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
 wan_up_proto_error = "if(proto_status!=0)"
-require(wan_up_modem_check in wan_up_protocol and wan_up_proto_read in wan_up_protocol and
-        wan_up_proto_error in wan_up_protocol and
-        wan_up_protocol.index(wan_up_modem_check) < wan_up_protocol.index(wan_up_proto_read) <
+require(wan_up_modem_check in wan_up_protocol and wan_up_modem_error in wan_up_protocol and
+        wan_up_modem_return in wan_up_protocol and
+        wan_up_proto_read in wan_up_protocol and wan_up_proto_error in wan_up_protocol and
+        wan_up_protocol.index(wan_up_modem_check) < wan_up_protocol.index(wan_up_modem_error) <
+        wan_up_protocol.index(wan_up_modem_return) < wan_up_protocol.index(wan_up_proto_read) <
         wan_up_protocol.index(wan_up_proto_error) <
         wan_up_protocol.index("set_wan_unit_value(unit,\"uptime\"") and
         "returnproto_status;" in wan_up_protocol and
@@ -435,26 +439,32 @@ require('get_nvram_int_checked_status("modem_type", &modem_type)' in modem_reade
 
 stop_locked = function_body_at_column_zero_terminator(source, "stop_wan_locked(void)")
 stop_locked_compact = "".join(stop_locked.split())
-require("is_usb_modem=get_usb_modem_wan(unit)" in stop_locked_compact and
+identity_read = "modem_status=get_usb_modem_wan_status(unit,&is_usb_modem)"
+identity_error = "if(modem_status!=0)"
+require(identity_read in stop_locked_compact and identity_error in stop_locked_compact and
+        "returnmodem_status;" in stop_locked_compact and
         "modem_status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in stop_locked_compact,
-        "full WAN teardown must check modem transport before side effects")
-require(stop_locked_compact.index("modem_status=get_wan_modem_is_ndis_status(&is_ndis_modem)") <
+        "full WAN teardown must distinguish unknown modem identity from non-modem state")
+require(stop_locked_compact.index(identity_read) < stop_locked_compact.index(identity_error) <
+        stop_locked_compact.index("returnmodem_status;") <
+        stop_locked_compact.index("modem_status=get_wan_modem_is_ndis_status(&is_ndis_modem)") <
         stop_locked_compact.index("notify_pause_detect_internet()"),
-        "full WAN teardown must read modem transport before stopping services")
+        "full WAN teardown must verify identity and transport before stopping services")
 assert 'nvram_get_int("modem_type")' not in stop_locked_compact
 
 manual_disconnect = "".join(body(source, "manual_wan_disconnect(void)").split())
+manual_modem_read = "status=get_usb_modem_wan_status(0,&is_usb_modem)"
 manual_proto_read = "status=get_wan_unit_proto_checked_status(0,&wan_proto);"
-require(manual_proto_read in manual_disconnect and
+require(manual_modem_read in manual_disconnect and manual_proto_read in manual_disconnect and
         "if(status!=0)" in manual_disconnect and
         "errno=status" in manual_disconnect and
-        "is_usb_modem=get_usb_modem_wan(0)" in manual_disconnect and
-        manual_disconnect.index("is_usb_modem=get_usb_modem_wan(0)") <
+        manual_disconnect.index(manual_modem_read) < manual_disconnect.index("if(status!=0)") <
+        manual_disconnect.index("returnstatus;") <
         manual_disconnect.index("if(!is_usb_modem)") <
         manual_disconnect.index(manual_proto_read) <
         manual_disconnect.index("status=stop_wan_ppp()") and
         "wan_proto=get_wan_proto(0)" not in manual_disconnect,
-        "manual disconnect must check non-modem protocol before selecting WAN stop path")
+        "manual disconnect must check modem identity and protocol before selecting WAN stop path")
 require("status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in manual_disconnect and
         "if(status!=0)" in manual_disconnect and
         "errno=status" in manual_disconnect and

@@ -104,9 +104,13 @@ jobs:
           modem_type_read = "modem_status = get_wan_modem_is_ndis_status(&is_ndis_modem);"
           usbnet_gate = "if (is_usb_modem && is_ndis_modem)"
           assert "usbnet_ifname = NULL;" in stop
-          assert "is_usb_modem = get_usb_modem_wan(unit);" in stop
+          identity_read = "modem_status = get_usb_modem_wan_status(unit, &is_usb_modem);"
+          identity_error = "if (modem_status != 0)"
+          assert identity_read in stop and identity_error in stop
+          assert "return modem_status;" in stop
           assert modem_type_read in stop
-          assert stop.index("is_usb_modem = get_usb_modem_wan(unit);") < stop.index(modem_type_read)
+          assert stop.index(identity_read) < stop.index(identity_error) < stop.index("return modem_status;")
+          assert stop.index("return modem_status;") < stop.index(modem_type_read)
           assert stop.index(modem_type_read) < stop.index("pause_status = notify_pause_detect_internet();")
           assert 'nvram_get_int("modem_type")' not in stop
           assert usbnet_gate in stop
