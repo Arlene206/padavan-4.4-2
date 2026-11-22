@@ -431,7 +431,7 @@ safe_static_hosts = host_body.index('dnsmasq_file_is_safe_regular("/tmp/hosts.st
 static_hosts_load = host_body.index('load_user_config(hosts_fp, "/tmp", "hosts.static", NULL)', safe_static_hosts)
 hosts_lock_acquire = host_body.index("dnsmasq_lifecycle_lock_acquire_path(", static_hosts_load)
 assert safe_static_hosts < static_hosts_load < hosts_lock_acquire
-assert 'else if (errno != ENOENT)' in host_body[safe_static_hosts:static_hosts_load]
+assert 'else if (errno != ENOENT)' in host_body[static_hosts_load:hosts_lock_acquire]
 assert "#if defined (USE_IPV6)" in host_body
 assert 'fprintf(hosts_fp, "%s %s %s\\n", "::1", "localhost.localdomain", "localhost");' in host_body
 assert "get_lan_addr6_host(addr6s)" in host_body

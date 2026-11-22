@@ -1,3 +1,10 @@
+## 2026-11-22 — Correct AP DHCP host-file checker source range
+
+- Parent main SHA: `cbc53740bfbcc292f691879f7574f70eae6d5cb4`. Exact WAN DHCP callback run #44982591441 failed in `scripts/check_lan_dhcp_deconfig.py:434`: the new assertion sliced source text only up to the `load_user_config()` call and therefore excluded the adjacent `else if (errno != ENOENT)` safety branch it intended to verify. The DHCP lease policy GNU89/Wall/Wextra/Werror/ASan/UBSan binary passed before the Python source contract failed.
+- Widened only the assertion range from the static-host import call through lifecycle-lock acquisition, so the missing-file exception branch and import-before-publish ordering are both checked. This is a checker-only corrective slice; exact-head WAN DHCP rerun pending. No product compile/L3 claim is made.
+
+---
+
 ## 2026-11-21 — Preserve static host entries and IPv4/IPv6 aliases on AP DHCP updates
 
 - Parent main SHA: `e8b4de14f3355bef5754c780bb6ff96ea88609b8`. Exact WAN DHCP regression #44982248186 and HTTPD security #44982248126 PASS on that parent. XY-C1 #44982248169 was still in `Cross-build XY-C1 firmware`; NVRAM audit #44982248197 was still running. No current-parent L3 claim.
