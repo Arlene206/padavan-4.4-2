@@ -1,3 +1,12 @@
+## 2026-11-22 — Update WAN DHCP teardown contract for checked interface identity
+
+- Parent main SHA: `a4f550ace8a2bbba3723ea08c0eaae59762e9c2e`. Exact-head WAN DHCP #45025898727 compiled and ran its full preceding GNU89/ASan/UBSan policy suite, including DHCPv6 DNS withdrawal, WAN IPv6 identity, lease retry, route rollback, static IPTV startup, DHCPv6 configuration publication and callback fencing. The final inline Python contract then failed at its stale assertion requiring `previous_ifname = get_wan_unit_value(unit, "ifname6")` in `wan6_down()`.
+- The implementation had already been hardened in `5247382388b17f4fdeb0a60fa46599583ce39e17`: it copies `ifname6` through the checked status API and aborts before interface probing when the read fails. Updated the workflow assertion to pin this read/error/probe order and the absence of the old lossy getter. Runtime C code is unchanged.
+- Exact `a4f550ace8a2bbba3723ea08c0eaae59762e9c2e` AI handoff #45025898747 PASS; WAN DHCP #45025898727 FAILED only at this stale assertion after all listed compiled C policy jobs passed. The new workflow commit requires a fresh exact-SHA rerun.
+- Result: THIS COMMIT. Next: finish the `get_wan_addr6_host()` checked identity/pointer-lifetime audit and fix only verified caller-visible issues.
+
+---
+
 ## 2026-11-22 — Fix DNS checker policy-variable reference
 
 - Parent main SHA: `f2765a60ea34a6174fa3e2ad7202cce818c7d683`. The WAN DHCP exact-head rerun #45025732489 passed all preceding compiled policy binaries and contracts, then the corrected DNS assertion itself failed with `NameError: dns_policy is not defined`. The script already loads the policy header as `policy`; the new assertion used the wrong variable name.
