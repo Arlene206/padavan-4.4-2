@@ -452,7 +452,7 @@ jobs:
           fallback_netmask_validate = callback_compact.index("dhcp_lease_netmask_is_valid(lease_netmask)")
           fallback_tuple_snapshot = callback_compact.index("rc_wan_nvram_copy_snapshot(")
           assert fallback_netmask_read < fallback_netmask_error < fallback_netmask_return < fallback_netmask_assign < fallback_netmask_validate < fallback_tuple_snapshot
-          assert "test_dhcp_fallback_netmask_survives_previous_tuple_reads" in lease_policy_test
+          assert "test_dhcp_fallback_netmask_survives_previous_tuple_reads" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
           callback_identity = re.search(
               r"([A-Za-z_]\w*)=is_ifunit_modem_status\(wan_ifname,unit,&modem_unit_id\)",
               callback_compact,

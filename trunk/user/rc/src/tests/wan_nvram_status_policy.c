@@ -922,7 +922,7 @@ static void
 test_dhcp_fallback_netmask_survives_previous_tuple_reads(void)
 {
 	struct fake_nvram_text_cache fake;
-	char lease_netmask[16];
+	char lease_netmask[16], overwritten[32];
 
 	memset(&fake, 0, sizeof(fake));
 	fake.names[0] = "wan0_netmask";
@@ -936,11 +936,11 @@ test_dhcp_fallback_netmask_survives_previous_tuple_reads(void)
 				       fake.names[0], lease_netmask,
 				       sizeof(lease_netmask)) == 0);
 	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
-				       fake.names[1], fake.cache_slot,
-				       sizeof(fake.cache_slot)) == 0);
+				       fake.names[1], overwritten,
+				       sizeof(overwritten)) == 0);
 	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
-				       fake.names[2], fake.cache_slot,
-				       sizeof(fake.cache_slot)) == 0);
+				       fake.names[2], overwritten,
+				       sizeof(overwritten)) == 0);
 	assert(fake.calls == 3);
 	assert(strcmp(fake.cache_slot, "198.51.100.1") == 0);
 	assert(strcmp(lease_netmask, "255.255.255.0") == 0);

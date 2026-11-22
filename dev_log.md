@@ -1,3 +1,11 @@
+## 2026-11-22 — Correct WAN DHCP fallback-netmask regression contract
+
+- Parent main SHA: `1f47c1c34aab6888b3740e4ce6f5625bcaf8254c`. The new WAN DHCP test had a test-only overlapping source/destination buffer in its fake shared-cache reader; changed subsequent reads to a separate destination so the regression models cache overwrite without relying on overlapping `memcpy` behavior.
+- Exact WAN DHCP run #45009574727 exposed a checker NameError: the new test assertion referred to `lease_policy_test`, which is the unrelated DHCP lease-policy test, not the NVRAM status test. The contract now reads the correct `tests/wan_nvram_status_policy.c` source explicitly.
+- The product change remains the checked bounded fallback netmask copy from `0683a314...`; this commit repairs the regression harness. Exact-head WAN DHCP validation pending.
+
+---
+
 ## 2026-11-22 — Preserve hostname NVRAM read errors through file publishers
 
 - Parent main SHA: `0683a3146db2928f7edfe4ad53de757218eaabf9`. After `get_our_hostname()` was changed to use checked NVRAM copies and return NULL on backend failure, both LAN hostname publishers still folded that result into generic `EINVAL`. This lost the actual storage/read error, obscuring transient backend failures and preventing callers from distinguishing invalid input from failed configuration reads.
