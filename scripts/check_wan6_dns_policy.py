@@ -457,6 +457,26 @@ assert identity_read < identity_error < first_interface_probe
 assert 'get_wan_unit_value(unit, "ifname6")' not in wan6_down_body
 
 
+
+# DHCPv6 lease callback must not report success when getifaddrs failed.
+lan_lookup = body(source, "wan6_lookup_lan_addr6_status(void *context,")
+lan_publish = body(source, "wan6_publish_lan_addr6_status(void *context,")
+callback = body(source, "int dhcp6c_main(int argc, char **argv)")
+assert "errno = 0;" in lan_lookup
+assert "result = get_ifaddr6(IFNAME_BR, 0, address);" in lan_lookup
+assert "return errno ? errno : 0;" in lan_lookup
+assert "store_lan_addr6((char *)address)" in lan_publish
+assert "wan6_identity_publish_lan_addr6(" in callback
+assert "if (lan_addr_status != 0)" in callback
+assert "callback_status = -1;" in callback
+assert "get_ifaddr6(IFNAME_BR, 0, addr6s)" not in callback
+for case in ("test_lan_addr6_read_error_is_not_a_successful_noop",
+             "test_lan_addr6_clean_miss_preserves_last_published_value",
+             "test_lan_addr6_success_publishes_one_complete_address",
+             "test_lan_addr6_publish_error_is_propagated",
+             "test_lan_addr6_policy_rejects_invalid_arguments"):
+    assert case in identity_test and case + "();" in identity_test
+
 # OpenVPN WAN IPv6 endpoint lookup keeps read failures separate from clean misses.
 host_addr_body = body(source, "get_wan_addr6_host_status(char *p_addr6s, const char **p_host)")
 assert "get_wan_unit_value_copy_status(" in host_addr_body

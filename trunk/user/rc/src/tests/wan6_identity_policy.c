@@ -158,6 +158,129 @@ test_wan6_address_host_rejects_invalid_arguments(void)
 	assert(fake.calls == 0);
 }
 
+
+struct fake_lan_addr6_backend {
+	int lookup_status;
+	int found;
+	int publish_status;
+	int lookup_calls;
+	int publish_calls;
+	const char *address;
+	char published[64];
+};
+
+static int
+fake_lan_addr6_lookup(void *opaque, char *address, size_t address_size,
+		      int *found)
+{
+	struct fake_lan_addr6_backend *fake =
+		(struct fake_lan_addr6_backend *)opaque;
+
+	++fake->lookup_calls;
+	if (fake->lookup_status != 0)
+		return fake->lookup_status;
+	*found = fake->found;
+	if (fake->found && fake->address) {
+		if (strlen(fake->address) >= address_size)
+			return ENAMETOOLONG;
+		snprintf(address, address_size, "%s", fake->address);
+	}
+	return 0;
+}
+
+static int
+fake_lan_addr6_publish(void *opaque, const char *address)
+{
+	struct fake_lan_addr6_backend *fake =
+		(struct fake_lan_addr6_backend *)opaque;
+
+	++fake->publish_calls;
+	snprintf(fake->published, sizeof(fake->published), "%s", address);
+	return fake->publish_status;
+}
+
+static void
+test_lan_addr6_read_error_is_not_a_successful_noop(void)
+{
+	struct fake_lan_addr6_backend fake;
+	char address[64] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.lookup_status = EIO;
+	fake.found = 1;
+	fake.address = "2001:db8::10/64";
+	assert(wan6_identity_publish_lan_addr6(
+		fake_lan_addr6_lookup, fake_lan_addr6_publish,
+		&fake, address, sizeof(address)) == EIO);
+	assert(fake.lookup_calls == 1 && fake.publish_calls == 0);
+	assert(address[0] == '\0');
+}
+
+static void
+test_lan_addr6_clean_miss_preserves_last_published_value(void)
+{
+	struct fake_lan_addr6_backend fake;
+	char address[64] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_identity_publish_lan_addr6(
+		fake_lan_addr6_lookup, fake_lan_addr6_publish,
+		&fake, address, sizeof(address)) == 0);
+	assert(fake.lookup_calls == 1 && fake.publish_calls == 0);
+	assert(address[0] == '\0');
+}
+
+static void
+test_lan_addr6_success_publishes_one_complete_address(void)
+{
+	struct fake_lan_addr6_backend fake;
+	char address[64] = "";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.found = 1;
+	fake.address = "2001:db8::10/64";
+	assert(wan6_identity_publish_lan_addr6(
+		fake_lan_addr6_lookup, fake_lan_addr6_publish,
+		&fake, address, sizeof(address)) == 0);
+	assert(fake.lookup_calls == 1 && fake.publish_calls == 1);
+	assert(strcmp(fake.published, "2001:db8::10/64") == 0);
+}
+
+static void
+test_lan_addr6_publish_error_is_propagated(void)
+{
+	struct fake_lan_addr6_backend fake;
+	char address[64] = "";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.found = 1;
+	fake.address = "2001:db8::10/64";
+	fake.publish_status = EACCES;
+	assert(wan6_identity_publish_lan_addr6(
+		fake_lan_addr6_lookup, fake_lan_addr6_publish,
+		&fake, address, sizeof(address)) == EACCES);
+	assert(fake.publish_calls == 1);
+}
+
+static void
+test_lan_addr6_policy_rejects_invalid_arguments(void)
+{
+	struct fake_lan_addr6_backend fake;
+	char address[64];
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_identity_publish_lan_addr6(
+		NULL, fake_lan_addr6_publish, &fake, address,
+		sizeof(address)) == EINVAL);
+	assert(wan6_identity_publish_lan_addr6(
+		fake_lan_addr6_lookup, NULL, &fake, address,
+		sizeof(address)) == EINVAL);
+	assert(wan6_identity_publish_lan_addr6(
+		fake_lan_addr6_lookup, fake_lan_addr6_publish,
+		&fake, NULL, sizeof(address)) == EINVAL);
+	assert(fake.lookup_calls == 0 && fake.publish_calls == 0);
+}
+
 static void
 test_sit_identity_commit_success(void)
 {
@@ -311,6 +434,12 @@ main(void)
 	test_wan6_address_host_does_not_hide_address_enumeration_error();
 	test_wan6_address_host_no_address_is_a_non_error();
 	test_wan6_address_host_rejects_invalid_arguments();
+
+	test_lan_addr6_read_error_is_not_a_successful_noop();
+	test_lan_addr6_clean_miss_preserves_last_published_value();
+	test_lan_addr6_success_publishes_one_complete_address();
+	test_lan_addr6_publish_error_is_propagated();
+	test_lan_addr6_policy_rejects_invalid_arguments();
 	test_sit_identity_commit_success();
 	test_sit_identity_failure_removes_tunnel_and_clears_partial_identity();
 	test_sit_identity_failure_retains_state_when_tunnel_removal_fails();

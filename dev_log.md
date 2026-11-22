@@ -1,3 +1,13 @@
+## 2026-11-22 — Propagate DHCPv6 LAN address enumeration failures
+
+- Parent main SHA: `72a1ca0a81a3cc7a30183bfb6527337c00bf94f8`. The DHCPv6 lease callback previously called `get_ifaddr6(IFNAME_BR,...)` and passed its nullable result to `store_lan_addr6()`; the latter treats NULL/empty as a successful no-op. Since `get_ifaddr6()` also returns NULL with errno set when `getifaddrs()` fails, the callback silently reported success and left the last published LAN address untouched after an actual lookup failure.
+- Added an address-publication policy that preserves the legacy clean-miss behavior (no new address means do not overwrite the last published value) while returning lookup/backend errors. The runtime adapter clears errno before address enumeration; `dhcp6c_main()` records enumeration/publication errors as callback failures while still attempting independent DNS processing.
+- Added five GNU89 fake-backend cases for lookup failure, clean miss, success, publish failure and invalid arguments; both WAN DHCP and WAN route source contracts enforce the checked path. Local sanitizer tests were not run here; exact-SHA CI will provide the verification.
+- Parent exact-SHA WAN DHCP #45027101788 and WAN route #45027101849 were still in progress; AI handoff #45027101798 was also in progress when this source task began. Their outcomes should be checked separately from this new commit.
+- Result: THIS COMMIT. Next: inspect DHCPv6 callback lease ordering after tests; then move on to a separate userland stability/security issue if no further checked-read regression remains.
+
+---
+
 ## 2026-11-22 — Correct OpenVPN IPv6 endpoint source-contract signatures
 
 - Parent main SHA: `db11b15bb545dbf9dafff9c4795600735884e0dc`. Exact-head WAN route #45026956811 compiled and passed all earlier sanitizer/policy checks, then the added `scripts/check_wan_dns_read_status.py` contract could not locate the new status helper because its C return type and function name are split across lines. Exact-head WAN DHCP #45026956814 also passed all earlier regression binaries and DNS policy checks, then failed on the old assertion that the lookup remained inside the legacy pointer wrapper.

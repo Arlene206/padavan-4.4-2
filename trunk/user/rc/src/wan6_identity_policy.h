@@ -2,6 +2,7 @@
 #define WAN6_IDENTITY_POLICY_H
 
 #include <errno.h>
+#include <stddef.h>
 #include <string.h>
 
 typedef int (*wan6_identity_set_value_fn)(void *context, int unit,
@@ -123,6 +124,42 @@ wan6_identity_resolve_addr6_host(int ifname_status, const char *ifname,
 
 	*host = address;
 	return 0;
+}
+
+
+typedef int (*wan6_lan_addr6_lookup_fn)(void *context, char *address,
+					size_t address_size, int *found);
+typedef int (*wan6_lan_addr6_publish_fn)(void *context, const char *address);
+
+/*
+ * Keep the historical clean-miss behavior (do not overwrite the last
+ * published address), but never collapse an address-enumeration error into
+ * a successful no-op.
+ */
+static inline int
+wan6_identity_publish_lan_addr6(wan6_lan_addr6_lookup_fn lookup,
+				wan6_lan_addr6_publish_fn publish,
+				void *context, char *address,
+				size_t address_size)
+{
+	int found = 0;
+	int status;
+
+	if (!lookup || !publish || !address || address_size == 0)
+		return EINVAL;
+	address[0] = '\0';
+
+	status = lookup(context, address, address_size, &found);
+	if (status != 0) {
+		address[0] = '\0';
+		return status;
+	}
+	if (!found)
+		return 0;
+	if (!address[0])
+		return EIO;
+
+	return publish(context, address);
 }
 
 #endif /* WAN6_IDENTITY_POLICY_H */

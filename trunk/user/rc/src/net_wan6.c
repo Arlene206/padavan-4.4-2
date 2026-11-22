@@ -1719,6 +1719,38 @@ int wan6_down(char *wan_ifname, int unit)
 	return status;
 }
 
+
+static int
+wan6_lookup_lan_addr6_status(void *context, char *address,
+			     size_t address_size, int *found)
+{
+	char *result;
+
+	(void)context;
+	if (!address || !found || address_size < INET6_ADDRSTRLEN + 5)
+		return EINVAL;
+	address[0] = '\0';
+	*found = 0;
+	errno = 0;
+	result = get_ifaddr6(IFNAME_BR, 0, address);
+	if (!result)
+		return errno ? errno : 0;
+	*found = 1;
+	return 0;
+}
+
+static int
+wan6_publish_lan_addr6_status(void *context, const char *address)
+{
+	int status;
+
+	(void)context;
+	status = store_lan_addr6((char *)address);
+	if (status < 0)
+		return errno ? errno : EIO;
+	return 0;
+}
+
 int dhcp6c_main(int argc, char **argv)
 {
 	static const char *const setting_names[] = {
@@ -1726,7 +1758,7 @@ int dhcp6c_main(int argc, char **argv)
 	};
 	int ipv6_type, dns6_auto, lan6_auto, setting_values[2];
 	int callback_fd, unlock_status, callback_status = 0, saved_errno = 0;
-	int dns_status, dns_errno, settings_status;
+	int dns_status, dns_errno, settings_status, lan_addr_status;
 	unsigned long generation;
 	char *dns6_new, *lan_addr6_new;
 	char addr6s[INET6_ADDRSTRLEN + 5];
@@ -1783,13 +1815,16 @@ int dhcp6c_main(int argc, char **argv)
 		lan6_auto = setting_values[0];
 		dns6_auto = setting_values[1];
 		if (lan6_auto) {
-			lan_addr6_new = get_ifaddr6(IFNAME_BR, 0, addr6s);
-			if (store_lan_addr6(lan_addr6_new) < 0) {
-				saved_errno = errno ? errno : EIO;
+			lan_addr_status = wan6_identity_publish_lan_addr6(
+				wan6_lookup_lan_addr6_status,
+				wan6_publish_lan_addr6_status,
+				NULL, addr6s, sizeof(addr6s));
+			if (lan_addr_status != 0) {
+				saved_errno = lan_addr_status;
 				callback_status = -1;
 				logmessage("DHCPv6 WAN Client",
-					   "cannot publish automatic LAN address state (errno=%d)",
-					   saved_errno);
+					   "cannot read or publish automatic LAN address state (status=%d)",
+					   lan_addr_status);
 			}
 		}
 

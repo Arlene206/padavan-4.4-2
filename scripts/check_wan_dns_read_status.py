@@ -1224,6 +1224,18 @@ require(identity_read < identity_error < first_interface_probe,
 require('get_wan_unit_value(unit, "ifname6")' not in wan6_down_body,
         "WAN IPv6 teardown must not use the error-collapsing pointer getter")
 
+
+# DHCPv6 lease callbacks propagate getifaddrs failure before claiming a clean update.
+lan_lookup = body(wan6_source, "wan6_lookup_lan_addr6_status(void *context,")
+lan_callback = body(wan6_source, "int dhcp6c_main(int argc, char **argv)")
+require("errno = 0;" in lan_lookup and
+        "result = get_ifaddr6(IFNAME_BR, 0, address);" in lan_lookup and
+        "return errno ? errno : 0;" in lan_lookup,
+        "DHCPv6 LAN address enumeration must preserve getifaddrs failures")
+require("wan6_identity_publish_lan_addr6(" in lan_callback and
+        "if (lan_addr_status != 0)" in lan_callback and
+        "callback_status = -1;" in lan_callback,
+        "DHCPv6 callback must propagate LAN address enumeration failures")
 # OpenVPN endpoint export may fall back to LAN only after a clean WAN lookup miss.
 wan6_host_body = body(
     wan6_source,
