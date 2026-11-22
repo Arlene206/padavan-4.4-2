@@ -453,6 +453,18 @@ jobs:
           fallback_tuple_snapshot = callback_compact.index("rc_wan_nvram_copy_snapshot(")
           assert fallback_netmask_read < fallback_netmask_error < fallback_netmask_return < fallback_netmask_assign < fallback_netmask_validate < fallback_tuple_snapshot
           assert "test_dhcp_fallback_netmask_survives_previous_tuple_reads" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+          for key, destination in (("lan_ipaddr", "lan_ipaddr_snapshot"),
+                                    ("lan_netmask", "lan_netmask_snapshot")):
+              assert 'char ' + destination + '[INET_ADDRSTRLEN];' in callback
+              assert 'nvram_safe_get("' + key + '")' not in callback
+          lan_ip_read = callback_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr",lan_ipaddr_snapshot,sizeof(lan_ipaddr_snapshot));')
+          lan_mask_read = callback_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask",lan_netmask_snapshot,sizeof(lan_netmask_snapshot));')
+          lan_snapshot_error = callback_compact.index("if(lan_config_status!=0)", lan_mask_read)
+          lan_snapshot_return = callback_compact.index("returnlan_config_status;", lan_snapshot_error)
+          lan_subnet_check = callback_compact.index("is_same_subnet2(wan_ip,lan_ip,wan_nm,lan_nm)")
+          lan_interface_apply = callback_compact.index("dhcp_wan_interface_apply(")
+          assert lan_ip_read < lan_mask_read < lan_snapshot_error < lan_snapshot_return < lan_subnet_check < lan_interface_apply
+          assert "test_lan_subnet_identity_survives_shared_cache_overwrite" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
           callback_identity = re.search(
               r"([A-Za-z_]\w*)=is_ifunit_modem_status\(wan_ifname,unit,&modem_unit_id\)",
               callback_compact,
@@ -473,6 +485,16 @@ jobs:
                   "is_ifunit_modem(wan_ifname,unit)" not in callback_compact), (
                   "WAN DHCP bound must reject unknown modem identity before snapshot/interface mutation")
           viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+          viptv_compact = "".join(viptv_bound.split())
+          for key in ("lan_ipaddr", "lan_netmask"):
+              assert 'nvram_safe_get("' + key + '")' not in viptv_bound
+          viptv_ip_read = viptv_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr",lan_ipaddr_snapshot,sizeof(lan_ipaddr_snapshot));')
+          viptv_mask_read = viptv_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask",lan_netmask_snapshot,sizeof(lan_netmask_snapshot));')
+          viptv_snapshot_error = viptv_compact.index("if(lan_config_status!=0)", viptv_mask_read)
+          viptv_snapshot_return = viptv_compact.index("returnlan_config_status;", viptv_snapshot_error)
+          viptv_subnet_check = viptv_compact.index("is_same_subnet2(ip,lan_ip,nm,lan_nm)")
+          viptv_interface_apply = viptv_compact.index("dhcp_wan_interface_apply(")
+          assert viptv_ip_read < viptv_mask_read < viptv_snapshot_error < viptv_snapshot_return < viptv_subnet_check < viptv_interface_apply
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
           assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in viptv_bound
           apply = callback.index("dhcp_wan_interface_apply(")

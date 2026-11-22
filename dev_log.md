@@ -1,3 +1,11 @@
+## 2026-11-22 — Check LAN subnet reads before WAN and IPTV DHCP address mutation
+
+- Parent main SHA: `af02de689f5b2af8ee10011b342b68b199dc21f0`. Both `udhcpc_bound()` and `udhcpc_viptv_bound()` used lossy `nvram_safe_get()` for the router LAN address/netmask overlap check. A backend read/close error could appear as an absent value and let DHCP proceed without a trustworthy subnet-conflict check.
+- Both callbacks now copy the LAN address/netmask into bounded `INET_ADDRSTRLEN` buffers with the checked NVRAM getter, returning the first error before subnet comparison, interface mutation, route transition or lease publication. Missing optional keys retain the prior empty-string behavior.
+- Added shared-cache overwrite coverage and exact source-order assertions for both WAN and IPTV DHCP paths. Exact-head WAN DHCP/route/XY-C1 validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 17:55 CST (UTC+8) — Align LAN DHCP deconfig checker with hostname error propagation
 
 - Parent main SHA: `c15848a370ea022288217c9c1a9e298989233152`. Exact WAN DHCP callback push run [45009805732](https://github.com/Arlene206/padavan-4.4-2/actions/runs/45009805732) passed the USB identity, interface-name, DHCP lease and WAN NVRAM host-regression executables, then failed in `scripts/check_lan_dhcp_deconfig.py:413`. The checker still required the pre-fix combined condition `!lan_hname || !is_valid_hostname(lan_hname)`.

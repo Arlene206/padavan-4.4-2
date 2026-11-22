@@ -7405,6 +7405,8 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	char tmp[100], prefix[16], route[32], log_prefix[32], *udhcpc_state;
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
+	char lan_ipaddr_snapshot[INET_ADDRSTRLEN];
+	char lan_netmask_snapshot[INET_ADDRSTRLEN];
 	char *lease_ip, *lease_netmask, *lease_dns, *lease_wins, *lease_domain;
 	char lease_netmask_storage[INET_ADDRSTRLEN];
 	char *lease_routes, *lease_routes_ms, *lease_routes_rfc, *route_value;
@@ -7418,6 +7420,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int mtu_supported;
 	int wan_proto = 0, modem_unit_id, modem_status, proto_status, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
+	int lan_config_status;
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
 	int key_length, snapshot_status, snapshot_rollback_status;
@@ -7565,8 +7568,22 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	i_err = 0;
 	wan_ip = lease_ip;
 	wan_nm = lease_netmask;
-	lan_ip = nvram_safe_get("lan_ipaddr");
-	lan_nm = nvram_safe_get("lan_netmask");
+	lan_config_status = rc_wan_nvram_copy_value(
+		wan_nvram_checked_get_callback, NULL, "lan_ipaddr",
+		lan_ipaddr_snapshot, sizeof(lan_ipaddr_snapshot));
+	if (lan_config_status == 0)
+		lan_config_status = rc_wan_nvram_copy_value(
+			wan_nvram_checked_get_callback, NULL, "lan_netmask",
+			lan_netmask_snapshot, sizeof(lan_netmask_snapshot));
+	if (lan_config_status != 0) {
+		errno = lan_config_status;
+		logmessage(log_prefix,
+			   "cannot snapshot LAN subnet before WAN DHCP overlap check on %s (status=%d)",
+			   wan_ifname, lan_config_status);
+		return lan_config_status;
+	}
+	lan_ip = lan_ipaddr_snapshot;
+	lan_nm = lan_netmask_snapshot;
 	interface_context.ifname = wan_ifname;
 
 	if (is_same_subnet2(wan_ip, lan_ip, wan_nm, lan_nm)) {
@@ -7926,6 +7943,8 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	char *value, *lan_ip, *lan_nm, *ip, *nm, *gw, *rt, *rt_ms, *rt_rfc;
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
+	char lan_ipaddr_snapshot[INET_ADDRSTRLEN];
+	char lan_netmask_snapshot[INET_ADDRSTRLEN];
 	char previous_text[WAN_DHCP_VIPTV_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char mtu_text[16];
 	unsigned int parsed_value;
@@ -7933,6 +7952,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
 	int mtu_supported;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
+	int lan_config_status;
 	int route_cleanup_status, route_rollback_status, multicast_status = 0;
 	int snapshot_status, snapshot_rollback_status, snapshot_abort_status;
 	int callback_status, publish_status;
@@ -8044,8 +8064,22 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	if (value && !mtu_supported)
 		logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", man_ifname);
 
-	lan_ip = nvram_safe_get("lan_ipaddr");
-	lan_nm = nvram_safe_get("lan_netmask");
+	lan_config_status = rc_wan_nvram_copy_value(
+		wan_nvram_checked_get_callback, NULL, "lan_ipaddr",
+		lan_ipaddr_snapshot, sizeof(lan_ipaddr_snapshot));
+	if (lan_config_status == 0)
+		lan_config_status = rc_wan_nvram_copy_value(
+			wan_nvram_checked_get_callback, NULL, "lan_netmask",
+			lan_netmask_snapshot, sizeof(lan_netmask_snapshot));
+	if (lan_config_status != 0) {
+		errno = lan_config_status;
+		logmessage(log_prefix,
+			   "cannot snapshot LAN subnet before IPTV DHCP overlap check on %s (status=%d)",
+			   man_ifname, lan_config_status);
+		return lan_config_status;
+	}
+	lan_ip = lan_ipaddr_snapshot;
+	lan_nm = lan_netmask_snapshot;
 	i_err = 0;
 	if (is_same_subnet2(ip, lan_ip, nm, lan_nm)) {
 		if (!is_renew_mode) {

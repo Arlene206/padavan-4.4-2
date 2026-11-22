@@ -919,6 +919,41 @@ test_wan_interface_names_survive_shared_cache_overwrite(void)
 
 
 static void
+test_lan_subnet_identity_survives_shared_cache_overwrite(void)
+{
+	struct fake_nvram_text_cache fake;
+	char lan_ipaddr[16], lan_netmask[16], overwritten[32];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "lan_ipaddr";
+	fake.names[1] = "lan_netmask";
+	fake.names[2] = "wan0_ipaddr";
+	fake.names[3] = "wan0_gateway";
+	fake.values[0] = "192.168.10.1";
+	fake.values[1] = "255.255.255.0";
+	fake.values[2] = "198.51.100.2";
+	fake.values[3] = "198.51.100.1";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[0], lan_ipaddr,
+				       sizeof(lan_ipaddr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[1], lan_netmask,
+				       sizeof(lan_netmask)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[2], overwritten,
+				       sizeof(overwritten)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[3], overwritten,
+				       sizeof(overwritten)) == 0);
+	assert(fake.calls == 4);
+	assert(strcmp(fake.cache_slot, "198.51.100.1") == 0);
+	assert(strcmp(lan_ipaddr, "192.168.10.1") == 0);
+	assert(strcmp(lan_netmask, "255.255.255.0") == 0);
+}
+
+
+static void
 test_dhcp_fallback_netmask_survives_previous_tuple_reads(void)
 {
 	struct fake_nvram_text_cache fake;
@@ -1858,6 +1893,7 @@ main(void)
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();
 	test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite();
+	test_lan_subnet_identity_survives_shared_cache_overwrite();
 	test_dhcp_fallback_netmask_survives_previous_tuple_reads();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_legacy_mac_override_preserves_mac_conv_formatting();
