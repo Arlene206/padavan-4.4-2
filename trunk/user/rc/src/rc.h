@@ -615,12 +615,12 @@ int update_adb(void);
 #endif
 #if defined(APP_ADGUARDHOME)
 int stop_adguardhome(void);
-void start_adguardhome(void);
+int start_adguardhome(void);
 int restart_adguardhome(void);
 #endif
 #if defined(APP_ALIDDNS)
 int stop_aliddns(void);
-void start_aliddns(void);
+int start_aliddns(void);
 int restart_aliddns(void);
 #endif
 #if defined(APP_ZEROTIER)
@@ -630,7 +630,7 @@ int restart_zerotier(void);
 #endif
 #if defined(APP_DDNSTO)
 int stop_ddnsto(void);
-void start_ddnsto(void);
+int start_ddnsto(void);
 int restart_ddnsto(void);
 #endif
 #if defined(APP_ALDRIVER)
@@ -655,7 +655,7 @@ int restart_smartdns(void);
 #endif
 #if defined(APP_FRP)
 int stop_frp(void);
-void start_frp(void);
+int start_frp(void);
 int restart_frp(void);
 #endif
 /* services_ex.c */
