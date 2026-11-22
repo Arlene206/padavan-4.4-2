@@ -1,3 +1,11 @@
+## 2026-11-22 — Copy LAN bridge MAC before subsequent NVRAM reads
+
+- Parent main SHA: `0f4dcd5b0ed934726680577e7d830513e5ba4a5f`. `init_bridge()` retained the borrowed `nvram_safe_get("lan_hwaddr")` pointer across switch/VLAN setup, which performs additional NVRAM reads before applying the MAC to the physical and bridge interfaces. The NVRAM getter's backing storage is a shared cache and must not be retained across reads.
+- Replaced the borrowed pointer with `rc_wan_nvram_copy_value()` into a bounded owned buffer. Backend errors and truncation now abort bridge initialization before switch/bridge side effects; a genuinely absent key still maps to the legacy empty value.
+- Added GNU89 regression coverage for cache-slot overwrite and checked-read failure, plus Process source-order assertions. Process and XY-C1 exact-head validation pending; XY-C1 must run Build, TRX verification and artifact upload on this production-source SHA before L3 can be claimed. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Keep WAN route test assertion out of trigger-path count
 
 - Parent main SHA: `4c0906ac9c8c79eb5e6f4119a002578366fd539d`. Exact WAN route workflow #45007745240 compiled and passed the shared WAN NVRAM policy regression after the missing-route expectation correction. It then failed at the DDNS status checker because the inline assertion added a third exact quoted occurrence of `trunk/user/rc/src/tests/wan_nvram_status_policy.c`; the checker intentionally requires exactly two occurrences for push and pull_request.

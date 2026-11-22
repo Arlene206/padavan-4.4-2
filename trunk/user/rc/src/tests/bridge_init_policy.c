@@ -3,6 +3,72 @@
 #include <stdio.h>
 #include <string.h>
 #include "bridge_init_policy.h"
+#include "wan_nvram_status_policy.h"
+
+struct fake_bridge_nvram_cache {
+	char cache[32];
+	unsigned int calls;
+	int fail_at;
+	int failure_status;
+};
+
+static int
+fake_bridge_nvram_get(void *opaque, const char *param_name, char **value)
+{
+	struct fake_bridge_nvram_cache *fake =
+		(struct fake_bridge_nvram_cache *)opaque;
+	unsigned int index = fake->calls++;
+
+	if ((int)index == fake->fail_at) {
+		errno = fake->failure_status;
+		*value = NULL;
+		return -1;
+	}
+
+	if (strcmp(param_name, "lan_hwaddr") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s",
+			 "02:11:22:33:44:55");
+	else
+		snprintf(fake->cache, sizeof(fake->cache), "%s",
+			 "next-nvram-value");
+	*value = fake->cache;
+	return 1;
+}
+
+static void
+test_bridge_lan_hwaddr_cache_copy_is_stable(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char lan_hwaddr[24];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_hwaddr", lan_hwaddr,
+				       sizeof(lan_hwaddr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "vlan_vid_cpu", fake.cache,
+				       sizeof(fake.cache)) == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.cache, "next-nvram-value") == 0);
+	assert(strcmp(lan_hwaddr, "02:11:22:33:44:55") == 0);
+}
+
+static void
+test_bridge_lan_hwaddr_read_error_aborts_preflight(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char lan_hwaddr[24] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.failure_status = EACCES;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_hwaddr", lan_hwaddr,
+				       sizeof(lan_hwaddr)) == EACCES);
+	assert(fake.calls == 1);
+	assert(lan_hwaddr[0] == '\0');
+}
 
 static void
 test_empty_and_success_status(void)
@@ -110,6 +176,8 @@ test_bridge_add_idempotency_requires_confirmed_bridge(void)
 int
 main(void)
 {
+	test_bridge_lan_hwaddr_cache_copy_is_stable();
+	test_bridge_lan_hwaddr_read_error_aborts_preflight();
 	test_empty_and_success_status();
 	test_first_failure_and_later_operations();
 	test_negative_first_status_is_preserved();

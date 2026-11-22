@@ -87,6 +87,8 @@ static const rc_udhcpc_script_link_ops_t udhcpc_lan_script_link_ops = {
 	readlink
 };
 
+static int lan_nvram_get_checked(void *context, const char *param_name, char **value);
+
 /*
  * Keep NVRAM read failures distinct from absent keys before applying bridge
  * configuration. These wrappers share the same parser/error policy as WAN.
@@ -321,11 +323,26 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	int wl_radio_on = get_enabled_radio_wl();
 	int wl_mode_x = get_mode_radio_wl();
 #endif
-	char *lan_hwaddr = nvram_safe_get("lan_hwaddr");
+	char lan_hwaddr[24];
 
 	rc_bridge_init_status_reset(&bridge_status);
 	if (switch_vlan_status)
 		*switch_vlan_status = 0;
+
+	/*
+	 * The NVRAM getter returns shared cache storage. Switch configuration
+	 * reads more keys before the MAC is applied, so retain an owned copy.
+	 */
+	operation_status = rc_wan_nvram_copy_value(
+		lan_nvram_get_checked, NULL, "lan_hwaddr",
+		lan_hwaddr, sizeof(lan_hwaddr));
+	if (operation_status != 0) {
+		errno = operation_status;
+		logmessage(LOGNAME,
+			   "cannot read LAN hardware address before bridge setup (status=%d)",
+			   operation_status);
+		return operation_status;
+	}
 
 	if (!is_ap_mode)
 	{

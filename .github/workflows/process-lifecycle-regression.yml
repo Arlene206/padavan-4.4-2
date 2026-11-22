@@ -1311,6 +1311,14 @@ jobs:
           assert "operation_status = switch_config_vlan(1);" in init_bridge
           bridge_compact = " ".join(init_bridge.split())
           assert "if (switch_vlan_status) *switch_vlan_status = 0;" in bridge_compact
+          assert "char lan_hwaddr[24];" in init_bridge
+          assert 'nvram_safe_get("lan_hwaddr")' not in init_bridge
+          lan_mac_read = bridge_compact.index('operation_status = rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL, "lan_hwaddr", lan_hwaddr, sizeof(lan_hwaddr));')
+          lan_mac_error = bridge_compact.index("if (operation_status != 0)", lan_mac_read)
+          lan_mac_return = bridge_compact.index("return operation_status;", lan_mac_error)
+          assert lan_mac_read < lan_mac_error < lan_mac_return < bridge_compact.index("operation_status = switch_config_vlan(1);")
+          assert "test_bridge_lan_hwaddr_cache_copy_is_stable" in bridge_init_regression
+          assert "test_bridge_lan_hwaddr_read_error_aborts_preflight" in bridge_init_regression
           vlan_config = bridge_compact.index("operation_status = switch_config_vlan(1);")
           vlan_capture = bridge_compact.index("*switch_vlan_status = operation_status;", vlan_config)
           vlan_record = bridge_compact.index('rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);', vlan_capture)
