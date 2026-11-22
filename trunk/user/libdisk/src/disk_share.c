@@ -963,7 +963,7 @@ static int
 disk_share_replace_file_atomic(const char *path, const char *contents,
                                size_t contents_len)
 {
-const char suffix[] = ".tmp.XXXXXX";
+	const char suffix[] = ".tmp.XXXXXX";
 	char *temp_path = NULL;
 	struct stat existing_stat;
 	FILE *stream = NULL;
@@ -1047,7 +1047,7 @@ int set_permission(const char *account,
 		   const char *protocol,
 		   const int flag)
 {
-char var_file[256];
+	char var_file[256];
 	char *target = NULL, *follow_info, *var_info = NULL, *updated_info = NULL;
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
 	int dms_right = DEFAULT_DMS_RIGHT;
@@ -1504,7 +1504,7 @@ int add_folder(const char *const mount_path, const char *const folder)
 
 int del_folder(const char *const mount_path, const char *const folder)
 {
-int result, i, saved_errno;
+	int result, i, saved_errno;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
@@ -1641,7 +1641,7 @@ failed:
 
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
-int result, i, saved_errno;
+	int result, i, saved_errno;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];

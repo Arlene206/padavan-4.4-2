@@ -311,7 +311,7 @@ del_folder = function_body(
 )
 del_lookup = del_folder.index("test_if_exist_folder_in_mount_path(mount_path, folder)")
 del_error = del_folder.index("if (result < 0)", del_lookup)
-del_remove = del_folder.index("result = rmdir(full_path)", del_error)
+del_remove = del_folder.index("if (rmdir(full_path) != 0)", del_error)
 require(del_lookup < del_error < del_remove,
         "folder deletion must not proceed when the share-list lookup fails")
 for signature in (
