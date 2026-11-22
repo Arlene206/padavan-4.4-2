@@ -1,3 +1,12 @@
+## 2026-11-21 — Check rp_filter feature flags before relaxing anti-spoofing
+
+- Parent main SHA: `6fda27da8b7834297a96e0e363b2df8fa9608d4d`. DNS redirect correction `6fda27da8b7834297a96e0e363b2df8fa9608d4d` has Firewall Startup #44983258834, WAN DHCP #44983258898, WAN route #44983258810, FULLCONENAT #44983258808, process inventory #44983258806 and AI handoff #44983258870 PASS. HTTPD #44983258852 and XY-C1 #44983258842 were IN_PROGRESS; NVRAM #44983258826 was pending at the last poll.
+- `start_firewall_ex_locked()` used unchecked `nvram_match("mr_enable_x", "1")` and inverse-match reads of `udpxy_enable_x` (plus optional `xupnpd_enable_x`) to decide whether WAN-side `rp_filter` could be disabled. Backend read errors could be interpreted as enabled services and set `rp_filter=0`, weakening source-address anti-spoofing.
+- These feature switches are now read through checked match helpers before the sysctl update. Missing values keep legacy semantics: absent multicast is false, while absent nonzero-service fields remain unequal to `"0"` like the old inverse-match API. Backend errors return before sysctl changes.
+- Added GNU89 sanitizer coverage for missing defaults, inverse-match compatibility and backend-error output preservation; workflow contracts pin the checked reads before the `rp_filter` write. Exact-head Firewall Startup pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Move DNS-redirection preflight into the NAT builder
 
 - Parent main SHA: `4e10fb7c8c186c12140d3d76a8a698e6c35714d9`. Exact Firewall Startup #44983057576 failed at the new DNS-redirection source contract: the checked read was inserted into the IPv4 default-filter builder, while the PREROUTING redirect is emitted by `ipt_nat_rules()`. The checker correctly caught the mismatch before rule publication; no successful Firewall result is claimed for this SHA.

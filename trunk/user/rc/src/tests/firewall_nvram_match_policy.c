@@ -189,6 +189,32 @@ test_dns_redirect_toggle_missing_default_and_backend_failure(void)
 }
 
 static void
+test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed(void)
+{
+	int multicast_enabled = 23;
+	int udpxy_disabled = 23;
+	int xupnpd_disabled = 23;
+
+	/* Missing multicast is false; inverse-match services remain not-zero. */
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &multicast_enabled) == 0);
+	assert(multicast_enabled == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "0", 0, &udpxy_disabled) == 0);
+	assert(udpxy_disabled == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "0", 0, &xupnpd_disabled) == 0);
+	assert(xupnpd_disabled == 0);
+
+	multicast_enabled = 23;
+	udpxy_disabled = 23;
+	xupnpd_disabled = 23;
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &multicast_enabled) == EIO);
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "0", 0, &udpxy_disabled) == EACCES);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "0", 0, &xupnpd_disabled) == EIO);
+	assert(multicast_enabled == 23);
+	assert(udpxy_disabled == 23);
+	assert(xupnpd_disabled == 23);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -242,6 +268,7 @@ main(void)
 	test_sshd_bruteforce_mode_missing_default_and_backend_error();
 	test_wan_ttl_policy_reads_keep_legacy_defaults_and_fail_closed();
 	test_dns_redirect_toggle_missing_default_and_backend_failure();
+	test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

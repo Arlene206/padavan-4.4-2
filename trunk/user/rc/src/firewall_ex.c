@@ -4278,6 +4278,10 @@ start_firewall_ex_locked(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
+	int is_multicast_enabled = 0, is_udpxy_disabled = 0;
+#if defined (APP_XUPNPD)
+	int is_xupnpd_disabled = 0;
+#endif
 	int hook_error, forward_status, rp_filter_write_status;
 	char int_iptables_staged[256] = {0};
 	char opt_iptables_staged[256] = {0};
@@ -4390,13 +4394,29 @@ start_firewall_ex_locked(void)
 		return EINVAL;
 	}
 
-	/* mcast needs rp filter to be turned off only for non default iface */
+	/* mcast needs rp filter to be turned off only for non default iface.
+	 * Preserve legacy missing-key semantics, but do not confuse NVRAM I/O
+	 * failures with enabled services and weaken source validation. */
 	i_rp = 1;
-	if (nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")
+	status = firewall_read_match_setting("mr_enable_x", "1", 0,
+					     &is_multicast_enabled);
+	if (status != 0)
+		return status;
+	status = firewall_read_match_setting("udpxy_enable_x", "0", 0,
+					     &is_udpxy_disabled);
+	if (status != 0)
+		return status;
 #if defined (APP_XUPNPD)
-	 || nvram_invmatch("xupnpd_enable_x", "0")
+	status = firewall_read_match_setting("xupnpd_enable_x", "0", 0,
+					     &is_xupnpd_disabled);
+	if (status != 0)
+		return status;
 #endif
-	    )
+	if (is_multicast_enabled || !is_udpxy_disabled
+#if defined (APP_XUPNPD)
+	    || !is_xupnpd_disabled
+#endif
+	   )
 		i_rp = 0;
 	/* Do not silently retain a stale rp_filter mode after a failed write.
 	 * A missing interface is harmless for the restrictive default value (1),

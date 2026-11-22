@@ -854,6 +854,19 @@ jobs:
           assert 'nvram_match("redirect_all_dns", "1")' not in nat_builder
           assert "test_dns_redirect_toggle_missing_default_and_backend_failure" in firewall_nvram_test
 
+          # rp_filter must not be relaxed based on an unreadable feature flag.
+          rp_filter_source = body(firewall_source, "start_firewall_ex_locked(void)")
+          rp_match_gates = (
+              'firewall_read_match_setting("mr_enable_x", "1", 0,',
+              'firewall_read_match_setting("udpxy_enable_x", "0", 0,',
+              'firewall_read_match_setting("xupnpd_enable_x", "0",',
+          )
+          for gate in rp_match_gates:
+              assert gate in rp_filter_source
+              assert rp_filter_source.index(gate) < rp_filter_source.index('set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)')
+          assert 'nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")' not in rp_filter_source
+          assert "test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",
