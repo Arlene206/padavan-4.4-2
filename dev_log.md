@@ -1,3 +1,12 @@
+## 2026-11-22 — Restore exact atomic-main-commit handoff contract
+
+- Parent main SHA: `b3caebcbaba0924abcb83339d49a1968e237f042`. Exact-head VPN lifecycle #45032050106, WAN route #45032049989, WAN DHCP #45032049974, HTTPD #45032050007 and process lifecycle #45032050136 PASS. NVRAM #45032049962 and XY-C1 #45032049960 are still in progress. AI handoff #45032049968 failed because `SESSION_HANDOFF.md` said "one atomic commit" but the validator requires the literal phrase "one atomic main commit".
+- Restored the exact required phrase in the handoff commit rule. The workflow remains one complete Git tree, one atomic commit, and a non-forced expected-SHA update to main.
+- XY-C1 #45032049960 has started the production Build step for the PPP source-triggered commit; TRX and artifact upload remain pending. No L3 claim until all three succeed on this exact SHA.
+- No local tests were run in this connector-only session. Result: THIS COMMIT. Next: inspect exact-head AI/NVRAM/XY-C1 checks and continue an independent userland stability task while pending jobs finish.
+
+---
+
 ## 2026-11-22 — Return deterministic errno for invalid PPP WAN units
 
 - Parent main SHA: `b443b54cf920195df1405e4a172ec0ed7f9b1f09`. Exact-head USB modem #45031581333, firewall startup #45031581354, process inventory/lifecycle #45031581442 and AI handoff #45031581408 all PASS. XY-C1 #45031581390 also reports workflow SUCCESS and every host regression/source contract passed, but its production Build, TRX check and artifact upload were intentionally SKIPPED because this parent commit changed only checker/documentation paths. The PPP production source slice in ancestor `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` still needs an actual target cross-build.
