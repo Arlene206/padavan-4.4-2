@@ -15,6 +15,7 @@ RC_SERVICES_SOURCE = ROOT / "trunk/user/rc/src/services.c"
 OPTIONAL_DAEMON_POLICY = ROOT / "trunk/user/rc/src/optional_daemon_policy.h"
 RC_SOURCE = ROOT / "trunk/user/rc/src/rc.c"
 IAPPD_SCRIPT = ROOT / "trunk/user/ralinkiappd/iappd.sh"
+ARIA2_SCRIPT = ROOT / "trunk/user/aria2/aria.sh"
 IAPPD_TEST = ROOT / "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
 IAPPD_MAKEFILE = ROOT / "trunk/user/ralinkiappd/Makefile"
 PROCESS_WORKFLOW = ROOT / ".github/workflows/process-lifecycle-regression.yml"
@@ -1368,6 +1369,84 @@ printf '%s\\n' 123
         )
 
 
+def check_aria2_reload():
+    source = ARIA2_SCRIPT.read_text()
+    syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
+    assert syntax.returncode == 0, syntax.stderr
+    reload_body = source[source.index("func_reload()"):source.index("\\ncase \"$1\"")]
+    assert "pidof aria2c 2>/dev/null" in reload_body
+    assert "kill -1 \"$aria_reload_pid\"" in reload_body
+    assert "aria_reload_kill_status" in reload_body
+
+    with tempfile.TemporaryDirectory(prefix="aria2-reload-") as tmp:
+        base = Path(tmp)
+        bin_dir = mock_bin(base / "bin")
+        pidof_log = base / "pidof.log"
+        executable(bin_dir / "pidof", """#!/bin/sh
+[ "$1" = aria2c ] || exit 2
+printf '%s\\n' "$*" >> "$MOCK_PIDOF_LOG"
+[ -z "${MOCK_PIDOF_OUTPUT:-}" ] || printf '%s\\n' "$MOCK_PIDOF_OUTPUT"
+exit "${MOCK_PIDOF_STATUS:-1}"
+""")
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_LOG": str(base / "logger.log"),
+            "MOCK_PIDOF_LOG": str(pidof_log),
+            "MOCK_PIDOF_STATUS": "1",
+            "MOCK_PIDOF_OUTPUT": "",
+        })
+
+        for status, output in (
+            ("2", ""),
+            ("0", ""),
+            ("1", "123"),
+            ("0", "123 bad"),
+            ("0", "123 0"),
+            ("0", "123 1"),
+            ("0", "123 0123"),
+            ("0", "   "),
+        ):
+            env["MOCK_PIDOF_STATUS"] = status
+            env["MOCK_PIDOF_OUTPUT"] = output
+            result = run(["/bin/sh", str(ARIA2_SCRIPT), "reload"], env)
+            assert result.returncode == 1, (
+                f"aria2 reload must reject pidof status={status!r} output={output!r}, "
+                f"got {result.returncode}: {result.stdout} {result.stderr}"
+            )
+            assert "[  OK  ]" not in result.stdout
+
+        # A valid multi-PID snapshot signals every daemon PID, not one
+        # whitespace-containing string. Use isolated children that exit on HUP.
+        children = [subprocess.Popen(["/bin/sleep", "30"]) for _ in range(2)]
+        try:
+            env["MOCK_PIDOF_STATUS"] = "0"
+            env["MOCK_PIDOF_OUTPUT"] = " ".join(str(child.pid) for child in children)
+            result = run(["/bin/sh", str(ARIA2_SCRIPT), "reload"], env)
+            assert result.returncode == 0, (
+                f"aria2 reload rejected valid PID list: {result.stdout} {result.stderr}"
+            )
+            assert "[  OK  ]" in result.stdout
+            for child in children:
+                assert child.wait(timeout=5) is not None
+        finally:
+            for child in children:
+                if child.poll() is None:
+                    child.terminate()
+                    child.wait(timeout=5)
+
+        env["MOCK_PIDOF_STATUS"] = "0"
+        env["MOCK_PIDOF_OUTPUT"] = "2147483647"
+        failed_signal = run(["/bin/sh", str(ARIA2_SCRIPT), "reload"], env)
+        assert failed_signal.returncode != 0, (
+            "aria2 reload must propagate a failed SIGHUP"
+        )
+        assert "[  OK  ]" not in failed_signal.stdout
+        assert "Cannot reload: SIGHUP failed for PID 2147483647" in (
+            base / "logger.log"
+        ).read_text()
+
+
 def check_shared_process_lifecycle():
     helper = PROCESS_LIFECYCLE_LIB.read_text()
     test = PROCESS_LIFECYCLE_TEST.read_text()
@@ -1441,4 +1520,5 @@ if __name__ == "__main__":
     check_ttyd()
     check_sshd()
     check_dropbear()
+    check_aria2_reload()
     print("optional app launch/lifecycle status regressions: PASS")

@@ -1,3 +1,9 @@
+## 2026-11-22 — Aria2 reload now validates and signals every daemon PID
+
+- Source baseline: `bcfca6426dad985aee97b93a6146ff537940a4d2`. `func_reload()` treated any nonempty `pidof aria2c` output as valid, passed the entire whitespace-separated list as a single argument to `kill -1`, ignored the signal status, and printed `[ OK ]` even when no process was running or the reload failed. A partially failed procfs scan could therefore report a false successful reload.
+- Reload now requires a consistent pidof status/output pair, validates every positive PID before signaling any process, sends SIGHUP individually to all listed aria2c instances, and propagates the first signal failure instead of printing success. Absence and UNKNOWN are distinct errors.
+- Added an exact executable-source regression for empty-success, pidof error, inconsistent output, malformed/unsafe PID lists, whitespace-only snapshots, multiple running PIDs, and signal failure. The process lifecycle regression workflow already executes `check_optional_app_start_status.py`; exact-head CI pending.
+
 ## 2026-11-22 — Add direct security regression for SCUTClient private credential parser
 
 - The one-shot private credential-file implementation was already present in the package overlay, but the host lifecycle workflow only exercised the wrapper and fake launcher; it did not compile or directly exercise the C parser.

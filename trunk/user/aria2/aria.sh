@@ -360,14 +360,67 @@ func_stop()
 
 func_reload()
 {
-	aria_pid=`pidof aria2c`
-	if [ -n "$aria_pid" ] ; then
-		echo -n "Reload $SVC_NAME config:."
-		kill -1 "$aria_pid"
-		echo "[  OK  ]"
-	else
-		echo "Error: $SVC_NAME is not started!"
-	fi
+	# A failed pidof scan is not proof that aria2c is absent. Validate the
+	# entire PID snapshot before sending any signal.
+	aria_reload_pids=`pidof aria2c 2>/dev/null`
+	aria_reload_pidof_status=$?
+	case "$aria_reload_pidof_status" in
+		0)
+			if [ -z "$aria_reload_pids" ]; then
+				echo "Error: unable to determine $SVC_NAME process state!"
+				logger -t "$SVC_NAME" "Cannot reload: pidof returned success without a PID" >/dev/null 2>&1 || true
+				return 1
+			fi
+			case "$aria_reload_pids" in
+				*[!0-9\\ ]*)
+					echo "Error: invalid $SVC_NAME process list!"
+					logger -t "$SVC_NAME" "Cannot reload: invalid daemon PID list" >/dev/null 2>&1 || true
+					return 1
+					;;
+			esac
+			aria_reload_pid_count=0
+			for aria_reload_pid in $aria_reload_pids; do
+				aria_reload_pid_count=$((aria_reload_pid_count + 1))
+				case "$aria_reload_pid" in
+					''|0*|1|*[!0-9]*)
+						echo "Error: invalid $SVC_NAME process list!"
+						logger -t "$SVC_NAME" "Cannot reload: unsafe daemon PID" >/dev/null 2>&1 || true
+						return 1
+						;;
+				esac
+			done
+			if [ "$aria_reload_pid_count" -eq 0 ]; then
+				echo "Error: unable to determine $SVC_NAME process state!"
+				logger -t "$SVC_NAME" "Cannot reload: empty daemon PID list" >/dev/null 2>&1 || true
+				return 1
+			fi
+			;;
+		1)
+			if [ -z "$aria_reload_pids" ]; then
+				echo "Error: $SVC_NAME is not started!"
+			else
+				echo "Error: unable to determine $SVC_NAME process state!"
+			fi
+			return 1
+			;;
+		*)
+			echo "Error: unable to determine $SVC_NAME process state!"
+			logger -t "$SVC_NAME" "Cannot reload: pidof failed (status=$aria_reload_pidof_status)" >/dev/null 2>&1 || true
+			return 1
+			;;
+	esac
+
+	echo -n "Reload $SVC_NAME config:."
+	for aria_reload_pid in $aria_reload_pids; do
+		if ! kill -1 "$aria_reload_pid"; then
+			aria_reload_kill_status=$?
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot reload: SIGHUP failed for PID $aria_reload_pid (status=$aria_reload_kill_status)" >/dev/null 2>&1 || true
+			return "$aria_reload_kill_status"
+		fi
+	done
+	echo "[  OK  ]"
+	return 0
 }
 
 case "$1" in
