@@ -1,3 +1,12 @@
+## 2026-11-22 — Repair Inadyn roadmap entry and refresh handoff
+
+- Parent main SHA: `c34e54b200272f17682cab1c98a2ad922ef43728`. Exact source commit `c34e54b200272f17682cab1c98a2ad922ef43728` implements checked `ddns_enable_x` read before Inadyn process scan/stop. The new exact Actions were all in_progress at the last poll: Inadyn #45032859299, DNSMasq #45032859372, HTTPD #45032859349, XY-C1 #45032859323, Process inventory #45032859409, WAN route #45032859347, miniupnpd #45032859331, Process lifecycle #45032859298, NVRAM #45032859363, WAN DHCP #45032859313, Samba #45032859405 and AI docs #45032859440.
+- Corrected the AliDDNS/Inadyn roadmap evidence row to describe the new start-path guard. Removed a misplaced status phrase from the WAN DHCP roadmap row; no source changes were made in this docs-only checkpoint.
+- Handoff now points to the Inadyn follow-up and exact pending checks. Earlier modem source SHA `33e87d4540698ef87226715fd3fa8e967243cb01` USB checker was fixed by `97c7286aedd02a97e784482981fa2c51d916297e`; exact USB modem run #45032701038 PASS.
+- No local tests were run. Result: THIS COMMIT. Next: check the current exact-SHA Inadyn and XY-C1 runs; address failures and continue independent userland fixes.
+
+---
+
 ## 2026-11-22 — Keep Inadyn running when DDNS enable-state reads fail
 
 - Parent main SHA: `97c7286aedd02a97e784482981fa2c51d916297e`. The Inadyn lifecycle path already had a checked `inadyn_ddns_enabled_status()` policy and ASan/UBSan regression for missing, enabled, disabled, malformed and failed NVRAM reads, used by the update-notification path. `start_ddns_locked()` still used unchecked `nvram_match("ddns_enable_x", "1")` after stopping the existing daemon.
