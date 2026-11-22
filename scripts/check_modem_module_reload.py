@@ -64,6 +64,21 @@ assert 'rc_boot_nvram_read_int_status("modem_type", 0,' in boot
 assert 'reload_modem_modules(modem_type, 0)' in boot
 assert 'nvram_get_int("modem_rule")' not in boot
 assert 'nvram_get_int("modem_type")' not in boot
+restore = body(RC_SOURCE, "nvram_restore_defaults(void)")
+assert "rc_modem_read_nvram_settings_status(" in restore
+assert "cannot read USB modem configuration; aborting router startup" in restore
+assert 'nvram_get_int("modem_rule")' not in restore
+assert 'nvram_get_int("modem_type")' not in restore
+assert "rc_modem_read_nvram_settings_status" in POLICY
+for marker in (
+    "test_modem_settings_snapshot_reads_complete_pair",
+    "test_modem_settings_first_read_error_publishes_no_values",
+    "test_modem_settings_second_read_error_discards_partial_pair",
+    "test_modem_settings_absent_keys_keep_legacy_defaults",
+    "test_modem_settings_reject_invalid_arguments",
+):
+    assert marker in TEST
+
 rule_read = boot.index('rc_boot_nvram_read_int_status("modem_rule", 0,')
 rule_error = boot.index("if (nvram_status != 0)", rule_read)
 rule_enable = boot.index("else if (modem_rule > 0)", rule_error)
@@ -95,6 +110,14 @@ assert 'nvram_get_int("modem_type")' not in remove
 notify_start = RC_SOURCE.index('else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
 notify_end = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER)', notify_start)
 notify = RC_SOURCE[notify_start:notify_end]
+notify_config = notify.index("rc_modem_read_nvram_settings_status(")
+notify_config_error = notify.index("if (modem_settings_status != 0)", notify_config)
+notify_identity = notify.index("if (!stop_failed)", notify_config_error)
+assert notify_config < notify_config_error < notify_identity
+assert 'nvram_get_int("modem_rule")' not in notify
+assert 'nvram_get_int("modem_type")' not in notify
+assert "if (!stop_failed && nvram_modem_rule != modem_rule)" in notify
+assert notify.index("if (!stop_failed && nvram_modem_rule != modem_rule)") > notify_config_error
 notify_pattern = (
     r"rc_notify_merge_action_result\s*\(\s*action_result\s*,\s*"
     r"reload_modem_modules\(modem_type, 1\)\s*\)"

@@ -43,6 +43,7 @@
 #endif
 
 #include "rc.h"
+#include "modem_module_reload_policy.h"
 #include "modem_wan_start_policy.h"
 #include "storage_hotplug_name_policy.h"
 #include "firewall_startup_policy.h"
@@ -165,6 +166,11 @@ static const struct rc_nvram_policy_ops rc_nvram_ops = {
 
 static int nvram_modem_type = 0;
 static int nvram_modem_rule = 0;
+
+#if defined (USE_USB_SUPPORT)
+static int rc_boot_nvram_read_int_status(const char *name,
+					 int missing_value, int *value);
+#endif
 static int nvram_ipv6_type = 0;
 static unsigned int rc_deferred_hotplug_retry_mask = 0;
 
@@ -173,6 +179,9 @@ nvram_restore_defaults(void)
 {
 	int restore_defaults;
 	int need_commit, ipv6_type_status;
+#if defined (USE_USB_SUPPORT)
+	int modem_settings_status, modem_rule = 0, modem_type = 0;
+#endif
 	char lan_mac[] = "FFFF";
 	unsigned char buffer[2] = {0};
 	int i_offset = get_wired_mac_e2p_offset(0) + 4;
@@ -197,9 +206,24 @@ nvram_restore_defaults(void)
 
 	klogctl(8, NULL, nvram_get_int("console_loglevel"));
 
-	/* load static values */
-	nvram_modem_type = nvram_get_int("modem_type");
-	nvram_modem_rule = nvram_get_int("modem_rule");
+	/* Load modem settings as one checked pair so a backend error cannot
+	 * become a false zero baseline for a later destructive module reload. */
+#if defined (USE_USB_SUPPORT)
+	modem_settings_status = rc_modem_read_nvram_settings_status(
+		rc_boot_nvram_read_int_status, &modem_rule, &modem_type);
+	if (modem_settings_status != 0) {
+		errno = modem_settings_status;
+		logmessage(LOGNAME,
+			   "cannot read USB modem configuration; aborting router startup (status=%d)",
+			   modem_settings_status);
+		return -1;
+	}
+	nvram_modem_type = modem_type;
+	nvram_modem_rule = modem_rule;
+#else
+	nvram_modem_type = 0;
+	nvram_modem_rule = 0;
+#endif
 	ipv6_type_status = get_ipv6_type_status(&nvram_ipv6_type);
 	if (ipv6_type_status != 0) {
 		errno = ipv6_type_status;
@@ -2186,11 +2210,33 @@ handle_notifications(void)
 			int wan_stop_status = 0;
 			int modules_reloaded = 0;
 			int modem_identity_status;
+			int modem_settings_status;
 			int need_restart_wan = 0;
-			int modem_rule = nvram_get_int("modem_rule");
-			int modem_type = nvram_get_int("modem_type");
+			int modem_rule = 0, modem_type = 0;
 
-			modem_identity_status = get_usb_modem_wan_status(0, &need_restart_wan);
+			modem_settings_status = rc_modem_read_nvram_settings_status(
+				rc_boot_nvram_read_int_status, &modem_rule, &modem_type);
+			if (modem_settings_status != 0) {
+				logmessage("USB",
+					   "refusing modem module/service restart: cannot read modem configuration (status=%d)",
+					   modem_settings_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, modem_settings_status);
+				stop_failed = 1;
+			}
+
+			if (!stop_failed) {
+				modem_identity_status = get_usb_modem_wan_status(
+					0, &need_restart_wan);
+				if (!modem_wan_restart_allowed(modem_identity_status)) {
+					logmessage("USB",
+						   "refusing modem module/service restart: WAN modem identity is unknown (status=%d)",
+						   modem_identity_status);
+					action_result = rc_notify_merge_action_result(
+						action_result, modem_identity_status);
+					stop_failed = 1;
+				}
+			}
 			if (!modem_wan_restart_allowed(modem_identity_status)) {
 				logmessage("USB",
 					   "refusing modem module/service restart: WAN modem identity is unknown (status=%d)",
@@ -2200,7 +2246,7 @@ handle_notifications(void)
 				stop_failed = 1;
 			}
 
-			if (nvram_modem_rule != modem_rule)
+			if (!stop_failed && nvram_modem_rule != modem_rule)
 			{
 				if (need_restart_wan) {
 					wan_stop_status = stop_wan();

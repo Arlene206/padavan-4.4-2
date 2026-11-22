@@ -4,6 +4,37 @@
 #include <errno.h>
 #include <stddef.h>
 
+
+typedef int (*rc_modem_nvram_int_read_fn)(const char *name,
+					  int missing_value, int *value);
+
+/* Treat modem_rule and modem_type as one configuration snapshot. Do not
+ * publish a partial pair when either checked NVRAM read fails. */
+static inline int
+rc_modem_read_nvram_settings_status(rc_modem_nvram_int_read_fn read_int,
+				     int *modem_rule, int *modem_type)
+{
+	int rule_value = 0, type_value = 0, status;
+
+	if (!read_int || !modem_rule || !modem_type) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	*modem_rule = 0;
+	*modem_type = 0;
+	status = read_int("modem_rule", 0, &rule_value);
+	if (status != 0)
+		return status;
+	status = read_int("modem_type", 0, &type_value);
+	if (status != 0)
+		return status;
+
+	*modem_rule = rule_value;
+	*modem_type = type_value;
+	return 0;
+}
+
 typedef struct {
 	int (*load)(const char *module_name, const char *module_param);
 	int (*is_loaded)(const char *module_name);
