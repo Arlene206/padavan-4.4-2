@@ -1,3 +1,10 @@
+## 2026-11-22 — Make HTTP readiness regressions independent of asynchronous mock launch
+
+- Parent main SHA: `f8176758f1c9ec1e96381da1208be1edf0425fae`. Exact AliyunDrive lifecycle run #45042972255 showed the no-listener case had `marker=absent probes=0 sleeps=10`: the test was expecting a background mock launch to become visible but the simulated process never became visible to `pidof`, so the HTTP probe was never exercised. This was a harness setup error, not evidence that the HTTP status parser was wrong.
+- Reworked the no-listener and delayed-listener cases to model an already-running process via the existing `TEST_RUNNING=1` pidof mock. The tests now directly exercise the service-readiness property, assert 11 bounded probes + 10 sleeps on persistent unavailability, assert three probes when readiness is delayed, and prove no duplicate launch/stop signal occurred. They no longer assert a marker produced by the independent background mock.
+- Exact parent `f8176758f1c9ec1e96381da1208be1edf0425fae`: AliyunDrive lifecycle #45042972255 FAIL (test harness no-listener fixture; QEMU binary compatibility passed; source-contract stage skipped); Process inventory #45042972250 PASS; AI handoff #45042972322 PASS. No local test/build was run; the revised exact-head lifecycle action must pass before considering this slice verified.
+
+---
 ## 2026-11-22 — Add diagnostics to AliyunDrive HTTP readiness timeout regression
 
 - Parent main SHA: `4b01a3e8638bb0fd94f7ca7f38d5556bb61a2c27`. AliyunDrive lifecycle Action #45042609844 failed in the new "live PID but no HTTP listener" case with only a generic assertion message. The process/HTTP logic reached the timeout test, but the failure did not reveal which of the marker, HTTP probe count or bounded sleep count differed.

@@ -396,37 +396,44 @@ fi
 MOCK
 chmod 700 "$ALD_BIN"
 
-# A process that exists but has no HTTP listener must not satisfy startup readiness.
-TEST_RUNNING=0
+# A live process without an HTTP listener must not satisfy readiness.
+# Model a pre-existing PID directly; the no-listener contract is independent
+# of the separate background-launch mock and its marker-file scheduling.
+TEST_RUNNING=1
 TEST_ENABLE=1
 TEST_HTTP_MODE=unavailable
 : > "$TEST_HTTP_LOG"
 TEST_SLEEP_COUNT=0
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
 rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER" "$TEST_START_FAIL_FILE"
 if start_ald; then
   echo "FAIL: process presence without an HTTP listener was reported ready" >&2
   exit 1
 fi
 test_http_probe_lines=$(wc -l < "$TEST_HTTP_LOG")
-if [ ! -e "$TEST_RUN_MARKER" ] ||
-   [ "$test_http_probe_lines" -ne 11 ] ||
-   [ "$TEST_SLEEP_COUNT" -ne "$ALD_START_WAIT_SECONDS" ]; then
-  echo "FAIL: HTTP timeout state marker=$([ -e "$TEST_RUN_MARKER" ] && echo present || echo absent) probes=$test_http_probe_lines sleeps=$TEST_SLEEP_COUNT expected_sleeps=$ALD_START_WAIT_SECONDS" >&2
+if [ "$test_http_probe_lines" -ne 11 ] ||
+   [ "$TEST_SLEEP_COUNT" -ne "$ALD_START_WAIT_SECONDS" ] ||
+   [ -e "$TEST_ARG_LOG" ] ||
+   [ "$TEST_TERM_COUNT" -ne 0 ] || [ "$TEST_KILL_COUNT" -ne 0 ]; then
+  echo "FAIL: HTTP timeout probes=$test_http_probe_lines sleeps=$TEST_SLEEP_COUNT expected_sleeps=$ALD_START_WAIT_SECONDS argv=$([ -e "$TEST_ARG_LOG" ] && echo present || echo absent) term=$TEST_TERM_COUNT kill=$TEST_KILL_COUNT" >&2
   exit 1
 fi
 
-# A listener that becomes ready later must be accepted without duplicate launch.
-rm -f "$TEST_RUN_MARKER" "$TEST_ARG_LOG"
-TEST_RUNNING=0
+# A running process whose listener appears after three probes is accepted.
+TEST_RUNNING=1
 TEST_HTTP_MODE=delayed
 TEST_HTTP_READY_AFTER=3
 : > "$TEST_HTTP_LOG"
 TEST_SLEEP_COUNT=0
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
 start_ald || { echo "FAIL: delayed HTTP readiness did not recover" >&2; exit 1; }
-TEST_LAUNCH_PID=$!
-wait "$TEST_LAUNCH_PID"
-[ "$(wc -l < "$TEST_HTTP_LOG")" -eq 3 ] && [ -e "$TEST_RUN_MARKER" ] || {
-  echo "FAIL: delayed HTTP readiness returned before the configured probe" >&2
+[ "$(wc -l < "$TEST_HTTP_LOG")" -eq 3 ] &&
+[ ! -e "$TEST_ARG_LOG" ] &&
+[ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+  echo "FAIL: delayed HTTP readiness did not recover without a duplicate launch" >&2
   exit 1
 }
 
