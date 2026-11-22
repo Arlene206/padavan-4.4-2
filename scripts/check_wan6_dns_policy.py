@@ -401,8 +401,9 @@ for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
                  '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
     assert required in sit_body
 for required in ("get_wan_unit_value_int_status(", "get_wan_unit_value_copy_status(",
-                 "WAN6_SIT_READ_CHECK(", "errno = status;"):
+                 "WAN6_SIT_READ_CHECK("):
     assert required in sit_body
+assert "#define WAN6_SIT_READ_CHECK" in source and "errno = status;" in source
 sit_first_mutation = sit_body.index("if (is_interface_exist(IFNAME_SIT))")
 assert all(sit_body.index(token) < sit_first_mutation for token in (
     '"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"', '"6rd_relay"',

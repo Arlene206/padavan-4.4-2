@@ -1,3 +1,11 @@
+## 2026-11-22 — Correct SIT source-contract assertion for macro scope
+
+- Parent main SHA: `129697133e29a7757adeff9c61e590b825aba915`. The exact-SHA `wan-dhcp-callback` and `wan-route-status` runs both compiled and ran the GNU89 ASan/UBSan `wan_nvram_status_policy` binary successfully, and all preceding source contracts passed. Their final checker assertions failed because `errno = status;` is in the file-scope `WAN6_SIT_READ_CHECK` macro, outside the extracted `start_sit_tunnel()` function body.
+- Corrected both source contracts to inspect the function for the macro invocation and inspect the macro definition at file scope for explicit errno preservation. This is a checker-only correction; the SIT implementation is unchanged.
+- Exact main-SHA Actions currently show `validate-handoff-records`, `ipv6-service-type`, `inventory`, `HTTPD security`, `nvram-transaction-boundary` and XY-C1 build as successful or still running; the two WAN jobs failed only at the macro-scope assertion just described. No overall PASS/build PASS is claimed.
+- Next task: transactionally snapshot the per-unit WAN IPv4/IPv6 address and gateway tuple in `wan6_up()` before stopping DHCPv6 or changing routes/interface state.
+
+---
 ## 2026-11-22 — Check every SIT tunnel configuration input before replacing the tunnel
 
 - Parent main SHA: `ada0d247ede7df03a9bdba5ab3de20da6dfe2d0b`. `start_sit_tunnel()` still used lossy `nvram_safe_get()`, `nvram_get_int()`, `get_wan_unit_value()` and `get_wan_unit_value_int()` for 6in4 remote/gateway, 6to4 relay, 6rd size/relay, MTU and TTL. A backend read fault could be mistaken for an absent/default value and trigger tunnel replacement with incomplete configuration.

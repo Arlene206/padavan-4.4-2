@@ -1168,8 +1168,10 @@ for required in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
                  '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
     require(required in sit_body, "SIT configuration selector missing: " + required)
 for required in ("get_wan_unit_value_int_status(", "get_wan_unit_value_copy_status(",
-                 "WAN6_SIT_READ_CHECK(", "errno = status;"):
+                 "WAN6_SIT_READ_CHECK("):
     require(required in sit_body, "SIT read errors must be propagated: " + required)
+require("#define WAN6_SIT_READ_CHECK" in wan6_source and "errno = status;" in wan6_source,
+        "SIT read macro must preserve the checked NVRAM error code")
 first_mutation = sit_body.index("if (is_interface_exist(IFNAME_SIT))")
 for key in ('"ip6_6in4_remote"', '"ip6_6to4_relay"', '"6rd_size"',
             '"6rd_relay"', '"gate6"', '"ip6_sit_mtu"', '"ip6_sit_ttl"'):
