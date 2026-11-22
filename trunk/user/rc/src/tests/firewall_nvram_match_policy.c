@@ -146,6 +146,34 @@ test_sshd_bruteforce_mode_missing_default_and_backend_error(void)
 }
 
 static void
+test_wan_ttl_policy_reads_keep_legacy_defaults_and_fail_closed(void)
+{
+	int ttl_fix = 19;
+	int ttl_value = 99;
+	int multicast_enabled = 7;
+
+	/* Missing settings keep their historical zero/disabled defaults. */
+	assert(firewall_nvram_int_status(0, 0, NULL, 0, &ttl_fix) == 0);
+	assert(ttl_fix == 0);
+	assert(firewall_nvram_int_status(0, 0, NULL, 0, &ttl_value) == 0);
+	assert(ttl_value == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0,
+					   &multicast_enabled) == 0);
+	assert(multicast_enabled == 0);
+
+	ttl_fix = 19;
+	ttl_value = 99;
+	multicast_enabled = 7;
+	assert(firewall_nvram_int_status(-1, EIO, NULL, 0, &ttl_fix) == EIO);
+	assert(ttl_fix == 19);
+	assert(firewall_nvram_int_status(-1, EACCES, NULL, 0, &ttl_value) == EACCES);
+	assert(ttl_value == 99);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0,
+					   &multicast_enabled) == EIO);
+	assert(multicast_enabled == 7);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -197,6 +225,7 @@ main(void)
 	test_integer_modes_preserve_decimal_semantics();
 	test_integer_errors_are_fail_closed_and_preserve_output();
 	test_sshd_bruteforce_mode_missing_default_and_backend_error();
+	test_wan_ttl_policy_reads_keep_legacy_defaults_and_fail_closed();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

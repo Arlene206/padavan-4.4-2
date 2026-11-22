@@ -2889,15 +2889,29 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 	FILE *fp;
 	int i_wan_ttl_fix;
 	int i_wan_ttl_value;
-	int should_restore;
+	int is_multicast_enabled = 0;
+	int status, should_restore;
 	const char *dtype;
 	char ipt_file[] = "/tmp/ipt_mangle.XXXXXX";
 
-	i_wan_ttl_fix = nvram_get_int("wan_ttl_fix");
-	i_wan_ttl_value = nvram_get_int("wan_ttl_value");
+	/* These NVRAM reads control packet TTL policy and must not turn backend
+	 * failures into a silent mode-0 ruleset. Finish the checked snapshot before
+	 * touching sysctls, loading modules or staging the mangle table. */
+	status = firewall_read_integer_setting("wan_ttl_fix", 0, &i_wan_ttl_fix);
+	if (status != 0)
+		return;
+	status = firewall_read_integer_setting("wan_ttl_value", 0, &i_wan_ttl_value);
+	if (status != 0)
+		return;
 
-	if (i_wan_ttl_fix == 2 && nvram_invmatch("mr_enable_x", "1"))
-		i_wan_ttl_fix = 0;
+	if (i_wan_ttl_fix == 2) {
+		status = firewall_read_match_setting("mr_enable_x", "1", 0,
+					     &is_multicast_enabled);
+		if (status != 0)
+			return;
+		if (!is_multicast_enabled)
+			i_wan_ttl_fix = 0;
+	}
 
 	if (i_wan_ttl_value > 1) {
 		int write_status, write_errno, ttl_status;

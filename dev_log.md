@@ -1,3 +1,12 @@
+## 2026-11-21 — Check WAN TTL policy before firewall side effects
+
+- Parent main SHA: `7fec09ca534f339fd7ac14bf036d83c12fd66587`. Exact Firewall Startup #44982894139, WAN DHCP #44982894189, HTTPD #44982894126, WAN route #44982894201, FULLCONENAT #44982894180, process inventory #44982894127 and AI handoff #44982894167 PASS. NVRAM #44982894159 and XY-C1 #44982894183 were still running at last poll.
+- A second firewall fail-open reliability path used unchecked `nvram_get_int("wan_ttl_fix")` and `nvram_get_int("wan_ttl_value")`; optional mode 2 also used unchecked `nvram_invmatch("mr_enable_x", "1")`. NVRAM backend failures therefore appeared as disabled TTL settings or altered multicast policy.
+- `ipt_mangle_rules()` now checks both integers and conditionally checks exact multicast enablement through existing checked readers before writing `ip_default_ttl`, loading kernel modules or opening/staging the mangle table. Missing values preserve old zero/false semantics; failed reads abort the active firewall restore transaction.
+- Added explicit helper-policy sanitizer coverage and workflow source-order contracts. Exact-head Firewall Startup and XY-C1 Build/TRX/artifact pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Fail closed on SSH brute-force policy NVRAM reads
 
 - Parent main SHA: `893c65a7ae1fb04a61d8aa4965c476fc50072c85`. Checker-only LAN source-range correction `893c65a7ae1fb04a61d8aa4965c476fc50072c85` has WAN DHCP #44982805519, AI handoff #44982805486 and XY-C1 #44982805453 in progress at the last poll; prior NVRAM audit #44982591433 on parent `cbc5374` completed SUCCESS.

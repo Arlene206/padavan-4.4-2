@@ -831,6 +831,20 @@ jobs:
           assert 'nvram_get_int("sshd_wbfp")' not in firewall_source
           assert "test_sshd_bruteforce_mode_missing_default_and_backend_error" in firewall_nvram_test
 
+          # TTL policy reads must fail closed before sysctl/module/table side effects.
+          mangle_builder = body(firewall_source, "ipt_mangle_rules(const char *man_if")
+          ttl_fix_gate = 'firewall_read_integer_setting("wan_ttl_fix", 0, &i_wan_ttl_fix)'
+          ttl_value_gate = 'firewall_read_integer_setting("wan_ttl_value", 0, &i_wan_ttl_value)'
+          multicast_gate = 'firewall_read_match_setting("mr_enable_x", "1", 0,'
+          for gate in (ttl_fix_gate, ttl_value_gate, multicast_gate):
+              assert gate in mangle_builder
+              assert mangle_builder.index(gate) < mangle_builder.index("fput_int(")
+          assert mangle_builder.index(ttl_fix_gate) < mangle_builder.index(ttl_value_gate)
+          assert 'nvram_get_int("wan_ttl_fix")' not in mangle_builder
+          assert 'nvram_get_int("wan_ttl_value")' not in mangle_builder
+          assert 'nvram_invmatch("mr_enable_x", "1")' not in mangle_builder
+          assert "test_wan_ttl_policy_reads_keep_legacy_defaults_and_fail_closed" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",

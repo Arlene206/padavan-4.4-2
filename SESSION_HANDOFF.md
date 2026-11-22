@@ -37,6 +37,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - No L3 claim for current source until same-SHA XY-C1 Build, TRX and artifact all PASS; hardware L4 NOT VERIFIED.
 
 - Firewall SSH brute-force protection had a fail-open NVRAM read: both IPv4/IPv6 filter emitters used `nvram_get_int("sshd_wbfp")`, so a backend read failure became mode 0 and omitted the `recent` lockout rules. THIS source slice pre-reads the mode through `firewall_read_integer_setting()` before staging either filter and uses the checked snapshot; missing keys retain legacy mode 0. A GNU89/ASan/UBSan regression plus exact workflow source-order contracts are added. Exact-head firewall/XY validation pending.
+- Firewall WAN TTL/multicast policy had two further unchecked configuration reads: `wan_ttl_fix` and `wan_ttl_value` used `nvram_get_int()`, while TTL mode 2 used `nvram_invmatch("mr_enable_x", "1")`. A transient NVRAM error could silently disable TTL handling or incorrectly select multicast TTL policy. THIS follow-up uses checked integer/match readers before sysctl, module-load or mangle-table side effects; absent-key zero defaults remain unchanged. GNU89 sanitizer coverage and exact source-order contracts added; exact-head firewall CI pending.
 ## Verification boundary
 
 - SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: XY-C1 Build, TRX verification and artifact upload PASS (artifact #14737425993). L3 only for `5b93812`.
@@ -46,6 +47,6 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Parent `e8b4de14f3355bef5754c780bb6ff96ea88609b8`: WAN DHCP #44982248186 and HTTPD security #44982248126 PASS; XY-C1 #44982248169 was building and NVRAM audit #44982248197 was running. THIS AP host-file parity correction is committed atomically with its checker/log/roadmap/handoff; fetch resulting `main` and inspect exact-head WAN DHCP, NVRAM and XY-C1 runs. L3 is unverified until same-SHA Build/TRX/artifact pass.
 - Exact `cbc53740bfbcc292f691879f7574f70eae6d5cb4`: HTTPD #44982591551, AI docs #44982591522, Firewall Startup #44982591438, DNSMasq #44982591476, Process lifecycle #44982## Exact first action for the next GPT
 
-1. Inspect exact-head WAN DHCP #44982805519 and XY-C1 #44982805453 for SHA `893c65a7ae1fb04a61d8aa4965c476fc50072c85`; confirm the source-range correction and same-SHA Build/TRX/artifact state.
-2. Inspect the exact-head Firewall Startup regression for THIS SSH BFP fix. Require the GNU89/Wall/Wextra/Werror/ASan/UBSan policy executable and both IPv4/IPv6 checked-read-before-staging contracts to pass; repair the first failing log.
-3. Continue other independent stability/security work while target jobs are pending; keep frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` untouched.
+1. Inspect exact-head Firewall Startup for THIS checked WAN TTL policy read change; require the NVRAM helper sanitizer test and source-order contract to pass, then address any first failure.
+2. Poll XY-C1 #44982894183 and NVRAM #44982894159 on parent `7fec09ca534f339fd7ac14bf036d83c12fd66587`. For L3 require Build, TRX verification and artifact upload all PASS on the same source SHA; the still-running result on an ancestor is not sufficient.
+3. Continue independent stability/security fixes while those jobs are pending; preserve the frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
