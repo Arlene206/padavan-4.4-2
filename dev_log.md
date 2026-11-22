@@ -1,3 +1,9 @@
+## 2026-11-22 — Repair Aria2 RPC hardening shell integration and build triggers
+
+- The first RPC hardening commit exposed a malformed newline at the end of the default-config branch (`umask ...fi`). Fixed the branch delimiter and restored the saved umask on the config-write error path before proceeding.
+- Added the Aria2 launcher and its startup/security regression test to the XY-C1 firmware workflow push path filter; without those paths the firmware validation did not run for Aria2-only changes.
+- Exact-head USB/Process/XY-C1 Actions will validate this correction. The generated token/mode tests and migration code remain subject to those checks.
+
 ## 2026-11-22 — Authenticate Aria2 all-interface RPC configs
 
 - Default Aria2 config exposed an unauthenticated RPC control/download API by enabling `rpc-listen-all=true` and wildcard CORS with all authentication directives commented out.

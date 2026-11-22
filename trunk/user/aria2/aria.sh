@@ -297,6 +297,7 @@ log-level=notice
 EOF
 		then
 			rm -f "$CONFIG_TMP"
+			umask "$aria_config_umask"
 			logger -t "$SVC_NAME" "Cannot start: failed to write default config" >/dev/null 2>&1
 			return 1
 		fi
@@ -312,7 +313,8 @@ EOF
 			logger -t "$SVC_NAME" "Cannot publish default config" >/dev/null 2>&1 || true
 			return 1
 		fi
-		umask "$aria_config_umask"fi
+		umask "$aria_config_umask"
+	fi
 
 	if ! aria_secure_rpc_config; then
 		echo "[FAILED]"
