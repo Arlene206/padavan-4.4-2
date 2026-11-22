@@ -1,73 +1,74 @@
 ## 2026-11-22 — Current development checkpoint
 
-- Live main: `2c099f7a36ae84a2baf375e103ce4c7db8450238`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; read-only).
-- libdisk share-list and volume metadata safety: checked directory enumeration, atomic folder-list snapshots, atomic per-account defaults and new-folder updates, checked metadata cleanup, and stage-by-stage error propagation are now on main.
-- Exact libdisk GNU89 ASan/UBSan + source-contract #45016804441 PASS on current main. Process inventory #45016804504 PASS.
-- Current exact-SHA pending: XY-C1 #45016804450 Build XY-C1 IN_PROGRESS (TRX/artifact pending); HTTPD #45016804458 IN_PROGRESS; NVRAM #45016804472 IN_PROGRESS.
-- Firmware build of ancestor `9228416` exposed a pre-existing unmatched brace in `detect_wan.c` from commit `00fb9c3`. Fixed in `07fb4ce`; exact detect-WAN #45016664463, Process lifecycle #45016664391, Process inventory #45016664378 and AI docs #45016664392 PASS. Same-SHA XY #45016664382 still building.
-- L3 NOT VERIFIED until a single identical product SHA passes Build, TRX verification and artifact upload. Hardware L4 NOT VERIFIED.
+- Live main source checkpoint: `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move or delete).
+- Current source slice: bounded and errno-preserving `read_whole_file()`, the signed-byte filename fix in `sanity_name()`, and fail-closed `add_folder()` initialization now live on main.
+- Exact-head Actions:
+- `Process lifecycle inventory - 43a5bfb5bc3f0195abfc00db9e810e58ad3514a1` #45018022701: IN_PROGRESS.
+- `XY-C1 Firmware Validation` #45018022664: IN_PROGRESS.
+- `NVRAM transaction boundary audit` #45018022657: IN_PROGRESS.
+- `libdisk share-list output safety` #45018022649: IN_PROGRESS.
+- `HTTPD Authentication and Security Regression` #45018022644: IN_PROGRESS.
+- Do not claim L3 until Build XY-C1, TRX verification and artifact upload all pass for identical product-source SHA `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`. Hardware L4 NOT VERIFIED.
 
 
 ---
 
-## Mandatory handoff checkpoint
-
-The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live main, the engineering baseline, exact-head Actions, validation boundaries and the first next action before ending. Update this file only when those facts materially change; do not create a no-op commit or chase documentation-only SHAs. Each multi-file logical slice must land as one atomic main commit. Before context exhaustion, finish the active safe slice and leave an exact first action.
-
-# Cross-session execution mandate
-
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`; live SHA at this checkpoint: `2c099f7a36ae84a2baf375e103ce4c7db8450238`.
-- Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not update or delete it.
-- libdisk source sequence: `c24dd1f` fail-closed directory enumeration and XY-C1 filter coverage; `75f461d` whitespace-resilient source contract; `9228416` atomic folder-list snapshot; `f39bc0c` atomic account defaults; `49e6cbf` atomic new-folder permission update; `2c099f7` checked managed-file cleanup and error propagation.
-- libdisk exact runs: #45016346157 PASS on `f39bc0c`; #45016518545 PASS on `49e6cbf`; #45016804441 PASS on current `2c099f7`. Earlier checker repair #45015600430 PASS on `75f461d`; folder snapshot #45015894653 PASS on `9228416`.
-- XY-C1 firmware filter watches libdisk `Makefile`, `disk_share.c`, `disk_share.h` and `disk_share_list_policy.h`. It is main-push-only; the focused libdisk workflow covers PR and push host regression.
-- detect-WAN compile correction: source `07fb4ce` fixes the unmatched brace from `00fb9c3`. Exact detect-WAN #45016664463, Process inventory #45016664378, Process lifecycle #45016664391 and AI docs #45016664392 PASS. XY #45016664382 pending at last poll.
-- Current exact SHA `2c099f7`: Process inventory #45016804504 PASS; libdisk #45016804441 PASS; XY-C1 #45016804450, HTTPD #45016804458 and NVRAM #45016804472 pending/running.
-- Do not infer L3 from host tests. Same-SHA Build + TRX + artifact upload are required; hardware L4 is NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; active branch `main`; checkpoint SHA `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Established libdisk fixes: readdir tri-state/error propagation; atomic folder-list snapshot; atomic per-account defaults; atomic permission-file update for new folders; checked metadata cleanup; volume setup stage failure propagation; checked `read_whole_file()`; signed-byte safe filename filtering; checked folder creation and permission initialization.
+- Latest source slices:
+  - `fb430cb`: bounded file reader, errno propagation, close-error handling, GNU89 read regression and host/firmware path filters.
+  - `29187fd`: unsigned-byte comparison in `sanity_name()` plus regression, prompted by the first compile's `-Werror=type-limits` finding.
+  - `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`: `add_folder()` now uses dynamic path allocation, reports duplicate/lookup/mkdir errors, publishes folder snapshot before running checked account metadata initialization.
+- Existing firmware gate includes libdisk production source paths, including `disk_io_tools.c`; the workflow remains main-push-only, with host sanitizer regression in the dedicated libdisk workflow.
+- Latest exact-head Actions:
+- `Process lifecycle inventory - 43a5bfb5bc3f0195abfc00db9e810e58ad3514a1` #45018022701: IN_PROGRESS.
+- `XY-C1 Firmware Validation` #45018022664: IN_PROGRESS.
+- `NVRAM transaction boundary audit` #45018022657: IN_PROGRESS.
+- `libdisk share-list output safety` #45018022649: IN_PROGRESS.
+- `HTTPD Authentication and Security Regression` #45018022644: IN_PROGRESS.
+- Same-SHA XY-C1 Build + TRX + artifact upload are mandatory for L3; no hardware L4 claim is made.
+
+
+---
 
 ## Completed source slices
 
-- libdisk volume metadata: `c24dd1f` fail-closed directory enumeration and XY-C1 filter coverage; `75f461d` whitespace-resilient source contract; `9228416` atomic folder-list snapshot; `f39bc0c` atomic account defaults; `49e6cbf` atomic new-folder permission update; `2c099f7` checked managed-file cleanup and error propagation.
-- detect-WAN monitor: `07fb4ce` removes the stray brace that made `chk_udhcpc()` fail the XY-C1 build; detect-WAN source-contract #45016664463 PASS.
+- Inadyn/DNSMasq: status-bearing DDNS enable/AP-mode handling and whitespace-resilient source assertions; exact checks recorded in prior log entries.
+- Detect-WAN: `07fb4ce` fixes the stray brace that broke `chk_udhcpc()`; source contract and host/process checks passed on that source SHA.
+- libdisk share-list and volume metadata: `c24dd1f` checked readdir and XY-C1 filter coverage; `75f461d` whitespace-safe source contract; `9228416` atomic folder snapshot; `f39bc0c` atomic account defaults; `49e6cbf` atomic new-folder permission update; `2c099f7` checked cleanup and setup-stage propagation.
+- libdisk file I/O and directory management: `fb430cb` bounded checked reader; `29187fd` signed-byte conversion fix; current checkpoint `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1` fail-closed add-folder orchestration.
+- Frozen backup branch remains unchanged.
 
-- USB/storage hotplug: physical-unplug marker is retained until eject cleanup and marker acknowledgement both succeed; an action-completion latch avoids replaying completed cleanup when only marker ack is retried (source commit `d414a788`). `safe_remove_stor_device()` now queues the storage restart via `notify_rc_status("on_hotplug_mass_storage")` after releasing the storage operation lock, so a short-lived rc applet does not rely on its own `alarm(5)` to wake PID 1 (source commit `89a6e740`). The exact-head storage workflow is being reconciled with the actual source ordering.
 
-- VPN client state policy: PPP VPN and OpenVPN up callbacks use checked `vpn_client_nvram_read_bool_status()`; a follow-up removed a retained legacy argument tail from `on_client_ifup()`. OpenVPN server callbacks prefer event-supplied `dev`, use checked topology fallback only when absent, and preserve disconnect hooks. Client DNS policy errors preserve last-good DNS/domain state while mandatory state/hook work continues.
-- OpenVPN exported profiles activate `remote-cert-tls server` to match the generated certificate's `serverAuth` EKU. Dual-stack modes 4/5 use a validated WAN IPv4 endpoint only as final fallback after DDNS and both IPv6 sources fail; IPv6-only modes remain unchanged.
-- WSD HTTP POST framing source `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`: bounded CRLF/exact-body reads, strict non-zero decimal Content-Length, duplicate/overflow rejection and 413 mapping. WSD framing #44942356801, AI docs #44942356848, Process inventory #44942356815, Process lifecycle #44942356893 and NVRAM #44942356787 passed. Exact XY-C1 #44942356809 passed Build, TRX verification and artifact upload; L3 applies to that exact source SHA.
-- WSD LLMNR parsing: bounded uncompressed DNS question parsing, label and wire/text bounds, rejection of ambiguous NUL/dot bytes, and forced hostname NUL termination. The regression fixture and source-contract locator were corrected; #44945105615 passed on source/checker SHA `63854309f6c8b877563062119d0e169b7a7fd95f`.
-- WSD XML output: request-derived RelatesTo and all seven configured GetResponse metadata values are escaped before XML insertion. On source `edc9d59456fe40d5c991b3a07507515ddf2c5eaf`, HTTP framing #44945383956, XML reflection #44945383982, Process inventory #44945383886 and NVRAM #44945383856 passed. Exact XY-C1 #44945383870 also passed Build, TRX verification and artifact upload; L3 is verified for this exact metadata source SHA.
-- p910nd bidirectional SIGPIPE fix: source `23248f7df1575885e991fe518629bb974fc05c35`; host socketpair regression, p910nd, Process inventory, Process lifecycle and AI checks passed. Exact XY-C1 #44941685839 passed Build/TRX/artifact. L3 applies to that SHA; physical printer-disconnect L4 is NOT VERIFIED.
-- MiniUPnP checked configuration preflight: source `be4952e90111ddea8f91684f6c3fe5ecf25be785`; checked protocol, secure mode, HTTP port, cleanup timers and mapping ranges. MiniUPnP, NVRAM, Process inventory, Samba and AI checks passed; exact XY-C1 #44941839623 passed Build/TRX/artifact. L3 applies to that SHA. The earlier redirect-description source `4a5139f484943abe3a5ac9cf0f6d56bc70067a56` also passed #44940761694. Hardware L4 remains NOT VERIFIED.
-- RC AP/router-mode and LAN/WAN checked-read gates were expanded in commits `74e0ecc4`, `dbce98c2`, `ae3b0eb0`, `3e3ba126` and `202266c5`. These have mixed exact-SHA results; do not infer current-head PASS from older source or checker-only commits.
-- HTTPD security workflow offset correction is in `c9005f49bb7edf6ac9efad6bfa51b82f6b902cc4`. The original checker run #44945277626 failed; the later exact-head HTTPD run #44945662341 on source descendant `f56fe999...` completed/success, validating the correction. Do not confuse this with the cancelled intermediate run #44945615000.
-
-- MAC-filter hardening complete: supported WebUI modes are enforced, indexed MAC/date/time values use checked NVRAM reads, address tokens are validated, and absent schedule keys preserve legacy defaults. Exact source commit `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49` passed HTTPD, NVRAM, Firewall Startup, WAN DHCP, WAN route, FULLCONENAT, inventory and AI docs; exact XY-C1 #44955441811 passed Build/TRX/artifact (L3 only for that SHA).
-- Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
-- Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
+---
 
 ## Active task
 
-- The volume metadata slice is now checked end-to-end for the reviewed operations. Per-account defaults and updates use a same-directory temporary file, checked output/flush, fsync, checked close and atomic rename. Failed updates remove the temporary file and preserve the last complete permission file.
-- Folder metadata cleanup uses the shared checked readdir state policy, reports unlink/close failures, and no longer silently treats read errors as EOF. Full and incremental account initialization propagate errors and reject truncated metadata paths.
-- Exact libdisk #45016804441 PASS on `2c099f7`; Process inventory #45016804504 PASS. Current XY Build, HTTPD and NVRAM workflows are running; same-SHA L3 still pending.
-- Next bounded audit: inspect the read_whole_file implementation used by permission metadata readers, then check remaining share-file callers for ignored read/close statuses. Avoid duplicating the already-fixed write lifecycle.
+- The reader hardening now has explicit tests for valid text, empty content, invalid/missing paths, >1 MiB files and directory read errors; it also checks successful `fclose()` and preserves the primary errno while cleaning up error paths.
+- `add_folder()` now creates a directory with checked dynamic path construction, atomically updates the folder-list snapshot, and invokes the centralized per-account initializer which already checks/atomically commits every account file. Failure no longer returns success or silently skips accounts.
+- Next bounded task: audit `del_folder()` and the folder-rename path for the same ignored file-write, close, unlink and metadata-stage errors. Keep each operation as its own source/test slice.
+
+
+---
 
 ## Verification boundary
 
-- GNU89 ASan/UBSan libdisk regression #45016804441 PASS on `2c099f7a36ae84a2baf375e103ce4c7db8450238`.
-- Process inventory #45016804504 PASS on the same SHA.
-- XY-C1 #45016804450 Build XY-C1 IN_PROGRESS at last poll; TRX verification and artifact upload pending. HTTPD #45016804458 and NVRAM #45016804472 IN_PROGRESS.
-- detect-WAN #45016664463 PASS, Process lifecycle #45016664391 PASS, Process inventory #45016664378 PASS and AI docs #45016664392 PASS on `07fb4ce`; XY #45016664382 remains pending.
-- Earlier XY #45015894601 FAILED on `9228416` due the stray brace in `detect_wan.c`; source correction is in `07fb4ce`. No L3 claim until the corrected same-source SHA passes all three firmware stages. Hardware L4 NOT VERIFIED.
+- The preceding volume-metadata slice #45016804441 PASS and Process inventory #45016804504 PASS on `2c099f7`.
+- The bounded-reader work initially exposed `sanity_name()` signed-char warning under GNU89 `-Werror`; `29187fd` corrects it and adds a regression.
+- Exact current-head CI status is listed above; no unobserved test is claimed as PASS.
+- XY-C1 L3 requires Build, TRX and artifact upload all PASS on the identical product-source SHA `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`. Hardware L4 NOT VERIFIED.
+
+
+---
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect XY-C1 #45016804450 on source SHA `2c099f7a36ae84a2baf375e103ce4c7db8450238`. Require Build XY-C1, TRX verification and artifact upload all PASS on this exact SHA.
-2. Check HTTPD #45016804458 and NVRAM #45016804472 exact-SHA outcomes; fix any real source failure, not a runner/network failure.
-3. Inspect detect-WAN/XY run #45016664382 for source SHA `07fb4ce`, recording Build/TRX/artifact statuses separately.
-4. Continue the bounded audit of read_whole_file and remaining libdisk share-file read/close error handling. Keep the backup branch unchanged and L4 marked NOT VERIFIED.
+1. Fetch live `main` and inspect exact-head libdisk sanitizer/source-contract Actions for the bounded reader and `add_folder()` changes; fix the first causal failure without weakening the contracts.
+2. Check XY-C1 for product SHA `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`: Build XY-C1, TRX verification and artifact upload must all pass on this one SHA before claiming L3.
+3. Continue with `del_folder()` / folder-rename metadata updates: make read/write/close/unlink and per-account failures explicit and atomic where feasible; add regression/source-contract coverage.
+4. Keep `backup/pre-plugin-overhaul-2026-11-14` immutable and hardware L4 marked NOT VERIFIED.
 

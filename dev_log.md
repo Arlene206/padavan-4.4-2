@@ -1,3 +1,18 @@
+## 2026-11-22 — Harden libdisk file reads and add-folder initialization
+
+- `fb430cb0adea84a06b14ef6f33579ea42e7d8106` added bounded, errno-preserving `read_whole_file()` handling: invalid arguments return EINVAL, files above 1 MiB return EFBIG, read errors preserve their cause, and successful reads must also close successfully. Added GNU89 ASan/UBSan coverage for text, empty, missing, oversized and directory-read cases, plus exact-source contracts and workflow triggers.
+- The first compile exposed another existing warning in `sanity_name()`: plain signed `char` was compared with byte 0x84 and GCC correctly rejected the always-false comparison under `-Werror`. `29187fdd429a6475b5d7fec39259653ac19776b2` casts to `unsigned char` and adds a high-bit-byte regression.
+- Current product follow-up `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1` hardens `add_folder()`: it fails closed on folder-list lookup errors, checks path-length arithmetic and mkdir, publishes the new folder list before permission initialization, then delegates all account-file setup to the already checked `create_if_no_var_files()` flow. Metadata-stage failures are now returned rather than silently reporting success.
+- Latest exact-head Actions observed before this documentation checkpoint:
+- `Process lifecycle inventory - 43a5bfb5bc3f0195abfc00db9e810e58ad3514a1` #45018022701: IN_PROGRESS.
+- `XY-C1 Firmware Validation` #45018022664: IN_PROGRESS.
+- `NVRAM transaction boundary audit` #45018022657: IN_PROGRESS.
+- `libdisk share-list output safety` #45018022649: IN_PROGRESS.
+- `HTTPD Authentication and Security Regression` #45018022644: IN_PROGRESS.
+- XY-C1 is still the required L3 gate for the product SHA `43a5bfb5bc3f0195abfc00db9e810e58ad3514a1`: Build XY-C1, TRX verification and artifact upload must all PASS on the same SHA. Hardware L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Make volume share permission metadata fail closed
 
 - Product commits: `f39bc0c3e2bdc149489b2f596cb3ae1859d8020f` (atomic initial account defaults), `49e6cbffc73373c8b292159c2984cdafa72697c4` (atomic new-folder permission updates), and `2c099f7a36ae84a2baf375e103ce4c7db8450238` (checked metadata cleanup and caller error propagation).
