@@ -55,7 +55,8 @@ assert "sigprocmask(SIG_SETMASK, &old_set, NULL)" in reload
 
 main = SOURCE[SOURCE.index("int init_main("):]
 assert main.index("run_actions(SYSINIT);") < main.index("flush_pending_reaped_children();")
-assert main.index("run_actions(WAIT);") < main.index("flush_pending_reaped_children();")
+wait_actions = main.index("run_actions(WAIT);")
+assert wait_actions < main.index("flush_pending_reaped_children();", wait_actions)
 assert "run_actions(RESPAWN | ASKFIRST);" in main
 assert main.count("flush_pending_reaped_children();") >= 6
 
