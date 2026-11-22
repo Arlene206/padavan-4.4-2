@@ -8,6 +8,7 @@ RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 POLICY = (RC / "wan_mtu_setup_policy.h").read_text()
 DHCP_POLICY = (RC / "dhcp_lease_policy.h").read_text()
+DHCP_POLICY = (RC / "dhcp_lease_policy.h").read_text()
 TEST = (RC / "tests/service_start_status.c").read_text()
 DHCP_TEST = (RC / "tests/dhcp_wan_interface_policy.c").read_text()
 WAN_WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()

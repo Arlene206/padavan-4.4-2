@@ -1,3 +1,11 @@
+## 2026-11-22 — Initialize the DHCP policy header binding in the MTU checker
+
+- Parent main SHA: `0a21e8adab28787b58fc795c58d4a75f0c46c3cf`. Exact 874 HTTPD #45002311801 and AI docs #45002311684 PASS; 874 WAN route #45002311669 exposed a checker header-binding issue.
+- Commit 0a switched the helper extractor to `DHCP_POLICY` but omitted loading that variable. Exact 0a WAN route #45002417816 was queued at last poll; the first 874 route run had already shown the owning header is `dhcp_lease_policy.h`.
+- THIS COMMIT adds the missing `DHCP_POLICY = (RC / "dhcp_lease_policy.h").read_text()` binding. No production source change; exact-head route/AI reruns pending. a5 XY-C1 #45002087905 remained in Build at last detailed poll; no L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Load the DHCP option parser contract from its owning header
 
 - Parent main SHA: `874278785995f29628f39cad26d03e6d0054758c`. Exact 874 HTTPD #45002311801 and AI handoff #45002311684 PASS.
