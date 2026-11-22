@@ -199,11 +199,17 @@ aliddns_config_fingerprint () {
 
 aliddns_get_status () {
 
-A_restart=`nvram get aliddns_status`
-  B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1
+aliddns_nvram_read_checked aliddns_status || return $?
+A_restart=$aliddns_nvram_value
+B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1
 if [ "$A_restart" != "$B_restart" ] ; then
-	nvram set aliddns_status=$B_restart
-	needed_restart=1
+	if nvram set aliddns_status="$B_restart"; then
+		needed_restart=1
+	else
+		aliddns_nvram_status=$?
+		logger -t "AliDDNS" "NVRAM fingerprint update failed (status=$aliddns_nvram_status)"
+		return "$aliddns_nvram_status"
+	fi
 else
 	needed_restart=0
 fi

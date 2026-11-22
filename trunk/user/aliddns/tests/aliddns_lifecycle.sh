@@ -32,6 +32,7 @@ extract_function() {
 extract_function "aliddns_interval_normalize() {"
 extract_function "aliddns_nvram_read_checked() {"
 extract_function "aliddns_enable_initialize() {"
+extract_function "aliddns_get_status () {"
 extract_function "aliddns_lifecycle_lock_path() {"
 extract_function "aliddns_lifecycle_lock_prepare() {"
 extract_function "aliddns_lifecycle_lock_execute() {"
@@ -78,6 +79,10 @@ NVRAM_ENABLE_VALUE=1
 NVRAM_READ_FAIL_KEY=
 NVRAM_READ_STATUS=61
 NVRAM_SET_STATUS=0
+NVRAM_STATUS_VALUE=stored-fingerprint
+NVRAM_STATUS_SET_STATUS=0
+NVRAM_STATUS_WRITES="$TEST_DIR/nvram-status-writes"
+: > "$NVRAM_STATUS_WRITES"
 NVRAM_WRITES="$TEST_DIR/nvram-writes"
 NVRAM_LOG="$TEST_DIR/nvram-read.log"
 : > "$NVRAM_WRITES"
@@ -91,6 +96,14 @@ nvram() {
 		"get_checked aliddns_interval")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_interval ] || return "$NVRAM_READ_STATUS"
 			printf '%s\n' "300"
+			;;
+		"get_checked aliddns_status")
+			[ "$NVRAM_READ_FAIL_KEY" != aliddns_status ] || return "$NVRAM_READ_STATUS"
+			printf '%s\n' "$NVRAM_STATUS_VALUE"
+			;;
+		"set aliddns_status=fixture-fingerprint")
+			printf '%s\n' "$*" >> "$NVRAM_STATUS_WRITES"
+			return "$NVRAM_STATUS_SET_STATUS"
 			;;
 		"set aliddns_enable=0")
 			printf '%s\n' "$*" >> "$NVRAM_WRITES"
@@ -151,6 +164,51 @@ fi
 [ "$nvram_status" -eq 63 ] || { echo "interval read status changed to $nvram_status" >&2; exit 1; }
 [ "$(wc -l < "$NVRAM_WRITES" | tr -d ' ')" -eq 1 ] || { echo "interval read failure caused another NVRAM write" >&2; exit 1; }
 echo "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS"
+
+aliddns_config_fingerprint() { printf '%s\n' "fixture-fingerprint"; }
+
+# Unknown persisted fingerprint state must not be mistaken for a first boot.
+NVRAM_READ_FAIL_KEY=aliddns_status
+NVRAM_READ_STATUS=64
+NVRAM_STATUS_VALUE=stored-fingerprint
+NVRAM_STATUS_SET_STATUS=0
+: > "$NVRAM_STATUS_WRITES"
+needed_restart=7
+if aliddns_get_status; then
+	echo "AliDDNS accepted a failed fingerprint NVRAM read" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 64 ] || { echo "fingerprint read error status changed to $nvram_status" >&2; exit 1; }
+[ "$needed_restart" = "7" ] || { echo "fingerprint read error changed the restart decision" >&2; exit 1; }
+[ ! -s "$NVRAM_STATUS_WRITES" ] || { echo "fingerprint read error overwrote persisted state" >&2; exit 1; }
+
+# A failed fingerprint write must not publish a restart decision as persisted.
+NVRAM_READ_FAIL_KEY=
+NVRAM_STATUS_SET_STATUS=65
+needed_restart=7
+if aliddns_get_status; then
+	echo "AliDDNS accepted a failed fingerprint NVRAM write" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 65 ] || { echo "fingerprint write error status changed to $nvram_status" >&2; exit 1; }
+[ "$needed_restart" = "7" ] || { echo "fingerprint write error changed the restart decision" >&2; exit 1; }
+[ "$(cat "$NVRAM_STATUS_WRITES")" = "set aliddns_status=fixture-fingerprint" ] || { echo "failed fingerprint write was not recorded exactly once" >&2; exit 1; }
+
+# Matching and successfully updated fingerprints keep the legacy decisions.
+: > "$NVRAM_STATUS_WRITES"
+NVRAM_STATUS_SET_STATUS=0
+NVRAM_STATUS_VALUE=fixture-fingerprint
+aliddns_get_status || { echo "matching fingerprint read failed" >&2; exit 1; }
+[ "$needed_restart" = "0" ] || { echo "matching fingerprint requested a restart" >&2; exit 1; }
+NVRAM_STATUS_VALUE=stored-fingerprint
+aliddns_get_status || { echo "changed fingerprint was not handled" >&2; exit 1; }
+[ "$needed_restart" = "1" ] || { echo "changed fingerprint did not request a restart" >&2; exit 1; }
+[ "$(cat "$NVRAM_STATUS_WRITES")" = "set aliddns_status=fixture-fingerprint" ] || { echo "fingerprint update was not persisted" >&2; exit 1; }
+echo "AliDDNS fingerprint NVRAM read/write failures preserve the last-known restart state: PASS"
 
 logger() {
 	:

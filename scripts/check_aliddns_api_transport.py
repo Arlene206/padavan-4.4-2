@@ -299,6 +299,7 @@ for marker in (
     "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS",
     "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS",
     "AliDDNS enable and interval NVRAM read failures do not overwrite configured values: PASS",
+    "AliDDNS fingerprint NVRAM read/write failures preserve the last-known restart state: PASS",
 ):
     require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and
@@ -570,6 +571,12 @@ require("B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || 
         "restart state must use one unambiguous fingerprint and fail closed on hash errors")
 require("aliddns_get_status || return 1" in check_body,
         "lifecycle check must not restart with an unknown configuration fingerprint")
+status_reader = function_body(source, "aliddns_get_status () {")
+require("aliddns_nvram_read_checked aliddns_status || return $?" in status_reader and
+        "A_restart=$aliddns_nvram_value" in status_reader and
+        'if nvram set aliddns_status="$B_restart"; then' in status_reader and
+        'return "$aliddns_nvram_status"' in status_reader,
+        "fingerprint read/write errors must not publish an unknown restart decision")
 require("aliddns_config_fingerprint.sh" in workflow and
         "AliDDNS unambiguous configuration fingerprint regression: PASS" in
         (ROOT / "scripts/test_aliddns_config_fingerprint.sh").read_text(),
