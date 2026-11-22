@@ -148,6 +148,9 @@ assert "static_gateway_status != 0" in policy
 assert "return static_gateway_status;" in policy
 assert "route_status_idempotent_add(EEXIST) == 0" in test
 assert "route_status_idempotent_add(EHOSTUNREACH) == EHOSTUNREACH" in test
+viptv_deconfig = c_function_body(policy, "dhcp_lease_viptv_deconfig_apply(")
+assert "dhcp_lease_deconfig_status(route_status, interface_status, 0, 0)" in compact(viptv_deconfig)
+assert "dhcp_lease_deconfig_status(route_status, interface_status, 0);" not in viptv_deconfig
 
 deconfig_start = lan.index("udhcpc_lan_deconfig(char *lan_ifname)")
 deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)

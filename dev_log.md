@@ -4,7 +4,7 @@
 - Source audit found `lan_down_auto()` deleted the active DHCP default route and restored the configured static LAN address, but never re-added the configured static `lan_gateway`. This left AP-mode LAN without its configured fallback default route after a lease deconfig. The manual/static bring-up path already installs that same route.
 - Added a checked/idempotent static gateway route restore after successful interface-address restoration. `EEXIST` is accepted for DECONFIG_PENDING retries; other route-add failures are returned before clearing the last-known-good lease metadata, allowing BusyBox to retry. Resolver/hosts cleanup still proceeds and preserves first-error semantics.
 - Expanded the GNU89 policy regression to prove route-restore failure blocks deconfig commit and resolver errors remain lower priority; expanded the source checker to pin route-add ordering and fail-closed metadata publication.
-- Exact WAN DHCP callback regression and production-source XY-C1 Build/TRX/artifact have not run on this commit yet. No L2/L3/L4 claim until those exact-head checks finish.
+- Exact WAN DHCP callback run #44980800615 on this SHA FAILED at compile time: the new four-argument shared deconfig helper had one old three-argument IPTV caller at `dhcp_lease_policy.h:628`. The companion LAN DHCP policy and source-contract checks did not run. This follow-up corrects that caller and pins it in `scripts/check_lan_dhcp_deconfig.py`; exact rerun pending. XY-C1 #44980800690 on the same source SHA failed (log review pending). No L2/L3/L4 claim until same-SHA host tests and Build/TRX/artifact pass.
 
 ---
 

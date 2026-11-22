@@ -625,7 +625,7 @@ dhcp_lease_viptv_deconfig_apply(
 	/* A failed interface clear must not suppress independent route cleanup. */
 	interface_status = ops->clear_address(context);
 	route_status = ops->delete_routes(context);
-	status = dhcp_lease_deconfig_status(route_status, interface_status, 0);
+	status = dhcp_lease_deconfig_status(route_status, interface_status, 0, 0);
 	if (status != 0)
 		return status;
 
