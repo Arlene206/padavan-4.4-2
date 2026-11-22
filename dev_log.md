@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve LAN teardown cleanup identity read failures
+
+- Parent main SHA: `f475d1f3d10d8e7eb8cd028520aa57704a8d6062`. `stop_lan()` still used lossy `nvram_safe_get()` for two teardown-critical identities. AP mode copied `lan_gateway_t` before pausing the WAN detector; a failed read looked like an empty gateway and could skip deleting the installed default route. Router mode used `lan_ipaddr_t` to scope conntrack flush; a failed read silently skipped cleanup and left `conntrack_status == 0`, allowing teardown to report success.
+- AP mode now performs a checked bounded gateway snapshot before any pause/stop side effects and aborts with the exact read status. Router mode checked-copies the old address; on read error it records the error as conntrack cleanup status but continues static-route, IPv6 and bridge cleanup, preserving independent teardown progress.
+- Added cache-overwrite and backend-failure regressions, plus Process source-order checks for AP preflight and router cleanup aggregation. Process/XY-C1 exact-head runs pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align WAN callback inline contract with checked hostname reads
 
 - Parent main SHA: `fc0b17fd3c1f7b72fada4929ec1160ebe0ce3844`. Exact WAN DHCP callback run [45010147937](https://github.com/Arlene206/padavan-4.4-2/actions/runs/45010147937) passed all twenty earlier regression/source steps, including LAN deconfig, DHCP dltime and MTU-withdrawal contracts, then failed in the final inline source contract at Python line 7. The only failing assertion still required the removed combined `!lan_hname || !is_valid_hostname(lan_hname)` expression in `net_lan.c`.

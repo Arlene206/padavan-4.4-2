@@ -1659,6 +1659,7 @@ stop_lan(int is_ap_mode)
 {
 	int conntrack_status = 0, route_status = 0, ipv6_status = 0;
 	int ap_dhcp_stop_status = -1;
+	int gateway_status;
 	char ap_gateway[16] = "";
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
@@ -1667,8 +1668,16 @@ stop_lan(int is_ap_mode)
 
 		/* Save the installed AP default-route identity before the DHCP
 		 * deconfig callback can update its temporary NVRAM metadata. */
-		snprintf(ap_gateway, sizeof(ap_gateway), "%s",
-			 nvram_safe_get("lan_gateway_t"));
+		gateway_status = rc_wan_nvram_copy_value(
+			lan_nvram_get_checked, NULL, "lan_gateway_t",
+			ap_gateway, sizeof(ap_gateway));
+		if (gateway_status != 0) {
+			errno = gateway_status;
+			logmessage(LOGNAME,
+				   "cannot read AP gateway before LAN teardown (status=%d)",
+				   gateway_status);
+			return gateway_status;
+		}
 
 		pause_status = notify_pause_detect_internet();
 		if (pause_status != 0) {
@@ -1721,10 +1730,23 @@ stop_lan(int is_ap_mode)
 			}
 		}
 	} else {
-		char *lan_ip = nvram_safe_get("lan_ipaddr_t");
+		char lan_ip[16];
+		int lan_ip_status;
 
-		/* flush conntrack table (only old LAN IP records) */
-		if (is_valid_ipv4(lan_ip)) {
+		/*
+		 * A failed read must not turn conntrack cleanup into a false
+		 * success. Retain the error but continue independent teardown.
+		 */
+		lan_ip_status = rc_wan_nvram_copy_value(
+			lan_nvram_get_checked, NULL, "lan_ipaddr_t",
+			lan_ip, sizeof(lan_ip));
+		if (lan_ip_status != 0) {
+			errno = lan_ip_status;
+			conntrack_status = lan_ip_status;
+			logmessage(LOGNAME,
+				   "cannot read old LAN address for conntrack cleanup (status=%d)",
+				   lan_ip_status);
+		} else if (is_valid_ipv4(lan_ip)) {
 			conntrack_status = flush_conntrack_table(lan_ip);
 			if (conntrack_status != 0)
 				logmessage(LOGNAME, "LAN conntrack cleanup failed (status=%d)",

@@ -989,6 +989,25 @@ assert "if (wait_status != 0)" in lan_dhcp_stop
 assert "refusing LAN DHCP stop: deconfig grace wait failed" in lan_dhcp_stop
 assert "usleep(300000)" not in lan_dhcp_stop
 assert lan_pause < lan_preflight < lan_preflight_failure < lan_preflight_resume < lan_preflight_return < lan_ifdown
+
+lan_stop_compact = "".join(lan_stop_transaction.split())
+assert "intgateway_status;" in lan_stop_compact
+assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked,NULL,"lan_gateway_t",ap_gateway,sizeof(ap_gateway))' in lan_stop_compact
+ap_gateway_read = lan_stop_compact.index('"lan_gateway_t"')
+ap_gateway_error = lan_stop_compact.index("if(gateway_status!=0)", ap_gateway_read)
+ap_gateway_return = lan_stop_compact.index("returngateway_status;", ap_gateway_error)
+assert ap_gateway_read < ap_gateway_error < ap_gateway_return < lan_stop_compact.index("notify_pause_detect_internet()")
+assert 'nvram_safe_get("lan_gateway_t")' not in lan_stop_transaction
+assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked,NULL,"lan_ipaddr_t",lan_ip,sizeof(lan_ip))' in lan_stop_compact
+assert 'nvram_safe_get("lan_ipaddr_t")' not in lan_stop_transaction
+router_ip_read = lan_stop_compact.index('"lan_ipaddr_t"')
+router_ip_error = lan_stop_compact.index("if(lan_ip_status!=0)", router_ip_read)
+router_ip_record = lan_stop_compact.index("conntrack_status=lan_ip_status;", router_ip_error)
+router_route_cleanup = lan_stop_compact.index("route_status=clear_if_route4(IFNAME_BR);", router_ip_record)
+router_interface_down = lan_stop_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);", router_route_cleanup)
+assert router_ip_read < router_ip_error < router_ip_record < router_route_cleanup < router_interface_down
+assert "test_stop_lan_ap_gateway_snapshot_survives_cache_reuse" in bridge_init_regression
+assert "test_stop_lan_router_address_read_failure_is_preserved" in bridge_init_regression
 assert lan_preflight_failure < lan_preflight_resume < lan_preflight_return < lan_ifdown
 print("AP LAN detect_internet pause rollback on failed teardown: PASS")
 

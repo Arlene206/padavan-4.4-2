@@ -35,6 +35,8 @@ fake_bridge_nvram_get(void *opaque, const char *param_name, char **value)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "255.255.255.0");
 	else if (strcmp(param_name, "lan_gateway") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "192.0.2.1");
+	else if (strcmp(param_name, "lan_gateway_t") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "192.0.2.1");
 	else if (strcmp(param_name, "lan_dns1") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "8.8.8.8");
 	else if (strcmp(param_name, "lan_dns2") == 0)
@@ -60,6 +62,42 @@ fake_bridge_nvram_get(void *opaque, const char *param_name, char **value)
 	*value = fake->cache;
 	return 1;
 }
+
+static void
+test_stop_lan_ap_gateway_snapshot_survives_cache_reuse(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char ap_gateway[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_gateway_t", ap_gateway,
+				       sizeof(ap_gateway)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_ipaddr_t", fake.cache,
+				       sizeof(fake.cache)) == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.cache, "192.0.2.10") == 0);
+	assert(strcmp(ap_gateway, "192.0.2.1") == 0);
+}
+
+static void
+test_stop_lan_router_address_read_failure_is_preserved(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char lan_ip[16] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.failure_status = EACCES;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_ipaddr_t", lan_ip,
+				       sizeof(lan_ip)) == EACCES);
+	assert(fake.calls == 1);
+	assert(lan_ip[0] == '\0');
+}
+
 
 static void
 test_bridge_lan_hwaddr_cache_copy_is_stable(void)
@@ -356,6 +394,8 @@ main(void)
 	test_udpxy_launch_options_are_owned_across_reads();
 	test_hostname_fallback_is_owned_across_cache_reuse();
 	test_xupnpd_lan_address_is_owned_across_port_reads();
+	test_stop_lan_ap_gateway_snapshot_survives_cache_reuse();
+	test_stop_lan_router_address_read_failure_is_preserved();
 	test_bridge_lan_hwaddr_cache_copy_is_stable();
 	test_start_lan_nvram_snapshot_owns_all_values();
 	test_update_hosts_ap_nvram_snapshot_owns_all_values();
