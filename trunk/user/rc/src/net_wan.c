@@ -5833,10 +5833,19 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 #if defined (USE_USB_SUPPORT)
 			case 3:
 				if (get_modem_devnum()) {
-					int priority_status;
+					int priority_status, modem_identity_status;
+					int is_modem_wan = 0;
 
+					modem_identity_status = get_usb_modem_wan_status(
+						0, &is_modem_wan);
+					if (modem_identity_status != 0) {
+						logmessage(LOGNAME,
+							   "cannot read modem WAN identity before automatic reconnect (status=%d)",
+							   modem_identity_status);
+						break;
+					}
 					priority_status = wan_nvram_int_status(
-						"modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
+						"modem_prio", is_modem_wan ? 0 : 1);
 					if (priority_status != 0) {
 						logmessage(LOGNAME,
 							   "cannot publish modem priority before automatic WAN reconnect (status=%d)",
@@ -5874,6 +5883,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	int lock, dns_static, dns_static_status, resolv_changed = 0;
 	int dns_restart_status;
 	int dns_servers_ready = 1, dns_servers_error = 0, saved_errno, validation_errno;
+	int modem_identity_status, is_modem_wan = 0;
 
 	if (!is_first_run && fill_dnsmasq_servers() != 0) {
 		saved_errno = errno ? errno : EIO;
@@ -6049,9 +6059,16 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		return saved_errno;
 	}
 
-	/* force notify dnsmasq for modem */
-	if (!resolv_changed && get_usb_modem_wan(0))
+	/* Force a cache reload for modems and when modem identity is unknown. */
+	modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
+	if (modem_identity_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read modem WAN identity while publishing resolver; forcing DNSMasq reload (status=%d)",
+			   modem_identity_status);
 		resolv_changed = 1;
+	} else if (!resolv_changed && is_modem_wan) {
+		resolv_changed = 1;
+	}
 
 	/* Notify DNSMasq only on a complete process snapshot. A failed legacy
 	 * pids() scan is indistinguishable from ABSENT and can leave stale caches. */
@@ -6489,11 +6506,17 @@ static int
 get_wan_dns_static_status(int *is_static)
 {
 	int unit = 0, api_result, saved_errno, status, dns_enabled, wan_proto;
+	int is_usb_modem = 0;
 	char *stored_value = NULL;
 
 	if (!is_static)
 		return EINVAL;
-	if (get_usb_modem_wan(unit)) {
+	status = get_usb_modem_wan_status(unit, &is_usb_modem);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	if (is_usb_modem) {
 		/* The legacy nvram_match() default for an absent key is false. */
 		*is_static = 0;
 		errno = 0;
@@ -6575,7 +6598,11 @@ get_wan_ifname(char wan_ifname[16])
 		return status;
 	}
 
-	is_usb_modem = get_usb_modem_wan(unit);
+	status = get_usb_modem_wan_status(unit, &is_usb_modem);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
 	if (is_usb_modem) {
 		status = get_wan_modem_is_ndis_status(&is_ndis_modem);
 		if (status != 0) {
@@ -6619,7 +6646,7 @@ in_addr_t
 get_wan_ip4(int only_broadband_wan)
 {
 	int unit = 0;
-	int status, is_ap_mode, wan_proto;
+	int status, is_ap_mode, is_usb_modem = 0, wan_proto;
 	char man_ifname[16], ifname_temp[16];
 	char *man_ifname_value;
 	const char *ifname = man_ifname;
@@ -6638,7 +6665,14 @@ get_wan_ip4(int only_broadband_wan)
 	if (status != 0)
 		return INADDR_ANY;
 
-	if (!only_broadband_wan && get_usb_modem_wan(unit)) {
+	if (!only_broadband_wan) {
+		status = get_usb_modem_wan_status(unit, &is_usb_modem);
+		if (status != 0) {
+			errno = status;
+			return INADDR_ANY;
+		}
+	}
+	if (!only_broadband_wan && is_usb_modem) {
 		ifname = ifname_temp;
 	} else {
 		status = get_wan_unit_proto_checked_status(unit, &wan_proto);

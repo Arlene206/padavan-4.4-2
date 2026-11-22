@@ -201,7 +201,7 @@ require(
 
 
 static_down_start = down_hook.index(
-    "if (!modem_unit_id && proto_status == 0 &&"
+    "if (modem_status == 0 && !modem_unit_id && proto_status == 0 &&"
 )
 static_down = down_hook[static_down_start:].split(
     "/* Flush conntrack only when the checked previous WAN address is valid. */", 1

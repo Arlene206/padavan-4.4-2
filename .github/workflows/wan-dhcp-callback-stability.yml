@@ -456,7 +456,7 @@ jobs:
                   "get_usb_modem_wan(unit)" not in callback_compact and
                   "is_ifunit_modem(wan_ifname,unit)" not in callback_compact), (
                   "WAN DHCP bound must reject unknown modem identity before snapshot/interface mutation")
-          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
           assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in viptv_bound
           apply = callback.index("dhcp_wan_interface_apply(")

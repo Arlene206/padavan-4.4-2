@@ -1,3 +1,13 @@
+## 2026-11-22 — Remove final lossy modem selectors from WAN resolver and address paths
+
+- Parent main SHA: 2ea191e751da5bbf4c6cdfb76a76e7324314168a. On exact source SHA 2ea191e751da5bbf4c6cdfb76a76e7324314168a, AI handoff #44970372450 passed. WAN route #44970372464 failed in scripts/check_wan_dns_read_status.py line 334 due a duplicated print() statement; all compiled route/policy steps 3–10 passed. WAN DHCP #44970372463 failed at embedded Python line 207 due a duplicated viptv_bound assignment; all preceding DHCP policy/compile/order checks 3–19 passed.
+- Replaced the last five get_usb_modem_wan() calls in net_wan.c: automatic reconnect priority now refuses to queue on unknown identity; resolver publication forces DNSMasq refresh if identity is unknown; static DNS mode, WAN interface selection and WAN IPv4 lookup all use the status API and propagate failures.
+- Removed direct legacy selector consumers from net_wan.c entirely while keeping the shared legacy boolean ABI wrapper for compatibility. Updated source contracts for identity/error ordering, fixed the two duplicated Python lines, and changed the stale static-IPoE teardown assertion in check_wan_detect_wan_status.py.
+- New exact-head USB identity, WAN route, WAN DHCP and XY-C1 Build/TRX/artifact results are pending; no firmware pass is claimed.
+- Next: search the wider RC userland for direct legacy selector calls and migrate only lifecycle-sensitive consumers with focused tests.
+
+---
+
 ## 2026-11-22 — Align WAN identity lifecycle source contracts
 
 - Parent main SHA: `05aebf7d3bf2242fd967cb825a928693f120a545`.

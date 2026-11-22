@@ -28,10 +28,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- WAN protocol hardening and the XY-C1 array-reset compile fix remain in the product tree; exact XY-C1 Build/TRX/artifact previously passed on `02857320194ebdda3b451ea3d6de07fa212995c0`.
-- Checked modem identity source migration is now present: `get_usb_modem_wan_status()` reads `wanN_modem_dev` via `nvram_get_checked()`, and `is_ifunit_modem_status()` is used by WAN-up/DHCP paths to distinguish identity-read errors from “not a modem”.
-- This checker slice updates WAN-up and DHCP source contracts to bind the status variable, require the error return before state mutation, and verify both checked modem_dev and checked `ifname_t`. The DHCP checker imports `re` inside its Python heredoc, not at YAML document scope.
-- Next: inspect exact-head Actions/XY-C1, then migrate the remaining modem identity reads in stop, MAN routes, manual disconnect, reconnect priority and DNS selection.
+- The checked selector API and status classifier are now wired through WAN-up/down, DHCP bound, WAN start/stop, MAN route add/remove and manual disconnect. This slice removes the final five lossy boolean selector calls from `net_wan.c`: reconnect priority, resolver refresh, modem DNS mode, WAN interface selection and WAN IPv4 lookup. Unknown identity is now explicitly propagated or handled conservatively; the legacy ABI wrapper remains in shared code for other compatibility callers.
+- Exact source `2ea191e751da5bbf4c6cdfb76a76e7324314168a` failed WAN route #44970372464 due duplicated `print(...)` syntax in `scripts/check_wan_dns_read_status.py:334`; all compiled route/policy steps 3–10 passed. WAN DHCP #44970372463 failed step 20 with a duplicated `viptv_bound = body(...)` line in the embedded Python; all prior policy/build/order checks 3–19 passed. AI handoff docs #44970372450 passed. This commit fixes both syntax defects and updates the remaining selector contracts.
+- Exact XY-C1 Build/TRX/artifact status from the older `7e8aee...` run remains to be polled; do not infer a pass for newer SHAs.
 
 ## Verification boundary
 
@@ -42,9 +41,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN route, DHCP callback, USB modem identity, process lifecycle and XY-C1 runs for this commit; fix any reproduced source/checker/compiler failure.
-2. Review remaining direct `get_usb_modem_wan()` consumers in `stop_wan_locked()`, MAN routes, manual disconnect, reconnect priority, resolver refresh, WAN DNS status, interface selection and IP lookup.
-3. Migrate remaining readers with conservative error handling and regression coverage, retaining independent teardown cleanup.
+1. Verify exact-head WAN route, DHCP callback, USB identity, WAN teardown and XY-C1 Build/TRX/artifact checks for this commit.
+2. Search all RC userland sources for direct `get_usb_modem_wan()` callers; migrate remaining lifecycle-sensitive consumers outside `net_wan.c` to the status API, retaining the legacy wrapper only where compatibility requires it.
+3. Expand regressions for resolver publication, reconnect priority and checked interface/address getters, then tackle the next independent stability defect.
 
 ## Workflow and preservation rules
 

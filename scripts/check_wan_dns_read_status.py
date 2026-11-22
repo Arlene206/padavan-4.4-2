@@ -172,8 +172,12 @@ for token in ("rc_wan_nvram_read_status(api_result, saved_errno)",
     require(token in read_int, "checked read policy missing " + token)
 
 dns_status = body(source, "get_wan_dns_static_status(int *is_static)")
-require('nvram_get_checked("modem_dnsa", &stored_value)' in dns_status,
-        "USB modem DNS mode must use checked reads")
+require("get_usb_modem_wan_status(unit, &is_usb_modem)" in dns_status and
+        "if (status != 0)" in dns_status and
+        dns_status.index("get_usb_modem_wan_status(unit, &is_usb_modem)") <
+        dns_status.index('nvram_get_checked("modem_dnsa", &stored_value)') and
+        'nvram_get_checked("modem_dnsa", &stored_value)' in dns_status,
+        "USB modem DNS mode must check modem identity before modem-specific NVRAM")
 require('get_wan_unit_value_int_status(unit, "dnsenable_x", &dns_enabled)' in dns_status,
         "WAN DNS mode must use checked integer reads")
 legacy_dns = body(source, "get_wan_dns_static(void)")
@@ -210,6 +214,12 @@ require("del_dhcp_routes_by_prefix(prefix,wan_ifname,0)" in wan_down and
         "WAN down route, resolver and conntrack cleanup must remain after protocol errors")
 
 resolver = body(source, "update_resolvconf(int is_first_run, int do_not_notify)")
+resolver_compact = "".join(resolver.split())
+resolver_identity = "modem_identity_status=get_usb_modem_wan_status(0,&is_modem_wan)"
+require(resolver_identity in resolver_compact and
+        "if(modem_identity_status!=0)" in resolver_compact and
+        "resolv_changed=1;" in resolver_compact,
+        "resolver publication must force DNSMasq refresh when modem identity is unknown")
 for token in ("get_wan_dns_static_status(&dns_static)", "file_unlock(lock)",
               "errno = dns_static_status", "return dns_static_status"):
     require(token in resolver, "resolver error path missing " + token)
@@ -331,7 +341,7 @@ require(identity_error in wan_up_protocol and identity_return in wan_up_protocol
         wan_up_protocol.index("set_wan_unit_value(unit,\"uptime\"") and
         "is_ifunit_modem(wan_ifname,unit)" not in wan_up_protocol,
         "WAN-up must fail closed on unreadable modem identity before protocol/runtime changes")
-print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
+print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
 
 
 # Per-unit WAN protocol must be copied with one checked NVRAM transaction.
@@ -484,8 +494,9 @@ require("man_ifname_value=get_man_ifname(unit)" in wan_ifname and
         "rc_wan_nvram_copy_text(man_ifname_value,man_ifname,sizeof(man_ifname))" in wan_ifname,
         "management interface name must be copied before another NVRAM read")
 require("get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ifname and
-        "is_usb_modem=get_usb_modem_wan(unit)" in wan_ifname,
-        "WAN temporary interface name must be checked and copied before modem selection")
+        "status=get_usb_modem_wan_status(unit,&is_usb_modem)" in wan_ifname and
+        "if(status!=0){errno=status;returnstatus;}" in wan_ifname,
+        "WAN temporary interface name and modem identity must be checked before transport selection")
 assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ifname
 
 wan_ip4 = "".join(body(source, "get_wan_ip4(int only_broadband_wan)").split())
@@ -493,8 +504,9 @@ require("rc_wan_nvram_copy_text(man_ifname_value,man_ifname,sizeof(man_ifname))"
         "get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ip4,
         "WAN IP lookup must copy cache-backed interface names before later NVRAM reads")
 require("if(status!=0)returnINADDR_ANY" in wan_ip4 and
-        "if(!only_broadband_wan&&get_usb_modem_wan(unit))" in wan_ip4,
-        "WAN IP lookup must fail closed if interface identity cannot be copied")
+        "status=get_usb_modem_wan_status(unit,&is_usb_modem)" in wan_ip4 and
+        "if(!only_broadband_wan&&is_usb_modem)" in wan_ip4,
+        "WAN IP lookup must fail closed on modem identity errors")
 assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ip4
 require("test_wan_interface_names_survive_shared_cache_overwrite" in test,
         "WAN interface-name cache overwrite regression missing")
@@ -525,6 +537,15 @@ require(ip4_proto_read in wan_ip4 and
         ip4_proto_read_at < ip4_proto_error_at < wan_ip4.index("get_interface_addr4(ifname)") and
         "get_wan_proto(unit)" not in wan_ip4,
         "WAN IP lookup must fail closed when protocol identity is unreadable")
+
+require("get_usb_modem_wan(" not in source,
+        "WAN networking code must not consume the lossy legacy modem boolean API")
+
+reconnect = "".join(body(source, "notify_on_internet_state_changed(int has_internet, long elapsed)").split())
+reconnect_read = "modem_identity_status=get_usb_modem_wan_status(0,&is_modem_wan)"
+require(reconnect_read in reconnect and "if(modem_identity_status!=0)" in reconnect and
+        reconnect.index(reconnect_read) < reconnect.index('queue_internet_lost_action("auto_wan_reconnect"'),
+        "automatic reconnect must not publish modem priority after an identity read error")
 
 link_restored = "".join(body(source, "notify_on_wan_ether_link_restored(void)").split())
 link_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
