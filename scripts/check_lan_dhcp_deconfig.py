@@ -410,7 +410,20 @@ for marker in (
 host_start = lan.index("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
 host_end = lan.index("\nint\nupdate_hosts_ap", host_start)
 host_body = lan[host_start:host_end]
-assert "!lan_hname || !is_valid_hostname(lan_hname)" in host_body
+assert "char *lan_hname;" in host_body
+assert "lan_hname = get_our_hostname();" in host_body
+assert "if (!lan_hname)" in host_body
+assert "saved_errno = errno ? errno : EIO;" in host_body
+assert "return saved_errno;" in host_body
+assert "!lan_hname || !is_valid_hostname(lan_hname)" not in host_body
+host_body_compact = compact(host_body)
+hostname_read = host_body_compact.index("lan_hname = get_our_hostname();")
+hostname_missing = host_body_compact.index("if (!lan_hname)", hostname_read)
+hostname_saved = host_body_compact.index("saved_errno = errno ? errno : EIO;", hostname_missing)
+hostname_return = host_body_compact.index("return saved_errno;", hostname_saved)
+assert hostname_read < hostname_missing < hostname_saved < hostname_return
+assert hostname_return < host_body_compact.index("get_ipv6_type_status(")
+assert hostname_return < host_body_compact.index("dnsmasq_file_open(hostname_temp)")
 assert "lan_kernel_names_apply(lan_hname, lan_dname," in host_body
 assert "lan_sethostname_status" in lan
 assert "sethostname(name, length)" in lan

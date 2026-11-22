@@ -1,3 +1,11 @@
+## 2026-11-22 17:55 CST (UTC+8) — Align LAN DHCP deconfig checker with hostname error propagation
+
+- Parent main SHA: `c15848a370ea022288217c9c1a9e298989233152`. Exact WAN DHCP callback push run [45009805732](https://github.com/Arlene206/padavan-4.4-2/actions/runs/45009805732) passed the USB identity, interface-name, DHCP lease and WAN NVRAM host-regression executables, then failed in `scripts/check_lan_dhcp_deconfig.py:413`. The checker still required the pre-fix combined condition `!lan_hname || !is_valid_hostname(lan_hname)`.
+- The current `create_hosts_lan()` correctly treats a NULL hostname as a checked NVRAM read failure: it preserves `errno` (fallback `EIO`) and returns before IPv6 probing or stage-file creation; only present hostname text reaches `is_valid_hostname()`. Updated the Python contract to enforce that error-preserving order and forbid the stale combined condition. No production source behavior changed.
+- Actions already passed the preceding GNU89/ASan/UBSan C tests on exact SHA `c15848a370ea022288217c9c1a9e298989233152`; the Python contract itself failed as above. Local checkout unavailable; exact-head rerun pending. XY-C1, Process lifecycle and NVRAM audit for this exact SHA were still in progress at last inspection; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Correct WAN DHCP fallback-netmask regression contract
 
 - Parent main SHA: `1f47c1c34aab6888b3740e4ce6f5625bcaf8254c`. The new WAN DHCP test had a test-only overlapping source/destination buffer in its fake shared-cache reader; changed subsequent reads to a separate destination so the regression models cache overwrite without relying on overlapping `memcpy` behavior.

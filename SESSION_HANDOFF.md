@@ -5,12 +5,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; development remains on `main` at `4c0906ac9c8c79eb5e6f4119a002578366fd539d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- NFS export ACL cache-ownership fix `67514d707a91ac3e34bd513032a6a85a29e0f2d3`: exact NFS start/reload workflow #45006783321 PASS.
-- WAN DHCP hostname/VCI cache-ownership fix `01ccfa38a77c2d54327a7c96dfd9c8e4c10cfe26`: exact WAN DHCP callback #45006965680 PASS; broad fan-out PASS including Wireless, router mode, Firewall Startup, HTTPD security, WAN route, ZeroTier, miniupnpd, watchdog, Process, DNSMasq, Samba, USB modem, VPN and link-detection suites. NVRAM audit #45006965617 PASS.
-- IPv6 service-type NFS ordering checker correction `789ca3e5000e677f3e3c9e46609f64e9e771b469`: exact IPv6 #45007160869 and AI docs #45007160819 PASS.
-- DHCP route snapshot production fix `d1cd34322e3ce8058cf7fc363fbabaa8b4696247` uses one checked transaction snapshot for `routes/routes_rfc/routes_ms`. Follow-up `4c0906ac9c8c79eb5e6f4119a002578366fd539d` corrected the optional-missing regression expectation; exact 4c WAN route #45007745240 then passed compilation and the shared WAN NVRAM policy suite but failed later in DDNS source checking because a new inline assertion added a third quoted occurrence of the test path, violating the checker’s push/PR trigger-count contract. The workflow already had both push and pull_request triggers for the test file; THIS CI-only correction reuses the existing `wan_nvram_test` variable.
-- Exact 4c NVRAM audit #45007745300 and Process lifecycle #45007745378 were IN_PROGRESS at last poll. Exact-head fan-out for THIS correction pending. No current L3 claim; Hardware L4 NOT VERIFIED.
+
+- Repository `Arlene206/padavan-4.4-2`; development only on `main`. At this checkpoint, live main is `c15848a370ea022288217c9c1a9e298989233152`. Product baseline includes the WAN DHCP fallback-netmask ownership fix (`0683a3146db2928f7edfe4ad53de757218eaabf9`) and LAN hostname read-error propagation (`1f47c1c34aab6888b3740e4ce6f5625bcaf8254c`); the current `c15848a` commit corrected the fallback-netmask regression harness and inline workflow locator.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only and preserved. Do not modify or delete it.
+- Exact-head push run WAN DHCP callback #45009805732 on `c15848a370ea022288217c9c1a9e298989233152` failed in `scripts/check_lan_dhcp_deconfig.py:413`: its host-publisher assertion expected the old `!lan_hname || !is_valid_hostname(lan_hname)` condition, removed when checked hostname-read errors began propagating. The C host tests preceding this Python checker passed. THIS COMMIT updates that stale checker to require owned status/error handling and to verify the early return precedes IPv6/file side effects.
+- Exact-head `c15848a370ea022288217c9c1a9e298989233152` runs at last check: WAN route #45009805671 PASS; USB modem identity #45009805694 PASS; Samba config #45009805698 PASS; AI handoff docs #45009805645 PASS; Process inventory #45009805649 PASS. WAN DHCP #45009805732 FAILED as above. XY-C1 #45009805734, NVRAM audit #45009805685 and Process lifecycle #45009805651 were IN_PROGRESS. Revisit these after the checker fix. Do not claim L3 until same-product-SHA Build, TRX and artifact upload all pass. Hardware L4 NOT VERIFIED.
+- Required PR #1 preservation inventory remains open: PR #1 is closed/unmerged (`fix(aliddns): verify CA trust-store bootstrap completion`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Inspect its full diff against current main and port only still-valid, target-compatible unmerged changes directly to main; never use its branch or reopen it.
 
 ## Completed source slices
 
@@ -31,15 +31,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- Finish the DHCP route snapshot regression and its workflow contract. The optional missing-key test is now correct: only `routes_rfc` is empty. The 4c run compiled and passed the shared WAN NVRAM policy suite, then a DDNS checker failed because the added path literal increased the trigger-path count from two (push + pull_request) to three.
-- THIS workflow-only correction references the already loaded `wan_nvram_test` content instead of adding a third path literal. The path filters themselves remain present for both push and pull_request.
+
+- Repair the WAN DHCP callback workflow failure on `c15848a370ea022288217c9c1a9e298989233152`. The first stale assertion (fallback-netmask test fixture variable) was corrected in `c15848a`; the next exact-head run now reaches `scripts/check_lan_dhcp_deconfig.py` and fails because that script still expects the old hostname validator expression.
+- THIS COMMIT changes only `scripts/check_lan_dhcp_deconfig.py`: it verifies `get_our_hostname()` failure is returned with its original errno (or `EIO`) before IPv6 probes or staging files, then validates a non-NULL hostname. Product source remains unchanged.
 
 ## Verification boundary
-- Exact d1 source SHA #45007626392 and shared fan-out WAN DHCP #45007626462, USB modem #45007626350, XY-C1 #45007626484 and Process #45007626481 all stopped at the original erroneous missing-route assertion.
-- Exact 4c test-correction SHA: WAN route #45007745240 FAILED only at `Verify WAN DDNS update status propagation`, where the checker counted three occurrences of the test file path. Earlier shared WAN NVRAM policy compile/run and route-related contracts passed. NVRAM audit #45007745300 and Process #45007745378 were IN_PROGRESS at last poll.
-- THIS trigger-count correction needs its exact-head WAN route rerun; all dependent exact-head results remain to be checked. Product L3 not verified; Hardware L4 NOT VERIFIED.
+
+- Exact main SHA `c15848a370ea022288217c9c1a9e298989233152`: WAN DHCP callback #45009805732 reached the shared C regression block; DHCP lease validation and WAN NVRAM policy executables passed, then `scripts/check_lan_dhcp_deconfig.py:413` failed on a stale source assertion. This checker-only correction is THIS COMMIT; corrected exact-head run not yet observed.
+- At the last check, XY-C1 #45009805734, NVRAM audit #45009805685 and Process lifecycle #45009805651 were IN_PROGRESS for `c15848a370ea022288217c9c1a9e298989233152`. Recheck their current exact-head outcomes. L3 requires the same product SHA to pass the full Build / TRX / artifact upload sequence. L4 remains NOT VERIFIED.
+- No local checkout was available for execution; do not claim local tests. The exact Actions log is the evidence for prior C host test execution.
 
 ## Exact first action for the next GPT
-1. Check exact-head WAN route status after the DDNS path-count correction; inspect any next failure and fix its real cause.
-2. Recheck NVRAM audit, Process lifecycle, WAN DHCP, USB modem, and XY-C1 exact-head fan-out for the route snapshot SHA. Claim L3 only if same-SHA Build XY-C1, TRX, and artifact upload all pass.
-3. Continue an independent stability/security defect across userland after route snapshot verification. Hardware L4 remains NOT VERIFIED.
+
+1. Fetch live `main`, then inspect the WAN DHCP callback push run triggered by THIS COMMIT. If it fails, diagnose the first remaining cause and repair the relevant checker/source contract without weakening its semantic checks.
+2. Recheck exact product SHA `c15848a370ea022288217c9c1a9e298989233152`: XY-C1 #45009805734, NVRAM audit #45009805685, and Process lifecycle #45009805651. Verify Build XY-C1, TRX and artifact steps individually.
+3. Complete the required closed PR #1 diff inventory (`ba48e22609e0c81ad757b06756fe91d05f39cbf6`) against current main and port any valid compatible work directly to main.
+4. Resume the next highest-value stability defect from the whole-userland ledger, rotating outside heavily worked RC/HTTPD areas. Hardware L4 remains NOT VERIFIED.
+
