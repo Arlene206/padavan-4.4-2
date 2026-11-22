@@ -1,3 +1,13 @@
+## 2026-11-22 20:10 CST (UTC+8) — Propagate add-account volume metadata initialization errors
+
+- Parent main SHA: a6908c5279bee5071759f8b45da3d1a75f27fd6d. add_account() committed the account to NVRAM, iterated mounted volumes, but ignored every initial_one_var_file_in_mount_path() return value and always reported success. A failed disk write could leave the new account without its permission metadata while the UI/API saw a successful add.
+- It now records the first initialization errno (falling back to EIO), continues initializing every independent mounted volume, frees the disk inventory, reloads Samba, and then returns failure when any volume could not be initialized. The established NVRAM commit ordering and no-mounted-disk behavior are unchanged; this does not claim an NVRAM rollback.
+- Added an exact-source regression contract requiring the initialization result to be checked, all volume attempts to finish, cleanup and Samba reload to occur, and the first error to be returned.
+- Previous exact-head handoff Actions: #45019602967 PASS on a6908c5; libdisk #45019603097 failed because the expected call literal retained whitespace after the actual source was compacted. The follow-up checker correction is included in parent a6908c; its new exact-head libdisk run #45019713462 was QUEUED at last inspection.
+- Exact-head Actions for THIS COMMIT must be fetched after publication. XY-C1 L3 remains unverified until Build, TRX and artifact upload all pass on one identical product-source SHA; hardware L4 remains NOT VERIFIED.
+- Next bounded task: fix del_account()'s account-list length leak and checked per-volume metadata unlink/path handling without silently leaving cleanup failures unreported.
+
+---
 ## 2026-11-22 20:06 CST (UTC+8) — Fix the remaining libdisk source-contract whitespace mismatch
 
 - Parent main SHA: 00e3dd6c9bdfa3e5186a25b3c69524bafae4d7d0. On #45019603097, both GNU89 ASan/UBSan binaries passed, but the source contract still failed because the actual function call was whitespace-compacted while the expected-call literal was not. Normalize both sides before comparison; no C behavior or safety assertion is relaxed.

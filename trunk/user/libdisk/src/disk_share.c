@@ -1194,7 +1194,7 @@ int add_account(const char *const account, const char *const password)
 {
 	disk_info_t *disk_list, *follow_disk;
 	partition_info_t *follow_partition;
-	int i, acc_num = 0;
+	int i, acc_num = 0, first_error = 0, init_result;
 	char **account_list = NULL;
 	char nvram_name[32];
 
@@ -1245,14 +1245,24 @@ int add_account(const char *const account, const char *const password)
 			if (follow_partition->mount_point == NULL)
 				continue;
 			
-			// 4. initial the var file of the account
-			initial_one_var_file_in_mount_path(account, follow_partition->mount_point);
+			// 4. initialize the account metadata on every mounted volume.
+			init_result = initial_one_var_file_in_mount_path(
+				account, follow_partition->mount_point);
+			if (init_result != 0 && first_error == 0)
+				first_error = errno ? errno : EIO;
 		}
 	}
 	free_disk_data(disk_list);
 
-	// 6. re-run samba
+	/*
+	 * NVRAM already contains the account. Reconcile every volume and reload
+	 * Samba even when one volume failed, then return the first metadata error.
+	 */
 	system("/sbin/run_samba");
+	if (first_error != 0) {
+		errno = first_error;
+		return -1;
+	}
 
 	return 0;
 }

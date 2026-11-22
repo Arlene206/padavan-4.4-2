@@ -279,6 +279,32 @@ require("if (result != 0)" in set_permission[set_init:set_retry],
         "permission update must propagate metadata initialization failure")
 
 
+
+add_account_body = function_body(
+    DISK_SOURCE, "int add_account(const char *const account, const char *const password)"
+)
+add_init_call = "initial_one_var_file_in_mount_path(account, follow_partition->mount_point)"
+add_init_assignment = (
+    "init_result = initial_one_var_file_in_mount_path("
+    "account, follow_partition->mount_point);"
+)
+add_error_gate = "if (init_result != 0 && first_error == 0)"
+add_inventory = add_account_body.index("read_disk_data()")
+add_init = add_account_body.index(add_init_assignment, add_inventory)
+add_cleanup = add_account_body.index("free_disk_data(disk_list)", add_init)
+add_samba = add_account_body.index('system("/sbin/run_samba")', add_cleanup)
+add_error_return = add_account_body.index("if (first_error != 0)", add_samba)
+require(add_init_call in add_account_body and add_error_gate in add_account_body and
+        add_account_body.index(add_error_gate, add_init) > add_init and
+        add_init < add_cleanup < add_samba < add_error_return and
+        "errno = first_error;" in add_account_body and
+        "return -1;" in add_account_body[add_error_return:],
+        "add_account must record each volume initializer failure, finish all volume attempts, free disk data, reload Samba and return the first error")
+require("if (!disk_list)" in add_account_body,
+        "add_account must retain its no-mounted-disk behavior")
+require("initial_one_var_file_in_mount_path(account, follow_partition->mount_point);" not in add_account_body,
+        "add_account must not discard the metadata initializer result")
+
 add_folder_body = function_body(
     DISK_SOURCE,
     "int add_folder(const char *const mount_path, const char *const folder)"
