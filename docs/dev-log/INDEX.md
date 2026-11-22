@@ -33,6 +33,7 @@
 | `docs/dev-log/2026/11/part-024.md` | 100 | 2026-11-21 — Snapshot VPN remote-LAN route ACL before route mutation → 2026-11-21 — Fail closed on WAN startup protocol reads | 129424 | `359eae06c5b550cf68dc48710a91ea546551ec8f` |
 | `docs/dev-log/2026/11/part-025.md` | 101 | 2026-11-22 08:04 CST — Repair WAN startup checker to scope the matching error gate → 2026-11-22 — Keep physical storage-unplug cleanup durable until marker acknowledgement | 126105 | `daf3875420e99758082b0d43ab2e4b4b2cd57ab2` |
 | `docs/dev-log/2026/11/part-026.md` | 104 | 2026-11-22 — Align the storage caller-graph regression with durable marker acknowledgement → 2026-11-22 20:06 CST (UTC+8) — Fix the remaining libdisk source-contract whitespace mismatch | 115941 | `1207154a43fd80df1b59c40eb191ec4f73b1dedf` |
+| `docs/dev-log/2026/11/part-027.md` | 101 | 2026-11-22 20:10 CST (UTC+8) — Propagate add-account volume metadata initialization errors → 2026-11-22 — Correct AliDDNS source-contract checker bindings | 140425 | `a2d2368be253d33223791eedbd25365e297f522b` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -111,3 +112,6 @@
 
 
 - **Rolling-window catch-up:** 101 oldest complete records evicted from root `dev_log.md` when it contained 121 entries at parent main `a3b7e95b71776808fbb6e6bddf273db8cf0c98f4` are preserved verbatim, oldest first, in `part-025.md`; pre-rotation root blob: `418727893b781c626ffa7995bc378ac8b5cff66f`. Root retains the 20 newest original records plus this rotation checkpoint (21 total). No entry was rewritten or discarded.
+
+
+- **Rolling-window catch-up:** 101 oldest complete records evicted when root `dev_log.md` contained 121 records at parent main `ff25eacd70dccd78c6416c76ad199ad69aa8f61d` are preserved verbatim, oldest first, in `part-027.md`; pre-rotation root blob: `7cae2b972ef97bb74cf8b112f9625ca8bfa42e9d`. Root retains the newest 20 complete records. No entry was rewritten or discarded.

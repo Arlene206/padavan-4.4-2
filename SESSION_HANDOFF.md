@@ -2,8 +2,6 @@
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional.
-
 Every session MUST inspect live repository state and complete an end-of-session accuracy checkpoint. Record exact main SHA, exact-SHA Actions, test/build boundaries and the next precise task. If facts remain accurate, explicitly conclude with no file change and no no-op commit. Use one atomic main commit for material changes only. Before context exhaustion, leave an accurate handoff and complete any safe bounded engineering slice.
 
 - Work only on `main`; never force-push, use side branches/PRs, or modify the frozen backup.
@@ -13,32 +11,35 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `e49224f71f90339247917b66d8a9add54228e8a1`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and untouched.
-- Recent work includes EAPoL orphan-tail cleanup, p910nd transient I/O handling, checked iNIC TxPower preflight, AliyunDrive process/HTTP readiness and AliDDNS NUL-delimited configuration fingerprint. See exact-SHA entries in `dev_log.md` for validation boundaries.
-- The checked NVRAM CLI and AliyunDrive fail-closed startup-read slice is now closed at L1/L2 on exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`.
-- New WAN route slice: `full_restart_wan()` explicitly permits an empty `wan0_ifname` but previously passed it as a required flush target after `stop_wan()`. The route-flush policy returns `EINVAL` for an empty device, so a restart with no manual interface would stop WAN and then abort. The production fix and three policy regressions are committed at `b56e0b5c14a7b15dfe39a973dfa38eea7b2dda70`; `45a78362` corrected one selector source assertion. The route-selector C regression itself printed PASS in the exact `b56e0b5` WAN, HTTPD and XY test runs. Four Python/source contracts were stale because they still required the removed fixed two-entry array/`route_ifnames[0]` assignment; the present commit updates those contracts to verify optional manual-interface selection, mandatory bridge retention, ordering before WAN stop, and actual dynamic count.
+- Repository: `Arlene206/padavan-4.4-2`.
+- Parent main SHA for this checkpoint: `ff25eacd70dccd78c6416c76ad199ad69aa8f61d` (`docs: refresh session handoff for continued stability work`). The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- The previous exact-SHA handoff run #45051742269 failed only because root `dev_log.md` had reached 120 complete records. This checkpoint rotates the oldest 101 records into `docs/dev-log/2026/11/part-027.md` and retains the newest 20 in the root; verify the resulting exact-SHA handoff workflow after publication.
+- Exact parent SHA Actions: AI handoff run #45051742269 = completed/failure at the 120-entry rolling-log check. No other workflow run was returned for this exact SHA. Process inventory run #45051059927 passed on ancestor `372451d468fd772858635590f1c1c10bccf95dc0`; it is not an exact-parent result.
+- XY-C1 L3 is NOT VERIFIED on current main. Historical XY-C1 run #45047957843 fully passed host validation, Build XY-C1, TRX verification and artifact upload on older SHA `c139dd5da2cbce53ee683d303f56e66d6b55dca0`. The later exact-source run #45050810796 on `6418e87add0ffce79fd918077bb1e7dfdded2fc0` passed host checks but skipped Build, TRX and artifact upload because no production input changed. Do not reuse ancestor results as current-SHA verification.
+- Earlier XY-C1 run #45050298446 on `b5fbcebd47fa735f70d06064a8a8cb682f4b0229` failed in a stale source checker before firmware production stages; the L2TP checker contract was subsequently corrected and Process passed on `372451d...`. Current-head Build/TRX/artifact remains unverified.
+- No local test suite, compiler, firmware build or router hardware validation was run in this session. L4 hardware remains NOT VERIFIED.
 
-## Active task
+## Active engineering task
 
-继续稳定性修复，避免重复审计已完成工作。已提交的重点源码修复：NFS exports ACL 12-key NVRAM transaction snapshot；WAN physical/ IPTV DHCP overlap 的 LAN address/netmask transaction snapshots；LAN startup/reset subnet snapshot；AP DHCP hostname address/domain snapshot；L2TP server selector checked-read fail-closed；WAN VLAN filter/VID checked-read fail-closed。关联测试与 source-contract workflows 已同步更新。当前重点转向精确 SHA Actions 验证和修复仍失败的 checker/独立稳定性问题。
+Fix the two-phase publication gap in `trunk/user/shared/src/shutils.c::recreate_passwd_unix()`.
+
+Current flow stages passwd/group/shadow files, retains hard-link backups through the multi-file rename sequence, but `passwd_file_publish_transaction()` deletes those backups as soon as all renames succeed. Only afterwards does `recreate_passwd_unix()` call `change_passwd_unix(rootnm, root_password)`. If `chpasswd` or the subsequent shadow permission operation fails, the function returns an error while leaving the replacement shadow file (whose staged root entry is locked with `!`) in place; there is no longer a prior account database to restore. This can leave the device inaccessible after a password-provisioning fault.
+
+First implementation slice:
+1. Extend `trunk/user/shared/src/passwd_temp_file_policy.h` with a retain-backups publish path plus explicit finalize and reverse-rollback helpers. Preserve the current `passwd_file_publish_transaction()` contract for its callers.
+2. Update `recreate_passwd_unix()` to retain old passwd/group/shadow recovery links until `change_passwd_unix()` succeeds. On password-install failure, restore the prior files in reverse order and preserve recovery links if restoration fails. On success, finalize by deleting the backups; report cleanup failures without reverting a successfully installed password.
+3. Extend `trunk/user/shared/src/tests/passwd_temp_file_policy.c` with successful post-publish rollback, successful finalize, and rollback-failure/recovery-link tests. Update the process-lifecycle workflow's source contract accordingly.
+4. Validate the GNU89 `-Wall -Wextra -Werror` and ASan/UBSan test step on the exact SHA; also check exact-SHA Process and XY-C1 workflows. A source change in shared RC support should trigger production input detection; only mark L3 after Build, TRX and artifact upload all pass on that same SHA.
+
+Do not repeat completed WAN DHCP snapshot, LAN subnet snapshot, L2TP selector or VLAN-ID audits unless a new independent defect is demonstrated. Continue with other userland stability/security work once this slice is committed and its exact-SHA Actions state is known.
 
 ## Verification boundary
 
-- 当前 main: `372451d468fd772858635590f1c1c10bccf95dc0` — `test(wan): update process L2TP fail-closed contract`; parent `6418e87add0ffce79fd918077bb1e7dfdded2fc0`. Backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (保持冻结，未更新)。
-- 本次已提交逻辑切片：`c139dd5` NFS ACL atomic snapshot；`1b193a6` IPTV overlap LAN tuple；`3d1ded0` physical WAN overlap LAN tuple；`1da00c0` LAN startup/reset snapshot；`bf51be3` AP hostname tuple；`0c3d6dc` L2TP checked selector fail-closed；`b5fbceb` WAN VLAN checked VID fail-closed。Checker follow-up commits: `4f9ed0e`, `f5b93cf`, `f902d00`, `1fe718a`, `b48c884`, `fbee4e5`, `6c360d4`, `19af0ec`, `55e39b6`, `9056ed1`, `6418e87`, `372451d`.
-- 当前 HEAD 的 exact-SHA Actions:
-- #45051059927 Process inventory and lifecycle fail-closed regression: completed/success (372451d468fd)
-- #45051059851 AI handoff documentation contract: completed/failure (372451d468fd)
-- XY-C1: 当前 SHA 未找到匹配运行；L3 NOT VERIFIED。
-- 较早 SHA 的 CI FAIL 曾定位为 checker 不同步（IPTV/physical snapshot 旧 getter 断言、AP identity 旧 getter 断言、L2TP 未更新的流程断言、缺少 `re` import 和 route regression 文件加载）。已经有对应 checker commits；不得把旧 SHA 的 PASS 冒充当前 SHA PASS。
-- 未在本地运行编译器/测试，也未做路由器硬件验证。L3/L4 仍需根据 exact current SHA 与实机结果确认，不得推断。
+- Documentation parent: `ff25eacd70dccd78c6416c76ad199ad69aa8f61d`.
+- This rotation includes 101 archived records, oldest-first, preserving the complete prior root records verbatim. Root `dev_log.md` is reduced to 20 complete entries.
+- Local documentation checker was not run. Exact-SHA Actions results must be queried after the atomic commit is published.
+- XY-C1 L3 and hardware L4 are NOT VERIFIED for this checkpoint.
+
 ## Exact first action for the next GPT
 
-1. 先查看当前 SHA `372451d468fd772858635590f1c1c10bccf95dc0` 上所有 Actions 的最终结果；对 FAIL 取对应 job logs，修复 checker 或源码后按新 SHA 重跑。PENDING 时继续独立任务，不等候。
-2. 特别核对 XY-C1 Build、TRX validation、artifact upload 是否在同一 SHA 全部 PASS；若没有，不得标记 firmware L3 verified。
-3. 继续跨模块 stability/security 扫描，跳过本文件已列出的 NFS/WAN DHCP overlap/LAN snapshot/L2TP/VLAN 修复；每个逻辑切片源码、回归测试、原子提交、精确 SHA Actions。
-
-1. Inspect NFS daemon workflow on the exact new main SHA: GNU89 `-Wall -Wextra -Werror` policy test, ASan/UBSan regressions and Python source contracts.
-2. Inspect XY-C1 on that same SHA. Require Build, TRX validation and artifact upload all to succeed before claiming firmware verification.
-3. If either workflow is pending, continue an independent stability/security fix; if one fails, diagnose the failing step without repeating completed audits.
+Implement the two-phase passwd/group/shadow transaction described above. Fetch the current versions of `passwd_temp_file_policy.h`, `shutils.c`, `passwd_temp_file_policy.c` and `.github/workflows/process-lifecycle-regression.yml`, make the helper and caller changes together, then run/check the exact-SHA regressions and firmware workflow. Continue from the freshly fetched `main`; never assume a SHA from an earlier chat is still HEAD.
