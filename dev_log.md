@@ -1,3 +1,11 @@
+## 2026-11-22 — Snapshot LAN gateway and router domain before resolver/IPv6 reads
+
+- Parent main SHA: `bccd3fc915e963d4cb6ddeab223f02edf3fef57b`. Two remaining cache-lifetime defects were found in the LAN resolver/hostname path: `lan_up_manual()` kept `lan_gateway` borrowed while later reading both DNS server keys and then used it as fallback; `update_hosts_router()` kept `lan_domain` borrowed across IPv6 service-state probing before writing hostname files.
+- Both now use `rc_wan_nvram_copy_value()` into bounded owned buffers and abort before resolver/hostname side effects on read or truncation errors. Missing NVRAM keys still become empty strings, preserving the existing fallback behavior.
+- Added cache-overwrite regressions; updated Process and HTTPD source contracts. Exact-head Process/HTTPD and XY-C1 validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align HTTPD security cross-check with AP host snapshot
 
 - Parent main SHA: `2f6231349eaf3fafe0c1885a95afa887d82c11c5`. HTTPD Security run #45008874461 on `56137665cea32ba5d5befce235889f996e4c9fa3` passed the DHCP lease tests, then stopped at the stale AP hostname source assertion in `.github/workflows/httpd-security.yml` (embedded Python line 154). It still required the two direct `nvram_safe_get()` arguments removed in `update_hosts_ap()`.

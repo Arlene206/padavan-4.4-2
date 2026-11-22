@@ -2020,6 +2020,11 @@ jobs:
           assert 'hosts_fp = dnsmasq_file_open(hosts_temp);' in hosts_update
           assert "dhcp_lease_ipv4_is_valid(lan_ipaddr)" in hosts_update
           assert "dnsmasq_valid_server_domain(lan_dname)" in hosts_update
+          hosts_update_compact = " ".join(hosts_update.split())
+          assert 'rc_wan_nvram_copy_value( wan_nvram_checked_get_callback, NULL, "lan_domain"' in hosts_update_compact
+          assert "char lan_dname[256];" in hosts_update
+          assert 'nvram_safe_get("lan_domain")' not in hosts_update
+          assert hosts_update_compact.index('"lan_domain"') < hosts_update_compact.index("if (lan_domain_status != 0)")
           assert '#include "dnsmasq_domain_policy.h"' in net_wan
           assert 'dnsmasq_file_publish_pair(staged_hostname_fp, hostname_temp,' in hosts_update
           assert 'staged_hosts_fp, hosts_temp,' in hosts_update

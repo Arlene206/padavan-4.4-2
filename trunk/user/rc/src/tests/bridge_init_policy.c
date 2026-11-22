@@ -33,6 +33,12 @@ fake_bridge_nvram_get(void *opaque, const char *param_name, char **value)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "192.0.2.10");
 	else if (strcmp(param_name, "lan_netmask") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "255.255.255.0");
+	else if (strcmp(param_name, "lan_gateway") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "192.0.2.1");
+	else if (strcmp(param_name, "lan_dns1") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "8.8.8.8");
+	else if (strcmp(param_name, "lan_dns2") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "1.1.1.1");
 	else if (strcmp(param_name, "lan_domain") == 0 ||
 		 strcmp(param_name, "lan_domain_t") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s", "router.example");
@@ -199,6 +205,47 @@ test_udpxy_launch_options_are_owned_across_reads(void)
 }
 
 static void
+test_manual_lan_gateway_snapshot_survives_dns_reads(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char gateway_ip[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_gateway", gateway_ip,
+				       sizeof(gateway_ip)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_dns1", fake.cache,
+				       sizeof(fake.cache)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_dns2", fake.cache,
+				       sizeof(fake.cache)) == 0);
+	assert(strcmp(fake.cache, "1.1.1.1") == 0);
+	assert(strcmp(gateway_ip, "192.0.2.1") == 0);
+	assert(fake.calls == 3);
+}
+
+static void
+test_router_hostname_domain_snapshot_survives_ipv6_reads(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char lan_domain[256];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_domain", lan_domain,
+				       sizeof(lan_domain)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "ipv6_service", fake.cache,
+				       sizeof(fake.cache)) == 0);
+	assert(strcmp(fake.cache, "next-nvram-value") == 0);
+	assert(strcmp(lan_domain, "router.example") == 0);
+	assert(fake.calls == 2);
+}
+
+static void
 test_empty_and_success_status(void)
 {
 	rc_bridge_init_status_t status;
@@ -304,6 +351,8 @@ test_bridge_add_idempotency_requires_confirmed_bridge(void)
 int
 main(void)
 {
+	test_manual_lan_gateway_snapshot_survives_dns_reads();
+	test_router_hostname_domain_snapshot_survives_ipv6_reads();
 	test_udpxy_launch_options_are_owned_across_reads();
 	test_hostname_fallback_is_owned_across_cache_reuse();
 	test_xupnpd_lan_address_is_owned_across_port_reads();

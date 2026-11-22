@@ -2012,11 +2012,12 @@ int
 lan_up_manual(char *lan_ifname, char *lan_dname)
 {
 	FILE *fp;
-	int lock, saved_errno, notify_status;
+	int lock, saved_errno, notify_status, gateway_status;
 	int dns_count = 0;
 	int status = 0;
 	int metadata_status;
-	char *dns_ip, *gateway_ip;
+	char *dns_ip;
+	char gateway_ip[16];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 
 	/* This value is also written to /etc/hosts and is resolver syntax, not
@@ -2029,7 +2030,16 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		return EINVAL;
 	}
 
-	gateway_ip = nvram_safe_get("lan_gateway");
+	gateway_status = rc_wan_nvram_copy_value(
+		lan_nvram_get_checked, NULL, "lan_gateway",
+		gateway_ip, sizeof(gateway_ip));
+	if (gateway_status != 0) {
+		errno = gateway_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot manual LAN gateway before resolver update (status=%d)",
+			   gateway_status);
+		return gateway_status;
+	}
 
 	lock = file_lock("resolv");
 	if (lock < 0) {

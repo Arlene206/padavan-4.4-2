@@ -6366,7 +6366,9 @@ update_hosts_router(const char *lan_ipaddr)
 	FILE *hostname_fp = NULL, *hosts_fp = NULL;
 	char hostname_temp[] = "/etc/hostname.XXXXXX";
 	char hosts_temp[] = "/etc/hosts.XXXXXX";
-	char *lan_hname, *lan_dname;
+	char *lan_hname;
+	char lan_dname[256];
+	int lan_domain_status;
 	int saved_errno = 0;
 	int hosts_lock = -1;
 #if defined (USE_IPV6)
@@ -6374,8 +6376,17 @@ update_hosts_router(const char *lan_ipaddr)
 #endif
 
 	lan_hname = get_our_hostname();
-	lan_dname = nvram_safe_get("lan_domain");
-	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) || !lan_dname ||
+	lan_domain_status = rc_wan_nvram_copy_value(
+		wan_nvram_checked_get_callback, NULL, "lan_domain",
+		lan_dname, sizeof(lan_dname));
+	if (lan_domain_status != 0) {
+		errno = lan_domain_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot router hostname domain (status=%d)",
+			   lan_domain_status);
+		return lan_domain_status;
+	}
+	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) ||
 	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) || !lan_hname) {
 		errno = EINVAL;
 		logmessage(LOGNAME, "refusing unsafe router hostname input");

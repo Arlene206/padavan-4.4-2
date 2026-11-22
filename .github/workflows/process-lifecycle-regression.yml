@@ -1247,6 +1247,24 @@ jobs:
           assert "return EINVAL;" in manual
           assert "return saved_errno;" in manual
           assert "int route_status = route_add(" in manual
+          manual_compact = " ".join(manual.split())
+          assert "char gateway_ip[16];" in manual
+          assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_gateway"' in manual_compact
+          assert 'nvram_safe_get("lan_gateway")' not in manual
+          manual_snapshot = manual_compact.index('"lan_gateway"')
+          manual_error = manual_compact.index("if (gateway_status != 0)", manual_snapshot)
+          manual_return = manual_compact.index("return gateway_status;", manual_error)
+          manual_lock = manual_compact.index('lock = file_lock("resolv")')
+          manual_route = manual_compact.index("route_add(")
+          assert manual_snapshot < manual_error < manual_return < manual_lock < manual_route
+          router_hosts = body(net_wan, "update_hosts_router(const char *lan_ipaddr)")
+          router_hosts_compact = " ".join(router_hosts.split())
+          assert "char lan_dname[256];" in router_hosts
+          assert 'rc_wan_nvram_copy_value( wan_nvram_checked_get_callback, NULL, "lan_domain"' in router_hosts_compact
+          assert 'nvram_safe_get("lan_domain")' not in router_hosts
+          assert router_hosts_compact.index('"lan_domain"') < router_hosts_compact.index("if (lan_domain_status != 0)") < router_hosts_compact.index("get_ipv6_type_status(")
+          assert "test_manual_lan_gateway_snapshot_survives_dns_reads" in bridge_init_regression
+          assert "test_router_hostname_domain_snapshot_survives_ipv6_reads" in bridge_init_regression
           assert "return rc_first_service_start_status(status, saved_errno);" in manual
           assert "return status;" in manual
 
