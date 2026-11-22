@@ -1,3 +1,12 @@
+## 2026-11-22 13:27 UTC+8 — Repair IPv6 checker LAN and firewall function locators
+
+- Parent main SHA: `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`. Exact IPv6 service-type run #44989410008 passed the GNU89 ASan/UBSan policy test and failed in the source checker at line 125.
+- The LAN guard assertion required exact `if (status != 0)`; the product correctly combines the checked-read error with the disabled-mode test. The checker now matches the condition prefix and still requires the subsequent `return -1;`.
+- Inspection also found three firewall function locators encoded as literal backslash-n text, which would fail after the LAN assertion was repaired. Replaced them with explicit function-signature prefixes for IPv4 filter, IPv6 filter and NAT builders. Their product-source checks remain intact.
+- Product C is unchanged in THIS correction. Exact-head IPv6 workflow is pending; no local test/build, L3 or L4 claim.
+
+---
+
 ## 2026-11-22 14:06 UTC+8 — Fail closed in firewall IPv6-dependent rule builders
 
 - Main parent at start of slice: `e85eaf114556844668acaaea9fe4d9d7afd60406`. Recovery record: commit `0608bf0` had been assembled against a stale pre-`915456f` tree, reverting nine checked-IPv6 files; `250ebfd2` restored those exact blobs on top of the correct tree.
