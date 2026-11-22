@@ -1,0 +1,58 @@
+#ifndef PID1_CONSOLE_POLICY_H
+#define PID1_CONSOLE_POLICY_H
+
+#include <errno.h>
+#include <termios.h>
+#include <string.h>
+
+typedef int (*pid1_console_getattr_fn)(int, struct termios *);
+typedef int (*pid1_console_setattr_fn)(int, int, const struct termios *);
+
+/* A failed read must never feed uninitialized termios state to tcsetattr. */
+static inline int
+pid1_console_configure(int fd, pid1_console_getattr_fn get_attributes,
+		       pid1_console_setattr_fn set_attributes)
+{
+	struct termios tty;
+
+	if (!get_attributes || !set_attributes)
+		return EINVAL;
+
+	memset(&tty, 0, sizeof(tty));
+	errno = 0;
+	if (get_attributes(fd, &tty) < 0)
+		return errno > 0 ? errno : EIO;
+
+	/* set control chars */
+	tty.c_cc[VINTR]  = 3;	/* C-c */
+	tty.c_cc[VQUIT]  = 28;	/* C-\\ */
+	tty.c_cc[VERASE] = 127;	/* C-? */
+	tty.c_cc[VKILL]  = 21;	/* C-u */
+	tty.c_cc[VEOF]   = 4;	/* C-d */
+	tty.c_cc[VSTART] = 17;	/* C-q */
+	tty.c_cc[VSTOP]  = 19;	/* C-s */
+	tty.c_cc[VSUSP]  = 26;	/* C-z */
+
+	/* use line discipline 0 */
+	tty.c_line = 0;
+
+	/* added CRTSCTS to fix Debian bug 528560 */
+	tty.c_cflag &= CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB | PARODD | CRTSCTS;
+	tty.c_cflag |= CREAD | HUPCL | CLOCAL;
+
+	/* input modes */
+	tty.c_iflag = ICRNL | IXON | IXOFF;
+
+	/* output modes */
+	tty.c_oflag = OPOST | ONLCR;
+
+	/* local modes */
+	tty.c_lflag = ISIG | ICANON | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE | IEXTEN;
+
+	errno = 0;
+	if (set_attributes(fd, TCSANOW, &tty) < 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
+#endif /* PID1_CONSOLE_POLICY_H */

@@ -1,3 +1,11 @@
+## 2026-11-22 — Fail closed on PID 1 console termios errors
+
+- `setup_term()` previously ignored `tcgetattr()` and then rewrote terminal fields even when the read failed, passing an uninitialized `struct termios` to `tcsetattr()`. This was reachable when the recovery-shell child fell back to `/dev/null`; `/dev/null` is not a terminal.
+- Added an injectable termios policy that stops before any write on a failed read, reports both getter and setter failures, and returns a deterministic error when libc supplies no errno. The console initializer now skips termios setup on the deliberate `/dev/null` fallback, propagates setup errors, and the recovery-shell child aborts rather than execing an interactive shell without a usable console.
+- Added GNU89/ASan/UBSan coverage for missing callbacks, getter/setter errors (including zero errno), no setter call after a failed getter, and the exact terminal flag/control-character configuration. Local host compile and execution passed; exact-head Process and XY-C1 verification pending.
+
+---
+
 ## 2026-11-22 — Cover existing Aria2 RPC config migration
 
 - Hardened the RPC config classifier so an explicit secret/basic-auth setting is forced to mode 0600 even when the listener is loopback-only; absent listener and missing authentication now remain separate states, while read/grep errors fail closed.

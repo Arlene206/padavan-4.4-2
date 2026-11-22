@@ -7,6 +7,8 @@ root = Path(__file__).resolve().parents[1]
 init = (root / "trunk/user/rc/src/init.c").read_text()
 signal_policy = (root / "trunk/user/rc/src/pid1_signal_policy.h").read_text()
 signal_test = (root / "trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()
+console_policy = (root / "trunk/user/rc/src/pid1_console_policy.h").read_text()
+console_test = (root / "trunk/user/rc/src/tests/pid1_console_policy.c").read_text()
 net = (root / "trunk/user/rc/src/net.c").read_text()
 net6 = (root / "trunk/user/rc/src/net6.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
@@ -351,5 +353,26 @@ assert "tcp-tweaks-policy" in workflow
 assert "libc-gai-policy" in workflow
 assert "trunk/user/rc/src/tests/init_mdev_retry_policy.c" in workflow
 assert "mount_status=1" in shell_test and "chmod_status=1" in shell_test
+
+console_setup = c_function(init, "setup_term(void)")
+console_init = c_function(init, "init_console(void)")
+recovery_shell = c_function(init, "run_shell(int timeout, int nowait)")
+assert '#include "pid1_console_policy.h"' in init
+assert "return pid1_console_configure(STDIN_FILENO, tcgetattr, tcsetattr);" in console_setup
+assert "tcgetattr(" not in console_setup
+assert "tcsetattr(" not in console_setup
+assert "int console_available = 1;" in console_init
+assert "console_available = 0;" in console_init
+assert "if (console_available)" in console_init
+assert "terminal_status = setup_term();" in console_init
+assert "if (ret == 0)" in console_init and "ret = terminal_status;" in console_init
+assert 'console_status = init_console();' in recovery_shell
+assert "recovery shell aborted: console setup failed" in recovery_shell
+assert "_exit(125);" in recovery_shell
+for token in ("fake_getattr", "fake_setattr", "getter_errno = 0",
+              "setter_errno = 0", "setter_calls == 0", "== EIO",
+              "CBAUD", "HUPCL", "TCSANOW"):
+    assert token in console_test, "missing PID 1 console regression: " + token
+assert "pid1_console_configure" in console_policy
 
 print("PID 1 required boot environment gating integration: PASS")

@@ -40,6 +40,7 @@
 #include "init_router_result_policy.h"
 #include "gpio_pins.h"
 #include "pid1_signal_policy.h"
+#include "pid1_console_policy.h"
 #include "init_mdev_config_file.h"
 #include "init_mdev_retry_policy.h"
 #include "nvram_device_node_policy.h"
@@ -168,41 +169,11 @@ catch_sig_reap(int sig)
 	}
 }
 
-/* Set terminal settings to reasonable defaults */
-static void
+/* Set terminal settings to reasonable defaults; reject partial setup. */
+static int
 setup_term(void)
 {
-	struct termios tty;
-
-	tcgetattr(STDIN_FILENO, &tty);
-
-	/* set control chars */
-	tty.c_cc[VINTR]  = 3;	/* C-c */
-	tty.c_cc[VQUIT]  = 28;	/* C-\ */
-	tty.c_cc[VERASE] = 127;	/* C-? */
-	tty.c_cc[VKILL]  = 21;	/* C-u */
-	tty.c_cc[VEOF]   = 4;	/* C-d */
-	tty.c_cc[VSTART] = 17;	/* C-q */
-	tty.c_cc[VSTOP]  = 19;	/* C-s */
-	tty.c_cc[VSUSP]  = 26;	/* C-z */
-
-	/* use line discipline 0 */
-	tty.c_line = 0;
-
-	/* added CRTSCTS to fix Debian bug 528560 */
-	tty.c_cflag &= CBAUD | CBAUDEX | CSIZE | CSTOPB | PARENB | PARODD | CRTSCTS;
-	tty.c_cflag |= CREAD | HUPCL | CLOCAL;
-
-	/* input modes */
-	tty.c_iflag = ICRNL | IXON | IXOFF;
-
-	/* output modes */
-	tty.c_oflag = OPOST | ONLCR;
-
-	/* local modes */
-	tty.c_lflag = ISIG | ICANON | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE | IEXTEN;
-
-	tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+	return pid1_console_configure(STDIN_FILENO, tcgetattr, tcsetattr);
 }
 
 static int
@@ -210,6 +181,8 @@ init_console(void)
 {
 	int fd;
 	int ret = 0;
+	int console_available = 1;
+	int terminal_status;
 
 	/* Clean up */
 	ioctl(STDIN_FILENO, TIOCNOTTY, 0);
@@ -220,11 +193,12 @@ init_console(void)
 
 	/* Reopen console */
 	if ((fd = open(_PATH_CONSOLE, O_RDWR)) < 0) {
-		ret = errno;
+		ret = errno ? errno : EIO;
+		console_available = 0;
 		perror(_PATH_CONSOLE);
 		if ((fd = open("/dev/null", O_RDWR)) < 0) {
 			perror("/dev/null");
-			return errno;
+			return errno ? errno : EIO;
 		}
 	}
 
@@ -235,7 +209,15 @@ init_console(void)
 	ioctl(STDIN_FILENO, TIOCSCTTY, 1);
 	tcsetpgrp(STDIN_FILENO, getpgrp());
 
-	setup_term();
+	/* /dev/null is a deliberate fallback, not a terminal to configure. */
+	if (console_available) {
+		terminal_status = setup_term();
+		if (terminal_status != 0) {
+			logmessage(LOGNAME, "console termios setup failed (status=%d)", terminal_status);
+			if (ret == 0)
+				ret = terminal_status;
+		}
+	}
 
 	return ret;
 }
@@ -285,6 +267,7 @@ run_shell(int timeout, int nowait)
 	pid_t pid;
 	sigset_t child_mask, saved_mask;
 	int child_mask_blocked = 0;
+	int console_status;
 	char tz[128];
 	char *envp[] = {
 		"TERM=" CONSOLE_TERMINAL,
@@ -357,8 +340,14 @@ run_shell(int timeout, int nowait)
 			}
 		}
 
-		/* Reopen console */
-		init_console();
+		/* Do not execute an interactive shell without a usable console. */
+		console_status = init_console();
+		if (console_status != 0) {
+			logmessage(LOGNAME,
+				   "recovery shell aborted: console setup failed (status=%d)",
+				   console_status);
+			_exit(125);
+		}
 
 		/* Pass on TZ */
 		time_zone_x_mapping();
