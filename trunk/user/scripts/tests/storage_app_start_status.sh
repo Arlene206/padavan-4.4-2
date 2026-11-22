@@ -46,11 +46,20 @@ case "$2" in
 	aria_pport) echo 16888 ;;
 	aria_rport) echo 6800 ;;
 	http_username) echo admin ;;
-	http_passwd) printf '%s\n' "${STORAGE_TEST_HTTP_PASSWD-test-pass}" ;;
+	http_passwd) echo unused ;;
 	http_proto) echo 0 ;;
 	*) exit 1 ;;
 esac
 EOF
+cat > "$STUB_DIR/hexdump" <<'EOF'
+#!/bin/sh
+if [ "${STORAGE_TEST_HEXDUMP_STATUS:-0}" -ne 0 ]; then
+	exit "$STORAGE_TEST_HEXDUMP_STATUS"
+fi
+printf '%032x' "$"
+EOF
+chmod 755 "$STUB_DIR/hexdump"
+
 cat > "$STUB_DIR/start-stop-daemon" <<'EOF'
 #!/bin/sh
 [ -z "${STORAGE_TEST_TRACE_FILE:-}" ] || echo start-stop-daemon >> "$STORAGE_TEST_TRACE_FILE"
@@ -204,7 +213,7 @@ run_launcher()
 	pidof_output=${19:-}
 	start_no_pid=${20:-0}
 	post_pidof_status=${21:-auto}
-	http_passwd=${22-test-pass}
+	hexdump_status=${22:-0}
 	launch_state_dir=$(mktemp -d "$TMP_DIR/launch-state.XXXXXX")
 	launch_called_file="$launch_state_dir/called"
 	pending_file="$launch_state_dir/pending"
@@ -215,10 +224,10 @@ run_launcher()
 	LAST_LAUNCH_STATE_DIR=$launch_state_dir
 	LAST_LAUNCH_OUTPUT=$output_file
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HTTP_PASSWD="$http_passwd" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HEXDUMP_STATUS="$hexdump_status" CONFIG_TMP="$inherited_config_tmp" \
 "$BUSYBOX_BIN" ash "$launcher" start >"$output_file" 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HTTP_PASSWD="$http_passwd" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HEXDUMP_STATUS="$hexdump_status" CONFIG_TMP="$inherited_config_tmp" \
 sh "$launcher" start >"$output_file" 2>&1
 	fi
 }
@@ -688,7 +697,7 @@ run_aria_config_failure()
 	phase=$1
 	cat_status=$2
 	mv_status=$3
-	http_passwd=${4-test-pass}
+	hexdump_status=${4:-0}
 	failure_root="$TMP_DIR/aria-$phase"
 	mkdir -p "$failure_root/config" "$TMP_DIR/Downloads"
 	: > "$failure_root/config/incomplete.lst"
@@ -696,7 +705,7 @@ run_aria_config_failure()
 	    -e "s|DIR_LINK=\"/mnt/aria\"|DIR_LINK=\"$failure_root\"|" \
 	    "$ARIA_SRC" > "$TMP_DIR/aria-$phase.sh"
 	marker="$failure_root/start-invoked"
-	if run_launcher "$TMP_DIR/aria-$phase.sh" 0 0 "$cat_status" "$mv_status" "$marker" "" "" "" 0 0 0 "" "" "" "" 0 1 "" 0 auto "$http_passwd"; then
+	if run_launcher "$TMP_DIR/aria-$phase.sh" 0 0 "$cat_status" "$mv_status" "$marker" "" "" "" 0 0 0 "" "" "" "" 0 1 "" 0 auto "$hexdump_status"; then
 		echo "Aria started despite $phase failure while publishing default config" >&2
 		exit 1
 	fi
@@ -717,8 +726,22 @@ run_aria_config_failure()
 }
 run_aria_config_failure "config-write" 9 0
 run_aria_config_failure "config-rename" 0 9
-run_aria_config_failure "rpc-secret-empty" 0 0 ""
-run_aria_config_failure "rpc-secret-newline" 0 0 "$(printf 'test-pass\nrpc-secret=attacker')"
+run_aria_config_failure "rpc-secret-generation" 0 0 9
+assert_aria_rpc_secret()
+{
+	config_file=$1
+	secret_file=$2
+	actual_secret=$(sed -n 's/^rpc-secret=//p' "$config_file")
+	case "$actual_secret" in
+		''|*[!0123456789abcdef]*) echo "Aria RPC token is not lowercase hexadecimal" >&2; exit 1 ;;
+	esac
+	[ "${#actual_secret}" -eq 32 ] || { echo "Aria RPC token is not 128 bits" >&2; exit 1; }
+	[ "$(wc -c < "$secret_file")" -eq 33 ] || { echo "Aria RPC token file length is invalid" >&2; exit 1; }
+	[ "$(wc -l < "$secret_file")" -eq 1 ] || { echo "Aria RPC token file must contain exactly one line" >&2; exit 1; }
+	[ "$(cat "$secret_file")" = "$actual_secret" ] || { echo "Aria config and persistent token differ" >&2; exit 1; }
+	[ "$(stat -c '%a' "$secret_file")" = 600 ] || { echo "Persistent Aria RPC token is not mode 0600" >&2; exit 1; }
+	[ "$(stat -c '%a' "$config_file")" = 600 ] || { echo "Aria RPC config is not mode 0600" >&2; exit 1; }
+}
 run_aria_config_migration()
 {
 	migration_root="$TMP_DIR/aria-legacy-rpc"
@@ -740,14 +763,14 @@ run_aria_config_migration()
 		echo "Aria legacy RPC migration changed listener compatibility" >&2
 		exit 1
 	}
-	grep -qx 'rpc-secret=test-pass' "$migration_config_dir/aria2.conf" || {
-		echo "Aria did not add the router web password to the legacy RPC config" >&2
-		exit 1
-	}
+	assert_aria_rpc_secret "$migration_config_dir/aria2.conf" "$migration_config_dir/aria2.rpc-secret"
 	[ "$(stat -c '%a' "$migration_config_dir/aria2.conf")" = 600 ] || {
 		echo "Migrated Aria RPC config is not mode 0600" >&2
 		exit 1
 	}
+	for tmp_secret in "$migration_config_dir"/aria2.rpc-secret.tmp.*; do
+		[ ! -e "$tmp_secret" ] || { echo "Aria left an RPC token staging file" >&2; exit 1; }
+	done
 	for tmp_config in "$migration_config_dir"/aria2.conf.rpc-auth.tmp.*; do
 		[ ! -e "$tmp_config" ] || {
 			echo "Aria left a migrated RPC staging file" >&2
@@ -798,7 +821,7 @@ run_aria_config_concurrency()
 		echo "Concurrent Aria starts did not publish a config" >&2
 		exit 1
 	}
-	grep -qx 'rpc-secret=test-pass' "$config_dir/aria2.conf" || { echo "Generated RPC token missing" >&2; exit 1; }
+	assert_aria_rpc_secret "$config_dir/aria2.conf" "$config_dir/aria2.rpc-secret"
 	[ "$(stat -c '%a' "$config_dir/aria2.conf")" = 600 ] || { echo "Generated RPC config mode is not 0600" >&2; exit 1; }
 	for tmp_config in "$config_dir"/aria2.conf.tmp.*; do
 		[ ! -e "$tmp_config" ] || {

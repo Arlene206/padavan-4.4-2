@@ -1,3 +1,9 @@
+## 2026-11-22 — Replace Aria2 router-password RPC auth with a dedicated persistent token
+
+- The prior RPC hardening reused the router web password as `rpc-secret`. Aria2 runs as `nobody`, so that placed the administrator credential in a config readable by the daemon's shared UID. Replaced it with a dedicated 128-bit token read from `/dev/urandom` through target BusyBox `hexdump`; it is stored as `aria2.rpc-secret` mode 0600 and copied into `aria2.conf`. Set AriaNg's RPC Secret Token from that file. Router login credentials are no longer read or written.
+- Concurrent token creation uses PID-unique noclobber staging and atomic hard-link publication, so concurrent starts converge on one persistent token. Existing unauthenticated `rpc-listen-all=true` configs are migrated to that token; existing authenticated configs are preserved and chmodded 0600. Secret files are validated for symlink/type, exact byte and line count, and lowercase-hex format.
+- Removed runtime `mktemp` usage because `CONFIG_MKTEMP` is disabled in target BusyBox; config staging uses shell noclobber creation and mode 0600. Target BusyBox enables `HEXDUMP` and `LN`. Expanded host storage regression for random token generation, persistent/config consistency, concurrent creation, legacy migration and generator failure. Exact-head Actions pending.
+
 ## 2026-11-22 — Check LAN/WAN MAC overrides before VLAN topology changes
 
 - `config_soft_bridge_lan()` and `config_vinet_wan()` used lossy `nvram_safe_get()` reads for the configured LAN/WAN MAC overrides immediately before creating VLAN interfaces or changing VLAN hardware state. A transient NVRAM error could be mistaken for an empty MAC and continue through topology mutation.

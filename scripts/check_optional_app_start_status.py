@@ -1376,6 +1376,11 @@ def check_aria2_reload():
     source = ARIA2_SCRIPT.read_text()
     makefile = ARIA2_MAKEFILE.read_text()
     assert "--no-check-certificate" not in makefile
+    assert "hexdump -v -n 16" in source
+    assert "aria2.rpc-secret" in source
+    assert "rpc-secret=$aria_rpc_secret" in source
+    assert "mktemp" not in source
+    assert "nvram get http_passwd" not in source
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
     reload_start = source.index("func_reload()")
