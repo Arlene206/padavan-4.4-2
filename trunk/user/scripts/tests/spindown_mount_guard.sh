@@ -40,3 +40,96 @@ spindown_mount_status sda "$tmp/not-a-file" && status=0 || status=$?
 grep -Fq 'mount_status=$?' "$script"
 grep -Fq '*) exit 1 ;; # cannot prove the disk is unused' "$script"
 echo "spindown mount-table fail-closed guard: PASS"
+
+# Exercise the real entry point against a disposable mount table. The script
+# must share automount.sh's lock across both its inventory check and hdparm.
+real_flock=$(command -v flock) || {
+	echo "flock is required for the mount/spindown serialization regression" >&2
+	exit 1
+}
+mkdir -p "$tmp/bin" "$tmp/sys/block/sda"
+printf '0\n' > "$tmp/sys/block/sda/removable"
+cat > "$tmp/bin/hdparm" <<'EOF_HDPARM'
+#!/bin/sh
+printf '%s\n' "$*" >> "$HDPARM_LOG"
+EOF_HDPARM
+cat > "$tmp/bin/flock" <<'EOF_FLOCK'
+#!/bin/sh
+: > "$FLOCK_ATTEMPT_MARKER"
+exec "$FLOCK_REAL" "$@"
+EOF_FLOCK
+chmod 755 "$tmp/bin/hdparm" "$tmp/bin/flock"
+sed \
+	-e "s|/sbin/hdparm|$tmp/bin/hdparm|g" \
+	-e "s|/proc/mounts|$tmp/mounts|g" \
+	-e "s|/sys/block|$tmp/sys/block|g" \
+	-e "s|/var/lock/automount_mountpoint.lock|$tmp/mountpoint.lock|g" \
+	"$script" > "$tmp/spindown.sh"
+chmod 755 "$tmp/spindown.sh"
+: > "$tmp/mounts"
+: > "$tmp/hdparm.log"
+env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
+	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
+	sh "$tmp/spindown.sh" sda
+grep -Fqx -- '-y /dev/sda' "$tmp/hdparm.log"
+
+# Hold the same lock automount holds, start spindown while blocked, then add
+# a mount record before releasing the lock. A stale pre-lock snapshot would
+# incorrectly call hdparm; a correct implementation sees the new mount.
+: > "$tmp/hdparm.log"
+: > "$tmp/mounts"
+rm -f "$tmp/holder-ready" "$tmp/release-holder" "$tmp/flock-attempted"
+(
+	exec 8>>"$tmp/mountpoint.lock"
+	"$real_flock" 8
+	: > "$tmp/holder-ready"
+	while [ ! -e "$tmp/release-holder" ]; do sleep 0.01; done
+) &
+holder_pid=$!
+attempts=0
+while [ ! -e "$tmp/holder-ready" ] && [ "$attempts" -lt 200 ]; do
+	sleep 0.01
+	attempts=$((attempts + 1))
+done
+[ -e "$tmp/holder-ready" ] || {
+	echo "could not acquire automount lock in regression fixture" >&2
+	touch "$tmp/release-holder"
+	wait "$holder_pid" || :
+	exit 1
+}
+env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
+	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
+	sh "$tmp/spindown.sh" sda > "$tmp/spindown.out" 2>&1 &
+spindown_pid=$!
+attempts=0
+while [ ! -e "$tmp/flock-attempted" ] && [ "$attempts" -lt 200 ]; do
+	sleep 0.01
+	attempts=$((attempts + 1))
+done
+[ -e "$tmp/flock-attempted" ] || {
+	echo "spindown did not attempt the shared automount lock" >&2
+	touch "$tmp/release-holder"
+	wait "$holder_pid" || :
+	wait "$spindown_pid" || :
+	exit 1
+}
+sleep 0.05
+[ ! -s "$tmp/hdparm.log" ] || {
+	echo "spindown ran hdparm before acquiring the mount lock" >&2
+	touch "$tmp/release-holder"
+	wait "$holder_pid" || :
+	wait "$spindown_pid" || :
+	exit 1
+}
+printf '/dev/sda1 /mnt/usb ext4 rw 0 0\n' > "$tmp/mounts"
+: > "$tmp/release-holder"
+wait "$holder_pid"
+if wait "$spindown_pid"; then
+	echo "spindown accepted a disk mounted while it waited for the lock" >&2
+	exit 1
+fi
+[ ! -s "$tmp/hdparm.log" ] || {
+	echo "spindown issued hdparm after a concurrent mount" >&2
+	exit 1
+}
+echo "spindown and automount shared-lock race regression: PASS"

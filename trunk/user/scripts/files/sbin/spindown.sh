@@ -9,6 +9,23 @@ case "$1" in
 	[!A-Za-z0-9]*|*[!A-Za-z0-9_-]*) exit 1 ;;
 esac
 
+# Share automount.sh's mountpoint lock across the mount inventory check and
+# hdparm command. Otherwise a hotplug mount can complete after the snapshot
+# and the disk may be spun down while its filesystem is active.
+spindown_lock_file=/var/lock/automount_mountpoint.lock
+spindown_old_umask=$(umask)
+umask 077
+if ! ( : >> "$spindown_lock_file" ); then
+	umask "$spindown_old_umask"
+	exit 1
+fi
+umask "$spindown_old_umask"
+exec 9>>"$spindown_lock_file" || exit 1
+if ! flock 9; then
+	exec 9>&-
+	exit 1
+fi
+
 # Return 0 when the disk or one of its partitions is mounted, 1 only
 # after a complete mount-table read proves it is absent, and 2 on any error.
 spindown_mount_status() {
