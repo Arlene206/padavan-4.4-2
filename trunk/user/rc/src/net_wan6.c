@@ -32,6 +32,7 @@
 #include "rc.h"
 #include "route_status_policy.h"
 #include "wan6_teardown_policy.h"
+#include "wan_ipv6_service_policy.h"
 #include "wan6_identity_policy.h"
 #include "wan_nvram_status_policy.h"
 #include "dhcp_lease_policy.h"
@@ -174,12 +175,15 @@ static int
 build_dns6_value(char *dns6s, size_t dns6_size)
 {
 	char dnsnv[3][INET6_ADDRSTRLEN] = {{0}};
-	int status, written;
+	int status, written, dns_static;
 
 	if (!dns6s || dns6_size == 0)
 		return EINVAL;
 	dns6s[0] = '\0';
-	if (is_wan_dns6_static() != 1)
+	status = is_wan_dns6_static_status(&dns_static);
+	if (status != 0)
+		return status;
+	if (dns_static != 1)
 		return 0;
 
 	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns1"),
@@ -236,9 +240,12 @@ int reset_wan6_vars_status(void)
 	char dns6s[INET6_ADDRSTRLEN * 3 + 4] = {0};
 	struct rc_wan_nvram_value reset_values[6];
 	int wan_size6 = 0;
-	int status;
+	int status, wan_addr6_static;
 
-	if (is_wan_addr6_static() == 1) {
+	status = is_wan_addr6_static_status(&wan_addr6_static);
+	if (status != 0)
+		return status;
+	if (wan_addr6_static == 1) {
 		status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_addr"),
 					wan_addr6, sizeof(wan_addr6));
 		if (status != 0)
@@ -305,55 +312,119 @@ reset_wan6_vars(void)
 	return status;
 }
 
-int is_wan_addr6_static(void)
+static int
+wan6_read_nvram_match_status(const char *param_name, const char *expected,
+			     int *matches)
 {
-	int ipv6_type = get_ipv6_type();
+	char *value = NULL;
+	int api_result, saved_errno, status;
 
-	if (ipv6_type == IPV6_DISABLED)
-		return -1;
+	if (!param_name || !param_name[0] || !expected || !matches)
+		return EINVAL;
+	*matches = 0;
 
-	if (ipv6_type == IPV6_NATIVE_DHCP6 ||
-	    ipv6_type == IPV6_6TO4)
-		return 0;
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (api_result == 0)
+		value = "";
 
-	if (ipv6_type == IPV6_NATIVE_STATIC ||
-	    ipv6_type == IPV6_6IN4 ||
-	   (ipv6_type == IPV6_6RD && nvram_match("ip6_6rd_dhcp", "0")))
-		return 1;
-
-	return 0;
+	return rc_wan_nvram_match_status(0, value, expected, matches);
 }
 
-int is_wan_dns6_static(void)
+int
+is_wan_addr6_static_status(int *is_static)
 {
-	int ipv6_type = get_ipv6_type();
+	int ipv6_type, status, sixrd_dhcp_status = 0, sixrd_is_manual = 0;
 
-	if (ipv6_type == IPV6_DISABLED)
-		return -1;
+	if (!is_static)
+		return EINVAL;
+	*is_static = -1;
+	status = get_ipv6_type_status(&ipv6_type);
+	if (status == 0 && ipv6_type == IPV6_6RD)
+		sixrd_dhcp_status = wan6_read_nvram_match_status(
+			"ip6_6rd_dhcp", "0", &sixrd_is_manual);
 
-	if (nvram_match("ip6_dns_auto", "0") || 
-	    ipv6_type == IPV6_NATIVE_STATIC || 
-	    ipv6_type == IPV6_6IN4 ||
-	    ipv6_type == IPV6_6TO4 ||
-	    ipv6_type == IPV6_6RD)
-		return 1;
-
-	return 0;
+	return wan_ipv6_service_addr_static_status(
+		status, ipv6_type, IPV6_DISABLED, IPV6_NATIVE_STATIC,
+		IPV6_NATIVE_DHCP6, IPV6_6IN4, IPV6_6TO4, IPV6_6RD,
+		sixrd_dhcp_status, sixrd_is_manual, is_static);
 }
 
-int is_wan_ipv6_type_sit(void)
+int
+is_wan_dns6_static_status(int *is_static)
 {
-	int ipv6_type = get_ipv6_type();
+	int ipv6_type, status, dns_auto_status = 0, dns_auto_is_manual = 0;
 
-	if (ipv6_type == IPV6_DISABLED)
+	if (!is_static)
+		return EINVAL;
+	*is_static = -1;
+	status = get_ipv6_type_status(&ipv6_type);
+	if (status == 0 && ipv6_type == IPV6_NATIVE_DHCP6)
+		dns_auto_status = wan6_read_nvram_match_status(
+			"ip6_dns_auto", "0", &dns_auto_is_manual);
+
+	return wan_ipv6_service_dns_static_status(
+		status, ipv6_type, IPV6_DISABLED, IPV6_NATIVE_STATIC,
+		IPV6_NATIVE_DHCP6, IPV6_6IN4, IPV6_6TO4, IPV6_6RD,
+		dns_auto_status, dns_auto_is_manual, is_static);
+}
+
+int
+is_wan_ipv6_type_sit_status(int *is_sit)
+{
+	int ipv6_type, status;
+
+	if (!is_sit)
+		return EINVAL;
+	*is_sit = -1;
+	status = get_ipv6_type_status(&ipv6_type);
+	return wan_ipv6_service_is_sit_status(
+		status, ipv6_type, IPV6_DISABLED, IPV6_6IN4,
+		IPV6_6TO4, IPV6_6RD, is_sit);
+}
+
+/* Compatibility wrappers: state-changing callers use the status APIs above. */
+int
+is_wan_addr6_static(void)
+{
+	int is_static = -1;
+	int status = is_wan_addr6_static_status(&is_static);
+
+	if (status != 0) {
+		errno = status;
 		return -1;
+	}
+	return is_static;
+}
 
-	if (ipv6_type == IPV6_6IN4 ||
-	    ipv6_type == IPV6_6TO4 ||
-	    ipv6_type == IPV6_6RD)
-		return 1;
+int
+is_wan_dns6_static(void)
+{
+	int is_static = -1;
+	int status = is_wan_dns6_static_status(&is_static);
 
-	return 0;
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	return is_static;
+}
+
+int
+is_wan_ipv6_type_sit(void)
+{
+	int is_sit = -1;
+	int status = is_wan_ipv6_type_sit_status(&is_sit);
+
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	return is_sit;
 }
 
 int is_wan_ipv6_if_ppp(void)

@@ -789,3 +789,112 @@ require(
     "WAN transactional route snapshot regression is missing",
 )
 print("WAN route ownership uses a coherent tuple while preserving PPP conntrack cleanup: PASS")
+
+
+# IPv6 service-mode predicates control reset, DNS publication and WAN route
+# selection. Do not let a checked NVRAM failure collapse into "IPv6 disabled".
+wan6_source = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
+ipv6_policy = (ROOT / "trunk/user/rc/src/wan_ipv6_service_policy.h").read_text()
+ipv6_test = (ROOT / "trunk/user/rc/src/tests/wan_ipv6_service_policy.c").read_text()
+rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
+
+checked_match = body(
+    wan6_source,
+    "wan6_read_nvram_match_status(const char *param_name, const char *expected,",
+)
+for token in ("nvram_get_checked(param_name, &value)",
+              "rc_wan_nvram_read_status(api_result, saved_errno)",
+              "rc_wan_nvram_match_status(0, value, expected, matches)"):
+    require(token in checked_match,
+            "IPv6 mode option read must preserve NVRAM errors: " + token)
+
+addr_mode = body(wan6_source, "is_wan_addr6_static_status(int *is_static)")
+dns_mode = body(wan6_source, "is_wan_dns6_static_status(int *is_static)")
+sit_mode = body(wan6_source, "is_wan_ipv6_type_sit_status(int *is_sit)")
+for name, mode in (("address", addr_mode), ("DNS", dns_mode), ("SIT", sit_mode)):
+    require("get_ipv6_type_status(&ipv6_type)" in mode,
+            name + " mode selector must use the checked IPv6 service API")
+    require("get_ipv6_type()" not in mode,
+            name + " mode selector must not use the legacy error-collapsing getter")
+
+require('wan6_read_nvram_match_status("ip6_6rd_dhcp", "0", &sixrd_is_manual)' in
+        "".join(addr_mode.split()),
+        "6rd address mode must use a checked DHCP-mode read")
+require('wan6_read_nvram_match_status("ip6_dns_auto", "0", &dns_auto_is_manual)' in
+        "".join(dns_mode.split()),
+        "native DHCPv6 DNS mode must use a checked auto/manual read")
+
+reset_ipv6 = body(wan6_source, "reset_wan6_vars_status(void)")
+require("is_wan_addr6_static_status(&wan_addr6_static)" in reset_ipv6 and
+        "if (status != 0)" in reset_ipv6 and
+        reset_ipv6.index("if (status != 0)") <
+        reset_ipv6.index('rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_addr")'),
+        "IPv6 reset must abort before snapshot work when service mode cannot be read")
+dns_export = body(wan6_source, "build_dns6_value(char *dns6s, size_t dns6_size)")
+require("is_wan_dns6_static_status(&dns_static)" in dns_export and
+        "if (status != 0)" in dns_export and
+        dns_export.index("if (status != 0)") <
+        dns_export.index('rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns1")'),
+        "DNS publication must stop before mode-dependent DNS reads on error")
+
+for name in ("is_wan_addr6_static_status", "is_wan_dns6_static_status",
+             "is_wan_ipv6_type_sit_status"):
+    require(name + "(int *" in rc_header,
+            "checked WAN IPv6 predicate declaration missing: " + name)
+
+for token in ("wan_ipv6_service_is_sit_status",
+              "wan_ipv6_service_addr_static_status",
+              "wan_ipv6_service_dns_static_status",
+              "if (read_status != 0)",
+              "sixrd_dhcp_read_status != 0",
+              "dns_auto_read_status != 0"):
+    require(token in ipv6_policy,
+            "WAN IPv6 service policy missing " + token)
+
+for case in ("test_service_read_error_is_not_mapped_to_disabled",
+             "test_sit_classification_preserves_all_transport_modes",
+             "test_address_static_classification_preserves_legacy_rules",
+             "test_dns_static_classification_checks_only_manual_native_dhcp_mode",
+             "test_null_outputs_fail_closed"):
+    require(case in ipv6_test, "WAN IPv6 service regression missing " + case)
+
+wan_ipv6_callers = (
+    ("launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)", "route_status_accumulate"),
+    ("start_wan(void)", "rc_first_service_start_status"),
+    ("stop_wan_locked(void)", "goto abort_resume_detect"),
+    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "route_status_accumulate"),
+    ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "wan6_down"),
+)
+for signature, required_effect in wan_ipv6_callers:
+    caller = "".join(function_body_at_column_zero_terminator(source, signature).split())
+    require("is_wan_ipv6_type_sit_status(&ipv6_is_sit)" in caller,
+            signature + " must consume the checked service-mode result")
+    require("is_wan_ipv6_type_sit()" not in caller,
+            signature + " must not use the legacy error-collapsing wrapper")
+    require(required_effect.replace(" ", "") in caller,
+            signature + " must propagate or handle a mode-read error")
+    require("if(ipv6_type_status!=0)" in caller,
+            signature + " must branch on a failed mode read")
+
+stop_mode = "".join(
+    function_body_at_column_zero_terminator(source, "stop_wan_locked(void)").split()
+)
+require(stop_mode.index("ipv6_status=wan6_down(man_ifname,unit)") <
+        stop_mode.index("gotoabort_resume_detect;"),
+        "WAN stop must still fence DHCPv6 callbacks on a mode-read error")
+down_mode = "".join(
+    function_body_at_column_zero_terminator(
+        source, "wan_down_internal(char *wan_ifname, int unit, int is_static)"
+    ).split()
+)
+require(down_mode.index("ipv6_status=wan6_down(wan_ifname,unit)") <
+        down_mode.index("cannotdetermineWANIPv6transportduringteardown"),
+        "WAN-down must attempt best-effort DHCPv6 callback stop on a mode-read error")
+
+assert not re.search(r"\bis_wan_(?:addr6_static|dns6_static|ipv6_type_sit)\s*\(",
+                     reset_ipv6 + dns_export),
+       "state-changing WAN IPv6 paths must use checked mode predicates"
+assert not re.search(r"\bget_ipv6_type\s*\(", wan6_source),
+       "net_wan6.c must not consume the legacy IPv6 service getter"
+
+print("WAN IPv6 service-mode checked reads and caller error propagation: PASS")

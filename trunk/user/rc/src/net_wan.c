@@ -2990,6 +2990,9 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 	int launch_status = 0;
 	int man_mtu = 0;
 	int snapshot_status, nvram_status;
+#if defined (USE_IPV6)
+	int ipv6_type_status, ipv6_is_sit;
+#endif
 	char man_addr_storage[16], man_mask_storage[16], lan_addr[16], lan_mask[16];
 	char *man_addr = man_addr_storage, *man_mask = man_mask_storage;
 
@@ -3103,7 +3106,13 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 	}
 
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 0 && !is_wan_ipv6_if_ppp()) {
+	ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);
+	if (ipv6_type_status != 0) {
+		launch_status = route_status_accumulate(launch_status, ipv6_type_status);
+		logmessage(LOGNAME,
+			   "cannot determine WAN IPv6 transport for %s (status=%d)",
+			   man_ifname, ipv6_type_status);
+	} else if (ipv6_is_sit == 0 && !is_wan_ipv6_if_ppp()) {
 		int ipv6_status = wan6_up(man_ifname, unit);
 		if (ipv6_status != 0)
 			logmessage(LOGNAME, "WAN physical IPv6 setup incomplete on %s (status=%d)",
@@ -3320,6 +3329,9 @@ start_wan(void)
 	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
 	int nvram_status, modem_type;
+#if defined (USE_IPV6)
+	int ipv6_type_status, ipv6_is_sit;
+#endif
 	char *wan_ifname;
 
 	if (wan_vars_reset_status != 0) {
@@ -4015,7 +4027,14 @@ start_wan(void)
 					wan_start_status, vlan_result);
 			}
 #if defined (USE_IPV6)
-			if (is_wan_ipv6_type_sit() == 0) {
+			ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);
+			if (ipv6_type_status != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, ipv6_type_status);
+				logmessage(LOGNAME,
+					   "cannot determine WAN IPv6 transport for %s (status=%d)",
+					   wan_ifname, ipv6_type_status);
+			} else if (ipv6_is_sit == 0) {
 				int ipv6_status = wan6_up(wan_ifname, unit);
 				wan_start_status = rc_first_service_start_status(
 					wan_start_status, ipv6_status);
@@ -4134,7 +4153,7 @@ stop_wan_locked(void)
 	int is_usb_modem, is_ndis_modem = 0;
 	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
 #if defined (USE_IPV6)
-	int ipv6_status = 0;
+	int ipv6_status = 0, ipv6_type_status, ipv6_is_sit;
 #endif
 	char *man_ifname;
 	char *usbnet_ifname;
@@ -4217,7 +4236,18 @@ stop_wan_locked(void)
 		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() != 1) {
+	ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);
+	if (ipv6_type_status != 0) {
+		/* wan6_down() still fences DHCPv6 before its checked read refuses
+		 * an unsafe interface-selection guess. */
+		ipv6_status = wan6_down(man_ifname, unit);
+		stop_status = route_status_accumulate(ipv6_type_status, ipv6_status);
+		logmessage(LOGNAME,
+			   "refusing WAN interface teardown because IPv6 service type cannot be read (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
+	if (ipv6_is_sit != 1) {
 		ipv6_status = wan6_down(man_ifname, unit);
 		if (ipv6_status != 0) {
 			logmessage(LOGNAME, "WAN IPv6 teardown incomplete on %s (status=%d)",
@@ -4803,7 +4833,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	int gateway_arp_status, gateway_arp_enabled;
 	int route_snapshot_status, wan_addr_status, wan_mask_status, wan_gate_status;
 #if defined (USE_IPV6)
-	int ipv6_status;
+	int ipv6_status, ipv6_type_status, ipv6_is_sit;
 #endif
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "up", wan_ifname);
@@ -4948,7 +4978,13 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 1) {
+	ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);
+	if (ipv6_type_status != 0) {
+		status = route_status_accumulate(status, ipv6_type_status);
+		logmessage(LOGNAME,
+			   "cannot determine WAN IPv6 transport while bringing %s up (status=%d)",
+			   wan_ifname, ipv6_type_status);
+	} else if (ipv6_is_sit == 1) {
 		ipv6_status = wan6_up(wan_ifname, unit);
 		status = route_status_accumulate(status, ipv6_status);
 		if (ipv6_status != 0)
@@ -5134,7 +5170,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	int force_clear_wan_dns, wan_dns_read_status, clear_wan_dns;
 	char wanx_dns[256];
 #if defined (USE_IPV6)
-	int ipv6_status;
+	int ipv6_status, ipv6_type_status, ipv6_is_sit;
 #endif
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
@@ -5166,7 +5202,19 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 #if defined (USE_IPV6)
-	if (is_wan_ipv6_type_sit() == 1) {
+	ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);
+	if (ipv6_type_status != 0) {
+		status = route_status_accumulate(status, ipv6_type_status);
+		/* Stop DHCPv6 callback work before declining an interface guess. */
+		ipv6_status = wan6_down(wan_ifname, unit);
+		status = route_status_accumulate(status, ipv6_status);
+		logmessage(LOGNAME,
+			   "cannot determine WAN IPv6 transport during teardown on %s (status=%d)",
+			   wan_ifname, ipv6_type_status);
+		if (ipv6_status != 0)
+			logmessage(LOGNAME, "WAN IPv6 best-effort teardown incomplete on %s (status=%d)",
+				   wan_ifname, ipv6_status);
+	} else if (ipv6_is_sit == 1) {
 		ipv6_status = wan6_down(wan_ifname, unit);
 		status = route_status_accumulate(status, ipv6_status);
 		if (ipv6_status != 0)
