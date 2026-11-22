@@ -1,3 +1,13 @@
+## 2026-11-22 — Preserve router-advertisement NVRAM read errors
+
+- Parent main SHA: `75a61dfe4f48664a6a35caa0e0f1df6243fe48a8`. The LAN reset source-contract corrections are committed in `75a61dfe4f48664a6a35caa0e0f1df6243fe48a8`; its exact-SHA workflows were just enqueued (no result asserted yet). On the prior source SHA `e45027e842af2c42de6760991fbe9d80fa21967c`, the XY-C1 host-only checks had passed through the LAN IPv6 publication contract and the firmware Build step was still in progress. Two unrelated source contracts failed because they expected the removed direct LAN config getters; the checker corrections are in `75a61dfe...`.
+- `is_lan_radv_on()` used `nvram_invmatch("ip6_lan_radv","0")`; a failed backend read collapsed to “not equal zero”, incorrectly enabling router advertisements. Added a one-key checked transaction reader and a status-bearing policy. The API now returns `-1` on backend/read/close failure; only a clean read with literal `"0"` disables RA. Missing/empty values preserve the legacy enabled default.
+- Added four policy regressions and source contracts for transactional read, missing-key compatibility and error propagation. No other LAN DHCP mode or service semantics changed.
+- Local tests were not run in this connector-only runtime. Exact-head XY-C1/IPv6 service/AI workflows are required after this commit.
+- Result: THIS COMMIT. Next: audit `get_lan_dhcp6s_mode()` for its unchecked `nvram_get_int("ip6_lan_dhcp")` read and preserve atoi-style defaults while propagating read/transaction failures to existing -1 callers.
+
+---
+
 ## 2026-11-22 — Align LAN reset source contracts with transactional configuration snapshot
 
 - Parent main SHA: `cac4f73f3757d1617b2fb34a58fd7bb2f65af589`. Exact-head XY-C1 run #45028146852 on `e45027e842af2c42de6760991fbe9d80fa21967c` remained in progress after the initial host-only test phase; the LAN address reload GNU89 sanitizer binary itself passed and the new LAN reset snapshot source contract was exercised by the XY workflow. The same SHA's WAN route #45028146813 and AI handoff #45028146832 passed.

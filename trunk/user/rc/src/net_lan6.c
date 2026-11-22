@@ -85,6 +85,27 @@ lan6_snapshot_transaction_end(void *context)
 	return nvram_transaction_end((struct nvram_transaction *)context);
 }
 
+static int
+lan6_read_config_value_status(const char *param_name, char *value,
+			      size_t value_size)
+{
+	struct rc_wan_nvram_snapshot_field field;
+	struct nvram_transaction transaction;
+	int status;
+
+	if (!param_name || !param_name[0] || !value || value_size == 0)
+		return EINVAL;
+	field.param_name = param_name;
+	field.destination = value;
+	field.destination_size = value_size;
+	status = rc_wan_nvram_copy_snapshot(
+		&field, 1, lan6_snapshot_transaction_begin,
+		lan6_snapshot_transaction_get, lan6_snapshot_transaction_end,
+		&transaction);
+	return status;
+}
+
+
 /*
  * Resolve static/dynamic mode and its address/prefix size from one NVRAM
  * generation. A failed read or transaction close aborts before reset writes
@@ -240,16 +261,26 @@ int reset_lan6_vars(void)
 
 int is_lan_radv_on(void)
 {
-	int ipv6_type, status;
+	char radv_value[16] = {0};
+	int ipv6_type, status, enabled;
 
 	status = get_lan6_service_type(&ipv6_type);
 	if (status != 0 || ipv6_type == IPV6_DISABLED)
 		return -1;
 
-	if (nvram_invmatch("ip6_lan_radv", "0"))
-		return 1;
-
-	return 0;
+	status = lan6_read_config_value_status(
+		"ip6_lan_radv", radv_value, sizeof(radv_value));
+	if (status == 0)
+		status = rc_lan_addr6_radv_enabled_status(
+			0, radv_value, &enabled);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot read router advertisement configuration (status=%d)",
+			   status);
+		return -1;
+	}
+	return enabled;
 }
 
 int is_lan_addr6_static(void)

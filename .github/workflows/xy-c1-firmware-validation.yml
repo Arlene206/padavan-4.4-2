@@ -656,6 +656,13 @@ jobs:
           assert '"ip6_lan_auto"' in reset_snapshot
           assert "rc_lan_addr6_static_mode_status(" in reset_snapshot
           assert "rc_lan_addr6_legacy_prefix_size(" in reset_snapshot
+          radv_reader = lan6.split("lan6_read_config_value_status(const char *param_name,", 1)[1].split("static int", 1)[0]
+          radv_getter = lan6.split("int is_lan_radv_on(void)", 1)[1].split("int is_lan_addr6_static(void)", 1)[0]
+          assert "rc_wan_nvram_copy_snapshot(" in radv_reader
+          assert "ip6_lan_radv" in radv_getter
+          assert "rc_lan_addr6_radv_enabled_status(" in radv_getter
+          assert "if (status != 0)" in radv_getter and "return -1;" in radv_getter
+          assert 'nvram_invmatch("ip6_lan_radv", "0")' not in radv_getter
           reset = lan6.split("int reset_lan6_vars(void)", 1)[1].split("int is_lan_radv_on", 1)[0]
           assert "status = lan6_read_reset_snapshot(ipv6_type, &snapshot);" in reset
           assert reset.index("if (status != 0)") < reset.index('nvram_set_temp("lan_addr6", addr6s)')
@@ -686,6 +693,10 @@ jobs:
           assert "return errno ? errno : EIO;" in lan_publish
 
           for case in (
+              "test_radv_read_failure_is_not_enabled_by_default",
+              "test_radv_missing_key_preserves_nvram_invmatch_default",
+              "test_radv_literal_zero_disables_and_other_values_enable",
+              "test_radv_policy_rejects_missing_output_or_value",
               "test_static_mode_policy_preserves_service_type_overrides",
               "test_dynamic_static_mode_read_failure_is_not_a_default",
               "test_dynamic_static_mode_preserves_nvram_match_defaults",

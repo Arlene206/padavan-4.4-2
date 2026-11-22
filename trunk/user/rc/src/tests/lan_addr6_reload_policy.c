@@ -117,6 +117,48 @@ test_prefix_size_backend_error_is_not_a_legacy_default(void)
 	assert(prefix_size == 60);
 }
 
+
+static void
+test_radv_read_failure_is_not_enabled_by_default(void)
+{
+	int enabled = 1;
+
+	assert(rc_lan_addr6_radv_enabled_status(EIO, "0", &enabled) == EIO);
+	assert(enabled == 0);
+}
+
+static void
+test_radv_missing_key_preserves_nvram_invmatch_default(void)
+{
+	int enabled = 0;
+
+	assert(rc_lan_addr6_radv_enabled_status(0, "", &enabled) == 0);
+	assert(enabled == 1);
+}
+
+static void
+test_radv_literal_zero_disables_and_other_values_enable(void)
+{
+	int enabled = -1;
+
+	assert(rc_lan_addr6_radv_enabled_status(0, "0", &enabled) == 0);
+	assert(enabled == 0);
+	assert(rc_lan_addr6_radv_enabled_status(0, "1", &enabled) == 0);
+	assert(enabled == 1);
+	assert(rc_lan_addr6_radv_enabled_status(0, "false", &enabled) == 0);
+	assert(enabled == 1);
+}
+
+static void
+test_radv_policy_rejects_missing_output_or_value(void)
+{
+	int enabled = 1;
+
+	assert(rc_lan_addr6_radv_enabled_status(0, "0", NULL) == EINVAL);
+	assert(rc_lan_addr6_radv_enabled_status(0, NULL, &enabled) == EIO);
+	assert(enabled == 0);
+}
+
 static void
 test_clear_failure_prevents_new_address_publication(void)
 {
@@ -212,6 +254,11 @@ int
 main(void)
 {
 
+
+	test_radv_read_failure_is_not_enabled_by_default();
+	test_radv_missing_key_preserves_nvram_invmatch_default();
+	test_radv_literal_zero_disables_and_other_values_enable();
+	test_radv_policy_rejects_missing_output_or_value();
 	test_static_mode_policy_preserves_service_type_overrides();
 	test_dynamic_static_mode_read_failure_is_not_a_default();
 	test_dynamic_static_mode_preserves_nvram_match_defaults();

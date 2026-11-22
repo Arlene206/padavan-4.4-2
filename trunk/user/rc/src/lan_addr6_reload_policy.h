@@ -37,6 +37,23 @@ rc_lan_addr6_static_mode_status(int disabled, int excludes_lan_address,
 	return 0;
 }
 
+
+static inline int
+rc_lan_addr6_radv_enabled_status(int read_status, const char *value,
+				 int *enabled)
+{
+	if (!enabled)
+		return EINVAL;
+	*enabled = 0;
+	if (read_status != 0)
+		return read_status;
+	if (!value)
+		return EIO;
+
+	*enabled = (strcmp(value, "0") != 0);
+	return 0;
+}
+
 /*
  * nvram_get_int() historically behaves like atoi(); missing, empty,
  * malformed and out-of-range prefix sizes all fall back to /64. Retain

@@ -147,6 +147,22 @@ assert "lan_addr6_static_for_type(ipv6_type)" in function_body(
     net_lan6, "int is_lan_addr6_static(void)"
 )
 
+radv_reader = function_body(
+    net_lan6, "lan6_read_config_value_status(const char *param_name,"
+)
+assert "rc_wan_nvram_copy_snapshot(" in radv_reader
+assert "lan6_snapshot_transaction_begin" in radv_reader
+assert "lan6_snapshot_transaction_get" in radv_reader
+assert "lan6_snapshot_transaction_end" in radv_reader
+radv_getter = function_body(net_lan6, "int is_lan_radv_on(void)")
+assert 'lan6_read_config_value_status(\n\t\t"ip6_lan_radv"' in radv_getter
+assert "rc_lan_addr6_radv_enabled_status(" in radv_getter
+assert "if (status != 0)" in radv_getter and "return -1;" in radv_getter
+assert 'nvram_invmatch("ip6_lan_radv", "0")' not in radv_getter
+radv_policy = function_body(policy, "rc_lan_addr6_radv_enabled_status(")
+assert "if (read_status != 0)" in radv_policy
+assert 'strcmp(value, "0") != 0' in radv_policy
+
 
 firewall = (ROOT / "trunk/user/rc/src/firewall_ex.c").read_text()
 ipv4_filter = function_body(firewall, "ipt_filter_rules(char *man_if")
