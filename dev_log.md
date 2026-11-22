@@ -1,3 +1,10 @@
+## 2026-11-22 — Update DHCP MTU checker boundary after checked LAN snapshot
+
+- Parent main SHA: `452f666cd126e06284c0607fd6b6bbbcabc1bbe1`. Exact WAN DHCP run #45010044573 passed the GNU89/ASan/UBSan NVRAM and lease tests plus LAN deconfig and dltime contracts, then `scripts/check_wan_dhcp_mtu_withdrawal.py:54` failed because it used the old lossy LAN `nvram_safe_get()` assignment as the end boundary of the IPTV MTU input block.
+- The production code now performs checked LAN subnet snapshots before the overlap test. Updated the MTU checker to delimit its MTU-only source region at that first checked snapshot call; dedicated DHCP source-order assertions cover the new snapshot behavior. No production source change in this commit. Exact-head WAN DHCP rerun pending.
+
+---
+
 ## 2026-11-22 — Check LAN subnet reads before WAN and IPTV DHCP address mutation
 
 - Parent main SHA: `af02de689f5b2af8ee10011b342b68b199dc21f0`. Both `udhcpc_bound()` and `udhcpc_viptv_bound()` used lossy `nvram_safe_get()` for the router LAN address/netmask overlap check. A backend read/close error could appear as an absent value and let DHCP proceed without a trustworthy subnet-conflict check.

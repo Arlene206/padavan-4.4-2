@@ -51,7 +51,7 @@ assert "set_interface_mtu(wan_ifname, dhcp_mtu)" in physical_bound
 
 iptv_mtu = iptv_bound[
     iptv_bound.index('value = getenv("mtu");'):
-    iptv_bound.index('lan_ip = nvram_safe_get("lan_ipaddr");')
+    iptv_bound.index("lan_config_status = rc_wan_nvram_copy_value(")
 ]
 assert "mtu_seen = 1;" in iptv_mtu
 assert "dhcp_lease_mtu_option_value(" in iptv_mtu
