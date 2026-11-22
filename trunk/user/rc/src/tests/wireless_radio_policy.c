@@ -347,6 +347,54 @@ static int test_inic_radio_policy_rejects_incomplete_operations(void)
 }
 
 static int
+test_txpower_nvram_read_status_fails_closed(void)
+{
+	int configured = -1;
+
+	/* A missing/empty value retains the legacy TxPower default of zero. */
+	if (wireless_radio_nvram_int_status(0, 0, NULL, 0, &configured) != 0 ||
+	    configured != 0)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, "", 17, &configured) != 0 ||
+	    configured != 17)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, "  \t ", 17, &configured) != 0 ||
+	    configured != 17)
+		return 1;
+
+	if (wireless_radio_nvram_int_status(1, 0, " 73 \t", 0, &configured) != 0 ||
+	    configured != 73)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, "-4", 0, &configured) != 0 ||
+	    configured != -4)
+		return 1;
+
+	/* Read errors, invalid API statuses and malformed values never become 0. */
+	if (wireless_radio_nvram_int_status(-1, EACCES, "73", 0,
+					    &configured) != EACCES || configured != 0)
+		return 1;
+	if (wireless_radio_nvram_int_status(-1, 0, "73", 0,
+					    &configured) != EIO || configured != 0)
+		return 1;
+	if (wireless_radio_nvram_int_status(2, 0, "73", 0,
+					    &configured) != EIO || configured != 0)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, NULL, 0,
+					    &configured) != EIO || configured != 0)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, "73dBm", 17,
+					    &configured) != EINVAL || configured != 17)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, "2147483648", 17,
+					    &configured) != EINVAL || configured != 17)
+		return 1;
+	if (wireless_radio_nvram_int_status(1, 0, "-2147483649", 17,
+					    &configured) != EINVAL || configured != 17)
+		return 1;
+	return wireless_radio_nvram_int_status(1, 0, "73", 0, NULL) != EINVAL;
+}
+
+static int
 test_txpower_config_value_is_normalized(void)
 {
 	return wireless_txpower_config_value(INT_MIN) != 100 ||
@@ -403,6 +451,7 @@ int
 main(void)
 {
 	if (test_radio_nvram_flag_status_fails_closed() ||
+	    test_txpower_nvram_read_status_fails_closed() ||
 	    test_inic_start_enable_gate_fails_closed() ||
 	    test_txpower_config_value_is_normalized() ||
 	    test_success_is_published() ||

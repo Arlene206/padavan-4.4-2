@@ -94,7 +94,12 @@ jobs:
           assert '#include "wireless_radio_policy.h"' in source
           assert '#include "wireless_radio_policy.h"' in ralink_source
           txpower_prepare = function_body(source, "wireless_inic_radio_prepare_on(void *opaque)")
-          assert 'wireless_txpower_config_value(nvram_wlan_get_int(0, "TxPower"))' in txpower_prepare
+          assert 'nvram_get_checked("rt_TxPower", &txpower_value)' in txpower_prepare
+          assert "wireless_radio_nvram_int_status(" in txpower_prepare
+          assert "if (read_status != 0)" in txpower_prepare
+          assert "test_txpower_nvram_read_status_fails_closed" in notification_test
+          assert "nvram_wlan_get_int(" not in txpower_prepare
+          assert txpower_prepare.index("nvram_get_checked(") < txpower_prepare.index("wireless_radio_nvram_int_status(") < txpower_prepare.index("if (read_status != 0)") < txpower_prepare.index("doSystem(")
           txpower_config = function_body(
               ralink_source,
               "gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)")

@@ -401,9 +401,29 @@ static int
 wireless_inic_radio_prepare_on(void *opaque)
 {
 	wireless_inic_radio_context_t *context = (wireless_inic_radio_context_t *)opaque;
-	int i_val = wireless_txpower_config_value(nvram_wlan_get_int(0, "TxPower"));
-	int status = doSystem("iwpriv %s set %s=%d", context->ifname, "TxPower", i_val);
+	char *txpower_value = NULL;
+	int api_result, read_errno, read_status, configured_txpower;
+	int i_val, status;
 
+	/*
+	 * nvram_wlan_get_int() uses the lossy safe-get/atoi path: a device-node,
+	 * ioctl or close failure becomes zero. Never expose the iNIC after silently
+	 * replacing the configured TxPower with that fallback.
+	 */
+	errno = 0;
+	api_result = nvram_get_checked("rt_TxPower", &txpower_value);
+	read_errno = errno;
+	read_status = wireless_radio_nvram_int_status(
+		api_result, read_errno, txpower_value, 0, &configured_txpower);
+	if (read_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read 2.4GHz iNIC TxPower from NVRAM (status=%d)",
+			   read_status);
+		return read_status;
+	}
+
+	i_val = wireless_txpower_config_value(configured_txpower);
+	status = doSystem("iwpriv %s set %s=%d", context->ifname, "TxPower", i_val);
 	if (!wireless_radio_status_success(status)) {
 		logmessage(LOGNAME, "2.4GHz iNIC TxPower=%d update failed (status=%d)", i_val, status);
 		return status;

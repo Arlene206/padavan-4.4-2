@@ -2,6 +2,7 @@
 #define WIRELESS_RADIO_POLICY_H
 
 #include <errno.h>
+#include <limits.h>
 #include <ctype.h>
 #include <stdlib.h>
 
@@ -62,6 +63,49 @@ wireless_radio_nvram_flag_status(int api_result, int saved_errno,
 		return EINVAL;
 
 	*enabled = (parsed != 0);
+	return 0;
+}
+
+/*
+ * Read a numeric NVRAM setting without collapsing backend errors into zero.
+ * Missing, empty and whitespace-only values preserve the caller's legacy
+ * default. Non-numeric, partially numeric and out-of-range values fail closed.
+ */
+static inline int
+wireless_radio_nvram_int_status(int api_result, int saved_errno,
+                                const char *value, int default_value,
+                                int *configured_value)
+{
+	const char *cursor;
+	char *end;
+	long parsed;
+
+	if (!configured_value)
+		return EINVAL;
+	*configured_value = default_value;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !value)
+		return EIO;
+
+	cursor = value;
+	while (*cursor && isspace((unsigned char)*cursor))
+		++cursor;
+	if (!*cursor)
+		return 0;
+
+	errno = 0;
+	parsed = strtol(cursor, &end, 10);
+	if (end == cursor || errno == ERANGE)
+		return EINVAL;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+	if (*end || parsed < INT_MIN || parsed > INT_MAX)
+		return EINVAL;
+
+	*configured_value = (int)parsed;
 	return 0;
 }
 

@@ -1,3 +1,12 @@
+## 2026-11-22 — Fail closed on iNIC TxPower NVRAM read errors
+
+- Parent main SHA: `7a136bbfd8fdb03b199cf85e534316a88a7d887a`. The RT3352 MII radio-enable transaction already kept the switch port isolated until the TxPower command completed, but `wireless_inic_radio_prepare_on()` read `rt_TxPower` through `nvram_wlan_get_int()`. That wrapper uses `nvram_safe_get()` + `atoi()`, so a transient /dev/nvram open/ioctl/close error became a valid-looking zero and the code could unisolate and publish the radio with the configured power silently lost.
+- Replaced that one recovery-path read with `nvram_get_checked("rt_TxPower")`, preserving the legacy missing/empty default and the existing 0..100 clamp. Added strict decimal/range parsing; backend, errno-less, malformed and out-of-int-range inputs now abort the prepare callback before `iwpriv TxPower`, allowing the existing transition policy to keep isolation, roll back radio power and suppress publication.
+- Extended the existing GNU89 wireless policy test and the exact-source workflow contract for checked-read → parse/error gate → TxPower command ordering. The workflow already watches the source, policy header and test file; no extra trigger path is needed.
+- Parent exact-SHA checks: AI handoff #45041698520 PASS, process inventory #45041698513 PASS and p910nd I/O #45041698560 PASS on `7a136bbfd8fdb03b199cf85e534316a88a7d887a`; XY-C1 #45041698556 and NVRAM boundary #45041698491 were IN_PROGRESS at the last inspection. No local checkout/tests were available; the Wireless, XY-C1 Build/TRX/artifact and updated handoff workflows must pass on this new source SHA. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Make p910nd stream I/O resilient to EINTR and EAGAIN
 
 - Parent main SHA: `efb830bce5028536826989c8b5070b68a49e4a4e`. Review of the p910nd bidirectional stream showed that a transient `EINTR` from `select()` aborted the entire print job; interrupted `read()`/`write()` set the fatal buffer error; and the nonblocking printer descriptor could produce `EAGAIN/EWOULDBLOCK` after readiness without any transient path. More seriously, `writeBuffer()` treated `write()==0` with pending bytes as a successful zero-byte write and left the buffer unchanged; the unidirectional loop then retried forever without yielding.

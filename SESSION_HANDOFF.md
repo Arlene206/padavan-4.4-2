@@ -13,24 +13,24 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `efb830bce5028536826989c8b5070b68a49e4a4e`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `7a136bbfd8fdb03b199cf85e534316a88a7d887a`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- EAPoL compile-breaking orphan tail removed; exact reruns for XY-C1 and Process pending.
-- WSDD2 strict UTF-8/XML 1.0 validation and ttyd detached-child readiness are implemented; their corresponding CI checks passed on exact checker descendants e2 and 30a1.
+- EAPoL compile-breaking orphan tail was removed in `efb830bce5028536826989c8b5070b68a49e4a4e`; p910nd stream I/O now handles EINTR/EAGAIN and zero-progress writes in parent `7a136bbfd8fdb03b199cf85e534316a88a7d887a`.
+- This slice hardens the RT3352 MII TxPower preflight: a failed `rt_TxPower` read can no longer collapse to zero and authorize radio unisolation/publication.
 
 ## Active task
 
-p910nd circular-buffer I/O now retries EINTR, defers EAGAIN/EWOULDBLOCK until the next select pass, treats zero-progress writes with pending data as EIO, and retries select after EINTR. This prevents transient system-call interruptions from aborting jobs and prevents a tight infinite loop when a write returns zero.
+Validate the iNIC TxPower fail-closed correction on its exact source SHA. The previous `wireless_inic_radio_prepare_on()` called `nvram_wlan_get_int(0, "TxPower")`, whose safe-get/atoi wrapper silently maps NVRAM backend errors to zero. The new path uses checked `nvram_get_checked("rt_TxPower")`, preserves the missing/empty default and historic clamp, and rejects backend, malformed and out-of-range integer reads before any driver command. The existing transition policy must then maintain isolation and roll back power on preparation failure.
 
 ## Verification boundary
 
-- Parent main SHA efb830bce5028536826989c8b5070b68a49e4a4e: EAPoL source orphan-tail correction and Process source contract were committed; exact XY-C1, Process umbrella, Process inventory, EAPoL, NVRAM and AI Actions were queued at the last check.
-- WSDD2 XML regression #45040760516 PASS and AI docs #45040760489 PASS on checker-only descendant e2a842d08bae9e4f0e64a519e10c13c0444888f7. Product source d2 XY-C1 #45040593342 FAILED at RC compile due orphan EAPoL tail; fixed in parent efb. No L3 on d2.
-- The new p910nd EINTR/EAGAIN regression and source contract have not yet run. No local checkout/tests or current firmware build were performed.
-- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Physical printer/router L4 remains NOT VERIFIED.
+- Parent exact SHA `7a136bbfd8fdb03b199cf85e534316a88a7d887a`: p910nd I/O regression #45041698560 PASS, AI handoff #45041698520 PASS, Process inventory #45041698513 PASS. XY-C1 #45041698556 and NVRAM boundary #45041698491 were IN_PROGRESS at the last inspection.
+- Parent EAPoL orphan-tail source correction is present; the previous d2 XY-C1 failure was at `auth.c` before the correction and is not current-SHA evidence.
+- No local checkout, host execution or MIPS/uClibc build was available in this session. This wireless source/test/workflow commit requires exact-head Wireless and XY-C1 validation, plus AI and relevant Process/NVRAM results.
+- L3 remains NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all PASS on one identical source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head p910nd SIGPIPE/I/O regression, Process/EAPoL checks and XY-C1 build after this commit. Fix actual test/source failures.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on the same exact product-source SHA; the earlier d2 failure is not evidence for efb or a later source SHA.
-3. Continue another userland stability/security slice beyond completed WAN/PPP, Inadyn, DNSMasq, EAPoL, ttyd and WSDD2 work. Keep backup read-only and work only on main.
+1. Fetch live `main`; inspect this commit's Wireless radio state, XY-C1 and AI handoff Actions, including the precise XY-C1 Build/TRX/artifact stages. Diagnose the first causal failure and fix it.
+2. Check the parent `7a136bbfd8fdb03b199cf85e534316a88a7d887a` XY-C1 #45041698556 and NVRAM #45041698491 outcomes as historical context only; they are not evidence for this new SHA.
+3. Once the current wireless slice is validated, continue a different unfinished userland stability/security area beyond completed EAPoL, p910nd, WAN/PPP, Inadyn, DNSMasq, ttyd and WSDD2. Keep backup read-only and develop only on main.
