@@ -1,3 +1,11 @@
+## 2026-11-22 CST — Add passive-port regression paths to PR filters
+
+- Parent main SHA: `1a922e08b90f3cc82211b1d81ffb926d78441eff`.
+- Exact VSFTPD #44975976664 ran the new GNU89/Werror passive-port policy test and then failed the workflow's final changed-path contract: the new policy header/test were included in push paths but absent from pull_request paths.
+- Added the same two file paths to the PR filter and recorded the precise CI boundary in the handoff. Workflow-only correction; production source remains in parent commit.
+
+---
+
 ## 2026-11-22 10:24 CST — Fail closed on invalid vsftpd passive-port range
 
 - Parent main SHA: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`.

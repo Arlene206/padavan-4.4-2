@@ -47,6 +47,8 @@ on:
       - "trunk/user/vsftpd/src/sysstr.h"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_connection_limit_policy.h"
+      - "trunk/user/rc/src/ftp_passive_port_policy.h"
+      - "trunk/user/rc/src/tests/ftp_passive_port_policy.c"
       - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/ftp_config_file.h"

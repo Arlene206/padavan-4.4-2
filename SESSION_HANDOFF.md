@@ -28,25 +28,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- P1 firewall startup checked-NVRAM gate: source `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`; Firewall Startup #44974378538 PASS on checker descendant `ef20a36`.
-- P2 LAN DHCP last-good tuple rollback: source `6ca55ecdaca95858aadbf77c4fd1af49b0e1644c`; NVRAM, DNSMasq, WAN DHCP, Firewall, Process, watchdog, route, link/internet, wireless and AI checks passed on that source SHA.
-- HTTPD firewall boot contract: HTTPD #44974951724 and AI docs #44974951739 PASS on `a05cb570eea8deb76d67fece4994ee415924c67e`.
-- OpenVPN certificate generation reliability: `456c8176cc81209f0b75c2bc5f7d156589810870` passed exact OpenVPN #44975381015, AI #44975380936, Process #44975380867; `9f98dbe48d0f4bf6ece4cf025741cbca68c35d23` passed OpenVPN #44975466561, AI #44975466572, Process #44975466543. Latest digest correction/checker commit `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b` passed VPN lifecycle #44975631032, OpenVPN #44975630990 and AI docs #44975631000. It now passes `-sha256`/`-sha1` exactly once.
-- THIS commit hardens vsftpd configuration: `st_ftp_pmin`/`st_ftp_pmax` are status-checked before staged config creation; preserve absent-key defaults and historic numeric clamping, but refuse backend/malformed read errors and inverted ranges before publishing.
-- No local MIPS toolchain or router hardware is available; no L3/L4 result claimed.
+- Firewall startup checked-read gate and LAN DHCP last-good snapshot remain completed source slices; historical exact Actions are retained in prior dev-log entries.
+- OpenVPN certificate/key failure propagation and signer digest correction: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`; exact VPN lifecycle #44975631032, OpenVPN private-key #44975630990, AI docs #44975631000 and Process inventory #44975630996 PASS.
+- FTP passive-port source policy: `1a922e08b90f3cc82211b1d81ffb926d78441eff` adds checked `st_ftp_pmin`/`st_ftp_pmax` reads, preserves missing defaults and legacy clamping, and refuses failed reads or inverted ranges before staged config publication. Exact VSFTPD #44975976664 ran the GNU89/Werror policy regression successfully but then failed the final workflow changed-path contract because the new header/test were present in `push.paths` but missing from `pull_request.paths`. THIS commit adds both PR paths; no product source changes.
+- Exact 1a922 Actions: NFS #44975976472 PASS, USB storage #44975976459 PASS, HTTPD #44975976483 PASS, Samba #44975976453 PASS, Firewall #44975976497 PASS, USB modem #44975976477 PASS, Process inventory #44975976476 PASS, AI docs #44975976608 PASS and NVRAM #44975976523 PASS. XY-C1 #44975976514 was IN_PROGRESS at last poll; no L3 claim.
+- No local MIPS checkout/toolchain or router hardware; no L3/L4 claim.
 
 ## Verification boundary
 
-- Parent main for THIS FTP passive-port slice: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`.
-- Exact `4188434`: VPN lifecycle #44975631032 PASS; OpenVPN private-key #44975630990 PASS; AI docs #44975631000 PASS. XY-C1 #44975631083 was IN_PROGRESS at last poll; Process inventory #44975630996 was running. No L3 claim.
-- Earlier XY-C1 #44975466578 was also pending on `9f98dbe`. For L3, require Build XY-C1, TRX and artifact upload all PASS on one exact product source SHA.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 is closed/unmerged. Hardware L4 NOT VERIFIED.
+- Parent main for THIS workflow-path correction: `1a922e08b90f3cc82211b1d81ffb926d78441eff`.
+- VSFTPD #44975976664 FAILED only at the final path contract asserting every declared changed path appears once in both push and pull_request filters. The new policy compile/run step came earlier and completed; exact-head rerun is required.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head vsftpd workflow for the new checked passive port range policy and unit test; inspect Process inventory, AI docs and XY-C1.
-2. Require Build, TRX verification and artifact upload all PASS on the same exact source SHA before recording L3. If pending, work on another independent P1/P2 module.
-3. Continue whole-userland stability/security fixes; do not repeat completed firewall, DHCP callback or OpenVPN signer audits or modify the frozen backup.
+1. Inspect exact-head VSFTPD and Process/AI documentation checks triggered by the PR-path correction; fix real assertions without weakening policy coverage.
+2. Recheck XY-C1 Build, TRX verification and artifact upload on one exact product source SHA; claim L3 only if all three pass.
+3. Continue independent whole-userland reliability/security work while Actions are pending; keep the backup branch read-only.
 
 ## Workflow and preservation rules
 
