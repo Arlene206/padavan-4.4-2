@@ -1,3 +1,14 @@
+## 2026-11-22 — Require checked WAN IPv6 endpoint handling in VPN export
+
+- Parent main SHA: `1805fa23a010044d4f82c7e23e91695a6b7f904d`. The earlier VPN server lifecycle run #45026956696 on `db11b15bb545dbf9dafff9c4795600735884e0dc` failed in the final source contract because it still required the legacy `get_wan_addr6_host()` call.
+- Production OpenVPN export now uses `get_wan_addr6_host_status()`: interface-identity and address-enumeration failures abort the staged export, while a clean miss remains eligible for LAN and dual-stack IPv4 fallback.
+- Updated the VPN source contract to pin bounded checked identity retrieval, getifaddrs error preservation, policy clean-miss semantics, and the status-error gate before fallback. Existing fake-backend test cases for read failure, enumeration failure, missing identity and clean miss are now required by the contract. Product code is unchanged.
+- Parent exact-head AI handoff #45027565508 and WAN DHCP callback #45027565522 both PASS. The new VPN workflow run must validate this checker-only correction.
+- Local tests were not run: this runtime cannot resolve GitHub to create a local checkout. Exact-head VPN Actions is the required regression validation.
+- Result: THIS COMMIT. Next: inspect exact new-head VPN/AI Actions; then continue with a separate userland stability/security defect.
+
+---
+
 ## 2026-11-22 — Align XY-C1 LAN IPv6 publication contract with checked callback
 
 - Parent main SHA: `5e0100c059639b323c903351d8f1fab6ff181659`. Exact-head WAN DHCP #45027565522 PASS: the source-policy checker, WAN IPv6 DNS tests and all five new LAN-address fake-backend cases compiled and ran under GNU89 with ASan/UBSan; DHCPv6 config publication, callback generation fencing, and all remaining lease/callback contracts also passed. AI handoff #45027565508 PASS.

@@ -1100,16 +1100,59 @@ require("if (service_status != 0)" in protocol_policy and
         "assert(status == EIO && protocol == 2)" in protocol_policy_test and
         "assert(status == EACCES && protocol == 3)" in protocol_policy_test,
         "OpenVPN IPv6 policy must not downgrade transport when the service-state read fails")
+wan6_source=read("trunk/user/rc/src/net_wan6.c")
+wan6_identity_policy=read("trunk/user/rc/src/wan6_identity_policy.h")
+wan6_identity_test=read("trunk/user/rc/src/tests/wan6_identity_policy.c")
+wan6_host_status=body(wan6_source,"get_wan_addr6_host_status(char *p_addr6s, const char **p_host)")
+ordered(wan6_host_status,[
+    "if (!p_addr6s || !p_host)",
+    "*p_host = NULL",
+    "get_wan_unit_value_copy_status(",
+    "return wan6_identity_resolve_addr6_host("
+],"WAN IPv6 host lookup must use a bounded checked interface identity")
+wan6_lookup=body(wan6_source,"wan6_lookup_ifaddr6_status(")
+ordered(wan6_lookup,[
+    "errno = 0;",
+    "get_ifaddr6(ifname, 0, address);",
+    "if (!result)",
+    "return errno ? errno : 0;",
+    "*found = 1;"
+],"WAN IPv6 address enumeration must preserve getifaddrs errors")
+wan6_resolver=body(wan6_identity_policy,"wan6_identity_resolve_addr6_host(")
+ordered(wan6_resolver,[
+    "if (ifname_status != 0)",
+    "return ifname_status;",
+    "if (!ifname[0])",
+    "status = get_addr6(context, ifname, address, &found);",
+    "if (status != 0)",
+    "return status;",
+    "if (!found)",
+    "*host = address;"
+],"WAN IPv6 endpoint policy must distinguish errors from clean misses")
+for token in (
+    "test_wan6_address_host_read_error_fails_closed",
+    "test_wan6_address_host_missing_interface_keeps_fallback_eligible",
+    "test_wan6_address_host_extracts_prefix_free_public_address",
+    "test_wan6_address_host_does_not_hide_address_enumeration_error",
+    "test_wan6_address_host_no_address_is_a_non_error",
+    "test_wan6_address_host_rejects_invalid_arguments"
+):
+    require(token in wan6_identity_test, f"WAN IPv6 identity regression is missing {token}")
 dualstack_endpoint=server_export
 ordered(dualstack_endpoint,[
     "openvpn_resolve_protocol_family(",
-    "wan_addr = get_wan_addr6_host(addr6s);",
+    "wan_addr6_status = get_wan_addr6_host_status(addr6s, &wan_addr);",
+    "if (wan_addr6_status != 0)",
+    "goto failed;",
+    "if (!wan_addr)",
     "wan_addr = get_lan_addr6_host(addr6s);",
     "if (!wan_addr && i_prot > 3)",
     'wan_addr = get_wan_unit_value(0, "ipaddr");',
     "if (!is_valid_ipv4(wan_addr))",
     'wan_addr = "{wan_address}";'
-],"Dual-stack profiles may use IPv4 only after validated IPv6 endpoint lookup fails")
+],"Dual-stack profiles must fail on IPv6 lookup errors and fall back only on clean misses")
+require("wan_addr = get_wan_addr6_host(addr6s);" not in server_export,
+        "OpenVPN export must not collapse WAN IPv6 lookup errors into a clean miss")
 server_cert_flow=body(cert_script,"server()")
 client_cert_flow=body(cert_script,"client()")
 sign_cert_helper=body(cert_script,"sign_cert()")
