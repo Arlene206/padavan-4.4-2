@@ -1,3 +1,11 @@
+## 2026-11-22 — Align WAN deferred-watchdog source contract with the existing priority log
+
+- Parent main SHA: `690dc90846b959d05a5ee51e8f5d9cfa5c960408`. Exact WAN route #45047262283 executed the new `di_lost_action` checked-read source contract successfully, then failed in `check_wan_deferred_watchdog_status.py:71` while searching for the modem-priority error log. That checker expected `cannot publish modem priority before automatic WAN reconnect`, but `net_wan.c`'s actual log is `cannot publish modem priority before automatic reconnect`; this mismatch predates the current change and does not indicate a production regression.
+- Updated only the stale expected phrase in the deferred-watchdog checker. Rerun exact-head WAN route to confirm this and the newly added Internet-loss action tests pass together.
+- On `690dc9`, WAN DHCP callback #45047262363, ZeroTier #45047262287, Samba #45047262278, signal lifecycle #45047262383/#45047262340, Wireless #45047262438, IPv6 service type #45047262463 and AI handoff #45047262377 were PASS. XY-C1 #45047262320 was still starting its build path; TRX/artifact not yet verified.
+- No local test/build or hardware validation was performed; L3/L4 remain NOT VERIFIED.
+
+---
 ## 2026-11-22 — Preserve Internet-loss action NVRAM read failures
 
 - Parent main SHA: `88f33bc3d23fd4b1c4cd909abfcd55d6991f7ab2`. `notify_on_internet_state_changed()` used `nvram_safe_get_int("di_lost_action", 0, 0, 3)`, which internally collapses NVRAM GET ioctl/read/close errors into integer 0. A transient backend fault therefore silently skipped configured automatic reboot/reconnect.

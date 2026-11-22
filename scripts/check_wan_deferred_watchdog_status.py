@@ -63,7 +63,7 @@ notification = body(WAN, "notify_on_internet_state_changed(int has_internet, lon
 priority_write = "priority_status = wan_nvram_int_status("
 priority_key = '"modem_prio",'
 priority_gate = "if (priority_status != 0)"
-priority_log = "cannot publish modem priority before automatic WAN reconnect"
+priority_log = "cannot publish modem priority before automatic reconnect"
 priority_queue = 'queue_internet_lost_action("auto_wan_reconnect",'
 write_pos = notification.index(priority_write)
 key_pos = notification.index(priority_key, write_pos)
