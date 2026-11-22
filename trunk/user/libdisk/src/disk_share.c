@@ -1379,6 +1379,7 @@ int mod_account(const char *const account, const char *const new_account, const 
 	char nvram_name[16];
 	int account_order = -1;
 	char var_file[256], new_var_file[256];
+	int first_error = 0;
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
@@ -1388,22 +1389,23 @@ int mod_account(const char *const account, const char *const new_account, const 
 	if (new_password && *new_password &&
 	    !is_valid_account_password(new_password))
 		return -1;
-	if ((new_account == NULL || strlen(new_account) <= 0) && (new_password == NULL || strlen(new_password) <= 0))
+	if ((new_account == NULL || strlen(new_account) <= 0) &&
+	    (new_password == NULL || strlen(new_password) <= 0))
 		return -1;
 
-	// 1. check if can modify the account
+	/* 1. check whether the account exists and the new name is available. */
 	if (get_account_list(&acc_num, &account_list) != 0)
 		return -1;
 
 	for (i = 0; i < acc_num; ++i) {
-		if (new_account != NULL && strcmp(new_account, account) && strlen(new_account) > 0) {
+		if (new_account != NULL && strcmp(new_account, account) &&
+		    strlen(new_account) > 0) {
 			if (!strcmp(account_list[i], new_account)) {
 				free_2_dimension_list(&acc_num, &account_list);
-				
 				return -1;
 			}
 		}
-		
+
 		if (!strcmp(account, account_list[i]))
 			account_order = i;
 	}
@@ -1411,12 +1413,12 @@ int mod_account(const char *const account, const char *const new_account, const 
 
 	if (account_order == -1)
 		return -1;
-
 	if (new_account && *new_account && !strcmp(new_account, FTP_ANONYMOUS_USER))
 		return -1;
 
-	// 2. modify nvram value about the new account
-	if (new_account != NULL && strcmp(new_account, account) && strlen(new_account) > 0) {
+	/* 2. update the persistent NVRAM account data (existing transaction order). */
+	if (new_account != NULL && strcmp(new_account, account) &&
+	    strlen(new_account) > 0) {
 		sprintf(nvram_name, "acc_username%d", account_order);
 		nvram_set(nvram_name, new_account);
 	}
@@ -1428,12 +1430,10 @@ int mod_account(const char *const account, const char *const new_account, const 
 
 	nvram_commit_safe();
 
-	// 3. find every pool
-	if (new_account == NULL || strlen(new_account) <= 0/* ||
-			(new_account != NULL && !strcmp(new_account, account))*/)
+	/* Password-only changes have no per-volume metadata path to rename. */
+	if (new_account == NULL || strlen(new_account) <= 0)
 		return 0;
-
-	if ((new_account != NULL && !strcmp(new_account, account)))
+	if (!strcmp(new_account, account))
 		goto rerun;
 
 	disk_list = read_disk_data();
@@ -1444,20 +1444,37 @@ int mod_account(const char *const account, const char *const new_account, const 
 		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
 			if (follow_partition->mount_point == NULL)
 				continue;
-			
-			// get the var_file and new_var_file
-			snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", follow_partition->mount_point, account);
-			snprintf(new_var_file, sizeof(new_var_file), "%s/.__%s_var.txt", follow_partition->mount_point, new_account);
-			
-			// rename the var file
-			rename(var_file, new_var_file);
+
+			if (disk_share_format_account_var_path(
+				    var_file, sizeof(var_file),
+				    follow_partition->mount_point, account) != 0) {
+				if (first_error == 0)
+					first_error = errno ? errno : EIO;
+				continue;
+			}
+			if (disk_share_format_account_var_path(
+				    new_var_file, sizeof(new_var_file),
+				    follow_partition->mount_point, new_account) != 0) {
+				if (first_error == 0)
+					first_error = errno ? errno : EIO;
+				continue;
+			}
+
+			/* Missing old metadata is harmless; all other rename errors matter. */
+			if (rename(var_file, new_var_file) != 0 &&
+			    errno != ENOENT && first_error == 0)
+				first_error = errno ? errno : EIO;
 		}
 	}
 	free_disk_data(disk_list);
 
 rerun:
-	// 6. re-run ftp and samba
+	/* 6. re-run ftp and samba even when one volume's metadata could not move. */
 	system("/sbin/run_ftpsamba");
+	if (first_error != 0) {
+		errno = first_error;
+		return -1;
+	}
 
 	return 0;
 }

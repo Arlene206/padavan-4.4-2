@@ -1,3 +1,13 @@
+## 2026-11-22 20:23 CST (UTC+8) — Bound mod-account metadata renames and propagate failures
+
+- Parent main SHA: 5f00e014e746562927ffe73b75db82333c170300. mod_account() changed the NVRAM username/password first, then formatted old/new per-volume metadata paths with unchecked snprintf() and ignored every rename() result. Long mount paths could silently target truncated paths; failed renames were reported as success.
+- Both old and new metadata paths now use disk_share_format_account_var_path(). A missing old metadata file is treated as no volume-specific record; path construction and all other rename failures are aggregated while processing every mounted volume. Disk inventory is freed and ftpsamba is reloaded before the first error is returned.
+- Password-only and same-name behavior are preserved, and the existing NVRAM commit ordering remains unchanged. No claim is made that a post-commit volume rename failure rolls NVRAM back.
+- Added a source-contract regression for bounded old/new paths, ENOENT-only skip behavior, full-volume processing and cleanup/service/error ordering.
+- Exact parent libdisk #45019979218, AI handoff #45019979195, HTTPD #45019979197, Process inventory #45019979224, NVRAM audit #45019979154 and XY-C1 #45019979256 were in progress at the last poll. No result is inferred from pending checks.
+- Next bounded task: inspect the remaining libdisk account bootstrap/removal call sites and NVRAM error-return semantics, then select one independent source-level stability defect outside libdisk (WAN/service lifecycle) to broaden coverage.
+
+---
 ## 2026-11-22 20:18 CST (UTC+8) — Fix del-account inventory leak and per-volume metadata cleanup
 
 - Parent main SHA: 0a7581f2ef8ad2a04d00fa827626ae28fd85a339. del_account() decremented acc_num before passing it to free_2_dimension_list(), leaking the final owned account string. It also built per-volume metadata paths with unchecked snprintf() and ignored unlink() failures.

@@ -335,6 +335,34 @@ require(del_unlink < del_free_disk < del_service < del_error and
         "del_account must attempt all volumes, free the disk inventory, reload services, then return the first cleanup error")
 
 
+
+mod_account_body = function_body(
+    DISK_SOURCE,
+    "int mod_account(const char *const account, const char *const new_account, const char *const new_password)"
+)
+mod_account_compact = "".join(mod_account_body.split())
+mod_old_path = mod_account_compact.index(
+    "disk_share_format_account_var_path(var_file,sizeof(var_file),"
+)
+mod_new_path = mod_account_compact.index(
+    "disk_share_format_account_var_path(new_var_file,sizeof(new_var_file),",
+    mod_old_path
+)
+mod_rename = mod_account_compact.index("rename(var_file,new_var_file)",mod_new_path)
+mod_cleanup = mod_account_compact.index("free_disk_data(disk_list)",mod_rename)
+mod_service = mod_account_compact.index('system("/sbin/run_ftpsamba")',mod_cleanup)
+mod_error = mod_account_compact.index("if(first_error!=0)",mod_service)
+require(mod_old_path < mod_new_path < mod_rename < mod_cleanup < mod_service < mod_error and
+        "errno!=ENOENT" in mod_account_compact[mod_rename:] and
+        "first_error==0" in mod_account_compact[mod_rename:] and
+        "errno=first_error;" in mod_account_compact and
+        "return-1;" in mod_account_compact[mod_error:],
+        "mod_account must use bounded old/new paths, skip only missing source metadata, continue volume renames, and return the first error after cleanup and service reload")
+require("snprintf(var_file" not in mod_account_body and
+        "snprintf(new_var_file" not in mod_account_body,
+        "mod_account must not format account metadata paths into unchecked fixed-size buffers")
+
+
 add_folder_body = function_body(
     DISK_SOURCE,
     "int add_folder(const char *const mount_path, const char *const folder)"
