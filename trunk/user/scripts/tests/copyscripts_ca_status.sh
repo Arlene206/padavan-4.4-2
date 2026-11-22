@@ -134,7 +134,7 @@ echo "copyscripts default-file symlink-safe publication: PASS"
 
 # Exercise the exact final status gate. A failed CA extraction or a failed
 # default-file publication must both be visible to PID 1; clean setup succeeds.
-sed -n '/^if \[ "$copyscripts_ca_status" -ne 0 \] || \[ "$copyscripts_seed_status" -ne 0 \]; then$/,/^exit 0$/p' \
+sed -n '/copyscripts_ca_status.*copyscripts_seed_status/,/^exit 0$/p' \
 	"$copyscripts" > "$tmp/status-gate.sh"
 [ -s "$tmp/status-gate.sh" ] || {
 	echo "could not extract copyscripts result gate" >&2
