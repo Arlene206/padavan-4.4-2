@@ -311,23 +311,40 @@ deferred_storage_code = "".join(deferred_storage.split())
 unplug_read = 'storage_unplug_read_status=storage_read_integer_status("usb_unplug_ms",0,&storage_unplug_value)'
 hotplug_read = 'storage_hotplug_read_status=storage_read_integer_status("usb_hotplug_ms",0,&storage_hotplug_value)'
 optware_read = 'storage_optware_read_status=storage_read_integer_status("usb_opt_start",0,&storage_optware_value)'
-unplug_clear = 'nvram_set_int_temp("usb_unplug_ms",0)'
 unplug_call = "storage_unplug_status=umount_ejected()"
+unplug_action_gate = "storage_deferred_event_action_should_run(1,storage_unplug_action_done)"
+unplug_ack_call = 'storage_ack_event_marker_status("usb_unplug_ms")'
+unplug_ack_policy = "storage_deferred_event_ack_status("
 storage_start = "storage_start_result=try_start_stor_apps()"
 dispatch = "storage_dispatch_status=storage_deferred_start_dispatch_status("
 unplug_retry_gate = "if(storage_unplug_read_status!=0)"
-unplug_event_gate = "elseif(storage_unplug_value==1)"
+unplug_event_gate = "elseif(storage_unplug_value!=1)"
 unplug_failure_gate = "if(storage_unplug_status!=0)"
 require(
     unplug_read in deferred_storage_code
     and hotplug_read in deferred_storage_code
     and optware_read in deferred_storage_code
     and deferred_storage_code.index(unplug_read) < deferred_storage_code.index(unplug_retry_gate)
-    < deferred_storage_code.index(unplug_event_gate) < deferred_storage_code.index(unplug_clear)
-    < deferred_storage_code.index(unplug_call) < deferred_storage_code.index(unplug_failure_gate)
+    < deferred_storage_code.index(unplug_event_gate) < deferred_storage_code.index(unplug_action_gate)
+    < deferred_storage_code.index(unplug_call) < deferred_storage_code.index(unplug_ack_call)
+    < deferred_storage_code.index(unplug_ack_policy) < deferred_storage_code.index(unplug_failure_gate)
     < deferred_storage_code.index(dispatch) < deferred_storage_code.index(storage_start),
-    "deferred worker must check storage markers, retry unplug cleanup, and gate app startup on the checked dispatch result",
+    "deferred worker must retain unplug markers through cleanup/ack and gate app startup on checked state",
 )
+require(
+    'nvram_set_int_temp("usb_unplug_ms",0)' not in deferred_storage_code
+    and "storage_unplug_action_done=0;" in deferred_storage_code
+    and "storage_unplug_pending=1;" in deferred_storage_code,
+    "physical unplug must not clear its durable marker before successful cleanup and acknowledgement",
+)
+deferred_storage_policy = read("trunk/user/rc/src/storage_deferred_start_policy.h")
+deferred_storage_test = read("trunk/user/rc/src/tests/storage_deferred_start_policy.c")
+for token in ("storage_deferred_event_action_should_run",
+              "storage_deferred_event_ack_status",
+              "test_deferred_ack_failure_does_not_repeat_completed_cleanup();",
+              "test_deferred_cleanup_failure_remains_retryable();"):
+    require(token in deferred_storage_policy + deferred_storage_test,
+            "deferred unplug action/ack regression missing " + token)
 require(
     "storage_unplug_pending=1;" in deferred_storage_code
     and deferred_storage_code.count("storage_should_start=0;") == 1
@@ -1426,7 +1443,8 @@ ack_writer_end = storage.index("\\nstatic int\\nstorage_read_nvram_string", ack_
 ack_writer = storage[ack_writer_start:ack_writer_end]
 require("nvram_set_int_temp(name, 0)" in ack_writer and
         "if (write_status == 0)" in ack_writer and
-        "saved_errno > 0" in ack_writer and "return EIO;" in ack_writer,
+        "saved_errno > 0" in ack_writer and
+        "return write_status > 0 ? write_status : EIO;" in ack_writer,
         "deferred storage marker clear must propagate backend write errors")
 try_start = body(storage, "try_start_stor_apps(void)")
 require("storage_optware_start_ack_pending = 1" in try_start and

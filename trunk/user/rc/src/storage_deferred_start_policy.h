@@ -27,4 +27,37 @@ storage_deferred_start_dispatch_status(int unplug_read_status,
 	return 0;
 }
 
+/*
+ * Retain successful cleanup completion while its NVRAM marker clear is retried.
+ * Do not repeat the eject operation unless the cleanup itself failed.
+ */
+static inline int
+storage_deferred_event_action_should_run(int event_pending,
+					 int action_ack_pending)
+{
+	return event_pending && !action_ack_pending;
+}
+
+static inline int
+storage_deferred_event_ack_status(int event_pending, int action_status,
+				  int marker_status, int *action_ack_pending)
+{
+	if (!action_ack_pending)
+		return EINVAL;
+	if (!event_pending) {
+		*action_ack_pending = 0;
+		return 0;
+	}
+	if (action_status != 0) {
+		*action_ack_pending = 0;
+		return action_status > 0 ? action_status : EIO;
+	}
+	if (marker_status == 0) {
+		*action_ack_pending = 0;
+		return 0;
+	}
+	*action_ack_pending = 1;
+	return marker_status > 0 ? marker_status : EIO;
+}
+
 #endif /* PADAVAN_STORAGE_DEFERRED_START_POLICY_H */

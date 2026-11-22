@@ -6,10 +6,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop and validate on `main` only.
-- Parent main SHA for THIS checker repair: `b87a4a09377e7efad534ed129cbd0ccc3ca719de`. Product-source SHA remains `71c4a9e9111d70caa62dd45213acb82844eee717`; it contains checked IPv6 service-state handling in LAN/LANv6, firewall, FTP/NFS, WAN VLAN/WISP, router hosts, DHCP 6rd and all three OpenVPN protocol-generation paths.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
-- GitHub Git data API is the edit/push path; no local firmware checkout/toolchain is available.
+- Repository `Arlene206/padavan-4.4-2`; develop and validate on `main` only. Use one complete Git tree/commit and a non-forced expected-SHA ref update for each multi-file slice.
+- Parent main SHA before this physical storage-unplug slice: `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`. The source baseline for `trunk/user/rc/src/services_stor.c` is blob `ea52db4350e8211afe3d41d7216bccc182c04825`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, do not merge, modify or delete. Main has intentionally diverged from the archival checkpoint.
+- PR #1 remains closed/unmerged; its historical changes were already ported. Do not reopen it as the development path.
+- On parent SHA `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`, USB storage run #44993522407 was IN_PROGRESS at last inspection; XY-C1 #44993522386, process inventory #44993522352/#44993522416, USB modem #44993522402 and other triggered checks were also IN_PROGRESS. No exact-parent PASS is inferred from these statuses.
+- GitHub Git Data and Actions REST endpoints are available through the connected integration. Host `cc` is available; there is no local full firmware checkout/MIPS toolchain.
 
 ## Completed source slices
 
@@ -28,20 +30,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- THIS checker-only slice removes one accidental duplicate expected token from `scripts/check_vpn_server_lifecycle.py`. The OpenVPN source contains a single WAN IPv6 endpoint lookup after the checked protocol resolver; the duplicated assertion incorrectly required the same source statement twice.
-- The source ordering contract remains intact: checked resolver → WAN IPv6 lookup → LAN IPv6 lookup → IPv4 fallback only for dual-stack modes 4/5 → IPv4 validation → placeholder fallback. No product source or endpoint-selection behavior changed.
-- Next: verify the new exact-main-SHA VPN lifecycle and IPv6 service workflows. Then recheck the product-source XY-C1 run and scan remaining direct `get_ipv6_type()` callers repository-wide.
+- Physical storage-unplug retry durability is implemented in this slice. Previously `on_deferred_hotplug_dev()` cleared `usb_unplug_ms` before `umount_ejected()`; the failure wrapper re-created the marker with an unchecked write, leaving a gap where a backend error could lose the only durable event.
+- The callback now runs eject cleanup before marker acknowledgement, preserves the marker and schedules `alarm(5)` on cleanup/ack failure. A process-local action-completion latch skips replaying successful cleanup while acknowledgement is retried, and resets when the marker is observed absent.
+- Added pure policy helpers, GNU89/ASan/UBSan regression cases, checker assertions for cleanup-before-ack/no-premature-clear/retry behavior and workflow execution. The checker’s EIO fallback assertion now matches the implementation’s ternary return.
 
 ## Verification boundary
 
-- Parent main SHA `b87a4a09377e7efad534ed129cbd0ccc3ca719de`: IPv6 service-type #44990936117 completed/success; AI handoff documentation #44990936053 completed/success; VPN lifecycle #44990936035 completed/failure. All VPN GNU89 policy/lifecycle/lease/PPP regression executables passed; the final Python source-contract step failed only because the checker expected `wan_addr = get_wan_addr6_host(addr6s);` twice although the implementation has one call.
-- Product-source SHA `71c4a9e9111d70caa62dd45213acb82844eee717`: XY-C1 run #44990566341 was IN_PROGRESS at last inspection. NVRAM audit #44990566362, Process inventory #44990566399, OpenVPN credential staging #44990566378, AI docs #44990566350 and HTTPD #44990566325 completed/success; the two earlier source-check failures were fixed in this checker series.
-- THIS commit changes only the Python source contract plus the handoff/log; no local checkout, local regression execution or firmware build is claimed. Require exact-head Actions for this commit. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same product-source SHA; hardware L4 remains NOT VERIFIED.
+- Standalone policy host test passed with GNU89, `-Wall -Wextra -Werror`, AddressSanitizer and UndefinedBehaviorSanitizer. It covers successful-cleanup/failed-ack latch behavior, cleanup failure retry, absent-event reset, negative status normalization and NULL output.
+- Parent SHA `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`: USB storage #44993522407 and XY-C1 #44993522386 were still IN_PROGRESS at the last poll; other triggered source regressions also remained in progress. Fresh exact-head results on this slice are required.
+- No complete product checkout/MIPS build was run locally. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same product-source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head VPN lifecycle and IPv6 service-type push Actions for THIS checker repair; both must pass, and the VPN run must execute the full GNU89/sanitizer regressions and final source contract.
-2. Recheck XY-C1 #44990566341 on product-source SHA `71c4a9e9111d70caa62dd45213acb82844eee717`; verify Build, TRX and artifact upload on that same SHA before claiming L3.
-3. Search the full Padavan userland for remaining direct `get_ipv6_type()` calls; distinguish read-only compatibility wrappers from state-changing consumers, and migrate only unsafe callers with regressions.
-4. If the migration is complete, choose the next high-priority stability/security defect from the governance ledger and implement a bounded fix. Hardware L4 remains unverified.
-
+1. Resolve the live `main` HEAD SHA and inspect its exact-SHA USB storage regression. Confirm the new GNU89/ASan/UBSan policy binary, source-order contract and storage caller graph all pass.
+2. Inspect XY-C1 validation on the same source SHA. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on that identical SHA. If pending, work on an independent stability/security issue; if failed, diagnose the first failing step.
+3. Continue from the whole-userland stability/security ledger; do not repeat completed audits or wait for pending Actions.
+4. Keep the frozen backup read-only. Hardware L4 remains unverified.

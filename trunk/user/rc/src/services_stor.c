@@ -4595,6 +4595,7 @@ on_deferred_hotplug_dev(void)
 	int storage_unplug_read_status, storage_hotplug_read_status;
 	int storage_optware_read_status, storage_dispatch_status;
 	int storage_dispatch_error, storage_should_start = 0;
+	static int storage_unplug_action_done;
 #endif
 
 #if defined (USE_STORAGE)
@@ -4607,13 +4608,23 @@ on_deferred_hotplug_dev(void)
 		"usb_unplug_ms", 0, &storage_unplug_value);
 	if (storage_unplug_read_status != 0) {
 		storage_unplug_pending = 1;
-	} else if (storage_unplug_value == 1) {
-		nvram_set_int_temp("usb_unplug_ms", 0);
-		storage_unplug_status = umount_ejected();
+	} else if (storage_unplug_value != 1) {
+		storage_unplug_action_done = 0;
+	} else {
+		storage_unplug_status = 0;
+		if (storage_deferred_event_action_should_run(1, storage_unplug_action_done))
+			storage_unplug_status = umount_ejected();
+		storage_dispatch_error = 0;
+		if (storage_unplug_status == 0)
+			storage_dispatch_error = storage_ack_event_marker_status("usb_unplug_ms");
+		storage_unplug_status = storage_deferred_event_ack_status(
+			1, storage_unplug_status, storage_dispatch_error,
+			&storage_unplug_action_done);
 		if (storage_unplug_status != 0) {
 			storage_unplug_pending = 1;
-			logmessage("Storage", "deferred physical-unplug cleanup retry failed (status=%d)",
+			logmessage("Storage", "deferred physical-unplug cleanup/ack retry failed (status=%d)",
 				   storage_unplug_status);
+			alarm(5);
 		}
 	}
 

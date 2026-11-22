@@ -1,3 +1,14 @@
+## 2026-11-22 — Keep physical storage-unplug cleanup durable until marker acknowledgement
+
+- Parent main SHA: `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`. On this exact SHA, USB storage hotplug #44993522407 was still running at the last check; XY-C1 #44993522386, process inventory/lifecycle #44993522352/#44993522416, HTTPD #44993522353, USB modem #44993522402, NVRAM #44993522356 and other triggered suites were in progress. Do not infer a PASS from an in-progress result.
+- `on_deferred_hotplug_dev()` cleared `usb_unplug_ms` before calling `umount_ejected()`. The wrapper attempts to re-create the marker on failure, but that write is unchecked; a transient NVRAM write failure could lose the only durable retry event. A successful eject followed by a failed marker clear could also cause the expensive cleanup action to run again on each alarm.
+- The callback now performs eject cleanup before clearing the marker. It keeps the marker set on cleanup/ack errors and schedules `alarm(5)`; a process-local completion latch prevents repeating successful cleanup while only marker acknowledgement is retried. The latch resets after the marker is observed absent.
+- Added pure GNU89 policy helpers and sanitizer regression for acknowledgement failure/no replay, cleanup failure/retry, absent marker/latch reset, negative status normalization and NULL output. Corrected the storage checker to match the acknowledgement writer’s actual ternary EIO fallback and expanded its source-order/retry assertions. Wired the policy binary into the storage Actions workflow.
+- Local host unit test: GNU89 + `-Wall -Wextra -Werror -fsanitize=address,undefined` compile/run PASS. Only the standalone policy unit was run locally; no full MIPS firmware build is claimed.
+- Next: verify exact-head USB storage Actions and XY-C1 Build/TRX/artifact on the same source SHA. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 13:49 UTC+8 — Repair duplicate OpenVPN endpoint checker anchor
 
 - Parent main SHA: `b87a4a09377e7efad534ed129cbd0ccc3ca719de`. On this exact push, IPv6 service-type #44990936117 and AI handoff docs #44990936053 passed; VPN lifecycle #44990936035 failed only at the final `check_vpn_server_lifecycle.py` source contract. Every preceding GNU89 policy/lifecycle/lease/PPP regression passed.
