@@ -139,7 +139,7 @@ ald_wait_started() {
 ald_run_locked() {
   case "$ALD_LOCK_FILE" in
     /*)
-      ald_lock_dir=\${ALD_LOCK_FILE%/*}
+      ald_lock_dir=${ALD_LOCK_FILE%/*}
       [ -n "$ald_lock_dir" ] || ald_lock_dir=/
       ;;
     *)

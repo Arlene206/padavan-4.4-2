@@ -1,3 +1,10 @@
+## 2026-11-22 — Correct AliyunDrive lock-directory parameter expansion
+
+- Exact-head AliyunDrive lifecycle run 45083004459 on c1a2f7f03c9223acb5807cd4bb03918575e89d6b failed immediately when the new lock-policy regression tried to acquire its pre-provisioned fixture. Review of the shell log showed the parent-directory parameter expansion had been committed with a literal leading backslash, so the path validator tested a non-existent literal directory.
+- Corrected the expression to evaluate the parent of `ALD_LOCK_FILE` and strengthened the source checker to pin the literal shell expansion and unescaped default path. This restores the intended test/production path checks; exact-head Actions on the corrective commit remain required.
+
+---
+
 ## 2026-11-22 — Align process checker with no-follow PID-file open
 
 - Process lifecycle run `45082617344` on `489d1a1a4f90816adcf24b069a3505b31a8d038d` failed because the integration checker still required a direct `open(pidfile, O_RDONLY | O_NONBLOCK)` call. Production now routes this through `shutils_pidfile_open()`, adding `O_NOFOLLOW` while preserving `O_NONBLOCK`; the legacy PID-file workflow separately tests regular-file compatibility and symlink rejection.

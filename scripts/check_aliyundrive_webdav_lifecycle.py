@@ -292,7 +292,8 @@ require('flock -n 9' in lock and 'flock -u 9' in lock and
         '[ "$ald_lock_mode" != 600 ]' in lock and
         'mkdir -p "$ald_lock_dir"' not in lock and
         ': >> "$ALD_LOCK_FILE"' not in lock and
-        'ALD_LOCK_FILE=\${ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}' in launcher and
+        ('ALD_LOCK_FILE=' + chr(36) + '{ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}') in launcher and
+        ('ald_lock_dir=' + chr(36) + '{ALD_LOCK_FILE%/*}') in lock and
         'required_lock_file /tmp/aliyundrive-webdav.lock || exit 1' in dev_init and
         'required_lock_file "$tmpdir/aliyundrive-webdav.lock"' in dev_init_test and
         'aliyundrive_lock_provision < normalized.index("mdev -s || exit 1")' in dev_init_checker and
