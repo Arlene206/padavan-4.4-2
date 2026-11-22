@@ -53,6 +53,68 @@ func_load_nvram_config(){
 	return 0
 }
 
+func_credentials_cleanup(){
+	[ -n "$scutclient_credentials_file" ] && rm -f "$scutclient_credentials_file" 2>/dev/null
+	[ -n "$scutclient_credentials_dir" ] && rmdir "$scutclient_credentials_dir" 2>/dev/null
+	scutclient_credentials_file=
+	scutclient_credentials_dir=
+}
+
+func_credentials_create(){
+	scutclient_credentials_dir=
+	scutclient_credentials_file=
+	if [ -z "$scutclient_username_value" ] || [ -z "$scutclient_password_value" ]; then
+		func_log "SCUTClient username/password must not be empty"
+		return 1
+	fi
+	scutclient_lf='
+'
+	scutclient_cr=$(printf '\r')
+	case "$scutclient_username_value$scutclient_password_value" in
+		*"$scutclient_lf"*|*"$scutclient_cr"*)
+			func_log "SCUTClient credentials contain a line break"
+			return 1
+			;;
+	esac
+
+	scutclient_old_umask=$(umask)
+	umask 077 || return 1
+	trap 'func_credentials_cleanup' 0
+	trap 'func_credentials_cleanup; exit 1' HUP INT TERM
+	scutclient_credentials_dir=$(mktemp -d "${TMPDIR:-/tmp}/scutclient-auth.XXXXXX") || {
+		umask "$scutclient_old_umask"
+		func_log "Cannot create private SCUTClient credential directory"
+		return 1
+	}
+	if ! chmod 700 "$scutclient_credentials_dir"; then
+		umask "$scutclient_old_umask"
+		func_log "Cannot secure private SCUTClient credential directory"
+		return 1
+	fi
+	scutclient_credentials_file=$(mktemp "$scutclient_credentials_dir/credentials.XXXXXX") || {
+		umask "$scutclient_old_umask"
+		func_log "Cannot create private SCUTClient credential file"
+		return 1
+	}
+	if ! chmod 600 "$scutclient_credentials_file" ||
+	   ! printf 'username=%s\npassword=%s\n' "$scutclient_username_value" "$scutclient_password_value" > "$scutclient_credentials_file"; then
+		umask "$scutclient_old_umask"
+		func_log "Cannot publish private SCUTClient credentials"
+		return 1
+	fi
+	umask "$scutclient_old_umask"
+	return 0
+}
+
+func_wait_credentials_consumed(){
+	scutclient_credential_wait=0
+	while [ -e "$scutclient_credentials_file" ] || [ -L "$scutclient_credentials_file" ]; do
+		[ "$scutclient_credential_wait" -lt 4 ] || return 1
+		scutclient_credential_wait=$((scutclient_credential_wait + 1))
+		sleep 1
+	done
+	return 0
+}
 func_start(){
 	if pl_process_state "$scutclient_exec"; then
 		func_log "Daemon is already running"
@@ -76,7 +138,11 @@ func_start(){
 	[ "$scutclient_debug_value" = "1" ] && scutclient_debug_arg="-D"
 	[ "$scutclient_skip_udp_hb_value" = "1" ] && scutclient_skip_udp_hb_arg="-b"
 	echo -n "Starting scutclient:..."
-	if start-stop-daemon -S -b -x "$scutclient_exec" -- -u "$scutclient_username_value" -p "$scutclient_password_value" \
+	if ! func_credentials_create; then
+		echo "[FAILED]"
+		return 1
+	fi
+	if start-stop-daemon -S -b -x "$scutclient_exec" -- --credentials-file "$scutclient_credentials_file" \
 	-i "$scutclient_wan_ifname" \
 	-n "${sysdns:-"114.114.114.114"}" \
 	-H "$scutclient_hostname_value" \
@@ -106,8 +172,23 @@ func_start(){
 			fi
 			return "$readiness_status"
 		fi
+		if func_wait_credentials_consumed; then
+			:
+		else
+			echo "[FAILED]"
+			func_log "Daemon did not consume its private credential file"
+			if pl_stop_named "$scutclient_exec" 3 2; then
+				func_log "Credential-consumption rollback confirmed process absent"
+			else
+				rollback_status=$?
+				func_log "Credential-consumption rollback incomplete (status=$rollback_status)"
+			fi
+			return 1
+		fi
+		func_credentials_cleanup
+		trap - 0 HUP INT TERM
 		echo "[  OK  ]"
-		func_log "Daemon is started and running"
+		func_log "Daemon is started and consumed its private credentials"
 		return 0
 	else
 		launch_status=$?

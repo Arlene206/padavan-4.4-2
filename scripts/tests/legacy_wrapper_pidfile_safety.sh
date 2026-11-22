@@ -20,17 +20,51 @@ MOCK
 cat > "$TEST_BIN/bin_scutclient" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$SCUT_LOG"
-exit "${SCUT_LOGOUT_STATUS:-0}"
+[ "${1:-}" = "-o" ] && exit "${SCUT_LOGOUT_STATUS:-0}"
+credentials_file=
+expect_file=0
+for arg in "$@"; do
+  if [ "$expect_file" -eq 1 ]; then
+    credentials_file=$arg
+    expect_file=0
+    continue
+  fi
+  case "$arg" in
+    --credentials-file) expect_file=1 ;;
+    -u|-p) exit 91 ;;
+  esac
+done
+[ -n "$credentials_file" ] || exit 92
+[ -f "$credentials_file" ] || exit 93
+[ "$(stat -c '%a' "$credentials_file")" = 600 ] || exit 94
+[ "$(stat -c '%a' "$(dirname "$credentials_file")")" = 700 ] || exit 95
+grep -Fqx "username=$SCUTCLIENT_USERNAME" "$credentials_file" || exit 96
+grep -Fqx "password=$SCUTCLIENT_PASSWORD" "$credentials_file" || exit 97
+printf 'path=%s\n' "$credentials_file" >> "$SCUT_START_LOG"
+if [ "${SCUTCLIENT_MOCK_NO_CONSUME:-0}" -ne 1 ]; then
+  rm -f "$credentials_file"
+fi
+exit 0
 MOCK
 cat > "$TEST_BIN/nvram" <<'MOCK'
 #!/bin/sh
 case "$1" in
   get)
     case "$2" in
+      scutclient_debug) printf '%s\n' 0 ;;
+      scutclient_skip_udp_hb) printf '%s\n' 0 ;;
+      scutclient_auth_exec|scutclient_fail_exec) printf '\n' ;;
+      wan_dns1_x) printf '%s\n' '1.1.1.1 1.0.0.1' ;;
+      scutclient_username) printf '%s\n' "$SCUTCLIENT_USERNAME" ;;
+      scutclient_password) printf '%s\n' "$SCUTCLIENT_PASSWORD" ;;
       wan_ifname)
         [ "${SCUT_NVRAM_FAIL_STATUS:-0}" -eq 0 ] || exit "$SCUT_NVRAM_FAIL_STATUS"
         printf '%s\n' br0
         ;;
+      scutclient_hostname) printf '%s\n' test-router ;;
+      scutclient_server_auth_ip) printf '%s\n' 192.0.2.1 ;;
+      scutclient_version) printf '%s\n' 01020304 ;;
+      scutclient_hash) printf '%s\n' test-hash ;;
       mentohust_nic) printf '%s\n' "${MENTOHUST_NIC:-br0}" ;;
       mentohust_username) printf '%s\n' "${MENTOHUST_USERNAME:-}" ;;
       mentohust_password) printf '%s\n' "${MENTOHUST_PASSWORD:-}" ;;
@@ -39,10 +73,20 @@ case "$1" in
     ;;
   get_checked)
     case "$2" in
+      scutclient_debug) printf '%s\n' 0 ;;
+      scutclient_skip_udp_hb) printf '%s\n' 0 ;;
+      scutclient_auth_exec|scutclient_fail_exec) printf '\n' ;;
+      wan_dns1_x) printf '%s\n' '1.1.1.1 1.0.0.1' ;;
+      scutclient_username) printf '%s\n' "$SCUTCLIENT_USERNAME" ;;
+      scutclient_password) printf '%s\n' "$SCUTCLIENT_PASSWORD" ;;
       wan_ifname)
         [ "${SCUT_NVRAM_FAIL_STATUS:-0}" -eq 0 ] || exit "$SCUT_NVRAM_FAIL_STATUS"
         printf '%s\n' br0
         ;;
+      scutclient_hostname) printf '%s\n' test-router ;;
+      scutclient_server_auth_ip) printf '%s\n' 192.0.2.1 ;;
+      scutclient_version) printf '%s\n' 01020304 ;;
+      scutclient_hash) printf '%s\n' test-hash ;;
       mentohust_nic) printf '%s\n' "${MENTOHUST_NIC:-br0}" ;;
       mentohust_username) printf '%s\n' "${MENTOHUST_USERNAME:-}" ;;
       mentohust_password) printf '%s\n' "${MENTOHUST_PASSWORD:-}" ;;
@@ -64,7 +108,16 @@ MOCK
 cat > "$TEST_BIN/start-stop-daemon" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$START_LOG"
-exit 0
+[ "${SCUT_START_CONSUME:-0}" -eq 1 ] || exit 0
+exec_path=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -x) exec_path=$2; shift 2 ;;
+    --) shift; "$exec_path" "$@"; exit $? ;;
+    *) shift ;;
+  esac
+done
+exit 98
 MOCK
 chmod 755 "$TEST_BIN/"*
 
@@ -129,6 +182,60 @@ else
 fi
 [ "$STOP_STATUS" -eq 42 ] || { echo "FAIL: scutclient logout failure status changed to $STOP_STATUS" >&2; exit 1; }
 
+# SCUTClient must pass a one-shot credential path, never plaintext argv values.
+SCUTCLIENT_USERNAME='alice&literal'
+SCUTCLIENT_PASSWORD='test&secret\value%'
+SCUT_START_LOG="$TEST_TMP/scutclient-start.log"
+export SCUTCLIENT_USERNAME SCUTCLIENT_PASSWORD SCUT_START_LOG
+: > "$SCUT_START_LOG"
+TMPDIR="$TEST_TMP" SCUT_START_CONSUME=1 SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+  sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" start nolog >/dev/null
+SCUT_CREDENTIAL_PATH=$(sed -n 's/^path=//p' "$SCUT_START_LOG")
+[ -n "$SCUT_CREDENTIAL_PATH" ] && [ ! -e "$SCUT_CREDENTIAL_PATH" ] &&
+  [ ! -d "$(dirname "$SCUT_CREDENTIAL_PATH")" ] || {
+  echo "FAIL: SCUTClient credential file or private directory survived consumption" >&2; exit 1;
+}
+grep -Fq -- '--credentials-file' "$START_LOG" || {
+  echo "FAIL: SCUTClient did not use the private credential-file CLI" >&2; exit 1;
+}
+! grep -Fq -- "$SCUTCLIENT_USERNAME" "$SCUT_LOG" &&
+  ! grep -Fq -- "$SCUTCLIENT_PASSWORD" "$SCUT_LOG" &&
+  ! grep -Fq -- "$SCUTCLIENT_USERNAME" "$START_LOG" &&
+  ! grep -Fq -- "$SCUTCLIENT_PASSWORD" "$START_LOG" || {
+  echo "FAIL: SCUTClient credentials appeared in process argv" >&2; exit 1;
+}
+START_COUNT=$(wc -l < "$START_LOG" | tr -d ' ')
+if TMPDIR="$TEST_TMP" SCUT_START_CONSUME=1 SCUTCLIENT_MOCK_NO_CONSUME=1 \
+   SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+   sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" start nolog >/dev/null 2>&1; then
+  echo "FAIL: SCUTClient accepted an unconsumed private credential file" >&2; exit 1;
+fi
+[ "$(wc -l < "$START_LOG" | tr -d ' ')" -eq $((START_COUNT + 1)) ] || {
+  echo "FAIL: SCUTClient credential-consumption failure did not reach the launcher" >&2; exit 1;
+}
+[ -z "$(find "$TEST_TMP" -maxdepth 3 -name 'credentials.*' -print)" ] || {
+  echo "FAIL: SCUTClient left credentials behind after failed consumption" >&2; exit 1;
+}
+START_COUNT=$(wc -l < "$START_LOG" | tr -d ' ')
+SCUTCLIENT_PASSWORD='invalid-secret
+Injected=1'
+export SCUTCLIENT_PASSWORD
+if TMPDIR="$TEST_TMP" SCUT_START_CONSUME=1 SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+   sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" start nolog >/dev/null 2>&1; then
+  echo "FAIL: SCUTClient accepted a newline-bearing password" >&2; exit 1;
+fi
+[ "$(wc -l < "$START_LOG" | tr -d ' ')" = "$START_COUNT" ] || {
+  echo "FAIL: SCUTClient launched with a newline-bearing credential" >&2; exit 1;
+}
+SCUTCLIENT_PASSWORD=$(printf 'invalid-secret\rInjected=1')
+export SCUTCLIENT_PASSWORD
+if TMPDIR="$TEST_TMP" SCUT_START_CONSUME=1 SCUTCLIENT_PIDFILE="$SCUT_PIDFILE" \
+   sh "$ROOT/trunk/user/scutclient/scripts/scutclient.sh" start nolog >/dev/null 2>&1; then
+  echo "FAIL: SCUTClient accepted a carriage-return-bearing password" >&2; exit 1;
+fi
+[ "$(wc -l < "$START_LOG" | tr -d ' ')" = "$START_COUNT" ] || {
+  echo "FAIL: SCUTClient launched with a carriage-return-bearing credential" >&2; exit 1;
+}
 MENTOHUST_NIC=br0
 MENTOHUST_USERNAME='test-user'
 MENTOHUST_PASSWORD='test&secret\value%'
@@ -219,4 +326,4 @@ fi
   echo "FAIL: MentoHUST launched after rejecting a carriage-return-bearing setting" >&2; exit 1;
 }
 
-echo "Legacy wrappers preserve stale-pidfile safety and MentoHUST credential confidentiality: PASS"
+echo "Legacy wrappers preserve stale-pidfile safety and SCUTClient/MentoHUST credential confidentiality: PASS"
