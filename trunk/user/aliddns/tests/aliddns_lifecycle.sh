@@ -101,7 +101,7 @@ nvram() {
 			;;
 		"get_checked aliddns_renum")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_renum ] || return "$NVRAM_READ_STATUS"
-			printf '%s\\n' "$NVRAM_RENUM_VALUE"
+			printf '%s\n' "$NVRAM_RENUM_VALUE"
 			;;
 		"get_checked aliddns_status")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_status ] || return "$NVRAM_READ_STATUS"
