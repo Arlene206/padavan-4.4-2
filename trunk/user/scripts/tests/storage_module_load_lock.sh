@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -eux
 
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 automount="$repo_root/trunk/user/scripts/files/sbin/automount.sh"
