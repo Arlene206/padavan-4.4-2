@@ -33,6 +33,8 @@ workflow = (ROOT / ".github/workflows/wan-dhcp-callback-stability.yml").read_tex
 
 assert '#include "wan6_dns_policy.h"' in source
 assert "return strcmp(old_value, new_value) != 0;" in policy
+assert "wan6_dns_copy_config_snapshot" in policy
+assert "rc_wan_nvram_copy_snapshot" in policy
 assert "dns6_len = dns6_new ? strlen(dns6_new) : 0;" in source
 assert "if (dns6_len >= sizeof(dns6s))" in source
 assert "if (dns6_len)\n\t\tmemcpy(dns6s, dns6_new, dns6_len);" in source
@@ -56,6 +58,11 @@ for case in (
     "test_dns_store_publishes_withdrawal",
     "test_dns_store_propagates_nvram_failure",
     "test_dns_store_rejects_missing_writer",
+    "test_dns_config_snapshot_copies_one_coherent_cache_backed_tuple",
+    "test_dns_config_snapshot_keeps_missing_values_empty",
+    "test_dns_config_snapshot_discards_partial_values_on_read_failure",
+    "test_dns_config_snapshot_discards_values_on_transaction_close_failure",
+    "test_dns_config_snapshot_begin_failure_does_not_read_or_close",
 ):
     assert case in test and case + "();" in test
 assert "if (callback_status < 0)" in source
@@ -85,9 +92,15 @@ assert reset_positions == sorted(reset_positions)
 for setting in ("ip6_wan_addr", "ip6_wan_gate", "ip6_6rd_relay", "ip6_6rd_size"):
     assert f'rc_wan_nvram_copy_text(nvram_safe_get("{setting}")' in reset_v6
 dns_builder = body(source, "static int\nbuild_dns6_value(")
+assert "wan6_dns_copy_config_snapshot(" in dns_builder
+assert "nvram_safe_get(" not in dns_builder
 for dns_key in ("ip6_dns1", "ip6_dns2", "ip6_dns3"):
-    assert f'nvram_safe_get("{dns_key}")' in dns_builder
-assert "rc_wan_nvram_copy_text" in dns_builder
+    assert f'"{dns_key}"' in dns_builder
+assert "wan6_snapshot_transaction_begin" in dns_builder
+assert "wan6_snapshot_transaction_get" in dns_builder
+assert "wan6_snapshot_transaction_end" in dns_builder
+assert "rc_wan_nvram_copy_snapshot" in policy
+assert "destination[0] = '\\0';" in policy
 wan_reset = body(wan_source, "reset_wan_vars_status(void)")
 v6_reset_call = wan_reset.index("proto_status = reset_wan6_vars_status();")
 v6_failure = wan_reset.index('reset_failure_context = "IPv6 WAN runtime snapshot";', v6_reset_call)

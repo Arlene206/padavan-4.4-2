@@ -1,3 +1,13 @@
+## 2026-11-22 — Read static WAN IPv6 DNS configuration as one checked NVRAM snapshot
+
+- Parent main SHA: 1f1a8736e9e4edd0938002ee3a0321344eea3317. build_dns6_value() read ip6_dns1/ip6_dns2/ip6_dns3 through nvram_safe_get(). That API returns empty values when an NVRAM backend read fails, so a transient fault could be mistaken for intentionally empty static DNS and published as a DNS withdrawal.
+- Replaced three error-collapsing reads with one rc_wan_nvram_copy_snapshot() transaction through the existing WAN NVRAM callbacks. All three cache-backed strings are copied before the next read; missing individual keys retain the legacy empty-string default; any backend or transaction-close error invalidates the complete tuple and prevents publication.
+- Added five focused GNU89 host regressions for coherent cache-copying, missing-key compatibility, read failure, transaction close failure and begin failure. Updated check_wan6_dns_policy.py to reject the old nvram_safe_get path and require the checked transaction helper.
+- Parent exact-head Actions on 1f1a8736e9e4edd0938002ee3a0321344eea3317: libdisk #45021103093 PASS, Process inventory #45021103117 PASS, AI handoff #45021103133 PASS and NVRAM transaction audit #45021103142 PASS. No XY-C1 Build/TRX/artifact gate was observed on this parent.
+- Exact-head WAN DHCP callback Actions for THIS COMMIT must be checked after publication; no host test or CI result is claimed before that run completes. XY-C1 L3 and hardware L4 remain NOT VERIFIED.
+- Next task: audit remaining DHCPv6 static WAN address/gateway and router advertisement settings for the same lossy NVRAM getter pattern, then add a checked snapshot if a caller can publish partial runtime identity.
+
+---
 ## 2026-11-22 — Correct account-inventory test registration after exact-head failure
 
 - Parent main SHA: a09d94d07031bf597c8b9ba77d65df6a40367dbb. Exact libdisk run #45020980995 failed at the first GNU89 test compile, before either sanitizer binary ran. The regression call list had matched the first generic return statement in the fake begin adapter instead of main(), producing implicit declarations and unused static test functions.

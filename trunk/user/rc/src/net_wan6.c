@@ -174,8 +174,15 @@ format_ipv6_literal(const char *input, char *output, size_t output_size,
 static int
 build_dns6_value(char *dns6s, size_t dns6_size)
 {
-	char dnsnv[3][INET6_ADDRSTRLEN] = {{0}};
+	static const char *const dns_names[WAN6_DNS_CONFIG_VALUE_COUNT] = {
+		"ip6_dns1", "ip6_dns2", "ip6_dns3"
+	};
+	char dnsnv[WAN6_DNS_CONFIG_VALUE_COUNT][INET6_ADDRSTRLEN] = {{0}};
+	char *dns_destinations[WAN6_DNS_CONFIG_VALUE_COUNT];
+	size_t dns_sizes[WAN6_DNS_CONFIG_VALUE_COUNT];
+	struct nvram_transaction transaction;
 	int status, written, dns_static;
+	unsigned int i;
 
 	if (!dns6s || dns6_size == 0)
 		return EINVAL;
@@ -186,16 +193,14 @@ build_dns6_value(char *dns6s, size_t dns6_size)
 	if (dns_static != 1)
 		return 0;
 
-	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns1"),
-					dnsnv[0], sizeof(dnsnv[0]));
-	if (status != 0)
-		return status;
-	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns2"),
-					dnsnv[1], sizeof(dnsnv[1]));
-	if (status != 0)
-		return status;
-	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns3"),
-					dnsnv[2], sizeof(dnsnv[2]));
+	for (i = 0; i < WAN6_DNS_CONFIG_VALUE_COUNT; ++i) {
+		dns_destinations[i] = dnsnv[i];
+		dns_sizes[i] = sizeof(dnsnv[i]);
+	}
+	status = wan6_dns_copy_config_snapshot(
+		dns_names, dns_destinations, dns_sizes,
+		wan6_snapshot_transaction_begin, wan6_snapshot_transaction_get,
+		wan6_snapshot_transaction_end, &transaction);
 	if (status != 0)
 		return status;
 
