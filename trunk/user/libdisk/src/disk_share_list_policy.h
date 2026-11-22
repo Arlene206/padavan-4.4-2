@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdio.h>
 
 /*
  * Reset caller-owned outputs before rejecting invalid inputs. This keeps
@@ -53,6 +54,39 @@ disk_share_list_next_entry(DIR *directory, disk_share_readdir_fn read_entry,
 	}
 
 	return *read_error != 0 ? -1 : 0;
+}
+
+
+/*
+ * Flush a complete share-list snapshot and report every stream failure. The
+ * caller writes to a temporary file and publishes it only after fsync/close.
+ */
+static inline int
+disk_share_list_write_snapshot(FILE *stream, int folder_count,
+                               char *const *folder_list)
+{
+	int i;
+
+	if (!stream || folder_count < 0 ||
+	    (folder_count > 0 && !folder_list)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (fprintf(stream, "sh_num=%d\n", folder_count) < 0)
+		return -1;
+	for (i = 0; i < folder_count; ++i) {
+		if (!folder_list[i]) {
+			errno = EINVAL;
+			return -1;
+		}
+		if (fprintf(stream, "sh_name%d=%s\n", i, folder_list[i]) < 0)
+			return -1;
+	}
+	if (fflush(stream) != 0)
+		return -1;
+
+	return 0;
 }
 
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */

@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "disk_share_list_policy.h"
 
@@ -123,6 +125,49 @@ test_readdir_rejects_missing_adapters(void)
 	assert(read_error == EINVAL);
 }
 
+static void
+test_snapshot_write_flushes_complete_content(void)
+{
+	char *folder_list[] = { "Public", "Media" };
+	char buffer[64];
+	FILE *stream = tmpfile();
+
+	assert(stream != NULL);
+	assert(disk_share_list_write_snapshot(stream, 2, folder_list) == 0);
+	rewind(stream);
+	assert(fgets(buffer, sizeof(buffer), stream) != NULL);
+	assert(strcmp(buffer, "sh_num=2\n") == 0);
+	assert(fgets(buffer, sizeof(buffer), stream) != NULL);
+	assert(strcmp(buffer, "sh_name0=Public\n") == 0);
+	assert(fgets(buffer, sizeof(buffer), stream) != NULL);
+	assert(strcmp(buffer, "sh_name1=Media\n") == 0);
+	assert(fclose(stream) == 0);
+}
+
+static void
+test_snapshot_write_reports_io_failure(void)
+{
+	char *folder_list[] = { "Public" };
+	FILE *stream = fopen("/dev/full", "w");
+
+	assert(stream != NULL);
+	errno = 0;
+	assert(disk_share_list_write_snapshot(stream, 1, folder_list) == -1);
+	assert(errno != 0);
+	(void)fclose(stream);
+}
+
+static void
+test_snapshot_write_rejects_invalid_data(void)
+{
+	FILE *stream = tmpfile();
+
+	assert(stream != NULL);
+	assert(disk_share_list_write_snapshot(stream, 1, NULL) == -1);
+	assert(errno == EINVAL);
+	(void)fclose(stream);
+}
+
 int
 main(void)
 {
@@ -132,5 +177,8 @@ main(void)
 	test_readdir_entry_and_clean_eof();
 	test_readdir_error_is_not_clean_eof();
 	test_readdir_rejects_missing_adapters();
+	test_snapshot_write_flushes_complete_content();
+	test_snapshot_write_reports_io_failure();
+	test_snapshot_write_rejects_invalid_data();
 	return 0;
 }

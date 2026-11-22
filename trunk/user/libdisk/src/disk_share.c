@@ -372,49 +372,85 @@ void free_2_dimension_list(int *num, char ***list)
 
 int initial_folder_list_in_mount_path(const char *const mount_path)
 {
-	int sh_num = 0;
+	int sh_num = 0, fd = -1, temp_created = 0;
 	char **folder_list = NULL;
-	FILE *fp;
-	char *list_file;
-	int result, len, i;
+	FILE *fp = NULL;
+	char *list_file = NULL, *temp_file = NULL;
+	int result, saved_errno;
+	size_t mount_len, list_len, temp_len;
+	const char list_suffix[] = "/.__folder_list.txt";
+	const char temp_suffix[] = ".tmp.XXXXXX";
 
-	if (mount_path == NULL || strlen(mount_path) <= 0)
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
 		return -1;
+	}
 
-	// 2. get the folder number and folder_list
 	result = get_all_folder_in_mount_path(mount_path, &sh_num, &folder_list);
 	if (result != 0) {
 		free_2_dimension_list(&sh_num, &folder_list);
 		return -1;
 	}
 
-	// 3. get the list_file
-	len = strlen(mount_path)+strlen("/.__folder_list.txt");
-	list_file = (char *)malloc(sizeof(char)*(len+1));
-	if (list_file == NULL) {
-		free_2_dimension_list(&sh_num, &folder_list);
-		return -1;
+	mount_len = strlen(mount_path);
+	if (mount_len > (size_t)-1 - (sizeof(list_suffix) - 1) -
+	                (sizeof(temp_suffix) - 1) - 1) {
+		errno = ENAMETOOLONG;
+		goto failed;
 	}
-	sprintf(list_file, "%s/.__folder_list.txt", mount_path);
-	list_file[len] = 0;
+	list_len = mount_len + sizeof(list_suffix) - 1;
+	temp_len = list_len + sizeof(temp_suffix) - 1;
+	list_file = (char *)malloc(list_len + 1);
+	temp_file = (char *)malloc(temp_len + 1);
+	if (!list_file || !temp_file)
+		goto failed;
 
-	// 4. write the folder info
-	fp = fopen(list_file, "w");
-	if (fp == NULL) {
-		free_2_dimension_list(&sh_num, &folder_list);
-		free(list_file);
-		
-		return -1;
+	memcpy(list_file, mount_path, mount_len);
+	memcpy(list_file + mount_len, list_suffix, sizeof(list_suffix));
+	memcpy(temp_file, list_file, list_len);
+	memcpy(temp_file + list_len, temp_suffix, sizeof(temp_suffix));
+
+	fd = mkstemp(temp_file);
+	if (fd < 0)
+		goto failed;
+	temp_created = 1;
+	fp = fdopen(fd, "w");
+	if (!fp)
+		goto failed;
+	fd = -1;
+
+	if (disk_share_list_write_snapshot(fp, sh_num, folder_list) != 0)
+		goto failed;
+	if (fsync(fileno(fp)) != 0)
+		goto failed;
+	if (fclose(fp) != 0) {
+		fp = NULL;
+		goto failed;
 	}
+	fp = NULL;
+
+	if (rename(temp_file, list_file) != 0)
+		goto failed;
+	temp_created = 0;
+
+	free(temp_file);
 	free(list_file);
-
-	fprintf(fp, "sh_num=%d\n", sh_num);
-	for (i = 0; i < sh_num; ++i)
-		fprintf(fp, "sh_name%d=%s\n", i, folder_list[i]);
-	fclose(fp);
-
 	free_2_dimension_list(&sh_num, &folder_list);
 	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fp)
+		(void)fclose(fp);
+	else if (fd >= 0)
+		(void)close(fd);
+	if (temp_created)
+		(void)unlink(temp_file);
+	free(temp_file);
+	free(list_file);
+	free_2_dimension_list(&sh_num, &folder_list);
+	errno = saved_errno;
+	return -1;
 }
 
 int initial_one_var_file_in_mount_path(const char *const account, const char *const mount_path)

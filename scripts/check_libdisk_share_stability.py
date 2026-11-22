@@ -102,6 +102,29 @@ require("saved_errno = errno ? errno : EIO;" in failure_cleanup and
         "errno = saved_errno;" in failure_cleanup,
         "directory read/close failures must preserve errno during cleanup")
 
+
+require("disk_share_list_write_snapshot" in POLICY and
+        "if (fflush(stream) != 0)" in POLICY,
+        "snapshot writer must report buffered stream failures")
+initial_writer = function_body(
+    DISK_SOURCE, "int initial_folder_list_in_mount_path(const char *const mount_path)"
+)
+mkstemp = initial_writer.index("fd = mkstemp(temp_file)")
+snapshot_write = initial_writer.index(
+    "disk_share_list_write_snapshot(fp, sh_num, folder_list)", mkstemp
+)
+sync_file = initial_writer.index("fsync(fileno(fp))", snapshot_write)
+close_file = initial_writer.index("if (fclose(fp) != 0)", sync_file)
+publish_file = initial_writer.index("rename(temp_file, list_file)", close_file)
+require(mkstemp < snapshot_write < sync_file < close_file < publish_file,
+        "folder-list metadata must be flushed and closed before atomic publish")
+require('fopen(list_file, "w")' not in initial_writer,
+        "folder-list refresh must not truncate the last complete snapshot")
+write_failure = initial_writer[initial_writer.index("failed:"):]
+require("unlink(temp_file)" in write_failure and
+        "errno = saved_errno;" in write_failure,
+        "failed snapshot writes must remove the temporary file and preserve errno")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
@@ -117,6 +140,9 @@ for marker in (
     "test_readdir_entry_and_clean_eof",
     "test_readdir_error_is_not_clean_eof",
     "test_readdir_rejects_missing_adapters",
+    "test_snapshot_write_flushes_complete_content",
+    "test_snapshot_write_reports_io_failure",
+    "test_snapshot_write_rejects_invalid_data",
 ):
     require(marker in REGRESSION and marker + "();" in REGRESSION,
             "missing output initialization regression: " + marker)
