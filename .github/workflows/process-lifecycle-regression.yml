@@ -219,6 +219,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/process-lifecycle-regression.yml"
+      - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
