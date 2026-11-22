@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before this workflow-contract/handoff follow-up: `ac8436355e5081e81737ffa758bd78fc2d73112e`; active firewall product-source SHA `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661` and checker-only forwarding-contract correction `ef20a36bf970ec3c3c487cb71c2e0bdc615bf073`.
+- Live `main` at this recovery: `feb5dfe55704a253cea979454cdad439d715596a`; the active product-source baseline is the Samba checked-credential snapshot in that commit. THIS follow-up adds the missing Samba workflow trigger for a regression source file and updates the active checkpoint; fetch live `main` on the next recovery instead of chasing this workflow/documentation-only descendant.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -30,20 +30,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 - Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, and FTP passive-port range policy are completed source slices with exact workflow results in the dev log.
 - Samba `acc_num` status guard is committed in `45d052982bd51efcbdc47e5c818544f95d4d5689`; checker correction `909a0095de86a88f7dfb8343923e641f466ac923`. Exact Samba #44976705529 PASS and AI docs #44976705516 PASS on `909a009`.
-- THIS commit closes the Samba credential-read gap: `http_username`, `acc_usernameN` and `acc_passwordN` previously used unchecked `nvram_safe_get()`. The new preflight copies them via the status-bearing NVRAM API into bounded local buffers and validates every accepted credential before process inventory, cleanup, config or passdb staging. Read errors/truncation/unsafe passwords/duplicate identities abort and preserve last-good state; the passdb publisher consumes the validated snapshots only. Password buffers are cleared on every locked exit.
+- Product-source baseline `feb5dfe55704a253cea979454cdad439d715596a` snapshots `http_username`, `acc_usernameN` and accepted `acc_passwordN` via copied, status-bearing NVRAM reads before process inventory, cleanup, config or passdb staging. Read failure, truncation, unsafe password or duplicate identity aborts and preserves last-good state; passdb generation consumes only validated snapshots and wipes credential buffers on locked exits.
+- THIS workflow-contract correction adds `trunk/user/rc/src/tests/wan_nvram_status_policy.c` to both Samba `push` and `pull_request` path filters. The Samba workflow's Python contract reads that test and asserts its EIO/ENAMETOOLONG coverage, but neither event previously triggered on a change to that file. Product source is unchanged in THIS follow-up.
 - No local MIPS toolchain or physical router; firmware L3/L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- Parent main for THIS checked-credential snapshot slice: `909a0095de86a88f7dfb8343923e641f466ac923`.
-- Exact Samba #44976705529 PASS and AI docs #44976705516 PASS on `909a009`, validating the prior account-count guard. This commit changes production source and Samba workflow contract; exact-head checks are pending.
-- No same-SHA XY-C1 Build/TRX/artifact completion is recorded; no L3 claim. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
+- Product-source baseline: `feb5dfe55704a253cea979454cdad439d715596a`; THIS follow-up is workflow/documentation only.
+- Exact Samba #44976705529 PASS and AI docs #44976705516 PASS on parent `909a009`, validating the earlier account-count guard only. The checked-credential product change still needs exact-head Samba, Process inventory, NVRAM and XY-C1 validation.
+- The GitHub combined-status connector returned no status rows for `feb5dfe`; its available workflow-runs helper is PR-filtered, so push-triggered exact-head Actions could not be enumerated from this session. Do not treat this as PASS or as evidence that no run exists; inspect GitHub Actions for THIS commit SHA on the next recovery.
+- No same-product-SHA XY-C1 Build/TRX/artifact completion is recorded; no L3 claim. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no open PR was found. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Samba workflow for checked-string helper, account snapshot ordering, compile and existing NVRAM copy-value regressions; fix actual failures without weakening fail-closed behavior.
-2. Inspect Process inventory, NVRAM audit and AI docs on the same SHA, and continue an independent whole-userland security/stability slice while Actions are pending.
-3. Require Build XY-C1, TRX verification and artifact upload all PASS on one exact product source SHA before claiming L3; keep frozen backup untouched.
+1. Inspect the push-triggered Samba share stability and AI handoff docs runs for the current `main` SHA (which includes THIS workflow filter correction). Match each run's `head_sha` exactly; diagnose/fix any failure before declaring the checked-credential slice validated.
+2. While Actions are pending, continue the next highest-priority independent stability/security item from `REFACTOR_ROADMAP.md`; do not repeat completed audits or wait idly.
+3. Require Build XY-C1, TRX verification and artifact upload all PASS on one exact product-source SHA before claiming L3; keep frozen backup untouched.
 
 ## Workflow and preservation rules
 

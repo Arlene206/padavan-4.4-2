@@ -1,3 +1,12 @@
+## 2026-11-22 10:52 CST — Trigger Samba stability when its NVRAM regression input changes
+
+- Parent main SHA: `feb5dfe55704a253cea979454cdad439d715596a`.
+- The Samba workflow's source-contract step reads `trunk/user/rc/src/tests/wan_nvram_status_policy.c` and checks the copy-helper EIO/ENAMETOOLONG regression coverage, but that test path was absent from both `push.paths` and `pull_request.paths`. A change to a tested source-contract input could therefore bypass this workflow.
+- Added the test path to both event filters; their path sets remain equivalent. Product source and test contents are unchanged.
+- Connector inspection did not expose push-triggered exact-head runs (combined commit status returned no rows; the workflow-run helper is PR-filtered). Exact SHA CI must be checked in GitHub Actions; no PASS is claimed. No local checkout/host execution or target build was available; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 10:38 CST — Snapshot checked Samba account identities and secrets before publication
 
 - Parent main SHA: `909a0095de86a88f7dfb8343923e641f466ac923`; exact Samba #44976705529 and AI docs #44976705516 PASS on this parent, validating the prior account-count guard.
