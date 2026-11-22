@@ -8,6 +8,46 @@
 #include "dhcp_lease_policy.h"
 
 static void
+test_link_change_reconnect_requires_checked_modem_state(void)
+{
+	int reconnect = -1;
+
+	/* Reconnect on both legacy equal-state transitions. */
+	assert(modem_wan_link_change_reconnect_enabled(2, 7, 1, 1,
+						      &reconnect) == 0);
+	assert(reconnect == 1);
+	assert(modem_wan_link_change_reconnect_enabled(2, 7, 0, 0,
+						      &reconnect) == 0);
+	assert(reconnect == 1);
+
+	/* Priority, device readiness and identity/link mismatch all gate it. */
+	assert(modem_wan_link_change_reconnect_enabled(1, 7, 1, 1,
+						      &reconnect) == 0);
+	assert(reconnect == 0);
+	assert(modem_wan_link_change_reconnect_enabled(2, 0, 1, 1,
+						      &reconnect) == 0);
+	assert(reconnect == 0);
+	assert(modem_wan_link_change_reconnect_enabled(2, 7, 1, 0,
+						      &reconnect) == 0);
+	assert(reconnect == 0);
+
+	/* The legacy has_link argument is truthy/falsy, not restricted to 0/1. */
+	assert(modem_wan_link_change_reconnect_enabled(2, 7, 1, 9,
+						      &reconnect) == 0);
+	assert(reconnect == 1);
+
+	assert(modem_wan_link_change_reconnect_enabled(2, -1, 0, 0,
+						      &reconnect) == EINVAL);
+	assert(reconnect == 0);
+	assert(modem_wan_link_change_reconnect_enabled(2, 7, 2, 1,
+						      &reconnect) == EINVAL);
+	assert(reconnect == 0);
+	assert(modem_wan_link_change_reconnect_enabled(2, 7, 0, 1,
+						      NULL) == EINVAL);
+}
+
+
+static void
 test_hotplug_notification_preserves_ndis_and_ras_legacy_gates(void)
 {
 	int notify = -1;
@@ -697,6 +737,7 @@ test_modem_restart_requires_known_identity(void)
 int
 main(void)
 {
+	test_link_change_reconnect_requires_checked_modem_state();
 	test_hotplug_notification_preserves_ndis_and_ras_legacy_gates();
 	test_hotplug_notification_missing_any_legacy_match_key_stays_disabled();
 	test_hotplug_notification_rejects_invalid_and_unreadable_inputs();

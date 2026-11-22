@@ -1154,29 +1154,54 @@ reload_modem_modules(int modem_type, int reload)
 void
 notify_modem_on_wan_ether_link_changed(int has_link)
 {
-	int modem_used, link_wan, modem_identity_status, is_modem_wan = 0;
+	int modem_priority = 0, modem_devnum = 0;
+	int is_wisp_active = 0, is_modem_wan = 0, reconnect = 0;
+	int status;
 
-	if (nvram_get_int("modem_prio") != 2)
-		return;
-
-	if (get_wan_wisp_active(NULL))
-		return;
-
-	if (!get_modem_devnum())
-		return;
-
-	modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);
-	if (modem_identity_status != 0) {
+	/*
+	 * Use one checked start-configuration snapshot for both modem priority
+	 * and device readiness. An NVRAM read error must not look like priority
+	 * zero and silently suppress the link-change recovery event.
+	 */
+	status = get_modem_wan_start_config_status(&modem_priority,
+						   &modem_devnum);
+	if (status != 0) {
 		logmessage(LOGNAME,
-			   "skipping modem WAN reconnect: identity read failed (status=%d)",
-			   modem_identity_status);
+			   "skipping modem WAN reconnect: configuration read failed (status=%d)",
+			   status);
+		return;
+	}
+	if (modem_priority != 2 || modem_devnum <= 0)
+		return;
+
+	/* The legacy boolean wrapper treats unknown WISP identity as active. */
+	status = get_wan_wisp_active_status(&is_wisp_active, NULL);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "skipping modem WAN reconnect: WISP identity read failed (status=%d)",
+			   status);
+		return;
+	}
+	if (is_wisp_active)
+		return;
+
+	status = get_usb_modem_wan_status(0, &is_modem_wan);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "skipping modem WAN reconnect: modem identity read failed (status=%d)",
+			   status);
 		return;
 	}
 
-	link_wan = (has_link) ? 1 : 0;
-	modem_used = is_modem_wan ? 1 : 0;
-
-	if (modem_used == link_wan)
+	status = modem_wan_link_change_reconnect_enabled(
+		modem_priority, modem_devnum, is_modem_wan, has_link, &reconnect);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "skipping modem WAN reconnect: invalid link-change state (status=%d)",
+			   status);
+		return;
+	}
+	if (reconnect)
 		notify_rc("auto_wan_reconnect");
 }
 

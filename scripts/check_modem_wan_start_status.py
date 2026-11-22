@@ -910,6 +910,39 @@ assert "cannotreadUSBmodemWANconfiguration" in modem_wrapper
 assert 'nvram_get_int("modem_rule")' not in modem_wrapper
 assert 'nvram_get_int("modem_type")' not in modem_wrapper
 
+link_change = "".join(compact(body(
+    USB_SOURCE, "notify_modem_on_wan_ether_link_changed(int has_link)"
+)).split())
+config_probe = link_change.index(
+    "get_modem_wan_start_config_status(&modem_priority,&modem_devnum)"
+)
+config_error = link_change.index("if(status!=0)", config_probe)
+priority_gate = link_change.index("if(modem_priority!=2||modem_devnum<=0)")
+wisp_probe = link_change.index(
+    "get_wan_wisp_active_status(&is_wisp_active,NULL)"
+)
+wisp_error = link_change.index("if(status!=0)", wisp_probe)
+wisp_gate = link_change.index("if(is_wisp_active)", wisp_error)
+identity_probe = link_change.index(
+    "get_usb_modem_wan_status(0,&is_modem_wan)"
+)
+identity_error = link_change.index("if(status!=0)", identity_probe)
+reconnect_policy = link_change.index(
+    "modem_wan_link_change_reconnect_enabled("
+)
+policy_error = link_change.index("if(status!=0)", reconnect_policy)
+reconnect_notify = link_change.index('notify_rc("auto_wan_reconnect")')
+assert (
+    config_probe < config_error < priority_gate < wisp_probe < wisp_error <
+    wisp_gate < identity_probe < identity_error < reconnect_policy <
+    policy_error < reconnect_notify
+)
+assert "nvram_get_int(" not in link_change
+assert "get_modem_devnum()" not in link_change
+assert "get_wan_wisp_active(" not in link_change
+assert "modem_wan_link_change_reconnect_enabled" in POLICY_SOURCE
+assert "test_link_change_reconnect_requires_checked_modem_state" in WAN_TEST
+
 manual_node_reader = "".join(compact(body(USB_SOURCE, "usb_modem_read_manual_node_index_status(")).split())
 assert "usb_modem_nvram_transaction_get(&transaction,\"modem_node\",&value)" in manual_node_reader
 assert "rc_wan_nvram_read_int_status(" in manual_node_reader

@@ -99,6 +99,29 @@ modem_wan_select_device_status(int modem_devnum, int priority_status,
 }
 
 /*
+ * Reconnect after a physical WAN link transition only when modem priority,
+ * device readiness and the checked modem-WAN identity agree with link state.
+ * has_link retains the legacy truthy/falsy interpretation.
+ */
+static inline int
+modem_wan_link_change_reconnect_enabled(int modem_priority, int modem_devnum,
+					int is_modem_wan, int has_link,
+					int *reconnect)
+{
+	if (!reconnect)
+		return EINVAL;
+	*reconnect = 0;
+	if (modem_devnum < 0 ||
+	    (is_modem_wan != 0 && is_modem_wan != 1))
+		return EINVAL;
+
+	*reconnect = modem_priority == 2 && modem_devnum > 0 &&
+		     (is_modem_wan == (has_link != 0));
+	return 0;
+}
+
+
+/*
  * Preserve a queued replug while an unplug transition is still running.
  * A failed transition is retried by restoring its matching hotplug event.
  */

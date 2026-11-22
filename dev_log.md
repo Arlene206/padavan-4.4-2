@@ -1,3 +1,14 @@
+## 2026-11-22 — Preserve modem WAN link-change recovery across NVRAM read errors
+
+- Parent main SHA: `b0338e1be6b52f0f43cc644253565675fc243138`. The active WAN PPP source SHA `b3caebcbaba0924abcb83339d49a1968e237f042` had WAN DHCP #45032049974, VPN #45032050106, WAN route #45032049989, HTTPD #45032050007, process lifecycle #45032050136 and NVRAM audit #45032049962 PASS. XY-C1 #45032049960 was still building; AI docs failure #45032049968 was fixed by `b0338e1be6b52f0f43cc644253565675fc243138`, whose exact AI handoff run #45032198181 PASS.
+- `notify_modem_on_wan_ether_link_changed()` used unchecked `nvram_get_int("modem_prio")`; a transient NVRAM backend failure could collapse to zero and silently suppress the modem WAN recovery notification. It also used the legacy boolean WISP wrapper, which hides the difference between WISP=true and unknown identity.
+- Replaced those reads with one `get_modem_wan_start_config_status()` snapshot (priority + device readiness) and `get_wan_wisp_active_status()`; every read failure now logs and aborts without scheduling a reconnect on unknown state. WAN identity remains status-checked.
+- Added a pure link-change reconnect policy and GNU89/ASan/UBSan regression coverage for equal-state transitions, disabled priority, absent device, mismatched identity, legacy truthy link values and invalid state. Extended the modem source checker to require the checked-read/error-gate order and forbid unchecked fallbacks. The existing USB modem workflow already compiles and runs this policy test and includes all changed source/test/checker paths.
+- No local repository build or test was run in this connector-only session. Exact-head CI for this new source SHA remains to be checked after commit; no L3/L4 result is claimed.
+- Result: THIS COMMIT. Next: inspect exact-SHA USB modem identity, firewall, process-lifecycle and XY-C1 Actions; diagnose any failure, and continue independent work while checks are pending.
+
+---
+
 ## 2026-11-22 — Restore exact atomic-main-commit handoff contract
 
 - Parent main SHA: `b3caebcbaba0924abcb83339d49a1968e237f042`. Exact-head VPN lifecycle #45032050106, WAN route #45032049989, WAN DHCP #45032049974, HTTPD #45032050007 and process lifecycle #45032050136 PASS. NVRAM #45032049962 and XY-C1 #45032049960 are still in progress. AI handoff #45032049968 failed because `SESSION_HANDOFF.md` said "one atomic commit" but the validator requires the literal phrase "one atomic main commit".
