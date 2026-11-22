@@ -140,7 +140,48 @@ ID_FS_UUID=$(/sbin/blkid -s UUID -o value "$dev_full" 2>/dev/null)
 ID_FS_LABEL=$(/sbin/blkid -s LABEL -o value "$dev_full" 2>/dev/null)
 
 
+# Use one exclusive lock for filesystem mounts and swap activation. Disk
+# spindown holds the same lock while checking both inventories and issuing hdparm.
+automount_acquire_mountpoint_lock()
+{
+	automount_lock_file="/var/lock/automount_mountpoint.lock"
+	automount_old_umask=$(umask)
+	umask 077
+	if ! ( : >> "$automount_lock_file" ); then
+		umask "$automount_old_umask"
+		logger -t "automount" "Unable to create mountpoint lock $automount_lock_file"
+		return 1
+	fi
+	if ! exec 8>>"$automount_lock_file"; then
+		umask "$automount_old_umask"
+		logger -t "automount" "Unable to open mountpoint lock $automount_lock_file"
+		return 1
+	fi
+	if ! flock 8; then
+		exec 8>&-
+		umask "$automount_old_umask"
+		logger -t "automount" "Unable to acquire mountpoint lock $automount_lock_file"
+		return 1
+	fi
+	umask "$automount_old_umask"
+	return 0
+}
+
 if [ "$ID_FS_TYPE" == "swap" ] ; then
+	[ ! -x /sbin/swapon ] && exit 1
+	if ! automount_acquire_mountpoint_lock; then
+		exit 1
+	fi
+	if ! awk -v dev="$dev_full" '$1 == dev { found=1 } END { exit !found }' /proc/swaps; then
+		if swapon "$dev_full" ; then
+			logger -t "automount" "Activate swap partition $dev_full SUCCESS!"
+		fi
+	fi
+	exec 8>&-
+
+	# always return !=0 for swap
+	exit 1
+fi
 	[ ! -x /sbin/swapon ] && exit 1
 	if ! awk -v dev="$dev_full" '$1 == dev { found=1 } END { exit !found }' /proc/swaps; then
 		if swapon "$dev_full" ; then
@@ -164,24 +205,10 @@ else
 	dev_mount="/media/$dev_label"
 fi
 
-# Distinct hotplug workers can race when different disks share a filesystem label.
 # Serialize mountpoint ownership checks and mounting, then release before app hooks.
-automount_lock_file="/var/lock/automount_mountpoint.lock"
-automount_old_umask=`umask`
-umask 077
-if ! ( : >> "$automount_lock_file" ); then
-	umask "$automount_old_umask"
-	logger -t "automount" "Unable to create mountpoint lock $automount_lock_file"
+if ! automount_acquire_mountpoint_lock; then
 	exit 1
 fi
-exec 8>>"$automount_lock_file"
-if ! flock 8; then
-	exec 8>&-
-	umask "$automount_old_umask"
-	logger -t "automount" "Unable to acquire mountpoint lock $automount_lock_file"
-	exit 1
-fi
-umask "$automount_old_umask"
 
 # Never unmount a different disk that happens to use the same filesystem label.
 mount_from_device()

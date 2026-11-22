@@ -52,3 +52,29 @@ printf '/dev/sda1 /media/usb ext4 rw\n' > "$mounts"
 expect_status 3 /media/usb "$mounts"
 
 echo "Automount mount ownership tri-state inventory policy: PASS"
+# The lock helper is shared with swap activation. Verify private creation,
+# umask restoration and exclusion of a competing worker.
+sed -e "s|/var/lock/automount_mountpoint.lock|$tmpdir/automount.lock|g" \
+	-n -e '/^automount_acquire_mountpoint_lock()$/,/^}$/p' "$automount" > "$tmpdir/lock-function.sh"
+[ -s "$tmpdir/lock-function.sh" ]
+logger() { :; }
+. "$tmpdir/lock-function.sh"
+saved_umask=$(umask)
+automount_acquire_mountpoint_lock
+[ "$(umask)" = "$saved_umask" ]
+[ "$(stat -c %a "$tmpdir/automount.lock")" = 600 ]
+if (
+	exec 9>>"$tmpdir/automount.lock"
+	flock -n 9
+); then
+	echo "automount mountpoint lock allowed a competing holder" >&2
+	exec 8>&-
+	exit 1
+fi
+exec 8>&-
+
+# Swap activation must take the same lock before swapon runs.
+lock_line=$(grep -nF 'if ! automount_acquire_mountpoint_lock; then' "$automount" | head -n 1 | cut -d: -f1)
+swapon_line=$(grep -nF 'if swapon "$dev_full" ; then' "$automount" | cut -d: -f1)
+[ -n "$lock_line" ] && [ -n "$swapon_line" ] && [ "$lock_line" -lt "$swapon_line" ]
+
