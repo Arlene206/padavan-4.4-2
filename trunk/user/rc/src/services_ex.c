@@ -22,6 +22,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #include <time.h>
 #include <dirent.h>
 #include <syslog.h>
@@ -43,6 +44,7 @@
 #include "dnsmasq_domain_policy.h"
 #include "dnsmasq_resolv_file_policy.h"
 #include "inadyn_config_file.h"
+#include "wan_nvram_status_policy.h"
 #include "inadyn_lifecycle_lock.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
@@ -2939,22 +2941,74 @@ get_inadyn_system(const char *alias)
 	return system;
 }
 
-static int
-inadyn_read_nvram_integer(const char *name, int default_value,
-                          int minimum, int maximum, int *result)
-{
-	char *value = NULL;
-	int api_result, saved_errno, status;
+enum inadyn_config_nvram_field {
+	INADYN_CFG_DDNS_PERIOD = 0,
+	INADYN_CFG_DDNS_FORCED,
+	INADYN_CFG_DDNS_SOURCE,
+	INADYN_CFG_DDNS_IPV6,
+	INADYN_CFG_DDNS_SSL,
+	INADYN_CFG_DDNS_WILDCARD,
+	INADYN_CFG_DDNS2_SSL,
+	INADYN_CFG_DDNS2_WILDCARD,
+	INADYN_CFG_DDNS_CHECKIP,
+	INADYN_CFG_DDNS2_CHECKIP,
+	INADYN_CFG_DDNS_SERVER,
+	INADYN_CFG_DDNS_HOSTNAME,
+	INADYN_CFG_DDNS_HOSTNAME2,
+	INADYN_CFG_DDNS_HOSTNAME3,
+	INADYN_CFG_DDNS_USERNAME,
+	INADYN_CFG_DDNS_PASSWORD,
+	INADYN_CFG_DDNS_CUSTOM_SERVER,
+	INADYN_CFG_DDNS_CUSTOM_URL,
+	INADYN_CFG_DDNS2_SERVER,
+	INADYN_CFG_DDNS2_HOSTNAME,
+	INADYN_CFG_DDNS2_USERNAME,
+	INADYN_CFG_DDNS2_PASSWORD,
+	INADYN_CFG_FIELD_COUNT
+};
 
-	errno = 0;
-	api_result = nvram_get_checked(name, &value);
-	saved_errno = errno;
+#define INADYN_CONFIG_VALUE_SIZE (NVRAM_MAX_VALUE_LEN + 1)
+
+static const char *const inadyn_config_nvram_names[INADYN_CFG_FIELD_COUNT] = {
+	"ddns_period", "ddns_forced", "ddns_source", "ddns_ipv6",
+	"ddns_ssl", "ddns_wildcard_x", "ddns2_ssl", "ddns2_wildcard_x",
+	"ddns_checkip", "ddns2_checkip", "ddns_server_x", "ddns_hostname_x",
+	"ddns_hostname2_x", "ddns_hostname3_x", "ddns_username_x",
+	"ddns_passwd_x", "ddns_cst_svr", "ddns_cst_url", "ddns2_server",
+	"ddns2_hname", "ddns2_user", "ddns2_pass"
+};
+
+static int
+inadyn_nvram_snapshot_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+inadyn_nvram_snapshot_get(void *context, const char *name, char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     name, value);
+}
+
+static int
+inadyn_nvram_snapshot_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+static int
+inadyn_parse_config_integer(const char *name, const char *value,
+			    int default_value, int minimum, int maximum,
+			    int *result)
+{
+	int status;
+
 	status = inadyn_config_file_read_integer_status(
-		api_result, saved_errno, value, default_value, minimum, maximum,
-		result);
+		1, 0, value, default_value, minimum, maximum, result);
 	if (status != 0) {
 		logmessage(LOGNAME,
-			   "cannot read or validate Inadyn option %s (status=%d)",
+			   "cannot validate Inadyn option %s (status=%d)",
 			   name, status);
 		errno = status;
 	}
@@ -2964,9 +3018,14 @@ inadyn_read_nvram_integer(const char *name, int default_value,
 static int
 write_inadyn_conf(const char *conf_file)
 {
-	FILE *fp;
-	char staged_path[PATH_MAX];
-	int saved_errno, interface_status, read_status;
+	FILE *fp = NULL;
+	char staged_path[PATH_MAX] = { 0 };
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[INADYN_CFG_FIELD_COUNT];
+	char *config_storage;
+	char *config_value[INADYN_CFG_FIELD_COUNT];
+	size_t field_index;
+	int saved_errno = 0, interface_status, read_status;
 	int i_max, i_ddns_source, i_ddns_period, i_ddns_forced, i_ddns_ipv6;
 	int i_ddns1_ssl, i_ddns1_checkip, i_ddns1_wildcard;
 	int i_ddns2_ssl, i_ddns2_checkip, i_ddns2_wildcard;
@@ -2976,44 +3035,80 @@ write_inadyn_conf(const char *conf_file)
 	const char *management_ifname;
 	char wan_ifname[16];
 
-	i_ddns_period = nvram_safe_get_int("ddns_period", 24, 0, 72);
+	config_storage = (char *)calloc(INADYN_CFG_FIELD_COUNT,
+					INADYN_CONFIG_VALUE_SIZE);
+	if (!config_storage) {
+		errno = ENOMEM;
+		logmessage(LOGNAME, "cannot allocate Inadyn NVRAM snapshot");
+		return 0;
+	}
+	for (field_index = 0; field_index < INADYN_CFG_FIELD_COUNT; field_index++) {
+		config_value[field_index] = config_storage +
+			field_index * INADYN_CONFIG_VALUE_SIZE;
+		fields[field_index].param_name = inadyn_config_nvram_names[field_index];
+		fields[field_index].destination = config_value[field_index];
+		fields[field_index].destination_size = INADYN_CONFIG_VALUE_SIZE;
+	}
+	memset(&transaction, 0, sizeof(transaction));
+	transaction.lock_fd = -1;
+	read_status = rc_wan_nvram_copy_snapshot(
+		fields, INADYN_CFG_FIELD_COUNT, inadyn_nvram_snapshot_begin,
+		inadyn_nvram_snapshot_get, inadyn_nvram_snapshot_end,
+		&transaction);
+	if (read_status != 0) {
+		saved_errno = read_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot Inadyn configuration NVRAM (status=%d)",
+			   saved_errno);
+		goto failed;
+	}
+
+	/* Parse every numeric option from one copied NVRAM generation. */
+	if ((read_status = inadyn_parse_config_integer("ddns_period",
+			config_value[INADYN_CFG_DDNS_PERIOD], 0, INT_MIN, INT_MAX,
+			&i_ddns_period)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns_forced",
+			config_value[INADYN_CFG_DDNS_FORCED], 0, INT_MIN, INT_MAX,
+			&i_ddns_forced)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns_source",
+			config_value[INADYN_CFG_DDNS_SOURCE], 0, 0, 2,
+			&i_ddns_source)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns_ipv6",
+			config_value[INADYN_CFG_DDNS_IPV6], 0, 0, 1,
+			&i_ddns_ipv6)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns_ssl",
+			config_value[INADYN_CFG_DDNS_SSL], 0, 0, 1,
+			&i_ddns1_ssl)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns_wildcard_x",
+			config_value[INADYN_CFG_DDNS_WILDCARD], 0, 0, 1,
+			&i_ddns1_wildcard)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns2_ssl",
+			config_value[INADYN_CFG_DDNS2_SSL], 0, 0, 1,
+			&i_ddns2_ssl)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns2_wildcard_x",
+			config_value[INADYN_CFG_DDNS2_WILDCARD], 0, 0, 1,
+			&i_ddns2_wildcard)) != 0) {
+		saved_errno = read_status;
+		goto failed;
+	}
+
+	if (i_ddns_period < 0 || i_ddns_period > 72)
+		i_ddns_period = 24;
 	i_ddns_period *= 3600;
 	if (i_ddns_period < 600)
 		i_ddns_period = 600; // 10 min
-
-	i_ddns_forced = nvram_safe_get_int("ddns_forced", 10, 3, 50);
+	if (i_ddns_forced < 3 || i_ddns_forced > 50)
+		i_ddns_forced = 10;
 	i_ddns_forced *= (24 * 3600);
-
-	/*
-	 * These options control endpoint selection and whether DDNS credentials
-	 * are sent over TLS. Never turn a failed read into "SSL off"; retain the
-	 * last-known-good configuration unless every policy value is validated.
-	 */
-	if ((read_status = inadyn_read_nvram_integer("ddns_source", 0, 0, 2,
-						     &i_ddns_source)) != 0 ||
-	    (read_status = inadyn_read_nvram_integer("ddns_ipv6", 0, 0, 1,
-						     &i_ddns_ipv6)) != 0 ||
-	    (read_status = inadyn_read_nvram_integer("ddns_ssl", 0, 0, 1,
-						     &i_ddns1_ssl)) != 0 ||
-	    (read_status = inadyn_read_nvram_integer("ddns_wildcard_x", 0, 0, 1,
-						     &i_ddns1_wildcard)) != 0 ||
-	    (read_status = inadyn_read_nvram_integer("ddns2_ssl", 0, 0, 1,
-						     &i_ddns2_ssl)) != 0 ||
-	    (read_status = inadyn_read_nvram_integer("ddns2_wildcard_x", 0, 0, 1,
-						     &i_ddns2_wildcard)) != 0) {
-		saved_errno = read_status;
-		errno = saved_errno;
-		return 0;
-	}
 
 	wan_ifname[0] = 0;
 	if (i_ddns_source == 1) {
 		interface_status = get_wan_ifname(wan_ifname);
 		if (interface_status != 0) {
-			errno = interface_status;
+			saved_errno = interface_status;
 			logmessage(LOGNAME, "Inadyn config rejected: unsafe WAN interface name (status=%d)",
 				   interface_status);
-			return 0;
+			goto failed;
 		}
 	} else if (i_ddns_source == 2) {
 		management_ifname = get_man_ifname(0);
@@ -3021,54 +3116,54 @@ write_inadyn_conf(const char *conf_file)
 			interface_status = wan_ifname_copy(wan_ifname, sizeof(wan_ifname),
 							 management_ifname);
 			if (interface_status != 0) {
-				errno = interface_status;
+				saved_errno = interface_status;
 				logmessage(LOGNAME, "Inadyn config rejected: unsafe management interface name (status=%d)",
 					   interface_status);
-				return 0;
+				goto failed;
 			}
 		}
 	}
 
 	i_max = ARRAY_SIZE(checkip_urls) - 1;
-	i_ddns1_checkip = nvram_safe_get_int("ddns_checkip", 0, 0, i_max);
-	i_ddns2_checkip = nvram_safe_get_int("ddns2_checkip", 0, 0, i_max);
+	if ((read_status = inadyn_parse_config_integer("ddns_checkip",
+			config_value[INADYN_CFG_DDNS_CHECKIP], 0, 0, i_max,
+			&i_ddns1_checkip)) != 0 ||
+	    (read_status = inadyn_parse_config_integer("ddns2_checkip",
+			config_value[INADYN_CFG_DDNS2_CHECKIP], 0, 0, i_max,
+			&i_ddns2_checkip)) != 0) {
+		saved_errno = read_status;
+		goto failed;
+	}
 
-	ddns1_svc = get_inadyn_system(nvram_safe_get("ddns_server_x"));
+	ddns1_svc = get_inadyn_system(config_value[INADYN_CFG_DDNS_SERVER]);
 	if (!ddns1_svc) {
 		ddns1_svc = inadyn_systems[0].system;
 		if (nvram_set("ddns_server_x", inadyn_systems[0].alias) != 0) {
 			saved_errno = errno ? errno : EIO;
 			logmessage(LOGNAME, "cannot persist fallback Inadyn provider (errno=%d)", saved_errno);
 			errno = saved_errno;
-			return 0;
+			goto failed;
 		}
 	}
 
-	ddns1_hname[0] = nvram_safe_get("ddns_hostname_x");
-	ddns1_hname[1] = nvram_safe_get("ddns_hostname2_x");
-	ddns1_hname[2] = nvram_safe_get("ddns_hostname3_x");
-	ddns1_user     = nvram_safe_get("ddns_username_x");
-	ddns1_pass     = nvram_safe_get("ddns_passwd_x");
+	ddns1_hname[0] = config_value[INADYN_CFG_DDNS_HOSTNAME];
+	ddns1_hname[1] = config_value[INADYN_CFG_DDNS_HOSTNAME2];
+	ddns1_hname[2] = config_value[INADYN_CFG_DDNS_HOSTNAME3];
+	ddns1_user     = config_value[INADYN_CFG_DDNS_USERNAME];
+	ddns1_pass     = config_value[INADYN_CFG_DDNS_PASSWORD];
+	ddns1_svr      = config_value[INADYN_CFG_DDNS_CUSTOM_SERVER];
+	ddns1_url      = config_value[INADYN_CFG_DDNS_CUSTOM_URL];
 
-	ddns1_svr = NULL;
-	ddns1_url = NULL;
-
-	if (strcmp(ddns1_svc, "custom") == 0) {
-		ddns1_svr = nvram_safe_get("ddns_cst_svr");
-		ddns1_url = nvram_safe_get("ddns_cst_url");
-	}
-
-	ddns2_svc = get_inadyn_system(nvram_safe_get("ddns2_server"));
-	ddns2_hname = nvram_safe_get("ddns2_hname");
-	ddns2_user  = nvram_safe_get("ddns2_user");
-	ddns2_pass  = nvram_safe_get("ddns2_pass");
+	ddns2_svc = get_inadyn_system(config_value[INADYN_CFG_DDNS2_SERVER]);
+	ddns2_hname = config_value[INADYN_CFG_DDNS2_HOSTNAME];
+	ddns2_user  = config_value[INADYN_CFG_DDNS2_USERNAME];
+	ddns2_pass  = config_value[INADYN_CFG_DDNS2_PASSWORD];
 
 	fp = inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path));
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "cannot stage Inadyn configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return 0;
+		goto failed;
 	}
 	if (strlen(wan_ifname) > 0)
 		fprintf(fp, "iface = %s\n", wan_ifname);
@@ -3148,20 +3243,33 @@ write_inadyn_conf(const char *conf_file)
 
 	if (inadyn_config_file_publish(fp, staged_path, conf_file) != 0) {
 		saved_errno = errno ? errno : EIO;
+		fp = NULL;
 		logmessage(LOGNAME, "cannot publish Inadyn configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return 0;
+		goto failed;
 	}
-
+	fp = NULL;
+	free(config_storage);
 	return 1;
 
 write_failed:
 	saved_errno = errno ? errno : EIO;
-	if (inadyn_config_file_discard(fp, staged_path) != 0)
-		logmessage(LOGNAME, "cannot discard incomplete Inadyn configuration (errno=%d)",
-			   errno ? errno : EIO);
 	logmessage(LOGNAME, "refusing unsafe or unwriteable Inadyn configuration value (errno=%d)",
 		   saved_errno);
+
+failed:
+	if (!saved_errno)
+		saved_errno = errno ? errno : EIO;
+	if (fp) {
+		if (inadyn_config_file_discard(fp, staged_path) != 0)
+			logmessage(LOGNAME, "cannot discard incomplete Inadyn configuration (errno=%d)",
+				   errno ? errno : EIO);
+		fp = NULL;
+	} else if (staged_path[0] &&
+		   inadyn_config_file_discard(NULL, staged_path) != 0) {
+		logmessage(LOGNAME, "cannot remove incomplete Inadyn configuration (errno=%d)",
+			   errno ? errno : EIO);
+	}
+	free(config_storage);
 	errno = saved_errno;
 	return 0;
 }
@@ -3524,6 +3632,8 @@ notify_ddns_update_locked(void)
 	int result;
 	int saved_errno;
 	int is_ap_mode, ap_mode_status;
+	int enabled_api_result, enabled_status, ddns_enabled;
+	char *enabled_value = NULL;
 
 	ap_mode_status = get_ap_mode_status(&is_ap_mode);
 	if (ap_mode_status != 0) {
@@ -3533,8 +3643,19 @@ notify_ddns_update_locked(void)
 			   ap_mode_status);
 		return ap_mode_status;
 	}
-	if (!inadyn_update_should_run(nvram_match("ddns_enable_x", "1"),
-				      is_ap_mode))
+	errno = 0;
+	enabled_api_result = nvram_get_checked("ddns_enable_x", &enabled_value);
+	saved_errno = errno;
+	enabled_status = inadyn_ddns_enabled_status(
+		enabled_api_result, saved_errno, enabled_value, &ddns_enabled);
+	if (enabled_status != 0) {
+		errno = enabled_status;
+		logmessage(LOGNAME,
+			   "DDNS update aborted because enable state cannot be read (status=%d)",
+			   enabled_status);
+		return enabled_status;
+	}
+	if (!inadyn_update_should_run(ddns_enabled, is_ap_mode))
 		return 0;
 
 	state = process_inventory_scan("inadyn", &snapshot);

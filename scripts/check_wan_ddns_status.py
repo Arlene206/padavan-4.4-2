@@ -9,6 +9,8 @@ WAN_SOURCE = (RC / "net_wan.c").read_text()
 SERVICES_SOURCE = (RC / "services_ex.c").read_text()
 POLICY_SOURCE = (RC / "inadyn_daemon_policy.h").read_text()
 POLICY_TEST = (RC / "tests/inadyn_daemon_policy.c").read_text()
+CONFIG_TEST = (RC / "tests/inadyn_config_file.c").read_text()
+NVRAM_POLICY = (RC / "wan_nvram_status_policy.h").read_text()
 WAN_NVRAM_POLICY = (RC / "wan_nvram_status_policy.h").read_text()
 WAN_NVRAM_TEST = (RC / "tests/wan_nvram_status_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
@@ -72,14 +74,16 @@ require("return ddns_enabled && !is_ap_mode;" in policy,
 notify = function_body(SERVICES_SOURCE, "notify_ddns_update_locked(void)")
 mode_read = notify.index("get_ap_mode_status(&is_ap_mode)")
 mode_error = notify.index("if (ap_mode_status != 0)", mode_read)
-gate = notify.index("inadyn_update_should_run(")
+enable_read = notify.index('nvram_get_checked("ddns_enable_x", &enabled_value)')
+enable_check = notify.index("inadyn_ddns_enabled_status(", enable_read)
+gate = notify.index("inadyn_update_should_run(", enable_check)
 inventory = notify.index('process_inventory_scan("inadyn", &snapshot)')
-require(mode_read < mode_error < gate < inventory and
-        'nvram_match("ddns_enable_x", "1")' in notify and
-        "is_ap_mode" in notify and
-        "return ap_mode_status;" in notify[mode_error:gate] and
+require(mode_read < mode_error < enable_read < enable_check < gate < inventory and
+        'nvram_match("ddns_enable_x", "1")' not in notify and
+        "return ap_mode_status;" in notify[mode_error:enable_read] and
+        "return enabled_status;" in notify[enable_check:gate] and
         "return 0;" in notify[gate:inventory],
-        "DDNS updater must fail closed on mode-read errors and keep disabled/AP mode as a successful pre-probe no-op")
+        "DDNS updater must check enable-state reads and preserve disabled/AP no-op behavior")
 
 wan_up = function_body(
     WAN_SOURCE, "wan_up_internal(char *wan_ifname, int unit, int is_static)"
@@ -142,20 +146,64 @@ for marker in (
 ):
     require(marker in POLICY_TEST, f"host regression is missing {marker}")
 
+writer = function_body(SERVICES_SOURCE, "write_inadyn_conf(const char *conf_file)")
+snapshot_call = writer.index("rc_wan_nvram_copy_snapshot(")
+parse_first = writer.index('inadyn_parse_config_integer("ddns_period"')
+config_open = writer.index("inadyn_config_file_open(conf_file")
+require(snapshot_call < parse_first < config_open,
+        "Inadyn writer must snapshot configuration before validating/staging")
+for key in (
+    "ddns_period", "ddns_forced", "ddns_source", "ddns_ipv6", "ddns_ssl",
+    "ddns_wildcard_x", "ddns2_ssl", "ddns2_wildcard_x", "ddns_checkip",
+    "ddns2_checkip", "ddns_server_x", "ddns_hostname_x", "ddns_hostname2_x",
+    "ddns_hostname3_x", "ddns_username_x", "ddns_passwd_x", "ddns_cst_svr",
+    "ddns_cst_url", "ddns2_server", "ddns2_hname", "ddns2_user", "ddns2_pass",
+):
+    require(f'"{key}"' in SERVICES_SOURCE, f"Inadyn config snapshot omits {key}")
+require("nvram_safe_get(" not in writer and
+        "nvram_safe_get_int(" not in writer and
+        "inadyn_read_nvram_integer(" not in writer,
+        "Inadyn writer must avoid lossy getters and rotating cache pointers")
+for signature, api_call in (
+    ("inadyn_nvram_snapshot_begin(void *context)", "nvram_transaction_begin"),
+    ("inadyn_nvram_snapshot_get(void *context, const char *name, char **value)",
+     "nvram_transaction_get"),
+    ("inadyn_nvram_snapshot_end(void *context)", "nvram_transaction_end"),
+):
+    require(api_call in function_body(SERVICES_SOURCE, signature),
+            f"Inadyn snapshot adapter must call {api_call}")
+for marker in (
+    "test_nvram_snapshot_copies_rotating_cache_and_invalidates_failed_tuple",
+    "fake_nvram_snapshot_get", "fake.end_status = EBUSY",
+    "fake.get_failure_status = EACCES",
+):
+    require(marker in CONFIG_TEST, f"Inadyn snapshot regression missing {marker}")
+require("rc_wan_nvram_copy_snapshot(" in NVRAM_POLICY and
+        "fields[i].destination[0] = '\\0';" in NVRAM_POLICY,
+        "NVRAM snapshot helper must clear partial tuple data on error")
+
 for marker in (
     '"trunk/user/rc/src/services_ex.c"',
     '"trunk/user/rc/src/inadyn_daemon_policy.h"',
     '"trunk/user/rc/src/tests/inadyn_daemon_policy.c"',
+    '"trunk/user/rc/src/inadyn_config_file.h"',
+    '"trunk/user/rc/src/tests/inadyn_config_file.c"',
+    '"trunk/user/rc/src/wan_nvram_status_policy.h"',
     '"trunk/user/rc/src/wan_nvram_status_policy.h"',
     '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"',
     "tests/wan_nvram_status_policy.c",
     '"scripts/check_wan_ddns_status.py"',
     "python3 scripts/check_wan_ddns_status.py",
     "tests/inadyn_daemon_policy.c",
+    "tests/inadyn_config_file.c",
 ):
     require(marker in WORKFLOW, f"WAN CI trigger or regression step is missing {marker}")
 for path in ("trunk/user/rc/src/wan_nvram_status_policy.h",
              "trunk/user/rc/src/tests/wan_nvram_status_policy.c"):
+    require(WORKFLOW.count('"' + path + '"') == 2,
+            f"WAN CI must watch {path} on push and pull_request")
+for path in ("trunk/user/rc/src/inadyn_config_file.h",
+             "trunk/user/rc/src/tests/inadyn_config_file.c"):
     require(WORKFLOW.count('"' + path + '"') == 2,
             f"WAN CI must watch {path} on push and pull_request")
 

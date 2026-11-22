@@ -44,6 +44,9 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/rc/src/inadyn_config_file.h"
+      - "trunk/user/rc/src/tests/inadyn_config_file.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "scripts/check_wan_ddns_status.py"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
@@ -147,6 +150,9 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/rc/src/inadyn_config_file.h"
+      - "trunk/user/rc/src/tests/inadyn_config_file.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "scripts/check_wan_ddns_status.py"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
@@ -282,6 +288,14 @@ jobs:
             trunk/user/rc/src/tests/inadyn_daemon_policy.c \
             -o /tmp/inadyn-daemon-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/inadyn-daemon-policy
+      - name: Compile and run Inadyn configuration snapshot regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/inadyn_config_file.c \
+            -o /tmp/inadyn-config-file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/inadyn-config-file
       - name: Compile and run IPv6 restart runtime-mode commit regression
         run: |
           set -eu

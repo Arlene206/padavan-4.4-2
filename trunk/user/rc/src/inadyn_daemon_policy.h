@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <process_inventory.h>
+#include <string.h>
 
 enum inadyn_daemon_action {
 	INADYN_DAEMON_ABORT = -1,
@@ -30,6 +31,24 @@ inadyn_restore_action_for_state(int previous_running,
 	if (current_state == PROCESS_PRESENCE_ABSENT)
 		return INADYN_RESTORE_LAUNCH;
 	return INADYN_RESTORE_ABORT;
+}
+
+/* A failed enable-key read must not be mistaken for DDNS being disabled. */
+static inline int
+inadyn_ddns_enabled_status(int api_result, int saved_errno,
+			   const char *value, int *enabled)
+{
+	if (!enabled)
+		return EINVAL;
+	*enabled = 0;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !value)
+		return EIO;
+	*enabled = (strcmp(value, "1") == 0);
+	return 0;
 }
 
 /* WAN notifications are normal when optional DDNS is disabled or in AP mode. */

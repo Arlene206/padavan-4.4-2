@@ -48,6 +48,27 @@ fake_send_signal(void *context, pid_t pid, int sig)
 }
 
 static void
+test_ddns_enabled_read_status(void)
+{
+	int enabled = 99;
+
+	assert(inadyn_ddns_enabled_status(0, 0, NULL, &enabled) == 0);
+	assert(enabled == 0);
+	enabled = 99;
+	assert(inadyn_ddns_enabled_status(1, 0, "1", &enabled) == 0);
+	assert(enabled == 1);
+	enabled = 99;
+	assert(inadyn_ddns_enabled_status(1, 0, "0", &enabled) == 0);
+	assert(enabled == 0);
+	assert(inadyn_ddns_enabled_status(1, 0, NULL, &enabled) == EIO);
+	assert(inadyn_ddns_enabled_status(2, 0, "1", &enabled) == EIO);
+	assert(inadyn_ddns_enabled_status(-1, EACCES, "1", &enabled) == EACCES);
+	assert(enabled == 0);
+	assert(inadyn_ddns_enabled_status(-1, 0, "1", &enabled) == EIO);
+	assert(inadyn_ddns_enabled_status(0, 0, NULL, NULL) == EINVAL);
+}
+
+static void
 test_update_configuration_gate(void)
 {
 	assert(inadyn_update_should_run(1, 0) == 1);
@@ -451,6 +472,7 @@ test_failed_start_may_leave_daemon(void)
 int
 main(void)
 {
+	test_ddns_enabled_read_status();
 	test_update_configuration_gate();
 	test_presence_decisions();
 	test_start_postcondition_status();

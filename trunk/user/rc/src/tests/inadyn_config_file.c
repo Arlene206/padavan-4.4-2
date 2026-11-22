@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "inadyn_config_file.h"
+#include "wan_nvram_status_policy.h"
 
 static void
 read_exact(const char *path, const char *expected)
@@ -142,6 +143,104 @@ test_rejected_value_discards_partial_config(const char *config,
 	assert(count_staged_files(directory, "inadyn.conf.tmp.") == 0);
 }
 
+struct fake_nvram_snapshot {
+	char shared_cache[64];
+	unsigned int get_calls;
+	int get_failure_at;
+	int get_failure_status;
+	int end_status;
+	int begin_calls;
+	int end_calls;
+};
+
+static int
+fake_nvram_snapshot_begin(void *context)
+{
+	struct fake_nvram_snapshot *fake = (struct fake_nvram_snapshot *)context;
+	fake->begin_calls++;
+	return 0;
+}
+
+static int
+fake_nvram_snapshot_get(void *context, const char *name, char **value)
+{
+	static const char *const contents[] = { "provider-a", "host.example", "secret-b" };
+	struct fake_nvram_snapshot *fake = (struct fake_nvram_snapshot *)context;
+	unsigned int index = fake->get_calls++;
+
+	assert(name != NULL && name[0] != '\0');
+	if ((int)index == fake->get_failure_at) {
+		errno = fake->get_failure_status;
+		return -1;
+	}
+	assert(index < sizeof(contents) / sizeof(contents[0]));
+	snprintf(fake->shared_cache, sizeof(fake->shared_cache), "%s", contents[index]);
+	*value = fake->shared_cache;
+	return 1;
+}
+
+static int
+fake_nvram_snapshot_end(void *context)
+{
+	struct fake_nvram_snapshot *fake = (struct fake_nvram_snapshot *)context;
+	fake->end_calls++;
+	if (fake->end_status != 0) {
+		errno = fake->end_status;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_nvram_snapshot_copies_rotating_cache_and_invalidates_failed_tuple(void)
+{
+	struct fake_nvram_snapshot fake;
+	struct rc_wan_nvram_snapshot_field fields[3];
+	char values[3][64];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.get_failure_at = -1;
+	fields[0].param_name = "ddns_server_x";
+	fields[0].destination = values[0];
+	fields[0].destination_size = sizeof(values[0]);
+	fields[1].param_name = "ddns_hostname_x";
+	fields[1].destination = values[1];
+	fields[1].destination_size = sizeof(values[1]);
+	fields[2].param_name = "ddns_passwd_x";
+	fields[2].destination = values[2];
+	fields[2].destination_size = sizeof(values[2]);
+
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_nvram_snapshot_begin,
+					   fake_nvram_snapshot_get,
+					   fake_nvram_snapshot_end, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.get_calls == 3 && fake.end_calls == 1);
+	assert(strcmp(values[0], "provider-a") == 0);
+	assert(strcmp(values[1], "host.example") == 0);
+	assert(strcmp(values[2], "secret-b") == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.get_failure_at = -1;
+	fake.end_status = EBUSY;
+	memset(values, 'x', sizeof(values));
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_nvram_snapshot_begin,
+					   fake_nvram_snapshot_get,
+					   fake_nvram_snapshot_end, &fake) == EBUSY);
+	assert(fake.end_calls == 1);
+	assert(values[0][0] == '\0' && values[1][0] == '\0' &&
+	       values[2][0] == '\0');
+
+	memset(&fake, 0, sizeof(fake));
+	fake.get_failure_at = 1;
+	fake.get_failure_status = EACCES;
+	memset(values, 'x', sizeof(values));
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_nvram_snapshot_begin,
+					   fake_nvram_snapshot_get,
+					   fake_nvram_snapshot_end, &fake) == EACCES);
+	assert(fake.get_calls == 2 && fake.end_calls == 1);
+	assert(values[0][0] == '\0' && values[1][0] == '\0' &&
+	       values[2][0] == '\0');
+}
+
 int
 main(void)
 {
@@ -238,6 +337,7 @@ main(void)
 	assert(rmdir(blocked) == 0);
 	assert(rmdir(directory) == 0);
 
+	test_nvram_snapshot_copies_rotating_cache_and_invalidates_failed_tuple();
 	test_checked_integer_status_preserves_defaults_and_rejects_errors();
 	test_quoted_setting_escapes_configuration_delimiters();
 	test_quoted_setting_rejects_control_bytes();

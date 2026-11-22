@@ -6,13 +6,14 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; live development branch is `main`, currently at `c0ccc7d14448edccacda7b9a62719f96840bcc23`. Recent product source includes checked LAN subnet snapshots in physical-WAN/IPTV DHCP callbacks (`452f666cd126e06284c0607fd6b6bbbcabc1bbe1`) and checked LAN teardown gateway/conntrack identity handling (`587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c`). The ZeroTier uploaded-planet single-snapshot consistency fix is on `2db8f2afc34cfa133e8f0940d3f99f90d99a43ba`; c0ccc7d aligns the WAN route source contract with checked AP gateway preflight.
+- Repository `Arlene206/padavan-4.4-2`; development on `main`. Parent SHA for the Inadyn slice: `31b13e1d0bf8f1dd055d5ebd7cea7eaa662b13bb`. Process checker repair `1f7add7650acf76f7eb0c3d37cf9e7530612ded9`: exact Process lifecycle #45010890087 PASS and AI docs #45010890010 PASS. The subsequent detect-WAN checker-only commit `a5c583ca01a807501388a246cb5e4c7b32071fab`: exact detect-WAN #45011122521 PASS and AI docs #45011122439 PASS.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only and untouched.
-- Exact ZeroTier lifecycle run #45010582528 on `2db8f2a` PASS: bounded lifecycle shell regression (including concurrent upload mutation proving disk/NVRAM derive from the same private snapshot), Python source contract and WAN-up status integration all passed. AI handoff #45010582559 PASS; Process inventory #45010582521 PASS (inventory workflow, distinct from Process lifecycle source contract).
-- WAN route status exact rerun #45010773255 on `c0ccc7d` PASS; its prior failure #45010582579 was a stale assertion expecting `nvram_safe_get("lan_gateway_t")`, now replaced by checked gateway read/error-return/route-cleanup ordering.
-- Product source SHA `587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c` exact fan-out: WAN DHCP #45010423606 PASS, AI docs #45010423471 PASS, detect_internet #45010423550 PASS, IPv6 service #45010423544 PASS, Firewall Startup #45010423469 PASS, watchdog #45010423643 PASS, DNSMasq #45010423468 PASS, detect_link #45010423451 PASS, HTTPD auth #45010423466 PASS, Wireless #45010423487 PASS, Process inventory #45010423500 PASS, NVRAM audit #45010423554 PASS. WAN route #45010423630 failed on an obsolete AP gateway source marker, fixed and rerun PASS as #45010773255. Process lifecycle #45010423695 failed only at its final Python source checker because the new bridge regression assertions referenced an unbound `bridge_init_regression`; preceding C/shell regressions passed. THIS COMMIT adds the missing test-file read; exact rerun required.
-- XY-C1 exact run #45010582583 for product/source SHA `2db8f2a` was still in Build XY-C1 at last poll; TRX and artifact upload were pending. Older product SHA `587427b` XY-C1 run #45010423615 was also still building at last poll. Do not claim L3 until the same source SHA completes Build, TRX validation and artifact upload; Hardware L4 NOT VERIFIED.
-- Closed PR #1 (`fix(aliddns): verify CA trust-store bootstrap completion`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`) remains unmerged. Its OpenSSL 3 EVP_MAC HMAC helper, CA bootstrap/readability check, HMAC and CA regressions and package integration are already present/evolved on main; do not duplicate-port its old branch.
+- ZeroTier uploaded-planet single-snapshot source SHA `2db8f2afc34cfa133e8f0940d3f99f90d99a43ba`: ZeroTier L2 #45010582528 PASS and AI docs #45010582559 PASS; same-SHA XY-C1 #45010582583 Build, TRX and artifact-upload steps all PASS (L3). Hardware router L4 NOT VERIFIED.
+- LAN teardown checked gateway/conntrack identity source SHA `587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c`: WAN DHCP, NVRAM audit and multiple subsystem checks PASS; route correction #45010773255 PASS; Process checker fix `1f7add7` exact Process #45010890087 and docs #45010890010 PASS; same-SHA XY-C1 #45010423615 Build/TRX/artifact steps all PASS (L3). Hardware router L4 NOT VERIFIED.
+- detect-WAN checked gateway source/checker sequence `00fb9c3` + `a5c583c`: exact detect-WAN #45011122521 PASS and AI docs #45011122439 PASS.
+- Latest main before this slice was `31b13e1d0bf8f1dd055d5ebd7cea7eaa662b13bb` (`fix(detect-internet): validate and retry probe settings reads`). Its NVRAM audit #45011627863, AI docs #45011627812, detect_internet #45011627797, Process inventory #45011627779 and Process fail-closed #45011627851 are PASS; XY-C1 #45011627817 was still running at Build step 37, with TRX/artifact pending at last poll.
+- THIS COMMIT replaces the mixed-read Inadyn writer with a single checked transaction for all 22 DDNS keys, copies rotating-cache data into bounded owned storage, and validates before stage/publish. Any read, close, truncation or parse error preserves the previous config. DDNS enable status is checked as well.
+- Closed AliDDNS CA/HMAC PR #1 (`ba48e22609e0c81ad757b06756fe91d05f39cbf6`) is already incorporated/evolved on main; do not duplicate-port its old branch.
 
 ## Completed source slices
 
@@ -34,20 +35,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Fix the Process lifecycle integration checker failure from `587427b`: the assertions for the new `stop_lan()` cache-ownership and checked-error regressions refer to `bridge_init_regression`, but the checker did not read `trunk/user/rc/src/tests/bridge_init_policy.c`. THIS COMMIT explicitly loads that existing fixture before the assertions; all semantic checks remain enabled.
-- Run exact-head Process lifecycle regression for THIS checker correction. The separate stale WAN route checker was already fixed in `c0ccc7d` and exact-head WAN route #45010773255 is PASS.
+- Active implementation in THIS COMMIT: Inadyn configuration integrity. A single NVRAM transaction snapshots all 22 numeric/provider/endpoint/credential keys to bounded owned buffers. Backend read, transaction-close, truncation and malformed integer errors fail closed before staging, preserving the last-known-good configuration. The DDNS enable gate also propagates checked-read failures.
+- Exact WAN route/Process/AI/XY-C1 fan-out for this new source SHA remains pending; inspect exact-head runs.
 
 ## Verification boundary
 
-- Exact ZeroTier source/checker SHA `2db8f2afc34cfa133e8f0940d3f99f90d99a43ba`: L2 host verification PASS (#45010582528); handoff validation #45010582559 PASS. Same-SHA XY-C1 #45010582583 was in Build XY-C1 at last poll; TRX/artifact pending. No L3 or L4 claim.
-- Latest route checker correction `c0ccc7d14448edccacda7b9a62719f96840bcc23`: exact WAN route #45010773255 PASS; AI docs #45010773206 PASS.
-- Process lifecycle #45010423695 on product SHA `587427b` failed only because `bridge_init_regression` was not bound in its Python checker. THIS COMMIT adds the read; exact Process workflow rerun pending. Product regression steps preceding the NameError passed.
-- No local checkout was available. Test evidence comes from exact-head Actions only. Hardware L4 NOT VERIFIED.
+- Process #45010890087 and AI #45010890010 PASS on `1f7add7`; detect-WAN #45011122521 and AI #45011122439 PASS on `a5c583c`.
+- ZeroTier source SHA `2db8f2a`: L2 #45010582528 and same-SHA XY-C1 Build/TRX/artifact #45010582583 PASS (L3; router L4 NOT VERIFIED).
+- LAN teardown source SHA `587427b`: route #45010773255, Process #45010890087 and same-SHA XY-C1 Build/TRX/artifact #45010423615 PASS (L3; router L4 NOT VERIFIED).
+- detect-internet SHA `31b13e1`: NVRAM audit, AI docs, detect-internet tests, Process inventory and lifecycle checks PASS; XY-C1 #45011627817 remained in Build with TRX/artifact pending.
+- Inadyn snapshot changes in THIS COMMIT await exact-head WAN route/Process/AI/XY-C1 Actions. No local checkout, so no local execution is claimed. Hardware L4 NOT VERIFIED for this slice.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact Process lifecycle run triggered by THIS checker fix. Verify that the checker now reaches and passes the LAN teardown ordering and test-presence assertions; repair any next true/stale failure without relaxing behavior.
-2. Poll same-source XY-C1 run #45010582583 for Build XY-C1, TRX verification and artifact upload. L3 only if all three complete successfully for that exact product source SHA.
-3. Recheck any outstanding exact-source tests for `587427b`, then select the next independent high-priority whole-userland stability/security defect beyond the recent WAN/LAN/ZeroTier slice.
-4. Keep backup `backup/pre-plugin-overhaul-2026-11-14` immutable. Hardware L4 remains NOT VERIFIED.
+1. Fetch live `main`, then inspect exact-head WAN route run triggered by the Inadyn snapshot commit. Verify the GNU89/ASan/UBSan cache-copy/error-invalidation test and the Python source checker; fix actual failures without weakening the transaction invariant.
+2. Poll XY-C1 #45011627817 for product SHA `31b13e1d0bf8f1dd055d5ebd7cea7eaa662b13bb`; verify Build, TRX and artifact upload all pass.
+3. Verify this Inadyn commit's exact-source Process/AI/XY-C1 fan-out; L3 only when Build/TRX/artifact pass on the same product SHA.
+4. Continue the next independent whole-userland stability/security defect. Keep the frozen backup immutable; hardware L4 remains NOT VERIFIED.
 

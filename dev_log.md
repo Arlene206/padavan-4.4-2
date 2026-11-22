@@ -1,3 +1,13 @@
+## 2026-11-22 — Snapshot all Inadyn configuration keys in one checked NVRAM transaction
+
+- Parent main SHA: `31b13e1d0bf8f1dd055d5ebd7cea7eaa662b13bb`. `write_inadyn_conf()` mixed individually checked and unchecked getters: period/forced/check-IP could silently turn backend errors into defaults; provider, hostnames, credentials and custom endpoints used rotating-cache `nvram_safe_get()` pointers. Independent reads could mix generations, and a transient NVRAM failure could overwrite the last-known-good DDNS config with empty or partial values.
+- The writer now copies all 22 DDNS config keys under one exclusive NVRAM transaction into bounded owned buffers before parsing or staging. Read, transaction-close, truncation and strict integer-validation failures abort before staging; the previous config remains intact. Existing period/forced out-of-range fallback behavior is retained.
+- DDNS enable state now uses `nvram_get_checked()` and a tested status parser rather than collapsing read failures into “disabled”.
+- Added GNU89/ASan/UBSan coverage for rotating-cache overwrite, read failure and transaction-close failure (each invalidates the whole snapshot), plus enable-key status cases. WAN route workflow watches config helper/test paths on push and pull_request and executes the new regression; Python source checks enforce key coverage, transaction adapters, no lossy getters and snapshot-before-stage ordering.
+- Exact-head WAN route/Process/AI/XY-C1 Actions pending. No local checkout is available, so no local test execution is claimed. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fail closed and retry when Internet probe settings cannot be read
 
 - Parent main SHA: `a5c583ca01a807501388a246cb5e4c7b32071fab`. `di_load_settings()` used lossy `nvram_safe_get()` / `nvram_safe_get_int()` for its six probe endpoints and polling mode. A transient backend read/close error could be mistaken for a missing or invalid endpoint; if all six addresses looked empty, the monitor silently substituted Google DNS and could incorrectly infer WAN state from a probe the user had not configured.
