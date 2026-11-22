@@ -70,6 +70,83 @@ aria_wait_started()
 	return 1
 }
 
+
+aria_validate_rpc_password()
+{
+	case "$aria_pass" in
+		'') logger -t "$SVC_NAME" "Cannot start: router web password is empty; refusing unauthenticated RPC" >/dev/null 2>&1 || true; return 1 ;;
+		*'
+'*) logger -t "$SVC_NAME" "Cannot start: router web password contains a line break; refusing unsafe RPC config" >/dev/null 2>&1 || true; return 1 ;;
+	esac
+	if printf '%s' "$aria_pass" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+		logger -t "$SVC_NAME" "Cannot start: router web password contains control characters; refusing unsafe RPC config" >/dev/null 2>&1 || true
+		return 1
+	fi
+	return 0
+}
+
+aria_secure_rpc_config()
+{
+	if [ -L "$FILE_CONF" ] || [ ! -f "$FILE_CONF" ] || [ ! -r "$FILE_CONF" ]; then
+		logger -t "$SVC_NAME" "Cannot start: RPC config is not a readable regular file" >/dev/null 2>&1 || true
+		return 1
+	fi
+	if grep -Eq '^[[:space:]]*rpc-listen-all[[:space:]]*=[[:space:]]*true([[:space:]]*(#.*)?)?$' "$FILE_CONF"; then
+		:
+	else
+		aria_grep_status=$?
+		[ "$aria_grep_status" -eq 1 ] && return 0
+		logger -t "$SVC_NAME" "Cannot inspect RPC listener config (status=$aria_grep_status)" >/dev/null 2>&1 || true
+		return 1
+	fi
+	aria_rpc_authenticated=0
+	if grep -Eq '^[[:space:]]*rpc-secret[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF"; then
+		aria_rpc_authenticated=1
+	else
+		aria_grep_status=$?
+		[ "$aria_grep_status" -eq 1 ] || {
+			logger -t "$SVC_NAME" "Cannot inspect RPC secret config (status=$aria_grep_status)" >/dev/null 2>&1 || true
+			return 1
+		}
+	fi
+	if [ "$aria_rpc_authenticated" -eq 0 ] &&
+	   grep -Eq '^[[:space:]]*rpc-user[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF" &&
+	   grep -Eq '^[[:space:]]*rpc-passwd[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF"; then
+		aria_rpc_authenticated=1
+	fi
+	if [ "$aria_rpc_authenticated" -eq 1 ]; then
+		if ! chmod 600 "$FILE_CONF"; then
+			logger -t "$SVC_NAME" "Cannot start: failed to protect existing RPC credentials" >/dev/null 2>&1 || true
+			return 1
+		fi
+		return 0
+	fi
+	if ! aria_validate_rpc_password; then return 1; fi
+	aria_auth_umask=$(umask)
+	umask 077
+	CONFIG_TMP=$(mktemp "${FILE_CONF}.rpc-auth.tmp.XXXXXX") || {
+		umask "$aria_auth_umask"
+		logger -t "$SVC_NAME" "Cannot create private RPC config staging file" >/dev/null 2>&1 || true
+		return 1
+	}
+	if ! cat "$FILE_CONF" > "$CONFIG_TMP" ||
+	   ! printf '\n# Migrated by Aria2 launcher: use router web password as AriaNg RPC Secret Token.\nrpc-secret=%s\n' "$aria_pass" >> "$CONFIG_TMP"; then
+		rm -f "$CONFIG_TMP"
+		umask "$aria_auth_umask"
+		logger -t "$SVC_NAME" "Cannot stage authenticated RPC config" >/dev/null 2>&1 || true
+		return 1
+	fi
+	if ! chmod 600 "$CONFIG_TMP" || ! mv -f "$CONFIG_TMP" "$FILE_CONF"; then
+		rm -f "$CONFIG_TMP"
+		umask "$aria_auth_umask"
+		logger -t "$SVC_NAME" "Cannot publish protected RPC config" >/dev/null 2>&1 || true
+		return 1
+	fi
+	umask "$aria_auth_umask"
+	logger -t "$SVC_NAME" "Migrated unauthenticated all-interface RPC config; set AriaNg RPC Secret Token to router web password" >/dev/null 2>&1 || true
+	return 0
+}
+
 func_start()
 {
 	# Resolve the daemon state from both pidof's status and output.
@@ -148,13 +225,13 @@ func_start()
 
 	aria_pport=`nvram get aria_pport`
 	aria_rport=`nvram get aria_rport`
-	aria_user=`nvram get http_username`
 	aria_pass=`nvram get http_passwd`
 
 	[ -z "$aria_rport" ] && aria_rport="6800"
 	[ -z "$aria_pport" ] && aria_pport="16888"
 
 	if [ ! -f "$FILE_CONF" ] ; then
+		if ! aria_validate_rpc_password; then return 1; fi
 		if [ ! -d "$DIR_DL1" ] && ! mkdir -p "$DIR_DL1" ; then
 			logger -t "$SVC_NAME" "Cannot start: unable to create downloads directory" >/dev/null 2>&1
 			return 1
@@ -163,16 +240,16 @@ func_start()
 			logger -t "$SVC_NAME" "Cannot start: unable to set downloads directory permissions" >/dev/null 2>&1
 			return 1
 		fi
-		CONFIG_TMP="${FILE_CONF}.tmp.$$"
+		aria_config_umask=$(umask)
+		umask 077
+		CONFIG_TMP=$(mktemp "${FILE_CONF}.tmp.XXXXXX") || { umask "$aria_config_umask"; return 1; }
 		if ! cat > "$CONFIG_TMP" <<EOF
 
 ### XML-RPC
 rpc-listen-all=true
 rpc-allow-origin-all=true
-#rpc-secret=
-#rpc-user=$aria_user
-#rpc-passwd=$aria_pass
-
+# AriaNg: set RPC Secret Token to router web password.
+rpc-secret=$aria_pass
 ### Common
 dir=$DIR_DL1
 max-download-limit=0
@@ -223,11 +300,23 @@ EOF
 			logger -t "$SVC_NAME" "Cannot start: failed to write default config" >/dev/null 2>&1
 			return 1
 		fi
-		if ! mv -f "$CONFIG_TMP" "$FILE_CONF" ; then
+		if ! chmod 600 "$CONFIG_TMP"; then
 			rm -f "$CONFIG_TMP"
-			logger -t "$SVC_NAME" "Cannot start: failed to publish default config" >/dev/null 2>&1
+			umask "$aria_config_umask"
+			logger -t "$SVC_NAME" "Cannot protect default RPC config" >/dev/null 2>&1 || true
 			return 1
 		fi
+		if ! mv -f "$CONFIG_TMP" "$FILE_CONF"; then
+			rm -f "$CONFIG_TMP"
+			umask "$aria_config_umask"
+			logger -t "$SVC_NAME" "Cannot publish default config" >/dev/null 2>&1 || true
+			return 1
+		fi
+		umask "$aria_config_umask"fi
+
+	if ! aria_secure_rpc_config; then
+		echo "[FAILED]"
+		return 1
 	fi
 
 	# aria2 needed home dir

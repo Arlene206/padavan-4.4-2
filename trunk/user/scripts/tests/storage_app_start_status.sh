@@ -46,7 +46,7 @@ case "$2" in
 	aria_pport) echo 16888 ;;
 	aria_rport) echo 6800 ;;
 	http_username) echo admin ;;
-	http_passwd) echo test-pass ;;
+	http_passwd) printf '%s\n' "${STORAGE_TEST_HTTP_PASSWD-test-pass}" ;;
 	http_proto) echo 0 ;;
 	*) exit 1 ;;
 esac
@@ -170,7 +170,7 @@ if [ -n "${STORAGE_TEST_CHMOD_FAIL_PATH:-}" ]; then
 	for path in "$@"; do last="$path"; done
 	[ "$last" = "$STORAGE_TEST_CHMOD_FAIL_PATH" ] && exit 9
 fi
-exit 0
+exec /bin/chmod "$@"
 EOF
 chmod 755 "$STUB_DIR/"*
 sed \
@@ -687,6 +687,7 @@ run_aria_config_failure()
 	phase=$1
 	cat_status=$2
 	mv_status=$3
+	http_passwd=${4-test-pass}
 	failure_root="$TMP_DIR/aria-$phase"
 	mkdir -p "$failure_root/config" "$TMP_DIR/Downloads"
 	: > "$failure_root/config/incomplete.lst"
@@ -694,7 +695,7 @@ run_aria_config_failure()
 	    -e "s|DIR_LINK=\"/mnt/aria\"|DIR_LINK=\"$failure_root\"|" \
 	    "$ARIA_SRC" > "$TMP_DIR/aria-$phase.sh"
 	marker="$failure_root/start-invoked"
-	if run_launcher "$TMP_DIR/aria-$phase.sh" 0 0 "$cat_status" "$mv_status" "$marker"; then
+	if STORAGE_TEST_HTTP_PASSWD="$http_passwd" run_launcher "$TMP_DIR/aria-$phase.sh" 0 0 "$cat_status" "$mv_status" "$marker"; then
 		echo "Aria started despite $phase failure while publishing default config" >&2
 		exit 1
 	fi
@@ -715,6 +716,8 @@ run_aria_config_failure()
 }
 run_aria_config_failure "config-write" 9 0
 run_aria_config_failure "config-rename" 0 9
+run_aria_config_failure "rpc-secret-empty" 0 0 ""
+run_aria_config_failure "rpc-secret-newline" 0 0 "$(printf 'test-pass\nrpc-secret=attacker')"
 run_aria_config_concurrency()
 {
 	concurrency_root="$TMP_DIR/aria-concurrency"
@@ -758,6 +761,8 @@ run_aria_config_concurrency()
 		echo "Concurrent Aria starts did not publish a config" >&2
 		exit 1
 	}
+	grep -qx 'rpc-secret=test-pass' "$config_dir/aria2.conf" || { echo "Generated RPC token missing" >&2; exit 1; }
+	[ "$(stat -c '%a' "$config_dir/aria2.conf")" = 600 ] || { echo "Generated RPC config mode is not 0600" >&2; exit 1; }
 	for tmp_config in "$config_dir"/aria2.conf.tmp.*; do
 		[ ! -e "$tmp_config" ] || {
 			echo "Concurrent Aria start left a temporary config" >&2

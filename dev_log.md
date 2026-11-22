@@ -1,3 +1,9 @@
+## 2026-11-22 — Authenticate Aria2 all-interface RPC configs
+
+- Default Aria2 config exposed an unauthenticated RPC control/download API by enabling `rpc-listen-all=true` and wildcard CORS with all authentication directives commented out.
+- New configs now require the router web password as `rpc-secret`, reject empty/control/line-break passwords, and use exclusive `mktemp` staging under umask 077 with explicit mode 0600 before atomic publication. Existing custom configs with unauthenticated `rpc-listen-all=true` are atomically migrated; existing explicit secret or complete basic-auth configs are preserved but hardened to mode 0600. Local-only configs are unchanged. Set AriaNg's RPC Secret Token to the router web password.
+- Host regression checks generated token/mode and rejects empty/newline passwords. Exact-head USB/XY-C1 Actions pending.
+
 ## 2026-11-22 — Correct Transmission refreshed-PID pattern for dash
 
 - The USB regression on \`a7316d47ecbfd70b356667b4acf949685c480355\` stopped at \`sh -n\`: the new post-graceful PID pattern had two literal backslashes before the space, which dash does not accept in a case pattern. The existing initial-snapshot pattern was already correct.
