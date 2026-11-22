@@ -23,6 +23,7 @@
 
 #include "networkmap.h"
 #include "networkmap_signal_policy.h"
+#include "networkmap_arp_policy.h"
 
 #define MAX_SUBNET_SCAN		(24) /* 23..24 */
 #define NUM_CLIENTS_SCAN	(1U << (32U - MAX_SUBNET_SCAN))
@@ -531,12 +532,13 @@ nmap_ping_hosts_again(void)
 	return need_update_file;
 }
 
-static void
+static int
 nmap_receive_arp(void)
 {
 	char buffer[64] = {0};
 	struct in_addr src_addr;
 	int arp_count, nmap_changed, need_update_file;
+	int receive_error = 0;
 	NET_CLIENT *item;
 	ARP_HEADER *arp_ptr;
 
@@ -549,15 +551,25 @@ nmap_receive_arp(void)
 		nmap_changed = 0;
 		
 		recvsize = recvfrom(arp_sockfd, buffer, sizeof(buffer), 0, NULL, NULL);
-		if (recvsize < (int)(sizeof(ARP_HEADER)))
+		if (recvsize < 0) {
+			int saved_errno = errno ? errno : EIO;
+
+			if (networkmap_arp_receive_error_is_retryable(saved_errno))
+				break;
+			receive_error = saved_errno;
 			break;
-		
-		/* prevent arp storm deadlock */
+		}
+
+		/* Count every datagram so malformed traffic cannot bypass the cap. */
 		arp_count++;
 		if (arp_count > 1024) {
 			usleep(10000);
 			break;
 		}
+
+		/* Discard malformed short frames while continuing to drain the queue. */
+		if (recvsize < (int)sizeof(ARP_HEADER))
+			continue;
 		
 		arp_ptr = (ARP_HEADER*)buffer;
 		
@@ -665,9 +677,15 @@ nmap_receive_arp(void)
 
 	if (!daemon_exit && need_update_file)
 		net_clients_update();
+
+	if (receive_error != 0) {
+		errno = receive_error;
+		return -1;
+	}
+	return 0;
 }
 
-static void
+static int
 nmap_iterate(void)
 {
 	if (networkmap_fullscan) {
@@ -706,7 +724,7 @@ nmap_iterate(void)
 		}
 	}
 
-	nmap_receive_arp();
+	return nmap_receive_arp();
 }
 
 /******************************************/
@@ -783,8 +801,11 @@ int main(int argc, char *argv[])
 			scan_now = 0;
 		}
 
-		if (!daemon_exit)
-			nmap_iterate();
+		if (!daemon_exit && nmap_iterate() < 0) {
+			exit_status = errno ? errno : EIO;
+			perror("networkmap ARP receive");
+			break;
+		}
 	}
 
 	clear_resources();

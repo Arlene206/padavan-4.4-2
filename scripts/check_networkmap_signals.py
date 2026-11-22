@@ -55,6 +55,8 @@ def function_body(source, signature):
 
 source = read("trunk/user/networkmap/src/networkmap.c")
 policy = read("trunk/user/networkmap/src/networkmap_signal_policy.h")
+arp_policy = read("trunk/user/networkmap/src/networkmap_arp_policy.h")
+arp_test = read("trunk/user/networkmap/src/tests/networkmap_arp_policy.c")
 test = read("trunk/user/networkmap/src/tests/networkmap_signal_policy.c")
 shared = read("trunk/user/networkmap/src/function.c")
 src_makefile = read("trunk/user/networkmap/src/Makefile")
@@ -138,9 +140,49 @@ for signature in ("sig_refresh(int sig)", "sig_exit(int sig)"):
     handler = function_body(source, signature)
     assert "clear_resources();" not in handler and "exit(" not in handler
 
+arp_policy_function = function_body(arp_policy, "networkmap_arp_receive_error_is_retryable(int error)")
+assert "error == EINTR" in arp_policy_function
+assert "error == EAGAIN" in arp_policy_function
+assert "error == EWOULDBLOCK" in arp_policy_function
+for retryable in ("EINTR", "EAGAIN", "EWOULDBLOCK"):
+    assert "networkmap_arp_receive_error_is_retryable(" + retryable + ")" in arp_test
+for fatal in ("EIO", "EBADF", "ENODEV", "ENETDOWN"):
+    assert "!networkmap_arp_receive_error_is_retryable(" + fatal + ")" in arp_test
+assert "networkmap ARP receive error policy: PASS" in arp_test
+
 receive = function_body(source, "nmap_receive_arp(void)")
-assert "while (!daemon_exit)" in receive
-assert "recvfrom(arp_sockfd" in receive
+assert "int receive_error = 0;" in receive
+recv_call = receive.index("recvsize = recvfrom(arp_sockfd")
+recv_error = receive.index("if (recvsize < 0)", recv_call)
+retry_gate = receive.index("networkmap_arp_receive_error_is_retryable(saved_errno)", recv_error)
+save_fatal = receive.index("receive_error = saved_errno;", retry_gate)
+error_break = receive.index("break;", save_fatal)
+storm_count = receive.index("arp_count++;", error_break)
+short_frame = receive.index("if (recvsize < (int)sizeof(ARP_HEADER))", storm_count)
+short_continue = receive.index("continue;", short_frame)
+packet_access = receive.index("arp_ptr = (ARP_HEADER*)buffer;", short_continue)
+assert recv_call < recv_error < retry_gate < save_fatal < error_break < storm_count < short_frame < short_continue < packet_access
+assert "errno = receive_error;" in receive
+assert "return -1;" in receive
+assert "return 0;" in receive
+assert "recvsize < (int)(sizeof(ARP_HEADER))" not in receive
+assert "static int\nnmap_receive_arp(void)" in source
+
+iterate_body = function_body(source, "nmap_iterate(void)")
+assert "return nmap_receive_arp();" in iterate_body
+assert "static int\nnmap_iterate(void)" in source
+
+main = function_body(source, "main(int argc, char *argv[])")
+fatal_receive = main.index("if (!daemon_exit && nmap_iterate() < 0)")
+receive_log = main.index('perror("networkmap ARP receive");', fatal_receive)
+receive_break = main.index("break;", receive_log)
+cleanup = main.index("clear_resources();", receive_break)
+assert fatal_receive < receive_log < receive_break < cleanup
+assert "exit_status = errno ? errno : EIO;" in main[fatal_receive:receive_log]
+
+init = function_body(source, "nmap_init(void)")
+assert "struct timeval arp_timeout = {2, 0};" in init
+assert "SO_RCVTIMEO" in init
 init = function_body(source, "nmap_init(void)")
 assert "struct timeval arp_timeout = {2, 0};" in init
 assert "SO_RCVTIMEO" in init

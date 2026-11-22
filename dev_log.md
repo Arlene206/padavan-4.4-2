@@ -1,3 +1,12 @@
+## 2026-11-22 17:12 CST — Stop networkmap ARP receive errors from spinning the daemon loop
+
+- Parent main SHA: `ef3b22d28619427c3e5823b0888c2ea390405b76`. Exact networkmap signal lifecycle #44999104161 PASS and AI handoff #44999104151 PASS. Checked WAN WISP/manual-DHCP/transport flow passed exact WAN route #44998743083 on b809 and AI handoff #44998743195 PASS. XY-C1 #44998650971 was still IN_PROGRESS at last observed poll; it is not same-SHA L3 evidence.
+- Found a networkmap runtime fault: `recvfrom()` failures were treated like short packets, so persistent errors such as `ENODEV`/`ENETDOWN` could make the outer loop call `recvfrom()` continuously. Malformed short frames also terminated the receive batch.
+- Added `networkmap_arp_receive_error_is_retryable()` to distinguish expected `EINTR` and `SO_RCVTIMEO` `EAGAIN/EWOULDBLOCK` from fatal socket errors. The receive loop now preserves fatal errno and returns it after flushing already-collected client updates; short frames are discarded while draining, with every datagram counted against the 1024-frame storm cap.
+- Propagated receive status through `nmap_iterate()`; main now logs and exits through `clear_resources()` on fatal receive errors rather than hot-looping. Added GNU89/Werror/ASan/UBSan unit coverage and source-order contracts in the existing networkmap workflow. Exact-head Actions pending; no target build claimed.
+
+---
+
 ## 2026-11-22 16:55 CST — Correct networkmap signal setup source-order assertion
 
 - Parent main SHA: 44a2a851ac6732dd59ee171a99328a0d5cc7299f. Exact Networkmap signal lifecycle #44999008557 FAILED at scripts/check_networkmap_signals.py:121; both the GNU89 signal-policy executable and networkmap daemon-policy regression passed. The new checker compared the installer-call offset (inside the if expression) as if it preceded the if keyword; the order was reversed.
