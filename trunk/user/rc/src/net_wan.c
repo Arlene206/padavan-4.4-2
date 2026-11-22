@@ -2343,7 +2343,8 @@ config_vinet_wan(void)
 	int ipv6_type, ipv6_type_status;
 #endif
 	char vinet_ifname[24], vlan_iflast[24];
-	const char *vinet_iflast, *wan_hwaddr;
+	char previous_vinet_ifname[IFNAMSIZ], vinet_iflast[IFNAMSIZ];
+	const char *wan_hwaddr;
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
 #else
@@ -2452,6 +2453,33 @@ config_vinet_wan(void)
 	}
 #endif
 
+	/*
+	 * A failed cleanup-identity read must not look like an empty value:
+	 * otherwise replacing the VLAN could orphan the previous interface.
+	 * Validate the persisted name before any switch/interface state changes.
+	 */
+	ret = get_wan_unit_value_copy_status(
+		0, "viflast", previous_vinet_ifname, sizeof(previous_vinet_ifname));
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read previous WAN VLAN cleanup identity (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
+	vinet_iflast[0] = '\0';
+	if (previous_vinet_ifname[0]) {
+		ret = wan_ifname_copy(vinet_iflast, sizeof(vinet_iflast),
+				      previous_vinet_ifname);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "previous WAN VLAN cleanup identity is invalid (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+	}
+
 	/* update VLAN VID for raeth (HW_VLAN_TX) */
 	hw_vlan_tx_map(6, vlan_vid[0]);
 	hw_vlan_tx_map(7, vlan_vid[1]);
@@ -2490,8 +2518,7 @@ config_vinet_wan(void)
 #endif
 
 	/* remove previous VLAN interface */
-	vinet_iflast = get_wan_unit_value(0, "viflast");
-	if (*vinet_iflast && strcmp(vinet_iflast, vinet_ifname)) {
+	if (vinet_iflast[0] && strcmp(vinet_iflast, vinet_ifname)) {
 		ret = remove_vlan_iface(vinet_iflast);
 		if (ret != 0) {
 			logmessage(LOGNAME, "previous WAN VLAN removal failed for %s (status=%d)",

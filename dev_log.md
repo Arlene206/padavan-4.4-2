@@ -1,3 +1,11 @@
+## 2026-11-22 — Fail closed on unreadable previous WAN VLAN cleanup identity
+
+- `config_vinet_wan()` used the lossy `get_wan_unit_value(0, "viflast")` getter immediately before removing an old VLAN interface. A temporary NVRAM read failure looked like an empty identity, silently skipped cleanup, and then proceeded to replace/publish the new VLAN identity.
+- The old interface name is now copied with the checked bounded getter and validated before any VLAN hardware/interface mutation. Missing configuration remains an empty value; read, length, or name-validation failures abort setup so the previous VLAN is not orphaned.
+- Added an integration contract that pins the checked read/validation before hardware VLAN changes. Exact-SHA WAN/Process and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-22 — Keep resolver input errors separate from DNSMasq snapshot health
 
 - The new resolver DNS-read gate now uses its own status accumulator. The existing `dns_servers_error` belongs to the independent DNSMasq upstream-file health gate; sharing it could erase a previous DNSMasq validation error. The two error domains remain independent.

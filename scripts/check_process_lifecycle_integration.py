@@ -1217,6 +1217,13 @@ for path in (
 ):
     assert '"{}"'.format(path) in dnsmasq_workflow, "DNSMasq workflow missing {}".format(path)
 assert "Compile and run DNSMasq reload identity policy regression" in dnsmasq_workflow
+vlan_setup = c_function_body(net_wan, "config_vinet_wan(void)")
+assert 'get_wan_unit_value_copy_status(\n\t\t0, "viflast"' in vlan_setup
+assert "previous WAN VLAN cleanup identity is invalid" in vlan_setup
+assert 'get_wan_unit_value(0, "viflast")' not in vlan_setup
+assert vlan_setup.index('get_wan_unit_value_copy_status(') < vlan_setup.index("hw_vlan_tx_map(")
+assert vlan_setup.index('wan_ifname_copy(vinet_iflast') < vlan_setup.index("hw_vlan_tx_map(")
+
 resolver_body = c_function_body(
     net_wan, "update_resolvconf(int is_first_run, int do_not_notify)"
 )
