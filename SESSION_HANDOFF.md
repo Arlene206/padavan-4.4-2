@@ -1,3 +1,21 @@
+## 2026-11-22 — Current development checkpoint
+
+- Parent main SHA: `0c2116c08d58f43e4ab82a010b5541a45bf1b636`.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move).
+- Detect-internet runtime checked-read slice: present in source and corresponding regression test.
+- Exact-parent-SHA Actions:
+- NVRAM transaction boundary audit: completed/success (run 45012289218)
+- Process inventory and lifecycle fail-closed regression: completed/success (run 45012289213)
+- AI handoff documentation contract: completed/success (run 45012289175)
+- XY-C1 Firmware Validation: in_progress (run 45012289119)
+- detect_internet signal lifecycle stability regression: completed/failure (run 45012289107)
+- Process lifecycle inventory - 0c2116c08d58f43e4ab82a010b5541a45bf1b636: completed/success (run 45012289091)
+- Physical router Hardware L4: NOT VERIFIED; CI does not substitute for target hardware.
+- First task for the next session: 核对本 SHA 的 detect-internet 精确 SHA 回归结果；随后处理本 SHA 上失败的稳定性工作流，优先确认 Inadyn/DNSmasq 报错是否为真实回归，再扩展其他 userland 稳定性覆盖。
+- Continue the established loop: implementation, focused GNU89/sanitizer tests, atomic tree+commit, non-force expected-SHA main update, exact-SHA Actions; while a run is pending, work on an independent defect.
+
+---
+
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live main, the engineering baseline, exact-head Actions, validation boundaries and the first next action before ending. Update this file only when those facts materially change; do not create a no-op commit or chase documentation-only SHAs. Each multi-file logical slice must land as one atomic main commit. Before context exhaustion, finish the active safe slice and leave an exact first action.
