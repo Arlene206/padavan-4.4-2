@@ -1,3 +1,14 @@
+## 2026-11-22 08:04 CST — Repair WAN startup checker to scope the matching error gate
+
+- Parent main SHA: `33258a680e052c9334e64758b70f7dce3754becb`.
+- Exact push WAN-route run #44964696301 and XY-C1 run #44964696249 both stopped at the dependent `scripts/check_wan_firewall_status.py` contract. All 27 preceding WAN-route host regressions and the WAN VLAN/bridge contract passed; the checker then failed its combined startup assertion. XY-C1 likewise stopped at the same contract before firmware-input detection, Build, TRX or artifact upload. This was not a compiler result.
+- The defect was in the static contract: `start_wan()` also contains an earlier `nvram_status != 0` branch for the SYN-cookie security preflight. The checker used the first such branch while validating the later WAN-protocol read and compared unrelated gates.
+- THIS checker-only commit scopes the error-gate search to the position immediately after the checked protocol read. It retains the first-error aggregation, diagnostic, and interface-lookup ordering requirements.
+- Targeted preflight against the exact fetched `start_wan()` source confirmed the protocol read, following error gate, first-error aggregation statement, diagnostic, and gate-before-interface-lookup ordering. No product source changed in this repair.
+- Next: inspect exact-head WAN route and XY-C1 reruns. Require WAN route PASS and all firmware stages on one exact source SHA before claiming L3; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on WAN startup protocol reads
 
 - Parent main SHA: `f58d4b1e557d0b1da8843436554ae421fdee1698`.

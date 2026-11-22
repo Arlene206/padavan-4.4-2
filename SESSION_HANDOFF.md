@@ -31,21 +31,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - The P1 void-setter audit is closed: `set_wan_unit_value_int()` / `set_wan_unit_param()` have no C callsites among the 36 RC C files; the void `set_wan_unit_value()` calls are optional uptime/RX/TX telemetry.
 - WAN reset now checks manual underlay selectors and snapshots four endpoint fields transactionally (`b75f4cc2c92bf241ea7d5ba43906cd94ec792d01`); validates per-unit protocol with a bounded checked copy (`b2d084d7ffb7d756b60e159a38b93f6f31d4f1b0`); and checks custom/factory WAN MAC identity with legacy-compatible formatting and host tests (`49bed878c17bf3d5c87a9da9303956de33f9b84e`).
 - Firewall contract fix `f58d4b1e557d0b1da8843436554ae421fdee1698`: WAN route `#44964031249` PASS, AI docs `#44964031268` PASS, XY-C1 host validation `#44964031316` PASS. Build/TRX/artifact were skipped because that checker/docs-only commit had no production-source diff.
-- THIS source slice hardens `start_wan()`: the checked per-unit protocol reader now preserves the first startup error, logs it and skips interface lookup/configuration for the failing unit instead of silently treating `-1` as an absent interface. Source-contract preflight passed.
-- Next: continue auditing shared `get_wan_proto()` consumers in manual PPP detection, WAN teardown, route-gateway and DHCP callbacks; retain unconditional cleanup paths on read failure.
+- THIS source slice hardens `start_wan()`: the checked per-unit protocol reader preserves the first startup error and skips interface lookup/configuration for a unit with unreadable protocol state. Exact-head WAN route/XY-C1 validation then exposed a checker-only ordering defect: the static contract matched the earlier SYN-cookie read-error branch, rather than the protocol-specific gate. The checker now scopes the gate search after the protocol read; exact reruns are pending.
+- Next: after checker repair, continue auditing shared `get_wan_proto()` consumers in manual PPP detection, WAN teardown, route-gateway and DHCP callbacks; preserve unconditional cleanup on read errors.
 
 ## Verification boundary
 
-- THIS source/checker commit has not yet run exact-head Actions. Inspect WAN route, NVRAM, Process and XY-C1 results for the live main SHA; because `net_wan.c` changes, inspect Build XY-C1, Verify TRX and artifact upload individually.
+- Exact main `33258a680e052c9334e64758b70f7dce3754becb`: WAN route #44964696301 FAIL and XY-C1 #44964696249 FAIL at the same startup-checker assertion. WAN-route GNU89/ASan/UBSan tests and WAN VLAN/bridge contract preceding the failed checker passed. XY-C1 did not reach firmware-input detection, Build, TRX or artifact upload. The checker-only correction is the immediate descendant; its exact-SHA reruns remain pending. This was not a compiler failure.
 - Parent checker-only SHA `f58d4b1e557d0b1da8843436554ae421fdee1698`: WAN route `#44964031249` PASS; AI docs `#44964031268` PASS; XY-C1 `#44964031316` host validation PASS, firmware build/TRX/artifact skipped due checker/docs-only diff.
 - L3 requires Build XY-C1, TRX and artifact upload all PASS on one source SHA. Hardware/device L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head WAN route, NVRAM audit, Process and XY-C1.
-2. Confirm Build XY-C1, Verify TRX and upload-artifact independently; fix current-SHA failures.
-3. Continue the remaining `get_wan_proto()` consumer audit, prioritizing manual PPP classification and teardown-safe branches.
+1. Inspect exact-head WAN-route and XY-C1 reruns after this checker-only ordering fix.
+2. Once WAN host checks pass, inspect XY-C1 firmware-input detection, Build, TRX and artifact upload separately on one SHA.
+3. Continue the shared `get_wan_proto()` caller audit, prioritizing WAN PPP classification and callback teardown while preserving cleanup paths.
 
 
 ## Workflow and preservation rules

@@ -1144,12 +1144,15 @@ print("WAN firewall rebuild fail-closed protocol gates, PPP recovery and runtime
 wan_start = body(wan, "start_wan(void)")
 wan_start_code = " ".join(wan_start.split())
 start_proto_read = "nvram_status = get_wan_unit_proto_checked_status(unit, &wan_proto)"
-require(start_proto_read in wan_start_code and
-        "if (nvram_status != 0)" in wan_start_code and
+start_proto_read_at = wan_start_code.find(start_proto_read)
+start_proto_error_gate = wan_start_code.find(
+    "if (nvram_status != 0)", start_proto_read_at
+)
+require(start_proto_read_at >= 0 and
+        start_proto_error_gate > start_proto_read_at and
         "wan_start_status = rc_first_service_start_status( wan_start_status, nvram_status)" in wan_start_code and
         "cannot read configured protocol" in wan_start_code and
-        wan_start_code.index(start_proto_read) <
-        wan_start_code.index("if (nvram_status != 0)") <
+        start_proto_error_gate <
         wan_start_code.index("wan_ifname = get_man_ifname(unit)") and
         "wan_proto = get_wan_proto(unit);" not in wan_start_code,
         "WAN startup must fail closed on protocol read errors before interface setup")
