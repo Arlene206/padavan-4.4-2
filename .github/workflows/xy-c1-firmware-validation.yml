@@ -323,6 +323,7 @@ on:
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/Makefile"
       - "trunk/user/libdisk/src/disk_share.c"
+      - "trunk/user/libdisk/src/disk_io_tools.c"
       - "trunk/user/libdisk/src/disk_share.h"
       - "trunk/user/libdisk/src/disk_share_list_policy.h"
       - "trunk/user/libdisk/src/storage_swap_policy.h"

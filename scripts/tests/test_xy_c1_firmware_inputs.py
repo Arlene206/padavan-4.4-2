@@ -117,6 +117,12 @@ class FirmwareInputPathTests(unittest.TestCase):
                 self.assertIn('      - "' + path + '"', workflow)
                 self.assertFalse(is_non_firmware_input(path))
 
+    def test_libdisk_io_tools_reader_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/libdisk/src/disk_io_tools.c"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+        self.assertFalse(is_non_firmware_input(path))
+
     def test_scut_watchdog_flock_dependency_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         for path in (

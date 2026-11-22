@@ -15,6 +15,7 @@
  * MA 02111-1307 USA
  */
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
@@ -47,18 +48,32 @@ void sanity_name(char *name)
 	}
 }
 
+static char *
+read_whole_file_failure(FILE *fp, char *buffer, int saved_errno)
+{
+	if (fp) {
+		errno = 0;
+		if (fclose(fp) != 0 && saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+	}
+	free(buffer);
+	errno = saved_errno ? saved_errno : EIO;
+	return NULL;
+}
+
 char *read_whole_file(const char *target)
 {
 	FILE *fp;
 	char *buffer = NULL, *new_buffer;
 	size_t used = 0, capacity = 0, next_capacity, n;
-	int ch;
+	int ch, saved_errno;
 
-	/* These are small metadata/configuration files, not arbitrary payloads.
-	 * Cap reads to avoid a malformed removable-drive file exhausting RAM. */
+	/* Metadata/configuration files must not exhaust memory on removable media. */
 #define READ_WHOLE_FILE_MAX (1024U * 1024U)
-	if (!target || !*target)
+	if (!target || !*target) {
+		errno = EINVAL;
 		return NULL;
+	}
 	fp = fopen(target, "r");
 	if (!fp)
 		return NULL;
@@ -66,16 +81,14 @@ char *read_whole_file(const char *target)
 	for (;;) {
 		if (capacity - used < 2) {
 			if (capacity >= (size_t)READ_WHOLE_FILE_MAX + 1) {
+				errno = 0;
 				ch = fgetc(fp);
-				if (ch != EOF) {
-					free(buffer);
-					fclose(fp);
-					return NULL;
-				}
+				if (ch != EOF)
+					return read_whole_file_failure(fp, buffer, EFBIG);
 				if (ferror(fp)) {
-					free(buffer);
-					fclose(fp);
-					return NULL;
+					saved_errno = errno ? errno : EIO;
+					return read_whole_file_failure(fp, buffer,
+					                               saved_errno);
 				}
 				break;
 			}
@@ -83,37 +96,46 @@ char *read_whole_file(const char *target)
 			next_capacity = capacity ? capacity * 2 : 1024;
 			if (next_capacity > (size_t)READ_WHOLE_FILE_MAX + 1)
 				next_capacity = (size_t)READ_WHOLE_FILE_MAX + 1;
+			errno = 0;
 			new_buffer = realloc(buffer, next_capacity);
 			if (!new_buffer) {
-				free(buffer);
-				fclose(fp);
-				return NULL;
+				saved_errno = errno ? errno : ENOMEM;
+				return read_whole_file_failure(fp, buffer,
+				                               saved_errno);
 			}
 			buffer = new_buffer;
 			capacity = next_capacity;
 		}
 
+		errno = 0;
 		n = fread(buffer + used, 1, capacity - used - 1, fp);
 		used += n;
+		if (ferror(fp)) {
+			saved_errno = errno ? errno : EIO;
+			return read_whole_file_failure(fp, buffer, saved_errno);
+		}
 		if (n > 0)
 			continue;
-		if (ferror(fp)) {
-			free(buffer);
-			fclose(fp);
-			return NULL;
-		}
 		break;
 	}
 
 	if (!buffer) {
+		errno = 0;
 		buffer = malloc(1);
 		if (!buffer) {
-			fclose(fp);
-			return NULL;
+			saved_errno = errno ? errno : ENOMEM;
+			return read_whole_file_failure(fp, NULL, saved_errno);
 		}
 	}
 	buffer[used] = '\0';
-	fclose(fp);
+
+	errno = 0;
+	if (fclose(fp) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(buffer);
+		errno = saved_errno;
+		return NULL;
+	}
 	return buffer;
 #undef READ_WHOLE_FILE_MAX
 }

@@ -7,6 +7,8 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 LIBDISK = ROOT / "trunk/user/libdisk/src"
 DISK_SOURCE = (LIBDISK / "disk_share.c").read_text()
+DISK_IO_SOURCE = (LIBDISK / "disk_io_tools.c").read_text()
+IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
 POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
 REGRESSION = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 SAMBA_SOURCE = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
@@ -210,6 +212,31 @@ require("path_len >= (int)sizeof(var_file)" in create_all and
         "if (result != 0)" in create_all,
         "incremental account metadata initialization must check path and write results")
 
+
+require("#include <errno.h>" in DISK_IO_SOURCE,
+        "disk_io_tools.c must include errno definitions")
+read_failure = function_body(
+    DISK_IO_SOURCE, "read_whole_file_failure(FILE *fp, char *buffer, int saved_errno)"
+)
+require("if (fclose(fp) != 0 && saved_errno == 0)" in read_failure and
+        "errno = saved_errno ? saved_errno : EIO;" in read_failure,
+        "read_whole_file failure cleanup must check close and preserve the primary errno")
+read_body = function_body(DISK_IO_SOURCE, "char *read_whole_file(const char *target)")
+require("errno = EINVAL;" in read_body and
+        "return read_whole_file_failure(fp, buffer, EFBIG);" in read_body and
+        "if (fclose(fp) != 0)" in read_body and
+        "saved_errno = errno ? errno : EIO;" in read_body,
+        "read_whole_file must report invalid paths, oversized files, read and close failures")
+for marker in (
+    "test_reads_complete_text_file",
+    "test_reads_empty_file",
+    "test_rejects_invalid_and_missing_paths",
+    "test_rejects_oversized_file_with_efbig",
+    "test_reports_directory_read_error",
+):
+    require(marker in IO_REGRESSION and marker + "();" in IO_REGRESSION,
+            "missing read_whole_file regression: " + marker)
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
@@ -245,6 +272,7 @@ for path in (
     "trunk/user/libdisk/src/disk_share.c",
     "trunk/user/libdisk/src/disk_share.h",
     "trunk/user/libdisk/src/disk_share_list_policy.h",
+    "trunk/user/libdisk/src/disk_io_tools.c",
 ):
     require(XY_WORKFLOW.count('      - "' + path + '"') == 1 and
             not is_non_firmware_input(path),
