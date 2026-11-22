@@ -1,3 +1,12 @@
+## 2026-11-22 — Handoff and CI checkpoint refresh
+
+- Parent main SHA: `1991166437f832772a8c9a0dc785f5a1f12d78c3`; frozen backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The libdisk output-initialization implementation, Samba caller initialization, GNU89 sanitizer regression and focused workflow are committed. `<stddef.h>` was added after the first sanitizer job exposed the missing `NULL` definition.
+- The XY-C1 path filter was extended to schedule firmware validation for `disk_share.c`, the new policy header and its regression test. Exact results are recorded in `SESSION_HANDOFF.md`; no firmware L3 or hardware L4 claim is made here.
+- RC DDNS restart now fails closed when `ddns_enable_x` cannot be read. Inadyn, DNSMasq and WAN source checkers were corrected to normalize C whitespace and assert the actual `goto failed` provider-repair path.
+
+---
+
 ## 2026-11-22 — Initialize libdisk share-list outputs before validation
 
 - Parent main SHA: `3c08537210948fdc301203f854255320b55bbfba`. Both `get_folder_list_in_mount_path()` and `get_all_folder_in_mount_path()` returned on a NULL/empty mount path before resetting caller outputs. Samba's `write_smb_conf_unlocked()` declared `folder_list` uninitialized and then passed it to `free_2_dimension_list()` on the API error path.

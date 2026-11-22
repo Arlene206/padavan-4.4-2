@@ -1,18 +1,15 @@
 ## 2026-11-22 — Current development checkpoint
 
-- Parent main SHA: `0c2116c08d58f43e4ab82a010b5541a45bf1b636`.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move).
-- Detect-internet runtime checked-read slice: present in source and corresponding regression test.
-- Exact-parent-SHA Actions:
-- NVRAM transaction boundary audit: completed/success (run 45012289218)
-- Process inventory and lifecycle fail-closed regression: completed/success (run 45012289213)
-- AI handoff documentation contract: completed/success (run 45012289175)
-- XY-C1 Firmware Validation: in_progress (run 45012289119)
-- detect_internet signal lifecycle stability regression: completed/failure (run 45012289107)
-- Process lifecycle inventory - 0c2116c08d58f43e4ab82a010b5541a45bf1b636: completed/success (run 45012289091)
-- Physical router Hardware L4: NOT VERIFIED; CI does not substitute for target hardware.
-- First task for the next session: 核对本 SHA 的 detect-internet 精确 SHA 回归结果；随后处理本 SHA 上失败的稳定性工作流，优先确认 Inadyn/DNSmasq 报错是否为真实回归，再扩展其他 userland 稳定性覆盖。
-- Continue the established loop: implementation, focused GNU89/sanitizer tests, atomic tree+commit, non-force expected-SHA main update, exact-SHA Actions; while a run is pending, work on an independent defect.
+- Live main parent SHA: `1991166437f832772a8c9a0dc785f5a1f12d78c3`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move or force-update).
+- Current source work: libdisk folder-list APIs reset caller outputs before invalid mount-path returns; Samba initializes its local `folder_list` pointer; GNU89 ASan/UBSan regression plus a source-contract workflow were added. The shared policy/test explicitly include `<stddef.h>` for `NULL`.
+- Firmware workflow path filters now include the libdisk source, policy header and regression test so a matching XY-C1 validation run is scheduled for these changes. Do not claim L3 until Build, TRX check and artifact upload pass on the same exact SHA.
+- Inadyn/DDNS source fix remains in main: RC now uses checked NVRAM status for `ddns_enable_x` and does not stop/restart Inadyn on backend read errors. The Inadyn snapshot and DNSMasq/WAN checkers were realigned with the 22-key transactional snapshot and multiline checked-read gate.
+- Latest exact-head workflow state observed when this handoff was generated:
+- libdisk share-list output safety #45014555204: completed/success
+- Process lifecycle inventory - 1991166437f832772a8c9a0dc785f5a1f12d78c3 #45014555210: completed/success
+- NVRAM transaction boundary audit #45014555229: completed/success
+- Hardware router L4: NOT VERIFIED. CI does not substitute for device-level verification.
+- First next task: inspect exact-head CI for this main SHA, especially XY-C1 Build/TRX/artifact, NVRAM audit and AI handoff. Resolve any real failures; PENDING jobs do not block independent source work.
 
 ---
 
@@ -53,9 +50,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Active implementation in THIS COMMIT: Inadyn configuration integrity. A single NVRAM transaction snapshots all 22 numeric/provider/endpoint/credential keys to bounded owned buffers. Backend read, transaction-close, truncation and malformed integer errors fail closed before staging, preserving the last-known-good configuration. The DDNS enable gate also propagates checked-read failures.
-- Exact WAN route/Process/AI/XY-C1 fan-out for this new source SHA remains pending; inspect exact-head runs.
-
+- Active source slice: libdisk share-list error safety, committed on main. Both `get_folder_list_in_mount_path()` and `get_all_folder_in_mount_path()` call the shared output reset/validation helper before mount-path use; Samba’s caller initializes the pointer before error cleanup.
+- Regression coverage: GNU89 ASan/UBSan checks for NULL/empty mount paths, missing output pointers and valid-path initialization; focused source checker verifies both public APIs and Samba cleanup. The initial compile failure due to the missing standard `NULL` definition was fixed by explicitly including `<stddef.h>`.
+- DDNS checked-read fail-closed fix and associated workflow assertions remain in the same mainline history; no force pushes or backup-branch updates.
 ## Verification boundary
 
 - Process #45010890087 and AI #45010890010 PASS on `1f7add7`; detect-WAN #45011122521 and AI #45011122439 PASS on `a5c583c`.
@@ -66,8 +63,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, then inspect exact-head WAN route run triggered by the Inadyn snapshot commit. Verify the GNU89/ASan/UBSan cache-copy/error-invalidation test and the Python source checker; fix actual failures without weakening the transaction invariant.
-2. Poll XY-C1 #45011627817 for product SHA `31b13e1d0bf8f1dd055d5ebd7cea7eaa662b13bb`; verify Build, TRX and artifact upload all pass.
-3. Verify this Inadyn commit's exact-source Process/AI/XY-C1 fan-out; L3 only when Build/TRX/artifact pass on the same product SHA.
-4. Continue the next independent whole-userland stability/security defect. Keep the frozen backup immutable; hardware L4 remains NOT VERIFIED.
-
+1. Fetch live main and inspect the exact-SHA Actions listed in the checkpoint. Confirm XY-C1 Build, TRX verification and artifact upload all pass on one product SHA before claiming firmware L3; hardware L4 remains NOT VERIFIED.
+2. Inspect any remaining failures in the new libdisk share-list workflow and verify the full Samba write/cleanup path against the passing sanitizer/source-contract tests.
+3. Continue the next independent stability/security defect across the userland; while workflows are PENDING, do not wait—implement and test an independent slice.
+4. Keep the frozen backup branch unchanged. Use atomic Git tree+commit and expected-SHA non-force main updates.
