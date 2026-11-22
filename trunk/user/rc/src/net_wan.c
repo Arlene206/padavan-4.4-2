@@ -9207,9 +9207,9 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 	int ipv6_type, ipv6_type_status;
 #endif
 
-	int index, is_man;
+	int index, is_man, option_status;
 	char log_prefix[32], pidfile[32] = {0};
-	char *wan_hostname, *wan_vci;
+	char wan_hostname[256], wan_vci[256];
 	char *dhcp_argv[] = {
 		"/sbin/udhcpc",
 		"-i", wan_ifname,
@@ -9243,14 +9243,36 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 	else
 		dhcp_argv[index++] = "-d";	/* Background after run (new patch for udhcpc) */
 
-	wan_hostname = get_wan_unit_value(unit, "hostname");
-	if (strlen(wan_hostname) > 0) {
+	/*
+	 * get_wan_unit_value() returns a pointer into the shared NVRAM cache.
+	 * Reading the vendor class can overwrite the hostname before udhcpc
+	 * consumes argv. Keep both option strings in checked owned buffers.
+	 */
+	option_status = get_wan_unit_value_copy_status(
+		unit, "hostname", wan_hostname, sizeof(wan_hostname));
+	if (option_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN DHCP hostname for unit %d (status=%d)",
+			   unit, option_status);
+		errno = option_status;
+		return option_status;
+	}
+	option_status = get_wan_unit_value_copy_status(
+		unit, "vci", wan_vci, sizeof(wan_vci));
+	if (option_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN DHCP vendor class for unit %d (status=%d)",
+			   unit, option_status);
+		errno = option_status;
+		return option_status;
+	}
+
+	if (wan_hostname[0]) {
 		dhcp_argv[index++] = "-H";
 		dhcp_argv[index++] = sanity_hostname(wan_hostname);
 	}
 
-	wan_vci = get_wan_unit_value(unit, "vci");
-	if (strlen(wan_vci) > 0) {
+	if (wan_vci[0]) {
 		dhcp_argv[index++] = "-V";
 		dhcp_argv[index++] = wan_vci;
 	}

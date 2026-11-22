@@ -868,6 +868,31 @@ test_viptv_settings_survive_shared_cache_overwrite(void)
 
 
 static void
+test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite(void)
+{
+	struct fake_nvram_text_cache fake;
+	char hostname[256], vendor_class[256];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_hostname";
+	fake.names[1] = "wan0_vci";
+	fake.values[0] = "router-edge";
+	fake.values[1] = "padavan-device";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[0], hostname,
+				       sizeof(hostname)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_text_cache_get, &fake,
+				       fake.names[1], vendor_class,
+				       sizeof(vendor_class)) == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.cache_slot, "padavan-device") == 0);
+	assert(strcmp(hostname, "router-edge") == 0);
+	assert(strcmp(vendor_class, "padavan-device") == 0);
+}
+
+
+static void
 test_wan_interface_names_survive_shared_cache_overwrite(void)
 {
 	struct fake_nvram_reader fake;
@@ -1707,6 +1732,7 @@ main(void)
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();
+	test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_legacy_mac_override_preserves_mac_conv_formatting();
 	test_legacy_mac_override_zero_and_broadcast_values_use_fallback();

@@ -1566,6 +1566,22 @@ jobs:
           assert launch_error in wan_start
           assert wan_start.index(apcli_call) < wan_start.index(launch_call) < wan_start.index(launch_error)
 
+          wan_dhcp_start = body(source, "start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)")
+          wan_dhcp_start_compact = "".join(wan_dhcp_start.split())
+          hostname_copy = 'get_wan_unit_value_copy_status(unit,"hostname",wan_hostname,sizeof(wan_hostname))'
+          vendor_copy = 'get_wan_unit_value_copy_status(unit,"vci",wan_vci,sizeof(wan_vci))'
+          assert "charwan_hostname[256],wan_vci[256];" in wan_dhcp_start_compact
+          assert hostname_copy in wan_dhcp_start_compact
+          assert vendor_copy in wan_dhcp_start_compact
+          assert 'get_wan_unit_value(unit,"hostname")' not in wan_dhcp_start_compact
+          assert 'get_wan_unit_value(unit,"vci")' not in wan_dhcp_start_compact
+          assert wan_dhcp_start_compact.count("if(option_status!=0)") == 2
+          assert wan_dhcp_start_compact.count("returnoption_status;") == 2
+          assert wan_dhcp_start_compact.index(hostname_copy) < wan_dhcp_start_compact.index(vendor_copy)
+          assert wan_dhcp_start_compact.index(vendor_copy) < wan_dhcp_start_compact.index("sanity_hostname(wan_hostname)")
+          assert wan_dhcp_start_compact.index("sanity_hostname(wan_hostname)") < wan_dhcp_start_compact.index("udhcpc_start_and_verify(")
+          assert "test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+
           # Physical WAN DHCP/ZeroConf client launch status must cross
           # launch_wanx() and reach each WAN protocol caller for diagnostics.
           wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")

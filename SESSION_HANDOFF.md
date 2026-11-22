@@ -5,11 +5,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; development remains on `main`. Live parent for the NFS ACL ownership slice: `1c61749ba6887639a7430b1d7d7df0b6bc661189`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
-- Storage firewall-refresh source commit `595b2dcb7a927a369d3e29a0aef75a5431fc7e74` remains in exact-head validation. The UNKNOWN-inclusive caller assertion correction `2333039ea9c33c9b02f941621928f64659b249fc` passed the embedded whole caller graph but failed the dedicated source checker on a comment false positive; checker-only correction `1c61749ba6887639a7430b1d7d7df0b6bc661189` narrows the search to executable call syntax. Its exact-head storage rerun is pending.
-- HTTPD checked firewall-input contract commit `9553ea5c4331d15f85db2842765dd82cfd428e4d`: exact HTTPD Authentication #45005694009 PASS and AI docs #45005694083 PASS.
-- THIS NFS source slice replaces shared-cache ACL pointers with checked, bounded owned copies before opening /proc/mounts or staging exports. Regression and source-order contracts are included; exact-head NFS Action pending.
-- Product L3 remains verified only for older SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; no current-head L3 claim. Hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; active development remains on `main`. NFS ACL cache-ownership fix is committed at `67514d707a91ac3e34bd513032a6a85a29e0f2d3`; exact NFS daemon start/reload/export-policy workflow #45006783321 PASS, including the compiled IPv4/IPv6 policy regression and RC command-status contract. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Storage caller-graph assertion correction `2333039ea9c33c9b02f941621928f64659b249fc` was followed by checker fix `1c61749ba6887639a7430b1d7d7df0b6bc661189`; exact storage hotplug #45006114730 and AI docs #45006114737 PASS on 1c. XY-C1 validation #45006114754 completed successfully but the Build XY-C1, TRX and artifact upload steps were all SKIPPED, so this is not L3 evidence.
+- HTTPD checked-firewall contract #45005694009 and AI docs #45005694083 PASS. Current NFS source fix `67514d707a91ac3e34bd513032a6a85a29e0f2d3` exact NFS run PASS; its other fan-out workflows and XY-C1 were still queued/in progress at last inspection.
+- THIS DHCP source slice fixes shared-cache reuse between WAN hostname and vendor-class reads; exact-head WAN DHCP workflow pending. Product L3 remains unverified on current source. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,15 +29,15 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- Fix `write_nfsd_exports()` retaining `nvram_safe_get()` cache pointers across subsequent reads. LAN address/mask, IPv6 address/prefix and VPN subnet could be overwritten by later NVRAM lookups before formatting, yielding a corrupted or unintended NFS client ACL.
-- THIS source slice uses checked, bounded NVRAM copies for generated-export ACL inputs, preserves the unit-specific LAN fallback and optional IPv6/VPN semantics, and completes all required reads/validation before opening the mount inventory or staging a replacement exports file. GNU89 policy regression covers cache overwrite, fallback ACL output, missing keys, backend errors and truncation.
+- Fix `start_udhcpc_wan()` retaining `get_wan_unit_value()` pointers for the DHCP hostname and vendor class. Both point into the same NVRAM cache, so the second lookup can overwrite the hostname before `udhcpc_start_and_verify()` consumes the argument vector.
+- THIS source change uses `get_wan_unit_value_copy_status()` into bounded owned buffers, fails startup on checked-read errors/truncation, and preserves the optional-empty-key behavior. A shared-cache overwrite regression and exact source-order workflow contract are included.
 
 ## Verification boundary
-- Exact storage run #45005813291 on source/checker SHA 2333039ea9c33c9b02f941621928f64659b249fc FAILED in `scripts/check_storage_safe_remove.py` line 654 because its negative search matched explanatory comment text, not executable `nvram_match()`. Commit 1c61749ba6887639a7430b1d7d7df0b6bc661189 narrows that token check; its exact-head rerun remains pending.
-- Exact HTTPD Authentication #45005694009 and AI docs #45005694083 PASS on the checked-firewall contract correction.
-- THIS NFS slice requires exact-head `nfsd-start-stability.yml` completion. No current NFS L2/L3 claim. Product L3 remains only for older SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; Hardware L4 NOT VERIFIED.
+- Exact NFS ACL fix `67514d707a91ac3e34bd513032a6a85a29e0f2d3`: NFS daemon start/reload/export-policy #45006783321 PASS, including compile/run of IPv4/IPv6 export ACL policy and RC command status propagation.
+- Exact storage checker fix `1c61749ba6887639a7430b1d7d7df0b6bc661189`: storage hotplug #45006114730 and AI docs #45006114737 PASS. XY-C1 run #45006114754 was success but Build/TRX/artifact steps SKIPPED; do not claim L3.
+- THIS WAN DHCP fix requires its exact-head `wan-dhcp-callback-stability.yml` run. Current product L3 is not verified; Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact-head NFS daemon start/reload/export-policy workflow for this NFS ACL commit. Inspect the first failing job/step; do not weaken unrelated NFS lifecycle contracts.
-2. Check storage hotplug rerun after checker correction `1c61749ba6887639a7430b1d7d7df0b6bc661189` and resolve any remaining exact-head failure.
-3. Continue an independent stability/security source fix only after exact-head failures are reconciled. Claim product L3 only on a same-SHA Build + TRX + artifact pass; Hardware L4 remains NOT VERIFIED.
+1. Check the exact-head WAN DHCP callback stability workflow and inspect its first failing step if not PASS.
+2. Recheck the NFS and other exact-head fan-out workflows for SHA `67514d707a91ac3e34bd513032a6a85a29e0f2d3`; diagnose only actual failures.
+3. Continue another independent P1 stability/security fix. Claim product L3 only when Build XY-C1, TRX and artifact upload all pass on one identical source SHA; Hardware L4 remains NOT VERIFIED.

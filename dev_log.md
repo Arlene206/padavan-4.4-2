@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve WAN DHCP hostname and vendor class across NVRAM reads
+
+- Parent main SHA: `67514d707a91ac3e34bd513032a6a85a29e0f2d3`. `start_udhcpc_wan()` used two `get_wan_unit_value()` cache-backed pointers for `hostname` and `vci`; reading the latter can overwrite the former before DHCP client launch.
+- Replaced both pointers with checked, bounded copies into owned buffers. A read error or truncation now aborts DHCP startup before spawning udhcpc; absent/empty values remain optional as before.
+- Added a fake shared-cache regression verifying the hostname survives the vendor-class read and extended the WAN DHCP source-order contract. Exact-head WAN validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Snapshot NFS export ACL NVRAM inputs
 
 - Parent main SHA: `1c61749ba6887639a7430b1d7d7df0b6bc661189`. The active handoff identified shared-cache lifetime hazards in `write_nfsd_exports()`: successive `nvram_safe_get()` calls returned pointers reused before IPv4 LAN fallback, IPv6 LAN and VPN ACL formatting.
