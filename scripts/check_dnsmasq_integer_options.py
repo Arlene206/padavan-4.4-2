@@ -160,6 +160,6 @@ for token in (
     "test_dhcp6_snapshot_read_and_close_failures_clear_all_fields",
     "test_dhcp6_snapshot_rejects_invalid_mode_and_arguments",
 ):
-    assert token in read("trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c")
+    assert token in TEST
 assert "net_lan6.c" in WORKFLOW
 print("DNSMasq checked DHCP integer options, bounded MAC validation and fail-closed static-host NVRAM snapshots: PASS")

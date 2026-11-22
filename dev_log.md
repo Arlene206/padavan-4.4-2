@@ -1,3 +1,13 @@
+## 2026-11-22 — Correct DHCPv6 and DNSMasq source-contract follow-ups
+
+- Parent main SHA: `e100bb3b88a68e3db6e23721bf6852631126895e`. Exact DNSMasq run #45034779769 compiled and ran the GNU89/ASan/UBSan `dnsmasq_nvram_option_policy` binary successfully. It failed only in `scripts/check_dnsmasq_integer_options.py` because the newly added test-name assertions referenced undefined helper `read()`; the script already loads the complete regression file as `TEST`. Corrected the assertions to use `TEST`.
+- Exact IPv6 checked-read run #45034779684 compiled and ran `ipv6_service_type_policy` successfully. Its source checker failed at the obsolete assertion that `get_lan_dhcp6s_mode()` directly reads NVRAM; that wrapper now correctly delegates to new `get_lan_dhcp6s_mode_status()`. Updated the contract to verify the checked status getter's service-type read, checked NVRAM read, parsed mode bounds and output publication, plus checked IRT/RA status wrappers.
+- Exact SHA `e100bb3b88a68e3db6e23721bf6852631126895e`: AI handoff #45034779639 PASS, wireless radio #45034779547 PASS; DNSMasq and IPv6 checker failures described above. XY-C1 #45034779614, NVRAM #45034779584 and Process inventory #45034779974 were in progress at last poll.
+- The older parent SHA `7c6ab191bad7e18ec65c8bb8951713dbc24ee3f8` had XY-C1 #45033514004 fully PASS including Build XY-C1, TRX verification and artifact upload, but this is not evidence for the e100 SHA.
+- No local tests were run. Result: THIS COMMIT updates source contracts and truthful handoff; production code is unchanged. Next: check exact-head reruns and current XY-C1/NVRAM/Process jobs; fix actual failures and continue independent userland work.
+
+---
+
 ## 2026-11-22 — Validate DHCPv6 DNSMasq inputs before staging
 
 - Parent main SHA: `2a92404d63b739c38453b4d15cfbbe8219ae8773`. The preceding DNSMasq CI run had failed in a workflow-embedded Python contract that still expected the old individual WINS getter after WINS moved into the checked IPv4 snapshot; that inline assertion is aligned in commit `2a92404d63b739c38453b4d15cfbbe8219ae8773`.

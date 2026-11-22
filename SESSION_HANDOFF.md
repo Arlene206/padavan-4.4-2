@@ -27,8 +27,10 @@ The DHCPv6 DNSMasq path previously treated failed RA/mode reads as disabled/defa
 ## Verification boundary
 
 - Local C/Python tests were not run in this connector-only session.
-- On `7c6ab191bad7e18ec65c8bb8951713dbc24ee3f8`, AI handoff #45033513966 PASS, process inventory #45033514052 PASS and NVRAM transaction audit #45033514014 PASS. DNSMasq #45033514002 passed its GNU89/ASan/UBSan DHCP snapshot binary and source checker, then failed only because the separate rollback checker expected the now-removed standalone WINS read. This source contract is corrected here.
-- XY-C1 #45033514004 was still executing Build XY-C1; TRX and artifact upload were pending. Do not claim L3 until all three pass on the same SHA.
+- Exact source SHA `e100bb3b88a68e3db6e23721bf6852631126895e`: AI handoff #45034779639 PASS and wireless radio #45034779547 PASS. DNSMasq #45034779769 failed in `check_dnsmasq_integer_options.py` after its GNU89/ASan/UBSan policy binary passed: the new test-name assertion called undefined `read()` instead of the already loaded `TEST` text. IPv6 checked-read #45034779684 passed its GNU89/ASan/UBSan C policy binary, then its source checker failed because it still expected the old DHCPv6 mode getter to contain the NVRAM read; the production code has moved that read to the new status-bearing getter. Both checker failures are corrected in the follow-up commit.
+- On the same `e100bb3...` source SHA, XY-C1 #45034779614 was in progress (Build/TRX/artifact not yet confirmed); NVRAM audit #45034779584 and Process inventory #45034779974 were also in progress at the last poll. No L3 result is claimed for this SHA.
+- Prior SHA `7c6ab191bad7e18ec65c8bb8951713dbc24ee3f8` did complete XY-C1 #45033514004 successfully: its Build XY-C1, TRX output verification and artifact upload steps all PASS on that exact older SHA. That does not certify descendants.
+- Earlier PPP and Inadyn runs below are historical evidence only; they do not certify the current source.
 - No router hardware validation or L4 result is claimed.
 - Earlier PPP exact SHA `b3caebcbaba0924abcb83339d49a1968e237f042`: WAN DHCP #45032049974 PASS; VPN #45032050106 PASS; WAN route #45032049989 PASS; HTTPD #45032050007 PASS; process #45032050136 PASS; NVRAM #45032049962 PASS. XY-C1 #45032049960 started the production Build, but TRX/artifact completion was not confirmed.
 - Later Inadyn descendant `c34e54b200272f17682cab1c98a2ad922ef43728`: DNSMasq #45032859372 PASS; process inventory #45032859409 PASS; miniupnpd #45032859331 PASS; Samba #45032859405 PASS; Inadyn #45032859299 PASS; WAN DHCP #45032859313 PASS; AI docs #45032859440 PASS. HTTPD #45032859349, XY-C1 #45032859323, WAN route #45032859347, process lifecycle #45032859298 and NVRAM #45032859363 were pending at the last recorded poll.
@@ -36,6 +38,6 @@ The DHCPv6 DNSMasq path previously treated failed RA/mode reads as disabled/defa
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA DNSMasq, NVRAM, Process, AI and XY-C1 Actions for this DHCPv6 preflight commit; repair concrete failures.
-2. Continue broader Padavan userland stability/security work outside WAN/PPP, USB modem, Inadyn and DNSMasq.
-3. Keep the backup immutable. XY-C1 L3 requires Build, TRX validation and artifact upload all PASS on one SHA; L4 requires device verification.
+1. Fetch live `main` and inspect the exact-SHA DNSMasq and IPv6 checker reruns, then check XY-C1 Build/TRX/artifact, NVRAM and Process Actions for that same source SHA. Fix any concrete failure.
+2. While independent jobs are pending, continue the broad userland stability/security rotation outside WAN/PPP, USB modem, Inadyn and DNSMasq.
+3. Keep the backup immutable. XY-C1 L3 requires Build, TRX validation and artifact upload all PASS on one SHA; L4 requires physical device verification.

@@ -137,7 +137,6 @@ assert 'nvram_get_int("ip6_lan_size")' not in reset_lan6
 for signature in (
     "int is_lan_radv_on(void)",
     "int is_lan_addr6_static(void)",
-    "int get_lan_dhcp6s_mode(void)",
 ):
     getter = function_body(net_lan6, signature)
     read = getter.index("get_lan6_service_type(&ipv6_type)")
@@ -148,11 +147,46 @@ assert "lan_addr6_static_for_type(ipv6_type)" in function_body(
     net_lan6, "int is_lan_addr6_static(void)"
 )
 
-dhcp_mode_getter = function_body(net_lan6, "int get_lan_dhcp6s_mode(void)")
-assert 'lan6_read_config_value_status(\n\t\t"ip6_lan_dhcp"' in dhcp_mode_getter
-assert "rc_lan_addr6_legacy_integer_status(" in dhcp_mode_getter
-assert "if (status != 0)" in dhcp_mode_getter and "return -1;" in dhcp_mode_getter
+dhcp_mode_wrapper = function_body(net_lan6, "int get_lan_dhcp6s_mode(void)")
+assert "status = get_lan_dhcp6s_mode_status(&mode);" in dhcp_mode_wrapper
+assert "if (status != 0)" in dhcp_mode_wrapper and "return -1;" in dhcp_mode_wrapper
+
+dhcp_mode_getter = function_body(
+    net_lan6, "int get_lan_dhcp6s_mode_status(int *mode)"
+)
+mode_service_read = dhcp_mode_getter.index("get_lan6_service_type(&ipv6_type)")
+mode_service_error = dhcp_mode_getter.index("if (status != 0)", mode_service_read)
+mode_nvram_read = dhcp_mode_getter.index('lan6_read_config_value_status(\n\t\t"ip6_lan_dhcp"', mode_service_error)
+mode_parse = dhcp_mode_getter.index("rc_lan_addr6_legacy_integer_status(", mode_nvram_read)
+mode_error = dhcp_mode_getter.index("if (status != 0)", mode_parse)
+mode_bounds = dhcp_mode_getter.index("parsed_mode < 0 || parsed_mode > 3", mode_error)
+mode_publish = dhcp_mode_getter.index("*mode = parsed_mode;", mode_bounds)
+assert mode_service_read < mode_service_error < mode_nvram_read < mode_parse < mode_error < mode_bounds < mode_publish
 assert 'nvram_get_int("ip6_lan_dhcp")' not in dhcp_mode_getter
+
+dhcp_irt = function_body(
+    net_lan6, "int get_lan_dhcp6s_irt_status(int *irt)"
+)
+irt_service_read = dhcp_irt.index("get_lan6_service_type(&ipv6_type)")
+irt_service_error = dhcp_irt.index("if (status != 0)", irt_service_read)
+irt_static_read = dhcp_irt.index("lan_addr6_static_for_type(ipv6_type)", irt_service_error)
+irt_snapshot_error = dhcp_irt.index("if (is_static < 0)", irt_static_read)
+assert irt_service_read < irt_service_error < irt_static_read < irt_snapshot_error
+assert "return errno > 0 ? errno : EIO;" in dhcp_irt
+irt_wrapper = function_body(net_lan6, "int get_lan_dhcp6s_irt(void)")
+assert "get_lan_dhcp6s_irt_status(&irt)" in irt_wrapper
+assert "if (status != 0)" in irt_wrapper and "return -1;" in irt_wrapper
+
+radv_status = function_body(
+    net_lan6, "int get_lan_radv_enabled_status(int *enabled)"
+)
+radv_service_read = radv_status.index("get_lan6_service_type(&ipv6_type)")
+radv_service_error = radv_status.index("if (status != 0)", radv_service_read)
+radv_disabled = radv_status.index("if (ipv6_type == IPV6_DISABLED)", radv_service_error)
+radv_config_read = radv_status.index('lan6_read_config_value_status(\n\t\t"ip6_lan_radv"', radv_disabled)
+assert radv_service_read < radv_service_error < radv_disabled < radv_config_read
+assert "return 0;" in radv_status[radv_disabled:radv_config_read]
+assert "return status;" in radv_status
 integer_policy = function_body(
     lan6_policy, "rc_lan_addr6_legacy_integer_status("
 )
