@@ -1,3 +1,11 @@
+## 2026-11-22 — Repair process-lifecycle contract for status-bearing detect-link notification
+
+- Parent main SHA: \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\`. Exact-head Process lifecycle regression #45038940342 on ancestor source SHA \`661924b3b5cb309988758820c285f6bedeab3c23\` failed only in \`scripts/check_process_lifecycle_integration.py:1224\`: its source parser still split \`void\nnotify_reset_detect_link(void)\` after the API had correctly changed to an \`int\` result. All preceding GNU89 C/ASan/UBSan regressions and integration assertions passed. Exact-head detect-link regression #45038940465, process-lifecycle inventory #45038940527, AI handoff docs #45038940232, DNS Forwarder launch path #45038940423 and router-mode update #45038940605 passed on SHA 661924b. Corrected the parser for the int-returning API and explicitly require the normalized status to be returned; production behavior is unchanged.
+- No local checkout or local test execution was available. The process-lifecycle regression on current parent SHA \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\` (#45039333810) and its inventory workflow (#45039333858) were in progress at the last check. The current rstats persistence run #45039333829 and XY-C1 run #45039333875 were also in progress; no new result is claimed.
+- XY-C1 L3 remains NOT VERIFIED until Build, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 remains NOT VERIFIED. Next: inspect exact-head Process rerun and latest XY-C1 evidence, then continue another user-space subsystem.
+
+---
+
 ## 2026-11-22 — Retry rstats periodic flash persistence after failures
 
 - Parent main SHA: \`661924b3b5cb309988758820c285f6bedeab3c23\`. \`save_history_raw()\` zeroed \`g_store_cntr\` before calling \`write_storage_to_mtd()\` and discarded the flash script result. A failed \`mtd_storage.sh save\` therefore lost the due event and postponed the next attempt until another complete configured interval (up to a month).

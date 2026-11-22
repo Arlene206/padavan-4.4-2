@@ -13,23 +13,24 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: \`Arlene206/padavan-4.4-2\`; main source SHA before the current rstats slice: \`661924b3b5cb309988758820c285f6bedeab3c23\`.
+- Repository: \`Arlene206/padavan-4.4-2\`; product-source baseline: \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\` (rstats retry-on-failed-periodic-storage-save fix).
 - Frozen backup: \`backup/pre-plugin-overhaul-2026-11-14\` at \`72f4f157a084f8184b9597ca5bf334b8080e5807\`; immutable.
-- EAPoL config hardening remains in main; dedicated test and process-lifecycle signature contract were corrected in prior commits.
+- WAN/PPP, USB modem, Inadyn, DNSMasq, manual Wi-Fi radio and EAPoL hardening remain in main; do not repeat without new evidence.
 
 ## Active task
 
-\`rstats.c::save_history_raw()\` previously reset \`g_store_cntr\` to zero before calling \`write_storage_to_mtd()\`, then ignored the flash script result. A failed automatic MTD save could therefore defer retry for another complete configured interval (up to 30 days). The current source change captures status/errno; a successful save clears elapsed time while a failed save saturates the counter at the due threshold, logs, and retries on the next normal rstats tick. A GNU89 host policy test and the existing rstats workflow source/path contract cover retry semantics.
+Repair the process-lifecycle integration checker after the detect-link API was correctly changed from void to int. Exact-head Process lifecycle regression #45038940342 on product-source SHA \`661924b3b5cb309988758820c285f6bedeab3c23\` passed all preceding GNU89 C/ASan/UBSan tests and integration assertions, then failed at \`scripts/check_process_lifecycle_integration.py:1224\` because the parser still split the old \`void\\nnotify_reset_detect_link(void)\` signature. The checker now parses the int-returning definition and requires the normalized status to be returned. This follow-up changes only the checker and handoff/log records; production source is unchanged.
 
 ## Verification boundary
 
-- Parent SHA \`661924b3b5cb309988758820c285f6bedeab3c23\`: Router mode NVRAM #45038940605, detect-link #45038940465, process inventory #45038940527, rstats #45038940393 and DNS Forwarder #45038940423 completed SUCCESS.
-- Process lifecycle regression #45038940342 completed FAILURE in its “Verify shared-library and RC integration boundaries” step. Its failing assertion was not yet retrieved; inspect its job log and correct only the demonstrated contract/source issue.
-- XY-C1 #45038940508 was still in Build XY-C1; TRX verification and artifact upload were not yet confirmed. Do not claim L3 without Build, TRX and artifact upload PASS on the same exact commit.
-- No local checkout or C/Python tests were run in the connector-only session. Router hardware L4 is NOT VERIFIED.
+- Exact SHA \`661924b3b5cb309988758820c285f6bedeab3c23\`: detect-link regression #45038940465 PASS; process-lifecycle inventory #45038940527 PASS; AI handoff docs #45038940232 PASS; DNS Forwarder launch path #45038940423 PASS; router-mode NVRAM #45038940605 PASS.
+- Process lifecycle regression #45038940342 FAILED only at the stale void-signature split in \`scripts/check_process_lifecycle_integration.py:1224\`. The checker-only correction is included in this commit; its current-main exact-head rerun is pending.
+- Parent product-source SHA \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\`: Process lifecycle regression #45039333810, process inventory #45039333858, rstats regression #45039333829, AI handoff docs #45039333912, NVRAM audit #45039333836 and XY-C1 #45039333875 were in progress at the last inspection. Their results do not validate the checker-only descendant.
+- L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 remains NOT VERIFIED.
+- No local checkout or local C/Python tests were performed. Exact-SHA GitHub Actions remain authoritative.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head rstats policy/source contract, process-lifecycle regression failure, and XY-C1 Build/TRX/artifact state for the current main SHA; diagnose and correct failures.
-2. Continue the repository-wide stability/security rotation in another userland subsystem after those checks.
-3. Keep the backup immutable and continue all development directly on \`main\`.
+1. Inspect the exact-head Process lifecycle regression triggered by this checker correction; fix only a demonstrated remaining assertion or production defect.
+2. Inspect XY-C1 run #45039333875 and confirm whether Build, TRX verification and artifact upload all completed on product-source SHA \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\`. Do not treat this checker-only descendant as new product-source L3 evidence.
+3. Continue a repository-wide stability/security slice in a different user-space subsystem. Keep the frozen backup read-only and develop only on \`main\`.

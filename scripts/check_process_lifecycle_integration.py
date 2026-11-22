@@ -1222,8 +1222,10 @@ di_notify = detect_internet_source.split(
     "int\nnotify_run_detect_internet(int delay_time)", 1
 )[1].split("\n}\n", 1)[0]
 dl_notify = detect_link_source.split(
-    "void\nnotify_reset_detect_link(void)", 1
+    "int\nnotify_reset_detect_link(void)", 1
 )[1].split("\n}\n", 1)[0]
+assert "detect_link_notification_status(status, saved_errno)" in dl_notify
+assert "return status;" in dl_notify
 wan_gateway_start = net_wan.split(
     "A failed gateway-ARP enable read is not equivalent to a disabled setting:", 1
 )[1].split("if (gateway_valid)", 1)[0]
