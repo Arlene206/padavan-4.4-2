@@ -490,9 +490,12 @@ require("status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in wan_ifname and
         "if(status!=0)" in wan_ifname and "returnstatus" in wan_ifname,
         "WAN interface selection must propagate modem-type read errors")
 assert 'nvram_get_int("modem_type")' not in wan_ifname
-require("man_ifname_value=get_man_ifname(unit)" in wan_ifname and
-        "rc_wan_nvram_copy_text(man_ifname_value,man_ifname,sizeof(man_ifname))" in wan_ifname,
-        "management interface name must be copied before another NVRAM read")
+require("if(ifname==man_ifname)" in wan_ifname and
+        "status=get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))" in wan_ifname and
+        "status=wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)" in wan_ifname and
+        "get_man_ifname(unit)" not in wan_ifname and
+        wan_ifname.index("if(ifname==man_ifname)") < wan_ifname.index("status=get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))") < wan_ifname.index("status=wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)"),
+        "selected management interface name must use checked NVRAM copy and token validation")
 require("get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ifname and
         "status=get_usb_modem_wan_status(unit,&is_usb_modem)" in wan_ifname and
         "if(status!=0){errno=status;returnstatus;}" in wan_ifname,

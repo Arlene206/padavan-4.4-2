@@ -1,3 +1,11 @@
+## 2026-11-22 — Align WAN DNS checker with checked manual-interface getter
+
+- Parent main SHA: `dc6f6b4efb8b0ac088e82e18f9bd42168efdd9d0`. Exact WAN DHCP callback #44996098158 PASS, including the expanded `check_wan_ifname_bounds.py`; HTTPD Auth/Security #44996098097 and AI handoff #44996098288 PASS.
+- Exact WAN route #44996098107 FAILED at `scripts/check_wan_dns_read_status.py:493`. Its contract still required `get_man_ifname()` followed by `rc_wan_nvram_copy_text()` in `get_wan_ifname()`, while the current implementation now selects modem/PPP overrides first and performs checked `get_wan_unit_value_copy_status()` plus `wan_ifname_copy()` only when using the manual interface. The C path itself was not the failing step.
+- Replaced that stale assertion with the checked fallback read/validation contract and strengthened `check_wan_ifname_bounds.py` to verify the exact manual `ifname` read occurs inside the fallback branch before its copy and the final public output copy; this avoids accidentally matching the separate earlier `ifname_t` checked read.
+- Exact dc6 XY-C1 #44996098229 was still IN_PROGRESS before Build/TRX/artifact at last poll. This follow-up's exact-head checks are still pending; no L3 claim.
+
+---
 ## 2026-11-22 — Preserve checked interface identity in get_wan_ifname
 
 - Parent main SHA: `2b2c2e6c1ef1ca9fc41dd39ebb88858e33cf1bcb`. Exact 2b WAN DHCP callback #44995928887 PASS, WAN route status #44995928825 PASS and AI handoff #44995928838 PASS. Exact XY-C1 #44995928841 remained IN_PROGRESS at last poll; no L3 claim.
