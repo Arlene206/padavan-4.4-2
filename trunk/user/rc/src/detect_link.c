@@ -458,14 +458,20 @@ notify_reset_detect_link(void)
     if (action == PROCESS_PRESENCE_START_ABORT) {
         status = scan_error ? scan_error : EIO;
         saved_errno = 0;
+        logmessage("detect_link",
+                   "skipping start/notification because process inventory is unknown (error=%d)",
+                   status);
     } else if (action == PROCESS_PRESENCE_START_NEW) {
         errno = 0;
         status = start_detect_link();
         saved_errno = errno;
-    } else {
+    } else if (action == PROCESS_PRESENCE_START_NOTIFY) {
         errno = 0;
         status = process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1);
         saved_errno = errno;
+    } else {
+        status = EIO;
+        saved_errno = 0;
     }
 
     status = detect_link_notification_status(status, saved_errno);

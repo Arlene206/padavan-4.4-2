@@ -1,3 +1,11 @@
+## 2026-11-22 — Make detect-link notification tri-state handling explicit
+
+- Parent main SHA: \`6dfdf5c86fbbee4a29538401b9702b74a473ad6a\`. Process lifecycle run #45039420819 on SHA \`7c445837a2eb9ffa747e5c2b5d94b88d58276903\` failed at the source contract assertion \`PROCESS_PRESENCE_START_NOTIFY in body\`; \`notify_reset_detect_link()\` had used a generic \`else\` after the NEW branch. The contract additionally requires the UNKNOWN-inventory skip diagnostic.
+- Made the START_NOTIFY branch explicit and added the UNKNOWN-inventory log while preserving fail-closed status normalization. No signal is sent and no new monitor is launched when process inventory is UNKNOWN.
+- The rstats regression #45039333829 failed after its code/test and source-order assertions because the new policy header was not added to push/pull path filters. It is present in the watched-path tuple; a separate workflow-trigger fix is next.
+- AI handoff #45039420870 failed on the old 7c SHA because the literal \`Before context exhaustion\` was missing; main commit \`6dfdf5c\` restored that contract. XY-C1 #45039333875 for source SHA \`5be7fe1\` remained in Build; no TRX/artifact or L3 pass is claimed.
+- No local checkout or tests were run. Next: inspect exact-SHA process/AI checks and fix rstats trigger paths.
+
 ## 2026-11-22 — Restore the mandatory pre-exhaustion handoff rule
 
 - Parent main SHA: \`7c445837a2eb9ffa747e5c2b5d94b88d58276903\`. Exact-head AI handoff documentation run #45039420870 rejected the new handoff because its continuous-execution contract omitted the required literal \`Before context exhaustion\` marker. The process-lifecycle checker update itself remained unchanged. Restored the pre-exhaustion instruction in \`SESSION_HANDOFF.md\`; the current Process regression #45039420819 was still in progress at inspection.
