@@ -1,3 +1,10 @@
+## 2026-11-22 — iperf3 process-state inventory must distinguish UNKNOWN
+
+- Source baseline: `358aca9453aaf9b5dad4814799d8b560689b4f6f`. `is_running()` treated every nonzero `pidof` result as ABSENT. Since BusyBox `pidof` also returns 1 when its procfs scan fails, start could launch a duplicate server, stop could return success without stopping a live server, and startup/stop postcondition loops could falsely interpret UNKNOWN as success.
+- Added strict PID status/output validation (including numeric nonzero PID parsing) and explicit RUNNING/ABSENT/UNKNOWN handling. Start now refuses UNKNOWN before launch and during readiness checks; stop refuses UNKNOWN before signaling, after a failed signal, and in its postcondition polling. Only pidof status 1 with empty output is accepted as ABSENT.
+- Extended the existing executable-source integration in `scripts/check_optional_app_start_status.py` with pidof error, status/output mismatch, and no-duplicate/no-signal assertions. The process lifecycle regression workflow already runs this checker. No local router or firmware build is claimed.
+- Exact-head validation pending.
+
 ## 2026-11-22 — SmartDNS Adbyby process inventory must be tri-state
 
 - Source baseline: `8ecb9cdbdc34dc62f8b774a227b217afdc47f251`. `Change_adbyby()` piped `pidof adbyby` through `awk`, discarding pidof's status; a failed or malformed process scan therefore became an empty string and was treated as confirmed absence. SmartDNS could then report a successful DNS-owner transition without updating Adbyby's DNSMasq/SmartDNS ownership.

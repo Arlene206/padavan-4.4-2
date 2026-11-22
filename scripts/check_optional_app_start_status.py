@@ -811,7 +811,13 @@ def check_iperf3():
         executable(binary, "#!/bin/sh\nexit 0\n")
         state = base / "running"
         start_log = base / "start.log"
+        stop_log = base / "stop.log"
+        stop_log.touch()
         executable(bin_dir / "pidof", """#!/bin/sh
+if [ "${MOCK_PIDOF_OVERRIDE:-0}" = 1 ]; then
+    [ -z "${MOCK_PIDOF_OUTPUT:-}" ] || printf '%s\\n' "$MOCK_PIDOF_OUTPUT"
+    exit "${MOCK_PIDOF_STATUS:-0}"
+fi
 [ -f "$MOCK_STATE_FILE" ] || exit 1
 echo 123
 """)
@@ -824,6 +830,7 @@ status="${MOCK_START_STATUS:-0}"
 exit 0
 """)
         executable(bin_dir / "killall", """#!/bin/sh
+printf '%s\\n' "$*" >> "$MOCK_STOP_LOG"
 status="${MOCK_STOP_STATUS:-0}"
 [ "$status" -eq 0 ] || exit "$status"
 rm -f "$MOCK_STATE_FILE"
@@ -836,6 +843,7 @@ exit 0
             "IPERF3_BIN": str(binary),
             "MOCK_STATE_FILE": str(state),
             "MOCK_START_LOG": str(start_log),
+            "MOCK_STOP_LOG": str(stop_log),
             "MOCK_LOG": str(log),
             "MOCK_START_STATUS": "31",
             "MOCK_START_APPEARS": "1",
@@ -862,6 +870,39 @@ exit 0
         assert start_log.read_text().count("-S -b") == starts_before, (
             "repeated start must not launch a second iperf3 process"
         )
+
+        # pidof error status 1 cannot distinguish an empty process list from
+        # an inaccessible /proc tree. Unknown or inconsistent snapshots must
+        # not authorize a duplicate start or claim a daemon is already stopped.
+        env["MOCK_PIDOF_OVERRIDE"] = "1"
+        env["MOCK_PIDOF_STATUS"] = "2"
+        env["MOCK_PIDOF_OUTPUT"] = ""
+        unknown_start = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
+        assert unknown_start.returncode == 2, (
+            f"iperf3 must reject UNKNOWN before duplicate start, got {unknown_start.returncode}"
+        )
+        assert start_log.read_text().count("-S -b") == starts_before
+
+        stops_before = len(stop_log.read_text().splitlines())
+        unknown_stop = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
+        assert unknown_stop.returncode == 2, (
+            f"iperf3 must reject UNKNOWN before stop, got {unknown_stop.returncode}"
+        )
+        assert len(stop_log.read_text().splitlines()) == stops_before
+        assert state.exists()
+
+        for pidof_status, pidof_output in (("0", ""), ("1", "123")):
+            env["MOCK_PIDOF_STATUS"] = pidof_status
+            env["MOCK_PIDOF_OUTPUT"] = pidof_output
+            inconsistent_start = run(["/bin/sh", str(IPERF_SCRIPT), "start"], env)
+            assert inconsistent_start.returncode == 2, (
+                "iperf3 must reject inconsistent pidof status/output"
+            )
+            assert start_log.read_text().count("-S -b") == starts_before
+
+        env.pop("MOCK_PIDOF_OVERRIDE")
+        env.pop("MOCK_PIDOF_STATUS")
+        env.pop("MOCK_PIDOF_OUTPUT")
 
         stopped = run(["/bin/sh", str(IPERF_SCRIPT), "stop"], env)
         assert stopped.returncode == 0, stopped.stderr
