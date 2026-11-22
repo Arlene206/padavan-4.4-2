@@ -241,6 +241,20 @@ test_nat_remote_listener_toggles_missing_default_and_backend_failure(void)
 }
 
 static void
+test_filter_multicast_toggle_missing_default_and_backend_failure(void)
+{
+	int enabled = 31;
+
+	/* Exact-match multicast policy remains disabled when its key is absent. */
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &enabled) == 0);
+	assert(enabled == 0);
+
+	enabled = 31;
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &enabled) == EIO);
+	assert(enabled == 31);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -296,6 +310,7 @@ main(void)
 	test_dns_redirect_toggle_missing_default_and_backend_failure();
 	test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed();
 	test_nat_remote_listener_toggles_missing_default_and_backend_failure();
+	test_filter_multicast_toggle_missing_default_and_backend_failure();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

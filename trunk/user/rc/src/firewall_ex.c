@@ -2008,6 +2008,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int i_mac_filter_count = 0;
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
+	int is_multicast_enabled = 0;
 	int is_sshd_enabled = 1, is_ftp_enabled = 1;
 #if defined (APP_XUPNPD)
 	int is_xupnpd_enabled;
@@ -2188,6 +2189,12 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	}
 #endif
 
+	/* Snapshot multicast policy before staging any IPv4 filter rules. */
+	if (is_fw_enabled) {
+		ret = firewall_read_enabled_setting("mr_enable_x", &is_multicast_enabled);
+		if (ret != 0)
+			return ret;
+	}
 	/* Check remote-listener policy and ports before staging any filter rules. */
 	if (is_fw_enabled) {
 		i_http_proto = 0;
@@ -2389,7 +2396,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		fprintf(fp, "-A %s -m %s %s -j %s\n", dtype, CT_STATE, "INVALID", logdrop);
 		
 		/* Accept multicast (all, except udp port 1900) */
-		if (nvram_match("mr_enable_x", "1") || is_udpxy_enabled
+		if (is_multicast_enabled || is_udpxy_enabled
 #if defined (APP_XUPNPD)
 		 || is_xupnpd_enabled
 #endif
@@ -2615,7 +2622,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		fprintf(fp, "-A %s -m %s %s -j %s\n", dtype, CT_STATE, "INVALID", logdrop);
 		
 		/* Pass multicast (do not log) */
-		if (nvram_match("mr_enable_x", "1"))
+		if (is_multicast_enabled)
 			fprintf(fp, "-A %s -p udp -d 224.0.0.0/4 -j %s\n", dtype, "ACCEPT");
 #if 0
 		/* Filter out invalid WAN->WAN connections */
@@ -3010,6 +3017,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	int i_bfp_mode = 0;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
+	int is_multicast_enabled = 0;
 	int is_vpns_enabled = 0, i_vpns_type = 0;
 	int is_misc_http_enabled = 0, is_udpxy_wopen = 0;
 #if defined (SUPPORT_HTTPS)
@@ -3109,6 +3117,9 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 
 	/* Resolve inverted IPv6 filter selectors before opening the rule file. */
 	if (is_fw_enabled) {
+		ret = firewall_read_enabled_setting("mr_enable_x", &is_multicast_enabled);
+		if (ret != 0)
+			return ret;
 		ret = firewall_read_not_zero_setting("misc_ping_x", &is_ping_enabled);
 		if (ret != 0)
 			return ret;
@@ -3314,7 +3325,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		fprintf(fp, "-A %s -m %s %s -j %s\n", dtype, CT_STATE, "INVALID", logdrop);
 		
 		/* Accept all multicast (do not log) */
-		if (nvram_match("mr_enable_x", "1"))
+		if (is_multicast_enabled)
 			fprintf(fp, "-A %s -d ff00::/8 -j %s\n", dtype, "ACCEPT");
 		
 		/* Accept DHCPv6 */
@@ -3468,7 +3479,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		fprintf(fp, "-A %s -m %s %s -j %s\n", dtype, CT_STATE, "INVALID", logdrop);
 		
 		/* Pass multicast (do not log) */
-		if (nvram_match("mr_enable_x", "1"))
+		if (is_multicast_enabled)
 			fprintf(fp, "-A %s -d ff00::/8 -j %s\n", dtype, "ACCEPT");
 #if 0
 		/* Filter out invalid WAN->WAN connections */

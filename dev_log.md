@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on IPv4/IPv6 filter multicast toggle reads
+
+- Parent main SHA: `e9a5b1fbdda849d74deb59a89a6653b25f26c26e`. Firewall Startup #44983346287, WAN DHCP #44983346264, WAN route #44983346267, HTTPD #44983346285, FULLCONENAT #44983346271, process inventory #44983346353 and AI handoff #44983346275 all PASS. The firewall log includes `Firewall rp_filter sysctl status policy: PASS`. XY-C1 #44983346281 (job #137088453878) and NVRAM #44983346304 (job #137088514305) were still running at last poll.
+- Four IPv4/IPv6 filter rule sites still used unchecked `nvram_match("mr_enable_x", "1")` to decide multicast ACCEPT rules. A transient NVRAM failure could silently omit multicast handling while other filter policy was assembled from checked snapshots.
+- Both `ipt_filter_rules()` and `ip6t_filter_rules()` now read the multicast toggle once through `firewall_read_enabled_setting()` before rule-file staging and reuse that value for their input/forward multicast rules. Missing-key behavior remains disabled; backend errors abort before publication.
+- Added GNU89/Werror/ASan/UBSan policy coverage for missing false and backend output preservation, and workflow assertions for both filter builders' checked pre-stage read and absence of unchecked matches. Exact-head Firewall Startup pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Check NAT remote-listener gates before staging DNAT rules
 
 - Parent main SHA: `7f88931cf6c433eab982878aa4c9a8037481e28d`. Exact Firewall Startup #44983346287, WAN DHCP #44983346264, WAN route #44983346267, HTTPD #44983346285, FULLCONENAT #44983346271, Process inventory #44983346353 and AI handoff #44983346275 all PASS. The firewall log includes the rp_filter source contracts and `Firewall rp_filter sysctl status policy: PASS`. XY-C1 #44983346281 and NVRAM #44983346304 were still running at the last poll.
