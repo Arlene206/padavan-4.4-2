@@ -79,6 +79,12 @@ mkdir -p "$PL_PROC_ROOT/323"
 printf '%s\n' 'not a proc stat record' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 2 ] || fail "malformed proc stat was classified as $actual"
+printf '%s\n' '323 (test-daemon) BROKEN 1 2 3' > "$PL_PROC_ROOT/323/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "invalid proc task state was classified as $actual"
+printf '%s\n' '999 (test-daemon) S 1 2 3' > "$PL_PROC_ROOT/323/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "mismatched proc PID was classified as $actual"
 printf '%s\n' '323 (test-daemon) Z 1 2 3' > "$PL_PROC_ROOT/323/stat"
 if pl_process_state test-daemon; then actual=0; else actual=$?; fi
 [ "$actual" -eq 1 ] || fail "zombie daemon was classified as $actual"

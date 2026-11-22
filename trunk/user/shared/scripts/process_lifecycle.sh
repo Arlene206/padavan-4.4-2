@@ -37,15 +37,21 @@ pl_process_state()
                     [ -d "$pl_proc_dir" ] || continue
                     return 2
                 fi
+                # The PID field must match the procfs directory. Parsing
+                # only a command name and a nonempty state can misclassify a
+                # truncated or malformed stat record as a live task.
                 case "$pl_proc_stat" in
-                    *") "*) ;;
+                    "$pl_proc_pid ("*) ;;
                     *) return 2 ;;
                 esac
                 pl_proc_name=${pl_proc_stat#*(}
                 pl_proc_name=${pl_proc_name%)*}
                 pl_proc_fields=${pl_proc_stat##*) }
                 pl_proc_state=${pl_proc_fields%% *}
-                [ -n "$pl_proc_state" ] || return 2
+                case "$pl_proc_state" in
+                    R|S|D|Z|T|t|X|x|K|W|P|I) ;;
+                    *) return 2 ;;
+                esac
                 case "$pl_proc_state" in Z|X|x) continue ;; esac
                 [ "$pl_proc_name" = "$pl_name" ] && return 0
             done

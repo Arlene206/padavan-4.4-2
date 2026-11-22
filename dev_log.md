@@ -1,3 +1,8 @@
+## 2026-11-22 — Validate procfs stat PID and state fields before classifying absence
+
+- Review of the new pidof-absence fallback found that it treated any nonempty token after \`") "\` as a valid task state. A malformed record such as \`323 (test-daemon) BROKEN ...\` could therefore be misclassified as RUNNING instead of UNKNOWN; it also did not verify that the stat record's PID matched the enumerated procfs directory.
+- Added explicit directory-PID matching and a whitelist of Linux task-state codes (including the kernel-4.4 states and modern idle state). Extended the shared process regression with invalid-state and PID-mismatch records, while retaining zombie exclusion. Exact-head Process CI pending.
+
 ## 2026-11-22 — Reject malformed Aria2 stop PID snapshots before signaling
 
 - The exact USB storage regression on `9686ad35850b6e183c65b8e8408fce1e62088410` exposed that Aria2's stop controller still accepted PID tokens with leading zeroes (`0123`). Its `''|0|1` pattern rejected only the single token `0`, and whitespace-only successful output was also able to pass an empty `for` loop and reach the name-wide graceful `killall`.
