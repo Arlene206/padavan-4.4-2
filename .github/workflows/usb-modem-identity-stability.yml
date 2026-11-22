@@ -235,7 +235,7 @@ jobs:
           assert "metadata_status = metadata_status != 0 ? metadata_status : 1;" in net_remove
           assert net_remove.index("ifconfig(device_name, 0, \"0.0.0.0\", NULL)") < net_remove.index("get_interface_flags(device_name)") < net_remove.index("modem_wan_unplug_interface_down_result(")
           assert net_remove.index("modem_wan_unplug_interface_down_result(") < net_remove.index('notify_usb_hotplug_event("on_unplug_usb_modem", device_name)')
-          assert "Always notify the WAN owner" in net_remove
+          assert "Preserve mandatory WAN cleanup on physical unplug" in net_remove
           assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in net_remove
           assert "modem_wan_hotplug_notification_result(" in net_remove
           net_plug_start = net.index('if (nvram_invmatch("modem_prio", "0")')

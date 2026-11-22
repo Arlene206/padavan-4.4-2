@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; the only development branch is `main`.
-- Parent main SHA for the current source-integration correction: `ff6e5b90051317d81b14427829ccc1999c2f572b`. The checked modem identity behavior is in the preceding commit; this commit adds the required local policy-header include to `services_usb.c` so the static-inline auto-start gate is defined in that translation unit.
+- Parent main SHA for the current USB identity checker correction: `be7b6c73d92af9de68a365156d69ad84e1eb81ab`. The source slice is committed across its preceding two commits; this update aligns the source contract with the new conservative unplug behavior.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed and unmerged. Do not touch the backup or revive the PR.
 - The GitHub Git data API is the current editing path; a complete local firmware checkout/toolchain is unavailable in this execution environment.
 
@@ -36,17 +36,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Verification boundary
 
-- Parent main SHA: `ff6e5b90051317d81b14427829ccc1999c2f572b`; THIS correction adds `#include "modem_wan_start_policy.h"` to `services_usb.c`. The auto-start policy functions are static inline; the explicit include is required for compile/link correctness.
-- Exact push Actions for the preceding behavior commit `ff6e5b90051317d81b14427829ccc1999c2f572b` were in progress at last poll: AI handoff docs #44971644605; XY-C1 Firmware Validation #44971644588; NVRAM transaction audit #44971644611; Process lifecycle inventory #44971644652; USB storage hotplug #44971644630; HTTPD auth/security #44971644660; Process inventory/lifecycle fail-closed #44971644640; USB modem identity #44971644620. These runs do not validate this include correction; all must be checked by their exact SHA and the new main SHA.
-- The previous parent SHA `6444ce9468a81e8f52b7636990b93ba994b7235a` had AI docs #44971100969 PASS, WAN route #44971100970 PASS and Process lifecycle #44971100963 PASS; USB modem identity #44971100959 failed only at the now-corrected multiline reconnect contract.
-- No local full firmware checkout/toolchain is available. Same-SHA GNU89/ASan/UBSan policy tests and XY-C1 Build/TRX/artifact remain required. Hardware L4 remains NOT VERIFIED.
+- Parent main SHA: `be7b6c73d92af9de68a365156d69ad84e1eb81ab`; the preceding behavior commit added status-aware NDIS/TTY unplug cleanup and strict modem auto-start gating. The subsequent commit added the required `modem_wan_start_policy.h` include in `services_usb.c`.
+- Exact USB identity run #44971644620 on behavior SHA `ff6e5b90051317d81b14427829ccc1999c2f572b` failed in the final static contract at `assert "Always notify the WAN owner" in net_remove`. The production branch correctly no longer always queues the event for known non-modem devices; it does queue on known modem or unreadable identity. The checker now asserts the accurate mandatory-cleanup comment instead. All eight preceding GNU89/ASan/UBSan compile-and-run test steps passed, including the extended modem WAN policy test.
+- On that same exact SHA, AI handoff #44971644605 PASS, HTTPD auth/security #44971644660 PASS and Process lifecycle inventory #44971644652 PASS; XY-C1 #44971644588 was IN_PROGRESS, while NVRAM audit #44971644611, USB storage #44971644630 and Process inventory/lifecycle #44971644640 were cancelled after subsequent main updates. These do not validate the latest main SHA.
+- The checker correction and source-header include require fresh exact-head runs. No local full firmware checkout/toolchain is available. Same-SHA GNU89/ASan/UBSan tests and XY-C1 Build/TRX/artifact remain required; hardware L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Actions for the current main SHA and the preceding `ff6e5b90051317d81b14427829ccc1999c2f572b` runs above; specifically require USB identity, host regressions, AI docs and XY-C1 Build/TRX/artifact on the new SHA.
-2. Continue the remaining status-aware migration in `usb_modem.c::notify_modem_on_wan_ether_link_changed()`, `rc.c::RCN_RESTART_MODEM`, and `detect_link.c`. An unknown identity must abort modem module/service restart; display-only LED classification should conservatively avoid claiming ordinary non-modem WAN.
-3. Preserve physical-unplug behavior: an identity-read failure must not suppress the WAN teardown notification; preserve deferred event retry semantics.
+1. Check exact-head USB identity and AI handoff Actions on the latest main SHA; inspect XY-C1 Build/TRX/artifact plus WAN route and Process lifecycle where triggered. Fix any red exact-head check before treating the slice as validated.
+2. Continue the remaining checked selector migration in `usb_modem.c::notify_modem_on_wan_ether_link_changed()`, `rc.c::RCN_RESTART_MODEM`, and `detect_link.c`. An unknown identity must abort module/service restart; LED-only display logic should conservatively use modem classification.
+3. Preserve physical-unplug behavior: an identity-read failure must not suppress WAN teardown notification; keep deferred-event retry semantics intact.
 
 ## Workflow and preservation rules
 

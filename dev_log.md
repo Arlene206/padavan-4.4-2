@@ -1,3 +1,14 @@
+## 2026-11-22 — Align unplug identity source contract with conservative cleanup
+
+- Parent main SHA: `be7b6c73d92af9de68a365156d69ad84e1eb81ab`.
+- Exact USB modem identity run #44971644620 failed at the pre-existing comment assertion `Always notify the WAN owner`. The new production behavior intentionally notifies only for known modem identity or an unreadable identity; a known non-modem unplug is not a WAN modem event.
+- Updated the contract to require the accurate `Preserve mandatory WAN cleanup on physical unplug` statement. This is a checker-only correction; no production behavior changed.
+- All eight preceding GNU89/ASan/UBSan compile-and-run regression steps passed on behavior SHA `ff6e5b90051317d81b14427829ccc1999c2f572b`, including the added unknown-identity policy tests. AI handoff docs, HTTPD auth/security and Process lifecycle inventory also passed on that SHA; XY-C1 was still in progress at last poll.
+- THIS COMMIT updates the workflow assertion, handoff and log atomically. Fresh exact-head USB identity/AI docs and target Build/TRX/artifact results remain required.
+- Next: confirm current-head CI, then migrate the remaining selectors in `usb_modem.c`, `rc.c` and `detect_link.c`.
+
+---
+
 ## 2026-11-22 — Include modem WAN start policy in USB service translation unit
 
 - Parent main SHA: `ff6e5b90051317d81b14427829ccc1999c2f572b`.
