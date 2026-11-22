@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
 policy = (ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+route_policy = (ROOT / "trunk/user/rc/src/wan_route_flush_policy.h").read_text()
+route_test = (ROOT / "trunk/user/rc/src/tests/wan_route_flush_policy.c").read_text()
 
 
 def code_characters(text, start):
@@ -509,16 +511,33 @@ restart_manual_read_error_at = full_restart.index("if(ifname_status!=0)", restar
 restart_manual_nonempty_at = full_restart.index("if(man_ifname_nvram[0])", restart_manual_read_error_at)
 restart_manual_validate_at = full_restart.index(restart_manual_validate, restart_manual_nonempty_at)
 restart_manual_validate_error_at = full_restart.index("if(ifname_status!=0)", restart_manual_validate_at)
+route_select_call = (
+    "rc_wan_route_flush_select_interfaces(man_ifname,IFNAME_BR,route_ifnames,"
+    "sizeof(route_ifnames)/sizeof(route_ifnames[0]),&route_ifname_count)"
+)
+restart_route_select_at = full_restart.index(route_select_call)
 restart_mode_update_at = full_restart.index("update_router_mode()")
-restart_stop_wan_at = full_restart.index("stop_wan()")
-restart_route_use_at = full_restart.index("route_ifnames[0]=man_ifname")
+restart_stop_wan_at = full_restart.index("status=stop_wan()")
+restart_route_flush_at = full_restart.index("route_flush_status=rc_wan_route_flush_and_cache_apply(")
 require(restart_manual_read_at < restart_manual_read_error_at < restart_manual_nonempty_at <
         restart_manual_validate_at < restart_manual_validate_error_at <
-        restart_mode_update_at < restart_stop_wan_at < restart_route_use_at and
+        restart_route_select_at < restart_mode_update_at < restart_stop_wan_at <
+        restart_route_flush_at and
         "man_ifname[0]='\\0';" in full_restart and
+        "route_ifnames,route_ifname_count,clear_if_route4,flush_route_caches);" in full_restart and
+        "route_ifnames[0]=man_ifname" not in full_restart and
         "get_man_ifname(0)" not in full_restart and
         "errno=ifname_status;" in full_restart,
-        "full WAN restart must check and preserve route interface identity before stopping WAN")
+        "full WAN restart must select an optional manual interface and required bridge before destructive changes")
+route_select = "".join(body(route_policy, "rc_wan_route_flush_select_interfaces(").split())
+require("optional_ifname&&optional_ifname[0]" in route_select and
+        "!required_ifname||!required_ifname[0]" in route_select and
+        "capacity<2" in route_select and
+        "test_empty_optional_interface_selects_only_required_bridge" in route_test and
+        "test_manual_interface_and_bridge_are_both_selected_in_order" in route_test and
+        "test_route_interface_selection_rejects_missing_bridge_and_small_buffer" in route_test,
+        "WAN route selector must omit an unset optional interface and retain the required LAN bridge")
+
 manual_disconnect = "".join(body(source, "manual_wan_disconnect(void)").split())
 manual_modem_read = "status=get_usb_modem_wan_status(0,&is_usb_modem)"
 manual_proto_read = "status=get_wan_unit_proto_checked_status(0,&wan_proto);"

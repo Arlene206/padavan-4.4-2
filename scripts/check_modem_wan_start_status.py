@@ -634,11 +634,21 @@ assert "if (!ifnames[i] || !ifnames[i][0])" in route_policy
 assert "test_all_interfaces_are_attempted_and_first_error_is_preserved" in ROUTE_FLUSH_POLICY_TEST
 assert "test_invalid_interface_does_not_skip_other_cleanup" in ROUTE_FLUSH_POLICY_TEST
 full_restart_routes = compact(body(WAN_SOURCE, "full_restart_wan(void)"))
+route_select = compact(body(ROUTE_FLUSH_POLICY_SOURCE, "rc_wan_route_flush_select_interfaces("))
+assert "optional_ifname && optional_ifname[0]" in route_select
+assert "!required_ifname || !required_ifname[0]" in route_select
+assert "capacity < 2" in route_select and "return ENOSPC;" in route_select
+assert "test_empty_optional_interface_selects_only_required_bridge" in ROUTE_FLUSH_POLICY_TEST
+assert "test_manual_interface_and_bridge_are_both_selected_in_order" in ROUTE_FLUSH_POLICY_TEST
+assert "test_route_interface_selection_rejects_missing_bridge_and_small_buffer" in ROUTE_FLUSH_POLICY_TEST
 route_apply_pos = full_restart_routes.index("route_flush_status = rc_wan_route_flush_and_cache_apply(")
 route_apply_end = full_restart_routes.index("flush_route_caches);", route_apply_pos)
 route_gate_pos = full_restart_routes.index("if (route_flush_status != 0)")
-assert route_apply_pos < route_apply_end < route_gate_pos < full_restart_routes.index("phy_clear_mac_table()")
-assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in full_restart_routes
+route_select_pos = full_restart_routes.index("rc_wan_route_flush_select_interfaces(")
+route_stop_pos = full_restart_routes.index("status = stop_wan();")
+assert route_select_pos < route_stop_pos < route_apply_pos < route_apply_end < route_gate_pos < full_restart_routes.index("phy_clear_mac_table()")
+assert "route_ifnames, route_ifname_count, clear_if_route4, flush_route_caches);" in full_restart_routes
+assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" not in full_restart_routes
 assert "interface routes or the global route cache could not be flushed" in full_restart_routes
 route_restore_pos = full_restart_routes.index(
     "status = rc_wan_restore_lan_routes_after_failed_step(", route_gate_pos)

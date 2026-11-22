@@ -1,3 +1,12 @@
+## 2026-11-22 — Align WAN route contracts with optional-device selection
+
+- Parent main SHA: `45a78362cb1c4a6082514049d309508f80e9e28a`; production change is `b56e0b5c14a7b15dfe39a973dfa38eea7b2dda70`.
+- The b56e0b5 route policy test printed PASS under WAN route #45045047588, HTTPD security #45045047671, firewall #45045047557, modem identity #45045047641, process lifecycle #45045047662 and XY-C1 #45045047511. The jobs failed only after the C test, in stale Python/source checks still pinned to the removed two-element assumption: `check_wan_dns_read_status.py:514` required `route_ifnames[0]=man_ifname`; `check_modem_wan_start_status.py:641` required `route_ifnames,2,...`; `httpd-security.yml:1389` required that same fixed count. Firewall, process and XY-C1 failures also reached the modem checker. No production source regression was exposed by those failures.
+- Updated WAN DNS-read, modem WAN-start and HTTPD inline source contracts to require the route selector to run before `stop_wan()`, include the bridge unconditionally, include the manual interface only when nonempty, pass the selected count into the unchanged strict flush helper, and retain regression coverage for unset/configured interface cases. The XY path filter includes `scripts/check_modem_wan_start_status.py`.
+- Exact b56e0b5 C route selector tests did pass in all five affected host workflows. All source-check reruns must be assessed on a single exact current SHA; the older XY-C1 job failed in host validation before Build/TRX/artifact, so L3 remains NOT VERIFIED. No local tests or firmware build were run; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Keep full WAN restart safe when manual interface is unset
 
 - Parent main SHA: `11576ae4e50f8bb063682bbb94929a7bae394a47`. Current code explicitly accepts an empty `wan0_ifname` and sets `man_ifname[0] = '\\0'`, but then passed that empty string as one of two required devices to `rc_wan_route_flush_and_cache_apply()`. The policy correctly returns `EINVAL` for empty device names; this happened only after `stop_wan()`, so a restart with no manual WAN device could stop services, flush the global cache, then abort before the remaining restart sequence.

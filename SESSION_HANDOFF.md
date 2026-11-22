@@ -13,15 +13,15 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `11576ae4e50f8bb063682bbb94929a7bae394a47`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `45a78362cb1c4a6082514049d309508f80e9e28a`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and untouched.
 - Recent work includes EAPoL orphan-tail cleanup, p910nd transient I/O handling, checked iNIC TxPower preflight, AliyunDrive process/HTTP readiness and AliDDNS NUL-delimited configuration fingerprint. See exact-SHA entries in `dev_log.md` for validation boundaries.
 - The checked NVRAM CLI and AliyunDrive fail-closed startup-read slice is now closed at L1/L2 on exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`.
-- New WAN route slice: `full_restart_wan()` explicitly permits an empty `wan0_ifname` but previously passed it as a required flush target after `stop_wan()`. The route-flush policy returns `EINVAL` for an empty device, so a restart with no manual interface would stop WAN and then abort. The in-progress change selects the manual WAN interface only when nonempty, always retains `br0`, and validates the route set before stopping services.
+- New WAN route slice: `full_restart_wan()` explicitly permits an empty `wan0_ifname` but previously passed it as a required flush target after `stop_wan()`. The route-flush policy returns `EINVAL` for an empty device, so a restart with no manual interface would stop WAN and then abort. The production fix and three policy regressions are committed at `b56e0b5c14a7b15dfe39a973dfa38eea7b2dda70`; `45a78362` corrected one selector source assertion. The route-selector C regression itself printed PASS in the exact `b56e0b5` WAN, HTTPD and XY test runs. Four Python/source contracts were stale because they still required the removed fixed two-entry array/`route_ifnames[0]` assignment; the present commit updates those contracts to verify optional manual-interface selection, mandatory bridge retention, ordering before WAN stop, and actual dynamic count.
 
 ## Active task
 
-Close the optional-manual-interface WAN route-flush defect with policy regression and exact source contract. Confirm empty `wan0_ifname` selects only `br0`, while a configured manual interface still flushes both devices. Then verify the exact-head WAN route and XY-C1 workflows.
+Verify the corrected route-source contracts across WAN DNS-read, modem WAN-start, HTTPD security and XY-C1 checks. The first b56e0b5 run passed the new C policy test but failed three contracts that still expected the old two-interface call; close all remaining stale contracts and then inspect the exact source SHA's XY-C1 Build/TRX/artifact stages.
 
 ## Verification boundary
 
@@ -32,6 +32,6 @@ Close the optional-manual-interface WAN route-flush defect with policy regressio
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN route operation regression after the optional-interface selection change; review every step and diagnose the first failure.
-2. Inspect the triggered XY-C1 Build, TRX validation and artifact-upload results on the exact same source SHA; do not reuse the older 3556d29 artifact.
-3. Continue an independent stability/security defect while any Actions remain pending. Keep the frozen backup read-only and develop only on main.
+1. Inspect exact-head WAN route # (including the DNS-read script contract) and HTTPD # jobs; verify all updated source-contract steps pass.
+2. Inspect XY-C1 host validation and actual Build, TRX and artifact-upload steps on the exact same source SHA. Do not reuse ancestor artifacts.
+3. Continue an independent stability/security defect while Actions are pending; keep the frozen backup read-only and work only on main.

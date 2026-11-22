@@ -1386,7 +1386,13 @@ jobs:
           full_restart_routes = body(net_wan, "full_restart_wan(void)")
           full_restart_compact = " ".join(full_restart_routes.split())
           assert "route_flush_status = rc_wan_route_flush_and_cache_apply(" in full_restart_compact
-          assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in full_restart_compact
+          assert "rc_wan_route_flush_select_interfaces(" in full_restart_compact
+          assert "route_ifnames, route_ifname_count, clear_if_route4, flush_route_caches);" in full_restart_compact
+          assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" not in full_restart_compact
+          assert full_restart_compact.index("rc_wan_route_flush_select_interfaces(") < full_restart_compact.index("stop_wan()") < full_restart_compact.index("route_flush_status = rc_wan_route_flush_and_cache_apply(")
+          assert "test_empty_optional_interface_selects_only_required_bridge" in route_flush_test
+          assert "test_manual_interface_and_bridge_are_both_selected_in_order" in route_flush_test
+          assert "test_route_interface_selection_rejects_missing_bridge_and_small_buffer" in route_flush_test
           assert full_restart_compact.index("if (route_flush_status != 0)") < full_restart_compact.index("phy_clear_mac_table()")
           assert "interface routes or the global route cache could not be flushed" in full_restart_routes
           route_flush_restore = full_restart_routes.index(
