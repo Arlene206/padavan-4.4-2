@@ -177,7 +177,6 @@ on:
       - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
-      - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
       - "trunk/user/shared/src/Makefile"

@@ -34,6 +34,15 @@ case "$1" in
       *) printf '\n' ;;
     esac
     ;;
+  get_checked)
+    case "$2" in
+      wan_ifname) printf '%s\n' br0 ;;
+      mentohust_nic) printf '%s\n' "${MENTOHUST_NIC:-br0}" ;;
+      mentohust_username) printf '%s\n' "${MENTOHUST_USERNAME:-}" ;;
+      mentohust_password) printf '%s\n' "${MENTOHUST_PASSWORD:-}" ;;
+      *) printf '\n' ;;
+    esac
+    ;;
   set|commit) exit 0 ;;
   *) exit 1 ;;
 esac
