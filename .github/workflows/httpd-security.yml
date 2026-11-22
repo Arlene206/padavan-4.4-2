@@ -2350,11 +2350,14 @@ jobs:
           assert 'get_wan_unit_value_copy_status(unit, "man_gateway", peer, peer_size)' in peer_check
           assert xl2tp.index("get_wan_ppp_peer_copy(unit, wan_peer") < xl2tp.index('fopen(l2tp_conf, "w")')
           assert xl2tp.index('get_wan_unit_value_copy_status(') < xl2tp.index('fopen(l2tp_conf, "w")')
-          for value_copy in (
-              'ppp_config_line_value_copy(nvram_safe_get("vpnc_peer"), vpnc_peer, sizeof(vpnc_peer))',
-              'ppp_config_line_value_copy(nvram_safe_get("vpnc_user"), vpnc_user, sizeof(vpnc_user))'
-          ):
-              assert value_copy in xl2tp
+          # VPN client peer/user selectors are consumed from one checked
+          # transaction snapshot before the shared xl2tpd config is opened.
+          assert "xl2tpd_read_config_snapshot(&config_snapshot)" in xl2tp
+          assert "config_snapshot.vpnc_peer" in xl2tp
+          assert "config_snapshot.vpnc_user" in xl2tp
+          assert xl2tp.index("xl2tpd_read_config_snapshot(&config_snapshot)") < xl2tp.index('fopen(l2tp_conf, "w")')
+          assert 'nvram_safe_get("vpnc_peer")' not in xl2tp
+          assert 'nvram_safe_get("vpnc_user")' not in xl2tp
           assert 'fprintf(fp, "hostname = %s\\n", hostname);' in xl2tp
           assert 'fprintf(fp, "lns = %s\\n", wan_peer);' in xl2tp
           assert 'fprintf(fp, "name = %s\\n", wan_user);' in xl2tp
