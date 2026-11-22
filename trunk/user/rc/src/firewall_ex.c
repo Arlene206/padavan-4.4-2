@@ -3814,7 +3814,7 @@ FILE *fp;
 	int i_aria_pport = 0, i_aria_rport = 0;
 #endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
-	int vts_status;
+	int vts_status, saved_errno;
 #if defined (USE_IPV6)
 	int ipv6_type;
 #endif

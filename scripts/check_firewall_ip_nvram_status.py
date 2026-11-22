@@ -113,6 +113,7 @@ for gate in (position for position in range(len(filter_builder))
     assert "firewall_rule_file_remove(ipt_file);" in cleanup
     assert "return -1;" in cleanup
 nat_builder = body(SOURCE, "ipt_nat_rules(char *man_if")
+assert "int vts_status, saved_errno;" in nat_builder
 assert "vts_status = include_vts_nat(fp, i_vts_count);" in nat_builder
 assert "if (vts_status != 0)" in nat_builder
 nat_gate = nat_builder.index("if (vts_status != 0)")
