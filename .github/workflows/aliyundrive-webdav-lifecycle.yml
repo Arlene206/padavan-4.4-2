@@ -18,6 +18,9 @@ on:
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/configs/boards/busybox.config"
       - "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
+      - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+      - "scripts/check_dev_init_boot.py"
   pull_request:
     paths:
       - ".github/workflows/aliyundrive-webdav-lifecycle.yml"
@@ -35,6 +38,9 @@ on:
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/configs/boards/busybox.config"
       - "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
+      - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+      - "scripts/check_dev_init_boot.py"
 
 permissions:
   contents: read
@@ -58,5 +64,9 @@ jobs:
         run: python3 scripts/test_aliyundrive_webdav_binary.py
       - name: Run AliyunDrive WebDAV lifecycle regression
         run: sh trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh
+      - name: Verify early private lock provisioning before mdev
+        run: |
+          sh trunk/user/scripts/tests/dev_init_boot_policy.sh
+          python3 scripts/check_dev_init_boot.py
       - name: Verify AliyunDrive WebDAV source and RC integration contracts
         run: python3 scripts/check_aliyundrive_webdav_lifecycle.py

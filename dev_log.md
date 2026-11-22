@@ -1,3 +1,11 @@
+## 2026-11-22 — Protect AliyunDrive lifecycle serialization from shared /var/lock replacement
+
+- The target boot setup creates `/var/lock` with mode 0777 and no sticky bit, while the AliyunDrive launcher previously created/opened a predictable lock there. A local user could unlink or replace that path while a transition held the old inode, allowing another start/stop operation to acquire a different inode and bypass serialization; a symlink/hardlink could also redirect the lock to an unrelated inode.
+- Provisioned `/tmp/aliyundrive-webdav.lock` exclusively with the existing `required_lock_file` helper after `/tmp` is made root-owned sticky and before `mdev -s`. The launcher now refuses missing, symlinked, multiply-linked, non-0600, wrongly-owned or replaceable-directory lock paths, and never creates the lock itself. This keeps the flock inode stable for the entire boot.
+- Added host regressions for symlink, hardlink, permissive mode, missing path and non-sticky writable-directory rejection; extended dev_init provisioning/order contracts and wired those tests into AliyunDrive lifecycle CI. Exact-head Actions are pending; no device runtime claim.
+
+---
+
 ## 2026-11-22 — Require decimal-only procfs process start times
 
 - Hardened the procfs stat parser against signed start-time tokens. `strtoull()` accepts a leading sign (including `-1` as an unsigned value), but the kernel's `starttime` field is an unsigned decimal counter; accepting a signed token could turn malformed procfs data into a valid process identity.

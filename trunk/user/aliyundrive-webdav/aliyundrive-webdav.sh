@@ -5,7 +5,8 @@ ALD_BIN=/usr/bin/aliyundrive-webdav
 ALD_WORK_DIR="/tmp/$NAME"
 ALD_STOP_WAIT_SECONDS=5
 ALD_START_WAIT_SECONDS=10
-ALD_LOCK_FILE=${ALD_LOCK_FILE:-/var/lock/aliyundrive-webdav.lock}
+# dev_init provisions this owner-only lock in sticky /tmp before starting mdev.
+ALD_LOCK_FILE=${ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}
 
 ald_process_state() {
   # pidof has three outcomes: RUNNING, confirmed ABSENT, or UNKNOWN.
@@ -137,24 +138,74 @@ ald_wait_started() {
 
 ald_run_locked() {
   case "$ALD_LOCK_FILE" in
-    */*)
-      ald_lock_dir=${ALD_LOCK_FILE%/*}
+    /*)
+      ald_lock_dir=\${ALD_LOCK_FILE%/*}
       [ -n "$ald_lock_dir" ] || ald_lock_dir=/
       ;;
     *)
-      ald_lock_dir=.
+      logger -t "阿里云盘" "生命周期锁路径必须是绝对路径"
+      return 1
       ;;
   esac
-  if ! mkdir -p "$ald_lock_dir"; then
-    logger -t "阿里云盘" "无法创建生命周期锁目录"
+
+  # /tmp is root-owned and sticky; private test/work directories must not
+  # be group/world writable unless sticky. Refuse lock-path substitution.
+  if [ -L "$ald_lock_dir" ] || [ ! -d "$ald_lock_dir" ] ||
+     [ -L "$ALD_LOCK_FILE" ] || [ ! -f "$ALD_LOCK_FILE" ]; then
+    logger -t "阿里云盘" "生命周期锁或其目录不是可信普通路径"
     return 1
   fi
-  # Keep one stable inode: never unlink the lock file after releasing it.
-  (umask 077; : >> "$ALD_LOCK_FILE") || {
-    logger -t "阿里云盘" "无法打开生命周期锁文件"
+  ald_lock_uid=$(id -u 2>/dev/null) || {
+    logger -t "阿里云盘" "无法确认生命周期锁所有者"
     return 1
   }
-  exec 9>>"$ALD_LOCK_FILE"
+  ald_lock_dir_owner=$(stat -c %u "$ald_lock_dir" 2>/dev/null) || {
+    logger -t "阿里云盘" "无法确认生命周期锁目录所有者"
+    return 1
+  }
+  ald_lock_dir_mode=$(stat -c %a "$ald_lock_dir" 2>/dev/null) || {
+    logger -t "阿里云盘" "无法确认生命周期锁目录权限"
+    return 1
+  }
+  case "$ald_lock_dir_mode" in
+    ''|*[!01234567]*)
+      logger -t "阿里云盘" "生命周期锁目录权限无效"
+      return 1
+      ;;
+  esac
+  ald_lock_dir_mode_value=$((0$ald_lock_dir_mode))
+  ald_lock_dir_write_bits=$((ald_lock_dir_mode_value & 0022))
+  ald_lock_dir_sticky=$((ald_lock_dir_mode_value & 01000))
+  if [ "$ald_lock_dir_owner" != "$ald_lock_uid" ] ||
+     { [ "$ald_lock_dir_write_bits" -ne 0 ] && [ "$ald_lock_dir_sticky" -eq 0 ]; }; then
+    logger -t "阿里云盘" "生命周期锁目录可被其他用户替换"
+    return 1
+  fi
+
+  ald_lock_owner=$(stat -c %u "$ALD_LOCK_FILE" 2>/dev/null) || {
+    logger -t "阿里云盘" "无法确认生命周期锁文件所有者"
+    return 1
+  }
+  ald_lock_links=$(stat -c %h "$ALD_LOCK_FILE" 2>/dev/null) || {
+    logger -t "阿里云盘" "无法确认生命周期锁文件链接数"
+    return 1
+  }
+  ald_lock_mode=$(stat -c %a "$ALD_LOCK_FILE" 2>/dev/null) || {
+    logger -t "阿里云盘" "无法确认生命周期锁文件权限"
+    return 1
+  }
+  if [ "$ald_lock_owner" != "$ald_lock_uid" ] ||
+     [ "$ald_lock_links" != 1 ] || [ "$ald_lock_mode" != 600 ]; then
+    logger -t "阿里云盘" "生命周期锁必须是当前用户独占的 0600 普通文件"
+    return 1
+  fi
+
+  # dev_init creates this inode atomically in sticky /tmp; never create,
+  # follow or replace a lock path during a service transition.
+  if ! exec 9>>"$ALD_LOCK_FILE"; then
+    logger -t "阿里云盘" "无法打开生命周期锁文件"
+    return 1
+  fi
   if ! flock -n 9; then
     exec 9>&-
     logger -t "阿里云盘" "另一个生命周期操作正在执行"

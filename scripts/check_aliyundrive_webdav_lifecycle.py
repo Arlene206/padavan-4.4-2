@@ -21,6 +21,9 @@ WEB_EX_PATH = ROOT / "trunk/user/httpd/src/web_ex.c"
 WORKFLOW_PATH = ROOT / ".github/workflows/aliyundrive-webdav-lifecycle.yml"
 BUSYBOX_CONFIG_PATH = ROOT / "trunk/configs/boards/busybox.config"
 FLOCK_SOURCE_PATH = ROOT / "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
+DEV_INIT_PATH = ROOT / "trunk/user/scripts/files/sbin/dev_init.sh"
+DEV_INIT_TEST_PATH = ROOT / "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+DEV_INIT_CHECKER_PATH = ROOT / "scripts/check_dev_init_boot.py"
 ARCH_CONFIG_PATH = ROOT / "trunk/config.arch"
 UCLIBC_CONFIG_PATH = ROOT / "trunk/configs/boards/uclibc-mipsel.config"
 BOARD_TEMPLATES_PATH = ROOT / "trunk/configs/templates"
@@ -44,6 +47,9 @@ def require(condition: bool, message: str) -> None:
 
 require("CONFIG_NC=y" in busybox_config, "BusyBox netcat applet must be enabled for local HTTP readiness probes")
 flock_source = FLOCK_SOURCE_PATH.read_text()
+dev_init = DEV_INIT_PATH.read_text()
+dev_init_test = DEV_INIT_TEST_PATH.read_text()
+dev_init_checker = DEV_INIT_CHECKER_PATH.read_text()
 arch_config = ARCH_CONFIG_PATH.read_text()
 uclibc_config = UCLIBC_CONFIG_PATH.read_text()
 daemon_binary = DAEMON_BINARY_PATH.read_bytes()
@@ -279,13 +285,22 @@ require('while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do' in wait_starte
 
 require('flock -n 9' in lock and 'flock -u 9' in lock and
         'exec 9>>"$ALD_LOCK_FILE"' in lock and 'exec 9>&-' in lock and
-        'mkdir -p "$ald_lock_dir"' in lock and
-        'ALD_LOCK_FILE' in launcher and
+        'stat -c %u "$ald_lock_dir"' in lock and 'stat -c %a "$ald_lock_dir"' in lock and
+        'ald_lock_dir_mode_value & 0022' in lock and
+        'ald_lock_dir_mode_value & 01000' in lock and
+        'stat -c %h "$ALD_LOCK_FILE"' in lock and
+        '[ "$ald_lock_mode" != 600 ]' in lock and
+        'mkdir -p "$ald_lock_dir"' not in lock and
+        ': >> "$ALD_LOCK_FILE"' not in lock and
+        'ALD_LOCK_FILE=\${ALD_LOCK_FILE:-/tmp/aliyundrive-webdav.lock}' in launcher and
+        'required_lock_file /tmp/aliyundrive-webdav.lock || exit 1' in dev_init and
+        'required_lock_file "$tmpdir/aliyundrive-webdav.lock"' in dev_init_test and
+        'aliyundrive_lock_provision < normalized.index("mdev -s || exit 1")' in dev_init_checker and
         'ald_run_locked ald_kill_unlocked' in launcher and
         'ald_run_locked ald_start_unlocked' in launcher and
         'ald_kill_unlocked' in start and
         'rm -f "$ALD_LOCK_FILE"' not in lock,
-        "start/stop must share a nonblocking stable-inode lock without recursive locking")
+        "start/stop must use the pre-provisioned private lock inode and reject replaceable paths")
 
 require('CONFIG_STAT=y' in busybox_config and 'CONFIG_FEATURE_STAT_FORMAT=y' in busybox_config and
         'CONFIG_ID=y' in busybox_config and 'CONFIG_CHMOD=y' in busybox_config and
@@ -352,6 +367,12 @@ for marker in (
     "FAIL: non-secret NVRAM values were split, globbed or reordered in daemon argv",
     "FAIL: credentials and log filter were not passed as exact environment values",
     "FAIL: a credential value leaked into daemon argv",
+    "FAIL: a symbolic-link lifecycle lock path was accepted",
+    "FAIL: a multiply-linked lifecycle lock was accepted",
+    "FAIL: a non-private lifecycle lock file was accepted",
+    "FAIL: a missing lifecycle lock path was recreated",
+    "FAIL: an insecure lifecycle lock directory was accepted",
+    "AliyunDrive WebDAV pre-provisioned private lifecycle lock regression: PASS",
     "FAIL: lock contention allowed a lifecycle transition",
     "FAIL: secure workdir creation failed",
     "FAIL: existing workdir hardening failed",
@@ -384,6 +405,9 @@ paths = [
     "trunk/user/httpd/src/web_ex.c",
     "trunk/configs/boards/busybox.config",
     "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c",
+    "trunk/user/scripts/files/sbin/dev_init.sh",
+    "trunk/user/scripts/tests/dev_init_boot_policy.sh",
+    "scripts/check_dev_init_boot.py",
 ]
 push = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
 pull = workflow.split("  pull_request:", 1)[1].split("permissions:", 1)[0]

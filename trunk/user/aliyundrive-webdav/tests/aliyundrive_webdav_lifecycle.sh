@@ -9,6 +9,10 @@ ALD_LOCK_FILE="$TEST_DIR/aliyundrive-webdav.lock"
 TEST_RUN_MARKER="$TEST_DIR/daemon.running"
 TEST_START_FAIL_FILE="$TEST_DIR/start-fail"
 export TEST_RUN_MARKER TEST_START_FAIL_FILE
+(umask 077; : > "$ALD_LOCK_FILE")
+[ "$(stat -c %a "$ALD_LOCK_FILE")" = 600 ] || {
+  echo "FAIL: test lifecycle lock was not provisioned as mode 0600" >&2; exit 1;
+}
 
 TEST_RUNNING=0
 TEST_ENABLE=1
@@ -196,6 +200,53 @@ fi
 }
 rm -f "$ALD_WORK_DIR/refresh_token"
 ald_secure_workdir || { echo "FAIL: workdir recovery after rejected symlink failed" >&2; exit 1; }
+
+# The lifecycle lock is provisioned, private and not replaceable by a local user.
+ald_run_locked true || { echo "FAIL: pre-provisioned lifecycle lock was rejected" >&2; exit 1; }
+lock_target="$TEST_DIR/lock-target"
+printf '%s\n' sentinel > "$lock_target"
+ALD_LOCK_FILE="$TEST_DIR/lock-symlink"
+ln -s "$lock_target" "$ALD_LOCK_FILE"
+if ald_run_locked true; then
+  echo "FAIL: a symbolic-link lifecycle lock path was accepted" >&2; exit 1
+fi
+grep -Fqx sentinel "$lock_target" || {
+  echo "FAIL: rejected lifecycle lock symlink changed its target" >&2; exit 1;
+}
+rm -f "$ALD_LOCK_FILE"
+
+ALD_LOCK_FILE="$TEST_DIR/lock-hardlink"
+ln "$TEST_DIR/aliyundrive-webdav.lock" "$ALD_LOCK_FILE"
+if ald_run_locked true; then
+  echo "FAIL: a multiply-linked lifecycle lock was accepted" >&2; exit 1
+fi
+rm -f "$ALD_LOCK_FILE"
+
+ALD_LOCK_FILE="$TEST_DIR/lock-insecure-mode"
+cp "$TEST_DIR/aliyundrive-webdav.lock" "$ALD_LOCK_FILE"
+chmod 644 "$ALD_LOCK_FILE"
+if ald_run_locked true; then
+  echo "FAIL: a non-private lifecycle lock file was accepted" >&2; exit 1
+fi
+
+ALD_LOCK_FILE="$TEST_DIR/missing.lock"
+if ald_run_locked true; then
+  echo "FAIL: a missing lifecycle lock path was recreated" >&2; exit 1
+fi
+[ ! -e "$ALD_LOCK_FILE" ] || {
+  echo "FAIL: missing lifecycle lock was created implicitly" >&2; exit 1;
+}
+
+mkdir "$TEST_DIR/untrusted-lock-dir"
+chmod 777 "$TEST_DIR/untrusted-lock-dir"
+(umask 077; : > "$TEST_DIR/untrusted-lock-dir/lock")
+ALD_LOCK_FILE="$TEST_DIR/untrusted-lock-dir/lock"
+if ald_run_locked true; then
+  echo "FAIL: an insecure lifecycle lock directory was accepted" >&2; exit 1
+fi
+
+ALD_LOCK_FILE="$TEST_DIR/aliyundrive-webdav.lock"
+echo "AliyunDrive WebDAV pre-provisioned private lifecycle lock regression: PASS"
 
 # Lifecycle transitions are serialized by one stable lock inode.
 exec 8>"$ALD_LOCK_FILE"
