@@ -38,18 +38,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Verification boundary
 
-- Exact main `76ddd91f39790262b8a373977d1a3b44f119a638`: WAN route #44965482671 FAIL at `check_wan_firewall_status.py` because an earlier assertion required `IPV4_WAN_PROTO_PPTP` but the same checker later required `-1` and `if (wan_proto < 0) return 1;`. All preceding WAN route regressions passed. XY-C1 #44965482665 stopped at the same checker; firmware detection, Build, TRX and artifact were skipped. This is a source-contract failure, not a compiler failure.
-- THIS checker-only descendant removes the contradictory expectation. Exact WAN-route rerun is pending; XY-C1 may not run for a checker-only change, so confirm actual workflow behavior.
-- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
-- L3 requires all three firmware steps PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product source head inspected: `6a7639cc946d9277a4a54db6c695bd816c472761`; `net_wan.c` blob: `d1315536f781f632aa2c1839eefb01619614b86d`.
+- Backup branch is read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head workflow states: WAN route operation status regression: #44966882221 completed/failure; WAN DHCP callback state stability regression: #44966882242 completed/success; XY-C1 Firmware Validation: #44966882256 completed/success; AI handoff documentation contract: #44966882224 completed/success.
+- Missing runs are not passes. Firmware L3 requires Build XY-C1, TRX and artifact upload all PASS on this same product SHA; hardware L4 remains NOT VERIFIED.
 
-## Exact first action for the next GPT
+## Exact first action
 
-1. Inspect exact-head WAN route/XY-C1 for this checked-protocol source slice and the earlier MAN classifier checker correction; fix failures by their actual step and source SHA.
-2. Inspect firmware input detection, Build XY-C1, TRX and artifact separately; L3 needs all three firmware stages PASS on one product SHA.
-3. Audit `stop_wan_locked()` and `wan_down_internal()` for protocol-error cleanup gaps without bypassing required teardown.
-
+1. Inspect any exact-head WAN route, WAN DHCP callback, XY-C1 and AI handoff jobs listed above; resolve FAIL by its actual failing step.
+2. Continue the `udhcpc_bound()` protocol read audit: do not publish new lease/default-route state on an unknown protocol, and do not skip old-route cleanup.
+3. Verify Build XY-C1, TRX and artifact upload independently before claiming L3.
 
 ## Workflow and preservation rules
 

@@ -1,3 +1,13 @@
+## 2026-11-22 08:32 CST — Exact-head WAN protocol hardening checkpoint
+
+- Product source head at inspection: `6a7639cc946d9277a4a54db6c695bd816c472761`; `net_wan.c` blob: `d1315536f781f632aa2c1839eefb01619614b86d`.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head Actions for this SHA: WAN route operation status regression: #44966882221 completed/failure; WAN DHCP callback state stability regression: #44966882242 completed/success; XY-C1 Firmware Validation: #44966882256 completed/success; AI handoff documentation contract: #44966882224 completed/success. A missing workflow is not a PASS; in-progress jobs remain pending.
+- WAN-protocol call-site scan still finds 5 direct `get_wan_proto()` occurrences in `net_wan.c`; next inspect `udhcpc_bound()` before changing lease publication, ensuring old lease-route cleanup is not skipped on read failure.
+- Firmware L3 remains unverified unless Build XY-C1, TRX verification and artifact upload all pass on one product source SHA. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align WAN source contracts with checked protocol reads
 
 - Parent main SHA: `d004901f403430f32fd73ea950ed947bc287a6f1`.
