@@ -960,6 +960,10 @@ main(void)
 	assert(dhcp_lease_deconfig_status(0, 0, EHOSTUNREACH, 0) == EHOSTUNREACH);
 	assert(dhcp_lease_deconfig_status(0, 0, EHOSTUNREACH, ENOSPC) == EHOSTUNREACH);
 	assert(dhcp_lease_deconfig_status(0, 0, 0, ENOSPC) == ENOSPC);
+	assert(dhcp_lease_static_resolver_uses_gateway(0, 1));
+	assert(!dhcp_lease_static_resolver_uses_gateway(1, 1));
+	assert(!dhcp_lease_static_resolver_uses_gateway(2, 1));
+	assert(!dhcp_lease_static_resolver_uses_gateway(0, 0));
 	assert(!dhcp_lease_route_destination_is_valid("192.0.2.0", 33));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1;reboot"));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1\n"));

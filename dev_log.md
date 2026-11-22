@@ -1,3 +1,12 @@
+## 2026-11-21 — Restore configured static LAN resolver after AP DHCP deconfig
+
+- Parent main SHA: `3520dd2e2aca184d62e180ee5f331990cbb12035`; exact WAN DHCP regression #44981079170 and AI handoff contract #44981079127 passed on this parent. XY-C1 #44981079156 was host-only and skipped Build/TRX/artifact because the parent changed only checker/docs.
+- Source review found `lan_down_auto()` atomically replaced `/etc/resolv.conf` with an empty file after DHCP deconfig. Unlike `lan_up_manual()`, it did not restore configured static `lan_domain`, `lan_dns1`, `lan_dns2`, or the configured gateway as fallback DNS when no static nameserver was usable.
+- Extended the same transactional NVRAM snapshot with both static DNS fields. Deconfig now validates the static domain, writes each valid configured nameserver, falls back to a valid static gateway only when neither configured nameserver is usable, and refuses publication on invalid domain or staged-write failure. Existing resolver lock/atomic publish and fail-closed lease metadata semantics remain.
+- Added GNU89 policy assertions for DNS gateway fallback selection and expanded the Python source contract for the 13-field snapshot and ordered resolver writes. Exact-head WAN DHCP regression and same-SHA XY-C1 Build/TRX/artifact are pending; no L2/L3/L4 claim yet.
+
+---
+
 ## 2026-11-21 — Restore static LAN gateway after AP DHCP deconfig
 
 - Parent main SHA: `d0bfd9407f50cad01cc683a7d7b8069bc15eb5d6`.

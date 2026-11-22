@@ -74,11 +74,13 @@ assert "lan_dhcp_snapshot_end" in snapshot_helper
 for key in (
     "lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_gateway", "lan_domain",
     "lan_ipaddr_t", "lan_netmask_t", "lan_domain_t", "lan_dns_t",
-    "lan_wins_t", "lan_lease_t",
+    "lan_wins_t", "lan_lease_t", "lan_dns1", "lan_dns2",
 ):
     assert '"' + key + '"' in snapshot_helper
-assert "struct rc_wan_nvram_snapshot_field fields[11];" in snapshot_helper
+assert "struct rc_wan_nvram_snapshot_field fields[13];" in snapshot_helper
 assert 'fields[10].param_name = "lan_lease_t";' in snapshot_helper
+assert 'fields[11].param_name = "lan_dns1";' in snapshot_helper
+assert 'fields[12].param_name = "lan_dns2";' in snapshot_helper
 snapshot_policy_body = c_function_body(
     nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot("
 )
@@ -128,6 +130,20 @@ assert "status = hosts_status;" in cleanup[preserve:failure]
 for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
     assert 'nvram_safe_get("' + key + '")' not in cleanup
 assert "failed to restore static LAN hostname/hosts during deconfig" in cleanup
+assert "dnsmasq_valid_server_domain(snapshot.static_domain)" in cleanup
+assert "dhcp_lease_static_resolver_uses_gateway(" in cleanup
+assert "snapshot.static_dns1" in cleanup and "snapshot.static_dns2" in cleanup
+assert "if (resolver_status != 0)" in cleanup and "fclose(fp)" in cleanup
+resolver_domain_write = cleanup.index('fprintf(fp, "domain %s\\n", snapshot.static_domain);')
+resolver_dns1_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns1);')
+resolver_dns2_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns2);')
+resolver_gateway_fallback = cleanup.index(
+    'fprintf(fp, "nameserver %s\\n",', resolver_dns2_write
+)
+resolver_publish = cleanup.index("dnsmasq_file_publish(fp, resolv_temp,", resolver_gateway_fallback)
+assert resolver_domain_write < resolver_dns1_write < resolver_dns2_write < resolver_gateway_fallback < resolver_publish
+assert "dhcp_lease_static_resolver_uses_gateway(0, 1)" in test
+assert "!dhcp_lease_static_resolver_uses_gateway(1, 1)" in test
 
 metadata_prepare = cleanup.index("lan_dhcp_deconfig_metadata_prepare(")
 metadata_publish = cleanup.index("metadata_status = lan_dhcp_nvram_state_publish(", metadata_prepare)

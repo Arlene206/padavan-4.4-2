@@ -2186,6 +2186,8 @@ struct lan_dhcp_deconfig_state {
 	char static_netmask[16];
 	char static_gateway[16];
 	char static_domain[256];
+	char static_dns1[16];
+	char static_dns2[16];
 	char previous_address[16];
 	char previous_netmask[16];
 	char previous_domain[256];
@@ -2203,7 +2205,7 @@ static int
 lan_dhcp_deconfig_snapshot(struct lan_dhcp_deconfig_state *snapshot)
 {
 	struct nvram_transaction transaction;
-	struct rc_wan_nvram_snapshot_field fields[11];
+	struct rc_wan_nvram_snapshot_field fields[13];
 
 	if (!snapshot) {
 		errno = EINVAL;
@@ -2246,9 +2248,15 @@ lan_dhcp_deconfig_snapshot(struct lan_dhcp_deconfig_state *snapshot)
 	fields[10].param_name = "lan_lease_t";
 	fields[10].destination = snapshot->previous_lease;
 	fields[10].destination_size = sizeof(snapshot->previous_lease);
+	fields[11].param_name = "lan_dns1";
+	fields[11].destination = snapshot->static_dns1;
+	fields[11].destination_size = sizeof(snapshot->static_dns1);
+	fields[12].param_name = "lan_dns2";
+	fields[12].destination = snapshot->static_dns2;
+	fields[12].destination_size = sizeof(snapshot->static_dns2);
 
 	return rc_wan_nvram_copy_snapshot(
-		fields, 11, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		fields, 13, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
 		lan_dhcp_snapshot_end, &transaction);
 }
 
@@ -2321,8 +2329,8 @@ lan_down_auto(char *lan_ifname)
 				   lan_ifname, static_gateway_status);
 	}
 
-	/* Stage an empty resolver file beside the destination and atomically
-	 * publish it under the same lock used by other resolver writers. */
+	/* Stage the configured static resolver tuple and atomically publish it
+	 * under the same lock used by other resolver writers. */
 	errno = 0;
 	lock = file_lock("resolv");
 	if (lock < 0) {
@@ -2335,13 +2343,63 @@ lan_down_auto(char *lan_ifname)
 				logmessage("DHCP LAN Client",
 					   "cannot remove LAN resolver stage '%s' after open failure (errno=%d)",
 					   resolv_temp, errno ? errno : EIO);
-		} else if (dnsmasq_file_publish(fp, resolv_temp,
-						DNS_RESOLV_CONF, 0644) != 0) {
-			resolver_status = errno ? errno : EIO;
-			if (dnsmasq_file_discard(resolv_temp) != 0)
-				logmessage("DHCP LAN Client",
-					   "cannot remove failed LAN resolver stage '%s' after publish failure (errno=%d)",
+		} else {
+			int dns_count = 0;
+
+			if (*snapshot.static_domain) {
+				if (!dnsmasq_valid_server_domain(snapshot.static_domain)) {
+					resolver_status = EINVAL;
+				} else {
+					errno = 0;
+					if (fprintf(fp, "domain %s\n", snapshot.static_domain) < 0)
+						resolver_status = errno ? errno : EIO;
+				}
+			}
+
+			if (resolver_status == 0 &&
+			    is_valid_ipv4(snapshot.static_dns1)) {
+				errno = 0;
+				if (fprintf(fp, "nameserver %s\n", snapshot.static_dns1) < 0)
+					resolver_status = errno ? errno : EIO;
+				else
+					dns_count++;
+			}
+
+			if (resolver_status == 0 &&
+			    is_valid_ipv4(snapshot.static_dns2)) {
+				errno = 0;
+				if (fprintf(fp, "nameserver %s\n", snapshot.static_dns2) < 0)
+					resolver_status = errno ? errno : EIO;
+				else
+					dns_count++;
+			}
+
+			if (resolver_status == 0 &&
+			    dhcp_lease_static_resolver_uses_gateway(
+				dns_count, is_valid_ipv4(snapshot.static_gateway))) {
+				errno = 0;
+				if (fprintf(fp, "nameserver %s\n",
+					    snapshot.static_gateway) < 0)
+					resolver_status = errno ? errno : EIO;
+			}
+
+			if (resolver_status != 0) {
+				if (fclose(fp) != 0)
+					logmessage("DHCP LAN Client",
+						   "cannot close failed LAN resolver stage (status=%d)",
+						   resolver_status);
+				if (dnsmasq_file_discard(resolv_temp) != 0)
+					logmessage("DHCP LAN Client",
+						   "cannot remove failed LAN resolver stage '%s' (errno=%d)",
+						   resolv_temp, errno ? errno : EIO);
+			} else if (dnsmasq_file_publish(fp, resolv_temp,
+							DNS_RESOLV_CONF, 0644) != 0) {
+				resolver_status = errno ? errno : EIO;
+				if (dnsmasq_file_discard(resolv_temp) != 0)
+					logmessage("DHCP LAN Client",
+						   "cannot remove failed LAN resolver stage '%s' after publish failure (errno=%d)",
 					   resolv_temp, errno ? errno : EIO);
+			}
 		}
 		file_unlock(lock);
 	}

@@ -189,6 +189,14 @@ dhcp_lease_deconfig_status(int route_status, int ifconfig_status,
 	return resolver_status;
 }
 
+/* Use the configured gateway as DNS only when neither static nameserver
+ * produced a usable address. */
+static inline int
+dhcp_lease_static_resolver_uses_gateway(int dns_count, int gateway_valid)
+{
+	return dns_count == 0 && gateway_valid;
+}
+
 
 /* Route creation can report EEXIST when the desired default route is already
  * installed. Treat that as an idempotent success, but do not later delete a
