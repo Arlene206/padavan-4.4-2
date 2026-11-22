@@ -319,8 +319,19 @@ for signature in (
     "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
 ):
     folder_mutation = function_body(DISK_SOURCE, signature)
-    require("get_account_list(&acc_num, &account_list) != 0" in folder_mutation,
-            signature + " must not continue with an incomplete account inventory")
+    account_call = "get_account_list(&acc_num, &account_list)"
+    require(account_call in folder_mutation,
+            signature + " must load the complete account inventory")
+    assigned_load = "result = " + account_call + ";"
+    direct_guard = "if (" + account_call + " != 0)"
+    guarded_load = (
+        direct_guard in folder_mutation or
+        (assigned_load in folder_mutation and
+         folder_mutation.index("if (result != 0)", folder_mutation.index(assigned_load)) <
+         folder_mutation.index("for (i = 0; i < acc_num", folder_mutation.index(assigned_load)))
+    )
+    require(guarded_load,
+            signature + " must stop when account inventory loading fails")
     require("saved_errno = errno ? errno : EIO;" in folder_mutation and
             "if (saved_errno == ENOENT)" in folder_mutation and
             "if (saved_errno != ENOENT)" in folder_mutation,
