@@ -100,7 +100,9 @@ assert "wan6_snapshot_transaction_begin" in dns_builder
 assert "wan6_snapshot_transaction_get" in dns_builder
 assert "wan6_snapshot_transaction_end" in dns_builder
 assert "rc_wan_nvram_copy_snapshot" in policy
-assert "destination[0] = '\\0';" in policy
+assert "rc_wan_nvram_copy_snapshot(" in policy
+snapshot_policy = (ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
+assert "fields[i].destination[0] = '\\0';" in snapshot_policy
 wan_reset = body(wan_source, "reset_wan_vars_status(void)")
 v6_reset_call = wan_reset.index("proto_status = reset_wan6_vars_status();")
 v6_failure = wan_reset.index('reset_failure_context = "IPv6 WAN runtime snapshot";', v6_reset_call)

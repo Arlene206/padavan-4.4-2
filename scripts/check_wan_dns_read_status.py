@@ -911,7 +911,7 @@ dns_export = body(wan6_source, "build_dns6_value(char *dns6s, size_t dns6_size)"
 require("is_wan_dns6_static_status(&dns_static)" in dns_export and
         "if (status != 0)" in dns_export and
         dns_export.index("if (status != 0)") <
-        dns_export.index('rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns1")'),
+        dns_export.index("wan6_dns_copy_config_snapshot("),
         "DNS publication must stop before mode-dependent DNS reads on error")
 
 for name in ("is_wan_addr6_static_status", "is_wan_dns6_static_status",

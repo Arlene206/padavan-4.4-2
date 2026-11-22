@@ -1,3 +1,13 @@
+## 2026-11-22 — Update WAN DNS source contracts for transactional static configuration reads
+
+- Parent main SHA: 2d98a256c0703d02688de4ab88bb470bd1d5ee3d. Exact-head WAN DHCP callback run #45021524741 and WAN route status run #45021524732 exposed two stale Python source contracts after the DNS getter was correctly replaced. Both failures were in checkers, not C sanitizer tests.
+- `check_wan_dns_read_status.py` still required `rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns1"))` in build_dns6_value(); it now pins the checked `wan6_dns_copy_config_snapshot()` call after service-mode error handling.
+- `check_wan6_dns_policy.py` expected a literal `destination[0]` clear in the DNS wrapper, but all-or-nothing clearing is correctly implemented by the shared `rc_wan_nvram_copy_snapshot()` helper as `fields[i].destination[0]`. The checker now verifies that shared implementation instead of a duplicate local clear.
+- Parent exact-head HTTPD #45021524756 PASS, IPv6 service-type #45021524735 PASS, AI handoff #45021524758 PASS. WAN DHCP #45021524741 and WAN route #45021524732 failed on stale checker assumptions. NVRAM #45021524817 and XY-C1 #45021524718 were in progress at last inspection.
+- The focused DNS policy C regressions and shared NVRAM sanitizer test were reached and their output showed successful behavior up to the Python source contract; re-run exact-head WAN workflows after this checker-only correction.
+- Next source task remains static IPv6 WAN address/gateway/6rd reset inputs: inspect the remaining error-collapsing `nvram_safe_get()` calls in reset_wan6_vars_status() and move relevant values into one checked snapshot.
+
+---
 ## 2026-11-22 — Read static WAN IPv6 DNS configuration as one checked NVRAM snapshot
 
 - Parent main SHA: 1f1a8736e9e4edd0938002ee3a0321344eea3317. build_dns6_value() read ip6_dns1/ip6_dns2/ip6_dns3 through nvram_safe_get(). That API returns empty values when an NVRAM backend read fails, so a transient fault could be mistaken for intentionally empty static DNS and published as a DNS withdrawal.
