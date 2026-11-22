@@ -32,21 +32,25 @@ seed_storage_file() {
 		"$copyscripts_storage_root"/*) ;;
 		*)
 			logger -t "启动脚本" "拒绝存储目录之外的默认文件目标：$copyscripts_destination_path"
+			copyscripts_seed_status=1
 			return 1
 			;;
 	esac
 	if [ -L "$copyscripts_storage_root" ] || [ ! -d "$copyscripts_storage_root" ]; then
 		logger -t "启动脚本" "存储目录不是可信目录：$copyscripts_storage_root"
+		copyscripts_seed_status=1
 		return 1
 	fi
 
 	copyscripts_parent_dir=${copyscripts_destination_path%/*}
 	if [ -L "$copyscripts_parent_dir" ] || [ ! -d "$copyscripts_parent_dir" ]; then
 		logger -t "启动脚本" "拒绝非目录或符号链接父路径：$copyscripts_parent_dir"
+		copyscripts_seed_status=1
 		return 1
 	fi
 	if [ -L "$copyscripts_destination_path" ]; then
 		logger -t "启动脚本" "拒绝符号链接形式的默认文件目标：$copyscripts_destination_path"
+		copyscripts_seed_status=1
 		return 1
 	fi
 	if [ -e "$copyscripts_destination_path" ]; then
@@ -54,33 +58,39 @@ seed_storage_file() {
 			return 0
 		fi
 		logger -t "启动脚本" "拒绝非普通文件默认目标：$copyscripts_destination_path"
+		copyscripts_seed_status=1
 		return 1
 	fi
 
 	copyscripts_staged_path=$(mktemp "${copyscripts_destination_path}.tmp.XXXXXX") || {
 		logger -t "启动脚本" "无法创建默认文件暂存：$copyscripts_destination_path"
+		copyscripts_seed_status=1
 		return 1
 	}
 	if ! cat "$copyscripts_source_path" > "$copyscripts_staged_path"; then
 		rm -f "$copyscripts_staged_path"
 		logger -t "启动脚本" "默认文件复制失败：$copyscripts_destination_path"
+		copyscripts_seed_status=1
 		return 1
 	fi
 	if ! chmod "$copyscripts_file_mode" "$copyscripts_staged_path"; then
 		rm -f "$copyscripts_staged_path"
 		logger -t "启动脚本" "默认文件权限设置失败：$copyscripts_destination_path"
+		copyscripts_seed_status=1
 		return 1
 	fi
 	if ! ln "$copyscripts_staged_path" "$copyscripts_destination_path"; then
 		if [ -L "$copyscripts_destination_path" ] || [ ! -f "$copyscripts_destination_path" ]; then
 			rm -f "$copyscripts_staged_path"
 			logger -t "启动脚本" "默认文件目标在发布时发生变化：$copyscripts_destination_path"
+			copyscripts_seed_status=1
 			return 1
 		fi
 		# A concurrent regular file wins; never replace operator-managed data.
 	fi
 	if ! rm -f "$copyscripts_staged_path"; then
 		logger -t "启动脚本" "默认文件暂存清理失败：$copyscripts_staged_path"
+		copyscripts_seed_status=1
 		return 1
 	fi
 	return 0
@@ -89,6 +99,7 @@ seed_storage_file() {
 # Keep unrelated boot-time script seeding intact, but report a broken trust
 # store to rc.c so the failure cannot be mistaken for successful preparation.
 copyscripts_ca_status=0
+copyscripts_seed_status=0
 if ! install_ca_trust_store; then
 	copyscripts_ca_status=1
 fi
@@ -103,17 +114,23 @@ seed_storage_file "/etc_ro/ad_config_script.sh" "/etc/storage/ad_config_script.s
 frp_script_path="/etc/storage/frp_script.sh"
 if [ -L "$frp_script_path" ]; then
 	logger -t "启动脚本" "拒绝符号链接形式的 FRP 配置脚本：$frp_script_path"
+	copyscripts_seed_status=1
 elif [ ! -e "$frp_script_path" ]; then
 	if cp -f /etc_ro/frp_script.sh "$frp_script_path"; then
-		chmod 700 "$frp_script_path" ||
+		if ! chmod 700 "$frp_script_path"; then
 			logger -t "启动脚本" "FRP 配置脚本权限设置失败：$frp_script_path"
+			copyscripts_seed_status=1
+		fi
 	else
 		logger -t "启动脚本" "FRP 默认配置脚本复制失败：$frp_script_path"
+		copyscripts_seed_status=1
 	fi
 elif [ ! -f "$frp_script_path" ]; then
 	logger -t "启动脚本" "FRP 配置脚本路径不是普通文件：$frp_script_path"
+	copyscripts_seed_status=1
 elif ! chmod 700 "$frp_script_path"; then
 	logger -t "启动脚本" "FRP 配置脚本权限修复失败：$frp_script_path"
+	copyscripts_seed_status=1
 fi
 seed_storage_file "/etc_ro/caddy_script.sh" "/etc/storage/caddy_script.sh" 755
 
@@ -128,14 +145,20 @@ seed_storage_file "/etc_ro/smartdns_custom.conf" "/etc/storage/smartdns_custom.c
 ddns_script_path="/etc/storage/ddns_script.sh"
 if [ -L "$ddns_script_path" ]; then
 	logger -t "启动脚本" "拒绝符号链接形式的 DDNS 地址获取脚本：$ddns_script_path"
+	copyscripts_seed_status=1
 elif [ ! -e "$ddns_script_path" ]; then
 	if cp -f /etc_ro/ddns_script.sh "$ddns_script_path"; then
-		chmod 755 "$ddns_script_path" || logger -t "启动脚本" "DDNS 默认脚本权限设置失败"
+		if ! chmod 755 "$ddns_script_path"; then
+			logger -t "启动脚本" "DDNS 默认脚本权限设置失败"
+			copyscripts_seed_status=1
+		fi
 	else
 		logger -t "启动脚本" "DDNS 默认脚本复制失败"
+		copyscripts_seed_status=1
 	fi
 elif [ ! -f "$ddns_script_path" ]; then
 	logger -t "启动脚本" "DDNS 地址获取路径不是普通文件：$ddns_script_path"
+	copyscripts_seed_status=1
 fi
 seed_storage_file "/etc_ro/adbyby_adblack.sh" "/etc/storage/adbyby_adblack.sh" 755
 
@@ -170,4 +193,7 @@ seed_storage_file "/etc_ro/oversea_list.conf" "/etc/storage/dnsmasq.oversea/over
 mkdir -p /etc/storage/gfwlist
 seed_storage_file "/etc_ro/gfwlist_list.conf" "/etc/storage/gfwlist/gfwlist_list.conf" 755
 
-exit "$copyscripts_ca_status"
+if [ "$copyscripts_ca_status" -ne 0 ] || [ "$copyscripts_seed_status" -ne 0 ]; then
+	exit 1
+fi
+exit 0

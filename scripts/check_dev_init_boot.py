@@ -268,7 +268,14 @@ assert router.index("one or more boot service startup operations failed") < rout
 assert "copyscripts_ca_status=0" in copyscripts
 assert "if ! install_ca_trust_store; then" in copyscripts
 assert "copyscripts_ca_status=1" in copyscripts
-assert 'exit "$copyscripts_ca_status"' in copyscripts
+assert "copyscripts_seed_status=0" in copyscripts
+seed_body = copyscripts.split("seed_storage_file() {", 1)[1].split("\\n}", 1)[0]
+assert seed_body.count("return 1") == seed_body.count("copyscripts_seed_status=1")
+assert 'copyscripts_seed_status=1' in copyscripts.split('frp_script_path=', 1)[1].split('seed_storage_file "/etc_ro/caddy_script.sh"', 1)[0]
+assert 'copyscripts_seed_status=1' in copyscripts.split('ddns_script_path=', 1)[1].split('seed_storage_file "/etc_ro/adbyby_adblack.sh"', 1)[0]
+assert 'if [ "$copyscripts_ca_status" -ne 0 ] || [ "$copyscripts_seed_status" -ne 0 ]; then' in copyscripts
+assert "copyscripts_seed_status" in copyscripts.split("exit 0", 1)[0]
+assert '[ "$copyscripts_seed_status" -eq 1 ]' in (Path("trunk/user/scripts/tests/copyscripts_ca_status.sh")).read_text()
 assert "autostart_status" in router and "started_script_status" in router
 assert "init_router_status_is_ready" in result_policy and "init_router_status_is_degraded" in result_policy
 for token in ("init_router_result_from_boot_status(0)", "init_router_result_from_boot_status(EIO)", "init_router_result_from_boot_status(-EINTR)", "init_router_status_is_ready(INIT_ROUTER_RESULT_DEGRADED)", "!init_router_status_is_ready(INIT_ROUTER_RESULT_FATAL)", "init_router_status_is_degraded(INIT_ROUTER_RESULT_DEGRADED)", "init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_READY, EIO)", "init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_FATAL, EIO)"):
