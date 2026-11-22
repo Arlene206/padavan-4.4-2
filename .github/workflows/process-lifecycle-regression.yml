@@ -176,6 +176,9 @@ on:
       - "trunk/user/scripts/files/sbin/check_crontab.sh"
       - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/scutclient/Makefile"
+      - "trunk/user/scutclient/patches/**"
+      - "trunk/user/scutclient/tests/scutclient_credentials_test.c"
       - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
@@ -392,6 +395,9 @@ on:
       - "trunk/user/scripts/files/sbin/check_crontab.sh"
       - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/scutclient/Makefile"
+      - "trunk/user/scutclient/patches/**"
+      - "trunk/user/scutclient/tests/scutclient_credentials_test.c"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
       - "trunk/user/shared/src/Makefile"
@@ -1047,6 +1053,14 @@ jobs:
           sh -n trunk/user/mentohust/scripts/mentohust.sh
           sh -n trunk/user/scripts/tests/auth_client_nvram_read_failure.sh
           sh trunk/user/scripts/tests/auth_client_nvram_read_failure.sh
+      - name: Compile and run SCUTClient credential-file parser security regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/user/scutclient/tests/scutclient_credentials_test.c \
+            -o "$RUNNER_TEMP/scutclient-credentials-test"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/scutclient-credentials-test"
       - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
         run: python3 scripts/check_optional_app_start_status.py
       - name: Exercise Ralink IAPP daemon lifecycle postconditions

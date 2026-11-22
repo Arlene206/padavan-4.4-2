@@ -1,3 +1,9 @@
+## 2026-11-22 — Add direct security regression for SCUTClient private credential parser
+
+- The one-shot private credential-file implementation was already present in the package overlay, but the host lifecycle workflow only exercised the wrapper and fake launcher; it did not compile or directly exercise the C parser.
+- Added a GNU89/ASan/UBSan production-linked test covering valid literal credentials and legacy empty values, malformed/reordered/duplicate fields, embedded NUL and CR/LF framing, symlinked file and parent rejection, exact private ownership/modes, hard-link rejection, bounded size, unlink-before-read behavior, read I/O failure, EINTR retry and short reads. Local compile/run passed: 59 assertions.
+- Registered the test and SCUTClient package inputs in both push and pull-request process-regression filters. Exact-head CI pending; no XY-C1 build is claimed by this host-test-only slice.
+
 ## 2026-11-22 — Dropbear start/stop now verify process identity state
 
 - Source baseline: `ccb9c0ac835291901b46734b9c84a912a18c2524`. `func_start()` launched Dropbear without checking whether the listener was already running or verifying that a successful fork produced a daemon; `func_stop()` returned success solely from `killall` status and treated an already-absent daemon as failure. Both operations ignored UNKNOWN procfs state.
