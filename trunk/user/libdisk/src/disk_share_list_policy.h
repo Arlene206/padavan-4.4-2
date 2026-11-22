@@ -1,6 +1,8 @@
 #ifndef PADAVAN_DISK_SHARE_LIST_POLICY_H
 #define PADAVAN_DISK_SHARE_LIST_POLICY_H
 
+#include <stddef.h>
+
 /*
  * Reset caller-owned outputs before rejecting invalid inputs. This keeps
  * error cleanup safe in callers that always release the returned list.

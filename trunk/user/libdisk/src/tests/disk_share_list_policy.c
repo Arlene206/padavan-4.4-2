@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 
 #include "disk_share_list_policy.h"
 
