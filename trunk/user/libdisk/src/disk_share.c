@@ -963,12 +963,12 @@ static int
 disk_share_replace_file_atomic(const char *path, const char *contents,
                                size_t contents_len)
 {
-	const char suffix[] = ".tmp.XXXXXX";
+const char suffix[] = ".tmp.XXXXXX";
 	char *temp_path = NULL;
 	struct stat existing_stat;
 	FILE *stream = NULL;
 	size_t path_len;
-	int fd = -1, temp_created = 0, saved_errno;
+	int fd = -1, temp_created = 0, have_existing = 0, saved_errno;
 
 	if (!path || !*path || (!contents && contents_len != 0)) {
 		errno = EINVAL;
@@ -986,6 +986,7 @@ disk_share_replace_file_atomic(const char *path, const char *contents,
 	memcpy(temp_path + path_len, suffix, sizeof(suffix));
 
 	if (lstat(path, &existing_stat) == 0) {
+		have_existing = 1;
 		if (!S_ISREG(existing_stat.st_mode)) {
 			errno = EINVAL;
 			goto failed;
@@ -998,7 +999,7 @@ disk_share_replace_file_atomic(const char *path, const char *contents,
 	if (fd < 0)
 		goto failed;
 	temp_created = 1;
-	if (existing_stat.st_mode && fchmod(fd, existing_stat.st_mode & 0777) != 0)
+	if (have_existing && fchmod(fd, existing_stat.st_mode & 0777) != 0)
 		goto failed;
 
 	stream = fdopen(fd, "w");
@@ -1049,6 +1050,7 @@ int set_permission(const char *account,
 char var_file[256];
 	char *target = NULL, *follow_info, *var_info = NULL, *updated_info = NULL;
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
+	int dms_right = DEFAULT_DMS_RIGHT;
 	size_t old_len, target_len, updated_len, separator_len;
 	char record_rights[5];
 
@@ -1106,10 +1108,11 @@ char var_file[256];
 		else {
 			samba_right = 0;
 			ftp_right = 0;
+			dms_right = flag;
 		}
 		record_rights[0] = (char)('0' + samba_right);
 		record_rights[1] = (char)('0' + ftp_right);
-		record_rights[2] = (char)('0' + DEFAULT_DMS_RIGHT);
+		record_rights[2] = (char)('0' + dms_right);
 		record_rights[3] = '\n';
 		record_rights[4] = '\0';
 
@@ -1655,9 +1658,6 @@ int result, i, saved_errno;
 		return -1;
 	}
 
-	if (strcmp(folder, new_folder) == 0) {
-		return 0;
-	}
 	mount_len = strlen(mount_path);
 	folder_len = strlen(folder);
 	new_folder_len = strlen(new_folder);
@@ -1686,6 +1686,8 @@ int result, i, saved_errno;
 		goto failed;
 	if (result == 0 && add_folder(mount_path, folder) != 0)
 		goto failed;
+	if (strcmp(folder, new_folder) == 0)
+		goto unchanged;
 
 	result = test_if_exist_folder_in_mount_path(mount_path, new_folder);
 	if (result < 0)
@@ -1800,6 +1802,12 @@ int result, i, saved_errno;
 	free(updated_info);
 	free(target);
 	free(new_target);
+	free_2_dimension_list(&acc_num, &account_list);
+	return 0;
+
+unchanged:
+	free(full_path);
+	free(new_full_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	return 0;
 

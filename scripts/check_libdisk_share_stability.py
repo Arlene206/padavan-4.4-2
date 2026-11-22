@@ -329,6 +329,20 @@ for signature in (
             signature + " must propagate the final folder-list publication failure")
 
 
+
+set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
+require("dms_right = flag;" in set_permission and
+        "record_rights[2] = (char)('0' + dms_right);" in set_permission,
+        "new DMS permission records must preserve the requested DMS right")
+atomic_replace = function_body(DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,")
+require("have_existing = 1;" in atomic_replace and
+        "if (have_existing && fchmod(fd, existing_stat.st_mode & 0777) != 0)" in atomic_replace,
+        "atomic replacement must not read an uninitialized stat result for a new metadata file")
+mod_folder = function_body(DISK_SOURCE, "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)")
+require(mod_folder.index("if (test_if_dir(full_path) != 1)") <
+        mod_folder.index("if (strcmp(folder, new_folder) == 0)"),
+        "same-name folder update must still validate the source directory")
+
 atomic_replace = function_body(DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,")
 require("mkstemp(temp_path)" in atomic_replace and
         "fdopen(fd, \"w\")" in atomic_replace and

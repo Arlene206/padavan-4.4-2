@@ -244,7 +244,8 @@ test_permission_rewrite_renames_key_and_preserves_rights(void)
 static void
 test_permission_rewrite_reports_missing_record_and_clears_outputs(void)
 {
-	char *updated = (char *)1;
+	char sentinel;
+	char *updated = &sentinel;
 	size_t updated_len = 17;
 
 	assert(disk_share_permission_rewrite("*Media=321\n", "*Public=", NULL,
