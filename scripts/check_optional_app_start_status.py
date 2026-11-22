@@ -1375,7 +1375,9 @@ def check_aria2_reload():
     source = ARIA2_SCRIPT.read_text()
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
-    reload_body = source[source.index("func_reload()"):source.index("\\ncase \"$1\"")]
+    reload_start = source.index("func_reload()")
+    reload_end = source.index("\ncase", reload_start)
+    reload_body = source[reload_start:reload_end]
     assert "pidof aria2c 2>/dev/null" in reload_body
     assert "*[!0-9" + chr(92) + " ]*" in reload_body
     assert "kill -1 \"$aria_reload_pid\"" in reload_body

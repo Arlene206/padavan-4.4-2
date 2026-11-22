@@ -1,3 +1,8 @@
+## 2026-11-22 — Correct Aria2 checker function-boundary extraction
+
+- Exact SHA `ef3ee77898620902bbc5bb98e4bc0ed75241a38e` reached `check_aria2_reload()` after the SCUTClient 59-assertion parser test passed, but the checker raised `ValueError: substring not found`. Its source slice searched for the two-character literal `\\n` before `case`, while `aria.sh` contains an actual line break.
+- Changed the static checker to locate the function start and the following newline-delimited dispatch case separately. Aria2 production source was not implicated in this run; exact-head Process regression rerun pending.
+
 ## 2026-11-22 — Make Dropbear readiness regression reach its intended postcondition
 
 - The process-lifecycle rerun on exact SHA `3d3494c7cc022444c17f165741546ae507375351` passed the VLMCSd/DNS Forwarder/IAPP checks and reached `check_dropbear()`, but its "successful launcher without a visible process" case returned the earlier injected launcher error (53), not the expected readiness timeout (1).
