@@ -178,6 +178,6 @@ fi
 
 # Swap activation must take the same lock before swapon runs.
 lock_line=$(grep -nF 'if ! automount_acquire_mountpoint_lock; then' "$automount" | head -n 1 | cut -d: -f1)
-swapon_line=$(grep -nF 'if swapon "$dev_full" ; then' "$automount" | cut -d: -f1)
+swapon_line=$(grep -nF 'if swapon "$dev_full"; then' "$automount" | cut -d: -f1)
 [ -n "$lock_line" ] && [ -n "$swapon_line" ] && [ "$lock_line" -lt "$swapon_line" ]
 
