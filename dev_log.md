@@ -1,3 +1,11 @@
+## 2026-11-22 — Fix LAN RA source checker policy handle
+
+- Parent main SHA: `e3cc86e9503b978ddbe2ab49ff498db81076da54`. Exact-head IPv6 service-type run #45028413750 compiled and passed its GNU89/ASan/UBSan policy binary, then the source checker stopped at the new RA assertion with `NameError: policy is not defined`. This checker loads the relevant header as a distinct source, so the assertion used the wrong local variable.
+- The check now loads `lan_addr6_reload_policy.h` as `lan6_policy` and validates the helper there. Runtime source and policy tests are unchanged.
+- Result: THIS COMMIT. Re-run IPv6 service-type and all exact-head Actions on the new SHA.
+
+---
+
 ## 2026-11-22 — Preserve router-advertisement NVRAM read errors
 
 - Parent main SHA: `75a61dfe4f48664a6a35caa0e0f1df6243fe48a8`. The LAN reset source-contract corrections are committed in `75a61dfe4f48664a6a35caa0e0f1df6243fe48a8`; its exact-SHA workflows were just enqueued (no result asserted yet). On the prior source SHA `e45027e842af2c42de6760991fbe9d80fa21967c`, the XY-C1 host-only checks had passed through the LAN IPv6 publication contract and the firmware Build step was still in progress. Two unrelated source contracts failed because they expected the removed direct LAN config getters; the checker corrections are in `75a61dfe...`.

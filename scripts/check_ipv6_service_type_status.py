@@ -47,6 +47,7 @@ net6 = (ROOT / "trunk/user/rc/src/net6.c").read_text()
 wan6 = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
 rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
 net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
+lan6_policy = (ROOT / "trunk/user/rc/src/lan_addr6_reload_policy.h").read_text()
 net_lan = (ROOT / "trunk/user/rc/src/net_lan.c").read_text()
 storage = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 net_wan = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
@@ -159,7 +160,7 @@ assert 'lan6_read_config_value_status(\n\t\t"ip6_lan_radv"' in radv_getter
 assert "rc_lan_addr6_radv_enabled_status(" in radv_getter
 assert "if (status != 0)" in radv_getter and "return -1;" in radv_getter
 assert 'nvram_invmatch("ip6_lan_radv", "0")' not in radv_getter
-radv_policy = function_body(policy, "rc_lan_addr6_radv_enabled_status(")
+radv_policy = function_body(lan6_policy, "rc_lan_addr6_radv_enabled_status(")
 assert "if (read_status != 0)" in radv_policy
 assert 'strcmp(value, "0") != 0' in radv_policy
 
