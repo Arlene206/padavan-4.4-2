@@ -945,6 +945,40 @@ jobs:
           assert 'nvram_match("pppoemwan_enable", "1")' not in startup_source
           assert "test_pppoe_mwan_hook_toggle_missing_default_and_backend_failure" in firewall_nvram_test
 
+
+          # NAT/DMZ policy must be one checked snapshot before host network
+          # changes; neither ruleset builder may silently reread a disabled value.
+          firewall_source_compact = " ".join(firewall_source.split())
+          nat_preflight = 'status = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);'
+          dmz_preflight = 'status = firewall_read_optional_ipv4_setting("dmz_ip", dmz_ip,'
+          nat_preflight_pos = startup_source.find(nat_preflight)
+          dmz_preflight_pos = startup_source.find(dmz_preflight)
+          rp_filter_pos = startup_source.find(
+              'set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)'
+          )
+          assert nat_preflight_pos >= 0
+          assert dmz_preflight_pos > nat_preflight_pos
+          assert startup_source.rfind("if (is_nat_enabled)", 0, dmz_preflight_pos) > nat_preflight_pos
+          assert rp_filter_pos > dmz_preflight_pos
+          assert 'nvram_safe_get("dmz_ip")' not in firewall_source
+          dmz_reader = body(firewall_source, "firewall_read_optional_ipv4_setting(")
+          assert "nvram_get_checked(param_name, &value)" in dmz_reader
+          assert "firewall_nvram_optional_ipv4_copy_status(" in dmz_reader
+          assert "firewall_abort_core_restore_after_staging_failure();" in dmz_reader
+          nat_builder = body(firewall_source, "ipt_nat_rules(")
+          ipv4_filter_builder = body(firewall_source, "ipt_filter_rules(char *man_if")
+          assert 'firewall_read_enabled_setting("wan_nat_x"' not in nat_builder
+          assert 'firewall_read_enabled_setting("wan_nat_x"' not in ipv4_filter_builder
+          assert "firewall_ipv4_address_is_safe(dmz_ip)" in nat_builder
+          assert "firewall_ipv4_address_is_safe(dmz_ip)" in ipv4_filter_builder
+          assert "int use_man, int wan_proto, int is_nat_enabled, const char *dmz_ip)" in firewall_source_compact
+          assert "int tcp_mss_need, int is_nat_enabled, const char *dmz_ip)" in firewall_source_compact
+          assert "i_use_man, wan_proto, is_nat_enabled, dmz_ip);" in firewall_source_compact
+          assert "i_tcp_mss, is_nat_enabled, dmz_ip);" in firewall_source_compact
+          assert "test_optional_ipv4_copy_preserves_present_and_missing_values" in firewall_nvram_test
+          assert "test_optional_ipv4_copy_fails_closed_on_backend_and_invalid_results" in firewall_nvram_test
+          assert "test_optional_ipv4_copy_disables_oversized_values" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",

@@ -817,6 +817,33 @@ firewall_read_string_setting(const char *param_name, const char **value)
 }
 
 static int
+firewall_read_optional_ipv4_setting(const char *param_name, char *address,
+				    size_t address_size)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !address || address_size == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = firewall_nvram_optional_ipv4_copy_status(
+		api_result, saved_errno, value, address, address_size);
+	if (status != 0) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "cannot read optional IPv4 firewall setting '%s'; refusing ruleset publication (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 firewall_read_indexed_string_setting_with_presence(const char *param_name,
 						   int idx, const char **value,
 						   int *present)
@@ -1996,13 +2023,14 @@ get_sshd_bfp_time(int bfp_mode)
 
 static int
 ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
-                 char *logaccept, char *logdrop, int tcp_mss_need)
+                 char *logaccept, char *logdrop, int tcp_mss_need,
+                 int is_nat_enabled, const char *dmz_ip)
 {
 	FILE *fp;
 	char timematch[160], *ftype, *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 	int ret, lw_status, lw_schedule_status, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
-	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
+	int is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
 	int is_lw_need_drop = 0, i_lw_count = 0, i_url_count = 0;
 	int i_mac_filter_count = 0;
@@ -2060,9 +2088,6 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	is_logaccept = (strcmp(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT) == 0) ? 1 : 0;
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
 
-	ret = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
-	if (ret != 0)
-		return ret;
 	if (is_nat_enabled) {
 		ret = firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled);
 		if (ret != 0)
@@ -2716,8 +2741,6 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 		
 		if (is_nat_enabled) {
-			char *dmz_ip;
-			
 			/* Accept to BattleNET */
 			if (is_battlenet_enabled)
 				fprintf(fp, "-A %s -p udp --dport %d -j %s\n", dtype, BATTLENET_PORT, logaccept);
@@ -2727,7 +2750,6 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			fprintf(fp, "-A %s -m %s %s -j %s\n", dtype, "conntrack --ctstate", "DNAT", logaccept);
 #else
 			/* Accept to exposed station (DMZ) */
-			dmz_ip = nvram_safe_get("dmz_ip");
 			if (firewall_ipv4_address_is_safe(dmz_ip))
 				fprintf(fp, "-A %s -d %s -j %s\n", dtype, dmz_ip, logaccept);
 			
@@ -3650,12 +3672,12 @@ static int
 ipt_nat_rules(char *man_if, char *man_ip,
               char *wan_if, char *wan_ip,
               char *lan_if, char *lan_ip, char *lan_net,
-              int use_man, int wan_proto)
+              int use_man, int wan_proto, int is_nat_enabled,
+              const char *dmz_ip)
 {
 	FILE *fp;
 	char *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
-	char dmz_ip[16] = {0};
 	int is_use_dmz = 0;
 	int is_redirect_dns = 0;
 	int is_battlenet_enabled = 0, is_fullcone_nat_enabled = 0;
@@ -3670,7 +3692,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #if defined (APP_FTPD)
 	int is_ftpd_wopen = 0;
 #endif
-	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled = 0;
+	int wport, lport, is_fw_enabled, is_upnp_enabled = 0;
 	int i_vpns_enable, i_vpnc_enable, i_vpns_type, i_vpnc_type, i_vpnc_sfw, i_http_proto;
 	int i_misc_httpport = 0, i_http_lanport = 0;
 	int i_udpxy_port = 0, i_udpxy_wport = 0;
@@ -3705,9 +3727,6 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	int i_vpnc_ov_prot = 0, i_vpnc_ov_port = 1194;
 #endif
 
-	firewall_status = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
-	if (firewall_status != 0)
-		return firewall_status;
 	if (is_nat_enabled) {
 		firewall_status = firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled);
 		if (firewall_status != 0)
@@ -3908,10 +3927,8 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	if (!firewall_ipv4_address_is_safe(man_ip))
 		man_ip = NULL;
 
-	if (is_nat_enabled) {
-		snprintf(dmz_ip, sizeof(dmz_ip), "%s", nvram_safe_get("dmz_ip"));
+	if (is_nat_enabled)
 		is_use_dmz = firewall_ipv4_address_is_safe(dmz_ip) ? 1 : 0;
-	}
 	if (is_use_dmz) {
 #if defined (APP_TRMD)
 		is_trmd_supported = is_torrent_support();
@@ -4339,6 +4356,7 @@ start_firewall_ex_locked(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
+	int is_nat_enabled = 0;
 	int is_multicast_enabled = 0, is_udpxy_disabled = 0;
 	int is_pppoemwan_enabled = 0;
 #if defined (APP_XUPNPD)
@@ -4355,6 +4373,7 @@ start_firewall_ex_locked(void)
 	char wan_if[16], man_if[16], lan_if[16];
 	const char *man_if_value, *wan_if_value;
 	char wan_ip[16], man_ip[16], lan_ip[16], lan_net[24] = {0};
+	char dmz_ip[16] = {0};
 	const char *lan_netmask;
 	const char *opt_iptables_script = "/opt/bin/update_iptables.sh";
 	const char *int_iptables_script = SCRIPT_POST_FIREWALL;
@@ -4457,6 +4476,18 @@ start_firewall_ex_locked(void)
 		return EINVAL;
 	}
 
+	/* Snapshot NAT and its optional DMZ target once for both IPv4 rule builders,
+	 * before any interface or firewall changes. */
+	status = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
+	if (status != 0)
+		return status;
+	if (is_nat_enabled) {
+		status = firewall_read_optional_ipv4_setting("dmz_ip", dmz_ip,
+						     sizeof(dmz_ip));
+		if (status != 0)
+			return status;
+	}
+
 	/* Read optional PPPoE-MWAN detection before changing host networking. */
 	status = firewall_read_enabled_setting("pppoemwan_enable", &is_pppoemwan_enabled);
 	if (status != 0)
@@ -4535,10 +4566,12 @@ start_firewall_ex_locked(void)
 	ipt_mangle_rules(man_if, wan_if, i_use_man);
 	if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))
 		goto firewall_restore_complete;
-	ipt_nat_rules(man_if, man_ip, wan_if, wan_ip, lan_if, lan_ip, lan_net, i_use_man, wan_proto);
+	ipt_nat_rules(man_if, man_ip, wan_if, wan_ip, lan_if, lan_ip, lan_net,
+		      i_use_man, wan_proto, is_nat_enabled, dmz_ip);
 	if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))
 		goto firewall_restore_complete;
-	ipt_filter_rules(man_if, wan_if, lan_if, lan_ip, logaccept, logdrop, i_tcp_mss);
+	ipt_filter_rules(man_if, wan_if, lan_if, lan_ip, logaccept, logdrop,
+			i_tcp_mss, is_nat_enabled, dmz_ip);
 	if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))
 		goto firewall_restore_complete;
 

@@ -350,6 +350,49 @@ test_lightweight_filter_drop_mode_match_uses_legacy_defaults(void)
 	assert(matches == 23);
 }
 
+static void
+test_optional_ipv4_copy_preserves_present_and_missing_values(void)
+{
+	char address[16] = "stale";
+
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		0, 0, NULL, address, sizeof(address)) == 0);
+	assert(address[0] == '\0');
+
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		1, 0, "192.0.2.17", address, sizeof(address)) == 0);
+	assert(strcmp(address, "192.0.2.17") == 0);
+}
+
+static void
+test_optional_ipv4_copy_fails_closed_on_backend_and_invalid_results(void)
+{
+	char address[16] = "stale";
+
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		-1, EACCES, NULL, address, sizeof(address)) == EACCES);
+	assert(address[0] == '\0');
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		-1, 0, NULL, address, sizeof(address)) == EIO);
+	assert(address[0] == '\0');
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		2, 0, "192.0.2.17", address, sizeof(address)) == EIO);
+	assert(address[0] == '\0');
+}
+
+static void
+test_optional_ipv4_copy_disables_oversized_values(void)
+{
+	char address[16] = "stale";
+
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		1, 0, "255.255.255.255-extra", address, sizeof(address)) == 0);
+	assert(address[0] == '\0');
+	assert(firewall_nvram_optional_ipv4_copy_status(
+		1, 0, "192.0.2.1", address, sizeof(address)) == 0);
+	assert(strcmp(address, "192.0.2.1") == 0);
+}
+
 int
 main(void)
 {
@@ -372,6 +415,9 @@ main(void)
 	test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure();
 	test_pppoe_mwan_hook_toggle_missing_default_and_backend_failure();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
+	test_optional_ipv4_copy_preserves_present_and_missing_values();
+	test_optional_ipv4_copy_fails_closed_on_backend_and_invalid_results();
+	test_optional_ipv4_copy_disables_oversized_values();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
 	return 0;

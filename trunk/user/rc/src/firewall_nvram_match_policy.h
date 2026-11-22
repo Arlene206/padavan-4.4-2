@@ -102,6 +102,31 @@ firewall_nvram_read_status(int api_result, int saved_errno, const char *value)
     return 0;
 }
 
+/* Copy an optional IPv4 NVRAM value without losing backend errors. Missing
+ * or overlong values remain disabled, matching the legacy DMZ address gate. */
+static inline int
+firewall_nvram_optional_ipv4_copy_status(int api_result, int saved_errno,
+					 const char *value, char *destination,
+					 size_t destination_size)
+{
+	int status;
+	size_t value_length;
+
+	if (!destination || destination_size == 0)
+		return EINVAL;
+	destination[0] = '\0';
+
+	status = firewall_nvram_read_status(api_result, saved_errno, value);
+	if (status != 0 || api_result == 0)
+		return status;
+
+	value_length = strlen(value);
+	if (value_length >= destination_size)
+		return 0;
+	memcpy(destination, value, value_length + 1);
+	return 0;
+}
+
 /* Keep the protocol tokens expected by the VTS filter/NAT emitters. */
 static inline const char *
 firewall_vts_protocol_name(const char *value)
