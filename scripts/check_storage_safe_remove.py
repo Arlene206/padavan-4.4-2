@@ -1450,6 +1450,20 @@ require("nvram_set_int_temp(name, 0)" in ack_writer and
         "saved_errno > 0" in ack_writer and
         "return write_status > 0 ? write_status : EIO;" in ack_writer,
         "deferred storage marker clear must propagate backend write errors")
+ejected_retry_schedule = body(storage, "storage_schedule_ejected_cleanup_retry(void)")
+require('marker_status = nvram_set_int_temp("usb_unplug_ms", 1);' in ejected_retry_schedule and
+        "if (marker_status != 0)" in ejected_retry_schedule and
+        "rc_notify_schedule_deferred_hotplug_retry(" in ejected_retry_schedule and
+        '"on_unplug_mass_storage"' in ejected_retry_schedule and
+        "marker_errno" in ejected_retry_schedule and
+        "errno = saved_errno;" in ejected_retry_schedule,
+        "ejected cleanup must preserve errno and queue PID 1 retry if NVRAM retry marker cannot be written")
+retry_scheduler = body(rc, "rc_notify_schedule_deferred_hotplug_retry(")
+require("getpid() == 1" in retry_scheduler and
+        "rc_deferred_hotplug_retry_mask = rc_notify_hotplug_retry_record(" in retry_scheduler and
+        "notify_rc_status(event_name)" in retry_scheduler and
+        "return saved_errno;" in retry_scheduler,
+        "short-lived cleanup callers must enqueue PID 1 retry; PID 1 must use its timed retry mask")
 try_start = body(storage, "try_start_stor_apps(void)")
 require("storage_optware_start_ack_pending = 1" in try_start and
         "child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS" in try_start,

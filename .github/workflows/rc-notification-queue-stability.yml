@@ -140,13 +140,19 @@ jobs:
           assert "rc_notify_merge_action_result(0, 256) == -1" in test
 
           retry_flag = function_body(policy, "rc_notify_hotplug_retry_flag(")
-          for event_name in ("on_hotplug_usb_printer", "on_unplug_usb_printer", "on_hotplug_usb_modem", "on_unplug_usb_modem", "on_hotplug_mass_storage"):
+          for event_name in ("on_hotplug_usb_printer", "on_unplug_usb_printer", "on_hotplug_usb_modem", "on_unplug_usb_modem", "on_hotplug_mass_storage", "on_unplug_mass_storage"):
               assert event_name in retry_flag
           retry_record = function_body(policy, "rc_notify_hotplug_retry_record(")
           assert "marker_status != 0" in retry_record
           assert "test_deferred_hotplug_event_retry_mapping();" in test
           assert "test_deferred_hotplug_retry_lifecycle();" in test
+          retry_scheduler = function_body(rc, "rc_notify_schedule_deferred_hotplug_retry(")
+          assert "getpid() == 1" in retry_scheduler
+          assert "notify_rc_status(event_name)" in retry_scheduler
+          assert "rc_deferred_hotplug_retry_mask = rc_notify_hotplug_retry_record(" in retry_scheduler
+          assert "int rc_notify_schedule_deferred_hotplug_retry(const char *event_name);" in rc_header
           retry_worker = function_body(rc, "rc_notify_retry_deferred_hotplug_events(void)")
+          assert '"on_unplug_mass_storage"' in retry_worker and "RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG" in retry_worker
           assert "rc_notify_queue_open_dir(DIR_RC_NOTIFY, 0)" in retry_worker
           assert "rc_notify_queue_touch_at(" in retry_worker and "kill(1, SIGUSR1)" in retry_worker
           assert "rc_notify_hotplug_retry_complete(" in retry_worker

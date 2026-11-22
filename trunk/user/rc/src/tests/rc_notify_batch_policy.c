@@ -13,7 +13,7 @@ test_deferred_hotplug_event_retry_mapping(void)
 	assert(rc_notify_hotplug_retry_flag("on_hotplug_usb_modem") == RC_NOTIFY_HOTPLUG_RETRY_MODEM_PLUG);
 	assert(rc_notify_hotplug_retry_flag("on_unplug_usb_modem") == RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG);
 	assert(rc_notify_hotplug_retry_flag("on_hotplug_mass_storage") == RC_NOTIFY_HOTPLUG_RETRY_STORAGE_PLUG);
-	assert(rc_notify_hotplug_retry_flag("on_unplug_mass_storage") == 0);
+	assert(rc_notify_hotplug_retry_flag("on_unplug_mass_storage") == RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG);
 	assert(rc_notify_hotplug_retry_flag("restart_wan") == 0);
 	assert(rc_notify_hotplug_retry_flag(NULL) == 0);
 }
@@ -22,14 +22,17 @@ static void
 test_deferred_hotplug_retry_lifecycle(void)
 {
 	unsigned int pending = 0;
-	unsigned int printer, modem;
+	unsigned int printer, modem, storage_unplug;
 
 	pending = rc_notify_hotplug_retry_record(
 		pending, "on_hotplug_usb_printer", EIO);
 	pending = rc_notify_hotplug_retry_record(
 		pending, "on_unplug_usb_modem", -1);
+	pending = rc_notify_hotplug_retry_record(
+		pending, "on_unplug_mass_storage", EACCES);
 	assert(pending == (RC_NOTIFY_HOTPLUG_RETRY_PRINTER_PLUG |
-			   RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG));
+			   RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG |
+			   RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG));
 
 	pending = rc_notify_hotplug_retry_record(
 		pending, "on_hotplug_usb_printer", 0);
@@ -38,9 +41,11 @@ test_deferred_hotplug_retry_lifecycle(void)
 
 	printer = RC_NOTIFY_HOTPLUG_RETRY_PRINTER_PLUG;
 	modem = RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG;
-	assert(rc_notify_hotplug_retry_complete(pending, printer, 0) == modem);
-	assert(rc_notify_hotplug_retry_complete(pending, printer, -1) == pending);
-	assert(rc_notify_hotplug_retry_complete(pending, printer | modem, 0) == 0);
+	storage_unplug = RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG;
+	assert(rc_notify_hotplug_retry_complete(pending, printer, 0) ==
+	       (modem | storage_unplug));
+	assert(rc_notify_hotplug_retry_complete(pending, storage_unplug, -1) == pending);
+	assert(rc_notify_hotplug_retry_complete(pending, printer | modem | storage_unplug, 0) == 0);
 }
 
 int

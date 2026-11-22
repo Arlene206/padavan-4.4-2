@@ -1,3 +1,13 @@
+## 2026-11-22 — Retain storage-unplug retry when the NVRAM marker write fails
+
+- Parent main SHA: `7db3ff63d8c65c99163b59027fc00feb80e0171a`. The preceding storage run #44994403806 passed the storage inventory/marker/lifecycle regressions and complete caller graph, then failed in the Python checker because it searched for literal backslash-n instead of a real newline at the end of `storage_ack_event_marker_status()`. The parser correction is in parent `7db3ff63d8c65c99163b59027fc00feb80e0171a`.
+- `storage_schedule_ejected_cleanup_retry()` previously ignored `nvram_set_int_temp("usb_unplug_ms", 1)`. If ejected cleanup and the NVRAM marker write both failed, the five-second alarm had no durable event to process, so cleanup could be abandoned.
+- The scheduler now checks the marker result and calls `rc_notify_schedule_deferred_hotplug_retry("on_unplug_mass_storage")`. PID 1 records a timed retry bit and requeues the event on its next alarm; short-lived applets enqueue it through the existing secure notification queue. Original `errno` is restored.
+- Added a storage-unplug retry bit and event mapping, extended GNU89 queue-policy regression for mapping/record/requeue/failure retention, and strengthened storage and PID-1 notification source contracts.
+- Exact 7db3 storage #44994641468, XY-C1 #44994641391 and AI handoff docs #44994641406 were in progress at last poll. No local MIPS firmware build or hardware test is claimed.
+
+---
+
 ## 2026-11-22 — Fix storage checker function-boundary escape
 
 - Parent main SHA: `8f54faaaf0e0cbd2461ebd35f595612032521987`. Exact-head USB storage run #44994403806 passed the whole storage caller graph and all preceding C/shell regressions, then failed in `scripts/check_storage_safe_remove.py:1446` with `ValueError: substring not found`. The checker searched for literal backslash-`n` sequences (`"\\nstatic int\\nstorage_read_nvram_string"`) while the C source contains real newline characters.

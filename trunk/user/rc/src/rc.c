@@ -1937,6 +1937,34 @@ rc_notify_set_deferred_hotplug_marker(const char *event_name, const char *marker
 #endif
 
 
+int
+rc_notify_schedule_deferred_hotplug_retry(const char *event_name)
+{
+	unsigned int retry_flag;
+	int saved_errno;
+
+	retry_flag = rc_notify_hotplug_retry_flag(event_name);
+	if (retry_flag == 0)
+		return EINVAL;
+
+	if (getpid() == 1) {
+		rc_deferred_hotplug_retry_mask = rc_notify_hotplug_retry_record(
+			rc_deferred_hotplug_retry_mask, event_name, EIO);
+		alarm(5);
+		return 0;
+	}
+
+	if (notify_rc_status(event_name) == 0)
+		return 0;
+	saved_errno = errno > 0 ? errno : EIO;
+	logmessage(LOGNAME,
+		   "cannot queue deferred hotplug retry %s from short-lived process (errno=%d)",
+		   event_name, saved_errno);
+	errno = saved_errno;
+	return saved_errno;
+}
+
+
 void
 rc_notify_retry_deferred_hotplug_events(void)
 {
@@ -1945,7 +1973,8 @@ rc_notify_retry_deferred_hotplug_events(void)
 		{ "on_unplug_usb_printer", RC_NOTIFY_HOTPLUG_RETRY_PRINTER_UNPLUG },
 		{ "on_hotplug_usb_modem", RC_NOTIFY_HOTPLUG_RETRY_MODEM_PLUG },
 		{ "on_unplug_usb_modem", RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG },
-		{ "on_hotplug_mass_storage", RC_NOTIFY_HOTPLUG_RETRY_STORAGE_PLUG }
+		{ "on_hotplug_mass_storage", RC_NOTIFY_HOTPLUG_RETRY_STORAGE_PLUG },
+		{ "on_unplug_mass_storage", RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG }
 	};
 	unsigned int pending = rc_deferred_hotplug_retry_mask, queued = 0;
 	int queue_fd, i, marker_status, signal_status, saved_errno;

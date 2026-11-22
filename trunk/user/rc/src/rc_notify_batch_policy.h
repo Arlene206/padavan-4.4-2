@@ -9,6 +9,7 @@
 #define RC_NOTIFY_HOTPLUG_RETRY_MODEM_PLUG     (1U << 2)
 #define RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG   (1U << 3)
 #define RC_NOTIFY_HOTPLUG_RETRY_STORAGE_PLUG   (1U << 4)
+#define RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG (1U << 5)
 static inline unsigned int
 rc_notify_hotplug_retry_flag(const char *event_name)
 {
@@ -18,6 +19,7 @@ rc_notify_hotplug_retry_flag(const char *event_name)
 	if (!strcmp(event_name, "on_hotplug_usb_modem")) return RC_NOTIFY_HOTPLUG_RETRY_MODEM_PLUG;
 	if (!strcmp(event_name, "on_unplug_usb_modem")) return RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG;
 	if (!strcmp(event_name, "on_hotplug_mass_storage")) return RC_NOTIFY_HOTPLUG_RETRY_STORAGE_PLUG;
+	if (!strcmp(event_name, "on_unplug_mass_storage")) return RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG;
 	return 0;
 }
 static inline unsigned int

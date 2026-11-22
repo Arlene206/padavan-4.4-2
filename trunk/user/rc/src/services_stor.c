@@ -3689,8 +3689,27 @@ restore_home_dir(void)
 static void
 storage_schedule_ejected_cleanup_retry(void)
 {
-	nvram_set_int_temp("usb_unplug_ms", 1);
+	int marker_status, marker_errno, retry_status, saved_errno;
+
+	saved_errno = errno;
+	errno = 0;
+	marker_status = nvram_set_int_temp("usb_unplug_ms", 1);
+	if (marker_status != 0) {
+		marker_errno = errno > 0 ? errno :
+			(marker_status > 0 ? marker_status : EIO);
+		retry_status = rc_notify_schedule_deferred_hotplug_retry(
+			"on_unplug_mass_storage");
+		if (retry_status != 0)
+			logmessage("Storage",
+				   "cannot persist unplug retry marker or queue PID 1 retry (marker_status=%d marker_errno=%d queue_status=%d)",
+				   marker_status, marker_errno, retry_status);
+		else
+			logmessage("Storage",
+				   "unplug retry marker write failed (status=%d); PID 1 retry queued",
+				   marker_status);
+	}
 	alarm(5);
+	errno = saved_errno;
 }
 
 static int

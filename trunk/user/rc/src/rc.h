@@ -879,6 +879,7 @@ int  mdev_wdm_main(int argc, char **argv);
 
 #if defined (USE_STORAGE)
 /* hotplug_stor.c */
+int rc_notify_schedule_deferred_hotplug_retry(const char *event_name);
 #if defined (USE_BLK_DEV_SD)
 int  mdev_sd_main(int argc, char **argv);
 #endif

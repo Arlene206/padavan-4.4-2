@@ -6,11 +6,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, using complete atomic trees/commits and non-forced expected-SHA ref updates.
-- Parent SHA for this checker correction: `8f54faaaf0e0cbd2461ebd35f595612032521987`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 stays closed/unmerged.
-- Storage product changes include durable physical-unplug cleanup/ack and safe-remove retry through PID 1. Latest storage run #44994403806 on parent 8f54 passed the full caller graph and all prior regressions, then the final checker failed because it searched for literal backslash-n text rather than newline characters. This checker-only slice corrects the function boundary parser.
-- XY-C1 #44994403623 completed SUCCESS on 8f54, but Build XY-C1, TRX verification and artifact upload were all SKIPPED; do not treat workflow success as L3.
-- Host `cc` available; no full MIPS product toolchain locally. L3 requires Build, TRX and artifact upload to execute and PASS on identical product-source SHA; hardware L4 unverified.
+- Repository `Arlene206/padavan-4.4-2`; develop on `main` only. Each multi-file slice uses one complete Git tree/commit and a non-forced expected-SHA ref update.
+- Parent before this retry fix: `7db3ff63d8c65c99163b59027fc00feb80e0171a`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 stays closed/unmerged.
+- Storage work includes physical-unplug cleanup/ack durability, safe-remove restart through PID 1, a corrected checker newline parser, and this marker-write failure fallback to PID-1 queue retries. XY-C1 validation on 8f54 reported workflow success but Build/TRX/artifact steps were skipped; no L3 firmware result.
+- Host `cc` is available; no local full MIPS firmware toolchain. L3 requires Build, TRX verification and artifact upload to execute and PASS on the same product-source SHA; hardware L4 NOT VERIFIED.
+- Exact 7db3 storage, XY-C1 and AI handoff Actions were IN_PROGRESS at last poll; inspect exact-SHA results, do not infer a PASS.
 
 ## Completed source slices
 
@@ -31,19 +31,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Exact 8f54 storage run #44994403806 failed at `scripts/check_storage_safe_remove.py:1446`, not product code: the checker string used escaped backslashes instead of newline escapes when finding the end of `storage_ack_event_marker_status()`.
-- The checker-only fix now searches for the actual next declaration. The marker writer still must propagate NVRAM backend errors using its tested errno fallback.
-- Another concrete storage concern found during review: `storage_schedule_ejected_cleanup_retry()` ignores the return from `nvram_set_int_temp("usb_unplug_ms", 1)`; next independent task should give marker-write failure a reliable PID-1 queue retry rather than relying on an alarm with no durable marker.
+- `storage_schedule_ejected_cleanup_retry()` previously ignored `nvram_set_int_temp("usb_unplug_ms", 1)`; if NVRAM failed during eject cleanup, the five-second alarm could have no durable event to retry.
+- This slice checks the marker write and calls `rc_notify_schedule_deferred_hotplug_retry("on_unplug_mass_storage")`. PID 1 keeps a timed retry bit; short-lived applets enqueue via secure `notify_rc_status()`. The retry worker includes the storage-unplug event.
+- GNU89 policy regression covers new event mapping and retry-mask preservation/clearing after requeue/signal outcomes; source-checker contracts preserve process semantics and errno.
 
 ## Verification boundary
 
-- On 8f54, storage run #44994403806 passed the embedded whole-storage caller graph, all storage inventory/marker/lifecycle C regressions and prior shell checks, then failed at the escaped-newline checker boundary. New exact-SHA run required for this patch.
-- AI handoff documentation contract #44994403647 passed on 8f54.
-- XY-C1 #44994403623 concluded SUCCESS, but its Build XY-C1, TRX and artifact upload steps were SKIPPED. No firmware build/L3 verification. Hardware L4 NOT VERIFIED.
+- On exact 8f54 storage run #44994403806, all storage inventory/marker/lifecycle regressions and the full caller graph passed, then the checker failed because it searched literal backslash-n instead of newline when ending `storage_ack_event_marker_status()`. The newline parser fix is parent `7db3ff63d8c65c99163b59027fc00feb80e0171a`.
+- Exact 7db3 storage #44994641468, XY-C1 #44994641391 and AI handoff docs #44994641406 were in progress at last poll. This product slice requires fresh exact-SHA storage, PID1 notification and XY-C1 Actions.
+- XY-C1 success on 8f54 skipped Build, TRX and artifact upload. No L3 claim; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head storage Actions for this newline-boundary checker correction; repair the next failing source contract only if it is genuinely stale.
-2. Fix `storage_schedule_ejected_cleanup_retry()`: check the `usb_unplug_ms` NVRAM write and queue a delayed `on_unplug_mass_storage` retry through PID 1 if it fails; add a pure regression and source contract.
-3. Diagnose why XY-C1 Build/TRX/artifact steps were skipped on the completed-success run. L3 requires all three to execute and PASS on one identical source SHA.
-4. Keep backup read-only; do not claim hardware L4.
+1. Poll storage hotplug, PID-1 notification queue and XY-C1 Actions for this retry-fix SHA; fix the first actual failing checker/regression.
+2. Verify NVRAM marker-write failure retains a delayed PID-1 storage-unplug retry for both PID-1 and short-lived callers.
+3. Ensure XY-C1 Build, TRX and artifact upload actually execute and pass on one identical product-source SHA before claiming L3.
+4. Keep backup read-only; hardware L4 remains unverified.
