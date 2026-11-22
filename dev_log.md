@@ -1,3 +1,10 @@
+## 2026-11-22 — Correct account-inventory test registration after exact-head failure
+
+- Parent main SHA: a09d94d07031bf597c8b9ba77d65df6a40367dbb. Exact libdisk run #45020980995 failed at the first GNU89 test compile, before either sanitizer binary ran. The regression call list had matched the first generic return statement in the fake begin adapter instead of main(), producing implicit declarations and unused static test functions.
+- Moved all ten checked-account-inventory test invocations into the real test main() and removed them from the fake NVRAM begin callback. The policy implementation, test bodies and source checker are unchanged. Re-run the exact-head libdisk workflow before treating this slice as validated.
+- No other test result is inferred from the failed run; the exact-head AI handoff workflow on the source SHA passed.
+
+---
 ## 2026-11-22 — Read libdisk account inventory through a checked NVRAM transaction
 
 - Parent main SHA: 9ab6be48e197346138804d954433ffb956e507cf. get_account_list() relied on nvram_get_int("acc_num") and nvram_safe_get("acc_usernameN"); both collapse a backend/close failure into zero or empty text. During transient NVRAM faults, account management could mistake an unreadable inventory for an empty one.
