@@ -7,11 +7,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only, complete atomic Git trees/commits, non-forced expected-SHA updates.
-- Current baseline before AP-client radio decision slice: `0292b0a44ece35cac3e0331ab04aa15028a671a3`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- Checked manual WAN-interface read/validation is now used by `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()`, `stop_wan_locked()` and `config_apcli_wisp()`. Stop/WISP mutation guards occur before interface teardown/cleanup, IPv6 changes or NVRAM publication; empty legacy settings retain their prior no-op behavior.
-- Exact 029 WAN route #44996976228 PASS, WAN DHCP #44996976338 PASS, WAN interface teardown #44996976388 PASS, AI handoff #44996976327 PASS. Exact 029 XY-C1 #44996976282 was still running Build XY-C1 at last poll; TRX/artifact not yet observed.
-- Newly found AP-client radio decision path `check_apcli_wan()` used lossy `get_ap_mode()` and `get_man_ifname()` to decide whether to restart WAN. The follow-up now requires checked router-mode status and checked/validated manual interface before deciding between full restart, reconnect or no-op.
-- L3 requires Build XY-C1, TRX verification and artifact upload all execute/pass on an identical product-source SHA. Hardware L4 NOT VERIFIED.
+- Current baseline before this checker correction: `86d18d524ca522dc4d85e5abf7c28376ac74a394`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- WAN manual-interface checked reads now cover `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()`, `stop_wan_locked()`, AP-client WISP migration and AP-client radio-recovery decision.
+- Exact 86d wireless radio #44997181767 FAILED at `check_guest_lan_isolation_status.py:323`: newly added source-order assertion called undefined `require()` (this checker uses Python `assert`, no `require` helper). Earlier wireless radio, bridge membership and guest-isolation policy executables all passed before this checker failure.
+- Exact 86d process inventory #44997181843 PASS; HTTPD Auth/Security #44997181802 PASS; AI handoff #44997181801 PASS; iNIC lifecycle #44997181809 PASS. Process lifecycle #44997181794 also FAILED at the same imported guest-LAN checker `NameError: require is not defined` after unrelated account/bridge tests passed.
+- Exact 86d XY-C1 #44997181783 was still in Build dependency installation after source checkout; Build/TRX/artifact had not completed at last poll. NVRAM transaction audit #44997181875 was in progress.
+- Follow-up replaces the undefined helper call with built-in `assert (...)`, retaining the exact order and fail-closed source conditions. No product behavior changed in this checker-only correction.
+- L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on identical product-source SHA; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -32,20 +34,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Checked manual interface reads now guard WAN startup, IP lookup, teardown and AP-client WISP migration. Exact 029 WAN route/DHCP/teardown/AI Actions all PASS.
-- Current follow-up hardens `check_apcli_wan()` in `net_wifi.c`: checked router-mode read and checked manual interface identity now gate the full-restart/reconnect decision; empty configuration keeps the legacy `man_id=-1` behavior.
-- The wireless source checker pins checked router mode → checked manual read/error → validated nonempty interface → restart decision, and asserts the new interface policy include.
+- `check_apcli_wan()` now uses checked router-mode and manual-interface reads before making WAN restart/reconnect decisions; the source implementation is in `net_wifi.c`.
+- Exact 86d wireless-radio and dependent Process lifecycle checks failed only because `check_guest_lan_isolation_status.py` called an undefined `require()` at line 323; this script uses `assert` and has no helper. The C/GNU89 and ASan/UBSan policy binaries earlier in both jobs passed.
+- Current checker-only follow-up changes that call into a Python `assert (...)` with the same source-order/error conditions. No product source changes in this corrective slice.
 
 ## Verification boundary
 
-- Exact 029 WAN route #44996976228 PASS, DHCP #44996976338 PASS, teardown #44996976388 PASS and AI handoff #44996976327 PASS.
-- Exact 029 XY-C1 #44996976282 was in Build XY-C1 at last poll; TRX and artifact have not yet completed.
-- This AP-client radio decision change has not run its exact-head wireless/Actions tests yet.
-- L3 not yet verified; no hardware L4 test.
+- Exact 86d AI handoff #44997181801 PASS, process inventory #44997181843 PASS, HTTPD Auth/Security #44997181802 PASS and iNIC lifecycle #44997181809 PASS.
+- Exact 86d wireless radio #44997181767 FAIL and Process lifecycle #44997181794 FAIL at the same `NameError: require is not defined` in `check_guest_lan_isolation_status.py:323`. Existing wireless and guest-isolation compiled tests before the checker passed.
+- Exact 86d XY-C1 #44997181783 was still installing build dependencies; no Build/TRX/artifact result. NVRAM transaction audit #44997181875 was in progress.
+- This checker correction requires exact-head wireless/Process Actions. L3/L4 not verified.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head wireless-radio, WAN DHCP/route and XY-C1 checks for the checked AP-client radio decision.
-2. Check Build XY-C1, TRX verification and artifact upload all execute/pass on one identical product-source SHA before claiming L3.
-3. Continue reviewing state-changing WAN interface identity paths for concrete unsafe decisions on read error; do not broaden to read-only getters without evidence.
-4. Keep backup read-only; hardware L4 remains unverified.
+1. Verify exact-head wireless-radio and Process lifecycle jobs after the assertion fix; ensure the checked router-mode/manual-interface ordering contract passes.
+2. Check exact-head XY-C1 Build, TRX verification and artifact upload; declare L3 only if all three pass on one SHA.
+3. Continue state-changing WAN interface NVRAM reliability paths with concrete consequences; keep backup read-only.
+4. Hardware L4 remains unverified.

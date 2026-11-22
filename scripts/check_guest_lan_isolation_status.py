@@ -320,13 +320,14 @@ apcli_manual_error_at = apcli_wan_compact.index("if(ifname_status!=0)", apcli_ma
 apcli_manual_copy_at = apcli_wan_compact.index("wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)")
 apcli_manual_copy_error_at = apcli_wan_compact.index("if(ifname_status!=0)", apcli_manual_copy_at)
 apcli_restart_at = apcli_wan_compact.index("full_restart_wan()")
-require(apcli_mode_read_at < apcli_mode_error_at < apcli_manual_read_at <
+assert (apcli_mode_read_at < apcli_mode_error_at < apcli_manual_read_at <
         apcli_manual_error_at < apcli_manual_copy_at < apcli_manual_copy_error_at <
         apcli_restart_at and
         "man_ifname[0]='\\0';" in apcli_wan_compact and
         "get_man_ifname(0)" not in apcli_wan and
-        "errno=ifname_status;" in apcli_wan_compact,
-        "AP-client restart decision must use verified router mode and checked manual-interface identity")
+        "errno=ifname_status;" in apcli_wan_compact), (
+    "AP-client restart decision must use verified router mode and checked manual-interface identity"
+)
 assert "status = full_restart_wan();" in apcli_wan
 assert "status = try_wan_reconnect(1, 0);" in apcli_wan
 assert "if (status != 0)" in apcli_wan and "return status;" in apcli_wan

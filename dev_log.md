@@ -1,3 +1,11 @@
+## 2026-11-22 — Fix AP-client radio source-checker assertion helper
+
+- Parent main SHA: `86d18d524ca522dc4d85e5abf7c28376ac74a394`. Exact wireless-radio #44997181767 failed at line 323 with `NameError: name 'require' is not defined`; the newly added checker used a helper absent from this script, which consistently uses Python `assert`.
+- Exact Process lifecycle #44997181794 also failed at the same imported guest-LAN checker assertion after its independent account bootstrap and bridge policy tests passed. The wireless-radio, bridge-membership and guest-isolation C policy executables passed before the Python checker.
+- Replaced only the undefined `require(condition, message)` call with Python `assert (condition), (message)`, retaining all ordering, empty-configuration and errno assertions. No product source changed.
+- Exact 86d AI handoff #44997181801, process inventory #44997181843, HTTPD Auth/Security #44997181802 and iNIC lifecycle #44997181809 PASS. XY-C1 #44997181783 and NVRAM transaction #44997181875 were still in progress at last poll.
+
+---
 ## 2026-11-22 — Check AP-client radio recovery inputs before WAN restart decisions
 
 - Parent main SHA: `0292b0a44ece35cac3e0331ab04aa15028a671a3`. Exact WAN route #44996976228 PASS, DHCP #44996976338 PASS, WAN teardown #44996976388 PASS and AI handoff #44996976327 PASS. Exact XY-C1 #44996976282 was still building.
