@@ -1,3 +1,15 @@
+## 2026-11-22 — Fail closed on LAN IPv6 reset configuration read errors
+
+- Parent main SHA: `16f571b03e7ea5e29e76a1b06934531fc4644f32`. The active DHCPv6 callback fix is validated on its exact SHA `5e0100c059639b323c903351d8f1fab6ff181659`: WAN DHCP #45027565522 PASS and AI handoff #45027565508 PASS. The XY-C1 source-contract correction in `1805fa23a010044d4f82c7e23e91695a6b7f904d` was still being checked when this slice began; exact target build evidence must be rechecked after the new commit.
+- `reset_lan6_vars()` previously used `nvram_match("ip6_lan_auto","0")`, `nvram_safe_get("ip6_lan_addr")` and `nvram_get_int("ip6_lan_size")` and then published `lan_addr6` even when a configuration read/transaction failed. A transient unreadable address could therefore clear a valid previously published LAN IPv6 address.
+- Added a single checked NVRAM transaction for the relevant auto/address/prefix fields, with mode-specific selection (disabled/6to4/6rd skip static address, native-static/6in4 force it). Backend/read/transaction-close/truncation failures now return before the `lan_addr6` write. `is_lan_addr6_static()` uses the same status-bearing snapshot rather than the unchecked matcher.
+- Preserved legacy behavior for missing/malformed values: missing `ip6_lan_auto` remains non-static; missing/empty/non-numeric/out-of-range prefix size still normalizes to 64; numeric strings retain atoi-style leading-number parsing. Invalid IPv6 address text still follows the existing parse/no-address behavior.
+- Added five GNU89 policy regressions for service-type overrides, auto-read failure, missing/malformed match defaults, prefix-size compatibility and read-error propagation. XY-C1 source contract pins transaction adapters and verifies the snapshot error gate precedes the NVRAM publication.
+- Local tests were not run in this connector-only runtime. The exact-head XY-C1 workflow must compile/run the LAN policy binary and pass the source contract before proceeding to Build XY-C1/TRX/artifact.
+- Result: THIS COMMIT. Next: inspect the exact-SHA XY-C1 workflow and then audit `is_lan_radv_on()` for a checked `ip6_lan_radv` read that currently collapses backend errors into “RA enabled”.
+
+---
+
 ## 2026-11-22 — Restore validator-required handoff checkpoint sections
 
 - Parent main SHA: `3fd35299892c4499f9efbce8e50617307b71f2e3`. VPN server lifecycle #45027707286 PASS on `3fd35299892c4499f9efbce8e50617307b71f2e3`; AI handoff #45027707271 failed only because the rewritten handoff omitted the required end-of-session checkpoint phrase and canonical section headings.

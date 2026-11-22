@@ -38,6 +38,85 @@ fake_add_address(void *context)
 	return add_status;
 }
 
+
+static void
+test_static_mode_policy_preserves_service_type_overrides(void)
+{
+	int is_static = -1;
+
+	assert(rc_lan_addr6_static_mode_status(
+		1, 0, 0, EIO, NULL, &is_static) == 0);
+	assert(is_static == 0);
+	assert(rc_lan_addr6_static_mode_status(
+		0, 1, 0, EIO, NULL, &is_static) == 0);
+	assert(is_static == 0);
+	assert(rc_lan_addr6_static_mode_status(
+		0, 0, 1, EIO, NULL, &is_static) == 0);
+	assert(is_static == 1);
+}
+
+static void
+test_dynamic_static_mode_read_failure_is_not_a_default(void)
+{
+	int is_static = -1;
+
+	assert(rc_lan_addr6_static_mode_status(
+		0, 0, 0, EACCES, "0", &is_static) == EACCES);
+	assert(is_static == 0);
+}
+
+static void
+test_dynamic_static_mode_preserves_nvram_match_defaults(void)
+{
+	int is_static = -1;
+
+	assert(rc_lan_addr6_static_mode_status(
+		0, 0, 0, 0, NULL, &is_static) == EIO);
+	assert(rc_lan_addr6_static_mode_status(
+		0, 0, 0, 0, "", &is_static) == 0);
+	assert(is_static == 0);
+	assert(rc_lan_addr6_static_mode_status(
+		0, 0, 0, 0, "1", &is_static) == 0);
+	assert(is_static == 0);
+	assert(rc_lan_addr6_static_mode_status(
+		0, 0, 0, 0, "0", &is_static) == 0);
+	assert(is_static == 1);
+}
+
+static void
+test_prefix_size_preserves_atoi_legacy_defaults(void)
+{
+	int prefix_size = -1;
+
+	assert(rc_lan_addr6_legacy_prefix_size(0, NULL, &prefix_size) == 0);
+	assert(prefix_size == 64);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "", &prefix_size) == 0);
+	assert(prefix_size == 64);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "not-a-number", &prefix_size) == 0);
+	assert(prefix_size == 64);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "52trailing", &prefix_size) == 0);
+	assert(prefix_size == 52);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "48", &prefix_size) == 0);
+	assert(prefix_size == 48);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "64", &prefix_size) == 0);
+	assert(prefix_size == 64);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "47", &prefix_size) == 0);
+	assert(prefix_size == 64);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "65", &prefix_size) == 0);
+	assert(prefix_size == 64);
+	assert(rc_lan_addr6_legacy_prefix_size(0, "999999999999999999999", &prefix_size) == 0);
+	assert(prefix_size == 64);
+}
+
+static void
+test_prefix_size_backend_error_is_not_a_legacy_default(void)
+{
+	int prefix_size = 60;
+
+	assert(rc_lan_addr6_legacy_prefix_size(EIO, "48", &prefix_size) == EIO);
+	assert(prefix_size == 60);
+}
+
 static void
 test_clear_failure_prevents_new_address_publication(void)
 {
@@ -132,6 +211,12 @@ test_nvram_write_status_propagates_backend_errors(void)
 int
 main(void)
 {
+
+	test_static_mode_policy_preserves_service_type_overrides();
+	test_dynamic_static_mode_read_failure_is_not_a_default();
+	test_dynamic_static_mode_preserves_nvram_match_defaults();
+	test_prefix_size_preserves_atoi_legacy_defaults();
+	test_prefix_size_backend_error_is_not_a_legacy_default();
 	test_ipv6_prefix_format_is_bounded_and_non_overlapping();
 	test_clear_failure_prevents_new_address_publication();
 	test_add_failure_is_returned_after_successful_clear();

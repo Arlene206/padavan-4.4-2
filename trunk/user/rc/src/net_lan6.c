@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "lan_addr6_reload_policy.h"
+#include "wan_nvram_status_policy.h"
 
 #if defined (USE_IPV6)
 
@@ -50,22 +51,143 @@ get_lan6_service_type(int *ipv6_type)
 	return status;
 }
 
+#define LAN6_RESET_ADDRESS_SIZE (INET6_ADDRSTRLEN + 5)
+#define LAN6_RESET_INTEGER_SIZE 32
+#define LAN6_RESET_AUTO_SIZE 16
+
+struct lan6_reset_snapshot {
+	int is_static;
+	int prefix_size;
+	char address[LAN6_RESET_ADDRESS_SIZE];
+};
+
+static int
+lan6_snapshot_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+lan6_snapshot_transaction_get(void *context, const char *param_name,
+			      char **value)
+{
+	if (!context || !param_name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+static int
+lan6_snapshot_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+/*
+ * Resolve static/dynamic mode and its address/prefix size from one NVRAM
+ * generation. A failed read or transaction close aborts before reset writes
+ * lan_addr6, preventing a transient backend error from erasing valid state.
+ */
+static int
+lan6_read_reset_snapshot(int ipv6_type,
+			 struct lan6_reset_snapshot *snapshot)
+{
+	static const char *const static_names[2] = {
+		"ip6_lan_addr", "ip6_lan_size"
+	};
+	static const char *const dynamic_names[3] = {
+		"ip6_lan_auto", "ip6_lan_addr", "ip6_lan_size"
+	};
+	struct rc_wan_nvram_snapshot_field fields[3];
+	struct nvram_transaction transaction;
+	char auto_value[LAN6_RESET_AUTO_SIZE] = {0};
+	char address[LAN6_RESET_ADDRESS_SIZE] = {0};
+	char size_text[LAN6_RESET_INTEGER_SIZE] = {0};
+	const char *const *names;
+	char *destinations[3];
+	size_t destination_sizes[3];
+	unsigned int count, i;
+	int disabled, excluded, forced_static, status;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+
+	disabled = (ipv6_type == IPV6_DISABLED);
+	excluded = (ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD);
+	forced_static = (ipv6_type == IPV6_NATIVE_STATIC ||
+			 ipv6_type == IPV6_6IN4);
+
+	if (disabled || excluded) {
+		return rc_lan_addr6_static_mode_status(
+			disabled, excluded, forced_static, 0, "",
+			&snapshot->is_static);
+	}
+
+	if (forced_static) {
+		names = static_names;
+		destinations[0] = address;
+		destinations[1] = size_text;
+		destination_sizes[0] = sizeof(address);
+		destination_sizes[1] = sizeof(size_text);
+		count = 2;
+	} else {
+		names = dynamic_names;
+		destinations[0] = auto_value;
+		destinations[1] = address;
+		destinations[2] = size_text;
+		destination_sizes[0] = sizeof(auto_value);
+		destination_sizes[1] = sizeof(address);
+		destination_sizes[2] = sizeof(size_text);
+		count = 3;
+	}
+
+	for (i = 0; i < count; ++i) {
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = destination_sizes[i];
+	}
+	status = rc_wan_nvram_copy_snapshot(
+		fields, count, lan6_snapshot_transaction_begin,
+		lan6_snapshot_transaction_get, lan6_snapshot_transaction_end,
+		&transaction);
+	if (status != 0)
+		return status;
+
+	status = rc_lan_addr6_static_mode_status(
+		disabled, excluded, forced_static, 0, auto_value,
+		&snapshot->is_static);
+	if (status != 0)
+		return status;
+	if (!snapshot->is_static)
+		return 0;
+
+	status = rc_lan_addr6_legacy_prefix_size(0, size_text,
+					       &snapshot->prefix_size);
+	if (status != 0)
+		return status;
+	return rc_wan_nvram_copy_text(address, snapshot->address,
+				      sizeof(snapshot->address));
+}
+
+
 static int
 lan_addr6_static_for_type(int ipv6_type)
 {
-	if (ipv6_type == IPV6_DISABLED)
+	struct lan6_reset_snapshot snapshot;
+	int status;
+
+	status = lan6_read_reset_snapshot(ipv6_type, &snapshot);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot read LAN address mode snapshot (status=%d)",
+			   status);
 		return -1;
-
-	if (ipv6_type == IPV6_6TO4 ||
-	    ipv6_type == IPV6_6RD)
-		return 0;
-
-	if (nvram_match("ip6_lan_auto", "0") ||
-	    ipv6_type == IPV6_NATIVE_STATIC ||
-	    ipv6_type == IPV6_6IN4)
-		return 1;
-
-	return 0;
+	}
+	return snapshot.is_static;
 }
 
 int reset_lan6_vars(void)
@@ -73,31 +195,33 @@ int reset_lan6_vars(void)
 	int api_result, saved_errno, status;
 	int ipv6_type, service_status;
 	struct in6_addr addr6;
+	struct lan6_reset_snapshot snapshot;
 	char addr6_text[INET6_ADDRSTRLEN];
 	char addr6s[INET6_ADDRSTRLEN] = {0};
-	char *lan_addr6;
-	int lan_size6;
 
 	service_status = get_lan6_service_type(&ipv6_type);
 	if (service_status != 0)
 		return service_status;
 
-	if (lan_addr6_static_for_type(ipv6_type) == 1)
-	{
-		lan_addr6 = nvram_safe_get("ip6_lan_addr");
-		lan_size6 = nvram_get_int("ip6_lan_size");
-		if (*lan_addr6) {
-			memset(&addr6, 0, sizeof(addr6));
-			if (ipv6_from_string(lan_addr6, &addr6) >= 0 &&
-			    inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text))) {
-				if (lan_size6 < 48 || lan_size6 > 64)
-					lan_size6 = 64;
-				if (rc_lan_addr6_format_prefix(addr6_text, lan_size6,
-							       addr6s, sizeof(addr6s)) != 0)
-					logmessage("LAN IPv6",
-						   "cannot format configured LAN IPv6 prefix (errno=%d)",
-						   errno ? errno : EIO);
-			}
+	status = lan6_read_reset_snapshot(ipv6_type, &snapshot);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot read complete LAN address configuration; preserving current state (status=%d)",
+			   status);
+		return status;
+	}
+
+	if (snapshot.is_static && snapshot.address[0]) {
+		memset(&addr6, 0, sizeof(addr6));
+		if (ipv6_from_string(snapshot.address, &addr6) >= 0 &&
+		    inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text))) {
+			if (rc_lan_addr6_format_prefix(
+				addr6_text, snapshot.prefix_size,
+				addr6s, sizeof(addr6s)) != 0)
+				logmessage("LAN IPv6",
+					   "cannot format configured LAN IPv6 prefix (errno=%d)",
+					   errno ? errno : EIO);
 		}
 	}
 
