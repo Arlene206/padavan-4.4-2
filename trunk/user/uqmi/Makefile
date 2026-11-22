@@ -3,7 +3,7 @@ CFLAGS  += -I. -Wmissing-declarations
 LDFLAGS += -Llibubox -lubox
 
 TARGET = uqmi
-SOURCES = main.c dev.c commands.c qmi-message.c
+SOURCES = main.c dev.c commands.c qmi-message.c uqmi-private-credentials.c
 
 service_sources = $(foreach service,ctl dms nas pds wds wms,qmi-message-$(service).c)
 service_headers = $(service_sources:.c=.h)

@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 /*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -39,6 +43,7 @@
 #include "wan_nvram_status_policy.h"
 #include "modem_node_identity_policy.h"
 #include "modem_module_reload_policy.h"
+#include "modem_qmi_credentials_file.h"
 
 #define MODEM_SCRIPTS_DIR	"/etc_ro"
 #define MAX_USB_NODE		(15)
@@ -752,7 +757,186 @@ get_qmi_handle(const char *fn)
 }
 
 static int
-qmi_control_network(const char* control_node, int is_start)
+qmi_control_network_start(const char *device_path)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[5];
+	struct modem_qmi_credentials_file credentials_file;
+	char pin_code[65] = {0};
+	char modem_nets_text[32] = {0};
+	char username[257] = {0};
+	char password[257] = {0};
+	char apn[257] = {0};
+	char client_id_arg[32] = {0};
+	char *qmi_nets;
+	int modem_nets = 0, qmi_client_id = -1;
+	int snapshot_status, status, cleanup_status, i;
+	int result = 1;
+
+	fields[0].param_name = "modem_pin";
+	fields[0].destination = pin_code;
+	fields[0].destination_size = sizeof(pin_code);
+	fields[1].param_name = "modem_nets";
+	fields[1].destination = modem_nets_text;
+	fields[1].destination_size = sizeof(modem_nets_text);
+	fields[2].param_name = "modem_user";
+	fields[2].destination = username;
+	fields[2].destination_size = sizeof(username);
+	fields[3].param_name = "modem_pass";
+	fields[3].destination = password;
+	fields[3].destination_size = sizeof(password);
+	fields[4].param_name = "modem_apn";
+	fields[4].destination = apn;
+	fields[4].destination_size = sizeof(apn);
+
+	/* Read all QMI secrets and selectors from one checked NVRAM generation. */
+	snapshot_status = rc_wan_nvram_copy_snapshot(
+		fields, 5, usb_modem_nvram_transaction_begin,
+		usb_modem_nvram_transaction_get,
+		usb_modem_nvram_transaction_end, &transaction);
+	if (snapshot_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot QMI modem settings; refusing network start (status=%d)",
+			   snapshot_status);
+		goto done;
+	}
+	status = rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "invalid QMI modem network-mode setting (status=%d)", status);
+		goto done;
+	}
+
+	/* uqmi consumes and unlinks this file; the SIM PIN never appears in argv. */
+	if (pin_code[0]) {
+		char *pin_argv[] = {
+			"/bin/uqmi", "-d", (char *)device_path,
+			"--private-credentials-file", credentials_file.path, NULL
+		};
+
+		if (modem_qmi_credentials_file_create(pin_code, NULL, NULL,
+						      &credentials_file) != 0) {
+			status = errno > 0 ? errno : EIO;
+			logmessage(LOGNAME,
+				   "cannot stage private QMI SIM PIN file (status=%d)", status);
+			goto done;
+		}
+		if (_eval(pin_argv, NULL, 0, NULL) != 0)
+			logmessage(LOGNAME, "uqmi SIM PIN verification command failed");
+		cleanup_status = modem_qmi_credentials_file_cleanup(&credentials_file);
+		if (cleanup_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot remove private QMI SIM PIN staging directory (status=%d)",
+				   cleanup_status);
+			goto done;
+		}
+	}
+
+	/* set interface format as 802.3 */
+	{
+		char *format_argv[] = {
+			"/bin/uqmi", "-d", (char *)device_path,
+			"--set-data-format", "802.3", NULL
+		};
+		_eval(format_argv, NULL, 0, NULL);
+	}
+
+	/* setup network modes; an empty legacy NVRAM value still means zero/all. */
+	qmi_nets = "all";
+	switch (modem_nets) {
+	case 9: qmi_nets = "td-scdma"; break;
+	case 8: qmi_nets = "cdma"; break;
+	case 7: qmi_nets = "gsm"; break;
+	case 6: qmi_nets = "gsm,umts"; break;
+	case 5: qmi_nets = "umts,gsm"; break;
+	case 4: qmi_nets = "umts"; break;
+	case 3: qmi_nets = "lte,umts,gsm"; break;
+	case 2: qmi_nets = "lte,umts"; break;
+	case 1: qmi_nets = "lte"; break;
+	}
+	{
+		char *mode_argv[] = {
+			"/bin/uqmi", "-d", (char *)device_path,
+			"--set-network-modes", qmi_nets, NULL
+		};
+		_eval(mode_argv, NULL, 0, NULL);
+	}
+
+	/* obtain new client id */
+	{
+		char *client_argv[] = {
+			"/bin/uqmi", "-d", (char *)device_path,
+			"--get-client-id", "wds", NULL
+		};
+		_eval(client_argv, NULL, 0, NULL);
+	}
+	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
+	if (qmi_client_id >= 0)
+		snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
+
+	unlink(QMI_HANDLE_PDH);
+	for (i = 0; i < MAX_QMI_TRIES; i++) {
+		char *start_argv[20];
+		int argc = 0;
+		int has_credentials = username[0] && password[0];
+
+		memset(&credentials_file, 0, sizeof(credentials_file));
+		start_argv[argc++] = "/bin/uqmi";
+		start_argv[argc++] = "-d";
+		start_argv[argc++] = (char *)device_path;
+		if (qmi_client_id >= 0) {
+			start_argv[argc++] = "--set-client-id";
+			start_argv[argc++] = client_id_arg;
+		}
+		start_argv[argc++] = "--keep-client-id";
+		start_argv[argc++] = "wds";
+		if (has_credentials) {
+			if (modem_qmi_credentials_file_create(NULL, username, password,
+							      &credentials_file) != 0) {
+				status = errno > 0 ? errno : EIO;
+				logmessage(LOGNAME,
+					   "cannot stage private QMI authentication file (status=%d)",
+					   status);
+				goto done;
+			}
+			start_argv[argc++] = "--private-credentials-file";
+			start_argv[argc++] = credentials_file.path;
+		}
+		start_argv[argc++] = "--start-network";
+		start_argv[argc++] = apn;
+		start_argv[argc++] = "--autoconnect";
+		start_argv[argc] = NULL;
+		_eval(start_argv, NULL, 0, NULL);
+
+		if (has_credentials) {
+			cleanup_status = modem_qmi_credentials_file_cleanup(&credentials_file);
+			if (cleanup_status != 0) {
+				logmessage(LOGNAME,
+					   "cannot remove private QMI authentication staging directory (status=%d)",
+					   cleanup_status);
+				goto done;
+			}
+		}
+		if (check_if_file_exist(QMI_HANDLE_PDH)) {
+			result = 0;
+			break;
+		}
+		sleep(1);
+	}
+
+done:
+	modem_qmi_credentials_wipe(pin_code, sizeof(pin_code));
+	modem_qmi_credentials_wipe(username, sizeof(username));
+	modem_qmi_credentials_wipe(password, sizeof(password));
+	modem_qmi_credentials_wipe(apn, sizeof(apn));
+	modem_qmi_credentials_wipe(modem_nets_text, sizeof(modem_nets_text));
+	modem_qmi_credentials_wipe(client_id_arg, sizeof(client_id_arg));
+	return result;
+}
+
+
+static int
+qmi_control_network(const char *control_node, int is_start)
 {
 	int qmi_client_id = -1;
 	int path_len;
@@ -764,109 +948,35 @@ qmi_control_network(const char* control_node, int is_start)
 	if (path_len < 0 || path_len >= (int)sizeof(device_path))
 		return 1;
 
-	if (is_start) {
-		int i;
-		char *qmi_nets, *pin_code, *usr_name, *usr_pass;
-		char client_id_arg[32];
+	if (is_start)
+		return qmi_control_network_start(device_path);
 
-		/* enter PIN-code */
-		pin_code = nvram_safe_get("modem_pin");
-		if (*pin_code) {
-			char *pin_argv[] = { "/bin/uqmi", "-d", device_path, "--verify-pin1", pin_code, NULL };
-			_eval(pin_argv, NULL, 0, NULL);
-		}
-
-		/* set interface format as 802.3 */
-		{
-			char *format_argv[] = { "/bin/uqmi", "-d", device_path, "--set-data-format", "802.3", NULL };
-			_eval(format_argv, NULL, 0, NULL);
-		}
-
-		/* setup network modes */
-		qmi_nets = "all";
-		switch (nvram_get_int("modem_nets"))
-		{
-		case 9: qmi_nets = "td-scdma"; break;
-		case 8: qmi_nets = "cdma"; break;
-		case 7: qmi_nets = "gsm"; break;
-		case 6: qmi_nets = "gsm,umts"; break;
-		case 5: qmi_nets = "umts,gsm"; break;
-		case 4: qmi_nets = "umts"; break;
-		case 3: qmi_nets = "lte,umts,gsm"; break;
-		case 2: qmi_nets = "lte,umts"; break;
-		case 1: qmi_nets = "lte"; break;
-		}
-		{
-			char *mode_argv[] = { "/bin/uqmi", "-d", device_path, "--set-network-modes", qmi_nets, NULL };
-			_eval(mode_argv, NULL, 0, NULL);
-		}
-
-		/* obtain new client id */
-		{
-			char *client_argv[] = { "/bin/uqmi", "-d", device_path, "--get-client-id", "wds", NULL };
-			_eval(client_argv, NULL, 0, NULL);
-		}
-		qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
-
-		usr_name = nvram_safe_get("modem_user");
-		usr_pass = nvram_safe_get("modem_pass");
-		if (qmi_client_id >= 0)
-			snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
-
-		unlink(QMI_HANDLE_PDH);
-		for (i = 0; i < MAX_QMI_TRIES; i++) {
-			char *start_argv[20];
-			int argc = 0;
-
-			start_argv[argc++] = "/bin/uqmi";
-			start_argv[argc++] = "-d";
-			start_argv[argc++] = device_path;
-			if (qmi_client_id >= 0) {
-				start_argv[argc++] = "--set-client-id";
-				start_argv[argc++] = client_id_arg;
-			}
-			start_argv[argc++] = "--keep-client-id";
-			start_argv[argc++] = "wds";
-			start_argv[argc++] = "--start-network";
-			start_argv[argc++] = nvram_safe_get("modem_apn");
-			if (*usr_name && *usr_pass) {
-				start_argv[argc++] = "--auth-type";
-				start_argv[argc++] = "both";
-				start_argv[argc++] = "--username";
-				start_argv[argc++] = usr_name;
-				start_argv[argc++] = "--password";
-				start_argv[argc++] = usr_pass;
-			}
-			start_argv[argc++] = "--autoconnect";
-			start_argv[argc] = NULL;
-			_eval(start_argv, NULL, 0, NULL);
-
-			if (check_if_file_exist(QMI_HANDLE_PDH))
-				return 0;
-
-			sleep(1);
-		}
-	} else {
-		/* stop network and disable autoconnect (use global pdh with autoconnect) */
-		char *stop_argv[] = { "/bin/uqmi", "-d", device_path, "--stop-network", "0xffffffff", "--autoconnect", NULL };
+	/* stop network and disable autoconnect (use global pdh with autoconnect) */
+	{
+		char *stop_argv[] = {
+			"/bin/uqmi", "-d", device_path, "--stop-network",
+			"0xffffffff", "--autoconnect", NULL
+		};
 		_eval(stop_argv, NULL, 0, NULL);
-
-		/* release client id */
-		qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
-		if (qmi_client_id >= 0) {
-			char client_id_arg[32];
-			char *release_argv[] = { "/bin/uqmi", "-d", device_path, "--set-client-id", client_id_arg, "--release-client-id", "wds", NULL };
-			snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
-			_eval(release_argv, NULL, 0, NULL);
-		}
-
-		unlink(QMI_CLIENT_ID);
-		unlink(QMI_HANDLE_PDH);
-		return 0;
 	}
 
-	return 1;
+	/* release client id */
+	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
+	if (qmi_client_id >= 0) {
+		char client_id_arg[32];
+		char *release_argv[] = {
+			"/bin/uqmi", "-d", device_path, "--set-client-id",
+			client_id_arg, "--release-client-id", "wds", NULL
+		};
+		snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
+		_eval(release_argv, NULL, 0, NULL);
+	}
+
+	unlink(QMI_CLIENT_ID);
+	unlink(QMI_HANDLE_PDH);
+	return 0;
 }
+
 static int
 mbim_control_network(const char* control_node, int is_start)
 {

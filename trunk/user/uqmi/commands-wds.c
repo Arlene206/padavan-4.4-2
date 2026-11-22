@@ -155,3 +155,11 @@ cmd_wds_reset_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_m
 	qmi_set_wds_reset_request(msg);
 	return QMI_CMD_REQUEST;
 }
+
+void
+uqmi_wds_clear_sensitive_options(void)
+{
+	qmi_set_ptr(&wds_sn_req, username, NULL);
+	qmi_set_ptr(&wds_sn_req, password, NULL);
+	qmi_set_ptr(&wds_sn_req, apn, NULL);
+}

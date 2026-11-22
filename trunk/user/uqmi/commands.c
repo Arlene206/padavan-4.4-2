@@ -10,6 +10,16 @@
 #include "commands.h"
 
 static struct blob_buf status;
+static char uqmi_command_buffer[2048];
+
+static void
+uqmi_wipe_memory(void *memory, size_t length)
+{
+	volatile unsigned char *cursor = (volatile unsigned char *)memory;
+
+	while (length-- > 0)
+		*cursor++ = 0;
+}
 
 static void no_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
 {
@@ -167,7 +177,7 @@ void uqmi_add_command(char *arg, int cmd)
 
 	cmds = realloc(cmds, n_cmds * sizeof(*cmds));
 	cmds[idx].handler = &uqmi_cmd_handler[cmd];
-	cmds[idx].arg = optarg;
+	cmds[idx].arg = arg;
 }
 
 static void uqmi_print_result(struct blob_attr *data)
@@ -192,7 +202,6 @@ static void uqmi_print_result(struct blob_attr *data)
 
 static bool __uqmi_run_commands(struct qmi_dev *qmi, bool option)
 {
-	static char buf[2048];
 	static struct qmi_request req;
 	int i;
 
@@ -210,11 +219,11 @@ static bool __uqmi_run_commands(struct qmi_dev *qmi, bool option)
 			blobmsg_printf(&status, "error", "failed to connect to service");
 			res = QMI_CMD_EXIT;
 		} else {
-			res = cmds[i].handler->prepare(qmi, &req, (void *) buf, cmds[i].arg);
+			res = cmds[i].handler->prepare(qmi, &req, (void *) uqmi_command_buffer, cmds[i].arg);
 		}
 
 		if (res == QMI_CMD_REQUEST) {
-			qmi_request_start(qmi, &req, (void *) buf, cmds[i].handler->cb);
+			qmi_request_start(qmi, &req, (void *) uqmi_command_buffer, cmds[i].handler->cb);
 			req.no_error_cb = true;
 			if (qmi_request_wait(qmi, &req)) {
 				blobmsg_add_string(&status, "error", qmi_get_error_str(req.ret));
@@ -238,6 +247,10 @@ bool uqmi_run_commands(struct qmi_dev *qmi)
 	ret = __uqmi_run_commands(qmi, true) &&
 	      __uqmi_run_commands(qmi, false);
 
+	uqmi_wds_clear_sensitive_options();
+	uqmi_wipe_memory(uqmi_command_buffer, sizeof(uqmi_command_buffer));
+	if (cmds)
+		memset(cmds, 0, n_cmds * sizeof(*cmds));
 	free(cmds);
 	cmds = NULL;
 	n_cmds = 0;

@@ -50,5 +50,6 @@ enum uqmi_command {
 extern const struct uqmi_cmd_handler uqmi_cmd_handler[];
 void uqmi_add_command(char *arg, int longidx);
 bool uqmi_run_commands(struct qmi_dev *qmi);
+void uqmi_wds_clear_sensitive_options(void);
 
 #endif

@@ -7,9 +7,11 @@
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
+#include <string.h>
 
 #include "uqmi.h"
 #include "commands.h"
+#include "uqmi-private-credentials.h"
 
 static const char *device;
 
@@ -21,6 +23,7 @@ static const struct option uqmi_getopt[] = {
 	{ "device", required_argument, NULL, 'd' },
 	{ "keep-client-id", required_argument, NULL, 'k' },
 	{ "release-client-id", required_argument, NULL, 'r' },
+	{ "private-credentials-file", required_argument, NULL, 'C' },
 	{ NULL, 0, NULL, 0 }
 };
 #undef __uqmi_command
@@ -32,6 +35,7 @@ static int usage(const char *progname)
 		"  --device=NAME, -d NAME:           Set device name to NAME (required)\n"
 		"  --keep-client-id <name>:          Keep Client ID for service <name>\n"
 		"  --release-client-id <name>:       Release Client ID after exiting\n"
+		"  --private-credentials-file <path>: Read and unlink private PIN/auth credentials\n"
 		"\n"
 		"Services:                           dms, nas, pds, wds, wms\n"
 		"\n"
@@ -80,8 +84,11 @@ int main(int argc, char **argv)
 {
 	static struct qmi_dev dev;
 	int ch, ret;
+	const char *private_credentials_path = NULL;
+	struct uqmi_private_credentials private_credentials;
 
-	while ((ch = getopt_long(argc, argv, "d:k:", uqmi_getopt, NULL)) != -1) {
+	memset(&private_credentials, 0, sizeof(private_credentials));
+	while ((ch = getopt_long(argc, argv, "d:k:C:", uqmi_getopt, NULL)) != -1) {
 		int cmd_opt = CMD_OPT(ch);
 
 		if (ch < 0 && cmd_opt >= 0 && cmd_opt < __UQMI_COMMAND_LAST) {
@@ -99,6 +106,13 @@ int main(int argc, char **argv)
 		case 'd':
 			device = optarg;
 			break;
+		case 'C':
+			if (private_credentials_path) {
+				fprintf(stderr, "Private credentials file may be specified only once\n");
+				return usage(argv[0]);
+			}
+			private_credentials_path = optarg;
+			break;
 		default:
 			return usage(argv[0]);
 		}
@@ -109,6 +123,25 @@ int main(int argc, char **argv)
 		return usage(argv[0]);
 	}
 
+	if (private_credentials_path) {
+		if (uqmi_private_credentials_load(private_credentials_path,
+					  &private_credentials) < 0) {
+			fprintf(stderr, "Failed to read private credentials: %s\n",
+				strerror(errno));
+			uqmi_private_credentials_clear(&private_credentials);
+			return 1;
+		}
+		if (private_credentials.has_pin)
+			uqmi_add_command(private_credentials.pin,
+					 __UQMI_COMMAND_dms_verify_pin1);
+		if (private_credentials.has_username) {
+			uqmi_add_command(private_credentials.username,
+					 __UQMI_COMMAND_wds_set_username);
+			uqmi_add_command(private_credentials.password,
+					 __UQMI_COMMAND_wds_set_password);
+		}
+	}
+
 	uloop_init();
 	signal(SIGINT, handle_exit_signal);
 	signal(SIGTERM, handle_exit_signal);
@@ -116,10 +149,12 @@ int main(int argc, char **argv)
 	if (qmi_device_open(&dev, device)) {
 		fprintf(stderr, "Failed to open device\n");
 		uloop_done();
+		uqmi_private_credentials_clear(&private_credentials);
 		return 2;
 	}
 
 	ret = uqmi_run_commands(&dev) ? 0 : -1;
+	uqmi_private_credentials_clear(&private_credentials);
 
 	qmi_device_close(&dev);
 

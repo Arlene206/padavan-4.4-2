@@ -129,6 +129,22 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(workflow.count('      - "' + path + '"'), 1)
         self.assertFalse(is_non_firmware_input(path))
 
+    def test_qmi_private_credentials_sources_require_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        self.assertIn('      - "trunk/user/uqmi/**"', workflow)
+        self.assertIn('      - "trunk/user/rc/src/modem_qmi_credentials_file.h"', workflow)
+        paths = (
+            "trunk/user/uqmi/main.c",
+            "trunk/user/uqmi/commands.c",
+            "trunk/user/uqmi/uqmi-private-credentials.c",
+            "trunk/user/uqmi/uqmi-private-credentials.h",
+            "trunk/user/rc/src/usb_modem.c",
+            "trunk/user/rc/src/modem_qmi_credentials_file.h",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertFalse(is_non_firmware_input(path))
+
     def test_scutclient_credentials_overlay_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         for path in (
