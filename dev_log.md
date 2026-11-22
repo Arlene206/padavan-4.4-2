@@ -1,3 +1,10 @@
+## 2026-11-22 — Normalize LAN NVRAM source-contract call whitespace
+
+- Parent main SHA: `77fcbc9cc84a55906c1bed2456e87eab1c70bf86`. Exact Process run #45008185010 on `864e6c651675f3d22f1a23ebc9b0936f06d6833a` compiled and ran the bridge-init GNU89 ASan/UBSan regression successfully, then failed in the later embedded source checker at Python line 213. The checker collapsed line breaks but expected no space after the helper's opening parenthesis; the C call was intentionally split after `(`, so the normalized source contained one space.
+- Corrected the LAN MAC, startup identity and AP-host snapshot matchers to account for the normalized space. This is checker-only; no production behavior changed. Exact rerun is pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Snapshot LAN address, mask and AP host identity before reuse
 
 - Parent main SHA: `864e6c651675f3d22f1a23ebc9b0936f06d6833a`. `start_lan()` retained borrowed pointers for `lan_ipaddr` and `lan_netmask`, then fetched `lan_domain` before using all three; `update_hosts_ap()` also passed two cache-backed NVRAM pointers directly as function arguments, whose evaluation order is unspecified in C.
