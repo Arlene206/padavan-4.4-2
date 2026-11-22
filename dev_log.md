@@ -1,3 +1,12 @@
+## 2026-11-22 — Align process lifecycle auth contract with hardened EAPoL publication
+
+- Parent main SHA: \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`. Process-lifecycle run #45038262447 failed at \`scripts/check_process_lifecycle_integration.py:1407\`: its parser expected the original one-line \`int start_auth_eapol(\` signature, then asserted the old direct \`fopen(wpa_conf, "w")\` order. EAPoL code had been moved to a multiline return type and the unsafe writer was intentionally removed.
+- Restored the existing one-line function signature for parser compatibility and replaced the stale process contract with assertions for checked credential reads, private \`mkstemp\`/0600/fsync config generation, preserving the current daemon until the temp config is ready, stopping before atomic rename, and checking the wpa_cli launcher result.
+- Exact SHA \`3af9fac\` EAPoL #45038345083 PASS and AI handoff #45038345180 PASS. Current process-lifecycle rerun and XY-C1 same-SHA checks remain pending after this commit.
+- No local tests were run. No L3 or hardware L4 result is claimed. Next: inspect exact-head process lifecycle and XY-C1, then move to another independent subsystem.
+
+---
+
 ## 2026-11-22 — Correct EAPoL source-contract test invocation pattern
 
 - Parent main SHA: \`29131f7707e151ef62b1f9ce9611901fd277ce66\`. Review of the newly queued EAPoL workflow showed the source contract expected each policy test to be called as \`test_name();\`, while the test harness correctly invokes each through \`CHECK(test_name() == 0)\`.

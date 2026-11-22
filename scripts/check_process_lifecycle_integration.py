@@ -1410,9 +1410,30 @@ assert "return kill_services(svcs, 3, 1);" in auth_stop_eapol
 assert "ret = stop_auth_kabinet();" in auth_start_kabinet
 assert "if (ret != 0)" in auth_start_kabinet
 assert auth_start_kabinet.index("ret = stop_auth_kabinet();") < auth_start_kabinet.index("if (ret != 0)") < auth_start_kabinet.index('eval("/usr/sbin/lanauth"')
+assert 'get_wan_unit_value_copy_status(' in auth_start_eapol
+assert '"auth_user"' in auth_start_eapol and '"auth_pass"' in auth_start_eapol
+assert "write_wpa_config_temp(" in auth_start_eapol
 assert "ret = stop_auth_eapol();" in auth_start_eapol
 assert "if (ret != 0)" in auth_start_eapol
-assert auth_start_eapol.index("ret = stop_auth_eapol();") < auth_start_eapol.index("if (ret != 0)") < auth_start_eapol.index('fopen(wpa_conf, "w")')
+auth_user_read = auth_start_eapol.index('"auth_user"')
+auth_pass_read = auth_start_eapol.index('"auth_pass"')
+auth_temp_write = auth_start_eapol.index("write_wpa_config_temp(")
+auth_stop = auth_start_eapol.index("ret = stop_auth_eapol();")
+auth_stop_gate = auth_start_eapol.index("if (ret != 0)", auth_stop)
+auth_publish = auth_start_eapol.index("rename(wpa_conf_temp, wpa_conf)")
+auth_launch = auth_start_eapol.index("_eval(wpa_argv, NULL, 0, NULL)")
+assert auth_user_read < auth_pass_read < auth_temp_write < auth_stop < auth_stop_gate < auth_publish < auth_launch
+assert 'get_wan_unit_value(unit, "auth_user")' not in auth_start_eapol
+assert 'get_wan_unit_value(unit, "auth_pass")' not in auth_start_eapol
+assert 'fopen(wpa_conf, "w")' not in auth_start_eapol
+auth_config_writer = auth_source.split("static int\nwrite_wpa_config_temp(", 1)[1].split("\n}\n", 1)[0]
+assert "mkstemp(temporary_path)" in auth_config_writer
+assert "fchmod(fd, S_IRUSR | S_IWUSR)" in auth_config_writer
+assert "fsync(fileno(fp))" in auth_config_writer
+assert "wpa_eapol_config_write_quoted(fp, username)" in auth_config_writer
+assert "wpa_eapol_config_write_quoted(fp, password)" in auth_config_writer
+assert "ret = _eval(cli_argv, NULL, 0, NULL);" in auth_start_eapol
+assert "wpa_cli event handler failed to start" in auth_start_eapol
 assert '"trunk/user/rc/src/auth.c"' in process_workflow
 assert '"trunk/user/rc/src/auth.c"' in xy_workflow
 

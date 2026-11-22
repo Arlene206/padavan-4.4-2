@@ -168,8 +168,7 @@ failed:
 }
 
 
-int
-start_auth_eapol(char *ifname, int unit, int eap_algo)
+int start_auth_eapol(char *ifname, int unit, int eap_algo)
 {
     int ret, status, cleanup_status;
     char auth_user[2048], auth_pass[2048];

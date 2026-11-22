@@ -14,25 +14,25 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 ## Current repository state
 
 - Repository: \`Arlene206/padavan-4.4-2\`; branch: \`main\`.
-- Parent source SHA for EAPoL credential hardening: \`29131f7707e151ef62b1f9ce9611901fd277ce66\`.
+- Parent source SHA for the EAPoL lifecycle-contract correction: \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`.
 - Frozen backup: \`backup/pre-plugin-overhaul-2026-11-14\` at \`72f4f157a084f8184b9597ca5bf334b8080e5807\`; immutable.
 - WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio checked-read fixes remain in main; do not repeat those completed slices without new evidence.
 
 ## Active task
 
-\`auth.c::start_auth_eapol()\` now snapshots WAN EAP credentials through checked caller-owned buffers, writes an escaped/validated configuration into a same-directory temporary file with mode 0600, checks flush/fsync/close, and atomically renames it after stopping old daemons. Failure to start the wpa_cli action handler is returned and triggers best-effort cleanup of the incomplete EAP stack.
+EAPoL hardening is in main: checked credential snapshots, quoted-value escaping/control-byte rejection, a same-directory mode-0600 temporary file, fsync/close checking, atomic publication after old daemons stop, and propagation/cleanup when \`wpa_cli\` fails.
 
-The first EAPoL workflow source-contract draft had a predicate mismatch: test functions are invoked through \`CHECK(test_name() == 0)\`, while the contract expected a standalone \`test_name();\` call. Production code and the compiled policy test are not implicated. The contract now matches the test harness invocation.
+Exact SHA \`3af9facfab4e28109916b47ed9bd671f983c4e1b\` EAPoL regression #45038345083 PASS (GNU89/ASan/UBSan policy test and source contract); AI handoff #45038345180 PASS. The broader process-lifecycle integration then exposed an obsolete source contract: its parser expected \`int start_auth_eapol(\` on one line and specifically required the old insecure \`fopen(wpa_conf, "w")\` after daemon stop. The function definition is restored to the established one-line signature, and the contract now checks checked credential snapshots, private temp-file creation, stop-before-rename, atomic publication and checked wpa_cli launch.
 
 ## Verification boundary
 
-- Parent source SHA \`29131f7707e151ef62b1f9ce9611901fd277ce66\`: EAPoL workflow run #45038262266 was in progress at its checkout step when inspected; the first draft contract assertion was known to be too strict and is corrected in this follow-up. The exact-head run must still be inspected.
-- Parent XY-C1 run #45038262295 was in progress at source checkout; no Build/TRX/artifact completion is claimed.
-- No local checkout or local C/Python execution was performed in this connector-only session. EAPoL GNU89/ASan/UBSan policy run and source contract must pass on the new exact SHA.
-- L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA. Router hardware L4 remains NOT VERIFIED.
+- Parent SHA \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`: EAPoL #45038345083 PASS and AI handoff #45038345180 PASS.
+- Process inventory/lifecycle regression #45038262447 failed only in its integration contract at auth.c line 1407 parsing; preceding compiled policy tests and earlier contracts passed. The exact failing assertion expected the old signature/body ordering and legacy \`fopen\`. This commit updates that contract; the exact-head rerun is pending.
+- XY-C1 build #45038262295 on source SHA \`29131f7707e151ef62b1f9ce9611901fd277ce66\` was still in progress at last check. Do not claim same-SHA L3. Parent XY-C1 #45037505021 on \`aeff51b\` completed success, but it is not evidence for descendant source SHAs.
+- No local checkout or local C/Python execution was performed. L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head EAPoL workflow for both GNU89/ASan/UBSan execution and source-contract PASS, and inspect XY-C1 Build/TRX/artifact on the same SHA.
-2. Continue repository-wide stability/security implementation in another subsystem; do not repeat completed WAN/PPP, USB modem, Inadyn, DNSMasq or manual-radio slices.
-3. Keep the backup immutable and continue all development directly on \`main\`.
+1. Inspect the exact-head process-lifecycle regression after the auth parser correction and EAPoL security workflow; diagnose/fix any newly exposed assertion.
+2. Inspect XY-C1 Build/TRX/artifact on the same source SHA; do not conflate older successful firmware builds with newer commits.
+3. Continue repository-wide stability/security work in another subsystem; keep backup immutable and work only on \`main\`.
