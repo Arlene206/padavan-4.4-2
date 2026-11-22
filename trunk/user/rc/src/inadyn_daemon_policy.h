@@ -33,7 +33,7 @@ inadyn_restore_action_for_state(int previous_running,
 	return INADYN_RESTORE_ABORT;
 }
 
-extract checked DDNS parser/* WAN notifications are normal when optional DDNS is disabled or in AP mode. */
+/* WAN notifications are normal when optional DDNS is disabled or in AP mode. */
 static int
 inadyn_update_should_run(int ddns_enabled, int is_ap_mode)
 {
