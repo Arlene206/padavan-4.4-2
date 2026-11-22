@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on SSH brute-force policy NVRAM reads
+
+- Parent main SHA: `893c65a7ae1fb04a61d8aa4965c476fc50072c85`. Checker-only LAN source-range correction `893c65a7ae1fb04a61d8aa4965c476fc50072c85` has WAN DHCP #44982805519, AI handoff #44982805486 and XY-C1 #44982805453 in progress at the last poll; prior NVRAM audit #44982591433 on parent `cbc5374` completed SUCCESS.
+- Firewall source review found a fail-open security defect in both `ipt_filter_rules()` and `ip6t_filter_rules()`: each read `sshd_wbfp` with `nvram_get_int()` while emitting the BFP chain. Backend read failures collapse to zero and silently omit SSH brute-force `recent` lockout rules while SSH is exposed.
+- Both builders now pre-read the mode through `firewall_read_integer_setting("sshd_wbfp", 0, &i_bfp_mode)` before opening the temporary rule file, then reuse the checked snapshot during rule emission. Missing keys retain legacy mode 0; backend/malformed results abort staged publication through the existing restore-transaction failure gate.
+- Added an explicit missing-default/configured-value/backend-error unit test and workflow source-order contracts pinning both checked reads before staging and forbidding the unchecked getter. Exact-head Firewall Startup, XY-C1 Build/TRX/artifact and other triggered checks remain pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Correct AP DHCP host-file checker source range
 
 - Parent main SHA: `cbc53740bfbcc292f691879f7574f70eae6d5cb4`. Exact WAN DHCP callback run #44982591441 failed in `scripts/check_lan_dhcp_deconfig.py:434`: the new assertion sliced source text only up to the `load_user_config()` call and therefore excluded the adjacent `else if (errno != ENOENT)` safety branch it intended to verify. The DHCP lease policy GNU89/Wall/Wextra/Werror/ASan/UBSan binary passed before the Python source contract failed.

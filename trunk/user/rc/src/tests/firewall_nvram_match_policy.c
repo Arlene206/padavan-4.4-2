@@ -128,6 +128,24 @@ test_integer_errors_are_fail_closed_and_preserve_output(void)
 }
 
 static void
+test_sshd_bruteforce_mode_missing_default_and_backend_error(void)
+{
+	int mode = 73;
+
+	/* Keep the legacy mode-0 default for an absent NVRAM key. */
+	assert(firewall_nvram_int_status(0, 0, NULL, 0, &mode) == 0);
+	assert(mode == 0);
+
+	mode = 73;
+	assert(firewall_nvram_int_status(1, 0, "2", 0, &mode) == 0);
+	assert(mode == 2);
+
+	mode = 73;
+	assert(firewall_nvram_int_status(-1, EACCES, NULL, 0, &mode) == EACCES);
+	assert(mode == 73);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -178,6 +196,7 @@ main(void)
 	test_not_zero_backend_failure_preserves_output();
 	test_integer_modes_preserve_decimal_semantics();
 	test_integer_errors_are_fail_closed_and_preserve_output();
+	test_sshd_bruteforce_mode_missing_default_and_backend_error();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

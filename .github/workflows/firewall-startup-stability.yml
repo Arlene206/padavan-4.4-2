@@ -821,6 +821,16 @@ jobs:
           assert 'nvram_match("url_inv_x", "1")' not in firewall_source
           assert "api_result != 1 || !value" in firewall_nvram_policy
 
+          # SSH brute-force protection must not become permissive on NVRAM I/O errors.
+          bfp_gate = 'firewall_read_integer_setting("sshd_wbfp", 0, &i_bfp_mode)'
+          for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
+              filter_builder = body(firewall_source, signature)
+              assert bfp_gate in filter_builder, signature
+              assert filter_builder.index(bfp_gate) < filter_builder.index("firewall_open_rule_file(")
+              assert 'nvram_get_int("sshd_wbfp")' not in filter_builder
+          assert 'nvram_get_int("sshd_wbfp")' not in firewall_source
+          assert "test_sshd_bruteforce_mode_missing_default_and_backend_error" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",

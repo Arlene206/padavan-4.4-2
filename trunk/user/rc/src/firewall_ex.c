@@ -2013,6 +2013,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int is_xupnpd_enabled;
 #endif
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
+	int i_bfp_mode = 0;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
 	int is_misc_http_enabled = 0, is_udpxy_wopen = 0;
 #if defined (SUPPORT_HTTPS)
@@ -2230,6 +2231,10 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 				return ret;
 			if (is_sshd_wopen) {
 				ret = firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport);
+				if (ret != 0)
+					return ret;
+				/* A failed BFP mode read must not silently disable SSH protection. */
+				ret = firewall_read_integer_setting("sshd_wbfp", 0, &i_bfp_mode);
 				if (ret != 0)
 					return ret;
 			}
@@ -2753,7 +2758,6 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	/* bfplimit chain */
 	dtype = IPT_CHAIN_NAME_BFP_LIMIT;
 	if (i_bfplimit_ref) {
-		int i_bfp_mode = nvram_get_int("sshd_wbfp");
 		if (i_bfp_mode > 0) {
 			fprintf(fp, "-A %s -m recent --set --name %s\n", dtype, "blacklist");
 			fprintf(fp, "-A %s -m recent --update --hitcount %d --seconds %d --name %s -j %s\n", dtype, 4, get_sshd_bfp_time(i_bfp_mode), "blacklist", logdrop);
@@ -2990,6 +2994,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	int ipv6_type, is_fw_enabled, is_url_enabled, is_url_inverse, is_logaccept, is_logdrop;
 	int i_url_count = 0, i_mac_filter_count = 0;
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
+	int i_bfp_mode = 0;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
 	int is_vpns_enabled = 0, i_vpns_type = 0;
 	int is_misc_http_enabled = 0, is_udpxy_wopen = 0;
@@ -3151,6 +3156,10 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 				return ret;
 			if (is_sshd_wopen) {
 				ret = firewall_read_integer_setting("sshd_wport", 0, &i_sshd_wport);
+				if (ret != 0)
+					return ret;
+				/* A failed BFP mode read must not silently disable SSH protection. */
+				ret = firewall_read_integer_setting("sshd_wbfp", 0, &i_bfp_mode);
 				if (ret != 0)
 					return ret;
 			}
@@ -3470,7 +3479,6 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	// bfplimit chain
 	dtype = IPT_CHAIN_NAME_BFP_LIMIT;
 	if (i_bfplimit_ref) {
-		int i_bfp_mode = nvram_get_int("sshd_wbfp");
 		if (i_bfp_mode > 0) {
 			fprintf(fp, "-A %s -m recent --set --name %s\n", dtype, "blacklist6");
 			fprintf(fp, "-A %s -m recent --update --hitcount %d --seconds %d --name %s -j %s\n", dtype, 4, get_sshd_bfp_time(i_bfp_mode), "blacklist6", logdrop);
