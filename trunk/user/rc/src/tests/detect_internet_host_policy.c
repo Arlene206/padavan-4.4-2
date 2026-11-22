@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/select.h>
 
 #include "detect_internet_host_policy.h"
 
@@ -206,6 +207,17 @@ test_poll_mode_uses_legacy_range_fallback(void)
 }
 
 static void
+test_select_fdset_bounds_before_fd_set(void)
+{
+	assert(detect_internet_select_fd_status(0, FD_SETSIZE) == 0);
+	assert(detect_internet_select_fd_status(FD_SETSIZE - 1, FD_SETSIZE) == 0);
+	assert(detect_internet_select_fd_status(FD_SETSIZE, FD_SETSIZE) == EOVERFLOW);
+	assert(detect_internet_select_fd_status(FD_SETSIZE + 1, FD_SETSIZE) == EOVERFLOW);
+	assert(detect_internet_select_fd_status(-1, FD_SETSIZE) == EINVAL);
+	assert(detect_internet_select_fd_status(0, 0) == EINVAL);
+}
+
+static void
 test_invalid_policy_arguments_fail_closed(void)
 {
 	struct fake_nvram fake;
@@ -236,6 +248,7 @@ main(void)
 	test_oversized_address_fails_without_truncation();
 	test_runtime_integer_backend_error_is_not_replaced_by_default();
 	test_poll_mode_uses_legacy_range_fallback();
+	test_select_fdset_bounds_before_fd_set();
 	test_invalid_policy_arguments_fail_closed();
 	puts("detect_internet checked endpoint settings policy: PASS");
 	return 0;

@@ -81,4 +81,18 @@ detect_internet_read_endpoint(detect_internet_nvram_get_fn get_value,
 	return status;
 }
 
+/*
+ * select() requires every descriptor passed to FD_SET() to be less than
+ * FD_SETSIZE. Reject out-of-range descriptors before touching the fd_set.
+ */
+static inline int
+detect_internet_select_fd_status(int fd, int fd_set_size)
+{
+	if (fd < 0 || fd_set_size <= 0)
+		return EINVAL;
+	if (fd >= fd_set_size)
+		return EOVERFLOW;
+	return 0;
+}
+
 #endif /* DETECT_INTERNET_HOST_POLICY_H */

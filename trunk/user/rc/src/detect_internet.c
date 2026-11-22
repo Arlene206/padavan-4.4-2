@@ -25,6 +25,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/select.h>
 
 #include "rc.h"
 #include "detect_internet_signal_policy.h"
@@ -72,7 +73,7 @@ di_alarmtimer(unsigned long sec)
 static int
 di_connect_to_host(const struct sockaddr_in *p_sa_dst, int timeout)
 {
-	int fd, flags, ret;
+	int fd, flags, ret, fd_status;
 	struct linger lgr;
 	struct timeval to;
 	fd_set rset;
@@ -82,6 +83,17 @@ di_connect_to_host(const struct sockaddr_in *p_sa_dst, int timeout)
 	fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (fd < 0)
 		return ret;
+
+	/*
+	 * FD_SET() indexes a fixed-size fd_set. A valid socket descriptor can
+	 * still exceed that bound when the process has many open descriptors.
+	 */
+	fd_status = detect_internet_select_fd_status(fd, FD_SETSIZE);
+	if (fd_status != 0) {
+		close(fd);
+		errno = fd_status;
+		return -1;
+	}
 
 	/* allow immediate reuse of the address */
 	flags = 1;

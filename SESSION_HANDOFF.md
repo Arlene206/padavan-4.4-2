@@ -14,25 +14,24 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch: `main`.
-- Parent main SHA for the current engineering milestone: `280c05e3f96205377b8a4515a8f62b787782b484`. The source/test milestone in the commit containing this handoff is the active product baseline; resolve its exact SHA from the live main ref.
+- Last source/test baseline: `913c512d2b18079113c521508bb446a7d534100c` (checked temporary NVRAM write for Internet monitor resume delay).
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
 - WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio checked-read fixes remain in main; do not repeat those completed slices without new evidence.
 
 ## Active task
 
-`notify_run_detect_internet()` previously ignored the return value from `nvram_set_int_temp("di_notify_delay", delay_time)` and proceeded to process discovery, process launch or SIGUSR1 notification. For an already-running monitor, SIGUSR1 causes the daemon to read this NVRAM value; a failed write could therefore resume probing with a stale delay and still report success.
+The Internet connectivity monitor's `di_connect_to_host()` obtains a socket descriptor and then passes it to `FD_SET()` for `select()` without checking `FD_SETSIZE`. Socket creation may return a valid descriptor larger than the fixed `fd_set` capacity when the process descriptor table is highly populated; `FD_SET` can then write beyond the stack-allocated descriptor set.
 
-The current milestone now checks the write result and errno, normalizes an opaque failure to EIO, logs it, and returns before process inventory or launch/resume signaling. A GNU89 test pins success, errno-preserving failure, errno-less failure and positive status normalization. The existing detect-internet workflow now asserts the fail-before-side-effect ordering.
+This milestone adds a small GNU89-compatible policy guard, validates the descriptor immediately after socket creation, closes it and returns `EOVERFLOW` before any `FD_SET` access when out of range. Regression cases cover the first and last valid descriptors, the exact upper bound, above-bound values, and invalid arguments. The detect-internet workflow checks the guard/close/error ordering before `FD_SET`.
 
 ## Verification boundary
 
-- No local repository checkout or local C/Python execution was available in this connector-only session.
-- Parent SHA `280c05e3f96205377b8a4515a8f62b787782b484`: Wireless radio regression #45035999914 PASS; AI handoff #45035999840, HTTPD #45035999885, Process inventory #45035999887, Process lifecycle #45035999801, NVRAM #45035999880, watchdog #45035999886 and iNIC #45035999873 PASS on the exact SHA.
-- Parent XY-C1 run #45035999874 is a push run on that exact SHA. All host/policy steps passed; `Build XY-C1` was in progress at takeover, with TRX verification and artifact upload pending. This is not an L3 pass.
-- Current detect-internet regression and XY-C1 results must be checked on the exact new main source SHA. L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA. Hardware L4 remains NOT VERIFIED.
+- Exact source SHA `913c512d2b18079113c521508bb446a7d534100c`: detect-internet signal lifecycle regression #45037029639 PASS; AI handoff contract #45037029575 PASS. NVRAM audit #45037029633, Process inventory #45037029588 and Process lifecycle inventory #45037029643 were still in progress at last check.
+- XY-C1 run #45037029719 is a push run on that exact SHA; dependency installation was in progress and Build/TRX/artifact were not yet complete. No L3 result is claimed for `913c512`.
+- No local checkout or local C/Python test execution was available in the connector-only session. This FD_SET change requires exact-head detect-internet and XY-C1 verification. L4 hardware remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head `detect-internet signal lifecycle stability regression` and XY-C1 run for the current source SHA. Diagnose any failure; do not infer success from the parent run above.
-2. Continue repository-wide stability/security implementation outside the already-completed WAN/PPP, USB modem, Inadyn, DNSMasq and manual-radio slices. Prefer the next concrete, independent caller/lifecycle failure from the roadmap.
+1. Inspect the exact-head detect-internet workflow for the FD_SETSIZE regression and source-order contract, then inspect XY-C1 Build, TRX verification and artifact upload on the same SHA. Fix any demonstrated failure.
+2. Continue repository-wide stability/security implementation outside the completed WAN/PPP, USB modem, Inadyn, DNSMasq and manual-radio work; rotate to another module after this network-monitor safety slice.
 3. Keep the backup immutable and continue all development directly on `main`.

@@ -1,3 +1,13 @@
+## 2026-11-22 — Guard detect_internet FD_SET against oversized socket descriptors
+
+- Parent main SHA: `913c512d2b18079113c521508bb446a7d534100c`. `di_connect_to_host()` passed the descriptor returned by `socket()` directly to `FD_SET()`; a valid descriptor at or above `FD_SETSIZE` can index beyond the fixed-size `fd_set` object and corrupt stack memory.
+- Added `detect_internet_select_fd_status()` and check the descriptor immediately after socket creation. Out-of-range descriptors are closed and return `EOVERFLOW` before any `FD_SET`; invalid inputs return `EINVAL`.
+- Added GNU89 host regression cases for descriptors 0, FD_SETSIZE-1, FD_SETSIZE, FD_SETSIZE+1, negative descriptors and invalid set size. The detect-internet workflow now verifies the validation/close/errno gate precedes FD_SET.
+- Previous exact-source detect-internet regression #45037029639 and AI handoff check #45037029575 PASS on parent `913c512`. The parent XY-C1 run #45037029719 was still installing dependencies; TRX/artifact were not complete at last check. No local tests were run; new exact-head Actions required.
+- Result: THIS COMMIT. L3 and hardware L4 remain unverified. Next: validate exact-head detect-internet and XY-C1 Build/TRX/artifact, then rotate to another subsystem.
+
+---
+
 ## 2026-11-22 — Propagate Internet monitor resume-delay NVRAM write failures
 
 - Parent main SHA: `280c05e3f96205377b8a4515a8f62b787782b484`. `notify_run_detect_internet()` wrote `di_notify_delay` through `nvram_set_int_temp()` but discarded its result, then continued into process discovery and either launched a new monitor or signalled an existing one. For an existing monitor, SIGUSR1 makes the daemon consume that value; an NVRAM failure could therefore resume with a stale delay while the caller reported success.
