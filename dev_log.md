@@ -1,3 +1,11 @@
+## 2026-11-22 — Avoid matching comments in the FTP firewall source contract
+
+- Parent main SHA: 2333039ea9c33c9b02f941621928f64659b249fc. Exact storage hotplug #45005813291 passed the embedded whole-caller-graph check, then failed scripts/check_storage_safe_remove.py line 654 because its negative substring assertion matched the comment mentioning nvram_match() in control_ftp_fw.
+- THIS correction narrows the check to the executable call token nvram_match(" while continuing to reject actual lossy NVRAM match calls. No product-source changes.
+- Exact rerun pending; NFS export ACL input-pointer lifetime audit is next. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Update storage firewall-refresh presence contract
 
 - Parent main SHA: 9553ea5c4331d15f85db2842765dd82cfd428e4d. Exact 595 Storage hotplug #45005582512 failed at the embedded whole-caller-graph checker: lines 473–474 still expected Transmission and Aria start-presence to equal RUNNING, although the new source intentionally requests firewall reconciliation for every state except confirmed ABSENT.

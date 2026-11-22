@@ -5,12 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; live main parent for this correction: 9553ea5c4331d15f85db2842765dd82cfd428e4d. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 remains closed/unmerged.
-- Storage firewall-refresh source fix remains at 595b2dcb7a927a369d3e29a0aef75a5431fc7e74. Exact storage-hotplug #45005582512 FAILED at embedded source-contract lines 473–474 because they still required exactly RUNNING, while the source intentionally refreshes on every state other than confirmed ABSENT. THIS commit updates the two stale expectations to the conservative UNKNOWN-inclusive condition.
-- The exact 595 storage workflow had passed preceding storage lock, mount inventory, eject/Optware and other caller-graph assertions; its failing two-line condition is now corrected. The dedicated check_storage_safe_remove.py source assertions for FTP/restart/storage start-stop gates will run after this step on the new head.
-- HTTPD firewall-snapshot checker correction is at 9553ea5c4331d15f85db2842765dd82cfd428e4d; exact HTTPD Authentication and Security #45005694009 and AI handoff #45005694083 PASS.
-- Firewall Startup contract correction 005d1e340cfc7a68b0686833c8ab96d30122fe73: exact Firewall Startup #45005183052 and AI docs #45005183110 PASS.
-- Product L3 evidence remains only for a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff; the exact 595 XY-C1 #45005582389 was still IN_PROGRESS. Hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; current main parent for this checker fix: 2333039ea9c33c9b02f941621928f64659b249fc. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
+- Storage firewall refresh source change is in 595b2dcb7a927a369d3e29a0aef75a5431fc7e74. The workflow contract expected UNKNOWN-inclusive Transmission/Aria state and was corrected in 2333039ea9c33c9b02f941621928f64659b249fc. Exact storage run #45005813291 then passed the embedded whole-caller graph but failed the dedicated checker because its negative token search matched a source comment mentioning the helper.
+- THIS fix narrows that checker assertion to reject actual nvram_match calls while allowing the explanatory comment. No production behavior change.
+- HTTPD snapshot checker fix 9553ea5c4331d15f85db2842765dd82cfd428e4d exact HTTPD Authentication #45005694009 and AI handoff #45005694083 PASS.
+- Product L3 remains verified only for a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -31,17 +30,15 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- Finish exact storage lifecycle firewall-reconciliation validation. Source commit 595 removes lossy FTP/Transmission/Aria NVRAM gates so firewall refresh runs on process-presence changes, including UNKNOWN. The embedded workflow checker was still asserting RUNNING-only for Transmission/Aria start-state detection.
-- THIS CI-only follow-up updates those two assertions to require state != ABSENT, matching the conservative fail-closed behavior; no production-source behavior changes.
-- Once Storage workflow passes, continue the next independent userland stability/security source issue; do not repeat WAN, account, IAPP, USB printer or checked firewall input work.
+- Complete storage firewall-refresh validation after fixing the source-contract false positive. The dedicated checker must reject executable nvram_match("key", ...) gates but not match a descriptive comment that explains why the helper is unsafe.
+- Next source issue: write_nfsd_exports() retains nvram_safe_get pointers across later NVRAM reads, so shared-cache reuse can corrupt LAN/IPv6/VPN ACL inputs before formatting. Fix with owned checked copies and preserve fail-closed export publication.
 
 ## Verification boundary
-- Exact 595 Storage hotplug #45005582512 FAILED at embedded Python assertions 473–474 for stale RUNNING-only expectations. Previous assertions in the same job had passed. This correction updates precisely those expectations; exact corrected-head Storage run pending.
-- Exact 595 Process umbrella #45005582502 PASS, Process inventory #45005582579 PASS, Firewall Startup #45005582381 PASS, AI docs #45005582448 PASS, NVRAM audit #45005582401 PASS, vsftpd config #45005582428 PASS, USB modem #45005582609 PASS, Samba #45005582649 PASS, NFS #45005582455 PASS, IPv6 #45005582655 PASS.
-- Exact 595 HTTPD Authentication #45005582489 FAILED; follow-up source-contract correction landed at 9553 and exact #45005694009 PASS. Exact 595 XY-C1 #45005582389 was still IN_PROGRESS.
-- Current product L3 not verified. Hardware L4 NOT VERIFIED.
+- Exact storage 2333039ea9c33c9b02f941621928f64659b249fc run #45005813291 FAILED only in scripts/check_storage_safe_remove.py at line 654; the preceding inline storage lock/caller graph passed. The negative substring search matched the comment text nvram_match() in control_ftp_fw, not an executable function call.
+- The storage workflow rerun after this checker correction is pending. Prior exact 005 Firewall Startup #45005183052 and AI docs #45005183110 PASS; HTTPD auth correction #45005694009 and AI docs #45005694083 PASS.
+- No current-head XY-C1 same-SHA Build/TRX/artifact evidence. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact-head Storage hotplug, Process umbrella/inventory, AI docs and XY-C1 runs. If Storage fails, inspect the first failing assertion/step; the stale RUNNING-only expectations have been corrected.
-2. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on this same exact source SHA.
-3. Continue an independent P1 stability/security fix across userland. Avoid re-auditing WAN routes, account snapshot, IAPP, USB printer and firewall IP source work. Hardware L4 remains NOT VERIFIED.
+1. Check exact-head Storage hotplug #45005813291 rerun and the Process inventory/umbrella, AI docs and XY-C1 workflows. Diagnose any remaining failure from the exact job log.
+2. Continue the NFS export ACL input ownership fix after the storage checker passes; ensure NFS exports are not published from stale shared-cache values.
+3. Claim L3 only if same-SHA XY-C1 Build, TRX and artifact upload all pass; hardware L4 remains NOT VERIFIED.

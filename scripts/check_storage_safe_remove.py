@@ -653,7 +653,7 @@ require("status = rc_first_service_start_status(status, ENOENT);" in daemon_resu
 ftp_firewall = body(storage, "control_ftp_fw(int is_run_before)")
 require("storage_service_process_presence_changed(is_run_before, is_run_after)" in ftp_firewall and
         "return restart_firewall();" in ftp_firewall and
-        "nvram_match(" not in ftp_firewall,
+        'nvram_match("' not in ftp_firewall,
         "FTP presence changes must always invoke the checked firewall rebuild")
 for signature, label in (("restart_torrent(void)", "Transmission"),
                          ("restart_aria(void)", "Aria")):
