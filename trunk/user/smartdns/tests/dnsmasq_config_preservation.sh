@@ -188,29 +188,106 @@ cmp -s "$F" "$T/publish-before-mv" || fail "failed publication changed live DNSM
 for tmp in "$F".tmp.*; do [ ! -e "$tmp" ] || fail "publish leaked temporary file"; done
 pass "failed managed-block publication leaves original config intact"
 
-# A failed NVRAM update must not make the active host mode disagree with
-# the persistent adbyby_add setting. Exercise both transition directions.
+# NVRAM read and write errors must not desynchronize the active Adbyby DNS owner.
 SMARTDNS_SOURCE="$HERE/../smartdns.sh"
 if grep -Fq '/usr/bin/adbyby.sh switch' "$SMARTDNS_SOURCE"; then
     fail "SmartDNS dispatched an unsupported Adbyby switch action"
 fi
-sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE" > "$T/change-adbyby.sh"
+{
+    sed -n '/^smartdns_nvram_read_checked()/,/^}/p' "$SMARTDNS_SOURCE"
+    sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE"
+} > "$T/change-adbyby.sh"
 [ -s "$T/change-adbyby.sh" ] || fail "Change_adbyby helper missing"
 . "$T/change-adbyby.sh"
 NVRAM_ADDBYBY_VALUE=1
 NVRAM_SET_STATUS=37
+NVRAM_READ_FAIL_KEY=
+NVRAM_READ_STATUS=41
+NVRAM_WRITE_LOG="$T/adbyby-writes.log"
+: > "$NVRAM_WRITE_LOG"
 pidof() { [ "${1:-}" = adbyby ] || return 1; printf '123\n'; }
 nvram() {
     case "${1:-} ${2:-}" in
-        "get adbyby_enable") printf '1\n' ;;
-        "get adbyby_add") printf '%s\n' "$NVRAM_ADDBYBY_VALUE" ;;
-        "set adbyby_add=0"|"set adbyby_add=1") return "$NVRAM_SET_STATUS" ;;
+        "get_checked adbyby_enable")
+            [ "$NVRAM_READ_FAIL_KEY" != adbyby_enable ] || return "$NVRAM_READ_STATUS"
+            printf '1\n'
+            ;;
+        "get_checked adbyby_add")
+            [ "$NVRAM_READ_FAIL_KEY" != adbyby_add ] || return "$NVRAM_READ_STATUS"
+            printf '%s\n' "$NVRAM_ADDBYBY_VALUE"
+            ;;
+        "set adbyby_add=0"|"set adbyby_add=1")
+            printf '%s\n' "$1 $2" >> "$NVRAM_WRITE_LOG"
+            return "$NVRAM_SET_STATUS"
+            ;;
         *) return 2 ;;
     esac
 }
 logger() { printf '%s\n' "$*" >> "$T/adbyby.log"; }
 
+# Failed service-enabled reads must abort both ownership transitions.
 : > "$T/adbyby.log"
+NVRAM_SET_STATUS=0
+NVRAM_READ_FAIL_KEY=adbyby_enable
+NVRAM_READ_STATUS=41
+sdns_enable=0
+hosts_type=SmartDNS
+action=start
+if Change_adbyby; then
+    fail "failed adbyby_enable read was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 41 ] || fail "adbyby_enable read error changed status to $status"
+[ "$hosts_type" = SmartDNS ] || fail "adbyby_enable read failure changed active host mode"
+[ "$NVRAM_ADDBYBY_VALUE" = 1 ] || fail "adbyby_enable read failure changed persistent state"
+[ ! -s "$NVRAM_WRITE_LOG" ] || fail "adbyby_enable read failure attempted a persistent write"
+grep -Fq 'Failed to read NVRAM key adbyby_enable' "$T/adbyby.log" || fail "adbyby_enable read failure was not logged"
+
+# SmartDNS -> DNSMasq must not treat an unreadable adbyby_add as disabled.
+: > "$T/adbyby.log"
+: > "$NVRAM_WRITE_LOG"
+NVRAM_READ_FAIL_KEY=adbyby_add
+NVRAM_READ_STATUS=42
+sdns_enable=0
+hosts_type=SmartDNS
+action=start
+if Change_adbyby; then
+    fail "failed adbyby_add read was accepted for DNSMasq transition"
+else
+    status=$?
+fi
+[ "$status" -eq 42 ] || fail "SmartDNS-to-DNSMasq read error changed status to $status"
+[ "$hosts_type" = SmartDNS ] || fail "adbyby_add read failure changed active host mode"
+[ "$NVRAM_ADDBYBY_VALUE" = 1 ] || fail "adbyby_add read failure changed persistent state"
+[ ! -s "$NVRAM_WRITE_LOG" ] || fail "adbyby_add read failure attempted a persistent write"
+
+# DNSMasq -> SmartDNS must also refuse an unreadable adbyby_add decision.
+: > "$T/adbyby.log"
+: > "$NVRAM_WRITE_LOG"
+NVRAM_READ_STATUS=43
+sdns_enable=1
+hosts_type=dnsmasq
+sdns_port=6053
+sdns_redirect=0
+action=start
+if Change_adbyby; then
+    fail "failed adbyby_add read was accepted for SmartDNS transition"
+else
+    status=$?
+fi
+[ "$status" -eq 43 ] || fail "DNSMasq-to-SmartDNS read error changed status to $status"
+[ "$hosts_type" = dnsmasq ] || fail "reverse adbyby_add read failure changed active host mode"
+[ "$NVRAM_ADDBYBY_VALUE" = 1 ] || fail "reverse adbyby_add read failure changed persistent state"
+[ ! -s "$NVRAM_WRITE_LOG" ] || fail "reverse adbyby_add read failure attempted a persistent write"
+pass "Adbyby NVRAM read failures preserve both DNS ownership targets and propagate status"
+
+# A failed persistent write must likewise leave the active in-memory owner unchanged.
+: > "$T/adbyby.log"
+: > "$NVRAM_WRITE_LOG"
+NVRAM_READ_FAIL_KEY=
+NVRAM_SET_STATUS=37
+NVRAM_ADDBYBY_VALUE=1
 sdns_enable=0
 hosts_type=SmartDNS
 action=start
@@ -226,6 +303,7 @@ grep -Fq 'Failed to persist adbyby_add=0' "$T/adbyby.log" || fail "DNSMasq trans
 ! grep -Fq 'DNS 去广告规则:' "$T/adbyby.log" || fail "failed DNSMasq transition was reported as successful"
 
 : > "$T/adbyby.log"
+: > "$NVRAM_WRITE_LOG"
 NVRAM_ADDBYBY_VALUE=0
 sdns_enable=1
 hosts_type=dnsmasq
@@ -241,7 +319,7 @@ fi
 [ "$NVRAM_ADDBYBY_VALUE" = 0 ] || fail "failed SmartDNS transition changed mock persistent value"
 grep -Fq 'Failed to persist adbyby_add=1' "$T/adbyby.log" || fail "SmartDNS transition failure was not logged"
 ! grep -Fq 'DNS 去广告规则:' "$T/adbyby.log" || fail "failed SmartDNS transition was reported as successful"
-pass "Adbyby NVRAM failures preserve the active DNS target and propagate status"
+pass "Adbyby NVRAM write failures preserve the active DNS target and propagate status"
 pass "SmartDNS does not dispatch unsupported Adbyby switch action"
 
 
@@ -251,6 +329,7 @@ pass "SmartDNS does not dispatch unsupported Adbyby switch action"
 SMARTDNS_SOURCE="$HERE/../smartdns.sh"
 ADBYBY_SOURCE="$HERE/../../adbyby/adbyby.sh"
 {
+    sed -n '/^smartdns_nvram_read_checked()/,/^}/p' "$SMARTDNS_SOURCE"
     sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE"
     sed -n '/^Change_dnsmasq () {$/,/^}/p' "$SMARTDNS_SOURCE"
     sed -n '/^Get_sdnse_conf () {$/,/^}/p' "$SMARTDNS_SOURCE"
@@ -286,8 +365,8 @@ NVRAM_SET_STATUS=0
 pidof() { [ "${1:-}" = adbyby ] || return 1; printf '123\n'; }
 nvram() {
     case "${1:-} ${2:-}" in
-        "get adbyby_enable") printf '1\n' ;;
-        "get adbyby_add") printf '%s\n' "$NVRAM_ADDBYBY_VALUE" ;;
+        "get_checked adbyby_enable"|"get adbyby_enable") printf '1\n' ;;
+        "get_checked adbyby_add"|"get adbyby_add") printf '%s\n' "$NVRAM_ADDBYBY_VALUE" ;;
         "get hosts_ad") printf '1\n' ;;
         "get sdns_staticnum_x") printf '0\n' ;;
         "set adbyby_add=0")

@@ -504,13 +504,28 @@ Start_AD () {
     return 0
 }
 
+smartdns_nvram_read_checked()
+{
+    smartdns_nvram_value=$(nvram get_checked "$1")
+    smartdns_nvram_status=$?
+    if [ "$smartdns_nvram_status" -ne 0 ]; then
+        logger -t "SmartDNS" "Failed to read NVRAM key $1 (status=$smartdns_nvram_status)"
+        return "$smartdns_nvram_status"
+    fi
+    return 0
+}
+
 Change_adbyby () {
 # 【】
     adbyby_process=$(pidof adbyby | awk '{ print $1 }')
-    if [ "$adbyby_process"x != x ] && [ $(nvram get adbyby_enable) = 1 ] ; then
-    case $sdns_enable in
+    [ -n "$adbyby_process" ] || return 0
+    smartdns_nvram_read_checked adbyby_enable || return $?
+    [ "$smartdns_nvram_value" = "1" ] || return 0
+
+    case "$sdns_enable" in
     0)
-        if [ $(nvram get adbyby_add) = 1 ] && [ "$hosts_type" != "dnsmasq" ]; then
+        smartdns_nvram_read_checked adbyby_add || return $?
+        if [ "$smartdns_nvram_value" = "1" ] && [ "$hosts_type" != "dnsmasq" ]; then
             if nvram set adbyby_add=0; then
                 :
             else
@@ -524,8 +539,17 @@ Change_adbyby () {
         fi
         ;;
     1)
-        if [ "$hosts_type" != "SmartDNS" ] && [ "$action" = "start" ] ; then
-            if [ "$sdns_port" = "53" ] || [ $(nvram get adbyby_add) = 1 ] || [ "$sdns_redirect" = "2" ] ; then
+        if [ "$hosts_type" != "SmartDNS" ] && [ "$action" = "start" ]; then
+            smartdns_adbyby_update_target=0
+            if [ "$sdns_port" = "53" ]; then
+                smartdns_adbyby_update_target=1
+            else
+                smartdns_nvram_read_checked adbyby_add || return $?
+                if [ "$smartdns_nvram_value" = "1" ] || [ "$sdns_redirect" = "2" ]; then
+                    smartdns_adbyby_update_target=1
+                fi
+            fi
+            if [ "$smartdns_adbyby_update_target" = "1" ]; then
                 if nvram set adbyby_add=1; then
                     :
                 else
@@ -540,7 +564,6 @@ Change_adbyby () {
         fi
         ;;
     esac
-    fi
 }
 
 Change_dnsmasq () {

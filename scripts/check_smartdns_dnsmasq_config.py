@@ -90,10 +90,16 @@ assert "sed -i" not in change
 assert "server=127.0.0.1#$sdns_port" in change
 assert 'smartdns_dnsmasq_publish_managed_block "$@"' in change
 assert '>> "$dnsmasq_Conf"' not in change
+adbyby_read = body(smartdns, "smartdns_nvram_read_checked")
+assert 'nvram get_checked "$1"' in adbyby_read
+assert "Failed to read NVRAM key" in adbyby_read
+assert 'return "$smartdns_nvram_status"' in adbyby_read
 adbyby_change = body(smartdns, "Change_adbyby")
 assert "/usr/bin/adbyby.sh switch" not in adbyby_change, \
     "SmartDNS must not dispatch the unsupported Adbyby switch action"
-for token in ("if nvram set adbyby_add=0; then", "if nvram set adbyby_add=1; then",
+for token in ("smartdns_nvram_read_checked adbyby_enable",
+              "smartdns_nvram_read_checked adbyby_add",
+              "if nvram set adbyby_add=0; then", "if nvram set adbyby_add=1; then",
               'return "$adbyby_nvram_status"'):
     assert token in adbyby_change, token
 assert adbyby_change.index("nvram set adbyby_add=0") < adbyby_change.index('hosts_type="dnsmasq"')
@@ -128,7 +134,8 @@ for token in ("managed-block publication is atomic and preserves same-valued use
               "all DNSMasq preliminary AWK scan failures propagate without changing live config",
               "rename failure preserves original config",
               "failed managed-block publication leaves original config intact",
-              "Adbyby NVRAM failures preserve the active DNS target and propagate status",
+              "Adbyby NVRAM read failures preserve both DNS ownership targets and propagate status",
+              "Adbyby NVRAM write failures preserve the active DNS target and propagate status",
               "SmartDNS does not dispatch unsupported Adbyby switch action",
               "SmartDNS DNSMasq configuration preservation regression: PASS"):
     assert token in test, token
