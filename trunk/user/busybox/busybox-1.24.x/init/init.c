@@ -118,7 +118,8 @@
 # include <linux/vt.h>
 # include <sys/sysinfo.h>
 #endif
-#include "reboot.h" /* reboot() constants */
+#include "reboot.h"
+#include "init_reap_queue.h" /* reboot() constants */
 
 #if DEBUG_SEGV_HANDLER
 # undef _GNU_SOURCE
@@ -198,6 +199,10 @@ struct init_action {
 };
 
 static struct init_action *init_action_list = NULL;
+
+/* SIGTSTP reaps are deferred to the main loop, never touching utmp or the
+ * mutable inittab list from signal context. */
+static struct init_reap_queue pending_reaped_children;
 
 static const char *log_console = VC_5;
 
@@ -549,23 +554,55 @@ static struct init_action *mark_terminated(pid_t pid)
 	return NULL;
 }
 
+static void flush_pending_reaped_children(void)
+{
+	sigset_t tstp_set, old_set;
+	pid_t pending_pids[INIT_REAP_QUEUE_CAPACITY];
+	sig_atomic_t pending_count;
+	int i, saved_errno;
+
+	saved_errno = errno;
+	sigemptyset(&tstp_set);
+	sigaddset(&tstp_set, SIGTSTP);
+	if (sigprocmask(SIG_BLOCK, &tstp_set, &old_set) != 0) {
+		errno = saved_errno;
+		return;
+	}
+
+	pending_count = init_reap_queue_drain(
+		&pending_reaped_children, pending_pids,
+		INIT_REAP_QUEUE_CAPACITY);
+	(void)sigprocmask(SIG_SETMASK, &old_set, NULL);
+
+	if (pending_count > 0) {
+		for (i = 0; i < pending_count; i++)
+			mark_terminated(pending_pids[i]);
+	}
+	errno = saved_errno;
+}
+
 static void waitfor(pid_t pid)
 {
 	/* waitfor(run(x)): protect against failed fork inside run() */
 	if (pid <= 0)
 		return;
 
-	/* Wait for any child (prevent zombies from exiting orphaned processes)
-	 * but exit the loop only when specified one has exited. */
+	/* The SIGTSTP handler may already have reaped this exact child. Check
+	 * before wait(): otherwise wait() can block on an unrelated live child. */
 	while (1) {
-		pid_t wpid = wait(NULL);
-		mark_terminated(wpid);
-		/* Unsafe. SIGTSTP handler might have wait'ed it already */
-		/*if (wpid == pid) break;*/
-		/* More reliable: */
-		if (kill(pid, 0))
+		pid_t wpid;
+
+		if (kill(pid, 0) != 0 && errno == ESRCH)
 			break;
+
+		wpid = wait(NULL);
+		if (wpid > 0) {
+			mark_terminated(wpid);
+		} else if (wpid < 0 && errno != EINTR) {
+			break;
+		}
 	}
+	flush_pending_reaped_children();
 }
 
 /* Run all commands of a particular type */
@@ -878,12 +915,21 @@ static void stop_handler(int sig UNUSED_PARAM)
 
 		if (bb_got_signal == SIGCONT)
 			break;
-		/* NB: this can accidentally wait() for a process
-		 * which we waitfor() elsewhere! waitfor() must have
-		 * code which is resilient against this.
+
+		/*
+		 * waitpid is async-signal-safe, but mark_terminated() is not: it
+		 * updates utmp and walks init_action_list, which can be modified by
+		 * reload_inittab(). Queue only the reaped PID here; the main loop
+		 * performs all bookkeeping after this handler returns.
+		 *
+		 * Keep the queue bounded. If it is full, leave further children
+		 * waitable until SIGCONT resumes the main loop.
 		 */
-		wpid = wait_any_nohang(NULL);
-		mark_terminated(wpid);
+		if (init_reap_queue_has_capacity(&pending_reaped_children)) {
+			wpid = wait_any_nohang(NULL);
+			if (wpid > 0)
+				(void)init_reap_queue_push(&pending_reaped_children, wpid);
+		}
 		sleep(1);
 	}
 
@@ -895,6 +941,15 @@ static void stop_handler(int sig UNUSED_PARAM)
 #if ENABLE_FEATURE_USE_INITTAB
 static void reload_inittab(void)
 {
+	sigset_t tstp_set, old_set;
+	int tstp_blocked;
+
+	sigemptyset(&tstp_set);
+	sigaddset(&tstp_set, SIGTSTP);
+	tstp_blocked = (sigprocmask(SIG_BLOCK, &tstp_set, &old_set) == 0);
+	if (tstp_blocked)
+		flush_pending_reaped_children();
+
 	struct init_action *a, **nextp;
 
 	message(L_LOG, "reloading /etc/inittab");
@@ -951,6 +1006,9 @@ static void reload_inittab(void)
 	/* Not needed: */
 	/* run_actions(RESPAWN | ASKFIRST); */
 	/* - we return to main loop, which does this automagically */
+
+	if (tstp_blocked)
+		(void)sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 #endif
 
@@ -1184,12 +1242,17 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 	/* Now run everything that needs to be run */
 	/* First run the sysinit command */
 	run_actions(SYSINIT);
+	flush_pending_reaped_children();
 	check_delayed_sigs();
+	flush_pending_reaped_children();
 	/* Next run anything that wants to block */
 	run_actions(WAIT);
+	flush_pending_reaped_children();
 	check_delayed_sigs();
+	flush_pending_reaped_children();
 	/* Next run anything to be run only once */
 	run_actions(ONCE);
+	flush_pending_reaped_children();
 
 	/* Now run the looping stuff for the rest of forever.
 	 */
@@ -1197,14 +1260,18 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 		int maybe_WNOHANG;
 
 		maybe_WNOHANG = check_delayed_sigs();
+		flush_pending_reaped_children();
 
 		/* (Re)run the respawn/askfirst stuff */
 		run_actions(RESPAWN | ASKFIRST);
+		flush_pending_reaped_children();
 		maybe_WNOHANG |= check_delayed_sigs();
+		flush_pending_reaped_children();
 
 		/* Don't consume all CPU time - sleep a bit */
 		sleep(1);
 		maybe_WNOHANG |= check_delayed_sigs();
+		flush_pending_reaped_children();
 
 		/* Wait for any child process(es) to exit.
 		 *
