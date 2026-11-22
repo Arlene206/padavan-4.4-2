@@ -2378,6 +2378,9 @@ ovpn_server_expcli_main(int argc, char **argv)
 	int i, i_prot, i_atls, i_tcv2, days_valid, config_status;
 	int cert_status, keygen_status, env_set = 0, temp_dir_created = 0;
 	int protocol_status;
+#if defined (USE_IPV6)
+	int wan_addr6_status;
+#endif
 	int saved_errno, path_len;
 	const char *p_prot, *wan_addr, *rsa_bits;
 	char tmp_ovpn_path[] = "/tmp/export_ovpn.XXXXXX";
@@ -2483,7 +2486,14 @@ ovpn_server_expcli_main(int argc, char **argv)
 	if (!wan_addr) {
 #if defined (USE_IPV6)
 		if (i_prot > 1) {
-			wan_addr = get_wan_addr6_host(addr6s);
+			wan_addr6_status = get_wan_addr6_host_status(addr6s, &wan_addr);
+			if (wan_addr6_status != 0) {
+				errno = wan_addr6_status;
+				logmessage(SERVER_LOG_NAME,
+					   "cannot read WAN IPv6 endpoint for OpenVPN client export (status=%d)",
+					   wan_addr6_status);
+				goto failed;
+			}
 			if (!wan_addr)
 				wan_addr = get_lan_addr6_host(addr6s);
 			/* Dual-stack listeners remain reachable over IPv4 when this router

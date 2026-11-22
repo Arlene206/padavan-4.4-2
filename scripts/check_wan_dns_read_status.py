@@ -871,6 +871,9 @@ print("WAN route ownership uses a coherent tuple while preserving PPP conntrack 
 # IPv6 service-mode predicates control reset, DNS publication and WAN route
 # selection. Do not let a checked NVRAM failure collapse into "IPv6 disabled".
 wan6_source = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
+vpn_source = (ROOT / "trunk/user/rc/src/vpn_openvpn.c").read_text()
+wan6_identity_policy = (ROOT / "trunk/user/rc/src/wan6_identity_policy.h").read_text()
+wan6_identity_test = (ROOT / "trunk/user/rc/src/tests/wan6_identity_policy.c").read_text()
 ipv6_policy = (ROOT / "trunk/user/rc/src/wan_ipv6_service_policy.h").read_text()
 ipv6_test = (ROOT / "trunk/user/rc/src/tests/wan_ipv6_service_policy.c").read_text()
 rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
@@ -1220,3 +1223,53 @@ require(identity_read < identity_error < first_interface_probe,
         "WAN IPv6 teardown must reject an unreadable previous interface before probing a fallback")
 require('get_wan_unit_value(unit, "ifname6")' not in wan6_down_body,
         "WAN IPv6 teardown must not use the error-collapsing pointer getter")
+
+# OpenVPN endpoint export may fall back to LAN only after a clean WAN lookup miss.
+wan6_host_body = body(
+    wan6_source,
+    "int get_wan_addr6_host_status(char *p_addr6s, const char **p_host)",
+)
+require("get_wan_unit_value_copy_status(" in wan6_host_body and
+        '"ifname6"' in wan6_host_body and
+        "wan6_identity_resolve_addr6_host(" in wan6_host_body,
+        "WAN IPv6 endpoint lookup must use checked interface identity")
+wan6_lookup_body = body(
+    wan6_source,
+    "wan6_lookup_ifaddr6_status(void *context, const char *ifname,",
+)
+require("errno = 0;" in wan6_lookup_body and
+        "result = get_ifaddr6(ifname, 0, address);" in wan6_lookup_body and
+        "return errno ? errno : 0;" in wan6_lookup_body,
+        "WAN IPv6 lookup must preserve getifaddrs failures")
+wan6_legacy_body = body(wan6_source, "char *get_wan_addr6_host(char *p_addr6s)")
+require("get_wan_addr6_host_status(p_addr6s, &host)" in wan6_legacy_body and
+        "errno = status;" in wan6_legacy_body,
+        "legacy WAN IPv6 helper must preserve checked errors")
+require("int get_wan_addr6_host_status(char *p_addr6s, const char **p_host);" in rc_header,
+        "status-bearing WAN IPv6 endpoint API must be declared")
+wan6_host_policy = body(
+    wan6_identity_policy,
+    "wan6_identity_resolve_addr6_host(int ifname_status,",
+)
+for token in ("if (ifname_status != 0)", "if (!ifname[0])",
+              "if (status != 0)", "if (!found)", "strchr(address, '/')"):
+    require(token in wan6_host_policy,
+            "WAN IPv6 host policy must distinguish errors from clean misses: " + token)
+vpn_export = body(vpn_source, "ovpn_server_expcli_main(int argc, char **argv)")
+require("wan_addr6_status = get_wan_addr6_host_status(addr6s, &wan_addr);" in vpn_export and
+        "if (wan_addr6_status != 0)" in vpn_export and
+        "goto failed;" in vpn_export,
+        "OpenVPN client export must abort on WAN IPv6 lookup errors")
+require(vpn_export.index("if (wan_addr6_status != 0)") <
+        vpn_export.index("get_lan_addr6_host(addr6s)"),
+        "OpenVPN LAN fallback must follow a successful no-address result only")
+for test_name in (
+    "test_wan6_address_host_read_error_fails_closed",
+    "test_wan6_address_host_missing_interface_keeps_fallback_eligible",
+    "test_wan6_address_host_extracts_prefix_free_public_address",
+    "test_wan6_address_host_does_not_hide_address_enumeration_error",
+    "test_wan6_address_host_no_address_is_a_non_error",
+    "test_wan6_address_host_rejects_invalid_arguments",
+):
+    require(test_name in wan6_identity_test and test_name + "();" in wan6_identity_test,
+            "WAN IPv6 endpoint lookup regression is missing: " + test_name)

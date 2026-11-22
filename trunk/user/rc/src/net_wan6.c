@@ -843,30 +843,54 @@ int store_wan_dns6(char *dns6_new)
 	return status;
 }
 
-char *get_wan_addr6_host(char *p_addr6s)
+
+static int
+wan6_lookup_ifaddr6_status(void *context, const char *ifname,
+			   char *address, int *found)
 {
-	char *tmp = p_addr6s;
+	char *result;
+
+	(void)context;
+	if (!ifname || !address || !found)
+		return EINVAL;
+
+	*found = 0;
+	errno = 0;
+	result = get_ifaddr6(ifname, 0, address);
+	if (!result)
+		return errno ? errno : 0;
+
+	*found = 1;
+	return 0;
+}
+
+int
+get_wan_addr6_host_status(char *p_addr6s, const char **p_host)
+{
 	char wan6_ifname[IFNAMSIZ] = {0};
 	int status;
 
-	if (!p_addr6s) {
-		errno = EINVAL;
-		return NULL;
-	}
-
+	if (!p_addr6s || !p_host)
+		return EINVAL;
+	*p_host = NULL;
 	status = get_wan_unit_value_copy_status(
 		0, "ifname6", wan6_ifname, sizeof(wan6_ifname));
+	return wan6_identity_resolve_addr6_host(
+		status, wan6_ifname, p_addr6s, p_host,
+		wan6_lookup_ifaddr6_status, NULL);
+}
+
+char *get_wan_addr6_host(char *p_addr6s)
+{
+	const char *host = NULL;
+	int status;
+
+	status = get_wan_addr6_host_status(p_addr6s, &host);
 	if (status != 0) {
 		errno = status;
 		return NULL;
 	}
-	errno = 0;
-	if (wan6_ifname[0] != '\0' && get_ifaddr6(wan6_ifname, 0, p_addr6s)) {
-		strsep(&tmp, "/");
-		return p_addr6s;
-	}
-
-	return NULL;
+	return (char *)host;
 }
 
 static int

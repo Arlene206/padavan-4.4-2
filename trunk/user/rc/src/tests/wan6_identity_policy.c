@@ -38,6 +38,126 @@ fake_stop_sit(void *opaque)
 	return fake->stop_status;
 }
 
+
+struct fake_wan6_addr_lookup {
+	int status;
+	int found;
+	int calls;
+	const char *address;
+	char ifname[16];
+};
+
+static int
+fake_wan6_get_addr6(void *opaque, const char *ifname, char *address,
+		    int *found)
+{
+	struct fake_wan6_addr_lookup *fake =
+		(struct fake_wan6_addr_lookup *)opaque;
+
+	++fake->calls;
+	snprintf(fake->ifname, sizeof(fake->ifname), "%s", ifname);
+	if (fake->address)
+		snprintf(address, 64, "%s", fake->address);
+	*found = fake->found;
+	return fake->status;
+}
+
+static void
+test_wan6_address_host_read_error_fails_closed(void)
+{
+	struct fake_wan6_addr_lookup fake;
+	char address[64] = "stale";
+	const char *host = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.found = 1;
+	fake.address = "2001:db8::1/64";
+	assert(wan6_identity_resolve_addr6_host(
+		EACCES, "ppp0", address, &host,
+		fake_wan6_get_addr6, &fake) == EACCES);
+	assert(host == NULL && address[0] == '\0');
+	assert(fake.calls == 0);
+}
+
+static void
+test_wan6_address_host_missing_interface_keeps_fallback_eligible(void)
+{
+	struct fake_wan6_addr_lookup fake;
+	char address[64] = "stale";
+	const char *host = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_identity_resolve_addr6_host(
+		0, "", address, &host,
+		fake_wan6_get_addr6, &fake) == 0);
+	assert(host == NULL && address[0] == '\0');
+	assert(fake.calls == 0);
+}
+
+static void
+test_wan6_address_host_extracts_prefix_free_public_address(void)
+{
+	struct fake_wan6_addr_lookup fake;
+	char address[64] = "";
+	const char *host = NULL;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.found = 1;
+	fake.address = "2001:db8::1/64";
+	assert(wan6_identity_resolve_addr6_host(
+		0, "ppp0", address, &host,
+		fake_wan6_get_addr6, &fake) == 0);
+	assert(fake.calls == 1 && strcmp(fake.ifname, "ppp0") == 0);
+	assert(host == address && strcmp(host, "2001:db8::1") == 0);
+}
+
+static void
+test_wan6_address_host_does_not_hide_address_enumeration_error(void)
+{
+	struct fake_wan6_addr_lookup fake;
+	char address[64] = "stale";
+	const char *host = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.status = EIO;
+	assert(wan6_identity_resolve_addr6_host(
+		0, "ppp0", address, &host,
+		fake_wan6_get_addr6, &fake) == EIO);
+	assert(fake.calls == 1);
+	assert(host == NULL && address[0] == '\0');
+}
+
+static void
+test_wan6_address_host_no_address_is_a_non_error(void)
+{
+	struct fake_wan6_addr_lookup fake;
+	char address[64] = "stale";
+	const char *host = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_identity_resolve_addr6_host(
+		0, "ppp0", address, &host,
+		fake_wan6_get_addr6, &fake) == 0);
+	assert(fake.calls == 1 && host == NULL);
+}
+
+static void
+test_wan6_address_host_rejects_invalid_arguments(void)
+{
+	struct fake_wan6_addr_lookup fake;
+	char address[64];
+	const char *host = NULL;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_identity_resolve_addr6_host(
+		0, NULL, address, &host,
+		fake_wan6_get_addr6, &fake) == EINVAL);
+	assert(wan6_identity_resolve_addr6_host(
+		0, "ppp0", NULL, &host,
+		fake_wan6_get_addr6, &fake) == EINVAL);
+	assert(fake.calls == 0);
+}
+
 static void
 test_sit_identity_commit_success(void)
 {
@@ -184,6 +304,13 @@ test_metadata_clear_rejects_invalid_arguments_before_side_effects(void)
 int
 main(void)
 {
+
+	test_wan6_address_host_read_error_fails_closed();
+	test_wan6_address_host_missing_interface_keeps_fallback_eligible();
+	test_wan6_address_host_extracts_prefix_free_public_address();
+	test_wan6_address_host_does_not_hide_address_enumeration_error();
+	test_wan6_address_host_no_address_is_a_non_error();
+	test_wan6_address_host_rejects_invalid_arguments();
 	test_sit_identity_commit_success();
 	test_sit_identity_failure_removes_tunnel_and_clears_partial_identity();
 	test_sit_identity_failure_retains_state_when_tunnel_removal_fails();

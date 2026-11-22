@@ -1,3 +1,13 @@
+## 2026-11-22 — Keep OpenVPN IPv6 endpoint errors distinct from clean address misses
+
+- Parent main SHA: `52d3648af131fc24adfc607bb9f9f6e228349fff`. Exact-head WAN DHCP #45026555245, WAN route #45026555259, IPv6 service-type #45026555291, AI handoff #45026555208, HTTPD security #45026555260 and Process inventory #45026555340 passed. NVRAM transaction audit #45026555243 and XY-C1 build #45026555307 remained in progress at the last observation.
+- A prior overlapping source edit had already replaced the lossy `ifname6` pointer getter in `get_wan_addr6_host()` with a checked copy and cleared errno before `get_ifaddr6()`. The remaining defect was at its only RC caller: `ovpn_server_expcli_main()` treated every NULL result as a clean miss and silently fell back to the LAN address, even when the NVRAM read or `getifaddrs()` failed.
+- Added a status-bearing helper that preserves the checked `wan0_ifname6` error and the address-enumeration errno; kept the legacy pointer ABI wrapper while setting errno on failure. OpenVPN export now aborts through its staging cleanup on lookup errors. An empty configured identity or a clean no-address result still allows the legacy LAN/IPv4 fallback.
+- Added six fake-backend identity regressions and route source contracts covering NVRAM errors, missing interface, successful prefix removal, getifaddrs errors, clean address misses and OpenVPN fallback ordering. Local tests were not run in this connector-only environment; verify exact-SHA Actions after this atomic commit.
+- Result: THIS COMMIT. Next: inspect `start_dhcp6c()` and DHCPv6 lease callbacks for error-collapsing NVRAM reads before interface/session or route/DNS side effects, then continue the wider Padavan userland stability rotation.
+
+---
+
 ## 2026-11-22 — Use a checked stable interface name for IPv6 host-address lookup
 
 - Parent main SHA: `5df642aad7357f8817c674cde37ff696071366ac`. `get_wan_addr6_host()` fetched `wan0_ifname6` through the pointer-returning getter and immediately passed that cache-owned pointer to interface-address lookup. The pointer lifetime happened to be short, but a backend read failure was still collapsed into the missing-interface path and could not be distinguished by callers.

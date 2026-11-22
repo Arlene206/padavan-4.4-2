@@ -397,6 +397,7 @@ int reset_wan6_vars(void);
 int reset_wan6_vars_status(void);
 int store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix);
 void store_ip6rd_from_dhcp(const char *env_value, const char *prefix);
+int get_wan_addr6_host_status(char *p_addr6s, const char **p_host);
 char *get_wan_addr6_host(char *p_addr6s);
 int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4, char *wan_gate4, char *wan_addr6);
 int stop_sit_tunnel(void);
