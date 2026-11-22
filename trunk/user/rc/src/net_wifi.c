@@ -2362,7 +2362,7 @@ manual_change_radio_status(int is_5g, int radio_on, int *was_enabled)
 		return -ENAMETOOLONG;
 
 	/*
-	 * nvram_wlan_get_int() uses safe_get()+atoi(), so a backend failure can
+	 * The legacy safe getter uses safe_get()+atoi(), so a backend failure can
 	 * become zero and make a requested radio-off look like a no-op.
 	 */
 	errno = 0;

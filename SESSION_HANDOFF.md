@@ -26,14 +26,12 @@ Manual RT/WL radio changes previously used `nvram_wlan_get_int()` (safe_get + at
 ## Verification boundary
 
 - Local C/Python tests were not run in this connector-only session.
-- Source SHA `e100bb3b88a68e3db6e23721bf6852631126895e`: WAN route #45034779732, WAN DHCP #45034779748, USB modem #45034779746, HTTPD security #45034779752, USB storage #45034779678, FRP #45034779741, Samba #45034779738, NFS #45034779726, miniupnpd #45034779731, vsftpd #45034779757, Inadyn #45034779676, process inventory #45034779974 and NVRAM audit #45034779584 PASS. DNSMasq #45034779769 and IPv6 #45034779684 initially failed only in source-checker assertions while their GNU89/ASan/UBSan policy binaries passed; both checker failures were corrected in `69d316e7909fa2143b12e786260d61ed9cb6cf4a`.
-- Exact checker-fix SHA `69d316e7909fa2143b12e786260d61ed9cb6cf4a`: DNSMasq #45035039314 PASS; IPv6 service-type #45035039316 PASS; AI handoff #45035039283 PASS. XY-C1 #45034779614 on parent `e100bb3...` failed at the embedded LAN IPv6 mode getter assertion before Build XY-C1; TRX and artifact upload were skipped. This workflow contract is corrected in this commit.
-- Prior SHA `7c6ab191bad7e18ec65c8bb8951713dbc24ee3f8` did complete XY-C1 #45033514004 successfully: Build XY-C1, TRX output verification and artifact upload all PASS on that exact older SHA. This does not certify descendants.
-- Earlier PPP and Inadyn runs below are historical evidence only; they do not certify current main.
-- No router hardware validation or L4 result is claimed. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA.
+- Wi-Fi manual-radio source SHA `9957ef226468e6766fdd222b53551459d7a7d3d3`: GNU89/ASan/UBSan wireless policy binary PASS; embedded wireless source-contract failed at Python assertion line 93 because the new “no unchecked safe getter” assertion matched the literal function name inside its explanatory C comment. The production behavior/order assertions before that check passed. A comment-only source correction removes the false-positive, and this follow-up re-runs the workflow.
+- Previous exact XY-C1 SHA `9a1d4e442da2af1d64cef9397fcd973386831617`: run #45035251615 PASS including Build XY-C1, TRX verification and artifact upload. This is historical L3 evidence for that SHA only, not for Wi-Fi descendants.
+- No current-SHA XY-C1 L3 result or router hardware L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA wireless radio Actions for this manual-radio NVRAM fix, then verify XY-C1's Build/TRX/artifact on the same source SHA.
+1. Inspect exact-SHA wireless radio rerun for the comment/source-contract false-positive correction, and verify XY-C1 Build/TRX/artifact on one identical current source SHA.
 2. Continue broad userland stability/security work outside WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio controls.
 3. Keep backup immutable. XY-C1 L3 requires Build, TRX and artifact upload all PASS on one SHA; L4 requires physical device verification.

@@ -1,3 +1,12 @@
+## 2026-11-22 — Remove a comment-token false positive from wireless radio contract
+
+- Parent main SHA: `9957ef226468e6766fdd222b53551459d7a7d3d3`. Wireless run #45035810443 compiled and ran the GNU89/ASan/UBSan policy binary successfully, then failed at embedded Python line 93: the new negative assertion `"nvram_wlan_get_int(" not in radio_manual` matched the same literal in a descriptive comment explaining the old getter. The executable source order checks before it passed; this was a contract false positive, not a code/test compile failure.
+- Removed the old helper's literal function name from that comment while keeping the description and negative source assertion. Updated handoff with exact run detail; source behavior is unchanged.
+- Prior XY-C1 run #45035251615 on SHA `9a1d4e442da2af1d64cef9397fcd973386831617` passed Build XY-C1, TRX verification and artifact upload on that exact SHA only. No current-SHA L3 or hardware L4 claim.
+- No local tests run. Result: THIS COMMIT. Next: recheck exact-head wireless CI and trigger/check XY-C1 on a current source SHA.
+
+---
+
 ## 2026-11-22 — Propagate manual Wi-Fi radio NVRAM read and write failures
 
 - Parent main SHA: `878ab305cbea2b09e59a1082cbc8bc4405244bb0`. The RT/WL manual path called `nvram_wlan_get_int()` (safe_get + `atoi()`), so a backend read failure could become zero and make an explicit radio-off request look like an already-satisfied no-op. Its `nvram_wlan_set_int()` wrapper also discarded the `nvram_set_int()` result, allowing hardware changes after failed persistence.
