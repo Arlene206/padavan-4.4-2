@@ -38,8 +38,16 @@ test_rejects_injection_characters(void)
 static void
 test_rejects_wrong_lengths(void)
 {
+	char empty[1] = { '\0' };
+	char one_digit[2] = { '0', '\0' };
+	char five_digits[6] = { '0', '0', '1', '1', '2', '\0' };
+	char eleven_digits[12] = "00112233445";
+
 	assert(!dnsmasq_static_mac_is_valid(NULL));
-	assert(!dnsmasq_static_mac_is_valid(""));
+	assert(!dnsmasq_static_mac_is_valid(empty));
+	assert(!dnsmasq_static_mac_is_valid(one_digit));
+	assert(!dnsmasq_static_mac_is_valid(five_digits));
+	assert(!dnsmasq_static_mac_is_valid(eleven_digits));
 	assert(!dnsmasq_static_mac_is_valid("00112233445"));
 	assert(!dnsmasq_static_mac_is_valid("0011223344556"));
 	assert(!dnsmasq_static_mac_is_valid("00112233445g"));

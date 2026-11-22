@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/wait.h>
 
 /* A dnsmasq --dhcp-host MAC field must contain exactly twelve hex digits. */
@@ -14,7 +15,9 @@ dnsmasq_static_mac_is_valid(const char *mac)
 	unsigned int digit;
 	int nonzero = 0;
 
-	if (!mac)
+	/* Check length before indexing: short NVRAM strings are valid input
+	 * to this policy and must not be read past their terminator. */
+	if (!mac || strlen(mac) != 12)
 		return 0;
 	for (i = 0; i < 12; i++) {
 		unsigned char value = (unsigned char)mac[i];
@@ -35,9 +38,6 @@ dnsmasq_static_mac_is_valid(const char *mac)
 		if (digit != 0)
 			nonzero = 1;
 	}
-	if (mac[12] != '\0')
-		return 0;
-
 	/* DHCP client hardware addresses must be nonzero unicast Ethernet MACs. */
 	return nonzero && !(first_octet & 1U);
 }

@@ -7,6 +7,9 @@ SERVICES = (ROOT / "trunk/user/rc/src/services_ex.c").read_text()
 POLICY = (ROOT / "trunk/user/rc/src/dnsmasq_nvram_option_policy.h").read_text()
 TEST = (ROOT / "trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
+STATIC_HOST_POLICY = (ROOT / "trunk/user/rc/src/dnsmasq_static_host_policy.h").read_text()
+STATIC_HOST_TEST = (ROOT / "trunk/user/rc/src/tests/dnsmasq_static_host_policy.c").read_text()
+
 
 
 def function_body(source, signature):
@@ -59,4 +62,14 @@ for token in (
 
 assert "scripts/check_dnsmasq_integer_options.py" in WORKFLOW
 assert "Verify DHCP integer snapshots precede generated-file changes" in WORKFLOW
-print("DNSMasq checked DHCP integer options source contract: PASS")
+
+mac_validator = STATIC_HOST_POLICY.split("dnsmasq_static_mac_is_valid(", 1)[1].split(
+    "/* system() returns", 1
+)[0]
+assert "if (!mac || strlen(mac) != 12)" in mac_validator
+assert mac_validator.index("strlen(mac) != 12") < mac_validator.index("for (i = 0; i < 12; i++)")
+assert "char empty[1]" in STATIC_HOST_TEST
+assert "char one_digit[2]" in STATIC_HOST_TEST
+assert "char five_digits[6]" in STATIC_HOST_TEST
+assert "char eleven_digits[12]" in STATIC_HOST_TEST
+print("DNSMasq checked DHCP integer options and bounded static-host MAC validation contracts: PASS")
