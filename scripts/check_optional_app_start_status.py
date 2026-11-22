@@ -202,7 +202,7 @@ case "$(cat "$MOCK_STATE_FILE")" in
     *) exit 2 ;;
 esac
 """)
-        executable(bin_dir / "sleep", "#!/bin/sh\nexit 0\n")
+        executable(bin_dir / "sleep", """#!/bin/sh
 echo "$1" >> "$MOCK_SLEEP_LOG"
 exit "${MOCK_SLEEP_STATUS:-0}"
 """)
@@ -1266,7 +1266,7 @@ fi
 [ -s "$MOCK_DROPBEAR_STATE" ] || exit 1
 printf '%s\\n' 123
 """)
-        executable(bin_dir / "sleep", "#!/bin/sh\\nexit 0\\n")
+        executable(bin_dir / "sleep", "#!/bin/sh\nexit 0\n")
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
