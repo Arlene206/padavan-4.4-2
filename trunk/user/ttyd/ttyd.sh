@@ -37,8 +37,14 @@ func_start(){
 		ttyd_nvram_port=7681
 	fi
 	if start-stop-daemon -S -b -x "$ttyd_exec" -- -i br0 -p "$ttyd_nvram_port" -W -t disableReconnect=true -t disableLeaveAlert=true login; then
-		func_log "Daemon launch requested"
-		return 0
+		if pl_wait_started "$ttyd_exec" 1 4 1; then
+			func_log "Daemon is running"
+			return 0
+		else
+			launch_status=$?
+			func_log "Daemon did not reach running state (status=$launch_status)"
+			return "$launch_status"
+		fi
 	else
 		launch_status=$?
 		func_log "Daemon launch failed (status=$launch_status)"

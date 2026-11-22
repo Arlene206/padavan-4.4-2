@@ -1,3 +1,12 @@
+## 2026-11-22 — Require ttyd detached-child startup readiness
+
+- Parent main SHA: `cf3727b33b4c8900a080cac08e4825c6e0812d35`. Review of `trunk/user/ttyd/ttyd.sh` found that `start-stop-daemon -S -b` returning zero was treated as proof ttyd was running. The script logged "Daemon launch requested" and returned success without checking whether the detached child appeared; a fast exec failure or daemon startup failure therefore left PID 1 reporting a successful service start.
+- Use the shared bounded `pl_wait_started(ttyd, 1, 4, 1)` process-inventory contract after the launcher succeeds. Return success only on confirmed RUNNING; report confirmed ABSENT as status 1 and UNKNOWN/interrupted inventory as status 2. Do not signal or kill on UNKNOWN.
+- Extended the existing ttyd lifecycle test with daemonizer-success/child-absent, UNKNOWN child inventory, and interrupted readiness wait cases. Existing script+test are already exercised by `scripts/check_optional_app_start_status.py` in the process-lifecycle regression workflow; no workflow trigger changes required.
+- At parent inspection: Process lifecycle #45039929135, process inventory #45039929132, EAPoL #45039929140 and AI handoff #45039929005 PASS on this SHA. XY-C1 #45039929086 remains in Build XY-C1; NVRAM audit #45039929010 remains in its raw userland ioctl/kernel caller audit. No L3/L4 or local test claim. Exact-head process/XY-C1 reruns pending.
+
+---
+
 ## 2026-11-22 — Restore EAPoL daemon stop body and mandatory handoff rule
 
 - Parent main SHA: \`9263cbc5583a57dd435eacd2f72a5858351d2537\`. Process-lifecycle regression #45039606446 failed at \`scripts/check_process_lifecycle_integration.py:1411\`: \`stop_auth_eapol()\` had been left with an open function body when the private config writer was inserted. The checker correctly caught a real source defect; the old stop list/return body was restored before the helper definition.

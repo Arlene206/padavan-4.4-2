@@ -45,7 +45,10 @@ cat > "$BIN/start-stop-daemon" <<'STUB'
 #!/bin/sh
 printf '%s\n' "$*" >> "$MOCK_START_LOG"
 [ "$MOCK_START_STATUS" -eq 0 ] || exit "$MOCK_START_STATUS"
-[ "$MOCK_START_APPEARS" = 1 ] && echo running > "$MOCK_STATE"
+case "$MOCK_START_APPEARS" in
+ 1) echo running > "$MOCK_STATE" ;;
+ 2) echo unknown > "$MOCK_STATE" ;;
+esac
 exit 0
 STUB
 cat > "$BIN/logger" <<'STUB'
@@ -129,7 +132,24 @@ echo absent > "$STATE"; reset
 MOCK_TTYD_PORT=4444; MOCK_START_STATUS=37; export MOCK_TTYD_PORT MOCK_START_STATUS
 if run start; then fail "launcher failure accepted"; else rc=$?; fi
 [ "$rc" -eq 37 ] && [ "$(cat "$NVRAM_LOG")" = "get ttyd_port" ] || fail "launcher status/port handling mismatch"
-MOCK_START_STATUS=0; export MOCK_START_STATUS
+MOCK_START_STATUS=0; MOCK_START_APPEARS=0; export MOCK_START_STATUS MOCK_START_APPEARS
+
+# A successful background launcher is not proof that the daemon became live.
+echo absent > "$STATE"; reset
+if run start; then fail "absent child accepted after successful daemonizer"; else rc=$?; fi
+[ "$rc" -eq 1 ] || fail "missing ttyd child returned $rc"
+[ -s "$START_LOG" ] || fail "readiness regression never invoked the launcher"
+
+# Unknown process inventory and interrupted readiness waits fail closed.
+echo absent > "$STATE"; reset
+MOCK_START_APPEARS=2; MOCK_SLEEP_STATUS=0; export MOCK_START_APPEARS MOCK_SLEEP_STATUS
+if run start; then fail "UNKNOWN child state accepted after successful daemonizer"; else rc=$?; fi
+[ "$rc" -eq 2 ] || fail "UNKNOWN child state returned $rc"
+echo absent > "$STATE"; reset
+MOCK_START_APPEARS=0; MOCK_SLEEP_STATUS=42; export MOCK_START_APPEARS MOCK_SLEEP_STATUS
+if run start; then fail "interrupted readiness wait accepted"; else rc=$?; fi
+[ "$rc" -eq 2 ] || fail "interrupted readiness wait returned $rc"
+MOCK_START_APPEARS=1; MOCK_SLEEP_STATUS=0; export MOCK_START_APPEARS MOCK_SLEEP_STATUS
 
 # Restart cannot launch unless stop verifies ABSENT.
 echo running > "$STATE"; reset
@@ -151,4 +171,4 @@ MOCK_NVRAM_SET_STATUS=0; MOCK_NVRAM_COMMIT_STATUS=42; export MOCK_NVRAM_SET_STAT
 if run start; then fail "NVRAM commit failure accepted"; else rc=$?; fi
 [ "$rc" -eq 42 ] && [ ! -s "$START_LOG" ] || fail "NVRAM commit failure started ttyd"
 
-echo "ttyd tri-state lifecycle, restart gate and NVRAM initialization regression: PASS"
+echo "ttyd tri-state lifecycle, detached-child readiness, restart gate and NVRAM initialization regression: PASS"
