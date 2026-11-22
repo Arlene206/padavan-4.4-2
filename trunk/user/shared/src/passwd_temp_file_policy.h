@@ -216,7 +216,7 @@ rollback:
 
 /* Preserve the historical one-phase API for callers that do not need a
  * post-publication validation step. */
-static int
+static inline int
 passwd_file_publish_transaction(passwd_file_update_t *updates, size_t count,
                                 passwd_file_rename_fn rename_fn,
                                 passwd_file_unlink_fn unlink_fn,
