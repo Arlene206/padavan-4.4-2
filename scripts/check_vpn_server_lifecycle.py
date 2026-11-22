@@ -1096,10 +1096,17 @@ ordered(dualstack_endpoint,[
     "if (!is_valid_ipv4(wan_addr))",
     'wan_addr = "{wan_address}";'
 ],"Dual-stack profiles may use IPv4 only after validated IPv6 endpoint lookup fails")
+server_cert_flow=body(cert_script,"server()")
+client_cert_flow=body(cert_script,"client()")
+sign_cert_helper=body(cert_script,"sign_cert()")
 require("extendedKeyUsage=serverAuth" in cert_script and
         "extendedKeyUsage=clientAuth" in cert_script and
-        "sign_cert $CA_KEY $CA_CRT server.csr $SERVER_CRT $CERT_DAYS $DGST_ALG server" in cert_script,
-        "exported profile must match the certificate generator's serverAuth/clientAuth roles")
+        'sign_cert "$CA_KEY" "$CA_CRT" server.csr "$SERVER_CRT" "$CERT_DAYS" "$DGST_ALG" server || return $?' in server_cert_flow and
+        "client_csr || return $?" in client_cert_flow and
+        "openssl x509 -req" in sign_cert_helper and
+        ' "$6" -extfile "$SSL_EXT_FILE"' in sign_cert_helper and
+        ' "-$6" ' not in sign_cert_helper,
+        "certificate generation must preserve EKU roles, fail fast and use one digest-option dash")
 require('fprintf(fp, ";remote-cert-tls %s\\n", "server");' not in server_export,
         "exported profile must not leave server certificate purpose validation commented out")
 

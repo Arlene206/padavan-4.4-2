@@ -1,3 +1,12 @@
+## 2026-11-22 10:20 CST — Fix OpenVPN signer digest option and lifecycle contract
+
+- Parent main SHA: `9f98dbe48d0f4bf6ece4cf025741cbca68c35d23`.
+- VPN lifecycle #44975466566 exposed a stale script checker requiring the old unquoted signer call. The checker now verifies the quoted server signer invocation, server/client fail-fast propagation, and that the signer passes through its configured digest option exactly once.
+- A source audit found a real crypto defect: `DGST_ALG` already contains a leading dash, while `sign_cert()` prepended another, passing OpenSSL `--sha256`/`--sha1`. Corrected to pass `"$6"` verbatim; fake OpenSSL now rejects the doubled-dash option to guard the success path.
+- Repaired the malformed active/verification/next-action handoff block and updated VPN roadmap status atomically with source/test/checker changes. Exact-head Actions pending; no local toolchain/router validation claimed.
+
+---
+
 ## 2026-11-22 10:18 CST — Remove certificate private keys after mode-protection failure
 
 - Parent main SHA: `456c8176cc81209f0b75c2bc5f7d156589810870`; exact OpenVPN certificate private-key workflow #44975381015 PASS on that SHA, including `bash -n` and the expanded crypto failure/permissions regression.

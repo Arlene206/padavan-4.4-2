@@ -19,6 +19,9 @@ list)
 	exit 0
 	;;
 genrsa|ecparam|genpkey|req|x509|dhparam)
+	if [ "$command_name" = "x509" ]; then
+		case " $* " in *" --sha256 "*) exit 65 ;; esac
+	fi
 	if [ "${MOCK_OPENSSL_FAIL_COMMAND:-}" = "$command_name" ]; then
 		output=
 		while [ "$#" -gt 0 ]; do

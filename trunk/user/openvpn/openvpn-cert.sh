@@ -203,7 +203,7 @@ sign_cert() {
     sign_status=$?; echo "Error: cannot prepare certificate extensions (status=$sign_status)" >&2; return "$sign_status"
   fi
   echo_process "Signing $4"
-  if openssl x509 -req -in "$3" -CA "$2" -CAkey "$1" -CAcreateserial -clrext -out "$4" "-$6" -extfile "$SSL_EXT_FILE" -days "$5" -extensions "$7" &>/dev/null; then
+  if openssl x509 -req -in "$3" -CA "$2" -CAkey "$1" -CAcreateserial -clrext -out "$4" "$6" -extfile "$SSL_EXT_FILE" -days "$5" -extensions "$7" &>/dev/null; then
     :
   else
     sign_status=$?; rm -f "$4"; echo "Error: certificate signing failed for $4 (status=$sign_status)" >&2; return "$sign_status"
