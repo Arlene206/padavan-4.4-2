@@ -23,6 +23,25 @@ required_dir()
 	return 0
 }
 
+required_lock_file()
+{
+	lock_path=$1
+	lock_old_umask=$(umask)
+	umask 077
+	# noclobber makes creation exclusive; a pre-existing file or symlink is rejected.
+	if ! ( set -C; : > "$lock_path" ); then
+		umask "$lock_old_umask"
+		echo "dev_init: cannot exclusively create storage lock $lock_path" >&2
+		return 1
+	fi
+	umask "$lock_old_umask"
+	if [ -L "$lock_path" ] || [ ! -f "$lock_path" ]; then
+		echo "dev_init: storage lock is not a regular file: $lock_path" >&2
+		return 1
+	fi
+	return 0
+}
+
 required_mount -t proc proc /proc || exit 1
 required_mount -t sysfs sysfs /sys || exit 1
 [ -d /proc/bus/usb ] && mount -t usbfs usbfs /proc/bus/usb
@@ -43,6 +62,9 @@ mount -t tmpfs tmpfs /media -o size=8K
 mount -t tmpfs tmpfs /mnt   -o size=8K
 required_mount -t tmpfs tmpfs /tmp   -o size=$size_tmp || exit 1
 required_dir 1777 /tmp || exit 1
+# mdev may start disk hotplug workers. Pre-create a root-owned lock in
+# sticky /tmp before scanning devices; callers must never create lock paths.
+required_lock_file /tmp/automount_mountpoint.lock || exit 1
 
 # PID 1 notification queues carry privileged service actions.
 required_dir 700 /tmp/rc_notification || exit 1

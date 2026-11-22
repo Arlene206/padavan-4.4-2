@@ -82,6 +82,12 @@ for path in ("/tmp/rc_notification", "/tmp/rc_action_incomplete",
                line.startswith("required_dir 700 ")
                for line in normalized), "missing private directory guard: " + path
 assert "required_dir 1777 /tmp || exit 1" in normalized
+lock_policy = shell_function("required_lock_file")
+assert "( set -C; : > \"$lock_path\" )" in lock_policy
+assert "umask 077" in lock_policy and "[ -L \"$lock_path\" ]" in lock_policy
+assert "[ ! -f \"$lock_path\" ]" in lock_policy
+lock_provision = normalized.index("required_lock_file /tmp/automount_mountpoint.lock || exit 1")
+assert normalized.index("required_dir 1777 /tmp || exit 1") < lock_provision < normalized.index("mdev -s || exit 1")
 assert "chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete" not in script
 assert "mdev -s || exit 1" in normalized
 assert script.rstrip().endswith("exit 0")
