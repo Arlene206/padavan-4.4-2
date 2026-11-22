@@ -1,3 +1,15 @@
+## 2026-11-22 08:25 CST — Preserve cleanup while failing closed on WAN teardown protocol errors
+
+- Parent main SHA: `14791ee073da672bb0a66c2ac618b786e9b57890`.
+- Audit found two remaining unchecked protocol consumers in destructive teardown. `stop_wan_locked()` could skip its WAN-down route cleanup when `get_wan_proto()` failed. `wan_down_internal()` could skip lease-derived DHCP route removal and defensive Kabinet auth shutdown, while also risking a wrong DNS or static-address decision.
+- THIS source change uses the checked per-unit protocol reader in both functions. Stop retains the protocol error as its first teardown status and invokes conservative `wan_down()` cleanup for an unknown protocol; subsequent independent interface and service teardown continues.
+- `wan_down_internal()` now attempts lease-route prefix removal and defensive auth shutdown when non-modem protocol state is unreadable, propagates that protocol error, and refuses to clear indexed WAN DNS or a possible MAN underlay IPv4 address based on unknown protocol. Default/gateway routes, static routes, resolver, conntrack, statistics and post-down cleanup remain independent of this read.
+- Added source-contract assertions to `check_wan_dns_read_status.py` for both checked reads, fail-safe lease/auth cleanup, DNS/IP preservation, and route/resolver/conntrack ordering. The WAN route workflow already filters both modified paths for push and PR.
+- No local checkout or firmware toolchain is available; this source commit requires exact-SHA GNU89/ASan/UBSan Actions and XY-C1 firmware validation. The preceding checker-only descendant `14791ee073da672bb0a66c2ac618b786e9b57890` still needs its exact WAN route result recorded.
+- Next: inspect exact-head WAN route and DHCP callback/XY-C1 runs; audit remaining direct `get_wan_proto()` in `udhcpc_bound()` and `add_man_gateway_routes()` for stale lease/gateway route decisions on unknown protocol.
+
+---
+
 ## 2026-11-22 08:22 CST — Narrow WAN interface protocol contract to the unsafe getter
 
 - Parent main SHA: `0ae742a0e277c75dd5b335f4a62098da5ab6c030`.

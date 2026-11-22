@@ -4088,7 +4088,7 @@ static const struct wan_teardown_interface_ops wan_teardown_ifdown_ops = {
 static int
 stop_wan_locked(void)
 {
-	int unit, wan_proto, ifdown_status, stop_status = -1;
+	int unit, wan_proto = 0, proto_status, ifdown_status, stop_status = -1;
 	int callback_cleanup_status, modem_status;
 	int is_usb_modem, is_ndis_modem = 0;
 	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
@@ -4145,7 +4145,13 @@ stop_wan_locked(void)
 			   stop_status);
 		goto abort_resume_detect;
 	}
-	wan_proto = get_wan_proto(unit);
+	proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (proto_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot determine WAN protocol during stop; continuing conservative teardown (status=%d)",
+			   proto_status);
+		stop_status = rc_first_service_start_status(stop_status, proto_status);
+	}
 	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
 	stop_status = stop_vpn_client_under_lifecycle_lock();
@@ -4227,7 +4233,7 @@ stop_wan_locked(void)
 			   stop_status);
 		goto abort_resume_detect;
 	}
-	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
+	if ((proto_status != 0 || wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) &&
 	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0) {
 		stop_status = wan_down(man_ifname, unit, 1);
 		if (stop_status != 0)
@@ -4984,7 +4990,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	};
 	char wan_addr[16], wan_gate[16], wan_mask[16];
 	const char *script_postw = SCRIPT_POST_WAN;
-	int wan_proto, modem_unit_id;
+	int wan_proto = 0, proto_status, modem_unit_id;
 	int ppp_index, gateway_valid, address_valid, netmask_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
 	int auth_status, auth_mode;
@@ -5036,12 +5042,19 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	}
 #endif
 
-	wan_proto = get_wan_proto(unit);
+	proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (proto_status != 0) {
+		status = route_status_accumulate(status, proto_status);
+		logmessage(LOGNAME,
+			   "cannot determine WAN protocol during teardown on %s (status=%d); preserving protocol-dependent state",
+			   wan_ifname, proto_status);
+	}
 	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
 
 	/* Remove only the lease-derived routes that this WAN path installed. */
 	if (modem_unit_id == 2 ||
-	    (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
+	    (!modem_unit_id && (proto_status != 0 ||
+			       wan_proto == IPV4_WAN_PROTO_IPOE_DHCP))) {
 		char prefix[16];
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 		route_status = del_dhcp_routes_by_prefix(prefix, wan_ifname, 0);
@@ -5061,7 +5074,9 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 	/* Stop explicitly enabled auth; on read failure, stop defensively too. */
-	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
+	if (!modem_unit_id && (proto_status != 0 ||
+			wan_proto == IPV4_WAN_PROTO_IPOE_STATIC ||
+			wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
 		auth_status = get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode);
 		if (auth_status != 0) {
 			status = route_status_accumulate(status, auth_status);
@@ -5196,10 +5211,11 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	 * snapshot and report the read failure while continuing independent cleanup.
 	 */
 	force_clear_wan_dns =
-		wan_proto == IPV4_WAN_PROTO_IPOE_STATIC ||
-		wan_proto == IPV4_WAN_PROTO_IPOE_DHCP;
-	wan_dns_read_status = 0;
-	if (!force_clear_wan_dns)
+		proto_status == 0 &&
+		(wan_proto == IPV4_WAN_PROTO_IPOE_STATIC ||
+		 wan_proto == IPV4_WAN_PROTO_IPOE_DHCP);
+	wan_dns_read_status = proto_status;
+	if (proto_status == 0 && !force_clear_wan_dns)
 		wan_dns_read_status = rc_wan_nvram_copy_value(
 			wan_nvram_checked_get_callback, NULL, "wanx_dns",
 			wanx_dns, sizeof(wanx_dns));
@@ -5223,7 +5239,8 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	/* Resolver refresh failure must not block WAN teardown/cleanup. */
 	refresh_resolvconf_nonfatal("WAN down", 0);
 
-	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
+	if (!modem_unit_id && proto_status == 0 &&
+	    wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 		route_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 		status = route_status_accumulate(status, route_status);
 		if (rc_wan_static_ipoe_clear_failure_requires_ifdown(1, route_status)) {

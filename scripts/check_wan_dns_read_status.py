@@ -181,6 +181,31 @@ require("get_wan_dns_static_status(&is_static)" in legacy_dns and
         "if (status != 0)" in legacy_dns,
         "legacy DNS selector must retain a compatibility fallback on read errors")
 
+stop_wan = "".join(body(source, "stop_wan_locked(void)").split())
+stop_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+require(stop_proto_read in stop_wan and
+        "if(proto_status!=0)" in stop_wan and
+        "rc_first_service_start_status(stop_status,proto_status)" in stop_wan and
+        "if((proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_STATIC)" in stop_wan,
+        "WAN stop must preserve protocol errors and use conservative WAN-down cleanup")
+
+wan_down = "".join(body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)").split())
+down_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+require(down_proto_read in wan_down and
+        "status=route_status_accumulate(status,proto_status)" in wan_down and
+        "(!modem_unit_id&&(proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_DHCP))" in wan_down and
+        "if(!modem_unit_id&&(proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_STATIC||wan_proto==IPV4_WAN_PROTO_IPOE_DHCP))" in wan_down and
+        "wan_dns_read_status=proto_status" in wan_down and
+        "proto_status==0&&!force_clear_wan_dns" in wan_down and
+        "if(!modem_unit_id&&proto_status==0&&wan_proto==IPV4_WAN_PROTO_IPOE_STATIC)" in wan_down,
+        "WAN down must clean lease/auth state conservatively but preserve DNS/IP on unknown protocol")
+require("del_dhcp_routes_by_prefix(prefix,wan_ifname,0)" in wan_down and
+        wan_down.index(down_proto_read) < wan_down.index("del_dhcp_routes_by_prefix(prefix,wan_ifname,0)") <
+        wan_down.index("del_static_wan_routes(wan_ifname)") and
+        wan_down.index("del_static_wan_routes(wan_ifname)") < wan_down.index("refresh_resolvconf_nonfatal") <
+        wan_down.index("flush_conntrack_table(wan_addr)"),
+        "WAN down route, resolver and conntrack cleanup must remain after protocol errors")
+
 resolver = body(source, "update_resolvconf(int is_first_run, int do_not_notify)")
 for token in ("get_wan_dns_static_status(&dns_static)", "file_unlock(lock)",
               "errno = dns_static_status", "return dns_static_status"):
