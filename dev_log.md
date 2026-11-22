@@ -1,3 +1,13 @@
+## 2026-11-22 — Align USB modem Actions link-change contract with checked recovery logic
+
+- Parent main SHA: `33e87d4540698ef87226715fd3fa8e967243cb01`. Exact source run USB modem identity #45032550398 failed in its embedded Python source contract at the old assertion requiring the former standalone `get_usb_modem_wan_status()` flow. The new checked startup config/WISP snapshot implementation and its policy had already compiled and passed the preceding GNU89/ASan/UBSan test step.
+- Inspected the job log: failure was `ValueError: substring not found` in the workflow's duplicated inline checker, not a C compile or runtime regression. Updated its ordering contract to require checked `get_modem_wan_start_config_status()`, checked WISP status, checked modem identity, pure link-change policy and notification in sequence; it also forbids unchecked NVRAM/WISP fallbacks and pins the new regression test.
+- On the same exact source SHA, WAN teardown #45032550356, WAN DHCP #45032550362 and AI handoff #45032550424 PASS. Firewall #45032550381, XY-C1 #45032550417, NVRAM #45032550412, Process inventory #45032550504, Process lifecycle #45032550421 and HTTPD #45032550438 were pending at last poll.
+- The older PPP source SHA `b3caebcbaba0924abcb83339d49a1968e237f042` passed WAN DHCP, VPN, WAN route, HTTPD, Process and NVRAM; its XY-C1 run #45032049960 remained in_progress after the production Build step began. No TRX/artifact success is claimed.
+- No local tests were run in this connector-only session. Result: THIS COMMIT is a workflow-contract correction plus accurate handoff. Next: inspect exact-head reruns and continue independent source work while pending jobs run.
+
+---
+
 ## 2026-11-22 — Preserve modem WAN link-change recovery across NVRAM read errors
 
 - Parent main SHA: `b0338e1be6b52f0f43cc644253565675fc243138`. The active WAN PPP source SHA `b3caebcbaba0924abcb83339d49a1968e237f042` had WAN DHCP #45032049974, VPN #45032050106, WAN route #45032049989, HTTPD #45032050007, process lifecycle #45032050136 and NVRAM audit #45032049962 PASS. XY-C1 #45032049960 was still building; AI docs failure #45032049968 was fixed by `b0338e1be6b52f0f43cc644253565675fc243138`, whose exact AI handoff run #45032198181 PASS.

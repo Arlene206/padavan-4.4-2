@@ -694,12 +694,42 @@ jobs:
           assert "modem_wan_unplug_notification_required" in retry_policy
           assert "modem_wan_auto_start_allowed" in retry_policy
 
-          link_change = body(modem, "notify_modem_on_wan_ether_link_changed(int has_link)")
-          link_identity = link_change.index("get_usb_modem_wan_status(0, &is_modem_wan)")
-          link_identity_error = link_change.index("if (modem_identity_status != 0)", link_identity)
-          link_identity_return = link_change.index("return;", link_identity_error)
-          link_reconnect = link_change.index('notify_rc("auto_wan_reconnect")')
-          assert link_identity < link_identity_error < link_identity_return < link_reconnect
+          link_change = "".join(body(
+              modem, "notify_modem_on_wan_ether_link_changed(int has_link)"
+          ).split())
+          link_config = link_change.index(
+              "get_modem_wan_start_config_status(&modem_priority,&modem_devnum)"
+          )
+          link_config_error = link_change.index("if(status!=0)", link_config)
+          link_priority_gate = link_change.index(
+              "if(modem_priority!=2||modem_devnum<=0)", link_config_error
+          )
+          link_wisp = link_change.index(
+              "get_wan_wisp_active_status(&is_wisp_active,NULL)", link_priority_gate
+          )
+          link_wisp_error = link_change.index("if(status!=0)", link_wisp)
+          link_wisp_gate = link_change.index("if(is_wisp_active)", link_wisp_error)
+          link_identity = link_change.index(
+              "get_usb_modem_wan_status(0,&is_modem_wan)", link_wisp_gate
+          )
+          link_identity_error = link_change.index("if(status!=0)", link_identity)
+          link_policy = link_change.index(
+              "modem_wan_link_change_reconnect_enabled(", link_identity_error
+          )
+          link_policy_error = link_change.index("if(status!=0)", link_policy)
+          link_reconnect = link_change.index(
+              'notify_rc("auto_wan_reconnect")', link_policy_error
+          )
+          assert (
+              link_config < link_config_error < link_priority_gate < link_wisp <
+              link_wisp_error < link_wisp_gate < link_identity <
+              link_identity_error < link_policy < link_policy_error < link_reconnect
+          )
+          assert "nvram_get_int(" not in link_change
+          assert "get_modem_devnum()" not in link_change
+          assert "get_wan_wisp_active(" not in link_change
+          assert "modem_wan_link_change_reconnect_enabled" in retry_policy
+          assert "test_link_change_reconnect_requires_checked_modem_state" in retry_test
           assert "get_usb_modem_wan(" not in modem
 
           restart = body(rc_source, "else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))")
