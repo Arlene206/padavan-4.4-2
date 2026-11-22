@@ -982,4 +982,55 @@ require(
     "net_wan6.c must not consume the legacy IPv6 service getter",
 )
 
-print("WAN IPv6 service-mode checked reads and caller error propagation: PASS")
+wisp_status_api = body(source, "get_wan_wisp_active_status(int *p_is_active, int *p_has_link)")
+wisp_status_code = " ".join(wisp_status_api.split())
+wisp_read = "read_status = get_wan_unit_value_copy_status(unit, \"ifname\", man_ifname_nvram, sizeof(man_ifname_nvram));"
+wisp_read_at = wisp_status_code.index(wisp_read)
+wisp_read_gate_at = wisp_status_code.index("if (read_status == 0 && man_ifname_nvram[0])", wisp_read_at)
+wisp_validate = "validation_status = wan_ifname_copy(man_ifname, sizeof(man_ifname), man_ifname_nvram);"
+wisp_validate_at = wisp_status_code.index(wisp_validate, wisp_read_gate_at)
+wisp_classify_at = wisp_status_code.index("is_wisp = is_man_wisp(man_ifname);", wisp_validate_at)
+wisp_result = "status = rc_wan_nvram_wisp_active_status(read_status, validation_status, is_wisp, p_is_active);"
+wisp_result_at = wisp_status_code.index(wisp_result, wisp_classify_at)
+wisp_error_at = wisp_status_code.index("if (status != 0)", wisp_result_at)
+wisp_link_at = wisp_status_code.index("*p_has_link = get_apcli_connected(man_ifname);", wisp_error_at)
+require(wisp_read_at < wisp_read_gate_at < wisp_validate_at < wisp_classify_at <
+        wisp_result_at < wisp_error_at < wisp_link_at and
+        "*p_is_active = 0;" in wisp_status_code and
+        "get_man_ifname" not in wisp_status_api,
+        "WISP classification must retain checked MAN-read errors and validate before AP-client link lookup")
+
+legacy_wisp = " ".join(body(source, "get_wan_wisp_active(int *p_has_link)").split())
+require("get_wan_wisp_active_status(&is_active, p_has_link)" in legacy_wisp and
+        "if (status != 0)" in legacy_wisp and
+        "return 1;" in legacy_wisp,
+        "legacy WISP boolean must conservatively classify unknown interface identity as active")
+
+led_wisp = " ".join(body(source, "control_wan_led_isp_state(int is_wan_up, int is_modem_unit)").split())
+led_read = "wisp_status = get_wan_wisp_active_status(&is_wisp_active, &wisp_has_link);"
+led_error = led_wisp.index("if (wisp_status != 0)")
+led_active = led_wisp.index("else if (is_wisp_active)", led_error)
+led_fallback = led_wisp.index("else if (!is_modem_unit)", led_active)
+require(led_read in led_wisp and led_error < led_active < led_fallback and
+        "get_wan_wisp_active(" not in led_wisp and
+        "has_link = 0;" in led_wisp[led_error:led_active],
+        "WAN LED must suppress cached Ethernet fallback when MAN identity cannot be read")
+
+renew_wisp = " ".join(body(source, "notify_on_wan_ether_link_restored(void)").split())
+renew_read = "status = get_wan_wisp_active_status(&is_wisp_active, NULL);"
+renew_read_at = renew_wisp.index(renew_read)
+renew_error_at = renew_wisp.index("if (status != 0)", renew_read_at)
+renew_active_at = renew_wisp.index("if (is_wisp_active)", renew_error_at)
+renew_dhcp_at = renew_wisp.index("status = renew_udhcpc_wan(unit)", renew_active_at)
+require(renew_read_at < renew_error_at < renew_active_at < renew_dhcp_at and
+        "get_wan_wisp_active(" not in renew_wisp,
+        "Ethernet link restoration must not renew DHCP when WISP identity is unknown")
+
+require("int get_wan_wisp_active_status(int *p_is_active, int *p_has_link);" in rc_header,
+        "checked WISP status API must be declared in rc.h")
+require("rc_wan_nvram_wisp_active_status" in policy and
+        "test_wisp_active_status_requires_checked_identity" in nvram_policy_test and
+        "test_wisp_active_status_requires_checked_identity();" in nvram_policy_test,
+        "checked WISP status mapping must have a registered error-precedence regression")
+
+print("WAN IPv6 and WISP checked interface identity/error propagation: PASS")

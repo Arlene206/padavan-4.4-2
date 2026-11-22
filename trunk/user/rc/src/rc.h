@@ -316,6 +316,7 @@ void refresh_resolvconf_nonfatal_no_notify(const char *reason, int is_first_run)
 int  update_hosts_router(const char *lan_ipaddr);
 int  get_wan_ether_link_direct(int is_ap_mode);
 int  get_wan_dns_static(void);
+int get_wan_wisp_active_status(int *p_is_active, int *p_has_link);
 int  get_wan_wisp_active(int *p_has_link);
 int get_wan_ifname(char wan_ifname[16]);
 void update_wan_status(int unit);

@@ -48,6 +48,22 @@ rc_wan_nvram_match_status(int read_status, const char *value,
 	return 0;
 }
 
+/* Do not collapse an unreadable MAN interface into a non-WISP result. */
+static inline int
+rc_wan_nvram_wisp_active_status(int read_status, int validation_status,
+				int is_wisp, int *active)
+{
+	if (!active)
+		return EINVAL;
+	*active = 0;
+	if (read_status != 0)
+		return read_status;
+	if (validation_status != 0)
+		return validation_status;
+	*active = (is_wisp != 0);
+	return 0;
+}
+
 
 /* Parse one complete decimal integer without atoi() overflow/prefix loss. */
 static inline int

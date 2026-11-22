@@ -7,13 +7,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; active branch `main`; atomic complete-tree commits and non-forced expected-SHA updates only.
-- Current source/checker parent before firewall hardening: `b9964bf12272c2f18d5fbc92f1fd9a155c6f4fe5`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- Checked manual WAN identity is now enforced on startup, IP lookup, stop, AP-client WISP migration, AP-client radio recovery and full WAN restart.
-- The 121-record root development log has been losslessly rotated: 101 oldest records in `docs/dev-log/2026/11/part-025.md`, 20 newest original entries retained, plus one checkpoint; `INDEX.md` records exact archive Git blob SHA/bytes/count. Exact b996 AI handoff #44997591604 PASS.
-- Exact a3 WAN route #44997377580 PASS; WAN DHCP #44997377452 PASS; WAN teardown #44997377521 PASS; wireless radio #44997377474 PASS; Process lifecycle #44997377507 PASS; Process inventory #44997377633 PASS; NVRAM transaction boundary #44997377584 PASS.
-- Exact a3 XY-C1 #44997377413 remained IN_PROGRESS in `Build XY-C1`; TRX verification and artifact upload have not yet completed. No L3 claim.
-- New P1 firewall issue: `start_firewall_ex_locked()` uses `get_man_ifname(unit)`/`nvram_safe_get()` for the management interface embedded in iptables tokens. An NVRAM read failure may appear as empty, allowing firewall rebuild to continue with unknown MAN identity and weak/omitted per-interface policy. This slice switches to checked bounded copy, validates nonempty names before any firewall/rp_filter rule apply, and preserves genuinely empty legacy configuration.
-- L3 requires same-SHA Build XY-C1, TRX and artifact all execute/pass; hardware L4 NOT VERIFIED.
+- Parent main SHA for the WISP identity correction: `5a86cca27cb9634a1a0c13375a58518c848b309e`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Checked MAN interface reads are enforced in WAN startup, IP lookup, stop, AP-client WISP migration, AP-client radio recovery, full WAN restart and firewall rebuild. The firewall checked-`ifname` change on the parent passed Firewall Startup #44997818203; its WAN route regression was still running.
+- The root development log has 22 complete records (below its 120-entry rotation trigger); archive `part-025.md` holds 101 older records and the archive index records its exact Git blob SHA/size/count. Exact parent AI handoff #44997818219 PASS.
+- Parent exact Actions: Firewall Startup #44997818203 PASS; WAN DHCP #44997818225 PASS; AI handoff #44997818219 PASS; Process inventory #44997818261 PASS. WAN route #44997818209, NVRAM transaction #44997818217, FULLCONENAT #44997818224, HTTPD security #44997818264 and XY-C1 #44997818248 were IN_PROGRESS at last check.
+- WISP identity fix is included in THIS COMMIT; exact-head host Actions and XY-C1 Build/TRX/artifact are not yet verified. Hardware L4 NOT VERIFIED.
+- L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on one identical product-source SHA; no L3 claim.
 
 ## Completed source slices
 
@@ -34,20 +33,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- The WAN route/read transition fixes through `full_restart_wan()` are checked by exact a3 WAN route/DHCP/teardown PASS.
-- Current P1 firewall fix: `start_firewall_ex_locked()` now reads MAN `ifname` with `get_wan_unit_value_copy_status()` into the bounded `man_if` buffer; read errors return before firewall/rp_filter writes, nonempty tokens are validated, and empty legacy settings remain accepted. The lossy safe_get getter is removed.
-- `check_wan_firewall_status.py` asserts checked read → error gate → nonempty validation → first rp_filter interface write, and forbids `get_man_ifname()` from the firewall rebuild function.
+- New P1 WAN state-classification defect: `get_wan_wisp_active()` read `wan0_ifname` via the lossy safe_get-backed `get_man_ifname()`. The WAN LED caller and Ethernet-link-restored DHCP renew caller could treat a transient NVRAM read/close error as "not WISP".
+- THIS COMMIT adds checked `get_wan_wisp_active_status()`, token validation, an error-preserving policy helper, and unit/source-order regressions. It retains the legacy boolean ABI conservatively (unknown MAN identity => active), suppresses cached Ethernet LED fallback on identity errors, and prevents DHCP renew on an unknown identity.
+- The firewall checked MAN-interface input is implemented and its exact Firewall Startup workflow passed on parent SHA `5a86cca27cb9634a1a0c13375a58518c848b309e`; the exact WAN route workflow was still running.
 
 ## Verification boundary
 
-- Exact b996 AI handoff #44997591604 PASS after the 101-record log archive rotation.
-- Exact a3 WAN route #44997377580 PASS; DHCP #44997377452 PASS; teardown #44997377521 PASS; wireless radio #44997377474 PASS; Process lifecycle #44997377507 PASS; Process inventory #44997377633 PASS; NVRAM transaction #44997377584 PASS.
-- Exact a3 XY-C1 #44997377413 still in `Build XY-C1`; TRX and artifact steps not yet observed.
-- The firewall checked-interface change has not run exact-head Actions; no same-SHA L3 result and no hardware L4 test.
+- Parent `5a86cca27cb9634a1a0c13375a58518c848b309e`: Firewall Startup #44997818203 PASS; WAN DHCP #44997818225 PASS; AI handoff #44997818219 PASS; Process inventory #44997818261 PASS.
+- Parent WAN route #44997818209, NVRAM transaction audit #44997818217, FULLCONENAT #44997818224, HTTPD security #44997818264 and XY-C1 Firmware Validation #44997818248 were IN_PROGRESS at last poll. Parent WAN route is the relevant checker for the firewall change.
+- WISP checked-read C policy regression and Python source contract are wired into the WAN route workflow. Exact-head runs for THIS COMMIT must pass before the slice is host-verified.
+- No same-SHA Build XY-C1/TRX/artifact completion verified. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head firewall startup and WAN route/DHCP checks for the checked MAN-interface read; repair any real source/checker failure.
-2. Confirm NVRAM read/close errors abort before `set_interface_conf_int`, iptables restore or hooks, while an empty legacy setting remains compatible.
-3. Poll XY-C1 #44997377413; only Build + TRX + artifact all passing on one SHA establishes L3.
-4. Continue cross-userland security/stability review; keep backup read-only and hardware L4 unverified.
+1. Fetch the exact main SHA produced by THIS COMMIT and inspect its push Actions. Require WAN route regression (including new WISP checks), WAN DHCP and triggered firewall/security checks to pass; diagnose the first real failure.
+2. Verify the WISP status API preserves NVRAM read and close errors, treats a genuinely empty legacy interface as inactive, and never queries AP-client link state before successful token validation.
+3. Confirm unknown WISP identity suppresses cached Ethernet LED fallback and prevents link-restored DHCP renewal; preserve the legacy boolean ABI as conservative-active.
+4. Check exact-SHA XY-C1 Build, TRX verification and artifact upload as a single L3 gate; hardware L4 remains NOT VERIFIED. Continue with the next high-risk stability/security issue only after current exact-head failures are triaged.

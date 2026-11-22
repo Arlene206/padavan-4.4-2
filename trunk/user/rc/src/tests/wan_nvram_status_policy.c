@@ -141,6 +141,27 @@ test_checked_string_match_rejects_invalid_arguments(void)
 
 
 static void
+test_wisp_active_status_requires_checked_identity(void)
+{
+	int active = 91;
+
+	assert(rc_wan_nvram_wisp_active_status(0, 0, 1, &active) == 0);
+	assert(active == 1);
+	assert(rc_wan_nvram_wisp_active_status(0, 0, 0, &active) == 0);
+	assert(active == 0);
+
+	active = 91;
+	assert(rc_wan_nvram_wisp_active_status(EACCES, 0, 1, &active) == EACCES);
+	assert(active == 0);
+	active = 91;
+	assert(rc_wan_nvram_wisp_active_status(0, EINVAL, 1, &active) == EINVAL);
+	assert(active == 0);
+	assert(rc_wan_nvram_wisp_active_status(EACCES, EINVAL, 1, &active) == EACCES);
+	assert(active == 0);
+	assert(rc_wan_nvram_wisp_active_status(0, 0, 1, NULL) == EINVAL);
+}
+
+static void
 test_success_ignores_stale_errno(void)
 {
 	assert(rc_wan_nvram_write_status(0, EACCES) == 0);
@@ -1658,6 +1679,7 @@ main(void)
 	test_checked_string_match_requires_an_exact_value();
 	test_checked_string_match_preserves_backend_errors();
 	test_checked_string_match_rejects_invalid_arguments();
+	test_wisp_active_status_requires_checked_identity();
 	test_success_ignores_stale_errno();
 	test_failure_preserves_errno();
 	test_failure_without_errno_falls_back_to_eio();

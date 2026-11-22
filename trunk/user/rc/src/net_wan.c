@@ -695,9 +695,17 @@ control_wan_led_isp_state(int is_wan_up, int is_modem_unit)
 
 	if (front_led_wan == 2) {
 		int has_link = 0;
+		int is_wisp_active = 0, wisp_has_link = 0, wisp_status = 0;
+
 		if (is_wan_up) {
 			has_link = 1;
-			if (!get_wan_wisp_active(&has_link) && !is_modem_unit)
+			wisp_status = get_wan_wisp_active_status(
+				&is_wisp_active, &wisp_has_link);
+			if (wisp_status != 0)
+				has_link = 0;
+			else if (is_wisp_active)
+				has_link = wisp_has_link;
+			else if (!is_modem_unit)
 				has_link = get_wan_ether_link_cached();
 		}
 		LED_CONTROL(LED_WAN, (is_wan_up && has_link) ? LED_ON : LED_OFF);
@@ -5949,6 +5957,7 @@ int
 notify_on_wan_ether_link_restored(void)
 {
 	int unit = 0, wan_proto;
+	int is_wisp_active = 0;
 	int status, saved_errno;
 
 	status = get_wan_unit_proto_checked_status(unit, &wan_proto);
@@ -5966,7 +5975,10 @@ notify_on_wan_ether_link_restored(void)
 	if (is_usbnet_interface(get_wan_unit_value(unit, "ifname_t")))
 		return 0;
 
-	if (get_wan_wisp_active(NULL))
+	status = get_wan_wisp_active_status(&is_wisp_active, NULL);
+	if (status != 0)
+		return status;
+	if (is_wisp_active)
 		return 0;
 
 	errno = 0;
@@ -6773,19 +6785,63 @@ get_wan_dns_static(void)
 }
 
 int
-get_wan_wisp_active(int *p_has_link)
+get_wan_wisp_active_status(int *p_is_active, int *p_has_link)
 {
 	int unit = 0;
-	char *man_ifname;
+	int read_status, validation_status = 0;
+	int is_wisp = 0, status;
+	char man_ifname[16], man_ifname_nvram[16];
 
-	man_ifname = get_man_ifname(unit);
-	if (!is_man_wisp(man_ifname))
-		return 0;
-
+	if (!p_is_active)
+		return EINVAL;
+	*p_is_active = 0;
 	if (p_has_link)
-		*p_has_link = get_apcli_connected(man_ifname);
+		*p_has_link = 0;
+	man_ifname[0] = '\0';
+	man_ifname_nvram[0] = '\0';
 
-	return 1;
+	read_status = get_wan_unit_value_copy_status(
+		unit, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+	if (read_status == 0 && man_ifname_nvram[0]) {
+		validation_status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (validation_status == 0)
+			is_wisp = is_man_wisp(man_ifname);
+	}
+
+	status = rc_wan_nvram_wisp_active_status(
+		read_status, validation_status, is_wisp, p_is_active);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot determine manual WISP interface status (read=%d, validation=%d)",
+			   read_status, validation_status);
+		return status;
+	}
+
+	if (*p_is_active && p_has_link)
+		*p_has_link = get_apcli_connected(man_ifname);
+	return 0;
+}
+
+/*
+ * Preserve the legacy boolean ABI conservatively: unknown MAN identity must
+ * not be interpreted as "not WISP" by a caller that cannot handle errno.
+ */
+int
+get_wan_wisp_active(int *p_has_link)
+{
+	int is_active = 0;
+	int status;
+
+	status = get_wan_wisp_active_status(&is_active, p_has_link);
+	if (status != 0) {
+		if (p_has_link)
+			*p_has_link = 0;
+		errno = status;
+		return 1;
+	}
+	return is_active;
 }
 
 int

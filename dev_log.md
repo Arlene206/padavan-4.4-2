@@ -1,3 +1,13 @@
+## 2026-11-22 15:31 CST — Preserve WAN WISP identity read failures
+
+- Parent main SHA: `5a86cca27cb9634a1a0c13375a58518c848b309e`. Its firewall checked-MAN-interface fix is validated by exact Firewall Startup run #44997818203 PASS; AI handoff #44997818219 and Process inventory #44997818261 PASS. WAN route #44997818209, NVRAM audit #44997818217, FULLCONENAT #44997818224, HTTPD security #44997818264 and XY-C1 #44997818248 were still in progress at the last check; no L3 claim.
+- Found two consumers of `get_wan_wisp_active()` that could misclassify an unreadable `wan0_ifname` as non-WISP because the getter calls `get_man_ifname()`/safe_get: WAN link-restored DHCP renewal could run when the WISP interface is active, and WAN LED logic could fall back to cached Ethernet link state.
+- Added `get_wan_wisp_active_status()`: it preserves checked NVRAM read/close status, validates a nonempty interface token before classification, distinguishes a genuinely empty legacy interface, and only queries AP-client link state after successful classification. The old boolean ABI remains as a conservative wrapper (unknown identity returns active).
+- Updated the WAN LED path to turn the link indication off on unknown MAN identity without consulting cached Ethernet link state; updated link-restored handling to propagate the read error and suppress DHCP renewal. Added errno/validation precedence unit coverage and source-order contracts in the existing WAN route regression.
+- Tests are wired into the WAN route workflow (GNU89/Werror/ASan/UBSan C policy test and the WAN DNS/source checker); no local target build is claimed. Exact-head Actions for THIS COMMIT are pending at creation time. Firmware/TRX and hardware verification remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fail closed when firewall cannot read its management interface
 
 - Parent main SHA: `b9964bf12272c2f18d5fbc92f1fd9a155c6f4fe5`. Exact b996 AI handoff #44997591604 PASS after lossless `dev_log.md` rotation. Exact a3 WAN route #44997377580, DHCP #44997377452, teardown #44997377521, wireless #44997377474, Process lifecycle #44997377507, Process inventory #44997377633 and NVRAM transaction #44997377584 PASS; XY-C1 #44997377413 remains in Build XY-C1.
