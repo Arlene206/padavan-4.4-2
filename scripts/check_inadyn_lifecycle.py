@@ -90,11 +90,14 @@ assert '#include "ddns_enabled_policy.h"' in source
 assert "inadyn_config_file_read_integer_status" in config_file_header
 assert "inadyn_config_file_clear_sensitive" in config_file_header
 assert "volatile unsigned char *cursor" in config_file_header
-assert config_writer.count("inadyn_config_file_clear_sensitive(") == 2
 assert "test_sensitive_snapshot_clear_wipes_every_byte" in config_file_test
 assert "test_checked_integer_status_preserves_defaults_and_rejects_errors" in config_file_test
 
 config_writer = body("write_inadyn_conf(const char *conf_file)")
+assert config_writer.count("inadyn_config_file_clear_sensitive(") == 2
+assert config_writer.count("free(config_storage);") == 2
+assert config_writer.index("inadyn_config_file_clear_sensitive(") < config_writer.index("free(config_storage);")
+assert config_writer.rindex("inadyn_config_file_clear_sensitive(") < config_writer.rindex("free(config_storage);")
 snapshot_call = config_writer.index("rc_wan_nvram_copy_snapshot(")
 parse_first = config_writer.index('inadyn_parse_config_integer("ddns_period"')
 config_open = config_writer.index("inadyn_config_file_open(")
