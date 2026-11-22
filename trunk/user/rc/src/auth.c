@@ -289,13 +289,6 @@ int start_auth_eapol(char *ifname, int unit, int eap_algo)
     return ret;
 }
 
-_prefix, "Start authentication...");
-		
-		_eval(cli_argv, NULL, 0, NULL);
-	}
-
-	return ret;
-}
 
 int wpacli_main(int argc, char **argv)
 {

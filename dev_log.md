@@ -1,3 +1,12 @@
+## 2026-11-22 — Remove orphaned EAPoL startup tail blocking XY-C1
+
+- Parent main SHA: `e2a842d08bae9e4f0e64a519e10c13c0444888f7`. Product-source XY-C1 #45040593342 failed during the RC C compilation, still in `auth.c`: after the correctly closed `start_auth_eapol()` at line 290, seven stale lines from the old implementation remained at lines 292–298 (`_prefix, "Start authentication...");`, an extra `_eval(cli_argv...)`, braces and a second return). The compiler reported parser errors at auth.c:292, 294–298. This was a real orphaned duplicate, not a test-contract issue; the earlier helper-scope repair only fixed the function boundary above it.
+- Removed the obsolete tail and added a source-contract regression requiring no tokens between the closing brace of `start_auth_eapol()` and the next `wpacli_main()` definition, preventing another stray statement from silently breaking the RC build.
+- Exact WSDD2 XML regression #45040760516 PASS and AI docs #45040760489 PASS on parent SHA `e2a842d08bae9e4f0e64a519e10c13c0444888f7`. Parent product-source XY-C1 #45040593342 FAIL at Build solely due the auth.c syntax errors above; L3 not verified. Exact Process inventory #45040593394 PASS and NVRAM audit #45040593403 PASS on source SHA d2; no local production build or tests were available.
+- This commit is the production syntax fix; next run must verify XY-C1 Build, TRX and artifact upload on the new exact source SHA, plus Process regression. No L4 claim.
+
+---
+
 ## 2026-11-22 — Update WSDD2 XML reflection contract for strict UTF-8 validation
 
 - Parent main SHA: `d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963`. Exact WSDD2 XML regression #45040593359 compiled and ran the GNU99 ASan/UBSan policy test binary, then failed only in `scripts/check_wsdd2_xml_reflection.py:20`, which still required the removed byte-only C0 precheck (`if (ch < 0x20 ...)`). The production policy now performs strict UTF-8 decoding and validates XML 1.0 code points in one pass before allocation.

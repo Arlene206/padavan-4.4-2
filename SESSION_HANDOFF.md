@@ -13,25 +13,23 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963`.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- EAPoL stop body/helper file scope restored. ttyd uses bounded child-readiness probes; exact Process regression PASS after updating its expected shell-test output marker.
-- WSDD2 XML metadata policy now validates strict UTF-8 and XML 1.0 legal code points before escaping. Its compiler/sanitizer test binary passed; source checker required updating.
-- Rstats periodic MTD persistence retries failed periodic writes; push/pull path filters include its policy header.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `e2a842d08bae9e4f0e64a519e10c13c0444888f7`; this slice removes an orphaned EAPoL source tail and extends its compile-boundary contract.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
+- EAPoL temporary config creation and stop-helper file scope remain corrected; ttyd detached-child readiness has Process/AI PASS on checker descendant 30a1; WSDD2 strict XML UTF-8 validation has WSDD XML/AI PASS on checker descendant e2.
 
 ## Active task
 
-The WSDD2 XML reflection policy change is implemented and its GNU99 ASan/UBSan binary completed successfully, but its exact Action then failed because the Python source checker still searched for the deleted old C0-only validation expression. The checker is updated to require the strict UTF-8/XML 1.0 validator, including sequence bounds, EILSEQ/EINVAL error classification and validation-before-allocation.
+The previous EAPoL compile repair restored the missing `stop_auth_eapol()` body and moved `write_wpa_config_temp()` to file scope but left a stale suffix of the former startup function after `start_auth_eapol()` had been closed. XY-C1 caught those orphan tokens at auth.c:292–298. They are removed, and the lifecycle checker now verifies the source gap before `wpacli_main()` contains no stray tokens.
 
 ## Verification boundary
 
-- Exact parent SHA d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963: WSDD2 XML run #45040593359 FAILED only at the stale checker assertion after the compile/run step; process inventory #45040593394 PASS; AI docs #45040593406 PASS; NVRAM #45040593403 and XY-C1 #45040593342 were in progress at last inspection.
-- ttyd readiness source SHA 764042628a2ccd7b90a722d408c10a3d4cfb9056: the first process regression failed only on the checker’s old expected success line; correction commit 30a1e775fef4ab92288e81a9f4eb1ade048993a4 reran Process #45040464894 PASS and AI docs #45040464926 PASS.
-- No local checkout/tests were run. WSDD2 exact-source Action rerun is required.
-- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. L3 and hardware L4 are NOT VERIFIED.
+- Parent exact checker SHA e2a842d08bae9e4f0e64a519e10c13c0444888f7: WSDD2 XML regression #45040760516 PASS; AI docs #45040760489 PASS.
+- Parent product-source SHA d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963: XY-C1 #45040593342 FAILED at Build with compiler syntax errors caused by orphan `auth.c` lines 292–298. The build did not reach TRX verification/artifact upload; no L3 claim.
+- Parent d2 source SHA: Process inventory #45040593394 PASS and NVRAM audit #45040593403 PASS. This EAPoL repair and updated Process checker have not yet run exact-head Actions. No local build was performed.
+- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WSDD2 XML Action and the XY-C1 / NVRAM runs after this checker correction; fix demonstrated failures only.
-2. Confirm whether the XY-C1 Build, TRX verification and artifact upload all PASS on one identical source SHA; do not infer L3 from a pending or failed build.
-3. Continue an independent userland stability/security slice outside completed WAN/PPP, USB modem, Inadyn, DNSMasq, EAPoL and ttyd work. Keep backup immutable and work only on main.
+1. Inspect this commit's exact-head Process regression and XY-C1 run. Confirm the `auth.c` compilation succeeds and that Build, TRX verification and artifact upload all PASS on one SHA.
+2. If any further compile error is reported, fix the actual source defect; do not weaken source assertions to hide the compiler result.
+3. Continue a different, not-already-completed userland stability/security slice; backup remains read-only, development only on main.

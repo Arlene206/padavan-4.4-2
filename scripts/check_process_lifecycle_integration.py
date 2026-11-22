@@ -1415,6 +1415,12 @@ assert auth_start_kabinet.index("ret = stop_auth_kabinet();") < auth_start_kabin
 assert 'get_wan_unit_value_copy_status(' in auth_start_eapol
 assert '"auth_user"' in auth_start_eapol and '"auth_pass"' in auth_start_eapol
 assert "write_wpa_config_temp(" in auth_start_eapol
+auth_start_begin = auth_source.index("int start_auth_eapol(")
+auth_start_close = auth_source.index("\n}\n", auth_start_begin) + 3
+auth_next_function = auth_source.index("int wpacli_main(", auth_start_close)
+assert not auth_source[auth_start_close:auth_next_function].strip(), (
+    "unexpected tokens after start_auth_eapol before wpacli_main"
+)
 assert "ret = stop_auth_eapol();" in auth_start_eapol
 assert "if (ret != 0)" in auth_start_eapol
 auth_user_read = auth_start_eapol.index('"auth_user"')
