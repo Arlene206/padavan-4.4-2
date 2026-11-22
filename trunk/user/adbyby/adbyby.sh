@@ -896,18 +896,45 @@ address=/.douyin.com/0.0.0.0
 }
 del_dns()
 {
-	sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf
-	#sed -i '/tvhosts/d' /etc/storage/dnsmasq/dnsmasq.conf
-	if ! adbyby_remove_generated_hosts_config; then
-		logger -t "adbyby" "移除Adbyby hosts配置失败。"
-	fi
-	rm -f /tmp/dnsmasq.d/dnsmasq-adbyby.conf
-	if ! adbyby_cleanup_dnsmasq_ad_dir "/etc/storage/dnsmasq-adbyby.d"; then
-		logger -t "adbyby" "清理Adbyby dnsmasq规则失败。"
-	fi
-	rm -f /tmp/adbyby_host.conf
-}
+	adbyby_del_dns_status=0
 
+	if sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf; then
+		:
+	else
+		adbyby_del_dns_status=$?
+		logger -t "adbyby" "移除Adbyby dnsmasq入口失败 (status=$adbyby_del_dns_status)。"
+	fi
+	#sed -i '/tvhosts/d' /etc/storage/dnsmasq/dnsmasq.conf
+	if adbyby_remove_generated_hosts_config; then
+		:
+	else
+		adbyby_del_dns_step_status=$?
+		[ "$adbyby_del_dns_status" -ne 0 ] || adbyby_del_dns_status=$adbyby_del_dns_step_status
+		logger -t "adbyby" "移除Adbyby hosts配置失败 (status=$adbyby_del_dns_step_status)。"
+	fi
+	if rm -f /tmp/dnsmasq.d/dnsmasq-adbyby.conf; then
+		:
+	else
+		adbyby_del_dns_step_status=$?
+		[ "$adbyby_del_dns_status" -ne 0 ] || adbyby_del_dns_status=$adbyby_del_dns_step_status
+		logger -t "adbyby" "移除临时Adbyby dnsmasq配置失败 (status=$adbyby_del_dns_step_status)。"
+	fi
+	if adbyby_cleanup_dnsmasq_ad_dir "/etc/storage/dnsmasq-adbyby.d"; then
+		:
+	else
+		adbyby_del_dns_step_status=$?
+		[ "$adbyby_del_dns_status" -ne 0 ] || adbyby_del_dns_status=$adbyby_del_dns_step_status
+		logger -t "adbyby" "清理Adbyby dnsmasq规则失败 (status=$adbyby_del_dns_step_status)。"
+	fi
+	if rm -f /tmp/adbyby_host.conf; then
+		:
+	else
+		adbyby_del_dns_step_status=$?
+		[ "$adbyby_del_dns_status" -ne 0 ] || adbyby_del_dns_status=$adbyby_del_dns_step_status
+		logger -t "adbyby" "移除临时Adbyby hosts文件失败 (status=$adbyby_del_dns_step_status)。"
+	fi
+	return "$adbyby_del_dns_status"
+}
 
 save_adbyby_rule_snapshot()
 (

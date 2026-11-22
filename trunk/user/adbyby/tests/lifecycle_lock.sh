@@ -168,4 +168,66 @@ rm -f "$lock_file"
 chmod 600 "$lock_file"
 ln "$lock_file" "$test_root/extra-link"
 if adbyby_lifecycle_lock_prepare "$lock_file"; then fail "hard-linked lock accepted"; fi
+# del_dns is a best-effort cleanup transaction: attempt every independent
+# removal, report the first failure, and never hide it behind a later rm.
+del_dns_file="$test_root/del-dns.sh"
+awk '
+    /^del_dns\(\)$/ { capture = 1; found++ }
+    capture { print }
+    capture && /^}$/ { capture = 0; print "" }
+    END { if (found != 1) exit 1 }
+' "$source_file" > "$del_dns_file"
+[ -s "$del_dns_file" ] || fail "could not extract del_dns"
+(
+    . "$del_dns_file"
+    events="$test_root/del-dns-events"
+    fail_stages=""
+    fail() { echo "Adbyby del_dns regression: FAIL: $*" >&2; exit 1; }
+    sed() {
+        printf '%s\n' sed >> "$events"
+        case ",$fail_stages," in *,sed,*) return 31 ;; esac
+        return 0
+    }
+    adbyby_remove_generated_hosts_config() {
+        printf '%s\n' generated_hosts >> "$events"
+        case ",$fail_stages," in *,generated_hosts,*) return 32 ;; esac
+        return 0
+    }
+    rm() {
+        case "$2" in
+            /tmp/dnsmasq.d/dnsmasq-adbyby.conf) step=rm_dns; rc=33 ;;
+            /tmp/adbyby_host.conf) step=rm_hosts; rc=35 ;;
+            *) return 2 ;;
+        esac
+        printf '%s\n' "$step" >> "$events"
+        case ",$fail_stages," in *,"$step",*) return "$rc" ;; esac
+        return 0
+    }
+    adbyby_cleanup_dnsmasq_ad_dir() {
+        printf '%s\n' cleanup_dir >> "$events"
+        case ",$fail_stages," in *,cleanup_dir,*) return 34 ;; esac
+        return 0
+    }
+    logger() { printf 'logger:%s\n' "$*" >> "$events"; }
+    run_del_dns_case() {
+        fail_stages=$1
+        expected_status=$2
+        : > "$events"
+        if del_dns; then actual_status=0; else actual_status=$?; fi
+        [ "$actual_status" -eq "$expected_status" ] ||
+            fail "failures [$fail_stages] returned $actual_status, expected $expected_status"
+        for step in sed generated_hosts rm_dns cleanup_dir rm_hosts; do
+            grep -Fqx "$step" "$events" || fail "[$fail_stages] skipped cleanup step $step"
+        done
+    }
+    run_del_dns_case "" 0
+    run_del_dns_case "sed" 31
+    run_del_dns_case "generated_hosts" 32
+    run_del_dns_case "rm_dns" 33
+    run_del_dns_case "cleanup_dir" 34
+    run_del_dns_case "rm_hosts" 35
+    run_del_dns_case "sed,cleanup_dir" 31
+    echo "Adbyby DNS cleanup preserves first error and attempts all stages: PASS"
+) || fail "del_dns cleanup regression failed"
+
 echo "Adbyby lifecycle serialization, bounded lock, update routing and FD hygiene: PASS"

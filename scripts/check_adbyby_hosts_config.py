@@ -198,6 +198,24 @@ require("adbyby_publish_failure_status=$?" in publisher and
         "post-launch stage errors must be preserved and trigger rollback for start and update")
 require('logger -t "adbyby"' in del_dns,
         "del_dns must log a failed managed-entry cleanup")
+require("adbyby_del_dns_status=0" in del_dns and
+        'return "$adbyby_del_dns_status"' in del_dns,
+        "del_dns must return the first cleanup failure")
+cleanup_steps = (
+    "sed -i '/dnsmasq-adbyby/d'",
+    "adbyby_remove_generated_hosts_config",
+    "rm -f /tmp/dnsmasq.d/dnsmasq-adbyby.conf",
+    'adbyby_cleanup_dnsmasq_ad_dir "/etc/storage/dnsmasq-adbyby.d"',
+    "rm -f /tmp/adbyby_host.conf",
+)
+require(all(step in del_dns for step in cleanup_steps) and
+        [del_dns.index(step) for step in cleanup_steps] ==
+        sorted(del_dns.index(step) for step in cleanup_steps),
+        "del_dns must attempt every independent cleanup stage in order")
+require("adbyby_del_dns_step_status=$?" in del_dns and
+        "Adbyby DNS cleanup preserves first error and attempts all stages: PASS" in lifecycle_test,
+        "del_dns failure propagation must be regression-tested at each cleanup stage")
+
 require("adbyby_refresh_nvram_state" in firewall_test,
         "firewall host fixture must initialize the launcher state before direct helper calls")
 
