@@ -13,6 +13,12 @@ export TEST_RUN_MARKER TEST_START_FAIL_FILE
 TEST_RUNNING=0
 TEST_ENABLE=1
 TEST_PIDOF_MODE=normal
+TEST_HTTP_MODE=ready
+TEST_HTTP_LOG="$TEST_DIR/http.log"
+TEST_HTTP_READY_AFTER=1
+TEST_EXPECT_HOST="host name *; literal"
+TEST_EXPECT_PORT=8080
+: > "$TEST_HTTP_LOG"
 TEST_SLEEP_FAIL=0
 TEST_TERM_BEHAVIOR=stuck
 TEST_KILL_BEHAVIOR=exit
@@ -90,6 +96,29 @@ kill() {
   return 1
 }
 
+nc() {
+  [ "$1" = "-w" ] && [ "$2" = "1" ] || return 2
+  [ "$3" = "$TEST_EXPECT_HOST" ] && [ "$4" = "$TEST_EXPECT_PORT" ] || return 2
+  printf '%s\n' "$3 $4" >> "$TEST_HTTP_LOG"
+  test_probe_count=$(wc -l < "$TEST_HTTP_LOG")
+  cat >/dev/null
+  case "$TEST_HTTP_MODE" in
+    unavailable) return 1 ;;
+    delayed)
+      [ "$test_probe_count" -ge "$TEST_HTTP_READY_AFTER" ] || return 1
+      printf '%s\r\n' 'HTTP/1.1 401 Unauthorized'
+      ;;
+    ready)
+      printf '%s\r\n' 'HTTP/1.1 200 OK'
+      ;;
+    server-error)
+      printf '%s\r\n' 'HTTP/1.1 503 Service Unavailable'
+      ;;
+    *) return 2 ;;
+  esac
+  return 0
+}
+
 set -- check
 . "$LAUNCHER"
 set --
@@ -98,6 +127,25 @@ ALD_WORK_DIR="$TEST_DIR/aliyundrive-webdav-workdir"
 TEST_UMASK_LOG="$TEST_DIR/umask.log"
 export ALD_WORK_DIR TEST_UMASK_LOG
 ALD_START_WAIT_SECONDS=10
+
+# HTTP 5xx is not readiness; healthy and authentication-required status codes are.
+TEST_HTTP_MODE=server-error
+: > "$TEST_HTTP_LOG"
+if ald_http_ready "$TEST_EXPECT_HOST" "$TEST_EXPECT_PORT"; then
+  echo "FAIL: HTTP 503 was accepted as readiness" >&2
+  exit 1
+fi
+TEST_HTTP_MODE=ready
+: > "$TEST_HTTP_LOG"
+ald_http_ready "$TEST_EXPECT_HOST" "$TEST_EXPECT_PORT" || {
+  echo "FAIL: HTTP 200 was not accepted as readiness" >&2; exit 1;
+}
+TEST_HTTP_MODE=delayed
+TEST_HTTP_READY_AFTER=1
+: > "$TEST_HTTP_LOG"
+ald_http_ready "$TEST_EXPECT_HOST" "$TEST_EXPECT_PORT" || {
+  echo "FAIL: authentication-required HTTP 401 was not accepted" >&2; exit 1;
+}
 
 # The upstream daemon persists its rotated refresh token using the process
 # umask. Harden existing paths before the daemon can read or replace them.
@@ -348,6 +396,58 @@ fi
 MOCK
 chmod 700 "$ALD_BIN"
 
+# A process that exists but has no HTTP listener must not satisfy startup readiness.
+TEST_RUNNING=0
+TEST_ENABLE=1
+TEST_HTTP_MODE=unavailable
+: > "$TEST_HTTP_LOG"
+TEST_SLEEP_COUNT=0
+rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER" "$TEST_START_FAIL_FILE"
+if start_ald; then
+  echo "FAIL: process presence without an HTTP listener was reported ready" >&2
+  exit 1
+fi
+[ -e "$TEST_RUN_MARKER" ] &&
+[ "$(wc -l < "$TEST_HTTP_LOG")" -eq 11 ] &&
+[ "$TEST_SLEEP_COUNT" -eq "$ALD_START_WAIT_SECONDS" ] || {
+  echo "FAIL: HTTP readiness timeout was not bounded or did not retain the live process" >&2
+  exit 1
+}
+
+# A listener that becomes ready later must be accepted without duplicate launch.
+rm -f "$TEST_RUN_MARKER" "$TEST_ARG_LOG"
+TEST_RUNNING=0
+TEST_HTTP_MODE=delayed
+TEST_HTTP_READY_AFTER=3
+: > "$TEST_HTTP_LOG"
+TEST_SLEEP_COUNT=0
+start_ald || { echo "FAIL: delayed HTTP readiness did not recover" >&2; exit 1; }
+TEST_LAUNCH_PID=$!
+wait "$TEST_LAUNCH_PID"
+[ "$(wc -l < "$TEST_HTTP_LOG")" -eq 3 ] && [ -e "$TEST_RUN_MARKER" ] || {
+  echo "FAIL: delayed HTTP readiness returned before the configured probe" >&2
+  exit 1
+}
+
+# Duplicate-start preflight must not treat an unhealthy existing process as ready.
+TEST_RUNNING=1
+TEST_HTTP_MODE=unavailable
+: > "$TEST_HTTP_LOG"
+TEST_SLEEP_COUNT=0
+rm -f "$TEST_ARG_LOG"
+if start_ald; then
+  echo "FAIL: unhealthy existing HTTP service was accepted as ready" >&2
+  exit 1
+fi
+[ ! -e "$TEST_ARG_LOG" ] && [ "$(wc -l < "$TEST_HTTP_LOG")" -eq 11 ] || {
+  echo "FAIL: unhealthy duplicate start launched a second daemon or did not wait" >&2
+  exit 1
+}
+TEST_RUNNING=0
+TEST_HTTP_MODE=ready
+TEST_HTTP_READY_AFTER=1
+: > "$TEST_HTTP_LOG"
+
 # A launched daemon must become observable before start reports success.
 TEST_RUNNING=0
 TEST_ENABLE=1
@@ -368,6 +468,8 @@ rm -f "$TEST_START_FAIL_FILE"
 rm -f "$TEST_RUN_MARKER"
 TEST_RUNNING=0
 TEST_ENABLE=1
+TEST_HTTP_MODE=ready
+: > "$TEST_HTTP_LOG"
 rm -f "$TEST_START_FAIL_FILE" "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
 start_ald || { echo "FAIL: enabled start failed" >&2; exit 1; }
 TEST_LAUNCH_PID=$!
@@ -441,6 +543,10 @@ nvram() {
   esac
 }
 TEST_RUNNING=0
+TEST_EXPECT_HOST=127.0.0.1
+TEST_EXPECT_PORT=8080
+TEST_HTTP_MODE=ready
+: > "$TEST_HTTP_LOG"
 rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
 start_ald || { echo "FAIL: special-domain start failed" >&2; exit 1; }
 TEST_LAUNCH_PID=$!

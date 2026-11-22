@@ -38,6 +38,7 @@ web_ex = WEB_EX_PATH.read_text()
 workflow = WORKFLOW_PATH.read_text()
 binary_test = (ROOT / "scripts/test_aliyundrive_webdav_binary.py").read_text()
 busybox_config = BUSYBOX_CONFIG_PATH.read_text()
+require("CONFIG_NC=y" in busybox_config, "BusyBox netcat applet must be enabled for local HTTP readiness probes")
 flock_source = FLOCK_SOURCE_PATH.read_text()
 arch_config = ARCH_CONFIG_PATH.read_text()
 uclibc_config = UCLIBC_CONFIG_PATH.read_text()
@@ -148,10 +149,24 @@ def function_body(source: str, signature: str) -> str:
 process_state = function_body(launcher, "ald_process_state() {")
 wait_stopped = function_body(launcher, "ald_wait_stopped() {")
 wait_started = function_body(launcher, "ald_wait_started() {")
+http_ready = function_body(launcher, "ald_http_ready() {")
 lock = function_body(launcher, "ald_run_locked() {")
 stop = function_body(launcher, "ald_kill_unlocked() {")
 start = function_body(launcher, "ald_start_unlocked() {")
 stop_wrapper = function_body(launcher, "stop_ald() {")
+require("HEAD / HTTP/1.0" in http_ready and
+        'nc -w 1 "$1" "$2"' in http_ready and
+        'HTTP/1.0|HTTP/1.1' in http_ready and
+        '2[0-9][0-9]|3[0-9][0-9]|401|403|404|405' in http_ready and
+        'ald_http_ready "$host" "$port"' in wait_started and
+        'ald_wait_started' in start,
+        "startup readiness must verify a bounded HTTP status response as well as the process")
+require("TEST_HTTP_MODE=unavailable" in test and
+        "TEST_HTTP_MODE=delayed" in test and
+        "HTTP 503 was accepted as readiness" in test and
+        "ald_http_ready" in test,
+        "lifecycle regression must cover missing/delayed HTTP listeners and reject server errors")
+
 workdir = function_body(launcher, "ald_secure_workdir() {")
 
 require('-L "$ALD_WORK_DIR"' in workdir and

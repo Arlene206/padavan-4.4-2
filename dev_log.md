@@ -1,3 +1,13 @@
+## 2026-11-22 — Require AliyunDrive WebDAV HTTP listener readiness
+
+- Parent main SHA: `2144925dd276279d7113dd1e5c16d7855202bcde`. The roadmap marked AliyunDrive WebDAV startup as PARTIAL because its tri-state `pidof` inventory only proved that the daemon process existed; a process could remain alive while the configured HTTP port was not listening or returning server errors, and duplicate-start requests also reported success on process presence alone.
+- Added bounded local HTTP HEAD probing over BusyBox `nc` to the exact NVRAM-configured host/port. Startup now returns success only after both a validated daemon process and an HTTP/1.0 or 1.1 response are observed. 2xx/3xx and expected auth/resource/method responses (401/403/404/405) count as an active HTTP service; 5xx, malformed replies, connect refusal and empty replies continue the bounded wait. Existing process UNKNOWN remains fail-closed, and a running but unhealthy daemon is not duplicated or killed.
+- The NC applet is already enabled in the board BusyBox config. Extended the lifecycle shell test with HTTP 200, auth-compatible 401, explicit 503 rejection, connection-unavailable timeout with live process, delayed listener readiness, unhealthy duplicate-start handling and exact host/port argument preservation. Updated the exact-source checker; existing workflow already watches launcher/test/checker and BusyBox config.
+- Parent exact SHA `2144925dd276279d7113dd1e5c16d7855202bcde`: p910nd I/O regression #45041698560 PASS, process inventory #45041698513 PASS, AI docs #45041698520 PASS. XY-C1 #45041698556 was in Build XY-C1; NVRAM audit #45041698491 was still running. EAPoL cleanup source SHA efb830b: Process #45041387825, EAPoL #45041387869, NVRAM #45041387886 and AI #45041387973 PASS; XY-C1 #45041387818 still building. No local tests, firmware build, TRX or artifacts claimed.
+- Exact AliyunDrive lifecycle Action and target XY-C1 Build/TRX/artifact for this new readiness policy are pending; MIPS/uClibc runtime and physical-router L4 remain unverified.
+
+---
+
 ## 2026-11-22 — Correct iNIC TxPower source-contract false positive
 
 - Parent main SHA: `2b957b311d18f9662a3c0044ca2e15403c2a544a`. The exact-head Wireless workflow #45041942952 compiled and passed the GNU89 wireless, bridge-membership and guest-isolation policy binaries, then failed in its inline source contract. The assertion `"nvram_wlan_get_int(" not in txpower_prepare` incorrectly matched the callback's explanatory comment, which names the lossy wrapper but does not call it.

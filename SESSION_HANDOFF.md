@@ -13,24 +13,25 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `2b957b311d18f9662a3c0044ca2e15403c2a544a`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `2144925dd276279d7113dd1e5c16d7855202bcde`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- EAPoL orphan-tail compile fix is present in `efb830bce5028536826989c8b5070b68a49e4a4e`; p910nd EINTR/EAGAIN/zero-progress handling passed on `2b957b311d18f9662a3c0044ca2e15403c2a544a`.
-- RT3352 MII TxPower now uses checked NVRAM reads and fails closed before driver programming/unisolation/publication. The source policy binaries passed on `2b957b311d18f9662a3c0044ca2e15403c2a544a`; the first Wireless run failed only because an inline source-contract substring also matched a comment. The contract is corrected in the current commit.
+- p910nd I/O EINTR/EAGAIN/zero-write fix committed in 7a136bb; exact GNU89/ASan/UBSan/source-contract Action #45041698560 PASS.
+- EAPoL orphan source tail removed in efb830b; Process #45041387825, EAPoL #45041387869, NVRAM #45041387886 and AI #45041387973 PASS on efb; XY-C1 #45041387818 was building at last check.
+- WSDD2 strict UTF-8/XML 1.0 validation and ttyd detached-child readiness remain checked/green on exact descendants e2 and 30a1.
 
 ## Active task
 
-Rerun Wireless radio state regression on this exact commit and inspect the XY-C1 firmware run inherited from parent `2b957b311d18f9662a3c0044ca2e15403c2a544a`. Then continue an independent confirmed userland stability/security issue while build/checks are pending.
+AliyunDrive WebDAV previously treated validated process presence as service readiness. It now requires the daemon process plus a bounded HTTP HEAD response from the configured host/port. Startup and duplicate-start idempotence no longer claim success when the daemon remains alive but its HTTP listener is unavailable or returns server errors.
 
 ## Verification boundary
 
-- Parent `2b957b311d18f9662a3c0044ca2e15403c2a544a`: NVRAM audit #45041943056 PASS; Process inventory #45041943005 PASS; Process umbrella #45041942953 PASS; HTTPD security #45041942956 PASS; iNIC signal #45041942917 PASS; watchdog signal #45041942875 PASS; AI handoff #45041942863 PASS.
-- Parent Wireless #45041942952: compiled and passed three C policy binaries, then FAILED in the inline Python source contract because `nvram_wlan_get_int(` was found in a comment. Narrowed the check to the actual unsafe call in this commit; production source is unchanged. Exact rerun required.
-- Parent XY-C1 #45041942984 was IN_PROGRESS at the last poll; inspect Build, TRX and artifact stages on that same SHA.
-- No local build or hardware validation was performed. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical production source SHA. Hardware L4 remains NOT VERIFIED.
+- Parent SHA 2b957b311d18f9662a3c0044ca2e15403c2a544a: p910nd #45041698560 PASS; Process inventory #45041698513 PASS; AI docs #45041698520 PASS; XY-C1 #45041698556 was building; NVRAM audit #45041698491 running.
+- EAPoL source parent efb830bce5028536826989c8b5070b68a49e4a4e: Process #45041387825 PASS, EAPoL #45041387869 PASS, NVRAM #45041387886 PASS, AI #45041387973 PASS; XY-C1 #45041387818 was building. No L3 claim until Build/TRX/artifact all pass on one exact product source SHA.
+- The AliyunDrive HTTP readiness change has not yet run its exact lifecycle Action or XY-C1 build. No local tests or firmware image were run.
+- The HTTP probe uses BusyBox NC (CONFIG_NC=y); MIPS/uClibc runtime and physical-router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Wireless and AI handoff Actions for this checker-only correction, then inspect parent `2b957b311d18f9662a3c0044ca2e15403c2a544a` XY-C1 Build/TRX/artifact results.
-2. Fix any actual failing stage at its exact SHA; do not infer product readiness from host policy tests.
-3. Continue a bounded stability/security slice outside current wireless, EAPoL, p910nd, WAN/PPP, Inadyn, DNSMasq, ttyd and WSDD2 work. Keep backup immutable and develop only on main.
+1. Inspect exact-head AliyunDrive WebDAV lifecycle regression, Process inventory and AI docs after the HTTP readiness change; correct only demonstrated failures.
+2. Inspect same-SHA XY-C1 Build, TRX verification and artifact upload for the EAPoL cleanup and new AliyunDrive source; do not infer L3 from pending runs.
+3. Continue another independent userland stability/security slice beyond completed p910nd, EAPoL, ttyd, WSDD2, WAN/PPP, Inadyn and DNSMasq work. Keep backup read-only and work only on main.

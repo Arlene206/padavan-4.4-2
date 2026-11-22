@@ -70,6 +70,24 @@ ald_wait_stopped() {
 }
 
 
+ald_http_ready() {
+  ald_http_status_line=$(
+    printf 'HEAD / HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n' |
+      nc -w 1 "$1" "$2" 2>/dev/null | head -n 1
+  ) || return 1
+  ald_http_protocol=\${ald_http_status_line%% *}
+  ald_http_status=\${ald_http_status_line#* }
+  ald_http_status=\${ald_http_status%% *}
+  case "$ald_http_protocol" in
+    HTTP/1.0|HTTP/1.1) ;;
+    *) return 1 ;;
+  esac
+  case "$ald_http_status" in
+    2[0-9][0-9]|3[0-9][0-9]|401|403|404|405) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 ald_wait_started() {
   ald_wait=0
   while [ "$ald_wait" -lt "$ALD_START_WAIT_SECONDS" ]; do
@@ -79,7 +97,11 @@ ald_wait_started() {
       ald_state=$?
     fi
     case "$ald_state" in
-      0) return 0 ;;
+      0)
+        if ald_http_ready "$host" "$port"; then
+          return 0
+        fi
+        ;;
       1) ;;
       *) return 2 ;;
     esac
@@ -88,12 +110,14 @@ ald_wait_started() {
   done
 
   if ald_process_state; then
-    return 0
+    if ald_http_ready "$host" "$port"; then
+      return 0
+    fi
+    return 1
   else
     ald_state=$?
   fi
   case "$ald_state" in
-    0) return 0 ;;
     1) return 1 ;;
     *) return 2 ;;
   esac
@@ -260,10 +284,18 @@ ald_start_unlocked() {
   enable="$(nvram get aliyundrive_enable)"
   case "$enable" in
     1|on|true|yes|enabled)
-      # Repeated RC/UI start notifications must not launch duplicate servers.
+      host="$(nvram get ald_host)"
+      port="$(nvram get ald_port)"
+
+      # A live PID is not service readiness: require an HTTP response as well.
       if ald_process_state; then
-        logger -t "阿里云盘" "服务已在运行，跳过重复启动"
-        return 0
+        if ald_wait_started; then
+          logger -t "阿里云盘" "HTTP 服务已就绪，跳过重复启动"
+          return 0
+        else
+          logger -t "阿里云盘" "服务进程存在，但 HTTP 端点未就绪"
+          return 1
+        fi
       else
         ald_state=$?
       fi
@@ -278,8 +310,6 @@ ald_start_unlocked() {
       read_buf_size="$(nvram get ald_read_buffer_size)"
       cache_size="$(nvram get ald_cache_size)"
       cache_ttl="$(nvram get ald_cache_ttl)"
-      host="$(nvram get ald_host)"
-      port="$(nvram get ald_port)"
       root="$(nvram get ald_root)"
       domain_id="$(nvram get ald_domain_id)"
 
