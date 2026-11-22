@@ -1,3 +1,12 @@
+## 2026-11-22 — Write folder-list metadata as an atomic checked snapshot
+
+- Parent main SHA: `75f461de7dfbfbd0f59867959c5b3d37042d0b0f`; product commit: `922841600a62aa8c4c98922da9002c6e4cdfb328`. `initial_folder_list_in_mount_path()` previously truncated the destination directly and ignored every `fprintf()` and `fclose()` failure. A full disk or interrupted write could leave an incomplete but existing metadata file, suppress future regeneration and keep Samba share discovery broken.
+- Added a checked snapshot writer, same-directory `mkstemp()`, flush + `fsync()`, checked close and atomic `rename()`. Failure removes only the temporary file and preserves errno, leaving any previous complete list intact.
+- GNU89 ASan/UBSan regression now covers complete output, invalid inputs and a failing `/dev/full` stream; the source contract verifies write/flush/sync/close/rename ordering and failure cleanup.
+- Exact product SHA: libdisk share-list #45015894653 PASS. XY-C1 #45015894601 IN_PROGRESS in Build XY-C1; Process inventory #45015894636, HTTPD security #45015894612 and NVRAM audit #45015894614 were IN_PROGRESS at last poll. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Make libdisk readdir source contract whitespace-independent
 
 - Product commit `c24dd1f0a513864249ae7817db7d3ddc6077f21b` compiled and passed the GNU89 Address/UndefinedBehaviorSanitizer policy regression. The exact libdisk workflow #45015397360 then failed only in the Python source checker: its locator expected a space before the call's closing parenthesis, while the production call had the normal `&read_error);` layout.

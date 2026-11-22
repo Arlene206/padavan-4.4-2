@@ -1,11 +1,12 @@
 ## 2026-11-22 — Current development checkpoint
 
-- Parent main SHA: `2f26c91708144510c36e9fdc0efc0b3259c1e3aa`; source/product slice under validation is `c24dd1f0a513864249ae7817db7d3ddc6077f21b`.
+- Live main product SHA: `922841600a62aa8c4c98922da9002c6e4cdfb328`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (immutable; read-only).
-- libdisk readdir-error product change: C regression compiled and passed GNU89 ASan/UBSan in exact run #45015397360, but the following Python source-contract step failed on a formatting-sensitive call-site locator. THIS commit replaces the literal with a whitespace-tolerant regex while retaining the same order and errno checks.
-- XY-C1 #45015397223 is still running for the product SHA `c24dd1f`; Build XY-C1 was IN_PROGRESS at last poll, TRX and artifact upload pending. Do not claim L3 until all three pass on that same SHA.
-- Process inventory #45015397306, Process lifecycle #45015397230, HTTPD security #45015397324 and AI docs #45015397283 PASS on product/parent SHA `c24dd1f`; NVRAM audit #45015397192 remains IN_PROGRESS.
-- The current commit changes only checker and handoff/log records. Hardware L4 NOT VERIFIED.
+- libdisk storage-share reliability now has two source fixes: directory enumeration fails closed on `readdir()` errors, and folder-list metadata is written to a same-directory temporary file, checked/flushed/synced/closed, then atomically renamed. Failures remove the temp file and preserve the last good snapshot.
+- Exact libdisk GNU89 ASan/UBSan + source-contract run #45015894653 PASS on `9228416`.
+- XY-C1 run #45015894601 is IN_PROGRESS in Build XY-C1 on that same product SHA; TRX verification and artifact upload await the build. Process inventory #45015894636, HTTPD security #45015894612 and NVRAM transaction audit #45015894614 were IN_PROGRESS at last poll.
+- XY-C1 path filter now includes libdisk Makefile/source/headers (correcting the prior handoff mismatch). The workflow remains main-push-only; the focused libdisk workflow covers push/PR host tests.
+- L3 NOT VERIFIED until same-SHA Build, TRX and artifact upload all PASS. Hardware L4 NOT VERIFIED.
 
 
 ---
@@ -47,22 +48,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Active product fix on `c24dd1f`: `get_all_folder_in_mount_path()` now distinguishes clean directory EOF from `readdir()` I/O errors, frees partial lists and preserves errno rather than publishing incomplete storage-share state.
-- The GNU89 ASan/UBSan C regression passed. Its source checker initially failed because a literal expected whitespace before `)`; this commit changes only that locator to a whitespace-tolerant regex. Existing assertions still require the checked read call, EOF gate, error gate and errno restoration to remain ordered.
-- XY-C1 production path coverage now includes the libdisk Makefile, `disk_share.c`, `disk_share.h` and `disk_share_list_policy.h`. The same-SHA target build is still pending.
-- No local full router checkout is available. Exact GitHub Actions remain the source for L2/L3 claims.
+- Active product slice: libdisk share-list persistence. `get_all_folder_in_mount_path()` distinguishes clean EOF from read failure and frees partial lists on errors. `initial_folder_list_in_mount_path()` no longer truncates the published file directly; it writes a temporary snapshot, checks every buffered write/flush, fsyncs and closes it, then atomically renames it over the destination.
+- Regression coverage: readdir entry/EOF/EIO/invalid adapter; successful snapshot content; invalid data; /dev/full write failure. The source contract checks both failure-state transitions and the XY-C1 production-input path filter. Exact libdisk run #45015894653 PASS.
+- The next known storage-share defect to address after current CI: `initial_one_var_file_in_mount_path()` ignores `fprintf()`/close failures, and `modify_if_exist_new_folder()` ignores append/close failures. Keep this follow-up separate from the checked folder-list transaction.
+- No local full router checkout is available; same-SHA XY-C1 Build/TRX/artifact is required for firmware L3.
 
 ## Verification boundary
 
-- Exact libdisk run #45015397360 on `c24dd1f`: GNU89 Address/UndefinedBehaviorSanitizer regression PASS; Python source-contract check FAIL at the whitespace-sensitive adapter-call locator. Checker-only correction is included in the current follow-up and its exact run is pending.
-- XY-C1 #45015397223 on `c24dd1f`: Build XY-C1 IN_PROGRESS at last poll, TRX/artifact PENDING.
-- Process inventory #45015397306, Process lifecycle #45015397230, HTTPD security #45015397324 and AI docs #45015397283 PASS; NVRAM audit #45015397192 IN_PROGRESS.
-- L3 is NOT VERIFIED until Build, TRX and artifact upload all PASS on the identical product SHA. Hardware L4 NOT VERIFIED.
+- Exact libdisk share-list run #45015894653 PASS on `922841600a62aa8c4c98922da9002c6e4cdfb328` (GNU89 sanitizer binary + production source/path contracts).
+- Exact XY-C1 #45015894601 IN_PROGRESS in Build XY-C1 on the same SHA; TRX and artifact upload not yet complete.
+- Process inventory #45015894636, HTTPD security #45015894612 and NVRAM audit #45015894614 IN_PROGRESS at last poll.
+- Prior checker-format follow-up #45015600430 and its AI docs #45015600415 PASS on ancestor `75f461d`.
+- L3 NOT VERIFIED until same-SHA Build/TRX/artifact all PASS. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect the exact-head libdisk share-list rerun to verify the regex-based call-site contract passes with the GNU89 ASan/UBSan regression.
-2. Poll XY-C1 #45015397223 for product SHA `c24dd1f0a513864249ae7817db7d3ddc6077f21b`; verify Build XY-C1, TRX output and artifact upload all PASS on that same SHA before claiming L3.
-3. Inspect NVRAM audit #45015397192; fix any genuine source regression, not infrastructure noise.
-4. Continue the next independent high-risk userland stability/security issue while pending workflows run. Keep backup immutable and hardware L4 marked NOT VERIFIED.
+1. Fetch live `main` and inspect XY-C1 #45015894601 on product SHA `922841600a62aa8c4c98922da9002c6e4cdfb328`: Build, TRX verification and artifact upload must all pass on that same SHA.
+2. Confirm Process inventory #45015894636, HTTPD security #45015894612 and NVRAM audit #45015894614 exact-SHA outcomes.
+3. Continue the known next storage-share failure slice: propagate write/close failures in `initial_one_var_file_in_mount_path()` and `modify_if_exist_new_folder()`, with regression tests; do not combine it with unrelated changes.
+4. Keep the backup immutable and hardware L4 marked NOT VERIFIED.
 
