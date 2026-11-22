@@ -1083,3 +1083,12 @@ assert "wan6_snapshot_transaction_get" in duid_body
 assert "wan6_snapshot_transaction_end" in duid_body
 assert "return wan6_hwaddr_status;" in duid_body
 assert 'nvram_safe_get("wan_hwaddr")' not in duid_body
+
+# Preserve the DHCPv6 no-op path before reading optional DUID identity.
+duid_ifname_guard = duid_body.index("if (!wan_ifname")
+duid_settings_read = duid_body.index("settings_status = wan6_read_dhcp_integer_snapshot(")
+duid_noop = duid_body.index("if (!wan6_dhcp && !dns6_auto && !lan6_auto)")
+duid_hwaddr_read = duid_body.index('wan6_hwaddr_field.param_name = "wan_hwaddr";')
+duid_hwaddr_error = duid_body.index("if (wan6_hwaddr_status != 0)")
+duid_session_lock = duid_body.index("session_fd = dhcp6c_callback_session_lock(")
+assert duid_ifname_guard < duid_settings_read < duid_noop < duid_hwaddr_read < duid_hwaddr_error < duid_session_lock

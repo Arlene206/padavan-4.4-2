@@ -1,3 +1,12 @@
+## 2026-11-22 — Preserve the DHCPv6 no-op path before DUID lookup
+
+- Parent main SHA: ef63749dad3c140c36fc1ea2afc951f6faaf17ea. The DUID MAC snapshot had been moved ahead of interface validation and the all-disabled early return. A transient `wan_hwaddr` read error could therefore make a no-op DHCPv6 invocation fail even when no DHCP/DNS/LAN client work was configured.
+- Restored the order: validate the interface, read the active client flags, return successfully when all work is disabled, then read `wan_hwaddr` through the checked snapshot before callback-session lock, file creation, or process launch.
+- Both WAN source contracts now pin this ordering. The existing missing-key, backend-read-failure and transaction-close-failure GNU89 regressions remain registered; no new runtime test body was needed for this call-order correction.
+- Local host binaries and source workflows could not be run here: there is no checkout and outbound DNS is unavailable. The connected workflow-run query is PR-triggered only and combined commit statuses are empty, so no exact-head PASS is claimed.
+- Next task: replace the remaining error-collapsing `ip6_6rd_dhcp` selector read in `store_ip6rd_from_dhcp_status()` while retaining malformed/absent option no-op behavior.
+
+---
 ## 2026-11-22 — Read DHCPv6 DUID hardware address before resource acquisition
 
 - Parent main SHA: df210641d1dcaaba795dde2c672e753643547f04. start_dhcp6c() used nvram_safe_get("wan_hwaddr") directly as the DUID/IAID hardware-address source, collapsing NVRAM backend failures to an empty value. A transient store error could thus be treated like a missing MAC while the client proceeded.
