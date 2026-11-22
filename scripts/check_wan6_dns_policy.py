@@ -455,3 +455,16 @@ identity_error = wan6_down_body.index("if (status != 0)", identity_read)
 first_interface_probe = wan6_down_body.index("is_interface_exist(previous_ifname)")
 assert identity_read < identity_error < first_interface_probe
 assert 'get_wan_unit_value(unit, "ifname6")' not in wan6_down_body
+
+
+# IPv6 host-address lookup must use a stable checked interface-name snapshot.
+host_addr_body = body(source, "get_wan_addr6_host(char *p_addr6s)")
+assert "char wan6_ifname[IFNAMSIZ]" in host_addr_body
+assert 'get_wan_unit_value_copy_status(\n\t\t0, "ifname6", wan6_ifname, sizeof(wan6_ifname))' in host_addr_body
+host_read = host_addr_body.index("get_wan_unit_value_copy_status(")
+host_error = host_addr_body.index("if (status != 0)", host_read)
+host_lookup = host_addr_body.index("get_ifaddr6(wan6_ifname, 0, p_addr6s)", host_error)
+assert host_read < host_error < host_lookup
+assert "errno = status;" in host_addr_body
+assert 'get_wan_unit_value(0, "ifname6")' not in host_addr_body
+assert "if (!p_addr6s)" in host_addr_body

@@ -846,13 +846,24 @@ int store_wan_dns6(char *dns6_new)
 char *get_wan_addr6_host(char *p_addr6s)
 {
 	char *tmp = p_addr6s;
-	char *wan6_ifname = get_wan_unit_value(0, "ifname6");
+	char wan6_ifname[IFNAMSIZ] = {0};
+	int status;
 
-	if (strlen(wan6_ifname) > 0) {
-		if (get_ifaddr6(wan6_ifname, 0, p_addr6s)) {
-			strsep(&tmp, "/");
-			return p_addr6s;
-		}
+	if (!p_addr6s) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	status = get_wan_unit_value_copy_status(
+		0, "ifname6", wan6_ifname, sizeof(wan6_ifname));
+	if (status != 0) {
+		errno = status;
+		return NULL;
+	}
+	errno = 0;
+	if (wan6_ifname[0] != '\0' && get_ifaddr6(wan6_ifname, 0, p_addr6s)) {
+		strsep(&tmp, "/");
+		return p_addr6s;
 	}
 
 	return NULL;

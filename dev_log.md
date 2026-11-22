@@ -1,3 +1,11 @@
+## 2026-11-22 — Use a checked stable interface name for IPv6 host-address lookup
+
+- Parent main SHA: `5df642aad7357f8817c674cde37ff696071366ac`. `get_wan_addr6_host()` fetched `wan0_ifname6` through the pointer-returning getter and immediately passed that cache-owned pointer to interface-address lookup. The pointer lifetime happened to be short, but a backend read failure was still collapsed into the missing-interface path and could not be distinguished by callers.
+- Replaced the borrowed pointer with a bounded `IFNAMSIZ` local snapshot from `get_wan_unit_value_copy_status()`. The function now returns `NULL` with the concrete read error in `errno`, keeps missing/empty interface behavior unchanged, clears stale errno after a successful empty read, and rejects a null output buffer with `EINVAL`.
+- Extended the WAN6 source contract to pin stable-buffer, checked-read/error propagation and ordering before `get_ifaddr6()`. Existing generic checked-copy GNU89 tests cover missing keys, backend errors and truncation.
+- Next task: inspect the exact-SHA checks on the recent teardown-contract fix, then audit the remaining IPv6 teardown and DNS consumers for lossy NVRAM reads.
+
+---
 ## 2026-11-22 — Fix escaped newline in WAN route teardown contract
 
 - Parent main SHA: `da151744e963da9ae5af21227fe8bd42a97c6797`. The exact-SHA `wan-route-status` job reached the refreshed `wan6_down()` contract and failed with `ValueError: substring not found`: the inserted Python search needle contained two literal backslashes before `n`/`t`, while the extracted C source contains actual newline/tab characters. The IPv6 service-type checker and handoff validator both passed on this SHA.
