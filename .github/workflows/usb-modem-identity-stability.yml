@@ -733,14 +733,17 @@ jobs:
           assert "get_usb_modem_wan(" not in modem
 
           restart = body(rc_source, "else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))")
-          restart_identity = restart.index("get_usb_modem_wan_status(0, &need_restart_wan)")
-          restart_unknown = restart.index("if (!modem_wan_restart_allowed(modem_identity_status))", restart_identity)
-          restart_error_merge = restart.index("rc_notify_merge_action_result(", restart_unknown)
-          restart_abort = restart.index("stop_failed = 1;", restart_error_merge)
-          restart_module_gate = restart.index("if (!stop_failed)", restart_abort)
-          restart_reload = restart.index("reload_modem_modules(", restart_module_gate)
-          restart_final_gate = restart.index("if (!stop_failed && need_restart_wan)", restart_module_gate)
-          restart_final = restart.index("full_restart_wan()", restart_final_gate)
+          # The production call deliberately spans lines; normalize whitespace
+          # before asserting the guarded identity-to-reload ordering.
+          restart_compact = "".join(restart.split())
+          restart_identity = restart_compact.index("get_usb_modem_wan_status(0,&need_restart_wan)")
+          restart_unknown = restart_compact.index("if(!modem_wan_restart_allowed(modem_identity_status))", restart_identity)
+          restart_error_merge = restart_compact.index("rc_notify_merge_action_result(", restart_unknown)
+          restart_abort = restart_compact.index("stop_failed=1;", restart_error_merge)
+          restart_module_gate = restart_compact.index("if(!stop_failed)", restart_abort)
+          restart_reload = restart_compact.index("reload_modem_modules(", restart_module_gate)
+          restart_final_gate = restart_compact.index("if(!stop_failed&&need_restart_wan)", restart_module_gate)
+          restart_final = restart_compact.index("full_restart_wan()", restart_final_gate)
           assert restart_identity < restart_unknown < restart_error_merge < restart_abort < restart_module_gate < restart_reload < restart_final_gate < restart_final
           assert "get_usb_modem_wan(" not in restart
 
