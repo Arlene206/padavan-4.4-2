@@ -157,4 +157,18 @@ rc_lan_addr6_reload_apply(int has_address,
 	return add_address(context);
 }
 
+/* Do not clear the live bridge address when the NVRAM snapshot failed. */
+static inline int
+rc_lan_addr6_reload_from_snapshot(int read_status, const char *address,
+				  rc_lan_addr6_clear_fn clear_address,
+				  rc_lan_addr6_add_fn add_address)
+{
+	if (read_status != 0)
+		return read_status;
+	if (!address)
+		return EINVAL;
+	return rc_lan_addr6_reload_apply(
+		address[0] != '\0', clear_address, add_address, (void *)address);
+}
+
 #endif

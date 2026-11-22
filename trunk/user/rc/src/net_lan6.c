@@ -343,14 +343,22 @@ int get_lan_dhcp6s_prefix_size(void)
 
 int store_lan_addr6(char *lan_addr6_new)
 {
-	char *lan_addr6_old;
+	char lan_addr6_old[LAN6_RESET_ADDRESS_SIZE] = {0};
 	int api_result, saved_errno, status;
 
 	if (!lan_addr6_new || !lan_addr6_new[0])
 		return 0;
 
-	lan_addr6_old = nvram_safe_get("lan_addr6");
-	if (strcmp(lan_addr6_new, lan_addr6_old ? lan_addr6_old : "") != 0) {
+	status = lan6_read_config_value_status(
+		"lan_addr6", lan_addr6_old, sizeof(lan_addr6_old));
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot compare current LAN address before update (status=%d)",
+			   status);
+		return -1;
+	}
+	if (strcmp(lan_addr6_new, lan_addr6_old) != 0) {
 		errno = 0;
 		api_result = nvram_set_temp("lan_addr6", lan_addr6_new);
 		saved_errno = errno;
@@ -390,11 +398,22 @@ add_lan_addr6_for_reload(void *context)
 
 int reload_lan_addr6(void)
 {
-	char *lan_addr6 = nvram_safe_get("lan_addr6");
+	char lan_addr6[LAN6_RESET_ADDRESS_SIZE] = {0};
+	int status;
 
-	return rc_lan_addr6_reload_apply(lan_addr6 && lan_addr6[0],
-					 clear_lan_addr6_for_reload,
-					 add_lan_addr6_for_reload, lan_addr6);
+	/* A failed read is not an empty configuration: preserve the live address. */
+	status = lan6_read_config_value_status(
+		"lan_addr6", lan_addr6, sizeof(lan_addr6));
+	status = rc_lan_addr6_reload_from_snapshot(
+		status, lan_addr6, clear_lan_addr6_for_reload,
+		add_lan_addr6_for_reload);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "LAN address reload was not applied (status=%d)",
+			   status);
+	}
+	return status;
 }
 
 int clear_lan_addr6(void)
@@ -402,18 +421,53 @@ int clear_lan_addr6(void)
 	return clear_if_addr6(IFNAME_BR);
 }
 
+int get_lan_addr6_host_status(char *p_addr6s, size_t p_addr6s_size)
+{
+	char lan_addr6[LAN6_RESET_ADDRESS_SIZE] = {0};
+	char *slash;
+	size_t length;
+	int status;
+
+	if (!p_addr6s || p_addr6s_size == 0)
+		return EINVAL;
+	p_addr6s[0] = '\0';
+
+	status = lan6_read_config_value_status(
+		"lan_addr6", lan_addr6, sizeof(lan_addr6));
+	if (status != 0)
+		return status;
+	if (!lan_addr6[0])
+		return 0;
+
+	slash = strchr(lan_addr6, '/');
+	if (slash)
+		*slash = '\0';
+	if (!lan_addr6[0])
+		return 0;
+
+	length = strlen(lan_addr6);
+	if (length >= p_addr6s_size)
+		return ENAMETOOLONG;
+	memcpy(p_addr6s, lan_addr6, length + 1);
+	return 0;
+}
+
+
+/* Compatibility API; in-tree callers use the status-bearing form above. */
 char *get_lan_addr6_host(char *p_addr6s)
 {
-	char *tmp = p_addr6s;
-	char *lan_addr6 = nvram_safe_get("lan_addr6");
+	int status;
 
-	if (*lan_addr6) {
-		snprintf(p_addr6s, INET6_ADDRSTRLEN, "%s", lan_addr6);
-		strsep(&tmp, "/");
-		return p_addr6s;
+	if (!p_addr6s) {
+		errno = EINVAL;
+		return NULL;
 	}
-
-	return NULL;
+	status = get_lan_addr6_host_status(p_addr6s, INET6_ADDRSTRLEN);
+	if (status != 0) {
+		errno = status;
+		return NULL;
+	}
+	return p_addr6s[0] ? p_addr6s : NULL;
 }
 
 char *get_lan_addr6_prefix(char *p_addr6s)
@@ -421,9 +475,21 @@ char *get_lan_addr6_prefix(char *p_addr6s)
 	/* force prefix len to 64 for SLAAC */
 	struct in6_addr addr6;
 	char addr6_text[INET6_ADDRSTRLEN];
-	char *lan_addr6 = nvram_safe_get("lan_addr6");
+	char lan_addr6[LAN6_RESET_ADDRESS_SIZE] = {0};
+	int status;
 
-	if (p_addr6s && *lan_addr6 &&
+	if (!p_addr6s) {
+		errno = EINVAL;
+		return NULL;
+	}
+	status = lan6_read_config_value_status(
+		"lan_addr6", lan_addr6, sizeof(lan_addr6));
+	if (status != 0) {
+		errno = status;
+		return NULL;
+	}
+
+	if (*lan_addr6 &&
 	    ipv6_from_string(lan_addr6, &addr6) >= 0) {
 		ipv6_to_net(&addr6, 64);
 		if (inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text)) != NULL &&

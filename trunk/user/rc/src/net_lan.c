@@ -1282,7 +1282,8 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 	int saved_errno = 0;
 	int hosts_lock = -1;
 #if defined (USE_IPV6)
-	int ipv6_type, ipv6_type_status;
+	int ipv6_type, ipv6_type_status, lan_addr6_status;
+	char lan_addr6_host[INET6_ADDRSTRLEN] = {0};
 #endif
 
 	lan_hname = get_our_hostname();
@@ -1312,6 +1313,17 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 			   ipv6_type_status);
 		return ipv6_type_status;
 	}
+	if (ipv6_type != IPV6_DISABLED) {
+		lan_addr6_status = get_lan_addr6_host_status(
+			lan_addr6_host, sizeof(lan_addr6_host));
+		if (lan_addr6_status != 0) {
+			errno = lan_addr6_status;
+			logmessage(LOGNAME,
+				   "refusing to publish hostname files without a verified LAN IPv6 address snapshot (status=%d)",
+				   lan_addr6_status);
+			return lan_addr6_status;
+		}
+	}
 #endif
 
 	/* Stage both files completely before replacing either live pathname. */
@@ -1339,16 +1351,12 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 #if defined (USE_IPV6)
 	if (ipv6_type != IPV6_DISABLED) {
 		fprintf(hosts_fp, "%s %s %s\n", "::1", "localhost.localdomain", "localhost");
-		{
-			char addr6s[INET6_ADDRSTRLEN];
-			char *lan_addr6_host = get_lan_addr6_host(addr6s);
-			if (lan_addr6_host) {
-				if (strlen(lan_dname) > 0)
-					fprintf(hosts_fp, "%s %s.%s %s\n", lan_addr6_host, lan_hname, lan_dname, lan_hname);
-				else
-					fprintf(hosts_fp, "%s %s\n", lan_addr6_host, lan_hname);
-				fprintf(hosts_fp, "%s %s\n", lan_addr6_host, "my.router");
-			}
+		if (lan_addr6_host[0]) {
+			if (strlen(lan_dname) > 0)
+				fprintf(hosts_fp, "%s %s.%s %s\n", lan_addr6_host, lan_hname, lan_dname, lan_hname);
+			else
+				fprintf(hosts_fp, "%s %s\n", lan_addr6_host, lan_hname);
+			fprintf(hosts_fp, "%s %s\n", lan_addr6_host, "my.router");
 		}
 	}
 #endif

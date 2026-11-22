@@ -557,10 +557,35 @@ jobs:
           
           reload_lan6 = body(net_lan6, "reload_lan_addr6(void)")
           reload_policy = body(lan6_reload_policy, "rc_lan_addr6_reload_apply(")
+          reload_snapshot_policy = body(
+              lan6_reload_policy, "rc_lan_addr6_reload_from_snapshot(")
           assert "status = clear_address();" in reload_policy
           assert "if (status != 0 || !has_address)" in reload_policy
           assert "return add_address(context);" in reload_policy
-          assert "rc_lan_addr6_reload_apply(" in reload_lan6
+          assert "if (read_status != 0)" in reload_snapshot_policy
+          assert "rc_lan_addr6_reload_from_snapshot(" in reload_lan6
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in reload_lan6
+          assert 'nvram_safe_get("lan_addr6")' not in reload_lan6
+          host_status = body(net_lan6, "get_lan_addr6_host_status(")
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in host_status
+          assert "strchr(lan_addr6, '/')" in host_status
+          for signature, source in (
+              ("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)", net_lan),
+              ("update_hosts_router(const char *lan_ipaddr)", net_wan),
+          ):
+              publisher = body(source, signature)
+              assert "get_lan_addr6_host_status(" in publisher
+              assert publisher.index("get_lan_addr6_host_status(") < publisher.index("dnsmasq_file_open(")
+              assert "if (lan_addr6_status != 0)" in publisher
+              assert "get_lan_addr6_host(" not in publisher
+          store_address = body(net_lan6, "store_lan_addr6(char *lan_addr6_new)")
+          prefix_getter = body(net_lan6, "get_lan_addr6_prefix(char *p_addr6s)")
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in store_address
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in prefix_getter
+          assert 'nvram_safe_get("lan_addr6")' not in store_address
+          assert 'nvram_safe_get("lan_addr6")' not in prefix_getter
+          assert 'int get_lan_addr6_host_status(char *p_addr6s, size_t p_addr6s_size);' in header
+          assert 'nvram_safe_get("lan_addr6")' not in net_lan6
           assert 'return eval("ip", "-6", "addr", "add", lan_addr6, "dev", IFNAME_BR);' in net_lan6
           assert 'doSystem("ip -6 addr add %s dev %s"' not in net_lan6
           assert "int reload_lan_addr6(void);" in header

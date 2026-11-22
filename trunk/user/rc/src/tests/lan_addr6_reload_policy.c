@@ -280,6 +280,50 @@ test_nvram_write_status_propagates_backend_errors(void)
 	assert(rc_lan_addr6_nvram_write_status(1, 0) == EIO);
 }
 
+static void
+test_nvram_read_failure_preserves_live_address_without_clear_or_add(void)
+{
+	const char address[] = "2001:db8::9/64";
+
+	reset_fake_operations(0, 0, address);
+	assert(rc_lan_addr6_reload_from_snapshot(
+		EIO, address, fake_clear_address, fake_add_address) == EIO);
+	assert(clear_attempts == 0 && add_attempts == 0 && operation_order == 0);
+}
+
+
+static void
+test_empty_successful_snapshot_still_clears_stale_address(void)
+{
+	reset_fake_operations(0, 0, NULL);
+	assert(rc_lan_addr6_reload_from_snapshot(
+		0, "", fake_clear_address, NULL) == 0);
+	assert(clear_attempts == 1 && add_attempts == 0 && operation_order == 1);
+}
+
+
+static void
+test_successful_snapshot_replaces_address_after_clear(void)
+{
+	const char address[] = "2001:db8::10/64";
+
+	reset_fake_operations(0, 0, address);
+	assert(rc_lan_addr6_reload_from_snapshot(
+		0, address, fake_clear_address, fake_add_address) == 0);
+	assert(clear_attempts == 1 && add_attempts == 1 && operation_order == 2);
+}
+
+
+static void
+test_snapshot_policy_rejects_missing_address_without_mutation(void)
+{
+	reset_fake_operations(0, 0, NULL);
+	assert(rc_lan_addr6_reload_from_snapshot(
+		0, NULL, fake_clear_address, NULL) == EINVAL);
+	assert(clear_attempts == 0 && add_attempts == 0);
+}
+
+
 int
 main(void)
 {
@@ -298,6 +342,10 @@ main(void)
 	test_prefix_size_preserves_atoi_legacy_defaults();
 	test_prefix_size_backend_error_is_not_a_legacy_default();
 	test_ipv6_prefix_format_is_bounded_and_non_overlapping();
+	test_nvram_read_failure_preserves_live_address_without_clear_or_add();
+	test_empty_successful_snapshot_still_clears_stale_address();
+	test_successful_snapshot_replaces_address_after_clear();
+	test_snapshot_policy_rejects_missing_address_without_mutation();
 	test_clear_failure_prevents_new_address_publication();
 	test_add_failure_is_returned_after_successful_clear();
 	test_empty_configuration_only_clears_existing_address();

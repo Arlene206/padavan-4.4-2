@@ -75,12 +75,17 @@ jobs:
           assert '#include "wan_teardown_policy.h"' in source
           assert "rc_lan_addr6_format_prefix" in lan6_policy
           reset_lan6 = function_body(lan6, "reset_lan6_vars(void)")
+          reload_lan6 = function_body(lan6, "reload_lan_addr6(void)")
           lan6_prefix = function_body(lan6, "get_lan_addr6_prefix(char *p_addr6s)")
           assert "rc_lan_addr6_format_prefix(" in reset_lan6
           assert "snapshot.prefix_size" in reset_lan6
           assert "lan6_read_reset_snapshot(ipv6_type, &snapshot)" in reset_lan6
           assert reset_lan6.index("if (status != 0)") < reset_lan6.index('nvram_set_temp("lan_addr6", addr6s)')
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in reload_lan6
+          assert "rc_lan_addr6_reload_from_snapshot(" in reload_lan6
+          assert "rc_lan_addr6_reload_from_snapshot(" in lan6_policy
           assert "rc_lan_addr6_format_prefix(addr6_text, 64, p_addr6s" in lan6_prefix
+          assert 'lan6_read_config_value_status(\n\t\t"lan_addr6"' in lan6_prefix
           assert 'sprintf(addr6s, "%s/%d", addr6s' not in reset_lan6
           assert 'sprintf(p_addr6s, "%s/%d", p_addr6s' not in lan6_prefix
           assert "test_ipv6_prefix_format_is_bounded_and_non_overlapping" in (
