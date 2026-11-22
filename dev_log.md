@@ -1,3 +1,11 @@
+## 2026-11-22 20:14 CST (UTC+8) — Normalize the remaining libdisk lifecycle contracts
+
+- Parent main SHA: 9deb94ca8a41f17d782fb3626a41675fd91236e6. The new folder-cleanup contract normalized source calls but still compared whitespace-bearing first-error literals against the whitespace-free source. Corrected both first-error predicates to their compact forms.
+- The newly added add_account() contract also needed to normalize its multi-line initializer call and cleanup sequence before checking; it now validates the exact checked call, per-volume error gate, free_disk_data(), Samba reload and final first-error return without assuming line wrapping.
+- Exact parent Actions: Process inventory #45019778710, HTTPD #45019778715, XY-C1 #45019778714, libdisk #45019778723, handoff #45019778755 and NVRAM audit #45019778700 were in progress at the last poll. The previous parent checker run #45019713462 failed the `first_error` string formatting contract; both sanitizer binaries passed.
+- Exact-head regression validation must be re-run on this checker-only commit. Next product task remains del_account() metadata unlink error propagation and account-list allocation cleanup.
+
+---
 ## 2026-11-22 20:10 CST (UTC+8) — Propagate add-account volume metadata initialization errors
 
 - Parent main SHA: a6908c5279bee5071759f8b45da3d1a75f27fd6d. add_account() committed the account to NVRAM, iterated mounted volumes, but ignored every initial_one_var_file_in_mount_path() return value and always reported success. A failed disk write could leave the new account without its permission metadata while the UI/API saw a successful add.

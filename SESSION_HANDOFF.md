@@ -21,18 +21,19 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 
 ## Active task
 
-- Next: fix del_account(). It shortens acc_num before `free_2_dimension_list()`, leaking the final account-list entry; it constructs `var_file` with unchecked snprintf and ignores all unlink results. Preserve the original count for freeing, use `disk_share_format_account_var_path()`, treat only ENOENT as a no-op, continue across all mounted volumes, and return the first cleanup error after releasing disk/account inventories and reloading ftpsamba.
+- Immediate regression follow-up: the latest libdisk workflow exposes whitespace assumptions in the first-error predicates and in the new multiline add_account() initializer call. The checker in the current commit removes whitespace from both sides of those comparisons.
+- Next source task after the exact-head checker passes: fix del_account(). It shortens acc_num before `free_2_dimension_list()`, leaking the final account-list entry; it constructs `var_file` with unchecked snprintf and ignores all unlink results. Preserve the original count for freeing, use `disk_share_format_account_var_path()`, treat only ENOENT as a no-op, continue across all mounted volumes, and return the first cleanup error after releasing disk/account inventories and reloading ftpsamba.
 - Do not redesign NVRAM transaction/rollback semantics without checking the current NVRAM contract and test harness.
 
 ## Verification boundary
 
 - Parent exact-head AI handoff check #45019713382 and libdisk check #45019713462 were queued when this source commit started. The preceding handoff check #45019602967 passed; libdisk #45019603097 still failed in its Python checker because both actual and expected source-call forms needed whitespace normalization. No C sanitizer failure was observed in that run.
-- Exact-head Actions for this commit are not yet observed; fetch them live. Do not count an ancestor's PASS as this SHA's PASS.
+- Parent #45019778723 is the exact libdisk run on `9deb94ca8a41f17d782fb3626a41675fd91236e6`; it was in progress at the time the contract correction was prepared. This checker-only commit requires a new exact-head libdisk run; do not count an ancestor's PASS as this SHA's PASS.
 - XY-C1 L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all pass on the identical product-source SHA. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch current main and inspect exact-head libdisk, handoff, Process inventory, HTTPD, NVRAM and XY-C1 Actions for this commit; diagnose failures from logs.
+1. Fetch current main and inspect exact-head libdisk and AI handoff Actions for this checker repair; use the failure logs if any contract still fails.
 2. Continue with the isolated del_account() lifecycle fix and source-contract regression described above.
 3. Keep the backup branch immutable; claim L3 only with same-SHA Build + TRX + artifact upload PASS.
 

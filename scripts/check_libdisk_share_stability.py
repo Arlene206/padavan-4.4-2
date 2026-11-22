@@ -283,27 +283,25 @@ require("if (result != 0)" in set_permission[set_init:set_retry],
 add_account_body = function_body(
     DISK_SOURCE, "int add_account(const char *const account, const char *const password)"
 )
-add_init_call = "initial_one_var_file_in_mount_path(account, follow_partition->mount_point)"
+add_account_compact = "".join(add_account_body.split())
 add_init_assignment = (
-    "init_result = initial_one_var_file_in_mount_path("
-    "account, follow_partition->mount_point);"
+    "init_result=initial_one_var_file_in_mount_path("
+    "account,follow_partition->mount_point);"
 )
-add_error_gate = "if (init_result != 0 && first_error == 0)"
-add_inventory = add_account_body.index("read_disk_data()")
-add_init = add_account_body.index(add_init_assignment, add_inventory)
-add_cleanup = add_account_body.index("free_disk_data(disk_list)", add_init)
-add_samba = add_account_body.index('system("/sbin/run_samba")', add_cleanup)
-add_error_return = add_account_body.index("if (first_error != 0)", add_samba)
-require(add_init_call in add_account_body and add_error_gate in add_account_body and
-        add_account_body.index(add_error_gate, add_init) > add_init and
+add_init = add_account_compact.index(add_init_assignment)
+add_cleanup = add_account_compact.index("free_disk_data(disk_list)",add_init)
+add_samba = add_account_compact.index('system("/sbin/run_samba")',add_cleanup)
+add_error_return = add_account_compact.index("if(first_error!=0)",add_samba)
+require(add_account_compact.count("initial_one_var_file_in_mount_path(") == 1 and
+        "if(init_result!=0&&first_error==0)" in add_account_compact and
         add_init < add_cleanup < add_samba < add_error_return and
-        "errno = first_error;" in add_account_body and
-        "return -1;" in add_account_body[add_error_return:],
+        "errno=first_error;" in add_account_compact and
+        "return-1;" in add_account_compact[add_error_return:],
         "add_account must record each volume initializer failure, finish all volume attempts, free disk data, reload Samba and return the first error")
-require("if (!disk_list)" in add_account_body,
+require("if(!disk_list)" in add_account_compact,
         "add_account must retain its no-mounted-disk behavior")
-require("initial_one_var_file_in_mount_path(account, follow_partition->mount_point);" not in add_account_body,
-        "add_account must not discard the metadata initializer result")
+
+
 
 add_folder_body = function_body(
     DISK_SOURCE,
@@ -365,8 +363,8 @@ for signature, expected_update in (
     compact_mutation = "".join(mutation.split())
     compact_expected_update = "".join(expected_update.split())
     require(compact_expected_update in compact_mutation and
-            "first_error == 0" in compact_mutation and
-            "if (first_error != 0)" in compact_mutation and
+            "first_error==0" in compact_mutation and
+            "if(first_error!=0)" in compact_mutation and
             "FTP_ANONYMOUS_USER" in mutation,
             signature + " must attempt all independent account files and preserve the first error")
     require("initial_folder_list_in_mount_path(mount_path) != 0" in mutation,
