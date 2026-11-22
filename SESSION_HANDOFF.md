@@ -8,29 +8,29 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 - Work only on `main`; never force-push, use side branches/PRs, or modify the frozen backup.
 - Each logical slice creates all blobs, one complete Git tree and one atomic main commit; update `main` only with `force:false` and a freshly fetched expected SHA.
-- PASS continues; FAIL requires diagnosis/correction; PENDING does not block independent work.
-- Do not claim local tests, firmware builds, TRX/artifacts or hardware checks that were not performed.
+- PASS continues, FAIL requires diagnosis/correction, PENDING does not block independent work.
+- Do not claim local tests, production builds, TRX/artifacts or hardware checks that were not performed.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `0d7275cc91b2ab922a57c142c688c43f442fd25b`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- p910nd transient I/O, EAPoL orphan-tail cleanup, ttyd child readiness, WSDD2 strict XML validation and AliyunDrive HTTP readiness are committed.
-- AliDDNS uses a NUL-delimited config digest including the custom script digest. The test-root path was corrected; this commit corrects lowercase Python checker bindings.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `26d91277af7c0983a4a031f280bdef72ed4010ba`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and untouched.
+- Recent work includes EAPoL orphan-tail cleanup, p910nd transient I/O handling, checked iNIC TxPower preflight, AliyunDrive process/HTTP readiness and AliDDNS NUL-delimited configuration fingerprint. See exact-SHA entries in `dev_log.md` for validation boundaries.
+- This slice adds opt-in `nvram get_checked` (legacy `get` unchanged) and makes all AliyunDrive startup setting reads fail closed on backend errors.
 
 ## Active task
 
-Rerun AliDDNS API transport validation after fixing its Python source-contract checker. New fingerprint assertions previously referenced undefined uppercase SOURCE/WORKFLOW identifiers, but the existing checker binds lowercase `source` and `workflow`. These references are now corrected. Confirm the test script extracts production source from the repository root, then diagnose any actual regression failures.
+Validate the checked NVRAM CLI and AliyunDrive startup hardening. A failed `aliyundrive_enable` read must not be treated as disabled or stop a running service. Failure reading any subsequent setting must abort before workdir hardening or daemon launch.
 
 ## Verification boundary
 
-- Exact actions on parent 0d7275cc91b2ab922a57c142c688c43f442fd25b: none returned.
-- AliyunDrive fixture-isolation run #45043595742 on c32d2d3955b2f986494f070c1272d9fac4add50e: completed/failure.
-- AliDDNS fingerprint action #45043730798 on 3556d297e887ad81b5457e16a33b32eafadafa9a: completed/failure; its prior checker execution raised a binding NameError, now corrected. Rerun required.
-- No local Python/shell tests, firmware build, TRX/artifact or hardware checks were performed. L3 requires Build, TRX verification and artifact upload all PASS on one identical product-source SHA; L3/L4 remain NOT VERIFIED.
+- Exact parent `26d91277af7c0983a4a031f280bdef72ed4010ba`: AliDDNS signed API #45044076046 PASS; AI handoff #45044076040 PASS.
+- AliyunDrive ancestor `72ffcb355cff70e8dc7b54f708b3806e3eac7e66` passed shell syntax, QEMU binary compatibility and host lifecycle but failed a source checker ordering assertion; later main history corrected it. Re-run on this source SHA.
+- No local C/shell test, target build, TRX/artifact or hardware validation was performed for this slice.
+- L3 remains NOT VERIFIED until XY-C1 Build, TRX validation and artifact upload all PASS on one identical production source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head AliDDNS API transport Action after this checker fix. Correct real source/test failure if any; do not weaken the NUL-boundary collision regression.
-2. Inspect AliyunDrive HTTP readiness Action after fixture isolation. Confirm the test mock reports the daemon running through all bounded HTTP probes and verify delayed-listener and unhealthy-duplicate cases.
-3. Inspect current XY-C1 same-SHA Build/TRX/artifact statuses, then continue another independent userland stability/security task. Keep backup immutable and work only on main.
+1. Fetch exact-head NVRAM CLI, NVRAM transaction-boundary and AliyunDrive lifecycle Actions; inspect every job step and diagnose any failure.
+2. Inspect XY-C1 Build, TRX and artifact upload for the latest production source SHA; do not reuse ancestor results.
+3. Continue another independent confirmed userland stability/security issue while Actions are pending. Keep the frozen backup read-only and develop only on main.

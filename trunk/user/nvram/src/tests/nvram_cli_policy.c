@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 
 #include "nvram_cli_policy.h"
@@ -102,11 +103,24 @@ static int test_exact_buffer_boundary(void)
     return 1;
 }
 
+static int test_checked_get_error_status(void)
+{
+    CHECK(nvram_cli_get_error_status(0, 0) == 0);
+    CHECK(nvram_cli_get_error_status(1, 0) == 0);
+    CHECK(nvram_cli_get_error_status(-1, EACCES) == EACCES);
+    CHECK(nvram_cli_get_error_status(-1, 0) == EIO);
+    CHECK(nvram_cli_get_error_status(-1, -1) == EIO);
+    CHECK(nvram_cli_get_error_status(2, 0) == EIO);
+    CHECK(nvram_cli_get_error_status(17, EACCES) == EIO);
+    return 1;
+}
+
 int main(void)
 {
-    if (!test_valid_assignments() || !test_rejects_invalid_assignments() ||
+    if (!test_checked_get_error_status() ||
+        !test_valid_assignments() || !test_rejects_invalid_assignments() ||
         !test_exact_buffer_boundary())
         return 1;
-    puts("NVRAM CLI assignment policy: PASS");
+    puts("NVRAM CLI assignment and checked-get policy: PASS");
     return 0;
 }

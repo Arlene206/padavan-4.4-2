@@ -46,7 +46,7 @@
 
 static void usage(void)
 {
-	printf("Usage: nvram [get name] [set name=value] [settmp name=value] [unset name]\n"
+	printf("Usage: nvram [get name] [get_checked name] [set name=value] [settmp name=value] [unset name]\n"
 	       "             [show] [showall] [clear] [save fn] [restore fn] [commit]\n");
 	exit(1);
 }
@@ -320,6 +320,7 @@ main(int argc, char **argv)
 {
 	char *name, *value;
 	int ret = 0;
+	int read_status, read_errno, read_error;
 
 	/* Skip program name */
 	--argc;
@@ -334,6 +335,28 @@ main(int argc, char **argv)
 			if (*++argv) {
 				if ((value = nvram_get(*argv)))
 					puts(value);
+			}
+		}
+		else if (!strcmp(*argv, "get_checked")) {
+			if (*++argv) {
+				value = NULL;
+				errno = 0;
+				read_status = nvram_get_checked(*argv, &value);
+				read_errno = errno;
+				read_error = nvram_cli_get_error_status(read_status,
+								read_errno);
+				if (read_error == 0 && read_status == 1 && !value)
+					read_error = EIO;
+				if (read_error != 0) {
+					errno = read_error;
+					perror("nvram get_checked");
+					ret = -1;
+					break;
+				}
+				if (read_status == 1)
+					puts(value);
+			} else if (ret == 0) {
+				ret = -1;
 			}
 		}
 		else if (!strcmp(*argv, "settmp")) {

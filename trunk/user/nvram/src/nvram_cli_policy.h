@@ -2,6 +2,7 @@
 #define NVRAM_CLI_POLICY_H
 
 #include <stddef.h>
+#include <errno.h>
 #include <string.h>
 
 /* Copy and split a command-line name=value pair without truncation. */
@@ -43,6 +44,17 @@ nvram_cli_parse_assignment(char *storage, size_t storage_size,
     *name = storage;
     *value = storage + name_length + 1;
     return 0;
+}
+
+/* Map checked-get results without confusing backend errors with absence. */
+static int
+nvram_cli_get_error_status(int api_status, int saved_errno)
+{
+    if (api_status == 0 || api_status == 1)
+        return 0;
+    if (api_status < 0 && saved_errno > 0)
+        return saved_errno;
+    return EIO;
 }
 
 #endif /* NVRAM_CLI_POLICY_H */

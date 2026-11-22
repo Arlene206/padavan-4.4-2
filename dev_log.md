@@ -1,3 +1,12 @@
+## 2026-11-22 — Distinguish NVRAM backend errors in AliyunDrive startup
+
+- Parent main SHA: `26d91277af7c0983a4a031f280bdef72ed4010ba`. The legacy CLI `nvram get` uses `nvram_get()`, which collapses missing keys and `/dev/nvram` open/ioctl/close failures to NULL with status 0. A transient error reading `aliyundrive_enable` could therefore be treated as disabled and stop a healthy daemon; failures for other settings or credentials could silently become empty values.
+- Added an opt-in `nvram get_checked KEY` command without changing legacy `get`. It calls `nvram_get_checked()`, preserves errno, returns success/no output for absent keys, and returns nonzero for backend errors, invalid API statuses or a present/null inconsistency. Added GNU89 status-mapping regression tests and source-contract checks to the NVRAM boundary workflow.
+- Added `ald_nvram_get()` and routed all 13 AliyunDrive startup settings through it. Failed enable reads now abort before the stop path; all other failed reads abort before workdir permission changes and daemon launch. Lifecycle tests inject an enable-read error while a daemon is running and an error for every startup setting, asserting no signal, launch, readiness wait or workdir mode change.
+- Exact parent checks on `26d91277af7c0983a4a031f280bdef72ed4010ba`: AliDDNS signed API #45044076046 PASS and AI handoff #45044076040 PASS. The older AliyunDrive source-check failure after `72ffcb3` was caused by the checker selecting the duplicate-start `ald_wait_started` occurrence instead of the daemon-start readiness call; that checker logic was updated in later main history. No local C/shell test or firmware build was run.
+- Exact-head NVRAM CLI, NVRAM boundary, AliyunDrive lifecycle and XY-C1 Build/TRX/artifact workflows are required. L3 and hardware L4 remain NOT VERIFIED.
+
+---
 ## 2026-11-22 — Correct AliDDNS source-contract checker bindings
 
 - Parent main SHA: `0d7275cc91b2ab922a57c142c688c43f442fd25b`. The AliDDNS checker added its new fingerprint assertions using uppercase `SOURCE` and `WORKFLOW`, while the existing checker loads those values into lowercase `source` and `workflow`. The resulting Python source-contract step raises a NameError before it can validate the production helper. Corrected the new assertions to use the already-defined bindings; no production behavior changed.

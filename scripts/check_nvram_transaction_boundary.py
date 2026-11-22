@@ -152,11 +152,16 @@ def run() -> int:
     kernel_common_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram.c"
     compaction_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_compaction_policy.h"
     compaction_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c"
+    cli_source_path = ROOT / "trunk/user/nvram/src/nvram.c"
+    cli_policy_path = ROOT / "trunk/user/nvram/src/nvram_cli_policy.h"
+    cli_test_path = ROOT / "trunk/user/nvram/src/tests/nvram_cli_policy.c"
+    cli_workflow_path = ROOT / ".github/workflows/nvram-transaction-boundary.yml"
 
     for required_path in (
         adapter_path, lock_path, driver_path, driver_makefile,
         drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
-        kernel_common_path, compaction_policy_path, compaction_test_path
+        kernel_common_path, compaction_policy_path, compaction_test_path,
+        cli_source_path, cli_policy_path, cli_test_path, cli_workflow_path
     ):
         if not required_path.is_file():
             failures.append(f"required NVRAM source missing: {required_path}")
@@ -171,6 +176,47 @@ def run() -> int:
     kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
     compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
     compaction_test = compaction_test_path.read_text(encoding="utf-8", errors="replace")
+    cli_source = cli_source_path.read_text(encoding="utf-8", errors="replace")
+    cli_policy = cli_policy_path.read_text(encoding="utf-8", errors="replace")
+    cli_test = cli_test_path.read_text(encoding="utf-8", errors="replace")
+    cli_workflow = cli_workflow_path.read_text(encoding="utf-8", errors="replace")
+
+    cli_main = extract_function(cli_source, "main")
+    try:
+        legacy_get = cli_main.index('if (!strcmp(*argv, "get"))')
+        checked_start = cli_main.index('else if (!strcmp(*argv, "get_checked"))', legacy_get)
+        checked_end = cli_main.index('else if (!strcmp(*argv, "settmp"))', checked_start)
+        checked_get = cli_main[checked_start:checked_end]
+        read_call = checked_get.index("nvram_get_checked(*argv, &value)")
+        errno_capture = checked_get.index("read_errno = errno;", read_call)
+        status_map = checked_get.index("nvram_cli_get_error_status(read_status,", errno_capture)
+        null_guard = checked_get.index("read_status == 1 && !value", status_map)
+        error_gate = checked_get.index("if (read_error != 0)", null_guard)
+        error_report = checked_get.index('perror("nvram get_checked")', error_gate)
+        output_value = checked_get.index("puts(value)", error_report)
+        if not read_call < errno_capture < status_map < null_guard < error_gate < error_report < output_value:
+            failures.append("checked-get must preserve API errors before printing present values")
+        if "nvram_get(*argv)" in checked_get:
+            failures.append("checked-get must not use the error-collapsing nvram_get wrapper")
+        if 'if (!strcmp(*argv, "get"))' not in cli_main:
+            failures.append("legacy nvram get command must remain available")
+    except ValueError as error:
+        failures.append("NVRAM CLI checked-get source contract: " + str(error))
+
+    for marker in ("nvram_cli_get_error_status", "api_status == 0 || api_status == 1",
+                   "saved_errno > 0", "return EIO"):
+        if marker not in cli_policy:
+            failures.append("checked-get status helper is missing " + marker)
+    for marker in ("test_checked_get_error_status",
+                   "nvram_cli_get_error_status(-1, EACCES) == EACCES",
+                   "nvram_cli_get_error_status(-1, 0) == EIO",
+                   "nvram_cli_get_error_status(0, 0) == 0",
+                   "NVRAM CLI assignment and checked-get policy: PASS"):
+        if marker not in cli_test:
+            failures.append("checked-get regression is missing " + marker)
+    if ("Compile and run checked-get NVRAM CLI status regression" not in cli_workflow or
+        "trunk/user/nvram/src/tests/nvram_cli_policy.c" not in cli_workflow):
+        failures.append("NVRAM workflow must compile and execute checked-get regression")
 
     # A raw userland ioctl/device path is allowed only in the locked shared adapter.
     raw_hits: list[tuple[str, int, str]] = []

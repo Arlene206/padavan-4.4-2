@@ -70,6 +70,18 @@ ald_wait_stopped() {
 }
 
 
+ald_nvram_get() {
+  # Missing keys are valid empty values; backend read failures are not.
+  if ald_value=$(nvram get_checked "$1"); then
+    printf '%s' "$ald_value"
+    return 0
+  else
+    ald_status=$?
+  fi
+  logger -t "阿里云盘" "NVRAM key read failed: $1 (status=$ald_status)"
+  return 1
+}
+
 ald_http_ready() {
   ald_http_status_line=$(
     printf 'HEAD / HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n' |
@@ -281,11 +293,11 @@ ald_kill_unlocked() {
 ald_start_unlocked() {
   logger -t "阿里云盘" "正在启动..."
   NAME=aliyundrive-webdav
-  enable="$(nvram get aliyundrive_enable)"
+  if enable="$(ald_nvram_get aliyundrive_enable)"; then :; else return 1; fi
   case "$enable" in
     1|on|true|yes|enabled)
-      host="$(nvram get ald_host)"
-      port="$(nvram get ald_port)"
+      if host="$(ald_nvram_get ald_host)"; then :; else return 1; fi
+      if port="$(ald_nvram_get ald_port)"; then :; else return 1; fi
 
       # A live PID is not service readiness: require an HTTP response as well.
       if ald_process_state; then
@@ -304,14 +316,18 @@ ald_start_unlocked() {
         return 1
       fi
 
-      refresh_token="$(nvram get ald_refresh_token)"
-      auth_user="$(nvram get ald_auth_user)"
-      auth_password="$(nvram get ald_auth_password)"
-      read_buf_size="$(nvram get ald_read_buffer_size)"
-      cache_size="$(nvram get ald_cache_size)"
-      cache_ttl="$(nvram get ald_cache_ttl)"
-      root="$(nvram get ald_root)"
-      domain_id="$(nvram get ald_domain_id)"
+      if refresh_token="$(ald_nvram_get ald_refresh_token)"; then :; else return 1; fi
+      if auth_user="$(ald_nvram_get ald_auth_user)"; then :; else return 1; fi
+      if auth_password="$(ald_nvram_get ald_auth_password)"; then :; else return 1; fi
+      if read_buf_size="$(ald_nvram_get ald_read_buffer_size)"; then :; else return 1; fi
+      if cache_size="$(ald_nvram_get ald_cache_size)"; then :; else return 1; fi
+      if cache_ttl="$(ald_nvram_get ald_cache_ttl)"; then :; else return 1; fi
+      if root="$(ald_nvram_get ald_root)"; then :; else return 1; fi
+      if domain_id="$(ald_nvram_get ald_domain_id)"; then :; else return 1; fi
+      if [ "$domain_id" != "99999" ]; then
+        if no_trash="$(ald_nvram_get ald_no_trash)"; then :; else return 1; fi
+        if read_only="$(ald_nvram_get ald_read_only)"; then :; else return 1; fi
+      fi
 
       # Protect the upstream daemon workdir before it reads or writes persisted tokens.
       ald_secure_workdir || return 1
@@ -322,14 +338,14 @@ ald_start_unlocked() {
       if [ "$domain_id" = "99999" ]; then
         set -- "$@" --domain-id "$domain_id"
       else
-        case "$(nvram get ald_no_trash)" in
+        case "$no_trash" in
           1|on|true|yes|enabled)
             set -- "$@" --no-trash
             ;;
           *) ;;
         esac
 
-        case "$(nvram get ald_read_only)" in
+        case "$read_only" in
           1|on|true|yes|enabled)
             set -- "$@" --read-only
             ;;

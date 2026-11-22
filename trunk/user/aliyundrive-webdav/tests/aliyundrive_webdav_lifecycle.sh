@@ -12,6 +12,7 @@ export TEST_RUN_MARKER TEST_START_FAIL_FILE
 
 TEST_RUNNING=0
 TEST_ENABLE=1
+TEST_NVRAM_FAIL_KEY=
 TEST_PIDOF_MODE=normal
 TEST_HTTP_MODE=ready
 TEST_HTTP_LOG="$TEST_DIR/http.log"
@@ -32,7 +33,8 @@ export TEST_ARG_LOG TEST_ENV_LOG
 
 logger() { :; }
 nvram() {
-  [ "$1" = get ] || return 1
+  [ "$1" = get_checked ] || return 1
+  [ "${TEST_NVRAM_FAIL_KEY-}" != "$2" ] || return 1
   case "$2" in
     aliyundrive_enable) printf '%s\n' "$TEST_ENABLE" ;;
     ald_refresh_token) printf '%s\n' 'refresh token with spaces *' ;;
@@ -376,6 +378,44 @@ start_ald || { echo "FAIL: disabled start did not stop the daemon" >&2; exit 1; 
   echo "FAIL: disabled start did not complete graceful stop" >&2; exit 1;
 }
 
+# A failed checked-get is not an absent/disabled key; never stop a live daemon.
+TEST_RUNNING=1
+TEST_ENABLE=1
+TEST_NVRAM_FAIL_KEY=aliyundrive_enable
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+if start_ald; then
+  echo "FAIL: NVRAM enable read failure allowed a lifecycle transition" >&2
+  exit 1
+fi
+[ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+  echo "FAIL: NVRAM enable read failure stopped the existing daemon" >&2; exit 1;
+}
+
+# Fail every enabled-start setting before workdir permissions or process launch change.
+TEST_RUNNING=0
+chmod 755 "$ALD_WORK_DIR"
+printf '%s' "old-token" > "$ALD_WORK_DIR/refresh_token"
+chmod 644 "$ALD_WORK_DIR/refresh_token"
+for TEST_NVRAM_FAIL_KEY in ald_host ald_port ald_refresh_token ald_auth_user \
+  ald_auth_password ald_read_buffer_size ald_cache_size ald_cache_ttl \
+  ald_root ald_domain_id ald_no_trash ald_read_only; do
+  rm -f "$TEST_ARG_LOG" "$TEST_RUN_MARKER"
+  TEST_SLEEP_COUNT=0
+  if start_ald; then
+    echo "FAIL: NVRAM read failure for $TEST_NVRAM_FAIL_KEY allowed startup" >&2
+    exit 1
+  fi
+  [ ! -e "$TEST_ARG_LOG" ] && [ ! -e "$TEST_RUN_MARKER" ] &&
+  [ "$TEST_SLEEP_COUNT" -eq 0 ] &&
+  [ "$(stat -c %a "$ALD_WORK_DIR")" = 755 ] &&
+  [ "$(stat -c %a "$ALD_WORK_DIR/refresh_token")" = 644 ] || {
+    echo "FAIL: NVRAM read failure allowed launch/workdir mutation" >&2; exit 1;
+  }
+done
+TEST_NVRAM_FAIL_KEY=
+chmod 700 "$ALD_WORK_DIR"
+chmod 600 "$ALD_WORK_DIR/refresh_token"
 cat > "$ALD_BIN" <<'MOCK'
 #!/bin/sh
 : > "$TEST_ARG_LOG"
@@ -536,7 +576,7 @@ cmp -s "$TEST_DIR/expected-env" "$TEST_ENV_LOG" || {
 
 # The special domain profile must not inherit normal-mode optional flags.
 nvram() {
-  [ "$1" = get ] || return 1
+  [ "$1" = get_checked ] || return 1
   case "$2" in
     aliyundrive_enable) printf '%s\n' '1' ;;
     ald_refresh_token) printf '%s\n' 'token' ;;

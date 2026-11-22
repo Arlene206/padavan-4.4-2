@@ -146,6 +146,7 @@ def function_body(source: str, signature: str) -> str:
     return source[opening + 1:closing]
 
 
+nvram_get = function_body(launcher, "ald_nvram_get() {")
 process_state = function_body(launcher, "ald_process_state() {")
 wait_stopped = function_body(launcher, "ald_wait_stopped() {")
 wait_started = function_body(launcher, "ald_wait_started() {")
@@ -174,6 +175,21 @@ require("TEST_HTTP_MODE=unavailable" in test and
         "HTTP 503 was accepted as readiness" in test and
         "ald_http_ready" in test,
         "lifecycle regression must cover missing/delayed HTTP listeners and reject server errors")
+require('nvram get_checked "$1"' in nvram_get and
+        "NVRAM key read failed" in nvram_get and
+        "return 1" in nvram_get and
+        launcher.count('nvram get_checked "$1"') == 1 and
+        'nvram get "' not in launcher,
+        "AliyunDrive must route startup reads through one checked NVRAM adapter")
+
+nvram_keys = (
+    "aliyundrive_enable", "ald_host", "ald_port", "ald_refresh_token",
+    "ald_auth_user", "ald_auth_password", "ald_read_buffer_size",
+    "ald_cache_size", "ald_cache_ttl", "ald_root", "ald_domain_id",
+    "ald_no_trash", "ald_read_only",
+)
+require(all(f"ald_nvram_get {key}" in start for key in nvram_keys),
+        "every AliyunDrive startup setting must fail closed on NVRAM read errors")
 
 workdir = function_body(launcher, "ald_secure_workdir() {")
 
@@ -322,6 +338,9 @@ require(all(field in variables for field in ald_fields) and
         "HTTPD settings must continue to notify RC when AliyunDrive configuration changes")
 
 for marker in (
+    "FAIL: NVRAM enable read failure stopped the existing daemon",
+    "FAIL: NVRAM read failure for",
+    "FAIL: NVRAM read failure allowed launch/workdir mutation",
     "FAIL: pidof error was accepted as process absence during start",
     "FAIL: pidof error was accepted as process absence during stop",
     "FAIL: UNKNOWN after TERM triggered KILL",
