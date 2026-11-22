@@ -1,3 +1,13 @@
+## 2026-11-22 — Align WAN lifecycle regression contracts with checked modem identity
+
+- Parent main SHA: 4a353d031429acdb49c6fe8a6d8aebedda9a6846. The committed lifecycle change 4a353d031429acdb49c6fe8a6d8aebedda9a6846 passed USB modem identity #44969756150, WAN interface teardown #44969756159 and AI handoff validation #44969756161.
+- WAN DHCP run #44969756169 failed only in its final source-order contract, which still named the retired boolean is_ifunit_modem() helper. Earlier compile/policy checks 3–19 passed. Updated the expected classifier symbol to is_ifunit_modem_status() while retaining the ordering assertions that protocol validation precedes lease snapshot and interface mutation.
+- WAN route run #44969756230 failed only in the DNS lifecycle contract, whose auth/DNS/static-IP assertions still encoded pre-migration boolean identity semantics. All compiled route/policy checks 3–10 passed. Updated it to assert accumulated modem identity errors, conservative lease/auth cleanup and preservation of DNS/static-IP state.
+- XY-C1 run #44969756217 was still in progress when recorded; exact Build/TRX/artifact results must be checked. This commit changes checkers and handoff only; no production source changes are claimed.
+- Next source slice migrates remaining direct get_usb_modem_wan() callsites beyond WAN-up/down/DHCP-bound and adds fail-closed source coverage.
+
+---
+
 ## 2026-11-22 — Propagate checked USB modem identity through WAN lifecycle
 
 - Parent main SHA: 7f44877976cd0c2399975adf09eb97c24a366aee. The checked selector API landed in f1327a7988b9552c2ce3294c641d27838efd9664; its identity workflow command escaping was corrected separately in 7f44877976cd0c2399975adf09eb97c24a366aee.

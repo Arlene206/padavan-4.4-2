@@ -197,10 +197,10 @@ down_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_prot
 require(down_proto_read in wan_down and
         "status=route_status_accumulate(status,proto_status)" in wan_down and
         "(!modem_unit_id&&(proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_DHCP))" in wan_down and
-        "if(!modem_unit_id&&(proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_STATIC||wan_proto==IPV4_WAN_PROTO_IPOE_DHCP))" in wan_down and
-        "wan_dns_read_status=proto_status" in wan_down and
-        "proto_status==0&&!force_clear_wan_dns" in wan_down and
-        "if(!modem_unit_id&&proto_status==0&&wan_proto==IPV4_WAN_PROTO_IPOE_STATIC)" in wan_down,
+        "if(modem_status!=0||(!modem_unit_id&&(proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_STATIC||wan_proto==IPV4_WAN_PROTO_IPOE_DHCP)))" in wan_down and
+        "wan_dns_read_status=route_status_accumulate(proto_status,modem_status)" in wan_down and
+        "wan_dns_read_status==0&&!force_clear_wan_dns" in wan_down and
+        "if(modem_status==0&&!modem_unit_id&&proto_status==0&&wan_proto==IPV4_WAN_PROTO_IPOE_STATIC)" in wan_down,
         "WAN down must clean lease/auth state conservatively but preserve DNS/IP on unknown protocol")
 require("del_dhcp_routes_by_prefix(prefix,wan_ifname,0)" in wan_down and
         wan_down.index(down_proto_read) < wan_down.index("del_dhcp_routes_by_prefix(prefix,wan_ifname,0)") <
