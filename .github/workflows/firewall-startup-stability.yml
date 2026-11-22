@@ -271,7 +271,7 @@ jobs:
 
           firewall_source_for_ttl = Path("trunk/user/rc/src/firewall_ex.c").read_text()
           firewall_entry_for_mask = body(firewall_source_for_ttl, "start_firewall_ex_locked(void)")
-          mask_read = firewall_entry_for_mask.index('lan_netmask = nvram_safe_get("lan_netmask");')
+          mask_read = firewall_entry_for_mask.index('"lan_netmask"')
           mask_check = firewall_entry_for_mask.index("ipv4_netmask_is_contiguous(lan_netmask)", mask_read)
           subnet_derive = firewall_entry_for_mask.index("ip2class(lan_ip, lan_netmask, lan_net", mask_check)
           assert mask_read < mask_check < subnet_derive

@@ -1,3 +1,11 @@
+## 2026-11-22 — Repair stale firewall netmask source-contract locator
+
+- Parent main SHA: `cea789c171d0698f32cbe1d188ce8dda79c43353`. Exact Firewall Startup Stability #45005080730 failed after the new checked-IP source-contract script and all firewall C ASan/UBSan tests passed. The final inline NAT/netmask contract still searched for `lan_netmask = nvram_safe_get(...)`, which this source fix intentionally removed; Python raised `ValueError: substring not found`.
+- THIS correction anchors the existing contiguity-validation ordering assertion on the checked `"lan_netmask"` read instead. No product-source behavior changes in this CI-only follow-up.
+- Exact cea HTTPD lifecycle #45005080894 and IPv6 service-type #45005080692 PASS. NVRAM, XY-C1, WAN route, FULLCONENAT, Process inventory/lifecycle, HTTPD auth and WAN DHCP were still running at last poll; active L3 remains unverified.
+
+---
+
 ## 2026-11-22 — Use checked snapshots for firewall IP inputs
 
 - Parent main SHA: `a5777a906c785d296e8612cf4954fc2a5dbb6749`. Exact a577 USB printer tests/checker #45004808849 PASS; Process umbrella #45004808803 PASS; Process inventory #45004808838 PASS; AI docs #45004808939 PASS. NVRAM audit #45004808813, USB storage #45004808805 and XY-C1 #45004808822 were pending at last poll.
