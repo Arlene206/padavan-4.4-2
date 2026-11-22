@@ -1,3 +1,8 @@
+## 2026-11-22 — Make Dropbear readiness regression reach its intended postcondition
+
+- The process-lifecycle rerun on exact SHA `3d3494c7cc022444c17f165741546ae507375351` passed the VLMCSd/DNS Forwarder/IAPP checks and reached `check_dropbear()`, but its "successful launcher without a visible process" case returned the earlier injected launcher error (53), not the expected readiness timeout (1).
+- The fixture had left `MOCK_DROPBEAR_STATUS=53` from the preceding launcher-failure assertion. Reset it to zero before the no-PID case so the test isolates a successful launcher followed by a missing process. Product behavior remains unchanged; exact-head regression pending.
+
 ## 2026-11-22 — Aria2 reload now validates and signals every daemon PID
 
 - Source baseline: `bcfca6426dad985aee97b93a6146ff537940a4d2`. `func_reload()` treated any nonempty `pidof aria2c` output as valid, passed the entire whitespace-separated list as a single argument to `kill -1`, ignored the signal status, and printed `[ OK ]` even when no process was running or the reload failed. A partially failed procfs scan could therefore report a false successful reload.

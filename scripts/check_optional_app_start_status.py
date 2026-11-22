@@ -1348,6 +1348,8 @@ printf '%s\\n' 123
         assert stopped_again.returncode == 0, stopped_again.stderr
         assert len(stop_log.read_text().splitlines()) == stops_before
 
+        # The launcher must succeed so this case tests the readiness postcondition.
+        env["MOCK_DROPBEAR_STATUS"] = "0"
         # A successful launcher without a visible process is not readiness.
         env["MOCK_DROPBEAR_NO_PID"] = "1"
         ready_failure = run(["/bin/sh", str(DROPBEAR_SSHD_SCRIPT), "start"], env)
