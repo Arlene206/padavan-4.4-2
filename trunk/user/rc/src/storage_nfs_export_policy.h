@@ -308,6 +308,41 @@ storage_nfs_export_may_publish(int enabled, int read_error, int close_error,
 								parse_error);
 }
 
+typedef int (*storage_nfs_export_nvram_get_fn)(void *context,
+						 const char *param_name,
+						 char **value);
+
+/* nvram_get_checked() exposes cache-backed storage; always retain an owned copy. */
+static inline int
+storage_nfs_export_copy_nvram_value(
+	storage_nfs_export_nvram_get_fn get_value, void *context,
+	const char *param_name, char *destination, size_t destination_size)
+{
+	char *source = NULL;
+	size_t length;
+	int api_result, saved_errno;
+
+	if (!get_value || !param_name || !param_name[0] ||
+	    !destination || destination_size == 0)
+		return EINVAL;
+	destination[0] = '\0';
+	errno = 0;
+	api_result = get_value(context, param_name, &source);
+	saved_errno = errno;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0)
+		return source ? EIO : 0;
+	if (api_result != 1 || !source)
+		return EIO;
+	length = strlen(source);
+	if (length >= destination_size)
+		return ENAMETOOLONG;
+	memcpy(destination, source, length + 1);
+	return 0;
+}
+
+
 static int
 storage_nfs_enabled_status(int api_result, int saved_errno,
 			   const char *value, int *enabled)

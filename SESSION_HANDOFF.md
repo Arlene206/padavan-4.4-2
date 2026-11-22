@@ -5,11 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; current main parent for this checker fix: 2333039ea9c33c9b02f941621928f64659b249fc. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Storage firewall refresh source change is in 595b2dcb7a927a369d3e29a0aef75a5431fc7e74. The workflow contract expected UNKNOWN-inclusive Transmission/Aria state and was corrected in 2333039ea9c33c9b02f941621928f64659b249fc. Exact storage run #45005813291 then passed the embedded whole-caller graph but failed the dedicated checker because its negative token search matched a source comment mentioning the helper.
-- THIS fix narrows that checker assertion to reject actual nvram_match calls while allowing the explanatory comment. No production behavior change.
-- HTTPD snapshot checker fix 9553ea5c4331d15f85db2842765dd82cfd428e4d exact HTTPD Authentication #45005694009 and AI handoff #45005694083 PASS.
-- Product L3 remains verified only for a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff. Hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; development remains on `main`. Live parent for the NFS ACL ownership slice: `1c61749ba6887639a7430b1d7d7df0b6bc661189`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
+- Storage firewall-refresh source commit `595b2dcb7a927a369d3e29a0aef75a5431fc7e74` remains in exact-head validation. The UNKNOWN-inclusive caller assertion correction `2333039ea9c33c9b02f941621928f64659b249fc` passed the embedded whole caller graph but failed the dedicated source checker on a comment false positive; checker-only correction `1c61749ba6887639a7430b1d7d7df0b6bc661189` narrows the search to executable call syntax. Its exact-head storage rerun is pending.
+- HTTPD checked firewall-input contract commit `9553ea5c4331d15f85db2842765dd82cfd428e4d`: exact HTTPD Authentication #45005694009 PASS and AI docs #45005694083 PASS.
+- THIS NFS source slice replaces shared-cache ACL pointers with checked, bounded owned copies before opening /proc/mounts or staging exports. Regression and source-order contracts are included; exact-head NFS Action pending.
+- Product L3 remains verified only for older SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; no current-head L3 claim. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,15 +30,15 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- Complete storage firewall-refresh validation after fixing the source-contract false positive. The dedicated checker must reject executable nvram_match("key", ...) gates but not match a descriptive comment that explains why the helper is unsafe.
-- Next source issue: write_nfsd_exports() retains nvram_safe_get pointers across later NVRAM reads, so shared-cache reuse can corrupt LAN/IPv6/VPN ACL inputs before formatting. Fix with owned checked copies and preserve fail-closed export publication.
+- Fix `write_nfsd_exports()` retaining `nvram_safe_get()` cache pointers across subsequent reads. LAN address/mask, IPv6 address/prefix and VPN subnet could be overwritten by later NVRAM lookups before formatting, yielding a corrupted or unintended NFS client ACL.
+- THIS source slice uses checked, bounded NVRAM copies for generated-export ACL inputs, preserves the unit-specific LAN fallback and optional IPv6/VPN semantics, and completes all required reads/validation before opening the mount inventory or staging a replacement exports file. GNU89 policy regression covers cache overwrite, fallback ACL output, missing keys, backend errors and truncation.
 
 ## Verification boundary
-- Exact storage 2333039ea9c33c9b02f941621928f64659b249fc run #45005813291 FAILED only in scripts/check_storage_safe_remove.py at line 654; the preceding inline storage lock/caller graph passed. The negative substring search matched the comment text nvram_match() in control_ftp_fw, not an executable function call.
-- The storage workflow rerun after this checker correction is pending. Prior exact 005 Firewall Startup #45005183052 and AI docs #45005183110 PASS; HTTPD auth correction #45005694009 and AI docs #45005694083 PASS.
-- No current-head XY-C1 same-SHA Build/TRX/artifact evidence. Hardware L4 NOT VERIFIED.
+- Exact storage run #45005813291 on source/checker SHA 2333039ea9c33c9b02f941621928f64659b249fc FAILED in `scripts/check_storage_safe_remove.py` line 654 because its negative search matched explanatory comment text, not executable `nvram_match()`. Commit 1c61749ba6887639a7430b1d7d7df0b6bc661189 narrows that token check; its exact-head rerun remains pending.
+- Exact HTTPD Authentication #45005694009 and AI docs #45005694083 PASS on the checked-firewall contract correction.
+- THIS NFS slice requires exact-head `nfsd-start-stability.yml` completion. No current NFS L2/L3 claim. Product L3 remains only for older SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact-head Storage hotplug #45005813291 rerun and the Process inventory/umbrella, AI docs and XY-C1 workflows. Diagnose any remaining failure from the exact job log.
-2. Continue the NFS export ACL input ownership fix after the storage checker passes; ensure NFS exports are not published from stale shared-cache values.
-3. Claim L3 only if same-SHA XY-C1 Build, TRX and artifact upload all pass; hardware L4 remains NOT VERIFIED.
+1. Check exact-head NFS daemon start/reload/export-policy workflow for this NFS ACL commit. Inspect the first failing job/step; do not weaken unrelated NFS lifecycle contracts.
+2. Check storage hotplug rerun after checker correction `1c61749ba6887639a7430b1d7d7df0b6bc661189` and resolve any remaining exact-head failure.
+3. Continue an independent stability/security source fix only after exact-head failures are reconciled. Claim product L3 only on a same-SHA Build + TRX + artifact pass; Hardware L4 remains NOT VERIFIED.

@@ -1,3 +1,11 @@
+## 2026-11-22 — Snapshot NFS export ACL NVRAM inputs
+
+- Parent main SHA: `1c61749ba6887639a7430b1d7d7df0b6bc661189`. The active handoff identified shared-cache lifetime hazards in `write_nfsd_exports()`: successive `nvram_safe_get()` calls returned pointers reused before IPv4 LAN fallback, IPv6 LAN and VPN ACL formatting.
+- Added a checked, bounded NFS ACL string-copy policy and switched LAN override/fallback, IPv6 address/prefix and VPN subnet reads to owned buffers. All required copies and ACL validation now complete before /proc/mounts is opened or an exports staging file is created; missing keys remain empty and backend/truncation failures abort publication.
+- Added GNU89 test coverage for shared-cache overwrite, fallback ACL formatting, IPv6/VPN ACL formatting, missing settings, backend errors and truncation. Extended the NFS workflow source-order contract. Exact-head NFS run pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Avoid matching comments in the FTP firewall source contract
 
 - Parent main SHA: 2333039ea9c33c9b02f941621928f64659b249fc. Exact storage hotplug #45005813291 passed the embedded whole-caller-graph check, then failed scripts/check_storage_safe_remove.py line 654 because its negative substring assertion matched the comment mentioning nvram_match() in control_ftp_fw.

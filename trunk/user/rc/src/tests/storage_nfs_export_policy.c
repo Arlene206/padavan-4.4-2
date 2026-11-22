@@ -4,6 +4,157 @@
 
 #include "storage_nfs_export_policy.h"
 
+struct fake_nfs_nvram_cache {
+	const char *names[8];
+	const char *values[8];
+	unsigned int count;
+	unsigned int calls;
+	int fail_at;
+	int missing_at;
+	int failure_errno;
+	char cache_slot[128];
+};
+
+
+static int
+fake_nfs_nvram_cache_get(void *opaque, const char *param_name, char **value)
+{
+	struct fake_nfs_nvram_cache *fake =
+		(struct fake_nfs_nvram_cache *)opaque;
+	unsigned int index = fake->calls++;
+
+	if (index >= fake->count) {
+		*value = NULL;
+		return -1;
+	}
+	assert(strcmp(param_name, fake->names[index]) == 0);
+	if ((int)index == fake->fail_at) {
+		*value = NULL;
+		errno = fake->failure_errno;
+		return -1;
+	}
+	if ((int)index == fake->missing_at) {
+		*value = NULL;
+		return 0;
+	}
+	snprintf(fake->cache_slot, sizeof(fake->cache_slot), "%s",
+		 fake->values[index]);
+	*value = fake->cache_slot;
+	return 1;
+}
+
+
+static void
+test_acl_nvram_copies_survive_shared_cache_reuse(void)
+{
+	static const char *const names[] = {
+		"lan_ipaddr_t", "lan_netmask_t", "lan_ipaddr", "lan_netmask",
+		"ip6_lan_addr", "ip6_lan_size", "vpns_vnet"
+	};
+	static const char *const values[] = {
+		"192.168.1.42", "255.0.255.0", "10.9.8.7",
+		"255.255.255.0", "2001:db8::42", "64", "10.8.0.1"
+	};
+	struct fake_nfs_nvram_cache fake;
+	char lan_address[32], lan_mask[32], fallback_address[32];
+	char fallback_mask[32], ipv6_address[INET6_ADDRSTRLEN + 5];
+	char ipv6_length[8], vpn_address[32], acl[INET6_ADDRSTRLEN + 4];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.count = (unsigned int)(sizeof(names) / sizeof(names[0]));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	memcpy(fake.names, names, sizeof(names));
+	memcpy(fake.values, values, sizeof(values));
+
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[0], lan_address, sizeof(lan_address)) == 0);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[1], lan_mask, sizeof(lan_mask)) == 0);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[2], fallback_address, sizeof(fallback_address)) == 0);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[3], fallback_mask, sizeof(fallback_mask)) == 0);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[4], ipv6_address, sizeof(ipv6_address)) == 0);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[5], ipv6_length, sizeof(ipv6_length)) == 0);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, names[6], vpn_address, sizeof(vpn_address)) == 0);
+
+	assert(fake.calls == fake.count);
+	assert(strcmp(fake.cache_slot, "10.8.0.1") == 0);
+	assert(strcmp(lan_address, "192.168.1.42") == 0);
+	assert(strcmp(lan_mask, "255.0.255.0") == 0);
+	assert(strcmp(fallback_address, "10.9.8.7") == 0);
+	assert(strcmp(fallback_mask, "255.255.255.0") == 0);
+	assert(strcmp(ipv6_address, "2001:db8::42") == 0);
+	assert(strcmp(ipv6_length, "64") == 0);
+	assert(strcmp(vpn_address, "10.8.0.1") == 0);
+
+	assert(storage_nfs_export_format_ipv4_acl(
+		lan_address, lan_mask, acl, sizeof(acl)) == -1);
+	assert(storage_nfs_export_format_ipv4_acl(
+		fallback_address, fallback_mask, acl, sizeof(acl)) == 1);
+	assert(strcmp(acl, "10.9.8.0/24") == 0);
+#if defined (USE_IPV6)
+	assert(storage_nfs_export_format_ipv6_acl(
+		ipv6_address, ipv6_length, acl, sizeof(acl)) == 1);
+	assert(strcmp(acl, "2001:db8::42/64") == 0);
+#endif
+	assert(storage_nfs_export_format_ipv4_acl(
+		vpn_address, "255.255.255.0", acl, sizeof(acl)) == 1);
+	assert(strcmp(acl, "10.8.0.0/24") == 0);
+}
+
+
+static void
+test_acl_nvram_copy_fails_closed_on_missing_error_and_truncation(void)
+{
+	struct fake_nfs_nvram_cache fake;
+	char destination[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.count = 1;
+	fake.names[0] = "lan_ipaddr_t";
+	fake.values[0] = "192.168.1.1";
+	fake.fail_at = 0;
+	fake.missing_at = -1;
+	fake.failure_errno = EACCES;
+	strcpy(destination, "stale");
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, "lan_ipaddr_t", destination, sizeof(destination)) == EACCES);
+	assert(destination[0] == '\0');
+
+	memset(&fake, 0, sizeof(fake));
+	fake.count = 1;
+	fake.names[0] = "optional_acl";
+	fake.values[0] = "";
+	fake.fail_at = -1;
+	fake.missing_at = 0;
+	strcpy(destination, "stale");
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, "optional_acl", destination, sizeof(destination)) == 0);
+	assert(destination[0] == '\0');
+
+	memset(&fake, 0, sizeof(fake));
+	fake.count = 1;
+	fake.names[0] = "long_acl";
+	fake.values[0] = "192.168.100.255";
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	strcpy(destination, "stale");
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, "long_acl", destination, 8) == ENAMETOOLONG);
+	assert(destination[0] == '\0');
+
+	assert(storage_nfs_export_copy_nvram_value(
+		NULL, &fake, "long_acl", destination, sizeof(destination)) == EINVAL);
+	assert(storage_nfs_export_copy_nvram_value(fake_nfs_nvram_cache_get,
+		&fake, "long_acl", destination, 0) == EINVAL);
+}
+
+
 int
 main(void)
 {
@@ -188,6 +339,9 @@ main(void)
 	assert(storage_nfs_export_may_start(1, 0));
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
+
+	test_acl_nvram_copies_survive_shared_cache_reuse();
+	test_acl_nvram_copy_fails_closed_on_missing_error_and_truncation();
 
 	/* Checked NVRAM keeps a missing key disabled but never masks a backend error. */
 	{

@@ -2011,25 +2011,46 @@ out:
 
 #if defined (APP_NFSD)
 static int
+storage_nfs_export_nvram_get(void *context, const char *param_name,
+			     char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+
+static int
+storage_nfs_export_nvram_copy(const char *param_name, char *destination,
+			      size_t destination_size)
+{
+	return storage_nfs_export_copy_nvram_value(
+		storage_nfs_export_nvram_get, NULL, param_name,
+		destination, destination_size);
+}
+
+
+static int
 write_nfsd_exports(void)
 {
 	FILE *procpt = NULL, *fp = NULL;
 	struct stat exports_link_info, exports_target_info;
 	char line[512], devname[32], mpname[256], fstype[32], fsmode[256];
 	char acl_lan[32], acl_vpn[32], staged_path[] = "/etc/.exports.XXXXXX";
+	char acl_lan_addr[32], acl_lan_mask[32];
+	char acl_fallback_addr[32], acl_fallback_mask[32], acl_vpn_addr[32];
 	const char *exports_link = "/etc/storage/exports";
 	const char *exports_file = "/etc/exports";
 	const char *exports_rule = STORAGE_NFS_EXPORT_DEFAULT_OPTIONS;
-	char *nfsmm, *acl_addr, *acl_mask;
+	char *nfsmm;
 	int fd = -1, read_error, close_error, parse_error = 0;
 	int close_status, output_error = 0, saved_errno = 0;
 	int exports_link_lstat_status, exports_link_stat_status = -1;
 	int exports_link_errno = 0, exports_target_errno = 0;
 	int exports_override_state;
-	int acl_ipv4_status, acl_vpn_status = 0;
+	int acl_ipv4_status, acl_vpn_status = 0, acl_nvram_status;
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status, acl_ipv6_status = 0;
-	char *acl_addr6 = NULL, *acl_len6 = NULL;
+	char acl_addr6[INET6_ADDRSTRLEN + 5], acl_len6[8];
 	char acl_addr6_export[INET6_ADDRSTRLEN + 4];
 #endif
 
@@ -2116,6 +2137,88 @@ write_nfsd_exports(void)
 	}
 #endif
 
+	/* Snapshot cache-backed NVRAM strings before another lookup can replace them. */
+	acl_nvram_status = storage_nfs_export_nvram_copy(
+		"lan_ipaddr_t", acl_lan_addr, sizeof(acl_lan_addr));
+	if (acl_nvram_status != 0)
+		goto acl_nvram_error;
+	acl_nvram_status = storage_nfs_export_nvram_copy(
+		"lan_netmask_t", acl_lan_mask, sizeof(acl_lan_mask));
+	if (acl_nvram_status != 0)
+		goto acl_nvram_error;
+
+	if (!is_valid_ipv4(acl_lan_addr) || !is_valid_ipv4(acl_lan_mask)) {
+		acl_nvram_status = storage_nfs_export_nvram_copy(
+			"lan_ipaddr", acl_fallback_addr, sizeof(acl_fallback_addr));
+		if (acl_nvram_status != 0)
+			goto acl_nvram_error;
+		acl_nvram_status = storage_nfs_export_nvram_copy(
+			"lan_netmask", acl_fallback_mask, sizeof(acl_fallback_mask));
+		if (acl_nvram_status != 0)
+			goto acl_nvram_error;
+		strcpy(acl_lan_addr, acl_fallback_addr);
+		strcpy(acl_lan_mask, acl_fallback_mask);
+	}
+	acl_lan[0] = '\0';
+	acl_ipv4_status = storage_nfs_export_format_ipv4_acl(
+		acl_lan_addr, acl_lan_mask, acl_lan, sizeof(acl_lan));
+	if (acl_ipv4_status < 0) {
+		saved_errno = EINVAL;
+		logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 LAN ACL");
+		errno = saved_errno;
+		return -1;
+	}
+
+#if defined (USE_IPV6)
+	if (ipv6_type != IPV6_DISABLED) {
+		acl_nvram_status = storage_nfs_export_nvram_copy(
+			"ip6_lan_addr", acl_addr6, sizeof(acl_addr6));
+		if (acl_nvram_status != 0)
+			goto acl_nvram_error;
+		acl_nvram_status = storage_nfs_export_nvram_copy(
+			"ip6_lan_size", acl_len6, sizeof(acl_len6));
+		if (acl_nvram_status != 0)
+			goto acl_nvram_error;
+		acl_ipv6_status = storage_nfs_export_format_ipv6_acl(
+			acl_addr6, acl_len6, acl_addr6_export,
+			sizeof(acl_addr6_export));
+		if (acl_ipv6_status < 0) {
+			saved_errno = EINVAL;
+			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv6 LAN ACL");
+			errno = saved_errno;
+			return -1;
+		}
+	}
+#endif
+
+	acl_vpn[0] = '\0';
+	if (!get_ap_mode() && nvram_get_int("vpns_enable") &&
+	    nvram_get_int("vpns_vuse")) {
+		acl_nvram_status = storage_nfs_export_nvram_copy(
+			"vpns_vnet", acl_vpn_addr, sizeof(acl_vpn_addr));
+		if (acl_nvram_status != 0)
+			goto acl_nvram_error;
+#if defined (APP_OPENVPN)
+		if (nvram_get_int("vpns_type") == 2) {
+			if (nvram_get_int("vpns_ov_mode") == 1)
+				acl_vpn_status = storage_nfs_export_format_ipv4_acl(
+					acl_vpn_addr, VPN_SERVER_SUBNET_MASK,
+					acl_vpn, sizeof(acl_vpn));
+		} else
+#endif
+			acl_vpn_status = storage_nfs_export_format_ipv4_acl(
+				acl_vpn_addr, VPN_SERVER_SUBNET_MASK,
+				acl_vpn, sizeof(acl_vpn));
+		if (acl_vpn_status < 0) {
+			saved_errno = EINVAL;
+			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 VPN ACL");
+			errno = saved_errno;
+			return -1;
+		}
+		if (strcmp(acl_lan, acl_vpn) == 0)
+			acl_vpn[0] = '\0';
+	}
+
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
 	if (!procpt) {
 		saved_errno = errno ? errno : EIO;
@@ -2150,72 +2253,6 @@ write_nfsd_exports(void)
 		return -1;
 	}
 	fd = -1;
-
-	acl_addr = nvram_safe_get("lan_ipaddr_t");
-	acl_mask = nvram_safe_get("lan_netmask_t");
-	if (!is_valid_ipv4(acl_addr) || !is_valid_ipv4(acl_mask)) {
-		acl_addr = nvram_safe_get("lan_ipaddr");
-		acl_mask = nvram_safe_get("lan_netmask");
-	}
-
-	acl_lan[0] = 0;
-	acl_ipv4_status = storage_nfs_export_format_ipv4_acl(
-		acl_addr, acl_mask, acl_lan, sizeof(acl_lan));
-	if (acl_ipv4_status < 0) {
-		saved_errno = EINVAL;
-		logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 LAN ACL");
-		fclose(fp);
-		fclose(procpt);
-		unlink(staged_path);
-		errno = saved_errno;
-		return -1;
-	}
-
-#if defined (USE_IPV6)
-	if (ipv6_type != IPV6_DISABLED) {
-		acl_addr6 = nvram_safe_get("ip6_lan_addr");
-		acl_len6 = nvram_safe_get("ip6_lan_size");
-		acl_ipv6_status = storage_nfs_export_format_ipv6_acl(
-			acl_addr6, acl_len6, acl_addr6_export,
-			sizeof(acl_addr6_export));
-		if (acl_ipv6_status < 0) {
-			saved_errno = EINVAL;
-			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv6 LAN ACL");
-			fclose(fp);
-			fclose(procpt);
-			unlink(staged_path);
-			errno = saved_errno;
-			return -1;
-		}
-	}
-#endif
-
-	acl_vpn[0] = 0;
-	if (!get_ap_mode() && nvram_get_int("vpns_enable") && nvram_get_int("vpns_vuse")) {
-		acl_addr = nvram_safe_get("vpns_vnet");
-		acl_mask = VPN_SERVER_SUBNET_MASK;
-#if defined (APP_OPENVPN)
-		if (nvram_get_int("vpns_type") == 2) {
-			if (nvram_get_int("vpns_ov_mode") == 1)
-				acl_vpn_status = storage_nfs_export_format_ipv4_acl(
-					acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
-		} else
-#endif
-			acl_vpn_status = storage_nfs_export_format_ipv4_acl(
-				acl_addr, acl_mask, acl_vpn, sizeof(acl_vpn));
-
-		if (acl_vpn_status < 0) {
-			saved_errno = EINVAL;
-			logmessage("Storage", "refusing to publish NFS exports with an invalid IPv4 VPN ACL");
-			fclose(fp);
-			fclose(procpt);
-			unlink(staged_path);
-			errno = saved_errno;
-			return -1;
-		}
-		if (strcmp(acl_lan, acl_vpn) == 0)
-			acl_vpn[0] = 0;
-	}
 
 	fprintf(fp, "# %s\n\n", "auto-created file");
 
@@ -2283,6 +2320,14 @@ write_nfsd_exports(void)
 	}
 
 	return 0;
+
+acl_nvram_error:
+	saved_errno = storage_nfs_export_errno_or_eio(acl_nvram_status);
+	logmessage("Storage",
+		   "refusing to publish NFS exports because ACL NVRAM input cannot be read (status=%d)",
+		   saved_errno);
+	errno = saved_errno;
+	return -1;
 }
 
 void unload_nfsd(void)
