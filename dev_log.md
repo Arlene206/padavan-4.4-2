@@ -1,3 +1,10 @@
+## 2026-11-22 — Fix detect-WAN compact-source assertion
+
+- Parent main SHA: `00fb9c342a11e5be57b6662d9442adacbcd20fd4`. Exact detect-WAN run #45011007427 compiled and ran the checked-NVRAM sanitizer regression successfully, then failed at the source checker because it compared a whitespace-compacted function body against a string containing a space after `return`.
+- Corrected that one checker literal to the compact form. No production or test code changed; exact-head detect-WAN rerun pending.
+
+---
+
 ## 2026-11-22 — Snapshot detect-WAN gateway identity before process scan and ARP setup
 
 - Parent main SHA: `1f7add7650acf76f7eb0c3d37cf9e7530612ded9`. `chk_udhcpc()` retained a shared-cache gateway pointer across `process_inventory_scan()`, and its AP path used a lossy unchecked read. `arpping_gateway()` also read WAN/AP gateway and hardware addresses through unchecked pointer-returning getters, so NVRAM backend failures or oversized values could be mistaken for normal no-response behavior.

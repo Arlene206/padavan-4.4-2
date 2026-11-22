@@ -194,7 +194,7 @@ jobs:
           assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in arp_compact
           assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
           assert "config_status!=0" in arp_compact
-          assert "return detect_wan_arp_probe_result(0,config_status);" in arp_compact
+          assert "returndetect_wan_arp_probe_result(0,config_status);" in arp_compact
           assert "nvram_safe_get(" not in arp_probe
           assert "get_wan_unit_value(" not in arp_probe
           assert "arp_reply.ethernet_source = arp.h_source;" in arp_probe
