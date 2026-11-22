@@ -7,9 +7,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: f6a3c1ca6bfa0ee3a8b4b76c37d1d4dc4eefa9c4. PID1 test include fix exact run #44999904281 PASS; Process inventory #44999904395, Process lifecycle #44999904325, AI docs #44999904265 and shared boot gate checker are PASS on 8a66.
-- The 8a66 HTTPD run #44999904303 passed steps 1–36 and failed only in the PID1 signal-deferral sub-contract because it still required direct `sigaction(signals_shutdown[i], ...)` rather than the new checked installer call. THIS COMMIT updates that inline contract to require every signal group through `init_signal_install_status()`.
-- 8a66 NVRAM audit #44999904244 was still running at last poll; c74 NVRAM #44999683896 had failed on a stale main-loop predicate, now corrected in f6a. Exact f6 NVRAM rerun #44999987551 was queued/pending. Same-SHA XY-C1 Build/TRX/artifact not confirmed; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
+- Current parent main: 52e6692cd806abdb4c52ae2fd42271a3f085aed9. The PID1 include-order fix and Process/shared-boot checker correction landed in 8a66; exact PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325, and AI docs #44999904265 passed there. The HTTPD checker's follow-up is in 52e; no run appeared for that checker-only commit because only the workflow/doc paths changed.
+- The HTTPD inline contract now expects every signal group through the checked installer, but its previous exact 8a66 run #44999904303 had failed only at the legacy direct-`sigaction` assertion. THIS COMMIT strengthens the C regression to verify that successful installation clears stale caller errno, and adds an explicit workflow assertion for that test case. The C test path is in the HTTPD and mdev workflow filters, forcing fresh exact-head execution.
+- Exact f6a NVRAM audit #44999987551 was still in progress; 8a66 NVRAM #44999904244 was cancelled when a newer SHA superseded it. c74 XY-C1 #44999684046 remained in progress at last poll; no same-SHA Build/TRX/artifact result. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,17 +30,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Finish the PID 1 signal contract transition in HTTPD's embedded source checker. The 8a66 HTTPD run #44999904303 passed all earlier stages but failed only on the legacy assertion requiring a direct `sigaction(signals_shutdown[i], &sa, NULL)` call.
-- THIS COMMIT replaces that obsolete assertion with exact checks for checked fatal, shutdown, SIGCHLD and event installer calls, plus the injectable wrapper.
+- Strengthen the PID 1 checked sigaction regression and force exact-head revalidation of the just-corrected HTTPD contract. On a successful libc sigaction, the wrapper intentionally clears stale caller `errno`; the regression now seeds `EINTR`, uses a successful fake installer, and requires `errno == 0`.
+- The mdev workflow source contract now pins that successful errno-reset case. The touched C test is watched by both mdev and HTTPD workflow path filters, so this commit should produce exact-head reruns.
 
 ## Verification boundary
 
-- Exact 8a66 PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325 and AI docs #44999904265 PASS.
-- Exact 8a66 HTTPD #44999904303 failed only at its obsolete signal setup assertion. Exact 8a66 NVRAM #44999904244 was still in progress; exact f6a NVRAM #44999987551 was queued/pending.
-- No same-SHA XY-C1 Build/TRX/artifact completion confirmed; L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
+- Exact 8a66 PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325 and AI docs #44999904265 PASS. Its HTTPD run #44999904303 failed only on a stale direct-sigaction matcher; 52e corrected that matcher but triggered no runs by itself.
+- Exact f6a NVRAM #44999987551 remained in progress at last poll. c74 XY-C1 #44999684046 remained in progress; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head HTTPD rerun after updating the embedded signal contract, together with NVRAM #44999987551 and any remaining f6a workflows.
-2. Confirm XY-C1 Build, TRX and artifact upload on one identical source SHA.
-3. Continue the next independent P1/P2 userland stability/security issue while pending runs continue; keep hardware L4 NOT VERIFIED.
+1. Check exact-head HTTPD and PID1 mdev runs for the errno-reset regression plus the checked-handler matcher; inspect any failing assertion/log before making another correction.
+2. Check NVRAM #44999987551 and XY-C1 build/TRX/artifact; claim L3 only when all three firmware checks pass on one identical source SHA.
+3. Continue a new independent stability/security item while pending work runs; keep hardware L4 NOT VERIFIED.

@@ -200,6 +200,7 @@ jobs:
           assert "test_pid1_signal_installation_reports_failures" in pid1_test
           assert "fake_sigaction" in pid1_test
           assert "fake_signal_errno = EACCES" in pid1_test
+          assert "errno != 0" in pid1_test
           main_compact = "".join(main_loop.split())
           assert "signal_status=init_signals();" in main_compact
           assert "signal_status==0&&init_mdev_retry_state_is_pending(&mdev_retry_state)" in main_compact

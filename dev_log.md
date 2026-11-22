@@ -1,3 +1,11 @@
+## 2026-11-22 18:31 CST — Cover successful signal installer errno reset
+
+- Parent main `52e6692cd806abdb4c52ae2fd42271a3f085aed9`. The 8a66 HTTPD run #44999904303 passed all preceding tests and failed on the old direct-`sigaction` expectation. The checker update in 52e has not yet been exercised because its commit touched only the workflow and documentation.
+- Extended `pid1_signal_policy.c` to seed `errno=EINTR` before a successful fake sigaction and assert that the checked wrapper clears it. Updated the mdev source contract to require the new regression. Updating the watched C test forces both mdev and HTTPD exact-head tests to rerun.
+- Exact 8a66 PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325 and AI handoff #44999904265 PASS. f6a NVRAM #44999987551 remained in progress. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 18:23 CST — Align HTTPD's PID 1 signal contract with checked installation
 
 - Parent main `f6a3c1ca6bfa0ee3a8b4b76c37d1d4dc4eefa9c4`. Exact 8a66 HTTPD #44999904303 passed NVRAM rollback, wireless atomic publication/preflight, route access, Samba/Unix identity, and other earlier contracts; it failed only in the final PID1 signal section because it still expected direct `sigaction(signals_shutdown[i], ...)` instead of the checked installer introduced in c74.

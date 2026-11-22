@@ -42,12 +42,15 @@ test_pid1_signal_installation_reports_failures(void)
 		return 1;
 
 	fake_signal_result = 0;
-	fake_signal_errno = 0;
+	/* A stale caller errno must not be reported after successful install. */
+	fake_signal_errno = EBUSY;
+	errno = EINTR;
 	fake_signal_number = 0;
 	fake_signal_handler = NULL;
 	if (pid1_signal_install_action(fake_sigaction, SIGTERM, &action) != 0 ||
 	    fake_signal_number != SIGTERM ||
-	    fake_signal_handler != test_signal_handler)
+	    fake_signal_handler != test_signal_handler ||
+	    errno != 0)
 		return 1;
 
 	fake_signal_result = -1;
