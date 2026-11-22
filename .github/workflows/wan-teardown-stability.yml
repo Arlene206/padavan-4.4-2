@@ -76,7 +76,10 @@ jobs:
           assert "rc_lan_addr6_format_prefix" in lan6_policy
           reset_lan6 = function_body(lan6, "reset_lan6_vars(void)")
           lan6_prefix = function_body(lan6, "get_lan_addr6_prefix(char *p_addr6s)")
-          assert "rc_lan_addr6_format_prefix(addr6_text, lan_size6" in reset_lan6
+          assert "rc_lan_addr6_format_prefix(" in reset_lan6
+          assert "snapshot.prefix_size" in reset_lan6
+          assert "lan6_read_reset_snapshot(ipv6_type, &snapshot)" in reset_lan6
+          assert reset_lan6.index("if (status != 0)") < reset_lan6.index('nvram_set_temp("lan_addr6", addr6s)')
           assert "rc_lan_addr6_format_prefix(addr6_text, 64, p_addr6s" in lan6_prefix
           assert 'sprintf(addr6s, "%s/%d", addr6s' not in reset_lan6
           assert 'sprintf(p_addr6s, "%s/%d", p_addr6s' not in lan6_prefix

@@ -117,10 +117,21 @@ reset_lan6 = function_body(net_lan6, "int reset_lan6_vars(void)")
 service_read = reset_lan6.index("get_lan6_service_type(&ipv6_type)")
 service_error = reset_lan6.index("if (service_status != 0)", service_read)
 service_return = reset_lan6.index("return service_status;", service_error)
-lan_config_read = reset_lan6.index('nvram_safe_get("ip6_lan_addr")')
+lan_config_read = reset_lan6.index("lan6_read_reset_snapshot(ipv6_type, &snapshot)")
+lan_config_error = reset_lan6.index("if (status != 0)", lan_config_read)
+lan_config_return = reset_lan6.index("return status;", lan_config_error)
 lan_publish = reset_lan6.index('nvram_set_temp("lan_addr6", addr6s)')
-assert service_read < service_error < service_return < lan_config_read < lan_publish
-assert "lan_addr6_static_for_type(ipv6_type)" in reset_lan6
+assert service_read < service_error < service_return < lan_config_read
+assert lan_config_read < lan_config_error < lan_config_return < lan_publish
+snapshot = function_body(net_lan6, "lan6_read_reset_snapshot(int ipv6_type,")
+assert "rc_wan_nvram_copy_snapshot(" in snapshot
+assert "lan6_snapshot_transaction_begin" in snapshot
+assert "lan6_snapshot_transaction_get" in snapshot
+assert "lan6_snapshot_transaction_end" in snapshot
+assert "rc_lan_addr6_static_mode_status(" in snapshot
+assert "rc_lan_addr6_legacy_prefix_size(" in snapshot
+assert 'nvram_safe_get("ip6_lan_addr")' not in reset_lan6
+assert 'nvram_get_int("ip6_lan_size")' not in reset_lan6
 
 for signature in (
     "int is_lan_radv_on(void)",

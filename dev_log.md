@@ -1,3 +1,12 @@
+## 2026-11-22 — Align LAN reset source contracts with transactional configuration snapshot
+
+- Parent main SHA: `cac4f73f3757d1617b2fb34a58fd7bb2f65af589`. Exact-head XY-C1 run #45028146852 on `e45027e842af2c42de6760991fbe9d80fa21967c` remained in progress after the initial host-only test phase; the LAN address reload GNU89 sanitizer binary itself passed and the new LAN reset snapshot source contract was exercised by the XY workflow. The same SHA's WAN route #45028146813 and AI handoff #45028146832 passed.
+- Two independent source contracts failed on the e450 commit because they encoded the old implementation: `scripts/check_ipv6_service_type_status.py` required direct `nvram_safe_get("ip6_lan_addr")` in `reset_lan6_vars()`, and WAN teardown's inline contract required the former `lan_size6` local. Both now assert the checked snapshot, transaction begin/get/end adapters, and the failure gate before publication / the copied prefix size.
+- This commit changes validation only; the LAN reset runtime code remains in `e45027e842af2c42de6760991fbe9d80fa21967c`. Local tests were not run in this connector-only runtime. Recheck the exact new main SHA actions; the e450 XY build must be checked separately for its later Build/TRX/artifact steps.
+- Result: THIS COMMIT. Next: harden `is_lan_radv_on()` so a failed `ip6_lan_radv` backend read is returned as unknown instead of silently treating it as enabled.
+
+---
+
 ## 2026-11-22 — Fail closed on LAN IPv6 reset configuration read errors
 
 - Parent main SHA: `16f571b03e7ea5e29e76a1b06934531fc4644f32`. The active DHCPv6 callback fix is validated on its exact SHA `5e0100c059639b323c903351d8f1fab6ff181659`: WAN DHCP #45027565522 PASS and AI handoff #45027565508 PASS. The XY-C1 source-contract correction in `1805fa23a010044d4f82c7e23e91695a6b7f904d` was still being checked when this slice began; exact target build evidence must be rechecked after the new commit.
