@@ -244,6 +244,7 @@ export MENTOHUST_NIC MENTOHUST_USERNAME MENTOHUST_PASSWORD
 mkdir -p "$TEST_TMP/config" "$TEST_TMP/storage"
 CONFIG_FILE="$TEST_TMP/config/mentohust.conf"
 BIN_CONFIG="$TEST_TMP/storage/mentohust.conf"
+MENTOHUST_STARTS_BEFORE=$(wc -l < "$START_LOG" | tr -d ' ')
 OLD_UMASK=$(umask)
 umask 0000
 MENTOHUST_CONF_FILE="$CONFIG_FILE" MENTOHUST_BIN_CONF_FILE="$BIN_CONFIG" \
@@ -262,7 +263,7 @@ grep -Fqx 'Username=test-user' "$CONFIG_FILE" || {
 grep -Fqx 'Password=test&secret\value%' "$CONFIG_FILE" || {
   echo "FAIL: generated MentoHUST password was not written literally" >&2; exit 1;
 }
-[ "$(wc -l < "$START_LOG" | tr -d ' ')" = 1 ] || {
+[ "$(wc -l < "$START_LOG" | tr -d ' ')" -eq $((MENTOHUST_STARTS_BEFORE + 1)) ] || {
   echo "FAIL: secure generated config did not launch exactly once" >&2; exit 1;
 }
 
