@@ -202,18 +202,28 @@ for token in ("optional config append filters comments and empty lines",
 adbyby = (root / "trunk/user/adbyby/adbyby.sh").read_text()
 adbyby_dns = body(adbyby, "add_dns")
 adbyby_hosts = body(adbyby, "hosts_ads")
-assert 'printf \'%s\\n\' \'conf-dir=/etc/storage/dnsmasq-adbyby.d\'' in adbyby_dns
+assert 'ADBYBY_DNSMASQ_AD_DIR="/etc/storage/dnsmasq-adbyby.d"' in adbyby
+assert 'ADBYBY_ANTI_AD_FILE="$ADBYBY_DNSMASQ_AD_DIR/anti-ad-for-dnsmasq.conf"' in adbyby
+assert 'WAN_FILE="$ADBYBY_DNSMASQ_AD_DIR/03-adbyby-ipset.conf"' in adbyby
+assert 'mkdir -p "$ADBYBY_DNSMASQ_AD_DIR"' in adbyby_dns
+assert 'printf \'%s\\n\' "conf-dir=$ADBYBY_DNSMASQ_AD_DIR"' in adbyby_dns
+assert '$ADBYBY_DNSMASQ_AD_DIR/06-dnsmasq.esc' in adbyby_dns
+assert '$ADBYBY_DNSMASQ_AD_DIR/07-dnsmasq.black' in adbyby_dns
+assert '$ADBYBY_DNSMASQ_AD_DIR/08-dnsmasq.douyin' in adbyby_dns
 assert 'ADBYBY_HOSTS_CONFIG_FILE' in adbyby_dns
 assert 'adbyby_remove_generated_hosts_config' in adbyby_hosts
 assert 'printf \'addn-hosts=%s\\n\' "$PROG_PATH/hosts"' in adbyby_hosts
 for token in ("Change_dnsmasq stop", "Change_dnsmasq start",
               "Change_adbyby", "hosts_type=dnsmasq", "hosts_type=SmartDNS",
               "adbyby_add=0", "adbyby_add=1",
-              "conf-dir=/etc/storage/dnsmasq-adbyby.d",
+              "ADBYBY_DNSMASQ_AD_DIR",
               "addn-hosts=$PROG_PATH/hosts",
               "conf-file /tmp/anti-ad-for-smartdns.conf",
               "SmartDNS config imported DNSMasq-only Adbyby fragments",
               "SmartDNS config imported the DNSMasq-only Adbyby hosts file",
+              "Adbyby add_dns publishes actual DNSMasq fragments and conf-dir consumer",
+              "Alternate-port SmartDNS keeps DNSMasq Adbyby rules active across both ownership directions",
+              "SmartDNS port-53 mode keeps DNSMasq-only Adbyby rules separate from SmartDNS input",
               "SmartDNS/DNSMasq ownership transitions preserve Adbyby DNSMasq inputs"):
     assert token in test, token
 rollback = body(smartdns, "smartdns_start_config_rollback")

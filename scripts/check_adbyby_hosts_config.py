@@ -214,7 +214,7 @@ cleanup_steps = (
     "sed -i '/dnsmasq-adbyby/d'",
     "adbyby_remove_generated_hosts_config",
     "rm -f /tmp/dnsmasq.d/dnsmasq-adbyby.conf",
-    'adbyby_cleanup_dnsmasq_ad_dir "/etc/storage/dnsmasq-adbyby.d"',
+    'adbyby_cleanup_dnsmasq_ad_dir "$ADBYBY_DNSMASQ_AD_DIR"',
     "rm -f /tmp/adbyby_host.conf",
 )
 require(all(step in del_dns for step in cleanup_steps) and
@@ -324,7 +324,8 @@ require("adbyby_user_rules_cache_is_usable" in prepare_user_transaction and
         "failed third-party fetches must preserve a last-good user.txt cache")
 require("adbyby_prepare_user_rules_transaction" in prepare_user_rules,
         "user-rule staging must isolate umask and cleanup in a subshell")
-require('ADBYBY_ANTI_AD_FILE="/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf"' in source,
+require('ADBYBY_DNSMASQ_AD_DIR="/etc/storage/dnsmasq-adbyby.d"' in source and
+        'ADBYBY_ANTI_AD_FILE="$ADBYBY_DNSMASQ_AD_DIR/anti-ad-for-dnsmasq.conf"' in source,
         "anti-AD fragment path must remain the persistent dnsmasq include")
 require("adbyby_valid_https_url" in prepare_anti_ad_transaction and
         "adbyby_download_https_200" in prepare_anti_ad_transaction and

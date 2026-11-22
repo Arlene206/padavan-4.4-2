@@ -5,8 +5,9 @@ ipt_n="iptables -t nat"
 PROG_PATH="/tmp/adbyby"
 DATA_PATH="$PROG_PATH/data"
 ADBYBY_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
-ADBYBY_ANTI_AD_FILE="/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf"
-WAN_FILE="/etc/storage/dnsmasq-adbyby.d/03-adbyby-ipset.conf"
+ADBYBY_DNSMASQ_AD_DIR="/etc/storage/dnsmasq-adbyby.d"
+ADBYBY_ANTI_AD_FILE="$ADBYBY_DNSMASQ_AD_DIR/anti-ad-for-dnsmasq.conf"
+WAN_FILE="$ADBYBY_DNSMASQ_AD_DIR/03-adbyby-ipset.conf"
 ADBYBY_HOST_LIST_FILE="/etc/storage/adbyby_host.sh"
 ADBYBY_HOSTS_CONFIG_FILE="/etc/storage/dnsmasq/dnsmasq.conf"
 ADBYBY_HOST_SOURCE_MAX_BYTES=4194304
@@ -901,8 +902,8 @@ ip_rule()
 
 add_dns()
 {
-	mkdir -p /etc/storage/dnsmasq-adbyby.d || return 1
-	[ -d /etc/storage/dnsmasq-adbyby.d ] && [ ! -L /etc/storage/dnsmasq-adbyby.d ] || {
+	mkdir -p "$ADBYBY_DNSMASQ_AD_DIR" || return 1
+	[ -d "$ADBYBY_DNSMASQ_AD_DIR" ] && [ ! -L "$ADBYBY_DNSMASQ_AD_DIR" ] || {
 		logger -t "adbyby" "Adbyby dnsmasq配置目录不安全。"
 		return 1
 	}
@@ -913,22 +914,22 @@ add_dns()
 	fi
 	block_ios=$(nvram get block_ios) || return 1
 	block_douyin=$(nvram get block_douyin) || return 1
-	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_esc"'\n",$0)}' "$PROG_PATH/adesc.conf" > /etc/storage/dnsmasq-adbyby.d/06-dnsmasq.esc || return 1
-	awk '!/^$/&&!/^#/{printf("address=/%s/'"0.0.0.0"'\n",$0)}' "$PROG_PATH/adblack.conf" > /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black || return 1
+	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_esc"'\n",$0)}' "$PROG_PATH/adesc.conf" > "$ADBYBY_DNSMASQ_AD_DIR/06-dnsmasq.esc" || return 1
+	awk '!/^$/&&!/^#/{printf("address=/%s/'"0.0.0.0"'\n",$0)}' "$PROG_PATH/adblack.conf" > "$ADBYBY_DNSMASQ_AD_DIR/07-dnsmasq.black" || return 1
 	if [ "$block_ios" = "1" ]; then
-		printf '%s\n' 'address=/mesu.apple.com/0.0.0.0' >> /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black || return 1
+		printf '%s\n' 'address=/mesu.apple.com/0.0.0.0' >> "$ADBYBY_DNSMASQ_AD_DIR/07-dnsmasq.black" || return 1
 	fi
 	if [ "$block_douyin" = "1" ]; then
-		cat <<-EOF > /etc/storage/dnsmasq-adbyby.d/08-dnsmasq.douyin || return 1
+		cat <<-EOF > "$ADBYBY_DNSMASQ_AD_DIR/08-dnsmasq.douyin" || return 1
 address=/api.amemv.com/0.0.0.0
 address=/.snssdk.com/0.0.0.0
 address=/.douyin.com/0.0.0.0
 		EOF
 	else
-		rm -f /etc/storage/dnsmasq-adbyby.d/08-dnsmasq.douyin || return 1
+		rm -f "$ADBYBY_DNSMASQ_AD_DIR/08-dnsmasq.douyin" || return 1
 	fi
 	sed -i '/dnsmasq-adbyby/d' "$ADBYBY_HOSTS_CONFIG_FILE" || return 1
-	printf '%s\n' 'conf-dir=/etc/storage/dnsmasq-adbyby.d' >> "$ADBYBY_HOSTS_CONFIG_FILE" || return 1
+	printf '%s\n' "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" >> "$ADBYBY_HOSTS_CONFIG_FILE" || return 1
 	if [ "$wan_mode" = "1" ]; then
 		awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_wan"'\n",$0)}' "$PROG_PATH/adhost.conf" > "$WAN_FILE" || return 1
 	fi
@@ -959,7 +960,7 @@ del_dns()
 		[ "$adbyby_del_dns_status" -ne 0 ] || adbyby_del_dns_status=$adbyby_del_dns_step_status
 		logger -t "adbyby" "移除临时Adbyby dnsmasq配置失败 (status=$adbyby_del_dns_step_status)。"
 	fi
-	if adbyby_cleanup_dnsmasq_ad_dir "/etc/storage/dnsmasq-adbyby.d"; then
+	if adbyby_cleanup_dnsmasq_ad_dir "$ADBYBY_DNSMASQ_AD_DIR"; then
 		:
 	else
 		adbyby_del_dns_step_status=$?

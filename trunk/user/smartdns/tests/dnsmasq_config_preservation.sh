@@ -390,6 +390,7 @@ ADBYBY_SOURCE="$HERE/../../adbyby/adbyby.sh"
 [ -s "$T/runtime-owner-functions.sh" ] || fail "SmartDNS runtime ownership functions missing"
 {
     sed -n '/^adbyby_remove_generated_hosts_config()/,/^}/p' "$ADBYBY_SOURCE"
+    sed -n '/^add_dns()/,/^}/p' "$ADBYBY_SOURCE"
     sed -n '/^hosts_ads()/,/^}/p' "$ADBYBY_SOURCE"
 } > "$T/adbyby-runtime-functions.sh"
 [ -s "$T/adbyby-runtime-functions.sh" ] || fail "Adbyby runtime host functions missing"
@@ -399,11 +400,14 @@ ADBYBY_SOURCE="$HERE/../../adbyby/adbyby.sh"
 dnsmasq_Conf="$T/runtime-dnsmasq.conf"
 smartdns_tmp_Conf="$T/runtime-smartdns.conf"
 PROG_PATH="$T/adbyby"
+ADBYBY_DNSMASQ_AD_DIR="$T/dnsmasq-adbyby.d"
+ADBYBY_ANTI_AD_FILE="$ADBYBY_DNSMASQ_AD_DIR/anti-ad-for-dnsmasq.conf"
+WAN_FILE="$ADBYBY_DNSMASQ_AD_DIR/03-adbyby-ipset.conf"
 ADBYBY_HOSTS_CONFIG_FILE="$dnsmasq_Conf"
-mkdir -p "$PROG_PATH"
-cat > "$dnsmasq_Conf" <<'CONFIG'
+mkdir -p "$PROG_PATH" "$ADBYBY_DNSMASQ_AD_DIR"
+cat > "$dnsmasq_Conf" <<CONFIG
 # operator-owned resolver configuration
-conf-dir=/etc/storage/dnsmasq-adbyby.d
+conf-dir=$ADBYBY_DNSMASQ_AD_DIR
 addn-hosts=/etc/storage/custom-hosts
 CONFIG
 adbyby_prepare_hosts_transaction() {
@@ -411,6 +415,9 @@ adbyby_prepare_hosts_transaction() {
     printf '%s\n' '192.0.2.44 ads.example.test' > "$PROG_PATH/hosts" || return 1
 }
 adbyby_hosts_cache_is_usable() { return 1; }
+anti_ad() {
+    printf '%s\n' 'address=/anti-ad.example.test/0.0.0.0' > "$ADBYBY_ANTI_AD_FILE"
+}
 
 NVRAM_ADDBYBY_VALUE=1
 NVRAM_SET_STATUS=0
@@ -420,6 +427,8 @@ nvram() {
         "get_checked adbyby_enable"|"get adbyby_enable") printf '1\n' ;;
         "get_checked adbyby_add"|"get adbyby_add") printf '%s\n' "$NVRAM_ADDBYBY_VALUE" ;;
         "get hosts_ad") printf '1\n' ;;
+        "get block_ios") printf '1\n' ;;
+        "get block_douyin") printf '1\n' ;;
         "get sdns_staticnum_x") printf '0\n' ;;
         "set adbyby_add=0")
             [ "$NVRAM_SET_STATUS" -eq 0 ] || return "$NVRAM_SET_STATUS"
@@ -435,15 +444,83 @@ nvram() {
 }
 logger() { :; }
 
-# Produce the same host-file reference used by Adbyby's real hosts_ads()
-# function, leaving the Adbyby DNSMasq conf-dir fragment in place.
-hosts_ads || fail "Adbyby did not publish its generated hosts file reference"
-grep -Fxq "conf-dir=/etc/storage/dnsmasq-adbyby.d" "$dnsmasq_Conf" ||
+# Run Adbyby's real DNS generator against an isolated runtime config directory.
+printf '%s\n' 'tracker.example.test' '# ignored' > "$PROG_PATH/adesc.conf"
+printf '%s\n' 'blocked.example.test' > "$PROG_PATH/adblack.conf"
+printf '%s\n' 'wan.example.test' > "$PROG_PATH/adhost.conf"
+wan_mode=1
+add_dns || fail "Adbyby did not publish its DNSMasq rule fragments"
+grep -Fxq "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" "$dnsmasq_Conf" ||
     fail "Adbyby DNSMasq conf-dir reference missing"
+grep -Fxq 'ipset=/tracker.example.test/adbyby_esc' "$ADBYBY_DNSMASQ_AD_DIR/06-dnsmasq.esc" ||
+    fail "Adbyby escape-domain fragment was not generated"
+grep -Fxq 'address=/blocked.example.test/0.0.0.0' "$ADBYBY_DNSMASQ_AD_DIR/07-dnsmasq.black" ||
+    fail "Adbyby block-domain fragment was not generated"
+grep -Fxq 'address=/mesu.apple.com/0.0.0.0' "$ADBYBY_DNSMASQ_AD_DIR/07-dnsmasq.black" ||
+    fail "Adbyby optional iOS block rule was not generated"
+for domain in api.amemv.com .snssdk.com .douyin.com; do
+    grep -Fxq "address=/$domain/0.0.0.0" "$ADBYBY_DNSMASQ_AD_DIR/08-dnsmasq.douyin" ||
+        fail "Adbyby optional Douyin rule was not generated: $domain"
+done
+grep -Fxq 'address=/anti-ad.example.test/0.0.0.0' "$ADBYBY_ANTI_AD_FILE" ||
+    fail "Adbyby anti-AD fragment was not generated"
+grep -Fxq 'ipset=/wan.example.test/adbyby_wan' "$WAN_FILE" ||
+    fail "Adbyby WAN ipset fragment was not generated"
+pass "Adbyby add_dns publishes actual DNSMasq fragments and conf-dir consumer"
+
+# Produce the same host-file reference used by Adbyby's real hosts_ads()
+# function, then verify the DNSMasq host-file consumer.
+hosts_ads || fail "Adbyby did not publish its generated hosts file reference"
+grep -Fxq "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" "$dnsmasq_Conf" ||
+    fail "Adbyby DNSMasq conf-dir reference missing after host publication"
 grep -Fxq "addn-hosts=$PROG_PATH/hosts" "$dnsmasq_Conf" ||
     fail "Adbyby generated addn-hosts reference missing"
 grep -Fxq '192.0.2.44 ads.example.test' "$PROG_PATH/hosts" ||
     fail "Adbyby generated hosts file was not materialized"
+
+# SmartDNS as a non-53 upstream leaves DNSMasq as the request front end.
+# Therefore DNSMasq must continue consuming the real Adbyby conf-dir and hosts file.
+NVRAM_ADDBYBY_VALUE=0
+hosts_type=dnsmasq
+sdns_enable=1
+sdns_port=6053
+sdns_redirect=1
+sdnse_enable=0
+action=start
+Change_adbyby || fail "DNSMasq-front-end SmartDNS transition failed"
+[ "$hosts_type" = dnsmasq ] || fail "alternate-port SmartDNS incorrectly transferred Adbyby ownership"
+[ "$NVRAM_ADDBYBY_VALUE" = 0 ] || fail "alternate-port SmartDNS changed adbyby_add while DNSMasq remained active"
+Change_dnsmasq start || fail "alternate-port SmartDNS upstream configuration failed"
+grep -Fxq 'no-resolv' "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS did not disable the inherited DNSMasq upstream list"
+grep -Fxq 'server=127.0.0.1#6053' "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS upstream was not published"
+! grep -Fxq 'port=0' "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS disabled DNSMasq's DNS listener"
+grep -Fxq "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS removed the Adbyby conf-dir consumer"
+grep -Fxq "addn-hosts=$PROG_PATH/hosts" "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS removed the Adbyby hosts consumer"
+grep -Fxq 'ipset=/tracker.example.test/adbyby_esc' "$ADBYBY_DNSMASQ_AD_DIR/06-dnsmasq.esc" ||
+    fail "alternate-port SmartDNS lost the Adbyby DNS fragment"
+smartdns_state_saved=1
+smartdns_state_version=managed-v1
+sdns_redirected=1
+sdns_ported=6053
+sdns_enable=0
+sdns_port=6053
+action=stop
+Change_dnsmasq stop || fail "alternate-port SmartDNS upstream cleanup failed"
+Change_adbyby || fail "alternate-port SmartDNS DNS ownership restoration failed"
+! grep -Fxq 'no-resolv' "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS left no-resolv after stop"
+! grep -Fxq 'server=127.0.0.1#6053' "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS left its managed upstream after stop"
+grep -Fxq "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS cleanup removed Adbyby DNS fragments"
+grep -Fxq "addn-hosts=$PROG_PATH/hosts" "$dnsmasq_Conf" ||
+    fail "alternate-port SmartDNS cleanup removed Adbyby hosts data"
+pass "Alternate-port SmartDNS keeps DNSMasq Adbyby rules active across both ownership directions"
 
 # SmartDNS -> DNSMasq: stop removes only SmartDNS's marked port=0 override,
 # then Change_adbyby changes the saved target flag. Adbyby-owned DNSMasq
@@ -468,7 +545,7 @@ Change_adbyby || fail "SmartDNS -> DNSMasq Adbyby target transition failed"
     fail "SmartDNS port=0 override remained after returning ownership to DNSMasq"
 ! grep -Fq 'smartdns-managed-dnsmasq-' "$dnsmasq_Conf" ||
     fail "SmartDNS managed markers remained after resolver restoration"
-grep -Fxq "conf-dir=/etc/storage/dnsmasq-adbyby.d" "$dnsmasq_Conf" ||
+grep -Fxq "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" "$dnsmasq_Conf" ||
     fail "SmartDNS cleanup removed Adbyby's DNSMasq conf-dir"
 grep -Fxq "addn-hosts=$PROG_PATH/hosts" "$dnsmasq_Conf" ||
     fail "SmartDNS cleanup removed Adbyby's generated hosts reference"
@@ -489,7 +566,7 @@ Change_adbyby || fail "DNSMasq -> SmartDNS Adbyby target transition failed"
 Change_dnsmasq start || fail "DNSMasq -> SmartDNS resolver takeover failed"
 grep -Fxq 'port=0' "$dnsmasq_Conf" ||
     fail "DNSMasq did not disable its DNS listener for SmartDNS port 53"
-grep -Fxq "conf-dir=/etc/storage/dnsmasq-adbyby.d" "$dnsmasq_Conf" ||
+grep -Fxq "conf-dir=$ADBYBY_DNSMASQ_AD_DIR" "$dnsmasq_Conf" ||
     fail "SmartDNS takeover unexpectedly removed DNSMasq Adbyby fragments"
 grep -Fxq "addn-hosts=$PROG_PATH/hosts" "$dnsmasq_Conf" ||
     fail "SmartDNS takeover unexpectedly removed Adbyby host reference"
@@ -543,4 +620,5 @@ pass "SmartDNS/DNSMasq ownership transitions preserve Adbyby DNSMasq inputs and 
 for bad in '' 0 65536 999999 abc 000000; do
 	if smartdns_dnsmasq_normalize_port "$bad" >/dev/null; then fail "invalid port accepted"; fi
 done
+pass "SmartDNS port-53 mode keeps DNSMasq-only Adbyby rules separate from SmartDNS input"
 echo "SmartDNS DNSMasq configuration preservation regression: PASS"
