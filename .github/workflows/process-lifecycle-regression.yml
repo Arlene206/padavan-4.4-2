@@ -1324,6 +1324,27 @@ jobs:
           vlan_record = bridge_compact.index('rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);', vlan_capture)
           assert vlan_config < vlan_capture < vlan_record
           assert 'rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);' in init_bridge
+
+          start_lan_compact = " ".join(start_lan.split())
+          for key in ("lan_ipaddr", "lan_netmask", "lan_domain"):
+              assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL, "' + key + '"' in start_lan_compact
+          assert all('nvram_safe_get("' + key + '")' not in start_lan
+                     for key in ("lan_ipaddr", "lan_netmask", "lan_domain"))
+          start_lan_ip = start_lan_compact.index('"lan_ipaddr"')
+          start_lan_mask = start_lan_compact.index('"lan_netmask"')
+          start_lan_domain = start_lan_compact.index('"lan_domain"')
+          start_lan_ifup = start_lan_compact.index("ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk)")
+          start_lan_error = start_lan_compact.index("if (operation_status != 0)")
+          start_lan_return = start_lan_compact.index("return operation_status;", start_lan_error)
+          assert start_lan_ip < start_lan_mask < start_lan_domain < start_lan_error < start_lan_return < start_lan_ifup
+          hosts_ap = body(lan, "update_hosts_ap(void)")
+          hosts_ap_compact = " ".join(hosts_ap.split())
+          assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL, "lan_ipaddr_t"' in hosts_ap_compact
+          assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL, "lan_domain_t"' in hosts_ap_compact
+          assert hosts_ap_compact.index('"lan_ipaddr_t"') < hosts_ap_compact.index('"lan_domain_t"') < hosts_ap_compact.index("create_hosts_lan(lan_ipaddr, lan_dname)")
+          assert "nvram_safe_get(" not in hosts_ap
+          assert "test_start_lan_nvram_snapshot_owns_all_values" in bridge_init_regression
+          assert "test_update_hosts_ap_nvram_snapshot_owns_all_values" in bridge_init_regression
           for operation in ("set MAC interface address", "bring up MAC interface",
                             "power up switch PHYs", "create LAN bridge",
                             "set LAN bridge STP", "set LAN bridge forward delay",

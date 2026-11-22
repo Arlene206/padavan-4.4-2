@@ -1426,18 +1426,34 @@ failed:
 int
 update_hosts_ap(void)
 {
+	char lan_ipaddr[16];
+	char lan_dname[256];
 	int status;
 
-	status = create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),
-				 nvram_safe_get("lan_domain_t"));
-	return status;
+	status = rc_wan_nvram_copy_value(
+		lan_nvram_get_checked, NULL, "lan_ipaddr_t",
+		lan_ipaddr, sizeof(lan_ipaddr));
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			lan_nvram_get_checked, NULL, "lan_domain_t",
+			lan_dname, sizeof(lan_dname));
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot snapshot AP LAN host identity (status=%d)",
+			   status);
+		return status;
+	}
+
+	return create_hosts_lan(lan_ipaddr, lan_dname);
 }
 
 int
 start_lan(int is_ap_mode, int do_wait)
 {
-	char *lan_ipaddr;
-	char *lan_netmsk;
+	char lan_ipaddr[16];
+	char lan_netmsk[16];
+	char lan_dname[256];
 	char *lan_ifname = IFNAME_BR;
 	int start_status = 0;
 	int operation_status;
@@ -1447,8 +1463,28 @@ start_lan(int is_ap_mode, int do_wait)
 	int ipv6_type, ipv6_type_status;
 #endif
 
-	lan_ipaddr = nvram_safe_get("lan_ipaddr");
-	lan_netmsk = nvram_safe_get("lan_netmask");
+	/*
+	 * Keep the address, mask and (in AP mode) domain in owned buffers.
+	 * NVRAM getters return shared cache storage that later reads may reuse.
+	 */
+	operation_status = rc_wan_nvram_copy_value(
+		lan_nvram_get_checked, NULL, "lan_ipaddr",
+		lan_ipaddr, sizeof(lan_ipaddr));
+	if (operation_status == 0)
+		operation_status = rc_wan_nvram_copy_value(
+			lan_nvram_get_checked, NULL, "lan_netmask",
+			lan_netmsk, sizeof(lan_netmsk));
+	if (operation_status == 0 && is_ap_mode)
+		operation_status = rc_wan_nvram_copy_value(
+			lan_nvram_get_checked, NULL, "lan_domain",
+			lan_dname, sizeof(lan_dname));
+	if (operation_status != 0) {
+		errno = operation_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot LAN identity before interface activation (status=%d)",
+			   operation_status);
+		return operation_status;
+	}
 
 	/* Bring up and configure the LAN bridge. */
 	operation_status = ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);
@@ -1463,8 +1499,6 @@ start_lan(int is_ap_mode, int do_wait)
 	* renew and release.
 	*/
 	if (is_ap_mode) {
-		char *lan_dname = nvram_safe_get("lan_domain");
-
 		{
 			int hosts_status = create_hosts_lan(lan_ipaddr, lan_dname);
 			if (hosts_status != 0)

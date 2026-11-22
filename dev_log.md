@@ -1,3 +1,11 @@
+## 2026-11-22 — Snapshot LAN address, mask and AP host identity before reuse
+
+- Parent main SHA: `864e6c651675f3d22f1a23ebc9b0936f06d6833a`. `start_lan()` retained borrowed pointers for `lan_ipaddr` and `lan_netmask`, then fetched `lan_domain` before using all three; `update_hosts_ap()` also passed two cache-backed NVRAM pointers directly as function arguments, whose evaluation order is unspecified in C.
+- Replaced these reads with checked copies into bounded owned buffers before interface activation or host-file publication. Backend errors/truncation now abort the operation before its corresponding side effects; absent keys preserve the prior empty-string behavior.
+- Extended the bridge-init GNU89 cache-overwrite regressions and Process source-order contract. Exact-head Process and XY-C1 validation pending; Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Copy LAN bridge MAC before subsequent NVRAM reads
 
 - Parent main SHA: `0f4dcd5b0ed934726680577e7d830513e5ba4a5f`. `init_bridge()` retained the borrowed `nvram_safe_get("lan_hwaddr")` pointer across switch/VLAN setup, which performs additional NVRAM reads before applying the MAC to the physical and bridge interfaces. The NVRAM getter's backing storage is a shared cache and must not be retained across reads.

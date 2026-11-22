@@ -28,6 +28,14 @@ fake_bridge_nvram_get(void *opaque, const char *param_name, char **value)
 	if (strcmp(param_name, "lan_hwaddr") == 0)
 		snprintf(fake->cache, sizeof(fake->cache), "%s",
 			 "02:11:22:33:44:55");
+	else if (strcmp(param_name, "lan_ipaddr") == 0 ||
+		 strcmp(param_name, "lan_ipaddr_t") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "192.0.2.10");
+	else if (strcmp(param_name, "lan_netmask") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "255.255.255.0");
+	else if (strcmp(param_name, "lan_domain") == 0 ||
+		 strcmp(param_name, "lan_domain_t") == 0)
+		snprintf(fake->cache, sizeof(fake->cache), "%s", "router.example");
 	else
 		snprintf(fake->cache, sizeof(fake->cache), "%s",
 			 "next-nvram-value");
@@ -68,6 +76,49 @@ test_bridge_lan_hwaddr_read_error_aborts_preflight(void)
 				       sizeof(lan_hwaddr)) == EACCES);
 	assert(fake.calls == 1);
 	assert(lan_hwaddr[0] == '\0');
+}
+
+static void
+test_start_lan_nvram_snapshot_owns_all_values(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char lan_ipaddr[16], lan_netmsk[16], lan_dname[256];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_ipaddr", lan_ipaddr,
+				       sizeof(lan_ipaddr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_netmask", lan_netmsk,
+				       sizeof(lan_netmsk)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_domain", lan_dname,
+				       sizeof(lan_dname)) == 0);
+	assert(strcmp(lan_ipaddr, "192.0.2.10") == 0);
+	assert(strcmp(lan_netmsk, "255.255.255.0") == 0);
+	assert(strcmp(lan_dname, "router.example") == 0);
+	assert(strcmp(fake.cache, "router.example") == 0);
+	assert(fake.calls == 3);
+}
+
+static void
+test_update_hosts_ap_nvram_snapshot_owns_all_values(void)
+{
+	struct fake_bridge_nvram_cache fake;
+	char lan_ipaddr[16], lan_dname[256];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_ipaddr_t", lan_ipaddr,
+				       sizeof(lan_ipaddr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_bridge_nvram_get, &fake,
+				       "lan_domain_t", lan_dname,
+				       sizeof(lan_dname)) == 0);
+	assert(strcmp(lan_ipaddr, "192.0.2.10") == 0);
+	assert(strcmp(lan_dname, "router.example") == 0);
+	assert(fake.calls == 2);
 }
 
 static void
@@ -177,6 +228,8 @@ int
 main(void)
 {
 	test_bridge_lan_hwaddr_cache_copy_is_stable();
+	test_start_lan_nvram_snapshot_owns_all_values();
+	test_update_hosts_ap_nvram_snapshot_owns_all_values();
 	test_bridge_lan_hwaddr_read_error_aborts_preflight();
 	test_empty_and_success_status();
 	test_first_failure_and_later_operations();
@@ -185,6 +238,6 @@ main(void)
 	test_wireless_config_generation_failure_reaches_bridge_status();
 	test_reload_marker_write_failures_are_reported_and_aggregated();
 	test_bridge_add_idempotency_requires_confirmed_bridge();
-	puts("RC bridge initialization status and idempotency policy: PASS");
+	puts("RC bridge initialization and LAN NVRAM cache ownership policy: PASS");
 	return 0;
 }
