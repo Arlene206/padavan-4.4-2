@@ -434,3 +434,15 @@ for lossy in ('get_wan_unit_value(unit, "ipaddr")',
 for test_name in ("test_wan6_unit_address_snapshot_copies_one_coherent_tuple",
                   "test_wan6_unit_address_snapshot_discards_partial_tuple_on_each_read_error"):
     assert test_name in nvram_status_test and test_name + "();" in nvram_status_test
+
+# DHCPv6 DNS withdrawal must not treat a failed old-value read as an empty list.
+dns_store_body = body(source, "int store_wan_dns6(char *dns6_new)")
+dns_policy = (ROOT / "trunk/user/rc/src/wan6_dns_policy.h").read_text()
+dns_policy_test = (ROOT / "trunk/user/rc/src/tests/wan6_dns_policy.c").read_text()
+assert 'get_wan_unit_value_copy_status(\n\t\t0, "dns6", dns6_old, sizeof(dns6_old))' in dns_store_body
+assert "wan6_dns_store_after_checked_read(" in dns_store_body
+assert "get_wan_unit_value(0, \"dns6\")" not in dns_store_body
+assert "if (read_status != 0)" in dns_policy
+assert "test_dns_store_fails_closed_when_current_value_read_fails" in dns_policy_test
+assert "test_dns_store_fails_closed_when_current_value_read_fails();" in dns_policy_test
+assert "test_dns_store_treats_missing_current_value_as_empty();" in dns_policy_test

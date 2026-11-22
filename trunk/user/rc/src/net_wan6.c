@@ -815,9 +815,9 @@ wan6_dns_set_status(void *context, const char *dns_value)
 int store_wan_dns6(char *dns6_new)
 {
 	char dns6s[INET6_ADDRSTRLEN*3+8] = {0};
-	char *dns6_old;
+	char dns6_old[INET6_ADDRSTRLEN*3+8] = {0};
 	size_t dns6_len = dns6_new ? strlen(dns6_new) : 0;
-	int status;
+	int read_status, status;
 
 	/* A missing option means the server withdrew its automatic DNS list. */
 	if (dns6_len >= sizeof(dns6s)) {
@@ -828,9 +828,10 @@ int store_wan_dns6(char *dns6_new)
 		memcpy(dns6s, dns6_new, dns6_len);
 	trim_r(dns6s);
 
-	dns6_old = get_wan_unit_value(0, "dns6");
-	status = wan6_dns_store_if_changed(dns6_old, dns6s,
-					  wan6_dns_set_status, NULL);
+	read_status = get_wan_unit_value_copy_status(
+		0, "dns6", dns6_old, sizeof(dns6_old));
+	status = wan6_dns_store_after_checked_read(
+		read_status, dns6_old, dns6s, wan6_dns_set_status, NULL);
 	if (status < 0) {
 		errno = -status;
 		logmessage("WAN IPv6",

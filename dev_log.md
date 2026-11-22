@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve DHCPv6 DNS withdrawal when the old NVRAM value is unreadable
+
+- Parent main SHA: `ced9b3e9ff811d6ed140e4ebad7a288dd907e8b2`. `store_wan_dns6()` fetched the previous `wan0_dns6` with the lossy pointer getter. If the NVRAM backend failed while the DHCPv6 lease withdrew its DNS option (new value empty), the read became an empty fallback and `wan6_dns_store_if_changed()` skipped the write, leaving stale DNS servers published.
+- Replaced the pointer getter with `get_wan_unit_value_copy_status()` and a policy gate that converts read errors into negative errno results before deciding whether a value changed. A genuinely missing key still maps to empty; unchanged values still avoid redundant writes.
+- Added GNU89 policy regressions proving an old-value read failure never calls the writer, while a missing old key still publishes a non-empty DNS value.
+- Next task: make `wan6_down()` preserve the old interface identity if its `wanN_ifname6` read fails, rather than treating the failure as an absent interface and selecting a fallback teardown target.
+
+---
 ## 2026-11-22 — Snapshot WAN IPv6 unit address settings before runtime changes
 
 - Parent main SHA: `ce01fb84ca28cf0b4faca46c6d28a8b7557c134d`. `wan6_up()` used four pointer-returning `get_wan_unit_value()` reads for SIT IPv4 address/gateway/IPv6 prefix and native-static IPv6 address/gateway after it had already stopped DHCPv6, published DNS and changed bridge DAD. Cache reuse could invalidate earlier pointers, and a failed NVRAM read was indistinguishable from an empty setting.

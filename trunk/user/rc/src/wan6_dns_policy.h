@@ -41,6 +41,18 @@ wan6_dns_store_if_changed(const char *old_dns, const char *new_dns,
 	return (status > 0) ? -status : status;
 }
 
+/* Never treat a failed read of the current lease value as an empty string. */
+static inline int
+wan6_dns_store_after_checked_read(int read_status, const char *old_dns,
+				  const char *new_dns,
+				  wan6_dns_set_value_fn set_value,
+				  void *context)
+{
+	if (read_status != 0)
+		return (read_status > 0) ? -read_status : read_status;
+	return wan6_dns_store_if_changed(old_dns, new_dns, set_value, context);
+}
+
 
 
 #define WAN6_DNS_CONFIG_VALUE_COUNT 3

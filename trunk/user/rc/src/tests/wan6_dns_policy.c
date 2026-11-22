@@ -84,6 +84,29 @@ test_dns_store_publishes_withdrawal(void)
 }
 
 static void
+test_dns_store_fails_closed_when_current_value_read_fails(void)
+{
+	struct fake_dns_writer fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_dns_store_after_checked_read(EACCES, "", "",
+		fake_dns_set_value, &fake) == -EACCES);
+	assert(fake.calls == 0);
+}
+
+static void
+test_dns_store_treats_missing_current_value_as_empty(void)
+{
+	struct fake_dns_writer fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_dns_store_after_checked_read(0, "", "2001:db8::53",
+		fake_dns_set_value, &fake) == 1);
+	assert(fake.calls == 1);
+	assert(strcmp(fake.value, "2001:db8::53") == 0);
+}
+
+static void
 test_dns_store_propagates_nvram_failure(void)
 {
 	struct fake_dns_writer fake;
@@ -296,6 +319,8 @@ main(void)
 	test_dns_store_publishes_changed_value();
 	test_dns_store_skips_unchanged_value();
 	test_dns_store_publishes_withdrawal();
+	test_dns_store_fails_closed_when_current_value_read_fails();
+	test_dns_store_treats_missing_current_value_as_empty();
 	test_dns_store_propagates_nvram_failure();
 	test_dns_store_rejects_missing_writer();
 	test_dns_config_snapshot_copies_one_coherent_cache_backed_tuple();
