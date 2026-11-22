@@ -511,7 +511,7 @@ sdns_enable=0
 sdns_port=6053
 action=stop
 Change_dnsmasq stop || fail "alternate-port SmartDNS upstream cleanup failed"
-Change_adbyby || fail "alternate-port SmartDNS DNS ownership restoration failed"
+[ "$hosts_type" = dnsmasq ] || fail "alternate-port SmartDNS stop changed the DNSMasq owner"
 ! grep -Fxq 'no-resolv' "$dnsmasq_Conf" ||
     fail "alternate-port SmartDNS left no-resolv after stop"
 ! grep -Fxq 'server=127.0.0.1#6053' "$dnsmasq_Conf" ||
@@ -529,6 +529,9 @@ smartdns_dnsmasq_publish_managed_block "$dnsmasq_Conf" port=0 ||
     fail "could not install SmartDNS port-53 ownership marker"
 smartdns_state_saved=1
 smartdns_state_version=managed-v1
+NVRAM_READ_FAIL_KEY=
+NVRAM_READ_STATUS=0
+NVRAM_SET_STATUS=0
 NVRAM_ADDBYBY_VALUE=1
 sdns_redirected=0
 sdns_ported=53
@@ -540,7 +543,7 @@ hosts_type=SmartDNS
 action=stop
 Change_dnsmasq stop || fail "SmartDNS -> DNSMasq resolver restoration failed"
 Change_adbyby || fail "SmartDNS -> DNSMasq Adbyby target transition failed"
-[ "$hosts_type" = dnsmasq ] || fail "SmartDNS -> DNSMasq transition did not update hosts_type"
+[ "$hosts_type" = dnsmasq ] || fail "SmartDNS -> DNSMasq transition did not update hosts_type (value=$hosts_type, adbyby_add=$NVRAM_ADDBYBY_VALUE, set_status=$NVRAM_SET_STATUS, read_fail=$NVRAM_READ_FAIL_KEY)"
 [ "$NVRAM_ADDBYBY_VALUE" = 0 ] || fail "SmartDNS -> DNSMasq transition did not persist adbyby_add=0"
 ! grep -Fxq 'port=0' "$dnsmasq_Conf" ||
     fail "SmartDNS port=0 override remained after returning ownership to DNSMasq"

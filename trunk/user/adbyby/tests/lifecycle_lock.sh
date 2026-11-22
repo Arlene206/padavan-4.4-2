@@ -4,6 +4,8 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 source_file="$repo_root/trunk/user/adbyby/adbyby.sh"
 test_root=$(mktemp -d /tmp/adbyby-lifecycle.XXXXXX)
+ADBYBY_DNSMASQ_AD_DIR="$test_root/dnsmasq-adbyby.d"
+export ADBYBY_DNSMASQ_AD_DIR
 trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 policy_file="$test_root/policy.sh"
 awk '
@@ -179,8 +181,8 @@ awk '
 ' "$source_file" > "$del_dns_file"
 [ -s "$del_dns_file" ] || fail "could not extract del_dns"
 (
+    ADBYBY_DNSMASQ_AD_DIR="$test_root/dnsmasq-adbyby.d"
     . "$del_dns_file"
-    ADBYBY_DNSMASQ_AD_DIR=/etc/storage/dnsmasq-adbyby.d
     events="$test_root/del-dns-events"
     fail_stages=""
     fail() { echo "Adbyby del_dns regression: FAIL: $*" >&2; exit 1; }
