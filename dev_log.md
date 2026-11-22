@@ -1,3 +1,12 @@
+## 2026-11-22 — Check manual interface only when get_wan_ip4 selects it
+
+- Parent main SHA: `616d5a710acdf727a8f110052289c1d63d966a9d`. Exact WAN DHCP #44996346231 PASS and AI handoff #44996346193 PASS; prior WAN route #44996213814 PASS.
+- Found the remaining `nvram_safe_get()` loss path in `get_wan_ip4()`: it read `get_man_ifname()` before modem/PPP overrides. Backend/read/close errors could be mistaken for an empty interface; moreover manual `ifname` was fetched even when a modem/PPP interface won.
+- Changed interface selection to check `ifname_t`, modem identity and protocol first, retaining modem/PPP overrides. Only when no override is selected does it now perform checked `get_wan_unit_value_copy_status(..., "ifname", ...)`, validate via `wan_ifname_copy()`, and preserve read/validation failure in `errno` before returning the existing `INADDR_ANY` sentinel.
+- Updated `scripts/check_wan_dns_read_status.py` to require manual fallback read/validation after modem/protocol selection and before address lookup, while preserving the cache-overwrite regression.
+- Exact-head WAN route/DHCP for this product-source SHA are pending. No MIPS build, TRX, artifact or hardware validation is claimed.
+
+---
 ## 2026-11-22 — Normalize WAN manual-fallback checker ordering
 
 - Parent main SHA: `ecfdafb0e348bcec466d4372400f5a2c87f02006`. Exact ecfd WAN route #44996213814 PASS; AI handoff docs #44996213622 PASS. WAN DHCP callback #44996213685 failed after its GNU89/ASan/UBSan `wan_ifname_policy.c` executable and basic bounds regression both passed.

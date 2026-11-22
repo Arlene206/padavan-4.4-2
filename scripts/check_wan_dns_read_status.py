@@ -503,14 +503,32 @@ require("get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifn
 assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ifname
 
 wan_ip4 = "".join(body(source, "get_wan_ip4(int only_broadband_wan)").split())
-require("rc_wan_nvram_copy_text(man_ifname_value,man_ifname,sizeof(man_ifname))" in wan_ip4 and
-        "get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ip4,
-        "WAN IP lookup must copy cache-backed interface names before later NVRAM reads")
+require("ifname=NULL" in wan_ip4 and
+        "get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ip4 and
+        "if(ifname==NULL)" in wan_ip4 and
+        "get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))" in wan_ip4 and
+        "wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)" in wan_ip4 and
+        "ifname=man_ifname" in wan_ip4 and
+        "get_man_ifname(unit)" not in wan_ip4 and
+        "man_ifname_value" not in wan_ip4,
+        "WAN IP lookup must read and validate manual interface only after modem/PPP selection")
 require("if(status!=0)returnINADDR_ANY" in wan_ip4 and
         "status=get_usb_modem_wan_status(unit,&is_usb_modem)" in wan_ip4 and
         "if(!only_broadband_wan&&is_usb_modem)" in wan_ip4,
         "WAN IP lookup must fail closed on modem identity errors")
 assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ip4
+ip4_modem_select_at = wan_ip4.index("if(!only_broadband_wan&&is_usb_modem)")
+ip4_proto_read_at = wan_ip4.index("status=get_wan_unit_proto_checked_status(unit,&wan_proto)")
+ip4_manual_gate_at = wan_ip4.index("if(ifname==NULL)")
+ip4_manual_read_at = wan_ip4.index("get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))")
+ip4_manual_copy_at = wan_ip4.index("wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)")
+ip4_manual_assign_at = wan_ip4.index("ifname=man_ifname")
+ip4_addr_lookup_at = wan_ip4.index("returnget_interface_addr4(ifname)")
+require(ip4_modem_select_at < ip4_manual_gate_at < ip4_manual_read_at <
+        ip4_manual_copy_at < ip4_manual_assign_at < ip4_addr_lookup_at and
+        ip4_proto_read_at < ip4_manual_gate_at and
+        "errno=status" in wan_ip4,
+        "WAN IP lookup must select modem/PPP before checked manual fallback and preserve read errors")
 require("test_wan_interface_names_survive_shared_cache_overwrite" in test,
         "WAN interface-name cache overwrite regression missing")
 

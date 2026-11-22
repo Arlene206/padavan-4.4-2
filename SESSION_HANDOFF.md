@@ -6,13 +6,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, using complete atomic Git trees/commits and non-forced expected-SHA updates.
-- Parent before current checker fix: `ecfdafb0e348bcec466d4372400f5a2c87f02006`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- P1 WAN startup and manual-interface selection use checked `wan0_ifname` reads, strict token validation and status/errno propagation. The manual interface read occurs only after modem/PPP override selection.
-- Exact dc6 WAN DHCP #44996098158 PASS, WAN route #44996098107 failed on an obsolete getter assertion, and XY-C1 #44996098229 was running Build XY-C1 at last poll. Checker update ecfd corrected the stale getter contract, but its WAN DHCP #44996213685 exposed one further test-only offset comparison bug; WAN route #44996213814 and AI docs #44996213622 PASS.
-- The ecfd WAN DHCP failure was at `check_wan_ifname_bounds.py:51`: the checker compared offsets from raw and compacted strings. This slice fixes those positions to use one normalized string and strengthens the manual-fallback order/error assertions.
-- Other exact dc6 suites: DNSMasq #44996098138, router-mode NVRAM #44996098349, Process inventory #44996098133, USB modem #44996098207, WAN ARP #44996098239, IPv6 #44996098180, WAN teardown #44996098259, ZeroTier #44996098240, detect_link #44996098169, AI docs #44996098288, VPN #44996098214, watchdog #44996098219, wireless #44996098165 and Firewall #44996098149 PASS. Some NVRAM transaction/HTTPD/miniupnpd/detect_internet runs were still pending at last poll.
-- No local full MIPS toolchain or hardware. L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on the identical product-source SHA; L4 remains NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
+- Current product/checker parent before this slice: `616d5a710acdf727a8f110052289c1d63d966a9d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- WAN checked-interface source fixes: `start_wan()` and `get_wan_ifname()` use checked bounded `wan0_ifname` reads and token validation only when manual interface is selected; modem/PPP overrides do not acquire an unrelated manual-interface dependency.
+- Exact ecf WAN route #44996213814 PASS and AI docs #44996213622 PASS. Exact 616 WAN DHCP #44996346231 PASS and AI docs #44996346193 PASS; the raw-vs-compact checker index defect is fixed.
+- `get_wan_ip4()` still eagerly called `get_man_ifname()`/`nvram_safe_get()` before modem/PPP selection. A transient NVRAM error could become an empty interface and `INADDR_ANY` without preserving the backend error; it also unnecessarily depended on manual `ifname` for active modem/PPP. This slice defers checked manual read/token validation until no modem/PPP override is selected, and sets `errno` before returning the existing `INADDR_ANY` failure sentinel.
+- Exact 2b XY-C1 #44995928841 completed host-only with Build/TRX/artifact skipped. Exact dc6 XY-C1 #44996098229 had not produced a verified final result at last poll. No L3 claim until Build XY-C1, TRX and artifact all execute/pass on identical product-source SHA.
+- No local full MIPS toolchain or hardware. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -33,19 +33,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Product source in `dc6f6b4` closes the lossy manual-interface read in `get_wan_ifname()`. It reads and validates `wan0_ifname` only when modem/PPP selection leaves the manual fallback active.
-- WAN route source contract now passes on exact ecfd (#44996213814). WAN DHCP C policy binary passed, but `check_wan_ifname_bounds.py:51` failed because it compared a gate offset from raw source with read/copy offsets from compacted source.
-- This checker-only slice measures all offsets in `wan_get_compact`, verifies modem/protocol selection precedes fallback, and requires read and validation error branches before the final copy.
+- `start_wan()` and `get_wan_ifname()` checked manual-interface read fixes are complete; exact 616 WAN DHCP #44996346231 and AI handoff #44996346193 PASS. Prior exact WAN route #44996213814 PASS.
+- Current source task removes the remaining lossy manual-interface lookup in `get_wan_ip4()`: select checked modem/PPP overrides first, read/validate `wan0_ifname` only if no override is selected, preserve actual read/validation error in `errno` while keeping `INADDR_ANY` return semantics.
+- `scripts/check_wan_dns_read_status.py` asserts checked fallback, validation and that modem/protocol selection precedes the read.
 
 ## Verification boundary
 
-- Exact ecfd WAN route #44996213814 PASS and AI handoff docs #44996213622 PASS. Exact ecfd WAN DHCP #44996213685 FAILED at the mixed-string-offset assertion `manual_ifname_gate_at < manual_ifname_read_at < manual_ifname_copy_at < final_ifname_copy_at`. The same run shows `wan_ifname_policy.c` GNU89/ASan/UBSan and the standalone interface-name bounds regression passed before the Python source checker failed.
-- Exact dc6 product-source XY-C1 #44996098229 was in progress with Build XY-C1 running; TRX verification and artifact upload were pending at last poll. The ecfd/next checker commits are test/docs-only and do not create a new product firmware source SHA.
-- No local MIPS build or hardware test. L3/L4 remain unverified.
+- Exact 616 WAN DHCP #44996346231 PASS and AI handoff #44996346193 PASS; exact ecf WAN route #44996213814 PASS.
+- This `get_wan_ip4()` source change has not run exact-head Actions yet; WAN route and WAN DHCP must pass on the new source SHA.
+- No identical-SHA Build XY-C1/TRX/artifact result is established; L3 unverified. No hardware test; L4 unverified.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN DHCP and WAN route Actions for this same-normalized-offset checker fix; ensure the policy binary, bounds regression and all source contracts pass.
-2. Poll XY-C1 #44996098229 for the dc6 product-source SHA. Confirm Build XY-C1, TRX verification and artifact upload actually execute and pass on that identical SHA.
-3. Poll the previously pending NVRAM transaction, HTTPD, miniupnpd and detect_internet workflows for dc6; diagnose their first failures if any.
-4. Continue P1 WAN result-propagation or another independent whole-userland stability/security fix. Keep the backup read-only; hardware L4 unverified.
+1. Check exact-head WAN route/DHCP after the `get_wan_ip4()` checked-fallback change; correct concrete failures without weakening assertions.
+2. Verify checked modem/PPP selection precedes manual fallback read; GNU89/ASan/UBSan interface and NVRAM status tests must pass.
+3. Confirm Build XY-C1, TRX verification and artifact upload execute and pass on one identical product-source SHA before claiming L3.
+4. Continue WAN state-transition reliability review; keep backup read-only and hardware L4 unverified.

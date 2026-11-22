@@ -6788,23 +6788,19 @@ get_wan_ip4(int only_broadband_wan)
 {
 	int unit = 0;
 	int status, is_ap_mode, is_usb_modem = 0, wan_proto;
-	char man_ifname[16], ifname_temp[16];
-	char *man_ifname_value;
-	const char *ifname = man_ifname;
+	char man_ifname[16], man_ifname_nvram[16], ifname_temp[16];
+	const char *ifname = NULL;
 
 	status = get_ap_mode_status(&is_ap_mode);
 	if (status != 0 || is_ap_mode)
 		return INADDR_ANY;
 
-	man_ifname_value = get_man_ifname(unit);
-	status = rc_wan_nvram_copy_text(man_ifname_value, man_ifname,
-					 sizeof(man_ifname));
-	if (status != 0)
-		return INADDR_ANY;
 	status = get_wan_unit_value_copy_status(unit, "ifname_t",
 					       ifname_temp, sizeof(ifname_temp));
-	if (status != 0)
+	if (status != 0) {
+		errno = status;
 		return INADDR_ANY;
+	}
 
 	if (!only_broadband_wan) {
 		status = get_usb_modem_wan_status(unit, &is_usb_modem);
@@ -6829,6 +6825,28 @@ get_wan_ip4(int only_broadband_wan)
 			else
 				ifname = IFNAME_PPP;
 		}
+	}
+
+	/*
+	 * A modem or PPP interface overrides the configured manual interface.
+	 * Only read wan0_ifname when that fallback is actually selected; a
+	 * nvram_safe_get()-backed getter would hide backend errors as an empty
+	 * interface and can make callers mistake a read failure for no WAN IP.
+	 */
+	if (ifname == NULL) {
+		status = get_wan_unit_value_copy_status(
+			unit, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+		if (status != 0) {
+			errno = status;
+			return INADDR_ANY;
+		}
+		status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (status != 0) {
+			errno = status;
+			return INADDR_ANY;
+		}
+		ifname = man_ifname;
 	}
 
 	return get_interface_addr4(ifname);
