@@ -873,7 +873,7 @@ reset_man_vars(void)
  * transaction-close error must not silently turn a configured endpoint into
  * four empty defaults.
  */
-static int
+int
 get_wan_unit_proto_checked_status(int unit, int *wan_proto)
 {
 	char proto_text[32];
@@ -5523,7 +5523,7 @@ int
 manual_wan_disconnect(void)
 {
 	int wan_proto, status, is_ndis_modem = 0;
-	int is_ap_mode, ap_mode_status;
+	int is_ap_mode, ap_mode_status, is_usb_modem;
 
 	logmessage(LOGNAME, "Perform WAN %s %s", "manual", "disconnect");
 	ap_mode_status = get_ap_mode_status(&is_ap_mode);
@@ -5535,8 +5535,20 @@ manual_wan_disconnect(void)
 	}
 	if (is_ap_mode)
 		return 0;
-	wan_proto = get_wan_proto(0);
-	if (get_usb_modem_wan(0)) {
+
+	is_usb_modem = get_usb_modem_wan(0);
+	if (!is_usb_modem) {
+		status = get_wan_unit_proto_checked_status(0, &wan_proto);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "refusing manual WAN disconnect because configured protocol cannot be read (status=%d)",
+				   status);
+			errno = status;
+			return status;
+		}
+	}
+
+	if (is_usb_modem) {
 		status = get_wan_modem_is_ndis_status(&is_ndis_modem);
 		if (status != 0) {
 			logmessage(LOGNAME,

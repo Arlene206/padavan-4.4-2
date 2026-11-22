@@ -83,6 +83,20 @@ text_reader = body(net_ppp,
     "ppp_wan_option_read_text(void *context, const char *param_name,")
 require("get_wan_unit_value_copy_status(*unit, param_name" in text_reader and
         "errno = status" in text_reader, "PPP string callback must preserve status")
+l2tp_daemon = body(net_ppp, "safe_start_xl2tpd_locked(void)")
+l2tp_proto_read = "get_wan_unit_proto_checked_status(unit, &wan_proto)"
+l2tp_error_gate = l2tp_daemon.find("if (wan_value_status != 0)")
+l2tp_error_return = l2tp_daemon.find("return -1;", l2tp_error_gate)
+l2tp_config_open = l2tp_daemon.find('fopen(l2tp_conf, "w")')
+require(l2tp_proto_read in l2tp_daemon and
+        "int unit, wan_proto;" in l2tp_daemon and
+        l2tp_error_gate > l2tp_daemon.index(l2tp_proto_read) and
+        l2tp_error_gate < l2tp_error_return < l2tp_config_open and
+        "errno = saved_errno;" in l2tp_daemon[l2tp_error_gate:l2tp_error_return] and
+        "get_wan_proto(unit)" not in l2tp_daemon,
+        "xl2tpd must preserve protocol read errors before replacing its configuration")
+require("int get_wan_unit_proto_checked_status(int unit, int *wan_proto);" in rc_header,
+        "checked WAN protocol reader must be exported for PPP consumers")
 peer_copy = body(net_ppp,
     "get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)")
 require('get_wan_unit_value_copy_status(unit, "ppp_peer"' in peer_copy and

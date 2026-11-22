@@ -1,3 +1,14 @@
+## 2026-11-22 08:10 CST — Fail closed on WAN protocol errors in disconnect and xl2tpd setup
+
+- Parent main SHA: `bbc0dad3aa568ed4885e96cd6022b501fad6f609`.
+- Continued the shared `get_wan_proto()` audit. Two concrete error fallthroughs remained: `manual_wan_disconnect()` mapped a failed non-modem protocol read to generic `stop_wan()`; `safe_start_xl2tpd_locked()` mapped an unreadable protocol to “not L2TP” and could rewrite `xl2tpd.conf` without the active WAN LAC section.
+- THIS source commit exports the existing bounded checked protocol mapper through `rc.h`; manual disconnect checks protocol only for non-USB WANs and retains USB modem shutdown selected by checked transport type; xl2tpd refuses to rewrite its config on missing, unknown or backend-failed WAN protocol.
+- Extended existing WAN DNS and PPP source contracts to pin error propagation, USB/non-USB selection and the protocol gate before `fopen()` truncates the live config. Workflow push and pull_request filters already include all changed sources/checkers.
+- The preceding MTU-checker repair `bbc0dad3aa568ed4885e96cd6022b501fad6f609` passed WAN route #44965084237 and AI handoff #44965084235. No local full checkout/toolchain is available here; targeted source preflight confirmed branches, prototypes, checker assertions and workflow path coverage. XY-C1 firmware Build/TRX/artifact was not triggered by the checker-only repair.
+- Next: inspect exact-SHA WAN route GNU89/ASan/UBSan and XY-C1 Build/TRX/artifact for THIS source change; continue `get_wan_proto()` audit in `get_wan_ifname()`, `get_wan_ip4()` and `udhcpc_deconfig()`, preserving unconditional lease/route/DNS/conntrack cleanup.
+
+---
+
 ## 2026-11-22 08:07 CST — Update initial-MTU contract for checked WAN protocol acquisition
 
 - Parent main SHA: `f1fc3d9d03ed18b6f432a5b1591b8ce2d4a031ab`.

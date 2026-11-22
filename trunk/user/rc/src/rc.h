@@ -269,6 +269,7 @@ char* get_wan_unit_value(int unit, const char* param_name);
 int  get_wan_unit_value_int(int unit, const char* param_name);
 int get_wan_unit_value_int_status(int unit, const char *param_name,
 				  int *value);
+int get_wan_unit_proto_checked_status(int unit, int *wan_proto);
 int get_wan_unit_value_copy_status(int unit, const char *param_name,
 				   char *destination, size_t destination_size);
 int set_wan_unit_value_status(int unit, const char *param_name, const char *value);

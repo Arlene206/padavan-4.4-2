@@ -302,7 +302,7 @@ int
 safe_start_xl2tpd_locked(void)
 {
 	FILE *fp;
-	int unit;
+	int unit, wan_proto;
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
 	int wan_value_status;
@@ -320,7 +320,21 @@ safe_start_xl2tpd_locked(void)
 	unit = 0; /* todo */
 	use_vpn_server = nvram_match("vpns_enable", "1") &&
 		nvram_match("vpns_type", "1");
-	use_wan_lac = (get_wan_proto(unit) == IPV4_WAN_PROTO_L2TP
+	/*
+	 * A failed protocol read is not proof that the WAN is not L2TP. Refuse
+	 * to replace the daemon configuration rather than silently omitting a
+	 * required WAN access-concentrator section.
+	 */
+	wan_value_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (wan_value_status != 0) {
+		saved_errno = wan_value_status;
+		logmessage(LOGNAME,
+			   "cannot read configured WAN protocol; refusing xl2tpd config update (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	use_wan_lac = (wan_proto == IPV4_WAN_PROTO_L2TP
 #if defined (APP_RPL2TP)
 		&& nvram_invmatch("wan_l2tpd", "1")
 #endif

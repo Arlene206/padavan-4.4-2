@@ -399,6 +399,17 @@ require(stop_locked_compact.index("modem_status=get_wan_modem_is_ndis_status(&is
 assert 'nvram_get_int("modem_type")' not in stop_locked_compact
 
 manual_disconnect = "".join(body(source, "manual_wan_disconnect(void)").split())
+manual_proto_read = "status=get_wan_unit_proto_checked_status(0,&wan_proto);"
+require(manual_proto_read in manual_disconnect and
+        "if(status!=0)" in manual_disconnect and
+        "errno=status" in manual_disconnect and
+        "is_usb_modem=get_usb_modem_wan(0)" in manual_disconnect and
+        manual_disconnect.index("is_usb_modem=get_usb_modem_wan(0)") <
+        manual_disconnect.index("if(!is_usb_modem)") <
+        manual_disconnect.index(manual_proto_read) <
+        manual_disconnect.index("status=stop_wan_ppp()") and
+        "wan_proto=get_wan_proto(0)" not in manual_disconnect,
+        "manual disconnect must check non-modem protocol before selecting WAN stop path")
 require("status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in manual_disconnect and
         "if(status!=0)" in manual_disconnect and
         "errno=status" in manual_disconnect and
