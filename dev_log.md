@@ -1,3 +1,13 @@
+## 2026-11-22 10:07 CST — Align HTTPD firewall boot contract and correct L3 checkpoint
+
+- Parent main SHA: `ac8436355e5081e81737ffa758bd78fc2d73112e`; firewall product-source SHA: `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`.
+- Exact HTTPD auth/security run #44974210716 failed at the embedded firewall boot assertion still requiring the removed unchecked `nvram_match("wan_nat_x", "1")` assignment. The workflow now verifies both checked boot-enable readers, read-before-NAT-restore order, the unreadable-selector regression, and checked WAN-start policy order.
+- Firewall Startup #44974378538 PASS on checker-only descendant `ef20a36`; NVRAM #44974210645, Process inventory #44974210694, AI docs #44974210724 and WAN route #44974210718 PASS on product SHA `e9ef41`. AI handoff #44974465784 PASS on documentation checkpoint `ac843635`.
+- Important L3 correction: XY-C1 #44974378528 on `ef20a36` completed SUCCESS but Build/TRX/artifact were SKIPPED because that push changed only the checker. Product-source run #44974210522 on `e9ef41` remains IN_PROGRESS at Build XY-C1; TRX/artifact are not yet verified.
+- No local checkout/toolchain; local tests were NOT RUN. No L3/L4 claim. THIS commit atomically updates HTTPD workflow contract, handoff, roadmap and this log; exact HTTPD/AI reruns remain pending.
+
+---
+
 ## 2026-11-22 — Firewall boot enable-state hardening and exact-head CI reconciliation
 
 - Production source slice: `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`. PID 1 no longer maps failed reads of `fw_enable_x` or `wan_nat_x` to false; checked status gates `start_wan()`. `ipt_nat_default()` now preflights all applicable NVRAM inputs before creating the restore file. Added GNU89 policy regressions and source-order assertions.
