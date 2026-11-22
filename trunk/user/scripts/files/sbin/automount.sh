@@ -182,16 +182,6 @@ if [ "$ID_FS_TYPE" == "swap" ] ; then
 	# always return !=0 for swap
 	exit 1
 fi
-	[ ! -x /sbin/swapon ] && exit 1
-	if ! awk -v dev="$dev_full" '$1 == dev { found=1 } END { exit !found }' /proc/swaps; then
-		if swapon "$dev_full" ; then
-			logger -t "automount" "Activate swap partition $dev_full SUCCESS!"
-		fi
-	fi
-
-	# always return !=0 for swap
-	exit 1
-fi
 
 dev_label=`printf '%s' "$ID_FS_LABEL" | LC_ALL=C tr -cd 'A-Za-z0-9._-'`
 case "$dev_label" in
