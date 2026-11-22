@@ -718,6 +718,42 @@ run_aria_config_failure "config-write" 9 0
 run_aria_config_failure "config-rename" 0 9
 run_aria_config_failure "rpc-secret-empty" 0 0 ""
 run_aria_config_failure "rpc-secret-newline" 0 0 "$(printf 'test-pass\nrpc-secret=attacker')"
+run_aria_config_migration()
+{
+	migration_root="$TMP_DIR/aria-legacy-rpc"
+	config_dir="$migration_root/config"
+	mkdir -p "$config_dir" "$migration_root/downloads" "$TMP_DIR/Downloads"
+	: > "$config_dir/incomplete.lst"
+	printf '%s\n' 'rpc-listen-all=true' 'rpc-allow-origin-all=true' > "$config_dir/aria2.conf"
+	chmod 644 "$config_dir/aria2.conf"
+	sed -e "s|SVC_PATH=\"/usr/bin/aria2c\"|SVC_PATH=\"$STUB_DIR/aria2c\"|" \
+	    -e "s|DIR_LINK=\"/mnt/aria\"|DIR_LINK=\"$migration_root\"|" \
+	    "$ARIA_SRC" > "$TMP_DIR/aria-legacy-rpc.sh"
+	marker="$migration_root/start-invoked"
+	if ! run_launcher "$TMP_DIR/aria-legacy-rpc.sh" 0 0 0 0 "$marker"; then
+		echo "Aria failed to migrate an existing unauthenticated all-interface RPC config" >&2
+		cat "$LAST_LAUNCH_OUTPUT" >&2 || :
+		exit 1
+	fi
+	grep -qx 'rpc-listen-all=true' "$config_dir/aria2.conf" || {
+		echo "Aria legacy RPC migration changed listener compatibility" >&2
+		exit 1
+	}
+	grep -qx 'rpc-secret=test-pass' "$config_dir/aria2.conf" || {
+		echo "Aria did not add the router web password to the legacy RPC config" >&2
+		exit 1
+	}
+	[ "$(stat -c '%a' "$config_dir/aria2.conf")" = 600 ] || {
+		echo "Migrated Aria RPC config is not mode 0600" >&2
+		exit 1
+	}
+	for tmp_config in "$config_dir"/aria2.conf.rpc-auth.tmp.*; do
+		[ ! -e "$tmp_config" ] || {
+			echo "Aria left a migrated RPC staging file" >&2
+			exit 1
+		}
+	done
+}
 run_aria_config_concurrency()
 {
 	concurrency_root="$TMP_DIR/aria-concurrency"
@@ -770,5 +806,6 @@ run_aria_config_concurrency()
 		}
 	done
 }
+run_aria_config_migration
 run_aria_config_concurrency
 echo "Transmission and Aria startup exit-status regression: PASS"

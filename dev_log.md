@@ -1,3 +1,9 @@
+## 2026-11-22 — Cover existing Aria2 RPC config migration
+
+- Hardened the RPC config classifier so an explicit secret/basic-auth setting is forced to mode 0600 even when the listener is loopback-only; absent listener and missing authentication now remain separate states, while read/grep errors fail closed.
+- Added an executable legacy-config migration test: an existing `rpc-listen-all=true` file with no auth is migrated without losing the listener setting, gains the router-web-password token, is atomically replaced at mode 0600, starts only after migration, and leaves no staging file.
+- Exact-head Actions are still the source of truth for target/host verification.
+
 ## 2026-11-22 — Repair Aria2 RPC hardening shell integration and build triggers
 
 - The first RPC hardening commit exposed a malformed newline at the end of the default-config branch (`umask ...fi`). Fixed the branch delimiter and restored the saved umask on the config-write error path before proceeding.

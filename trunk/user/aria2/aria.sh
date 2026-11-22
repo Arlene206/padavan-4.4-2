@@ -91,14 +91,18 @@ aria_secure_rpc_config()
 		logger -t "$SVC_NAME" "Cannot start: RPC config is not a readable regular file" >/dev/null 2>&1 || true
 		return 1
 	fi
+
+	aria_rpc_listener_all=0
 	if grep -Eq '^[[:space:]]*rpc-listen-all[[:space:]]*=[[:space:]]*true([[:space:]]*(#.*)?)?$' "$FILE_CONF"; then
-		:
+		aria_rpc_listener_all=1
 	else
 		aria_grep_status=$?
-		[ "$aria_grep_status" -eq 1 ] && return 0
-		logger -t "$SVC_NAME" "Cannot inspect RPC listener config (status=$aria_grep_status)" >/dev/null 2>&1 || true
-		return 1
+		[ "$aria_grep_status" -eq 1 ] || {
+			logger -t "$SVC_NAME" "Cannot inspect RPC listener config (status=$aria_grep_status)" >/dev/null 2>&1 || true
+			return 1
+		}
 	fi
+
 	aria_rpc_authenticated=0
 	if grep -Eq '^[[:space:]]*rpc-secret[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF"; then
 		aria_rpc_authenticated=1
@@ -109,11 +113,26 @@ aria_secure_rpc_config()
 			return 1
 		}
 	fi
-	if [ "$aria_rpc_authenticated" -eq 0 ] &&
-	   grep -Eq '^[[:space:]]*rpc-user[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF" &&
-	   grep -Eq '^[[:space:]]*rpc-passwd[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF"; then
-		aria_rpc_authenticated=1
+	if [ "$aria_rpc_authenticated" -eq 0 ]; then
+		if grep -Eq '^[[:space:]]*rpc-user[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF"; then
+			if grep -Eq '^[[:space:]]*rpc-passwd[[:space:]]*=[[:space:]]*[^[:space:]]' "$FILE_CONF"; then
+				aria_rpc_authenticated=1
+			else
+				aria_grep_status=$?
+				[ "$aria_grep_status" -eq 1 ] || {
+					logger -t "$SVC_NAME" "Cannot inspect RPC password config (status=$aria_grep_status)" >/dev/null 2>&1 || true
+					return 1
+				}
+			fi
+		else
+			aria_grep_status=$?
+			[ "$aria_grep_status" -eq 1 ] || {
+				logger -t "$SVC_NAME" "Cannot inspect RPC user config (status=$aria_grep_status)" >/dev/null 2>&1 || true
+				return 1
+			}
+		fi
 	fi
+
 	if [ "$aria_rpc_authenticated" -eq 1 ]; then
 		if ! chmod 600 "$FILE_CONF"; then
 			logger -t "$SVC_NAME" "Cannot start: failed to protect existing RPC credentials" >/dev/null 2>&1 || true
@@ -121,6 +140,10 @@ aria_secure_rpc_config()
 		fi
 		return 0
 	fi
+	if [ "$aria_rpc_listener_all" -eq 0 ]; then
+		return 0
+	fi
+
 	if ! aria_validate_rpc_password; then return 1; fi
 	aria_auth_umask=$(umask)
 	umask 077
@@ -146,7 +169,6 @@ aria_secure_rpc_config()
 	logger -t "$SVC_NAME" "Migrated unauthenticated all-interface RPC config; set AriaNg RPC Secret Token to router web password" >/dev/null 2>&1 || true
 	return 0
 }
-
 func_start()
 {
 	# Resolve the daemon state from both pidof's status and output.
