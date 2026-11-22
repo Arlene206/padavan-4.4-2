@@ -3100,6 +3100,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 	int snapshot_status, nvram_status;
 #if defined (USE_IPV6)
 	int ipv6_type_status, ipv6_is_sit;
+	int ipv6_if_status, ipv6_is_ppp;
 #endif
 	char man_addr_storage[16], man_mask_storage[16], lan_addr[16], lan_mask[16];
 	char *man_addr = man_addr_storage, *man_mask = man_mask_storage;
@@ -3220,12 +3221,20 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		logmessage(LOGNAME,
 			   "cannot determine WAN IPv6 transport for %s (status=%d)",
 			   man_ifname, ipv6_type_status);
-	} else if (ipv6_is_sit == 0 && !is_wan_ipv6_if_ppp()) {
-		int ipv6_status = wan6_up(man_ifname, unit);
-		if (ipv6_status != 0)
-			logmessage(LOGNAME, "WAN physical IPv6 setup incomplete on %s (status=%d)",
-				   man_ifname, ipv6_status);
-		launch_status = route_status_accumulate(launch_status, ipv6_status);
+	} else if (ipv6_is_sit == 0) {
+		ipv6_if_status = is_wan_ipv6_if_ppp_status(&ipv6_is_ppp);
+		if (ipv6_if_status != 0) {
+			launch_status = route_status_accumulate(launch_status, ipv6_if_status);
+			logmessage(LOGNAME,
+				   "cannot determine WAN IPv6 PPP interface selection for %s (status=%d)",
+				   man_ifname, ipv6_if_status);
+		} else if (!ipv6_is_ppp) {
+			int ipv6_status = wan6_up(man_ifname, unit);
+			if (ipv6_status != 0)
+				logmessage(LOGNAME, "WAN physical IPv6 setup incomplete on %s (status=%d)",
+					   man_ifname, ipv6_status);
+			launch_status = route_status_accumulate(launch_status, ipv6_status);
+		}
 	}
 #endif
 

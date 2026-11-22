@@ -390,6 +390,7 @@ int is_wan_ipv6_type_sit(void);
 int is_wan_dns6_static_status(int *is_static);
 int is_wan_addr6_static_status(int *is_static);
 int is_wan_ipv6_type_sit_status(int *is_sit);
+int is_wan_ipv6_if_ppp_status(int *is_ppp);
 int is_wan_ipv6_if_ppp(void);
 int  store_wan_dns6(char *dns6_new);
 int reset_wan6_vars(void);

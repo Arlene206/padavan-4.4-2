@@ -364,3 +364,26 @@ assert "control_if_ipv6_privacy(wan_ifname, privacy_enabled)" in native_body
 assert "control_if_ipv6_autoconf(wan_ifname, allow_ra)" in native_body
 assert "test_checked_string_match_requires_an_exact_value();" in nvram_test_source
 assert "test_checked_string_match_preserves_backend_errors();" in nvram_test_source
+ 
+# PPP/non-PPP WAN interface selection is a status-bearing NVRAM input.
+nvram_policy = (ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
+nvram_status_test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+ppp_status_body = body(source, "is_wan_ipv6_if_ppp_status(int *is_ppp)")
+ppp_wrapper_body = body(source, "is_wan_ipv6_if_ppp(void)")
+ppp_policy_body = body(nvram_policy, "rc_wan_nvram_ipv6_if_ppp_status(int api_result, int saved_errno,")
+ppp_launch_body = body(wan_source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+assert "nvram_get_checked(\"ip6_wan_if\", &value)" in ppp_status_body
+assert "rc_wan_nvram_ipv6_if_ppp_status(" in ppp_status_body
+assert "rc_wan_nvram_read_int_status(" in ppp_policy_body
+assert "*is_ppp = -1;" in ppp_policy_body
+assert "*is_ppp = (mode == 0);" in ppp_policy_body
+assert "status = is_wan_ipv6_if_ppp_status(&is_ppp);" in ppp_wrapper_body
+assert "return 1;" in ppp_wrapper_body
+assert "int is_wan_ipv6_if_ppp_status(int *is_ppp);" in header
+assert "is_wan_ipv6_if_ppp_status(&ipv6_is_ppp)" in ppp_launch_body
+assert "if (ipv6_if_status != 0)" in ppp_launch_body
+assert "route_status_accumulate(launch_status, ipv6_if_status)" in ppp_launch_body
+assert "else if (!ipv6_is_ppp)" in ppp_launch_body
+assert "is_wan_ipv6_if_ppp()" not in ppp_launch_body
+assert "test_ipv6_if_ppp_status_preserves_missing_default_and_errors" in nvram_status_test
+assert "test_ipv6_if_ppp_status_preserves_missing_default_and_errors();" in nvram_status_test

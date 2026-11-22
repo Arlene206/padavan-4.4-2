@@ -1734,6 +1734,31 @@ test_lan_boot_runtime_snapshot_stops_at_each_failed_write(void)
 
 
 static void
+test_ipv6_if_ppp_status_preserves_missing_default_and_errors(void)
+{
+	int is_ppp = 77;
+
+	assert(rc_wan_nvram_ipv6_if_ppp_status(0, 0, NULL, &is_ppp) == 0);
+	assert(is_ppp == 1); /* Missing key keeps the legacy zero/PPP default. */
+	is_ppp = 77;
+	assert(rc_wan_nvram_ipv6_if_ppp_status(1, 0, "0", &is_ppp) == 0);
+	assert(is_ppp == 1);
+	is_ppp = 77;
+	assert(rc_wan_nvram_ipv6_if_ppp_status(1, 0, "1", &is_ppp) == 0);
+	assert(is_ppp == 0);
+	is_ppp = 77;
+	assert(rc_wan_nvram_ipv6_if_ppp_status(-1, EACCES, NULL, &is_ppp) == EACCES);
+	assert(is_ppp == -1);
+	is_ppp = 77;
+	assert(rc_wan_nvram_ipv6_if_ppp_status(-1, 0, NULL, &is_ppp) == EIO);
+	assert(is_ppp == -1);
+	is_ppp = 77;
+	assert(rc_wan_nvram_ipv6_if_ppp_status(1, 0, "invalid", &is_ppp) == EINVAL);
+	assert(is_ppp == -1);
+	assert(rc_wan_nvram_ipv6_if_ppp_status(1, 0, "1", NULL) == EINVAL);
+}
+
+static void
 test_checked_integer_read_preserves_missing_default(void)
 {
 	int value = 91;
@@ -2067,6 +2092,7 @@ main(void)
 	test_checked_integer_range_preserves_valid_values_and_legacy_fallback();
 	test_checked_integer_range_preserves_read_errors_and_output();
 	test_checked_integer_read_preserves_missing_default();
+	test_ipv6_if_ppp_status_preserves_missing_default_and_errors();
 	test_checked_integer_read_accepts_complete_decimal_values();
 	test_checked_integer_read_rejects_malformed_and_overflow_values();
 	test_checked_integer_read_propagates_backend_errors();

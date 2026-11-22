@@ -1,3 +1,12 @@
+## 2026-11-22 — Propagate DHCPv6 PPP interface selector read errors
+
+- Parent main SHA: 54a8ea07bc4e7ca77750392863c774d566e74675. `is_wan_ipv6_if_ppp()` used `nvram_get_int("ip6_wan_if")`; an NVRAM backend fault collapsed to the legacy zero/PPP result. The MAN WAN startup callsite then skipped physical `wan6_up()`, silently losing native/SIT IPv6 activation.
+- Added `is_wan_ipv6_if_ppp_status()` backed by `nvram_get_checked()` and a testable policy helper. Missing `ip6_wan_if` still maps to zero/PPP; malformed and backend errors remain distinct. The old boolean compatibility wrapper conservatively returns PPP on unknown state.
+- `launch_wanx()` now consumes the status API and aggregates/logs read errors before deciding whether to skip PPP IPv6 or activate physical IPv6. Added and registered GNU89 regressions for missing key, 0/1 values, backend errors, malformed values and invalid output.
+- Extended both WAN IPv6 source contracts to pin checked reads, compatibility fallback and first-error propagation. Exact-head host/Actions validation must still be performed; connector workflow-run lookup is PR-triggered only and push check runs are not exposed, so no CI PASS is claimed.
+- Next task: audit `start_sit_tunnel()` endpoint/relay/6rd size/MTU/TTL reads for error-collapsing getters before SIT tunnel creation.
+
+---
 ## 2026-11-22 — Check native DHCPv6 RA/privacy selectors before startup
 
 - Parent main SHA: c57d7501d031dba065e01bc3084733971d606368. `wan6_up()` used `nvram_invmatch("ip6_wan_dhcp", "1")` and `nvram_match("ip6_wan_priv", "1")` after stopping the previous DHCPv6 client and beginning runtime setup. An NVRAM fault could be treated as a normal non-`1` value and incorrectly enable RA/autoconfiguration or alter privacy behavior.

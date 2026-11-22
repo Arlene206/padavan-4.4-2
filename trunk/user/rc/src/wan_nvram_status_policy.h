@@ -153,6 +153,28 @@ rc_wan_nvram_read_int_status(int api_result, int saved_errno,
 }
 
 /*
+ * The WAN IPv6 interface selector defaults to zero (PPP) when absent.
+ * Preserve that default while keeping malformed/backend failures distinct.
+ */
+static inline int
+rc_wan_nvram_ipv6_if_ppp_status(int api_result, int saved_errno,
+				const char *text, int *is_ppp)
+{
+	int mode = 0;
+	int status;
+
+	if (!is_ppp)
+		return EINVAL;
+	*is_ppp = -1;
+	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+					      text, 0, &mode);
+	if (status != 0)
+		return status;
+	*is_ppp = (mode == 0);
+	return 0;
+}
+
+/*
  * Normalize a successfully read integer setting to its supported domain.
  * Read errors are returned unchanged; only readable out-of-range values use
  * the caller's historical fallback.

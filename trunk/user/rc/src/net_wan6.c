@@ -457,12 +457,33 @@ is_wan_ipv6_type_sit(void)
 	return is_sit;
 }
 
+int
+is_wan_ipv6_if_ppp_status(int *is_ppp)
+{
+	char *value = NULL;
+	int api_result, saved_errno;
+
+	if (!is_ppp)
+		return EINVAL;
+	*is_ppp = -1;
+	errno = 0;
+	api_result = nvram_get_checked("ip6_wan_if", &value);
+	saved_errno = errno;
+	return rc_wan_nvram_ipv6_if_ppp_status(
+		api_result, saved_errno, value, is_ppp);
+}
+
+/* Compatibility wrapper: unknown interface identity is treated as PPP. */
 int is_wan_ipv6_if_ppp(void)
 {
-	if (nvram_get_int("ip6_wan_if") == 0)
-		return 1;
+	int is_ppp = 1;
+	int status = is_wan_ipv6_if_ppp_status(&is_ppp);
 
-	return 0;
+	if (status != 0) {
+		errno = status;
+		return 1;
+	}
+	return is_ppp;
 }
 
 #define WAN6_6RD_SNAPSHOT_COUNT 3

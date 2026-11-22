@@ -1127,3 +1127,30 @@ assert "control_if_ipv6_privacy(wan_ifname, privacy_enabled)" in native_body
 assert "control_if_ipv6_autoconf(wan_ifname, allow_ra)" in native_body
 assert "test_checked_string_match_requires_an_exact_value();" in nvram_test_source
 assert "test_checked_string_match_preserves_backend_errors();" in nvram_test_source
+ 
+# WAN IPv6 PPP interface classification must preserve missing defaults and surface read failures.
+wan6_ppp_source = wan6_source
+ppp_status_body = body(wan6_ppp_source, "is_wan_ipv6_if_ppp_status(int *is_ppp)")
+ppp_wrapper_body = body(wan6_ppp_source, "is_wan_ipv6_if_ppp(void)")
+ppp_policy_body = body(policy, "rc_wan_nvram_ipv6_if_ppp_status(int api_result, int saved_errno,")
+ppp_launch_body = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+for token in ("nvram_get_checked(\"ip6_wan_if\", &value)", "rc_wan_nvram_ipv6_if_ppp_status(", "saved_errno = errno"):
+    require(token in ppp_status_body, "WAN IPv6 PPP selector must use checked NVRAM: " + token)
+for token in ("rc_wan_nvram_read_int_status(", "*is_ppp = -1;", "*is_ppp = (mode == 0);"):
+    require(token in ppp_policy_body, "WAN IPv6 PPP selector policy must preserve missing/default and error states: " + token)
+require("status = is_wan_ipv6_if_ppp_status(&is_ppp);" in ppp_wrapper_body and
+        "return 1;" in ppp_wrapper_body,
+        "legacy PPP predicate must conservatively retain the PPP default on unknown state")
+require("int is_wan_ipv6_if_ppp_status(int *is_ppp);" in rc_header,
+        "status-bearing WAN IPv6 PPP predicate must be declared")
+require("is_wan_ipv6_if_ppp_status(&ipv6_is_ppp)" in ppp_launch_body and
+        "if (ipv6_if_status != 0)" in ppp_launch_body and
+        "route_status_accumulate(launch_status, ipv6_if_status)" in ppp_launch_body and
+        "else if (!ipv6_is_ppp)" in ppp_launch_body,
+        "WAN startup must propagate PPP selector errors instead of treating them as PPP")
+require("is_wan_ipv6_if_ppp()" not in ppp_launch_body,
+        "WAN startup must not use the error-collapsing compatibility wrapper")
+ppp_regression = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+require("test_ipv6_if_ppp_status_preserves_missing_default_and_errors" in ppp_regression and
+        "test_ipv6_if_ppp_status_preserves_missing_default_and_errors();" in ppp_regression,
+        "WAN IPv6 PPP selector missing-default/backend-error regression must be registered")
