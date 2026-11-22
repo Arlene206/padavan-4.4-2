@@ -246,9 +246,7 @@ assert "get_ipv6_type()" not in wan_udhcpc
 
 
 openvpn_server_conf = function_body(openvpn, "openvpn_create_server_conf(")
-server_protocol_gate = openvpn_server_conf.index(
-    'openvpn_resolve_protocol_family(&i_prot, "server configuration")'
-)
+server_protocol_gate = openvpn_server_conf.index("openvpn_resolve_protocol_family(")
 server_protocol_error = openvpn_server_conf.index("if (protocol_status != 0)", server_protocol_gate)
 server_protocol_return = openvpn_server_conf.index("return 1;", server_protocol_error)
 server_config_stage = openvpn_server_conf.index("openvpn_config_file_open(", server_protocol_return)
@@ -256,9 +254,7 @@ assert server_protocol_gate < server_protocol_error < server_protocol_return < s
 assert "get_ipv6_type()" not in openvpn_server_conf
 
 openvpn_client_conf = function_body(openvpn, "openvpn_create_client_conf(")
-client_protocol_gate = openvpn_client_conf.index(
-    'openvpn_resolve_protocol_family(&i_prot, "client configuration")'
-)
+client_protocol_gate = openvpn_client_conf.index("openvpn_resolve_protocol_family(")
 client_protocol_error = openvpn_client_conf.index("if (protocol_status != 0)", client_protocol_gate)
 client_protocol_return = openvpn_client_conf.index("return 1;", client_protocol_error)
 client_secret_publish = openvpn_client_conf.index("openvpn_create_client_secret(", client_protocol_return)
@@ -267,9 +263,7 @@ assert client_protocol_gate < client_protocol_error < client_protocol_return < c
 assert "get_ipv6_type()" not in openvpn_client_conf
 
 openvpn_export = function_body(openvpn, "ovpn_server_expcli_main(")
-export_protocol_gate = openvpn_export.index(
-    'openvpn_resolve_protocol_family(&i_prot, "client profile export")'
-)
+export_protocol_gate = openvpn_export.index("openvpn_resolve_protocol_family(")
 export_protocol_error = openvpn_export.index("if (protocol_status != 0)", export_protocol_gate)
 export_protocol_return = openvpn_export.index("return 1;", export_protocol_error)
 export_previous_remove = openvpn_export.index("unlink(tmp_ovpn_conf)", export_protocol_return)

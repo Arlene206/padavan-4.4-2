@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development and validation target: `main` only.
-- Live main before THIS OpenVPN IPv6 protocol slice: `db34350f72614bb891d62f512beced599cd7c5d2`. Checked IPv6 service reads cover boot/WAN6, LAN/LANv6, firewall, storage FTP/NFS, WAN VLAN/WISP, router hosts and WAN DHCP 6rd.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete it. PR #1 remains closed/unmerged.
-- GitHub Git data API is used for complete-tree commits and expected-SHA updates; no local firmware checkout/toolchain is available.
+- Repository `Arlene206/padavan-4.4-2`; develop and validate on `main` only.
+- Live main before THIS checker-only correction: `71c4a9e9111d70caa62dd45213acb82844eee717`. Product source contains checked IPv6 service-state handling in LAN/LANv6, firewall, FTP/NFS, WAN VLAN/WISP, router hosts, DHCP 6rd and all three OpenVPN protocol-generation paths.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 remains closed/unmerged.
+- GitHub Git data API is the edit/push path; no local firmware checkout/toolchain is available.
 
 ## Completed source slices
 
@@ -28,22 +28,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- THIS slice removes all three lossy service-type reads from `vpn_openvpn.c`: server config, client config and exported client profile generation now share `openvpn_resolve_protocol_family()`, which calls `get_ipv6_type_status()` only when an IPv6 transport is requested.
-- A valid IPv6-disabled setting still selects the existing IPv4 fallback. An NVRAM read/close error returns before config staging, client credential publication, removal of the previous export, temporary export-directory creation or certificate generation; it no longer silently changes an IPv6 request into IPv4.
-- Added pure `openvpn_ipv6_protocol_policy.h` plus a GNU89 ASan/UBSan regression covering EIO/EACCES preservation, disabled UDP/TCP fallback, enabled transport preservation, IPv4 no-read semantics and NULL input.
-- Dedicated IPv6 source checker verifies all three fail-closed call orders and confirms no legacy `get_ipv6_type()` remains in `vpn_openvpn.c`. Added the policy/header/test/source to the IPv6 workflow; VPN lifecycle workflow compiles and runs the focused policy test.
-- Next task: audit the whole Padavan userland for any remaining direct `get_ipv6_type()` use, then move to a separate stability/security issue if the migration is complete.
+1. Fix the two exact-head test-contract failures on OpenVPN source commit `71c4a9e9111d70caa62dd45213acb82844eee717`. Product code, the new GNU89 ASan/UBSan protocol-policy executable and VPN credential staging regression passed their preceding steps.
+2. IPv6 service checker #44990566402 failed because its three source locators required a single-line exact string containing operation text, but C wraps `openvpn_resolve_protocol_family()` over multiple lines. The corrected source locators match the call token, while function scoping and ordering assertions continue to prove fail-closed behavior.
+3. VPN lifecycle checker #44990566379 still demanded the deleted `get_ipv6_type()` fallback in exported-profile endpoint handling. It now requires the checked resolver before endpoint selection and separately checks resolver status propagation plus the pure policy's EIO/EACCES preservation tests. No weakening of dual-stack endpoint fallback ordering.
 
 ## Verification boundary
 
-- Previous main SHA `db34350f72614bb891d62f512beced599cd7c5d2`: IPv6 service-type #44990186172 PASS, VPN server lifecycle #44990186063 PASS, WAN DHCP callback #44990186358 PASS, WAN teardown #44990186114 PASS, Firewall Startup #44990186002 PASS, HTTPD #44990185966 PASS, USB modem #44990185945 PASS, router NVRAM #44990186271 PASS, miniupnpd #44990186168 PASS, detect-internet #44990186254 PASS, DNSMasq #44990186281 PASS, detect-link #44990186417 PASS, watchdog #44990186297 PASS, AI docs #44990186377 PASS, Wireless #44990186268 PASS, ZeroTier #44990185935 PASS and ARP probe #44990186025 PASS.
-- On `db34350f72614bb891d62f512beced599cd7c5d2`, XY-C1 Build #44990186127, NVRAM transaction audit #44990186139, Process inventory #44990186133, Process lifecycle #44990186174 and WAN route #44990186395 were still IN_PROGRESS at last poll; check exact run state after this commit.
-- WAN checker correction `a753477f00b5748533d4d01e2a1d862908c9ba53` exact runs: Firewall Startup #44990126395 PASS, USB modem WDM/NDIS #44990126425 PASS, AI docs #44990126382 PASS. XY-C1 host regressions passed but Build XY-C1, TRX verification and artifact upload were SKIPPED because that was a checker-only commit with no firmware production input changes; this does NOT constitute L3.
-- No local C compile or firmware build is claimed. Current OpenVPN commit Actions are pending. L3 requires Build XY-C1, Verify TRX output and upload-artifact all PASS on the same source SHA; hardware L4 NOT VERIFIED.
+- Exact source SHA `71c4a9e9111d70caa62dd45213acb82844eee717`: IPv6 service-type #44990566402 FAILED only at `Verify checked IPv6 service-type integration`; GNU89 ASan/UBSan service-type C policy test passed. First cause was three whitespace-sensitive single-line source locators.
+- Exact source SHA `71c4a9e9111d70caa62dd45213acb82844eee717`: VPN server lifecycle #44990566379 FAILED only at `Verify VPN lifecycle serialization and caller integration`; new OpenVPN IPv6 policy ASan/UBSan test and preceding lifecycle C tests passed. First cause was the checker retaining the removed legacy IPv6 getter expectation.
+- Same SHA `71c4a9e9111d70caa62dd45213acb82844eee717`: XY-C1 Build #44990566341 IN_PROGRESS at last poll; NVRAM audit #44990566362 PASS; Process inventory #44990566399 PASS; OpenVPN client credential staging #44990566378 PASS; AI docs #44990566350 PASS; HTTPD #44990566325 PASS. Recheck XY after it finishes.
+- No local C compile or firmware build claimed. This correction changes Python assertions and handoff only; exact-head source/VPN workflows must be rerun. L3 requires same-source-SHA Build XY-C1, TRX verification and artifact upload all PASS; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head IPv6 service-type and VPN server lifecycle Actions for THIS OpenVPN source/test commit. Require the ASan/UBSan policy executable and all three source-order checks to pass.
-2. Recheck XY-C1, NVRAM, Process inventory/lifecycle and WAN route for the new SHA. Claim L3 only if Build XY-C1, Verify TRX output and artifact upload all PASS on that same SHA.
-3. Search the full default-branch source for remaining direct `get_ipv6_type()` calls. If any remain, inspect compatibility/read-only versus state-changing context and migrate state-changing callers with regressions; if none remain, choose the next high-priority stability/security defect from the governance ledger.
-4. Hardware L4 remains unverified until real-device flash/boot/runtime checks.
+1. Check exact-head IPv6 and VPN lifecycle Actions for THIS checker-only commit; require both the sanitizer-backed policy test and both Python source contracts to pass.
+2. Recheck XY-C1 for the product source SHA `71c4a9e9111d70caa62dd45213acb82844eee717`; its result does not transfer to later product-source changes.
+3. Scan the full rc/shared C/H source trees for any remaining direct `get_ipv6_type()` call, classify compatibility/read-only wrappers separately, and ensure every state-changing caller uses the checked API.
+4. If migration is complete, select the next high-priority stability/security defect from the governance ledger and implement a bounded regression-backed fix. L3/L4 remain unverified until their explicit gates pass.

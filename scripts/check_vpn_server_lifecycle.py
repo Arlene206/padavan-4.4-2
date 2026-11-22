@@ -1086,9 +1086,24 @@ require("nvram_get_int" not in server_export and
         "nvram_safe_get(" not in server_export and
         "nvram_match" not in server_export,
         "OpenVPN export must not bypass the checked server settings snapshot")
+protocol_resolver=body(vpn_openvpn,"openvpn_resolve_protocol_family(")
+ordered(protocol_resolver,[
+    "get_ipv6_type_status(&ipv6_type)",
+    "openvpn_ipv6_protocol_apply_service_state(",
+    "if (policy_status != 0)",
+    "return policy_status;"
+],"OpenVPN protocol resolver must preserve requested IPv6 transport on service-read failure")
+protocol_policy=read("trunk/user/rc/src/openvpn_ipv6_protocol_policy.h")
+protocol_policy_test=read("trunk/user/rc/src/tests/openvpn_ipv6_protocol_policy.c")
+require("if (service_status != 0)" in protocol_policy and
+        "return service_status;" in protocol_policy and
+        "assert(status == EIO && protocol == 2)" in protocol_policy_test and
+        "assert(status == EACCES && protocol == 3)" in protocol_policy_test,
+        "OpenVPN IPv6 policy must not downgrade transport when the service-state read fails")
 dualstack_endpoint=server_export
 ordered(dualstack_endpoint,[
-    "if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)",
+    "openvpn_resolve_protocol_family(",
+    "wan_addr = get_wan_addr6_host(addr6s);",
     "wan_addr = get_wan_addr6_host(addr6s);",
     "wan_addr = get_lan_addr6_host(addr6s);",
     "if (!wan_addr && i_prot > 3)",

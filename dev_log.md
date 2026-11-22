@@ -1,3 +1,12 @@
+## 2026-11-22 13:47 UTC+8 — Align OpenVPN checks with checked IPv6 protocol selection
+
+- Parent main SHA: `71c4a9e9111d70caa62dd45213acb82844eee717`. IPv6 service run #44990566402 failed only because three Python source locators expected a single-line resolver call; VPN lifecycle #44990566379 failed only because its exported-profile contract still demanded the removed `get_ipv6_type()` fallback. The GNU89 ASan/UBSan policy executable and earlier C lifecycle/credential tests passed in both jobs.
+- Updated `scripts/check_ipv6_service_type_status.py` to locate the multiline resolver call by its function token, preserving per-function error/order assertions.
+- Updated `scripts/check_vpn_server_lifecycle.py` to require the checked resolver before dual-stack endpoint selection and assert checked-read → pure policy → error-return, plus EIO/EACCES preservation tests. Existing VPN workflow already triggers on this checker, so no redundant workflow edit was needed.
+- Exact parent-SHA XY-C1 #44990566341 was IN_PROGRESS at last poll; NVRAM #44990566362, Process inventory #44990566399, credential staging #44990566378, AI docs #44990566350 and HTTPD #44990566325 PASS. This checker-only commit needs its own exact-head actions; it is not a firmware/L3 claim.
+
+---
+
 ## 2026-11-22 13:42 UTC+8 — Fail closed in all OpenVPN IPv6 protocol selection paths
 
 - Parent main SHA: `db34350f72614bb891d62f512beced599cd7c5d2`. Its exact IPv6 service workflow #44990186172 and VPN lifecycle workflow #44990186063 PASS; WAN DHCP callback #44990186358, WAN teardown #44990186114, Firewall Startup #44990186002, HTTPD #44990185966, USB modem #44990185945, router NVRAM #44990186271, miniupnpd #44990186168, DNSMasq #44990186281, watchdog #44990186297, detect-internet #44990186254, detect-link #44990186417, wireless #44990186268, ZeroTier #44990185935, ARP #44990186025 and AI docs #44990186377 also PASS.
