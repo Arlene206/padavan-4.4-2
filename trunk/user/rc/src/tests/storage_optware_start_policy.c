@@ -88,6 +88,22 @@ main(void)
 	assert(!storage_optware_ubi_detach_complete(STORAGE_OPTWARE_STOP_UNKNOWN,
 						  STORAGE_OPTWARE_STOP_ABSENT));
 
-	puts("deferred Optware child-result, retry, fail-closed stop, and UBI detach policy: PASS");
+{
+		int ack_pending = 0;
+
+		assert(storage_optware_ack_state(1, 0, &ack_pending) == 0);
+		assert(ack_pending == 0);
+		assert(storage_optware_ack_state(1, EACCES, &ack_pending) == EACCES);
+		assert(ack_pending == 1);
+		assert(storage_optware_ack_state(1, 0, &ack_pending) == 0);
+		assert(ack_pending == 0);
+		assert(storage_optware_ack_state(1, -1, &ack_pending) == EIO);
+		assert(ack_pending == 1);
+		assert(storage_optware_ack_state(0, EIO, &ack_pending) == 0);
+		assert(ack_pending == 0);
+		assert(storage_optware_ack_state(1, EIO, NULL) == EINVAL);
+	}
+
+	puts("deferred Optware child-result, acknowledgement retry, fail-closed stop, and UBI detach policy: PASS");
 	return 0;
 }

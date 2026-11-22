@@ -95,6 +95,7 @@ spindown_hdd(char *sd_dev)
 }
 
 static int storage_optware_result_fd = -1;
+static int storage_optware_start_ack_pending;
 
 static int create_mp_link_status(char *search_dir, char *link_path,
 				 int force_first_valid);
@@ -300,6 +301,23 @@ storage_read_integer_status(const char *name, int missing_value, int *value)
 	saved_errno = errno;
 	return rc_wan_nvram_read_int_status(api_result, saved_errno,
 					    text, missing_value, value);
+}
+
+static int
+storage_ack_event_marker_status(const char *name)
+{
+	int write_status, saved_errno;
+
+	if (!name || !name[0])
+		return EINVAL;
+	errno = 0;
+	write_status = nvram_set_int_temp(name, 0);
+	saved_errno = errno;
+	if (write_status == 0)
+		return 0;
+	if (saved_errno > 0)
+		return saved_errno;
+	return write_status > 0 ? write_status : EIO;
 }
 
 static int
@@ -4405,6 +4423,7 @@ try_start_stor_apps(void)
 	int need_optware = 0, hotplug_value = 0;
 	int optware_status, optware_error;
 	int hotplug_status, hotplug_error;
+	int marker_status, ack_status;
 	int child_result;
 	int integrated_start_status = 0;
 
@@ -4461,6 +4480,8 @@ try_start_stor_apps(void)
 	}
 
 	child_result = storage_optware_start_result_read();
+	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS)
+		storage_optware_start_ack_pending = 1;
 	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING) {
 		file_unlock(storage_lock);
 		return 1;
@@ -4468,9 +4489,25 @@ try_start_stor_apps(void)
 
 	if (mounted_devices == 0) {
 		/* A complete empty inventory makes any old hotplug request stale. */
-		nvram_set_int_temp("usb_hotplug_ms", 0);
-		nvram_set_int_temp("usb_opt_start", 0);
+		ack_status = storage_ack_event_marker_status("usb_hotplug_ms");
+		if (ack_status != 0)
+			logmessage("Storage",
+				   "cannot acknowledge stale USB storage startup event (status=%d)",
+				   ack_status);
+		marker_status = storage_ack_event_marker_status("usb_opt_start");
+		if (marker_status != 0)
+			logmessage("Storage",
+				   "cannot acknowledge stale Optware startup request (status=%d)",
+				   marker_status);
+		ack_status = rc_first_service_start_status(ack_status, marker_status);
+		marker_status = storage_optware_ack_state(1, marker_status,
+							  &storage_optware_start_ack_pending);
+		ack_status = rc_first_service_start_status(ack_status, marker_status);
 		file_unlock(storage_lock);
+		if (ack_status != 0) {
+			errno = ack_status > 0 ? ack_status : EIO;
+			return -1;
+		}
 		return 0;
 	}
 
@@ -4482,7 +4519,14 @@ try_start_stor_apps(void)
 	if (hotplug_value == 1) {
 		integrated_start_status = start_stor_apps();
 		if (rc_service_start_event_is_complete(integrated_start_status)) {
-			nvram_set_int_temp("usb_hotplug_ms", 0);
+			marker_status = storage_ack_event_marker_status("usb_hotplug_ms");
+			if (marker_status != 0) {
+				logmessage("Storage",
+					   "cannot acknowledge USB storage startup event; preserving it for retry (status=%d)",
+					   marker_status);
+				integrated_start_status = rc_first_service_start_status(
+					integrated_start_status, marker_status);
+			}
 		} else {
 			logmessage("Storage", "integrated storage application startup failed; preserving USB storage startup event for retry (status=%d)",
 				   integrated_start_status);
@@ -4492,10 +4536,18 @@ try_start_stor_apps(void)
 	/* External init scripts must never inherit storage.lock. */
 	file_unlock(storage_lock);
 
-	if (child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS) {
-		if (need_optware)
-			nvram_set_int_temp("usb_opt_start", 0);
-		return integrated_start_status;
+	if (storage_optware_start_ack_pending) {
+		marker_status = need_optware ?
+			storage_ack_event_marker_status("usb_opt_start") : 0;
+		ack_status = storage_optware_ack_state(need_optware,
+						       marker_status,
+						       &storage_optware_start_ack_pending);
+		if (ack_status != 0)
+			logmessage("Storage",
+				   "Optware completed but its request marker could not be acknowledged; suppressing duplicate startup and retrying (status=%d)",
+				   ack_status);
+		return rc_first_service_start_status(integrated_start_status,
+					     ack_status);
 	}
 	if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE) {
 		if (need_optware)

@@ -1415,3 +1415,43 @@ for path in ("trunk/user/optware/opt-umount.sh",
             "Optware storage workflow pull_request filter must include " + path)
 
 print("Storage eject inventory, mount-link errno, failure propagation and persistence gates: PASS")
+
+
+# A successful detached Optware worker is complete even when its request marker
+# clear fails. Keep a PID-1 completion latch to prevent duplicate execution.
+optware_policy = read("trunk/user/rc/src/storage_optware_start_policy.h")
+optware_test = read("trunk/user/rc/src/tests/storage_optware_start_policy.c")
+ack_writer = body(storage, "storage_ack_event_marker_status(const char *name)")
+require("nvram_set_int_temp(name, 0)" in ack_writer and
+        "if (write_status == 0)" in ack_writer and
+        "saved_errno > 0" in ack_writer and "return EIO;" in ack_writer,
+        "deferred storage marker clear must propagate backend write errors")
+try_start = body(storage, "try_start_stor_apps(void)")
+require("storage_optware_start_ack_pending = 1" in try_start and
+        "child_result == STORAGE_OPTWARE_START_CHILD_SUCCESS" in try_start,
+        "successful Optware child result must establish an acknowledgement latch")
+require("storage_optware_ack_state(need_optware" in try_start and
+        "suppressing duplicate startup and retrying" in try_start,
+        "failed Optware marker acknowledgement must retain the latch")
+require(try_start.index("if (storage_optware_start_ack_pending)") <
+        try_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_FAILURE)") <
+        try_start.index("storage_optware_start_async()"),
+        "acknowledgement retry must run before any new worker launch")
+require('storage_ack_event_marker_status("usb_hotplug_ms")' in try_start and
+        "cannot acknowledge USB storage startup event" in try_start,
+        "integrated startup must propagate a failed hotplug marker clear")
+require('storage_ack_event_marker_status("usb_opt_start")' in try_start and
+        "cannot acknowledge stale Optware startup request" in try_start,
+        "empty-inventory marker cleanup must check NVRAM writes")
+for token in ("storage_optware_ack_state",
+              "if (!marker_pending || clear_status == 0)",
+              "*ack_pending = 1",
+              "return clear_status > 0 ? clear_status : EIO"):
+    require(token in optware_policy,
+            "Optware acknowledgement policy missing " + token)
+for token in ("storage_optware_ack_state(1, EACCES, &ack_pending) == EACCES",
+              "storage_optware_ack_state(1, -1, &ack_pending) == EIO",
+              "storage_optware_ack_state(0, EIO, &ack_pending) == 0",
+              "storage_optware_ack_state(1, EIO, NULL) == EINVAL"):
+    require(token in optware_test,
+            "Optware acknowledgement regression missing " + token)

@@ -92,4 +92,23 @@ storage_optware_ubi_detach_complete(int before, int after)
 		after == STORAGE_OPTWARE_STOP_ABSENT;
 }
 
+/*
+ * Keep a successful Optware child completion latched until its request
+ * marker is confirmed clear. A failed acknowledgement must not cause the
+ * next deferred retry to launch the same worker again in this boot.
+ */
+static inline int
+storage_optware_ack_state(int marker_pending, int clear_status,
+			 int *ack_pending)
+{
+	if (!ack_pending)
+		return EINVAL;
+	if (!marker_pending || clear_status == 0) {
+		*ack_pending = 0;
+		return 0;
+	}
+	*ack_pending = 1;
+	return clear_status > 0 ? clear_status : EIO;
+}
+
 #endif /* PADAVAN_STORAGE_OPTWARE_START_POLICY_H */
