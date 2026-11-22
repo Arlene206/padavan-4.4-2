@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve hostname NVRAM read errors through file publishers
+
+- Parent main SHA: `0683a3146db2928f7edfe4ad53de757218eaabf9`. After `get_our_hostname()` was changed to use checked NVRAM copies and return NULL on backend failure, both LAN hostname publishers still folded that result into generic `EINVAL`. This lost the actual storage/read error, obscuring transient backend failures and preventing callers from distinguishing invalid input from failed configuration reads.
+- `create_hosts_lan()` and `update_hosts_router()` now capture `errno` (falling back to `EIO`) and return it before IPv6 probes, domain reads, temporary file creation or publication. Invalid address/domain/hostname text still returns `EINVAL`.
+- Updated the HTTPD cross-workflow contracts to enforce error preservation and side-effect ordering. Existing NVRAM-copy regressions cover getter failures; exact-head HTTPD/XY-C1 validation pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Copy fallback WAN DHCP netmask before previous-lease reads
 
 - Parent main SHA: `afb7b19f7d91b61912abfbc89da4032dcb24e59b`. In `udhcpc_bound()`, when the DHCP environment omitted `subnet`, the callback retained `nvram_safe_get("<wan>_netmask")` storage across its subsequent transactional snapshot of the previous lease. That snapshot reads many NVRAM keys and can overwrite the shared cache before the fallback mask is passed to subnet comparison/interface configuration.

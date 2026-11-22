@@ -1278,16 +1278,26 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 	FILE *hostname_fp = NULL, *hosts_fp = NULL;
 	char hostname_temp[] = "/etc/hostname.XXXXXX";
 	char hosts_temp[] = "/etc/hosts.XXXXXX";
-	char *lan_hname = get_our_hostname();
+	char *lan_hname;
 	int saved_errno = 0;
 	int hosts_lock = -1;
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status;
 #endif
 
+	lan_hname = get_our_hostname();
+	if (!lan_hname) {
+		saved_errno = errno ? errno : EIO;
+		errno = saved_errno;
+		logmessage(LOGNAME,
+			   "cannot read local hostname before LAN hostname publication (status=%d)",
+			   saved_errno);
+		return saved_errno;
+	}
+
 	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) || !lan_dname ||
 	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) ||
-	    !lan_hname || !is_valid_hostname(lan_hname)) {
+	    !is_valid_hostname(lan_hname)) {
 		errno = EINVAL;
 		logmessage(LOGNAME, "refusing unsafe LAN hostname input");
 		return EINVAL;

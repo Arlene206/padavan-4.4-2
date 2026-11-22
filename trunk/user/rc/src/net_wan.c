@@ -6376,6 +6376,14 @@ update_hosts_router(const char *lan_ipaddr)
 #endif
 
 	lan_hname = get_our_hostname();
+	if (!lan_hname) {
+		saved_errno = errno ? errno : EIO;
+		errno = saved_errno;
+		logmessage(LOGNAME,
+			   "cannot read router hostname before hostname publication (status=%d)",
+			   saved_errno);
+		return saved_errno;
+	}
 	lan_domain_status = rc_wan_nvram_copy_value(
 		wan_nvram_checked_get_callback, NULL, "lan_domain",
 		lan_dname, sizeof(lan_dname));
@@ -6387,7 +6395,7 @@ update_hosts_router(const char *lan_ipaddr)
 		return lan_domain_status;
 	}
 	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) ||
-	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) || !lan_hname) {
+	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname))) {
 		errno = EINVAL;
 		logmessage(LOGNAME, "refusing unsafe router hostname input");
 		return EINVAL;

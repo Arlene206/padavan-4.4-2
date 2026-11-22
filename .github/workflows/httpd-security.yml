@@ -2025,6 +2025,14 @@ jobs:
           assert "char lan_dname[256];" in hosts_update
           assert 'nvram_safe_get("lan_domain")' not in hosts_update
           assert hosts_update_compact.index('"lan_domain"') < hosts_update_compact.index("if (lan_domain_status != 0)")
+          assert "lan_hname = get_our_hostname();" in hosts_update
+          assert "if (!lan_hname)" in hosts_update
+          assert "saved_errno = errno ? errno : EIO;" in hosts_update
+          assert "return saved_errno;" in hosts_update
+          assert "|| !lan_hname" not in hosts_update
+          assert hosts_update.index("lan_hname = get_our_hostname();") < hosts_update.index("if (!lan_hname)") < hosts_update.index('"lan_domain"')
+          assert hosts_update.index("return saved_errno;") < hosts_update.index("get_ipv6_type_status(")
+          assert hosts_update.index("return saved_errno;") < hosts_update.index("dnsmasq_file_open(hostname_temp)")
           assert '#include "dnsmasq_domain_policy.h"' in net_wan
           assert 'dnsmasq_file_publish_pair(staged_hostname_fp, hostname_temp,' in hosts_update
           assert 'staged_hosts_fp, hosts_temp,' in hosts_update
@@ -2620,7 +2628,20 @@ jobs:
           hosts_start = lan.index("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
           hosts_end = lan.index("\nint\nupdate_hosts_ap", hosts_start)
           hosts_body = lan[hosts_start:hosts_end]
-          assert "!lan_hname || !is_valid_hostname(lan_hname)" in hosts_body
+          assert "char *lan_hname;" in hosts_body
+          assert "lan_hname = get_our_hostname();" in hosts_body
+          assert "if (!lan_hname)" in hosts_body
+          assert "saved_errno = errno ? errno : EIO;" in hosts_body
+          assert "return saved_errno;" in hosts_body
+          assert "!lan_hname || !is_valid_hostname(lan_hname)" not in hosts_body
+          hosts_body_compact = " ".join(hosts_body.split())
+          hostname_read = hosts_body_compact.index("lan_hname = get_our_hostname();")
+          hostname_missing = hosts_body_compact.index("if (!lan_hname)", hostname_read)
+          hostname_saved = hosts_body_compact.index("saved_errno = errno ? errno : EIO;", hostname_missing)
+          hostname_return = hosts_body_compact.index("return saved_errno;", hostname_saved)
+          assert hostname_read < hostname_missing < hostname_saved < hostname_return
+          assert hostname_return < hosts_body_compact.index("get_ipv6_type_status(")
+          assert hostname_return < hosts_body_compact.index("dnsmasq_file_open(hostname_temp)")
           assert "return first_status;" in kernel_name_policy
           assert "test_hostname_failure_does_not_skip_domain_update" in kernel_name_test
           assert "test_domain_failure_is_reported_after_hostname_update" in kernel_name_test
