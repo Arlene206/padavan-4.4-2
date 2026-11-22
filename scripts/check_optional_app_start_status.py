@@ -1380,6 +1380,7 @@ def check_aria2_reload():
     assert "aria2.rpc-secret" in source
     assert "rpc-secret=$aria_rpc_secret" in source
     assert "mktemp" not in source
+    assert 'CONFIG_TMP="${FILE_CONF}.tmp.$$"' in source
     assert "nvram get http_passwd" not in source
     syntax = run(["/bin/sh", "-n", str(ARIA2_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr

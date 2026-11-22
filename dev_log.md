@@ -1,3 +1,11 @@
+## 2026-11-22 — Fix Aria2 default-config staging collision during concurrent start
+
+- Exact-head Storage run 45081558026 on ebbff58e321030829cc517fd0f1da21ed5923660 failed in the existing two-process Aria start regression. The default config path used the literal suffix .tmp.$ instead of shell PID expansion .tmp.$$, so both launchers collided on one noclobber staging file; one aborted and the other timed out at the test barrier.
+- Changed the staging path to include the invoking shell PID. The existing concurrency regression requires two distinct staged config files and two successful launches; added a source contract to pin PID uniqueness. No firmware/runtime router claim.
+- Storage and Process exact-head Actions on this fix are required; the previous failure was a reproducible production staging-name defect, not an infrastructure result.
+
+---
+
 ## 2026-11-22 — Correct whitespace-free MAN teardown return assertion
 
 - The first checker normalization removed all whitespace from the C function, but its expected literal still retained spaces after commas. This was a second test-only false negative; the expected nested `route_status_accumulate()` string now uses the same whitespace-free form as the normalized source.

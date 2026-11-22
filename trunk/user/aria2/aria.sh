@@ -316,7 +316,7 @@ func_start()
 			logger -t "$SVC_NAME" "Cannot start: unable to set downloads directory permissions" >/dev/null 2>&1
 			return 1
 		fi
-		CONFIG_TMP="${FILE_CONF}.tmp.$"
+		CONFIG_TMP="${FILE_CONF}.tmp.$$"
 		if ! (umask 077; set -C; : > "$CONFIG_TMP") 2>/dev/null; then
 			logger -t "$SVC_NAME" "Cannot create private default config staging file" >/dev/null 2>&1 || true
 			return 1
