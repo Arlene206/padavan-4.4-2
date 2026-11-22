@@ -102,6 +102,27 @@ firewall_nvram_read_status(int api_result, int saved_errno, const char *value)
     return 0;
 }
 
+/* Resolve checked NVRAM strings while keeping a missing key distinct from
+ * transport errors. Missing keys retain the legacy empty-string behavior. */
+static inline int
+firewall_nvram_string_value_status(int api_result, int saved_errno,
+                                   const char *value,
+                                   const char **resolved_value)
+{
+    int status;
+
+    if (!resolved_value)
+        return EINVAL;
+    *resolved_value = NULL;
+
+    status = firewall_nvram_read_status(api_result, saved_errno, value);
+    if (status != 0)
+        return status;
+
+    *resolved_value = api_result == 0 ? "" : value;
+    return 0;
+}
+
 /* Copy a checked string while the shared NVRAM cache pointer is still valid.
  * A missing key retains the empty-string default; read failures and truncation
  * remain distinguishable from a genuinely empty setting. */

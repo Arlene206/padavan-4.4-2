@@ -323,6 +323,41 @@ test_nvram_read_status_distinguishes_missing_and_backend_error(void)
     assert(firewall_nvram_read_status(0, 0, "unexpected") == EIO);
 }
 
+
+static void
+test_checked_string_resolver_preserves_missing_default(void)
+{
+    const char *resolved = "stale";
+
+    assert(firewall_nvram_string_value_status(0, 0, NULL,
+                                              &resolved) == 0);
+    assert(resolved != NULL);
+    assert(strcmp(resolved, "") == 0);
+
+    assert(firewall_nvram_string_value_status(1, 0, "192.0.2.17",
+                                              &resolved) == 0);
+    assert(strcmp(resolved, "192.0.2.17") == 0);
+}
+
+static void
+test_checked_string_resolver_rejects_backend_and_malformed_results(void)
+{
+    const char *resolved = "stale";
+
+    assert(firewall_nvram_string_value_status(-1, EACCES, NULL,
+                                              &resolved) == EACCES);
+    assert(resolved == NULL);
+    assert(firewall_nvram_string_value_status(-1, 0, NULL,
+                                              &resolved) == EIO);
+    assert(resolved == NULL);
+    assert(firewall_nvram_string_value_status(2, 0, "192.0.2.17",
+                                              &resolved) == EIO);
+    assert(resolved == NULL);
+    assert(firewall_nvram_string_value_status(0, 0, "unexpected",
+                                              &resolved) == EIO);
+    assert(resolved == NULL);
+}
+
 static void
 test_checked_string_copy_preserves_present_and_missing_values(void)
 {
@@ -463,6 +498,8 @@ main(void)
 	test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure();
 	test_pppoe_mwan_hook_toggle_missing_default_and_backend_failure();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
+	test_checked_string_resolver_preserves_missing_default();
+	test_checked_string_resolver_rejects_backend_and_malformed_results();
 	test_optional_ipv4_copy_preserves_present_and_missing_values();
 	test_optional_ipv4_copy_fails_closed_on_backend_and_invalid_results();
 	test_optional_ipv4_copy_disables_oversized_values();

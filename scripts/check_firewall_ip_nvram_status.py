@@ -84,4 +84,48 @@ for marker in (
     "test_checked_string_copy_rejects_truncation_and_invalid_arguments",
 ):
     assert marker in TEST and marker + "();" in TEST
+
+# Virtual-server destination addresses must not turn NVRAM backend failures
+# into empty values and silently omit configured port-forward/filter rules.
+ip_reader = body(SOURCE, "ip_conv(const char *ip_name, int idx)")
+assert "firewall_read_indexed_string_setting(ip_name, idx, &value)" in ip_reader
+assert "nvram_safe_get(" not in ip_reader
+for signature in (
+    "include_vts_filter(FILE *fp, char *lan_ip",
+    "include_vts_nat(FILE *fp, int num_entries)",
+):
+    emitter = body(SOURCE, signature)
+    read_value = emitter.index('ip_conv("vts_ipaddr_x", i)')
+    null_gate = emitter.index("if (!dstip)", read_value)
+    invalid_gate = emitter.index("if (!firewall_ipv4_address_is_safe(dstip))", null_gate)
+    assert read_value < null_gate < invalid_gate
+    assert "return -1;" in emitter[null_gate:invalid_gate]
+    assert "return 0;" in emitter
+    assert "refusing incomplete" in emitter[null_gate:invalid_gate]
+filter_builder = body(SOURCE, "ipt_filter_rules(char *man_if")
+assert filter_builder.count("vts_status = include_vts_filter(") == 2
+assert filter_builder.count("if (vts_status != 0)") == 2
+for gate in (position for position in range(len(filter_builder))
+             if filter_builder.startswith("if (vts_status != 0)", position)):
+    cleanup = filter_builder[gate:gate + 650]
+    assert "(void)fclose(fp);" in cleanup
+    assert "firewall_abort_core_restore_after_staging_failure();" in cleanup
+    assert "firewall_rule_file_remove(ipt_file);" in cleanup
+    assert "return -1;" in cleanup
+nat_builder = body(SOURCE, "ipt_nat_rules(char *man_if")
+assert "vts_status = include_vts_nat(fp, i_vts_count);" in nat_builder
+assert "if (vts_status != 0)" in nat_builder
+nat_gate = nat_builder.index("if (vts_status != 0)")
+nat_cleanup = nat_builder[nat_gate:nat_gate + 650]
+assert "(void)fclose(fp);" in nat_cleanup
+assert "firewall_abort_core_restore_after_staging_failure();" in nat_cleanup
+assert "firewall_rule_file_remove(ipt_file);" in nat_cleanup
+assert "return -1;" in nat_cleanup
+assert "firewall_nvram_string_value_status" in POLICY
+for marker in (
+    "test_checked_string_resolver_preserves_missing_default",
+    "test_checked_string_resolver_rejects_backend_and_malformed_results",
+):
+    assert marker in TEST and marker + "();" in TEST
+
 print("Firewall IP NVRAM snapshot contract: PASS")

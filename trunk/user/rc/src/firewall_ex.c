@@ -783,7 +783,8 @@ static int
 firewall_read_string_setting_with_presence(const char *param_name,
 					   const char **value, int *present)
 {
-	char *checked_value = NULL;
+char *checked_value = NULL;
+	const char *resolved_value = NULL;
 	int api_result, saved_errno, status;
 
 	if (!param_name || !param_name[0] || !value) {
@@ -796,7 +797,8 @@ firewall_read_string_setting_with_presence(const char *param_name,
 	errno = 0;
 	api_result = nvram_get_checked(param_name, &checked_value);
 	saved_errno = errno;
-	status = firewall_nvram_read_status(api_result, saved_errno, checked_value);
+	status = firewall_nvram_string_value_status(api_result, saved_errno,
+						    checked_value, &resolved_value);
 	if (status != 0) {
 		*value = NULL;
 		errno = status;
@@ -805,7 +807,7 @@ firewall_read_string_setting_with_presence(const char *param_name,
 
 	if (present)
 		*present = (api_result == 1);
-	*value = (api_result == 0) ? "" : checked_value;
+	*value = resolved_value;
 	errno = 0;
 	return 0;
 }
@@ -954,12 +956,21 @@ portrange_conv(const char *port_name, int idx)
 static char *
 ip_conv(const char *ip_name, int idx)
 {
-	char itemname_arr[32];
+const char *value;
+	char *result;
 
-	snprintf(itemname_arr, sizeof(itemname_arr), "%s%d", ip_name, idx);
-	g_buf_set(nvram_safe_get(itemname_arr));
+	if (firewall_read_indexed_string_setting(ip_name, idx, &value) != 0) {
+		if (!errno)
+			errno = EIO;
+		return NULL;
+	}
 
-	return (g_buf_alloc(g_buf));
+	/* Copy before another checked NVRAM read invalidates the shared pointer. */
+	g_buf_set(value);
+	result = g_buf_alloc(g_buf);
+	if (!result && !errno)
+		errno = ENOMEM;
+	return result;
 }
 
 static char *
@@ -1833,10 +1844,10 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 	return (lw_items | lw_need_drop);
 }
 
-static void
+static int
 include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int forward_chain)
 {
-	int i, proto_status;
+int i, proto_status, saved_errno;
 	const char *proto;
 	char *protono, *port, *lport, *srcip, *dstip, *dtype;
 	char srcaddrs[64], dstports[32];
@@ -1849,6 +1860,14 @@ include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int
 		srcaddrs[0] = 0;
 		
 		dstip = ip_conv("vts_ipaddr_x", i);
+		if (!dstip) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "cannot read virtual-server destination %d; refusing incomplete IPv4 filter ruleset (errno=%d)",
+				   i, saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 		if (!firewall_ipv4_address_is_safe(dstip))
 			continue;
 		
@@ -1902,12 +1921,14 @@ include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int
 				fprintf(fp, "-A %s -p %s%s -d %s -j %s\n", dtype, protono, srcaddrs, dstip, logaccept);
 		}
 	}
+
+	return 0;
 }
 
-static void
+static int
 include_vts_nat(FILE *fp, int num_entries)
 {
-	int i, proto_status;
+int i, proto_status, saved_errno;
 	const char *proto;
 	char *protono, *port, *lport, *srcip, *dstip, *dtype;
 	char srcaddrs[64];
@@ -1920,6 +1941,14 @@ include_vts_nat(FILE *fp, int num_entries)
 		srcaddrs[0] = 0;
 		
 		dstip = ip_conv("vts_ipaddr_x", i);
+		if (!dstip) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "cannot read virtual-server destination %d; refusing incomplete IPv4 NAT ruleset (errno=%d)",
+				   i, saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 		if (!firewall_ipv4_address_is_safe(dstip))
 			continue;
 		
@@ -1966,6 +1995,8 @@ include_vts_nat(FILE *fp, int num_entries)
 				fprintf(fp, "-A %s -p %s%s -j DNAT --to %s\n", dtype, protono, srcaddrs, dstip);
 		}
 	}
+
+	return 0;
 }
 
 static void
@@ -2054,10 +2085,11 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
                  char *logaccept, char *logdrop, int tcp_mss_need,
                  int is_nat_enabled, const char *dmz_ip)
 {
-	FILE *fp;
+FILE *fp;
 	char timematch[160], *ftype, *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
 	int ret, lw_status, lw_schedule_status, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
+	int vts_status;
 	int is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
 	int is_lw_need_drop = 0, i_lw_count = 0, i_url_count = 0;
@@ -2596,8 +2628,21 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 		
 		/* add Virtual Server rules for router host */
-		if (is_nat_enabled && is_vts_enabled)
-			include_vts_filter(fp, lan_ip, logaccept, i_vts_count, 0);
+		if (is_nat_enabled && is_vts_enabled) {
+			vts_status = include_vts_filter(fp, lan_ip, logaccept,
+						       i_vts_count, 0);
+			if (vts_status != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "IPv4 filter: refusing incomplete virtual-server rules (errno=%d)",
+				   saved_errno);
+			(void)fclose(fp);
+			firewall_abort_core_restore_after_staging_failure();
+			firewall_rule_file_remove(ipt_file);
+			errno = saved_errno;
+			return -1;
+		}
+		}
 		
 		/* Accept ICMPv4 packets */
 		if (is_ping_enabled) {
@@ -2790,8 +2835,21 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 				fprintf(fp, "-A %s -d %s -j %s\n", dtype, dmz_ip, logaccept);
 			
 			/* Accept to Virtual Servers */
-			if (is_vts_enabled)
-				include_vts_filter(fp, lan_ip, logaccept, i_vts_count, 1);
+			if (is_vts_enabled) {
+				vts_status = include_vts_filter(fp, lan_ip, logaccept,
+							       i_vts_count, 1);
+				if (vts_status != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "IPv4 filter: refusing incomplete virtual-server rules (errno=%d)",
+				   saved_errno);
+			(void)fclose(fp);
+			firewall_abort_core_restore_after_staging_failure();
+			firewall_rule_file_remove(ipt_file);
+			errno = saved_errno;
+			return -1;
+		}
+			}
 			
 			/* Jump to IGD UPnP/NAT-PMP (miniupnpd chain) */
 			if (is_upnp_enabled)
@@ -3717,7 +3775,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
               int use_man, int wan_proto, int is_nat_enabled,
               const char *dmz_ip)
 {
-	FILE *fp;
+FILE *fp;
 	char *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
 	int is_use_dmz = 0;
@@ -3756,6 +3814,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	int i_aria_pport = 0, i_aria_rport = 0;
 #endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
+	int vts_status;
 #if defined (USE_IPV6)
 	int ipv6_type;
 #endif
@@ -4202,8 +4261,20 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		}
 		
 		/* Port Forwarding (Virtual Server) mappings */
-		if (is_vts_enabled)
-			include_vts_nat(fp, i_vts_count);
+		if (is_vts_enabled) {
+			vts_status = include_vts_nat(fp, i_vts_count);
+			if (vts_status != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "IPv4 NAT: refusing incomplete virtual-server rules (errno=%d)",
+				   saved_errno);
+			(void)fclose(fp);
+			firewall_abort_core_restore_after_staging_failure();
+			firewall_rule_file_remove(ipt_file);
+			errno = saved_errno;
+			return -1;
+		}
+		}
 		
 		/* IGD UPnP mappings */
 		if (is_upnp_enabled)
