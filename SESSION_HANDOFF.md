@@ -37,13 +37,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Verification boundary
 
-- On exact 8f54 storage run #44994403806, all storage inventory/marker/lifecycle regressions and the full caller graph passed, then the checker failed because it searched literal backslash-n instead of newline when ending `storage_ack_event_marker_status()`. The newline parser fix is parent `7db3ff63d8c65c99163b59027fc00feb80e0171a`.
-- Exact 7db3 storage #44994641468, XY-C1 #44994641391 and AI handoff docs #44994641406 were in progress at last poll. This product slice requires fresh exact-SHA storage, PID1 notification and XY-C1 Actions.
-- XY-C1 success on 8f54 skipped Build, TRX and artifact upload. No L3 claim; hardware L4 NOT VERIFIED.
+- Exact 1160 PID-1 notification Actions #44995018361 failed in the first GNU89 retry-policy test: one intermediate expected mask omitted the newly added storage-unplug bit after a no-error record for another event. This is a test expectation fix, not a product-code failure.
+- Local policy regression is being rerun with GNU89, Werror, ASan and UBSan. Exact 1160 USB storage #44995018412 was in progress; XY-C1 #44995018457 was queued; AI handoff docs #44995018388 passed.
+- Earlier XY-C1 success on 8f54 skipped Build, TRX and artifact upload; no L3 claim. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Poll storage hotplug, PID-1 notification queue and XY-C1 Actions for this retry-fix SHA; fix the first actual failing checker/regression.
-2. Verify NVRAM marker-write failure retains a delayed PID-1 storage-unplug retry for both PID-1 and short-lived callers.
+1. Check exact-head notification queue, USB storage and XY-C1 Actions for the retry-mask assertion correction.
+2. If PID-1 workflow proceeds, verify the new scheduler source contract and all three C policy tests; fix any first failure without weakening retry guarantees.
 3. Ensure XY-C1 Build, TRX and artifact upload actually execute and pass on one identical product-source SHA before claiming L3.
 4. Keep backup read-only; hardware L4 remains unverified.

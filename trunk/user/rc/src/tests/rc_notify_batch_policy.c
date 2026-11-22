@@ -37,7 +37,8 @@ test_deferred_hotplug_retry_lifecycle(void)
 	pending = rc_notify_hotplug_retry_record(
 		pending, "on_hotplug_usb_printer", 0);
 	assert(pending == (RC_NOTIFY_HOTPLUG_RETRY_PRINTER_PLUG |
-			   RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG));
+			   RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG |
+			   RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG));
 
 	printer = RC_NOTIFY_HOTPLUG_RETRY_PRINTER_PLUG;
 	modem = RC_NOTIFY_HOTPLUG_RETRY_MODEM_UNPLUG;

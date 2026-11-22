@@ -1,3 +1,11 @@
+## 2026-11-22 — Include storage-unplug bit in retry-retention regression
+
+- Parent main SHA: `1160bf68ae35438c2ae5acbef8252b7faaea2c77`. Exact PID-1 notification workflow #44995018361 failed in its first GNU89 policy test. After adding the storage-unplug retry bit, the test correctly retained that bit when a different event was recorded with marker status 0, but one intermediate expected mask still omitted the new bit.
+- Updated that expectation to include `RC_NOTIFY_HOTPLUG_RETRY_STORAGE_UNPLUG`. The PID-1 retry implementation itself was not the failure; the assertion was stale after expanding the mask.
+- Local policy test will be rerun with GNU89, Werror, ASan and UBSan; exact-head notification/storage/XY-C1 Actions must verify the corrected test and product code.
+
+---
+
 ## 2026-11-22 — Retain storage-unplug retry when the NVRAM marker write fails
 
 - Parent main SHA: `7db3ff63d8c65c99163b59027fc00feb80e0171a`. The preceding storage run #44994403806 passed the storage inventory/marker/lifecycle regressions and complete caller graph, then failed in the Python checker because it searched for literal backslash-n instead of a real newline at the end of `storage_ack_event_marker_status()`. The parser correction is in parent `7db3ff63d8c65c99163b59027fc00feb80e0171a`.
