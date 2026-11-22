@@ -136,4 +136,38 @@ text_failed:
 	return status > 0 ? status : EIO;
 }
 
+
+struct ppp_wan_launch_mode {
+	int multiwan_enabled;
+	int use_rpl2tp;
+};
+
+/*
+ * Preserve nvram_match(key, "1") semantics after a checked snapshot.
+ * A missing key is copied as an empty string and remains disabled; a failed
+ * transaction must never silently select the single-WAN/XL2TPD fallback.
+ */
+static inline int
+ppp_wan_launch_mode_resolve(int read_status, const char *multiwan_value,
+			    const char *wan_l2tpd_value,
+			    int rpl2tp_supported, int is_l2tp,
+			    struct ppp_wan_launch_mode *mode)
+{
+	if (!mode)
+		return EINVAL;
+	memset(mode, 0, sizeof(*mode));
+	if (!multiwan_value ||
+	    (rpl2tp_supported != 0 && rpl2tp_supported != 1) ||
+	    (is_l2tp != 0 && is_l2tp != 1) ||
+	    (rpl2tp_supported && is_l2tp && !wan_l2tpd_value))
+		return EINVAL;
+	if (read_status != 0)
+		return read_status > 0 ? read_status : EIO;
+
+	mode->multiwan_enabled = (strcmp(multiwan_value, "1") == 0);
+	if (rpl2tp_supported && is_l2tp)
+		mode->use_rpl2tp = (strcmp(wan_l2tpd_value, "1") == 0);
+	return 0;
+}
+
 #endif /* PADAVAN_PPP_WAN_OPTION_POLICY_H */

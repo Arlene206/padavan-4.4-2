@@ -268,6 +268,64 @@ test_text_snapshot_rejects_invalid_protocol_flags(void)
 	assert(fake.calls == 0);
 }
 
+
+static void
+test_launch_mode_exact_nvram_match_compatibility(void)
+{
+	struct ppp_wan_launch_mode mode;
+
+	assert(ppp_wan_launch_mode_resolve(0, "1", "1", 1, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 1 && mode.use_rpl2tp == 1);
+	assert(ppp_wan_launch_mode_resolve(0, "1", "0", 1, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 1 && mode.use_rpl2tp == 0);
+	assert(ppp_wan_launch_mode_resolve(0, "0", "1", 1, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 1);
+	assert(ppp_wan_launch_mode_resolve(0, "", "", 1, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 0);
+	assert(ppp_wan_launch_mode_resolve(0, "01", "true", 1, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 0);
+	assert(ppp_wan_launch_mode_resolve(0, " 1", "1 ", 1, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 0);
+}
+
+static void
+test_launch_mode_protocol_and_build_gates(void)
+{
+	struct ppp_wan_launch_mode mode;
+
+	assert(ppp_wan_launch_mode_resolve(0, "1", NULL, 1, 0, &mode) == 0);
+	assert(mode.multiwan_enabled == 1 && mode.use_rpl2tp == 0);
+	assert(ppp_wan_launch_mode_resolve(0, "0", NULL, 0, 1, &mode) == 0);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 0);
+	assert(ppp_wan_launch_mode_resolve(0, "1", "1", 1, 0, &mode) == 0);
+	assert(mode.multiwan_enabled == 1 && mode.use_rpl2tp == 0);
+}
+
+static void
+test_launch_mode_snapshot_errors_fail_closed(void)
+{
+	struct ppp_wan_launch_mode mode;
+
+	memset(&mode, 0x5a, sizeof(mode));
+	assert(ppp_wan_launch_mode_resolve(EACCES, "1", "1", 1, 1, &mode) == EACCES);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 0);
+	memset(&mode, 0x5a, sizeof(mode));
+	assert(ppp_wan_launch_mode_resolve(-1, "1", "1", 1, 1, &mode) == EIO);
+	assert(mode.multiwan_enabled == 0 && mode.use_rpl2tp == 0);
+}
+
+static void
+test_launch_mode_invalid_arguments_fail_closed(void)
+{
+	struct ppp_wan_launch_mode mode;
+
+	assert(ppp_wan_launch_mode_resolve(0, NULL, NULL, 0, 0, &mode) == EINVAL);
+	assert(ppp_wan_launch_mode_resolve(0, "1", NULL, 1, 1, &mode) == EINVAL);
+	assert(ppp_wan_launch_mode_resolve(0, "1", "1", 2, 1, &mode) == EINVAL);
+	assert(ppp_wan_launch_mode_resolve(0, "1", "1", 1, 2, &mode) == EINVAL);
+	assert(ppp_wan_launch_mode_resolve(0, "1", "1", 1, 1, NULL) == EINVAL);
+}
+
 int main(void)
 {
 	test_pppoe_options();
@@ -281,6 +339,10 @@ int main(void)
 	test_text_backend_failure_discards_partial_values();
 	test_empty_text_defaults_and_oversize_failure();
 	test_text_snapshot_rejects_invalid_protocol_flags();
+	test_launch_mode_exact_nvram_match_compatibility();
+	test_launch_mode_protocol_and_build_gates();
+	test_launch_mode_snapshot_errors_fail_closed();
+	test_launch_mode_invalid_arguments_fail_closed();
 	puts("PPP WAN option checked-read preflight regression: PASS");
 	return 0;
 }

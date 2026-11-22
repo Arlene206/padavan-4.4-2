@@ -103,7 +103,7 @@ require('get_wan_unit_value_copy_status(unit, "ppp_peer"' in peer_copy and
         'get_wan_unit_value_copy_status(unit, "man_gateway"' in peer_copy,
         "PPP peer fallback must use checked local copies")
 
-launch = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto)")
+launch = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto,")
 require("int auth_type, mtu, mru, mtu_max, mtu_def, mru_def, mru_max;" in launch,
         "PPP MTU default local must remain declared for all protocol branches")
 preflight = launch.index("ppp_wan_option_values_read(")
@@ -122,6 +122,46 @@ for field in ("username", "password", "peer", "access_concentrator", "service", 
 for field in ("auth_type","mtu","mru","pppoe_idletime","pppoe_demand",
               "pppoe_txonly_x","dnsenable_x","mppe_mode","lcp_echo","adaptive_lcp"):
     require("option_values." + field in launch, "unchecked PPP option: " + field)
+
+
+launch_mode_snapshot = body(net_ppp,
+    "ppp_wan_launch_mode_snapshot_read(int wan_proto,")
+require('"pppoemwan_enable"' in launch_mode_snapshot and
+        "rc_wan_nvram_copy_snapshot(" in launch_mode_snapshot and
+        "ppp_wan_launch_mode_resolve(" in launch_mode_snapshot,
+        "PPP launch selectors must come from one checked NVRAM snapshot")
+require('if (wan_proto == IPV4_WAN_PROTO_L2TP)' in launch_mode_snapshot and
+        '"wan_l2tpd"' in launch_mode_snapshot and
+        "field_count = 2" in launch_mode_snapshot,
+        "RPL2TP selector must be read only for L2TP builds/protocols")
+for signature, operation in (
+    ("ppp_wan_launch_snapshot_transaction_begin(void *context)", "nvram_transaction_begin("),
+    ("ppp_wan_launch_snapshot_transaction_get(void *context,", "nvram_transaction_get("),
+    ("ppp_wan_launch_snapshot_transaction_end(void *context)", "nvram_transaction_end("),
+):
+    adapter = body(net_ppp, signature)
+    require(operation in adapter, "PPP launch snapshot adapter missing " + operation)
+
+mode_policy = body(policy, "ppp_wan_launch_mode_resolve(")
+require('strcmp(multiwan_value, "1") == 0' in mode_policy and
+        'strcmp(wan_l2tpd_value, "1") == 0' in mode_policy and
+        "read_status != 0" in mode_policy,
+        "PPP launch mode must preserve exact match defaults and fail on read errors")
+require("launch_mode->multiwan_enabled" in launch and
+        "launch_mode->use_rpl2tp" in launch and
+        'nvram_match("pppoemwan_enable"' not in launch and
+        'nvram_match("wan_l2tpd"' not in launch,
+        "PPP lifecycle decisions must reuse the checked immutable launch snapshot")
+wrapper = body(net_ppp, "launch_wan_pppd(int unit, int wan_proto)")
+snapshot_read = wrapper.index("ppp_wan_launch_mode_snapshot_read(wan_proto, &launch_mode)")
+snapshot_error = wrapper.index("if (mode_status != 0)", snapshot_read)
+lock_acquire = wrapper.index("vpn_server_lifecycle_lock_acquire()")
+require(snapshot_read < snapshot_error < lock_acquire and
+        "launch_wan_pppd_locked(unit, wan_proto, &launch_mode)" in wrapper and
+        "!launch_mode.multiwan_enabled" in wrapper,
+        "PPP launch snapshot error must abort before lock/session effects and drive lock selection")
+require("launch_mode.multiwan_enabled" in launch and launch.count("launch_mode->multiwan_enabled") >= 3,
+        "WAN PPP multi-WAN stop/start/rollback must share one selector snapshot")
 
 policy_body = body(policy, "ppp_wan_option_values_read(int is_pppoe")
 for token in ('PPP_WAN_READ_OPTION("ppp_auth", auth_type)',
@@ -183,7 +223,11 @@ for name in ("test_pppoe_options","test_pptp_and_l2tp_options",
              "test_empty_peer_uses_checked_management_gateway_fallback",
              "test_text_backend_failure_discards_partial_values",
              "test_empty_text_defaults_and_oversize_failure",
-             "test_text_snapshot_rejects_invalid_protocol_flags"):
+             "test_text_snapshot_rejects_invalid_protocol_flags",
+             "test_launch_mode_exact_nvram_match_compatibility",
+             "test_launch_mode_protocol_and_build_gates",
+             "test_launch_mode_snapshot_errors_fail_closed",
+             "test_launch_mode_invalid_arguments_fail_closed"):
     require(name in test, "missing PPP option regression: " + name)
 
 push, pr = workflow.split("  pull_request:", 1)

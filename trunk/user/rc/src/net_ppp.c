@@ -371,6 +371,89 @@ xl2tpd_read_config_snapshot(struct xl2tpd_config_snapshot *snapshot)
 		xl2tpd_snapshot_transaction_end, &transaction);
 }
 
+
+static int
+ppp_wan_launch_snapshot_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+ppp_wan_launch_snapshot_transaction_get(void *context,
+					const char *param_name,
+					char **value)
+{
+	if (!context || !param_name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+static int
+ppp_wan_launch_snapshot_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+static int
+ppp_wan_launch_mode_snapshot_read(int wan_proto,
+				  struct ppp_wan_launch_mode *mode)
+{
+	char multiwan_value[8];
+#if defined (APP_RPL2TP)
+	char wan_l2tpd_value[8];
+#endif
+	struct rc_wan_nvram_snapshot_field fields[2];
+	struct nvram_transaction transaction;
+	unsigned int field_count = 1;
+	int status;
+
+	if (!mode) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	memset(mode, 0, sizeof(*mode));
+	multiwan_value[0] = '\0';
+	fields[0].param_name = "pppoemwan_enable";
+	fields[0].destination = multiwan_value;
+	fields[0].destination_size = sizeof(multiwan_value);
+#if defined (APP_RPL2TP)
+	wan_l2tpd_value[0] = '\0';
+	if (wan_proto == IPV4_WAN_PROTO_L2TP) {
+		fields[1].param_name = "wan_l2tpd";
+		fields[1].destination = wan_l2tpd_value;
+		fields[1].destination_size = sizeof(wan_l2tpd_value);
+		field_count = 2;
+	}
+#else
+	(void)wan_proto;
+#endif
+
+	status = rc_wan_nvram_copy_snapshot(
+		fields, field_count,
+		ppp_wan_launch_snapshot_transaction_begin,
+		ppp_wan_launch_snapshot_transaction_get,
+		ppp_wan_launch_snapshot_transaction_end, &transaction);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+
+#if defined (APP_RPL2TP)
+	status = ppp_wan_launch_mode_resolve(
+		0, multiwan_value, wan_l2tpd_value, 1,
+		(wan_proto == IPV4_WAN_PROTO_L2TP), mode);
+#else
+	status = ppp_wan_launch_mode_resolve(
+		0, multiwan_value, NULL, 0, 0, mode);
+#endif
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 int
 safe_start_xl2tpd_locked(void)
 {
@@ -836,7 +919,8 @@ ppp_wan_option_read_text(void *context, const char *param_name,
 
 
 static int
-launch_wan_pppd_locked(int unit, int wan_proto)
+launch_wan_pppd_locked(int unit, int wan_proto,
+		      const struct ppp_wan_launch_mode *launch_mode)
 {
 	FILE *fp;
 	struct ppp_wan_option_values option_values;
@@ -846,16 +930,15 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];
 	char pppoe_ifname[16];
-#if defined (APP_RPL2TP)
-	int use_rpl2tp = 0;
-#endif
 	const char *failed_option = "unknown";
 	char options[64], tmp[256];
 	char *svcs[] = { NULL, NULL };
 	char *svcs_pppd[] = { "pppd", NULL };
 
-	if (unit < 0)
+	if (unit < 0 || !launch_mode) {
+		errno = EINVAL;
 		return -1;
+	}
 
 	/*
 	 * Resolve every integer that affects authentication, encryption, DNS or
@@ -920,8 +1003,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	 */
 	if (wan_proto == IPV4_WAN_PROTO_L2TP) {
 #if defined (APP_RPL2TP)
-		use_rpl2tp = nvram_match("wan_l2tpd", "1");
-		if (use_rpl2tp)
+		if (launch_mode->use_rpl2tp)
 			svcs[0] = "l2tpd";
 		else
 #endif
@@ -941,7 +1023,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	 * server start/stop use the same lock and must not overlap the kill.
 	 */
 	if (wan_proto != IPV4_WAN_PROTO_L2TP &&
-	    nvram_match("pppoemwan_enable", "1")) {
+	    launch_mode->multiwan_enabled) {
 		if (kill_services(svcs_pppd, 5, 1) != 0) {
 			saved_errno = EBUSY;
 			logmessage(LOGNAME, "refusing multi-WAN PPP launch: pppd did not stop");
@@ -1166,7 +1248,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 				safe_start_xl2tpd_locked());
 		}
 	} else {
-		if (nvram_match("pppoemwan_enable", "1"))
+		if (launch_mode->multiwan_enabled)
 			launch_status = eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked");
 		else
 			launch_status = eval("/usr/sbin/pppd", "file", options);
@@ -1184,7 +1266,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		 * the partial session set while holding the lifecycle lock.
 		 */
 		if (wan_proto != IPV4_WAN_PROTO_L2TP &&
-		    nvram_match("pppoemwan_enable", "1")) {
+		    launch_mode->multiwan_enabled) {
 			cleanup_status = kill_services(svcs_pppd, 5, 1);
 			if (cleanup_status != 0)
 				logmessage(LOGNAME,
@@ -1209,14 +1291,22 @@ invalid_options:
 int
 launch_wan_pppd(int unit, int wan_proto)
 {
-	int lock_fd, result, saved_errno;
+	struct ppp_wan_launch_mode launch_mode;
+	int lock_fd, result, saved_errno, mode_status;
 
 	if (unit < 0)
 		return -1;
+	mode_status = ppp_wan_launch_mode_snapshot_read(wan_proto, &launch_mode);
+	if (mode_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN PPP launch mode snapshot (status=%d)",
+			   mode_status);
+		errno = mode_status;
+		return -1;
+	}
 	/* Ordinary single-WAN PPPoE/PPTP launch has no shared-process stop. */
-	if (wan_proto != IPV4_WAN_PROTO_L2TP &&
-	    !nvram_match("pppoemwan_enable", "1"))
-		return launch_wan_pppd_locked(unit, wan_proto);
+	if (wan_proto != IPV4_WAN_PROTO_L2TP && !launch_mode.multiwan_enabled)
+		return launch_wan_pppd_locked(unit, wan_proto, &launch_mode);
 
 	/*
 	 * L2TP shares xl2tpd with the VPN server; multi-WAN also stops all pppd
@@ -1228,7 +1318,7 @@ launch_wan_pppd(int unit, int wan_proto)
 			   errno);
 		return -1;
 	}
-	result = launch_wan_pppd_locked(unit, wan_proto);
+	result = launch_wan_pppd_locked(unit, wan_proto, &launch_mode);
 	saved_errno = errno;
 	if (vpn_server_lifecycle_lock_release(lock_fd) != 0) {
 		int release_errno = errno ? errno : EIO;

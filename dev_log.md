@@ -1,3 +1,14 @@
+## 2026-11-22 — Snapshot WAN PPP launch selectors before lifecycle changes
+
+- Parent main SHA: `0af768201a45cf28482ffa4e8c42b6846e16081a`. On this exact SHA, WAN route #45030079767 passed; IPv6 service-type #45030079720 passed its GNU89 sanitizer binary but failed in a stale ordering assertion that selected the early IPv6 address-read branch instead of the later file-emission branch. AI handoff #45030079766 exposed missing mandatory checkpoint wording/section names in the current handoff; this commit restores the canonical required sections.
+- `launch_wan_pppd()` previously used lossy `nvram_match()` reads for `pppoemwan_enable` and, on APP_RPL2TP builds, `wan_l2tpd`. A backend error could be mistaken for disabled multi-WAN (bypassing the lifecycle lock and skipping multi-WAN start/rollback) or select the wrong L2TP daemon.
+- Added one checked NVRAM transaction snapshot for `pppoemwan_enable` and, only on APP_RPL2TP L2TP launches, `wan_l2tpd`. The wrapper fails before lock/session changes on any read/close/copy failure, then passes one immutable mode to the locked launch path. Multi-WAN stop/start/partial-failure cleanup and RPL2TP daemon selection all consume that same snapshot. Missing/empty values and non-literal values preserve exact `nvram_match(key, "1")` behavior.
+- Added GNU89 policy regressions for exact string matching, missing defaults, protocol/build scoping, invalid inputs and checked-read failures. Extended `check_ppp_wan_options.py` to pin transaction adapters, selector scope, ordering and shared flag use.
+- Local tests were not run in this connector-only session. Exact-head WAN route/VPN/HTTPD/XY-C1/AI Actions must validate this complete source SHA; no target firmware or hardware result is claimed.
+- Result: THIS COMMIT. Next: inspect exact-head Actions for this SHA, fix any concrete failing test/source contract, then resolve the known IPv6 router-hosts checker ordering failure on a separate atomic slice.
+
+---
+
 ## 2026-11-22 — Check xl2tpd transaction adapters through their wrapper bodies
 
 - Parent main SHA: `ba5aaa320963ba7a0322effe5388e1e5b09d6166`. Exact-head VPN lifecycle run #45029214663 on `dcda9e5a118711d1b35b8e347e5fde54ccdc8270` passed all ten GNU89 C policy binaries, including the new xl2tpd selector-policy regression, then failed only in the source checker because it searched for `nvram_transaction_begin/get/end` text inside `xl2tpd_read_config_snapshot()`. Those calls correctly live in its three small transaction adapter functions.
