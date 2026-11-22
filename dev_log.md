@@ -1,3 +1,13 @@
+## 2026-11-22 — Harden EAPoL credential config generation
+
+- Parent main SHA: \`aeff51b643212ff3a95fe1b308b294cc2d6c8fc1\`. \`start_auth_eapol()\` wrote raw WAN identity/password values into a quoted WPA supplicant config using \`fopen("w")\`, without escaping config metacharacters or guaranteeing that the plaintext password file was private. It also discarded the \`wpa_cli\` event-hook launch result.
+- Added quoted-value escaping for quotes/backslashes and rejection of control bytes. Both credentials are copied into caller-owned buffers using \`get_wan_unit_value_copy_status()\` before stopping the working authentication daemons. The complete new file is built under a same-directory \`mkstemp\` name, forced to mode 0600, checked through flush/fsync/close, then atomically renamed after old daemons stop.
+- A failed \`wpa_cli\` launch now logs, attempts to stop the incomplete EAP stack, and returns the hook error. Added GNU89/ASan/UBSan policy tests for escaping, control-byte rejection and invalid inputs plus a source contract for private atomic file publication and error propagation.
+- Parent SHA \`aeff51b\` detect_link, AI docs, NVRAM, process inventory/lifecycle, HTTPD and USB modem Actions all completed SUCCESS. XY-C1 #45037505021 was still in Build, with TRX/artifact pending at handoff. No local tests were run; this commit requires exact-head EAPoL and XY-C1 validation.
+- Result: THIS COMMIT. No L3 or hardware L4 claim. Next: inspect exact-SHA EAPoL/XY-C1 outcomes, then rotate to a different subsystem.
+
+---
+
 ## 2026-11-22 — Preserve checked AP/router mode in the detect-link monitor
 
 - Parent main SHA: `e615c1538ce45af6969a27fd24de50f25565ab7c`. `dl_reset_state()` used unchecked `get_ap_mode()`, whose safe NVRAM fallback can turn a transient read failure into mode 0 (router). The link monitor then used that unverified mode to decide WAN-link checks.
