@@ -153,7 +153,13 @@ require("launch_mode->multiwan_enabled" in launch and
         'nvram_match("wan_l2tpd"' not in launch,
         "PPP lifecycle decisions must reuse the checked immutable launch snapshot")
 wrapper = body(net_ppp, "launch_wan_pppd(int unit, int wan_proto)")
+unit_check = wrapper.index("ppp_wan_launch_unit_status(unit)")
+unit_error = wrapper.index("if (mode_status != 0)", unit_check)
+unit_errno = wrapper.index("errno = mode_status;", unit_error)
 snapshot_read = wrapper.index("ppp_wan_launch_mode_snapshot_read(wan_proto, &launch_mode)")
+require(unit_check < unit_error < unit_errno < snapshot_read and
+        "ppp_wan_launch_unit_status(int unit)" in policy,
+        "invalid WAN unit must report EINVAL before any NVRAM snapshot")
 snapshot_error = wrapper.index("if (mode_status != 0)", snapshot_read)
 lock_acquire = wrapper.index("vpn_server_lifecycle_lock_acquire()")
 require(snapshot_read < snapshot_error < lock_acquire and
@@ -224,6 +230,7 @@ for name in ("test_pppoe_options","test_pptp_and_l2tp_options",
              "test_text_backend_failure_discards_partial_values",
              "test_empty_text_defaults_and_oversize_failure",
              "test_text_snapshot_rejects_invalid_protocol_flags",
+             "test_launch_unit_status_reports_invalid_index",
              "test_launch_mode_exact_nvram_match_compatibility",
              "test_launch_mode_protocol_and_build_gates",
              "test_launch_mode_snapshot_errors_fail_closed",

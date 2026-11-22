@@ -270,6 +270,15 @@ test_text_snapshot_rejects_invalid_protocol_flags(void)
 
 
 static void
+test_launch_unit_status_reports_invalid_index(void)
+{
+	assert(ppp_wan_launch_unit_status(0) == 0);
+	assert(ppp_wan_launch_unit_status(1) == 0);
+	assert(ppp_wan_launch_unit_status(-1) == EINVAL);
+	assert(ppp_wan_launch_unit_status(-2) == EINVAL);
+}
+
+static void
 test_launch_mode_exact_nvram_match_compatibility(void)
 {
 	struct ppp_wan_launch_mode mode;
@@ -339,6 +348,7 @@ int main(void)
 	test_text_backend_failure_discards_partial_values();
 	test_empty_text_defaults_and_oversize_failure();
 	test_text_snapshot_rejects_invalid_protocol_flags();
+	test_launch_unit_status_reports_invalid_index();
 	test_launch_mode_exact_nvram_match_compatibility();
 	test_launch_mode_protocol_and_build_gates();
 	test_launch_mode_snapshot_errors_fail_closed();

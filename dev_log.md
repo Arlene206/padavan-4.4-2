@@ -1,3 +1,13 @@
+## 2026-11-22 — Return deterministic errno for invalid PPP WAN units
+
+- Parent main SHA: `b443b54cf920195df1405e4a172ec0ed7f9b1f09`. Exact-head USB modem #45031581333, firewall startup #45031581354, process inventory/lifecycle #45031581442 and AI handoff #45031581408 all PASS. XY-C1 #45031581390 also reports workflow SUCCESS and every host regression/source contract passed, but its production Build, TRX check and artifact upload were intentionally SKIPPED because this parent commit changed only checker/documentation paths. The PPP production source slice in ancestor `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` still needs an actual target cross-build.
+- Final review found `launch_wan_pppd()` returned `-1` for a negative WAN unit without setting `errno`. Callers therefore received a stale unrelated error, undermining failure diagnosis and first-error aggregation. The locked worker already rejects negative units with EINVAL; the public wrapper now uses a tiny pure validation policy and sets `errno = EINVAL` before returning, before opening the NVRAM transaction.
+- Added GNU89 policy regressions for zero/positive and negative unit indices, and extended the PPP source contract to enforce validation/errno assignment before the checked launch-mode snapshot.
+- This modifies `net_ppp.c`, so the exact-head XY-C1 workflow should now detect a production input change and execute Build, TRX verification and artifact upload instead of reporting host-only validation. No target build is claimed until that run completes.
+- No local tests were run in this connector-only session. Result: THIS COMMIT. Next: inspect exact-head WAN PPP/VPN/WAN-route/XY-C1/AI checks, prioritize any FAIL, and continue independent userland stability work while jobs are pending.
+
+---
+
 ## 2026-11-22 — Make LAN IPv6 reload source contract whitespace-robust
 
 - Parent main SHA: `a624157703da1feabe5838db691b4b28e4d68328`. Exact-head WAN DHCP callback run #45031431084 PASS confirms the LAN DHCP hostname status-snapshot contract correction. AI handoff #45031431144 PASS. NVRAM transaction audit #45031084347 on earlier exact source `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` PASS.

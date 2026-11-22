@@ -142,6 +142,13 @@ struct ppp_wan_launch_mode {
 	int use_rpl2tp;
 };
 
+/* Invalid public WAN indices must not leak a stale caller errno. */
+static inline int
+ppp_wan_launch_unit_status(int unit)
+{
+	return unit < 0 ? EINVAL : 0;
+}
+
 /*
  * Preserve nvram_match(key, "1") semantics after a checked snapshot.
  * A missing key is copied as an empty string and remains disabled; a failed

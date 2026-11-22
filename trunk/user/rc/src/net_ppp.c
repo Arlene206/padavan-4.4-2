@@ -1294,8 +1294,11 @@ launch_wan_pppd(int unit, int wan_proto)
 	struct ppp_wan_launch_mode launch_mode;
 	int lock_fd, result, saved_errno, mode_status;
 
-	if (unit < 0)
+	mode_status = ppp_wan_launch_unit_status(unit);
+	if (mode_status != 0) {
+		errno = mode_status;
 		return -1;
+	}
 	mode_status = ppp_wan_launch_mode_snapshot_read(wan_proto, &launch_mode);
 	if (mode_status != 0) {
 		logmessage(LOGNAME,
