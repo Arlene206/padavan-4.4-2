@@ -1,3 +1,12 @@
+## 2026-11-22 — Restore validator-required handoff checkpoint sections
+
+- Parent main SHA: `3fd35299892c4499f9efbce8e50617307b71f2e3`. VPN server lifecycle #45027707286 PASS on `3fd35299892c4499f9efbce8e50617307b71f2e3`; AI handoff #45027707271 failed only because the rewritten handoff omitted the required end-of-session checkpoint phrase and canonical section headings.
+- Restored the mandatory checkpoint wording and exact headings required by `scripts/check_ai_handoff_docs.py`, while retaining the current main/backup identities, VPN validation state and next concrete action. No source behavior changed.
+- The original AI validator log identified the single first failure; the next exact-head run must confirm that all remaining document limits and cross-file governance contracts also pass.
+- Result: THIS COMMIT. Next: inspect exact-head AI handoff, then resume the wider userland stability/security rotation.
+
+---
+
 ## 2026-11-22 — Require checked WAN IPv6 endpoint handling in VPN export
 
 - Parent main SHA: `1805fa23a010044d4f82c7e23e91695a6b7f904d`. The earlier VPN server lifecycle run #45026956696 on `db11b15bb545dbf9dafff9c4795600735884e0dc` failed in the final source contract because it still required the legacy `get_wan_addr6_host()` call.
