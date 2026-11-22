@@ -7,7 +7,7 @@ tmpdir=$(mktemp -d /tmp/padavan-module-load-lock.XXXXXX)
 trap 'rm -rf "$tmpdir"' 0 HUP INT TERM
 mkdir -p "$tmpdir/bin"
 
-sed -n '/^func_load_module()/,/^)$p; /^func_read_module_catalog()/,/^}/p; /^func_module_catalog_contains()/,/^}/p' "$automount" > "$tmpdir/module-function.sh"
+sed -n '/^func_load_module()/,/^)$/p; /^func_read_module_catalog()/,/^}/p; /^func_module_catalog_contains()/,/^}/p' "$automount" > "$tmpdir/module-function.sh"
 [ -s "$tmpdir/module-function.sh" ]
 . "$tmpdir/module-function.sh"
 
