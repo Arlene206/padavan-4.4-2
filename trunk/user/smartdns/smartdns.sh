@@ -38,14 +38,29 @@ smartdns_blacklist_Conf="$storage_Path/smartdns_blacklist-ip.conf"
 smartdns_whitelist_Conf="$storage_Path/smartdns_whitelist-ip.conf"
 smartdns_custom_Conf="$storage_Path/smartdns_custom.conf"
 dnsmasq_Conf="$storage_Path/dnsmasq/dnsmasq.conf"
+
+smartdns_nvram_read_checked()
+{
+    smartdns_nvram_value=$(nvram get_checked "$1")
+    smartdns_nvram_status=$?
+    if [ "$smartdns_nvram_status" -ne 0 ]; then
+        logger -t "SmartDNS" "Failed to read NVRAM key $1 (status=$smartdns_nvram_status)"
+        return "$smartdns_nvram_status"
+    fi
+    return 0
+}
+
 chn_Route="$storage_Path/chinadns/chnroute.txt"
 
-sdns_enable=$(nvram get sdns_enable)
+smartdns_nvram_read_checked sdns_enable || exit $?
+sdns_enable=$smartdns_nvram_value
 sdns_name=$(nvram get sdns_name)
-sdns_port=$(nvram get sdns_port)
+smartdns_nvram_read_checked sdns_port || exit $?
+sdns_port=$smartdns_nvram_value
 sdns_tcp_server=$(nvram get sdns_tcp_server)
 sdns_ipv6_server=$(nvram get sdns_ipv6_server)
-sdns_redirect=$(nvram get sdns_redirect)
+smartdns_nvram_read_checked sdns_redirect || exit $?
+sdns_redirect=$smartdns_nvram_value
 sdns_cache=$(nvram get sdns_cache)
 sdns_cache_persist=$(nvram get sdns_cache_persist)
 sdns_tcp_idle_time=$(nvram get sdns_tcp_idle_time)
@@ -70,8 +85,10 @@ sdns_exp=$(nvram get sdns_exp)
 sdns_exp_ttl=$(nvram get sdns_exp_ttl)
 sdns_exp_ttl_max=$(nvram get sdns_exp_ttl_max)
 sdns_exp_prefetch_time=$(nvram get sdns_exp_prefetch_time)
-sdnse_enable=$(nvram get sdnse_enable)
-sdnse_port=$(nvram get sdnse_port)
+smartdns_nvram_read_checked sdnse_enable || exit $?
+sdnse_enable=$smartdns_nvram_value
+smartdns_nvram_read_checked sdnse_port || exit $?
+sdnse_port=$smartdns_nvram_value
 sdnse_tcp=$(nvram get sdnse_tcp)
 sdnse_speed=$(nvram get sdnse_speed)
 sdnse_name=$(nvram get sdnse_name)
@@ -501,17 +518,6 @@ Start_AD () {
 
     logger -t "SmartDNS" "去广告文件下载并处理成功..."
     rm -f "$_smartdns_adblock_download"
-    return 0
-}
-
-smartdns_nvram_read_checked()
-{
-    smartdns_nvram_value=$(nvram get_checked "$1")
-    smartdns_nvram_status=$?
-    if [ "$smartdns_nvram_status" -ne 0 ]; then
-        logger -t "SmartDNS" "Failed to read NVRAM key $1 (status=$smartdns_nvram_status)"
-        return "$smartdns_nvram_status"
-    fi
     return 0
 }
 

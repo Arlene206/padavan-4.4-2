@@ -94,6 +94,11 @@ adbyby_read = body(smartdns, "smartdns_nvram_read_checked")
 assert 'nvram get_checked "$1"' in adbyby_read
 assert "Failed to read NVRAM key" in adbyby_read
 assert 'return "$smartdns_nvram_status"' in adbyby_read
+startup = smartdns.split('smartdns_nvram_read_checked sdns_enable', 1)[0]
+for key in ("sdns_enable", "sdns_port", "sdns_redirect", "sdnse_enable", "sdnse_port"):
+    assert 'smartdns_nvram_read_checked ' + key + ' || exit $?' in smartdns
+    assert key + '=$(nvram get ' + key + ')' not in startup
+assert smartdns.index('smartdns_nvram_read_checked sdns_enable') < smartdns.index('adbyby_process=')
 adbyby_change = body(smartdns, "Change_adbyby")
 assert "/usr/bin/adbyby.sh switch" not in adbyby_change, \
     "SmartDNS must not dispatch the unsupported Adbyby switch action"
@@ -134,6 +139,7 @@ for token in ("managed-block publication is atomic and preserves same-valued use
               "all DNSMasq preliminary AWK scan failures propagate without changing live config",
               "rename failure preserves original config",
               "failed managed-block publication leaves original config intact",
+              "critical SmartDNS resolver NVRAM reads fail closed before lifecycle changes",
               "Adbyby NVRAM read failures preserve both DNS ownership targets and propagate status",
               "Adbyby NVRAM write failures preserve the active DNS target and propagate status",
               "SmartDNS does not dispatch unsupported Adbyby switch action",

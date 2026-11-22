@@ -188,8 +188,60 @@ cmp -s "$F" "$T/publish-before-mv" || fail "failed publication changed live DNSM
 for tmp in "$F".tmp.*; do [ ! -e "$tmp" ] || fail "publish leaked temporary file"; done
 pass "failed managed-block publication leaves original config intact"
 
-# NVRAM read and write errors must not desynchronize the active Adbyby DNS owner.
+# Critical resolver mode/port reads must fail before any DNS state can be changed.
 SMARTDNS_SOURCE="$HERE/../smartdns.sh"
+sed -n '/^smartdns_nvram_read_checked()/,/^}/p' "$SMARTDNS_SOURCE" > "$T/startup-nvram-reader.sh"
+[ -s "$T/startup-nvram-reader.sh" ] || fail "checked startup NVRAM reader missing"
+. "$T/startup-nvram-reader.sh"
+NVRAM_READ_FAIL_KEY=sdns_enable
+NVRAM_READ_STATUS=51
+nvram() {
+    [ "${1:-}" = get_checked ] && [ "${2:-}" = "$NVRAM_READ_FAIL_KEY" ] || return 2
+    return "$NVRAM_READ_STATUS"
+}
+logger() { printf '%s\n' "$*" >> "$T/startup-nvram.log"; }
+: > "$T/startup-nvram.log"
+if smartdns_nvram_read_checked sdns_enable; then
+    fail "failed critical sdns_enable read was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 51 ] || fail "critical sdns_enable read status changed to $status"
+grep -Fq 'Failed to read NVRAM key sdns_enable' "$T/startup-nvram.log" || fail "critical sdns_enable read failure was not logged"
+NVRAM_READ_FAIL_KEY=sdns_port
+NVRAM_READ_STATUS=52
+if smartdns_nvram_read_checked sdns_port; then
+    fail "failed critical sdns_port read was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 52 ] || fail "critical sdns_port read status changed to $status"
+NVRAM_READ_FAIL_KEY=sdns_redirect
+NVRAM_READ_STATUS=53
+if smartdns_nvram_read_checked sdns_redirect; then
+    fail "failed critical sdns_redirect read was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 53 ] || fail "critical sdns_redirect read status changed to $status"
+NVRAM_READ_FAIL_KEY=sdnse_enable
+NVRAM_READ_STATUS=54
+if smartdns_nvram_read_checked sdnse_enable; then
+    fail "failed secondary-resolver enable read was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 54 ] || fail "secondary-resolver enable read status changed to $status"
+NVRAM_READ_FAIL_KEY=sdnse_port
+NVRAM_READ_STATUS=55
+if smartdns_nvram_read_checked sdnse_port; then
+    fail "failed secondary-resolver port read was accepted"
+else
+    status=$?
+fi
+[ "$status" -eq 55 ] || fail "secondary-resolver port read status changed to $status"
+pass "critical SmartDNS resolver NVRAM reads fail closed before lifecycle changes"
+
 if grep -Fq '/usr/bin/adbyby.sh switch' "$SMARTDNS_SOURCE"; then
     fail "SmartDNS dispatched an unsupported Adbyby switch action"
 fi
