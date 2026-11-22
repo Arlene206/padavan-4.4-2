@@ -4967,7 +4967,9 @@ jobs:
           assert 'firewall_ipv4_address_is_safe("192.168.1.1\\rCOMMIT")' in firewall_test
           # Keep the address-sanitizer floor while pinning the default NAT
           # builder's own checked, copied LAN-address input.
-          nat_default = body(firewall, "int\\nipt_nat_default(void)", "static int\\nstart_firewall_ex_locked")
+          nat_start = firewall.index("ipt_nat_default(void)")
+          nat_end = firewall.index("start_firewall_ex_locked", nat_start)
+          nat_default = firewall[nat_start:nat_end]
           assert firewall.count("firewall_ipv4_address_is_safe(") >= 9
           assert "firewall_ipv4_address_is_safe(lan_ip_setting)" in nat_default
           assert "nvram_safe_get(" not in nat_default
