@@ -14,7 +14,42 @@ pl_process_state()
                 awk '{ for (i = 1; i <= NF; i++) { if ($i !~ /^[1-9][0-9]*$/) invalid = 1; count++ } }
                      END { if (invalid || count == 0) exit 1; exit 0 }' >/dev/null 2>&1 || return 2
             return 0 ;;
-        1) [ -z "$pl_pid_output" ] && return 1; return 2 ;;
+        1)
+            [ -z "$pl_pid_output" ] || return 2
+            # pidof status 1 is ambiguous on BusyBox: it can mean either
+            # "not found" or an incomplete procfs scan. Confirm absence by
+            # enumerating every visible numeric PID and reading its stat file.
+            pl_proc_root="${PL_PROC_ROOT:-/proc}"
+            if [ ! -d "$pl_proc_root" ] || [ ! -r "$pl_proc_root" ] || [ ! -x "$pl_proc_root" ]; then
+                return 2
+            fi
+            command -v ls >/dev/null 2>&1 || return 2
+            pl_proc_listing=$(ls -1 "$pl_proc_root" 2>/dev/null) || return 2
+            for pl_proc_pid in $pl_proc_listing; do
+                case "$pl_proc_pid" in ''|*[!0-9]*) continue ;; esac
+                pl_proc_dir="$pl_proc_root/$pl_proc_pid"
+                [ -d "$pl_proc_dir" ] || continue
+                if IFS= read -r pl_proc_stat < "$pl_proc_dir/stat"; then
+                    :
+                else
+                    # PID exit between enumeration and read is normal; a
+                    # still-present directory with unreadable stat is UNKNOWN.
+                    [ -d "$pl_proc_dir" ] || continue
+                    return 2
+                fi
+                case "$pl_proc_stat" in
+                    *") "*) ;;
+                    *) return 2 ;;
+                esac
+                pl_proc_name=${pl_proc_stat#*(}
+                pl_proc_name=${pl_proc_name%)*}
+                pl_proc_fields=${pl_proc_stat##*) }
+                pl_proc_state=${pl_proc_fields%% *}
+                [ -n "$pl_proc_state" ] || return 2
+                case "$pl_proc_state" in Z|X|x) continue ;; esac
+                [ "$pl_proc_name" = "$pl_name" ] && return 0
+            done
+            return 1 ;;
         *) return 2 ;;
     esac
 }

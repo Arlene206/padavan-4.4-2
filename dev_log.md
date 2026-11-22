@@ -1,3 +1,9 @@
+## 2026-11-22 — Shared process lifecycle confirms ABSENT through procfs
+
+- Source baseline: `9686ad35850b6e183c65b8e8408fce1e62088410`. The shared shell helper `pl_process_state()` classified `pidof` status 1 with empty output as confirmed ABSENT. BusyBox pidof can also return this status when procfs enumeration is incomplete, so the helper could authorize duplicate ttyd startup or report an already-stopped daemon when it was still present but omitted from the scan.
+- Kept the validated PID fast path for status 0, but status 1/empty now triggers a full procfs inventory. A complete scan with no matching live task is ABSENT; unreadable or malformed per-PID stat records, an unavailable proc root, or other pidof status/output inconsistencies remain UNKNOWN. Zombies/dead tasks are excluded from RUNNING.
+- Extended the shared shell regression with fallback discovery, unreadable/malformed stat, zombie, and missing-proc-root cases. The process-lifecycle umbrella workflow already invokes this test. Exact-head CI pending; no router/firmware test claimed.
+
 ## 2026-11-22 — Use portable octal newline in the Transmission pidof stub
 
 - The PID-output fixture normalizer used a doubled backslash in the `tr` set, which translates literal backslash/letter bytes instead of line-feed bytes. Corrected it to the POSIX octal newline escape `\012`, preserving the production parser's strict space-separated pidof contract.

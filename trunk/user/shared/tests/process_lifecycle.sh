@@ -4,8 +4,10 @@ repo_root=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 lib="${PROCESS_LIFECYCLE_LIB:-$repo_root/trunk/user/shared/scripts/process_lifecycle.sh}"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/process-lifecycle.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
-mkdir -p "$tmp/bin"
+mkdir -p "$tmp/bin" "$tmp/proc"
 state_file="$tmp/state"; events_file="$tmp/events"
+PL_PROC_ROOT="$tmp/proc"
+export PL_PROC_ROOT
 cat > "$tmp/bin/pidof" <<'STUB'
 #!/bin/sh
 case "$(cat "$PL_TEST_STATE")" in
@@ -57,6 +59,38 @@ for item in "running:0" "absent:1" "unknown:2" "empty-success:2" "malformed:2" "
  if pl_process_state test-daemon; then actual=0; else actual=$?; fi
  [ "$actual" -eq "$expected" ] || fail "$state classified as $actual, expected $expected"
 done
+# pidof status 1 with empty output is not sufficient to prove absence:
+# discover a matching task directly from the complete procfs inventory.
+echo absent > "$state_file"
+mkdir -p "$PL_PROC_ROOT/321"
+printf '%s\n' '321 (test-daemon) S 1 2 3' > "$PL_PROC_ROOT/321/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 0 ] || fail "procfs fallback missed a live daemon"
+rm -rf "$PL_PROC_ROOT/321"
+
+# An unreadable stat entry means the snapshot is incomplete, not ABSENT.
+mkdir -p "$PL_PROC_ROOT/322/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "unreadable proc stat was classified as $actual"
+rm -rf "$PL_PROC_ROOT/322"
+
+# Malformed records are UNKNOWN; zombies/dead tasks are not live instances.
+mkdir -p "$PL_PROC_ROOT/323"
+printf '%s\n' 'not a proc stat record' > "$PL_PROC_ROOT/323/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "malformed proc stat was classified as $actual"
+printf '%s\n' '323 (test-daemon) Z 1 2 3' > "$PL_PROC_ROOT/323/stat"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 1 ] || fail "zombie daemon was classified as $actual"
+rm -rf "$PL_PROC_ROOT/323"
+
+# An unavailable procfs root cannot be treated as a complete empty snapshot.
+PL_PROC_ROOT="$tmp/missing-proc"
+if pl_process_state test-daemon; then actual=0; else actual=$?; fi
+[ "$actual" -eq 2 ] || fail "missing procfs root was classified as $actual"
+PL_PROC_ROOT="$tmp/proc"
+export PL_PROC_ROOT
+
 
 # Detached startup requires a confirmed RUNNING inventory.
 echo running > "$state_file"; echo 0 > "$PL_TEST_SLEEP_COUNT"; PL_TEST_SLEEP_AFTER=0
