@@ -22,8 +22,7 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 
 ## Active task
 
-The DHCPv6 DNSMasq path now uses status-returning LAN6 APIs for RA state, DHCPv6 mode and IRT, plus a checked one-generation snapshot for DNS address and stateful lifetime/interface-ID bounds before staged config open. Its GNU89/ASan/UBSan regression and source contract passed on `69d316e7909fa2143b12e786260d61ed9cb6cf4a`. The remaining current task is to get XY-C1's embedded source contract/build flow green with the updated status-bearing getter.
-
+Manual RT/WL radio changes previously used `nvram_wlan_get_int()` (safe_get + atoi, collapsing backend errors to zero) and `nvram_wlan_set_int()` (discarding write status). The common `manual_change_radio_status()` now reads the precise `rt_radio_x`/`wl_radio_x` key with `nvram_get_checked()`, parses it fail-closed, propagates read errors before no-op, and persists through checked `nvram_set_int()` before hardware changes. PID-1's radio applet now obtains the same checked prior state from this operation instead of making a second unchecked read. The wireless workflow contains a GNU89 policy regression and source-order contract.
 ## Verification boundary
 
 - Local C/Python tests were not run in this connector-only session.
@@ -35,6 +34,6 @@ The DHCPv6 DNSMasq path now uses status-returning LAN6 APIs for RA state, DHCPv6
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA XY-C1 rerun for the updated embedded DHCPv6 getter contract; require Build XY-C1, TRX and artifact upload all PASS on that same SHA.
-2. While target build is running, continue the broad userland stability/security rotation outside WAN/PPP, USB modem, Inadyn and DNSMasq.
-3. Keep the backup immutable. XY-C1 L3 requires Build, TRX validation and artifact upload all PASS on one SHA; L4 requires physical device verification.
+1. Inspect exact-SHA wireless radio Actions for this manual-radio NVRAM fix, then verify XY-C1's Build/TRX/artifact on the same source SHA.
+2. Continue broad userland stability/security work outside WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio controls.
+3. Keep backup immutable. XY-C1 L3 requires Build, TRX and artifact upload all PASS on one SHA; L4 requires physical device verification.

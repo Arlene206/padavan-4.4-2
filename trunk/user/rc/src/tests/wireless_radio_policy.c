@@ -358,10 +358,52 @@ test_txpower_config_value_is_normalized(void)
 	       wireless_txpower_config_value(INT_MAX) != 100;
 }
 
+static int
+test_radio_nvram_flag_status_fails_closed(void)
+{
+	int enabled = 9;
+
+	if (wireless_radio_nvram_flag_status(0, 0, NULL, &enabled) != 0 ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, "", &enabled) != 0 ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, "   ", &enabled) != 0 ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, "0", &enabled) != 0 ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, "1", &enabled) != 0 ||
+	    enabled != 1)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, " 2 ", &enabled) != 0 ||
+	    enabled != 1)
+		return 1;
+	if (wireless_radio_nvram_flag_status(-1, EACCES, "1", &enabled) != EACCES ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(-1, 0, "1", &enabled) != EIO ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(2, 0, "1", &enabled) != EIO ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, "on", &enabled) != EINVAL ||
+	    enabled != 0)
+		return 1;
+	if (wireless_radio_nvram_flag_status(1, 0, "1x", &enabled) != EINVAL ||
+	    enabled != 0)
+		return 1;
+	return wireless_radio_nvram_flag_status(1, 0, "1", NULL) != EINVAL;
+}
+
 int
 main(void)
 {
-	if (test_inic_start_enable_gate_fails_closed() ||
+	if (test_radio_nvram_flag_status_fails_closed() ||
+	    test_inic_start_enable_gate_fails_closed() ||
 	    test_txpower_config_value_is_normalized() ||
 	    test_success_is_published() ||
 	    test_interface_failures_are_not_published() ||

@@ -2,6 +2,8 @@
 #define WIRELESS_RADIO_POLICY_H
 
 #include <errno.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 /*
  * The iNIC is enabled unless its disable flag is exactly 1. A checked-read
@@ -18,6 +20,48 @@ wireless_inic_start_enabled(int read_status, int disabled_value,
 	if (read_status != 0)
 		return read_status;
 	*inic_enabled = (disabled_value != 1);
+	return 0;
+}
+
+/*
+ * Parse the checked radio-enable NVRAM value. Missing and empty values keep
+ * the historical disabled default; backend and malformed-value failures
+ * must not become a false "already off" result.
+ */
+static inline int
+wireless_radio_nvram_flag_status(int api_result, int saved_errno,
+				 const char *value, int *enabled)
+{
+	char *end;
+	long parsed;
+
+	if (!enabled)
+		return EINVAL;
+	*enabled = 0;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !value)
+		return EIO;
+	if (!value[0])
+		return 0;
+
+	errno = 0;
+	parsed = strtol(value, &end, 10);
+	if (end == value) {
+		while (*end && isspace((unsigned char)*end))
+			++end;
+		return *end ? EINVAL : 0;
+	}
+	if (errno == ERANGE)
+		return EINVAL;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+	if (*end)
+		return EINVAL;
+
+	*enabled = (parsed != 0);
 	return 0;
 }
 

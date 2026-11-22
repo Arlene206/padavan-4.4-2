@@ -128,8 +128,6 @@ jobs:
           assert "watchdog Wi-Fi notification settling wait failed" in watchdog_wait
           assert "return -1;" in watchdog_wait
           for signature, notify, label, nvram_key, control in (
-              ("manual_change_radio_rt(int radio_on)", "notify_watchdog_wifi(0)", "2.4GHz radio", '"radio_x"', "control_radio_rt"),
-              ("manual_change_radio_wl(int radio_on)", "notify_watchdog_wifi(1)", "5GHz radio", '"radio_x"', "control_radio_wl"),
               ("manual_change_guest_rt(int radio_on)", "notify_watchdog_wifi(0)", "2.4GHz guest AP", '"guest_enable"', "control_guest_rt"),
               ("manual_change_guest_wl(int radio_on)", "notify_watchdog_wifi(1)", "5GHz guest AP", '"guest_enable"', "control_guest_wl"),
           ):
@@ -142,6 +140,27 @@ jobs:
               control_at = manual.index(f"return {control}(", nvram_at)
               assert notify_at < wait_at < fail_at < return_at < nvram_at < control_at
               assert "usleep(300000);" not in manual
+
+          radio_manual = function_body(
+              source,
+              "manual_change_radio_status(int is_5g, int radio_on, int *was_enabled)")
+          radio_read = radio_manual.index("nvram_get_checked(nvram_key, &nvram_value)")
+          radio_policy = radio_manual.index(
+              "wireless_radio_nvram_flag_status(", radio_read
+          )
+          radio_read_error = radio_manual.index("if (read_status != 0)", radio_policy)
+          radio_noop = radio_manual.index("if (*was_enabled == radio_on)", radio_read_error)
+          radio_wait = radio_manual.index("wait_wifi_watchdog_update(", radio_noop)
+          radio_wait_error = radio_manual.index("if (wait_status != 0)", radio_wait)
+          radio_save = radio_manual.index("nvram_set_int(nvram_key, radio_on)", radio_wait_error)
+          radio_save_error = radio_manual.index("if (write_status != 0)", radio_save)
+          radio_rt = radio_manual.index("return control_radio_rt(radio_on, 1)", radio_save_error)
+          assert radio_read < radio_policy < radio_read_error < radio_noop < radio_wait < radio_wait_error < radio_save < radio_save_error < radio_rt
+          assert "nvram_wlan_get_int(" not in radio_manual
+          assert "nvram_wlan_set_int(" not in radio_manual
+          assert "return control_radio_wl(radio_on, 1)" in radio_manual
+          assert "test_radio_nvram_flag_status_fails_closed" in notification_test
+          assert "wireless_radio_nvram_flag_status" in notification_policy
 
           wan_start = function_body(wan_source, "start_wan(void)")
           reconnect_call = wan_start.index("vlan_result = reconnect_apcli(wan_ifname, 0);")
@@ -258,10 +277,7 @@ jobs:
 
           manual_change = function_body(
               rc_source, "rc_manual_change_radio_status(int is_5g, int requested_on)")
-          assert "was_enabled = get_enabled_radio_wl();" in manual_change
-          assert "was_enabled = get_enabled_radio_rt();" in manual_change
-          assert "status = manual_change_radio_wl(requested_on);" in manual_change
-          assert "status = manual_change_radio_rt(requested_on);" in manual_change
+          assert "status = manual_change_radio_status(is_5g, requested_on, &was_enabled);" in manual_change
           assert "if (status < 0)" in manual_change
           assert "wireless_radio_notification_result(was_enabled, requested_on," in manual_change
 

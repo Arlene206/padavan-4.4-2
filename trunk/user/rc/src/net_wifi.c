@@ -2336,48 +2336,92 @@ wait_wifi_watchdog_update(const char *radio_name)
 	return -1;
 }
 
-int 
-manual_change_radio_rt(int radio_on)
+int
+manual_change_radio_status(int is_5g, int radio_on, int *was_enabled)
 {
-	int wait_status;
-	if (get_enabled_radio_rt() == radio_on)
+	char nvram_key[64];
+	char *nvram_value = NULL;
+	const char *prefix, *band_name;
+	int key_length, api_result, saved_errno;
+	int read_status, write_status, wait_status;
+
+	if (!was_enabled || (is_5g != 0 && is_5g != 1))
+		return -EINVAL;
+	*was_enabled = 0;
+	radio_on = !!radio_on;
+#if !BOARD_HAS_5G_RADIO
+	if (is_5g)
+		return 0;
+#endif
+
+	prefix = is_5g ? "wl" : "rt";
+	band_name = is_5g ? "5GHz" : "2.4GHz";
+	key_length = snprintf(nvram_key, sizeof(nvram_key),
+			      "%s_radio_x", prefix);
+	if (key_length < 0 || (size_t)key_length >= sizeof(nvram_key))
+		return -ENAMETOOLONG;
+
+	/*
+	 * nvram_wlan_get_int() uses safe_get()+atoi(), so a backend failure can
+	 * become zero and make a requested radio-off look like a no-op.
+	 */
+	errno = 0;
+	api_result = nvram_get_checked(nvram_key, &nvram_value);
+	saved_errno = errno;
+	read_status = wireless_radio_nvram_flag_status(
+		api_result, saved_errno, nvram_value, was_enabled);
+	if (read_status != 0) {
+		errno = read_status;
+		logmessage(LOGNAME,
+			   "manual radio change aborted: cannot read %s state (status=%d)",
+			   band_name, read_status);
+		return -read_status;
+	}
+	if (*was_enabled == radio_on)
 		return 0;
 
 	if (radio_on) {
-		notify_watchdog_wifi(0);
-		wait_status = wait_wifi_watchdog_update("2.4GHz radio");
+		notify_watchdog_wifi(is_5g);
+		wait_status = wait_wifi_watchdog_update(
+			is_5g ? "5GHz radio" : "2.4GHz radio");
 		if (wait_status != 0)
 			return wait_status;
 	}
 
-	nvram_wlan_set_int(0, "radio_x", radio_on);
+	/* Do not change hardware if the persistent target could not be saved. */
+	errno = 0;
+	write_status = nvram_set_int(nvram_key, radio_on);
+	if (write_status != 0) {
+		saved_errno = errno > 0 ? errno : EIO;
+		errno = saved_errno;
+		logmessage(LOGNAME,
+			   "manual %s radio state save failed (status=%d, errno=%d)",
+			   band_name, write_status, saved_errno);
+		return -saved_errno;
+	}
 
-	logmessage(LOGNAME, "Perform manual %s %s %s", (radio_on) ? "enable" : "disable", "2.4GHz", "radio");
-
+	logmessage(LOGNAME, "Perform manual %s %s %s",
+		   radio_on ? "enable" : "disable", band_name, "radio");
+	if (is_5g)
+		return control_radio_wl(radio_on, 1);
 	return control_radio_rt(radio_on, 1);
 }
 
-int 
+int
+manual_change_radio_rt(int radio_on)
+{
+	int was_enabled;
+	return manual_change_radio_status(0, radio_on, &was_enabled);
+}
+
+int
 manual_change_radio_wl(int radio_on)
 {
-	int wait_status;
 #if BOARD_HAS_5G_RADIO
-	if (get_enabled_radio_wl() == radio_on)
-		return 0;
-
-	if (radio_on) {
-		notify_watchdog_wifi(1);
-		wait_status = wait_wifi_watchdog_update("5GHz radio");
-		if (wait_status != 0)
-			return wait_status;
-	}
-
-	nvram_wlan_set_int(1, "radio_x", radio_on);
-
-	logmessage(LOGNAME, "Perform manual %s %s %s", (radio_on) ? "enable" : "disable", "5GHz", "radio");
-
-	return control_radio_wl(radio_on, 1);
+	int was_enabled;
+	return manual_change_radio_status(1, radio_on, &was_enabled);
 #else
+	(void)radio_on;
 	return 0;
 #endif
 }

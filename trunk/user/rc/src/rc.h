@@ -515,6 +515,7 @@ int restart_guest_lan_isolation(void);
 int  manual_toggle_radio_rt(int radio_on);
 int  manual_toggle_radio_wl(int radio_on);
 int  manual_change_radio_rt(int radio_on);
+int  manual_change_radio_status(int is_5g, int radio_on, int *was_enabled);
 int  manual_change_radio_wl(int radio_on);
 int  manual_change_guest_rt(int radio_on);
 int  manual_change_guest_wl(int radio_on);

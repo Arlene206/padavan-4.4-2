@@ -1,3 +1,14 @@
+## 2026-11-22 — Propagate manual Wi-Fi radio NVRAM read and write failures
+
+- Parent main SHA: `878ab305cbea2b09e59a1082cbc8bc4405244bb0`. The RT/WL manual path called `nvram_wlan_get_int()` (safe_get + `atoi()`), so a backend read failure could become zero and make an explicit radio-off request look like an already-satisfied no-op. Its `nvram_wlan_set_int()` wrapper also discarded the `nvram_set_int()` result, allowing hardware changes after failed persistence.
+- Added a status-aware radio flag parser: missing/empty values preserve disabled defaults and legacy nonzero integer truth, while backend errors, malformed values and invalid API returns abort with output reset. Unified RT/WL manual changes around checked `nvram_get_checked()`, watchdog wait, checked `nvram_set_int()`, and only then hardware control. PID-1 now receives the pre-change enabled state from the shared checked operation.
+- Added GNU89 policy cases for missing/empty/whitespace/zero/one/nonzero values, malformed input, invalid API status, errno fallback and output reset. Updated wireless workflow's source contract to require checked read → error gate → no-op → wait → checked write → error gate → hardware order.
+- The exact XY-C1 run #45035251615 on `9a1d4e442da2af1d64cef9397fcd973386831617` PASS, including firmware Build XY-C1, TRX verification and artifact upload. That is prior-SHA evidence, not a result for this new Wi-Fi change.
+- No local tests were run in this connector-only session. Exact-head wireless Actions pending.
+- Result: THIS COMMIT. Next: verify exact-head wireless CI and XY-C1 Build/TRX/artifact, then continue broader userland fixes.
+
+---
+
 ## 2026-11-22 — Make the XY-C1 firmware gate self-triggering after its contract fix
 
 - Parent main SHA: `9a1d4e442da2af1d64cef9397fcd973386831617`. The embedded DHCPv6 source contract is corrected in the prior commit, but the XY-C1 workflow's push path filter did not include its own workflow file. Therefore the workflow edit itself could not launch a verification run.

@@ -1879,18 +1879,11 @@ rc_manual_toggle_radio_status(int is_5g, int requested_on)
 static int
 rc_manual_change_radio_status(int is_5g, int requested_on)
 {
-	int was_enabled;
+	int was_enabled = 0;
 	int status;
 
-	if (is_5g) {
-		was_enabled = get_enabled_radio_wl();
-		status = manual_change_radio_wl(requested_on);
-	} else {
-		was_enabled = get_enabled_radio_rt();
-		status = manual_change_radio_rt(requested_on);
-	}
-
-	/* Preserve watchdog-settling errors; 0/1 retains the legacy changed API. */
+	status = manual_change_radio_status(is_5g, requested_on, &was_enabled);
+	/* Preserve checked-NVRAM and watchdog-settling errors. */
 	if (status < 0)
 		return status;
 	return wireless_radio_notification_result(was_enabled, requested_on,
