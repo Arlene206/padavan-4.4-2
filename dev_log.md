@@ -1,3 +1,10 @@
+## 2026-11-22 — Load process-inventory sources before asserting their parser contract
+
+- Exact-head Process inventory run 45083076267 on 5e15ed4dec1dd59ea3953d2873dbea8cc73bfb9f failed with `NameError: process_inventory is not defined`. The new source-contract assertions referenced `process_inventory` and `process_inventory_test`, but the checker had not loaded either source file.
+- Added explicit reads for the production parser and its host regression test alongside the existing shared-process source loads. The source assertions now inspect the intended files rather than failing before evaluation.
+
+---
+
 ## 2026-11-22 — Correct AliyunDrive lock-directory parameter expansion
 
 - Exact-head AliyunDrive lifecycle run 45083004459 on c1a2f7f03c9223acb5807cd4bb03918575e89d6b failed immediately when the new lock-policy regression tried to acquire its pre-provisioned fixture. Review of the shell log showed the parent-directory parameter expansion had been committed with a literal leading backslash, so the path validator tested a non-existent literal directory.
