@@ -122,5 +122,34 @@ disk_share_write_account_defaults(FILE *stream, int folder_count,
 	return 0;
 }
 
+/* Build a bounded per-account metadata pathname without accepting truncation. */
+static inline int
+disk_share_format_account_var_path(char *buffer, size_t buffer_size,
+                                   const char *mount_path,
+                                   const char *account)
+{
+	int path_len;
+
+	if (!buffer || buffer_size == 0 || !mount_path || !*mount_path ||
+	    !account || !*account) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	errno = 0;
+	path_len = snprintf(buffer, buffer_size, "%s/.__%s_var.txt",
+	                    mount_path, account);
+	if (path_len < 0) {
+		if (errno == 0)
+			errno = EIO;
+		return -1;
+	}
+	if ((size_t)path_len >= buffer_size) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

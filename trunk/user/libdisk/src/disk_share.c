@@ -904,7 +904,9 @@ char var_file[256];
 		return -1;
 
 	/* An absent metadata file means no explicit grant; read failures do not. */
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                     mount_path, account) != 0)
+		return 0;
 	var_info = read_whole_file(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
@@ -975,7 +977,9 @@ FILE *fp;
 	    !is_valid_folder_name(folder))
 		return -1;
 
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                     mount_path, account) != 0)
+		return -1;
 	var_info = read_whole_file(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;

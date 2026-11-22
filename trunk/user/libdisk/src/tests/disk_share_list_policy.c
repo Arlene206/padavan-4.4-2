@@ -212,12 +212,34 @@ test_account_defaults_write_rejects_invalid_data(void)
 	assert(errno == EINVAL);
 	(void)fclose(stream);
 }
+static void
+test_account_var_path_rejects_truncation(void)
+{
+	char path[128];
+	char short_path[8];
+
+	assert(disk_share_format_account_var_path(path, sizeof(path),
+	                                          "/mnt/usb1", "admin") == 0);
+	assert(strcmp(path, "/mnt/usb1/.__admin_var.txt") == 0);
+
+	errno = 0;
+	assert(disk_share_format_account_var_path(short_path, sizeof(short_path),
+	                                          "/mnt/usb1", "admin") == -1);
+	assert(errno == ENAMETOOLONG);
+
+	errno = 0;
+	assert(disk_share_format_account_var_path(path, sizeof(path),
+	                                          NULL, "admin") == -1);
+	assert(errno == EINVAL);
+}
+
 int
 main(void)
 {
 	test_invalid_mount_paths_clear_outputs();
 	test_missing_output_parameters_are_safe();
 	test_valid_mount_path_starts_with_empty_outputs();
+	test_account_var_path_rejects_truncation();
 	test_readdir_entry_and_clean_eof();
 	test_readdir_error_is_not_clean_eof();
 	test_readdir_rejects_missing_adapters();

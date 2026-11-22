@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LIBDISK = ROOT / "trunk/user/libdisk/src"
 DISK_SOURCE = (LIBDISK / "disk_share.c").read_text()
 DISK_IO_SOURCE = (LIBDISK / "disk_io_tools.c").read_text()
+POLICY_TEST = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
 POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
 REGRESSION = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
@@ -221,6 +222,20 @@ require("(unsigned char)name[i] == 0x84" in sanity_body,
         "sanity_name must compare non-ASCII bytes without signed-char truncation")
 require("test_sanity_name_replaces_high_bit_reserved_byte();" in IO_REGRESSION,
         "high-bit reserved filename byte needs a regression test")
+
+
+require("disk_share_format_account_var_path" in POLICY and
+        "errno = ENAMETOOLONG;" in POLICY,
+        "account permission metadata paths must reject truncation")
+get_permission_body = function_body(DISK_SOURCE, "int get_permission(")
+set_permission_body = function_body(DISK_SOURCE, "int set_permission(")
+require("disk_share_format_account_var_path(var_file, sizeof(var_file)" in
+        " ".join(get_permission_body.split()) and
+        "disk_share_format_account_var_path(var_file, sizeof(var_file)" in
+        " ".join(set_permission_body.split()),
+        "permission read/write must use the bounded account pathname helper")
+require("test_account_var_path_rejects_truncation();" in POLICY_TEST,
+        "account pathname overflow needs a regression")
 
 read_failure = function_body(
     DISK_IO_SOURCE, "read_whole_file_failure(FILE *fp, char *buffer, int saved_errno)"
