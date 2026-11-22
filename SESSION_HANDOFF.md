@@ -2,6 +2,8 @@
 
 ## Mandatory handoff checkpoint
 
+The checkpoint is mandatory; a document edit is conditional.
+
 Every session MUST inspect live repository state and complete an end-of-session accuracy checkpoint. Record exact main SHA, exact-SHA Actions, test/build boundaries and the next precise task. If facts remain accurate, explicitly conclude with no file change and no no-op commit. Use one atomic main commit for material changes only. Before context exhaustion, leave an accurate handoff and complete any safe bounded engineering slice.
 
 - Work only on `main`; never force-push, use side branches/PRs, or modify the frozen backup.
@@ -12,8 +14,8 @@ Every session MUST inspect live repository state and complete an end-of-session 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Parent main SHA for this checkpoint: `ff25eacd70dccd78c6416c76ad199ad69aa8f61d` (`docs: refresh session handoff for continued stability work`). The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
-- The previous exact-SHA handoff run #45051742269 failed only because root `dev_log.md` had reached 120 complete records. This checkpoint rotates the oldest 101 records into `docs/dev-log/2026/11/part-027.md` and retains the newest 20 in the root; verify the resulting exact-SHA handoff workflow after publication.
+- Parent main SHA for this checkpoint: `0502c7ab3b3ad32c0682a0c372b79789174bfe7e` (`docs: refresh session handoff for continued stability work`). The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- The previous exact-SHA handoff run #45051742269 failed because root `dev_log.md` had reached 120 complete records. The rotation is complete: 101 records are archived in `docs/dev-log/2026/11/part-027.md`, with the newest 20 retained in the root. The follow-up exact-SHA run #45052323259 then identified the missing literal handoff clause; this commit adds it.
 - Exact parent SHA Actions: AI handoff run #45051742269 = completed/failure at the 120-entry rolling-log check. No other workflow run was returned for this exact SHA. Process inventory run #45051059927 passed on ancestor `372451d468fd772858635590f1c1c10bccf95dc0`; it is not an exact-parent result.
 - XY-C1 L3 is NOT VERIFIED on current main. Historical XY-C1 run #45047957843 fully passed host validation, Build XY-C1, TRX verification and artifact upload on older SHA `c139dd5da2cbce53ee683d303f56e66d6b55dca0`. The later exact-source run #45050810796 on `6418e87add0ffce79fd918077bb1e7dfdded2fc0` passed host checks but skipped Build, TRX and artifact upload because no production input changed. Do not reuse ancestor results as current-SHA verification.
 - Earlier XY-C1 run #45050298446 on `b5fbcebd47fa735f70d06064a8a8cb682f4b0229` failed in a stale source checker before firmware production stages; the L2TP checker contract was subsequently corrected and Process passed on `372451d...`. Current-head Build/TRX/artifact remains unverified.

@@ -1,3 +1,12 @@
+## 2026-11-22 — Match the handoff checkpoint sentence to the enforced contract
+
+- Exact source SHA `d1d26ed9305792ba5810634e660420a75ad9c837` AI handoff run #45052323259 passed the 20-entry rolling-log check but failed the handoff contract: `SESSION_HANDOFF.md` lacked the literal sentence `The checkpoint is mandatory; a document edit is conditional.`.
+- Added the exact mandatory checkpoint clause while retaining the conditional-document-edit rule. This is a checker-contract correction only; no firmware or production code changed in this slice.
+- At last inspection on source SHA `d1d26ed...`, Process regression #45052323143 was cancelled, NVRAM transaction #45052323058 and HTTPD security #45052323146 were running, and XY-C1 #45052323200 was still running. These results do not transfer to the new documentation SHA.
+- No local test or hardware validation was run. Check the AI handoff workflow on the new exact SHA; source regressions and XY-C1 production verification remain pending/NOT VERIFIED.
+
+---
+
 ## 2026-11-22 09:44 PST (UTC-8) — Rotate bounded development log and identify account rollback defect
 
 - Exact parent main SHA: `ff25eacd70dccd78c6416c76ad199ad69aa8f61d`. The exact-SHA AI handoff workflow #45051742269 failed in `scripts/check_ai_handoff_docs.py` because the root `dev_log.md` contained 120 entries; the previous handoff-only commit did not perform the required rolling-window rotation.
