@@ -57,6 +57,47 @@ test_each_failed_marker_read_preserves_the_pair(void)
 }
 
 static void
+test_ack_failure_does_not_replay_successful_action(void)
+{
+	int action_done = 0;
+
+	assert(usb_hotplug_event_action_should_run(1, action_done));
+	assert(usb_hotplug_event_ack_status(1, 0, EACCES,
+		&action_done) == EACCES);
+	assert(action_done == 1);
+	assert(!usb_hotplug_event_action_should_run(1, action_done));
+	/* Retry only the marker clear, not the already-completed side effect. */
+	assert(usb_hotplug_event_ack_status(1, 0, 0, &action_done) == 0);
+	assert(action_done == 0);
+	assert(usb_hotplug_event_action_should_run(1, action_done));
+}
+
+static void
+test_action_failure_remains_eligible_for_retry(void)
+{
+	int action_done = 1;
+
+	assert(usb_hotplug_event_action_should_run(1, action_done));
+	assert(usb_hotplug_event_ack_status(1, -1, 0, &action_done) == EIO);
+	assert(action_done == 0);
+	assert(usb_hotplug_event_action_should_run(1, action_done));
+}
+
+static void
+test_absent_event_releases_action_latch(void)
+{
+	int action_done = 1;
+
+	assert(usb_hotplug_event_ack_status(0, 0, EIO, &action_done) == 0);
+	assert(action_done == 0);
+	assert(usb_hotplug_event_ack_status(1, 0, -1, &action_done) == EIO);
+	assert(action_done == 1);
+	assert(usb_hotplug_event_ack_status(1, 0, 0, &action_done) == 0);
+	assert(action_done == 0);
+	assert(usb_hotplug_event_ack_status(1, 0, 0, NULL) == EINVAL);
+}
+
+static void
 test_null_outputs_are_rejected(void)
 {
 	int pending = 0;
@@ -78,6 +119,9 @@ main(void)
 	test_coalesced_events_preserve_both_markers();
 	test_only_exact_one_is_an_event();
 	test_each_failed_marker_read_preserves_the_pair();
+	test_ack_failure_does_not_replay_successful_action();
+	test_action_failure_remains_eligible_for_retry();
+	test_absent_event_releases_action_latch();
 	test_null_outputs_are_rejected();
 	puts("USB deferred unplug/plug marker policy: PASS");
 	return 0;

@@ -4581,6 +4581,10 @@ on_deferred_hotplug_dev(void)
 	int modem_unplug_marker_status, modem_hotplug_marker_status;
 	int modem_marker_status, modem_unplug_pending = 0, modem_hotplug_pending = 0;
 	int marker_read_error;
+	static int printer_unplug_action_done;
+	static int printer_hotplug_action_done;
+	static int modem_unplug_action_done;
+	static int modem_hotplug_action_done;
 	unsigned int modem_retry_mask;
 #endif
 	int storage_start_result;
@@ -4661,35 +4665,43 @@ on_deferred_hotplug_dev(void)
 			   marker_read_error);
 		alarm(5);
 	} else {
+		if (!printer_unplug_pending)
+			printer_unplug_action_done = 0;
+		if (!printer_hotplug_pending)
+			printer_hotplug_action_done = 0;
 		if (printer_unplug_pending) {
-			if (!usb_port_module_used("usblp"))
-				stop_usb_printer_spoolers();
-			if (usb_hotplug_event_ack_allowed(printer_unplug_pending, 0)) {
-				printer_marker_status = storage_ack_event_marker_status("usb_unplug_lp");
-				if (printer_marker_status != 0) {
-					logmessage("USB Printer",
-						   "cannot acknowledge printer unplug event; keeping it queued (status=%d)",
-						   printer_marker_status);
-					alarm(5);
-				}
+			if (usb_hotplug_event_action_should_run(printer_unplug_pending,
+							 printer_unplug_action_done)) {
+				if (!usb_port_module_used("usblp"))
+					stop_usb_printer_spoolers();
+			}
+			printer_marker_status = storage_ack_event_marker_status("usb_unplug_lp");
+			printer_marker_status = usb_hotplug_event_ack_status(
+				printer_unplug_pending, 0, printer_marker_status,
+				&printer_unplug_action_done);
+			if (printer_marker_status != 0) {
+				logmessage("USB Printer",
+					   "cannot acknowledge printer unplug event; keeping it queued (status=%d)",
+					   printer_marker_status);
+				alarm(5);
 			}
 		}
 		if (printer_hotplug_pending) {
-			printer_start_status = try_start_usb_printer_spoolers();
+			printer_start_status = 0;
+			if (usb_hotplug_event_action_should_run(printer_hotplug_pending,
+							 printer_hotplug_action_done))
+				printer_start_status = try_start_usb_printer_spoolers();
+			if (printer_start_status == 0) {
+				printer_marker_status = storage_ack_event_marker_status("usb_hotplug_lp");
+				printer_start_status = usb_hotplug_event_ack_status(
+					printer_hotplug_pending, 0, printer_marker_status,
+					&printer_hotplug_action_done);
+			}
 			if (printer_start_status != 0) {
 				logmessage("USB Printer",
-					   "deferred printer startup failed; keeping event queued for retry (status=%d)",
+					   "deferred printer startup/acknowledgement failed; keeping event queued for retry (status=%d)",
 					   printer_start_status);
 				alarm(5);
-			} else if (usb_hotplug_event_ack_allowed(printer_hotplug_pending,
-								 printer_start_status)) {
-				printer_marker_status = storage_ack_event_marker_status("usb_hotplug_lp");
-				if (printer_marker_status != 0) {
-					logmessage("USB Printer",
-						   "cannot acknowledge printer startup event; keeping it queued (status=%d)",
-						   printer_marker_status);
-					alarm(5);
-				}
 			}
 		}
 	}
@@ -4710,6 +4722,10 @@ on_deferred_hotplug_dev(void)
 			   marker_read_error);
 		alarm(5);
 	} else {
+		if (!modem_unplug_pending)
+			modem_unplug_action_done = 0;
+		if (!modem_hotplug_pending)
+			modem_hotplug_action_done = 0;
 		if (modem_unplug_pending) {
 			modem_rule_status = storage_read_integer_status(
 				"modem_rule", 0, &modem_rule_value);
@@ -4725,19 +4741,27 @@ on_deferred_hotplug_dev(void)
 			}
 		}
 		if (modem_unplug_pending && modem_rule_status == 0 && unplug_modem) {
-			modem_unplug_status = try_wan_reconnect(1, 0);
+			if (usb_hotplug_event_action_should_run(modem_unplug_pending,
+							 modem_unplug_action_done))
+				modem_unplug_status = try_wan_reconnect(1, 0);
+			else
+				modem_unplug_status = 0;
 			if (modem_unplug_status != 0) {
+				modem_unplug_status = usb_hotplug_event_ack_status(
+					modem_unplug_pending, modem_unplug_status, 0,
+					&modem_unplug_action_done);
 				logmessage("USB hotplug",
 					   "WAN reconnect after USB modem unplug failed; keeping event queued (status=%d)",
 					   modem_unplug_status);
-			} else if (usb_hotplug_event_ack_allowed(modem_unplug_pending,
-								 modem_unplug_status)) {
+			} else {
 				marker_read_error = storage_ack_event_marker_status("usb_unplug_md");
-				if (marker_read_error != 0) {
-					modem_unplug_status = marker_read_error;
+				modem_unplug_status = usb_hotplug_event_ack_status(
+					modem_unplug_pending, 0, marker_read_error,
+					&modem_unplug_action_done);
+				if (modem_unplug_status != 0) {
 					logmessage("USB hotplug",
 						   "cannot acknowledge modem unplug after reconnect; keeping event queued (status=%d)",
-						   marker_read_error);
+						   modem_unplug_status);
 				} else {
 					modem_unplug_pending = 0;
 				}
@@ -4759,19 +4783,27 @@ on_deferred_hotplug_dev(void)
 	}
 
 	if (plug_modem && !unplug_modem && !modem_unplug_pending) {
-		modem_plug_status = try_start_usb_modem_to_wan();
+		if (usb_hotplug_event_action_should_run(modem_hotplug_pending,
+						 modem_hotplug_action_done))
+			modem_plug_status = try_start_usb_modem_to_wan();
+		else
+			modem_plug_status = 0;
 		if (modem_plug_status != 0) {
+			modem_plug_status = usb_hotplug_event_ack_status(
+				modem_hotplug_pending, modem_plug_status, 0,
+				&modem_hotplug_action_done);
 			logmessage("USB hotplug",
 				   "USB modem WAN startup failed; keeping event queued (status=%d)",
 				   modem_plug_status);
-		} else if (usb_hotplug_event_ack_allowed(modem_hotplug_pending,
-							 modem_plug_status)) {
+		} else {
 			marker_read_error = storage_ack_event_marker_status("usb_hotplug_md");
-			if (marker_read_error != 0) {
-				modem_plug_status = marker_read_error;
+			modem_plug_status = usb_hotplug_event_ack_status(
+				modem_hotplug_pending, 0, marker_read_error,
+				&modem_hotplug_action_done);
+			if (modem_plug_status != 0) {
 				logmessage("USB hotplug",
 					   "cannot acknowledge modem replug after startup; keeping event queued (status=%d)",
-					   marker_read_error);
+					   modem_plug_status);
 			} else {
 				modem_hotplug_pending = 0;
 			}

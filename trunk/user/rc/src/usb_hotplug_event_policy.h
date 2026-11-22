@@ -33,4 +33,36 @@ usb_hotplug_event_ack_allowed(int event_pending, int action_status)
 	return event_pending && action_status == 0;
 }
 
+/*
+ * Latch a successful side effect until its NVRAM marker clear is confirmed.
+ * This prevents replaying WAN reconnects and spooler starts on ack failures.
+ */
+static inline int
+usb_hotplug_event_action_should_run(int event_pending, int action_ack_pending)
+{
+	return event_pending && !action_ack_pending;
+}
+
+static inline int
+usb_hotplug_event_ack_status(int event_pending, int action_status,
+			     int marker_status, int *action_ack_pending)
+{
+	if (!action_ack_pending)
+		return EINVAL;
+	if (!event_pending) {
+		*action_ack_pending = 0;
+		return 0;
+	}
+	if (action_status != 0) {
+		*action_ack_pending = 0;
+		return action_status > 0 ? action_status : EIO;
+	}
+	if (marker_status == 0) {
+		*action_ack_pending = 0;
+		return 0;
+	}
+	*action_ack_pending = 1;
+	return marker_status > 0 ? marker_status : EIO;
+}
+
 #endif /* PADAVAN_USB_HOTPLUG_EVENT_POLICY_H */

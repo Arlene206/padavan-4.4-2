@@ -1497,3 +1497,31 @@ require("nvram_set_int_temp(\"usb_hotplug_md\", 1)" not in deferred_hotplug and
 require("usb_hotplug_event_ack_allowed" in read("trunk/user/rc/src/usb_hotplug_event_policy.h") and
         "usb_hotplug_event_ack_allowed(1, EIO)" in read("trunk/user/rc/src/tests/usb_hotplug_event_policy.c"),
         "USB event acknowledgement must have action-success regression coverage")
+
+
+# A successful USB event action must not be replayed when only its marker
+# acknowledgement failed. The process-local latch survives deferred alarms.
+usb_event_policy = read("trunk/user/rc/src/usb_hotplug_event_policy.h")
+usb_event_test = read("trunk/user/rc/src/tests/usb_hotplug_event_policy.c")
+deferred_events = body(storage, "on_deferred_hotplug_dev(void)")
+for token in ("usb_hotplug_event_action_should_run",
+              "usb_hotplug_event_ack_status",
+              "if (!event_pending)",
+              "*action_ack_pending = 1"):
+    require(token in usb_event_policy,
+            "USB action acknowledgement policy missing " + token)
+for token in ("test_ack_failure_does_not_replay_successful_action",
+              "test_action_failure_remains_eligible_for_retry",
+              "test_absent_event_releases_action_latch"):
+    require(token + "();" in usb_event_test,
+            "USB action acknowledgement regression missing " + token)
+for token in ("printer_unplug_action_done", "printer_hotplug_action_done",
+              "modem_unplug_action_done", "modem_hotplug_action_done"):
+    require(token in deferred_events,
+            "USB deferred action completion latch missing " + token)
+for token in ("usb_hotplug_event_action_should_run(printer_unplug_pending",
+              "usb_hotplug_event_action_should_run(printer_hotplug_pending",
+              "usb_hotplug_event_action_should_run(modem_unplug_pending",
+              "usb_hotplug_event_action_should_run(modem_hotplug_pending"):
+    require(token in deferred_events,
+            "USB side effect must be skipped while its acknowledgement is pending")
