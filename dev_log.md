@@ -3,7 +3,7 @@
 - fill_dnsmasq_servers() used error-collapsing reads for vpnc_pdns, VPN domain/server values and MAN domain/server values. A transient NVRAM fault could silently omit private-domain routing rules from the newly published DNSMasq server file, allowing VPN/MAN-specific queries to fall back to the default resolver path.
 - Added one bounded, transactionally copied snapshot for all five inputs. The VPN private-DNS flag preserves the original integer-greater-than-zero semantics; missing keys retain empty/disabled defaults. Read, transaction-close, parse and truncation failures now abort before staging/publication, leaving the previous DNS server snapshot intact.
 - Added injected host regressions for every read position, begin/end failure, absent and negative flags, malformed integers, and oversized domain/server lists. The DNSMasq source checker now enforces snapshot-before-stage ordering and rejects the old lossy reads.
-- Local compile/test: NOT RUN (GitHub-only editing session). Exact-head DNSMasq, Process and XY-C1 Actions: PENDING after this commit; no L3/TRX/artifact or L4 hardware claim.
+- Source commit: `d73ba6d2b9df959b73f0c0cf283d9694362b85c3`. Exact-head push Actions were QUEUED at first observation: DNSMasq 45084574655; NVRAM transaction audit 45084574653; Process umbrella 45084574525; Process inventory 45084574515; XY-C1 45084574492; WAN DHCP 45084574658; miniupnpd 45084574657; Inadyn 45084574546; AI docs 45084574530; WAN route 45084574493; HTTPD 45084574469; Samba 45084574447. Recheck live conclusion and exact `head_sha`. Local compile/test NOT RUN; no L3/TRX/artifact or L4 hardware claim.
 
 ---
 
