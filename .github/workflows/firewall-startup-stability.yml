@@ -898,6 +898,19 @@ jobs:
               assert 'nvram_match("mr_enable_x", "1")' not in filter_builder
           assert "test_filter_multicast_toggle_missing_default_and_backend_failure" in firewall_nvram_test
 
+          # Logging policy must be validated before rp_filter/sysctl or table changes.
+          startup_source = body(firewall_source, "start_firewall_ex_locked(void)")
+          log_gates = (
+              'firewall_read_match_setting("fw_log_x", "accept", 0,',
+              'firewall_read_match_setting("fw_log_x", "drop", 0,',
+              'firewall_read_match_setting("fw_log_x", "both", 0,',
+          )
+          for gate in log_gates:
+              assert gate in startup_source
+              assert startup_source.index(gate) < startup_source.index('set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)')
+          assert 'nvram_match("fw_log_x"' not in startup_source
+          assert "test_firewall_log_mode_values_missing_default_and_backend_error" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",

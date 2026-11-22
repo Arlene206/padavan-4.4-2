@@ -1,3 +1,11 @@
+## 2026-11-21 — Check firewall log-mode NVRAM reads before changing sysctls
+
+- Parent main SHA: `1c2511a27ffe701c30ee473b630e13fcd78a63a9`. Exact `e9a5b1fb` Firewall Startup #44983577555 completed SUCCESS. Its XY-C1 #44983577660 and NVRAM #44983577624 were still IN_PROGRESS at last poll. Source SHA `1c2511a27ffe701c30ee473b630e13fcd78a63a9` had Firewall Startup #44983656044, XY-C1 #44983656163 and other triggered Actions QUEUED/PENDING; no exact-head PASS was claimed for multicast source changes.
+- `start_firewall_ex_locked()` previously called unchecked `nvram_match("fw_log_x", "accept"/"drop"/"both")` after it had already written WAN `rp_filter`. A backend/close error could not be distinguished from a mode mismatch and might leave the sysctl changed while the new firewall policy failed later.
+- It now validates the three exact mode matches before the `rp_filter` write, then selects ACCEPT/DROP log chains solely from the checked snapshot. Missing/unknown values still disable extra logging, preserving legacy behavior.
+- Added sanitizer regression for accept/drop/both/missing/backend-error outputs and workflow source contracts requiring all checks before the first sysctl update. Exact-head Firewall Startup pending; no L3/L4 claim.
+
+---
 ## 2026-11-21 — Fail closed on IPv4/IPv6 filter multicast toggle reads
 
 - Parent main SHA: `e9a5b1fbdda849d74deb59a89a6653b25f26c26e`. Firewall Startup #44983346287, WAN DHCP #44983346264, WAN route #44983346267, HTTPD #44983346285, FULLCONENAT #44983346271, process inventory #44983346353 and AI handoff #44983346275 all PASS. The firewall log includes `Firewall rp_filter sysctl status policy: PASS`. XY-C1 #44983346281 (job #137088453878) and NVRAM #44983346304 (job #137088514305) were still running at last poll.

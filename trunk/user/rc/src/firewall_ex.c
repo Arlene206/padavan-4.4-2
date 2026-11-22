@@ -4333,6 +4333,7 @@ start_firewall_ex_locked(void)
 	char shadowsocks_staged[256] = {0};
 #endif
 	char logaccept[16], logdrop[16];
+	int is_fw_log_accept = 0, is_fw_log_drop = 0, is_fw_log_both = 0;
 	char wan_if[16], man_if[16], lan_if[16];
 	const char *man_if_value, *wan_if_value;
 	char wan_ip[16], man_ip[16], lan_ip[16], lan_net[24] = {0};
@@ -4438,6 +4439,20 @@ start_firewall_ex_locked(void)
 		return EINVAL;
 	}
 
+	/* Snapshot firewall logging mode before changing host networking state. */
+	status = firewall_read_match_setting("fw_log_x", "accept", 0,
+					     &is_fw_log_accept);
+	if (status != 0)
+		return status;
+	status = firewall_read_match_setting("fw_log_x", "drop", 0,
+					     &is_fw_log_drop);
+	if (status != 0)
+		return status;
+	status = firewall_read_match_setting("fw_log_x", "both", 0,
+					     &is_fw_log_both);
+	if (status != 0)
+		return status;
+
 	/* mcast needs rp filter to be turned off only for non default iface.
 	 * Preserve legacy missing-key semantics, but do not confuse NVRAM I/O
 	 * failures with enabled services and weaken source validation. */
@@ -4477,13 +4492,13 @@ start_firewall_ex_locked(void)
 		return status;
 	}
 
-	/* Determine the log type */
-	if (nvram_match("fw_log_x", "accept") || nvram_match("fw_log_x", "both"))
+	/* Determine the log type from the checked startup snapshot. */
+	if (is_fw_log_accept || is_fw_log_both)
 		strcpy(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT);
 	else
 		strcpy(logaccept, "ACCEPT");
 
-	if (nvram_match("fw_log_x", "drop") || nvram_match("fw_log_x", "both"))
+	if (is_fw_log_drop || is_fw_log_both)
 		strcpy(logdrop, IPT_CHAIN_NAME_LOG_DROP);
 	else
 		strcpy(logdrop, "DROP");

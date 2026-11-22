@@ -255,6 +255,32 @@ test_filter_multicast_toggle_missing_default_and_backend_failure(void)
 }
 
 static void
+test_firewall_log_mode_values_missing_default_and_backend_error(void)
+{
+	int accept = 21, drop = 21, both = 21;
+
+	assert(firewall_nvram_match_status(1, 0, "accept", "accept", 0, &accept) == 0);
+	assert(firewall_nvram_match_status(1, 0, "accept", "drop", 0, &drop) == 0);
+	assert(firewall_nvram_match_status(1, 0, "accept", "both", 0, &both) == 0);
+	assert(accept == 1 && drop == 0 && both == 0);
+	accept = drop = both = 21;
+	assert(firewall_nvram_match_status(1, 0, "both", "accept", 0, &accept) == 0);
+	assert(firewall_nvram_match_status(1, 0, "both", "drop", 0, &drop) == 0);
+	assert(firewall_nvram_match_status(1, 0, "both", "both", 0, &both) == 0);
+	assert(accept == 0 && drop == 0 && both == 1);
+	accept = drop = both = 21;
+	assert(firewall_nvram_match_status(0, 0, NULL, "accept", 0, &accept) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "drop", 0, &drop) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "both", 0, &both) == 0);
+	assert(accept == 0 && drop == 0 && both == 0);
+	accept = drop = both = 21;
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "accept", 0, &accept) == EIO);
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "drop", 0, &drop) == EACCES);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "both", 0, &both) == EIO);
+	assert(accept == 21 && drop == 21 && both == 21);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -311,6 +337,7 @@ main(void)
 	test_rp_filter_feature_switches_keep_legacy_defaults_and_fail_closed();
 	test_nat_remote_listener_toggles_missing_default_and_backend_failure();
 	test_filter_multicast_toggle_missing_default_and_backend_failure();
+	test_firewall_log_mode_values_missing_default_and_backend_error();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
