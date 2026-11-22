@@ -826,7 +826,7 @@ assert 'nvram_safe_get("wanx_ipaddr")' not in man_deconfig
 assert "int man_addr_status;" in man_deconfig
 assert "conntrack_status = man_addr_status;" in man_deconfig
 assert "cannot read MAN old address for conntrack cleanup" in man_deconfig
-man_deconfig_compact = " ".join(man_deconfig.split())
+man_deconfig_compact = "".join(man_deconfig.split())
 assert (
     "route_status_accumulate(route_status_accumulate("
     "route_status_accumulate(proto_status, interface_status), conntrack_status), cleanup_status)"

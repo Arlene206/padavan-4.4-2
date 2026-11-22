@@ -1,3 +1,9 @@
+## 2026-11-22 — Make MAN cleanup checker whitespace invariant
+
+- Exact-SHA Process Actions exposed a checker false negative: `" ".join(source.split())` inserted spaces after multiline opening parentheses, while the expected nested `route_status_accumulate()` expression had none. The checker now removes all whitespace before matching the return expression; production code is unchanged.
+
+---
+
 ## 2026-11-22 — Do not stop MiniUPnP on an unreadable WAN identity
 
 - `check_upnp_wanif_changed_locked()` compared the callback interface with a lossy `get_wan_unit_value()` read. A transient NVRAM backend error appeared as an empty interface name, so the comparison looked like a WAN transition and stopped a healthy MiniUPnP daemon.
