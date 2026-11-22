@@ -888,12 +888,12 @@ assert "cannotreadUSBmodemWANconfiguration" in modem_wrapper
 assert 'nvram_get_int("modem_rule")' not in modem_wrapper
 assert 'nvram_get_int("modem_type")' not in modem_wrapper
 
-manual_node_reader = compact(body(USB_SOURCE, "usb_modem_read_manual_node_index_status("))
-assert 'usb_modem_nvram_transaction_get(&transaction,"modem_node",&value)' in manual_node_reader
+manual_node_reader = "".join(compact(body(USB_SOURCE, "usb_modem_read_manual_node_index_status(")).split())
+assert "usb_modem_nvram_transaction_get(&transaction,\"modem_node\",&value)" in manual_node_reader
 assert "rc_wan_nvram_read_int_status(" in manual_node_reader
 assert "usb_modem_nvram_transaction_end(&transaction)" in manual_node_reader
 assert "modem_node_manual_index_status(" in manual_node_reader
-manual_node_selector = compact(body(USB_SOURCE, "get_modem_node_by_usb_identity("))
+manual_node_selector = "".join(compact(body(USB_SOURCE, "get_modem_node_by_usb_identity(")).split())
 assert "usb_modem_read_manual_node_index_status(&manual_index)" in manual_node_selector
 assert "if(status!=0)" in manual_node_selector and "return-2;" in manual_node_selector
 assert 'nvram_get_int("modem_node")' not in USB_SOURCE
@@ -903,14 +903,14 @@ for marker in (
     "test_manual_node_index_status_is_fail_closed();",
 ):
     assert marker in MODEM_NODE_TEST_SOURCE
-ras_node_selector = compact(body(USB_SOURCE, "get_modem_node_ras("))
+ras_node_selector = "".join(compact(body(USB_SOURCE, "get_modem_node_ras(")).split())
 assert "usb_modem_read_manual_node_index_status(&manual_index)" in ras_node_selector
 assert "*selection_status_out=status;" in ras_node_selector
 assert 'get_modem_node("ttyACM",0,manual_index,devnum_out)' in ras_node_selector
-ras_readiness = compact(body(USB_SOURCE, "is_ready_modem_ras("))
+ras_readiness = "".join(compact(body(USB_SOURCE, "is_ready_modem_ras(")).split())
 assert "selection_status_out" in ras_readiness
 assert "get_modem_node_ras(node_name,devnum_out,selection_status_out)" in ras_readiness
-ndis_control = compact(body(USB_SOURCE, "ndis_control_network("))
+ndis_control = "".join(compact(body(USB_SOURCE, "ndis_control_network(")).split())
 assert "manual_node_status=errno>0?errno:EIO;" in ndis_control
 assert "returnmanual_node_status;" in ndis_control
 assert "cannotreadmanualNDIScontrol-nodeselection" in ndis_control

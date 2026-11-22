@@ -1,3 +1,13 @@
+## 2026-11-22 12:53 UTC+8 — Make USB manual-node source contracts whitespace-insensitive
+
+- Parent main SHA: 5f443c15bc6dca23769ecf14b00a4213b99bc594. USB manual modem_node fail-closed product source baseline: 675466a45ee1d6cef1f121c22d3914225c2c1d90.
+- Exact 675466a USB #44986534796, Process #44986534724 and XY-C1 #44986534716 failed in scripts/check_modem_wan_start_status.py at line 892. The latest exact-head Firewall run #44986594353 on 5f443c1 failed at the same assertion. The production C call uses conventional spaces after commas; the checker applied compact() (which collapses whitespace to one space) but incorrectly compared it with a no-space token. The following RAS/NDIS assertions in the same new block made the same assumption.
+- Normalize only the newly added manual-node C function bodies by removing whitespace before comparing their tokens. This keeps the checks semantic/formatting-insensitive without weakening their function-scope, error-propagation, transaction and regression-coverage assertions. Production firmware source is unchanged.
+- Validation before commit: full checker not run locally (no local checkout/toolchain); source and assertion patterns cross-checked against fetched usb_modem.c. Exact-head GitHub Actions are pending for the new commit. L3/L4 NOT VERIFIED.
+- Backup branch remains frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807; PR #1 remains closed/unmerged.
+
+---
+
 ## 2026-11-22 — Complete the firewall NAT single-snapshot source contract
 
 - Parent main SHA: 675466a45ee1d6cef1f121c22d3914225c2c1d90. Exact #1705 Firewall Startup failed again in the NAT-builder contract: the prior correction removed the stale raw read expectation from ipt_filter_rules(), but left the same assertion in the ipt_nat_rules() builder. Source ipt_nat_rules() already receives is_nat_enabled as an argument and gates NAT work with that snapshot; the toggle is checked once in the outer firewall startup preflight.
