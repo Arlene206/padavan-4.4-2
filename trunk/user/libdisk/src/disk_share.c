@@ -1366,94 +1366,67 @@ rerun:
 
 int add_folder(const char *const mount_path, const char *const folder)
 {
-	int result, i, len;
-	int acc_num = 0;
-	char **account_list = NULL;
-	char var_file[256];
-	char *target, *var_info;
-	FILE *fp;
-	int samba_right, ftp_right;
+	int result, saved_errno;
+	size_t mount_len, folder_len, full_len;
 	char *full_path;
+	mode_t old_umask;
 
-	if (mount_path == NULL || strlen(mount_path) <= 0)
+	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
+		errno = EINVAL;
 		return -1;
-	if (!is_valid_folder_name(folder))
-		return -1;
+	}
 
-	// test if creatting the folder
+	/* A failed folder-list read is an error, not evidence of a free name. */
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
-	if (result != 0)
+	if (result != 0) {
+		if (result > 0)
+			errno = EEXIST;
 		return -1;
+	}
 
-	// create the folder
-	len = strlen(mount_path)+strlen("/")+strlen(folder);
-	full_path = (char *)malloc(sizeof(char)*(len+1));
+	mount_len = strlen(mount_path);
+	folder_len = strlen(folder);
+	if (mount_len > (size_t)-1 - 2 ||
+	    folder_len > (size_t)-1 - mount_len - 2) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	full_len = mount_len + 1 + folder_len;
+	full_path = (char *)malloc(full_len + 1);
 	if (!full_path)
 		return -1;
-	sprintf(full_path, "%s/%s", mount_path, folder);
-	full_path[len] = 0;
+	memcpy(full_path, mount_path, mount_len);
+	full_path[mount_len] = '/';
+	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
 
-	{
-		mode_t old_umask = umask(0000);
-		result = mkdir(full_path, 0777);
-		(void)umask(old_umask);
+	old_umask = umask(0000);
+	result = mkdir(full_path, 0777);
+	(void)umask(old_umask);
+	if (result != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(full_path);
+		errno = saved_errno;
+		return -1;
 	}
+
+	/* Publish the new directory in the folder snapshot before permissions. */
+	if (initial_folder_list_in_mount_path(mount_path) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)rmdir(full_path);
+		free(full_path);
+		errno = saved_errno;
+		return -1;
+	}
+
+	/* Checked path initializes missing files and atomically updates all users. */
+	if (create_if_no_var_files(mount_path) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(full_path);
+		errno = saved_errno;
+		return -1;
+	}
+
 	free(full_path);
-	if (result != 0)
-		return -1;
-
-	// get the samba right, ftp right and target
-	samba_right = DEFAULT_SAMBA_RIGHT;
-	ftp_right = DEFAULT_FTP_RIGHT;
-
-	len = strlen("*")+strlen(folder)+strlen("=");
-	target = (char *)malloc(sizeof(char)*(len+1));
-	if (!target)
-		return -1;
-	sprintf(target, "*%s=", folder);
-	target[len] = 0;
-
-	//  add folder's right to every var file
-	get_account_list(&acc_num, &account_list);
-
-	for (i = 0; i < acc_num; ++i) {
-		// check if the created target is exist in the var file
-		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account_list[i]);
-		var_info = read_whole_file(var_file);
-		if (var_info == NULL) {
-			;
-		}
-		else if (strstr(var_info, target) != NULL) {
-			free(var_info);
-			
-			continue;
-		}
-		else
-			free(var_info);
-		
-		// 7. add the folder's info in the var file
-		fp = fopen(var_file, "a+");
-		if (fp) {
-			fprintf(fp, "%s%d%d%d\n", target, samba_right, ftp_right, DEFAULT_DMS_RIGHT);
-			fclose(fp);
-		}
-	}
-
-	free_2_dimension_list(&acc_num, &account_list);
-
-	// get the var_file for anonymous ftp
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, FTP_ANONYMOUS_USER);
-	fp = fopen(var_file, "a+");
-	if (fp) {
-		fprintf(fp, "%s%d%d%d\n", target, 1, 1, 1);
-		fclose(fp);
-	}
-
-	free(target);
-
-	// 9. add the folder's info in the folder list
-	initial_folder_list_in_mount_path(mount_path);
-
 	return 0;
 }
 

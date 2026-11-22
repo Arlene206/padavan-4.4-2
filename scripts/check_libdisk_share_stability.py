@@ -263,6 +263,32 @@ require(set_read < set_enoent < set_init < set_retry and
 require("if (result != 0)" in set_permission[set_init:set_retry],
         "permission update must propagate metadata initialization failure")
 
+
+add_folder_body = function_body(
+    DISK_SOURCE,
+    "int add_folder(const char *const mount_path, const char *const folder)"
+)
+add_compact = " ".join(add_folder_body.split())
+add_lookup = add_compact.index(
+    "test_if_exist_folder_in_mount_path(mount_path, folder)"
+)
+add_mkdir = add_compact.index("result = mkdir(full_path, 0777)", add_lookup)
+add_publish = add_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", add_mkdir
+)
+add_permissions = add_compact.index(
+    "create_if_no_var_files(mount_path)", add_publish
+)
+require(add_lookup < add_mkdir < add_publish < add_permissions and
+        "errno = EEXIST;" in add_compact and
+        "errno = ENAMETOOLONG;" in add_compact and
+        "if (result != 0)" in add_compact[add_publish:],
+        "add_folder must fail closed and propagate every metadata initialization stage")
+require("get_account_list(" not in add_folder_body and
+        "read_whole_file(" not in add_folder_body and
+        'fopen(var_file, "a+")' not in add_folder_body,
+        "add_folder must use the checked per-account metadata updater")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")
