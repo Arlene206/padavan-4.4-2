@@ -1,3 +1,10 @@
+## 2026-11-22 — Make WAN MAC contract insensitive to escaped whitespace
+
+- Exact-head Process run 45081952718 on b4f3e3dbd7563b7ea5d339b14f5df390595d256e reached the WAN VLAN source contracts, then failed because the WAN MAC assertion contained double-escaped newline/tab sequences and searched for literal backslashes rather than the production call's actual whitespace.
+- Normalize the config_vinet_wan() function body and match the complete checked wan_hwaddr accessor call without formatting assumptions. Production VLAN/MAC code is unchanged; exact-head Process rerun pending.
+
+---
+
 ## 2026-11-22 — Update PID 1 recovery call-site source contract
 
 - Exact-head Process run 45081733777 on 96d0037e76b41214c865b9cff45b7579677d92e9 failed in scripts/check_dev_init_boot.py. The integration checker had been updated to require init_console(int create_session) and both new caller modes, but a second legacy assertion still required the old zero-argument recovery call.

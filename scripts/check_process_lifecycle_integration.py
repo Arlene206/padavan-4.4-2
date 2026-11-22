@@ -1232,7 +1232,8 @@ assert "previous WAN VLAN cleanup identity is invalid" in vlan_setup
 assert 'get_wan_unit_value(0, "viflast")' not in vlan_setup
 assert vlan_setup.index('get_wan_unit_value_copy_status(') < vlan_setup.index("hw_vlan_tx_map(")
 assert vlan_setup.index('wan_ifname_copy(vinet_iflast') < vlan_setup.index("hw_vlan_tx_map(")
-assert 'rc_wan_nvram_copy_value(\\n\\t\\twan_nvram_checked_get_callback, NULL, "wan_hwaddr"' in vlan_setup
+vlan_setup_compact = "".join(vlan_setup.split())
+assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"wan_hwaddr",wan_hwaddr,sizeof(wan_hwaddr))' in vlan_setup_compact
 assert 'nvram_safe_get("wan_hwaddr")' not in vlan_setup
 assert vlan_setup.index('rc_wan_nvram_copy_value(') < vlan_setup.index("hw_vlan_tx_map(")
 
