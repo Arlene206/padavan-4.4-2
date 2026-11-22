@@ -32,6 +32,7 @@ extract_function() {
 extract_function "aliddns_interval_normalize() {"
 extract_function "aliddns_nvram_read_checked() {"
 extract_function "aliddns_enable_initialize() {"
+extract_function "aliddns_nvram_write_checked() {"
 extract_function "aliddns_get_status () {"
 extract_function "aliddns_restart_cancel_requested() {"
 extract_function "aliddns_lifecycle_lock_path() {"
@@ -85,6 +86,10 @@ NVRAM_RENUM_VALUE=1
 NVRAM_STATUS_SET_STATUS=0
 NVRAM_STATUS_WRITES="$TEST_DIR/nvram-status-writes"
 : > "$NVRAM_STATUS_WRITES"
+NVRAM_RENUM_WRITES="$TEST_DIR/nvram-renum-writes"
+: > "$NVRAM_RENUM_WRITES"
+NVRAM_RENUM_WRITE_STATUS=0
+NVRAM_STATUS_WRITE_STATUS=0
 NVRAM_WRITES="$TEST_DIR/nvram-writes"
 NVRAM_LOG="$TEST_DIR/nvram-read.log"
 : > "$NVRAM_WRITES"
@@ -106,6 +111,14 @@ nvram() {
 		"get_checked aliddns_status")
 			[ "$NVRAM_READ_FAIL_KEY" != aliddns_status ] || return "$NVRAM_READ_STATUS"
 			printf '%s\n' "$NVRAM_STATUS_VALUE"
+			;;
+		"set aliddns_renum="*)
+			printf '%s\\n' "$*" >> "$NVRAM_RENUM_WRITES"
+			return "$NVRAM_RENUM_WRITE_STATUS"
+			;;
+		"set aliddns_status=0")
+			printf '%s\\n' "$*" >> "$NVRAM_STATUS_WRITES"
+			return "$NVRAM_STATUS_WRITE_STATUS"
 			;;
 		"set aliddns_status=fixture-fingerprint")
 			printf '%s\n' "$*" >> "$NVRAM_STATUS_WRITES"
@@ -238,6 +251,31 @@ else
 fi
 [ "$nvram_status" -eq 1 ] || { echo "nonzero retry counter returned status $nvram_status" >&2; exit 1; }
 echo "AliDDNS retry cancellation checks preserve state on NVRAM read errors: PASS"
+
+# Retry counters and the pre-relaunch fingerprint reset must propagate NVRAM write failures.
+NVRAM_RENUM_WRITE_STATUS=67
+: > "$NVRAM_RENUM_WRITES"
+if aliddns_nvram_write_checked aliddns_renum 3; then
+	echo "AliDDNS accepted a failed retry-counter write" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 67 ] || { echo "retry-counter write status changed to $nvram_status" >&2; exit 1; }
+[ "$(cat "$NVRAM_RENUM_WRITES")" = "set aliddns_renum=3" ] || { echo "retry-counter write was not attempted exactly once" >&2; exit 1; }
+grep -Fq 'NVRAM write failed for aliddns_renum' "$NVRAM_LOG" || { echo "retry-counter write failure was not logged" >&2; exit 1; }
+NVRAM_RENUM_WRITE_STATUS=0
+aliddns_nvram_write_checked aliddns_renum 0 || { echo "successful retry-counter write failed" >&2; exit 1; }
+NVRAM_STATUS_WRITE_STATUS=68
+if aliddns_nvram_write_checked aliddns_status 0; then
+	echo "AliDDNS accepted a failed status reset write" >&2
+	exit 1
+else
+	nvram_status=$?
+fi
+[ "$nvram_status" -eq 68 ] || { echo "status reset write status changed to $nvram_status" >&2; exit 1; }
+grep -Fq 'NVRAM write failed for aliddns_status' "$NVRAM_LOG" || { echo "status reset write failure was not logged" >&2; exit 1; }
+echo "AliDDNS retry and relaunch NVRAM writes propagate backend errors: PASS"
 
 logger() {
 	:

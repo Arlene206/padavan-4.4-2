@@ -45,6 +45,17 @@ aliddns_nvram_read_checked() {
 	return 0
 }
 
+aliddns_nvram_write_checked() {
+	[ "$#" -eq 2 ] || return 2
+	nvram set "$1=$2"
+	aliddns_nvram_status=$?
+	if [ "$aliddns_nvram_status" -ne 0 ]; then
+		logger -t "AliDDNS" "NVRAM write failed for $1 (status=$aliddns_nvram_status)"
+		return "$aliddns_nvram_status"
+	fi
+	return 0
+}
+
 aliddns_enable_initialize() {
 	aliddns_nvram_read_checked aliddns_enable || return $?
 	if [ -z "$aliddns_nvram_value" ]; then
@@ -137,7 +148,7 @@ aliddns_restart () {
 
 relock="/var/lock/aliddns_restart.lock"
 if [ "$1" = "o" ] ; then
-	nvram set aliddns_renum="0"
+	aliddns_nvram_write_checked aliddns_renum 0 || return $?
 	[ -f $relock ] && rm -f $relock
 	return 0
 fi
@@ -148,7 +159,7 @@ if [ "$1" = "x" ] ; then
 	fi
 	aliddns_renum=${aliddns_renum:-"0"}
 	aliddns_renum=`expr $aliddns_renum + 1`
-	nvram set aliddns_renum="$aliddns_renum"
+	aliddns_nvram_write_checked aliddns_renum "$aliddns_renum" || return $?
 	if [ "$aliddns_renum" -gt "2" ] ; then
 		I=19
 		echo $I > $relock
@@ -162,11 +173,11 @@ if [ "$1" = "x" ] ; then
 			fi
 			[ $I -lt 0 ] && break
 		done
-		nvram set aliddns_renum="0"
+		aliddns_nvram_write_checked aliddns_renum 0 || return $?
 	fi
 	[ -f $relock ] && rm -f $relock
 fi
-nvram set aliddns_status=0
+aliddns_nvram_write_checked aliddns_status 0 || return $?
 "$scriptfilepath" start 9>&- &
 exit 0
 }
