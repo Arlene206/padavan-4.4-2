@@ -45,6 +45,37 @@ spindown_mount_status sda "$tmp/mounts" && status=0 || status=$?
 spindown_mount_status sda "$tmp/empty" && status=0 || status=$?
 [ "$status" -eq 2 ]
 
+# /proc/mounts does not include swap partitions. Validate the separate
+# swap inventory and reject active, malformed, empty and unreadable tables.
+cat > "$tmp/swaps" <<'EOF_SWAP'
+Filename Type Size Used Priority
+/dev/sdb1 partition 1024 0 -2
+EOF_SWAP
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 1 ]
+cat > "$tmp/swaps" <<'EOF_SWAP'
+Filename Type Size Used Priority
+/dev/sda2 partition 1024 0 -2
+EOF_SWAP
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 0 ]
+cat > "$tmp/swaps" <<'EOF_SWAP'
+Filename Type Size Used
+EOF_SWAP
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 2 ]
+cat > "$tmp/swaps" <<'EOF_SWAP'
+Filename Type Size Used Priority
+/dev/sdb1 partition 1024 0
+EOF_SWAP
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 2 ]
+: > "$tmp/swaps"
+spindown_swap_status sda "$tmp/swaps" && status=0 || status=$?
+[ "$status" -eq 2 ]
+spindown_swap_status sda "$tmp/missing-swaps" && status=0 || status=$?
+[ "$status" -eq 2 ]
+
 # A missing/unreadable mount table is not evidence that the disk is unused.
 spindown_mount_status sda "$tmp/missing" && status=0 || status=$?
 [ "$status" -eq 2 ]
@@ -77,12 +108,16 @@ chmod 755 "$tmp/bin/hdparm" "$tmp/bin/flock"
 sed \
 	-e "s|/sbin/hdparm|$tmp/bin/hdparm|g" \
 	-e "s|/proc/mounts|$tmp/mounts|g" \
+	-e "s|/proc/swaps|$tmp/swaps|g" \
 	-e "s|/sys/block|$tmp/sys/block|g" \
 	-e "s|/var/lock/automount_mountpoint.lock|$tmp/mountpoint.lock|g" \
 	"$script" > "$tmp/spindown.sh"
 chmod 755 "$tmp/spindown.sh"
 # A complete non-empty mount table with only another disk proves sda is unused.
 printf '/dev/sdb1 /mnt/other ext4 rw 0 0\\n' > "$tmp/mounts"
+cat > "$tmp/swaps" <<'EOF_SWAP'
+Filename Type Size Used Priority
+EOF_SWAP
 : > "$tmp/hdparm.log"
 env PATH="$tmp/bin:$PATH" FLOCK_REAL="$real_flock" \
 	FLOCK_ATTEMPT_MARKER="$tmp/flock-attempted" HDPARM_LOG="$tmp/hdparm.log" \
@@ -93,7 +128,9 @@ grep -Fqx -- '-y /dev/sda' "$tmp/hdparm.log"
 # a mount record before releasing the lock. A stale pre-lock snapshot would
 # incorrectly call hdparm; a correct implementation sees the new mount.
 : > "$tmp/hdparm.log"
-: > "$tmp/mounts"
+cat > "$tmp/mounts" <<'EOF_MOUNT'
+/dev/root /rom squashfs ro 0 0
+EOF_MOUNT
 rm -f "$tmp/holder-ready" "$tmp/release-holder" "$tmp/flock-attempted"
 (
 	exec 8>>"$tmp/mountpoint.lock"

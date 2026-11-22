@@ -66,6 +66,52 @@ END {
 	esac
 }
 
+# Return 0 for an active swap partition, 1 when a complete /proc/swaps
+# inventory proves it is inactive, and 2 when the inventory is unknown.
+spindown_swap_status() {
+	spindown_device=$1
+	spindown_swaps_file=$2
+
+	if [ -z "$spindown_device" ] || [ -z "$spindown_swaps_file" ] ||
+	   [ ! -r "$spindown_swaps_file" ]; then
+		return 2
+	fi
+	spindown_swap_snapshot=$(cat "$spindown_swaps_file") || return 2
+	printf '%s\n' "$spindown_swap_snapshot" | awk -v dev="/dev/$spindown_device" '
+NR == 1 {
+	if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
+	    $4 != "Used" || $5 != "Priority")
+		invalid = 1
+	next
+}
+NF == 0 { next }
+{
+	if (NF != 5 || ($2 != "partition" && $2 != "file") ||
+	    $3 !~ /^[0-9]+$/ || $4 !~ /^[0-9]+$/ || $5 !~ /^-?[0-9]+$/) {
+		invalid = 1
+		next
+	}
+	source = $1
+	if (source == dev) {
+		found = 1
+	} else if (index(source, dev) == 1) {
+		suffix = substr(source, length(dev) + 1)
+		if (suffix ~ /^[0-9]+$/ || suffix ~ /^p[0-9]+$/)
+			found = 1
+	}
+}
+END {
+	if (NR == 0 || invalid)
+		exit 2
+	exit !found
+}'
+	spindown_awk_status=$?
+	case "$spindown_awk_status" in
+		0|1) return "$spindown_awk_status" ;;
+		*) return 2 ;;
+	esac
+}
+
 # Refuse to spin down a mounted disk or any of its partitions.
 spindown_mount_status "$1" /proc/mounts
 mount_status=$?
@@ -73,6 +119,15 @@ case "$mount_status" in
 	0) exit 1 ;; # mounted; do not spin down
 	1) ;;        # full read succeeded and no matching mount exists
 	*) exit 1 ;; # cannot prove the disk is unused
+esac
+
+# /proc/mounts does not list active swap partitions.
+spindown_swap_status "$1" /proc/swaps
+swap_status=$?
+case "$swap_status" in
+	0) exit 1 ;; # active swap; do not spin down
+	1) ;;        # complete swap inventory confirms no active partition
+	*) exit 1 ;; # cannot prove the disk has no active swap
 esac
 
 if [ -r "/sys/block/$1/removable" ] ; then
