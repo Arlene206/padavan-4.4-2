@@ -40,6 +40,17 @@ usb_modem_wan_parse_devnum_status(int api_result, int saved_errno,
 	return 0;
 }
 
+/*
+ * Compatibility callers only have a boolean result. On an identity read
+ * failure, choose the conservative modem branch instead of misclassifying
+ * an unknown WAN as non-modem. Status-aware callers must use the API result.
+ */
+static inline int
+usb_modem_wan_legacy_boolean(int status, int is_modem)
+{
+	return status != 0 ? 1 : (is_modem != 0);
+}
+
 typedef int (*usb_modem_wan_nvram_set_int_fn)(void *context,
                                               const char *name,
                                               int value);

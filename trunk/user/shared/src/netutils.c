@@ -352,15 +352,17 @@ get_usb_modem_wan_status(int unit, int *is_modem)
 	return 0;
 }
 
-/* Compatibility wrapper for callers that still require the legacy boolean API. */
+/* Compatibility wrapper: failed identity reads take the conservative
+ * modem branch. Callers that can propagate errors must use the status API.
+ */
 int
 get_usb_modem_wan(int unit)
 {
 	int is_modem = 0;
+	int status;
 
-	if (get_usb_modem_wan_status(unit, &is_modem) != 0)
-		return 0;
-	return is_modem;
+	status = get_usb_modem_wan_status(unit, &is_modem);
+	return usb_modem_wan_legacy_boolean(status, is_modem);
 }
 
 int

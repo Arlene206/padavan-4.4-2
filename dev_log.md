@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed in legacy USB modem identity wrapper
+
+- Parent main SHA: `95bfb65ed32a6c507fb93bd442086496fccacb9d`.
+- Changed `get_usb_modem_wan()` compatibility behavior so failed `get_usb_modem_wan_status()` reads map to boolean true (conservative modem classification), not false. This prevents legacy callers from misclassifying an unknown WAN as non-modem while they are migrated to explicit status handling.
+- Added pure policy regression for absent/present identities and EIO/ENOSPC read failures; extended USB modem workflow source assertions to forbid the old zero-on-error wrapper.
+- Exact-head USB modem parser and XY-C1 firmware checks are pending for this source change.
+
+---
+
 ## 2026-11-22 — Remove final lossy modem selectors from WAN resolver and address paths
 
 - Parent main SHA: 2ea191e751da5bbf4c6cdfb76a76e7324314168a. On exact source SHA 2ea191e751da5bbf4c6cdfb76a76e7324314168a, AI handoff #44970372450 passed. WAN route #44970372464 failed in scripts/check_wan_dns_read_status.py line 334 due a duplicated print() statement; all compiled route/policy steps 3–10 passed. WAN DHCP #44970372463 failed at embedded Python line 207 due a duplicated viptv_bound assignment; all preceding DHCP policy/compile/order checks 3–19 passed.

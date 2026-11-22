@@ -507,6 +507,8 @@ jobs:
           assert "usb_modem_wan_parse_devnum_status(" in identity_reader
           assert "get_usb_modem_wan_status" in shared_header
           assert "get_usb_modem_wan_status(unit, &is_modem)" in legacy_identity_reader
+          assert "usb_modem_wan_legacy_boolean(status, is_modem)" in legacy_identity_reader
+          assert "return 0;" not in legacy_identity_reader
           assert "nvram_get_int(" not in legacy_identity_reader
           assert "atoi() accepts a numeric prefix" in shared_policy
           assert "test_backend_read_errors_are_not_treated_as_absent_key" in identity_test

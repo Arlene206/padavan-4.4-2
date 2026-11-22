@@ -176,6 +176,15 @@ test_null_output_is_rejected(void)
 	assert(usb_modem_wan_parse_devnum_status(0, 0, NULL, NULL) == EINVAL);
 }
 
+static void
+test_legacy_boolean_fails_closed_on_identity_read_error(void)
+{
+	assert(usb_modem_wan_legacy_boolean(0, 0) == 0);
+	assert(usb_modem_wan_legacy_boolean(0, 1) == 1);
+	assert(usb_modem_wan_legacy_boolean(EIO, 0) == 1);
+	assert(usb_modem_wan_legacy_boolean(ENOSPC, 1) == 1);
+}
+
 int
 main(void)
 {
@@ -193,6 +202,7 @@ main(void)
 	test_backend_read_errors_are_not_treated_as_absent_key();
 	test_integer_overflow_is_reported();
 	test_null_output_is_rejected();
+	test_legacy_boolean_fails_closed_on_identity_read_error();
 	puts("USB modem WAN checked identity read policy regression: PASS");
 	return 0;
 }
