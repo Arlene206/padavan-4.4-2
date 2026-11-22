@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <time.h>
@@ -304,6 +305,8 @@ di_on_timer(void)
 {
 	int i, link_error, link_internet, has_unchecked;
 	int publish_status, settings_status;
+	int runtime_status, timeout, period_done, period_fail;
+	int front_led_mode, lost_delay = 10;
 	long now;
 	unsigned long period_next;
 
@@ -342,12 +345,35 @@ di_on_timer(void)
 		}
 	}
 
+	/*
+	 * Read probe timeout/cadence before starting network work. A failed NVRAM
+	 * read must not silently turn into default probe timing.
+	 */
+	runtime_status = detect_internet_read_int_setting(
+		detect_internet_nvram_get_checked, NULL, "di_timeout",
+		1, 10, 3, &timeout);
+	if (runtime_status == 0)
+		runtime_status = detect_internet_read_int_setting(
+			detect_internet_nvram_get_checked, NULL, "di_time_done",
+			15, 600, 55, &period_done);
+	if (runtime_status == 0)
+		runtime_status = detect_internet_read_int_setting(
+			detect_internet_nvram_get_checked, NULL, "di_time_fail",
+			3, 120, 5, &period_fail);
+	if (runtime_status != 0) {
+		logmessage("detect_internet",
+			   "cannot read probe timeout/cadence settings (status=%d); retrying",
+			   runtime_status);
+		di_alarmtimer(1);
+		return;
+	}
+
 	link_error = -1;
 
 	i = di_host_next;
 
 	if (di_is_ap_mode || has_wan_ip4(0))
-		link_error = di_connect_to_host(&di_host_sa[i], nvram_safe_get_int("di_timeout", 3, 1, 10));
+		link_error = di_connect_to_host(&di_host_sa[i], timeout);
 
 	/* SIGUSR2/SIGTERM may interrupt the bounded connect/select operation. */
 	if (di_pause_received)
@@ -357,9 +383,9 @@ di_on_timer(void)
 	di_host_next = (di_host_next + 1) % di_host_total;
 
 	if (link_error == 0)
-		period_next = (unsigned long)nvram_safe_get_int("di_time_done", 55, 15, 600);
+		period_next = (unsigned long)period_done;
 	else
-		period_next = (unsigned long)nvram_safe_get_int("di_time_fail",  5,  3, 120);
+		period_next = (unsigned long)period_fail;
 
 	has_unchecked = 0;
 	link_internet = DI_STATUS_INIT;
@@ -392,15 +418,29 @@ di_on_timer(void)
 	}
 
 	if (link_internet != DI_STATUS_INIT && di_status != link_internet) {
+		runtime_status = detect_internet_read_int_setting(
+			detect_internet_nvram_get_checked, NULL, "front_led_wan",
+			INT_MIN, INT_MAX, 0, &front_led_mode);
+		if (runtime_status == 0 && di_poll_mode != 0 && !link_internet)
+			runtime_status = detect_internet_read_int_setting(
+				detect_internet_nvram_get_checked, NULL, "di_lost_delay",
+				0, 600, 10, &lost_delay);
+		if (runtime_status != 0) {
+			logmessage("detect_internet",
+				   "cannot read Internet transition policy (status=%d); retrying",
+				   runtime_status);
+			di_alarmtimer(1);
+			return;
+		}
 		di_status = link_internet;
 		di_time_diff_state = now - di_time_last_state;
 		publish_status = di_publish_nvram_status(link_internet);
 		
-		if (nvram_get_int("front_led_wan") == 3){
+		if (front_led_mode == 3) {
 			LED_CONTROL(LED_WAN, (link_internet) ? LED_ON : LED_OFF);
 		}
 		if (di_poll_mode != 0 && !di_pause_received) {
-			long fail_delay = (long)nvram_safe_get_int("di_lost_delay", 10, 0, 600);
+			long fail_delay = (long)lost_delay;
 			
 			if (link_internet || fail_delay == 0) {
 				notify_on_internet_state_changed(link_internet, di_time_diff_state);
@@ -436,7 +476,16 @@ di_on_sigusr1(void)
 		return;
 	}
 
-	delay_time = nvram_get_int("di_notify_delay");
+	settings_status = detect_internet_read_int_setting(
+		detect_internet_nvram_get_checked, NULL, "di_notify_delay",
+		INT_MIN, INT_MAX, 0, &delay_time);
+	if (settings_status != 0) {
+		logmessage("detect_internet",
+			   "cannot read Internet resume delay (status=%d); retrying",
+			   settings_status);
+		di_alarmtimer(1);
+		return;
+	}
 	if (delay_time < 1)
 		delay_time = 1;
 

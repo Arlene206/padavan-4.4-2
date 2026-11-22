@@ -174,6 +174,22 @@ test_oversized_address_fails_without_truncation(void)
 }
 
 static void
+test_runtime_integer_backend_error_is_not_replaced_by_default(void)
+{
+	struct fake_nvram fake;
+	int timeout = 99;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_name = "di_timeout";
+	fake.failure_status = EACCES;
+	assert(detect_internet_read_int_setting(fake_nvram_get, &fake,
+						"di_timeout", 1, 10, 3,
+						&timeout) == EACCES);
+	assert(fake.calls == 1);
+	assert(timeout == 3);
+}
+
+static void
 test_poll_mode_uses_legacy_range_fallback(void)
 {
 	struct fake_nvram fake;
@@ -218,6 +234,7 @@ main(void)
 	test_address_backend_error_is_not_treated_as_missing_host();
 	test_port_backend_error_invalidates_entire_endpoint();
 	test_oversized_address_fails_without_truncation();
+	test_runtime_integer_backend_error_is_not_replaced_by_default();
 	test_poll_mode_uses_legacy_range_fallback();
 	test_invalid_policy_arguments_fail_closed();
 	puts("detect_internet checked endpoint settings policy: PASS");

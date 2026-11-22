@@ -1,3 +1,11 @@
+## 2026-11-22 — Check runtime Internet probe cadence and transition settings
+
+- Parent main SHA: `060503f762d22fe0d847f05851981c005792c0ac`. After endpoint reads were made fail-closed, `di_on_timer()` still used unchecked NVRAM integer getters for connect timeout, success/failure cadence, WAN LED mode and lost-delay policy. A backend error could silently select default timing or partially commit a connectivity transition. Resume also read `di_notify_delay` without preserving backend errors.
+- Replaced these remaining runtime reads with the checked integer helper. Timeout and cadence are validated before network work; LED/lost-delay settings are validated before changing `di_status` or publishing the transition; resume delay is checked before scheduling normal operation. Defaults/ranges remain unchanged and failed reads retry after one second without a partial transition.
+- Added GNU89 ASan/UBSan backend-error regression and exact-source order assertions. CI for this new commit pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Snapshot all Inadyn configuration keys in one checked NVRAM transaction
 
 - Parent main SHA: `31b13e1d0bf8f1dd055d5ebd7cea7eaa662b13bb`. `write_inadyn_conf()` mixed individually checked and unchecked getters: period/forced/check-IP could silently turn backend errors into defaults; provider, hostnames, credentials and custom endpoints used rotating-cache `nvram_safe_get()` pointers. Independent reads could mix generations, and a transient NVRAM failure could overwrite the last-known-good DDNS config with empty or partial values.

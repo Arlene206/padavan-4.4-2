@@ -143,7 +143,8 @@ jobs:
           assert "if (status != 0)" in pause_state and "di_alarmtimer(1);" in pause_state
           for marker in ("test_failed_unknown_state_publication_is_retried",
                          "test_changed_connectivity_state_keeps_previous_cache_on_failure",
-                         "test_invalid_policy_arguments_fail_closed"):
+                         "test_invalid_policy_arguments_fail_closed",
+                         "test_runtime_integer_backend_error_is_not_replaced_by_default"):
               assert marker in nvram_test and marker + "();" in nvram_test
           assert "detect_internet NVRAM mirror retry policy: PASS" in nvram_test
           handler = body(detect, "catch_sig_detect_internet(int sig)")
@@ -186,6 +187,20 @@ jobs:
           settings_return = timer.index("return;", settings_retry)
           connect = timer.index("di_connect_to_host(")
           assert settings_guard < settings_reload < settings_error < settings_retry < settings_return < connect
+          timer_compact = "".join(timer.split())
+          assert "nvram_safe_get(" not in timer and "nvram_safe_get_int(" not in timer and "nvram_get_int(" not in timer
+          for key in ("di_timeout", "di_time_done", "di_time_fail", "front_led_wan", "di_lost_delay"):
+              assert '"' + key + '"' in timer
+          timeout_read = timer_compact.index('"di_timeout"')
+          done_read = timer_compact.index('"di_time_done"')
+          fail_read = timer_compact.index('"di_time_fail"')
+          connect_call = timer_compact.index("di_connect_to_host(")
+          assert timeout_read < done_read < fail_read < connect_call
+          transition = timer_compact.index("if(link_internet!=DI_STATUS_INIT&&di_status!=link_internet)")
+          led_read = timer_compact.index('"front_led_wan"', transition)
+          lost_read = timer_compact.index('"di_lost_delay"', led_read)
+          transition_commit = timer_compact.index("di_status=link_internet;", lost_read)
+          assert transition < led_read < lost_read < transition_commit
           pause_fence = timer.index("if (di_pause_received)", connect)
           publish = timer.index("di_publish_nvram_status(link_internet)")
           assert timer.index("di_publish_nvram_status(di_status);") < connect
@@ -224,6 +239,8 @@ jobs:
           resume_return = resume_compact.index("return;", resume_retry)
           resume_delay = resume_compact.index('delay_time=nvram_get_int("di_notify_delay");')
           assert resume_load < resume_failure < resume_retry < resume_return < resume_delay
+          assert "nvram_get_int(" not in resume_settings and "nvram_safe_get_int(" not in resume_settings
+          assert 'detect_internet_read_int_setting(detect_internet_nvram_get_checked,NULL,"di_notify_delay",INT_MIN,INT_MAX,0,&delay_time)' in resume_compact
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
           assert "int\nnotify_run_detect_internet(int delay_time)" in detect
           assert "operation_status = start_detect_internet(delay_time);" in notify_run
