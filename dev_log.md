@@ -1,3 +1,12 @@
+## 2026-11-22 — Align WAN startup checker with checked L2TP selector
+
+- Parent main SHA: `0c3d6dc4f092398bcd1ccb8db2026c4f8d51b703`. Exact-SHA XY-C1, firewall-startup and process-lifecycle runs reached their host regression stage but stopped at `scripts/check_modem_wan_start_status.py:612`: its source contract still required the removed lossy `nvram_match("l2tp_srv_t", "1")` and old early-return implementation.
+- Updated the source contract to require the checked NVRAM read, fail-closed start gate, status-merging helper, error log and registered policy regression instead. This is checker-only; production source and its policy tests remain in the preceding commit.
+- Exact failing-run details: XY-C1 `45049790490` (failed before firmware Build/TRX/artifact), Firewall `45049790328` and Process inventory `45049790320` (same stale checker assertion). Their exact-head successors must be checked; no firmware result is claimed from these failures.
+- Next: inspect the fixed checker's exact-SHA consumers and the WAN route regression, then proceed with the separate WAN VLAN-ID checked-read defect.
+
+---
+
 ## 2026-11-22 — Fail closed on unreadable L2TP server enable state
 
 - Parent main SHA: `fbee4e58b90004f7904c6e6f4195c73d7030c0c3`. WAN post-start called `nvram_match("l2tp_srv_t", "1")`; a transient NVRAM read error was indistinguishable from the configured-disabled value, silently skipping the optional L2TP server after WAN activation.

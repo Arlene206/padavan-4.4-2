@@ -609,11 +609,13 @@ assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.rindex("return wa
 l2tp_start_merge = compact(
     body(WAN_SOURCE, "merge_l2tp_server_start_status(int wan_status)")
 )
-assert 'nvram_match("l2tp_srv_t", "1")' in l2tp_start_merge
+assert 'get_nvram_match_checked_status("l2tp_srv_t", "1", &l2tp_enabled)' in l2tp_start_merge
+assert "route_status_l2tp_server_start_requested(" in l2tp_start_merge
 assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
-assert "wan_status == 0 && xl2tp_status < 0" in l2tp_start_merge
-assert "return xl2tp_status;" in l2tp_start_merge
-assert "return wan_status;" in l2tp_start_merge
+assert "route_status_l2tp_server_start_result(" in l2tp_start_merge
+assert "cannot read L2TP server enable setting after WAN start" in l2tp_start_merge
+assert 'nvram_match("l2tp_srv_t", "1")' not in l2tp_start_merge
+assert "test_l2tp_server_start_selector_failure_is_fail_closed" in ROUTE_STATUS_TEST
 
 # PPP control commands are fixed argv vectors; avoid an unnecessary shell layer.
 assert not re.search(r"\b(?:system|doSystem)\s*\(", PPP_SOURCE), "PPP source must not call shell execution APIs"
