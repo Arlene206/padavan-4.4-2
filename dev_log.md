@@ -1,3 +1,10 @@
+## 2026-11-23 04:22 CST (UTC+8) — Fix Adbyby snapshot cleanup test newline
+
+- Parent main SHA: `a633cf309bd672b2c8111a9c09ba891223f8f1ba`. Adbyby #45061097586 and HTTPD #45061097680 both failed at the shared `firewall_snapshot.sh` test after every preceding regression passed. The final assertion expected an exact marker line, but the fixture used two backslashes before `n` and wrote literal backslash-n bytes.
+- Corrected only the fixture to use `printf '%s\\n' 'snapshot-remove-attempted'`. The production `del_rule()` change in `a633cf3` remains unchanged: it attempts all firewall/ipset cleanup but returns the original snapshot-removal failure instead of falsely reporting success.
+- Exact parent Process inventory #45061097595 and Process fail-closed #45061097583 PASS. XY-C1 #45061097611 was still running; no L3 claim. Local checkout unavailable; fresh exact-head Adbyby/HTTPD verification required.
+- Next independent task after rerun: make `init_signals()` check `sigemptyset()`/`sigaddset()` while constructing handler masks, with injectable error tests.
+
 ## 2026-11-23 04:05 CST (UTC+8) — Preserve original /proc/swaps record terminators
 
 - Parent main SHA: 5c929dbe5b40cdc7414bfa9997cf3edce834714e. Both automount_swap_status() and spindown_swap_status() captured procfs with command substitution, which strips trailing LF bytes, then appended a replacement LF before awk. That could normalize a truncated snapshot and falsely prove a disk inactive/unused.

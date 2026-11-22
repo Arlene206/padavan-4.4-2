@@ -313,7 +313,7 @@ grep -F -- '-I OUTPUT -m set --match-set blockip dst -j DROP' "$TEST_COMMAND_LOG
 # A failed restore-snapshot removal must survive later successful kernel
 # cleanup commands; otherwise a future firewall rebuild can resurrect rules.
 adbyby_remove_rule_snapshot() {
-    printf 'snapshot-remove-attempted\\n' >> "$TEST_SNAPSHOT_LOG"
+    printf '%s\n' 'snapshot-remove-attempted' >> "$TEST_SNAPSHOT_LOG"
     return 41
 }
 : > "$TEST_COMMAND_LOG"

@@ -13,29 +13,29 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2.
-- Parent main SHA before this shell snapshot fix: 5c929dbe5b40cdc7414bfa9997cf3edce834714e.
-- Frozen backup: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; preserve it unchanged. Only main and the frozen backup branch exist.
-- On ancestor 80bfd6670cd8ffa1bc06bdbdf36891710fee5922, USB storage run #45060433291 PASS and Process inventory #45060433269 PASS. XY-C1 #45060433345 was still building; DNSMasq #45060433306 failed only its stale checker assertion start.count("smartdns_restore_previous_instance") == 3; checker-only commit 5c929db updated that expected count to 4. DNSMasq run #45060566217 on 5c929db was in progress at last check.
-- Exact 64d3b46 AI docs #45060286887 and Process #45060286908 PASS; HTTPD #45060286954 PASS. Storage #45060286951 passed on the same SHA and is superseded by successful storage run #45060433291 on 80bfd.
-- The ejected-device swap parser semantic fix is in 64d3b46afa7c899a88defc7167155cd872b46c51; Storage #45060433291 on 80bfd includes and passed that production/test source.
-- No local checkout or router hardware is available. Device L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`.
+- Parent main SHA before this regression-fixture correction: `a633cf309bd672b2c8111a9c09ba891223f8f1ba`.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; keep immutable. Only `main` and the backup branch exist.
+- Exact parent Process inventory #45061097595 PASS and Process lifecycle fail-closed #45061097583 PASS.
+- Exact parent Adbyby #45061097586 FAIL and HTTPD security #45061097680 FAIL at the shared `firewall_snapshot.sh` regression. All preceding host regressions passed. The failing fixture wrote two literal backslashes before `n`, so its later exact-line grep could not match; the repair uses `printf '%s\\n'` to write a real newline.
+- Exact parent XY-C1 #45061097611 remained IN_PROGRESS at cross-build setup; Build, TRX and artifact upload are not verified. Storage #45060756356 on ancestor `790fb2a` PASS, including the swap inventory and final-LF tests.
+- No local repo checkout or router hardware is available. Hardware L4 remains NOT VERIFIED.
 
 ## Active task
 
-Close a subtle completeness hole in the shell /proc/swaps readers. Both automount_swap_status() and spindown_swap_status() capture the file using command substitution, which strips trailing LF bytes. They then appended a new LF with printf before awk, so a source snapshot missing its final header/record terminator could be normalized into a complete-looking inventory. Incomplete inventory must never authorize swapon or disk spindown.
+Fix the shared Adbyby firewall-snapshot regression fixture that failed both exact-parent Adbyby and HTTPD workflows. The production change in `a633cf3` correctly preserves a failed `adbyby_remove_rule_snapshot()` status after attempting kernel/ipset cleanup, refusing to log “closed” success when stale recovery state could survive. The new test override emitted `snapshot-remove-attempted\\n` with two backslashes, producing literal backslash-n bytes; the subsequent `grep -Fqx snapshot-remove-attempted` therefore failed. Replace the fixture with a single-format `printf '%s\\n' 'snapshot-remove-attempted'`. No production source change is needed for this test-only correction.
 
-The fix uses a private sentinel appended inside command substitution; after stripping exactly that sentinel, each helper requires the original snapshot to end in LF and feeds awk the retained bytes without appending a replacement terminator. The two shell regressions cover an unterminated header and an otherwise valid final swap row without LF, in addition to existing active/inactive, malformed, empty and unreadable cases.
+After exact Adbyby and HTTPD reruns pass, continue the PID 1 signal mask validity slice: `init_signals()` currently ignores `sigemptyset()` and `sigaddset()` return values while constructing handler masks. Add injectable set-build wrappers/tests and make these failures feed its first-error status, which already blocks router readiness.
 
 ## Verification boundary
 
-- Parent main for this slice: 5c929dbe5b40cdc7414bfa9997cf3edce834714e; resolve the resulting exact SHA from live main after publication.
-- Source change is limited to the two /proc/swaps shell readers. Missing original final LF yields UNKNOWN; cat/read failure and empty input remain UNKNOWN. Valid source content reaches awk with its original delimiters.
-- Regression additions: storage_mountpoint_inventory.sh and spindown_mount_guard.sh each exercise a header missing LF and a full-looking final record missing LF. Existing workflow push/pull_request filters already cover both production scripts and both tests.
-- Parent Storage #45060433291 on 80bfd PASS includes the physical-eject GNU89 semantic parser test. New final-LF cases require a fresh exact-head Storage run; local execution NOT RUN (no checkout).
-- Parent AI docs #45060286887, Process #45060286908 and HTTPD #45060286954 PASS. Parent XY-C1 #45060433345 remained in progress; DNSMasq #45060433306 failed on the stale checker count, already corrected by 5c929db; rerun #45060566217 was in progress. This commit requires a fresh matching Storage/XY-C1 build; L3 remains NOT VERIFIED until detector, Build XY-C1, TRX and artifact all pass on the same production-source SHA. L4 remains NOT VERIFIED.
+- Parent main: `a633cf309bd672b2c8111a9c09ba891223f8f1ba`; resulting main SHA must be read from the live ref after publication.
+- Exact parent Process inventory #45061097595 and Process fail-closed #45061097583 PASS.
+- Exact parent Adbyby #45061097586 and HTTPD #45061097680 both fail in the same `firewall_snapshot.sh` test after its prior setup tests pass; root cause is the two-backslash test printf fixture, not the production cleanup behavior.
+- Fix is test-only: emit the marker as one newline-terminated line, preserving all production code and the assertions that verify every firewall cleanup stage is attempted after snapshot removal fails.
+- Local checkout is unavailable; fresh exact-head Adbyby and HTTPD actions are required. XY-C1 #45061097611 on the parent was still running; exact same-source Build XY-C1, TRX verification and artifact upload are required for L3. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main; match new Storage, AI handoff and XY-C1 runs to that exact SHA, and poll DNSMasq rerun #45060566217 for the corrected SmartDNS source contract. Confirm both missing-final-LF shell tests and the ejected-inventory GNU89 semantic parser regression pass. Then inspect same-SHA XY-C1 detector, Build, TRX and artifact upload. Diagnose failures from their first causal logs; continue independent work while checks are pending.
+Fetch live `main` and match exact-head Adbyby, HTTPD, Process and XY-C1 runs. Confirm the corrected firewall snapshot regression completes and that all kernel/IPSet cleanup assertions pass; diagnose any new failure from its first causal log. Confirm Build XY-C1, TRX and artifact upload on the same source SHA. Then implement checked PID 1 signal-set construction and its GNU89 injectable regression.
 
