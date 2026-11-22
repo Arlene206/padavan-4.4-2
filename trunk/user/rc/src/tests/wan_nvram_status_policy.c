@@ -128,6 +128,21 @@ test_checked_string_match_preserves_backend_errors(void)
 }
 
 static void
+test_dhcp6_6rd_selector_preserves_missing_value_and_backend_errors(void)
+{
+	int disabled = -1;
+
+	assert(rc_wan_nvram_match_status(0, "0", "0", &disabled) == 0);
+	assert(disabled == 1);
+	assert(rc_wan_nvram_match_status(0, "", "0", &disabled) == 0);
+	assert(disabled == 0); /* Missing key keeps legacy automatic behavior. */
+	assert(rc_wan_nvram_match_status(0, "malformed", "0", &disabled) == 0);
+	assert(disabled == 0); /* Only the exact string "0" disables DHCP 6rd. */
+	assert(rc_wan_nvram_match_status(EACCES, "0", "0", &disabled) == EACCES);
+	assert(disabled == 0);
+}
+
+static void
 test_checked_string_match_rejects_invalid_arguments(void)
 {
 	int matches = 1;
@@ -2058,6 +2073,7 @@ main(void)
 	test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing();
 	test_checked_string_match_requires_an_exact_value();
 	test_checked_string_match_preserves_backend_errors();
+	test_dhcp6_6rd_selector_preserves_missing_value_and_backend_errors();
 	test_checked_string_match_rejects_invalid_arguments();
 	test_wisp_active_status_requires_checked_identity();
 	test_success_ignores_stale_errno();

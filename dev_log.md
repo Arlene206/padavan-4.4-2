@@ -1,3 +1,12 @@
+## 2026-11-22 — Fail closed on unreadable DHCPv6 6rd mode selector
+
+- Parent main SHA: 58740111204bdfa6d8d457a87c8b338fb1bf0eed. `store_ip6rd_from_dhcp_status()` still used `nvram_match("ip6_6rd_dhcp", "0")`; a backend read failure was collapsed to “not disabled,” allowing a received DHCP 6rd option to be published despite an unknown local mode.
+- The function now preserves no-op handling for absent/malformed option data, then reads the mode through the existing checked NVRAM matcher. Exact `0` still disables DHCP 6rd; a missing key and non-matching values preserve legacy automatic behavior; read errors return before `wan6_publish_6rd_snapshot()` so the DHCP lease callback can roll back the tuple.
+- Added a GNU89 policy regression for exact-disabled, missing-key, malformed-value and backend-error behavior; both WAN source contracts require the checked selector gate and test registration.
+- Local host binaries/source workflows are unavailable in this network-isolated checkoutless environment. Exact-head push Actions cannot be read via the current connector; no test or CI PASS is claimed.
+- Next task: replace `wan6_up()`'s unchecked `ip6_wan_dhcp` / `ip6_wan_priv` reads before native DHCPv6 RA/autoconfiguration/privacy changes.
+
+---
 ## 2026-11-22 — Preserve the DHCPv6 no-op path before DUID lookup
 
 - Parent main SHA: ef63749dad3c140c36fc1ea2afc951f6faaf17ea. The DUID MAC snapshot had been moved ahead of interface validation and the all-disabled early return. A transient `wan_hwaddr` read error could therefore make a no-op DHCPv6 invocation fail even when no DHCP/DNS/LAN client work was configured.

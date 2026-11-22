@@ -622,10 +622,11 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 	char addr6[INET6_ADDRSTRLEN + 5];
 	char *value, *values[4], *end;
 	struct in6_addr prefix6;
+	int sixrd_dhcp_disabled = 0;
 	int status, rollback_status = 0;
 
-	/* Keep malformed or absent optional options as a no-op, as before. */
-	if (nvram_match("ip6_6rd_dhcp", "0") || !env_value || !prefix || !*prefix)
+	/* Malformed or absent optional options remain a no-op. */
+	if (!env_value || !prefix || !*prefix)
 		return 0;
 	if (strlen(env_value) >= sizeof(ip6rd))
 		return 0;
@@ -656,6 +657,18 @@ store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
 
 	if (inet_pton(AF_INET6, values[2], &prefix6) != 1 ||
 	    !is_valid_ipv4(values[3]))
+		return 0;
+
+	status = wan6_read_nvram_match_status(
+		"ip6_6rd_dhcp", "0", &sixrd_dhcp_disabled);
+	if (status != 0) {
+		errno = status;
+		logmessage("WAN IPv6",
+			   "cannot read DHCPv6 6rd selector; refusing automatic update (status=%d)",
+			   status);
+		return status;
+	}
+	if (sixrd_dhcp_disabled)
 		return 0;
 
 	written = snprintf(addr6, sizeof(addr6), "%s/%ld",

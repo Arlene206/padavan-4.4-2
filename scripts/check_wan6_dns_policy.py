@@ -329,3 +329,18 @@ duid_hwaddr_read = duid_body.index('wan6_hwaddr_field.param_name = "wan_hwaddr";
 duid_hwaddr_error = duid_body.index("if (wan6_hwaddr_status != 0)")
 duid_session_lock = duid_body.index("session_fd = dhcp6c_callback_session_lock(")
 assert duid_ifname_guard < duid_settings_read < duid_noop < duid_hwaddr_read < duid_hwaddr_error < duid_session_lock
+
+# DHCPv6 6rd options must fail closed when the mode selector is unreadable.
+sixrd_start = duid_source.index("store_ip6rd_from_dhcp_status(")
+sixrd_end = duid_source.index("\nvoid\nstore_ip6rd_from_dhcp(", sixrd_start)
+sixrd_body = duid_source[sixrd_start:sixrd_end]
+assert "nvram_match(" not in sixrd_body
+assert "wan6_read_nvram_match_status(" in sixrd_body
+assert '"ip6_6rd_dhcp", "0", &sixrd_dhcp_disabled' in sixrd_body
+assert sixrd_body.index("if (!env_value || !prefix || !*prefix)") < sixrd_body.index("wan6_read_nvram_match_status(")
+assert sixrd_body.index("if (inet_pton(AF_INET6") < sixrd_body.index("wan6_read_nvram_match_status(")
+assert sixrd_body.index("if (status != 0)") < sixrd_body.index("wan6_publish_6rd_snapshot(")
+assert sixrd_body.index("if (sixrd_dhcp_disabled)") < sixrd_body.index("wan6_publish_6rd_snapshot(")
+nvram_test_source = open("trunk/user/rc/src/tests/wan_nvram_status_policy.c", encoding="utf-8").read()
+assert "test_dhcp6_6rd_selector_preserves_missing_value_and_backend_errors" in nvram_test_source
+assert "test_dhcp6_6rd_selector_preserves_missing_value_and_backend_errors();" in nvram_test_source
