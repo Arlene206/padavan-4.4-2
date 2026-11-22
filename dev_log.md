@@ -1,3 +1,11 @@
+## 2026-11-22 — Align WAN callback inline contract with checked hostname reads
+
+- Parent main SHA: `fc0b17fd3c1f7b72fada4929ec1160ebe0ce3844`. Exact WAN DHCP callback run [45010147937](https://github.com/Arlene206/padavan-4.4-2/actions/runs/45010147937) passed all twenty earlier regression/source steps, including LAN deconfig, DHCP dltime and MTU-withdrawal contracts, then failed in the final inline source contract at Python line 7. The only failing assertion still required the removed combined `!lan_hname || !is_valid_hostname(lan_hname)` expression in `net_lan.c`.
+- Replaced that stale condition with explicit checks that `get_our_hostname()` is checked, NULL preserves its errno (fallback `EIO`) and returns, while non-NULL hostname values are still validated. Stronger statement ordering remains enforced in `scripts/check_lan_dhcp_deconfig.py`; no product source changed.
+- Exact preceding tests on this SHA passed; this workflow contract was the sole observed failure. Exact-head rerun pending. XY-C1, NVRAM audit and Process lifecycle were previously in progress on product source SHA `452f666cd126e06284c0607fd6b6bbbcabc1bbe1`; L3/L4 not claimed.
+
+---
+
 ## 2026-11-22 — Update DHCP MTU checker boundary after checked LAN snapshot
 
 - Parent main SHA: `452f666cd126e06284c0607fd6b6bbbcabc1bbe1`. Exact WAN DHCP run #45010044573 passed the GNU89/ASan/UBSan NVRAM and lease tests plus LAN deconfig and dltime contracts, then `scripts/check_wan_dhcp_mtu_withdrawal.py:54` failed because it used the old lossy LAN `nvram_safe_get()` assignment as the end boundary of the IPTV MTU input block.

@@ -260,7 +260,13 @@ jobs:
           rc = Path("trunk/user/rc/src")
           source = (rc / "net_wan.c").read_text()
           lan_source = (rc / "net_lan.c").read_text()
-          assert "!lan_hname || !is_valid_hostname(lan_hname)" in lan_source
+          assert "lan_hname = get_our_hostname();" in lan_source
+          assert "if (!lan_hname)" in lan_source
+          assert "cannot read local hostname before LAN hostname publication" in lan_source
+          assert "saved_errno = errno ? errno : EIO;" in lan_source
+          assert "return saved_errno;" in lan_source
+          assert "!lan_hname || !is_valid_hostname(lan_hname)" not in lan_source
+          assert "!is_valid_hostname(lan_hname)" in lan_source
           lan_callback_policy = (rc / "lan_dhcp_callback_policy.h").read_text()
           lan_callback_test = (rc / "tests/lan_dhcp_callback_policy.c").read_text()
           wan6_source = (rc / "net_wan6.c").read_text()
