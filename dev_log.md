@@ -1,3 +1,13 @@
+## 2026-11-22 — Make AliDDNS restart fingerprints unambiguous
+
+- Parent main SHA: `47e8da3e5f3dd72c7f93872a5dadde52fa27cbcd`. `aliddns_get_status()` previously formed its restart digest by concatenating adjacent NVRAM fields with no separators before MD5. Different valid settings could therefore produce the same preimage (for example `domain=example.com,name=ab` and `domain=example.coma,name=b`), causing a changed provider/record configuration not to restart the keeper and leaving the old DDNS configuration active.
+- Added `aliddns_config_fingerprint()`: hashes the custom script content separately, rejects missing/symlinked scripts and malformed digest output, then hashes all NVRAM fields as NUL-delimited values plus the script digest. Shell variables cannot contain NUL, so adjacent fields cannot collide through boundary ambiguity. `aliddns_get_status()` and its lifecycle caller now propagate a fingerprint failure rather than comparing/restarting on an empty or unknown digest.
+- Added a focused shell regression for deterministic fingerprints, the concrete former domain/name boundary collision, script-content changes, symlink rejection and missing-file rejection. The existing AliDDNS API transport workflow runs it and watches the test path; source-contract assertions pin NUL-delimited fields and fail-closed handling.
+- The AliyunDrive HTTP-readiness regression had failed on parent `4b01a3e8638bb0fd94f7ca7f38d5556bb61a2c27` in the live-process/no-listener timeout case; commit `f8176758f1c9ec1e96381da1208be1edf0425fae` added marker/probe/sleep diagnostics. Its diagnostic exact-head result was not yet verified at this slice's start; next session must inspect it alongside this new regression.
+- No local shell tests or XY-C1 build were run. Exact GitHub Actions are required before claiming verification; L3/L4 remain unverified.
+
+---
+
 ## 2026-11-22 — Make HTTP readiness regressions independent of asynchronous mock launch
 
 - Parent main SHA: `f8176758f1c9ec1e96381da1208be1edf0425fae`. Exact AliyunDrive lifecycle run #45042972255 showed the no-listener case had `marker=absent probes=0 sleeps=10`: the test was expecting a background mock launch to become visible but the simulated process never became visible to `pidof`, so the HTTP probe was never exercised. This was a harness setup error, not evidence that the HTTP status parser was wrong.

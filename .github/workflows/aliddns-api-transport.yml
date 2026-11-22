@@ -14,6 +14,7 @@ on:
       - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
       - "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
       - "trunk/user/aliddns/tests/aliddns_lifecycle.sh"
+      - "scripts/test_aliddns_config_fingerprint.sh"
       - "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"
       - "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"
       - "trunk/user/aliddns/src/aliddns-hmac-sha1.c"
@@ -67,6 +68,8 @@ jobs:
         run: sh trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
       - name: Run AliDDNS lifecycle lock regression
         run: sh trunk/user/aliddns/tests/aliddns_lifecycle.sh
+      - name: Check unambiguous configuration fingerprint
+        run: sh scripts/test_aliddns_config_fingerprint.sh
       - name: Run CA trust-store bootstrap regression
         run: sh trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
       - name: Run AliDDNS HMAC-SHA1 process-argument privacy regression

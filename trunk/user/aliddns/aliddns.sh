@@ -133,10 +133,38 @@ nvram set aliddns_status=0
 exit 0
 }
 
+aliddns_config_fingerprint () {
+  [ "$#" -eq 1 ] || return 2
+  [ -f "$1" ] && [ ! -L "$1" ] || return 1
+
+  # Hash the script separately, then include its digest as a delimited field.
+  # Shell variables cannot contain NUL, so NUL separators make adjacent NVRAM
+  # values unambiguous (unlike the former plain string concatenation).
+  aliddns_config_script_sum=$(md5sum "$1") || return 1
+  set -- $aliddns_config_script_sum
+  [ "$#" -ge 1 ] || return 1
+  case "$1" in
+    ''|*[!0123456789abcdefABCDEF]*) return 1 ;;
+  esac
+  aliddns_config_script_digest=$1
+
+  aliddns_config_fingerprint_value=$(
+    printf '%s\0' \
+      "$aliddns_enable" "$aliddns_interval" "$aliddns_ak" "$aliddns_sk" \
+      "$aliddns_domain" "$aliddns_name" "$aliddns_domain2" "$aliddns_name2" \
+      "$aliddns_domain6" "$aliddns_name6" "$aliddns_ttl" \
+      "$aliddns_config_script_digest" | md5sum | awk 'NR == 1 { print $1 }'
+  ) || return 1
+  case "$aliddns_config_fingerprint_value" in
+    ''|*[!0123456789abcdefABCDEF]*) return 1 ;;
+  esac
+  printf '%s\n' "$aliddns_config_fingerprint_value"
+}
+
 aliddns_get_status () {
 
 A_restart=`nvram get aliddns_status`
-B_restart="$aliddns_enable$aliddns_interval$aliddns_ak$aliddns_sk$aliddns_domain$aliddns_name$aliddns_domain2$aliddns_name2$aliddns_domain6$aliddns_name6$aliddns_ttl$(cat /etc/storage/ddns_script.sh | grep -v '^#' | grep -v "^$")"
+  B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1
 B_restart=`echo -n "$B_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 if [ "$A_restart" != "$B_restart" ] ; then
 	nvram set aliddns_status=$B_restart
@@ -195,7 +223,7 @@ aliddns_start_keeper() {
 }
 aliddns_check () {
 
-aliddns_get_status
+  aliddns_get_status || return 1
 if [ "$aliddns_enable" != "1" ] && [ "$needed_restart" = "1" ] ; then
 	aliddns_find_keeper_pids || return 1
 	[ -z "$ALIDDNS_KEEPER_PIDS" ] || logger -t "【aliddns动态域名】" "停止 aliddns"
