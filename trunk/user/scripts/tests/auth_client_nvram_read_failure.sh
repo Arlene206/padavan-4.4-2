@@ -89,7 +89,22 @@ STUB
 cat > "$TEST_ROOT/bin/start-stop-daemon" <<'STUB'
 #!/bin/sh
 printf '%s\n' "$*" >> "$START_LOG"
-exit 0
+credentials_file=
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--credentials-file)
+			shift
+			[ "$#" -gt 0 ] || exit 64
+			credentials_file=$1
+			;;
+	esac
+	shift
+done
+[ -n "$credentials_file" ] || exit 65
+[ -f "$credentials_file" ] || exit 66
+grep -Fqx 'username=' "$credentials_file" || exit 67
+grep -Fqx 'password=' "$credentials_file" || exit 68
+rm -f "$credentials_file"
 STUB
 cat > "$TEST_ROOT/bin/bin_scutclient" <<'STUB'
 #!/bin/sh

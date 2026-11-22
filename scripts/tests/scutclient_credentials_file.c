@@ -140,9 +140,19 @@ int main(void)
 	create_file(path, "username=alice\npassword=secret\nextra=1\n", 0600);
 	expect_rejected(path, 0, "credential file with extra line was accepted");
 
-	make_path(path, sizeof(path), "empty-password");
-	create_file(path, "username=alice\npassword=\n", 0600);
-	expect_rejected(path, 0, "empty credential value was accepted");
+	make_path(path, sizeof(path), "empty-credentials");
+	create_file(path, "username=\npassword=\n", 0600);
+	result = scutclient_load_credentials_file(path, &username, &password);
+	if (result != 0 || !username || !password)
+		fail("empty legacy-compatible credential values were rejected");
+	if (username[0] != '\0' || password[0] != '\0')
+		fail("empty legacy-compatible credential values were changed");
+	if (access(path, F_OK) == 0 || errno != ENOENT)
+		fail("empty credential file was not unlinked");
+	free(username);
+	free(password);
+	username = NULL;
+	password = NULL;
 
 	make_path(path, sizeof(path), "missing-final-newline");
 	create_file(path, "username=alice\npassword=secret", 0600);

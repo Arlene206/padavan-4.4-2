@@ -161,7 +161,7 @@ int scutclient_load_credentials_file(const char *path, char **username, char **p
 	}
 
 	user_end = memchr(buffer, '\n', used);
-	if (!user_end || (size_t)(user_end - buffer) <= sizeof("username=") - 1 ||
+	if (!user_end || (size_t)(user_end - buffer) < sizeof("username=") - 1 ||
 	    memcmp(buffer, "username=", sizeof("username=") - 1) != 0) {
 		errno = EINVAL;
 		goto fail;
@@ -169,12 +169,13 @@ int scutclient_load_credentials_file(const char *path, char **username, char **p
 	pass_start = user_end + 1;
 	pass_end = memchr(pass_start, '\n', (size_t)((buffer + used) - pass_start));
 	if (!pass_end || pass_end != buffer + used - 1 ||
-	    (size_t)(pass_end - pass_start) <= sizeof("password=") - 1 ||
+	    (size_t)(pass_end - pass_start) < sizeof("password=") - 1 ||
 	    memcmp(pass_start, "password=", sizeof("password=") - 1) != 0) {
 		errno = EINVAL;
 		goto fail;
 	}
 
+	/* Empty values preserve the legacy --username "" / --password "" input. */
 	user_start = buffer + sizeof("username=") - 1;
 	user_length = (size_t)(user_end - user_start);
 	pass_start += sizeof("password=") - 1;

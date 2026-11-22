@@ -63,10 +63,8 @@ func_credentials_cleanup(){
 func_credentials_create(){
 	scutclient_credentials_dir=
 	scutclient_credentials_file=
-	if [ -z "$scutclient_username_value" ] || [ -z "$scutclient_password_value" ]; then
-		func_log "SCUTClient username/password must not be empty"
-		return 1
-	fi
+	# Empty values are valid legacy NVRAM results; keep the prior CLI behavior
+	# while transporting both fields through the private one-shot file.
 	scutclient_lf='
 '
 	scutclient_cr=$(printf '\r')
