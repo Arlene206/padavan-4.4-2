@@ -609,7 +609,7 @@ assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.rindex("return wa
 l2tp_start_merge = compact(
     body(WAN_SOURCE, "merge_l2tp_server_start_status(int wan_status)")
 )
-assert 'get_nvram_match_checked_status("l2tp_srv_t", "1", &l2tp_enabled)' in l2tp_start_merge
+assert 'get_nvram_match_checked_status("l2tp_srv_t","1",&l2tp_enabled)' in l2tp_start_merge
 assert "route_status_l2tp_server_start_requested(" in l2tp_start_merge
 assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
 assert "route_status_l2tp_server_start_result(" in l2tp_start_merge

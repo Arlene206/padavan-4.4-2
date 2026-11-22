@@ -1,3 +1,12 @@
+## 2026-11-22 — Keep checked L2TP selector assertion consistent with compacted source
+
+- Parent main SHA: `6c360d4acebe53d916d587328a96d00306a38de1`. The L2TP selector hardening on `0c3d6dc` uses `get_nvram_match_checked_status()` and fail-closes on NVRAM read errors. The WAN startup checker compacts whitespace before asserting the call, but its expected string retained spaces after commas; Firewall, USB modem and Process/XY validation therefore failed at the checker before validating the unchanged C logic.
+- Corrected the source-contract literal to match the whitespace-normalized C call. This is a test-only correction; no production source behavior changed.
+- Exact-head runs on `6c360d4` failed for this checker assertion: Firewall #45050009351, USB modem #45050009362, Process/lifecycle #45050009357. XY-C1 #45050009356 was running but its LAN restart regression step also stopped at the same checker. Re-run on the new commit; no firmware verification claim from the interrupted run.
+- The separate LAN snapshot, NFS ACL snapshot and DHCP callback changes remain as recorded in preceding entries. L3 still requires exact-SHA Build, TRX and artifact upload; L4 hardware not verified.
+
+---
+
 ## 2026-11-22 — Align WAN startup checker with checked L2TP selector
 
 - Parent main SHA: `0c3d6dc4f092398bcd1ccb8db2026c4f8d51b703`. Exact-SHA XY-C1, firewall-startup and process-lifecycle runs reached their host regression stage but stopped at `scripts/check_modem_wan_start_status.py:612`: its source contract still required the removed lossy `nvram_match("l2tp_srv_t", "1")` and old early-return implementation.
