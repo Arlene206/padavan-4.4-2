@@ -1695,6 +1695,28 @@ adbyby_lifecycle_locked_action() {
 	case "$adbyby_action" in
 		B) adbyby_refresh_blockip_set ;;
 		start) adbyby_start ;;
+		switch)
+			if [ "$adbyby_enable" = "1" ]; then
+				adbyby_switch_state=$(adbyby_process_state) || adbyby_switch_state=UNKNOWN
+				case "$adbyby_switch_state" in
+					RUNNING)
+						if adbyby_publish_started_service 0; then
+							return 0
+						else
+							adbyby_switch_status=$?
+							logger -t "adbyby" "DNS切换配置发布失败 (stage=$adbyby_publish_failure_stage, status=$adbyby_switch_status)。"
+							return "$adbyby_switch_status"
+						fi
+						;;
+					ABSENT) return 0 ;;
+					*)
+						logger -t "adbyby" "无法确认Adbyby进程状态，拒绝切换DNS配置。"
+						return 2
+						;;
+				esac
+			fi
+			return 0
+			;;
 		restart)
 			adbyby_close || return 1
 			if [ "$adbyby_enable" = "1" ]; then
@@ -1715,7 +1737,7 @@ adbyby_lifecycle_locked_action() {
 adbyby_lifecycle_lock_run() {
 	adbyby_action="$1"
 	adbyby_wait_seconds="${2:-30}"
-	case "$adbyby_action" in B|start|stop|restart|A|C|D|E|F|G|updateadb) ;; *) return 2 ;; esac
+	case "$adbyby_action" in B|start|stop|switch|restart|A|C|D|E|F|G|updateadb) ;; *) return 2 ;; esac
 	adbyby_lock_file=$(adbyby_lifecycle_lock_path) || return 1
 	if ! adbyby_lifecycle_lock_prepare "$adbyby_lock_file"; then
 		logger -t "adbyby" "生命周期锁准备失败，取消服务操作"
@@ -1730,6 +1752,6 @@ adbyby_lifecycle_lock_run() {
 }
 
 case "${1:-}" in
-	B|start|stop|restart|A|C|D|E|F|G|updateadb) adbyby_lifecycle_lock_run "$1" ;;
+	B|start|stop|switch|restart|A|C|D|E|F|G|updateadb) adbyby_lifecycle_lock_run "$1" ;;
 	*) echo "check" ;;
 esac

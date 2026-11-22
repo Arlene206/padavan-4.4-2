@@ -366,8 +366,11 @@ for marker in ("start ignored a failed transient NVRAM reset",
                "stop skipped cleanup after NVRAM read failure"):
     require(marker in lifecycle_test,
             f"lifecycle regression misses NVRAM error handling: {marker}")
-require("updateadb" in lock_run and "restart" in lock_run,
-        "restart and update use lifecycle lock")
+require("updateadb" in lock_run and "restart" in lock_run and "switch" in lock_run,
+        "restart, DNS switch and update use lifecycle lock")
+require('switch)' in locked_action and "adbyby_process_state" in locked_action and
+        "adbyby_publish_started_service 0" in locked_action and "UNKNOWN" in locked_action,
+        "switch must republish only for a confirmed running daemon and fail closed on unknown state")
 require("G|updateadb) adbyby_uprules" in locked_action,
         "RC updateadb notification reaches the rule updater")
 require('return eval("/usr/bin/adbyby.sh","restart");' in restart_adbyby,
@@ -375,6 +378,9 @@ require('return eval("/usr/bin/adbyby.sh","restart");' in restart_adbyby,
 require('"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &' in source and "restart_dhcpd 9>&-" in source,
         "detached daemon and DHCP children close FD 9")
 for marker in ("lifecycle transitions interleaved", "updateadb did not dispatch updater",
+               "running switch did not republish DNS dependencies without restarting",
+               "switch treated unknown process state as absent",
+               "switch hid DNS publication failure",
                "symlink lock accepted", "hard-linked lock accepted",
                "Adbyby lifecycle serialization, bounded lock"):
     require(marker in lifecycle_test, f"lifecycle test misses: {marker}")
