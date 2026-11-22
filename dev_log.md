@@ -1,3 +1,12 @@
+## 2026-11-22 11:02 CST — Reconcile Samba and HTTPD exact-head source contracts
+
+- Parent main SHA: `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`.
+- Exact Samba #44978563585 failed in its source contract at remaining old function-body lookups `write_smb_conf_unlocked(void)` and zero-argument call assumptions. The production writer now has a router-identity parameter; the workflow now locates that signature and distinguishes public `write_smb_conf_unlocked(NULL)` from `run_samba()`'s checked `router_username`.
+- Exact HTTPD #44978563500 reached the Samba/Unix account identity boundary check and failed because it prohibited every `nvram_safe_get("http_username")` occurrence in the whole source file. One separate, unrelated service path legitimately still uses that key; unsafe Samba credential helper/run-body checks are now scoped to the actual Samba functions.
+- These are contract-only corrections; no product source changed. Exact-head HTTPD/Samba reruns and Build XY-C1/TRX/artifact validation remain pending. The same `5b93812` VSFTPD #44978563499, AI docs #44978563541, NFS #44978563620, USB modem #44978563518, Firewall #44978563485 and Process inventory #44978563472 passed; USB storage, NVRAM, Process fail-closed and XY-C1 were still running. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 10:57 CST — Fix Samba ACL writer after exact XY-C1 compile failure
 
 - Parent main SHA: `4f5fa861c2702ead3c3fcbe6a871fad6639f6089`; product-source SHA that exposed the defect: `feb5dfe55704a253cea979454cdad439d715596a`.

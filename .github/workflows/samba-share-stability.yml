@@ -175,7 +175,7 @@ jobs:
           assert "samba_local_master_value_status(0, 2, &enabled)" in config_mode_test
           assert "samba_local_master_value_status(0, 3, &enabled)" in config_mode_test
 
-          smb = function_body(stor, "write_smb_conf_unlocked(void)")
+          smb = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
           integer_reader = function_body(stor, "samba_read_integer_status(const char *name, int missing_value, int *value)")
           boolean_reader = function_body(stor, "samba_read_boolean_status(const char *name, int missing_value, int *enabled)")
           mode_reader = function_body(stor, "samba_read_mode_status(int missing_value, int *mode)")
@@ -385,13 +385,13 @@ jobs:
           assert "samba_config_transaction_lock_acquire(" in transaction
           assert "Abrupt exit after both renames" in transaction_test
           assert "partial rollback can be retried" in transaction_test
-          writer = function_body(stor, "write_smb_conf_unlocked(void)")
+          writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
           public_writer = function_body(stor, "write_smb_conf(void)")
           assert public_writer.index("samba_config_transaction_prepare_parent_directory(") < public_writer.index("samba_config_transaction_recover(")
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in writer
           assert "samba_config_transaction_lock_acquire(" in public_writer
           assert "samba_config_transaction_recover(" in public_writer
-          assert "write_smb_conf_unlocked()" in public_writer
+          assert "write_smb_conf_unlocked(NULL)" in public_writer
           passdb_policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
           passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
           account_count_fn = function_body(passdb_policy, "samba_passdb_account_count_status(")
@@ -449,7 +449,7 @@ jobs:
           assert 'process_inventory_scan("smbd", &smbd_snapshot)' in run_samba
           assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in run_samba
           assert run_samba.index('process_inventory_scan("smbd", &smbd_snapshot)') < run_samba.index("recreate_passwd_unix(0)")
-          assert run_samba.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < run_samba.index("write_smb_conf_unlocked()")
+          assert run_samba.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < run_samba.index("write_smb_conf_unlocked(router_username)")
           assert 'samba_ensure_daemon("nmbd", &nmbd_snapshot)' in run_samba
           assert 'samba_ensure_daemon("smbd", &smbd_snapshot)' in run_samba
           assert "pids(" not in run_samba

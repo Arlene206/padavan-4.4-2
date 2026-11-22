@@ -5327,8 +5327,15 @@ jobs:
           assert 'storage_read_string_status("http_username",router_username' in services_compact
           assert "samba_service_account_is_safe(account_usernames[i],router_username)" in services_compact
           assert "samba_service_account_is_safe(account_list[i],safe_router_username)" in services_compact
-          assert 'nvram_safe_get("http_username")' not in services
-          assert "samba_service_account_is_safe(nvram_safe_get(tmpuser))" not in services
+          account_safety_start = services.index("samba_service_account_is_safe(const char *name,")
+          account_safety_end = services.index("static int" + chr(10) + "samba_write_all", account_safety_start)
+          account_safety = services[account_safety_start:account_safety_end]
+          assert 'nvram_safe_get("http_username")' not in account_safety
+          run_samba_start = services.index("int run_samba(void)")
+          run_samba_end = services.index(chr(10) + "int restart_smbd(void)", run_samba_start)
+          run_samba = services[run_samba_start:run_samba_end]
+          assert "nvram_safe_get(tmpuser)" not in run_samba
+          assert "nvram_safe_get(tmp2)" not in run_samba
           for trigger in (
               "trunk/user/libdisk/src/disk_share.c",
               "trunk/user/shared/src/include/router_account_policy.h",
