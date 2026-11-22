@@ -6287,6 +6287,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	int lock, dns_static, dns_static_status, resolv_changed = 0;
 	int dns_restart_status;
 	int dns_servers_ready = 1, dns_servers_error = 0, saved_errno, validation_errno;
+	int wan_dns_config_status = 0;
 	int modem_identity_status, is_modem_wan = 0;
 
 	if (!is_first_run && fill_dnsmasq_servers() != 0) {
@@ -6351,32 +6352,32 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		static_dns_fields[2].param_name = "wan_dns3_x";
 		static_dns_fields[2].destination = static_wan_dns[2];
 		static_dns_fields[2].destination_size = sizeof(static_wan_dns[2]);
-		dns_servers_error = rc_wan_nvram_copy_snapshot(
+		wan_dns_config_status = rc_wan_nvram_copy_snapshot(
 			static_dns_fields, 3, wan_nvram_transaction_begin_callback,
 			wan_nvram_transaction_get_callback,
 			wan_nvram_transaction_end_callback, &wan_dns_transaction);
 	} else if (!is_first_run) {
-		dns_servers_error = get_wan_unit_value_copy_status(
+		wan_dns_config_status = get_wan_unit_value_copy_status(
 			0, "dns", unit_wan_dns, sizeof(unit_wan_dns));
-		if (dns_servers_error == 0 && strlen(unit_wan_dns) < 7)
-			dns_servers_error = rc_wan_nvram_copy_value(
+		if (wan_dns_config_status == 0 && strlen(unit_wan_dns) < 7)
+			wan_dns_config_status = rc_wan_nvram_copy_value(
 				wan_nvram_checked_get_callback, NULL, "wanx_dns",
 				man_wan_dns, sizeof(man_wan_dns));
-		if (dns_servers_error == 0 && strlen(unit_wan_dns) >= 7)
+		if (wan_dns_config_status == 0 && strlen(unit_wan_dns) >= 7)
 			man_wan_dns[0] = '\0';
 	}
 #if defined (USE_IPV6)
-	if (dns_servers_error == 0)
-		dns_servers_error = get_wan_unit_value_copy_status(
+	if (wan_dns_config_status == 0)
+		wan_dns_config_status = get_wan_unit_value_copy_status(
 			0, "dns6", wan_dns6_snapshot, sizeof(wan_dns6_snapshot));
 #endif
-	if (dns_servers_error != 0) {
-		errno = dns_servers_error;
+	if (wan_dns_config_status != 0) {
+		errno = wan_dns_config_status;
 		logmessage(LOGNAME,
 			   "cannot read configured WAN DNS servers; preserving existing resolver file (status=%d)",
-			   dns_servers_error);
+			   wan_dns_config_status);
 		file_unlock(lock);
-		return dns_servers_error;
+		return wan_dns_config_status;
 	}
 
 	/* Never truncate /etc/resolv.conf or use a predictable temporary path. */

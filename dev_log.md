@@ -1,3 +1,9 @@
+## 2026-11-22 — Keep resolver input errors separate from DNSMasq snapshot health
+
+- The new resolver DNS-read gate now uses its own status accumulator. The existing `dns_servers_error` belongs to the independent DNSMasq upstream-file health gate; sharing it could erase a previous DNSMasq validation error. The two error domains remain independent.
+
+---
+
 ## 2026-11-22 — Keep the last-good resolver on WAN DNS NVRAM read failures
 
 - `update_resolvconf()` carefully checked the VPN DNS snapshot and static/dynamic DNS mode, but subsequently used `nvram_safe_get()` / `get_wan_unit_value()` for WAN DNS values. A transient NVRAM backend/close failure was converted to an empty list, then the function published the public `8.8.8.8` fallback over the previously valid resolver configuration.
