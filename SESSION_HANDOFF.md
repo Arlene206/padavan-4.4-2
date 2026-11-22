@@ -30,21 +30,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 - WAN reset now uses checked selector reads, a transactionally coherent manual endpoint snapshot, bounded protocol parsing, and checked custom/factory MAC identity reads.
 - `start_wan()` uses checked per-unit protocol retrieval and retains the first failure before interface setup.
-- The boolean manual-PPP classifier uses a checked protocol wrapper. THIS slice makes the wrapper return a negative error sentinel and explicitly maps that sentinel to `true` in `is_ifunit_man()`; this is important because returning a plausible enum such as PPTP could be misclassified if downstream manual-PPP flags differ.
-- `check_wan_firewall_status.py` now pins the explicit error-sentinel-to-manual result.
-- Next: verify exact-head Actions, then continue remaining protocol reads in route gateway and WAN teardown/DHCP callbacks while keeping mandatory cleanup unconditional.
+- The boolean manual-PPP classifier uses a checked protocol wrapper that returns a negative error sentinel on read failure; `is_ifunit_man()` maps the sentinel explicitly to `true` so an unreadable protocol cannot trigger destructive IPoE cleanup.
+- Exact-head WAN route #44965482671 and XY-C1 #44965482665 stopped at a contradictory checker: one assertion still expected the former PPTP substitute while a later assertion required `-1` plus explicit bool fallback. Checker-only correction now aligns the assertions; exact reruns remain pending.
+- Next: after checker pass, continue checked reads in WAN interface selection, DNS mode, link-restored DHCP and deconfig callbacks while keeping mandatory cleanup unconditional.
 
 ## Verification boundary
 
-- Current source/checker commit has not yet run exact-head Actions. Inspect WAN route, NVRAM, Process and XY-C1 for this SHA; inspect Build XY-C1, Verify TRX and artifact upload independently.
+- Exact main `76ddd91f39790262b8a373977d1a3b44f119a638`: WAN route #44965482671 FAIL at `check_wan_firewall_status.py` because an earlier assertion required `IPV4_WAN_PROTO_PPTP` but the same checker later required `-1` and `if (wan_proto < 0) return 1;`. All preceding WAN route regressions passed. XY-C1 #44965482665 stopped at the same checker; firmware detection, Build, TRX and artifact were skipped. This is a source-contract failure, not a compiler failure.
+- THIS checker-only descendant removes the contradictory expectation. Exact WAN-route rerun is pending; XY-C1 may not run for a checker-only change, so confirm actual workflow behavior.
+- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
 - L3 requires all three firmware steps PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head WAN route/NVRAM/Process/XY-C1 runs for this manual-classifier correction.
-2. Inspect Build XY-C1, Verify TRX and artifact upload separately.
-3. Continue the remaining direct protocol-read audit in route-gateway, teardown and DHCP callbacks without gating unconditional cleanup.
+1. Inspect exact-head WAN route rerun after the manual-PPP checker correction and record any remaining failed step.
+2. Check whether XY-C1 re-runs; if triggered, inspect Build, TRX and artifact independently.
+3. Continue checked protocol reads in `get_wan_ifname()`, `get_wan_ip4()`, `get_wan_dns_static_status()` and `udhcpc_deconfig()` while preserving unconditional cleanup.
 
 
 ## Workflow and preservation rules

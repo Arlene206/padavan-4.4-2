@@ -1166,9 +1166,9 @@ manual_proto_reader = body(
 manual_proto_reader_code = " ".join(manual_proto_reader.split())
 require("get_wan_unit_proto_checked_status(unit, &wan_proto)" in manual_proto_reader_code and
         "if (status != 0)" in manual_proto_reader_code and
-        "return IPV4_WAN_PROTO_PPTP;" in manual_proto_reader_code and
+        "return -1;" in manual_proto_reader_code and
         "preserving manual underlay" in manual_proto_reader_code,
-        "manual-PPP classification must preserve the underlay when protocol reads fail")
+        "manual-PPP protocol reader must return an explicit error sentinel on read failure")
 manual_classifier = body(wan, "static int\nis_ifunit_man(char *wan_ifname, int unit)")
 require("get_wan_unit_proto_for_manual_check(unit)" in manual_classifier and
         "get_wan_proto(unit)" not in manual_classifier,

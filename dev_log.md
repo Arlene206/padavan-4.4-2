@@ -1,3 +1,13 @@
+## 2026-11-22 08:14 CST — Align manual-PPP checker with explicit error sentinel
+
+- Parent main SHA: `76ddd91f39790262b8a373977d1a3b44f119a638`.
+- Exact-head WAN route #44965482671 failed at `scripts/check_wan_firewall_status.py`: an earlier assertion still required `get_wan_unit_proto_for_manual_check()` to return `IPV4_WAN_PROTO_PPTP`, while the newer implementation deliberately returns `-1` and makes `is_ifunit_man()` explicitly return true for any negative protocol sentinel.
+- The same checker later correctly required `return -1;` and `if (wan_proto < 0) return 1;`; the duplicate stale expectation made it internally contradictory. THIS checker-only commit changes the earlier assertion to require the explicit error sentinel while retaining the boolean underlay-protection assertion.
+- All WAN route host regressions before the firewall contract passed. XY-C1 #44965482665 stopped at the same checker failure, so firmware-input detection, Build XY-C1, TRX and artifact upload were skipped. This is not a compiler failure.
+- Next: inspect exact-head WAN route rerun after this checker repair, then continue status-bearing WAN interface selection and DHCP callback protocol reads; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Make manual-PPP protocol failure sentinel explicit
 
 - Parent main SHA: `58903be39199a36dce04f1f87d43561c26e04446`.
