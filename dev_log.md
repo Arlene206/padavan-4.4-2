@@ -1,3 +1,11 @@
+## 2026-11-22 — Check AP-client radio recovery inputs before WAN restart decisions
+
+- Parent main SHA: `0292b0a44ece35cac3e0331ab04aa15028a671a3`. Exact WAN route #44996976228 PASS, DHCP #44996976338 PASS, WAN teardown #44996976388 PASS and AI handoff #44996976327 PASS. Exact XY-C1 #44996976282 was still building.
+- `check_apcli_wan()` previously used `get_ap_mode()` and `get_man_ifname()` (safe_get-backed) to decide whether an AP-client radio restart should trigger full WAN restart or reconnect. A transient NVRAM error could masquerade as AP mode false/empty manual interface and produce an incorrect recovery decision.
+- Switched to `get_ap_mode_status()` and checked `get_wan_unit_value_copy_status()`; nonempty manual interface is validated by `wan_ifname_copy()`. Any read/token failure returns before restart/reconnect decision, with errno preserved. Empty legacy manual config continues to map to no APCLI MAN interface.
+- Extended `check_guest_lan_isolation_status.py` to pin the checked mode/manual input order and `wan_ifname_policy.h` dependency. Exact-head wireless/WAN/XY Actions remain pending for this source change.
+
+---
 ## 2026-11-22 — Guard AP-client WISP migration with checked prior WAN identity
 
 - Parent main SHA: `2149789b0636dd794fcb7eeb5343e314045cdc9a`. Exact 214 WAN route #44996754354 PASS, WAN DHCP #44996754350 PASS, WAN interface teardown #44996754355 PASS and AI handoff #44996754406 PASS; XY-C1 #44996754358 remained in Build XY-C1.

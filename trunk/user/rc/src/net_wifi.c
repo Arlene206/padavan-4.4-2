@@ -31,6 +31,7 @@
 #include "wireless_restart_policy.h"
 #include "wireless_radio_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "wan_ifname_policy.h"
 #include "service_wait_policy.h"
 #include "wireless_guest_isolation_policy.h"
 #include "switch.h"
@@ -583,16 +584,53 @@ static int
 check_apcli_wan(int is_5g, int radio_on)
 {
 	int man_id, wisp_id;
-	int status = 0;
-	char *man_ifname, *wisp_ifname;
+	int status = 0, ap_mode_status, is_ap_mode, ifname_status;
+	char man_ifname[16], man_ifname_nvram[16];
+	char *wisp_ifname;
 
-	if (get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		errno = ap_mode_status;
+		logmessage(LOGNAME,
+			   "cannot decide AP-client WAN recovery without verified router mode (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return 0;
 
 	is_5g &= 1;
 
+	/*
+	 * Compare the saved MAN interface with the active AP-client WISP
+	 * interface only after the relevant NVRAM state is read successfully.
+	 * nvram_safe_get() can otherwise turn an I/O failure into an empty name
+	 * and spuriously request a full WAN restart.
+	 */
+	ifname_status = get_wan_unit_value_copy_status(
+		0, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+	if (ifname_status != 0) {
+		errno = ifname_status;
+		logmessage(LOGNAME,
+			   "cannot decide AP-client WAN recovery without the saved interface name (status=%d)",
+			   ifname_status);
+		return ifname_status;
+	}
+	if (man_ifname_nvram[0]) {
+		ifname_status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (ifname_status != 0) {
+			errno = ifname_status;
+			logmessage(LOGNAME,
+				   "cannot decide AP-client WAN recovery from an invalid interface name (status=%d)",
+				   ifname_status);
+			return ifname_status;
+		}
+	} else {
+		man_ifname[0] = '\0';
+	}
+
 	man_id = -1;
-	man_ifname = get_man_ifname(0);
 	if (strcmp(man_ifname, IFNAME_2G_APCLI) == 0)
 		man_id = 0;
 #if BOARD_HAS_5G_RADIO
