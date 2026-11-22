@@ -1,3 +1,15 @@
+## 2026-11-22 — SmartDNS, AliDDNS and SCUTClient fail-closed follow-up
+
+- Source/test baseline before this handoff refresh: `33a91907446b7854c9736d3246152382dbb5f218`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remained at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- SmartDNS: `4cd7a0c` checks Adbyby enable/add reads before DNS owner transitions; `8a68095` checks primary and secondary SmartDNS enable/port/redirect reads before lifecycle changes. Regression and source checker extended.
+- AliDDNS: `56f1a91` makes startup enable, interval, credentials, domain/record and retry reads status-bearing; `a838773` checks fingerprint state reads/writes; `00f9143` checks retry-cancel reads; `b884b84` checks retry and relaunch NVRAM writes; `a6cad20` checks retry lock writes/removals and rejects unsafe symlink paths. Test/checker follow-ups `dec612d`, `b8c42c7`, `6749633`, `58eb9d5`, `296dd89` repaired mock newline escapes, marker placement and lock fixtures.
+- SCUTClient: `33a9190` reads the checked WAN interface before stopping the local client, leaving it running on read failure; it propagates the remote logout command result. Added read-failure, success and logout-failure regression cases to `scripts/tests/legacy_wrapper_pidfile_safety.sh`.
+- CI: exact SHA `33a91907446b7854c9736d3246152382dbb5f218`: Legacy wrapper stale-pidfile safety #45066964140 PASS; Process inventory and lifecycle fail-closed #45066964156 PASS; Process lifecycle inventory #45066964164 PASS. XY-C1 Firmware Validation #45066964181 still IN PROGRESS at this checkpoint (build dependency installation); Build/TRX/artifact not yet proven. Previous exact SHA `296dd893b20d14c7487bda4565cd15562f619c86`: AliDDNS #45066583234 PASS and Process inventory #45066583292 PASS. SmartDNS/DNSMasq #45064508066 on `8a68095` PASS.
+- Intermediate AliDDNS failures were investigated: 00f914/b884/58eb test issues were fixture newline or test path setup; subsequent fixture fixes passed #45066583234 on 296dd. No unresolved production regression from those CI failures.
+- No local test execution or physical-router validation. Next: inspect the bundled SCUTClient upstream archive for an interface that avoids putting authentication credentials in process argv; verify support before changing the wrapper. Recheck exact XY-C1 run #45066964181 and record Build/TRX/artifact independently.
+
+---
+
 
 ## 2026-11-22 — PID 1 and SmartDNS integration checkpoint
 

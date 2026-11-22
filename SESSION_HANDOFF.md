@@ -2,49 +2,64 @@
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository and exact-SHA Actions before changing source. Record the source baseline, current CI state, validation boundary and the next precise task. Use one atomic main commit for material changes only.
 
-Every session MUST inspect live repository state and complete an end-of-session accuracy checkpoint. Record exact main SHA, exact-SHA Actions, test/build boundaries and the next precise task. If facts remain accurate, explicitly conclude with no file change and no no-op commit. Use one atomic main commit for material changes only. Before context exhaustion, leave an accurate handoff and complete any safe bounded engineering slice.
-
-- Work only on `main`; never force-push, use side branches/PRs, or modify the frozen backup.
-- Each logical slice creates all blobs, one complete Git tree and one atomic main commit; update `main` only with `force:false` and a freshly fetched expected SHA.
+- Work only on `main`; never force-push, create/use side branches or PRs, or modify the frozen backup.
+- Each logical slice creates all blobs, one complete Git tree and one atomic commit; update `main` only with `force:false` and a freshly fetched expected SHA.
 - PASS continues, FAIL requires diagnosis/correction, PENDING does not block independent work.
 - Do not claim local tests, production builds, TRX/artifacts or hardware checks that were not performed.
+- Avoid repeating completed PID 1, storage, SmartDNS and AliDDNS audits below.
 
-## Current repository state
+## Live checkpoint — 2026-11-22
 
-- Live `main` at this checkpoint: `447d3683e2ae30c7e82b699d89dc978f75b32136` (tree `8fa8e571c8a8544e00b7d89d41f22494d01bf5ac`).
-- Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14`, last verified at `72f4f157a084f8184b9597ca5bf334b8080e5807`; keep unchanged.
-- Recent source work: PID 1 signal mask construction hardening; Adbyby DNS/firewall cleanup error propagation; SmartDNS NVRAM transition failure handling and removal of an unsupported Adbyby switch invocation; storage/swap hardening; WAN teardown workflow contract repair.
-- Continue with atomic tree + commit updates guarded by `expected_sha`; never force-push.
+- Product/source baseline before this handoff-only documentation commit: `33a91907446b7854c9736d3246152382dbb5f218`.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; last checked unchanged.
+- Handoff was refreshed after a sequence of source/test commits. The documentation commit itself changes only this file and `dev_log.md`; on takeover, fetch live `main` first and treat its SHA as authoritative.
 
-## Active task
+## Completed implementation slices in this session
 
-### Completed implementation slices
-- PID 1: `sigemptyset` / `sigaddset` results now checked through `pid1_signal_policy.h`; incomplete lifecycle masks prevent handler installation, and recovery-shell SIGCHLD mask construction fails closed before fork. Regression coverage and workflow contracts were aligned in `616a092a...`, `99c3da5c...`, `ad1837f1...`.
-- WAN teardown: fixed workflow source-contract policy bindings after an observed NameError in the inline checker; commit `8728b518...`.
-- Storage: removable-media uncertainty and hdparm failures are handled fail-closed; module loader scratch state is isolated; swap inventory parsing and caller source contracts tightened. Key checkpoints: `c8fdaeed...`, `ca8e79ec...`, `d1e0edcf...`, `9c75e1bf...`, `abe7fc71...`, `4c6d1b9c...`, `790fb2ab...`.
-- Adbyby: DNS cleanup now attempts all independent stages while preserving first error (`9999fdc5...`); firewall snapshot cleanup failure remains visible (`a633cf30...`) with test event fix in `c9cd34c1...`.
-- SmartDNS: NVRAM failures preserve previous in-memory DNS owner and propagate through Start/Stop (`80bfd667...`); checker count corrected (`5c929dbe...`); unsupported `/usr/bin/adbyby.sh switch` no-op calls removed from `Change_adbyby()` with regression/source contracts in the latest main slice `447d3683e2ae30c7e82b699d89dc978f75b32136`.
-### Next implementation target
-Verify the SmartDNS↔DNSMasq ownership transition end-to-end: trace where `adbyby_add`, `hosts_type`, and generated Adbyby host/DNS files are actually consumed; add a runtime-config contract test for both directions before modifying any further behavior. Then select a new stability defect outside the already-covered PID1/storage/Adbyby slices.
+### SmartDNS / Adbyby
+- `4cd7a0c90abb8142041f5d6da8622cdd3885cce0`: added checked Adbyby NVRAM reads; an unreadable `adbyby_enable` or `adbyby_add` now aborts the DNS ownership transition without changing the active host mode or attempting a write. Extended `trunk/user/smartdns/tests/dnsmasq_config_preservation.sh` and `scripts/check_smartdns_dnsmasq_config.py`.
+- `8a680956a3c93c8147d8178f5ebbf35744cedd15`: added fail-closed checked reads for SmartDNS primary/secondary enable, port and redirect settings before lifecycle changes; expanded the same runtime test and source checker.
+- Existing unsupported `/usr/bin/adbyby.sh switch` dispatch remains absent; no repeated work is needed on that already-closed item.
 
-## Verification boundary
+### AliDDNS
+- `56f1a914f1dda580c23c55d3c49f53d1363b4a5b`: checked startup reads for enable, interval, API credentials, domain/record names, TTL and retry configuration. A successful empty enable read still persists the legacy disabled default; a backend read failure is no longer mistaken for an absent key. The keeper retries on an unreadable live enable state rather than stopping a healthy process.
+- `a838773749f5575022173530c7ad12181d7e8975`: checked the persisted configuration fingerprint read and write; errors no longer publish an unknown restart decision.
+- `00f91436e5acb98acbe43962ee11154eb3c4faaa`: made retry-cancel reads status-bearing; an NVRAM error is not interpreted as a request to cancel cooldown.
+- `b884b840d0518915826d85aa6436ccd35f26cfbc`: introduced checked retry-counter and pre-relaunch fingerprint-reset writes.
+- `a6cad2013377022f9e37d1206fe274c71ca5346a`: checked retry lock file creation/update/removal, rejected symlink writes and non-regular removal targets, and propagated filesystem failures.
+- Test/checker follow-ups: `dec612dca4834356f56f96cb04469a0156467500`, `b8c42c7c2084869f3efc4401229832612ff35387`, `674963330b80848e76a15bfb69fd7574a3daf0be`, `58eb9d5e6f28cc80161eca74cdef701bb6db9376`, and `296dd893b20d14c7487bda4565cd15562f619c86`. They correct fixture newline escapes, checker marker registration and an existing-directory fixture for the retry lock; production behavior is in the source commits above.
 
-Exact-SHA workflow snapshots:
-- Current main `447d3683e2ae30c7e82b699d89dc978f75b32136`: USB storage hotplug stability regression=in_progress; XY-C1 Firmware Validation=in_progress; Process lifecycle inventory - 447d3683e2ae30c7e82b699d89dc978f75b32136=completed/success; DNSMasq lifecycle stability regression=completed/success.
-- PID 1 follow-up `ad1837f1...`: AI handoff documentation contract=completed/success; PID 1 mdev hotplug configuration security regression=completed/success; HTTPD Authentication and Security Regression=completed/success; Process inventory and lifecycle fail-closed regression=completed/success; XY-C1 Firmware Validation=completed/success.
-- WAN checker correction `8728b518...`: WAN interface teardown stability regression=completed/success; AI handoff documentation contract=completed/success.
-- Adbyby test correction `c9cd34c1...`: HTTPD Authentication and Security Regression=completed/success; AI handoff documentation contract=completed/success; Adbyby download and dnsmasq configuration stability regression=completed/success; Process lifecycle inventory - c9cd34c1973235544fff1779bc93bc4c16526247=completed/success.
-- Storage checkpoint `790fb2ab...`: AI handoff documentation contract=completed/success; Process lifecycle inventory - 790fb2abc36bbda06f1628c0d6c3aae040fcb4fe=completed/success; HTTPD Authentication and Security Regression=completed/success; USB storage hotplug stability regression=completed/success; XY-C1 Firmware Validation=completed/success.
-- SmartDNS DNSMasq checkpoint `5c929dbe...`: DNSMasq lifecycle stability regression=completed/success.
-- Adbyby DNS cleanup checkpoint `9999fdc5...`: Adbyby download and dnsmasq configuration stability regression=completed/success; HTTPD Authentication and Security Regression=completed/success; Process lifecycle inventory - 9999fdc5ccf193df63e98182069d6aa71d5b6a73=completed/success; Process inventory and lifecycle fail-closed regression=completed/success; XY-C1 Firmware Validation=completed/success.
-- A green unit/workflow run does not prove router runtime correctness. Treat the latest XY-C1 firmware build and device validation as unverified unless an exact-SHA run explicitly confirms them.
+### SCUTClient stop / logout
+- `33a91907446b7854c9736d3246152382dbb5f218`: corrected `func_stop()` in `trunk/user/scutclient/scripts/scutclient.sh`. It now resolves `wan_ifname` via `get_checked` before stopping the local daemon, so an NVRAM read failure leaves the daemon running and avoids a stranded remote session. It also propagates the logout command's failure rather than always reporting success.
+- Added regression cases to `scripts/tests/legacy_wrapper_pidfile_safety.sh`: failed WAN-interface read must not stop/logout; successful stop performs logout; failed logout returns its status. The test's process lifecycle mock records stop attempts.
+
+### CI trigger correction
+- `f3e0945c611a3c553bdc74c8aaf35388850ce076`: aligned push and pull-request path filters for the process lifecycle workflow so the authentication-client NVRAM regression path is included in both triggers.
+
+## Exact-SHA verification boundary
+
+Latest source/test SHA `33a91907446b7854c9736d3246152382dbb5f218`:
+- Legacy wrapper stale-pidfile safety #45066964140 — completed / PASS (includes the updated SCUTClient stop/logout regressions).
+- Process inventory and lifecycle fail-closed #45066964156 — completed / PASS.
+- Process lifecycle inventory #45066964164 — completed / PASS.
+- XY-C1 Firmware Validation #45066964181 — IN PROGRESS at the checkpoint; the job was still installing build dependencies. Do not claim Build, TRX validation or artifact upload until this exact run completes successfully.
+
+Previous exact source/test SHA `296dd893b20d14c7487bda4565cd15562f619c86`:
+- AliDDNS signed API transport security regression #45066583234 — completed / PASS.
+- Process lifecycle inventory #45066583292 — completed / PASS.
+
+Earlier same-area evidence:
+- SmartDNS/DNSMasq lifecycle regression #45064508066 on `8a680956a3c93c8147d8178f5ebbf35744cedd15` — completed / PASS; its source checker and runtime configuration preservation coverage include the new checked-read behavior.
+- AliDDNS test failures on intermediate commits were traced to test fixture newline escapes / assertion fixtures, not the production change. They were corrected in descendants; exact run #45066583234 on `296dd893...` passed. Do not reopen unless a new exact-head failure appears.
+- DNSMasq C parser multicharacter-constant correction on `8167ccca55841ff09e1af4e769318ee4a2b1df12` passed its exact DNSMasq, process inventory and NVRAM workflows; it was performed by a parallel main contributor, not this session.
+
+No local shell/C execution was performed in this session. GitHub Actions host tests are the only claimed execution evidence. XY-C1 build/TRX/artifact status on the latest source SHA remained pending; router/hardware L4 validation is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` SHA and its Actions; do not repeat completed PID1/storage audits.
-2. Trace SmartDNS DNS ownership through `Change_adbyby()`, `adbyby_add`, `hosts_type`, generated host files and daemon config. Confirm both directions and add regression coverage for the actual runtime config.
-3. Make one bounded source/test/checker change, commit the full tree atomically with expected-SHA protection, and verify the exact commit’s Actions.
-4. Keep handoff accurate. The checkpoint is mandatory; a document edit is conditional.
-
+1. Fetch the current `main` SHA and exact-SHA Actions. Preserve the frozen backup.
+2. Investigate SCUTClient credential exposure: inspect the bundled upstream source archive `trunk/user/scutclient/scutclient-a58996875c61d0cdf8ec435057befc1c87bd6863.tar.gz` to determine whether `-u` / `-p` credentials passed by the wrapper are exposed in process arguments and whether upstream supports a private config file, protected file descriptor or another non-argv interface. Do not invent an unsupported CLI option. If a viable non-argv interface exists, implement it with mode-0600/atomic config handling and a regression proving credentials do not appear in process arguments; otherwise document the exact upstream constraint and select the next concrete stability/security defect.
+3. Revisit XY-C1 run #45066964181 for the exact `33a91907446b7854c9736d3246152382dbb5f218` SHA. Record Build, TRX and artifact stages separately; hardware L4 remains separate.
+4. Continue with a source/test/checker slice, one atomic commit and exact-SHA Actions. Update this handoff only when next-session-critical facts materially change.
