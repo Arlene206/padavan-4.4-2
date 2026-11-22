@@ -1578,7 +1578,7 @@ reload_nat_modules(void)
 	{
 		hwnat_wan_vid = get_vlan_vid_wan();
 		if (hwnat_wan_vid < 0) {
-			logmessage(LOGNAME, "Hardware NAT/Routing: skipping WAN VID load/update after switch PVID failure (%d)",
+			logmessage(LOGNAME, "Hardware NAT/Routing: skipping WAN VID load/update after checked VLAN/PVID lookup failure (%d)",
 				   hwnat_wan_vid);
 		} else if (hwnat_loaded == 0) {
 			snprintf(hnat_param, sizeof(hnat_param), "wan_vid=%d", hwnat_wan_vid);

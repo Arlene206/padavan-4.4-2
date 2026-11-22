@@ -49,6 +49,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "wan_vlan_vid_policy.h"
 #include "modem_wan_start_policy.h"
 #include "detect_internet_notification_policy.h"
 #include "dnsmasq_file.h"
@@ -1280,13 +1281,31 @@ int
 get_vlan_vid_wan(void)
 {
 	int vlan_vid;
-	int is_vlan_filter;
+	int is_vlan_filter = 0;
+	int status;
 
-	is_vlan_filter = (nvram_match("vlan_filter", "1")) ? 1 : 0;
-	if (is_vlan_filter)
-		vlan_vid = nvram_get_int("vlan_vid_cpu");
-	else
+	status = get_nvram_match_checked_status(
+		"vlan_filter", "1", &is_vlan_filter);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN VLAN filter selector for Hardware NAT (status=%d)",
+			   status);
+		errno = status;
+		return wan_vlan_vid_policy_read_failure_result(status);
+	}
+
+	if (is_vlan_filter) {
+		status = get_nvram_int_checked_status("vlan_vid_cpu", &vlan_vid);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read configured WAN VLAN ID for Hardware NAT (status=%d)",
+				   status);
+			errno = status;
+			return wan_vlan_vid_policy_read_failure_result(status);
+		}
+	} else {
 		vlan_vid = 0;
+	}
 
 	if (!is_vlan_vid_valid(vlan_vid)) {
 		vlan_vid = phy_vlan_pvid_wan_get();

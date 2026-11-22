@@ -190,6 +190,32 @@ require(iso_read_pos < iso_error_return < first_wan_probe and
         'nvram_get_int("wan_stb_iso")' not in soft_wan,
         "WAN bridge isolation read failures must abort before topology mutations")
 
+# The HW-NAT WAN VID resolver must not interpret an unreadable filter/VID
+# as disabled or silently substitute the physical switch PVID.
+wan_vid = body(wan, "get_vlan_vid_wan(void)")
+wan_vid_code = " ".join(wan_vid.split())
+filter_status_read = 'get_nvram_match_checked_status("vlan_filter", "1", &is_vlan_filter)'
+configured_vid_read = 'get_nvram_int_checked_status("vlan_vid_cpu", &vlan_vid)'
+filter_pos = wan_vid_code.index(filter_status_read)
+filter_failure = wan_vid_code.index("if (status != 0)", filter_pos)
+filter_error_return = wan_vid_code.index("wan_vlan_vid_policy_read_failure_result(status)", filter_failure)
+vid_pos = wan_vid_code.index(configured_vid_read)
+vid_failure = wan_vid_code.index("if (status != 0)", vid_pos)
+vid_error_return = wan_vid_code.index("wan_vlan_vid_policy_read_failure_result(status)", vid_failure)
+pvid_fallback = wan_vid_code.index("phy_vlan_pvid_wan_get()")
+require(filter_pos < filter_failure < filter_error_return < vid_pos < vid_failure < vid_error_return < pvid_fallback,
+        "HW-NAT WAN VID must abort on selector/VID read errors before any physical-PVID fallback")
+require('nvram_match("vlan_filter", "1")' not in wan_vid_code and
+        'nvram_get_int("vlan_vid_cpu")' not in wan_vid_code and
+        "wan_vlan_vid_policy_read_failure_result" in wan_vid_code,
+        "HW-NAT WAN VID lookup must use checked selectors and preserve negative errno")
+wan_vid_policy = (rc / "wan_vlan_vid_policy.h").read_text()
+wan_vid_test = (rc / "tests/wan_vlan_vid_policy.c").read_text()
+require("return read_status > 0 ? -read_status : read_status;" in wan_vid_policy and
+        "wan_vlan_vid_policy_read_failure_result(EIO) == -EIO" in wan_vid_test and
+        "wan_vlan_vid_policy_read_failure_result(ENODEV) == -ENODEV" in wan_vid_test,
+        "WAN VLAN ID read-error mapping must have negative-errno regression coverage")
+
 vinet = body(wan, "config_vinet_wan(void)")
 vinet_code = " ".join(vinet.split())
 mode_read_pos = vinet_code.index("get_wan_bridge_mode_status(&bridge_mode)")

@@ -28,6 +28,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_vlan_vid_policy.h"
+      - "trunk/user/rc/src/tests/wan_vlan_vid_policy.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "scripts/check_wan_dns_read_status.py"
@@ -217,6 +219,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile checked WAN VLAN ID read policy regression with sanitizers
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_vlan_vid_policy.c \
+            -o /tmp/wan-vlan-vid-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-vlan-vid-policy
       - name: Compile route status regression with sanitizers
         run: |
           set -eu

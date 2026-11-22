@@ -1,3 +1,13 @@
+## 2026-11-22 — Fail closed on WAN VLAN-ID lookup errors for HW NAT
+
+- Parent main SHA: `19af0ec53cb268ab85a70c6f8ec56796b56890d6`. `get_vlan_vid_wan()` used lossy `nvram_match("vlan_filter", "1")` and `nvram_get_int("vlan_vid_cpu")`; transient NVRAM read failures were indistinguishable from a disabled selector/invalid VID and could fall back to the physical switch WAN PVID. The caller then passed that substitute VID into HW-NAT setup, risking an incorrect hardware-offload WAN VLAN.
+- Replaced both selectors with checked reads and return a negative errno immediately on either failure, before consulting physical PVID. Configured invalid/missing VID and disabled filtering retain the established physical-PVID fallback. The HW-NAT warning now accurately covers checked VLAN/PVID lookup failures.
+- Added a negative-errno policy regression and an exact-source ordering check proving both checked reads and failure exits precede PVID fallback. The WAN route workflow now compiles the regression under GNU89 warnings-as-errors plus ASan/UBSan.
+- No local MIPS build or target-device test is claimed. Exact-SHA WAN route and XY-C1 build/TRX/artifact actions must verify this slice.
+- Next: follow the WAN VLAN lookup exact-SHA actions and the previously failed WAN-modem/L2TP checker successors.
+
+---
+
 ## 2026-11-22 — Keep checked L2TP selector assertion consistent with compacted source
 
 - Parent main SHA: `6c360d4acebe53d916d587328a96d00306a38de1`. The L2TP selector hardening on `0c3d6dc` uses `get_nvram_match_checked_status()` and fail-closes on NVRAM read errors. The WAN startup checker compacts whitespace before asserting the call, but its expected string retained spaces after commas; Firewall, USB modem and Process/XY validation therefore failed at the checker before validating the unchanged C logic.
