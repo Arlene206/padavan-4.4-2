@@ -147,11 +147,11 @@ arpbind_clear(void)
 	while (fgets(buffer, sizeof(buffer), fp)) {
 		int command_status, command_errno, arp_errno, parse_status;
 
-		line_end = strchr(buffer, '\\n');
+		line_end = strchr(buffer, '\n');
 		if (!line_end) {
 			parse_status = EIO;
 		} else {
-			*line_end = '\\0';
+			*line_end = '\0';
 			parse_status = dnsmasq_static_arp_record_parse(
 				buffer, arp_ip, sizeof(arp_ip), &arp_flags,
 				arp_if, sizeof(arp_if));

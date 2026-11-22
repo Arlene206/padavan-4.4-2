@@ -46,6 +46,9 @@ test_static_arp_record_parser(void)
 		"192.0.2.1 0x1 0x4junk 00:11:22:33:44:55 * br0",
 		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
 	assert(dnsmasq_static_arp_record_parse(
+		"192.0.2.1 0x-1 0x4 00:11:22:33:44:55 * br0",
+		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
+	assert(dnsmasq_static_arp_record_parse(
 		"192.0.2.1 0x1 0x4 00:11:22:33:44 * br0",
 		ip, sizeof(ip), &flags, ifname, sizeof(ifname)) == EIO);
 	assert(dnsmasq_static_arp_record_parse(

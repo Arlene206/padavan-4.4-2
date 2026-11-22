@@ -64,15 +64,22 @@ dnsmasq_static_arp_mac_is_valid(const char *address)
 static inline int
 dnsmasq_static_arp_hex_value(const char *text, unsigned int *value)
 {
+	const unsigned char *p;
 	char *end;
 	unsigned long parsed;
 
 	if (!text || !value || text[0] != '0' ||
-	    (text[1] != 'x' && text[1] != 'X') || text[2] == '\\0')
+	    (text[1] != 'x' && text[1] != 'X') || text[2] == '\0')
 		return EIO;
+	for (p = (const unsigned char *)text + 2; *p; p++) {
+		if (!((*p >= '0' && *p <= '9') ||
+		      (*p >= 'a' && *p <= 'f') ||
+		      (*p >= 'A' && *p <= 'F')))
+			return EIO;
+	}
 	errno = 0;
 	parsed = strtoul(text + 2, &end, 16);
-	if (errno == ERANGE || end == text + 2 || *end != '\\0' ||
+	if (errno == ERANGE || end == text + 2 || *end != '\0' ||
 	    parsed > UINT_MAX)
 		return EIO;
 	*value = (unsigned int)parsed;
