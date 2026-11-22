@@ -383,14 +383,21 @@ try_start_usb_printer_spoolers(void)
 int
 try_start_usb_modem_to_wan(void)
 {
-	int modem_prio, has_link;
-	int modem_identity_status, is_modem_wan = 0;
+	int modem_prio, modem_devnum, has_link;
+	int modem_config_status, modem_identity_status, is_modem_wan = 0;
 
 	if (get_ap_mode())
 		return 0;
 
-	/* check modem prio mode  */
-	modem_prio = nvram_get_int("modem_prio");
+	/* Read priority and modem readiness as one checked configuration snapshot. */
+	modem_config_status = get_modem_wan_start_config_status(
+		&modem_prio, &modem_devnum);
+	if (modem_config_status != 0) {
+		logmessage("USB hotplug",
+			   "cannot read modem WAN startup configuration; preserving event for retry (status=%d)",
+			   modem_config_status);
+		return modem_config_status;
+	}
 	if (modem_prio < 1)
 		return 0;
 
@@ -407,7 +414,7 @@ try_start_usb_modem_to_wan(void)
 	}
 
 	/* check modem enabled and ready */
-	if (!get_modem_devnum())
+	if (!modem_devnum)
 		return 0;
 
 	if (modem_prio == 2) {

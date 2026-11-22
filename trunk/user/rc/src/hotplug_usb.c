@@ -360,6 +360,7 @@ int mdev_net_main(int argc, char **argv)
 	int interface_down_status, interface_down_errno;
 	int interface_flags, interface_error, interface_cleanup_status;
 	int modem_identity_status, is_modem_wan = 0;
+	int modem_hotplug_policy_status, notify_modem;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -465,7 +466,14 @@ int mdev_net_main(int argc, char **argv)
 		goto out_unlock;
 	}
 
-	if (nvram_invmatch("modem_prio", "0") && nvram_match("modem_rule", "1") && nvram_match("modem_type", "3"))
+	modem_hotplug_policy_status = get_modem_hotplug_notification_status(1, &notify_modem);
+	if (modem_hotplug_policy_status != 0) {
+		logmessage("USB",
+			   "cannot read NDIS modem hotplug policy; queueing event for deferred retry (status=%d)",
+			   modem_hotplug_policy_status);
+		notify_modem = 1;
+	}
+	if (notify_modem)
 		metadata_status = modem_wan_hotplug_notification_result(
 			metadata_status,
 			notify_usb_hotplug_event("on_hotplug_usb_modem", device_name));
@@ -482,6 +490,7 @@ int mdev_tty_main(int argc, char **argv)
 {
 	int isLock, devnum, has_int_pipe, data_len, publish_status, metadata_status = 0;
 	int modem_identity_status, is_modem_wan = 0;
+	int modem_hotplug_policy_status, notify_modem;
 	char usb_port_id[64], usb_interface_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -574,7 +583,14 @@ int mdev_tty_main(int argc, char **argv)
 		goto out_unlock;
 	}
 
-	if (nvram_invmatch("modem_prio", "0") && nvram_match("modem_rule", "1") && nvram_invmatch("modem_type", "3"))
+	modem_hotplug_policy_status = get_modem_hotplug_notification_status(0, &notify_modem);
+	if (modem_hotplug_policy_status != 0) {
+		logmessage("USB",
+			   "cannot read RAS modem hotplug policy; queueing event for deferred retry (status=%d)",
+			   modem_hotplug_policy_status);
+		notify_modem = 1;
+	}
+	if (notify_modem)
 		metadata_status = modem_wan_hotplug_notification_result(
 			metadata_status,
 			notify_usb_hotplug_event("on_hotplug_usb_modem", device_name));

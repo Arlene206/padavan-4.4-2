@@ -7,6 +7,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 USB_SOURCE = (RC / "usb_modem.c").read_text()
+HOTPLUG_SOURCE = (RC / "hotplug_usb.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
 PPP_SOURCE = (RC / "net_ppp.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
@@ -847,6 +848,52 @@ deferred_hotplug = compact(body(STORAGE_SOURCE, "on_deferred_hotplug_dev(void)")
 modem_start = compact(body(SERVICES_USB_SOURCE, "try_start_usb_modem_to_wan(void)"))
 assert "return try_wan_reconnect(1, 0);" in modem_start
 assert "return;" not in modem_start
+modem_start_tokens = "".join(modem_start.split())
+assert "modem_config_status=get_modem_wan_start_config_status(&modem_prio,&modem_devnum)" in modem_start_tokens
+assert "if(modem_config_status!=0)" in modem_start_tokens
+assert "returnmodem_config_status;" in modem_start_tokens
+assert modem_start_tokens.index("modem_config_status=get_modem_wan_start_config_status(") < modem_start_tokens.index("if(modem_config_status!=0)") < modem_start_tokens.index("returnmodem_config_status;") < modem_start_tokens.index("if(modem_prio<1)")
+assert modem_start_tokens.index("if(modem_prio<1)") < modem_start_tokens.index("get_usb_modem_wan_status(")
+assert 'nvram_get_int("modem_prio")' not in modem_start
+assert "!get_modem_devnum()" not in modem_start
+
+modem_snapshot = compact(body(USB_SOURCE, "usb_modem_read_start_config_snapshot("))
+for key in ("modem_prio", "modem_rule", "modem_type"):
+    assert '"' + key + '"' in modem_snapshot
+for marker in ("usb_modem_nvram_transaction_begin", "usb_modem_nvram_transaction_get", "usb_modem_nvram_transaction_end", "usb_modem_read_start_config_field("):
+    assert marker in modem_snapshot
+
+modem_config = compact(body(USB_SOURCE, "get_modem_wan_start_config_status("))
+for key in ("config.modem_prio", "config.modem_rule", "config.modem_type"):
+    assert key in modem_config
+assert "usb_modem_read_start_config_snapshot(&config)" in modem_config
+assert "rc_wan_nvram_parse_int_value(" in modem_config
+assert "is_ready_modem_ndis(" in modem_config and "is_ready_modem_ras(" in modem_config
+
+notification_config = compact(body(USB_SOURCE, "get_modem_hotplug_notification_status("))
+assert "usb_modem_read_start_config_snapshot(&config)" in notification_config
+for key in ("config.modem_prio_present", "config.modem_rule_present", "config.modem_type_present"):
+    assert key in notification_config
+assert "modem_wan_hotplug_notification_enabled(" in notification_config
+
+modem_wrapper = "".join(compact(body(USB_SOURCE, "get_modem_devnum(void)")).split())
+assert "get_modem_wan_start_config_status(&modem_priority,&modem_devnum)" in modem_wrapper
+assert "cannotreadUSBmodemWANconfiguration" in modem_wrapper
+assert 'nvram_get_int("modem_rule")' not in modem_wrapper
+assert 'nvram_get_int("modem_type")' not in modem_wrapper
+
+ndis_hotplug = compact(body(HOTPLUG_SOURCE, "int mdev_net_main("))
+tty_hotplug = compact(body(HOTPLUG_SOURCE, "int mdev_tty_main("))
+for hotplug_body, transport in ((ndis_hotplug, 1), (tty_hotplug, 0)):
+    hotplug_tokens = "".join(hotplug_body.split())
+    policy_call = f"get_modem_hotplug_notification_status({transport},&notify_modem)"
+    assert policy_call in hotplug_tokens
+    assert "if(modem_hotplug_policy_status!=0)" in hotplug_tokens
+    assert "notify_modem=1;" in hotplug_tokens
+    assert "if(notify_modem)" in hotplug_tokens
+    assert hotplug_tokens.index(policy_call) < hotplug_tokens.index("if(modem_hotplug_policy_status!=0)") < hotplug_tokens.index("notify_modem=1;") < hotplug_tokens.index("if(notify_modem)")
+assert 'nvram_invmatch("modem_prio"' not in HOTPLUG_SOURCE
+assert 'nvram_match("modem_rule"' not in HOTPLUG_SOURCE
 
 deferred_code = "".join(deferred_hotplug.split())
 printer_unplug_read = 'storage_read_integer_status("usb_unplug_lp",0,&printer_unplug_value)'
@@ -900,6 +947,13 @@ assert "test_each_failed_marker_read_preserves_the_pair" in usb_event_test
 modem_test = (RC / "tests/modem_wan_start_policy.c").read_text()
 assert "test_modem_unplug_rule_read_fails_closed" in modem_test
 assert "test_modem_unplug_rule_read_fails_closed();" in modem_test
+assert "modem_wan_hotplug_notification_enabled" in POLICY_SOURCE
+for marker in (
+    "test_hotplug_notification_preserves_ndis_and_ras_legacy_gates",
+    "test_hotplug_notification_missing_any_legacy_match_key_stays_disabled",
+    "test_hotplug_notification_rejects_invalid_and_unreadable_inputs",
+):
+    assert marker in modem_test and marker + "();" in modem_test
 assert "modem_plug_status = try_start_usb_modem_to_wan();" in deferred_hotplug
 assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in deferred_hotplug
 assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in deferred_hotplug

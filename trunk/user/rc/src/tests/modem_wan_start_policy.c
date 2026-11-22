@@ -8,6 +8,52 @@
 #include "dhcp_lease_policy.h"
 
 static void
+test_hotplug_notification_preserves_ndis_and_ras_legacy_gates(void)
+{
+	int notify = -1;
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "1", 1, "3", 1, &notify) == 0);
+	assert(notify == 1);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "1", 1, "3", 0, &notify) == 0);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "2", 1, "1", 1, "4", 0, &notify) == 0);
+	assert(notify == 1);
+	assert(modem_wan_hotplug_notification_enabled(1, "0", 1, "1", 1, "3", 1, &notify) == 0);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "0", 1, "3", 1, &notify) == 0);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "01", 1, "3", 1, &notify) == 0);
+	assert(notify == 0);
+	/* A present empty type remains an inverted match for the RAS gate. */
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "1", 1, "", 0, &notify) == 0);
+	assert(notify == 1);
+}
+
+static void
+test_hotplug_notification_missing_any_legacy_match_key_stays_disabled(void)
+{
+	int notify = -1;
+	assert(modem_wan_hotplug_notification_enabled(0, NULL, 1, "1", 1, "3", 1, &notify) == 0);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 0, NULL, 1, "3", 1, &notify) == 0);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "1", 0, NULL, 0, &notify) == 0);
+	assert(notify == 0);
+}
+
+static void
+test_hotplug_notification_rejects_invalid_and_unreadable_inputs(void)
+{
+	int notify = 1;
+	assert(modem_wan_hotplug_notification_enabled(2, "1", 1, "1", 1, "3", 1, &notify) == EINVAL);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, NULL, 1, "1", 1, "3", 1, &notify) == EIO);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "1", 1, "3", 2, &notify) == EINVAL);
+	assert(notify == 0);
+	assert(modem_wan_hotplug_notification_enabled(1, "1", 1, "1", 1, "3", 1, NULL) == EINVAL);
+}
+
+static void
 test_miniupnp_migration_failure_blocks_dhcp(void)
 {
 	assert(!modem_wan_start_migration_succeeded(EBUSY));
@@ -651,6 +697,9 @@ test_modem_restart_requires_known_identity(void)
 int
 main(void)
 {
+	test_hotplug_notification_preserves_ndis_and_ras_legacy_gates();
+	test_hotplug_notification_missing_any_legacy_match_key_stays_disabled();
+	test_hotplug_notification_rejects_invalid_and_unreadable_inputs();
 	test_miniupnp_migration_failure_blocks_dhcp();
 	test_modem_selection_preserves_missing_priority_default();
 	test_modem_selection_fails_closed_on_priority_read_error();

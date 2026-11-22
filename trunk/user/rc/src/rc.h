@@ -852,6 +852,8 @@ int detect_wan_main(int argc, char *argv[]);
 #if defined (USE_USB_SUPPORT)
 /* usb_modem.c */
 int  get_modem_devnum(void);
+int  get_modem_wan_start_config_status(int *modem_priority_out, int *modem_devnum_out);
+int  get_modem_hotplug_notification_status(int is_ndis, int *should_notify);
 int  get_modem_ndis_ifname(char ndis_ifname[16], int *devnum_out);
 void notify_modem_on_wan_ether_link_changed(int has_link);
 int  safe_remove_usb_modem(void);

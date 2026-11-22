@@ -2,6 +2,7 @@
 #define RC_MODEM_WAN_START_POLICY_H
 
 #include <errno.h>
+#include <string.h>
 
 /* Do not migrate the active WAN interface while miniupnpd is still bound. */
 static inline int
@@ -126,6 +127,34 @@ static inline int
 modem_wan_hotplug_notification_result(int existing_status, int queue_status)
 {
 	return existing_status != 0 ? existing_status : (queue_status == 0 ? 0 : 1);
+}
+
+/*
+ * Preserve the legacy NVRAM match/invmatch gate for a newly enumerated modem.
+ * Missing keys never match, including the inverted modem_prio/modem_type
+ * checks. Backend failures are handled by the caller as retryable events.
+ */
+static inline int
+modem_wan_hotplug_notification_enabled(int priority_present,
+				       const char *priority,
+				       int rule_present, const char *rule,
+				       int type_present, const char *type,
+				       int is_ndis, int *notify)
+{
+	if (!notify || (is_ndis != 0 && is_ndis != 1) ||
+	    (priority_present != 0 && priority_present != 1) ||
+	    (rule_present != 0 && rule_present != 1) ||
+	    (type_present != 0 && type_present != 1))
+		return EINVAL;
+	*notify = 0;
+	if (!priority_present || !rule_present || !type_present)
+		return 0;
+	if (!priority || !rule || !type)
+		return EIO;
+	*notify = strcmp(priority, "0") != 0 &&
+		  strcmp(rule, "1") == 0 &&
+		  (is_ndis ? strcmp(type, "3") == 0 : strcmp(type, "3") != 0);
+	return 0;
 }
 
 

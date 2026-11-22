@@ -1,3 +1,11 @@
+## 2026-11-21 — Make USB modem hotplug and startup configuration reads retry-safe
+
+- Parent main SHA: `40f639ad8d647dc1239e0041796c03af8eaed876`. Its exact-head AI handoff #44984119963, WAN route #44984119975, Firewall Startup #44984119979 and XY-C1 host-contract run #44984119951 completed SUCCESS. The XY-C1 run skipped Build XY-C1, TRX verification and artifact upload because the parent was checker-only; it is not L3 evidence.
+- Confirmed two fail-open paths: NDIS/TTY hotplug selectors used unchecked `nvram_match()/nvram_invmatch()` and silently dropped PID 1 notifications on backend errors; deferred modem startup and `get_modem_devnum()` used `nvram_get_int()`, collapsing configuration read failures to the disabled/no-device default.
+- Added one transaction snapshot for `modem_prio`, `modem_rule` and `modem_type`, with strict integer parsing for readiness and explicit key-presence bits so present-empty values retain legacy `invmatch` semantics. NDIS/TTY hotplug conservatively queues the event on snapshot failure; deferred startup returns the read error so the existing PID 1 retry marker is restored.
+- Added GNU89 policy regressions for NDIS/RAS exact matching, missing keys, present-empty RAS type and invalid inputs, plus source-order/no-unchecked-getter contracts. Exact-head USB workflow and same-SHA XY-C1 Build/TRX/artifact are pending; no L3 or hardware L4 claim.
+
+---
 ## 2026-11-22 — Align PPPoE-MWAN firewall contracts with checked preflight
 
 - Parent main SHA: b39d69486ffffa4dc4d370921524678a49c3aac8. Exact Actions: HTTPD #44983973130, process inventory #44983973215, AI handoff #44983973254, WAN DHCP #44983973157 and FULLCONENAT #44983973138 PASS. XY-C1 #44983973136 and NVRAM #44983973152 were IN_PROGRESS. Firewall Startup #44983973377 and WAN route #44983973320 failed at stale source contracts that still searched for `if (nvram_match("pppoemwan_enable", "1"))`.

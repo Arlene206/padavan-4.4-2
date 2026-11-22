@@ -103,6 +103,82 @@ usb_modem_nvram_transaction_end(void *context)
 	return nvram_transaction_end((struct nvram_transaction *)context);
 }
 
+struct usb_modem_start_config {
+	char modem_prio[32];
+	char modem_rule[32];
+	char modem_type[32];
+	int modem_prio_present;
+	int modem_rule_present;
+	int modem_type_present;
+};
+
+/* Snapshot one NVRAM generation; copy the rotating-cache value immediately. */
+static int
+usb_modem_read_start_config_field(struct nvram_transaction *transaction,
+				  const char *name, char *destination,
+				  size_t destination_size, int *present)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!transaction || !name || !destination || destination_size == 0 ||
+	    !present)
+		return EINVAL;
+	destination[0] = '\0';
+	*present = 0;
+	errno = 0;
+	api_result = usb_modem_nvram_transaction_get(transaction, name, &value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !value)
+		return EIO;
+	status = rc_wan_nvram_copy_text(value, destination, destination_size);
+	if (status == 0)
+		*present = 1;
+	return status;
+}
+
+static int
+usb_modem_read_start_config_snapshot(struct usb_modem_start_config *config)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, api_result, saved_errno;
+
+	if (!config)
+		return EINVAL;
+	memset(config, 0, sizeof(*config));
+	errno = 0;
+	api_result = usb_modem_nvram_transaction_begin(&transaction);
+	saved_errno = errno;
+	status = rc_wan_nvram_write_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	status = usb_modem_read_start_config_field(
+		&transaction, "modem_prio", config->modem_prio,
+		sizeof(config->modem_prio), &config->modem_prio_present);
+	if (status == 0)
+		status = usb_modem_read_start_config_field(
+			&transaction, "modem_rule", config->modem_rule,
+			sizeof(config->modem_rule), &config->modem_rule_present);
+	if (status == 0)
+		status = usb_modem_read_start_config_field(
+			&transaction, "modem_type", config->modem_type,
+			sizeof(config->modem_type), &config->modem_type_present);
+	errno = 0;
+	api_result = usb_modem_nvram_transaction_end(&transaction);
+	saved_errno = errno;
+	end_status = rc_wan_nvram_write_status(api_result, saved_errno);
+	if (status == 0)
+		status = end_status;
+	if (status != 0)
+		memset(config, 0, sizeof(*config));
+	return status;
+}
+
 
 static int
 write_pppd_ras_credential(FILE *fp, const char *option, const char *value,
@@ -517,13 +593,31 @@ is_ready_modem_ndis(int *devnum_out)
 }
 
 int
-get_modem_devnum(void)
+get_modem_wan_start_config_status(int *modem_priority_out,
+				  int *modem_devnum_out)
 {
-	int modem_devnum = 0;
+	struct usb_modem_start_config config;
+	int modem_priority, modem_rule, modem_type, modem_devnum = 0;
+	int status;
 
-	/* check modem enabled and ready */
-	if (nvram_get_int("modem_rule") > 0) {
-		if (nvram_get_int("modem_type") == 3) {
+	if (!modem_priority_out || !modem_devnum_out)
+		return EINVAL;
+	*modem_priority_out = 0;
+	*modem_devnum_out = 0;
+	status = usb_modem_read_start_config_snapshot(&config);
+	if (status != 0)
+		return status;
+	status = rc_wan_nvram_parse_int_value(config.modem_prio, &modem_priority);
+	if (status != 0)
+		return status;
+	status = rc_wan_nvram_parse_int_value(config.modem_rule, &modem_rule);
+	if (status != 0)
+		return status;
+	status = rc_wan_nvram_parse_int_value(config.modem_type, &modem_type);
+	if (status != 0)
+		return status;
+	if (modem_rule > 0) {
+		if (modem_type == 3) {
 			if (!is_ready_modem_ndis(&modem_devnum))
 				modem_devnum = 0;
 		} else {
@@ -531,7 +625,43 @@ get_modem_devnum(void)
 				modem_devnum = 0;
 		}
 	}
+	*modem_priority_out = modem_priority;
+	*modem_devnum_out = modem_devnum;
+	return 0;
+}
 
+int
+get_modem_hotplug_notification_status(int is_ndis, int *should_notify)
+{
+	struct usb_modem_start_config config;
+	int status;
+
+	if (!should_notify || (is_ndis != 0 && is_ndis != 1))
+		return EINVAL;
+	*should_notify = 0;
+	status = usb_modem_read_start_config_snapshot(&config);
+	if (status != 0)
+		return status;
+	return modem_wan_hotplug_notification_enabled(
+		config.modem_prio_present, config.modem_prio,
+		config.modem_rule_present, config.modem_rule,
+		config.modem_type_present, config.modem_type,
+		is_ndis, should_notify);
+}
+
+int
+get_modem_devnum(void)
+{
+	int modem_priority, modem_devnum, status;
+
+	status = get_modem_wan_start_config_status(&modem_priority, &modem_devnum);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read USB modem WAN configuration; refusing readiness result (status=%d)",
+			   status);
+		errno = status;
+		return 0;
+	}
 	return modem_devnum;
 }
 
