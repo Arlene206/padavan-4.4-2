@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before THIS static LAN resolver restoration slice: `3520dd2e2aca184d62e180ee5f331990cbb12035`. Exact WAN DHCP callback #44981079170 and AI handoff docs #44981079127 PASS on `3520dd`; the GNU89/Werror/ASan/UBSan DHCP policy binary and Python source checker both passed. XY-C1 #44981079156 was host-only and skipped Build/TRX/artifact because only checker/docs changed. Production-source XY-C1 #44980980036 on `3078a1f` was still building at last poll; NVRAM audit #44980979967 was still running. No same-SHA L3 claim.
+- Live `main` before THIS DHCP source-contract correction: `1483e35a5321692372faf317851d1a09c59c7eb7`. Exact WAN DHCP #44981685847 FAILED after the GNU89/Werror/ASan/UBSan policy binary passed: the new Python matcher included a semicolon immediately after `fprintf(...)`, but the actual call is checked with `< 0`. HTTPD #44981685758 FAILED at its inline deconfig-order contract because it still expected the previous three-argument `dhcp_lease_deconfig_status()` call; current production call has four arguments. DNSMasq #44981685679, AI docs #44981685798, Process umbrella #44981685824 and Process lifecycle #44981685762 PASS on this SHA. XY-C1 #44981685710 and NVRAM audit #44981685780 were still IN_PROGRESS at last poll.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -32,7 +32,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Samba ACL writer source SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has exact same-SHA XY-C1 Build, TRX and artifact upload PASS (run #44978563487, artifact #14737425993); L3 applies only to that SHA. Hardware L4 not verified.
 - WAN route source `06604d0e6261efbf264fbe16c1eca5a6dc90cb13` uses coherent checked tuple + checked gateway-only fallback; exact WAN route #44979699090 and AI docs #44979698998 PASS on contract/doc descendant `b1c2d3f`. This is not L3 for the WAN source.
 - PID1 recovery-shell exact-child tracking fix is in `b76d4764438ed923f3f20ccc272914d8f79cf96c`; missing test include path was repaired in `d0bfd9407f50cad01cc683a7d7b8069bc15eb5d6`. Init-mdev #44980343980 and AI docs #44980343898 PASS on exact `d0bfd`. XY-C1 #44980178569 for the production PID1 source was still building at last poll; the d0-only XY run #44980343904 skipped target Build/TRX/artifact.
-- LAN AP DHCP deconfig restores the configured static `lan_gateway` route before lease metadata commit; EEXIST is idempotent across `DECONFIG_PENDING` retry. The missed IPTV helper argument was corrected in `3078a1f`; the multiline route checker was corrected in `3520dd`; exact WAN DHCP regression #44981079170 PASS. Newly confirmed gap: `lan_down_auto()` published an empty resolver after DHCP deconfig, whereas `lan_up_manual()` restores configured `lan_domain`, `lan_dns1`, `lan_dns2`, and gateway-as-DNS fallback. THIS source slice extends the same coherent NVRAM snapshot and restores validated static resolver settings atomically before metadata commit. GNU89 fallback-policy tests and exact source contract are added; exact-head regression and XY-C1 Build/TRX/artifact pending.
+- LAN AP DHCP deconfig now restores the static gateway and static resolver tuple (`lan_domain`, `lan_dns1`, `lan_dns2`, gateway-as-DNS fallback) from one 13-field transactional NVRAM snapshot. Exact source SHA `1483e35` passed the DHCP policy binary but WAN DHCP #44981685847 exposed a Python matcher mistake: the checker expected `fprintf(...);` instead of the actual `fprintf(...) < 0` expression. HTTPD #44981685758 exposed one stale inline three-argument status assertion. THIS commit corrects both CI contracts; production-source code is unchanged. Exact-head reruns pending.
 - Full RC production-source scan of WAN NVRAM public integer/parameter void setters found only best-effort WAN counter telemetry; no speculative migration was made.
 - No L3 claim for current source until same-SHA XY-C1 Build, TRX and artifact all PASS; hardware L4 NOT VERIFIED.
 
@@ -46,8 +46,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN DHCP callback and XY-C1 Actions for this static resolver restoration; require GNU89/ASan/UBSan policy test and source contract PASS, plus same-SHA Build/TRX/artifact for L3.
-2. Recheck production-source XY-C1 #44980980036 on `3078a1f` and NVRAM audit #44980979967; record their actual final outcomes without attributing parent-SHA checks to current main.
+1. Inspect exact-head WAN DHCP and HTTPD reruns after the matcher/arity correction; fix any new actual regression from the exact job logs.
+2. Check XY-C1 #44981685710 Build/TRX/artifact and NVRAM #44981685780 outcomes on source SHA `1483e35`; require same-SHA Build, TRX and artifact all PASS for L3.
 3. Continue independent LAN/service reliability work while Actions are pending; keep the frozen backup untouched.
 
 ## Workflow and preservation rules

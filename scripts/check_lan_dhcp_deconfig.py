@@ -134,14 +134,15 @@ assert "dnsmasq_valid_server_domain(snapshot.static_domain)" in cleanup
 assert "dhcp_lease_static_resolver_uses_gateway(" in cleanup
 assert "snapshot.static_dns1" in cleanup and "snapshot.static_dns2" in cleanup
 assert "if (resolver_status != 0)" in cleanup and "fclose(fp)" in cleanup
-resolver_domain_write = cleanup.index('fprintf(fp, "domain %s\\n", snapshot.static_domain);')
-resolver_dns1_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns1);')
-resolver_dns2_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns2);')
+resolver_domain_write = cleanup.index('fprintf(fp, "domain %s\\n", snapshot.static_domain) < 0')
+resolver_dns1_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns1) < 0')
+resolver_dns2_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns2) < 0')
 resolver_gateway_fallback = cleanup.index(
-    'fprintf(fp, "nameserver %s\\n",', resolver_dns2_write
+    'fprintf(fp, "nameserver %s\\n",', resolver_dns2_write + 1
 )
-resolver_publish = cleanup.index("dnsmasq_file_publish(fp, resolv_temp,", resolver_gateway_fallback)
-assert resolver_domain_write < resolver_dns1_write < resolver_dns2_write < resolver_gateway_fallback < resolver_publish
+resolver_gateway_arg = cleanup.index("snapshot.static_gateway", resolver_gateway_fallback)
+resolver_publish = cleanup.index("dnsmasq_file_publish(fp, resolv_temp,", resolver_gateway_arg)
+assert resolver_domain_write < resolver_dns1_write < resolver_dns2_write < resolver_gateway_fallback < resolver_gateway_arg < resolver_publish
 assert "dhcp_lease_static_resolver_uses_gateway(0, 1)" in test
 assert "!dhcp_lease_static_resolver_uses_gateway(1, 1)" in test
 

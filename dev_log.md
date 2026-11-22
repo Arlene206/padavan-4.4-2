@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct DHCP deconfig source-contract arity and resolver matchers
+
+- Parent main SHA: `1483e35a5321692372faf317851d1a09c59c7eb7`.
+- Exact WAN DHCP callback #44981685847 compiled and passed the GNU89/Werror/ASan/UBSan policy binary, then failed the Python contract: the new resolver matcher asserted a semicolon immediately after `fprintf(...)`, but production correctly checks the return value with `< 0`. Updated the checker to match each checked expression and assert domain/DNS/gateway-fallback ordering through atomic publish.
+- Exact HTTPD security run #44981685758 failed its embedded LAN deconfig contract because the route-delete gate still expected the old three-argument status helper; updated it to the current four-argument call. No production source changed in this follow-up.
+- On parent SHA `1483e35`, DNSMasq #44981685679, AI docs #44981685798, Process umbrella #44981685824 and Process lifecycle #44981685762 passed. XY-C1 #44981685710 and NVRAM audit #44981685780 were pending at last poll. Exact reruns required; no L2/L3 claim yet.
+
+---
+
 ## 2026-11-21 — Restore configured static LAN resolver after AP DHCP deconfig
 
 - Parent main SHA: `3520dd2e2aca184d62e180ee5f331990cbb12035`; exact WAN DHCP regression #44981079170 and AI handoff contract #44981079127 passed on this parent. XY-C1 #44981079156 was host-only and skipped Build/TRX/artifact because the parent changed only checker/docs.

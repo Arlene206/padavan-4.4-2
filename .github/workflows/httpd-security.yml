@@ -2611,7 +2611,7 @@ jobs:
           deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)
           deconfig = lan[deconfig_start:deconfig_end]
           route_delete = lan_down.index("route_del(lan_ifname, 0")
-          route_gate = lan_down.index("dhcp_lease_deconfig_status(route_status, 0, 0)")
+          route_gate = lan_down.index("dhcp_lease_deconfig_status(route_status, 0, 0, 0)")
           interface_config = lan_down.index("ifconfig(lan_ifname, IFUP")
           resolver_lock = lan_down.index('file_lock("resolv")')
           resolver_open = lan_down.index("dnsmasq_file_open(resolv_temp)")
