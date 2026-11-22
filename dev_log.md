@@ -1,3 +1,11 @@
+## 2026-11-21 — Move DNS-redirection preflight into the NAT builder
+
+- Parent main SHA: `4e10fb7c8c186c12140d3d76a8a698e6c35714d9`. Exact Firewall Startup #44983057576 failed at the new DNS-redirection source contract: the checked read was inserted into the IPv4 default-filter builder, while the PREROUTING redirect is emitted by `ipt_nat_rules()`. The checker correctly caught the mismatch before rule publication; no successful Firewall result is claimed for this SHA.
+- Removed the misplaced preflight and scoped the insertion to `ipt_nat_rules()`, immediately after that function's own checked firewall-enabled read and before NAT rule-file staging. The existing workflow assertion now examines the correct function body.
+- Exact replacement Firewall Startup rerun required. XY-C1 #44983057625 and NVRAM #44983057663 were IN_PROGRESS at last poll; no L3 claim.
+
+---
+
 ## 2026-11-21 — Fail closed when reading the NAT DNS redirect toggle
 
 - Parent main SHA: `99f3ac8c8aa921dd958b3434ccfa708290b8b50b`. Exact Firewall Startup #44982990213 and AI handoff #44982990231 PASS. WAN DHCP #44982990226, XY-C1 #44982990270 and NVRAM #44982990240 were IN_PROGRESS at the last poll. The WAN TTL checked-read change has an exact-head Firewall Startup PASS; the target firmware build remains unverified.

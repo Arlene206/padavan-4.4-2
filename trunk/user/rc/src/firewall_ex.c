@@ -2825,13 +2825,6 @@ ipt_filter_default(void)
 	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (firewall_status != 0)
 		return firewall_status;
-	if (is_nat_enabled) {
-		/* A failed read must not silently bypass configured DNS redirection. */
-		firewall_status = firewall_read_enabled_setting("redirect_all_dns",
-							 &is_redirect_dns);
-		if (firewall_status != 0)
-			return firewall_status;
-	}
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default filter")))
 		return -1;
@@ -3699,6 +3692,13 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (firewall_status != 0)
 		return firewall_status;
+	if (is_nat_enabled) {
+		/* A failed read must not silently bypass configured DNS redirection. */
+		firewall_status = firewall_read_enabled_setting("redirect_all_dns",
+							 &is_redirect_dns);
+		if (firewall_status != 0)
+			return firewall_status;
+	}
 	is_upnp_enabled = 0;
 	if (is_nat_enabled) {
 		firewall_status = firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled);
