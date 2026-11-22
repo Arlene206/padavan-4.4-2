@@ -218,6 +218,28 @@ test_ap_gateway_route_cleanup_accepts_absent_route_only(void)
 	assert(route_status_idempotent_delete(EPERM) == EPERM);
 }
 
+static void
+test_l2tp_server_start_selector_failure_is_fail_closed(void)
+{
+	/* Start only when the selector was read successfully and says enabled. */
+	assert(route_status_l2tp_server_start_requested(0, 1));
+	assert(!route_status_l2tp_server_start_requested(0, 0));
+	assert(!route_status_l2tp_server_start_requested(EIO, 1));
+	assert(!route_status_l2tp_server_start_requested(ENODEV, 1));
+
+	/* A read failure is reported and must not be converted into a no-op. */
+	assert(route_status_l2tp_server_start_result(0, EIO, 0) == EIO);
+	assert(route_status_l2tp_server_start_result(0, ENODEV, 0) == ENODEV);
+
+	/* Preserve an earlier WAN failure and do not turn the running sentinel into an error. */
+	assert(route_status_l2tp_server_start_result(EBUSY, EIO, -1) == EBUSY);
+	assert(route_status_l2tp_server_start_result(0, 0, 1) == 0);
+	assert(route_status_l2tp_server_start_result(0, 0, 0) == 0);
+	assert(route_status_l2tp_server_start_result(0, 0, -1) == -1);
+	assert(route_status_l2tp_server_start_result(EIO, 0, -1) == EIO);
+}
+
+
 int
 main(void)
 {
@@ -231,6 +253,7 @@ main(void)
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	test_manual_lan_gateway_route_retry_after_resolver_failure();
 	test_ap_gateway_route_cleanup_accepts_absent_route_only();
+	test_l2tp_server_start_selector_failure_is_fail_closed();
 	test_vpn_route_idempotence_does_not_hide_real_failures();
 	test_vpn_server_remote_route_failure_survives_later_callback_work();
 	test_vpn_server_custom_hook_failure_is_not_hidden();

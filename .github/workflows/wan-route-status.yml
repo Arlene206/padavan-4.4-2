@@ -683,6 +683,15 @@ jobs:
           reset_abort = full_wan_restart.index("aborting full WAN restart because configured WAN protocol staging failed")
           assert reset_stage < reset_restore < reset_recovery_log < reset_abort
           assert full_wan_restart.index("return status;", reset_abort) > reset_abort
+          l2tp_server_start = body(wan, "merge_l2tp_server_start_status(int wan_status)")
+          l2tp_server_compact = "".join(l2tp_server_start.split())
+          assert 'get_nvram_match_checked_status("l2tp_srv_t","1",&l2tp_enabled)' in l2tp_server_compact
+          assert "route_status_l2tp_server_start_requested(l2tp_config_status,l2tp_enabled)" in l2tp_server_compact
+          assert "xl2tp_status=safe_start_xl2tpd();" in l2tp_server_compact
+          assert "route_status_l2tp_server_start_result(wan_status,l2tp_config_status,xl2tp_status)" in l2tp_server_compact
+          assert l2tp_server_compact.index("get_nvram_match_checked_status(") < l2tp_server_compact.index("route_status_l2tp_server_start_requested(") < l2tp_server_compact.index("safe_start_xl2tpd()")
+          assert 'nvram_match("l2tp_srv_t","1")' not in l2tp_server_compact
+          assert "test_l2tp_server_start_selector_failure_is_fail_closed" in route_status_test
           restore_policy = body(wan_route_policy, "rc_wan_restore_lan_routes_after_failed_step(")
           first_restore = restore_policy.index("route_status = restore(lan_ifname);")
           retry_restore = restore_policy.index("if (route_status != 0)", first_restore)

@@ -1,3 +1,13 @@
+## 2026-11-22 — Fail closed on unreadable L2TP server enable state
+
+- Parent main SHA: `fbee4e58b90004f7904c6e6f4195c73d7030c0c3`. WAN post-start called `nvram_match("l2tp_srv_t", "1")`; a transient NVRAM read error was indistinguishable from the configured-disabled value, silently skipping the optional L2TP server after WAN activation.
+- Replaced that lossy selector with the existing checked NVRAM match reader. An unreadable selector now prevents an uncertain daemon start and is merged into the return status without masking an earlier WAN error. A successfully enabled selector still starts the server even when an earlier WAN step has failed, preserving the previous start-attempt behavior; xl2tpd's `1` already-running result remains successful.
+- Added policy regressions for enabled/disabled/read-error decisions, first-error preservation, negative launch failures and the already-running sentinel. The exact-source workflow pins checked-read → start gate → daemon invocation ordering.
+- No local firmware build or target hardware test is claimed; exact-SHA WAN route and XY-C1 Actions must establish CI/build coverage.
+- Next: inspect exact-SHA WAN route and XY-C1 outcomes, then continue an independent service/configuration boundary.
+
+---
+
 ## 2026-11-22 — Repair WAN DHCP callback snapshot regression contract
 
 - Parent main SHA: `1da00c08b8e6b5c51675cbe6138df6c2af9369c9`. The earlier exact-head WAN DHCP run on `f5b93cf324f5d0f46d2218cc6b1e2705c01759ba` failed because its source contract still expected separate LAN address/netmask getters after the callback had moved to one NVRAM snapshot. That stale ordering check was replaced before the current checkpoint.

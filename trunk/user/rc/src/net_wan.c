@@ -5677,18 +5677,30 @@ wan_down(char *wan_ifname, int unit, int is_static)
 static int
 merge_l2tp_server_start_status(int wan_status)
 {
-	int xl2tp_status;
+	int l2tp_enabled = 0;
+	int l2tp_config_status;
+	int xl2tp_status = 0;
 
-	if (!nvram_match("l2tp_srv_t", "1"))
-		return wan_status;
+	l2tp_config_status = get_nvram_match_checked_status(
+		"l2tp_srv_t", "1", &l2tp_enabled);
+	if (l2tp_config_status != 0)
+		logmessage(LOGNAME,
+			   "cannot read L2TP server enable setting after WAN start (status=%d)",
+			   l2tp_config_status);
 
-	/* safe_start_xl2tpd() returns 1 when the shared daemon is already running. */
-	xl2tp_status = safe_start_xl2tpd();
-	if (wan_status == 0 && xl2tp_status < 0) {
-		logmessage(LOGNAME, "L2TP server start failed after WAN start (status=%d)", xl2tp_status);
-		return xl2tp_status;
+	/* Do not treat an unreadable enable selector as a disabled server. */
+	if (route_status_l2tp_server_start_requested(
+		    l2tp_config_status, l2tp_enabled)) {
+		/* safe_start_xl2tpd() returns 1 when the shared daemon is already running. */
+		xl2tp_status = safe_start_xl2tpd();
+		if (wan_status == 0 && xl2tp_status < 0)
+			logmessage(LOGNAME,
+				   "L2TP server start failed after WAN start (status=%d)",
+				   xl2tp_status);
 	}
-	return wan_status;
+
+	return route_status_l2tp_server_start_result(
+		wan_status, l2tp_config_status, xl2tp_status);
 }
 
 int

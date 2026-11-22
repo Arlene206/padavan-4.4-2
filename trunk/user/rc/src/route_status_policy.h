@@ -48,6 +48,25 @@ route_status_wan_gateway_host_route_required(int gateway_valid,
 	return gateway_valid && ppp_index < 0 && gateway_off_subnet;
 }
 
+/* An unreadable L2TP server selector must not be mistaken for disabled. */
+static inline int
+route_status_l2tp_server_start_requested(int selector_status, int enabled)
+{
+	return selector_status == 0 && enabled;
+}
+
+/* Keep WAN/config failures first; xl2tpd uses 1 as an already-running success. */
+static inline int
+route_status_l2tp_server_start_result(int wan_status, int selector_status,
+				      int daemon_status)
+{
+	int status = route_status_accumulate(wan_status, selector_status);
+
+	if (status == 0 && daemon_status < 0)
+		status = daemon_status;
+	return status;
+}
+
 static inline int
 route_status_demand_ready(int route_status)
 {
