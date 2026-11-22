@@ -7,6 +7,8 @@ SERVICES = (ROOT / "trunk/user/rc/src/services_ex.c").read_text()
 POLICY = (ROOT / "trunk/user/rc/src/dnsmasq_nvram_option_policy.h").read_text()
 TEST = (ROOT / "trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
+STATIC_HOST_NVRAM_POLICY = (ROOT / "trunk/user/rc/src/dnsmasq_static_host_nvram_policy.h").read_text()
+STATIC_HOST_NVRAM_TEST = (ROOT / "trunk/user/rc/src/tests/dnsmasq_static_host_nvram_policy.c").read_text()
 STATIC_HOST_POLICY = (ROOT / "trunk/user/rc/src/dnsmasq_static_host_policy.h").read_text()
 STATIC_HOST_TEST = (ROOT / "trunk/user/rc/src/tests/dnsmasq_static_host_policy.c").read_text()
 
@@ -72,4 +74,33 @@ assert "char empty[1]" in STATIC_HOST_TEST
 assert "char one_digit[2]" in STATIC_HOST_TEST
 assert "char five_digits[6]" in STATIC_HOST_TEST
 assert "char eleven_digits[12]" in STATIC_HOST_TEST
-print("DNSMasq checked DHCP integer options and bounded static-host MAC validation contracts: PASS")
+static_host_snapshot = function_body(
+    STATIC_HOST_NVRAM_POLICY, "dnsmasq_static_host_nvram_snapshot_read(")
+static_host_builder = function_body(
+    SERVICES, "fill_static_ethers(const char *lan_ip, const char *lan_mask)")
+assert "rc_wan_nvram_copy_value(" in static_host_snapshot
+assert "rc_wan_nvram_parse_int_value(" in static_host_snapshot
+assert "end_transaction(context)" in static_host_snapshot
+assert "memset(snapshot, 0, sizeof(*snapshot))" in static_host_snapshot
+assert "errno = status;" in static_host_snapshot
+assert "item_count = DNSMASQ_STATIC_HOST_MAX" in static_host_snapshot
+assert "dnsmasq_static_host_nvram_snapshot_read(" in static_host_builder
+assert static_host_builder.index("dnsmasq_static_host_nvram_snapshot_read(") < static_host_builder.index("dnsmasq_file_open(")
+assert "nvram_get_int(" not in static_host_builder
+assert "nvram_safe_get(" not in static_host_builder
+assert "nvram_snapshot.entries[j].mac" in static_host_builder
+assert "nvram_snapshot.entries[j].ip" in static_host_builder
+assert "nvram_snapshot.entries[j].hostname" in static_host_builder
+for marker in (
+    "test_success_copies_rotating_cache_values_atomically",
+    "test_missing_keys_keep_disabled_and_empty_defaults",
+    "test_read_error_invalidates_snapshot_and_closes_transaction",
+    "test_end_and_begin_failures_are_fail_closed",
+    "test_malformed_and_oversized_values_fail_closed",
+    "test_item_count_is_bounded",
+):
+    assert marker in STATIC_HOST_NVRAM_TEST, marker
+assert "trunk/user/rc/src/dnsmasq_static_host_nvram_policy.h" in WORKFLOW
+assert "trunk/user/rc/src/tests/dnsmasq_static_host_nvram_policy.c" in WORKFLOW
+assert "Compile and run checked static-host NVRAM snapshot regression" in WORKFLOW
+print("DNSMasq checked DHCP integer options, bounded MAC validation and fail-closed static-host NVRAM snapshots: PASS")

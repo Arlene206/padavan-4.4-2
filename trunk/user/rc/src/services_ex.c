@@ -41,6 +41,7 @@
 #include "dnsmasq_file.h"
 #include "dnsmasq_dhcp_range_policy.h"
 #include "dnsmasq_static_host_policy.h"
+#include "dnsmasq_static_host_nvram_policy.h"
 #include "dnsmasq_domain_policy.h"
 #include "dnsmasq_resolv_file_policy.h"
 #include "inadyn_config_file.h"
@@ -226,11 +227,36 @@ free_static_ethers_items(struct ip4_items_t *ip4_list)
  * atomic, not a cross-filesystem multi-file transaction.
  */
 static int
+dnsmasq_static_host_nvram_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+
+static int
+dnsmasq_static_host_nvram_get(void *context, const char *param_name,
+			      char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+
+static int
+dnsmasq_static_host_nvram_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+
+static int
 fill_static_ethers(const char *lan_ip, const char *lan_mask)
 {
 	FILE *fp[3] = { NULL, NULL, NULL };
 	in_addr_t ip4, ip4_lan;
 	struct ip4_items_t ip4_list[DHCPD_STATIC_MAX];
+	struct dnsmasq_static_host_nvram_snapshot nvram_snapshot;
+	struct nvram_transaction nvram_transaction;
 	int i, j, i_max_items, i_arp_bind;
 	int path_length, result = 0;
 	const char *arp_ips[DHCPD_STATIC_MAX];
@@ -243,7 +269,7 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	char ethers_backup[] = "/etc/ethers.rollback.XXXXXX";
 	char hosts_static_stage[] = "/tmp/hosts.static.XXXXXX";
 	char hosts_static_backup[] = "/tmp/hosts.static.rollback.XXXXXX";
-	char nvram_key[32], *smac, *sip4, *shname, *copy;
+	char *smac, *sip4, *shname, *copy;
 	struct in_addr in;
 	const char *destinations[3];
 	char *staged_paths[3];
@@ -251,6 +277,20 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 
 	memset(ip4_list, 0, sizeof(ip4_list));
 	i_arp_bind = 0;
+
+	/* Snapshot every configured value before opening staging files. A backend
+	 * error must not replace last-known-good DHCP host/ethers configuration. */
+	result = dnsmasq_static_host_nvram_snapshot_read(
+		&nvram_snapshot, dnsmasq_static_host_nvram_begin,
+		dnsmasq_static_host_nvram_get, dnsmasq_static_host_nvram_end,
+		&nvram_transaction);
+	if (result != 0) {
+		logmessage(LOGNAME,
+			   "cannot read static DHCP host configuration; refusing DNSMasq publication (errno=%d)",
+			   result);
+		errno = result;
+		return result;
+	}
 
 	staged_paths[0] = dhcp_hosts_stage;
 	staged_paths[1] = ethers_stage;
@@ -292,31 +332,26 @@ fill_static_ethers(const char *lan_ip, const char *lan_mask)
 	if (!fp[2])
 		goto failed;
 
-	if (nvram_get_int("dhcp_static_x") == 1) {
+	if (nvram_snapshot.enabled == 1) {
 		ip4_lan = inet_addr_safe(lan_ip);
-		i_arp_bind = nvram_get_int("dhcp_static_arp");
-		i_max_items = nvram_get_int("dhcp_staticnum_x");
-		if (i_max_items > DHCPD_STATIC_MAX)
-			i_max_items = DHCPD_STATIC_MAX;
+		i_arp_bind = nvram_snapshot.arp_enabled;
+		i_max_items = (int)nvram_snapshot.item_count;
 
 		/* First pass: allocate a complete normalized snapshot. */
 		for (j = 0; j < i_max_items; j++) {
-			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticmac_x%d", j);
-			smac = nvram_safe_get(nvram_key);
+			smac = nvram_snapshot.entries[j].mac;
 			if (!dnsmasq_static_mac_is_valid(smac)) {
 				logmessage(LOGNAME,
 					   "ignoring invalid static DHCP MAC at index %d", j);
 				continue;
 			}
-			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticip_x%d", j);
-			sip4 = nvram_safe_get(nvram_key);
+			sip4 = nvram_snapshot.entries[j].ip;
 			ip4 = inet_addr_safe(sip4);
 			if (ip4 == INADDR_ANY || ip4 == INADDR_NONE || ip4 == ip4_lan)
 				continue;
 			if (!is_same_subnet(sip4, lan_ip, lan_mask))
 				continue;
-			snprintf(nvram_key, sizeof(nvram_key), "dhcp_staticname_x%d", j);
-			shname = nvram_safe_get(nvram_key);
+			shname = nvram_snapshot.entries[j].hostname;
 
 			for (i = 0; i < DHCPD_STATIC_MAX; i++) {
 				struct ip4_items_t *ipl = &ip4_list[i];
