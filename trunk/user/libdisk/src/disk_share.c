@@ -267,6 +267,7 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 	char *testdir, *folder_name;
 	char **tmp_folder_list = NULL, **new_folder_list;
 	int count = 0, i;
+	int read_status, read_error, saved_errno;
 	size_t mount_len, name_len, path_len;
 
 	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
@@ -277,7 +278,16 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 	if (!pool_to_open)
 		return -1;
 
-	while ((dp = readdir(pool_to_open)) != NULL) {
+	for (;;) {
+		read_status = disk_share_list_next_entry(
+			pool_to_open, readdir, &dp, &read_error);
+		if (read_status == 0)
+			break;
+		if (read_status < 0) {
+			errno = read_error != 0 ? read_error : EIO;
+			goto failed;
+		}
+
 		if (dp->d_name[0] == '.')
 			continue;
 		if (test_if_System_folder(dp->d_name) == 1)
@@ -321,16 +331,23 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 		tmp_folder_list[count++] = folder_name;
 	}
 
-	closedir(pool_to_open);
+	if (closedir(pool_to_open) != 0) {
+		pool_to_open = NULL;
+		goto failed;
+	}
+	pool_to_open = NULL;
 	*sh_num = count;
 	*folder_list = tmp_folder_list;
 	return 0;
 
 failed:
-	closedir(pool_to_open);
+	saved_errno = errno ? errno : EIO;
+	if (pool_to_open)
+		(void)closedir(pool_to_open);
 	for (i = 0; i < count; ++i)
 		free(tmp_folder_list[i]);
 	free(tmp_folder_list);
+	errno = saved_errno;
 	return -1;
 }
 void free_2_dimension_list(int *num, char ***list)
