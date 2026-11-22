@@ -902,6 +902,27 @@ get_wan_unit_proto_checked_status(int unit, int *wan_proto)
 	return 0;
 }
 
+/*
+ * is_ifunit_man() has a boolean ABI. On protocol read errors, classify the
+ * unit conservatively as manual PPP so DHCP cleanup cannot tear down an
+ * underlay whose protocol is temporarily unreadable.
+ */
+static int
+get_wan_unit_proto_for_manual_check(int unit)
+{
+	int wan_proto, status;
+
+	status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot classify WAN unit %d protocol (status=%d); preserving manual underlay",
+			   unit, status);
+		return IPV4_WAN_PROTO_PPTP;
+	}
+	return wan_proto;
+}
+
+
 
 static int
 wan_hardware_address_copy_status(char *hardware_address,
@@ -4321,7 +4342,7 @@ get_wan_unit(char *wan_ifname)
 static int
 is_ifunit_man(char *wan_ifname, int unit)
 {
-	int wan_proto = get_wan_proto(unit);
+	int wan_proto = get_wan_unit_proto_for_manual_check(unit);
 
 	if (!is_usbnet_interface(wan_ifname) &&
 	    (wan_proto == IPV4_WAN_PROTO_PPPOE ||

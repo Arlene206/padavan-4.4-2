@@ -1,3 +1,14 @@
+## 2026-11-21 — Preserve manual PPP underlay on protocol-read errors
+
+- Parent main SHA: `506a91e599331c58caf6582b9de6075c472455da`.
+- `is_ifunit_man()` is a boolean helper used by WAN callbacks. Its old `get_wan_proto()` call collapsed backend/missing/unknown errors to `-1`, which could be interpreted as “not manual” and route DHCP cleanup through an unknown PPP underlay.
+- THIS source slice adds `get_wan_unit_proto_for_manual_check()`, using the checked protocol reader. On error it logs the status and conservatively returns PPTP classification so legacy boolean callers preserve the PPP underlay; valid protocols retain their exact mapping.
+- It also includes the checked `start_wan()` protocol/first-error fix if that was not already present in the parent.
+- `check_wan_firewall_status.py` statically pins conservative behavior. Source-level preflight passed; exact-head WAN and XY-C1 Actions pending.
+- Next: examine remaining direct `get_wan_proto()` uses in teardown, gateway routes and DHCP callbacks; keep mandatory cleanup unconditional on protocol read errors.
+
+---
+
 ## 2026-11-22 08:04 CST — Repair WAN startup checker to scope the matching error gate
 
 - Parent main SHA: `33258a680e052c9334e64758b70f7dce3754becb`.

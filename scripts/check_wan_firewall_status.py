@@ -1156,3 +1156,20 @@ require(start_proto_read_at >= 0 and
         wan_start_code.index("wan_ifname = get_man_ifname(unit)") and
         "wan_proto = get_wan_proto(unit);" not in wan_start_code,
         "WAN startup must fail closed on protocol read errors before interface setup")
+
+# The boolean ABI of is_ifunit_man() cannot return an errno. Its checked
+# wrapper therefore treats protocol-read failures conservatively as manual PPP.
+manual_proto_reader = body(
+    wan,
+    "get_wan_unit_proto_for_manual_check(int unit)"
+)
+manual_proto_reader_code = " ".join(manual_proto_reader.split())
+require("get_wan_unit_proto_checked_status(unit, &wan_proto)" in manual_proto_reader_code and
+        "if (status != 0)" in manual_proto_reader_code and
+        "return IPV4_WAN_PROTO_PPTP;" in manual_proto_reader_code and
+        "preserving manual underlay" in manual_proto_reader_code,
+        "manual-PPP classification must preserve the underlay when protocol reads fail")
+manual_classifier = body(wan, "static int\nis_ifunit_man(char *wan_ifname, int unit)")
+require("get_wan_unit_proto_for_manual_check(unit)" in manual_classifier and
+        "get_wan_proto(unit)" not in manual_classifier,
+        "is_ifunit_man must use the checked conservative protocol classifier")

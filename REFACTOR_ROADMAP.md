@@ -1,4 +1,8 @@
 Current implementation checkpoint (2026-11-21):
+- WAN reset manual endpoint, protocol and MAC identity reads use checked APIs; the endpoint is one NVRAM transaction and MAC formatter preserves the legacy behavior.
+- WAN startup and boolean manual-PPP classification now consume the checked protocol reader. Startup latches errors and does not configure an interface on failed read; manual classification treats read errors conservatively as PPP to protect an unknown underlay. Exact-head WAN/XY-C1 Build/TRX/artifact pending.
+
+Current implementation checkpoint (2026-11-21):
 - WAN reset manual endpoint, protocol and hardware identity reads are status-bearing; manual endpoint values are one checked NVRAM transaction, and MAC override/fallback preserves legacy formatting.
 - THIS source slice hardens start_wan() with checked per-unit protocol reads, first-error retention and no interface setup after failed protocol retrieval. Exact-head Actions and XY-C1 Build/TRX/artifact pending.
 
