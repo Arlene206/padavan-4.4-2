@@ -6,11 +6,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop on `main` only. Each multi-file slice uses one complete Git tree/commit and a non-forced expected-SHA ref update.
-- Parent before this retry fix: `7db3ff63d8c65c99163b59027fc00feb80e0171a`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 stays closed/unmerged.
-- Storage work includes physical-unplug cleanup/ack durability, safe-remove restart through PID 1, a corrected checker newline parser, and this marker-write failure fallback to PID-1 queue retries. XY-C1 validation on 8f54 reported workflow success but Build/TRX/artifact steps were skipped; no L3 firmware result.
-- Host `cc` is available; no local full MIPS firmware toolchain. L3 requires Build, TRX verification and artifact upload to execute and PASS on the same product-source SHA; hardware L4 NOT VERIFIED.
-- Exact 7db3 storage, XY-C1 and AI handoff Actions were IN_PROGRESS at last poll; inspect exact-SHA results, do not infer a PASS.
+- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
+- Parent before current checker correction: `886f9cf54a6abafad251fb444de199e0930446f8`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- Product source includes physical-unplug marker-retention and retry-queue fixes; the notification policy regression passes on exact 886. Storage CI failure on 1160 was a stale printer-start source assertion, now corrected to match start → success-only marker ack → retry branch.
+- Exact 886 notification #44995118883 and AI handoff #44995119002 passed. XY-C1 #44995118906 completed SUCCESS, but Build/TRX/artifact steps were skipped because 886 changed only tests/docs and the firmware-input detector saw no production source diff.
+- Host `cc` available; no local full MIPS toolchain. L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on identical product-source SHA. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -31,19 +31,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- `storage_schedule_ejected_cleanup_retry()` previously ignored `nvram_set_int_temp("usb_unplug_ms", 1)`; if NVRAM failed during eject cleanup, the five-second alarm could have no durable event to retry.
-- This slice checks the marker write and calls `rc_notify_schedule_deferred_hotplug_retry("on_unplug_mass_storage")`. PID 1 keeps a timed retry bit; short-lived applets enqueue via secure `notify_rc_status()`. The retry worker includes the storage-unplug event.
-- GNU89 policy regression covers new event mapping and retry-mask preservation/clearing after requeue/signal outcomes; source-checker contracts preserve process semantics and errno.
+- Exact 1160 storage run #44995018412 passed prior regressions and whole caller graph, then failed at checker line 1512. The checker expected failure branch before marker acknowledgement, but product code correctly launches printer spoolers, acknowledges only after successful start, then executes the error/retry branch on start or acknowledgement failure.
+- Updated assertion to verify start → success guard → marker acknowledgement → failure/retry branch, plus retained-event logging and five-second alarm.
+- 1160 also had a separate PID1 retry-mask test failure; commit 886 corrected its expected mask, and exact PID1 queue workflow now passes.
 
 ## Verification boundary
 
-- Exact 1160 PID-1 notification Actions #44995018361 failed in the first GNU89 retry-policy test: one intermediate expected mask omitted the newly added storage-unplug bit after a no-error record for another event. This is a test expectation fix, not a product-code failure.
-- Local policy regression is being rerun with GNU89, Werror, ASan and UBSan. Exact 1160 USB storage #44995018412 was in progress; XY-C1 #44995018457 was queued; AI handoff docs #44995018388 passed.
-- Earlier XY-C1 success on 8f54 skipped Build, TRX and artifact upload; no L3 claim. Hardware L4 NOT VERIFIED.
+- Exact 886 SHA: PID 1 notification queue #44995118883 PASS; AI handoff docs #44995119002 PASS; XY-C1 validation #44995118906 SUCCESS, but Build XY-C1, TRX and artifact upload were SKIPPED (no production source input changed). No L3 build is verified.
+- Exact 1160 storage #44995018412 failed at stale printer source-order assertion, after prior C regressions and full caller graph passed. This checker correction requires a fresh storage Actions run.
+- Backup branch unchanged. No local MIPS build and no hardware test; L3/L4 are not verified.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head notification queue, USB storage and XY-C1 Actions for the retry-mask assertion correction.
-2. If PID-1 workflow proceeds, verify the new scheduler source contract and all three C policy tests; fix any first failure without weakening retry guarantees.
-3. Ensure XY-C1 Build, TRX and artifact upload actually execute and pass on one identical product-source SHA before claiming L3.
+1. Poll storage workflow triggered by this checker correction. Confirm safe-remove checker and following persistence gates pass; fix only the next stale contract or real failure.
+2. Review 1160 storage retry implementation against the passing PID1 queue policy; verify no retry-marker error path remains unhandled.
+3. After checker passes, push a genuinely firmware-relevant source slice and verify XY-C1 Build, TRX and artifact upload execute and pass on one SHA. Do not claim L3 from skipped steps.
 4. Keep backup read-only; hardware L4 remains unverified.

@@ -1509,10 +1509,15 @@ printer_start = printer_unplug[printer_unplug.index("if (printer_hotplug_pending
 require(printer_start.index("try_start_usb_printer_spoolers()") <
         printer_start.index('storage_ack_event_marker_status("usb_hotplug_lp")'),
         "printer start marker must be acknowledged only after a successful start")
-require("if (printer_start_status != 0)" in printer_start and
-        printer_start.index("if (printer_start_status != 0)") <
-        printer_start.index('storage_ack_event_marker_status("usb_hotplug_lp")'),
-        "failed printer start must leave its marker queued")
+require("if (printer_start_status == 0)" in printer_start and
+        printer_start.index("try_start_usb_printer_spoolers()") <
+        printer_start.index("if (printer_start_status == 0)") <
+        printer_start.index('storage_ack_event_marker_status("usb_hotplug_lp")') <
+        printer_start.index("if (printer_start_status != 0)"),
+        "printer marker may be acknowledged only after successful spooler start")
+printer_retry = printer_start[printer_start.index("if (printer_start_status != 0)"):]
+require("keeping event queued for retry" in printer_retry and "alarm(5);" in printer_retry,
+        "failed printer startup or marker acknowledgement must retain and retry its event")
 modem_unplug = deferred_hotplug[
     deferred_hotplug.index("if (modem_unplug_pending)"):
     deferred_hotplug.index("if (modem_hotplug_pending)", deferred_hotplug.index("if (modem_unplug_pending)"))

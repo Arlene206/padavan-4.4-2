@@ -1,3 +1,12 @@
+## 2026-11-22 — Align printer hotplug checker with start-before-ack semantics
+
+- Parent main SHA: `886f9cf54a6abafad251fb444de199e0930446f8`. Exact 1160 storage run #44995018412 passed the storage policy regressions and whole caller graph, then failed in `scripts/check_storage_safe_remove.py:1512`. Its assertion required the printer failure branch to precede `storage_ack_event_marker_status("usb_hotplug_lp")`.
+- The product callback correctly calls `try_start_usb_printer_spoolers()`, acknowledges `usb_hotplug_lp` only when start status is zero, and only then enters the failure branch for start/ack failures. The branch logs that the event remains queued and calls `alarm(5)`. Updated the checker to assert this exact order and retry contract.
+- Exact 886 notification queue Actions #44995118883 and AI handoff docs #44995119002 passed. Exact 886 XY-C1 validation #44995118906 completed SUCCESS, but Build XY-C1, TRX verification and artifact upload were SKIPPED because 886 changed only a test expectation and docs. This is not an L3 build result.
+- Next: validate the checker on a fresh storage workflow, then push a real firmware-relevant product change so XY-C1 Build/TRX/artifact execute on one SHA.
+
+---
+
 ## 2026-11-22 — Include storage-unplug bit in retry-retention regression
 
 - Parent main SHA: `1160bf68ae35438c2ae5acbef8252b7faaea2c77`. Exact PID-1 notification workflow #44995018361 failed in its first GNU89 policy test. After adding the storage-unplug retry bit, the test correctly retained that bit when a different event was recorded with marker status 0, but one intermediate expected mask still omitted the new bit.
