@@ -1,3 +1,12 @@
+## 2026-11-22 — Align WAN identity lifecycle source contracts
+
+- Parent main SHA: `05aebf7d3bf2242fd967cb825a928693f120a545`.
+- Updated WAN-up and DHCP-bound contracts for the checked modem identity helper, requiring a status-returning helper call and error return before protocol/runtime or DHCP snapshot/interface mutation; also check that modem_dev and ifname_t are fetched through status APIs.
+- Added the `re` import inside the DHCP workflow's embedded Python heredoc (not at YAML root) for the identity-call regular expression.
+- This commit changes regression contracts/handoff only; exact-head workflow and XY-C1 validation remain required.
+
+---
+
 ## 2026-11-22 — Refresh WAN-up and interface-teardown contracts for status API
 
 - Parent main SHA: 7e8aee2ce10e3ad893015516395d82317d06a77d. The code commit 7e8aee2ce10e3ad893015516395d82317d06a77d passed USB identity #44970128339, WAN DHCP #44970128247 and AI handoff #44970128213.

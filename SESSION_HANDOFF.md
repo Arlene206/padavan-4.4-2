@@ -28,25 +28,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- WAN protocol hardening and XY-C1 compile fix are complete through product source SHA `02857320194ebdda3b451ea3d6de07fa212995c0`; exact XY-C1 Build/TRX/artifact all passed on that SHA.
-- Source commit `f1327a7988b9552c2ce3294c641d27838efd9664` added `get_usb_modem_wan_status()` using `nvram_get_checked()` with legacy `atoi()` semantics and GNU89 regressions. Workflow compiler command was corrected in `7f44877976cd0c2399975adf09eb97c24a366aee`; AI handoff validator #44969661965 passed and exact USB identity rerun #44969661943 was in progress at last poll.
-- This source slice migrates WAN-up, WAN-down and DHCP-bound to status-returning modem classification and checked ifname_t reads. Unknown identity aborts startup/lease publication, while teardown continues conservative DHCP-route and authentication cleanup and preserves DNS/static-IP state.
-- Source slice `7e8aee2ce10e3ad893015516395d82317d06a77d` migrated WAN start/stop, MAN route add/remove and manual disconnect to checked modem identity; USB identity #44970128339, WAN DHCP #44970128247 and AI docs #44970128213 passed. Two older static contracts failed because they still referenced the boolean getter and are corrected in this checker-only commit. Remaining direct selectors are reconnect priority, resolver notification, DNS mode and interface/address getters.
+- WAN protocol hardening and the XY-C1 array-reset compile fix remain in the product tree; exact XY-C1 Build/TRX/artifact previously passed on `02857320194ebdda3b451ea3d6de07fa212995c0`.
+- Checked modem identity source migration is now present: `get_usb_modem_wan_status()` reads `wanN_modem_dev` via `nvram_get_checked()`, and `is_ifunit_modem_status()` is used by WAN-up/DHCP paths to distinguish identity-read errors from “not a modem”.
+- This checker slice updates WAN-up and DHCP source contracts to bind the status variable, require the error return before state mutation, and verify both checked modem_dev and checked `ifname_t`. The DHCP checker imports `re` inside its Python heredoc, not at YAML document scope.
+- Next: inspect exact-head Actions/XY-C1, then migrate the remaining modem identity reads in stop, MAN routes, manual disconnect, reconnect priority and DNS selection.
 
 ## Verification boundary
 
-- Exact source SHA `4a353d031429acdb49c6fe8a6d8aebedda9a6846`: USB modem identity #44969756150 PASS; WAN interface teardown #44969756159 PASS; AI handoff docs #44969756161 PASS. WAN DHCP #44969756169 and WAN route #44969756230 initially failed at stale static contracts; those were updated in `a103c9ac...`.
-- Exact source SHA `7e8aee2ce10e3ad893015516395d82317d06a77d`: USB identity #44970128339 PASS; WAN DHCP #44970128247 PASS; AI handoff docs #44970128213 PASS.
-- WAN route #44970128170 failed at the source contract for the retired `is_ifunit_modem()` symbol in WAN-up; other host-compiled route/parser tests (steps 3–10) passed, and the earlier WAN DNS policy contract passed. The checker is updated in this commit to require status-returning identity failure handling before protocol checks.
-- WAN interface teardown #44970128270 failed only at the embedded source contract still requiring the old boolean modem getter in `stop_wan_locked()`; the lifecycle-policy checks before that assertion passed. The workflow assertion is updated to require checked identity and transport reads before service-stop side effects.
-- XY-C1 #44970128330 was IN_PROGRESS on `7e8aee` at last poll; exact Build/TRX/artifact outcome still needs checking. This commit changes source contracts only; no firmware result is claimed.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent main SHA: `05aebf7d3bf2242fd967cb825a928693f120a545`; this commit contains test-contract changes only.
+- WAN-up and DHCP callback source contracts previously expected legacy `is_ifunit_modem()` after the production source moved to `is_ifunit_modem_status()`. New checks require checked modem_dev + ifname_t reads and validate identity error gate/return before WAN runtime or DHCP snapshot/interface mutation.
+- Exact current-main Actions have not been treated as PASS based on a descendant or unrelated SHA. XY-C1 must pass Build, TRX and artifact upload on the current checked modem identity source SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head WAN route, WAN teardown, USB identity, WAN DHCP and XY-C1 results on this checker-fix SHA.
-2. Continue the remaining direct selector migration in reconnect priority, resolver notification, DNS-mode selection and WAN interface/address getters.
-3. Search remaining RC userland callers and preserve legacy behavior only behind explicit checked callsites.
+1. Inspect exact-SHA WAN route, DHCP callback, USB modem identity, process lifecycle and XY-C1 runs for this commit; fix any reproduced source/checker/compiler failure.
+2. Review remaining direct `get_usb_modem_wan()` consumers in `stop_wan_locked()`, MAN routes, manual disconnect, reconnect priority, resolver refresh, WAN DNS status, interface selection and IP lookup.
+3. Migrate remaining readers with conservative error handling and regression coverage, retaining independent teardown cleanup.
 
 ## Workflow and preservation rules
 

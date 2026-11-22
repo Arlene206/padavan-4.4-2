@@ -314,22 +314,24 @@ require("if (auth_status != 0 || auth_mode == 1)" in wan_down and "stop_auth_kab
         "Kabinet teardown must attempt defensive stop when auth mode is unknown")
 assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
 wan_up_protocol = "".join(body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)").split())
-wan_up_modem_check = "modem_status=is_ifunit_modem_status(wan_ifname,unit,&modem_unit_id)"
-wan_up_modem_error = "if(modem_status!=0)"
-wan_up_modem_return = "returnmodem_status;"
+modem_helper = "".join(body(source, "is_ifunit_modem_status(char *wan_ifname, int unit, int *modem_unit_id)").split())
+identity_read = re.search(r"([A-Za-z_]\w*)=is_ifunit_modem_status\(wan_ifname,unit,&modem_unit_id\)", wan_up_protocol)
+require(identity_read is not None, "WAN-up must use status-returning modem identity")
+identity_status = identity_read.group(1)
+identity_error = "if(" + identity_status + "!=0)"
+identity_return = "errno=" + identity_status + ";return" + identity_status + ";"
 wan_up_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
-wan_up_proto_error = "if(proto_status!=0)"
-require(wan_up_modem_check in wan_up_protocol and wan_up_modem_error in wan_up_protocol and
-        wan_up_modem_return in wan_up_protocol and
-        wan_up_proto_read in wan_up_protocol and wan_up_proto_error in wan_up_protocol and
-        wan_up_protocol.index(wan_up_modem_check) < wan_up_protocol.index(wan_up_modem_error) <
-        wan_up_protocol.index(wan_up_modem_return) < wan_up_protocol.index(wan_up_proto_read) <
-        wan_up_protocol.index(wan_up_proto_error) <
+require("get_usb_modem_wan_status(unit,&is_modem)" in modem_helper and
+        "get_wan_unit_value_copy_status(unit,\"ifname_t\"" in modem_helper,
+        "modem identity helper must use checked modem_dev and ifname_t reads")
+require(identity_error in wan_up_protocol and identity_return in wan_up_protocol and
+        wan_up_protocol.index(identity_read.group(0)) < wan_up_protocol.index(identity_error) <
+        wan_up_protocol.index(identity_return) <
+        wan_up_protocol.index(wan_up_proto_read) <
         wan_up_protocol.index("set_wan_unit_value(unit,\"uptime\"") and
-        "returnproto_status;" in wan_up_protocol and
-        "wan_proto=get_wan_proto(unit)" not in wan_up_protocol,
-        "WAN-up must fail closed on unreadable protocol before publishing routes or runtime state")
-print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
+        "is_ifunit_modem(wan_ifname,unit)" not in wan_up_protocol,
+        "WAN-up must fail closed on unreadable modem identity before protocol/runtime changes")
+print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
 
 
 # Per-unit WAN protocol must be copied with one checked NVRAM transaction.
