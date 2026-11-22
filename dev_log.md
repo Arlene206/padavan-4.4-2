@@ -1,3 +1,11 @@
+## 2026-11-21 23:45 PST — Cover optional old-mask output in PID 1 policy regression
+
+- Parent main `c9c47f065a86645dabb8155d133b07e215d3b771`. Exact 34d Process inventory #45000638051, Process lifecycle #45000637980, DNSMasq #45000637989, DNS Forwarder #45000637987, AI #45000637929 and PID1 notification #45000638026 PASS. NVRAM #45000638001, XY-C1 #45000637923 and USB #45000637930 were still running.
+- 34d HTTPD #45000637963 and PID1 mdev #45000637950 failed in their new signal-mask matcher: control_signal() calls init_signal_mask_update(), which delegates to the policy helper. c9 corrects both matchers to the actual call chain.
+- Extended the C regression with a successful SIG_UNBLOCK call passing old_set == NULL, asserting the helper accepts the optional output, records the requested operation, and clears caller errno. Updating the watched C test path ensures corrected mdev/HTTPD contracts rerun on one exact SHA. No L3/L4 claim.
+
+---
+
 ## 2026-11-21 23:41 PST — Correct PID 1 signal-mask workflow matcher
 
 - Parent main `34d7b3cb77426c41e077e47c85da81b0441560a4`. The signal-mask change was committed with mdev and HTTPD inline contracts. Review found one test-only mismatch: control_signal() calls `init_signal_mask_update()`, while that wrapper calls `pid1_signal_update_mask()`; the new assertion incorrectly expected the lower-level call in control_signal().

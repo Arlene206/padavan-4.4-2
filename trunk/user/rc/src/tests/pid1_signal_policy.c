@@ -53,6 +53,12 @@ test_pid1_signal_mask_update_reports_failures(void)
 	    errno != 0)
 		return 1;
 
+	/* The old-mask output is optional for transitions that do not need it. */
+	errno = EINTR;
+	if (pid1_signal_update_mask(fake_sigprocmask, SIG_UNBLOCK, &set, NULL) != 0 ||
+	    fake_mask_how != SIG_UNBLOCK || fake_mask_old_written || errno != 0)
+		return 1;
+
 	fake_mask_result = -1;
 	fake_mask_errno = EBUSY;
 	if (pid1_signal_update_mask(fake_sigprocmask, SIG_SETMASK, &set, NULL) != EBUSY)
