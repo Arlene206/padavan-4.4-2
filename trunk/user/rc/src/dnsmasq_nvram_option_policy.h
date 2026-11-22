@@ -355,8 +355,10 @@ dnsmasq_split_dns_nvram_snapshot_read(
 
 	status = rc_wan_nvram_copy_snapshot(
 		fields, 5, begin_transaction, get_value, end_transaction, context);
-	if (status != 0)
+	if (status != 0) {
+		memset(snapshot, 0, sizeof(*snapshot));
 		return status;
+	}
 
 	integer_texts[0] = vpn_private_dns_text;
 	status = rc_wan_nvram_parse_int_snapshot(

@@ -172,6 +172,7 @@ for token in (
     'fields[4].param_name = "wanx_dns"',
     "rc_wan_nvram_copy_snapshot(",
     "rc_wan_nvram_parse_int_snapshot(",
+    "if (status != 0) {\n\t\tmemset(snapshot, 0, sizeof(*snapshot));\n\t\treturn status;\n\t}",
     "memset(snapshot, 0, sizeof(*snapshot))",
     "vpn_private_dns > 0",
 ):
