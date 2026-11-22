@@ -5,6 +5,9 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 /*
  * Reset caller-owned outputs before rejecting invalid inputs. This keeps
@@ -150,6 +153,91 @@ disk_share_format_account_var_path(char *buffer, size_t buffer_size,
 	}
 	return 0;
 }
+
+
+/* Rewrite one complete permission record without modifying the input buffer.
+ * A NULL replacement removes the record; otherwise it renames only its key. */
+static inline int
+disk_share_permission_rewrite(const char *source, const char *target,
+                              const char *replacement, char **updated,
+                              size_t *updated_len)
+{
+	size_t source_len, target_len, prefix_len, replacement_len, suffix_len;
+	size_t offset, i, result_len;
+	const char *match = NULL, *after;
+	char *result;
+
+	if (updated)
+		*updated = NULL;
+	if (updated_len)
+		*updated_len = 0;
+	if (!source || !target || !*target || !updated || !updated_len) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	source_len = strlen(source);
+	target_len = strlen(target);
+	if (target_len > source_len) {
+		errno = ENOENT;
+		return -1;
+	}
+
+	for (offset = 0; offset <= source_len - target_len; ++offset) {
+		if (offset != 0 && source[offset - 1] != '\n')
+			continue;
+		for (i = 0; i < target_len; ++i) {
+			if (tolower((unsigned char)source[offset + i]) !=
+			    tolower((unsigned char)target[i]))
+				break;
+		}
+		if (i == target_len) {
+			match = source + offset;
+			break;
+		}
+	}
+	if (!match) {
+		errno = ENOENT;
+		return -1;
+	}
+
+	prefix_len = (size_t)(match - source);
+	if (replacement) {
+		after = match + target_len;
+		replacement_len = strlen(replacement);
+	} else {
+		after = (const char *)memchr(match, '\n', source_len - prefix_len);
+		if (after)
+			++after;
+		else
+			after = source + source_len;
+		replacement_len = 0;
+	}
+	suffix_len = source_len - (size_t)(after - source);
+	if (prefix_len > (size_t)-1 - replacement_len ||
+	    prefix_len + replacement_len > (size_t)-1 - suffix_len ||
+	    prefix_len + replacement_len + suffix_len == (size_t)-1) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	result_len = prefix_len + replacement_len + suffix_len;
+	result = (char *)malloc(result_len + 1);
+	if (!result)
+		return -1;
+
+	if (prefix_len)
+		memcpy(result, source, prefix_len);
+	if (replacement_len)
+		memcpy(result + prefix_len, replacement, replacement_len);
+	if (suffix_len)
+		memcpy(result + prefix_len + replacement_len, after, suffix_len);
+	result[result_len] = '\0';
+
+	*updated = result;
+	*updated_len = result_len;
+	return 0;
+}
+
 
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

@@ -328,6 +328,45 @@ for signature in (
     require("initial_folder_list_in_mount_path(mount_path) != 0" in folder_mutation,
             signature + " must propagate the final folder-list publication failure")
 
+
+atomic_replace = function_body(DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,")
+require("mkstemp(temp_path)" in atomic_replace and
+        "fdopen(fd, \"w\")" in atomic_replace and
+        "fwrite(contents, 1, contents_len" in atomic_replace and
+        "fflush(stream)" in atomic_replace and
+        "fsync(fileno(stream))" in atomic_replace and
+        "fclose(stream)" in atomic_replace and
+        "rename(temp_path, path)" in atomic_replace and
+        "unlink(temp_path)" in atomic_replace,
+        "per-account permission replacement must fsync and atomically rename a complete same-directory file")
+for signature in (
+    "int set_permission(const char *account,",
+    "int del_folder(const char *const mount_path, const char *const folder)",
+    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
+):
+    mutation = function_body(DISK_SOURCE, signature)
+    require("disk_share_replace_file_atomic(" in mutation,
+            signature + " must publish permission changes atomically")
+    require('fopen(var_file, "w")' not in mutation and
+            'fopen(var_file, "a+")' not in mutation,
+            signature + " must not truncate or append live permission files directly")
+    require("disk_share_format_account_var_path" in mutation,
+            signature + " must reject truncated per-account paths")
+for signature in (
+    "int del_folder(const char *const mount_path, const char *const folder)",
+    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
+):
+    mutation = function_body(DISK_SOURCE, signature)
+    require("disk_share_permission_rewrite(" in mutation,
+            signature + " must use the tested line-preserving permission rewrite")
+for marker in (
+    "test_permission_rewrite_removes_complete_record",
+    "test_permission_rewrite_renames_key_and_preserves_rights",
+    "test_permission_rewrite_reports_missing_record_and_clears_outputs",
+):
+    require(marker in SHARE_TEST and marker + "();" in SHARE_TEST,
+            "missing permission record rewrite regression: " + marker)
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")

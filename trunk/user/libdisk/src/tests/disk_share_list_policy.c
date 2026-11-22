@@ -212,6 +212,47 @@ test_account_defaults_write_rejects_invalid_data(void)
 	assert(errno == EINVAL);
 	(void)fclose(stream);
 }
+
+static void
+test_permission_rewrite_removes_complete_record(void)
+{
+	const char *source = "*Public=331\n*Media=321\n*Backup=301";
+	char *updated = NULL;
+	size_t updated_len = 0;
+
+	assert(disk_share_permission_rewrite(source, "*Public=", NULL,
+	                                     &updated, &updated_len) == 0);
+	assert(updated_len == strlen("*Media=321\n*Backup=301"));
+	assert(strcmp(updated, "*Media=321\n*Backup=301") == 0);
+	free(updated);
+}
+
+static void
+test_permission_rewrite_renames_key_and_preserves_rights(void)
+{
+	const char *source = "*Public=331\n*Media=321\n";
+	char *updated = NULL;
+	size_t updated_len = 0;
+
+	assert(disk_share_permission_rewrite(source, "*public=", "*Archive=",
+	                                     &updated, &updated_len) == 0);
+	assert(updated_len == strlen("*Archive=331\n*Media=321\n"));
+	assert(strcmp(updated, "*Archive=331\n*Media=321\n") == 0);
+	free(updated);
+}
+
+static void
+test_permission_rewrite_reports_missing_record_and_clears_outputs(void)
+{
+	char *updated = (char *)1;
+	size_t updated_len = 17;
+
+	assert(disk_share_permission_rewrite("*Media=321\n", "*Public=", NULL,
+	                                     &updated, &updated_len) == -1);
+	assert(errno == ENOENT);
+	assert(updated == NULL);
+	assert(updated_len == 0);
+}
 static void
 test_account_var_path_rejects_truncation(void)
 {
@@ -240,6 +281,9 @@ main(void)
 	test_missing_output_parameters_are_safe();
 	test_valid_mount_path_starts_with_empty_outputs();
 	test_account_var_path_rejects_truncation();
+	test_permission_rewrite_removes_complete_record();
+	test_permission_rewrite_renames_key_and_preserves_rights();
+	test_permission_rewrite_reports_missing_record_and_clears_outputs();
 	test_readdir_entry_and_clean_eof();
 	test_readdir_error_is_not_clean_eof();
 	test_readdir_rejects_missing_adapters();

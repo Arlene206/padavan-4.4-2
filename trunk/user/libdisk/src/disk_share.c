@@ -958,32 +958,115 @@ char var_file[256];
 	return result;
 }
 
+
+static int
+disk_share_replace_file_atomic(const char *path, const char *contents,
+                               size_t contents_len)
+{
+	const char suffix[] = ".tmp.XXXXXX";
+	char *temp_path = NULL;
+	struct stat existing_stat;
+	FILE *stream = NULL;
+	size_t path_len;
+	int fd = -1, temp_created = 0, saved_errno;
+
+	if (!path || !*path || (!contents && contents_len != 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+	path_len = strlen(path);
+	if (path_len > (size_t)-1 - sizeof(suffix)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	temp_path = (char *)malloc(path_len + sizeof(suffix));
+	if (!temp_path)
+		return -1;
+	memcpy(temp_path, path, path_len);
+	memcpy(temp_path + path_len, suffix, sizeof(suffix));
+
+	if (lstat(path, &existing_stat) == 0) {
+		if (!S_ISREG(existing_stat.st_mode)) {
+			errno = EINVAL;
+			goto failed;
+		}
+	} else if (errno != ENOENT) {
+		goto failed;
+	}
+
+	fd = mkstemp(temp_path);
+	if (fd < 0)
+		goto failed;
+	temp_created = 1;
+	if (existing_stat.st_mode && fchmod(fd, existing_stat.st_mode & 0777) != 0)
+		goto failed;
+
+	stream = fdopen(fd, "w");
+	if (!stream)
+		goto failed;
+	fd = -1;
+
+	if (contents_len > 0 &&
+	    fwrite(contents, 1, contents_len, stream) != contents_len)
+		goto failed;
+	if (fflush(stream) != 0)
+		goto failed;
+	if (fsync(fileno(stream)) != 0)
+		goto failed;
+	if (fclose(stream) != 0) {
+		stream = NULL;
+		goto failed;
+	}
+	stream = NULL;
+
+	if (rename(temp_path, path) != 0)
+		goto failed;
+	temp_created = 0;
+
+	free(temp_path);
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (stream)
+		(void)fclose(stream);
+	else if (fd >= 0)
+		(void)close(fd);
+	if (temp_created)
+		(void)unlink(temp_path);
+	free(temp_path);
+	errno = saved_errno;
+	return -1;
+}
+
+
 int set_permission(const char *account,
 		   const char *mount_path,
 		   const char *folder,
 		   const char *protocol,
 		   const int flag)
 {
-FILE *fp;
-	char var_file[256];
-	char *target, *follow_info, *var_info;
-	int len, result, saved_errno;
+char var_file[256];
+	char *target = NULL, *follow_info, *var_info = NULL, *updated_info = NULL;
+	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
+	size_t old_len, target_len, updated_len, separator_len;
+	char record_rights[5];
 
 	if (flag < 0 || flag > 3 || !protocol ||
 	    (strcmp(protocol, "cifs") && strcmp(protocol, "ftp") &&
-	     strcmp(protocol, "dms")))
+	     strcmp(protocol, "dms")) ||
+	    !mount_path || !*mount_path || !is_valid_account_name(account) ||
+	    !is_valid_folder_name(folder)) {
+		errno = EINVAL;
 		return -1;
-	if (!mount_path || !*mount_path || !is_valid_account_name(account) ||
-	    !is_valid_folder_name(folder))
-		return -1;
+	}
 
 	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                     mount_path, account) != 0)
+	                                       mount_path, account) != 0)
 		return -1;
 	var_info = read_whole_file(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
-		/* Only ENOENT is a reason to synthesize default permissions. */
 		if (saved_errno != ENOENT) {
 			errno = saved_errno;
 			return -1;
@@ -1003,123 +1086,105 @@ FILE *fp;
 		}
 	}
 
-	len = strlen("*") + strlen(folder) + strlen("=");
-	target = (char *)malloc(sizeof(char) * (len + 1));
-	if (!target) {
-		saved_errno = errno ? errno : ENOMEM;
-		free(var_info);
-		errno = saved_errno;
-		return -1;
-	}
+	len = (int)(strlen("*") + strlen(folder) + strlen("="));
+	target = (char *)malloc((size_t)len + 1);
+	if (!target)
+		goto failed;
 	sprintf(target, "*%s=", folder);
-	target[len] = 0;
+	target[len] = '\0';
 
 	follow_info = upper_strstr(var_info, target);
 	if (!follow_info) {
-		free(var_info);
 		result = initial_folder_list_in_mount_path(mount_path);
-		if (result != 0) {
-			saved_errno = errno ? errno : EIO;
-			free(target);
-			errno = saved_errno;
-			return -1;
-		}
-
-		fp = fopen(var_file, "a+");
-		if (!fp) {
-			saved_errno = errno ? errno : EIO;
-			free(target);
-			errno = saved_errno;
-			return -1;
-		}
-		if (fprintf(fp, "%s", target) < 0) {
-			saved_errno = errno ? errno : EIO;
-			free(target);
-			(void)fclose(fp);
-			errno = saved_errno;
-			return -1;
-		}
-		free(target);
+		if (result != 0)
+			goto failed;
 
 		if (!strcmp(protocol, "cifs"))
-			result = fprintf(fp, "%d%d%d\n", flag, 0, DEFAULT_DMS_RIGHT);
+			samba_right = flag;
 		else if (!strcmp(protocol, "ftp"))
-			result = fprintf(fp, "%d%d%d\n", 0, flag, DEFAULT_DMS_RIGHT);
-		else
-			result = fprintf(fp, "%d%d%d\n", 0, 0, flag);
-		if (result < 0) {
-			saved_errno = errno ? errno : EIO;
-			(void)fclose(fp);
-			errno = saved_errno;
-			return -1;
+			ftp_right = flag;
+		else {
+			samba_right = 0;
+			ftp_right = 0;
 		}
-		errno = 0;
-		if (fclose(fp) != 0) {
-			errno = errno ? errno : EIO;
-			return -1;
-		}
+		record_rights[0] = (char)('0' + samba_right);
+		record_rights[1] = (char)('0' + ftp_right);
+		record_rights[2] = (char)('0' + DEFAULT_DMS_RIGHT);
+		record_rights[3] = '\n';
+		record_rights[4] = '\0';
 
-		if (!strcmp(protocol, "cifs"))
-			system("/sbin/run_samba");
-		return 0;
-	}
-	free(target);
+		old_len = strlen(var_info);
+		target_len = strlen(target);
+		separator_len = (old_len > 0 && var_info[old_len - 1] != '\n') ? 1 : 0;
+		if (old_len > (size_t)-1 - separator_len ||
+		    old_len + separator_len > (size_t)-1 - target_len ||
+		    old_len + separator_len + target_len > (size_t)-1 - 4 ||
+		    old_len + separator_len + target_len + 4 == (size_t)-1) {
+			errno = EOVERFLOW;
+			goto failed;
+		}
+		updated_len = old_len + separator_len + target_len + 4;
+		updated_info = (char *)malloc(updated_len + 1);
+		if (!updated_info)
+			goto failed;
+		if (old_len)
+			memcpy(updated_info, var_info, old_len);
+		if (separator_len)
+			updated_info[old_len] = '\n';
+		memcpy(updated_info + old_len + separator_len, target, target_len);
+		memcpy(updated_info + old_len + separator_len + target_len,
+		       record_rights, 4);
+		updated_info[updated_len] = '\0';
 
-	follow_info += len;
-	if (strlen(follow_info) < 4 || follow_info[3] != '\n') {
-		free(var_info);
-		return -1;
-	}
-
-	if (!strcmp(protocol, "cifs")) {
-		if (follow_info[0] == '0' + flag) {
-			free(var_info);
-			return 0;
-		}
-		follow_info[0] = '0' + flag;
-	} else if (!strcmp(protocol, "ftp")) {
-		if (follow_info[1] == '0' + flag) {
-			free(var_info);
-			return 0;
-		}
-		follow_info[1] = '0' + flag;
-	} else if (!strcmp(protocol, "dms")) {
-		if (follow_info[2] == '0' + flag) {
-			free(var_info);
-			return 0;
-		}
-		follow_info[2] = '0' + flag;
+		if (disk_share_replace_file_atomic(var_file, updated_info,
+		                                   updated_len) != 0)
+			goto failed;
 	} else {
-		free(var_info);
-		return -1;
+		follow_info += len;
+		if (strlen(follow_info) < 4 || follow_info[3] != '\n') {
+			errno = EINVAL;
+			goto failed;
+		}
+
+		if (!strcmp(protocol, "cifs")) {
+			if (follow_info[0] == '0' + flag)
+				goto unchanged;
+			follow_info[0] = (char)('0' + flag);
+		} else if (!strcmp(protocol, "ftp")) {
+			if (follow_info[1] == '0' + flag)
+				goto unchanged;
+			follow_info[1] = (char)('0' + flag);
+		} else {
+			if (follow_info[2] == '0' + flag)
+				goto unchanged;
+			follow_info[2] = (char)('0' + flag);
+		}
+
+		updated_len = strlen(var_info);
+		if (disk_share_replace_file_atomic(var_file, var_info,
+		                                   updated_len) != 0)
+			goto failed;
 	}
 
-	fp = fopen(var_file, "w");
-	if (fp == NULL) {
-		saved_errno = errno ? errno : EIO;
-		free(var_info);
-		errno = saved_errno;
-		return -1;
-	}
-	if (fprintf(fp, "%s", var_info) < 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)fclose(fp);
-		free(var_info);
-		errno = saved_errno;
-		return -1;
-	}
-	errno = 0;
-	if (fclose(fp) != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(var_info);
-		errno = saved_errno;
-		return -1;
-	}
-
+	free(target);
 	free(var_info);
+	free(updated_info);
 	if (!strcmp(protocol, "cifs"))
 		system("/sbin/run_samba");
 	return 0;
+
+unchanged:
+	free(target);
+	free(var_info);
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	free(target);
+	free(var_info);
+	free(updated_info);
+	errno = saved_errno;
+	return -1;
 }
 
 int add_account(const char *const account, const char *const password)
@@ -1436,359 +1501,319 @@ int add_folder(const char *const mount_path, const char *const folder)
 
 int del_folder(const char *const mount_path, const char *const folder)
 {
-int result, i, len, saved_errno;
+int result, i, saved_errno;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
-	char *follow_info, backup;
-	char *target, *var_info;
-	FILE *fp;
-	char *full_path;
+	char *target = NULL, *var_info = NULL, *updated_info = NULL;
+	char *full_path = NULL;
+	size_t mount_len, folder_len, path_len, target_len, updated_len;
 
-	if (mount_path == NULL || strlen(mount_path) <= 0)
+	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
+		errno = EINVAL;
 		return -1;
-	if (!is_valid_folder_name(folder))
-		return -1;
+	}
 
-	// 1. test if deleting the folder
-	len = strlen(mount_path)+strlen("/")+strlen(folder);
-	full_path = (char *)malloc(sizeof(char)*(len+1));
+	mount_len = strlen(mount_path);
+	folder_len = strlen(folder);
+	if (mount_len > (size_t)-1 - folder_len - 2) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	path_len = mount_len + folder_len + 1;
+	full_path = (char *)malloc(path_len + 1);
 	if (!full_path)
 		return -1;
-	sprintf(full_path, "%s/%s", mount_path, folder);
-	full_path[len] = 0;
+	snprintf(full_path, path_len + 1, "%s/%s", mount_path, folder);
 
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
-	if (result < 0) {
-		saved_errno = errno ? errno : EIO;
-		free(full_path);
-		errno = saved_errno;
-		return -1;
-	}
-	if (result == 0) {
-		result = test_if_dir(full_path);
-		
-		if (result != 1) {
-			free(full_path);
-			
-			return -1;
-		}
-	}
-
-	// 2. delete the folder
-	result = rmdir(full_path);
-	free(full_path);
-	if (result != 0)
-		return -1;
-
-	// 4. get the target which is deleted in every var file
-	len = strlen("*")+strlen(folder)+strlen("=");
-	target = (char *)malloc(sizeof(char)*(len+1));
+	target_len = folder_len + 2;
+	target = (char *)malloc(target_len + 1);
 	if (!target)
-		return -1;
-	sprintf(target, "*%s=", folder);
-	target[len] = 0;
+		goto failed;
+	snprintf(target, target_len + 1, "*%s=", folder);
 
-	// 3. del folder's right to every var file
-	if (get_account_list(&acc_num, &account_list) != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(target);
-		free_2_dimension_list(&acc_num, &account_list);
-		errno = saved_errno;
-		return -1;
-	}
+	result = get_account_list(&acc_num, &account_list);
+	if (result != 0)
+		goto failed;
 
 	for (i = 0; i < acc_num; ++i) {
-		// delete the content about the folder
-		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account_list[i]);
+		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+		                                       mount_path, account_list[i]) != 0)
+			goto failed;
+	}
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+		goto failed;
+
+	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+	if (result < 0)
+		goto failed;
+	if (result == 0 && test_if_dir(full_path) != 1) {
+		errno = ENOENT;
+		goto failed;
+	}
+	if (rmdir(full_path) != 0)
+		goto failed;
+
+	/* Do not leave a stale folder-list snapshot when a later account update fails. */
+	if (initial_folder_list_in_mount_path(mount_path) != 0)
+		goto failed;
+
+	for (i = 0; i < acc_num; ++i) {
+		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+		                                       mount_path, account_list[i]) != 0)
+			goto failed;
 		var_info = read_whole_file(var_file);
 		if (!var_info) {
 			saved_errno = errno ? errno : EIO;
-			if (saved_errno == ENOENT)
+			if (saved_errno == ENOENT) {
+				errno = 0;
 				continue;
-			free_2_dimension_list(&acc_num, &account_list);
-			free(target);
+			}
 			errno = saved_errno;
-			return -1;
+			goto failed;
 		}
-		
-		follow_info = upper_strstr(var_info, target);
-		if (!follow_info) {
+		if (disk_share_permission_rewrite(var_info, target, NULL,
+		                                  &updated_info, &updated_len) != 0) {
+			saved_errno = errno ? errno : EIO;
 			free(var_info);
-			continue;
+			var_info = NULL;
+			if (saved_errno == ENOENT) {
+				errno = 0;
+				continue;
+			}
+			errno = saved_errno;
+			goto failed;
 		}
-		backup = *follow_info;
-		*follow_info = 0;
-		
-		fp = fopen(var_file, "w");
-		if (!fp) {
-			*follow_info = backup;
-			free(var_info);
-			continue;
-		}
-		fprintf(fp, "%s", var_info);
-		
-		*follow_info = backup;
-		while (*follow_info != 0 && *follow_info != '\n')
-			++follow_info;
-		if (*follow_info != 0 && *(follow_info+1) != 0) {
-			++follow_info;
-			fprintf(fp, "%s", follow_info);
-		}
-		fclose(fp);
-		
+		if (disk_share_replace_file_atomic(var_file, updated_info,
+		                                   updated_len) != 0)
+			goto failed;
+		free(updated_info);
+		updated_info = NULL;
 		free(var_info);
+		var_info = NULL;
 	}
 
-	free_2_dimension_list(&acc_num, &account_list);
-
-	// get the var_file for anonymous ftp
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, FTP_ANONYMOUS_USER);
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+		goto failed;
 	var_info = read_whole_file(var_file);
-	if (var_info == NULL) {
+	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno != ENOENT) {
-			free(target);
 			errno = saved_errno;
-			return -1;
+			goto failed;
 		}
-		goto MOD_FOLDER_END;
+		errno = 0;
+	} else {
+		if (disk_share_permission_rewrite(var_info, target, NULL,
+		                                  &updated_info, &updated_len) == 0) {
+			if (disk_share_replace_file_atomic(var_file, updated_info,
+			                                   updated_len) != 0)
+				goto failed;
+		} else if (errno != ENOENT) {
+			saved_errno = errno ? errno : EIO;
+			errno = saved_errno;
+			goto failed;
+		}
 	}
-
-	follow_info = upper_strstr(var_info, target);
-	if (follow_info == NULL) {
-		free(var_info);
-		
-		goto MOD_FOLDER_END;
-	}
-	backup = *follow_info;
-	*follow_info = 0;
-
-	fp = fopen(var_file, "w");
-	if (fp == NULL) {
-		*follow_info = backup;
-		free(var_info);
-		
-		goto MOD_FOLDER_END;
-	}
-	fprintf(fp, "%s", var_info);
-
-	*follow_info = backup;
-	while (*follow_info != 0 && *follow_info != '\n')
-		++follow_info;
-	if (*follow_info != 0 && *(follow_info+1) != 0) {
-		++follow_info;
-		fprintf(fp, "%s", follow_info);
-	}
-	fclose(fp);
 
 	free(var_info);
-
-MOD_FOLDER_END:
-
-	if (initial_folder_list_in_mount_path(mount_path) != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(target);
-		errno = saved_errno;
-		return -1;
-	}
+	free(updated_info);
 	free(target);
-
+	free(full_path);
+	free_2_dimension_list(&acc_num, &account_list);
 	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	free(var_info);
+	free(updated_info);
+	free(target);
+	free(full_path);
+	free_2_dimension_list(&acc_num, &account_list);
+	errno = saved_errno;
+	return -1;
 }
 
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
-int result, i, len, saved_errno;
+int result, i, saved_errno;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
-	char *target, *new_target, *var_info;
-	FILE *fp;
-	char *follow_info, backup;
-	char *full_path, *new_full_path;
+	char *target = NULL, *new_target = NULL;
+	char *var_info = NULL, *updated_info = NULL;
+	char *full_path = NULL, *new_full_path = NULL;
 	struct stat target_stat;
+	size_t mount_len, folder_len, new_folder_len, path_len;
+	size_t target_len, new_target_len, updated_len;
 
-	if (mount_path == NULL || strlen(mount_path) <= 0)
-		return -1;
-	if (!is_valid_folder_name(folder) || !is_valid_folder_name(new_folder))
-		return -1;
-
-	// 1. test if modifying the folder
-	len = strlen(mount_path)+strlen("/")+strlen(folder);
-	full_path = (char *)malloc(sizeof(char)*(len+1));
-	if (!full_path)
-		return -1;
-	sprintf(full_path, "%s/%s", mount_path, folder);
-	full_path[len] = 0;
-
-	len = strlen(mount_path)+strlen("/")+strlen(new_folder);
-	new_full_path = (char *)malloc(sizeof(char)*(len+1));
-	if (!new_full_path)
-		return -1;
-	sprintf(new_full_path, "%s/%s", mount_path, new_folder);
-	new_full_path[len] = 0;
-
-	/* Never rename a file or follow a damaged folder-list state. */
-	if (test_if_dir(full_path) != 1) {
-		free(full_path);
-		free(new_full_path);
+	if (!mount_path || !*mount_path || !is_valid_folder_name(folder) ||
+	    !is_valid_folder_name(new_folder)) {
+		errno = EINVAL;
 		return -1;
 	}
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
-	if (result < 0) {
-		free(full_path);
-		free(new_full_path);
-		return -1;
-	}
-	if (result == 0) {
-		/* The directory exists but is absent from the metadata list. */
-		if (add_folder(mount_path, folder) != 0) {
-			free(full_path);
-			free(new_full_path);
-			return -1;
-		}
-	}
 
-	/* Renaming to an existing path can replace an empty directory or file.
-	 * Treat an exact same-name request as a no-op and reject any other target
-	 * that already exists, including folders absent from the metadata list. */
 	if (strcmp(folder, new_folder) == 0) {
-		free(full_path);
-		free(new_full_path);
 		return 0;
 	}
+	mount_len = strlen(mount_path);
+	folder_len = strlen(folder);
+	new_folder_len = strlen(new_folder);
+	if (mount_len > (size_t)-1 - folder_len - 2 ||
+	    mount_len > (size_t)-1 - new_folder_len - 2) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	path_len = mount_len + folder_len + 1;
+	full_path = (char *)malloc(path_len + 1);
+	if (!full_path)
+		goto failed;
+	snprintf(full_path, path_len + 1, "%s/%s", mount_path, folder);
+	path_len = mount_len + new_folder_len + 1;
+	new_full_path = (char *)malloc(path_len + 1);
+	if (!new_full_path)
+		goto failed;
+	snprintf(new_full_path, path_len + 1, "%s/%s", mount_path, new_folder);
+
+	if (test_if_dir(full_path) != 1) {
+		errno = ENOENT;
+		goto failed;
+	}
+	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+	if (result < 0)
+		goto failed;
+	if (result == 0 && add_folder(mount_path, folder) != 0)
+		goto failed;
+
 	result = test_if_exist_folder_in_mount_path(mount_path, new_folder);
-	if (result != 0 || lstat(new_full_path, &target_stat) == 0 ||
-	    errno != ENOENT) {
-		free(full_path);
-		free(new_full_path);
-		return -1;
+	if (result < 0)
+		goto failed;
+	if (result != 0) {
+		errno = EEXIST;
+		goto failed;
 	}
+	errno = 0;
+	if (lstat(new_full_path, &target_stat) == 0) {
+		errno = EEXIST;
+		goto failed;
+	}
+	if (errno != ENOENT)
+		goto failed;
 
-	// Modify the folder only when the target path is unused.
-	result = rename(full_path, new_full_path);
-	free(full_path);
-	free(new_full_path);
+	target_len = folder_len + 2;
+	new_target_len = new_folder_len + 2;
+	target = (char *)malloc(target_len + 1);
+	new_target = (char *)malloc(new_target_len + 1);
+	if (!target || !new_target)
+		goto failed;
+	snprintf(target, target_len + 1, "*%s=", folder);
+	snprintf(new_target, new_target_len + 1, "*%s=", new_folder);
+
+	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
-		return -1;
-
-	len = strlen("*")+strlen(folder)+strlen("=");
-	target = (char *)malloc(sizeof(char)*(len+1));
-	if (!target)
-		return -1;
-	sprintf(target, "*%s=", folder);
-	target[len] = 0;
-
-	len = strlen("*")+strlen(new_folder)+strlen("=");
-	new_target = (char *)malloc(sizeof(char)*(len+1));
-	if (!new_target) {
-		free(target);
-		return -1;
+		goto failed;
+	for (i = 0; i < acc_num; ++i) {
+		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+		                                       mount_path, account_list[i]) != 0)
+			goto failed;
 	}
-	sprintf(new_target, "*%s=", new_folder);
-	new_target[len] = 0;
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+		goto failed;
 
-	// 3. add folder's right to every var file
-	if (get_account_list(&acc_num, &account_list) != 0) {
+	if (rename(full_path, new_full_path) != 0)
+		goto failed;
+	if (initial_folder_list_in_mount_path(mount_path) != 0) {
 		saved_errno = errno ? errno : EIO;
-		free(target);
-		free(new_target);
-		free_2_dimension_list(&acc_num, &account_list);
+		if (rename(new_full_path, full_path) != 0)
+			logmessage("disk_share", "cannot roll back folder rename after list publication failure");
 		errno = saved_errno;
-		return -1;
+		goto failed;
 	}
+	free(full_path);
+	full_path = NULL;
+	free(new_full_path);
+	new_full_path = NULL;
 
 	for (i = 0; i < acc_num; ++i) {
-		// check if the created target is exist in the var file
-		snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account_list[i]);
+		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+		                                       mount_path, account_list[i]) != 0)
+			goto failed;
 		var_info = read_whole_file(var_file);
-		if (var_info == NULL) {
+		if (!var_info) {
 			saved_errno = errno ? errno : EIO;
-			if (saved_errno == ENOENT)
+			if (saved_errno == ENOENT) {
+				errno = 0;
 				continue;
-			free_2_dimension_list(&acc_num, &account_list);
-			free(target);
-			free(new_target);
+			}
 			errno = saved_errno;
-			return -1;
+			goto failed;
 		}
-		
-		if ((follow_info = strstr(var_info, target)) == NULL) {
+		if (disk_share_permission_rewrite(var_info, target, new_target,
+		                                  &updated_info, &updated_len) != 0) {
+			saved_errno = errno ? errno : EIO;
 			free(var_info);
-			continue;
+			var_info = NULL;
+			if (saved_errno == ENOENT) {
+				errno = 0;
+				continue;
+			}
+			errno = saved_errno;
+			goto failed;
 		}
-		
-		// 7. modify the folder's info in the var file
-		fp = fopen(var_file, "w");
-		if (fp) {
-			// write the info before target
-			backup = *follow_info;
-			*follow_info = 0;
-			fprintf(fp, "%s", var_info);
-			*follow_info = backup;
-			
-			// write the info before new_target
-			fprintf(fp, "%s", new_target);
-			
-			// write the info after target
-			follow_info += strlen(target);
-			fprintf(fp, "%s", follow_info);
-			
-			fclose(fp);
-		}
-		
+		if (disk_share_replace_file_atomic(var_file, updated_info,
+		                                   updated_len) != 0)
+			goto failed;
+		free(updated_info);
+		updated_info = NULL;
 		free(var_info);
+		var_info = NULL;
 	}
 
-	free_2_dimension_list(&acc_num, &account_list);
-
-	// get the var_file for anonymous ftp
-	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, FTP_ANONYMOUS_USER);
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+		goto failed;
 	var_info = read_whole_file(var_file);
-	if (var_info == NULL) {
+	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno != ENOENT) {
-			free(target);
-			free(new_target);
 			errno = saved_errno;
-			return -1;
+			goto failed;
 		}
+		errno = 0;
 	} else {
-		if ((follow_info = strstr(var_info, target))) {
-			fp = fopen(var_file, "w");
-			if (fp) {
-				// write the info before target
-				backup = *follow_info;
-				*follow_info = 0;
-				fprintf(fp, "%s", var_info);
-				*follow_info = backup;
-				
-				// write the info before new_target
-				fprintf(fp, "%s", new_target);
-				
-				// write the info after target
-				follow_info += strlen(target);
-				fprintf(fp, "%s", follow_info);
-				
-				fclose(fp);
-			}
+		if (disk_share_permission_rewrite(var_info, target, new_target,
+		                                  &updated_info, &updated_len) == 0) {
+			if (disk_share_replace_file_atomic(var_file, updated_info,
+			                                   updated_len) != 0)
+				goto failed;
+		} else if (errno != ENOENT) {
+			saved_errno = errno ? errno : EIO;
+			errno = saved_errno;
+			goto failed;
 		}
-		
-		free(var_info);
 	}
 
+	free(var_info);
+	free(updated_info);
 	free(target);
 	free(new_target);
-
-	/* The renamed directory is live; report a failed snapshot publication. */
-	if (initial_folder_list_in_mount_path(mount_path) != 0) {
-		if (!errno)
-			errno = EIO;
-		return -1;
-	}
-
+	free_2_dimension_list(&acc_num, &account_list);
 	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	free(var_info);
+	free(updated_info);
+	free(target);
+	free(new_target);
+	free(full_path);
+	free(new_full_path);
+	free_2_dimension_list(&acc_num, &account_list);
+	errno = saved_errno;
+	return -1;
 }
 
 int test_if_exist_account(const char *const account)
