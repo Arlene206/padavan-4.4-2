@@ -1,3 +1,12 @@
+## 2026-11-22 — Align XY-C1's embedded LAN6 contract with status-bearing DHCPv6 getters
+
+- Parent main SHA: `69d316e7909fa2143b12e786260d61ed9cb6cf4a`. DNSMasq #45035039314 PASS, IPv6 service-type #45035039316 PASS and AI handoff #45035039283 PASS on this exact SHA.
+- XY-C1 run #45034779614 on parent `e100bb3b88a68e3db6e23721bf6852631126895e` failed at embedded assertion line 30 in "Verify LAN IPv6 NVRAM publication failures propagate": it expected the DHCP mode NVRAM read inside `get_lan_dhcp6s_mode()`, while that compatibility wrapper now delegates to `get_lan_dhcp6s_mode_status()`. The check failed before Build XY-C1, so TRX/artifact were skipped and L3 was not achieved.
+- Updated the XY-C1 embedded source contract to check the status-bearing getter's checked service/NVRAM reads, mode range validation, status return and legacy wrapper delegation. Production source is unchanged.
+- No local tests were run. Result: THIS COMMIT. Next: verify the exact-head XY-C1 rerun reaches Build, TRX and artifact upload; then continue independent userland fixes.
+
+---
+
 ## 2026-11-22 — Correct DHCPv6 and DNSMasq source-contract follow-ups
 
 - Parent main SHA: `e100bb3b88a68e3db6e23721bf6852631126895e`. Exact DNSMasq run #45034779769 compiled and ran the GNU89/ASan/UBSan `dnsmasq_nvram_option_policy` binary successfully. It failed only in `scripts/check_dnsmasq_integer_options.py` because the newly added test-name assertions referenced undefined helper `read()`; the script already loads the complete regression file as `TEST`. Corrected the assertions to use `TEST`.
