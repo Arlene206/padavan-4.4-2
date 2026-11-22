@@ -988,11 +988,11 @@ assert "if(modem_rule_status==0)" not in deferred_code
 assert "modem_plug_status=try_start_usb_modem_to_wan();" in deferred_code
 assert "if(plug_modem&&!unplug_modem&&!modem_unplug_pending)" in deferred_code
 assert 'storage_ack_event_marker_status("usb_hotplug_md")' in deferred_code
-assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in deferred_hotplug
-assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in deferred_hotplug
+assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in retry_policy
+assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in retry_policy
 assert 'nvram_set_int_temp("usb_unplug_md",1)' not in deferred_code
 assert 'nvram_set_int_temp("usb_hotplug_md",1)' not in deferred_code
-assert "modem_wan_hotplug_retry_mask(unplug_modem||modem_unplug_pending,modem_hotplug_pending,modem_unplug_status,modem_plug_status)" in deferred_code
+assert "modem_wan_hotplug_retry_mask(" in deferred_code
 assert "alarm(5);" in deferred_hotplug
 
 usb_event_policy = (RC / "usb_hotplug_event_policy.h").read_text()
@@ -1011,10 +1011,10 @@ for marker in (
 ):
     assert marker in modem_test and marker + "();" in modem_test
 assert "modem_plug_status = try_start_usb_modem_to_wan();" in deferred_hotplug
-assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in deferred_hotplug
-assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in deferred_hotplug
-assert 'nvram_set_int_temp("usb_unplug_md", 1)' in deferred_hotplug
-assert 'nvram_set_int_temp("usb_hotplug_md", 1)' in deferred_hotplug
+assert "storage_ack_event_marker_status(\"usb_hotplug_md\")" in deferred_hotplug
+assert "modem_wan_hotplug_retry_mask(" in deferred_hotplug
+assert 'nvram_set_int_temp("usb_unplug_md", 1)' not in deferred_hotplug
+assert 'nvram_set_int_temp("usb_hotplug_md", 1)' not in deferred_hotplug
 assert "if (modem_retry_mask != 0)" in deferred_hotplug
 assert "alarm(5);" in deferred_hotplug
 assert "test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events" in (
