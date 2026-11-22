@@ -1138,3 +1138,18 @@ for signature, label in (
             label + " teardown must return failure instead of reporting success after an incomplete runtime-state clear")
 
 print("WAN firewall rebuild fail-closed protocol gates, PPP recovery and runtime-state clear: PASS")
+
+# WAN startup must preserve protocol-read errors and must not configure an
+# interface when a required unit protocol cannot be read.
+wan_start = body(wan, "start_wan(void)")
+wan_start_code = " ".join(wan_start.split())
+start_proto_read = "nvram_status = get_wan_unit_proto_checked_status(unit, &wan_proto)"
+require(start_proto_read in wan_start_code and
+        "if (nvram_status != 0)" in wan_start_code and
+        "wan_start_status = rc_first_service_start_status( wan_start_status, nvram_status)" in wan_start_code and
+        "cannot read configured protocol" in wan_start_code and
+        wan_start_code.index(start_proto_read) <
+        wan_start_code.index("if (nvram_status != 0)") <
+        wan_start_code.index("wan_ifname = get_man_ifname(unit)") and
+        "wan_proto = get_wan_proto(unit);" not in wan_start_code,
+        "WAN startup must fail closed on protocol read errors before interface setup")

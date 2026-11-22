@@ -3386,9 +3386,15 @@ start_wan(void)
 	{
 		int static_address_cleanup_failed = 0;
 
-		wan_proto = get_wan_proto(unit);
-		if (wan_proto < 0)
+		nvram_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+		if (nvram_status != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, nvram_status);
+			logmessage(LOGNAME,
+				   "aborting WAN setup for unit %d: cannot read configured protocol (status=%d)",
+				   unit, nvram_status);
 			continue;
+		}
 		
 		/* make sure the connection exists and is enabled */
 		wan_ifname = get_man_ifname(unit);

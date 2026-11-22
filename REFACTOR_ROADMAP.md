@@ -1,3 +1,7 @@
+Current implementation checkpoint (2026-11-21):
+- WAN reset manual endpoint, protocol and hardware identity reads are status-bearing; manual endpoint values are one checked NVRAM transaction, and MAC override/fallback preserves legacy formatting.
+- THIS source slice hardens start_wan() with checked per-unit protocol reads, first-error retention and no interface setup after failed protocol retrieval. Exact-head Actions and XY-C1 Build/TRX/artifact pending.
+
 ## Current checkpoint — 2026-11-21
 
 - LAN source chain: checked VLAN selector/VID/priority; checked soft-bridge/core-bridge multicast and router settings; checked switch VLAN snapshot before first rule apply; checked storm-control rates and switch jumbo/green/EEE before PHY writes. Latest switch source corrected a missing local `status` declaration and checker token whitespace; exact WAN route #44961918900 PASS.

@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on WAN startup protocol reads
+
+- Parent main SHA: `f58d4b1e557d0b1da8843436554ae421fdee1698`.
+- `start_wan()` called shared `get_wan_proto()`, then silently continued when it returned `-1`, hiding backend/missing/unknown protocol state as an absent WAN unit.
+- THIS source fix uses `get_wan_unit_proto_checked_status()`; it retains the first WAN startup status, logs the affected unit and avoids interface lookup/configuration when the required protocol cannot be read. Other independent WAN startup processing can finish.
+- `scripts/check_wan_firewall_status.py` pins checked read, error handling, first-error retention, diagnostic and ordering before interface lookup. Source-level preflight passed.
+- Next: inspect exact-head WAN/XY-C1 results, then continue the remaining shared `get_wan_proto()` caller audit without gating unconditional teardown cleanup on protocol reads.
+
+---
+
 ## 2026-11-21 — Align firewall contract with checked WAN MAC identity
 
 - Parent main SHA: `49bed878c17bf3d5c87a9da9303956de33f9b84e`.
