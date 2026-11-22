@@ -1,3 +1,11 @@
+## 2026-11-21 23:51 PST — Correct errno matcher in PID 1 mask contracts
+
+- Parent main `80ad0e36e6c2ebca9dd2347f2dee484ee50915f6`. Exact 80ad Process lifecycle #45000794677 and AI docs #45000794731 PASS; NVRAM #45000794652 was still running. PID1 mdev #45000794651 and HTTPD #45000794708 failed in their newly added source contracts, not in the checked mask logic: the raw helper line is `errno = 0;`, while our matcher expected `errno=0;`. HTTPD's GNU89 C policy regression compiled and executed before the Python contract failed.
+- Corrected the whitespace-sensitive matcher in both workflows. Strengthened the test to assert the adapter forwards a SIGALRM-only set on the optional-old-mask SIG_UNBLOCK path, while clearing stale EINTR.
+- No production runtime change in this correction. Exact reruns are triggered by the C test path change; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 23:45 PST — Cover optional old-mask output in PID 1 policy regression
 
 - Parent main `c9c47f065a86645dabb8155d133b07e215d3b771`. Exact 34d Process inventory #45000638051, Process lifecycle #45000637980, DNSMasq #45000637989, DNS Forwarder #45000637987, AI #45000637929 and PID1 notification #45000638026 PASS. NVRAM #45000638001, XY-C1 #45000637923 and USB #45000637930 were still running.

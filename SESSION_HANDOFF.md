@@ -7,9 +7,9 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: c9c47f065a86645dabb8155d133b07e215d3b771. The checked signal-mask implementation is committed; its workflow matcher corrections are also committed. Exact 34d HTTPD #45000637963 and PID1 mdev #45000637950 failed at the first version of those new assertions, which incorrectly expected the low-level adapter inside control_signal(); c9 now checks the real wrapper chain.
-- Exact 34d Process inventory #45000638051, Process lifecycle #45000637980, DNSMasq #45000637989, DNS Forwarder #45000637987, AI #45000637929 and PID1 notification #45000638026 PASS. Exact 34d NVRAM #45000638001, XY-C1 #45000637923 and USB #45000637930 were in progress at last poll.
-- This commit adds a real C regression for successful sigprocmask calls with an optional NULL old-mask output, while confirming stale errno clearing and correct how argument. That source-path change forces exact-head reruns of mdev and HTTPD using the corrected matcher. L3 only if XY Build/TRX/artifact all pass on this source SHA; hardware L4 NOT VERIFIED.
+- Current parent main: 80ad0e36e6c2ebca9dd2347f2dee484ee50915f6. Exact 80ad Process lifecycle inventory #45000794677 and AI docs #45000794731 PASS; NVRAM #45000794652 was still running at last poll.
+- Exact 80ad PID1 mdev #45000794651 and HTTPD #45000794708 failed only at newly added source-contract assertions for the policy helper's errno reset. The helper spells this as `errno = 0;`; the matchers mistakenly required whitespace-free `errno=0;`. HTTPD's GNU89 policy C test compiled and ran before the Python source contract failed. THIS COMMIT fixes the raw-source spelling and adds an explicit SIGALRM membership case for the helper's optional old-set path.
+- The previous 34d HTTPD/mdev matcher failures caused by checking the wrong wrapper layer were corrected in c9. The 80ad failures are this separate whitespace-sensitive assertion; exact reruns are required. XY-C1 34d #45000637923 was still building; NVRAM 34d #45000638001 had been cancelled by the newer SHA. No L3 or L4 claim.
 
 ## Completed source slices
 
@@ -30,17 +30,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Re-run the PID1 mask regression against the corrected mdev/HTTPD source contracts. The first 34d runs failed because the test contracts looked for pid1_signal_update_mask() directly inside control_signal(), although production correctly routes through init_signal_mask_update(); c9 corrected the contract.
-- THIS COMMIT exercises the helper's optional old_set == NULL path on a successful SIG_UNBLOCK and verifies that success clears a pre-seeded EINTR without publishing an old mask.
+- Correct the exact 80ad mdev/HTTPD contract failure. Logs identify a single source-checker mismatch: the header contains `errno = 0;`, while the newly added checker assertion searched for `errno=0;`. Both C files and the checked-mask logic were already present; HTTPD compiled and executed the GNU89 test successfully before failing at the final Python contract.
+- THIS COMMIT corrects the whitespace-sensitive matcher in both workflows and strengthens the mask test to pass a SIGALRM-only set on the SIG_UNBLOCK / NULL old-mask path.
 
 ## Verification boundary
 
-- Exact 34d Process inventory #45000638051, Process lifecycle #45000637980, DNSMasq #45000637989, DNS Forwarder #45000637987, AI #45000637929 and PID1 notification #45000638026 PASS.
-- Exact 34d HTTPD #45000637963 and PID1 mdev #45000637950 failed only in their new signal-mask source matcher; their old assertions are fixed in c9. The new C test-file change requests fresh exact-head reruns.
-- Exact 34d NVRAM #45000638001, XY-C1 #45000637923 and USB #45000637930 were still running at last poll. Hardware L4 NOT VERIFIED.
+- Exact 80ad Process lifecycle #45000794677 and AI docs #45000794731 PASS. NVRAM #45000794652 was in progress. PID1 mdev #45000794651 and HTTPD #45000794708 failed only at the errno spelling in the new source contract.
+- Exact 34d XY-C1 #45000637923 was still building; its NVRAM #45000638001 was cancelled after SHA supersession. Do not infer L3.
+- Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head PID1 mdev, HTTPD, NVRAM, Process inventory/lifecycle, DNSMasq, DNS forwarder, USB, AI and XY-C1 after this C test update.
-2. Confirm actual Build XY-C1 + TRX verification + artifact upload for one exact product-source SHA. Host-only validation or skipped build steps are not L3.
-3. Continue the next P1/P2 source stability/security task while any independent Actions remain pending.
+1. Check mdev, HTTPD, NVRAM, Process lifecycle and XY-C1 exact-head runs after this checker/test correction, then inspect exact failing logs if any.
+2. Confirm a real XY-C1 firmware build, TRX verification and artifact upload on one product-source SHA before claiming L3.
+3. Continue the next independent stability/security source fix. Keep hardware L4 NOT VERIFIED.

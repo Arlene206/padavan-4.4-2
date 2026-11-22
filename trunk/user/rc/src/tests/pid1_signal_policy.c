@@ -9,6 +9,7 @@ static int fake_mask_how;
 static int fake_mask_result;
 static int fake_mask_errno;
 static int fake_mask_saw_sigusr1;
+static int fake_mask_saw_sigalrm;
 static int fake_mask_old_written;
 
 static int
@@ -16,6 +17,7 @@ fake_sigprocmask(int how, const sigset_t *set, sigset_t *old_set)
 {
 	fake_mask_how = how;
 	fake_mask_saw_sigusr1 = sigismember(set, SIGUSR1);
+	fake_mask_saw_sigalrm = sigismember(set, SIGALRM);
 	fake_mask_old_written = 0;
 	if (old_set) {
 		sigemptyset(old_set);
@@ -54,9 +56,12 @@ test_pid1_signal_mask_update_reports_failures(void)
 		return 1;
 
 	/* The old-mask output is optional for transitions that do not need it. */
+	sigemptyset(&set);
+	sigaddset(&set, SIGALRM);
 	errno = EINTR;
 	if (pid1_signal_update_mask(fake_sigprocmask, SIG_UNBLOCK, &set, NULL) != 0 ||
-	    fake_mask_how != SIG_UNBLOCK || fake_mask_old_written || errno != 0)
+	    fake_mask_how != SIG_UNBLOCK || fake_mask_saw_sigalrm != 1 ||
+	    fake_mask_old_written || errno != 0)
 		return 1;
 
 	fake_mask_result = -1;

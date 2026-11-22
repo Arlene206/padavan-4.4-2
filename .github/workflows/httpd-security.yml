@@ -5443,7 +5443,7 @@ jobs:
           main_loop_compact = "".join(main_loop.split())
           assert "init_signal_mask_update(how,&set,NULL," in "".join(signal_mask_control.split())
           assert "pid1_signal_update_mask(sigprocmask,how,set,old_set)" in "".join(signal_mask_setup.split())
-          assert "errno=0;" in signal_mask and "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
+          assert "errno = 0;" in signal_mask and "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
           assert "wait_mask_build_status" in main_loop
           assert "if(!wait_mask_ready)" in main_loop_compact
           assert "original_mask_ready?NULL:&original_mask" in main_loop_compact
