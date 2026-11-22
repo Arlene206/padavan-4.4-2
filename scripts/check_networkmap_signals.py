@@ -131,7 +131,7 @@ mask_failure = main.index("if (refresh < 0)", consume)
 refresh_gate = main.index("if (refresh)", mask_failure)
 fullscan = main.index("networkmap_fullscan = 1;", refresh_gate)
 scan_reset = main.index("scan_now = 0;", fullscan)
-iterate = main.index("nmap_iterate();", scan_reset)
+iterate = main.index("nmap_iterate() < 0", scan_reset)
 cleanup = main.index("clear_resources();", iterate)
 assert loop < consume < mask_failure < refresh_gate < fullscan < scan_reset < iterate < cleanup
 assert "exit_status = 1;" in main

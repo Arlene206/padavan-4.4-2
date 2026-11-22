@@ -1,3 +1,11 @@
+## 2026-11-22 17:24 CST — Update networkmap main-loop contract for propagated status
+
+- Parent main SHA: `2cd6cbb65590408bd14f2843f3187d3ed2d3010f`. Exact networkmap workflow #44999477629 compiled and passed the signal policy, daemon policy and new ARP receive error policy C executables; it failed only at `scripts/check_networkmap_signals.py:134` because an older source assertion still searched for the former standalone `nmap_iterate();` statement.
+- Main now invokes `nmap_iterate() < 0` in its checked error gate so fatal receive status reaches cleanup and exit; corrected the source matcher to track that expression. Product source and C tests are unchanged.
+- Exact parent Process lifecycle #44999477626 and AI handoff #44999477625 were still running at first poll; new WAN-related NVRAM audit #44999477587 was also running. Rerun the complete networkmap checker on this new SHA.
+
+---
+
 ## 2026-11-22 17:12 CST — Stop networkmap ARP receive errors from spinning the daemon loop
 
 - Parent main SHA: `ef3b22d28619427c3e5823b0888c2ea390405b76`. Exact networkmap signal lifecycle #44999104161 PASS and AI handoff #44999104151 PASS. Checked WAN WISP/manual-DHCP/transport flow passed exact WAN route #44998743083 on b809 and AI handoff #44998743195 PASS. XY-C1 #44998650971 was still IN_PROGRESS at last observed poll; it is not same-SHA L3 evidence.

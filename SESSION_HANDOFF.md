@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; branch `main`; atomic complete-tree commits and expected-SHA non-force updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Current source parent: `ef3b22d28619427c3e5823b0888c2ea390405b76`. Networkmap signal setup hardening is host-verified: exact signal lifecycle #44999104161 PASS and AI handoff #44999104151 PASS.
-- Checked WAN WISP/manual DHCP selector/transport flow passed exact WAN route #44998743083 on b809; AI handoff #44998743195 PASS. XY-C1 #44998650971 remained IN_PROGRESS at last observed poll and is not same-SHA L3 proof.
-- THIS COMMIT changes networkmap ARP receive error handling: transient EINTR/timeout stays on normal loop; fatal socket errors propagate to main cleanup/exit instead of hot-looping. Malformed short frames are discarded. Exact-head Actions pending; hardware L4 NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; active `main`; atomic complete-tree commits and expected-SHA non-force ref updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Parent main `2cd6cbb65590408bd14f2843f3187d3ed2d3010f`: networkmap ARP receive change and all three GNU89 sanitizer-backed C policy executables are in place. Exact networkmap #44999477629 failed only at the stale source checker which still expected the former `nmap_iterate();` call form; checker correction is THIS COMMIT.
+- Exact parent Process lifecycle #44999477626 and AI handoff #44999477625 were IN_PROGRESS at last poll; NVRAM audit #44999477587 also in progress.
+- No current same-SHA XY-C1 Build/TRX/artifact proof; L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,18 +30,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- New P1 networkmap stability defect: negative `recvfrom()` returns were consumed as short packets, causing persistent socket errors to spin main's outer loop. THIS COMMIT adds an errno classifier (EINTR/EAGAIN/EWOULDBLOCK retryable; other errors fatal), status propagation through `nmap_iterate()`, and logged cleanup/exit on fatal errors.
-- Short malformed datagrams are skipped instead of ending the receive batch, and all datagrams count toward the 1024-frame storm cap. Added policy C test plus source-order contracts.
+- Align networkmap checker main-loop assertion with the new propagated receive-status call: it must locate `nmap_iterate() < 0` after the refresh-state reset, then validate cleanup order.
+- Product source unchanged. Exact #44999477629 already proved signal C test, daemon C test and ARP errno policy C test pass.
 
 ## Verification boundary
 
-- Parent `ef3b22d28619427c3e5823b0888c2ea390405b76`: networkmap signal lifecycle #44999104161 PASS; AI handoff #44999104151 PASS. Previous WAN route #44998743083 PASS and AI handoff #44998743195 PASS.
-- ARP receive policy GNU89 regression and source checker are wired into `.github/workflows/networkmap-signal-stability.yml`; exact-head result for THIS COMMIT pending.
-- XY-C1 #44998650971 was only observed IN_PROGRESS on an older SHA; same-SHA Build/TRX/artifact is not verified. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
+- Exact #44999477629: three GNU89 `-Wall -Wextra -Werror` ASan/UBSan C regressions PASS; Python source checker FAILED at line 134 due solely to the obsolete `nmap_iterate();` string matcher.
+- This checker-only correction awaits exact-head networkmap workflow rerun. No L3 / hardware L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head networkmap workflow for THIS COMMIT. Require ARP policy test and source checker to pass; diagnose any exact failed log.
-2. Confirm EINTR/timeouts return normally, while ENODEV/ENETDOWN cause logged main-loop exit and `clear_resources()`; no fatal-error hot loop.
-3. Poll current exact-SHA XY-C1 Build, TRX and artifact; all three must pass on one SHA for L3. Hardware L4 remains NOT VERIFIED.
-4. Continue a separate high-priority userland stability/security slice while unrelated Actions are pending.
+1. Check exact-head networkmap run for this checker update; require C tests and the complete Python source checker to pass.
+2. If there is another checker mismatch, use exact log line and correct the source matcher only; preserve fatal receive propagation and cleanup behavior.
+3. Poll XY-C1 only against one exact source SHA for Build + TRX + artifact; do not claim L3 until all pass. Hardware L4 remains NOT VERIFIED.
