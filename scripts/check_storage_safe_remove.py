@@ -647,6 +647,36 @@ require("status = rc_first_service_start_status(status, ENOENT);" in daemon_resu
         "return status;" in daemon_result,
         "daemon readiness helper must return absent and unknown process failures")
 
+# Firewall refresh decisions must not depend on lossy NVRAM match helpers.
+# The firewall rebuild owns checked enable/exposure interpretation and clears
+# stale mappings when services stop or configuration becomes disabled.
+ftp_firewall = body(storage, "control_ftp_fw(int is_run_before)")
+require("storage_service_process_presence_changed(is_run_before, is_run_after)" in ftp_firewall and
+        "return restart_firewall();" in ftp_firewall and
+        "nvram_match(" not in ftp_firewall,
+        "FTP presence changes must always invoke the checked firewall rebuild")
+for signature, label in (("restart_torrent(void)", "Transmission"),
+                         ("restart_aria(void)", "Aria")):
+    restart_body = body(storage, signature)
+    require("storage_service_process_presence_changed(is_run_before, is_run_after)" in restart_body and
+            "firewall_status = restart_firewall();" in restart_body and
+            'nvram_match("fw_enable_x"' not in restart_body,
+            label + " restart must not skip firewall refresh on an NVRAM gate")
+storage_stop = body(storage, "stop_stor_apps(void)")
+storage_start = body(storage, "start_stor_apps(void)")
+for function, label in ((storage_stop, "stop"), (storage_start, "start")):
+    require('nvram_match("ftpd_wopen"' not in function and
+            'nvram_match("fw_enable_x"' not in function and
+            "if (need_restart_fw)" in function and
+            "firewall_status = restart_firewall();" in function,
+            "storage " + label + " must rebuild firewall from checked configuration")
+require("is_ftp_run() != PROCESS_PRESENCE_ABSENT" in storage_stop and
+        "is_ftp_run() != PROCESS_PRESENCE_ABSENT" in storage_start,
+        "unknown FTP process presence must conservatively request firewall reconciliation")
+require("is_torrent_run() != PROCESS_PRESENCE_ABSENT" in storage_start and
+        "is_aria_run() != PROCESS_PRESENCE_ABSENT" in storage_start,
+        "unknown download-daemon presence must conservatively request firewall reconciliation")
+
 storage_start = body(storage, "start_stor_apps(void)")
 require(storage_start.count("rc_first_service_start_status(") == 8 and
         all(call in storage_start for call in (

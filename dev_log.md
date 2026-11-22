@@ -1,3 +1,12 @@
+## 2026-11-22 — Always reconcile firewall after storage daemon presence changes
+
+- Parent main SHA: 005d1e340cfc7a68b0686833c8ab96d30122fe73. Exact 005 Firewall Startup Stability #45005183052 PASS and AI docs #45005183110 PASS; exact cea NVRAM audit #45005080676 PASS. Exact cea XY-C1 #45005080673 remained in progress; no current product L3 claim.
+- FTP, Transmission and Aria lifecycle paths used unchecked nvram_match("fw_enable_x","1") gates before firewall refresh. FTP additionally gated on ftpd_wopen, and its restart helper did not cover ordinary daemon disappearance. Read errors could silently skip the firewall rebuild and leave stale mappings.
+- THIS FIX invokes restart_firewall() on each service-presence transition without lossy enable/exposure gates; the firewall itself consumes checked configuration and handles rule publication/cleanup. Storage start/stop app groups now include FTP regardless of its exposure toggle and treat UNKNOWN process presence conservatively.
+- Added integration assertions to scripts/check_storage_safe_remove.py; its existing storage-hotplug workflow path filters cover both changed files. Exact-head validation pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Repair stale firewall netmask source-contract locator
 
 - Parent main SHA: `cea789c171d0698f32cbe1d188ce8dda79c43353`. Exact Firewall Startup Stability #45005080730 failed after the new checked-IP source-contract script and all firewall C ASan/UBSan tests passed. The final inline NAT/netmask contract still searched for `lan_netmask = nvram_safe_get(...)`, which this source fix intentionally removed; Python raised `ValueError: substring not found`.

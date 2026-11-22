@@ -559,12 +559,12 @@ control_ftp_fw(int is_run_before)
 {
 	int is_run_after = is_ftp_run();
 
-	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
-	    (is_run_before == PROCESS_PRESENCE_UNKNOWN ||
-	     is_run_after == PROCESS_PRESENCE_UNKNOWN ||
-	     (is_run_before == PROCESS_PRESENCE_ABSENT &&
-	      is_run_after == PROCESS_PRESENCE_RUNNING)) &&
-	    nvram_match("ftpd_wopen", "1") && nvram_match("fw_enable_x", "1"))
+	/*
+	 * Let the firewall rebuild from its own checked configuration on every
+	 * daemon-presence transition. A lossy nvram_match() gate must not preserve
+	 * stale FTP port mappings when NVRAM is temporarily unreadable.
+	 */
+	if (storage_service_process_presence_changed(is_run_before, is_run_after))
 		return restart_firewall();
 
 	return 0;
@@ -3251,8 +3251,7 @@ int restart_torrent(void)
 	}
 
 	is_run_after = is_torrent_run();
-	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
-	    nvram_match("fw_enable_x", "1")) {
+	if (storage_service_process_presence_changed(is_run_before, is_run_after)) {
 		firewall_status = restart_firewall();
 		if (firewall_status != 0)
 			logmessage("Transmission", "firewall/UPnP refresh failed after restart (status=%d)",
@@ -3412,8 +3411,7 @@ int restart_aria(void)
 	}
 
 	is_run_after = is_aria_run();
-	if (storage_service_process_presence_changed(is_run_before, is_run_after) &&
-	    nvram_match("fw_enable_x", "1")) {
+	if (storage_service_process_presence_changed(is_run_before, is_run_after)) {
 		firewall_status = restart_firewall();
 		if (firewall_status != 0)
 			logmessage("Aria", "firewall/UPnP refresh failed after restart (status=%d)",
@@ -4220,8 +4218,8 @@ stop_stor_apps(void)
 	}
 #endif
 #if defined (APP_FTPD)
-	if (nvram_match("ftpd_wopen", "1"))
-		need_restart_fw |= is_ftp_run();
+	/* Refresh even with external FTP disabled so stale rules are removed. */
+	need_restart_fw |= (is_ftp_run() != PROCESS_PRESENCE_ABSENT);
 	if (stop_ftp_locked() != 0) {
 		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
 		stop_status = -1;
@@ -4254,7 +4252,7 @@ stop_stor_apps(void)
 	}
 #endif
 
-	if (need_restart_fw && nvram_match("fw_enable_x", "1")) {
+	if (need_restart_fw) {
 		firewall_status = restart_firewall();
 		if (firewall_status != 0)
 			logmessage("Storage", "firewall/UPnP refresh failed after storage stop (status=%d)",
@@ -4282,8 +4280,7 @@ start_stor_apps(void)
 	if (service_status != 0)
 		logmessage("Storage", "FTP startup did not reach its daemon postconditions");
 	start_status = rc_first_service_start_status(start_status, service_status);
-	if (nvram_match("ftpd_wopen", "1"))
-		need_restart_fw |= (is_ftp_run() == PROCESS_PRESENCE_RUNNING);
+	need_restart_fw |= (is_ftp_run() != PROCESS_PRESENCE_ABSENT);
 #endif
 #if defined (APP_SMBD)
 	service_status = run_samba();
@@ -4308,15 +4305,15 @@ start_stor_apps(void)
 #if defined (APP_TRMD)
 	service_status = run_torrent();
 	start_status = rc_first_service_start_status(start_status, service_status);
-	need_restart_fw |= (is_torrent_run() == PROCESS_PRESENCE_RUNNING);
+	need_restart_fw |= (is_torrent_run() != PROCESS_PRESENCE_ABSENT);
 #endif
 #if defined (APP_ARIA)
 	service_status = run_aria();
 	start_status = rc_first_service_start_status(start_status, service_status);
-	need_restart_fw |= (is_aria_run() == PROCESS_PRESENCE_RUNNING);
+	need_restart_fw |= (is_aria_run() != PROCESS_PRESENCE_ABSENT);
 #endif
 
-	if (need_restart_fw && nvram_match("fw_enable_x", "1")) {
+	if (need_restart_fw) {
 		firewall_status = restart_firewall();
 		if (firewall_status != 0)
 			logmessage("Storage", "firewall/UPnP refresh failed after storage start (status=%d)",
