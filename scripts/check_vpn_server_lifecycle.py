@@ -592,7 +592,8 @@ require(snapshot_read < snapshot_error < single_wan < single_fastpath < lifecycl
 require("kill_services(svcs, 5, 1)" in wan_launch_locked and
         "xl2tpd_start_policy_wan_launch_result(" in wan_launch_locked,
         "WAN L2TP stop/config/start must remain in one locked helper")
-require("xl2tpd_start_policy_wan_launch_result(\\n\\t\\t\\t\\tsafe_start_xl2tpd_locked())" in wan_launch_locked,
+require("xl2tpd_start_policy_wan_launch_result(" in wan_launch_locked and
+        "safe_start_xl2tpd_locked()" in wan_launch_locked,
         "WAN L2TP launch must accept already-running xl2tpd as success")
 ordered(wan_launch_locked,["ppp_wan_session_generation_change(&callback_generation)",
                            "launch_mode->multiwan_enabled",

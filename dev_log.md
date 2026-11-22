@@ -1,3 +1,14 @@
+## 2026-11-22 — Normalize PPP lifecycle and multi-WAN source contracts
+
+- Parent main SHA: `1e6238117d62087ea9eb5e99384b3ad2c65d1511`. IPv6 service-type #45031159848 and AI handoff #45031159852 passed on this parent.
+- Exact PPP integration descendant `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`: VPN lifecycle #45031084455 failed because the checker compared a literal escaped newline/tab sequence rather than normalizing the C source call; WAN route #45031084451 failed in `check_pppoe_mwan_status.py` because it still located the old two-argument worker signature. Both regressions are corrected.
+- The PPPoE-MWAN partial-failure contract now also verifies the cleanup block is gated by the same immutable `launch_mode->multiwan_enabled` selector before stopping partial PPP sessions.
+- The same parent had unrelated source-contract failures in LAN DHCP and checked LAN IPv6 reload helpers (WAN DHCP #45031084413; modem/USB/firewall/process/XY checks on #45031084464, #45031084483, #45031084376, #45031084406); those are independent and remain the next cleanup slice. NVRAM audit #45031084347 was still running at last observation. The XY run failed before firmware build.
+- No local tests or target firmware build were run in this connector-only session. No XY-C1/TRX/artifact result is claimed.
+- Result: THIS COMMIT. Next: reconcile checked LAN IPv6 snapshot source contracts and LAN DHCP hostname publication tests; continue to monitor pending NVRAM audit.
+
+---
+
 ## 2026-11-22 — Distinguish router-hosts IPv6 preflight from emission
 
 - Parent main SHA: `52a8c60d1e9aa324bb7f020fdeafda99a03319e9`. The PPP launch-selector integration correction `52a8c60d1e9aa324bb7f020fdeafda99a03319e9` has triggered exact-head WAN route #45031084451, WAN DHCP #45031084413, USB modem #45031084464, VPN lifecycle #45031084455, XY-C1 #45031084406, NVRAM audit #45031084347, AI handoff #45031084508, firewall startup #45031084376 and process-inventory #45031084490/#45031084483; all were queued at the last observation. Do not infer a result from those queued runs.

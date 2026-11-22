@@ -250,7 +250,7 @@ require(
     "RPL2TP rollback policy must cover success, session failure and cleanup failure",
 )
 
-ppp_launch = function_body(PPP, "launch_wan_pppd_locked(int unit, int wan_proto)")
+ppp_launch = function_body(PPP, "launch_wan_pppd_locked(int unit, int wan_proto,")
 launch_failure_start = ppp_launch.index("if (launch_status != 0)")
 launch_failure_open = ppp_launch.index("{", launch_failure_start)
 launch_failure, _ = braced_body(ppp_launch, launch_failure_open)
@@ -260,7 +260,8 @@ cleanup_call = launch_failure.index("cleanup_status = kill_services(svcs_pppd, 5
 cleanup_log = launch_failure.index("failed to stop partial multi-WAN PPP sessions after launch failure")
 restore_errno = launch_failure.index("errno = saved_errno;")
 require(
-    invalidate < cleanup_gate < cleanup_call < cleanup_log < restore_errno,
+    invalidate < cleanup_gate < cleanup_call < cleanup_log < restore_errno
+    and "launch_mode->multiwan_enabled" in launch_failure[cleanup_gate:cleanup_call],
     "partial multi-WAN launch failure must invalidate callback identity then stop all partial PPPD sessions",
 )
 
