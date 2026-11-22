@@ -13,24 +13,24 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `9aa369f4f8ef8cb1c9832073411e42268a0e976f`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `0d7275cc91b2ab922a57c142c688c43f442fd25b`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- p910nd transient I/O, EAPoL orphan-tail cleanup, ttyd child readiness and WSDD2 XML UTF-8 validation remain committed.
-- AliyunDrive HTTP listener readiness is committed. The c32d2d3 fixture now keeps the simulated PID alive during the bounded HTTP probes; its source-checker `require()` ordering fix is committed at 72ffcb3. Exact run #45043816997 failed only in the final source contract: it used the first `ald_wait_started` occurrence (the already-running-instance health check) and incorrectly required that to occur after the daemon launch. The code correctly has two calls; the checker now requires the pre-launch existing-instance probe and the post-launch readiness probe in order.
-- AliDDNS NUL-delimited configuration fingerprint and shell regression are committed at 1293727/3556d29. The exact fingerprint regression passed on #45043730798, but the final Python contract failed at line 542 because three new assertions refer to undefined uppercase `SOURCE` rather than the initialized lowercase `source`; this commit corrects the checker.
+- p910nd transient I/O, EAPoL orphan-tail cleanup, ttyd child readiness, WSDD2 strict XML validation and AliyunDrive HTTP readiness are committed.
+- AliDDNS uses a NUL-delimited config digest including the custom script digest. The test-root path was corrected; this commit corrects lowercase Python checker bindings.
 
 ## Active task
 
-Correct the AliyunDrive readiness source-contract ordering as a checker-only fix, then validate it on exact main SHA. Inspect AliDDNS run #45043936130 on 9aa369f and AI handoff #45043936175; their status was pending at last inspection.
+Rerun AliDDNS API transport validation after fixing its Python source-contract checker. New fingerprint assertions previously referenced undefined uppercase SOURCE/WORKFLOW identifiers, but the existing checker binds lowercase `source` and `workflow`. These references are now corrected. Confirm the test script extracts production source from the repository root, then diagnose any actual regression failures.
+
 ## Verification boundary
 
-- Ancestor SHA 129372718e1241823d785da6455abb46d03869c1: Process inventory #45043414729 PASS; AI handoff #45043414763 PASS; HTTPD auth #45043414724 PASS; AliDDNS #45043414686 FAILED at test path resolution; XY-C1 #45043414723 was pending then.
-- AliyunDrive diagnostic #45042972255 on f8176758 FAILED with `marker=absent probes=0 sleeps=10`. Follow-up fixture changes on c32d2d3955b2f986494f070c1272d9fac4add50e address the missing mock process; exact run #45043595742 was still in progress at last inspection.
-- The AliDDNS test-root correction and single-digest contract have not yet run. No local shell tests, production build, TRX/artifact or hardware checks were performed.
-- L3 requires XY-C1 Build, TRX verification and artifact upload all PASS on one identical product-source SHA. L3/L4 remain NOT VERIFIED.
+- Exact actions on parent 0d7275cc91b2ab922a57c142c688c43f442fd25b: none returned.
+- AliyunDrive fixture-isolation run #45043595742 on c32d2d3955b2f986494f070c1272d9fac4add50e: completed/failure.
+- AliDDNS fingerprint action #45043730798 on 3556d297e887ad81b5457e16a33b32eafadafa9a: completed/failure; its prior checker execution raised a binding NameError, now corrected. Rerun required.
+- No local Python/shell tests, firmware build, TRX/artifact or hardware checks were performed. L3 requires Build, TRX verification and artifact upload all PASS on one identical product-source SHA; L3/L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head AliyunDrive rerun for this checker correction and repair only the first demonstrated failure.
-2. Inspect AliDDNS #45043936130 and AI docs #45043936175 on parent `9aa369f`; the source fingerprint regression and all shell tests passed before the previous checker failure.
-3. Recheck XY-C1 Build/TRX/artifact on exact product-source SHA, then continue an independent stability/security defect from the roadmap. Keep frozen backup read-only and work only on main.
+1. Inspect exact-head AliDDNS API transport Action after this checker fix. Correct real source/test failure if any; do not weaken the NUL-boundary collision regression.
+2. Inspect AliyunDrive HTTP readiness Action after fixture isolation. Confirm the test mock reports the daemon running through all bounded HTTP probes and verify delayed-listener and unhealthy-duplicate cases.
+3. Inspect current XY-C1 same-SHA Build/TRX/artifact statuses, then continue another independent userland stability/security task. Keep backup immutable and work only on main.

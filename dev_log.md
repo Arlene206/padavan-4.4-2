@@ -1,3 +1,11 @@
+## 2026-11-22 — Correct AliDDNS source-contract checker bindings
+
+- Parent main SHA: `0d7275cc91b2ab922a57c142c688c43f442fd25b`. The AliDDNS checker added its new fingerprint assertions using uppercase `SOURCE` and `WORKFLOW`, while the existing checker loads those values into lowercase `source` and `workflow`. The resulting Python source-contract step raises a NameError before it can validate the production helper. Corrected the new assertions to use the already-defined bindings; no production behavior changed.
+- The prior root-path correction now resolves the checkout as `scripts/..`, and the redundant post-fingerprint MD5 wrapper has been removed. This commit is the checker-only repair; the exact AliDDNS action must rerun.
+- AliyunDrive fixture-isolation run #45043595742 on its recorded parent is checked separately; it did not validate this checker change. No local Python/shell tests or firmware build are claimed.
+
+---
+
 ## 2026-11-22 — Correct AliyunDrive readiness checker call ordering
 
 - Parent main SHA: `9aa369f4f8ef8cb1c9832073411e42268a0e976f`. Exact AliyunDrive run #45043816997 on `72ffcb355cff70e8dc7b54f708b3806e3eac7e66` passed MIPSel QEMU CLI compatibility and the full host lifecycle regression, then failed the Python source contract: `start.index('ald_wait_started')` selected the first call, which correctly checks an already-running daemon before attempting a duplicate launch. The actual new-daemon readiness call occurs after `"$ALD_BIN"`; the contract incorrectly ordered the first occurrence after that launch.

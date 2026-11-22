@@ -549,7 +549,7 @@ require("B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || 
         "restart state must use one unambiguous fingerprint and fail closed on hash errors")
 require("aliddns_get_status || return 1" in check_body,
         "lifecycle check must not restart with an unknown configuration fingerprint")
-require("aliddns_config_fingerprint.sh" in WORKFLOW and
+require("aliddns_config_fingerprint.sh" in workflow and
         "AliDDNS unambiguous configuration fingerprint regression: PASS" in
         (ROOT / "scripts/test_aliddns_config_fingerprint.sh").read_text(),
         "workflow must run the new configuration fingerprint regression")
