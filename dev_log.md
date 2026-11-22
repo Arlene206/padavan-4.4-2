@@ -1,3 +1,12 @@
+## 2026-11-22 — Fix storage checker function-boundary escape
+
+- Parent main SHA: `8f54faaaf0e0cbd2461ebd35f595612032521987`. Exact-head USB storage run #44994403806 passed the whole storage caller graph and all preceding C/shell regressions, then failed in `scripts/check_storage_safe_remove.py:1446` with `ValueError: substring not found`. The checker searched for literal backslash-`n` sequences (`"\\nstatic int\\nstorage_read_nvram_string"`) while the C source contains real newline characters.
+- Corrected the Python string to use actual newline escapes so the checked marker-writer function ends at `storage_read_nvram_string`; product code and the asserted error-return contract are unchanged.
+- Exact-head AI handoff documentation contract #44994403647 passed. XY-C1 validation #44994403623 completed SUCCESS on `8f54faa`, but its Build XY-C1, TRX and artifact-upload steps were SKIPPED due to the workflow's path/condition logic; this is not an L3 firmware-build result.
+- Next: check exact-head storage workflow after this checker fix and establish why XY-C1's build steps were skipped; do not claim L3 until all three firmware gates actually execute and pass.
+
+---
+
 ## 2026-11-22 — Update safe-remove retry checker for PID 1 queue handoff
 
 - Parent main SHA: `9110090e4886d5a183dfe21dfbd26fde08698aea`. The corrected whole-storage caller graph passed on exact SHA `9110090e4886d5a183dfe21dfbd26fde08698aea`; the workflow then reached `scripts/check_storage_safe_remove.py` and failed at its stale line 478, which still demanded `nvram_set_int_temp("usb_hotplug_ms", 1)` and `alarm(5)` inside `safe_remove_stor_device()`.
