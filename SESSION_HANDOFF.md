@@ -6,10 +6,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 - Repository Arlene206/padavan-4.4-2; active branch main; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 is closed/unmerged.
-- Parent main for this slice: `12f62705798d1c639c4c0d6b542f82a33fc8ed64`. The preceding PID1 reset source change is in e72; 0170 only refreshed SESSION_HANDOFF/dev_log; 12f6 added the checked nanosleep service-wait policy and CI compile/run.
-- Exact e72 PID1 mdev #45001383227, HTTPD #45001383163, Process lifecycle #45001383698, Process inventory #45001383203, NVRAM #45001383196, USB storage #45001383155, DNS forwarder #45001383158, PID1 notification #45001383190, DNSMasq #45001383159 and AI #45001383224 PASS.
-- Exact e72 XY-C1 #45001383211 had passed every host check and was still building XY-C1 at the last observed poll; TRX verification and artifact upload were pending. No L3 claim.
-- Exact 12f6 runs observed: Samba #45001974527 and NFS #45001974695 IN_PROGRESS; miniupnpd #45001974620 and Process lifecycle #45001974578 QUEUED. This WAN DHCP slice is independent and proceeds without waiting.
+- Current parent main for this correction: `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`. Source fix for DHCP option-26 withdrawal is in a5; this commit only reconciles two stale source contracts after parser centralization.
+- Exact a5 PASS: WAN DHCP callback stability #45002087932 (including new option-withdrawal test/check), Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router-mode NVRAM #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service type #45002087857, WAN ARP #45002087845, detect-internet #45002087952.
+- Exact a5 HTTPD #45002087808 FAILED at embedded DHCP contract line 214 because it still expected inline `dhcp_lease_decimal_is_valid(value,...)` in `udhcpc_bound()`; parser validation now correctly resides in `dhcp_lease_mtu_option_value()`. Exact a5 WAN route #45002087933 FAILED in `check_wan_initial_mtu_status.py` for the same stale inline-parser assumption. The DHCP C regression passed, the DHCP WAN-specific checker passed, and route workflow sanitizer C policy regressions passed before its checker failed.
+- Exact a5 XY-C1 #45002087905 was still IN_PROGRESS at last poll; confirm Build XY-C1, TRX verification and artifact upload on one product-source SHA. No L3/L4 claim.
+- Other a5 jobs still running at last poll: Firewall #45002087962 and NVRAM transaction audit #45002087864. Do not wait; handle exact failures as they materialize.
 
 ## Completed source slices
 
@@ -29,16 +30,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-- Fix DHCP option-26 withdrawal in physical WAN and IPTV lease callbacks. BusyBox exports a known DHCP option only when the packet contains it; when option 26 disappears, `getenv("mtu")` is NULL. The previous callbacks only applied and compared MTU when that variable was present, retaining a previous smaller interface MTU and stale NVRAM lease MTU after withdrawal.
-- THIS COMMIT maps an absent option to the Ethernet default 1500, always publishes physical/IPTV MTU in the bound snapshot, and makes fast-renew compare the absent-option default against the previous coherent snapshot before returning success. An empty previous snapshot is treated as the established 1500 default; malformed present values retain the unsupported-value behavior.
-- The existing GNU89 DHCP lease policy binary gains regression cases for absent/present/invalid values and reapply decisions. The WAN DHCP workflow gains a dedicated source-order contract for both physical and IPTV callbacks. Exact-head WAN DHCP/Process/XY-C1 Actions are required.
+- Correct two workflow contracts that assumed the DHCP option range check remained inline in the bound callback. The implementation intentionally centralizes parsing in `dhcp_lease_mtu_option_value()` in `dhcp_lease_policy.h`, while `wan_dhcp_mtu_is_supported()` independently gates the setter with the same 576..1500 range.
+- THIS COMMIT changes no production C code: the HTTPD embedded DHCP source contract now pins the callback's shared-parser call and the helper's exact parser bounds; `check_wan_initial_mtu_status.py` makes the same assertions for physical WAN and IPTV. Existing sanitizer-enabled policy tests and new option-withdrawal check already passed on a5.
+- Exact-head HTTPD and WAN route reruns are required; then continue other independent work while pending jobs run.
 
 ## Verification boundary
-- Exact e72 PID1 mdev #45001383227, HTTPD #45001383163, Process lifecycle #45001383698, Process inventory #45001383203, NVRAM #45001383196, USB #45001383155, DNS forwarder #45001383158, PID1 notification #45001383190, DNSMasq #45001383159 and AI #45001383224 PASS.
-- Exact e72 XY-C1 #45001383211 was in Build XY-C1 at the latest detailed poll, with TRX/artifact pending. Do not claim L3 unless Build, TRX and artifact upload all pass on the same product SHA.
-- The DHCP option-26 withdrawal source/test slice is added in this checkpoint; exact-head Actions pending. Hardware L4 remains NOT VERIFIED.
+- Exact a5 WAN DHCP callback #45002087932, Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router mode #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service type #45002087857, WAN ARP #45002087845 and detect-internet #45002087952 PASS.
+- Exact a5 HTTPD #45002087808 and WAN route #45002087933 failed only at stale source assertions expecting the MTU parser inline; checker correction prepared here. No production failure identified by those two logs.
+- Exact a5 XY-C1 #45002087905, Firewall #45002087962 and NVRAM transaction audit #45002087864 were IN_PROGRESS at last poll. L3 requires same-SHA Build, TRX and artifact success; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact new-main WAN DHCP callback stability, Process lifecycle/inventory, and XY-C1 Build/TRX/artifact runs; fix any first causal failure without waiting on independent pending jobs.
-2. Confirm whether e72 XY-C1 #45001383211 completed Build, TRX and artifact upload on that exact source SHA; the last observed job state had Build in progress.
-3. Once the MTU withdrawal slice is green, resume the next independent P1 WAN restart route-restoration issue from the roadmap. Keep hardware L4 NOT VERIFIED.
+1. Inspect exact-head HTTPD and WAN route Actions for this correction SHA; fix the first genuine failure if any.
+2. Recheck a5 XY-C1 #45002087905 and confirm whether Build, TRX and artifact upload completed on that exact SHA; also resolve any exact-a5 Firewall/NVRAM failures without waiting on unrelated jobs.
+3. Continue the next concrete P1 WAN restart/route-restoration defect from the roadmap. Keep L3/L4 claims strictly tied to exact successful checks.

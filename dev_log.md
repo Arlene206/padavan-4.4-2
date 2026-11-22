@@ -1,3 +1,11 @@
+## 2026-11-22 — Align DHCP MTU source contracts with the shared parser
+
+- Parent main SHA: `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`. Exact a5 WAN DHCP callback #45002087932, Process inventory #45002087966, AI docs #45002088016, detect-link #45002088042, router-mode NVRAM #45002087993, ZeroTier #45002087815, VPN server #45002087979, miniupnpd #45002087848, DNSMasq #45002087957, watchdog #45002087992, WAN teardown #45002087970, Wireless #45002087961, USB modem #45002087840, IPv6 service type #45002087857, WAN ARP #45002087845 and detect-internet #45002087952 PASS.
+- Exact a5 HTTPD #45002087808 failed only at embedded checker line 214; WAN route #45002087933 failed in the initial-MTU checker. Both still expected the 576..1500 parser call inline in `udhcpc_bound()`, while a5 had deliberately centralized it in `dhcp_lease_mtu_option_value()`. The policy regression and the WAN option-withdrawal checker both passed.
+- THIS COMMIT updates these source contracts to verify the shared parser and its 576..1500 bounds; no production C behavior changes. Exact-head HTTPD/WAN route reruns pending; XY-C1 #45002087905, Firewall #45002087962 and NVRAM audit #45002087864 were still running at last poll. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 — Restore default MTU when DHCP option 26 is withdrawn
 
 - Parent main SHA: `12f62705798d1c639c4c0d6b542f82a33fc8ed64`. Exact e72 PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM, USB storage, DNS forwarder, PID1 notification, DNSMasq and AI runs PASS; XY-C1 #45001383211 was still building at last detailed poll.

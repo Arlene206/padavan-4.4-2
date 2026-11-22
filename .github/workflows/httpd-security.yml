@@ -2657,7 +2657,8 @@ jobs:
           lan_main = lan[lan_main_start:lan_main_end]
           assert 'if (!lan_ifname || !*lan_ifname)' in lan_main
           print("LAN DHCP bound/renew validation, route reconciliation and fail-closed deconfig contracts: OK")
-          assert "dhcp_lease_decimal_is_valid(value, 576U, 1500U" in bound
+          assert "dhcp_lease_mtu_option_value(" in bound
+          assert "dhcp_lease_decimal_is_valid(option, 576U, 1500U" in policy
           assert "dhcp_wan_route_transition_apply(" in bound
           assert "remove_old_dhcp_routes" in bound
           assert "preserving old lease" in bound

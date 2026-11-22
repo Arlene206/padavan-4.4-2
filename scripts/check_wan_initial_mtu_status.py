@@ -416,6 +416,11 @@ assert "nvram_get_int(" not in viptv_renew
 assert "dhcp_wan_bound_retry_required(" not in viptv_renew
 
 dhcp_mtu_policy = body(POLICY, "wan_dhcp_mtu_is_supported(")
+dhcp_mtu_option_policy = body(POLICY, "dhcp_lease_mtu_option_value(")
+require(
+    "dhcp_lease_decimal_is_valid(option, 576U, 1500U" in dhcp_mtu_option_policy,
+    "DHCP option parser must enforce the same 576..1500 range as the interface setter",
+)
 require(
     "dhcp_mtu >= 576 && dhcp_mtu <= 1500" in dhcp_mtu_policy,
     "DHCP MTU helper must match parser-supported values 576..1500",
@@ -427,8 +432,8 @@ require(
 )
 for callback in (wan_bound, viptv_bound):
     require(
-        "dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value)" in callback,
-        "DHCP parser and setter ranges must remain aligned",
+        "dhcp_lease_mtu_option_value(" in callback,
+        "WAN and IPTV callbacks must consume the shared DHCP option parser",
     )
 require(
     all(token in DHCP_TEST for token in (
