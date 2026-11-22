@@ -463,14 +463,18 @@ jobs:
                                     ("lan_netmask", "lan_netmask_snapshot")):
               assert 'char ' + destination + '[INET_ADDRSTRLEN];' in callback
               assert 'nvram_safe_get("' + key + '")' not in callback
-          lan_ip_read = callback_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr",lan_ipaddr_snapshot,sizeof(lan_ipaddr_snapshot));')
-          lan_mask_read = callback_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask",lan_netmask_snapshot,sizeof(lan_netmask_snapshot));')
-          lan_snapshot_error = callback_compact.index("if(lan_config_status!=0)", lan_mask_read)
+          lan_ip_field = callback_compact.index('lan_snapshot_fields[0].param_name="lan_ipaddr";')
+          lan_mask_field = callback_compact.index('lan_snapshot_fields[1].param_name="lan_netmask";')
+          lan_snapshot = callback_compact.index("lan_config_status=rc_wan_nvram_copy_snapshot(")
+          lan_snapshot_error = callback_compact.index("if(lan_config_status!=0)", lan_snapshot)
           lan_snapshot_return = callback_compact.index("returnlan_config_status;", lan_snapshot_error)
           lan_subnet_check = callback_compact.index("is_same_subnet2(wan_ip,lan_ip,wan_nm,lan_nm)")
           lan_interface_apply = callback_compact.index("dhcp_wan_interface_apply(")
-          assert lan_ip_read < lan_mask_read < lan_snapshot_error < lan_snapshot_return < lan_subnet_check < lan_interface_apply
-          assert "test_lan_subnet_identity_survives_shared_cache_overwrite" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+          assert lan_ip_field < lan_mask_field < lan_snapshot < lan_snapshot_error < lan_snapshot_return < lan_subnet_check < lan_interface_apply
+          assert "wan_nvram_transaction_begin_callback" in callback
+          assert "wan_nvram_transaction_get_callback" in callback
+          assert "wan_nvram_transaction_end_callback" in callback
+          assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
           callback_identity = re.search(
               r"([A-Za-z_]\w*)=is_ifunit_modem_status\(wan_ifname,unit,&modem_unit_id\)",
               callback_compact,
@@ -494,13 +498,18 @@ jobs:
           viptv_compact = "".join(viptv_bound.split())
           for key in ("lan_ipaddr", "lan_netmask"):
               assert 'nvram_safe_get("' + key + '")' not in viptv_bound
-          viptv_ip_read = viptv_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr",lan_ipaddr_snapshot,sizeof(lan_ipaddr_snapshot));')
-          viptv_mask_read = viptv_compact.index('lan_config_status=rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask",lan_netmask_snapshot,sizeof(lan_netmask_snapshot));')
-          viptv_snapshot_error = viptv_compact.index("if(lan_config_status!=0)", viptv_mask_read)
+          viptv_ip_field = viptv_compact.index('lan_snapshot_fields[0].param_name="lan_ipaddr";')
+          viptv_mask_field = viptv_compact.index('lan_snapshot_fields[1].param_name="lan_netmask";')
+          viptv_snapshot = viptv_compact.index("lan_config_status=rc_wan_nvram_copy_snapshot(")
+          viptv_snapshot_error = viptv_compact.index("if(lan_config_status!=0)", viptv_snapshot)
           viptv_snapshot_return = viptv_compact.index("returnlan_config_status;", viptv_snapshot_error)
           viptv_subnet_check = viptv_compact.index("is_same_subnet2(ip,lan_ip,nm,lan_nm)")
           viptv_interface_apply = viptv_compact.index("dhcp_wan_interface_apply(")
-          assert viptv_ip_read < viptv_mask_read < viptv_snapshot_error < viptv_snapshot_return < viptv_subnet_check < viptv_interface_apply
+          assert viptv_ip_field < viptv_mask_field < viptv_snapshot < viptv_snapshot_error < viptv_snapshot_return < viptv_subnet_check < viptv_interface_apply
+          assert "wan_nvram_transaction_begin_callback" in viptv_bound
+          assert "wan_nvram_transaction_get_callback" in viptv_bound
+          assert "wan_nvram_transaction_end_callback" in viptv_bound
+          assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in wan_nvram_test
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
           assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in viptv_bound
           apply = callback.index("dhcp_wan_interface_apply(")
@@ -1765,33 +1774,6 @@ jobs:
           assert "(void)ancillary_status;" in lan_callback_policy
           assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in lan_callback_test
           assert "test_transaction_failure_remains_fatal" in lan_callback_test
-
-          viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
-          viptv_compact = "".join(viptv_bound.split())
-          lan_snapshot = "lan_config_status=rc_wan_nvram_copy_snapshot("
-          lan_overlap = "is_same_subnet2(ip,lan_ip,nm,lan_nm)"
-          assert lan_snapshot in viptv_compact
-          assert 'lan_snapshot_fields[0].param_name="lan_ipaddr";' in viptv_compact
-          assert 'lan_snapshot_fields[1].param_name="lan_netmask";' in viptv_compact
-          assert "wan_nvram_transaction_begin_callback" in viptv_bound
-          assert "wan_nvram_transaction_get_callback" in viptv_bound
-          assert "wan_nvram_transaction_end_callback" in viptv_bound
-          assert viptv_compact.index(lan_snapshot) < viptv_compact.index(lan_overlap)
-          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr"' not in viptv_compact
-          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask"' not in viptv_compact
-          assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in wan_nvram_test
-
-          wan_bound = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
-          wan_bound_compact = "".join(wan_bound.split())
-          assert "lan_config_status=rc_wan_nvram_copy_snapshot(" in wan_bound_compact
-          assert 'lan_snapshot_fields[0].param_name="lan_ipaddr";' in wan_bound_compact
-          assert 'lan_snapshot_fields[1].param_name="lan_netmask";' in wan_bound_compact
-          assert "wan_nvram_transaction_begin_callback" in wan_bound
-          assert "wan_nvram_transaction_get_callback" in wan_bound
-          assert "wan_nvram_transaction_end_callback" in wan_bound
-          assert wan_bound_compact.index("lan_config_status=rc_wan_nvram_copy_snapshot(") < wan_bound_compact.index("is_same_subnet2(wan_ip,lan_ip,wan_nm,lan_nm)")
-          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr"' not in wan_bound_compact
-          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask"' not in wan_bound_compact
 
           print("WAN DHCP callback ordering, rollback, IPTV LAN subnet snapshot and static-interface failure contracts: PASS")
           PY
