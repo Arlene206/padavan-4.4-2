@@ -100,7 +100,7 @@ jobs:
           dhcp_client_gate = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'
           wan_daemon_gate = "kill_services(svcs_wan, 3, 1)"
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
-          failure_gate = "if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)"
+          failure_gate = "stop_status = wan_teardown_first_error_status("
           modem_type_read = "modem_status = get_wan_modem_is_ndis_status(&is_ndis_modem);"
           usbnet_gate = "if (is_usb_modem && is_ndis_modem)"
           assert "usbnet_ifname = NULL;" in stop

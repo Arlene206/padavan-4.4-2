@@ -1,3 +1,13 @@
+## 2026-11-22 — Repair exact-head checked-protocol regression contracts
+
+- Parent main SHA: `4a6df662b6c34d2282e81b3ef8054e80e0894393`.
+- Exact-head `4a6df662b6c34d2282e81b3ef8054e80e0894393` completed with three actionable workflow issues: WAN route checker still expected the removed `rc_first_service_start_status(stop_status, proto_status)`; WAN teardown workflow still located the old combined error gate rather than the new first-error aggregator; the DHCP callback embedded Python used an undefined `require()` helper.
+- Updated those source contracts to verify protocol-error aggregation after callback cleanup and switched the inline DHCP check to a standard assertion. These are CI/test harness corrections; the production source slice remains unchanged in this commit.
+- The WAN route, WAN DHCP callback and WAN teardown Actions on SHA 4a6df66 failed at the above contract/assertion issues. The host C policy builds preceding the WAN teardown Python contract succeeded. XY-C1 Build/TRX/artifact and the independent repository inventory remain under exact-head verification at this checkpoint; no unobserved result is treated as PASS.
+- Next: inspect exact-SHA reruns for these three contracts and the WAN DHCP source gate; then review any compiler/build failure or other independent regression.
+
+---
+
 ## 2026-11-22 — Fail closed on remaining unchecked WAN protocol consumers
 
 - Parent main SHA: `d1108616599c54ff5268c780b9119d276b1e82fb`.

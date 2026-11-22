@@ -183,11 +183,14 @@ require("get_wan_dns_static_status(&is_static)" in legacy_dns and
 
 stop_wan = "".join(body(source, "stop_wan_locked(void)").split())
 stop_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+stop_protocol_aggregate = "stop_status=wan_teardown_first_error_status(stop_status,proto_status,ifdown_status,callback_cleanup_status)"
+stop_callback_cleanup = "callback_cleanup_status=remove_cb_links()"
 require(stop_proto_read in stop_wan and
         "if(proto_status!=0)" in stop_wan and
-        "rc_first_service_start_status(stop_status,proto_status)" in stop_wan and
+        stop_protocol_aggregate in stop_wan and
+        stop_wan.index(stop_callback_cleanup) < stop_wan.index(stop_protocol_aggregate) and
         "if((proto_status!=0||wan_proto==IPV4_WAN_PROTO_IPOE_STATIC)" in stop_wan,
-        "WAN stop must preserve protocol errors and use conservative WAN-down cleanup")
+        "WAN stop must retain protocol errors after independent cleanup and use conservative WAN-down cleanup")
 
 wan_down = "".join(body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)").split())
 down_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
