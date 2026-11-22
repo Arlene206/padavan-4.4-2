@@ -512,10 +512,11 @@ require("ifname=NULL" in wan_ip4 and
         "get_man_ifname(unit)" not in wan_ip4 and
         "man_ifname_value" not in wan_ip4,
         "WAN IP lookup must read and validate manual interface only after modem/PPP selection")
-require("if(status!=0)returnINADDR_ANY" in wan_ip4 and
-        "status=get_usb_modem_wan_status(unit,&is_usb_modem)" in wan_ip4 and
-        "if(!only_broadband_wan&&is_usb_modem)" in wan_ip4,
-        "WAN IP lookup must fail closed on modem identity errors")
+ip4_modem_read_at = wan_ip4.index("status=get_usb_modem_wan_status(unit,&is_usb_modem)")
+ip4_modem_error_at = wan_ip4.index("if(status!=0){errno=status;returnINADDR_ANY;}", ip4_modem_read_at)
+ip4_modem_select_at = wan_ip4.index("if(!only_broadband_wan&&is_usb_modem)")
+require(ip4_modem_read_at < ip4_modem_error_at < ip4_modem_select_at,
+        "WAN IP lookup must preserve modem identity read errors before selecting the transport")
 assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ip4
 ip4_modem_select_at = wan_ip4.index("if(!only_broadband_wan&&is_usb_modem)")
 ip4_proto_read_at = wan_ip4.index("status=get_wan_unit_proto_checked_status(unit,&wan_proto)")

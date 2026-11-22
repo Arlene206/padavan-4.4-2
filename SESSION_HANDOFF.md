@@ -7,12 +7,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
-- Current product/checker parent before this slice: `616d5a710acdf727a8f110052289c1d63d966a9d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- WAN checked-interface source fixes: `start_wan()` and `get_wan_ifname()` use checked bounded `wan0_ifname` reads and token validation only when manual interface is selected; modem/PPP overrides do not acquire an unrelated manual-interface dependency.
-- Exact ecf WAN route #44996213814 PASS and AI docs #44996213622 PASS. Exact 616 WAN DHCP #44996346231 PASS and AI docs #44996346193 PASS; the raw-vs-compact checker index defect is fixed.
-- `get_wan_ip4()` still eagerly called `get_man_ifname()`/`nvram_safe_get()` before modem/PPP selection. A transient NVRAM error could become an empty interface and `INADDR_ANY` without preserving the backend error; it also unnecessarily depended on manual `ifname` for active modem/PPP. This slice defers checked manual read/token validation until no modem/PPP override is selected, and sets `errno` before returning the existing `INADDR_ANY` failure sentinel.
-- Exact 2b XY-C1 #44995928841 completed host-only with Build/TRX/artifact skipped. Exact dc6 XY-C1 #44996098229 had not produced a verified final result at last poll. No L3 claim until Build XY-C1, TRX and artifact all execute/pass on identical product-source SHA.
-- No local full MIPS toolchain or hardware. Hardware L4 NOT VERIFIED.
+- Current product/checker baseline before the modem error assertion correction: `d018080e3ef848417c1969ba17adfd0b8a775624`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- `start_wan()` and `get_wan_ifname()` now use checked bounded `wan0_ifname` reads and validation only on manual-interface selection. `get_wan_ip4()` now selects modem/PPP first, then checks and validates manual interface only if no override is selected; `errno` preserves NVRAM/modem read failures while legacy `INADDR_ANY` remains the result sentinel.
+- Exact d018 WAN DHCP #44996488482 PASS. Exact d018 WAN route #44996488531 FAILED at `scripts/check_wan_dns_read_status.py:515`: an older assertion still required a plain `if(status!=0)returnINADDR_ANY` branch after the code had been strengthened to preserve the specific error with `errno=status`. The preceding WAN DNS/manual-fallback source contract passed.
+- Exact d018 AI docs #44996488511 PASS, HTTPD Authentication/Security #44996488357 was in progress in last poll, XY-C1 #44996488349 in progress in compiler setup/build prep. Many independent source suites on d018 had already passed. The WAN checker follow-up makes the modem identity error contract explicit rather than requiring the removed errno-less branch.
+- No verified same-SHA Build XY-C1 + TRX + artifact result yet; L3 not claimed. No hardware test; L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -33,19 +32,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- `start_wan()` and `get_wan_ifname()` checked manual-interface read fixes are complete; exact 616 WAN DHCP #44996346231 and AI handoff #44996346193 PASS. Prior exact WAN route #44996213814 PASS.
-- Current source task removes the remaining lossy manual-interface lookup in `get_wan_ip4()`: select checked modem/PPP overrides first, read/validate `wan0_ifname` only if no override is selected, preserve actual read/validation error in `errno` while keeping `INADDR_ANY` return semantics.
-- `scripts/check_wan_dns_read_status.py` asserts checked fallback, validation and that modem/protocol selection precedes the read.
+- WAN checked manual-interface selection is implemented in `start_wan()`, `get_wan_ifname()` and `get_wan_ip4()`; exact d018 WAN DHCP #44996488482 passed.
+- The exact d018 WAN route run failed only because `check_wan_dns_read_status.py` still searched for an errno-less return pattern after `get_wan_ip4()` was updated to preserve the real modem identity read failure in `errno`. The checker now locates the modem status read, requires its errno-preserving failure gate, and ensures it precedes transport selection.
 
 ## Verification boundary
 
-- Exact 616 WAN DHCP #44996346231 PASS and AI handoff #44996346193 PASS; exact ecf WAN route #44996213814 PASS.
-- This `get_wan_ip4()` source change has not run exact-head Actions yet; WAN route and WAN DHCP must pass on the new source SHA.
-- No identical-SHA Build XY-C1/TRX/artifact result is established; L3 unverified. No hardware test; L4 unverified.
+- Exact d018 WAN DHCP #44996488482 PASS; exact d018 AI handoff #44996488511 PASS.
+- Exact d018 WAN route #44996488531 FAIL at the stale errno-less modem-read assertion (`check_wan_dns_read_status.py:515`); earlier checker contracts through the new manual-fallback validation passed. This follow-up corrects that assertion only.
+- Exact d018 XY-C1 #44996488349 was IN_PROGRESS at last poll; do not claim Build/TRX/artifact until each step passes on one SHA.
+- No local MIPS build or hardware test. L3/L4 unverified.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route/DHCP after the `get_wan_ip4()` checked-fallback change; correct concrete failures without weakening assertions.
-2. Verify checked modem/PPP selection precedes manual fallback read; GNU89/ASan/UBSan interface and NVRAM status tests must pass.
-3. Confirm Build XY-C1, TRX verification and artifact upload execute and pass on one identical product-source SHA before claiming L3.
-4. Continue WAN state-transition reliability review; keep backup read-only and hardware L4 unverified.
+1. Check exact-head WAN route and WAN DHCP after the `get_wan_ip4()` modem-error assertion update.
+2. Ensure the checker confirms modem identity read → errno-preserving failure gate → transport selection and manual fallback read/validation order.
+3. Check whether d018 or a later product-source SHA completes Build XY-C1, TRX verification and artifact upload together; only that SHA can establish L3.
+4. Continue WAN reliability review; leave backup branch untouched and hardware L4 unverified.

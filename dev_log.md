@@ -1,3 +1,11 @@
+## 2026-11-22 — Keep modem identity error contract errno-aware
+
+- Parent main SHA: `d018080e3ef848417c1969ba17adfd0b8a775624`. Exact WAN DHCP #44996488482 PASS. Exact WAN route #44996488531 FAILED at `scripts/check_wan_dns_read_status.py:515`: after the `get_wan_ip4()` checked manual fallback change, the old modem identity assertion still required `if(status!=0)returnINADDR_ANY`.
+- The actual code correctly sets `errno=status` before returning `INADDR_ANY` for modem identity failures. The stale assertion had not been updated for this improved error preservation; the checked manual-fallback source contract immediately above it passed.
+- Replaced the errno-less pattern with an ordered contract requiring modem status read → `errno=status` failure gate → transport selection. This is test-only; no product behavior change in this follow-up.
+- Exact d018 XY-C1 #44996488349 was still building/validating at last poll. L3 remains unverified until Build XY-C1, TRX and artifact all pass on one identical product-source SHA.
+
+---
 ## 2026-11-22 — Check manual interface only when get_wan_ip4 selects it
 
 - Parent main SHA: `616d5a710acdf727a8f110052289c1d63d966a9d`. Exact WAN DHCP #44996346231 PASS and AI handoff #44996346193 PASS; prior WAN route #44996213814 PASS.
