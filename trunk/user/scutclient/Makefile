@@ -3,7 +3,7 @@ SRC_NAME := scutclient-upstream
 SRC_FILE := scutclient-a58996875c61d0cdf8ec435057befc1c87bd6863
 THISDIR = $(shell pwd)
 
-all: extract_test config_test
+all: config_test
 	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)/build
 
 extract_test:
@@ -11,7 +11,16 @@ extract_test:
 		tar -xf $(SRC_FILE).tar.gz; \
 	fi )
 
-config_test:
+apply_credentials_overlay: extract_test
+	( if ! grep -q 'scutclient_load_credentials_file' $(SRC_NAME)/src/main.c || \
+	      ! grep -q 'src/scutclient_credentials.c' $(SRC_NAME)/CMakeLists.txt; then \
+		patch -d $(SRC_NAME) -p1 < $(THISDIR)/patches/0001-private-credentials-file.patch || exit 1; \
+		rm -f ./config_done; \
+	fi; \
+	cp $(THISDIR)/patches/scutclient_credentials.c $(SRC_NAME)/src/scutclient_credentials.c && \
+	cp $(THISDIR)/patches/scutclient_credentials.h $(SRC_NAME)/src/scutclient_credentials.h )
+
+config_test: apply_credentials_overlay
 	( if [ -f ./config_done ]; then \
 		echo "the same configuration"; \
 	else \
