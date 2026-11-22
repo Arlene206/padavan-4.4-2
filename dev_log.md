@@ -1,3 +1,8 @@
+## 2026-11-22 — Fix Aria2 legacy-config regression test variable isolation
+
+- USB storage on exact SHA `c9014ea94517be6d713a8029efe3bff9fb4bd16c` reached the new Aria2 migration test after the launcher passed `sh -n` and earlier startup cases passed. The test failed because `run_launcher()` overwrites the generic `config_dir` variable, so its post-run assertion accidentally checked `/aria2.conf` rather than the migration fixture path.
+- Renamed the migration fixture variable to `migration_config_dir` throughout the test so it remains isolated from runner state. Production code is unchanged in this correction; exact-head USB/XY rerun pending.
+
 ## 2026-11-22 — Fail closed on PID 1 console termios errors
 
 - `setup_term()` previously ignored `tcgetattr()` and then rewrote terminal fields even when the read failed, passing an uninitialized `struct termios` to `tcsetattr()`. This was reachable when the recovery-shell child fell back to `/dev/null`; `/dev/null` is not a terminal.
