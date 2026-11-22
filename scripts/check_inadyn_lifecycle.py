@@ -88,6 +88,10 @@ assert "inadyn_ddns_enabled_status" in enabled_policy
 assert '#include "ddns_enabled_policy.h"' in source
 
 assert "inadyn_config_file_read_integer_status" in config_file_header
+assert "inadyn_config_file_clear_sensitive" in config_file_header
+assert "volatile unsigned char *cursor" in config_file_header
+assert config_writer.count("inadyn_config_file_clear_sensitive(") == 2
+assert "test_sensitive_snapshot_clear_wipes_every_byte" in config_file_test
 assert "test_checked_integer_status_preserves_defaults_and_rejects_errors" in config_file_test
 
 config_writer = body("write_inadyn_conf(const char *conf_file)")

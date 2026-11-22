@@ -87,6 +87,20 @@ test_checked_integer_status_preserves_defaults_and_rejects_errors(void)
 }
 
 static void
+test_sensitive_snapshot_clear_wipes_every_byte(void)
+{
+	unsigned char secret[64];
+	size_t i;
+
+	memset(secret, 0xa5, sizeof(secret));
+	inadyn_config_file_clear_sensitive(secret, sizeof(secret));
+	for (i = 0; i < sizeof(secret); i++)
+		assert(secret[i] == 0);
+
+	inadyn_config_file_clear_sensitive(NULL, sizeof(secret));
+}
+
+static void
 test_quoted_setting_escapes_configuration_delimiters(void)
 {
 	static const char input[] = "quote\" slash\\ line\ncarriage\r tab\t";
@@ -339,6 +353,7 @@ main(void)
 
 	test_nvram_snapshot_copies_rotating_cache_and_invalidates_failed_tuple();
 	test_checked_integer_status_preserves_defaults_and_rejects_errors();
+	test_sensitive_snapshot_clear_wipes_every_byte();
 	test_quoted_setting_escapes_configuration_delimiters();
 	test_quoted_setting_rejects_control_bytes();
 	puts("Inadyn private atomic configuration publication and quoted-value escaping: PASS");

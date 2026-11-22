@@ -3333,6 +3333,8 @@ write_inadyn_conf(const char *conf_file)
 		goto failed;
 	}
 	fp = NULL;
+	inadyn_config_file_clear_sensitive(
+		config_storage, INADYN_CFG_FIELD_COUNT * INADYN_CONFIG_VALUE_SIZE);
 	free(config_storage);
 	return 1;
 
@@ -3354,6 +3356,8 @@ failed:
 		logmessage(LOGNAME, "cannot remove incomplete Inadyn configuration (errno=%d)",
 			   errno ? errno : EIO);
 	}
+	inadyn_config_file_clear_sensitive(
+		config_storage, INADYN_CFG_FIELD_COUNT * INADYN_CONFIG_VALUE_SIZE);
 	free(config_storage);
 	errno = saved_errno;
 	return 0;

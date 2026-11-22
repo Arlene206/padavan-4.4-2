@@ -63,6 +63,19 @@ inadyn_config_file_read_integer_status(int api_result, int saved_errno,
 	return 0;
 }
 
+/* Do not leave DDNS usernames/passwords in the PID 1 heap after use.
+ * Volatile stores prevent the compiler from optimizing away the wipe. */
+static inline void
+inadyn_config_file_clear_sensitive(void *buffer, size_t length)
+{
+	volatile unsigned char *cursor = (volatile unsigned char *)buffer;
+
+	if (!cursor)
+		return;
+	while (length-- > 0)
+		*cursor++ = 0;
+}
+
 /* Emit a libConfuse string fragment. Never let NVRAM values create new
  * directives or change the surrounding quoted-string syntax. */
 static inline int
