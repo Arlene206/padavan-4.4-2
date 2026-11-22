@@ -209,8 +209,8 @@ jobs:
           final_gate = "if (stop_status != 0)"
           assert final_status in stop and callback_cleanup in stop and final_gate in stop
           final_status_at = stop.index(final_status)
-final_gate_at = stop.index(final_gate, final_status_at)
-assert stop.index(callback_cleanup) < final_status_at < final_gate_at
+          final_gate_at = stop.index(final_gate, final_status_at)
+          assert stop.index(callback_cleanup) < final_status_at < final_gate_at
           assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in stop
           assert "protocol=%d" in stop
 

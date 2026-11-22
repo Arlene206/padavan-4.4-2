@@ -200,9 +200,22 @@ require(
 )
 
 
-static_down = down_hook.split(
-    "if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {", 1
-)[1].split("/* flush conntrack table", 1)[0]
+static_down_start = down_hook.index(
+    "if (!modem_unit_id && proto_status == 0 &&"
+)
+static_down = down_hook[static_down_start:].split(
+    "/* Flush conntrack only when the checked previous WAN address is valid. */", 1
+)[0]
+reset_wan = body(WAN, "reset_wan_vars_status(void)")
+for name, initializer, invalid_assignment in (
+    ("man_addr", 'char man_addr[INET_ADDRSTRLEN] = "0.0.0.0";', 'man_addr = "0.0.0.0";'),
+    ("man_mask", 'char man_mask[INET_ADDRSTRLEN] = "0.0.0.0";', 'man_mask = "0.0.0.0";'),
+    ("man_gate", 'char man_gate[INET_ADDRSTRLEN] = "0.0.0.0";', 'man_gate = "0.0.0.0";'),
+    ("man_mtu", 'char man_mtu[16] = "";', 'man_mtu = "";'),
+):
+    assert initializer in reset_wan, f"{name} must retain its bounded initialized buffer"
+    assert invalid_assignment not in reset_wan, f"{name} array must not be assigned as a pointer"
+
 static_clear = static_down.index(
     'route_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);'
 )

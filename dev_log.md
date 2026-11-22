@@ -1,3 +1,13 @@
+## 2026-11-22 — Fix XY-C1 WAN reset compile blocker and refresh source contracts
+
+- Parent main SHA: `6cdaaccda83823f252dc537e4d9bfd358bfe845e`; product-source target was `4a6df662b6c34d2282e81b3ef8054e80e0894393`.
+- Exact XY-C1 run #44967290950 completed FAILURE. The production build reached `net_wan.c` and reported four errors in `reset_wan_vars_status()`: assigning string literals to fixed-size arrays `man_addr`, `man_mask`, `man_gate`, and `man_mtu`. Those buffers already have valid initializers; removing the redundant assignments fixes the C type error without changing defaults or the manual endpoint snapshot.
+- Exact WAN route #44967576615 failed at the stale static-IPoE teardown parser in `check_wan_detect_wan_status.py`; its anchor is updated to match the checked-protocol condition and an array-initialization regression was added.
+- Teardown run #44967575277 on `6cdaacc...` had zero jobs; inspection found two Python lines de-indented outside the YAML `run: |` block. Their indentation is repaired.
+- Handoff validator #44967576593 passed. XY-C1 TRX and artifact steps were skipped after the compile failure; no L3 claim is made. A fresh exact-head firmware run remains mandatory.
+
+---
+
 ## 2026-11-22 — Fix WAN IPv4 and teardown source-contract locators; refresh handoff
 
 - Parent main SHA: `4c1f1be93e4c0436d0b20a3b4ddfbb314d07914c`; product source remains `4a6df662b6c34d2282e81b3ef8054e80e0894393`.

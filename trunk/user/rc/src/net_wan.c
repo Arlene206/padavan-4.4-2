@@ -1129,10 +1129,7 @@ reset_wan_vars_status(void)
 
 	}
 
-	man_addr = "0.0.0.0";
-	man_mask = "0.0.0.0";
-	man_gate = "0.0.0.0";
-	man_mtu  = "";
+
 
 	proto_status = get_nvram_match_checked_status(
 		"x_DHCPClient", "0", &manual_endpoint_enabled);
