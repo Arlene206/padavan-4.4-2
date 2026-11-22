@@ -1,3 +1,11 @@
+## 2026-11-22 10:17 CST — Close OpenVPN key-cleanup follow-up
+
+- Parent main SHA: `ddef1929c2c2799a464d8d397597f1e7d9f64b51`. Review of the first implementation found the function-slice generator had joined adjacent shell function declarations without a newline; this follow-up restores explicit shell delimiters before validation.
+- Also fail closed on TLS-Auth/TLS-Crypt v2 chmod errors by removing the unprotected key path, and extend the fake OpenVPN generator to leave a partial file on failure so cleanup is actually exercised. Regression now injects chmod failure for CA and both TLS private keys.
+- The exact-head OpenVPN workflow for `ddef192` was started as #44975313356 while the delimiter defect was being closed; do not use it as pass evidence. The follow-up commit triggers a clean exact-head syntax/test run.
+
+---
+
 ## 2026-11-22 10:16 CST — Propagate OpenVPN certificate generation failures
 
 - Parent main SHA: `3118578664b49741a149c40fdd509b9a0bd807ef`. Audit found `make_cert()` ignored EC/RSA/Ed keygen and CSR return codes, `sign_cert()` removed the CSR even when signing failed and returned success, `make_dh()` ignored DH generation errors, and server/client wrappers continued after a failed prerequisite.

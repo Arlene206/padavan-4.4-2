@@ -184,7 +184,9 @@ make_cert() {
   fi
   echo_done
   return 0
-}sign_cert() {
+}
+
+sign_cert() {
   local sign_status cleanup_status
   if [ ! -s "$1" ] || [ ! -s "$2" ]; then
     echo "Error: CA key or certificate not found" >&2
@@ -213,7 +215,9 @@ make_cert() {
   fi
   echo_done
   return 0
-}make_dh() {
+}
+
+make_dh() {
   local dh_status
   if [ -s dh1024.pem ]; then
     echo_process "Skipping DH Parameters. File exists"
@@ -230,7 +234,9 @@ make_cert() {
   fi
   echo_done
   return 0
-}make_ta_tc2() {
+}
+
+make_ta_tc2() {
   #
   # $1 --> ta key name
   #
@@ -265,6 +271,7 @@ make_cert() {
     :
   else
     key_status=$?
+    rm -f "$1"
     echo "Error: cannot protect TLS Auth key (status=$key_status)" >&2
     return "$key_status"
   fi
@@ -292,6 +299,7 @@ make_cert() {
     :
   else
     key_status=$?
+    rm -f "$2"
     echo "Error: cannot protect TLS Crypt v2 server key (status=$key_status)" >&2
     return "$key_status"
   fi
@@ -312,7 +320,9 @@ server() {
   sign_cert "$CA_KEY" "$CA_CRT" server.csr "$SERVER_CRT" "$CERT_DAYS" "$DGST_ALG" server || return $?
   make_dh "$DH_BITS" || return $?
   make_ta_tc2 "$TA_KEY" "$STC2_KEY"
-}client_csr() {
+}
+
+client_csr() {
   local CRT_PATH_X=$CRT_PATH_CLI setup_status
   if [ ! -d "$CRT_PATH_X" ]; then
     if mkdir -m 755 -p "$CRT_PATH_X"; then :; else
@@ -322,7 +332,9 @@ server() {
   if ! cd "$CRT_PATH_X"; then echo "Error: can't cd to $CRT_PATH_X" >&2; return 1; fi
   [ -z "$CN" ] && func_help
   make_cert "$CLIENT_KEY" client.csr "$CERT_DAYS" "$RSA_BITS" "$CN" "$DGST_ALG"
-}client_sign() {
+}
+
+client_sign() {
   [ -z "$CSR_PATH" ] && func_help
   if [ "${CSR_PATH:0:1}" != "/" ]; then CSR_PATH=`pwd`/"$CSR_PATH"; fi
   local CRT_PATH_X=$CRT_PATH_SRV setup_status
@@ -334,11 +346,15 @@ server() {
   if ! cd "$CRT_PATH_X"; then echo "Error: can't cd to $CRT_PATH_X" >&2; return 1; fi
   if [ ! -f "$CSR_PATH" ]; then echo "Error: $CSR_PATH - file not found" >&2; return 1; fi
   sign_cert "$CA_KEY" "$CA_CRT" "$CSR_PATH" "${CSR_PATH%.*}.crt" "$CERT_DAYS" "$DGST_ALG" client
-}client() {
+}
+
+client() {
   client_csr || return $?
   CSR_PATH="$CRT_PATH_CLI/client.csr"
   client_sign
-}ssl_view () {
+}
+
+ssl_view () {
   [ -z "$CSR_PATH" ] && func_help
 case ${CSR_PATH##*.} in
 	crt) openssl x509 -in "$CSR_PATH" -noout -text ;;

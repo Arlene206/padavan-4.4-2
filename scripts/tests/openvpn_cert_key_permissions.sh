@@ -57,6 +57,7 @@ cat > "$TMP/bin/openvpn" <<'MOCK_OPENVPN'
 key_type=$2
 output=$3
 if [ "${MOCK_OPENVPN_FAIL_TYPE:-}" = "$key_type" ]; then
+	printf 'partial-secret\\n' > "$output"
 	exit 73
 fi
 printf 'mock-secret-%s\n' "$key_type" > "$output"
@@ -173,6 +174,21 @@ if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=ca.key PATH="$TMP/bin:
 	exit 1
 fi
 [ ! -e "$SERVER_DIR/ca.crt" ]
+# TLS key protection failures remove the exposed key and abort the action.
+rm -rf "$SERVER_DIR"
+if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=ta.key PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server >/dev/null 2>&1; then
+	echo "Expected TLS Auth key chmod failure to abort certificate generation" >&2
+	exit 1
+fi
+[ ! -e "$SERVER_DIR/ta.key" ]
+
+rm -rf "$SERVER_DIR"
+if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_CHMOD_FAIL_FILE=stc2.key PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" server >/dev/null 2>&1; then
+	echo "Expected TLS Crypt v2 key chmod failure to abort certificate generation" >&2
+	exit 1
+fi
+[ ! -e "$SERVER_DIR/stc2.key" ]
+
 # Client orchestration must not continue after CSR generation fails.
 rm -rf "$TMP/storage/client"
 if OPENSSL_MODE_LOG="$TMP/modes.log" MOCK_OPENSSL_FAIL_COMMAND=req PATH="$TMP/bin:$PATH" bash "$TMP/openvpn-cert-test.sh" client -n client-test >/dev/null 2>&1; then
