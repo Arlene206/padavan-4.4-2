@@ -1,3 +1,13 @@
+## 2026-11-22 — Snapshot IPv6 WAN reset settings before runtime mutation
+
+- Parent main SHA: bbff528ccfe5f1cc45e9cbc87d699004867eb541. reset_wan6_vars_status() still consumed static address/prefix/gateway and 6rd relay/size with separate error-collapsing nvram_safe_get()/nvram_get_int() reads. Backend errors could masquerade as empty or zero configuration while reset logic proceeded.
+- The active settings are now copied in one checked rc_wan_nvram_copy_snapshot() transaction: static mode reads address/prefix/gateway plus the 6rd pair; non-static mode reads only the 6rd pair. Prefix parsing uses rc_wan_nvram_parse_int_snapshot(), retaining empty-to-zero compatibility but rejecting malformed values. Transaction/read/close errors return before runtime NVRAM writes.
+- Added three GNU89 fake-backend regressions covering coherent static tuple/prefix parse, failure injection at each of five fields with all outputs cleared, and the two-field dynamic mode. Updated both WAN source contracts to require the snapshot and reject legacy getters.
+- Parent b7185685f1868b72ad48e87fadf434bdf7f7f0ee: WAN DHCP #45021657373 PASS, WAN route #45021657378 PASS, AI handoff #45021657238 PASS. These runs validate the previous DNS change, not this snapshot.
+- Exact-head WAN DHCP, WAN route and AI handoff Actions are required for this new commit. XY-C1 L3 and hardware L4 remain NOT VERIFIED.
+- Next task: inspect the `start_dhcp6c()` `wan_hwaddr` DUID/IAID read; preserve missing/invalid MAC behavior but stop startup on real backend read/close failure.
+
+---
 ## 2026-11-22 — Align WAN DHCP source contract with compensated IPTV startup
 - Parent main SHA: fe22b9fae01db2bb9fe57f2fffe67cee067ea364. WAN DHCP callback run #45022142584 passed every preceding host C regression, including the five new dynamic IPTV start/stop/rollback tests, then failed in its inline Python source contract at line 1242.
 - The stale contract required literal assignments calling start_zcip_viptv(viptv_ifname) and start_udhcpc_viptv(viptv_ifname) inside launch_viptv_wan(). Those calls now sit behind wan_viptv_dynamic_start_callback() so failed launch can invoke stop-before-VLAN-rollback compensation.

@@ -905,8 +905,22 @@ reset_ipv6 = body(wan6_source, "reset_wan6_vars_status(void)")
 require("is_wan_addr6_static_status(&wan_addr6_static)" in reset_ipv6 and
         "if (status != 0)" in reset_ipv6 and
         reset_ipv6.index("if (status != 0)") <
-        reset_ipv6.index('rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_addr")'),
-        "IPv6 reset must abort before snapshot work when service mode cannot be read")
+        reset_ipv6.index("rc_wan_nvram_copy_snapshot("),
+        "IPv6 reset must abort when service mode cannot be read")
+require("wan6_snapshot_transaction_begin" in reset_ipv6 and
+        "wan6_snapshot_transaction_get" in reset_ipv6 and
+        "wan6_snapshot_transaction_end" in reset_ipv6 and
+        "rc_wan_nvram_parse_int_snapshot(" in reset_ipv6 and
+        "nvram_safe_get(" not in reset_ipv6 and
+        "nvram_get_int(" not in reset_ipv6,
+        "IPv6 reset must use a checked snapshot and reject legacy getters")
+for setting in ("ip6_wan_addr", "ip6_wan_size", "ip6_wan_gate",
+                "ip6_6rd_relay", "ip6_6rd_size"):
+    require(f'"{setting}"' in reset_ipv6, "IPv6 reset snapshot missing " + setting)
+require("wan_addr6_static == 1 ? 0U : 3U" in reset_ipv6 and
+        "wan_addr6_static == 1 ? 5U : 2U" in reset_ipv6,
+        "IPv6 reset must select only active-mode settings")
+
 dns_export = body(wan6_source, "build_dns6_value(char *dns6s, size_t dns6_size)")
 require("is_wan_dns6_static_status(&dns_static)" in dns_export and
         "if (status != 0)" in dns_export and

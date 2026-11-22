@@ -1873,6 +1873,107 @@ test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing(void)
 }
 
 
+
+static void
+test_wan6_reset_snapshot_copies_static_identity_and_6rd_settings(void)
+{
+	static const char *const names[5] = {
+		"ip6_wan_addr", "ip6_wan_size", "ip6_wan_gate",
+		"ip6_6rd_relay", "ip6_6rd_size"
+	};
+	static const char *const values[5] = {
+		"2001:db8::10", "64", "2001:db8::1", "192.0.2.1", "32"
+	};
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[5];
+	char destinations[5][64];
+	const char *size_texts[1];
+	int parsed_sizes[1];
+	unsigned int i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	for (i = 0; i < 5; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 5, fake_snapshot_begin,
+		fake_snapshot_get, fake_snapshot_end, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.read_calls == 5 && fake.end_calls == 1);
+	for (i = 0; i < 5; ++i)
+		assert(strcmp(destinations[i], values[i]) == 0);
+	size_texts[0] = destinations[1];
+	assert(rc_wan_nvram_parse_int_snapshot(size_texts, 1, parsed_sizes) == 0);
+	assert(parsed_sizes[0] == 64);
+}
+
+static void
+test_wan6_reset_snapshot_clears_every_field_on_each_read_failure(void)
+{
+	static const char *const names[5] = {
+		"ip6_wan_addr", "ip6_wan_size", "ip6_wan_gate",
+		"ip6_6rd_relay", "ip6_6rd_size"
+	};
+	static const char *const values[5] = {
+		"2001:db8::10", "64", "2001:db8::1", "192.0.2.1", "32"
+	};
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[5];
+	char destinations[5][64];
+	unsigned int i, failed;
+
+	for (failed = 0; failed < 5; ++failed) {
+		memset(&fake, 0, sizeof(fake));
+		fake.read_fail_at = (int)failed;
+		fake.read_error = EACCES;
+		fake.missing_at = -1;
+		for (i = 0; i < 5; ++i) {
+			fake.names[i] = names[i];
+			fake.values[i] = values[i];
+			strcpy(destinations[i], "stale");
+			fields[i].param_name = names[i];
+			fields[i].destination = destinations[i];
+			fields[i].destination_size = sizeof(destinations[i]);
+		}
+		assert(rc_wan_nvram_copy_snapshot(fields, 5, fake_snapshot_begin,
+			fake_snapshot_get, fake_snapshot_end, &fake) == EACCES);
+		assert(fake.end_calls == 1);
+		for (i = 0; i < 5; ++i)
+			assert(destinations[i][0] == '\0');
+	}
+}
+
+static void
+test_wan6_reset_snapshot_reads_only_6rd_fields_in_dynamic_mode(void)
+{
+	static const char *const names[2] = { "ip6_6rd_relay", "ip6_6rd_size" };
+	static const char *const values[2] = { "192.0.2.1", "32" };
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[2];
+	char destinations[2][64];
+	unsigned int i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	for (i = 0; i < 2; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 2, fake_snapshot_begin,
+		fake_snapshot_get, fake_snapshot_end, &fake) == 0);
+	assert(fake.read_calls == 2 && fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(strcmp(destinations[0], values[0]) == 0);
+	assert(strcmp(destinations[1], values[1]) == 0);
+}
+
 int
 main(void)
 {
@@ -1946,5 +2047,8 @@ main(void)
 	test_transactional_snapshot_begin_failure_does_not_read_or_end();
 	test_transactional_snapshot_end_failure_invalidates_values();
 	test_transactional_snapshot_validates_before_opening_lock();
+	test_wan6_reset_snapshot_copies_static_identity_and_6rd_settings();
+	test_wan6_reset_snapshot_clears_every_field_on_each_read_failure();
+	test_wan6_reset_snapshot_reads_only_6rd_fields_in_dynamic_mode();
 	return 0;
 }

@@ -89,8 +89,16 @@ reset_fields = (
 )
 reset_positions = [reset_v6.index(item) for item in reset_fields]
 assert reset_positions == sorted(reset_positions)
-for setting in ("ip6_wan_addr", "ip6_wan_gate", "ip6_6rd_relay", "ip6_6rd_size"):
-    assert f'rc_wan_nvram_copy_text(nvram_safe_get("{setting}")' in reset_v6
+assert "rc_wan_nvram_copy_snapshot(" in reset_v6
+assert "wan6_snapshot_transaction_begin" in reset_v6
+assert "wan6_snapshot_transaction_get" in reset_v6
+assert "wan6_snapshot_transaction_end" in reset_v6
+assert "rc_wan_nvram_parse_int_snapshot(" in reset_v6
+assert "nvram_safe_get(" not in reset_v6
+assert "nvram_get_int(" not in reset_v6
+for setting in ("ip6_wan_addr", "ip6_wan_size", "ip6_wan_gate",
+                "ip6_6rd_relay", "ip6_6rd_size"):
+    assert f'"{setting}"' in reset_v6
 dns_builder = body(source, "static int\nbuild_dns6_value(")
 assert "wan6_dns_copy_config_snapshot(" in dns_builder
 assert "nvram_safe_get(" not in dns_builder

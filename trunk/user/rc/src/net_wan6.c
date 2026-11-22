@@ -242,24 +242,59 @@ int reset_wan6_vars_status(void)
 	char wan_gate6[INET6_ADDRSTRLEN] = {0};
 	char relay6[INET6_ADDRSTRLEN] = {0};
 	char size6[INET6_ADDRSTRLEN] = {0};
+	char wan_size_text[16] = {0};
 	char dns6s[INET6_ADDRSTRLEN * 3 + 4] = {0};
+	static const char *const reset_names[5] = {
+		"ip6_wan_addr", "ip6_wan_size", "ip6_wan_gate",
+		"ip6_6rd_relay", "ip6_6rd_size"
+	};
+	char *reset_destinations[5] = {
+		wan_addr6, wan_size_text, wan_gate6, relay6, size6
+	};
+	size_t reset_sizes[5] = {
+		sizeof(wan_addr6), sizeof(wan_size_text), sizeof(wan_gate6),
+		sizeof(relay6), sizeof(size6)
+	};
+	struct rc_wan_nvram_snapshot_field reset_fields[5];
+	struct nvram_transaction transaction;
+	const char *wan_size_texts[1];
+	int parsed_wan_size[1];
 	struct rc_wan_nvram_value reset_values[6];
+	unsigned int first_field, field_count, i;
 	int wan_size6 = 0;
 	int status, wan_addr6_static;
 
 	status = is_wan_addr6_static_status(&wan_addr6_static);
 	if (status != 0)
 		return status;
+	/*
+	 * Read every setting consumed by the active mode in one transaction.
+	 * Static WAN uses address/prefix/gateway and the 6rd pair; dynamic
+	 * modes only consume the 6rd pair.
+	 */
+	first_field = wan_addr6_static == 1 ? 0U : 3U;
+	field_count = wan_addr6_static == 1 ? 5U : 2U;
+	for (i = 0; i < field_count; ++i) {
+		unsigned int index = first_field + i;
+
+		reset_fields[i].param_name = reset_names[index];
+		reset_fields[i].destination = reset_destinations[index];
+		reset_fields[i].destination_size = reset_sizes[index];
+	}
+	status = rc_wan_nvram_copy_snapshot(
+		reset_fields, field_count, wan6_snapshot_transaction_begin,
+		wan6_snapshot_transaction_get, wan6_snapshot_transaction_end,
+		&transaction);
+	if (status != 0)
+		return status;
+
 	if (wan_addr6_static == 1) {
-		status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_addr"),
-					wan_addr6, sizeof(wan_addr6));
+		wan_size_texts[0] = wan_size_text;
+		status = rc_wan_nvram_parse_int_snapshot(
+			wan_size_texts, 1, parsed_wan_size);
 		if (status != 0)
 			return status;
-		wan_size6 = nvram_get_int("ip6_wan_size");
-		status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_gate"),
-					wan_gate6, sizeof(wan_gate6));
-		if (status != 0)
-			return status;
+		wan_size6 = parsed_wan_size[0];
 		if (*wan_addr6 && wan_size6 >= 0 && wan_size6 <= 128) {
 			memset(&addr6, 0, sizeof(addr6));
 			if (ipv6_from_string(wan_addr6, &addr6) >= 0 &&
@@ -270,16 +305,6 @@ int reset_wan6_vars_status(void)
 			}
 		}
 	}
-
-	/* Copy cache-backed values before the first NVRAM write invalidates them. */
-	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_6rd_relay"),
-					relay6, sizeof(relay6));
-	if (status != 0)
-		return status;
-	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_6rd_size"),
-					size6, sizeof(size6));
-	if (status != 0)
-		return status;
 	status = build_dns6_value(dns6s, sizeof(dns6s));
 	if (status != 0)
 		return status;
