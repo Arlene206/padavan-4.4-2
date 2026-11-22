@@ -238,8 +238,13 @@ jobs:
           reaper = body(init, "catch_sig_reap(int sig)")
           shell = body(init, "run_shell(int timeout, int nowait)")
           assert '#include "pid1_signal_policy.h"' in init
-          assert "pid1_signal_record_child_reaped(&signal_state, (sig_atomic_t)pid);" in reaper
-          assert "waitpid(-1, NULL, WNOHANG)" in reaper
+          assert "pid1_signal_reap_available_children(&signal_state, waitpid);" in reaper
+          reaper_policy = body(pid1_policy, "pid1_signal_reap_available_children(")
+          assert "wait_child(-1, NULL, WNOHANG)" in reaper_policy
+          assert "int saved_errno = errno;" in reaper_policy
+          assert "errno = saved_errno;" in reaper_policy
+          assert "pid1_signal_record_child_reaped(" in reaper_policy
+          assert "test_pid1_signal_reaper_preserves_errno" in pid1_test
           assert "volatile sig_atomic_t console_shell_pid;" in pid1_policy
           assert "state->console_shell_pid != pid" in pid1_policy
           assert "state->console_shell_pid = 0;" in pid1_policy

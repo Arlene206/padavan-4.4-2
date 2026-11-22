@@ -3,6 +3,8 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 typedef int (*pid1_signal_set_empty_fn)(sigset_t *);
 typedef int (*pid1_signal_set_add_fn)(sigset_t *, int);
@@ -106,6 +108,32 @@ pid1_signal_record_child_reaped(pid1_signal_state_t *state, sig_atomic_t pid)
 
 	state->console_shell_pid = 0;
 	return 1;
+}
+
+typedef pid_t (*pid1_signal_waitpid_fn)(pid_t, int *, int);
+
+static inline void
+pid1_signal_reap_available_children(pid1_signal_state_t *state,
+				    pid1_signal_waitpid_fn wait_child)
+{
+	int saved_errno = errno;
+	pid_t child_pid;
+
+	if (state && wait_child) {
+		for (;;) {
+			child_pid = wait_child(-1, NULL, WNOHANG);
+			if (child_pid > 0) {
+				pid1_signal_record_child_reaped(
+					state, (sig_atomic_t)child_pid);
+				continue;
+			}
+			if (child_pid < 0 && errno == EINTR)
+				continue;
+			break;
+		}
+	}
+
+	errno = saved_errno;
 }
 
 /* This routine is signal-context safe: it only reads/writes sig_atomic_t. */

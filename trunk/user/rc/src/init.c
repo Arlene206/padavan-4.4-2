@@ -154,19 +154,8 @@ catch_sig_event(int sig)
 static void
 catch_sig_reap(int sig)
 {
-	pid_t pid;
-
 	(void)sig;
-	for (;;) {
-		pid = waitpid(-1, NULL, WNOHANG);
-		if (pid > 0) {
-			pid1_signal_record_child_reaped(&signal_state, (sig_atomic_t)pid);
-			continue;
-		}
-		if (pid < 0 && errno == EINTR)
-			continue;
-		break;
-	}
+	pid1_signal_reap_available_children(&signal_state, waitpid);
 }
 
 /* Set terminal settings to reasonable defaults; reject partial setup. */

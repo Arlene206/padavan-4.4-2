@@ -223,12 +223,61 @@ test_pid1_signal_installation_reports_failures(void)
 }
 
 
+struct fake_waitpid_step {
+	pid_t result;
+	int error_number;
+};
+
+static struct fake_waitpid_step fake_waitpid_steps[4];
+static int fake_waitpid_step_count;
+static int fake_waitpid_step_index;
+
+static pid_t
+fake_pid1_waitpid(pid_t pid, int *status, int options)
+{
+	struct fake_waitpid_step step;
+
+	assert(pid == -1);
+	assert(status == NULL);
+	assert(options == WNOHANG);
+	assert(fake_waitpid_step_index < fake_waitpid_step_count);
+	step = fake_waitpid_steps[fake_waitpid_step_index++];
+	errno = step.error_number;
+	return step.result;
+}
+
+static void
+test_pid1_signal_reaper_preserves_errno(void)
+{
+	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };
+
+	pid1_signal_record_console_shell(&state, (sig_atomic_t)4321);
+	fake_waitpid_steps[0].result = (pid_t)9876;
+	fake_waitpid_steps[0].error_number = ENOTTY;
+	fake_waitpid_steps[1].result = (pid_t)-1;
+	fake_waitpid_steps[1].error_number = EINTR;
+	fake_waitpid_steps[2].result = (pid_t)4321;
+	fake_waitpid_steps[2].error_number = EBUSY;
+	fake_waitpid_steps[3].result = (pid_t)-1;
+	fake_waitpid_steps[3].error_number = ECHILD;
+	fake_waitpid_step_count = 4;
+	fake_waitpid_step_index = 0;
+	errno = EACCES;
+
+	pid1_signal_reap_available_children(&state, fake_pid1_waitpid);
+
+	assert(fake_waitpid_step_index == 4);
+	assert(state.console_shell_pid == 0);
+	assert(errno == EACCES);
+}
+
 int
 main(void)
 {
 	assert(test_pid1_signal_set_initialization_reports_failures() == 0);
 	assert(test_pid1_signal_installation_reports_failures() == 0);
 	assert(test_pid1_signal_mask_update_reports_failures() == 0);
+	test_pid1_signal_reaper_preserves_errno();
 	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };
 
 	pid1_signal_record_event(&state, SIGUSR1);

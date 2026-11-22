@@ -1,3 +1,13 @@
+## 2026-11-22 — Preserve interrupted errno across PID1 child reaping
+
+- The shipped Padavan PID1 is the RC init binary (`trunk/user/rc/src/init.c`); the board BusyBox configuration explicitly has `CONFIG_INIT` disabled. Therefore the live runtime defect is in the RC SIGCHLD handler, not the optional BusyBox init applet.
+- `catch_sig_reap()` called `waitpid(-1, ..., WNOHANG)` in a loop and left errno at the terminal `ECHILD` (or another wait error). Since SIGCHLD can interrupt PID1 while it is performing an unrelated libc/system call, returning with clobbered errno can change the interrupted operation's error handling.
+- Extracted the async-signal-safe reap loop into `pid1_signal_reap_available_children()`, preserving errno around the entire waitpid/EINTR/reap sequence while retaining exact-child console-shell state clearing. Production handler now delegates to that helper.
+- Added an injected host regression covering another child reap, EINTR retry, tracked console-shell reap, terminal ECHILD, and restoration of the caller's original errno. Updated the existing PID1 source contract to enforce this data path.
+- Local test not run in this connector-only session. Exact-head `init-mdev-security.yml` host compile/runtime Action will provide verification; no firmware or device result is claimed.
+
+---
+
 ## 2026-11-22 — Refresh DNSMasq split-DNS unlock-path contract
 
 - Exact-head DNSMasq run 45085012107 on 5866501d8fd54f35c30d28b3b442924ed6e8e650 failed at the split-DNS server writer assertion. Production now unlocks on four distinct paths: NVRAM snapshot failure, temporary-file open failure, publish failure, and success. The checker still expected the previous three-path count.
