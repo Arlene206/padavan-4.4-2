@@ -165,7 +165,6 @@ aliddns_get_status () {
 
 A_restart=`nvram get aliddns_status`
   B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1
-B_restart=`echo -n "$B_restart" | md5sum | sed s/[[:space:]]//g | sed s/-//g`
 if [ "$A_restart" != "$B_restart" ] ; then
 	nvram set aliddns_status=$B_restart
 	needed_restart=1

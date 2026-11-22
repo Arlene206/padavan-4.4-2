@@ -544,8 +544,9 @@ status_body = SOURCE.split("aliddns_get_status () {", 1)[1].split("\n}", 1)[0]
 check_body = SOURCE.split("aliddns_check () {", 1)[1].split("\n}", 1)[0]
 require("printf '%s\\0'" in fingerprint and "md5sum" in fingerprint,
         "configuration fingerprint must NUL-delimit fields and hash the custom script")
-require("B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1" in status_body,
-        "restart state must use the unambiguous fingerprint and fail closed on hash errors")
+require("B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1" in status_body and
+        'echo -n "$B_restart" | md5sum' not in status_body,
+        "restart state must use one unambiguous fingerprint and fail closed on hash errors")
 require("aliddns_get_status || return 1" in check_body,
         "lifecycle check must not restart with an unknown configuration fingerprint")
 require("aliddns_config_fingerprint.sh" in WORKFLOW and

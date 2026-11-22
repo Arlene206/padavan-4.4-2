@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
+ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 SOURCE="$ROOT/trunk/user/aliddns/aliddns.sh"
 TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/aliddns-fingerprint.XXXXXX")
 trap 'rm -rf "$TEMP_DIR"' EXIT HUP INT TERM

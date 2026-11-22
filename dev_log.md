@@ -1,3 +1,13 @@
+## 2026-11-22 — Fix AliDDNS fingerprint test root and remove redundant digest
+
+- Parent main SHA: `c32d2d3955b2f986494f070c1272d9fac4add50e`. Exact AliDDNS workflow #45043414686 reached the new fingerprint regression but failed before executing its assertions: the script resolved `ROOT` using `scripts/../..`, which points one directory above the repository; the resulting `sed` path to `trunk/user/aliddns/aliddns.sh` did not exist. Corrected the test root to `scripts/..`.
+- Also removed the leftover legacy MD5 wrapper around the new NUL-delimited fingerprint. The helper already returns the complete digest; retaining the old second hash was redundant. The source checker now pins the single digest path.
+- Exact process inventory #45043414729 PASS, AI handoff #45043414763 PASS and HTTPD auth #45043414724 PASS on ancestor SHA `129372718e1241823d785da6455abb46d03869c1`. AliDDNS run #45043414686 FAILED only at the path-resolution error above; XY-C1 #45043414723 was pending then. A newer AliyunDrive fixture isolation follow-up is committed at `c32d2d3955b2f986494f070c1272d9fac4add50e`; its exact regression is pending at handoff update.
+- AliyunDrive diagnostic run #45042972255 on SHA `f8176758f1c9ec1e96381da1208be1edf0425fae` FAILED with `marker=absent probes=0 sleeps=10`. Its later fixture changes reset process mock state and now keep a mocked daemon alive during the bounded HTTP probes; verify the current exact run before adjusting production code.
+- No local shell tests or XY-C1 build were performed. Exact-head reruns are pending; L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Reset stop-mock state before AliyunDrive HTTP readiness polling
 
 - Parent main SHA: `129372718e1241823d785da6455abb46d03869c1`. The exact lifecycle run #45043377399 failed with `probes=1 sleeps=10`: the earlier disabled-start/TERM test intentionally left `TEST_TERM_BEHAVIOR=after-one-poll`, and the shared `sleep()` mock changed `TEST_RUNNING` to absent after the first readiness poll. This made the HTTP timeout fixture stop probing after one request.
