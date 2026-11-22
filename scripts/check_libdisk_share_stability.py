@@ -244,6 +244,25 @@ for marker in (
     require(marker in IO_REGRESSION and marker + "();" in IO_REGRESSION,
             "missing read_whole_file regression: " + marker)
 
+
+get_permission = function_body(DISK_SOURCE, "int get_permission(const char *account,")
+get_read = get_permission.index("var_info = read_whole_file(var_file);")
+get_missing = get_permission.index("if (saved_errno == ENOENT)", get_read)
+get_denied_error = get_permission.index("return -1;", get_missing)
+require(get_read < get_missing < get_denied_error and
+        "errno = saved_errno;" in get_permission[get_denied_error - 80:get_denied_error + 40],
+        "permission query must preserve no-grant on ENOENT but report metadata I/O errors")
+set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
+set_read = set_permission.index("var_info = read_whole_file(var_file);")
+set_enoent = set_permission.index("if (saved_errno != ENOENT)", set_read)
+set_init = set_permission.index("initial_one_var_file_in_mount_path(account, mount_path)", set_enoent)
+set_retry = set_permission.index("var_info = read_whole_file(var_file);", set_init)
+require(set_read < set_enoent < set_init < set_retry and
+        "sleep(1);" not in set_permission,
+        "permission update may initialize defaults only for ENOENT and must check the result")
+require("if (result != 0)" in set_permission[set_init:set_retry],
+        "permission update must propagate metadata initialization failure")
+
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
         "Samba caller must initialize folder_list before the fallible API call")

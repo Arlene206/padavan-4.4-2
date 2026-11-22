@@ -895,25 +895,31 @@ int get_permission(const char *account,
 		   const char *folder,
 		   const char *protocol)
 {
-	char var_file[256];
+char var_file[256];
 	char *target, *follow_info, *var_info;
-	int len, result;
+	int len, result, saved_errno;
 
 	if (!mount_path || !*mount_path || !is_valid_account_name(account) ||
 	    !is_valid_folder_name(folder) || !protocol)
 		return -1;
 
-	// 2. get the content of the var_file of the account
+	/* An absent metadata file means no explicit grant; read failures do not. */
 	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
 	var_info = read_whole_file(var_file);
-	if (!var_info)
-		return 0;
+	if (!var_info) {
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno == ENOENT)
+			return 0;
+		errno = saved_errno;
+		return -1;
+	}
 
-	// 3. get the target in the content
-	len = strlen(folder)+strlen("*=");
-	target = (char *)malloc(sizeof(char)*(len+1));
+	len = strlen(folder) + strlen("*=");
+	target = (char *)malloc(sizeof(char) * (len + 1));
 	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
 		free(var_info);
+		errno = saved_errno;
 		return -1;
 	}
 	sprintf(target, "*%s=", folder);
@@ -932,14 +938,13 @@ int get_permission(const char *account,
 		return -1;
 	}
 
-	// 4. get the right of folder
 	if (!strcmp(protocol, "cifs"))
-		result = follow_info[0]-'0';
+		result = follow_info[0] - '0';
 	else if (!strcmp(protocol, "ftp"))
-		result = follow_info[1]-'0';
+		result = follow_info[1] - '0';
 	else if (!strcmp(protocol, "dms"))
-		result = follow_info[2]-'0';
-	else{
+		result = follow_info[2] - '0';
+	else {
 		free(var_info);
 		return -1;
 	}
@@ -957,10 +962,10 @@ int set_permission(const char *account,
 		   const char *protocol,
 		   const int flag)
 {
-	FILE *fp;
+FILE *fp;
 	char var_file[256];
 	char *target, *follow_info, *var_info;
-	int len, result;
+	int len, result, saved_errno;
 
 	if (flag < 0 || flag > 3 || !protocol ||
 	    (strcmp(protocol, "cifs") && strcmp(protocol, "ftp") &&
@@ -970,59 +975,88 @@ int set_permission(const char *account,
 	    !is_valid_folder_name(folder))
 		return -1;
 
-	// 2. get the content of the var_file of the account
 	snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", mount_path, account);
 	var_info = read_whole_file(var_file);
 	if (!var_info) {
-		initial_one_var_file_in_mount_path(account, mount_path);
-		sleep(1);
-		var_info = read_whole_file(var_file);
-		if (!var_info)
+		saved_errno = errno ? errno : EIO;
+		/* Only ENOENT is a reason to synthesize default permissions. */
+		if (saved_errno != ENOENT) {
+			errno = saved_errno;
 			return -1;
+		}
+		errno = 0;
+		result = initial_one_var_file_in_mount_path(account, mount_path);
+		if (result != 0) {
+			if (!errno)
+				errno = EIO;
+			return -1;
+		}
+		var_info = read_whole_file(var_file);
+		if (!var_info) {
+			if (!errno)
+				errno = EIO;
+			return -1;
+		}
 	}
 
-	// 3. get the target in the content
-	len = strlen("*")+strlen(folder)+strlen("=");
-	target = (char *)malloc(sizeof(char)*(len+1));
+	len = strlen("*") + strlen(folder) + strlen("=");
+	target = (char *)malloc(sizeof(char) * (len + 1));
 	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
 		free(var_info);
+		errno = saved_errno;
 		return -1;
 	}
 	sprintf(target, "*%s=", folder);
 	target[len] = 0;
 
-	// 4. judge if the target is in the var file.
 	follow_info = upper_strstr(var_info, target);
 	if (!follow_info) {
 		free(var_info);
-		
 		result = initial_folder_list_in_mount_path(mount_path);
-		
+		if (result != 0) {
+			saved_errno = errno ? errno : EIO;
+			free(target);
+			errno = saved_errno;
+			return -1;
+		}
+
 		fp = fopen(var_file, "a+");
 		if (!fp) {
+			saved_errno = errno ? errno : EIO;
 			free(target);
+			errno = saved_errno;
 			return -1;
 		}
-		
-		fprintf(fp, "%s", target);
+		if (fprintf(fp, "%s", target) < 0) {
+			saved_errno = errno ? errno : EIO;
+			free(target);
+			(void)fclose(fp);
+			errno = saved_errno;
+			return -1;
+		}
 		free(target);
-		
-		// 5.1 change the right of folder
+
 		if (!strcmp(protocol, "cifs"))
-			fprintf(fp, "%d%d%d\n", flag, 0, DEFAULT_DMS_RIGHT);
+			result = fprintf(fp, "%d%d%d\n", flag, 0, DEFAULT_DMS_RIGHT);
 		else if (!strcmp(protocol, "ftp"))
-			fprintf(fp, "%d%d%d\n", 0, flag, DEFAULT_DMS_RIGHT);
-		else if (!strcmp(protocol, "dms"))
-			fprintf(fp, "%d%d%d\n", 0, 0, flag);
-		else{
-			fclose(fp);
+			result = fprintf(fp, "%d%d%d\n", 0, flag, DEFAULT_DMS_RIGHT);
+		else
+			result = fprintf(fp, "%d%d%d\n", 0, 0, flag);
+		if (result < 0) {
+			saved_errno = errno ? errno : EIO;
+			(void)fclose(fp);
+			errno = saved_errno;
 			return -1;
 		}
-		fclose(fp);
-		
+		errno = 0;
+		if (fclose(fp) != 0) {
+			errno = errno ? errno : EIO;
+			return -1;
+		}
+
 		if (!strcmp(protocol, "cifs"))
 			system("/sbin/run_samba");
-		
 		return 0;
 	}
 	free(target);
@@ -1033,50 +1067,54 @@ int set_permission(const char *account,
 		return -1;
 	}
 
-	// 5.2. change the right of folder
 	if (!strcmp(protocol, "cifs")) {
-		if (follow_info[0] == '0'+flag) {
+		if (follow_info[0] == '0' + flag) {
 			free(var_info);
 			return 0;
 		}
-		
-		follow_info[0] = '0'+flag;
-	}
-	else if (!strcmp(protocol, "ftp")) {
-		if (follow_info[1] == '0'+flag) {
+		follow_info[0] = '0' + flag;
+	} else if (!strcmp(protocol, "ftp")) {
+		if (follow_info[1] == '0' + flag) {
 			free(var_info);
 			return 0;
 		}
-		
-		follow_info[1] = '0'+flag;
-	}
-	else if (!strcmp(protocol, "dms")) {
-		if (follow_info[2] == '0'+flag) {
+		follow_info[1] = '0' + flag;
+	} else if (!strcmp(protocol, "dms")) {
+		if (follow_info[2] == '0' + flag) {
 			free(var_info);
 			return 0;
 		}
-		
-		follow_info[2] = '0'+flag;
-	}
-	else{
+		follow_info[2] = '0' + flag;
+	} else {
 		free(var_info);
 		return -1;
 	}
 
-	// 6. rewrite the var file.
 	fp = fopen(var_file, "w");
 	if (fp == NULL) {
+		saved_errno = errno ? errno : EIO;
 		free(var_info);
+		errno = saved_errno;
 		return -1;
 	}
-	fprintf(fp, "%s", var_info);
-	fclose(fp);
+	if (fprintf(fp, "%s", var_info) < 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)fclose(fp);
+		free(var_info);
+		errno = saved_errno;
+		return -1;
+	}
+	errno = 0;
+	if (fclose(fp) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(var_info);
+		errno = saved_errno;
+		return -1;
+	}
 
 	free(var_info);
-
 	if (!strcmp(protocol, "cifs"))
 		system("/sbin/run_samba");
-
 	return 0;
 }
 
