@@ -1,3 +1,11 @@
+## 2026-11-22 — Own hostname and XUPnPD address across NVRAM reads
+
+- Parent main SHA: `c4bc1f86973e9f45fd53f74c7bd613edc48da6d7`. `get_our_hostname()` kept the shared-cache pointer for `computer_name` while falling back to `productid`, and returned a borrowed cache pointer to callers. `start_xupnpd()` retained `lan_ipaddr_t` across later port/enable NVRAM reads before serializing its URL.
+- Replaced both with bounded checked copies into owned buffers. Hostname read errors now return NULL (the caller already rejects a NULL hostname); XUPnPD configuration returns a checked error before filesystem or daemon side effects. The existing URL formatter now consumes the stable preflight address.
+- Added GNU89 cache-overwrite regressions and Process source-contract assertions. Exact-head Process / XY-C1 validation pending; Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Normalize LAN NVRAM source-contract call whitespace
 
 - Parent main SHA: `77fcbc9cc84a55906c1bed2456e87eab1c70bf86`. Exact Process run #45008185010 on `864e6c651675f3d22f1a23ebc9b0936f06d6833a` compiled and ran the bridge-init GNU89 ASan/UBSan regression successfully, then failed in the later embedded source checker at Python line 213. The checker collapsed line breaks but expected no space after the helper's opening parenthesis; the C call was intentionally split after `(`, so the normalized source contained one space.

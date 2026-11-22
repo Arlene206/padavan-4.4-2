@@ -1141,6 +1141,26 @@ jobs:
           assert "\nvoid\nint\nstart_lan(" not in lan
           assert "\nvoid\nlan_up_manual(" not in lan
           start_lan = body(lan, "start_lan(int is_ap_mode, int do_wait)")
+          hostname = body(net, "get_our_hostname(void)")
+          hostname_compact = " ".join(hostname.split())
+          assert "static char host_name[256];" in hostname
+          assert 'rc_wan_nvram_copy_value(net_nvram_get_checked, NULL, "computer_name"' in hostname_compact
+          assert 'rc_wan_nvram_copy_value(net_nvram_get_checked, NULL, "productid"' in hostname_compact
+          assert "nvram_safe_get(" not in hostname
+          assert "return NULL;" in hostname
+
+          xupnpd = body(net, "start_xupnpd(char *wan_ifname)")
+          xupnpd_compact = " ".join(xupnpd.split())
+          assert "char tmp1[128], tmp2[128], line[256], lan_addr[16];" in xupnpd
+          assert 'rc_wan_nvram_copy_value(net_nvram_get_checked, NULL, "lan_ipaddr_t", lan_addr, sizeof(lan_addr))' in xupnpd_compact
+          assert "nvram_safe_get(" not in xupnpd
+          assert "xupnpd_config_valid_ipv4(lan_addr)" in xupnpd
+          assert xupnpd_compact.index('"lan_ipaddr_t"') < xupnpd_compact.index('xport = nvram_get_int("xupnpd_enable_x")')
+          assert 'snprintf(line, sizeof(line), "%scfg.udpxp_url=' not in xupnpd
+          assert 'snprintf(line, sizeof(line), "%scfg.udpxnp_url=' not in xupnpd
+          assert 'snprintf(line, sizeof(line), "%scfg.udpxy_url=' in xupnpd
+          assert "test_hostname_fallback_is_owned_across_cache_reuse" in bridge_init_regression
+          assert "test_xupnpd_lan_address_is_owned_across_port_reads" in bridge_init_regression
           assert "operation_status = ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);" in start_lan
           assert "operation_status = start_udhcpc_lan(lan_ifname);" in start_lan
           assert "operation_status = lan_up_manual(lan_ifname, lan_dname);" in start_lan

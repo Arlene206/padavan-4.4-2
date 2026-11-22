@@ -54,6 +54,7 @@
 #include "network_sysctl_policy.h"
 #include "tcp_tweaks_policy.h"
 #include "libc_gai_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "xupnpd_config_file.h"
 #include "xupnpd_daemon_policy.h"
 #include "detached_daemon_start_policy.h"
@@ -62,6 +63,14 @@
 #endif
 
 #define SR_BUF_LEN (8192)
+
+static int
+net_nvram_get_checked(void *context, const char *param_name, char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
 
 static int
 route_manip(int cmd, char *ifname, int metric, char *dst, char *gateway, char *genmask)
@@ -218,9 +227,25 @@ sanity_hostname(char *hname)
 char*
 get_our_hostname(void)
 {
-	char* host_name = nvram_safe_get("computer_name");
-	if (!(*host_name) || !is_valid_hostname(host_name))
-		host_name = nvram_safe_get("productid");
+	static char host_name[256];
+	int status;
+
+	status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+					 "computer_name", host_name,
+					 sizeof(host_name));
+	if (status != 0) {
+		errno = status;
+		return NULL;
+	}
+	if (!host_name[0] || !is_valid_hostname(host_name)) {
+		status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+						 "productid", host_name,
+						 sizeof(host_name));
+		if (status != 0) {
+			errno = status;
+			return NULL;
+		}
+	}
 	return sanity_hostname(host_name);
 }
 
@@ -642,7 +667,7 @@ start_xupnpd(char *wan_ifname)
 	enum process_presence process_state;
 	int copy_storage, directory_status, copy_status;
 	FILE *fp1, *fp2;
-	char tmp1[128], tmp2[128], line[256];
+	char tmp1[128], tmp2[128], line[256], lan_addr[16];
 	char *dir_src = "/etc_ro/xupnpd";
 	char *dir_dst = "/etc/storage/xupnpd";
 	char *xdir1[] = { "config", "playlists", NULL };
@@ -651,10 +676,21 @@ start_xupnpd(char *wan_ifname)
 
 	if (!is_xupnpd_support())
 		return 0;
-	if (!xupnpd_config_valid_interface(wan_ifname) ||
-	    !xupnpd_config_valid_ipv4(nvram_safe_get("lan_ipaddr_t")))
+	if (!xupnpd_config_valid_interface(wan_ifname))
 		return EINVAL;
 
+	config_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+						"lan_ipaddr_t", lan_addr,
+						sizeof(lan_addr));
+	if (config_status != 0) {
+		errno = config_status;
+		logmessage(LOGNAME,
+			   "cannot read AP LAN address for xupnpd configuration (status=%d)",
+			   config_status);
+		return config_status;
+	}
+	if (!xupnpd_config_valid_ipv4(lan_addr))
+		return EINVAL;
 
 	xport = nvram_get_int("xupnpd_enable_x");
 	if (xport < 1024)
@@ -887,7 +923,6 @@ start_xupnpd(char *wan_ifname)
 			snprintf(line, sizeof(line), "cfg.http_port=%d\n", xport);
 		else if (strstr(line, "cfg.udpxy_url=")) {
 			char *lua_rem = "--";
-			char *lan_addr = nvram_safe_get("lan_ipaddr_t");
 			int udpxy_port = nvram_get_int("udpxy_enable_x");
 			if (udpxy_port < 0 || udpxy_port > 65535) {
 				config_status = EINVAL;
