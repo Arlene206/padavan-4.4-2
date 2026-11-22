@@ -98,7 +98,11 @@ startup = smartdns.split('smartdns_nvram_read_checked sdns_enable', 1)[0]
 for key in ("sdns_enable", "sdns_port", "sdns_redirect", "sdnse_enable", "sdnse_port"):
     assert 'smartdns_nvram_read_checked ' + key + ' || exit $?' in smartdns
     assert key + '=$(nvram get ' + key + ')' not in startup
-assert smartdns.index('smartdns_nvram_read_checked sdns_enable') < smartdns.index('adbyby_process=')
+assert smartdns.index('smartdns_nvram_read_checked sdns_enable') < smartdns.index('smartdns_nvram_read_checked adbyby_enable')
+assert 'pidof adbyby' not in smartdns
+assert 'smartdns_process_state adbyby' in adbyby_change
+assert 'Cannot determine Adbyby process state' in adbyby_change
+assert test.count("sed -n '/^smartdns_process_state()/,/^}/p'") == 2
 adbyby_change = body(smartdns, "Change_adbyby")
 assert "/usr/bin/adbyby.sh switch" not in adbyby_change, \
     "SmartDNS must not dispatch the unsupported Adbyby switch action"

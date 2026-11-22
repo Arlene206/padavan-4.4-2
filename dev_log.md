@@ -2,8 +2,8 @@
 
 - Source baseline: `8ecb9cdbdc34dc62f8b774a227b217afdc47f251`. `Change_adbyby()` piped `pidof adbyby` through `awk`, discarding pidof's status; a failed or malformed process scan therefore became an empty string and was treated as confirmed absence. SmartDNS could then report a successful DNS-owner transition without updating Adbyby's DNSMasq/SmartDNS ownership.
 - Generalized the existing strict SmartDNS process-state helper to accept an explicit process name, removed the unused early pidof/awk probe, and made `Change_adbyby()` distinguish RUNNING, confirmed ABSENT, and UNKNOWN. Unknown/inconsistent output now aborts before Adbyby NVRAM reads or DNS ownership changes.
-- Extended the exact SmartDNS lifecycle regression to exercise the extracted `Change_adbyby()` function with absent, pidof-error, empty-success, inconsistent, malformed, and running Adbyby states. The process-lifecycle workflow already executes this test and its static checker. No router or firmware build is claimed.
-- Exact-head validation pending.
+- Extended the exact SmartDNS lifecycle regression to exercise the extracted `Change_adbyby()` function with absent, pidof-error, empty-success, inconsistent, malformed, and running Adbyby states. Exact SHA `8b354207...` passed the process lifecycle inventory and SmartDNS process lifecycle workflows, but the independent DNSMasq integration suite exposed a test-harness omission: the two places extracting `Change_adbyby()` did not also extract its newly required `smartdns_process_state()` dependency. Added the dependency to both extracted function bundles and updated the DNSMasq source-contract checker to stop requiring the removed `adbyby_process` startup variable. No product-code failure was found in this CI error; rerun is pending.
+- No router or firmware build is claimed.
 
 ## 2026-11-22 — Preserve UNKNOWN process state in Ralink IAPP lifecycle
 
