@@ -4150,8 +4150,7 @@ stop_wan_locked(void)
 		logmessage(LOGNAME,
 			   "cannot determine WAN protocol during stop; continuing conservative teardown (status=%d)",
 			   proto_status);
-		stop_status = rc_first_service_start_status(stop_status, proto_status);
-	}
+		}
 	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
 	stop_status = stop_vpn_client_under_lifecycle_lock();
@@ -4254,12 +4253,12 @@ stop_wan_locked(void)
 	callback_cleanup_status = remove_cb_links();
 	if (callback_cleanup_status != 0)
 		logmessage(LOGNAME, "WAN callback link cleanup incomplete (status=%d)", callback_cleanup_status);
-	if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0) {
+	stop_status = wan_teardown_first_error_status(
+		stop_status, proto_status, ifdown_status, callback_cleanup_status);
+	if (stop_status != 0) {
 		logmessage(LOGNAME,
-			   "WAN interface shutdown incomplete (modem=%d interface=%d callbacks=%d); skipping final WAN state clear",
-			   stop_status, ifdown_status, callback_cleanup_status);
-		if (stop_status == 0)
-			stop_status = ifdown_status != 0 ? ifdown_status : callback_cleanup_status;
+			   "WAN interface shutdown incomplete (stop=%d protocol=%d interface=%d callbacks=%d); skipping final WAN state clear",
+			   stop_status, proto_status, ifdown_status, callback_cleanup_status);
 		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)
@@ -4382,8 +4381,8 @@ is_ifunit_modem(char *wan_ifname, int unit)
 static int
 add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)
 {
-	int is_man_dns_auto, is_modem_active, wan_proto, dns_enabled;
-	int dns_mode_status;
+	int is_man_dns_auto, is_modem_active, wan_proto = 0, dns_enabled;
+	int dns_mode_status, proto_status;
 	int status = 0, route_status, snapshot_status;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
 	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
@@ -4410,7 +4409,16 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 	if (!is_valid_ipv4(man_gate))
 		return 0;
 
-	wan_proto = get_wan_proto(unit);
+	proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (proto_status != 0) {
+		status = route_status_accumulate(status, proto_status);
+		if (gateway_route_status)
+			*gateway_route_status = route_status_accumulate(
+				*gateway_route_status, proto_status);
+		logmessage(LOGNAME,
+			   "cannot read WAN protocol for MAN DNS routes on %s; skipping optional DNS routes (status=%d)",
+			   man_ifname, proto_status);
+	}
 	is_modem_active = get_usb_modem_wan(unit);
 	dns_mode_status = get_wan_unit_value_int_status(
 		unit, "dnsenable_x", &dns_enabled);
@@ -4455,7 +4463,9 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 			   man_gate, man_ifname, route_status);
 
 	/* ... and to dns servers as well for demand ppp to work */
-	if (is_man_dns_auto && !is_modem_active && wan_proto != IPV4_WAN_PROTO_PPPOE) {
+	if (wan_man_dns_route_add_allowed(proto_status,
+					     wan_proto == IPV4_WAN_PROTO_PPPOE,
+					     is_man_dns_auto, is_modem_active)) {
 		foreach(word, man_dns, next) {
 			if (is_valid_ipv4(word) && inet_addr(word) != inet_addr(man_gate) &&
 			    !is_same_subnet(word, man_addr, man_mask)) {
@@ -4545,7 +4555,7 @@ man_up(char *man_ifname, int unit, int is_static)
 static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
-	int wan_proto, is_modem_active, is_man_dns_auto, dns_enabled;
+	int wan_proto = 0, proto_status, is_modem_active, is_man_dns_auto, dns_enabled;
 	int dns_mode_status;
 	int status = 0, route_status, snapshot_status;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
@@ -4587,7 +4597,13 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 			   "cannot snapshot MAN gateway/address/DNS state during teardown on %s (status=%d)",
 			   man_ifname, snapshot_status);
 	}
-	wan_proto = get_wan_proto(unit);
+	proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (proto_status != 0) {
+		status = route_status_accumulate(status, proto_status);
+		logmessage(LOGNAME,
+			   "cannot read WAN protocol during MAN teardown on %s (status=%d); attempting conservative route cleanup",
+			   man_ifname, proto_status);
+	}
 	is_modem_active = get_usb_modem_wan(unit);
 	dns_mode_status = get_wan_unit_value_int_status(
 		unit, "dnsenable_x", &dns_enabled);
@@ -4616,7 +4632,9 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 			status = route_status_accumulate(status, route_status);
 			logmessage(LOGNAME, "failed to delete MAN default route via %s on %s (error=%d)", man_gate, man_ifname, route_status);
 		}
-		if (is_man_dns_auto && !is_modem_active && wan_proto != IPV4_WAN_PROTO_PPPOE) {
+		if (wan_man_dns_route_remove_allowed(proto_status,
+						   wan_proto == IPV4_WAN_PROTO_PPPOE,
+						   is_man_dns_auto, is_modem_active)) {
 			foreach(word, man_dns, next) {
 				if (is_valid_ipv4(word) && inet_addr(word) != inet_addr(man_gate) &&
 				    dhcp_lease_ipv4_is_valid(man_addr) && dhcp_lease_netmask_is_valid(man_mask) &&
@@ -4694,7 +4712,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 {
 	char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];
 	const char *script_postw = SCRIPT_POST_WAN;
-	int wan_proto, modem_unit_id;
+	int wan_proto = 0, modem_unit_id, proto_status;
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
@@ -4706,8 +4724,17 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "up", wan_ifname);
 
-	wan_proto = get_wan_proto(unit);
 	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
+	if (!modem_unit_id) {
+		proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+		if (proto_status != 0) {
+			logmessage(LOGNAME,
+				   "aborting WAN-up on %s because configured protocol cannot be read (status=%d)",
+				   wan_ifname, proto_status);
+			errno = proto_status;
+			return proto_status;
+		}
+	}
 
 	snprintf(wan_cnt, sizeof(wan_cnt), "%ld", uptime());
 	set_wan_unit_value(unit, "uptime", wan_cnt);
@@ -6863,7 +6890,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	size_t i, snapshot_count, previous_snapshot_count;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
-	int wan_proto, modem_unit_id, route_result, route_metric;
+	int wan_proto = 0, modem_unit_id, proto_status, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
@@ -6879,7 +6906,24 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	struct wan_dhcp_route_transition_context route_context;
 
 	unit = get_wan_unit(wan_ifname);
-	is_man = is_ifunit_man(wan_ifname, unit);
+	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
+	proto_status = 0;
+	if (modem_unit_id) {
+		is_man = 0;
+	} else {
+		proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+		if (proto_status != 0) {
+			logmessage(LOGNAME,
+				   "refusing DHCP bound callback on %s because WAN protocol cannot be read (status=%d)",
+				   wan_ifname, proto_status);
+			errno = proto_status;
+			return proto_status;
+		}
+		is_man = !is_usbnet_interface(wan_ifname) &&
+			(wan_proto == IPV4_WAN_PROTO_PPPOE ||
+			 wan_proto == IPV4_WAN_PROTO_PPTP ||
+			 wan_proto == IPV4_WAN_PROTO_L2TP);
+	}
 	route_setup_status = 0;
 	mtu_status = 0;
 
@@ -6964,8 +7008,6 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	 previous_text[WAN_DHCP_BOUND_IPADDR]);
 	snprintf(old_mask, sizeof(old_mask), "%s",
 	 previous_text[WAN_DHCP_BOUND_NETMASK]);
-	wan_proto = get_wan_proto(unit);
-	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
 	route_metric = is_man ? 2 : 1;
 
 	/*

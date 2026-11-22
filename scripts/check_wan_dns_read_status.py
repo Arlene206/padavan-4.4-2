@@ -310,6 +310,18 @@ require('get_wan_unit_value_int_status(unit, "auth_mode", &auth_mode)' in wan_do
 require("if (auth_status != 0 || auth_mode == 1)" in wan_down and "stop_auth_kabinet()" in wan_down,
         "Kabinet teardown must attempt defensive stop when auth mode is unknown")
 assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
+wan_up_protocol = "".join(body(source, "wan_up_internal(char *wan_ifname, int unit, int is_static)").split())
+wan_up_modem_check = "modem_unit_id=is_ifunit_modem(wan_ifname,unit)"
+wan_up_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+wan_up_proto_error = "if(proto_status!=0)"
+require(wan_up_modem_check in wan_up_protocol and wan_up_proto_read in wan_up_protocol and
+        wan_up_proto_error in wan_up_protocol and
+        wan_up_protocol.index(wan_up_modem_check) < wan_up_protocol.index(wan_up_proto_read) <
+        wan_up_protocol.index(wan_up_proto_error) <
+        wan_up_protocol.index("set_wan_unit_value(unit,\"uptime\"") and
+        "returnproto_status;" in wan_up_protocol and
+        "wan_proto=get_wan_proto(unit)" not in wan_up_protocol,
+        "WAN-up must fail closed on unreadable protocol before publishing routes or runtime state")
 print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
 
 
@@ -349,16 +361,21 @@ require('get_wan_unit_value_int_status(unit,"dnsenable_x",&dns_enabled)' in add_
         "MAN route creation must use checked DNS-mode reads")
 require("is_man_dns_auto=0" in add_man_routes_compact and
         "skippingoptionalDNSroutes" in add_man_routes_compact and
-        "if(is_man_dns_auto&&!is_modem_active" in add_man_routes_compact,
-        "MAN DNS route creation must skip optional routes when mode is unknown")
+        "wan_man_dns_route_add_allowed(proto_status,wan_proto==IPV4_WAN_PROTO_PPPOE,is_man_dns_auto,is_modem_active)" in add_man_routes_compact and
+        "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)" in add_man_routes_compact and
+        "status=route_status_accumulate(status,proto_status)" in add_man_routes_compact and
+        "*gateway_route_status=route_status_accumulate(*gateway_route_status,proto_status)" in add_man_routes_compact,
+        "MAN DNS route creation must skip optional routes when mode or protocol is unknown")
 teardown_man_routes = " ".join(body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)").split())
 teardown_man_routes_compact = "".join(teardown_man_routes.split())
 require('get_wan_unit_value_int_status(unit,"dnsenable_x",&dns_enabled)' in teardown_man_routes_compact,
         "MAN route teardown must use checked DNS-mode reads")
 require("is_man_dns_auto=1" in teardown_man_routes_compact and
         "attemptingDNSrout eremoval".replace(" ", "") in teardown_man_routes_compact and
-        "if(is_man_dns_auto&&!is_modem_active" in teardown_man_routes_compact,
-        "MAN route teardown must attempt best-effort DNS route removal when mode is unknown")
+        "wan_man_dns_route_remove_allowed(proto_status,wan_proto==IPV4_WAN_PROTO_PPPOE,is_man_dns_auto,is_modem_active)" in teardown_man_routes_compact and
+        "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)" in teardown_man_routes_compact and
+        "status=route_status_accumulate(status,proto_status)" in teardown_man_routes_compact,
+        "MAN route teardown must use checked protocol and best-effort DNS cleanup when unknown")
 assert 'get_wan_unit_value_int(unit, "dnsenable_x")' not in add_man_routes
 assert 'get_wan_unit_value_int(unit, "dnsenable_x")' not in teardown_man_routes
 print("MAN DNS-route setup/teardown preserves NVRAM read errors and best-effort cleanup: PASS")
@@ -477,10 +494,10 @@ require(dns_proto in dns_status and
 wan_ifname_proto = "".join(body(source, "get_wan_ifname(char wan_ifname[16])").split())
 ifname_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
 ifname_proto_error_gate = "if(status!=0){errno=status;returnstatus;}"
-require(ifname_proto_read in wan_ifname_proto and
-        ifname_proto_error_gate in wan_ifname_proto and
-        wan_ifname_proto.index(ifname_proto_read) < wan_ifname_proto.index(ifname_proto_error_gate) <
-        wan_ifname_proto.index("if(wan_proto==") and
+ifname_proto_read_at = wan_ifname_proto.index(ifname_proto_read)
+ifname_proto_error_at = wan_ifname_proto.index(ifname_proto_error_gate, ifname_proto_read_at)
+require(ifname_proto_read_at < ifname_proto_error_at <
+        wan_ifname_proto.index("if(wan_proto==", ifname_proto_error_at) and
         "wan_proto=get_wan_proto(unit)" not in wan_ifname_proto,
         "WAN interface selection must not guess the MAN interface on protocol read failure")
 

@@ -50,6 +50,36 @@ wan_teardown_gateway_host_route_required(int gateway_read_status,
 		ppp_index < 0 && gateway_off_subnet;
 }
 
+/* Unknown WAN protocol must never trigger optional MAN DNS-route creation. */
+static inline int
+wan_man_dns_route_add_allowed(int protocol_status, int is_pppoe,
+			      int dns_auto, int modem_active)
+{
+	return protocol_status == 0 && dns_auto && !modem_active && !is_pppoe;
+}
+
+/* On teardown, unknown protocol permits idempotent removal of scoped DNS routes. */
+static inline int
+wan_man_dns_route_remove_allowed(int protocol_status, int is_pppoe,
+				 int dns_auto, int modem_active)
+{
+	return dns_auto && !modem_active && (protocol_status != 0 || !is_pppoe);
+}
+
+/* Preserve an earlier protocol error while all independent teardown steps run. */
+static inline int
+wan_teardown_first_error_status(int stop_status, int protocol_status,
+				int ifdown_status, int callback_status)
+{
+	if (stop_status != 0)
+		return stop_status;
+	if (protocol_status != 0)
+		return protocol_status;
+	if (ifdown_status != 0)
+		return ifdown_status;
+	return callback_status;
+}
+
 struct wan_teardown_interface_ops {
 	int (*ifdown)(void *context, const char *ifname);
 };

@@ -204,6 +204,13 @@ jobs:
               checked_proto_read) < stop.index(checked_proto_error) < stop.index(
               checked_proto_log) < stop.index(
               "stop_status = stop_vpn_client_under_lifecycle_lock();")
+          final_status = "stop_status = wan_teardown_first_error_status("
+          callback_cleanup = "callback_cleanup_status = remove_cb_links();"
+          final_gate = "if (stop_status != 0)"
+          assert final_status in stop and callback_cleanup in stop and final_gate in stop
+          assert stop.index(callback_cleanup) < stop.index(final_status) < stop.index(final_gate)
+          assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in stop
+          assert "protocol=%d" in stop
 
           reconnect = function_body(source, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
           schedule_call = "status = schedule_deferred_wan_reconnect_status("

@@ -108,6 +108,32 @@ test_status_update_handles_errno_and_ioctl_failures(void)
 }
 
 static void
+test_man_dns_route_policy_fails_closed_on_unknown_protocol(void)
+{
+	assert(wan_man_dns_route_add_allowed(0, 0, 1, 0) == 1);
+	assert(wan_man_dns_route_add_allowed(0, 1, 1, 0) == 0);
+	assert(wan_man_dns_route_add_allowed(EIO, 0, 1, 0) == 0);
+	assert(wan_man_dns_route_add_allowed(0, 0, 0, 0) == 0);
+	assert(wan_man_dns_route_add_allowed(0, 0, 1, 1) == 0);
+	assert(wan_man_dns_route_remove_allowed(0, 0, 1, 0) == 1);
+	assert(wan_man_dns_route_remove_allowed(0, 1, 1, 0) == 0);
+	assert(wan_man_dns_route_remove_allowed(EIO, 1, 1, 0) == 1);
+	assert(wan_man_dns_route_remove_allowed(EIO, 0, 1, 1) == 0);
+	assert(wan_man_dns_route_remove_allowed(0, 0, 0, 0) == 0);
+}
+
+static void
+test_protocol_error_survives_successful_independent_wan_teardown(void)
+{
+	assert(wan_teardown_first_error_status(0, EIO, 0, 0) == EIO);
+	assert(wan_teardown_first_error_status(0, EBUSY, EIO, EACCES) == EBUSY);
+	assert(wan_teardown_first_error_status(0, 0, EIO, EACCES) == EIO);
+	assert(wan_teardown_first_error_status(0, 0, 0, EACCES) == EACCES);
+	assert(wan_teardown_first_error_status(EBUSY, EIO, 0, 0) == EBUSY);
+	assert(wan_teardown_first_error_status(0, 0, 0, 0) == 0);
+}
+
+static void
 test_abort_status_preserves_primary_and_reports_resume_failures(void)
 {
 	assert(wan_teardown_abort_status(EIO, 0) == EIO);
@@ -208,6 +234,8 @@ main(void)
 	test_status_update_handles_errno_and_ioctl_failures();
 test_gateway_host_route_requires_a_complete_checked_snapshot();
 	test_gateway_host_route_rejects_invalid_address_and_netmask();
+	test_man_dns_route_policy_fails_closed_on_unknown_protocol();
+	test_protocol_error_survives_successful_independent_wan_teardown();
 	test_abort_status_preserves_primary_and_reports_resume_failures();
 	test_ipoe_dns_snapshot_is_always_cleared();
 	test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present();

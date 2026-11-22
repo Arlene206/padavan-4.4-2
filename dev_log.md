@@ -1,3 +1,14 @@
+## 2026-11-22 — Fail closed on remaining unchecked WAN protocol consumers
+
+- Parent main SHA: `d1108616599c54ff5268c780b9119d276b1e82fb`.
+- The live source audit found four remaining unchecked `get_wan_proto(unit)` consumers in `add_man_gateway_routes()`, `man_down_internal()`, `wan_up_internal()` and `udhcpc_bound()`. They controlled whether MAN DNS routes were added/removed, which WAN route/address class to initialize, and which DHCP lease namespace was mutated.
+- THIS source slice replaces those protocol guesses with `get_wan_unit_proto_checked_status()`: MAN-up continues essential gateway routes but skips optional DNS routes on an unknown protocol; MAN-down still attempts idempotent DNS cleanup while retaining the read error; WAN-up and non-modem DHCP bound refuse protocol-dependent changes before runtime-state/interface mutation. Confirmed modem callbacks retain their transport-specific path.
+- A second teardown defect was fixed: `stop_wan_locked()` previously stored a checked protocol error in `stop_status`, then overwrote it with successful VPN/PPP stop results. Final teardown now aggregates the protocol status after independent interface/callback cleanup and refuses final WAN-state clear if it remains nonzero.
+- Added executable C policy regressions for conservative MAN DNS route add/remove and preservation of the first protocol teardown error, plus source-contract checks for callback ordering and fail-closed behavior. Exact-SHA Actions are required for validation; no local firmware toolchain is available here.
+- Next: inspect exact-head WAN route, DHCP callback, teardown and XY-C1 runs; address any true source/test failures before expanding the audit.
+
+---
+
 ## 2026-11-22 08:32 CST — Exact-head WAN protocol hardening checkpoint
 
 - Product source head at inspection: `6a7639cc946d9277a4a54db6c695bd816c472761`; `net_wan.c` blob: `d1315536f781f632aa2c1839eefb01619614b86d`.

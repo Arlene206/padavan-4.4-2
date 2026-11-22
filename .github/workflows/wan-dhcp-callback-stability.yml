@@ -435,6 +435,20 @@ jobs:
           assert 'wan_nvram_int_temp_status("wanx_err", man_err)' in source
           assert "launch_status = route_status_accumulate(launch_status, publish_status);" in source
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+          callback_compact = "".join(callback.split())
+          modem_identity = "modem_unit_id=is_ifunit_modem(wan_ifname,unit)"
+          protocol_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+          protocol_error = "if(proto_status!=0)"
+          require(modem_identity in callback_compact and protocol_read in callback_compact and
+                  protocol_error in callback_compact and
+                  callback_compact.index(modem_identity) < callback_compact.index(protocol_read) <
+                  callback_compact.index(protocol_error) <
+                  callback_compact.index("rc_wan_nvram_copy_snapshot(") <
+                  callback_compact.index("dhcp_wan_interface_apply(") and
+                  "is_man=is_ifunit_man(wan_ifname,unit)" not in callback_compact and
+                  "wan_proto=get_wan_proto(unit)" not in callback_compact and
+                  "errno=proto_status;returnproto_status;" in callback_compact,
+                  "WAN DHCP bound must validate protocol before selecting lease namespace or mutating the interface")
           viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
           assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in viptv_bound
