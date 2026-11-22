@@ -1,3 +1,10 @@
+## 2026-11-22 — Initialize optional Internet LED transition setting
+
+- Parent main SHA: `896500e1db96808f3a830386a2dcf41b2c821dc1`. Initialized the timer-local WAN LED mode to its legacy disabled default before the conditional checked read. The value is consumed only after a successful transition preflight; explicit initialization also keeps compiler data-flow analysis clear in non-optimized GNU89 builds.
+- No behavior change; exact-head CI pending.
+
+---
+
 ## 2026-11-22 — Check runtime Internet probe cadence and transition settings
 
 - Parent main SHA: `060503f762d22fe0d847f05851981c005792c0ac`. After endpoint reads were made fail-closed, `di_on_timer()` still used unchecked NVRAM integer getters for connect timeout, success/failure cadence, WAN LED mode and lost-delay policy. A backend error could silently select default timing or partially commit a connectivity transition. Resume also read `di_notify_delay` without preserving backend errors.

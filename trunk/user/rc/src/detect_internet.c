@@ -306,7 +306,7 @@ di_on_timer(void)
 	int i, link_error, link_internet, has_unchecked;
 	int publish_status, settings_status;
 	int runtime_status, timeout, period_done, period_fail;
-	int front_led_mode, lost_delay = 10;
+	int front_led_mode = 0, lost_delay = 10;
 	long now;
 	unsigned long period_next;
 
