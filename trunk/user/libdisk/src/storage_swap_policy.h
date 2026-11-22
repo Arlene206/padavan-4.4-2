@@ -340,20 +340,23 @@ storage_inventory_parse_swap_line(const char *line, char *swap_path,
 				  size_t swap_path_size)
 {
 	const char *cursor;
-	char ignored[512];
-	int i;
+	char type[16], size[32], used[32], priority[32], extra[2];
 
 	if (!storage_inventory_line_is_complete(line))
 		return -1;
 	cursor = line;
-	if (storage_inventory_next_field(&cursor, swap_path, swap_path_size) != 1)
+	if (storage_inventory_next_field(&cursor, swap_path, swap_path_size) != 1 ||
+	    storage_inventory_next_field(&cursor, type, sizeof(type)) != 1 ||
+	    (strcmp(type, "partition") != 0 && strcmp(type, "file") != 0) ||
+	    storage_inventory_next_field(&cursor, size, sizeof(size)) != 1 ||
+	    !storage_swap_decimal_field(size, 0) ||
+	    storage_inventory_next_field(&cursor, used, sizeof(used)) != 1 ||
+	    !storage_swap_decimal_field(used, 0) ||
+	    storage_inventory_next_field(&cursor, priority, sizeof(priority)) != 1 ||
+	    !storage_swap_decimal_field(priority, 1))
 		return -1;
 
-	for (i = 0; i < 4; i++) {
-		if (storage_inventory_next_field(&cursor, ignored, sizeof(ignored)) != 1)
-			return -1;
-	}
-	return storage_inventory_next_field(&cursor, ignored, sizeof(ignored)) == 0 ? 0 : -1;
+	return storage_inventory_next_field(&cursor, extra, sizeof(extra)) == 0 ? 0 : -1;
 }
 
 static int

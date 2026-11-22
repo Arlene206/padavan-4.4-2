@@ -83,6 +83,7 @@ ejected_policy_test = read("trunk/user/rc/src/tests/storage_ejected_inventory_po
 # header or from malformed rows belonging to another device.
 swapon_probe = body(libdisk, "static int\nis_device_swapon(")
 swap_match = body(swap_policy, "storage_swap_line_matches_device(")
+cleanup_swap_parser = body(swap_policy, "storage_inventory_parse_swap_line(")
 require("storage_swap_header_valid(line)" in swapon_probe and
         "storage_swap_line_matches_device(line, dev_path)" in swapon_probe and
         "STORAGE_SWAP_UNKNOWN" in swapon_probe,
@@ -91,6 +92,12 @@ require("storage_swap_parse_swap_line" in swap_match and
         "storage_swap_line_is_complete" in swap_policy and
         '"Filename", "Type", "Size", "Used", "Priority"' in swap_policy,
         "swap inventory must validate the complete header and every five-column row")
+require('strcmp(type, "partition") != 0' in cleanup_swap_parser and
+        'strcmp(type, "file") != 0' in cleanup_swap_parser and
+        "storage_swap_decimal_field(size, 0)" in cleanup_swap_parser and
+        "storage_swap_decimal_field(used, 0)" in cleanup_swap_parser and
+        "storage_swap_decimal_field(priority, 1)" in cleanup_swap_parser,
+        "global storage cleanup must validate swap type, size, used and priority before swapoff")
 
 mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
 mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")

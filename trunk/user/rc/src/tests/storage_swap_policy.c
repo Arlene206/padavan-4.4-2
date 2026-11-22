@@ -164,6 +164,25 @@ main(void)
 		assert(storage_inventory_parse_swap_line(
 			"/dev/sda2 partition 1024 0 -2",
 			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 device 1024 0 -2\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition invalid 0 -2\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 invalid -2\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 0 invalid\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/sda2 partition 1024 0 -2 extra\n",
+			swap_path, sizeof(swap_path)) != 0);
+		assert(storage_inventory_parse_swap_line(
+			"/dev/mapper/swap\\040disk file 1024 0 -2\n",
+			swap_path, sizeof(swap_path)) == 0);
+		assert(strcmp(swap_path, "/dev/mapper/swap disk") == 0);
 		assert(!storage_inventory_line_is_complete("/dev/sda2 partition"));
 		assert(storage_inventory_complete(0, 0, 0));
 		assert(!storage_inventory_complete(1, 0, 0));

@@ -1,3 +1,11 @@
+## 2026-11-23 03:14 CST (UTC+8) — Validate semantic fields in global swap cleanup inventory
+
+- Parent main SHA: `9c75e1bf1e13da1dc673a120267827ee1e25c4a5`. Review of `umount_all_storage()` found that its global cleanup parser accepted any five tokens, unlike the strict per-device swap parser. Invalid swap Type or malformed Size/Used/Priority could therefore be treated as a complete snapshot and passed to the `swapoff()` loop.
+- Hardened `storage_inventory_parse_swap_line()`: require Type `partition|file`, decimal Size/Used and signed-decimal Priority; reject extra fields while retaining procfs octal path decoding.
+- Extended the GNU89 policy regression with each invalid column, extra fields and an escaped swap-file path. Extended `check_storage_safe_remove.py` to enforce the semantic checks; updated the storage roadmap/handoff.
+- Parent exact-head Process inventory #45059493600 and HTTPD security #45059493548 PASS. USB Storage #45059493487 and XY-C1 #45059493535 were still in progress; no local execution. This new code needs exact-head Storage and XY-C1 verification; L3/L4 NOT VERIFIED.
+- Separate automount awk extraction repair is in `9c75e1b`; check the same exact-head Storage run for it.
+
 ## 2026-11-23 03:07 CST (UTC+8) — Fail closed on automount swap inventory errors
 
 - Parent main SHA: `b794d511f0a70d77cc046090b39c416f89c64006`. `automount.sh` previously treated any nonzero `awk` result while reading `/proc/swaps` as proof that the hotplug partition was inactive, so a failed read or malformed inventory could still issue `swapon`.
