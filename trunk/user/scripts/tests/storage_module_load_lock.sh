@@ -170,6 +170,10 @@ if func_load_module ext4 "$MOCK_MODULES_FILE" "$tmpdir/fs_module.symlink"; then
 	exit 1
 fi
 [ ! -s "$MOCK_CALLS" ]
+[ "$lock_file" = "$tmpdir/fs_module.lock" ] || {
+	echo "module loader leaked its lock path into the caller" >&2
+	exit 1
+}
 
 # Invalid names must not reach any external command.
 : > "$MOCK_CALLS"

@@ -1,7 +1,7 @@
 #!/bin/sh
 logger -t "automount" "/sbin/automount.sh $1    $2"
 func_load_module()
-{
+(
 	module_name=$1
 	modules_file=/proc/modules
 	lock_file=/tmp/automount_fs_module.lock
@@ -69,7 +69,7 @@ func_load_module()
 		fi
 		usleep 300000
 	) 9>>"$lock_file"
-}
+)
 
 func_read_module_catalog()
 {
