@@ -1,3 +1,12 @@
+## 2026-11-22 — Make WAN selector source contracts whitespace-tolerant
+
+- Parent main SHA: `55e39b6a3756e7cb5fae92cfcc59bced6a61a056`. The previous L2TP checker correction still omitted the single space inserted after a line-broken opening parenthesis by its `compact()` helper. The new HW-NAT VLAN checker had the same issue: its source compactor also joins tokens with one space, so the exact `get_nvram_match_checked_status(` substring was absent despite correct production code. WAN route #45050298583 failed at that checker; Firewall/USB modem checks on the prior HEAD were still blocked at the L2TP assertion.
+- Replaced fragile exact-call strings in both `check_modem_wan_start_status.py` and `check_wan_vlan_setup.py` with whitespace-tolerant regular expressions. Kept ordering checks proving selector/VID errors return before physical PVID fallback. No C logic changed.
+- Exact new SHA must rerun WAN route, firewall, USB modem and process checks; no result is claimed until those checks pass. XY-C1 run #45050298446 on `b5fbceb` was still building at last inspection.
+- The L2TP fail-closed source fix and checked HW-NAT VLAN ID source fix remain production changes awaiting exact-SHA validation.
+
+---
+
 ## 2026-11-22 — Match L2TP checker expectation to the actual whitespace-normalizer
 
 - Parent main SHA: `b5fbcebd47fa735f70d06064a8a8cb682f4b0229`. The previous checker-only attempt removed all call whitespace, but the checker helper normalizes it to one space. The first correction therefore still failed: Firewall #45050163151 and USB modem #45050163172 logged AssertionError at line 612. Updated the expected call to the actual normalized C text: `get_nvram_match_checked_status("l2tp_srv_t", "1", &l2tp_enabled)`.

@@ -194,16 +194,24 @@ require(iso_read_pos < iso_error_return < first_wan_probe and
 # as disabled or silently substitute the physical switch PVID.
 wan_vid = body(wan, "get_vlan_vid_wan(void)")
 wan_vid_code = " ".join(wan_vid.split())
-filter_status_read = 'get_nvram_match_checked_status("vlan_filter", "1", &is_vlan_filter)'
-configured_vid_read = 'get_nvram_int_checked_status("vlan_vid_cpu", &vlan_vid)'
-filter_pos = wan_vid_code.index(filter_status_read)
+filter_status_match = re.search(
+    r'get_nvram_match_checked_status\s*\(\s*"vlan_filter"\s*,\s*"1"\s*,\s*&is_vlan_filter\s*\)',
+    wan_vid_code,
+)
+configured_vid_match = re.search(
+    r'get_nvram_int_checked_status\s*\(\s*"vlan_vid_cpu"\s*,\s*&vlan_vid\s*\)',
+    wan_vid_code,
+)
+require(filter_status_match is not None and configured_vid_match is not None,
+        "WAN VLAN selector and configured VID must use checked NVRAM reads")
+filter_pos = filter_status_match.start()
+configured_vid_pos = configured_vid_match.start()
 filter_failure = wan_vid_code.index("if (status != 0)", filter_pos)
 filter_error_return = wan_vid_code.index("wan_vlan_vid_policy_read_failure_result(status)", filter_failure)
-vid_pos = wan_vid_code.index(configured_vid_read)
-vid_failure = wan_vid_code.index("if (status != 0)", vid_pos)
+vid_failure = wan_vid_code.index("if (status != 0)", configured_vid_pos)
 vid_error_return = wan_vid_code.index("wan_vlan_vid_policy_read_failure_result(status)", vid_failure)
 pvid_fallback = wan_vid_code.index("phy_vlan_pvid_wan_get()")
-require(filter_pos < filter_failure < filter_error_return < vid_pos < vid_failure < vid_error_return < pvid_fallback,
+require(filter_pos < filter_failure < filter_error_return < configured_vid_pos < vid_failure < vid_error_return < pvid_fallback,
         "HW-NAT WAN VID must abort on selector/VID read errors before any physical-PVID fallback")
 require('nvram_match("vlan_filter", "1")' not in wan_vid_code and
         'nvram_get_int("vlan_vid_cpu")' not in wan_vid_code and
