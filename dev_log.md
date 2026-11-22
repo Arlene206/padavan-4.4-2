@@ -8,6 +8,8 @@
 - Intermediate AliDDNS failures were investigated: 00f914/b884/58eb test issues were fixture newline or test path setup; subsequent fixture fixes passed #45066583234 on 296dd. No unresolved production regression from those CI failures.
 - No local test execution or physical-router validation. Next: inspect the bundled SCUTClient upstream archive for an interface that avoids putting authentication credentials in process argv; verify support before changing the wrapper. Recheck exact XY-C1 run #45066964181 and record Build/TRX/artifact independently.
 
+- AI handoff documentation contract #45067172284 initially failed because the refreshed handoff lacked the validator-required `Before context exhaustion` phrase and canonical `Current repository state` / `Active task` / `Verification boundary` headings. The failure was diagnosed from the job log; this corrective checkpoint supplies those required fields.
+
 ---
 
 

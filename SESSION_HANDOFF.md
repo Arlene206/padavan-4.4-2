@@ -2,7 +2,7 @@
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository and exact-SHA Actions before changing source. Record the source baseline, current CI state, validation boundary and the next precise task. Use one atomic main commit for material changes only.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository and exact-SHA Actions before changing source. Record the source baseline, current CI state, validation boundary and the next precise task. Use one atomic main commit for material changes only. Before context exhaustion, finish any safe in-progress slice and record exact SHA, test and CI state for the next GPT.
 
 - Work only on `main`; never force-push, create/use side branches or PRs, or modify the frozen backup.
 - Each logical slice creates all blobs, one complete Git tree and one atomic commit; update `main` only with `force:false` and a freshly fetched expected SHA.
@@ -10,7 +10,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Do not claim local tests, production builds, TRX/artifacts or hardware checks that were not performed.
 - Avoid repeating completed PID 1, storage, SmartDNS and AliDDNS audits below.
 
-## Live checkpoint — 2026-11-22
+## Current repository state
 
 - Product/source baseline before this handoff-only documentation commit: `33a91907446b7854c9736d3246152382dbb5f218`.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; last checked unchanged.
@@ -38,7 +38,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ### CI trigger correction
 - `f3e0945c611a3c553bdc74c8aaf35388850ce076`: aligned push and pull-request path filters for the process lifecycle workflow so the authentication-client NVRAM regression path is included in both triggers.
 
-## Exact-SHA verification boundary
+## Active task
+
+- The committed source/test baseline is `33a91907446b7854c9736d3246152382dbb5f218`; the handoff-only commit follows it. XY-C1 run #45066964181 is still pending at the checkpoint; no source change is awaiting review.
+- Inspection of the exact bundled SCUTClient upstream revision `a58996875c61d0cdf8ec435057befc1c87bd6863` confirmed `src/main.c` supports only `-u/--username` and `-p/--password`, assigns `optarg` directly to `UserName` / `Password`, and has no config-file or file-descriptor credential input. The package README documents the same argv interface. This is a confirmed argv credential exposure surface and is not yet fixed; do not use environment variables as a superficial workaround.
+- Next implementation: add a maintained patch/overlay to the pinned upstream source for a private credential-file interface. Use `O_NOFOLLOW`, strict regular-file and permission checks, bounded parsing, unlink immediately after successful open/read, and wrapper-side atomic mode-0600 file creation/cleanup. Add tests proving secrets are absent from process argv and malformed, symlinked, unsafe-mode and read-failure files are rejected. Integrate patching idempotently into the package extraction/build path, then validate with XY-C1 cross-build.
+
+## Verification boundary
 
 Latest source/test SHA `33a91907446b7854c9736d3246152382dbb5f218`:
 - Legacy wrapper stale-pidfile safety #45066964140 — completed / PASS (includes the updated SCUTClient stop/logout regressions).
