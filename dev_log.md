@@ -1,3 +1,12 @@
+## 2026-11-22 10:24 CST — Fail closed on invalid vsftpd passive-port range
+
+- Parent main SHA: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`.
+- `write_vsftpd_conf()` checked FTP mode, logging and connection-limit NVRAM reads but still used unchecked `nvram_safe_get_int()` for `st_ftp_pmin` and `st_ftp_pmax`. Backend/malformed-value failures silently became defaults; an inverted readable pair could be published as an unusable vsftpd configuration.
+- Added `ftp_passive_port_policy.h`: propagates checked read errors, keeps missing-key defaults and historical 1..65535 clamp, and rejects inverted ranges. `services_stor.c` reads both values through the checked reader and publishes only validated ports.
+- Added a GNU89/Werror regression; extended vsftpd Actions build, source-contract and changed-path checks. Updated roadmap and handoff. Exact-head CI pending; no local test result claimed.
+
+---
+
 ## 2026-11-22 10:20 CST — Fix OpenVPN signer digest option and lifecycle contract
 
 - Parent main SHA: `9f98dbe48d0f4bf6ece4cf025741cbca68c35d23`.

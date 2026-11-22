@@ -28,25 +28,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- P1 firewall startup read-state fix: production source commit `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`. PID 1 reads `fw_enable_x`/`wan_nat_x` via status-bearing NVRAM reads and blocks WAN on unknown/error state; default NAT preflights copied LAN IP/netmask/NAT-loopback settings. Forwarding checker fix `ef20a36bf970ec3c3c487cb71c2e0bdc615bf073`; exact Firewall Startup #44974378538 PASS.
-- P2 LAN DHCP rollback snapshot fix: production source `6ca55ecdaca95858aadbf77c4fd1af49b0e1644c`. `udhcpc_lan_bound()` reads seven last-good tuple fields plus configured netmask in one transaction; read/close/truncation errors reject callback before state/kernel publication. Exact source L2 workflows DNSMasq #44974691080, WAN DHCP #44974691075, NVRAM audit #44974691126, Firewall #44974691074, Process inventory #44974691083/#44974691059, watchdog #44974691117, WAN route #44974691107, detect-internet #44974691207, detect-link #44974691084, wireless #44974691077 and AI docs #44974691103 PASS.
-- HTTPD firewall source-contract reconciliation: #44974951724 PASS and AI docs #44974951739 PASS on `a05cb570eea8deb76d67fece4994ee415924c67e`; checker pins a lower bound and direct default-NAT checks instead of a brittle exact token count.
-- OpenVPN certificate script reliability: `ddef1929c2c2799a464d8d397597f1e7d9f64b51` first failed syntax due generated adjacent function delimiters; `456c8176cc81209f0b75c2bc5f7d156589810870` fixed this. Exact OpenVPN #44975381015 PASS on `456c817` (syntax plus mocked crypto/permissions regression), AI docs #44975380936 PASS, Process inventory #44975380867 PASS. Follow-up `9f98dbe48d0f4bf6ece4cf025741cbca68c35d23` removes generated CA/server keys on chmod failure; exact OpenVPN #44975466561 PASS and Process inventory #44975466543 PASS; AI docs #44975466572 PASS.
-- VPN lifecycle #44975466566 on `9f98dbe` failed at an obsolete assertion expecting the old unquoted signer call. THIS commit updates that contract to test the current quoted call and failure propagation. Further audit found a real defect: `DGST_ALG` already contains `-sha256`/`-sha1`, while `sign_cert()` prepended a second dash; this commit passes `"$6"` verbatim and rejects `--sha256` in the fake crypto tool.
-- No local MIPS toolchain or router hardware is available; no target build or physical L4 claim.
+- P1 firewall startup checked-NVRAM gate: source `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`; Firewall Startup #44974378538 PASS on checker descendant `ef20a36`.
+- P2 LAN DHCP last-good tuple rollback: source `6ca55ecdaca95858aadbf77c4fd1af49b0e1644c`; NVRAM, DNSMasq, WAN DHCP, Firewall, Process, watchdog, route, link/internet, wireless and AI checks passed on that source SHA.
+- HTTPD firewall boot contract: HTTPD #44974951724 and AI docs #44974951739 PASS on `a05cb570eea8deb76d67fece4994ee415924c67e`.
+- OpenVPN certificate generation reliability: `456c8176cc81209f0b75c2bc5f7d156589810870` passed exact OpenVPN #44975381015, AI #44975380936, Process #44975380867; `9f98dbe48d0f4bf6ece4cf025741cbca68c35d23` passed OpenVPN #44975466561, AI #44975466572, Process #44975466543. Latest digest correction/checker commit `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b` passed VPN lifecycle #44975631032, OpenVPN #44975630990 and AI docs #44975631000. It now passes `-sha256`/`-sha1` exactly once.
+- THIS commit hardens vsftpd configuration: `st_ftp_pmin`/`st_ftp_pmax` are status-checked before staged config creation; preserve absent-key defaults and historic numeric clamping, but refuse backend/malformed read errors and inverted ranges before publishing.
+- No local MIPS toolchain or router hardware is available; no L3/L4 result claimed.
 
 ## Verification boundary
 
-- Parent main before THIS commit: `9f98dbe48d0f4bf6ece4cf025741cbca68c35d23`.
-- Exact `9f98dbe`: OpenVPN certificate workflow #44975466561 PASS, AI docs #44975466572 PASS and Process inventory #44975466543 PASS. VPN lifecycle #44975466566 FAILED at stale signer-call text; this commit refreshes the checker and corrects the actual OpenSSL digest flag.
-- XY-C1 #44975466578 on exact `9f98dbe` was IN_PROGRESS at last poll; verify Build XY-C1, TRX and artifact on the same source SHA. Older #44974691162 is tied to `6ca55ec`; L3 remains unconfirmed.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
+- Parent main for THIS FTP passive-port slice: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`.
+- Exact `4188434`: VPN lifecycle #44975631032 PASS; OpenVPN private-key #44975630990 PASS; AI docs #44975631000 PASS. XY-C1 #44975631083 was IN_PROGRESS at last poll; Process inventory #44975630996 was running. No L3 claim.
+- Earlier XY-C1 #44975466578 was also pending on `9f98dbe`. For L3, require Build XY-C1, TRX and artifact upload all PASS on one exact product source SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 is closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, OpenVPN certificate, AI docs, Process inventory and XY-C1 Actions from THIS commit; fix real failures without weakening the fail-fast/digest contracts.
-2. Require Build, TRX verification and artifact upload all PASS on the same exact source SHA before recording L3. If pending, work on an independent P1/P2 module.
-3. Continue whole-userland stability/security work from the roadmap; do not repeat resolved DHCP/firewall audits or touch the frozen backup.
+1. Inspect exact-head vsftpd workflow for the new checked passive port range policy and unit test; inspect Process inventory, AI docs and XY-C1.
+2. Require Build, TRX verification and artifact upload all PASS on the same exact source SHA before recording L3. If pending, work on another independent P1/P2 module.
+3. Continue whole-userland stability/security fixes; do not repeat completed firewall, DHCP callback or OpenVPN signer audits or modify the frozen backup.
 
 ## Workflow and preservation rules
 

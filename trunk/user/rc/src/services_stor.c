@@ -60,6 +60,7 @@
 #endif
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
+#include "ftp_passive_port_policy.h"
 #include "ftp_config_file.h"
 #include "ftp_daemon_policy.h"
 #include "storage_mount_inventory_policy.h"
@@ -309,7 +310,10 @@ write_vsftpd_conf(void)
 	char staged_path[64];
 	int i_maxuser = 0, max_user_value = 0;
 	int ftp_mode_value = 0, ftp_log_value = 0;
+	int ftp_min_value = 50000, ftp_max_value = 50100;
+	int ftp_min_port = 50000, ftp_max_port = 50100;
 	int max_user_status, ftp_mode_status, ftp_log_status;
+	int ftp_min_status, ftp_max_status, ftp_passive_port_status;
 	int config_status, saved_errno, i_ftp_mode;
 	const char *banner_product;
 
@@ -321,8 +325,16 @@ write_vsftpd_conf(void)
 		"st_max_user", 0, &max_user_value);
 	max_user_status = service_connection_limit_value_status(
 		max_user_status, max_user_value, MAX_CLIENTS_NUM, &i_maxuser);
+	ftp_min_status = storage_read_integer_status(
+		"st_ftp_pmin", 50000, &ftp_min_value);
+	ftp_max_status = storage_read_integer_status(
+		"st_ftp_pmax", 50100, &ftp_max_value);
+	ftp_passive_port_status = ftp_passive_port_range_status(
+		ftp_min_status, ftp_min_value, ftp_max_status, ftp_max_value,
+		&ftp_min_port, &ftp_max_port);
 	config_status = ftp_mode_status != 0 ? ftp_mode_status :
-		ftp_log_status != 0 ? ftp_log_status : max_user_status;
+		ftp_log_status != 0 ? ftp_log_status :
+		max_user_status != 0 ? max_user_status : ftp_passive_port_status;
 	if (config_status != 0) {
 		saved_errno = config_status > 0 ? config_status : EIO;
 		logmessage("FTP server",
@@ -351,8 +363,8 @@ write_vsftpd_conf(void)
 	fprintf(fp, "background=%s\n", "YES");
 	fprintf(fp, "connect_from_port_20=%s\n", "NO");
 	fprintf(fp, "pasv_enable=%s\n", "YES");
-	fprintf(fp, "pasv_min_port=%d\n", nvram_safe_get_int("st_ftp_pmin", 50000, 1, 65535));
-	fprintf(fp, "pasv_max_port=%d\n", nvram_safe_get_int("st_ftp_pmax", 50100, 1, 65535));
+	fprintf(fp, "pasv_min_port=%d\n", ftp_min_port);
+	fprintf(fp, "pasv_max_port=%d\n", ftp_max_port);
 	fprintf(fp, "use_sendfile=%s\n", "YES");
 #if defined (SUPPORT_FTPD_SSL)
 	fprintf(fp, "ssl_enable=%s\n", "NO");
