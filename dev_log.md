@@ -1,3 +1,11 @@
+## 2026-11-22 — Match L2TP checker expectation to the actual whitespace-normalizer
+
+- Parent main SHA: `b5fbcebd47fa735f70d06064a8a8cb682f4b0229`. The previous checker-only attempt removed all call whitespace, but the checker helper normalizes it to one space. The first correction therefore still failed: Firewall #45050163151 and USB modem #45050163172 logged AssertionError at line 612. Updated the expected call to the actual normalized C text: `get_nvram_match_checked_status("l2tp_srv_t", "1", &l2tp_enabled)`.
+- No production behavior changed. Re-run the modem/firewall/process and XY-C1 checks on the next source-triggered SHA; the checker must progress past line 612 before their full contracts count as PASS.
+- Separate concurrent WAN VLAN fix on this parent is in commit `b5fbceb`; exact WAN-route/XY actions still need verification.
+
+---
+
 ## 2026-11-22 — Fail closed on WAN VLAN-ID lookup errors for HW NAT
 
 - Parent main SHA: `19af0ec53cb268ab85a70c6f8ec56796b56890d6`. `get_vlan_vid_wan()` used lossy `nvram_match("vlan_filter", "1")` and `nvram_get_int("vlan_vid_cpu")`; transient NVRAM read failures were indistinguishable from a disabled selector/invalid VID and could fall back to the physical switch WAN PVID. The caller then passed that substitute VID into HW-NAT setup, risking an incorrect hardware-offload WAN VLAN.
