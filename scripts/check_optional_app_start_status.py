@@ -1095,7 +1095,7 @@ def check_ttyd():
     assert result.returncode == 0, (
         f"ttyd tri-state lifecycle regression failed: {result.stderr}\n{result.stdout}"
     )
-    assert "ttyd tri-state lifecycle, restart gate and NVRAM initialization regression: PASS" in result.stdout
+    assert "ttyd tri-state lifecycle, detached-child readiness, restart gate and NVRAM initialization regression: PASS" in result.stdout
 
 
 SSHD_SCRIPT = ROOT / "trunk/user/openssh/sshd.sh"

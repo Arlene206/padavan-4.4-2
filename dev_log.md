@@ -1,3 +1,10 @@
+## 2026-11-22 — Align ttyd lifecycle checker with detached-child readiness regression
+
+- Parent main SHA: 764042628a2ccd7b90a722d408c10a3d4cfb9056. Process lifecycle run #45040236371 failed at scripts/check_optional_app_start_status.py:1098: the ttyd shell test exited successfully, but the outer checker still expected the old PASS line without the new detached-child readiness phrase.
+- Updated the exact output contract to match the test's current success marker. This is a checker-only correction; ttyd startup behavior and test cases are unchanged.
+- The parent process job had passed its earlier source/build checks and failed at the final stdout marker assertion. Exact-head process-lifecycle rerun is pending after this patch.
+- No local shell/Python or C tests were run. XY-C1 same-SHA Build/TRX/artifact and hardware L4 remain unverified.
+
 ## 2026-11-22 — Require ttyd detached-child startup readiness
 
 - Parent main SHA: `cf3727b33b4c8900a080cac08e4825c6e0812d35`. Review of `trunk/user/ttyd/ttyd.sh` found that `start-stop-daemon -S -b` returning zero was treated as proof ttyd was running. The script logged "Daemon launch requested" and returned success without checking whether the detached child appeared; a fast exec failure or daemon startup failure therefore left PID 1 reporting a successful service start.
