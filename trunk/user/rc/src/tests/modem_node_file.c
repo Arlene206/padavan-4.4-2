@@ -1,10 +1,13 @@
 #include <assert.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "../modem_node_file.h"
+#include "../modem_node_identity_policy.h"
 
 static int test_metadata_write_calls;
 static int test_metadata_remove_calls;
@@ -81,6 +84,29 @@ test_metadata_publication_cleanup(void)
 }
 
 
+static void
+test_manual_node_index_status_is_fail_closed(void)
+{
+	int manual_index = 99;
+
+	assert(modem_node_manual_index_status(0, 0, &manual_index) == 0);
+	assert(manual_index == -1);
+	assert(modem_node_manual_index_status(0, -1, &manual_index) == 0);
+	assert(manual_index == -1);
+	assert(modem_node_manual_index_status(0, 1, &manual_index) == 0);
+	assert(manual_index == 0);
+	assert(modem_node_manual_index_status(0, 15, &manual_index) == 0);
+	assert(manual_index == 14);
+	assert(modem_node_manual_index_status(0, INT_MAX, &manual_index) == 0);
+	assert(manual_index == INT_MAX - 1);
+	assert(modem_node_manual_index_status(EIO, 7, &manual_index) == EIO);
+	assert(manual_index == -1);
+	assert(modem_node_manual_index_status(-1, 7, &manual_index) == EIO);
+	assert(manual_index == -1);
+	assert(modem_node_manual_index_status(0, 7, NULL) == EINVAL);
+}
+
+
 int
 main(void)
 {
@@ -93,6 +119,7 @@ main(void)
 	int n;
 
 	test_metadata_publication_cleanup();
+	test_manual_node_index_status_is_fail_closed();
 
 	assert(modem_node_manual_index_matches(-1, 0));
 	assert(modem_node_manual_index_matches(4, 4));

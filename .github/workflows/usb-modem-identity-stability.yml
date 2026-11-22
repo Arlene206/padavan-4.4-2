@@ -307,6 +307,9 @@ jobs:
           publish_wrapper = body(metadata, "modem_node_file_publish_identity(")
           assert "modem_node_file_publish_with_cleanup(" in publish_wrapper
           assert "test_metadata_publication_cleanup" in test
+          assert "test_manual_node_index_status_is_fail_closed" in test
+          assert "test_manual_node_index_status_is_fail_closed();" in test
+          assert "modem_node_manual_index_status" in identity
 
           wdm = body(hotplug, "mdev_wdm_main(")
           assert "get_usb_port_by_device(device_name" in wdm
@@ -337,13 +340,33 @@ jobs:
           assert "have_pref && have_devnum && have_port_id" in reader
           assert "modem_node_usb_identity_node_is_eligible(" in reader
 
+          manual_node_reader = body(modem, "usb_modem_read_manual_node_index_status(")
+          assert 'usb_modem_nvram_transaction_get(&transaction, "modem_node", &value)' in manual_node_reader
+          assert "rc_wan_nvram_read_int_status(" in manual_node_reader
+          assert "usb_modem_nvram_transaction_end(&transaction)" in manual_node_reader
+          assert "modem_node_manual_index_status(" in manual_node_reader
+
           selector = body(modem, "get_modem_node_by_usb_identity(")
-          assert 'nvram_get_int("modem_node") - 1' in selector
+          assert "usb_modem_read_manual_node_index_status(&manual_index)" in selector
+          assert "if (status != 0)" in selector and "return -2;" in selector
           assert "manual_index, 0" in selector
           assert "expected_devnum, -1, 1" in selector
           assert "expected_devnum, -1, 0" in selector
+          assert 'nvram_get_int("modem_node")' not in modem
+
+          ras_selector = body(modem, "get_modem_node_ras(")
+          assert "usb_modem_read_manual_node_index_status(&manual_index)" in ras_selector
+          assert "*selection_status_out = status;" in ras_selector
+          assert "manual_index, devnum_out" in ras_selector
+          readiness = body(modem, "is_ready_modem_ras(")
+          assert "selection_status_out" in readiness
+          assert "get_modem_node_ras(node_name, devnum_out, selection_status_out)" in readiness
 
           ndis = body(modem, "ndis_control_network(")
+          assert "manual_node_status = errno > 0 ? errno : EIO;" in ndis
+          assert "return manual_node_status;" in ndis
+          assert "cannot read manual NDIS control-node selection" in ndis
+          assert ndis.index('is_usbnet_has_module(ndis_ifname, "qmi_wwan")') < ndis.index("return manual_node_status;")
           assert "get_usb_port_by_device(ndis_ifname" in ndis
           assert 'find_modem_node_by_usb_identity("cdc-wdm"' in ndis
           tty_select = 'get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)'

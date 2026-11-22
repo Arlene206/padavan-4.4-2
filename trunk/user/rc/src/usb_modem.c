@@ -179,6 +179,41 @@ usb_modem_read_start_config_snapshot(struct usb_modem_start_config *config)
 	return status;
 }
 
+static int
+usb_modem_read_manual_node_index_status(int *manual_index_out)
+{
+	struct nvram_transaction transaction;
+	char *value = NULL;
+	int api_result, saved_errno, status, end_status, configured_index = 0;
+
+	if (!manual_index_out)
+		return EINVAL;
+	*manual_index_out = -1;
+
+	errno = 0;
+	api_result = usb_modem_nvram_transaction_begin(&transaction);
+	saved_errno = errno;
+	status = rc_wan_nvram_write_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+
+	errno = 0;
+	api_result = usb_modem_nvram_transaction_get(&transaction, "modem_node", &value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_int_status(
+		api_result, saved_errno, value, 0, &configured_index);
+
+	errno = 0;
+	api_result = usb_modem_nvram_transaction_end(&transaction);
+	saved_errno = errno;
+	end_status = rc_wan_nvram_write_status(api_result, saved_errno);
+	if (status == 0)
+		status = end_status;
+
+	return modem_node_manual_index_status(status, configured_index,
+					      manual_index_out);
+}
+
 
 static int
 write_pppd_ras_credential(FILE *fp, const char *option, const char *value,
@@ -495,8 +530,13 @@ get_modem_node_by_usb_identity(const char *pattern,
 			       const char *expected_port_id,
 			       int expected_devnum)
 {
-	int manual_index = nvram_get_int("modem_node") - 1;
-	int valid_node;
+	int manual_index = -1, valid_node, status;
+
+	status = usb_modem_read_manual_node_index_status(&manual_index);
+	if (status != 0) {
+		errno = status;
+		return -2;
+	}
 
 	/* A manual index is a hard pin, but it must belong to this USB device. */
 	if (manual_index >= 0)
@@ -514,42 +554,48 @@ get_modem_node_by_usb_identity(const char *pattern,
 }
 
 static int
-get_modem_node(const char* pattern, int devnum, int *devnum_out)
+get_modem_node(const char *pattern, int devnum, int manual_index,
+	       int *devnum_out)
 {
 	int valid_node = -1;
-	int i_node_user = nvram_get_int("modem_node") - 1;
-	if (i_node_user >= 0) {
-		// manual select
-		valid_node = find_modem_node(pattern, 0, 0, i_node_user, devnum_out);
+
+	if (manual_index >= 0) {
+		/* Manual selection is a hard pin; never fall back to another node. */
+		valid_node = find_modem_node(pattern, 0, 0, manual_index, devnum_out);
 	} else {
-		// auto select
 		valid_node = find_modem_node(pattern, 1, devnum, -1, devnum_out);
 		if (valid_node < 0)
 			valid_node = find_modem_node(pattern, 0, devnum, -1, devnum_out);
 	}
-
 	return valid_node;
 }
 
 static int
-get_modem_node_ras(char node_name[16], int *devnum_out)
+get_modem_node_ras(char node_name[16], int *devnum_out,
+			   int *selection_status_out)
 {
-	int valid_node;
+	int valid_node, manual_index = -1, status;
 
-	// check ACM device
-	valid_node = get_modem_node("ttyACM", 0, devnum_out);
+	if (!selection_status_out)
+		return 0;
+	*selection_status_out = 0;
+	status = usb_modem_read_manual_node_index_status(&manual_index);
+	if (status != 0) {
+		*selection_status_out = status;
+		return 0;
+	}
+
+	/* Check ACM first, then serial, using the same manual-index snapshot. */
+	valid_node = get_modem_node("ttyACM", 0, manual_index, devnum_out);
 	if (valid_node >= 0) {
 		sprintf(node_name, "ttyACM%d", valid_node);
 		return 1;
 	}
-
-	// check serial device
-	valid_node = get_modem_node("ttyUSB", 0, devnum_out);
+	valid_node = get_modem_node("ttyUSB", 0, manual_index, devnum_out);
 	if (valid_node >= 0) {
 		sprintf(node_name, "ttyUSB%d", valid_node);
 		return 1;
 	}
-
 	return 0;
 }
 
@@ -571,13 +617,15 @@ is_usbnet_has_module(char* ndis_ifname, const char *module_name)
 }
 
 static int
-is_ready_modem_ras(int *devnum_out)
+is_ready_modem_ras(int *devnum_out, int *selection_status_out)
 {
 	char node_name[16];
 
-	if (get_modem_node_ras(node_name, devnum_out))
+	if (!selection_status_out)
+		return 0;
+	*selection_status_out = 0;
+	if (get_modem_node_ras(node_name, devnum_out, selection_status_out))
 		return 1;
-
 	return 0;
 }
 
@@ -598,7 +646,7 @@ get_modem_wan_start_config_status(int *modem_priority_out,
 {
 	struct usb_modem_start_config config;
 	int modem_priority, modem_rule, modem_type, modem_devnum = 0;
-	int status;
+	int status, node_selection_status = 0;
 
 	if (!modem_priority_out || !modem_devnum_out)
 		return EINVAL;
@@ -621,8 +669,11 @@ get_modem_wan_start_config_status(int *modem_priority_out,
 			if (!is_ready_modem_ndis(&modem_devnum))
 				modem_devnum = 0;
 		} else {
-			if (!is_ready_modem_ras(&modem_devnum))
+			if (!is_ready_modem_ras(&modem_devnum, &node_selection_status)) {
+				if (node_selection_status != 0)
+					return node_selection_status;
 				modem_devnum = 0;
+			}
 		}
 	}
 	*modem_priority_out = modem_priority;
@@ -877,15 +928,15 @@ ncm_control_network(const char* control_node, int is_start)
 
 static int
 ndis_control_network(char *ndis_ifname, int devnum, int is_start,
-		    int *control_required)
+		     int *control_required)
 {
-	int valid_node;
+	int valid_node, manual_node_status = 0;
+	char control_node_wdm[16] = {0}, control_node_tty[16] = {0};
+	char ndis_port_id[64] = {0};
 
 	if (!control_required)
 		return -1;
 	*control_required = 0;
-	char control_node_wdm[16] = {0}, control_node_tty[16] = {0};
-	char ndis_port_id[64] = {0};
 
 	/*
 	 * A WDM node is usable only when its published physical parent and USB
@@ -905,7 +956,9 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start,
 		 * preferred port on another modem must never control this interface.
 		 */
 		valid_node = get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum);
-		if (valid_node >= 0)
+		if (valid_node == -2)
+			manual_node_status = errno > 0 ? errno : EIO;
+		else if (valid_node >= 0)
 			snprintf(control_node_tty, sizeof(control_node_tty),
 				 "ttyUSB%d", valid_node);
 	}
@@ -925,13 +978,29 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start,
 		}
 	}
 
-	if (strlen(control_node_tty) > 0) {
-		if (is_usbnet_has_module(ndis_ifname, "cdc_ncm")) {
+	if (is_usbnet_has_module(ndis_ifname, "cdc_ncm")) {
+		if (manual_node_status != 0) {
+			*control_required = 1;
+			logmessage(LOGNAME,
+				   "cannot read manual NDIS control-node selection (status=%d)",
+				   manual_node_status);
+			return manual_node_status;
+		}
+		if (strlen(control_node_tty) > 0) {
 			*control_required = 1;
 			return ncm_control_network(control_node_tty, is_start);
 		}
+	}
 
-		if (is_usbnet_has_module(ndis_ifname, "sierra_net")) {
+	if (is_usbnet_has_module(ndis_ifname, "sierra_net")) {
+		if (manual_node_status != 0) {
+			*control_required = 1;
+			logmessage(LOGNAME,
+				   "cannot read manual NDIS control-node selection (status=%d)",
+				   manual_node_status);
+			return manual_node_status;
+		}
+		if (strlen(control_node_tty) > 0) {
 			*control_required = 1;
 			return sierra_control_network(control_node_tty, is_start);
 		}
@@ -1250,7 +1319,7 @@ launch_wan_modem_ras(int unit)
 	char node_name[16] = {0};
 	char call_file[16];
 	char call_path[32];
-	int saved_errno, launch_status;
+	int saved_errno, launch_status, node_selection_status = 0;
 
 	snprintf(call_file, sizeof(call_file), "modem.wan%d", unit);
 	snprintf(call_path, sizeof(call_path), "%s/%s", PPP_PEERS_DIR, call_file);
@@ -1265,7 +1334,7 @@ launch_wan_modem_ras(int unit)
 		return 1;
 	}
 
-	if (get_modem_node_ras(node_name, NULL)) {
+	if (get_modem_node_ras(node_name, NULL, &node_selection_status)) {
 		if (write_pppd_ras_conf(call_path, node_name, unit)) {
 			logmessage(LOGNAME, "select RAS modem interface %s to pppd", node_name);
 			errno = 0;
@@ -1273,11 +1342,7 @@ launch_wan_modem_ras(int unit)
 			if (!modem_wan_ras_peer_cleanup_required(launch_status))
 				return launch_status;
 
-			/*
-			 * The peer file contains modem credentials. A failed pppd launch
-			 * must not leave those credentials available to a later call.
-			 * Preserve the original launch errno/status across best-effort unlink.
-			 */
+			/* Never leave credentials in a peer file after a failed launch. */
 			saved_errno = errno;
 			if (unlink(call_path) != 0 && errno != ENOENT)
 				logmessage(LOGNAME,
@@ -1286,6 +1351,19 @@ launch_wan_modem_ras(int unit)
 			errno = saved_errno;
 			return launch_status;
 		}
+	}
+
+	if (node_selection_status != 0) {
+		saved_errno = node_selection_status;
+		logmessage(LOGNAME,
+			   "cannot read manual USB modem RAS node selection (status=%d)",
+			   saved_errno);
+		if (unlink(call_path) != 0 && errno != ENOENT)
+			logmessage(LOGNAME,
+				   "cannot remove stale USB modem RAS peer after selection error (errno=%d)",
+				   errno);
+		errno = saved_errno;
+		return saved_errno;
 	}
 
 	/* Never leave a stale peer with old credentials available for a later call. */

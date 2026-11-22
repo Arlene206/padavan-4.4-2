@@ -1,7 +1,27 @@
 #ifndef PADAVAN_MODEM_NODE_IDENTITY_POLICY_H
 #define PADAVAN_MODEM_NODE_IDENTITY_POLICY_H
 
+#include <errno.h>
 #include <string.h>
+
+/*
+ * A missing or non-positive legacy setting means automatic selection. A
+ * failed checked read is distinct: leave the output unpinned but propagate it
+ * so callers cannot silently substitute another modem control node.
+ */
+static inline int
+modem_node_manual_index_status(int read_status, int configured_index,
+                               int *manual_index_out)
+{
+    if (!manual_index_out)
+        return EINVAL;
+    *manual_index_out = -1;
+    if (read_status != 0)
+        return read_status > 0 ? read_status : EIO;
+    if (configured_index > 0)
+        *manual_index_out = configured_index - 1;
+    return 0;
+}
 
 /* A configured manual node is exact; never substitute another index. */
 static inline int

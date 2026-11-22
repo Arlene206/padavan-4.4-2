@@ -1,3 +1,11 @@
+## 2026-11-22 — Fail closed on USB modem manual control-node selection read errors
+
+- Parent main SHA: 1705d60b42615f370ead7575b2545c082b336fdf. Exact ba4 USB workflow #44985821796 PASS; handoff #44985821715 and process lifecycle #44985821691 PASS. Firewall #44985821682 exposed a stale NAT builder read expectation; #1705 corrected the filter-builder check but its exact-head rerun still failed on the same stale expectation in the NAT builder. That separate workflow contract needs a second correction. ba4 XY-C1 ran host-only and skipped Build/TRX/artifact because product source was unchanged; no L3.
+- Found a manual control-node fail-open: get_modem_node_by_usb_identity() and get_modem_node() used unchecked nvram_get_int("modem_node"). A backend error could discard a configured hard index pin and silently auto-select another tty on a multi-modem hub.
+- Added a checked one-key NVRAM transaction for modem_node. Missing/non-positive retains legacy automatic selection; read and close failures propagate instead of permitting fallback. RAS readiness and PPP launch carry the error; PPP launch removes stale credential-bearing peer data. NDIS blocks only TTY-control drivers after preserving WDM/QMI/MBIM branches.
+- Added GNU89 identity-policy regressions for missing/default values, positive pins, INT_MAX, backend errors and invalid output, plus inline/Python source contracts. Exact-head USB, firewall and XY-C1 checks are pending; no L3/L4 claim.
+
+---
 ## 2026-11-22 — Align firewall NAT preflight checker with single-snapshot API
 
 - Parent main SHA: `ba4db5fa752074d89e99413642327fba5985aae1`. Exact-head USB workflow #44985821796 PASS; exact-head handoff validation #44985821715 PASS; process lifecycle #44985821691 PASS. Firewall workflow #44985821682 failed its inline source contract at `Verify required NAT restore gates WAN startup`, Python line 239: it still required `wan_nat_x` to be read inside `ipt_filter_rules()`.
