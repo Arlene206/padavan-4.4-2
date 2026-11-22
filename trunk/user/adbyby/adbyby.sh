@@ -261,14 +261,54 @@ adbyby_close()
 	if ! adbyby_stop_daemon; then
 		return 1
 	fi
-	del_rule || return 1
-	del_cron || return 1
-	del_dns || return 1
+
+	# The daemon is confirmed absent: attempt all independent cleanup stages,
+	# preserve the first error, and avoid reloading dnsmasq with stale rules.
+	adbyby_close_status=0
+	adbyby_close_dns_status=0
+	if del_rule; then
+		:
+	else
+		adbyby_close_step_status=$?
+		adbyby_close_status=$adbyby_close_step_status
+		logger -t "adbyby" "Adbyby firewall cleanup failed (status=$adbyby_close_step_status); continuing DNS and cron cleanup."
+	fi
+	if del_cron; then
+		:
+	else
+		adbyby_close_step_status=$?
+		[ "$adbyby_close_status" -ne 0 ] || adbyby_close_status=$adbyby_close_step_status
+		logger -t "adbyby" "Adbyby cron cleanup failed (status=$adbyby_close_step_status); continuing DNS cleanup."
+	fi
+	if del_dns; then
+		:
+	else
+		adbyby_close_step_status=$?
+		adbyby_close_dns_status=$adbyby_close_step_status
+		[ "$adbyby_close_status" -ne 0 ] || adbyby_close_status=$adbyby_close_step_status
+		logger -t "adbyby" "Adbyby DNS cleanup failed (status=$adbyby_close_step_status)."
+	fi
+
 	if [ "${mem_mode:-0}" -eq 1 ]; then
 		echo "stop mem mode"
 	fi
 	kill -9 $(ps | grep admem.sh | grep -v grep | awk '{print $1}') >/dev/null 2>&1
-	adbyby_restart_dhcpd || return 1
+	if [ "$adbyby_close_dns_status" -eq 0 ]; then
+		if adbyby_restart_dhcpd; then
+			:
+		else
+			adbyby_close_step_status=$?
+			[ "$adbyby_close_status" -ne 0 ] || adbyby_close_status=$adbyby_close_step_status
+			logger -t "adbyby" "Adbyby DHCP service restart failed (status=$adbyby_close_step_status)."
+		fi
+	else
+		logger -t "adbyby" "Skipping DHCP service restart because Adbyby DNS cleanup was incomplete."
+	fi
+
+	if [ "$adbyby_close_status" -ne 0 ]; then
+		logger -t "adbyby" "Adbyby关闭清理不完整 (first status=$adbyby_close_status)。"
+		return "$adbyby_close_status"
+	fi
 	logger -t "adbyby" "Adbyby已关闭。"
 	return 0
 }

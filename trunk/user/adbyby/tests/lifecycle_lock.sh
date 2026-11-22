@@ -230,4 +230,84 @@ awk '
     echo "Adbyby DNS cleanup preserves first error and attempts all stages: PASS"
 ) || fail "del_dns cleanup regression failed"
 
+# Once daemon absence is confirmed, failure in one cleanup subsystem must
+# not suppress independent firewall, cron, DNS or helper-process cleanup.
+close_file="$test_root/adbyby-close.sh"
+awk '
+    /^adbyby_close\(\)$/ { capture = 1; found++ }
+    capture { print }
+    capture && /^}$/ { capture = 0; print "" }
+    END { if (found != 1) exit 1 }
+' "$source_file" > "$close_file"
+[ -s "$close_file" ] || fail "could not extract adbyby_close"
+(
+    . "$close_file"
+    events="$test_root/close-events"
+    logs="$test_root/close-logs"
+    fail_stages=""
+    fail() { echo "Adbyby close regression: FAIL: $*" >&2; exit 1; }
+    adbyby_stop_daemon() {
+        printf '%s\n' stop >> "$events"
+        case ",$fail_stages," in *,stop,*) return 40 ;; esac
+        return 0
+    }
+    del_rule() {
+        printf '%s\n' del_rule >> "$events"
+        case ",$fail_stages," in *,del_rule,*) return 41 ;; esac
+        return 0
+    }
+    del_cron() {
+        printf '%s\n' del_cron >> "$events"
+        case ",$fail_stages," in *,del_cron,*) return 42 ;; esac
+        return 0
+    }
+    del_dns() {
+        printf '%s\n' del_dns >> "$events"
+        case ",$fail_stages," in *,del_dns,*) return 43 ;; esac
+        return 0
+    }
+    adbyby_restart_dhcpd() {
+        printf '%s\n' restart_dhcpd >> "$events"
+        case ",$fail_stages," in *,restart_dhcpd,*) return 44 ;; esac
+        return 0
+    }
+    ps() { :; }
+    kill() { printf '%s\n' kill_admem >> "$events"; return 0; }
+    logger() { printf '%s\n' "$*" >> "$logs"; }
+    run_close_case() {
+        fail_stages=$1
+        expected_status=$2
+        expect_restart=$3
+        : > "$events"
+        : > "$logs"
+        if adbyby_close; then actual_status=0; else actual_status=$?; fi
+        [ "$actual_status" -eq "$expected_status" ] ||
+            fail "failures [$fail_stages] returned $actual_status, expected $expected_status"
+        if [ "$fail_stages" = "stop" ]; then
+            expected_events=$(printf 'stop')
+        else
+            expected_events=$(printf 'stop\ndel_rule\ndel_cron\ndel_dns\nkill_admem')
+            if [ "$expect_restart" = "1" ]; then
+                expected_events=$(printf '%s\nrestart_dhcpd' "$expected_events")
+            fi
+        fi
+        [ "$(cat "$events")" = "$expected_events" ] ||
+            fail "failures [$fail_stages] produced unexpected cleanup order: $(cat "$events")"
+        if [ "$fail_stages" = "del_dns" ] ||
+           [ "$fail_stages" = "del_rule,del_dns" ]; then
+            grep -Fq "Skipping DHCP service restart" "$logs" ||
+                fail "DNS cleanup failure did not explain skipped dnsmasq restart"
+        fi
+    }
+    run_close_case "" 0 1
+    run_close_case "del_rule" 41 1
+    run_close_case "del_cron" 42 1
+    run_close_case "del_dns" 43 0
+    run_close_case "restart_dhcpd" 44 1
+    run_close_case "del_rule,del_cron" 41 1
+    run_close_case "del_rule,del_dns" 41 0
+    run_close_case "stop" 1 0
+    echo "Adbyby close attempts independent cleanup and preserves first error: PASS"
+) || fail "Adbyby close cleanup regression failed"
+
 echo "Adbyby lifecycle serialization, bounded lock, update routing and FD hygiene: PASS"

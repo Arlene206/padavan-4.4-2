@@ -225,6 +225,22 @@ require("adbyby_del_dns_step_status=$?" in del_dns and
         "Adbyby DNS cleanup preserves first error and attempts all stages: PASS" in lifecycle_test,
         "del_dns failure propagation must be regression-tested at each cleanup stage")
 
+close = function_body(source, "adbyby_close")
+require("adbyby_close_status=0" in close and
+        'return "$adbyby_close_status"' in close,
+        "adbyby_close must preserve the first failure after independent cleanup")
+close_steps = ("if del_rule; then", "if del_cron; then", "if del_dns; then")
+require(all(step in close for step in close_steps) and
+        [close.index(step) for step in close_steps] ==
+        sorted(close.index(step) for step in close_steps),
+        "adbyby_close must attempt firewall, cron and DNS cleanup in order")
+require('if [ "$adbyby_close_dns_status" -eq 0 ]; then' in close and
+        "if adbyby_restart_dhcpd; then" in close and
+        "Skipping DHCP service restart because Adbyby DNS cleanup was incomplete." in close,
+        "dnsmasq restart must be gated on successful DNS cleanup")
+require("Adbyby close attempts independent cleanup and preserves first error: PASS" in lifecycle_test,
+        "Adbyby close cleanup aggregation must be failure-injection tested")
+
 require("adbyby_refresh_nvram_state" in firewall_test,
         "firewall host fixture must initialize the launcher state before direct helper calls")
 
