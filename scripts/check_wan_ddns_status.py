@@ -13,6 +13,8 @@ CONFIG_TEST = (RC / "tests/inadyn_config_file.c").read_text()
 NVRAM_POLICY = (RC / "wan_nvram_status_policy.h").read_text()
 WAN_NVRAM_POLICY = (RC / "wan_nvram_status_policy.h").read_text()
 WAN_NVRAM_TEST = (RC / "tests/wan_nvram_status_policy.c").read_text()
+DDNS_ENABLE_POLICY = (RC / "ddns_enabled_policy.h").read_text()
+RC_SOURCE = (RC / "rc.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 
 
@@ -181,6 +183,16 @@ for marker in (
 require("rc_wan_nvram_copy_snapshot(" in NVRAM_POLICY and
         "fields[i].destination[0] = '\\0';" in NVRAM_POLICY,
         "NVRAM snapshot helper must clear partial tuple data on error")
+require("inadyn_ddns_enabled_status" in DDNS_ENABLE_POLICY,
+        "DDNS enable-state parser must preserve backend errors")
+ddns_start = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_DDNS) == 0)')
+ddns_end = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_DI)', ddns_start)
+ddns_restart = RC_SOURCE[ddns_start:ddns_end]
+require('nvram_get_checked("ddns_enable_x", &ddns_enabled_value)' in ddns_restart and
+        "inadyn_ddns_enabled_status(" in ddns_restart and
+        "ddns_status = ddns_enabled_status;" in ddns_restart and
+        'nvram_match("ddns_enable_x", "1")' not in ddns_restart,
+        "RC DDNS restart must preserve state on a backend error")
 
 for marker in (
     '"trunk/user/rc/src/services_ex.c"',
@@ -189,7 +201,7 @@ for marker in (
     '"trunk/user/rc/src/inadyn_config_file.h"',
     '"trunk/user/rc/src/tests/inadyn_config_file.c"',
     '"trunk/user/rc/src/wan_nvram_status_policy.h"',
-    '"trunk/user/rc/src/wan_nvram_status_policy.h"',
+    '"trunk/user/rc/src/ddns_enabled_policy.h"',
     '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"',
     "tests/wan_nvram_status_policy.c",
     '"scripts/check_wan_ddns_status.py"',
@@ -199,6 +211,7 @@ for marker in (
 ):
     require(marker in WORKFLOW, f"WAN CI trigger or regression step is missing {marker}")
 for path in ("trunk/user/rc/src/wan_nvram_status_policy.h",
+             "trunk/user/rc/src/ddns_enabled_policy.h",
              "trunk/user/rc/src/tests/wan_nvram_status_policy.c"):
     require(WORKFLOW.count('"' + path + '"') == 2,
             f"WAN CI must watch {path} on push and pull_request")

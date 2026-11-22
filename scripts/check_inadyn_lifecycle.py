@@ -16,6 +16,7 @@ rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
 notify_header = (root / "trunk/user/shared/src/notify_rc.h").read_text()
 config_file_header = (root / "trunk/user/rc/src/inadyn_config_file.h").read_text()
 config_file_test = (root / "trunk/user/rc/src/tests/inadyn_config_file.c").read_text()
+enabled_policy = (root / "trunk/user/rc/src/ddns_enabled_policy.h").read_text()
 
 def body(signature):
     start = source.index(signature)
@@ -76,35 +77,40 @@ assert notify.index("write_inadyn_conf(DDNS_CONF_FILE)") < notify.index("inadyn_
 assert "process_snapshot_release(&snapshot)" in notify
 assert 'doSystem("killall %s %s", "-SIGHUP", "inadyn")' not in notify
 assert "pids(\"inadyn\")" not in notify
+enabled_read = notify.index('enabled_api_result = nvram_get_checked("ddns_enable_x", &enabled_value)')
+enabled_status = notify.index("enabled_status = inadyn_ddns_enabled_status(", enabled_read)
+enabled_gate = notify.index("inadyn_update_should_run(ddns_enabled, is_ap_mode)", enabled_status)
+inventory_scan = notify.index('process_inventory_scan("inadyn", &snapshot)')
+assert enabled_read < enabled_status < enabled_gate < inventory_scan
+assert "return enabled_status;" in notify
+assert "test_ddns_enabled_read_status" in test
+assert "inadyn_ddns_enabled_status" in enabled_policy
+assert '#include "ddns_enabled_policy.h"' in source
 
-config_reader = body("inadyn_read_nvram_integer(const char *name,")
-assert 'nvram_get_checked(name, &value)' in config_reader
-assert "inadyn_config_file_read_integer_status(" in config_reader
-assert "saved_errno = errno;" in config_reader
-assert "errno = status;" in config_reader
 assert "inadyn_config_file_read_integer_status" in config_file_header
 assert "test_checked_integer_status_preserves_defaults_and_rejects_errors" in config_file_test
 
 config_writer = body("write_inadyn_conf(const char *conf_file)")
-preflight_tokens = [
-    'inadyn_read_nvram_integer("ddns_source", 0, 0, 2,',
-    'inadyn_read_nvram_integer("ddns_ipv6", 0, 0, 1,',
-    'inadyn_read_nvram_integer("ddns_ssl", 0, 0, 1,',
-    'inadyn_read_nvram_integer("ddns_wildcard_x", 0, 0, 1,',
-    'inadyn_read_nvram_integer("ddns2_ssl", 0, 0, 1,',
-    'inadyn_read_nvram_integer("ddns2_wildcard_x", 0, 0, 1,',
-]
-preflight_positions = [config_writer.index(token) for token in preflight_tokens]
-assert preflight_positions == sorted(preflight_positions)
-preflight_start = config_writer.index("if ((read_status = inadyn_read_nvram_integer(")
-preflight_error = config_writer.index("saved_errno = read_status;", preflight_start)
-preflight_return = config_writer.index("return 0;", preflight_error)
-config_open = config_writer.index("fp = inadyn_config_file_open(")
-assert preflight_positions[0] >= preflight_start
-assert preflight_positions[-1] < preflight_error < preflight_return < config_open
-for key in ("ddns_source", "ddns_ipv6", "ddns_ssl", "ddns_wildcard_x",
-            "ddns2_ssl", "ddns2_wildcard_x"):
-    assert f'nvram_get_int("{key}")' not in config_writer
+snapshot_call = config_writer.index("rc_wan_nvram_copy_snapshot(")
+parse_first = config_writer.index('inadyn_parse_config_integer("ddns_period"')
+config_open = config_writer.index("inadyn_config_file_open(")
+assert snapshot_call < parse_first < config_open
+assert "INADYN_CFG_FIELD_COUNT" in config_writer
+assert "INADYN_CONFIG_VALUE_SIZE" in config_writer
+assert "inadyn_nvram_snapshot_begin" in config_writer
+assert "inadyn_nvram_snapshot_get" in config_writer
+assert "inadyn_nvram_snapshot_end" in config_writer
+assert "inadyn_read_nvram_integer(" not in source
+assert "nvram_safe_get(" not in config_writer
+assert "nvram_safe_get_int(" not in config_writer
+config_names = source.split("inadyn_config_nvram_names", 1)[1].split("};", 1)[0]
+for key in ("ddns_period", "ddns_forced", "ddns_source", "ddns_ipv6",
+            "ddns_ssl", "ddns_wildcard_x", "ddns2_ssl", "ddns2_wildcard_x",
+            "ddns_checkip", "ddns2_checkip", "ddns_server_x", "ddns_hostname_x",
+            "ddns_hostname2_x", "ddns_hostname3_x", "ddns_username_x",
+            "ddns_passwd_x", "ddns_cst_svr", "ddns_cst_url", "ddns2_server",
+            "ddns2_hname", "ddns2_user", "ddns2_pass"):
+    assert '"' + key + '"' in config_names, "snapshot omits " + key
 assert 'i_ddns1_wildcard ? "true" : "false"' in config_writer
 assert 'i_ddns2_ssl ? "true" : "false"' in config_writer
 assert 'i_ddns2_wildcard ? "true" : "false"' in config_writer
@@ -219,6 +225,7 @@ assert "test_exclusive_process_lock" in lock_test
 assert "test_invalid_paths_fail_closed" in lock_test
 assert "errno == EBUSY" in lock_test and "errno == ELOOP" in lock_test
 assert "trunk/user/rc/src/inadyn_lifecycle_lock.h" in workflow
+assert "trunk/user/rc/src/ddns_enabled_policy.h" in workflow
 assert "trunk/user/rc/src/tests/inadyn_lifecycle_lock.c" in workflow
 assert "Compile Inadyn exclusive lifecycle lock regression" in workflow
 assert "trunk/user/rc/src/inadyn_lifecycle_lock.h" in xy
@@ -244,6 +251,17 @@ assert "PROCESS_PRESENCE_ABSENT" in manual_update
 assert "inadyn_validate_snapshot(" in manual_update
 assert "inadyn_signal_snapshot(&snapshot, SIGUSR1" in manual_update
 assert "process_snapshot_release(&snapshot)" in manual_update
+ddns_start = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_DDNS) == 0)')
+ddns_end = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_DI)', ddns_start)
+ddns_restart = rc_source[ddns_start:ddns_end]
+ddns_read = ddns_restart.index('ddns_enabled_api_result = nvram_get_checked("ddns_enable_x",')
+ddns_check = ddns_restart.index("inadyn_ddns_enabled_status(", ddns_read)
+ddns_error = ddns_restart.index("if (ddns_enabled_status != 0)", ddns_check)
+ddns_error_result = ddns_restart.index("ddns_status = ddns_enabled_status;", ddns_error)
+ddns_restart_call = ddns_restart.index("rc_ddns_restart_run(is_ap_mode,", ddns_error_result)
+assert ddns_read < ddns_check < ddns_error < ddns_error_result < ddns_restart_call
+assert 'nvram_match("ddns_enable_x", "1")' not in ddns_restart
+assert '#include "ddns_enabled_policy.h"' in rc_source
 ddns_start = webex.index('else if (strcmp(name,"ddnsclient")==0)')
 ddns_end = webex.index('else if (strcmp(name,"hostname_check")', ddns_start)
 ddns_button = webex[ddns_start:ddns_end]
