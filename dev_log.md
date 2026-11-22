@@ -1,3 +1,13 @@
+## 2026-11-22 — Fail closed on DHCPv6 DUID hardware-address NVRAM errors
+
+- Parent main SHA: c338dc336ac798e6d319fb50fd0d3ec801fbc434. start_dhcp6c() used nvram_safe_get("wan_hwaddr") directly in ether_atoe(), so backend read failure was indistinguishable from a missing/invalid MAC and could be silently treated as normal while the DHCPv6 client started.
+- Added a one-field checked rc_wan_nvram_copy_snapshot() before DUID file and callback-session side effects. A missing/invalid MAC still follows legacy behavior and skips DUID file generation; a real read or transaction-close error now aborts startup before acquiring resources.
+- Added three fake-backend tests for missing-key compatibility, backend read failure, and transaction-close failure; both WAN source contracts require the checked snapshot and reject the legacy getter.
+- Exact-head verification of the reset snapshot parent must be reviewed from live Actions; do not treat an ancestor PASS as proof of this combined source state. This commit also requires fresh exact-head WAN DHCP/WAN route/AI handoff runs.
+- XY-C1 Build/TRX/artifact L3 and hardware L4 remain NOT VERIFIED.
+- Next task: inspect remaining DHCPv6 lease/service startup inputs for error-collapsing NVRAM getters affecting route, DNS, DUID or client lifetime.
+
+---
 ## 2026-11-22 — Snapshot IPv6 WAN reset settings before runtime mutation
 
 - Parent main SHA: bbff528ccfe5f1cc45e9cbc87d699004867eb541. reset_wan6_vars_status() still consumed static address/prefix/gateway and 6rd relay/size with separate error-collapsing nvram_safe_get()/nvram_get_int() reads. Backend errors could masquerade as empty or zero configuration while reset logic proceeded.

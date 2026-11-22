@@ -1974,6 +1974,70 @@ test_wan6_reset_snapshot_reads_only_6rd_fields_in_dynamic_mode(void)
 	assert(strcmp(destinations[1], values[1]) == 0);
 }
 
+
+static void
+test_dhcp6c_hwaddr_snapshot_keeps_missing_mac_as_empty(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field field;
+	char hardware_address[32] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan_hwaddr";
+	fake.values[0] = "02:11:22:33:44:55";
+	fake.read_fail_at = -1;
+	fake.missing_at = 0;
+	field.param_name = "wan_hwaddr";
+	field.destination = hardware_address;
+	field.destination_size = sizeof(hardware_address);
+	assert(rc_wan_nvram_copy_snapshot(&field, 1, fake_snapshot_begin,
+		fake_snapshot_get, fake_snapshot_end, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.read_calls == 1 && fake.end_calls == 1);
+	assert(hardware_address[0] == '\0');
+}
+
+static void
+test_dhcp6c_hwaddr_snapshot_fails_closed_on_backend_error(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field field;
+	char hardware_address[32] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan_hwaddr";
+	fake.values[0] = "02:11:22:33:44:55";
+	fake.read_fail_at = 0;
+	fake.read_error = EACCES;
+	fake.missing_at = -1;
+	field.param_name = "wan_hwaddr";
+	field.destination = hardware_address;
+	field.destination_size = sizeof(hardware_address);
+	assert(rc_wan_nvram_copy_snapshot(&field, 1, fake_snapshot_begin,
+		fake_snapshot_get, fake_snapshot_end, &fake) == EACCES);
+	assert(fake.end_calls == 1 && hardware_address[0] == '\0');
+}
+
+static void
+test_dhcp6c_hwaddr_snapshot_fails_closed_on_transaction_close_error(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field field;
+	char hardware_address[32] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan_hwaddr";
+	fake.values[0] = "02:11:22:33:44:55";
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	fake.end_error = EIO;
+	field.param_name = "wan_hwaddr";
+	field.destination = hardware_address;
+	field.destination_size = sizeof(hardware_address);
+	assert(rc_wan_nvram_copy_snapshot(&field, 1, fake_snapshot_begin,
+		fake_snapshot_get, fake_snapshot_end, &fake) == EIO);
+	assert(fake.end_calls == 1 && hardware_address[0] == '\0');
+}
+
 int
 main(void)
 {
@@ -2050,5 +2114,8 @@ main(void)
 	test_wan6_reset_snapshot_copies_static_identity_and_6rd_settings();
 	test_wan6_reset_snapshot_clears_every_field_on_each_read_failure();
 	test_wan6_reset_snapshot_reads_only_6rd_fields_in_dynamic_mode();
+	test_dhcp6c_hwaddr_snapshot_keeps_missing_mac_as_empty();
+	test_dhcp6c_hwaddr_snapshot_fails_closed_on_backend_error();
+	test_dhcp6c_hwaddr_snapshot_fails_closed_on_transaction_close_error();
 	return 0;
 }

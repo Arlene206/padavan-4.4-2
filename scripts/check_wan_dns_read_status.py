@@ -1068,3 +1068,18 @@ require("rc_wan_nvram_wisp_active_status" in policy and
         "checked WISP status mapping must have a registered error-precedence regression")
 
 print("WAN IPv6 and WISP checked interface identity/error propagation: PASS")
+
+
+# DHCPv6 DUID/IAID hardware address must distinguish missing MAC from NVRAM faults.
+duid_source = open("trunk/user/rc/src/net_wan6.c", encoding="utf-8").read()
+duid_start = duid_source.index("int start_dhcp6c(")
+duid_end = duid_source.find("\nint ", duid_start + 1)
+assert duid_end > duid_start
+duid_body = duid_source[duid_start:duid_end]
+assert 'wan6_hwaddr_field.param_name = "wan_hwaddr";' in duid_body
+assert "rc_wan_nvram_copy_snapshot(" in duid_body
+assert "wan6_snapshot_transaction_begin" in duid_body
+assert "wan6_snapshot_transaction_get" in duid_body
+assert "wan6_snapshot_transaction_end" in duid_body
+assert "return wan6_hwaddr_status;" in duid_body
+assert 'nvram_safe_get("wan_hwaddr")' not in duid_body

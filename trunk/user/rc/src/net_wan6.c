@@ -1535,6 +1535,11 @@ int dhcp6c_main(int argc, char **argv)
 
 int start_dhcp6c(char *wan_ifname)
 {
+	char wan6_hwaddr_snapshot[32] = {0};
+	struct nvram_transaction wan6_hwaddr_transaction;
+	struct rc_wan_nvram_snapshot_field wan6_hwaddr_field;
+	int wan6_hwaddr_status;
+
 	static const char *const setting_names[] = {
 		"ip6_wan_dhcp", "ip6_dns_auto", "ip6_lan_auto"
 	};
@@ -1573,6 +1578,16 @@ int start_dhcp6c(char *wan_ifname)
 	if (!wan6_dhcp && !dns6_auto && !lan6_auto)
 		return 0; /* No DHCPv6 client work is configured. */
 
+	wan6_hwaddr_field.param_name = "wan_hwaddr";
+	wan6_hwaddr_field.destination = wan6_hwaddr_snapshot;
+	wan6_hwaddr_field.destination_size = sizeof(wan6_hwaddr_snapshot);
+	wan6_hwaddr_status = rc_wan_nvram_copy_snapshot(
+		&wan6_hwaddr_field, 1, wan6_snapshot_transaction_begin,
+		wan6_snapshot_transaction_get, wan6_snapshot_transaction_end,
+		&wan6_hwaddr_transaction);
+	if (wan6_hwaddr_status != 0)
+		return wan6_hwaddr_status;
+
 	session_fd = dhcp6c_callback_session_lock(DHCP6C_CALLBACK_STATE_FILE,
 						  &generation, 1);
 	if (session_fd < 0) {
@@ -1593,7 +1608,7 @@ int start_dhcp6c(char *wan_ifname)
 	sla_id = 1;
 	sla_len = 0; /* auto prefix always /64 */
 
-	if (ether_atoe(nvram_safe_get("wan_hwaddr"), ea)) {
+	if (ether_atoe(wan6_hwaddr_snapshot, ea)) {
 		uint16_t duid_len;
 		struct {
 			uint16_t type;
