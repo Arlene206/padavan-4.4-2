@@ -1,3 +1,11 @@
+## 2026-11-22 — Validate procfs task-state codes before process matching
+
+- The shared C process scanner accepted any one-character `/proc/<pid>/stat` state and treated every state except uppercase `Z`/`X` as live. A malformed state could therefore be promoted to a process match and authorize lifecycle actions; Linux's lowercase `x` dead state was also incorrectly reported as present.
+- The parser now accepts only documented kernel state codes (`RSDZTtXxKWPI`), treating unknown/malformed values as `PROCESS_PRESENCE_UNKNOWN`. Both `Z`, `X`, and `x` are treated as exited/absent.
+- Added an injected procfs regression covering every supported live state, all dead states, and an invalid state, and pinned the contract in the Process checker. Exact-SHA Process and XY-C1 validation pending.
+
+---
+
 ## 2026-11-22 — Reject symlink PID files before privileged signalling
 
 - `kill_pidfile_s()` opened its PID-file path with `O_RDONLY|O_NONBLOCK` and then checked only the opened descriptor's file type. Because `open()` followed symlinks, a writable PID-file directory or replaced path could redirect this privileged helper to an attacker-controlled regular file containing an unrelated PID.

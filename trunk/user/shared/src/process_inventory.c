@@ -260,7 +260,8 @@ proc_parse_stat(const char *buffer, size_t length, pid_t expected_pid,
 			token_end++;
 		token_length = (size_t)(token_end - cursor);
 		if (field == 1) {
-			if (token_length != 1) {
+			if (token_length != 1 ||
+			    !strchr("RSDZTtXxKWPI", cursor[0])) {
 				errno = EPROTO;
 				return -1;
 			}
@@ -317,7 +318,7 @@ proc_read_identity(const char *process_name, pid_t pid,
 		*error = errno ? errno : EPROTO;
 		return PROCESS_PRESENCE_UNKNOWN;
 	}
-	if (state == 'Z' || state == 'X')
+	if (state == 'Z' || state == 'X' || state == 'x')
 		return PROCESS_PRESENCE_ABSENT;
 
 	path_length = snprintf(path, sizeof(path), "/proc/%ld/cmdline", (long)pid);

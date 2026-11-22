@@ -317,6 +317,10 @@ pppoe_test = (root / "trunk/user/rc/src/tests/pppoe_relay_policy.c").read_text()
 assert "process_inventory.o" in shared_makefile
 assert '#include "process_inventory.h"' in shared_header
 assert "process_inventory_scan(appname, &snapshot)" in pids_source
+assert 'strchr("RSDZTtXxKWPI", cursor[0])' in process_inventory
+assert "state == 'Z' || state == 'X' || state == 'x'" in process_inventory
+assert "test_proc_state_codes_are_validated" in process_inventory_test
+
 assert "PROCESS_PRESENCE_UNKNOWN" in pids_source
 assert "return EXIT_FAILURE;" in pids_source
 assert "return EXIT_SUCCESS;" in pids_source

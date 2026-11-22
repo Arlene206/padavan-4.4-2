@@ -308,6 +308,48 @@ test_malformed_stat_and_missing_cmdline_are_unknown(void)
 }
 
 static void
+test_proc_state_codes_are_validated(void)
+{
+	const char *entries[] = { "123" };
+	const char *running_states = "RSDTtKWPI";
+	const char *dead_states = "ZXx";
+	struct fake_context context;
+	struct process_snapshot snapshot;
+	char *state;
+	size_t i;
+
+	for (i = 0; running_states[i] != '\0'; i++) {
+		fake_init(&context, entries, 1);
+		fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+		state = strstr(context.processes[0].stat_text, ") ");
+		assert(state != NULL);
+		state[2] = running_states[i];
+		assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_RUNNING);
+		assert(snapshot.count == 1);
+		process_snapshot_release(&snapshot);
+	}
+
+	for (i = 0; dead_states[i] != '\0'; i++) {
+		fake_init(&context, entries, 1);
+		fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+		state = strstr(context.processes[0].stat_text, ") ");
+		assert(state != NULL);
+		state[2] = dead_states[i];
+		assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_ABSENT);
+		assert(snapshot.count == 0 && snapshot.items == NULL);
+	}
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+	state = strstr(context.processes[0].stat_text, ") ");
+	assert(state != NULL);
+	state[2] = '?';
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_UNKNOWN);
+	assert(snapshot.error == EPROTO);
+	assert(snapshot.count == 0 && snapshot.items == NULL);
+}
+
+static void
 test_argv0_allocation_failure_is_unknown(void)
 {
 	const char *entries[] = { "123" };
@@ -416,6 +458,7 @@ main(void)
 	test_pid_disappearing_between_stat_and_cmdline_is_skipped();
 	test_permission_and_io_failures_are_unknown();
 	test_malformed_stat_and_missing_cmdline_are_unknown();
+	test_proc_state_codes_are_validated();
 	test_argv0_allocation_failure_is_unknown();
 	test_first_pid_vector_allocation_failure_is_unknown();
 	test_pid_vector_growth_failure_discards_partial_inventory();
