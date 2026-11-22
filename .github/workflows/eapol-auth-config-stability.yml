@@ -59,7 +59,7 @@ jobs:
           for marker in ("test_quoted_credentials_escape_parser_metacharacters",
                          "test_control_characters_are_rejected",
                          "test_null_arguments_are_rejected"):
-              assert marker in test and marker + "();" in test
+              assert marker in test and marker + "() == 0" in test
 
           start = body(auth, "start_auth_eapol(char *ifname, int unit, int eap_algo)")
           user_read = start.index('get_wan_unit_value_copy_status(\n        unit, "auth_user"')

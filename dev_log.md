@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct EAPoL source-contract test invocation pattern
+
+- Parent main SHA: \`29131f7707e151ef62b1f9ce9611901fd277ce66\`. Review of the newly queued EAPoL workflow showed the source contract expected each policy test to be called as \`test_name();\`, while the test harness correctly invokes each through \`CHECK(test_name() == 0)\`.
+- Corrected the workflow predicate to assert the actual \`CHECK(... == 0)\` invocation. No production source or policy test behavior changed.
+- Parent EAPoL run #45038262266 was still in progress at checkout when inspected; this deterministic contract mismatch was corrected before claiming any result. Parent XY-C1 run #45038262295 was still at source checkout. The corrected workflow must pass on this commit's exact SHA.
+- No local tests were run. No L3 or hardware L4 result is claimed. Next: inspect EAPoL exact-SHA checks and XY-C1 Build/TRX/artifact, then continue another userland subsystem.
+
+---
+
 ## 2026-11-22 — Harden EAPoL credential config generation
 
 - Parent main SHA: \`aeff51b643212ff3a95fe1b308b294cc2d6c8fc1\`. \`start_auth_eapol()\` wrote raw WAN identity/password values into a quoted WPA supplicant config using \`fopen("w")\`, without escaping config metacharacters or guaranteeing that the plaintext password file was private. It also discarded the \`wpa_cli\` event-hook launch result.
