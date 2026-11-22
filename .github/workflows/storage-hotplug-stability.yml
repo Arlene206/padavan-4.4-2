@@ -1299,7 +1299,7 @@ jobs:
               if stripped.startswith("mount ") or stripped.startswith("/sbin/ntfs-3g "):
                   assert "8>&-" in stripped, stripped
           assert 'if [ "$ID_FS_TYPE" == "swap" ]' in automount
-          assert 'if swapon "$dev_full" ; then' in automount
+          assert 'if swapon "$dev_full"; then' in automount
           assert opt_mount.index('mount -o bind "$2/opt" /opt') < opt_mount.index("swapon /opt/.swap")
 
           # Swap-off status and the exact /proc/swaps postcondition gate
