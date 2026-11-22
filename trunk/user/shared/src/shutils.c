@@ -39,6 +39,7 @@
 #include <grp.h>
 #include <syslog.h>
 #include "router_account_policy.h"
+#include "router_account_nvram_policy.h"
 #include <utime.h>
 
 #include "nvram_linux.h"
@@ -271,6 +272,13 @@ cleanup:
 	return status;
 }
 
+static int
+router_account_nvram_get_checked(void *context, const char *name, char **value)
+{
+	(void)context;
+	return nvram_get_checked(name, value);
+}
+
 int
 recreate_passwd_unix(int force_create)
 {
@@ -279,7 +287,11 @@ recreate_passwd_unix(int force_create)
 	int i, j, uid, sh_num, duplicate, status = 0, file_status, password_status;
 	int update_count, rollback_failed = 0;
 	int passwd_had_original = 0, group_had_original = 0, shadow_had_original = 0;
-	char tmp[32], previous[32], *rootnm, *usernm;
+	char account_key[32], *rootnm, *usernm;
+	char root_name[ROUTER_ACCOUNT_NV_NAME_SIZE];
+	char root_password[NVRAM_MAX_VALUE_LEN + 1];
+	char account_names[ROUTER_ACCOUNT_NV_MAX_ACCOUNTS][ROUTER_ACCOUNT_NV_NAME_SIZE];
+	int account_count;
 	char passwd_temp[] = "/etc/.passwd.XXXXXX";
 	char group_temp[] = "/etc/.group.XXXXXX";
 	char shadow_temp[] = "/etc/.shadow.XXXXXX";
@@ -288,9 +300,46 @@ recreate_passwd_unix(int force_create)
 	char shadow_backup[] = "/etc/.shadow-backup.XXXXXX";
 	passwd_file_update_t file_updates[3];
 
-	rootnm = nvram_safe_get("http_username");
-	if (strlen(rootnm) < 1) rootnm = SYS_USER_ROOT;
-	if (!router_account_name_is_valid(rootnm)) { errno = EINVAL; return EINVAL; }
+	/* Snapshot all NVRAM values before staged account files exist.
+	 * The checked getter returns a shared-cache pointer; copy before next read. */
+	status = router_account_nvram_read_copy(router_account_nvram_get_checked,
+		NULL, "http_username", "", root_name, sizeof(root_name));
+	if (status != 0)
+		goto snapshot_failed;
+	if (!root_name[0])
+		snprintf(root_name, sizeof(root_name), "%s", SYS_USER_ROOT);
+	rootnm = root_name;
+	if (!router_account_name_is_valid(rootnm)) {
+		status = EINVAL;
+		goto snapshot_failed;
+	}
+	if (force_create) {
+		status = router_account_nvram_read_copy(router_account_nvram_get_checked,
+			NULL, "http_passwd", "", root_password, sizeof(root_password));
+		if (status != 0)
+			goto snapshot_failed;
+		if (strchr(root_password, '\n') || strchr(root_password, '\r') ||
+		    strchr(root_password, ':')) {
+			status = EINVAL;
+			goto snapshot_failed;
+		}
+	}
+	status = router_account_nvram_read_count(router_account_nvram_get_checked,
+		NULL, "acc_num", ROUTER_ACCOUNT_NV_MAX_ACCOUNTS, &account_count);
+	if (status != 0)
+		goto snapshot_failed;
+	for (i = 0; i < account_count; ++i) {
+		int key_length;
+		key_length = snprintf(account_key, sizeof(account_key), "acc_username%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(account_key)) {
+			status = ENAMETOOLONG;
+			goto snapshot_failed;
+		}
+		status = router_account_nvram_read_copy(router_account_nvram_get_checked,
+			NULL, account_key, "", account_names[i], sizeof(account_names[i]));
+		if (status != 0)
+			goto snapshot_failed;
+	}
 
 	passwd_fd = passwd_temp_file_open(passwd_temp, 0644);
 	if (passwd_fd < 0) { status = errno ? errno : EIO; goto cleanup; }
@@ -316,18 +365,15 @@ recreate_passwd_unix(int force_create)
 	}
 
 	uid = 1000;
-	sh_num = nvram_safe_get_int("acc_num", 0, 0, 100);
-	for (i = 0; i < sh_num; i++) {
-		snprintf(tmp, sizeof(tmp), "acc_username%d", i);
-		usernm = nvram_safe_get(tmp);
+	for (i = 0; i < account_count; ++i) {
+		usernm = account_names[i];
 		if (!router_account_name_is_valid(usernm) ||
 		    router_account_name_is_reserved(usernm, rootnm) ||
 		    !strcmp(usernm, "anonymous"))
 			continue;
 		duplicate = 0;
 		for (j = 0; j < i; ++j) {
-			snprintf(previous, sizeof(previous), "acc_username%d", j);
-			if (!strcmp(usernm, nvram_safe_get(previous))) {
+			if (!strcmp(usernm, account_names[j])) {
 				duplicate = 1;
 				break;
 			}
@@ -415,7 +461,7 @@ recreate_passwd_unix(int force_create)
 	group_temp[0] = '\0';
 	if (force_create) {
 		shadow_temp[0] = '\0';
-		password_status = change_passwd_unix(rootnm, nvram_safe_get("http_passwd"));
+		password_status = change_passwd_unix(rootnm, root_password);
 		if (password_status != 0) status = password_status;
 	}
 
@@ -434,6 +480,10 @@ cleanup:
 		if (force_create && shadow_backup[0]) (void)unlink(shadow_backup);
 	}
 	if (status != 0) errno = status;
+	return status;
+
+snapshot_failed:
+	errno = status;
 	return status;
 }
 

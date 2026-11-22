@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "passwd_temp_file_policy.h"
+#include "router_account_nvram_policy.h"
 
 static int rename_calls;
 static int fail_rename_first;
@@ -313,6 +314,96 @@ test_missing_original_is_removed_on_rollback(void)
 	fixture_cleanup(&fixture);
 }
 
+
+struct account_nvram_fixture {
+	const char *value;
+	int result;
+	int error;
+	char cache[64];
+};
+static int
+account_nvram_fixture_get(void *context, const char *name, char **value)
+{
+	struct account_nvram_fixture *fixture = (struct account_nvram_fixture *)context;
+	(void)name;
+	if (!fixture || !value) { errno = EINVAL; return -1; }
+	if (fixture->result < 0) { errno = fixture->error; *value = NULL; return -1; }
+	if (fixture->result == 0) { *value = NULL; return 0; }
+	if (fixture->result != 1 || !fixture->value) { *value = NULL; return fixture->result; }
+	if (strlen(fixture->value) >= sizeof(fixture->cache)) { errno = EOVERFLOW; return -1; }
+	strcpy(fixture->cache, fixture->value);
+	*value = fixture->cache;
+	return 1;
+}
+static void
+test_account_nvram_values_are_copied_before_cache_reuse(void)
+{
+	struct account_nvram_fixture fixture;
+	char first[32], second[32];
+	fixture.value = "first-user"; fixture.result = 1; fixture.error = 0;
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"acc_username0", "", first, sizeof(first)) == 0);
+	fixture.value = "different-user";
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"acc_username1", "", second, sizeof(second)) == 0);
+	assert(strcmp(first, "first-user") == 0);
+	assert(strcmp(second, "different-user") == 0);
+}
+static void
+test_account_nvram_missing_defaults_and_backend_errors(void)
+{
+	struct account_nvram_fixture fixture;
+	char value[16];
+	fixture.value = NULL; fixture.result = 0; fixture.error = 0;
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"http_username", "admin", value, sizeof(value)) == 0);
+	assert(strcmp(value, "admin") == 0);
+	fixture.result = -1; fixture.error = EIO; errno = 0;
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"http_passwd", "", value, sizeof(value)) == EIO);
+	assert(errno == EIO);
+}
+static void
+test_account_nvram_copy_rejects_invalid_and_overlong_values(void)
+{
+	struct account_nvram_fixture fixture;
+	char value[5];
+	fixture.value = "admin"; fixture.result = 1; fixture.error = 0;
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"http_username", "", value, sizeof(value)) == 0);
+	assert(strcmp(value, "admin") == 0);
+	fixture.value = "longer-than-buffer";
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"http_username", "", value, sizeof(value)) == ENAMETOOLONG);
+	fixture.result = 2;
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"http_username", "", value, sizeof(value)) == EIO);
+	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
+		"http_username", "", NULL, sizeof(value)) == EINVAL);
+}
+static void
+test_account_nvram_count_is_strict_and_bounded(void)
+{
+	struct account_nvram_fixture fixture;
+	int count = -1;
+	fixture.value = "100"; fixture.result = 1; fixture.error = 0;
+	assert(router_account_nvram_read_count(account_nvram_fixture_get, &fixture,
+		"acc_num", 100, &count) == 0 && count == 100);
+	fixture.result = 0; fixture.value = NULL;
+	assert(router_account_nvram_read_count(account_nvram_fixture_get, &fixture,
+		"acc_num", 100, &count) == 0 && count == 0);
+	fixture.result = 1; fixture.value = "100x";
+	assert(router_account_nvram_read_count(account_nvram_fixture_get, &fixture,
+		"acc_num", 100, &count) == EINVAL);
+	fixture.value = "101";
+	assert(router_account_nvram_read_count(account_nvram_fixture_get, &fixture,
+		"acc_num", 100, &count) == ERANGE);
+	fixture.value = "999999999999999999";
+	assert(router_account_nvram_read_count(account_nvram_fixture_get, &fixture,
+		"acc_num", 100, &count) == ERANGE);
+	assert(router_account_nvram_read_count(account_nvram_fixture_get, &fixture,
+		"acc_num", 100, NULL) == EINVAL);
+}
 int
 main(void)
 {
@@ -324,6 +415,10 @@ main(void)
 	test_failed_rollback_preserves_recovery_link();
 	test_third_rename_failure_restores_passwd_and_group();
 	test_missing_original_is_removed_on_rollback();
+	test_account_nvram_values_are_copied_before_cache_reuse();
+	test_account_nvram_missing_defaults_and_backend_errors();
+	test_account_nvram_copy_rejects_invalid_and_overlong_values();
+	test_account_nvram_count_is_strict_and_bounded();
 	puts("Secure password temporary file and account replacement policy: PASS");
 	return 0;
 }

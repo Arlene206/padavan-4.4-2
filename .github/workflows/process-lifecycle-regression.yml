@@ -198,6 +198,7 @@ on:
       - "trunk/user/shared/src/shutils_pidfile_policy.h"
       - "trunk/user/shared/src/tests/shutils_pidfile_policy.c"
       - "trunk/user/shared/src/passwd_temp_file_policy.h"
+      - "trunk/user/shared/src/router_account_nvram_policy.h"
       - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
       - "trunk/user/shared/src/tests/pids_presence_policy.c"
       - "trunk/user/shared/src/tests/process_inventory.c"
@@ -409,6 +410,7 @@ on:
       - "trunk/user/shared/src/shutils_pidfile_policy.h"
       - "trunk/user/shared/src/tests/shutils_pidfile_policy.c"
       - "trunk/user/shared/src/passwd_temp_file_policy.h"
+      - "trunk/user/shared/src/router_account_nvram_policy.h"
       - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
       - "trunk/user/shared/src/tests/pids_presence_policy.c"
       - "trunk/user/shared/src/tests/process_inventory.c"
@@ -788,6 +790,7 @@ jobs:
 
           shared = Path("trunk/user/shared/src/shutils.c").read_text()
           header = Path("trunk/user/shared/src/passwd_temp_file_policy.h").read_text()
+          account_policy = Path("trunk/user/shared/src/router_account_nvram_policy.h").read_text()
           rc = Path("trunk/user/rc/src/rc.c").read_text()
           test = Path("trunk/user/shared/src/tests/passwd_temp_file_policy.c").read_text()
 
@@ -868,6 +871,24 @@ jobs:
           assert "rollback_failed" in header
           assert 'fprintf(fp1, "%s:!:' in recreate
           assert "password_status = change_passwd_unix(" in recreate
+          assert '#include "router_account_nvram_policy.h"' in shared
+          assert "nvram_get_checked(name, value)" in shared
+          assert "router_account_nvram_read_copy(" in recreate
+          assert "router_account_nvram_read_count(" in recreate
+          assert "http_username" in recreate and "http_passwd" in recreate
+          assert "acc_username%d" in recreate and "account_names[j]" in recreate
+          assert "root_password" in recreate
+          assert "nvram_safe_get(" not in recreate
+          assert "nvram_safe_get_int(" not in recreate
+          assert recreate.index("router_account_nvram_read_copy(") < recreate.index("passwd_temp_file_open(passwd_temp, 0644)")
+          assert recreate.index('"http_passwd"') < recreate.index("passwd_temp_file_open(passwd_temp, 0644)")
+          assert "if (force_create)" in recreate
+          assert "ROUTER_ACCOUNT_NV_MAX_ACCOUNTS 100" in account_policy
+          assert "memcpy(destination, source, length + 1)" in account_policy
+          assert "saved_errno ? saved_errno : EIO" in account_policy
+          assert "test_account_nvram_values_are_copied_before_cache_reuse();" in test
+          assert "test_account_nvram_missing_defaults_and_backend_errors();" in test
+          assert "test_account_nvram_count_is_strict_and_bounded();" in test
           assert "int passwd_status = recreate_passwd_unix(1);" in init
           assert "boot_services_status, passwd_status);" in init
           assert "test_temp_file_is_exclusive_and_private();" in test

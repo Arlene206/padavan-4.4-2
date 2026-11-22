@@ -1,3 +1,11 @@
+## 2026-11-22 — Snapshot account NVRAM values before Unix database staging
+
+- Parent main SHA: `229ee26729a5364b7c81ca3b7a4218e72ed000fe`. Exact 229 WAN route #45002519393 and AI handoff #45002519355 PASS. Earlier a5 WAN DHCP #45002087932, Process inventory #45002087966 and AI #45002088016 PASS; XY-C1 #45002087905 completed Build/TRX/artifact on a5, so L3 is VERIFIED only for that exact SHA.
+- `nvram_linux.h` documents `nvram_get_checked()` values point into a shared cache and must be copied before another read. `recreate_passwd_unix()` retained root/account pointers across subsequent reads and used `nvram_safe_get*()`, which collapses backend errors into empty/default data and could silently publish an incomplete account list or use an empty password after read failure.
+- THIS COMMIT adds an injected checked-copy policy and strict bounded-count parser. It snapshots root username/password and all account entries before opening staged files; missing keys preserve defaults, while backend, overlong and malformed-count failures abort before publication. Duplicate scans use owned snapshots. Added GNU89 sanitizer tests and Process workflow path-filter/source-contract coverage. Exact new-head CI pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Initialize the DHCP policy header binding in the MTU checker
 
 - Parent main SHA: `0a21e8adab28787b58fc795c58d4a75f0c46c3cf`. Exact 874 HTTPD #45002311801 and AI docs #45002311684 PASS; 874 WAN route #45002311669 exposed a checker header-binding issue.
