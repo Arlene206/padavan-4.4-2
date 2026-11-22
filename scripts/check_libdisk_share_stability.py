@@ -215,6 +215,13 @@ require("path_len >= (int)sizeof(var_file)" in create_all and
 
 require("#include <errno.h>" in DISK_IO_SOURCE,
         "disk_io_tools.c must include errno definitions")
+
+sanity_body = function_body(DISK_IO_SOURCE, "void sanity_name(char *name)")
+require("(unsigned char)name[i] == 0x84" in sanity_body,
+        "sanity_name must compare non-ASCII bytes without signed-char truncation")
+require("test_sanity_name_replaces_high_bit_reserved_byte();" in IO_REGRESSION,
+        "high-bit reserved filename byte needs a regression test")
+
 read_failure = function_body(
     DISK_IO_SOURCE, "read_whole_file_failure(FILE *fp, char *buffer, int saved_errno)"
 )

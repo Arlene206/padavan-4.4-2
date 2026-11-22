@@ -43,7 +43,7 @@ void sanity_name(char *name)
 		    name[i] == 0x2F ||
 		    name[i] == 0x5C ||
 		    name[i] == 0x60 ||
-		    name[i] == 0x84)
+		    (unsigned char)name[i] == 0x84)
 			name[i] = 0x20;
 	}
 }

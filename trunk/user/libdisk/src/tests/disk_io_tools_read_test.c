@@ -104,6 +104,18 @@ static void test_reports_directory_read_error(void)
 	assert(errno != 0);
 }
 
+
+static void test_sanity_name_replaces_high_bit_reserved_byte(void)
+{
+	char name[] = { 'A', (char)0x84, 'B', '/', '\0' };
+
+	sanity_name(name);
+	assert(name[0] == 'A');
+	assert(name[1] == ' ');
+	assert(name[2] == 'B');
+	assert(name[3] == ' ');
+}
+
 int main(void)
 {
 	char directory_template[] = "/tmp/disk-io-tools-read-XXXXXX";
@@ -118,6 +130,7 @@ int main(void)
 	test_rejects_invalid_and_missing_paths();
 	test_rejects_oversized_file_with_efbig();
 	test_reports_directory_read_error();
+	test_sanity_name_replaces_high_bit_reserved_byte();
 
 	assert(rmdir(test_dir) == 0);
 	return 0;
