@@ -956,7 +956,10 @@ jobs:
           assert "test_reconfiguration_prefers_previous_live_interface" in wan6_test
           assert "return previous_ifname;" in wan6_policy
           stop_wan = body(source, "stop_wan_locked(void)")
-          assert "if (is_wan_ipv6_type_sit() != 1)" in stop_wan
+          assert "ipv6_type_status = is_wan_ipv6_type_sit_status(&ipv6_is_sit);" in stop_wan
+          assert "if (ipv6_type_status != 0)" in stop_wan
+          assert "if (ipv6_is_sit != 1)" in stop_wan
+          assert "stop_status = route_status_accumulate(ipv6_type_status, ipv6_status);" in stop_wan
           stop_ipv6 = stop_wan.index("ipv6_status = wan6_down(man_ifname, unit);")
           dhcp_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2)')
           viptv_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2)')
