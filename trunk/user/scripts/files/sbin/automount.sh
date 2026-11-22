@@ -177,7 +177,7 @@ automount_swap_status()
 		return 2
 	fi
 
-	printf '%s\\n' "$automount_swap_inventory" | awk -v dev="$automount_swap_device" '
+	printf '%s\n' "$automount_swap_inventory" | awk -v dev="$automount_swap_device" '
 NR == 1 {
 	if (NF != 5 || $1 != "Filename" || $2 != "Type" || $3 != "Size" ||
 	    $4 != "Used" || $5 != "Priority")
