@@ -118,7 +118,7 @@ signal_failure = main.index("if (networkmap_signal_install_handlers(sig_refresh,
 signal_cleanup = main.index("clear_resources();", signal_failure)
 signal_return = main.index("return exit_status;", signal_failure)
 daemonize = main.index("daemon(0, 0)")
-assert signal_install < signal_failure < signal_cleanup < signal_return < daemonize < main.index("while (!daemon_exit)")
+assert signal_failure < signal_install < signal_cleanup < signal_return < daemonize < main.index("while (!daemon_exit)")
 assert "exit_status = errno ? errno : EIO;" in main[signal_failure:signal_cleanup]
 assert "networkmap signal setup" in main[signal_failure:signal_cleanup]
 assert "signal(SIGUSR1, sig_refresh);" not in main

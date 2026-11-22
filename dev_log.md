@@ -1,3 +1,11 @@
+## 2026-11-22 16:55 CST — Correct networkmap signal setup source-order assertion
+
+- Parent main SHA: 44a2a851ac6732dd59ee171a99328a0d5cc7299f. Exact Networkmap signal lifecycle #44999008557 FAILED at scripts/check_networkmap_signals.py:121; both the GNU89 signal-policy executable and networkmap daemon-policy regression passed. The new checker compared the installer-call offset (inside the if expression) as if it preceded the if keyword; the order was reversed.
+- Production installer, five checked sigaction calls, and cleanup/return path compiled and passed the C tests. Corrected the source-order assertion to check if-condition → installer call → cleanup → return → daemonize order. No product source change.
+- Exact 44a2 NVRAM audit #44999008558, process lifecycle #44999008622 and AI handoff #44999008560 were still in progress at last poll. Exact b809 WAN route #44998743083 and AI handoff #44998743195 PASS.
+
+---
+
 ## 2026-11-22 16:43 CST — Make networkmap signal disposition setup fail closed
 
 - Parent main SHA: `b809d95f35efebeb7e653feb2f96e1a0c9c8fb69`. Exact WAN route #44998743083 and AI handoff #44998743195 were in progress at last poll; previous exact WAN route #44998472638 and AI handoff #44998472600 PASS. The WISP and checked DHCP selector/transport changes await the combined WAN rerun; no L3 claim.
