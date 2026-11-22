@@ -39,6 +39,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "notify_rc.h"
 #include "nvram_linux.h"
 #include "service_start_status.h"
 #include "modem_wan_start_policy.h"
@@ -4836,7 +4837,7 @@ on_deferred_hotplug_dev(void)
 int
 safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown)
 {
-	int storage_lock;
+	int storage_lock, retry_notify_status;
 	int port, has_mounted_port = 0, has_swapon_port = 0;
 	int has_requested_disk = 0;
 	int unmount_status = 0, ejected_status = 0, mount_count = 0;
@@ -4947,9 +4948,26 @@ out:
 	free_disk_data(disks_info);
 	file_unlock(storage_lock);
 	if (retry_storage_start) {
-		nvram_set_int_temp("usb_hotplug_ms", 1);
-		logmessage("Storage", "queued storage application retry after safe removal; retrying in five seconds");
-		alarm(5);
+		/*
+		 * This entry point can run in a short-lived rc applet. Its alarm
+		 * cannot drive PID 1's deferred storage callback; enqueue the retry
+		 * through the shared notification queue after releasing storage_lock.
+		 */
+		errno = 0;
+		retry_notify_status = notify_rc_status("on_hotplug_mass_storage");
+		if (retry_notify_status != 0) {
+			int notify_errno = errno ? errno : EIO;
+
+			logmessage("Storage",
+				   "cannot queue storage application restart after safe removal (status=%d, errno=%d)",
+				   retry_notify_status, notify_errno);
+			if (saved_errno == 0)
+				saved_errno = notify_errno;
+		} else {
+			logmessage("Storage",
+				   "queued storage application restart with PID 1 after safe removal (start status=%d)",
+				   start_status);
+		}
 	}
 	if (result != 0) {
 		errno = saved_errno ? saved_errno : EIO;

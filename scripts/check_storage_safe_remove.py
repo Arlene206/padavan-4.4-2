@@ -1543,3 +1543,24 @@ for token in ("usb_hotplug_event_action_should_run(printer_unplug_pending",
               "usb_hotplug_event_action_should_run(modem_hotplug_pending"):
     require(token in deferred_events,
             "USB side effect must be skipped while its acknowledgement is pending")
+
+
+# safe_remove_stor_device can run outside PID 1. A local alarm is therefore
+# not a valid way to wake the deferred storage callback; queue the PID-1 event
+# after releasing storage_lock so the startup retry is not stranded.
+safe_remove_start = storage.index(
+    "safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown)"
+)
+safe_remove_end = storage.index("\n}\n", safe_remove_start)
+safe_remove_body = storage[safe_remove_start:safe_remove_end]
+safe_remove_retry = safe_remove_body[safe_remove_body.index("if (retry_storage_start)"): ]
+require("notify_rc_status(\"on_hotplug_mass_storage\")" in safe_remove_retry,
+        "safe removal must queue storage restart through PID 1")
+require(safe_remove_body.index("file_unlock(storage_lock);") <
+        safe_remove_body.index('notify_rc_status("on_hotplug_mass_storage")'),
+        "safe-removal retry notification must happen after releasing storage lock")
+require('nvram_set_int_temp("usb_hotplug_ms", 1)' not in safe_remove_retry and
+        "alarm(5)" not in safe_remove_retry,
+        "safe-removal caller must not rely on a short-lived process alarm")
+require("cannot queue storage application restart after safe removal" in safe_remove_retry,
+        "safe-removal retry queue failure must be reported")
