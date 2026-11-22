@@ -292,7 +292,7 @@ else
 fi
 [ "$lock_status" -ne 0 ] || { echo "symlink retry-lock write returned success" >&2; exit 1; }
 [ ! -s "$TEST_DIR/restart-lock-target" ] || { echo "symlink retry-lock write modified its target" >&2; exit 1; }
-if aliddns_restart_lock_write "$LOCK_DIR" 19; then
+if aliddns_restart_lock_write "$TEST_DIR" 19; then
 	echo "AliDDNS accepted a retry-lock write to a directory" >&2
 	exit 1
 else
