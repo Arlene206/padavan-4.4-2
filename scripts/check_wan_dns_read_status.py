@@ -1207,6 +1207,7 @@ require("wan6_read_sit_6rd_parameters(" in sixrd_body and
         "get_wan_unit_value_int_status(" not in sixrd_body and
         "get_wan_unit_value_copy_status(" not in sixrd_body,
         "SIT 6rd size/relay must be read together, not by separate getters")
+sit_policy_test = (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 for test_name in ("test_wan6_sit_6rd_parameters_share_one_transaction",
                   "test_wan6_sit_6rd_snapshot_discards_both_values_on_read_errors",
                   "test_wan6_sit_6rd_snapshot_preserves_missing_and_rejects_bad_size"):

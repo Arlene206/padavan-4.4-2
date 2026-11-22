@@ -1,3 +1,11 @@
+## 2026-11-22 — Fix SIT regression checker initialization order
+
+- Parent main SHA: `034ddac2a662f27510e6ce4735efdbd9b6a07e80`. WAN route run #45046635467 passed all policy binaries and earlier DNS/PPP/WAN contracts, then failed at the new SIT 6rd test-marker assertion because `sit_policy_test` was assigned below the assertion block. The first b4c5967 route run #45046472456 had already exposed and led to correction of the stale split-getter contract.
+- Move the `wan_nvram_status_policy.c` read above the new test-marker assertions. No production source or test behavior changes in this checker-only repair.
+- On exact production SHA `b4c59675fa4d34edfe4bb5a28a590aff5b7f2313`, WAN DHCP callback #45046472587 passed including the new snapshot tests; XY-C1 #45046472404 was in Build with TRX/artifact pending at the time of this handoff.
+- No local checks or hardware validation were performed. Exact-head WAN route rerun and XY Build/TRX/artifact status remain to be checked.
+
+---
 ## 2026-11-22 — Update WAN DNS source contract for atomic SIT 6rd tuple
 
 - Parent main SHA: `b4c59675fa4d34edfe4bb5a28a590aff5b7f2313`. Exact WAN DHCP callback #45046472587 PASS, including the GNU89/ASan/UBSan compile and execution of the new two-field 6rd snapshot regression tests.

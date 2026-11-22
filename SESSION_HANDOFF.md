@@ -13,7 +13,7 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `b4c59675fa4d34edfe4bb5a28a590aff5b7f2313`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA for this checkpoint: `034ddac2a662f27510e6ce4735efdbd9b6a07e80`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and untouched.
 - Recent work includes EAPoL orphan-tail cleanup, p910nd transient I/O handling, checked iNIC TxPower preflight, AliyunDrive process/HTTP readiness and AliDDNS NUL-delimited configuration fingerprint. See exact-SHA entries in `dev_log.md` for validation boundaries.
 - The checked NVRAM CLI and AliyunDrive fail-closed startup-read slice is now closed at L1/L2 on exact main SHA `11576ae4e50f8bb063682bbb94929a7bae394a47`.
@@ -21,14 +21,13 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Active task
 
-The SIT 6rd size/relay tuple now reads through one NVRAM transaction and its WAN DHCP regression passed. The exact-head WAN route workflow then failed only because `scripts/check_wan_dns_read_status.py` still required the removed independent `6rd_size`/`6rd_relay` getters inside `start_sit_tunnel()`. This commit updates that second source contract to require the new snapshot helper and pre-mutation ordering. Re-run WAN route on the new SHA, then verify XY-C1 Build/TRX/artifact on the exact source SHA.
+The checked SIT 6rd snapshot helper and its GNU89 regressions passed the WAN DHCP workflow on `b4c5967`. The WAN route source checker then failed twice on stale assertions: first it expected removed split 6rd keys/getters; after that was updated, it failed because the newly-added test assertions referenced `sit_policy_test` before its assignment. This checker-only commit moves the assignment above those assertions. Re-run WAN route on the new SHA and inspect XY-C1 Build/TRX/artifact on the exact production source SHA `b4c5967`.
 
 ## Verification boundary
 
-- Exact parent SHA `cee3941a374c410a208f64aef8fa3f214d5d2be1`: WAN route #45045448318, HTTPD security #45045448442, firewall #45045448338, USB modem identity #45045448331, Process lifecycle #45045448370, AI handoff #45045448321 all PASS. XY-C1 #45045448352 host regressions PASS but Build/TRX/artifact were SKIPPED because the parent commit had no firmware-source changes.
-- Exact source SHA `b4c59675fa4d34edfe4bb5a28a590aff5b7f2313`: WAN DHCP callback #45046472587 PASS, including compilation/execution of the new checked NVRAM snapshot regressions; IPv6 service type #45046472568, Samba #45046472427, WAN ARP #45046472504, watchdog #45046472395, Process inventory #45046472496, HTTPD #45046472439, USB modem #45046472548 and AI handoff #45046472552 PASS.
-- WAN route #45046472456 FAILED at the final `scripts/check_wan_dns_read_status.py` SIT assertion after all earlier policy/compiler regressions passed. The stale contract required the old split `6rd_size`/`6rd_relay` getters; it did not indicate a production regression. Updated in the present checker-only commit.
-- XY-C1 #45046472404 was IN_PROGRESS when handed off; Build dependencies were installing and Build/TRX/artifact had not yet reported. Verify the same-SHA production steps; L3 is NOT VERIFIED until all three pass.
+- Exact source SHA `b4c59675fa4d34edfe4bb5a28a590aff5b7f2313`: WAN DHCP callback #45046472587 PASS, including GNU89 compile/execute of the two-field SIT 6rd snapshot tests; IPv6 service type #45046472568 PASS; Samba #45046472427 PASS; WAN ARP #45046472504 PASS; watchdog #45046472395 PASS; Process inventory #45046472496 PASS; Process lifecycle #45046472508 PASS; HTTPD #45046472439 PASS; USB modem #45046472548 PASS; AI handoff #45046472552 PASS.
+- WAN route #45046472456 on `b4c5967` first failed at `scripts/check_wan_dns_read_status.py:1191` due to the removed `"6rd_size"`/`"6rd_relay"` split-read source assertions. The rerun #45046635467 on `034ddac` got past that check and failed with `NameError: sit_policy_test is not defined`; the present commit fixes the assignment ordering. Policy binaries and all earlier route assertions passed in both runs.
+- XY-C1 #45046472404 is the actual production-input validation triggered by `net_wan6.c` on `b4c5967`; Build was in progress at the last check, with TRX/artifact still pending. L3 remains NOT VERIFIED until exact-source Build, TRX and artifact upload all pass.
 - No local test/build or hardware validation was performed. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
