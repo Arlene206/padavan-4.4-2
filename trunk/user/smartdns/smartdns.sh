@@ -518,7 +518,7 @@ Change_adbyby () {
                 logger -t "SmartDNS" "Failed to persist adbyby_add=0 (status=$adbyby_nvram_status)"
                 return "$adbyby_nvram_status"
             fi
-            /usr/bin/adbyby.sh switch
+            # The Adbyby init script has no switch action; persist DNS ownership locally.
             logger -t "SmartDNS" "DNS 去广告规则: SmartDNS ⇒ DNSmasq"
             hosts_type="dnsmasq"
         fi
@@ -533,7 +533,7 @@ Change_adbyby () {
                     logger -t "SmartDNS" "Failed to persist adbyby_add=1 (status=$adbyby_nvram_status)"
                     return "$adbyby_nvram_status"
                 fi
-                /usr/bin/adbyby.sh switch
+                # The Adbyby init script has no switch action; persist DNS ownership locally.
                 logger -t "SmartDNS" "DNS 去广告规则: DNSmasq ⇒ SmartDNS"
                 hosts_type="SmartDNS"
             fi

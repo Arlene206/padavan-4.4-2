@@ -91,6 +91,8 @@ assert "server=127.0.0.1#$sdns_port" in change
 assert 'smartdns_dnsmasq_publish_managed_block "$@"' in change
 assert '>> "$dnsmasq_Conf"' not in change
 adbyby_change = body(smartdns, "Change_adbyby")
+assert "/usr/bin/adbyby.sh switch" not in adbyby_change, \
+    "SmartDNS must not dispatch the unsupported Adbyby switch action"
 for token in ("if nvram set adbyby_add=0; then", "if nvram set adbyby_add=1; then",
               'return "$adbyby_nvram_status"'):
     assert token in adbyby_change, token
@@ -127,6 +129,7 @@ for token in ("managed-block publication is atomic and preserves same-valued use
               "rename failure preserves original config",
               "failed managed-block publication leaves original config intact",
               "Adbyby NVRAM failures preserve the active DNS target and propagate status",
+              "SmartDNS does not dispatch unsupported Adbyby switch action",
               "SmartDNS DNSMasq configuration preservation regression: PASS"):
     assert token in test, token
 

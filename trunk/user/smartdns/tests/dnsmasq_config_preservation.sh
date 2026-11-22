@@ -191,6 +191,9 @@ pass "failed managed-block publication leaves original config intact"
 # A failed NVRAM update must not make the active host mode disagree with
 # the persistent adbyby_add setting. Exercise both transition directions.
 SMARTDNS_SOURCE="$HERE/../smartdns.sh"
+if grep -Fq '/usr/bin/adbyby.sh switch' "$SMARTDNS_SOURCE"; then
+    fail "SmartDNS dispatched an unsupported Adbyby switch action"
+fi
 sed -n '/^Change_adbyby () {$/,/^}/p' "$SMARTDNS_SOURCE" > "$T/change-adbyby.sh"
 [ -s "$T/change-adbyby.sh" ] || fail "Change_adbyby helper missing"
 . "$T/change-adbyby.sh"
@@ -239,6 +242,7 @@ fi
 grep -Fq 'Failed to persist adbyby_add=1' "$T/adbyby.log" || fail "SmartDNS transition failure was not logged"
 ! grep -Fq 'DNS 去广告规则:' "$T/adbyby.log" || fail "failed SmartDNS transition was reported as successful"
 pass "Adbyby NVRAM failures preserve the active DNS target and propagate status"
+pass "SmartDNS does not dispatch unsupported Adbyby switch action"
 
 [ "$(smartdns_dnsmasq_normalize_port 00053)" = 53 ] || fail "port normalization failed"
 for bad in '' 0 65536 999999 abc 000000; do
