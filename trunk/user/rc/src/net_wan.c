@@ -3482,7 +3482,7 @@ start_wan(void)
 				wan_start_status, ifname_status);
 			logmessage(LOGNAME,
 				   "aborting WAN setup for unit %d: invalid configured interface name (status=%d)",
-				   ifname_status);
+				   unit, ifname_status);
 			continue;
 		}
 

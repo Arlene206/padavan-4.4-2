@@ -18,8 +18,8 @@ assert "wan_ifname_copy(char *destination, size_t destination_size" in policy
 assert "length == destination_size" in policy
 assert "c == '_' || c == '-' || c == '.'" in policy
 
-wan_start_at = net_wan.index("\\nstart_wan(void)\\n{")
-wan_start_end = net_wan.index("\\nstatic int\\nstop_wan_ppp_locked", wan_start_at)
+wan_start_at = net_wan.index("\nstart_wan(void)\n{")
+wan_start_end = net_wan.index("\nstatic int\nstop_wan_ppp_locked", wan_start_at)
 wan_start = net_wan[wan_start_at:wan_start_end]
 wan_start_compact = " ".join(wan_start.split())
 assert "char wan_ifname[16], wan_ifname_nvram[16];" in wan_start
@@ -28,6 +28,7 @@ assert "wan_ifname_copy(wan_ifname, sizeof(wan_ifname), wan_ifname_nvram)" in wa
 assert "wan_start_status = rc_first_service_start_status( wan_start_status, ifname_status);" in wan_start_compact
 assert "cannot read configured interface name" in wan_start
 assert "invalid configured interface name" in wan_start
+assert '"aborting WAN setup for unit %d: invalid configured interface name (status=%d)", unit, ifname_status)' in wan_start_compact
 assert "if (!wan_ifname_nvram[0]) continue;" in wan_start_compact
 assert wan_start.index('get_wan_unit_value_copy_status(') < wan_start.index('if (!wan_ifname_nvram[0])') < wan_start.index('wan_ifname_copy(') < wan_start.index('ifconfig(wan_ifname, IFUP')
 assert "get_man_ifname(unit)" not in wan_start

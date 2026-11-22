@@ -1,3 +1,10 @@
+## 2026-11-22 — Correct WAN interface diagnostic and checker newline anchors
+
+- Parent main SHA: `6ec3e3d6bf3576864dee986aaf1e7075a4fbc1fa`. Immediate source review caught two defects before treating CI as validated: the invalid-interface log format accepted only one of its two integer arguments, and the newly added Python checker delimited C functions using a double-escaped newline (literal backslash-n).
+- Supplied both unit and ifname_status to the diagnostic and corrected the source-checker delimiters to resolve actual newline boundaries. Added an exact source assertion for the diagnostic argument order.
+- The exact 6ec push triggered WAN DHCP callback/route, Process, NVRAM and XY-C1 plus the broader source-filtered suites; their first poll showed pending/in-progress only. Verify the follow-up SHA rather than inferring results from the intermediate head.
+
+---
 ## 2026-11-22 — Fail closed when WAN startup cannot read its configured interface
 
 - Parent main SHA: `7bd0c10e867a429dfbc7dc2573e211c1963aa580`. Exact 7bd storage hotplug #44995310447 and AI handoff #44995310444 passed. Exact XY-C1 #44995310496 completed host-only validation successfully, but Build XY-C1, TRX verification and artifact upload were skipped because 7bd changed only tests/checkers/handoff; no L3 claim.

@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
-- Current product/checker parent for this slice: `7bd0c10e867a429dfbc7dc2573e211c1963aa580`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- Current implementation parent before this follow-up: `6ec3e3d6bf3576864dee986aaf1e7075a4fbc1fa`; this follow-up repairs the invalid-name diagnostic argument list and the checker newline locator. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
 - Storage retry durability: physical-unplug marker retention and PID 1 retry-queue fallback are in product source; the retry-policy mask regression was corrected. Exact 7bd storage run #44995310447 PASS and AI handoff #44995310444 PASS.
 - Exact 7bd XY-C1 run #44995310496 completed SUCCESS in host-only mode; firmware input detection and host regression steps passed, but Build XY-C1, TRX verification and artifact upload were SKIPPED because the commit only changed tests/checkers/handoff. This is not an L3 firmware build.
 - Newly confirmed P1 WAN startup defect: `start_wan()` used lossy `get_man_ifname()` (`nvram_safe_get`) for `wan0_ifname`; backend/read/close errors became an empty string and silently skipped WAN startup. Current slice replaces it with checked bounded NVRAM copy plus the existing interface-token validator, preserving the legacy empty/unconfigured no-op while propagating failures into `wan_start_status`.
@@ -39,12 +39,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 - Exact 7bd storage #44995310447 PASS and AI handoff docs #44995310444 PASS.
 - Exact 7bd XY-C1 #44995310496 completed SUCCESS in host-only mode, but Build XY-C1, TRX verification and artifact upload were SKIPPED by the production-input detector. No L3 claim for 7bd.
-- This WAN interface-read repair has not yet run exact-head Actions; require WAN DHCP callback/route and XY-C1 checks on the resulting SHA. A product-source change should cause XY-C1 Build/TRX/artifact to execute, but L3 is only verified after all three pass.
+- Exact 6ec product-source run set triggered WAN DHCP callback/route, Process, NVRAM, HTTPD/security and other suites; all were in progress at last poll. This follow-up fixes the diagnostic varargs and Python newline locator before treating those results as validated.
+- This WAN interface-read repair still requires a clean exact-head run after the follow-up. XY-C1 should execute Build/TRX/artifact because net_wan.c changed; L3 is only verified after all three pass on one identical SHA.
 - Backup branch remains unchanged/read-only. No local MIPS build and no hardware test; L3/L4 are not currently verified.
-
 ## Exact first action for the next GPT
 
-1. Check exact-SHA WAN DHCP callback and WAN route runs for the new checked `wan0_ifname` path; fix the first real regression or stale assertion without weakening the fail-closed contract.
-2. Check exact-SHA XY-C1: confirm Build XY-C1, TRX verification and artifact upload actually execute and pass on this production-source SHA. Do not claim L3 if any of the three is skipped.
-3. Continue P1 WAN startup result-propagation review after this interface-name read; avoid repeating completed storage marker/retry work.
+1. Check exact-SHA WAN DHCP callback and WAN route runs for this checked wan0_ifname repair; ensure the Python source checker reaches its WAN contract and the C policy regressions pass.
+2. Check exact-SHA XY-C1: confirm Build XY-C1, TRX verification and artifact upload actually execute and pass on this production-source SHA. Do not claim L3 if any step is skipped.
+3. Continue the P1 WAN startup result-propagation review after this interface-name read; avoid repeating completed storage marker/retry work.
 4. Keep backup read-only; hardware L4 remains unverified.
