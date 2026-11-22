@@ -367,7 +367,7 @@ static void
 test_account_nvram_copy_rejects_invalid_and_overlong_values(void)
 {
 	struct account_nvram_fixture fixture;
-	char value[5];
+	char value[6];
 	fixture.value = "admin"; fixture.result = 1; fixture.error = 0;
 	assert(router_account_nvram_read_copy(account_nvram_fixture_get, &fixture,
 		"http_username", "", value, sizeof(value)) == 0);

@@ -284,7 +284,7 @@ recreate_passwd_unix(int force_create)
 {
 	FILE *fp1 = NULL, *fp2 = NULL;
 	int passwd_fd = -1, group_fd = -1, shadow_fd = -1;
-	int i, j, uid, sh_num, duplicate, status = 0, file_status, password_status;
+	int i, j, uid, duplicate, status = 0, file_status, password_status;
 	int update_count, rollback_failed = 0;
 	int passwd_had_original = 0, group_had_original = 0, shadow_had_original = 0;
 	char account_key[32], *rootnm, *usernm;
@@ -302,6 +302,7 @@ recreate_passwd_unix(int force_create)
 
 	/* Snapshot all NVRAM values before staged account files exist.
 	 * The checked getter returns a shared-cache pointer; copy before next read. */
+	root_password[0] = '\0';
 	status = router_account_nvram_read_copy(router_account_nvram_get_checked,
 		NULL, "http_username", "", root_name, sizeof(root_name));
 	if (status != 0)

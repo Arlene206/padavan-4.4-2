@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct account snapshot regression and restore handoff headings
+
+- Parent main SHA: `1ba086afc059a4188884475532011bc27581c5bc`. Exact 1ba Process lifecycle #45003414996 failed in the new unit test because a 5-byte test buffer cannot hold the five-character string `admin` plus its NUL terminator; the helper correctly returned `ENAMETOOLONG`. This follow-up enlarges the test buffer to 6 bytes.
+- Static source review also removed the old `sh_num` local left behind by replacing the `nvram_safe_get_int()` loop, and initializes the password snapshot buffer for the non-`force_create` path.
+- Exact 1ba AI docs #45003415008 found that the handoff rewrite had removed required section headings. Restored `Current repository state`, `Active task`, `Verification boundary` and `Exact first action` sections; no project-state claims changed except recording the two exact-head failures above.
+- Exact 1ba Process inventory #45003414964, HTTPD #45003415121, NVRAM audit #45003414955, WAN DHCP #45003415094, DNS forwarder #45003414947 and GPIO #45003414983 PASS; XY-C1 #45003414994 was still running. Exact correction-SHA CI pending.
+
+---
+
 ## 2026-11-22 — Snapshot account NVRAM values before Unix database staging
 
 - Parent main SHA: `229ee26729a5364b7c81ca3b7a4218e72ed000fe`. Exact 229 WAN route #45002519393 and AI handoff #45002519355 PASS. Earlier a5 WAN DHCP #45002087932, Process inventory #45002087966 and AI #45002088016 PASS; XY-C1 #45002087905 completed Build/TRX/artifact on a5, so L3 is VERIFIED only for that exact SHA.
