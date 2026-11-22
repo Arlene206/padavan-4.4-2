@@ -31,7 +31,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - WAN reset now uses checked selector reads, a transactionally coherent manual endpoint snapshot, bounded protocol parsing, and checked custom/factory MAC identity reads.
 - `start_wan()` uses checked per-unit protocol retrieval and retains the first failure before interface setup.
 - The boolean manual-PPP classifier uses a checked protocol wrapper that returns a negative error sentinel on read failure; `is_ifunit_man()` maps the sentinel explicitly to `true` so an unreadable protocol cannot trigger destructive IPoE cleanup.
-- Exact-head WAN route #44965482671 and XY-C1 #44965482665 stopped at a contradictory checker: one assertion still expected the former PPTP substitute while a later assertion required `-1` plus explicit bool fallback. Checker-only correction now aligns the assertions; exact reruns remain pending.
+- The first follow-up checker correction (`dc5df775b1ec1043b5f4c1ce42f472533f886682`) removed the stale PPTP expectation, but exact WAN route #44965681798 and XY-C1 #44965681825 exposed a second checker extraction bug: a comment occurrence of `is_ifunit_man(` preceded the function definition, so the generic matcher extracted the wrong body. THIS checker-only fix now scopes to the exact function signature. XY-C1 also surfaced an independent `run_samba` source-contract extraction failure, tracked separately.
 - Next: after checker pass, continue checked reads in WAN interface selection, DNS mode, link-restored DHCP and deconfig callbacks while keeping mandatory cleanup unconditional.
 
 ## Verification boundary
@@ -44,8 +44,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN route rerun after the manual-PPP checker correction and record any remaining failed step.
-2. Check whether XY-C1 re-runs; if triggered, inspect Build, TRX and artifact independently.
+1. Inspect exact-head WAN route/XY-C1 reruns after the precise MAN classifier extractor fix; investigate the independent Samba `run_samba` checker extraction failure.
+2. Once host checks pass, inspect firmware input detection, Build XY-C1, TRX and artifact on one exact product SHA.
 3. Continue checked protocol reads in `get_wan_ifname()`, `get_wan_ip4()`, `get_wan_dns_static_status()` and `udhcpc_deconfig()` while preserving unconditional cleanup.
 
 

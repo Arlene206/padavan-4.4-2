@@ -1,3 +1,13 @@
+## 2026-11-22 08:17 CST — Scope MAN classifier source contract to its definition
+
+- Parent main SHA: `dc5df775b1ec1043b5f4c1ce42f472533f886682`.
+- Exact WAN-route #44965681798 failed after earlier WAN tests passed because the final manual-PPP assertion called `body(wan, "is_ifunit_man(")`. A comment in the source contains that token before the definition, so the generic extractor selected the following unrelated function body instead of `is_ifunit_man()`.
+- Exact XY-C1 #44965681825 also failed at this WAN checker. Its job log additionally reported an independent Samba contract extraction error (`unterminated function: run_samba`); this checker-only fix does not alter Samba code and that failure remains to diagnose separately.
+- THIS checker-only change scopes the extraction to the exact definition signature `static int\nis_ifunit_man(char *wan_ifname, int unit)`, matching the already-correct earlier assertion. The negative protocol sentinel and explicit true classification remain required.
+- Next: rerun exact-head WAN route/XY-C1; inspect the Samba checker failure independently. Then proceed with status-aware interface/DHCP protocol changes; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 08:14 CST — Align manual-PPP checker with explicit error sentinel
 
 - Parent main SHA: `76ddd91f39790262b8a373977d1a3b44f119a638`.
