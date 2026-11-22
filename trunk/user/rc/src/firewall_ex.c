@@ -2009,6 +2009,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
 	int is_multicast_enabled = 0;
+	int is_battlenet_enabled = 0;
 	int is_sshd_enabled = 1, is_ftp_enabled = 1;
 #if defined (APP_XUPNPD)
 	int is_xupnpd_enabled;
@@ -2062,6 +2063,11 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
 	if (ret != 0)
 		return ret;
+	if (is_nat_enabled) {
+		ret = firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled);
+		if (ret != 0)
+			return ret;
+	}
 	if (is_nat_enabled) {
 		ret = firewall_read_enabled_setting("vts_enable_x", &is_vts_enabled);
 		if (ret != 0)
@@ -2713,7 +2719,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			char *dmz_ip;
 			
 			/* Accept to BattleNET */
-			if (nvram_match("sp_battle_ips", "1"))
+			if (is_battlenet_enabled)
 				fprintf(fp, "-A %s -p udp --dport %d -j %s\n", dtype, BATTLENET_PORT, logaccept);
 			
 #if defined (USE_MATCH_CONNTRACK)
@@ -3652,6 +3658,8 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	char dmz_ip[16] = {0};
 	int is_use_dmz = 0;
 	int is_redirect_dns = 0;
+	int is_battlenet_enabled = 0, is_fullcone_nat_enabled = 0;
+	int is_nat_loop_enabled = 0;
 	int is_misc_http_enabled = 0, is_udpxy_wopen = 0;
 #if defined (SUPPORT_HTTPS)
 	int is_https_wopen = 0;
@@ -3701,6 +3709,15 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	if (firewall_status != 0)
 		return firewall_status;
 	if (is_nat_enabled) {
+		firewall_status = firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_enabled_setting("nf_nat_type", &is_fullcone_nat_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
+		firewall_status = firewall_read_enabled_setting("nf_nat_loop", &is_nat_loop_enabled);
+		if (firewall_status != 0)
+			return firewall_status;
 		firewall_status = firewall_read_enabled_setting("vts_enable_x", &is_vts_enabled);
 		if (firewall_status != 0)
 			return firewall_status;
@@ -3982,7 +3999,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		}
 		
 		/* BattleNET (PREROUTING + POSTROUTING) */
-		if (wan_ip && nvram_match("sp_battle_ips", "1")) {
+		if (wan_ip && is_battlenet_enabled) {
 			fprintf(fp, "-A %s -p udp -d %s --sport %d -j NETMAP --to %s\n", "PREROUTING", wan_ip, BATTLENET_PORT, lan_net);
 			fprintf(fp, "-A %s -p udp -s %s --dport %d -j NETMAP --to %s\n", "POSTROUTING", lan_net, BATTLENET_PORT, wan_ip);
 		}
@@ -3994,7 +4011,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 #endif
 		
 		/* masquerade WAN connection for LAN clients */
-		if (nvram_match("nf_nat_type", "1")) /* classical nat: 2, fullcone nat: 1*/
+		if (is_fullcone_nat_enabled) /* classical nat: 2, fullcone nat: 1*/
 			include_masquerade(fp, wan_if, wan_ip, lan_net, 1);
 		else
 			include_masquerade(fp, wan_if, wan_ip, lan_net, 0);
@@ -4042,7 +4059,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		}
 		
 		/* masquerade LAN to LAN (NAT loopback) */
-		if (nvram_match("nf_nat_loop", "1"))
+		if (is_nat_loop_enabled)
 			fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j SNAT --to-source %s\n", lan_if, lan_net, lan_net, lan_ip);
 		
 		/* Local ports remap (http/https/ssh/ftp/udpxy) */

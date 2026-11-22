@@ -281,6 +281,26 @@ test_firewall_log_mode_values_missing_default_and_backend_error(void)
 }
 
 static void
+test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure(void)
+{
+	int battlenet = 17;
+	int fullcone = 17;
+	int nat_loop = 17;
+
+	/* BattleNET mapping, fullcone NAT and hairpin SNAT are disabled by default. */
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &battlenet) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &fullcone) == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &nat_loop) == 0);
+	assert(battlenet == 0 && fullcone == 0 && nat_loop == 0);
+
+	battlenet = fullcone = nat_loop = 17;
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &battlenet) == EIO);
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "1", 0, &fullcone) == EACCES);
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &nat_loop) == EIO);
+	assert(battlenet == 17 && fullcone == 17 && nat_loop == 17);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -338,6 +358,7 @@ main(void)
 	test_nat_remote_listener_toggles_missing_default_and_backend_failure();
 	test_filter_multicast_toggle_missing_default_and_backend_failure();
 	test_firewall_log_mode_values_missing_default_and_backend_error();
+	test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

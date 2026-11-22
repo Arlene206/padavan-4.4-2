@@ -1,3 +1,11 @@
+## 2026-11-21 — Check NAT auxiliary policy toggles before rule staging
+
+- Parent main SHA: `d0dda5dc4dc5feada52ecfdf8a83c99a40b3e169`. Exact Firewall Startup #44983656044 PASS; its log confirms NAT remote-listener source contracts, IPv4/IPv6 multicast preflight assertions, `Required NAT restore, filter safety and push/PR workflow contracts: PASS`, and rp_filter policy checks. WAN DHCP #44983656013, HTTPD #44983656061, FULLCONENAT #44983656051, WAN route #44983656027, process inventory #44983656019 and AI #44983656035 PASS. XY-C1 #44983656163 and NVRAM #44983656068 were still IN_PROGRESS at last poll.
+- NAT rule generation still used unchecked exact-match getters for `sp_battle_ips`, `nf_nat_type` and `nf_nat_loop`. These could omit BattleNET filter/NETMAP policy, select classical instead of configured fullcone NAT, or silently drop LAN hairpin SNAT after an NVRAM backend error.
+- `ipt_nat_rules()` now reads all three through checked enabled-setting APIs before NAT staging and uses the same booleans for emitted rules. `ipt_filter_rules()` also pre-reads BattleNET enablement before filter staging to avoid a separate unchecked filter-side gate. Missing values remain false as before; backend errors return before ruleset publication.
+- Added one named GNU89/Werror/ASan/UBSan policy regression for all missing/default and backend-error outcomes, with workflow source contracts requiring reads before rule-file open and forbidding the old unchecked calls. Exact-head Firewall Startup pending.
+
+---
 ## 2026-11-21 — Check firewall log-mode NVRAM reads before changing sysctls
 
 - Parent main SHA: `1c2511a27ffe701c30ee473b630e13fcd78a63a9`. Exact `e9a5b1fb` Firewall Startup #44983577555 completed SUCCESS. Its XY-C1 #44983577660 and NVRAM #44983577624 were still IN_PROGRESS at last poll. Source SHA `1c2511a27ffe701c30ee473b630e13fcd78a63a9` had Firewall Startup #44983656044, XY-C1 #44983656163 and other triggered Actions QUEUED/PENDING; no exact-head PASS was claimed for multicast source changes.

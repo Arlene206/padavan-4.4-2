@@ -911,6 +911,24 @@ jobs:
           assert 'nvram_match("fw_log_x"' not in startup_source
           assert "test_firewall_log_mode_values_missing_default_and_backend_error" in firewall_nvram_test
 
+          # NAT auxiliary policy toggles must be checked before staging and reused.
+          nat_builder = body(firewall_source, "ipt_nat_rules(char *man_if")
+          for gate in (
+              'firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled)',
+              'firewall_read_enabled_setting("nf_nat_type", &is_fullcone_nat_enabled)',
+              'firewall_read_enabled_setting("nf_nat_loop", &is_nat_loop_enabled)',
+          ):
+              assert gate in nat_builder
+              assert nat_builder.index(gate) < nat_builder.index("firewall_open_rule_file(")
+          assert 'nvram_match("sp_battle_ips", "1")' not in nat_builder
+          assert 'nvram_match("nf_nat_type", "1")' not in nat_builder
+          assert 'nvram_match("nf_nat_loop", "1")' not in nat_builder
+          ipv4_battle = body(firewall_source, "ipt_filter_rules(char *man_if")
+          assert 'firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled)' in ipv4_battle
+          assert ipv4_battle.index('firewall_read_enabled_setting("sp_battle_ips", &is_battlenet_enabled)') < ipv4_battle.index("firewall_open_rule_file(")
+          assert 'nvram_match("sp_battle_ips", "1")' not in ipv4_battle
+          assert "test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",
