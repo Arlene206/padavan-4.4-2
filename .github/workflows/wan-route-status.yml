@@ -1087,7 +1087,7 @@ jobs:
           deconfig = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
           assert "cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)" in deconfig
           assert "cleanup_status = wan_down_internal(wan_ifname, unit, 0)" in deconfig
-          assert "returnroute_status_accumulate(route_status_accumulate(interface_status,conntrack_status),cleanup_status);" in "".join(deconfig.split())
+          assert "returnroute_status_accumulate(route_status_accumulate(route_status_accumulate(proto_status,interface_status),conntrack_status),cleanup_status);" in "".join(deconfig.split())
           
           paths = (
               ".github/workflows/wan-route-status.yml",

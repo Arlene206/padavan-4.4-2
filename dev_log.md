@@ -1,3 +1,13 @@
+## 2026-11-22 — Preserve WAN protocol error in DHCP deconfig regression contract
+
+- Parent main SHA: `8998530e9609b5e401c15a3a63f23b20ebd27d60`.
+- Exact-head WAN route run #44968619661 failed after all compiled policy regressions and earlier source contracts passed. Embedded Python line 654 still expected the old `interface_status → conntrack_status → cleanup_status` return chain and omitted the already-implemented `proto_status` first-error preservation in `udhcpc_deconfig()`.
+- Verified the current `trunk/user/rc/src/net_wan.c` implementation reads the MAN protocol with `get_wan_unit_proto_checked_status()`, preserves the underlay address on read failure, continues independent teardown, and returns the accumulated protocol/interface/conntrack/cleanup status. Updated the WAN route contract to require that complete aggregation; no production source changed.
+- AI handoff documentation check #44968619684 passed on the parent SHA. Exact-head WAN route rerun and this commit's documentation check are pending; XY-C1 validation remains tracked against product-source SHA `02857320194ebdda3b451ea3d6de07fa212995c0`.
+- Next source slice: add a status-returning USB modem identity reader and migrate lifecycle-critical consumers without treating NVRAM backend errors as “not a modem”.
+
+---
+
 ## 2026-11-22 — Update WAN route contract for checked protocol lookup
 
 - Parent main SHA: `8ed832e39248e1ac0011dccfd247fba0414bac30`.
