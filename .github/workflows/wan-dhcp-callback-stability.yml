@@ -1781,5 +1781,17 @@ jobs:
           assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask"' not in viptv_compact
           assert "test_transactional_iptv_overlap_lan_subnet_snapshot" in wan_nvram_test
 
+          wan_bound = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+          wan_bound_compact = "".join(wan_bound.split())
+          assert "lan_config_status=rc_wan_nvram_copy_snapshot(" in wan_bound_compact
+          assert 'lan_snapshot_fields[0].param_name="lan_ipaddr";' in wan_bound_compact
+          assert 'lan_snapshot_fields[1].param_name="lan_netmask";' in wan_bound_compact
+          assert "wan_nvram_transaction_begin_callback" in wan_bound
+          assert "wan_nvram_transaction_get_callback" in wan_bound
+          assert "wan_nvram_transaction_end_callback" in wan_bound
+          assert wan_bound_compact.index("lan_config_status=rc_wan_nvram_copy_snapshot(") < wan_bound_compact.index("is_same_subnet2(wan_ip,lan_ip,wan_nm,lan_nm)")
+          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_ipaddr"' not in wan_bound_compact
+          assert 'rc_wan_nvram_copy_value(wan_nvram_checked_get_callback,NULL,"lan_netmask"' not in wan_bound_compact
+
           print("WAN DHCP callback ordering, rollback, IPTV LAN subnet snapshot and static-interface failure contracts: PASS")
           PY

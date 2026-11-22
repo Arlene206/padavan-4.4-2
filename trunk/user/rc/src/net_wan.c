@@ -7569,7 +7569,9 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct dhcp_lease_nvram_value rollback_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct nvram_transaction previous_transaction;
+	struct nvram_transaction lan_transaction;
 	struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
+	struct rc_wan_nvram_snapshot_field lan_snapshot_fields[2];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
 
@@ -7706,13 +7708,22 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	i_err = 0;
 	wan_ip = lease_ip;
 	wan_nm = lease_netmask;
-	lan_config_status = rc_wan_nvram_copy_value(
-		wan_nvram_checked_get_callback, NULL, "lan_ipaddr",
-		lan_ipaddr_snapshot, sizeof(lan_ipaddr_snapshot));
-	if (lan_config_status == 0)
-		lan_config_status = rc_wan_nvram_copy_value(
-			wan_nvram_checked_get_callback, NULL, "lan_netmask",
-			lan_netmask_snapshot, sizeof(lan_netmask_snapshot));
+	/*
+	 * The WAN/LAN overlap decision must use one published LAN subnet
+	 * generation. Independent reads can pair an old address with a newer
+	 * broader netmask while the LAN configuration is being committed.
+	 */
+	lan_snapshot_fields[0].param_name = "lan_ipaddr";
+	lan_snapshot_fields[0].destination = lan_ipaddr_snapshot;
+	lan_snapshot_fields[0].destination_size = sizeof(lan_ipaddr_snapshot);
+	lan_snapshot_fields[1].param_name = "lan_netmask";
+	lan_snapshot_fields[1].destination = lan_netmask_snapshot;
+	lan_snapshot_fields[1].destination_size = sizeof(lan_netmask_snapshot);
+	lan_config_status = rc_wan_nvram_copy_snapshot(
+		lan_snapshot_fields, 2,
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &lan_transaction);
 	if (lan_config_status != 0) {
 		errno = lan_config_status;
 		logmessage(log_prefix,
