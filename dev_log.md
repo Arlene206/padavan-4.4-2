@@ -1,3 +1,12 @@
+## 2026-11-22 20:02 CST (UTC+8) — Correct libdisk checker normalization and preserve mandatory handoff checkpoint
+
+- Parent main SHA: 68b4958d3b6bc6ee3636e8ff1f479fbabdecc679. Exact-head libdisk run #45019373684 passed both GNU89 ASan/UBSan executables but failed the Python source checker because " ".join(split()) left a space after the updater function's opening parenthesis. The checker now removes all whitespace before comparing its compact call contract; this preserves the behavioral gate rather than relaxing it.
+- Exact-head AI handoff run #45019373672 failed because SESSION_HANDOFF.md omitted the literal mandatory checkpoint marker and the cross-session execution sections required by the repository validator. Restored the mandatory handoff checkpoint, atomic-main-commit rule, verification boundary and exact first action while recording the real next account lifecycle task.
+- On parent SHA 68b4958d3b6bc6ee3636e8ff1f479fbabdecc679, Process lifecycle inventory #45019373666 PASS and HTTPD Authentication/Security #45019373705 PASS. XY-C1 #45019373712 and NVRAM audit #45019373665 were in progress at the last inspected poll; re-fetch live status after this commit.
+- The parent CI failures were checker/documentation issues, not GNU89 sanitizer failures. This new commit must obtain fresh exact-head libdisk and handoff Actions before the host verification state is called PASS.
+- Next source slice after this check: fix add_account() ignored per-volume permission-file initialization status; then separately fix del_account() unchecked metadata path/unlink and account-list free-count leak. Preserve current NVRAM ordering unless evidence supports a safe transaction change.
+
+---
 ## 2026-11-22 19:55 CST (UTC+8) — Continue libdisk permission cleanup after per-file failures
 
 - Parent main SHA: fa49d01bc7884e68e5adcd3832d2b0480bfaa974. Folder deletion and rename already used per-file atomic replacement, but returned at the first account read/rewrite/write failure. One damaged metadata file could therefore prevent later account files and anonymous FTP from being reconciled.

@@ -336,7 +336,7 @@ for signature, expected_update in (
     )
     require(guarded_load,
             signature + " must stop when account inventory loading fails")
-    compact_mutation = " ".join(mutation.split())
+    compact_mutation = "".join(mutation.split())
     require(expected_update in compact_mutation and
             "first_error == 0" in compact_mutation and
             "if (first_error != 0)" in compact_mutation and
