@@ -1,3 +1,11 @@
+## 2026-11-22 — Remove stale duplicate mod-account checker contract
+
+- Parent main SHA: 3b52653213f3e9e3f0580944d0a59d8024430bec. Exact-head libdisk run #45020631266: both GNU89 ASan/UBSan binaries PASS; Python source-contract step FAIL. The newly hardened mod_account() now checks old/new paths, source/target metadata types, checked disk inventory, and uses disk_share_account_rename_status() to normalize ENOENT/error outcomes. An older duplicate checker block still expected the pre-refactor direct errno!=ENOENT expression and rejected the valid policy-helper implementation.
+- Removed only that stale duplicate assertion block. The subsequent comprehensive mod_account source contract remains: it requires read_disk_data_checked(), bounded paths, regular-file source, destination collision rejection, rename-result policy, cleanup, service reload, and error propagation. Existing GNU89 rename-policy regressions remain enabled.
+- No production behavior or test assertion was weakened. The failure was a duplicate obsolete structural assumption; exact-head libdisk and handoff Actions must be rechecked on this checker-fix SHA.
+- After the checker passes, continue with the previously identified get_account_list() defect: unsafe nvram_get_int()/nvram_safe_get() collapse backend read/close errors into zero/empty account state. Replace with one checked NVRAM transaction and fake-backend host regression.
+
+---
 ## 2026-11-22 — Fail closed on incomplete mod-account inventory and metadata collisions
 
 - Parent main SHA: `074bc11b3338917d1472e5146b31f9c0c59cca25`.
