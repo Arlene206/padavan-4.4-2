@@ -1,3 +1,8 @@
+## 2026-11-22 — Align MAN cleanup integration assertion with nested status aggregation
+
+- Process inventory on exact SHA `f99bf7c1711669961755cb06189db388bf54f099` failed only because the integration checker required the obsolete spelling `route_status_accumulate(status, conntrack_status)`. Production `udhcpc_deconfig()` already nests accumulation of protocol, interface, conntrack and route cleanup errors, preserving the status correctly.
+- Updated the static contract to normalize whitespace and assert the actual nested aggregation expression. This is test-only; exact-head Process rerun pending.
+
 ## 2026-11-22 — Fail closed on unreadable previous WAN VLAN cleanup identity
 
 - `config_vinet_wan()` used the lossy `get_wan_unit_value(0, "viflast")` getter immediately before removing an old VLAN interface. A temporary NVRAM read failure looked like an empty identity, silently skipped cleanup, and then proceeded to replace/publish the new VLAN identity.
