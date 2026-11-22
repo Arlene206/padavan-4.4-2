@@ -1,3 +1,12 @@
+## 2026-11-22 — Check native DHCPv6 RA/privacy selectors before startup
+
+- Parent main SHA: c57d7501d031dba065e01bc3084733971d606368. `wan6_up()` used `nvram_invmatch("ip6_wan_dhcp", "1")` and `nvram_match("ip6_wan_priv", "1")` after stopping the previous DHCPv6 client and beginning runtime setup. An NVRAM fault could be treated as a normal non-`1` value and incorrectly enable RA/autoconfiguration or alter privacy behavior.
+- It now uses the checked exact-string matcher before stopping the existing client or mutating DNS/interface state, rejects required read errors, and preserves the original short-circuit: the privacy key is not read when DHCP is enabled. Missing and malformed values retain the legacy exact-match mapping.
+- Both WAN source contracts now enforce checked-read/error-gate ordering and require the existing generic exact-value/backend-error regressions.
+- Local C/host execution remains unavailable; exact-head push Actions are not exposed by the current PR-only workflow-run connector. No PASS is claimed.
+- Next task: replace `is_wan_ipv6_if_ppp()`'s unchecked `ip6_wan_if` read with a status-bearing API and propagate failure through WAN IPv6 activation.
+
+---
 ## 2026-11-22 — Fail closed on unreadable DHCPv6 6rd mode selector
 
 - Parent main SHA: 58740111204bdfa6d8d457a87c8b338fb1bf0eed. `store_ip6rd_from_dhcp_status()` still used `nvram_match("ip6_6rd_dhcp", "0")`; a backend read failure was collapsed to “not disabled,” allowing a received DHCP 6rd option to be published despite an unknown local mode.

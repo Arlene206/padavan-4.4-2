@@ -1077,6 +1077,7 @@ wan6_identity_stop_sit(void *context)
 int wan6_up(char *wan_ifname, int unit)
 {
 	int ipv6_type, allow_ra, status, operation_status;
+	int wan_dhcp_enabled = 0, wan_priv_enabled = 0, privacy_enabled = 0;
 	int routes_touched, addresses_touched, radv_touched;
 	int autoconf_touched, privacy_touched, dhcp6_start_attempted;
 	int identity_publish_failed, rollback_status;
@@ -1097,6 +1098,32 @@ int wan6_up(char *wan_ifname, int unit)
 			   "refusing IPv6 startup because service configuration cannot be read (status=%d)",
 			   status);
 		return status;
+	}
+
+	/* Read native DHCPv6 RA/privacy controls before stopping or reconfiguring. */
+	if (ipv6_type == IPV6_NATIVE_DHCP6) {
+		status = wan6_read_nvram_match_status(
+			"ip6_wan_dhcp", "1", &wan_dhcp_enabled);
+		if (status != 0) {
+			errno = status;
+			logmessage("WAN IPv6",
+				   "cannot read DHCPv6 RA selector; refusing native startup (status=%d)",
+				   status);
+			return status;
+		}
+		allow_ra = !wan_dhcp_enabled;
+		if (allow_ra) {
+			status = wan6_read_nvram_match_status(
+				"ip6_wan_priv", "1", &wan_priv_enabled);
+			if (status != 0) {
+				errno = status;
+				logmessage("WAN IPv6",
+					   "cannot read DHCPv6 privacy selector; refusing native startup (status=%d)",
+					   status);
+				return status;
+			}
+		}
+		privacy_enabled = allow_ra && wan_priv_enabled;
 	}
 
 	status = stop_dhcp6c();
@@ -1214,10 +1241,8 @@ int wan6_up(char *wan_ifname, int unit)
 		routes_touched = 1;
 		WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "dev", wan_ifname, "metric", "2048"),
 				  "add native DHCPv6 fallback default route");
-		allow_ra = nvram_invmatch("ip6_wan_dhcp", "1");
 		privacy_touched = 1;
-		WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname,
-							 allow_ra && nvram_match("ip6_wan_priv", "1")),
+		WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname, privacy_enabled),
 				  "configure native DHCPv6 privacy addresses");
 		autoconf_touched = 1;
 		WAN6_NATIVE_CHECK(control_if_ipv6_autoconf(wan_ifname, allow_ra),

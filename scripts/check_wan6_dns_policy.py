@@ -344,3 +344,23 @@ assert sixrd_body.index("if (sixrd_dhcp_disabled)") < sixrd_body.index("wan6_pub
 nvram_test_source = open("trunk/user/rc/src/tests/wan_nvram_status_policy.c", encoding="utf-8").read()
 assert "test_dhcp6_6rd_selector_preserves_missing_value_and_backend_errors" in nvram_test_source
 assert "test_dhcp6_6rd_selector_preserves_missing_value_and_backend_errors();" in nvram_test_source
+
+# Native DHCPv6 RA/privacy selectors must be checked before client stop or runtime mutation.
+native_start = duid_source.index("int wan6_up(")
+native_end = duid_source.index("\nint start_dhcp6c(", native_start)
+native_body = duid_source[native_start:native_end]
+assert "nvram_invmatch(" not in native_body
+assert 'nvram_match("ip6_wan_priv"' not in native_body
+native_dhcp_read = native_body.index('wan6_read_nvram_match_status(\n\t\t\t"ip6_wan_dhcp", "1", &wan_dhcp_enabled)')
+native_ra_error = native_body.index("if (status != 0)", native_dhcp_read)
+native_privacy_read = native_body.index('wan6_read_nvram_match_status(\n\t\t\t\t"ip6_wan_priv", "1", &wan_priv_enabled)')
+native_privacy_error = native_body.index("if (status != 0)", native_privacy_read)
+native_stop_client = native_body.index("status = stop_dhcp6c();")
+native_dns_publish = native_body.index("status = publish_dns6_var_status();")
+assert native_dhcp_read < native_ra_error < native_privacy_read < native_privacy_error < native_stop_client < native_dns_publish
+assert "allow_ra = !wan_dhcp_enabled;" in native_body
+assert "privacy_enabled = allow_ra && wan_priv_enabled;" in native_body
+assert "control_if_ipv6_privacy(wan_ifname, privacy_enabled)" in native_body
+assert "control_if_ipv6_autoconf(wan_ifname, allow_ra)" in native_body
+assert "test_checked_string_match_requires_an_exact_value();" in nvram_test_source
+assert "test_checked_string_match_preserves_backend_errors();" in nvram_test_source
