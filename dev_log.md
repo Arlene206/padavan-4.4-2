@@ -1,3 +1,19 @@
+## 2026-11-22 — Bound permission paths and make add-folder setup fail closed
+
+- `fb430cb0adea84a06b14ef6f33579ea42e7d8106` hardened `read_whole_file()`: 1 MiB bound, EINVAL/EFBIG/EIO/ENOMEM handling, checked successful close and errno-preserving failure cleanup; added GNU89 ASan/UBSan regression for normal, empty, invalid, missing, oversized and directory-read cases.
+- The new full-source `-Werror` test surfaced `sanity_name()` comparing signed `char` to 0x84. `29187fdd429a6475b5d7fec39259653ac19776b2` fixes the unsigned-byte comparison and tests it.
+- `add_folder()` was rewritten to validate/allocate the mount path safely, fail closed on folder-list lookup errors, atomically publish the updated folder-list snapshot, then use `create_if_no_var_files()` for checked per-account metadata setup. It no longer ignores account initialization failures.
+- Current path-bounds follow-up `9c9f120422bc5b3bd025a7a6325dacf12dba4a84` adds `disk_share_format_account_var_path()`, rejects snprintf truncation with ENAMETOOLONG, and uses it for both permission reads (deny on invalid path) and writes (return error). Regression covers normal formatting, small-buffer truncation and invalid arguments.
+- Exact-head Actions at this checkpoint:
+- NVRAM transaction boundary audit #45018180705: IN_PROGRESS
+- HTTPD Authentication and Security Regression #45018180700: COMPLETED/SUCCESS
+- libdisk share-list output safety #45018180692: COMPLETED/SUCCESS
+- Process lifecycle inventory - 9c9f120422bc5b3bd025a7a6325dacf12dba4a84 #45018180618: COMPLETED/SUCCESS
+- XY-C1 Firmware Validation #45018180615: IN_PROGRESS
+- Same-SHA XY-C1 Build/TRX/artifact is still required for firmware L3; do not infer it from host sanitizer checks. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Harden libdisk file reads and add-folder initialization
 
 - `fb430cb0adea84a06b14ef6f33579ea42e7d8106` added bounded, errno-preserving `read_whole_file()` handling: invalid arguments return EINVAL, files above 1 MiB return EFBIG, read errors preserve their cause, and successful reads must also close successfully. Added GNU89 ASan/UBSan coverage for text, empty, missing, oversized and directory-read cases, plus exact-source contracts and workflow triggers.
