@@ -886,10 +886,10 @@ init_main_loop(void)
 				alarm(5);
 #endif
 #if defined (USE_USB_SUPPORT) || defined (USE_STORAGE)
-			if (router_ready) {
+			if (router_ready)
 				rc_notify_retry_deferred_hotplug_events();
+			if (router_ready)
 				on_deferred_hotplug_dev();
-			}
 #endif
 		}
 	}

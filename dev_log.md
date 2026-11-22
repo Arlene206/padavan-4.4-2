@@ -1,3 +1,14 @@
+## 2026-11-22 — Register deferred USB retry regressions and align exact-head CI contracts
+
+- Parent main SHA: `2f93266c59b9a10fec33589ada3e2e9c7b803b84`.
+- PID 1 notification #44972905893 failed because the regression functions had not been included/registered in `rc_notify_batch_policy.c`. This commit adds both GNU89 regression bodies before `main()` and executes them: fixed event mapping and rejection of unknown names; marker-write error accumulation; and retry-bit retention/clearing based on queue wakeup completion.
+- HTTPD auth/security #44972905619 exposed a legacy source-shape contract in `init.c`. Retry remains conditional on `router_ready` and precedes deferred USB handling, but the existing standalone `if (router_ready) on_deferred_hotplug_dev();` is preserved.
+- HTTPD daemon lifecycle #44972905858 had a stale assertion demanding an explicit `presence == PROCESS_PRESENCE_UNKNOWN` branch. Production delegates that check to `httpd_start_postcondition_requires_recovery(presence)`; the workflow now asserts the delegation and the helper's non-ABSENT condition.
+- USB storage #44972905435 and XY-C1 #44972905721 were in progress at the prior poll. No same-SHA target build/TRX/artifact result or hardware verification is claimed.
+- THIS COMMIT atomically updates the regression, init source shape, HTTPD daemon source contract, handoff and historic dev log.
+
+---
+
 ## 2026-11-22 — Retry failed deferred USB event marker writes
 
 - Parent main SHA: `e26890edfef8dd47aa1bbb1d514a315933de2571`.

@@ -36,17 +36,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Verification boundary
 
-- Parent source SHA: `e26890edfef8dd47aa1bbb1d514a315933de2571`.
-- Exact parent-SHA results: USB modem identity #44972041142 PASS; PID 1 notification queue #44972041292 PASS; WAN route #44972041200 PASS; WAN DHCP callback #44972041319 PASS; WAN interface teardown #44972041332 PASS; Process inventory #44972041310 PASS; Process fail-closed #44972041256 PASS; AI handoff #44972041355 PASS; NVRAM transaction audit #44972041286 PASS; Firewall Startup #44972041287 PASS; HTTPD #44972041312 PASS; detect_link #44972041170 PASS.
-- USB storage hotplug #44972041244 failed only at stale source-check assertion `storage_should_start=0; not in deferred_storage_code`. Production initializes this output exactly once before checked dispatch; the checker now requires one pre-dispatch initializer instead.
-- XY-C1 Firmware Validation #44972041318 was IN_PROGRESS (Build XY-C1); TRX verification and artifact upload were not observed. Fresh exact-head tests/build/TRX/artifact are required. No firmware L3 claim for `e26890edfef8dd47aa1bbb1d514a315933de2571` until same-SHA Build, TRX and artifact all PASS. Hardware L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 is closed/unmerged.
+- Parent source SHA: `2f93266c59b9a10fec33589ada3e2e9c7b803b84`.
+- Exact parent-SHA Actions: AI handoff #44972905746 PASS; Wireless radio #44972905459 PASS; Router mode NVRAM update #44972905764 PASS; VPN server #44972905495 PASS; vsftpd #44972905498 PASS; DNS Forwarder #44972905606 PASS; watchdog #44972905723 PASS; WAN gateway ARP #44972905645 PASS.
+- PID 1 notification #44972905893 FAIL only because the two new policy regression functions had not actually been included/registered in the C test file. This commit inserts both function bodies and invokes them from `main()`.
+- HTTPD auth/security #44972905619 failed on its existing exact-source expectation that `on_deferred_hotplug_dev()` remain under the original single `if (router_ready)` statement. This commit keeps retry before deferred dispatch but restores that source pattern.
+- HTTPD daemon lifecycle #44972905858 failed on a stale explicit-UNKNOWN branch assertion. Startup correctly delegates this classification to `httpd_start_postcondition_requires_recovery(presence)`; checker now asserts that delegation and the policy's non-ABSENT condition.
+- USB storage #44972905435 and XY-C1 #44972905721 were IN_PROGRESS at last poll; the storage workflow exercises the corrected output-initializer check. No same-SHA XY-C1 Build/TRX/artifact or L3 firmware pass has been observed. Hardware L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head RC notification, USB storage, AI handoff, Process inventory and XY-C1 Build/TRX/artifact results for the latest main SHA. Fix every red exact-SHA regression.
-2. Reconcile the still-running XY-C1 build from parent `e26890edfef8dd47aa1bbb1d514a315933de2571`, but do not treat it as validation of new code. Require a fresh build for the new source SHA.
-3. Continue with a separate P1/P2 issue from the whole-userland ledger; preserve main-only non-force pushes and the frozen backup.
+1. Inspect exact-head PID 1 notification, HTTPD auth/security, HTTPD daemon lifecycle, USB storage, AI handoff, Process lifecycle and XY-C1 Build/TRX/artifact Actions for this commit. Fix every red result.
+2. Verify the retry regression runs under GNU89/ASan/UBSan, that all five marker-write errors preserve incomplete RC status, and that PID 1 recreates safe markers before deferred NVRAM dispatch.
+3. After verification, select a distinct P1/P2 whole-userland stability/security issue; do not reopen the modem identity audit or completed tasks.
 
 ## Workflow and preservation rules
 
