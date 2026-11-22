@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct iNIC TxPower source-contract false positive
+
+- Parent main SHA: `2b957b311d18f9662a3c0044ca2e15403c2a544a`. The exact-head Wireless workflow #45041942952 compiled and passed the GNU89 wireless, bridge-membership and guest-isolation policy binaries, then failed in its inline source contract. The assertion `"nvram_wlan_get_int(" not in txpower_prepare` incorrectly matched the callback's explanatory comment, which names the lossy wrapper but does not call it.
+- Narrowed the assertion to the actual unsafe call signature `nvram_wlan_get_int(0, "TxPower")`; production source and regression behavior are unchanged. Exact-head rerun is required.
+- Parent exact-SHA Actions: Wireless #45041942952 FAIL only at this checker assertion; XY-C1 #45041942984 was IN_PROGRESS; NVRAM #45041943056, Process inventory #45041943005, Process umbrella #45041942953, HTTPD security #45041942956, iNIC signal #45041942917, watchdog signal #45041942875 and AI handoff #45041942863 PASS.
+- No local build was run. The parent XY-C1 result is still pending; L3 is not claimed.
+
+---
+
 ## 2026-11-22 — Fail closed on iNIC TxPower NVRAM read errors
 
 - Parent main SHA: `7a136bbfd8fdb03b199cf85e534316a88a7d887a`. The RT3352 MII radio-enable transaction already kept the switch port isolated until the TxPower command completed, but `wireless_inic_radio_prepare_on()` read `rt_TxPower` through `nvram_wlan_get_int()`. That wrapper uses `nvram_safe_get()` + `atoi()`, so a transient /dev/nvram open/ioctl/close error became a valid-looking zero and the code could unisolate and publish the radio with the configured power silently lost.

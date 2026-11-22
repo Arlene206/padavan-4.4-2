@@ -98,7 +98,7 @@ jobs:
           assert "wireless_radio_nvram_int_status(" in txpower_prepare
           assert "if (read_status != 0)" in txpower_prepare
           assert "test_txpower_nvram_read_status_fails_closed" in notification_test
-          assert "nvram_wlan_get_int(" not in txpower_prepare
+          assert 'nvram_wlan_get_int(0, "TxPower")' not in txpower_prepare
           assert txpower_prepare.index("nvram_get_checked(") < txpower_prepare.index("wireless_radio_nvram_int_status(") < txpower_prepare.index("if (read_status != 0)") < txpower_prepare.index("doSystem(")
           txpower_config = function_body(
               ralink_source,
