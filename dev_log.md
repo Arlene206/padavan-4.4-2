@@ -1,3 +1,10 @@
+## 2026-11-23 03:30 CST (UTC+8) — Validate physical-eject swap inventory semantics
+
+- Parent main SHA: `4c6d1b9c4c0258641da90f7a1511b775a5fb70ea`. After hardening automount and global `umount_all_storage()` swap inventories, a separate physical-eject parser in `storage_ejected_inventory_policy.h` still accepted any five tokens before the ejected-device `swapoff()` stage.
+- Hardened `storage_ejected_parse_swap_line()` to require Type `partition|file`, unsigned decimal Size/Used and signed decimal Priority, rejecting extra fields. Existing octal-decoding token reader remains the path parser.
+- Extended the GNU89 ejected-inventory regression with invalid Type/Size/Used/Priority and a valid octal-escaped swap-file path with `+2` priority. The storage source-contract checker now pins these validations; roadmap and handoff updated.
+- Exact parent USB storage #45059907996 and AI docs #45059908027 PASS. XY-C1 #45059757452 on ancestor product-source `d37cf8a` was still building at last check; this new production header needs a fresh exact-head Build/TRX/artifact run. Local execution NOT RUN; L3/L4 NOT VERIFIED.
+
 ## 2026-11-23 03:14 CST (UTC+8) — Validate semantic fields in global swap cleanup inventory
 
 - Parent main SHA: `9c75e1bf1e13da1dc673a120267827ee1e25c4a5`. Review of `umount_all_storage()` found that its global cleanup parser accepted any five tokens, unlike the strict per-device swap parser. Invalid swap Type or malformed Size/Used/Priority could therefore be treated as a complete snapshot and passed to the `swapoff()` loop.

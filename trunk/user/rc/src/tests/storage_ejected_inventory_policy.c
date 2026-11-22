@@ -180,6 +180,22 @@ main(void)
 	assert(storage_ejected_parse_swap_line(
 		"/dev/sda1 partition 12582908 0 -2 extra\n", swap_path,
 		sizeof(swap_path)) != 0);
+	assert(storage_ejected_parse_swap_line(
+		"/dev/sda1 device 12582908 0 -2\n", swap_path,
+		sizeof(swap_path)) != 0);
+	assert(storage_ejected_parse_swap_line(
+		"/dev/sda1 partition invalid 0 -2\n", swap_path,
+		sizeof(swap_path)) != 0);
+	assert(storage_ejected_parse_swap_line(
+		"/dev/sda1 partition 12582908 invalid -2\n", swap_path,
+		sizeof(swap_path)) != 0);
+	assert(storage_ejected_parse_swap_line(
+		"/dev/sda1 partition 12582908 0 invalid\n", swap_path,
+		sizeof(swap_path)) != 0);
+	assert(storage_ejected_parse_swap_line(
+		"/mnt/swap\\040volume file 1024 0 +2\n", swap_path,
+		sizeof(swap_path)) == 0);
+	assert(strcmp(swap_path, "/mnt/swap volume") == 0);
 	assert(storage_ejected_swap_device_name("/dev/sda", swap_device,
 		sizeof(swap_device)) == 1);
 	assert(strcmp(swap_device, "sda") == 0);

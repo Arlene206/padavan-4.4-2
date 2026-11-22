@@ -128,6 +128,16 @@ storage_ejected_decimal_token(const char *token)
 	return 1;
 }
 
+static int
+storage_ejected_signed_decimal_token(const char *token)
+{
+	if (!token || !*token)
+		return 0;
+	if (*token == '-' || *token == '+')
+		token++;
+	return storage_ejected_decimal_token(token);
+}
+
 /* Parse one complete /proc/partitions row: 1=data, 0=header/blank, -1=invalid. */
 static int
 storage_ejected_parse_partition_line(const char *line, char *device,
@@ -339,19 +349,23 @@ storage_ejected_parse_swap_line(const char *line, char *swap_path,
 				 size_t swap_path_size)
 {
 	const char *cursor;
-	char ignored[64];
-	int i;
+	char type[16], size[32], used[32], priority[32], extra[2];
 
 	if (!storage_ejected_line_is_complete(line))
 		return -1;
 	cursor = line;
-	if (storage_ejected_next_token(&cursor, swap_path, swap_path_size) != 1)
+	if (storage_ejected_next_token(&cursor, swap_path, swap_path_size) != 1 ||
+	    storage_ejected_next_token(&cursor, type, sizeof(type)) != 1 ||
+	    (strcmp(type, "partition") != 0 && strcmp(type, "file") != 0) ||
+	    storage_ejected_next_token(&cursor, size, sizeof(size)) != 1 ||
+	    !storage_ejected_decimal_token(size) ||
+	    storage_ejected_next_token(&cursor, used, sizeof(used)) != 1 ||
+	    !storage_ejected_decimal_token(used) ||
+	    storage_ejected_next_token(&cursor, priority, sizeof(priority)) != 1 ||
+	    !storage_ejected_signed_decimal_token(priority))
 		return -1;
-	for (i = 0; i < 4; i++) {
-		if (storage_ejected_next_token(&cursor, ignored, sizeof(ignored)) != 1)
-			return -1;
-	}
-	return storage_ejected_next_token(&cursor, ignored, sizeof(ignored)) == 0 ? 0 : -1;
+
+	return storage_ejected_next_token(&cursor, extra, sizeof(extra)) == 0 ? 0 : -1;
 }
 
 /*

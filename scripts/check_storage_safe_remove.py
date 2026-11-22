@@ -224,6 +224,7 @@ require("storage_stage_unmount_mounts(&mounts)" in count and
 # longer lists the device. Stop dependent daemons before unmounting stale
 # paths, then restore them only when other storage mounts remain.
 ejected_mount_parser = body(ejected_policy, "storage_ejected_parse_mount_line(")
+ejected_swap_parser = body(ejected_policy, "storage_ejected_parse_swap_line(")
 require("three-digit octal escapes" in ejected_policy and
         "decoded > 255U" in ejected_policy and "decoded == 0" in ejected_policy and
         "output_length + 1 >= token_size" in ejected_policy,
@@ -238,6 +239,12 @@ require(r"/media/USB\\040Disk" in ejected_policy_test and
         "ejected inventory tests must cover decoded space/backslash/tab and invalid escaped bytes")
 require("storage_ejected_next_token" in ejected_mount_parser,
         "ejected mount parser must use the octal-decoding token reader")
+require('strcmp(type, "partition") != 0' in ejected_swap_parser and
+        'strcmp(type, "file") != 0' in ejected_swap_parser and
+        "storage_ejected_decimal_token(size)" in ejected_swap_parser and
+        "storage_ejected_decimal_token(used)" in ejected_swap_parser and
+        "storage_ejected_signed_decimal_token(priority)" in ejected_swap_parser,
+        "physical-eject swap inventory must validate type and all numeric fields before swapoff")
 
 ejected = body(
     storage,
