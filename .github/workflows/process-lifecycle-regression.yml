@@ -1115,6 +1115,7 @@ jobs:
           regression = (rc / "tests/service_start_status.c").read_text()
           net = (rc / "net.c").read_text()
           net_wan = (rc / "net_wan.c").read_text()
+          route_status_regression = (rc / "tests/route_status_policy.c").read_text()
           netutils = Path("trunk/user/shared/src/netutils.c").read_text()
           bridge_policy = (rc / "bridge_config_policy.h").read_text()
           bridge_regression = (rc / "tests/bridge_config_policy.c").read_text()
@@ -1532,11 +1533,15 @@ jobs:
           assert "status = phy_clear_mac_table();" in full_wan_restart
           assert "switch MAC table could not be cleared" in full_wan_restart
           assert full_wan_restart.index("switch MAC table could not be cleared") < full_wan_restart.index("status = start_wan();")
-          assert 'nvram_match("l2tp_srv_t", "1")' in l2tp_start_merge
+          assert "get_nvram_match_checked_status(" in l2tp_start_merge
+          assert '"l2tp_srv_t", "1", &l2tp_enabled' in " ".join(l2tp_start_merge.split())
+          assert "l2tp_config_status != 0" in l2tp_start_merge
+          assert "route_status_l2tp_server_start_requested(" in l2tp_start_merge
           assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
-          assert "xl2tp_status < 0" in l2tp_start_merge
-          assert "wan_status == 0" in l2tp_start_merge
-          assert "return xl2tp_status;" in l2tp_start_merge
+          assert "wan_status == 0 && xl2tp_status < 0" in l2tp_start_merge
+          assert "return route_status_l2tp_server_start_result(" in l2tp_start_merge
+          assert "test_l2tp_server_start_selector_failure_is_fail_closed" in route_status_regression
+          assert "route_status_l2tp_server_start_result(0, EIO, 0) == EIO" in route_status_regression
           for caller in (full_wan_restart, try_wan_reconnect, deferred_wan_connect):
               assert "return merge_l2tp_server_start_status(status);" in caller
           print("LAN bridge initialization status and caller aggregation: PASS")

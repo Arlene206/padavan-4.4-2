@@ -1,3 +1,12 @@
+## 2026-11-22 — Update process-lifecycle L2TP source contract
+
+- Exact parent main SHA: `6418e87add0ffce79fd918077bb1e7dfdded2fc0`. The updated modem/WAN-route checkers now pass their import/setup stages, but Process/lifecycle #45050810754 failed at its own stale L2TP assertion: it still expected unchecked `nvram_match()` and a direct `return xl2tp_status`. The production helper had already been hardened to use checked NVRAM status, return the merged WAN/L2TP status, and fail closed on selector read errors.
+- Updated the process checker to inspect the checked selector, merged result helper and route-status regression cases. This is checker-only; no production logic changed.
+- At the last poll, WAN route #45050810781, USB modem #45050810849 and Firewall #45050810827 had progressed past the previously missing-import issue; Process was the remaining contract failure. XY-C1 #45050810796 still needed final Build, TRX and artifact confirmation.
+- Re-run Process and XY validation on a new exact SHA. Do not count L3 until production build, TRX verification and artifact upload all pass; L4 hardware remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Repair WAN source-checker runtime imports
 
 - Exact parent main SHA: `9056ed1235425ca1c30657b59ff36c268758a937`. The first exact-SHA validation on 9056 exposed two pure-checker runtime defects: WAN route #45050500613, USB modem #45050500601, Firewall #45050500619 and Process #45050500590 failed because `check_wan_vlan_setup.py` called `re.search` without importing `re`, and `check_modem_wan_start_status.py` referenced `ROUTE_STATUS_TEST` without loading `tests/route_status_policy.c`. These failures occurred before the related source-contract assertions could execute; they do not establish a C implementation failure.
