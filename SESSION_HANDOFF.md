@@ -6,12 +6,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; active branch main; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Current parent main: e72a377025dbd4e42cbbfe0186689b5e6e57720b. The 17-commit PR #1 head has been compared read-only with main; its unmerged ALIDDNS changes remain to be inventoried for safe porting after the active signal-stability work is closed.
-- Exact prior 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS. HTTPD #45001003234 failed only because its embedded checker referenced pid1_test without loading the source; parent 0b22 fixed that binding.
-- Exact e72 XY-C1 #45001383211, Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163 and PID1 mdev #45001383227 were IN_PROGRESS at last poll; AI docs #45001383224 PASS.
-- Exact prior 1a5 XY-C1 #45001003215 completed HOST-ONLY success: Build XY-C1, TRX verification and artifact upload were SKIPPED because no production build input changed. Not L3.
-- THIS COMMIT checks reset_signals() disposition reset and signal-mask unblocking, preserves SIGCHLD reaper behavior, reports the first error and prevents recovery-shell setup/exec on reset failure. Both PID1 mdev and HTTPD workflows pin these gates.
+- Repository Arlene206/padavan-4.4-2; active main 0170c3948ac0178250ad8508485159b2adc7e9d8; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- The PID1 inherited-signal reset production fix is in source commit `e72a377025dbd4e42cbbfe0186689b5e6e57720b`. The later `0170c3948ac0178250ad8508485159b2adc7e9d8` commit only refreshed SESSION_HANDOFF/dev_log; it did not add source code.
+- Exact e72 Actions PASS: Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163, PID1 mdev #45001383227 and AI docs #45001383224.
+- Exact e72 XY-C1 #45001383211 remains IN_PROGRESS: production-input detector PASS, Build XY-C1 IN_PROGRESS, TRX verification and artifact upload PENDING. Do not claim L3 until all three product steps pass on that exact SHA. Hardware L4 NOT VERIFIED.
+- THIS COMMIT hardens the shared service startup wait policy: an invalid non-zero nanosleep return or an error without errno now maps to EIO rather than leaking errno=0. The existing regression path was included in workflow filters but had no compile/run step; this commit wires the GNU89 ASan/UBSan test into Process lifecycle CI.
 
 ## Completed source slices
 
@@ -32,18 +31,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Close the remaining PID1 inherited signal-state gap. reset_signals() previously ignored sigaction, sigfillset and sigprocmask failures and attempted invalid numeric signal IDs rather than only the fatal/shutdown/event groups installed by PID1.
-- THIS COMMIT makes reset_signals() return the first errno while attempting all relevant groups, checks sigfillset, and unblocks via the checked SIG_UNBLOCK adapter. The forked recovery-shell child logs and _exit(126)s before console setup/exec if reset fails; the fatal emergency-shutdown caller logs reset failure and continues best-effort shutdown.
-- Both mdev and HTTPD contracts pin the reset helper and both call sites. The HTTPD pid1_test binding fix is in parent 0b22.
+- Harden `service_wait_timespec_with()`. It cleared errno before the callback, but if an injected/alternate nanosleep provider returned failure without setting errno, the helper returned -1 with errno still zero. It also accepted any non-zero return as an errno-based interruption, although POSIX nanosleep's failure return is -1; an invalid positive return could therefore be misclassified if errno happened to equal EINTR.
+- THIS COMMIT maps unexpected non-zero return values and errno-less failures to EIO while preserving legitimate errno such as EACCES/EINTR. Regression adds an errno-less failure case.
+- The existing `service_wait_policy.c` was listed in Process lifecycle path filters but not actually compiled/run by that workflow. THIS COMMIT adds an explicit GNU89 `-Wall -Wextra -Werror` ASan/UBSan compile/run step.
 
 ## Verification boundary
 
-- Exact e72 PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM, USB, DNSMasq, DNS forwarder, PID1 notification and XY-C1 runs were still in progress at the last poll; exact e72 AI handoff #45001383224 PASS.
-- Exact prior 1a5 PID1 mdev #45001003224, Process inventory #45001003203, AI #45001003376 and NVRAM #45001003186 PASS; HTTPD NameError was fixed in parent 0b22.
-- Exact 1a5 XY-C1 #45001003215 was HOST-ONLY: Build/TRX/artifact skipped, not L3. Hardware L4 NOT VERIFIED.
+- Exact e72 L2 PASS: Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163, PID1 mdev #45001383227 and AI #45001383224.
+- Exact e72 XY-C1 #45001383211: production-input detector PASS; actual Build XY-C1 still IN_PROGRESS at last poll; TRX and artifact pending. L3 NOT VERIFIED. Hardware L4 NOT VERIFIED.
+- Current main 0170 is a handoff/dev-log-only descendant of e72; not a product-source build SHA.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head e72 Actions for PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM, USB, DNSMasq, DNS forwarder, PID1 notification and XY-C1 after this reset-signals source change; diagnose only demonstrated failures.
-2. Confirm actual XY-C1 Build + TRX verification + artifact upload on one identical source SHA; host-only or skipped steps are not L3.
-3. Once PID1 signal work is verified, resume the next independent P1/P2 userland stability/security item, then inventory PR #1's unmerged ALIDDNS changes for safe porting. Keep hardware L4 NOT VERIFIED.
+1. Check this commit's exact-head Process lifecycle run and confirm the new service-wait test compiles/runs under ASan/UBSan. Diagnose any remaining failure from that exact job log.
+2. Poll e72 XY-C1 #45001383211 and record Build/TRX/artifact outcomes accurately; it may finish independently on the earlier product SHA.
+3. Continue another independent P1/P2 userland stability/security fix while any workflow remains pending. After PID1 / wait-policy verification, inventory PR #1's unmerged ALIDDNS changes for safe porting. Keep L4 NOT VERIFIED.

@@ -107,8 +107,15 @@ service_wait_timespec_with(struct timespec requested,
 		status = sleep_fn(&requested, &remaining, context);
 		if (status == 0)
 			return 0;
-		if (errno != EINTR)
+		if (status != -1) {
+			errno = EIO;
 			return -1;
+		}
+		if (errno != EINTR) {
+			if (errno <= 0)
+				errno = EIO;
+			return -1;
+		}
 		if (remaining.tv_sec < 0 || remaining.tv_nsec < 0 ||
 		    remaining.tv_nsec >= 1000000000L ||
 		    remaining.tv_sec > requested.tv_sec ||

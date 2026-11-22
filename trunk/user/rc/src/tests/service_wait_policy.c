@@ -28,6 +28,7 @@ struct nanosleep_fixture {
 	struct timespec requested[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
 	struct timespec remaining[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
 	int errors[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
+	int fail_without_errno[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
 };
 
 static int
@@ -44,6 +45,8 @@ fixture_nanosleep(const struct timespec *requested,
 		errno = fixture->errors[index];
 		return -1;
 	}
+	if (fixture->fail_without_errno[index])
+		return -1;
 	return 0;
 }
 
@@ -122,6 +125,14 @@ main(void)
 	assert(service_wait_microseconds_with(
 		100U, fixture_nanosleep, &fixture) == -1);
 	assert(errno == EACCES && fixture.calls == 1);
+
+	/* A failed nanosleep shim that violates errno reporting fails as EIO. */
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.fail_without_errno[0] = 1;
+	errno = EINTR;
+	assert(service_wait_microseconds_with(
+		100U, fixture_nanosleep, &fixture) == -1);
+	assert(errno == EIO && fixture.calls == 1);
 
 	invalid.tv_sec = 0;
 	invalid.tv_nsec = 1000000000L;

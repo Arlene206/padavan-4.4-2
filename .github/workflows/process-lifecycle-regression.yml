@@ -1054,6 +1054,14 @@ jobs:
             trunk/user/rc/src/tests/storage_rwfs_mount_policy.c \
             -o "$RUNNER_TEMP/storage-rwfs-mount-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/storage-rwfs-mount-policy"
+      - name: Compile and run RC service wait interruption regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/service_wait_policy.c \
+            -o "$RUNNER_TEMP/service-wait-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/service-wait-policy"
+
       - name: Compile and run RC notification result policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

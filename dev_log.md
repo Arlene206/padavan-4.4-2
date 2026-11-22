@@ -1,3 +1,13 @@
+## 2026-11-21 23:56 PST — Harden errno-less service waits and execute the existing regression in CI
+
+- Parent main 0170c3948ac0178250ad8508485159b2adc7e9d8; PID1 inherited-signal-reset production source is in e72 `e72a377025dbd4e42cbbfe0186689b5e6e57720b`. The later 0170 commit updated only handoff/dev-log and did not change source.
+- Exact e72 L2 PASS: Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163, PID1 mdev #45001383227 and AI #45001383224.
+- Exact e72 XY-C1 #45001383211: production-input detector PASS; Build XY-C1 IN_PROGRESS; TRX and artifact PENDING. Not yet L3.
+- `service_wait_timespec_with()` used to return -1 with errno=0 when an injected nanosleep provider failed without setting errno; it could also treat an invalid positive return as an EINTR if errno matched. Unexpected status/errno-less failure now returns EIO while legitimate errno is preserved. Added fake-provider regression.
+- `service_wait_policy.c` was present in Process lifecycle workflow path filters but had no compile/run step. Added explicit GNU89 `-Wall -Wextra -Werror` + ASan/UBSan compile/run to the exact-head process lifecycle job. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fail closed if the recovery shell cannot reset inherited PID 1 signals
 
 - Parent main e72a377025dbd4e42cbbfe0186689b5e6e57720b. Exact e72 XY-C1 #45001383211, Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163 and PID1 mdev #45001383227 were in progress at last poll; AI docs #45001383224 PASS.
