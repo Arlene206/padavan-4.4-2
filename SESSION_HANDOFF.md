@@ -26,7 +26,7 @@ The checkpoint is mandatory; a document edit is conditional. If all checkpoint f
 
 - `mod_account()` now uses `read_disk_data_checked()` so an incomplete inventory is not treated as an empty disk set after the account name has been committed to NVRAM.
 - Both metadata paths use the bounded formatter. The old source must be a regular file; an existing new-account metadata destination is rejected with EEXIST rather than overwritten. Missing source metadata is idempotent. Other per-volume path/stat/rename errors are aggregated while continuing independent volumes, followed by inventory cleanup and ftpsamba reload.
-- GNU89 policy regressions cover rename success, ENOENT, real errors and missing errno normalization; source contracts pin checked inventory, both bounded paths, source/target validation, no-clobber and full error ordering. Parent libdisk run #45020631266 failed only because a redundant older checker block still expected the pre-helper `errno!=ENOENT` expression; the detailed current contract already covers the new helper. Checker repair requires exact-head verification.
+- GNU89 policy regressions cover account rename success, ENOENT and real errors; source contracts pin checked inventory, both bounded paths, source/target validation, no-clobber and full error ordering. Parent libdisk #45020631266 passed both sanitizer executables but failed the Python checker on a redundant stale mod_account block. That block was removed in #9ab6be48e197346138804d954433ffb956e507cf; fetch that exact run before using it as baseline.
 - NVRAM account name/password updates still precede filesystem migration. A migration failure may leave NVRAM updated while some per-volume metadata remains under the old name; no rollback is claimed.
 
 ## Verification boundary

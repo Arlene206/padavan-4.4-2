@@ -34,6 +34,7 @@
 #include "disk_initial.h"
 #include "disk_share.h"
 #include "disk_share_list_policy.h"
+#include "disk_share_account_nvram_policy.h"
 
 static void nvram_commit_safe()
 {
@@ -100,67 +101,54 @@ is_valid_folder_name(const char *name)
 	return 1;
 }
 
+static int
+disk_share_account_nvram_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+disk_share_account_nvram_get(void *context, const char *name, char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context,
+	                             name, value);
+}
+
+static int
+disk_share_account_nvram_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+static int
+disk_share_account_name_valid(const char *name)
+{
+	return is_valid_account_name(name);
+}
+
+static int
+disk_share_account_name_reserved(const char *name, const char *http_username)
+{
+	return router_account_name_is_reserved(name, http_username) ||
+	       !strcmp(name, FTP_ANONYMOUS_USER);
+}
+
 int get_account_list(int *acc_num, char ***account_list)
 {
-	char nvram_name[24], *nvram_value, **tmp_account_list;
-	int acc_max, len, i, j, count, seen_empty;
+	struct nvram_transaction transaction;
+	static const struct disk_share_account_nvram_ops ops = {
+		disk_share_account_nvram_begin,
+		disk_share_account_nvram_get,
+		disk_share_account_nvram_end,
+		disk_share_account_name_valid,
+		disk_share_account_name_reserved
+	};
 
-	if (!acc_num || !account_list)
-		return -1;
-
-	*acc_num = 0;
-	*account_list = NULL;
-
-	acc_max = nvram_get_int("acc_num");
-	if (acc_max > MAX_ACCOUNT_NUM)
-		acc_max = MAX_ACCOUNT_NUM;
-	if (acc_max <= 0)
-		return 0;
-
-	tmp_account_list = (char **)calloc((size_t)acc_max, sizeof(char *));
-	if (!tmp_account_list)
-		return -1;
-
-	count = 0;
-	seen_empty = 0;
-	for (i = 0; i < acc_max; ++i) {
-		snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", i);
-		nvram_value = nvram_safe_get(nvram_name);
-		len = strlen(nvram_value);
-		if (len < 1) {
-			seen_empty = 1;
-			continue;
-		}
-		/* Account management uses the count as the next NVRAM index. */
-		if (!is_valid_account_name(nvram_value) ||
-		    !strcmp(nvram_value, FTP_ANONYMOUS_USER) || seen_empty) {
-			for (j = 0; j < count; ++j)
-				free(tmp_account_list[j]);
-			free(tmp_account_list);
-			return -1;
-		}
-
-		tmp_account_list[count] = (char *)malloc((size_t)len + 1);
-		if (!tmp_account_list[count]) {
-			for (j = 0; j < count; ++j)
-				free(tmp_account_list[j]);
-			free(tmp_account_list);
-			return -1;
-		}
-
-		memcpy(tmp_account_list[count], nvram_value, (size_t)len + 1);
-		++count;
-	}
-
-	if (count == 0) {
-		free(tmp_account_list);
-		return 0;
-	}
-
-	*acc_num = count;
-	*account_list = tmp_account_list;
-	return 0;
+	return disk_share_account_inventory_read(&ops, &transaction,
+	                                         MAX_ACCOUNT_NUM,
+	                                         acc_num, account_list);
 }
+
 int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)
 {
 	char **tmp_folder_list = NULL;

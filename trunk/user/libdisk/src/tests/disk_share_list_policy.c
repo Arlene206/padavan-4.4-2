@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "disk_share_list_policy.h"
+#include "disk_share_account_nvram_policy.h"
 
 static void
 test_invalid_mount_paths_clear_outputs(void)
@@ -288,6 +289,328 @@ test_account_var_path_rejects_truncation(void)
 	assert(disk_share_format_account_var_path(path, sizeof(path),
 	                                          NULL, "admin") == -1);
 	assert(errno == EINVAL);
+}
+
+
+struct fake_account_nvram {
+	const char *count;
+	const char *http_username;
+	const char *users[4];
+	const char *fail_key;
+	const char *invalid_status_key;
+	int invalid_status;
+	int begin_error;
+	int end_error;
+	int begin_calls;
+	int get_calls;
+	int end_calls;
+};
+
+static int
+fake_account_nvram_begin(void *context)
+{
+	struct fake_account_nvram *fake = (struct fake_account_nvram *)context;
+	++fake->begin_calls;
+	if (fake->begin_error) {
+		errno = fake->begin_error;
+		return -1;
+	}
+	test_account_inventory_reads_one_checked_snapshot();
+	test_account_inventory_missing_count_is_empty();
+	test_account_inventory_count_read_error_is_not_zero();
+	test_account_inventory_username_error_frees_partial_list();
+	test_account_inventory_transaction_end_error_discards_snapshot();
+	test_account_inventory_begin_error_does_not_end_transaction();
+	test_account_inventory_rejects_invalid_count_text_and_range();
+	test_account_inventory_rejects_sparse_and_reserved_names();
+	test_account_inventory_rejects_invalid_get_status();
+	test_account_inventory_rejects_duplicate_names();
+	return 0;
+}
+
+static int
+fake_account_nvram_get(void *context, const char *name, char **value)
+{
+	struct fake_account_nvram *fake = (struct fake_account_nvram *)context;
+	int index;
+
+	++fake->get_calls;
+	*value = NULL;
+	if (fake->fail_key && strcmp(name, fake->fail_key) == 0) {
+		errno = EIO;
+		return -1;
+	}
+	if (fake->invalid_status_key &&
+	    strcmp(name, fake->invalid_status_key) == 0) {
+		*value = (char *)"unexpected";
+		return fake->invalid_status;
+	}
+	if (strcmp(name, "acc_num") == 0) {
+		if (!fake->count)
+			return 0;
+		*value = (char *)fake->count;
+		return 1;
+	}
+	if (strcmp(name, "http_username") == 0) {
+		if (!fake->http_username)
+			return 0;
+		*value = (char *)fake->http_username;
+		return 1;
+	}
+	if (sscanf(name, "acc_username%d", &index) == 1 &&
+	    index >= 0 && index < 4) {
+		if (!fake->users[index])
+			return 0;
+		*value = (char *)fake->users[index];
+		return 1;
+	}
+	return 0;
+}
+
+static int
+fake_account_nvram_end(void *context)
+{
+	struct fake_account_nvram *fake = (struct fake_account_nvram *)context;
+	++fake->end_calls;
+	if (fake->end_error) {
+		errno = fake->end_error;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fake_account_name_valid(const char *name)
+{
+	const unsigned char *p;
+
+	if (!name || !*name)
+		return 0;
+	for (p = (const unsigned char *)name; *p; ++p) {
+		if (!((*p >= 'a' && *p <= 'z') ||
+		      (*p >= 'A' && *p <= 'Z') ||
+		      (*p >= '0' && *p <= '9') ||
+		      *p == '_' || *p == '-'))
+			return 0;
+	}
+	return 1;
+}
+
+static int
+fake_account_name_reserved(const char *name, const char *http_username)
+{
+	return strcmp(name, "anonymous") == 0 ||
+	       (http_username && *http_username &&
+		strcmp(name, http_username) == 0);
+}
+
+static const struct disk_share_account_nvram_ops fake_account_nvram_ops = {
+	fake_account_nvram_begin,
+	fake_account_nvram_get,
+	fake_account_nvram_end,
+	fake_account_name_valid,
+	fake_account_name_reserved
+};
+
+static void
+test_account_inventory_reads_one_checked_snapshot(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { "alice", "bob", NULL, NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = NULL;
+	int count = -1;
+
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == 0);
+	assert(count == 2);
+	assert(strcmp(items[0], "alice") == 0);
+	assert(strcmp(items[1], "bob") == 0);
+	assert(fake.begin_calls == 1);
+	assert(fake.end_calls == 1);
+	disk_share_account_inventory_free(count, items);
+}
+
+static void
+test_account_inventory_missing_count_is_empty(void)
+{
+	struct fake_account_nvram fake = {
+		NULL, NULL, { NULL, NULL, NULL, NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = (char **)1;
+	int count = 99;
+
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == 0);
+	assert(count == 0);
+	assert(items == NULL);
+	assert(fake.begin_calls == 1);
+	assert(fake.end_calls == 1);
+	assert(fake.get_calls == 1);
+}
+
+static void
+test_account_inventory_count_read_error_is_not_zero(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { "alice", "bob", NULL, NULL },
+		"acc_num", NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = (char **)1;
+	int count = 99;
+
+	errno = 0;
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EIO);
+	assert(count == 0);
+	assert(items == NULL);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_inventory_username_error_frees_partial_list(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { "alice", "bob", NULL, NULL },
+		"acc_username1", NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = (char **)1;
+	int count = 99;
+
+	errno = 0;
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EIO);
+	assert(count == 0);
+	assert(items == NULL);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_inventory_transaction_end_error_discards_snapshot(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { "alice", "bob", NULL, NULL },
+		NULL, NULL, 0, 0, EBUSY, 0, 0, 0
+	};
+	char **items = (char **)1;
+	int count = 99;
+
+	errno = 0;
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EBUSY);
+	assert(count == 0);
+	assert(items == NULL);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_inventory_begin_error_does_not_end_transaction(void)
+{
+	struct fake_account_nvram fake = {
+		"1", "admin", { "alice", NULL, NULL, NULL },
+		NULL, NULL, 0, EACCES, 0, 0, 0, 0
+	};
+	char **items = (char **)1;
+	int count = 99;
+
+	errno = 0;
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EACCES);
+	assert(count == 0);
+	assert(items == NULL);
+	assert(fake.end_calls == 0);
+}
+
+static void
+test_account_inventory_rejects_invalid_count_text_and_range(void)
+{
+	struct fake_account_nvram fake = {
+		"2x", "admin", { "alice", "bob", NULL, NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = NULL;
+	int count = 0;
+
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EINVAL);
+	assert(count == 0 && items == NULL);
+
+	fake.count = "-1";
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EINVAL);
+
+	fake.count = "5";
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == ERANGE);
+}
+
+static void
+test_account_inventory_rejects_sparse_and_reserved_names(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { NULL, "alice", NULL, NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = NULL;
+	int count = 0;
+
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EINVAL);
+	assert(count == 0 && items == NULL);
+
+	fake.users[0] = "anonymous";
+	fake.users[1] = NULL;
+	fake.count = "1";
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EINVAL);
+
+	fake.users[0] = "admin";
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EINVAL);
+}
+
+static void
+test_account_inventory_rejects_invalid_get_status(void)
+{
+	struct fake_account_nvram fake = {
+		"1", "admin", { "alice", NULL, NULL, NULL },
+		NULL, "acc_username0", 2, 0, 0, 0, 0, 0
+	};
+	char **items = NULL;
+	int count = 0;
+
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EIO);
+	assert(count == 0 && items == NULL);
+}
+
+static void
+test_account_inventory_rejects_duplicate_names(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { "alice", "alice", NULL, NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0
+	};
+	char **items = NULL;
+	int count = 0;
+
+	assert(disk_share_account_inventory_read(&fake_account_nvram_ops,
+		&fake, 4, &count, &items) == -1);
+	assert(errno == EINVAL);
+	assert(count == 0 && items == NULL);
 }
 
 int

@@ -11,6 +11,7 @@ DISK_IO_SOURCE = (LIBDISK / "disk_io_tools.c").read_text()
 POLICY_TEST = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
 POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
+ACCOUNT_POLICY = (LIBDISK / "disk_share_account_nvram_policy.h").read_text()
 REGRESSION = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 SAMBA_SOURCE = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 
@@ -279,6 +280,43 @@ require("if (result != 0)" in set_permission[set_init:set_retry],
         "permission update must propagate metadata initialization failure")
 
 
+
+account_list_body = function_body(
+    DISK_SOURCE, "int get_account_list(int *acc_num, char ***account_list)"
+)
+account_list_compact = "".join(account_list_body.split())
+require("disk_share_account_inventory_read(&ops,&transaction,MAX_ACCOUNT_NUM,acc_num,account_list)" in account_list_compact and
+        "nvram_get_int(" not in account_list_body and
+        "nvram_safe_get(" not in account_list_body,
+        "get_account_list must use the checked account inventory policy rather than error-collapsing NVRAM getters")
+
+for helper, expected in (
+    ("disk_share_account_nvram_begin", "nvram_transaction_begin("),
+    ("disk_share_account_nvram_get", "nvram_transaction_get("),
+    ("disk_share_account_nvram_end", "nvram_transaction_end("),
+):
+    helper_body = function_body(DISK_SOURCE, "static int\n" + helper + "(")
+    require(expected in helper_body,
+            helper + " must bind inventory reads to the checked NVRAM transaction API")
+
+require("router_account_nvram_read_count" in ACCOUNT_POLICY and
+        "router_account_nvram_read_copy" in ACCOUNT_POLICY and
+        "ops->end(context)" in ACCOUNT_POLICY and
+        "seen_empty" in ACCOUNT_POLICY and
+        "ops->reserved_name(value, http_username)" in ACCOUNT_POLICY and
+        "disk_share_account_inventory_free(count, items)" in ACCOUNT_POLICY,
+        "account inventory policy must check/parse count, copy cache-backed identity values, release its transaction, reject sparse/reserved records and free partial snapshots")
+
+for marker in (
+    "test_account_inventory_reads_one_checked_snapshot",
+    "test_account_inventory_count_read_error_is_not_zero",
+    "test_account_inventory_username_error_frees_partial_list",
+    "test_account_inventory_transaction_end_error_discards_snapshot",
+    "test_account_inventory_rejects_invalid_count_text_and_range",
+    "test_account_inventory_rejects_sparse_and_reserved_names",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing checked account inventory regression: " + marker)
 
 add_account_body = function_body(
     DISK_SOURCE, "int add_account(const char *const account, const char *const password)"
