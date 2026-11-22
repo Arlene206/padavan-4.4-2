@@ -784,6 +784,44 @@ fake_nvram_get(void *opaque, const char *param_name, char **value)
 }
 
 static void
+test_man_old_address_copy_preserves_missing_and_backend_error(void)
+{
+	struct fake_nvram_reader fake;
+	char man_addr[16] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	fake.names[0] = "wanx_ipaddr";
+	fake.values[0] = "198.51.100.27";
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wanx_ipaddr",
+				       man_addr, sizeof(man_addr)) == 0);
+	assert(fake.calls == 1);
+	assert(strcmp(man_addr, "198.51.100.27") == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = 0;
+	fake.names[0] = "wanx_ipaddr";
+	strcpy(man_addr, "stale");
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wanx_ipaddr",
+				       man_addr, sizeof(man_addr)) == 0);
+	assert(fake.calls == 1);
+	assert(man_addr[0] == '\0');
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.missing_at = -1;
+	fake.failure_errno = EACCES;
+	fake.names[0] = "wanx_ipaddr";
+	strcpy(man_addr, "stale");
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wanx_ipaddr",
+				       man_addr, sizeof(man_addr)) == EACCES);
+	assert(fake.calls == 1);
+	assert(man_addr[0] == '\0');
+}
+
+static void
 test_checked_nvram_copy_survives_shared_cache_overwrite(void)
 {
 	struct fake_nvram_reader fake;
@@ -2526,6 +2564,7 @@ main(void)
 	test_wan_deconfig_statistics_clear_attempts_every_counter();
 	test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();
 	test_all_value_sequence_validates_before_writing();
+	test_man_old_address_copy_preserves_missing_and_backend_error();
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();

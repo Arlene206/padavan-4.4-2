@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve WAN MAN conntrack cleanup errors on NVRAM read failure
+
+- `udhcpc_deconfig()` already checked the MAN protocol, but still used `nvram_safe_get("wanx_ipaddr")` for the old address used by conntrack cleanup. A transient backend error was therefore indistinguishable from an absent key and silently skipped flushing stale conntrack entries; the existing return status also stayed successful.
+- Replaced that read with the checked, bounded NVRAM copy helper. Missing keys retain the legacy empty-address behavior; backend errors and truncation are logged and accumulated into the deconfig result without changing the remaining route/address teardown sequence.
+- Added an exact-key regression for present, absent and backend-error reads, plus a production wiring contract in the Process lifecycle checker. Exact-SHA Process and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-22 — Forward Aria2 RPC password overrides through the startup test runner
 
 - The exact USB regression on `aae8c0af3577bf7b06aa5c15dccaa02ebbf5bcfd` failed at the empty-password case: `run_aria_config_failure()` set `STORAGE_TEST_HTTP_PASSWD` in its own environment, but `run_launcher()` invokes the child with an explicit environment whitelist, so the override was dropped and the test stub silently used `test-pass`.

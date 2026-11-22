@@ -7356,10 +7356,22 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 				   wan_ifname, interface_status);
 
 		if (is_man) {
-			char *man_addr = nvram_safe_get("wanx_ipaddr");
+			char man_addr[INET_ADDRSTRLEN];
+			int man_addr_status;
 
-			/* flush conntrack table (only old WAN IP records) */
-			if (is_valid_ipv4(man_addr)) {
+			/*
+			 * Do not silently skip stale MAN conntrack cleanup when the NVRAM
+			 * backend is unavailable. A missing key remains an empty address.
+			 */
+			man_addr_status = rc_wan_nvram_copy_value(
+				wan_nvram_checked_get_callback, NULL, "wanx_ipaddr",
+				man_addr, sizeof(man_addr));
+			if (man_addr_status != 0) {
+				conntrack_status = man_addr_status;
+				logmessage(log_prefix,
+					   "cannot read MAN old address for conntrack cleanup (status=%d)",
+					   man_addr_status);
+			} else if (is_valid_ipv4(man_addr)) {
 				conntrack_status = flush_conntrack_table(man_addr);
 				if (conntrack_status != 0)
 					logmessage(log_prefix, "MAN conntrack cleanup failed (status=%d)",

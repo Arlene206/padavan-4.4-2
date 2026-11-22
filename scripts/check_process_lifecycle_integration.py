@@ -817,6 +817,16 @@ lan_bridge_down = lan_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL);")
 assert lan_abort < lan_resume < lan_return < lan_bridge_down
 assert "if (lan_status != 0)" in lan_restart
 assert "LAN restart aborted" in lan_restart
+man_deconfig = c_function_body(
+    net_wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)"
+)
+assert 'rc_wan_nvram_copy_value(' in man_deconfig
+assert 'wan_nvram_checked_get_callback, NULL, "wanx_ipaddr"' in man_deconfig
+assert 'nvram_safe_get("wanx_ipaddr")' not in man_deconfig
+assert "int man_addr_status;" in man_deconfig
+assert "conntrack_status = man_addr_status;" in man_deconfig
+assert "cannot read MAN old address for conntrack cleanup" in man_deconfig
+assert "route_status_accumulate(status, conntrack_status)" in man_deconfig
 print("WAN/LAN udhcpc PID-bound no-force stop and AP teardown-abort integration: PASS")
 
 wan_start = net_wan.split("int\nstart_wan(void)", 1)[1].split(
