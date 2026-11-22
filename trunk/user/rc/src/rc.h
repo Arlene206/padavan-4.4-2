@@ -845,7 +845,7 @@ void notify_rstats_time(void);
 int detect_link_main(int argc, char *argv[]);
 int start_detect_link(void);
 int stop_detect_link(void);
-void notify_reset_detect_link(void);
+int notify_reset_detect_link(void);
 void notify_leds_detect_link(void);
 void show_hide_front_leds(int is_show);
 void show_hide_ether_leds(int is_show);

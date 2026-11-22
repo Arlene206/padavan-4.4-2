@@ -8,31 +8,29 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 
 - Work only on \`main\`; never force-push, use side branches/PRs, or modify the frozen backup.
 - Each logical slice creates all blobs, one complete Git tree and one atomic main commit; update \`main\` only with \`force:false\` and a fetched expected SHA.
-- Check Actions for the exact source SHA. PASS continues; FAIL requires diagnosis/correction; PENDING does not block independent work.
+- Check exact-SHA Actions. PASS continues; FAIL requires diagnosis/correction; PENDING does not block independent work.
 - Do not claim local tests, target builds, artifacts or hardware checks that were not performed.
 
 ## Current repository state
 
 - Repository: \`Arlene206/padavan-4.4-2\`; branch: \`main\`.
-- Parent source SHA for the EAPoL lifecycle-contract correction: \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`.
+- Parent source SHA: \`972fbea175b0fbbc4c2959178e8f25e2fd7a9446\` (EAPoL configuration security and lifecycle source-contract compatibility).
 - Frozen backup: \`backup/pre-plugin-overhaul-2026-11-14\` at \`72f4f157a084f8184b9597ca5bf334b8080e5807\`; immutable.
-- WAN/PPP, USB modem, Inadyn, DNSMasq and manual Wi-Fi radio checked-read fixes remain in main; do not repeat those completed slices without new evidence.
+- EAPoL hardening is in main: checked credential snapshots, quoted-value escaping/control-byte rejection, mode-0600 temp file, fsync/close checks, atomic publication, and wpa_cli launcher failure cleanup.
 
 ## Active task
 
-EAPoL hardening is in main: checked credential snapshots, quoted-value escaping/control-byte rejection, a same-directory mode-0600 temporary file, fsync/close checking, atomic publication after old daemons stop, and propagation/cleanup when \`wpa_cli\` fails.
-
-Exact SHA \`3af9facfab4e28109916b47ed9bd671f983c4e1b\` EAPoL regression #45038345083 PASS (GNU89/ASan/UBSan policy test and source contract); AI handoff #45038345180 PASS. The broader process-lifecycle integration then exposed an obsolete source contract: its parser expected \`int start_auth_eapol(\` on one line and specifically required the old insecure \`fopen(wpa_conf, "w")\` after daemon stop. The function definition is restored to the established one-line signature, and the contract now checks checked credential snapshots, private temp-file creation, stop-before-rename, atomic publication and checked wpa_cli launch.
+\`detect_link.c::notify_reset_detect_link()\` previously returned void and discarded both \`start_detect_link()\` and \`process_pidfile_signal()\` results. A missing/unstartable monitor or failed/stale PID identity signal was therefore silently ignored. The function now returns an error status normalized from launcher status or errno, logs failures, and exposes an int declaration in \`rc.h\`. A GNU89 policy regression covers success despite stale errno, preserving positive launcher status, ESRCH propagation, and errno-less failure to EIO. The detect-link workflow now compiles the policy test and verifies result normalization/return.
 
 ## Verification boundary
 
-- Parent SHA \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`: EAPoL #45038345083 PASS and AI handoff #45038345180 PASS.
-- Process inventory/lifecycle regression #45038262447 failed only in its integration contract at auth.c line 1407 parsing; preceding compiled policy tests and earlier contracts passed. The exact failing assertion expected the old signature/body ordering and legacy \`fopen\`. This commit updates that contract; the exact-head rerun is pending.
-- XY-C1 build #45038262295 on source SHA \`29131f7707e151ef62b1f9ce9611901fd277ce66\` was still in progress at last check. Do not claim same-SHA L3. Parent XY-C1 #45037505021 on \`aeff51b\` completed success, but it is not evidence for descendant source SHAs.
-- No local checkout or local C/Python execution was performed. L3 requires Build, TRX verification and artifact upload all PASS on one identical SHA. Hardware L4 remains NOT VERIFIED.
+- Exact parent SHA \`972fbea175b0fbbc4c2959178e8f25e2fd7a9446\`: AI handoff #45038528658, EAPoL config #45038528661, process inventory #45038528662, process lifecycle inventory #45038528655, XY-C1 #45038528646 and NVRAM audit #45038528641 were queued at last inspection.
+- Older exact SHA \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`: EAPoL regression #45038345083 PASS and AI handoff #45038345180 PASS. Process lifecycle #45038262447 failed at stale EAPoL source assumptions; follow-up #972 updated the function signature and source contract.
+- XY-C1 #45037505021 on ancestor \`aeff51b\` completed success, but is not an L3 validation of newer source commits. The #45038262295 run on \`29131f7\` was still in progress at last check. No same-SHA Build/TRX/artifact pass is claimed.
+- No local checkout or local C/Python tests were run. L3 requires Build, TRX verification and artifact upload PASS on one identical SHA; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head process-lifecycle regression after the auth parser correction and EAPoL security workflow; diagnose/fix any newly exposed assertion.
-2. Inspect XY-C1 Build/TRX/artifact on the same source SHA; do not conflate older successful firmware builds with newer commits.
-3. Continue repository-wide stability/security work in another subsystem; keep backup immutable and work only on \`main\`.
+1. Inspect exact-head detect-link notification policy/source contract, process-lifecycle integration, EAPoL regression and XY-C1 Build/TRX/artifact runs. Fix any demonstrated regression.
+2. Continue repository-wide stability/security implementation in a different subsystem; avoid repeating the completed WAN/PPP, USB modem, Inadyn, DNSMasq, Wi-Fi and EAPoL slices without new evidence.
+3. Keep backup immutable and work directly on \`main\`.

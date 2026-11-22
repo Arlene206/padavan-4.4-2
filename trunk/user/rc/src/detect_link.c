@@ -38,6 +38,7 @@
 #include "switch_status_policy.h"
 #include "detect_link_signal_policy.h"
 #include "detect_link_nvram_policy.h"
+#include "detect_link_notification_policy.h"
 #include "detect_link_dhcp_renew_policy.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
@@ -441,26 +442,38 @@ start_detect_link(void)
 	return eval("/sbin/detect_link");
 }
 
-void
+int
 notify_reset_detect_link(void)
 {
-	struct process_snapshot snapshot;
-	enum process_presence presence;
-	enum process_presence_start_action action;
-	int scan_error;
+    struct process_snapshot snapshot;
+    enum process_presence presence;
+    enum process_presence_start_action action;
+    int scan_error, status, saved_errno;
 
-	presence = process_inventory_scan("detect_link", &snapshot);
-	scan_error = snapshot.error;
-	process_snapshot_release(&snapshot);
-	action = process_presence_start_action_for_state(presence);
-	if (action == PROCESS_PRESENCE_START_NEW)
-		start_detect_link();
-	else if (action == PROCESS_PRESENCE_START_NOTIFY)
-		(void)process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1);
-	else
-		logmessage("detect_link",
-			   "skipping start/notification because process inventory is unknown (error=%d)",
-			   scan_error ? scan_error : EIO);
+    presence = process_inventory_scan("detect_link", &snapshot);
+    scan_error = snapshot.error;
+    process_snapshot_release(&snapshot);
+    action = process_presence_start_action_for_state(presence);
+
+    if (action == PROCESS_PRESENCE_START_ABORT) {
+        status = scan_error ? scan_error : EIO;
+        saved_errno = 0;
+    } else if (action == PROCESS_PRESENCE_START_NEW) {
+        errno = 0;
+        status = start_detect_link();
+        saved_errno = errno;
+    } else {
+        errno = 0;
+        status = process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1);
+        saved_errno = errno;
+    }
+
+    status = detect_link_notification_status(status, saved_errno);
+    if (status != 0)
+        logmessage("detect_link",
+                   "monitor reset start/notification failed (action=%d, status=%d)",
+                   action, status);
+    return status;
 }
 
 void

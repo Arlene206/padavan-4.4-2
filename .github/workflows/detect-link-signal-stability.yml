@@ -11,7 +11,9 @@ on:
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link_signal_policy.h"
       - "trunk/user/rc/src/detect_link_nvram_policy.h"
+      - "trunk/user/rc/src/detect_link_notification_policy.h"
       - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_notification_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
       - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
@@ -32,7 +34,9 @@ on:
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link_signal_policy.h"
       - "trunk/user/rc/src/detect_link_nvram_policy.h"
+      - "trunk/user/rc/src/detect_link_notification_policy.h"
       - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
+      - "trunk/user/rc/src/tests/detect_link_notification_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
       - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
@@ -68,6 +72,14 @@ jobs:
             trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c \
             -o /tmp/detect-link-dhcp-renew-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-dhcp-renew-policy
+      - name: Compile and run detect_link notification result regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_notification_policy.c \
+            -o /tmp/detect-link-notification-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-notification-policy
       - name: Compile and run WAN link NVRAM mirror retry regression
         run: |
           set -eu
@@ -204,11 +216,24 @@ jobs:
                          "test_snapshot_is_cleared_for_next_wait"):
               assert marker in test
 
+          notify_policy = (rc / "detect_link_notification_policy.h").read_text()
+          notify_test = (rc / "tests/detect_link_notification_policy.c").read_text()
+          assert "detect_link_notification_status(" in notify_policy
+          for marker in ("test_success_ignores_stale_errno",
+                         "test_positive_launcher_status_is_preserved",
+                         "test_signal_failure_preserves_errno",
+                         "test_errno_less_failure_is_not_reported_as_success"):
+              assert marker in notify_test
+              assert marker + "() == 0" in notify_test
           reset_notify = body(detect, "notify_reset_detect_link(void)")
           led_notify = body(detect, "notify_leds_detect_link(void)")
           stop_notify = body(detect, "stop_detect_link(void)")
           show_leds = body(detect, "show_hide_front_leds(int is_show)")
           assert 'process_pidfile_signal(DL_PID_FILE, "detect_link", SIGUSR1)' in reset_notify
+          assert "int notify_reset_detect_link(void);" in header
+          assert "detect_link_notification_status(status, saved_errno)" in reset_notify
+          assert "return status;" in reset_notify
+          assert "monitor reset start/notification failed" in reset_notify
           assert 'process_pidfile_signal(DL_PID_FILE, "detect_link", SIGHUP)' in led_notify
           assert "kill_pidfile_s(DL_PID_FILE" not in reset_notify + led_notify
           assert 'process_pidfile_write(DL_PID_FILE, "detect_link")' in main
@@ -242,6 +267,8 @@ jobs:
               "trunk/user/shared/src/process_inventory.h",
               "trunk/user/rc/src/detect_link_signal_policy.h",
               "trunk/user/rc/src/detect_link_nvram_policy.h",
+              "trunk/user/rc/src/detect_link_notification_policy.h",
+              "trunk/user/rc/src/tests/detect_link_notification_policy.c",
               "trunk/user/rc/src/tests/detect_link_nvram_policy.c",
               "trunk/user/rc/src/tests/detect_link_signal_policy.c",
               "trunk/user/rc/src/detect_link_dhcp_renew_policy.h",

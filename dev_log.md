@@ -1,3 +1,12 @@
+## 2026-11-22 — Propagate detect_link monitor reset notification failures
+
+- Parent main SHA: \`972fbea175b0fbbc4c2959178e8f25e2fd7a9446\`. \`notify_reset_detect_link()\` returned void and discarded the result of both monitor start and PID/start-time-validated SIGUSR1 delivery. Process inventory could be valid while daemon launch or signal delivery failed, leaving WAN/link topology refresh unrequested without a visible error.
+- Changed the API to return int, normalize positive launcher statuses and negative errno-style signal failures (including errno-less EIO), log failures, and preserve UNKNOWN-inventory failure. Added a GNU89 policy regression and extended detect-link source/path contracts.
+- Parent SHA \`972fbea\` exact-head Actions were queued at inspection; no PASS/FAIL is claimed for that SHA. The EAPoL workflow passed on \`3af9fac\`; process-lifecycle regression on \`29131f7\` had exposed a stale contract and was corrected in the parent follow-up.
+- No local tests were run. No L3 or hardware L4 claim. Next: inspect exact-head detect-link/process/EAPoL and XY-C1 actions, then continue another subsystem.
+
+---
+
 ## 2026-11-22 — Align process lifecycle auth contract with hardened EAPoL publication
 
 - Parent main SHA: \`3af9facfab4e28109916b47ed9bd671f983c4e1b\`. Process-lifecycle run #45038262447 failed at \`scripts/check_process_lifecycle_integration.py:1407\`: its parser expected the original one-line \`int start_auth_eapol(\` signature, then asserted the old direct \`fopen(wpa_conf, "w")\` order. EAPoL code had been moved to a multiline return type and the unsafe writer was intentionally removed.
