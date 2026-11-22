@@ -991,11 +991,11 @@ jobs:
           assert native_route_cleanup < native_neigh_cleanup < native_addr_cleanup
           wan6_down = body(wan6_source, "int wan6_down(char *wan_ifname, int unit)")
           identity_read = wan6_down.index('get_wan_unit_value_copy_status(\n\t\tunit, "ifname6", previous_ifname_buffer')
-identity_read_error = wan6_down.index("if (status != 0)", identity_read)
-first_identity_probe = wan6_down.index("is_interface_exist(previous_ifname)")
-assert identity_read < identity_read_error < first_identity_probe
-assert 'get_wan_unit_value(unit, "ifname6")' not in wan6_down
-assert wan6_down.index("stop_status = stop_dhcp6c();") < identity_read
+          identity_read_error = wan6_down.index("if (status != 0)", identity_read)
+          first_identity_probe = wan6_down.index("is_interface_exist(previous_ifname)")
+          assert identity_read < identity_read_error < first_identity_probe
+          assert 'get_wan_unit_value(unit, "ifname6")' not in wan6_down
+          assert wan6_down.index("stop_status = stop_dhcp6c();") < identity_read
           assert "if (ipv6_type == IPV6_DISABLED)" not in wan6_down
           assert "if (stop_status != 0)" in wan6_down
           assert wan6_down.index("return stop_status;") < wan6_down.index("control_if_ipv6_radv(")

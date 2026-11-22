@@ -1,3 +1,12 @@
+## 2026-11-22 — Repair YAML indentation in WAN DHCP teardown contract
+
+- Parent main SHA: `4258f281fe2f5bc6d5705004d0a1cea33e101b3a`. The workflow-contract change in `4258f281fe2f5bc6d5705004d0a1cea33e101b3a` correctly replaced the stale pointer-getter assertion but omitted the YAML block-scalar indentation on five continuation lines. GitHub consequently registered the push under the workflow path with no job records; this was a malformed workflow definition, not a test result.
+- Restored the required indentation for all inserted Python statements while preserving the checked-read/error/probe ordering assertions. No product source changed.
+- The previous `a4f550ace8a2bbba3723ea08c0eaae59762e9c2e` WAN DHCP run had passed all C regression jobs and failed only at the stale teardown assertion; commit `4258f281...` did not produce a valid workflow run. Re-run all relevant checks on this commit's exact SHA before claiming validation.
+- Result: THIS COMMIT. Next: continue the checked-read/pointer-lifetime audit of `get_wan_addr6_host()` after confirming its callers.
+
+---
+
 ## 2026-11-22 — Update WAN DHCP teardown contract for checked interface identity
 
 - Parent main SHA: `a4f550ace8a2bbba3723ea08c0eaae59762e9c2e`. Exact-head WAN DHCP #45025898727 compiled and ran its full preceding GNU89/ASan/UBSan policy suite, including DHCPv6 DNS withdrawal, WAN IPv6 identity, lease retry, route rollback, static IPTV startup, DHCPv6 configuration publication and callback fencing. The final inline Python contract then failed at its stale assertion requiring `previous_ifname = get_wan_unit_value(unit, "ifname6")` in `wan6_down()`.
