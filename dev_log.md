@@ -1,3 +1,11 @@
+## 2026-11-22 16:27 CST — Match compacted WAN callback diagnostics in source checker
+
+- Parent main SHA: `fe1533a05beed4d2a9f3a40b7945a2cc25cc6d20`. Exact WAN route #44998650856 FAILED in `scripts/check_wan_dns_read_status.py:1039`. All C policy and earlier WAN source tests passed; the final assertion searched for spaced diagnostic strings after compacting the entire C function with `"".join(...split())`. The source literals were therefore correctly compacted too, so only the Python matcher was wrong.
+- The checked `ifname_t` implementation itself is present and returns errors before USB/WISP classification or DHCP renew. Corrected both new diagnostic expectations to their compact literal forms; no product source change.
+- Exact parent HTTPD #44998651042 PASS, firewall #44998650885 PASS, WAN DHCP callback #44998650941 PASS, AI handoff #44998650835 PASS. XY-C1 #44998650971 remained IN_PROGRESS at last poll; no same-SHA L3 claim. WAN route rerun pending.
+
+---
+
 ## 2026-11-22 16:18 CST — Fail closed on unreadable WAN transport identity before DHCP renew
 
 - Parent main SHA: `103281fb037a380dfa177edb6cf3b7c5acd7582f`. Exact parent WAN route #44998542768, AI handoff #44998542701 and XY-C1 #44998542772 were IN_PROGRESS at last poll; NVRAM audit #44998542802 and HTTPD #44998542654 were also running. Previous exact 59fa source/checker parent: WAN route #44998472638 PASS and AI handoff #44998472600 PASS, confirming WISP identity and matcher correction.

@@ -1042,8 +1042,8 @@ require(static_proto_guard in renew_selector and
         ifname_temp_error_at < usbnet_guard_at < wisp_read_at < dhcp_start_at and
         'nvram_match("x_DHCPClient","0")' not in renew_selector and
         'get_wan_unit_value(unit,"ifname_t")' not in renew_selector and
-        "cannot read manual WAN DHCP-client selector" in renew_selector and
-        "cannot read WAN transport interface" in renew_selector,
+        "cannotreadmanualWANDHCP-clientselector" in renew_selector and
+        "cannotreadWANtransportinterface" in renew_selector,
         "link-restored DHCP renewal must check both the manual-client selector and transport-interface NVRAM before classifying the device")
 
 require("int get_wan_wisp_active_status(int *p_is_active, int *p_has_link);" in rc_header,
