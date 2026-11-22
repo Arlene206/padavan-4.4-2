@@ -1,3 +1,11 @@
+## 2026-11-22 — Initialize libdisk share-list outputs before validation
+
+- Parent main SHA: `3c08537210948fdc301203f854255320b55bbfba`. Both `get_folder_list_in_mount_path()` and `get_all_folder_in_mount_path()` returned on a NULL/empty mount path before resetting caller outputs. Samba's `write_smb_conf_unlocked()` declared `folder_list` uninitialized and then passed it to `free_2_dimension_list()` on the API error path.
+- Added a shared GNU89-compatible output-preparation policy used by both APIs; it clears every supplied output before validating arguments. Also initialized Samba's local pointer defensively.
+- Added ASan/UBSan regression coverage for NULL/empty mount paths, missing output parameters and valid-path initialization, plus a focused source-contract workflow. Device-level filesystem and router behavior remain unverified.
+
+---
+
 ## 2026-11-22 — Initialize optional Internet LED transition setting
 
 - Parent main SHA: `896500e1db96808f3a830386a2dcf41b2c821dc1`. Initialized the timer-local WAN LED mode to its legacy disabled default before the conditional checked read. The value is consumed only after a successful transition preflight; explicit initialization also keeps compiler data-flow analysis clear in non-optimized GNU89 builds.

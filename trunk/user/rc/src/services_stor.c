@@ -1051,7 +1051,7 @@ write_smb_conf_unlocked(const char *router_username)
 				if (follow_partition->mount_point == NULL)
 					continue;
 				
-				char **folder_list;
+				char **folder_list = NULL;
 				
 				// 1. get the folder list
 				if (get_folder_list_in_mount_path(follow_partition->mount_point, &sh_num, &folder_list) < 0) {

@@ -33,6 +33,7 @@
 #include "disk_io_tools.h"
 #include "disk_initial.h"
 #include "disk_share.h"
+#include "disk_share_list_policy.h"
 
 static void nvram_commit_safe()
 {
@@ -171,11 +172,8 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 	size_t list_file_len, list_info_len, name_len;
 	int target_len;
 
-	if (!mount_path || !*mount_path || !sh_num || !folder_list)
+	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
 		return -1;
-
-	*sh_num = 0;
-	*folder_list = NULL;
 
 	list_file_len = strlen(mount_path) + strlen("/.__folder_list.txt");
 	if (list_file_len < strlen(mount_path))
@@ -271,11 +269,8 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 	int count = 0, i;
 	size_t mount_len, name_len, path_len;
 
-	if (!mount_path || !*mount_path || !sh_num || !folder_list)
+	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
 		return -1;
-
-	*sh_num = 0;
-	*folder_list = NULL;
 	mount_len = strlen(mount_path);
 
 	pool_to_open = opendir(mount_path);
