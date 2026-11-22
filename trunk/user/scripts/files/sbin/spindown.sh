@@ -58,7 +58,7 @@ END {
 	if (invalid || records == 0)
 		exit 2
 	exit !found
-}
+}'
 	spindown_awk_status=$?
 	case "$spindown_awk_status" in
 		0|1) return "$spindown_awk_status" ;;
