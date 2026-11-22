@@ -1,3 +1,10 @@
+## 2026-11-22 — Align HTTPD security workflow with MTD restore symlink rejection
+
+- Exact-head HTTPD security run 45084820446 on 3adf4cc9d94bd930b6504b0dd11cc1fa109852fd failed at the archive-restore source contract. The production guard had already been hardened to reject a symlinked `start_script.sh`, but the workflow still required the old `[ ! -f ... ]`-only condition.
+- Updated the workflow source assertion to require both the symlink check and the regular-file check. This is a checker-only synchronization; no production source changed in this slice.
+
+---
+
 ## 2026-11-23 04:55 UTC+8 — Align DNSMasq lock contract with fail-closed split-DNS snapshot
 
 - The first DNSMasq run on source SHA 4fad5ae2ac97a35d79031c3a18e828702d010109 failed in the generated-file/RC status contract, not in compilation or the split-DNS unit test. The old assertion treated every line between failed lock acquisition and staged-file open as the lock-acquisition failure branch; the new snapshot-error path correctly calls file_unlock() because that branch has already acquired the lock.

@@ -4979,7 +4979,7 @@ jobs:
           restore = storage_script[restore_start:restore_end]
           assert 'tar xjf "$rtbz" -C "$tmp_storage" 2>/dev/null' in restore
           assert "if [ $? -ne 0 ]" in restore
-          assert 'if [ ! -f "$tmp_storage/start_script.sh" ]' in restore
+          assert 'if [ -L "$tmp_storage/start_script.sh" ] || [ ! -f "$tmp_storage/start_script.sh" ]' in restore
           print("BusyBox archive extraction symlink-parent guard: OK")
 
           # URL values are written into quoted iptables-restore rules.
