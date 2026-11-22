@@ -2282,9 +2282,87 @@ test_internet_loss_action_propagates_nvram_read_errors(void)
 	assert(action == 0);
 	assert(rc_wan_internet_loss_action_status(0, 1, NULL) == EINVAL);
 }
+static void
+test_vpnc_dns_policy_and_servers_share_one_transaction(void)
+{
+	static const char *const names[2] = { "vpnc_pdns", "vpnc_dns_t" };
+	static const char *const values[2] = { "2", "10.8.0.1 10.8.0.2" };
+	struct fake_nvram_transaction fake;
+	int pdns = 0;
+	char servers[512] = {0};
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = names[0];
+	fake.names[1] = names[1];
+	fake.values[0] = values[0];
+	fake.values[1] = values[1];
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	assert(rc_wan_nvram_copy_int_text_snapshot(
+		names[0], names[1], &pdns, servers, sizeof(servers),
+		fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+		&fake) == 0);
+	assert(fake.begin_calls == 1 && fake.read_calls == 2 &&
+	       fake.end_calls == 1);
+	assert(pdns == 2 && strcmp(servers, values[1]) == 0);
+}
+
+static void
+test_vpnc_dns_snapshot_backend_errors_clear_policy_and_servers(void)
+{
+	static const char *const names[2] = { "vpnc_pdns", "vpnc_dns_t" };
+	static const char *const values[2] = { "2", "10.8.0.1" };
+	struct fake_nvram_transaction fake;
+	int failed;
+
+	for (failed = 0; failed < 2; ++failed) {
+		int pdns = 2;
+		char servers[64] = "stale-vpn-dns";
+
+		memset(&fake, 0, sizeof(fake));
+		fake.names[0] = names[0];
+		fake.names[1] = names[1];
+		fake.values[0] = values[0];
+		fake.values[1] = values[1];
+		fake.read_fail_at = failed;
+		fake.missing_at = -1;
+		fake.read_error = EACCES;
+		assert(rc_wan_nvram_copy_int_text_snapshot(
+			names[0], names[1], &pdns, servers, sizeof(servers),
+			fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+			&fake) == EACCES);
+		assert(fake.begin_calls == 1 && fake.end_calls == 1);
+		assert(pdns == 0 && servers[0] == '\0');
+	}
+}
+
+static void
+test_vpnc_dns_missing_server_keeps_legacy_empty_fallback_signal(void)
+{
+	static const char *const names[2] = { "vpnc_pdns", "vpnc_dns_t" };
+	struct fake_nvram_transaction fake;
+	int pdns = 0;
+	char servers[64] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = names[0];
+	fake.names[1] = names[1];
+	fake.values[0] = "2";
+	fake.values[1] = "ignored";
+	fake.read_fail_at = -1;
+	fake.missing_at = 1;
+	assert(rc_wan_nvram_copy_int_text_snapshot(
+		names[0], names[1], &pdns, servers, sizeof(servers),
+		fake_snapshot_begin, fake_snapshot_get, fake_snapshot_end,
+		&fake) == 0);
+	assert(pdns == 2 && servers[0] == '\0');
+}
 int
 main(void)
 {
+	test_vpnc_dns_policy_and_servers_share_one_transaction();
+	test_vpnc_dns_snapshot_backend_errors_clear_policy_and_servers();
+	test_vpnc_dns_missing_server_keeps_legacy_empty_fallback_signal();
 	test_internet_loss_action_propagates_nvram_read_errors();
 	test_successful_required_param_sequence();
 	test_required_param_sequence_stops_at_first_error();

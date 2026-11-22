@@ -6222,9 +6222,12 @@ update_resolvconf(int is_first_run, int do_not_notify)
 {
 	FILE *fp;
 	char word[512], *next, *wan_dns;
+	char vpnc_dns_snapshot[512] = {0};
+	struct nvram_transaction vpnc_dns_transaction;
 	const char *google_dns = "8.8.8.8";
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int i, i_pdns, i_total_dns = 0;
+	int vpnc_snapshot_status;
 	int lock, dns_static, dns_static_status, resolv_changed = 0;
 	int dns_restart_status;
 	int dns_servers_ready = 1, dns_servers_error = 0, saved_errno, validation_errno;
@@ -6251,7 +6254,22 @@ update_resolvconf(int is_first_run, int do_not_notify)
 		return saved_errno;
 	}
 
-	i_pdns = nvram_get_int("vpnc_pdns");
+	vpnc_snapshot_status = rc_wan_nvram_copy_int_text_snapshot(
+		"vpnc_pdns", "vpnc_dns_t", &i_pdns,
+		vpnc_dns_snapshot, sizeof(vpnc_dns_snapshot),
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &vpnc_dns_transaction);
+	if (vpnc_snapshot_status != 0) {
+		errno = vpnc_snapshot_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot VPN DNS policy and server list; keeping the existing resolver file (status=%d)",
+			   vpnc_snapshot_status);
+		file_unlock(lock);
+		errno = vpnc_snapshot_status;
+		return vpnc_snapshot_status;
+	}
+
 	dns_static_status = get_wan_dns_static_status(&dns_static);
 	if (dns_static_status != 0) {
 		logmessage(LOGNAME,
@@ -6280,7 +6298,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 
 	/* DNS servers for static VPN client */
 	if (!is_first_run && i_pdns > 0) {
-		wan_dns = nvram_safe_get("vpnc_dns_t");
+		wan_dns = vpnc_dns_snapshot;
 		if (strlen(wan_dns) > 6) {
 			foreach(word, wan_dns, next) {
 				if (is_valid_ipv4(word)) {

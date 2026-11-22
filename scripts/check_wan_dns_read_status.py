@@ -235,6 +235,26 @@ for case in ("test_checked_integer_read_preserves_missing_default",
              "test_checked_integer_read_propagates_backend_errors"):
     require(case in test, "WAN integer regression missing " + case)
 
+
+# VPN DNS policy and its server list must be read together; backend errors must not fall back to WAN DNS.
+resolver_vpn_snapshot = resolver.index("rc_wan_nvram_copy_int_text_snapshot(")
+resolver_vpn_abort = resolver.index("if (vpnc_snapshot_status != 0)")
+resolver_vpn_stage = resolver.index("dnsmasq_file_open(resolv_temp)")
+require(resolver_vpn_snapshot < resolver_vpn_abort < resolver_vpn_stage and
+        '"vpnc_pdns", "vpnc_dns_t"' in resolver and
+        "wan_nvram_transaction_begin_callback" in resolver and
+        "wan_nvram_transaction_get_callback" in resolver and
+        "wan_nvram_transaction_end_callback" in resolver and
+        "keeping the existing resolver file" in resolver,
+        "VPN DNS snapshot errors must preserve the previous resolver file before staging")
+require('nvram_get_int("vpnc_pdns"' not in resolver and
+        'nvram_safe_get("vpnc_dns_t"' not in resolver and
+        "wan_dns = vpnc_dns_snapshot;" in resolver,
+        "resolver generation must not use lossy independent VPN DNS reads")
+for case in ("test_vpnc_dns_policy_and_servers_share_one_transaction",
+             "test_vpnc_dns_snapshot_backend_errors_clear_policy_and_servers",
+             "test_vpnc_dns_missing_server_keeps_legacy_empty_fallback_signal"):
+    require(case in test, "VPN DNS snapshot regression missing " + case)
 print("WAN DNS-mode checked-read and resolver fail-closed contract: PASS")
 
 

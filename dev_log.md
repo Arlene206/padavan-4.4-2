@@ -1,3 +1,11 @@
+## 2026-11-22 — Keep VPN-only DNS fail-closed during NVRAM faults
+
+- Parent main SHA: `e49224f71f90339247917b66d8a9add54228e8a1`. In `update_resolvconf()`, `nvram_get_int("vpnc_pdns")` and `nvram_safe_get("vpnc_dns_t")` hid GET/read/close failures. With `vpnc_pdns=2` (prefer VPN DNS), a transient backend failure looked like mode 0 or an empty VPN server list and caused fallback to WAN/public DNS, leaking queries outside the VPN.
+- Replaced the split unchecked reads with `rc_wan_nvram_copy_int_text_snapshot("vpnc_pdns", "vpnc_dns_t", ...)` using the existing NVRAM transaction callbacks. A missing policy/server key still preserves the legacy zero/empty behavior; a backend, parsing, truncation or transaction-close error logs and returns before staging `/etc/resolv.conf`, so the last-known-good file remains in place.
+- Added GNU89 policy regressions for same-generation policy/server capture, failure at either member with both outputs cleared, and absent server value retaining the legacy empty fallback signal. Added source contract requiring the snapshot and early abort before `dnsmasq_file_open`, and rejecting the lossy getters.
+- Exact parent WAN route #45047446525 PASS and AI handoff #45047446469 PASS. The XY-C1 production run #45047262320 on source `690dc9` was still in Build, with TRX/artifact pending at last inspection. No local test/build or hardware validation was performed.
+
+---
 ## 2026-11-22 — Align WAN deferred-watchdog source contract with the existing priority log
 
 - Parent main SHA: `690dc90846b959d05a5ee51e8f5d9cfa5c960408`. Exact WAN route #45047262283 executed the new `di_lost_action` checked-read source contract successfully, then failed in `check_wan_deferred_watchdog_status.py:71` while searching for the modem-priority error log. That checker expected `cannot publish modem priority before automatic WAN reconnect`, but `net_wan.c`'s actual log is `cannot publish modem priority before automatic reconnect`; this mismatch predates the current change and does not indicate a production regression.
