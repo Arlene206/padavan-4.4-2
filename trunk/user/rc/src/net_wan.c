@@ -4173,13 +4173,13 @@ static int
 stop_wan_locked(void)
 {
 	int unit, wan_proto = 0, proto_status, ifdown_status, stop_status = -1;
-	int callback_cleanup_status, modem_status;
+	int callback_cleanup_status, modem_status, ifname_status;
 	int is_usb_modem, is_ndis_modem = 0;
 	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0, ipv6_type_status, ipv6_is_sit;
 #endif
-	char *man_ifname;
+	char man_ifname[16], man_ifname_nvram[16];
 	char *usbnet_ifname;
 	char* svcs_ppp[] = {
 		"ip-up", "ip-down",
@@ -4215,6 +4215,35 @@ stop_wan_locked(void)
 			return modem_status;
 		}
 	}
+
+	/*
+	 * Resolve and validate the manual interface before pausing monitors or
+	 * cancelling callbacks. A lossy nvram_safe_get() here could turn an I/O
+	 * failure into an empty name and let a partial teardown proceed.
+	 * Preserve the legacy empty/unconfigured interface as an empty string.
+	 */
+	ifname_status = get_wan_unit_value_copy_status(
+		unit, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+	if (ifname_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because manual interface name cannot be read (status=%d)",
+			   ifname_status);
+		errno = ifname_status;
+		return ifname_status;
+	}
+	if (man_ifname_nvram[0]) {
+		ifname_status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (ifname_status != 0) {
+			logmessage(LOGNAME,
+				   "refusing WAN teardown because manual interface name is invalid (status=%d)",
+				   ifname_status);
+			errno = ifname_status;
+			return ifname_status;
+		}
+	} else {
+		man_ifname[0] = '\0';
+	}
 	pause_status = notify_pause_detect_internet();
 	if (pause_status != 0) {
 		logmessage(LOGNAME,
@@ -4242,7 +4271,6 @@ stop_wan_locked(void)
 			   "cannot determine WAN protocol during stop; continuing conservative teardown (status=%d)",
 			   proto_status);
 		}
-	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
 	stop_status = stop_vpn_client_under_lifecycle_lock();
 	if (stop_status != 0) {

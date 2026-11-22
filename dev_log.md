@@ -1,3 +1,12 @@
+## 2026-11-22 — Fail closed before WAN teardown when manual interface is unreadable
+
+- Parent main SHA: `59cdab3123a8d6cce5dae6c5f5fe347d9d9bee67`. Exact WAN route #44996570973 PASS and AI handoff #44996570985 PASS; exact d018 WAN DHCP #44996488482 PASS.
+- Reviewed `stop_wan_locked()`: it previously read `man_ifname = get_man_ifname(unit)` only after pausing Internet monitoring, invalidating PPP callback sessions and cancelling deferred reconnect. Since the getter is `nvram_safe_get()`-backed, a NVRAM read/backend error could be silently converted to an empty name while teardown proceeded.
+- Moved a checked `get_wan_unit_value_copy_status(..., "ifname", ...)` and `wan_ifname_copy()` validation ahead of monitor pause and all teardown side effects. The real read/validation error is logged, copied to `errno`, and returned. An actually empty legacy/unconfigured value is preserved as an empty string rather than rejected; removed the later lossy getter.
+- Added a source contract to pin checked read → read-error gate → nonempty token validation/error gate → empty-key preservation → monitor pause, and forbid the lossy getter in `stop_wan_locked()`.
+- Exact-head route/DHCP and XY-C1 Actions are pending for this product source change. No MIPS build/TRX/artifact or hardware test is claimed.
+
+---
 ## 2026-11-22 — Keep modem identity error contract errno-aware
 
 - Parent main SHA: `d018080e3ef848417c1969ba17adfd0b8a775624`. Exact WAN DHCP #44996488482 PASS. Exact WAN route #44996488531 FAILED at `scripts/check_wan_dns_read_status.py:515`: after the `get_wan_ip4()` checked manual fallback change, the old modem identity assertion still required `if(status!=0)returnINADDR_ANY`.

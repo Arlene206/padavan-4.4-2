@@ -464,6 +464,22 @@ require(stop_locked_compact.index(identity_read) < stop_locked_compact.index(ide
         "full WAN teardown must verify identity and transport before stopping services")
 assert 'nvram_get_int("modem_type")' not in stop_locked_compact
 
+manual_ifname_read = "ifname_status=get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))"
+manual_ifname_validate = "ifname_status=wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)"
+manual_ifname_read_at = stop_locked_compact.index(manual_ifname_read)
+manual_ifname_read_error_at = stop_locked_compact.index("if(ifname_status!=0)", manual_ifname_read_at)
+manual_ifname_validate_gate_at = stop_locked_compact.index("if(man_ifname_nvram[0])", manual_ifname_read_error_at)
+manual_ifname_validate_at = stop_locked_compact.index(manual_ifname_validate, manual_ifname_validate_gate_at)
+manual_ifname_validate_error_at = stop_locked_compact.index("if(ifname_status!=0)", manual_ifname_validate_at)
+manual_ifname_empty_at = stop_locked_compact.index("man_ifname[0]='\\0'", manual_ifname_validate_error_at)
+manual_ifname_pause_at = stop_locked_compact.index("notify_pause_detect_internet()", manual_ifname_validate_error_at)
+require(manual_ifname_read_at < manual_ifname_read_error_at < manual_ifname_validate_gate_at <
+        manual_ifname_validate_at < manual_ifname_validate_error_at < manual_ifname_empty_at <
+        manual_ifname_pause_at and
+        "errno=ifname_status;" in stop_locked_compact and
+        "returnifname_status;" in stop_locked_compact and
+        "get_man_ifname(unit)" not in stop_locked_compact,
+        "WAN teardown must resolve manual interface before destructive side effects and preserve read errors")
 manual_disconnect = "".join(body(source, "manual_wan_disconnect(void)").split())
 manual_modem_read = "status=get_usb_modem_wan_status(0,&is_usb_modem)"
 manual_proto_read = "status=get_wan_unit_proto_checked_status(0,&wan_proto);"
