@@ -129,6 +129,17 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(workflow.count('      - "' + path + '"'), 1)
         self.assertFalse(is_non_firmware_input(path))
 
+    def test_scutclient_credentials_overlay_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        for path in (
+            "trunk/user/scutclient/Makefile",
+            "trunk/user/scutclient/patches/scutclient_credentials.c",
+            "trunk/user/scutclient/patches/scutclient_credentials.h",
+            "trunk/user/scutclient/patches/0001-private-credentials-file.patch",
+        ):
+            with self.subTest(path=path):
+                self.assertIn('      - "' + ("trunk/user/scutclient/patches/**" if "/patches/" in path else path) + '"', workflow)
+                self.assertFalse(is_non_firmware_input(path))
     def test_scut_watchdog_flock_dependency_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         for path in (
