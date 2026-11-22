@@ -4773,7 +4773,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	int status = 0, route_status, auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
 	int gateway_arp_status, gateway_arp_enabled;
-	int wan_addr_status, wan_mask_status, wan_gate_status;
+	int route_snapshot_status, wan_addr_status, wan_mask_status, wan_gate_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
 #endif
@@ -4810,27 +4810,42 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		set_wan_unit_value(unit, "bytes_tx", wan_cnt);
 	}
 
-	/* Copy each rotating-cache value before the next NVRAM read. */
-	wan_addr_status = rc_wan_nvram_copy_text(
-		get_wan_unit_value(unit, "ipaddr"), wan_addr, sizeof(wan_addr));
-	if (wan_addr_status != 0) {
-		logmessage(LOGNAME, "failed to snapshot WAN IPv4 address (status=%d)",
-			   wan_addr_status);
-		status = route_status_accumulate(status, wan_addr_status);
-	}
-	wan_mask_status = rc_wan_nvram_copy_text(
-		get_wan_unit_value(unit, "netmask"), wan_mask, sizeof(wan_mask));
-	if (wan_mask_status != 0) {
-		logmessage(LOGNAME, "failed to snapshot WAN IPv4 netmask (status=%d)",
-			   wan_mask_status);
-		status = route_status_accumulate(status, wan_mask_status);
-	}
-	wan_gate_status = rc_wan_nvram_copy_text(
-		get_wan_unit_value(unit, "gateway"), wan_gate, sizeof(wan_gate));
-	if (wan_gate_status != 0) {
-		logmessage(LOGNAME, "failed to snapshot WAN IPv4 gateway (status=%d)",
-			   wan_gate_status);
-		status = route_status_accumulate(status, wan_gate_status);
+	/*
+	 * Read gateway, address and netmask from one checked NVRAM generation.
+	 * Independent nvram_safe_get()-backed reads can hide backend failures and
+	 * mix DHCP renew generations while deciding whether a gateway /32 is needed.
+	 */
+	wan_addr[0] = '\0';
+	wan_mask[0] = '\0';
+	wan_gate[0] = '\0';
+	route_snapshot_status = wan_unit_route_snapshot(
+		unit, wan_gate, sizeof(wan_gate),
+		wan_addr, sizeof(wan_addr),
+		wan_mask, sizeof(wan_mask));
+	if (route_snapshot_status != 0) {
+		status = route_status_accumulate(status, route_snapshot_status);
+		logmessage(LOGNAME,
+			   "cannot read coherent WAN route snapshot during startup on %s (status=%d)",
+			   wan_ifname, route_snapshot_status);
+		wan_addr_status = route_snapshot_status;
+		wan_mask_status = route_snapshot_status;
+
+		/*
+		 * Preserve the legacy default-route attempt when the tuple transaction
+		 * fails, but do not infer gateway subnet ownership from mixed reads.
+		 */
+		wan_gate_status = get_wan_unit_value_copy_status(
+			unit, "gateway", wan_gate, sizeof(wan_gate));
+		if (wan_gate_status != 0) {
+			status = route_status_accumulate(status, wan_gate_status);
+			logmessage(LOGNAME,
+				   "cannot read WAN gateway fallback during startup on %s (status=%d)",
+				   wan_ifname, wan_gate_status);
+		}
+	} else {
+		wan_addr_status = 0;
+		wan_mask_status = 0;
+		wan_gate_status = 0;
 	}
 
 	gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);

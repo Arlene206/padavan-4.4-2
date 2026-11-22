@@ -924,7 +924,22 @@ jobs:
           wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int" + chr(10) + "wan_up_internal(" in wan
           assert "gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);" in wan_up
-          assert "rc_wan_nvram_copy_text" in wan_up
+          assert "int route_snapshot_status;" in wan_up
+          wan_up_compact = "".join(wan_up.split())
+          route_snapshot_call = "route_snapshot_status=wan_unit_route_snapshot(unit,wan_gate,sizeof(wan_gate),wan_addr,sizeof(wan_addr),wan_mask,sizeof(wan_mask));"
+          route_snapshot_fallback = 'wan_gate_status=get_wan_unit_value_copy_status(unit,"gateway",wan_gate,sizeof(wan_gate));'
+          snapshot_pos = wan_up_compact.index(route_snapshot_call)
+          snapshot_error = wan_up_compact.index("if(route_snapshot_status!=0)", snapshot_pos)
+          gateway_fallback = wan_up_compact.index(route_snapshot_fallback, snapshot_error)
+          gateway_decision = wan_up_compact.index("gateway_valid=wan_gate_status==0&&is_valid_ipv4(wan_gate);")
+          assert snapshot_pos < snapshot_error < gateway_fallback < gateway_decision
+          assert "wan_addr_status=route_snapshot_status;" in wan_up_compact
+          assert "wan_mask_status=route_snapshot_status;" in wan_up_compact
+          assert "status=route_status_accumulate(status,route_snapshot_status);" in wan_up_compact
+          assert 'get_wan_unit_value(unit,"ipaddr")' not in wan_up_compact
+          assert 'get_wan_unit_value(unit,"netmask")' not in wan_up_compact
+          assert 'get_wan_unit_value(unit,"gateway")' not in wan_up_compact
+          assert "rc_wan_nvram_copy_text" not in wan_up
           assert "wan_addr_status != 0" in wan_up
           assert "skipping WAN post-up script" in wan_up
           assert "if (wan_gate)" not in wan_up

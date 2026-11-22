@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch is `main`.
-- Live `main` before THIS Samba contract correction: `32394e6581f566d1cd4a65a33749f319c002f9f3`; exact AI docs #44978784711 and HTTPD #44978784728 PASS. Exact Samba #44978784709 passed GNU89/Werror host regressions and failed only the final source contract because its checker did not match the newline-formatted public `write_smb_conf()` declaration. THIS correction aligns that locator; verify exact current `main` SHA.
+- Live `main` before THIS WAN-up route snapshot fix: `9dfdae39490d7486f5dd33ff2b3ad68f23f1a0b0`; Samba stability #44979109639 and AI docs #44979110109 PASS on this exact SHA. The prior exact-head Samba contract mismatch was fixed; the product-source XY-C1 run #44978563487 for `5b93812` remained in progress at last poll.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains preserved at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not touch backup or revive PR #1.
 - GitHub Git data API remains the editing path; full local firmware checkout/toolchain is unavailable here.
 
@@ -29,23 +29,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Active task
 
 - Firewall checked boot gate, LAN DHCP rollback snapshot, HTTPD boot-policy contract, OpenVPN key/certificate failure propagation + digest fix, and FTP passive-port range policy are completed source slices with exact workflow results in the dev log.
-- Samba account-count and credential snapshots are in product-source baseline `feb5dfe55704a253cea979454cdad439d715596a`. ACL writer fix `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` passes the checked router-username snapshot from `run_samba()` through four private-share ACL lists; standalone `write_smb_conf()` performs a checked identity read before staging in private-user modes.
-- Exact `32394e6`: AI docs #44978784711 PASS and HTTPD #44978784728 PASS. Samba #44978784709 ran GNU89/Werror host regressions successfully, then failed in the final Python source contract: helper line 199 searched for `int write_smb_conf(void)` but production declaration separates return type and name with a newline. THIS follow-up aligns that locator; no product source change.
-- Exact `5b93812`: VSFTPD #44978563499, AI docs #44978563541, NFS #44978563620, USB modem #44978563518, Firewall #44978563485, Process inventory #44978563472, USB storage #44978563480, Process fail-closed #44978563479 and NVRAM #44978563483 PASS. HTTPD #44978563500 and Samba #44978563585 were stale checker failures corrected in `32394e6`. XY-C1 #44978563487 was still in progress at last poll; recheck terminal status.
-- No local MIPS toolchain or physical router; firmware L3/L4 NOT VERIFIED.
+- Samba account-count and credential snapshots are in product-source baseline `feb5dfe55704a253cea979454cdad439d715596a`. ACL writer fix `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` passes checked router identity through all private-share ACL lists; exact Samba #44979109639 and AI docs #44979110109 PASS on the workflow/docs descendant `9dfdae3`.
+- P1 WAN NVRAM audit found a real WAN-up route-consistency defect: `wan_up_internal()` used three independent unchecked `get_wan_unit_value()` calls for gateway/address/netmask while teardown already used the transaction-backed snapshot. THIS commit changes WAN-up to use the checked transactional tuple, keeps only a checked single-gateway fallback after tuple failure, and adds transaction-close regression plus workflow source-contract assertions.
+- Product-source Samba/ACL correction SHA `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c` has exact firmware-independent PASS: VSFTPD #44978563499, AI docs #44978563541, NFS #44978563620, USB modem #44978563518, Firewall #44978563485, Process inventory #44978563472, USB storage #44978563480, Process fail-closed #44978563479 and NVRAM #44978563483. XY-C1 #44978563487 remained in progress at last poll; recheck.
+- No local MIPS toolchain or physical router; L3/L4 NOT VERIFIED.
 
 ## Verification boundary
 
 - Product-source baseline `feb5dfe55704a253cea979454cdad439d715596a`: Samba #44977071563 PASS, Process inventory #44977071505 PASS, Process fail-closed #44977071916 PASS, NVRAM #44977071500 PASS, USB storage #44977071530 PASS, NFS #44977071428 PASS, Firewall #44977071404 PASS, USB modem #44977071499 PASS, VSFTPD #44977071617 PASS and AI docs #44977071668 PASS.
-- Product-source correction `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: firmware-independent VSFTPD #44978563499, AI docs #44978563541, NFS #44978563620, USB modem #44978563518, Firewall #44978563485, Process inventory #44978563472, USB storage #44978563480, Process fail-closed #44978563479 and NVRAM #44978563483 PASS. HTTPD/Samba stale contracts were repaired in `32394e6`; XY-C1 #44978563487 was still in progress at last inspection.
-- Contract-only commit `32394e6581f566d1cd4a65a33749f319c002f9f3`: HTTPD #44978784728 PASS, AI docs #44978784711 PASS; Samba #44978784709 failed at the public-writer function locator after host regressions had passed. THIS commit changes only the Samba workflow source contract plus handoff/roadmap/log; exact-head rerun required.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No same-product-SHA XY-C1 Build/TRX/artifact completion or L3 claim. Hardware L4 NOT VERIFIED.
+- Samba ACL product-source correction `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`: firmware-independent VSFTPD/NFS/firewall/USB modem/USB storage/Process/NVRAM/AI Docs checks PASS. Exact Samba and HTTPD initially failed stale source contracts; contract fixes in `32394e6` and `9dfdae3` are now validated by Samba #44979109639 PASS and HTTPD #44978784728 PASS, AI Docs #44979110109 PASS. XY-C1 #44978563487 still had status IN_PROGRESS at last poll.
+- WAN route-up transactional snapshot fix in THIS commit: C regression now tests coherent 3-key snapshot read errors and transaction-close failure; workflow contract pins checked snapshot ordering, fail-closed address/netmask, checked gateway fallback, and absence of unchecked route-tuple getters. Exact WAN-route Actions pending. No same-product-SHA XY-C1 Build/TRX/artifact completion or L3 claim. Hardware L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Check exact push runs on current `main` for Samba share stability, AI docs and HTTPD; the Samba locator correction is source-contract-only. Confirm every run's `head_sha` equals main.
-2. Recheck XY-C1 run #44978563487 for the production fix SHA `5b93812`; if it failed, inspect Build logs and repair the production defect. Do not treat checker-only descendants as firmware source validation.
-3. Once Samba passes, continue the open P1 WAN NVRAM publication audit in `net_wan.c`, focusing on critical callers of checked status helpers and legacy void wrappers. Keep frozen backup untouched.
+1. Inspect exact push Actions on current `main` for WAN route-status and AI docs; match each `head_sha` to main. Fix a source or checker failure without weakening the checked tuple/fallback contract.
+2. Recheck XY-C1 #44978563487 on product source `5b93812`; it is independent of this WAN follow-up. Require Build, TRX and artifact upload on one exact source SHA before L3.
+3. Continue P1 Init/PID1 reliability auditing from `REFACTOR_ROADMAP.md` while Actions run; keep the frozen backup untouched.
 
 ## Workflow and preservation rules
 

@@ -1295,6 +1295,28 @@ test_transactional_wan_route_snapshot_reads_one_generation(void)
 		for (i = 0; i < 3; ++i)
 			assert(destinations[i][0] == '\0');
 	}
+
+	/* A failed transaction close also invalidates the complete route tuple. */
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	fake.end_error = EIO;
+	for (i = 0; i < 3; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = values[i];
+		strcpy(destinations[i], "stale");
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EIO);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 3);
+	assert(fake.end_calls == 1);
+	for (i = 0; i < 3; ++i)
+		assert(destinations[i][0] == '\0');
 }
 
 

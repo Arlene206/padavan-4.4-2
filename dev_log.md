@@ -1,3 +1,12 @@
+## 2026-11-21 19:18 PST — Use coherent checked WAN tuple during route-up
+
+- Parent main SHA: `9dfdae39490d7486f5dd33ff2b3ad68f23f1a0b0`; Samba workflow contract locator correction `9dfdae39490d7486f5dd33ff2b3ad68f23f1a0b0` has Samba #44979109639 PASS and AI docs #44979110109 PASS on its exact SHA.
+- P1 audit found `wan_up_internal()` reading gateway, IPv4 address and netmask independently via `get_wan_unit_value()` (`nvram_safe_get`), then only copying the rotating-cache strings. Unlike teardown's existing `wan_unit_route_snapshot()`, this hid NVRAM backend errors as empty values and could mix different DHCP-renew generations when deciding whether to add an off-subnet gateway host route.
+- WAN-up now reads the tuple through the same checked NVRAM transaction used by teardown. If that tuple read/close fails, the code preserves the failure, invalidates address/netmask ownership data, and permits only a separate checked gateway read for the existing default-route attempt; it does not infer a gateway /32 from mixed generations.
+- Extended `test_transactional_wan_route_snapshot_reads_one_generation` to cover transaction-close failure and whole-tuple invalidation. Updated `wan-route-status.yml` to pin snapshot-before-route ordering, checked fallback, and absence of unchecked tuple reads. This session has no local repository checkout/toolchain; exact GNU89/Werror/ASan/UBSan and source-contract execution is delegated to same-SHA Actions. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 11:08 CST — Correct newline-sensitive Samba public-writer contract
 
 - Parent main SHA: `32394e6581f566d1cd4a65a33749f319c002f9f3`.
