@@ -4993,13 +4993,19 @@ jobs:
           assert 'firewall_interface_name_is_safe("eth0\\n-A INPUT -j ACCEPT")' in firewall_test
           assert 'firewall_interface_name_is_safe("ppp10+")' in firewall_test
           assert 'if (!firewall_interface_name_is_safe(wan_if_value))' in firewall
-          assert 'if (man_if_value && *man_if_value &&' in firewall
+          assert 'if (man_if[0] && !firewall_interface_name_is_safe(man_if))' in firewall
           assert 'if (i_use_man && !firewall_interface_name_is_safe(man_if))' in firewall
-          assert firewall.index("man_if_value = get_man_ifname(unit);", firewall_main_start) < firewall.index("ipt_raw_rules();", firewall_main_start)
-          assert firewall.index('wan_if_value = get_wan_unit_value(unit, "ifname_t");', firewall_main_start) < firewall.index("ipt_raw_rules();", firewall_main_start)
-          print("Firewall raw interface-token validation: OK")
           firewall_main_end = firewall.index(chr(10) + "}", firewall_main_start)
           firewall_main = firewall[firewall_main_start:firewall_main_end]
+          man_read = firewall_main.index("status = get_wan_unit_value_copy_status(")
+          man_read_error = firewall_main.index("if (status != 0)", man_read)
+          man_validate = firewall_main.index("if (man_if[0] && !firewall_interface_name_is_safe(man_if))", man_read_error)
+          raw_rules = firewall_main.index("ipt_raw_rules();", man_validate)
+          assert man_read < man_read_error < man_validate < raw_rules
+          assert "errno = status;" in firewall_main and "return status;" in firewall_main
+          assert "get_man_ifname(unit)" not in firewall_main
+          assert firewall_main.index('wan_if_value = get_wan_unit_value(unit, "ifname_t");') < raw_rules
+          print("Firewall raw interface-token validation: OK")
           lan_copy = firewall_main.index('snprintf(lan_ip, sizeof(lan_ip), "%s", nvram_safe_get("lan_ipaddr"));')
           lan_guard = firewall_main.index("if (!firewall_ipv4_address_is_safe(lan_ip))")
           lan_fallback = firewall_main.index('strcpy(lan_ip, "0.0.0.0");')

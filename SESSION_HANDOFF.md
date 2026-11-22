@@ -7,12 +7,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; active branch `main`; atomic complete-tree commits and non-forced expected-SHA updates only.
-- Parent main SHA for the WISP identity correction: `5a86cca27cb9634a1a0c13375a58518c848b309e`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- Checked MAN interface reads are enforced in WAN startup, IP lookup, stop, AP-client WISP migration, AP-client radio recovery, full WAN restart and firewall rebuild. The firewall checked-`ifname` change on the parent passed Firewall Startup #44997818203; its WAN route regression was still running.
-- The root development log has 22 complete records (below its 120-entry rotation trigger); archive `part-025.md` holds 101 older records and the archive index records its exact Git blob SHA/size/count. Exact parent AI handoff #44997818219 PASS.
-- Parent exact Actions: Firewall Startup #44997818203 PASS; WAN DHCP #44997818225 PASS; AI handoff #44997818219 PASS; Process inventory #44997818261 PASS. WAN route #44997818209, NVRAM transaction #44997818217, FULLCONENAT #44997818224, HTTPD security #44997818264 and XY-C1 #44997818248 were IN_PROGRESS at last check.
-- WISP identity fix is included in THIS COMMIT; exact-head host Actions and XY-C1 Build/TRX/artifact are not yet verified. Hardware L4 NOT VERIFIED.
-- L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on one identical product-source SHA; no L3 claim.
+- Parent main SHA for the checker corrections: `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- WISP checked identity API and fail-closed callers are committed on parent `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`; exact WAN route failed in the new source-check step due to a whitespace-matcher defect, not a C policy test failure.
+- Parent exact runs PASS: NFS #44998118113, DDNSTO #44998118172, Inadyn #44998118085, Wireless #44998117958, Samba #44998117976, OpenVPN client credential #44998118157, DNS Forwarder #44998118065, vsftpd #44998117964, detect_link #44998118027, miniupnpd #44998118058, AliyunDrive #44998118108, Process inventory #44998118134, WAN teardown #44998118022 and IPv6 #44998118141.
+- Parent WAN route #44998118160 failed in its new source contract due to whitespace normalization; HTTPD security #44998118167 failed a stale firewall-source assertion. Both test-contract failures are corrected in THIS COMMIT; no product-source rollback is indicated.
+- Parent XY-C1 #44998117945, AI handoff #44998118765 and several independent suites were still running at last poll. L3 requires same-SHA Build + TRX + artifact; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -33,20 +32,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- New P1 WAN state-classification defect: `get_wan_wisp_active()` read `wan0_ifname` via the lossy safe_get-backed `get_man_ifname()`. The WAN LED caller and Ethernet-link-restored DHCP renew caller could treat a transient NVRAM read/close error as "not WISP".
-- THIS COMMIT adds checked `get_wan_wisp_active_status()`, token validation, an error-preserving policy helper, and unit/source-order regressions. It retains the legacy boolean ABI conservatively (unknown MAN identity => active), suppresses cached Ethernet LED fallback on identity errors, and prevents DHCP renew on an unknown identity.
-- The firewall checked MAN-interface input is implemented and its exact Firewall Startup workflow passed on parent SHA `5a86cca27cb9634a1a0c13375a58518c848b309e`; the exact WAN route workflow was still running.
+- WISP checked identity source is committed on parent `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`: NVRAM read/validation policy helper and C regression built successfully, but the WAN route Python contract stopped on a formatting-sensitive substring lookup. THIS COMMIT changes only test contracts: strip all C whitespace in WISP assertions and update HTTPD firewall assertions for the checked-MAN input path.
+- Keep the WISP implementation unchanged unless the corrected exact-head contract exposes a real source failure. Then fix any demonstrated product defect and rerun affected SHA checks.
 
 ## Verification boundary
 
-- Parent `5a86cca27cb9634a1a0c13375a58518c848b309e`: Firewall Startup #44997818203 PASS; WAN DHCP #44997818225 PASS; AI handoff #44997818219 PASS; Process inventory #44997818261 PASS.
-- Parent WAN route #44997818209, NVRAM transaction audit #44997818217, FULLCONENAT #44997818224, HTTPD security #44997818264 and XY-C1 Firmware Validation #44997818248 were IN_PROGRESS at last poll. Parent WAN route is the relevant checker for the firewall change.
-- WISP checked-read C policy regression and Python source contract are wired into the WAN route workflow. Exact-head runs for THIS COMMIT must pass before the slice is host-verified.
-- No same-SHA Build XY-C1/TRX/artifact completion verified. L3 NOT VERIFIED; hardware L4 NOT VERIFIED.
+- Parent WAN route #44998118160 FAILED at `scripts/check_wan_dns_read_status.py:988` with `ValueError: substring not found`; all C compile/run steps before the checker passed, including the WAN NVRAM policy regression.
+- Parent HTTPD Security #44998118167 FAILED at embedded Python line 863 because its assertion still required the old `man_if_value` getter; earlier HTTPD subchecks in that job passed. The checked firewall source is independently covered by Firewall Startup #44997818203 PASS on ancestor `5a86cca`.
+- Checker-only corrections THIS COMMIT align both consumers; exact reruns must pass before WISP is host-verified.
+- Parent AI docs #44998118765 and XY-C1 #44998117945 were IN_PROGRESS at last poll. No same-SHA L3 result; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch the exact main SHA produced by THIS COMMIT and inspect its push Actions. Require WAN route regression (including new WISP checks), WAN DHCP and triggered firewall/security checks to pass; diagnose the first real failure.
-2. Verify the WISP status API preserves NVRAM read and close errors, treats a genuinely empty legacy interface as inactive, and never queries AP-client link state before successful token validation.
-3. Confirm unknown WISP identity suppresses cached Ethernet LED fallback and prevents link-restored DHCP renewal; preserve the legacy boolean ABI as conservative-active.
-4. Check exact-SHA XY-C1 Build, TRX verification and artifact upload as a single L3 gate; hardware L4 remains NOT VERIFIED. Continue with the next high-risk stability/security issue only after current exact-head failures are triaged.
+1. Check exact-head WAN route and HTTPD Authentication/Security runs for THIS COMMIT. WISP source matching must pass with all-whitespace normalization; HTTPD must assert checked MAN read → error gate → token validation → raw rules.
+2. If either checker fails, inspect the exact failed step/log and correct only the demonstrated contract or product defect; do not weaken the behavior.
+3. Poll exact-head XY-C1, AI handoff and independent security/stability runs; L3 requires Build + TRX + artifact on one SHA.
+4. After WISP contracts pass, continue other concrete WAN checked-read gaps or cross-userland high-severity issues; keep backup read-only and hardware L4 unverified.

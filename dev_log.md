@@ -1,3 +1,12 @@
+## 2026-11-22 15:47 CST — Align WISP and HTTPD firewall source contracts
+
+- Parent main SHA: `a41fdc4d1bf6aef69e5242aa26712c56fe2b56f7`. Exact WAN route #44998118160 FAILED in `scripts/check_wan_dns_read_status.py:988`: the new WISP source matcher collapsed runs of whitespace but retained a single separator after a wrapped function-call opening parenthesis. The WISP policy C executable compiled and ran successfully before the Python checker step.
+- Exact HTTPD Authentication/Security #44998118167 FAILED in its route-access checker at embedded Python line 863 (`.github/workflows/httpd-security.yml`): it still required the removed `man_if_value`/`get_man_ifname()` firewall code after the checked MAN-interface fix landed on parent `5a86cca`. All earlier HTTPD steps in that job passed.
+- Corrected both contracts without changing product behavior: WISP matching now strips all source whitespace before order assertions; HTTPD firewall assertions now require checked MAN read, error gate, safe-token validation and validation-before-raw-rules, and reject the lossy getter.
+- The exact-head WISP source change itself is not yet host-verified because the route checker stopped on this assertion. Exact parent XY-C1 #44998117945 and AI docs #44998118765 were still in progress at last poll; no L3 claim.
+
+---
+
 ## 2026-11-22 15:31 CST — Preserve WAN WISP identity read failures
 
 - Parent main SHA: `5a86cca27cb9634a1a0c13375a58518c848b309e`. Its firewall checked-MAN-interface fix is validated by exact Firewall Startup run #44997818203 PASS; AI handoff #44997818219 and Process inventory #44997818261 PASS. WAN route #44997818209, NVRAM audit #44997818217, FULLCONENAT #44997818224, HTTPD security #44997818264 and XY-C1 #44997818248 were still in progress at the last check; no L3 claim.
