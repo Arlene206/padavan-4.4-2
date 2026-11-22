@@ -1421,7 +1421,9 @@ print("Storage eject inventory, mount-link errno, failure propagation and persis
 # clear fails. Keep a PID-1 completion latch to prevent duplicate execution.
 optware_policy = read("trunk/user/rc/src/storage_optware_start_policy.h")
 optware_test = read("trunk/user/rc/src/tests/storage_optware_start_policy.c")
-ack_writer = body(storage, "storage_ack_event_marker_status(const char *name)")
+ack_writer_start = storage.index("storage_ack_event_marker_status(const char *name)")
+ack_writer_end = storage.index("\\nstatic int\\nstorage_read_nvram_string", ack_writer_start)
+ack_writer = storage[ack_writer_start:ack_writer_end]
 require("nvram_set_int_temp(name, 0)" in ack_writer and
         "if (write_status == 0)" in ack_writer and
         "saved_errno > 0" in ack_writer and "return EIO;" in ack_writer,
