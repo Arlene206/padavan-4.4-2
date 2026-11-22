@@ -1,3 +1,11 @@
+## 2026-11-22 — Guard AP-client WISP migration with checked prior WAN identity
+
+- Parent main SHA: `2149789b0636dd794fcb7eeb5343e314045cdc9a`. Exact 214 WAN route #44996754354 PASS, WAN DHCP #44996754350 PASS, WAN interface teardown #44996754355 PASS and AI handoff #44996754406 PASS; XY-C1 #44996754358 remained in Build XY-C1.
+- `config_apcli_wisp()` previously fetched old manual WAN interface via `get_man_ifname()` (safe_get-backed); a transient NVRAM error could look empty, skip clearing the prior WAN address/interface, then continue enabling/publishing the AP-client WISP interface.
+- Added checked bounded `ifname` read and `wan_ifname_copy()` validation before old-interface cleanup, IPv6 enablement and NVRAM publication. Actual errors are returned with `errno`; empty legacy configuration remains an empty string.
+- Extended the WAN source contract to assert read/error/validation ordering before ifconfig/IPv6/publication and forbid the lossy getter. Exact-head Actions for this additional source change remain pending.
+
+---
 ## 2026-11-22 — Fail closed before WAN teardown when manual interface is unreadable
 
 - Parent main SHA: `59cdab3123a8d6cce5dae6c5f5fe347d9d9bee67`. Exact WAN route #44996570973 PASS and AI handoff #44996570985 PASS; exact d018 WAN DHCP #44996488482 PASS.

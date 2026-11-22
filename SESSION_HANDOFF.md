@@ -7,11 +7,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
-- Current source/checker baseline before this teardown fix: `59cdab3123a8d6cce5dae6c5f5fe347d9d9bee67`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- WAN startup/interface selection and `get_wan_ip4()` now use checked manual-interface reads only when needed, bounded validation, and preserved error status/errno. `get_wan_ip4()` keeps the `INADDR_ANY` sentinel and selects modem/PPP before manual fallback.
-- Exact 59 WAN route #44996570973 PASS and AI handoff #44996570985 PASS. Exact d018 WAN DHCP #44996488482 PASS. d018 WAN route #44996488531 failed only because the old checker required an errno-less modem identity return; this was corrected in 59 and exact 59 route passed.
-- Additional confirmed stop-path defect: `stop_wan_locked()` used `get_man_ifname()` after pausing Internet monitor and invalidating PPP callbacks. A transient NVRAM error became an empty name, so teardown could progress with an unknown manual interface. New slice moves a checked read/token validation before pause/callback/destructive operations, preserves empty legacy configuration, and returns the real failure before any teardown side effect.
-- Exact d018 XY-C1 #44996488349 was still running Build XY-C1 at last poll (no completed TRX/artifact result). L3 is not yet verified. No local MIPS toolchain/hardware; L4 NOT VERIFIED.
+- Current source/checker parent before AP-client migration slice: `2149789b0636dd794fcb7eeb5343e314045cdc9a`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
+- WAN checked manual-interface reads are present in `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()` and `stop_wan_locked()`. Stop-path read/validation precedes monitor pause, callback invalidation and reconnect cancellation; empty legacy interface remains empty.
+- Exact 214 WAN route #44996754354 PASS, WAN DHCP #44996754350 PASS, WAN interface teardown #44996754355 PASS, and AI handoff #44996754406 PASS. Exact 214 XY-C1 #44996754358 was in build preparation/compilation; final TRX/artifact had not completed at last poll.
+- Newly found AP-client WISP migration path `config_apcli_wisp()` still used lossy `get_man_ifname()` before clearing the old WAN interface and publishing AP-client WISP. This slice replaces it with checked bounded copy/token validation before ifconfig/IPv6/publication, preserving an actually empty legacy setting.
+- No L3 claim until Build XY-C1, TRX verification and artifact upload all execute/pass on the same product-source SHA. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -32,20 +32,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- WAN startup, manual interface selection and WAN IP lookup now use checked reads/validation. Exact 59 WAN route #44996570973 PASS, exact 59 AI handoff #44996570985 PASS, and exact d018 WAN DHCP #44996488482 PASS.
-- Current P1 teardown slice replaces `stop_wan_locked()`'s lossy `get_man_ifname()` read with checked bounded NVRAM copy and validation before pausing the Internet monitor, invalidating PPP callback sessions, or cancelling reconnects. Empty legacy manual interface remains empty; nonempty names are validated.
-- `scripts/check_wan_dns_read_status.py` asserts read/error/validation/empty-compatibility ordering before pause and no remaining lossy getter in this teardown function.
+- Checked WAN manual-interface read fixes are present in `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()` and `stop_wan_locked()`. Exact 214 WAN DHCP #44996754350, route #44996754354, teardown #44996754355 and AI docs #44996754406 PASS.
+- Current P1 AP-client WISP slice prevents `config_apcli_wisp()` from clearing/rewriting WAN state when `wan0_ifname` cannot be read. Nonempty manual names are validated before old-interface ifconfig/IPv6 changes/publication; empty legacy configuration is preserved.
+- The WAN DNS source contract pins checked read → error gate → nonempty validation/error gate → old-interface cleanup → publication, with IPv6 change after the guard.
 
 ## Verification boundary
 
-- Exact 59 WAN route #44996570973 PASS and AI handoff #44996570985 PASS; exact d018 WAN DHCP #44996488482 PASS.
-- Stop-path product change and new source contract have not yet run exact-head Actions; require WAN route/DHCP plus relevant source lifecycle tests.
-- Exact d018 XY-C1 #44996488349 was IN_PROGRESS at last poll at Build XY-C1; verify Build/TRX/artifact on the corresponding production-source SHA. No L3 claim yet.
-- No hardware test; L4 unverified. Backup branch remains read-only.
+- Exact 214 WAN route #44996754354 PASS, WAN DHCP #44996754350 PASS, WAN teardown #44996754355 PASS and AI handoff #44996754406 PASS.
+- Exact 214 XY-C1 #44996754358 remained in Build XY-C1; TRX/artifact results had not been observed.
+- AP-client WISP source/checker change has not yet run exact-head Actions; WAN route/DHCP and firmware verification are required.
+- No L3 until same-SHA Build/TRX/artifact all pass; hardware L4 unverified.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route and WAN DHCP for the checked stop-path interface read; fix any source/checker regression.
-2. Ensure read and validation failures return before pause, callback invalidation, reconnect cancellation or service termination; confirm empty-key compatibility.
-3. Verify XY-C1 Build, TRX and artifact on one identical product-source SHA before claiming L3.
-4. Continue auditing remaining state-changing `get_man_ifname()` callers only where loss of the read status changes a transition decision; keep backup read-only and hardware L4 unverified.
+1. Check exact-head WAN route/DHCP and AP-client WISP source assertions; fix concrete compile or checker failures.
+2. Verify exact-SHA XY-C1 Build, TRX verification and artifact upload all complete successfully.
+3. Continue only on state-changing WAN interface reads with concrete fail-open/cleanup consequences; keep backup read-only.
+4. Hardware L4 remains unverified.

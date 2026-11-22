@@ -464,6 +464,26 @@ require(stop_locked_compact.index(identity_read) < stop_locked_compact.index(ide
         "full WAN teardown must verify identity and transport before stopping services")
 assert 'nvram_get_int("modem_type")' not in stop_locked_compact
 
+wisp_migration = "".join(body(source, "config_apcli_wisp(void)").split())
+wisp_manual_read = "ifname_status=get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))"
+wisp_manual_copy = "ifname_status=wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)"
+wisp_manual_read_at = wisp_migration.index(wisp_manual_read)
+wisp_manual_read_error_at = wisp_migration.index("if(ifname_status!=0)", wisp_manual_read_at)
+wisp_manual_nonempty_at = wisp_migration.index("if(man_ifname_nvram[0])", wisp_manual_read_error_at)
+wisp_manual_copy_at = wisp_migration.index(wisp_manual_copy, wisp_manual_nonempty_at)
+wisp_manual_copy_error_at = wisp_migration.index("if(ifname_status!=0)", wisp_manual_copy_at)
+wisp_old_ifconfig_at = wisp_migration.index("ifconfig(man_ifname,IFUP,\"0.0.0.0\",NULL)")
+wisp_ipv6_enable_at = wisp_migration.find("control_if_ipv6(wisp_ifname,1)")
+wisp_publish_at = wisp_migration.index("set_wan_unit_value_status(0,\"ifname\",wisp_ifname)")
+require(wisp_manual_read_at < wisp_manual_read_error_at < wisp_manual_nonempty_at <
+        wisp_manual_copy_at < wisp_manual_copy_error_at < wisp_old_ifconfig_at <
+        wisp_publish_at and
+        "man_ifname[0]='\\0';" in wisp_migration and
+        "errno=ifname_status;" in wisp_migration and
+        "get_man_ifname(unit)" not in wisp_migration,
+        "AP-client WISP migration must check prior WAN identity before cleanup and publication")
+require(wisp_ipv6_enable_at < 0 or wisp_manual_copy_error_at < wisp_ipv6_enable_at,
+        "AP-client WISP migration must not change IPv6 before validating the prior WAN interface")
 manual_ifname_read = "ifname_status=get_wan_unit_value_copy_status(unit,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))"
 manual_ifname_validate = "ifname_status=wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)"
 manual_ifname_read_at = stop_locked_compact.index(manual_ifname_read)

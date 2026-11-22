@@ -2550,11 +2550,11 @@ config_vinet_wan(void)
 static int
 config_apcli_wisp(void)
 {
-	int unit = 0, publication_status;
+	int unit = 0, publication_status, ifname_status;
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status;
 #endif
-	char *man_ifname;
+	char man_ifname[16], man_ifname_nvram[16];
 	char *wisp_ifname = get_apcli_wisp_ifname();
 
 	if (!wisp_ifname)
@@ -2571,8 +2571,34 @@ config_apcli_wisp(void)
 	}
 #endif
 
-	man_ifname = get_man_ifname(unit);
-	if (strlen(man_ifname) > 0 && !is_man_wisp(man_ifname)) {
+	/*
+	 * Resolve the previous WAN interface before changing it or publishing
+	 * the AP-client interface. A safe_get-backed read can hide NVRAM errors
+	 * as an empty interface and skip the required old-interface cleanup.
+	 */
+	ifname_status = get_wan_unit_value_copy_status(
+		unit, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+	if (ifname_status != 0) {
+		errno = ifname_status;
+		logmessage(LOGNAME,
+			   "cannot read previous WAN interface before AP-client migration (status=%d)",
+			   ifname_status);
+		return ifname_status;
+	}
+	if (man_ifname_nvram[0]) {
+		ifname_status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (ifname_status != 0) {
+			errno = ifname_status;
+			logmessage(LOGNAME,
+				   "invalid previous WAN interface before AP-client migration (status=%d)",
+				   ifname_status);
+			return ifname_status;
+		}
+	} else {
+		man_ifname[0] = '\0';
+	}
+	if (man_ifname[0] && !is_man_wisp(man_ifname)) {
 		int address_status, down_status;
 
 		address_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
