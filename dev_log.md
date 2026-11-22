@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct OpenVPN IPv6 endpoint source-contract signatures
+
+- Parent main SHA: `db11b15bb545dbf9dafff9c4795600735884e0dc`. Exact-head WAN route #45026956811 compiled and passed all earlier sanitizer/policy checks, then the added `scripts/check_wan_dns_read_status.py` contract could not locate the new status helper because its C return type and function name are split across lines. Exact-head WAN DHCP #45026956814 also passed all earlier regression binaries and DNS policy checks, then failed on the old assertion that the lookup remained inside the legacy pointer wrapper.
+- Updated the route checker to locate the definition by its function-name substring and migrated the DHCP checker to validate the status-bearing helper, getifaddrs errno handling, fake-backend regressions, OpenVPN fail-closed behavior and LAN fallback ordering. These are test-harness corrections; the product-source commit `db11b15bb545dbf9dafff9c4795600735884e0dc` is unchanged.
+- AI handoff validation on `db11b15...` is queued/in progress at the time of this correction; WAN DHCP and route both failed only in the stale/new checker contracts as detailed above. Recheck every relevant exact-SHA Actions run after this correction. Local tests remain not run in this connector-only environment.
+- Result: THIS COMMIT. Next: inspect DHCPv6 callback LAN address retrieval; determine whether `get_ifaddr6(IFNAME_BR,...)` can collapse getifaddrs errors or publish an uninitialized address through `store_lan_addr6()`. Continue beyond DHCPv6 if this has no concrete failure.
+
+---
+
 ## 2026-11-22 — Keep OpenVPN IPv6 endpoint errors distinct from clean address misses
 
 - Parent main SHA: `52d3648af131fc24adfc607bb9f9f6e228349fff`. Exact-head WAN DHCP #45026555245, WAN route #45026555259, IPv6 service-type #45026555291, AI handoff #45026555208, HTTPD security #45026555260 and Process inventory #45026555340 passed. NVRAM transaction audit #45026555243 and XY-C1 build #45026555307 remained in progress at the last observation.

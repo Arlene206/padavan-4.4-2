@@ -1227,7 +1227,7 @@ require('get_wan_unit_value(unit, "ifname6")' not in wan6_down_body,
 # OpenVPN endpoint export may fall back to LAN only after a clean WAN lookup miss.
 wan6_host_body = body(
     wan6_source,
-    "int get_wan_addr6_host_status(char *p_addr6s, const char **p_host)",
+    "get_wan_addr6_host_status(char *p_addr6s, const char **p_host)",
 )
 require("get_wan_unit_value_copy_status(" in wan6_host_body and
         '"ifname6"' in wan6_host_body and

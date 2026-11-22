@@ -457,14 +457,33 @@ assert identity_read < identity_error < first_interface_probe
 assert 'get_wan_unit_value(unit, "ifname6")' not in wan6_down_body
 
 
-# IPv6 host-address lookup must use a stable checked interface-name snapshot.
-host_addr_body = body(source, "get_wan_addr6_host(char *p_addr6s)")
-assert "char wan6_ifname[IFNAMSIZ]" in host_addr_body
-assert 'get_wan_unit_value_copy_status(\n\t\t0, "ifname6", wan6_ifname, sizeof(wan6_ifname))' in host_addr_body
-host_read = host_addr_body.index("get_wan_unit_value_copy_status(")
-host_error = host_addr_body.index("if (status != 0)", host_read)
-host_lookup = host_addr_body.index("get_ifaddr6(wan6_ifname, 0, p_addr6s)", host_error)
-assert host_read < host_error < host_lookup
-assert "errno = status;" in host_addr_body
-assert 'get_wan_unit_value(0, "ifname6")' not in host_addr_body
-assert "if (!p_addr6s)" in host_addr_body
+# OpenVPN WAN IPv6 endpoint lookup keeps read failures separate from clean misses.
+host_addr_body = body(source, "get_wan_addr6_host_status(char *p_addr6s, const char **p_host)")
+assert "get_wan_unit_value_copy_status(" in host_addr_body
+assert '"ifname6"' in host_addr_body
+assert "wan6_identity_resolve_addr6_host(" in host_addr_body
+lookup_body = body(source, "wan6_lookup_ifaddr6_status(void *context, const char *ifname,")
+assert "errno = 0;" in lookup_body
+assert "result = get_ifaddr6(ifname, 0, address);" in lookup_body
+assert "return errno ? errno : 0;" in lookup_body
+legacy_body = body(source, "char *get_wan_addr6_host(char *p_addr6s)")
+assert "get_wan_addr6_host_status(p_addr6s, &host)" in legacy_body
+assert "errno = status;" in legacy_body
+identity_policy = Path("trunk/user/rc/src/wan6_identity_policy.h").read_text()
+identity_test = Path("trunk/user/rc/src/tests/wan6_identity_policy.c").read_text()
+host_policy = body(identity_policy, "wan6_identity_resolve_addr6_host(int ifname_status,")
+for token in ("if (ifname_status != 0)", "if (!ifname[0])",
+              "if (status != 0)", "if (!found)", "strchr(address, '/')"):
+    assert token in host_policy
+for case in ("test_wan6_address_host_read_error_fails_closed",
+             "test_wan6_address_host_missing_interface_keeps_fallback_eligible",
+             "test_wan6_address_host_extracts_prefix_free_public_address",
+             "test_wan6_address_host_does_not_hide_address_enumeration_error",
+             "test_wan6_address_host_no_address_is_a_non_error",
+             "test_wan6_address_host_rejects_invalid_arguments"):
+    assert case in identity_test and case + "();" in identity_test
+vpn_source = Path("trunk/user/rc/src/vpn_openvpn.c").read_text()
+vpn_export = body(vpn_source, "ovpn_server_expcli_main(int argc, char **argv)")
+assert "wan_addr6_status = get_wan_addr6_host_status(addr6s, &wan_addr);" in vpn_export
+assert "if (wan_addr6_status != 0)" in vpn_export and "goto failed;" in vpn_export
+assert vpn_export.index("if (wan_addr6_status != 0)") < vpn_export.index("get_lan_addr6_host(addr6s)")
