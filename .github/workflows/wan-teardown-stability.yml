@@ -208,7 +208,9 @@ jobs:
           callback_cleanup = "callback_cleanup_status = remove_cb_links();"
           final_gate = "if (stop_status != 0)"
           assert final_status in stop and callback_cleanup in stop and final_gate in stop
-          assert stop.index(callback_cleanup) < stop.index(final_status) < stop.index(final_gate)
+          final_status_at = stop.index(final_status)
+final_gate_at = stop.index(final_gate, final_status_at)
+assert stop.index(callback_cleanup) < final_status_at < final_gate_at
           assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in stop
           assert "protocol=%d" in stop
 

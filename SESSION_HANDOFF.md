@@ -28,26 +28,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- WAN reset now uses checked selector reads, a transactionally coherent manual endpoint snapshot, bounded protocol parsing, and checked custom/factory MAC identity reads.
-- `start_wan()` uses checked per-unit protocol retrieval and retains the first failure before interface setup.
-- The boolean manual-PPP classifier uses a checked protocol wrapper that returns a negative error sentinel on read failure; `is_ifunit_man()` maps the sentinel explicitly to `true` so an unreadable protocol cannot trigger destructive IPoE cleanup.
-- The first follow-up checker correction (`dc5df775b1ec1043b5f4c1ce42f472533f886682`) removed the stale PPTP expectation, but exact WAN route #44965681798 and XY-C1 #44965681825 exposed a second checker extraction bug: a comment occurrence of `is_ifunit_man(` preceded the function definition, so the generic matcher extracted the wrong body. THIS checker-only fix now scopes to the exact function signature. XY-C1 also surfaced an independent `run_samba` source-contract extraction failure, tracked separately.
-- THIS source slice closes five more protocol-error fallthroughs: DNS mode, WAN interface-name selection, WAN IPv4 lookup, link-restored DHCP renewal and `udhcpc_deconfig()`. The latter preserves the MAN underlay when protocol is unreadable but still calls `man_down_internal()` and aggregates the protocol error with teardown status.
-- Exact WAN route #44966179307 failed only at the new `get_wan_ifname()` source-contract assertion after prior host regressions passed; the assertion's broad getter substring check is being narrowed to the obsolete assignment. WAN DHCP callback #44966179303 and AI handoff #44966179398 passed on the same SHA.
-- Next: rerun WAN route, then audit `stop_wan_locked()` / `wan_down_internal()` for skipped static-address/DHCP-route/auth cleanup on protocol-read failures; keep teardown and unrelated cleanup unconditional.
+- Current production WAN protocol hardening slice: `4a6df662b6c34d2282e81b3ef8054e80e0894393` (parent `d1108616599c54ff5268c780b9119d276b1e82fb`). It replaced unchecked `get_wan_proto(unit)` usage in `add_man_gateway_routes()`, `man_down_internal()`, `wan_up_internal()` and `udhcpc_bound()` with checked protocol reads. MAN-up still adds essential gateway routes but suppresses optional DNS routes when the protocol is unknown; MAN-down attempts conservative idempotent DNS removal and retains the read error; WAN-up and non-modem DHCP bound fail closed before changing protocol-dependent runtime/lease state.
+- The same source slice fixes `stop_wan_locked()` losing a protocol-read error when successful VPN/PPP stop results overwrote it. The final teardown status now aggregates the checked protocol result after callback/interface cleanup before deciding whether to clear WAN state.
+- Added host C policy tests for MAN DNS route add/remove policy and WAN teardown first-error retention. Exact-head WAN DHCP regression on the checker descendant `4c1f1be93e4c0436d0b20a3b4ddfbb314d07914c` passed; its earlier C/test compilation was also reached on the teardown run.
+- Do not interpret checker-only descendants as firmware source proof. Continue to distinguish exact product-source SHA and checker SHA in all validation notes.
 
 ## Verification boundary
 
-- Product source head inspected: `6a7639cc946d9277a4a54db6c695bd816c472761`; `net_wan.c` blob: `d1315536f781f632aa2c1839eefb01619614b86d`.
-- Backup branch is read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact-head workflow states: WAN route operation status regression: #44966882221 completed/failure; WAN DHCP callback state stability regression: #44966882242 completed/success; XY-C1 Firmware Validation: #44966882256 completed/success; AI handoff documentation contract: #44966882224 completed/success.
-- Missing runs are not passes. Firmware L3 requires Build XY-C1, TRX and artifact upload all PASS on this same product SHA; hardware L4 remains NOT VERIFIED.
+- Current main at this checkpoint: `4c1f1be93e4c0436d0b20a3b4ddfbb314d07914c`; active product-source commit `4a6df662b6c34d2282e81b3ef8054e80e0894393`.
+- Exact checker-head `4c1f1be93e4c0436d0b20a3b4ddfbb314d07914c`: WAN DHCP callback #44967410597 PASS. WAN route #44967410609 FAIL at the `get_wan_ip4()` checker expecting a brace-less error gate while the source uses the correct braced checked-read return. WAN teardown #44967410572 FAIL at a source assertion that found an earlier generic `if (stop_status != 0)` before the final aggregate gate. Both are test-contract locator/anchor defects; the C policy binaries and the preceding route host regressions passed.
+- AI handoff docs #44967410603 FAIL because the handoff section heading was changed from the required `## Exact first action for the next GPT` to `## Exact first action`; this checkpoint restores the required heading. The documentation checker itself is not being weakened.
+- Exact product-source SHA `4a6df662...` XY-C1 run #44967290950 was still in progress at the last poll. Do not claim firmware L3 until Build XY-C1, TRX verification and artifact upload all pass on that same product-source SHA. Prior source SHA `6a7639cc...` had Build/TRX/artifact PASS but does not validate the later product-source change.
+- WAN route checker, WAN teardown checker and AI handoff heading corrections are committed together with this checkpoint. Their new exact-SHA Actions must be checked before claiming closure.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
-## Exact first action
+## Exact first action for the next GPT
 
-1. Inspect any exact-head WAN route, WAN DHCP callback, XY-C1 and AI handoff jobs listed above; resolve FAIL by its actual failing step.
-2. Continue the `udhcpc_bound()` protocol read audit: do not publish new lease/default-route state on an unknown protocol, and do not skip old-route cleanup.
-3. Verify Build XY-C1, TRX and artifact upload independently before claiming L3.
+1. Inspect exact-SHA WAN route, WAN teardown and AI handoff runs for this checker/handoff checkpoint; fix each failure at its actual step. WAN DHCP #44967410597 already passed on the parent checker SHA.
+2. Inspect XY-C1 run #44967290950 for product-source SHA `4a6df662...` and verify Build, TRX and artifact upload individually.
+3. Continue WAN stability audit beyond the four corrected consumers, starting with checked modem identity selection around `is_ifunit_modem()`/DHCP callbacks; preserve cleanup ordering and legacy transport compatibility.
 
 ## Workflow and preservation rules
 

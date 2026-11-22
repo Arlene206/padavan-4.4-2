@@ -1,3 +1,13 @@
+## 2026-11-22 — Fix WAN IPv4 and teardown source-contract locators; refresh handoff
+
+- Parent main SHA: `4c1f1be93e4c0436d0b20a3b4ddfbb314d07914c`; product source remains `4a6df662b6c34d2282e81b3ef8054e80e0894393`.
+- Exact checker SHA `4c1f1be93e4c0436d0b20a3b4ddfbb314d07914c`: WAN route #44967410609 failed only because the IPv4 lookup contract expected a brace-less error return; the source uses a braced checked-protocol error path. WAN teardown #44967410572 reached its final ordering assertion but located an earlier generic stop-status gate. Both source-contract locators are corrected without relaxing production behavior.
+- AI handoff #44967410603 failed because a prior docs checkpoint renamed the required first-action heading. Restored the exact protocol heading and updated the handoff with product SHA, checker SHA, actual run states, the frozen backup and the first next action.
+- WAN DHCP #44967410597 PASS on checker SHA `4c1f1be...`. The previous firmware run for product SHA `4a6df662...` remained in progress at last poll; L3 is not claimed.
+- Next: verify exact-head route/teardown/handoff reruns, inspect XY-C1 Build/TRX/artifact, then continue checked modem identity audit.
+
+---
+
 ## 2026-11-22 — Repair exact-head checked-protocol regression contracts
 
 - Parent main SHA: `4a6df662b6c34d2282e81b3ef8054e80e0894393`.

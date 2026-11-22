@@ -506,9 +506,11 @@ require(ifname_proto_read_at < ifname_proto_error_at <
 
 wan_ip4 = "".join(body(source, "get_wan_ip4(int only_broadband_wan)").split())
 ip4_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+ip4_proto_read_at = wan_ip4.index(ip4_proto_read)
+ip4_proto_error_gate = "if(status!=0){errno=status;returnINADDR_ANY;}"
+ip4_proto_error_at = wan_ip4.index(ip4_proto_error_gate, ip4_proto_read_at)
 require(ip4_proto_read in wan_ip4 and
-        "if(status!=0)errno=status;returnINADDR_ANY;" in wan_ip4 and
-        wan_ip4.index(ip4_proto_read) < wan_ip4.index("get_interface_addr4(ifname)") and
+        ip4_proto_read_at < ip4_proto_error_at < wan_ip4.index("get_interface_addr4(ifname)") and
         "get_wan_proto(unit)" not in wan_ip4,
         "WAN IP lookup must fail closed when protocol identity is unreadable")
 
