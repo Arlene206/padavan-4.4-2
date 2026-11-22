@@ -52,6 +52,7 @@
 #include "dnsmasq_reload_policy.h"
 #include "process_inventory.h"
 #include "inadyn_daemon_policy.h"
+#include "ddns_enabled_policy.h"
 #include "miniupnpd_config_file.h"
 #include "miniupnpd_daemon_policy.h"
 #include "miniupnpd_presentation_url.h"

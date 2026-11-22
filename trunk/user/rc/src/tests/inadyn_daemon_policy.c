@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "inadyn_daemon_policy.h"
+#include "ddns_enabled_policy.h"
 
 struct fake_signal {
 	const enum process_presence *states;

@@ -49,6 +49,7 @@
 #include "firewall_nvram_match_policy.h"
 #include "rc_nvram_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "ddns_enabled_policy.h"
 #include "router_mode_nvram_policy.h"
 #include "rc_nvram_legacy_migration_policy.h"
 #include "storage_persistence_policy.h"
@@ -2568,6 +2569,9 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_DDNS) == 0)
 		{
 			int is_ap_mode, ap_mode_status, ddns_status;
+			int ddns_enabled_api_result, ddns_enabled_status, ddns_enabled_errno;
+			int ddns_enabled;
+			char *ddns_enabled_value = NULL;
 
 			ap_mode_status = get_ap_mode_status(&is_ap_mode);
 			if (ap_mode_status != 0) {
@@ -2576,9 +2580,22 @@ handle_notifications(void)
 					   ap_mode_status);
 				ddns_status = ap_mode_status;
 			} else {
-				ddns_status = rc_ddns_restart_run(is_ap_mode,
-								 nvram_match("ddns_enable_x", "1"),
-								 start_ddns, stop_ddns);
+				errno = 0;
+				ddns_enabled_api_result = nvram_get_checked("ddns_enable_x",
+								    &ddns_enabled_value);
+				ddns_enabled_errno = errno;
+				ddns_enabled_status = inadyn_ddns_enabled_status(
+					ddns_enabled_api_result, ddns_enabled_errno,
+					ddns_enabled_value, &ddns_enabled);
+				if (ddns_enabled_status != 0) {
+					logmessage(LOGNAME,
+						   "DDNS restart skipped because enable state cannot be read (status=%d)",
+						   ddns_enabled_status);
+					ddns_status = ddns_enabled_status;
+				} else {
+					ddns_status = rc_ddns_restart_run(is_ap_mode,
+								 ddns_enabled, start_ddns, stop_ddns);
+				}
 			}
 			action_result = rc_notify_merge_action_result(action_result, ddns_status);
 		}
