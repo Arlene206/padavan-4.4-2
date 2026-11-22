@@ -9,9 +9,9 @@ case "$1" in
 	[!A-Za-z0-9]*|*[!A-Za-z0-9_-]*) exit 1 ;;
 esac
 
-# Share automount.sh's mountpoint lock across the mount inventory check and
-# hdparm command. Otherwise a hotplug mount can complete after the snapshot
-# and the disk may be spun down while its filesystem is active.
+# Share automount.sh's mountpoint lock across the inventory check and
+# hdparm command. Keep FD 9 open until hdparm returns so a hotplug mount cannot
+# start between the snapshot and the power command.
 spindown_lock_file=/var/lock/automount_mountpoint.lock
 spindown_old_umask=$(umask)
 umask 077

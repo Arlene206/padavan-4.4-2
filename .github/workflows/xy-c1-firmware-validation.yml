@@ -84,6 +84,7 @@ on:
       - "trunk/user/rc/src/storage_hotplug_notify_policy.h"
       - "trunk/user/rc/src/tests/storage_hotplug_notify_policy.c"
       - "trunk/user/scripts/files/sbin/hddtune.sh"
+      - "trunk/user/scripts/files/sbin/spindown.sh"
       - "trunk/user/shared/src/notify_rc.c"
       - "scripts/check_wan_firewall_status.py"
       - "trunk/user/rc/src/wan_route_flush_policy.h"

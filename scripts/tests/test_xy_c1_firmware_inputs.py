@@ -62,6 +62,12 @@ class FirmwareInputPathTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertFalse(is_non_firmware_input(path))
 
+    def test_spindown_script_triggers_xy_c1_firmware_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/scripts/files/sbin/spindown.sh"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+        self.assertFalse(is_non_firmware_input(path))
+
     def test_miniupnpd_pidfile_sources_trigger_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         paths = (
