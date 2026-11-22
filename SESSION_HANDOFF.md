@@ -5,10 +5,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; active branch main; atomic complete-tree commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
-- Parent main for this checkpoint: 1a5bb1367ba92b39f46a89b7172b9f816cc19f56. PR #1's 17-commit head was compared read-only with current main; its unmerged ALIDDNS changes remain to be inventoried for safe porting after this active CI failure is resolved.
-- Exact 1a5bb Process lifecycle inventory #45001003203, PID1 mdev #45001003224 and AI docs #45001003376 PASS. NVRAM #45001003186 and XY-C1 #45001003215 were IN_PROGRESS at last inspection. HTTPD #45001003234 FAILED only at the final embedded PID1 source-contract step: it referenced `pid1_test` without loading the test file into that Python namespace. The GNU89/Werror policy C executable and all preceding HTTPD checks passed.
-- The earlier mask-contract corrections are validated by same-SHA mdev PASS; this HTTPD failure is an independent missing test-source binding, not a production C regression. The C test covers optional `old_set == NULL`, SIGALRM forwarding and stale errno clearing.
+
+- Repository Arlene206/padavan-4.4-2; active branch main; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only; PR #1 closed/unmerged.
+- Current parent main: 0b22c9729e6abce02181e96c7a60560342db2b29. The 17-commit PR #1 head has been compared read-only with main; its unmerged ALIDDNS changes remain to be inventoried for safe porting after the active signal-stability work is closed.
+- Exact 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS. HTTPD #45001003234 failed only because the embedded checker referenced pid1_test without loading the source; the binding fix is in parent 0b22. Exact parent 0b22 AI #45001261547 PASS and HTTPD #45001261606 was IN_PROGRESS at last poll.
+- Exact XY-C1 #45001003215 on 1a5 completed HOST-ONLY success: Build XY-C1, TRX verification and artifact upload were SKIPPED because no production build input changed. Not L3.
+- THIS COMMIT checks reset_signals() disposition reset and signal-mask unblocking, preserves SIGCHLD reaper behavior, reports the first error and prevents recovery-shell setup/exec on reset failure. Both PID1 mdev and HTTPD workflows pin these gates.
 
 ## Completed source slices
 
@@ -28,15 +30,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-- Fix the exact 1a5bb HTTPD failure in `.github/workflows/httpd-security.yml`: the PID1 signal source-contract block reads `init.c` and `pid1_signal_policy.h`, then references `pid1_test` without loading `trunk/user/rc/src/tests/pid1_signal_policy.c`. Add the missing `Path(...).read_text()` binding beside the other source loads.
-- The production PID1 mask regression already compiled and executed successfully with GNU89/Werror; the parallel mdev contract passes on 1a5bb. This is a workflow-only correction, with no runtime C behavior change. Exact-head reruns are required.
+
+- Close the remaining PID1 inherited signal-state gap. reset_signals() previously ignored sigaction, sigfillset and sigprocmask failures and attempted invalid numeric signal IDs rather than only the fatal/shutdown/event groups installed by PID1.
+- THIS COMMIT makes reset_signals() return the first errno while attempting all relevant groups, checks sigfillset, and unblocks via the checked SIG_UNBLOCK adapter. The forked recovery-shell child logs and _exit(126)s before console setup/exec if reset fails; the fatal emergency-shutdown caller logs reset failure and continues best-effort shutdown.
+- Both mdev and HTTPD contracts pin the reset helper and both call sites. HTTPD's missing pid1_test binding was independently fixed in parent 0b22.
 
 ## Verification boundary
-- Exact 1a5bb Process lifecycle inventory #45001003203, PID1 mdev #45001003224 and AI docs #45001003376 PASS.
-- Exact 1a5bb HTTPD #45001003234 failed only because `pid1_test` was undefined in its embedded Python contract; its GNU89/Werror C regression passed. NVRAM #45001003186 and XY-C1 #45001003215 were PENDING/IN_PROGRESS at last inspection.
-- No same-SHA L3 claim: confirm Build XY-C1, TRX verification and artifact upload all execute and pass on one product-source SHA. Hardware L4 NOT VERIFIED.
+
+- Exact 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS.
+- Exact 1a5 HTTPD #45001003234 failed with NameError because pid1_test was not loaded. Parent 0b22 added the missing binding; its AI #45001261547 PASS and HTTPD #45001261606 was running at last poll.
+- Exact 1a5 XY-C1 #45001003215 was HOST-ONLY: Build/TRX/artifact skipped, not L3. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Add the missing `pid1_test = Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()` binding to the HTTPD workflow's PID1 signal contract, then inspect its exact-head rerun and fix only the first causal failure.
-2. Recheck the NVRAM and XY-C1 runs on the current source; do not wait on pending CI. Claim L3 only when Build XY-C1, TRX verification and artifact upload all pass on the same product-source SHA.
-3. Once the HTTPD contract passes, resume the next highest-priority independent stability/security issue from the roadmap. Hardware L4 remains NOT VERIFIED.
+
+1. Check exact-head PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM and AI actions for this reset_signals change; diagnose only demonstrated failures.
+2. Check whether any exact product-source SHA has a real XY-C1 Build + TRX verification + artifact upload all PASS. The 1a5 host-only run is not L3.
+3. Once PID1 signal work is verified, resume the next P1/P2 userland stability/security item; after that inventory PR #1's unmerged ALIDDNS changes for safe porting. Keep hardware L4 NOT VERIFIED.

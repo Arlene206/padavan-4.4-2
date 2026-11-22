@@ -5445,6 +5445,21 @@ jobs:
           assert "init_signal_mask_update(how,&set,NULL," in "".join(signal_mask_control.split())
           assert "pid1_signal_update_mask(sigprocmask,how,set,old_set)" in "".join(signal_mask_setup.split())
           assert "errno = 0;" in signal_mask and "returnerrno>0?errno:EIO;" in "".join(signal_mask.split())
+          reset_body = body(init, "/* Reset signal handlers installed by PID 1 and release inherited masks. */")
+          reset_compact = "".join(reset_body.split())
+          for token in ("signals_event[i]", "signals_shutdown[i]", "signals_fatal[i]"):
+              assert token in reset_body, "reset_signals omits installed PID 1 group: " + token
+          assert "pid1_signal_install_action(sigaction,signals_event[i],&sa)" in reset_compact
+          assert "pid1_signal_install_action(sigaction,signals_shutdown[i],&sa)" in reset_compact
+          assert "pid1_signal_install_action(sigaction,signals_fatal[i],&sa)" in reset_compact
+          assert "pid1_signal_update_mask(sigprocmask,SIG_UNBLOCK,&set,NULL)" in reset_compact
+          assert "if(sigemptyset(&sa.sa_mask)<0)" in reset_compact
+          assert "if(sigfillset(&set)<0)" in reset_compact
+          shell = body(init, "run_shell(int timeout, int nowait)")
+          shell_compact = "".join(shell.split())
+          assert "if(reset_status!=0)" in shell_compact and "_exit(126);" in shell_compact
+          fatal = body(init, "handle_sig_fatal(int sig)")
+          assert "reset_status = reset_signals();" in fatal
           assert "wait_mask_build_status" in main_loop
           assert "if(!wait_mask_ready)" in main_loop_compact
           assert "original_mask_ready?NULL:&original_mask" in main_loop_compact

@@ -1,3 +1,12 @@
+## 2026-11-22 — Fail closed if the recovery shell cannot reset inherited PID 1 signals
+
+- Parent main 0b22c9729e6abce02181e96c7a60560342db2b29. Exact 1a5 Process inventory #45001003203, PID1 mdev #45001003224, AI #45001003376 and NVRAM #45001003186 PASS. HTTPD #45001003234 failed only because its embedded source contract referenced pid1_test without loading the C test file; the binding fix is in parent 0b22. Parent 0b22 AI #45001261547 PASS; HTTPD #45001261606 was in progress.
+- Exact XY-C1 #45001003215 was host-only: production input detector found no build input changes; Build, TRX and artifact were skipped. Not L3.
+- reset_signals() previously ignored disposition-reset sigaction and signal-unblock failures, and looped over invalid signal numbers. It now resets only PID1's fatal/shutdown/event groups via the checked sigaction helper, retains the SIGCHLD reaper, returns the first error, checks sigfillset, and unblocks through the checked mask helper.
+- Forked console child now logs and _exit(126)s before console initialization/exec if reset fails. Fatal emergency shutdown reports reset failure and continues best-effort. mdev and HTTPD source contracts verify all three groups, mask unblocking and child fail-closed behavior. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 16:04 CST — Load PID 1 test source in HTTPD contract
 
 - Parent main SHA: `1a5bb1367ba92b39f46a89b7172b9f816cc19f56`. Exact PID1 mdev #45001003224, Process lifecycle inventory #45001003203 and AI handoff #45001003376 PASS.

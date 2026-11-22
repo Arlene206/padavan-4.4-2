@@ -87,12 +87,14 @@ static const char *const environment[] = {
 };
 
 /* backward definition */
-static void
+static int
 reset_signals(void);
 
 static void
 handle_sig_fatal(int sig)
 {
+	int reset_status;
+
 	printf("%s signal: %s\n", "fatal", strsignal(sig));
 
 	if (sig == SIGQUIT) {
@@ -100,7 +102,10 @@ handle_sig_fatal(int sig)
 		return;
 	}
 
-	reset_signals();
+	reset_status = reset_signals();
+	if (reset_status != 0)
+		printf("failed to reset signal state before emergency shutdown (status=%d)\n",
+		       reset_status);
 
 	shutdown_router(0);
 
@@ -235,26 +240,43 @@ init_console(void)
 	return ret;
 }
 
-static void
+/* Reset signal handlers installed by PID 1 and release inherited masks. */
+static int
 reset_signals(void)
 {
 	int i;
+	int first_status = 0;
+	int status;
 	sigset_t set;
 	struct sigaction sa;
 
-	/* Disable signal handlers */
+	/* Disable every handler installed by PID 1 except its SIGCHLD reaper. */
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_DFL;
-	sigemptyset(&sa.sa_mask);
-	for (i = 0; i < (_NSIG-1); i++) {
-		if (i == SIGCHLD)
-			continue;
-		sigaction(i, &sa, NULL);
+	errno = 0;
+	if (sigemptyset(&sa.sa_mask) < 0)
+		return errno > 0 ? errno : EIO;
+
+	for (i = 0; i < ARRAY_SIZE(signals_event); i++) {
+		status = pid1_signal_install_action(sigaction, signals_event[i], &sa);
+		first_status = pid1_signal_status_merge(first_status, status);
+	}
+	for (i = 0; i < ARRAY_SIZE(signals_shutdown); i++) {
+		status = pid1_signal_install_action(sigaction, signals_shutdown[i], &sa);
+		first_status = pid1_signal_status_merge(first_status, status);
+	}
+	for (i = 0; i < ARRAY_SIZE(signals_fatal); i++) {
+		status = pid1_signal_install_action(sigaction, signals_fatal[i], &sa);
+		first_status = pid1_signal_status_merge(first_status, status);
 	}
 
-	/* Unblock all signals */
-	sigfillset(&set);
-	sigprocmask(SIG_UNBLOCK, &set, NULL);
+	/* A child or emergency path must not inherit PID 1's blocked signals. */
+	errno = 0;
+	if (sigfillset(&set) < 0)
+		status = errno > 0 ? errno : EIO;
+	else
+		status = pid1_signal_update_mask(sigprocmask, SIG_UNBLOCK, &set, NULL);
+	return pid1_signal_status_merge(first_status, status);
 }
 
 static pid_t
@@ -319,8 +341,17 @@ run_shell(int timeout, int nowait)
 		return -1;
 	}
 	case 0:
-		/* Reset signal handlers set for parent process */
-		reset_signals();
+		/* Do not enter console setup with the parent's signal state. */
+		{
+			int reset_status = reset_signals();
+
+			if (reset_status != 0) {
+				logmessage(LOGNAME,
+					   "recovery shell aborted: cannot reset signal state (status=%d)",
+					   reset_status);
+				_exit(126);
+			}
+		}
 
 		/* Reopen console */
 		init_console();
