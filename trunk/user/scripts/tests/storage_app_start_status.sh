@@ -204,6 +204,7 @@ run_launcher()
 	pidof_output=${19:-}
 	start_no_pid=${20:-0}
 	post_pidof_status=${21:-auto}
+	http_passwd=${22-test-pass}
 	launch_state_dir=$(mktemp -d "$TMP_DIR/launch-state.XXXXXX")
 	launch_called_file="$launch_state_dir/called"
 	pending_file="$launch_state_dir/pending"
@@ -214,10 +215,10 @@ run_launcher()
 	LAST_LAUNCH_STATE_DIR=$launch_state_dir
 	LAST_LAUNCH_OUTPUT=$output_file
 	if [ -n "${BUSYBOX_BIN:-}" ]; then
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HTTP_PASSWD="$http_passwd" CONFIG_TMP="$inherited_config_tmp" \
 "$BUSYBOX_BIN" ash "$launcher" start >"$output_file" 2>&1
 	else
-		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" CONFIG_TMP="$inherited_config_tmp" \
+		PATH="$STUB_DIR:$PATH" STORAGE_TEST_START_STATUS="$start_status" STORAGE_TEST_LOGGER_STATUS="$logger_status" STORAGE_TEST_CAT_STATUS="$cat_status" STORAGE_TEST_MV_STATUS="$mv_status" STORAGE_TEST_START_MARKER="$start_marker" STORAGE_TEST_START_PIDOF_STATUS="$pidof_status" STORAGE_TEST_START_PIDOF_OUTPUT="$pidof_output" STORAGE_TEST_POST_PIDOF_STATUS="$post_pidof_status" STORAGE_TEST_START_NO_PID="$start_no_pid" STORAGE_TEST_LAUNCH_CALLED_FILE="$launch_called_file" STORAGE_TEST_PENDING_FILE="$pending_file" STORAGE_TEST_RUNNING_FILE="$running_file" STORAGE_TEST_SLEEP_LOG="$sleep_log" STORAGE_TEST_TRACE_FILE="$trace_file" STORAGE_TEST_CAT_BARRIER="$cat_barrier" STORAGE_TEST_CONFIG_DIR="$config_dir" STORAGE_TEST_TEMP_COUNT="$temp_count" STORAGE_TEST_GENERATOR_STATUS="$generator_status" STORAGE_TEST_SED_STATUS="$sed_status" STORAGE_TEST_GENERATOR_EMPTY="$generator_empty" STORAGE_TEST_GENERATOR_NO_UMASK="$generator_no_umask" STORAGE_TEST_MKDIR_FAIL_PATH="$mkdir_fail_path" STORAGE_TEST_CHMOD_FAIL_PATH="$chmod_fail_path" STORAGE_TEST_CHOWN_FAIL_PATH="$chown_fail_path" STORAGE_TEST_HTTP_PASSWD="$http_passwd" CONFIG_TMP="$inherited_config_tmp" \
 sh "$launcher" start >"$output_file" 2>&1
 	fi
 }
@@ -695,7 +696,7 @@ run_aria_config_failure()
 	    -e "s|DIR_LINK=\"/mnt/aria\"|DIR_LINK=\"$failure_root\"|" \
 	    "$ARIA_SRC" > "$TMP_DIR/aria-$phase.sh"
 	marker="$failure_root/start-invoked"
-	if STORAGE_TEST_HTTP_PASSWD="$http_passwd" run_launcher "$TMP_DIR/aria-$phase.sh" 0 0 "$cat_status" "$mv_status" "$marker"; then
+	if run_launcher "$TMP_DIR/aria-$phase.sh" 0 0 "$cat_status" "$mv_status" "$marker" "" "" "" 0 0 0 "" "" "" "" 0 1 "" 0 auto "$http_passwd"; then
 		echo "Aria started despite $phase failure while publishing default config" >&2
 		exit 1
 	fi

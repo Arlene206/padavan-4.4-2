@@ -1,3 +1,8 @@
+## 2026-11-22 — Forward Aria2 RPC password overrides through the startup test runner
+
+- The exact USB regression on `aae8c0af3577bf7b06aa5c15dccaa02ebbf5bcfd` failed at the empty-password case: `run_aria_config_failure()` set `STORAGE_TEST_HTTP_PASSWD` in its own environment, but `run_launcher()` invokes the child with an explicit environment whitelist, so the override was dropped and the test stub silently used `test-pass`.
+- Added a dedicated 22nd `run_launcher` argument and explicitly forwards it in both BusyBox ash and host sh invocations; the empty and newline-injection cases now pass the requested credential into the NVRAM stub. Production source is unchanged in this correction. Exact-head USB, Process and XY-C1 Actions pending.
+
 ## 2026-11-22 — Fix Aria2 legacy-config regression test variable isolation
 
 - USB storage on exact SHA `c9014ea94517be6d713a8029efe3bff9fb4bd16c` reached the new Aria2 migration test after the launcher passed `sh -n` and earlier startup cases passed. The test failed because `run_launcher()` overwrites the generic `config_dir` variable, so its post-run assertion accidentally checked `/aria2.conf` rather than the migration fixture path.
