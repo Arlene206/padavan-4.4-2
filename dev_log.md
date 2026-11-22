@@ -1,3 +1,13 @@
+
+## 2026-11-22 — PID 1 and SmartDNS integration checkpoint
+
+- PID 1 signal-mask initialization now checks `sigemptyset` / `sigaddset` and fails closed before installing handlers or forking the recovery shell; deterministic callback failure tests and source contracts were added.
+- WAN teardown workflow policy bindings were corrected after an inline-checker NameError.
+- SmartDNS no longer invokes `/usr/bin/adbyby.sh switch`, which is not an implemented Adbyby action; NVRAM persistence and in-memory owner updates remain status-checked.
+- Adbyby cleanup preserves the first DNS/firewall cleanup error while still attempting independent cleanup operations; storage swap/spindown handling remains fail-closed.
+- Current main: `447d3683e2ae30c7e82b699d89dc978f75b32136`. Exact-SHA status: main USB storage hotplug stability regression=in_progress; XY-C1 Firmware Validation=in_progress; Process lifecycle inventory - 447d3683e2ae30c7e82b699d89dc978f75b32136=completed/success; DNSMasq lifecycle stability regression=completed/success; PID1 `ad1837f1...` AI handoff documentation contract=completed/success; PID 1 mdev hotplug configuration security regression=completed/success; HTTPD Authentication and Security Regression=completed/success; Process inventory and lifecycle fail-closed regression=completed/success; XY-C1 Firmware Validation=completed/success; WAN `8728b518...` WAN interface teardown stability regression=completed/success; AI handoff documentation contract=completed/success.
+- Next: test actual SmartDNS/Adbyby runtime configuration ownership in both directions. Hardware/XY-C1 validation is not inferred from host-side CI.
+
 ## 2026-11-23 04:22 CST (UTC+8) — Fix Adbyby snapshot cleanup test newline
 
 - Parent main SHA: `a633cf309bd672b2c8111a9c09ba891223f8f1ba`. Adbyby #45061097586 and HTTPD #45061097680 both failed at the shared `firewall_snapshot.sh` test after every preceding regression passed. The final assertion expected an exact marker line, but the fixture used two backslashes before `n` and wrote literal backslash-n bytes.

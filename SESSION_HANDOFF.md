@@ -13,29 +13,38 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`.
-- Parent main SHA before this regression-fixture correction: `a633cf309bd672b2c8111a9c09ba891223f8f1ba`.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; keep immutable. Only `main` and the backup branch exist.
-- Exact parent Process inventory #45061097595 PASS and Process lifecycle fail-closed #45061097583 PASS.
-- Exact parent Adbyby #45061097586 FAIL and HTTPD security #45061097680 FAIL at the shared `firewall_snapshot.sh` regression. All preceding host regressions passed. The failing fixture wrote two literal backslashes before `n`, so its later exact-line grep could not match; the repair uses `printf '%s\\n'` to write a real newline.
-- Exact parent XY-C1 #45061097611 remained IN_PROGRESS at cross-build setup; Build, TRX and artifact upload are not verified. Storage #45060756356 on ancestor `790fb2a` PASS, including the swap inventory and final-LF tests.
-- No local repo checkout or router hardware is available. Hardware L4 remains NOT VERIFIED.
+- Live `main` at this checkpoint: `447d3683e2ae30c7e82b699d89dc978f75b32136` (tree `8fa8e571c8a8544e00b7d89d41f22494d01bf5ac`).
+- Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14`, last verified at `72f4f157a084f8184b9597ca5bf334b8080e5807`; keep unchanged.
+- Recent source work: PID 1 signal mask construction hardening; Adbyby DNS/firewall cleanup error propagation; SmartDNS NVRAM transition failure handling and removal of an unsupported Adbyby switch invocation; storage/swap hardening; WAN teardown workflow contract repair.
+- Continue with atomic tree + commit updates guarded by `expected_sha`; never force-push.
 
 ## Active task
 
-Fix the shared Adbyby firewall-snapshot regression fixture that failed both exact-parent Adbyby and HTTPD workflows. The production change in `a633cf3` correctly preserves a failed `adbyby_remove_rule_snapshot()` status after attempting kernel/ipset cleanup, refusing to log “closed” success when stale recovery state could survive. The new test override emitted `snapshot-remove-attempted\\n` with two backslashes, producing literal backslash-n bytes; the subsequent `grep -Fqx snapshot-remove-attempted` therefore failed. Replace the fixture with a single-format `printf '%s\\n' 'snapshot-remove-attempted'`. No production source change is needed for this test-only correction.
-
-After exact Adbyby and HTTPD reruns pass, continue the PID 1 signal mask validity slice: `init_signals()` currently ignores `sigemptyset()` and `sigaddset()` return values while constructing handler masks. Add injectable set-build wrappers/tests and make these failures feed its first-error status, which already blocks router readiness.
+### Completed implementation slices
+- PID 1: `sigemptyset` / `sigaddset` results now checked through `pid1_signal_policy.h`; incomplete lifecycle masks prevent handler installation, and recovery-shell SIGCHLD mask construction fails closed before fork. Regression coverage and workflow contracts were aligned in `616a092a...`, `99c3da5c...`, `ad1837f1...`.
+- WAN teardown: fixed workflow source-contract policy bindings after an observed NameError in the inline checker; commit `8728b518...`.
+- Storage: removable-media uncertainty and hdparm failures are handled fail-closed; module loader scratch state is isolated; swap inventory parsing and caller source contracts tightened. Key checkpoints: `c8fdaeed...`, `ca8e79ec...`, `d1e0edcf...`, `9c75e1bf...`, `abe7fc71...`, `4c6d1b9c...`, `790fb2ab...`.
+- Adbyby: DNS cleanup now attempts all independent stages while preserving first error (`9999fdc5...`); firewall snapshot cleanup failure remains visible (`a633cf30...`) with test event fix in `c9cd34c1...`.
+- SmartDNS: NVRAM failures preserve previous in-memory DNS owner and propagate through Start/Stop (`80bfd667...`); checker count corrected (`5c929dbe...`); unsupported `/usr/bin/adbyby.sh switch` no-op calls removed from `Change_adbyby()` with regression/source contracts in the latest main slice `447d3683e2ae30c7e82b699d89dc978f75b32136`.
+### Next implementation target
+Verify the SmartDNS↔DNSMasq ownership transition end-to-end: trace where `adbyby_add`, `hosts_type`, and generated Adbyby host/DNS files are actually consumed; add a runtime-config contract test for both directions before modifying any further behavior. Then select a new stability defect outside the already-covered PID1/storage/Adbyby slices.
 
 ## Verification boundary
 
-- Parent main: `a633cf309bd672b2c8111a9c09ba891223f8f1ba`; resulting main SHA must be read from the live ref after publication.
-- Exact parent Process inventory #45061097595 and Process fail-closed #45061097583 PASS.
-- Exact parent Adbyby #45061097586 and HTTPD #45061097680 both fail in the same `firewall_snapshot.sh` test after its prior setup tests pass; root cause is the two-backslash test printf fixture, not the production cleanup behavior.
-- Fix is test-only: emit the marker as one newline-terminated line, preserving all production code and the assertions that verify every firewall cleanup stage is attempted after snapshot removal fails.
-- Local checkout is unavailable; fresh exact-head Adbyby and HTTPD actions are required. XY-C1 #45061097611 on the parent was still running; exact same-source Build XY-C1, TRX verification and artifact upload are required for L3. L4 remains NOT VERIFIED.
+Exact-SHA workflow snapshots:
+- Current main `447d3683e2ae30c7e82b699d89dc978f75b32136`: USB storage hotplug stability regression=in_progress; XY-C1 Firmware Validation=in_progress; Process lifecycle inventory - 447d3683e2ae30c7e82b699d89dc978f75b32136=completed/success; DNSMasq lifecycle stability regression=completed/success.
+- PID 1 follow-up `ad1837f1...`: AI handoff documentation contract=completed/success; PID 1 mdev hotplug configuration security regression=completed/success; HTTPD Authentication and Security Regression=completed/success; Process inventory and lifecycle fail-closed regression=completed/success; XY-C1 Firmware Validation=completed/success.
+- WAN checker correction `8728b518...`: WAN interface teardown stability regression=completed/success; AI handoff documentation contract=completed/success.
+- Adbyby test correction `c9cd34c1...`: HTTPD Authentication and Security Regression=completed/success; AI handoff documentation contract=completed/success; Adbyby download and dnsmasq configuration stability regression=completed/success; Process lifecycle inventory - c9cd34c1973235544fff1779bc93bc4c16526247=completed/success.
+- Storage checkpoint `790fb2ab...`: AI handoff documentation contract=completed/success; Process lifecycle inventory - 790fb2abc36bbda06f1628c0d6c3aae040fcb4fe=completed/success; HTTPD Authentication and Security Regression=completed/success; USB storage hotplug stability regression=completed/success; XY-C1 Firmware Validation=completed/success.
+- SmartDNS DNSMasq checkpoint `5c929dbe...`: DNSMasq lifecycle stability regression=completed/success.
+- Adbyby DNS cleanup checkpoint `9999fdc5...`: Adbyby download and dnsmasq configuration stability regression=completed/success; HTTPD Authentication and Security Regression=completed/success; Process lifecycle inventory - 9999fdc5ccf193df63e98182069d6aa71d5b6a73=completed/success; Process inventory and lifecycle fail-closed regression=completed/success; XY-C1 Firmware Validation=completed/success.
+- A green unit/workflow run does not prove router runtime correctness. Treat the latest XY-C1 firmware build and device validation as unverified unless an exact-SHA run explicitly confirms them.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and match exact-head Adbyby, HTTPD, Process and XY-C1 runs. Confirm the corrected firewall snapshot regression completes and that all kernel/IPSet cleanup assertions pass; diagnose any new failure from its first causal log. Confirm Build XY-C1, TRX and artifact upload on the same source SHA. Then implement checked PID 1 signal-set construction and its GNU89 injectable regression.
+1. Fetch the live `main` SHA and its Actions; do not repeat completed PID1/storage audits.
+2. Trace SmartDNS DNS ownership through `Change_adbyby()`, `adbyby_add`, `hosts_type`, generated host files and daemon config. Confirm both directions and add regression coverage for the actual runtime config.
+3. Make one bounded source/test/checker change, commit the full tree atomically with expected-SHA protection, and verify the exact commit’s Actions.
+4. Keep handoff accurate. The checkpoint is mandatory; a document edit is conditional.
 

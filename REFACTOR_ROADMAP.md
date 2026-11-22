@@ -234,3 +234,15 @@ Next isolated process-lifecycle candidate: HTTPD has been addressed in source; c
 ## Current WAN teardown defect — exact-status propagation
 
 - The implementation commit `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d` triggered WAN teardown run `44390606879`, VPN server `44390606952`, HTTPD security `44390607054`, Process lifecycle `44390606840`, and XY-C1 `44390607038`. C compile/unit-test portions of WAN, VPN and HTTPD completed before static-contract failures. Failures identified stale checks: WAN expected the removed stop-status ternary; VPN/HTTPD/Process expected the old inline `stop_vpn_client_under_lifecycle_lock() != 0` predicate after PPP teardown began capturing its return. This follow-up updates those assertions to verify exact status capture and error gates; XY-C1 build remained in progress at first poll.
+
+## 2026-11-22 implementation checkpoint
+
+| Area | Current state | Follow-up |
+| --- | --- | --- |
+| PID 1 signals | Mask construction failures propagate; invalid masks are not used to install handlers; recovery-shell mask is validated before fork. Exact-SHA status: AI handoff documentation contract=completed/success; PID 1 mdev hotplug configuration security regression=completed/success; HTTPD Authentication and Security Regression=completed/success; Process inventory and lifecycle fail-closed regression=completed/success; XY-C1 Firmware Validation=completed/success | Do not re-audit absent a new failure. |
+| WAN teardown | Workflow contract policy lookups corrected. Exact-SHA status: WAN interface teardown stability regression=completed/success; AI handoff documentation contract=completed/success | Confirm exact run result. |
+| Storage | Removable-media/spindown and swap inventory safeguards implemented. Exact-SHA status: AI handoff documentation contract=completed/success; Process lifecycle inventory - 790fb2abc36bbda06f1628c0d6c3aae040fcb4fe=completed/success; HTTPD Authentication and Security Regression=completed/success; USB storage hotplug stability regression=completed/success; XY-C1 Firmware Validation=completed/success | Do not repeat completed tests without new evidence. |
+| Adbyby cleanup | DNS cleanup and firewall snapshot cleanup preserve errors; test correction status: HTTPD Authentication and Security Regression=completed/success; AI handoff documentation contract=completed/success; Adbyby download and dnsmasq configuration stability regression=completed/success; Process lifecycle inventory - c9cd34c1973235544fff1779bc93bc4c16526247=completed/success | Check additional callers only if a concrete fault appears. |
+| SmartDNS | NVRAM status propagation and unsupported Adbyby switch-call removal implemented. Exact-SHA DNSMasq checkpoint: DNSMasq lifecycle stability regression=completed/success | Trace actual runtime DNS ownership in both directions; add regression coverage. |
+
+Firmware/device verification is separate; do not mark XY-C1 or hardware as passed without exact-SHA evidence.
