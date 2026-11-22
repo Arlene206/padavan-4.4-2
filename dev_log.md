@@ -1,3 +1,11 @@
+## 2026-11-22 — Keep PID 1 boot console setup out of the recovery-child session path
+
+- Review of the first console-attachment commit found an important caller-context distinction: init_console() is called both by PID 1 during normal boot and by a forked recovery-shell child. PID 1 is already a session/process-group leader, so setsid() fails with EPERM there; making that failure fatal would incorrectly mark the normal boot console unavailable.
+- Added an explicit create_session argument. PID 1's boot-time console setup skips setsid() (the legacy outer startup call remains unchanged); only the recovery child creates and verifies its own session before opening/attaching the console. The integration checker pins both call sites.
+- This is a corrective follow-up to ebbff58e321030829cc517fd0f1da21ed5923660; exact-head Process/XY-C1 reruns are required. No target build or hardware validation claimed.
+
+---
+
 ## 2026-11-22 — Check PID 1 recovery console attachment and post-fork exec failure
 
 - init_console() previously ignored failures from setsid(), all three dup2() operations, TIOCSCTTY and tcsetpgrp(). A recovery child could continue to termios setup and exec an interactive shell without valid standard descriptors or a controlling foreground terminal. The new checked attachment policy fails at the first failed operation, avoids terminal ioctls on the intentional /dev/null fallback, and preserves the first error.

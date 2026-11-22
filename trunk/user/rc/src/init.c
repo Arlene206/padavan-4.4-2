@@ -183,7 +183,7 @@ init_console_take_control(int fd, unsigned long request, int argument)
 }
 
 static int
-init_console(void)
+init_console(int create_session)
 {
 	int fd;
 	int ret = 0;
@@ -197,11 +197,13 @@ init_console(void)
 	close(STDOUT_FILENO);
 	close(STDERR_FILENO);
 
-	errno = 0;
-	if (setsid() < 0) {
-		ret = errno > 0 ? errno : EIO;
-		logmessage(LOGNAME, "cannot create recovery shell session (status=%d)", ret);
-		return ret;
+	if (create_session) {
+		errno = 0;
+		if (setsid() < 0) {
+			ret = errno > 0 ? errno : EIO;
+			logmessage(LOGNAME, "cannot create recovery shell session (status=%d)", ret);
+			return ret;
+		}
 	}
 
 	/* Reopen console */
@@ -359,7 +361,7 @@ run_shell(int timeout, int nowait)
 		}
 
 		/* Do not execute an interactive shell without a usable console. */
-		console_status = init_console();
+		console_status = init_console(1);
 		if (console_status != 0) {
 			logmessage(LOGNAME,
 				   "recovery shell aborted: console setup failed (status=%d)",
@@ -979,7 +981,7 @@ init_main_loop(void)
 		sysctl_status = optional_node_status;
 
 	/* Setup console */
-	if (init_console())
+	if (init_console(0))
 		noconsole = 1;
 
 	chdir("/");

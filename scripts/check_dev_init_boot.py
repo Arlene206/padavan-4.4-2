@@ -355,7 +355,7 @@ assert "trunk/user/rc/src/tests/init_mdev_retry_policy.c" in workflow
 assert "mount_status=1" in shell_test and "chmod_status=1" in shell_test
 
 console_setup = c_function(init, "setup_term(void)")
-console_init = c_function(init, "init_console(void)")
+console_init = c_function(init, "init_console(int create_session)")
 recovery_shell = c_function(init, "run_shell(int timeout, int nowait)")
 assert '#include "pid1_console_policy.h"' in init
 assert "return pid1_console_configure(STDIN_FILENO, tcgetattr, tcsetattr);" in console_setup
@@ -364,7 +364,10 @@ assert "tcsetattr(" not in console_setup
 assert "int console_available = 1;" in console_init
 assert "console_available = 0;" in console_init
 assert "if (console_available && attach_status == 0)" in console_init
+assert "if (create_session)" in console_init
 assert "if (setsid() < 0)" in console_init
+assert "if (init_console(0))" in loop
+assert "console_status = init_console(1);" in recovery_shell
 assert "pid1_console_attach(" in console_init
 assert "console_available ? init_console_take_control : NULL" in console_init
 assert "console_available ? tcsetpgrp : NULL" in console_init
