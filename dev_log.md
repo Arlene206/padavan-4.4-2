@@ -1,3 +1,10 @@
+## 2026-11-22 — Restore EAPoL daemon stop body and mandatory handoff rule
+
+- Parent main SHA: \`9263cbc5583a57dd435eacd2f72a5858351d2537\`. Process-lifecycle regression #45039606446 failed at \`scripts/check_process_lifecycle_integration.py:1411\`: \`stop_auth_eapol()\` had been left with an open function body when the private config writer was inserted. The checker correctly caught a real source defect; the old stop list/return body was restored before the helper definition.
+- AI handoff workflow #45039712273 failed on this SHA because \`SESSION_HANDOFF.md\` omitted the exact mandatory sentence \`The checkpoint is mandatory; a document edit is conditional.\`; it is restored with the required heading and live repository inspection rule.
+- Rstats stability #45039712265 PASS on exact SHA \`9263cbc\`, including GNU89/ASan/UBSan policy tests and source/path contracts. XY-C1 #45039606450 on \`e7d0cc1\` was still in Build; TRX/artifact remain unverified.
+- No local tests were run. Next: inspect exact-head AI and process lifecycle checks, then check firmware artifact stages and continue another subsystem.
+
 ## 2026-11-22 — Add rstats persistence policy to both workflow path filters
 
 - Parent main SHA: \`e7d0cc1cb95e5b93387bd8362d5af77447105838\`. Rstats workflow #45039333829 on product SHA \`5be7fe1\` passed the policy test and preceding source assertions, then failed the final watched-path contract because \`rstats_persistence_policy.h\` was absent from both push and pull_request filters.

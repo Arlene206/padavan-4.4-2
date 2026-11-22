@@ -63,6 +63,10 @@ int start_auth_kabinet(void)
 
 int stop_auth_eapol(void)
 {
+    char *svcs[] = { "wpa_cli", "wpa_supplicant", NULL };
+    return kill_services(svcs, 3, 1);
+}
+
 static int
 write_wpa_config_temp(const char *config_path, const char *eap_type,
                       const char *username, const char *password,

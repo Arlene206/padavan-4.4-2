@@ -2,7 +2,9 @@
 
 ## Mandatory handoff checkpoint
 
-Every session MUST inspect live repository state and complete an end-of-session accuracy checkpoint. Record exact main SHA, exact-SHA Actions, test/build boundaries, and the next precise task. If facts remain accurate, explicitly conclude with no file change and no no-op commit. Use one atomic main commit for material changes only. Before context exhaustion, leave an accurate handoff and complete any safe bounded engineering slice.
+The checkpoint is mandatory; a document edit is conditional.
+
+Every session MUST inspect the live repository state and complete an end-of-session accuracy checkpoint. Record exact main SHA, exact-SHA Actions, test/build boundaries, and the next precise task. If facts remain accurate, explicitly conclude with no file change and no no-op commit. Use one atomic main commit for material changes only. Before context exhaustion, leave an accurate handoff and complete any safe bounded engineering slice.
 
 - Work only on \`main\`; never force-push, use side branches/PRs, or modify the frozen backup.
 - Each logical slice creates all blobs, one complete Git tree and one atomic main commit; update \`main\` only with \`force:false\` and a freshly fetched expected SHA.
@@ -11,25 +13,24 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: \`Arlene206/padavan-4.4-2\`; parent main SHA: \`e7d0cc1cb95e5b93387bd8362d5af77447105838\`.
+- Repository: \`Arlene206/padavan-4.4-2\`; parent main SHA: \`9263cbc5583a57dd435eacd2f72a5858351d2537\`.
 - Frozen backup: \`backup/pre-plugin-overhaul-2026-11-14\` at \`72f4f157a084f8184b9597ca5bf334b8080e5807\`; immutable.
-- EAPoL credential config hardening, detect-link status-bearing tri-state notification, and rstats retry-on-failed-periodic-MTD-save remain in main.
+- EAPoL configuration hardening and status-bearing detect-link notification are in main. Rstats periodic MTD save now remains due and retries after a reported failure.
 
 ## Active task
 
-The rstats policy/source change passed its earlier validation steps, but run #45039333829 on product SHA \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\` failed the final path-filter contract. The new \`rstats_persistence_policy.h\` was in the Python watched-path tuple but missing from the actual push and pull_request paths. This commit adds it to both filters.
+Process lifecycle run #45039606446 on SHA \`e7d0cc1cb95e5b93387bd8362d5af77447105838\` reached the EAPoL stop integration assertion and failed because \`auth.c::stop_auth_eapol()\` had an opening brace but its original body had been lost while inserting the secure config writer. This was a real source defect, not a stale test: the helper definition was placed inside the unclosed function. The current source restores the intended \`wpa_cli\`/\`wpa_supplicant\` stop list and \`kill_services(...)\` return before the secure config writer.
 
 ## Verification boundary
 
-- Process lifecycle #45039420819 on SHA \`7c445837a2eb9ffa747e5c2b5d94b88d58276903\` failed because the detect-link function used a generic \`else\` rather than naming \`PROCESS_PRESENCE_START_NOTIFY\`; commit \`e7d0cc1cb95e5b93387bd8362d5af77447105838\` made NEW/NOTIFY/ABORT dispatch explicit and logged UNKNOWN inventory before returning an error. Exact-head rerun is queued.
-- AI handoff #45039420870 on SHA \`7c44583\` failed because it lacked the required literal \`Before context exhaustion\`; commit \`6dfdf5c86fbbee4a29538401b9702b74a473ad6a\` restored the rule.
-- Rstats #45039333829 failed only at push-filter path validation after earlier policy/test/source assertions passed. The trigger paths are now corrected in both push and pull_request sections.
-- XY-C1 #45039333875 on product SHA \`5be7fe1c4dd9ec16c3546d871346ca09d7060541\` remained in Build XY-C1 at last inspection; TRX/artifact not confirmed. L3 is NOT VERIFIED.
-- Parent SHA \`e7d0cc1\`: Actions #45039606526, #45039606468, #45039606454, #45039606450, #45039606446, #45039606434, #45039606429 and #45039606416 were queued at last inspection.
-- No local checkout or C/Python tests were run. Hardware L4 is NOT VERIFIED.
+- Exact SHA \`9263cbc5583a57dd435eacd2f72a5858351d2537\`: rstats stability #45039712265 PASS, including GNU89/ASan/UBSan policy tests and source/path contracts.
+- AI handoff #45039712273 failed because the current handoff did not contain the checker-required exact sentence \`The checkpoint is mandatory; a document edit is conditional.\`; this commit restores it and preserves the required \`Mandatory handoff checkpoint\` heading and live repository inspection requirement.
+- Process lifecycle #45039606446 on \`e7d0cc1\` failed at \`check_process_lifecycle_integration.py:1411\`: the source lacked \`return kill_services(svcs, 3, 1);\` inside \`stop_auth_eapol\`. The restored function body addresses that exact failure; exact-head rerun is pending.
+- XY-C1 #45039606450 on product-source SHA \`e7d0cc1\` was still in Build XY-C1 at last check; TRX verification and artifact upload were not confirmed. No L3 result is claimed.
+- No local checkout or C/Python tests were run. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head rstats, process lifecycle, detect-link and AI handoff Actions; fix any newly demonstrated failures.
-2. Check XY-C1 Build/TRX/artifact for product SHA \`5be7fe1\`; do not conflate checker-only descendants with firmware product-source evidence.
-3. Continue an independent userland stability/security slice. Keep the backup immutable and work directly on \`main\`.
+1. Inspect this commit's AI handoff and process-lifecycle Actions; diagnose any additional source or contract failure.
+2. Inspect XY-C1 Build/TRX/artifact on product SHA \`e7d0cc1\` and run the firmware validation workflow on the latest source when appropriate.
+3. Continue a separate userland stability/security slice. Keep backup immutable and work directly on \`main\`.
