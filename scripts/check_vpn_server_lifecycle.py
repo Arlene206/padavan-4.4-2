@@ -480,10 +480,16 @@ for key in ('"vpns_enable"', '"vpns_type"', '"vpnc_enable"', '"vpnc_type"',
             '"vpnc_dgw"', '"wan_l2tpd"', '"vpnc_peer"', '"vpnc_user"'):
     require(key in xl2tpd_snapshot,
             "xl2tpd selector/credential snapshot is missing " + key)
-for token in ("nvram_transaction_begin", "nvram_transaction_get",
-              "nvram_transaction_end", "rc_wan_nvram_copy_snapshot("):
+for token in ("rc_wan_nvram_copy_snapshot(",):
     require(token in xl2tpd_snapshot,
             "xl2tpd configuration must use checked NVRAM transaction: " + token)
+for adapter, token in (
+    ("xl2tpd_snapshot_transaction_begin(void *context)", "nvram_transaction_begin("),
+    ("xl2tpd_snapshot_transaction_get(void *context,", "nvram_transaction_get("),
+    ("xl2tpd_snapshot_transaction_end(void *context)", "nvram_transaction_end("),
+):
+    require(token in body(net_ppp, adapter),
+            "xl2tpd transaction adapter is missing " + token)
 require("xl2tpd_read_config_snapshot(&config_snapshot)" in safe_start_locked and
         safe_start_locked.index("xl2tpd_read_config_snapshot(&config_snapshot)") <
         safe_start_locked.index('process_inventory_scan("xl2tpd", &process_snapshot)') <

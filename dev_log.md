@@ -1,3 +1,12 @@
+## 2026-11-22 — Check xl2tpd transaction adapters through their wrapper bodies
+
+- Parent main SHA: `ba5aaa320963ba7a0322effe5388e1e5b09d6166`. Exact-head VPN lifecycle run #45029214663 on `dcda9e5a118711d1b35b8e347e5fde54ccdc8270` passed all ten GNU89 C policy binaries, including the new xl2tpd selector-policy regression, then failed only in the source checker because it searched for `nvram_transaction_begin/get/end` text inside `xl2tpd_read_config_snapshot()`. Those calls correctly live in its three small transaction adapter functions.
+- Updated the source contract to inspect the begin/get/end adapter bodies individually and keep the snapshot helper assertion focused on `rc_wan_nvram_copy_snapshot()`. No product source changed.
+- The cleanup commit `ba5aaa320963ba7a0322effe5388e1e5b09d6166` started exact-head VPN/AI/WAN/XY workflows; this checker correction requires a fresh same-SHA rerun. No PASS is claimed from a pending run.
+- Result: THIS COMMIT. Next: inspect the new VPN lifecycle workflow; if any remaining contract failure is stale, update it precisely, otherwise move to the next independent PPP launch-state read.
+
+---
+
 ## 2026-11-22 — Simplify xl2tpd snapshot policy evaluation
 
 - Parent main SHA: `dcda9e5a118711d1b35b8e347e5fde54ccdc8270`. The xl2tpd selector/credential snapshot implementation and GNU89 policy tests are committed in `dcda9e5a118711d1b35b8e347e5fde54ccdc8270`; exact-SHA VPN, AI, WAN, HTTPD, process and XY-C1 workflows are queued/in progress.
