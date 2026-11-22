@@ -1,3 +1,11 @@
+## 2026-11-22 18:23 CST — Align HTTPD's PID 1 signal contract with checked installation
+
+- Parent main `f6a3c1ca6bfa0ee3a8b4b76c37d1d4dc4eefa9c4`. Exact 8a66 HTTPD #44999904303 passed NVRAM rollback, wireless atomic publication/preflight, route access, Samba/Unix identity, and other earlier contracts; it failed only in the final PID1 signal section because it still expected direct `sigaction(signals_shutdown[i], ...)` instead of the checked installer introduced in c74.
+- Replaced the legacy assertion with checks that fatal, shutdown, SIGCHLD and event handlers all flow through `init_signal_install_status()`, and that the checked wrapper calls `pid1_signal_install_action()`.
+- Exact 8a66 PID1 mdev #44999904281, Process inventory #44999904395, Process lifecycle #44999904325 and AI docs #44999904265 PASS. NVRAM on 8a66 #44999904244 was still running; f6a exact NVRAM #44999987551 was queued at first poll. L3/L4 unverified.
+
+---
+
 ## 2026-11-22 18:11 CST — Update NVRAM audit for checked PID 1 signal gate
 
 - Parent main `8a66f03a5c0e1d7a73e1ee038c1d8f92be15ad79`. Exact c74 NVRAM audit #44999683896 passed ioctl/close, transaction lock, compaction, snapshot and NVRAM device-node regression steps, then failed only at the final PID 1 source assertion that still expected router startup/readiness without `signal_status`.

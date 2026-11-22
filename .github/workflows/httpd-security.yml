@@ -5426,7 +5426,15 @@ jobs:
           }
           assert array_items(init, "signals_shutdown") == {"SIGPIPE", "SIGPWR", "SIGQUIT", "SIGTERM"}
           assert "sa.sa_handler = catch_sig_shutdown;" in setup
-          assert "sigaction(signals_shutdown[i], &sa, NULL);" in setup
+          setup_compact = "".join(setup.split())
+          for token in (
+              "init_signal_install_status(first_status,signals_fatal[i],&sa)",
+              "init_signal_install_status(first_status,signals_shutdown[i],&sa)",
+              "init_signal_install_status(first_status,SIGCHLD,&sa)",
+              "init_signal_install_status(first_status,signals_event[i],&sa)",
+          ):
+              assert token in setup_compact, "missing checked PID 1 signal install: " + token
+          assert "pid1_signal_install_action(sigaction, signal_number, action)" in init
           assert "handle_sig_fatal((int)signal_state.shutdown_signal);" in main_loop
           assert "signal_state.shutdown_pending && !shutdown_handled" in main_loop
           assert "sigprocmask(SIG_BLOCK, &wait_mask, &original_mask);" in main_loop
