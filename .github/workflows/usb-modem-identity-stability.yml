@@ -31,6 +31,10 @@ on:
       - "trunk/user/rc/src/modem_module_reload_policy.h"
       - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/usb_modem_wan_policy.h"
+      - "trunk/user/rc/src/tests/usb_modem_wan_policy.c"
   pull_request:
     paths:
       - ".github/workflows/usb-modem-identity-stability.yml"
@@ -61,6 +65,10 @@ on:
       - "trunk/user/rc/src/modem_module_reload_policy.h"
       - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/usb_modem_wan_policy.h"
+      - "trunk/user/rc/src/tests/usb_modem_wan_policy.c"
 
 permissions:
   contents: read
@@ -126,6 +134,14 @@ jobs:
             trunk/user/rc/src/tests/wan_nvram_status_policy.c \
             -o /tmp/wan-nvram-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
+      - name: Compile and run checked USB modem WAN identity-read regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \\
+            -fno-omit-frame-pointer -I trunk/user/shared/src \\
+            trunk/user/rc/src/tests/usb_modem_wan_policy.c \\
+            -o /tmp/usb-modem-wan-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/usb-modem-wan-policy
       - name: Verify WDM discovery, hotplug identity publication and NDIS matching
         run: |
           python3 - <<'PY'
@@ -138,6 +154,10 @@ jobs:
           usb_info = (libdisk / "usb_info.c").read_text()
           hotplug = (rc / "hotplug_usb.c").read_text()
           wan_network = (rc / "net_wan.c").read_text()
+          shared = Path("trunk/user/shared/src")
+          shared_netutils = (shared / "netutils.c").read_text()
+          shared_header = (shared / "netutils.h").read_text()
+          shared_policy = (shared / "usb_modem_wan_policy.h").read_text()
           sr_policy = (rc / "modem_sr_status_policy.h").read_text()
           sr_test = (rc / "tests/modem_sr_status_policy.c").read_text()
           sg_policy = (rc / "modem_sg_module_policy.h").read_text()
@@ -472,12 +492,27 @@ jobs:
               "trunk/user/rc/src/modem_node_file.h",
               "trunk/user/rc/src/modem_node_identity_policy.h",
               "trunk/user/rc/src/tests/modem_node_file.c",
+              "trunk/user/shared/src/netutils.c",
+              "trunk/user/shared/src/netutils.h",
+              "trunk/user/shared/src/usb_modem_wan_policy.h",
+              "trunk/user/rc/src/tests/usb_modem_wan_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
           for path in paths:
               assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+
+          identity_reader = body(shared_netutils, "get_usb_modem_wan_status(int unit, int *is_modem)")
+          legacy_identity_reader = body(shared_netutils, "get_usb_modem_wan(int unit)")
+          identity_test = (rc / "tests/usb_modem_wan_policy.c").read_text()
+          assert "nvram_get_checked(key, &value)" in identity_reader
+          assert "usb_modem_wan_parse_devnum_status(" in identity_reader
+          assert "get_usb_modem_wan_status" in shared_header
+          assert "get_usb_modem_wan_status(unit, &is_modem)" in legacy_identity_reader
+          assert "nvram_get_int(" not in legacy_identity_reader
+          assert "atoi() accepts a numeric prefix" in shared_policy
+          assert "test_backend_read_errors_are_not_treated_as_absent_key" in identity_test
 
           print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY

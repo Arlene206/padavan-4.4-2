@@ -114,6 +114,68 @@ test_key_format_rejects_invalid_arguments(void)
 	assert(usb_modem_wan_format_nvram_key(0, key, 0) == EINVAL);
 }
 
+static void
+test_missing_modem_dev_retains_zero_default(void)
+{
+	int devnum = 99;
+	assert(usb_modem_wan_parse_devnum_status(0, 0, NULL, &devnum) == 0);
+	assert(devnum == 0);
+}
+
+static void
+test_present_modem_dev_parses_zero_and_nonzero(void)
+{
+	int devnum = -1;
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "0", &devnum) == 0);
+	assert(devnum == 0);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "7", &devnum) == 0);
+	assert(devnum == 7);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "-1", &devnum) == 0);
+	assert(devnum == -1);
+}
+
+static void
+test_parser_preserves_legacy_atoi_numeric_prefix_semantics(void)
+{
+	int devnum = 0;
+	assert(usb_modem_wan_parse_devnum_status(1, 0, " 2\t", &devnum) == 0);
+	assert(devnum == 2);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "2modem", &devnum) == 0);
+	assert(devnum == 2);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "modem", &devnum) == 0);
+	assert(devnum == 0);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "", &devnum) == 0);
+	assert(devnum == 0);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, "  \t", &devnum) == 0);
+	assert(devnum == 0);
+}
+
+static void
+test_backend_read_errors_are_not_treated_as_absent_key(void)
+{
+	int devnum = 7;
+	assert(usb_modem_wan_parse_devnum_status(-1, ENOSPC, NULL, &devnum) == ENOSPC);
+	assert(devnum == 0);
+	assert(usb_modem_wan_parse_devnum_status(-1, 0, NULL, &devnum) == EIO);
+	assert(usb_modem_wan_parse_devnum_status(2, 0, "7", &devnum) == EIO);
+	assert(usb_modem_wan_parse_devnum_status(1, 0, NULL, &devnum) == EIO);
+}
+
+static void
+test_integer_overflow_is_reported(void)
+{
+	int devnum = 0;
+	assert(usb_modem_wan_parse_devnum_status(
+		1, 0, "999999999999999999999999", &devnum) == ERANGE);
+	assert(devnum == 0);
+}
+
+static void
+test_null_output_is_rejected(void)
+{
+	assert(usb_modem_wan_parse_devnum_status(0, 0, NULL, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -125,6 +187,12 @@ main(void)
 	test_invalid_arguments_do_not_write();
 	test_key_format_rejects_truncation();
 	test_key_format_rejects_invalid_arguments();
-	puts("USB modem WAN NVRAM publication policy regression: PASS");
+	test_missing_modem_dev_retains_zero_default();
+	test_present_modem_dev_parses_zero_and_nonzero();
+	test_parser_preserves_legacy_atoi_numeric_prefix_semantics();
+	test_backend_read_errors_are_not_treated_as_absent_key();
+	test_integer_overflow_is_reported();
+	test_null_output_is_rejected();
+	puts("USB modem WAN checked identity read policy regression: PASS");
 	return 0;
 }

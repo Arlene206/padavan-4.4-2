@@ -28,25 +28,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Production source `4a6df662b6c34d2282e81b3ef8054e80e0894393` hardens MAN DNS setup/teardown, WAN-up, DHCP bound and first-error preservation during WAN stop using checked protocol reads. Its exposed XY-C1 compile blocker was fixed in `02857320194ebdda3b451ea3d6de07fa212995c0`: four redundant illegal array assignments were removed from `reset_wan_vars_status()`.
-- Test harness repairs are applied only when exact-SHA failures show stale source contracts. This checkpoint replaces the last WAN-route checker assertion that expected unchecked `wan_proto = get_wan_proto(unit)` in `wan_down_internal()`, now migrated to `get_wan_unit_proto_checked_status()`.
-- Next source audit issue: `get_usb_modem_wan()` reads `wanN_modem_dev` through legacy `nvram_get_int()`; backend read failure silently appears as 0 (non-modem), risking incorrect modem classification in WAN lifecycle and DHCP callback paths. Add status-returning API and migrate the lifecycle-critical consumers with regressions.
+- WAN protocol hardening source slice `4a6df662b6c34d2282e81b3ef8054e80e0894393` protects MAN DNS route setup/teardown, WAN-up, DHCP bound and WAN-stop first-error handling. The exposed XY-C1 compile blocker was removed in `02857320194ebdda3b451ea3d6de07fa212995c0`; exact XY-C1 Build, TRX and artifact upload all passed on that SHA (#44968037242).
+- Current source slice adds `get_usb_modem_wan_status()` using `nvram_get_checked()`, preserving legacy `atoi()` numeric-prefix and missing-key zero semantics while surfacing backend and integer-overflow errors. GNU89 parser regressions and the USB-modem identity workflow are extended. The old boolean API remains a compatibility wrapper.
+- Next source slice migrates WAN lifecycle consumers to distinguish identity-read failure from “not a modem”, while preserving independent best-effort cleanup.
 
 ## Verification boundary
 
-- Parent main SHA: `8ed832e39248e1ac0011dccfd247fba0414bac30`; production-source fix SHA: `02857320194ebdda3b451ea3d6de07fa212995c0`; this commit is checker-only.
-- Exact `8ed832e...`: HTTPD authentication/disclosure security PASS (#44968296908); AI handoff docs PASS (#44968296933); WAN route FAIL (#44968296991) at embedded Python line 465, still locating the deleted `wan_proto = get_wan_proto(unit)` after VPN-stop notification. Replaced with the checked getter and explicit absence of legacy getter.
-- Exact current checker commit `8998530e9609b5e401c15a3a63f23b20ebd27d60`: WAN route #44968619661 failed only because the DHCP deconfig contract still omitted the production `proto_status` first-error input; this contract is corrected in THIS COMMIT. AI handoff docs #44968619684 passed. Re-run both on the new exact main SHA before declaring the checker slice validated.
-- Exact checker SHA `09232ef0e8677c59bfa49a538fb908ce31259d0f`: WAN route #44968740776 PASS; AI handoff #44968740693 initially failed because root `dev_log.md` reached 120 records. Rotation commit `8dd57dffb63cfc11dc0459e7afb3b6d02c1ed9aa` archived 100 records, but AI handoff #44968969967 then found the part-024 index byte count short by 232 (129192 recorded vs 129424 actual UTF-8 bytes). This index metadata is corrected in the current commit; archive bytes and blob SHA are unchanged. Exact-head AI rerun pending. XY-C1 run #44968037242 has Build step 37, TRX step 38 and artifact upload step 39 all SUCCESS on product SHA `02857320194ebdda3b451ea3d6de07fa212995c0`.
-- Exact `0285732...`: WAN teardown PASS (#44968037351), WAN DHCP callback PASS, USB modem identity PASS; WAN route and HTTPD security failed at stale source assertions, subsequently corrected in `8ed832e...`.
-- XY-C1 run #44968037242 remained in progress on exact product SHA `0285732...` at last poll. The initial build on `4a6df66...` failed at four illegal array assignments which were removed in 0285732; verify the later build, TRX and artifact on one exact SHA.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent main SHA: `c6bda35a8e872f040534ef67069e3f30af467928`; latest archive metadata correction `c6bda35a8e872f040534ef67069e3f30af467928` passed the AI handoff validator (#44969060601). Root rolling log contains 21 entries; part-024 metadata records 129424 UTF-8 bytes.
+- Prior exact product source `02857320194ebdda3b451ea3d6de07fa212995c0`: XY-C1 Build step 37, TRX step 38 and artifact upload step 39 all SUCCESS (#44968037242); WAN teardown, DHCP callback and USB modem identity checks passed on that SHA.
+- This commit adds a shared API and pure parser tests. Exact-head USB modem identity and XY-C1 validation remain required; no physical modem hardware result is claimed.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Check exact-SHA WAN route and handoff Actions for this checker commit, and XY-C1 Build/TRX/artifact for product SHA `0285732...`.
-2. Implement status-returning `get_usb_modem_wan_status()` using checked `wanN_modem_dev` NVRAM reads; migrate `is_ifunit_modem`, WAN-up/down and DHCP-bound to distinguish read failure from “not a modem” while preserving best-effort cleanup.
-3. Add C regressions for missing key, modem_dev=0/nonzero, malformed integer and backend errors; run USB-modem identity and XY-C1 exact-head checks.
+1. Inspect exact-head USB modem identity and XY-C1 Build/TRX/artifact checks for the checked `get_usb_modem_wan_status()` API commit; fix actual parser/compiler/contract failures.
+2. Migrate `is_ifunit_modem()` plus WAN-up/down and DHCP-bound consumers to status-returning modem and checked `ifname_t` reads; preserve independent cleanup when identity is unknown.
+3. Migrate remaining direct modem identity reads in WAN stop, MAN routes, manual disconnect, auto reconnect and DNS notification; add source contracts forbidding lifecycle-critical legacy reads.
 
 ## Workflow and preservation rules
 

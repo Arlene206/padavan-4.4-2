@@ -322,15 +322,45 @@ get_man_ifname(int unit)
 }
 
 int
+get_usb_modem_wan_status(int unit, int *is_modem)
+{
+	char key[32], *value = NULL;
+	int status, api_result, saved_errno, devnum = 0;
+
+	if (!is_modem) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*is_modem = 0;
+	status = usb_modem_wan_format_nvram_key(unit, key, sizeof(key));
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(key, &value);
+	saved_errno = errno;
+	status = usb_modem_wan_parse_devnum_status(
+		api_result, saved_errno, value, &devnum);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+
+	*is_modem = (devnum != 0);
+	return 0;
+}
+
+/* Compatibility wrapper for callers that still require the legacy boolean API. */
+int
 get_usb_modem_wan(int unit)
 {
-	char tmp[32], prefix[16];
+	int is_modem = 0;
 
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-	if (nvram_get_int(strcat_r(prefix, "modem_dev", tmp)) != 0)
-		return 1;
-	else
+	if (get_usb_modem_wan_status(unit, &is_modem) != 0)
 		return 0;
+	return is_modem;
 }
 
 int

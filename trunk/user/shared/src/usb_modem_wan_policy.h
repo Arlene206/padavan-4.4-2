@@ -2,8 +2,43 @@
 #define USB_MODEM_WAN_POLICY_H
 
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+/*
+ * Preserve nvram_get_int()/atoi() compatibility while reporting backend
+ * errors that the legacy getter silently converts into a zero value.
+ */
+static inline int
+usb_modem_wan_parse_devnum_status(int api_result, int saved_errno,
+                                  const char *value, int *devnum)
+{
+	char *end;
+	long parsed;
+
+	if (!devnum)
+		return EINVAL;
+	*devnum = 0;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !value)
+		return EIO;
+
+	errno = 0;
+	parsed = strtol(value, &end, 10);
+	if (end == value)
+		return 0;
+	if (errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX)
+		return ERANGE;
+
+	/* atoi() accepts a numeric prefix; retain that legacy behavior. */
+	*devnum = (int)parsed;
+	return 0;
+}
 
 typedef int (*usb_modem_wan_nvram_set_int_fn)(void *context,
                                               const char *name,

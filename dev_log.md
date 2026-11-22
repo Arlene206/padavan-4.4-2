@@ -1,3 +1,13 @@
+## 2026-11-22 — Add checked USB modem WAN identity reader
+
+- Parent main SHA: `c6bda35a8e872f040534ef67069e3f30af467928`.
+- Added `get_usb_modem_wan_status(unit, &is_modem)` backed by `nvram_get_checked()`; missing/empty/non-numeric values preserve the legacy zero default, numeric prefixes preserve `atoi()` behavior, while backend errors and integer overflow return errno-style failures. The old boolean `get_usb_modem_wan()` remains a compatibility wrapper.
+- Extended the shared policy header and host regression for missing key, zero/nonzero and negative values, whitespace/numeric prefixes, malformed input, backend errors, unexpected API results, null output and integer overflow.
+- Extended USB modem identity Actions to compile/run the parser regression under GNU89 + ASan/UBSan, include shared paths in push/PR filters and verify the new API contract. Existing lifecycle callsites remain for the next atomic migration slice.
+- Exact-head USB modem identity and XY-C1 checks are pending.
+
+---
+
 ## 2026-11-22 — Correct the part-024 archive byte count
 
 - Parent main SHA: `8dd57dffb63cfc11dc0459e7afb3b6d02c1ed9aa`.
