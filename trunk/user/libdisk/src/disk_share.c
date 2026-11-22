@@ -1271,20 +1271,23 @@ int del_account(const char *const account)
 {
 	disk_info_t *disk_list, *follow_disk;
 	partition_info_t *follow_partition;
-	int acc_num = 0, target;
+	int acc_num = 0, account_count, target;
 	char **account_list = NULL;
-	int result, i;
+	int result, i, first_error = 0, saved_errno;
 	char nvram_name[16], nvram_value[128];
 	char var_file[256];
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
 
-	// 1. check if can create the account
+	/* Keep the original inventory length for freeing after the NVRAM shift. */
 	if (get_account_list(&acc_num, &account_list) != 0)
 		return -1;
-	if (acc_num <= 0)
+	if (acc_num <= 0) {
+		free_2_dimension_list(&acc_num, &account_list);
 		return -1;
+	}
+	account_count = acc_num;
 
 	result = 0;
 	for (i = 0; i < acc_num; ++i)
@@ -1294,32 +1297,32 @@ int del_account(const char *const account)
 			break;
 		}
 	if (result == 0) {
-		free_2_dimension_list(&acc_num, &account_list);
+		free_2_dimension_list(&account_count, &account_list);
 		return -1;
 	}
 
-	// 2. delete the nvram value about the deleted account
+	/* 2. remove the account from the persistent NVRAM inventory. */
 	--acc_num;
 	nvram_set_int("acc_num", acc_num);
 
 	for (i = target; i < acc_num; ++i) {
 		sprintf(nvram_name, "acc_username%d", i);
 		nvram_set(nvram_name, account_list[i+1]);
-		
+
 		sprintf(nvram_value, "acc_password%d", i+1);
-		
+
 		sprintf(nvram_name, "acc_password%d", i);
 		nvram_set(nvram_name, nvram_safe_get(nvram_value));
 	}
 
-	// 3. change to the share mode when no account
+	/* 3. change to the share mode when no account remains. */
 	if (acc_num < 1) {
 		int i_mode;
-		
+
 		i_mode = nvram_get_int("st_samba_mode");
 		if (i_mode != 1 && i_mode != 3)
 			nvram_set_int("st_samba_mode", 1);
-		
+
 		i_mode = nvram_get_int("st_ftp_mode");
 		if (i_mode != 1 && i_mode != 3)
 			nvram_set_int("st_ftp_mode", 1);
@@ -1327,9 +1330,10 @@ int del_account(const char *const account)
 
 	nvram_commit_safe();
 
-	free_2_dimension_list(&acc_num, &account_list);
+	/* Free with the pre-decrement count; account_list still owns that many strings. */
+	free_2_dimension_list(&account_count, &account_list);
 
-	// 4. find every pool
+	/* 4. find every pool and attempt cleanup on every mounted volume. */
 	disk_list = read_disk_data();
 	if (!disk_list)
 		return 0;
@@ -1338,17 +1342,29 @@ int del_account(const char *const account)
 		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
 			if (follow_partition->mount_point == NULL)
 				continue;
-			
-			// 5. delete the var file of the deleted account
-			snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt", follow_partition->mount_point, account);
-			
-			unlink(var_file);
+
+			if (disk_share_format_account_var_path(
+				    var_file, sizeof(var_file),
+				    follow_partition->mount_point, account) != 0) {
+				if (first_error == 0)
+					first_error = errno ? errno : EIO;
+				continue;
+			}
+
+			if (unlink(var_file) != 0 && errno != ENOENT &&
+			    first_error == 0)
+				first_error = errno ? errno : EIO;
 		}
 	}
 	free_disk_data(disk_list);
 
-	// 6. re-run ftp and samba
+	/* 6. reload services even when stale metadata could not be removed. */
 	system("/sbin/run_ftpsamba");
+	if (first_error != 0) {
+		saved_errno = first_error;
+		errno = saved_errno;
+		return -1;
+	}
 
 	return 0;
 }

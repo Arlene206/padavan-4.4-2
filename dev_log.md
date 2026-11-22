@@ -1,3 +1,14 @@
+## 2026-11-22 20:18 CST (UTC+8) — Fix del-account inventory leak and per-volume metadata cleanup
+
+- Parent main SHA: 0a7581f2ef8ad2a04d00fa827626ae28fd85a339. del_account() decremented acc_num before passing it to free_2_dimension_list(), leaking the final owned account string. It also built per-volume metadata paths with unchecked snprintf() and ignored unlink() failures.
+- Preserve the original account_count for full-list cleanup while using the decremented acc_num for NVRAM compaction. Even the zero-account/error path now releases the returned inventory.
+- Per-volume metadata deletion now uses disk_share_format_account_var_path(), ignores only ENOENT, and records the first other path/unlink error while continuing through every mounted partition. The disk inventory is freed and ftpsamba is reloaded before the first cleanup error is returned.
+- Added source-contract regressions for original-count freeing, checked path construction, ENOENT-only behavior, all-volume processing, cleanup ordering and first-error reporting. NVRAM mutation ordering is unchanged.
+- Exact parent Actions on `0a7581f2ef8ad2a04d00fa827626ae28fd85a339`: libdisk #45019873074 PASS; AI handoff #45019873116 PASS. The earlier 9deb94c source/checker run failed due to multiline source lookup in the checker; that was corrected in 0a7581f and its exact-head libdisk run passed.
+- New commit exact-head Actions must be inspected after publication. XY-C1 L3 remains NOT VERIFIED until Build, TRX and artifact upload all pass on a single product-source SHA; hardware L4 NOT VERIFIED.
+- Next bounded task: audit mod_account() for unchecked metadata path construction and ignored rename failures while preserving the NVRAM transaction order.
+
+---
 ## 2026-11-22 20:14 CST (UTC+8) — Normalize the remaining libdisk lifecycle contracts
 
 - Parent main SHA: 9deb94ca8a41f17d782fb3626a41675fd91236e6. The new folder-cleanup contract normalized source calls but still compared whitespace-bearing first-error literals against the whitespace-free source. Corrected both first-error predicates to their compact forms.

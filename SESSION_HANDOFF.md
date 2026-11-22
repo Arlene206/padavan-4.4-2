@@ -1,41 +1,42 @@
 # Cross-session execution mandate
 
-Continue repository work across GPT conversations. Recover once, then implement rather than repeatedly audit completed tasks.
+Continue repository development across GPT conversations. Recover once, then implement. Do not repeat completed audits or ask the user what to do next.
 
-- One logical slice: source modification, regression coverage, one atomic main commit, then exact-SHA Actions inspection.
-- Use Git data APIs to create all blobs, one tree and one commit; update main with a non-forced compare-and-swap against the expected parent SHA. Never force-push or expose multi-file partial commits.
-- Before context exhaustion, inspect live main and backup refs, exact-head relevant Actions, and local/host test facts; record the first next task and honest verification boundary.
+- One logical slice means source change, regression coverage, one atomic main commit, and exact-SHA Actions inspection.
+- Use Git data APIs to create all blobs, one tree and one commit. Update `main` with non-forced compare-and-swap against the expected parent SHA. Never force-push or expose a multi-file half-state.
+- Before context exhaustion, inspect live main and backup refs, exact-head Actions and tests, then keep this handoff truthful about the first next task.
 
 ## Mandatory handoff checkpoint
 
-Every session MUST inspect the live repository state before ending, including main SHA, backup SHA, exact-head relevant Actions and the first next task.
+Every session MUST inspect live repository state before ending, including `main` SHA, backup SHA, relevant exact-head Actions, test facts and the first next task.
 
 The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no commit. Do not create a no-op commit.
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; branch: main; current product/source commit: THIS COMMIT (parent a6908c5279bee5071759f8b45da3d1a75f27fd6d).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
-- libdisk now has checked enumeration and folder-list snapshots, bounded file reads, atomic permission metadata writes, bounded account paths, fail-closed add-folder and set-permission handling, and folder delete/rename cleanup that continues across independent account files while retaining the first error.
-- add_account() now checks every mounted volume's permission-file initializer, continues after independent volume failures, performs cleanup and Samba reload, and reports the first metadata failure. The existing NVRAM commit order is retained; there is no rollback guarantee.
+- Repository: Arlene206/padavan-4.4-2; branch: main; current source commit: THIS COMMIT (parent 0a7581f2ef8ad2a04d00fa827626ae28fd85a339).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable.
+- libdisk now uses checked directory enumeration and folder snapshots, bounded metadata reads and account paths, atomic permission-file publication, fail-closed folder/account initialization, and first-error propagation for folder delete/rename and account add/delete operations.
+- add_account() propagates every mounted-volume permission initializer failure after attempting all volumes and reloading Samba; the NVRAM ordering is retained.
+- del_account() now frees the complete original account list, uses bounded metadata paths, ignores only missing-file unlink errors, continues through all mounted volumes, and reports the first cleanup failure after ftpsamba reload.
 
 ## Active task
 
-- Immediate regression follow-up: the latest libdisk workflow exposes whitespace assumptions in the first-error predicates and in the new multiline add_account() initializer call. The checker in the current commit removes whitespace from both sides of those comparisons.
-- Next source task after the exact-head checker passes: fix del_account(). It shortens acc_num before `free_2_dimension_list()`, leaking the final account-list entry; it constructs `var_file` with unchecked snprintf and ignores all unlink results. Preserve the original count for freeing, use `disk_share_format_account_var_path()`, treat only ENOENT as a no-op, continue across all mounted volumes, and return the first cleanup error after releasing disk/account inventories and reloading ftpsamba.
-- Do not redesign NVRAM transaction/rollback semantics without checking the current NVRAM contract and test harness.
+- Next: inspect `mod_account()`. Its per-volume path construction still uses unchecked snprintf() for old/new metadata paths and ignores `rename()` results. Use bounded account path helpers for both paths, distinguish ENOENT from real errors, continue through independent volumes, retain the first error, and preserve existing NVRAM ordering. Add source-contract regression coverage.
+- Do not redesign NVRAM transaction/rollback semantics without inspecting the NVRAM transaction API and current CI contract.
 
 ## Verification boundary
 
-- Parent exact-head AI handoff check #45019713382 and libdisk check #45019713462 were queued when this source commit started. The preceding handoff check #45019602967 passed; libdisk #45019603097 still failed in its Python checker because both actual and expected source-call forms needed whitespace normalization. No C sanitizer failure was observed in that run.
-- Parent #45019778723 is the exact libdisk run on `9deb94ca8a41f17d782fb3626a41675fd91236e6`; it was in progress at the time the contract correction was prepared. This checker-only commit requires a new exact-head libdisk run; do not count an ancestor's PASS as this SHA's PASS.
-- XY-C1 L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all pass on the identical product-source SHA. Hardware L4 NOT VERIFIED.
+- Parent exact-head libdisk run #45019873074 PASS on 0a7581f2ef8ad2a04d00fa827626ae28fd85a339. Its two GNU89 ASan/UBSan executables and Python source-contract step all passed.
+- Parent AI handoff validation #45019873116 PASS on 0a7581f2ef8ad2a04d00fa827626ae28fd85a339. Earlier exact-head checker failures #45019713462 and #45019778723 were Python contract assumptions only; no C sanitizer failure was observed. The current source-contract normalization is covered by the passing parent run.
+- Exact-head Actions for THIS COMMIT must be fetched live; do not count an ancestor PASS as the current SHA PASS.
+- XY-C1 firmware L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all PASS on the identical product-source SHA. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch current main and inspect exact-head libdisk and AI handoff Actions for this checker repair; use the failure logs if any contract still fails.
-2. Continue with the isolated del_account() lifecycle fix and source-contract regression described above.
-3. Keep the backup branch immutable; claim L3 only with same-SHA Build + TRX + artifact upload PASS.
+1. Fetch live `main` and inspect exact-head libdisk, handoff, Process, HTTPD, NVRAM and XY-C1 Actions for this commit; fix causal failures from logs.
+2. Continue the isolated `mod_account()` rename-path and error-propagation slice with regression contracts.
+3. Keep the backup branch immutable. Claim L3 only after same-SHA Build, TRX and artifact upload PASS.
 
 ## Documentation anti-churn guard
 

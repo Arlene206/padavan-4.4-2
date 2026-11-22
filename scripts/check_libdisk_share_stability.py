@@ -303,6 +303,38 @@ require("if(!disk_list)" in add_account_compact,
 
 
 
+
+del_account_body = function_body(
+    DISK_SOURCE, "int del_account(const char *const account)"
+)
+del_account_compact = "".join(del_account_body.split())
+saved_count = del_account_compact.index("account_count=acc_num;")
+decrement_count = del_account_compact.index("--acc_num;")
+free_inventory = del_account_compact.index(
+    "free_2_dimension_list(&account_count,&account_list)", decrement_count
+)
+require(saved_count < decrement_count < free_inventory and
+        "free_2_dimension_list(&acc_num,&account_list);" in
+        del_account_compact[:decrement_count],
+        "del_account must release the complete original account list after preserving its pre-decrement count")
+del_path = del_account_compact.index(
+    "disk_share_format_account_var_path(var_file,sizeof(var_file),"
+)
+del_unlink = del_account_compact.index("unlink(var_file)",del_path)
+require("if(disk_share_format_account_var_path(" in del_account_compact and
+        del_path < del_unlink and
+        "errno!=ENOENT" in del_account_compact[del_unlink:] and
+        "first_error==0" in del_account_compact[del_unlink:],
+        "del_account must reject truncated metadata paths, ignore only ENOENT, and preserve other unlink failures")
+del_free_disk = del_account_compact.index("free_disk_data(disk_list)",del_unlink)
+del_service = del_account_compact.index('system("/sbin/run_ftpsamba")',del_free_disk)
+del_error = del_account_compact.index("if(first_error!=0)",del_service)
+require(del_unlink < del_free_disk < del_service < del_error and
+        "errno=first_error;" in del_account_compact and
+        "return-1;" in del_account_compact[del_error:],
+        "del_account must attempt all volumes, free the disk inventory, reload services, then return the first cleanup error")
+
+
 add_folder_body = function_body(
     DISK_SOURCE,
     "int add_folder(const char *const mount_path, const char *const folder)"
