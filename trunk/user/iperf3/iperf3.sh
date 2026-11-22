@@ -20,7 +20,7 @@ iperf3_process_state() {
         0)
             [ -n "$iperf3_pid_output" ] || return 2
             case "$iperf3_pid_output" in
-                *[!0123456789\\ ]*) return 2 ;;
+                *[!0123456789 ]*) return 2 ;;
             esac
             case $- in
                 *f*) iperf3_restore_noglob=0 ;;

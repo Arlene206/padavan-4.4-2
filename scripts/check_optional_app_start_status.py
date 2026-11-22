@@ -792,9 +792,12 @@ exit 0
 
 IPERF_SCRIPT = ROOT / "trunk/user/iperf3/iperf3.sh"
 IPERF_MAKEFILE = ROOT / "trunk/user/iperf3/Makefile"
+IPERF_PROCESS_PATTERN = "*[!0123456789 ]*"
 
 
 def check_iperf3():
+    # Keep the shell's PID character-class expression parseable by ash/dash.
+    assert IPERF_PROCESS_PATTERN in IPERF_SCRIPT.read_text()
     # ROMFS is invoked with "make -C iperf3", where THISDIR is unset.
     # CURDIR is GNU make's defined current-directory variable for this submake.
     package_makefile = IPERF_MAKEFILE.read_text()

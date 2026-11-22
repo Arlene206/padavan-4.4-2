@@ -8,8 +8,8 @@
 
 - Source baseline: `358aca9453aaf9b5dad4814799d8b560689b4f6f`. `is_running()` treated every nonzero `pidof` result as ABSENT. Since BusyBox `pidof` also returns 1 when its procfs scan fails, start could launch a duplicate server, stop could return success without stopping a live server, and startup/stop postcondition loops could falsely interpret UNKNOWN as success.
 - Added strict PID status/output validation (including numeric nonzero PID parsing) and explicit RUNNING/ABSENT/UNKNOWN handling. Start now refuses UNKNOWN before launch and during readiness checks; stop refuses UNKNOWN before signaling, after a failed signal, and in its postcondition polling. Only pidof status 1 with empty output is accepted as ABSENT.
-- Extended the existing executable-source integration in `scripts/check_optional_app_start_status.py` with pidof error, status/output mismatch, and no-duplicate/no-signal assertions. The process lifecycle regression workflow already runs this checker. No local router or firmware build is claimed.
-- Exact-head validation pending.
+- Extended the existing executable-source integration in `scripts/check_optional_app_start_status.py` with pidof error, status/output mismatch, and no-duplicate/no-signal assertions. Its first exact-head run (`17402ad9...`) caught a shell parse error in the new character-class expression: an unnecessary escaped space/backslash pair was not accepted by dash. Replaced it with the same portable `[!0123456789 ]` class used by the DNS Forwarder implementation and added a static guard for that expression. The failing run did not execute the behavioral assertions; the corrected exact-head rerun is pending.
+- No local router or firmware build is claimed.
 
 ## 2026-11-22 — SmartDNS Adbyby process inventory must be tri-state
 
