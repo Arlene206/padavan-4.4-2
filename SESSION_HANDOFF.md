@@ -28,23 +28,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Firewall startup checked-read gate and LAN DHCP last-good snapshot remain completed source slices; historical exact Actions are retained in prior dev-log entries.
-- OpenVPN certificate/key failure propagation and signer digest correction: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`; exact VPN lifecycle #44975631032, OpenVPN private-key #44975630990, AI docs #44975631000 and Process inventory #44975630996 PASS.
-- FTP passive-port source policy: `1a922e08b90f3cc82211b1d81ffb926d78441eff` adds checked `st_ftp_pmin`/`st_ftp_pmax` reads, preserves missing defaults and legacy clamping, and refuses failed reads or inverted ranges before staged config publication. Exact VSFTPD #44975976664 ran the GNU89/Werror policy regression successfully but then failed the final workflow changed-path contract because the new header/test were present in `push.paths` but missing from `pull_request.paths`. THIS commit adds both PR paths; no product source changes.
-- Exact 1a922 Actions: NFS #44975976472 PASS, USB storage #44975976459 PASS, HTTPD #44975976483 PASS, Samba #44975976453 PASS, Firewall #44975976497 PASS, USB modem #44975976477 PASS, Process inventory #44975976476 PASS, AI docs #44975976608 PASS and NVRAM #44975976523 PASS. XY-C1 #44975976514 was IN_PROGRESS at last poll; no L3 claim.
-- No local MIPS checkout/toolchain or router hardware; no L3/L4 claim.
+- Firewall startup checked-read gate and LAN DHCP last-good snapshot remain completed source slices; see earlier dev-log entries for exact Actions.
+- OpenVPN certificate/key generation error propagation and signer digest fix: `4188434603fb3a6dc55ebe8b5e6c9a1636964c8b`; VPN lifecycle #44975631032, OpenVPN private-key #44975630990, AI docs #44975631000, Process #44975630996 PASS exact.
+- FTP passive-port source policy: `1a922e08b90f3cc82211b1d81ffb926d78441eff`; checked min/max reads and range validation. Its test runs successfully. Workflow PR path correction `128089bbad8b39111eb5449f41ccfd6884c20bf5` now passes exact VSFTPD #44976239337 and AI docs #44976239373.
+- Samba account-count gate THIS SLICE: `acc_num` was still read via `nvram_safe_get_int()`; backend/parse failures silently became zero and could produce an empty staged passdb, replacing valid stored SMB credentials. This commit adds a status-bearing read before any cleanup or staging, preserves missing default 0 and legacy clamping 0..MAX_ACCOUNT_NUM, rejects read errors, and tests policy boundaries.
+- No local MIPS checkout/toolchain or physical router; L3/L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- Parent main for THIS workflow-path correction: `1a922e08b90f3cc82211b1d81ffb926d78441eff`.
-- VSFTPD #44975976664 FAILED only at the final path contract asserting every declared changed path appears once in both push and pull_request filters. The new policy compile/run step came earlier and completed; exact-head rerun is required.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. Hardware L4 NOT VERIFIED.
+- Parent main for THIS Samba account-count slice: `128089bbad8b39111eb5449f41ccfd6884c20bf5`.
+- Exact VSFTPD #44976239337 PASS and AI docs #44976239373 PASS on `128089b`, confirming the FTP policy and workflow PR filters now pass the exact workflow. Prior VSFTPD #44975976664 was only a missing PR path failure; this is now fixed.
+- Samba, Process inventory, NVRAM and XY-C1 exact-head Actions for THIS commit are pending at creation time. No claim of pass yet.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VSFTPD and Process/AI documentation checks triggered by the PR-path correction; fix real assertions without weakening policy coverage.
-2. Recheck XY-C1 Build, TRX verification and artifact upload on one exact product source SHA; claim L3 only if all three pass.
-3. Continue independent whole-userland reliability/security work while Actions are pending; keep the backup branch read-only.
+1. Inspect exact-head Samba share workflow for the account-count unit tests and source-contract ordering. If it fails, fix only the actual checker/test/compile issue.
+2. Poll Process, NVRAM, AI docs and XY-C1; require Build XY-C1 + TRX + artifact upload to all pass on one exact source SHA before L3.
+3. Continue a separate whole-userland stability/security defect while Actions are pending; keep the backup branch frozen.
 
 ## Workflow and preservation rules
 

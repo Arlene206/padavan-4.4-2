@@ -1,3 +1,12 @@
+## 2026-11-22 10:30 CST — Reject unknown Samba account-count state before passdb publication
+
+- Parent main SHA: `128089bbad8b39111eb5449f41ccfd6884c20bf5`.
+- Audit of `run_samba()` found `sh_num = nvram_safe_get_int("acc_num", 0, 0, MAX_ACCOUNT_NUM)`: NVRAM backend/parse failures were converted to a plausible zero-user count. On SMBD36, that could build and publish an empty staged passdb, replacing valid SMB credentials; it also hid config corruption on other builds.
+- Added `samba_passdb_account_count_status()` with checked-status propagation and the existing 0..MAX_ACCOUNT_NUM clamp. run_samba now validates `acc_num` immediately after acquiring the config lock, before process/cleanup/passdb mutations, and preserves the old passdb/config on any read failure.
+- Added policy regressions for default zero, valid values, lower/upper clamping, EIO/EACCES/negative failures and invalid arguments; extended Samba workflow source-order contract and roadmap/handoff. Exact-head CI pending.
+
+---
+
 ## 2026-11-22 CST — Add passive-port regression paths to PR filters
 
 - Parent main SHA: `1a922e08b90f3cc82211b1d81ffb926d78441eff`.

@@ -311,6 +311,15 @@ jobs:
           assert run_samba.index("samba_config_transaction_prepare_parent_directory(") < run_samba.index("samba_config_transaction_recover(")
           assert 'mkdir_if_none("/etc/samba", "777")' not in run_samba
           assert run_samba.index("samba_config_transaction_lock_acquire(") < run_samba.index("samba_config_transaction_recover(")
+          account_read = 'storage_read_integer_status("acc_num",0,&account_count_value)'
+          account_policy = 'samba_passdb_account_count_status(account_count_status,account_count_value,MAX_ACCOUNT_NUM,&sh_num)'
+          assert account_read in "".join(run_samba.split())
+          assert account_policy in "".join(run_samba.split())
+          assert run_samba.index(account_read) < run_samba.index('process_inventory_scan("smbd", &smbd_snapshot)')
+          assert run_samba.index(account_policy) < run_samba.index("recreate_passwd_unix(0)")
+          assert run_samba.index(account_policy) < run_samba.index("samba_prepare_private_passdb(")
+          assert 'nvram_safe_get_int("acc_num"' not in run_samba
+          assert "cannot read a valid account count" in run_samba
           assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")
           assert run_samba.index("if (credential_failed)") < run_samba.index("samba_config_transaction_begin(")
           assert run_samba.index("samba_config_transaction_begin(") < run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
@@ -347,6 +356,12 @@ jobs:
           assert "write_smb_conf_unlocked()" in public_writer
           passdb_policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
           passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
+          account_count_fn = function_body(passdb_policy, "samba_passdb_account_count_status(")
+          assert "read_status != 0" in account_count_fn
+          assert "value < 0" in account_count_fn and "value > maximum" in account_count_fn
+          assert "samba_passdb_account_count_status(EIO, 0, 16, &count)" in passdb_test
+          assert "samba_passdb_account_count_status(EACCES, 8, 16, &count)" in passdb_test
+          assert "samba_passdb_account_count_status(0, 99, 16, &count)" in passdb_test
           backup_fn = function_body(passdb_policy, "samba_passdb_backup_file(")
           restore_fn = function_body(passdb_policy, "samba_passdb_restore_file(")
           assert "lstat(passdb_path, &st)" in backup_fn

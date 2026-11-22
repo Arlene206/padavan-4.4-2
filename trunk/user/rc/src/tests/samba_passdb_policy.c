@@ -34,6 +34,29 @@ main(void)
 	assert(!samba_passdb_password_is_safe("control\001byte"));
 	assert(!samba_passdb_password_is_safe("delete\177byte"));
 
+	/* A failed account-count read must never masquerade as zero users. */
+	{
+		int count = 99;
+
+		assert(samba_passdb_account_count_status(0, 0, 16, &count) == 0);
+		assert(count == 0);
+		assert(samba_passdb_account_count_status(0, 7, 16, &count) == 0);
+		assert(count == 7);
+		assert(samba_passdb_account_count_status(0, -1, 16, &count) == 0);
+		assert(count == 0);
+		assert(samba_passdb_account_count_status(0, 99, 16, &count) == 0);
+		assert(count == 16);
+		count = 99;
+		assert(samba_passdb_account_count_status(EIO, 0, 16, &count) == EIO);
+		assert(count == 0);
+		assert(samba_passdb_account_count_status(EACCES, 8, 16, &count) == EACCES);
+		assert(count == 0);
+		assert(samba_passdb_account_count_status(-1, 8, 16, &count) == EIO);
+		assert(count == 0);
+		assert(samba_passdb_account_count_status(0, 8, -1, &count) == EINVAL);
+		assert(samba_passdb_account_count_status(0, 8, 16, NULL) == EINVAL);
+	}
+
 	/*
 	 * A failed paired configuration publish must be able to restore the old
 	 * passdb without copying credential hashes into another file.

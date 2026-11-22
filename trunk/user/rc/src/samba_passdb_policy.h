@@ -9,6 +9,29 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/*
+ * The legacy integer getter clamps account counts into 0..MAX_ACCOUNT_NUM,
+ * but it also turns NVRAM backend/parse failures into a plausible zero. Keep
+ * the clamp for compatibility while propagating every failed checked read.
+ */
+static inline int
+samba_passdb_account_count_status(int read_status, int value,
+				  int maximum, int *account_count)
+{
+	if (!account_count || maximum < 0)
+		return EINVAL;
+	*account_count = 0;
+	if (read_status != 0)
+		return read_status > 0 ? read_status : EIO;
+	if (value < 0)
+		value = 0;
+	else if (value > maximum)
+		value = maximum;
+	*account_count = value;
+	return 0;
+}
+
+
 /* Match the firmware's 127-byte password limit and reject line controls. */
 static int
 samba_passdb_password_is_safe(const char *password)

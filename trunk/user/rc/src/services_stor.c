@@ -1522,7 +1522,8 @@ samba_ensure_daemon(const char *daemon,
 
 int run_samba(void)
 {
-	int lock_fd, sh_num, i, j;
+	int lock_fd, sh_num = 0, account_count_value = 0;
+	int account_count_status, i, j;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
 	int runtime_enabled;
 	char tmpuser[40], tmp2[40];
@@ -1557,6 +1558,27 @@ int run_samba(void)
 		logmessage("Samba Server", "cannot lock Samba service publication (errno %d)",
 			   errno ? errno : EIO);
 		return -1;
+	}
+
+	/*
+	 * acc_num controls how many credential rows are rebuilt. A failed read
+	 * previously became zero via nvram_safe_get_int(), allowing an empty
+	 * staged passdb to replace the last-known-good account database.
+	 * Snapshot and validate it before any cleanup or passdb staging.
+	 */
+	account_count_status = storage_read_integer_status(
+		"acc_num", 0, &account_count_value);
+	account_count_status = samba_passdb_account_count_status(
+		account_count_status, account_count_value, MAX_ACCOUNT_NUM, &sh_num);
+	if (account_count_status != 0) {
+		int account_error = account_count_status > 0 ?
+			account_count_status : EIO;
+
+		logmessage("Samba Server",
+			   "cannot read a valid account count; preserving current passdb and configuration (errno %d)",
+			   account_error);
+		errno = account_error;
+		goto out;
 	}
 
 	/* Inventory every daemon before account, config or cleanup mutation. */
@@ -1614,7 +1636,6 @@ int run_samba(void)
 	}
 #endif
 
-	sh_num = nvram_safe_get_int("acc_num", 0, 0, MAX_ACCOUNT_NUM);
 	for (i = 0; i < sh_num; i++) {
 		snprintf(tmpuser, sizeof(tmpuser), "acc_username%d", i);
 		snprintf(tmp2, sizeof(tmp2), "acc_password%d", i);
