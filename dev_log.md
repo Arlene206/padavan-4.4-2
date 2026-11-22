@@ -1,3 +1,11 @@
+## 2026-11-22 — Preserve Internet-loss action NVRAM read failures
+
+- Parent main SHA: `88f33bc3d23fd4b1c4cd909abfcd55d6991f7ab2`. `notify_on_internet_state_changed()` used `nvram_safe_get_int("di_lost_action", 0, 0, 3)`, which internally collapses NVRAM GET ioctl/read/close errors into integer 0. A transient backend fault therefore silently skipped configured automatic reboot/reconnect.
+- Replaced the unchecked read with `get_nvram_int_checked_status()` and a policy preserving the old 0..3 bounds and default-zero behavior for absent/out-of-range values. Backend/parse/close failures now suppress only the automatic action and emit a diagnostic rather than masquerading as disabled policy.
+- Added GNU89 policy coverage for backend errors, valid actions 2/3, missing/default zero, lower/upper out-of-range fallback and invalid output; extended the WAN DNS source checker to pin checked-read → status guard/log → switch ordering and forbid the old helper.
+- Exact parent WAN route #45046759582 PASS and AI handoff #45046759590 PASS. The XY-C1 production run #45046472404 on `b4c5967` remained at Build with TRX/artifact pending at last inspection. No local test/build or hardware check was performed.
+
+---
 ## 2026-11-22 — Fix SIT regression checker initialization order
 
 - Parent main SHA: `034ddac2a662f27510e6ce4735efdbd9b6a07e80`. WAN route run #45046635467 passed all policy binaries and earlier DNS/PPP/WAN contracts, then failed at the new SIT 6rd test-marker assertion because `sit_policy_test` was assigned below the assertion block. The first b4c5967 route run #45046472456 had already exposed and led to correction of the stale split-getter contract.

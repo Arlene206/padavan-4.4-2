@@ -511,6 +511,20 @@ rc_wan_nvram_copy_int_text_snapshot(
 	*integer_value = parsed_value;
 	return 0;
 }
+/* Preserve the bounded 0..3 action selector without collapsing read errors. */
+static inline int
+rc_wan_internet_loss_action_status(int read_status, int configured_action,
+				  int *effective_action)
+{
+	if (!effective_action)
+		return EINVAL;
+	*effective_action = 0;
+	if (read_status != 0)
+		return read_status;
+	if (configured_action >= 0 && configured_action <= 3)
+		*effective_action = configured_action;
+	return 0;
+}
 typedef int (*rc_wan_nvram_param_set_fn)(void *context,
 					 const char *param_name);
 

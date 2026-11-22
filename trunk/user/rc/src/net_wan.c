@@ -6151,45 +6151,57 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 				   "router Internet-loss actions suppressed because AP/router mode cannot be verified (status=%d)",
 				   ap_mode_status);
 		} else if (!is_ap_mode) {
-			int fail_action = nvram_safe_get_int("di_lost_action", 0, 0, 3);
+			int fail_action_value = 0, fail_action = 0;
+			int fail_action_status;
 
-			switch (fail_action)
-			{
-			case 1:
-				logmessage(LOGNAME, "Perform router auto-reboot on %s event", "Internet lost");
-				queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot");
-				return;
-			case 2:
-				queue_internet_lost_action("auto_wan_reconnect_pause",
-						   "automatic WAN reconnect pause");
-				break;
+			fail_action_status = get_nvram_int_checked_status(
+				"di_lost_action", &fail_action_value);
+			fail_action_status = rc_wan_internet_loss_action_status(
+				fail_action_status, fail_action_value, &fail_action);
+			if (fail_action_status != 0) {
+				errno = fail_action_status;
+				logmessage(LOGNAME,
+					   "router Internet-loss automatic action suppressed because di_lost_action cannot be read (status=%d)",
+					   fail_action_status);
+			} else {
+				switch (fail_action)
+				{
+				case 1:
+					logmessage(LOGNAME, "Perform router auto-reboot on %s event", "Internet lost");
+					queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot");
+					return;
+				case 2:
+					queue_internet_lost_action("auto_wan_reconnect_pause",
+							   "automatic WAN reconnect pause");
+					break;
 #if defined (USE_USB_SUPPORT)
-			case 3:
-				if (get_modem_devnum()) {
-					int priority_status, modem_identity_status;
-					int is_modem_wan = 0;
+				case 3:
+					if (get_modem_devnum()) {
+						int priority_status, modem_identity_status;
+						int is_modem_wan = 0;
 
-					modem_identity_status = get_usb_modem_wan_status(
-						0, &is_modem_wan);
-					if (modem_identity_status != 0) {
-						logmessage(LOGNAME,
-							   "cannot read modem WAN identity before automatic reconnect (status=%d)",
-							   modem_identity_status);
-						break;
+						modem_identity_status = get_usb_modem_wan_status(
+							0, &is_modem_wan);
+						if (modem_identity_status != 0) {
+							logmessage(LOGNAME,
+								   "cannot read modem WAN identity before automatic reconnect (status=%d)",
+								   modem_identity_status);
+							break;
+						}
+						priority_status = wan_nvram_int_status(
+							"modem_prio", is_modem_wan ? 0 : 1);
+						if (priority_status != 0) {
+							logmessage(LOGNAME,
+								   "cannot publish modem priority before automatic reconnect (status=%d)",
+								   priority_status);
+							break;
+						}
+						queue_internet_lost_action("auto_wan_reconnect",
+								   "automatic WAN reconnect");
 					}
-					priority_status = wan_nvram_int_status(
-						"modem_prio", is_modem_wan ? 0 : 1);
-					if (priority_status != 0) {
-						logmessage(LOGNAME,
-							   "cannot publish modem priority before automatic WAN reconnect (status=%d)",
-							   priority_status);
-						break;
-					}
-					queue_internet_lost_action("auto_wan_reconnect",
-							   "automatic WAN reconnect");
-				}
-				break;
+					break;
 #endif
+				}
 			}
 		}
 	}

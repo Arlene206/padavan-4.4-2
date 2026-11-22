@@ -1231,6 +1231,23 @@ for test_name in ("test_checked_nvram_copy_treats_missing_key_as_empty",
     require(test_name in sit_policy_test and test_name + "();" in sit_policy_test,
             "SIT checked-read regression must be registered: " + test_name)
 
+# Internet-loss action selection must distinguish an NVRAM error from action 0.
+loss_action_body = body(source, "notify_on_internet_state_changed(int has_internet, long elapsed)")
+loss_action_compact = "".join(loss_action_body.split())
+require('get_nvram_int_checked_status("di_lost_action",&fail_action_value)' in loss_action_compact,
+        "Internet-loss action must use checked NVRAM read")
+require('rc_wan_internet_loss_action_status(fail_action_status,fail_action_value,&fail_action)' in loss_action_compact,
+        "Internet-loss action must preserve read status before dispatch")
+require('nvram_safe_get_int("di_lost_action"' not in loss_action_compact and
+        'if(fail_action_status!=0)' in loss_action_compact and
+        loss_action_compact.index('if(fail_action_status!=0)') < loss_action_compact.index('switch(fail_action)'),
+        "Internet-loss automatic recovery must not silently default on NVRAM read failure")
+require("di_lost_action cannot be read" in loss_action_body,
+        "Internet-loss policy read failures must be logged")
+require("test_internet_loss_action_propagates_nvram_read_errors" in sit_policy_test and
+        "test_internet_loss_action_propagates_nvram_read_errors();" in sit_policy_test,
+        "Internet-loss action read-error regression must be registered")
+
 # wan6_up must obtain per-unit address settings as one checked tuple before stopping clients.
 unit_snapshot_body = body(wan6_source, "wan6_read_unit_address_snapshot(int unit, int ipv6_type,")
 wan6_up_body = body(wan6_source, "int wan6_up(")

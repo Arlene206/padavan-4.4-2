@@ -2260,9 +2260,32 @@ test_dhcp6c_hwaddr_snapshot_fails_closed_on_transaction_close_error(void)
 	assert(fake.end_calls == 1 && hardware_address[0] == '\0');
 }
 
+static void
+test_internet_loss_action_propagates_nvram_read_errors(void)
+{
+	int action = 99;
+
+	assert(rc_wan_internet_loss_action_status(EIO, 2, &action) == EIO);
+	assert(action == 0);
+	assert(rc_wan_internet_loss_action_status(EINVAL, 3, &action) == EINVAL);
+	assert(action == 0);
+	assert(rc_wan_internet_loss_action_status(0, 0, &action) == 0);
+	assert(action == 0);
+	assert(rc_wan_internet_loss_action_status(0, 2, &action) == 0);
+	assert(action == 2);
+	assert(rc_wan_internet_loss_action_status(0, 3, &action) == 0);
+	assert(action == 3);
+	/* Match nvram_safe_get_int(..., 0, 0, 3): out-of-range defaults to 0. */
+	assert(rc_wan_internet_loss_action_status(0, -1, &action) == 0);
+	assert(action == 0);
+	assert(rc_wan_internet_loss_action_status(0, 4, &action) == 0);
+	assert(action == 0);
+	assert(rc_wan_internet_loss_action_status(0, 1, NULL) == EINVAL);
+}
 int
 main(void)
 {
+	test_internet_loss_action_propagates_nvram_read_errors();
 	test_successful_required_param_sequence();
 	test_required_param_sequence_stops_at_first_error();
 	test_invalid_required_param_arguments_fail_closed();
