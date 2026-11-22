@@ -267,6 +267,32 @@ func_stop()
 		return 0
 	fi
 
+	# Validate the full PID snapshot before the graceful signal. A successful
+	# pidof with malformed, unsafe or whitespace-only output is UNKNOWN.
+	case "$tr_pid" in
+		*[!0-9\ ]*)
+			echo "[FAILED]"
+			logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+			return 1
+			;;
+	esac
+	tr_pid_count=0
+	for tr_pid_one in $tr_pid; do
+		case "$tr_pid_one" in
+			''|0*|1|*[!0-9]*)
+				echo "[FAILED]"
+				logger -t "$SVC_NAME" "Cannot stop: invalid daemon PID list" >/dev/null 2>&1 || true
+				return 1
+				;;
+		esac
+		tr_pid_count=$((tr_pid_count + 1))
+	done
+	if [ "$tr_pid_count" -eq 0 ]; then
+		echo "[FAILED]"
+		logger -t "$SVC_NAME" "Cannot stop: empty daemon PID list" >/dev/null 2>&1 || true
+		return 1
+	fi
+
 	echo -n "Stopping $SVC_NAME:."
 
 	# A failed killall may be a race; the following PID snapshots determine

@@ -614,16 +614,18 @@ check_stop_contracts()
 	[ "$(wc -l < "$stop_signals")" -eq 2 ] || { echo "$stop_service did not attempt SIGKILL for every remaining PID" >&2; exit 1; }
 
 	# Reject malformed and unsafe PID lists before sending any signal.
-	for invalid_pids in "505 invalid" "0" "1"; do
+	for invalid_pids in "505 invalid" "0" "1" "0123" "   "; do
 		stop_state="$TMP_DIR/$stop_prefix-stop-invalid-pids"
 		stop_signals="$TMP_DIR/$stop_prefix-stop-invalid-signals"
 		printf '%s\n' "$invalid_pids" > "$stop_state"
 		: > "$stop_signals"
+		rm -f "$stop_killall"
 		if run_stop_runner "$stop_runner" "$stop_service" "$stop_state" "$stop_signals" 0 0 0 0; then
 			echo "$stop_service accepted unsafe pidof output: $invalid_pids" >&2
 			exit 1
 		fi
 		[ ! -s "$stop_signals" ] || { echo "$stop_service signaled an unsafe PID list" >&2; exit 1; }
+		[ ! -e "$stop_killall" ] || { echo "$stop_service invoked killall with an invalid PID snapshot" >&2; exit 1; }
 	done
 
 	# A pidof error or a successful-but-empty response is UNKNOWN, not absent.

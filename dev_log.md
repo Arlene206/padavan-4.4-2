@@ -1,3 +1,8 @@
+## 2026-11-22 — Reject malformed Transmission PID snapshots before stop signals
+
+- Review of `func_stop()` found that it checked pidof's exit status and empty/nonempty consistency, but called `killall transmission-daemon` before validating the successful PID output. A status-0 response containing malformed, unsafe or whitespace-only data could therefore authorize a broad signal despite an UNKNOWN snapshot.
+- Added strict validation and a nonempty token-count check before the graceful killall; expanded the storage-app stop regression for malformed, zero, PID 1, leading-zero and whitespace-only snapshots, asserting that neither killall nor per-PID SIGKILL is attempted. Exact-head USB storage regression pending.
+
 ## 2026-11-22 — Aria2 build downloads must verify TLS certificates
 
 - Source baseline: `cb2cf663a60f5e06dded99b4b55b248a9ce95b38`. The Aria2 build Makefile passed `--no-check-certificate` to wget for both the upstream aria2 source tarball and the AriaNg web UI archive, disabling server certificate authentication on two supply-chain inputs fetched over HTTPS.
