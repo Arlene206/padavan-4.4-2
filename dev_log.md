@@ -1,3 +1,11 @@
+## 2026-11-22 — Correct IAPP firewall reconciliation command and verify ACCEPT target
+
+- Parent main SHA: `117ae6e88894827d7340cd2f53d10b5b569c86b9`. Exact 117 AI docs #45004170577 and Process inventory #45004170607 PASS; IAPP lifecycle #45004170579 failed because the appended iptables command was split after a double-backslash, causing `-m` to execute as a command.
+- THIS CORRECTION places the append on one line, fixes printf's newline format and requires the saved rule to include `-j ACCEPT`, not merely an owner tag/protocol/port. A new test rejects a tagged DROP rule without adding a duplicate. The pre-existing-daemon recovery and fail-reporting tests remain.
+- Exact 117 XY-C1 #45004170597 and Process umbrella #45004170630 were running at last poll. Corrected-head IAPP/Process/XY checks pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Reconcile IAPP firewall rules on duplicate start
 
 - Parent main SHA: `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`. Exact-head Process lifecycle #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 PASS.

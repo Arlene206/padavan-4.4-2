@@ -5,11 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; active branch `main`; parent for the current source slice: `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
-- Account NVRAM snapshots and strict oversized-count parsing are on main through `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`. Exact-head Process lifecycle #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 all PASS.
-- Exact 46a had no XY-C1 run because the XY workflow path filter omitted the newly added `trunk/user/shared/src/router_account_nvram_policy.h`; this slice adds it. The IAPP production-source change also triggers the XY workflow, so the resulting head validates both code paths.
-- Earlier 1ba and 7c Process failures were resolved: 7c expanded the five-byte test destination and restored required handoff headings; 46a replaced the fixed-size count copy with immediate bounded decimal parsing. Do not repeat these investigations.
-- The last verified L3 remains only for product SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; it does not certify later source changes. Hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; active branch `main`; parent for this correction: `117ae6e88894827d7340cd2f53d10b5b569c86b9`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
+- Account NVRAM snapshots and strict oversized-count parsing are on main through `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`; exact 46a Process lifecycle #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 PASS.
+- The 46a XY-C1 path-filter gap was repaired in 117 by adding `trunk/user/shared/src/router_account_nvram_policy.h`; the 117 exact XY-C1 run #45004170597 is still IN_PROGRESS.
+- Exact 117 AI docs #45004170577 and Process inventory #45004170607 PASS. IAPP lifecycle #45004170579 FAILED because the new firewall-append command continuation contained two backslashes, causing the shell to execute `-m` as a command. Process umbrella #45004170630 was still IN_PROGRESS at last poll. THIS correction fixes the shell command and tightens target matching.
+- The previous L3 verification remains only for product SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; neither 46a nor 117 was yet product-verified. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,16 +30,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- `iappd.sh start` previously returned success immediately whenever the daemon was already running, without checking its owned TCP/UDP firewall rules for port 3517. A failed partial start/rollback or later rule loss could therefore leave a live daemon without its required firewall allowance while a repeated start falsely reported healthy.
-- This slice reconciles each tagged rule on duplicate start, adds only a genuinely missing rule, verifies the postcondition with `iptables-save`, and propagates inspection/append failures. Regression cases cover repair without relaunch and fail-reporting on append failure while preserving the existing daemon.
-- XY-C1 workflow trigger coverage now includes the account NVRAM policy header; the IAPP source path already triggers the target workflow. Firmware validation must still pass on the exact new commit.
+- Fix and verify the IAPP duplicate-start firewall reconciliation. When the daemon is already live, `start` must prove that both owned port-3517 INPUT ACCEPT rules exist; otherwise it should restore only a missing rule and propagate inspection/append errors. A conflicting rule with the same owner tag but a non-ACCEPT target must fail closed.
+- Exact 117 failure #45004170579 exposed a shell line-continuation escaping defect in the first implementation. This correction places the iptables append on one line, repairs printf newline formatting, and checks the ACCEPT target in both pre/postcondition scans.
+- Preserve idempotency: a running daemon is never launched twice, and a failed firewall repair does not kill an already-running daemon or falsely return success.
 
 ## Verification boundary
-- Exact 46a Process lifecycle #45003857329 PASS, Process inventory #45003857277 PASS, NVRAM audit #45003857261 PASS and AI docs #45003857267 PASS.
-- Exact 46a did not run XY-C1 due the missing path-filter entry; this commit repairs that trigger. No current-head Build/TRX/artifact evidence yet.
-- Account test failures at 1ba and 7c were corrected and passed on exact 46a Process regression. Prior L3 evidence is only for the older a5 product SHA. Hardware L4 NOT VERIFIED.
+- Exact 117 AI docs #45004170577 PASS and Process inventory #45004170607 PASS.
+- Exact 117 IAPP lifecycle #45004170579 FAILED at the new missing-UDP recovery case due the malformed command continuation; exact correction rerun pending. Process umbrella #45004170630 and XY-C1 #45004170597 were in progress at last poll.
+- Account NVRAM exact 46a Process lifecycle #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 PASS. The 46a XY path-filter gap was corrected on 117; current exact Build/TRX/artifact evidence remains pending.
+- L3 remains established only for old product SHA a5; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact-head IAPP lifecycle and Process lifecycle runs; confirm both duplicate-start recovery tests and the wider regression complete successfully.
-2. Check exact-head XY-C1 Build, TRX verification and artifact upload. Claim L3 only if all three pass on that same source SHA.
-3. Continue the next independent P1 stability/security source fix; do not repeat the completed WAN route or account NVRAM investigations. Hardware L4 remains NOT VERIFIED.
+1. Check exact-correction IAPP lifecycle, Process umbrella, AI docs, Process inventory and XY-C1 runs; inspect any failure at its first failing step.
+2. Claim L3 only if XY-C1 Build, TRX verification and artifact upload all pass on that same source SHA.
+3. Continue the next independent stability/security defect; do not repeat the completed WAN route or account NVRAM work. Hardware L4 remains NOT VERIFIED.

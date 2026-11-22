@@ -83,10 +83,11 @@ iapp_ensure_firewall_rule() {
     log_iapp "cannot inspect filter rules while reconciling $tag (status=$rc)"
     return "$rc"
   }
-  if printf '%s\\n' "$rules" |
+  if printf '%s\n' "$rules" |
       grep -F -- "-A INPUT -i br0 -p $proto " |
       grep -F -- "--dport 3517" |
-      grep -F -- "--comment $tag" >/dev/null 2>&1; then
+      grep -F -- "--comment $tag" |
+      grep -F -- "-j ACCEPT" >/dev/null 2>&1; then
     return 0
   fi
 
@@ -97,8 +98,7 @@ iapp_ensure_firewall_rule() {
       ;;
   esac
 
-  iptables -A INPUT -i br0 -p "$proto" --dport 3517 \\
-    -m comment --comment "$tag" -j ACCEPT || {
+  iptables -A INPUT -i br0 -p "$proto" --dport 3517 -m comment --comment "$tag" -j ACCEPT || {
     rc=$?
     log_iapp "failed to restore missing $tag firewall rule (status=$rc)"
     return "$rc"
@@ -109,10 +109,11 @@ iapp_ensure_firewall_rule() {
     log_iapp "cannot verify restored $tag firewall rule (status=$rc)"
     return "$rc"
   }
-  if ! printf '%s\\n' "$rules" |
+  if ! printf '%s\n' "$rules" |
       grep -F -- "-A INPUT -i br0 -p $proto " |
       grep -F -- "--dport 3517" |
-      grep -F -- "--comment $tag" >/dev/null 2>&1; then
+      grep -F -- "--comment $tag" |
+      grep -F -- "-j ACCEPT" >/dev/null 2>&1; then
     log_iapp "restored $tag firewall rule did not appear in filter inventory"
     return 1
   fi

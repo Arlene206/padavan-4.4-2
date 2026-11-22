@@ -175,7 +175,7 @@ rc=$(capture_status run stop); status "$rc" 0
 # than returning success while its required UDP listener is unreachable.
 reset
 : > "$STATE_DIR/daemon"
-printf '%s\\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
 rc=$(capture_status run start); status "$rc" 0
 [ "$(grep -c "^ralinkiappd " "$COMMAND_LOG")" -eq 0 ] || fail "reconciled start relaunched the daemon"
 [ "$(grep -c "^iptables -A " "$COMMAND_LOG")" -eq 1 ] || fail "reconciled start did not append exactly the missing UDP rule"
@@ -184,12 +184,23 @@ rc=$(capture_status run start); status "$rc" 0
 # If repair fails, preserve the existing daemon but never report start success.
 reset
 : > "$STATE_DIR/daemon"
-printf '%s\\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
 MOCK_IPTABLES=47; MOCK_IPTABLES_FAIL_AT=1
 rc=$(capture_status run start); status "$rc" 47
 [ -f "$STATE_DIR/daemon" ] || fail "firewall repair failure stopped the pre-existing daemon"
 [ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 1 ] || fail "failed repair changed existing managed rules"
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "firewall repair failure launched another daemon"
+
+# A tagged rule with the wrong target is not accepted as a healthy firewall rule.
+# Fail closed rather than treating a tagged DROP rule as an existing ACCEPT rule.
+reset
+: > "$STATE_DIR/daemon"
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j DROP' > "$RULES_FILE"
+rc=$(capture_status run start); status "$rc" 1
+[ -f "$STATE_DIR/daemon" ] || fail "conflicting tagged rule stopped the pre-existing daemon"
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 1 ] || fail "conflicting tagged rule was replaced or duplicated"
+[ "$(grep -c "^iptables -A " "$COMMAND_LOG")" -eq 0 ] || fail "added a duplicate rule next to a conflicting tag"
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "conflicting tagged rule relaunched the daemon"
 
 # A stop with no daemon also reconciles stale IAPP-owned rules but preserves
 # administrator rules with the same protocol/port tuple and no ownership tag.
