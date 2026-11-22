@@ -133,7 +133,8 @@ require(
 # The firewall rebuild also invokes this detector before WAN protocol clients
 # are launched. Its command result must not disappear at this third call site.
 firewall_reconcile = function_body(FIREWALL, "start_firewall_ex_locked(void)")
-mwan_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
+mwan_gate = "if (is_pppoemwan_enabled)"
+mwan_preflight = 'status = firewall_read_enabled_setting("pppoemwan_enable", &is_pppoemwan_enabled);'
 mwan_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
 mwan_merge = "status = rc_first_service_start_status(status, hook_error);"
 firewall_entry = function_body(FIREWALL, "start_firewall_ex(void)")
@@ -143,12 +144,19 @@ firewall_unlock = firewall_entry.index("firewall_lifecycle_lock_release(lock_fd)
 require(firewall_lock < firewall_worker < firewall_unlock, "firewall rebuild must serialize the entire worker transaction")
 mwan_call_pos = firewall_reconcile.find(mwan_call)
 mwan_merge_pos = firewall_reconcile.find(mwan_merge, mwan_call_pos)
+mwan_preflight_pos = firewall_reconcile.find(mwan_preflight)
+mwan_sysctl_pos = firewall_reconcile.find(
+    'set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)'
+)
+mwan_gate_pos = firewall_reconcile.find(mwan_gate)
 require(
-    mwan_gate in firewall_reconcile
-    and mwan_call_pos >= 0
+    mwan_preflight_pos >= 0
+    and mwan_sysctl_pos > mwan_preflight_pos
+    and mwan_gate_pos > mwan_sysctl_pos
+    and mwan_call_pos > mwan_gate_pos
     and mwan_merge_pos > mwan_call_pos
-    and firewall_reconcile.index(mwan_gate) < mwan_call_pos,
-    "firewall rebuild must decode and aggregate the PPPoE-MWAN detector command result",
+    and 'nvram_match("pppoemwan_enable", "1")' not in firewall_reconcile,
+    "firewall rebuild must check the PPPoE-MWAN toggle before sysctls and aggregate detector status",
 )
 require(
     'doSystem("/usr/bin/detect.sh");' not in firewall_reconcile,

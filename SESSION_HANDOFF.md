@@ -55,6 +55,6 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Parent `e8b4de14f3355bef5754c780bb6ff96ea88609b8`: WAN DHCP #44982248186 and HTTPD security #44982248126 PASS; XY-C1 #44982248169 was building and NVRAM audit #44982248197 was running. THIS AP host-file parity correction is committed atomically with its checker/log/roadmap/handoff; fetch resulting `main` and inspect exact-head WAN DHCP, NVRAM and XY-C1 runs. L3 is unverified until same-SHA Build/TRX/artifact pass.
 - Exact `cbc53740bfbcc292f691879f7574f70eae6d5cb4`: HTTPD #44982591551, AI docs #44982591522, Firewall Startup #44982591438, DNSMasq #44982591476, Process lifecycle #44982## Exact first action for the next GPT
 
-1. Inspect exact-head Firewall Startup for PPPoE-MWAN checked-toggle preflight, NAT auxiliary gate checks and firewall log-mode test.
-2. Poll XY-C1 #44983883157 and NVRAM #44983883172 on source `82bc8c209786e5f7d412ba6e40daeab8b9c027e7`; require same-SHA Build, TRX verification and artifact upload for L3.
-3. Continue repository-wide stability/security work while Actions are queued; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains untouched.
+1. Inspect exact-head Firewall Startup and WAN route runs for this PPPoE-MWAN checker correction. Verify the checked toggle preflight precedes the rp_filter sysctl and detector command errors are aggregated after the checked gate.
+2. Poll XY-C1 #44983973136 and NVRAM #44983973152 for parent b39d69486ffffa4dc4d370921524678a49c3aac8; require same-SHA XY-C1 Build, TRX and artifact upload before an L3 claim.
+3. Continue independent stability/security work while target jobs are pending; keep frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 untouched.

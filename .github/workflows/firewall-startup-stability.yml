@@ -329,15 +329,23 @@ jobs:
           lock_test = Path("trunk/user/rc/src/tests/firewall_lifecycle_lock.c").read_text()
           assert "test_cross_process_exclusion_and_stable_inode" in lock_test
           assert "test_untrusted_lock_files_fail_closed" in lock_test
-          detect_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
+          detect_preflight = 'status = firewall_read_enabled_setting("pppoemwan_enable", &is_pppoemwan_enabled);'
+          detect_gate = "if (is_pppoemwan_enabled)"
           detect_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
           detect_merge = "status = rc_first_service_start_status(status, hook_error);"
+          detect_preflight_pos = firewall_reconcile.find(detect_preflight)
+          detect_sysctl_pos = firewall_reconcile.find(
+              'set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)'
+          )
+          detect_gate_pos = firewall_reconcile.find(detect_gate)
           detect_call_pos = firewall_reconcile.find(detect_call)
           detect_merge_pos = firewall_reconcile.find(detect_merge, detect_call_pos)
-          assert detect_gate in firewall_reconcile
-          assert detect_call_pos >= 0
+          assert detect_preflight_pos >= 0
+          assert detect_sysctl_pos > detect_preflight_pos
+          assert detect_gate_pos > detect_sysctl_pos
+          assert detect_call_pos > detect_gate_pos
           assert detect_merge_pos > detect_call_pos
-          assert firewall_reconcile.index(detect_gate) < detect_call_pos
+          assert 'nvram_match("pppoemwan_enable", "1")' not in firewall_reconcile
           assert 'doSystem("/usr/bin/detect.sh");' not in firewall_reconcile
           for module in ("iptable_mangle", "iptable_raw", "ip6table_mangle"):
               assert f'"{module}"' in firewall_source

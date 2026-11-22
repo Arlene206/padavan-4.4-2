@@ -1,3 +1,11 @@
+## 2026-11-22 — Align PPPoE-MWAN firewall contracts with checked preflight
+
+- Parent main SHA: b39d69486ffffa4dc4d370921524678a49c3aac8. Exact Actions: HTTPD #44983973130, process inventory #44983973215, AI handoff #44983973254, WAN DHCP #44983973157 and FULLCONENAT #44983973138 PASS. XY-C1 #44983973136 and NVRAM #44983973152 were IN_PROGRESS. Firewall Startup #44983973377 and WAN route #44983973320 failed at stale source contracts that still searched for `if (nvram_match("pppoemwan_enable", "1"))`.
+- The production change intentionally replaced this unchecked getter with `firewall_read_enabled_setting()` before sysctl/table changes and `if (is_pppoemwan_enabled)` at the detector call. The command result remains logged and merged; both suites still required the obsolete spelling.
+- Updated Firewall Startup and WAN route source contracts to verify checked preflight before rp_filter sysctl, the checked boolean gate, absence of the direct unchecked getter, and detector-result aggregation. No production source change in this corrective commit.
+- Exact-head Firewall Startup/WAN route reruns pending. Parent XY-C1/NVRAM were not yet final; no L3 claim.
+
+---
 ## 2026-11-21 — Check PPPoE-MWAN hook gate before firewall restore
 
 - Parent main SHA: `82bc8c209786e5f7d412ba6e40daeab8b9c027e7`. Exact parent Firewall Startup #44983883141 and XY-C1 #44983883157 were queued; NVRAM #44983883172 pending; HTTPD #44983883282, FULLCONENAT #44983883272, WAN DHCP #44983883201, WAN route #44983883250, process #44983883289 and AI #44983883217 queued. Previous `d0dda5d` Firewall Startup #44983793304 and other completed regressions passed.
