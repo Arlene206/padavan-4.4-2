@@ -7321,6 +7321,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	size_t i, snapshot_count, previous_snapshot_count;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
+	int mtu_supported;
 	int wan_proto = 0, modem_unit_id, modem_status, proto_status, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int remove_old_host_route, remove_old_dhcp_routes;
@@ -7578,22 +7579,21 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		goto snapshot_publication_failed;
 
 	value = getenv("mtu");
-	if (value) {
+	if (value)
 		value = trim_r(value);
-		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value)) {
-			dhcp_mtu = 0;
-			logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", wan_ifname);
-		} else {
-			dhcp_mtu = (int)parsed_value;
-		}
-		snprintf(mtu_text, sizeof(mtu_text), "%d", dhcp_mtu);
-		snapshot_status = wan_dhcp_bound_snapshot_add(
-			snapshot_values, &snapshot_count,
-			bound_names[WAN_DHCP_BOUND_MTU], mtu_text,
-			previous_text[WAN_DHCP_BOUND_MTU]);
-		if (snapshot_status != 0)
-			goto snapshot_publication_failed;
-	}
+	snapshot_status = dhcp_lease_mtu_option_value(
+		value, &dhcp_mtu, &mtu_supported);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	if (value && !mtu_supported)
+		logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", wan_ifname);
+	snprintf(mtu_text, sizeof(mtu_text), "%d", dhcp_mtu);
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_MTU], mtu_text,
+		previous_text[WAN_DHCP_BOUND_MTU]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	route_value = safe_getenv("routes");
 	if (!dhcp_lease_route_text_is_safe(route_value)) {
@@ -7824,6 +7824,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	unsigned int parsed_value;
 	size_t i, snapshot_count, previous_snapshot_count;
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
+	int mtu_supported;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int route_cleanup_status, route_rollback_status, multicast_status = 0;
 	int snapshot_status, snapshot_rollback_status, snapshot_abort_status;
@@ -7926,16 +7927,15 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 			lease_dur = (int)parsed_value;
 	}
 	value = getenv("mtu");
-	if (value) {
-		mtu_seen = 1;
+	mtu_seen = 1;
+	if (value)
 		value = trim_r(value);
-		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value)) {
-			dhcp_mtu = 0;
-			logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", man_ifname);
-		} else {
-			dhcp_mtu = (int)parsed_value;
-		}
-	}
+	snapshot_status = dhcp_lease_mtu_option_value(
+		value, &dhcp_mtu, &mtu_supported);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	if (value && !mtu_supported)
+		logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", man_ifname);
 
 	lan_ip = nvram_safe_get("lan_ipaddr");
 	lan_nm = nvram_safe_get("lan_netmask");
@@ -8593,7 +8593,8 @@ udhcpc_renew(char *wan_ifname)
 	int nvram_status, rollback_status = 0;
 	int lease_error = 0, route_error = 0, mtu_error = 0, retry_required = 0;
 	int lease_error_read_status, route_error_read_status, mtu_error_read_status;
-	int stored_mtu = 0, dltime_length;
+	int stored_mtu = DHCP_LEASE_DEFAULT_MTU, dhcp_mtu, mtu_supported, mtu_changed;
+	int dltime_length;
 	struct dhcp_lease_nvram_value renew_values[4];
 	struct wan_dhcp_renew_nvram_state previous_state;
 
@@ -8672,10 +8673,20 @@ udhcpc_renew(char *wan_ifname)
 	if (strcmp(previous_state.routes_rfc, value) != 0)
 		return udhcpc_bound(wan_ifname, 1);
 	value = getenv("mtu");
-	if (value) {
+	if (value)
 		value = trim_r(value);
-		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value))
-			parsed_value = 0;
+	nvram_status = dhcp_lease_mtu_option_value(
+		value, &dhcp_mtu, &mtu_supported);
+	if (nvram_status != 0) {
+		logmessage(log_prefix,
+			   "cannot determine current DHCP MTU on %s (status=%d)",
+			   wan_ifname, nvram_status);
+		return nvram_status;
+	}
+	if (value && !mtu_supported)
+		logmessage(log_prefix, "ignoring invalid DHCP MTU on %s", wan_ifname);
+	stored_mtu = DHCP_LEASE_DEFAULT_MTU;
+	if (previous_state.mtu[0]) {
 		nvram_status = rc_wan_nvram_parse_int_value(
 			previous_state.mtu, &stored_mtu);
 		if (nvram_status != 0) {
@@ -8684,9 +8695,14 @@ udhcpc_renew(char *wan_ifname)
 				   wan_ifname, nvram_status);
 			return nvram_status;
 		}
-		if (stored_mtu != (int)parsed_value)
-			return udhcpc_bound(wan_ifname, 1);
 	}
+	nvram_status = dhcp_lease_mtu_should_reapply(
+		stored_mtu, previous_state.mtu[0] != '\0',
+		dhcp_mtu, &mtu_changed);
+	if (nvram_status != 0)
+		return nvram_status;
+	if (mtu_changed)
+		return udhcpc_bound(wan_ifname, 1);
 
 	snprintf(key_dns, sizeof(key_dns), "%sdns", prefix);
 	snprintf(key_domain, sizeof(key_domain), "%sdomain", prefix);
@@ -8799,7 +8815,8 @@ udhcpc_viptv_renew(char *man_ifname)
 	char *value;
 	char prefix[16], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int nvram_status, stored_mtu = 0;
+	int nvram_status, stored_mtu = DHCP_LEASE_DEFAULT_MTU;
+	int mtu_supported, mtu_changed, dhcp_mtu = DHCP_LEASE_DEFAULT_MTU;
 	int lease_error = 0, route_error = 0, mtu_error = 0, retry_required = 0;
 	int lease_error_read_status, route_error_read_status, mtu_error_read_status;
 	struct wan_dhcp_renew_nvram_state previous_state;
@@ -8869,10 +8886,16 @@ udhcpc_viptv_renew(char *man_ifname)
 		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = getenv("mtu");
-	if (value) {
+	if (value)
 		value = trim_r(value);
-		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value))
-			parsed_value = 0;
+	nvram_status = dhcp_lease_mtu_option_value(
+		value, &dhcp_mtu, &mtu_supported);
+	if (nvram_status != 0)
+		return nvram_status;
+	if (value && !mtu_supported)
+		logmessage(LOGNAME, "ignoring invalid IPTV DHCP MTU on %s", man_ifname);
+	stored_mtu = DHCP_LEASE_DEFAULT_MTU;
+	if (previous_state.mtu[0]) {
 		nvram_status = rc_wan_nvram_parse_int_value(
 			previous_state.mtu, &stored_mtu);
 		if (nvram_status != 0) {
@@ -8881,9 +8904,14 @@ udhcpc_viptv_renew(char *man_ifname)
 				   man_ifname, nvram_status);
 			return nvram_status;
 		}
-		if (stored_mtu != (int)parsed_value)
-			return udhcpc_viptv_bound(man_ifname, 1);
 	}
+	nvram_status = dhcp_lease_mtu_should_reapply(
+		stored_mtu, previous_state.mtu[0] != '\0',
+		dhcp_mtu, &mtu_changed);
+	if (nvram_status != 0)
+		return nvram_status;
+	if (mtu_changed)
+		return udhcpc_viptv_bound(man_ifname, 1);
 
 	return 0;
 }

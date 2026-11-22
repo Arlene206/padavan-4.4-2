@@ -18,6 +18,7 @@ on:
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "scripts/check_wan_dhcp_dltime_publication.py"
+      - "scripts/check_wan_dhcp_mtu_withdrawal.py"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
       - "trunk/user/rc/src/net_wan6.c"
@@ -81,6 +82,7 @@ on:
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "scripts/check_wan_dhcp_dltime_publication.py"
+      - "scripts/check_wan_dhcp_mtu_withdrawal.py"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
       - "trunk/user/rc/src/net_wan6.c"
@@ -158,6 +160,8 @@ jobs:
           python3 scripts/check_lan_dhcp_deconfig.py
       - name: Verify WAN DHCP dltime publication follows successful lease processing
         run: python3 scripts/check_wan_dhcp_dltime_publication.py
+      - name: Verify DHCP option withdrawal restores default MTU
+        run: python3 scripts/check_wan_dhcp_mtu_withdrawal.py
       - name: Compile and run LAN bridge initialization status regression
         run: |
           set -eu

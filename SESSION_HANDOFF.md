@@ -5,12 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-
-- Repository Arlene206/padavan-4.4-2; active main 0170c3948ac0178250ad8508485159b2adc7e9d8; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- The PID1 inherited-signal reset production fix is in source commit `e72a377025dbd4e42cbbfe0186689b5e6e57720b`. The later `0170c3948ac0178250ad8508485159b2adc7e9d8` commit only refreshed SESSION_HANDOFF/dev_log; it did not add source code.
-- Exact e72 Actions PASS: Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163, PID1 mdev #45001383227 and AI docs #45001383224.
-- Exact e72 XY-C1 #45001383211 remains IN_PROGRESS: production-input detector PASS, Build XY-C1 IN_PROGRESS, TRX verification and artifact upload PENDING. Do not claim L3 until all three product steps pass on that exact SHA. Hardware L4 NOT VERIFIED.
-- THIS COMMIT hardens the shared service startup wait policy: an invalid non-zero nanosleep return or an error without errno now maps to EIO rather than leaking errno=0. The existing regression path was included in workflow filters but had no compile/run step; this commit wires the GNU89 ASan/UBSan test into Process lifecycle CI.
+- Repository Arlene206/padavan-4.4-2; active branch main; complete-tree atomic commits and expected-SHA non-force updates only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 is closed/unmerged.
+- Parent main for this slice: `12f62705798d1c639c4c0d6b542f82a33fc8ed64`. The preceding PID1 reset source change is in e72; 0170 only refreshed SESSION_HANDOFF/dev_log; 12f6 added the checked nanosleep service-wait policy and CI compile/run.
+- Exact e72 PID1 mdev #45001383227, HTTPD #45001383163, Process lifecycle #45001383698, Process inventory #45001383203, NVRAM #45001383196, USB storage #45001383155, DNS forwarder #45001383158, PID1 notification #45001383190, DNSMasq #45001383159 and AI #45001383224 PASS.
+- Exact e72 XY-C1 #45001383211 had passed every host check and was still building XY-C1 at the last observed poll; TRX verification and artifact upload were pending. No L3 claim.
+- Exact 12f6 runs observed: Samba #45001974527 and NFS #45001974695 IN_PROGRESS; miniupnpd #45001974620 and Process lifecycle #45001974578 QUEUED. This WAN DHCP slice is independent and proceeds without waiting.
 
 ## Completed source slices
 
@@ -30,19 +29,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-
-- Harden `service_wait_timespec_with()`. It cleared errno before the callback, but if an injected/alternate nanosleep provider returned failure without setting errno, the helper returned -1 with errno still zero. It also accepted any non-zero return as an errno-based interruption, although POSIX nanosleep's failure return is -1; an invalid positive return could therefore be misclassified if errno happened to equal EINTR.
-- THIS COMMIT maps unexpected non-zero return values and errno-less failures to EIO while preserving legitimate errno such as EACCES/EINTR. Regression adds an errno-less failure case.
-- The existing `service_wait_policy.c` was listed in Process lifecycle path filters but not actually compiled/run by that workflow. THIS COMMIT adds an explicit GNU89 `-Wall -Wextra -Werror` ASan/UBSan compile/run step.
+- Fix DHCP option-26 withdrawal in physical WAN and IPTV lease callbacks. BusyBox exports a known DHCP option only when the packet contains it; when option 26 disappears, `getenv("mtu")` is NULL. The previous callbacks only applied and compared MTU when that variable was present, retaining a previous smaller interface MTU and stale NVRAM lease MTU after withdrawal.
+- THIS COMMIT maps an absent option to the Ethernet default 1500, always publishes physical/IPTV MTU in the bound snapshot, and makes fast-renew compare the absent-option default against the previous coherent snapshot before returning success. An empty previous snapshot is treated as the established 1500 default; malformed present values retain the unsupported-value behavior.
+- The existing GNU89 DHCP lease policy binary gains regression cases for absent/present/invalid values and reapply decisions. The WAN DHCP workflow gains a dedicated source-order contract for both physical and IPTV callbacks. Exact-head WAN DHCP/Process/XY-C1 Actions are required.
 
 ## Verification boundary
-
-- Exact e72 L2 PASS: Process lifecycle #45001383698, USB #45001383155, PID1 notification #45001383190, DNS forwarder #45001383158, Process inventory #45001383203, NVRAM #45001383196, DNSMasq #45001383159, HTTPD #45001383163, PID1 mdev #45001383227 and AI #45001383224.
-- Exact e72 XY-C1 #45001383211: production-input detector PASS; actual Build XY-C1 still IN_PROGRESS at last poll; TRX and artifact pending. L3 NOT VERIFIED. Hardware L4 NOT VERIFIED.
-- Current main 0170 is a handoff/dev-log-only descendant of e72; not a product-source build SHA.
+- Exact e72 PID1 mdev #45001383227, HTTPD #45001383163, Process lifecycle #45001383698, Process inventory #45001383203, NVRAM #45001383196, USB #45001383155, DNS forwarder #45001383158, PID1 notification #45001383190, DNSMasq #45001383159 and AI #45001383224 PASS.
+- Exact e72 XY-C1 #45001383211 was in Build XY-C1 at the latest detailed poll, with TRX/artifact pending. Do not claim L3 unless Build, TRX and artifact upload all pass on the same product SHA.
+- The DHCP option-26 withdrawal source/test slice is added in this checkpoint; exact-head Actions pending. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-
-1. Check this commit's exact-head Process lifecycle run and confirm the new service-wait test compiles/runs under ASan/UBSan. Diagnose any remaining failure from that exact job log.
-2. Poll e72 XY-C1 #45001383211 and record Build/TRX/artifact outcomes accurately; it may finish independently on the earlier product SHA.
-3. Continue another independent P1/P2 userland stability/security fix while any workflow remains pending. After PID1 / wait-policy verification, inventory PR #1's unmerged ALIDDNS changes for safe porting. Keep L4 NOT VERIFIED.
+1. Check exact new-main WAN DHCP callback stability, Process lifecycle/inventory, and XY-C1 Build/TRX/artifact runs; fix any first causal failure without waiting on independent pending jobs.
+2. Confirm whether e72 XY-C1 #45001383211 completed Build, TRX and artifact upload on that exact source SHA; the last observed job state had Build in progress.
+3. Once the MTU withdrawal slice is green, resume the next independent P1 WAN restart route-restoration issue from the roadmap. Keep hardware L4 NOT VERIFIED.

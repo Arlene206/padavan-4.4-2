@@ -925,6 +925,44 @@ test_dhcp_lease_nvram_reverse_snapshot_validates_complete_tuple(void)
 }
 
 
+static void
+test_dhcp_lease_mtu_option_withdrawal_restores_default(void)
+{
+	int mtu = 0, supported = 0, reapply = 0;
+
+	assert(dhcp_lease_mtu_option_value(NULL, &mtu, &supported) == 0);
+	assert(supported == 1 && mtu == DHCP_LEASE_DEFAULT_MTU);
+
+	assert(dhcp_lease_mtu_option_value("1400", &mtu, &supported) == 0);
+	assert(supported == 1 && mtu == 1400);
+	assert(dhcp_lease_mtu_option_value("576", &mtu, &supported) == 0);
+	assert(supported == 1 && mtu == 576);
+	assert(dhcp_lease_mtu_option_value("1500", &mtu, &supported) == 0);
+	assert(supported == 1 && mtu == 1500);
+
+	assert(dhcp_lease_mtu_option_value("575", &mtu, &supported) == 0);
+	assert(supported == 0 && mtu == 0);
+	assert(dhcp_lease_mtu_option_value("1501", &mtu, &supported) == 0);
+	assert(supported == 0 && mtu == 0);
+	assert(dhcp_lease_mtu_option_value("1400;reboot", &mtu, &supported) == 0);
+	assert(supported == 0 && mtu == 0);
+	assert(dhcp_lease_mtu_option_value(NULL, NULL, &supported) == EINVAL);
+	assert(dhcp_lease_mtu_option_value(NULL, &mtu, NULL) == EINVAL);
+
+	/* Withdrawal resets a recorded 1400-byte lease to 1500. */
+	assert(dhcp_lease_mtu_should_reapply(1400, 1, 1500, &reapply) == 0);
+	assert(reapply == 1);
+	assert(dhcp_lease_mtu_should_reapply(1500, 1, 1500, &reapply) == 0);
+	assert(reapply == 0);
+	/* An empty previous snapshot already means the startup default. */
+	assert(dhcp_lease_mtu_should_reapply(0, 0, 1500, &reapply) == 0);
+	assert(reapply == 0);
+	assert(dhcp_lease_mtu_should_reapply(1500, 1, 1400, &reapply) == 0);
+	assert(reapply == 1);
+	assert(dhcp_lease_mtu_should_reapply(1500, 2, 1500, &reapply) == EINVAL);
+	assert(dhcp_lease_mtu_should_reapply(1500, 1, 1500, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -1018,6 +1056,7 @@ main(void)
 	assert(!dhcp_lease_decimal_is_valid("1501", 576, 1500, &number));
 	assert(!dhcp_lease_decimal_is_valid("12x", 0, INT_MAX, &number));
 	assert(!dhcp_lease_decimal_is_valid("999999999999999999999", 0, INT_MAX, &number));
+	test_dhcp_lease_mtu_option_withdrawal_restores_default();
 
 	assert(dhcp_lease_route_text_is_safe(""));
 	assert(dhcp_lease_route_text_is_safe("192.0.2.0/24 198.51.100.1 0.0.0.0/0 198.51.100.1"));

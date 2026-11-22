@@ -585,6 +585,49 @@ dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,
 	return 1;
 }
 
+#define DHCP_LEASE_DEFAULT_MTU 1500
+
+/*
+ * BusyBox exports a known DHCP option only when the packet contains it.
+ * Withdrawing option 26 must therefore restore the Ethernet default instead
+ * of retaining a reduced MTU from the previous lease.
+ */
+static inline int
+dhcp_lease_mtu_option_value(const char *option, int *mtu, int *supported)
+{
+	unsigned int parsed_value;
+
+	if (!mtu || !supported)
+		return EINVAL;
+	if (!option) {
+		*mtu = DHCP_LEASE_DEFAULT_MTU;
+		*supported = 1;
+		return 0;
+	}
+	if (!dhcp_lease_decimal_is_valid(option, 576U, 1500U,
+					 &parsed_value)) {
+		*mtu = 0;
+		*supported = 0;
+		return 0;
+	}
+	*mtu = (int)parsed_value;
+	*supported = 1;
+	return 0;
+}
+
+/* Empty prior snapshots represent the default MTU already established at WAN startup. */
+static inline int
+dhcp_lease_mtu_should_reapply(int previous_mtu, int previous_known,
+			     int next_mtu, int *should_reapply)
+{
+	if (!should_reapply || (previous_known != 0 && previous_known != 1))
+		return EINVAL;
+	if (!previous_known)
+		previous_mtu = DHCP_LEASE_DEFAULT_MTU;
+	*should_reapply = previous_mtu != next_mtu;
+	return 0;
+}
+
 /* Route options are parsed as data, never as shell commands. Bound their size
  * and alphabet before storing them for the route-table parser. */
 static inline int

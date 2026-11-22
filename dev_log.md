@@ -1,3 +1,11 @@
+## 2026-11-22 — Restore default MTU when DHCP option 26 is withdrawn
+
+- Parent main SHA: `12f62705798d1c639c4c0d6b542f82a33fc8ed64`. Exact e72 PID1 mdev, HTTPD, Process lifecycle/inventory, NVRAM, USB storage, DNS forwarder, PID1 notification, DNSMasq and AI runs PASS; XY-C1 #45001383211 was still building at last detailed poll.
+- BusyBox `fill_envp()` exports a known DHCP option only when present. Physical WAN and IPTV callbacks previously applied and compared MTU only when `getenv("mtu")` was non-NULL, so withdrawing option 26 retained the previous reduced interface MTU and stale NVRAM lease state.
+- THIS COMMIT maps an absent option to 1500, always includes physical/IPTV MTU in the accepted lease snapshot, and makes both renew fast paths re-enter bound when the effective MTU differs. Empty previous snapshots mean the interface's established default 1500; malformed present options remain unsupported. Added GNU89 policy coverage and a dedicated source-order workflow contract. Exact new-head CI pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 23:56 PST — Harden errno-less service waits and execute the existing regression in CI
 
 - Parent main 0170c3948ac0178250ad8508485159b2adc7e9d8; PID1 inherited-signal-reset production source is in e72 `e72a377025dbd4e42cbbfe0186689b5e6e57720b`. The later 0170 commit updated only handoff/dev-log and did not change source.
