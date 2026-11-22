@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development/validation target is `main` only.
-- Live main before THIS WAN interface IPv6 slice: `573ccf369c58088ca1576b43b0b9d8e75dd9c7b1`. Product source has checked service-type paths through LAN, LANv6, firewall, FTP and generated NFS exports.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify/delete it. PR #1 remains closed/unmerged.
-- GitHub Git data APIs are the edit/push path; local firmware checkout/toolchain unavailable.
+- Repository `Arlene206/padavan-4.4-2`; development and validation target: `main` only.
+- Live main before THIS WAN resolver-hosts slice: `80f478f76dfb6caf2c73ba774358201757a065e8`. Checked IPv6 service reads cover boot/WAN6, LAN/LANv6, firewall, generated FTP/NFS configs, and WAN VLAN/WISP interface transitions.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete it. PR #1 remains closed/unmerged.
+- GitHub Git data APIs are the edit/push path; no local firmware checkout/toolchain available.
 
 ## Completed source slices
 
@@ -28,20 +28,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- THIS slice hardens the state-changing WAN interface paths in `net_wan.c`. `config_vinet_wan()` reads one checked IPv6 service type after VLAN/bridge/PVID validation but before `hw_vlan_tx_map`, interface changes or cleanup-identity publication; both WAN parent IPv6 disable and final interface IPv6 enable reuse that same snapshot.
-- `config_apcli_wisp()` checks service type immediately after confirming a WISP interface exists and before clearing/shutting down the old WAN interface. Read failure aborts migration before interface mutation or active-ifname publication. Valid disabled mode preserves the original no-IPv6 action.
-- The IPv6 checker pins both read-before-side-effect orderings and rejects legacy getters in each function. Workflow push/PR path filters include `net_wan.c`.
-- Remaining callers: WAN resolver hosts generation and DHCPv4 6rd option in `net_wan.c`, plus OpenVPN protocol fallback in `vpn_openvpn.c`.
+- THIS slice migrates `update_hosts_router()` in `net_wan.c`. It checks the IPv6 service type after validating the hostname input but before opening either staged hostname/hosts file. An NVRAM read/close failure now returns before replacing the last-known-good dual-stack `/etc/hosts` and `/etc/hostname` pair with an IPv4-only version.
+- Valid `IPV6_DISABLED` still produces the prior IPv4-only hosts file, while enabled modes use the already-checked type without a second read.
+- The IPv6 source checker pins read/error/return ordering before staged file creation and rejects the legacy getter within this function. `net_wan.c` already appears in the dedicated workflow filters.
+- Remaining direct legacy call is the DHCPv4 6rd option decision in `start_udhcpc_wan()`; OpenVPN protocol fallback remains in `vpn_openvpn.c`.
 
 ## Verification boundary
 
-- Previous main SHA `573ccf369c58088ca1576b43b0b9d8e75dd9c7b1`: XY-C1 #44989861708 QUEUED; Firewall Startup #44989861713 IN_PROGRESS; USB storage #44989861711 QUEUED; AI docs #44989861727 QUEUED; vsftpd #44989861707 QUEUED; USB WDM/NDIS #44989861748 IN_PROGRESS; HTTPD #44989861752 QUEUED; NFS lifecycle #44989861848 QUEUED. Dedicated IPv6 workflow was absent from the first run inventory and must be checked through workflow-specific endpoint.
-- Previous source SHA `0673248bc999e9e06f4f69c8d1b0bb2d05c6bea3`: IPv6 #44989677353 PASS and AI docs #44989677501 PASS; DNSMasq, Firewall, WAN DHCP, watchdog, detect-internet, detect-link and wireless also passed. These do not validate later source.
-- THIS WAN-interface source SHA awaits exact-head Actions. No local C compile/build or L3/L4 result is claimed. L3 requires same-SHA XY-C1 Build, TRX verification and artifact upload all PASS.
+- Previous WAN interface commit `80f478f76dfb6caf2c73ba774358201757a065e8`: WAN source and IPv6 workflow exact-head runs were not included in the first generic run inventory. Storage parent commit's IPv6 service regression #44989861751 subsequently PASSed; storage-hotplug, vsftpd, NFS lifecycle and several general regressions on `573ccf` passed. XY-C1 #44989861708 was IN_PROGRESS when last checked.
+- THIS router-hosts source change awaits exact-head CI. No local compile or firmware build is claimed. L3 requires same-SHA XY-C1 Build, TRX verification and artifact upload; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Actions for THIS WAN-interface commit, especially IPv6 service-type, WAN route, Firewall Startup, NVRAM and XY-C1.
-2. Validate the preceding storage commit's queued exact-SHA checks separately; do not conflate those with new WAN source.
-3. Continue WAN resolver hosts generation (preserve last-good files on service-read failure), then DHCPv4 6rd option and OpenVPN protocol fallback, with regressions and one atomic main commit per slice.
-4. Do not claim L3/L4 until exact target/device gates pass.
+1. Check exact-head IPv6 service regression and AI handoff checks for THIS router-hosts commit; inspect XY-C1 and other exact-SHA Actions independently.
+2. Migrate the final WAN DHCPv4 6rd option read in `start_udhcpc_wan()` to checked service-type status so DHCP does not launch with incomplete option policy on an NVRAM error.
+3. Then continue `vpn_openvpn.c` protocol fallback; service-state read failure must not silently downgrade IPv6 transport to IPv4.
+4. Keep L3/L4 unverified until exact target/device gates pass.

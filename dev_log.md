@@ -1,3 +1,11 @@
+## 2026-11-22 13:34 UTC+8 — Preserve router hosts across IPv6 service-read failure
+
+- Parent main SHA: `80f478f76dfb6caf2c73ba774358201757a065e8`. Previous storage commit's exact IPv6 service-type regression #44989861751 PASS; the generic run list showed Process inventory #44989861714, AI docs #44989861727, USB modem #44989861748, HTTPD #44989861752, vsftpd #44989861707, Samba #44989861773, NFS lifecycle #44989861848, Firewall Startup #44989861713 and USB storage #44989861711 PASS. NVRAM #44989861835 and XY-C1 #44989861708 were still IN_PROGRESS at last poll.
+- `update_hosts_router()` previously treated an unreadable IPv6 service setting as disabled and could replace the last-good dual-stack hosts file with IPv4-only output. It now checks service type before opening staged files and returns on read/close error; enabled/disabled valid modes retain their prior output.
+- Added source-order regression assertions; no local compile. New exact-head CI pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:34 UTC+8 — Check IPv6 service policy before WAN VLAN/WISP mutation
 
 - Parent main SHA: `573ccf369c58088ca1576b43b0b9d8e75dd9c7b1`. The previous storage commit introduced checked FTP/NFS reads; its exact-head jobs were queued/in progress at last poll, so this commit does not claim their results.

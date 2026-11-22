@@ -6179,6 +6179,9 @@ update_hosts_router(const char *lan_ipaddr)
 	char *lan_hname, *lan_dname;
 	int saved_errno = 0;
 	int hosts_lock = -1;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 
 	lan_hname = get_our_hostname();
 	lan_dname = nvram_safe_get("lan_domain");
@@ -6188,6 +6191,17 @@ update_hosts_router(const char *lan_ipaddr)
 		logmessage(LOGNAME, "refusing unsafe router hostname input");
 		return EINVAL;
 	}
+
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage(LOGNAME,
+			   "refusing to publish router hostname files without verified IPv6 service state (status=%d)",
+			   ipv6_type_status);
+		return ipv6_type_status;
+	}
+#endif
 
 	/* Stage both resolver-visible files before replacing either destination. */
 	hostname_fp = dnsmasq_file_open(hostname_temp);
@@ -6212,7 +6226,7 @@ update_hosts_router(const char *lan_ipaddr)
 		logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno);
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED) {
+	if (ipv6_type != IPV6_DISABLED) {
 		fprintf(hosts_fp, "%s %s %s\n", "::1", "localhost.localdomain", "localhost");
 		{
 			char addr6s[INET6_ADDRSTRLEN];

@@ -221,4 +221,14 @@ wisp_publish = wan_wisp.index('set_wan_unit_value_status(0, "ifname"', wisp_ipv6
 assert wisp_read < wisp_error < wisp_mutation < wisp_ipv6 < wisp_publish
 assert "get_ipv6_type()" not in wan_wisp
 
+
+wan_router_hosts = function_body(net_wan, "update_hosts_router(const char *lan_ipaddr)")
+router_hosts_read = wan_router_hosts.index("get_ipv6_type_status(&ipv6_type)")
+router_hosts_error = wan_router_hosts.index("if (ipv6_type_status != 0)", router_hosts_read)
+router_hosts_return = wan_router_hosts.index("return ipv6_type_status;", router_hosts_error)
+router_hosts_stage = wan_router_hosts.index("dnsmasq_file_open(hostname_temp)")
+router_hosts_ipv6 = wan_router_hosts.index("if (ipv6_type != IPV6_DISABLED)")
+assert router_hosts_read < router_hosts_error < router_hosts_return < router_hosts_stage < router_hosts_ipv6
+assert "get_ipv6_type()" not in wan_router_hosts
+
 print("IPv6 service-type checked-read source contract: PASS")
