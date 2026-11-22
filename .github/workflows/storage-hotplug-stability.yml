@@ -593,7 +593,9 @@ jobs:
           unplug_event_start = deferred_code.index(unplug_read)
           hotplug_event_start = deferred_code.index(hotplug_read)
           unplug_event = deferred_code[unplug_event_start:hotplug_event_start]
-          assert unplug_event.index("if(storage_unplug_read_status!=0)") < unplug_event.index('nvram_set_int_temp("usb_unplug_ms",0)') < unplug_event.index("storage_unplug_status=umount_ejected();")
+          assert unplug_event.index("if(storage_unplug_read_status!=0)") < unplug_event.index("elseif(storage_unplug_value!=1)") < unplug_event.index("storage_deferred_event_action_should_run(1,storage_unplug_action_done)") < unplug_event.index("storage_unplug_status=umount_ejected();") < unplug_event.index('storage_ack_event_marker_status("usb_unplug_ms")') < unplug_event.index("storage_deferred_event_ack_status(")
+          assert 'nvram_set_int_temp("usb_unplug_ms",0)' not in unplug_event
+          assert "storage_unplug_action_done=0;" in unplug_event
           assert "storage_unplug_pending=1;" in unplug_event
           assert "if (storage_dispatch_status != 0)" in deferred_storage
           assert "cannot read deferred storage event markers; preserving pending events for retry" in deferred_storage

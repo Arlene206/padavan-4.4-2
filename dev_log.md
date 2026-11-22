@@ -1,3 +1,12 @@
+## 2026-11-22 — Align the storage caller-graph regression with durable marker acknowledgement
+
+- Parent main SHA: `d414a788abc66e0bf5d8711b4d0584de505964c9`. The exact-head USB storage run #44993693581 failed in the embedded “whole storage caller graph” source contract at the old assertion that required `usb_unplug_ms` to be cleared before `umount_ejected()`. This is now deliberately forbidden by the product fix in the parent.
+- Updated the embedded workflow contract to require checked marker read → action-completion gate → eject cleanup → marker acknowledgement → ack-latch handling, and to reject any premature marker clear. This retains the existing caller-graph/lock-order assertions; no product source changed in this checker-only slice.
+- The standalone deferred cleanup/ack policy regression had already passed locally with GNU89, Werror, ASan and UBSan. The failed workflow had reached the embedded source contract; the full storage checker and remaining gates were skipped afterward.
+- Next: push this workflow-only correction atomically and inspect its exact-SHA USB storage and XY-C1 runs. No firmware/L3 or hardware/L4 claim.
+
+---
+
 ## 2026-11-22 — Keep physical storage-unplug cleanup durable until marker acknowledgement
 
 - Parent main SHA: `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`. On this exact SHA, USB storage hotplug #44993522407 was still running at the last check; XY-C1 #44993522386, process inventory/lifecycle #44993522352/#44993522416, HTTPD #44993522353, USB modem #44993522402, NVRAM #44993522356 and other triggered suites were in progress. Do not infer a PASS from an in-progress result.

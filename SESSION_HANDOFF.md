@@ -30,19 +30,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Physical storage-unplug retry durability is implemented in this slice. Previously `on_deferred_hotplug_dev()` cleared `usb_unplug_ms` before `umount_ejected()`; the failure wrapper re-created the marker with an unchecked write, leaving a gap where a backend error could lose the only durable event.
-- The callback now runs eject cleanup before marker acknowledgement, preserves the marker and schedules `alarm(5)` on cleanup/ack failure. A process-local action-completion latch skips replaying successful cleanup while acknowledgement is retried, and resets when the marker is observed absent.
-- Added pure policy helpers, GNU89/ASan/UBSan regression cases, checker assertions for cleanup-before-ack/no-premature-clear/retry behavior and workflow execution. The checker’s EIO fallback assertion now matches the implementation’s ternary return.
+- The product fix at parent source SHA `d414a788abc66e0bf5d8711b4d0584de505964c9` retains `usb_unplug_ms` until eject cleanup succeeds and the NVRAM marker acknowledgement succeeds. A process-local completion latch prevents duplicate eject cleanup when only marker acknowledgement is retried.
+- Exact-parent USB storage run #44993693581 exposed a stale embedded workflow assertion requiring the old, unsafe clear-before-cleanup ordering. This checker-only slice updates it to assert checked read → completion gate → cleanup → marker acknowledgement → latch handling, and explicitly rejects early clearing.
+- The GNU89/ASan/UBSan policy unit passed locally. The parent workflow stopped at the stale embedded assertion, so the storage checker and later tests remain unverified until the corrected workflow runs.
 
 ## Verification boundary
 
-- Standalone policy host test passed with GNU89, `-Wall -Wextra -Werror`, AddressSanitizer and UndefinedBehaviorSanitizer. It covers successful-cleanup/failed-ack latch behavior, cleanup failure retry, absent-event reset, negative status normalization and NULL output.
-- Parent SHA `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`: USB storage #44993522407 and XY-C1 #44993522386 were still IN_PROGRESS at the last poll; other triggered source regressions also remained in progress. Fresh exact-head results on this slice are required.
-- No complete product checkout/MIPS build was run locally. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same product-source SHA. Hardware L4 remains NOT VERIFIED.
+- Local standalone policy regression passed with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. It covers failed acknowledgement without repeating cleanup, cleanup failure remaining retryable, absent marker reset and error normalization.
+- Parent SHA `d414a788abc66e0bf5d8711b4d0584de505964c9`: USB storage #44993693581 failed only at the embedded source contract that still mandated pre-cleanup marker clearing; preceding storage checks passed. Corrected workflow requires a fresh exact-head rerun. Other parent checks (Process, USB modem, firewall, NFS, Samba, vsftpd, HTTPD, IPv6 service type and AI docs) completed/success; XY-C1 #44993693537 and NVRAM #44993693562 were in progress at last inspection.
+- No full MIPS firmware build was run locally. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Resolve the live `main` HEAD SHA and inspect its exact-SHA USB storage regression. Confirm the new GNU89/ASan/UBSan policy binary, source-order contract and storage caller graph all pass.
-2. Inspect XY-C1 validation on the same source SHA. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on that identical SHA. If pending, work on an independent stability/security issue; if failed, diagnose the first failing step.
-3. Continue from the whole-userland stability/security ledger; do not repeat completed audits or wait for pending Actions.
-4. Keep the frozen backup read-only. Hardware L4 remains unverified.
+1. Inspect exact-main-SHA USB storage Actions for this workflow-only correction. Confirm the whole storage caller graph, storage safe-remove checker, deferred cleanup/ack ASan+UBSan binary and all following regression steps pass.
+2. Inspect XY-C1 on the same product-source SHA. Claim L3 only if Build, TRX verification and artifact upload all pass on that identical SHA.
+3. If either run is pending, continue an independent userland stability/security fix; if failed, repair the first actual failing contract or regression without undoing marker retention.
+4. Keep the frozen backup read-only; hardware L4 remains unverified.
