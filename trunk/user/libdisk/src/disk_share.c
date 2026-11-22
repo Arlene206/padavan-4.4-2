@@ -906,7 +906,7 @@ char var_file[256];
 	/* An absent metadata file means no explicit grant; read failures do not. */
 	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
 	                                     mount_path, account) != 0)
-		return 0;
+		return -1;
 	var_info = read_whole_file(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
@@ -1502,15 +1502,67 @@ int add_folder(const char *const mount_path, const char *const folder)
 	return 0;
 }
 
+
+static int
+disk_share_update_folder_permission_file(const char *mount_path,
+                                         const char *account,
+                                         const char *target,
+                                         const char *replacement)
+{
+	char var_file[256];
+	char *var_info = NULL, *updated_info = NULL;
+	size_t updated_len = 0;
+	int saved_errno;
+
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, account) != 0)
+		return -1;
+
+	var_info = read_whole_file(var_file);
+	if (!var_info) {
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno == ENOENT) {
+			errno = 0;
+			return 0;
+		}
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (disk_share_permission_rewrite(var_info, target, replacement,
+	                                  &updated_info, &updated_len) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(var_info);
+		if (saved_errno == ENOENT) {
+			errno = 0;
+			return 0;
+		}
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (disk_share_replace_file_atomic(var_file, updated_info,
+	                                   updated_len) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free(var_info);
+		free(updated_info);
+		errno = saved_errno;
+		return -1;
+	}
+
+	free(var_info);
+	free(updated_info);
+	return 0;
+}
+
 int del_folder(const char *const mount_path, const char *const folder)
 {
-	int result, i, saved_errno;
+	int result, i, saved_errno, first_error = 0;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
-	char *target = NULL, *var_info = NULL, *updated_info = NULL;
-	char *full_path = NULL;
-	size_t mount_len, folder_len, path_len, target_len, updated_len;
+	char *target = NULL, *full_path = NULL;
+	size_t mount_len, folder_len, path_len, target_len;
 
 	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
 		errno = EINVAL;
@@ -1519,7 +1571,8 @@ int del_folder(const char *const mount_path, const char *const folder)
 
 	mount_len = strlen(mount_path);
 	folder_len = strlen(folder);
-	if (mount_len > (size_t)-1 - folder_len - 2) {
+	if (folder_len > (size_t)-1 - 2 ||
+	    mount_len > (size_t)-1 - folder_len - 2) {
 		errno = ENAMETOOLONG;
 		return -1;
 	}
@@ -1527,18 +1580,23 @@ int del_folder(const char *const mount_path, const char *const folder)
 	full_path = (char *)malloc(path_len + 1);
 	if (!full_path)
 		return -1;
-	snprintf(full_path, path_len + 1, "%s/%s", mount_path, folder);
+	memcpy(full_path, mount_path, mount_len);
+	full_path[mount_len] = '/';
+	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
 
 	target_len = folder_len + 2;
 	target = (char *)malloc(target_len + 1);
 	if (!target)
 		goto failed;
-	snprintf(target, target_len + 1, "*%s=", folder);
+	target[0] = '*';
+	memcpy(target + 1, folder, folder_len);
+	target[target_len - 1] = '=';
+	target[target_len] = '\0';
 
+	/* Preflight the complete inventory and every path before rmdir(). */
 	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
 		goto failed;
-
 	for (i = 0; i < acc_num; ++i) {
 		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
 		                                       mount_path, account_list[i]) != 0)
@@ -1555,74 +1613,30 @@ int del_folder(const char *const mount_path, const char *const folder)
 		errno = ENOENT;
 		goto failed;
 	}
+	/* Do not revoke access when rmdir fails (for example, a non-empty folder). */
 	if (rmdir(full_path) != 0)
 		goto failed;
 
-	/* Do not leave a stale folder-list snapshot when a later account update fails. */
+	/* Report snapshot errors, but continue independent permission cleanup. */
 	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		goto failed;
+		first_error = errno ? errno : EIO;
 
 	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-		                                       mount_path, account_list[i]) != 0)
-			goto failed;
-		var_info = read_whole_file(var_file);
-		if (!var_info) {
-			saved_errno = errno ? errno : EIO;
-			if (saved_errno == ENOENT) {
-				errno = 0;
-				continue;
-			}
-			errno = saved_errno;
-			goto failed;
-		}
-		if (disk_share_permission_rewrite(var_info, target, NULL,
-		                                  &updated_info, &updated_len) != 0) {
-			saved_errno = errno ? errno : EIO;
-			free(var_info);
-			var_info = NULL;
-			if (saved_errno == ENOENT) {
-				errno = 0;
-				continue;
-			}
-			errno = saved_errno;
-			goto failed;
-		}
-		if (disk_share_replace_file_atomic(var_file, updated_info,
-		                                   updated_len) != 0)
-			goto failed;
-		free(updated_info);
-		updated_info = NULL;
-		free(var_info);
-		var_info = NULL;
+		if (disk_share_update_folder_permission_file(
+			    mount_path, account_list[i], target, NULL) != 0 &&
+		    first_error == 0)
+			first_error = errno ? errno : EIO;
 	}
+	if (disk_share_update_folder_permission_file(
+		    mount_path, FTP_ANONYMOUS_USER, target, NULL) != 0 &&
+	    first_error == 0)
+		first_error = errno ? errno : EIO;
 
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+	if (first_error != 0) {
+		errno = first_error;
 		goto failed;
-	var_info = read_whole_file(var_file);
-	if (!var_info) {
-		saved_errno = errno ? errno : EIO;
-		if (saved_errno != ENOENT) {
-			errno = saved_errno;
-			goto failed;
-		}
-		errno = 0;
-	} else {
-		if (disk_share_permission_rewrite(var_info, target, NULL,
-		                                  &updated_info, &updated_len) == 0) {
-			if (disk_share_replace_file_atomic(var_file, updated_info,
-			                                   updated_len) != 0)
-				goto failed;
-		} else if (errno != ENOENT) {
-			saved_errno = errno ? errno : EIO;
-			errno = saved_errno;
-			goto failed;
-		}
 	}
 
-	free(var_info);
-	free(updated_info);
 	free(target);
 	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);
@@ -1630,8 +1644,6 @@ int del_folder(const char *const mount_path, const char *const folder)
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	free(var_info);
-	free(updated_info);
 	free(target);
 	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);
@@ -1639,18 +1651,18 @@ failed:
 	return -1;
 }
 
+
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
-	int result, i, saved_errno;
+	int result, i, saved_errno, first_error = 0;
 	int acc_num = 0;
 	char **account_list = NULL;
 	char var_file[256];
 	char *target = NULL, *new_target = NULL;
-	char *var_info = NULL, *updated_info = NULL;
 	char *full_path = NULL, *new_full_path = NULL;
 	struct stat target_stat;
 	size_t mount_len, folder_len, new_folder_len, path_len;
-	size_t target_len, new_target_len, updated_len;
+	size_t target_len, new_target_len;
 
 	if (!mount_path || !*mount_path || !is_valid_folder_name(folder) ||
 	    !is_valid_folder_name(new_folder)) {
@@ -1661,7 +1673,9 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	mount_len = strlen(mount_path);
 	folder_len = strlen(folder);
 	new_folder_len = strlen(new_folder);
-	if (mount_len > (size_t)-1 - folder_len - 2 ||
+	if (folder_len > (size_t)-1 - 2 ||
+	    new_folder_len > (size_t)-1 - 2 ||
+	    mount_len > (size_t)-1 - folder_len - 2 ||
 	    mount_len > (size_t)-1 - new_folder_len - 2) {
 		errno = ENAMETOOLONG;
 		return -1;
@@ -1670,12 +1684,17 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	full_path = (char *)malloc(path_len + 1);
 	if (!full_path)
 		goto failed;
-	snprintf(full_path, path_len + 1, "%s/%s", mount_path, folder);
+	memcpy(full_path, mount_path, mount_len);
+	full_path[mount_len] = '/';
+	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
+
 	path_len = mount_len + new_folder_len + 1;
 	new_full_path = (char *)malloc(path_len + 1);
 	if (!new_full_path)
 		goto failed;
-	snprintf(new_full_path, path_len + 1, "%s/%s", mount_path, new_folder);
+	memcpy(new_full_path, mount_path, mount_len);
+	new_full_path[mount_len] = '/';
+	memcpy(new_full_path + mount_len + 1, new_folder, new_folder_len + 1);
 
 	if (test_if_dir(full_path) != 1) {
 		errno = ENOENT;
@@ -1710,8 +1729,14 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	new_target = (char *)malloc(new_target_len + 1);
 	if (!target || !new_target)
 		goto failed;
-	snprintf(target, target_len + 1, "*%s=", folder);
-	snprintf(new_target, new_target_len + 1, "*%s=", new_folder);
+	target[0] = '*';
+	memcpy(target + 1, folder, folder_len);
+	target[target_len - 1] = '=';
+	target[target_len] = '\0';
+	new_target[0] = '*';
+	memcpy(new_target + 1, new_folder, new_folder_len);
+	new_target[new_target_len - 1] = '=';
+	new_target[new_target_len] = '\0';
 
 	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
@@ -1739,67 +1764,23 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	free(new_full_path);
 	new_full_path = NULL;
 
+	/* Keep processing independent accounts even when one file is damaged. */
 	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-		                                       mount_path, account_list[i]) != 0)
-			goto failed;
-		var_info = read_whole_file(var_file);
-		if (!var_info) {
-			saved_errno = errno ? errno : EIO;
-			if (saved_errno == ENOENT) {
-				errno = 0;
-				continue;
-			}
-			errno = saved_errno;
-			goto failed;
-		}
-		if (disk_share_permission_rewrite(var_info, target, new_target,
-		                                  &updated_info, &updated_len) != 0) {
-			saved_errno = errno ? errno : EIO;
-			free(var_info);
-			var_info = NULL;
-			if (saved_errno == ENOENT) {
-				errno = 0;
-				continue;
-			}
-			errno = saved_errno;
-			goto failed;
-		}
-		if (disk_share_replace_file_atomic(var_file, updated_info,
-		                                   updated_len) != 0)
-			goto failed;
-		free(updated_info);
-		updated_info = NULL;
-		free(var_info);
-		var_info = NULL;
+		if (disk_share_update_folder_permission_file(
+			    mount_path, account_list[i], target, new_target) != 0 &&
+		    first_error == 0)
+			first_error = errno ? errno : EIO;
 	}
+	if (disk_share_update_folder_permission_file(
+		    mount_path, FTP_ANONYMOUS_USER, target, new_target) != 0 &&
+	    first_error == 0)
+		first_error = errno ? errno : EIO;
 
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+	if (first_error != 0) {
+		errno = first_error;
 		goto failed;
-	var_info = read_whole_file(var_file);
-	if (!var_info) {
-		saved_errno = errno ? errno : EIO;
-		if (saved_errno != ENOENT) {
-			errno = saved_errno;
-			goto failed;
-		}
-		errno = 0;
-	} else {
-		if (disk_share_permission_rewrite(var_info, target, new_target,
-		                                  &updated_info, &updated_len) == 0) {
-			if (disk_share_replace_file_atomic(var_file, updated_info,
-			                                   updated_len) != 0)
-				goto failed;
-		} else if (errno != ENOENT) {
-			saved_errno = errno ? errno : EIO;
-			errno = saved_errno;
-			goto failed;
-		}
 	}
 
-	free(var_info);
-	free(updated_info);
 	free(target);
 	free(new_target);
 	free_2_dimension_list(&acc_num, &account_list);
@@ -1813,8 +1794,6 @@ unchanged:
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	free(var_info);
-	free(updated_info);
 	free(target);
 	free(new_target);
 	free(full_path);
@@ -1823,6 +1802,7 @@ failed:
 	errno = saved_errno;
 	return -1;
 }
+
 
 int test_if_exist_account(const char *const account)
 {

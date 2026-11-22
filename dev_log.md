@@ -1,3 +1,13 @@
+## 2026-11-22 19:55 CST (UTC+8) — Continue libdisk permission cleanup after per-file failures
+
+- Parent main SHA: fa49d01bc7884e68e5adcd3832d2b0480bfaa974. Folder deletion and rename already used per-file atomic replacement, but returned at the first account read/rewrite/write failure. One damaged metadata file could therefore prevent later account files and anonymous FTP from being reconciled.
+- Added a shared bounded-path permission updater. It skips only missing files or missing records, preserves other read/rewrite/write failures, and publishes complete records atomically. del_folder() and mod_folder() now attempt every independent account plus anonymous FTP, retain the first error, and report it after cleanup.
+- get_permission() now returns an error when its account metadata path cannot be constructed; it no longer treats a truncated pathname as a zero-permission grant.
+- Updated the libdisk source contract for shared update ordering and first-error aggregation. The parent run #45019075810 exposed an undefined SHARE_TEST name after sanitizer binaries passed; this checker-only failure is fixed alongside the source change. Previous checker-only failures from stale rmdir/account-inventory assumptions were also resolved.
+- Exact-head Actions for THIS COMMIT must be checked after publication. XY-C1 L3 still requires Build, TRX and artifact upload all PASS on one identical product-source SHA. Hardware L4 remains NOT VERIFIED.
+- Next task: inspect add_account() and del_account() for ignored per-volume permission initialization/removal failures; propagate failures without leaving NVRAM account state inconsistent.
+
+---
 ## 2026-11-22 — Propagate account permission bootstrap errors
 
 - Latest product source SHA: `c08483beb90245f70fabe5edb74fa6e6658f2bb6`.

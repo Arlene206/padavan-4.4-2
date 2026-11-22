@@ -312,34 +312,65 @@ del_folder = function_body(
 del_lookup = del_folder.index("test_if_exist_folder_in_mount_path(mount_path, folder)")
 del_error = del_folder.index("if (result < 0)", del_lookup)
 del_remove = del_folder.index("if (rmdir(full_path) != 0)", del_error)
-require(del_lookup < del_error < del_remove,
-        "folder deletion must not proceed when the share-list lookup fails")
-for signature in (
-    "int del_folder(const char *const mount_path, const char *const folder)",
-    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
+del_snapshot = del_folder.index("initial_folder_list_in_mount_path(mount_path)", del_remove)
+require(del_lookup < del_error < del_remove < del_snapshot,
+        "folder deletion must validate the share-list and remove the directory before publishing the new snapshot")
+
+for signature, expected_update in (
+    ("int del_folder(const char *const mount_path, const char *const folder)",
+     "disk_share_update_folder_permission_file(mount_path, account_list[i], target, NULL)"),
+    ("int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
+     "disk_share_update_folder_permission_file(mount_path, account_list[i], target, new_target)"),
 ):
-    folder_mutation = function_body(DISK_SOURCE, signature)
+    mutation = function_body(DISK_SOURCE, signature)
     account_call = "get_account_list(&acc_num, &account_list)"
-    require(account_call in folder_mutation,
+    require(account_call in mutation,
             signature + " must load the complete account inventory")
     assigned_load = "result = " + account_call + ";"
     direct_guard = "if (" + account_call + " != 0)"
     guarded_load = (
-        direct_guard in folder_mutation or
-        (assigned_load in folder_mutation and
-         folder_mutation.index("if (result != 0)", folder_mutation.index(assigned_load)) <
-         folder_mutation.index("for (i = 0; i < acc_num", folder_mutation.index(assigned_load)))
+        direct_guard in mutation or
+        (assigned_load in mutation and
+         mutation.index("if (result != 0)", mutation.index(assigned_load)) <
+         mutation.index("for (i = 0; i < acc_num", mutation.index(assigned_load)))
     )
     require(guarded_load,
             signature + " must stop when account inventory loading fails")
-    require("saved_errno = errno ? errno : EIO;" in folder_mutation and
-            "if (saved_errno == ENOENT)" in folder_mutation and
-            "if (saved_errno != ENOENT)" in folder_mutation,
-            signature + " may skip absent metadata, but must surface other read errors")
-    require("initial_folder_list_in_mount_path(mount_path) != 0" in folder_mutation,
-            signature + " must propagate the final folder-list publication failure")
+    compact_mutation = " ".join(mutation.split())
+    require(expected_update in compact_mutation and
+            "first_error == 0" in compact_mutation and
+            "if (first_error != 0)" in compact_mutation and
+            "FTP_ANONYMOUS_USER" in mutation,
+            signature + " must attempt all independent account files and preserve the first error")
+    require("initial_folder_list_in_mount_path(mount_path) != 0" in mutation,
+            signature + " must check the folder-list snapshot publication")
 
+permission_update = function_body(
+    DISK_SOURCE, "static int\ndisk_share_update_folder_permission_file("
+)
+update_compact = " ".join(permission_update.split())
+update_path = update_compact.index(
+    "disk_share_format_account_var_path(var_file, sizeof(var_file)"
+)
+update_read = update_compact.index("read_whole_file(var_file)", update_path)
+update_rewrite = update_compact.index(
+    "disk_share_permission_rewrite(var_info, target, replacement", update_read
+)
+update_replace = update_compact.index(
+    "disk_share_replace_file_atomic(var_file, updated_info", update_rewrite
+)
+require(update_path < update_read < update_rewrite < update_replace and
+        "if (saved_errno == ENOENT)" in permission_update and
+        "errno = saved_errno;" in permission_update,
+        "shared account updater must bound paths, skip only missing files/records and atomically publish complete permission data")
 
+get_permission = function_body(DISK_SOURCE, "int get_permission(")
+get_permission_compact = " ".join(get_permission.split())
+get_path_check = get_permission_compact.index(
+    "disk_share_format_account_var_path(var_file, sizeof(var_file)"
+)
+require("return -1;" in get_permission_compact[get_path_check:],
+        "permission lookup must fail closed when the metadata pathname is too long")
 
 set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
 require("dms_right = flag;" in set_permission and
@@ -349,12 +380,6 @@ atomic_replace = function_body(DISK_SOURCE, "disk_share_replace_file_atomic(cons
 require("have_existing = 1;" in atomic_replace and
         "if (have_existing && fchmod(fd, existing_stat.st_mode & 0777) != 0)" in atomic_replace,
         "atomic replacement must not read an uninitialized stat result for a new metadata file")
-mod_folder = function_body(DISK_SOURCE, "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)")
-require(mod_folder.index("if (test_if_dir(full_path) != 1)") <
-        mod_folder.index("if (strcmp(folder, new_folder) == 0)"),
-        "same-name folder update must still validate the source directory")
-
-atomic_replace = function_body(DISK_SOURCE, "disk_share_replace_file_atomic(const char *path,")
 require("mkstemp(temp_path)" in atomic_replace and
         "fdopen(fd, \"w\")" in atomic_replace and
         "fwrite(contents, 1, contents_len" in atomic_replace and
@@ -363,27 +388,26 @@ require("mkstemp(temp_path)" in atomic_replace and
         "fclose(stream)" in atomic_replace and
         "rename(temp_path, path)" in atomic_replace and
         "unlink(temp_path)" in atomic_replace,
-        "per-account permission replacement must fsync and atomically rename a complete same-directory file")
-for signature in (
-    "int set_permission(const char *account,",
-    "int del_folder(const char *const mount_path, const char *const folder)",
-    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
-):
-    mutation = function_body(DISK_SOURCE, signature)
-    require("disk_share_replace_file_atomic(" in mutation,
-            signature + " must publish permission changes atomically")
-    require('fopen(var_file, "w")' not in mutation and
-            'fopen(var_file, "a+")' not in mutation,
-            signature + " must not truncate or append live permission files directly")
-    require("disk_share_format_account_var_path" in mutation,
-            signature + " must reject truncated per-account paths")
+        "per-account permission replacement must check write, flush, sync, close, rename and cleanup")
+
+set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
+require("disk_share_replace_file_atomic(" in set_permission and
+        "disk_share_format_account_var_path" in set_permission and
+        'fopen(var_file, "w")' not in set_permission and
+        'fopen(var_file, "a+")' not in set_permission,
+        "set_permission must use checked path construction and atomic publication")
+
 for signature in (
     "int del_folder(const char *const mount_path, const char *const folder)",
     "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
 ):
     mutation = function_body(DISK_SOURCE, signature)
-    require("disk_share_permission_rewrite(" in mutation,
-            signature + " must use the tested line-preserving permission rewrite")
+    require("disk_share_update_folder_permission_file(" in mutation and
+            'fopen(var_file, "w")' not in mutation and
+            'fopen(var_file, "a+")' not in mutation and
+            "disk_share_format_account_var_path" in mutation,
+            signature + " must use the checked atomic account updater and reject truncated paths")
+
 for marker in (
     "test_permission_rewrite_removes_complete_record",
     "test_permission_rewrite_renames_key_and_preserves_rights",
@@ -391,6 +415,7 @@ for marker in (
 ):
     require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
             "missing permission record rewrite regression: " + marker)
+
 
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
 require("char **folder_list = NULL;" in samba,
