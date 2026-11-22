@@ -634,7 +634,7 @@ jobs:
           assert "status = route_status_accumulate(status, route_status);" in wan_down_body
           deconfig_body = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
           assert "conntrack_status = flush_conntrack_table(man_addr);" in deconfig_body
-          assert "returnroute_status_accumulate(route_status_accumulate(interface_status,conntrack_status),cleanup_status);" in "".join(deconfig_body.split())
+          assert ("returnroute_status_accumulate(route_status_accumulate(route_status_accumulate(proto_status,interface_status),conntrack_status),cleanup_status);" in "".join(deconfig_body.split()))
           
           netfilter_start = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)')
           netfilter_end = rc_source.index('else if (strcmp(entry->d_name, RCN_RESTART_FIREWALL) == 0)', netfilter_start)

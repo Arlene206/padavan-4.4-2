@@ -28,26 +28,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Current WAN protocol source slice is `4a6df662b6c34d2282e81b3ef8054e80e0894393`: checked protocol reads guard MAN DNS route setup/teardown, WAN-up and non-modem DHCP bound; `stop_wan_locked()` preserves protocol-read errors through later successful VPN/PPP/interface cleanup. C policy helpers/tests cover conservative MAN route behavior and first-error retention.
-- The first XY-C1 cross-build for that source SHA failed while compiling `net_wan.c`. Its exact diagnostic identified four invalid assignments to fixed-size character arrays in `reset_wan_vars_status()` (`man_addr`, `man_mask`, `man_gate`, `man_mtu`). The arrays are already initialized at declaration; the redundant pointer-style assignments have now been removed. This was a genuine firmware compile blocker; TRX and artifact upload were skipped.
-- The WAN route checker had a stale static-IPoE teardown extraction anchor after the source added `proto_status == 0` to the condition. The checker now locates the checked-protocol condition and following conntrack boundary, and includes a regression preventing future array-as-pointer assignments.
-- The WAN teardown workflow's previous run had no job rows. Inspection found two Python lines accidentally de-indented out of the YAML `run: |` block scalar; they are now restored to the surrounding indentation.
+- Current production source includes checked WAN protocol handling (commit `4a6df662b6c34d2282e81b3ef8054e80e0894393`) and the follow-up XY-C1 compile fix (commit `02857320194ebdda3b451ea3d6de07fa212995c0`). The latter removes four invalid assignments to already-initialized fixed-size MAN endpoint buffers in `reset_wan_vars_status()`.
+- Current failure triage is now focused on source-contract drift rather than additional production failures: WAN route checker expected an older DHCP deconfig return expression without the newly retained `proto_status`; HTTPD security workflow expected the old combined stop gate instead of the new first-error aggregation after independent cleanup. Both contracts are corrected in this checkpoint.
+- The prior teardown workflow de-indentation was also corrected in `0285732...`; its exact-head run on that commit passed, as did the handoff docs validator.
 
 ## Verification boundary
 
-- Current main checkpoint before this slice: `6cdaaccda83823f252dc537e4d9bfd358bfe845e`; product-source commit under verification: `4a6df662b6c34d2282e81b3ef8054e80e0894393`.
-- XY-C1 run #44967290950 on exact product source SHA `4a6df662...`: all pre-build host/source checks completed successfully, but Build XY-C1 FAILED in `net_wan.c` at lines 1132–1135 with “assignment to expression with array type” for the four MAN endpoint buffers. TRX verification and artifact upload were skipped. This commit removes those four invalid assignments; a new exact-source XY-C1 run is required before any L3 claim.
-- WAN route run #44967576615 on checker/main SHA `6cdaacc...` failed in `scripts/check_wan_detect_wan_status.py` because its static-IPoE teardown parser expected the pre-checked condition. The current commit updates that anchor and adds an explicit reset-array source regression.
-- Handoff validator #44967576593 passed on `6cdaacc...`.
-- Teardown run #44967575277 on `6cdaacc...` completed failure with no job rows. The workflow file contained two Python lines de-indented outside the `run: |` block; the current commit repairs the indentation. The previous 4c run #44967410572 did execute the job and passed the host C policy build/run before an obsolete source-contract assertion failed.
-- WAN DHCP callback #44967410597 passed on checker SHA `4c1f1be...`; it predates the final production-source compile fix.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. No L3 firmware claim applies until Build, TRX and artifact upload pass on one exact SHA.
+- Main before this checker-only slice: `02857320194ebdda3b451ea3d6de07fa212995c0`; production source changes under validation are in `02857320194ebdda3b451ea3d6de07fa212995c0`.
+- Exact SHA `0285732...`: WAN interface teardown PASS; WAN DHCP callback PASS; USB modem identity PASS; AI handoff PASS; plus inventory, WAN ARP socket, watchdog, miniupnpd, firewall, router mode, link/internet detection, VPN server, dnsmasq, ZeroTier and wireless checks PASS.
+- On the same SHA, WAN route #44968037254 failed at the inline source contract requiring the old `udhcpc_deconfig()` return accumulation that omitted `proto_status`. The source now intentionally returns `route_status_accumulate(route_status_accumulate(route_status_accumulate(proto_status, interface_status), conntrack_status), cleanup_status)`; the workflow assertion was updated accordingly.
+- HTTPD security #44968037240 failed in the service-lifecycle check at the old combined `stop_status/ifdown_status/callback_cleanup_status` gate. The actual source now uses `wan_teardown_first_error_status()` after callback cleanup; the workflow contract now checks that ordering and the subsequent final WAN-state clear gate.
+- XY-C1 #44968037242 was in progress on `0285732...` at the last poll; the four known C array assignment errors were removed. Verify Build, TRX and artifact upload on its exact SHA before claiming L3.
+- NVRAM transaction boundary and process lifecycle inventory checks were still running at last poll. Exact-head reruns of route and HTTPD contracts are pending for this commit.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA WAN route, WAN teardown and AI handoff Actions for this commit; resolve failures at their actual source/test step.
-2. Verify the rerun of XY-C1 Build, TRX and artifact upload on this exact production-source SHA. If the compiler reports another defect, fix it and rerun.
-3. Continue the checked modem identity audit around `is_ifunit_modem()` / `get_usb_modem_wan()` and DHCP callbacks; preserve modem-specific compatibility and unconditional cleanup.
+1. Inspect exact-SHA WAN route, HTTPD security and AI handoff runs for this checker-only commit, repairing only failures that still reproduce.
+2. Verify the XY-C1 run on `0285732...`: Build, TRX validation and artifact upload must all pass on that SHA.
+3. Continue the WAN modem identity audit around `is_ifunit_modem()` and `get_usb_modem_wan()`, especially how NVRAM read failures affect WAN DHCP callback classification.
 
 ## Workflow and preservation rules
 

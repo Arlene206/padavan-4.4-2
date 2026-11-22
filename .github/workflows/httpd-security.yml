@@ -5475,8 +5475,15 @@ jobs:
           wan_daemon_stop = stop_wan.index("kill_services(svcs_wan, 3, 1)")
           interface_teardown = stop_wan.index("wan_teardown_ifdown_interfaces(")
           assert callback_fence < wan_release < viptv_release < wan_dhcp_stop < wan_daemon_stop < interface_teardown
-          assert "if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)" in stop_wan
-          assert stop_wan.index("if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)") < stop_wan.index("clear_wan_state_status();")
+          final_status = "stop_status = wan_teardown_first_error_status("
+          callback_cleanup = "callback_cleanup_status = remove_cb_links();"
+          final_gate = "if (stop_status != 0)"
+          assert final_status in stop_wan and callback_cleanup in stop_wan
+          final_status_at = stop_wan.index(final_status)
+          final_gate_at = stop_wan.index(final_gate, final_status_at)
+          assert stop_wan.index(callback_cleanup) < final_status_at < final_gate_at
+          assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in stop_wan
+          assert final_gate_at < stop_wan.index("clear_wan_state_status();")
           clear_state = stop_wan.index("stop_status = clear_wan_state_status();")
           clear_failure = stop_wan.index("if (stop_status != 0)", clear_state)
           assert clear_state < clear_failure < stop_wan.index("control_wan_led_isp_state(0, 0);")

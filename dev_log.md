@@ -1,3 +1,13 @@
+## 2026-11-22 — Align WAN route and HTTPD source contracts with retained status
+
+- Parent main SHA: `02857320194ebdda3b451ea3d6de07fa212995c0`; source under test: `02857320194ebdda3b451ea3d6de07fa212995c0`.
+- Exact WAN route #44968037254 reached its cleanup contract and failed because the workflow expected the old `udhcpc_deconfig()` return expression that omitted `proto_status`. Production source deliberately accumulates protocol-read failure, interface reset, conntrack flush and WAN/MAN cleanup; checker now validates the complete nested first-error accumulation.
+- Exact HTTPD security #44968037240 failed because its lifecycle check expected the pre-change combined stop/final interface cleanup gate. It now checks that callback cleanup precedes `wan_teardown_first_error_status()`, and that the resulting failure gate precedes clearing WAN state.
+- On SHA `0285732...`, WAN teardown, DHCP callback, USB modem identity and handoff checks all passed. XY-C1 build remained in progress at the last poll; the previous build failure had been the four illegal assignments removed in `0285732...`.
+- This is a test-contract alignment slice; no production source changes in this commit.
+
+---
+
 ## 2026-11-22 — Fix XY-C1 WAN reset compile blocker and refresh source contracts
 
 - Parent main SHA: `6cdaaccda83823f252dc537e4d9bfd358bfe845e`; product-source target was `4a6df662b6c34d2282e81b3ef8054e80e0894393`.
