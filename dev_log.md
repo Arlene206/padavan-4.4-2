@@ -1,3 +1,13 @@
+## 2026-11-22 — Fix missing PID 1 main-loop binding in retry workflow contract
+
+- Parent main SHA: `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`.
+- PID 1 notification #44973128571 compiled and executed every GNU89/ASan/UBSan regression successfully, including the newly registered deferred hotplug marker mapping and retry lifecycle tests. Its final Python source contract failed with `NameError: main_loop is not defined` because the checker used that local in the new SIGALRM ordering assertion without first extracting `init_main_loop()`.
+- Added the missing `main_loop = function_body(init, "init_main_loop(void)")` binding. The new assertion continues to require queue marker retry before deferred-device dispatch inside the PID 1 alarm path.
+- Exact parent-SHA HTTPD auth/security #44973128500 PASS, HTTPD daemon lifecycle #44973128575 PASS, PID 1 mdev security #44973128472 PASS, AI handoff #44973128460 PASS, DNS Forwarder #44973128486 PASS, DNSMasq #44973128493 PASS and Process inventory #44973128482 PASS. USB storage #44973128576 and XY-C1 #44973128574 were still running at last poll.
+- THIS COMMIT atomically updates the workflow contract, handoff and log; fresh exact-SHA CI and target Build/TRX/artifact results remain required.
+
+---
+
 ## 2026-11-22 — Register deferred USB retry regressions and align exact-head CI contracts
 
 - Parent main SHA: `2f93266c59b9a10fec33589ada3e2e9c7b803b84`.

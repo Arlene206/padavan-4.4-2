@@ -124,6 +124,7 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           handler = function_body(rc, "handle_notifications(void)")
+          main_loop = function_body(init, "init_main_loop(void)")
           assert '#include "rc_notify_batch_policy.h"' in rc
           assert "#define RC_NOTIFY_BATCH_LIMIT 10" in policy
           assert "for (i = 0; i < RC_NOTIFY_BATCH_LIMIT; i++)" in handler

@@ -36,19 +36,17 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Verification boundary
 
-- Parent source SHA: `2f93266c59b9a10fec33589ada3e2e9c7b803b84`.
-- Exact parent-SHA Actions: AI handoff #44972905746 PASS; Wireless radio #44972905459 PASS; Router mode NVRAM update #44972905764 PASS; VPN server #44972905495 PASS; vsftpd #44972905498 PASS; DNS Forwarder #44972905606 PASS; watchdog #44972905723 PASS; WAN gateway ARP #44972905645 PASS.
-- PID 1 notification #44972905893 FAIL only because the two new policy regression functions had not actually been included/registered in the C test file. This commit inserts both function bodies and invokes them from `main()`.
-- HTTPD auth/security #44972905619 failed on its existing exact-source expectation that `on_deferred_hotplug_dev()` remain under the original single `if (router_ready)` statement. This commit keeps retry before deferred dispatch but restores that source pattern.
-- HTTPD daemon lifecycle #44972905858 failed on a stale explicit-UNKNOWN branch assertion. Startup correctly delegates this classification to `httpd_start_postcondition_requires_recovery(presence)`; checker now asserts that delegation and the policy's non-ABSENT condition.
-- USB storage #44972905435 and XY-C1 #44972905721 were IN_PROGRESS at last poll; the storage workflow exercises the corrected output-initializer check. No same-SHA XY-C1 Build/TRX/artifact or L3 firmware pass has been observed. Hardware L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent source SHA: `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`.
+- Exact parent-SHA Actions: PID 1 notification #44973128571 FAIL only in the final Python source contract with `NameError: main_loop is not defined`; all GNU89/ASan/UBSan regression executables, including the now-registered deferred retry test functions, passed. This commit defines the existing PID 1 main-loop body before asserting that SIGALRM retries the event queue before deferred device handling.
+- HTTPD authentication/security #44973128500 PASS; HTTPD daemon lifecycle #44973128575 PASS; PID 1 mdev hotplug security #44973128472 PASS; AI handoff #44973128460 PASS; DNS Forwarder #44973128486 PASS; DNSMasq #44973128493 PASS; Process inventory #44973128482 PASS.
+- USB storage hotplug #44973128576 and XY-C1 Firmware Validation #44973128574 remained IN_PROGRESS at last poll. No same-SHA Build/TRX/artifact result or L3 firmware claim yet; hardware L4 remains NOT VERIFIED.
+- The preceding init-source compatibility expectation is now satisfied and did not require a security-workflow weakening. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head PID 1 notification, HTTPD auth/security, HTTPD daemon lifecycle, USB storage, AI handoff, Process lifecycle and XY-C1 Build/TRX/artifact Actions for this commit. Fix every red result.
-2. Verify the retry regression runs under GNU89/ASan/UBSan, that all five marker-write errors preserve incomplete RC status, and that PID 1 recreates safe markers before deferred NVRAM dispatch.
-3. After verification, select a distinct P1/P2 whole-userland stability/security issue; do not reopen the modem identity audit or completed tasks.
+1. Check the new exact-head PID 1 notification, USB storage, XY-C1 Build/TRX/artifact, AI handoff and Process lifecycle Actions. Fix any red check against its exact SHA.
+2. Validate the retry lifecycle end-to-end in the RC queue contract: failed marker persistence must retain incomplete status, PID 1 must recreate only the five fixed safe markers, and retries must stop only after queue wakeup and successful event handling.
+3. Once this slice is green, continue with a distinct whole-userland P1/P2 stability/security defect from the roadmap. Do not repeat the modem identity audit.
 
 ## Workflow and preservation rules
 
