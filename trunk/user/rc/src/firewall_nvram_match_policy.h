@@ -102,6 +102,35 @@ firewall_nvram_read_status(int api_result, int saved_errno, const char *value)
     return 0;
 }
 
+/* Copy a checked string while the shared NVRAM cache pointer is still valid.
+ * A missing key retains the empty-string default; read failures and truncation
+ * remain distinguishable from a genuinely empty setting. */
+static inline int
+firewall_nvram_copy_string_status(int api_result, int saved_errno,
+                                  const char *value, char *destination,
+                                  size_t destination_size)
+{
+    const char *source;
+    size_t length;
+    int status;
+
+    if (!destination || destination_size == 0)
+        return EINVAL;
+    destination[0] = '\0';
+
+    status = firewall_nvram_read_status(api_result, saved_errno, value);
+    if (status != 0)
+        return status;
+
+    source = (api_result == 0) ? "" : value;
+    length = strlen(source);
+    if (length >= destination_size)
+        return ENAMETOOLONG;
+
+    memcpy(destination, source, length + 1);
+    return 0;
+}
+
 /* Copy an optional IPv4 NVRAM value without losing backend errors. Missing
  * or overlong values remain disabled, matching the legacy DMZ address gate. */
 static inline int

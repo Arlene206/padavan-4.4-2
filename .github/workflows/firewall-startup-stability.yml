@@ -55,6 +55,7 @@ on:
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "scripts/check_modem_wan_start_status.py"
+      - "scripts/check_firewall_ip_nvram_status.py"
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - ".github/workflows/firewall-startup-stability.yml"
@@ -113,6 +114,7 @@ on:
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "scripts/check_modem_wan_start_status.py"
+      - "scripts/check_firewall_ip_nvram_status.py"
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - ".github/workflows/firewall-startup-stability.yml"
@@ -125,6 +127,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Verify firewall IP inputs fail closed on NVRAM errors
+        run: python3 scripts/check_firewall_ip_nvram_status.py
 
       - name: Compile and run firewall lifecycle interprocess lock regression
         run: |

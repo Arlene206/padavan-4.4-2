@@ -816,6 +816,34 @@ firewall_read_string_setting(const char *param_name, const char **value)
 	return firewall_read_string_setting_with_presence(param_name, value, NULL);
 }
 
+/* Copy before another NVRAM read can invalidate the shared cache pointer. */
+static int
+firewall_read_string_setting_copy_status(const char *param_name,
+                                         char *destination,
+                                         size_t destination_size)
+{
+    char *checked_value = NULL;
+    int api_result, saved_errno, status;
+
+    if (!param_name || !param_name[0] || !destination || destination_size == 0)
+        return EINVAL;
+
+    destination[0] = '\0';
+    errno = 0;
+    api_result = nvram_get_checked(param_name, &checked_value);
+    saved_errno = errno;
+    status = firewall_nvram_copy_string_status(
+        api_result, saved_errno, checked_value, destination, destination_size);
+    if (status != 0) {
+        firewall_abort_core_restore_after_staging_failure();
+        logmessage(LOGNAME,
+                   "cannot read firewall IPv4 setting '%s'; refusing ruleset publication (status=%d)",
+                   param_name, status);
+        errno = status;
+    }
+    return status;
+}
+
 static int
 firewall_read_optional_ipv4_setting(const char *param_name, char *address,
 				    size_t address_size)
@@ -4400,8 +4428,8 @@ start_firewall_ex_locked(void)
 	char wan_if[16], man_if[16], lan_if[16];
 	const char *wan_if_value;
 	char wan_ip[16], man_ip[16], lan_ip[16], lan_net[24] = {0};
+	char lan_netmask[16] = {0};
 	char dmz_ip[16] = {0};
-	const char *lan_netmask;
 	const char *opt_iptables_script = "/opt/bin/update_iptables.sh";
 	const char *int_iptables_script = SCRIPT_POST_FIREWALL;
 #if defined (APP_SHADOWSOCKS)
@@ -4483,15 +4511,32 @@ start_firewall_ex_locked(void)
 		return EINVAL;
 	}
 
-	snprintf(lan_ip, sizeof(lan_ip), "%s", nvram_safe_get("lan_ipaddr"));
+	status = firewall_read_string_setting_copy_status(
+		"lan_ipaddr", lan_ip, sizeof(lan_ip));
+	if (status != 0)
+		return status;
 	if (!firewall_ipv4_address_is_safe(lan_ip)) {
 		logmessage(LOGNAME, "Invalid LAN IPv4 address for firewall; using 0.0.0.0");
 		strcpy(lan_ip, "0.0.0.0");
 	}
-	snprintf(man_ip, sizeof(man_ip), "%s", nvram_safe_get("wanx_ipaddr"));
-	snprintf(wan_ip, sizeof(wan_ip), "%s", get_wan_unit_value(unit, "ipaddr"));
+	status = firewall_read_string_setting_copy_status(
+		"wanx_ipaddr", man_ip, sizeof(man_ip));
+	if (status != 0)
+		return status;
+	status = get_wan_unit_value_copy_status(
+		unit, "ipaddr", wan_ip, sizeof(wan_ip));
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "Cannot read WAN IPv4 address for firewall rebuild (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
 
-	lan_netmask = nvram_safe_get("lan_netmask");
+	status = firewall_read_string_setting_copy_status(
+		"lan_netmask", lan_netmask, sizeof(lan_netmask));
+	if (status != 0)
+		return status;
 	if (!ipv4_netmask_is_contiguous(lan_netmask)) {
 		logmessage(LOGNAME, "Invalid LAN IPv4 netmask for firewall; refusing rebuild");
 		errno = EINVAL;

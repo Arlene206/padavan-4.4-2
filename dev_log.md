@@ -1,3 +1,12 @@
+## 2026-11-22 — Use checked snapshots for firewall IP inputs
+
+- Parent main SHA: `a5777a906c785d296e8612cf4954fc2a5dbb6749`. Exact a577 USB printer tests/checker #45004808849 PASS; Process umbrella #45004808803 PASS; Process inventory #45004808838 PASS; AI docs #45004808939 PASS. NVRAM audit #45004808813, USB storage #45004808805 and XY-C1 #45004808822 were pending at last poll.
+- `start_firewall_ex_locked()` used `nvram_safe_get()` for LAN IP, management WAN IP and LAN netmask, plus the legacy WAN unit IP getter. Backend errors could be collapsed to empty strings; LAN IP then fell back to `0.0.0.0`, and firewall generation could continue with unknown network inputs.
+- THIS FIX reads all four settings with checked APIs and copies shared-cache values immediately. Read/close failures and truncation abort before rp_filter writes and any firewall table generation; missing keys preserve empty-string behavior, including the established invalid LAN address fallback.
+- Added strict checked-string policy cases and a dedicated source-order checker integrated into the firewall startup Actions. Exact-head workflow validation pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fail closed on unreadable USB printer service configuration
 
 - Parent main SHA: `e29431f47e51c48bcbe0e8c4cf1adec51b55f36b`. Exact e294 IAPP #45004292701, Process umbrella #45004292730, Process inventory #45004292778 and AI docs #45004292741 PASS; XY-C1 #45004292784 was building, so no same-SHA L3 claim.

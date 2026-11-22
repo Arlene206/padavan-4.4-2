@@ -5,11 +5,11 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 # Cross-session execution mandate
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; active branch `main`; parent for this slice: `e29431f47e51c48bcbe0e8c4cf1adec51b55f36b`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
-- Account NVRAM work verified through `46a32f2eb17d2bbca8b840ea5fbea30bc76a7731`: Process #45003857329, Process inventory #45003857277, NVRAM audit #45003857261 and AI docs #45003857267 PASS.
-- IAPP firewall reconciliation is on main through `e29431f47e51c48bcbe0e8c4cf1adec51b55f36b`: exact e294 IAPP #45004292701, Process umbrella #45004292730, Process inventory #45004292778 and AI docs #45004292741 PASS. XY-C1 #45004292784 IN_PROGRESS at last poll (Build active; TRX/artifact pending).
-- The first IAPP commit 117 shell-escaping defect was corrected; exact e294 IAPP/Process/AI runs now pass. The XY-C1 path filter covers account NVRAM policy and this USB printer source/test.
-- L3 remains verified only for product SHA `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; hardware L4 NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; active branch `main`; parent for this firewall source slice: `a5777a906c785d296e8612cf4954fc2a5dbb6749`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 remains closed/unmerged.
+- Checked USB printer settings are on main at `a5777a906c785d296e8612cf4954fc2a5dbb6749`; exact USB modem workflow #45004808849 PASS (including printer policy test/checker), Process umbrella #45004808803 PASS, Process inventory #45004808838 PASS, AI docs #45004808939 PASS.
+- At the last poll on exact a577, NVRAM audit #45004808813 and USB storage #45004808805 were IN_PROGRESS; XY-C1 #45004808822 was IN_PROGRESS before Build XY-C1 began. e294's older XY-C1 #45004292784 also remained running; neither provides current a577 L3.
+- IAPP duplicate-start firewall repair at `e29431f47e51c48bcbe0e8c4cf1adec51b55f36b`: exact IAPP #45004292701, Process umbrella #45004292730, Process inventory #45004292778 and AI docs #45004292741 PASS.
+- Previous product L3 evidence is only for `a5d5bb332a7b18db1676f8e182a7ddaae92bd2ff`; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -30,16 +30,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 
 ## Active task
-- USB printer startup used lossy `nvram_match()` in `start_u2ec()`, `start_lpd()` and `start_p910nd()`. These calls cannot distinguish an absent key from NVRAM backend/ioctl/close errors, so a transient read failure could be treated as the legacy default and start a spooler with unknown enable/raw mode.
-- This slice copies each setting immediately via `nvram_get_checked()` from the shared cache. Missing settings preserve the historical empty default; backend errors, invalid API states, NULL cache values and overlong data abort before PID-file unlink or daemon launch. `rawd_enable` is read once for both decisions.
-- Added GNU89/ASan/UBSan policy regression, source-order contract and exact USB/XY-C1 workflow coverage.
+- `start_firewall_ex_locked()` copied `lan_ipaddr`, `wanx_ipaddr` and `lan_netmask` through lossy `nvram_safe_get()`, and used the legacy WAN IP getter. A transient backend/ioctl/close failure could be mistaken for an empty value; LAN IP then silently became `0.0.0.0`, while the other values could generate an incomplete ruleset that was still applied.
+- THIS SLICE uses checked NVRAM reads and immediate owned copies for the three base keys plus `get_wan_unit_value_copy_status()` for `wan0_ipaddr`. Any backend, malformed result or truncation error aborts before rp_filter writes and firewall table generation. Genuine missing values retain legacy empty-string handling, including LAN IP's existing invalid-value fallback.
+- Added checked string-copy policy coverage and a dedicated source-order contract to the firewall workflow.
 
 ## Verification boundary
-- Exact e294 IAPP #45004292701, Process umbrella #45004292730, Process inventory #45004292778 and AI docs #45004292741 PASS.
-- Exact e294 XY-C1 #45004292784 was building at last poll; TRX and artifact remained pending.
-- New USB printer slice awaits exact-head host and product verification. No L3 claim until same-SHA Build, TRX and artifact pass; hardware L4 NOT VERIFIED.
+- Exact a577 USB modem / printer lifecycle #45004808849 PASS; Process umbrella #45004808803 PASS; Process inventory #45004808838 PASS; AI handoff #45004808939 PASS.
+- Exact a577 NVRAM #45004808813 and USB storage #45004808805 were still running at last poll; exact a577 XY-C1 #45004808822 was still running before product build. No current-source L3 claim.
+- Current firewall change is not yet tested on its exact new SHA. Previous L3 applies only to the older a5 product SHA; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Check exact current-head USB printer NVRAM, Process inventory/umbrella, AI docs and XY-C1 runs; diagnose exact job failures.
-2. Confirm Build, TRX verification and artifact upload all pass on that same SHA before claiming L3.
-3. Continue an independent stability/security fix outside completed WAN route, account snapshot and IAPP work. Hardware L4 remains NOT VERIFIED.
+1. Check the exact firewall correction SHA's Firewall Startup Stability, Process umbrella/inventory, NVRAM and XY-C1 Actions; inspect any failure at its first failing step.
+2. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on the same exact source SHA.
+3. Continue the next independent stability/security defect outside the completed WAN route, account NVRAM, IAPP and USB printer slices. Hardware L4 remains NOT VERIFIED.

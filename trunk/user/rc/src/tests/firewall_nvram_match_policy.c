@@ -324,6 +324,54 @@ test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 }
 
 static void
+test_checked_string_copy_preserves_present_and_missing_values(void)
+{
+    char value[16] = "stale";
+
+    assert(firewall_nvram_copy_string_status(1, 0, "192.0.2.1",
+                                             value, sizeof(value)) == 0);
+    assert(strcmp(value, "192.0.2.1") == 0);
+    assert(firewall_nvram_copy_string_status(0, 0, NULL,
+                                             value, sizeof(value)) == 0);
+    assert(value[0] == '\0');
+}
+
+static void
+test_checked_string_copy_fails_closed_on_backend_and_invalid_results(void)
+{
+    char value[16] = "stale";
+
+    assert(firewall_nvram_copy_string_status(-1, EACCES, NULL,
+                                             value, sizeof(value)) == EACCES);
+    assert(value[0] == '\0');
+    assert(firewall_nvram_copy_string_status(-1, 0, NULL,
+                                             value, sizeof(value)) == EIO);
+    assert(value[0] == '\0');
+    assert(firewall_nvram_copy_string_status(2, 0, "192.0.2.1",
+                                             value, sizeof(value)) == EIO);
+    assert(value[0] == '\0');
+    assert(firewall_nvram_copy_string_status(1, 0, NULL,
+                                             value, sizeof(value)) == EIO);
+    assert(value[0] == '\0');
+    assert(firewall_nvram_copy_string_status(0, 0, "unexpected",
+                                             value, sizeof(value)) == EIO);
+    assert(value[0] == '\0');
+}
+
+static void
+test_checked_string_copy_rejects_truncation_and_invalid_arguments(void)
+{
+    char value[8] = "stale";
+
+    assert(firewall_nvram_copy_string_status(1, 0, "192.0.2.100",
+                                             value, sizeof(value)) == ENAMETOOLONG);
+    assert(value[0] == '\0');
+    assert(firewall_nvram_copy_string_status(1, 0, "x", NULL, sizeof(value)) == EINVAL);
+    assert(firewall_nvram_copy_string_status(1, 0, "x", value, 0) == EINVAL);
+    assert(value[0] == '\0');
+}
+
+static void
 test_vts_protocol_name_preserves_legacy_modes(void)
 {
     assert(strcmp(firewall_vts_protocol_name("TCP"), "tcp") == 0);
@@ -418,6 +466,9 @@ main(void)
 	test_optional_ipv4_copy_preserves_present_and_missing_values();
 	test_optional_ipv4_copy_fails_closed_on_backend_and_invalid_results();
 	test_optional_ipv4_copy_disables_oversized_values();
+	test_checked_string_copy_preserves_present_and_missing_values();
+	test_checked_string_copy_fails_closed_on_backend_and_invalid_results();
+	test_checked_string_copy_rejects_truncation_and_invalid_arguments();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
 	return 0;
