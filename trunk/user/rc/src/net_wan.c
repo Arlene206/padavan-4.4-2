@@ -917,7 +917,7 @@ get_wan_unit_proto_for_manual_check(int unit)
 		logmessage(LOGNAME,
 			   "cannot classify WAN unit %d protocol (status=%d); preserving manual underlay",
 			   unit, status);
-		return IPV4_WAN_PROTO_PPTP;
+		return -1;
 	}
 	return wan_proto;
 }
@@ -4343,6 +4343,8 @@ static int
 is_ifunit_man(char *wan_ifname, int unit)
 {
 	int wan_proto = get_wan_unit_proto_for_manual_check(unit);
+		if (wan_proto < 0)
+			return 1;
 
 	if (!is_usbnet_interface(wan_ifname) &&
 	    (wan_proto == IPV4_WAN_PROTO_PPPOE ||

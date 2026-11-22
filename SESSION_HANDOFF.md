@@ -28,26 +28,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- The P1 void-setter audit is closed: `set_wan_unit_value_int()` / `set_wan_unit_param()` have no RC C callsites; void `set_wan_unit_value()` calls are optional uptime/RX/TX telemetry.
-- WAN reset manual endpoints are transactionally snapshotted with checked NVRAM APIs; protocol reset is bounded and status-bearing; WAN custom/factory MAC identity reads preserve legacy formatter behavior and have C host tests (`b75f4cc`, `b2d084d`, `49bed878`).
-- Firewall contract correction `f58d4b1e557d0b1da8843436554ae421fdee1698` passed WAN route `#44964031249` and AI docs `#44964031268`; XY-C1 `#44964031316` host validation passed but firmware Build/TRX/artifact were skipped because the SHA changed only checker/docs.
-- `start_wan()` now uses checked unit protocol reads, first-error retention and fail-closed interface setup. THIS source slice also fixes `is_ifunit_man()`: its boolean ABI now uses a checked wrapper and conservatively treats protocol-read errors as manual PPP, preserving the underlay rather than allowing destructive IPoE cleanup.
-- THIS source slice closes two more shared-protocol fallthroughs: `manual_wan_disconnect()` aborts a non-USB stop when the checked protocol is unreadable (USB modem remains transport-driven); `safe_start_xl2tpd_locked()` refuses to truncate/rewrite `xl2tpd.conf` when the protocol cannot be resolved. The checked mapper is now public to PPP through `rc.h`.
-- Next: inspect `get_wan_ifname()` / `get_wan_ip4()` for unknown-protocol fallback and audit `udhcpc_deconfig()` / `udhcpc_bound()` for manual underlay protection without skipping unconditional lease, route, DNS or conntrack cleanup.
+- WAN reset now uses checked selector reads, a transactionally coherent manual endpoint snapshot, bounded protocol parsing, and checked custom/factory MAC identity reads.
+- `start_wan()` uses checked per-unit protocol retrieval and retains the first failure before interface setup.
+- The boolean manual-PPP classifier uses a checked protocol wrapper. THIS slice makes the wrapper return a negative error sentinel and explicitly maps that sentinel to `true` in `is_ifunit_man()`; this is important because returning a plausible enum such as PPTP could be misclassified if downstream manual-PPP flags differ.
+- `check_wan_firewall_status.py` now pins the explicit error-sentinel-to-manual result.
+- Next: verify exact-head Actions, then continue remaining protocol reads in route gateway and WAN teardown/DHCP callbacks while keeping mandatory cleanup unconditional.
 
 ## Verification boundary
 
-- Exact source/checker `f1fc3d9d03ed18b6f432a5b1591b8ce2d4a031ab`: WAN route #44964927034 failed only because the MTU checker still searched for the removed unchecked WAN-protocol getter; XY-C1 was host-blocked by the same checker, so Build/TRX/artifact were skipped. Checker-only correction `bbc0dad3aa568ed4885e96cd6022b501fad6f609` passed WAN route #44965084237 and AI handoff #44965084235; it did not trigger firmware validation.
-- THIS source slice introduces production changes in `net_wan.c` and `net_ppp.c`. Exact-SHA host tests and XY-C1 build stages are pending. L3 requires Build, TRX and artifact upload PASS on the same product-source SHA; hardware L4 remains NOT VERIFIED.
-- Parent checker-only SHA `f58d4b1e557d0b1da8843436554ae421fdee1698`: WAN route and AI docs PASS; XY-C1 host validation PASS, firmware stages skipped because no product source changed.
-- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current source/checker commit has not yet run exact-head Actions. Inspect WAN route, NVRAM, Process and XY-C1 for this SHA; inspect Build XY-C1, Verify TRX and artifact upload independently.
+- L3 requires all three firmware steps PASS on one product-source SHA. Hardware/device L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN route and XY-C1 for the latest source SHA; verify the new disconnect and xl2tpd checked-protocol contracts execute.
-2. Inspect Build XY-C1, TRX and artifact upload separately; claim L3 only if all pass on one SHA.
-3. Continue `get_wan_ifname()` / `get_wan_ip4()` and DHCP deconfig/bound protocol-read handling without skipping unconditional cleanup.
+1. Fetch live main and inspect exact-head WAN route/NVRAM/Process/XY-C1 runs for this manual-classifier correction.
+2. Inspect Build XY-C1, Verify TRX and artifact upload separately.
+3. Continue the remaining direct protocol-read audit in route-gateway, teardown and DHCP callbacks without gating unconditional cleanup.
 
 
 ## Workflow and preservation rules

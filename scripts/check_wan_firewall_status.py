@@ -1173,3 +1173,15 @@ manual_classifier = body(wan, "static int\nis_ifunit_man(char *wan_ifname, int u
 require("get_wan_unit_proto_for_manual_check(unit)" in manual_classifier and
         "get_wan_proto(unit)" not in manual_classifier,
         "is_ifunit_man must use the checked conservative protocol classifier")
+manual_proto_reader = body(
+    wan,
+    "get_wan_unit_proto_for_manual_check(int unit)"
+)
+manual_proto_reader_code = " ".join(manual_proto_reader.split())
+manual_classifier = body(wan, "is_ifunit_man(")
+manual_classifier_code = " ".join(manual_classifier.split())
+require("return -1;" in manual_proto_reader_code and
+        "get_wan_unit_proto_checked_status(unit, &wan_proto)" in manual_proto_reader_code and
+        "if (wan_proto < 0) return 1;" in manual_classifier_code,
+        "is_ifunit_man must treat failed checked protocol reads as manual to protect the underlay")
+

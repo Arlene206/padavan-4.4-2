@@ -1,4 +1,8 @@
 Current implementation checkpoint (2026-11-21):
+- WAN reset/start protocol/MAC identity reads use checked NVRAM helpers; manual endpoint fields form one transaction.
+- The boolean manual-PPP classifier explicitly maps a failed checked protocol read to `true` (preserve unknown underlay), rather than treating an arbitrary enum as a valid protocol. Exact-head WAN/XY-C1 checks pending.
+
+Current implementation checkpoint (2026-11-21):
 - WAN reset manual endpoint, protocol and MAC identity reads use checked APIs; the endpoint is one NVRAM transaction and MAC formatter preserves the legacy behavior.
 - WAN startup and boolean manual-PPP classification now consume the checked protocol reader. Startup latches errors and does not configure an interface on failed read; manual classification treats read errors conservatively as PPP to protect an unknown underlay. Exact-head WAN/XY-C1 Build/TRX/artifact pending.
 

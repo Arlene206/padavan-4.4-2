@@ -1,3 +1,13 @@
+## 2026-11-21 — Make manual-PPP protocol failure sentinel explicit
+
+- Parent main SHA: `58903be39199a36dce04f1f87d43561c26e04446`.
+- The previous checked wrapper returned PPTP as a conservative stand-in on read failure. That relies on downstream classifier branches treating PPTP as manual without consulting a PPTP-specific selector, which is less explicit than the intended safety property.
+- THIS commit makes the wrapper return `-1` on read failure and makes the boolean `is_ifunit_man()` immediately return `true` for that sentinel. Thus an unavailable protocol never gets mistaken for a known protocol while the legacy bool ABI still protects the underlay.
+- Added source-contract assertions for the negative sentinel and explicit `return 1` behavior. Exact-head Actions pending.
+- Next: inspect the WAN route/NVRAM/Process/XY-C1 results and continue remaining route-gateway/teardown/DHCP reads without bypassing unconditional cleanup.
+
+---
+
 ## 2026-11-22 08:10 CST — Fail closed on WAN protocol errors in disconnect and xl2tpd setup
 
 - Parent main SHA: `bbc0dad3aa568ed4885e96cd6022b501fad6f609`.
