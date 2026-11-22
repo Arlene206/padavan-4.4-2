@@ -1,3 +1,15 @@
+## 2026-11-22 — Make volume share permission metadata fail closed
+
+- Product commits: `f39bc0c3e2bdc149489b2f596cb3ae1859d8020f` (atomic initial account defaults), `49e6cbffc73373c8b292159c2984cdafa72697c4` (atomic new-folder permission updates), and `2c099f7a36ae84a2baf375e103ce4c7db8450238` (checked metadata cleanup and caller error propagation).
+- `initial_one_var_file_in_mount_path()` now writes the complete permission list to a same-directory temporary file; buffered writes, fsync, close and rename are checked, preserving the last-good file if storage fills or a write fails. GNU89 ASan/UBSan libdisk run #45016346157 PASS on `f39bc0c`.
+- `modify_if_exist_new_folder()` now treats a failed folder-list lookup as an error (rather than silently skipping it), preserves the old permission file, and atomically publishes the copied file plus new default records. Exact libdisk run #45016518545 PASS on `49e6cbf`.
+- `clear_share_var_files()` now distinguishes directory EOF from readdir failure, checks managed-file unlink and closedir outcomes, and reports errors. `initial_all_var_file_in_mount_path()` and `create_if_no_var_files()` now propagate every stage's failure, validate path truncation, and free account lists on error. Exact libdisk run #45016804441 PASS on `2c099f7`; Process inventory #45016804504 PASS.
+- XY-C1 run #45016804450 for `2c099f7` was IN_PROGRESS in Build XY-C1; TRX and artifact upload pending. HTTPD #45016804458 and NVRAM #45016804472 were IN_PROGRESS.
+- Firmware build exposed an independent pre-existing syntax defect introduced in detect-WAN commit `00fb9c3`: `chk_udhcpc()` had an unmatched closing brace before its final return. Commit `07fb4ceef4be3efffd1cc32269eab762dde9e81b` removed the stray brace, normalized the block and added a source-contract final-return assertion. Exact detect-WAN #45016664463 PASS, Process inventory #45016664378 PASS, Process lifecycle #45016664391 PASS, AI docs #45016664392 PASS; same-SHA XY #45016664382 still building.
+- XY-C1 #45015894601 on earlier source SHA `9228416` FAILED in cross-build at `detect_wan.c:169`; root cause is the unmatched brace above, not the libdisk metadata change. Do not claim firmware L3 until the corrected current source SHA's Build, TRX and artifact upload all PASS. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Write folder-list metadata as an atomic checked snapshot
 
 - Parent main SHA: `75f461de7dfbfbd0f59867959c5b3d37042d0b0f`; product commit: `922841600a62aa8c4c98922da9002c6e4cdfb328`. `initial_folder_list_in_mount_path()` previously truncated the destination directly and ignored every `fprintf()` and `fclose()` failure. A full disk or interrupted write could leave an incomplete but existing metadata file, suppress future regeneration and keep Samba share discovery broken.
