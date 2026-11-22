@@ -1,3 +1,12 @@
+## 2026-11-22 13:23 UTC+8 — Fix Firewall Actions source-contract NameError
+
+- Parent main SHA: `250ebfd2babb558957924e18033db434976fdbfe`. Exact Firewall Startup run #44988923723 reached the inline “Verify required NAT restore gates WAN startup” checker after four earlier host regression steps passed, then failed with Python `NameError: name 'rc_source' is not defined`.
+- The workflow already loads `trunk/user/rc/src/rc.c` into `rc`; corrected the assertion to inspect `rc`. The assertion still verifies the checked IPv6 cache read and is not weakened. No product C source changed.
+- SESSION_HANDOFF.md now records the exact failing run, corrected immediate validation gate, outstanding exact-head checks and next IPv6 caller migration. The whole-repository roadmap is unchanged.
+- No local checkout or local workflow execution is available. Exact-head Firewall Startup and the other relevant Actions are pending on THIS COMMIT. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:52 UTC+8 — Align exact-source gates with checked IPv6 service cache
 
 - Parent main SHA: `915456f9e919badaa489713ce62f6017c5787808`. The new IPv6 service-type regression #44988532661 and WAN DHCP callback regression #44988532640 PASS on that exact SHA.
