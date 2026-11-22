@@ -277,19 +277,19 @@ addn-hosts=/etc/storage/custom-hosts
 CONFIG
 adbyby_prepare_hosts_transaction() {
     mkdir -p "$PROG_PATH" || return 1
-    printf '%s\\n' '192.0.2.44 ads.example.test' > "$PROG_PATH/hosts" || return 1
+    printf '%s\n' '192.0.2.44 ads.example.test' > "$PROG_PATH/hosts" || return 1
 }
 adbyby_hosts_cache_is_usable() { return 1; }
 
 NVRAM_ADDBYBY_VALUE=1
 NVRAM_SET_STATUS=0
-pidof() { [ "${1:-}" = adbyby ] || return 1; printf '123\\n'; }
+pidof() { [ "${1:-}" = adbyby ] || return 1; printf '123\n'; }
 nvram() {
     case "${1:-} ${2:-}" in
-        "get adbyby_enable") printf '1\\n' ;;
-        "get adbyby_add") printf '%s\\n' "$NVRAM_ADDBYBY_VALUE" ;;
-        "get hosts_ad") printf '1\\n' ;;
-        "get sdns_staticnum_x") printf '0\\n' ;;
+        "get adbyby_enable") printf '1\n' ;;
+        "get adbyby_add") printf '%s\n' "$NVRAM_ADDBYBY_VALUE" ;;
+        "get hosts_ad") printf '1\n' ;;
+        "get sdns_staticnum_x") printf '0\n' ;;
         "set adbyby_add=0")
             [ "$NVRAM_SET_STATUS" -eq 0 ] || return "$NVRAM_SET_STATUS"
             NVRAM_ADDBYBY_VALUE=0
