@@ -21,16 +21,23 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Active task
 
-Audit and harden NFS export ACL generation. `write_nfsd_exports()` previously read LAN IPv4 address/netmask, fallback pair, IPv6 address/prefix and VPN mode/address selectors through independent NVRAM getters. A configuration update between reads could mix generations; an old LAN address combined with a newer, broader netmask could widen the generated NFS client CIDR. The current slice replaces those reads with one all-or-nothing 12-key NVRAM transaction snapshot, parses VPN selectors strictly, and adds cache-reuse/read-failure/close-failure regressions. Verify exact-SHA NFS and XY-C1 workflows.
+继续稳定性修复，避免重复审计已完成工作。已提交的重点源码修复：NFS exports ACL 12-key NVRAM transaction snapshot；WAN physical/ IPTV DHCP overlap 的 LAN address/netmask transaction snapshots；LAN startup/reset subnet snapshot；AP DHCP hostname address/domain snapshot；L2TP server selector checked-read fail-closed；WAN VLAN filter/VID checked-read fail-closed。关联测试与 source-contract workflows 已同步更新。当前重点转向精确 SHA Actions 验证和修复仍失败的 checker/独立稳定性问题。
 
 ## Verification boundary
 
-- Exact parent main SHA `cd92a56405e96a08ab9c64e45cc345828ba5a37d`: WAN route #45047446525 PASS and AI handoff #45047446469 PASS. These checks did not build firmware.
-- Exact source SHA `690dc90846b959d05a5ee51e8f5d9cfa5c960408`: WAN DHCP callback #45047262363 PASS, including checked SIT 6rd tuple tests; ZeroTier #45047262287 PASS; Samba #45047262278 PASS; link/detect Internet signals #45047262383/#45047262340 PASS; Wireless #45047262438 PASS; IPv6 service type #45047262463 PASS; AI handoff #45047262377 PASS. The WAN route failure on this SHA was checker-only and corrected by parent `e49224f`.
-- XY-C1 #45047262320 on `690dc9` had completed host validation and reached `Build XY-C1`; TRX and artifact upload were still pending at the last check. This NFS source change modifies `services_stor.c`, included in the XY-C1 path filter; inspect the exact new SHA's Build/TRX/artifact run rather than reusing ancestor output.
-- The new NFS slice is not yet verified: its exact-head NFS GNU89 regression, sanitizer/source-contract workflow and XY-C1 production stages must be checked. No local C tests, firmware build or hardware validation were performed. L3/L4 remain NOT VERIFIED.
-
+- 当前 main: `372451d468fd772858635590f1c1c10bccf95dc0` — `test(wan): update process L2TP fail-closed contract`; parent `6418e87add0ffce79fd918077bb1e7dfdded2fc0`. Backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (保持冻结，未更新)。
+- 本次已提交逻辑切片：`c139dd5` NFS ACL atomic snapshot；`1b193a6` IPTV overlap LAN tuple；`3d1ded0` physical WAN overlap LAN tuple；`1da00c0` LAN startup/reset snapshot；`bf51be3` AP hostname tuple；`0c3d6dc` L2TP checked selector fail-closed；`b5fbceb` WAN VLAN checked VID fail-closed。Checker follow-up commits: `4f9ed0e`, `f5b93cf`, `f902d00`, `1fe718a`, `b48c884`, `fbee4e5`, `6c360d4`, `19af0ec`, `55e39b6`, `9056ed1`, `6418e87`, `372451d`.
+- 当前 HEAD 的 exact-SHA Actions:
+- #45051059927 Process inventory and lifecycle fail-closed regression: completed/success (372451d468fd)
+- #45051059851 AI handoff documentation contract: completed/failure (372451d468fd)
+- XY-C1: 当前 SHA 未找到匹配运行；L3 NOT VERIFIED。
+- 较早 SHA 的 CI FAIL 曾定位为 checker 不同步（IPTV/physical snapshot 旧 getter 断言、AP identity 旧 getter 断言、L2TP 未更新的流程断言、缺少 `re` import 和 route regression 文件加载）。已经有对应 checker commits；不得把旧 SHA 的 PASS 冒充当前 SHA PASS。
+- 未在本地运行编译器/测试，也未做路由器硬件验证。L3/L4 仍需根据 exact current SHA 与实机结果确认，不得推断。
 ## Exact first action for the next GPT
+
+1. 先查看当前 SHA `372451d468fd772858635590f1c1c10bccf95dc0` 上所有 Actions 的最终结果；对 FAIL 取对应 job logs，修复 checker 或源码后按新 SHA 重跑。PENDING 时继续独立任务，不等候。
+2. 特别核对 XY-C1 Build、TRX validation、artifact upload 是否在同一 SHA 全部 PASS；若没有，不得标记 firmware L3 verified。
+3. 继续跨模块 stability/security 扫描，跳过本文件已列出的 NFS/WAN DHCP overlap/LAN snapshot/L2TP/VLAN 修复；每个逻辑切片源码、回归测试、原子提交、精确 SHA Actions。
 
 1. Inspect NFS daemon workflow on the exact new main SHA: GNU89 `-Wall -Wextra -Werror` policy test, ASan/UBSan regressions and Python source contracts.
 2. Inspect XY-C1 on that same SHA. Require Build, TRX validation and artifact upload all to succeed before claiming firmware verification.
