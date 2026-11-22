@@ -2,6 +2,7 @@
 """Source contract for BusyBox PID 1 deferred child reaping."""
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 INIT_DIR = ROOT / "trunk/user/busybox/busybox-1.24.x/init"
@@ -24,8 +25,9 @@ stop_handler = section(
 assert "wait_any_nohang(NULL)" in stop_handler
 assert "init_reap_queue_has_capacity" in stop_handler
 assert "init_reap_queue_push" in stop_handler
-assert "mark_terminated(" not in stop_handler
-assert "update_utmp_DEAD_PROCESS" not in stop_handler
+stop_handler_code = re.sub(r"/\*.*?\*/|//[^\n]*", "", stop_handler, flags=re.DOTALL)
+assert "mark_terminated(" not in stop_handler_code
+assert "update_utmp_DEAD_PROCESS" not in stop_handler_code
 assert stop_handler.index("init_reap_queue_has_capacity") < stop_handler.index(
     "wait_any_nohang(NULL)"
 )
