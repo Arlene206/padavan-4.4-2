@@ -58,8 +58,13 @@ def main() -> None:
     assert "O_CREAT | O_EXCL | O_NOFOLLOW" in modem_header
     assert "fstatat(" in modem_header and "unlinkat(" in modem_header
     assert "modem_qmi_credentials_file_cleanup(" in modem_header
+    assert "file->file_identity_valid = 1;" in modem_header
+    cleanup = body(modem_header, "modem_qmi_credentials_file_cleanup(")
+    assert "file_stat.st_dev != file->file_device" in cleanup
+    assert "file_stat.st_ino != file->file_inode" in cleanup
     assert "test_private_qmi_credentials_round_trip_and_cleanup" in modem_test
     assert "test_injection_and_incomplete_pairs_are_rejected" in modem_test
+    assert "test_cleanup_refuses_replacement_inode" in modem_test
 
     assert '"private-credentials-file"' in uqmi_main
     assert '"d:k:C:"' in uqmi_main

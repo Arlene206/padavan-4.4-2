@@ -95,6 +95,47 @@ test_cleanup_removes_unconsumed_file(void)
 	assert(access(directory, F_OK) == -1 && errno == ENOENT);
 }
 
+static void
+test_cleanup_refuses_replacement_inode(void)
+{
+	struct modem_qmi_credentials_file file;
+	struct stat original_stat, replacement_stat;
+	char directory[PATH_MAX];
+	char contents[32] = {0};
+	int original_fd, replacement_fd;
+
+	assert(modem_qmi_credentials_file_create(NULL, "alice", "secret", &file) == 0);
+	snprintf(directory, sizeof(directory), "%s", file.directory);
+	original_fd = open(file.path, O_RDONLY | O_NOFOLLOW);
+	assert(original_fd >= 0);
+	assert(fstat(original_fd, &original_stat) == 0);
+
+	/* Model uqmi consuming the original path, followed by a path replacement. */
+	assert(unlink(file.path) == 0);
+	replacement_fd = open(file.path,
+			      O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+	assert(replacement_fd >= 0);
+	assert(write(replacement_fd, "replacement", 11) == 11);
+	assert(fsync(replacement_fd) == 0);
+	assert(close(replacement_fd) == 0);
+	assert(stat(file.path, &replacement_stat) == 0);
+	assert(original_stat.st_dev != replacement_stat.st_dev ||
+	       original_stat.st_ino != replacement_stat.st_ino);
+
+	assert(modem_qmi_credentials_file_cleanup(&file) == EPERM);
+	assert(errno == EPERM);
+	assert(access(directory, F_OK) == 0);
+	replacement_fd = open(file.path, O_RDONLY | O_NOFOLLOW);
+	assert(replacement_fd >= 0);
+	assert(read(replacement_fd, contents, sizeof(contents) - 1) == 11);
+	assert(strcmp(contents, "replacement") == 0);
+	assert(close(replacement_fd) == 0);
+
+	assert(close(original_fd) == 0);
+	assert(unlink(file.path) == 0);
+	assert(rmdir(directory) == 0);
+}
+
 int
 main(void)
 {
@@ -102,6 +143,7 @@ main(void)
 	test_pin_only_and_auth_only_files();
 	test_injection_and_incomplete_pairs_are_rejected();
 	test_cleanup_removes_unconsumed_file();
+	test_cleanup_refuses_replacement_inode();
 	puts("modem QMI private credential staging and parser integration: PASS");
 	return 0;
 }

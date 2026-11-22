@@ -29,6 +29,9 @@
 struct modem_qmi_credentials_file {
 	char directory[PATH_MAX];
 	char path[PATH_MAX];
+	dev_t file_device;
+	ino_t file_inode;
+	int file_identity_valid;
 };
 
 static inline void
@@ -169,6 +172,9 @@ modem_qmi_credentials_file_create(const char *pin, const char *username,
 		errno = EPERM;
 		goto fail;
 	}
+	file->file_device = file_stat.st_dev;
+	file->file_inode = file_stat.st_ino;
+	file->file_identity_valid = 1;
 	if (modem_qmi_credentials_write_all(fd, contents, used) < 0)
 		goto fail;
 	if (fsync(fd) < 0)
@@ -242,7 +248,10 @@ modem_qmi_credentials_file_cleanup(struct modem_qmi_credentials_file *file)
 			if (!S_ISREG(file_stat.st_mode) ||
 			    file_stat.st_uid != geteuid() ||
 			    (file_stat.st_mode & 07777) != 0600 ||
-			    file_stat.st_nlink != 1)
+			    file_stat.st_nlink != 1 ||
+			    !file->file_identity_valid ||
+			    file_stat.st_dev != file->file_device ||
+			    file_stat.st_ino != file->file_inode)
 				status = EPERM;
 			else if (unlinkat(dirfd, MODEM_QMI_CREDENTIALS_FILE_NAME, 0) < 0)
 				status = errno ? errno : EIO;

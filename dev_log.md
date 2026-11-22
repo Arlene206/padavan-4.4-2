@@ -1,3 +1,10 @@
+## 2026-11-22 — QMI credential cleanup inode binding
+
+- Source baseline: `fa03ddb1a15b32552a4ee20dddeee635a468d6f9`. QMI private-credential staging and parser were already integrated; exact USB modem workflow #45073574933, Process lifecycle #45073574919 and NVRAM transaction audit #45073574859 passed on this baseline. XY-C1 run #45073574883 was still in progress at the last poll.
+- Found a mismatch between the QMI staging cleanup contract comment and implementation: cleanup checked that the path still named a mode-0600 owner-owned regular file, but did not prove it was the inode created by the staging call. A replaced file at the same private path could therefore be unlinked.
+- The staging descriptor now records the created file's device/inode identity. Cleanup refuses to unlink a path whose identity differs, while preserving the expected ENOENT path after uqmi has consumed the original file. Added a regression that holds the original inode open, removes the name, installs a replacement, and verifies cleanup returns EPERM without deleting it. Extended the QMI source contract checker; the existing USB modem workflow already covers all touched paths.
+- Exact-head validation for this implementation commit is pending; no local C or firmware build is claimed.
+
 ## 2026-11-22 — SmartDNS, AliDDNS and SCUTClient fail-closed follow-up
 
 - Source/test baseline before this handoff refresh: `33a91907446b7854c9736d3246152382dbb5f218`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remained at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
