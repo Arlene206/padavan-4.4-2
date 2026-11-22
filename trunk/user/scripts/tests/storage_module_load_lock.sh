@@ -62,6 +62,8 @@ MOCK_RACE_INVENTORY_ERROR=0
 export MOCK_CALLS MOCK_LOG MOCK_CATALOG_CALLS MOCK_CATALOG_OUTPUT MOCK_CATALOG_STATUS MOCK_MODULES_FILE
 export MOCK_FLOCK_STATUS MOCK_MODPROBE_STATUS MOCK_RACE_LOAD MOCK_RACE_MODULE MOCK_RACE_INVENTORY_ERROR
 lock_file="$tmpdir/fs_module.lock"
+(umask 077; : > "$lock_file")
+[ "$(stat -c %a "$lock_file")" = 600 ]
 
 # Catalog selection must retain the status of modprobe -l.
 : > "$MOCK_CATALOG_CALLS"
@@ -159,6 +161,15 @@ if grep -q '^usleep ' "$MOCK_CALLS"; then
 	echo "module loader delayed after failed modprobe" >&2
 	exit 1
 fi
+
+# Refuse a symlink lock before invoking flock or modprobe.
+ln -s "$tmpdir/target" "$tmpdir/fs_module.symlink"
+: > "$MOCK_CALLS"
+if func_load_module ext4 "$MOCK_MODULES_FILE" "$tmpdir/fs_module.symlink"; then
+	echo "module loader followed a symlink lock" >&2
+	exit 1
+fi
+[ ! -s "$MOCK_CALLS" ]
 
 # Invalid names must not reach any external command.
 : > "$MOCK_CALLS"

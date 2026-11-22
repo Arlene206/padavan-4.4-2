@@ -68,6 +68,8 @@ fi
 # and symlinks are rejected rather than truncated or followed.
 saved_umask=$(umask)
 required_lock_file "$tmpdir/mountpoint.lock"
+required_lock_file "$tmpdir/fs-module.lock"
+[ "$(stat -c %a "$tmpdir/fs-module.lock")" = 600 ]
 [ "$(umask)" = "$saved_umask" ]
 [ -f "$tmpdir/mountpoint.lock" ] && [ ! -L "$tmpdir/mountpoint.lock" ]
 [ "$(stat -c %a "$tmpdir/mountpoint.lock")" = 600 ]

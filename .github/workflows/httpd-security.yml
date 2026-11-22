@@ -3439,7 +3439,8 @@ jobs:
           assert "flock 9" in lock_test and "start\\n" in lock_test and "end\\n" in lock_test
           assert "flock 8" in automount
           assert "flock 9" in automount and ') 9>>"$lock_file"' in automount
-          assert "lock_file=/var/lock/fs_module.lock" in automount
+          assert "lock_file=/tmp/automount_fs_module.lock" in automount
+          assert 'if [ -L "$lock_file" ] || [ ! -f "$lock_file" ]; then' in automount
           assert "if ! flock 9; then" in automount
           assert "500" not in automount, "high-numbered file descriptors are not portable to POSIX sh"
           assert "$(CP) $(PKG_BUILD_DIR)/files/* $(ROMFSDIR)/" in scripts_make

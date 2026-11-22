@@ -769,6 +769,8 @@ jobs:
           assert 'if [ -L "$automount_lock_file" ] || [ ! -f "$automount_lock_file" ]; then' in automount
           assert 'spindown_lock_file=/tmp/automount_mountpoint.lock' in spindown
           assert 'if [ -L "$spindown_lock_file" ] || [ ! -f "$spindown_lock_file" ]; then' in spindown
+          assert "lock_file=/tmp/automount_fs_module.lock" in automount
+          assert 'if [ -L "$lock_file" ] || [ ! -f "$lock_file" ]; then' in automount
           opt_mount = Path("trunk/user/optware/opt-mount.sh").read_text()
           lock_policy = (rc_dir / "storage_operation_lock.h").read_text()
           lock_test = (rc_dir / "tests/storage_operation_lock.c").read_text()

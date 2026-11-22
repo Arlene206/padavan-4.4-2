@@ -4,12 +4,16 @@ func_load_module()
 {
 	module_name=$1
 	modules_file=/proc/modules
-	lock_file=/var/lock/fs_module.lock
+	lock_file=/tmp/automount_fs_module.lock
 	if [ "$#" -ge 2 ]; then
 		modules_file=$2
 	fi
 	if [ "$#" -ge 3 ]; then
 		lock_file=$3
+	fi
+	if [ -L "$lock_file" ] || [ ! -f "$lock_file" ]; then
+		logger -t "automount" "Refusing unsafe or missing filesystem-module lock $lock_file"
+		return 1
 	fi
 	case "$module_name" in
 		''|*[!A-Za-z0-9_-]*) return 1 ;;
