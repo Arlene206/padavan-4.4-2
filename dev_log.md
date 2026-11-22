@@ -1,3 +1,13 @@
+## 2026-11-22 — Match USB printer acknowledgement checker to the retry-safe source order
+
+- Parent main SHA: `89a6e740e24a63142a56e3406136e86a514ce1a2`. Exact-head USB storage run #44994003668 passed the BusyBox ash Optware lifecycle checks, MTD save/restore/erase/backup transaction checks, persistence gate, eject inventory regression, deferred storage cleanup/ack regression, checked event-marker and Optware child-result tests, FTP daemon and storage-stop regressions, RC service-launch test, filesystem module-load lock checks and automount ownership checks.
+- The final embedded whole-storage caller-graph checker failed at line 239 because its old assertion expected `printer_start_pos < printer_failure_pos < printer_ack_pos`. The actual retry-safe implementation acknowledges the marker only inside the successful-start branch, then checks the combined start/ack status and schedules `alarm(5)` on either failure; the correct order is start → conditional acknowledgement → failure/retry branch.
+- Updated that source contract to require the actual order and to scope the retry assertions through the next modem section. No product source changed in this checker-only slice.
+- Exact-head XY-C1 #44994003623, Process inventory #44994003659, NVRAM #44994003791 and Process fail-closed #44994003779 were IN_PROGRESS at the last poll. Firmware Build/TRX/artifact and those source validations must be checked again after this correction; no L3 claim.
+- Next: rerun the storage source contract on the new SHA; fix only the first remaining stale assertion or real regression. Frozen backup remains read-only; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Align the storage caller-graph regression with durable marker acknowledgement
 
 - Parent main SHA: `d414a788abc66e0bf5d8711b4d0584de505964c9`. The exact-head USB storage run #44993693581 failed in the embedded “whole storage caller graph” source contract at the old assertion that required `usb_unplug_ms` to be cleared before `umount_ejected()`. This is now deliberately forbidden by the product fix in the parent.

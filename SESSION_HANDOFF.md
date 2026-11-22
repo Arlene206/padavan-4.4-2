@@ -6,14 +6,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop and validate on `main` only. Use one complete Git tree/commit and a non-forced expected-SHA ref update for each multi-file slice.
-- Parent main SHA before this physical storage-unplug slice: `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`. The source baseline for `trunk/user/rc/src/services_stor.c` is blob `ea52db4350e8211afe3d41d7216bccc182c04825`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, do not merge, modify or delete. Main has intentionally diverged from the archival checkpoint.
-- PR #1 remains closed/unmerged; its historical changes were already ported. Do not reopen it as the development path.
-- On parent SHA `289c6fcb28553e78b3aa7c3f8a4e251d2544450c`, USB storage run #44993522407 was IN_PROGRESS at last inspection; XY-C1 #44993522386, process inventory #44993522352/#44993522416, USB modem #44993522402 and other triggered checks were also IN_PROGRESS. No exact-parent PASS is inferred from these statuses.
-- GitHub Git Data and Actions REST endpoints are available through the connected integration. Host `cc` is available; there is no local full firmware checkout/MIPS toolchain.
+- Repository `Arlene206/padavan-4.4-2`; develop/validate on `main` only. Each logical multi-file slice uses one complete tree/commit and a non-forced expected-SHA ref update.
+- Current parent main before this workflow correction: `89a6e740e24a63142a56e3406136e86a514ce1a2`. Current storage source includes the durable `usb_unplug_ms` cleanup/ack latch and the follow-up PID-1 notification queue for safe-removal restarts.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, do not merge, modify or delete. Main is intentionally divergent.
+- PR #1 remains closed/unmerged; historical changes were already ported.
+- On exact parent SHA `89a6e740e24a63142a56e3406136e86a514ce1a2`: USB storage #44994003668 failed only at the embedded printer source-order assertion (start → ack → failure/retry was incorrectly asserted as start → failure → ack); all prior storage regression/build/MTD steps passed. XY-C1 #44994003623, Process inventory #44994003659, NVRAM #44994003791 and Process fail-closed #44994003779 were in progress at last poll. vsftpd #44994003699, IPv6 service type #44994003664, Firewall #44994003687, USB modem #44994003656, Samba #44994003868, NFS #44994003629 and HTTPD #44994003660 passed on the exact parent SHA.
+- Host `cc` is available; no local full product checkout/MIPS uClibc toolchain. L3 still requires XY-C1 Build, TRX verification and artifact upload PASS on one identical product-source SHA.
 
 ## Completed source slices
+
+- USB/storage hotplug: physical-unplug marker is retained until eject cleanup and marker acknowledgement both succeed; an action-completion latch avoids replaying completed cleanup when only marker ack is retried (source commit `d414a788`). `safe_remove_stor_device()` now queues the storage restart via `notify_rc_status("on_hotplug_mass_storage")` after releasing the storage operation lock, so a short-lived rc applet does not rely on its own `alarm(5)` to wake PID 1 (source commit `89a6e740`). The exact-head storage workflow is being reconciled with the actual source ordering.
 
 - VPN client state policy: PPP VPN and OpenVPN up callbacks use checked `vpn_client_nvram_read_bool_status()`; a follow-up removed a retained legacy argument tail from `on_client_ifup()`. OpenVPN server callbacks prefer event-supplied `dev`, use checked topology fallback only when absent, and preserve disconnect hooks. Client DNS policy errors preserve last-good DNS/domain state while mandatory state/hook work continues.
 - OpenVPN exported profiles activate `remote-cert-tls server` to match the generated certificate's `serverAuth` EKU. Dual-stack modes 4/5 use a validated WAN IPv4 endpoint only as final fallback after DDNS and both IPv6 sources fail; IPv6-only modes remain unchanged.
@@ -30,19 +32,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- The product fix at parent source SHA `d414a788abc66e0bf5d8711b4d0584de505964c9` retains `usb_unplug_ms` until eject cleanup succeeds and the NVRAM marker acknowledgement succeeds. A process-local completion latch prevents duplicate eject cleanup when only marker acknowledgement is retried.
-- Exact-parent USB storage run #44993693581 exposed a stale embedded workflow assertion requiring the old, unsafe clear-before-cleanup ordering. This checker-only slice updates it to assert checked read → completion gate → cleanup → marker acknowledgement → latch handling, and explicitly rejects early clearing.
-- The GNU89/ASan/UBSan policy unit passed locally. The parent workflow stopped at the stale embedded assertion, so the storage checker and later tests remain unverified until the corrected workflow runs.
+- Product source changes on the active storage slice are in `d414a788` (durable physical-unplug acknowledgement) and `89a6e740` (safe-remove restart queued through PID 1 after releasing `storage_lock`). Frozen backup is untouched.
+- Storage workflow #44994003668 on parent `89a6e740e24a63142a56e3406136e86a514ce1a2` ran the BusyBox ash Optware, MTD persistence, safe-remove inventory, deferred-marker acknowledgement, event-pair, Optware child-result, FTP stop and other host regressions successfully, then failed at one stale embedded printer checker assertion. Source order is: launch printer services → acknowledge marker only if launch/ack success → combined failure branch logs and arms `alarm(5)`. Corrected checker must assert this order; do not move acknowledgement before a failed start.
 
 ## Verification boundary
 
-- Local standalone policy regression passed with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. It covers failed acknowledgement without repeating cleanup, cleanup failure remaining retryable, absent marker reset and error normalization.
-- Parent SHA `d414a788abc66e0bf5d8711b4d0584de505964c9`: USB storage #44993693581 failed only at the embedded source contract that still mandated pre-cleanup marker clearing; preceding storage checks passed. Corrected workflow requires a fresh exact-head rerun. Other parent checks (Process, USB modem, firewall, NFS, Samba, vsftpd, HTTPD, IPv6 service type and AI docs) completed/success; XY-C1 #44993693537 and NVRAM #44993693562 were in progress at last inspection.
-- No full MIPS firmware build was run locally. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 is NOT VERIFIED.
+- USB storage parent #44994003668: all steps before the final embedded whole-storage source contract passed, including BusyBox ash Optware lifecycle, MTD persistence/restore/erase/backup, ejected inventory, deferred storage cleanup/acknowledgement GNU89/ASan/UBSan binary, marker pair, Optware child result and operation-lock/caller regressions. The final checker failed at the stale printer ordering assertion, not in a product compile or unit test.
+- Parent SHA `89a6e740e24a63142a56e3406136e86a514ce1a2`: XY-C1 #44994003623, Process inventory #44994003659, NVRAM boundary #44994003791 and Process fail-closed #44994003779 were in progress at the last poll. Exact new-head reruns are required after this checker correction.
+- No local MIPS firmware build is claimed. L3 only when Build XY-C1, TRX verification and artifact upload all PASS on one identical source SHA. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-main-SHA USB storage Actions for this workflow-only correction. Confirm the whole storage caller graph, storage safe-remove checker, deferred cleanup/ack ASan+UBSan binary and all following regression steps pass.
-2. Inspect XY-C1 on the same product-source SHA. Claim L3 only if Build, TRX verification and artifact upload all pass on that identical SHA.
-3. If either run is pending, continue an independent userland stability/security fix; if failed, repair the first actual failing contract or regression without undoing marker retention.
-4. Keep the frozen backup read-only; hardware L4 remains unverified.
+1. Inspect live `main` and exact-SHA Actions for this workflow-only correction. Confirm the USB printer checker now accepts start → conditional marker acknowledgement → failure/retry, then follow any remaining first failure in the whole-storage caller graph.
+2. Confirm storage workflow #44994003668's previously green Optware ash, MTD persistence, deferred-ack and inventory tests are green again on the new SHA.
+3. Poll XY-C1 and Process/NVRAM checks for the same product source. Claim L3 only when XY-C1 Build, TRX verification and artifact upload pass on one identical SHA.
+4. Continue a separate whole-userland stability/security defect while Actions are pending; do not repeat completed audits. Keep backup read-only and hardware L4 unverified.

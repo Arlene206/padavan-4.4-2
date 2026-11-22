@@ -683,10 +683,11 @@ jobs:
           printer_start_pos = deferred_printer.index("printer_start_status = try_start_usb_printer_spoolers();")
           printer_ack_pos = deferred_printer.index('storage_ack_event_marker_status("usb_hotplug_lp")', printer_start_pos)
           printer_failure_pos = deferred_printer.index("if (printer_start_status != 0)", printer_start_pos)
-          assert printer_start_pos < printer_failure_pos < printer_ack_pos
+          assert printer_start_pos < printer_ack_pos < printer_failure_pos
           assert 'nvram_set_int_temp("usb_hotplug_lp", 0)' not in deferred_printer
           assert 'nvram_set_int_temp("usb_hotplug_lp", 1)' not in deferred_printer
-          retry_block = deferred_printer[printer_failure_pos:printer_ack_pos]
+          retry_block = deferred_printer[printer_failure_pos:deferred_printer.index("modem_unplug_marker_status =", printer_failure_pos)]
+          assert "keeping event queued for retry" in retry_block
           assert "alarm(5)" in retry_block
 
           service_start_test = (rc_dir / "tests/service_start_status.c").read_text()
