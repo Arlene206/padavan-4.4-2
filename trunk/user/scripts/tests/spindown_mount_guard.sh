@@ -39,6 +39,12 @@ EOF
 spindown_mount_status sda "$tmp/mounts" && status=0 || status=$?
 [ "$status" -eq 2 ]
 
+# A successfully read but empty mount inventory is incomplete, not proof
+# that no filesystems are mounted.
+: > "$tmp/empty"
+spindown_mount_status sda "$tmp/empty" && status=0 || status=$?
+[ "$status" -eq 2 ]
+
 # A missing/unreadable mount table is not evidence that the disk is unused.
 spindown_mount_status sda "$tmp/missing" && status=0 || status=$?
 [ "$status" -eq 2 ]

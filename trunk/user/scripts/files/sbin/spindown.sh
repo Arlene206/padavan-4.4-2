@@ -44,6 +44,7 @@ NF < 6 {
 	next
 }
 {
+	records++
 	source = $1
 	if (source == dev) {
 		found = 1
@@ -54,7 +55,7 @@ NF < 6 {
 	}
 }
 END {
-	if (invalid)
+	if (invalid || records == 0)
 		exit 2
 	exit !found
 }
