@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/miniupnpd_wanif_change_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_wanif_change_policy.c"
       - "trunk/user/rc/src/ipv4_netmask_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/upnp_restart_policy.h"
@@ -67,6 +69,8 @@ on:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/miniupnpd_wanif_change_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_wanif_change_policy.c"
       - "trunk/user/rc/src/ipv4_netmask_policy.h"
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
       - "trunk/user/rc/src/upnp_restart_policy.h"
@@ -137,6 +141,14 @@ jobs:
             trunk/user/rc/src/tests/miniupnpd_config_file.c \
             -o /tmp/miniupnpd_config_file
           /tmp/miniupnpd_config_file
+      - name: Compile and run MiniUPnP verified WAN identity decision regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/miniupnpd_wanif_change_policy.c \
+            -o /tmp/miniupnpd_wanif_change_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_wanif_change_policy
       - name: Compile and run miniupnpd daemon lifecycle policy
         run: |
           set -eu

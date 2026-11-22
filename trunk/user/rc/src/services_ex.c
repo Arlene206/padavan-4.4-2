@@ -32,6 +32,7 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 
 #include "rc.h"
 #include "nvram_linux.h"
@@ -59,6 +60,7 @@
 #include "miniupnpd_presentation_url.h"
 #include "miniupnpd_lifecycle_lock.h"
 #include "wan_ifname_policy.h"
+#include "miniupnpd_wanif_change_policy.h"
 #include "service_wait_policy.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
@@ -2749,8 +2751,13 @@ stop_upnp(void)
 static int
 check_upnp_wanif_changed_locked(char *wan_ifname)
 {
+	char requested_wan_ifname[IFNAMSIZ];
+	char active_wan_ifname[IFNAMSIZ];
+	char checked_active_wan_ifname[IFNAMSIZ];
 	int scan_error;
 	int presence_error;
+	int ifname_status;
+	int should_stop = 0;
 	enum process_presence state;
 
 	state = miniupnpd_process_presence(&scan_error);
@@ -2764,8 +2771,31 @@ check_upnp_wanif_changed_locked(char *wan_ifname)
 	if (state == PROCESS_PRESENCE_ABSENT)
 		return 0;
 
-	/* Restart miniupnpd only if the active WAN interface changes. */
-	if (strcmp(wan_ifname, get_wan_unit_value(0, "ifname_t")) != 0)
+	/*
+	 * A failed NVRAM read is not evidence that the WAN interface changed.
+	 * Keep the running daemon until both interface identities can be verified.
+	 */
+	ifname_status = wan_ifname_copy(requested_wan_ifname,
+					 sizeof(requested_wan_ifname), wan_ifname);
+	if (ifname_status == 0)
+		ifname_status = get_wan_unit_value_copy_status(
+			0, "ifname_t", active_wan_ifname, sizeof(active_wan_ifname));
+	if (ifname_status == 0)
+		ifname_status = wan_ifname_copy(checked_active_wan_ifname,
+						 sizeof(checked_active_wan_ifname),
+						 active_wan_ifname);
+	ifname_status = miniupnpd_wanif_change_decide(
+		ifname_status, requested_wan_ifname, checked_active_wan_ifname,
+		&should_stop);
+	if (ifname_status != 0) {
+		errno = ifname_status;
+		logmessage(LOGNAME,
+			   "UPnP WAN transition aborted: cannot verify active WAN interface (status=%d); keeping daemon active",
+			   ifname_status);
+		return ifname_status;
+	}
+
+	if (should_stop)
 		return stop_upnp_locked();
 
 	return 0;

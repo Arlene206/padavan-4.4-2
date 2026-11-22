@@ -1,3 +1,11 @@
+## 2026-11-22 — Do not stop MiniUPnP on an unreadable WAN identity
+
+- `check_upnp_wanif_changed_locked()` compared the callback interface with a lossy `get_wan_unit_value()` read. A transient NVRAM backend error appeared as an empty interface name, so the comparison looked like a WAN transition and stopped a healthy MiniUPnP daemon.
+- The callback and configured interface are now bounded and validated, and the active WAN name is obtained with `get_wan_unit_value_copy_status()`. A backend error, missing key, invalid name or overlong value returns a status without stopping the daemon; only a verified difference can request stop.
+- Added a GNU89/ASan/UBSan unit regression for backend errors, missing/invalid identities, identical names and a verified transition, plus exact production-wiring assertions. Exact-SHA MiniUPnP, Process and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-22 — Replace Aria2 router-password RPC auth with a dedicated persistent token
 
 - The prior RPC hardening reused the router web password as `rpc-secret`. Aria2 runs as `nobody`, so that placed the administrator credential in a config readable by the daemon's shared UID. Replaced it with a dedicated 128-bit token read from `/dev/urandom` through target BusyBox `hexdump`; it is stored as `aria2.rpc-secret` mode 0600 and copied into `aria2.conf`. Set AriaNg's RPC Secret Token from that file. Router login credentials are no longer read or written.

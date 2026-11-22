@@ -14,6 +14,8 @@ VPN_SERVER_LOCK = (RC / "vpn_server_lifecycle_lock.h").read_text()
 RC_H = (RC / "rc.h").read_text()
 DAEMON_POLICY = (RC / "miniupnpd_daemon_policy.h").read_text()
 DAEMON_TEST = (RC / "tests/miniupnpd_daemon_policy_test.c").read_text()
+WANIF_POLICY = (RC / "miniupnpd_wanif_change_policy.h").read_text()
+WANIF_TEST = (RC / "tests/miniupnpd_wanif_change_policy.c").read_text()
 
 
 def body(source: str, signature: str) -> str:
@@ -157,7 +159,24 @@ assert stop.index("kill_services(svcs, 3, 1)") < stop.index(
     "miniupnpd_process_presence(&scan_error)"
 )
 check = body(SERVICES, "check_upnp_wanif_changed_locked(char *wan_ifname)")
-assert "return stop_upnp_locked();" in check
+assert "get_wan_unit_value_copy_status(" in check
+assert '"ifname_t"' in check
+assert "wan_ifname_copy(" in check
+assert "miniupnpd_wanif_change_decide(" in check
+assert "if (should_stop)" in check
+assert "keeping daemon active" in check
+assert 'get_wan_unit_value(0, "ifname_t")' not in check
+assert check.index("get_wan_unit_value_copy_status(") < check.index("if (should_stop)")
+assert "if (read_status != 0)" in WANIF_POLICY
+assert "*should_stop = 0;" in WANIF_POLICY
+assert "requested[0] == '\\0'" in WANIF_POLICY
+assert "active[0] == '\\0'" in WANIF_POLICY
+for token in ("test_backend_error_never_requests_stop",
+              "test_missing_or_invalid_identity_never_requests_stop",
+              "test_only_verified_difference_requests_stop",
+              "test_missing_output_is_rejected"):
+    assert token in WANIF_TEST
+
 update = body(SERVICES, "update_upnp_locked(void)")
 assert "return start_upnp_locked();" in update
 assert "return stop_upnp_locked();" in update
