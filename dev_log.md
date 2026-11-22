@@ -1,3 +1,11 @@
+## 2026-11-22 — Align IPv6 workflow with pre-mount NFS ACL snapshot
+
+- Parent main SHA: `01ccfa38a77c2d54327a7c96dfd9c8e4c10cfe26`. Exact IPv6 service-type run #45006965726 compiled and passed the checked service-type C policy tests, then failed only in `scripts/check_ipv6_service_type_status.py` line 202. That assertion expected NFS to read its IPv6 ACL after opening `/proc/mounts`.
+- The NFS ACL fix `67514d707a91ac3e34bd513032a6a85a29e0f2d3` intentionally moves LAN override/fallback, IPv6 and VPN ACL copies and validation before opening /proc/mounts and before generated-file staging. Updated the checker to assert all seven checked ACL copies precede mount enumeration/staging, preserving the security and fail-closed ordering.
+- WAN DHCP callback fix `01ccfa38a77c2d54327a7c96dfd9c8e4c10cfe26` exact run #45006965680 PASS. Its broad fan-out mostly PASS; exact XY-C1 #45006965654 and NVRAM audit #45006965617 remained IN_PROGRESS at last poll. Current L3 unverified; hardware L4 NOT VERIFIED. Exact IPv6 rerun pending.
+
+---
+
 ## 2026-11-22 — Preserve WAN DHCP hostname and vendor class across NVRAM reads
 
 - Parent main SHA: `67514d707a91ac3e34bd513032a6a85a29e0f2d3`. `start_udhcpc_wan()` used two `get_wan_unit_value()` cache-backed pointers for `hostname` and `vci`; reading the latter can overwrite the former before DHCP client launch.
