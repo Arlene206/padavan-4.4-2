@@ -976,7 +976,15 @@ int wan6_up(char *wan_ifname, int unit)
 		return -1;
 	}
 
-	ipv6_type = get_ipv6_type();
+	status = get_ipv6_type_status(&ipv6_type);
+	if (status != 0) {
+		errno = status;
+		logmessage("WAN IPv6",
+			   "refusing IPv6 startup because service configuration cannot be read (status=%d)",
+			   status);
+		return status;
+	}
+
 	status = stop_dhcp6c();
 	if (status != 0) {
 		logmessage("WAN IPv6", "failed to stop previous DHCPv6 client on %s (status=%d)",
@@ -1210,7 +1218,15 @@ int wan6_down(char *wan_ifname, int unit)
 			   wan_ifname ? wan_ifname : "(unknown)", stop_status);
 		return stop_status;
 	}
-	ipv6_type = get_ipv6_type();
+	status = get_ipv6_type_status(&ipv6_type);
+	if (status != 0) {
+		errno = status;
+		logmessage("WAN IPv6",
+			   "refusing IPv6 teardown because service configuration cannot be read (status=%d)",
+			   status);
+		return status;
+	}
+
 	previous_ifname = get_wan_unit_value(unit, "ifname6");
 	previous_if_exists = previous_ifname && previous_ifname[0] &&
 		is_interface_exist(previous_ifname);
@@ -1349,7 +1365,18 @@ int dhcp6c_main(int argc, char **argv)
 		return unlock_status == 0 ? 0 : -1;
 	}
 
-	ipv6_type = get_ipv6_type();
+	settings_status = get_ipv6_type_status(&ipv6_type);
+	if (settings_status != 0) {
+		saved_errno = settings_status;
+		logmessage("DHCPv6 WAN Client",
+			   "refusing callback because IPv6 service configuration cannot be read (status=%d)",
+			   settings_status);
+		unlock_status = dhcp6c_callback_session_unlock(callback_fd);
+		if (unlock_status != 0)
+			return -1;
+		errno = saved_errno;
+		return -1;
+	}
 	if (ipv6_type != IPV6_NATIVE_DHCP6) {
 		unlock_status = dhcp6c_callback_session_unlock(callback_fd);
 		return unlock_status == 0 ? 0 : -1;
