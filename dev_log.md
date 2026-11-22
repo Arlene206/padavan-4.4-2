@@ -1,3 +1,13 @@
+## 2026-11-22 — Update DHCPv6 callback ordering contract for LAN address policy
+
+- Parent main SHA: `a9aa6ba87339b0e21d1deed8464723a4aba50e9d`. Exact-head WAN route #45027298482 PASS, including all route sanitizer and source-contract steps; AI handoff #45027298505 PASS; IPv6 service-type #45027298602 PASS.
+- WAN DHCP #45027298503 completed with failure only in `scripts/check_wan6_dns_policy.py`: the existing inline source contract still searched for a direct `store_lan_addr6()` call in `dhcp6c_main()`. The checked publication helper intentionally moved that call into `wan6_publish_lan_addr6_status()`.
+- Updated the ordering contract to require the policy gate before DNS processing, callback failure propagation on lookup/publish error, and absence of direct unchecked bridge-address publication in the callback. The new tests and lower-file helper assertions remain in place.
+- XY-C1 build #45027298483, NVRAM audit #45027298455, HTTPD security #45027298564 and Process lifecycle #45027298542 were still in progress at last observation. No firmware PASS claimed. Local tests are not run in this connector-only environment.
+- Result: THIS COMMIT. Next: inspect exact-head WAN DHCP run; then continue with the next independently evidenced Padavan userland reliability/security defect.
+
+---
+
 ## 2026-11-22 — Remove obsolete DHCPv6 callback local
 
 - Parent main SHA: `9e77c6924cc6bce18cb3fcb93d2e0b20ecd27f9c`. The LAN address callback now uses the bounded `addr6s` buffer directly through `wan6_identity_publish_lan_addr6()`; the old `lan_addr6_new` pointer local became unused after that refactor and would fail the project’s `-Werror` C build.

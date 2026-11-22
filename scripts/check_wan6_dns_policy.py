@@ -231,12 +231,16 @@ callback_read = dhcp6_callback.index(
     "settings_status = wan6_read_dhcp_integer_snapshot("
 )
 callback_error = dhcp6_callback.index("if (settings_status != 0)", callback_read)
-callback_lan_write = dhcp6_callback.index("store_lan_addr6(", callback_error)
+callback_lan_update = dhcp6_callback.index(
+    "wan6_identity_publish_lan_addr6(", callback_error
+)
 callback_dns_write = dhcp6_callback.index("store_wan_dns6(", callback_error)
-assert callback_read < callback_error < callback_lan_write < callback_dns_write
-assert "callback_status = -1;" in dhcp6_callback[callback_error:callback_lan_write]
-assert "saved_errno = settings_status;" in dhcp6_callback[callback_error:callback_lan_write]
-assert "else {" in dhcp6_callback[callback_error:callback_lan_write]
+assert callback_read < callback_error < callback_lan_update < callback_dns_write
+assert "callback_status = -1;" in dhcp6_callback[callback_lan_update:callback_dns_write]
+assert "saved_errno = settings_status;" in dhcp6_callback[callback_error:callback_lan_update]
+assert "else {" in dhcp6_callback[callback_error:callback_lan_update]
+assert "store_lan_addr6(" not in dhcp6_callback
+assert "get_ifaddr6(IFNAME_BR, 0, addr6s)" not in dhcp6_callback
 assert "setting_values[0]" in dhcp6_callback
 assert "setting_values[1]" in dhcp6_callback
 
