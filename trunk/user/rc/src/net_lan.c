@@ -1457,15 +1457,24 @@ update_hosts_ap(void)
 {
 	char lan_ipaddr[16];
 	char lan_dname[256];
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[2];
 	int status;
 
-	status = rc_wan_nvram_copy_value(
-		lan_nvram_get_checked, NULL, "lan_ipaddr_t",
-		lan_ipaddr, sizeof(lan_ipaddr));
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			lan_nvram_get_checked, NULL, "lan_domain_t",
-			lan_dname, sizeof(lan_dname));
+	/*
+	 * AP hostname files must pair the current lease address with the domain
+	 * published by that same bound callback, never across DHCP renewals.
+	 */
+	fields[0].param_name = "lan_ipaddr_t";
+	fields[0].destination = lan_ipaddr;
+	fields[0].destination_size = sizeof(lan_ipaddr);
+	fields[1].param_name = "lan_domain_t";
+	fields[1].destination = lan_dname;
+	fields[1].destination_size = sizeof(lan_dname);
+	status = rc_wan_nvram_copy_snapshot(
+		fields, 2, lan_dhcp_snapshot_begin,
+		lan_dhcp_snapshot_get, lan_dhcp_snapshot_end,
+		&transaction);
 	if (status != 0) {
 		errno = status;
 		logmessage(LOGNAME,

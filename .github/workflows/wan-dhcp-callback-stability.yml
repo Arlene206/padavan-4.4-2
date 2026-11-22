@@ -1801,5 +1801,17 @@ jobs:
           assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked,NULL,"lan_ipaddr"' not in start_lan_compact
           assert 'rc_wan_nvram_copy_value(lan_nvram_get_checked,NULL,"lan_netmask"' not in start_lan_compact
 
+          update_hosts = body(lan_source, "update_hosts_ap(void)")
+          update_hosts_compact = "".join(update_hosts.split())
+          host_ip_field = update_hosts_compact.index('fields[0].param_name="lan_ipaddr_t";')
+          host_domain_field = update_hosts_compact.index('fields[1].param_name="lan_domain_t";')
+          host_snapshot = update_hosts_compact.index("status=rc_wan_nvram_copy_snapshot(")
+          host_publish = update_hosts_compact.index("create_hosts_lan(lan_ipaddr,lan_dname)")
+          assert host_ip_field < host_domain_field < host_snapshot < host_publish
+          assert "lan_dhcp_snapshot_begin" in update_hosts
+          assert "lan_dhcp_snapshot_get" in update_hosts
+          assert "lan_dhcp_snapshot_end" in update_hosts
+          assert "test_transactional_ap_host_identity_snapshot" in Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+
           print("WAN DHCP callback ordering, rollback, IPTV LAN subnet snapshot and static-interface failure contracts: PASS")
           PY

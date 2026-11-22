@@ -1899,7 +1899,12 @@ assert "rc_wan_nvram_set_required_values(" in lan_mac_reset
 lan_temp_reset = c_function_body(net_lan_notification, "reset_lan_temp_status(void)")
 for key in ('"lan_ipaddr"', '"lan_netmask"'):
     assert key in lan_temp_reset
-assert lan_temp_reset.count("rc_wan_nvram_copy_value(lan_nvram_get_checked") == 2
+assert "rc_wan_nvram_copy_snapshot(" in lan_temp_reset
+assert 'snapshot_fields[0].param_name = "lan_ipaddr";' in lan_temp_reset
+assert 'snapshot_fields[1].param_name = "lan_netmask";' in lan_temp_reset
+assert "lan_dhcp_snapshot_begin" in lan_temp_reset
+assert "lan_dhcp_snapshot_get" in lan_temp_reset
+assert "lan_dhcp_snapshot_end" in lan_temp_reset
 for key in (
     '"lan_ipaddr_t"', '"lan_netmask_t"', '"lan_gateway_t"',
     '"lan_domain_t"', '"lan_dns_t"',
