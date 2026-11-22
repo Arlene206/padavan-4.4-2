@@ -315,9 +315,10 @@ jobs:
           account_policy = 'samba_passdb_account_count_status(account_count_status,account_count_value,MAX_ACCOUNT_NUM,&sh_num)'
           assert account_read in "".join(run_samba.split())
           assert account_policy in "".join(run_samba.split())
-          assert run_samba.index(account_read) < run_samba.index('process_inventory_scan("smbd", &smbd_snapshot)')
-          assert run_samba.index(account_policy) < run_samba.index("recreate_passwd_unix(0)")
-          assert run_samba.index(account_policy) < run_samba.index("samba_prepare_private_passdb(")
+          run_samba_compact = "".join(run_samba.split())
+          assert run_samba_compact.index(account_read) < run_samba_compact.index('process_inventory_scan("smbd",&smbd_snapshot)')
+          assert run_samba_compact.index(account_policy) < run_samba_compact.index("recreate_passwd_unix(0)")
+          assert run_samba_compact.index(account_policy) < run_samba_compact.index("samba_prepare_private_passdb(")
           assert 'nvram_safe_get_int("acc_num"' not in run_samba
           assert "cannot read a valid account count" in run_samba
           assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")

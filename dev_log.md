@@ -1,3 +1,11 @@
+## 2026-11-22 CST — Normalize Samba account-count source-order contract
+
+- Parent main SHA: `45d052982bd51efcbdc47e5c818544f95d4d5689`.
+- Samba #44976440925 failed at Python `ValueError: substring not found` in the new source-order assertion. The checker verified compact strings in the whitespace-preserving function body, then called `.index()` without normalization. It now evaluates all ordering assertions against one whitespace-normalized `run_samba_compact` string.
+- No product-source change. The preceding account-count guard remains pending an exact-head Samba workflow rerun.
+
+---
+
 ## 2026-11-22 10:30 CST — Reject unknown Samba account-count state before passdb publication
 
 - Parent main SHA: `128089bbad8b39111eb5449f41ccfd6884c20bf5`.
