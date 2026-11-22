@@ -6,13 +6,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, atomic complete-tree commits and non-forced expected-SHA updates.
-- Current baseline before `full_restart_wan()` repair: `c69d200c788aafeb76c6905bb18a70d22f9d49d4`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- Checked manual WAN interface reads now cover `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()`, `stop_wan_locked()`, `config_apcli_wisp()` and `check_apcli_wan()`.
-- Exact 86d wireless radio #44997181767 and Process lifecycle #44997181794 both FAILED only at `check_guest_lan_isolation_status.py:323` undefined `require()`; policy C binaries passed. Corrected in c69 by replacing with Python `assert (...)`.
-- Exact 86d Process inventory #44997181843 PASS, HTTPD Auth/Security #44997181802 PASS, AI handoff #44997181801 PASS, iNIC lifecycle #44997181809 PASS. Exact c69 wireless radio #44997296073, Process inventory #44997296036 and AI docs #44997296148 were in progress at last poll; c69 XY-C1 was not triggered by checker-only path change. Exact 86d XY-C1 #44997181783 was pending/in progress in dependency setup; Build/TRX/artifact not completed at last poll.
-- Newly confirmed P1 state-transition defect: `full_restart_wan()` read `route_ifnames[0]` through `get_man_ifname(0)` only after `stop_wan()` succeeded. A read error concealed as empty name could cause route flushing to target the wrong/incomplete interface set after WAN services were already stopped. This slice moves checked bounded read and token validation ahead of router-mode refresh and WAN teardown; preserves an actually empty legacy setting.
-- No same-SHA Build XY-C1/TRX/artifact success verified yet; L3 not claimed. Hardware L4 NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; active branch `main`; atomic complete-tree commits and non-forced expected-SHA updates only.
+- Current source/checker baseline before this documentation rotation: `a3b7e95b71776808fbb6e6bddf273db8cf0c98f4`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Checked manual WAN identity is used by `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()`, `stop_wan_locked()`, `config_apcli_wisp()`, `check_apcli_wan()` and `full_restart_wan()`. The latest full restart fix validates the route-flush interface before router-mode refresh and WAN teardown, then reuses the checked bounded string.
+- Exact a3 Actions: WAN route #44997377580 PASS; WAN DHCP #44997377452 PASS; WAN teardown #44997377521 PASS; wireless radio #44997377474 PASS; Process lifecycle #44997377507 PASS; Process inventory #44997377633 PASS.
+- Exact a3 AI handoff #44997377383 FAILED because root `dev_log.md` reached 121 complete records. Resolved here by losslessly archiving the 101 oldest into `docs/dev-log/2026/11/part-025.md`, preserving newest 20 root entries and adding this checkpoint (21 root entries total). Index row and Git blob SHA are updated together.
+- Exact a3 XY-C1 #44997377413 was still running `Build XY-C1` at last poll; TRX verification and artifact upload had not completed. NVRAM transaction audit #44997377584 and independent suites remained in progress. No L3 claim.
+- L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on one identical product-source SHA. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -33,20 +33,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- `check_apcli_wan()` checked router-mode/manual-interface read is in `net_wifi.c`; c69 fixed the undefined `require()` in its source checker.
-- Current P1 route-transition slice fixes `full_restart_wan()`: checked read/token validation of `wan0_ifname` now happens before `update_router_mode()` and `stop_wan()`, and the validated local string is reused for post-stop route flush. Empty legacy setting remains empty.
-- `check_wan_dns_read_status.py` requires read/error/validation ordering before router-mode update and WAN stop, the correct route-interface reuse and no remaining lossy getter.
+- State-changing WAN manual-interface read paths in startup, IP lookup, stop, AP-client WISP migration, AP-client radio restart and full WAN restart are now checked and validated before dependent state transitions.
+- `full_restart_wan()` reads and validates `wan0_ifname` before `update_router_mode()` or `stop_wan()`, reuses the bounded local name for route flush, preserves empty legacy configuration and returns actual read/token errors without starting teardown.
+- Current correction is documentation integrity: root development log reached 121 complete entries. Archived the 101 oldest verbatim in `part-025.md`, retained the newest 20 original entries, prepended one checkpoint and updated `docs/dev-log/INDEX.md` with exact size/count/Git blob SHA.
 
 ## Verification boundary
 
-- Exact 86d AI handoff #44997181801, process inventory #44997181843, HTTPD Auth/Security #44997181802 and iNIC lifecycle #44997181809 PASS.
-- Exact 86d wireless radio #44997181767 and Process lifecycle #44997181794 FAILED at same undefined `require()` in `check_guest_lan_isolation_status.py`; corrected in c69. Exact c69 wireless/Process/AI were still pending at last poll.
-- Exact 86d XY-C1 #44997181783 still had not completed Build/TRX/artifact at last poll. No L3 claim.
-- This `full_restart_wan()` source change requires exact-head WAN route/DHCP and XY-C1 verification. Hardware L4 unverified.
+- Exact a3 WAN route #44997377580 PASS; WAN DHCP #44997377452 PASS; WAN teardown #44997377521 PASS; wireless radio #44997377474 PASS; Process lifecycle #44997377507 PASS; Process inventory #44997377633 PASS.
+- Exact a3 AI handoff #44997377383 FAILED only because `dev_log.md` contained 121 entries. The current lossless rotation reduces root to 21 entries and archives 101 oldest records; exact-head AI handoff rerun is required.
+- Exact a3 XY-C1 #44997377413 was running Build XY-C1 at last poll; TRX/artifact not completed. NVRAM audit #44997377584 also in progress.
+- No same-SHA Build/TRX/artifact completion verified yet; L3 not claimed. No hardware test; L4 not verified.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head WAN route/DHCP, wireless and process Actions for the full-restart checked-interface change.
-2. Ensure checked read/validation fails before `update_router_mode()` and `stop_wan()`, while empty interface remains compatible.
-3. Verify same-SHA XY-C1 Build, TRX and artifact; do not claim L3 unless all three pass.
-4. Continue examining state-changing WAN interface read paths with a concrete unsafe decision consequence; keep backup read-only.
+1. Check exact-head AI handoff after the root dev-log rotation; validate `part-025.md` checksum/count/size through the archive checker.
+2. Poll XY-C1 #44997377413 and require Build, TRX verification and artifact upload all pass on the identical source SHA before L3.
+3. Continue independent in-progress NVRAM/process/security stability suites; repair only the first concrete failure.
+4. Continue WAN transition reliability work only where an unchecked state-changing read can cause wrong cleanup/restart; backup remains read-only and hardware L4 unverified.

@@ -31,6 +31,7 @@
 | `docs/dev-log/2026/11/part-022.md` | 100 | Correct watchdog PID-file and procfs fixture escaping → PPP and WAN rollback-state consistency | 113949 | `3bb594ab26cd04f116c9f63f9489ee8d6d8be9d6` |
 | `docs/dev-log/2026/11/part-023.md` | 100 | 2026-11-21 → 2026-11-21 | 109696 | `d896a53f5bd56915dbabb5ec4987a2dc069d8388` |
 | `docs/dev-log/2026/11/part-024.md` | 100 | 2026-11-21 — Snapshot VPN remote-LAN route ACL before route mutation → 2026-11-21 — Fail closed on WAN startup protocol reads | 129424 | `359eae06c5b550cf68dc48710a91ea546551ec8f` |
+| `docs/dev-log/2026/11/part-025.md` | 101 | 2026-11-22 08:04 CST — Repair WAN startup checker to scope the matching error gate → 2026-11-22 — Keep physical storage-unplug cleanup durable until marker acknowledgement | 126105 | `daf3875420e99758082b0d43ab2e4b4b2cd57ab2` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -106,3 +107,6 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 records at parent main `7ad1cb24f67b9c9dffafeb1a492b2a41343a8413` are preserved verbatim, oldest first, in part-023; pre-rotation root blob: `7fc5db49fc36bc93efc1ee25e707d828304115de`. Root retains the newest 20 complete records.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries at parent main `09232ef0e8677c59bfa49a538fb908ce31259d0f` are preserved verbatim, oldest first, in `part-024.md`; pre-rotation root blob: `2360c058e5a886c4fff533a5cb9b63a6007e879a`. Root retains the 20 newest complete records.
+
+
+- **Rolling-window catch-up:** 101 oldest complete records evicted from root `dev_log.md` when it contained 121 entries at parent main `a3b7e95b71776808fbb6e6bddf273db8cf0c98f4` are preserved verbatim, oldest first, in `part-025.md`; pre-rotation root blob: `418727893b781c626ffa7995bc378ac8b5cff66f`. Root retains the 20 newest original records plus this rotation checkpoint (21 total). No entry was rewritten or discarded.
