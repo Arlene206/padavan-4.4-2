@@ -127,6 +127,7 @@
 #include	<arpa/inet.h>
 
 #include "p910nd_sigpipe_policy.h"
+#include "p910nd_io_policy.h"
 
 #ifdef	USE_LIBWRAP
 #include	"tcpd.h"
@@ -324,7 +325,8 @@ ssize_t readBuffer(Buffer_t * b)
 		avail = b->startidx - b->endidx;
 	}
 	if (avail) {
-		result = read(b->infd, b->buffer + b->endidx, avail);
+		result = p910nd_read_retry_eintr(b->infd,
+			b->buffer + b->endidx, avail, read);
 		if (result > 0) {
 			/* Some data was read. Update accordingly. */
 			b->endidx += result;
@@ -335,8 +337,12 @@ ssize_t readBuffer(Buffer_t * b)
 				b->endidx = 0;
 			}
 		} else if (result < 0) {
-			dolog(LOGOPTS, "read: %m\n");
-			b->err = 1;
+			if (p910nd_io_would_block(errno)) {
+				result = 0;
+			} else {
+				dolog(LOGOPTS, "read: %m\n");
+				b->err = 1;
+			}
 		}
 		else if (b->detectEof) {
 			dolog(LOG_DEBUG, "read: eof\n");
@@ -365,15 +371,25 @@ ssize_t writeBuffer(Buffer_t * b)
 	}
 	if (avail) {
 		if (b->outfd>=0)
-			result = write(b->outfd, b->buffer + b->startidx, avail);
+			result = p910nd_write_retry_eintr(b->outfd,
+				b->buffer + b->startidx, avail, write);
 		else
 			result = avail;
-		if (result < 0) {
+		if (result < 0 && p910nd_io_would_block(errno)) {
+			/* A nonblocking endpoint may become writable on the next select. */
+			result = 0;
+		} else if (result < 0) {
 			/* Mark the output file in an error condition. */
 			dolog(LOGOPTS, "write: %m\n");
 			b->err = 1;
+		} else if (p910nd_write_no_progress(result, avail)) {
+			/* A zero-byte write with pending data would spin forever. */
+			errno = EIO;
+			dolog(LOGOPTS, "write: no progress\n");
+			b->err = 1;
+			result = -1;
 		} else {
-			/* Zero or more bytes were written. */
+			/* Advance only by the bytes actually written. */
 			b->startidx += result;
 			if (b->outfd>=0)
 				b->totalout += result;
@@ -434,8 +450,11 @@ int copy_stream(int fd, int lp)
 			timeout.tv_sec = 0;
 			timeout.tv_usec = 100000;
 			result = select(maxfd + 1, &readfds, &writefds, 0, &timeout);
-			if (result < 0)
+			if (result < 0) {
+				if (errno == EINTR)
+					continue;
 				return (result);
+			}
 			if (FD_ISSET(fd, &readfds)) {
 				/* Read network data. */
 				result = readBuffer(&networkToPrinterBuffer);

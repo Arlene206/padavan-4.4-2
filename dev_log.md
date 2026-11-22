@@ -1,3 +1,13 @@
+## 2026-11-22 — Make p910nd stream I/O resilient to EINTR and EAGAIN
+
+- Parent main SHA: `efb830bce5028536826989c8b5070b68a49e4a4e`. Review of the p910nd bidirectional stream showed that a transient `EINTR` from `select()` aborted the entire print job; interrupted `read()`/`write()` set the fatal buffer error; and the nonblocking printer descriptor could produce `EAGAIN/EWOULDBLOCK` after readiness without any transient path. More seriously, `writeBuffer()` treated `write()==0` with pending bytes as a successful zero-byte write and left the buffer unchanged; the unidirectional loop then retried forever without yielding.
+- Added `p910nd_io_policy.h`: read/write retries only EINTR (never busy-retries EAGAIN), classifies EAGAIN/EWOULDBLOCK as a transient readiness condition, and detects zero-progress writes. Wired it into the actual circular-buffer paths; EAGAIN keeps pending bytes intact for the next select, zero-progress writes become fatal EIO to prevent the CPU-spin loop, and select EINTR restarts the event wait.
+- Extended the existing GNU89 ASan/UBSan p910nd socket test for EINTR read/write retries, transient EAGAIN/EWOULDBLOCK classification and zero-progress write handling. Updated exact-source assertions and both workflow path filters for the new helper.
+- Parent source SHA `efb830bce5028536826989c8b5070b68a49e4a4e`: EAPoL cleanup + Process checker commit was just pushed; exact XY-C1, Process, EAPoL confidentiality, inventory, NVRAM and AI workflows queued at last inspection. WSDD XML #45040760516 and AI #45040760489 PASS on e2; prior d2 XY-C1 #45040593342 FAILED during RC compilation because orphan EAPoL statements remain in that ancestor, now removed in current parent. No local p910nd tests or firmware build were run.
+- This p910nd I/O fix needs exact GNU89/ASan/UBSan and source-contract reruns. Current source has previous p910nd bidirectional SIGPIPE regression coverage; target MIPS/uClibc firmware and live printer hardware remain unverified.
+
+---
+
 ## 2026-11-22 — Remove orphaned EAPoL startup tail blocking XY-C1
 
 - Parent main SHA: `e2a842d08bae9e4f0e64a519e10c13c0444888f7`. Product-source XY-C1 #45040593342 failed during the RC C compilation, still in `auth.c`: after the correctly closed `start_auth_eapol()` at line 290, seven stale lines from the old implementation remained at lines 292–298 (`_prefix, "Start authentication...");`, an extra `_eval(cli_argv...)`, braces and a second return). The compiler reported parser errors at auth.c:292, 294–298. This was a real orphaned duplicate, not a test-contract issue; the earlier helper-scope repair only fixed the function boundary above it.

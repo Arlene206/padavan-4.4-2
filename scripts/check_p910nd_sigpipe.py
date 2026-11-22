@@ -7,6 +7,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/p910nd/p910nd.c").read_text()
 POLICY = (ROOT / "trunk/user/p910nd/p910nd_sigpipe_policy.h").read_text()
+IO_POLICY = (ROOT / "trunk/user/p910nd/p910nd_io_policy.h").read_text()
 
 
 def compact(text):
@@ -39,4 +40,27 @@ assert "writeBuffer(&printerToNetworkBuffer)" in copy
 assert "printerToNetworkBuffer.outfd = -1;" in copy
 assert "printerToNetworkBuffer.err = 0;" in copy
 
-print("p910nd bidirectional SIGPIPE source contract: PASS")
+assert '#include "p910nd_io_policy.h"' in SOURCE
+io_policy = compact(IO_POLICY)
+assert "while (result < 0 && errno == EINTR)" in io_policy
+assert "return error == EAGAIN || error == EWOULDBLOCK;" in io_policy
+assert "return requested > 0 && result == 0;" in io_policy
+
+read_start = SOURCE.index("ssize_t readBuffer(")
+write_start = SOURCE.index("ssize_t writeBuffer(", read_start)
+read_body = compact(SOURCE[read_start:write_start])
+assert "p910nd_read_retry_eintr(b->infd, b->buffer + b->endidx, avail, read)" in read_body
+assert "if (p910nd_io_would_block(errno))" in read_body
+
+copy_start = SOURCE.index("int copy_stream(")
+copy_end = SOURCE.index("void one_job(", copy_start)
+copy = compact(SOURCE[copy_start:copy_end])
+assert "if (errno == EINTR) continue;" in copy
+
+write_body = compact(SOURCE[write_start:copy_start])
+assert "p910nd_write_retry_eintr(b->outfd, b->buffer + b->startidx, avail, write)" in write_body
+assert "if (result < 0 && p910nd_io_would_block(errno))" in write_body
+assert "p910nd_write_no_progress(result, avail)" in write_body
+assert "errno = EIO;" in write_body
+
+print("p910nd bidirectional SIGPIPE and stream-I/O source contract: PASS")

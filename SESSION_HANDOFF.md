@@ -13,23 +13,24 @@ Every session MUST inspect the live repository state and complete an end-of-sess
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `e2a842d08bae9e4f0e64a519e10c13c0444888f7`; this slice removes an orphaned EAPoL source tail and extends its compile-boundary contract.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `efb830bce5028536826989c8b5070b68a49e4a4e`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- EAPoL temporary config creation and stop-helper file scope remain corrected; ttyd detached-child readiness has Process/AI PASS on checker descendant 30a1; WSDD2 strict XML UTF-8 validation has WSDD XML/AI PASS on checker descendant e2.
+- EAPoL compile-breaking orphan tail removed; exact reruns for XY-C1 and Process pending.
+- WSDD2 strict UTF-8/XML 1.0 validation and ttyd detached-child readiness are implemented; their corresponding CI checks passed on exact checker descendants e2 and 30a1.
 
 ## Active task
 
-The previous EAPoL compile repair restored the missing `stop_auth_eapol()` body and moved `write_wpa_config_temp()` to file scope but left a stale suffix of the former startup function after `start_auth_eapol()` had been closed. XY-C1 caught those orphan tokens at auth.c:292–298. They are removed, and the lifecycle checker now verifies the source gap before `wpacli_main()` contains no stray tokens.
+p910nd circular-buffer I/O now retries EINTR, defers EAGAIN/EWOULDBLOCK until the next select pass, treats zero-progress writes with pending data as EIO, and retries select after EINTR. This prevents transient system-call interruptions from aborting jobs and prevents a tight infinite loop when a write returns zero.
 
 ## Verification boundary
 
-- Parent exact checker SHA e2a842d08bae9e4f0e64a519e10c13c0444888f7: WSDD2 XML regression #45040760516 PASS; AI docs #45040760489 PASS.
-- Parent product-source SHA d2e76ea7bbc5e73cd71716ca9e929ce2b9c2e963: XY-C1 #45040593342 FAILED at Build with compiler syntax errors caused by orphan `auth.c` lines 292–298. The build did not reach TRX verification/artifact upload; no L3 claim.
-- Parent d2 source SHA: Process inventory #45040593394 PASS and NVRAM audit #45040593403 PASS. This EAPoL repair and updated Process checker have not yet run exact-head Actions. No local build was performed.
-- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Hardware L4 remains NOT VERIFIED.
+- Parent main SHA efb830bce5028536826989c8b5070b68a49e4a4e: EAPoL source orphan-tail correction and Process source contract were committed; exact XY-C1, Process umbrella, Process inventory, EAPoL, NVRAM and AI Actions were queued at the last check.
+- WSDD2 XML regression #45040760516 PASS and AI docs #45040760489 PASS on checker-only descendant e2a842d08bae9e4f0e64a519e10c13c0444888f7. Product source d2 XY-C1 #45040593342 FAILED at RC compile due orphan EAPoL tail; fixed in parent efb. No L3 on d2.
+- The new p910nd EINTR/EAGAIN regression and source contract have not yet run. No local checkout/tests or current firmware build were performed.
+- L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one identical product-source SHA. Physical printer/router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-head Process regression and XY-C1 run. Confirm the `auth.c` compilation succeeds and that Build, TRX verification and artifact upload all PASS on one SHA.
-2. If any further compile error is reported, fix the actual source defect; do not weaken source assertions to hide the compiler result.
-3. Continue a different, not-already-completed userland stability/security slice; backup remains read-only, development only on main.
+1. Inspect exact-head p910nd SIGPIPE/I/O regression, Process/EAPoL checks and XY-C1 build after this commit. Fix actual test/source failures.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all PASS on the same exact product-source SHA; the earlier d2 failure is not evidence for efb or a later source SHA.
+3. Continue another userland stability/security slice beyond completed WAN/PPP, Inadyn, DNSMasq, EAPoL, ttyd and WSDD2 work. Keep backup read-only and work only on main.
