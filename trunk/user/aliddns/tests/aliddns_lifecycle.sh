@@ -116,11 +116,11 @@ nvram() {
 			printf '%s\n' "$NVRAM_STATUS_VALUE"
 			;;
 		"set aliddns_renum="*)
-			printf '%s\\n' "$*" >> "$NVRAM_RENUM_WRITES"
+			printf '%s\n' "$*" >> "$NVRAM_RENUM_WRITES"
 			return "$NVRAM_RENUM_WRITE_STATUS"
 			;;
 		"set aliddns_status=0")
-			printf '%s\\n' "$*" >> "$NVRAM_STATUS_WRITES"
+			printf '%s\n' "$*" >> "$NVRAM_STATUS_WRITES"
 			return "$NVRAM_STATUS_WRITE_STATUS"
 			;;
 		"set aliddns_status=fixture-fingerprint")
