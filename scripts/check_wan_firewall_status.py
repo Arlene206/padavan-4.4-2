@@ -1167,9 +1167,31 @@ require(start_proto_read_at >= 0 and
         "wan_start_status = rc_first_service_start_status( wan_start_status, nvram_status)" in wan_start_code and
         "cannot read configured protocol" in wan_start_code and
         start_proto_error_gate <
-        wan_start_code.index("wan_ifname = get_man_ifname(unit)") and
+        wan_start_code.find("ifname_status = get_wan_unit_value_copy_status( unit, \"ifname\", wan_ifname_nvram, sizeof(wan_ifname_nvram))") and
         "wan_proto = get_wan_proto(unit);" not in wan_start_code,
         "WAN startup must fail closed on protocol read errors before interface setup")
+
+# The configured interface-name read is checked independently from the
+# protocol. Empty legacy values remain a no-op; read and validation errors
+# are propagated before any physical WAN interface configuration.
+start_ifname_read = "ifname_status = get_wan_unit_value_copy_status( unit, \"ifname\", wan_ifname_nvram, sizeof(wan_ifname_nvram))"
+start_ifname_read_at = wan_start_code.find(start_ifname_read)
+start_ifname_read_error_at = wan_start_code.find("if (ifname_status != 0)", start_ifname_read_at)
+start_ifname_empty_at = wan_start_code.find("if (!wan_ifname_nvram[0])", start_ifname_read_at)
+start_ifname_copy = "ifname_status = wan_ifname_copy( wan_ifname, sizeof(wan_ifname), wan_ifname_nvram)"
+start_ifname_copy_at = wan_start_code.find(start_ifname_copy)
+start_ifname_copy_error_at = wan_start_code.find("if (ifname_status != 0)", start_ifname_copy_at)
+start_wan_ifconfig_at = wan_start_code.find("ifconfig(wan_ifname, IFUP")
+require(start_ifname_read_at >= 0 and
+        start_ifname_read_error_at > start_ifname_read_at and
+        start_ifname_empty_at > start_ifname_read_error_at and
+        start_ifname_copy_at > start_ifname_empty_at and
+        start_ifname_copy_error_at > start_ifname_copy_at and
+        start_wan_ifconfig_at > start_ifname_copy_error_at and
+        "cannot read configured interface name" in wan_start_code and
+        "invalid configured interface name" in wan_start_code and
+        "wan_ifname = get_man_ifname(unit)" not in wan_start_code,
+        "WAN startup must check and validate the configured interface before network side effects")
 
 # The boolean ABI of is_ifunit_man() cannot return an errno. Its checked
 # wrapper therefore treats protocol-read failures conservatively as manual PPP.

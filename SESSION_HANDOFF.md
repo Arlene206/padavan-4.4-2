@@ -7,11 +7,12 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only, with complete atomic Git trees/commits and non-forced expected-SHA updates.
-- Current implementation parent before this follow-up: `6ec3e3d6bf3576864dee986aaf1e7075a4fbc1fa`; this follow-up repairs the invalid-name diagnostic argument list and the checker newline locator. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
-- Storage retry durability: physical-unplug marker retention and PID 1 retry-queue fallback are in product source; the retry-policy mask regression was corrected. Exact 7bd storage run #44995310447 PASS and AI handoff #44995310444 PASS.
-- Exact 7bd XY-C1 run #44995310496 completed SUCCESS in host-only mode; firmware input detection and host regression steps passed, but Build XY-C1, TRX verification and artifact upload were SKIPPED because the commit only changed tests/checkers/handoff. This is not an L3 firmware build.
-- Newly confirmed P1 WAN startup defect: `start_wan()` used lossy `get_man_ifname()` (`nvram_safe_get`) for `wan0_ifname`; backend/read/close errors became an empty string and silently skipped WAN startup. Current slice replaces it with checked bounded NVRAM copy plus the existing interface-token validator, preserving the legacy empty/unconfigured no-op while propagating failures into `wan_start_status`.
-- No local full MIPS toolchain and no hardware test. L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on an identical product-source SHA; hardware L4 NOT VERIFIED.
+- Current source baseline before this checker-alignment slice: `e34444ae55651085a157996f4c6b5699b20066c9`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. PR #1 remains closed/unmerged.
+- Storage retry durability remains covered: exact 7bd storage #44995310447 PASS and AI handoff #44995310444 PASS. Exact 7bd XY-C1 #44995310496 completed host-only SUCCESS, but Build XY-C1/TRX/artifact were skipped; it is not an L3 build.
+- P1 product fix: `start_wan()` now checks `wan0_ifname` using `get_wan_unit_value_copy_status()`, preserves an empty legacy no-op, validates non-empty interface tokens, and propagates read/validation errors into WAN startup status.
+- Exact 6ec WAN DHCP #44995722211 FAILED only in the newly added checker locator (`\\n` literal); its GNU89/ASan/UBSan WAN interface policy executable passed. Exact 6ec WAN route #44995722139 and XY-C1 #44995722192 FAILED at `scripts/check_wan_firewall_status.py:1170`, whose old source contract still required `get_man_ifname()` after the new checked read had removed it.
+- Follow-up e344 corrected the newline locator and diagnostic varargs, but exact e344 WAN DHCP #44995792863 FAILED at `check_wan_ifname_bounds.py:26` because two whitespace-sensitive assertions omitted the actual spaces after `(`. Exact e344 WAN route #44995792838 and XY-C1 #44995792759 FAILED at the same stale line 1170. AI handoff #44995792742 and Process inventory #44995792750 PASS.
+- No local full MIPS toolchain and no hardware test. For L3, Build XY-C1, TRX verification and artifact upload must all execute and pass on one identical product-source SHA; hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -32,19 +33,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Replaced `start_wan()`'s lossy `get_man_ifname(unit)` lookup with `get_wan_unit_value_copy_status(unit, "ifname", ...)` and `wan_ifname_copy()`. NVRAM backend/read/close errors and invalid interface tokens now contribute to the first WAN startup error; an actually empty legacy interface setting remains a successful no-op.
-- Extended `scripts/check_wan_ifname_bounds.py` to pin the checked read, legacy empty-key handling, checked error aggregation, validation ordering and absence of the lossy getter in `start_wan()`. Existing GNU89/ASan/UBSan WAN interface-name and NVRAM policy regressions remain the runtime/unit coverage.
+- Product source fix is in `net_wan.c`: checked `wan0_ifname` read, legacy-empty no-op preservation, strict `wan_ifname_copy()` validation and first-error aggregation.
+- Aligning both source contracts with the new behavior: `check_wan_ifname_bounds.py` must normalize the whitespace in the checked-reader/validator calls; `check_wan_firewall_status.py` must assert checked read → failed-read gate → empty-key no-op → validated token → failed-validation gate → first network side effect, without requiring the old lossy getter.
 
 ## Verification boundary
 
-- Exact 7bd storage #44995310447 PASS and AI handoff docs #44995310444 PASS.
-- Exact 7bd XY-C1 #44995310496 completed SUCCESS in host-only mode, but Build XY-C1, TRX verification and artifact upload were SKIPPED by the production-input detector. No L3 claim for 7bd.
-- Exact 6ec product-source run set triggered WAN DHCP callback/route, Process, NVRAM, HTTPD/security and other suites; all were in progress at last poll. This follow-up fixes the diagnostic varargs and Python newline locator before treating those results as validated.
-- This WAN interface-read repair still requires a clean exact-head run after the follow-up. XY-C1 should execute Build/TRX/artifact because net_wan.c changed; L3 is only verified after all three pass on one identical SHA.
-- Backup branch remains unchanged/read-only. No local MIPS build and no hardware test; L3/L4 are not currently verified.
+- Exact 7bd storage and AI handoff checks passed; exact 7bd XY-C1 was host-only and skipped Build/TRX/artifact (no L3).
+- Exact 6ec WAN DHCP failed at its new checker locator; the corresponding C policy executable passed. Exact 6ec WAN route and XY-C1 failed on the stale `get_man_ifname()` assertion. These are recorded as FAIL, not PASS.
+- Exact e344 WAN DHCP still failed at whitespace-sensitive checker assertions; exact e344 WAN route and XY-C1 still failed on the stale getter assertion. AI handoff and Process inventory passed. The current follow-up aligns both checkers; its exact-head Actions remain to be checked.
+- No MIPS firmware build/trx/artifact has yet passed on the new product-source SHA; L3/L4 unverified. Backup remains read-only.
+
 ## Exact first action for the next GPT
 
-1. Check exact-SHA WAN DHCP callback and WAN route runs for this checked wan0_ifname repair; ensure the Python source checker reaches its WAN contract and the C policy regressions pass.
-2. Check exact-SHA XY-C1: confirm Build XY-C1, TRX verification and artifact upload actually execute and pass on this production-source SHA. Do not claim L3 if any step is skipped.
-3. Continue the P1 WAN startup result-propagation review after this interface-name read; avoid repeating completed storage marker/retry work.
-4. Keep backup read-only; hardware L4 remains unverified.
+1. Check exact-head WAN DHCP callback, WAN route and XY-C1 on the checker-alignment SHA; fix the first actual assertion/compile failure and do not weaken product behavior.
+2. Verify the WAN interface checker reaches its order/error assertions and the C GNU89/ASan/UBSan tests pass.
+3. Confirm Build XY-C1, TRX verification and artifact upload all execute and pass on that same product-source SHA before declaring L3.
+4. Continue P1 WAN startup result-propagation review after the interface-name path; keep backup read-only and hardware L4 unverified.

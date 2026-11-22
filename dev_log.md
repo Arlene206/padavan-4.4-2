@@ -1,3 +1,11 @@
+## 2026-11-22 — Align WAN startup source contracts with checked interface identity
+
+- Parent main SHA: `e34444ae55651085a157996f4c6b5699b20066c9`. Exact 6ec WAN DHCP #44995722211 first failed because the first version of the new checker searched for literal `\\n`; the e344 follow-up corrected this, but WAN DHCP #44995792863 then exposed two additional whitespace-sensitive expectations that omitted the space after `(`. The underlying WAN interface-name GNU89/ASan/UBSan executable passed on both source SHAs before the Python checker stopped the job.
+- Exact 6ec WAN route #44995722139 and exact 6ec XY-C1 #44995722192, repeated on e344 as #44995792838 and #44995792759, failed at `scripts/check_wan_firewall_status.py:1170`: it still required `wan_ifname = get_man_ifname(unit)` and was stale after the checked source fix.
+- Updated the interface-name checker to match normalized actual C call formatting. Updated the WAN firewall source contract to require checked `ifname` read → explicit read-error status handling → empty legacy no-op → validated interface token → explicit validation-error status handling → first interface side effect, and to forbid the removed lossy getter.
+- Exact e344 AI handoff #44995792742 and Process inventory #44995792750 PASS; no XY-C1 L3 build is claimed. Recheck all exact-head Actions on the current follow-up SHA.
+
+---
 ## 2026-11-22 — Correct WAN interface diagnostic and checker newline anchors
 
 - Parent main SHA: `6ec3e3d6bf3576864dee986aaf1e7075a4fbc1fa`. Immediate source review caught two defects before treating CI as validated: the invalid-interface log format accepted only one of its two integer arguments, and the newly added Python checker delimited C functions using a double-escaped newline (literal backslash-n).

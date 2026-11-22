@@ -23,8 +23,8 @@ wan_start_end = net_wan.index("\nstatic int\nstop_wan_ppp_locked", wan_start_at)
 wan_start = net_wan[wan_start_at:wan_start_end]
 wan_start_compact = " ".join(wan_start.split())
 assert "char wan_ifname[16], wan_ifname_nvram[16];" in wan_start
-assert "get_wan_unit_value_copy_status(unit, \"ifname\", wan_ifname_nvram, sizeof(wan_ifname_nvram))" in wan_start_compact
-assert "wan_ifname_copy(wan_ifname, sizeof(wan_ifname), wan_ifname_nvram)" in wan_start_compact
+assert "get_wan_unit_value_copy_status( unit, \"ifname\", wan_ifname_nvram, sizeof(wan_ifname_nvram))" in wan_start_compact
+assert "wan_ifname_copy( wan_ifname, sizeof(wan_ifname), wan_ifname_nvram)" in wan_start_compact
 assert "wan_start_status = rc_first_service_start_status( wan_start_status, ifname_status);" in wan_start_compact
 assert "cannot read configured interface name" in wan_start
 assert "invalid configured interface name" in wan_start
