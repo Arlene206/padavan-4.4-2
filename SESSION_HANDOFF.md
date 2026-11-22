@@ -29,22 +29,25 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Active task
 
 - WAN protocol hardening and the XY-C1 reset-array compile fix remain committed; Build/TRX/artifact passed on product SHA `02857320194ebdda3b451ea3d6de07fa212995c0`.
-- Checked USB modem identity API `get_usb_modem_wan_status()` and the `is_ifunit_modem_status()` migration are present. This source slice strengthens the compatibility wrapper: legacy boolean callers now fail closed to the modem branch when identity reads fail, rather than turning NVRAM I/O errors into “not a modem”.
-- Host regression covers status=0 absent/present and I/O errors; USB-modem Actions verify the wrapper delegates to the status API and does not return false on errors.
-- Next: continue migrating legacy boolean consumers in WAN stop, manual disconnect, resolver refresh, DNS status, interface selection and IP lookup to explicit status propagation.
+- Checked modem identity is propagated through `net_wan.c`: WAN start/stop, MAN route add/remove, WAN-up/down, DHCP bound, manual disconnect, reconnect priority, resolver refresh, DNS mode, interface getter and IPv4 getter now use `get_usb_modem_wan_status()`; no direct legacy boolean selector remains in that file.
+- The shared compatibility wrapper is conservative (unknown identity maps to modem=true) for any not-yet-migrated legacy callsite; status-aware code preserves the original error. This checker commit fixes three exact-SHA regressions without changing production code.
+- Next source slice: migrate remaining RC userland legacy callsites in `hotplug_usb.c`, `services_usb.c`, `usb_modem.c`, `rc.c` and `detect_link.c`, preserving physical-unplug cleanup on unknown identity.
 
 ## Verification boundary
 
-- Parent main SHA: `95bfb65ed32a6c507fb93bd442086496fccacb9d`; this commit changes shared modem identity policy/wrapper, its host test/workflow and handoff.
-- The checked status API returns errno-style failure. The legacy wrapper now maps any such failure to boolean true (conservative modem classification), while status-aware callers retain the actual error. This avoids unsafe false-negative non-modem classification in unconverted callsites.
-- Exact-head GNU89/ASan/UBSan USB identity test, WAN route/teardown and XY-C1 Build/TRX/artifact must all be checked for this source SHA. No hardware-modem result is claimed.
+- Parent main SHA: `c4a27498de42e68bf21a358e4938008ff43ba0e7`. The latest wrapper commit changes only shared NVRAM identity policy/wrapper, its host regression and handoff; status-aware callers still receive errno-style failures while legacy boolean callers conservatively select the modem path on errors.
+- Exact SHA `c4a27498de42e68bf21a358e4938008ff43ba0e7`: AI handoff #44970629909 PASS; Wireless #44970629880 PASS; WAN DHCP #44970629930 PASS; NVRAM transaction #44970629921 PASS; process lifecycle inventory scan #44970629864 PASS. XY-C1 #44970629875 was IN_PROGRESS at last poll.
+- WAN route #44970629902 FAIL at embedded source checker line 702 because it searched for the removed lower-case legacy resolver comment; the new resolver path explicitly checks `get_usb_modem_wan_status()` and forces DNSMasq reload on unknown identity. The workflow assertion is corrected in this commit.
+- USB modem identity #44970629920 FAIL at source contract line 434 due the checker helper selecting a forward declaration for `get_wan_dns_static_status()` rather than its definition; use definition-anchored signatures for DNS/interface/IP getters.
+- Process lifecycle #44970629903 FAIL at `scripts/check_process_lifecycle_integration.py` line 952 because the checker still expected an obsolete compound error condition; production now aggregates protocol/interface/callback errors with `wan_teardown_first_error_status()`. Updated to check the actual first-error helper and following gate.
+- These are exact-source checker corrections only; no production source behavior changes are claimed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA USB modem identity workflow and XY-C1 Build/TRX/artifact after the compatibility wrapper change.
-2. Migrate remaining direct legacy boolean consumers to explicit `get_usb_modem_wan_status()` handling: WAN stop, MAN/manual disconnect, reconnect priority, resolver refresh and DNS/interface/IP readers.
-3. Add failure-path tests proving unknown identity neither selects a non-modem destructive path nor prevents independent teardown cleanup.
+1. Verify exact-head WAN route, USB identity and process lifecycle reruns after these checker corrections; poll XY-C1 Build/TRX/artifact on the new SHA.
+2. Migrate remaining RC userland consumers in hotplug, modem startup/link notification and RCN_RESTART_MODEM handling to the status API.
+3. Preserve conservative physical-unplug cleanup on an unreadable selector, and prevent module/service restart when modem identity cannot be established.
 
 ## Workflow and preservation rules
 

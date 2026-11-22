@@ -1135,11 +1135,19 @@ jobs:
           blocked = resolver_refresh.index("wan_resolver_refresh_policy_blocked_status(")
           publish_call = resolver_refresh.index("dnsmasq_file_publish(fp, resolv_temp")
           published_unlock = resolver_refresh.index("file_unlock(lock);", publish_call)
-          modem_notify = resolver_refresh.index("/* force notify dnsmasq for modem */")
-          assert published_unlock < blocked < modem_notify
+          modem_notify = resolver_refresh.index("/* Force a cache reload for modems and when modem identity is unknown. */")
+          modem_identity_read = resolver_refresh.index(
+              "modem_identity_status = get_usb_modem_wan_status(0, &is_modem_wan);",
+              modem_notify,
+          )
+          modem_identity_error = resolver_refresh.index(
+              "if (modem_identity_status != 0)", modem_identity_read
+          )
+          assert published_unlock < blocked < modem_notify < modem_identity_read < modem_identity_error
           assert "if (saved_errno != 0)" in resolver_refresh[blocked:modem_notify]
           assert "return saved_errno;" in resolver_refresh[blocked:modem_notify]
-          assert "dnsmasq_process_status" in resolver_refresh[modem_notify:]
+          assert "resolv_changed = 1;" in resolver_refresh[modem_identity_error:]
+          assert "dnsmasq_process_status" in resolver_refresh[modem_identity_error:]
           assert "return validation_status != 0 ? validation_status : EIO;" in resolver_policy
           for token in ("(1, 0) == 0", "(0, EPERM) == EPERM", "(0, EACCES) == EACCES", "(0, 0) == EIO"):
               assert token in resolver_test, token

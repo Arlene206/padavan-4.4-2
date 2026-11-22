@@ -574,27 +574,27 @@ jobs:
           resolver_force = resolver.index("resolv_changed = 1;", resolver_failed)
           assert resolver_read < resolver_failed < resolver_force
 
-          dns_mode = body(wan_network, "get_wan_dns_static_status(int *is_static)")
+          dns_mode = body(wan_network, "\nget_wan_dns_static_status(int *is_static)\n{")
           dns_identity = dns_mode.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
           dns_failed = dns_mode.index("if (status != 0)", dns_identity)
           dns_key = dns_mode.index('nvram_get_checked("modem_dnsa", &stored_value)')
           assert dns_identity < dns_failed < dns_mode.index("return status;", dns_failed) < dns_key
 
-          ifname_getter = body(wan_network, "get_wan_ifname(char wan_ifname[16])")
+          ifname_getter = body(wan_network, "\nget_wan_ifname(char wan_ifname[16])\n{")
           ifname_identity = ifname_getter.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
           ifname_failed = ifname_getter.index("if (status != 0)", ifname_identity)
           ifname_return = ifname_getter.index("return status;", ifname_failed)
           ifname_ndis = ifname_getter.index("get_wan_modem_is_ndis_status", ifname_identity)
           assert ifname_identity < ifname_failed < ifname_return < ifname_ndis
 
-          ip4_getter = body(wan_network, "get_wan_ip4(int only_broadband_wan)")
+          ip4_getter = body(wan_network, "\nget_wan_ip4(int only_broadband_wan)\n{")
           ip4_identity = ip4_getter.index("get_usb_modem_wan_status(unit, &is_usb_modem)")
           ip4_failed = ip4_getter.index("if (status != 0)", ip4_identity)
           ip4_return = ip4_getter.index("return INADDR_ANY;", ip4_failed)
           ip4_proto = ip4_getter.index("get_wan_unit_proto_checked_status(unit, &wan_proto)", ip4_identity)
           assert ip4_identity < ip4_failed < ip4_return < ip4_proto
 
-          reconnect = body(wan_network, "notify_on_internet_state_changed(int has_internet, long elapsed)")
+          reconnect = body(wan_network, "\nnotify_on_internet_state_changed(int has_internet, long elapsed)\n{")
           reconnect_identity = reconnect.index("get_usb_modem_wan_status(0, &is_modem_wan)")
           reconnect_failed = reconnect.index("if (modem_identity_status != 0)", reconnect_identity)
           reconnect_break = reconnect.index("break;", reconnect_failed)

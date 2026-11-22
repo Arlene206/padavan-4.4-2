@@ -949,10 +949,12 @@ assert "return merge_l2tp_server_start_status(status);" in wan_reconnect_body
 
 usbnet_stop_pos = wan_stop.index("stop_status = stop_wan_usbnet();")
 wan_ifdown_pos = wan_stop.index("ifdown_status = wan_teardown_ifdown_interfaces(")
-wan_failure_pos = wan_stop.index("if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)")
+wan_failure_pos = wan_stop.index("stop_status = wan_teardown_first_error_status(")
+wan_failure_gate_pos = wan_stop.index("if (stop_status != 0)", wan_failure_pos)
 wan_clear_pos = wan_stop.index("stop_status = clear_wan_state_status();")
 wan_clear_failure_pos = wan_stop.index("if (stop_status != 0)", wan_clear_pos)
-assert usbnet_stop_pos < wan_ifdown_pos < wan_failure_pos < wan_clear_pos < wan_clear_failure_pos
+assert usbnet_stop_pos < wan_ifdown_pos < wan_failure_pos < wan_failure_gate_pos < wan_clear_pos < wan_clear_failure_pos
+assert "stop_status, proto_status, ifdown_status, callback_cleanup_status" in wan_stop[wan_failure_pos:wan_failure_gate_pos]
 assert wan_clear_failure_pos < wan_stop.index("control_wan_led_isp_state(0, 0);", wan_clear_failure_pos)
 assert "callback_cleanup_status = remove_cb_links();" in wan_stop
 assert "goto abort_resume_detect;" in wan_stop[wan_failure_pos:]

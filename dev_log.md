@@ -1,3 +1,14 @@
+## 2026-11-22 — Correct exact-SHA WAN route, modem identity and process lifecycle contracts
+
+- Parent main SHA: `c4a27498de42e68bf21a358e4938008ff43ba0e7`. AI handoff #44970629909 PASS, Wireless #44970629880 PASS, WAN DHCP #44970629930 PASS, NVRAM transaction #44970629921 PASS and process lifecycle inventory scan #44970629864 PASS. XY-C1 #44970629875 remained IN_PROGRESS at last poll.
+- WAN route #44970629902 failed in its resolver source contract because it searched for the deleted comment `/* force notify dnsmasq for modem */`. The production code now checks the modem identity status and forces DNSMasq reload on unknown identity. Updated the source assertion to bind to that behavior.
+- USB identity #44970629920 failed because the checker body helper matched a forward declaration for `get_wan_dns_static_status()`; it therefore extracted the wrong subsequent brace body. Anchored DNS, WAN interface, WAN IP and reconnect checks to actual function definitions.
+- Process lifecycle #44970629903 failed because its script expected a stale compound condition. Production currently aggregates protocol, interface and callback failures through `wan_teardown_first_error_status()`, then gates final WAN state clear; updated the assertion to check that actual ordering and argument set.
+- This commit is checker/handoff/log only. No production source changes or firmware-build result are claimed.
+- Next production slice: migrate RC-wide legacy USB modem selector consumers, with special care not to skip physical-unplug cleanup when the selector read itself fails.
+
+---
+
 ## 2026-11-21 — Fail closed in legacy USB modem identity wrapper
 
 - Parent main SHA: `95bfb65ed32a6c507fb93bd442086496fccacb9d`.
