@@ -197,7 +197,12 @@ assert "int is_dhcpd_enabled_status(int is_ap_mode, int *enabled);" in RC_H
 assert "option_status = is_dhcpd_enabled_status(is_ap_mode, &i_dhcp_enable);" in prepare
 assert "if (option_status != 0) return option_status;" in prepare
 assert "is_dhcpd_enabled(is_ap_mode)" not in prepare
-assert prepare.index("is_dhcpd_enabled_status(") < prepare.index('dnsmasq_read_string_option("dhcp_wins_x"')
+dhcp_enable_check = prepare.index("is_dhcpd_enabled_status(")
+dhcp_string_snapshot = prepare.index("dnsmasq_dhcp_config_nvram_snapshot_read(")
+fill_static = prepare.index("fill_static_ethers(ipaddr, netmask)")
+assert dhcp_enable_check < dhcp_string_snapshot < fill_static
+assert 'dnsmasq_read_string_option("dhcp_wins_x"' not in prepare
+assert "dhcp_nvram_snapshot.dhcp_wins" in prepare
 assert prepare.index("is_dhcpd_enabled_status(") < prepare.index("fill_static_ethers(ipaddr, netmask)")
 
 smb_header = compact(body(SERVICES, "int\nwrite_smb_conf_header(FILE *fp)"))

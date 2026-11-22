@@ -1,3 +1,13 @@
+## 2026-11-22 — Align DNSMasq rollback checker with DHCP tuple snapshot
+
+- Parent main SHA: `7c6ab191bad7e18ec65c8bb8951713dbc24ee3f8`. Exact-head DNSMasq lifecycle #45033514002 passed the GNU89/ASan/UBSan DHCP snapshot test and the DHCP integer/static-host source checker, then failed in the older rollback checker at line 200. It still required a separate `dnsmasq_read_string_option("dhcp_wins_x")` call which the new transaction snapshot intentionally removed.
+- Updated that source contract to require the DHCP-enable check before the unified `dnsmasq_dhcp_config_nvram_snapshot_read()`, and the snapshot before `fill_static_ethers()`. It also asserts there is no separate unchecked/duplicate WINS read and that DHCP emission consumes the copied WINS field.
+- The full-struct error-cleanup correction itself is validated by the policy binary on this parent; the failure was a stale downstream source assertion, not a repeat of the snapshot regression.
+- XY-C1 #45033514004 was still executing Build XY-C1; TRX and artifact upload remained pending. No L3 result is claimed.
+- No local tests were run in this connector-only session. Result: THIS COMMIT. Next: inspect exact-head DNSMasq, AI and XY-C1 Actions for this checker correction, then continue the separate DHCPv6 preflight slice.
+
+---
+
 ## 2026-11-22 — Zero the entire DHCP snapshot after transaction failure
 
 - Parent main SHA: `22f626cc2ac7f207edd6c554fda6a1d9ab563838`. Exact-head AI handoff #45033357885 PASS. DNSMasq lifecycle #45033357912 failed in the new checked-option GNU89/ASan/UBSan test: read/close failure left copied bytes past the first NUL in destination buffers because the generic `rc_wan_nvram_copy_snapshot()` helper intentionally clears only each destination's first byte.
