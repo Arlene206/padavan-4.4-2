@@ -47,6 +47,7 @@ on:
       - "trunk/user/scripts/tests/storage_mountpoint_inventory.sh"
       - "trunk/user/scripts/tests/storage_module_load_lock.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
+      - "trunk/user/scripts/tests/spindown_mount_guard.sh"
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
@@ -127,6 +128,7 @@ on:
       - "trunk/user/scripts/tests/storage_mountpoint_inventory.sh"
       - "trunk/user/scripts/tests/storage_module_load_lock.sh"
       - "trunk/user/scripts/files/sbin/spindown.sh"
+      - "trunk/user/scripts/tests/spindown_mount_guard.sh"
       - "trunk/user/optware/opt-mount.sh"
       - "trunk/user/rc/src/tests/storage_operation_lock.c"
       - "trunk/user/rc/src/services_stor.c"
@@ -202,6 +204,12 @@ jobs:
           sh -n trunk/user/scripts/files/sbin/hddtune.sh
           sh -n trunk/user/scripts/tests/hddtune_status.sh
           sh trunk/user/scripts/tests/hddtune_status.sh
+      - name: Verify disk spindown fails closed when mount inventory is unavailable
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/spindown.sh
+          sh -n trunk/user/scripts/tests/spindown_mount_guard.sh
+          sh trunk/user/scripts/tests/spindown_mount_guard.sh
       - name: Check NFS service stop script syntax
         run: sh -n trunk/user/nfs-utils/nfsd.sh
       - name: Check Transmission and Aria launcher syntax and startup status propagation
@@ -1418,9 +1426,13 @@ jobs:
           spindown_fn = function_body(storage, "spindown_hdd(")
           assert 'argv[0] = "/sbin/spindown.sh";' in spindown_fn
           assert "_eval(argv, NULL, 0, NULL);" in spindown_fn
-          assert "if awk -v dev=\"/dev/$1\"" in spindown
+          assert 'spindown_mount_snapshot=$(cat "$spindown_mounts_file") || return 2' in spindown
           assert "suffix ~ /^[0-9]+$/ || suffix ~ /^p[0-9]+$/" in spindown
-          assert spindown.index("if awk -v dev=") < spindown.index("/sbin/hdparm -y")
+          assert '0) exit 1 ;; # mounted; do not spin down' in spindown
+          assert '*) exit 1 ;; # cannot prove the disk is unused' in spindown
+          assert 'spindown_mount_status "$1" /proc/mounts' in spindown
+          assert spindown.index('spindown_mount_status "$1" /proc/mounts') < spindown.index("/sbin/hdparm -y")
+          assert "spindown_mount_status" in (root / "trunk/user/scripts/tests/spindown_mount_guard.sh").read_text()
 
           # RC-facing caller edges: mdev applets, unplug notification, explicit
           # ATA/MMC/eject-all requests, firmware update and shutdown.
@@ -1456,6 +1468,7 @@ jobs:
               "trunk/user/scripts/tests/storage_mountpoint_inventory.sh",
               "trunk/user/scripts/tests/storage_module_load_lock.sh",
               "trunk/user/scripts/files/sbin/spindown.sh",
+              "trunk/user/scripts/tests/spindown_mount_guard.sh",
               "trunk/user/optware/opt-mount.sh",
               "trunk/user/nfs-utils/nfsd.sh",
               "trunk/user/rc/src/rc.h",
