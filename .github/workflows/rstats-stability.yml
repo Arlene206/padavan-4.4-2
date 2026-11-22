@@ -156,7 +156,18 @@ jobs:
 
           writer = body(rstats, "f_write(const char *path, const void *buffer, int len)")
           assert "rstats_file_write_atomic(path, buffer, (size_t) len)" in writer
+          persistence_policy = (src / "rstats_persistence_policy.h").read_text()
+          assert "rstats_storage_save_result(" in persistence_policy
+          assert "test_periodic_storage_save_retries_after_failure" in test
+          assert "test_periodic_storage_save_retries_after_failure();" in test
           raw_save = body(rstats, "save_history_raw(long ticks)")
+          assert "storage_status = write_storage_to_mtd();" in raw_save
+          assert "storage_errno = errno;" in raw_save
+          assert "rstats_storage_save_result(" in raw_save
+          assert "automatic storage commit failed; will retry" in raw_save
+          assert raw_save.index("write_storage_to_mtd();") < raw_save.index(
+              "rstats_storage_save_result(") < raw_save.index("automatic storage commit failed")
+          assert "g_store_cntr = 0;" not in raw_save
           assert "f_write(h_path, &g_history[i], sizeof(history_t)) != 0" in raw_save
           assert 'perror("rstats: failed to publish history")' in raw_save
           speed_export = body(rstats, "save_speed_json(long next_time)")
@@ -213,6 +224,7 @@ jobs:
               "trunk/user/rc/src/rstats_file_policy.h",
               "trunk/user/rc/src/rstats_signal_policy.h",
               "trunk/user/rc/src/rstats_time_policy.h",
+              "trunk/user/rc/src/rstats_persistence_policy.h",
               "trunk/user/rc/src/tests/rstats_policy_test.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",

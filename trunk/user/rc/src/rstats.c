@@ -40,6 +40,7 @@
 #include "rstats_file_policy.h"
 #include "rstats_signal_policy.h"
 #include "rstats_time_policy.h"
+#include "rstats_persistence_policy.h"
 
 #define SMIN		60
 #define SHOUR		(60 * 60)
@@ -238,6 +239,7 @@ static void save_history_raw(long ticks)
 {
 	char h_path[40];
 	int i, rstats_stored, auto_save_th;
+	int storage_status, storage_errno;
 
 	if (g_ap_mode)
 		return;
@@ -282,8 +284,20 @@ static void save_history_raw(long ticks)
 
 	g_store_cntr += (ticks * RSTATS_INTERVAL);
 	if (g_store_cntr >= auto_save_th) {
-		g_store_cntr = 0;
-		write_storage_to_mtd();
+		/*
+		 * Keep the periodic save due until the flash script confirms success.
+		 * A transient MTD failure must be retried on the next rstats tick,
+		 * not deferred for another full day/week/month.
+		 */
+		errno = 0;
+		storage_status = write_storage_to_mtd();
+		storage_errno = errno;
+		storage_status = rstats_storage_save_result(
+			&g_store_cntr, auto_save_th, storage_status, storage_errno);
+		if (storage_status != 0)
+			logmessage("rstats",
+				   "automatic storage commit failed; will retry (status=%d)",
+				   storage_status);
 	}
 }
 

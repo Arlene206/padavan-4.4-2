@@ -10,6 +10,7 @@
 #include "rstats_file_policy.h"
 #include "rstats_signal_policy.h"
 #include "rstats_time_policy.h"
+#include "rstats_persistence_policy.h"
 
 static char last_temp[PATH_MAX];
 static int write_mode, write_calls;
@@ -363,6 +364,28 @@ static void test_atomic_write_and_fsync_retries(const char *target) {
   temp_gone();
 }
 
+static void
+test_periodic_storage_save_retries_after_failure(void)
+{
+  long elapsed = 3600;
+
+  assert(rstats_storage_save_result(&elapsed, 3600, 0, EIO) == 0);
+  assert(elapsed == 0);
+  elapsed = 1200;
+  assert(rstats_storage_save_result(&elapsed, 3600, -1, ENOSPC) == ENOSPC);
+  assert(elapsed == 3600);
+  elapsed = 7200;
+  assert(rstats_storage_save_result(&elapsed, 3600, -1, EIO) == EIO);
+  assert(elapsed == 3600);
+  elapsed = 3600;
+  assert(rstats_storage_save_result(&elapsed, 3600, 17, EACCES) == 17);
+  assert(elapsed == 3600);
+  assert(rstats_storage_save_result(&elapsed, 3600, -1, 0) == EIO);
+  assert(elapsed == 3600);
+  assert(rstats_storage_save_result(NULL, 3600, 0, 0) == EINVAL);
+  assert(rstats_storage_save_result(&elapsed, 0, 0, 0) == EINVAL);
+}
+
 int main(void) {
   test_null_safe_system_time_policy();
   test_bounded_open_eintr();
@@ -417,6 +440,7 @@ int main(void) {
   expect(target, "json-new"); assert(access(stage, F_OK) < 0 && errno == ENOENT);
 
   test_atomic_write_and_fsync_retries(target);
+  test_periodic_storage_save_retries_after_failure();
 
   /* Signal handlers only accumulate coalesced bits for normal-context work. */
   rstats_record_signal(&pending, SIGHUP); rstats_record_signal(&pending, SIGHUP);

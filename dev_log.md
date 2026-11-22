@@ -1,3 +1,11 @@
+## 2026-11-22 — Retry rstats periodic flash persistence after failures
+
+- Parent main SHA: \`661924b3b5cb309988758820c285f6bedeab3c23\`. \`save_history_raw()\` zeroed \`g_store_cntr\` before calling \`write_storage_to_mtd()\` and discarded the flash script result. A failed \`mtd_storage.sh save\` therefore lost the due event and postponed the next attempt until another complete configured interval (up to a month).
+- The save result and errno are now captured. Success resets the elapsed counter; failure saturates it at the due threshold and preserves the positive status or errno (errno-less failure becomes EIO), so the next ordinary rstats tick retries. Failures are logged.
+- Added a GNU89 policy regression for success, errno-preserving failure, retry threshold saturation, positive status, errno-less EIO and invalid arguments. Extended rstats workflow source and path contracts.
+- Parent SHA \`661924b\` Router mode #45038940605, detect-link #45038940465, process inventory #45038940527, rstats #45038940393 and DNS Forwarder #45038940423 completed SUCCESS. Process lifecycle #45038940342 failed in its RC integration contract; inspect exact failed assertion separately. XY-C1 #45038940508 was still building; TRX/artifact not yet verified. No L3 claim.
+- No local checkout or tests were run in this connector-only session. This commit needs exact-head rstats/process and XY-C1 validation. Hardware L4 remains NOT VERIFIED.
+
 ## 2026-11-22 — Propagate detect_link monitor reset notification failures
 
 - Parent main SHA: \`972fbea175b0fbbc4c2959178e8f25e2fd7a9446\`. \`notify_reset_detect_link()\` returned void and discarded the result of both monitor start and PID/start-time-validated SIGUSR1 delivery. Process inventory could be valid while daemon launch or signal delivery failed, leaving WAN/link topology refresh unrequested without a visible error.
