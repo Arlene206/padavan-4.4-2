@@ -5,7 +5,7 @@ script=${1:-trunk/user/scripts/files/sbin/spindown.sh}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' 0 HUP INT TERM
 
-sed -n '/^spindown_mount_status() {$/,/^}$/p' "$script" > "$tmp/mount-function.sh"
+sed -n '/^spindown_mount_status() {$/,/^# Refuse to spin down/{ /^# Refuse to spin down/d; p; }' "$script" > "$tmp/mount-function.sh"
 [ -s "$tmp/mount-function.sh" ] || {
 	echo "could not extract spindown_mount_status" >&2
 	exit 1
