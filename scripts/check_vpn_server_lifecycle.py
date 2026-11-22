@@ -1104,7 +1104,6 @@ dualstack_endpoint=server_export
 ordered(dualstack_endpoint,[
     "openvpn_resolve_protocol_family(",
     "wan_addr = get_wan_addr6_host(addr6s);",
-    "wan_addr = get_wan_addr6_host(addr6s);",
     "wan_addr = get_lan_addr6_host(addr6s);",
     "if (!wan_addr && i_prot > 3)",
     'wan_addr = get_wan_unit_value(0, "ipaddr");',

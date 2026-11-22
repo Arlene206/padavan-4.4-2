@@ -1,3 +1,12 @@
+## 2026-11-22 13:49 UTC+8 — Repair duplicate OpenVPN endpoint checker anchor
+
+- Parent main SHA: `b87a4a09377e7efad534ed129cbd0ccc3ca719de`. On this exact push, IPv6 service-type #44990936117 and AI handoff docs #44990936053 passed; VPN lifecycle #44990936035 failed only at the final `check_vpn_server_lifecycle.py` source contract. Every preceding GNU89 policy/lifecycle/lease/PPP regression passed.
+- The first causal assertion failure was an accidental duplicate `wan_addr = get_wan_addr6_host(addr6s);` token in the ordered endpoint list. The production function has one such lookup, followed by LAN IPv6 and then the validated IPv4 fallback for dual-stack protocols.
+- Removed the duplicated expectation without changing the source or weakening endpoint-order checks. The existing VPN workflow already covers the checker on push and pull_request, so no workflow change is needed.
+- Exact product-source XY-C1 #44990566341 on `71c4a9e9111d70caa62dd45213acb82844eee717` was still in progress at last inspection; recheck it separately. THIS checker-only descendant requires its own exact-head VPN/IPv6 Actions and is not an L3 claim.
+
+---
+
 ## 2026-11-22 13:47 UTC+8 — Align OpenVPN checks with checked IPv6 protocol selection
 
 - Parent main SHA: `71c4a9e9111d70caa62dd45213acb82844eee717`. IPv6 service run #44990566402 failed only because three Python source locators expected a single-line resolver call; VPN lifecycle #44990566379 failed only because its exported-profile contract still demanded the removed `get_ipv6_type()` fallback. The GNU89 ASan/UBSan policy executable and earlier C lifecycle/credential tests passed in both jobs.
