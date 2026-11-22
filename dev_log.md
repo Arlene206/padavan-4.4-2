@@ -1,3 +1,10 @@
+## 2026-11-22 — Correct missing-route snapshot regression expectation
+
+- Parent main SHA: `d1cd34322e3ce8058cf7fc363fbabaa8b4696247`. Pre-commit review found one incorrect assertion in the new DHCP route snapshot regression: the fixture marks only `wan0_routes_rfc` absent, so the first and third route strings must remain present.
+- Corrected the missing-key case to retain `wan0_routes` and `wan0_routes_ms` while asserting only the middle `routes_rfc` destination is empty. No production source change; exact-head Actions for the route snapshot remain pending.
+
+---
+
 ## 2026-11-22 — Snapshot DHCP route options transactionally
 
 - Parent main SHA: `789ca3e5000e677f3e3c9e46609f64e9e771b469`. The DHCP route wrappers retained three pointers returned by `nvram_safe_get()` for `routes`, `routes_rfc`, and `routes_ms` while retrieving the remaining values. Those pointers refer to reusable NVRAM cache-ring storage and are not safe to retain across a wrap or concurrent NVRAM activity.

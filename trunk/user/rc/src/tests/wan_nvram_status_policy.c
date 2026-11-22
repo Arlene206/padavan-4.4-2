@@ -1417,7 +1417,7 @@ test_transactional_dhcp_route_options_snapshot(void)
 	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
 					  fake_snapshot_get, fake_snapshot_end,
 					  &fake) == 0);
-	assert(destinations[0][0] == '\0');
+	assert(strcmp(destinations[0], values[0]) == 0);
 	assert(destinations[1][0] == '\0');
 	assert(strcmp(destinations[2], values[2]) == 0);
 
