@@ -1238,6 +1238,9 @@ assert 'wan_nvram_checked_get_callback, NULL, "wanx_dns"' in resolver_body
 assert 'get_wan_unit_value_copy_status(\n\t\t\t0, "dns6"' in resolver_body
 assert "preserving existing resolver file" in resolver_body
 assert "int wan_dns_config_status = 0;" in resolver_body
+assert ('file_unlock(lock);\\n\\t\\terrno = wan_dns_config_status;\\n\\t\\treturn wan_dns_config_status;' in
+        resolver_body)
+
 assert "dns_servers_error = 0;" not in resolver_body
 
 assert 'nvram_safe_get(dns_name_x)' not in resolver_body

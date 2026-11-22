@@ -6404,6 +6404,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 			   "cannot read configured WAN DNS servers; preserving existing resolver file (status=%d)",
 			   wan_dns_config_status);
 		file_unlock(lock);
+		errno = wan_dns_config_status;
 		return wan_dns_config_status;
 	}
 

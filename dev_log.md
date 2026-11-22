@@ -1,3 +1,9 @@
+## 2026-11-22 — Preserve resolver errno across lock release
+
+- The checked WAN DNS read failure path now restores `errno` after releasing the resolver publication lock, matching the neighbouring VPN-DNS and WAN-DNS-mode error paths.
+
+---
+
 ## 2026-11-22 — Align MAN cleanup integration assertion with nested status aggregation
 
 - Process inventory on exact SHA `f99bf7c1711669961755cb06189db388bf54f099` failed only because the integration checker required the obsolete spelling `route_status_accumulate(status, conntrack_status)`. Production `udhcpc_deconfig()` already nests accumulation of protocol, interface, conntrack and route cleanup errors, preserving the status correctly.
