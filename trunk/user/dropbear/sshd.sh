@@ -29,7 +29,7 @@ dropbear_process_state()
 	0)
 		[ -n "$dropbear_pid_output" ] || return 2
 		case "$dropbear_pid_output" in
-			*[!0123456789\\ ]*) return 2 ;;
+			*[!0123456789\ ]*) return 2 ;;
 		esac
 		case $- in
 			*f*) dropbear_restore_noglob=0 ;;

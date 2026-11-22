@@ -202,7 +202,7 @@ case "$(cat "$MOCK_STATE_FILE")" in
     *) exit 2 ;;
 esac
 """)
-        executable(bin_dir / "sleep", """#!/bin/sh
+        executable(bin_dir / "sleep", "#!/bin/sh\nexit 0\n")
 echo "$1" >> "$MOCK_SLEEP_LOG"
 exit "${MOCK_SLEEP_STATUS:-0}"
 """)
@@ -1220,6 +1220,7 @@ exit "${MOCK_KILLALL_STATUS:-0}"
 
 
 def check_dropbear():
+    assert r"*[!0123456789\ ]*" in DROPBEAR_SSHD_SCRIPT.read_text()
     syntax = run(["/bin/sh", "-n", str(DROPBEAR_SSHD_SCRIPT)], os.environ.copy())
     assert syntax.returncode == 0, syntax.stderr
     makefile = (ROOT / "trunk/user/dropbear/Makefile").read_text()
