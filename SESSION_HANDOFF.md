@@ -28,22 +28,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Prior RC deferred hotplug-marker retry slice: GNU89/ASan/UBSan regression and source contracts passed; PID 1 queue #44973220815 and AI docs #44973220818 PASS on `9743262f0235b3b4ec8636d9fc28559757828c3e`; USB storage #44973128576 PASS on source `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`.
-- Current P1 firewall correction: `init_router()` no longer collapses failed `fw_enable_x` / `wan_nat_x` reads to false. Checked reads retain legacy missing-key defaults, propagate backend/close errors, and force the WAN startup policy to block when either selector is unknown. The default NAT builder now checks and snapshots LAN IP, netmask and NAT-loopback enable before opening its temporary restore file.
-- Added GNU89 policy regressions for each read failure plus explicit-disabled compatibility; updated the Firewall Startup source contract to pin checked-read ordering. No local MIPS firmware checkout/toolchain is available here.
-- Exact first follow-up: inspect this commit's Firewall Startup and XY-C1 Actions, then Process inventory and AI docs on the same SHA. Require Build XY-C1, TRX verification and artifact upload together for L3; physical-router L4 remains NOT VERIFIED.
+- P1 firewall boot-gate source fix is committed in `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`: PID 1 reads `fw_enable_x` / `wan_nat_x` with status-bearing NVRAM access and blocks WAN startup if either state is unknown; default NAT preflights its checked LAN IP/netmask/NAT-loopback snapshot before staging restore.
+- Checker follow-up `ef20a36bf970ec3c3c487cb71c2e0bdc615bf073` updates `scripts/check_forwarding_control_status.py` to locate the new checked startup-policy call. This was required after the first Firewall Startup run exposed a stale signature in the independent forwarding contract; no production source changed in this follow-up.
+- Firewall Startup exact-descendant result: run #44974378538 PASS on `ef20a36`, including the checked firewall-enable NVRAM regression, WAN startup policy regression, NAT restore gate and IPv4/IPv6 forwarding sysctl status contract.
+- Other source-slice checks PASS on production source `e9ef41`: PID 1 notification queue #44974210641, Process inventory #44974210706, AI handoff docs #44974210724, WAN DHCP callback #44974210669, infosvr packet/signal lifecycle #44974210764. These five tested areas were not changed by checker-only descendant `ef20a36`.
+- Next: reconcile XY-C1 run #44974378528 on exact SHA `ef20a36`; require Build XY-C1, TRX verification and artifact upload all complete on that SHA for L3. If pending, keep progressing on independent whole-userland stability issues. Hardware L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- Parent main SHA for this firewall source slice: `9743262f0235b3b4ec8636d9fc28559757828c3e`.
-- Prior exact-SHA checks: PID 1 queue #44973220815 PASS and AI docs #44973220818 PASS on `9743262f0235b3b4ec8636d9fc28559757828c3e`; USB storage #44973128576 PASS on `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`; HTTPD auth/security #44973128500 PASS; HTTPD daemon lifecycle #44973128575 PASS.
-- XY-C1 #44973128574 belongs to source `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`, not the firewall slice; Build XY-C1 was IN_PROGRESS at last check, and TRX/artifact were not confirmed. No L3 claim.
-- This firewall source/test/workflow change requires exact-head reruns. No new compile, target build or hardware L4 result is claimed yet.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 stays closed/unmerged.
+- Firewall production source SHA: `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`.
+- Checker-only descendant/current main at this checkpoint: `ef20a36bf970ec3c3c487cb71c2e0bdc615bf073`.
+- Firewall Startup Regression #44974210810 initially failed only because `scripts/check_forwarding_control_status.py` still searched for `firewall_startup_policy_allows_wan(`; its IPv4 forwarding policy binary itself passed. Checker was corrected in `ef20a36`; rerun #44974378538 then PASS.
+- PID 1 queue #44974210641 PASS; Process inventory #44974210706 PASS; AI docs #44974210724 PASS; WAN DHCP callback ## Exact first action for the next GPT
 
-## Exact first action for the next GPT
+1. Recheck XY-C1 run #44974378528 on `ef20a36bf970ec3c3c487cb71c2e0bdc615bf073`; inspect Build XY-C1, TRX verification and artifact upload jobs. Diagnose only actual failing steps.
+2. Keep L3 pending unless all three XY-C1 stages pass on that same SHA; keep L4 NOT VERIFIED until actual router hardware is tested.
+3. While the firmware run remains pending, continue one independent P1/P2 userland reliability/security slice; do not redo the firewall boot audit or USB deferred-marker investigation.
 
-1. Inspect exact-head Firewall Startup and XY-C1 runs for the new commit; also inspect Process inventory and AI handoff docs on that same source SHA. Diagnose real failed steps and fix the source or the specific stale contract.
+e source SHA. Diagnose real failed steps and fix the source or the specific stale contract.
 2. Do not mark L3 complete until Build XY-C1, TRX verification and artifact upload pass on that exact SHA. Physical-router L4 remains NOT VERIFIED until directly tested.
 3. While any CI job is pending, continue an independent P1/P2 whole-userland stability/security slice; do not repeat deferred-marker or USB modem identity audits.
 

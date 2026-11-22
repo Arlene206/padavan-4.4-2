@@ -1,3 +1,12 @@
+## 2026-11-22 — Firewall boot enable-state hardening and exact-head CI reconciliation
+
+- Production source slice: `e9ef41bd5a103b1693d5f0044d3ec5e5532c1661`. PID 1 no longer maps failed reads of `fw_enable_x` or `wan_nat_x` to false; checked status gates `start_wan()`. `ipt_nat_default()` now preflights all applicable NVRAM inputs before creating the restore file. Added GNU89 policy regressions and source-order assertions.
+- Initial Firewall Startup run #44974210810 exposed a stale caller signature in `scripts/check_forwarding_control_status.py`; all preceding firewall policy/NVRAM and forwarding regression binaries passed. Updated the checker in `ef20a36bf970ec3c3c487cb71c2e0bdc615bf073` without changing production code.
+- Exact descendant Firewall Startup rerun #44974378538 PASS on `ef20a36`. PID 1 notifications #44974210641, Process inventory #44974210706, AI docs #44974210724, WAN DHCP callback #44974210669 and infosvr lifecycle #44974210764 PASS on production source `e9ef41`.
+- XY-C1 validation #44974378528 is tied to exact code SHA `ef20a36` and remained IN_PROGRESS at this checkpoint. No L3 Build/TRX/artifact completion or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-22 — Fix missing PID 1 main-loop binding in retry workflow contract
 
 - Parent main SHA: `3e99d89dd56e70d1c59230d42d33da166b9d2cc2`.
