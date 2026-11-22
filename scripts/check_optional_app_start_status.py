@@ -607,6 +607,23 @@ esac
 echo "$*" >> "$MOCK_START_LOG"
 status="$MOCK_START_STATUS"
 [ "$status" -eq 0 ] || exit "$status"
+credentials_file=
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --credentials-file)
+            shift
+            [ "$#" -gt 0 ] || exit 64
+            credentials_file=$1
+            ;;
+    esac
+    shift
+done
+if [ -n "$credentials_file" ]; then
+    [ -f "$credentials_file" ] || exit 65
+    grep -Fqx 'username=test' "$credentials_file" || exit 66
+    grep -Fqx 'password=test' "$credentials_file" || exit 67
+    rm -f "$credentials_file"
+fi
 if [ -n "${MOCK_START_STATE:-}" ]; then
     echo "$MOCK_START_STATE" > "$MOCK_STATE_FILE"
 elif [ "$MOCK_START_APPEARS" = 1 ]; then
