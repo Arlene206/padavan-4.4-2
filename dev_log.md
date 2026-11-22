@@ -1,3 +1,11 @@
+## 2026-11-22 — Check LAN/WAN MAC overrides before VLAN topology changes
+
+- `config_soft_bridge_lan()` and `config_vinet_wan()` used lossy `nvram_safe_get()` reads for the configured LAN/WAN MAC overrides immediately before creating VLAN interfaces or changing VLAN hardware state. A transient NVRAM error could be mistaken for an empty MAC and continue through topology mutation.
+- Both values are now copied through the checked, bounded NVRAM accessor before the corresponding topology/hardware changes. An absent optional override retains its previous empty-string semantics; backend errors and overlong values abort before mutation.
+- Extended the Process lifecycle source contract to pin both checked reads and ordering. Exact-SHA Process and XY-C1 Actions pending.
+
+---
+
 ## 2026-11-22 — Preserve resolver errno across lock release
 
 - The checked WAN DNS read failure path now restores `errno` after releasing the resolver publication lock, matching the neighbouring VPN-DNS and WAN-DNS-mode error paths.

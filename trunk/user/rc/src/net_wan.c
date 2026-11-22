@@ -1412,6 +1412,7 @@ static int
 config_soft_bridge_lan(void)
 {
 	char lan_ifname[24];
+	char lan_hwaddr[18] = {0};
 	const char *wired_ifname;
 	int igmp_snoop, wired_m2u;
 	int ret, saved_errno, cleanup_ret;
@@ -1452,6 +1453,19 @@ config_soft_bridge_lan(void)
 	}
 	bridge_enabled = bridge_mode != SWAPI_WAN_BRIDGE_DISABLE;
 
+	if (bridge_enabled) {
+		ret = rc_wan_nvram_copy_value(
+			wan_nvram_checked_get_callback, NULL, "lan_hwaddr",
+			lan_hwaddr, sizeof(lan_hwaddr));
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read LAN MAC override before bridge topology changes (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+	}
+
 	/*
 	 * Snapshot the VLAN before changing it.  The tracked creator publishes
 	 * ownership only after its full setup succeeds; a reused VLAN must retain
@@ -1466,8 +1480,7 @@ config_soft_bridge_lan(void)
 
 	if (bridge_enabled) {
 		ret = create_vlan_iface_tracked(IFNAME_MAC, 1, -1, -1,
-						nvram_safe_get("lan_hwaddr"), 1,
-						&vlan_created);
+						lan_hwaddr, 1, &vlan_created);
 		if (ret != 0)
 			goto rollback;
 #if defined (USE_IPV6)
@@ -2344,7 +2357,7 @@ config_vinet_wan(void)
 #endif
 	char vinet_ifname[24], vlan_iflast[24];
 	char previous_vinet_ifname[IFNAMSIZ], vinet_iflast[IFNAMSIZ];
-	const char *wan_hwaddr;
+	char wan_hwaddr[18] = {0};
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
 #else
@@ -2480,11 +2493,20 @@ config_vinet_wan(void)
 		}
 	}
 
+	ret = rc_wan_nvram_copy_value(
+		wan_nvram_checked_get_callback, NULL, "wan_hwaddr",
+		wan_hwaddr, sizeof(wan_hwaddr));
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN MAC override before VLAN hardware changes (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
+
 	/* update VLAN VID for raeth (HW_VLAN_TX) */
 	hw_vlan_tx_map(6, vlan_vid[0]);
 	hw_vlan_tx_map(7, vlan_vid[1]);
-
-	wan_hwaddr = nvram_safe_get("wan_hwaddr");
 
 	is_vlan_ifname = 1;
 	snprintf(vinet_ifname, sizeof(vinet_ifname), "%s.%d", ifname_wan_cpu, vlan_vid[0]);

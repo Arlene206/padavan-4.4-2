@@ -1221,12 +1221,20 @@ for path in (
 ):
     assert '"{}"'.format(path) in dnsmasq_workflow, "DNSMasq workflow missing {}".format(path)
 assert "Compile and run DNSMasq reload identity policy regression" in dnsmasq_workflow
+lan_bridge_setup = c_function_body(net_wan, "config_soft_bridge_lan(void)")
+assert 'rc_wan_nvram_copy_value(\n\t\t\twan_nvram_checked_get_callback, NULL, "lan_hwaddr"' in lan_bridge_setup
+assert 'nvram_safe_get("lan_hwaddr")' not in lan_bridge_setup
+assert lan_bridge_setup.index('rc_wan_nvram_copy_value(') < lan_bridge_setup.index('create_vlan_iface_tracked(')
+
 vlan_setup = c_function_body(net_wan, "config_vinet_wan(void)")
 assert 'get_wan_unit_value_copy_status(\n\t\t0, "viflast"' in vlan_setup
 assert "previous WAN VLAN cleanup identity is invalid" in vlan_setup
 assert 'get_wan_unit_value(0, "viflast")' not in vlan_setup
 assert vlan_setup.index('get_wan_unit_value_copy_status(') < vlan_setup.index("hw_vlan_tx_map(")
 assert vlan_setup.index('wan_ifname_copy(vinet_iflast') < vlan_setup.index("hw_vlan_tx_map(")
+assert 'rc_wan_nvram_copy_value(\\n\\t\\twan_nvram_checked_get_callback, NULL, "wan_hwaddr"' in vlan_setup
+assert 'nvram_safe_get("wan_hwaddr")' not in vlan_setup
+assert vlan_setup.index('rc_wan_nvram_copy_value(') < vlan_setup.index("hw_vlan_tx_map(")
 
 resolver_body = c_function_body(
     net_wan, "update_resolvconf(int is_first_run, int do_not_notify)"
