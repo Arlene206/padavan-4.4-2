@@ -3420,7 +3420,7 @@ jobs:
           assert "storage_chkntfs_status_allows_mount 0" in fat_test
           assert "storage_fsck_fat_status_allows_mount 1" in fat_test
 
-          lock_file = 'automount_lock_file="/var/lock/automount_mountpoint.lock"'
+          lock_file = 'automount_lock_file="/tmp/automount_mountpoint.lock"'
           lock_open = automount.index('exec 8>>"$automount_lock_file"')
           lock_wait = automount.index("if ! flock 8;", lock_open)
           mount_owner_preflight = automount.index('mount_from_device "$dev_mount"', lock_wait)
