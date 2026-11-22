@@ -929,6 +929,14 @@ jobs:
           assert 'nvram_match("sp_battle_ips", "1")' not in ipv4_battle
           assert "test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure" in firewall_nvram_test
 
+          # The optional PPPoE-MWAN detection toggle is checked before firewall changes.
+          startup_source = body(firewall_source, "start_firewall_ex_locked(void)")
+          pppoemwan_gate = 'firewall_read_enabled_setting("pppoemwan_enable", &is_pppoemwan_enabled)'
+          assert pppoemwan_gate in startup_source
+          assert startup_source.index(pppoemwan_gate) < startup_source.index('set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)')
+          assert 'nvram_match("pppoemwan_enable", "1")' not in startup_source
+          assert "test_pppoe_mwan_hook_toggle_missing_default_and_backend_failure" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",

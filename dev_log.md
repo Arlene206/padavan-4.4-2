@@ -1,3 +1,11 @@
+## 2026-11-21 — Check PPPoE-MWAN hook gate before firewall restore
+
+- Parent main SHA: `82bc8c209786e5f7d412ba6e40daeab8b9c027e7`. Exact parent Firewall Startup #44983883141 and XY-C1 #44983883157 were queued; NVRAM #44983883172 pending; HTTPD #44983883282, FULLCONENAT #44983883272, WAN DHCP #44983883201, WAN route #44983883250, process #44983883289 and AI #44983883217 queued. Previous `d0dda5d` Firewall Startup #44983793304 and other completed regressions passed.
+- The last direct `nvram_match()` in `firewall_ex.c` was the `pppoemwan_enable` selector for `/usr/bin/detect.sh`, evaluated after built-in firewall restore. A backend failure was silently treated as disabled.
+- The toggle is now checked with `firewall_read_enabled_setting()` before `rp_filter` or table changes; the post-restore hook reuses that validated boolean. Missing remains false; backend error prevents the new firewall apply from starting.
+- Added GNU89 sanitizer coverage and exact workflow source ordering/no-unchecked-getter assertions. Exact-head Firewall Startup pending.
+
+---
 ## 2026-11-21 — Check NAT auxiliary policy toggles before rule staging
 
 - Parent main SHA: `d0dda5dc4dc5feada52ecfdf8a83c99a40b3e169`. Exact Firewall Startup #44983656044 PASS; its log confirms NAT remote-listener source contracts, IPv4/IPv6 multicast preflight assertions, `Required NAT restore, filter safety and push/PR workflow contracts: PASS`, and rp_filter policy checks. WAN DHCP #44983656013, HTTPD #44983656061, FULLCONENAT #44983656051, WAN route #44983656027, process inventory #44983656019 and AI #44983656035 PASS. XY-C1 #44983656163 and NVRAM #44983656068 were still IN_PROGRESS at last poll.

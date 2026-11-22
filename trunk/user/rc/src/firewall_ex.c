@@ -4340,6 +4340,7 @@ start_firewall_ex_locked(void)
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
 	int is_multicast_enabled = 0, is_udpxy_disabled = 0;
+	int is_pppoemwan_enabled = 0;
 #if defined (APP_XUPNPD)
 	int is_xupnpd_disabled = 0;
 #endif
@@ -4455,6 +4456,11 @@ start_firewall_ex_locked(void)
 		errno = EINVAL;
 		return EINVAL;
 	}
+
+	/* Read optional PPPoE-MWAN detection before changing host networking. */
+	status = firewall_read_enabled_setting("pppoemwan_enable", &is_pppoemwan_enabled);
+	if (status != 0)
+		return status;
 
 	/* Snapshot firewall logging mode before changing host networking state. */
 	status = firewall_read_match_setting("fw_log_x", "accept", 0,
@@ -4675,7 +4681,7 @@ firewall_restore_complete:
 			   forward_status);
 	status = rc_first_service_start_status(status, forward_status);
 
-	if (nvram_match("pppoemwan_enable", "1")) {
+	if (is_pppoemwan_enabled) {
 		hook_error = firewall_log_command_failure("PPPoE-MWAN detection",
 						  doSystem("/usr/bin/detect.sh"));
 		status = rc_first_service_start_status(status, hook_error);

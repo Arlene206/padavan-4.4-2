@@ -301,6 +301,17 @@ test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure(void)
 }
 
 static void
+test_pppoe_mwan_hook_toggle_missing_default_and_backend_failure(void)
+{
+	int enabled = 27;
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0, &enabled) == 0);
+	assert(enabled == 0);
+	enabled = 27;
+	assert(firewall_nvram_match_status(-1, EIO, NULL, "1", 0, &enabled) == EIO);
+	assert(enabled == 27);
+}
+
+static void
 test_nvram_read_status_distinguishes_missing_and_backend_error(void)
 {
     assert(firewall_nvram_read_status(1, 0, "UDP") == 0);
@@ -359,6 +370,7 @@ main(void)
 	test_filter_multicast_toggle_missing_default_and_backend_failure();
 	test_firewall_log_mode_values_missing_default_and_backend_error();
 	test_nat_auxiliary_policy_toggles_missing_default_and_backend_failure();
+	test_pppoe_mwan_hook_toggle_missing_default_and_backend_failure();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
