@@ -2186,6 +2186,7 @@ struct lan_dhcp_deconfig_state {
 	char static_netmask[16];
 	char static_gateway[16];
 	char static_domain[256];
+	char static_dns_mode[8];
 	char static_dns1[16];
 	char static_dns2[16];
 	char previous_address[16];
@@ -2205,7 +2206,7 @@ static int
 lan_dhcp_deconfig_snapshot(struct lan_dhcp_deconfig_state *snapshot)
 {
 	struct nvram_transaction transaction;
-	struct rc_wan_nvram_snapshot_field fields[13];
+	struct rc_wan_nvram_snapshot_field fields[14];
 
 	if (!snapshot) {
 		errno = EINVAL;
@@ -2248,15 +2249,18 @@ lan_dhcp_deconfig_snapshot(struct lan_dhcp_deconfig_state *snapshot)
 	fields[10].param_name = "lan_lease_t";
 	fields[10].destination = snapshot->previous_lease;
 	fields[10].destination_size = sizeof(snapshot->previous_lease);
-	fields[11].param_name = "lan_dns1";
-	fields[11].destination = snapshot->static_dns1;
-	fields[11].destination_size = sizeof(snapshot->static_dns1);
-	fields[12].param_name = "lan_dns2";
-	fields[12].destination = snapshot->static_dns2;
-	fields[12].destination_size = sizeof(snapshot->static_dns2);
+	fields[11].param_name = "lan_dns_x";
+	fields[11].destination = snapshot->static_dns_mode;
+	fields[11].destination_size = sizeof(snapshot->static_dns_mode);
+	fields[12].param_name = "lan_dns1";
+	fields[12].destination = snapshot->static_dns1;
+	fields[12].destination_size = sizeof(snapshot->static_dns1);
+	fields[13].param_name = "lan_dns2";
+	fields[13].destination = snapshot->static_dns2;
+	fields[13].destination_size = sizeof(snapshot->static_dns2);
 
 	return rc_wan_nvram_copy_snapshot(
-		fields, 13, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		fields, 14, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
 		lan_dhcp_snapshot_end, &transaction);
 }
 
@@ -2345,6 +2349,7 @@ lan_down_auto(char *lan_ifname)
 					   resolv_temp, errno ? errno : EIO);
 		} else {
 			int dns_count = 0;
+			int use_static_dns = (atoi(snapshot.static_dns_mode) == 0);
 
 			if (*snapshot.static_domain) {
 				if (!dnsmasq_valid_server_domain(snapshot.static_domain)) {
@@ -2356,7 +2361,7 @@ lan_down_auto(char *lan_ifname)
 				}
 			}
 
-			if (resolver_status == 0 &&
+			if (resolver_status == 0 && use_static_dns &&
 			    is_valid_ipv4(snapshot.static_dns1)) {
 				errno = 0;
 				if (fprintf(fp, "nameserver %s\n", snapshot.static_dns1) < 0)
@@ -2365,7 +2370,7 @@ lan_down_auto(char *lan_ifname)
 					dns_count++;
 			}
 
-			if (resolver_status == 0 &&
+			if (resolver_status == 0 && use_static_dns &&
 			    is_valid_ipv4(snapshot.static_dns2)) {
 				errno = 0;
 				if (fprintf(fp, "nameserver %s\n", snapshot.static_dns2) < 0)
@@ -2376,7 +2381,8 @@ lan_down_auto(char *lan_ifname)
 
 			if (resolver_status == 0 &&
 			    dhcp_lease_static_resolver_uses_gateway(
-				dns_count, is_valid_ipv4(snapshot.static_gateway))) {
+				use_static_dns, dns_count,
+				is_valid_ipv4(snapshot.static_gateway))) {
 				errno = 0;
 				if (fprintf(fp, "nameserver %s\n",
 					    snapshot.static_gateway) < 0)
@@ -2398,7 +2404,7 @@ lan_down_auto(char *lan_ifname)
 				if (dnsmasq_file_discard(resolv_temp) != 0)
 					logmessage("DHCP LAN Client",
 						   "cannot remove failed LAN resolver stage '%s' after publish failure (errno=%d)",
-					   resolv_temp, errno ? errno : EIO);
+						   resolv_temp, errno ? errno : EIO);
 			}
 		}
 		file_unlock(lock);

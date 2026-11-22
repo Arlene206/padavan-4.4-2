@@ -74,13 +74,14 @@ assert "lan_dhcp_snapshot_end" in snapshot_helper
 for key in (
     "lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_gateway", "lan_domain",
     "lan_ipaddr_t", "lan_netmask_t", "lan_domain_t", "lan_dns_t",
-    "lan_wins_t", "lan_lease_t", "lan_dns1", "lan_dns2",
+    "lan_wins_t", "lan_lease_t", "lan_dns_x", "lan_dns1", "lan_dns2",
 ):
     assert '"' + key + '"' in snapshot_helper
-assert "struct rc_wan_nvram_snapshot_field fields[13];" in snapshot_helper
+assert "struct rc_wan_nvram_snapshot_field fields[14];" in snapshot_helper
 assert 'fields[10].param_name = "lan_lease_t";' in snapshot_helper
-assert 'fields[11].param_name = "lan_dns1";' in snapshot_helper
-assert 'fields[12].param_name = "lan_dns2";' in snapshot_helper
+assert 'fields[11].param_name = "lan_dns_x";' in snapshot_helper
+assert 'fields[12].param_name = "lan_dns1";' in snapshot_helper
+assert 'fields[13].param_name = "lan_dns2";' in snapshot_helper
 snapshot_policy_body = c_function_body(
     nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot("
 )
@@ -132,7 +133,10 @@ for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
 assert "failed to restore static LAN hostname/hosts during deconfig" in cleanup
 assert "dnsmasq_valid_server_domain(snapshot.static_domain)" in cleanup
 assert "dhcp_lease_static_resolver_uses_gateway(" in cleanup
+assert "atoi(snapshot.static_dns_mode) == 0" in cleanup
+assert cleanup.count("use_static_dns &&") == 2
 assert "snapshot.static_dns1" in cleanup and "snapshot.static_dns2" in cleanup
+assert "use_static_dns, dns_count" in compact(cleanup)
 assert "if (resolver_status != 0)" in cleanup and "fclose(fp)" in cleanup
 resolver_domain_write = cleanup.index('fprintf(fp, "domain %s\\n", snapshot.static_domain) < 0')
 resolver_dns1_write = cleanup.index('fprintf(fp, "nameserver %s\\n", snapshot.static_dns1) < 0')
@@ -143,8 +147,9 @@ resolver_gateway_fallback = cleanup.index(
 resolver_gateway_arg = cleanup.index("snapshot.static_gateway", resolver_gateway_fallback)
 resolver_publish = cleanup.index("dnsmasq_file_publish(fp, resolv_temp,", resolver_gateway_arg)
 assert resolver_domain_write < resolver_dns1_write < resolver_dns2_write < resolver_gateway_fallback < resolver_gateway_arg < resolver_publish
-assert "dhcp_lease_static_resolver_uses_gateway(0, 1)" in test
-assert "!dhcp_lease_static_resolver_uses_gateway(1, 1)" in test
+assert "dhcp_lease_static_resolver_uses_gateway(1, 0, 1)" in test
+assert "!dhcp_lease_static_resolver_uses_gateway(1, 1, 1)" in test
+assert "dhcp_lease_static_resolver_uses_gateway(0, 0, 1)" in test
 
 metadata_prepare = cleanup.index("lan_dhcp_deconfig_metadata_prepare(")
 metadata_publish = cleanup.index("metadata_status = lan_dhcp_nvram_state_publish(", metadata_prepare)

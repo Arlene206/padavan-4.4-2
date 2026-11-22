@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve LAN automatic DNS mode on DHCP deconfig
+
+- Parent main SHA: `51ff4552ae4b66dc6df736a9a61836fec8637a94`. Exact WAN DHCP #44981845607 and HTTPD security #44981845582 PASS. XY-C1 #44981845610 completed with Build/TRX/artifact skipped because the parent changed only test contracts/docs. Production-source XY-C1 #44981685710 on `1483e35` was still building; NVRAM audit #44981685780 PASS.
+- Found a configuration-semantic regression in the previous static resolver restore: the manual LAN resolver path uses configured `lan_dns1`/`lan_dns2` only when `nvram_get_int("lan_dns_x") == 0`; nonzero selects lease-supplied DNS. The deconfig path unconditionally wrote DNS1/DNS2, so AP automatic-DNS mode silently switched to manual servers after lease withdrawal.
+- Added `lan_dns_x` to the same transactional NVRAM snapshot (14 fields total). Deconfig now mirrors manual/automatic mode selection: static DNS1/DNS2 are emitted only when the mode parses as zero; otherwise the configured static gateway is used as fallback DNS. The fallback helper receives DNS mode, usable static DNS count and gateway validity.
+- Extended GNU89 policy tests for both manual and automatic DNS mode and updated the Python source checker for the mode snapshot, guarded DNS writes and fallback selection. Exact-head WAN DHCP/HTTPD and same-source XY-C1 Build/TRX/artifact pending; no L2/L3/L4 claim yet.
+
+---
+
 ## 2026-11-21 — Correct DHCP deconfig source-contract arity and resolver matchers
 
 - Parent main SHA: `1483e35a5321692372faf317851d1a09c59c7eb7`.
