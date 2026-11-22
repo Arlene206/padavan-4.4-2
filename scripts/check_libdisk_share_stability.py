@@ -389,7 +389,7 @@ for marker in (
     "test_permission_rewrite_renames_key_and_preserves_rights",
     "test_permission_rewrite_reports_missing_record_and_clears_outputs",
 ):
-    require(marker in SHARE_TEST and marker + "();" in SHARE_TEST,
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
             "missing permission record rewrite regression: " + marker)
 
 samba = function_body(SAMBA_SOURCE, "write_smb_conf_unlocked(")
