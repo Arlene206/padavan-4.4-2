@@ -166,6 +166,9 @@ require("HEAD / HTTP/1.0" in http_ready and
         'ald_http_ready "$host" "$port"' in wait_started and
         'ald_wait_started' in start,
         "startup readiness must verify a bounded HTTP status response as well as the process")
+require("TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_ENABLE=1\nTEST_HTTP_MODE=unavailable" in test and
+        "TEST_TERM_BEHAVIOR=stuck\nTEST_RUNNING=1\nTEST_HTTP_MODE=delayed" in test,
+        "HTTP readiness fixtures must reset stop-test state before repeated process probes")
 require("TEST_HTTP_MODE=unavailable" in test and
         "TEST_HTTP_MODE=delayed" in test and
         "HTTP 503 was accepted as readiness" in test and

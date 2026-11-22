@@ -24,11 +24,11 @@ AliDDNS previously computed its keeper restart status by raw concatenation of NV
 ## Verification boundary
 
 - Parent main SHA recorded by this slice: `${head}`. New AliDDNS fingerprint shell regression and source-contract checks are committed below but have not run yet.
-- AliyunDrive prior failure #45042609844 on source SHA 4b01a3e was in the process-present/HTTP-unavailable timeout assertion. Diagnostic test commit f8176758f1c9ec1e96381da1208be1edf0425fae prints marker/probe/sleep counts; its exact-head result was not yet inspected.
+- AliyunDrive prior lifecycle #45043377399 on `47e8da3e5f3dd72c7f93872a5dadde52fa27cbcd` failed with `probes=1 sleeps=10`: `TEST_TERM_BEHAVIOR=after-one-poll` leaked from the disabled-stop test and made the PID disappear after one sleep. This commit resets the mock to `stuck` before both HTTP readiness fixtures; production source is unchanged.
 - No local shell tests, production target build, TRX/artifact or hardware run was performed. L3 requires all XY-C1 Build/TRX/artifact checks PASS on one exact product-source SHA; L3 and L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact AliDDNS API transport Action; fix actual failure without weakening the collision contract.
-2. Inspect AliyunDrive HTTP-readiness diagnostic Action for parent f8176758f1c9ec1e96381da1208be1edf0425fae and the current descendants. Use printed marker/probe/sleep counts to close the timeout case.
-3. Inspect current same-SHA XY-C1 Build, TRX verification and artifact upload, and continue another independent userland stability/security slice. Keep frozen backup read-only and work only on main.
+1. Inspect exact-head AliyunDrive lifecycle and AI handoff results for this fixture-state repair; verify 11 HTTP-unavailable probes and 3 delayed-listener probes.
+2. Inspect the in-progress parent-129372 Actions: AI handoff #45043414763, Process inventory #45043414729, HTTPD security #45043414724, XY-C1 #45043414723 and AliDDNS #45043414686; they are historical parent results, not evidence for this new SHA.
+3. Continue an independent confirmed userland defect while Actions are pending. Keep the frozen backup read-only and work only on main.

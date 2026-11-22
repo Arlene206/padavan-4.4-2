@@ -399,6 +399,8 @@ chmod 700 "$ALD_BIN"
 # A live process without an HTTP listener must not satisfy readiness.
 # Model a pre-existing PID directly; the no-listener contract is independent
 # of the separate background-launch mock and its marker-file scheduling.
+# The preceding disabled-stop test set this mock to stop after one poll.
+TEST_TERM_BEHAVIOR=stuck
 TEST_RUNNING=1
 TEST_ENABLE=1
 TEST_HTTP_MODE=unavailable
@@ -421,6 +423,7 @@ if [ "$test_http_probe_lines" -ne 11 ] ||
 fi
 
 # A running process whose listener appears after three probes is accepted.
+TEST_TERM_BEHAVIOR=stuck
 TEST_RUNNING=1
 TEST_HTTP_MODE=delayed
 TEST_HTTP_READY_AFTER=3

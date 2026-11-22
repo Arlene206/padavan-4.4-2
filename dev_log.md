@@ -1,3 +1,11 @@
+## 2026-11-22 — Reset stop-mock state before AliyunDrive HTTP readiness polling
+
+- Parent main SHA: `129372718e1241823d785da6455abb46d03869c1`. The exact lifecycle run #45043377399 failed with `probes=1 sleeps=10`: the earlier disabled-start/TERM test intentionally left `TEST_TERM_BEHAVIOR=after-one-poll`, and the shared `sleep()` mock changed `TEST_RUNNING` to absent after the first readiness poll. This made the HTTP timeout fixture stop probing after one request.
+- Reset `TEST_TERM_BEHAVIOR=stuck` immediately before both the persistent-unavailable and delayed-listener scenarios, and pinned this isolation in the source checker. The production launcher is unchanged; test now keeps its simulated PID alive for all 10 polls.
+- Parent `129372718e1241823d785da6455abb46d03869c1`: AliyunDrive lifecycle #45043377399 FAIL from this fixture-state leak; QEMU MIPSel binary compatibility step PASS. AI handoff #45043377304 failed because SESSION_HANDOFF omitted the required `Before context exhaustion` phrase; the subsequent main handoff already includes that rule and exact-head AI #45043414763 was IN_PROGRESS. Process inventory #45043414729, HTTPD security #45043414724, XY-C1 #45043414723 and AliDDNS #45043414686 were IN_PROGRESS on the same parent SHA.
+- No local shell test or target build was run. Exact-head AliyunDrive source/test contract and AI handoff checks must pass after this repair.
+
+---
 ## 2026-11-22 — Make AliDDNS restart fingerprints unambiguous
 
 - Parent main SHA: `47e8da3e5f3dd72c7f93872a5dadde52fa27cbcd`. `aliddns_get_status()` previously formed its restart digest by concatenating adjacent NVRAM fields with no separators before MD5. Different valid settings could therefore produce the same preimage (for example `domain=example.com,name=ab` and `domain=example.coma,name=b`), causing a changed provider/record configuration not to restart the keeper and leaving the old DDNS configuration active.
