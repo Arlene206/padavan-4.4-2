@@ -988,8 +988,8 @@ assert "if(modem_rule_status==0)" not in deferred_code
 assert "modem_plug_status=try_start_usb_modem_to_wan();" in deferred_code
 assert "if(plug_modem&&!unplug_modem&&!modem_unplug_pending)" in deferred_code
 assert 'storage_ack_event_marker_status("usb_hotplug_md")' in deferred_code
-assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in retry_policy
-assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in retry_policy
+assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in POLICY_SOURCE
+assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in POLICY_SOURCE
 assert 'nvram_set_int_temp("usb_unplug_md",1)' not in deferred_code
 assert 'nvram_set_int_temp("usb_hotplug_md",1)' not in deferred_code
 assert "modem_wan_hotplug_retry_mask(" in deferred_code
