@@ -75,7 +75,7 @@ test_ack_failure_does_not_replay_successful_action(void)
 static void
 test_action_failure_remains_eligible_for_retry(void)
 {
-	int action_done = 1;
+	int action_done = 0;
 
 	assert(usb_hotplug_event_action_should_run(1, action_done));
 	assert(usb_hotplug_event_ack_status(1, -1, 0, &action_done) == EIO);
