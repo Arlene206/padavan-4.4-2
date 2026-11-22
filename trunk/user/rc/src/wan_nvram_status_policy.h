@@ -84,6 +84,34 @@ rc_wan_nvram_parse_int_value(const char *text, int *value)
 }
 
 /*
+ * Parse a transactionally copied integer tuple. Do not expose a partially
+ * decoded configuration when one member is malformed or overflows.
+ */
+static inline int
+rc_wan_nvram_parse_int_snapshot(const char *const *texts,
+				unsigned int count, int *values)
+{
+	unsigned int i, j;
+	int status;
+
+	if (!texts || count == 0 || !values)
+		return EINVAL;
+	for (i = 0; i < count; ++i)
+		values[i] = 0;
+
+	for (i = 0; i < count; ++i) {
+		status = rc_wan_nvram_parse_int_value(texts[i], &values[i]);
+		if (status != 0) {
+			for (j = 0; j < count; ++j)
+				values[j] = 0;
+			return status;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * nvram_get_checked() returns 0 for a missing key and -1 for a backend error.
  * Keep those states distinct while retaining the caller's legacy default.
  */

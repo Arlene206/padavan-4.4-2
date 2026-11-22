@@ -47,6 +47,74 @@
 #define DHCP6C_CALLBACK_GENERATION_ENV "DHCP6C_CALLBACK_GENERATION"
 #define DHCP6C_CALLBACK_IFNAME_ENV "DHCP6C_CALLBACK_IFNAME"
 
+#define WAN6_DHCP_INTEGER_SNAPSHOT_MAX 3
+#define WAN6_DHCP_INTEGER_VALUE_SIZE 32
+
+static int
+wan6_snapshot_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+wan6_snapshot_transaction_get(void *context, const char *param_name,
+			      char **value)
+{
+	if (!context || !param_name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+static int
+wan6_snapshot_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+/*
+ * DHCPv6 startup and lease callbacks must not interpret an NVRAM ioctl/read/
+ * close error as a disabled flag. Copy the complete set under one lock,
+ * preserve the legacy zero value for absent keys, then parse all members
+ * before making any configuration or lease-state decision.
+ */
+static int
+wan6_read_dhcp_integer_snapshot(const char *const *param_names,
+				unsigned int count, int *values)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[WAN6_DHCP_INTEGER_SNAPSHOT_MAX];
+	char text_values[WAN6_DHCP_INTEGER_SNAPSHOT_MAX][WAN6_DHCP_INTEGER_VALUE_SIZE];
+	const char *text_pointers[WAN6_DHCP_INTEGER_SNAPSHOT_MAX];
+	unsigned int i;
+	int status;
+
+	if (!values || !param_names || count == 0 ||
+	    count > WAN6_DHCP_INTEGER_SNAPSHOT_MAX)
+		return EINVAL;
+	for (i = 0; i < count; ++i)
+		values[i] = 0;
+	for (i = 0; i < count; ++i) {
+		if (!param_names[i] || !param_names[i][0])
+			return EINVAL;
+		fields[i].param_name = param_names[i];
+		fields[i].destination = text_values[i];
+		fields[i].destination_size = sizeof(text_values[i]);
+		text_pointers[i] = text_values[i];
+	}
+
+	status = rc_wan_nvram_copy_snapshot(
+		fields, count, wan6_snapshot_transaction_begin,
+		wan6_snapshot_transaction_get, wan6_snapshot_transaction_end,
+		&transaction);
+	if (status != 0)
+		return status;
+
+	return rc_wan_nvram_parse_int_snapshot(text_pointers, count, values);
+}
+
 static int
 dhcp6c_callback_session_advance(int fd, unsigned long *generation)
 {
@@ -1248,9 +1316,12 @@ int wan6_down(char *wan_ifname, int unit)
 
 int dhcp6c_main(int argc, char **argv)
 {
-	int ipv6_type, dns6_auto, lan6_auto;
+	static const char *const setting_names[] = {
+		"ip6_lan_auto", "ip6_dns_auto"
+	};
+	int ipv6_type, dns6_auto, lan6_auto, setting_values[2];
 	int callback_fd, unlock_status, callback_status = 0, saved_errno = 0;
-	int dns_status, dns_errno;
+	int dns_status, dns_errno, settings_status;
 	unsigned long generation;
 	char *dns6_new, *lan_addr6_new;
 	char addr6s[INET6_ADDRSTRLEN + 5];
@@ -1284,33 +1355,43 @@ int dhcp6c_main(int argc, char **argv)
 		return unlock_status == 0 ? 0 : -1;
 	}
 
-	lan6_auto = nvram_get_int("ip6_lan_auto");
-	if (lan6_auto) {
-		lan_addr6_new = get_ifaddr6(IFNAME_BR, 0, addr6s);
-		if (store_lan_addr6(lan_addr6_new) < 0) {
-			saved_errno = errno ? errno : EIO;
-			callback_status = -1;
-			logmessage("DHCPv6 WAN Client",
-				   "cannot publish automatic LAN address state (errno=%d)",
-				   saved_errno);
-		}
-	}
-
-	dns6_auto = nvram_get_int("ip6_dns_auto");
-	if (dns6_auto) {
-		dns6_new = getenv("new_domain_name_servers");
-		dns_status = store_wan_dns6(dns6_new);
-		if (dns_status > 0)
-			refresh_resolvconf_nonfatal("DHCPv6 DNS update", 0);
-		else if (dns_status < 0) {
-			dns_errno = errno ? errno : EIO;
-			if (callback_status == 0) {
-				callback_status = dns_status;
-				saved_errno = dns_errno;
+	settings_status = wan6_read_dhcp_integer_snapshot(
+		setting_names, 2, setting_values);
+	if (settings_status != 0) {
+		saved_errno = settings_status;
+		callback_status = -1;
+		logmessage("DHCPv6 WAN Client",
+			   "refusing lease-state publication because automatic settings could not be read (status=%d)",
+			   settings_status);
+	} else {
+		lan6_auto = setting_values[0];
+		dns6_auto = setting_values[1];
+		if (lan6_auto) {
+			lan_addr6_new = get_ifaddr6(IFNAME_BR, 0, addr6s);
+			if (store_lan_addr6(lan_addr6_new) < 0) {
+				saved_errno = errno ? errno : EIO;
+				callback_status = -1;
+				logmessage("DHCPv6 WAN Client",
+					   "cannot publish automatic LAN address state (errno=%d)",
+					   saved_errno);
 			}
-			logmessage("DHCPv6 WAN Client",
-				   "rejecting invalid DHCPv6 DNS server list (errno=%d)",
-				   dns_errno);
+		}
+
+		if (dns6_auto) {
+			dns6_new = getenv("new_domain_name_servers");
+			dns_status = store_wan_dns6(dns6_new);
+			if (dns_status > 0)
+				refresh_resolvconf_nonfatal("DHCPv6 DNS update", 0);
+			else if (dns_status < 0) {
+				dns_errno = errno ? errno : EIO;
+				if (callback_status == 0) {
+					callback_status = dns_status;
+					saved_errno = dns_errno;
+				}
+				logmessage("DHCPv6 WAN Client",
+					   "rejecting invalid DHCPv6 DNS server list (errno=%d)",
+					   dns_errno);
+			}
 		}
 	}
 
@@ -1326,9 +1407,13 @@ int dhcp6c_main(int argc, char **argv)
 
 int start_dhcp6c(char *wan_ifname)
 {
+	static const char *const setting_names[] = {
+		"ip6_wan_dhcp", "ip6_dns_auto", "ip6_lan_auto"
+	};
 	FILE *fp;
 	int duid_fd, session_fd, start_status, unlock_status;
-	int wan6_dhcp, dns6_auto, lan6_auto, sla_id, sla_len;
+	int wan6_dhcp, dns6_auto, lan6_auto, setting_values[3], settings_status;
+	int sla_id, sla_len;
 	int duid_error, saved_errno, start_errno, cleanup_errno;
 	int generation_active, env_cleanup_status;
 	unsigned int ia_id;
@@ -1344,9 +1429,18 @@ int start_dhcp6c(char *wan_ifname)
 		return -1;
 	}
 
-	wan6_dhcp = nvram_get_int("ip6_wan_dhcp");
-	dns6_auto = nvram_get_int("ip6_dns_auto");
-	lan6_auto = nvram_get_int("ip6_lan_auto");
+	settings_status = wan6_read_dhcp_integer_snapshot(
+		setting_names, 3, setting_values);
+	if (settings_status != 0) {
+		errno = settings_status;
+		logmessage("DHCPv6 WAN Client",
+			   "cannot read DHCPv6 client configuration flags; refusing startup (status=%d)",
+			   settings_status);
+		return -1;
+	}
+	wan6_dhcp = setting_values[0];
+	dns6_auto = setting_values[1];
+	lan6_auto = setting_values[2];
 
 	if (!wan6_dhcp && !dns6_auto && !lan6_auto)
 		return 0; /* No DHCPv6 client work is configured. */

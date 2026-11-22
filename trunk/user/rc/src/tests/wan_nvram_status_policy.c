@@ -1548,6 +1548,95 @@ test_checked_integer_read_propagates_backend_errors(void)
 	assert(rc_wan_nvram_read_int_status(1, 0, "5", 0, NULL) == EINVAL);
 }
 
+static void
+test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing(void)
+{
+	static const char *const names[3] = {
+		"ip6_wan_dhcp", "ip6_dns_auto", "ip6_lan_auto"
+	};
+	static const char *const stored[3] = { "1", "0", "1" };
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[3];
+	char destinations[3][32];
+	const char *texts[3];
+	int values[3];
+	unsigned int i, fail_at;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = -1;
+	for (i = 0; i < 3; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = stored[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+		texts[i] = destinations[i];
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.read_calls == 3 && fake.end_calls == 1);
+	assert(rc_wan_nvram_parse_int_snapshot(texts, 3, values) == 0);
+	assert(values[0] == 1 && values[1] == 0 && values[2] == 1);
+
+	/* An absent legacy key keeps nvram_get_int()'s zero default. */
+	memset(&fake, 0, sizeof(fake));
+	fake.read_fail_at = -1;
+	fake.missing_at = 1;
+	for (i = 0; i < 3; ++i) {
+		fake.names[i] = names[i];
+		fake.values[i] = stored[i];
+		fields[i].param_name = names[i];
+		fields[i].destination = destinations[i];
+		fields[i].destination_size = sizeof(destinations[i]);
+		strcpy(destinations[i], "stale");
+	}
+	assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(destinations[1][0] == '\0');
+	for (i = 0; i < 3; ++i)
+		texts[i] = destinations[i];
+	assert(rc_wan_nvram_parse_int_snapshot(texts, 3, values) == 0);
+	assert(values[0] == 1 && values[1] == 0 && values[2] == 1);
+
+	/* Any backend failure invalidates the complete snapshot. */
+	for (fail_at = 0; fail_at < 3; ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.read_fail_at = (int)fail_at;
+		fake.read_error = EACCES;
+		fake.missing_at = -1;
+		for (i = 0; i < 3; ++i) {
+			fake.names[i] = names[i];
+			fake.values[i] = stored[i];
+			fields[i].param_name = names[i];
+			fields[i].destination = destinations[i];
+			fields[i].destination_size = sizeof(destinations[i]);
+			strcpy(destinations[i], "stale");
+		}
+		assert(rc_wan_nvram_copy_snapshot(fields, 3, fake_snapshot_begin,
+						  fake_snapshot_get, fake_snapshot_end,
+						  &fake) == EACCES);
+		assert(fake.end_calls == 1);
+		for (i = 0; i < 3; ++i)
+			assert(destinations[i][0] == '\0');
+	}
+
+	/* Malformed later members cannot leave earlier decoded flags visible. */
+	texts[0] = "1";
+	texts[1] = "1junk";
+	texts[2] = "0";
+	values[0] = values[1] = values[2] = 91;
+	assert(rc_wan_nvram_parse_int_snapshot(texts, 3, values) == EINVAL);
+	assert(values[0] == 0 && values[1] == 0 && values[2] == 0);
+	texts[1] = "2147483648";
+	values[0] = values[1] = values[2] = 91;
+	assert(rc_wan_nvram_parse_int_snapshot(texts, 3, values) == ERANGE);
+	assert(values[0] == 0 && values[1] == 0 && values[2] == 0);
+}
+
+
 int
 main(void)
 {
@@ -1565,6 +1654,7 @@ main(void)
 	test_checked_integer_read_accepts_complete_decimal_values();
 	test_checked_integer_read_rejects_malformed_and_overflow_values();
 	test_checked_integer_read_propagates_backend_errors();
+	test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing();
 	test_checked_string_match_requires_an_exact_value();
 	test_checked_string_match_preserves_backend_errors();
 	test_checked_string_match_rejects_invalid_arguments();

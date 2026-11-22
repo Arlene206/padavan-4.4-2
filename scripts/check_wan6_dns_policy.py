@@ -173,6 +173,54 @@ assert "Verify DHCPv6 automatic DNS withdrawal contract" in workflow
 assert "Compile and run WAN DHCPv6 DNS withdrawal policy regression" in workflow
 
 
+# DHCPv6 client startup and lease callbacks used to read the auto flags
+# through nvram_get_int(), silently mapping backend errors to disabled options.
+# Require one checked, coherent transaction before any configuration or lease
+# state side effect; missing settings still decode to the legacy zero default.
+snapshot_reader = body(source, "wan6_read_dhcp_integer_snapshot(")
+assert "rc_wan_nvram_copy_snapshot(" in snapshot_reader
+assert "rc_wan_nvram_parse_int_snapshot(" in snapshot_reader
+assert "wan6_snapshot_transaction_begin" in snapshot_reader
+assert "wan6_snapshot_transaction_get" in snapshot_reader
+assert "wan6_snapshot_transaction_end" in snapshot_reader
+for key in ("ip6_wan_dhcp", "ip6_dns_auto", "ip6_lan_auto"):
+    assert key in source
+assert "rc_wan_nvram_parse_int_snapshot" in (
+    ROOT / "trunk/user/rc/src/wan_nvram_status_policy.h"
+).read_text()
+for key in ("ip6_wan_dhcp", "ip6_dns_auto", "ip6_lan_auto"):
+    assert f'nvram_get_int("{key}")' not in source
+
+dhcp6_start = body(source, "int start_dhcp6c(char *wan_ifname)")
+start_read = dhcp6_start.index(
+    "settings_status = wan6_read_dhcp_integer_snapshot("
+)
+start_error = dhcp6_start.index("if (settings_status != 0)", start_read)
+start_noop = dhcp6_start.index("if (!wan6_dhcp && !dns6_auto && !lan6_auto)")
+start_lock = dhcp6_start.index("dhcp6c_callback_session_lock(", start_noop)
+assert start_read < start_error < start_noop < start_lock
+assert "return -1;" in dhcp6_start[start_error:start_noop]
+assert "refusing startup" in dhcp6_start[start_error:start_noop]
+
+dhcp6_callback = body(source, "int dhcp6c_main(int argc, char **argv)")
+callback_read = dhcp6_callback.index(
+    "settings_status = wan6_read_dhcp_integer_snapshot("
+)
+callback_error = dhcp6_callback.index("if (settings_status != 0)", callback_read)
+callback_lan_write = dhcp6_callback.index("store_lan_addr6(", callback_error)
+callback_dns_write = dhcp6_callback.index("store_wan_dns6(", callback_error)
+assert callback_read < callback_error < callback_lan_write < callback_dns_write
+assert "callback_status = -1;" in dhcp6_callback[callback_error:callback_lan_write]
+assert "saved_errno = settings_status;" in dhcp6_callback[callback_error:callback_lan_write]
+assert "else {" in dhcp6_callback[callback_error:callback_lan_write]
+assert "setting_values[0]" in dhcp6_callback
+assert "setting_values[1]" in dhcp6_callback
+
+for marker in (
+    "test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing",
+    "test_dhcp6_integer_snapshot_is_transactional_and_all_or_nothing();",
+):
+    assert marker in (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 # Active IPv6 interface identity is required runtime state, not best-effort metadata.
 assert '#include "wan6_identity_policy.h"' in source
 assert "int set_wan_unit_value_status(int unit, const char *param_name, const char *value);" in header

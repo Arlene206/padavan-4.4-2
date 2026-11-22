@@ -1,3 +1,13 @@
+## 2026-11-22 13:18 UTC+8 — Fail closed on DHCPv6 client flag read errors
+
+- Parent main SHA: `b47e570c4001c00962bcb93dd4d1dd8a503f59ab`. Whole-source review of `trunk/user/rc/src/net_wan6.c` found `start_dhcp6c()` reading `ip6_wan_dhcp`, `ip6_dns_auto` and `ip6_lan_auto` with `nvram_get_int()`, and `dhcp6c_main()` independently reading the two automatic flags the same way. The lossy getter maps NVRAM backend read/close errors to integer zero; startup could silently skip an enabled DHCPv6 client, and a valid Reply callback could silently skip automatic LAN-prefix or DNS publication.
+- Added `wan6_read_dhcp_integer_snapshot()`: the requested flags are copied under one checked NVRAM transaction, then decoded all-or-nothing with strict integer parsing. Absent keys remain empty strings and parse as zero, preserving the old default; read/close, malformed or overflow values now prevent config generation or lease-state side effects. Startup reads the three-key config tuple; callback reads only its two relevant flags. Failure in callback records the primary error and still releases the callback session lock.
+- Added `rc_wan_nvram_parse_int_snapshot()` and GNU89/ASan/UBSan regression coverage for valid values, missing-key defaults, each read position failing, cache/partial-snapshot invalidation, malformed values and overflow. `scripts/check_wan6_dns_policy.py` now pins both caller orderings and rejects the old unchecked getters. The existing WAN DHCP workflow already path-filters all changed code/test/checker files.
+- Validation before commit: source transformations and static contracts were assembled against fetched live `main`; no local firmware checkout/toolchain is available, so no local C/Python execution is claimed. Exact-head WAN DHCP and XY-C1 checks are pending. b47e570 USB/Process/Firewall/AI runs passed; b47e570 XY-C1 host gates passed with Build/TRX/artifact skipped because the parent was checker/docs-only. L3/L4 are NOT VERIFIED for this DHCPv6 slice.
+- Backup branch remains frozen at `backup/pre-plugin-overhaul-2026-11-14` / `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+
+---
+
 ## 2026-11-22 12:53 UTC+8 — Make USB manual-node source contracts whitespace-insensitive
 
 - Parent main SHA: 5f443c15bc6dca23769ecf14b00a4213b99bc594. USB manual modem_node fail-closed product source baseline: 675466a45ee1d6cef1f121c22d3914225c2c1d90.
