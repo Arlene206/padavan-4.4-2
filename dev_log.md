@@ -1,3 +1,12 @@
+## 2026-11-22 — Align XY-C1 LAN IPv6 publication contract with checked callback
+
+- Parent main SHA: `5e0100c059639b323c903351d8f1fab6ff181659`. Exact-head WAN DHCP #45027565522 PASS: the source-policy checker, WAN IPv6 DNS tests and all five new LAN-address fake-backend cases compiled and ran under GNU89 with ASan/UBSan; DHCPv6 config publication, callback generation fencing, and all remaining lease/callback contracts also passed. AI handoff #45027565508 PASS.
+- XY-C1 firmware validation #45027298483 on `a9aa6ba...` passed its preceding host test binaries and stopped at step 28 only because its inline contract still expected `store_lan_addr6(lan_addr6_new)` directly in `dhcp6c_main()`. The checked lookup/publish adapter now owns that operation.
+- Updated the XY-C1 workflow source contract to assert the status-bearing LAN lookup, errno preservation, checked publisher, and callback error aggregation. Build, TRX and artifact upload were dependency-skipped after the stale assertion; no L3 result is claimed. The workflow includes its own path in the trigger filter, so this correction should produce a fresh exact-SHA build run.
+- Result: THIS COMMIT. Next: inspect the new XY-C1 host checks and Build/TRX/artifact steps; continue wider userland stability work while independent checks run.
+
+---
+
 ## 2026-11-22 — Update DHCP callback workflow assertion for checked LAN lookup
 
 - Parent main SHA: `98b54718077878a93758c327277ce10fc8c6a44f`. Exact-head AI handoff #45027419717 PASS. WAN route #45027298482 PASS on the preceding source/checker state. WAN DHCP #45027419733 passed its first 20 steps, including `check_wan6_dns_policy.py`, the WAN6 identity sanitizer binary (all new fake-backend cases), DHCPv6 DNS, DUID/config publication, callback generation fencing, and lease/rollback binaries. It failed only in the final inline Python assertion at workflow line 956, which still required a direct `store_lan_addr6()` call inside `dhcp6c_main()`.

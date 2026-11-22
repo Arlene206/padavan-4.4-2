@@ -659,9 +659,19 @@ jobs:
           assert "failure = \"publish derived LAN IPv6 address\"" in sit
           assert "clear_if_addr6(IFNAME_BR)" in sit
           callback = wan6.split("int dhcp6c_main(", 1)[1].split("int start_dhcp6c(", 1)[0]
-          assert "if (store_lan_addr6(lan_addr6_new) < 0)" in callback
+          assert "wan6_identity_publish_lan_addr6(" in callback
+          assert "if (lan_addr_status != 0)" in callback
           assert "callback_status = -1;" in callback
           assert "if (callback_status == 0)" in callback
+          assert "store_lan_addr6(" not in callback
+          assert "get_ifaddr6(IFNAME_BR, 0, addr6s)" not in callback
+          lan_lookup = wan6.split("wan6_lookup_lan_addr6_status(", 1)[1].split("wan6_publish_lan_addr6_status(", 1)[0]
+          assert "errno = 0;" in lan_lookup
+          assert "get_ifaddr6(IFNAME_BR, 0, address)" in lan_lookup
+          assert "return errno ? errno : 0;" in lan_lookup
+          lan_publish = wan6.split("wan6_publish_lan_addr6_status(", 1)[1].split("int dhcp6c_main(", 1)[0]
+          assert "store_lan_addr6((char *)address)" in lan_publish
+          assert "return errno ? errno : EIO;" in lan_publish
 
           assert "int reset_lan6_vars(void);" in header
           assert "operation_status = reset_lan6_vars();" in net6
