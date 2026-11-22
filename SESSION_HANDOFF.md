@@ -14,15 +14,15 @@ Every session MUST inspect the live repository and complete an end-of-session ac
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; branch `main`.
-- Parent of the DNSMasq LAN/DHCP snapshot slice: `7f6ccc6246fd9267c35195e3b2187a7a473fcd05`; source commit `22f626cc2ac7f207edd6c554fda6a1d9ab563838`; current error-cleanup correction is THIS COMMIT.
+- Parent of this DHCPv6 preflight slice: `2a92404d63b739c38453b4d15cfbbe8219ae8773`; the IPv4/DHCP snapshot and cleanup commits are already in main.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 is closed/unmerged.
 - WAN PPP launch mode uses a checked NVRAM transaction snapshot and immutable flags for lock selection, daemon stop/start, multi-WAN startup and rollback. Invalid WAN unit inputs return deterministic EINVAL.
 - Modem WAN link-change reconnect uses checked modem readiness/WISP state; Inadyn startup checks DDNS enable state before stopping the existing daemon.
-- DNSMasq resolver flags, DHCP integers, static-host snapshots, domain validation, resolver-file creation and lifecycle publication are covered by the existing DNSMasq workflow.
+- DNSMasq resolver flags, DHCP integers, static-host snapshots, domain validation, resolver-file creation and lifecycle publication are covered by its workflow; this slice adds DHCPv6 status/snapshot preflight.
 
 ## Active task
 
-The IPv4/DHCP DNSMasq input path now uses one bounded checked NVRAM transaction snapshot for LAN IP/netmask/domain and, when DHCP is enabled, pool endpoints, gateway, DNS1–DNS3 and WINS. The snapshot copies rotating cache-backed values, preserves empty defaults for missing keys, and zeroes the complete struct on begin/read/end/truncation errors before generated files are changed. The APP_VLMCSD mode is also read through a checked integer helper before staging. Regression tests are in `trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c`; source contract in `scripts/check_dnsmasq_integer_options.py`; CI in `.github/workflows/dnsmasq-lifecycle.yml`.
+The DHCPv6 DNSMasq path previously treated failed RA/mode reads as disabled/default state, used `nvram_safe_get("dhcp_dnsv6_x")`, and read stateful lifetime/interface-ID bounds with unchecked safe getters after staging began. This slice adds status-returning LAN6 APIs and a single checked NVRAM transaction snapshot for the DHCPv6 DNS address and stateful lifetime/range, validating all fields before staged config open. The rollback checker is also aligned with the completed IPv4 WINS snapshot contract.
 
 ## Verification boundary
 
@@ -36,7 +36,6 @@ The IPv4/DHCP DNSMasq input path now uses one bounded checked NVRAM transaction 
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head DNSMasq lifecycle, AI handoff and XY-C1 Actions for this snapshot commit; fix concrete failures.
-2. Continue the separate DHCPv6 preflight slice: status-check DHCPv6 DNS address, stateful range lifetime/port bounds, DHCPv6 server mode and information-refresh timer before opening the staged DNSMasq config. Preserve missing-key defaults and leave the completed IPv4 snapshot intact.
-3. Check outstanding Inadyn-descendant WAN route/HTTPD/process/NVRAM/XY-C1 jobs only on their exact SHA, then continue independent stability/security work.
-4. Keep the backup immutable and do not claim XY-C1 L3/L4 without same-SHA Build/TRX/artifact and hardware evidence.
+1. Inspect exact-SHA DNSMasq, NVRAM, Process, AI and XY-C1 Actions for this DHCPv6 preflight commit; repair concrete failures.
+2. Continue broader Padavan userland stability/security work outside WAN/PPP, USB modem, Inadyn and DNSMasq.
+3. Keep the backup immutable. XY-C1 L3 requires Build, TRX validation and artifact upload all PASS on one SHA; L4 requires device verification.

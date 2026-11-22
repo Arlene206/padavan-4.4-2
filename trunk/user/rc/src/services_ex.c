@@ -888,6 +888,11 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
 	struct dnsmasq_dhcp_config_nvram_snapshot dhcp_nvram_snapshot;
 	struct nvram_transaction dhcp_nvram_transaction;
+#if defined(USE_IPV6)
+	int radv_enabled = 0, dhcp6_mode = 0, dhcp6_irt = 600;
+	int dhcp6_status;
+	struct dnsmasq_dhcp6_nvram_snapshot dhcp6_snapshot;
+#endif
 #if defined(APP_VLMCSD)
 	int vlmcsd_mode = 0;
 #endif
@@ -943,6 +948,39 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		"dhcp_verbose", 0, 0, 3, &i_verbose);
 	if (option_status != 0)
 		return option_status;
+
+#if defined(USE_IPV6)
+	/* Check RA/DHCPv6 state and snapshot every DHCPv6 option before staging. */
+	if (!is_ap_mode) {
+		dhcp6_status = get_lan_radv_enabled_status(&radv_enabled);
+		if (dhcp6_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot determine LAN router-advertisement state; preserving last-known-good DNSMasq config (status=%d)",
+				   dhcp6_status);
+			errno = dhcp6_status;
+			return dhcp6_status;
+		}
+		if (radv_enabled) {
+			dhcp6_status = get_lan_dhcp6s_mode_status(&dhcp6_mode);
+			if (dhcp6_status == 0 && dhcp6_mode > 0)
+				dhcp6_status = get_lan_dhcp6s_irt_status(&dhcp6_irt);
+			if (dhcp6_status == 0)
+				dhcp6_status = dnsmasq_dhcp6_nvram_snapshot_read(
+					&dhcp6_snapshot, dhcp6_mode,
+					dnsmasq_static_host_nvram_begin,
+					dnsmasq_static_host_nvram_get,
+					dnsmasq_static_host_nvram_end,
+					&dhcp_nvram_transaction);
+			if (dhcp6_status != 0) {
+				logmessage(LOGNAME,
+					   "cannot read/validate DHCPv6 configuration snapshot; preserving last-known-good DNSMasq config (status=%d)",
+					   dhcp6_status);
+				errno = dhcp6_status;
+				return dhcp6_status;
+			}
+		}
+	}
+#endif
 
 	/* Snapshot every LAN/IPv4-DHCP string before generated files are touched. */
 	option_status = dnsmasq_dhcp_config_nvram_snapshot_read(
@@ -1194,8 +1232,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	}
 
 #if defined (USE_IPV6)
-	if (!is_ap_mode && is_lan_radv_on() == 1) {
-		int i_dhcp6s_mode = get_lan_dhcp6s_mode();
+	if (radv_enabled) {
 		
 		fprintf(fp, "enable-ra\n");
 		if (i_verbose == 0 || i_verbose == 1)
@@ -1204,7 +1241,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		
 		is_dhcp_used |= DNSMASQ_DHCP_FEATURE_RA;
 		
-		if (i_dhcp6s_mode == 0) {
+		if (dhcp6_mode == 0) {
 			int i_pref_lifetime = 600;
 			
 			if (is_lan_addr6_static() == 1)
@@ -1214,21 +1251,21 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			fprintf(fp, "dhcp-range=set:%s,::,constructor:%s%s,%d,%d\n",
 				DHCPD_RANGE_DEF_TAG, IFNAME_BR, ",ra-only,ra-names", 64, i_pref_lifetime);
 		} else {
-			int i_dhcp6s_irt = get_lan_dhcp6s_irt();
+			/* DHCPv6 information-refresh time was checked before config staging. */
 			
-			if (i_dhcp6s_mode == 1) {
+			if (dhcp6_mode == 1) {
 				fprintf(fp, "dhcp-range=set:%s,::,constructor:%s%s,%d,%d\n",
-					DHCPD_RANGE_DEF_TAG, IFNAME_BR, ",ra-stateless,ra-names", 64, i_dhcp6s_irt);
+					DHCPD_RANGE_DEF_TAG, IFNAME_BR, ",ra-stateless,ra-names", 64, dhcp6_irt);
 			} else {
 				const char *range_mode = "";
-				int i_sflt = nvram_safe_get_int("ip6_lan_sflt", 1800, 120, 604800);
-				int i_sfps = nvram_safe_get_int("ip6_lan_sfps", 4096, 2, 65534);
-				int i_sfpe = nvram_safe_get_int("ip6_lan_sfpe", 4352, 2, 65534);
+				int i_sflt = dhcp6_snapshot.valid_lifetime;
+				int i_sfps = dhcp6_snapshot.start_port;
+				int i_sfpe = dhcp6_snapshot.end_port;
 				
 				if (i_sfpe < i_sfps)
 					i_sfpe = i_sfps;
 				
-				if (i_dhcp6s_mode > 2)
+				if (dhcp6_mode > 2)
 					range_mode = ",slaac,ra-names";
 				
 				/* Enable Stateful, Enable/Disable SLAAC */
@@ -1238,7 +1275,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			
 			/* DNS server */
 			memset(dnsv6, 0, sizeof(dnsv6));
-			dns6 = nvram_safe_get("dhcp_dnsv6_x");
+			dns6 = dhcp6_snapshot.dns_server;
 			if (is_valid_ipv6(dns6)) {
 				strcpy(dnsv6, dns6);
 				fprintf(fp, "dhcp-option=tag:%s,option6:%d,%s\n", DHCPD_RANGE_DEF_TAG, 23, dnsv6);
@@ -1252,7 +1289,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 				fprintf(fp, "dhcp-option=tag:%s,option6:%d,%s\n", DHCPD_RANGE_DEF_TAG, 24, domain);
 			
 			/* Information Refresh Time */
-			fprintf(fp, "dhcp-option=tag:%s,option6:%d,%d\n", DHCPD_RANGE_DEF_TAG, 32, i_dhcp6s_irt);
+			fprintf(fp, "dhcp-option=tag:%s,option6:%d,%d\n", DHCPD_RANGE_DEF_TAG, 32, dhcp6_irt);
 			
 			if (i_verbose == 0 || i_verbose == 1)
 				fprintf(fp, "quiet-dhcp6\n");

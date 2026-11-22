@@ -219,7 +219,7 @@ test_invalid_arguments_are_rejected(void)
 }
 
 
-#define FAKE_DHCP_NVRAM_KEYS 10
+#define FAKE_DHCP_NVRAM_KEYS 14
 
 struct fake_dhcp_nvram_item {
 	const char *name;
@@ -427,6 +427,132 @@ test_dhcp_snapshot_begin_and_truncation_errors_fail_closed(void)
 }
 
 
+
+static int
+fake_dhcp6_nvram_snapshot(struct dnsmasq_dhcp6_nvram_snapshot *snapshot,
+			  int dhcp6_mode, struct fake_dhcp_nvram *fake)
+{
+	return dnsmasq_dhcp6_nvram_snapshot_read(
+		snapshot, dhcp6_mode, fake_dhcp_nvram_begin,
+		fake_dhcp_nvram_get, fake_dhcp_nvram_end, fake);
+}
+
+static void
+test_dhcp6_snapshot_copies_stateful_values_and_parses_bounds(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp6_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "dhcp_dnsv6_x", "2001:db8::53");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sflt", "3600");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfps", "8192");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfpe", "12288");
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 2, &fake) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1 && !fake.active);
+	assert(fake.read_calls == 4);
+	assert(strcmp(snapshot.dns_server, "2001:db8::53") == 0);
+	assert(snapshot.valid_lifetime == 3600);
+	assert(snapshot.start_port == 8192);
+	assert(snapshot.end_port == 12288);
+}
+
+static void
+test_dhcp6_snapshot_preserves_mode_defaults_and_skips_unused_keys(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp6_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "dhcp_dnsv6_x", "2001:db8::1");
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 1, &fake) == 0);
+	assert(fake.read_calls == 1 && fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(strcmp(snapshot.dns_server, "2001:db8::1") == 0);
+	assert(snapshot.valid_lifetime == 0 && snapshot.start_port == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 0, &fake) == 0);
+	assert(fake.begin_calls == 0 && fake.read_calls == 0 && fake.end_calls == 0);
+	assert(snapshot.dns_server[0] == '\0');
+}
+
+static void
+test_dhcp6_snapshot_defaults_and_rejects_invalid_ranges(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp6_nvram_snapshot snapshot;
+	struct dnsmasq_dhcp6_nvram_snapshot zero;
+
+	memset(&zero, 0, sizeof(zero));
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "dhcp_dnsv6_x", "");
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 3, &fake) == 0);
+	assert(snapshot.valid_lifetime == 1800);
+	assert(snapshot.start_port == 4096);
+	assert(snapshot.end_port == 4352);
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "dhcp_dnsv6_x", "2001:db8::53");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sflt", "604801");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfps", "4096");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfpe", "4352");
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 2, &fake) == ERANGE);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	fake_dhcp_nvram_add(&fake, "dhcp_dnsv6_x", "2001:db8::53");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sflt", "bad");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfps", "4096");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfpe", "4352");
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 2, &fake) == EINVAL);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+}
+
+static void
+test_dhcp6_snapshot_read_and_close_failures_clear_all_fields(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp6_nvram_snapshot snapshot;
+	struct dnsmasq_dhcp6_nvram_snapshot zero;
+
+	memset(&zero, 0, sizeof(zero));
+	fake_dhcp_nvram_init(&fake);
+	fake.fail_read_at = 2;
+	fake.read_error = EACCES;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 2, &fake) == EACCES);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+
+	fake_dhcp_nvram_init(&fake);
+	fake.end_error = EBUSY;
+	fake_dhcp_nvram_add(&fake, "dhcp_dnsv6_x", "2001:db8::53");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sflt", "1800");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfps", "4096");
+	fake_dhcp_nvram_add(&fake, "ip6_lan_sfpe", "4352");
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 2, &fake) == EBUSY);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+}
+
+static void
+test_dhcp6_snapshot_rejects_invalid_mode_and_arguments(void)
+{
+	struct fake_dhcp_nvram fake;
+	struct dnsmasq_dhcp6_nvram_snapshot snapshot;
+
+	fake_dhcp_nvram_init(&fake);
+	assert(fake_dhcp6_nvram_snapshot(&snapshot, 4, &fake) == EINVAL);
+	assert(fake_dhcp6_nvram_snapshot(NULL, 2, &fake) == EINVAL);
+	assert(dnsmasq_dhcp6_nvram_snapshot_read(
+		&snapshot, 2, NULL, fake_dhcp_nvram_get,
+		fake_dhcp_nvram_end, &fake) == EINVAL);
+}
+
+
 int
 main(void)
 {
@@ -445,5 +571,10 @@ main(void)
 	test_dhcp_snapshot_skips_optional_keys_when_dhcp_disabled();
 	test_dhcp_snapshot_read_and_close_errors_invalidate_all_values();
 	test_dhcp_snapshot_begin_and_truncation_errors_fail_closed();
+	test_dhcp6_snapshot_copies_stateful_values_and_parses_bounds();
+	test_dhcp6_snapshot_preserves_mode_defaults_and_skips_unused_keys();
+	test_dhcp6_snapshot_defaults_and_rejects_invalid_ranges();
+	test_dhcp6_snapshot_read_and_close_failures_clear_all_fields();
+	test_dhcp6_snapshot_rejects_invalid_mode_and_arguments();
 	return 0;
 }

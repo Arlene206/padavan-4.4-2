@@ -1,3 +1,14 @@
+## 2026-11-22 — Validate DHCPv6 DNSMasq inputs before staging
+
+- Parent main SHA: `2a92404d63b739c38453b4d15cfbbe8219ae8773`. The preceding DNSMasq CI run had failed in a workflow-embedded Python contract that still expected the old individual WINS getter after WINS moved into the checked IPv4 snapshot; that inline assertion is aligned in commit `2a92404d63b739c38453b4d15cfbbe8219ae8773`.
+- `prepare_dns_dhcpd()` previously treated an RA read failure as disabled, ignored a failed DHCPv6 mode getter, allowed the information-refresh getter to collapse LAN address snapshot errors into a 600-second default, and used unchecked safe getters for `dhcp_dnsv6_x`, `ip6_lan_sflt`, `ip6_lan_sfps` and `ip6_lan_sfpe`.
+- Added status-returning LAN6 getters for RA state, DHCPv6 mode (0..3) and information-refresh time. IPv6 disabled remains a valid no-RA state. Added a checked transaction snapshot for the DNS address and, in stateful modes, valid lifetime 120..604800 and interface-ID bounds 2..65534. Missing options preserve defaults; malformed/out-of-range values and transaction failures invalidate the snapshot and abort before staged config open.
+- Added GNU89 regressions for rotating-cache reads, mode-specific snapshot scope, defaults, invalid ranges, transaction read/close failures and invalid arguments. Updated source contracts, workflow path filters, roadmap and handoff.
+- No local tests were run in this connector-only session. Exact-head DNSMasq Actions must validate GNU89/ASan/UBSan regressions; XY-C1 Build/TRX/artifact state must be checked on the resulting SHA.
+- Result: THIS COMMIT. Next: inspect exact-SHA DNSMasq and XY-C1 jobs; fix demonstrated failures and continue independent userland stability/security work.
+
+---
+
 ## 2026-11-22 — Align DNSMasq rollback checker with DHCP tuple snapshot
 
 - Parent main SHA: `7c6ab191bad7e18ec65c8bb8951713dbc24ee3f8`. Exact-head DNSMasq lifecycle #45033514002 passed the GNU89/ASan/UBSan DHCP snapshot test and the DHCP integer/static-host source checker, then failed in the older rollback checker at line 200. It still required a separate `dnsmasq_read_string_option("dhcp_wins_x")` call which the new transaction snapshot intentionally removed.

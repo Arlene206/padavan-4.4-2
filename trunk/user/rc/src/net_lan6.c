@@ -259,6 +259,29 @@ int reset_lan6_vars(void)
 	return status;
 }
 
+int get_lan_radv_enabled_status(int *enabled)
+{
+	char radv_value[16] = {0};
+	int ipv6_type, status;
+
+	if (!enabled)
+		return EINVAL;
+	*enabled = 0;
+	status = get_lan6_service_type(&ipv6_type);
+	if (status != 0)
+		return status;
+	/* IPv6 disabled is a valid "no RA" state, not an NVRAM read error. */
+	if (ipv6_type == IPV6_DISABLED)
+		return 0;
+
+	status = lan6_read_config_value_status(
+		"ip6_lan_radv", radv_value, sizeof(radv_value));
+	if (status == 0)
+		status = rc_lan_addr6_radv_enabled_status(
+			0, radv_value, enabled);
+	return status;
+}
+
 int is_lan_radv_on(void)
 {
 	char radv_value[16] = {0};
@@ -294,20 +317,39 @@ int is_lan_addr6_static(void)
 	return lan_addr6_static_for_type(ipv6_type);
 }
 
-int get_lan_dhcp6s_mode(void)
+int get_lan_dhcp6s_mode_status(int *mode)
 {
 	char mode_value[LAN6_RESET_INTEGER_SIZE] = {0};
-	int ipv6_type, mode, status;
+	int ipv6_type, parsed_mode, status;
 
+	if (!mode)
+		return EINVAL;
+	*mode = 0;
 	status = get_lan6_service_type(&ipv6_type);
-	if (status != 0 || ipv6_type == IPV6_DISABLED)
-		return -1;
+	if (status != 0)
+		return status;
+	if (ipv6_type == IPV6_DISABLED)
+		return EHOSTDOWN;
 
 	status = lan6_read_config_value_status(
 		"ip6_lan_dhcp", mode_value, sizeof(mode_value));
 	if (status == 0)
 		status = rc_lan_addr6_legacy_integer_status(
-			0, mode_value, &mode);
+			0, mode_value, &parsed_mode);
+	if (status != 0)
+		return status;
+	/* 0=RA only, 1=stateless, 2=stateful, 3=stateful + SLAAC. */
+	if (parsed_mode < 0 || parsed_mode > 3)
+		return ERANGE;
+	*mode = parsed_mode;
+	return 0;
+}
+
+int get_lan_dhcp6s_mode(void)
+{
+	int mode, status;
+
+	status = get_lan_dhcp6s_mode_status(&mode);
 	if (status != 0) {
 		errno = status;
 		logmessage("LAN IPv6",
@@ -318,13 +360,38 @@ int get_lan_dhcp6s_mode(void)
 	return mode;
 }
 
+int get_lan_dhcp6s_irt_status(int *irt)
+{
+	int ipv6_type, is_static, status;
+
+	if (!irt)
+		return EINVAL;
+	*irt = 600;
+	status = get_lan6_service_type(&ipv6_type);
+	if (status != 0)
+		return status;
+	if (ipv6_type == IPV6_DISABLED)
+		return EHOSTDOWN;
+
+	is_static = lan_addr6_static_for_type(ipv6_type);
+	if (is_static < 0)
+		return errno > 0 ? errno : EIO;
+	*irt = is_static ? 1800 : 600;
+	return 0;
+}
+
 int get_lan_dhcp6s_irt(void)
 {
-	int irt = 600;			// 10 min (IRT_MINIMUM=600)
+	int irt, status;
 
-	if (is_lan_addr6_static() == 1)
-		irt = 1800;		// 30 min
-
+	status = get_lan_dhcp6s_irt_status(&irt);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot determine DHCPv6 information refresh time (status=%d)",
+			   status);
+		return -1;
+	}
 	return irt;
 }
 

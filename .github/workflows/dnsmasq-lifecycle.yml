@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/dnsmasq_nvram_option_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c"
       - "scripts/check_dnsmasq_integer_options.py"
@@ -69,6 +70,7 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/dnsmasq_nvram_option_policy.h"
       - "trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c"
       - "trunk/user/rc/src/common_ex.c"

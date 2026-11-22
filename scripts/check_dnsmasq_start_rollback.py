@@ -9,6 +9,7 @@ SERVICES = (RC / "services_ex.c").read_text()
 POLICY = (RC / "dnsmasq_restart_policy.h").read_text()
 TEST = (RC / "tests/dnsmasq_restart_policy.c").read_text()
 RC_H = (RC / "rc.h").read_text()
+LAN6 = (RC / "net_lan6.c").read_text()
 DNSMASQ_OPTION_POLICY = (RC / "dnsmasq_nvram_option_policy.h").read_text()
 DNSMASQ_OPTION_TEST = (RC / "tests/dnsmasq_nvram_option_policy.c").read_text()
 DNSMASQ_WORKFLOW = (ROOT / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
@@ -204,6 +205,23 @@ assert dhcp_enable_check < dhcp_string_snapshot < fill_static
 assert 'dnsmasq_read_string_option("dhcp_wins_x"' not in prepare
 assert "dhcp_nvram_snapshot.dhcp_wins" in prepare
 assert prepare.index("is_dhcpd_enabled_status(") < prepare.index("fill_static_ethers(ipaddr, netmask)")
+
+# DHCPv6 enablement, mode, IRT and values must be checked before config staging.
+radv_read = prepare.index("get_lan_radv_enabled_status(&radv_enabled)")
+radv_error = prepare.index("if (dhcp6_status != 0)", radv_read)
+mode_read = prepare.index("get_lan_dhcp6s_mode_status(&dhcp6_mode)", radv_error)
+irt_read = prepare.index("get_lan_dhcp6s_irt_status(&dhcp6_irt)", mode_read)
+v6_snapshot = prepare.index("dnsmasq_dhcp6_nvram_snapshot_read(", irt_read)
+v6_error = prepare.index("if (dhcp6_status != 0)", v6_snapshot)
+v6_open = prepare.index("dnsmasq_file_open(config_path)")
+assert radv_read < radv_error < mode_read < irt_read < v6_snapshot < v6_error < v6_open
+assert 'nvram_safe_get("dhcp_dnsv6_x")' not in prepare
+for key in ("ip6_lan_sflt", "ip6_lan_sfps", "ip6_lan_sfpe"):
+    assert 'nvram_safe_get_int("' + key + '"' not in prepare
+assert "get_lan_radv_enabled_status(int *enabled)" in LAN6
+assert "get_lan_dhcp6s_mode_status(int *mode)" in LAN6
+assert "get_lan_dhcp6s_irt_status(int *irt)" in LAN6
+assert "parsed_mode < 0 || parsed_mode > 3" in LAN6
 
 smb_header = compact(body(SERVICES, "int\nwrite_smb_conf_header(FILE *fp)"))
 smb_mode_read = smb_header.index("get_ap_mode_status(&is_ap_mode)")

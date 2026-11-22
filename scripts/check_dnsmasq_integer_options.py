@@ -152,4 +152,14 @@ for marker in (
 assert "trunk/user/rc/src/dnsmasq_static_host_nvram_policy.h" in WORKFLOW
 assert "trunk/user/rc/src/tests/dnsmasq_static_host_nvram_policy.c" in WORKFLOW
 assert "Compile and run checked static-host NVRAM snapshot regression" in WORKFLOW
+assert "dnsmasq_dhcp6_nvram_snapshot_read" in POLICY
+for token in (
+    "test_dhcp6_snapshot_copies_stateful_values_and_parses_bounds",
+    "test_dhcp6_snapshot_preserves_mode_defaults_and_skips_unused_keys",
+    "test_dhcp6_snapshot_defaults_and_rejects_invalid_ranges",
+    "test_dhcp6_snapshot_read_and_close_failures_clear_all_fields",
+    "test_dhcp6_snapshot_rejects_invalid_mode_and_arguments",
+):
+    assert token in read("trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c")
+assert "net_lan6.c" in WORKFLOW
 print("DNSMasq checked DHCP integer options, bounded MAC validation and fail-closed static-host NVRAM snapshots: PASS")

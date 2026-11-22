@@ -2,6 +2,8 @@
 #define PADAVAN_DNSMASQ_NVRAM_OPTION_POLICY_H
 
 #include <errno.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "wan_nvram_status_policy.h"
@@ -207,6 +209,98 @@ dnsmasq_dhcp_config_nvram_snapshot_read(
 
 	status = rc_wan_nvram_copy_snapshot(fields, count, begin_transaction,
 					    get_value, end_transaction, context);
+	if (status != 0)
+		memset(snapshot, 0, sizeof(*snapshot));
+	return status;
+}
+
+
+#define DNSMASQ_DHCP6_DNS_VALUE_SIZE 40
+#define DNSMASQ_DHCP6_INTEGER_VALUE_SIZE 32
+
+struct dnsmasq_dhcp6_nvram_snapshot {
+	char dns_server[DNSMASQ_DHCP6_DNS_VALUE_SIZE];
+	int valid_lifetime;
+	int start_port;
+	int end_port;
+};
+
+static inline int
+dnsmasq_nvram_optional_integer_range(const char *text, int missing_value,
+				     int minimum, int maximum, int *result)
+{
+	char *end;
+	long parsed;
+
+	if (!result || !text || minimum > maximum)
+		return EINVAL;
+	*result = missing_value;
+	if (!text[0])
+		return 0;
+
+	errno = 0;
+	parsed = strtol(text, &end, 10);
+	if (end == text || errno == ERANGE)
+		return EINVAL;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+	if (*end)
+		return EINVAL;
+	if (parsed < minimum || parsed > maximum)
+		return ERANGE;
+	*result = (int)parsed;
+	return 0;
+}
+
+static inline int
+dnsmasq_dhcp6_nvram_snapshot_read(
+	struct dnsmasq_dhcp6_nvram_snapshot *snapshot, int dhcp6_mode,
+	rc_wan_nvram_transaction_fn begin_transaction,
+	rc_wan_nvram_get_fn get_value,
+	rc_wan_nvram_transaction_fn end_transaction, void *context)
+{
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char lifetime[DNSMASQ_DHCP6_INTEGER_VALUE_SIZE] = {0};
+	char first_port[DNSMASQ_DHCP6_INTEGER_VALUE_SIZE] = {0};
+	char last_port[DNSMASQ_DHCP6_INTEGER_VALUE_SIZE] = {0};
+	unsigned int count = 0;
+	int status;
+
+	if (!snapshot)
+		return EINVAL;
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (dhcp6_mode < 0 || dhcp6_mode > 3 ||
+	    !begin_transaction || !get_value || !end_transaction)
+		return EINVAL;
+	if (dhcp6_mode == 0)
+		return 0;
+
+	fields[count].param_name = "dhcp_dnsv6_x";
+	fields[count].destination = snapshot->dns_server;
+	fields[count++].destination_size = sizeof(snapshot->dns_server);
+	if (dhcp6_mode >= 2) {
+		fields[count].param_name = "ip6_lan_sflt";
+		fields[count].destination = lifetime;
+		fields[count++].destination_size = sizeof(lifetime);
+		fields[count].param_name = "ip6_lan_sfps";
+		fields[count].destination = first_port;
+		fields[count++].destination_size = sizeof(first_port);
+		fields[count].param_name = "ip6_lan_sfpe";
+		fields[count].destination = last_port;
+		fields[count++].destination_size = sizeof(last_port);
+	}
+
+	status = rc_wan_nvram_copy_snapshot(
+		fields, count, begin_transaction, get_value, end_transaction, context);
+	if (status == 0 && dhcp6_mode >= 2)
+		status = dnsmasq_nvram_optional_integer_range(
+			lifetime, 1800, 120, 604800, &snapshot->valid_lifetime);
+	if (status == 0 && dhcp6_mode >= 2)
+		status = dnsmasq_nvram_optional_integer_range(
+			first_port, 4096, 2, 65534, &snapshot->start_port);
+	if (status == 0 && dhcp6_mode >= 2)
+		status = dnsmasq_nvram_optional_integer_range(
+			last_port, 4352, 2, 65534, &snapshot->end_port);
 	if (status != 0)
 		memset(snapshot, 0, sizeof(*snapshot));
 	return status;
