@@ -442,6 +442,51 @@ assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ip4
 require("test_wan_interface_names_survive_shared_cache_overwrite" in test,
         "WAN interface-name cache overwrite regression missing")
 
+dns_proto = "get_wan_unit_proto_checked_status(unit, &wan_proto)"
+require(dns_proto in dns_status and
+        "if (status != 0)" in dns_status and
+        dns_status.index(dns_proto) < dns_status.index("get_wan_unit_value_int_status(") and
+        "get_wan_proto(unit)" not in dns_status,
+        "WAN DNS mode must reject unknown protocol before applying its legacy DNS fallback")
+
+wan_ifname_proto = "".join(body(source, "get_wan_ifname(char wan_ifname[16])").split())
+ifname_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+require(ifname_proto_read in wan_ifname_proto and
+        "if(status!=0)errno=status;returnstatus;" in wan_ifname_proto and
+        wan_ifname_proto.index(ifname_proto_read) < wan_ifname_proto.index("wan_ifname_copy(") and
+        "get_wan_proto(unit)" not in wan_ifname_proto,
+        "WAN interface selection must not guess the MAN interface on protocol read failure")
+
+wan_ip4 = "".join(body(source, "get_wan_ip4(int only_broadband_wan)").split())
+ip4_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+require(ip4_proto_read in wan_ip4 and
+        "if(status!=0)errno=status;returnINADDR_ANY;" in wan_ip4 and
+        wan_ip4.index(ip4_proto_read) < wan_ip4.index("get_interface_addr4(ifname)") and
+        "get_wan_proto(unit)" not in wan_ip4,
+        "WAN IP lookup must fail closed when protocol identity is unreadable")
+
+link_restored = "".join(body(source, "notify_on_wan_ether_link_restored(void)").split())
+link_proto_read = "status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+require(link_proto_read in link_restored and
+        "if(status!=0)" in link_restored and
+        "returnstatus;" in link_restored and
+        link_restored.index(link_proto_read) < link_restored.index("renew_udhcpc_wan(unit)"),
+        "link-restored callback must not renew DHCP on unknown WAN protocol")
+
+deconfig = "".join(body(source, "udhcpc_deconfig(char *wan_ifname, int is_zcip)").split())
+deconfig_proto_read = "proto_status=get_wan_unit_proto_checked_status(unit,&wan_proto)"
+preserve_underlay = "proto_status!=0||wan_proto==IPV4_WAN_PROTO_PPTP||wan_proto==IPV4_WAN_PROTO_L2TP"
+cleanup_call = "man_down_internal(wan_ifname,unit,reset_man_address)"
+require(deconfig_proto_read in deconfig and
+        "if(proto_status!=0)" in deconfig and
+        preserve_underlay in deconfig and
+        deconfig.index(deconfig_proto_read) < deconfig.index("ifconfig(wan_ifname,IFUP,\\"0.0.0.0\\",NULL)") and
+        cleanup_call in deconfig and
+        deconfig.index(cleanup_call) > deconfig.index("leaseislost") and
+        "route_status_accumulate(proto_status" in deconfig,
+        "DHCP deconfig must preserve MAN underlay on protocol errors while still cleaning routes")
+
+
 # IPTV VLAN config used to retain pointers into nvram_linux.c's reusable
 # cache; copy every value before the next NVRAM lookup.
 viptv = "".join(function_body_at_column_zero_terminator(

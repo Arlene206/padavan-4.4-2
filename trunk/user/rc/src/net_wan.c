@@ -5629,9 +5629,17 @@ auto_wan_reconnect_pause(void)
 int
 notify_on_wan_ether_link_restored(void)
 {
-	int unit = 0;
-	int wan_proto = get_wan_proto(unit);
+	int unit = 0, wan_proto;
 	int status, saved_errno;
+
+	status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot check WAN protocol before link-restored DHCP renew (status=%d)",
+			   status);
+		return status;
+	}
 
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || nvram_match("x_DHCPClient", "0"))
 		return 0;
@@ -6360,7 +6368,7 @@ get_wan_ether_link_direct(int is_ap_mode)
 static int
 get_wan_dns_static_status(int *is_static)
 {
-	int unit = 0, api_result, saved_errno, status, dns_enabled;
+	int unit = 0, api_result, saved_errno, status, dns_enabled, wan_proto;
 	char *stored_value = NULL;
 
 	if (!is_static)
@@ -6380,7 +6388,10 @@ get_wan_dns_static_status(int *is_static)
 		return 0;
 	}
 
-	if (get_wan_proto(unit) == IPV4_WAN_PROTO_IPOE_STATIC) {
+	status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (status != 0)
+		return status;
+	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 		*is_static = 1;
 		return 0;
 	}
@@ -6425,7 +6436,7 @@ int
 get_wan_ifname(char wan_ifname[16])
 {
 	int unit = 0;
-	int status, is_usb_modem, is_ndis_modem = 0;
+	int status, is_usb_modem, is_ndis_modem = 0, wan_proto;
 	char man_ifname[16], ifname_temp[16];
 	char *man_ifname_value;
 	const char *ifname = man_ifname;
@@ -6461,7 +6472,11 @@ get_wan_ifname(char wan_ifname[16])
 				ifname = IFNAME_RAS;
 		}
 	} else {
-		int wan_proto = get_wan_proto(unit);
+		status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+		if (status != 0) {
+			errno = status;
+			return status;
+		}
 		if (wan_proto == IPV4_WAN_PROTO_PPPOE ||
 		    wan_proto == IPV4_WAN_PROTO_PPTP ||
 		    wan_proto == IPV4_WAN_PROTO_L2TP) {
@@ -6484,7 +6499,7 @@ in_addr_t
 get_wan_ip4(int only_broadband_wan)
 {
 	int unit = 0;
-	int status, is_ap_mode;
+	int status, is_ap_mode, wan_proto;
 	char man_ifname[16], ifname_temp[16];
 	char *man_ifname_value;
 	const char *ifname = man_ifname;
@@ -6506,7 +6521,11 @@ get_wan_ip4(int only_broadband_wan)
 	if (!only_broadband_wan && get_usb_modem_wan(unit)) {
 		ifname = ifname_temp;
 	} else {
-		int wan_proto = get_wan_proto(unit);
+		status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+		if (status != 0) {
+			errno = status;
+			return INADDR_ANY;
+		}
 		if (wan_proto == IPV4_WAN_PROTO_PPPOE ||
 		    wan_proto == IPV4_WAN_PROTO_PPTP ||
 		    wan_proto == IPV4_WAN_PROTO_L2TP) {
@@ -6543,20 +6562,30 @@ has_wan_gw4(void)
 static int
 udhcpc_deconfig(char *wan_ifname, int is_zcip)
 {
-	int unit, wan_proto, is_man;
+	int unit, wan_proto = 0, is_man, proto_status = 0;
 	int interface_status = 0, reset_man_address = 0;
 	int conntrack_status = 0;
 	int cleanup_status;
 	char log_prefix[32], *udhcpc_state;
 
 	unit = get_wan_unit(wan_ifname);
-	wan_proto = get_wan_proto(unit);
 	is_man = is_ifunit_man(wan_ifname, unit);
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", (is_zcip) ? "ZeroConf" : "DHCP", (is_man) ? "MAN" : "WAN");
 	udhcpc_state = "deconfig";
 
-	if (is_man && (wan_proto == IPV4_WAN_PROTO_PPTP ||
+	if (is_man) {
+		proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+		if (proto_status != 0) {
+			logmessage(log_prefix,
+				   "cannot verify MAN protocol on %s (status=%d); preserving underlay address",
+				   wan_ifname, proto_status);
+			errno = proto_status;
+		}
+	}
+
+	if (is_man && (proto_status != 0 ||
+	               wan_proto == IPV4_WAN_PROTO_PPTP ||
 	               wan_proto == IPV4_WAN_PROTO_L2TP))
 	{
 		/* fix hang-up issue */
@@ -6599,7 +6628,9 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 			   wan_ifname, cleanup_status);
 
 	return route_status_accumulate(
-		route_status_accumulate(interface_status, conntrack_status),
+		route_status_accumulate(
+			route_status_accumulate(proto_status, interface_status),
+			conntrack_status),
 		cleanup_status);
 }
 

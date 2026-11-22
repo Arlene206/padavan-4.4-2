@@ -1,3 +1,15 @@
+## 2026-11-22 08:18 CST — Preserve WAN identity and MAN underlay on protocol-read errors
+
+- Parent main SHA: `e29f9cd724cd52d1f501ec48425e4f96fd080587`.
+- `get_wan_dns_static_status()`, `get_wan_ifname()`, `get_wan_ip4()` and Ethernet link-restored DHCP notification still consumed unchecked `get_wan_proto()`. Read failures were silently interpreted as non-static DNS, a MAN interface, MAN IPv4 or a DHCP-capable WAN.
+- THIS source change uses `get_wan_unit_proto_checked_status()` before each protocol-dependent decision: DNS mode returns the protocol error rather than entering the legacy `dnsenable_x` fallback; interface lookup returns the error rather than guessing a MAN/PPP identity; WAN-IP lookup returns `INADDR_ANY` with errno preserved; link restoration refuses to signal DHCP renewal when protocol state is unknown.
+- `udhcpc_deconfig()` previously cleared a MAN interface to `0.0.0.0` whenever its protocol read failed, even though `is_ifunit_man()` conservatively classifies unknown protocol as MAN. It now retains the MAN underlay address on protocol error, while still running `man_down_internal()` route teardown and aggregating protocol, interface, conntrack and cleanup status.
+- Extended `check_wan_dns_read_status.py` to pin the checked DNS/interface/IP/link-restored/deconfig paths and cleanup ordering. Both changed paths are already included in WAN route workflow push/PR filters.
+- The preceding checker-only fix `e29f9cd724cd52d1f501ec48425e4f96fd080587` has exact-head WAN route #44965890151 and XY-C1 #44965890114 in progress at the time of this commit. No local full checkout/toolchain is available; executable host tests and target-build results must come from exact-SHA Actions.
+- Next: inspect exact-head WAN route and XY-C1; audit `stop_wan_locked()` / `wan_down_internal()` for protocol-error static-address/DHCP-route/auth cleanup gaps without bypassing mandatory teardown.
+
+---
+
 ## 2026-11-22 08:17 CST — Scope MAN classifier source contract to its definition
 
 - Parent main SHA: `dc5df775b1ec1043b5f4c1ce42f472533f886682`.
