@@ -2825,6 +2825,13 @@ ipt_filter_default(void)
 	firewall_status = firewall_read_enabled_setting("fw_enable_x", &is_fw_enabled);
 	if (firewall_status != 0)
 		return firewall_status;
+	if (is_nat_enabled) {
+		/* A failed read must not silently bypass configured DNS redirection. */
+		firewall_status = firewall_read_enabled_setting("redirect_all_dns",
+							 &is_redirect_dns);
+		if (firewall_status != 0)
+			return firewall_status;
+	}
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default filter")))
 		return -1;
@@ -3640,6 +3647,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	char ipt_file[] = "/tmp/ipt_nat.XXXXXX";
 	char dmz_ip[16] = {0};
 	int is_use_dmz = 0;
+	int is_redirect_dns = 0;
 	int wport, lport, is_nat_enabled, is_fw_enabled, is_upnp_enabled = 0;
 	int i_vpns_enable, i_vpnc_enable, i_vpns_type, i_vpnc_type, i_vpnc_sfw, i_http_proto;
 	int i_misc_httpport = 0, i_http_lanport = 0;
@@ -3924,7 +3932,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 
 	if (is_nat_enabled) {
 		/* redirect all LAN clients' DNS queries (PREROUTING) */
-		if (wan_ip && nvram_match("redirect_all_dns", "1")) {
+		if (wan_ip && is_redirect_dns) {
 			fprintf(fp, "-I %s -i %s -p tcp --dport 53 -j DNAT --to %s\n", "PREROUTING", lan_if, lan_ip);
 			fprintf(fp, "-I %s -i %s -p udp --dport 53 -j DNAT --to %s\n", "PREROUTING", lan_if, lan_ip);
 		}

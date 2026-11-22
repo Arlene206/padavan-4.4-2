@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed when reading the NAT DNS redirect toggle
+
+- Parent main SHA: `99f3ac8c8aa921dd958b3434ccfa708290b8b50b`. Exact Firewall Startup #44982990213 and AI handoff #44982990231 PASS. WAN DHCP #44982990226, XY-C1 #44982990270 and NVRAM #44982990240 were IN_PROGRESS at the last poll. The WAN TTL checked-read change has an exact-head Firewall Startup PASS; the target firmware build remains unverified.
+- The IPv4 NAT builder still used unchecked `nvram_match("redirect_all_dns", "1")` to decide whether to DNAT LAN TCP/UDP DNS queries to the router. If this NVRAM lookup failed, the builder treated the setting as disabled and silently omitted the redirect, allowing LAN clients to bypass an enabled router DNS policy.
+- `ipt_nat_rules()` now obtains the toggle via `firewall_read_enabled_setting()` before opening/staging the NAT ruleset. An absent setting remains disabled; backend or malformed-result errors abort the active firewall restore transaction instead of publishing a partial DNS policy.
+- Added a named NVRAM status regression and workflow assertions for the checked pre-stage gate and generated condition. Exact-head Firewall Startup pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Check WAN TTL policy before firewall side effects
 
 - Parent main SHA: `7fec09ca534f339fd7ac14bf036d83c12fd66587`. Exact Firewall Startup #44982894139, WAN DHCP #44982894189, HTTPD #44982894126, WAN route #44982894201, FULLCONENAT #44982894180, process inventory #44982894127 and AI handoff #44982894167 PASS. NVRAM #44982894159 and XY-C1 #44982894183 were still running at last poll.

@@ -845,6 +845,15 @@ jobs:
           assert 'nvram_invmatch("mr_enable_x", "1")' not in mangle_builder
           assert "test_wan_ttl_policy_reads_keep_legacy_defaults_and_fail_closed" in firewall_nvram_test
 
+          # DNS redirection is a fail-closed privacy policy when enabled.
+          nat_builder = body(firewall_source, "ipt_nat_rules(char *man_if")
+          dns_redirect_gate = 'firewall_read_enabled_setting("redirect_all_dns",'
+          assert dns_redirect_gate in nat_builder
+          assert nat_builder.index(dns_redirect_gate) < nat_builder.index("firewall_open_rule_file(")
+          assert "if (wan_ip && is_redirect_dns)" in nat_builder
+          assert 'nvram_match("redirect_all_dns", "1")' not in nat_builder
+          assert "test_dns_redirect_toggle_missing_default_and_backend_failure" in firewall_nvram_test
+
           paths = (
               "trunk/user/rc/src/firewall_module_table_policy.h",
               "trunk/user/rc/src/tests/firewall_module_table_policy.c",
