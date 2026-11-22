@@ -310,4 +310,28 @@ grep -F -- '-t nat -I PREROUTING -p tcp --dport 80 -j ADBYBY' "$TEST_COMMAND_LOG
 grep -F -- '-I FORWARD -m set --match-set blockip dst -j DROP' "$TEST_COMMAND_LOG" >/dev/null
 grep -F -- '-I OUTPUT -m set --match-set blockip dst -j DROP' "$TEST_COMMAND_LOG" >/dev/null
 [ -s "$TEST_SNAPSHOT_LOG" ]
+# A failed restore-snapshot removal must survive later successful kernel
+# cleanup commands; otherwise a future firewall rebuild can resurrect rules.
+adbyby_remove_rule_snapshot() {
+    printf 'snapshot-remove-attempted\\n' >> "$TEST_SNAPSHOT_LOG"
+    return 41
+}
+: > "$TEST_COMMAND_LOG"
+: > "$TEST_IPSET_LOG"
+: > "$TEST_SNAPSHOT_LOG"
+if del_rule; then
+    echo "del_rule hid a failed restore-snapshot removal" >&2
+    exit 1
+else
+    del_rule_status=$?
+fi
+[ "$del_rule_status" -eq 41 ]
+grep -Fqx 'snapshot-remove-attempted' "$TEST_SNAPSHOT_LOG"
+grep -F -- '-t nat -D PREROUTING -p tcp --dport 80 -j ADBYBY' "$TEST_COMMAND_LOG" >/dev/null
+grep -F -- '-t nat -F ADBYBY' "$TEST_COMMAND_LOG" >/dev/null
+grep -F -- '-t nat -X ADBYBY' "$TEST_COMMAND_LOG" >/dev/null
+grep -F -- '-D FORWARD -m set --match-set blockip dst -j DROP' "$TEST_COMMAND_LOG" >/dev/null
+grep -F -- '-X blockip' "$TEST_IPSET_LOG" >/dev/null
+echo "Adbyby firewall snapshot cleanup failure remains visible: PASS"
+
 echo "Adbyby firewall setup failure propagation and cleanup regression: OK"

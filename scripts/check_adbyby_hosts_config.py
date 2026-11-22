@@ -196,6 +196,15 @@ require("adbyby_publish_failure_status=$?" in publisher and
         'return "$adbyby_start_status"' in start and
         'return "$adbyby_update_status"' in updater,
         "post-launch stage errors must be preserved and trigger rollback for start and update")
+del_rule = function_body(source, "del_rule")
+require("adbyby_del_rule_status=0" in del_rule and
+        'return "$adbyby_del_rule_status"' in del_rule and
+        "防火墙规则清理不完整" in del_rule,
+        "del_rule must retain restore-snapshot cleanup errors after attempting kernel cleanup")
+require("Adbyby firewall snapshot cleanup failure remains visible: PASS" in firewall_test and
+        "snapshot-remove-attempted" in firewall_test,
+        "del_rule snapshot cleanup status must be covered by the firewall regression")
+
 require('logger -t "adbyby"' in del_dns,
         "del_dns must log a failed managed-entry cleanup")
 require("adbyby_del_dns_status=0" in del_dns and

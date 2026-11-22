@@ -1022,7 +1022,11 @@ add_rule()
 
 del_rule()
 {
-	if ! adbyby_remove_rule_snapshot; then
+	adbyby_del_rule_status=0
+	if adbyby_remove_rule_snapshot; then
+		:
+	else
+		adbyby_del_rule_status=$?
 		logger -t "adbyby" "清理防火墙规则快照失败；后续防火墙重建可能仍尝试恢复旧规则。"
 	fi
 	$ipt_n -D PREROUTING -p tcp --dport 80 -j ADBYBY 2>/dev/null
@@ -1036,9 +1040,13 @@ del_rule()
 	ipset -X adbyby_wan 2>/dev/null
 	ipset -F blockip 2>/dev/null
 	ipset -X blockip 2>/dev/null
+	if [ "$adbyby_del_rule_status" -ne 0 ]; then
+		logger -t "adbyby" "防火墙规则清理不完整，拒绝报告关闭成功 (status=$adbyby_del_rule_status)。"
+		return "$adbyby_del_rule_status"
+	fi
 	logger -t "adbyby" "已关闭全部8118透明代理端口。"
+	return 0
 }
-
 reload_rule()
 {
 	config_load adbyby
