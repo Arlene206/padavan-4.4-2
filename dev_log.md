@@ -1,3 +1,12 @@
+## 2026-11-22 13:30 UTC+8 — Preserve LAN hosts and IPv6 state on service read errors
+
+- Parent main SHA: `c29cb02e1536627abb824379ba92c8dc3d9cd8af`. The IPv6 checker correction #44989518974 and AI docs #44989518977 PASS on this exact SHA; the prior GNU89 ASan/UBSan policy and LAN6/firewall contracts are green.
+- `create_hosts_lan()` previously turned an unreadable IPv6 service key into an IPv4-only `/etc/hosts` replacement. It now checks the service type before opening staged output, so backend/read/close failure preserves the last-known-good hostname/hosts pair.
+- `start_lan()` now propagates a checked service read error instead of silently skipping LAN IPv6 address reload. It continues independent bridge setup through the existing first-error aggregator; a valid disabled configuration retains the old skip behavior.
+- Extended the source checker with publication/reload ordering assertions and added `net_lan.c` to push/PR triggers. No local compile is available; exact-head tests and XY-C1 are pending. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 13:27 UTC+8 — Repair IPv6 checker LAN and firewall function locators
 
 - Parent main SHA: `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`. Exact IPv6 service-type run #44989410008 passed the GNU89 ASan/UBSan policy test and failed in the source checker at line 125.

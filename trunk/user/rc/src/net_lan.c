@@ -1264,6 +1264,9 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 	char *lan_hname = get_our_hostname();
 	int saved_errno = 0;
 	int hosts_lock = -1;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 
 	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) || !lan_dname ||
 	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) ||
@@ -1272,6 +1275,17 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 		logmessage(LOGNAME, "refusing unsafe LAN hostname input");
 		return EINVAL;
 	}
+
+#if defined (USE_IPV6)
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage(LOGNAME,
+			   "refusing to publish LAN hostname files without verified IPv6 service state (status=%d)",
+			   ipv6_type_status);
+		return ipv6_type_status;
+	}
+#endif
 
 	/* Stage both files completely before replacing either live pathname. */
 	hostname_fp = dnsmasq_file_open(hostname_temp);
@@ -1296,7 +1310,7 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 		logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno);
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED) {
+	if (ipv6_type != IPV6_DISABLED) {
 		fprintf(hosts_fp, "%s %s %s\n", "::1", "localhost.localdomain", "localhost");
 		{
 			char addr6s[INET6_ADDRSTRLEN];
@@ -1412,6 +1426,9 @@ start_lan(int is_ap_mode, int do_wait)
 	int operation_status;
 	int phy_wait_status = 0;
 	int metadata_status = 0;
+#if defined (USE_IPV6)
+	int ipv6_type, ipv6_type_status;
+#endif
 
 	lan_ipaddr = nvram_safe_get("lan_ipaddr");
 	lan_netmsk = nvram_safe_get("lan_netmask");
@@ -1525,13 +1542,22 @@ start_lan(int is_ap_mode, int do_wait)
 	}
 
 #if defined (USE_IPV6)
-	if (get_ipv6_type() != IPV6_DISABLED) {
+	ipv6_type_status = get_ipv6_type_status(&ipv6_type);
+	if (ipv6_type_status != 0) {
+		errno = ipv6_type_status;
+		logmessage(LOGNAME,
+			   "cannot reload LAN IPv6 address without verified service state (status=%d)",
+			   ipv6_type_status);
+		operation_status = ipv6_type_status;
+	} else if (ipv6_type != IPV6_DISABLED) {
 		operation_status = reload_lan_addr6();
 		if (operation_status != 0)
 			logmessage(LOGNAME, "LAN IPv6 address reload failed (status=%d)",
 				   operation_status);
-		start_status = rc_first_service_start_status(start_status, operation_status);
+	} else {
+		operation_status = 0;
 	}
+	start_status = rc_first_service_start_status(start_status, operation_status);
 #endif
 
 	operation_status = config_bridge(is_ap_mode);

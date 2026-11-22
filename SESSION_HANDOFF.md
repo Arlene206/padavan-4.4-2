@@ -6,10 +6,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development and validation target `main` only.
-- Live main before THIS IPv6 checker correction: `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`. Product code now includes the checked LAN IPv6 state-preservation change from `e85eaf114556844668acaaea9fe4d9d7afd60406` and the firewall filter/NAT fail-closed migration from `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify/delete. PR #1 is closed/unmerged.
-- GitHub Git data APIs are the editing path; no local firmware checkout/toolchain is available.
+- Repository `Arlene206/padavan-4.4-2`; development and validation target: `main` only.
+- Live main before THIS LAN hostname/IPv6 slice: `c29cb02e1536627abb824379ba92c8dc3d9cd8af`. Product source includes the checked IPv6 service-type reader, LAN IPv6 state-preservation fix (`net_lan6.c`) and fail-closed firewall builders (`firewall_ex.c`).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or delete it. PR #1 remains closed/unmerged.
+- GitHub Git data APIs are the editing path; local firmware checkout/toolchain is unavailable.
 
 ## Completed source slices
 
@@ -28,20 +28,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-1. Correct the IPv6 source-contract checker before advancing. Exact run #44989410008 passed the GNU89 ASan/UBSan policy test and failed at line 125 because the checker demanded exact `if (status != 0)`, while LAN predicates validly use combined `if (status != 0 || ipv6_type == IPV6_DISABLED)`. Change the assertion locator to the condition prefix without weakening the checked-reader and error-return requirements.
-2. The same checker also contained three malformed function locators written as literal `\\n` sequences for the firewall builders. Replace them with explicit function-signature prefixes (`ipt_filter_rules(char *man_if`, `ip6t_filter_rules(char *man_if`, `ipt_nat_rules(char *man_if`) so the firewall contracts execute against their actual functions instead of failing at a later substring lookup.
-3. Firewall product source migration is already in `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`: IPv4/IPv6 filter generation now returns on service-type read error before opening rule files; IPv4 NAT only requires the service type when DMZ is active and reuses the checked type for the protocol-41 exception. Once the checker passes, continue remaining callers in `net_lan.c`, `net_wan.c`, storage and OpenVPN.
+- THIS slice migrates both remaining `net_lan.c` service-type reads. `create_hosts_lan()` checks `ip6_service` before opening either staged hostname/hosts file; a read failure returns without replacing the last-known-good dual-stack host files. A valid disabled setting still emits the legacy IPv4-only hosts configuration.
+- `start_lan()` checks the service type before `reload_lan_addr6()`. Read failure is returned through the existing first-service-status aggregator while independent bridge setup continues; disabled IPv6 skips reload without reusing a stale prior operation status.
+- The IPv6 source checker pins publication/reload ordering and rejects legacy getters in both function bodies. Push and PR path filters now include `net_lan.c` symmetrically.
+- Remaining direct callers after this slice are in `net_wan.c`, `services_stor.c` and `vpn_openvpn.c`; continue with side-effect/transaction review, not blanket substitutions.
 
 ## Verification boundary
 
-- Exact IPv6 service-type run #44989410008 on `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`: GNU89 ASan/UBSan policy test PASS; integration checker FAIL at line 125 with strict substring mismatch. First cause is checker-only; no C compiler/test failure was reported.
-- Firewall Startup #44989409981, HTTPD security #44989409980, WAN route #44989409993, WAN DHCP #44989410029 and AI docs #44989410105 all PASS on exact push SHA `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`.
-- XY-C1 firmware validation #44989409968 and NVRAM boundary audit #44989409959 remained IN_PROGRESS; Process lifecycle inventory #44989409985 remained IN_PROGRESS. L3 is not verified until Build XY-C1, TRX verification and artifact upload all pass on the same source SHA.
-- No local firmware toolchain or local checkout is available. Hardware L4 NOT VERIFIED.
+- Checker correction `c29cb02e1536627abb824379ba92c8dc3d9cd8af`: IPv6 service-type #44989518974 PASS and AI handoff docs #44989518977 PASS on that exact push SHA.
+- Firewall source commit `a056dd3ef7b04fd3ebe5ca3f5a576a57f5d1dbb5`: Firewall Startup #44989409981, HTTPD security #44989409980, WAN route #44989409993, WAN DHCP #44989410029, AI docs #44989410105, NVRAM audit #44989409959 and Process inventory #44989409985 PASS on that exact SHA. XY-C1 #44989409968 remained IN_PROGRESS at last poll.
+- THIS LAN hostname/IPv6 source commit has not yet run its exact-head checks. No local C compile or firmware build is claimed. L3 NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA; hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check the exact new main SHA's IPv6 service-type run. Require the ASan/UBSan policy executable and the full integration checker (LAN and firewall assertions) to PASS.
-2. Inspect exact-SHA XY-C1, NVRAM and Process runs. L3 only after all three target build/TRX/artifact steps pass on that exact product SHA.
-3. Continue the remaining checked service-type callsites in `net_lan.c`, `net_wan.c`, `services_stor.c` and `vpn_openvpn.c`, inspecting ordering and adding regressions before each atomic main commit.
-4. Keep L4 as NOT VERIFIED until actual hardware boot/runtime testing.
+1. Check exact-head IPv6 service regression; require GNU89 ASan/UBSan policy test and LAN/LAN6/firewall source-order contracts to PASS.
+2. Check XY-C1 Build, TRX validation, artifact upload and relevant NVRAM/Process/WAN jobs by exact `head_sha`. Do not claim L3 from older source commits.
+3. Migrate remaining checked service reads in `net_wan.c`, `services_stor.c` and `vpn_openvpn.c`, one bounded, transaction-safe change with regression per commit.
+4. Hardware L4 remains unverified pending real-device validation.

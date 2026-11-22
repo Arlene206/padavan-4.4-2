@@ -47,6 +47,7 @@ net6 = (ROOT / "trunk/user/rc/src/net6.c").read_text()
 wan6 = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
 rc = (ROOT / "trunk/user/rc/src/rc.c").read_text()
 net_lan6 = (ROOT / "trunk/user/rc/src/net_lan6.c").read_text()
+net_lan = (ROOT / "trunk/user/rc/src/net_lan.c").read_text()
 
 reader = function_body(netutils, "int get_ipv6_type_status(")
 assert 'nvram_get_checked("ip6_service", &service_value)' in reader
@@ -155,5 +156,28 @@ nat_file = nat_rules.index('firewall_open_rule_file(ipt_file, "IPv4 NAT")')
 assert 0 <= nat_guard < nat_read < nat_error < nat_file
 assert "return firewall_status;" in nat_rules[nat_error:nat_file]
 assert "get_ipv6_type()" not in nat_rules
+
+
+lan_hosts = function_body(net_lan, "create_hosts_lan(")
+hosts_read = lan_hosts.index("get_ipv6_type_status(&ipv6_type)")
+hosts_error = lan_hosts.index("if (ipv6_type_status != 0)", hosts_read)
+hosts_return = lan_hosts.index("return ipv6_type_status;", hosts_error)
+hosts_open = lan_hosts.index("dnsmasq_file_open(hostname_temp)")
+hosts_ipv6 = lan_hosts.index("if (ipv6_type != IPV6_DISABLED)")
+assert hosts_read < hosts_error < hosts_return < hosts_open < hosts_ipv6
+assert "get_ipv6_type()" not in lan_hosts
+
+lan_start = function_body(net_lan, "start_lan(int is_ap_mode")
+start_read = lan_start.index("get_ipv6_type_status(&ipv6_type)")
+start_error = lan_start.index("if (ipv6_type_status != 0)", start_read)
+start_reload = lan_start.index("reload_lan_addr6()", start_error)
+start_aggregate = lan_start.index(
+    "start_status = rc_first_service_start_status(start_status, operation_status);",
+    start_reload,
+)
+start_bridge = lan_start.index("config_bridge(is_ap_mode)", start_aggregate)
+assert start_read < start_error < start_reload < start_aggregate < start_bridge
+assert "operation_status = ipv6_type_status;" in lan_start[start_error:start_reload]
+assert "get_ipv6_type()" not in lan_start
 
 print("IPv6 service-type checked-read source contract: PASS")
