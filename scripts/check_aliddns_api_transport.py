@@ -539,9 +539,9 @@ for marker in (
 ):
     require(marker in ca_bootstrap_test, f"CA bootstrap regression missing result marker: {marker}")
 
-fingerprint = SOURCE.split("aliddns_config_fingerprint () {", 1)[1].split("\n}", 1)[0]
-status_body = SOURCE.split("aliddns_get_status () {", 1)[1].split("\n}", 1)[0]
-check_body = SOURCE.split("aliddns_check () {", 1)[1].split("\n}", 1)[0]
+fingerprint = source.split("aliddns_config_fingerprint () {", 1)[1].split("\n}", 1)[0]
+status_body = source.split("aliddns_get_status () {", 1)[1].split("\n}", 1)[0]
+check_body = source.split("aliddns_check () {", 1)[1].split("\n}", 1)[0]
 require("printf '%s\\0'" in fingerprint and "md5sum" in fingerprint,
         "configuration fingerprint must NUL-delimit fields and hash the custom script")
 require("B_restart=$(aliddns_config_fingerprint /etc/storage/ddns_script.sh) || return 1" in status_body and

@@ -13,15 +13,15 @@ Every session MUST inspect live repository state and complete an end-of-session 
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `c32d2d3955b2f986494f070c1272d9fac4add50e`.
+- Repository: `Arlene206/padavan-4.4-2`; main at this checkpoint: `72ffcb355cff70e8dc7b54f708b3806e3eac7e66`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
 - p910nd transient I/O, EAPoL orphan-tail cleanup, ttyd child readiness and WSDD2 XML UTF-8 validation remain committed.
-- AliyunDrive HTTP listener readiness is committed; current fixture correction resets the termination mock before HTTP probes. Check its exact regression.
-- AliDDNS uses a NUL-delimited configuration fingerprint including a separate digest of the persistent custom script. This commit fixes test root resolution and removes a redundant second hash.
+- AliyunDrive HTTP listener readiness is committed. The c32d2d3 fixture now keeps the simulated PID alive during the bounded HTTP probes; its source-checker `require()` ordering fix is committed at 72ffcb3. Exact run #45043816997 is pending.
+- AliDDNS NUL-delimited configuration fingerprint and shell regression are committed at 1293727/3556d29. The exact fingerprint regression passed on #45043730798, but the final Python contract failed at line 542 because three new assertions refer to undefined uppercase `SOURCE` rather than the initialized lowercase `source`; this commit corrects the checker.
 
 ## Active task
 
-Two exact-head regressions need closure while independent work continues. AliyunDrive's host lifecycle regression passed on c32d2d3, but its source checker failed because `require()` was defined below its first call; this commit moves the helper above that call. AliDDNS's fingerprint test root and redundant digest were fixed in 3556d29; verify its exact SHA action as well.
+Correct the AliDDNS semantic checker variable typo, then verify its exact-head workflow. In parallel, inspect the AliyunDrive source-checker rerun on 72ffcb3; its prior host regression passed but the source checker failed because `require()` was defined below its first call, now fixed.
 ## Verification boundary
 
 - Ancestor SHA 129372718e1241823d785da6455abb46d03869c1: Process inventory #45043414729 PASS; AI handoff #45043414763 PASS; HTTPD auth #45043414724 PASS; AliDDNS #45043414686 FAILED at test path resolution; XY-C1 #45043414723 was pending then.
@@ -31,6 +31,6 @@ Two exact-head regressions need closure while independent work continues. Aliyun
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact AliDDNS API transport run and fix only a demonstrated remaining failure.
-2. Inspect AliyunDrive lifecycle #45043595742 after fixture isolation; use any diagnostic output to close the timeout regression without weakening bounded HTTP readiness.
-3. Inspect current exact-SHA XY-C1 Build/TRX/artifact statuses, then continue an independent userland stability/security slice. Keep frozen backup read-only and work only on main.
+1. Inspect the exact AliDDNS Actions rerun for this checker correction; all fingerprint shell assertions already passed, so only a demonstrated remaining checker failure should be changed.
+2. Inspect AliyunDrive lifecycle #45043816997 on 72ffcb3 and diagnose its first failed step if any.
+3. Recheck XY-C1 Build/TRX/artifact on exact product-source SHA, then continue the next independent stability/security defect from the roadmap. Keep frozen backup read-only and work only on main.

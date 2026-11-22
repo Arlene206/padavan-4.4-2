@@ -1,3 +1,12 @@
+## 2026-11-22 — Fix AliDDNS fingerprint source-checker variable typo
+
+- Parent main SHA: `72ffcb355cff70e8dc7b54f708b3806e3eac7e66`. Exact AliDDNS workflow #45043730798 on `3556d297e887ad81b5457e16a33b32eafadafa9a` ran the full shell suite successfully, including the new configuration-fingerprint regression, then failed in `scripts/check_aliddns_api_transport.py:542` with `NameError: name 'SOURCE' is not defined`. The checker loads the production script into lowercase `source`, but its three new fingerprint/get-status/check assertions referenced uppercase `SOURCE`.
+- Replaced those three unbound references with the already-loaded `source` variable. No production behavior or test expectation was changed. Exact-head AliDDNS workflow must rerun on this checker correction.
+- At recovery on parent `72ffcb3`, AI handoff #45043817075 PASS; AliyunDrive lifecycle #45043816997 was IN_PROGRESS. Its preceding #45043595742 passed host lifecycle cases and failed only because `require()` was defined below its first call; that ordering correction is now committed on main.
+- No local shell/Python test, firmware build, TRX/artifact or hardware validation was performed. L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Define AliyunDrive source-contract helper before first use
 
 - Parent main SHA: `3556d297e887ad81b5457e16a33b32eafadafa9a`. The exact AliyunDrive lifecycle run #45043595742 passed shell syntax, MIPSel QEMU binary compatibility and the full host lifecycle regression, including the 11-probe no-listener and 3-probe delayed-listener cases. It then failed in the Python source-contract step with `NameError: name 'require' is not defined`: a new BusyBox `CONFIG_NC` assertion had been placed above the helper definition.
