@@ -1,3 +1,12 @@
+## 2026-11-22 11:08 CST — Correct newline-sensitive Samba public-writer contract
+
+- Parent main SHA: `32394e6581f566d1cd4a65a33749f319c002f9f3`.
+- Exact Samba run #44978784709 (head `32394e6`) compiled and ran all GNU89/Werror policy regressions, then failed in the source-contract Python block at `function_body(stor, "int write_smb_conf(void)")`. Production declares the public wrapper as `int\\nwrite_smb_conf(void)`; the helper uses literal substring matching, so the checker locator did not match.
+- Changed only the locator to search for `"int" + chr(10) + "write_smb_conf(void)"`. No production source or functional assertion was relaxed.
+- Exact HTTPD #44978784728 and AI docs #44978784711 passed on `32394e6`. XY-C1 #44978563487 on product-source parent `5b93812` was still in progress at last poll; recheck terminal status. No L3/L4 claim.
+
+---
+
 ## 2026-11-22 11:02 CST — Reconcile Samba and HTTPD exact-head source contracts
 
 - Parent main SHA: `5b93812bd53fff8a0a4bdb71e9e85b8a23543b9c`.

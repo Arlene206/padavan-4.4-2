@@ -311,7 +311,7 @@ jobs:
           account_safety = function_body(stor, "samba_service_account_is_safe(")
           writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
           writer_compact = "".join(writer.split())
-          standalone_writer = function_body(stor, "int write_smb_conf(void)")
+          standalone_writer = function_body(stor, "int" + chr(10) + "write_smb_conf(void)")
           assert "rc_wan_nvram_copy_value(storage_read_nvram_string,NULL,name,value,value_size)" in "".join(string_reader.split())
           assert "nvram_get_checked(name,value)" in "".join(string_getter.split())
           assert "router_username" in account_safety
