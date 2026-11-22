@@ -44,11 +44,15 @@ assert "get_wan_unit_value_copy_status( unit, \"ifname\", man_ifname_nvram, size
 assert "wan_ifname_copy( man_ifname, sizeof(man_ifname), man_ifname_nvram)" in wan_get_compact
 assert "get_man_ifname(unit)" not in wan_get
 assert "man_ifname_value" not in wan_get
-manual_ifname_gate_at = wan_get.index("if (ifname == man_ifname)")
+manual_ifname_gate_at = wan_get_compact.index("if (ifname == man_ifname)")
 manual_ifname_read_at = wan_get_compact.index("get_wan_unit_value_copy_status( unit, \"ifname\", man_ifname_nvram, sizeof(man_ifname_nvram))")
+manual_ifname_read_error_at = wan_get_compact.index("if (status != 0)", manual_ifname_read_at)
 manual_ifname_copy_at = wan_get_compact.index("wan_ifname_copy( man_ifname, sizeof(man_ifname), man_ifname_nvram)")
+manual_ifname_copy_error_at = wan_get_compact.index("if (status != 0)", manual_ifname_copy_at)
 final_ifname_copy_at = wan_get_compact.index("wan_ifname_copy(wan_ifname, 16, ifname)")
-assert manual_ifname_gate_at < manual_ifname_read_at < manual_ifname_copy_at < final_ifname_copy_at
+assert wan_get_compact.index("if (is_usb_modem)") < manual_ifname_gate_at
+assert wan_get_compact.index("get_wan_unit_proto_checked_status(") < manual_ifname_gate_at
+assert manual_ifname_gate_at < manual_ifname_read_at < manual_ifname_read_error_at < manual_ifname_copy_at < manual_ifname_copy_error_at < final_ifname_copy_at
 assert "errno = status;" in wan_get
 assert "int get_wan_ifname(char wan_ifname[16]);" in rc_header
 

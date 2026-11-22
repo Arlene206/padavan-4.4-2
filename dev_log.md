@@ -1,3 +1,12 @@
+## 2026-11-22 — Normalize WAN manual-fallback checker ordering
+
+- Parent main SHA: `ecfdafb0e348bcec466d4372400f5a2c87f02006`. Exact ecfd WAN route #44996213814 PASS; AI handoff docs #44996213622 PASS. WAN DHCP callback #44996213685 failed after its GNU89/ASan/UBSan `wan_ifname_policy.c` executable and basic bounds regression both passed.
+- The failing assertion at `scripts/check_wan_ifname_bounds.py:51` compared `manual_ifname_gate_at` from the raw source string with later positions from the whitespace-compacted source. Those offsets are not comparable, so a valid checked manual fallback failed the checker.
+- All ordering positions are now measured in the same compacted function. The contract also verifies modem and protocol selection happen before the fallback, and that read error and token-validation error branches both precede the final output copy.
+- The exact dc6 product-source XY-C1 run #44996098229 remained in progress at last poll with Build XY-C1 running; TRX and artifact upload were pending. The checker-only ecfd commit did not alter product firmware inputs. L3 remains unverified.
+
+---
+
 ## 2026-11-22 — Align WAN DNS checker with checked manual-interface getter
 
 - Parent main SHA: `dc6f6b4efb8b0ac088e82e18f9bd42168efdd9d0`. Exact WAN DHCP callback #44996098158 PASS, including the expanded `check_wan_ifname_bounds.py`; HTTPD Auth/Security #44996098097 and AI handoff #44996098288 PASS.
