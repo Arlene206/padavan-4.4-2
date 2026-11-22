@@ -106,10 +106,12 @@ static_gateway_restore = cleanup.index(
     "static_gateway_status = route_status_idempotent_add(", status_update
 )
 static_gateway_add = cleanup.index(
-    'route_add(lan_ifname, 0, "0.0.0.0", snapshot.static_gateway, "0.0.0.0")',
+    'route_add(lan_ifname, 0, "0.0.0.0",',
     static_gateway_restore,
 )
-resolver_stage = cleanup.index('lock = file_lock("resolv");', static_gateway_add)
+static_gateway_arg = cleanup.index("snapshot.static_gateway", static_gateway_add)
+resolver_stage = cleanup.index('lock = file_lock("resolv");', static_gateway_arg)
+assert static_gateway_add < static_gateway_arg < resolver_stage
 final_status_update = cleanup.index(
     "status = dhcp_lease_deconfig_status(route_status, ifconfig_status,",
     resolver_stage,
