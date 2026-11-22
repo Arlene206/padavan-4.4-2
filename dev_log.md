@@ -1,3 +1,10 @@
+## 2026-11-22 — Align route contract with checked AP gateway preflight
+
+- Parent main SHA: `2db8f2afc34cfa133e8f0940d3f99f90d99a43ba`. Exact WAN route run #45010582579 on this SHA failed in the route source checker because it still searched for `nvram_safe_get("lan_gateway_t")` in AP `stop_lan()`. The checked bounded snapshot is now the intentional preflight gate.
+- Updated the checker to require the AP gateway read, fail-closed return before route operations, and the existing route-delete/rollback/bridge-down sequence. WAN DHCP callback #45010423606 and Process lifecycle inventory #45010423500 passed on the previous source SHA. Exact route rerun pending; XY-C1 fan-out pending.
+
+---
+
 ## 2026-11-22 — Derive uploaded ZeroTier planet file and NVRAM from one snapshot
 
 - Parent main SHA: `587427b3e8952a8bdefcd2bf8ec32c1c6ca2669c`. Review of the remaining uploaded `/etc/storage/planet` writer found a transaction-coherence race: it Base64-encoded the upload first, then copied the upload in a second read. If the source changed between those reads, the persistent `planet` file and `zerotier_planet` NVRAM value could represent different contents despite a successful commit.
