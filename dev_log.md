@@ -1,3 +1,13 @@
+## 2026-11-22 — Correct the part-024 archive byte count
+
+- Parent main SHA: `8dd57dffb63cfc11dc0459e7afb3b6d02c1ed9aa`.
+- Exact-head WAN route regression #44968740776 passed on `09232ef0e8677c59bfa49a538fb908ce31259d0f`. The AI handoff check first caught the 120-entry root log; the subsequent rotation commit `8dd57dff` archived 100 records into part-024 but its index recorded JavaScript character count (129192) rather than UTF-8 byte count (129424).
+- Re-read the immutable archive: 100 records, first `Snapshot VPN remote-LAN route ACL before route mutation`, last `Fail closed on WAN startup protocol reads`, blob SHA unchanged `359eae06c5b550cf68dc48710a91ea546551ec8f`. Corrected only the index byte metadata; no archived/root log records changed.
+- Exact-head AI docs run #44968969967 failed solely on that byte-count mismatch; rerun required on this correction SHA. The prior product SHA `02857320194ebdda3b451ea3d6de07fa212995c0` has XY-C1 Build, TRX verification and artifact upload steps 37/38/39 all PASS in run #44968037242.
+- Next source slice remains the checked USB-modem WAN selector: `wanN_modem_dev` currently has a lossy `nvram_get_int()` reader.
+
+---
+
 ## 2026-11-22 — Preserve WAN protocol error in DHCP deconfig regression contract
 
 - Parent main SHA: `8998530e9609b5e401c15a3a63f23b20ebd27d60`.
