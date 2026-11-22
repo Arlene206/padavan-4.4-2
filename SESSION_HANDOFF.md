@@ -6,14 +6,13 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, complete atomic Git trees/commits, non-forced expected-SHA updates.
-- Current baseline before this checker correction: `86d18d524ca522dc4d85e5abf7c28376ac74a394`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
-- WAN manual-interface checked reads now cover `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()`, `stop_wan_locked()`, AP-client WISP migration and AP-client radio-recovery decision.
-- Exact 86d wireless radio #44997181767 FAILED at `check_guest_lan_isolation_status.py:323`: newly added source-order assertion called undefined `require()` (this checker uses Python `assert`, no `require` helper). Earlier wireless radio, bridge membership and guest-isolation policy executables all passed before this checker failure.
-- Exact 86d process inventory #44997181843 PASS; HTTPD Auth/Security #44997181802 PASS; AI handoff #44997181801 PASS; iNIC lifecycle #44997181809 PASS. Process lifecycle #44997181794 also FAILED at the same imported guest-LAN checker `NameError: require is not defined` after unrelated account/bridge tests passed.
-- Exact 86d XY-C1 #44997181783 was still in Build dependency installation after source checkout; Build/TRX/artifact had not completed at last poll. NVRAM transaction audit #44997181875 was in progress.
-- Follow-up replaces the undefined helper call with built-in `assert (...)`, retaining the exact order and fail-closed source conditions. No product behavior changed in this checker-only correction.
-- L3 requires Build XY-C1, TRX verification and artifact upload all execute and pass on identical product-source SHA; hardware L4 NOT VERIFIED.
+- Repository `Arlene206/padavan-4.4-2`; develop on `main` only, atomic complete-tree commits and non-forced expected-SHA updates.
+- Current baseline before `full_restart_wan()` repair: `c69d200c788aafeb76c6905bb18a70d22f9d49d4`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; PR #1 closed/unmerged.
+- Checked manual WAN interface reads now cover `start_wan()`, `get_wan_ifname()`, `get_wan_ip4()`, `stop_wan_locked()`, `config_apcli_wisp()` and `check_apcli_wan()`.
+- Exact 86d wireless radio #44997181767 and Process lifecycle #44997181794 both FAILED only at `check_guest_lan_isolation_status.py:323` undefined `require()`; policy C binaries passed. Corrected in c69 by replacing with Python `assert (...)`.
+- Exact 86d Process inventory #44997181843 PASS, HTTPD Auth/Security #44997181802 PASS, AI handoff #44997181801 PASS, iNIC lifecycle #44997181809 PASS. Exact c69 wireless radio #44997296073, Process inventory #44997296036 and AI docs #44997296148 were in progress at last poll; c69 XY-C1 was not triggered by checker-only path change. Exact 86d XY-C1 #44997181783 was pending/in progress in dependency setup; Build/TRX/artifact not completed at last poll.
+- Newly confirmed P1 state-transition defect: `full_restart_wan()` read `route_ifnames[0]` through `get_man_ifname(0)` only after `stop_wan()` succeeded. A read error concealed as empty name could cause route flushing to target the wrong/incomplete interface set after WAN services were already stopped. This slice moves checked bounded read and token validation ahead of router-mode refresh and WAN teardown; preserves an actually empty legacy setting.
+- No same-SHA Build XY-C1/TRX/artifact success verified yet; L3 not claimed. Hardware L4 NOT VERIFIED.
 
 ## Completed source slices
 
@@ -34,20 +33,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- `check_apcli_wan()` now uses checked router-mode and manual-interface reads before making WAN restart/reconnect decisions; the source implementation is in `net_wifi.c`.
-- Exact 86d wireless-radio and dependent Process lifecycle checks failed only because `check_guest_lan_isolation_status.py` called an undefined `require()` at line 323; this script uses `assert` and has no helper. The C/GNU89 and ASan/UBSan policy binaries earlier in both jobs passed.
-- Current checker-only follow-up changes that call into a Python `assert (...)` with the same source-order/error conditions. No product source changes in this corrective slice.
+- `check_apcli_wan()` checked router-mode/manual-interface read is in `net_wifi.c`; c69 fixed the undefined `require()` in its source checker.
+- Current P1 route-transition slice fixes `full_restart_wan()`: checked read/token validation of `wan0_ifname` now happens before `update_router_mode()` and `stop_wan()`, and the validated local string is reused for post-stop route flush. Empty legacy setting remains empty.
+- `check_wan_dns_read_status.py` requires read/error/validation ordering before router-mode update and WAN stop, the correct route-interface reuse and no remaining lossy getter.
 
 ## Verification boundary
 
-- Exact 86d AI handoff #44997181801 PASS, process inventory #44997181843 PASS, HTTPD Auth/Security #44997181802 PASS and iNIC lifecycle #44997181809 PASS.
-- Exact 86d wireless radio #44997181767 FAIL and Process lifecycle #44997181794 FAIL at the same `NameError: require is not defined` in `check_guest_lan_isolation_status.py:323`. Existing wireless and guest-isolation compiled tests before the checker passed.
-- Exact 86d XY-C1 #44997181783 was still installing build dependencies; no Build/TRX/artifact result. NVRAM transaction audit #44997181875 was in progress.
-- This checker correction requires exact-head wireless/Process Actions. L3/L4 not verified.
+- Exact 86d AI handoff #44997181801, process inventory #44997181843, HTTPD Auth/Security #44997181802 and iNIC lifecycle #44997181809 PASS.
+- Exact 86d wireless radio #44997181767 and Process lifecycle #44997181794 FAILED at same undefined `require()` in `check_guest_lan_isolation_status.py`; corrected in c69. Exact c69 wireless/Process/AI were still pending at last poll.
+- Exact 86d XY-C1 #44997181783 still had not completed Build/TRX/artifact at last poll. No L3 claim.
+- This `full_restart_wan()` source change requires exact-head WAN route/DHCP and XY-C1 verification. Hardware L4 unverified.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head wireless-radio and Process lifecycle jobs after the assertion fix; ensure the checked router-mode/manual-interface ordering contract passes.
-2. Check exact-head XY-C1 Build, TRX verification and artifact upload; declare L3 only if all three pass on one SHA.
-3. Continue state-changing WAN interface NVRAM reliability paths with concrete consequences; keep backup read-only.
-4. Hardware L4 remains unverified.
+1. Verify exact-head WAN route/DHCP, wireless and process Actions for the full-restart checked-interface change.
+2. Ensure checked read/validation fails before `update_router_mode()` and `stop_wan()`, while empty interface remains compatible.
+3. Verify same-SHA XY-C1 Build, TRX and artifact; do not claim L3 unless all three pass.
+4. Continue examining state-changing WAN interface read paths with a concrete unsafe decision consequence; keep backup read-only.

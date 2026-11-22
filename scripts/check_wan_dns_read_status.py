@@ -500,6 +500,25 @@ require(manual_ifname_read_at < manual_ifname_read_error_at < manual_ifname_vali
         "returnifname_status;" in stop_locked_compact and
         "get_man_ifname(unit)" not in stop_locked_compact,
         "WAN teardown must resolve manual interface before destructive side effects and preserve read errors")
+
+full_restart = "".join(body(source, "full_restart_wan(void)").split())
+restart_manual_read = "ifname_status=get_wan_unit_value_copy_status(0,\"ifname\",man_ifname_nvram,sizeof(man_ifname_nvram))"
+restart_manual_validate = "ifname_status=wan_ifname_copy(man_ifname,sizeof(man_ifname),man_ifname_nvram)"
+restart_manual_read_at = full_restart.index(restart_manual_read)
+restart_manual_read_error_at = full_restart.index("if(ifname_status!=0)", restart_manual_read_at)
+restart_manual_nonempty_at = full_restart.index("if(man_ifname_nvram[0])", restart_manual_read_error_at)
+restart_manual_validate_at = full_restart.index(restart_manual_validate, restart_manual_nonempty_at)
+restart_manual_validate_error_at = full_restart.index("if(ifname_status!=0)", restart_manual_validate_at)
+restart_mode_update_at = full_restart.index("update_router_mode()")
+restart_stop_wan_at = full_restart.index("stop_wan()")
+restart_route_use_at = full_restart.index("route_ifnames[0]=man_ifname")
+require(restart_manual_read_at < restart_manual_read_error_at < restart_manual_nonempty_at <
+        restart_manual_validate_at < restart_manual_validate_error_at <
+        restart_mode_update_at < restart_stop_wan_at < restart_route_use_at and
+        "man_ifname[0]='\\0';" in full_restart and
+        "get_man_ifname(0)" not in full_restart and
+        "errno=ifname_status;" in full_restart,
+        "full WAN restart must check and preserve route interface identity before stopping WAN")
 manual_disconnect = "".join(body(source, "manual_wan_disconnect(void)").split())
 manual_modem_read = "status=get_usb_modem_wan_status(0,&is_usb_modem)"
 manual_proto_read = "status=get_wan_unit_proto_checked_status(0,&wan_proto);"

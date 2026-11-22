@@ -5608,7 +5608,8 @@ full_restart_wan(void)
 	int static_lan_route_status;
 	int switch_vlan_status;
 	int route_flush_status;
-	int is_ap_mode, ap_mode_status;
+	int is_ap_mode, ap_mode_status, ifname_status;
+	char man_ifname[16], man_ifname_nvram[16];
 	char *route_ifnames[2];
 
 	ap_mode_status = get_ap_mode_status(&is_ap_mode);
@@ -5620,6 +5621,35 @@ full_restart_wan(void)
 	}
 	if (is_ap_mode)
 		return 0;
+
+	/*
+	 * Read the route-flush interface before stopping WAN or changing router
+	 * state. get_man_ifname() is backed by nvram_safe_get(), which cannot
+	 * distinguish an empty setting from a transient NVRAM read failure.
+	 */
+	ifname_status = get_wan_unit_value_copy_status(
+		0, "ifname", man_ifname_nvram, sizeof(man_ifname_nvram));
+	if (ifname_status != 0) {
+		errno = ifname_status;
+		logmessage(LOGNAME,
+			   "aborting full WAN restart because manual interface cannot be read (status=%d)",
+			   ifname_status);
+		return ifname_status;
+	}
+	if (man_ifname_nvram[0]) {
+		ifname_status = wan_ifname_copy(
+			man_ifname, sizeof(man_ifname), man_ifname_nvram);
+		if (ifname_status != 0) {
+			errno = ifname_status;
+			logmessage(LOGNAME,
+				   "aborting full WAN restart because manual interface is invalid (status=%d)",
+				   ifname_status);
+			return ifname_status;
+		}
+	} else {
+		man_ifname[0] = '\0';
+	}
+
 	status = update_router_mode();
 	if (status != 0) {
 		logmessage(LOGNAME,
@@ -5633,7 +5663,7 @@ full_restart_wan(void)
 			   status);
 		return status;
 	}
-	route_ifnames[0] = get_man_ifname(0);
+	route_ifnames[0] = man_ifname;
 	route_ifnames[1] = IFNAME_BR;
 	route_flush_status = rc_wan_route_flush_and_cache_apply(
 		route_ifnames, 2, clear_if_route4, flush_route_caches);

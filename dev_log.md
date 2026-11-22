@@ -1,3 +1,12 @@
+## 2026-11-22 — Validate full-restart route interface before WAN teardown
+
+- Parent main SHA: `c69d200c788aafeb76c6905bb18a70d22f9d49d4`. In the prior 86d run, wireless radio #44997181767 and Process lifecycle #44997181794 failed only because the source checker called undefined `require()` at line 323; the wireless policy executables passed. Follow-up c69 changed that call to Python `assert`.
+- Found another concrete state-transition read-loss path: `full_restart_wan()` fetched `route_ifnames[0]` via `get_man_ifname(0)` only after `stop_wan()` completed. A transient NVRAM read error could appear as an empty string after services had already been stopped, then route flush would operate on the wrong interface set.
+- Moved checked `get_wan_unit_value_copy_status(0, "ifname", ...)` and `wan_ifname_copy()` validation before `update_router_mode()` and `stop_wan()`. The validated bounded local name is reused for route flush; real errors are logged, copied to `errno`, and returned before WAN side effects. Empty legacy configuration remains an empty string.
+- Extended the WAN DNS/read checker to pin checked read/error/validation before mode update and service stop, then route use of the same validated buffer, with no `get_man_ifname(0)` left in full restart.
+- Exact c69 wireless radio #44997296073, Process inventory #44997296036 and AI docs #44997296148 were in progress at last poll; no same-SHA XY-C1 build claim. Exact-head validation for this product change remains pending.
+
+---
 ## 2026-11-22 — Fix AP-client radio source-checker assertion helper
 
 - Parent main SHA: `86d18d524ca522dc4d85e5abf7c28376ac74a394`. Exact wireless-radio #44997181767 failed at line 323 with `NameError: name 'require' is not defined`; the newly added checker used a helper absent from this script, which consistently uses Python `assert`.
