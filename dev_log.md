@@ -1,3 +1,10 @@
+## 2026-11-22 — Update XUPnPD integration check for owned LAN address
+
+- Parent main SHA: `3664d438d7b2ed36957b45b91b8e647f1a592deb`. The Process integration checker still required the old direct `xupnpd_config_valid_ipv4(nvram_safe_get(...))` expression after `start_xupnpd()` was correctly changed to a bounded checked copy. Exact Process run #45008874486 on `56137665cea32ba5d5befce235889f996e4c9fa3` completed the preceding regression and source checks, then failed specifically at `scripts/check_process_lifecycle_integration.py:406`.
+- Updated that assertion to require the checked NVRAM copy, the owned `lan_addr` validation, and absence of the borrowed-pointer pattern. This is a checker update, not a production-code rollback. Exact rerun pending.
+
+---
+
 ## 2026-11-22 — Copy udpxy argv options before the NVRAM cache can wrap
 
 - Parent main SHA: `56137665cea32ba5d5befce235889f996e4c9fa3`. `start_udpxy()` passed three `nvram_safe_get()` pointers directly through the variadic `eval()` call. These pointers are backed by the shared NVRAM cache ring and can be invalidated by later reads before exec constructs argv.

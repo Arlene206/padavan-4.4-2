@@ -403,7 +403,10 @@ assert "int start_xupnpd(char *wan_ifname);" in rc_header
 assert "if (fp1 == NULL)" in xupnpd_start and "if (fp2 == NULL)" in xupnpd_start
 assert '#include "xupnpd_config_file.h"' in net_source
 assert "xupnpd_config_valid_interface(wan_ifname)" in xupnpd_start
-assert "xupnpd_config_valid_ipv4(nvram_safe_get" in xupnpd_start
+assert "rc_wan_nvram_copy_value(net_nvram_get_checked, NULL," in xupnpd_start
+assert '"lan_ipaddr_t"' in xupnpd_start
+assert "xupnpd_config_valid_ipv4(lan_addr)" in xupnpd_start
+assert 'nvram_safe_get("lan_ipaddr_t")' not in xupnpd_start
 assert xupnpd_start.count("xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1))") == 2
 assert 'fopen(tmp1, "w")' not in xupnpd_start
 xupnpd_config_header = (root / "trunk/user/rc/src/xupnpd_config_file.h").read_text()
