@@ -67,6 +67,57 @@ test_invalid_controls_and_null_are_rejected(void)
 }
 
 static void
+test_valid_utf8_text_is_preserved(void)
+{
+	const char input[] = "R\xc3\xb6uter \xe6\x97\xa5\xe6\x9c\xac \xf0\x9f\x9a\x80";
+	char *result = wsd_xml_escape_text(input);
+
+	assert(result != NULL);
+	assert(strcmp(result, input) == 0);
+	free(result);
+}
+
+static void
+test_malformed_utf8_is_rejected(void)
+{
+	static const char overlong[] = { (char)0xc0, (char)0x80, '\0' };
+	static const char orphan[] = { (char)0x80, '\0' };
+	static const char truncated_three[] = { (char)0xe2, (char)0x82, '\0' };
+	static const char bad_continuation[] = { (char)0xe2, 'x', (char)0xa1, '\0' };
+	static const char surrogate[] = { (char)0xed, (char)0xa0, (char)0x80, '\0' };
+	static const char too_large[] = {
+		(char)0xf4, (char)0x90, (char)0x80, (char)0x80, '\0'
+	};
+	const char *invalid[] = {
+		overlong, orphan, truncated_three, bad_continuation, surrogate,
+		too_large
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
+		errno = 0;
+		assert(wsd_xml_escape_text(invalid[i]) == NULL);
+		assert(errno == EILSEQ);
+	}
+}
+
+static void
+test_xml_forbidden_codepoints_are_rejected(void)
+{
+	static const char forbidden_control[] = { 'x', 0x0b, 'y', '\0' };
+	static const char unicode_fffe[] = {
+		(char)0xef, (char)0xbf, (char)0xbe, '\0'
+	};
+
+	errno = 0;
+	assert(wsd_xml_escape_text(forbidden_control) == NULL);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(wsd_xml_escape_text(unicode_fffe) == NULL);
+	assert(errno == EINVAL);
+}
+
+static void
 test_empty_and_large_text(void)
 {
 	char *empty = wsd_xml_escape_text("");
@@ -98,6 +149,9 @@ main(void)
 	test_configured_metadata_text_is_escaped();
 	test_xml_whitespace_is_preserved();
 	test_invalid_controls_and_null_are_rejected();
+	test_valid_utf8_text_is_preserved();
+	test_malformed_utf8_is_rejected();
+	test_xml_forbidden_codepoints_are_rejected();
 	test_empty_and_large_text();
 	return 0;
 }

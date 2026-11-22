@@ -1,3 +1,12 @@
+## 2026-11-22 — Reject malformed UTF-8 and XML 1.0-forbidden WSD metadata
+
+- Parent main SHA: `30a1e775fef4ab92288e81a9f4eb1ade048993a4`. WSDD2's XML text escaping already removed markup metacharacters and C0 controls, but it copied every other byte unchanged. Configured manufacturer/model URLs and workgroup names can contain malformed UTF-8, overlong encodings, surrogate code points or values above U+10FFFF; reflecting these bytes produces invalid XML 1.0 SOAP metadata and can break Windows device discovery.
+- Added strict UTF-8 decoding and XML 1.0 Char validation before allocating/escaping output. ASCII whitespace permitted by XML is preserved; valid multibyte UTF-8 remains byte-identical; malformed encoding returns EILSEQ and valid Unicode code points forbidden by XML 1.0 return EINVAL. Existing XML metacharacter escaping remains unchanged.
+- Extended the existing GNU99 ASan/UBSan regression with valid 2/3/4-byte UTF-8, overlong, orphan/truncated/invalid continuation, surrogate, >U+10FFFF, forbidden C0 and U+FFFE cases. Workflow `.github/workflows/wsdd2-xml-reflection-regression.yml` already watches the helper and test.
+- Parent SHA `764042628a2ccd7b90a722d408c10a3d4cfb9056`: AI handoff #45040236379 PASS and process inventory #45040236380 PASS; process regression #45040236371 failed only because its outer checker still expected the old ttyd test PASS message; corrected by commit `30a1e775fef4ab92288e81a9f4eb1ade048993a4` and exact rerun pending. XY-C1 #45040236370 still in progress. No L3/L4 or local test claim.
+
+---
+
 ## 2026-11-22 — Align ttyd lifecycle checker with detached-child readiness regression
 
 - Parent main SHA: 764042628a2ccd7b90a722d408c10a3d4cfb9056. Process lifecycle run #45040236371 failed at scripts/check_optional_app_start_status.py:1098: the ttyd shell test exited successfully, but the outer checker still expected the old PASS line without the new detached-child readiness phrase.
