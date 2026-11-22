@@ -148,7 +148,9 @@ def check_ralink_iappd_rc_shutdown_registration():
     assert "$(INSTALL_BIN) ./iappd.sh $(ROMFSDIR)/usr/bin/iappd.sh" in makefile
     script_test = IAPPD_TEST.read_text()
     for token in (
-        "UNKNOWN inventory",
+        "unavailable process inventory",
+        "unreadable process stat",
+        "zombie process",
         "launcher failure",
         "failed killall",
         "stop postcondition false positive",
