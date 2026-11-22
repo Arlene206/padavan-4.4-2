@@ -1,3 +1,9 @@
+## 2026-11-22 — DNS Forwarder treats pidof scan failures as UNKNOWN
+
+- Source baseline: `17402ad9b359b388b292c960964ab4224b91def7`. `dns_forwarder_is_running()` reduced `pidof` to a Boolean. On BusyBox, the same status 1 is used for no matching process and for some procfs enumeration failures, so an UNKNOWN process table could authorize duplicate startup or a false successful stop.
+- Added strict pidof status/output and positive-PID validation. Start and its readiness polling now accept only confirmed ABSENT before launch and RUNNING after launch; stop and its postcondition polling distinguish confirmed ABSENT from UNKNOWN and refuse to signal or report success on an incomplete inventory.
+- Extended the dedicated DNS Forwarder lifecycle test for pidof error and inconsistent status/output cases, asserting neither start-stop-daemon nor killall is invoked while the daemon marker remains. Updated the launch contract checker. No local router or firmware build is claimed; exact-head CI pending.
+
 ## 2026-11-22 — iperf3 process-state inventory must distinguish UNKNOWN
 
 - Source baseline: `358aca9453aaf9b5dad4814799d8b560689b4f6f`. `is_running()` treated every nonzero `pidof` result as ABSENT. Since BusyBox `pidof` also returns 1 when its procfs scan fails, start could launch a duplicate server, stop could return success without stopping a live server, and startup/stop postcondition loops could falsely interpret UNKNOWN as success.

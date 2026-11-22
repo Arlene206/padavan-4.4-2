@@ -100,7 +100,11 @@ assert "dns_forwarder_lifecycle_lock_prepare" in launcher_script
 assert "dns_forwarder_lifecycle_lock_execute" in launcher_script
 assert "flock -n 9" in launcher_script
 assert "pidof dns-forwarder" in launcher_script
+assert "dns_forwarder_process_state()" in launcher_script
+assert "cannot verify existing daemon state" in launcher_script
+assert "cannot verify daemon stop postcondition" in launcher_script
 assert "killall -q dns-forwarder" in launcher_script
+assert "FAKE_PIDOF_STATUS=2" in lifecycle_test
 assert "start-stop-daemon -S -b -x /usr/bin/dns-forwarder --" in launcher_script
 assert "launcher returned success but no daemon appeared" in launcher_script
 assert "restart aborted because stop did not complete" in launcher_script

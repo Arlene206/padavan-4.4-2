@@ -101,22 +101,98 @@ dns_forwarder_lifecycle_lock_execute() {
   return "$action_status"
 }
 
+# Return 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN. BusyBox pidof
+# may also return 1 when procfs enumeration fails, so validate its output.
+dns_forwarder_process_state() {
+  if dns_forwarder_pid_output=$(pidof dns-forwarder 2>/dev/null); then
+    dns_forwarder_pidof_status=0
+  else
+    dns_forwarder_pidof_status=$?
+  fi
+  case "$dns_forwarder_pidof_status" in
+    0)
+      [ -n "$dns_forwarder_pid_output" ] || return 2
+      case "$dns_forwarder_pid_output" in
+        *[!0123456789 ]*) return 2 ;;
+      esac
+      case $- in
+        *f*) dns_forwarder_restore_noglob=0 ;;
+        *) set -f; dns_forwarder_restore_noglob=1 ;;
+      esac
+      set -- $dns_forwarder_pid_output
+      [ "$dns_forwarder_restore_noglob" -eq 0 ] || set +f
+      [ "$#" -gt 0 ] || return 2
+      for dns_forwarder_pid in "$@"; do
+        case "$dns_forwarder_pid" in
+          ''|0*|*[!0-9]*) return 2 ;;
+        esac
+      done
+      return 0
+      ;;
+    1)
+      [ -z "$dns_forwarder_pid_output" ] && return 1
+      return 2
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
 dns_forwarder_is_running() {
-  pidof dns-forwarder >/dev/null 2>&1
+  dns_forwarder_process_state
 }
 
 func_stop() {
-  if ! dns_forwarder_is_running; then
-    return 0
+  if dns_forwarder_is_running; then
+    process_status=0
+  else
+    process_status=$?
   fi
+  case "$process_status" in
+    1) return 0 ;;
+    0) ;;
+    *)
+      logger -t "DNS Forwarder" "cannot verify daemon state; refusing to stop"
+      return 2
+      ;;
+  esac
 
-  # A failed signal is harmless only if the process disappeared concurrently.
-  if ! killall -q dns-forwarder && dns_forwarder_is_running; then
-    logger -t "DNS Forwarder" "failed to signal the existing daemon"
+  # A failed signal is harmless only if a fresh snapshot confirms absence.
+  if killall -q dns-forwarder; then
+    :
+  else
+    signal_status=$?
+    if dns_forwarder_is_running; then
+      logger -t "DNS Forwarder" "failed to signal the existing daemon (status=$signal_status)"
+      return "$signal_status"
+    else
+      process_status=$?
+    fi
+    case "$process_status" in
+      1) return 0 ;;
+      *)
+        logger -t "DNS Forwarder" "cannot verify daemon after failed stop signal"
+        return 2
+        ;;
+    esac
   fi
 
   attempt=0
-  while dns_forwarder_is_running; do
+  while :; do
+    if dns_forwarder_is_running; then
+      process_status=0
+    else
+      process_status=$?
+    fi
+    case "$process_status" in
+      1) return 0 ;;
+      0) ;;
+      *)
+        logger -t "DNS Forwarder" "cannot verify daemon stop postcondition"
+        return 2
+        ;;
+    esac
     if [ "$attempt" -ge 5 ]; then
       logger -t "DNS Forwarder" "daemon is still running after the bounded stop wait"
       return 1
@@ -124,7 +200,6 @@ func_stop() {
     attempt=$((attempt + 1))
     sleep 1
   done
-  return 0
 }
 
 func_start() {
@@ -138,7 +213,16 @@ func_start() {
   # Make start idempotent and protect against duplicate/stale RC requests.
   if dns_forwarder_is_running; then
     return 0
+  else
+    process_status=$?
   fi
+  case "$process_status" in
+    1) ;;
+    *)
+      logger -t "DNS Forwarder" "cannot verify existing daemon state; refusing duplicate start"
+      return 2
+      ;;
+  esac
 
   if start-stop-daemon -S -b -x /usr/bin/dns-forwarder -- \
       -b "$bind_address" -p "$bind_port" -s "$server" 9>&-; then
@@ -150,7 +234,19 @@ func_start() {
   fi
 
   attempt=0
-  while ! dns_forwarder_is_running; do
+  while :; do
+    if dns_forwarder_is_running; then
+      return 0
+    else
+      process_status=$?
+    fi
+    case "$process_status" in
+      1) ;;
+      *)
+        logger -t "DNS Forwarder" "cannot verify startup daemon state"
+        return 2
+        ;;
+    esac
     if [ "$attempt" -ge 3 ]; then
       logger -t "DNS Forwarder" "launcher returned success but no daemon appeared"
       return 1
@@ -158,7 +254,6 @@ func_start() {
     attempt=$((attempt + 1))
     sleep 1
   done
-  return 0
 }
 
 dns_forwarder_locked_action() {

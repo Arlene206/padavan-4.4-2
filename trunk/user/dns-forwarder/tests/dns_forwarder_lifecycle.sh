@@ -25,12 +25,17 @@ STUB
 cat > "$tmp/bin/pidof" <<'STUB'
 #!/bin/sh
 [ "$1" = dns-forwarder ] || exit 2
+if [ "${FAKE_PIDOF_OVERRIDE:-0}" = 1 ]; then
+  [ -z "${FAKE_PIDOF_OUTPUT:-}" ] || printf '%s\n' "$FAKE_PIDOF_OUTPUT"
+  exit "${FAKE_PIDOF_STATUS:-0}"
+fi
 [ -s "$FAKE_RUNNING_FILE" ] || exit 1
 printf '%s\n' 123
 STUB
 cat > "$tmp/bin/killall" <<'STUB'
 #!/bin/sh
 [ "$1" = -q ] && [ "$2" = dns-forwarder ] || exit 2
+printf '%s\n' "$*" >> "$FAKE_STOP_LOG"
 [ "${FAKE_KILL_FAIL:-0}" = 0 ] || exit 1
 [ "${FAKE_KILL_KEEP:-0}" = 1 ] || rm -f "$FAKE_RUNNING_FILE"
 exit 0
@@ -55,6 +60,8 @@ chmod 700 "$tmp/bin/"*
 
 export FAKE_RUNNING_FILE="$tmp/running"
 export FAKE_LAUNCH_LOG="$tmp/launch.log"
+export FAKE_STOP_LOG="$tmp/stop.log"
+: > "$FAKE_STOP_LOG"
 export FAKE_ENABLED=1 FAKE_KILL_FAIL=0 FAKE_KILL_KEEP=0
 export FAKE_START_FAIL=0 FAKE_START_NO_PID=0
 PATH="$tmp/bin:/usr/bin:/bin"
@@ -85,6 +92,29 @@ run_status 0 start
 grep -F '/usr/bin/dns-forwarder' "$FAKE_LAUNCH_LOG" >/dev/null
 run_status 0 start
 [ "$(launch_count)" = 1 ]
+
+# An incomplete or inconsistent pidof snapshot is UNKNOWN, not ABSENT.
+printf '%s\n' 123 > "$FAKE_RUNNING_FILE"
+FAKE_PIDOF_OVERRIDE=1 FAKE_PIDOF_STATUS=2 FAKE_PIDOF_OUTPUT=
+export FAKE_PIDOF_OVERRIDE FAKE_PIDOF_STATUS FAKE_PIDOF_OUTPUT
+launches_before=$(launch_count)
+stops_before=$(wc -l < "$FAKE_STOP_LOG" | tr -d ' ')
+run_status 2 start
+run_status 2 stop
+[ "$(launch_count)" = "$launches_before" ]
+[ "$(wc -l < "$FAKE_STOP_LOG" | tr -d ' ')" = "$stops_before" ]
+[ -s "$FAKE_RUNNING_FILE" ]
+
+FAKE_PIDOF_STATUS=0 FAKE_PIDOF_OUTPUT=
+export FAKE_PIDOF_STATUS FAKE_PIDOF_OUTPUT
+run_status 2 start
+run_status 2 stop
+FAKE_PIDOF_STATUS=1 FAKE_PIDOF_OUTPUT=123
+export FAKE_PIDOF_STATUS FAKE_PIDOF_OUTPUT
+run_status 2 start
+run_status 2 stop
+unset FAKE_PIDOF_OVERRIDE FAKE_PIDOF_STATUS FAKE_PIDOF_OUTPUT
+rm -f "$FAKE_RUNNING_FILE"
 
 # Stop is idempotent and waits until the process is actually gone.
 run_status 0 stop
