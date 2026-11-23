@@ -1455,7 +1455,8 @@ int mod_account(const char *const account, const char *const new_account, const 
 	struct disk_share_account_rename_entry *moves = NULL, *moves_tail = NULL;
 	struct disk_share_account_rename_entry *move, *next_move;
 	int first_error = 0, saved_errno, rollback_error = 0;
-	int service_result, service_error, username_changed = 0, password_changed = 0;
+	int service_result, service_error;
+	int username_attempted = 0, password_attempted = 0;
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
@@ -1607,26 +1608,24 @@ int mod_account(const char *const account, const char *const new_account, const 
 		if (rename_required) {
 			snprintf(nvram_name, sizeof(nvram_name),
 				 "acc_username%d", account_order);
+			username_attempted = 1;
 			if (nvram_set(nvram_name, new_account) != 0)
 				first_error = errno ? errno : EIO;
-			else
-				username_changed = 1;
 		}
 		if (first_error == 0 && password_update) {
+			password_attempted = 1;
 			if (nvram_set(password_key, new_password) != 0)
 				first_error = errno ? errno : EIO;
-			else
-				password_changed = 1;
 		}
 		if (first_error == 0 && nvram_commit_safe() != 0)
 			first_error = errno ? errno : EIO;
 	}
 
 	/* Restore NVRAM values and compensate file moves on any failed publish. */
-	if (first_error != 0 && (username_changed || password_changed)) {
+	if (first_error != 0 && (username_attempted || password_attempted)) {
 		int restore_error = 0;
 
-		if (password_changed) {
+		if (password_attempted) {
 			int restore_result;
 
 			restore_result = password_present ?
@@ -1635,7 +1634,7 @@ int mod_account(const char *const account, const char *const new_account, const 
 			if (restore_result != 0)
 				restore_error = errno ? errno : EIO;
 		}
-		if (username_changed) {
+		if (username_attempted) {
 			snprintf(nvram_name, sizeof(nvram_name),
 				 "acc_username%d", account_order);
 			if (nvram_set(nvram_name, account) != 0 && restore_error == 0)

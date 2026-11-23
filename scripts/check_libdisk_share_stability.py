@@ -587,8 +587,11 @@ require(mod_inventory < mod_loop < mod_old_path < mod_new_path < mod_old_stat <
         "rename(var_file,new_var_file)" not in mod_account_compact,
         "mod_account must publish every volume rename before changing NVRAM, and compensate filesystem state if NVRAM publication fails")
 require("nvram_set(password_key,new_password)" in mod_account_compact and
+        "password_attempted=1;" in mod_account_compact and
+        "username_attempted=1;" in mod_account_compact and
         "nvram_set(password_key,old_password)" in mod_account_compact and
-        "nvram_unset(password_key)" in mod_account_compact,
+        "nvram_unset(password_key)" in mod_account_compact and
+        "if(first_error!=0&&(username_attempted||password_attempted))" in mod_account_compact,
         "mod_account must check password writes and restore the prior password on NVRAM failure")
 for marker in (
     "test_account_rename_batch_rolls_back_after_successful_publish",
