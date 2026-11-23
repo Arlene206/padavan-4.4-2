@@ -804,7 +804,7 @@ void fe_cal_tx_amp_mdix(u8 port_num, u32 delay)
 void fe_cal_tx_offset(u8 port_num, u32 delay)
 {
 	unsigned int read_value = 0U, page_value = 0U, updated;
-	unsigned int l3r25_temp, l2r20_temp, l4r17_temp;
+	unsigned int l2r20_temp, l4r17_temp;
 	unsigned int tx_offset_final = 0U;
 	int ad_cal_comp_out_init;
 	int calibration_polarity, tx_offset_temp;
