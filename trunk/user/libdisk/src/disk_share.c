@@ -1440,7 +1440,247 @@ int del_account(const char *const account)
 }
 
 // "new_account" can be the same with "account"!
-()=>modFn
+int mod_account(const char *const account, const char *const new_account, const char *const new_password)
+{
+	disk_info_t *disk_list = NULL, *follow_disk;
+	partition_info_t *follow_partition;
+	int i, acc_num = 0;
+	char **account_list = NULL;
+	char nvram_name[16], password_key[16], old_password[128];
+	int account_order = -1, rename_required, password_update;
+	char *old_password_value = NULL;
+	int password_status, password_present = 0;
+	char var_file[256], new_var_file[256];
+	struct stat old_stat, new_stat;
+	struct disk_share_account_rename_entry *moves = NULL, *moves_tail = NULL;
+	struct disk_share_account_rename_entry *move, *next_move;
+	int first_error = 0, saved_errno, rollback_error = 0;
+	int service_result, service_error, username_changed = 0, password_changed = 0;
+
+	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
+		return -1;
+	if (new_account && *new_account &&
+	    (!is_valid_account_name(new_account) || is_reserved_account_name(new_account)))
+		return -1;
+	if (new_password && *new_password &&
+	    !is_valid_account_password(new_password))
+		return -1;
+	if ((new_account == NULL || strlen(new_account) <= 0) &&
+	    (new_password == NULL || strlen(new_password) <= 0))
+		return -1;
+
+	/* 1. check whether the account exists and the new name is available. */
+	if (get_account_list(&acc_num, &account_list) != 0)
+		return -1;
+
+	for (i = 0; i < acc_num; ++i) {
+		if (new_account != NULL && strcmp(new_account, account) &&
+		    strlen(new_account) > 0 && !strcmp(account_list[i], new_account)) {
+			free_2_dimension_list(&acc_num, &account_list);
+			return -1;
+		}
+		if (!strcmp(account, account_list[i]))
+			account_order = i;
+	}
+	free_2_dimension_list(&acc_num, &account_list);
+
+	if (account_order == -1)
+		return -1;
+	if (new_account && *new_account && !strcmp(new_account, FTP_ANONYMOUS_USER))
+		return -1;
+
+	rename_required = new_account != NULL && *new_account &&
+		strcmp(new_account, account) != 0;
+	password_update = new_password != NULL && *new_password;
+
+	/*
+	 * Preserve the old password before attempting any mutation. A checked
+	 * read error or overlong cached value must not turn rollback into an
+	 * accidental empty-password write.
+	 */
+	if (password_update) {
+		snprintf(password_key, sizeof(password_key), "acc_password%d", account_order);
+		errno = 0;
+		password_status = nvram_get_checked(password_key, &old_password_value);
+		if (password_status < 0) {
+			first_error = errno ? errno : EIO;
+		} else if (password_status == 1 && old_password_value) {
+			if (strlen(old_password_value) >= sizeof(old_password)) {
+				first_error = ENAMETOOLONG;
+			} else {
+				strcpy(old_password, old_password_value);
+				password_present = 1;
+			}
+		} else if (password_status != 0) {
+			first_error = EIO;
+		}
+	}
+
+	/*
+	 * For a rename, preflight and publish all filesystem metadata first.
+	 * NVRAM is changed only after every volume has accepted the new name;
+	 * a later NVRAM failure compensates this complete batch.
+	 */
+	if (first_error == 0 && rename_required) {
+		if (read_disk_data_checked(&disk_list) != 0) {
+			first_error = errno ? errno : EIO;
+		} else {
+			for (follow_disk = disk_list;
+			     follow_disk != NULL && first_error == 0;
+			     follow_disk = follow_disk->next) {
+				for (follow_partition = follow_disk->partitions;
+				     follow_partition != NULL && first_error == 0;
+				     follow_partition = follow_partition->next) {
+					if (follow_partition->mount_point == NULL)
+						continue;
+
+					if (disk_share_format_account_var_path(
+						    var_file, sizeof(var_file),
+						    follow_partition->mount_point, account) != 0) {
+						first_error = errno ? errno : EIO;
+						break;
+					}
+					if (disk_share_format_account_var_path(
+						    new_var_file, sizeof(new_var_file),
+						    follow_partition->mount_point, new_account) != 0) {
+						first_error = errno ? errno : EIO;
+						break;
+					}
+
+					/* Missing source metadata is idempotent. */
+					if (lstat(var_file, &old_stat) != 0) {
+						saved_errno = errno ? errno : EIO;
+						if (saved_errno == ENOENT)
+							continue;
+						first_error = saved_errno;
+						break;
+					}
+					if (!S_ISREG(old_stat.st_mode)) {
+						first_error = EINVAL;
+						break;
+					}
+					if (lstat(new_var_file, &new_stat) == 0) {
+						first_error = EEXIST;
+						break;
+					}
+					saved_errno = errno ? errno : EIO;
+					if (saved_errno != ENOENT) {
+						first_error = saved_errno;
+						break;
+					}
+
+					move = (struct disk_share_account_rename_entry *)
+						calloc(1, sizeof(*move));
+					if (!move) {
+						first_error = errno ? errno : ENOMEM;
+						break;
+					}
+					strcpy(move->source, var_file);
+					strcpy(move->destination, new_var_file);
+					move->previous = moves_tail;
+					if (moves_tail)
+						moves_tail->next = move;
+					else
+						moves = move;
+					moves_tail = move;
+				}
+			}
+		}
+	}
+
+	if (first_error == 0 && rename_required && moves &&
+	    disk_share_account_rename_entries_apply(
+		    moves, rename, &rollback_error) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (rollback_error != 0) {
+			logmessage("disk_share",
+				   "account metadata rename rollback failed (errno %d)",
+				   rollback_error);
+			first_error = EIO;
+		} else {
+			first_error = saved_errno;
+		}
+	}
+
+	/* Publish account identity/password only after the volume batch succeeds. */
+	if (first_error == 0) {
+		if (rename_required) {
+			snprintf(nvram_name, sizeof(nvram_name),
+				 "acc_username%d", account_order);
+			if (nvram_set(nvram_name, new_account) != 0)
+				first_error = errno ? errno : EIO;
+			else
+				username_changed = 1;
+		}
+		if (first_error == 0 && password_update) {
+			if (nvram_set(password_key, new_password) != 0)
+				first_error = errno ? errno : EIO;
+			else
+				password_changed = 1;
+		}
+		if (first_error == 0 && nvram_commit_safe() != 0)
+			first_error = errno ? errno : EIO;
+	}
+
+	/* Restore NVRAM values and compensate file moves on any failed publish. */
+	if (first_error != 0 && (username_changed || password_changed)) {
+		int restore_error = 0;
+
+		if (password_changed) {
+			int restore_result;
+
+			restore_result = password_present ?
+				nvram_set(password_key, old_password) :
+				nvram_unset(password_key);
+			if (restore_result != 0)
+				restore_error = errno ? errno : EIO;
+		}
+		if (username_changed) {
+			snprintf(nvram_name, sizeof(nvram_name),
+				 "acc_username%d", account_order);
+			if (nvram_set(nvram_name, account) != 0 && restore_error == 0)
+				restore_error = errno ? errno : EIO;
+		}
+		if (restore_error == 0 && nvram_commit_safe() != 0)
+			restore_error = errno ? errno : EIO;
+		if (restore_error != 0) {
+			logmessage("disk_share",
+				   "account NVRAM rollback failed (errno %d)",
+				   restore_error);
+			first_error = EIO;
+		}
+	}
+
+	if (first_error != 0 && moves) {
+		rollback_error = 0;
+		if (disk_share_account_rename_entries_rollback(
+			    moves, rename, &rollback_error) != 0) {
+			logmessage("disk_share",
+				   "account metadata rollback after NVRAM failure failed (errno %d)",
+				   rollback_error);
+			first_error = EIO;
+		}
+	}
+
+	while (moves) {
+		next_move = moves->next;
+		free(moves);
+		moves = next_move;
+	}
+	free_disk_data(disk_list);
+
+	/* Reload services after both stores have reached their final state. */
+	errno = 0;
+	service_result = system("/sbin/run_ftpsamba");
+	service_error = disk_share_command_status(service_result, errno);
+	if (service_error != 0 && first_error == 0)
+		first_error = service_error;
+	if (first_error != 0) {
+		errno = first_error;
+		return -1;
+	}
+	return 0;
+}
 
 int add_folder(const char *const mount_path, const char *const folder)
 {
