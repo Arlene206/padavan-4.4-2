@@ -1763,7 +1763,7 @@ ipup_vpns_main(int argc, char **argv)
 {
 	int i_cast, i_vuse, lock_fd, firewall_status, lifecycle_fd, callback_state;
 	int cleanup_failed = 0, saved_errno, record_length;
-	int scan_error, stop_status, relay_status, route_status, hook_status;
+	int scan_error, stop_status, relay_status, route_status, hook_status, ifconfig_status;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action relay_action;
@@ -1855,7 +1855,13 @@ ipup_vpns_main(int argc, char **argv)
 
 	if (i_vuse) {
 		char *ifconfig_argv[] = { "ifconfig", argv[1], "-multicast", NULL };
-		_eval(ifconfig_argv, NULL, 0, NULL);
+		ifconfig_status = _eval(ifconfig_argv, NULL, 0, NULL);
+		if (ifconfig_status != 0) {
+			logmessage(VPNS_LOG_NAME,
+				   "cannot disable multicast on VPN interface %s (status=%d)",
+				   argv[1], ifconfig_status);
+			cleanup_failed = 1;
+		}
 	}
 	route_status = vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1);
 	if (route_status != 0) {

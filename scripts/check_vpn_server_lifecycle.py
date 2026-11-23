@@ -1344,6 +1344,11 @@ ordered(ipup_callback,[
     "if (i_vuse)",
     "if (i_cast == 0 || i_vuse == 0)"
 ],"VPN up callback must check modes before firewall/lease side effects")
+require("ifconfig_status = _eval(ifconfig_argv, NULL, 0, NULL);" in ipup_callback and
+        "if (ifconfig_status != 0)" in ipup_callback and
+        "cannot disable multicast on VPN interface" in ipup_callback and
+        "cleanup_failed = 1;" in ipup_callback,
+        "VPN up callback must report multicast-interface configuration failures")
 ipdown_callback=body(vpn,"ipdown_vpns_main(int argc, char **argv)")
 ordered(ipdown_callback,[
     "vpn_server_read_callback_mode_snapshot(&i_vuse, &i_cast)",
