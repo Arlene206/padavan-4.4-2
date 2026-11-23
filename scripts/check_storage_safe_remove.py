@@ -361,7 +361,9 @@ for token in ("storage_deferred_event_action_should_run",
             "deferred unplug action/ack regression missing " + token)
 storage_use_start = deferred_storage.index("#if defined (USE_STORAGE)")
 storage_use_else = deferred_storage.index("#else", storage_use_start)
-storage_use_declarations = deferred_storage[storage_use_start:storage_use_else]
+storage_use_declarations = "".join(
+    deferred_storage[storage_use_start:storage_use_else].split()
+)
 require(
     "storage_unplug_pending=1;" in deferred_storage_code
     and storage_use_declarations.count("storage_should_start=0;") == 1

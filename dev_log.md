@@ -2,7 +2,8 @@
 
 - Exact USB storage hotplug run `45123777839` on `5d8a220b7e16375d0308704c061e066d4304b513` passed the whole-caller-graph step, then failed in `scripts/check_storage_safe_remove.py` at the deferred-worker assertion. The checker counted `storage_should_start = 0` across both preprocessor branches; the function intentionally declares that local once in the `USE_STORAGE` branch and once in the non-integrated-storage branch, so the global count of one was invalid.
 - Corrected the source contract to count the initialization inside the `#if defined (USE_STORAGE)` declaration branch only. Retained the ordering assertion before the first checked unplug read, the dispatch-error gate, retry alarm, and start gate; no production behavior or assertion coverage was removed.
-- Exact-head USB storage hotplug and AI handoff runs required for this checker-only correction. No local checkout or shell test claimed.
+- Exact run `45124098843` still failed this assertion: the extracted preprocessor declaration branch was counted before whitespace normalization, so its spaced C declaration did not match the compact needle. The branch slice is now normalized with the same whitespace compaction as the full function before the one-in-branch count.
+- The matching AI handoff run `45124098824` passed; XY-C1 run `45124098820` passed on `f339589`. Exact USB storage hotplug and AI handoff checks are required after this follow-up. No local checkout or shell test claimed.
 - Resulting commit: pending.
 
 ---
