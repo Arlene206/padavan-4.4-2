@@ -338,6 +338,51 @@ test_stale_cleanup_failure_rolls_back(void)
 }
 
 static int
+test_stale_or_malformed_group_count_aborts_before_mutation(void)
+{
+	static const char *stale_counts[] = {
+		"5", "3", "4junk", "-4", "999999999999999999999999"
+	};
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	int del_map[] = { 1, -1 };
+	size_t i;
+
+	for (i = 0; i < sizeof(stale_counts) / sizeof(stale_counts[0]); ++i) {
+		fake_init_group(&fake);
+		fake_put(&fake, "group_count", stale_counts[i]);
+		if (httpd_nvram_group_compact(names, 2, "group_count", 4,
+					      del_map, 128, &fake_ops, &fake) == 0)
+			return 1;
+		if (fake.operation_count != 0 ||
+		    !expect_value(&fake, "group_count", stale_counts[i]) ||
+		    !expect_value(&fake, "alpha0", "a0") ||
+		    !expect_value(&fake, "alpha3", "a3") ||
+		    !expect_value(&fake, "beta0", "b0") ||
+		    !expect_value(&fake, "beta3", "b3"))
+			return 1;
+	}
+	return 0;
+}
+
+static int
+test_legacy_decimal_count_whitespace_is_accepted(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	int del_map[] = { 1, -1 };
+
+	fake_init_group(&fake);
+	fake_put(&fake, "group_count", " \t+4 \t");
+	if (httpd_nvram_group_compact(names, 2, "group_count", 4,
+				      del_map, 128, &fake_ops, &fake) != 0)
+		return 1;
+	return expect_value(&fake, "group_count", "3") &&
+	       expect_value(&fake, "alpha1", "a2") &&
+	       expect_value(&fake, "beta1", "b2") ? 0 : 1;
+}
+
+static int
 test_count_read_failure_aborts_before_mutation(void)
 {
 	struct fake_nvram fake;
@@ -402,7 +447,9 @@ test_cleanup_cache_read_failure_aborts_before_mutation(void)
 int
 main(void)
 {
-	if (test_count_read_failure_aborts_before_mutation() ||
+	if (test_stale_or_malformed_group_count_aborts_before_mutation() ||
+	    test_legacy_decimal_count_whitespace_is_accepted() ||
+	    test_count_read_failure_aborts_before_mutation() ||
 	    test_row_read_failure_aborts_before_mutation() ||
 	    test_cleanup_cache_read_failure_aborts_before_mutation() ||
 	    test_single_delete() || test_multiple_delete() || test_invalid_map() ||

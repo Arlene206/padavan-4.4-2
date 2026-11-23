@@ -1,6 +1,9 @@
 #ifndef HTTPD_NVRAM_GROUP_POLICY_H
 #define HTTPD_NVRAM_GROUP_POLICY_H
 
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +32,30 @@ httpd_nvram_group_make_key(char *key, size_t key_size,
 
 	length = snprintf(key, key_size, "%s%d", prefix, index);
 	return (length >= 0 && (size_t)length < key_size) ? 0 : -1;
+}
+
+/*
+ * The caller's group count is sampled before nvram_del_group_map_x() obtains
+ * the NVRAM transaction lock. A concurrent add/remove can make that sample
+ * stale; compare it with the count read under the lock before moving any row.
+ */
+static int
+httpd_nvram_group_count_matches(const char *text, int expected)
+{
+	char *end;
+	long parsed;
+
+	if (!text || expected < 0)
+		return 0;
+
+	errno = 0;
+	parsed = strtol(text, &end, 10);
+	if (end == text || errno == ERANGE || parsed < 0 || parsed > INT_MAX)
+		return 0;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+
+	return (*end == '\0' && parsed == expected);
 }
 
 static void
@@ -143,7 +170,8 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 		int get_status;
 
 		get_status = ops->get(context, count_name, &stored_count);
-		if (get_status != 1 || !stored_count)
+		if (get_status != 1 || !stored_count ||
+		    !httpd_nvram_group_count_matches(stored_count, group_count))
 			return -1;
 		count_snapshot = strdup(stored_count);
 		if (!count_snapshot)

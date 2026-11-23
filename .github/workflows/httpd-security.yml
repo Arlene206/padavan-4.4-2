@@ -1643,6 +1643,10 @@ jobs:
           assert "ops->unset(context, key) != 0" in compact
           assert "get_status = ops->get(context, count_name, &stored_count)" in compact
           assert "get_status < 0 || get_status > 1" in compact
+          assert "httpd_nvram_group_count_matches(stored_count, group_count)" in compact
+          assert compact.index("httpd_nvram_group_count_matches(stored_count, group_count)") < compact.index("count_snapshot = strdup(stored_count)")
+          assert "test_stale_or_malformed_group_count_aborts_before_mutation" in Path("trunk/user/httpd/src/tests/httpd_nvram_group_policy.c").read_text()
+          assert "test_legacy_decimal_count_whitespace_is_accepted" in Path("trunk/user/httpd/src/tests/httpd_nvram_group_policy.c").read_text()
           assert "result = nvram_transaction_get((struct nvram_transaction *)context" in nvram_x
           assert "nvram_group_policy_get(void *context, const char *name, const char **value)" in nvram_x
           restore = body(helper, "httpd_nvram_group_restore(")
