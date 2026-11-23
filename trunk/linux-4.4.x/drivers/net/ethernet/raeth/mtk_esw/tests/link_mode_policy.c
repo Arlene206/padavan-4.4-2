@@ -134,6 +134,16 @@ power_fake(struct fake_mdio *fake, int power_on, int force,
 }
 
 static void
+test_first_error_accumulator_preserves_first_failure(void)
+{
+	assert(mtk_esw_first_error(0, 0) == 0);
+	assert(mtk_esw_first_error(0, -ETIMEDOUT) == -ETIMEDOUT);
+	assert(mtk_esw_first_error(-EIO, -ETIMEDOUT) == -EIO);
+	assert(mtk_esw_first_error(0, 1) == -EIO);
+	assert(mtk_esw_first_error(-ETIMEDOUT, 1) == -ETIMEDOUT);
+}
+
+static void
 test_autoneg_register_sequence_and_cache_ready_result(void)
 {
 	struct fake_mdio fake;
@@ -481,6 +491,7 @@ int
 main(void)
 {
 	test_all_defined_speed_and_flow_modes();
+	test_first_error_accumulator_preserves_first_failure();
 	test_reserved_speed_flow_and_bits_are_rejected();
 	test_phy_power_set_reads_and_writes_before_reporting_change();
 	test_phy_power_set_skips_unchanged_state_but_honors_force();

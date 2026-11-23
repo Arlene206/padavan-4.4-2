@@ -211,4 +211,13 @@ mtk_esw_phy_power_set(unsigned int phy_addr, int power_on, int force,
 	return 0;
 }
 
+/* Preserve the first error while still allowing independent PHYs to run. */
+static inline int
+mtk_esw_first_error(int first_status, int next_status)
+{
+	if (first_status != 0)
+		return first_status;
+	return next_status == 0 ? 0 : mtk_esw_link_mode_io_error(next_status);
+}
+
 #endif /* MTK_ESW_LINK_MODE_POLICY_H */

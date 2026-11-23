@@ -736,7 +736,17 @@ jobs:
               "static int change_wan_lan_ports_power", 1
           )[0]
           assert "return first_error;" in ports_power
-          assert "if (first_error == 0)" in ports_power
+          assert "mtk_esw_first_error(first_error, status)" in ports_power
+          assert "continue;" in ports_power
+          wan_ports_power = source.split("static int change_wan_lan_ports_power", 1)[1].split(
+              "static int change_bridge_mode", 1
+          )[0]
+          assert "int status, first_error = 0, port_power_changed;" in wan_ports_power
+          assert "mtk_esw_first_error(first_error, status)" in wan_ports_power
+          assert "continue;" in wan_ports_power
+          assert "*any_power_changed |= port_power_changed;" in wan_ports_power
+          assert "return first_error;" in wan_ports_power
+          assert "test_first_error_accumulator_preserves_first_failure" in test
           assert "ioctl_result = change_ports_power(uint_param, uint_value);" in ioctl_source
           assert "ioctl_result = change_wan_lan_ports_power(uint_param, uint_value, &power_changed);" in ioctl_source
           assert "ioctl_result = esw_mac_table_clear();" in ioctl_source

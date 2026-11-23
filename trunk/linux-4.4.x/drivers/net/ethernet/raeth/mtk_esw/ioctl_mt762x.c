@@ -1371,8 +1371,8 @@ static int change_ports_power(u32 power_on, u32 ports_mask)
 		if (status != 0) {
 			printk("%s: PHY %u power request failed (status=%d)\n",
 			       __FUNCTION__, i, status);
-			if (first_error == 0)
-				first_error = status;
+			first_error = mtk_esw_first_error(first_error, status);
+			continue;
 		}
 	}
 
@@ -1382,7 +1382,7 @@ static int change_ports_power(u32 power_on, u32 ports_mask)
 static int change_wan_lan_ports_power(u32 power_on, u32 is_wan,
 				       int *any_power_changed)
 {
-	int status, port_power_changed;
+	int status, first_error = 0, port_power_changed;
 	u32 i, ports_mask;
 
 	if (!any_power_changed)
@@ -1399,12 +1399,16 @@ static int change_wan_lan_ports_power(u32 power_on, u32 is_wan,
 			continue;
 
 		status = esw_port_phy_power(i, power_on, 0, &port_power_changed);
-		if (status != 0)
-			return status;
+		if (status != 0) {
+			printk("%s: WAN/LAN PHY %u power request failed (status=%d)\n",
+			       __FUNCTION__, i, status);
+			first_error = mtk_esw_first_error(first_error, status);
+			continue;
+		}
 		*any_power_changed |= port_power_changed;
 	}
 
-	return 0;
+	return first_error;
 }
 
 static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
