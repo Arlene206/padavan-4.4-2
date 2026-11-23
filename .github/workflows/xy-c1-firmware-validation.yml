@@ -136,6 +136,7 @@ on:
       - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/lldt/src/S75lld2"
       - "trunk/user/lldt/src/lldt_pidfile_policy.h"
       - "trunk/user/lldt/src/main.c"
       - "trunk/user/lldt/src/lldt_config_path_policy.h"

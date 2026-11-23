@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/lldt/src/S75lld2"
       - "trunk/user/lldt/src/lldt_pidfile_policy.h"
       - "trunk/user/lldt/src/tests/lldt_pidfile_policy.c"
       - "scripts/check_lldt_pidfile_lock.py"
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/lldt/src/S75lld2"
       - "trunk/user/lldt/src/lldt_pidfile_policy.h"
       - "trunk/user/lldt/src/tests/lldt_pidfile_policy.c"
       - "scripts/check_lldt_pidfile_lock.py"

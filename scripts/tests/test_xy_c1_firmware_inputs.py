@@ -105,6 +105,12 @@ class FirmwareInputPathTests(unittest.TestCase):
                 self.assertIn('      - "' + path + '"', workflow)
                 self.assertFalse(is_non_firmware_input(path))
 
+    def test_lldt_startup_wrapper_triggers_xy_c1_firmware_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/lldt/src/S75lld2"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+        self.assertFalse(is_non_firmware_input(path))
+
     def test_firewall_nvram_match_policy_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         path = "trunk/user/rc/src/firewall_nvram_match_policy.h"

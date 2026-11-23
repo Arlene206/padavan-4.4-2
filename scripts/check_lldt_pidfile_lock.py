@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Verify LLDT pidfile locking spans the entire existing check-and-publish path."""
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "trunk/user/lldt/src/osl-linux.c").read_text(encoding="utf-8")
 policy = (ROOT / "trunk/user/lldt/src/lldt_pidfile_policy.h").read_text(encoding="utf-8")
 test = (ROOT / "trunk/user/lldt/src/tests/lldt_pidfile_policy.c").read_text(encoding="utf-8")
+init_script = (ROOT / "trunk/user/lldt/src/S75lld2").read_text(encoding="utf-8")
+workflow = (ROOT / ".github/workflows/lldt-pidfile-lock.yml").read_text(encoding="utf-8")
 
 signature = "osl_write_pidfile(osl_t *osl)"
 start = source.index(signature)
@@ -61,4 +64,13 @@ assert "st_nlink != 1" in source
 assert "S_ISREG(lock_stat.st_mode)" in source
 assert "flock(fd, LOCK_EX | LOCK_NB)" in policy
 assert "test_pidfile_lock_serializes_competing_open" in test
-print("LLDT pidfile concurrency contract: PASS")
+
+# Startup must preserve the PID file so a repeated invocation cannot bypass
+# the live-process check performed while the sidecar lock is held.
+assert "/sbin/lld2d br0 eth1" in init_script.splitlines()
+assert re.search(
+    r"(?m)^\\s*(?:/bin/)?rm\\b[^\\n]*lld2d[^\\n]*\\.pid",
+    init_script,
+) is None, "LLDT startup wrapper must not remove an existing PID record"
+assert workflow.count('      - "trunk/user/lldt/src/S75lld2"') == 2
+print("LLDT pidfile concurrency and startup-wrapper contract: PASS")

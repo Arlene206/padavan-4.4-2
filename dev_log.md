@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Preserve LLDT live PID markers during startup
+
+- `S75lld2` unconditionally removed `/var/run/lld2d*.pid` before launching the daemon. Re-entering the start wrapper while an LLDT daemon was live therefore erased the PID evidence that `osl_write_pidfile()` uses to reject a second instance; the sidecar lock serializes publication but cannot recover a marker deleted before the next launch.
+- Removed the destructive cleanup. The existing locked PID writer remains the sole authority for deciding whether a record is live or stale (only `kill(pid, 0)` returning `ESRCH` permits replacement). Added a startup-wrapper source contract and wired the script into LLDT regression and XY-C1 product-build path filters, with a detector test.
+- Exact-head LLDT, XY-C1 and AI documentation Actions are required. No local checkout or local compile is available; hardware runtime behavior is not claimed.
+
+---
+
 ## 2026-11-23 UTC — Supply the configured PREFIX to the RP-L2TP host harness
 
 - The exact-head WAN run `45174056209` passed the source contract and reached the new error-message test, but the standalone host compile failed because `utils.c` normally receives `PREFIX` from the configured build and the isolated test compile did not provide it. This was a harness build-configuration omission; no production compile failure was observed.
