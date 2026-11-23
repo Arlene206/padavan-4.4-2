@@ -83,9 +83,9 @@ The user delegates one continuing engineering job across conversations. The repo
 ## Exact first action for the next GPT
 
 1. Fetch live main and verify backup/pre-plugin-overhaul-2026-11-14 remains frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-2. Inspect exact-head Actions for this queue-header retry/atomic-install commit. Confirm the local HTTP partial-response regression and firmware-input detector pass.
-3. Inspect exact XY-C1 Build, TRX verification and artifact-upload steps. The ca609 run has passed the firmware-input detector and the new atomic queue-header regression; the target build is still running. The earlier 9de run is also still running at Build stage. Do not claim the retry was required to fix a confirmed failure; it is defensive hardening of the existing one-shot fetch. Record delayed-signal L3 only after Build/TRX/artifact all pass on one exact product-source SHA.
-4. Continue PID1 review from the signal accumulator's mask-restoration and delayed-event ordering, preserving shutdown priority and the independent SIGCONT stop-handler path unless a concrete tested defect appears.
+2. Inspect exact-head BusyBox run for this checker correction. The prior 81be run's C accumulator test PASSED; its source checker failed at Python SyntaxError because the newly added assertion used JavaScript syntax. Confirm the corrected Python checker and all source-contract assertions pass.
+3. Inspect exact-head AI docs, Process inventory, USB/NVRAM and XY-C1. The full XY run on 81be remains IN_PROGRESS in Build; ca609 XY is also in Build. Do not claim L3 until Build/TRX/artifact pass for the same source SHA.
+4. Continue PID1 signal handling review from mask restoration and delayed-event ordering, preserving shutdown priority and the independent SIGCONT stop-handler path unless another concrete, regression-testable defect is found.
 
 ## Mandatory handoff checkpoint
 
@@ -101,8 +101,9 @@ Before ending a conversation, compare the live repository with this record: engi
 
 ## End-of-session accuracy checkpoint
 
-- Parent main SHA for this build-reliability slice: 9de5f37d550244590158b302b6ac9935bff765b3.
-- Exact 9de results: BusyBox PID1 45108415639 PASS; AI handoff 45108415662 PASS; Process inventory 45108415598 PASS; USB hotplug 45108415607 PASS; NVRAM audit 45108415605 PASS. XY-C1 run 45108415640 FAILED before firmware compilation at root Makefile sys/queue.h fetch: curl error 56, connection reset by peer. No Build/TRX/artifact result exists on that SHA.
-- The 352 XY-C1 run 45108301425 remained IN_PROGRESS at the last check; its NVRAM audit 45108301379 was cancelled when 9de superseded it. It is not L3 evidence.
-- The exact-child production baseline L3 is verified by XY run 45106983817 on 7c556be: Build XY-C1, TRX and artifact upload succeeded, with no product-source change after 1f9d39bc.
-- This commit adds a tested curl retry/atomic-publication helper, Makefile wiring, XY trigger paths and a workflow regression. It triggers a new exact XY-C1 build; delayed-signal L3 stays pending until same-SHA Build/TRX/artifact pass. L4 remains not verified.
+- Main parent for the current checker correction: 81be0de7b68467468789d7a67c590b5eb737a449.
+- Exact 81be results: BusyBox run 45109466477 FAILED in source checker at line 127 with Python SyntaxError because a JavaScript const/.indexOf block was inserted into the Python file. Both C binaries compiled and ran before that step: init reap-queue and delayed-signal accumulator tests PASS. AI docs 45109466503 and Process inventory 45109466511 PASS. USB 45109466582 and NVRAM 45109466594 remained IN_PROGRESS at last poll.
+- Exact XY-C1 run 45109466474 on 81be is IN_PROGRESS in Build; TRX/artifact pending. Exact XY-C1 runs 45109162782 on ca609 and 45108415640 on 9de were also still in Build at their last matching polls; neither was confirmed failed. ca609 helper regression and detector PASS.
+- The earlier curl error 56 log was misattributed: it does not belong to exact XY run 45108415640. The atomic queue installer remains a defensive reliability improvement; do not report a proven failed 9de build prerequisite.
+- Exact-child wait/reap L3 remains verified by XY run 45106983817 on 7c556be (Build, TRX and artifact PASS; no intervening production-source changes from 1f9d39bc). The delayed-signal source is not yet L3 verified.
+- This correction only fixes the Python source checker. The fail-closed signal-mask restoration source remains committed on 81be and awaits its rerun; L4 hardware is NOT VERIFIED.

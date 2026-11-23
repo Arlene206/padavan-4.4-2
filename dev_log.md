@@ -1,3 +1,13 @@
+## 2026-11-23 12:07 UTC+8 — Repair Python syntax in PID1 mask-failure source checker
+
+- Exact-head BusyBox job 137478257344 / run 45109466477 on SHA 81be0de7b68467468789d7a67c590b5eb737a449 compiled and ran both ASan/UBSan C binaries successfully, then failed in scripts/check_busybox_init_reap_queue.py at line 127: JavaScript const/indexOf syntax had been inserted in a Python assertion block.
+- Replaced the malformed block with Python index/find/slicing assertions that require failed signal-mask restoration to requeue the batch and invoke pause_and_low_level_reboot(RB_HALT_SYSTEM), with no return to the main loop.
+- AI handoff 45109466503 and Process inventory 45109466511 PASS on 81be. USB and NVRAM were still running; XY-C1 45109466474 was in Build XY-C1 with TRX/artifact pending. Exact XY 9de run 45108415640 and ca609 run 45109162782 also remained in Build at their last matching polls; neither is recorded as failed. The earlier curl error 56 log was from a different/unmatched job and is not attributed to them.
+- Exact-child wait/reap L3 remains verified on 7c556be. Delayed-signal source L3 remains pending until a same-SHA Build/TRX/artifact result passes.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 12:02 UTC+8 — Fail closed if PID 1 cannot restore delayed signal mask; correct CI status attribution
 
 - Source review found that check_delayed_sigs() requeued a snapshot when sigprocmask(SIG_SETMASK, &old_set, NULL) failed, but then returned to the main loop. The delayed signal set may still be blocked, leaving PID 1 deaf to reboot/shutdown requests. The failure branch now requeues the captured events and calls the existing NORETURN pause_and_low_level_reboot(RB_HALT_SYSTEM) rather than continue.

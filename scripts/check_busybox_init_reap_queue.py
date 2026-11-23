@@ -124,13 +124,13 @@ assert delayed.index("init_signal_pending_take(&pending_init_signals") < delayed
     "sigprocmask(SIG_SETMASK, &old_set, NULL)"
 )
 assert "init_signal_pending_restore(&pending_init_signals" in delayed
-const restoreStart = delayed.indexOf("if (sigprocmask(SIG_SETMASK, &old_set, NULL) != 0)");
-const restoreEnd = delayed.indexOf("\n\t\tif (events < 0)", restoreStart);
-assert restoreStart >= 0 and restoreEnd > restoreStart
-const restoreFailure = delayed[restoreStart:restoreEnd]
-assert "init_signal_pending_restore(&pending_init_signals" in restoreFailure
-assert "pause_and_low_level_reboot(RB_HALT_SYSTEM)" in restoreFailure
-assert "return sigs_seen" not in restoreFailure
+restore_start = delayed.index("if (sigprocmask(SIG_SETMASK, &old_set, NULL) != 0)")
+restore_end = delayed.index("\n\t\tif (events < 0)", restore_start)
+assert restore_start >= 0 and restore_end > restore_start
+restore_failure = delayed[restore_start:restore_end]
+assert "init_signal_pending_restore(&pending_init_signals" in restore_failure
+assert "pause_and_low_level_reboot(RB_HALT_SYSTEM)" in restore_failure
+assert "return sigs_seen" not in restore_failure
 assert "static void pause_and_low_level_reboot(unsigned magic) NORETURN;" in SOURCE
 assert "bb_got_signal" not in delayed
 assert delayed.index("INIT_SIGNAL_PENDING_SHUTDOWN") < delayed.index(
