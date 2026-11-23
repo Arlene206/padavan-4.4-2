@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Normalize Process workflow inline Python indentation
+
+- The first workflow-only update `8bac506` correctly replaced stale XUPNPD expectations but inserted its first `lua_udpxy` assertion at 20 spaces and left the trailing `snprintf` assertion at column 0. GitHub marked the workflow-file push run #45191666225 failed before it exposed runnable jobs.
+- Replaced the entire injected Lua assertion block including its line prefixes so all statements align within the Python heredoc. The corrected block still checks the checked IPTV selectors and absence of legacy unchecked APIs.
+- This is another checker-only repair; exact Process run pending. Do not treat #45191666225 as a product-source regression.
+---
 ## 2026-11-23 UTC — Repair stale XUPNPD assertions in Process workflow
 
 - Exact Process lifecycle runs #45189655889 (c8dade9), #45190394210 (a2a5892) and #45190706662 (2a9f7fe) passed preceding C regressions but failed the final LAN/PID1 inline source contract on obsolete XUPNPD expectations: the declaration omitted `xport_text`, and the old test expected `nvram_get_int("xupnpd_enable_x")` after LAN address loading.
