@@ -3,35 +3,35 @@
 ## Current repository state
 
 - Repository: Arlene206/padavan-4.4-2.
-- Main parent for this checkpoint: afd3e53a9bdc1d1ef72040f823100de465893585. Always fetch live main before editing; parallel sessions can advance it while a task is running.
-- RT3352 iNIC health-monitor source hardening is in ae45305fec4c7a012c00e89756a80c184589c472. Exact-head iNIC signal #45152702943 and Wireless radio #45152702887 passed on f0a01f41ed853c98eea4da1ac3f40a77ec42f10c. On descendant 430392cc1ad139abb21d841a040ae4dea9a6f9c9, Wireless radio #45153320688 and AI handoff #45153320557 passed; XY-C1 #45153320689 passed Build/TRX/artifact on that same SHA. Current parent afd3e53a9bdc1d1ef72040f823100de465893585 has iNIC #45153638293, Wireless #45153638473, Process inventory/lifecycle #45153638327, HTTPD security #45153638410 and AI handoff #45153638292 passing; NVRAM #45153638348 and XY-C1 #45153638513 were IN_PROGRESS at last poll.
+- Main parent for this checkpoint: a456ced83e2829c17a8953ec0b41608e1cf0d058. Fetch live main before the next edit; parallel sessions can advance it quickly.
+- Production source commit 9e9efbf6d9651e9bab82e544b02f718655a0a820 adds checked USB modem WAN identity reads before manual eject. Dedicated USB identity run #45154233466 PASS on that exact SHA. On 9e9efbf, Wireless #45154233785, general Process lifecycle inventory #45154233664, WAN route #45154233637, WAN DHCP #45154233589, AI docs #45154233499 and IPv6 type #45154233468 PASS. Process fail-closed #45154233474 and storage hotplug #45154233569 failed because source-contract scripts still expected the removed unchecked boolean identity call.
+- Those stale Process assertions reproduced on later wireless-only source descendants: #45154469315 at 56bcddef and #45154946827 at eac5eeee (the latter was still running at last observation). Independent wireless commits advanced main to e15f67ae9b92b0327a5ad1ef13c9c0cee6382df8 and then this parent a456ced83e2829c17a8953ec0b41608e1cf0d058; they harden checked WDS selector/mode/config reads, not the USB eject call graph.
+- On current parent a456ced, AI handoff #45155298252, HTTPD security #45155298151, Process fail-closed #45155298043, watchdog #45155298035, Process inventory #45155297990, iNIC #45155297987, XY-C1 #45155297930, Wireless #45155297922 and NVRAM #45155297969 were not yet complete at last poll (Process fail-closed and NVRAM queued/pending; XY still in progress).
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. It is read-only and must not be updated, deleted or merged.
-- Work only on main. No branches, temporary checkpoint refs, force pushes or PRs. Historical PR #1 is closed and unmerged; authorized content has already been ported.
-- No persistent local checkout was available. Do not claim local firmware builds, sanitizer execution, artifacts or physical-device tests unless actually observed in a later session.
-- Startup protocol and handoff have already been restored once for this takeover. Do not repeat the initial repository audit or revisit completed WSD, DNSMasq, WAN and MTK investigations without new failure evidence.
+- Work only on main. No branches, temporary refs, force pushes or PRs. Historical PR #1 is closed and unmerged.
+- No persistent local checkout was available. Do not claim local builds, firmware artifacts, sanitizer execution or hardware tests unless observed.
+- Startup protocol and handoff have already been restored once. Do not repeat startup audits or completed WSD/DNSMasq/MTK investigations without new failure evidence.
 
 ## Active task
 
-The current source defect is in manual USB modem removal, `safe_remove_usb_device()` in `trunk/user/rc/src/services_usb.c`. It called `get_usb_modem_dev_wan()` in `trunk/user/shared/src/netutils.c`; that legacy helper used `nvram_get_int("wan0_modem_dev")`, so an NVRAM open/ioctl/close error collapsed to zero. The caller then treated the selected modem as absent and returned `ENODEV`, hiding the real backend error. The operation already failed closed, but it prevented a legitimate eject from being retried based on the actual NVRAM failure and lost error attribution.
+The production USB modem eject fix is committed in `9e9efbf6d9651e9bab82e544b02f718655a0a820`. It adds `get_usb_modem_dev_wan_status()` backed by `nvram_get_checked()` and refuses modem teardown/reconnect on unknown identity while preserving the real errno. Dedicated USB identity run #45154233466 passed on that exact SHA.
 
-This checkpoint adds `get_usb_modem_dev_wan_status()` backed by `nvram_get_checked()` and the existing compatibility parser. `safe_remove_usb_device()` now distinguishes no physical modem, a positive NVRAM read error, a known non-matching modem and an exact selected-modem match. The status error is returned before `safe_remove_usb_modem()` or WAN reconnect can run. The old boolean wrapper now delegates to the status API and no longer uses the unchecked getter.
-
-The existing USB modem workflow compiles `tests/usb_modem_wan_policy.c` with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. This checkpoint adds exact-match, mismatch, absent-key, backend-error and invalid-output cases, and extends the inline source contract to pin the checked reader, compatibility wrapper and pre-side-effect eject ordering. The workflow also covers WDM/NDIS discovery, hotplug metadata, modem reload and deferred events.
+Process inventory/lifecycle and USB storage hotplug workflows exposed stale source contracts, not production regressions: `scripts/check_process_lifecycle_integration.py:983` and `scripts/check_storage_safe_remove.py:413` still required the removed unchecked boolean `get_usb_modem_dev_wan()` gate. This checkpoint updates both contracts to verify the checked reader, shared parser, errno propagation, physical-port/selected-device gates and ordering before `safe_remove_usb_modem()`. It adds the policy header to Process workflow filters and netutils.c/.h plus the policy header to storage hotplug filters. The exact source checker failures are confirmed by the Actions logs; exact corrected reruns are still pending.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main SHA and inspect this checkpoint commit before editing; do not assume it is still the parent recorded above.
-2. Inspect the exact-SHA USB modem identity run and storage-hotplug run. Confirm the new devnum policy executable and source contract pass, along with existing modem module, modem start-config, metadata and checked hotplug-event regressions. Fix a real failure rather than weakening the contract.
-3. Inspect the exact-head XY-C1 Firmware Validation for Build XY-C1, TRX verification and artifact upload on the same production source SHA. If those steps are pending, move to another independent P1 instead of waiting.
-4. Continue an independent P1 from REFACTOR_ROADMAP.md. Avoid duplicate USB eject audits, completed WSD/DNSMasq/MTK slices, and any item already completed by a parallel session. Before changing another module, confirm an evidenced defect and its call graph.
-5. For each source change, add a focused regression and workflow path filters, then one complete tree/commit on main; inspect exact-SHA Actions and update this handoff only when the active source baseline or next action changes.
+1. Fetch live main and inspect this checker-correction commit. Verify Process fail-closed and storage-hotplug exact-head reruns; if either fails, diagnose the precise assertion/log without weakening production guarantees.
+2. Check XY-C1 run #45155297930 on source SHA a456ced for Build, TRX verification and artifact upload. L3 requires every stage to pass on the same SHA; do not wait if pending.
+3. Continue another independent P1 from REFACTOR_ROADMAP.md after checking that parallel work has not completed it. Make a concrete source change with regression coverage rather than repeating audits or doing documentation-only churn.
 
 ## Exact-SHA CI facts at the parent baseline
 
-- Parent main SHA for this checkpoint: `afd3e53a9bdc1d1ef72040f823100de465893585`, titled `fix(wireless): verify radio mode before bridge changes`.
-- On parent SHA afd3e53a9bdc1d1ef72040f823100de465893585, iNIC signal #45153638293, Wireless radio #45153638473, Process inventory/lifecycle #45153638327, HTTPD Authentication/Security #45153638410 and AI handoff #45153638292 passed. NVRAM transaction audit #45153638348 and XY-C1 #45153638513 were IN_PROGRESS at the last poll.
-- On descendant SHA 430392cc1ad139abb21d841a040ae4dea9a6f9c9, XY-C1 run #45153320689 completed SUCCESS. Its Build, TRX verification and artifact upload steps passed on that exact product-source SHA; this does not establish L3 for later production changes.
-- The new USB modem policy and source-contract results, storage-hotplug result and XY-C1 Build/TRX/artifact result for this checkpoint are pending until exact-SHA Actions are observed.
+- Parent main SHA for this checkpoint: `a456ced83e2829c17a8953ec0b41608e1cf0d058`, commit `fix(wireless): validate WDS mode and interface count`.
+- On 9e9efbf6d9651e9bab82e544b02f718655a0a820: USB modem identity #45154233466 PASS; Wireless #45154233785, Process inventory #45154233664, WAN route #45154233637, WAN DHCP #45154233589, AI handoff #45154233499 and IPv6 service type #45154233468 PASS. Process umbrella #45154233474 and storage hotplug #45154233569 failed stale old-getter assertions.
+- On 56bcddef98f59a4f1d02e9f138f303d28174e62c: iNIC #45154469332, watchdog #45154469402, AI docs #45154469272, HTTPD security #45154469263, Wireless #45154469228 and Process inventory #45154469259 PASS. Process umbrella #45154469315 reproduced the stale USB identity assertion.
+- On current parent a456ced83e2829c17a8953ec0b41608e1cf0d058, AI docs #45155298252, HTTPD #45155298151, Process fail-closed #45155298043, watchdog #45155298035, Process inventory #45155297990, iNIC #45155297987, XY-C1 #45155297930, Wireless #45155297922 and NVRAM #45155297969 were queued/in progress at last poll. Exact corrected Process/storage reruns have not been observed yet. No L3 or hardware result is claimed.
+
+## Completed source slices to preserve
 
 ## Completed source slices to preserve
 
@@ -68,11 +68,10 @@ The existing USB modem workflow compiles `tests/usb_modem_wan_policy.c` with GNU
 
 ## Verification boundary
 
-- L1 source review: PASS for the USB selected-modem eject gate and checked NVRAM reader. The eject call graph returns an unknown-identity errno before modem stop/reconnect side effects.
-- L2 host/Actions for this USB slice: PENDING exact-head USB modem identity and storage-hotplug regressions, including GNU89/Werror/ASan/UBSan policy binaries and the inline source contract. No local sanitizer result is claimed.
-- L3 XY-C1 firmware: NOT VERIFIED for this source SHA until Build XY-C1, TRX verification and artifact upload all pass on the exact product-source SHA. Earlier PASS on 430392cc does not transfer to later commits.
-- L4 router hardware: NOT VERIFIED, including actual multi-modem selection, physical eject/reconnect behavior, WDM/NDIS/RAS interoperability and hub edge cases.
-- Do not extrapolate XY-C1 to other boards or RT3352 hardware.
+- L1 source review: PASS for checked selected-modem identity verification and pre-teardown ordering.
+- L2 host/Actions: USB modem identity #45154233466 PASS on 9e9efbf. Process and storage workflows failed stale source assertions; Process repeated the same old assertion on 56bcddef. Corrected contracts and workflow filters are in this checkpoint, with exact reruns pending.
+- L3 XY-C1 firmware: NOT VERIFIED for production USB source SHA 9e9efbf. The current a456ced XY-C1 run #45155297930 was still in progress at last poll; TRX and artifact completion are not yet observed on that SHA.
+- L4 physical router: NOT VERIFIED, including USB modem multi-device/eject/reconnect behavior, hub edge cases and MIPS/uClibc runtime.
 
 ## Working method
 

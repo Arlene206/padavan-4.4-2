@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Repair stale process/storage modem-eject source contracts
+
+- On production source SHA 9e9efbf6d9651e9bab82e544b02f718655a0a820, USB modem identity Action #45154233466 passed. Process fail-closed #45154233474 and USB storage hotplug #45154233569 failed at scripts/check_process_lifecycle_integration.py:983 and scripts/check_storage_safe_remove.py:413 because both still required the removed unchecked get_usb_modem_dev_wan() boolean expression. The Process failure reproduced at the same assertion on descendants 56bcddef (#45154469315) and eac5eeee (#45154946827 had not yet completed at last observation).
+- Updated both checkers to require the checked reader, shared identity parser, errno propagation, physical-presence and selected-device gates, and ordering before modem teardown. Added usb_modem_wan_policy.h to Process workflow filters and netutils.c/.h plus the policy header to storage hotplug filters.
+- Checker-only follow-up; no production source behavior changed. Main subsequently advanced through independent wireless WDS hardening commits e15f67ae and a456ced8. On a456ced, AI docs #45155298252, HTTPD #45155298151, Process fail-closed #45155298043, watchdog #45155298035, Process inventory #45155297990, iNIC #45155297987, XY-C1 #45155297930, Wireless #45155297922 and NVRAM #45155297969 were queued/in progress. Exact corrected Process/storage reruns remain pending; no L3/hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Preserve checked USB modem identity failures during eject
 
 - Found a lossy NVRAM identity gate in `safe_remove_usb_device()`: `get_usb_modem_dev_wan()` used `nvram_get_int("wan0_modem_dev")`, which collapses an NVRAM backend error to zero. The eject path then misreported a transient read/close failure as `ENODEV` and could not distinguish an absent/mismatched device from an unknown selected-modem identity.

@@ -410,11 +410,24 @@ require(
     "storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX" in usb_remove
     and "return safe_remove_stor_device(port, port, dev_name, 1);" in usb_remove
     and "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, dev_name, 1);" in usb_remove
-    and "if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum))" in usb_remove
+    and "if (!has_modem_port)" in usb_remove
+    and "modem_identity_status = get_usb_modem_dev_wan_status(" in usb_remove
+    and "if (modem_identity_status != 0)" in usb_remove
+    and "errno = modem_identity_status;" in usb_remove
+    and "if (!is_selected_modem)" in usb_remove
+    and "cannot verify selected USB modem identity before eject" in usb_remove
     and "int safe_remove_usb_device(int port, const char *dev_name);" in rc_header,
-    "USB eject must reject malformed or absent modem targets and propagate storage/modem removal outcomes",
+    "USB eject must distinguish physical absence, identity mismatch and checked NVRAM read errors before teardown",
 )
 usb_remove_contract = " ".join(usb_remove.split())
+identity_read = usb_remove_contract.index("modem_identity_status = get_usb_modem_dev_wan_status(")
+identity_error = usb_remove_contract.index("if (modem_identity_status != 0)", identity_read)
+identity_mismatch = usb_remove_contract.index("if (!is_selected_modem)", identity_error)
+modem_remove_call = usb_remove_contract.index("modem_remove_status = safe_remove_usb_modem();")
+require(
+    identity_read < identity_error < identity_mismatch < modem_remove_call,
+    "USB modem teardown must not start before checked WAN identity verification completes",
+)
 reconnect_call = usb_remove_contract.index("wan_reconnect_status = try_wan_reconnect(0, 0);")
 reconnect_gate = usb_remove_contract.index("if (wan_reconnect_status != 0)", reconnect_call)
 reconnect_failure_return = usb_remove_contract.index("return -1;", reconnect_gate)

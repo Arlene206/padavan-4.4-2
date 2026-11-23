@@ -978,10 +978,35 @@ assert "if (stop_status != 0)" in modem_remove
 assert modem_remove.index("return stop_status;") < modem_remove.index("set_usb_modem_dev_wan(0, 0)")
 assert "return 0;" in modem_remove
 
+usb_modem_policy = (root / "trunk/user/shared/src/usb_modem_wan_policy.h").read_text()
+assert '#include "usb_modem_wan_policy.h"' in netutils_source
+assert "usb_modem_wan_devnum_matches_status(" in usb_modem_policy
+modem_identity_reader = c_function_body(
+    netutils_source,
+    "get_usb_modem_dev_wan_status(int unit, int devnum, int *is_selected)"
+)
+legacy_modem_identity_reader = c_function_body(
+    netutils_source, "get_usb_modem_dev_wan(int unit, int devnum)"
+)
+assert "nvram_get_checked(key, &value)" in modem_identity_reader
+assert "usb_modem_wan_devnum_matches_status(" in modem_identity_reader
+assert "errno = status;" in modem_identity_reader and "return status;" in modem_identity_reader
+assert "get_usb_modem_dev_wan_status(unit, devnum, &is_selected)" in legacy_modem_identity_reader
+assert "nvram_get_int(" not in legacy_modem_identity_reader
+
 usb_remove = usb_services.split("int\nsafe_remove_usb_device(int port, const char *dev_name)", 1)[1].split("\n}\n", 1)[0]
 assert "storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX" in usb_remove
-assert "if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum))" in usb_remove
-assert "modem_remove_status = safe_remove_usb_modem();" in usb_remove
+assert "if (!has_modem_port)" in usb_remove
+assert "modem_identity_status = get_usb_modem_dev_wan_status(" in usb_remove
+assert "if (modem_identity_status != 0)" in usb_remove
+assert "errno = modem_identity_status;" in usb_remove
+assert "if (!is_selected_modem)" in usb_remove
+assert "cannot verify selected USB modem identity before eject" in usb_remove
+identity_read = usb_remove.index("modem_identity_status = get_usb_modem_dev_wan_status(")
+identity_error = usb_remove.index("if (modem_identity_status != 0)", identity_read)
+identity_mismatch = usb_remove.index("if (!is_selected_modem)", identity_error)
+modem_remove_call = usb_remove.index("modem_remove_status = safe_remove_usb_modem();")
+assert identity_read < identity_error < identity_mismatch < modem_remove_call
 assert "if (modem_remove_status != 0)" in usb_remove
 modem_failure_gate = usb_remove.index("if (modem_remove_status != 0)")
 modem_failure_return = usb_remove.index("return -1;", modem_failure_gate)
