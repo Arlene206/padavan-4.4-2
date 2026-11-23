@@ -1180,7 +1180,7 @@ failed:
 
 int add_account(const char *const account, const char *const password)
 {
-	disk_info_t *disk_list, *follow_disk;
+	disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
 	int i, acc_num = 0, first_error = 0, init_result;
 	char **account_list = NULL;
@@ -1224,27 +1224,30 @@ int add_account(const char *const account, const char *const password)
 	free_2_dimension_list(&acc_num, &account_list);
 
 	// 3. find every pool
-	disk_list = read_disk_data();
-	if (!disk_list)
-		return 0;
-
-	for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {			
-		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
-			if (follow_partition->mount_point == NULL)
-				continue;
-			
-			// 4. initialize the account metadata on every mounted volume.
-			init_result = initial_one_var_file_in_mount_path(
-				account, follow_partition->mount_point);
-			if (init_result != 0 && first_error == 0)
-				first_error = errno ? errno : EIO;
+	if (read_disk_data_checked(&disk_list) != 0) {
+		if (first_error == 0)
+			first_error = errno ? errno : EIO;
+		disk_list = NULL;
+	} else {
+		for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {			
+			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
+				if (follow_partition->mount_point == NULL)
+					continue;
+				
+				// 4. initialize the account metadata on every mounted volume.
+				init_result = initial_one_var_file_in_mount_path(
+					account, follow_partition->mount_point);
+				if (init_result != 0 && first_error == 0)
+					first_error = errno ? errno : EIO;
+			}
 		}
 	}
 	free_disk_data(disk_list);
 
 	/*
-	 * NVRAM already contains the account. Reconcile every volume and reload
-	 * Samba even when one volume failed, then return the first metadata error.
+	 * NVRAM already contains the account. Process every volume in a complete
+	 * inventory, reload Samba even when the inventory/metadata failed, and
+	 * return the first error without mistaking an unknown inventory for empty.
 	 */
 	system("/sbin/run_samba");
 	if (first_error != 0) {
@@ -1257,7 +1260,7 @@ int add_account(const char *const account, const char *const password)
 
 int del_account(const char *const account)
 {
-	disk_info_t *disk_list, *follow_disk;
+	disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
 	int acc_num = 0, account_count, target;
 	char **account_list = NULL;
@@ -1321,27 +1324,29 @@ int del_account(const char *const account)
 	/* Free with the pre-decrement count; account_list still owns that many strings. */
 	free_2_dimension_list(&account_count, &account_list);
 
-	/* 4. find every pool and attempt cleanup on every mounted volume. */
-	disk_list = read_disk_data();
-	if (!disk_list)
-		return 0;
-
-	for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
-		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
-			if (follow_partition->mount_point == NULL)
-				continue;
-
-			if (disk_share_format_account_var_path(
-				    var_file, sizeof(var_file),
-				    follow_partition->mount_point, account) != 0) {
-				if (first_error == 0)
+	/* 4. clean every volume in a complete inventory; preserve scan failures. */
+	if (read_disk_data_checked(&disk_list) != 0) {
+		if (first_error == 0)
+			first_error = errno ? errno : EIO;
+		disk_list = NULL;
+	} else {
+		for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
+			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
+				if (follow_partition->mount_point == NULL)
+					continue;
+	
+				if (disk_share_format_account_var_path(
+					    var_file, sizeof(var_file),
+					    follow_partition->mount_point, account) != 0) {
+					if (first_error == 0)
+						first_error = errno ? errno : EIO;
+					continue;
+				}
+	
+				if (unlink(var_file) != 0 && errno != ENOENT &&
+				    first_error == 0)
 					first_error = errno ? errno : EIO;
-				continue;
 			}
-
-			if (unlink(var_file) != 0 && errno != ENOENT &&
-			    first_error == 0)
-				first_error = errno ? errno : EIO;
 		}
 	}
 	free_disk_data(disk_list);

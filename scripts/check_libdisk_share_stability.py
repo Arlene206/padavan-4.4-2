@@ -12,6 +12,7 @@ POLICY_TEST = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
 POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
 ACCOUNT_POLICY = (LIBDISK / "disk_share_account_nvram_policy.h").read_text()
+DISK_INITIAL_HEADER = (LIBDISK / "disk_initial.h").read_text()
 REGRESSION = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 SAMBA_SOURCE = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 
@@ -322,25 +323,26 @@ add_account_body = function_body(
     DISK_SOURCE, "int add_account(const char *const account, const char *const password)"
 )
 add_account_compact = "".join(add_account_body.split())
+add_inventory = add_account_compact.index("read_disk_data_checked(&disk_list)")
+add_inventory_error = add_account_compact.index(
+    "first_error=errno?errno:EIO;", add_inventory
+)
 add_init_assignment = (
     "init_result=initial_one_var_file_in_mount_path("
     "account,follow_partition->mount_point);"
 )
-add_init = add_account_compact.index(add_init_assignment)
-add_cleanup = add_account_compact.index("free_disk_data(disk_list)",add_init)
-add_samba = add_account_compact.index('system("/sbin/run_samba")',add_cleanup)
-add_error_return = add_account_compact.index("if(first_error!=0)",add_samba)
-require(add_account_compact.count("initial_one_var_file_in_mount_path(") == 1 and
+add_init = add_account_compact.index(add_init_assignment, add_inventory)
+add_cleanup = add_account_compact.index("free_disk_data(disk_list)", add_init)
+add_samba = add_account_compact.index('system("/sbin/run_samba")', add_cleanup)
+add_error_return = add_account_compact.index("if(first_error!=0)", add_samba)
+require(add_account_compact.count("read_disk_data_checked(&disk_list)") == 1 and
+        "read_disk_data()" not in add_account_compact and
+        add_inventory < add_inventory_error < add_init < add_cleanup < add_samba < add_error_return and
         "if(init_result!=0&&first_error==0)" in add_account_compact and
-        add_init < add_cleanup < add_samba < add_error_return and
         "errno=first_error;" in add_account_compact and
-        "return-1;" in add_account_compact[add_error_return:],
-        "add_account must record each volume initializer failure, finish all volume attempts, free disk data, reload Samba and return the first error")
-require("if(!disk_list)" in add_account_compact,
-        "add_account must retain its no-mounted-disk behavior")
-
-
-
+        "return-1;" in add_account_compact[add_error_return:] and
+        "return0;" not in add_account_compact[add_inventory:add_samba],
+        "add_account must distinguish an empty inventory from a failed scan, keep processing accessible volumes, reload Samba even for empty/unknown inventory, and return the first inventory/metadata error")
 
 del_account_body = function_body(
     DISK_SOURCE, "int del_account(const char *const account)"
@@ -355,23 +357,33 @@ require(saved_count < decrement_count < free_inventory and
         "free_2_dimension_list(&acc_num,&account_list);" in
         del_account_compact[:decrement_count],
         "del_account must release the complete original account list after preserving its pre-decrement count")
-del_path = del_account_compact.index(
-    "disk_share_format_account_var_path(var_file,sizeof(var_file),"
+del_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
+del_inventory_error = del_account_compact.index(
+    "first_error=errno?errno:EIO;", del_inventory
 )
-del_unlink = del_account_compact.index("unlink(var_file)",del_path)
-require("if(disk_share_format_account_var_path(" in del_account_compact and
-        del_path < del_unlink and
+del_path = del_account_compact.index(
+    "disk_share_format_account_var_path(var_file,sizeof(var_file),",
+    del_inventory
+)
+del_unlink = del_account_compact.index("unlink(var_file)", del_path)
+require("read_disk_data()" not in del_account_compact and
+        del_inventory < del_inventory_error < del_path < del_unlink and
+        "if(disk_share_format_account_var_path(" in del_account_compact and
         "errno!=ENOENT" in del_account_compact[del_unlink:] and
         "first_error==0" in del_account_compact[del_unlink:],
-        "del_account must reject truncated metadata paths, ignore only ENOENT, and preserve other unlink failures")
-del_free_disk = del_account_compact.index("free_disk_data(disk_list)",del_unlink)
-del_service = del_account_compact.index('system("/sbin/run_ftpsamba")',del_free_disk)
-del_error = del_account_compact.index("if(first_error!=0)",del_service)
+        "del_account must distinguish an empty inventory from a failed scan, reject truncated paths, ignore only ENOENT, and preserve other unlink failures")
+del_free_disk = del_account_compact.index("free_disk_data(disk_list)", del_unlink)
+del_service = del_account_compact.index('system("/sbin/run_ftpsamba")', del_free_disk)
+del_error = del_account_compact.index("if(first_error!=0)", del_service)
 require(del_unlink < del_free_disk < del_service < del_error and
         "errno=first_error;" in del_account_compact and
-        "return-1;" in del_account_compact[del_error:],
-        "del_account must attempt all volumes, free the disk inventory, reload services, then return the first cleanup error")
+        "return-1;" in del_account_compact[del_error:] and
+        "return0;" not in del_account_compact[del_inventory:del_service],
+        "del_account must attempt all visible volumes, reload FTP/Samba even for empty/unknown inventory, and return the first inventory/cleanup error")
 
+require("0 = complete inventory (list may be NULL); -1 = incomplete/unknown." in DISK_INITIAL_HEADER and
+        "read_disk_data_checked(disk_info_t **disk_info_out)" in DISK_INITIAL_HEADER,
+        "disk inventory API must preserve empty-versus-incomplete status semantics")
 
 
 mod_account_body = function_body(
