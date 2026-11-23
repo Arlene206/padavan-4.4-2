@@ -1,3 +1,12 @@
+## 2026-11-23 07:00 UTC — Reject out-of-range SYN-cookie policy values
+
+- The checked-read fix for `fw_syn_cook` still passed the returned string to `atoi()`. An out-of-range persisted value can invoke undefined behavior; an implementation-dependent zero could bypass the explicit SYN-cookie WAN admission gate.
+- The policy helper now uses base-10 `strtol()` and rejects `ERANGE` plus values outside `INT_MIN..INT_MAX`, leaving the secure-required output unchanged on failure. Representable values keep legacy `atoi()` prefix behavior; missing keys and nonnumeric strings remain zero.
+- Added INT boundary, positive/negative overflow and very-long numeric regressions, and pinned the bounded conversion in `check_network_sysctl_status.py`. Existing WAN route workflow compiles and runs the GNU89/Werror/ASan/UBSan policy test, so no workflow filter change was needed.
+- Parent `main`: `2e2af029329e422135bbbe0f376924beb2f7f251`. No local checkout, compile, host test or firmware build is claimed. Exact-head WAN/Process/NVRAM/XY-C1 checks are pending.
+- Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 06:55 UTC — Fail closed on SYN-cookie policy read errors during sysctl reload
 
 - `restart_all_sysctl()` used `nvram_get_int("fw_syn_cook")`; a transient NVRAM read/close failure became integer zero. The reload then successfully wrote `tcp_syncookies=0`, and the existing WAN-admission gate treated the value as an explicit user disable, allowing the active WAN to remain up with SYN-cookie protection off.

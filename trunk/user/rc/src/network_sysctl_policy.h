@@ -1,6 +1,7 @@
 #ifndef RC_NETWORK_SYSCTL_POLICY_H
 #define RC_NETWORK_SYSCTL_POLICY_H
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 
 /* Attempt every independent setting and preserve the first failure. */
@@ -44,7 +45,21 @@ rc_network_sysctl_parse_syncookies_status(int read_result, int read_errno,
 	if (read_result > 1 || (read_result == 1 && !value))
 		return EIO;
 
-	*enabled = (read_result == 1 && atoi(value) != 0) ? 1 : 0;
+	if (read_result == 0) {
+		*enabled = 0;
+		return 0;
+	}
+
+	{
+		long parsed_value;
+
+		errno = 0;
+		parsed_value = strtol(value, NULL, 10);
+		if (errno == ERANGE || parsed_value > INT_MAX ||
+		    parsed_value < INT_MIN)
+			return ERANGE;
+		*enabled = parsed_value != 0 ? 1 : 0;
+	}
 	return 0;
 }
 

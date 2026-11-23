@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Live `main` parent before this Process checker syntax correction: `1d90559f4ca90a168942b1334763022ce40f30b9`; immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: `Arlene206/padavan-4.4-2`. Parent `main` SHA for the current bounded SYN-cookie integer parsing slice: `2e2af029329e422135bbbe0f376924beb2f7f251`; the source checkpoint is the commit containing this handoff update. Fetch live `main` on recovery and resolve the exact current SHA. Immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
 - The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
 - Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
@@ -26,31 +26,34 @@
 
 ## Active task
 
-### Finalize Process integration checker for checked MiniDLNA launch flag
+### Bound SYN-cookie policy integer parsing
 
-- Commit `1d90559f4ca90a168942b1334763022ce40f30b9` updated `scripts/check_process_lifecycle_integration.py` to accept the checked `apps_dms` read and assert its failure gate. Review caught its new assertions inserted in the middle of the generic `for` loop; following loop-body assertions were then indented after a top-level block.
-- THIS COMMIT moves the MiniDLNA-specific checks after the generic storage-launch loop. It still requires checked `storage_read_string_status("apps_dms",...)`, the failure return before capability checks, the `strcmp()` disabled gate, and absence of the old lossy `nvram_match()` call. No product code changes.
-- Exact 1b MiniDLNA run `45121083876` PASS, Firewall Startup `45121083736` PASS and Process inventory `45121083732` PASS. Process integration `45121083737` failed at the stale legacy guard. Exact 1d Process run `45121324507` was still running at last query; no PASS claim.
-- XY-C1 run `45121083755` had entered Build XY-C1 with TRX and artifact pending. This commit requires an exact Process rerun; L3 requires exact-SHA Build/TRX/upload.
-- Next continue an independent source-backed userland stability/security issue; no repeated MiniDLNA product work.
-### Exact parallel baseline
+- Parent `main` SHA: `2e2af029329e422135bbbe0f376924beb2f7f251`. Development remains on `main`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
+- The checked-read fix prevents NVRAM backend/close errors from being mistaken for an explicit `fw_syn_cook=0`, but its formatter still used `atoi()`. An out-of-range decimal string can invoke undefined behavior and return an implementation-dependent value, potentially weakening the SYN-cookie WAN admission policy.
+- THIS COMMIT replaces `atoi()` with `strtol()` and explicit `INT_MIN`/`INT_MAX`/`ERANGE` checks. It preserves legacy base-10 numeric-prefix semantics for representable values, including missing-key zero and nonnumeric-to-zero behavior, while rejecting overflow without changing the caller's initialized secure-required state.
+- Added exact INT boundary tests, positive/negative overflow tests, a very-long input test and source-checker assertions. The existing `wan-route-status.yml` already compiles the GNU89/Werror/ASan/UBSan regression and runs the checker; no path-filter change is needed.
+- No local checkout is available; no local compile/test or firmware build is claimed. Inspect exact-head WAN route, Process, NVRAM and XY-C1 Actions. L3 requires Build XY-C1, TRX and artifact upload all PASS on the same production-source SHA; L4 remains NOT VERIFIED.
+- Resulting source/test/docs tree: THIS COMMIT (parent `2e2af029...`).
 
-- Earlier source milestones: libdisk ACL L3 PASS on e757 `45114634020`; FRP L3 PASS on d2c `45115500761`; USB printer unplug L2/L3 PASS on 200127 `45116268933` / `45116268960`.
-- DHCPv6 product source SHA 80811 has dedicated host/sanitizer/source-contract PASS `45117871967`. WAN integration source-contract rerun after correction commit 8411 passed `45118077270`.
-- Main then advanced with firewall source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`; it checks the optional IPTV interface using a bounded NVRAM snapshot before TTL side effects. Exact XY-C1 run `45118311710` on 3eba was IN_PROGRESS (ccache stage) at the last lookup; TRX/artifact pending.
-- No exact completed XY-C1 target result existed yet for the DHCPv6 retry product source. This path filter correction should start that run. Do not transfer target validation evidence across unrelated source SHAs.
+### Exact parent-SHA verification baseline
+
+- On `2e2af029329e422135bbbe0f376924beb2f7f251`: Firewall Startup `45127089949`, Crond `45127089701`, Process integration `45127089841`, Process inventory `45127089854`, HTTPD `45127089789`, WAN DHCP callback `45127089717`, DNSMasq `45127089801`, WAN route `45127089737`, watchdog `45127089944`, AI docs `45127089716`, USB hotplug `45127089749`, Router-mode NVRAM `45127089874` and NVRAM audit `45127090003` were all SUCCESS. XY-C1 `45127089883` was IN_PROGRESS at the last exact-head lookup.
+- Do not transfer parent-SHA results to THIS COMMIT. No L2/L3/L4 success is claimed until this commit's own matching Actions complete.
+
 ## Verification boundary
 
-- Prior libdisk ACL: L1/L2/L3 PASS on the SHA/run evidence above; L4 NOT VERIFIED.
-- FRP private seeding: focused shell regression/source contracts PASS; exact d2c XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
-- USB printer unplug: storage-hotplug GNU89 ASan/UBSan/source contract and exact 200127 XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
-- DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated host run `45117871967` PASS (L2); WAN integration rerun `45118077270` PASS. L3 NOT VERIFIED: exact XY-C1 run on latest tree was still building and the source path coverage gap is fixed by THIS COMMIT. L4 NOT VERIFIED.
-- Firewall IPTV TTL interface source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`: source review and tests added; exact XY-C1 run `45118311710` pending at## Exact first action for the next GPT
+- Historic libdisk removable-share ACL, FRP private seeding, USB printer unplug and DHCPv6 callback milestones retain exact-source test/build evidence in the earlier handoff history; do not infer fresh validation for later SHAs.
+- PID 1 recovery-shell timezone: exact-host workflow `45126854225` PASS on `acb8eff551bc6a189c8d207cd7d01cf9c21edca3`; Process, DNSMasq, DNS Forwarder, HTTPD and AI docs also PASS on that SHA. XY-C1 was still running at last query; no L3 claim.
+- Wireless SKU atomic publication: Wireless regression `45126385953` and AI docs `45126385917` PASS on parent `83145a6da831afad15b2676b7086463802f253a6`; later XY-C1 verification for its exact source SHA was not established in this checkpoint.
+- SYN-cookie checked-read source `2e2af029329e422135bbbe0f376924beb2f7f251`: Firewall Startup, Crond, Process, HTTPD, WAN DHCP, DNSMasq, WAN route, watchdog, AI docs, USB hotplug and Router-mode NVRAM exact-head Actions PASS; NVRAM audit PASS. XY-C1 `45127089883` was IN_PROGRESS. The follow-up integer-range validation in THIS COMMIT requires its own exact-head regression and firmware checks.
+- L4 physical-router validation remains NOT VERIFIED for the above current changes.
 
-1. Read live main once; verify immutable backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Inspect exact-head Process lifecycle run for this checker correction: Python syntax, checked MiniDLNA-enable contract and all compiled tests must pass.
-3. Check XY-C1 `45121083755` or successor. L3 requires Build XY-C1, TRX and artifact upload all PASS on one production SHA.
-4. Continue an independent whole-userland stability/security issue. Do not repeat MiniDLNA INI/rescan/service-enable/MAC changes.
+## Exact first action for the next GPT
+
+1. Fetch live `main` and match the current SYN-cookie integer parser commit SHA; do not repeat startup-protocol or frozen-backup audits.
+2. Inspect the exact-head WAN route workflow: the sanitizer binary and `scripts/check_network_sysctl_status.py` must both pass. On failure, diagnose the first causal assertion or compiler/test error and correct it without weakening policy.
+3. Check Process inventory/integration, NVRAM audit and XY-C1 runs by exact `head_sha`. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA; L4 remains NOT VERIFIED.
+4. Continue the next independent high-priority userland issue in the roadmap after this security parsing slice is verified; do not revisit completed timezone, console-loglevel or switch packed-operand work.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.
