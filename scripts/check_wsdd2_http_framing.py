@@ -82,7 +82,7 @@ assert 'trunk/user/wsdd2/**' in XY_WORKFLOW
 
 recv_handler = SOURCE[SOURCE.index("int wsd_recv(struct endpoint *ep)"):]
 recv_compact = compact(recv_handler)
-assert "wsd_http_deadline_after_ms(&deadline, WSD_HTTP_REQUEST_TIMEOUT_MS)" in recv_compact
+assert "wsd_http_deadline_after_ms( &deadline, WSD_HTTP_REQUEST_TIMEOUT_MS)" in recv_compact
 assert "wsd_http_recv_until(fd, buf, sizeof buf - 1, &deadline)" in recv_compact
 assert "SO_RCVTIMEO" not in recv_handler
 assert "accepted_client = 1;" in recv_handler
