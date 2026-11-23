@@ -1,4 +1,6 @@
+#include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,6 +148,113 @@ test_delayed_write_error(void)
     return 0;
 }
 
+
+static int
+readlink_equals(const char *path, const char *expected)
+{
+    char value[PATH_MAX];
+    ssize_t length = readlink(path, value, sizeof(value) - 1U);
+
+    if (length < 0 || (size_t)length >= sizeof(value) - 1U)
+        return 0;
+    value[length] = '\0';
+    return strcmp(value, expected) == 0;
+}
+
+static int
+count_sku_staging_directories(const char *directory)
+{
+    DIR *stream;
+    struct dirent *entry;
+    int count = 0;
+
+    stream = opendir(directory);
+    if (!stream)
+        return -1;
+    while ((entry = readdir(stream)) != NULL) {
+        if (strncmp(entry->d_name, ".ralink-sku-link.", 17U) == 0)
+            count++;
+    }
+    if (closedir(stream) != 0)
+        return -1;
+    return count;
+}
+
+static int
+test_symlink_publication_replaces_live_link_atomically(const char *directory)
+{
+    char old_target[256];
+    char new_target[256];
+    char link_path[256];
+    FILE *fp;
+
+    snprintf(old_target, sizeof(old_target), "%s/sku-old.dat", directory);
+    snprintf(new_target, sizeof(new_target), "%s/sku-new.dat", directory);
+    snprintf(link_path, sizeof(link_path), "%s/SingleSKU.dat", directory);
+
+    fp = fopen(old_target, "w");
+    CHECK(fp != NULL);
+    CHECK(fputs("old-sku\n", fp) >= 0);
+    CHECK(fclose(fp) == 0);
+    fp = fopen(new_target, "w");
+    CHECK(fp != NULL);
+    CHECK(fputs("new-sku\n", fp) >= 0);
+    CHECK(fclose(fp) == 0);
+    CHECK(symlink(old_target, link_path) == 0);
+
+    CHECK(ralink_config_publish_symlink_atomic(new_target, link_path) == 0);
+    CHECK(readlink_equals(link_path, new_target));
+    CHECK(read_file_equals(link_path, "new-sku\n"));
+    CHECK(count_sku_staging_directories(directory) == 0);
+
+    CHECK(unlink(link_path) == 0);
+    CHECK(unlink(old_target) == 0);
+    CHECK(unlink(new_target) == 0);
+    return 0;
+}
+
+static int
+test_symlink_publication_failure_preserves_destination(const char *directory)
+{
+    char target[256];
+    char destination[256];
+    struct stat info;
+    FILE *fp;
+
+    snprintf(target, sizeof(target), "%s/sku-target.dat", directory);
+    snprintf(destination, sizeof(destination), "%s/sku-is-directory", directory);
+    fp = fopen(target, "w");
+    CHECK(fp != NULL);
+    CHECK(fputs("safe-target\n", fp) >= 0);
+    CHECK(fclose(fp) == 0);
+    CHECK(mkdir(destination, 0700) == 0);
+
+    CHECK(ralink_config_publish_symlink_atomic(target, destination) < 0);
+    CHECK(stat(destination, &info) == 0 && S_ISDIR(info.st_mode));
+    CHECK(count_sku_staging_directories(directory) == 0);
+
+    CHECK(rmdir(destination) == 0);
+    CHECK(unlink(target) == 0);
+    return 0;
+}
+
+static int
+test_optional_unlink_is_idempotent_and_checks_errors(const char *directory)
+{
+    char missing[256];
+    char existing_directory[256];
+
+    snprintf(missing, sizeof(missing), "%s/no-such-sku-link", directory);
+    snprintf(existing_directory, sizeof(existing_directory),
+             "%s/sku-directory", directory);
+    CHECK(ralink_config_unlink_optional(missing) == 0);
+    CHECK(mkdir(existing_directory, 0700) == 0);
+    CHECK(ralink_config_unlink_optional(existing_directory) < 0);
+    CHECK(access(existing_directory, F_OK) == 0);
+    CHECK(rmdir(existing_directory) == 0);
+    return 0;
+}
+
 int
 main(void)
 {
@@ -159,10 +268,13 @@ main(void)
     CHECK(test_rename_failure_cleans_temp(directory) == 0);
     CHECK(test_path_overflow_has_no_side_effect(directory) == 0);
     CHECK(test_delayed_write_error() == 0);
+    CHECK(test_symlink_publication_replaces_live_link_atomically(directory) == 0);
+    CHECK(test_symlink_publication_failure_preserves_destination(directory) == 0);
+    CHECK(test_optional_unlink_is_idempotent_and_checks_errors(directory) == 0);
 
     snprintf(path, sizeof(path), "%s/wireless.dat", directory);
     CHECK(unlink(path) == 0);
     CHECK(rmdir(directory) == 0);
-    puts("Ralink wireless config atomic publication: PASS");
+    puts("Ralink wireless config and SKU symlink atomic publication: PASS");
     return 0;
 }

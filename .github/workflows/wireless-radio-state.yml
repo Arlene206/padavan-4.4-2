@@ -6,6 +6,8 @@ on:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/tests/ralink_config_file.c"
+      - "trunk/user/rc/src/ralink_config_file.h"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -26,6 +28,8 @@ on:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/tests/ralink_config_file.c"
+      - "trunk/user/rc/src/ralink_config_file.h"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -55,6 +59,11 @@ jobs:
             trunk/user/rc/src/tests/wireless_radio_policy.c \
             -o /tmp/wireless-radio-policy
           /tmp/wireless-radio-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ralink_config_file.c \
+            -o /tmp/ralink-config-file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ralink-config-file
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/shared/src \
             trunk/user/shared/src/tests/bridge_membership_policy.c \
@@ -829,6 +838,8 @@ jobs:
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
               "trunk/user/rc/src/ralink.c",
+              "trunk/user/rc/src/ralink_config_file.h",
+              "trunk/user/rc/src/tests/ralink_config_file.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/shared/src/netutils.c",
               "trunk/user/shared/src/bridge_membership_policy.h",
@@ -843,6 +854,35 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1, f"push path filter missing or duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path filter missing or duplicated: {path}"
+
+
+          sku_link = function_body(ralink_source, "symlink_sku_file(")
+          sku_link_compact = "".join(sku_link.split())
+          assert "ralink_config_publish_symlink_atomic(sku_link,sku_file)" in sku_link_compact
+          assert "ralink_config_unlink_optional(sku_file)" in sku_link_compact
+          assert "status=sku_file_status(sku_link,&sku_exist)" in sku_link_compact
+          assert "if(check_regspec_code(regspec))" in sku_link_compact
+          assert "unlink(sku_file)" not in sku_link_compact
+          assert "symlink(sku_link,sku_file)" not in sku_link_compact
+          assert "static int\nsymlink_sku_file(" in ralink_source
+          sku_config = function_body(
+              ralink_source,
+              "gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)")
+          sku_config_compact = "".join(sku_config.split())
+          assert sku_config_compact.count(
+              "if(symlink_sku_file(sku_file,\"\",p_str,i_val,0)!=0)") == 1
+          assert sku_config_compact.count(
+              "if(symlink_sku_file(sku_file,\"_5G\",p_str,i_val,1)!=0)") == 1
+          assert sku_config_compact.count(
+              "ralink_config_discard_atomic(&fp,temp_path);return-1;") == 2
+          sku_policy_header = (rc / "ralink_config_file.h").read_text()
+          sku_policy_test = (rc / "tests/ralink_config_file.c").read_text()
+          assert "mkdtemp(temporary_directory)" in sku_policy_header
+          assert "rename(temporary_link, link_path)" in sku_policy_header
+          assert "test_symlink_publication_replaces_live_link_atomically" in sku_policy_test
+          assert "test_symlink_publication_failure_preserves_destination" in sku_policy_test
+          assert "test_optional_unlink_is_idempotent_and_checks_errors" in sku_policy_test
+          assert "ralink_config_file.c" in workflow
 
           print("Wireless driver/restart failure state-publication contracts: PASS")
           PY

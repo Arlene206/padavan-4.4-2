@@ -1,3 +1,12 @@
+## 2026-11-23 06:45 UTC — Make Ralink regulatory SKU-link publication atomic and checked
+
+- `symlink_sku_file()` previously unlinked the live driver SKU path before selecting a replacement, ignored `symlink()` failures, and returned `void`. A filesystem/link error could therefore remove the existing regulatory profile while allowing wireless configuration generation to report success. The NVRAM `regspec_code` was also interpolated into a path without validation against the regulatory table.
+- The helper now distinguishes a missing candidate from real `stat()` failures, validates NVRAM region codes before path construction, and publishes a selected candidate through a same-filesystem private staging directory plus atomic `rename()`. When no candidate exists, it retains the existing intentional remove behavior but propagates non-ENOENT unlink errors. Both band generators discard their staged DAT config and fail when SKU link selection/publication fails.
+- Added GNU89/Werror/ASan/UBSan filesystem regressions for live-link replacement, failed publication preserving the destination, staging cleanup and optional-unlink errors. The wireless workflow compiles/runs the regression and checks source callsites. Exact-head Wireless/Process/XY-C1 validation pending; no local checkout or firmware build claimed.
+- Resulting commit: pending.
+
+---
+
 ## 2026-11-23 06:37 UTC — Retain kernel console logging on NVRAM read failure
 
 - `nvram_restore_defaults()` previously passed `nvram_get_int("console_loglevel")` directly to `klogctl(8)`. A transient NVRAM backend/read/close failure was collapsed to zero, suppressing all kernel console output just before later boot checks could report faults.

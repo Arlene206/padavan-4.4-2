@@ -465,6 +465,9 @@ check_regspec_code(const char *spec)
 {
 	int i;
 
+	if (!spec || !*spec)
+		return 0;
+
 	for (i = 0; i < ARRAY_SIZE(asus_regspec_table); i++) {
 		if (strcasecmp(asus_regspec_table[i].regspec, spec) == 0)
 			return 1;
@@ -477,6 +480,9 @@ static const char *
 get_country_regspec(const char *cc)
 {
 	int i, idx;
+
+	if (!cc)
+		return asus_regspec_table[0].regspec;
 
 	for (i = 0; i < ARRAY_SIZE(ralink_cc_table); i++) {
 		if (strcasecmp(ralink_cc_table[i].cc, cc) == 0) {
@@ -510,60 +516,144 @@ get_country_region(const char *cc, int is_aband)
 }
 
 static int
-check_sku_file_exist(const char *prefix, const char *spec, char *out_buff, size_t out_size)
+sku_file_status(const char *path, int *exists)
 {
-	snprintf(out_buff, out_size, "/etc_ro/Wireless/SingleSKU%s_%s.dat", prefix, spec);
-	return check_if_file_exist(out_buff);
+	struct stat info;
+
+	if (!path || !*path || !exists) {
+		errno = EINVAL;
+		return -1;
+	}
+	*exists = 0;
+	if (stat(path, &info) == 0) {
+		if (!S_ISREG(info.st_mode)) {
+			errno = EINVAL;
+			return -1;
+		}
+		*exists = 1;
+		return 0;
+	}
+	if (errno == ENOENT)
+		return 0;
+	return -1;
 }
 
-static void
-symlink_sku_file(const char *sku_file, const char *prefix, const char *cc, int region, int is_aband)
+static int
+check_sku_file_exist(const char *prefix, const char *spec,
+		     char *out_buff, size_t out_size, int *exists)
+{
+	int path_length;
+
+	if (!prefix || !spec || !out_buff || out_size == 0 || !exists) {
+		errno = EINVAL;
+		return -1;
+	}
+	*exists = 0;
+	if (!check_regspec_code(spec)) {
+		out_buff[0] = '\0';
+		return 0;
+	}
+	path_length = snprintf(out_buff, out_size,
+			       "/etc_ro/Wireless/SingleSKU%s_%s.dat",
+			       prefix, spec);
+	if (path_length < 0 || path_length >= (int)out_size) {
+		out_buff[0] = '\0';
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	return sku_file_status(out_buff, exists);
+}
+
+static int
+symlink_sku_file(const char *sku_file, const char *prefix,
+		 const char *cc, int region, int is_aband)
 {
 	int i, sku_exist = 0;
+	int path_length, status;
 	char sku_link[64];
+	char *regspec;
+	const char *cc_regspec;
 
-	unlink(sku_file);
+	if (!sku_file || !*sku_file || !prefix) {
+		errno = EINVAL;
+		goto failed;
+	}
+	path_length = snprintf(sku_link, sizeof(sku_link),
+			       "%s/SingleSKU%s.dat", "/etc/storage/wlan",
+			       prefix);
+	if (path_length < 0 || path_length >= (int)sizeof(sku_link)) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
+	status = sku_file_status(sku_link, &sku_exist);
+	if (status != 0)
+		goto failed;
 
-	/* first, try custom SKU file from storage */
-	snprintf(sku_link, sizeof(sku_link), "%s/SingleSKU%s.dat", "/etc/storage/wlan", prefix);
-	if (!check_if_file_exist(sku_link)) {
-		const char *cc_regspec = get_country_regspec(cc);
-		
-		/* use table regspec code */
-		sku_exist = check_sku_file_exist(prefix, cc_regspec, sku_link, sizeof(sku_link));
-		
+	if (!sku_exist) {
+		cc_regspec = get_country_regspec(cc);
+		status = check_sku_file_exist(prefix, cc_regspec, sku_link,
+					      sizeof(sku_link), &sku_exist);
+		if (status != 0)
+			goto failed;
+
 		if (!sku_exist) {
-			char *regspec = nvram_safe_get("regspec_code");
-			
-			/* use own regspec code */
-			sku_exist = check_sku_file_exist(prefix, regspec, sku_link, sizeof(sku_link));
+			/* Never use an unchecked NVRAM value as a path component. */
+			regspec = nvram_safe_get("regspec_code");
+			if (check_regspec_code(regspec)) {
+				status = check_sku_file_exist(prefix, regspec, sku_link,
+							      sizeof(sku_link),
+							      &sku_exist);
+				if (status != 0)
+					goto failed;
+			}
 		}
-		
+
 		if (!sku_exist) {
 			int region_regspec;
-			
-			/* use any matched regspec code */
+
 			for (i = 0; i < ARRAY_SIZE(asus_regspec_table); i++) {
 				if (is_aband)
 					region_regspec = (int)asus_regspec_table[i].cc_5g;
 				else
 					region_regspec = (int)asus_regspec_table[i].cc_2g;
-				
 				if (region_regspec == region) {
-					sku_exist = check_sku_file_exist(prefix, asus_regspec_table[i].regspec, sku_link, sizeof(sku_link));
+					status = check_sku_file_exist(
+						prefix, asus_regspec_table[i].regspec,
+						sku_link, sizeof(sku_link), &sku_exist);
+					if (status != 0)
+						goto failed;
 					if (sku_exist)
 						break;
 				}
 			}
 		}
-		
-		if (!sku_exist)
-			check_sku_file_exist(prefix, asus_regspec_table[0].regspec, sku_link, sizeof(sku_link));
+
+		if (!sku_exist) {
+			status = check_sku_file_exist(
+				prefix, asus_regspec_table[0].regspec,
+				sku_link, sizeof(sku_link), &sku_exist);
+			if (status != 0)
+				goto failed;
+		}
 	}
 
-	if (check_if_file_exist(sku_link))
-		symlink(sku_link, sku_file);
+	if (sku_exist)
+		status = ralink_config_publish_symlink_atomic(sku_link, sku_file);
+	else
+		status = ralink_config_unlink_optional(sku_file);
+	if (status != 0)
+		goto failed;
+	return 0;
+
+failed:
+	status = errno ? errno : EIO;
+	logmessage(LOGNAME,
+		   "cannot select or publish wireless SKU link %s (status=%d)",
+		   sku_file ? sku_file : "(null)", status);
+	errno = status;
+	return -1;
 }
+
 
 static int
 gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
@@ -638,7 +728,10 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 			break;
 		}
 		
-		symlink_sku_file(sku_file, "", p_str, i_val, 0);
+		if (symlink_sku_file(sku_file, "", p_str, i_val, 0) != 0) {
+			ralink_config_discard_atomic(&fp, temp_path);
+			return -1;
+		}
 	}
 
 	//CountryRegion for A band
@@ -647,7 +740,10 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	fprintf(fp, "CountryRegionABand=%d\n", i_val);
 
 	if (is_aband)
-		symlink_sku_file(sku_file, "_5G", p_str, i_val, 1);
+		if (symlink_sku_file(sku_file, "_5G", p_str, i_val, 1) != 0) {
+			ralink_config_discard_atomic(&fp, temp_path);
+			return -1;
+		}
 
 	//CountryCode
 	p_str = nvram_wlan_get(is_aband, "country_code");

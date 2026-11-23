@@ -122,6 +122,8 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 
+- P2 — Wireless regulatory SKU profile publication: the Ralink helper destroyed the live SKU link before replacement, ignored symlink failure, and accepted unchecked NVRAM `regspec_code` as a path component. Candidate lookup now distinguishes absence from filesystem errors and validates the code; publication is staged privately and atomically replaced. Both band generators fail closed and discard staged DAT config on link errors. Filesystem regression and source contract added; exact-head Actions pending.
+
 - P2 — PID 1 kernel console loglevel: a failed `console_loglevel` NVRAM read previously collapsed to zero and silenced kernel console output before the remaining boot checks. The boot path now skips `klogctl` on backend errors, preserves the kernel default, and keeps the legacy missing-key and integer parsing behavior. GNU89 sanitizer regression and source contract added; exact-head validation pending.
 
 - P2 — RC timezone environment reliability: `setenv_tz()` used error-collapsing `nvram_safe_get("time_zone_x")` and could replace TZ with an empty value after transient NVRAM faults. This slice switches to checked-read status, preserves legacy missing-key behavior, rejects truncation and leaves the process environment unchanged on read/format/publication failure. GNU89 sanitizer regression and source contract added; exact-head validation pending.
