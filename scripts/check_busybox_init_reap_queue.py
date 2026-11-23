@@ -53,12 +53,13 @@ assert "mark_terminated(pid)" in waitfor
 assert "waitpid(-1, NULL, WNOHANG)" in waitfor
 assert "wpid < 0 && errno == EINTR" in waitfor
 assert "flush_pending_reaped_children();" in waitfor
-wait_eintr = waitfor.index("if (wait_status != EINTR)")
+wait_loop = waitfor.index("for (;;)")
+wait_eintr = waitfor.index("if (wait_status != EINTR)", wait_loop)
 wait_service = waitfor.index("check_delayed_wait_signals();", wait_eintr)
 wait_flush = waitfor.index("flush_pending_reaped_children();", wait_service)
-wait_continue = waitfor.index("continue;", wait_flush)
-wait_retry = waitfor.index("init_wait_for_child(pid, waitpid, &child_reaped)", wait_continue)
-assert wait_eintr < wait_service < wait_flush < wait_continue < wait_retry
+wait_close = waitfor.index("\n\t}", wait_flush)
+assert wait_loop < wait_eintr < wait_service < wait_flush < wait_close
+assert waitfor.count("init_wait_for_child(pid, waitpid, &child_reaped)") == 1
 assert "return EINTR;" in QUEUE
 assert "continue;" not in section(
     QUEUE, "init_wait_for_child(pid_t target_pid", "static inline int\\ninit_reap_queue_has_capacity"
