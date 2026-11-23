@@ -73,6 +73,9 @@ for token in ("memset(packet, 0, size)", "errno = EINVAL",
               "received >= required", "required != 0",
               "received <= capacity", "capacity != 0"):
     assert token in policy, token
+assert "recvfrom(receiver, receive_buffer, sizeof(receive_buffer)" in test
+assert "MSG_TRUNC" in test
+assert "MSG_TRUNC reports original datagram length" in test
 
 reader = function_body(source, "read_packet(int fd, void *packet, int size)")
 prepare = reader.index("infosvr_packet_buffer_prepare(packet, (size_t)size)")
@@ -263,7 +266,7 @@ for token in (
     "truncated base IBOX header is rejected",
     "truncated extended MAC prefix is rejected",
     "NULL receive buffer is rejected",
-    "infosvr packet initialization and length policy: PASS",
+    "infosvr packet initialization, length and UDP truncation policy: PASS",
 ):
     assert token in test, token
 
