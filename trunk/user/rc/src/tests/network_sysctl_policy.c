@@ -61,10 +61,41 @@ static void test_invalid_callback(void)
 	assert(rc_network_sysctl_apply(1, NULL, NULL) == EINVAL);
 	assert(mock_calls == 0);
 }
+
+static void test_syncookies_checked_read_preserves_legacy_values(void)
+{
+	int enabled = 1;
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "1", &enabled) == 0);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "0", &enabled) == 0);
+	assert(enabled == 0);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "not-a-number", &enabled) == 0);
+	assert(enabled == 0);
+	assert(rc_network_sysctl_parse_syncookies_status(0, EACCES, NULL, &enabled) == 0);
+	assert(enabled == 0);
+}
+static void test_syncookies_checked_read_failure_does_not_disable_policy(void)
+{
+	int enabled = 1;
+	assert(rc_network_sysctl_parse_syncookies_status(-1, EACCES, NULL, &enabled) == EACCES);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(-1, 0, NULL, &enabled) == EIO);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(2, 0, "1", &enabled) == EIO);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, NULL, &enabled) == EIO);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(0, 0, NULL, NULL) == EINVAL);
+	assert(!rc_network_sysctl_tcp_syncookies_allows_wan(
+		enabled, EACCES));
+}
+
 int main(void)
 {
 	test_all_attempted_first_error(); test_later_failure(); test_negative_status();
 	test_success_and_empty(); test_configured_syncookies_gate(); test_invalid_callback();
+	test_syncookies_checked_read_preserves_legacy_values();
+	test_syncookies_checked_read_failure_does_not_disable_policy();
 	puts("Network sysctl attempt-all/first-error policy: PASS");
 	return 0;
 }

@@ -122,6 +122,8 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 
+- P1 — Runtime TCP SYN-cookie policy reload: `restart_all_sysctl()` previously mapped an NVRAM read/close error to `fw_syn_cook=0`, wrote `tcp_syncookies=0`, and bypassed the existing WAN admission failure gate. It now uses checked-read status, preserves explicit/missing-key compatibility, skips the write on backend errors and retains the secure-required admission state so the active WAN is stopped. GNU89 sanitizer regression/source contract added; exact-head Actions pending.
+
 - P2 — Wireless regulatory SKU profile publication: the Ralink helper destroyed the live SKU link before replacement, ignored symlink failure, and accepted unchecked NVRAM `regspec_code` as a path component. Candidate lookup now distinguishes absence from filesystem errors and validates the code; publication is staged privately and atomically replaced. Both band generators fail closed and discard staged DAT config on link errors. Filesystem regression and source contract added; exact-head Actions pending.
 
 - P2 — PID 1 kernel console loglevel: a failed `console_loglevel` NVRAM read previously collapsed to zero and silenced kernel console output before the remaining boot checks. The boot path now skips `klogctl` on backend errors, preserves the kernel default, and keeps the legacy missing-key and integer parsing behavior. GNU89 sanitizer regression and source contract added; exact-head validation pending.

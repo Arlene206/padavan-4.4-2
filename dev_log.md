@@ -1,3 +1,12 @@
+## 2026-11-23 06:55 UTC — Fail closed on SYN-cookie policy read errors during sysctl reload
+
+- `restart_all_sysctl()` used `nvram_get_int("fw_syn_cook")`; a transient NVRAM read/close failure became integer zero. The reload then successfully wrote `tcp_syncookies=0`, and the existing WAN-admission gate treated the value as an explicit user disable, allowing the active WAN to remain up with SYN-cookie protection off.
+- Reload now uses `nvram_get_checked()` and an explicit parse policy. A missing key and present values preserve legacy `atoi()`/boolean behavior. A backend error keeps the initialized secure-required state, records the exact read error as SYN-cookie status, skips the sysctl write, and reaches the existing WAN-stop gate before PPPoE passthrough can be restarted.
+- Added GNU89/Werror/ASan/UBSan tests for present/missing/legacy numeric parsing, backend errors, invalid API results and unchanged secure-required state. Extended the source integration contract and XY-C1 path filters so Ralink SKU publication changes are also firmware-build inputs. Exact-head regression and XY-C1 Build/TRX/artifact checks pending; no local build claimed.
+- Resulting commit: pending.
+
+---
+
 ## 2026-11-23 06:50 UTC — Extend checked timezone read to PID 1 recovery shell
 
 - Found a second use of `nvram_safe_get("time_zone_x")` in `init.c:run_shell()`. Unlike the RC process environment update, this path builds the rescue shell's explicit `envp`; a transient NVRAM fault could pass a false empty TZ value into PID 1's recovery console.

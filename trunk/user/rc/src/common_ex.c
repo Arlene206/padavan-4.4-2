@@ -488,8 +488,10 @@ restart_all_sysctl(void)
 	if (!get_ap_mode()) {
 		int operation_status;
 		int passthrough_status;
-		int syncookies_enabled;
+		int syncookies_enabled = 1;
 		int syncookies_status = 0;
+		int syncookies_read_result, syncookies_read_errno;
+		char *syncookies_value = NULL;
 		int stop_wan_status;
 
 		operation_status = set_nf_conntrack();
@@ -498,11 +500,26 @@ restart_all_sysctl(void)
 				   operation_status);
 		restart_status = rc_first_service_start_status(restart_status, operation_status);
 
-		syncookies_enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
-		operation_status = set_tcp_syncookies(syncookies_enabled, &syncookies_status);
-		if (operation_status != 0)
-			logmessage(LOGNAME, "TCP/ICMP security sysctl configuration failed (status=%d)",
+		errno = 0;
+		syncookies_read_result = nvram_get_checked("fw_syn_cook", &syncookies_value);
+		syncookies_read_errno = errno;
+		operation_status = rc_network_sysctl_parse_syncookies_status(
+			syncookies_read_result, syncookies_read_errno,
+			syncookies_value, &syncookies_enabled);
+		if (operation_status != 0) {
+			/* Unknown policy must not be mistaken for an explicit disable. */
+			syncookies_status = operation_status;
+			logmessage(LOGNAME,
+				   "cannot read TCP SYN-cookie policy; refusing WAN admission (status=%d)",
 				   operation_status);
+		} else {
+			operation_status = set_tcp_syncookies(syncookies_enabled,
+							      &syncookies_status);
+			if (operation_status != 0)
+				logmessage(LOGNAME,
+					   "TCP/ICMP security sysctl configuration failed (status=%d)",
+					   operation_status);
+		}
 		restart_status = rc_first_service_start_status(restart_status, operation_status);
 
 		operation_status = set_igmp_mld_version();

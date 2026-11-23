@@ -72,6 +72,8 @@ for token in ('set_interface_conf_int("ipv4", "all"',
     require(token in igmp_writer,"missing multicast sysctl write: "+token)
 require("first failure" in POLICY,"policy must document first-error semantics")
 require("return first_status;" in POLICY,"policy must preserve first failure")
+require("read_result < 0" in POLICY and "read_result > 1" in POLICY,
+        "SYN-cookie policy parsing must reject failed/invalid NVRAM read results")
 require("return connected" not in POLICY,"unrelated readiness policy must not be included")
 require("mock_status[0] = EIO" in TEST and "mock_status[3] = EACCES" in TEST,
         "regression must verify first-error and continue-after-failure")
@@ -84,9 +86,23 @@ for proto in ("int set_nf_conntrack(void);","int set_tcp_syncookies(int enabled,
 for obsolete in ("void set_nf_conntrack(void);","void set_tcp_syncookies(void);","void set_igmp_mld_version(void);"):
     require(obsolete not in RC_HEADER,"stale void prototype remains in rc.h: "+obsolete)
 sysctl_reload=body(COMMON,"restart_all_sysctl(void)")
-require("syncookies_enabled = nvram_get_int(\"fw_syn_cook\") ? 1 : 0;" in sysctl_reload and
-        "operation_status = set_tcp_syncookies(syncookies_enabled, &syncookies_status);" in sysctl_reload,
-        "sysctl reload must snapshot the configured SYN-cookie value and exact write status")
+syncookies_reload_compact = "".join(sysctl_reload.split())
+require("int syncookies_enabled = 1;" in sysctl_reload and
+        'syncookies_read_result=nvram_get_checked("fw_syn_cook",&syncookies_value);' in syncookies_reload_compact and
+        "rc_network_sysctl_parse_syncookies_status(" in syncookies_reload_compact and
+        "syncookies_status=operation_status;" in syncookies_reload_compact,
+        "sysctl reload must distinguish NVRAM failure from an explicit SYN-cookie disable")
+read_pos = syncookies_reload_compact.index('syncookies_read_result=nvram_get_checked("fw_syn_cook",&syncookies_value);')
+parse_pos = syncookies_reload_compact.index("operation_status=rc_network_sysctl_parse_syncookies_status(", read_pos)
+write_pos = syncookies_reload_compact.index("operation_status=set_tcp_syncookies(syncookies_enabled,&syncookies_status);", parse_pos)
+require(read_pos < parse_pos < write_pos and
+        syncookies_reload_compact.index("if(operation_status!=0){", parse_pos) < write_pos,
+        "sysctl reload must gate writes on a successful checked policy read")
+require('nvram_get_int("fw_syn_cook")' not in sysctl_reload,
+        "unchecked SYN-cookie NVRAM reads must be removed from reload path")
+require("rc_network_sysctl_parse_syncookies_status" in POLICY and
+        "test_syncookies_checked_read_failure_does_not_disable_policy" in TEST,
+        "policy tests must cover checked-read errors without lowering the WAN gate")
 require("if (!rc_network_sysctl_tcp_syncookies_allows_wan(" in sysctl_reload and
         "syncookies_enabled, syncookies_status)" in sysctl_reload,
         "runtime sysctl reload must enforce the same configured SYN-cookie prerequisite")
