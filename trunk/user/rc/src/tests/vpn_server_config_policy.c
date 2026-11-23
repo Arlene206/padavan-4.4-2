@@ -166,6 +166,25 @@ test_int_backend_error_fails_closed(void)
 }
 
 static void
+test_vpn_acl_static_addresses_are_unique(void)
+{
+	const unsigned int distinct[] = { 0, 0, 2, 3, 254 };
+	const unsigned int duplicate[] = { 0, 2, 0, 3, 2 };
+	const unsigned int dynamic_only[] = { 0, 0, 0 };
+
+	assert(vpn_server_acl_static_addresses_unique(
+		distinct, sizeof(distinct) / sizeof(distinct[0]), 8) == 0);
+	assert(vpn_server_acl_static_addresses_unique(
+		duplicate, sizeof(duplicate) / sizeof(duplicate[0]), 8) == EADDRINUSE);
+	assert(vpn_server_acl_static_addresses_unique(
+		dynamic_only, sizeof(dynamic_only) / sizeof(dynamic_only[0]), 3) == 0);
+	assert(vpn_server_acl_static_addresses_unique(NULL, 0, 0) == 0);
+	assert(vpn_server_acl_static_addresses_unique(NULL, 1, 8) == EINVAL);
+	assert(vpn_server_acl_static_addresses_unique(
+		distinct, sizeof(distinct) / sizeof(distinct[0]), 4) == EINVAL);
+}
+
+static void
 test_pool_ipv4_parser_is_strict(void)
 {
 	uint32_t address = 0;
@@ -347,6 +366,7 @@ main(void)
 	test_int_accepts_only_complete_bounded_decimal();
 	test_int_rejects_malformed_and_out_of_range_values();
 	test_int_backend_error_fails_closed();
+	test_vpn_acl_static_addresses_are_unique();
 	test_pool_ipv4_parser_is_strict();
 	test_pool_lan_defaults_and_client_range();
 	test_pool_lan_small_subnet_is_clamped_safely();

@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Reject duplicate static VPN peer addresses
+
+- `vpn_server_read_acl_snapshot()` validated every per-client address value individually but `start_vpn_server()` did not validate uniqueness across the snapshot. Two authenticated PPP clients could therefore receive the same configured static remote address in `chap-secrets`, creating a peer-address collision and ambiguous routing.
+- Added a bounded policy check for the complete ACL snapshot before lease-inventory cleanup, private CHAP file creation or daemon startup. Repeated nonzero static offsets now fail with `EADDRINUSE`; zero remains the supported dynamic-assignment value and can be shared. GNU89 policy coverage includes distinct, duplicate, dynamic-only, null and count-overflow cases.
+- Exact VPN Server regression rerun is required. No local MIPS/uClibc build, sanitizer run or hardware behavior is claimed in this record.
+
+---
 ## 2026-11-23 UTC — Enforce removal of all unchecked URL MAC fallbacks
 
 - After the IPv6 source fix, a fresh source scan confirms exactly two URL-MAC consumers (IPv4 and IPv6) call `firewall_read_url_filter_mac()` and there are no remaining `mac_conv("url_mac_x")` fallbacks anywhere in `firewall_ex.c`.

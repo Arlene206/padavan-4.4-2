@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 /*
  * The VPN server is started unconditionally by PID 1. A missing enable key
@@ -128,6 +129,30 @@ vpn_server_config_int_status(int read_status, int read_errno,
 		return EINVAL;
 
 	*result = (int)parsed;
+	return 0;
+}
+
+/*
+ * Two authenticated PPP peers must not be assigned the same static remote
+ * host address. Zero intentionally means dynamic assignment and may repeat.
+ */
+static inline int
+vpn_server_acl_static_addresses_unique(const unsigned int *addresses,
+				       size_t count, size_t maximum_count)
+{
+	size_t i, j;
+
+	if ((!addresses && count != 0) || count > maximum_count)
+		return EINVAL;
+
+	for (i = 0; i < count; ++i) {
+		if (addresses[i] == 0)
+			continue;
+		for (j = i + 1; j < count; ++j) {
+			if (addresses[j] == addresses[i])
+				return EADDRINUSE;
+		}
+	}
 	return 0;
 }
 

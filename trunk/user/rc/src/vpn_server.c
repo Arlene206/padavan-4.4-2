@@ -617,6 +617,8 @@ start_vpn_server_locked(void)
 	FILE *fp;
 	int i, i_type, xl2tpd_status, saved_errno;
 	int enabled, config_status, acl_count = 0;
+	int acl_address_status;
+	unsigned int acl_addresses[MAX_CLIENTS_NUM];
 	struct vpn_server_acl_entry acl_entries[MAX_CLIENTS_NUM];
 	char *vpns_cfg = "/etc/pptpd.conf";
 	const char *vpns_sec = "/tmp/ppp/chap-secrets";
@@ -661,6 +663,19 @@ start_vpn_server_locked(void)
 		errno = saved_errno;
 		return -1;
 	}
+
+	for (i = 0; i < acl_count; ++i)
+		acl_addresses[i] = acl_entries[i].present ? acl_entries[i].address : 0;
+	acl_address_status = vpn_server_acl_static_addresses_unique(
+		acl_addresses, (size_t)acl_count, MAX_CLIENTS_NUM);
+	if (acl_address_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "duplicate static VPN client address; refusing credential publication (status=%d)",
+			   acl_address_status);
+		errno = acl_address_status;
+		return -1;
+	}
+
 	if (clear_vpns_lease_file() != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
 		return -1;
