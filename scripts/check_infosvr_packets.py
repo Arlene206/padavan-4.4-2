@@ -94,7 +94,7 @@ response_reset = processor.index("memset(packet_res, 0, sizeof(packet_res_storag
 response_header = processor.index("hdr_res->ServiceID =")
 assert supported_guard < response_reset < response_header
 assert "only the implemented read-only opcodes" in processor.lower().lower()
-base_guard = processor.index("infosvr_packet_length_valid((size_t)packet_len, sizeof(IBOX_COMM_PKT_HDR))")
+base_guard = processor.index("infosvr_packet_length_valid((size_t)packet_len, sizeof(header))")
 service_read = processor.index("hdr->ServiceID")
 assert base_guard < service_read
 extended_guard = processor.index("offsetof(IBOX_COMM_PKT_HDR_EX, Password)")
