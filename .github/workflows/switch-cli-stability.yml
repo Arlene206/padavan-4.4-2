@@ -766,17 +766,16 @@ jobs:
           assert "(reg == MTK_ESW_VLAN_TABLE_REG) ?" in fake_read
           assert "MTK_ESW_VLAN_TABLE_BUSY_MASK" in fake_read
           assert "MTK_ESW_MAC_TABLE_BUSY_MASK" in fake_read
-          vtcr = source.split("static int esw_write_vtcr", 1)[1].split(
-              "static int esw_vlan_set", 1
-          )[0]
-          assert "mtk_esw_vlan_table_write(REG_ESW_VLAN_VTCR" in vtcr
           vlan_set = source.split("static int esw_vlan_set", 1)[1].split(
               "static int esw_vlan_reset_table", 1
           )[0]
           assert "mtk_esw_vlan_entry_apply(" in vlan_set
-          assert "REG_ESW_VLAN_VAWD1" not in vlan_set and "REG_ESW_VLAN_VAWD2" not in vlan_set
-          assert "status = esw_write_vtcr(1, cvid)" not in vlan_set
-          assert vlan_set.index("mtk_esw_vlan_entry_apply(") < vlan_set.index("set_bit(cvid, g_vlan_pool)")
+          assert "REG_ESW_VLAN_VAWD1" in vlan_set and "REG_ESW_VLAN_VAWD2" in vlan_set
+          entry_apply_at = vlan_set.index("status = mtk_esw_vlan_entry_apply(")
+          entry_error_at = vlan_set.index("if (status != 0)", entry_apply_at)
+          pool_commit_at = vlan_set.index("set_bit(cvid, g_vlan_pool)")
+          assert entry_apply_at < entry_error_at < pool_commit_at
+          assert "esw_write_vtcr(1, cvid)" not in vlan_set
           vlan_reset = source.split("static int esw_vlan_reset_table", 1)[1].split(
               "static int is_vlan_rule_included", 1
           )[0]

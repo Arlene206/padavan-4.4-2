@@ -1,3 +1,12 @@
+## 2026-11-23 — Align Switch CLI checker with transactional VLAN-entry helper
+
+- Exact Switch CLI #45252058892 on `59622f3c9612949ddd642fc738e02463f5400def` ran the host MDIO policy binary successfully, then failed in the Python source checker with `ValueError: substring not found`. The stale checker required direct `esw_write_vtcr(1, cvid)` and raw VAWD1/VAWD2 writes inside `esw_vlan_set()`.
+- Source commit `59622f3` intentionally factored VAWD1, VAWD2 and the VTCR wait into `mtk_esw_vlan_entry_apply()`; the helper test passed, and `g_vlan_pool` is published only after the transaction succeeds. Updated the checker to assert that helper call, its error gate, and the software-pool commit ordering.
+- On source SHA `59622f3`, NVRAM audit #45252058851 PASS and AI docs #45252059088 PASS. XY-C1 #45252058834 was still running at the last poll; exact Build/TRX/artifact status must be checked.
+- Next source reliability issue: MTK ESW configuration setters still use `esw_reg_get()` / `esw_reg_set()`, which collapse or swallow MDIO errors and can falsely report success after a failed VLAN/bridge hardware update. Convert the paths to checked status operations and add regression coverage.
+
+---
+
 ## 2026-11-23 — Restore complete development log after VLAN compile fix
 
 - Source fix `aacd6876408dfcd742528ac8ba0bc7d03357d909` restores the MTK ESW VLAN table-slot constant and lookup helpers, bounds VID search and fixes missing/misplaced success returns exposed by XY-C1 #45250584713.

@@ -1,6 +1,6 @@
 # Cross-session execution mandate
 
-## 2026-11-23 continuation handoff (engineering parent main: aacd6876408dfcd742528ac8ba0bc7d03357d909; fetch live main at takeover)
+## 2026-11-23 continuation handoff (engineering parent main: 09ce12e4aa014d478ab78e9d05cea42d0cf1db60; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
 - `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
@@ -42,14 +42,12 @@
 
 ## Active task
 
-### MTK ESW VLAN compile recovery (active)
+### MTK ESW VLAN status propagation (active)
 
-- VPN client shared-`xl2tpd` slice is verified: lifecycle #45250796998 PASS and AI docs #45250796898 PASS on `cdc98747492260b9f59635f77fae8003cec71f48`.
-- MTK callback helpers were restored on `895a2f060cae5893b9daf3c3b76575bfda5ca479`. XY-C1 #45250584713 on that source failed on the next set of compile blockers: missing `VLAN_ENTRY_ID_MAX`, `find_vlan_slot()`, `find_free_min_pvid()`, missing return from `esw_vlan_init_vid1()`, and an extra brace in `vlan_create_entry()`.
-- Commit `aacd6876408dfcd742528ac8ba0bc7d03357d909` restores these declarations/helpers before use, bounds default VID search to 2..4094 and rejects exhaustion with `-ENOSPC`, and fixes both missing/misplaced success returns. Switch CLI #45251664495 PASS on this exact SHA. XY-C1 #45251664679 and NVRAM audit #45251664582 are still IN_PROGRESS on the same SHA.
-- Switch CLI #45250584832 on 895 had failed because the inline workflow contained contradictory VLAN-order assertions; commit `c730d8dfe9cd37007ca0f11aa90a378f3c69e4a2` removed the reverse-order assertion; exact Switch CLI #45251145497 PASS on c730.
-- AI docs #45251664481 FAILED only because the previous source-fix commit accidentally replaced the multi-entry `dev_log.md` archive with one entry; this follow-up restores the complete log from c730 and prepends the precise source/CI record. Re-run AI docs on this doc-repair SHA.
-- L3 remains unverified until XY-C1 Build, TRX verification and artifact upload all PASS on the same production-source SHA.
+- Exact source SHA `59622f3c9612949ddd642fc738e02463f5400def` has AI docs #45252059088 PASS and NVRAM transaction audit #45252058851 PASS. XY-C1 #45252058834 was still running at the last poll; inspect final Build/TRX/artifact stages before claiming L3.
+- Switch CLI #45252058892 failed after the host MDIO policy binary printed PASS. Its Python checker still required `esw_vlan_set()` to call `esw_write_vtcr(1, cvid)` directly, but commit `59622f3` correctly moved VAWD1/VAWD2/VTCR ordering into the tested `mtk_esw_vlan_entry_apply()` helper and publishes `g_vlan_pool` only after success. This commit aligns the stale checker with that transaction.
+- A separate stability gap is confirmed in `ioctl_mt762x.c`: `esw_reg_get()` collapses MDIO read failures to zero and `esw_reg_set()` logs but discards write errors. Port matrix/PVID/accept/attribute helpers remain `void`, so VLAN/bridge init may report success after failed MDIO operations. Next source slice: use checked MDIO read/modify/write helpers, convert callers to return the first failure, add tests for register writes/status propagation, and preserve existing PHY code.
+- No local MIPS build or hardware validation is available. L3 is not claimed until exact-head XY-C1 Build, TRX and artifact all pass on the same source SHA.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -67,9 +65,9 @@
 
 ## Exact first action for the next GPT
 
-1. Confirm the XY-C1 build and NVRAM audit for source SHA `aacd6876408dfcd742528ac8ba0bc7d03357d909`. The Switch CLI contract passed on that SHA; AI docs needs a rerun because this doc commit restores the complete log archive.
-2. If XY-C1 advances to a different compiler failure, fix the first real source error and rerun same-SHA Build/TRX/artifact. Do not infer firmware success from Switch CLI.
-3. Once L3 is verified on one source SHA, continue a distinct reliability/security source defect from the wider userland. Keep backup frozen; use complete-tree and expected-SHA non-forced commits.
+1. Verify XY-C1 #45252058834 on source SHA `59622f3c9612949ddd642fc738e02463f5400def`; NVRAM #45252058851 and AI docs #45252059088 already PASS on that SHA.
+2. Confirm the exact-head Switch CLI rerun after this checker correction. The prior native MDIO policy test binary passed; the failure was a stale checker expectation for a direct VTCR call after the new helper refactor.
+3. Fix unchecked MTK ESW port register operations: replace error-collapsing `esw_reg_get/set` use in PVID/attribute/accept/matrix/VLAN paths with checked status APIs and propagate failures through bridge/VLAN/ioctl callers. Add policy unit tests and source assertions.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
