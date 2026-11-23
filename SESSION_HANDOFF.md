@@ -2,24 +2,26 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Live parent before this documentation checkpoint: `db60eb4deb95f7702c63f50563b8cc9b23d350e9`.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Parent of this handoff refresh: `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4`.
 - Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; never update, switch to, merge, delete or rename.
 - Branch inventory at this checkpoint: only `main` and the frozen archive. Legacy PR #1 is closed and unmerged; no open PR. Do not create branches or PRs.
-- Current product-source commit: `ad56220d066e771be499426708b6c2f744937467`, `fix(firewall): fail closed on URL schedule read errors`. Documentation/checker-only descendant: `db60eb4deb95f7702c63f50563b8cc9b23d350e9`.
+- Current source baseline: `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4` (`fix(rc): reject invalid NAT helper boolean selectors`), parent `b8313201f520ecaa00f2bf76cb89821b208824c9`.
 - No persistent local checkout is available. No local compile, local sanitizer, MIPS/uClibc build or physical hardware result is claimed.
 - Startup recovery has already been performed once. Do not repeat broad bootstrap or completed USB eject/MTK/WSD audits without new evidence.
 
 ## Active task
 
-Close the production-source L3 gate for the firewall URL-filter schedule fix. The source change replaces unchecked `nvram_get()` fallbacks with checked presence-aware reads, copies date/time values before the next NVRAM access invalidates the shared pointer, and propagates backend errors. Both IPv4 and IPv6 builders discard staged rules and abort core restore before publication on a schedule read failure. Missing-key defaults remain compatible; present-empty and oversized schedules remain inactive.
+Close exact-SHA validation for strict NVRAM boolean selectors used by `reload_nat_modules()`. The NAT helper snapshot previously interpreted every nonzero `wan_nat_x` as enabled and converted malformed PPTP/H.323/SIP ALG values to disabled unless they were exactly `1`. A corrupted value such as `2` could silently unload a configured helper during a reload.
 
-Source commit `ad56220d066e771be499426708b6c2f744937467` also adds a policy helper and direct unit coverage. The first Firewall Startup run #45161165818 failed only because its inline checker named a nonexistent test function; checker correction is `db60eb4deb95f7702c63f50563b8cc9b23d350e9`. Exact Firewall Startup #45161387113 PASS and AI docs #45161387099 PASS on db60. Exact WAN DHCP callback #45161165802 PASS on ad562.
+Source commit `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4` now enforces the supported empty/0/1 domain for all four selectors before publishing the snapshot or changing module state. Missing and empty values preserve the legacy disabled default. The GNU89 test exercises `2`, `-1` and malformed text in every selector and verifies the caller's previous snapshot remains untouched. The existing WAN route workflow compiles this policy using `-Wall -Wextra -Werror` and ASan/UBSan, then runs `scripts/check_nat_helper_settings.py`.
+
+The previous firewall URL-schedule task is closed at L3: exact XY-C1 #45161165974 passed on source SHA `ad56220d066e771be499426708b6c2f744937467`, including Build XY-C1, TRX verification and artifact upload (artifact `14812541338`, 12,759,350 bytes). Do not repeat that task.
 
 ## Exact first action for the next GPT
 
-1. Poll XY-C1 run #45161165974 on exact product-source SHA `ad56220d066e771be499426708b6c2f744937467`. At last poll, Build XY-C1 was IN_PROGRESS and TRX verification/artifact upload were pending. Confirm all three pass on that SHA; if Build fails, inspect its job log and fix the actual compile failure before claiming L3.
-2. If #45161165974 passes, record its artifact ID/name/size and mark L3 for the firewall URL-schedule slice. If it fails, keep L3 NOT VERIFIED and repair the source/build issue.
-3. Continue the next unfinished P1 stability/security slice from `REFACTOR_ROADMAP.md`; prefer work outside the already heavily exercised Wireless/HTTPD/DHCP paths. Do not repeat completed tasks without new failure evidence.
+1. Poll these exact-source runs for `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4`: WAN route #45178293988, XY-C1 #45178294111, Process inventory #45178294031 and NVRAM boundary #45178294032. AI handoff contract #45178294028 already PASSed. If any test fails, inspect the corresponding job log and fix the actual issue; do not loosen the regression.
+2. Confirm the WAN route GNU89/Werror/ASan/UBSan binary and source contract pass. For L3, require Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA; record the artifact ID/name/size. Until then, mark L3 PENDING.
+3. While runs are pending, continue an independent P1 stability/security task from the roadmap, preferably outside the heavily exercised Wireless/HTTPD/DHCP paths. Never wait idle or repeat a closed audit without new evidence.
 
 ## Exact-SHA CI facts at the parent baseline
 
@@ -68,7 +70,7 @@ Source commit `ad56220d066e771be499426708b6c2f744937467` also adds a policy help
 ### Firewall URL-filter schedule read
 
 - IPv4 and IPv6 URL-filter schedules now use checked, presence-aware NVRAM reads and copy values before the next shared-cache lookup. Missing keys retain historical all-days/all-day defaults; present-empty or oversized values stay inactive; backend errors abort staged rule publication rather than silently falling back to defaults.
-- GNU89/Werror/ASan/UBSan policy tests and the complete firewall source-order contract passed in Firewall Startup #45161387113 on db60 (production code from ad562). WAN DHCP callback #45161165802 PASS on ad562. Exact XY-C1 #45161165974 on ad562 was still building at last poll; L3 for this firewall source slice remains pending.
+- Firewall Startup #45161387113 passed on checker descendant db60 and WAN DHCP callback #45161165802 passed on source ad562. Exact XY-C1 #45161165974 completed SUCCESS on exact product SHA ad562: Build XY-C1, TRX verification and artifact upload all passed. Artifact ID `14812541338`, name `XY-C1-firmware-ad56220d066e771be499426708b6c2f744937467`, size 12,759,350 bytes. L3 is VERIFIED for that firewall source slice; no hardware L4 claim is made.
 
 ### WAN gateway ARP source identity
 
@@ -84,10 +86,9 @@ Source commit `ad56220d066e771be499426708b6c2f744937467` also adds a policy help
 
 ## Verification boundary
 
-- L1 source review: PASS for checked URL schedule reads, presence-aware legacy defaults, pointer lifetime/copy ordering and abort-before-publication on both IPv4 and IPv6.
-- L2 host/Actions: Firewall Startup #45161387113 PASS on db60 (production source parent ad562), including GNU89/Werror/ASan/UBSan policy helper tests and full URL-schedule source-order contract. WAN DHCP callback #45161165802 PASS on ad562.
-- L3 XY-C1 firmware: PASS through prior product SHA edeb (Build, TRX and artifact). NOT VERIFIED for current production source ad562 until exact run #45161165974 completes Build, TRX verification and artifact upload on the same SHA.
-- L4 physical router: NOT VERIFIED; no physical firewall schedule/NVRAM fault injection or radio/WAN topology test was performed.
+- Firewall URL-schedule L1/L2/L3: VERIFIED on source ad562 (Firewall Startup #45161387113 on db60 descendant; WAN DHCP #45161165802 and XY-C1 #45161165974 on ad562; Build/TRX/artifact PASS, artifact 14812541338). L4 hardware NOT VERIFIED.
+- NAT helper selector hardening L1: SOURCE IMPLEMENTED on 3e5bcc5; one coherent NVRAM snapshot, strict empty/0/1 selectors and no-publication-on-invalid-input are reviewed. L2 WAN route #45178293988 and XY-C1 #45178294111 are IN_PROGRESS; Process #45178294031 and NVRAM #45178294032 are IN_PROGRESS; AI handoff #45178294028 PASS. L3 NOT VERIFIED pending same-SHA Build/TRX/artifact.
+- L4 physical router: NOT VERIFIED; no physical firewall, NAT helper, NVRAM fault-injection or radio/WAN topology test was performed.
 
 ## Working method
 
