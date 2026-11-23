@@ -934,7 +934,7 @@ static int
 create_if_no_var_files_with_accounts(const char *const mount_path,
                                      int acc_num, char **account_list)
 {
-	int i, path_len, result;
+	int i, path_len, result, file_status;
 	char var_file[256];
 
 	/*
@@ -966,7 +966,10 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 		errno = ENAMETOOLONG;
 		return -1;
 	}
-	if (!test_if_file(var_file))
+	file_status = test_if_regular_file_nofollow(var_file);
+	if (file_status < 0)
+		return -1;
+	if (file_status == 0)
 		result = initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,
 		                                           mount_path);
 	else
@@ -982,7 +985,12 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 			result = -1;
 			break;
 		}
-		if (!test_if_file(var_file))
+		file_status = test_if_regular_file_nofollow(var_file);
+		if (file_status < 0) {
+			result = -1;
+			break;
+		}
+		if (file_status == 0)
 			result = initial_one_var_file_in_mount_path_locked(account_list[i],
 			                                           mount_path);
 		else
@@ -1137,7 +1145,7 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 	memcpy(temp_file, var_file, var_len);
 	memcpy(temp_file + var_len, temp_suffix, sizeof(temp_suffix));
 
-	old_info = read_whole_file(var_file);
+	old_info = read_regular_file_nofollow(var_file);
 	if (!old_info)
 		goto failed;
 	old_len = strlen(old_info);
@@ -1223,7 +1231,7 @@ char var_file[256];
 	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
 	                                     mount_path, account) != 0)
 		return -1;
-	var_info = read_whole_file(var_file);
+	var_info = read_regular_file_nofollow(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno == ENOENT)
@@ -1463,7 +1471,7 @@ int set_permission(const char *account,
 	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
 	                                       mount_path, account) != 0)
 		goto failed;
-	var_info = read_whole_file(var_file);
+	var_info = read_regular_file_nofollow(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno != ENOENT) {
@@ -1477,7 +1485,7 @@ int set_permission(const char *account,
 				errno = EIO;
 			goto failed;
 		}
-		var_info = read_whole_file(var_file);
+		var_info = read_regular_file_nofollow(var_file);
 		if (!var_info) {
 			if (!errno)
 				errno = EIO;
@@ -2280,7 +2288,7 @@ disk_share_update_folder_permission_file(const char *mount_path,
 	                                       mount_path, account) != 0)
 		return -1;
 
-	var_info = read_whole_file(var_file);
+	var_info = read_regular_file_nofollow(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno == ENOENT) {
@@ -2369,7 +2377,7 @@ disk_share_permission_batch_prepare_rewrite(
 			    mount_path, account) != 0)
 			goto failed;
 
-		entries[i].before = read_whole_file(entries[i].path);
+		entries[i].before = read_regular_file_nofollow(entries[i].path);
 		if (!entries[i].before) {
 			saved_errno = errno ? errno : EIO;
 			if (saved_errno == ENOENT) {

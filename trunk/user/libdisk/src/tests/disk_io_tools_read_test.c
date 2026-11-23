@@ -167,6 +167,45 @@ test_read_regular_file_nofollow_rejects_directory(void)
 	assert(errno == EINVAL);
 }
 
+static void
+test_regular_file_status_nofollow_distinguishes_missing_file(void)
+{
+	char path[256];
+	int status;
+
+	make_path(path, sizeof(path), "missing-cache.txt");
+	errno = 0;
+	status = test_if_regular_file_nofollow(path);
+	assert(status == 0);
+	assert(errno == ENOENT);
+}
+
+static void
+test_regular_file_status_nofollow_rejects_symlink_and_fifo(void)
+{
+	char path[256], target[256];
+	int status;
+
+	make_path(path, sizeof(path), "status-link.txt");
+	make_path(target, sizeof(target), "status-target.txt");
+	write_file(target, "regular target\n", strlen("regular target\n"));
+	assert(symlink(target, path) == 0);
+	errno = 0;
+	status = test_if_regular_file_nofollow(path);
+	assert(status == -1);
+	assert(errno == ELOOP);
+	assert(unlink(path) == 0);
+	assert(unlink(target) == 0);
+
+	make_path(path, sizeof(path), "status-fifo");
+	assert(mkfifo(path, 0600) == 0);
+	errno = 0;
+	status = test_if_regular_file_nofollow(path);
+	assert(status == -1);
+	assert(errno == EINVAL);
+	assert(unlink(path) == 0);
+}
+
 static void test_sanity_name_replaces_high_bit_reserved_byte(void)
 {
 	char name[] = { 'A', (char)0x84, 'B', '/', '\0' };
@@ -196,6 +235,8 @@ int main(void)
 	test_read_regular_file_nofollow_rejects_symlink();
 	test_read_regular_file_nofollow_rejects_fifo_without_blocking();
 	test_read_regular_file_nofollow_rejects_directory();
+	test_regular_file_status_nofollow_distinguishes_missing_file();
+	test_regular_file_status_nofollow_rejects_symlink_and_fifo();
 	test_sanity_name_replaces_high_bit_reserved_byte();
 
 	assert(rmdir(test_dir) == 0);

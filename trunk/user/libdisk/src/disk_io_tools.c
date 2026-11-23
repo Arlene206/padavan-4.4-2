@@ -195,6 +195,35 @@ char *read_regular_file_nofollow(const char *target)
 	return read_whole_file_stream(fp);
 }
 
+
+/*
+ * Return 1 for an existing regular file, 0 only for ENOENT, and -1 for
+ * symlinks, non-regular entries, and all other lookup errors.
+ */
+int test_if_regular_file_nofollow(const char *target)
+{
+	struct stat file_status;
+
+	if (!target || !*target) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (lstat(target, &file_status) != 0) {
+		if (errno == ENOENT)
+			return 0;
+		return -1;
+	}
+	if (S_ISLNK(file_status.st_mode)) {
+		errno = ELOOP;
+		return -1;
+	}
+	if (!S_ISREG(file_status.st_mode)) {
+		errno = EINVAL;
+		return -1;
+	}
+	return 1;
+}
+
 int mkdir_if_none(char *dir) {
 	DIR *dp;
 	mode_t old_umask;

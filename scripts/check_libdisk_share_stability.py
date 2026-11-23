@@ -407,6 +407,11 @@ require("open(target,O_RDONLY|O_NONBLOCK|O_NOFOLLOW)" in safe_compact and
         'fdopen(fd,"r")' in safe_compact and
         "read_whole_file_stream(fp)" in safe_compact,
         "untrusted cache reads must reject final symlinks and non-regular files without blocking")
+require("test_if_regular_file_nofollow" in DISK_IO_SOURCE and
+        "lstat(target, &file_status)" in DISK_IO_SOURCE and
+        "S_ISLNK(file_status.st_mode)" in DISK_IO_SOURCE and
+        "S_ISREG(file_status.st_mode)" in DISK_IO_SOURCE,
+        "existence checks for removable account metadata must not open symlinks or special files")
 for marker in (
     "test_reads_complete_text_file",
     "test_reads_empty_file",
@@ -417,13 +422,15 @@ for marker in (
     "test_read_regular_file_nofollow_rejects_symlink",
     "test_read_regular_file_nofollow_rejects_fifo_without_blocking",
     "test_read_regular_file_nofollow_rejects_directory",
+    "test_regular_file_status_nofollow_distinguishes_missing_file",
+    "test_regular_file_status_nofollow_rejects_symlink_and_fifo",
 ):
     require(marker in IO_REGRESSION and marker + "();" in IO_REGRESSION,
             "missing read_whole_file regression: " + marker)
 
 
 get_permission = function_body(DISK_SOURCE, "int get_permission(const char *account,")
-get_read = get_permission.index("var_info = read_whole_file(var_file);")
+get_read = get_permission.index("var_info = read_regular_file_nofollow(var_file);")
 get_missing = get_permission.index("if (saved_errno == ENOENT)", get_read)
 get_denied_error = get_permission.index("return -1;", get_missing)
 require(get_read < get_missing < get_denied_error and
@@ -445,7 +452,7 @@ set_snapshot_lookup = set_permission_compact.index(
 set_snapshot_refresh = set_permission_compact.index(
     "initial_folder_list_in_mount_path(mount_path)", set_snapshot_lookup
 )
-set_read = set_permission_compact.index("var_info=read_whole_file(var_file)", set_snapshot_refresh)
+set_read = set_permission_compact.index("var_info=read_regular_file_nofollow(var_file)", set_snapshot_refresh)
 set_write = set_permission_compact.index("disk_share_replace_file_atomic(var_file", set_read)
 set_release = set_permission_compact.index("disk_share_account_nvram_end(&transaction)", set_write)
 set_reload = set_permission_compact.index('system("/sbin/run_samba")', set_release)
@@ -458,10 +465,10 @@ require(set_accounts < set_account_lookup < set_begin < set_validate < set_live_
         "get_account_list(" not in set_permission_compact[set_begin:],
         "permission updates must reject deleted accounts and serialize metadata read/modify/write under the shared account writer lease, releasing it before Samba reload")
 
-set_read = set_permission.index("var_info = read_whole_file(var_file);")
+set_read = set_permission.index("var_info = read_regular_file_nofollow(var_file);")
 set_enoent = set_permission.index("if (saved_errno != ENOENT)", set_read)
 set_init = set_permission.index("initial_one_var_file_in_mount_path_locked(account, mount_path)", set_enoent)
-set_retry = set_permission.index("var_info = read_whole_file(var_file);", set_init)
+set_retry = set_permission.index("var_info = read_regular_file_nofollow(var_file);", set_init)
 require(set_read < set_enoent < set_init < set_retry and
         "sleep(1);" not in set_permission,
         "permission update may initialize defaults only for ENOENT and must check the result")
@@ -1165,7 +1172,7 @@ update_compact = " ".join(permission_update.split())
 update_path = update_compact.index(
     "disk_share_format_account_var_path(var_file, sizeof(var_file)"
 )
-update_read = update_compact.index("read_whole_file(var_file)", update_path)
+update_read = update_compact.index("read_regular_file_nofollow(var_file)", update_path)
 update_rewrite = update_compact.index(
     "disk_share_permission_rewrite(var_info, target, replacement", update_read
 )
@@ -1248,8 +1255,12 @@ permission_batch_prepare = function_body(
     DISK_SOURCE, "disk_share_permission_batch_prepare_rewrite("
 )
 permission_batch_prepare_compact = "".join(permission_batch_prepare.split())
+require("read_whole_file(" not in DISK_SOURCE and
+        DISK_SOURCE.count("read_regular_file_nofollow(") >= 6 and
+        "test_if_file(var_file)" not in DISK_SOURCE,
+        "all account ACL files on removable volumes must use no-follow regular-file inspection/read paths")
 require("disk_share_format_account_var_path(" in permission_batch_prepare_compact and
-        "read_whole_file(" in permission_batch_prepare_compact and
+        "read_regular_file_nofollow(" in permission_batch_prepare_compact and
         "disk_share_permission_rewrite(" in permission_batch_prepare_compact and
         "replacement" in permission_batch_prepare_compact and
         "saved_errno==ENOENT" in permission_batch_prepare_compact,
