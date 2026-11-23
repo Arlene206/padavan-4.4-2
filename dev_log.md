@@ -1,3 +1,12 @@
+## 2026-11-24 06:52 CST (UTC+8) — Scope Leopard EPHY init contract to Leopard branch
+
+- Base main SHA: `e77a76bc61a790cd6282ac0d0d70b01f081cb4a8`. Switch CLI #45283594271 failed at workflow step 28, `Validate Leopard EPHY initialization checks each local MDIO operation`. Its extracted block started immediately after `mt7622_ephy_cal();`, therefore it also counted the MT7622 error gate and Leopard batch-runner error gate in addition to the ten Leopard page operations; the assertion expected ten gotos and was off by two.
+- The contract now starts after `status = leopard_ephy_cal();`, isolating the Leopard-only local setup: nine checked page writes, one checked page read and ten corresponding MDIO error gates. This is a workflow-scope correction; production code remains unchanged.
+- Parent exact push Actions: AI handoff #45283594232 success; Switch CLI #45283594271 FAIL (false count due to over-wide block). Product-source SHA `5157b869cb62a22e04057033ffc5d6e1149a5e6e`: XY-C1 #45283497318 in_progress; NVRAM #45283497339 success. The target build is not yet established.
+- No local MIPS/kernel build or hardware test. The corrected checker requires its own exact-head Actions.
+
+---
+
 ## 2026-11-23 — Exact-head handoff refresh
 
 - Source checkpoint at inspection: `ee0bf75292e0436e8820d3a30cd8b9a28c2bfee1` (`fix(raeth): check FE VBG calibration MDIO`).

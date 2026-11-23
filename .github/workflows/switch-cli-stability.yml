@@ -1238,7 +1238,7 @@ jobs:
           init = source.split("int fe_sw_init(void)", 1)[1].split(
               chr(10) + "void fe_sw_deinit(", 1
           )[0]
-          setup = init.split("mt7622_ephy_cal();", 1)[1].split(
+          setup = init.split("status = leopard_ephy_cal();", 1)[1].split(
               chr(10) + "\tif (ei_local->chip_name == MT7621_FE)", 1
           )[0]
           assert "tc_phy_write_l_reg(" not in init
