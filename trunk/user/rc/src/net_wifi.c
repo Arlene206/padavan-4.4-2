@@ -1166,13 +1166,38 @@ int
 start_wifi_ap_rt(int radio_on)
 {
 	int all_started = 1;
-	int i_mode_x = get_mode_radio_rt();
+	int i_mode_x = 0, mode_status;
 #if defined(USE_RT3352_MII)
 	int operation_status;
 	char *inic_disable_value = NULL;
 	int nvram_api_result, nvram_saved_errno, nvram_read_status;
 	int inic_disabled = 0, inic_enabled = 0, policy_status;
-	int is_ap_mode = get_ap_mode();
+	int is_ap_mode = 0, ap_mode_status;
+#endif
+
+	/*
+	 * The radio mode determines whether AP, WDS and AP-client interfaces are
+	 * attached or detached below. Never interpret a failed NVRAM read as the
+	 * default mode: that can remove the active bridge membership.
+	 */
+	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
+	if (mode_status != 0) {
+		errno = mode_status;
+		logmessage(LOGNAME,
+			   "2.4GHz radio startup aborted: cannot read mode_x (status=%d)",
+			   mode_status);
+		return -mode_status;
+	}
+#if defined(USE_RT3352_MII)
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		errno = ap_mode_status;
+		logmessage(LOGNAME,
+			   "2.4GHz iNIC startup aborted: cannot verify AP/router mode (status=%d)",
+			   ap_mode_status);
+		return -ap_mode_status;
+	}
+
 
 	/* Read the iNIC gate once, before changing any radio/bridge state. */
 	errno = 0;
