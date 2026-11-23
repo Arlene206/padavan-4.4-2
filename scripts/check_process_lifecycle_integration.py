@@ -2150,6 +2150,33 @@ assert "DNSMasq restart aborted because AP/router mode cannot be verified" in dn
 samba_header = c_function_body(services_source, "write_smb_conf_header(FILE *fp)")
 assert "get_ap_mode_status(&is_ap_mode)" in samba_header
 assert "is_dhcpd_enabled_status(is_ap_mode, &dhcp_enabled)" in samba_header
+samba_nvram_get = c_function_body(
+    services_source, "samba_ex_nvram_get(void *context, const char *param_name, char **value)"
+)
+assert "return nvram_get_checked(param_name, value);" in samba_nvram_get
+samba_nvram_copy = c_function_body(
+    services_source, "samba_ex_copy_nvram_value(const char *param_name, char *destination,"
+)
+assert "rc_wan_nvram_copy_value(" in samba_nvram_copy
+for key, destination in (
+    ("st_samba_workgroup", "workgroup"),
+    ("dhcp_wins_x", "wins_server"),
+):
+    assert 'samba_ex_copy_nvram_value("' + key + '", ' in samba_header
+    assert destination + ", sizeof(" + destination + ")" in samba_header
+assert "rc_wan_nvram_copy_text(get_our_hostname()" in samba_header
+assert "p_workgroup = workgroup;" in samba_header
+assert "p_computer_name = computer_name;" in samba_header
+assert 'nvram_safe_get("st_samba_workgroup")' not in samba_header
+assert 'nvram_safe_get("dhcp_wins_x")' not in samba_header
+samba_nvram_regression = (
+    root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+).read_text()
+for test_case in (
+    "test_samba_workgroup_and_wins_values_survive_shared_cache_overwrite",
+    "test_samba_wins_read_error_preserves_workgroup_copy",
+):
+    assert test_case + "();" in samba_nvram_regression
 ddns_start = c_function_body(services_source, "start_ddns_locked(int clear_cache)")
 assert "get_ap_mode_status(&is_ap_mode)" in ddns_start
 assert "return ap_mode_status;" in ddns_start

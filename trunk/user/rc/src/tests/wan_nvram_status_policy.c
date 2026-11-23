@@ -850,6 +850,56 @@ test_checked_nvram_copy_survives_shared_cache_overwrite(void)
 	assert(strcmp(lan_mask, "255.255.255.0") == 0);
 }
 
+static void
+test_samba_workgroup_and_wins_values_survive_shared_cache_overwrite(void)
+{
+	struct fake_nvram_reader fake;
+	char workgroup[32], wins_server[32];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	fake.names[0] = "st_samba_workgroup";
+	fake.names[1] = "dhcp_wins_x";
+	fake.values[0] = "WORKGROUP";
+	fake.values[1] = "192.0.2.53";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+				       "st_samba_workgroup", workgroup,
+				       sizeof(workgroup)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+				       "dhcp_wins_x", wins_server,
+				       sizeof(wins_server)) == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(workgroup, "WORKGROUP") == 0);
+	assert(strcmp(wins_server, "192.0.2.53") == 0);
+}
+
+static void
+test_samba_wins_read_error_preserves_workgroup_copy(void)
+{
+	struct fake_nvram_reader fake;
+	char workgroup[32], wins_server[32] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 1;
+	fake.missing_at = -1;
+	fake.failure_errno = EACCES;
+	fake.names[0] = "st_samba_workgroup";
+	fake.names[1] = "dhcp_wins_x";
+	fake.values[0] = "WORKGROUP";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+				       "st_samba_workgroup", workgroup,
+				       sizeof(workgroup)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+				       "dhcp_wins_x", wins_server,
+				       sizeof(wins_server)) == EACCES);
+	assert(fake.calls == 2);
+	assert(strcmp(workgroup, "WORKGROUP") == 0);
+	assert(wins_server[0] == '\0');
+}
+
 struct fake_nvram_text_cache {
 	const char *names[6];
 	const char *values[6];
@@ -2566,6 +2616,8 @@ main(void)
 	test_all_value_sequence_validates_before_writing();
 	test_man_old_address_copy_preserves_missing_and_backend_error();
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
+	test_samba_workgroup_and_wins_values_survive_shared_cache_overwrite();
+	test_samba_wins_read_error_preserves_workgroup_copy();
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();
 	test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite();

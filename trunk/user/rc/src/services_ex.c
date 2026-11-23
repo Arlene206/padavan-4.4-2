@@ -1809,12 +1809,31 @@ samba_ex_read_local_master_status(int *local_master)
 	return status == 0 ? 0 : -1;
 }
 
+static int
+samba_ex_nvram_get(void *context, const char *param_name, char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+
+static int
+samba_ex_copy_nvram_value(const char *param_name, char *destination,
+			  size_t destination_size)
+{
+	return rc_wan_nvram_copy_value(samba_ex_nvram_get, NULL, param_name,
+				       destination, destination_size);
+}
+
 int
 write_smb_conf_header(FILE *fp)
 {
 	int i_lmb, i_wins_enable;
 	int dhcp_enabled = 0, dhcp_status;
-	int is_ap_mode, ap_mode_status;
+	int is_ap_mode, ap_mode_status, value_status;
+	char workgroup[NVRAM_MAX_VALUE_LEN + 1];
+	char computer_name[NVRAM_MAX_VALUE_LEN + 1];
+	char wins_server[NVRAM_MAX_VALUE_LEN + 1];
 	char *p_computer_name, *p_workgroup, *p_res_order;
 
 	if (!fp)
@@ -1860,8 +1879,39 @@ write_smb_conf_header(FILE *fp)
 		errno = read_error;
 		return -1;
 	}
-	p_workgroup = nvram_safe_get("st_samba_workgroup");
-	p_computer_name = get_our_hostname();
+
+	/* Copy cache-backed values before the next NVRAM lookup overwrites them. */
+	value_status = samba_ex_copy_nvram_value("st_samba_workgroup",
+						 workgroup, sizeof(workgroup));
+	if (value_status != 0) {
+		logmessage("Samba Server",
+			   "cannot read workgroup; refusing smb.conf header publication (status=%d)",
+			   value_status);
+		errno = value_status;
+		return -1;
+	}
+	value_status = rc_wan_nvram_copy_text(get_our_hostname(),
+					      computer_name, sizeof(computer_name));
+	if (value_status != 0) {
+		logmessage("Samba Server",
+			   "cannot copy computer name; refusing smb.conf header publication (status=%d)",
+			   value_status);
+		errno = value_status;
+		return -1;
+	}
+	if (!i_wins_enable && dhcp_enabled) {
+		value_status = samba_ex_copy_nvram_value("dhcp_wins_x",
+							 wins_server, sizeof(wins_server));
+		if (value_status != 0) {
+			logmessage("Samba Server",
+				   "cannot read DHCP WINS server; refusing smb.conf header publication (status=%d)",
+				   value_status);
+			errno = value_status;
+			return -1;
+		}
+	}
+	p_workgroup = workgroup;
+	p_computer_name = computer_name;
 
 	/* NVRAM/hostname data must not inject additional smb.conf directives. */
 	if (!samba_config_value_is_safe(p_workgroup))
@@ -1892,9 +1942,8 @@ write_smb_conf_header(FILE *fp)
 	if (i_wins_enable) {
 		fprintf(fp, "wins support = %s\n", "yes");
 	} else if (dhcp_enabled) {
-		char *wins = nvram_safe_get("dhcp_wins_x");
-		if (is_valid_ipv4(wins)) {
-			fprintf(fp, "wins server = %s\n", wins);
+		if (is_valid_ipv4(wins_server)) {
+			fprintf(fp, "wins server = %s\n", wins_server);
 			p_res_order = "lmhosts wins hosts bcast";
 		}
 	}
