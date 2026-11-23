@@ -718,10 +718,27 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 	int i, path_len, result;
 	char var_file[256];
 
+	/*
+	 * Reject invalid snapshots and preflight all account paths before the
+	 * anonymous permission file or any named account metadata is changed.
+	 */
 	if (!mount_path || !*mount_path || acc_num < 0 ||
-	    (acc_num > 0 && !account_list)) {
+	    acc_num > MAX_ACCOUNT_NUM || (acc_num > 0 && !account_list)) {
 		errno = EINVAL;
 		return -1;
+	}
+
+	for (i = 0; i < acc_num; ++i) {
+		if (!account_list[i] || !*account_list[i]) {
+			errno = EINVAL;
+			return -1;
+		}
+		path_len = snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt",
+		                    mount_path, account_list[i]);
+		if (path_len < 0 || path_len >= (int)sizeof(var_file)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
 	}
 
 	path_len = snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt",
@@ -754,14 +771,11 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 		if (result != 0)
 			break;
 	}
-
 	if (result != 0)
 		return -1;
 	return 0;
 }
 
-
-int
 int
 create_if_no_var_files(const char *const mount_path)
 {

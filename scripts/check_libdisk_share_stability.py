@@ -216,20 +216,31 @@ require("get_account_list(&acc_num,&account_list)" in create_all_compact and
         "disk_share_account_inventory_matches_locked(" in create_all_compact and
         "create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)" in create_all_compact and
         "disk_share_account_nvram_end(&transaction)" in create_all_compact,
-        "public incremental metadata initialization must serialize its owned account snapshot through permission-file publication")
+        "public incremental metadata initialization must serialize its owned account snapshot through permission-file publication" and
+        "\nint\nint\ncreate_if_no_var_files(" not in DISK_SOURCE)
 create_with_accounts = function_body(
     DISK_SOURCE, "create_if_no_var_files_with_accounts("
 )
 create_with_accounts_compact = "".join(create_with_accounts.split())
+worker_guard = (
+    "if(!mount_path||!*mount_path||acc_num<0||acc_num>MAX_ACCOUNT_NUM||"
+    "(acc_num>0&&!account_list))"
+)
+worker_first_loop = create_with_accounts_compact.index("for(i=0;i<acc_num;++i){")
+worker_first_write = create_with_accounts_compact.index(
+    "initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,mount_path)"
+)
 require("get_account_list(" not in create_with_accounts and
-        "int acc_num=0;" not in create_with_accounts_compact and
+        "intacc_num=0;" not in create_with_accounts_compact and
         "char**account_list=NULL;" not in create_with_accounts_compact and
-        "for(i=0;i<acc_num;++i)" in create_with_accounts_compact and
+        worker_guard in create_with_accounts_compact and
+        "if(!account_list[i]||!*account_list[i])" in create_with_accounts_compact and
+        worker_first_loop < worker_first_write and
         "path_len>=(int)sizeof(var_file)" in create_with_accounts_compact and
         "result=modify_if_exist_new_folder" in create_with_accounts_compact and
         "result=initial_one_var_file_in_mount_path" in create_with_accounts_compact and
         "if(result!=0)" in create_with_accounts_compact,
-        "incremental folder metadata worker must reuse a checked account snapshot and propagate every bounded path/write failure")
+        "incremental folder metadata worker must validate its bounded inventory and preflight every account path before the first permission write")
 
 
 
