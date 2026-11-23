@@ -1495,7 +1495,7 @@ assert 'notify_rc_status("auto_wan_reconnect")' in modem_notify
 assert "saved_errno=errno>0?errno:EIO;" in modem_notify
 assert "returnstatus;" in modem_notify
 assert "returnsaved_errno;" in modem_notify
-assert re.search(r"\\bint\\s+notify_modem_on_wan_ether_link_changed\\s*\\(\\s*int\\s+has_link\\s*\\)\\s*;", HEADER)
+assert "int  notify_modem_on_wan_ether_link_changed(int has_link);" in HEADER
 modem_dispatch = tight(body(DETECT_LINK_SOURCE, "dl_handle_link_wan(void)"))
 assert "detect_link_modem_reconnect_retry_status(" in modem_dispatch
 assert "notify_modem_on_wan_ether_link_changed(dl_status_wan)" in modem_dispatch
