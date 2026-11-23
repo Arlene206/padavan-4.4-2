@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Fail closed on LAN STP selector NVRAM read
+
+- `start_services_once()` used `nvram_match("lan_stp", "0")` to decide whether to set bridge STP and forward delay. That API collapses an NVRAM backend read failure into a non-match, so a read fault could enable both bridge mutations while boot status remained successful.
+- Replaced the lossy match with `service_nvram_match_status()`. Missing values retain the old non-match behavior; checked-read failures now log and enter the accumulated boot status without changing STP or forward delay.
+- Added regression cases for absent/present selectors, EACCES and errno-less EIO; the integration checker pins error handling before either bridge mutation. Firewall Startup #45190708304 passed all tests on source `2a9f7fe`. The Process integration run #45190706662 found only a checker whitespace assertion failure after all earlier checks passed; checker-only correction `a9053a0` now compacts whitespace. Exact rerun and XY-C1 Build/TRX/artifact verification were pending at last poll. No local firmware build or hardware result is claimed.
+---
 ## 2026-11-23 UTC — Preserve checked IPTV NVRAM state in XUPNPD config
 
 - `start_xupnpd()` had a second unchecked read of `udpxy_enable_x` while generating `xupnpd.lua`, and used `nvram_match("xupnpd_udpxy", "1")` without distinguishing a missing/false setting from an NVRAM backend read failure. A backend fault could silently remove the IPTV URL from an otherwise successful XUPNPD configuration.

@@ -1,4 +1,7 @@
 Current implementation checkpoint (2026-11-23):
+- RC boot now reads `lan_stp` with the checked NVRAM adapter before mutating bridge STP/forward-delay settings. Missing-key behavior remains compatible; backend/invalid reads skip both bridge changes and propagate a boot status. Added GNU89 firewall NVRAM policy cases and Process integration ordering assertions. Production/test source: `2a9f7fe`; checker whitespace-only correction: `a9053a0`. Exact Firewall Startup #45190708304 passed; Process rerun and same-product-SHA XY-C1 Build/TRX/artifact verification pending.
+
+Current implementation checkpoint (2026-11-23):
 - XUPNPD's generated Lua config now reads `udpxy_enable_x` and `xupnpd_udpxy` through checked NVRAM access; backend/malformed port failures abort before the temporary config is renamed. The source contract asserts no remaining legacy `nvram_get_int()`/`nvram_match()` use in this config branch. Exact Process/XY-C1 checks pending.
 Current implementation checkpoint (2026-11-23):
 - USB printer `start_u2ec()` now propagates failure to write `apps_u2ec_ex` after successful exec instead of masking it as success. The retryable hotplug action can re-run the printer start/stop transaction. Added errno-preserving policy tests and a source-order contract; exact USB policy + XY-C1 Build/TRX/artifact checks pending.

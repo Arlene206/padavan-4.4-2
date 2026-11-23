@@ -2,25 +2,27 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Writable branch: main only. Parent for this slice: c8dade94faeb765a1089ba77c269e6a9e87da489.
-- Frozen archive: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; do not update, switch, merge, delete or rename.
-- Main includes `ba688353` (checked MSD Lite enable-state write), `00507a9` (strict/checked `udpxy_enable_x` startup selector), `cf14929` (strict/checked `xupnpd_enable_x` startup selector), and `c8dade9` (USB printer `apps_u2ec_ex` write-status propagation). Exact USB modem/printer workflow #45189656100 on c8dade9 passed including the checked USB printer NVRAM C policy binary and source checker; AI docs #45189655450 and Process inventory #45189655952 passed. Process lifecycle #45189655889, USB storage #45189655720, NVRAM audit #45189655923 and XY-C1 #45189655698 were still running at last poll.
-- On ba688353, Process lifecycle #45188158003, AI docs #45188157883, WAN DHCP #45188157906, Process inventory #45188157881, HTTPD #45188158173, Firewall Startup #45188157749, WAN route #45188157823, NVRAM #45188157864 and USB storage #45188157929 all passed; XY-C1 #45188157886 was still running.
-- VPN ownership-marker/checker-order fixes are `eb928a2` and `0e9056b`; exact-head VPN rerun remains pending. Infosvr PID-file fix `9fd7bafd` and checker correction `7d699d752` need exact rerun after the earlier checker failure.
-- Older XY-C1 L3 pass #45181232264 only verifies product SHA `ce39930eee413d71e0227c7d59e8e539b18e9f98` (artifact 14822616674, 12,760,105 bytes), not later production changes.
-- No persistent checkout exists; no local full build, MIPS/uClibc build or physical-router result is claimed. Startup recovery was performed once.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Current main: `a9053a03f48a0ea5b7af68c999788fea068d8904`; production-source slice: `2a9f7feab48653d8a59ab7e29a37f1e95f62e6b8`; checker-only follow-up: `a9053a03f48a0ea5b7af68c999788fea068d8904`.
+- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; do not update, switch, merge, delete or rename. Current branch inventory contains only `main` and this frozen archive.
+- The LAN STP selector now uses checked NVRAM access in `start_services_once()`. The new unit/source regressions are in `firewall_nvram_match_policy.c` and `check_process_lifecycle_integration.py`; the Firewall workflow now path-triggers on `services.c`.
+- Exact-SHA Firewall Startup run #45190708304 on `2a9f7fe` passed all steps, including the checked firewall NVRAM C regression. Process lifecycle inventory #45190707882 passed. The broader Process lifecycle run #45190706662 exposed a checker-only whitespace assertion failure at the final integration step; all preceding listed compile, runtime and source-contract steps passed. Commit `a9053a0` normalizes whitespace in that assertion. Exact Process rerun #45191038537 (fail-closed process inventory workflow) was IN_PROGRESS at this handoff refresh; poll the broader Process workflow triggered by the checker correction too.
+- XY-C1 run #45190707708 on the production-source SHA `2a9f7fe` was still running at the last poll (Cross-build step in progress). It is the relevant product SHA; require firmware Build, TRX verification and artifact upload all PASS before claiming L3. The checker-only child `a9053a0` does not change firmware inputs.
+- Other exact `2a9f7fe` runs observed: AI handoff #45190707167, Process inventory #45190707882, Firewall Startup #45190708304, HTTPD #45190707670, AdGuardHome #45190706708, DNS Forwarder #45190706811, GPIO #45190706740, watchdog signal #45190707864, PID 1 notification #45190707741, WAN ARP probe #45190707770, ZeroTier #45190707909, InfoSvr #45190707784, detect_internet #45190707733, detect_link #45190707594 and DDNSTO #45190707701 all passed. Several unrelated workflow runs were still in progress; do not conflate those with the LAN STP slice.
+- No persistent checkout exists. No local compile, local sanitizer, MIPS/uClibc build or physical-router result is claimed. Startup recovery was performed once; do not repeat broad bootstrap/audits.
 
 ## Active source slice
 
-- `start_xupnpd()` Lua config generation now uses checked reads for `udpxy_enable_x` and `xupnpd_udpxy`, strict-parses/range-checks the port, and aborts the temporary config transaction on backend/config errors.
-- `scripts/check_process_lifecycle_integration.py` pins both checked read paths and asserts no unchecked `nvram_get_int()`/`nvram_match()` remain in the Lua config block. Existing WAN NVRAM policy tests cover checked-copy and strict-integer parsing.
-- Exact Process lifecycle and same-SHA XY-C1 Build/TRX/artifact checks for this slice are pending.
+- `services.c:start_services_once()` previously used `nvram_match("lan_stp", "0")`; an NVRAM backend read error was collapsed into a non-match and could incorrectly enable bridge STP and set the forward delay.
+- It now uses `service_nvram_match_status("lan_stp", "0", 0, &lan_stp_disabled)`. Missing-key behavior is preserved (legacy non-match means STP remains enabled); a backend/invalid read logs and aggregates the error while skipping both bridge mutations.
+- The regression covers missing, present disabled/enabled, EACCES and errno-less EIO outcomes and unchanged output on failure. Source assertions pin checked-read/error/side-effect ordering.
+- Production code/test commit: `2a9f7feab48653d8a59ab7e29a37f1e95f62e6b8`. Checker whitespace correction: `a9053a03f48a0ea5b7af68c999788fea068d8904`. Firewall test PASS; broader Process source checker needs exact-SHA rerun after correction; XY-C1 still pending at last poll.
 
 ## Exact first actions for the next GPT
 
-1. Poll exact-SHA Process lifecycle regression and ensure XUPNPD Lua config checked-read contract passes.
-2. Poll same-SHA XY-C1; require Build, TRX verification and artifact upload all PASS before claiming L3.
-3. Continue another concrete P1 status/configuration failure in a different service; do not repeat completed MSD Lite, USB printer, `udpxy_enable_x` startup, VPN/Infosvr, SCUT or storage work.
+1. Poll the Process lifecycle workflow newly triggered by `a9053a0`; ensure `scripts/check_process_lifecycle_integration.py` passes the LAN STP assertions. Also poll exact fail-closed inventory run #45191038537.
+2. Poll XY-C1 #45190707708 for product SHA `2a9f7fe`. Require Build, TRX verification and artifact upload PASS; record artifact ID/name/size. No L3 claim until all three pass.
+3. Continue with another concrete P1 stability defect outside this just-completed LAN STP slice. Do not repeat the completed Firewall Startup or process inventory audits absent new source changes.
+
 
 ## Relevant exact-SHA CI facts
 
