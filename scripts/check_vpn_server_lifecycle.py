@@ -696,7 +696,7 @@ ordered(client_restart_locked,["stop_vpn_client_force()",
                                "stop_vpn_client_locked()",
                                "if (stop_status != 0)",
                                "start_vpn_client_locked()",
-                               "safe_start_xl2tpd_locked()"],"VPN client shared-daemon restart")
+                               "vpn_client_restore_shared_xl2tpd_locked()"],"VPN client shared-daemon restart")
 client_stop=body(vpn_client,"stop_vpn_client(void)")
 client_stop_locked=body(vpn_client,"stop_vpn_client_locked(void)")
 client_force_stop=body(vpn_client,"stop_vpn_client_force(void)")

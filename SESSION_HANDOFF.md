@@ -1,6 +1,6 @@
 # Cross-session execution mandate
 
-## 2026-11-23 continuation handoff (engineering parent main: c6b5dda145894feacbe67a2cabd4f5f60b99b046; fetch live main at takeover)
+## 2026-11-23 continuation handoff (engineering parent main: 429b2361eb8f285970cdf95f94cc6b158c7535a6; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
 - `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
@@ -44,11 +44,12 @@
 
 ### VPN client shared xl2tpd ownership and recovery
 
-- WAN local IPv4 error separation is closed at L2/L3: `d3772d64a0e2471be22658aabd6299dc3670caa8` preserves invalid-interface EINVAL and ioctl/close errno; WAN route #45244253977 and AI docs #45244253913 PASS on workflow-only descendant `7391f2e6245e64941ca709784719ebfb723043dc`; XY-C1 #45244253978 on that same descendant passed Build, TRX verification and artifact upload. Physical router L4 remains unverified.
-- Confirmed defect in `trunk/user/rc/src/vpn_client.c`: the old `get_xl2tpd_vpnc_active()` used error-collapsing `nvram_match()` calls, and restart recovery used unchecked `l2tp_wan_t` / `l2tp_srv_t` matches after the forced stop. NVRAM read errors could be interpreted as “no shared users”, leaving WAN L2TP or L2TP VPN server without `xl2tpd`.
-- This source slice replaces the stop-set decision with a checked NVRAM transaction (VPNC enable/type/client marker), validates bounded selector values, and aborts teardown if ownership is unknown. WAN/server dependencies are read from a second consistent transaction.
-- If dependency state is unknown after the restart has stopped `xl2tpd`, recovery now attempts conservative daemon restoration and still reports the read error. Confirmed active dependencies also restore; confirmed absence is a no-op.
-- GNU89 policy regression additions cover missing/empty/default values, malformed/overflow values and backend errors; restart-policy tests cover unknown dependency restoration; the source checker asserts transaction boundaries and fail-safe ordering. Exact-head Actions are pending; no local compile or router hardware validation is claimed.
+- WAN local IPv4 status correction is closed at L2/L3: `d3772d64a0e2471be22658aabd6299dc3670caa8` preserves invalid-interface EINVAL and ioctl/close errno; WAN route #45244253977 and AI docs #45244253913 PASS on workflow-only descendant `7391f2e6245e64941ca709784719ebfb723043dc`; XY-C1 #45244253978 on that same descendant passed Build, TRX verification and artifact upload. Physical router L4 remains unverified.
+- VPN source `26f2617f744227f906b9e15baad4ae52b2d8e3be` replaces error-collapsing ownership/dependency matches with checked NVRAM transactions and fail-safe shared-`xl2tpd` restoration on unreadable dependency state.
+- Its GNU89 policy and client NVRAM source-contract stages passed; VPN lifecycle #45249235472 failed on a stale checker expectation for a direct `safe_start_xl2tpd_locked()` call. The correct restart helper is `vpn_client_restore_shared_xl2tpd_locked()`; this checker is now aligned and exact-head reruns are required.
+- AI docs #45249235356 and #45249619156 failed only because the earlier update truncated `dev_log.md`; this commit restores the prior complete log and prepends a current entry.
+- Separate switch failure #45249619357: host MDIO policy binary passed; the inline source checker expected stale `static void` markers after `esw_vlan_apply_rules()` and `esw_vlan_init_vid1()` changed to return `int`. Commit `429b2361eb8f285970cdf95f94cc6b158c7535a6` updates the assertions; exact-head Switch CLI is still pending.
+- No local full firmware build or physical hardware validation is claimed for the VPN slice.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -66,9 +67,9 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head push Actions for the VPN server lifecycle regression (client shared-xl2tpd transaction and recovery), Process lifecycle, AI handoff docs and XY-C1. Diagnose every real FAIL; continue independent work while runs remain PENDING.
-2. L2 is complete only when the new GNU89 policy tests and `scripts/check_vpn_server_lifecycle.py` pass on a current exact SHA. L3 requires XY-C1 Build, TRX verification and artifact upload all PASS on the identical production-source SHA. Hardware L4 remains unverified.
-3. Then continue one concrete reliability/security source issue outside the corrected VPN client shared-xl2tpd path. Keep `backup/pre-plugin-overhaul-2026-11-14` frozen; use complete-tree commits and expected-SHA non-forced updates on `main`.
+1. Fetch live `main` and confirm new exact-head VPN server lifecycle, Process, AI docs and XY-C1 runs. The VPN integration checker now expects `vpn_client_restore_shared_xl2tpd_locked()`; the full chronological `dev_log.md` is restored. Diagnose any fresh failure rather than treating the old checker failure as source failure.
+2. Confirm Switch CLI run #45249619357 on `429b2361`: the host MDIO policy binary had passed, and the workflow checker return-type markers were aligned to `static int`. Fix any remaining true failure.
+3. L3 requires XY-C1 Build, TRX verification and artifact upload PASS on the identical production-source SHA. Continue a concrete reliability/security source task afterward, preserve frozen backup, and update `main` only with complete-tree expected-SHA non-forced commits.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
