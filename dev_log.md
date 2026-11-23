@@ -1,3 +1,10 @@
+## 2026-11-23 — Correct handoff headings rejected by exact documentation contract
+
+- AI handoff run #45235046184 on `5a43b187` failed because `SESSION_HANDOFF.md` used `### Repository invariants`, `### Active task — ...` and `### Verification boundary` instead of the required top-level `## Current repository state`, `## Active task` and `## Verification boundary`. It also used “the document edit”, while the validator requires the exact clause “a document edit”.
+- Restored the literal required headings and checkpoint wording, refreshed the roadmap with the confirmed RStats #45234873403 PASS, Shadowsocks #45235046114 PASS and Process #45235046275 PASS statuses, and retained the outstanding same-SHA XY-C1 limitation. The exact documentation rerun for this commit is pending.
+- Parent main: 5a43b18722b9d2f3f864ef6bd1025084ff1edb85. This is a correction of an observed CI contract failure, not routine documentation synchronization.
+
+---
 ## 2026-11-23 — Cover missing DNS proxy executable without tearing down the current service
 
 - The DNS preflight checks `command -v` before stop, but the host regression suite had no missing-binary case. Added an isolated empty `PATH` fixture: a valid backend/upstream with no `dnsproxy` executable must return 127 and leave the stop/start stubs untouched. The test restores PATH before using external assertion helpers.
