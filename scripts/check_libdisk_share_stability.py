@@ -287,7 +287,7 @@ require(initial_all_inventory < initial_all_preflight < initial_all_begin <
         "full metadata rebuild must preflight one account snapshot, rebuild each active file first, and prune only stale files after the folder-list snapshot succeeds")
 
 stale_pruner = function_body(
-    DISK_SOURCE, "static int\\nremove_stale_share_var_files("
+    DISK_SOURCE, "remove_stale_share_var_files("
 )
 stale_pruner_compact = "".join(stale_pruner.split())
 require("strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
