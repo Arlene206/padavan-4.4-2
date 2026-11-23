@@ -503,6 +503,7 @@ for token in (
             "transactional account updates are missing compensation/commit policy: " + token)
 
 account_delete_tests = (
+    "test_account_inventory_remove_locked_keeps_caller_transaction_open",
     "test_account_inventory_remove_compacts_under_one_transaction",
     "test_account_inventory_remove_defaults_last_account_modes",
     "test_account_inventory_remove_rolls_back_last_account_mode_setter",
@@ -715,7 +716,7 @@ mod_plan = mod_account_compact.index("calloc(1,sizeof(*move))", mod_target_stat)
 mod_begin = mod_account_compact.index("disk_share_account_nvram_begin(&transaction)", mod_plan)
 mod_validate = mod_account_compact.index("disk_share_account_inventory_update_validate_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,account,rename_required?new_account:NULL)", mod_begin)
 mod_rename = mod_account_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)", mod_validate)
-mod_publish = mod_account_compact.index("disk_share_account_inventory_update_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,rename_required?new_account:NULL,password_update?new_password:NULL)", mod_rename)
+mod_publish = mod_account_compact.index("disk_share_account_inventory_update_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,account,rename_required?new_account:NULL,password_update?new_password:NULL)", mod_rename)
 mod_fs_rollback = mod_account_compact.index("disk_share_account_rename_entries_rollback(moves,rename,&rollback_error)", mod_publish)
 mod_cleanup = mod_account_compact.index("free_disk_data(disk_list)", mod_fs_rollback)
 mod_end = mod_account_compact.index("disk_share_account_nvram_end(&transaction)", mod_cleanup)
