@@ -62,6 +62,8 @@ signal_policy = read("trunk/user/infosvr/src/infosvr_signal_policy.h")
 interface_policy = read("trunk/user/infosvr/src/infosvr_interface_policy.h")
 interface_test = read("trunk/user/infosvr/src/tests/infosvr_interface_policy.c")
 signal_test = read("trunk/user/infosvr/src/tests/infosvr_signal_policy.c")
+io_policy = read("trunk/user/infosvr/src/infosvr_io_policy.h")
+io_test = read("trunk/user/infosvr/src/tests/infosvr_io_policy.c")
 pidfile_policy = read("trunk/user/infosvr/src/infosvr_pidfile_policy.h")
 pidfile_test = read("trunk/user/infosvr/src/tests/infosvr_pidfile_policy.c")
 ibox = read("trunk/user/shared/src/include/ibox.h")
@@ -99,6 +101,7 @@ assert "get_hwaddr(ifname, info->MacAddress" in processor
 assert "packet_len < 0" in processor
 
 main = function_body(source, "main(int argc, char *argv[])")
+io_policy_test_body = function_body(io_test, "main(void)")
 receive_call = main.index("res = read_packet(g_fd4, packet, sizeof(packet))")
 minimum_check = main.index("res < (int)sizeof(IBOX_COMM_PKT_HDR)", receive_call)
 process_call = main.index("process_packet(g_fd4, packet, res, ifname)", minimum_check)
@@ -170,6 +173,34 @@ assert loop_guard < timeout_set < select_call < stop_after_select
 assert stop_after_select < read_call < stop_after_read < process_call
 assert process_call < stop_after_process < cleanup_call
 
+select_error = main.index("if (res < 0 && infosvr_io_error_retryable(errno))")
+select_fatal = main.index('perror("select")', select_error)
+read_call = main.index("res = read_packet(g_fd4, packet, sizeof(packet))")
+recv_error = main.index("if (res < 0) {", read_call)
+recv_retry = main.index("if (infosvr_io_error_retryable(errno))", recv_error)
+recv_fatal = main.index('perror("recvfrom")', recv_retry)
+exit_cleanup = main.index("res_cleanup();")
+exit_return = main.index("return exit_status;", exit_cleanup)
+assert select_error < select_fatal < read_call < recv_error < recv_retry < recv_fatal < exit_cleanup < exit_return
+assert "exit_status = 1;" in main
+assert "errno = saved_errno ? saved_errno : EIO;" in main
+assert "return 0;" not in main[exit_cleanup:]
+
+for token in ("EINTR", "EAGAIN", "EWOULDBLOCK"):
+    assert token in io_policy
+for token in (
+    "infosvr_io_error_retryable(EINTR)",
+    "infosvr_io_error_retryable(EAGAIN)",
+    "infosvr_io_error_retryable(EWOULDBLOCK)",
+    "infosvr_io_error_retryable(EIO)",
+    "infosvr_io_error_retryable(EBADF)",
+    "infosvr_io_error_retryable(0)",
+    "infosvr socket I/O retry policy: PASS",
+):
+    assert token in io_test
+assert "infosvr_io_error_retryable(errno)" in main
+assert "infosvr_io_error_retryable(0)" in io_policy_test_body
+
 for token in (
     "single sig_atomic_t store",
     "INFOSVR_SELECT_TIMEOUT_SECONDS 1",
@@ -240,6 +271,8 @@ paths = (
     "trunk/user/infosvr/src/tests/infosvr_packet_policy.c",
     "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c",
     "trunk/user/infosvr/src/infosvr_signal_policy.h",
+    "trunk/user/infosvr/src/infosvr_io_policy.h",
+    "trunk/user/infosvr/src/tests/infosvr_io_policy.c",
     "trunk/user/infosvr/src/infosvr_pidfile_policy.h",
     "trunk/user/infosvr/src/tests/infosvr_pidfile_policy.c",
     "trunk/user/infosvr/src/tests/infosvr_signal_policy.c",

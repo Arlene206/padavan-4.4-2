@@ -35,6 +35,7 @@
 #include "infosvr.h"
 #include "infosvr_packet_policy.h"
 #include "infosvr_signal_policy.h"
+#include "infosvr_io_policy.h"
 #include "infosvr_interface_policy.h"
 #include "infosvr_pidfile_policy.h"
 
@@ -266,6 +267,7 @@ int main(int argc, char *argv[])
 {
 	char packet[512], *reply, *ifname;
 	int max_fd, res;
+	int exit_status = 0, saved_errno = 0;
 	fd_set rfds, active_rfds;
 	struct timeval select_timeout;
 	struct sigaction sigterm_action;
@@ -328,16 +330,30 @@ int main(int argc, char *argv[])
 		res = select(max_fd + 1, &active_rfds, NULL, NULL, &select_timeout);
 		if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))
 			break;
-		if (res < 0 && (errno == EINTR || errno == EAGAIN))
+		if (res < 0 && infosvr_io_error_retryable(errno))
 			continue;
-		if (res < 0)
+		if (res < 0) {
+			saved_errno = errno ? errno : EIO;
+			errno = saved_errno;
+			perror("select");
+			exit_status = 1;
 			break;
+		}
 		if (res == 0 || !FD_ISSET(g_fd4, &active_rfds))
 			continue;
 
 		res = read_packet(g_fd4, packet, sizeof(packet));
 		if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))
 			break;
+		if (res < 0) {
+			if (infosvr_io_error_retryable(errno))
+				continue;
+			saved_errno = errno ? errno : EIO;
+			errno = saved_errno;
+			perror("recvfrom");
+			exit_status = 1;
+			break;
+		}
 		if (res < (int)sizeof(IBOX_COMM_PKT_HDR))
 			continue;
 
@@ -349,6 +365,8 @@ int main(int argc, char *argv[])
 	}
 
 	res_cleanup();
+	if (exit_status != 0)
+		errno = saved_errno ? saved_errno : EIO;
 
-	return 0;
+	return exit_status;
 }
