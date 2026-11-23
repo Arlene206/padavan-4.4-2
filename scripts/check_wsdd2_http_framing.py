@@ -23,7 +23,7 @@ parser = compact(SOURCE[start:end])
 assert "wsd_http_read_until_crlf_until(fd, buf, &len, bsize, deadline)" in parser
 assert parser.count("wsd_http_read_until_crlf_until(fd, buf, &len, bsize, deadline)") == 2
 assert "wsd_http_read_exact_until(fd, buf, &len, contentlength, deadline)" in parser
-assert "const struct timeval *deadline" in parser
+assert "const struct timespec *deadline" in parser
 assert "eol = wsd_http_find_crlf(p, len)" in parser
 assert "char *eol = NULL;" in parser
 assert parser.index("char *eol = NULL;") < parser.index("while (*p &&")
@@ -59,8 +59,10 @@ for token in (
     "i + 1 < length",
     "buffer[i] == '\\r' && buffer[i + 1] == '\\n'",
     "WSD_HTTP_REQUEST_TIMEOUT_MS 5000U",
+    "clock_gettime(CLOCK_MONOTONIC, deadline)",
     "poll(&descriptor, 1, (int)remaining_ms)",
-    "gettimeofday(&now, NULL)",
+    "clock_gettime(CLOCK_MONOTONIC, &now)",
+    "1000000000LL",
     "MSG_DONTWAIT",
     "errno = ETIMEDOUT",
     "capacity - *length - 1",

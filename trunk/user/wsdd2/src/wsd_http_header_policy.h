@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <strings.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <time.h>
 
 /* Locate CRLF without reading beyond the bytes currently buffered. */
@@ -35,25 +34,26 @@ wsd_http_find_crlf(char *buffer, size_t length)
  * by a peer that trickles one byte before each timeout expires.
  */
 static inline int
-wsd_http_deadline_after_ms(struct timeval *deadline, unsigned int timeout_ms)
+wsd_http_deadline_after_ms(struct timespec *deadline, unsigned int timeout_ms)
 {
 	if (!deadline) {
 		errno = EINVAL;
 		return -1;
 	}
-	if (gettimeofday(deadline, NULL) != 0)
+	/* Wall-clock corrections must not extend or prematurely expire a request. */
+	if (clock_gettime(CLOCK_MONOTONIC, deadline) != 0)
 		return -1;
 	deadline->tv_sec += (time_t)(timeout_ms / 1000U);
-	deadline->tv_usec += (suseconds_t)((timeout_ms % 1000U) * 1000U);
-	if (deadline->tv_usec >= 1000000) {
+	deadline->tv_nsec += (long)(timeout_ms % 1000U) * 1000000L;
+	if (deadline->tv_nsec >= 1000000000L) {
 		deadline->tv_sec++;
-		deadline->tv_usec -= 1000000;
+		deadline->tv_nsec -= 1000000000L;
 	}
 	return 0;
 }
 
 static inline int
-wsd_http_wait_readable_until(int fd, const struct timeval *deadline)
+wsd_http_wait_readable_until(int fd, const struct timespec *deadline)
 {
 	struct pollfd descriptor;
 
@@ -66,21 +66,21 @@ wsd_http_wait_readable_until(int fd, const struct timeval *deadline)
 	descriptor.revents = 0;
 
 	for (;;) {
-		struct timeval now;
-		long long remaining_us, remaining_ms;
+		struct timespec now;
+		long long remaining_ns, remaining_ms;
 		int status;
 
-		if (gettimeofday(&now, NULL) != 0)
+		if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
 			return -1;
-		remaining_us =
+		remaining_ns =
 			((long long)deadline->tv_sec - (long long)now.tv_sec) *
-			1000000LL +
-			((long long)deadline->tv_usec - (long long)now.tv_usec);
-		if (remaining_us <= 0) {
+			1000000000LL +
+			((long long)deadline->tv_nsec - (long long)now.tv_nsec);
+		if (remaining_ns <= 0) {
 			errno = ETIMEDOUT;
 			return -1;
 		}
-		remaining_ms = (remaining_us + 999LL) / 1000LL;
+		remaining_ms = (remaining_ns + 999999LL) / 1000000LL;
 		if (remaining_ms > INT_MAX)
 			remaining_ms = INT_MAX;
 
@@ -107,7 +107,7 @@ wsd_http_wait_readable_until(int fd, const struct timeval *deadline)
 
 static inline ssize_t
 wsd_http_recv_until(int fd, void *buffer, size_t length,
-                    const struct timeval *deadline)
+                    const struct timespec *deadline)
 {
 	if ((!buffer && length != 0) || !deadline) {
 		errno = EINVAL;
@@ -132,7 +132,7 @@ wsd_http_recv_until(int fd, void *buffer, size_t length,
 static inline int
 wsd_http_read_until_crlf_until(int fd, char *buffer, size_t *length,
                                size_t capacity,
-                               const struct timeval *deadline)
+                               const struct timespec *deadline)
 {
 	if (!buffer || !length || capacity == 0 || *length >= capacity ||
 	    !deadline) {
@@ -165,7 +165,7 @@ wsd_http_read_until_crlf_until(int fd, char *buffer, size_t *length,
 static inline int
 wsd_http_read_exact_until(int fd, char *buffer, size_t *length,
                           size_t expected,
-                          const struct timeval *deadline)
+                          const struct timespec *deadline)
 {
 	if (!buffer || !length || *length > expected || !deadline) {
 		errno = EINVAL;

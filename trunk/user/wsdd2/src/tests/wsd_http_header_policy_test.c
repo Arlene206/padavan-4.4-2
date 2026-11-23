@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/time.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -144,7 +144,7 @@ test_absolute_deadline_rejects_slow_trickle(void)
 	pid_t child;
 	char buffer[64];
 	size_t length = 0;
-	struct timeval deadline;
+	struct timespec deadline;
 
 	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
 	child = fork();
@@ -180,7 +180,7 @@ test_idle_client_deadline(void)
 	int sockets[2];
 	char buffer[8];
 	ssize_t received;
-	struct timeval deadline;
+	struct timespec deadline;
 
 	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
 	assert(wsd_http_deadline_after_ms(&deadline, 80) == 0);

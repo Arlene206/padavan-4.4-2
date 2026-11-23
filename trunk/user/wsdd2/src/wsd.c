@@ -911,7 +911,7 @@ out:
  */
 static int wsd_parse_http_header(int fd, struct endpoint *ep,
 				char *buf, size_t len, size_t bsize,
-				const struct timeval *deadline)
+				const struct timespec *deadline)
 {
 #define __FUNCTION__	"wsd_pars_http_header"
 	size_t contentlength = 0;
@@ -1096,7 +1096,7 @@ int wsd_recv(struct endpoint *ep)
 {
 	char buf[10000];
 	_saddr_t sa;
-	struct timeval deadline;
+	struct timespec deadline;
 	socklen_t slen = (ep->family == AF_INET) ? sizeof sa.in : sizeof sa.in6;
 	int fd = ep->sock;
 	int accepted_client = 0;
