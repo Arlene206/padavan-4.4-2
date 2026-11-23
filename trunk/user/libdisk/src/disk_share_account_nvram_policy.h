@@ -336,7 +336,8 @@ disk_share_account_inventory_remove(
 	int started = 0, writes_started = 0;
 	int status, result, saved_errno = 0, rollback_errno = 0;
 	int current_count = 0, commit_required = 0;
-	int key_length, i, j, mode_value_length;
+	int key_length, i, j;
+	size_t mode_value_length;
 
 	if (!ops || !ops->begin || !ops->get || !ops->set || !ops->commit ||
 	    !ops->end || !expected_users || expected_count < 1 ||
@@ -346,6 +347,7 @@ disk_share_account_inventory_remove(
 		return -1;
 	}
 
+	memset(old_mode, 0, sizeof(old_mode));
 	old_passwords = (char (*)[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX])
 		calloc((size_t)max_count, sizeof(*old_passwords));
 	password_present = (unsigned char *)calloc((size_t)max_count, 1);
@@ -411,7 +413,7 @@ disk_share_account_inventory_remove(
 			saved_errno = EIO;
 			goto transaction_finish;
 		}
-		mode_value_length = (int)strlen(value);
+		mode_value_length = strlen(value);
 		if (mode_value_length >= DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX) {
 			saved_errno = ENAMETOOLONG;
 			goto transaction_finish;
@@ -432,8 +434,8 @@ disk_share_account_inventory_remove(
 				goto transaction_finish;
 			}
 			if (status == 1) {
-				mode_value_length = (int)strlen(value);
-				if (mode_value_length >= (int)sizeof(old_mode[j])) {
+				mode_value_length = strlen(value);
+				if (mode_value_length >= sizeof(old_mode[j])) {
 					saved_errno = ENAMETOOLONG;
 					goto transaction_finish;
 				}

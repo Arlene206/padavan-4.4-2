@@ -1145,17 +1145,17 @@ test_account_created_file_rollback_reports_failures_and_continues(void)
 
 
 struct fake_account_delete_nvram {
-	char count[16];
+	char count[128];
 	int count_present;
 	char usernames[4][128];
 	int username_present[4];
 	char passwords[4][128];
 	int password_present[4];
-	char manual[16];
+	char manual[128];
 	int manual_present;
-	char samba_mode[32];
+	char samba_mode[128];
 	int samba_mode_present;
-	char ftp_mode[32];
+	char ftp_mode[128];
 	int ftp_mode_present;
 	int begin_calls;
 	int get_calls;
