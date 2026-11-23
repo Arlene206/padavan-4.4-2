@@ -238,6 +238,8 @@ on:
       - "!trunk/user/aliddns/tests/**"
   pull_request:
     paths:
+      - "trunk/user/rc/src/timezone_env_policy.h"
+      - "trunk/user/rc/src/tests/timezone_env_policy.c"
       - ".github/workflows/process-lifecycle-regression.yml"
       - "trunk/user/scripts/tests/auth_client_nvram_read_failure.sh"
       - ".github/workflows/xy-c1-firmware-validation.yml"

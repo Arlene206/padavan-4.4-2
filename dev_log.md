@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Match watchdog timezone source filters for pull requests
+
+- AI handoff check #45163084187 on `da6c721111852b8ca888d2797717a9b29b4713fb` exposed two path-filter asymmetries in `.github/workflows/process-lifecycle-regression.yml`: the watchdog-timezone policy header and its GNU89 regression test were added to `push.paths` by the timezone scheduler fix but omitted from `pull_request.paths`.
+- Added both exact paths to the pull-request filter so PR validation now runs for the same source/test changes as main pushes. This repairs the governance failure without relaxing the parity check. Exact-head AI docs rerun required.
+
+---
 ## 2026-11-23 UTC — Update HTTPD umbrella contract for checked firewall schedule calls
 
 - HTTPD authentication/security run #45162166214 on code SHA 444674117db122af04538cff330777f5421dd0e4 passed all HTTPD auth/upload/route contracts, then failed in its shared firewall source audit at inline Python line 831. That umbrella checker still required two direct `if (timematch_conv(...))` calls which were deliberately replaced in ad562 by explicit `url_schedule_status = timematch_conv(...)` handling so NVRAM errors can abort the staged IPv4/IPv6 restore.
