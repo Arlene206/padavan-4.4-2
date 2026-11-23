@@ -68,6 +68,12 @@ for token in (
     "watchdog_ntp_refresh_should_launch(1)",
     "watchdog_ntp_refresh_should_launch(EBUSY)",
     "watchdog_ntp_refresh_should_launch(EIO)",
+    "watchdog_ntp_read_server_pair(fake_ntp_nvram_get, &fake",
+    "test_ntp_server_pair_copies_cache_before_next_read",
+    "test_ntp_server_pair_failure_clears_partial_snapshot",
+    "test_ntp_missing_keys_preserve_legacy_fallbacks",
+    "test_ntp_overlong_server_is_rejected_without_truncation",
+    "watchdog_ntp_resolve_server_pair",
     "watchdog NTP stop-before-start policy: PASS",
 ):
     assert token in test, token
@@ -78,14 +84,28 @@ gate = refresh.index("if (!watchdog_ntp_refresh_should_launch(stop_status))")
 failure_body = function_body(
     refresh, "if (!watchdog_ntp_refresh_should_launch(stop_status))"
 )
-server_read = refresh.index('ntp_addr[0] = nvram_safe_get("ntp_server0");')
-server_advance = refresh.index("ntpc_server_idx = (ntpc_server_idx + 1) % 2;")
+snapshot_begin = refresh.index("if (nvram_transaction_begin(&transaction) != 0)")
+server_read = refresh.index("watchdog_ntp_read_server_pair(")
+snapshot_end = refresh.index("end_status = nvram_transaction_end(&transaction);")
+resolve = refresh.index("watchdog_ntp_resolve_server_pair(")
+stop_call = refresh.index("stop_status = kill_services(svcs, 3, 1);")
 launch = refresh.index('result = eval("/usr/sbin/ntpd"')
-assert stop_call < gate < server_read < server_advance < launch
+assert snapshot_begin < server_read < snapshot_end < resolve < stop_call < launch
+assert 'nvram_safe_get("ntp_server0")' not in refresh
+assert 'nvram_safe_get("ntp_server1")' not in refresh
+assert "preserving the running ntpd" in refresh
+assert "if (result == 0)" in refresh and "ntpc_server_idx = (ntpc_server_idx + 1) % 2;" in refresh
 assert "Previous ntpd instance did not stop" in failure_body
 assert "return stop_status;" in failure_body
 assert "eval(" not in failure_body
 assert refresh.count("kill_services(svcs, 3, 1)") == 1
+
+
+assert "watchdog_ntp_copy_server_value" in policy
+assert "return errno > 0 ? errno : EIO;" in policy
+assert "return ENAMETOOLONG;" in policy
+assert "watchdog_ntp_read_server_pair" in policy
+assert "watchdog_ntp_resolve_server_pair" in policy
 
 stop = function_body(
     common, "kill_services(char* svc_name[], int wtimeout, int forcekill)"

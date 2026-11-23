@@ -1,32 +1,32 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this task: 151cec5076e366fa17b6afef34c821a75f83e8d7.
+- Repository Arlene206/padavan-4.4-2; parent main for this NTP snapshot task: ca77d8556ca9a13431ee588aafdd1356cf554f96.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
-- No local checkout; no local tests/builds claimed.
+- No local checkout; no local test/build results claimed.
 
 ## Exact-SHA Actions
-- Parent SHA 151cec5076e366fa17b6afef34c821a75f83e8d7: ZeroTier 45135317755 PASS (bounded shell regression and source contracts); AI docs 45135317794 PASS; WAN route 45135317918 PASS; Process inventory 45135317776 PASS.
-- XY-C1 45135317783 remained IN_PROGRESS at last poll; Build active, TRX and artifact pending. L3 requires all three PASS on one exact source SHA.
-- SHA 5ef6145222006cac339a3053f0ff010217ca22ae: AI docs 45135034495 PASS; WAN route 45135034518 PASS; Process inventory 45135034450 PASS; ZeroTier source contract failed only on its stale initmoon expectation, fixed in 151cec5.
-- SHA 151cec5 also corrected Moon creator/remover same-inode rollback, restored the full dev_log archive and corrected the planet import rollback trap.
+- CA77 ZeroTier startup fail-closed fix: ZeroTier 45135591928 PASS; AI handoff docs 45135591868 PASS; WAN route 45135591880 PASS; Process inventory 45135591888 PASS.
+- CA77 XY-C1 run 45135591873 still IN_PROGRESS at last poll: Cross-build job 137560980123 has completed pre-build checks, Build XY-C1 is running, TRX verification and artifact upload remain PENDING. No L3 claim.
+- Parent 151cec5076e366fa17b6afef34c821a75f83e8d7: ZeroTier 45135317755, AI 45135317794, WAN route 45135317918 and Process 45135317776 all PASS. XY-C1 45135317783 had still been in progress when last checked.
+- The Moon create/remove/planet rollback fixes use ln -f to safely restore same-inode hardlink snapshots; exact ZeroTier workflow passed on CA77.
 
-## Active task — ZeroTier startup fail-closed on Moon management errors
-- start_instance() previously started zerotier-one and installed firewall/routes before invoking creat_moon()/remove_moon(). A Moon operation failure returned 1 while leaving the background process and published network state active.
-- THIS slice moves the checked Moon create/remove operation after planet validation/import but before add_join(), daemon launch and rules(); this management path requires only the prepared config directory/NVRAM.
-- Moon create/remove and planet-import rollback now use ln -f for hard-link snapshots; no-stage-leak regression and source contracts passed on parent SHA 151cec5.
+## Active source task — Watchdog NTP refresh preserves last-good service on configuration read errors
+- refresh_ntp() currently stopped the existing ntpd before reading ntp_server0/ntp_server1 via nvram_safe_get(). A transient NVRAM backend failure collapsed into empty strings, then the code selected pool.ntp.org and proceeded to replace the running service.
+- THIS SLICE reads both keys under one nvram_transaction lease, copies each cache-backed string before the next read, distinguishes missing keys from backend errors, rejects truncation, preserves the legacy single-server/pool fallback, and closes the transaction before touching ntpd.
+- A read/close/length failure returns before kill_services(); server rotation advances only after ntpd launch succeeds. Host policy cases cover cache lifetime, second-key failure, absent keys/fallback and overlong input. Exact-head watchdog/AI/XY Actions pending.
 
 ## Next actions
-1. Verify exact-head ZeroTier and AI docs for this startup-order correction.
-2. Poll XY-C1 on current source SHA; only exact same-SHA Build + TRX + artifact PASS establishes L3.
-3. Continue an independent reliability/security defect while CI is pending.
+1. Inspect exact-head Watchdog NTP source/policy and AI docs checks for this slice; fix first causal failure.
+2. Poll XY-C1 45135591873 on CA77: L3 only with Build, TRX and artifact all PASS on that exact SHA; if it is still running, do other work.
+3. Continue a separate userland stability/security issue while CI is pending.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-Startup-order change is source-reviewed and awaits exact-head ZeroTier/AI checks. Parent ZeroTier, AI docs, WAN route and Process checks passed. XY-C1 L3 remains pending. No local tests/builds claimed.
+The NTP transactional source and regression update is source-reviewed; no local compile/test or firmware build claimed. CA77 ZeroTier, AI, WAN route and Process checks passed; CA77 XY-C1 L3 remains pending.
 
 ## Cross-session mandate
-One complete tree and one atomic commit per logical task; non-force expected-SHA main update; inspect exact-SHA Actions; frozen backup untouched.
+One complete Git tree and one atomic commit per logical slice; non-force expected-SHA update of main; inspect exact-SHA Actions; never modify the frozen backup.
 
 
 

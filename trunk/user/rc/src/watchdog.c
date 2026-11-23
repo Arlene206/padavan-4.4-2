@@ -40,6 +40,7 @@
 #include "detached_daemon_start_policy.h"
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
+
 #include "service_wait_policy.h"
 
 #define WD_NORMAL_PERIOD	10		/* 10s */
@@ -166,12 +167,59 @@ httpd_check_v2()
 #endif
 
 static int
+watchdog_ntp_transaction_get(void *context, const char *name, char **value)
+{
+	if (!context || !name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     name, value);
+}
+
+
+static int
 refresh_ntp(void)
 {
+	struct nvram_transaction transaction;
 	int result = 0;
-	int stop_status;
+	int stop_status, snapshot_status, end_status, end_errno, saved_errno;
 	char *svcs[] = { "ntpd", NULL };
-	char *ntp_addr[2], *ntp_server;
+	char ntp_addr[2][WATCHDOG_NTP_SERVER_MAX];
+	char *ntp_server;
+
+	if (nvram_transaction_begin(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("NTP Client",
+			   "Cannot begin NVRAM snapshot before refresh (status %d)",
+			   saved_errno);
+		return saved_errno;
+	}
+
+	snapshot_status = watchdog_ntp_read_server_pair(
+		watchdog_ntp_transaction_get, &transaction,
+		ntp_addr[0], sizeof(ntp_addr[0]),
+		ntp_addr[1], sizeof(ntp_addr[1]));
+	errno = 0;
+	end_status = nvram_transaction_end(&transaction);
+	end_errno = errno;
+	if (snapshot_status == 0 && end_status != 0)
+		snapshot_status = end_errno ? end_errno : EIO;
+	if (snapshot_status != 0) {
+		logmessage("NTP Client",
+			   "Cannot read a complete NTP server snapshot; preserving the running ntpd (status %d)",
+			   snapshot_status);
+		return snapshot_status;
+	}
+
+	snapshot_status = watchdog_ntp_resolve_server_pair(
+		ntp_addr[0], sizeof(ntp_addr[0]), ntp_addr[1], sizeof(ntp_addr[1]));
+	if (snapshot_status != 0) {
+		logmessage("NTP Client",
+			   "NTP server configuration is invalid; preserving the running ntpd (status %d)",
+			   snapshot_status);
+		return snapshot_status;
+	}
 
 	stop_status = kill_services(svcs, 3, 1);
 	if (!watchdog_ntp_refresh_should_launch(stop_status)) {
@@ -181,25 +229,12 @@ refresh_ntp(void)
 		return stop_status;
 	}
 
-	ntp_addr[0] = nvram_safe_get("ntp_server0");
-	ntp_addr[1] = nvram_safe_get("ntp_server1");
-
-	if (strlen(ntp_addr[0]) < 3)
-		ntp_addr[0] = ntp_addr[1];
-	else if (strlen(ntp_addr[1]) < 3)
-		ntp_addr[1] = ntp_addr[0];
-
-	if (strlen(ntp_addr[0]) < 3) {
-		ntp_addr[0] = "pool.ntp.org";
-		ntp_addr[1] = ntp_addr[0];
-	}
-
 	ntp_server = ntp_addr[ntpc_server_idx];
-	ntpc_server_idx = (ntpc_server_idx + 1) % 2;
-
 	result = eval("/usr/sbin/ntpd", "-qt", "-S", NTPC_DONE_SCRIPT, "-p", ntp_server);
+	if (result == 0)
+		ntpc_server_idx = (ntpc_server_idx + 1) % 2;
 
-	logmessage("NTP Client", "Synchronizing time to %s.", ntp_server);
+	logmessage("NTP Client", "Synchronizing time to %s (status %d).", ntp_server, result);
 	return result;
 }
 

@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Snapshot Watchdog NTP peers before stopping the current daemon
+
+- Source review found refresh_ntp() killed the current ntpd before reading ntp_server0/ntp_server1 via nvram_safe_get(). Backend read/close errors were therefore indistinguishable from two absent values, causing a fallback to pool.ntp.org and replacement of the last-good daemon using an unverified configuration.
+- Added a checked pair reader that copies each cache-backed NVRAM value before the next read, under one exclusive nvram_transaction lease. Missing keys preserve the legacy mirror/default behavior; backend errors, close errors and overlong values abort before kill_services().
+- Server rotation now advances only when the one-shot ntpd launch succeeds. Added GNU89 regression cases for cache invalidation, second-key read failure, missing-key fallback and no-truncation handling; existing watchdog workflow already compiles/runs this test and its call-path checker.
+- CA77 exact-SHA ZeroTier 45135591928, AI docs 45135591868, WAN route 45135591880 and Process 45135591888 all PASS. XY-C1 45135591873 remained IN_PROGRESS at the last poll (Build running, TRX/artifact pending). This NTP source slice awaits new exact-head checks; no local test/build claimed.
+
+---
+
 ## 2026-11-23 UTC — Prevent Moon-management errors from leaving ZeroTier running
 
 - start_instance() previously ran creat_moon()/remove_moon() after starting zerotier-one and publishing firewall/routes. If Moon identity creation/removal failed, the function returned failure while the background daemon and network state remained active.
