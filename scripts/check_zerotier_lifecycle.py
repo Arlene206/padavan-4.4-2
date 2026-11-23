@@ -409,9 +409,10 @@ for required_rule in (
             "every required INPUT/FORWARD/NAT append must use the checked firewall publisher")
 require(rules_section.count('zerotier_add_firewall_rule') == 5,
         "the full three-filter/two-NAT firewall ruleset must use checked appends")
-require('case "$nat_enable" in' in rules_section and
-        '[ "$nat_enable" = "1" ]' in rules_section,
-        "NAT configuration must be handled without an unquoted numeric test")
+require('if ! zerotier_read_nat_enabled; then' in rules_section and
+        '[ "$nat_enable" = "1" ]' in rules_section and
+        'case "$nat_enable" in' in nat_settings_body,
+        "NAT configuration must use the checked selector helper and a quoted policy comparison")
 cleanup_branch = start_instance_body.index('if ! kill_z; then')
 cleanup_failure_return = start_instance_body.index('return 1', cleanup_branch)
 require('if ! rules; then' in start_instance_body and

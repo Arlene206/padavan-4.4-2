@@ -1,32 +1,32 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; current parent main: `492730323b6361baa3a9351e487a9ea0f3e82eaa`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
-- No local checkout is available; don't claim local tests or builds.
+- Repository: `Arlene206/padavan-4.4-2`; parent main for this checker correction: `1b29ed2fe3ed96a310ac9e83cfda6b455b25e901`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- No local checkout; no local test/build claims.
 
 ## Exact-SHA Actions
-- Commit `492730323b6361baa3a9351e487a9ea0f3e82eaa`: Process inventory `45131685896` PASS; WAN route `45131685948` PASS; AI docs `45131685890` PASS.
-- ZeroTier lifecycle `45131686076` FAILED only in `scripts/check_zerotier_lifecycle.py`, on a stale source contract expecting the old inline `nvram get zerotier_nat`. Shell regression `Run ZeroTier bounded lifecycle regression` passed. Source now reads NAT using `zerotier_read_nat_enabled()` with `nvram get_checked` before shutdown; THIS COMMIT fixes the checker to assert that behavior and its route-capture ordering.
-- XY-C1 `45131685922` on the same production source SHA was IN_PROGRESS at last poll. Build XY-C1 was running; TRX and artifact remained pending. Also earlier XY-C1 `45131246305` on `4025152c...` was IN_PROGRESS. Inspect exact results and same-SHA Build/TRX/artifact.
+- `492730323b6361baa3a9351e487a9ea0f3e82eaa`: Process inventory `45131685896` PASS, WAN route `45131685948` PASS, AI docs `45131685890` PASS. ZeroTier `45131686076` failed only a stale inline NAT getter contract after shell regression PASS.
+- Checker repair `1b29ed2fe3ed96a310ac9e83cfda6b455b25e901`: AI docs `45131839596` PASS; ZeroTier `45131839631` shell regression PASS but Python contract hit a second stale matcher: it still required NAT validation inside `rules()`, although the `case` is in `zerotier_read_nat_enabled()`. THIS COMMIT moves that assertion to the helper contract already extracted by the checker. No production source changes.
+- XY-C1 `45131685922` on production SHA `4927303...` was IN_PROGRESS with Build XY-C1 running; TRX and artifact pending. Earlier XY `45131246305` also IN_PROGRESS at last poll. Inspect exact outcomes and same-SHA build/TRX/artifact.
 
 ## Active task — ZeroTier checked NVRAM network-policy reliability
-- Startup identity selectors (moonid, secret, moon service, planet, network ID) use a checked five-key preflight before stopping/restarting the daemon.
-- Runtime NAT selector and static-route count/enable/IP/gateway now use `nvram get_checked`; whole enabled route table and NAT mode are preflighted before a daemon stop/restart; add/delete recheck values and fail closed. Planet-import rollback snapshots the previous NVRAM value via checked read.
-- The exact-head ZeroTier shell regression on `4927303...` passed all scenarios. Its Python contract failed on one stale assertion expecting legacy NAT getter text; no production-source failure was observed. This checker-only follow-up is pending exact-head validation.
-- Remaining direct legacy runtime reads are Moon-specific (`zerotiermoon_ip`, `zerotiermoon_id`); next independent slice should inspect and harden these with failure tests.
+- Five startup identity selectors use one checked snapshot before daemon stop/restart.
+- Runtime NAT and static-route count/enable/IP/gateway use checked NVRAM reads; complete NAT/route preflight runs before daemon stop/restart; route add/delete aborts/aggregates read errors; planet-import rollback snapshots old NVRAM via checked read.
+- Shell lifecycle suite passes on `4927303...`. Remaining failure on `1b29ed2...` is an outdated Python source assertion, not a production or shell-regression failure.
+- Remaining direct legacy Moon-selector reads: `zerotiermoon_ip` and `zerotiermoon_id`; next source task is to harden Moon create/remove operations on read errors and correct the malformed remove condition.
 
-## Exact first actions for next session
-1. Fetch live main and inspect this checker correction's exact-head ZeroTier and AI Actions.
-2. Recheck XY-C1 `45131685922` on `4927303...`; require Build, TRX and artifact all complete successfully on one production-source SHA.
-3. Harden Moon IP/ID NVRAM reads, ensuring errors don't create/remove Moon state incorrectly.
-4. Recheck integrated HNAT/SFE/NAT-helper XY-C1 run `45129983650`; physical router L4 remains NOT VERIFIED.
+## Next actions
+1. Verify this checker-only correction's exact-head ZeroTier + AI Actions.
+2. Recheck XY-C1 runs `45131685922` and `45131246305` for same-SHA Build/TRX/artifact.
+3. Harden Moon IP/ID reads, fix `remove_moon()` condition and ID path validation, and add failure/cleanup tests.
+4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-ZeroTier shell regression passed L2 on `4927303...`; Python contract failed only the stale NAT assertion and is corrected here. L3 requires same-SHA Build/TRX/artifact. L4 physical-router validation remains NOT VERIFIED.
+ZeroTier shell regression PASS on `4927303...`; Python checker failed only due stale NAT validation placement and is fixed in THIS COMMIT. L3 same-SHA Build/TRX/artifact unverified; L4 NOT VERIFIED.
 
 ## Cross-session mandate
-Continue small source/test slices; one complete tree and atomic commit per logical task; update main only with `force:false` and expected parent SHA; inspect exact-SHA Actions; no backup mutation or unobserved result claims.
+Small atomic source/test commits; one complete Git tree and commit; non-forced expected-SHA update of `main`; exact-SHA Actions; never touch backup; never claim unobserved tests/builds.
 
 ---
 # SESSION HANDOFF — Padavan 4.4

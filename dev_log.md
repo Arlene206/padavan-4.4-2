@@ -1,3 +1,12 @@
+## 2026-11-23 08:07 UTC — Check NAT validation in its helper, not rules()
+
+- Exact ZeroTier run `45131839631` on `1b29ed2fe3ed96a310ac9e83cfda6b455b25e901`: shell lifecycle regression PASS; Python contract failed only because it still expected `case "$nat_enable"` validation inside `rules()`. Validation now correctly resides in `zerotier_read_nat_enabled()`.
+- Updated the checker to assert rules calls the checked NAT helper and the extracted helper body contains the case validation, retaining the quoted NAT policy comparison. No production source changes.
+- AI docs `45131839596` PASS on the same SHA. XY-C1 Build remained in progress on `4927303...` and `4025152...`; no L3 claim.
+- Exact-head checker rerun pending; no local tests/builds claimed.
+
+---
+
 ## 2026-11-23 08:03 UTC — Align ZeroTier NAT checker with checked-read implementation
 
 - Exact ZeroTier run `45131686076` on production SHA `492730323b6361baa3a9351e487a9ea0f3e82eaa`: the bounded shell lifecycle regression passed; Python source contract then failed only because one assertion still expected inline `nvram get zerotier_nat`. The implementation now uses checked `zerotier_read_nat_enabled()` and checks route capture before daemon termination.
