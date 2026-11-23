@@ -1,3 +1,10 @@
+## 2026-11-23 — Propagate MTK ESW IGMP/MLD MDIO failures
+
+- Found that the optional IGMP flood-to-CPU, port-learning and MLD snooping paths still used unchecked esw_reg_get()/esw_reg_set() operations, and both IGMP ioctl handlers discarded their result.
+- Source commit 81c514f33641d47aa49062443e8fb23e80807765 moves IMC to a checked masked update, ISC to a checked masked update preserving unrelated bits, and PIC writes to checked register writes. Independent per-port operations continue while preserving the first error; bridge reconfiguration and init-post stop on failure. Runtime IGMP/static-port selectors restore their cached state on failed programming, and ioctl results now reach userland.
+- Switch CLI exact-SHA run #45257584087 PASS. AI docs #45257584133 failed because SESSION_HANDOFF.md lacked its required ## Current repository state heading; this docs-only child restores it. NVRAM #45257583956 and XY-C1 #45257583931 were in progress at the last poll. No local MIPS/kernel compile or hardware L4 is claimed.
+- Next: inspect status/error propagation for MTK ESW link-status and MIB telemetry reads.
+
 ## 2026-11-23 — Commit WAN fallback PVID only after confirmed switch programming
 
 - Found that `esw_vlan_apply_rules()` published `g_vlan_pvid_wan_untagged` before resetting/programming VLAN table entries or applying per-port PVID/attribute/accept/ingress registers. A later MDIO timeout could therefore make `MTK_ESW_IOCTL_VLAN_PVID_WAN_GET` report a new fallback VID while hardware remained on the previous configuration.
