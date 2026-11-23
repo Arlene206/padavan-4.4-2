@@ -69,13 +69,17 @@ test_invalid_mount_paths_clear_outputs(void)
 	char **folder_list = &sentinel;
 	int sh_num = 17;
 
+	errno = 0;
 	assert(disk_share_list_prepare_outputs(NULL, &sh_num, &folder_list) == -1);
+	assert(errno == EINVAL);
 	assert(sh_num == 0);
 	assert(folder_list == NULL);
 
 	sh_num = 9;
 	folder_list = &sentinel;
+	errno = 0;
 	assert(disk_share_list_prepare_outputs("", &sh_num, &folder_list) == -1);
+	assert(errno == EINVAL);
 	assert(sh_num == 0);
 	assert(folder_list == NULL);
 }
@@ -87,14 +91,20 @@ test_missing_output_parameters_are_safe(void)
 	char **folder_list = &sentinel;
 	int sh_num = 13;
 
+	errno = 0;
 	assert(disk_share_list_prepare_outputs("/mnt/share", NULL,
 	                                       &folder_list) == -1);
+	assert(errno == EINVAL);
 	assert(folder_list == NULL);
 
 	folder_list = &sentinel;
+	errno = 0;
 	assert(disk_share_list_prepare_outputs("/mnt/share", &sh_num, NULL) == -1);
+	assert(errno == EINVAL);
 	assert(sh_num == 0);
+	errno = 0;
 	assert(disk_share_list_prepare_outputs("/mnt/share", NULL, NULL) == -1);
+	assert(errno == EINVAL);
 }
 
 static void

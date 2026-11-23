@@ -53,8 +53,10 @@ disk_share_list_prepare_outputs(const char *mount_path, int *sh_num,
 	if (folder_list)
 		*folder_list = NULL;
 
-	if (!mount_path || !*mount_path || !sh_num || !folder_list)
+	if (!mount_path || !*mount_path || !sh_num || !folder_list) {
+		errno = EINVAL;
 		return -1;
+	}
 
 	return 0;
 }
