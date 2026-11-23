@@ -1473,7 +1473,8 @@ lan_stp_error_block = boot_services.split("if (lan_stp_read_status != 0)", 1)[1]
     "else if (!lan_stp_disabled)", 1
 )[0]
 assert "cannot read LAN STP selector; refusing bridge STP changes" in lan_stp_error_block
-assert "rc_first_service_start_status(start_status, lan_stp_read_status)" in lan_stp_error_block
+lan_stp_error_block_compact = "".join(lan_stp_error_block.split())
+assert "rc_first_service_start_status(start_status,lan_stp_read_status)" in lan_stp_error_block_compact
 assert 'nvram_match("lan_stp", "0")' not in boot_services
 watchdog_start = services_source.split("int" + chr(10) + "start_watchdog_cpu(void)", 1)[1].split(chr(10) + "}", 1)[0]
 common_source = (root / "trunk/user/rc/src/common_ex.c").read_text()
