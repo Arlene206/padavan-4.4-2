@@ -1,11 +1,12 @@
 ### 2026-11-23 接力更新（最新快照）
 
-- 当前产品源码修复：`bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`，GE2 PHY polling 不完整读时保留原 MAC/link 状态，EEE 位随协商重建。
-- 测试修正子提交：`5abf4a5c4b3fb08b6c3f5e8d13418679aec4dd58` 修正错误的半双工测试向量（`0x24` 实为 full-duplex，改为 `0x04`）。其 AI docs #45271922401 PASS；Switch CLI #45271922464 的 GNU89/Werror/ASan/UBSan policy binary 与此前 source checks 通过，新的 GE2 source-contract step 因换行分隔符被双重转义而失败。现将边界写成 `chr(10)`；属于 checker 修正，不更改产品逻辑。
-- `5abf4a5` 的 XY-C1 #45271922442、NVRAM #45271922399 当时仍在执行。本次 checker 修正提交 exact-SHA Actions 尚待检查。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
-- 无本地 MIPS/kernel build 或硬件 L4 声明；XY-C1 L3 仍需同一 SHA 的 Build/TRX/artifact 三项 PASS。
-- 下个 GPT 第一项：检查本次 checker 修正 SHA 的 Switch CLI/AI docs/XY-C1/NVRAM。之后继续审查 GE analog calibration 的保存/恢复顺序，谨慎设计 checked MDIO 事务的错误清理。
+- 当前 main 之前的 GE2 polling 修复：`bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`；半双工测试 fixture 修正 `5abf4a5c4b3fb08b6c3f5e8d13418679aec4dd58`。
+- Source-contract delimiter 修正提交 `48bc28ab58076e9ac90a0a9546e8ca91996caa56`：Switch CLI #45272254777 PASS，AI docs #45272254645 PASS。`5abf4a5` 的 NVRAM #45271922399 PASS；XY-C1 #45271922442 workflow PASS，但 Build/TRX/artifact upload 因 production inputs 未变化而 SKIPPED，仅为 host-only 验证，不构成 L3。
+- 本轮新源码切片：四个 legacy C22/Clause45 PHY read/write wrapper 现在经 status-bearing checked adapter，失败时保留原 ABI、读值初始化为 0，并报告 rate-limited I/O 错误。新增 C22/45 write status policy 与负 errno / 正状态 / invalid callback fault injection。
+- 这只是让遗留调用可观测，尚未让 GE analog calibration 整条调用链中止；长校准函数中的寄存器保存/恢复契约仍待专门迁移，未做批量替换。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，本轮未修改。
+- 无本地 MIPS/kernel build、无 XY-C1 L3 Build/TRX/artifact 同 SHA 证明、无硬件 L4 声明。
+- 下个 GPT 第一项：检查本次 wrapper 修复 exact-SHA Switch CLI/AI docs；处理 FAIL。随后继续分析 GE calibration wait helper 的状态传播与清理，确保任何 MDIO 错误不会与校准超时混为一谈。
 
 ---
 # Cross-session execution mandate
@@ -42,15 +43,16 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- GE2 product source SHA `bfca47b`: NVRAM and XY-C1 were pending at its successor checkpoint; do not infer their result.
-- Test correction SHA `5abf4a5`: AI docs #45271922401 PASS; Switch CLI #45271922464 compiled and ran the GNU89/Werror/ASan/UBSan policy regression successfully but failed the newly added source contract due to escaped newline delimiters. This child fixes those delimiters only. XY-C1 #45271922442 and NVRAM #45271922399 were in progress at last poll.
-- The checker-fix SHA's exact-head Actions remain to be checked. No MIPS/kernel build or hardware L4 is claimed.
+- GE2 polling contract fix SHA `48bc28a`: Switch CLI #45272254777 PASS; AI handoff docs #45272254645 PASS.
+- Its parent source/test SHA `5abf4a5`: NVRAM #45271922399 PASS. XY-C1 #45271922442 PASS as a workflow, but firmware Build/TRX/artifact upload were all SKIPPED because no firmware production inputs changed; host-only result, NOT L3.
+- Current legacy wrapper MDIO status slice is newly committed; exact-head Switch CLI/AI docs runs must be inspected.
+- No local MIPS/kernel build or physical hardware L4 is claimed. Frozen backup remains untouched.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA Switch CLI, AI docs, NVRAM and XY-C1 Actions for the checker newline fix; diagnose any FAIL from job logs.
-2. Verify XY-C1 Build, TRX and artifact upload on one identical source SHA before claiming L3; otherwise leave it pending/unverified.
-3. Resume the GE analog calibration save/restore graph; do not bulk-replace legacy wrapper calls without defined abort and cleanup semantics.
+1. Fetch live `main` and inspect this commit's exact-SHA Switch CLI and AI handoff Actions; diagnose any FAIL from job logs.
+2. Continue the GE analog-calibration status propagation audit with `all_ge_ana_cal_wait()` and the `ge_cal_rext/r50/tx_amp/tx_offset` callers. Separate MDIO transport failures from calibration timeout and preserve trigger-bit cleanup on every exit.
+3. Keep the legacy ABI stable; do not bulk-replace value-only wrappers without a complete restoration plan.
 
 
 ## Cross-session operating constraints

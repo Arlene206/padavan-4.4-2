@@ -878,6 +878,40 @@ jobs:
           print("RAETH GE2 link polling preserves prior state on MDIO errors and clears stale EEE: PASS")
           PY
 
+      - name: Validate legacy PHY wrappers expose MDIO failures safely
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          assert "ra_switch_mdio_write_checked(" in policy
+          assert "ra_switch_mdio_write_cl45_checked(" in policy
+          for signature, end in (
+              ("u32 tc_phy_read_dev_reg(", chr(10) + "void tc_phy_write_dev_reg("),
+              ("void tc_phy_write_dev_reg(", chr(10) + "u32 tc_mii_read("),
+              ("u32 tc_mii_read(", chr(10) + "void tc_mii_write("),
+              ("void tc_mii_write(", chr(10) + "void clear_ckinv_ana_txvos("),
+          ):
+              body = source.split(signature, 1)[1].split(end, 1)[0]
+              assert "status != 0" in body
+              assert "pr_err_ratelimited(" in body
+          assert "u32 phy_val = 0;" in source.split("u32 tc_phy_read_dev_reg(", 1)[1].split(
+              chr(10) + "}", 1
+          )[0]
+          assert "u32 phy_val = 0;" in source.split("u32 tc_mii_read(", 1)[1].split(
+              chr(10) + "}", 1
+          )[0]
+          for marker in (
+              "test_checked_phy_writes_propagate_and_normalize_failures",
+              "test_checked_phy_writes_propagate_and_normalize_failures();",
+          ):
+              assert marker in test
+          print("RAETH legacy Clause 22/45 PHY wrappers report failed MDIO reads and writes: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

@@ -221,30 +221,86 @@ u32 tc_phy_read_l_reg(u8 port_no, u8 page_no, u8 reg_num)
 	return phy_val;
 }
 
+static int ra_switch_mdio_write_cl45_cb(void *context,
+					 unsigned int port, unsigned int dev,
+					 unsigned int reg, unsigned int value)
+{
+	(void)context;
+	return ra_switch_mdio_write_cl45(port, dev, reg, value);
+}
+
+static int tc_phy_read_dev_reg_checked(u32 port_num, u32 dev_addr,
+				       u32 reg_addr, u32 *value)
+{
+	return ra_switch_mdio_read_cl45_checked(port_num, dev_addr, reg_addr,
+						ra_switch_mdio_read_cl45,
+						NULL, value);
+}
+
+static int tc_phy_write_dev_reg_checked(u32 port_num, u32 dev_addr,
+					u32 reg_addr, u32 write_data)
+{
+	return ra_switch_mdio_write_cl45_checked(port_num, dev_addr, reg_addr,
+						  write_data,
+						  ra_switch_mdio_write_cl45_cb,
+						  NULL);
+}
+
+static int tc_mii_read_checked(u32 phy_addr, u32 phy_register, u32 *value)
+{
+	return ra_switch_mdio_read_checked(phy_addr, phy_register,
+					   ra_switch_mdio_read, NULL, value);
+}
+
+static int tc_mii_write_checked(u32 phy_addr, u32 phy_register, u32 value)
+{
+	return ra_switch_mdio_write_checked(phy_addr, phy_register, value,
+					    ra_switch_mdio_write, NULL);
+}
+
+/* Preserve the legacy value-returning ABI; failed reads now report and return zero. */
 u32 tc_phy_read_dev_reg(u32 port_num, u32 dev_addr, u32 reg_addr)
 {
-	u32 phy_val;
+	u32 phy_val = 0;
+	int status;
 
-	mii_mgr_read_cl45(port_num, dev_addr, reg_addr, &phy_val);
+	status = tc_phy_read_dev_reg_checked(port_num, dev_addr, reg_addr,
+					     &phy_val);
+	if (status != 0)
+		pr_err_ratelimited("%s: Clause 45 PHY read failed (port=%u dev=%u reg=0x%x status=%d)\n",
+				   __func__, port_num, dev_addr, reg_addr, status);
 	return phy_val;
 }
 
 void tc_phy_write_dev_reg(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 {
-	mii_mgr_write_cl45(port_num, dev_addr, reg_addr, write_data);
+	int status = tc_phy_write_dev_reg_checked(port_num, dev_addr, reg_addr,
+						  write_data);
+
+	if (status != 0)
+		pr_err_ratelimited("%s: Clause 45 PHY write failed (port=%u dev=%u reg=0x%x status=%d)\n",
+				   __func__, port_num, dev_addr, reg_addr, status);
 }
 
 u32 tc_mii_read(u32 phy_addr, u32 phy_register)
 {
-	u32 phy_val;
+	u32 phy_val = 0;
+	int status;
 
-	mii_mgr_read(phy_addr, phy_register, &phy_val);
+	status = tc_mii_read_checked(phy_addr, phy_register, &phy_val);
+	if (status != 0)
+		pr_err_ratelimited("%s: Clause 22 PHY read failed (port=%u reg=0x%x status=%d)\n",
+				   __func__, phy_addr, phy_register, status);
 	return phy_val;
 }
 
 void tc_mii_write(u32 phy_addr, u32 phy_register, u32 write_data)
 {
-	mii_mgr_write(phy_addr, phy_register, write_data);
+	int status = tc_mii_write_checked(phy_addr, phy_register, write_data);
+
+	if (status != 0)
+		pr_err_ratelimited("%s: Clause 22 PHY write failed (port=%u reg=0x%x status=%d)\n",
+				   __func__, phy_addr, phy_register, status);
 }
 
 void clear_ckinv_ana_txvos(void)

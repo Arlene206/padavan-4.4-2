@@ -1,3 +1,14 @@
+## 2026-11-23 — Make legacy PHY wrapper MDIO errors visible
+
+- Current base main SHA: `48bc28ab58076e9ac90a0a9546e8ca91996caa56`. The GE2 polling source-contract delimiter correction passed Switch CLI #45272254777 and AI docs #45272254645 on that exact SHA.
+- The test-fixture SHA `5abf4a5c4b3fb08b6c3f5e8d13418679aec4dd58` also passed NVRAM #45271922399 and the XY-C1 workflow #45271922442. XY-C1 job details show Build, TRX and artifact upload were SKIPPED because the firmware production inputs did not change; this is host-only coverage, not an L3 firmware build.
+- Found another concrete diagnostic gap: the four legacy `tc_phy_read/write_dev_reg()` and `tc_mii_read/write()` adapters ignored the MII manager's boolean result. MII manager clears read outputs on failure, so callers silently consumed a zero register value and writes failed without a call-site diagnostic.
+- Added normalized status-bearing C22/Clause45 write policy helpers and callback fault-injection tests. Existing public/legacy signatures remain unchanged; internal checked adapters now back all four wrappers, initialize read outputs to zero, and emit rate-limited diagnostics for failed reads and writes.
+- This exposes failures but does not yet abort the long GE calibration algorithms: their value-only read/write call graph and register restore paths still need a separate status/rollback design. No global call-site substitution was made.
+- GNU89/Werror/ASan/UBSan regression will execute in exact-head Switch CLI Actions; no MIPS kernel build or hardware L4 is claimed.
+- Next: inspect exact-head Switch CLI/AI docs; then convert one bounded GE calibration polling helper with explicit cleanup semantics, or continue another independent stability fix if the calibration transaction scope is too coupled.
+
+---
 ## 2026-11-23 — Fix GE2 polling source-contract newline delimiters
 
 - The corrected GE2 test fixture follow-up `5abf4a5c4b3fb08b6c3f5e8d13418679aec4dd58` passed AI docs #45271922401. Its Switch CLI #45271922464 then passed the compiled RAETH policy binary (including the corrected half-duplex/EEE case) and existing source contracts, but failed in the new GE2 source-contract step because escaped newline delimiters were emitted as literal backslash-n text.

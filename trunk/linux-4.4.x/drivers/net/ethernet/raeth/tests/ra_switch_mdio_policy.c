@@ -5,7 +5,7 @@
 #include "../ra_switch_mdio_policy.h"
 
 struct fake_io {
-	unsigned int calls, reg[3], value[3];
+	unsigned int calls, reg[3], value[3], dev[3];
 	int fail_at, fail_status;
 	unsigned int read_value;
 	char op[3];
@@ -50,6 +50,87 @@ static int fake_write(void *ctx, unsigned int port, unsigned int reg, unsigned i
 	f->op[n] = 'w'; f->reg[n] = reg; f->value[n] = value;
 	if ((int)n == f->fail_at) return f->fail_status;
 	return 0;
+}
+
+static int fake_write_cl45(void *ctx, unsigned int port,
+			    unsigned int dev, unsigned int reg,
+			    unsigned int value)
+{
+	struct fake_io *f = ctx;
+	unsigned int n = f->calls++;
+
+	(void)port;
+	assert(n < 3U);
+	f->op[n] = 'C';
+	f->dev[n] = dev;
+	f->reg[n] = reg;
+	f->value[n] = value;
+	if ((int)n == f->fail_at)
+		return f->fail_status;
+	return 0;
+}
+
+static void test_checked_phy_writes_propagate_and_normalize_failures(void)
+{
+	struct fake_io f;
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_write_checked(3U, 0x1fU, 0x1234U,
+					    fake_write, &f) == 0);
+	assert(f.calls == 1U && f.op[0] == 'w' &&
+	       f.reg[0] == 0x1fU && f.value[0] == 0x1234U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -ETIMEDOUT;
+	assert(ra_switch_mdio_write_checked(3U, 0x1fU, 0x1234U,
+					    fake_write, &f) == -ETIMEDOUT);
+	assert(f.calls == 1U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = 1;
+	assert(ra_switch_mdio_write_checked(3U, 0x1fU, 0x1234U,
+					    fake_write, &f) == -EIO);
+	assert(f.calls == 1U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_write_checked(3U, 0x1fU, 0x1234U,
+					    NULL, &f) == -EINVAL);
+	assert(f.calls == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_write_cl45_checked(4U, 0x1eU, 0x145U,
+						  0x1010U, fake_write_cl45,
+						  &f) == 0);
+	assert(f.calls == 1U && f.op[0] == 'C' &&
+	       f.dev[0] == 0x1eU && f.reg[0] == 0x145U &&
+	       f.value[0] == 0x1010U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -EHOSTDOWN;
+	assert(ra_switch_mdio_write_cl45_checked(4U, 0x1eU, 0x145U,
+						  0x1010U, fake_write_cl45,
+						  &f) == -EHOSTDOWN);
+	assert(f.calls == 1U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = 1;
+	assert(ra_switch_mdio_write_cl45_checked(4U, 0x1eU, 0x145U,
+						  0x1010U, fake_write_cl45,
+						  &f) == -EIO);
+	assert(f.calls == 1U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_write_cl45_checked(4U, 0x1eU, 0x145U,
+						  0x1010U, NULL, &f) == -EINVAL);
+	assert(f.calls == 0U);
 }
 
 static void test_page_read_selects_global_and_local_bank(void)
@@ -413,6 +494,7 @@ static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
 int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
+	test_checked_phy_writes_propagate_and_normalize_failures();
 	test_page_select_failure_stops_second_access();
 	test_register_failures_and_positive_status_are_safe();
 	test_checked_link_reads_preserve_state_on_failure();

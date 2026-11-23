@@ -8,11 +8,36 @@
 
 #endif
 
+/* Do not let legacy PHY write wrappers silently discard MDIO failures. */
+static inline int
+ra_switch_mdio_write_checked(unsigned int port, unsigned int reg,
+			     unsigned int value,
+			     ra_switch_mdio_write_fn write, void *context)
+{
+	if (!write)
+		return -EINVAL;
+	return ra_switch_mdio_normalize_status(write(context, port, reg, value));
+}
+
+static inline int
+ra_switch_mdio_write_cl45_checked(unsigned int port, unsigned int dev,
+				  unsigned int reg, unsigned int value,
+				  ra_switch_mdio_write_cl45_fn write,
+				  void *context)
+{
+	if (!write)
+		return -EINVAL;
+	return ra_switch_mdio_normalize_status(
+		write(context, port, dev, reg, value));
+}
+
 /* Page-select register 31 gates every local/global PHY register access. */
 typedef int (*ra_switch_mdio_read_fn)(void *, unsigned int, unsigned int, unsigned int *);
 typedef int (*ra_switch_mdio_read_cl45_fn)(void *, unsigned int, unsigned int,
 					   unsigned int, unsigned int *);
 typedef int (*ra_switch_mdio_write_fn)(void *, unsigned int, unsigned int, unsigned int);
+typedef int (*ra_switch_mdio_write_cl45_fn)(void *, unsigned int, unsigned int,
+					    unsigned int, unsigned int);
 
 static inline int ra_switch_mdio_normalize_status(int status)
 {
