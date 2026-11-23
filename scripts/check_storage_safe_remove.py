@@ -881,21 +881,38 @@ require('return eval("/usr/bin/smartdns.sh","restart");' in smartdns_restart and
         "SmartDNS restart must delegate the full locked transaction to its shell wrapper")
 require(stop_all.count('record_service_stop_status(&stop_status, "WireGuard"') == 1,
         "stop_services must only stop WireGuard once")
-igmp_stop = body(net, "int\nstop_igmpproxy(char *wan_ifname)")
+igmp_stop = body(net, "static int\nstop_igmpproxy_with_viptv(")
+igmp_stop_wrapper = body(net, "int\nstop_igmpproxy(char *wan_ifname)")
 require("return 0;" in igmp_stop and "return kill_services(" in igmp_stop,
-        "IPTV proxy stop must report success only for intentional no-op or verified stop")
-igmp_start = body(net, "int\nstart_igmpproxy(char *wan_ifname)")
+        "snapshot-aware IPTV stop must report intentional no-op or delegate verified stop")
+require("net_nvram_copy_setting_status(" in igmp_stop_wrapper and
+        "if (nvram_status != 0)" in igmp_stop_wrapper and
+        "return nvram_status;" in igmp_stop_wrapper and
+        "stop_igmpproxy_with_viptv(wan_ifname, viptv_iflast)" in igmp_stop_wrapper,
+        "public IPTV stop must reject failed VLAN reads before side effects")
+
+igmp_start = body(net, "static int\nstart_igmpproxy_with_settings(")
+igmp_start_wrapper = body(net, "int\nstart_igmpproxy(char *wan_ifname)")
 require("return stop_status;" in igmp_start and
         igmp_start.index("return stop_status;") < igmp_start.index("start_udpxy(wan_ifname)") and
         "rc_first_service_start_status(start_status, start_udpxy(wan_ifname))" in igmp_start and
         "rc_first_service_start_status(start_status, start_xupnpd(wan_ifname))" in igmp_start and
         "rc_first_service_start_status(start_status," in igmp_start and
         'eval("/bin/igmpproxy", igmpproxy_conf)' in igmp_start,
-        "IPTV start must propagate stop and every enabled proxy launch status")
+        "snapshot-aware IPTV start must propagate stop and enabled proxy launch status")
+require("net_iptv_proxy_nvram_settings_read(&settings)" in igmp_start_wrapper and
+        "start_igmpproxy_with_settings(wan_ifname, &settings)" in igmp_start_wrapper,
+        "public IPTV start must validate one settings snapshot before service changes")
+
 iptv_restart = body(net, "int\nrestart_iptv(int is_ap_mode)")
-require("operation_status = config_bridge(is_ap_mode);" in iptv_restart and
-        "operation_status = start_igmpproxy(wan_ifname);" in iptv_restart and
-        "return rc_first_service_start_status(start_status, operation_status);" in iptv_restart and
+require("net_iptv_proxy_nvram_settings_read(&proxy_settings)" in iptv_restart and
+        iptv_restart.index("net_iptv_proxy_nvram_settings_read(&proxy_settings)") <
+        iptv_restart.index("config_bridge(is_ap_mode)") and
+        "get_man_ifname(0)" in iptv_restart and
+        "if (!wan_ifname || !wan_ifname[0])" in iptv_restart and
+        "operation_status = config_bridge(is_ap_mode);" in iptv_restart and
+        "start_igmpproxy_with_settings(" in iptv_restart and
+        "start_igmpproxy(wan_ifname)" not in iptv_restart and
         "stop_status = stop_igmpproxy(NULL);" in iptv_restart and
         "return rc_first_service_start_status(start_status, stop_status);" in iptv_restart and
         iptv_restart.index("return rc_first_service_start_status(start_status, stop_status);") <
@@ -903,7 +920,7 @@ require("operation_status = config_bridge(is_ap_mode);" in iptv_restart and
         "start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));" in iptv_restart and
         "start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));" in iptv_restart and
         "return start_status;" in iptv_restart,
-        "IPTV restart must preserve bridge errors, proxy stop gates and enabled launch outcomes")
+        "IPTV restart must preflight/reuse proxy settings and preserve bridge, stop and launch results")
 require("int restart_iptv(int is_ap_mode);" in rc_header and
         "int start_igmpproxy(char *wan_ifname);" in rc_header,
         "IPTV start/restart declarations must return checked status")

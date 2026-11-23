@@ -447,12 +447,22 @@ assert "service_names[0] = (char *)context;" in rollback_stop
 for signature, confirm_name, process_name in (
     ("start_udpxy(char *wan_ifname)", "iptv_proxy_confirm_started(", "process_name"),
     ("start_xupnpd(char *wan_ifname)", "xupnpd_confirm_started(", '"xupnpd"'),
-    ("start_igmpproxy(char *wan_ifname)", "iptv_proxy_confirm_started(", '"igmpproxy"'),
 ):
     body = c_function_body(net_source, signature)
     assert confirm_name in body
     assert "iptv_proxy_rollback_failed_start(" in body
     assert process_name in body
+
+# IGMPproxy's lifecycle now lives in the snapshot-aware helper; the public
+# wrapper only validates arguments, takes one NVRAM snapshot, and delegates.
+igmpproxy_start = c_function_body(
+    net_source, "start_igmpproxy_with_settings(char *wan_ifname")
+igmpproxy_wrapper = c_function_body(net_source, "start_igmpproxy(char *wan_ifname)")
+assert 'iptv_proxy_confirm_started("igmpproxy", launch_status)' in igmpproxy_start
+assert "iptv_proxy_rollback_failed_start(" in igmpproxy_start
+assert '"igmpproxy"' in igmpproxy_start
+assert "net_iptv_proxy_nvram_settings_read(&settings)" in igmpproxy_wrapper
+assert "start_igmpproxy_with_settings(wan_ifname, &settings)" in igmpproxy_wrapper
 
 xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n#endif", 1)[0]
 assert "if (!is_xupnpd_support())" in xupnpd_start
@@ -529,7 +539,6 @@ assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_s
 assert "unlink(tmp1)" in xupnpd_start
 assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
 assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("if (launch_status != 0)")
-igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\nint\nrestart_iptv", 1)[0]
 assert '#include "service_start_status.h"' in net_source
 assert "rc_first_service_start_status(start_status, start_udpxy(wan_ifname))" in igmpproxy_start
 assert "rc_first_service_start_status(start_status, start_xupnpd(wan_ifname))" in igmpproxy_start
@@ -541,7 +550,8 @@ assert "process_state != PROCESS_PRESENCE_ABSENT" in igmpproxy_start
 assert igmpproxy_start.index("iptv_proxy_process_presence(") < igmpproxy_start.index("igmpproxy_config_publish(")
 assert "iptv_proxy_confirm_started(\"igmpproxy\", launch_status)" in igmpproxy_start
 assert "return rc_first_service_start_status(start_status, launch_status);" in igmpproxy_start
-igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[1].split("\n}\n", 1)[0]
+assert "net_iptv_proxy_nvram_settings_read(&settings)" in igmpproxy_wrapper
+assert "start_igmpproxy_with_settings(wan_ifname, &settings)" in igmpproxy_wrapper
 assert '#include "igmpproxy_config_file.h"' in net_source
 assert "igmpproxy_config_publish(igmpproxy_conf, &config_values)" in igmpproxy_start
 assert 'igmpproxy config publication failed (status=%d)' in igmpproxy_start
