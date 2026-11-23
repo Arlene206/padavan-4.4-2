@@ -70,6 +70,30 @@ detect_wan_arp_parse_hardware_address(const char *text,
 }
 
 /*
+ * Reject non-unicast sender identities in replies. Keep locally administered
+ * unicast addresses valid; only the multicast bit and reserved all-zero /
+ * broadcast values are disallowed.
+ */
+static inline int
+detect_wan_arp_reply_source_hardware_valid(const void *source_hardware)
+{
+    const uint8_t *address = (const uint8_t *)source_hardware;
+    int all_zero = 1, all_broadcast = 1;
+    size_t index;
+
+    if (!address || (address[0] & 0x01) != 0)
+        return 0;
+
+    for (index = 0; index < 6; ++index) {
+        if (address[index] != 0)
+            all_zero = 0;
+        if (address[index] != 0xff)
+            all_broadcast = 0;
+    }
+    return !all_zero && !all_broadcast;
+}
+
+/*
  * Accept only a complete Ethernet/IPv4 ARP reply for this exact probe.
  * Packet sockets can receive unrelated and malformed frames; accepting one
  * after checking only a subset of its identity can hide a dead gateway and
@@ -109,6 +133,9 @@ detect_wan_arp_reply_matches(const struct detect_wan_arp_reply *reply,
         reply->protocol_type != htons(ETH_P_IP) ||
         reply->hardware_length != 6 || reply->protocol_length != 4 ||
         reply->operation != htons(ARPOP_REPLY))
+        return 0;
+
+    if (!detect_wan_arp_reply_source_hardware_valid(reply->sender_hardware))
         return 0;
 
     memcpy(&sender_address, reply->sender_protocol, sizeof(sender_address));

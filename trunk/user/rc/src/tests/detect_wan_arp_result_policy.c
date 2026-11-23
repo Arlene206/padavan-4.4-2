@@ -140,6 +140,37 @@ test_malformed_and_unrelated_arp_replies_are_rejected(void)
 }
 
 static int
+test_arp_reply_rejects_invalid_sender_hardware_address(void)
+{
+    struct arp_reply_fixture fixture;
+    static const unsigned char invalid_sources[][6] = {
+        { 0x01, 0x00, 0x5e, 0x00, 0x00, 0x01 },
+        { 0x33, 0x33, 0x00, 0x00, 0x00, 0x01 },
+        { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }
+    };
+    size_t index;
+
+    for (index = 0;
+         index < sizeof(invalid_sources) / sizeof(invalid_sources[0]);
+         ++index) {
+        initialize_valid_arp_reply(&fixture);
+        memcpy(fixture.ethernet_source, invalid_sources[index], 6);
+        memcpy(fixture.sender_hardware, invalid_sources[index], 6);
+        CHECK(!detect_wan_arp_reply_matches(
+            &fixture.reply, fixture.local_hardware,
+            fixture.gateway_address, fixture.local_address));
+    }
+
+    initialize_valid_arp_reply(&fixture);
+    fixture.reply.sender_hardware = NULL;
+    CHECK(!detect_wan_arp_reply_matches(
+        &fixture.reply, fixture.local_hardware,
+        fixture.gateway_address, fixture.local_address));
+    return 0;
+}
+
+static int
 test_arp_source_hardware_address_requires_colon_hex(void)
 {
     static const uint8_t expected[6] =
@@ -233,6 +264,7 @@ main(void)
 {
     CHECK(test_arp_reply_requires_matching_l2_l3_tuple() == 0);
     CHECK(test_malformed_and_unrelated_arp_replies_are_rejected() == 0);
+    CHECK(test_arp_reply_rejects_invalid_sender_hardware_address() == 0);
     CHECK(test_arp_source_hardware_address_requires_colon_hex() == 0);
     CHECK(test_invalid_arp_source_hardware_address_is_rejected_transactionally() == 0);
     CHECK(test_probe_result_keeps_local_errors_distinct() == 0);

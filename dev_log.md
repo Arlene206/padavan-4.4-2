@@ -1,3 +1,10 @@
+## 2026-11-23 19:48:37 Beijing — Reject malformed Ethernet source MACs in gateway ARP replies
+
+- During a follow-on review of `detect_wan_arp_reply_matches()`, found it verified that Ethernet source and ARP sender-hardware fields matched each other but did not verify the sender MAC was a valid unicast station address. An attacker or malformed bridge frame could use a multicast, all-zero or broadcast sender address and still be treated as a live gateway reply, suppressing DHCP recovery.
+- Added an explicit responder-MAC policy: unicast locally administered addresses remain valid, while multicast, all-zero and all-broadcast addresses are rejected before IP tuple matching. Added GNU89 regression cases for all four invalid forms and the missing sender-hardware pointer; the dedicated WAN ARP workflow now pins the new production check and test.
+- Exact-head WAN ARP regression and XY-C1 Build/TRX/artifact are pending. No local sanitizer, firmware or physical-router result is claimed.
+
+---
 ## 2026-11-23 19:44:36 Beijing — Repair OpenSSH lifecycle CI contracts
 
 - Exact-main Process run `45167154533` exposed a stale integration fixture: `check_optional_app_start_status.py:check_sshd()` still expected the wrapper to call raw `killall`, but the new standalone stop correctly refused to proceed without its shared process-lifecycle helper (status 2). Added a test-local helper adapter that delegates to the existing mocked `killall`, and asserted the wrapper passes exactly `sshd` while propagating status 61.
