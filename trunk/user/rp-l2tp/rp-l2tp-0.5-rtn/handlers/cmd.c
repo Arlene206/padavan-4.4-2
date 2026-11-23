@@ -224,7 +224,10 @@ process_option(EventSelector *es,
 static void
 cmd_acceptor(EventSelector *es, int fd)
 {
-    EventTcp_ReadBuf(es, fd, CMD_CONTROL_REQUEST_BUFFER_SIZE, '\n', cmd_handler, 5, NULL);
+    if (!EventTcp_ReadBuf(es, fd, CMD_CONTROL_REQUEST_BUFFER_SIZE,
+			  '\n', cmd_handler, 5, NULL)) {
+	close(fd);
+    }
 }
 
 /**********************************************************************
@@ -301,7 +304,10 @@ cmd_reply(EventSelector *es,
 	  int fd,
 	  char const *msg)
 {
-    EventTcp_WriteBuf(es, fd, (char *) msg, strlen(msg), NULL, 10, NULL);
+    if (!EventTcp_WriteBuf(es, fd, (char *) msg, strlen(msg),
+			   NULL, 10, NULL)) {
+	close(fd);
+    }
 }
 
 /**********************************************************************

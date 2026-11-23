@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Close RP-L2TP control clients when event registration fails
+
+- `EventTcp_ReadBuf()` / `EventTcp_WriteBuf()` return `NULL` when allocation, `fcntl()` setup, or event registration fails; in those paths they do not assume ownership of the accepted socket. The `cmd_acceptor()` and `cmd_reply()` callers ignored the return value, leaving accepted control descriptors open and clients stalled during memory/resource pressure.
+- Both call sites now close the socket when scheduling the read/write event fails. Extended the WAN source contract to protect the accept and response failure paths. The exact-head request/response parser regressions are already passing on `2904fa3`; a new WAN run verifies these resource cleanup gates.
+
+---
+
 ## 2026-11-23 UTC — Bound RP-L2TP command framing before NUL termination
 
 - Review of the actual `EventTcp_ReadBuf()` implementation confirmed it allocates exactly the requested 512 bytes and reports `EVENT_TCP_FLAG_COMPLETE` both on delimiter match and when the receive limit is reached. `cmd_handler()` previously wrote `buf[len+1]` for lengths below 511 and `buf[len]` at length 512, then parsed EOF/timeout-truncated data. This allowed an uninitialized byte to be included in a command and a full-buffer request to write one byte beyond the heap allocation.

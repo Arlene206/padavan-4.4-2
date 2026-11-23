@@ -302,6 +302,10 @@ require("EventTcp_ReadBuf(es, fd, CMD_CONTROL_REQUEST_BUFFER_SIZE" in control_se
         "L2TP control server must use its explicit request buffer capacity")
 control_handler = body(control_server_source,
     "static void\ncmd_handler(EventSelector *es,")
+control_acceptor = body(control_server_source,
+    "static void\ncmd_acceptor(EventSelector *es, int fd)")
+control_reply = body(control_server_source,
+    "static void\ncmd_reply(EventSelector *es,")
 require("cmd_control_request_is_valid(" in control_handler and
         "flag == EVENT_TCP_FLAG_COMPLETE" in control_handler and
         "buf[len] = '\\0';" in control_handler and
@@ -310,6 +314,10 @@ require("cmd_control_request_is_valid(" in control_handler and
 require("buf[len+1]" not in control_handler and
         "len < CMD_CONTROL_REQUEST_BUFFER_SIZE" in control_handler,
         "L2TP control handler must not read/write beyond the fixed receive buffer")
+require("if (!EventTcp_ReadBuf(" in control_acceptor and "close(fd);" in control_acceptor,
+        "L2TP control acceptor must close sockets when receive-event allocation fails")
+require("if (!EventTcp_WriteBuf(" in control_reply and "close(fd);" in control_reply,
+        "L2TP control reply must close sockets when transmit-event allocation fails")
 require("static inline int\ncmd_control_request_is_valid(" in control_request_policy and
         "length < capacity" in control_request_policy and
         "has_newline" in control_request_policy,
