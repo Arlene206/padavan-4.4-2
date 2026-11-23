@@ -1,3 +1,11 @@
+## 2026-11-22 — Repair HTTPD workflow block indentation
+
+- The first follow-up commit `00cb20522874510b126cc647efc7afcb1d2952f4` inserted the corrected PID 1 assertions without preserving the embedded Python block's ten-space YAML indentation. GitHub reported the HTTPD workflow run `45086402010` as failed before creating a job (`total_count: 0`); this was a workflow formatting error, not a source/test regression.
+- Restored the block indentation for every new assertion while preserving the updated helper contract. The next exact-head HTTPD and AI handoff Actions determine verification; no local YAML parser or checkout was run.
+- The actual RC PID1 host test result remains PASS on source SHA `f0ee5131e495a7b9f4a903293d53d304a3ec830b`; NVRAM audit `45086111754` subsequently completed PASS. XY-C1 firmware validation `45086111757` had not completed at the last poll.
+
+---
+
 ## 2026-11-22 — Align HTTPD PID1 contract with errno-preserving reaper
 
 - Exact-head HTTPD run `45086111706` on `f0ee5131e495a7b9f4a903293d53d304a3ec830b` failed only in its embedded PID 1 source contract: it still required the `waitpid()` loop and EINTR handling directly inside `catch_sig_reap()`. The production implementation intentionally moved the loop into `pid1_signal_reap_available_children()` so it can preserve the interrupted caller's errno and be exercised through an injected waitpid callback.

@@ -2,57 +2,53 @@
 
 ## Current repository state
 
-- Development branch: `main` only. Never use feature branches or PRs for development; never force-push.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; never modify, rename, delete or check it out.
-- Source parent before this workflow-contract correction: `f0ee5131e495a7b9f4a903293d53d304a3ec830b`. The current commit updates an HTTPD workflow assertion and the handoff/log only; obtain the new SHA from the resulting commit.
-- Continue implementing rather than repeating completed audits or asking what to do next.
+- Development branch: `main` only. No development feature branches/PRs and no force-push.
+- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently.
+- Current source checkpoint: `f0ee5131e495a7b9f4a903293d53d304a3ec830b` (RC PID1 SIGCHLD errno preservation). Current tip before this formatting fix: `00cb20522874510b126cc647efc7afcb1d2952f4`.
+- The active source task is the real RC PID1, `trunk/user/rc/src/init.c`. The board BusyBox config has `# CONFIG_INIT is not set`; generic BusyBox init applet improvements are not current firmware PID1 behavior.
 
-## Firmware PID 1 target
+## Current PID1 source change
 
-The actual Padavan firmware PID 1 is the RC init executable, `trunk/user/rc/src/init.c`. The board config `trunk/configs/boards/busybox.config` explicitly has `# CONFIG_INIT is not set`. BusyBox applet changes under `trunk/user/busybox/busybox-1.24.x/init/init.c` are generic and are not the running router PID 1. The deferred-reap BusyBox improvement in commits `bde45fc2ee6fb6e18669c944b4fe2a1d9dcd5189`, `629cf55f5f8d1476f585e0c4e30ad2670c2f9806`, and `93e3dd84aa09a2f6d0e4666530bcc3e1a932f5f2` must not be claimed as firmware-runtime behavior.
+`f0ee5131e495a7b9f4a903293d53d304a3ec830b` adds `pid1_signal_reap_available_children()` in `trunk/user/rc/src/pid1_signal_policy.h`. The helper saves errno, retries EINTR, records each exact PID returned by `waitpid(-1, NULL, WNOHANG)`, then restores errno before returning to interrupted PID1 code. `catch_sig_reap()` delegates to it. An injected host test covers unrelated and tracked-child reaps, EINTR, terminal ECHILD and original errno restoration.
 
-## Active RC PID 1 source slice
+The PID1 host regression passed in GitHub Actions with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. The test was run by PID1 mdev/security Action `45086111693` on exact source SHA f0ee5131....
 
-Commit `f0ee5131e495a7b9f4a903293d53d304a3ec830b` fixed the SIGCHLD handler's errno clobber:
-- Before the fix, `catch_sig_reap()` looped on `waitpid(-1, NULL, WNOHANG)` and left errno set to terminal `ECHILD`/other error.
-- SIGCHLD can interrupt an unrelated libc/system call in PID 1, so the handler must preserve the interrupted code's errno.
-- Added `pid1_signal_reap_available_children()` to `pid1_signal_policy.h`; it saves errno, retries EINTR, records returned child PIDs and restores errno.
-- `catch_sig_reap()` delegates to that helper.
-- Added an injected waitpid regression for an unrelated child, EINTR, tracked console-shell reap, terminal ECHILD and caller errno restoration.
+## Exact SHA results for f0ee5131e495a7b9f4a903293d53d304a3ec830b
 
-The host C regression passed in exact-head CI with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. No local checkout/build was run in this connector-only session.
+PASS:
+- PID1 mdev/security `45086111693`
+- PID1 notification queue `45086111684`
+- USB storage hotplug `45086111681`
+- DNS forwarder `45086111683`
+- DNSMasq lifecycle `45086111735`
+- Process lifecycle inventory `45086111753`
+- Process inventory/lifecycle umbrella `45086111764`
+- AI handoff documentation `45086111726`
+- NVRAM transaction audit `45086111754`
 
-## Exact-head Actions for `f0ee5131e495a7b9f4a903293d53d304a3ec830b`
+FAIL:
+- HTTPD security `45086111706`: its embedded source checker expected waitpid/EINTR inline in `catch_sig_reap()`, although the loop was moved into the errno-preserving helper. A first correction in commit `00cb20522874510b126cc647efc7afcb1d2952f4` updated the contract but missed YAML's embedded Python indentation; run `45086402010` failed before job creation (`total_count=0`). The present change fixes indentation. Confirm subsequent HTTPD run by matching exact head SHA.
+- XY-C1 firmware validation `45086111757`: still IN_PROGRESS at last poll; recheck actual run metadata.
 
-- PID1 mdev hotplug/security run `45086111693`: PASS.
-- PID1 notification queue `45086111684`: PASS.
-- USB storage hotplug `45086111681`: PASS.
-- DNS forwarder launch path `45086111683`: PASS.
-- DNSMasq lifecycle `45086111735`: PASS.
-- Process lifecycle inventory `45086111753`: PASS.
-- Process inventory/lifecycle umbrella `45086111764`: PASS.
-- AI handoff documentation `45086111726`: PASS.
-- HTTPD Authentication/Security `45086111706`: FAIL only because it still expected the waitpid loop inside `catch_sig_reap()`; this atomic correction moves the contract to the tested policy helper.
-- NVRAM transaction audit `45086111754` and XY-C1 Firmware Validation `45086111757`: IN_PROGRESS at last poll. Recheck exact `head_sha`; do not transfer those statuses to descendant commits.
+These results belong only to f0ee5131... and do not validate later descendants.
 
-## Prior completed fixes
+## Other completed slices
 
-- DNSMasq split-DNS checked NVRAM snapshot: source `d73ba6d2b9df959b73f0c0cf283d9694362b85c3`; full snapshot zeroing `b642c460539c93e71c6b05a7b913a964e4cdd44a`; legacy HTTPD diagnostics `4fad5ae2ac97a35d79031c3a18e828702d010109`; DNSMasq exact-head run `45085247073` on `9b1d0a045de4355f670ce0d771e22c543a92f33e`: PASS.
+- DNSMasq split-DNS checked snapshot and fail-closed publication: `d73ba6d2b9df959b73f0c0cf283d9694362b85c3`; full snapshot zero-on-copy-error `b642c460539c93e71c6b05a7b913a964e4cdd44a`; HTTPD diagnostic compatibility restoration `4fad5ae2ac97a35d79031c3a18e828702d010109`; DNSMasq lifecycle exact-head run `45085247073` on `9b1d0a045de4355f670ce0d771e22c543a92f33e` PASS.
 - Storage restore symlink guard: `3adf4cc9d94bd930b6504b0dd11cc1fa109852fd`.
-- SCUTClient credential-file work is already implemented on main; see `dev_log.md` and commits `ea5264dfbdb9470bc29971dee053503e8177b3aa`, `b30aeaf66d022f53061fd3433e98277131cbeda8`. Do not restart absent a newly proven defect.
+- SCUTClient credential-file work completed in previous commits; don't repeat absent a newly demonstrated defect.
 
 ## First next task
 
-1. Fetch live `main` and branch inventory once; confirm frozen backup remains unchanged. Match new workflow runs to the exact correction SHA.
-2. Confirm HTTPD's PID1 contract passes on the new exact SHA. Recheck NVRAM audit and XY-C1 only against their exact SHA.
-3. Continue stability/security work in actual RC PID 1. Inspect signal handling, child-state transitions, shutdown sequencing and console-shell lifecycle for a concrete failure mode; add focused injected regression coverage before behavior changes. Continue independent core-service work while runs are pending.
-4. Use complete Git trees and one atomic commit per logical task. Update `main` with `force:false` and a fresh `expected_sha`; never weaken tests merely to obtain PASS.
+1. Fetch live main and branch inventory once; verify the immutable backup still matches.
+2. Check the HTTPD and AI handoff workflows triggered by the indentation correction and match each run's exact head SHA. Check XY-C1 run `45086111757` only against its recorded source SHA.
+3. When HTTPD passes, continue a targeted RC PID1 signal/lifecycle review and add focused injected regression coverage for the next demonstrated defect. While workflows are pending, continue independent stability work.
+4. Keep commits atomic: create one complete tree, commit against the exact parent, and update `main` with `force:false` and a freshly fetched `expected_sha`.
 
 ## End-of-session accuracy checkpoint
 
-- Last source SHA: `f0ee5131e495a7b9f4a903293d53d304a3ec830b`.
-- Current correction: HTTPD's embedded PID1 source contract only; update SHA and Action status after commit.
-- Verified: injected RC PID1 waitpid/errno host regression passed on exact source SHA f0ee5131... in the PID1 mdev/security workflow.
-- Not verified: local build, current-SHA MIPS firmware, TRX validation, artifact upload, XY-C1 router boot, or physical hardware.
-- Never attribute any ancestor SHA's Action result to a descendant.
-
+- Source change under verification: `f0ee5131e495a7b9f4a903293d53d304a3ec830b`.
+- Current pending change fixes indentation in `.github/workflows/httpd-security.yml` and refreshes this handoff and log.
+- Verified host regression: PID1 injected waitpid/errno test PASS on source SHA f0ee5131....
+- Not verified: local checkout/build; MIPS firmware for current SHA; TRX; artifact upload; XY-C1 boot/physical hardware.
+- Never attribute parent-SHA Actions to a descendant commit.

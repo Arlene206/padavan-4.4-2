@@ -5504,13 +5504,13 @@ jobs:
           assert "pid1_signal_record_shutdown(&signal_state, sig);" in shutdown
           assert not any(token in shutdown for token in ("printf(", "dprintf(", "strsignal(", "shutdown_router(", "system("))
           assert "pid1_signal_reap_available_children(&signal_state, waitpid);" in reap
-reaper_policy = body(policy, "pid1_signal_reap_available_children(")
-assert "wait_child(-1, NULL, WNOHANG)" in reaper_policy
-assert "int saved_errno = errno;" in reaper_policy
-assert "errno = saved_errno;" in reaper_policy
-assert "pid1_signal_record_child_reaped(" in reaper_policy
-assert "errno == EINTR" in reaper_policy
-assert "test_pid1_signal_reaper_preserves_errno" in pid1_test
+          reaper_policy = body(policy, "pid1_signal_reap_available_children(")
+          assert "wait_child(-1, NULL, WNOHANG)" in reaper_policy
+          assert "int saved_errno = errno;" in reaper_policy
+          assert "errno = saved_errno;" in reaper_policy
+          assert "pid1_signal_record_child_reaped(" in reaper_policy
+          assert "errno == EINTR" in reaper_policy
+          assert "test_pid1_signal_reaper_preserves_errno" in pid1_test
           assert not any(token in reap for token in ("printf(", "dprintf(", "perror(", "fprintf("))
 
           assert array_items(init, "signals_fatal") == {
