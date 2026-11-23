@@ -83,6 +83,7 @@ nat_settings_body = function_body(script, "zerotier_read_nat_enabled()")
 route_count_body = script.split("zerotier_validate_static_route_count() {", 1)[1].split("\n}\n", 1)[0]
 route_preflight_body = function_body(script, "zerotier_preflight_static_routes()")
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
+network_id_body = function_body(script, "zerotier_validate_network_id()")
 creat_moon_body = script.split("creat_moon() {", 1)[1].split("\n\nzerotier_rollback_moon_remove()", 1)[0]
 moon_ip_body = function_body(script, "zerotier_moon_ipv4_is_valid()")
 moon_create_rollback_body = function_body(script, "zerotier_rollback_moon_create()")
@@ -169,9 +170,15 @@ require('if [ -L "$zt_identity_dest" ]' in identity_body and
         'nvram set zerotier_secret="$secret"' in identity_body and
         'nvram commit' in identity_body,
         "identity publication must reject symlink destinations and persist generated secrets")
+require('case "$zt_start_moon_enable" in' in start_settings_body and
+        '""|0|1) ;;' in start_settings_body and
+        'if ! zerotier_validate_network_id "$zt_start_network_id"; then' in start_settings_body and
+        'if ! zerotier_validate_network_id "$zt_network_id"; then' in add_join_body and
+        '*[!0123456789abcdefABCDEF]*' in network_id_body and
+        '[ "${#1}" -eq 16 ]' in network_id_body,
+        "startup Moon toggle and network ID values must be validated before stopping the existing daemon")
 require('[ -n "$zt_network_id" ] || return 0' in add_join_body and
-        '*[!0123456789abcdefABCDEF]*' in add_join_body and
-        '"${#zt_network_id}" -ne 16' in add_join_body and
+        'zerotier_validate_network_id "$zt_network_id"' in add_join_body and
         'touch "$zt_network_file"' in add_join_body and
         'chmod 600 "$zt_network_file"' in add_join_body and
         'if [ -L "$zt_network_file" ]' in add_join_body,
@@ -275,6 +282,10 @@ require(startup_gate_position < start_body.index('if ! zerotier_read_nat_enabled
         start_body.index("start_instance 'zerotier'"),
         "all ZeroTier startup config preflights must precede stopping the old daemon")
 for marker in ("startup settings read error was accepted",
+               "startup accepted invalid Moon-enable selector",
+               "startup accepted invalid network ID",
+               "start accepted invalid selector zerotiermoon_enable",
+               "invalid selector zerotier_id stopped the existing daemon",
                "startup settings partially published secret",
                "missing identity secret did not retain the legacy empty default"):
     require(marker in test, f"startup NVRAM read regression omits {marker}")

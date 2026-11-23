@@ -308,6 +308,68 @@ zerotier_load_start_settings || fail "valid startup settings snapshot failed"
 [ "$planet" = "encoded-planet" ] || fail "startup planet snapshot mismatch"
 [ "$zt_network_id" = "fedcba9876543210" ] || fail "startup network-ID snapshot mismatch"
 
+# Invalid selector values are not defaults: they must fail before publishing
+# any of the five settings, especially before a bad Moon flag can mean remove.
+for invalid_moon_enable in 2 enabled; do
+	moonid="sentinel-moonid"
+	secret="sentinel-secret"
+	enablemoonserv="sentinel-moon-enable"
+	planet="sentinel-planet"
+	zt_network_id="sentinel-network-id"
+	TEST_NVRAM_MOON_ENABLE_STATE="$invalid_moon_enable"
+	TEST_NVRAM_ID_STATE="fedcba9876543210"
+	if zerotier_load_start_settings; then
+		fail "startup accepted invalid Moon-enable selector $invalid_moon_enable"
+	fi
+	[ "$moonid" = "sentinel-moonid" ] || fail "invalid Moon-enable selector partially published moonid"
+	[ "$secret" = "sentinel-secret" ] || fail "invalid Moon-enable selector partially published secret"
+	[ "$enablemoonserv" = "sentinel-moon-enable" ] || fail "invalid Moon-enable selector partially published Moon flag"
+	[ "$planet" = "sentinel-planet" ] || fail "invalid Moon-enable selector partially published planet"
+	[ "$zt_network_id" = "sentinel-network-id" ] || fail "invalid Moon-enable selector partially published network ID"
+done
+
+TEST_NVRAM_MOON_ENABLE_STATE="1"
+for invalid_network_id in short 0123456789abcdeg 0123456789abcdef0; do
+	moonid="sentinel-moonid"
+	secret="sentinel-secret"
+	enablemoonserv="sentinel-moon-enable"
+	planet="sentinel-planet"
+	zt_network_id="sentinel-network-id"
+	TEST_NVRAM_ID_STATE="$invalid_network_id"
+	if zerotier_load_start_settings; then
+		fail "startup accepted invalid network ID $invalid_network_id"
+	fi
+	[ "$moonid" = "sentinel-moonid" ] || fail "invalid network ID partially published moonid"
+	[ "$secret" = "sentinel-secret" ] || fail "invalid network ID partially published secret"
+	[ "$enablemoonserv" = "sentinel-moon-enable" ] || fail "invalid network ID partially published Moon flag"
+	[ "$planet" = "sentinel-planet" ] || fail "invalid network ID partially published planet"
+	[ "$zt_network_id" = "sentinel-network-id" ] || fail "invalid network ID partially published network ID"
+done
+
+TEST_NVRAM_MOON_ENABLE_STATE="1"
+TEST_NVRAM_ID_STATE="fedcba9876543210"
+
+# Invalid but readable selectors must not stop a previously running daemon.
+for setting in zerotiermoon_enable zerotier_id; do
+	if [ "$setting" = "zerotiermoon_enable" ]; then
+		TEST_NVRAM_MOON_ENABLE_STATE=2
+	else
+		TEST_NVRAM_MOON_ENABLE_STATE=1
+		TEST_NVRAM_ID_STATE=invalid
+	fi
+	: > "$TEST_KILL_LOG"
+	: > "$TEST_ACTION_LOG"
+	echo running > "$TEST_STATE"
+	if start_zero; then
+		fail "start accepted invalid selector $setting"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid selector $setting stopped the existing daemon"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "invalid selector $setting signalled the existing daemon"
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid selector $setting changed network state"
+done
+TEST_NVRAM_MOON_ENABLE_STATE="1"
+TEST_NVRAM_ID_STATE="fedcba9876543210"
+
 # Failure at each selector must leave every consumer-visible value untouched.
 for setting in zerotier_moonid zerotier_secret zerotiermoon_enable zerotier_planet zerotier_id; do
 	moonid="sentinel-moonid"

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Validate ZeroTier selectors before daemon replacement
+
+- `zerotier_load_start_settings()` checked all five NVRAM reads but accepted arbitrary values. A corrupted Moon toggle such as `2` or `enabled` fell through to the `remove_moon()` branch, while a malformed network ID was rejected only in `add_join()` after `start_zero()` had stopped the old daemon and cleaned its network state.
+- Added a shared empty-or-16-hex network-ID validator used by startup preflight and the join-file writer. The Moon selector now accepts only the legacy empty default or explicit `0`/`1`. Both checks run before snapshot publication and before `kill_z()`; regressions cover invalid values, atomic non-publication and preservation of a running daemon.
+- Exact-head ZeroTier lifecycle, WAN route and XY-C1 validation are required. No local runtime or hardware validation is claimed.
+
+---
+
 ## 2026-11-23 UTC — Make ZeroTier route-count contract parsing shell-safe
 
 - The bounded-route shell regression passed on `aee9699d`, but the Python source-contract parser treated the apostrophe in a shell comment as the start of a character literal and failed while extracting the new helper. Reused the checker's established explicit function-boundary strategy for this shell helper, avoiding false parsing of shell comments without weakening the count assertions.

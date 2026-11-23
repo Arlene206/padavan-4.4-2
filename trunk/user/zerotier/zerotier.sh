@@ -366,6 +366,16 @@ zerotier_import_planet_file() {
 
 # Read every startup selector before allowing identity or service side effects.
 # Missing keys keep the legacy empty default; backend/read/close errors abort.
+zerotier_validate_network_id() {
+	[ "$#" -eq 1 ] || return 1
+	[ -n "$1" ] || return 0
+	case "$1" in
+		*[!0123456789abcdefABCDEF]*) return 1 ;;
+	esac
+	[ "${#1}" -eq 16 ]
+}
+
+
 zerotier_load_start_settings() {
 	if ! zt_start_moonid="$(nvram get_checked zerotier_moonid)"; then
 		logger -t "zerotier" "无法读取启动配置 zerotier_moonid"
@@ -388,7 +398,21 @@ zerotier_load_start_settings() {
 		return 1
 	fi
 
-	# Publish only after all five reads succeeded, avoiding partial settings.
+	# Reject invalid selectors before publishing the snapshot or stopping
+	# an already-running daemon. Only the UI's explicit Moon values are valid.
+	case "$zt_start_moon_enable" in
+		""|0|1) ;;
+		*)
+			logger -t "zerotier" "ZeroTier Moon启用配置无效"
+			return 1
+			;;
+	esac
+	if ! zerotier_validate_network_id "$zt_start_network_id"; then
+		logger -t "zerotier" "ZeroTier网络ID必须为空或16位十六进制"
+		return 1
+	fi
+
+	# Publish only after all five reads and selector validations succeed.
 	moonid="$zt_start_moonid"
 	secret="$zt_start_secret"
 	enablemoonserv="$zt_start_moon_enable"
@@ -477,13 +501,7 @@ start_instance() {
 add_join() {
 	zt_network_id="$1"
 	[ -n "$zt_network_id" ] || return 0
-	case "$zt_network_id" in
-		*[!0123456789abcdefABCDEF]*)
-			logger -t "zerotier" "ZeroTier网络ID必须为16位十六进制"
-			return 1
-			;;
-	esac
-	if [ "${#zt_network_id}" -ne 16 ]; then
+	if ! zerotier_validate_network_id "$zt_network_id"; then
 		logger -t "zerotier" "ZeroTier网络ID必须为16位十六进制"
 		return 1
 	fi
