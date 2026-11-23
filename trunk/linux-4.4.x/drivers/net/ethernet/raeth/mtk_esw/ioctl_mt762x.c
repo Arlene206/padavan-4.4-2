@@ -586,6 +586,40 @@ static int esw_vlan_reset_table(void)
 	return first_error;
 }
 
+#define VLAN_ENTRY_ID_MAX	(15)
+
+static u32 find_vlan_slot(vlan_entry_t *vlan_entry, u32 start_idx, u32 cvid)
+{
+	u32 i;
+
+	for (i = start_idx; i <= VLAN_ENTRY_ID_MAX; i++) {
+		if (!vlan_entry[i].valid || vlan_entry[i].cvid == cvid)
+			return i;
+	}
+	return VLAN_ENTRY_ID_MAX + 1;
+}
+
+/* Pick the first available VID without unbounded recursion. */
+static u32 find_free_min_pvid(u32 *pvid_list, u32 vid)
+{
+	u32 candidate, i;
+	int used;
+
+	for (candidate = vid; candidate <= 4094; candidate++) {
+		used = 0;
+		for (i = 0; i < SWAPI_VLAN_RULE_NUM; i++) {
+			if (pvid_list[i] == candidate) {
+				used = 1;
+				break;
+			}
+		}
+		if (!used)
+			return candidate;
+	}
+
+	return 4095;
+}
+
 static int is_vlan_rule_included(u32 wan_bridge_mode, u32 rule_id)
 {
 	u32 i;
@@ -642,6 +676,8 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	/* find minimal unused VID, when VID=2 is used */
 	if (vlan_filter_on) {
 		untg_vid = find_free_min_pvid(pvid, 2);
+		if (untg_vid > 4094)
+			return -ENOSPC;
 	}
 
 	g_vlan_pvid_wan_untagged = untg_vid;
@@ -955,6 +991,7 @@ static int esw_vlan_init_vid1(void)
 
 	esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
 
+	return 0;
 }
 
 static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
@@ -1540,7 +1577,6 @@ static int vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid)
 
 	printk("%s - create vlan %s: vid=[%d], prio=[%d], member=[0x%02X], untag=[0x%02X], fid=[%d]\n",
 			MTK_ESW_DEVNAME, (set_port_vid) ? "ports" : "entry", cvid, prio, mask_member, mask_untag, fid);
-}
 	return 0;
 }
 

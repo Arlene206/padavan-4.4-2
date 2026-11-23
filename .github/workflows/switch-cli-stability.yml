@@ -764,6 +764,16 @@ jobs:
               "static int is_vlan_rule_included", 1
           )[0]
           assert vlan_reset.index("if (status != 0)") < vlan_reset.index("clear_bit(i, g_vlan_pool)")
+          vlan_helpers = source.split("static int is_vlan_rule_included", 1)[0]
+          assert "#define VLAN_ENTRY_ID_MAX" in vlan_helpers
+          assert "static u32 find_vlan_slot(vlan_entry_t *vlan_entry" in vlan_helpers
+          assert "static u32 find_free_min_pvid(u32 *pvid_list, u32 vid)" in vlan_helpers
+          assert "candidate <= 4094" in vlan_helpers and "return 4095;" in vlan_helpers
+          assert vlan_helpers.index("static u32 find_vlan_slot") < source.index(
+              "static int esw_vlan_apply_rules"
+          )
+          assert "if (untg_vid > 4094)" in source
+
           vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
               "static int esw_vlan_init_vid1", 1
           )[0]
@@ -780,6 +790,7 @@ jobs:
           vid1_entry = vid1_init.index("status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);")
           vid1_port_setup = vid1_init.index("esw_vlan_pvid_set(")
           assert vid1_reset < vid1_entry < vid1_port_setup
+          assert "return 0;" in vid1_init[vid1_port_setup:]
           vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
               "static int esw_vlan_init_vid1", 1
           )[0]
@@ -855,6 +866,7 @@ jobs:
           vlan_error_return = vlan_create.index("return status;", vlan_error_gate)
           port_setup = vlan_create.index("esw_port_attrib_set(", vlan_error_return)
           assert vlan_table_status_at < vlan_error_gate < vlan_error_return < port_setup
+          assert vlan_create.rfind("return 0;") > port_setup
           assert "ioctl_result = esw_vlan_reset_table();" in ioctl_source
           assert "ioctl_result = vlan_create_entry(uint_param, uint_value, 1);" in ioctl_source
           assert "ioctl_result = vlan_create_entry(uint_param, uint_value, 0);" in ioctl_source
