@@ -131,11 +131,11 @@ func_process_start_time()
 		"$process_pid ("*) ;;
 		*) return 2 ;;
 	esac
-	stat_tail=\${stat_line##*) }
+	stat_tail=${stat_line##*) }
 	[ "$stat_tail" != "$stat_line" ] || return 2
 	set -- $stat_tail
 	[ "$#" -ge 20 ] || return 2
-	process_start_time=\${20}
+	process_start_time=${20}
 	case "$process_start_time" in
 		""|*[!0-9]*) return 2 ;;
 	esac
@@ -153,7 +153,7 @@ func_snapshot_processes()
 
 	for process_dir in "$proc_root"/[0-9]*; do
 		[ -d "$process_dir" ] || continue
-		process_pid=\${process_dir##*/}
+		process_pid=${process_dir##*/}
 		case "$process_pid" in
 			""|*[!0-9]*) continue ;;
 		esac
