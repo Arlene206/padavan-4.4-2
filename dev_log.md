@@ -1,3 +1,11 @@
+## 2026-11-23 — Restore MTK ESW ioctl helper definitions after XY-C1 compile failure
+
+- XY-C1 run #45249235493 on `26f2617f744227f906b9e15baad4ae52b2d8e3be` failed while compiling `ioctl_mt762x.c`: `ioctl.c` referenced missing `change_vlan_rule()` and `esw_link_status_changed_state`, producing implicit-declaration / undeclared-identifier errors. Both static helper definitions existed in known-good baseline `7391f2e6245e64941ca709784719ebfb723043dc` but were absent after the recent switch refactor.
+- Restored the VLAN rule selector validation/update helper and the link-status callback before `ioctl_mt762x.c` includes `ioctl.c`. Added workflow source-contract assertions for selector bounds, desired-rule update, callback side effects and both actual call sites. Retained the status-returning VLAN table and ioctl changes.
+- This is the source fix for the real compile failure; it requires exact-head Switch CLI plus XY-C1 Build/TRX/artifact reruns. No local kernel toolchain or hardware test is claimed.
+
+---
+
 ## 2026-11-23 — Match VPN restore helper call signature in integration contract
 
 - Exact VPN lifecycle run #45249835903 still failed at the integration checker: its newly updated expectation searched for `vpn_client_restore_shared_xl2tpd_locked()`, but the function intentionally accepts a phase string and the call is `vpn_client_restore_shared_xl2tpd_locked("after ...")`. Changed the contract to match the call prefix while preserving order relative to the restart sequence.

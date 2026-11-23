@@ -717,6 +717,26 @@ jobs:
           assert "g_vlan_rule[" not in vlan_apply
           assert "g_vlan_rule[i] = g_vlan_rule_user[i];" not in source
 
+
+          vlan_rule_update = source.split("static int change_vlan_rule(", 1)[1].split(
+              "static void esw_link_status_changed_state(", 1
+          )[0]
+          assert "vlan_rule_id > SWAPI_VLAN_RULE_WAN_LAN4" in vlan_rule_update
+          assert "(vlan_rule & 0xFFFF) > 4094" in vlan_rule_update
+          assert "((vlan_rule >> 16) & 0xFF) > 7" in vlan_rule_update
+          assert "g_vlan_rule_user[vlan_rule_id] = vlan_rule;" in vlan_rule_update
+          assert "return -EINVAL;" in vlan_rule_update and "return 0;" in vlan_rule_update
+          link_callback = source.split("static void esw_link_status_changed_state(", 1)[1].split(
+              "int esw_ioctl_init_post(void)", 1
+          )[0]
+          assert "atomic_set(&g_port_link_changed, 1);" in link_callback
+          assert "get_ports_mask_wan(0, 1)" in link_callback
+          assert "get_port_desc(port_id)" in link_callback
+          assert "ioctl_result = change_vlan_rule(uint_param, uint_value);" in ioctl_source
+          assert "esw_link_status_hook = esw_link_status_changed_state;" in ioctl_source
+          assert source.index("static int change_vlan_rule(") < source.index('#include "ioctl.c"')
+          assert source.index("static void esw_link_status_changed_state(") < source.index('#include "ioctl.c"')
+
           vlan_table_write = policy.split("mtk_esw_vlan_table_write(", 1)[1].split(
               "/*", 1
           )[0]

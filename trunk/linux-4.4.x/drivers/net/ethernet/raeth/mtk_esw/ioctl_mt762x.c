@@ -1812,6 +1812,39 @@ static int change_led_mode(u32 led_mode)
 	return 0;
 }
 
+static int change_vlan_rule(u32 vlan_rule_id, u32 vlan_rule)
+{
+	if (vlan_rule_id > SWAPI_VLAN_RULE_WAN_LAN4)
+		return -EINVAL;
+
+	if ((vlan_rule & 0xFFFF) > 4094)
+		return -EINVAL;
+
+	if (((vlan_rule >> 16) & 0xFF) > 7)
+		return -EINVAL;
+
+	g_vlan_rule_user[vlan_rule_id] = vlan_rule;
+	return 0;
+}
+
+static void esw_link_status_changed_state(u32 port_id, int port_link)
+{
+	const char *port_state;
+	u32 wan_ports_mask;
+
+	if (port_id <= ESW_EPHY_ID_MAX)
+		atomic_set(&g_port_link_changed, 1);
+
+	/* only printk wan link change */
+	wan_ports_mask = get_ports_mask_wan(0, 1);
+	if (!(wan_ports_mask & (1u << port_id)))
+		return;
+
+	port_state = (port_link) ? "Up" : "Down";
+	printk("%s: Link Status Changed - Port %s Link %s\n",
+	       MTK_ESW_DEVNAME, get_port_desc(port_id), port_state);
+}
+
 int esw_ioctl_init_post(void)
 {
 	/* configure bridge isolation mode via forwards mask */
