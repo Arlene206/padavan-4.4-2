@@ -258,7 +258,7 @@ function BuildTree(){
 			TempObject += 
 		'<div id="b'+ItemBarCode+'" class="FdText">\n'+
 			'<img id="c'+ItemBarCode+'" onclick=\'$("d'+ItemBarCode+'").onclick();\' src="/bootstrap/img/wl_device/'+ItemIcon+'.gif" align=top>\n'+
-			'<span id="d'+ItemBarCode+'"'+SubClick+' title="'+ItemText+'">'+shown_ItemText+'</span>\n'+
+			'<span id="d'+ItemBarCode+'"'+SubClick+' title="'+escapeFolderTreeHtml(ItemText)+'">'+shown_ItemText+'</span>\n'+
 		'</div>\n';			
 			TempObject += 
 		'<div id="e'+ItemBarCode+'" class="FdTemp"></div>\n';
