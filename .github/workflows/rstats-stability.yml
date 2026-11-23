@@ -179,6 +179,20 @@ jobs:
           assert "rstats_file_open_stream(RSTATS_JS_HISTORY, fn_tmp, sizeof(fn_tmp))" in history_export
           assert "rstats_file_publish_stream(fp, fn_tmp, RSTATS_JS_HISTORY)" in history_export
           assert "failed to publish speed history" in speed_export
+          assert "nvram_get_checked(RSTATS_NVKEY_24, &nvram_netdev)" in speed_export
+          assert "rstats_nvram_read_status(" in speed_export
+          assert "nvram_safe_get(RSTATS_NVKEY_24)" not in speed_export
+          assert "netdev_length >= sizeof(netdev_text)" in speed_export
+          assert "memcpy(netdev_text, nvram_netdev, netdev_length + 1U)" in speed_export
+          fallback_persist_gate = speed_export.index("if (netdev_read_status == 0) {")
+          fallback_write = speed_export.index("nvram_set(RSTATS_NVKEY_24, netdev)")
+          assert fallback_persist_gate < fallback_write
+          assert "rstats_nvram_write_status(" in speed_export
+          assert "cannot trust selected speed interface" in speed_export
+          assert "cannot persist fallback speed interface" in speed_export
+          assert "test_nvram_selector_status_results" in test
+          assert "rstats_nvram_read_status(-1, EACCES)" in test
+          assert "rstats_nvram_write_status(-1, ENOSPC)" in test
           assert "failed to publish history view" in history_export
 
           for token in ("RSTATS_FILE_MAX_INTERRUPTS", "rstats_file_retry_interrupted",

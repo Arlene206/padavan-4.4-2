@@ -2,31 +2,29 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Production Samba credential snapshot commit: `007ba84e20c3d1e162e0f0e82c3ccbbd302530c2`. Samba share regression #45204745566 PASS; AI docs #45204745808 PASS; Process inventory #45204745939 PASS; Process fail-closed #45204745603 PASS. NVRAM boundary #45204745901 and XY-C1 #45204745847 were still in progress at last poll; Build was in progress, TRX/upload pending.
-- HTTPD security CI on `007ba84` failed twice on obsolete source contracts after the production API changed to checked transaction getters. The checker-only descendant `21cfc6016f24641365f5097e473b884af01ec3a8` corrected one contract; exact HTTPD #45205094119 then passed the Samba share/ACL policy step but failed the separate Unix-account step, which still expected the old standalone router-username getter. This commit updates that second assertion as well.
-- HTTPD #45205094119's preceding policy/test stages passed, including GNU89 compilation and execution of `samba_passdb_policy.c`; the failure was the stale Python source matcher, not the C regression test.
-- No local MIPS/uClibc firmware build or hardware L4 validation is claimed. Bootstrap recovery already occurred; do not repeat.
+- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before this RStats source slice: `60ccb0e47651e27ab0409c8fab1805116c7e2fae`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, switch to, merge, or delete it.
+- Current main includes the logger-read gate, module-refcount UNKNOWN-state gate, and transactional Samba credential snapshot. The HTTPD checker failed on head `21cfc6016f24641365f5097e473b884af01ec3a8` at its Samba/Unix account identity source assertion; the corrected exact-head HTTPD run #45205484936 on `60ccb0e47651e27ab0409c8fab1805116c7e2fae` PASS. AI handoff #45205484979 on the same head PASS. Do not repeat those completed checks without new source changes.
+- Samba share #45204745566, Process inventory #45204745939 and Process fail-closed #45204745603 PASS on production SHA `007ba84e20c3d1e162e0f0e82c3ccbbd302530c2`. NVRAM boundary #45204745901 and XY-C1 #45204745847 were still in progress at the last observation; their results do not validate later source commits.
+- Bootstrap recovery was completed once. No persistent local checkout or full MIPS/uClibc firmware build environment is available.
 
 ## Active task
 
-- `run_samba()` now snapshots `acc_num`, router username, account usernames and passwords under one NVRAM transaction; values are copied before subsequent reads. Transaction end and any read/close errors must be handled before process inventory, cleanup, passdb staging or configuration publication.
-- The Samba-specific workflow passed the transactional code and tests. HTTPD security has two adjacent source-contract blocks; both are now being aligned with the same coherent snapshot invariant rather than the old separate-getter implementation.
-- Exact-SHA HTTPD/AI/Process/NVRAM/XY-C1 validation for the latest checker-only descendant must be checked. L3 only from Build+TRX+artifact upload on one production SHA.
+- Confirmed RStats selector reliability defect in `trunk/user/rc/src/rstats.c::save_speed_json()`: lossy `nvram_safe_get(RSTATS_NVKEY_24)` collapsed a read/close failure into an empty selector, after which the first live interface was written back to NVRAM. A transient backend read failure could overwrite the user's configured selector. The subsequent `nvram_set()` result was also discarded.
+- THIS COMMIT replaces the value-only read with `nvram_get_checked()`, copies the cache-backed selector into a bounded interface buffer, and distinguishes missing, present, invalid and UNKNOWN results. The chart can use a temporary first-live-interface fallback, but UNKNOWN/overlong reads never trigger a write. Known missing/empty/stale selectors use a checked fallback write; failures are logged while export remains available.
+- Added policy unit coverage and strengthened the existing RStats workflow source contract. Local GNU89/ASan/UBSan status-policy test PASS. Exact-head RStats, Process inventory and AI docs are pending; XY-C1 must pass Build, TRX verification and artifact upload on the same production SHA before L3. No hardware L4 claim.
 
 ## Exact first actions for next GPT
 
-1. Poll latest HTTPD security and AI handoff on this commit; require both Samba trust-boundary assertions to pass.
-2. Poll NVRAM boundary, Process and XY-C1 on production commit `007ba84`; record final Build, TRX and artifact status separately from checker-only descendants.
-3. Continue a new P1/P2 stability issue after gates pass; keep main-only CAS writes and preserve the frozen backup.
+1. Poll exact-push RStats stability, Process inventory, AI handoff and XY-C1 runs for the current `main` SHA. Read failed job logs and repair real regressions without weakening assertions.
+2. Require XY-C1 Build + TRX + artifact upload PASS on that same product-source SHA before changing the RStats roadmap row to L3 verified. If pending, continue independent work rather than waiting.
+3. Continue the next independent P1/P2 userland stability/security candidate after the RStats exact-head host checks; do not reopen the finished logger, module-refcount, Samba or NFS slices.
 
 ## Relevant exact-SHA CI facts
 
-- Product-source `ad56220d066e771be499426708b6c2f744937467`: WAN DHCP callback #45161165802 PASS. Its first Firewall Startup run #45161165818 failed at a stale inline test-name assertion after earlier checked-NVRAM/lifecycle/startup/enable/static-route stages passed; corrected checker-only descendant db60 has Firewall Startup #45161387113 PASS and AI docs #45161387099 PASS. XY-C1 #45161165974 was IN_PROGRESS at Build XY-C1; TRX and artifact pending.
-- LAN networkmap-retry source `edeb1e8354a97b312d8f3f5dd8787af030abfc6d`: WAN DHCP callback #45160239807 PASS on descendant cbec; XY-C1 #45160010405 PASS on exact edeb for Build, TRX verification and artifact upload. Artifact ID 14811585463, name `XY-C1-firmware-edeb1e8354a97b312d8f3f5dd8787af030abfc6d`, 12,759,150 bytes. This is L3 for product source through edeb, not for later product source ad562.
-- WAN ARP source-MAC parser regression #45159476012 PASS on c98; edeb is a later product-source descendant and has the above same-SHA XY-C1 pass.
-- Wireless source-contract regression #45158308492 PASS on af80. XY-C1 #45156939135 PASS on product SHA `0e4976cfbe86c81f5172ce2256ed71801952682d` for Build/TRX/artifact; later product-source XY #45160010405 on edeb includes that wireless implementation.
-- Exact XY-C1 #45160240051 on cbec was host-only: Build/TRX/artifact were skipped, so it is not L3 evidence. Do not reuse it.
+- This RStats source/test/contract commit includes a new exact-SHA host test and documentation contract. All new RStats/Process/AI/XY runs are PENDING at commit creation.
+- The earlier RStats atomic persistence/time implementation was L3 verified only on `3523bb9f27ba33065731abcd946ae11726d04470`; that target build does not cover this new selector fix.
+
 
 ## Completed source slices to preserve
 

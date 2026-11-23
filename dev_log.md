@@ -1,3 +1,12 @@
+## 2026-11-23 23:30 Beijing — Preserve the RStats interface selector on NVRAM read failure
+
+- `save_speed_json()` previously used `nvram_safe_get()` and then persisted its first-active-interface fallback. A failed NVRAM read/close was indistinguishable from a missing selector, so a transient backend error could replace the user's configured interface. The fallback `nvram_set()` result was also ignored.
+- This slice uses `nvram_get_checked()`, preserves the 0=missing / 1=present / negative=error contract, copies the cache-backed value into a bounded interface buffer, and refuses to persist any fallback when the selector is unknown or overlong. The chart export may still use a temporary live-interface fallback; a known missing/empty/stale selector is normalized only through a checked write whose failure is logged without stopping the exporter.
+- Added GNU89 policy cases for missing/present/error/invalid read results and success/errno-less/error-code writes. The RStats workflow source contract now requires checked read, bounded copy, no lossy accessor and the write-status gate. Local GNU89/ASan/UBSan selector-policy test PASS; exact-head RStats, Process inventory, AI docs and XY-C1 Build/TRX/artifact are PENDING on the resulting SHA. No L3/L4 claim.
+- Base main SHA: `60ccb0e47651e27ab0409c8fab1805116c7e2fae`. Source/test/contract/docs are included atomically in THIS COMMIT.
+
+---
+
 ## 2026-11-23 UTC — Correct second HTTPD Samba identity contract for the snapshot API
 
 - The next exact-head HTTPD rerun passed the Samba share/ACL policy stage but exposed a second source contract in the Unix-account identity stage that still expected the old independent `storage_read_string_status("http_username",...)` call.

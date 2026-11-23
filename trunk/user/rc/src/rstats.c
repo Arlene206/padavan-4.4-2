@@ -308,15 +308,45 @@ static void save_speed_json(long next_time)
 	int i, j, k, p, tail;
 	uint64_t total;
 	uint32_t tnow, tmax;
-	char ch, *netdev, *netdev_1st;
+	char ch, *netdev, *netdev_1st, *nvram_netdev = NULL;
+	char netdev_text[sizeof(((speed_item_t *)0)->ifdesc)];
 	char fn_tmp[PATH_MAX];
+	size_t netdev_length;
+	int netdev_read_result, netdev_read_errno, netdev_read_status;
+	int netdev_write_result, netdev_write_errno, netdev_write_status;
 
 	if (next_time < 1)
 		next_time = 1;
 	else if (next_time > RSTATS_INTERVAL)
 		next_time = RSTATS_INTERVAL;
 
-	netdev = nvram_safe_get(RSTATS_NVKEY_24);
+	/* A value-only read turns an NVRAM backend error into an empty selector.
+	 * Do not persist a fallback unless the selector read is trustworthy: a
+	 * transient read failure must never overwrite the user's interface choice. */
+	errno = 0;
+	netdev_read_result = nvram_get_checked(RSTATS_NVKEY_24, &nvram_netdev);
+	netdev_read_errno = errno;
+	netdev_read_status = rstats_nvram_read_status(
+		netdev_read_result, netdev_read_errno);
+	netdev_text[0] = '\0';
+	if (netdev_read_status == 0 && netdev_read_result == 1) {
+		if (!nvram_netdev) {
+			netdev_read_status = EIO;
+		} else {
+			netdev_length = strlen(nvram_netdev);
+			if (netdev_length >= sizeof(netdev_text))
+				netdev_read_status = ENAMETOOLONG;
+			else
+				memcpy(netdev_text, nvram_netdev, netdev_length + 1U);
+		}
+	}
+	if (netdev_read_status != 0) {
+		netdev_text[0] = '\0';
+		logmessage("rstats",
+			   "cannot trust selected speed interface; using a temporary fallback without changing NVRAM (errno=%d)",
+			   netdev_read_status);
+	}
+	netdev = netdev_text;
 	netdev_1st = "";
 
 	sp = NULL;
@@ -330,7 +360,17 @@ static void save_speed_json(long next_time)
 
 	if (!sp) {
 		netdev = netdev_1st;
-		nvram_set(RSTATS_NVKEY_24, netdev);
+		if (netdev_read_status == 0) {
+			errno = 0;
+			netdev_write_result = nvram_set(RSTATS_NVKEY_24, netdev);
+			netdev_write_errno = errno;
+			netdev_write_status = rstats_nvram_write_status(
+				netdev_write_result, netdev_write_errno);
+			if (netdev_write_status != 0)
+				logmessage("rstats",
+					   "cannot persist fallback speed interface '%s' (errno=%d); export continues",
+					   netdev, netdev_write_status);
+		}
 	}
 
 	tail = g_speed_list.tail;

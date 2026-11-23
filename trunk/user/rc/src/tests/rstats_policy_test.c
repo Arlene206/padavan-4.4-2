@@ -365,6 +365,21 @@ static void test_atomic_write_and_fsync_retries(const char *target) {
 }
 
 static void
+test_nvram_selector_status_results(void)
+{
+  assert(rstats_nvram_read_status(0, 0) == 0); /* absent keeps legacy default */
+  assert(rstats_nvram_read_status(1, 0) == 0); /* present selector */
+  assert(rstats_nvram_read_status(-1, EACCES) == EACCES);
+  assert(rstats_nvram_read_status(-1, 0) == EIO);
+  assert(rstats_nvram_read_status(2, 0) == EIO);
+
+  assert(rstats_nvram_write_status(0, 0) == 0);
+  assert(rstats_nvram_write_status(-1, ENOSPC) == ENOSPC);
+  assert(rstats_nvram_write_status(-1, 0) == EIO);
+  assert(rstats_nvram_write_status(EACCES, 0) == EACCES);
+}
+
+static void
 test_periodic_storage_save_retries_after_failure(void)
 {
   long elapsed = 3600;
@@ -440,6 +455,7 @@ int main(void) {
   expect(target, "json-new"); assert(access(stage, F_OK) < 0 && errno == ENOENT);
 
   test_atomic_write_and_fsync_retries(target);
+  test_nvram_selector_status_results();
   test_periodic_storage_save_retries_after_failure();
 
   /* Signal handlers only accumulate coalesced bits for normal-context work. */
