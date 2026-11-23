@@ -178,7 +178,7 @@ test_oversized_values_fail_closed(void)
 
 	memset(&fake, 0, sizeof(fake));
 	fake.mr_enable = "1";
-	fake.mr_altnet = "239.1.1.1/32-and-extra-data-that-overflows-the-buffer";
+	fake.mr_altnet = "239.1.1.1/32-and-extra-data-that-overflows-the-buffer-and-is-definitely-longer-than-sixty-four-bytes";
 	assert(take_snapshot(&fake, &settings) == ENAMETOOLONG);
 	assert(settings.altnet[0] == '\0' && settings.enabled == 0);
 }
