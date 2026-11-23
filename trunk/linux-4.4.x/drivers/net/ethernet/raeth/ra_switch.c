@@ -1616,82 +1616,159 @@ u8 all_ge_ana_cal_wait(unsigned int delay, u8 port_num) /* for EN7512 */
 }
 void ge_cal_rext(u8 phyaddr, unsigned int delay)
 {
-	u8	rg_zcal_ctrl, all_ana_cal_status;
-	u16	ad_cal_comp_out_init;
-	u16	dev1e_e0_ana_cal_r5;
-	int	calibration_polarity;
-	u8	cnt = 0;
-	u16	dev1e_17a_tmp, dev1e_e0_tmp;
+	u8 rg_zcal_ctrl, all_ana_cal_status;
+	u8 ready = 0;
+	u32 ad_cal_comp_out_init;
+	u32 dev1e_e0_ana_cal_r5 = 0;
+	u32 dev1e_17a_tmp, dev1e_e0_tmp;
+	int calibration_polarity;
+	u8 cnt = 0;
+	int status = 0;
+	int cleanup_status;
+	int snapshot_valid = 0;
+	int keep_calibrated = 0;
+	unsigned int restore_value;
 
-	/* *** Iext/Rext Cal start ************ */
-	all_ana_cal_status = ANACAL_INIT;
 	/* analog calibration enable, Rext calibration enable */
 	/* 1e_db[12]:rg_cal_ckinv, [8]:rg_ana_calen, [4]:rg_rext_calen, [0]:rg_zcalen_a */
 	/* 1e_dc[0]:rg_txvos_calen */
 	/* 1e_e1[4]:rg_cal_refsel(0:1.2V) */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00db, 0x1110);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dc, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00e1, 0x0000);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00db, 0x1110);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00dc, 0x0000);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00e1, 0x0000);
+	if (status != 0)
+		goto cleanup;
 
-	rg_zcal_ctrl = 0x20;/* start with 0 dB */
-	dev1e_e0_ana_cal_r5 = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x00e0);
-	/* 1e_e0[5:0]:rg_zcal_ctrl */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00e0, (rg_zcal_ctrl));
-	all_ana_cal_status = all_ge_ana_cal_wait(delay, phyaddr);/* delay 20 usec */
-	if (all_ana_cal_status == 0) {
+	/* Save the Rext control immediately before the first write to it. */
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x00e0,
+					     &dev1e_e0_ana_cal_r5);
+	if (status != 0)
+		goto cleanup;
+	snapshot_valid = 1;
+
+	rg_zcal_ctrl = 0x20; /* start with 0 dB */
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00e0,
+					       rg_zcal_ctrl);
+	if (status != 0)
+		goto cleanup;
+	status = all_ge_ana_cal_wait_checked(delay, phyaddr, &ready);
+	if (status != 0)
+		goto cleanup;
+	if (!ready) {
 		all_ana_cal_status = ANACAL_ERROR;
 		pr_info(" GE Rext AnaCal ERROR!   \r\n");
+		goto cleanup;
 	}
+	all_ana_cal_status = ANACAL_INIT;
+
 	/* 1e_17a[8]:ad_cal_comp_out */
-	ad_cal_comp_out_init = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x017a) >> 8) & 0x1;
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x017a,
+					     &ad_cal_comp_out_init);
+	if (status != 0)
+		goto cleanup;
+	ad_cal_comp_out_init = (ad_cal_comp_out_init >> 8) & 0x1;
 	if (ad_cal_comp_out_init == 1)
 		calibration_polarity = -1;
-	else /* ad_cal_comp_out_init == 0 */
+	else
 		calibration_polarity = 1;
 
 	cnt = 0;
 	while (all_ana_cal_status < ANACAL_ERROR) {
 		cnt++;
 		rg_zcal_ctrl += calibration_polarity;
-		tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00e0, (rg_zcal_ctrl));
-		all_ana_cal_status = all_ge_ana_cal_wait(delay, phyaddr); /* delay 20 usec */
-		dev1e_17a_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x017a);
-		if (all_ana_cal_status == 0) {
+		status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00e0,
+						       rg_zcal_ctrl);
+		if (status != 0)
+			goto cleanup;
+		status = all_ge_ana_cal_wait_checked(delay, phyaddr, &ready);
+		if (status != 0)
+			goto cleanup;
+		if (!ready) {
 			all_ana_cal_status = ANACAL_ERROR;
 			pr_info("  GE Rext AnaCal ERROR!   \r\n");
-		} else if (((dev1e_17a_tmp >> 8) & 0x1) != ad_cal_comp_out_init) {
+			break;
+		}
+		status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x017a,
+						     &dev1e_17a_tmp);
+		if (status != 0)
+			goto cleanup;
+		if (((dev1e_17a_tmp >> 8) & 0x1) != ad_cal_comp_out_init) {
 			all_ana_cal_status = ANACAL_FINISH;
-			pr_info("  GE Rext AnaCal Done! (%d)(0x%x)  \r\n", cnt, rg_zcal_ctrl);
+			pr_info("  GE Rext AnaCal Done! (%d)(0x%x)  \r\n",
+				cnt, rg_zcal_ctrl);
 		} else {
-			dev1e_17a_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x017a);
-			dev1e_e0_tmp =	tc_phy_read_dev_reg(phyaddr, 0x1e, 0xe0);
+			status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e,
+							     0x017a,
+							     &dev1e_17a_tmp);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e,
+							     0x00e0,
+							     &dev1e_e0_tmp);
+			if (status != 0)
+				goto cleanup;
 			if ((rg_zcal_ctrl == 0x3F) || (rg_zcal_ctrl == 0x00)) {
-				all_ana_cal_status = ANACAL_SATURATION;  /* need to FT(IC fail?) */
+				all_ana_cal_status = ANACAL_SATURATION;
 				pr_info(" GE Rext AnaCal Saturation!  \r\n");
-				rg_zcal_ctrl = 0x20;  /* 0 dB */
+				rg_zcal_ctrl = 0x20; /* 0 dB */
 			} else {
 				pr_info(" GE Rxet cal (%d)(%d)(%d)(0x%x)  \r\n",
 					cnt, ad_cal_comp_out_init,
-				((dev1e_17a_tmp >> 8) & 0x1), dev1e_e0_tmp);
+					((dev1e_17a_tmp >> 8) & 0x1),
+					dev1e_e0_tmp);
 			}
 		}
 	}
 
-	if (all_ana_cal_status == ANACAL_ERROR) {
-		rg_zcal_ctrl = 0x20;  /* 0 dB */
-		tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00e0, (dev1e_e0_ana_cal_r5 | rg_zcal_ctrl));
-	} else {
-		tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00e0, (dev1e_e0_ana_cal_r5 | rg_zcal_ctrl));
-		tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00e0, ((rg_zcal_ctrl << 8) | rg_zcal_ctrl));
-		/* ****  1f_115[2:0] = rg_zcal_ctrl[5:3]  // Mog review */
-		tc_phy_write_dev_reg(phyaddr, 0x1f, 0x0115, ((rg_zcal_ctrl & 0x3f) >> 3));
-		pr_info("  GE Rext AnaCal Done! (%d)(0x%x)  \r\n", cnt, rg_zcal_ctrl);
+	if (all_ana_cal_status != ANACAL_ERROR) {
+		status = tc_phy_write_dev_reg_checked(
+			phyaddr, 0x1e, 0x00e0,
+			dev1e_e0_ana_cal_r5 | rg_zcal_ctrl);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_write_dev_reg_checked(
+			phyaddr, 0x1e, 0x00e0,
+			(rg_zcal_ctrl << 8) | rg_zcal_ctrl);
+		if (status != 0)
+			goto cleanup;
+		/* **** 1f_115[2:0] = rg_zcal_ctrl[5:3] // Mog review */
+		status = tc_phy_write_dev_reg_checked(
+			phyaddr, 0x1f, 0x0115,
+			((rg_zcal_ctrl & 0x3f) >> 3));
+		if (status != 0)
+			goto cleanup;
+		keep_calibrated = 1;
+	}
+
+cleanup:
+	/*
+	 * On a failed or timed-out calibration, restore the saved Rext control
+	 * to the existing 0 dB fallback. A completed calibration keeps its
+	 * result. In either case, always attempt to disable the engine.
+	 */
+	restore_value = dev1e_e0_ana_cal_r5 | 0x20U;
+	cleanup_status = ra_switch_mdio_restore_cl45_and_disable(
+		phyaddr, 0x1eU, 0x00e0U, restore_value,
+		snapshot_valid && !keep_calibrated,
+		0x1eU, 0x00dbU,
+		ra_switch_mdio_write_cl45_cb, NULL);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	if (status != 0) {
+		pr_err_ratelimited("%s: GE Rext calibration transaction failed (port=%u status=%d cleanup=%d)\n",
+				   __func__, phyaddr, status, cleanup_status);
+		return;
+	}
+	if (keep_calibrated) {
+		pr_info("  GE Rext AnaCal Done! (%d)(0x%x)  \r\n",
+			cnt, rg_zcal_ctrl);
 		ge_cal_flag = 1;
 	}
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00db, 0x0000);
-	/* *** Iext/Rext Cal end *** */
 }
-
 void ge_cal_r50(u8 phyaddr, unsigned int delay)
 {
 	u8	rg_zcal_ctrl, all_ana_cal_status, i;

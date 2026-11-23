@@ -1,3 +1,12 @@
+## 2026-11-23 — Make GE Rext calibration fail closed on MDIO errors
+
+- Base main SHA: `2dfd89151b59774bad5598636fde26a98ba2b48b`; product changes are limited to `ge_cal_rext()` plus shared RAETH policy and regression coverage.
+- Replaced legacy value-only Clause 45 reads/writes throughout Rext calibration with checked operations. Snapshot, setup, bounded wait, comparator reads and result writes now abort on transport failure rather than consuming fabricated zero values or publishing a false calibration success.
+- Added a cleanup policy that restores the saved Rext control to the existing 0 dB fallback when calibration did not complete, then always attempts to clear the calibration-enable register. The first MDIO error is preserved while disable is still attempted.
+- Added GNU89 fault-injection coverage for restore+disable success, restore failure with disable still attempted, absent snapshot, disable failure and invalid callback; added Switch CLI source-contract coverage.
+- Base SHA `2dfd891` had Switch CLI #45274289879 and AI docs #45274290063 PASS; NVRAM #45274289994 and XY-C1 #45274289973 were pending. This slice requires its own exact-head CI; no local MIPS build, XY-C1 L3 or hardware L4 is claimed.
+
+---
 ## 2026-11-23 — Propagate MDIO errors through FE calibration waits
 
 - Base main SHA: `bff3d15326e573f5210ac2a121e21c7485744ece`; its preceding documentation child restored the full chronological development log. The analog cleanup RMW source parent is `51f29580ebfb44d9ecbcbd4ec6bf8a55ff6e77c7`.

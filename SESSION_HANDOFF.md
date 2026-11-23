@@ -1,11 +1,12 @@
-### 2026-11-23 接力更新（最新快照）
+### 2026-11-23 接力更新（最新工程检查点）
 
-- 文档 child `bff3d15326e573f5210ac2a121e21c7485744ece` 已恢复完整 dev_log 历史。其前一源码 SHA `51f2958` 的 Switch CLI #45273676193 PASS；AI docs #45273675795 因当时日志只剩一个条目而 FAIL，修复后 child 的 AI docs #45273887255 正在执行。XY-C1 #45273675906 仍在 Build，NVRAM #45273675699 仍执行中（上次检查）。
-- 本轮新增 FE analog wait status 路径：TX-amp 保留“触发前只清 FE_CAL_COMMON local page4/reg23”的历史行为；普通 FE wait 预清 common+selected port。两者复用 checked page7/reg24 GE trigger/poll 事务，并且无论错误或成功都尝试清理 common 和 selected-port local page4/reg23。
-- 旧 u8 ABI 不变；MDIO transport/cleanup error 返回既有 `ANACAL_ERROR`；普通 not-ready timeout 仍返回 0。新增 paired-cleanup policy regression，证明两次 cleanup 都会尝试且保留首个错误；Switch CLI source contract 检查生产路径。
-- 本次源码 commit exact-SHA Actions 待检查。无 MIPS build、无 same-SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持冻结。
-- 下个 GPT 第一项：检查本次 FE wait change 的 Switch CLI/AI docs/XY-C1/NVRAM；再继续逐条迁移 GE/FE calibration RMW/save-restore。
+- 当前 main 工程源基线：`2dfd89151b59774bad5598636fde26a98ba2b48b`（FE analog wait 已改为 checked MDIO，并保留 TX-amp 与普通 FE wait 的历史触发差异及双路径 cleanup）。
+- 当前安全切片：`ge_cal_rext()` 的全部 Clause 45 读写改为 status-bearing API；snapshot、setup、wait、比较寄存器读和结果写任一失败都停止校准并禁止发布成功标记。
+- 失败/超时会在 snapshot 有效时恢复原有 0 dB fallback；不论恢复是否成功，都会继续尝试清 `1e:db` 禁用校准引擎。成功结果仅在输出提交和 disable 均成功后设置 `ge_cal_flag`。
+- 回归覆盖 cleanup 顺序、restore 错误后仍执行 disable、无 snapshot、disable 错误、正错误码归一化及 invalid callback；Switch CLI workflow 增加 GE Rext 源码契约和 GNU89/Werror/ASan/UBSan policy regression。
+- 基线 `2dfd891` 的 Switch CLI #45274289879、AI docs #45274290063 PASS；NVRAM #45274289994 与 XY-C1 #45274289973 当时仍在执行。本切片 exact-head Actions 待提交后检查。无 MIPS/kernel build、无同 SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
+- 下个 GPT 第一项：检查本次 SHA 的 Switch CLI / AI docs / NVRAM / XY-C1 exact-head push runs；随后单独审查 `ge_cal_r50()` 的四 pair 状态及 shared page-7/reg24 RMW。不得把 host tests 代替 L3，也不得声称未做的硬件 L4。
 
 ---
 # Cross-session execution mandate
@@ -27,15 +28,12 @@
 
 ## Active task
 
-### FE/GE analog calibration wait and cleanup
+### GE Rext analog calibration checked I/O and cleanup
 
-- GE page-7/register-24 trigger handshake is status-bearing and attempts trigger clear on all exits.
-- FE TX-amp and normal FE waits share the checked handshake but preserve their different local page-4/register-23 pre-trigger resets.
-- Both FE wait variants always attempt common and selected-port local register cleanup; transport/cleanup errors map to existing `ANACAL_ERROR` without changing exported `u8` signatures.
-- `clear_ckinv_ana_txvos()` uses checked RMW and still attempts its final zero write.
-- **Next:** check exact-head Actions for this FE slice, then migrate one other calibration RMW or save/restore sequence.
-
-
+- Every Clause 45 operation in `ge_cal_rext()` uses the status-bearing helpers. A failed snapshot, setup write, wait, comparator read or result write cannot continue with fabricated values.
+- On timeout/error, the valid saved `1e:e0` snapshot is restored using the legacy 0 dB fallback, then `1e:db` is always cleared. Successful output is retained only after all result writes and disable succeed.
+- Fault-injection policy test and source-contract step are integrated into Switch CLI stability workflow.
+- Next separate candidate: audit `ge_cal_r50()` shared page-7/register-24 transaction and per-pair outputs, then migrate one bounded section without changing legacy ABI.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -44,15 +42,15 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- `51f2958`: Switch CLI #45273676193 PASS; AI docs #45273675795 failed on the truncated one-entry log archive, repaired by docs child `bff3d15` (AI validation #45273887255 in progress at last poll). XY-C1 #45273675906 and NVRAM #45273675699 also in progress at last poll.
-- Current FE-wait source slice is new; exact-SHA Switch CLI/AI docs/NVRAM/XY-C1 remain to be checked.
-- No same-SHA XY-C1 Build+TRX+artifact PASS or physical hardware L4 is claimed.
+- Baseline source SHA `2dfd891`: Switch CLI #45274289879 PASS and AI docs #45274290063 PASS; NVRAM #45274289994 and XY-C1 #45274289973 were pending at last inspection.
+- Current GE Rext source/test/workflow changes are new; only exact-head Actions can validate them.
+- No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact pass or physical hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the FE-wait commit's exact-SHA Switch CLI, AI docs, NVRAM and XY-C1 jobs/logs.
-2. Verify Build, TRX and artifact upload all pass on the same source SHA before claiming firmware L3; skipped stages remain host-only.
-3. Continue one bounded GE/FE calibration RMW or save/restore transaction; preserve legacy ABI and all cleanup attempts.
+1. Fetch live `main`; inspect this new source SHA's exact push Actions for Switch CLI, AI docs, NVRAM and XY-C1, including Build/TRX/artifact job conclusions.
+2. Diagnose any exact-head FAIL from job logs. If XY-C1 Build/TRX/upload are skipped or incomplete, report host-only validation, not L3.
+3. Continue with `ge_cal_r50()` as a distinct bounded slice; trace its shared page-7/reg24 state and four pair-specific save/restore before editing.
 
 
 ## Cross-session operating constraints

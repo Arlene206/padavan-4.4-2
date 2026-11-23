@@ -272,6 +272,64 @@ static void test_calibration_wait_checks_all_io_and_restores_trigger(void)
 	assert(fake.calls == 0U);
 }
 
+static void test_restore_cl45_register_always_attempts_disable(void)
+{
+	struct fake_io fake;
+	int status;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	status = ra_switch_mdio_restore_cl45_and_disable(
+		3U, 0x1eU, 0x00e0U, 0x1234U, 1,
+		0x1eU, 0x00dbU, fake_write_cl45, &fake);
+	assert(status == 0 && fake.calls == 2U);
+	assert(fake.op[0] == 'C' && fake.dev[0] == 0x1eU &&
+	       fake.reg[0] == 0x00e0U && fake.value[0] == 0x1234U);
+	assert(fake.op[1] == 'C' && fake.dev[1] == 0x1eU &&
+	       fake.reg[1] == 0x00dbU && fake.value[1] == 0U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.fail_status = -EHOSTDOWN;
+	status = ra_switch_mdio_restore_cl45_and_disable(
+		3U, 0x1eU, 0x00e0U, 0x1234U, 1,
+		0x1eU, 0x00dbU, fake_write_cl45, &fake);
+	assert(status == -EHOSTDOWN && fake.calls == 2U);
+	assert(fake.reg[1] == 0x00dbU && fake.value[1] == 0U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	status = ra_switch_mdio_restore_cl45_and_disable(
+		3U, 0x1eU, 0x00e0U, 0x1234U, 0,
+		0x1eU, 0x00dbU, fake_write_cl45, &fake);
+	assert(status == 0 && fake.calls == 1U);
+	assert(fake.reg[0] == 0x00dbU && fake.value[0] == 0U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.fail_status = 1;
+	status = ra_switch_mdio_restore_cl45_and_disable(
+		3U, 0x1eU, 0x00e0U, 0x1234U, 0,
+		0x1eU, 0x00dbU, fake_write_cl45, &fake);
+	assert(status == -EIO && fake.calls == 1U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 1;
+	fake.fail_status = -ETIMEDOUT;
+	status = ra_switch_mdio_restore_cl45_and_disable(
+		3U, 0x1eU, 0x00e0U, 0x1234U, 1,
+		0x1eU, 0x00dbU, fake_write_cl45, &fake);
+	assert(status == -ETIMEDOUT && fake.calls == 2U);
+	assert(fake.reg[1] == 0x00dbU && fake.value[1] == 0U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(ra_switch_mdio_restore_cl45_and_disable(
+		3U, 0x1eU, 0x00e0U, 0x1234U, 1,
+		0x1eU, 0x00dbU, NULL, &fake) == -EINVAL);
+	assert(fake.calls == 0U);
+}
+
 static void test_checked_update_bits_stops_on_read_error_and_preserves_bits(void)
 {
 	struct fake_io f;
@@ -741,6 +799,7 @@ int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
 	test_checked_cleanup_attempts_both_writes_and_keeps_first_error();
+	test_restore_cl45_register_always_attempts_disable();
 	test_checked_update_bits_stops_on_read_error_and_preserves_bits();
 	test_calibration_wait_checks_all_io_and_restores_trigger();
 	test_checked_phy_writes_propagate_and_normalize_failures();

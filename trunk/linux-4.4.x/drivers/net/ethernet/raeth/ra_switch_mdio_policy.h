@@ -45,6 +45,34 @@ ra_switch_mdio_write_cl45_checked(unsigned int port, unsigned int dev,
 		write(context, port, dev, reg, value));
 }
 
+/*
+ * Restore a saved calibration register when valid, then always try to
+ * disable the calibration engine. Preserve the first I/O error.
+ */
+static inline int
+ra_switch_mdio_restore_cl45_and_disable(
+		unsigned int port,
+		unsigned int restore_dev, unsigned int restore_reg,
+		unsigned int restore_value, int restore_valid,
+		unsigned int disable_dev, unsigned int disable_reg,
+		ra_switch_mdio_write_cl45_fn write, void *context)
+{
+	int status = 0;
+	int cleanup_status;
+
+	if (!write)
+		return -EINVAL;
+	if (restore_valid)
+		status = ra_switch_mdio_write_cl45_checked(
+			port, restore_dev, restore_reg, restore_value,
+			write, context);
+	cleanup_status = ra_switch_mdio_write_cl45_checked(
+		port, disable_dev, disable_reg, 0U, write, context);
+	if (status == 0)
+		status = cleanup_status;
+	return status;
+}
+
 /* Publish an MDIO sample only after the underlying transaction succeeds. */
 static inline int
 ra_switch_mdio_read_checked(unsigned int port, unsigned int reg,
