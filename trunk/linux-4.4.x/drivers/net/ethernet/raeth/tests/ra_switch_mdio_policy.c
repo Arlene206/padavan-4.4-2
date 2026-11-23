@@ -272,6 +272,70 @@ static void test_calibration_wait_checks_all_io_and_restores_trigger(void)
 	assert(fake.calls == 0U);
 }
 
+static void test_checked_update_bits_stops_on_read_error_and_preserves_bits(void)
+{
+	struct fake_io f;
+	unsigned int updated = 0xfeedfaceU;
+	int status;
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	f.read_value = 0xdeadU;
+	status = ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x6000U, 0U, fake_read, fake_write, &f, &updated);
+	assert(status == 0 && f.calls == 2U);
+	assert(f.op[0] == 'r' && f.reg[0] == 24U);
+	assert(f.op[1] == 'w' && f.reg[1] == 24U);
+	assert(f.value[1] == (0xdeadU & ~0x6000U));
+	assert(updated == (0xdeadU & ~0x6000U));
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -ETIMEDOUT;
+	updated = 0xfeedfaceU;
+	status = ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0U, fake_read, fake_write, &f, &updated);
+	assert(status == -ETIMEDOUT && f.calls == 1U);
+	assert(updated == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = 1;
+	updated = 0xfeedfaceU;
+	status = ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0U, fake_read, fake_write, &f, &updated);
+	assert(status == -EIO && f.calls == 1U && updated == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 1;
+	f.fail_status = -EHOSTDOWN;
+	updated = 0xfeedfaceU;
+	status = ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0U, fake_read, fake_write, &f, &updated);
+	assert(status == -EHOSTDOWN && f.calls == 2U && updated == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 1;
+	f.fail_status = 1;
+	updated = 0xfeedfaceU;
+	status = ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0x1000U, fake_read, fake_write, &f, &updated);
+	assert(status == -EIO && f.calls == 2U && updated == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0U, NULL, fake_write, &f,
+		&updated) == -EINVAL);
+	assert(ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0U, fake_read, NULL, &f,
+		&updated) == -EINVAL);
+	assert(ra_switch_mdio_update_bits_checked(
+		2U, 24U, 0x2000U, 0U, fake_read, fake_write, &f,
+		NULL) == -EINVAL);
+	assert(f.calls == 0U);
+}
+
 static void test_page_read_selects_global_and_local_bank(void)
 {
 	struct fake_io f;
@@ -633,6 +697,7 @@ static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
 int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
+	test_checked_update_bits_stops_on_read_error_and_preserves_bits();
 	test_calibration_wait_checks_all_io_and_restores_trigger();
 	test_checked_phy_writes_propagate_and_normalize_failures();
 	test_page_select_failure_stops_second_access();

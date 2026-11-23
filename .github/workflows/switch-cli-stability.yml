@@ -945,6 +945,40 @@ jobs:
           print("RAETH GE calibration wait distinguishes MDIO errors from timeout and clears trigger: PASS")
           PY
 
+      - name: Validate GE analog cleanup checked read-modify-write
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          cleanup = source.split("static int clear_ckinv_ana_txvos_checked(", 1)[1].split(
+              chr(10) + "void clear_ckinv_ana_txvos(", 1
+          )[0]
+          legacy = source.split("void clear_ckinv_ana_txvos(", 1)[1].split(
+              chr(10) + "u8 all_fe_ana_cal_wait_txamp", 1
+          )[0]
+          assert "ra_switch_mdio_update_bits_checked(" in cleanup
+          assert cleanup.count("ra_switch_mdio_update_bits_checked(") == 3
+          assert "goto cleanup;" in cleanup
+          assert "tc_phy_write_page_reg_checked(" in cleanup
+          assert "24U, 0, 0U" in cleanup
+          assert "cleanup_status" in cleanup
+          assert "clear_ckinv_ana_txvos_checked();" in legacy
+          assert "pr_err_ratelimited(" in legacy and "status != 0" in legacy
+          update = policy.split("ra_switch_mdio_update_bits_checked(", 1)[1].split(
+              chr(10) + "/*", 1
+          )[0]
+          assert "ra_switch_mdio_read_checked(" in update
+          assert "ra_switch_mdio_write_checked(" in update
+          assert update.index("if (status != 0)") < update.index("ra_switch_mdio_write_checked(")
+          assert "*updated_value = value;" in update
+          assert "test_checked_update_bits_stops_on_read_error_and_preserves_bits();" in test
+          print("RAETH analog cleanup RMW stops on MDIO error and retains final zero cleanup: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

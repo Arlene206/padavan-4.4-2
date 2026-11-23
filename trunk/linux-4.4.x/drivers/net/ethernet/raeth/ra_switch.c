@@ -303,24 +303,71 @@ void tc_mii_write(u32 phy_addr, u32 phy_register, u32 write_data)
 				   __func__, phy_addr, phy_register, status);
 }
 
-void clear_ckinv_ana_txvos(void)
+struct ra_switch_page_update_context {
+	unsigned int page;
+	int local;
+};
+
+static int ra_switch_page_update_read(void *context, unsigned int port,
+				      unsigned int reg, unsigned int *value)
 {
-	u16 g7r24_tmp;
-	/*clear RG_CAL_CKINV/RG_ANA_CALEN/RG_TXVOS_CALEN*/
-	/*g7r24[13]:0x0, RG_ANA_CALEN_P0*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp & (~0x2000)));
+	struct ra_switch_page_update_context *page = context;
 
-	/*g7r24[14]:0x0, RG_CAL_CKINV_P0*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp & (~0x4000)));
-
-	/*g7r24[12]:0x0, DA_TXVOS_CALEN_P0*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp & (~0x1000)));
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0);
+	return tc_phy_read_page_reg_checked(port, (u8)page->page,
+					    (u8)reg, page->local, value);
 }
 
+static int ra_switch_page_update_write(void *context, unsigned int port,
+				       unsigned int reg, unsigned int value)
+{
+	struct ra_switch_page_update_context *page = context;
+
+	return tc_phy_write_page_reg_checked(port, (u8)page->page,
+					     (u8)reg, page->local, value);
+}
+
+static int clear_ckinv_ana_txvos_checked(void)
+{
+	struct ra_switch_page_update_context page;
+	unsigned int updated;
+	int status = 0;
+	int cleanup_status;
+
+	page.page = 7U;
+	page.local = 0;
+
+	/* RG_ANA_CALEN_P0, RG_CAL_CKINV_P0, then DA_TXVOS_CALEN_P0. */
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x2000U, 0U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x4000U, 0U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x1000U, 0U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+
+cleanup:
+	/* Preserve the original final zero write even after an earlier failure. */
+	cleanup_status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 7U, 24U, 0, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	return status;
+}
+
+void clear_ckinv_ana_txvos(void)
+{
+	int status = clear_ckinv_ana_txvos_checked();
+
+	if (status != 0)
+		pr_err_ratelimited("%s: analog calibration cleanup failed (status=%d)\n",
+				   __func__, status);
+}
 u8 all_fe_ana_cal_wait_txamp(u32 delay, u8 port_num)
 {				/* for EN7512 FE // allen_20160616 */
 	u8 all_ana_cal_status;

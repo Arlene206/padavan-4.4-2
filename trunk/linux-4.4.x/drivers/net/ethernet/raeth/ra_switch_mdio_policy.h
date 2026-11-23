@@ -85,6 +85,36 @@ ra_switch_mdio_read_cl45_checked(unsigned int port, unsigned int dev,
 }
 
 /*
+ * Update selected register bits only after a checked read. The new value is
+ * published only after the write succeeds.
+ */
+static inline int
+ra_switch_mdio_update_bits_checked(unsigned int port, unsigned int reg,
+				   unsigned int clear_mask,
+				   unsigned int set_mask,
+				   ra_switch_mdio_read_fn read,
+				   ra_switch_mdio_write_fn write,
+				   void *context,
+				   unsigned int *updated_value)
+{
+	unsigned int value = 0;
+	int status;
+
+	if (!read || !write || !updated_value)
+		return -EINVAL;
+	*updated_value = 0;
+	status = ra_switch_mdio_read_checked(port, reg, read, context, &value);
+	if (status != 0)
+		return status;
+	value = (value & ~clear_mask) | set_mask;
+	status = ra_switch_mdio_write_checked(port, reg, value, write, context);
+	if (status != 0)
+		return status;
+	*updated_value = value;
+	return 0;
+}
+
+/*
  * Start an analog calibration, poll its ready bit, and always attempt to
  * clear the trigger bit. A cleanup failure also invalidates a ready sample.
  */
