@@ -532,7 +532,7 @@ for signature, command in (
     body = function_body(DISK_SOURCE, signature)
     compact = "".join(body.split())
     command_offset = compact.index(command)
-    status_offset = compact.index("disk_share_command_status(serviceresult,errno)", command_offset)
+    status_offset = compact.index("disk_share_command_status(service_result,errno)", command_offset)
     error_offset = compact.index("first_error=service_error;", status_offset)
     require(command_offset < status_offset < error_offset and
             "service_error!=0&&first_error==0" in compact[status_offset:error_offset + 40],
