@@ -72,8 +72,8 @@ paths = (
     "trunk/user/rc/src/nat_helper_settings_policy.h",
     "trunk/user/rc/src/tests/nat_helper_settings_policy.c",
 )
-push = workflow.split("  pull_request:", 1)[0]
-pr = workflow.split("  workflow_dispatch:", 1)[0].split("  pull_request:", 1)[1]
+filters = workflow.split("jobs:", 1)[0]
+push, pr = filters.split("  pull_request:", 1)
 for path in paths:
     assert push.count('"' + path + '"') == 1, path
     assert pr.count('"' + path + '"') == 1, path
