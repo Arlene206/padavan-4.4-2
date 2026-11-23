@@ -220,4 +220,26 @@ mtk_esw_first_error(int first_status, int next_status)
 	return next_status == 0 ? 0 : mtk_esw_link_mode_io_error(next_status);
 }
 
+/*
+ * Publish requested VLAN rule state only after the caller's complete hardware
+ * transition succeeds (including the MAC-table flush). On failure the old
+ * snapshot stays dirty so a repeated request retries the programming sequence.
+ */
+static inline int
+mtk_esw_vlan_rules_commit(int status, unsigned int rule_count,
+			  const unsigned int *requested,
+			  unsigned int *applied)
+{
+	unsigned int i;
+
+	if (!rule_count || !requested || !applied)
+		return -EINVAL;
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	for (i = 0; i < rule_count; ++i)
+		applied[i] = requested[i];
+	return 0;
+}
+
 #endif /* MTK_ESW_LINK_MODE_POLICY_H */

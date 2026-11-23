@@ -462,6 +462,43 @@ test_mac_table_clear_rejects_invalid_mode_and_missing_delay(void)
 }
 
 static void
+test_vlan_rule_snapshot_is_committed_only_after_hardware_success(void)
+{
+	const unsigned int requested[4] = {
+		0x00000002U, 0x00010003U, 0x01020004U, 0x00000005U
+	};
+	unsigned int applied[4] = {
+		0x00000001U, 0x00000006U, 0x00000007U, 0x00000008U
+	};
+	const unsigned int previous[4] = {
+		0x00000001U, 0x00000006U, 0x00000007U, 0x00000008U
+	};
+
+	assert(mtk_esw_vlan_rules_commit(-ETIMEDOUT, 4U,
+					 requested, applied) == -ETIMEDOUT);
+	assert(memcmp(applied, previous, sizeof(applied)) == 0);
+
+	/* Positive callback errors are normalized, without publishing a partial state. */
+	assert(mtk_esw_vlan_rules_commit(1, 4U, requested, applied) == -EIO);
+	assert(memcmp(applied, previous, sizeof(applied)) == 0);
+
+	assert(mtk_esw_vlan_rules_commit(0, 4U, requested, applied) == 0);
+	assert(memcmp(applied, requested, sizeof(applied)) == 0);
+}
+
+static void
+test_vlan_rule_snapshot_commit_rejects_invalid_buffers(void)
+{
+	const unsigned int requested[1] = { 1U };
+	unsigned int applied[1] = { 2U };
+
+	assert(mtk_esw_vlan_rules_commit(0, 0U, requested, applied) == -EINVAL);
+	assert(mtk_esw_vlan_rules_commit(0, 1U, NULL, applied) == -EINVAL);
+	assert(mtk_esw_vlan_rules_commit(0, 1U, requested, NULL) == -EINVAL);
+	assert(applied[0] == 2U);
+}
+
+static void
 test_all_defined_speed_and_flow_modes(void)
 {
 	unsigned int speed, flow;
@@ -490,6 +527,8 @@ test_reserved_speed_flow_and_bits_are_rejected(void)
 int
 main(void)
 {
+	test_vlan_rule_snapshot_is_committed_only_after_hardware_success();
+	test_vlan_rule_snapshot_commit_rejects_invalid_buffers();
 	test_all_defined_speed_and_flow_modes();
 	test_first_error_accumulator_preserves_first_failure();
 	test_reserved_speed_flow_and_bits_are_rejected();

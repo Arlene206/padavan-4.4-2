@@ -915,9 +915,6 @@ static void esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 			vlan_entry[i].port_member, vlan_entry[i].port_untag, 0, vlan_entry[i].fid);
 	}
 
-	/* save VLAN rules */
-	for (i = 0; i < SWAPI_VLAN_RULE_NUM; i++)
-		g_vlan_rule[i] = g_vlan_rule_user[i];
 }
 
 static void esw_vlan_init_vid1(void)
@@ -1034,6 +1031,7 @@ static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 
 static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, int bridge_changed, int br_iso_changed, int vlan_rule_changed)
 {
+	int status;
 	if (wan_bridge_mode == SWAPI_WAN_BRIDGE_DISABLE_WAN) {
 		if (!bridge_changed)
 			return 0;
@@ -1055,7 +1053,12 @@ static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, 
 		esw_show_bridge_partitions(wan_bridge_mode);
 	}
 
-	return esw_mac_table_clear();
+	status = esw_mac_table_clear();
+	if (wan_bridge_mode == SWAPI_WAN_BRIDGE_DISABLE_WAN)
+		return status;
+
+	return mtk_esw_vlan_rules_commit(status, SWAPI_VLAN_RULE_NUM,
+					 g_vlan_rule_user, g_vlan_rule);
 }
 
 static void esw_mac_to_phy_enable(void)

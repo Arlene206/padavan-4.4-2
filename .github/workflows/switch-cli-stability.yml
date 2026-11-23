@@ -679,6 +679,8 @@ jobs:
               "test_mac_table_clear_treats_read_failure_as_unknown",
               "test_mac_table_clear_times_out_when_busy_never_clears",
               "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
+              "test_vlan_rule_snapshot_is_committed_only_after_hardware_success",
+              "test_vlan_rule_snapshot_commit_rejects_invalid_buffers",
               "test_phy_power_set_reads_and_writes_before_reporting_change",
               "test_phy_power_set_skips_unchanged_state_but_honors_force",
               "test_phy_power_set_read_and_write_errors_are_propagated",
@@ -696,7 +698,19 @@ jobs:
           isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
               "static void esw_mac_to_phy_enable", 1
           )[0]
-          assert "return 0;" in isolate and "return esw_mac_table_clear();" in isolate
+          clear_status_at = isolate.index("status = esw_mac_table_clear();")
+          disable_wan_guard_at = isolate.index(
+              "if (wan_bridge_mode == SWAPI_WAN_BRIDGE_DISABLE_WAN)", clear_status_at
+          )
+          commit_at = isolate.index("mtk_esw_vlan_rules_commit(", clear_status_at)
+          assert clear_status_at < disable_wan_guard_at < commit_at
+          assert "g_vlan_rule_user, g_vlan_rule" in isolate[commit_at:]
+          assert "return esw_mac_table_clear();" not in isolate
+          apply_start = source.index("static void esw_vlan_apply_rules(")
+          apply_end = source.index("static void esw_vlan_init_vid1(", apply_start)
+          vlan_apply = source[apply_start:apply_end]
+          assert "g_vlan_rule[" not in vlan_apply
+          assert "g_vlan_rule[i] = g_vlan_rule_user[i];" not in source
           bridge = source.split("static int change_bridge_mode", 1)[1].split(
               "static void vlan_accept_port_mode", 1
           )[0]
