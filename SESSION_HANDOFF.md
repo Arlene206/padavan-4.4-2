@@ -1,11 +1,12 @@
 ### 2026-11-23 接力更新（最新快照）
 
-- 上一源码提交 `87e233d30dd532b6bfd1589d2469ced8d8f42a16`：GE analog wait 通过 checked page-7 reg24 事务进行 trigger/poll/cleanup；Switch CLI #45273294951 PASS，AI docs #45273294849 PASS；XY-C1 #45273294825、NVRAM #45273294824 上次检查仍在执行。
-- 本轮新修复 `clear_ckinv_ana_txvos()`：原三个 register read-modify-write 经 value-only wrapper，MDIO read error 会变成零值并误写寄存器。现在每一步用 checked update-bits，任何中间 I/O 错误会停止后续 RMW，但无论如何仍尝试原有的最终 register-zero cleanup。旧 void ABI 不变，错误 rate-limited logging。
-- 新增 RMW 成功/保留无关 bits、read timeout、正状态归一化、write failure、invalid callbacks 测试和 Switch CLI production source contract。本次 SHA exact Actions 待检查。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`。
-- 未声明本地 MIPS build、XY-C1 同 SHA Build/TRX/artifact L3 或硬件 L4。
-- 下个 GPT 第一项：检查本次提交 Switch CLI/AI docs/XY-C1/NVRAM exact SHA 状态；然后继续逐条评估 GE analog calibration 其他 RMW / save-restore 事务。
+- 当前 main 产品源码 SHA：`51f29580ebfb44d9ecbcbd4ec6bf8a55ff6e77c7`（`fix(raeth): check analog calibration cleanup RMW`）。新增 checked update-bits policy；`clear_ckinv_ana_txvos()` 的三个 RMW 在首次 MDIO 失败时停止，但始终 best-effort 执行原最终 page-7/reg24 写零。
+- 测试：覆盖成功时保留无关位、read timeout、positive error 归一化、write failure、输出清零、invalid callbacks；Switch CLI source contract 检查生产 helper 的三个 RMW 和 final cleanup。
+- `51f2958` 的 AI docs #45273675795、Switch CLI #45273676193、XY-C1 #45273675906、NVRAM #45273675699 当时均在执行（AI docs queued、其它 in progress）；必须检查 exact SHA 结果。无 MIPS kernel build 或硬件 L4 声明。
+- 修正文档问题：`51f2958` 更新 dev_log 时意外只写入新条目，丢掉了旧历史；本提交恢复 parent `87e233d` 的完整 58 KB log 历史并前置最新 checkpoint。源码无变化。
+- 前一 SHA `87e233d`：Switch CLI #45273294951 PASS、AI docs #45273294849 PASS、NVRAM #45273294824 PASS；XY-C1 #45273294825 在上次检查仍 in progress。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，持续只读。
+- 下个 GPT 第一项：检查最新 docs child commit exact-SHA AI docs；同时检查 `51f2958` 的 Switch CLI/XY-C1/NVRAM job 细节；XY-C1 Build/TRX/upload 若未同 SHA 全 PASS，不得报告 L3。然后逐个处理其他 analog calibration RMW/save-restore 风险。
 
 ---
 # Cross-session execution mandate
@@ -14,24 +15,25 @@
 
 ### 2026-11-23 continuation — current state
 
-- **Previous source commit:** `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` checked Clause 45 debug reads and serialized token-ring page/control/data access. Switch CLI #45270470838 PASS. Its AI docs run #45270470371 failed on the inherited oversized roadmap; docs-only main child `72076155464bb033d5dc61d5d141e76cd08c2181` corrected the file and AI docs #45270615085 PASS.
-- **Current source slice:** GE2 polling obtains one complete C22/CL45 sample. Any failed transfer is discarded and does not write MAC link state or force link-down; a successful down sample retains the original force-down behavior.
-- **EEE state:** capability rebuild clears old 1G/100M EEE bits before applying the partner-negotiated flags, fixing stale EEE after renegotiation.
-- **Tests:** injected failures at each of six reads, positive status normalization, full success/read order, link-down short-circuit, invalid callbacks and stale EEE cleanup. Source-contract checks added to Switch CLI.
-- **Backup:** frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify.
-- **Verification boundary:** this slice's exact-SHA Actions are pending. Previous XY-C1 #45270470239 and NVRAM #45270470405 for `ad5bcd2` were in progress at last poll. No kernel/MIPS build or hardware L4 claimed.
-- **Next task:** after checking exact-head Actions, trace GE analog-calibration save/restore ordering and select one bounded checked transaction.
-- **Working rule:** source → tests → atomic tree/commit → expected-SHA non-forced `main` update → exact-SHA Actions; PENDING does not block independent work.
+- **PHY debug:** `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` added checked Clause 45 debug reads and token-ring transfer/page-restore checks. Switch CLI #45270470838 PASS.
+- **GE2 link polling:** `bfca47b0c33cae7679ea2e671cc71a015ebfc5d4` now publishes only complete C22/CL45 samples; failed reads preserve the previous MAC/link state. EEE capability bits are rebuilt on successful renegotiation. Fixture/checker fixes are in `5abf4a5` and `48bc28a`; Switch CLI #45272254777 and AI docs #45272254645 PASS.
+- **Legacy PHY wrappers:** `d887063` and `f432a3e` introduced checked C22/Clause45 write helpers while preserving old wrapper signatures. Switch CLI #45272997503 and AI docs #45272997319 PASS on `f432a3e`.
+- **GE calibration wait:** `87e233d30dd532b6bfd1589d2469ced8d8f42a16` checks setup/poll/cleanup MDIO I/O on page-7 register 24; transport failure is distinct from timeout and cleanup clears the trigger. Switch CLI #45273294951, AI docs #45273294849 and NVRAM #45273294824 PASS. XY-C1 #45273294825 remained in progress at last poll.
+- **Analog cleanup RMW:** current source `51f29580ebfb44d9ecbcbd4ec6bf8a55ff6e77c7` adds checked update-bits for `clear_ckinv_ana_txvos()`; first intermediate failure stops remaining RMW, but final register-zero cleanup is always attempted.
+- **Docs integrity:** the latest source commit truncated `dev_log.md`; current documentation child restores the entire history from `87e233d` plus the latest checkpoint. No source files changed in the documentation repair.
+- **Backup:** frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify.
+- **Verification boundary:** `51f2958` exact-head Switch CLI/AI/XY-C1/NVRAM outcomes must be checked. No same-SHA XY-C1 Build+TRX+artifact PASS or physical hardware L4 is claimed.
+- **Next:** inspect exact-head CI, then trace remaining GE calibration MMD RMW/save/restore sequences individually.
 
 
 ## Active task
 
-### GE2 PHY polling MDIO failure and renegotiation state
+### Fail-safe analog calibration cleanup
 
-- Prior debug source `ad5bcd2b87b9b672dd2e921b6e133fb35393093c`: checked Clause 45 debug reads and serialized token-ring transaction/page restoration; Switch CLI #45270470838 PASS.
-- Current change replaces unchecked periodic PHY polling with a complete fail-closed snapshot; a timeout can no longer masquerade as link-down or publish fabricated capabilities.
-- Per-success state assembly clears stale EEE bits when a link renegotiation changes advertised capabilities.
-- **Next:** check exact-head Actions, then inspect GE analog-calibration save/restore dependencies before making another bounded conversion.
+- GE wait helper uses status-bearing page-7/register-24 setup, bounded poll and final trigger cleanup; MDIO transport errors map to the existing `ANACAL_ERROR` compatibility sentinel.
+- `clear_ckinv_ana_txvos()` now uses checked read-modify-write for masks `0x2000`, `0x4000`, and `0x1000`; it stops intermediate RMW on error and always attempts the original final write-zero operation.
+- Legacy void ABI is preserved; failures are rate-limited in logs.
+- **Next:** check exact-head Actions for `51f2958`, then review other calibration RMW/save/restore functions before expanding checked conversions.
 
 
 
@@ -42,15 +44,15 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- SHA `87e233d`: Switch CLI #45273294951 PASS; AI docs #45273294849 PASS; XY-C1 #45273294825 and NVRAM #45273294824 were in progress at last check.
-- Current analog cleanup RMW change is new; exact-head CI remains to be checked.
-- No same-source-SHA XY-C1 Build+TRX+artifact PASS and no physical hardware L4 is claimed.
+- `87e233d`: Switch CLI #45273294951 PASS, AI docs #45273294849 PASS, NVRAM #45273294824 PASS; XY-C1 #45273294825 was still running at last poll.
+- `51f2958`: exact-head Switch CLI #45273676193, AI docs #45273675795, XY-C1 #45273675906 and NVRAM #45273675699 were pending/in progress at checkpoint creation. The documentation restore child triggers a fresh AI-docs validation; source CI must still be checked on `51f2958`.
+- No same-SHA XY-C1 Build+TRX+artifact PASS, no local MIPS kernel build and no hardware L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect this cleanup slice's exact-SHA Switch CLI, AI docs, NVRAM and XY-C1 jobs.
-2. Treat any skipped XY-C1 Build/TRX/upload as host-only, not L3.
-3. Continue the GE calibration register save/restore audit; migrate one checked transaction at a time without altering legacy ABI.
+1. Fetch live `main` and inspect the documentation-repair commit's AI docs run plus `51f2958` exact-SHA Switch CLI, NVRAM and XY-C1 jobs/logs.
+2. Confirm whether Build, TRX verification and artifact upload actually ran and passed on `51f2958`; skipped steps do not qualify as firmware L3.
+3. Continue the remaining GE calibration audit with one register RMW or save/restore sequence per atomic source/test commit.
 
 
 ## Cross-session operating constraints
