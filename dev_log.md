@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Serialize LLDT PID-file check and publish
+
+- Review found a check-then-act race in `osl_write_pidfile()`: it reads and validates the current PID file, closes that descriptor, then separately opens/truncates/writes the new PID. Two LLTD starts can both observe ENOENT or the same stale PID and both continue, overwriting the PID file while both daemons launch.
+- Added a validated sidecar `<pidfile>.lock` using O_NOFOLLOW/O_NONBLOCK and a nonblocking exclusive `flock(LOCK_EX)`. The lock file must be a regular single-link file owned by the effective UID and not group/world writable. The descriptor remains open across both PID-file opens and is closed only after the full write path.
+- Added a host regression using two independent open file descriptions, a source-order checker and a dedicated exact-SHA workflow. The sidecar is intentionally not unlinked; removing it could split lock ownership between concurrent openers.
+- Parent SHA 880487bf61154786218115e6fd8448c07d6be6eb exact-head Actions observed: Process inventory and lifecycle fail-closed regression 45138112617: success; AI handoff documentation contract 45138112370: success. This slice awaits its own exact-head workflow; no local test/build claim.
+
+---
+
 ## 2026-11-23 UTC — Match LLTD PID probe contract to saved errno
 
 - Exact-head Process run #45137561990 on SHA 64c795f passed all earlier checks and LLTD PID regression, but the final source contract still expected the literal condition "if (errno != ESRCH)".

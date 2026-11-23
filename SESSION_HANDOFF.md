@@ -1,32 +1,33 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this LLTD config parser slice: b30898d2bedbfa3a5d159e27da40a1f8ee9ee2f3.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
-- No local checkout; host tests are executed by exact-SHA GitHub Actions only; no local test/build claim.
+- Repository Arlene206/padavan-4.4-2; parent main before LLDT concurrency slice: 880487bf61154786218115e6fd8448c07d6be6eb.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged.
+- No local checkout; no local test or firmware build claimed.
 
 ## Exact-SHA Actions
-- Parent SHA 20c664edf48d919600670a0f7893504c5dcc6a6a: AI handoff #45137197736 PASS; Process inventory #45137197649 PASS; LLTD PID parser GNU89 ASan/UBSan regression (Process step 17) PASS.
-- Process integration #45137197616 failed only at the final source contract due to a physical-line assertion for a wrapped PID pathname. Checker correction 64c795f904f42daa738598274d648e0c8c2d1a07 extracts the writer body before asserting the pathname.
-- Parent 20c664e XY-C1 #45137197654 and NVRAM audit #45137197675 were still in progress at last poll. Parent b1a86530 first LLTD parser test failed its NULL-text output-reset case; 20c664e fixed it.
-- Exact SHA 64c795f Process run #45137561990 failed only because the PID-file source contract expected `if (errno != ESRCH)`, while production correctly preserves the value in saved_errno and tests `if (saved_errno != ESRCH)`. THIS checker correction matches the implementation's saved-errno fail-closed guard. Exact SHA b30898d2 queued Process #45138006556, AI #45138006583, NVRAM #45138006560, XY-C1 #45138006606 and inventory #45138006856; verify their results after the next commit.
+- Parent SHA Actions: Process inventory and lifecycle fail-closed regression 45138112617: success; AI handoff documentation contract 45138112370: success.
+- Previous LLDT PID-file work validated malformed PID content, symlinks and non-regular files; the active remaining defect is serialization of concurrent PID-file writers.
+- No L3 claim is made unless Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA.
 
-## Active task — LLTD config parser memory safety
-- init_from_conf_file() used unbounded %s conversions into 256-byte var/val arrays. Both icon and jumbo-icon path builders allocated enough space for /etc/ plus the value but copied only strlen(val) bytes with strncpy(), leaving the result without a NUL terminator; later string/filesystem calls could read beyond the allocated path.
-- THIS slice bounds both scanned tokens, detects a truncated value token and embedded NUL bytes, and routes both icon options through a tested capacity-aware builder that always copies the terminating NUL and leaves output unchanged on errors.
-- GNU89 ASan/UBSan tests cover relative/absolute paths, exact capacity, insufficient capacity, null/empty arguments and maximum input length. Process workflow gains the test/source contract; XY-C1 path filters add actual lldt/src/main.c and helper header. Exact-head verification pending; no local test/build claim.
+## Active source task — Serialize LLDT PID-file check and publish
+- `osl_write_pidfile()` previously read/checked the PID file, closed it, then independently opened/truncated/wrote the replacement. Two concurrent LLTD starts can both observe an absent/stale PID and both pass before either publishes.
+- Added a validated sidecar `.lock` opened with O_NOFOLLOW/O_NONBLOCK; it must be a single-link regular file owned by the effective UID and not group/world writable. A nonblocking exclusive flock now covers the complete read/check/write sequence.
+- Added a host regression proving two independent opens cannot both acquire the same exclusive flock, a source-order checker, and a dedicated exact-SHA Actions workflow.
 
 ## Next actions
-1. Verify exact-head Process lifecycle test/source contract and AI handoff; fix the first real failure.
-2. Poll exact-SHA XY-C1 Build, TRX verification and artifact upload; L3 only when all three pass on the same SHA.
-3. Verify NVRAM transaction boundary audit on that same head.
-4. Continue another independent userland stability/security task while workflows are pending; physical router L4 remains NOT VERIFIED.
+1. Verify the LLDT PID lock workflow and Process Lifecycle integration on the new exact SHA; repair first causal failures.
+2. Inspect newest XY-C1 run and require same-SHA Build + TRX + artifact before claiming L3.
+3. Continue an independent userland stability/security defect while CI is pending.
+4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-LLTD PID parser GNU89 ASan/UBSan test step 17 passed on exact SHA 20c664e. Process source checker failed on SHA 64c795f only because its assertion used errno instead of production's saved_errno; THIS checker-only commit aligns the assertion. The new config-parser slice already committed at b30898d, with its exact-head Actions still running/pending. No local tests/builds are claimed. L3 and hardware L4 are NOT VERIFIED.
+The LLDT lock source/test/checker/workflow changes are source-reviewed; exact-head Actions are pending. No local compile/test or firmware build is claimed. L3/L4 unverified.
 
 ## Cross-session mandate
-One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; frozen backup remains untouched; inspect exact-SHA Actions and never infer results.
+One complete Git tree and one atomic commit per task; update main with non-force expected-SHA; inspect exact-SHA Actions; never modify the frozen backup.
+
+
 
 # SESSION HANDOFF — Padavan 4.4
 

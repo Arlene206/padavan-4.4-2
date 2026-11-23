@@ -108,9 +108,51 @@ osl_init(void)
  * lld2d instances on the same interface.  We open the pidfile for
  * read: if it exists and the named pid is running we abort ourselves.
  * Otherwise we reopen the pidfile for write and log our pid to it. */
+static int
+osl_open_pidfile_lock(const char *pidfile)
+{
+	char lock_path[1024];
+	struct stat lock_stat;
+	int fd, saved_errno, length;
+
+	if (!pidfile || !*pidfile) {
+		errno = EINVAL;
+		return -1;
+	}
+	length = snprintf(lock_path, sizeof(lock_path), "%s.lock", pidfile);
+	if (length < 0 || (size_t)length >= sizeof(lock_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	fd = open(lock_path, O_RDWR | O_CREAT | O_NONBLOCK | O_NOFOLLOW, 0600);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &lock_stat) != 0)
+		goto fail;
+	if (!S_ISREG(lock_stat.st_mode) ||
+	    lock_stat.st_uid != geteuid() ||
+	    lock_stat.st_nlink != 1 ||
+	    (lock_stat.st_mode & (S_IWGRP | S_IWOTH))) {
+		errno = EPERM;
+		goto fail;
+	}
+	if (lldt_pidfile_try_exclusive_lock(fd) != 0)
+		goto fail;
+	return fd;
+
+fail:
+	saved_errno = errno ? errno : EIO;
+	close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+
 void
 osl_write_pidfile(osl_t *osl)
 {
+	int pidfile_lock_fd;
+
     char pidfile[80];
     char pidbuf[LLDT_PIDFILE_MAX_TEXT + 1];
     int fd;
@@ -127,7 +169,10 @@ osl_write_pidfile(osl_t *osl)
     if (ret < 0 || ret >= (int)sizeof(pidfile))
         die("osl_write_pidfile: PID-file path is too long\n");
 
-    fd = open(pidfile, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
+    pidfile_lock_fd = osl_open_pidfile_lock(pidfile);
+	if (pidfile_lock_fd < 0)
+		die("Unable to acquire LLTD pidfile lock");
+	fd = open(pidfile, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
     if (fd < 0)
     {
         if (errno != ENOENT)
@@ -220,7 +265,10 @@ osl_write_pidfile(osl_t *osl)
     if (close(fd) != 0)
         die("osl_write_pidfile: closing PID file %s failed: %s\n",
             pidfile, strerror(errno));
+if (close(pidfile_lock_fd) != 0)
+		die("Unable to release LLTD pidfile lock");
 }
+
 
 
 /* Open "interface", and add packetio_recv_handler(state) as the IO

@@ -1,3 +1,6 @@
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -26,6 +29,37 @@ expect_invalid(const char *text, size_t length, int expected_errno)
 	assert(errno == expected_errno);
 	assert(actual == (pid_t)0);
 }
+
+
+static int
+test_pidfile_lock_serializes_competing_open(void)
+{
+	char lock_path[] = "/tmp/lldt-pidfile-lock.XXXXXX";
+	int first_fd = -1, second_fd = -1;
+	int result = 1;
+
+	first_fd = mkstemp(lock_path);
+	if (first_fd < 0)
+		return 1;
+	if (lldt_pidfile_try_exclusive_lock(first_fd) != 0)
+		goto out;
+	second_fd = open(lock_path, O_RDWR);
+	if (second_fd < 0)
+		goto out;
+	errno = 0;
+	if (lldt_pidfile_try_exclusive_lock(second_fd) == 0)
+		goto out;
+	if (errno == EWOULDBLOCK || errno == EAGAIN)
+		result = 0;
+out:
+	if (second_fd >= 0)
+		close(second_fd);
+	if (first_fd >= 0)
+		close(first_fd);
+	unlink(lock_path);
+	return result;
+}
+
 
 int
 main(void)
@@ -67,5 +101,7 @@ main(void)
 	assert(errno == EINVAL);
 
 	puts("LLTD bounded PID-file parser regression: PASS");
+	if (test_pidfile_lock_serializes_competing_open() != 0)
+		return 1;
 	return 0;
 }
