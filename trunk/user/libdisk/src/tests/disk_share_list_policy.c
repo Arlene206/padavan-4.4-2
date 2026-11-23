@@ -1018,8 +1018,8 @@ test_account_rename_batch_reports_failed_compensation(void)
 	assert(disk_share_account_rename_entries_rollback(
 		&entries[0], fake_account_rename, &rollback_error) == -1);
 	assert(rollback_error == EROFS);
-	assert(entries[0].renamed);
-	assert(!entries[1].renamed);
+	assert(!entries[0].renamed);
+	assert(entries[1].renamed);
 }
 
 
