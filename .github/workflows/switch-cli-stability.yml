@@ -21,6 +21,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
       - ".github/workflows/switch-cli-stability.yml"
       - "trunk/user/rc/src/switch_rtl8367.c"
@@ -47,6 +48,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
       - ".github/workflows/switch-cli-stability.yml"
       - "trunk/user/rc/src/switch_rtl8367.c"
@@ -1187,6 +1189,14 @@ jobs:
               assert "if (ioctl_result != 0)" in section
           assert "test_register_read_propagates_mdio_failures" in test
           assert "mtk_esw_register_read(" in policy
+          mib_policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h").read_text()
+          mib_status = ioctl_source.split("static int esw_status_mib_port_uapi(", 1)[1].split(
+              "static int esw_status_bytes_port_uapi(", 1
+          )[0]
+          assert '#include "mib_snapshot_policy.h"' in ioctl_source
+          assert "mtk_esw_mib_snapshot_read(" in mib_status
+          assert "test_mib_snapshot_propagates_each_register_failure_without_publishing" in test
+          assert "counter_offsets[]" in mib_policy
 
           cl45_read = mdio_driver.split("u32 mii_mgr_read_cl45", 1)[1].split(
               "u32 mii_mgr_write_cl45", 1

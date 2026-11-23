@@ -33,6 +33,7 @@
 //#include "ioctl_igmp.h"
 #include "ioctl_mt762x.h"
 #include "link_mode_policy.h"
+#include "mib_snapshot_policy.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
 
@@ -130,6 +131,13 @@ static int esw_reg_read_checked(u32 addr, u32 *value)
 {
 	return mtk_esw_register_read(0x1f, addr, value,
 				     &mtk_esw_link_mode_io, NULL);
+}
+
+static int esw_mib_register_read(void *context, unsigned int reg,
+				    unsigned int *value)
+{
+	(void)context;
+	return esw_reg_read_checked(reg, value);
 }
 
 static int esw_reg_write_checked(u32 addr, u32 data)
@@ -1426,11 +1434,10 @@ extern int VirtualIF_get_bytes(port_bytes_t *pb);
 
 static int esw_status_mib_port_uapi(u32 port_id_uapi, esw_mib_counters_t *mibc)
 {
-	ULARGE_INTEGER rx_goct, tx_goct;
+	struct mtk_esw_mib_snapshot mib_snapshot;
 	esw_mib_counters_t snapshot;
 	port_bytes_t bytes;
 	u32 port_id = get_port_from_uapi(port_id_uapi);
-	u32 counter;
 	int status;
 
 	if (!mibc)
@@ -1451,76 +1458,29 @@ static int esw_status_mib_port_uapi(u32 port_id_uapi, esw_mib_counters_t *mibc)
 	}
 #endif
 
-	status = esw_get_port_mib_rgoc(port_id, &rx_goct);
+	status = mtk_esw_mib_snapshot_read(port_id * 0x100U,
+					    esw_mib_register_read, NULL,
+					    &mib_snapshot);
 	if (status != 0)
 		return status;
-	status = esw_get_port_mib_tgoc(port_id, &tx_goct);
-	if (status != 0)
-		return status;
-	snapshot.TxGoodOctets = tx_goct.QuadPart;
-	snapshot.RxGoodOctets = rx_goct.QuadPart;
 
-	status = esw_reg_read_checked(0x4000 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxDropFrames = counter;
-	status = esw_reg_read_checked(0x4004 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxCRCError = counter;
-	status = esw_reg_read_checked(0x4008 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxUcastFrames = counter;
-	status = esw_reg_read_checked(0x400c + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxMcastFrames = counter;
-	status = esw_reg_read_checked(0x4010 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxBcastFrames = counter;
-	status = esw_reg_read_checked(0x4014 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxCollision = counter;
-	status = esw_reg_read_checked(0x402c + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.TxPauseFrames = counter;
-
-	status = esw_reg_read_checked(0x4060 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxDropFrames = counter;
-	status = esw_reg_read_checked(0x4064 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxFilterFrames = counter;
-	status = esw_reg_read_checked(0x4068 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxUcastFrames = counter;
-	status = esw_reg_read_checked(0x406c + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxMcastFrames = counter;
-	status = esw_reg_read_checked(0x4070 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxBcastFrames = counter;
-	status = esw_reg_read_checked(0x4074 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxAligmentError = counter;
-	status = esw_reg_read_checked(0x4078 + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxCRCError = counter;
-	status = esw_reg_read_checked(0x408c + 0x100*port_id, &counter);
-	if (status != 0)
-		return status;
-	snapshot.RxPauseFrames = counter;
+	snapshot.TxGoodOctets = mib_snapshot.tx_good_octets;
+	snapshot.TxUcastFrames = mib_snapshot.tx_unicast_frames;
+	snapshot.TxMcastFrames = mib_snapshot.tx_multicast_frames;
+	snapshot.TxBcastFrames = mib_snapshot.tx_broadcast_frames;
+	snapshot.TxDropFrames = mib_snapshot.tx_drop_frames;
+	snapshot.TxPauseFrames = mib_snapshot.tx_pause_frames;
+	snapshot.TxCollision = mib_snapshot.tx_collision;
+	snapshot.TxCRCError = mib_snapshot.tx_crc_error;
+	snapshot.RxGoodOctets = mib_snapshot.rx_good_octets;
+	snapshot.RxUcastFrames = mib_snapshot.rx_unicast_frames;
+	snapshot.RxMcastFrames = mib_snapshot.rx_multicast_frames;
+	snapshot.RxBcastFrames = mib_snapshot.rx_broadcast_frames;
+	snapshot.RxDropFrames = mib_snapshot.rx_drop_frames;
+	snapshot.RxPauseFrames = mib_snapshot.rx_pause_frames;
+	snapshot.RxFilterFrames = mib_snapshot.rx_filter_frames;
+	snapshot.RxCRCError = mib_snapshot.rx_crc_error;
+	snapshot.RxAligmentError = mib_snapshot.rx_alignment_error;
 
 	*mibc = snapshot;
 	return 0;

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "../link_mode_policy.h"
+#include "../mib_snapshot_policy.h"
 
 enum fake_event_type { FAKE_READ = 1, FAKE_WRITE, FAKE_DELAY, FAKE_DELAY_US };
 
@@ -614,6 +615,116 @@ test_register_read_propagates_mdio_failures(void)
 	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
 }
 
+
+struct fake_mib_register_io {
+	unsigned int calls;
+	int fail_at;
+	int fail_status;
+	unsigned int registers[32];
+};
+
+static int
+fake_mib_register_read(void *context, unsigned int reg, unsigned int *value)
+{
+	struct fake_mib_register_io *fake =
+		(struct fake_mib_register_io *)context;
+	unsigned int call = fake->calls++;
+
+	assert(call < sizeof(fake->registers) / sizeof(fake->registers[0]));
+	fake->registers[call] = reg;
+	if (fake->fail_at >= 0 && (int)call == fake->fail_at)
+		return fake->fail_status;
+	*value = reg;
+	return 0;
+}
+
+static void
+test_mib_snapshot_publishes_complete_counter_set(void)
+{
+	static const unsigned int expected_offsets[] = {
+		0x40a8U, 0x40acU, 0x4048U, 0x404cU,
+		0x4000U, 0x4004U, 0x4008U, 0x400cU, 0x4010U,
+		0x4014U, 0x402cU,
+		0x4060U, 0x4064U, 0x4068U, 0x406cU, 0x4070U,
+		0x4074U, 0x4078U, 0x408cU
+	};
+	struct fake_mib_register_io fake;
+	struct mtk_esw_mib_snapshot snapshot;
+	unsigned int i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	memset(&snapshot, 0, sizeof(snapshot));
+	assert(mtk_esw_mib_snapshot_read(0x200U, fake_mib_register_read,
+					 &fake, &snapshot) == 0);
+	assert(fake.calls == sizeof(expected_offsets) / sizeof(expected_offsets[0]));
+	for (i = 0U; i < fake.calls; ++i)
+		assert(fake.registers[i] == 0x200U + expected_offsets[i]);
+
+	assert(snapshot.rx_good_octets ==
+	       (((unsigned long long)(0x40acU + 0x200U) << 32) |
+		(unsigned long long)(0x40a8U + 0x200U)));
+	assert(snapshot.tx_good_octets ==
+	       (((unsigned long long)(0x404cU + 0x200U) << 32) |
+		(unsigned long long)(0x4048U + 0x200U)));
+	assert(snapshot.tx_drop_frames == 0x4000U + 0x200U);
+	assert(snapshot.tx_crc_error == 0x4004U + 0x200U);
+	assert(snapshot.tx_unicast_frames == 0x4008U + 0x200U);
+	assert(snapshot.tx_multicast_frames == 0x400cU + 0x200U);
+	assert(snapshot.tx_broadcast_frames == 0x4010U + 0x200U);
+	assert(snapshot.tx_collision == 0x4014U + 0x200U);
+	assert(snapshot.tx_pause_frames == 0x402cU + 0x200U);
+	assert(snapshot.rx_drop_frames == 0x4060U + 0x200U);
+	assert(snapshot.rx_filter_frames == 0x4064U + 0x200U);
+	assert(snapshot.rx_unicast_frames == 0x4068U + 0x200U);
+	assert(snapshot.rx_multicast_frames == 0x406cU + 0x200U);
+	assert(snapshot.rx_broadcast_frames == 0x4070U + 0x200U);
+	assert(snapshot.rx_alignment_error == 0x4074U + 0x200U);
+	assert(snapshot.rx_crc_error == 0x4078U + 0x200U);
+	assert(snapshot.rx_pause_frames == 0x408cU + 0x200U);
+}
+
+static void
+test_mib_snapshot_propagates_each_register_failure_without_publishing(void)
+{
+	struct fake_mib_register_io fake;
+	struct mtk_esw_mib_snapshot snapshot, before;
+	unsigned int fail_at;
+
+	for (fail_at = 0U; fail_at < 19U; ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.fail_at = (int)fail_at;
+		fake.fail_status = -ETIMEDOUT;
+		memset(&snapshot, 0xa5, sizeof(snapshot));
+		memcpy(&before, &snapshot, sizeof(before));
+
+		assert(mtk_esw_mib_snapshot_read(0x100U,
+						 fake_mib_register_read,
+						 &fake, &snapshot) == -ETIMEDOUT);
+		assert(fake.calls == fail_at + 1U);
+		assert(memcmp(&snapshot, &before, sizeof(snapshot)) == 0);
+	}
+}
+
+static void
+test_mib_snapshot_rejects_invalid_read_context_and_range(void)
+{
+	struct fake_mib_register_io fake;
+	struct mtk_esw_mib_snapshot snapshot, before;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	memset(&snapshot, 0x5a, sizeof(snapshot));
+	memcpy(&before, &snapshot, sizeof(before));
+	assert(mtk_esw_mib_snapshot_read(0U, NULL, &fake, &snapshot) == -EINVAL);
+	assert(mtk_esw_mib_snapshot_read(0U, fake_mib_register_read,
+					 NULL, &snapshot) == 0);
+	assert(mtk_esw_mib_snapshot_read(0xffffbf54U,
+					 fake_mib_register_read,
+					 &fake, &snapshot) == -EINVAL);
+	assert(memcmp(&snapshot, &before, sizeof(snapshot)) == 0);
+}
+
 static void
 test_port_register_writes_continue_after_first_failure(void)
 {
@@ -960,6 +1071,9 @@ main(void)
 	test_register_update_bits_preserves_unmasked_bits_and_propagates_errors();
 	test_register_write_propagates_mdio_failures();
 	test_register_read_propagates_mdio_failures();
+	test_mib_snapshot_publishes_complete_counter_set();
+	test_mib_snapshot_propagates_each_register_failure_without_publishing();
+	test_mib_snapshot_rejects_invalid_read_context_and_range();
 	test_port_register_writes_continue_after_first_failure();
 	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
