@@ -1778,6 +1778,22 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	return isolation_status;
 }
 
+static int
+wireless_nvram_get_int_status(const char *name, int *value)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno;
+
+	if (!name || !name[0] || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked(name, &stored_value);
+	saved_errno = errno;
+	return wireless_radio_nvram_int_status(
+		api_result, saved_errno, stored_value, 0, value);
+}
+
+
 int is_need_8021x(char *auth_mode)
 {
 	if (!strcmp(auth_mode, "wpa") ||
@@ -1792,10 +1808,32 @@ int
 start_8021x_wl(void)
 {
 	int start_status = 0;
+	int wl_KickStaRssiLow = 0, wl_AssocReqRssiThres = 0;
+	int status, read_status = 0;
+	const char *wifname;
+
 #if BOARD_HAS_5G_RADIO
 	if (!get_enabled_radio_wl())
 		return 0;
+#endif
 
+	wifname = find_wlan_if_up(1);
+	if (wifname) {
+		read_status = wireless_nvram_get_int_status(
+			"wl_KickStaRssiLow", &wl_KickStaRssiLow);
+		if (read_status == 0)
+			read_status = wireless_nvram_get_int_status(
+				"wl_AssocReqRssiThres", &wl_AssocReqRssiThres);
+		if (read_status != 0) {
+			errno = read_status;
+			logmessage(LOGNAME,
+				   "5GHz 802.1X startup deferred: cannot read RSSI driver settings (status=%d)",
+				   read_status);
+			return read_status;
+		}
+	}
+
+#if BOARD_HAS_5G_RADIO
 	if (is_need_8021x(nvram_wlan_get(1, "auth_mode"))) {
 		start_status = eval("rt2860apd", "-i", IFNAME_5G_MAIN);
 		if (start_status != 0)
@@ -1803,15 +1841,22 @@ start_8021x_wl(void)
 	}
 #endif
 
-	const char *wifname = find_wlan_if_up(1);
-
 	if (!wifname)
 		return start_status;
 
-	int wl_KickStaRssiLow = nvram_get_int("wl_KickStaRssiLow");
-	int wl_AssocReqRssiThres = nvram_get_int("wl_AssocReqRssiThres");
-	doSystem("iwpriv %s set %s=%d", wifname, "KickStaRssiLow", wl_KickStaRssiLow);
-	doSystem("iwpriv %s set %s=%d", wifname, "AssocReqRssiThres", wl_AssocReqRssiThres);
+	status = doSystem("iwpriv %s set %s=%d",
+			  wifname, "KickStaRssiLow", wl_KickStaRssiLow);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "5GHz RSSI kick threshold update failed (status=%d)", status);
+	start_status = wireless_radio_status_merge(start_status, status);
+
+	status = doSystem("iwpriv %s set %s=%d",
+			  wifname, "AssocReqRssiThres", wl_AssocReqRssiThres);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "5GHz association RSSI threshold update failed (status=%d)", status);
+	start_status = wireless_radio_status_merge(start_status, status);
 	return start_status;
 }
 
@@ -1820,26 +1865,53 @@ int
 start_8021x_rt(void)
 {
 	int start_status = 0;
+	int rt_KickStaRssiLow = 0, rt_AssocReqRssiThres = 0;
+	int status, read_status = 0;
+	const char *wifname;
 
 #if !defined(USE_RT3352_MII)
 	if (!get_enabled_radio_rt())
 		return 0;
 #endif
+
+	wifname = find_wlan_if_up(0);
+	if (wifname) {
+		read_status = wireless_nvram_get_int_status(
+			"rt_KickStaRssiLow", &rt_KickStaRssiLow);
+		if (read_status == 0)
+			read_status = wireless_nvram_get_int_status(
+				"rt_AssocReqRssiThres", &rt_AssocReqRssiThres);
+		if (read_status != 0) {
+			errno = read_status;
+			logmessage(LOGNAME,
+				   "2.4GHz 802.1X startup deferred: cannot read RSSI driver settings (status=%d)",
+				   read_status);
+			return read_status;
+		}
+	}
+
 	if (is_need_8021x(nvram_wlan_get(0, "auth_mode"))) {
 		start_status = eval("rtinicapd", "-i", IFNAME_2G_MAIN);
 		if (start_status != 0)
 			logmessage(LOGNAME, "802.1X 2.4GHz authenticator launch failed (status=%d)", start_status);
 	}
 
-	const char *wifname = find_wlan_if_up(0);
-
 	if (!wifname)
 		return start_status;
 
-	int rt_KickStaRssiLow = nvram_get_int("rt_KickStaRssiLow");
-	int rt_AssocReqRssiThres = nvram_get_int("rt_AssocReqRssiThres");
-	doSystem("iwpriv %s set %s=%d", wifname, "KickStaRssiLow", rt_KickStaRssiLow);
-	doSystem("iwpriv %s set %s=%d", wifname, "AssocReqRssiThres", rt_AssocReqRssiThres);
+	status = doSystem("iwpriv %s set %s=%d",
+			  wifname, "KickStaRssiLow", rt_KickStaRssiLow);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "2.4GHz RSSI kick threshold update failed (status=%d)", status);
+	start_status = wireless_radio_status_merge(start_status, status);
+
+	status = doSystem("iwpriv %s set %s=%d",
+			  wifname, "AssocReqRssiThres", rt_AssocReqRssiThres);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "2.4GHz association RSSI threshold update failed (status=%d)", status);
+	start_status = wireless_radio_status_merge(start_status, status);
 	return start_status;
 }
 

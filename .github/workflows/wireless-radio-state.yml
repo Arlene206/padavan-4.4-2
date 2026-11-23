@@ -78,6 +78,20 @@ jobs:
           root = Path(".")
           rc = root / "trunk/user/rc/src"
           source = (rc / "net_wifi.c").read_text()
+          start_8021x_wl = function_body(source, "start_8021x_wl(void)")
+          start_8021x_rt = function_body(source, "start_8021x_rt(void)")
+          for body, band, kick_key, assoc_key in (
+              (start_8021x_wl, "5GHz", "wl_KickStaRssiLow", "wl_AssocReqRssiThres"),
+              (start_8021x_rt, "2.4GHz", "rt_KickStaRssiLow", "rt_AssocReqRssiThres"),
+          ):
+              assert "wireless_nvram_get_int_status(" in body
+              assert f'"{kick_key}"' in body and f'"{assoc_key}"' in body
+              assert "nvram_get_int(" not in body
+              assert "iwpriv" in body and "wireless_radio_status_merge" in body
+              assert "startup deferred: cannot read RSSI driver settings" in body
+              assert body.index("startup deferred: cannot read RSSI driver settings") < body.index("eval(") if "eval(" in body else True
+          assert "wireless_radio_nvram_int_status(" in source
+          assert "wireless_radio_status_merge(" in source
           ralink_source = (rc / "ralink.c").read_text()
           rc_source = (rc / "rc.c").read_text()
           workflow = Path(".github/workflows/wireless-radio-state.yml").read_text()
