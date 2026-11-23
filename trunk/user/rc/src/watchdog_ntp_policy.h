@@ -2,6 +2,8 @@
 #define WATCHDOG_NTP_POLICY_H
 
 #include <errno.h>
+#include <stddef.h>
+#include <string.h>
 
 /* Do not overlap one-shot clock synchronization with an ntpd that survived
  * the bounded TERM/KILL lifecycle stop. */

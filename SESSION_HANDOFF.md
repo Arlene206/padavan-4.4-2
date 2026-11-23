@@ -1,32 +1,33 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this NTP snapshot task: ca77d8556ca9a13431ee588aafdd1356cf554f96.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
-- No local checkout; no local test/build results claimed.
+- Repository Arlene206/padavan-4.4-2; parent main for this correction: 4b1880a1a8ded23efa86641138e9ec65c2e6a5c1.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged.
+- No local checkout; no local build/test is claimed.
 
 ## Exact-SHA Actions
-- CA77 ZeroTier startup fail-closed fix: ZeroTier 45135591928 PASS; AI handoff docs 45135591868 PASS; WAN route 45135591880 PASS; Process inventory 45135591888 PASS.
-- CA77 XY-C1 run 45135591873 still IN_PROGRESS at last poll: Cross-build job 137560980123 has completed pre-build checks, Build XY-C1 is running, TRX verification and artifact upload remain PENDING. No L3 claim.
-- Parent 151cec5076e366fa17b6afef34c821a75f83e8d7: ZeroTier 45135317755, AI 45135317794, WAN route 45135317918 and Process 45135317776 all PASS. XY-C1 45135317783 had still been in progress when last checked.
-- The Moon create/remove/planet rollback fixes use ln -f to safely restore same-inode hardlink snapshots; exact ZeroTier workflow passed on CA77.
+- Watchdog NTP slice SHA 4b1880a1a8ded23efa86641138e9ec65c2e6a5c1: Watchdog run 45136255417 FAIL at GNU89 NTP policy test compile because watchdog_ntp_policy.h used size_t/strlen/memcpy/memmove without including stddef.h/string.h. THIS correction adds self-contained includes. Earlier signal policy compile passed.
+- Same SHA AI docs 45136255104 PASS; Process inventory 45136255039 PASS; DNSMasq 45136255161 PASS; HTTPD daemon lifecycle 45136255105 PASS. NVRAM transaction audit 45136255131 and Process lifecycle 45136255116 remained IN_PROGRESS; HTTPD security 45136255046 remained IN_PROGRESS.
+- XY-C1 45136255075 IN_PROGRESS; its cross-build job had not yet reached Build XY-C1/TRX/artifact at last detailed poll. No L3 claim.
+- Parent CA77 ZeroTier 45135591928 PASS, AI 45135591868 PASS, WAN route 45135591880 PASS, Process inventory 45135591888 PASS; XY-C1 45135591873 remained pending.
+- Commit ca77d8556ca9a13431ee588aafdd1356cf554f96 moves Moon management before daemon/firewall start so startup failure cannot leave zerotier-one running.
 
-## Active source task — Watchdog NTP refresh preserves last-good service on configuration read errors
-- refresh_ntp() currently stopped the existing ntpd before reading ntp_server0/ntp_server1 via nvram_safe_get(). A transient NVRAM backend failure collapsed into empty strings, then the code selected pool.ntp.org and proceeded to replace the running service.
-- THIS SLICE reads both keys under one nvram_transaction lease, copies each cache-backed string before the next read, distinguishes missing keys from backend errors, rejects truncation, preserves the legacy single-server/pool fallback, and closes the transaction before touching ntpd.
-- A read/close/length failure returns before kill_services(); server rotation advances only after ntpd launch succeeds. Host policy cases cover cache lifetime, second-key failure, absent keys/fallback and overlong input. Exact-head watchdog/AI/XY Actions pending.
+## Active task — Watchdog NTP checked snapshot before stopping ntpd
+- refresh_ntp() reads ntp_server0/ntp_server1 under one exclusive NVRAM transaction, copies cache-backed strings before the next read, resolves legacy defaults, and only then calls kill_services().
+- Read/close/length failures preserve the running ntpd; server rotation advances only after successful one-shot launch.
+- THIS correction fixes the first GNU89 build failure by making watchdog_ntp_policy.h self-contained with stddef.h and string.h.
 
 ## Next actions
-1. Inspect exact-head Watchdog NTP source/policy and AI docs checks for this slice; fix first causal failure.
-2. Poll XY-C1 45135591873 on CA77: L3 only with Build, TRX and artifact all PASS on that exact SHA; if it is still running, do other work.
-3. Continue a separate userland stability/security issue while CI is pending.
+1. Verify exact-head Watchdog after the header fix; then inspect the source-contract check and follow the first-causal CI failure.
+2. Check remaining exact-SHA NVRAM transaction/Process lifecycle/HTTPD security runs for 4b1880a..., continuing independent work while pending.
+3. Poll XY-C1 and claim L3 only if Build + TRX + artifact all PASS on one source SHA.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The NTP transactional source and regression update is source-reviewed; no local compile/test or firmware build claimed. CA77 ZeroTier, AI, WAN route and Process checks passed; CA77 XY-C1 L3 remains pending.
+The first NTP exact-head regression identified missing standard-header includes at compile time. The correction awaits fresh exact-head Watchdog/AI/XY Actions. No local compile/build claimed; L3/L4 unverified.
 
 ## Cross-session mandate
-One complete Git tree and one atomic commit per logical slice; non-force expected-SHA update of main; inspect exact-SHA Actions; never modify the frozen backup.
+One full Git tree and one atomic commit per logical task; update main with non-force expected-SHA; inspect exact-head Actions; never modify the frozen backup.
 
 
 

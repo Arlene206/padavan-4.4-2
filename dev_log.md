@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Make the Watchdog NTP policy header self-contained
+
+- Exact-SHA Watchdog run 45136255417 on 4b1880a1a8ded23efa86641138e9ec65c2e6a5c1 failed during the GNU89 policy compile: the new inline helpers use size_t, strlen(), memcpy() and memmove(), but the header only included errno.h. With -Werror this correctly stopped the regression before executing the policy tests.
+- Added the required standard <stddef.h> and <string.h> includes directly to watchdog_ntp_policy.h, so both production and standalone test translation units receive their declarations from the header contract.
+- Same SHA AI docs 45136255104, Process inventory 45136255039, DNSMasq 45136255161 and HTTPD daemon lifecycle 45136255105 PASS. XY-C1 45136255075, NVRAM transaction audit 45136255131, Process lifecycle 45136255116 and HTTPD security 45136255046 were still IN_PROGRESS at last poll. No local test/build claim.
+
+---
+
 ## 2026-11-23 UTC — Snapshot Watchdog NTP peers before stopping the current daemon
 
 - Source review found refresh_ntp() killed the current ntpd before reading ntp_server0/ntp_server1 via nvram_safe_get(). Backend read/close errors were therefore indistinguishable from two absent values, causing a fallback to pool.ntp.org and replacement of the last-good daemon using an unverified configuration.
