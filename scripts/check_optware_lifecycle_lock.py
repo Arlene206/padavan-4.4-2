@@ -139,12 +139,17 @@ for token in (
     'pl_stop_named "$package_binary" 5 2',
 ):
     require(token in stop_caller, "Optware teardown misses a package client: " + token)
-package_check = stop_caller.index("if ! optware_lifecycle_check_package_clients; then")
+package_check_first = stop_caller.index("if ! optware_lifecycle_check_package_clients; then")
+package_check_second = stop_caller.index("if ! optware_lifecycle_check_package_clients; then", package_check_first + 1)
+package_check_third = stop_caller.index("if ! optware_lifecycle_check_package_clients; then", package_check_second + 1)
+require(stop_caller.count("if ! optware_lifecycle_check_package_clients; then") == 3,
+        "package client inventory must be checked before services, after services and before unmount")
 service_stop = stop_caller.index("optware_lifecycle_stop_services /opt/etc/init.d")
 swap_stop = stop_caller.index("optware_lifecycle_swapoff_file /opt/.swap")
 unmount = stop_caller.index("optware_lifecycle_umount_opt")
-require(package_check < service_stop < swap_stop < unmount,
-        "package clients must be checked before service, swap and /opt teardown")
+require(package_check_first < service_stop < package_check_second < swap_stop <
+        package_check_third < unmount,
+        "package clients must be rechecked after service stop and swap release")
 require("killall -q ipkg" not in stop_caller and "killall -q opkg" not in stop_caller,
         "do not use killall executable names for shell-script package managers")
 for token in (

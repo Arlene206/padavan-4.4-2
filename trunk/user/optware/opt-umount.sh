@@ -90,6 +90,12 @@ if [ -d /opt/etc/init.d ] ; then
 	fi
 fi
 
+if ! optware_lifecycle_check_package_clients; then
+	logger -t "${self_name}" "package client appeared while stopping services; refusing swapoff and unmount"
+	optware_lifecycle_lock_release
+	exit 1
+fi
+
 # Do not change home/localtime or unmount /opt until swap release is
 # confirmed from a complete /proc/swaps inventory.
 if ! optware_lifecycle_swapoff_file /opt/.swap; then
@@ -106,6 +112,12 @@ rm -f /etc/localtime
 
 # flush buffers
 sync
+
+if ! optware_lifecycle_check_package_clients; then
+	logger -t "${self_name}" "package client appeared during swap release; refusing /opt unmount"
+	optware_lifecycle_lock_release
+	exit 1
+fi
 
 # unbinding; return failure if both attempts fail so the C storage caller
 # cannot proceed to detach a still-mounted /opt filesystem.
