@@ -1,3 +1,13 @@
+## 2026-11-23 UTC — Bound LLTD PID-file parsing and fail closed on uncertain PID probes
+
+- `osl_write_pidfile()` previously read into a fixed buffer without NUL termination and passed it to `strtol()`; a full/partial record could trigger an out-of-bounds read or accept malformed trailing bytes.
+- The old liveness check treated any failed `kill(pid, 0)` as stale. `EPERM` and transient errors therefore could overwrite a PID file for a process that had not been proven absent.
+- Added a strict byte-count parser for positive decimal PIDs, checked overflow/zero/format, bounded read and EINTR handling, no-follow regular-file checks, safe pre-truncate validation, robust partial writes, and a fail-closed probe where only ESRCH means stale.
+- Added a GNU89 ASan/UBSan policy test and Process workflow source contracts/path filters; XY-C1 filters now include the LLTD product source/header. Exact-head Process and AI Actions plus XY-C1 Build/TRX/artifact are pending; no local tests/builds claimed.
+- Parent main SHA 96bfc395bf84bae9870ffa562cd90432cf7315f1: Watchdog signal #45136454686, AI docs #45136454674 and Process inventory #45136454600 PASS; XY-C1 #45136454673 and NVRAM audit #45136454583 were in progress.
+
+---
+
 ## 2026-11-23 UTC — Make the Watchdog NTP policy header self-contained
 
 - Exact-SHA Watchdog run 45136255417 on 4b1880a1a8ded23efa86641138e9ec65c2e6a5c1 failed during the GNU89 policy compile: the new inline helpers use size_t, strlen(), memcpy() and memmove(), but the header only included errno.h. With -Werror this correctly stopped the regression before executing the policy tests.

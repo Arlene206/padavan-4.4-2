@@ -63,6 +63,7 @@
 #include <errno.h>
 
 #include "globals.h"
+#include "lldt_pidfile_policy.h"
 
 #include "packetio.h"
 
@@ -111,52 +112,114 @@ void
 osl_write_pidfile(osl_t *osl)
 {
     char pidfile[80];
-    char pidbuf[16];
+    char pidbuf[LLDT_PIDFILE_MAX_TEXT + 1];
     int fd;
     int ret;
+    int saved_errno;
+    pid_t pid;
+    struct stat st;
+    size_t pidbuf_length;
+    size_t written;
+    ssize_t io_status;
 
-    snprintf(pidfile, sizeof(pidfile), "/var/run/%s-%.10s.pid", g_Progname, osl->responder_if);
-    fd = open(pidfile, O_RDONLY);
+    ret = snprintf(pidfile, sizeof(pidfile), "/var/run/%s-%.10s.pid",
+                   g_Progname, osl->responder_if);
+    if (ret < 0 || ret >= (int)sizeof(pidfile))
+        die("osl_write_pidfile: PID-file path is too long\n");
+
+    fd = open(pidfile, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
     if (fd < 0)
     {
-	if (errno != ENOENT)
-	    die("osl_write_pidfile: opening pidfile %s for read: %s\n",
-		pidfile, strerror(errno));
-	/* ENOENT is good: the pidfile doesn't exist */
+        if (errno != ENOENT)
+            die("osl_write_pidfile: opening pidfile %s for read: %s\n",
+                pidfile, strerror(errno));
     }
     else
     {
-	/* the pidfile exists: read it and check whether the named pid
-	   is still around */
-	int pid;
-	char *end;
+        if (fstat(fd, &st) != 0)
+            die("osl_write_pidfile: stat of pre-existing %s failed: %s\n",
+                pidfile, strerror(errno));
+        if (!S_ISREG(st.st_mode))
+            die("osl_write_pidfile: pre-existing %s is not a regular file\n",
+                pidfile);
 
-	ret = read(fd, pidbuf, sizeof(pidbuf));
-	if (ret < 0)
-	    die("osl_write_pidfile: read of pre-existing %s failed: %s\n",
-		pidfile, strerror(errno));
-	pid = strtol(pidbuf, &end, 10);
-	if (*end != '\0' && *end != '\n')
-	    die("osl_write_pidfile: couldn't parse \"%s\" as a pid (from file %s); "
-		"aborting\n", pidbuf, pidfile);
-	ret = kill(pid, 0); /* try sending signal 0 to the pid to check it exists */
-	if (ret == 0)
-	    die("osl_write_pidfile: %s contains pid %d which is still running; aborting\n",
-		pidfile, pid);
-	/* pid doesn't exist, looks like we can proceed */
-	close(fd);
+        pidbuf_length = 0;
+        while (pidbuf_length < sizeof(pidbuf))
+        {
+            do {
+                io_status = read(fd, pidbuf + pidbuf_length,
+                                 sizeof(pidbuf) - pidbuf_length);
+            } while (io_status < 0 && errno == EINTR);
+            if (io_status < 0)
+                die("osl_write_pidfile: read of pre-existing %s failed: %s\n",
+                    pidfile, strerror(errno));
+            if (io_status == 0)
+                break;
+            pidbuf_length += (size_t)io_status;
+        }
+        if (pidbuf_length == sizeof(pidbuf))
+            die("osl_write_pidfile: pre-existing %s has an oversized PID record\n",
+                pidfile);
+        if (lldt_pidfile_parse_pid(pidbuf, pidbuf_length, &pid) != 0)
+            die("osl_write_pidfile: couldn't parse PID record in %s: %s\n",
+                pidfile, strerror(errno));
+
+        ret = kill(pid, 0);
+        if (ret == 0)
+            die("osl_write_pidfile: %s contains pid %ld which is still running; aborting\n",
+                pidfile, (long)pid);
+        saved_errno = errno;
+        if (saved_errno != ESRCH)
+        {
+            errno = saved_errno;
+            die("osl_write_pidfile: cannot verify whether pid %ld from %s is stale: %s\n",
+                (long)pid, pidfile, strerror(errno));
+        }
+        if (close(fd) != 0)
+            die("osl_write_pidfile: closing pre-existing %s failed: %s\n",
+                pidfile, strerror(errno));
     }
 
-    /* re-open pidfile for write, possibly creating it */
-    fd = open(pidfile, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    /* Refuse symlinks and special files before truncating the PID record. */
+    fd = open(pidfile, O_WRONLY | O_CREAT | O_NONBLOCK | O_NOFOLLOW, 0644);
     if (fd < 0)
-	die("osl_write_pidfile: open %s for write/create: %s\n", pidfile, strerror(errno));
-    snprintf(pidbuf, sizeof(pidbuf), "%d\n", getpid());
-    ret = write(fd, pidbuf, strlen(pidbuf));
-    if (ret < 0)
-	die("osl_write_pidfile: writing my PID to lockfile %s: %s\n",
-	    pidfile, strerror(errno));
-    close(fd);
+        die("osl_write_pidfile: open %s for write/create: %s\n",
+            pidfile, strerror(errno));
+    if (fstat(fd, &st) != 0)
+        die("osl_write_pidfile: stat %s for write failed: %s\n",
+            pidfile, strerror(errno));
+    if (!S_ISREG(st.st_mode))
+        die("osl_write_pidfile: refusing non-regular PID file %s\n", pidfile);
+    if (ftruncate(fd, 0) != 0)
+        die("osl_write_pidfile: truncate %s failed: %s\n",
+            pidfile, strerror(errno));
+
+    ret = snprintf(pidbuf, sizeof(pidbuf), "%ld\n", (long)getpid());
+    if (ret < 0 || ret >= (int)sizeof(pidbuf))
+    {
+        errno = EOVERFLOW;
+        die("osl_write_pidfile: current PID does not fit PID record\n");
+    }
+    pidbuf_length = (size_t)ret;
+    written = 0;
+    while (written < pidbuf_length)
+    {
+        do {
+            io_status = write(fd, pidbuf + written, pidbuf_length - written);
+        } while (io_status < 0 && errno == EINTR);
+        if (io_status < 0)
+            die("osl_write_pidfile: writing PID record to %s failed: %s\n",
+                pidfile, strerror(errno));
+        if (io_status == 0)
+        {
+            errno = EIO;
+            die("osl_write_pidfile: short write to PID file %s\n", pidfile);
+        }
+        written += (size_t)io_status;
+    }
+    if (close(fd) != 0)
+        die("osl_write_pidfile: closing PID file %s failed: %s\n",
+            pidfile, strerror(errno));
 }
 
 

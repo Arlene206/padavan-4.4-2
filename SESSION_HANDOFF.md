@@ -1,35 +1,33 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this correction: 4b1880a1a8ded23efa86641138e9ec65c2e6a5c1.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged.
-- No local checkout; no local build/test is claimed.
+- Repository Arlene206/padavan-4.4-2; parent main for this LLTD task: 96bfc395bf84bae9870ffa562cd90432cf7315f1.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
+- No local checkout; no local shell tests/builds claimed. The new bounded PID parser regression is wired into the exact-head Process workflow.
 
-## Exact-SHA Actions
-- Watchdog NTP slice SHA 4b1880a1a8ded23efa86641138e9ec65c2e6a5c1: Watchdog run 45136255417 FAIL at GNU89 NTP policy test compile because watchdog_ntp_policy.h used size_t/strlen/memcpy/memmove without including stddef.h/string.h. THIS correction adds self-contained includes. Earlier signal policy compile passed.
-- Same SHA AI docs 45136255104 PASS; Process inventory 45136255039 PASS; DNSMasq 45136255161 PASS; HTTPD daemon lifecycle 45136255105 PASS. NVRAM transaction audit 45136255131 and Process lifecycle 45136255116 remained IN_PROGRESS; HTTPD security 45136255046 remained IN_PROGRESS.
-- XY-C1 45136255075 IN_PROGRESS; its cross-build job had not yet reached Build XY-C1/TRX/artifact at last detailed poll. No L3 claim.
-- Parent CA77 ZeroTier 45135591928 PASS, AI 45135591868 PASS, WAN route 45135591880 PASS, Process inventory 45135591888 PASS; XY-C1 45135591873 remained pending.
-- Commit ca77d8556ca9a13431ee588aafdd1356cf554f96 moves Moon management before daemon/firewall start so startup failure cannot leave zerotier-one running.
+## Exact-SHA Actions on parent main 96bfc395bf84bae9870ffa562cd90432cf7315f1
+- Watchdog signal lifecycle #45136454686 PASS.
+- AI handoff documentation #45136454674 PASS.
+- Process lifecycle inventory #45136454600 PASS.
+- XY-C1 firmware validation #45136454673 IN_PROGRESS at last poll; Build XY-C1, TRX and artifact upload not yet complete.
+- NVRAM transaction audit #45136454583 IN_PROGRESS at last poll.
 
-## Active task — Watchdog NTP checked snapshot before stopping ntpd
-- refresh_ntp() reads ntp_server0/ntp_server1 under one exclusive NVRAM transaction, copies cache-backed strings before the next read, resolves legacy defaults, and only then calls kill_services().
-- Read/close/length failures preserve the running ntpd; server rotation advances only after successful one-shot launch.
-- THIS correction fixes the first GNU89 build failure by making watchdog_ntp_policy.h self-contained with stddef.h and string.h.
+## Active task — LLTD PID-file parsing and stale-process safety
+- `osl_write_pidfile()` read up to 16 bytes into an unterminated stack buffer then passed it to `strtol()`, which could read beyond the bytes returned by `read()`. It also treated every `kill(pid, 0)` error as a stale PID, so `EPERM` or another probe error could overwrite a possibly live daemon's PID file.
+- THIS slice adds a length-bounded strict decimal parser with overflow/zero/malformed-input rejection, regular-file and no-follow checks, EINTR/short-read handling, and fail-closed PID liveness semantics (only ESRCH proves the old PID absent). The write side now refuses symlinks/special files before truncation and handles partial/EINTR writes.
+- GNU89 ASan/UBSan parser tests and exact source contracts are added to `.github/workflows/process-lifecycle-regression.yml`; the LLTD source and helper header are added to XY-C1 path filters so the firmware build covers this product code. Exact-head Process/AI/XY-C1 checks are pending; no local test/build claim.
 
 ## Next actions
-1. Verify exact-head Watchdog after the header fix; then inspect the source-contract check and follow the first-causal CI failure.
-2. Check remaining exact-SHA NVRAM transaction/Process lifecycle/HTTPD security runs for 4b1880a..., continuing independent work while pending.
-3. Poll XY-C1 and claim L3 only if Build + TRX + artifact all PASS on one source SHA.
-4. Physical router L4 remains NOT VERIFIED.
+1. Verify exact-head Process lifecycle and AI handoff Actions; inspect logs for any failure and repair the actual first cause.
+2. Poll same-SHA XY-C1 Build, TRX verification and artifact upload; do not claim L3 unless all three pass.
+3. Check the current NVRAM transaction audit without repeating completed checks.
+4. Continue another independent userland stability/security slice while those workflows are pending; physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The first NTP exact-head regression identified missing standard-header includes at compile time. The correction awaits fresh exact-head Watchdog/AI/XY Actions. No local compile/build claimed; L3/L4 unverified.
+The parser test and source contract are committed but not yet executed on this source SHA. Parent main's Watchdog signal, AI docs and Process inventory checks passed; parent XY-C1 and NVRAM transaction audit remain in progress. No local tests or firmware build are claimed. L3 and hardware L4 are NOT VERIFIED.
 
 ## Cross-session mandate
-One full Git tree and one atomic commit per logical task; update main with non-force expected-SHA; inspect exact-head Actions; never modify the frozen backup.
-
-
+One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; frozen backup remains untouched; inspect exact-SHA Actions and never infer results.
 
 # SESSION HANDOFF — Padavan 4.4
 

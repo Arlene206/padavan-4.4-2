@@ -63,6 +63,8 @@ klogd_source = (root / "trunk/user/busybox/busybox-1.24.x/sysklogd/klogd.c").rea
 rstats_source = (root / "trunk/user/rc/src/rstats.c").read_text()
 lldt_main_source = (root / "trunk/user/lldt/src/main.c").read_text()
 lldt_osl_source = (root / "trunk/user/lldt/src/osl-linux.c").read_text()
+lldt_pidfile_policy = (root / "trunk/user/lldt/src/lldt_pidfile_policy.h").read_text()
+lldt_pidfile_test = (root / "trunk/user/lldt/src/tests/lldt_pidfile_policy.c").read_text()
 shared_makefile = (root / "trunk/user/shared/src/Makefile").read_text()
 netutils_source = (root / "trunk/user/shared/src/netutils.c").read_text()
 net_ifstats_policy = (root / "trunk/user/shared/src/net_ifstats_policy.h").read_text()
@@ -1725,12 +1727,34 @@ assert lldt_main.index("osl_become_daemon(g_osl);") < lldt_main.index("osl_write
 assert lldt_daemon.count("fork()") == 2 and "setsid()" in lldt_daemon
 assert 'g_Progname = p+1;' in lldt_main_source
 assert '"/var/run/%s-%.10s.pid", g_Progname, osl->responder_if' in lldt_osl_source
+lldt_pidfile_writer = c_function_body(lldt_osl_source, "osl_write_pidfile(osl_t *osl)")
+assert '#include "lldt_pidfile_policy.h"' in lldt_osl_source
+assert "lldt_pidfile_parse_pid(pidbuf, pidbuf_length, &pid)" in lldt_pidfile_writer
+assert "pidbuf_length == sizeof(pidbuf)" in lldt_pidfile_writer
+assert "O_NOFOLLOW" in lldt_pidfile_writer and "O_NONBLOCK" in lldt_pidfile_writer
+assert lldt_pidfile_writer.count("fstat(fd, &st)") == 2
+assert lldt_pidfile_writer.count("S_ISREG(st.st_mode)") == 2
+assert "if (errno != ESRCH)" in lldt_pidfile_writer
+assert "if (ret == 0)" in lldt_pidfile_writer
+assert "ftruncate(fd, 0)" in lldt_pidfile_writer
+assert "while (written < pidbuf_length)" in lldt_pidfile_writer
+assert "strtol(" not in lldt_pidfile_writer
+assert "#define LLDT_PIDFILE_MAX_TEXT 11U" in lldt_pidfile_policy
+assert "value > ((unsigned long)INT_MAX - digit) / 10UL" in lldt_pidfile_policy
+for marker in ("expect_valid(no_nul", "expect_valid(maximum", "expect_invalid(overflow",
+               "expect_invalid(embedded_nul", "LLTD bounded PID-file parser regression"):
+    assert marker in lldt_pidfile_test, marker
+assert '"trunk/user/lldt/src/lldt_pidfile_policy.h"' in process_workflow
+assert '"trunk/user/lldt/src/tests/lldt_pidfile_policy.c"' in process_workflow
+assert "Compile and run LLTD PID-file parser regression" in process_workflow
 assert '"trunk/user/lldt/src/main.c"' in process_workflow
 assert '"trunk/user/lldt/src/osl-linux.c"' in process_workflow
 assert '"trunk/user/rc/src/rstats.c"' in process_workflow
 
 assert '"trunk/user/rc/src/services.c"' in process_workflow
 assert '"trunk/user/rc/src/services.c"' in xy_workflow
+assert '"trunk/user/lldt/src/osl-linux.c"' in xy_workflow
+assert '"trunk/user/lldt/src/lldt_pidfile_policy.h"' in xy_workflow
 print("LLTD/rstats detached startup postconditions and daemonization contracts: PASS")
 
 iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
