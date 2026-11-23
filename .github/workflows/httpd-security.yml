@@ -3081,7 +3081,8 @@ jobs:
           assert unplug_read in deferred_code
           assert hotplug_read in deferred_code
           assert optware_read in deferred_code
-          storage_callback = deferred_start.split("#else", 1)[0]
+          no_storage_branch = deferred_start.index("\n#else\n\t/*\n\t * Builds without integrated storage support")
+          storage_callback = deferred_start[:no_storage_branch]
           storage_callback_code = "".join(storage_callback.split())
           assert "storage_deferred_start_dispatch_status(" in storage_callback
           assert 'nvram_match("usb_unplug_ms","1")' not in storage_callback_code
