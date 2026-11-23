@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fix the DDNS symlink regression fixture setup
+
+- Exact-head AliDDNS run `45169602661` and Process boot regression run `45169602600` both reached the same new test and failed because the DDNS symlink fixture referenced `$tmp/external/sentinel` before creating that sentinel. This was a test setup defect, not a production-path failure.
+- Create the sentinel immediately before constructing the DDNS symlink. The later generic symlink cases continue to reuse the same external file. Re-run both workflows on a new exact SHA before treating this slice as verified.
+
+---
+
 ## 2026-11-23 UTC — Correct the DDNS storage regression fixture
 
 - Pre-run review found the new DDNS publication test's `printf` format had a doubled backslash and would write a literal `\\n`, so the preservation assertion would fail for a fixture-format reason.

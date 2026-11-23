@@ -128,6 +128,7 @@ chmod 600 "$tmp/storage/ddns-existing.sh"
 seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns-existing.sh" 755
 [ "$(cat "$tmp/storage/ddns-existing.sh")" = "operator DDNS script" ]
 [ "$(stat -c %a "$tmp/storage/ddns-existing.sh")" = 600 ]
+printf 'outside sentinel\n' > "$tmp/external/sentinel"
 ln -s "$tmp/external/sentinel" "$tmp/storage/ddns-linked.sh"
 copyscripts_seed_status=0
 if seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns-linked.sh" 755; then
