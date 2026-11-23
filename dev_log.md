@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Bound ZeroTier static-route count before iteration
+
+- The web UI limits ZeroTier static routes to 64 entries, but both `zerotier_preflight_static_routes()` and `zero_route()` trusted any digit-only NVRAM count and fed it directly to `seq`. A corrupted or externally modified count could create an effectively unbounded startup/stop loop before daemon state changes.
+- Added one shared normalizer/validator that preserves empty, zero and leading-zero compatibility, rejects non-digits and values above 64 before arithmetic/iteration, and applies identically to startup/stop preflight and route add/delete. Regression cases cover 65, leading-zero 65, a huge decimal string, empty, zero and the maximum 64; the source checker ties the bound to the UI's existing 64-route limit.
+- Exact-head ZeroTier lifecycle and AI documentation Actions are required. XY-C1 has an existing `trunk/user/zerotier/**` path trigger; no local test/build or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Make LLDT startup cleanup regression detect shell commands
 
 - Follow-up review of the new LLDT init-wrapper contract found its Python raw-regex literal had been double-escaped, so the negative assertion could not match an `rm ... .pid` command if it regressed. Replaced it with a direct per-line command check; the production script is unchanged.

@@ -1799,6 +1799,36 @@ for setting in zero_staticnum_x zero_enable_x0 zero_ip_x0 zero_route_x0; do
 	[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled the daemon after $setting read failure"
 done
 TEST_NVRAM_READ_FAIL_KEY=""
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+zt0=ztunit
+ip_segment=10.147.17.0/24
+
+# The UI allows at most 64 static routes. Reject corrupted or oversized
+# NVRAM counts before either preflight or route execution can start a seq loop.
+for invalid_count in 65 00065 999999999999999999999999; do
+	TEST_STATIC_ROUTE_COUNT="$invalid_count"
+	: > "$TEST_ACTION_LOG"
+	if zerotier_preflight_static_routes; then
+		fail "static-route preflight accepted unsupported count $invalid_count"
+	fi
+	if zero_route add; then
+		fail "static-route executor accepted unsupported count $invalid_count"
+	fi
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "unsupported route count $invalid_count issued network commands"
+done
+
+# Preserve empty/zero compatibility and allow the full UI-supported count.
+for valid_count in "" 0 00064; do
+	TEST_STATIC_ROUTE_COUNT="$valid_count"
+	if ! zerotier_preflight_static_routes; then
+		fail "static-route preflight rejected compatible count '$valid_count'"
+	fi
+	if ! zero_route add; then
+		fail "static-route executor rejected compatible count '$valid_count'"
+	fi
+done
+
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_NAT_ENABLE=0

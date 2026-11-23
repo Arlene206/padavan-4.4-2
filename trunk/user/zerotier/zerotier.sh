@@ -10,6 +10,7 @@ PROGIDT=/usr/bin/zerotier-idtool
 config_path="/etc/storage/zerotier-one"
 PLANET="/etc/storage/planet"
 ZT_READY_TIMEOUT=30
+ZT_MAX_STATIC_ROUTES=64
 zt0=""
 ip_segment=""
 zerotier_prepare_config_directory() {
@@ -755,19 +756,37 @@ zerotier_read_nat_enabled() {
 	return 0
 }
 
+zerotier_validate_static_route_count() {
+	zt_route_count="$1"
+	case "$zt_route_count" in
+		"") zt_route_count=0 ;;
+		*[!0-9]*)
+			return 1
+			;;
+	esac
+	# Normalize leading zeroes before using the shell's numeric test. Reject
+	# long values before arithmetic so corrupted NVRAM cannot overflow or
+	# drive an unbounded seq loop.
+	while [ "${zt_route_count#0}" != "$zt_route_count" ]; do
+		zt_route_count=${zt_route_count#0}
+	done
+	[ -n "$zt_route_count" ] || zt_route_count=0
+	[ "${#zt_route_count}" -le 2 ] || return 1
+	[ "$zt_route_count" -le "$ZT_MAX_STATIC_ROUTES" ] 2>/dev/null
+}
+
+
 zerotier_preflight_static_routes() {
 	if ! zt_preflight_route_count="$(nvram get_checked zero_staticnum_x)"; then
 		logger -t "zerotier" "无法读取静态路由数量配置"
 		return 1
 	fi
-	case "$zt_preflight_route_count" in
-		""|0) return 0 ;;
-		*[!0-9]*)
-			logger -t "zerotier" "静态路由数量配置无效"
-			return 1
-			;;
-	esac
-	for zt_preflight_i in $(seq 1 "$zt_preflight_route_count"); do
+	if ! zerotier_validate_static_route_count "$zt_preflight_route_count"; then
+		logger -t "zerotier" "静态路由数量配置超出允许范围 (0-$ZT_MAX_STATIC_ROUTES)"
+		return 1
+	fi
+	[ "$zt_route_count" -gt 0 ] || return 0
+	for zt_preflight_i in $(seq 1 "$zt_route_count"); do
 		zt_preflight_j=$((zt_preflight_i - 1))
 		if ! zt_preflight_enable="$(nvram get_checked zero_enable_x$zt_preflight_j)"; then
 			logger -t "zerotier" "无法读取静态路由启用标志: $zt_preflight_j"
@@ -925,15 +944,13 @@ zero_route() {
 		add|del) ;;
 		*) return 2 ;;
 	esac
-	case "$rulesnum" in
-		""|0) return 0 ;;
-		*[!0-9]*)
-			logger -t "zerotier" "静态路由数量配置无效"
-			return 1
-			;;
-	esac
+	if ! zerotier_validate_static_route_count "$rulesnum"; then
+		logger -t "zerotier" "静态路由数量配置超出允许范围 (0-$ZT_MAX_STATIC_ROUTES)"
+		return 1
+	fi
+	[ "$zt_route_count" -gt 0 ] || return 0
 	route_status=0
-	for i in $(seq 1 "$rulesnum")
+	for i in $(seq 1 "$zt_route_count")
 	do
 		j=$((i - 1))
 		if ! route_enable="$(nvram get_checked zero_enable_x$j)"; then

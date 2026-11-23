@@ -10,6 +10,7 @@ services_path = ROOT / "trunk/user/rc/src/services.c"
 rc_header_path = ROOT / "trunk/user/rc/src/rc.h"
 rc_path = ROOT / "trunk/user/rc/src/rc.c"
 workflow_path = ROOT / ".github/workflows/zerotier-lifecycle.yml"
+zerotier_page_path = ROOT / "trunk/user/www/n56u_ribbon_fixed/Advanced_zerotier.asp"
 
 script = script_path.read_text()
 test = test_path.read_text()
@@ -18,6 +19,7 @@ services = services_path.read_text()
 rc_header = rc_header_path.read_text()
 rc = rc_path.read_text()
 workflow = workflow_path.read_text()
+zerotier_page = zerotier_page_path.read_text()
 
 
 def require(condition: bool, message: str) -> None:
@@ -78,6 +80,7 @@ planet_body = function_body(script, "zerotier_publish_planet_base64()")
 planet_import_body = function_body(script, "zerotier_import_planet_file()")
 start_instance_body = function_body(script, "start_instance()")
 nat_settings_body = function_body(script, "zerotier_read_nat_enabled()")
+route_count_body = function_body(script, "zerotier_validate_static_route_count()")
 route_preflight_body = function_body(script, "zerotier_preflight_static_routes()")
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
 creat_moon_body = script.split("creat_moon() {", 1)[1].split("\n\nzerotier_rollback_moon_remove()", 1)[0]
@@ -294,6 +297,20 @@ require('nvram get_checked zerotier_nat' in nat_settings_body and
         'if ! zerotier_read_nat_enabled; then' in rules_section and
         'if ! zerotier_read_nat_enabled; then' in stop_body,
         "runtime NAT state must use a checked read in both firewall publication and stop preflight")
+require('ZT_MAX_STATIC_ROUTES=64' in script and
+        'while [ "${zt_route_count#0}" != "$zt_route_count" ]; do' in route_count_body and
+        '[ "${#zt_route_count}" -le 2 ] || return 1' in route_count_body and
+        '[ "$zt_route_count" -le "$ZT_MAX_STATIC_ROUTES" ]' in route_count_body and
+        'zerotier_validate_static_route_count "$zt_preflight_route_count"' in route_preflight_body and
+        'zerotier_validate_static_route_count "$rulesnum"' in static_route_body and
+        'markGroupRULES(this, 64' in zerotier_page,
+        "static route iteration must enforce the same 64-entry ceiling as the UI before seq")
+require('static-route preflight accepted unsupported count' in test and
+        'static-route executor accepted unsupported count' in test and
+        '999999999999999999999999' in test and
+        '00064' in test,
+        "static route count regression must cover oversized, overflow-length and compatible normalized values")
+
 require('nvram get_checked zero_staticnum_x' in route_preflight_body and
         'nvram get_checked zero_enable_x$zt_preflight_j' in route_preflight_body and
         'nvram get_checked zero_ip_x$zt_preflight_j' in route_preflight_body and
