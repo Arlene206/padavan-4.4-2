@@ -791,7 +791,7 @@ jobs:
           assert "nvram_get(nv_date)" not in url_schedule
           assert "nvram_get(nv_time)" not in url_schedule
           assert "firewall_schedule_copy_checked_value" in filter_policy
-          assert "test_checked_url_schedule_copy_preserves_defaults_and_errors" in filter_test
+          assert "firewall_schedule_copy_checked_value(" in filter_test
           for signature, builder in (("IPv4 filter", ipv4_filter),
                                      ("IPv6 filter", ipv6_filter)):
               compact_builder = " ".join(builder.split())

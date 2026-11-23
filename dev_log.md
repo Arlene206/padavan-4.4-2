@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Fix firewall URL schedule regression contract
+
+- Firewall Startup run #45161165818 on source SHA ad56220d066e771be499426708b6c2f744937467 passed the firewall IP checked-read contract and lifecycle/startup/enable/static-route GNU89 ASan/UBSan binaries, then failed at inline Python line 634. The checker referred to a nonexistent standalone test function name; the tests are assertions inside the existing `main()` and directly exercise `firewall_schedule_copy_checked_value()`.
+- Corrected the contract to assert the helper is exercised by `firewall_filter_policy.c`. No runtime C or test code changed in this follow-up. Exact Firewall Startup rerun is required. The initial exact WAN DHCP callback #45161165802 completed PASS on ad56220. XY-C1 #45161165974, Process inventory #45161166010, AI docs #45161165835 and NVRAM audit #45161165871 were in progress at last poll; no result is inferred.
+
+---
 ## 2026-11-23 UTC — Normalize notification macro source-contract whitespace
 
 - WAN DHCP callback run #45160010474 on product/checker SHA edeb1e8354a97b312d8f3f5dd8787af030abfc6d compiled and passed the initial USB-modem, WAN interface-name, DHCP lease policy and WAN NVRAM ASan/UBSan binaries, then stopped at the new source-contract assertion for `RCN_RESTART_NETWORKMAP`. The checker expected one literal space while the shared header aligns macro definitions with tabs; this was a formatting-only checker false negative.
