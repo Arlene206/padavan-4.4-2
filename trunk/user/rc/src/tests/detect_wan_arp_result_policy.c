@@ -140,6 +140,56 @@ test_malformed_and_unrelated_arp_replies_are_rejected(void)
 }
 
 static int
+test_arp_source_hardware_address_requires_colon_hex(void)
+{
+    static const uint8_t expected[6] =
+        { 0x02, 0x11, 0x22, 0xaa, 0xbb, 0xff };
+    uint8_t actual[6] = { 0 };
+    int status;
+
+    status = detect_wan_arp_parse_hardware_address(
+        "02:11:22:aA:BB:ff", actual);
+    CHECK(status == 0);
+    CHECK(memcmp(actual, expected, sizeof(expected)) == 0);
+    return 0;
+}
+
+static int
+test_invalid_arp_source_hardware_address_is_rejected_transactionally(void)
+{
+    static const char * const invalid_values[] = {
+        "", "02:11:22:33:44", "02:11:22:33:44:55:66",
+        "02-11-22-33-44-55", "02:11:22:33:44:5g",
+        "02:11:22:33:44:5", "02:11:22:33:44:5Z",
+        "0:11:22:33:44:55", "0211:22:33:44:55",
+        " 02:11:22:33:44:55"
+    };
+    uint8_t actual[6], before[6];
+    size_t index, byte_index;
+
+    for (index = 0;
+         index < sizeof(invalid_values) / sizeof(invalid_values[0]);
+         ++index) {
+        memset(actual, 0xa5, sizeof(actual));
+        memcpy(before, actual, sizeof(before));
+        CHECK(detect_wan_arp_parse_hardware_address(
+                  invalid_values[index], actual) == EINVAL);
+        CHECK(memcmp(actual, before, sizeof(actual)) == 0);
+    }
+
+    memset(actual, 0x5a, sizeof(actual));
+    memcpy(before, actual, sizeof(before));
+    CHECK(detect_wan_arp_parse_hardware_address(NULL, actual) == EINVAL);
+    CHECK(memcmp(actual, before, sizeof(actual)) == 0);
+    CHECK(detect_wan_arp_parse_hardware_address(
+              "02:11:22:33:44:55", NULL) == EINVAL);
+
+    for (byte_index = 0; byte_index < sizeof(actual); ++byte_index)
+        CHECK(actual[byte_index] == before[byte_index]);
+    return 0;
+}
+
+static int
 test_probe_result_keeps_local_errors_distinct(void)
 {
     errno = 0;
@@ -175,6 +225,8 @@ main(void)
 {
     CHECK(test_arp_reply_requires_matching_l2_l3_tuple() == 0);
     CHECK(test_malformed_and_unrelated_arp_replies_are_rejected() == 0);
+    CHECK(test_arp_source_hardware_address_requires_colon_hex() == 0);
+    CHECK(test_invalid_arp_source_hardware_address_is_rejected_transactionally() == 0);
     CHECK(test_probe_result_keeps_local_errors_distinct() == 0);
     CHECK(test_dhcp_renew_requires_three_real_no_reply_probes() == 0);
     puts("WAN ARP reply validation and DHCP-renewal policy: PASS");

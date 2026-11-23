@@ -10,6 +10,56 @@
 #define DETECT_WAN_ARP_PROBE_ERROR (-1)
 #define DETECT_WAN_ARP_PROBE_NO_REPLY 0
 #define DETECT_WAN_ARP_PROBE_REPLY 1
+
+static inline int
+detect_wan_arp_hex_nibble(char value)
+{
+    if (value >= '0' && value <= '9')
+        return value - '0';
+    if (value >= 'a' && value <= 'f')
+        return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F')
+        return value - 'A' + 10;
+    return -1;
+}
+
+/*
+ * Parse exactly six colon-separated hexadecimal octets. The WAN override
+ * formatter intentionally preserves legacy non-hex text compatibility, so
+ * validate the normalized value here before constructing an ARP frame.
+ * Keep output untouched on failure.
+ */
+static inline int
+detect_wan_arp_parse_hardware_address(const char *text,
+                                      uint8_t hardware_address[6])
+{
+    uint8_t parsed[6];
+    size_t length, octet;
+
+    if (!text || !hardware_address)
+        return EINVAL;
+
+    length = strlen(text);
+    if (length != 17)
+        return EINVAL;
+
+    for (octet = 0; octet < 6; ++octet) {
+        size_t offset = octet * 3;
+        int high, low;
+
+        high = detect_wan_arp_hex_nibble(text[offset]);
+        low = detect_wan_arp_hex_nibble(text[offset + 1]);
+        if (high < 0 || low < 0)
+            return EINVAL;
+        if (octet < 5 && text[offset + 2] != ':')
+            return EINVAL;
+        parsed[octet] = (uint8_t)((high << 4) | low);
+    }
+
+    memcpy(hardware_address, parsed, sizeof(parsed));
+    return 0;
+}
+
 /*
  * Accept only a complete Ethernet/IPv4 ARP reply for this exact probe.
  * Packet sockets can receive unrelated and malformed frames; accepting one

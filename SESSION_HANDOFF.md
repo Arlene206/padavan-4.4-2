@@ -2,46 +2,37 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; work on main only.
-- Main parent for this checkpoint: 280e959c899772cb85d76935a13de8e626f1f8f7. Fetch live main before every write; parallel sessions can advance it quickly.
-- USB modem eject production fix is in 9e9efbf6d9651e9bab82e544b02f718655a0a820. Dedicated USB identity #45154233466 PASS; Process fail-closed #45155481370 and USB storage hotplug #45155481256 PASS on descendant SHA 15c93fe802fc6a45148d04c8d3c7f238ad11fd92. XY-C1 #45154946558 on descendant product SHA eac5eeee93a83905371ea87e00bff40a66fcd828 passed Build, TRX verification and artifact upload on that same SHA.
-- Current product-source baseline is 0e4976cfbe86c81f5172ce2256ed71801952682d, which adds checked radio-enable reads in 802.1X startup, guest activation and DBDC peer-band restart. Wireless #45156939172 passed policy tests but failed a mixed raw/compact guest offset assertion. Descendant #45157423895 corrected offsets but exposed a compact-return spacing assertion; descendant #45157966807 on 280e959c passed all policy tests but exposed the same spacing mismatch in the subsequent DBDC return-order lookup. This checkpoint fixes that remaining lookup.
-- AI handoff docs #45157423846 failed because its exact required heading was missing. The canonical heading was restored in 280e959c; AI handoff #45157966954 then PASS on that SHA.
-- On product SHA 0e4976cf, Process fail-closed #45156939224, HTTPD security #45156939207, Process inventory #45156939102, iNIC #45156939083, AI handoff #45156939070, watchdog #45156939026 and NVRAM #45156938997 passed. XY-C1 #45156939135 remained in progress at Build at last poll.
-- XY-C1 #45157423889 completed workflow success but skipped product Build/TRX/artifact. XY-C1 #45157966804 on checker/docs descendant 280e959c was in progress at last poll, with Build not yet complete and TRX/artifact not yet reached. The latest fully confirmed same-source Build/TRX/artifact PASS is #45154946558 on eac5eeee, not on 0e4976cf.
+- Repository: Arlene206/padavan-4.4-2; writable branch is main only.
+- Main parent for this checkpoint: af80debca9112c03b72fbe27dd8cd2838fe82ff2. Re-fetch live main before every write; parallel sessions may advance it.
+- USB modem eject production fix is in 9e9efbf6d9651e9bab82e544b02f718655a0a820. USB identity #45154233466 PASS; Process fail-closed #45155481370 and USB storage hotplug #45155481256 PASS on descendant SHA 15c93fe802fc6a45148d04c8d3c7f238ad11fd92.
+- Production source baseline before this checkpoint is 0e4976cfbe86c81f5172ce2256ed71801952682d; exact XY-C1 #45156939135 is confirmed PASS for Build XY-C1, TRX verification and artifact upload on that same SHA. Current main parent af80debca9112c03b72fbe27dd8cd2838fe82ff2 is a check/docs descendant of that product source. Wireless #45158308492 and AI handoff #45158308561 passed on af80. XY-C1 #45158308815 skipped product build/TRX/artifact because af80 only changed test/docs files.
+- This checkpoint adds strict local source-MAC parsing to detect_wan.c at the ARP packet boundary. It intentionally does not change the legacy WAN MAC override formatter; malformed NVRAM text is rejected only before Ethernet frame construction.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Read-only; do not update, delete, merge or rename.
-- No persistent local checkout was available. Do not claim local compilation, local sanitizer execution, firmware builds or physical hardware tests unless actually observed.
+- No persistent local checkout is available. Do not claim local compile, local sanitizers, firmware build or physical hardware results unless actually observed.
 - Startup recovery has already been performed once. Do not repeat broad startup or completed USB eject/MTK/WSD investigations without new evidence.
-
-## Active engineering baseline
-
-- Product source stays at SHA 0e4976cfbe86c81f5172ce2256ed71801952682d; main 280e959c is a workflow/docs-only descendant.
-- Wireless guest activation correctly checks radio enable and mode before interface state inspection/bridge work. DBDC restart correctly checks the peer radio, performs best-effort auth/interface cleanup and returns its negative peer-status error.
-- The remaining current Wireless source-contract failure is representation-only: the workflow searches a whitespace-stripped function body, and every expected token/index must use the compact spelling. The previous checker fix corrected the direct token assertion; the second `compact.index()` call for the return-order check still contained a space. This checkpoint corrects that second occurrence. Do not weaken or remove the fail-closed return assertion.
-- AI handoff checker requires the exact section heading `## Exact first action for the next GPT`; this heading is restored and its exact-head docs run passed.
 
 ## Active task
 
-Close the last known false failure in the Wireless radio-state source contract. Exact Wireless #45157966807 on 280e959c passed all compiled policy tests, the Ralink config ASan/UBSan test, bridge membership, guest-isolation tests and initial DBDC presence checks, but failed with `ValueError: substring not found` at inline Python line 656. The failure was traced to a second lookup of `return -<peer_status>;` against a whitespace-stripped source string. The first presence check already uses `return-<peer_status>;`; this checkpoint fixes the corresponding ordering lookup the same way. No runtime C source changed.
+A malformed-input defect was found in arpping_gateway() in trunk/user/rc/src/detect_wan.c. The WAN MAC override formatter intentionally retains historical behavior and formats a 12-character string into colon-separated pairs without validating hexadecimal characters. The ARP probe then decoded each pair with strtol(tmp, NULL, 16) and ignored where parsing stopped. Invalid nibbles could silently produce zero or partial octets, then be copied into the outgoing Ethernet/ARP source fields and misrepresent the router identity during gateway liveness detection.
 
-The AI handoff heading correction is already verified: #45157966954 PASS on SHA 280e959c.
+The new detect_wan_arp_parse_hardware_address() helper in detect_wan_arp_result_policy.h enforces exactly six colon-separated hex octets (upper/lowercase accepted). Parsing is transactional: no output bytes change on malformed input. arpping_gateway() calls it only when a real probe is needed and returns a checked local probe error before opening the packet socket if parsing fails. The legacy WAN override formatter remains untouched for configuration compatibility.
+
+The existing GNU89 ASan/UBSan executable tests/detect_wan_arp_result_policy.c now covers valid mixed-case values, invalid hex, invalid separators/length, null pointers and output-preservation. The existing WAN ARP workflow pins parser use, malformed-input rejection, removal of strtol, and check ordering before socket creation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Wireless radio Action for this checkpoint. Confirm both compact return checks, the guest radio/mode ordering contracts, all policy executables, bridge/isolation tests and Ralink ASan/UBSan steps pass. Diagnose any remaining assertion/log without weakening runtime checks.
-2. Inspect the exact-head AI handoff documentation action and ensure it remains PASS after the refreshed handoff/log/roadmap.
-3. Check XY-C1 run #45157966804 on SHA 280e959c and product run #45156939135 on source SHA 0e4976cf. Record Build XY-C1, TRX verification and artifact upload separately. Require all three on the same product-source SHA for L3; a descendant run that skips those stages is not a pass.
-4. Continue an independent P1 from REFACTOR_ROADMAP.md only after verifying a concrete defect and its call graph. WAN ARP gateway-MAC parsing in `detect_wan.c` remains an investigation candidate; first establish accepted NVRAM MAC formats and legacy compatibility before making a strict parser.
+1. Inspect the exact-head WAN ARP Action for this commit. Confirm GNU89 -Wall -Wextra -Werror ASan/UBSan tests, new parser tests and the full production source contract pass. Fix genuine failures at their source; do not weaken parser or ordering checks.
+2. Inspect exact-head XY-C1 Firmware Validation. Since this commit changes product source, Build XY-C1, TRX verification and artifact upload must all PASS on the same commit SHA to claim L3.
+3. Continue another independent P1 from REFACTOR_ROADMAP.md only after confirming parallel sessions have not completed it; focus on evidenced faults and add regression tests instead of repeating audits.
 
 ## Exact-SHA CI facts at the parent baseline
 
-- Parent main SHA: `280e959c899772cb85d76935a13de8e626f1f8f7`, commit `test(wireless): align compact DBDC status contract`.
-- Wireless #45157966807 on 280e959c passed policy executable, Ralink config ASan/UBSan, bridge membership, guest isolation and initial DBDC checks, then failed at line 656 when a compact source string was searched for a whitespace-containing return literal. The remaining lookup is corrected in this checkpoint; exact rerun pending.
-- AI handoff #45157966954 on 280e959c PASS after restoring the validator-required section heading.
-- XY-C1 #45157966804 on 280e959c was IN_PROGRESS at Build when last polled; TRX/artifact had not been reached. Product-source XY-C1 #45156939135 on 0e4976cf was also IN_PROGRESS at Build at the last poll.
-- On 0e4976cf, Process fail-closed #45156939224, HTTPD security #45156939207, Process inventory #45156939102, iNIC #45156939083, AI docs #45156939070, watchdog #45156939026 and NVRAM #45156938997 PASS.
-- USB modem identity #45154233466 PASS on 9e9efbf; Process fail-closed #45155481370 and storage hotplug #45155481256 PASS on 15c93fe. XY-C1 #45154946558 on product descendant eac5eeee passed Build, TRX verification and artifact upload on that same SHA. This L3 result does not transfer to 0e4976cf or later product-source changes.
-- No physical hardware L4 result is claimed.
+- Parent main SHA: af80debca9112c03b72fbe27dd8cd2838fe82ff2, commit test(wireless): normalize DBDC peer return lookup.
+- On exact parent SHA af80debca9112c03b72fbe27dd8cd2838fe82ff2: Wireless #45158308492 PASS and AI handoff #45158308561 PASS. XY-C1 #45158308815 completed successfully but Build XY-C1, TRX verification and artifact upload were skipped because the parent changed only workflow/docs files.
+- Production source SHA 0e4976cfbe86c81f5172ce2256ed71801952682d has exact XY-C1 run #45156939135 PASS, with Build XY-C1, TRX verification and artifact upload all passing on that SHA. This includes USB modem and checked wireless production fixes but not the new ARP source-MAC parser in this checkpoint.
+- This commit replaces the permissive strtol MAC decoder in detect_wan.c, adds sanitizer tests and updates the inline ARP source contract. Exact-head WAN ARP and XY-C1 results for this new source change are pending.
+- USB modem identity #45154233466 PASS on 9e9efbf; Process fail-closed #45155481370 and storage hotplug #45155481256 PASS on 15c93fe.
+- No physical router L4 result is claimed.
 
 ## Completed source slices to preserve
 
@@ -80,10 +71,10 @@ The AI handoff heading correction is already verified: #45157966954 PASS on SHA 
 
 ## Verification boundary
 
-- L1 source review: PASS for checked guest radio/mode ordering and DBDC peer-read error cleanup/negative status return.
-- L2 host/Actions: Wireless #45157966807 passed all compiled and sanitizer-backed policy tests but failed the second compact-string return assertion. This checkpoint fixes the remaining whitespace mismatch; exact rerun pending. AI handoff #45157966954 PASS.
-- L3 XY-C1 firmware: PASS on descendant product SHA eac5eeee only (#45154946558 Build, TRX and artifact upload all PASS). NOT VERIFIED for product SHA 0e4976cf; #45156939135 was still building, and descendant #45157966804 had not completed Build/TRX/artifact at last poll.
-- L4 physical router: NOT VERIFIED, including DBDC restart, 802.1X daemon recovery, guest bridge/radio transitions, RT3352 MII and actual RF behavior.
+- L1 source review: PASS for strict six-octet MAC syntax checking, transactional output and error propagation before packet socket creation. Legacy WAN override normalization is unchanged.
+- L2 host/Actions: PENDING exact-head WAN ARP regression, including GNU89/Werror/ASan/UBSan and the inline source contract.
+- L3 XY-C1 firmware: PASS for parent production source SHA 0e4976cf (#45156939135 Build, TRX and artifact all PASS). NOT VERIFIED for this new source change until exact-head Build XY-C1, TRX verification and artifact upload all pass on one SHA.
+- L4 physical router: NOT VERIFIED, including gateway ARP/no-reply, malformed NVRAM/override recovery, WAN failover and router Ethernet hardware behavior.
 
 ## Working method
 
@@ -92,7 +83,7 @@ The AI handoff heading correction is already verified: #45157966954 PASS on SHA 
 - Fetch the live main SHA before writes. If another session moves it, rebase the intended changes onto that new main after inspecting intervening commits; never overwrite someone else's work.
 - PASS means only the named workflow for its exact SHA passed. FAIL means inspect logs and fix the failing condition. PENDING means record the run and continue another independent safe task.
 - Preserve GNU89, Werror, sanitizers where appropriate, Linux 4.4 / MIPS / uClibc compatibility, hardware isolation order, error normalization and rollback semantics.
-- Update dev_log.md for each meaningful milestone. The root log had 101 dated records before this checkpoint and will have 102 after this entry. Do not rotate until a new entry would hit 120. Keep records newest first.
+- Update dev_log.md for each meaningful milestone. The root log had 102 records before this checkpoint and will have 103 after it. Do not rotate until a new entry would hit 120. Keep records newest first.
 - REFACTOR_ROADMAP.md is the single whole-repository status dashboard. Update materially changed module state; do not append duplicate audit snapshots or grow already-large documents unnecessarily.
 - Keep this handoff as one current checkpoint and rewrite it in place. Do not append an old snapshot after it or create additional handoff archives.
 

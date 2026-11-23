@@ -173,12 +173,10 @@ arpping_gateway(int ap_mode)
     in_addr_t gateway_ip;
     in_addr_t ip;
     uint8_t mac[6];
-    char wanmac[18];
     char gateway_storage[16];
     char hardware_address_storage[18];
-    char tmp[3];
     char *ifname;
-    int s, i, rv, rcv_bytes, probe_errno = 0, config_status;
+    int s, rv, rcv_bytes, probe_errno = 0, config_status;
     struct sockaddr addr;
     struct ifreq ifr;
     struct arpMsg arp;
@@ -219,17 +217,18 @@ arpping_gateway(int ap_mode)
         return detect_wan_arp_probe_result(0, config_status);
     }
     gateway_ip = inet_addr_safe(gateway_storage);
-    snprintf(wanmac, sizeof(wanmac), "%s", hardware_address_storage);
 
     if (gateway_ip == INADDR_ANY || ip == INADDR_ANY || gateway_ip == ip)
         return DETECT_WAN_ARP_PROBE_REPLY;
 
-    wanmac[17] = 0;
-    for (i = 0; i < 6; i++)
-    {
-        strncpy(tmp, wanmac + i * 3, 2);
-        tmp[2] = 0;
-        mac[i] = strtol(tmp, NULL, 16);
+    config_status = detect_wan_arp_parse_hardware_address(
+        hardware_address_storage, mac);
+    if (config_status != 0) {
+        errno = config_status;
+        logmessage("detect_wan",
+                   "invalid local hardware address for gateway ARP probe (status=%d)",
+                   config_status);
+        return detect_wan_arp_probe_result(0, config_status);
     }
 
     s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));

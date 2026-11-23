@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Validate WAN ARP source MAC before packet construction
+
+- Confirmed a malformed-input boundary in arpping_gateway(): the WAN/LAN MAC is read through checked NVRAM APIs, but each octet was decoded with strtol(tmp, NULL, 16). The end pointer was ignored, so non-hex legacy override text silently became zero or a partially parsed byte and was transmitted as the Ethernet/ARP source address.
+- Added an ARP-boundary-only parser for exactly six colon-separated hexadecimal octets. It accepts uppercase/lowercase hex and locally administered addresses, rejects malformed lengths/separators/nibbles/null pointers, and leaves output untouched on failure. The legacy WAN override formatter is deliberately unchanged for configuration compatibility.
+- Replaced the permissive strtol loop in the live ARP probe. An invalid source identity now produces EINVAL/probe error before socket creation or packet construction, so it cannot be mistaken for a gateway no-reply or trigger DHCP renewal.
+- Added GNU89 -Wall -Wextra -Werror ASan/UBSan regression cases for valid mixed-case parsing and transactional rejection of malformed/missing values. Extended the existing ARP source contract to require strict parser use, removal of the permissive decoder, and the parse/error gate before socket creation. Exact-head WAN ARP and XY-C1 Build/TRX/artifact checks are pending; no local or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Complete compact DBDC return-order assertions
 
 - Exact Wireless #45157966807 on SHA 280e959c passed the wireless policy executable, Ralink config ASan/UBSan, bridge membership, guest isolation and the first DBDC token-presence checks, then failed with `ValueError: substring not found` at inline Python line 656. The second DBDC ordering lookup still searched for `return -<peer_status>;` in a whitespace-stripped function string. The prior correction fixed the token-presence assertion but missed this second occurrence; this checkpoint aligns the remaining ordering lookup with the same compact representation. Production wireless code is unchanged.
