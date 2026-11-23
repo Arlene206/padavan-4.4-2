@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Mirror XUPNPD checked-port contract in Process source checker
+
+- Added the XUPNPD checked-port text buffer declaration to `scripts/check_process_lifecycle_integration.py` source assertions. The inline workflow now has the matching expectation; editing this checker also re-triggers the Process inventory/fail-closed workflow rather than depending on a workflow-file-only push.
+- This only tightens the source contract for the already-committed checked selector path. No product C source changed.
+- Exact Process workflow on this commit is pending.
+---
 ## 2026-11-23 UTC — Normalize Process workflow inline Python indentation
 
 - The first workflow-only update `8bac506` correctly replaced stale XUPNPD expectations but inserted its first `lua_udpxy` assertion at 20 spaces and left the trailing `snprintf` assertion at column 0. GitHub marked the workflow-file push run #45191666225 failed before it exposed runnable jobs.

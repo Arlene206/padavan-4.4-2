@@ -453,6 +453,9 @@ for signature, confirm_name, process_name in (
 
 xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n#endif", 1)[0]
 assert "if (!is_xupnpd_support())" in xupnpd_start
+assert "char tmp1[128], tmp2[128], line[256], lan_addr[16], xport_text[16];" in xupnpd_start
+assert "rc_wan_nvram_parse_int_value(xport_text, &xport)" in xupnpd_start
+assert "xupnpd_process_presence(NULL, &scan_error)" in xupnpd_start
 assert "rc_wan_nvram_copy_value(net_nvram_get_checked, NULL," in xupnpd_start
 assert '"xupnpd_enable_x"' in xupnpd_start
 assert "rc_wan_nvram_parse_int_value(xport_text, &xport)" in xupnpd_start

@@ -1,4 +1,6 @@
 Current implementation checkpoint (2026-11-23):
+- Added the XUPNPD `xport_text[16]` checked-selector declaration assertion to the Process source checker. This mirrors the updated inline workflow contract and re-triggers the Process CI path. No production source changed; exact run pending.
+Current implementation checkpoint (2026-11-23):
 - Fixed Python heredoc indentation in the XUPNPD inline Process workflow contract. The previous workflow-only commit `8bac506` had inconsistent indentation in the injected Lua assertions and failed before jobs were runnable; exact Process rerun pending.
 Current implementation checkpoint (2026-11-23):
 - Updated stale inline Process workflow assertions for checked XUPNPD startup and IPTV Lua-config NVRAM selectors. Historical jobs #45189655889, #45190394210 and #45190706662 failed only in the obsolete final source contract; exact rerun pending.

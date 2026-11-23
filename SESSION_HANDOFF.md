@@ -2,26 +2,26 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Main parent for the indentation correction: 8bac5060c95fffd01c82ac9c31ca4019f7a18eb1.
-- Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- Latest production-source main slice is `2a9f7fe`: checked `lan_stp` read now fails closed before bridge STP/forward-delay writes. Firewall Startup #45190708304 passed; exact Process inventory #45190707882 passed. Exact XY-C1 #45190707708, NVRAM #45190706668 and USB storage #45190707609 were still running at last poll.
-- `a9053a0` compacted whitespace in the Process source checker for the LAN STP branch. The broad Process run #45191038537 still failed at the stale XUPNPD inline source assertion.
-- Workflow-only commit `8bac506` updated the XUPNPD inline contract but its first injected Python statement had inconsistent indentation; workflow push check #45191666225 failed before exposing any jobs. This commit fixes the full injected block to consistent 10-space heredoc indentation.
-- Earlier exact Process runs #45189655889 (c8), #45190394210 (a2a), #45190706662 (2a9) failed only at stale XUPNPD checks in the final inline LAN/PID1 stage; preceding policy/C tests passed. On c8, USB printer policy workflow #45189656100 passed fully.
-- Existing exact 2a9 checks passed for HTTPD, AdGuardHome, DNS Forwarder, GPIO, watchdog, PID1 notifications, WAN ARP, ZeroTier, infosvr, networkmap, AI docs, detect_internet, FRP, Process inventory, SkipDBv2, Adbyby, AliDDNS, WAN route, crond, DDNSTO, detect_link, AliyunDrive, Firewall and VPN server (run ids retained in the preceding handoff text below).
-- VPN ownership-marker/checker fixes (`eb928a2`, `0e9056b`) and Infosvr PID-file fix/checker (`9fd7bafd`, `7d699d7`) still require exact reruns. Older XY-C1 L3 evidence only covers ce39930; no current later-SHA L3 claim.
-- No local checkout, firmware build, MIPS/uClibc build or physical-router result is claimed. Startup restore already done once.
+- Repository: Arlene206/padavan-4.4-2. Current parent for the Process checker re-trigger: 2816336f46e6b1874acc1ced25f5548b4d1637f9.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve permanently.
+- Product source on main includes checked MSD Lite, UDPXY/XUPNPD enable selectors, USB printer marker status, XUPNPD Lua IPTV config checked reads, and LAN STP checked selector handling (`2a9f7fe`). Keep these changes.
+- Process inline workflow previously failed exact runs #45189655889, #45190394210, #45190706662 on stale XUPNPD local-declaration/legacy-read assertions. Workflow contract was corrected in `8bac506` and the first inline indentation error was repaired in `2816336`.
+- This latest commit adds the same XUPNPD `xport_text[16]` declaration assertion to `scripts/check_process_lifecycle_integration.py` so the existing Process workflow path is triggered and both source-check contracts stay aligned. Exact Process run pending.
+- Exact `2a9f7fe` jobs already passed for the broad stability set recorded below in the previous handoff body; XY-C1 #45190707708 was still running. Older c8 XY-C1 #45189655698 is PASS but only validates product source `c8dade9`, not the later LAN STP source SHA.
+- `8bac506`'s own workflow push check #45191666225 failed without runnable jobs due inconsistent inline Python indentation; corrected by `2816336`. Exact process run was not triggered by workflow-file-only change, hence checker path is now updated.
+- VPN marker/checker fixes (`eb928a2`, `0e9056b`) and Infosvr PID-file fix/checker (`9fd7bafd`, `7d699d7`) still need exact reruns. No current 2a9 L3 claim unless XY-C1 Build, TRX and artifact upload all succeed.
+- No local checkout/build, MIPS/uClibc build or hardware result claimed; startup recovery was performed once.
 
 ## Active task
 
-- `.github/workflows/process-lifecycle-regression.yml` now checks XUPNPD startup selector ordering, `xport_text`, the checked `udpxy_enable_x` and `xupnpd_udpxy` reads in Lua config, and rejects legacy unchecked getter/matcher use. The latest edit fixes indentation of the injected Python block.
-- Exact Process regression for this corrected workflow and same-SHA XY-C1 Build/TRX/artifact verification are pending.
+- The Process inline workflow and source checker now both assert the actual checked XUPNPD selector declaration/order and Lua IPTV checked reads. This commit adds the checker declaration assertion to trigger exact Process CI.
+- No product source change in this slice. Poll exact Process run; then close the workflow regression before starting another source issue.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-SHA Process workflow: it must reach the final inline check and pass the full LAN/PID1 contract.
-2. Poll the exact product-source SHA's XY-C1 run; require Build, TRX and artifact upload all PASS before claiming L3.
-3. Continue another independent P1 source issue once CI is clean; do not re-audit closed selector/marker, LAN STP, VPN/Infosvr, SCUT or USB printer work.
+1. Poll exact-SHA Process lifecycle fail-closed run triggered by the checker update and verify the final inline LAN/PID1 contract passes.
+2. Poll exact-SHA product-source XY-C1 for `2a9f7fe`; require Build, TRX validation and artifact upload all PASS before L3.
+3. Continue a new independent P1 stability fix only after Process CI is green; avoid duplicating completed checked NVRAM selectors/markers, LAN STP, VPN/Infosvr, USB printer, SCUT or storage slices.
 
 ## Relevant exact-SHA CI facts
 
