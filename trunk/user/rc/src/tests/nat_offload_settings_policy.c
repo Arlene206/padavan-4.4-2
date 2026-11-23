@@ -207,6 +207,33 @@ test_transaction_failure_and_invalid_values_do_not_publish_settings(void)
 }
 
 static void
+test_invalid_ipv6_lan_auto_values_preserve_previous_settings(void)
+{
+	static const char *const invalid_values[] = { "2", "-1", "1junk" };
+	unsigned int i;
+
+	for (i = 0; i < sizeof(invalid_values) / sizeof(invalid_values[0]); ++i) {
+		struct fake_nvram fake;
+		struct rc_nat_offload_settings settings;
+		struct rc_nat_offload_settings before;
+
+		fake_init(&fake, 1, 1);
+		fake.values[2] = invalid_values[i];
+		settings.hwnat_allowed = 1;
+		settings.hw_nat_mode = 2;
+		settings.ipv6_nat = 1;
+		settings.sfe_enabled = 2;
+		before = settings;
+
+		assert(rc_nat_offload_settings_read(1, 1, fake_begin, fake_get,
+					    fake_end, &fake, &settings) == EINVAL);
+		assert(fake.begin_calls == 1 && fake.read_calls == 4 &&
+		       fake.end_calls == 1);
+		assert(memcmp(&settings, &before, sizeof(settings)) == 0);
+	}
+}
+
+static void
 test_selective_reads_and_no_feature_defaults(void)
 {
 	struct fake_nvram fake;
@@ -252,6 +279,7 @@ main(void)
 	test_missing_values_keep_legacy_zero_defaults();
 	test_every_snapshot_read_error_preserves_previous_settings();
 	test_transaction_failure_and_invalid_values_do_not_publish_settings();
+	test_invalid_ipv6_lan_auto_values_preserve_previous_settings();
 	test_selective_reads_and_no_feature_defaults();
 	test_invalid_arguments_fail_closed();
 	puts("NAT offload setting snapshot: PASS");

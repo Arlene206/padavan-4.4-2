@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Reject invalid IPv6 NAT auto selector values
+
+- The `ip6_lan_auto` option is a 0/1 toggle in the IPv6 UI, but the NAT offload snapshot previously accepted any integer and forwarded it as the `ipv6_nat` mode. The HW NAT radio-policy adapter only enables IPv6 NAT for exactly `1`, so an invalid value silently forced the feature off during an otherwise successful module reload.
+- The coherent snapshot now rejects any present `ip6_lan_auto` value other than 0 or 1 before publishing HW NAT/SFE settings or touching modules. Regression coverage exercises `2`, `-1` and malformed text, checks the transaction is closed and verifies the previous output remains unchanged. Existing HW NAT mode values remain unmodified (including mode 2), and SFE's distinct 0/1/2 mode is intentionally not treated as a boolean.
+- Exact WAN route, NVRAM boundary and XY-C1 Build/TRX/artifact Actions are required. No local test or hardware behavior is claimed.
+
+---
+
 ## 2026-11-23 UTC — Reject invalid NAT helper boolean selectors
 
 - `reload_nat_modules()` consumes `wan_nat_x` and the PPTP/H.323/SIP ALG switches before unloading or loading kernel helpers. The snapshot parser accepted every integer for `wan_nat_x`, while ALG values other than exactly `1` silently became disabled; a corrupted selector such as `2` could therefore disable a configured helper during reload.

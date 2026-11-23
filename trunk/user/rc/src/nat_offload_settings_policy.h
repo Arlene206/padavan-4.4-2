@@ -77,6 +77,9 @@ rc_nat_offload_settings_read(int read_hwnat, int read_sfe,
 	status = rc_wan_nvram_parse_int_snapshot(integer_texts, count, parsed);
 	if (status != 0)
 		return status;
+	if (read_hwnat && parsed[ipv6_nat_index] != 0 &&
+	    parsed[ipv6_nat_index] != 1)
+		return EINVAL;
 
 	memset(&result, 0, sizeof(result));
 	if (read_hwnat) {

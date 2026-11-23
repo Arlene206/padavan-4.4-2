@@ -102,6 +102,8 @@ for marker in (
     '"sfe_enable"',
     "rc_wan_nvram_copy_snapshot(fields, count",
     "rc_wan_nvram_parse_int_snapshot(integer_texts, count, parsed)",
+    "if (read_hwnat && parsed[ipv6_nat_index] != 0 &&",
+    "parsed[ipv6_nat_index] != 1)",
 ):
     assert marker in offload_policy, marker
 for case in (
@@ -110,6 +112,7 @@ for case in (
     "test_missing_values_keep_legacy_zero_defaults",
     "test_every_snapshot_read_error_preserves_previous_settings",
     "test_transaction_failure_and_invalid_values_do_not_publish_settings",
+    "test_invalid_ipv6_lan_auto_values_preserve_previous_settings",
     "test_selective_reads_and_no_feature_defaults",
     "NAT offload setting snapshot: PASS",
 ):
