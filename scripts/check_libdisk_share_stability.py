@@ -383,6 +383,18 @@ require(saved_count < decrement_count < free_inventory and
         "free_2_dimension_list(&acc_num,&account_list);" in
         del_account_compact[:decrement_count],
         "del_account must release the complete original account list after preserving its pre-decrement count")
+
+password_snapshot = del_account_compact.index(
+    "disk_share_account_password_shift_snapshot(&disk_share_account_nvram_operations"
+)
+password_snapshot_end = del_account_compact.index(
+    "free_2_dimension_list(&account_count,&account_list)", password_snapshot
+)
+require(password_snapshot < decrement_count < password_snapshot_end and
+        "nvram_safe_get(" not in del_account_body and
+        "shifted_passwords[i]" in del_account_body,
+        "del_account must copy every shifted password under a checked transaction before mutating NVRAM and must not collapse a failed password read into an empty value")
+
 del_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 del_inventory_error = del_account_compact.index(
     "first_error=errno?errno:EIO;", del_inventory
@@ -410,6 +422,21 @@ require(del_unlink < del_free_disk < del_service < del_error and
 require("0 = complete inventory (list may be NULL); -1 = incomplete/unknown." in DISK_INITIAL_HEADER and
         "read_disk_data_checked(disk_info_t **disk_info_out)" in DISK_INITIAL_HEADER,
         "disk inventory API must preserve empty-versus-incomplete status semantics")
+
+password_shift_tests = (
+    "test_account_password_shift_snapshot_copies_values_in_one_transaction",
+    "test_account_password_shift_snapshot_preserves_missing_as_empty",
+    "test_account_password_shift_snapshot_read_error_clears_all_values",
+    "test_account_password_shift_snapshot_end_error_discards_values",
+    "test_account_password_shift_snapshot_rejects_oversized_value",
+)
+for marker in password_shift_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing password-shift snapshot regression: " + marker)
+for marker in password_shift_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "password-shift snapshot regression is defined but not executed: " + marker)
+
 
 
 mod_account_body = function_body(

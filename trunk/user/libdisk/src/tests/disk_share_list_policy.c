@@ -305,6 +305,7 @@ struct fake_account_nvram {
 	int begin_calls;
 	int get_calls;
 	int end_calls;
+	const char *passwords[4];
 };
 
 static int
@@ -353,6 +354,13 @@ fake_account_nvram_get(void *context, const char *name, char **value)
 		if (!fake->users[index])
 			return 0;
 		*value = (char *)fake->users[index];
+		return 1;
+	}
+	if (sscanf(name, "acc_password%d", &index) == 1 &&
+	    index >= 0 && index < 4) {
+		if (!fake->passwords[index])
+			return 0;
+		*value = (char *)fake->passwords[index];
 		return 1;
 	}
 	return 0;
@@ -604,6 +612,100 @@ test_account_inventory_rejects_duplicate_names(void)
 	assert(count == 0 && items == NULL);
 }
 
+static void
+test_account_password_shift_snapshot_copies_values_in_one_transaction(void)
+{
+	struct fake_account_nvram fake = {
+		"3", "admin", { "alice", "bob", "carol", NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ "deleted", "bob-secret", "carol-secret", NULL }
+	};
+	char passwords[4][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+
+	assert(disk_share_account_password_shift_snapshot(
+		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == 0);
+	assert(strcmp(passwords[0], "bob-secret") == 0);
+	assert(strcmp(passwords[1], "carol-secret") == 0);
+	assert(passwords[2][0] == '\\0');
+	assert(fake.begin_calls == 1);
+	assert(fake.get_calls == 2);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_password_shift_snapshot_preserves_missing_as_empty(void)
+{
+	struct fake_account_nvram fake = {
+		"3", "admin", { "alice", "bob", "carol", NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ "deleted", NULL, "carol-secret", NULL }
+	};
+	char passwords[4][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+
+	assert(disk_share_account_password_shift_snapshot(
+		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == 0);
+	assert(passwords[0][0] == '\\0');
+	assert(strcmp(passwords[1], "carol-secret") == 0);
+}
+
+static void
+test_account_password_shift_snapshot_read_error_clears_all_values(void)
+{
+	struct fake_account_nvram fake = {
+		"3", "admin", { "alice", "bob", "carol", NULL },
+		"acc_password2", NULL, 0, 0, 0, 0, 0, 0,
+		{ "deleted", "must-not-be-used", "carol-secret", NULL }
+	};
+	char passwords[4][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+	int i;
+
+	for (i = 0; i < 4; ++i)
+		strcpy(passwords[i], "stale");
+	errno = 0;
+	assert(disk_share_account_password_shift_snapshot(
+		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == -1);
+	assert(errno == EIO);
+	for (i = 0; i < 4; ++i)
+		assert(passwords[i][0] == '\\0');
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+}
+
+static void
+test_account_password_shift_snapshot_end_error_discards_values(void)
+{
+	struct fake_account_nvram fake = {
+		"3", "admin", { "alice", "bob", "carol", NULL },
+		NULL, NULL, 0, 0, EBUSY, 0, 0, 0,
+		{ "deleted", "bob-secret", "carol-secret", NULL }
+	};
+	char passwords[4][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+
+	assert(disk_share_account_password_shift_snapshot(
+		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == -1);
+	assert(errno == EBUSY);
+	assert(passwords[0][0] == '\\0' && passwords[1][0] == '\\0');
+}
+
+static void
+test_account_password_shift_snapshot_rejects_oversized_value(void)
+{
+	struct fake_account_nvram fake = {
+		"2", "admin", { "alice", "bob", NULL, NULL },
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ "deleted", NULL, NULL, NULL }
+	};
+	char oversized[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX + 1];
+	char passwords[4][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+
+	memset(oversized, 'x', sizeof(oversized) - 1);
+	oversized[sizeof(oversized) - 1] = '\\0';
+	fake.passwords[1] = oversized;
+	assert(disk_share_account_password_shift_snapshot(
+		&fake_account_nvram_ops, &fake, 2, 0, 4, passwords) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(passwords[0][0] == '\\0');
+}
+
 int
 main(void)
 {
@@ -642,6 +744,11 @@ main(void)
 	test_account_inventory_rejects_sparse_and_reserved_names();
 	test_account_inventory_rejects_invalid_get_status();
 	test_account_inventory_rejects_duplicate_names();
+	test_account_password_shift_snapshot_copies_values_in_one_transaction();
+	test_account_password_shift_snapshot_preserves_missing_as_empty();
+	test_account_password_shift_snapshot_read_error_clears_all_values();
+	test_account_password_shift_snapshot_end_error_discards_values();
+	test_account_password_shift_snapshot_rejects_oversized_value();
 
 	return 0;
 }

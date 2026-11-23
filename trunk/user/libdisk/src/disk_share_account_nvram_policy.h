@@ -164,4 +164,79 @@ finish:
 	return 0;
 }
 
+#define DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX 128
+
+/*
+ * Copy passwords that will move during account deletion before touching
+ * NVRAM. A failed read/lease release must leave the caller with no partial
+ * snapshot, so a transient backend error cannot replace a real password
+ * with the empty string.
+ */
+static inline int
+disk_share_account_password_shift_snapshot(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int account_count, int target, int max_count,
+	char passwords[][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX])
+{
+	char key[24], *value;
+	int started = 0, saved_errno = 0, key_length, status, i;
+
+	if (!ops || !ops->begin || !ops->get || !ops->end ||
+	    !passwords || account_count < 1 || account_count > max_count ||
+	    target < 0 || target >= account_count || max_count < 1) {
+		errno = EINVAL;
+		return -1;
+	}
+	memset(passwords, 0,
+	       (size_t)max_count * DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX);
+	if (target >= account_count - 1)
+		return 0;
+
+	errno = 0;
+	if (ops->begin(context) != 0) {
+		errno = errno ? errno : EIO;
+		return -1;
+	}
+	started = 1;
+
+	for (i = target; i < account_count - 1; ++i) {
+		key_length = snprintf(key, sizeof(key), "acc_password%d", i + 1);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			saved_errno = ENAMETOOLONG;
+			break;
+		}
+		value = NULL;
+		errno = 0;
+		status = ops->get(context, key, &value);
+		if (status < 0) {
+			saved_errno = errno ? errno : EIO;
+			break;
+		}
+		if (status == 0)
+			continue; /* Preserve the legacy empty-value behavior. */
+		if (status != 1 || !value) {
+			saved_errno = EIO;
+			break;
+		}
+		if (strlen(value) >= DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX) {
+			saved_errno = ENAMETOOLONG;
+			break;
+		}
+		memcpy(passwords[i], value, strlen(value) + 1);
+	}
+
+	if (started) {
+		errno = 0;
+		if (ops->end(context) != 0 && saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+	}
+	if (saved_errno != 0) {
+		memset(passwords, 0,
+		       (size_t)max_count * DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX);
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_ACCOUNT_NVRAM_POLICY_H */

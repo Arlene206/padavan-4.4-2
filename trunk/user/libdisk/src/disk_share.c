@@ -147,20 +147,22 @@ disk_share_account_name_reserved(const char *name, const char *http_username)
 	       !strcmp(name, FTP_ANONYMOUS_USER);
 }
 
+static const struct disk_share_account_nvram_ops
+disk_share_account_nvram_operations = {
+	disk_share_account_nvram_begin,
+	disk_share_account_nvram_get,
+	disk_share_account_nvram_end,
+	disk_share_account_name_valid,
+	disk_share_account_name_reserved
+};
+
 int get_account_list(int *acc_num, char ***account_list)
 {
 	struct nvram_transaction transaction;
-	static const struct disk_share_account_nvram_ops ops = {
-		disk_share_account_nvram_begin,
-		disk_share_account_nvram_get,
-		disk_share_account_nvram_end,
-		disk_share_account_name_valid,
-		disk_share_account_name_reserved
-	};
 
-	return disk_share_account_inventory_read(&ops, &transaction,
-	                                         MAX_ACCOUNT_NUM,
-	                                         acc_num, account_list);
+	return disk_share_account_inventory_read(
+		&disk_share_account_nvram_operations, &transaction,
+		MAX_ACCOUNT_NUM, acc_num, account_list);
 }
 
 int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)
@@ -1277,9 +1279,11 @@ int del_account(const char *const account)
 	disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
 	int acc_num = 0, account_count, target;
+	struct nvram_transaction transaction;
+	char shifted_passwords[MAX_ACCOUNT_NUM][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
 	char **account_list = NULL;
 	int result, i, first_error = 0, saved_errno;
-	char nvram_name[16], nvram_value[128];
+	char nvram_name[16];
 	char var_file[256];
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
@@ -1306,6 +1310,21 @@ int del_account(const char *const account)
 		return -1;
 	}
 
+	/*
+	 * Snapshot all shifted passwords under one checked NVRAM lease before
+	 * changing the account inventory. A backend read error must not erase a
+	 * surviving account's password by collapsing it to an empty string.
+	 */
+	if (disk_share_account_password_shift_snapshot(
+		    &disk_share_account_nvram_operations, &transaction,
+		    account_count, target, MAX_ACCOUNT_NUM,
+		    shifted_passwords) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free_2_dimension_list(&account_count, &account_list);
+		errno = saved_errno;
+		return -1;
+	}
+
 	/* 2. remove the account from the persistent NVRAM inventory. */
 	--acc_num;
 	nvram_set_int("acc_num", acc_num);
@@ -1314,10 +1333,8 @@ int del_account(const char *const account)
 		sprintf(nvram_name, "acc_username%d", i);
 		nvram_set(nvram_name, account_list[i+1]);
 
-		sprintf(nvram_value, "acc_password%d", i+1);
-
 		sprintf(nvram_name, "acc_password%d", i);
-		nvram_set(nvram_name, nvram_safe_get(nvram_value));
+		nvram_set(nvram_name, shifted_passwords[i]);
 	}
 
 	/* 3. change to the share mode when no account remains. */
