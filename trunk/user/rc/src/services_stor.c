@@ -3025,6 +3025,13 @@ int run_dms(int force_rescan)
 			   mac_status);
 		return mac_status;
 	}
+	/* Reject malformed identity text before changing the database link or config. */
+	if (!ether_atoe(mac_address, mac_bin)) {
+		logmessage(apps_name, "invalid MiniDLNA server identity; aborting daemon start");
+		errno = EINVAL;
+		return EINVAL;
+	}
+	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);
 
 	unlink(link_path);
 	link_status = create_mp_link_status(dest_dir, link_path, 0);
@@ -3042,9 +3049,6 @@ int run_dms(int force_rescan)
 		logmessage(apps_name, "refusing daemon launch after configuration failure");
 		return config_status;
 	}
-
-	ether_atoe(mac_address, mac_bin);
-	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);
 
 	if (force_rescan || db_rescan_mode == 2)
 		minidlna_argv[5] = "-R";

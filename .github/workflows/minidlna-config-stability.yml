@@ -90,7 +90,7 @@ jobs:
           assert "cannot read database rescan mode; aborting daemon start" in daemon_start
           assert "if (force_rescan || db_rescan_mode == 2)" in daemon_start
           # Service enable and server identity are also checked before side effects.
-          enable_read = 'storagereadstringstatus("apps_dms",apps_enabled,sizeof(apps_enabled))'
+          enable_read = 'storage_read_string_status("apps_dms",apps_enabled,sizeof(apps_enabled))'
           enable_gate = "if(enable_status!=0)"
           assert enable_read in rescan_compact
           assert enable_gate in rescan_compact
@@ -100,13 +100,15 @@ jobs:
           support_check_at = rescan_compact.index("if(!is_dms_support())", disabled_gate_at)
           assert enable_at < enable_error_at < disabled_gate_at < support_check_at
           assert 'nvram_match("apps_dms","1")' not in rescan_compact
-          mac_read_compact = 'storagereadstringstatus("il0macaddr",mac_address,sizeof(mac_address))'
+          mac_read_compact = 'storage_read_string_status("il0macaddr",mac_address,sizeof(mac_address))'
           mac_at = rescan_compact.index(mac_read_compact)
           mac_error_at = rescan_compact.index("if(mac_status!=0)", mac_at)
-          assert mac_at < mac_error_at < link_mutation
+          mac_parse_at = rescan_compact.index("if(!ether_atoe(mac_address,mac_bin))", mac_error_at)
+          assert mac_at < mac_error_at < mac_parse_at < link_mutation
           assert "cannot read MiniDLNA server identity; aborting daemon start" in daemon_start
+          assert "invalid MiniDLNA server identity; aborting daemon start" in daemon_start
           assert 'nvram_safe_get("il0macaddr")' not in rescan_compact
-          assert "ether_atoe(mac_address, mac_bin)" in daemon_start
+          assert "minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);" in daemon_start
           for getter in ('nvram_get_int("dlna_disc")', 'nvram_get_int("dlna_root")',
                          'nvram_get_int("dlna_sort")', 'nvram_safe_get("dlna_src1")',
                          'nvram_safe_get("dlna_src2")', 'nvram_safe_get("dlna_src3")'):
