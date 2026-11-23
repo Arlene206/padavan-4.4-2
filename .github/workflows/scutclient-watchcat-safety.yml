@@ -41,8 +41,13 @@ jobs:
           assert 'pidfile="${SCUTCLIENT_WATCHCAT_PIDFILE:-/var/scutclient_watchcat.pid}"' in source
           assert 'proc_root="${SCUTCLIENT_WATCHCAT_PROC_ROOT:-/proc}"' in source
           assert 'watchcat_pid_status "$previous_pid"' in source
-          assert 'process_cmdline=$(tr' in source
+          assert "process_argv=$(tr" in source
+          assert 'process_argv0=${process_argv%%"$watchcat_newline"*}' in source
+          assert 'process_argv1=${process_argv1%%"$watchcat_newline"*}' in source
+          assert 'case "${process_argv0##*/}" in' in source
           assert 'script_path="/usr/bin/scutclient_watchcat.sh"' in source
+          watchcat_test = Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()
+          assert "later argv argument incorrectly identified the watchdog executable" in watchcat_test
           assert 'lockfile="${pidfile}.lock"' in source
           assert 'exec 9>>"$lockfile"' in source
           assert "flock -n 9" in source

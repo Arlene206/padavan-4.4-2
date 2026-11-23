@@ -21,11 +21,19 @@ watchcat_pid_status()
 	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
 	[ -d "$proc_root/$watchcat_pid" ] || return 1
 	[ -r "$proc_root/$watchcat_pid/cmdline" ] || return 2
-	process_cmdline=$(tr '\000' ' ' < "$proc_root/$watchcat_pid/cmdline" 2>/dev/null) || return 2
-	[ -n "$process_cmdline" ] || return 2
-	case " $process_cmdline " in
-		*" $script_path "*)
-			return 0
+	process_argv=$(tr '\000' '\n' < "$proc_root/$watchcat_pid/cmdline" 2>/dev/null) || return 2
+	[ -n "$process_argv" ] || return 2
+	watchcat_newline='
+'
+	process_argv0=${process_argv%%"$watchcat_newline"*}
+	if [ "$process_argv0" = "$script_path" ]; then
+		return 0
+	fi
+	case "${process_argv0##*/}" in
+		sh|ash|dash|bash)
+			process_argv1=${process_argv#*"$watchcat_newline"}
+			process_argv1=${process_argv1%%"$watchcat_newline"*}
+			[ "$process_argv1" = "$script_path" ] && return 0
 			;;
 	esac
 	return 1
