@@ -1,3 +1,13 @@
+## 2026-11-23 11:42 UTC+8 — Restore the explicit end-of-session handoff checkpoint contract
+
+- The exact-head AI handoff documentation job 45107256439 on 8331df0c690aafa00a7d46263dacea8ab8bfbb01 failed at its validator with: current handoff does not require an end-of-session accuracy checkpoint. The log and roadmap were not the cause.
+- Root cause: the refreshed SESSION_HANDOFF.md explained the checkpoint process but omitted the exact required sentence, “The checkpoint is mandatory; a document edit is conditional.” Added that statement and the explicit end-of-session live-state comparison rule. The validator is unchanged; this is a genuine handoff contract correction.
+- On the same 8331 SHA, BusyBox PID1 regression 45107256450, Process inventory 45107256374, USB hotplug 45107256428 and NVRAM audit 45107256356 all PASS. XY-C1 host/detector run 45107256442 PASS and deliberately skipped Build/TRX/artifact because the commit changed only tests/docs.
+- Exact XY-C1 workflow-only run 45106983817 on 7c556be was still in Build XY-C1 at the latest check; TRX and artifact upload remained pending. L3 is not claimed; L4 is not verified.
+- This standalone docs-only governance fix repairs the exact-head mandatory documentation contract failure. Product source is unchanged. Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 13:32 UTC+8 — Run XY-C1 build after repairing firmware input detector tests
 
 - The workflow-trigger change at `11090e80b126fa1665758026d2163fd9e2f09e6a` correctly queued XY-C1 validation, but its detector unit test failed because the first fixture version used double-escaped Git delimiters. The corrected fixture commit `a71253cc463befcab865afb8a90407afa7975e33` passed the full XY-C1 workflow, including the detector tests; Build XY-C1/TRX/artifact steps were skipped because that commit changed only host tests and dev log.
