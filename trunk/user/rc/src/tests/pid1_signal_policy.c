@@ -278,9 +278,19 @@ test_pid1_signal_reaper_preserves_errno(void)
 	assert(errno == EACCES);
 }
 
+static void
+test_pid1_signal_shutdown_quiescence(void)
+{
+	assert(pid1_signal_shutdown_quiesce_required(0, 0) == 0);
+	assert(pid1_signal_shutdown_quiesce_required(0, 1) == 0);
+	assert(pid1_signal_shutdown_quiesce_required(1, 0) == 0);
+	assert(pid1_signal_shutdown_quiesce_required(1, 1) == 1);
+}
+
 int
 main(void)
 {
+	test_pid1_signal_shutdown_quiescence();
 	assert(test_pid1_signal_set_initialization_reports_failures() == 0);
 	assert(test_pid1_signal_installation_reports_failures() == 0);
 	assert(test_pid1_signal_mask_update_reports_failures() == 0);

@@ -246,6 +246,14 @@ jobs:
           child_wait_mask_at = wait_mask_compact.index("init_signal_set_add(&wait_mask,SIGCHLD,")
           wait_mask_block_at = wait_mask_compact.index("init_signal_mask_update(SIG_BLOCK,&wait_mask,&original_mask,")
           assert child_wait_mask_at < wait_mask_block_at
+          shutdown_dispatch_at = main_loop_compact.index("if(signal_state.shutdown_pending&&!shutdown_handled)")
+          shutdown_handler_at = main_loop_compact.index("handle_sig_fatal((int)signal_state.shutdown_signal);", shutdown_dispatch_at)
+          shutdown_quiesce_at = main_loop_compact.index("if(pid1_signal_shutdown_quiesce_required(signal_state.shutdown_pending,shutdown_handled))", shutdown_handler_at)
+          shutdown_idle_at = main_loop_compact.index("for(;;)sleep(1);", shutdown_quiesce_at)
+          assert shutdown_dispatch_at < shutdown_handler_at < shutdown_quiesce_at < shutdown_idle_at
+          assert "continue;" not in main_loop_compact[shutdown_handler_at:shutdown_quiesce_at]
+          assert "returnshutdown_pending&&shutdown_handled;" in "".join(pid1_policy.split())
+          assert "pid1_signal_shutdown_quiesce_required(1,1)==1" in "".join(pid1_test.split())
           for token in ("pid1_signal_install_action", "pid1_signal_status_merge",
                         "if (!install || !action)", "return errno > 0 ? errno : EIO;"):
               assert token in pid1_policy, token

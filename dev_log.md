@@ -1,3 +1,14 @@
+## 2026-11-23 08:36 UTC+8 — Quiesce PID 1 after a returning halt hook
+
+- Parent main SHA: `4fe1b4b72faa35085f8cca3b16603a32b78bd60a`. `SIGQUIT` is handled outside signal context and maps to `shutdown_router(1)`; that function stops services and returns. `init_main_loop()` then set `shutdown_handled` and continued, but its wait predicate permits handled shutdowns while both console launch and `sigsuspend()` are suppressed by `shutdown_pending`. With no pending event work, PID 1 consumed a CPU indefinitely.
+- Added `pid1_signal_shutdown_quiesce_required()` and a terminal one-second sleep after deferred shutdown handling returns. PID 1 remains alive but does not spin, relaunch a console or process deferred service events after shutdown.
+- Added a GNU89 policy truth-table test and exact PID1 workflow source assertions for dispatch -> quiescence gate -> blocking sleep ordering.
+- Updated SESSION_HANDOFF and the live PID1 roadmap row. Preserved concurrent Optware teardown checks from parent `4fe1b4b72faa35085f8cca3b16603a32b78bd60a`.
+- Local compile/test: NOT RUN (no local checkout). Exact-head PID1/AI/XY-C1 Actions: PENDING at commit creation; match exact `head_sha`. L3/L4 NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 08:32 UTC+8 — Serialize PID1 shutdown and event signal handlers
 
 - Parent main SHA: `42fa5cfa6bc52db1b62434c1dc9d39947f4ae05f`. The event handler's action mask blocked only SIGUSR1/SIGALRM, whereas shutdown handlers blocked both groups. A shutdown could interrupt the event handler after its `shutdown_pending` check but before it wrote `usr1_pending`/`alarm_pending`; after clearing the queue, the shutdown handler could return to an event handler that republished lower-priority work.

@@ -162,4 +162,12 @@ pid1_signal_record_event(pid1_signal_state_t *state, int sig)
 		state->alarm_pending = 1;
 }
 
+/* A completed shutdown is terminal for PID 1 even when the halt hook returns. */
+static inline int
+pid1_signal_shutdown_quiesce_required(int shutdown_pending,
+                                      int shutdown_handled)
+{
+	return shutdown_pending && shutdown_handled;
+}
+
 #endif

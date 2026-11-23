@@ -1151,7 +1151,15 @@ init_main_loop(void)
 		if (signal_state.shutdown_pending && !shutdown_handled) {
 			shutdown_handled = 1;
 			handle_sig_fatal((int)signal_state.shutdown_signal);
-			continue;
+		}
+		if (pid1_signal_shutdown_quiesce_required(
+			    signal_state.shutdown_pending, shutdown_handled)) {
+			/*
+			 * SIGQUIT's halt path returns after service teardown. Keep PID 1
+			 * alive, but do not spin or restart router work after shutdown.
+			 */
+			for (;;)
+				sleep(1);
 		}
 
 		/* Handle SIGUSR1 signal */
