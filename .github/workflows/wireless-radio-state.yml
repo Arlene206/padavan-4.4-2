@@ -112,6 +112,21 @@ jobs:
               assert "get_ap_mode()" not in start_wifi_ap_rt
               assert "if (ap_mode_status != 0)" in start_wifi_ap_rt
               assert start_wifi_ap_rt.index("if (ap_mode_status != 0)") < start_wifi_ap_rt.index("wireless_bridge_membership_record(")
+          assert "static int wireless_nvram_get_int_status(const char *name, int *value);" in source
+          for signature, key, getter in (
+              ("start_wifi_ap_wl(int radio_on)", "wl_mode_x", "get_mode_radio_wl()"),
+              ("start_wifi_wds_wl(int radio_on)", "wl_mode_x", "get_mode_radio_wl()"),
+              ("start_wifi_apcli_wl(int radio_on)", "wl_mode_x", "get_mode_radio_wl()"),
+              ("start_wifi_wds_rt(int radio_on)", "rt_mode_x", "get_mode_radio_rt()"),
+              ("start_wifi_apcli_rt(int radio_on)", "rt_mode_x", "get_mode_radio_rt()"),
+          ):
+              body = function_body(source, signature)
+              read_call = f'wireless_nvram_get_int_status("{key}", &i_mode_x)'
+              assert read_call in body, f"{signature}: mode must be read with status"
+              assert "if (mode_status != 0)" in body
+              assert getter not in body, f"{signature}: legacy getter hides NVRAM errors"
+              assert body.index("if (mode_status != 0)") < body.index("if (radio_on")
+              assert "return -mode_status;" in body
           start_8021x_wl = function_body(source, "start_8021x_wl(void)")
           start_8021x_rt = function_body(source, "start_8021x_rt(void)")
           for body, band, kick_key, assoc_key in (

@@ -36,6 +36,8 @@
 #include "wireless_guest_isolation_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
+
+static int wireless_nvram_get_int_status(const char *name, int *value);
 #include <gpioutils.h>
 
 static int
@@ -1125,7 +1127,16 @@ start_wifi_ap_wl(int radio_on)
 {
 #if BOARD_HAS_5G_RADIO
 	int all_started = 1;
-	int i_mode_x = get_mode_radio_wl();
+	int i_mode_x = 0, mode_status;
+
+	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
+	if (mode_status != 0) {
+		errno = mode_status;
+		logmessage(LOGNAME,
+			   "5GHz AP startup aborted: cannot read mode_x (status=%d)",
+			   mode_status);
+		return -mode_status;
+	}
 
 	// check WDS only, ApCli only or Radio disabled
 	if (i_mode_x == 1 || i_mode_x == 3 || !radio_on)
@@ -1290,7 +1301,16 @@ start_wifi_wds_wl(int radio_on)
 	int all_started = 1;
 #if BOARD_HAS_5G_RADIO
 	int interface_started;
-	int i_mode_x = get_mode_radio_wl();
+	int i_mode_x = 0, mode_status;
+
+	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
+	if (mode_status != 0) {
+		errno = mode_status;
+		logmessage(LOGNAME,
+			   "5GHz WDS startup aborted: cannot read mode_x (status=%d)",
+			   mode_status);
+		return -mode_status;
+	}
 
 	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
 	{
@@ -1343,7 +1363,16 @@ start_wifi_wds_rt(int radio_on)
 	int all_started = 1;
 	int interface_started;
 
-	int i_mode_x = get_mode_radio_rt();
+	int i_mode_x = 0, mode_status;
+
+	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
+	if (mode_status != 0) {
+		errno = mode_status;
+		logmessage(LOGNAME,
+			   "2.4GHz WDS startup aborted: cannot read mode_x (status=%d)",
+		   mode_status);
+		return -mode_status;
+	}
 
 	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
 	{
@@ -1409,7 +1438,16 @@ start_wifi_apcli_wl(int radio_on)
 #if BOARD_HAS_5G_RADIO
 	int all_started = 1;
 	const char *ifname_apcli = IFNAME_5G_APCLI;
-	int i_mode_x = get_mode_radio_wl();
+	int i_mode_x = 0, mode_status;
+
+	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
+	if (mode_status != 0) {
+		errno = mode_status;
+		logmessage(LOGNAME,
+			   "5GHz AP-client startup aborted: cannot read mode_x (status=%d)",
+			   mode_status);
+		return -mode_status;
+	}
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(1, "sta_ssid")) > 0))
 	{
@@ -1452,7 +1490,16 @@ start_wifi_apcli_rt(int radio_on)
 {
 	int all_started = 1;
 	const char *ifname_apcli = IFNAME_2G_APCLI;
-	int i_mode_x = get_mode_radio_rt();
+	int i_mode_x = 0, mode_status;
+
+	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
+	if (mode_status != 0) {
+		errno = mode_status;
+		logmessage(LOGNAME,
+			   "2.4GHz AP-client startup aborted: cannot read mode_x (status=%d)",
+		   mode_status);
+		return -mode_status;
+	}
 
 	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(0, "sta_ssid")) > 0))
 	{
