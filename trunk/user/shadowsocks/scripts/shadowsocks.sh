@@ -424,16 +424,32 @@ stop_dns_proxy() {
 	ss_stop_named_processes dns2tcp dnsproxy
 }
 
-start_dns_proxy() {
-	local dns_process=""
-	local launch_status=0
+ss_dns_proxy_config_read() {
+	local pdnsd_enable dnsstr dns_process dns_status
 
-	pdnsd_enable=$(nvram get pdnsd_enable) # 0: dnsproxy , 1: dns2tcp
-	pdnsd_enable_flag=$pdnsd_enable
-	dnsstr="$(nvram get tunnel_forward)"
-	dnsserver=$(echo "$dnsstr" | awk -F '#' '{print $1}')
+	SS_DNS_PROXY_PROCESS=""
+	SS_DNS_PROXY_SERVER=""
+	dnsserver=""
+	pdnsd_enable_flag=""
+
+	if pdnsd_enable=$(nvram get pdnsd_enable); then
+		:
+	else
+		dns_status=$?
+		log "Cannot read DNS proxy selector (status=$dns_status)"
+		return "$dns_status"
+	fi
+	if dnsstr=$(nvram get tunnel_forward); then
+		:
+	else
+		dns_status=$?
+		log "Cannot read DNS upstream (status=$dns_status)"
+		return "$dns_status"
+	fi
+
+dnsserver=${dnsstr%%#*}
 	[ -n "$dnsserver" ] && [ "$dnsserver" != "nil" ] || {
-		log "DNS upstream is empty; refusing proxy launch"
+		log "DNS upstream is empty; refusing proxy restart"
 		return 1
 	}
 
@@ -450,16 +466,31 @@ start_dns_proxy() {
 		return 127
 	fi
 
+	SS_DNS_PROXY_PROCESS=$dns_process
+	SS_DNS_PROXY_SERVER=$dnsserver
+	pdnsd_enable_flag=$pdnsd_enable
+	return 0
+}
+
+start_dns_proxy() {
+	local dns_process="$SS_DNS_PROXY_PROCESS"
+	local dns_upstream="$SS_DNS_PROXY_SERVER"
+	local launch_status=0
+
+	[ -n "$dns_process" ] && [ -n "$dns_upstream" ] || {
+		log "DNS proxy launch refused without a validated configuration"
+		return 1
+	}
 	if [ "$dns_process" = "dns2tcp" ]; then
 		log "启动 dns2tcp：5353 端口..."
 		# 将dnsserver (上游国外DNS: 比如 8.8.8.8) 放入ipset:gfwlist，强制走SS_SPEC_WAN_FW代理
-		ipset add gfwlist "$dnsserver" 2>/dev/null
-		dns2tcp -L"127.0.0.1#5353" -R"$dnsserver" >/dev/null 2>&1 &
+		ipset add gfwlist "$dns_upstream" 2>/dev/null
+		dns2tcp -L"127.0.0.1#5353" -R"$dns_upstream" >/dev/null 2>&1 &
 	else
 		log "启动 dnsproxy：5353 端口..."
 		# 将dnsserver (上游国外DNS: 比如 8.8.8.8) 放入ipset:gfwlist，强制走SS_SPEC_WAN_FW代理
-		ipset add gfwlist "$dnsserver" 2>/dev/null
-		dnsproxy -d -p 5353 -R "$dnsserver" >/dev/null 2>&1 &
+		ipset add gfwlist "$dns_upstream" 2>/dev/null
+		dnsproxy -d -p 5353 -R "$dns_upstream" >/dev/null 2>&1 &
 	fi
 
 	if ss_wait_named_process_started "$dns_process" 5; then
@@ -472,6 +503,30 @@ start_dns_proxy() {
 		log "DNS proxy launch cleanup could not verify $dns_process shutdown"
 	fi
 	return "$launch_status"
+}
+
+ss_restart_dns_proxy() {
+	local dns_status
+
+	if ss_dns_proxy_config_read; then
+		:
+	else
+		dns_status=$?
+		return "$dns_status"
+	fi
+	if stop_dns_proxy; then
+		:
+	else
+		dns_status=$?
+		log "DNS proxy cleanup failed (status=$dns_status)"
+		return "$dns_status"
+	fi
+	if start_dns_proxy; then
+		return 0
+	else
+		dns_status=$?
+		return "$dns_status"
+	fi
 }
 
 ss_start_chinadns_daemon() {
@@ -661,18 +716,9 @@ start_dns() {
 	}
 	case "$run_mode" in
 	router)
-		ipset add gfwlist $dnsserver 2>/dev/null
-		# 不论chinadns-ng打开与否，都重启dns_proxy 
-		# 原因是针对gfwlist ipset有一个专有的dnsmasq配置表（由ss-rule创建放在/tmp/dnsmasq.dom/gfwlist_list.conf)
-		# 需要查询上游dns_proxy在本地5353端口
-		if stop_dns_proxy; then
-			:
-		else
-			dns_status=$?
-			log "DNS proxy cleanup failed (status=$dns_status)"
-			return "$dns_status"
-		fi
-		if start_dns_proxy; then
+		# Validate the selector, upstream and executable before stopping the live proxy.
+		# The checked launcher adds the validated upstream to gfwlist.
+		if ss_restart_dns_proxy; then
 			:
 		else
 			dns_status=$?
@@ -686,18 +732,9 @@ start_dns() {
 		fi
 	;;
 	gfw)
-		dnsstr="$(nvram get tunnel_forward)"
-		dnsserver=$(echo "$dnsstr" | awk -F '#' '{print $1}')
-		#dnsport=$(echo "$dnsstr" | awk -F '#' '{print $2}')
-		ipset add gfwlist $dnsserver 2>/dev/null
-		if stop_dns_proxy; then
-			:
-		else
-			dns_status=$?
-			log "DNS proxy cleanup failed (status=$dns_status)"
-			return "$dns_status"
-		fi
-		if start_dns_proxy; then
+		# Validate the selector, upstream and executable before stopping the live proxy.
+		# The checked launcher adds the validated upstream to gfwlist.
+		if ss_restart_dns_proxy; then
 			:
 		else
 			dns_status=$?

@@ -20,12 +20,23 @@ sed -n \
 	-e '/^ssp_run_pppoe_detect() {/,/^}/p' \
 	-e '/^ssp_start() {/,/^}/p' \
 	-e '/^ressp() {/,/^}/p' \
+	-e '/^ss_dns_proxy_config_read() {/,/^}/p' \
+	-e '/^ss_restart_dns_proxy() {/,/^}/p' \
 	-e '/^ss_publish_and_restart_dnsmasq() {/,/^}/p' \
 	-e '/^ss_restart_dhcpd() {/,/^}/p' \
 	-e '/^ss_run_detect() {/,/^}/p' \
 	-e '/^ssp_close() {/,/^}/p' \
 	"$SCRIPT" > "$TMP_DIR/start-functions.sh"
 . "$TMP_DIR/start-functions.sh"
+
+MOCK_BIN="$TMP_DIR/mock-bin"
+mkdir -p "$MOCK_BIN"
+for mock_dns_binary in dnsproxy dns2tcp; do
+	printf '#!/bin/sh\nexit 0\n' > "$MOCK_BIN/$mock_dns_binary"
+	chmod 755 "$MOCK_BIN/$mock_dns_binary"
+done
+PATH="$MOCK_BIN:$PATH"
+export PATH
 
 fail() { echo "Shadowsocks startup status regression: FAIL: $*" >&2; exit 1; }
 record() { printf '%s\n' "$*" >> "$CALL_LOG"; }
@@ -39,6 +50,16 @@ nvram() {
 		get:ss_cgoups_mem_s) echo "${MOCK_MEM_LIMIT:-1048576}" ;;
 		get:global_server) echo "${MOCK_CONFIGURED_GLOBAL_SERVER:-$GLOBAL_SERVER}" ;;
 		get:socks5_enable) echo "$SOCKS5_ENABLE" ;;
+		get:pdnsd_enable)
+			record get:pdnsd_enable
+			[ "${FAIL_PDNSD_READ:-0}" -eq 0 ] || return "$FAIL_PDNSD_READ"
+			echo "${MOCK_PDNSD_ENABLE:-0}"
+			;;
+		get:tunnel_forward)
+			record get:tunnel_forward
+			[ "${FAIL_TUNNEL_READ:-0}" -eq 0 ] || return "$FAIL_TUNNEL_READ"
+			echo "${MOCK_TUNNEL_FORWARD:-8.8.8.8#53}"
+			;;
 		get:backup_server)
 			[ "${FAIL_BACKUP_READ:-0}" -eq 0 ] || return "$FAIL_BACKUP_READ"
 			echo "${MOCK_BACKUP_SERVER:-backup-node}"
@@ -71,6 +92,8 @@ start_redir_udp() { record start_redir_udp; record "udp_server:$GLOBAL_SERVER:$U
 start_dns() { record start_dns; return "${FAIL_DNS:-0}"; }
 start_local() { record start_local; record "local_global_server:$GLOBAL_SERVER"; return "${FAIL_LOCAL:-0}"; }
 start_watchcat() { record start_watchcat; return "${FAIL_WATCHCAT:-0}"; }
+stop_dns_proxy() { record stop_dns_proxy; return "${FAIL_DNS_PROXY_STOP:-0}"; }
+start_dns_proxy() { record "start_dns_proxy:$SS_DNS_PROXY_PROCESS:$SS_DNS_PROXY_SERVER"; return "${FAIL_DNS_PROXY_START:-0}"; }
 auto_update() { record auto_update; return "${FAIL_AUTO_UPDATE:-0}"; }
 ssp_run_pppoe_detect() { record pppoe_detect; return "${FAIL_DETECT:-0}"; }
 
@@ -84,15 +107,27 @@ reset() {
 	SOCKS5_ENABLE=local-node
 	pppoemwan=1
 	SS_START_STATUS=0
+	SS_DNS_PROXY_PROCESS=""
+	SS_DNS_PROXY_SERVER=""
+	dnsserver=""
+	pdnsd_enable_flag=""
 	unset FAIL_RULES FAIL_CGROUPS FAIL_TCP FAIL_UDP FAIL_DNS FAIL_LOCAL
 	unset FAIL_WATCHCAT FAIL_AUTO_UPDATE FAIL_NVRAM_SET FAIL_DETECT
 	unset FAIL_CGROUP_MKDIR FAIL_CGROUP_CPU_WRITE FAIL_CGROUP_MEM_WRITE FAIL_CGROUP_READ
 	unset MOCK_BACKUP_SERVER MOCK_UDP_RELAY_SERVER MOCK_CONFIGURED_GLOBAL_SERVER FAIL_BACKUP_READ
+	unset FAIL_PDNSD_READ FAIL_TUNNEL_READ FAIL_DNS_PROXY_STOP FAIL_DNS_PROXY_START
+	unset MOCK_PDNSD_ENABLE MOCK_TUNNEL_FORWARD
 }
 expect_ressp_status() {
 	expected=$1
 	label=$2
 	if ressp; then actual=0; else actual=$?; fi
+	[ "$actual" -eq "$expected" ] || fail "$label returned $actual, expected $expected"
+}
+expect_dns_proxy_restart_status() {
+	expected=$1
+	label=$2
+	if ss_restart_dns_proxy; then actual=0; else actual=$?; fi
 	[ "$actual" -eq "$expected" ] || fail "$label returned $actual, expected $expected"
 }
 expect_status() {
@@ -459,4 +494,54 @@ cmp -s "$PROFILE_CONFIG" "$PROFILE_ORIGINAL" || fail "oversea restart failure di
 unset FAIL_RESTART_DHCPD
 
 echo "Shadowsocks DNSMasq profile-2 atomic publication regression: PASS"
+# Invalid configuration must never stop the currently working DNS proxy.
+reset
+FAIL_PDNSD_READ=73
+expect_dns_proxy_restart_status 73 "DNS proxy selector read failure"
+not_called stop_dns_proxy
+not_called start_dns_proxy
 
+reset
+FAIL_TUNNEL_READ=74
+expect_dns_proxy_restart_status 74 "DNS upstream read failure"
+not_called stop_dns_proxy
+not_called start_dns_proxy
+
+reset
+MOCK_TUNNEL_FORWARD=nil
+expect_dns_proxy_restart_status 1 "empty DNS upstream"
+not_called stop_dns_proxy
+not_called start_dns_proxy
+
+reset
+MOCK_PDNSD_ENABLE=2
+expect_dns_proxy_restart_status 1 "unsupported DNS proxy selector"
+not_called stop_dns_proxy
+not_called start_dns_proxy
+
+reset
+MOCK_PDNSD_ENABLE=1
+MOCK_TUNNEL_FORWARD=9.9.9.9#53
+expect_dns_proxy_restart_status 0 "valid dns2tcp restart"
+called get:pdnsd_enable
+called get:tunnel_forward
+called stop_dns_proxy
+called start_dns_proxy:dns2tcp:9.9.9.9
+selector_line=$(grep -n "^get:pdnsd_enable$" "$CALL_LOG" | head -n 1 | cut -d: -f1)
+upstream_line=$(grep -n "^get:tunnel_forward$" "$CALL_LOG" | head -n 1 | cut -d: -f1)
+stop_line=$(grep -n "^stop_dns_proxy$" "$CALL_LOG" | head -n 1 | cut -d: -f1)
+[ "$selector_line" -lt "$stop_line" ] || fail "DNS selector read happened after proxy shutdown"
+[ "$upstream_line" -lt "$stop_line" ] || fail "DNS upstream read happened after proxy shutdown"
+
+reset
+FAIL_DNS_PROXY_STOP=26
+expect_dns_proxy_restart_status 26 "DNS proxy stop failure"
+not_called start_dns_proxy
+
+reset
+FAIL_DNS_PROXY_START=31
+expect_dns_proxy_restart_status 31 "DNS proxy start failure"
+called stop_dns_proxy
+called start_dns_proxy:dnsproxy:8.8.8.8
+
+echo "Shadowsocks DNS proxy preflight regression: PASS"

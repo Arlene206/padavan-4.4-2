@@ -14,6 +14,10 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+def shell_function(source: str, name: str) -> str:
+    start = source.index(f"{name}() {{")
+    end = source.index("\n}\n", start) + 2
+    return source[start:end]
 def ordered(source: str, tokens: tuple[str, ...], label: str) -> None:
     position = -1
     for token in tokens:
@@ -517,3 +521,27 @@ for marker in (
     require(marker in startup_test, f"cgroup regression is missing {marker}")
 print("Shadowsocks cgroup initialization status source contract: PASS")
 
+dns_proxy_config = shell_function(script, "ss_dns_proxy_config_read")
+dns_proxy_start = shell_function(script, "start_dns_proxy")
+dns_proxy_restart = shell_function(script, "ss_restart_dns_proxy")
+dns_start = shell_function(script, "start_dns")
+require("nvram get pdnsd_enable" in dns_proxy_config and
+        "nvram get tunnel_forward" in dns_proxy_config and
+        'command -v "$dns_process"' in dns_proxy_config and
+        "SS_DNS_PROXY_PROCESS=$dns_process" in dns_proxy_config and
+        "SS_DNS_PROXY_SERVER=$dnsserver" in dns_proxy_config and
+        "nvram get" not in dns_proxy_start and
+        "SS_DNS_PROXY_PROCESS" in dns_proxy_start and
+        "SS_DNS_PROXY_SERVER" in dns_proxy_start,
+        "DNS proxy selector/upstream/executable preflight must precede service stop")
+ordered(dns_proxy_restart, ("ss_dns_proxy_config_read", "stop_dns_proxy", "start_dns_proxy"),
+        "DNS proxy preflight/stop/start order")
+require(dns_start.count("ss_restart_dns_proxy") == 2 and
+        "stop_dns_proxy" not in dns_start and "start_dns_proxy" not in dns_start,
+        "router and gfw modes must use the checked DNS proxy restart path")
+for marker in ("DNS proxy selector read failure", "DNS upstream read failure",
+               "empty DNS upstream", "unsupported DNS proxy selector",
+               "DNS proxy stop failure", "DNS proxy start failure",
+               "Shadowsocks DNS proxy preflight regression: PASS"):
+    require(marker in start_status_test, f"DNS proxy regression is missing {marker}")
+print("Shadowsocks DNS proxy preflight source contract: PASS")

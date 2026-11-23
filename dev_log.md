@@ -1,3 +1,10 @@
+## 2026-11-23 — Preflight DNS proxy replacement before stopping the live service
+
+- `start_dns()` stopped `dnsproxy`/`dns2tcp` before `start_dns_proxy()` read `pdnsd_enable`, `tunnel_forward` and checked the selected executable. A transient NVRAM read failure, empty upstream, invalid selector or missing binary could therefore take down a working local DNS upstream before the replacement was rejected.
+- Added a validated configuration snapshot for selector, upstream and executable, then routed router/gfw restarts through preflight → stop → start. The launcher uses the validated snapshot, so validation failures return without touching the current daemon and a stale NVRAM re-read cannot change the launch target after teardown.
+- Added production-linked `/bin/sh` regression cases for selector/upstream read errors, nil upstream, invalid selector, successful dns2tcp selection, and stop/start error propagation, plus Python source-order assertions. Exact-head Shadowsocks and XY-C1 checks remain the acceptance gate; no live-router behavior is claimed.
+
+---
 ## 2026-11-23 — Bind AliyunDrive process state to its executable inode
 
 - BusyBox 1.24 pidof accepts a process when its comm or basename of argv[0] matches the requested name. A different executable can therefore spoof aliyundrive-webdav; the previous tri-state wrapper treated that result as RUNNING and could send TERM/KILL to the wrong process during stop.
