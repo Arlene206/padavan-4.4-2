@@ -180,11 +180,17 @@ test_vpn_server_custom_hook_failure_is_not_hidden(void)
 static void
 test_wan_gateway_host_route_cleanup_matches_setup_conditions(void)
 {
-	assert(route_status_wan_gateway_host_route_required(1, -1, 1) == 1);
-	assert(route_status_wan_gateway_host_route_required(1, -1, 0) == 0);
-	assert(route_status_wan_gateway_host_route_required(1, 0, 1) == 0);
-	assert(route_status_wan_gateway_host_route_required(1, 3, 1) == 0);
-	assert(route_status_wan_gateway_host_route_required(0, -1, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 1, 1, -1, 1) == 1);
+	assert(route_status_wan_gateway_host_route_required(1, 1, 1, -1, 0) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 1, 0, -1, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 0, 1, -1, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 1, 1, 0, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 1, 1, 3, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(0, 1, 1, -1, 1) == 0);
+	assert(route_status_gateway_host_route_required(1, 1, 1, 1) == 1);
+	assert(route_status_gateway_host_route_required(1, 0, 1, 1) == 0);
+	assert(route_status_gateway_host_route_required(1, 1, 0, 1) == 0);
+	assert(route_status_gateway_host_route_required(0, 1, 1, 1) == 0);
 	assert(route_status_accumulate(EIO, route_status_idempotent_delete(ESRCH)) == EIO);
 	assert(route_status_accumulate(0, route_status_idempotent_delete(ESRCH)) == 0);
 	assert(route_status_idempotent_delete(EIO) == EIO);

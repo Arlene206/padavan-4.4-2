@@ -4736,6 +4736,7 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 	int is_man_dns_auto, is_modem_active, wan_proto = 0, dns_enabled;
 	int dns_mode_status, proto_status, modem_status;
 	int status = 0, route_status, snapshot_status;
+	int man_address_valid, man_netmask_valid, gateway_off_subnet;
 	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
 	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
 	char *next, *man_gate = man_gate_storage, *man_addr = man_addr_storage;
@@ -4760,6 +4761,18 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 	}
 	if (!is_valid_ipv4(man_gate))
 		return 0;
+
+	man_address_valid = dhcp_lease_ipv4_is_valid(man_addr);
+	man_netmask_valid = dhcp_lease_netmask_is_valid(man_mask);
+	if (!man_address_valid || !man_netmask_valid) {
+		status = route_status_accumulate(status, EINVAL);
+		if (gateway_route_status)
+			*gateway_route_status = route_status_accumulate(
+				*gateway_route_status, EINVAL);
+		logmessage(LOGNAME,
+			   "invalid MAN address/netmask snapshot on %s; skipping host and DNS gateway routes",
+			   man_ifname);
+	}
 
 	proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
 	if (proto_status != 0) {
@@ -4804,8 +4817,12 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 	 * attempts, report the first error, and let matching teardown remove the
 	 * scoped route set.
 	 */
-	/* if the gateway is out of the subnet */
-	if (!is_same_subnet(man_gate, man_addr, man_mask)) {
+	/* Do not interpret inet_addr() failures as an off-subnet gateway. */
+	gateway_off_subnet = man_address_valid && man_netmask_valid &&
+		!is_same_subnet(man_gate, man_addr, man_mask);
+	if (route_status_gateway_host_route_required(
+		    1, man_address_valid, man_netmask_valid,
+		    gateway_off_subnet)) {
 		route_status = route_add(man_ifname, metric, man_gate, NULL, "255.255.255.255");
 		status = route_status_accumulate(status, route_status);
 		if (gateway_route_status)
@@ -4830,6 +4847,7 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 					     is_man_dns_auto, is_modem_active)) {
 		foreach(word, man_dns, next) {
 			if (is_valid_ipv4(word) && inet_addr(word) != inet_addr(man_gate) &&
+			    man_address_valid && man_netmask_valid &&
 			    !is_same_subnet(word, man_addr, man_mask)) {
 				route_status = route_add(man_ifname, metric, word, man_gate, "255.255.255.255");
 				status = route_status_accumulate(status, route_status);
@@ -5084,6 +5102,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto = 0, modem_unit_id, modem_status, proto_status;
 	int ppp_index, gateway_valid, gateway_off_subnet;
+	int wan_address_valid, wan_netmask_valid;
 	int status = 0, route_status, auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
 	int gateway_arp_status, gateway_arp_enabled;
@@ -5162,15 +5181,35 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		wan_gate_status = 0;
 	}
 
+	wan_address_valid = wan_addr_status == 0 &&
+		dhcp_lease_ipv4_is_valid(wan_addr);
+	wan_netmask_valid = wan_mask_status == 0 &&
+		dhcp_lease_netmask_is_valid(wan_mask);
+	if (wan_addr_status == 0 && !wan_address_valid) {
+		wan_addr_status = EINVAL;
+		status = route_status_accumulate(status, EINVAL);
+		logmessage(LOGNAME,
+			   "invalid WAN IPv4 address snapshot on %s; skipping gateway host route",
+			   wan_ifname);
+	}
+	if (wan_mask_status == 0 && !wan_netmask_valid) {
+		wan_mask_status = EINVAL;
+		status = route_status_accumulate(status, EINVAL);
+		logmessage(LOGNAME,
+			   "invalid WAN netmask snapshot on %s; skipping gateway host route",
+			   wan_ifname);
+	}
+
 	gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);
 	ppp_index = ppp_ifindex(wan_ifname);
-	gateway_off_subnet = gateway_valid && ppp_index < 0 &&
-		wan_addr_status == 0 && wan_mask_status == 0 &&
+	gateway_off_subnet = gateway_valid && wan_address_valid &&
+		wan_netmask_valid && ppp_index < 0 &&
 		!is_same_subnet(wan_gate, wan_addr, wan_mask);
 
 	/* Set the same off-subnet gateway host route that WAN teardown removes. */
 	if (route_status_wan_gateway_host_route_required(
-		    gateway_valid, ppp_index, gateway_off_subnet)) {
+		    gateway_valid, wan_address_valid, wan_netmask_valid,
+		    ppp_index, gateway_off_subnet)) {
 		route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)

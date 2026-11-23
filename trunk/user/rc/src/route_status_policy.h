@@ -38,14 +38,29 @@ route_status_idempotent_delete(int operation_status)
 	return operation_status == ESRCH ? 0 : operation_status;
 }
 
-/* The WAN /32 gateway host route is installed only for a valid off-subnet
- * gateway on a non-PPP interface. Use the same predicate at up and down. */
+/* Never infer subnet ownership from malformed or missing IPv4 state. */
+static inline int
+route_status_gateway_host_route_required(int gateway_valid,
+					 int address_valid,
+					 int netmask_valid,
+					 int gateway_off_subnet)
+{
+	return gateway_valid && address_valid && netmask_valid &&
+		gateway_off_subnet;
+}
+
+/* WAN host routes are only needed on non-PPP interfaces. */
 static inline int
 route_status_wan_gateway_host_route_required(int gateway_valid,
+					     int address_valid,
+					     int netmask_valid,
 					     int ppp_index,
 					     int gateway_off_subnet)
 {
-	return gateway_valid && ppp_index < 0 && gateway_off_subnet;
+	return ppp_index < 0 &&
+		route_status_gateway_host_route_required(
+			gateway_valid, address_valid, netmask_valid,
+			gateway_off_subnet);
 }
 
 /* An unreadable L2TP server selector must not be mistaken for disabled. */
