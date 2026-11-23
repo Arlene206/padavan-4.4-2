@@ -184,10 +184,21 @@ test_attach_requires_complete_standard_io_and_terminal_setup(void)
 	assert(pid1_console_attach(0, 42, 1, fake_duplicate, NULL, NULL) == EINVAL);
 }
 
+static void
+test_console_retry_throttles_fast_child_exit(void)
+{
+	assert(pid1_console_retry_delay_seconds(-1) == 1U);
+	assert(pid1_console_retry_delay_seconds(0) == 1U);
+	assert(pid1_console_retry_delay_seconds(1) == 1U);
+	assert(pid1_console_retry_delay_seconds(2) == 0U);
+	assert(pid1_console_retry_delay_seconds(60) == 0U);
+}
+
 int
 main(void)
 {
 	tcflag_t retained_flags;
+	test_console_retry_throttles_fast_child_exit();
 
 	reset_mocks();
 	assert(pid1_console_configure(4, NULL, fake_setattr) == EINVAL);

@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/boot_device_node_policy.h"
       - "trunk/user/rc/src/tests/boot_device_node_policy.c"
       - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/rc/src/pid1_console_policy.h"
+      - "trunk/user/rc/src/tests/pid1_console_policy.c"
       - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - ".github/workflows/init-mdev-security.yml"
   pull_request:
@@ -27,6 +29,8 @@ on:
       - "trunk/user/rc/src/boot_device_node_policy.h"
       - "trunk/user/rc/src/tests/boot_device_node_policy.c"
       - "trunk/user/rc/src/pid1_signal_policy.h"
+      - "trunk/user/rc/src/pid1_console_policy.h"
+      - "trunk/user/rc/src/tests/pid1_console_policy.c"
       - "trunk/user/rc/src/tests/pid1_signal_policy.c"
       - ".github/workflows/init-mdev-security.yml"
   workflow_dispatch:
@@ -75,6 +79,15 @@ jobs:
             trunk/user/rc/src/tests/pid1_signal_policy.c \
             -o /tmp/pid1_signal_policy
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/pid1_signal_policy
+      - name: Build and run PID 1 console recovery retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \\
+            -I trunk/user/rc/src \\
+            -fsanitize=address,undefined -fno-omit-frame-pointer \\
+            trunk/user/rc/src/tests/pid1_console_policy.c \\
+            -o /tmp/pid1_console_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/pid1_console_policy
       - name: Check PID 1 hotplug policy publication contract
         run: |
           python3 - <<'PY'
@@ -91,6 +104,8 @@ jobs:
           boot_device_test = Path("trunk/user/rc/src/tests/boot_device_node_policy.c").read_text()
           pid1_policy = Path("trunk/user/rc/src/pid1_signal_policy.h").read_text()
           pid1_test = Path("trunk/user/rc/src/tests/pid1_signal_policy.c").read_text()
+          console_policy = Path("trunk/user/rc/src/pid1_console_policy.h").read_text()
+          console_test = Path("trunk/user/rc/src/tests/pid1_console_policy.c").read_text()
           workflow = Path(".github/workflows/init-mdev-security.yml").read_text()
 
           def body(source, signature):
@@ -248,6 +263,9 @@ jobs:
           assert "volatile sig_atomic_t console_shell_pid;" in pid1_policy
           assert "state->console_shell_pid != pid" in pid1_policy
           assert "state->console_shell_pid = 0;" in pid1_policy
+          assert "state->console_shell_reaped = 1;" in pid1_policy
+          assert "pid1_signal_take_console_shell_reaped" in pid1_policy
+          assert "console_shell_reaped == 1" in pid1_test
           shell_compact = "".join(shell.split())
           mask_at = shell_compact.index("pid1_signal_empty_set(sigemptyset,&child_mask)")
           add_at = shell_compact.index("pid1_signal_add_set(sigaddset,&child_mask,SIGCHLD)", mask_at)
@@ -262,6 +280,17 @@ jobs:
           main_compact = "".join(main_loop.split())
           assert "if(!noconsole&&!signal_state.console_shell_pid)" in main_compact
           assert "kill(shell_pid,0)" not in main_compact
+          assert "console_shell_started_at=uptime()" in main_compact
+          reaped_at = main_compact.index("pid1_signal_take_console_shell_reaped(&signal_state)")
+          delay_at = main_compact.index("pid1_console_retry_delay_seconds(console_shell_runtime)", reaped_at)
+          sleep_at = main_compact.index("while(console_shell_retry_delay>0)console_shell_retry_delay=sleep(console_shell_retry_delay)", delay_at)
+          launch_at = main_compact.index("run_shell(0,1)", sleep_at)
+          assert reaped_at < delay_at < sleep_at < launch_at
+          retry_policy = body(console_policy, "pid1_console_retry_delay_seconds(")
+          assert "runtime_seconds < PID1_CONSOLE_RETRY_FAST_EXIT_SECONDS" in retry_policy
+          assert "PID1_CONSOLE_RETRY_DELAY_SECONDS" in retry_policy
+          assert "pid1_console_retry_delay_seconds(1) == 1U" in console_test
+          assert "pid1_console_retry_delay_seconds(2) == 0U" in console_test
           for token in ("pid1_signal_record_console_shell", "pid1_signal_record_child_reaped",
                         "state.console_shell_pid == (sig_atomic_t)1234",
                         "state.console_shell_pid == 0"):

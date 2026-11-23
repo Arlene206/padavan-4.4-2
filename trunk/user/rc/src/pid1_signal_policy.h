@@ -76,6 +76,7 @@ typedef struct {
 	volatile sig_atomic_t usr1_pending;
 	volatile sig_atomic_t alarm_pending;
 	volatile sig_atomic_t console_shell_pid;
+	volatile sig_atomic_t console_shell_reaped;
 } pid1_signal_state_t;
 
 /* First shutdown request wins; discard lower-priority queued events. */
@@ -98,6 +99,7 @@ static inline void
 pid1_signal_record_console_shell(pid1_signal_state_t *state, sig_atomic_t pid)
 {
 	state->console_shell_pid = pid > 0 ? pid : 0;
+	state->console_shell_reaped = 0;
 }
 
 static inline int
@@ -107,6 +109,17 @@ pid1_signal_record_child_reaped(pid1_signal_state_t *state, sig_atomic_t pid)
 		return 0;
 
 	state->console_shell_pid = 0;
+	state->console_shell_reaped = 1;
+	return 1;
+}
+
+/* Consume the exact console-child completion in main context, not in handler. */
+static inline int
+pid1_signal_take_console_shell_reaped(pid1_signal_state_t *state)
+{
+	if (!state || !state->console_shell_reaped)
+		return 0;
+	state->console_shell_reaped = 0;
 	return 1;
 }
 

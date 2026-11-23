@@ -50,7 +50,7 @@
 #define CONSOLE_TERMINAL	"vt100"
 #define INIT_HOME_PATH		"/home/root"
 
-static pid1_signal_state_t signal_state = { 0, 0, 0, 0, 0 };
+static pid1_signal_state_t signal_state = { 0, 0, 0, 0, 0, 0 };
 static int noconsole = 0;
 
 /* Synchronous faults cannot safely return to the faulting instruction. */
@@ -933,6 +933,7 @@ init_main_loop(void)
 	int original_mask_ready = 0;
 	init_mdev_retry_state_t mdev_retry_state = { 0 };
 	int i;
+	long console_shell_started_at = 0;
 	sigset_t wait_mask, original_mask;
 
 	umask(0000);
@@ -1071,6 +1072,16 @@ init_main_loop(void)
 		while (!signal_state.usr1_pending &&
 		       !signal_state.alarm_pending &&
 		       (!signal_state.shutdown_pending || shutdown_handled)) {
+			if (pid1_signal_take_console_shell_reaped(&signal_state) &&
+			    !signal_state.shutdown_pending) {
+				long console_shell_runtime = uptime() - console_shell_started_at;
+				unsigned int console_shell_retry_delay =
+					pid1_console_retry_delay_seconds(console_shell_runtime);
+
+				/* A broken/missing shell must not spin PID 1 through fork/exec. */
+				while (console_shell_retry_delay > 0)
+					console_shell_retry_delay = sleep(console_shell_retry_delay);
+			}
 			if (!wait_mask_ready) {
 				if (wait_mask_build_status != 0) {
 					sleep(1);
@@ -1098,6 +1109,7 @@ init_main_loop(void)
 					continue;
 				}
 				wait_mask_ready = 0;
+				console_shell_started_at = uptime();
 				if (run_shell(0, 1) < 0)
 					sleep(1);
 				mask_status = init_signal_mask_update(

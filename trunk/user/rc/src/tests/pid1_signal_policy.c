@@ -249,7 +249,7 @@ fake_pid1_waitpid(pid_t pid, int *status, int options)
 static void
 test_pid1_signal_reaper_preserves_errno(void)
 {
-	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };
+	pid1_signal_state_t state = { 0, 0, 0, 0, 0, 0 };
 
 	pid1_signal_record_console_shell(&state, (sig_atomic_t)4321);
 	fake_waitpid_steps[0].result = (pid_t)9876;
@@ -278,7 +278,7 @@ main(void)
 	assert(test_pid1_signal_installation_reports_failures() == 0);
 	assert(test_pid1_signal_mask_update_reports_failures() == 0);
 	test_pid1_signal_reaper_preserves_errno();
-	pid1_signal_state_t state = { 0, 0, 0, 0, 0 };
+	pid1_signal_state_t state = { 0, 0, 0, 0, 0, 0 };
 
 	pid1_signal_record_event(&state, SIGUSR1);
 	assert(state.usr1_pending == 1);
@@ -309,16 +309,22 @@ main(void)
 	assert(state.console_shell_pid == (sig_atomic_t)1234);
 	assert(pid1_signal_record_child_reaped(&state, (sig_atomic_t)5678) == 0);
 	assert(state.console_shell_pid == (sig_atomic_t)1234);
+	assert(pid1_signal_take_console_shell_reaped(&state) == 0);
 
-	/* Reaping the exact child clears the old PID and permits a relaunch. */
+	/* Reaping the exact child publishes one completion for main context. */
 	assert(pid1_signal_record_child_reaped(&state, (sig_atomic_t)1234) == 1);
 	assert(state.console_shell_pid == 0);
+	assert(state.console_shell_reaped == 1);
+	assert(pid1_signal_take_console_shell_reaped(&state) == 1);
+	assert(state.console_shell_reaped == 0);
+	assert(pid1_signal_take_console_shell_reaped(&state) == 0);
 
 	/* A later recovery shell can be tracked without stale state. */
 	pid1_signal_record_console_shell(&state, (sig_atomic_t)2345);
 	assert(state.console_shell_pid == (sig_atomic_t)2345);
 	assert(pid1_signal_record_child_reaped(&state, (sig_atomic_t)2345) == 1);
 	assert(state.console_shell_pid == 0);
+	assert(pid1_signal_take_console_shell_reaped(&state) == 1);
 
 	return 0;
 }
