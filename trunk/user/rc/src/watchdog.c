@@ -40,6 +40,8 @@
 #include "detached_daemon_start_policy.h"
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
+#include "watchdog_httpd_probe_policy.h"
+#include "wan_nvram_status_policy.h"
 
 #include "service_wait_policy.h"
 
@@ -85,84 +87,134 @@ wd_alarmtimer(unsigned long sec, unsigned long usec)
 
 #ifdef HTTPD_CHECK
 #define DETECT_HTTPD_FILE "/tmp/httpd_check_result"
+
+static int
+watchdog_checked_nvram_get(void *context, const char *name, char **value)
+{
+    (void)context;
+    return nvram_get_checked(name, value);
+}
+
+static int
+watchdog_httpd_read_int(const char *name, int missing_value, int *result)
+{
+    char *value = NULL;
+    int api_result, saved_errno;
+
+    errno = 0;
+    api_result = nvram_get_checked(name, &value);
+    saved_errno = errno;
+    return rc_wan_nvram_read_int_status(api_result, saved_errno,
+                                        value, missing_value, result);
+}
 static int
 httpd_check_v2()
 {
-	FILE *fp = NULL;
-	int i, httpd_live, http_port;
-	char line[80], *login_timestamp;
-	long now;
-	static int check_count_down = 3;
-	static int httpd_timer = 0;
+    FILE *fp = NULL;
+    int i, httpd_live, http_port, http_proto = 0, current_port, status;
+    char line[80], login_timestamp[32];
+    unsigned long login_uptime;
+    long now;
+    static int check_count_down = 3;
+    static int httpd_timer = 0;
 
-	/* skip 30 seconds after start watchdog */
-	if (check_count_down)
-	{
-		check_count_down--;
-		return 1;
-	}
+    /* skip 30 seconds after start watchdog */
+    if (check_count_down) {
+        check_count_down--;
+        return 1;
+    }
 
-	/* check every 30 seconds */
-	httpd_timer = (httpd_timer + 1) % 3;
-	if (httpd_timer)
-		return 1;
+    /* check every 30 seconds */
+    httpd_timer = (httpd_timer + 1) % 3;
+    if (httpd_timer)
+        return 1;
 
-	/* check last http login */
-	login_timestamp = nvram_safe_get("login_timestamp");
-	if (strlen(login_timestamp) < 1)
-		return 1;
+    /* A backend failure is not evidence that the web server is dead. */
+    status = rc_wan_nvram_copy_value(
+        watchdog_checked_nvram_get, NULL, "login_timestamp",
+        login_timestamp, sizeof(login_timestamp));
+    if (status != 0) {
+        logmessage("watchdog",
+                   "cannot read HTTPD login timestamp; skipping liveness probe (status=%d)",
+                   status);
+        return 1;
+    }
+    if (!login_timestamp[0])
+        return 1;
+    status = watchdog_httpd_login_timestamp_parse(login_timestamp,
+                                                  &login_uptime);
+    if (status != 0) {
+        logmessage("watchdog",
+                   "invalid HTTPD login timestamp; skipping liveness probe (status=%d)",
+                   status);
+        return 1;
+    }
 
-	now = uptime();
-	if (((unsigned long)(now - strtoul(login_timestamp, NULL, 10)) < 60))
-		return 1;
+    now = uptime();
+    if (now < 0 || (unsigned long)now < login_uptime ||
+        (unsigned long)now - login_uptime < 60UL)
+        return 1;
 
 #if defined (SUPPORT_HTTPS)
-	/* check HTTPS only */
-	if (nvram_get_int("http_proto") == 1)
-		return 1;
+    status = watchdog_httpd_read_int("http_proto", 0, &http_proto);
+    if (status != 0) {
+        logmessage("watchdog",
+                   "cannot read HTTPD protocol; skipping liveness probe (status=%d)",
+                   status);
+        return 1;
+    }
 #endif
-	remove(DETECT_HTTPD_FILE);
 
-	http_port = nvram_get_int("http_lanport");
+    status = watchdog_httpd_read_int("http_lanport", 0, &http_port);
+    if (status != 0) {
+        logmessage("watchdog",
+                   "cannot read HTTPD LAN port; skipping liveness probe (status=%d)",
+                   status);
+        return 1;
+    }
+    if (!watchdog_httpd_probe_config_usable(
+            0, 1, http_port, http_proto))
+        return 1;
 
-	/* httpd will not count 127.0.0.1 */
-	/* The probe is detached; bound its network wait instead of killing every wget. */
-	doSystem("wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm -O %s &", http_port, DETECT_HTTPD_FILE);
+    remove(DETECT_HTTPD_FILE);
 
-	httpd_live = 0;
-	for (i=0; i < 3; i++)
-	{
-		if ((fp = fopen(DETECT_HTTPD_FILE, "r")) != NULL)
-		{
-			if ( fgets(line, sizeof(line), fp) != NULL )
-			{
-				if (strstr(line, "ASUSTeK"))
-				{
-					httpd_live = 1;
-				}
-			}
-			
-			fclose(fp);
-		}
-		
-		if (httpd_live)
-			break;
-		
-		/* check port changed */
-		if (nvram_get_int("http_lanport") != http_port)
-			return 1;
-		
-		sleep(1);
-	}
+    /* httpd will not count 127.0.0.1 */
+    /* The probe is detached; bound its network wait instead of killing every wget. */
+    doSystem("wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm -O %s &", http_port, DETECT_HTTPD_FILE);
 
-	if (!httpd_live)
-	{
-		dbg("httpd is so dead!!!\n");
-		
-		return 0;
-	}
+    httpd_live = 0;
+    for (i = 0; i < 3; i++) {
+        if ((fp = fopen(DETECT_HTTPD_FILE, "r")) != NULL) {
+            if (fgets(line, sizeof(line), fp) != NULL) {
+                if (strstr(line, "ASUSTeK"))
+                    httpd_live = 1;
+            }
+            fclose(fp);
+        }
 
-	return 1;
+        if (httpd_live)
+            break;
+
+        /* A failed or changed port read cancels this probe, never the service. */
+        status = watchdog_httpd_read_int("http_lanport", 0, &current_port);
+        if (!watchdog_httpd_probe_port_unchanged(status, current_port,
+                                                 http_port)) {
+            if (status != 0)
+                logmessage("watchdog",
+                           "cannot recheck HTTPD LAN port; skipping restart decision (status=%d)",
+                           status);
+            return 1;
+        }
+
+        sleep(1);
+    }
+
+    if (!httpd_live) {
+        dbg("httpd is so dead!!!\n");
+        return 0;
+    }
+
+    return 1;
 }
 #endif
 
