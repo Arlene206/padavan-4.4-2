@@ -1,3 +1,13 @@
+## 2026-11-23 — Repair stale handoff and record userland stability work
+
+- Updated the live checkpoint from stale main `02f174a93bf275930cede271d233dcf2c57438fa` to `3ec4e18b735a1e132884d91ab259b365a420aebc`; backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and was not modified.
+- Atomic source slices completed: IPTV proxy NVRAM preflight and legacy missing-key defaults (`75a29ff...`, corrected by `05de0ec...`); transactional HTTPD Basic-auth credential snapshot (`6a9358e...`, ABI-compatible follow-up `50b712a...`); HTTPD ACL checked reads and strict numeric validation (`2b07887...`, `108c1c7...`, corrected regression literals `3ec4e18...`); HTTPD NVRAM group compaction read-error handling and transaction exclusion (`ebb80e3...`, `4363bd2...`, CI contract `7a3e304...`).
+- Exact `3ec4e18...` Actions: HTTPD security #45289740712 PASS; process lifecycle inventory #45289740731 PASS; NVRAM transaction boundary audit #45289740708 PASS.
+- Exact product-source SHA `05de0ec...` XY-C1 run #45289029423 remained IN_PROGRESS at the last check; all other listed exact-SHA userland/storage/network checks on that SHA passed. The later `main` SHA has no observed exact-head XY-C1 build/TRX/artifact run, so current-tree L3 is NOT VERIFIED; no local cross-build or hardware test is claimed.
+- Next: poll #45289029423, then investigate (without assuming exploitability) AiDisk `ej_get_folder_tree` symlink/path behavior and its consumers before choosing a fix.
+
+---
+
 ## 2026-11-23 — Update EPHY calibration handoff and verification boundary
 
 - Recorded live main `02f174a93bf275930cede271d233dcf2c57438fa`, latest raeth source SHA `02f174a93bf275930cede271d233dcf2c57438fa`, exact push Actions and backup branch `72f4f157a084f8184b9597ca5bf334b8080e5807`.

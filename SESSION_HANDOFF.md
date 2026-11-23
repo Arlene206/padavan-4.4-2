@@ -1,73 +1,52 @@
-### 2026-11-23 接力更新（当前实时检查点）
-
-- live `main`：`02f174a93bf275930cede271d233dcf2c57438fa`；最近一个修改 raeth 源码的提交：`02f174a93bf275930cede271d233dcf2c57438fa`（main 是否为纯 workflow/docs 后续提交以 Git 历史为准）。
-- 已完成：FE VBG/R50/TX-offset/TX-amplitude 及 MDIX checked MDIO/wait、bounded search/fallback/cleanup；GE R50/TX-offset/TX-amplitude analog 检查；FE/GE orchestrator 和 EPHY batch/init 错误传播；校准 ioctl 重试耗尽返回 `-EIO`，且 `ei_ioctl()` 不再丢弃 `ephy_ioctl()` 返回值。
-- GE all-analog retry bounded=NOT CONFIRMED。下一位 GPT 应以 live 源码核验，不要只相信本记录。
-- 源码 SHA `02f174a93bf275930cede271d233dcf2c57438fa` 的 exact push Actions：
-- AI handoff documentation contract #45285734852: in_progress/PENDING
-- Switch CLI ioctl failure-status regression #45285734872: in_progress/PENDING
-- XY-C1 Firmware Validation #45285734450: in_progress/PENDING; target=Build XY-C1=pending,Verify TRX output=pending,Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9=pending
-- NVRAM transaction boundary audit #45285734861: in_progress/PENDING。
-- 同一 SHA 的 XY-C1 Build + TRX + artifact 三项全部 PASS：NO / NOT VERIFIED。host source contracts 不等于 MIPS/kernel target build；无实体设备硬件 L4 声明。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 当前 SHA：`72f4f157a084f8184b9597ca5bf334b8080e5807`；本轮未修改。
-- 下一项：确认最新 exact-SHA Actions 和 GE retry bounded 实际源码；修完任何 contract/target FAIL 后，转向 raeth 以外的 Padavan userland 稳定性缺陷（优先 rc/NVRAM/httpd），仍按源码—测试—原子提交—SHA Actions 工作。
-
-## Active task
-
-### EPHY calibration failure propagation and bounded retries
-
-- FE/GE analog production paths use checked paged MDIO and checked wait status; failure suppresses completion flags and cleanup retains the first transport error.
-- EPHY batch/init now propagate FE/GE calibration status. Calibration ioctl retries are bounded and report `-EIO`; `ei_ioctl()` passes the result to the netdev caller.
-- Workflow contracts were adjusted to use the current production function signatures and stable source block boundaries. Verify these on the current source SHA, not historical PASS runs.
-
-## Verification boundary
-- Source verification SHA: `02f174a93bf275930cede271d233dcf2c57438fa`; Actions listed above are its exact push runs.
-- Current main tree: `02f174a93bf275930cede271d233dcf2c57438fa`. When main is a later workflow/docs-only commit, do not call the source parent’s Actions a PASS for the newer tree.
-- XY-C1 L3 is NOT VERIFIED; no physical hardware L4 claimed.
-
-## Exact first action for the next GPT
-
-1. Fetch live `main`; check exact SHA Actions for `02f174a93bf275930cede271d233dcf2c57438fa` and current tree `02f174a93bf275930cede271d233dcf2c57438fa`, reading failing Switch CLI job logs.
-2. Confirm GE orchestrator retry is bounded to three attempts and that all init/ioctl callers propagate the returned error.
-3. Continue with one independent userland stability/security defect after the EPHY source slice is verified; add a regression contract, commit atomically and check same-SHA Actions.
-
----
-# Cross-session execution mandate
+# Session Handoff
 
 ## Current repository state
 
-### 2026-11-24 continuation — RAETH PHY reliability
-
-- FE all-analog teardown gates on first attempted setup write; early snapshot errors skip hardware teardown.
-- FE/GE calibration uses checked MDIO, bounded search, error propagation and best-effort cleanup.
-- EPHY ioctl propagates calibration status to ndo_do_ioctl. THIS commit releases page_lock during long synchronous PHY calibration and reacquires it before the shared exit.
+- Live `main`: `3ec4e18b735a1e132884d91ab259b365a420aebc` (current at the handoff checkpoint).
+- Read-only backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. This session did not modify it.
+- Work in this session was committed as complete atomic trees to `main` only; no force-push was used.
+- The older EPHY handoff below this file was stale (it described `02f174a...` as current). Do not use its old current-SHA/Actions claims as live state. The FE/GE calibration changes remain part of repository history, but this session's active source work moved into userland stability.
 
 ## Active task
 
-### Validate EPHY IRQ-state contract and exact-source build, then continue independent stability work
+### Userland stability: checked NVRAM errors and safe service transitions
 
-- Check exact-head Switch CLI and AI handoff Actions for THIS commit.
-- Confirm EPHY ioctl unlocks page_lock around calibration and relocks before return.
-- Check XY-C1 Build/TRX/artifact on this exact source SHA; L3 requires all PASS on identical SHA.
-- Continue a distinct confirmed stability/security defect in RAETH/userland.
+Completed source slices on `main`:
+
+- `75a29ff3ac4f2791a3fbfbf60b20e54e7f5f0cae`: IPTV proxy identity/policy reads changed to checked NVRAM reads and copied buffers. `stop_igmpproxy`, `start_igmpproxy`, and `restart_iptv` preflight the settings they need before service/bridge side effects.
+- `05de0ec91e89a44fcf5c9fd321e25c94b0fd5c8b`: corrected the legacy missing-key defaults after tracing `nvram_invmatch` semantics: absent `mr_enable_x` maps to `"1"` (the old code did not early-return), and absent `mr_qleave_x` maps to `"0"` (quickleave remains disabled). Actual backend read errors still abort the transition. This supersedes the intermediate default mapping in `7c352fcc...`.
+- `6a9358e03d930057e46f69a8f74c0ef71d75cb29` + `50b712a8c1a62648f51ac223d7ed0f57b53cc8cf`: HTTPD Basic-auth username/password are read as one checked NVRAM transaction, copied before shared-cache reuse, and the authentication cache remains invalid on read/close/length failure. The legacy `static void load_nvram_auth(void)` signature is preserved for source-contract compatibility.
+- `2b078871dd959e65bda80c8f00a791fabe1c3c11`, `108c1c712407ecab8cfc6758a87ab49838f47ec4`, and `3ec4e18b735a1e132884d91ab259b365a420aebc`: HTTPD `http_access` ACL loading now distinguishes absent configuration from NVRAM errors; unknown configuration blocks remote clients while retaining loopback recovery. Malformed, negative, trailing-junk, and overflowing numeric values are rejected instead of becoming ACL mode zero through `atoi`. The last commit corrected C `'\\0'`/test escape literals; exact-head HTTPD CI passed.
+- `ebb80e3df48044b48261df53830057c22016ece5`, `4363bd2ce8b131c33ffbc9f488019b8536762c24`, and `7a3e3045f7437b434cf37bc936426c0ee3122a57`: HTTPD NVRAM group compaction now distinguishes missing/read-error values, aborts before mutation if snapshot reads fail, and holds one NVRAM transaction across snapshot, compaction, and rollback. The workflow's source assertion was updated to match the transaction-scoped getter.
+- The source regressions are integrated into the existing HTTPD and WAN workflows. CI failures encountered while bringing the contracts into sync were corrected in follow-up atomic commits; do not treat an intermediate failed run as the final state.
+
+Next independent candidate (not yet confirmed as a vulnerability): inspect `trunk/user/httpd/src/aidisk.c::ej_get_folder_tree` for symlink/path escape behavior in USB folder enumeration. Trace the browser caller and any downstream path consumer first; only implement a fix if the data flow confirms a security boundary violation. Add a regression for the demonstrated case.
 
 ## Verification boundary
 
-- Parent source: d855df7965ca1a0e393cb9af420491eccff6d089. THIS commit changes raether.c, Switch CLI workflow and continuity records.
-- Parent exact Actions: Switch CLI #45285332081 PASS; AI handoff #45285331846 PASS.
-- No local cross-build, same-SHA full target artifact or hardware verification is claimed.
+- Current exact `main` SHA: `3ec4e18b735a1e132884d91ab259b365a420aebc`.
+  - HTTPD Authentication and Security Regression #45289740712: **PASS** on this exact SHA.
+  - Process lifecycle inventory #45289740731: **PASS** on this exact SHA.
+  - NVRAM transaction boundary audit #45289740708: **PASS** on this exact SHA.
+- Product-source commit `05de0ec91e89a44fcf5c9fd321e25c94b0fd5c8b` exact-SHA XY-C1 run #45289029423 was **IN_PROGRESS** at the last check. On that same SHA, WAN DHCP #45289029808, WAN route #45289029458, firewall #45289029699, HTTPD #45289029732, process inventory #45289029552, USB storage #45289029901, process lifecycle #45289029518, and NVRAM audit #45289029376 completed **PASS**.
+- The current `main` SHA is later than the product-source SHA above. No exact-`main` XY-C1 Build + TRX + artifact run was observed. Therefore current-tree L3 firmware validation remains **NOT VERIFIED**; do not infer a same-SHA pass from the older run.
+- No local MIPS/kernel cross-build or physical router/hardware test is claimed. Hardware L4 is **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Switch CLI/AI handoff push runs.
-2. Verify the EPHY lock-state contract and XY-C1 Build/TRX/artifact on the new source SHA.
-3. Continue the next confirmed stability defect after checks pass.
+1. Poll XY-C1 run #45289029423 and record its terminal result for source SHA `05de0ec91e89a44fcf5c9fd321e25c94b0fd5c8b`; do not label it an exact-`main` result.
+2. Continue the independent AiDisk path/symlink data-flow investigation described above while any unrelated CI is pending.
+3. Implement only a confirmed defect with a focused regression, create one complete tree/one atomic commit using a non-forced expected-SHA update of `main`, and inspect Actions for that exact new SHA.
+4. Before context exhaustion, update this handoff with exact live refs, test results, Action states, and one concrete first task.
 
 ---
-## Cross-session operating constraints
+
+# Cross-session execution mandate
+
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
 
 ## Mandatory handoff checkpoint
+
 The checkpoint is mandatory; a document edit is conditional.
 
 Every session MUST perform a handoff checkpoint before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
@@ -75,8 +54,8 @@ Every session MUST perform a handoff checkpoint before ending. A relevant exact-
 Every session MUST inspect live repository state before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures or a changed first action. Do not manufacture documentation churn or no-op commits.
 
 ## Development loop
+
 - Source modification → targeted regression → one complete Git tree/one atomic commit → exact-SHA Actions.
 - PASS advances; FAIL is diagnosed and fixed; PENDING does not block independent work.
 - Preserve Linux 4.4, GNU89, MIPS/uClibc compatibility, router configuration, security, architecture and backward compatibility.
 - Before context exhaustion, record exact latest SHA, tests, CI state, unresolved issues and one concrete first task. Never claim unverified work.
-
