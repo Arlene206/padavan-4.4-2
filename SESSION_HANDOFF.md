@@ -2,7 +2,7 @@
 
 ## Current repository state
 - Repository: https://github.com/Arlene206/padavan-4.4-2
-- Current main before this handoff commit: `2d5f218f7bbfcfb0f140be9c04f072173fe328c8`.
+- Current main before this handoff commit: `b2577fe95d0783d6a7168ab94237d582ea43bc6c`.
 - Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read only; not modified).
 - Previous commits remain on main; no force push or backup mutation was performed.
 - This handoff update is based on the live branch refs and exact-head Actions lookup performed immediately before creating this commit.
@@ -62,38 +62,34 @@ Continue small atomic commits; create a complete Git tree before each commit; up
 
 ## Active task
 
-### Restore the actual previous MLME radio state on failed transitions
+### Re-run exact-prior-state wireless radio compensation regression
 
-- Parent `main`: `6e4c7f27cfad65fe437e88055e4f774d068ba437`. The production power/publish transaction was introduced in `6deab04...`; this follow-up hardens its rollback semantics. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
-- Defect: `wireless_radio_state_transition()` rolled back to `!target_on`, assuming the prior state was always opposite the requested state. For a same-state request (e.g. radio already ON, requested ON), a failed `mlme_radio_*` NVRAM publication would incorrectly turn a working radio OFF. It also had no explicit guard against an unreadable prior state.
-- THIS COMMIT adds a `get_power` callback, snapshots the persisted `mlme_radio_wl/rt` state with `nvram_get_checked()` + `wireless_radio_nvram_flag_status()`, and aborts before issuing any driver command if the snapshot is unavailable/invalid. Both hardware-command and publication failures now best-effort restore the exact snapshot, preserving the primary error and exposing rollback errors separately.
-- Regression cases cover read-before-write ordering, restoring ON after an OFF request fails publication, preserving ON after an ON-to-ON publication failure, restoring the prior OFF state after a power command fails, and no hardware side effects on NVRAM read failure. Updated the Wireless workflow source contract to require the checked snapshot, exact-state rollback and new tests. No RT3352 MII isolation logic was changed.
-- `6e4c7f2...` checker-only exact-head Actions observed after commit: XY-C1 `45129577565`, AI docs `45129577593`, Firewall Startup `45129577563`, Process fail-closed `45129577560`, HTTPD security `45129577524`, and USB modem identity `45129577627` were queued/in progress. The new HW NAT selector checker changes need those results to finish before claiming PASS/FAIL.
-- Wireless source verification: `93bbadd...` Wireless radio regression `45128993444` PASS and AI docs `45128993523` PASS. Its XY-C1 `45128993406` FAIL was triggered by the stale HW NAT selector assertion now fixed in `6e4c7f2...`; re-check the new exact-head XY-C1. No local checkout, local host test or local firmware build is available/claimed. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA; L4 remains NOT VERIFIED.
+- Production-source commit: `2d5f218f7bbfcfb0f140be9c04f072173fe328c8` (parent `6e4c7f27cfad65fe437e88055e4f774d068ba437`). The current main also contains a docs-only NAT/offload checkpoint `b2577fe95d0783d6a7168ab94237d582ea43bc6c`. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains untouched/read-only.
+- The runtime transition snapshots `mlme_radio_wl/rt` via `nvram_get_checked()` before issuing power commands. It restores the exact prior value on power/publish failure; unreadable/invalid state aborts with no hardware mutation. Regressions cover read ordering, ON restoration after failed OFF, same-state ON publication failure, OFF restoration after command failure, and read-error no-side-effect behavior.
+- Exact-head Wireless run `45129983626` on `2d5f218...` FAILED in the inline Python source contract with `NameError: name 'policy' is not defined` at line 134. The workflow already loaded the policy header as `notification_policy`; the new assertions referenced an undefined name. THIS FOLLOW-UP switches those assertions to `notification_policy` and does not change production source.
+- Exact `2d5f218...` status from the latest recorded checkpoint: Wireless `45129983626` FAIL (checker NameError); AI docs `45129983606`, Process inventory `45129983638`, Process fail-closed `45129983589`, HTTPD security `45129983625`, iNIC signal `45129983697`, watchdog signal `45129983726`, and NVRAM transaction audit `45129983737` PASS; XY-C1 `45129983650` remained IN_PROGRESS. The follow-up needs a new Wireless run; verify the exact `2d5f218...` XY-C1 result separately.
+- No local checkout, local host test or local firmware build is claimed. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA. L4 physical-router validation remains NOT VERIFIED.
 
-### Other open CI items
+### Related pending verification
 
-- NAT helper snapshot: sanitizer test binary passed on `a408ef...` in `45127938295`, but checker failed at workflow-header parsing; `9e8e8ae...` bounds parsing at `jobs:`. Confirm NAT exact-head rerun after current shared checker correction.
-- The `6e4c7f2...` Firewall Startup, HTTPD, Process fail-closed, USB modem and XY-C1 workflows must re-run after replacing the stale `hw_nat_mode` inline getter expectation with the checked transaction/local selector contract.
-- L4 physical device validation remains NOT VERIFIED.
+- HW NAT selector source checker mismatch fixed in `6e4c7f2...`: shared `scripts/check_modem_wan_start_status.py` and inline HTTPD source contract now expect `rc_nat_offload_settings_read()` plus local `hw_nat_mode`, not the removed inline unchecked getter. Exact `6e4c7f2...` Firewall Startup/HTTPD/Process/USB modem/XY-C1 checks were green after the change; see current action history before repeating claims.
+- NAT helper snapshot tests passed sanitizer binaries on `a408ef...` in `45127938295`, but the workflow-header parser in the source contract failed; `9e8e8ae...` bounds parsing at `jobs:`. Confirm a new exact-head NAT/WAN run.
 ## Verification boundary
 
-- Historic libdisk ACL, FRP private credentials, USB printer hotplug and DHCPv6 callback milestones retain only their earlier exact-source evidence; do not transfer them to later SHAs.
-- PID 1 recovery-shell timezone `acb8eff...`: exact timezone workflow `45126854225` PASS and Process/DNSMasq/DNS Forwarder/HTTPD/AI docs passed; L3 XY-C1 completion not established.
+- Historic libdisk ACL, FRP private credentials, USB printer hotplug and DHCPv6 callback milestones retain only their earlier exact-source evidence; do not transfer those claims to newer source SHAs.
+- PID 1 recovery-shell timezone `acb8eff...`: exact timezone workflow `45126854225` PASS and Process/DNSMasq/DNS Forwarder/HTTPD/AI docs passed; L3 XY-C1 close not established.
 - Wireless regulatory SKU publication `83145a...`: Wireless regression `45126385953` and AI docs `45126385917` PASS; exact-source XY-C1 close not established.
-- SYN-cookie integer parser `3a802b...`: WAN route, Process inventory and AI docs PASS; NVRAM audit `45127632188` CANCELLED; XY-C1 was pending, so no L3 claim.
-- Wireless MLME checked publication source `6deab04...`: `93bbadd...` Wireless regression `45128993444` PASS and AI docs `45128993523` PASS; XY-C1 `45128993406` failed at stale `hw_nat_mode` selector contract, corrected in `6e4c7f2...`.
-- Checker-correction commit `6e4c7f27cfad65fe437e88055e4f774d068ba437`: exact Firewall Startup `45129577563`, XY-C1 `45129577565`, AI docs `45129577593`, Process fail-closed `45129577560`, HTTPD security `45129577524`, and USB modem identity `45129577627` were queued/in progress at the last poll; do not mark any pending run as PASS.
-- Exact-prior-state radio compensation in THIS COMMIT: no Actions yet; Wireless sanitizer/source-contract, Process inventory and XY-C1 must be matched to the resulting commit SHA.
-- L4 remains NOT VERIFIED.
+- SYN-cookie integer parsing `3a802b...`: WAN route, Process inventory and AI docs PASS; NVRAM audit cancelled; XY-C1 confirmation not recorded.
+- HW NAT selector checked transaction: stale shared/inline checker expectations fixed in `6e4c7f2...`; its exact Firewall Startup/HTTPD/Process/USB modem/XY-C1 checks were green at the later recorded checkpoint.
+- Wireless exact-prior-state rollback source `2d5f218...`: Wireless run `45129983626` failed only on undefined `policy` in its inline source checker; AI docs `45129983606`, Process inventory `45129983638`, Process fail-closed `45129983589`, HTTPD `45129983625`, iNIC `45129983697`, watchdog `45129983726`, and NVRAM audit `45129983737` PASS. XY-C1 `45129983650` was still in progress at last record.
+- THIS FOLLOW-UP corrects the workflow variable reference; no Actions for the correction yet. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; don't repeat the startup-protocol or frozen-backup audit.
-2. Inspect this commit's exact-head Wireless radio state regression. Verify GNU89/Werror/ASan/UBSan callback tests and the source checker; repair any first causal error.
-3. Recheck the `6e4c7f2...` exact-head Firewall Startup, HTTPD, Process, USB modem and XY-C1 jobs after the shared/inline HW NAT contract fixes.
-4. Match XY-C1 Build, TRX verification and artifact upload by exact production-source `head_sha`; L3 closes only if all three PASS on that same SHA. L4 physical-router validation remains NOT VERIFIED.
-5. Re-run/confirm NAT helper sanitizer and source checker after the `jobs:` parsing fix. Continue other independent stability/security source tasks while queued jobs run.
+1. Fetch live `main`; do not repeat startup recovery or touch the frozen backup.
+2. Inspect the new exact-head Wireless radio-state workflow after the `notification_policy` variable correction. Verify the sanitizer-built policy executable and source integration contract.
+3. Check `2d5f218...` XY-C1 run `45129983650` and record Build, TRX and artifact jobs by exact production-source `head_sha`; L3 requires all three PASS on the same source SHA.
+4. Recheck NVRAM audit and Process fail-closed status from `2d5f218...`; continue NAT helper exact-head test/checker verification after the `jobs:` parser fix. L4 remains NOT VERIFIED.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.

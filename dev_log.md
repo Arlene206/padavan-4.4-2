@@ -1,3 +1,11 @@
+## 2026-11-23 07:32 UTC — Bind wireless radio checker to the loaded policy header
+
+- Exact Wireless run `45129983626` for source `2d5f218...` failed at inline Python line 134 with `NameError: name 'policy' is not defined`. Earlier wireless lifecycle, SKU, bridge and guest-LAN source contracts printed PASS; the traceback was caused by the new snapshot assertions referencing an undeclared variable.
+- The workflow loads `wireless_radio_policy.h` as `notification_policy`. Updated all three assertions to use that variable. This is a source-contract-only correction; the actual C transaction and tests are unchanged.
+- On `2d5f218...`, AI docs, Process inventory/fail-closed, HTTPD security, iNIC signal, watchdog signal and NVRAM transaction audit were PASS; XY-C1 was still running. The checker correction requires a fresh exact-head Wireless run. No local host tests or firmware build are claimed.
+- Parent `main`: `b2577fe95d0783d6a7168ab94237d582ea43bc6c`; result: THIS FOLLOW-UP.
+
+---
 ## 2026-11-23 — Handoff checkpoint
 
 - Live main SHA before this documentation commit: `2d5f218f7bbfcfb0f140be9c04f072173fe328c8`; backup branch SHA: `72f4f157a084f8184b9597ca5bf334b8080e5807` (untouched).

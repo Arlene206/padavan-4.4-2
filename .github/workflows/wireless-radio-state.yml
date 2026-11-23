@@ -206,9 +206,9 @@ jobs:
           reader = function_body(source, "wireless_mlme_radio_get_power(void *opaque, int *is_on)")
           assert "nvram_get_checked(context->state_name, &state_value)" in reader
           assert "wireless_radio_nvram_flag_status(" in reader
-          assert "get_power" in policy and "ops->get_power(context, &previous_on)" in policy
-          assert "ops->set_power(context, previous_on)" in policy
-          assert "ops->set_power(context, !target_on)" not in policy
+          assert "get_power" in notification_policy and "ops->get_power(context, &previous_on)" in notification_policy
+          assert "ops->set_power(context, previous_on)" in notification_policy
+          assert "ops->set_power(context, !target_on)" not in notification_policy
           power = function_body(source, "wireless_mlme_radio_set_power(void *opaque, int is_on)")
           assert 'doSystem("iwpriv %s set %s=%d"' in power
           publish_state = function_body(
