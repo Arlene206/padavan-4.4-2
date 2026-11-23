@@ -777,6 +777,16 @@ for marker in (
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "compensating account rename regression is defined but not executed: " + marker)
 
+create_with_accounts = function_body(
+    DISK_SOURCE,
+    "static int\\ncreate_if_no_var_files_with_accounts("
+)
+create_with_accounts_compact = "".join(create_with_accounts.split())
+require("get_account_list(" not in create_with_accounts and
+        "initial_one_var_file_in_mount_path(" in create_with_accounts and
+        "modify_if_exist_new_folder(" in create_with_accounts,
+        "folder metadata initialization under a writer lease must reuse the caller's account snapshot without nested NVRAM reads")
+
 add_folder_body = function_body(
     DISK_SOURCE,
     "int add_folder(const char *const mount_path, const char *const folder)"
@@ -792,16 +802,23 @@ add_publish = add_compact.index(
 add_permissions = add_compact.index(
     "create_if_no_var_files(mount_path)", add_publish
 )
-require(add_lookup < add_mkdir < add_publish < add_permissions and
-        "errno = EEXIST;" in add_compact and
-        "errno = ENAMETOOLONG;" in add_compact and
-        "if (initial_folder_list_in_mount_path(mount_path) != 0)" in add_compact and
-        "if (create_if_no_var_files(mount_path) != 0)" in add_compact,
-        "add_folder must fail closed and propagate every metadata initialization stage")
-require("get_account_list(" not in add_folder_body and
-        "read_whole_file(" not in add_folder_body and
-        'fopen(var_file, "a+")' not in add_folder_body,
-        "add_folder must use the checked per-account metadata updater")
+add_lookup = add_compact.index("test_if_exist_folder_in_mount_path(mount_path,folder)")
+add_begin = add_compact.index("disk_share_account_nvram_begin(&transaction)")
+add_validate = add_compact.index("disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)")
+add_mkdir = add_compact.index("result=mkdir(full_path,0777)")
+add_publish = add_compact.index("initial_folder_list_in_mount_path(mount_path)", add_mkdir)
+add_permissions = add_compact.index("create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)", add_publish)
+add_rollback = add_compact.index("rmdir(full_path)", add_permissions)
+add_snapshot_restore = add_compact.index("initial_folder_list_in_mount_path(mount_path)", add_rollback)
+add_end = add_compact.index("disk_share_account_nvram_end(&transaction)", add_snapshot_restore)
+require(add_lookup < add_begin < add_validate < add_mkdir < add_publish <
+        add_permissions < add_rollback < add_snapshot_restore < add_end and
+        "errno=EEXIST;" in add_compact and
+        "errno=ENAMETOOLONG;" in add_compact and
+        "get_account_list(" in add_folder_body and
+        "disk_share_account_inventory_matches_locked(" in add_folder_body and
+        "create_if_no_var_files(mount_path)" not in add_folder_body,
+        "add_folder must revalidate one account snapshot under the writer lease, initialize all permission files without nested reads, and roll back directory/snapshot on failure")
 
 
 del_folder = function_body(

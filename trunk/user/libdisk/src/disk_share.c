@@ -711,7 +711,9 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 	return 0;
 }
 
-int create_if_no_var_files(const char *const mount_path)
+static int
+create_if_no_var_files_with_accounts(const char *const mount_path,
+                                     int acc_num, char **account_list)
 {
 	int acc_num = 0;
 	char **account_list = NULL;
@@ -737,10 +739,10 @@ int create_if_no_var_files(const char *const mount_path)
 	if (result != 0)
 		return -1;
 
-	if (get_account_list(&acc_num, &account_list) != 0) {
-		free_2_dimension_list(&acc_num, &account_list);
-		return -1;
-	}
+    if (acc_num < 0 || (acc_num > 0 && !account_list)) {
+        errno = EINVAL;
+        return -1;
+    }
 
 	for (i = 0; i < acc_num; ++i) {
 		path_len = snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt",
@@ -759,16 +761,39 @@ int create_if_no_var_files(const char *const mount_path)
 			break;
 	}
 
-	if (result != 0) {
-		int saved_errno = errno ? errno : EIO;
+	if (result != 0)
+		return -1;
+	return 0;
+}
 
+
+int
+create_if_no_var_files(const char *const mount_path)
+{
+	int acc_num = 0, result, saved_errno;
+	char **account_list = NULL;
+
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
 		free_2_dimension_list(&acc_num, &account_list);
 		errno = saved_errno;
 		return -1;
 	}
+	result = create_if_no_var_files_with_accounts(
+		mount_path, acc_num, account_list);
+	saved_errno = result != 0 ? (errno ? errno : EIO) : 0;
 	free_2_dimension_list(&acc_num, &account_list);
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
 	return 0;
 }
+
 
 int modify_if_exist_new_folder(const char *const account,
                                   const char *const mount_path)
@@ -1716,9 +1741,12 @@ int mod_account(const char *const account, const char *const new_account, const 
 
 int add_folder(const char *const mount_path, const char *const folder)
 {
-	int result, saved_errno;
+	int result, saved_errno, transaction_started = 0, directory_created = 0;
+	int acc_num = 0;
+	char **account_list = NULL;
+	struct nvram_transaction transaction;
 	size_t mount_len, folder_len, full_len;
-	char *full_path;
+	char *full_path = NULL;
 	mode_t old_umask;
 
 	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
@@ -1726,60 +1754,92 @@ int add_folder(const char *const mount_path, const char *const folder)
 		return -1;
 	}
 
-	/* A failed folder-list read is an error, not evidence of a free name. */
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
-	if (result != 0) {
-		if (result > 0)
-			errno = EEXIST;
+	/*
+	 * Capture the account list before mutation, then revalidate it after
+	 * acquiring the same writer lease used by account add/delete/rename.
+	 */
+	if (get_account_list(&acc_num, &account_list) != 0)
 		return -1;
-	}
 
 	mount_len = strlen(mount_path);
 	folder_len = strlen(folder);
 	if (mount_len > (size_t)-1 - 2 ||
 	    folder_len > (size_t)-1 - mount_len - 2) {
 		errno = ENAMETOOLONG;
-		return -1;
+		goto failed;
 	}
 	full_len = mount_len + 1 + folder_len;
 	full_path = (char *)malloc(full_len + 1);
 	if (!full_path)
-		return -1;
+		goto failed;
 	memcpy(full_path, mount_path, mount_len);
 	full_path[mount_len] = '/';
 	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
 
+	if (disk_share_account_nvram_begin(&transaction) != 0)
+		goto failed;
+	transaction_started = 1;
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
+		goto failed;
+
+	/* A failed folder-list read is an error, not evidence of a free name. */
+	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+	if (result != 0) {
+		if (result > 0)
+			errno = EEXIST;
+		goto failed;
+	}
+
 	old_umask = umask(0000);
 	result = mkdir(full_path, 0777);
 	(void)umask(old_umask);
-	if (result != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(full_path);
-		errno = saved_errno;
-		return -1;
-	}
+	if (result != 0)
+		goto failed;
+	directory_created = 1;
 
-	/* Publish the new directory in the folder snapshot before permissions. */
-	if (initial_folder_list_in_mount_path(mount_path) != 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)rmdir(full_path);
-		free(full_path);
-		errno = saved_errno;
-		return -1;
-	}
+	/* Publish the live directory before initializing its permission records. */
+	if (initial_folder_list_in_mount_path(mount_path) != 0)
+		goto failed;
 
-	/* Checked path initializes missing files and atomically updates all users. */
-	if (create_if_no_var_files(mount_path) != 0) {
-		saved_errno = errno ? errno : EIO;
-		free(full_path);
-		errno = saved_errno;
-		return -1;
-	}
+	/* Reuse the already-validated inventory; do not nest an NVRAM read lock. */
+	if (create_if_no_var_files_with_accounts(
+		    mount_path, acc_num, account_list) != 0)
+		goto failed;
 
 	free(full_path);
+	free_2_dimension_list(&acc_num, &account_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0)
+		return -1;
 	return 0;
-}
 
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (directory_created) {
+		if (rmdir(full_path) != 0 && errno != ENOENT) {
+			logmessage("disk_share",
+				   "cannot roll back new share directory %s (errno %d)",
+				   full_path, errno ? errno : EIO);
+			saved_errno = EIO;
+		} else if (initial_folder_list_in_mount_path(mount_path) != 0) {
+			logmessage("disk_share",
+				   "cannot restore folder-list snapshot after add failure (errno %d)",
+				   errno ? errno : EIO);
+			saved_errno = EIO;
+		}
+	}
+	free(full_path);
+	free_2_dimension_list(&acc_num, &account_list);
+	if (transaction_started) {
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0 && saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+	}
+	errno = saved_errno;
+	return -1;
+}
 
 static int
 disk_share_update_folder_permission_file(const char *mount_path,
