@@ -363,15 +363,48 @@ zerotier_import_planet_file() {
 	)
 }
 
+# Read every startup selector before allowing identity or service side effects.
+# Missing keys keep the legacy empty default; backend/read/close errors abort.
+zerotier_load_start_settings() {
+	if ! zt_start_moonid="$(nvram get_checked zerotier_moonid)"; then
+		logger -t "zerotier" "无法读取启动配置 zerotier_moonid"
+		return 1
+	fi
+	if ! zt_start_secret="$(nvram get_checked zerotier_secret)"; then
+		logger -t "zerotier" "无法读取启动配置 zerotier_secret"
+		return 1
+	fi
+	if ! zt_start_moon_enable="$(nvram get_checked zerotiermoon_enable)"; then
+		logger -t "zerotier" "无法读取启动配置 zerotiermoon_enable"
+		return 1
+	fi
+	if ! zt_start_planet="$(nvram get_checked zerotier_planet)"; then
+		logger -t "zerotier" "无法读取启动配置 zerotier_planet"
+		return 1
+	fi
+	if ! zt_start_network_id="$(nvram get_checked zerotier_id)"; then
+		logger -t "zerotier" "无法读取启动配置 zerotier_id"
+		return 1
+	fi
+
+	# Publish only after all five reads succeeded, avoiding partial settings.
+	moonid="$zt_start_moonid"
+	secret="$zt_start_secret"
+	enablemoonserv="$zt_start_moon_enable"
+	planet="$zt_start_planet"
+	zt_network_id="$zt_start_network_id"
+	return 0
+}
+
 start_instance() {
 	cfg="$1"
+	if ! zerotier_load_start_settings; then
+		logger -t "zerotier" "无法读取ZeroTier启动配置，取消本次启动"
+		return 1
+	fi
 	echo $cfg
 	port=""
 	args=""
-	moonid="$(nvram get zerotier_moonid)"
-	secret="$(nvram get zerotier_secret)"
-	enablemoonserv="$(nvram get zerotiermoon_enable)"
-	planet="$(nvram get zerotier_planet)"
 	
 	if ! zerotier_prepare_config_directory; then
 		logger -t "zerotier" "无法安全准备ZeroTier配置目录"
@@ -405,7 +438,6 @@ start_instance() {
 		fi
 	fi
 
-	zt_network_id="$(nvram get zerotier_id)"
 	if ! add_join "$zt_network_id"; then
 		logger -t "zerotier" "无效的ZeroTier网络ID或无法创建加入文件"
 		return 1

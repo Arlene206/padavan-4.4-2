@@ -77,6 +77,7 @@ stop_body = function_body(script, "stop_zero()")
 planet_body = function_body(script, "zerotier_publish_planet_base64()")
 planet_import_body = function_body(script, "zerotier_import_planet_file()")
 start_instance_body = function_body(script, "start_instance()")
+start_settings_body = function_body(script, "zerotier_load_start_settings()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
 identity_body = function_body(script, "zerotier_prepare_identity()")
 add_join_body = function_body(script, "add_join()")
@@ -217,11 +218,49 @@ for marker in ("valid NVRAM planet payload was not published",
                "planet symlink referent was modified",
                "directory planet destination was accepted"):
     require(marker in test, f"planet publication regression omits {marker}")
-require('if ! zerotier_prepare_config_directory; then' in start_instance_body and
+startup_settings = (
+    ("zerotier_moonid", "moonid", "moonid"),
+    ("zerotier_secret", "secret", "secret"),
+    ("zerotiermoon_enable", "moon_enable", "enablemoonserv"),
+    ("zerotier_planet", "planet", "planet"),
+    ("zerotier_id", "network_id", "zt_network_id"),
+)
+startup_read_positions = []
+startup_publish_positions = []
+for key, temporary_name, public_name in startup_settings:
+    read_expression = f'nvram get_checked {key}'
+    read_guard = f'if ! zt_start_{temporary_name}="$(nvram get_checked {key})"; then'
+    publish_expression = f'{public_name}="$zt_start_{temporary_name}"'
+    require(start_settings_body.count(read_expression) == 1 and
+            read_guard in start_settings_body and
+            f'nvram get {key}' not in start_settings_body and
+            f'nvram get {key}' not in start_instance_body,
+            f"startup selector {key} must use exactly one checked NVRAM read")
+    startup_read_positions.append(start_settings_body.index(read_expression))
+    require(start_settings_body.count(publish_expression) == 1,
+            f"startup selector {key} must be published exactly once after the full snapshot")
+    startup_publish_positions.append(start_settings_body.index(publish_expression))
+require(max(startup_read_positions) < min(startup_publish_positions),
+        "startup settings must all be read successfully before any consumer-visible selector is published")
+require('if ! zerotier_load_start_settings; then' in start_instance_body and
+        'if ! zerotier_prepare_config_directory; then' in start_instance_body and
         'if ! zerotier_prepare_identity; then' in start_instance_body and
-        'zt_network_id="$(nvram get zerotier_id)"' in start_instance_body and
-        'add_join "$zt_network_id"' in start_instance_body,
-        "startup must fail closed on unsafe config/identity/network preparation")
+        'if ! zerotier_import_planet_file "$PLANET"; then' in start_instance_body and
+        'if ! add_join "$zt_network_id"; then' in start_instance_body and
+        'zt_network_id="$(nvram get zerotier_id)"' not in start_instance_body,
+        "startup must load checked settings before identity, planet, network or daemon side effects")
+startup_gate_position = start_instance_body.index('if ! zerotier_load_start_settings; then')
+require(startup_gate_position < start_instance_body.index('if ! zerotier_prepare_config_directory; then') <
+        start_instance_body.index('if ! zerotier_prepare_identity; then') <
+        start_instance_body.index('if [ -L "$PLANET" ]') <
+        start_instance_body.index('if [ -f "$PLANET" ]') <
+        start_instance_body.index('if ! add_join "$zt_network_id"; then') <
+        start_instance_body.index('$PROG $args $config_path'),
+        "checked settings preflight must precede all ZeroTier startup side effects")
+for marker in ("startup settings read error was accepted",
+               "startup settings partially published secret",
+               "missing identity secret did not retain the legacy empty default"):
+    require(marker in test, f"startup NVRAM read regression omits {marker}")
 for token in ['config directory was not restricted to mode 700',
               'config preparation followed a networks.d symlink',
               'path-traversal network ID',

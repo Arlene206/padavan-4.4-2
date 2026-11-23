@@ -1,37 +1,44 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2
-- Current main before this handoff commit: `b2577fe95d0783d6a7168ab94237d582ea43bc6c`.
-- Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read only; not modified).
-- Previous commits remain on main; no force push or backup mutation was performed.
-- This handoff update is based on the live branch refs and exact-head Actions lookup performed immediately before creating this commit.
+- Repository: `Arlene206/padavan-4.4-2`.
+- Main before this source slice: `c79bb0c5ae955aeadd91986928d936668bcc8a3c`; this commit is based on that exact head.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, never alter.
+- No local checkout is available in this session. Do not claim local shell tests, host builds or firmware builds.
+- Only `main` is writable. This slice creates all changed blobs and one complete tree/commit, then updates main with a non-forced expected-SHA guard.
 
-## Exact-SHA Actions at current main
-- iNIC signal lifecycle stability regression: run 45129983697, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- watchdog signal lifecycle stability regression: run 45129983726, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- NVRAM transaction boundary audit: run 45129983737, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- XY-C1 Firmware Validation: run 45129983650, in_progress (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- AI handoff documentation contract: run 45129983606, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- Wireless radio state regression: run 45129983626, completed / failure (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- Process lifecycle inventory - 2d5f218f7bbfcfb0f140be9c04f072173fe328c8: run 45129983638, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- Process inventory and lifecycle fail-closed regression: run 45129983589, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
-- HTTPD Authentication and Security Regression: run 45129983625, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+## Exact-SHA Actions before this source slice
+- Wireless regression `45130357263`: SUCCESS on `c79bb0c5ae955aeadd91986928d936668bcc8a3c`; it fixes the earlier source-contract NameError and passes GNU89/Werror/ASan/UBSan plus source checks.
+- AI handoff contract `45130357161`: SUCCESS on the same `c79bb0c...` SHA.
+- XY-C1 `45130357194`: workflow SUCCESS on that SHA, but Build XY-C1, TRX verification and artifact upload were SKIPPED because that descendant changed only checker/docs. Not L3 evidence.
+- Integrated HNAT/SFE/NAT-helper source: XY-C1 run `45129983650` on `2d5f218f7bbfcfb0f140be9c04f072173fe328c8` was still IN_PROGRESS at the last query. Recheck the conclusion and require same-SHA Build, TRX and artifact upload; do not transfer it to later heads.
 
-## Completed source work in the current development sequence
-- `setenv_tz()` and PID 1 recovery-shell TZ export now distinguish a missing NVRAM key from backend/read/close errors, use bounded formatting, and avoid publishing fabricated empty values on failures. GNU89/Werror/ASan/UBSan policy tests and source contracts were added.
-- Early-boot `console_loglevel` checked-read failure no longer collapses to zero and silences kernel console output; the kernel's prior default is retained on read errors.
-- Ralink SKU profile selection validates the regulatory code, distinguishes missing files from filesystem errors, publishes links via a private same-filesystem staging directory and atomic rename, and propagates failures to 2.4/5GHz config generation.
-- WAN SYN-cookie settings use checked NVRAM status; read/close failures preserve the secure-required WAN admission gate.
-- NAT-helper selector settings are read as one NVRAM transaction; read/close/parse errors abort before unloading currently required helper modules.
-- HNAT/SFE selectors (`sw_mode`, `hw_nat_mode`, `ip6_lan_auto`, `sfe_enable`) are read transactionally and malformed/error results abort before offload module changes.
-- Source regressions and workflow/path-filter contracts were added for the above slices. No local firmware build is claimed.
+## Completed source work in the current sequence
+- Runtime timezone and early boot console logging now preserve prior/default behavior on NVRAM read/close errors rather than fabricating empty/zero values.
+- Ralink regulatory SKU publication is validated, staged and atomically replaced; failures propagate through wireless config generation.
+- SYN-cookie, NAT-helper and HNAT/SFE selectors use checked/transactional NVRAM snapshots and abort before weakening protection or removing active modules.
+- Wireless MLME power/state publication restores the exact previously persisted radio state on failure, including same-state requests. Latest Wireless regression and AI docs pass on `c79bb0c...`; the descendant XY workflow skipped target build/TRX/artifact.
 
-## First task for the next session
-Re-run/verify XY-C1 on the latest integrated source tree (the HNAT/SFE transactional selector and NAT-helper snapshot changes in net.c), and require Build XY-C1 + TRX verification + artifact upload to execute successfully; the previous checker-only exact-SHA run may report workflow success while skipping Build/TRX/artifact steps. Then move to the next independent P1 stability defect outside net.c.
+## Active task — ZeroTier startup settings must fail closed on NVRAM read errors
+- Defect: `start_instance()` used legacy `nvram get` for `zerotier_secret`, `zerotier_moonid`, `zerotiermoon_enable`, `zerotier_planet` and `zerotier_id`. The legacy getter can return success with no output on a read error. An unreadable `zerotier_secret` can therefore look empty, causing `zerotier_prepare_identity()` to generate and publish a replacement identity; other faults can silently omit a moon, planet or network join.
+- THIS COMMIT adds `zerotier_load_start_settings()`, which reads all five keys via `nvram get_checked` before publishing any consumer-visible values. Missing keys retain empty defaults; backend/read/close failures abort before config-directory, identity, planet, network or daemon side effects.
+- Lifecycle tests cover all five read-failure positions, missing-key compatibility, complete snapshot publication and no partial global update. The source contract pins read/publish and start-side-effect ordering.
+- Exact-head ZeroTier lifecycle, XY-C1 and AI docs Actions for THIS COMMIT are pending at commit creation. No local test/build is claimed.
 
-## Operating constraints
-Continue small atomic commits; create a complete Git tree before each commit; update `main` only with `force:false` and an expected parent SHA; check exact-SHA Actions; don't wait on pending checks when independent work is available; never claim a firmware build unless Build XY-C1, TRX verification and artifact upload all actually succeeded. Keep `SESSION_HANDOFF.md`, `dev_log.md` and `REFACTOR_ROADMAP.md` synchronized.
+## Exact first actions for the next session
+1. Fetch live `main`; inspect THIS COMMIT's exact-head ZeroTier lifecycle regression and fix the first causal failure without weakening coverage.
+2. Inspect exact-head XY-C1. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA; a green workflow with skipped steps is not enough.
+3. Continue with remaining unchecked ZeroTier runtime selectors (starting with `zerotier_nat` and static-route NVRAM inputs) as an independent slice; preserve missing-key defaults and avoid side effects on read errors.
+4. Recheck the integrated HNAT/SFE/NAT-helper build from run `45129983650`; L4 physical-router validation remains NOT VERIFIED.
+
+## Validation boundary
+- L1 source review only for this ZeroTier slice until its exact-head regression passes.
+- L2 requires the matching host regression and source-contract run.
+- L3 requires same-SHA target Build + TRX + artifact upload.
+- L4 physical-router behavior remains NOT VERIFIED.
+
+## Cross-session execution mandate
+Continue implementation rather than repeated audits. One logical source/test slice per atomic commit; create a complete Git tree and commit, then update `main` with `force:false` and expected parent SHA. Inspect exact-SHA Actions; when checks remain pending, work on another independent task. Never modify the frozen backup or claim tests/builds/CI results that were not observed.
 
 ---
 # SESSION HANDOFF — Padavan 4.4

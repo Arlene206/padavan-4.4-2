@@ -1,3 +1,12 @@
+## 2026-11-23 07:40 UTC — Fail closed on ZeroTier startup NVRAM read errors
+
+- Source review found that `start_instance()` used legacy `nvram get` for `zerotier_secret` and four related startup selectors. The NVRAM CLI's legacy getter can return success with no output on a read error. A transient identity-secret read failure could therefore be interpreted as an empty key and trigger generation/publication of a different permanent ZeroTier identity.
+- Added a five-key `nvram get_checked` preflight before config-directory, identity, planet, network-join or daemon side effects. Missing keys retain empty defaults, and no global selector is updated unless all five checked reads succeed.
+- Extended `zerotier_lifecycle.sh` with each read-failure position, missing-key compatibility, successful snapshot publication and no partial global update; extended `check_zerotier_lifecycle.py` to pin read/publish and startup-side-effect ordering.
+- Exact-head ZeroTier lifecycle, XY-C1 and AI docs runs are pending at commit creation. No local test/build claim; L3 requires same-SHA firmware build, TRX and artifact upload, and L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 07:32 UTC — Bind wireless radio checker to the loaded policy header
 
 - Exact Wireless run `45129983626` for source `2d5f218...` failed at inline Python line 134 with `NameError: name 'policy' is not defined`. Earlier wireless lifecycle, SKU, bridge and guest-LAN source contracts printed PASS; the traceback was caused by the new snapshot assertions referencing an undeclared variable.

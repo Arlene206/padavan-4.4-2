@@ -10,9 +10,13 @@ TEST_NVRAM_PLANET_STATE="$TEST_TMP/nvram-planet.state"
 : > "$TEST_NVRAM_SECRET_STATE"
 : > "$TEST_NVRAM_PLANET_STATE"
 TEST_NVRAM_GET_FAIL=0
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_NVRAM_MOONID_STATE=""
+TEST_NVRAM_MOON_ENABLE_STATE=""
+TEST_NVRAM_ID_STATE=""
 TEST_NVRAM_SET_FAIL=0
 TEST_NVRAM_COMMIT_FAIL=0
-export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_GET_FAIL TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
+export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_GET_FAIL TEST_NVRAM_READ_FAIL_KEY TEST_NVRAM_MOONID_STATE TEST_NVRAM_MOON_ENABLE_STATE TEST_NVRAM_ID_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
 TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_ACTION_LOG="$TEST_TMP/actions.log"
@@ -203,13 +207,20 @@ ip() {
 
 nvram() {
 	case "$1" in
-		get)
+		get|get_checked)
+			if [ "$1" = "get_checked" ] &&
+			   [ "${TEST_NVRAM_READ_FAIL_KEY:-}" = "$2" ]; then
+				return 1
+			fi
 			case "$2" in
+				zerotier_moonid) printf '%s\n' "$TEST_NVRAM_MOONID_STATE" ;;
 				zerotier_secret) cat "$TEST_NVRAM_SECRET_STATE" ;;
+				zerotiermoon_enable) printf '%s\n' "$TEST_NVRAM_MOON_ENABLE_STATE" ;;
 				zerotier_planet)
 					[ "${TEST_NVRAM_GET_FAIL:-0}" != 1 ] || return 1
 					cat "$TEST_NVRAM_PLANET_STATE"
 					;;
+				zerotier_id) printf '%s\n' "$TEST_NVRAM_ID_STATE" ;;
 				zerotier_nat) printf '%s\n' "$TEST_NAT_ENABLE" ;;
 				zero_staticnum_x) printf '%s\n' "$TEST_STATIC_ROUTE_COUNT" ;;
 				zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
@@ -235,6 +246,51 @@ nvram() {
 	esac
 	return 0
 }
+
+# Startup settings are one fail-closed preflight: absent keys preserve empty defaults.
+TEST_NVRAM_MOONID_STATE=""
+TEST_NVRAM_MOON_ENABLE_STATE=""
+TEST_NVRAM_ID_STATE=""
+: > "$TEST_NVRAM_SECRET_STATE"
+: > "$TEST_NVRAM_PLANET_STATE"
+zerotier_load_start_settings || fail "missing optional startup settings were rejected"
+[ -z "$moonid" ] || fail "missing moonid did not retain the legacy empty default"
+[ -z "$secret" ] || fail "missing identity secret did not retain the legacy empty default"
+[ -z "$enablemoonserv" ] || fail "missing moon-service selector did not retain the legacy empty default"
+[ -z "$planet" ] || fail "missing planet did not retain the legacy empty default"
+[ -z "$zt_network_id" ] || fail "missing network ID did not retain the legacy empty default"
+
+# A complete snapshot promotes all five values together.
+TEST_NVRAM_MOONID_STATE="0123456789abcdef"
+printf '%s' "stored-start-secret" > "$TEST_NVRAM_SECRET_STATE"
+TEST_NVRAM_MOON_ENABLE_STATE="1"
+printf '%s' "encoded-planet" > "$TEST_NVRAM_PLANET_STATE"
+TEST_NVRAM_ID_STATE="fedcba9876543210"
+zerotier_load_start_settings || fail "valid startup settings snapshot failed"
+[ "$moonid" = "0123456789abcdef" ] || fail "startup moonid snapshot mismatch"
+[ "$secret" = "stored-start-secret" ] || fail "startup identity-secret snapshot mismatch"
+[ "$enablemoonserv" = "1" ] || fail "startup moon-service snapshot mismatch"
+[ "$planet" = "encoded-planet" ] || fail "startup planet snapshot mismatch"
+[ "$zt_network_id" = "fedcba9876543210" ] || fail "startup network-ID snapshot mismatch"
+
+# Failure at each selector must leave every consumer-visible value untouched.
+for setting in zerotier_moonid zerotier_secret zerotiermoon_enable zerotier_planet zerotier_id; do
+	moonid="sentinel-moonid"
+	secret="sentinel-secret"
+	enablemoonserv="sentinel-moon-enable"
+	planet="sentinel-planet"
+	zt_network_id="sentinel-network-id"
+	TEST_NVRAM_READ_FAIL_KEY="$setting"
+	if zerotier_load_start_settings; then
+		fail "startup settings read error was accepted for $setting"
+	fi
+	[ "$moonid" = "sentinel-moonid" ] || fail "startup settings partially published moonid after $setting read failure"
+	[ "$secret" = "sentinel-secret" ] || fail "startup settings partially published secret after $setting read failure"
+	[ "$enablemoonserv" = "sentinel-moon-enable" ] || fail "startup settings partially published moon-enable after $setting read failure"
+	[ "$planet" = "sentinel-planet" ] || fail "startup settings partially published planet after $setting read failure"
+	[ "$zt_network_id" = "sentinel-network-id" ] || fail "startup settings partially published network ID after $setting read failure"
+done
+TEST_NVRAM_READ_FAIL_KEY=""
 
 iptables() {
 	iptables_raw="$*"
