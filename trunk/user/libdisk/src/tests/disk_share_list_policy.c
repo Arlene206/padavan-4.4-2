@@ -716,6 +716,56 @@ test_account_password_shift_snapshot_rejects_oversized_value(void)
 	assert(passwords[0][0] == '\0');
 }
 
+static void
+test_account_commit_policy_defaults_to_commit_for_missing_key(void)
+{
+	int required = -1;
+
+	assert(disk_share_account_commit_required(0, NULL, &required) == 0);
+	assert(required == 1);
+}
+
+static void
+test_account_commit_policy_preserves_manual_commit_setting(void)
+{
+	int required = -1;
+
+	assert(disk_share_account_commit_required(1, "1", &required) == 0);
+	assert(required == 0);
+	assert(disk_share_account_commit_required(1, "0", &required) == 0);
+	assert(required == 1);
+	assert(disk_share_account_commit_required(1, "2", &required) == 0);
+	assert(required == 1);
+}
+
+static void
+test_account_commit_policy_rejects_read_errors(void)
+{
+	int required = -1;
+
+	errno = EACCES;
+	assert(disk_share_account_commit_required(-1, NULL, &required) == -1);
+	assert(errno == EACCES);
+	errno = 0;
+	assert(disk_share_account_commit_required(-1, NULL, &required) == -1);
+	assert(errno == EIO);
+	assert(required == 0);
+}
+
+static void
+test_account_commit_policy_rejects_inconsistent_results(void)
+{
+	int required = -1;
+
+	assert(disk_share_account_commit_required(1, NULL, &required) == -1);
+	assert(errno == EIO);
+	assert(disk_share_account_commit_required(2, "1", &required) == -1);
+	assert(errno == EIO);
+	assert(disk_share_account_commit_required(0, NULL, NULL) == -1);
+	assert(errno == EINVAL);
+}
+
+
 int
 main(void)
 {
@@ -759,6 +809,10 @@ main(void)
 	test_account_password_shift_snapshot_read_error_clears_all_values();
 	test_account_password_shift_snapshot_end_error_discards_values();
 	test_account_password_shift_snapshot_rejects_oversized_value();
+	test_account_commit_policy_defaults_to_commit_for_missing_key();
+	test_account_commit_policy_preserves_manual_commit_setting();
+	test_account_commit_policy_rejects_read_errors();
+	test_account_commit_policy_rejects_inconsistent_results();
 
 	return 0;
 }

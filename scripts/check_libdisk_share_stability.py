@@ -395,6 +395,50 @@ require(password_snapshot < decrement_count < password_snapshot_end and
         "shifted_passwords[i]" in del_account_body,
         "del_account must copy every shifted password under a checked transaction before mutating NVRAM and must not collapse a failed password read into an empty value")
 
+
+commit_policy_tests = (
+    "test_account_commit_policy_defaults_to_commit_for_missing_key",
+    "test_account_commit_policy_preserves_manual_commit_setting",
+    "test_account_commit_policy_rejects_read_errors",
+    "test_account_commit_policy_rejects_inconsistent_results",
+)
+for marker in commit_policy_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing checked NVRAM commit policy regression: " + marker)
+for marker in commit_policy_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "NVRAM commit policy regression is defined but not executed: " + marker)
+
+require("disk_share_account_commit_required" in ACCOUNT_POLICY,
+        "account persistence policy must preserve the legacy manual-commit rule")
+
+commit_helper = function_body(DISK_SOURCE, "static int nvram_commit_safe(void)")
+commit_helper_compact = "".join(commit_helper.split())
+manual_read = 'nvram_get_checked("nvram_manual",&manual_value)'
+manual_policy = "disk_share_account_commit_required(read_status,manual_value,&commit_required)"
+require(manual_read in commit_helper_compact and manual_policy in commit_helper_compact and
+        "nvram_get_int(" not in commit_helper and "nvram_safe_get(" not in commit_helper and
+        commit_helper_compact.index(manual_read) < commit_helper_compact.index(manual_policy) <
+        commit_helper_compact.index("nvram_commit()"),
+        "account persistence must check the manual-commit read and commit result rather than collapsing NVRAM errors")
+
+for signature in (
+    "int add_account(const char *const account, const char *const password)",
+    "int del_account(const char *const account)",
+    "int mod_account(const char *const account, const char *const new_account, const char *const new_password)",
+):
+    body = function_body(DISK_SOURCE, signature)
+    compact = "".join(body.split())
+    require("nvram_commit_safe()!=0&&first_error==0" in compact and
+            "first_error=errno?errno:EIO;" in compact,
+            "account mutators must propagate manual-policy or NVRAM commit failure: " + signature)
+modify_body = function_body(
+    DISK_SOURCE, "int mod_account(const char *const account, const char *const new_account, const char *const new_password)"
+)
+modify_compact = "".join(modify_body.split())
+require("if(new_account==NULL||strlen(new_account)<=0){if(first_error!=0){errno=first_error;return-1;}return0;}" in modify_compact,
+        "password-only account updates must not report success when NVRAM commit failed")
+
 del_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 del_inventory_error = del_account_compact.index(
     "first_error=errno?errno:EIO;", del_inventory

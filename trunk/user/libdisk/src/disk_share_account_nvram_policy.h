@@ -239,4 +239,34 @@ disk_share_account_password_shift_snapshot(
 	return 0;
 }
 
+/*
+ * Preserve nvram_commit_safe()'s legacy manual-commit rule while separating
+ * an absent key from an unreadable/malformed backend result.
+ */
+static inline int
+disk_share_account_commit_required(int read_status, const char *manual_value,
+                                   int *commit_required)
+{
+	if (!commit_required) {
+		errno = EINVAL;
+		return -1;
+	}
+	*commit_required = 0;
+	if (read_status == 0) {
+		*commit_required = 1;
+		return 0;
+	}
+	if (read_status < 0) {
+		if (errno == 0)
+			errno = EIO;
+		return -1;
+	}
+	if (read_status != 1 || !manual_value) {
+		errno = EIO;
+		return -1;
+	}
+	*commit_required = (atoi(manual_value) != 1);
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_ACCOUNT_NVRAM_POLICY_H */

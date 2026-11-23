@@ -36,12 +36,20 @@
 #include "disk_share_list_policy.h"
 #include "disk_share_account_nvram_policy.h"
 
-static void nvram_commit_safe()
+static int nvram_commit_safe(void)
 {
-	if (nvram_get_int("nvram_manual") == 1)
-		return;
+	char *manual_value = NULL;
+	int read_status, commit_required;
 
-	nvram_commit();
+	errno = 0;
+	read_status = nvram_get_checked("nvram_manual", &manual_value);
+	if (disk_share_account_commit_required(
+		    read_status, manual_value, &commit_required) != 0)
+		return -1;
+	if (!commit_required)
+		return 0;
+
+	return nvram_commit();
 }
 
 static int
@@ -1235,7 +1243,8 @@ int add_account(const char *const account, const char *const password)
 	sprintf(nvram_name, "acc_password%d", acc_num);
 	nvram_set(nvram_name, password);
 
-	nvram_commit_safe();
+	if (nvram_commit_safe() != 0 && first_error == 0)
+		first_error = errno ? errno : EIO;
 
 	free_2_dimension_list(&acc_num, &account_list);
 
@@ -1350,7 +1359,8 @@ int del_account(const char *const account)
 			nvram_set_int("st_ftp_mode", 1);
 	}
 
-	nvram_commit_safe();
+	if (nvram_commit_safe() != 0 && first_error == 0)
+		first_error = errno ? errno : EIO;
 
 	/* Free with the pre-decrement count; account_list still owns that many strings. */
 	free_2_dimension_list(&account_count, &account_list);
@@ -1453,11 +1463,17 @@ disk_info_t *disk_list = NULL, *follow_disk;
 		nvram_set(nvram_name, new_password);
 	}
 
-	nvram_commit_safe();
+	if (nvram_commit_safe() != 0 && first_error == 0)
+		first_error = errno ? errno : EIO;
 
 	/* Password-only changes have no per-volume metadata path to rename. */
-	if (new_account == NULL || strlen(new_account) <= 0)
+	if (new_account == NULL || strlen(new_account) <= 0) {
+		if (first_error != 0) {
+			errno = first_error;
+			return -1;
+		}
 		return 0;
+	}
 	if (!strcmp(new_account, account))
 		goto rerun;
 
