@@ -1076,5 +1076,47 @@ jobs:
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
           ):
               assert xy_filters.count('"' + path + '"') == 1, path
+          igmp_flood = source.split("int esw_igmp_flood_to_cpu", 1)[1].split(
+              "\n}\n#endif", 1
+          )[0]
+          assert "mtk_esw_register_update_bits(" in igmp_flood
+          assert "esw_reg_get(" not in igmp_flood and "esw_reg_set(" not in igmp_flood
+          igmp_ports = source.split("static int esw_igmp_ports_config", 1)[1].split(
+              "static int esw_igmp_mld_snooping", 1
+          )[0]
+          assert "esw_reg_get(" not in igmp_ports and "esw_reg_set(" not in igmp_ports
+          assert "esw_reg_write_checked(" in igmp_ports
+          assert "mtk_esw_register_update_bits(" in igmp_ports
+          assert "mtk_esw_first_error(first_error, status)" in igmp_ports
+          igmp_mld = source.split("static int esw_igmp_mld_snooping", 1)[1].split(
+              "\n}\n#endif", 1
+          )[0]
+          assert "esw_reg_set(" not in igmp_mld
+          assert "esw_reg_write_checked(" in igmp_mld
+          assert "mtk_esw_first_error(first_error, status)" in igmp_mld
+          bridge_isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
+              "static int esw_mac_to_phy_enable", 1
+          )[0]
+          ports_config = bridge_isolate.index("status = esw_igmp_ports_config(")
+          ports_gate = bridge_isolate.index("if (status != 0)", ports_config)
+          mld_config = bridge_isolate.index("status = esw_igmp_mld_snooping(", ports_gate)
+          mld_gate = bridge_isolate.index("if (status != 0)", mld_config)
+          assert ports_config < ports_gate < mld_config < mld_gate
+          static_ports = source.split("static int change_igmp_static_ports", 1)[1].split(
+              "static int change_igmp_snooping_control", 1
+          )[0]
+          assert "g_igmp_static_ports = previous_ports;" in static_ports
+          assert "return status;" in static_ports
+          snooping_control = source.split("static int change_igmp_snooping_control", 1)[1].split(
+              "static int change_led_mode", 1
+          )[0]
+          assert "g_igmp_snooping_enabled = previous_enabled;" in snooping_control
+          assert "return status;" in snooping_control
+          assert "ioctl_result = change_igmp_snooping_control(uint_value);" in ioctl_source
+          assert "ioctl_result = change_igmp_static_ports(uint_value);" in ioctl_source
+          init_post = source.split("int esw_ioctl_init_post(void)", 1)[1]
+          assert "status = esw_igmp_mld_snooping(" in init_post
+          assert "return status;" in init_post
+          print("MTK ESW IGMP/MLD checked writes and ioctl error propagation: PASS")
           print("MTK ESW link-mode policy, pre-MDIO guard and XY-C1 trigger contract: PASS")
           PY

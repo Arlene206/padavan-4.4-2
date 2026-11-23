@@ -202,7 +202,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_igmp_snooping_control(uint_value);
+		ioctl_result = change_igmp_snooping_control(uint_value);
 		break;
 
 	case MTK_ESW_IOCTL_IGMP_STATIC_PORTS: /* used by rc */
@@ -210,7 +210,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_igmp_static_ports(uint_value);
+		ioctl_result = change_igmp_static_ports(uint_value);
 		break;
 
 	case MTK_ESW_IOCTL_LED_MODE: /* used by rc */

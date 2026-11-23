@@ -401,60 +401,60 @@ static int esw_vlan_pvid_set(u32 port_id, u32 pvid, u32 prio)
 }
 
 #if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)
-void esw_igmp_flood_to_cpu(int flood_to_cpu)
+int esw_igmp_flood_to_cpu(int flood_to_cpu)
 {
-	u32 reg_imc;
+	u32 set_mask = 0;
 
-	reg_imc = esw_reg_get(REG_ESW_IMC);
-	reg_imc &= ~((0x7<<28)|(0x7<<12));
 	/* Note: TO_CPU applied to P5 port too and IGMP/MLD P5->WAN will be dropped */
 #if !defined (CONFIG_P4_RGMII_TO_MT7530_GMAC_P5) && !defined (CONFIG_GE2_INTERNAL_GMAC_P5)
 	if (flood_to_cpu)
-		reg_imc |= (0x6<<28)|(0x6<<12);
+		set_mask = (0x6u << 28) | (0x6u << 12);
 #endif
-	esw_reg_set(REG_ESW_IMC, reg_imc);
+	return mtk_esw_register_update_bits(0x1f, REG_ESW_IMC,
+		(0x7u << 28) | (0x7u << 12), set_mask,
+		&mtk_esw_link_mode_io, NULL);
 }
 #endif
 
 #if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
-static void esw_igmp_ports_config(u32 wan_bridge_mode)
+static int esw_igmp_ports_config(u32 wan_bridge_mode)
 {
-	u32 i, reg_isc, mask_no_learn;
+	u32 i, mask_no_learn;
+	int status, first_error = 0;
 
 	mask_no_learn = 0;
-
 	if (wan_bridge_mode != SWAPI_WAN_BRIDGE_DISABLE_WAN) {
 		mask_no_learn = get_ports_mask_wan(0, 0);
 		for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-			if ((mask_no_learn >> i) & 0x1)
-				esw_reg_set(REG_ESW_PORT_PIC_P0 + 0x100*i, 0x8000);
+			if (!((mask_no_learn >> i) & 0x1))
+				continue;
+			status = esw_reg_write_checked(
+				REG_ESW_PORT_PIC_P0 + 0x100*i, 0x8000);
+			first_error = mtk_esw_first_error(first_error, status);
 		}
 	}
 
 	/* make CPU ports always static */
 	mask_no_learn |= MASK_WAN_PORT_CPU;
 	mask_no_learn |= MASK_LAN_PORT_CPU;
-
 	if (g_igmp_snooping_enabled)
 		mask_no_learn |= g_igmp_static_ports;
 	else
 		mask_no_learn |= get_ports_mask_lan(0, 0);
 
-	reg_isc = esw_reg_get(REG_ESW_ISC);
-	reg_isc &= ~0xFF1C00FF;
-	reg_isc |= mask_no_learn;
-
-	/* also enable upstream router port learning (in AP mode) */
-	if (g_igmp_static_ports)
-		reg_isc |= (1u << 19) | (1u << 18);
-
-	esw_reg_set(REG_ESW_ISC, reg_isc);
+	/* Preserve unrelated ISC fields and fail closed on an MDIO read error. */
+	status = mtk_esw_register_update_bits(0x1f, REG_ESW_ISC, 0xFF1C00FFu,
+		mask_no_learn | (g_igmp_static_ports ?
+			((1u << 19) | (1u << 18)) : 0u),
+		&mtk_esw_link_mode_io, NULL);
+	return mtk_esw_first_error(first_error, status);
 }
 
-static void esw_igmp_mld_snooping(u32 enable_igmp, u32 enable_mld)
+static int esw_igmp_mld_snooping(u32 enable_igmp, u32 enable_mld)
 {
 	u32 i, mask_lan, dst_igmp, src_join, reg_pic, reg_pic_lan;
 	u32 mask_static = g_igmp_static_ports;
+	int status, first_error = 0;
 
 	dst_igmp = 0;
 	src_join = 0;
@@ -462,15 +462,12 @@ static void esw_igmp_mld_snooping(u32 enable_igmp, u32 enable_mld)
 
 	if (enable_mld) {
 		dst_igmp |= (1u << 9);		// IPM_33
-		
 		src_join |= (1u << 13);		// MLD_HW_LEAVE
 		src_join |= (1u << 7);		// MLD2_JOIN_EN
 		src_join |= (1u << 5);		// MLD_JOIN_EN
 	}
-
 	if (enable_igmp) {
 		dst_igmp |= (1u << 8);		// IPM_01
-		
 		src_join |= (1u << 12);		// IGMP_HW_LEAVE
 		src_join |= (1u << 6);		// IGMP3_JOIN_EN
 		src_join |= (1u << 4);		// IGMP_JOIN_EN
@@ -478,20 +475,25 @@ static void esw_igmp_mld_snooping(u32 enable_igmp, u32 enable_mld)
 
 	mask_lan = get_ports_mask_lan(0, 0);
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-		if ((mask_lan >> i) & 0x1) {
-			reg_pic_lan = reg_pic;
-			if ((mask_static >> i) & 0x1)
-				reg_pic_lan |= dst_igmp;
-			else
-				reg_pic_lan |= src_join;
-			esw_reg_set(REG_ESW_PORT_PIC_P0 + 0x100*i, reg_pic_lan);
-		}
+		if (!((mask_lan >> i) & 0x1))
+			continue;
+		reg_pic_lan = reg_pic;
+		if ((mask_static >> i) & 0x1)
+			reg_pic_lan |= dst_igmp;
+		else
+			reg_pic_lan |= src_join;
+		status = esw_reg_write_checked(
+			REG_ESW_PORT_PIC_P0 + 0x100*i, reg_pic_lan);
+		first_error = mtk_esw_first_error(first_error, status);
 	}
 
 	/* make CPU port always static */
-	esw_reg_set(REG_ESW_PORT_PIC_P0 + 0x100*LAN_PORT_CPU, reg_pic | dst_igmp);
+	status = esw_reg_write_checked(
+		REG_ESW_PORT_PIC_P0 + 0x100*LAN_PORT_CPU, reg_pic | dst_igmp);
+	return mtk_esw_first_error(first_error, status);
 }
 #endif
+
 
 static int esw_mac_table_clear(void)
 {
@@ -1131,9 +1133,14 @@ static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, 
 
 	if (bridge_changed) {
 #if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
-		esw_igmp_ports_config(wan_bridge_mode);
-		if (g_igmp_snooping_enabled)
-			esw_igmp_mld_snooping(1, 1);
+		status = esw_igmp_ports_config(wan_bridge_mode);
+		if (status != 0)
+			return status;
+		if (g_igmp_snooping_enabled) {
+			status = esw_igmp_mld_snooping(1, 1);
+			if (status != 0)
+				return status;
+		}
 #endif
 		esw_show_bridge_partitions(wan_bridge_mode);
 	}
@@ -1846,38 +1853,75 @@ static int change_jumbo_frames_accept(u32 jumbo_frames_enabled)
 	return 0;
 }
 
-static void change_igmp_static_ports(u32 ports_mask)
+static int change_igmp_static_ports(u32 ports_mask)
 {
+#if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
+	u32 previous_ports;
+	int status;
+#endif
+
 	ports_mask = get_ports_mask_from_uapi(ports_mask, 0);
 
 #if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
-	if (g_igmp_static_ports != ports_mask) {
+	previous_ports = g_igmp_static_ports;
+	if (previous_ports == ports_mask)
+		return 0;
+	if (g_igmp_snooping_enabled) {
+		/* Temporarily expose the requested mask to the register builders. */
 		g_igmp_static_ports = ports_mask;
-		
-		if (g_igmp_snooping_enabled) {
-			esw_igmp_ports_config(g_wan_bridge_mode);
-			esw_igmp_flood_to_cpu( (!ports_mask) ? 1 : 0 );
-			esw_igmp_mld_snooping(1, 1);
+		status = esw_igmp_ports_config(g_wan_bridge_mode);
+#if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)
+		if (status == 0)
+			status = esw_igmp_flood_to_cpu(!ports_mask);
+#endif
+		if (status == 0)
+			status = esw_igmp_mld_snooping(1, 1);
+		if (status != 0) {
+			g_igmp_static_ports = previous_ports;
+			pr_err("%s: IGMP static-port update failed (status=%d)\n",
+			       MTK_ESW_DEVNAME, status);
+			return status;
 		}
 	}
+	g_igmp_static_ports = ports_mask;
 #endif
+	return 0;
 }
 
-static void change_igmp_snooping_control(u32 igmp_snooping_enabled)
+static int change_igmp_snooping_control(u32 igmp_snooping_enabled)
 {
 #if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
+	u32 previous_enabled;
+	int status;
+
 	if (igmp_snooping_enabled)
 		igmp_snooping_enabled = 1;
+	previous_enabled = g_igmp_snooping_enabled;
+	if (previous_enabled == igmp_snooping_enabled)
+		return 0;
 
-	if (g_igmp_snooping_enabled != igmp_snooping_enabled) {
-		g_igmp_snooping_enabled = igmp_snooping_enabled;
-		printk("%s - hardware IGMP/MLD snooping: %s\n", MTK_ESW_DEVNAME, (igmp_snooping_enabled) ? "on" : "off");
-		
-		esw_igmp_ports_config(g_wan_bridge_mode);
-		esw_igmp_flood_to_cpu( (igmp_snooping_enabled && !g_igmp_static_ports) ? 1 : 0 );
-		esw_igmp_mld_snooping(igmp_snooping_enabled, igmp_snooping_enabled);
+	/* Keep the requested state retryable if any hardware stage fails. */
+	g_igmp_snooping_enabled = igmp_snooping_enabled;
+	printk("%s - hardware IGMP/MLD snooping: %s\n", MTK_ESW_DEVNAME,
+	       igmp_snooping_enabled ? "on" : "off");
+
+	status = esw_igmp_ports_config(g_wan_bridge_mode);
+#if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)
+	if (status == 0)
+		status = esw_igmp_flood_to_cpu(
+			igmp_snooping_enabled && !g_igmp_static_ports);
+#endif
+	if (status == 0)
+		status = esw_igmp_mld_snooping(
+			igmp_snooping_enabled, igmp_snooping_enabled);
+	if (status != 0) {
+		g_igmp_snooping_enabled = previous_enabled;
+		pr_err("%s: IGMP/MLD snooping update failed (status=%d)\n",
+		       MTK_ESW_DEVNAME, status);
+		return status;
 	}
 #endif
+	return 0;
 }
 
 static int change_led_mode(u32 led_mode)
@@ -1956,8 +2000,16 @@ int esw_ioctl_init_post(void)
 
 #if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
 	/* configure igmp/mld snooping */
-	esw_igmp_flood_to_cpu( (g_igmp_snooping_enabled && !g_igmp_static_ports) ? 1 : 0 );
-	esw_igmp_mld_snooping(g_igmp_snooping_enabled, g_igmp_snooping_enabled);
+#if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)
+	status = esw_igmp_flood_to_cpu(
+		g_igmp_snooping_enabled && !g_igmp_static_ports);
+	if (status != 0)
+		return status;
+#endif
+	status = esw_igmp_mld_snooping(
+		g_igmp_snooping_enabled, g_igmp_snooping_enabled);
+	if (status != 0)
+		return status;
 #endif
 
 	/* Keep the mode retryable if the initial hardware update fails. */
