@@ -858,6 +858,21 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	if (status != 0)
 		return status;
 
+	/* fill VLAN table */
+	for (i = 0; i <= VLAN_ENTRY_ID_MAX; i++) {
+		if (!vlan_entry[i].valid)
+			continue;
+		if (!vlan_entry[i].port_member)
+			continue;
+		status = esw_vlan_set(vlan_entry[i].cvid, vlan_entry[i].svid,
+				      vlan_entry[i].port_member,
+				      vlan_entry[i].port_untag, 0,
+				      vlan_entry[i].fid);
+		if (status != 0)
+			return status;
+	}
+
+
 	/* configure physical LAN/WAN ports */
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
 		if ((1u << i) & ESW_MASK_EXCLUDE)
@@ -894,20 +909,6 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	esw_port_ingress_mode_set(WAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
 #endif
 
-	/* fill VLAN table */
-	for (i = 0; i <= VLAN_ENTRY_ID_MAX; i++) {
-		if (!vlan_entry[i].valid)
-			continue;
-		if (!vlan_entry[i].port_member)
-			continue;
-		status = esw_vlan_set(vlan_entry[i].cvid, vlan_entry[i].svid,
-				      vlan_entry[i].port_member,
-				      vlan_entry[i].port_untag, 0,
-				      vlan_entry[i].fid);
-		if (status != 0)
-			return status;
-	}
-
 	return 0;
 }
 static int esw_vlan_init_vid1(void)
@@ -927,6 +928,13 @@ static int esw_vlan_init_vid1(void)
 	if (status != 0)
 		return status;
 
+#if defined (CONFIG_RALINK_MT7620) && !defined (MT7530_P5_ENABLED)
+	port_untag &= ~(MASK_LAN_PORT_CPU);
+#endif
+	status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);
+	if (status != 0)
+		return status;
+
 	/* configure physical LAN ports */
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
 		if ((1u << i) & ESW_MASK_EXCLUDE)
@@ -940,7 +948,6 @@ static int esw_vlan_init_vid1(void)
 	esw_vlan_pvid_set(LAN_PORT_CPU, 1, 0);
 	esw_port_accept_set(LAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
 #if defined (CONFIG_RALINK_MT7620) && !defined (MT7530_P5_ENABLED)
-	port_untag &= ~(MASK_LAN_PORT_CPU);
 	esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_USER);
 #else
 	esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_TRANSPARENT);
@@ -948,9 +955,6 @@ static int esw_vlan_init_vid1(void)
 
 	esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
 
-	/* set all ports to VLAN 1 member (no SVID, no SWAP) */
-	status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);
-	return status;
 }
 
 static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
