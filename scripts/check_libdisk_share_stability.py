@@ -133,7 +133,7 @@ require("unlink(temp_file)" in write_failure and
 
 
 metadata_begin_body = function_body(
-    DISK_SOURCE, "static int\\ndisk_share_account_metadata_write("
+    DISK_SOURCE, "static int\ndisk_share_account_metadata_write("
 )
 metadata_begin_compact = "".join(metadata_begin_body.split())
 require("get_account_list(&acc_num,&account_list)" in metadata_begin_compact and

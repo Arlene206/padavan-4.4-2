@@ -688,6 +688,11 @@ disk_share_account_metadata_write(
 		first_error = errno ? errno : EIO;
 		goto finished;
 	}
+	if (acc_num < 0 || acc_num > MAX_ACCOUNT_NUM ||
+	    (acc_num > 0 && !account_list)) {
+		first_error = EINVAL;
+		goto finished;
+	}
 
 	if (strcmp(account, FTP_ANONYMOUS_USER) == 0)
 		account_found = 1;
@@ -741,8 +746,7 @@ finished:
 	return 0;
 }
 
-int
-initial_one_var_file_in_mount_path(const char *const account,
+int initial_one_var_file_in_mount_path(const char *const account,
                                    const char *const mount_path)
 {
 	return disk_share_account_metadata_write(
@@ -1114,8 +1118,7 @@ failed:
 	return -1;
 }
 
-int
-modify_if_exist_new_folder(const char *const account,
+int modify_if_exist_new_folder(const char *const account,
                            const char *const mount_path)
 {
 	return disk_share_account_metadata_write(
