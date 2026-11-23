@@ -201,9 +201,14 @@ for start_marker, end_marker, launcher, enable_guard, service_name, presence_cal
     normalized_enable_start = " ".join(start_body.split())
     assert "if (enable_status != 0)" in start_body
     assert "return enable_status;" in start_body
-    assert "if (!service_enabled)" in start_body
-    assert normalized_enable_start.index("storage_service_enabled_status(") < normalized_enable_start.index("if (enable_status != 0)")
-    assert normalized_enable_start.index("if (enable_status != 0)") < normalized_enable_start.index("if (!service_enabled)") < normalized_enable_start.index("if (!is_")
+    if start_marker == "int run_dms(int force_rescan)":
+        dms_enable_read = 'storage_read_string_status( "apps_dms", apps_enabled, sizeof(apps_enabled));'
+        assert dms_enable_read in normalized_enable_start
+        assert normalized_enable_start.index("if (enable_status != 0)") < normalized_enable_start.index('strcmp(apps_enabled, "1")') < normalized_enable_start.index("if (!is_dms_support())")
+    else:
+        assert "if (!service_enabled)" in start_body
+        assert normalized_enable_start.index("storage_service_enabled_status(") < normalized_enable_start.index("if (enable_status != 0)")
+        assert normalized_enable_start.index("if (enable_status != 0)") < normalized_enable_start.index("if (!service_enabled)") < normalized_enable_start.index("if (!is_")
     assert "int launch_status;" in start_body
 
 
