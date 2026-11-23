@@ -87,32 +87,7 @@ net_nvram_copy_setting_status(const char *param_name, char *destination,
  * Match one checked setting without collapsing an ioctl/close failure into
  * the caller's legacy missing-key default.
  */
-static int
-net_nvram_match_setting_status(const char *param_name, const char *expected,
-			       const char *missing_value, int *matches)
-{
-	char *value = NULL;
-	int read_result, saved_errno, status;
 
-	if (!param_name || !param_name[0] || !expected || !missing_value ||
-	    !matches) {
-		errno = EINVAL;
-		return EINVAL;
-	}
-
-	errno = 0;
-	read_result = nvram_get_checked(param_name, &value);
-	saved_errno = errno;
-	status = rc_wan_nvram_read_status(read_result, saved_errno);
-	if (status != 0)
-		return status;
-	if (read_result == 0)
-		value = (char *)missing_value;
-	else if (!value)
-		return EIO;
-
-	return rc_wan_nvram_match_status(0, value, expected, matches);
-}
 
 static int
 net_nvram_transaction_begin(void *context)
@@ -1365,7 +1340,7 @@ restart_iptv(int is_ap_mode)
 	char *wan_ifname = NULL;
 	struct iptv_proxy_nvram_settings proxy_settings;
 
-	/* Snapshot all required NVRAM values before changing the bridge. */
+	/* Snapshot policy and resolve an existing VLAN or fallback WAN before changing the bridge. */
 	if (!is_ap_mode) {
 		operation_status = net_iptv_proxy_nvram_settings_read(&proxy_settings);
 		if (operation_status != 0) {
@@ -1374,7 +1349,13 @@ restart_iptv(int is_ap_mode)
 				   operation_status);
 			return operation_status;
 		}
-		wan_ifname = get_man_ifname(0);
+
+		if (proxy_settings.viptv_ifname[0] &&
+		    is_interface_exist(proxy_settings.viptv_ifname))
+			wan_ifname = proxy_settings.viptv_ifname;
+		else
+			wan_ifname = get_man_ifname(0);
+
 		if (!wan_ifname || !wan_ifname[0]) {
 			errno = EINVAL;
 			logmessage("IPTV", "cannot resolve WAN interface; refusing restart before bridge changes");
@@ -1386,7 +1367,7 @@ restart_iptv(int is_ap_mode)
 	start_status = rc_first_service_start_status(start_status, operation_status);
 
 	if (!is_ap_mode) {
-		/* Bridge setup may create the configured IPTV VLAN; check it afterwards. */
+		/* Bridge setup may bring up a previously absent IPTV VLAN. */
 		if (proxy_settings.viptv_ifname[0] &&
 		    is_interface_exist(proxy_settings.viptv_ifname))
 			wan_ifname = proxy_settings.viptv_ifname;

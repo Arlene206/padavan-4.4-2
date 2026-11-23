@@ -72,37 +72,38 @@ require("iptv_proxy_nvram_settings_read(" in settings_reader and
         "net_nvram_transaction_begin(&transaction)" in settings_reader and
         "net_nvram_transaction_end(&transaction)" in settings_reader and
         "end_status != 0 && status == 0" in settings_reader,
-        "complete proxy settings must be snapshotted and transaction close checked")
+        "all proxy settings must be snapshotted and transaction close checked")
 
-require('net_nvram_copy_setting_status(\\n\\t\\t"viptv_ifname"' in stop and
-        "if (nvram_status != 0)" in stop and "return nvram_status;" in stop,
+require('net_nvram_copy_setting_status(\n\t\t"viptv_ifname"' in stop and
+        "if (nvram_status != 0)" in stop and
+        "return nvram_status;" in stop,
         "standalone proxy stop must fail closed when VLAN identity cannot be read")
 require("net_iptv_proxy_nvram_settings_read(&settings)" in start and
         "start_igmpproxy_with_settings(wan_ifname, &settings)" in start,
-        "standalone proxy start must use a complete checked settings snapshot")
+        "standalone proxy start must use one checked settings snapshot")
 require("settings->enabled" in start_internal and
         "settings->altnet" in start_internal and
         "settings->quickleave" in start_internal and
         "stop_igmpproxy_with_viptv(" in start_internal and
         "nvram_" not in start_internal,
-        "proxy start side effects must not issue more NVRAM reads")
+        "proxy start side effects must not perform additional NVRAM reads")
 require("kill_services(svcs, 3, 1)" in stop_internal,
-        "snapshot-aware stop must retain the service stop action")
+        "snapshot-aware stop must retain the original service stop operation")
 
-require(restart.index("net_iptv_proxy_nvram_settings_read(&proxy_settings)") <
-        restart.index("config_bridge(is_ap_mode)") and
-        restart.index("return operation_status;") <
-        restart.index("config_bridge(is_ap_mode)"),
+bridge = restart.index("config_bridge(is_ap_mode)")
+vlan_checks = [i for i in range(len(restart))
+               if restart.startswith("is_interface_exist(proxy_settings.viptv_ifname)", i)]
+require(restart.index("net_iptv_proxy_nvram_settings_read(&proxy_settings)") < bridge and
+        restart.index("return operation_status;") < bridge,
         "restart must preflight every proxy setting before bridge changes")
-require(restart.index("get_man_ifname(0)") <
-        restart.index("config_bridge(is_ap_mode)") and
+require(restart.index("get_man_ifname(0)") < bridge and
         "if (!wan_ifname || !wan_ifname[0])" in restart,
         "restart must resolve a usable fallback WAN interface before bridge changes")
-require(restart.index("is_interface_exist(proxy_settings.viptv_ifname)") >
-        restart.index("config_bridge(is_ap_mode)") and
-        "start_igmpproxy_with_settings(" in restart and
+require(len(vlan_checks) == 2 and vlan_checks[0] < bridge < vlan_checks[1],
+        "restart must re-check a configured IPTV VLAN after bridge setup may create it")
+require("start_igmpproxy_with_settings(" in restart and
         "start_igmpproxy(wan_ifname)" not in restart,
-        "restart must reuse its snapshot while allowing bridge setup to create the IPTV VLAN")
+        "restart must reuse its original snapshot and avoid a second NVRAM read")
 
 policy_test = (ROOT / "trunk/user/rc/src/tests/iptv_proxy_nvram_policy.c").read_text()
 for marker in ("test_missing_keys_preserve_legacy_defaults",
