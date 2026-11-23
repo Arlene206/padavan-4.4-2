@@ -4,6 +4,15 @@
 #include <errno.h>
 #include <string.h>
 
+/* NVRAM setters use zero for success; retain close/ioctl errors on failure. */
+static inline int
+xl2tpd_start_policy_write_status(int api_result, int saved_errno)
+{
+	if (api_result == 0)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
+
 struct xl2tpd_config_flags {
 	int use_vpn_server;
 	int use_wan_lac;

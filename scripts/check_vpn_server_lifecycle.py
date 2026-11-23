@@ -501,6 +501,35 @@ require("test_first_failure_survives_later_restore_and_unlock_errors" in restart
 # Every RC path that starts/stops the shared PPP/L2TP transport must
 # participate in the same lifecycle barrier as server callbacks.
 safe_start=body(net_ppp,"safe_start_xl2tpd(void)")
+runtime_marker_writer = body(
+    net_ppp, "ppp_l2tp_runtime_marker_set_status(const char *name, int enabled)"
+)
+require('nvram_set_int_temp(name, enabled)' in runtime_marker_writer and
+        "xl2tpd_start_policy_write_status(api_result, saved_errno)" in runtime_marker_writer and
+        '"l2tp_cli_t"' in runtime_marker_writer and
+        '"l2tp_wan_t"' in runtime_marker_writer,
+        "shared xl2tpd runtime marker writes must use the checked allow-listed setter")
+require('nvram_set_int_temp("l2tp_cli_t"' not in net_ppp and
+        'nvram_set_int_temp("l2tp_wan_t"' not in net_ppp,
+        "shared xl2tpd markers must not bypass checked writes")
+require("test_runtime_marker_write_status" in xl2tpd_test and
+        "xl2tpd_start_policy_write_status(-1, EACCES) == EACCES" in xl2tpd_test and
+        "xl2tpd_start_policy_write_status(-1, 0) == EIO" in xl2tpd_test,
+        "shared xl2tpd NVRAM marker status regression is missing")
+vpnc_marker = safe_start_locked.index(
+    'ppp_l2tp_runtime_marker_set_status("l2tp_cli_t", 1)'
+)
+vpnc_launch = safe_start_locked.index('eval("/usr/sbin/xl2tpd"')
+require(vpnc_marker < vpnc_launch and
+        "refusing xl2tpd launch: cannot publish VPN-client ownership marker" in safe_start_locked,
+        "xl2tpd must not launch without publishing VPN-client ownership")
+wan_start = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto,")
+wan_marker = wan_start.index('ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 1)')
+wan_launch = wan_start.index("safe_start_xl2tpd_locked()")
+require(wan_marker < wan_launch and
+        "refusing xl2tpd WAN launch: cannot publish WAN ownership marker" in wan_start,
+        "WAN xl2tpd must not launch before publishing its dependency marker")
+
 safe_start_locked=body(net_ppp,"safe_start_xl2tpd_locked(void)")
 ordered(safe_start,["vpn_server_lifecycle_lock_acquire()",
                     "safe_start_xl2tpd_locked()",

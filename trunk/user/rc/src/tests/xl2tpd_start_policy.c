@@ -4,6 +4,16 @@
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); return 1; } } while (0)
 
 static int
+test_runtime_marker_write_status(void)
+{
+	CHECK(xl2tpd_start_policy_write_status(0, 0) == 0);
+	CHECK(xl2tpd_start_policy_write_status(-1, EACCES) == EACCES);
+	CHECK(xl2tpd_start_policy_write_status(-1, 0) == EIO);
+	CHECK(xl2tpd_start_policy_write_status(1, 0) == EIO);
+	return 0;
+}
+
+static int
 test_config_flags(void)
 {
 	struct xl2tpd_config_flags flags;
@@ -64,6 +74,7 @@ test_config_flags(void)
 int
 main(void)
 {
+	CHECK(test_runtime_marker_write_status() == 0);
 	CHECK(test_config_flags() == 0);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_RUNNING) == 1);
 	CHECK(xl2tpd_start_policy_result(PROCESS_PRESENCE_ABSENT) == 0);

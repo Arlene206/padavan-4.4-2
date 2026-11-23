@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Check WAN and VPN-client shared xl2tpd ownership publication
+
+- A source pass across the shared xl2tpd call graph found three additional unchecked runtime marker writes in `net_ppp.c`: `l2tp_cli_t=1` immediately before daemon launch and `l2tp_wan_t=0/1` before RPL2TP/xl2tpd WAN launch. A backend write/close failure could launch a shared transport without the marker used by VPN teardown/restoration to decide whether an independent WAN or VPN client still depends on it.
+- Added one allow-listed status-bearing setter for `l2tp_cli_t` and `l2tp_wan_t`. The VPNC marker must publish successfully before xl2tpd launch; WAN xl2tpd refuses launch until its marker is published; RPL2TP refuses launch if stale xl2tpd ownership cannot be cleared. Error mapping and source-order regressions are wired into the existing VPN workflow.
+- Exact-head VPN Actions and XY-C1 build pending.
+---
+
 ## 2026-11-23 UTC — Propagate VPN-triggered NFS export reload failures
 
 - `restart_vpn_server()` called `reload_nfsd()` under `APP_NFSD` but discarded its status. Because NFS exports include VPN ACL/network policy, a failed export generation or NFS reload could leave stale share access after a VPN configuration change while reporting restart success.

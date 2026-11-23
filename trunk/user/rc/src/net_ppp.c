@@ -454,6 +454,28 @@ ppp_wan_launch_mode_snapshot_read(int wan_proto,
 	return status;
 }
 
+static int
+ppp_l2tp_runtime_marker_set_status(const char *name, int enabled)
+{
+	int api_result, saved_errno, status;
+
+	if (!name ||
+	    (strcmp(name, "l2tp_cli_t") != 0 &&
+	     strcmp(name, "l2tp_wan_t") != 0) ||
+	    (enabled != 0 && enabled != 1)) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_set_int_temp(name, enabled);
+	saved_errno = errno;
+	status = xl2tpd_start_policy_write_status(api_result, saved_errno);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 int
 safe_start_xl2tpd_locked(void)
 {
@@ -461,7 +483,7 @@ safe_start_xl2tpd_locked(void)
 	int unit, wan_proto;
 	int use_vpn_server, use_wan_lac, use_vpnc;
 	int saved_errno, scan_error, presence_status, launch_status;
-	int wan_value_status, config_status;
+	int wan_value_status, config_status, marker_status;
 	int vpnc_default_route;
 	struct xl2tpd_config_snapshot config_snapshot;
 	struct xl2tpd_config_flags config_flags;
@@ -693,8 +715,17 @@ safe_start_xl2tpd_locked(void)
 		errno = saved_errno;
 		return -1;
 	}
-	if (use_vpnc)
-		nvram_set_int_temp("l2tp_cli_t", 1);
+	if (use_vpnc) {
+		marker_status = ppp_l2tp_runtime_marker_set_status("l2tp_cli_t", 1);
+		if (marker_status != 0) {
+			saved_errno = marker_status;
+			logmessage(LOGNAME,
+				   "refusing xl2tpd launch: cannot publish VPN-client ownership marker (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 
 	/*
 	 * Keep the process-presence sentinel (1 = already running) distinct
@@ -1238,14 +1269,30 @@ launch_wan_pppd_locked(int unit, int wan_proto,
 	if (wan_proto == IPV4_WAN_PROTO_L2TP) {
 #if defined (APP_RPL2TP)
 		if (launch_mode->use_rpl2tp) {
-			nvram_set_int_temp("l2tp_wan_t", 0);
-			launch_status = start_rpl2tp(unit);
+			saved_errno = ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 0);
+			if (saved_errno != 0) {
+				logmessage(LOGNAME,
+					   "refusing RPL2TP WAN launch: cannot clear xl2tpd ownership marker (status=%d)",
+					   saved_errno);
+				errno = saved_errno;
+				launch_status = -1;
+			} else {
+				launch_status = start_rpl2tp(unit);
+			}
 		} else
 #endif
 		{
-			nvram_set_int_temp("l2tp_wan_t", 1);
-			launch_status = xl2tpd_start_policy_wan_launch_result(
-				safe_start_xl2tpd_locked());
+			saved_errno = ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 1);
+			if (saved_errno != 0) {
+				logmessage(LOGNAME,
+					   "refusing xl2tpd WAN launch: cannot publish WAN ownership marker (status=%d)",
+					   saved_errno);
+				errno = saved_errno;
+				launch_status = -1;
+			} else {
+				launch_status = xl2tpd_start_policy_wan_launch_result(
+					safe_start_xl2tpd_locked());
+			}
 		}
 	} else {
 		if (launch_mode->multiwan_enabled)
