@@ -2578,8 +2578,15 @@ jobs:
           assert "lease_state[2].value = gateway_buf;" in lan_bound
           assert "lease_state[2].previous_value = old_gateway;" in lan_bound
           assert "status = lan_dhcp_nvram_state_publish(" in lan_bound
+          assert "ap_mode_status = get_ap_mode_status(&is_ap_mode);" in lan_bound_compact
+          assert "refresh_mode_status = lan_dhcp_hosts_refresh_ap_mode_resolve( ap_mode_status, is_ap_mode, &refresh_as_ap);" in lan_bound_compact
+          assert "if (refresh_mode_status != 0)" in lan_bound_compact
+          assert "treating as AP (status=%d)" in lan_bound
+          assert "get_ap_mode()" not in lan_bound
           assert "refresh_hosts = lan_dhcp_hosts_refresh_required(" in lan_bound
-          assert 'is_changed, is_renew, get_ap_mode())' in lan_bound_compact
+          assert "is_changed, is_renew, refresh_as_ap)" in lan_bound_compact
+          assert "lan_dhcp_hosts_refresh_ap_mode_resolve" in lan_callback_policy
+          assert "test_host_refresh_treats_unknown_mode_as_ap" in lan_callback_test
           assert 'nvram_match("lan_hosts_retry"' not in lan_bound
           assert lan_bound.index("if (refresh_hosts)") < lan_bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
           assert "hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(" in lan_bound
