@@ -336,6 +336,49 @@ static void test_checked_update_bits_stops_on_read_error_and_preserves_bits(void
 	assert(f.calls == 0U);
 }
 
+static void test_checked_cleanup_attempts_both_writes_and_keeps_first_error(void)
+{
+	struct fake_io f;
+	int status;
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	status = ra_switch_mdio_cleanup_two_writes(
+		1U, 23U, 0U, 2U, 23U, 0U, fake_write, &f);
+	assert(status == 0 && f.calls == 2U);
+	assert(f.op[0] == 'w' && f.op[1] == 'w');
+	assert(f.reg[0] == 23U && f.reg[1] == 23U);
+	assert(f.value[0] == 0U && f.value[1] == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -ETIMEDOUT;
+	status = ra_switch_mdio_cleanup_two_writes(
+		1U, 23U, 0U, 2U, 23U, 0U, fake_write, &f);
+	assert(status == -ETIMEDOUT && f.calls == 2U);
+	assert(f.reg[1] == 23U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = 1;
+	status = ra_switch_mdio_cleanup_two_writes(
+		1U, 23U, 0U, 2U, 23U, 0U, fake_write, &f);
+	assert(status == -EIO && f.calls == 2U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 1;
+	f.fail_status = -EHOSTDOWN;
+	status = ra_switch_mdio_cleanup_two_writes(
+		1U, 23U, 0U, 2U, 23U, 0U, fake_write, &f);
+	assert(status == -EHOSTDOWN && f.calls == 2U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_cleanup_two_writes(
+		1U, 23U, 0U, 2U, 23U, 0U, NULL, &f) == -EINVAL);
+	assert(f.calls == 0U);
+}
+
 static void test_page_read_selects_global_and_local_bank(void)
 {
 	struct fake_io f;
@@ -697,6 +740,7 @@ static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
 int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
+	test_checked_cleanup_attempts_both_writes_and_keeps_first_error();
 	test_checked_update_bits_stops_on_read_error_and_preserves_bits();
 	test_calibration_wait_checks_all_io_and_restores_trigger();
 	test_checked_phy_writes_propagate_and_normalize_failures();

@@ -19,6 +19,9 @@
 
 static DEFINE_SPINLOCK(ra_switch_phy_page_lock);
 
+static int all_ge_ana_cal_wait_checked(unsigned int delay, u8 port_num,
+				       u8 *ready);
+
 #define MT7622_CHIP_ID 0x08000008
 
 void reg_bit_zero(void __iomem *addr, unsigned int bit, unsigned int len)
@@ -368,61 +371,75 @@ void clear_ckinv_ana_txvos(void)
 		pr_err_ratelimited("%s: analog calibration cleanup failed (status=%d)\n",
 				   __func__, status);
 }
+static int all_fe_ana_cal_wait_checked(u32 delay, u8 port_num,
+				      int reset_port_before, u8 *ready)
+{
+	struct ra_switch_page_update_context page;
+	int status = 0;
+	int cleanup_status;
+
+	if (!ready)
+		return -EINVAL;
+	*ready = 0;
+	page.page = 4U;
+	page.local = 1;
+
+	/* Preserve the original FE_CAL_COMMON reset before the trigger. */
+	status = ra_switch_mdio_write_checked(
+		FE_CAL_COMMON, 23U, 0U, ra_switch_page_update_write, &page);
+	if (status != 0)
+		goto cleanup;
+
+	if (reset_port_before) {
+		status = ra_switch_mdio_write_checked(
+			port_num, 23U, 0U, ra_switch_page_update_write, &page);
+		if (status != 0)
+			goto cleanup;
+	}
+
+	status = all_ge_ana_cal_wait_checked(delay, port_num, ready);
+
+cleanup:
+	/* Attempt both original page-4/register-23 cleanup writes on every exit. */
+	cleanup_status = ra_switch_mdio_cleanup_two_writes(
+		FE_CAL_COMMON, 23U, 0U, port_num, 23U, 0U,
+		ra_switch_page_update_write, &page);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	if (status != 0)
+		*ready = 0;
+	return status;
+}
+
 u8 all_fe_ana_cal_wait_txamp(u32 delay, u8 port_num)
-{				/* for EN7512 FE // allen_20160616 */
-	u8 all_ana_cal_status;
-	u16 cnt, g7r24_temp;
+{
+	u8 ready = 0;
+	int status;
 
-	tc_phy_write_l_reg(FE_CAL_COMMON, 4, 23, (0x0000));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp & (~0x10));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp | 0x10);
-
-	cnt = 1000;
-	do {
-		udelay(delay);
-		cnt--;
-		all_ana_cal_status =
-		    ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) >> 1) & 0x1);
-	} while ((all_ana_cal_status == 0) && (cnt != 0));
-
-	tc_phy_write_l_reg(FE_CAL_COMMON, 4, 23, (0x0000));
-	tc_phy_write_l_reg(port_num, 4, 23, (0x0000));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp & (~0x10));
-	return all_ana_cal_status;
+	/* TX-amp historically pre-clears FE_CAL_COMMON only. */
+	status = all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready);
+	if (status != 0) {
+		pr_err_ratelimited("%s: FE TX-amp calibration wait failed (port=%u status=%d)\n",
+				   __func__, port_num, status);
+		return ANACAL_ERROR;
+	}
+	return ready;
 }
 
 u8 all_fe_ana_cal_wait(u32 delay, u8 port_num)
 {
-	u8 all_ana_cal_status;
-	u16 cnt, g7r24_temp;
+	u8 ready = 0;
+	int status;
 
-	tc_phy_write_l_reg(FE_CAL_COMMON, 4, 23, (0x0000));
-	tc_phy_write_l_reg(port_num, 4, 23, (0x0000));
-
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp & (~0x10));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp | 0x10);
-	cnt = 1000;
-	do {
-		udelay(delay);
-		cnt--;
-		all_ana_cal_status =
-		    ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) >> 1) & 0x1);
-
-	} while ((all_ana_cal_status == 0) && (cnt != 0));
-
-	tc_phy_write_l_reg(FE_CAL_COMMON, 4, 23, (0x0000));
-	tc_phy_write_l_reg(port_num, 4, 23, (0x0000));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp & (~0x10));
-
-	return all_ana_cal_status;
+	status = all_fe_ana_cal_wait_checked(delay, port_num, 1, &ready);
+	if (status != 0) {
+		pr_err_ratelimited("%s: FE analog calibration wait failed (port=%u status=%d)\n",
+				   __func__, port_num, status);
+		return ANACAL_ERROR;
+	}
+	return ready;
 }
-
 void fe_cal_tx_amp(u8 port_num, u32 delay)
 {
 	u8 all_ana_cal_status;

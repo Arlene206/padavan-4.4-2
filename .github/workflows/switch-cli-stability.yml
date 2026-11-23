@@ -979,6 +979,40 @@ jobs:
           print("RAETH analog cleanup RMW stops on MDIO error and retains final zero cleanup: PASS")
           PY
 
+      - name: Validate FE analog calibration checked wait and local cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          fe = source.split("static int all_fe_ana_cal_wait_checked(", 1)[1].split(
+              chr(10) + "u8 all_fe_ana_cal_wait_txamp", 1
+          )[0]
+          txamp = source.split("u8 all_fe_ana_cal_wait_txamp(", 1)[1].split(
+              chr(10) + "u8 all_fe_ana_cal_wait(", 1
+          )[0]
+          normal = source.split("u8 all_fe_ana_cal_wait(", 1)[1].split(
+              chr(10) + "void fe_cal_tx_amp", 1
+          )[0]
+          assert "all_ge_ana_cal_wait_checked(delay, port_num, ready)" in fe
+          assert "ra_switch_mdio_write_checked(" in fe
+          assert "ra_switch_mdio_cleanup_two_writes(" in fe
+          assert "FE_CAL_COMMON, 23U, 0U, port_num, 23U, 0U" in fe
+          assert "page.page = 4U;" in fe and "page.local = 1;" in fe
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready)" in txamp
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 1, &ready)" in normal
+          assert "ANACAL_ERROR" in txamp and "ANACAL_ERROR" in normal
+          assert "pr_err_ratelimited(" in txamp and "pr_err_ratelimited(" in normal
+          assert "ra_switch_mdio_cleanup_two_writes(" in policy
+          assert "second_status = ra_switch_mdio_write_checked(" in policy
+          assert "return first_status != 0 ? first_status : second_status;" in policy
+          assert "test_checked_cleanup_attempts_both_writes_and_keeps_first_error();" in test
+          print("RAETH FE calibration wait preserves pre-trigger modes and always attempts both local cleanup writes: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

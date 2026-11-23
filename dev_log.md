@@ -1,3 +1,14 @@
+## 2026-11-23 — Propagate MDIO errors through FE calibration waits
+
+- Base main SHA: `bff3d15326e573f5210ac2a121e21c7485744ece`; its preceding documentation child restored the full chronological development log. The analog cleanup RMW source parent is `51f29580ebfb44d9ecbcbd4ec6bf8a55ff6e77c7`.
+- `51f2958`: Switch CLI #45273676193 PASS. AI docs #45273675795 failed because that source commit had one log entry after an accidental history overwrite; docs child `bff3d15` restored the complete archive. XY-C1 #45273675906 was still building and NVRAM #45273675699 still running at the last poll.
+- Both FE analog wait variants previously used value-only global PHY reads/writes and local page-4 writes, so MDIO errors could look like ordinary timeouts and local calibration state could remain enabled.
+- Added one checked FE wait path. It preserves TX-amp's original pre-trigger reset of FE_CAL_COMMON only, while the normal FE wait resets both common and selected port. Both paths delegate global page-7/reg24 trigger/poll/cleanup to the checked GE wait and always attempt both local page-4/reg23 cleanup writes, including when pre-trigger or polling fails.
+- The existing `u8` interfaces stay unchanged; transport or cleanup errors map to `ANACAL_ERROR`, while an ordinary not-ready timeout still returns zero. New paired-cleanup policy tests prove both writes are attempted and the first error is retained.
+- Added Switch CLI source assertions for the production FE wrappers and paired-cleanup policy. Long FE/GE calibration bodies still contain value-only MMD calls and need separate register snapshot/restore migration. No MIPS build or hardware L4 is claimed.
+- Next: check exact-SHA Actions for this FE wait change and verify the active XY-C1 Build/TRX/artifact stages; then select another bounded calibration RMW.
+
+---
 ## 2026-11-23 — Preserve development log history and checkpoint analog cleanup
 
 - Source parent: `87e233d30dd532b6bfd1589d2469ced8d8f42a16`; analog cleanup RMW source commit: `51f29580ebfb44d9ecbcbd4ec6bf8a55ff6e77c7`.

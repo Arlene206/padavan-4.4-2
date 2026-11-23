@@ -114,6 +114,27 @@ ra_switch_mdio_update_bits_checked(unsigned int port, unsigned int reg,
 	return 0;
 }
 
+/* Attempt both cleanup writes, preserving the first error. */
+static inline int
+ra_switch_mdio_cleanup_two_writes(unsigned int port_a, unsigned int reg_a,
+				  unsigned int value_a,
+				  unsigned int port_b, unsigned int reg_b,
+				  unsigned int value_b,
+				  ra_switch_mdio_write_fn write,
+				  void *context)
+{
+	int first_status;
+	int second_status;
+
+	if (!write)
+		return -EINVAL;
+	first_status = ra_switch_mdio_write_checked(port_a, reg_a, value_a,
+						    write, context);
+	second_status = ra_switch_mdio_write_checked(port_b, reg_b, value_b,
+						     write, context);
+	return first_status != 0 ? first_status : second_status;
+}
+
 /*
  * Start an analog calibration, poll its ready bit, and always attempt to
  * clear the trigger bit. A cleanup failure also invalidates a ready sample.
