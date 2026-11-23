@@ -1,3 +1,12 @@
+## 2026-11-23 — Match VPN restore helper call signature in integration contract
+
+- Exact VPN lifecycle run #45249835903 still failed at the integration checker: its newly updated expectation searched for `vpn_client_restore_shared_xl2tpd_locked()`, but the function intentionally accepts a phase string and the call is `vpn_client_restore_shared_xl2tpd_locked("after ...")`. Changed the contract to match the call prefix while preserving order relative to the restart sequence.
+- VPN client selector-policy and NVRAM/DNS source-contract stages had passed; this was a checker token mismatch, not a demonstrated C runtime defect. Exact VPN lifecycle must be rerun on the new source SHA.
+- AI documentation contract #45249835953 PASS on source/docs SHA `1a2d8a749653c06ea4006ad4f43404c51bf28808` after restoring the full 20+ entry development log. Historical entries remain intact.
+- XY-C1 #45249235493 on source SHA `26f2617` failed kernel compilation because `ioctl.c` references `change_vlan_rule` and `esw_link_status_changed_state`, but both definitions are missing from the current `ioctl_mt762x.c`; both existed in the last known successful baseline `7391f2e`. Next source task: restore the two local helpers, retain the new VLAN failure return semantics, and add exact-source compile-contract checks. No L3 build PASS is claimed for `26f2617`.
+
+---
+
 ## 2026-11-23 — Reconcile exact-source contracts and restore complete development log
 
 - VPN source SHA `26f2617f744227f906b9e15baad4ae52b2d8e3be` implemented checked NVRAM transactions for VPNC xl2tpd ownership and shared WAN/server dependencies. Its policy regression steps and `check_vpn_client_nvram_state.py` passed; VPN server lifecycle #45249235472 failed only because `scripts/check_vpn_server_lifecycle.py` still required `safe_start_xl2tpd_locked()` directly in `restart_vpn_client_locked()`. Restoration is deliberately delegated to `vpn_client_restore_shared_xl2tpd_locked()`; the checker now validates that helper call.
