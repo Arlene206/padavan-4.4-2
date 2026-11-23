@@ -87,6 +87,14 @@ lan_dhcp_networkmap_refresh_required(int address_changed, int is_renew)
 	return address_changed || !is_renew;
 }
 
+/* Retry unless the incomplete-action probe positively confirms no marker. */
+static inline int
+lan_dhcp_networkmap_retry_required(int probe_status)
+{
+	/* 0 means absent; 1 means present; negative means the state is unknown. */
+	return probe_status != 0;
+}
+
 /* Retry a previously failed scan request even when this lease is unchanged. */
 static inline int
 lan_dhcp_networkmap_request_required(int address_changed, int is_renew,

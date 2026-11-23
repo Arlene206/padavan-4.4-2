@@ -302,9 +302,18 @@ iappd_log = bound.index("IAPP daemon restart after lease update failed", iappd_f
 networkmap_probe = bound.index(
     "networkmap_retry_pending = lan_dhcp_networkmap_retry_pending();", iappd_log
 )
-networkmap_gate = bound.index(
-    "if (lan_dhcp_networkmap_request_required(", networkmap_probe
+unknown_probe_log = bound.index(
+    "cannot inspect pending networkmap refresh", networkmap_probe
 )
+retry_policy = bound.index(
+    "lan_dhcp_networkmap_retry_required(networkmap_retry_pending);",
+    unknown_probe_log
+)
+networkmap_gate = bound.index(
+    "if (lan_dhcp_networkmap_request_required(", retry_policy
+)
+assert networkmap_probe < unknown_probe_log < retry_policy < networkmap_gate
+assert "networkmap_retry_pending = 0;" not in bound[networkmap_probe:retry_policy]
 pending_gate = bound.index("if (networkmap_retry_pending)", networkmap_gate)
 pending_queue = bound.index(
     "networkmap_retry_status = notify_rc_status(RCN_RESTART_NETWORKMAP);",
@@ -323,6 +332,9 @@ assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
 assert bound.count("restart_networkmap()") == 1
 assert "lan_dhcp_networkmap_request_required(" in bound
 assert "lan_dhcp_networkmap_request_required(int address_changed, int is_renew," in callback_policy
+assert "lan_dhcp_networkmap_retry_required(" in bound
+assert "lan_dhcp_networkmap_retry_required(int probe_status)" in callback_policy
+assert "test_networkmap_probe_failure_conservatively_requeues" in callback_test
 assert "test_networkmap_refreshes_changed_address_renewals" in callback_test
 assert "test_networkmap_pending_refresh_retries_unchanged_renew" in callback_test
 assert "lan_dhcp_networkmap_request_required(0, 1, 0) == 0" in callback_test

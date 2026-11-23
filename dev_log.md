@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Retry LAN networkmap when completion state cannot be inspected
+
+- Found a tri-state recovery bug in `udhcpc_lan_bound()`: a missing or inaccessible PID 1 incomplete-action directory made `lan_dhcp_networkmap_retry_pending()` return a negative error, but the caller converted that UNKNOWN state to zero. An unchanged DHCP RENEW then skipped retrying a previous failed networkmap refresh.
+- Added `lan_dhcp_networkmap_retry_required()`: only a confirmed absent marker (0) may suppress a retry; a present marker (1) and any inspection error (negative) both conservatively requeue the idempotent networkmap request. The DHCP lease remains independent of this ancillary refresh.
+- Added GNU89 policy regression cases for absent, present, EIO and ENOENT probe results, and strengthened the production source-order contract to prevent UNKNOWN from being normalized to “no retry”. Exact-head WAN DHCP callback and XY-C1 Actions are pending; no local sanitizer, MIPS build or hardware result is claimed.
+
+---
 ## 2026-11-23 UTC — Fail closed on URL-filter schedule NVRAM reads
 
 - `timematch_conv()` previously used `nvram_get()` and substituted the all-days/all-day legacy defaults whenever a lookup returned NULL. Because that path could not distinguish an absent key from an NVRAM backend failure, a read fault could silently broaden the URL-filter activation schedule. It now uses `nvram_get_checked()` via the presence-aware string reader, copies each value before the next shared-cache read, preserves defaults only for genuinely missing keys, and returns an error for backend failures.

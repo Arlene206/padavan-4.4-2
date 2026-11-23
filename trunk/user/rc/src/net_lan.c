@@ -3365,12 +3365,12 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	 * same-address renewals, until the daemon confirms a full-scan request.
 	 */
 	networkmap_retry_pending = lan_dhcp_networkmap_retry_pending();
-	if (networkmap_retry_pending < 0) {
+	if (networkmap_retry_pending < 0)
 		logmessage("DHCP LAN Client",
 			   "cannot inspect pending networkmap refresh (status=%d)",
 			   -networkmap_retry_pending);
-		networkmap_retry_pending = 0;
-	}
+	networkmap_retry_pending =
+		lan_dhcp_networkmap_retry_required(networkmap_retry_pending);
 
 	if (lan_dhcp_networkmap_request_required(
 		address_changed, is_renew, networkmap_retry_pending)) {
