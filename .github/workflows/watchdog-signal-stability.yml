@@ -40,6 +40,8 @@ on:
     paths:
       - ".github/workflows/watchdog-signal-stability.yml"
       - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_httpd_probe_policy.h"
+      - "trunk/user/rc/src/tests/watchdog_httpd_probe_policy.c"
       - "trunk/user/rc/src/process_presence_start_policy.h"
       - "trunk/user/rc/src/detached_daemon_start_policy.h"
       - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Match watchdog signal workflow push and pull-request inputs
+
+- The watchdog workflow's first regression compiles and executes `watchdog_httpd_probe_policy.h` and its test, but both paths were present in `push.paths` and absent from `pull_request.paths`. A pull request changing either dependency alone would not run the regression.
+- Added both exact paths to the pull-request filter and extended `check_watchdog_ntp_lifecycle.py` to require both inputs and assert complete push/pull-request path-set parity. Product firmware source is unchanged.
+- Exact-head Watchdog and AI handoff Actions on the resulting main SHA are required; no local checkout or local test run is available in this environment.
+
+---
+
 ## 2026-11-23 UTC — Close RP-L2TP control clients when event registration fails
 
 - `EventTcp_ReadBuf()` / `EventTcp_WriteBuf()` return `NULL` when allocation, `fcntl()` setup, or event registration fails; in those paths they do not assume ownership of the accepted socket. The `cmd_acceptor()` and `cmd_reply()` callers ignored the return value, leaving accepted control descriptors open and clients stalled during memory/resource pressure.

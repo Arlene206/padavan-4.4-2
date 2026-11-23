@@ -124,6 +124,8 @@ assert "test_unknown_before_kill_blocks_kill" in lifecycle_test
 paths = (
     ".github/workflows/watchdog-signal-stability.yml",
     "trunk/user/rc/src/watchdog.c",
+    "trunk/user/rc/src/watchdog_httpd_probe_policy.h",
+    "trunk/user/rc/src/tests/watchdog_httpd_probe_policy.c",
     "trunk/user/rc/src/watchdog_signal_policy.h",
     "trunk/user/rc/src/tests/watchdog_signal_policy.c",
     "trunk/user/rc/src/watchdog_ntp_policy.h",
@@ -141,6 +143,21 @@ paths = (
 )
 filters = workflow.split("jobs:", 1)[0]
 push_filters, pr_filters = filters.split("  pull_request:", 1)
+push_paths = {
+    line.strip()[2:].strip('"')
+    for line in push_filters.splitlines()
+    if line.strip().startswith("- ")
+}
+pull_request_paths = {
+    line.strip()[2:].strip('"')
+    for line in pr_filters.splitlines()
+    if line.strip().startswith("- ")
+}
+assert push_paths == pull_request_paths, (
+    "push/pull_request path-filter mismatch: "
+    f"push-only={sorted(push_paths - pull_request_paths)}, "
+    f"pull_request-only={sorted(pull_request_paths - push_paths)}"
+)
 for path in paths:
     quoted = '"' + path + '"'
     assert push_filters.count(quoted) == 1, "push path count: " + path
