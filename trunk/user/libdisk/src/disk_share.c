@@ -2350,48 +2350,48 @@ failed:
 }
 
 static int
-disk_share_find_folder_staging_path(const char *mount_path,
-                                    char *staging_path, size_t staging_size)
+disk_share_mkdir_staging_directory(const char *path)
 {
-	unsigned int attempt;
-	struct stat status;
-	int path_len;
+	return mkdir(path, 0700);
+}
 
-	if (!mount_path || !*mount_path || !staging_path || staging_size == 0) {
+static int
+disk_share_create_folder_staging_paths(
+	const char *mount_path, const char *folder,
+	char *staging_dir, size_t staging_dir_size,
+	char *staging_path, size_t staging_path_size)
+{
+	int path_len, saved_errno;
+
+	if (!folder || !*folder || !staging_path || staging_path_size == 0) {
 		errno = EINVAL;
 		return -1;
 	}
+	if (disk_share_reserve_staging_directory(
+		    mount_path, staging_dir, staging_dir_size, (long)getpid(),
+		    disk_share_mkdir_staging_directory) != 0)
+		return -1;
 
-	for (attempt = 0; attempt < 32; ++attempt) {
-		path_len = snprintf(staging_path, staging_size,
-		                    "%s/.share-delete-%ld-%u",
-		                    mount_path, (long)getpid(), attempt);
-		if (path_len < 0 || (size_t)path_len >= staging_size) {
-			errno = ENAMETOOLONG;
-			return -1;
-		}
-		if (lstat(staging_path, &status) == 0)
-			continue;
-		if (errno == ENOENT) {
-			errno = 0;
-			return 0;
-		}
+	path_len = snprintf(staging_path, staging_path_size,
+	                    "%s/%s", staging_dir, folder);
+	if (path_len < 0 || (size_t)path_len >= staging_path_size) {
+		saved_errno = ENAMETOOLONG;
+		(void)rmdir(staging_dir);
+		errno = saved_errno;
 		return -1;
 	}
-
-	errno = EEXIST;
-	return -1;
+	return 0;
 }
 
 int del_folder(const char *const mount_path, const char *const folder)
 {
 	int result, saved_errno, rollback_error = 0;
 	int acc_num = 0, transaction_started = 0, staging_applied = 0;
-	int permission_batch_count = 0;
+	int permission_batch_count = 0, staging_dir_created = 0;
 	struct nvram_transaction transaction;
 	struct stat folder_status;
 	char **account_list = NULL;
-	char var_file[256], staging_path[256];
+	char var_file[256], staging_dir[256], staging_path[512];
 	char *target = NULL, *full_path = NULL;
 	struct disk_share_permission_batch_entry *permission_batch = NULL;
 	size_t mount_len, folder_len, path_len, target_len;
@@ -2470,9 +2470,11 @@ int del_folder(const char *const mount_path, const char *const folder)
 		    mount_path, acc_num, account_list, target, NULL,
 		    &permission_batch, &permission_batch_count) != 0)
 		goto failed;
-	if (disk_share_find_folder_staging_path(
-		    mount_path, staging_path, sizeof(staging_path)) != 0)
+	if (disk_share_create_folder_staging_paths(
+		    mount_path, folder, staging_dir, sizeof(staging_dir),
+		    staging_path, sizeof(staging_path)) != 0)
 		goto failed;
+	staging_dir_created = 1;
 
 	/*
 	 * The directory is first moved to a dot-prefixed sibling, which is
@@ -2493,6 +2495,12 @@ int del_folder(const char *const mount_path, const char *const folder)
 	if (rmdir(staging_path) != 0)
 		goto rollback;
 	staging_applied = 0;
+	if (rmdir(staging_dir) == 0 || errno == ENOENT)
+		staging_dir_created = 0;
+	else
+		logmessage("disk_share",
+			   "empty folder deletion staging directory cleanup failed (errno %d)",
+			   errno ? errno : EIO);
 
 	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
@@ -2525,6 +2533,12 @@ rollback:
 				rollback_error = errno ? errno : EIO;
 		}
 	}
+	if (!staging_applied && staging_dir_created) {
+		if (rmdir(staging_dir) == 0 || errno == ENOENT)
+			staging_dir_created = 0;
+		else if (rollback_error == 0)
+			rollback_error = errno ? errno : EIO;
+	}
 	if (rollback_error != 0) {
 		logmessage("disk_share",
 			   "folder deletion compensation incomplete (errno %d)",
@@ -2535,6 +2549,12 @@ rollback:
 
 failed:
 	saved_errno = errno ? errno : EIO;
+	if (staging_dir_created && !staging_applied) {
+		if (rmdir(staging_dir) != 0 && errno != ENOENT)
+			logmessage("disk_share",
+				   "folder deletion staging directory cleanup failed (errno %d)",
+				   errno ? errno : EIO);
+	}
 	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(full_path);

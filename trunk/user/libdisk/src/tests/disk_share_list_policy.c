@@ -2121,6 +2121,82 @@ test_permission_batch_reports_and_retries_failed_compensation(void)
 }
 
 
+struct fake_staging_directory_state {
+	int calls;
+	int collisions;
+	int fail_errno;
+	char last_path[128];
+};
+
+static struct fake_staging_directory_state *fake_staging_state;
+
+static int
+fake_staging_directory_create(const char *path)
+{
+	struct fake_staging_directory_state *state = fake_staging_state;
+
+	++state->calls;
+	snprintf(state->last_path, sizeof(state->last_path), "%s", path);
+	if (state->calls <= state->collisions) {
+		errno = EEXIST;
+		return -1;
+	}
+	if (state->fail_errno != 0) {
+		errno = state->fail_errno;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_staging_directory_reserves_with_atomic_collision_retry(void)
+{
+	struct fake_staging_directory_state state;
+	char staging_dir[128];
+
+	memset(&state, 0, sizeof(state));
+	state.collisions = 1;
+	fake_staging_state = &state;
+	assert(disk_share_reserve_staging_directory(
+		"/mnt/share", staging_dir, sizeof(staging_dir), 4242,
+		fake_staging_directory_create) == 0);
+	assert(state.calls == 2);
+	assert(strcmp(staging_dir, "/mnt/share/.share-delete-4242-1") == 0);
+	assert(strcmp(state.last_path, staging_dir) == 0);
+}
+
+static void
+test_staging_directory_preserves_create_errors(void)
+{
+	struct fake_staging_directory_state state;
+	char staging_dir[128];
+
+	memset(&state, 0, sizeof(state));
+	state.fail_errno = EACCES;
+	fake_staging_state = &state;
+	assert(disk_share_reserve_staging_directory(
+		"/mnt/share", staging_dir, sizeof(staging_dir), 4242,
+		fake_staging_directory_create) == -1);
+	assert(errno == EACCES);
+	assert(state.calls == 1);
+}
+
+static void
+test_staging_directory_rejects_truncated_paths_before_create(void)
+{
+	struct fake_staging_directory_state state;
+	char staging_dir[8];
+
+	memset(&state, 0, sizeof(state));
+	fake_staging_state = &state;
+	assert(disk_share_reserve_staging_directory(
+		"/mnt/share", staging_dir, sizeof(staging_dir), 4242,
+		fake_staging_directory_create) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(state.calls == 0);
+}
+
+
 int
 main(void)
 {
@@ -2131,6 +2207,9 @@ main(void)
 	assert(router_account_name_is_reserved_after_read("admin", -1, NULL));
 	assert(router_account_name_is_reserved_after_read("admin", 1, NULL));
 
+	test_staging_directory_reserves_with_atomic_collision_retry();
+	test_staging_directory_preserves_create_errors();
+	test_staging_directory_rejects_truncated_paths_before_create();
 	test_permission_batch_applies_and_restores_all_files();
 	test_permission_batch_rolls_back_prior_file_after_write_failure();
 	test_permission_batch_reports_and_retries_failed_compensation();

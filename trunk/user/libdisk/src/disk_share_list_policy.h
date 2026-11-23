@@ -344,6 +344,51 @@ compensate:
 }
 
 
+/*
+ * Reserve a hidden staging directory with mkdir's exclusive creation
+ * semantics. lstat()+rename() could replace a raced empty destination.
+ */
+typedef int (*disk_share_staging_directory_create_fn)(const char *);
+
+static inline int
+disk_share_reserve_staging_directory(
+	const char *mount_path, char *staging_dir, size_t staging_size,
+	long process_id, disk_share_staging_directory_create_fn create_directory)
+{
+	unsigned int attempt;
+	int path_len, saved_errno;
+
+	if (!mount_path || !*mount_path || !staging_dir || staging_size == 0 ||
+	    !create_directory) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (attempt = 0; attempt < 32; ++attempt) {
+		path_len = snprintf(staging_dir, staging_size,
+		                    "%s/.share-delete-%ld-%u",
+		                    mount_path, process_id, attempt);
+		if (path_len < 0 || (size_t)path_len >= staging_size) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		errno = 0;
+		if (create_directory(staging_dir) == 0) {
+			errno = 0;
+			return 0;
+		}
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno != EEXIST) {
+			errno = saved_errno;
+			return -1;
+		}
+	}
+
+	errno = EEXIST;
+	return -1;
+}
+
+
 /* Missing source metadata is an idempotent no-op; preserve other rename errors. */
 static inline int
 disk_share_account_rename_status(int rename_result, int saved_errno)

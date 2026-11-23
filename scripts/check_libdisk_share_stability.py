@@ -962,6 +962,12 @@ require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
         "add_folder must serialize with account mutations and undo partial permission rows, directory creation and folder snapshot on failure")
 
 
+require("disk_share_reserve_staging_directory" in POLICY and
+        "EEXIST" in POLICY and
+        "mkdir(path, 0700)" in DISK_SOURCE and
+        "rmdir(staging_dir)" in DISK_SOURCE,
+        "folder deletion must reserve a private staging parent atomically and remove it after commit or rollback")
+
 del_folder = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
 )
@@ -995,11 +1001,16 @@ require(del_inventory < del_begin < del_validate < del_plan < del_stage <
         del_snapshot < del_apply < del_remove < del_rollback <
         del_restore_directory < del_restore_snapshot < del_release and
         "disk_share_permission_batch_prepare_rewrite" in DISK_SOURCE and
-        "getpid()" in DISK_SOURCE and
+        "disk_share_reserve_staging_directory" in DISK_SOURCE and
+        "mkdir(path, 0700)" in DISK_SOURCE and
+        "lstat(staging_path" not in DISK_SOURCE and
         "if(dp->d_name[0]=='.')" in "".join(DISK_SOURCE.split()),
         "folder deletion must preflight metadata, stage the directory, batch-publish permissions and compensate files/directory/list on failure")
 
 for marker in (
+    "test_staging_directory_reserves_with_atomic_collision_retry",
+    "test_staging_directory_preserves_create_errors",
+    "test_staging_directory_rejects_truncated_paths_before_create",
     "test_permission_batch_applies_and_restores_all_files",
     "test_permission_batch_rolls_back_prior_file_after_write_failure",
     "test_permission_batch_reports_and_retries_failed_compensation",
