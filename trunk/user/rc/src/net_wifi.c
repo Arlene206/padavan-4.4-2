@@ -1302,6 +1302,8 @@ start_wifi_wds_wl(int radio_on)
 #if BOARD_HAS_5G_RADIO
 	int interface_started;
 	int i_mode_x = 0, mode_status;
+	int i_wds_num = 4, wds_apply = 0;
+	int wds_apply_status, wds_num_status;
 
 	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
 	if (mode_status != 0) {
@@ -1314,10 +1316,26 @@ start_wifi_wds_wl(int radio_on)
 
 	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
 	{
-		int i_wds_num = 4;
-		
-		if (nvram_wlan_get_int(1, "wdsapply_x") == 1)
-			i_wds_num = nvram_wlan_get_int(1, "wdsnum_x");
+		wds_apply_status = wireless_nvram_get_int_status(
+			"wl_wdsapply_x", &wds_apply);
+		if (wds_apply_status != 0) {
+			errno = wds_apply_status;
+			logmessage(LOGNAME,
+				   "5GHz WDS startup aborted: cannot read wdsapply_x (status=%d)",
+				   wds_apply_status);
+			return -wds_apply_status;
+		}
+		if (wds_apply == 1) {
+			wds_num_status = wireless_nvram_get_int_status(
+				"wl_wdsnum_x", &i_wds_num);
+			if (wds_num_status != 0) {
+				errno = wds_num_status;
+				logmessage(LOGNAME,
+					   "5GHz WDS startup aborted: cannot read wdsnum_x (status=%d)",
+					   wds_num_status);
+				return -wds_num_status;
+			}
+		}
 		
 		if (i_wds_num > 3) {
 			interface_started = wif_control_success(IFNAME_5G_WDS3, 1);
@@ -1364,6 +1382,8 @@ start_wifi_wds_rt(int radio_on)
 	int interface_started;
 
 	int i_mode_x = 0, mode_status;
+	int i_wds_num = 4, wds_apply = 0;
+	int wds_apply_status, wds_num_status;
 
 	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
 	if (mode_status != 0) {
@@ -1376,10 +1396,26 @@ start_wifi_wds_rt(int radio_on)
 
 	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
 	{
-		int i_wds_num = 4;
-		
-		if (nvram_wlan_get_int(0, "wdsapply_x") == 1)
-			i_wds_num = nvram_wlan_get_int(0, "wdsnum_x");
+		wds_apply_status = wireless_nvram_get_int_status(
+			"rt_wdsapply_x", &wds_apply);
+		if (wds_apply_status != 0) {
+			errno = wds_apply_status;
+			logmessage(LOGNAME,
+				   "2.4GHz WDS startup aborted: cannot read wdsapply_x (status=%d)",
+				   wds_apply_status);
+			return -wds_apply_status;
+		}
+		if (wds_apply == 1) {
+			wds_num_status = wireless_nvram_get_int_status(
+				"rt_wdsnum_x", &i_wds_num);
+			if (wds_num_status != 0) {
+				errno = wds_num_status;
+				logmessage(LOGNAME,
+					   "2.4GHz WDS startup aborted: cannot read wdsnum_x (status=%d)",
+					   wds_num_status);
+				return -wds_num_status;
+			}
+		}
 		
 		if (i_wds_num > 3) {
 			interface_started = wif_control_success(IFNAME_2G_WDS3, 1);
