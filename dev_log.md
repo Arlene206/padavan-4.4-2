@@ -1,3 +1,12 @@
+## 2026-11-23 08:03 UTC — Align ZeroTier NAT checker with checked-read implementation
+
+- Exact ZeroTier run `45131686076` on production SHA `492730323b6361baa3a9351e487a9ea0f3e82eaa`: the bounded shell lifecycle regression passed; Python source contract then failed only because one assertion still expected inline `nvram get zerotier_nat`. The implementation now uses checked `zerotier_read_nat_enabled()` and checks route capture before daemon termination.
+- Updated the checker to require the checked NAT helper, the NAT-enabled missing-route guard and their order before `kill_z()`. No production source or runtime behavior changed.
+- Same-SHA Process inventory `45131685896`, WAN route `45131685948` and AI docs `45131685890` passed. XY-C1 `45131685922` was still in progress; Build was running, TRX/artifact pending. Prior XY run `45131246305` was also still in progress.
+- Current checker/doc correction is committed as one complete tree; exact-head reruns pending. No local test/build claim.
+
+---
+
 ## 2026-11-23 07:52 UTC — Check ZeroTier NAT, static routes and rollback snapshots
 
 - Source review found additional legacy NVRAM reads in firewall publication, shutdown and static-route reconciliation. A failed `zerotier_nat` read looked like NAT disabled; failed route count/row reads looked like no configured route, potentially leaving an installed route while `stop_zero()` removed the persistent identity. Planet import's rollback snapshot could similarly collapse a read error to an empty old value.

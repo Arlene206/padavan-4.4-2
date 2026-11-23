@@ -354,9 +354,13 @@ require('if [ -z "$zt0" ]; then' in stop_body and
 require('if [ -z "$ip_segment" ]; then' in del_rules_body and
         'ip_segment="$(zerotier_kernel_route_segment "$zt0")"' in del_rules_body,
         "firewall cleanup must reuse a pre-captured NAT source segment after the daemon route disappears")
-require('[ "$(nvram get zerotier_nat)" = "1" ] && [ -z "$ip_segment" ]' in stop_body and
-        'return 1' in stop_body,
-        "NAT-enabled stop must fail before daemon termination when its cleanup route cannot be captured")
+require('if ! zerotier_read_nat_enabled; then' in stop_body and
+        'if [ "$nat_enable" = "1" ] && [ -z "$ip_segment" ]; then' in stop_body and
+        'return 1' in stop_body and
+        stop_body.index('if ! zerotier_read_nat_enabled; then') <
+        stop_body.index('if [ "$nat_enable" = "1" ] && [ -z "$ip_segment" ]; then') <
+        stop_body.index('if ! kill_z; then'),
+        "NAT-enabled stop must use the checked NAT selector and validate the cleanup route before daemon termination")
 require('if ! kill_z; then' in stop_body and
         stop_body.index('if ! kill_z; then') < stop_body.index('del_rules') <
         stop_body.index('if ! zero_route "del"; then') <

@@ -1,33 +1,32 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`.
-- Main before this slice: `4025152c55bf1e468a2cbfb5fdde07283cf3fc68`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
-- No local checkout is available; do not claim local tests or builds. Only `main` is writable.
+- Repository: `Arlene206/padavan-4.4-2`; current parent main: `492730323b6361baa3a9351e487a9ea0f3e82eaa`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
+- No local checkout is available; don't claim local tests or builds.
 
-## Exact-SHA Actions for preceding ZeroTier startup changes
-- Commit `da0b2cb22dd9e2ebba346f0d34ad1a67071f7764`: ZeroTier lifecycle `45130983855`, AI docs `45130983929`, WAN route `45130983999`, Process inventory `45130983955` all SUCCESS. The ZeroTier shell regression and Python contract both PASS on that exact SHA.
-- XY-C1 `45130984042` on that SHA was still IN_PROGRESS at the last query; inspect Build, TRX and artifact upload before claiming L3.
-- Follow-up `4025152c55bf1e468a2cbfb5fdde07283cf3fc68` moves the checked settings gate before daemon stop; exact-head Actions were pending at the last poll.
-- Wireless regression `45130357263` and AI docs `45130357161` pass on `c79bb0c...`; XY-C1 `45130357194` skipped Build/TRX/artifact and is not L3 evidence.
+## Exact-SHA Actions
+- Commit `492730323b6361baa3a9351e487a9ea0f3e82eaa`: Process inventory `45131685896` PASS; WAN route `45131685948` PASS; AI docs `45131685890` PASS.
+- ZeroTier lifecycle `45131686076` FAILED only in `scripts/check_zerotier_lifecycle.py`, on a stale source contract expecting the old inline `nvram get zerotier_nat`. Shell regression `Run ZeroTier bounded lifecycle regression` passed. Source now reads NAT using `zerotier_read_nat_enabled()` with `nvram get_checked` before shutdown; THIS COMMIT fixes the checker to assert that behavior and its route-capture ordering.
+- XY-C1 `45131685922` on the same production source SHA was IN_PROGRESS at last poll. Build XY-C1 was running; TRX and artifact remained pending. Also earlier XY-C1 `45131246305` on `4025152c...` was IN_PROGRESS. Inspect exact results and same-SHA Build/TRX/artifact.
 
-## Active task — fail closed on unchecked ZeroTier network and rollback settings
-- Startup identity selectors now use five checked reads before stopping/restarting the daemon. The prior exact-head lifecycle test passed; a follow-up ensures failed startup reads do not signal the existing daemon.
-- Further review found runtime `zerotier_nat` reads in `rules()` and `stop_zero()`, and static-route count/enable/network/gateway reads in `zero_route()`, still used the legacy error-collapsing getter. A read fault could silently disable NAT, skip a configured route, or allow shutdown to delete persistent identity while a route remained. The planet-import rollback snapshot also used legacy `nvram get`, risking restoration of an invented empty value.
-- THIS COMMIT uses `nvram get_checked` for NAT state and every static-route selector, validates NAT and the complete enabled route table before stopping/restarting the daemon, and rechecks route reads during add/delete. Delete errors aggregate and preserve persistent identity/config. Planet import now obtains its old-value rollback snapshot through the checked getter.
-- Exact-head ZeroTier, XY-C1, WAN route, Process and AI Actions will be checked after commit. No local test/build claim.
+## Active task — ZeroTier checked NVRAM network-policy reliability
+- Startup identity selectors (moonid, secret, moon service, planet, network ID) use a checked five-key preflight before stopping/restarting the daemon.
+- Runtime NAT selector and static-route count/enable/IP/gateway now use `nvram get_checked`; whole enabled route table and NAT mode are preflighted before a daemon stop/restart; add/delete recheck values and fail closed. Planet-import rollback snapshots the previous NVRAM value via checked read.
+- The exact-head ZeroTier shell regression on `4927303...` passed all scenarios. Its Python contract failed on one stale assertion expecting legacy NAT getter text; no production-source failure was observed. This checker-only follow-up is pending exact-head validation.
+- Remaining direct legacy runtime reads are Moon-specific (`zerotiermoon_ip`, `zerotiermoon_id`); next independent slice should inspect and harden these with failure tests.
 
-## Next actions
-1. Inspect THIS COMMIT's exact-head ZeroTier shell regression and Python contract; repair the first failure without reducing coverage.
-2. Inspect same-SHA XY-C1 Build, TRX and artifact upload; L3 requires all three PASS.
-3. Continue remaining unchecked Moon selectors (`zerotiermoon_ip`, `zerotiermoon_id`) with focused failure tests.
-4. Check L4 router behavior; physical-device validation remains NOT VERIFIED.
+## Exact first actions for next session
+1. Fetch live main and inspect this checker correction's exact-head ZeroTier and AI Actions.
+2. Recheck XY-C1 `45131685922` on `4927303...`; require Build, TRX and artifact all complete successfully on one production-source SHA.
+3. Harden Moon IP/ID NVRAM reads, ensuring errors don't create/remove Moon state incorrectly.
+4. Recheck integrated HNAT/SFE/NAT-helper XY-C1 run `45129983650`; physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-L1 source review only until matching exact-head host regression passes; L2 requires ZeroTier shell and source contract; L3 requires same-SHA Build/TRX/artifact; L4 physical-router validation remains NOT VERIFIED.
+ZeroTier shell regression passed L2 on `4927303...`; Python contract failed only the stale NAT assertion and is corrected here. L3 requires same-SHA Build/TRX/artifact. L4 physical-router validation remains NOT VERIFIED.
 
 ## Cross-session mandate
-Small atomic commits, complete tree per commit, non-forced expected-SHA update of `main`, exact-SHA Actions, no backup mutation, no unverified test/build claims.
+Continue small source/test slices; one complete tree and atomic commit per logical task; update main only with `force:false` and expected parent SHA; inspect exact-SHA Actions; no backup mutation or unobserved result claims.
 
 ---
 # SESSION HANDOFF — Padavan 4.4
