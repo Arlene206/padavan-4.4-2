@@ -874,6 +874,31 @@ for signature, expected_update in (
     require("initial_folder_list_in_mount_path(mount_path) != 0" in mutation,
             signature + " must check the folder-list snapshot publication")
 
+mod_folder_body = function_body(
+    DISK_SOURCE,
+    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
+)
+mod_folder_compact = "".join(mod_folder_body.split())
+mod_accounts = mod_folder_compact.index("get_account_list(&acc_num,&account_list)")
+mod_begin = mod_folder_compact.index("disk_share_account_nvram_begin(&transaction)", mod_accounts)
+mod_validate = mod_folder_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    mod_begin
+)
+mod_live_check = mod_folder_compact.index("test_if_dir(full_path)", mod_validate)
+mod_refresh = mod_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", mod_live_check)
+mod_rename = mod_folder_compact.index("rename(full_path,new_full_path)", mod_refresh)
+mod_permissions = mod_folder_compact.index(
+    "disk_share_update_folder_permission_file(mount_path,account_list[i],target,new_target)",
+    mod_rename
+)
+mod_release = mod_folder_compact.index("disk_share_account_nvram_end(&transaction)", mod_permissions)
+require(mod_accounts < mod_begin < mod_validate < mod_live_check < mod_refresh <
+        mod_rename < mod_permissions < mod_release and
+        "get_account_list(" not in mod_folder_compact[mod_begin:] and
+        "add_folder(mount_path,folder)" not in mod_folder_compact,
+        "folder rename must revalidate the account snapshot and all live folder state under one writer lease through permission-file publication")
+
 permission_update = function_body(
     DISK_SOURCE, "static int\ndisk_share_update_folder_permission_file("
 )

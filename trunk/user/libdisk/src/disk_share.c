@@ -2018,8 +2018,9 @@ failed:
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
 	int result, i, saved_errno, first_error = 0;
-	int acc_num = 0;
+	int acc_num = 0, transaction_started = 0;
 	char **account_list = NULL;
+	struct nvram_transaction transaction;
 	char var_file[256];
 	char *target = NULL, *new_target = NULL;
 	char *full_path = NULL, *new_full_path = NULL;
@@ -2059,6 +2060,32 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	new_full_path[mount_len] = '/';
 	memcpy(new_full_path + mount_len + 1, new_folder, new_folder_len + 1);
 
+	/* The account inventory is captured before, then checked under, the lease. */
+	result = get_account_list(&acc_num, &account_list);
+	if (result != 0)
+		goto failed;
+	for (i = 0; i < acc_num; ++i) {
+		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+		                                       mount_path, account_list[i]) != 0)
+			goto failed;
+	}
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+		goto failed;
+
+	if (disk_share_account_nvram_begin(&transaction) != 0)
+		goto failed;
+	transaction_started = 1;
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
+		goto failed;
+
+	/*
+	 * All folder writers use this same lease. Recheck the live directory and
+	 * snapshot after acquisition so no concurrent rename/add/delete invalidates
+	 * the earlier path or name decisions.
+	 */
 	if (test_if_dir(full_path) != 1) {
 		errno = ENOENT;
 		goto failed;
@@ -2066,13 +2093,9 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
 	if (result < 0)
 		goto failed;
-	/*
-	 * The source directory already exists (checked above). If only the cached
-	 * folder snapshot is stale, rebuild it from the live directory instead
-	 * of calling add_folder(), whose mkdir() necessarily fails with EEXIST.
-	 */
 	if (result == 0 && initial_folder_list_in_mount_path(mount_path) != 0)
 		goto failed;
+
 	if (strcmp(folder, new_folder) == 0)
 		goto unchanged;
 
@@ -2105,18 +2128,6 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	memcpy(new_target + 1, new_folder, new_folder_len);
 	new_target[new_target_len - 1] = '=';
 	new_target[new_target_len] = '\0';
-
-	result = get_account_list(&acc_num, &account_list);
-	if (result != 0)
-		goto failed;
-	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-		                                       mount_path, account_list[i]) != 0)
-			goto failed;
-	}
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
-		goto failed;
 
 	if (rename(full_path, new_full_path) != 0)
 		goto failed;
@@ -2151,13 +2162,25 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 
 	free(target);
 	free(new_target);
-	free_2_dimension_list(&acc_num, &account_list);
-	return 0;
-
-unchanged:
 	free(full_path);
 	free(new_full_path);
 	free_2_dimension_list(&acc_num, &account_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0)
+		return -1;
+	transaction_started = 0;
+	return 0;
+
+unchanged:
+	free(target);
+	free(new_target);
+	free(full_path);
+	free(new_full_path);
+	free_2_dimension_list(&acc_num, &account_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0)
+		return -1;
+	transaction_started = 0;
 	return 0;
 
 failed:
@@ -2167,10 +2190,16 @@ failed:
 	free(full_path);
 	free(new_full_path);
 	free_2_dimension_list(&acc_num, &account_list);
+	if (transaction_started) {
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0)
+			logmessage("disk_share",
+				   "folder rename transaction release failed (errno %d)",
+				   errno ? errno : EIO);
+	}
 	errno = saved_errno;
 	return -1;
 }
-
 
 int test_if_exist_account(const char *const account)
 {
