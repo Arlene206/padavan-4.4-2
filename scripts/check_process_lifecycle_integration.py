@@ -65,6 +65,8 @@ lldt_main_source = (root / "trunk/user/lldt/src/main.c").read_text()
 lldt_osl_source = (root / "trunk/user/lldt/src/osl-linux.c").read_text()
 lldt_pidfile_policy = (root / "trunk/user/lldt/src/lldt_pidfile_policy.h").read_text()
 lldt_pidfile_test = (root / "trunk/user/lldt/src/tests/lldt_pidfile_policy.c").read_text()
+lldt_config_path_policy = (root / "trunk/user/lldt/src/lldt_config_path_policy.h").read_text()
+lldt_config_path_test = (root / "trunk/user/lldt/src/tests/lldt_config_path_policy.c").read_text()
 shared_makefile = (root / "trunk/user/shared/src/Makefile").read_text()
 netutils_source = (root / "trunk/user/shared/src/netutils.c").read_text()
 net_ifstats_policy = (root / "trunk/user/shared/src/net_ifstats_policy.h").read_text()
@@ -1720,6 +1722,21 @@ assert rstats_main.index("if (daemon(0, 0) < 0)") < rstats_main.index("if (alloc
 assert rstats_main.index("if (alloc_rstats() < 0)") < rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")')
 assert rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")') < rstats_main.index("while (!stopping)")
 
+lldt_conf_reader = c_function_body(lldt_main_source, "init_from_conf_file()")
+assert '#include "lldt_config_path_policy.h"' in lldt_main_source
+assert '#include <ctype.h>' in lldt_main_source
+assert 'sscanf(line, "%255s = %255s%n", var, val, &consumed)' in lldt_conf_reader
+assert "memchr(line" in lldt_conf_reader and "(size_t)numread" in lldt_conf_reader
+assert "isspace((unsigned char)line[consumed])" in lldt_conf_reader
+assert lldt_conf_reader.count("lldt_config_path_copy(val, path, path_capacity)") == 2
+assert lldt_conf_reader.count("size_t path_capacity = strlen(val) + 6") == 2
+assert "strncpy(" not in lldt_conf_reader
+assert "value_len >= capacity - prefix_len" in lldt_config_path_policy
+assert "memcpy(path + prefix_len, value, value_len + 1)" in lldt_config_path_policy
+for marker in ("LLTD bounded config icon path regression", "ENAMETOOLONG",
+               '"/etc/icon.ico"', '"/tmp/icon.ico"', "strlen(long_path) == 260"):
+    assert marker in lldt_config_path_test, marker
+
 lldt_main = c_function_body(lldt_main_source, "main(int argc, char **argv)")
 lldt_daemon = c_function_body(lldt_osl_source, "osl_become_daemon(osl_t *osl)")
 assert lldt_main.index("if (!opt_debug)") < lldt_main.index("osl_become_daemon(g_osl);")
@@ -1746,6 +1763,8 @@ for marker in ("expect_valid(no_nul", "expect_valid(maximum", "expect_invalid(ov
     assert marker in lldt_pidfile_test, marker
 assert '"trunk/user/lldt/src/lldt_pidfile_policy.h"' in process_workflow
 assert '"trunk/user/lldt/src/tests/lldt_pidfile_policy.c"' in process_workflow
+assert '"trunk/user/lldt/src/lldt_config_path_policy.h"' in process_workflow
+assert '"trunk/user/lldt/src/tests/lldt_config_path_policy.c"' in process_workflow
 assert "Compile and run LLTD PID-file parser regression" in process_workflow
 assert '"trunk/user/lldt/src/main.c"' in process_workflow
 assert '"trunk/user/lldt/src/osl-linux.c"' in process_workflow
@@ -1755,6 +1774,8 @@ assert '"trunk/user/rc/src/services.c"' in process_workflow
 assert '"trunk/user/rc/src/services.c"' in xy_workflow
 assert '"trunk/user/lldt/src/osl-linux.c"' in xy_workflow
 assert '"trunk/user/lldt/src/lldt_pidfile_policy.h"' in xy_workflow
+assert '"trunk/user/lldt/src/main.c"' in xy_workflow
+assert '"trunk/user/lldt/src/lldt_config_path_policy.h"' in xy_workflow
 print("LLTD/rstats detached startup postconditions and daemonization contracts: PASS")
 
 iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]

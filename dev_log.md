@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Bound LLTD config tokens and terminate icon paths
+
+- Source review found init_from_conf_file() used unbounded %s conversions into 256-byte var and val arrays. Both icon and jumbo-icon builders allocated enough space for /etc/ plus the value but copied only strlen(val) bytes with strncpy(), leaving each path without a NUL terminator.
+- Replaced the scans with 255-byte token widths and explicit detection of a truncated value token; reject embedded NUL input. Both icon paths now use a shared capacity-aware helper that preserves the legacy relative /etc/ prefix and copies the NUL terminator.
+- Added GNU89 ASan/UBSan tests for relative/absolute path compatibility, exact/short capacities, empty/NULL inputs and maximum-length values. Process source-contract workflow includes the new policy/test; XY-C1 path filters now include LLTD main.c and its policy header.
+- Parent main SHA 64c795f904f42daa738598274d648e0c8c2d1a07 has exact-head Process/AI/NVRAM/XY Actions pending at this checkpoint; no local test/build claim.
+
+---
+
 ## 2026-11-23 UTC — Make the LLTD PID pathname contract whitespace-independent
 
 - Exact-head Process workflow #45137197616 on `20c664edf48d919600670a0f7893504c5dcc6a6a` passed the new LLTD PID-file GNU89 ASan/UBSan regression (step 17), then failed at the final source checker. The existing assertion matched the PID-file format string, comma and `g_Progname` argument as one line; the production writer had intentionally wrapped the function call across lines.

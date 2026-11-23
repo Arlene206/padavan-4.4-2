@@ -25,9 +25,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <ctype.h>
 
 #define	DECLARING_GLOBALS
 #include "globals.h"
+#include "lldt_config_path_policy.h"
 
 #include "statemachines.h"
 #include "packetio.h"
@@ -65,6 +67,7 @@ init_from_conf_file()
     size_t  len  = 0;
     ssize_t numread;
     int     assigns;
+    int     consumed;
     char    default_icon_path[] = {"/etc/icon.ico"};
 
     /* Set default values for configuration options */
@@ -78,41 +81,49 @@ init_from_conf_file()
     while ((numread = getline(&line, &len, conf_file)) != -1)
     {
         var[0] = val[0] = '\0';
-        assigns = sscanf(line, "%s = %s", var, val);
+        consumed = 0;
+        assigns = sscanf(line, "%255s = %255s%n", var, val, &consumed);
+        if (numread > 0 && memchr(line, '\0', (size_t)numread) != NULL)
+        {
+            warn("line ignored - embedded NUL byte in configuration\\n");
+            continue;
+        }
+        if (assigns == 2 && line[consumed] != '\0' &&
+            !isspace((unsigned char)line[consumed]))
+        {
+            warn("line ignored - configuration value is too long\\n");
+            continue;
+        }
 
         if (assigns==2)
         {
             /* compare to each of the 2 allowed vars... */
             if (!strcmp(var,"icon")) {
                 char *path = NULL;
-                char *cur  = NULL;
+                size_t path_capacity = strlen(val) + 6;
 
-                path = xmalloc(strlen(val)+6); // always allow enough room for a possible prefix of '/etc/'
-                cur = path;
-
-                /* Check for leading '/' and prefix '/etc/' if missing */
-                if (val[0] != '/')
+                path = xmalloc(path_capacity);
+                if (lldt_config_path_copy(val, path, path_capacity) != 0)
                 {
-                    strcpy(cur,"/etc/"); cur += 5;
+                    warn("line ignored - icon path is invalid or too long\\n");
+                    xfree(path);
+                    continue;
                 }
-                strncpy(cur,val,strlen(val));
 
                 if (g_icon_path) xfree(g_icon_path);	// always use the most recent occurrence
                 g_icon_path = path;
                 DEBUG({printf("configvar 'g_icon_path' = %s\n", g_icon_path);})
             } else if (!strcmp(var,"jumbo-icon")) {
                 char *path = NULL;
-                char *cur  = NULL;
+                size_t path_capacity = strlen(val) + 6;
 
-                path = xmalloc(strlen(val)+6); // always allow enough room for a possible prefix of '/etc/'
-                cur = path;
-
-                /* Check for leading '/' and prefix '/etc/' if missing */
-                if (val[0] != '/')
+                path = xmalloc(path_capacity);
+                if (lldt_config_path_copy(val, path, path_capacity) != 0)
                 {
-                    strcpy(cur,"/etc/"); cur += 5;
+                    warn("line ignored - jumbo icon path is invalid or too long\\n");
+                    xfree(path);
+                    continue;
                 }
-                strncpy(cur,val,strlen(val));
 
                 if (g_jumbo_icon_path) xfree(g_jumbo_icon_path);	// always use the most recent occurrence
                 g_jumbo_icon_path = path;

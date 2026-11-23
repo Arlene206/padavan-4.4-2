@@ -1,30 +1,29 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this LLTD checker correction: 20c664edf48d919600670a0f7893504c5dcc6a6a.
+- Repository Arlene206/padavan-4.4-2; parent main for this LLTD config parser slice: 64c795f904f42daa738598274d648e0c8c2d1a07.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
-- No local checkout; no local shell tests/builds claimed. The new bounded PID parser regression is wired into the exact-head Process workflow.
+- No local checkout; host tests are executed by exact-SHA GitHub Actions only; no local test/build claim.
 
-## Exact-SHA Actions on parent main 96bfc395bf84bae9870ffa562cd90432cf7315f1
-- Watchdog signal lifecycle #45136454686 PASS.
-- AI handoff documentation #45136454674 PASS.
-- Process lifecycle inventory #45136454600 PASS.
-- XY-C1 firmware validation #45136454673 IN_PROGRESS at last poll; Build XY-C1, TRX and artifact upload not yet complete.
-- NVRAM transaction audit #45136454583 IN_PROGRESS at last poll.
+## Exact-SHA Actions
+- Parent SHA 20c664edf48d919600670a0f7893504c5dcc6a6a: AI handoff #45137197736 PASS; Process inventory #45137197649 PASS; LLTD PID parser GNU89 ASan/UBSan regression (Process step 17) PASS.
+- Process integration #45137197616 failed only at the final source contract due to a physical-line assertion for a wrapped PID pathname. Checker correction 64c795f904f42daa738598274d648e0c8c2d1a07 extracts the writer body before asserting the pathname.
+- Parent 20c664e XY-C1 #45137197654 and NVRAM audit #45137197675 were still in progress at last poll. Parent b1a86530 first LLTD parser test failed its NULL-text output-reset case; 20c664e fixed it.
+- Exact Actions for checker correction 64c795f are pending.
 
-## Active task — LLTD PID-file parsing and stale-process safety
-- `osl_write_pidfile()` read up to 16 bytes into an unterminated stack buffer then passed it to `strtol()`, which could read beyond the bytes returned by `read()`. It also treated every `kill(pid, 0)` error as a stale PID, so `EPERM` or another probe error could overwrite a possibly live daemon's PID file.
-- THIS slice adds a length-bounded strict decimal parser with overflow/zero/malformed-input rejection, regular-file and no-follow checks, EINTR/short-read handling, and fail-closed PID liveness semantics (only ESRCH proves the old PID absent). The write side now refuses symlinks/special files before truncation and handles partial/EINTR writes.
-- GNU89 ASan/UBSan parser tests and exact source contracts are wired into `.github/workflows/process-lifecycle-regression.yml`; LLTD product source/header are included in XY-C1 path filters. On exact SHA `b1a86530`, the parser test exposed that a NULL text input did not clear a provided output PID; commit `20c664e` fixes the invalid-input output contract. Exact SHA `20c664e` compiled and ran the new LLTD parser regression successfully (Process step 17 PASS), but the final source checker failed only because an existing PID-path assertion spanned a newline after the code was reformatted. THIS checker-only correction now scopes the path assertion to the extracted writer body. Parent exact SHA AI `45137197736` and Process inventory `45137197649` PASS; Process `45137197616` failed at final contract, XY-C1 `45137197654` and NVRAM audit `45137197675` remained in progress at last poll. No local test/build claim.
+## Active task — LLTD config parser memory safety
+- init_from_conf_file() used unbounded %s conversions into 256-byte var/val arrays. Both icon and jumbo-icon path builders allocated enough space for /etc/ plus the value but copied only strlen(val) bytes with strncpy(), leaving the result without a NUL terminator; later string/filesystem calls could read beyond the allocated path.
+- THIS slice bounds both scanned tokens, detects a truncated value token and embedded NUL bytes, and routes both icon options through a tested capacity-aware builder that always copies the terminating NUL and leaves output unchanged on errors.
+- GNU89 ASan/UBSan tests cover relative/absolute paths, exact capacity, insufficient capacity, null/empty arguments and maximum input length. Process workflow gains the test/source contract; XY-C1 path filters add actual lldt/src/main.c and helper header. Exact-head verification pending; no local test/build claim.
 
 ## Next actions
-1. Verify exact-head Process lifecycle and AI handoff Actions; inspect logs for any failure and repair the actual first cause.
-2. Poll same-SHA XY-C1 Build, TRX verification and artifact upload; do not claim L3 unless all three pass.
-3. Check the current NVRAM transaction audit without repeating completed checks.
-4. Continue another independent userland stability/security slice while those workflows are pending; physical router L4 remains NOT VERIFIED.
+1. Verify exact-head Process lifecycle test/source contract and AI handoff; fix the first real failure.
+2. Poll exact-SHA XY-C1 Build, TRX verification and artifact upload; L3 only when all three pass on the same SHA.
+3. Verify NVRAM transaction boundary audit on that same head.
+4. Continue another independent userland stability/security task while workflows are pending; physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The LLTD parser GNU89 ASan/UBSan regression passed on exact SHA 20c664e after fixing NULL-input output initialization. The Process workflow then failed only at the Python source checker because it expected the PID pathname and following argument on one physical line; THIS commit normalizes that contract by checking the pathname within the extracted writer body. AI handoff and Process inventory on 20c664e passed. XY-C1 and NVRAM transaction audit remained in progress; no local tests/builds claimed. L3 and hardware L4 are NOT VERIFIED.
+The LLTD PID parser GNU89 ASan/UBSan regression passed on exact SHA 20c664e after the NULL-input output contract fix. The Process workflow then failed only at a formatting-sensitive source assertion; commit 64c795f corrects that checker. The config parser changes and regression are committed with pending Actions; no local tests/builds claimed. L3 and hardware L4 are NOT VERIFIED.
 
 ## Cross-session mandate
 One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; frozen backup remains untouched; inspect exact-SHA Actions and never infer results.
