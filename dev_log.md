@@ -1,3 +1,9 @@
+## 2026-11-23 — GE all-analog orchestration checked I/O
+
+- Top-level C22/C45 setup and RX-offset/eye/bias accesses now use checked APIs; BMCR and 1e:145 restore only when snapshots succeeded.
+- Clear/check R50, TX-offset and TX-amplitude child flags before continuing. Failed child stops later work; all exits attempt entry-state and BG-output cleanup. Source contract added; exact-head CI pending.
+
+---
 ## 2026-11-23 — GE TX-offset checked MDIO
 
 - Replaced unchecked setup, four snapshots, comparator, waits and result writes with checked APIs; I/O errors abort, ordinary not-ready retains the 0x20 fallback.
@@ -465,10 +471,3 @@
 
 - Tightened the shared process-presence start policy: an UNKNOWN scan now maps zero or negative/non-errno error values to `EIO`, preserving only positive errno values. This prevents a negative internal result from escaping as a negative startup status or being confused with a launcher convention.
 - Added a GNU89 regression for negative inventory status and a source-contract assertion. Exact-SHA Process, Storage and XY-C1 Actions are tracked on the successor commit.
-
-## 2026-11-23 — Make USB printer daemon launch idempotent across hotplug retries
-
-- Fixed a retry-path duplication defect in U2EC/LPRng startup. A previous launch can leave the daemon running even when the subsequent NVRAM/hotplug acknowledgement fails; the retry path previously unlinked that live daemon's PID file and forked another instance.
-- `start_usb_printer_daemon()` now takes ownership of the daemon PID-file path, performs a tri-state process inventory before any cleanup or fork, treats RUNNING as an idempotent success, and fails closed on UNKNOWN. A stale PID file is removed only after a complete ABSENT scan, and unlink errors are propagated instead of ignored.
-- U2EC and LPRng no longer unlink PID files before the shared preflight. Existing process-presence policy regression and the Process/Storage source contracts are extended to assert RUNNING/UNKNOWN gates precede PID cleanup and fork. Exact-head Process/Storage/XY-C1 validation pending; hardware USB printer behavior remains unverified.
-

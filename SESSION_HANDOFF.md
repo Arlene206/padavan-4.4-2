@@ -1,11 +1,11 @@
 ### 2026-11-23 接力更新（最新工程检查点）
 
-- 当前 main 基线：`eeae2974c079c84ee5684244c904a212080849c2`。GE TX-amplitude `eeae2974` 已提交，exact-head Switch CLI / AI docs / XY-C1 仍在执行；先前 GE R50 `ca05cf9` 的 Switch CLI / AI docs / NVRAM PASS，XY-C1 Build 仍在执行。禁止将未完成的 XY-C1 运行报告为 L3。
-- 当前源码切片：`ge_cal_tx_offset()` setup、pair selector、四组控制寄存器 snapshot、page-7 comparator、两处 GE wait 及结果写全部改为 checked MDIO API。transport error 立即停止后续 pair；普通 not-ready 仍回退到既有 0x20 值，且不再读取无效 comparator。
-- 所有退出都会执行 checked common analog clear，并逐个尝试八个强制 DAC 寄存器、DB/DC/3E/DD cleanup；cleanup 组中途失败仍继续后续写入并保留首错误；只有所有清理成功才设置完成标记。
-- workflow 增加生产代码 source contract。无 MIPS/kernel build、无同 SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
+- 当前 main 基线：`103e1ce15aec380b8389b8d18a8ee2e03dc7e9bb`。GE Rext/R50/TX amplitude/TX offset 已完成独立 checked-I/O 切片；`103e1ce` 的 Switch CLI、AI docs PASS，NVRAM 和 XY-C1 Build 当时仍在执行，不能认定 L3。
+- 当前源码切片：`do_ge_phy_all_analog_cal()` 的 C22 BMCR 与全部 C45 setup/RX-offset/eye-pic/bias 读写改为 checked API；snapshot 标志确保只有成功获取的 BMCR 与 `1e:145` 才会 restore。
+- 编排器执行 R50、TX-offset、TX-amplitude 前清零并检查相应 completion flags；子事务失败停止 RX-offset 和 eye programming，进入 cleanup 恢复 BMCR、BG output、`1e:145` 和 `1f:273`。
+- 新增 Switch CLI source contract；无 MIPS/kernel build、无同 SHA XY-C1 L3、无硬件 L4 声明。
 - 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持冻结。
-- 下个 GPT 第一项：检查本次 SHA 的 Switch CLI / AI docs / NVRAM / XY-C1 exact-head Actions；然后审查 FE analog calibration 其它调用点与共享 cleanup 依赖，不重复修改已覆盖的 GE Rext/R50/TX-amp/TX-offset 函数。
+- 下个 GPT 第一项：检查当前提交 exact-head Actions；随后审查其它 FE analog calibration 函数的 unchecked wait 与 MDIO 读写。
 
 ---
 # Cross-session execution mandate
@@ -27,30 +27,24 @@
 
 ## Active task
 
-### GE TX-offset four-pair calibration checked snapshots and cleanup
+### GE all-analog orchestration checked I/O and child-failure propagation
 
-- Setup, per-pair C45 writes, four saved control-register reads, comparator samples and GE wait operations use checked APIs.
-- Ordinary not-ready timeout retains the existing 0x20 fallback; transport errors abort the remaining pair algorithm.
-- Every exit attempts common analog clear and the full forced-DAC/DB/DC/3E/DD cleanup group, retaining the first error and withholding the completion flag on cleanup failure.
-- Next action: inspect exact-head Actions, then audit remaining FE/GE analog calibration paths without reopening migrated GE Rext/R50/TX-amp/TX-offset work.
+- Top-level C22 BMCR and C45 setup/RX-offset/eye/bias accesses use checked APIs; saved state is restored only if its snapshot succeeded.
+- R50, TX-offset and TX-amplitude child completion flags are cleared before invocation and checked after return. Failed child aborts later analog programming.
+- All exits attempt BMCR/BG-output/1e:145/1f:273 restoration and preserve the first error.
+- Next candidate: audit remaining FE analog functions for checked wait/MDIO status and guaranteed cleanup.
 
-
-### LLDT configuration parser parity
-- The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
-- This source slice introduces `lldt_config_parse_policy.h` and applies it to both configuration readers. The optional tool now uses checked icon path copying and strict bounded numeric parsing with safe legacy defaults.
-- Dedicated LLDT #45238664960 and AI docs #45238664839 PASS on `38d3732`; GNU89/Werror/ASan/UBSan compile/runtime and source checks passed. Process umbrella #45239229205 PASS on `79f4d53`; current Process #45239753092 and AI docs #45239753450 PASS on `f688ae9`. XY-C1 #45237411963 on production-source SHA `eef4417` PASS, including Build, TRX and artifact upload.
-- `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- Previous TX-amplitude SHA `eeae2974`: exact-head Switch CLI / AI docs / XY-C1 statuses were still in progress at last check.
-- Current TX-offset source/workflow changes are new and require exact-head Actions.
-- No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 is claimed.
+- Previous GE TX-offset SHA `103e1ce`: Switch CLI and AI docs PASS; NVRAM and XY-C1 were in progress at last poll.
+- Current GE orchestrator source/workflow changes are new and require exact-head Actions.
+- No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact L3 or physical hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect this TX-offset SHA exact push Actions for Switch CLI, AI docs and XY-C1 (and NVRAM if scheduled), including Build/TRX/artifact outcomes.
-2. Diagnose exact-head failures from job logs; never equate queued, in-progress or skipped target steps with L3.
-3. Audit remaining FE analog calibration call sites and shared cleanup dependencies without repeating the GE Rext/R50/TX-amp/TX-offset migrations.
+1. Fetch live `main`; inspect the GE-orchestrator SHA exact Actions, including Switch CLI, AI docs, NVRAM and XY-C1 Build/TRX/artifact outcomes.
+2. Diagnose exact-head FAIL from job logs; do not count skipped/incomplete product steps as L3.
+3. Audit FE analog calibration wait, checked I/O and cleanup paths, beginning with `fe_cal_tx_amp()` or `fe_cal_tx_offset()`.
 
 
 ## Cross-session operating constraints

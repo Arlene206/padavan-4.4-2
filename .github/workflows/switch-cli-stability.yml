@@ -1123,6 +1123,27 @@ jobs:
           print("RAETH GE TX-offset routine checks all MDIO samples and always clears analog/force state: PASS")
           PY
 
+      - name: Validate GE all-analog orchestration propagates child and MDIO failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          body = source.split("void do_ge_phy_all_analog_cal(", 1)[1].split(
+              chr(10) + "static void mt7622_ephy_cal(", 1
+          )[0]
+          for legacy in ("tc_phy_read_dev_reg(", "tc_phy_write_dev_reg(",
+                         "tc_mii_read(", "tc_mii_write("):
+              assert legacy not in body
+          for checked in ("tc_phy_read_dev_reg_checked(", "tc_phy_write_dev_reg_checked(",
+                          "tc_mii_read_checked(", "tc_mii_write_checked("):
+              assert checked in body
+          assert "reg0_saved" in body and "dev145_saved" in body
+          assert "if (!ge_cal_r50_flag)" in body
+          assert "if (!ge_cal_tx_offset_flag)" in body
+          assert "if (!ge_cal_flag)" in body
+          print("GE analog orchestrator checked I/O, child result gates and saved-state restore: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

@@ -2690,24 +2690,59 @@ void do_ge_phy_all_analog_cal(u8 phyaddr)
 {
 	u16	reg0_temp, dev1e_145_temp, reg_temp;
 	u16	reg_tmp;
+	u32 read_value = 0;
+	int status = 0, cleanup_status;
+	int reg0_saved = 0, dev145_saved = 0;
 
-	tc_mii_write(phyaddr, 0x1f, 0x0000);/* g0 */
-	reg0_temp = tc_mii_read(phyaddr, 0x0);/* keep the default value */
+	status = tc_mii_write_checked(phyaddr, 0x1f, 0x0000);/* g0 */
+	if (status != 0)
+		goto cleanup;
+	status = tc_mii_read_checked(phyaddr, 0x0, &read_value);/* keep the default value */
+	if (status != 0)
+		goto cleanup;
+	reg0_temp = (u16)read_value;
+	reg0_saved = 1;
 /* set [12]AN disable, [8]full duplex, [13/6]1000Mbps */
-	tc_mii_write(phyaddr, 0x0,  0x0140);
+	status = tc_mii_write_checked(phyaddr, 0x0, 0x0140);
+	if (status != 0)
+		goto cleanup;
 
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x0100, 0xc000);/* BG voltage output */
-	dev1e_145_temp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0145);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0145, 0x1010);/* fix mdi */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0185, 0x0000);/* disable tx slew control */
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x0100, 0xc000);/* BG voltage output */
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x0145, &read_value);
+	if (status != 0)
+		goto cleanup;
+	dev1e_145_temp = (u16)read_value;
+	dev145_saved = 1;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0145, 0x1010);/* fix mdi */
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0185, 0x0000);/* disable tx slew control */
+	if (status != 0)
+		goto cleanup;
 
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x27c, 0x1f1f);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x27c, 0x3300);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x273, 0);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x27c, 0x1f1f);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x27c, 0x3300);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x273, 0);
+	if (status != 0)
+		goto cleanup;
 
-	reg_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x11);
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x11, &read_value);
+
+	if (status != 0)
+
+		goto cleanup;
+
+	reg_tmp = (u16)read_value;
 	reg_tmp = reg_tmp | (0xf << 12);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x11, reg_tmp);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x11, reg_tmp);
+	if (status != 0)
+		goto cleanup;
 
 	/* calibration start ============ */
 	ge_cal_flag = 1; /*GE calibration not calibration*/
@@ -2716,90 +2751,231 @@ void do_ge_phy_all_analog_cal(u8 phyaddr)
 
 	/* *** R50 Cal start ***************************** */
 	/*phyaddress = 0*/
+	ge_cal_r50_flag = 0;
 	ge_cal_r50(phyaddr, CALDLY);
+	if (!ge_cal_r50_flag) {
+		status = -EIO;
+		goto cleanup;
+	}
 	/* *** R50 Cal end *** */
 
 	/* *** Tx offset Cal start *********************** */
+	ge_cal_tx_offset_flag = 0;
 	ge_cal_tx_offset(phyaddr, CALDLY);
+	if (!ge_cal_tx_offset_flag) {
+		status = -EIO;
+		goto cleanup;
+	}
 	/* *** Tx offset Cal end *** */
 
 	/* *** Tx Amp Cal start *** */
+	ge_cal_flag = 0;
 	ge_cal_tx_amp(phyaddr, CALDLY);
+	if (!ge_cal_flag) {
+		status = -EIO;
+		goto cleanup;
+	}
 	/* *** Tx Amp Cal end *** */
 
 	/* *** Rx offset Cal start *************** */
 	/* 1e_96[15]:bypass_tx_offset_cal, Hw bypass, Fw cal */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0096, 0x8000);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0096, 0x8000);
+	if (status != 0)
+		goto cleanup;
 	/* tx/rx_cal_criteria_value */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0037, 0x0033);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0037, 0x0033);
+	if (status != 0)
+		goto cleanup;
 	/* [14]: bypass all calibration, [11]: bypass adc offset cal analog */
-	reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0039) & (~0x4800));
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x0039, &read_value);
+	if (status != 0)
+		goto cleanup;
+	reg_temp = (u16)(read_value & (~0x4800));
 	/* rx offset cal by Hw setup */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0039, reg_temp);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0039, reg_temp);
+	if (status != 0)
+		goto cleanup;
 	/* [12]: enable rtune calibration */
-	reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1f, 0x0107) & (~0x1000));
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1f, 0x0107, &read_value);
+	if (status != 0)
+		goto cleanup;
+	reg_temp = (u16)(read_value & (~0x1000));
 	/* disable rtune calibration */
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x0107, reg_temp);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x0107, reg_temp);
+	if (status != 0)
+		goto cleanup;
 	/* 1e_171[8:7]: bypass tx/rx dc offset cancellation process */
-	reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0171) & (~0x0180));
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0171, (reg_temp | 0x0180));
-	reg_temp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0039);
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x0171, &read_value);
+	if (status != 0)
+		goto cleanup;
+	reg_temp = (u16)(read_value & (~0x0180));
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0171, (reg_temp | 0x0180));
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x0039, &read_value);
 	/* rx offset calibration start */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0039, (reg_temp | 0x2000));
+	if (status != 0)
+		goto cleanup;
+	reg_temp = (u16)read_value;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0039, (reg_temp | 0x2000));
+	if (status != 0)
+		goto cleanup;
 	/* rx offset calibration end */
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0039, (reg_temp & (~0x2000)));
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0039, (reg_temp & (~0x2000)));
+	if (status != 0)
+		goto cleanup;
 	mdelay(10);	/* mdelay for Hw calibration finish */
-	reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0171) & (~0x0180));
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0171, reg_temp);
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x0171, &read_value);
+	if (status != 0)
+		goto cleanup;
+	reg_temp = (u16)(read_value & (~0x0180));
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0171, reg_temp);
+	if (status != 0)
+		goto cleanup;
 
-	tc_mii_write(phyaddr, 0x0,  reg0_temp);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x0100, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0145, dev1e_145_temp);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x273, 0x2000);
+	status = tc_mii_write_checked(phyaddr, 0x0, reg0_temp);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x0100, 0x0000);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0145, dev1e_145_temp);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x273, 0x2000);
+	if (status != 0)
+		goto cleanup;
 	/* *** Rx offset Cal end *** */
 	/*eye pic*/
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0, 0x018d);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x1, 0x01c7);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x2, 0x01c0);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3, 0x003a);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x4, 0x0206);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x5, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x6, 0x038a);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x7, 0x03c8);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x8, 0x03c0);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x9, 0x0235);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0xa, 0x0008);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0xb, 0x0000);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x0, 0x018d);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x1, 0x01c7);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x2, 0x01c0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3, 0x003a);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x4, 0x0206);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x5, 0x0000);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x6, 0x038a);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x7, 0x03c8);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x8, 0x03c0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x9, 0x0235);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0xa, 0x0008);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0xb, 0x0000);
+	if (status != 0)
+		goto cleanup;
 
 	/*tmp maybe changed*/
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x27c, 0x1111);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x27b, 0x47);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x273, 0x2200);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x27c, 0x1111);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x27b, 0x47);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x273, 0x2200);
+	if (status != 0)
+		goto cleanup;
 
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3a8, 0x0810);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3aa, 0x0008);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3ab, 0x0810);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3ad, 0x0008);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3ae, 0x0106);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3b0, 0x0001);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3b1, 0x0106);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3b3, 0x0001);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x18c, 0x0001);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x18d, 0x0001);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x18e, 0x0001);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x18f, 0x0001);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3a8, 0x0810);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3aa, 0x0008);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3ab, 0x0810);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3ad, 0x0008);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3ae, 0x0106);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3b0, 0x0001);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3b1, 0x0106);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3b3, 0x0001);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x18c, 0x0001);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x18d, 0x0001);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x18e, 0x0001);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x18f, 0x0001);
+	if (status != 0)
+		goto cleanup;
 
 	/*da_tx_bias1_b_tx_standby = 5'b10 (dev1eh_reg3aah[12:8])*/
-	reg_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x3aa);
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x3aa, &read_value);
+	if (status != 0)
+		goto cleanup;
+	reg_tmp = (u16)read_value;
 	reg_tmp = reg_tmp & ~(0x1f00);
 	reg_tmp = reg_tmp | 0x2 << 8;
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3aa, reg_tmp);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3aa, reg_tmp);
+	if (status != 0)
+		goto cleanup;
 
 	/*da_tx_bias1_a_tx_standby = 5'b10 (dev1eh_reg3a9h[4:0])*/
-	reg_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x3a9);
+	status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x3a9, &read_value);
+	if (status != 0)
+		goto cleanup;
+	reg_tmp = (u16)read_value;
 	reg_tmp = reg_tmp & ~(0x1f);
 	reg_tmp = reg_tmp | 0x2;
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x3a9, reg_tmp);
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x3a9, reg_tmp);
+	if (status != 0)
+		goto cleanup;
+cleanup:
+	if (reg0_saved) {
+		cleanup_status = tc_mii_write_checked(phyaddr, 0U, reg0_temp);
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
+	}
+	cleanup_status = tc_phy_write_dev_reg_checked(
+		phyaddr, 0x1fU, 0x0100U, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	if (dev145_saved) {
+		cleanup_status = tc_phy_write_dev_reg_checked(
+			phyaddr, 0x1eU, 0x0145U, dev1e_145_temp);
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
+	}
+	cleanup_status = tc_phy_write_dev_reg_checked(
+		phyaddr, 0x1fU, 0x0273U, 0x2000U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	if (status != 0)
+		pr_err_ratelimited("%s: GE all-analog calibration failed (port=%u status=%d)\\n",
+				   __func__, phyaddr, status);
 }
 
 static void mt7622_ephy_cal(void)
