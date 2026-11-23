@@ -1207,10 +1207,13 @@ del_folder_body = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
 )
 require("disk_share_permission_batch_prepare_rewrite(" in del_folder_body and
-        "disk_share_permission_batch_apply(" in del_folder_body and
-        "disk_share_permission_batch_rollback(" in del_folder_body and
-        "rmdir(staging_path)" in del_folder_body,
-        "folder deletion must use the checked, compensating permission batch before removing its staged directory")
+        "disk_share_folder_delete_batch(" in del_folder_body and
+        "disk_share_create_folder_staging_paths(" in del_folder_body and
+        "disk_share_remove_folder_path" in DISK_SOURCE and
+        "disk_share_refresh_folder_snapshot" in DISK_SOURCE and
+        "rmdir(staging_dir)" in del_folder_body and
+        "!staging_applied" in del_folder_body,
+        "folder deletion must prepare ACL images then delegate staged directory, permission publication and snapshot compensation to the tested transaction helper")
 
 permission_batch_prepare = function_body(
     DISK_SOURCE, "disk_share_permission_batch_prepare_rewrite("

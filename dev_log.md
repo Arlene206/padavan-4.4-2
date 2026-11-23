@@ -1,3 +1,11 @@
+## 2026-11-23 12:39 UTC+8 — Update the final delete-folder contract for extracted transaction policy
+
+- Exact-head libdisk run `45105379349` on `f7ab8fb2f2ccce29e11687f8b5cd5d8134c499e0` passed both GNU89 ASan/UBSan test binaries, including all five newly-added function-level delete transaction tests, then failed a final legacy assertion that still required `disk_share_permission_batch_apply()`, rollback, and `rmdir(staging_path)` to appear directly inside `del_folder()`.
+- The new implementation intentionally delegates these steps to `disk_share_folder_delete_batch()`; the stronger source contract already pins its move → refresh → ACL apply → staged remove → ACL rollback → directory restore → snapshot refresh ordering and all tests. Replaced the obsolete wrapper-level assertion with a check for preflight, staging-path creation, injected callbacks, and safe staging-parent cleanup. No product C or regression behavior changed.
+- Resulting commit: THIS COMMIT. Root `dev_log.md` now has 119 dated records (within the 20–119 protocol window); do not append another record without rotating/archive-preserving first.
+
+---
+
 ## 2026-11-23 12:34 UTC+8 — Exercise the complete folder deletion transaction with fault injection
 
 - Parent main SHA: `b08863f2dc42c06abf1b9765b8ca42f69025fd7b`. The rename path already had injected callback tests, but `del_folder()` still embedded directory staging, snapshot refresh, ACL publication, staged-directory removal and rollback directly in its public wrapper. That left the delete path's rollback combinations untested at policy level.
