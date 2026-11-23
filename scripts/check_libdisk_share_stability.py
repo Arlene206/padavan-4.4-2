@@ -208,13 +208,23 @@ require("if (clear_share_var_files(mount_path) != 0)" in initial_all and
         "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all,
         "full share metadata initialization must propagate every stage failure")
 create_all = function_body(
-    DISK_SOURCE, "int create_if_no_var_files(const char *const mount_path)"
+    DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
 )
-require("path_len >= (int)sizeof(var_file)" in create_all and
-        "result = modify_if_exist_new_folder" in create_all and
-        "result = initial_one_var_file_in_mount_path" in create_all and
-        "if (result != 0)" in create_all,
-        "incremental account metadata initialization must check path and write results")
+require("get_account_list(&acc_num, &account_list)" in create_all and
+        "create_if_no_var_files_with_accounts(mount_path, acc_num, account_list)" in create_all,
+        "public incremental metadata initialization must snapshot accounts once and delegate to its snapshot worker")
+create_with_accounts = function_body(
+    DISK_SOURCE, "create_if_no_var_files_with_accounts("
+)
+create_with_accounts_compact = "".join(create_with_accounts.split())
+require("get_account_list(" not in create_with_accounts and
+        "path_len>=(int)sizeof(var_file)" in create_with_accounts_compact and
+        "result=modify_if_exist_new_folder" in create_with_accounts_compact and
+        "result=initial_one_var_file_in_mount_path" in create_with_accounts_compact and
+        "if(result!=0)" in create_with_accounts_compact,
+        "incremental folder metadata worker must reuse a checked account snapshot and propagate every bounded path/write failure")
+
+
 
 
 require("#include <errno.h>" in DISK_IO_SOURCE,
@@ -791,34 +801,41 @@ add_folder_body = function_body(
     DISK_SOURCE,
     "int add_folder(const char *const mount_path, const char *const folder)"
 )
-add_compact = " ".join(add_folder_body.split())
-add_lookup = add_compact.index(
-    "test_if_exist_folder_in_mount_path(mount_path, folder)"
+add_compact = "".join(add_folder_body.split())
+add_inventory = add_compact.index("get_account_list(&acc_num,&account_list)")
+add_begin = add_compact.index("disk_share_account_nvram_begin(&transaction)", add_inventory)
+add_validate = add_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    add_begin
 )
-add_mkdir = add_compact.index("result = mkdir(full_path, 0777)", add_lookup)
+add_lookup = add_compact.index(
+    "test_if_exist_folder_in_mount_path(mount_path,folder)", add_validate
+)
+add_mkdir = add_compact.index("result=mkdir(full_path,0777)", add_lookup)
 add_publish = add_compact.index(
     "initial_folder_list_in_mount_path(mount_path)", add_mkdir
 )
 add_permissions = add_compact.index(
-    "create_if_no_var_files(mount_path)", add_publish
+    "create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)",
+    add_publish
 )
-add_lookup = add_compact.index("test_if_exist_folder_in_mount_path(mount_path,folder)")
-add_begin = add_compact.index("disk_share_account_nvram_begin(&transaction)")
-add_validate = add_compact.index("disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)")
-add_mkdir = add_compact.index("result=mkdir(full_path,0777)")
-add_publish = add_compact.index("initial_folder_list_in_mount_path(mount_path)", add_mkdir)
-add_permissions = add_compact.index("create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)", add_publish)
-add_rollback = add_compact.index("rmdir(full_path)", add_permissions)
-add_snapshot_restore = add_compact.index("initial_folder_list_in_mount_path(mount_path)", add_rollback)
-add_end = add_compact.index("disk_share_account_nvram_end(&transaction)", add_snapshot_restore)
-require(add_lookup < add_begin < add_validate < add_mkdir < add_publish <
-        add_permissions < add_rollback < add_snapshot_restore < add_end and
+add_success_end = add_compact.index(
+    "disk_share_account_nvram_end(&transaction)", add_permissions
+)
+add_rollback = add_compact.index("rmdir(full_path)", add_success_end)
+add_snapshot_restore = add_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", add_rollback
+)
+add_failed_end = add_compact.index(
+    "disk_share_account_nvram_end(&transaction)", add_snapshot_restore
+)
+require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
+        add_publish < add_permissions < add_success_end < add_rollback <
+        add_snapshot_restore < add_failed_end and
         "errno=EEXIST;" in add_compact and
         "errno=ENAMETOOLONG;" in add_compact and
-        "get_account_list(" in add_folder_body and
-        "disk_share_account_inventory_matches_locked(" in add_folder_body and
         "create_if_no_var_files(mount_path)" not in add_folder_body,
-        "add_folder must revalidate one account snapshot under the writer lease, initialize all permission files without nested reads, and roll back directory/snapshot on failure")
+        "add_folder must serialize with account mutations, initialize permission files from one checked snapshot, and roll back directory/snapshot on failure")
 
 
 del_folder = function_body(
