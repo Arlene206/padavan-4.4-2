@@ -114,7 +114,15 @@ jobs:
           stop = function_body(script, "func_stop()")
           assert "func_process_presence rpc.mountd" in stop
           assert "func_process_presence nfsd" in stop
-          assert stop.index("func_process_presence") < stop.index("killall")
+          assert "func_snapshot_processes" in stop
+          assert "func_process_identity_matches" in script
+          assert "func_signal_snapshot TERM rpc.mountd" in stop
+          assert "func_signal_snapshot 2 nfsd" in stop
+          assert "func_signal_snapshot 9 rpc.mountd" in stop
+          assert "func_signal_snapshot 9 nfsd" in stop
+          assert "killall" not in stop
+          assert stop.index("func_snapshot_processes rpc.mountd") < stop.index("func_signal_snapshot TERM rpc.mountd")
+          assert stop.index("func_snapshot_processes nfsd") < stop.index("func_signal_snapshot 2 nfsd")
           assert "inventory became unknown" in stop
           assert stop.index('if [ "$mountd_state" -ne 1 ] || [ "$nfsd_state" -ne 1 ]') < stop.index('/sbin/exportfs -ua')
           assert 'func_unmount_if_mounted /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs' in stop

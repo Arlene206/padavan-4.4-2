@@ -1,6 +1,7 @@
 #!/bin/sh
 
 proc_root="${NFSD_PROC_ROOT:-/proc}"
+nfsd_kill_command="kill"
 
 # Return 0 when exactly the expected source/filesystem is mounted at the
 # path, 1 when the path is unused, and 2 for conflicts or inventory errors.
@@ -109,6 +110,140 @@ func_process_presence()
 	done
 	return 1
 }
+
+
+# Capture a process start-time from field 22 of /proc/PID/stat. The comm
+# field is parenthesized and may itself contain spaces or closing parens;
+# discard through its final ") " delimiter before counting numeric fields.
+func_process_start_time()
+{
+	local process_pid="$1"
+	local process_dir="$proc_root/$process_pid"
+	local stat_line stat_tail process_start_time
+	local IFS=' '
+
+	[ -d "$process_dir" ] || return 1
+	if ! IFS= read -r stat_line < "$process_dir/stat"; then
+		[ ! -d "$process_dir" ] && return 1
+		return 2
+	fi
+	case "$stat_line" in
+		"$process_pid ("*) ;;
+		*) return 2 ;;
+	esac
+	stat_tail=\${stat_line##*) }
+	[ "$stat_tail" != "$stat_line" ] || return 2
+	set -- $stat_tail
+	[ "$#" -ge 20 ] || return 2
+	process_start_time=\${20}
+	case "$process_start_time" in
+		""|*[!0-9]*) return 2 ;;
+	esac
+	printf '%s\n' "$process_start_time"
+	return 0
+}
+
+# Snapshot only exact process names, recording PID and kernel start-time.
+# An unreadable/malformed matching process identity makes the whole snapshot
+# UNKNOWN; callers must not signal any process from a partial snapshot.
+func_snapshot_processes()
+{
+	local wanted_name="$1"
+	local process_dir process_pid process_comm process_start_time start_status
+
+	for process_dir in "$proc_root"/[0-9]*; do
+		[ -d "$process_dir" ] || continue
+		process_pid=\${process_dir##*/}
+		case "$process_pid" in
+			""|*[!0-9]*) continue ;;
+		esac
+		if ! IFS= read -r process_comm < "$process_dir/comm"; then
+			[ ! -d "$process_dir" ] && continue
+			return 2
+		fi
+		[ "$process_comm" = "$wanted_name" ] || continue
+
+		process_start_time=$(func_process_start_time "$process_pid")
+		start_status=$?
+		if [ "$start_status" -ne 0 ]; then
+			[ "$start_status" -eq 1 ] && [ ! -d "$process_dir" ] && continue
+			return 2
+		fi
+		printf '%s %s\n' "$process_pid" "$process_start_time" || return 2
+	done
+	return 0
+}
+
+# Revalidate both comm and start-time immediately before signalling. Linux
+# 4.4 has no pidfd interface, so this narrows (but cannot eliminate) the
+# final check-to-kill PID-reuse window.
+func_process_identity_matches()
+{
+	local process_pid="$1"
+	local wanted_name="$2"
+	local expected_start_time="$3"
+	local process_dir="$proc_root/$process_pid"
+	local process_comm actual_start_time start_status
+
+	case "$process_pid" in
+		""|*[!0-9]*) return 2 ;;
+	esac
+	[ -d "$process_dir" ] || return 1
+	if ! IFS= read -r process_comm < "$process_dir/comm"; then
+		[ ! -d "$process_dir" ] && return 1
+		return 2
+	fi
+	[ "$process_comm" = "$wanted_name" ] || return 1
+
+	actual_start_time=$(func_process_start_time "$process_pid")
+	start_status=$?
+	case "$start_status" in
+		0) ;;
+		1) return 1 ;;
+		*) return 2 ;;
+	esac
+	[ "$actual_start_time" = "$expected_start_time" ] && return 0
+	return 1
+}
+
+# Signal only identities captured in a complete snapshot and revalidated
+# just before kill(2). A process that vanished or changed identity is skipped.
+func_signal_snapshot()
+{
+	local signal_number="$1"
+	local wanted_name="$2"
+	local process_snapshot="$3"
+	local signal_status=0
+	local process_pid process_start_time identity_status
+
+	while IFS=' ' read -r process_pid process_start_time; do
+		[ -n "$process_pid" ] || continue
+		func_process_identity_matches "$process_pid" "$wanted_name" "$process_start_time"
+		identity_status=$?
+		case "$identity_status" in
+			0) ;;
+			1) continue ;;
+			*)
+				logger -t "NFS server" "process identity became unknown before signal (name=$wanted_name pid=$process_pid)"
+				signal_status=1
+				continue
+				;;
+		esac
+
+		if ! "$nfsd_kill_command" "-$signal_number" "$process_pid"; then
+			func_process_identity_matches "$process_pid" "$wanted_name" "$process_start_time"
+			identity_status=$?
+			if [ "$identity_status" -eq 0 ] || [ "$identity_status" -eq 2 ]; then
+				logger -t "NFS server" "cannot signal verified process (name=$wanted_name pid=$process_pid signal=$signal_number)"
+				signal_status=1
+			fi
+		fi
+	done <<EOF
+$process_snapshot
+EOF
+	return "$signal_status"
+}
+
 
 # rpcbind and rpc.mountd can daemonize before their children become visible
 # in procfs. Use a bounded readiness window rather than one immediate
@@ -354,16 +489,23 @@ func_stop()
 		return 1
 	fi
 
-	if [ "$mountd_state" -eq 0 ] || [ "$nfsd_state" -eq 0 ]; then
-		command -v killall >/dev/null 2>&1 || {
-			logger -t "NFS server" "killall is unavailable; refusing to stop NFS daemons"
-			return 127
-		}
-	fi
+	# Take complete PID/start-time snapshots for both daemons before the
+	# first signal. A partial snapshot must not authorize name-wide cleanup.
+	mountd_snapshot=$(func_snapshot_processes rpc.mountd) || {
+		logger -t "NFS server" "cannot snapshot rpc.mountd identities; refusing stop"
+		return 1
+	}
+	nfsd_snapshot=$(func_snapshot_processes nfsd) || {
+		logger -t "NFS server" "cannot snapshot nfsd identities; refusing stop"
+		return 1
+	}
 
-	# Stop rpc.mountd and the kernel NFS server before touching export state.
-	[ "$mountd_state" -eq 0 ] && killall -q rpc.mountd >/dev/null 2>&1 || :
-	[ "$nfsd_state" -eq 0 ] && killall -q -2 nfsd >/dev/null 2>&1 || :
+	# Preserve the legacy signal semantics: TERM for rpc.mountd, SIGINT for
+	# kernel nfsd. Only captured and just-revalidated process identities are hit.
+	func_signal_snapshot TERM rpc.mountd "$mountd_snapshot" ||
+		logger -t "NFS server" "one or more rpc.mountd TERM signals failed"
+	func_signal_snapshot 2 nfsd "$nfsd_snapshot" ||
+		logger -t "NFS server" "one or more nfsd SIGINT signals failed"
 
 	for i in 1 2 3 ; do
 		func_process_presence rpc.mountd
@@ -380,8 +522,18 @@ func_stop()
 
 	# Force termination only after the graceful stop window has expired.
 	if [ "$mountd_state" -eq 0 ] || [ "$nfsd_state" -eq 0 ]; then
-		[ "$mountd_state" -eq 0 ] && killall -q -9 rpc.mountd >/dev/null 2>&1 || :
-		[ "$nfsd_state" -eq 0 ] && killall -q -9 nfsd >/dev/null 2>&1 || :
+		mountd_snapshot=$(func_snapshot_processes rpc.mountd) || {
+			logger -t "NFS server" "cannot snapshot rpc.mountd identities for forced stop"
+			return 1
+		}
+		nfsd_snapshot=$(func_snapshot_processes nfsd) || {
+			logger -t "NFS server" "cannot snapshot nfsd identities for forced stop"
+			return 1
+		}
+		func_signal_snapshot 9 rpc.mountd "$mountd_snapshot" ||
+			logger -t "NFS server" "one or more rpc.mountd SIGKILL signals failed"
+		func_signal_snapshot 9 nfsd "$nfsd_snapshot" ||
+			logger -t "NFS server" "one or more nfsd SIGKILL signals failed"
 		for i in 1 2 3 ; do
 			func_process_presence rpc.mountd
 			mountd_state=$?
