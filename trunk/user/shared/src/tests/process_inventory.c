@@ -15,6 +15,7 @@ struct fake_process {
 	int stat_error;
 	int cmdline_error;
 	int disappear_on_cmdline;
+	int reuse_on_cmdline;
 };
 
 struct fake_context {
@@ -114,6 +115,14 @@ fake_read_file(void *opaque, const char *path, char *buffer,
 		process->stat_error = ENOENT;
 		errno = ENOENT;
 		return -1;
+	}
+	if (strcmp(kind, "cmdline") == 0 && process->reuse_on_cmdline) {
+		process->reuse_on_cmdline = 0;
+		snprintf(process->stat_text, sizeof(process->stat_text),
+			 "%ld (unrelated) S 1 123 123 0 0 0 0 0 0 0 10 20 0 0 20 0 1 0 98766 1024 1",
+			 (long)process->pid);
+		strcpy(process->cmdline, "/usr/bin/unrelated");
+		process->cmdline_length = strlen(process->cmdline) + 1;
 	}
 	if (error) {
 		errno = error;
@@ -270,6 +279,21 @@ test_pid_disappearing_between_stat_and_cmdline_is_skipped(void)
 	fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
 	context.processes[0].disappear_on_cmdline = 1;
 	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_ABSENT);
+	assert(snapshot.count == 0 && snapshot.items == NULL);
+}
+
+static void
+test_pid_reuse_between_stat_and_cmdline_is_unknown(void)
+{
+	const char *entries[] = { "123" };
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, "dnsmasq", "/usr/sbin/dnsmasq");
+	context.processes[0].reuse_on_cmdline = 1;
+	assert(run_scan(&context, &snapshot) == PROCESS_PRESENCE_UNKNOWN);
+	assert(snapshot.error == EAGAIN);
 	assert(snapshot.count == 0 && snapshot.items == NULL);
 }
 
@@ -478,6 +502,7 @@ main(void)
 	test_readdir_error_is_unknown();
 	test_disappeared_pid_is_skipped();
 	test_pid_disappearing_between_stat_and_cmdline_is_skipped();
+	test_pid_reuse_between_stat_and_cmdline_is_unknown();
 	test_permission_and_io_failures_are_unknown();
 	test_malformed_stat_and_missing_cmdline_are_unknown();
 	test_proc_state_codes_are_validated();

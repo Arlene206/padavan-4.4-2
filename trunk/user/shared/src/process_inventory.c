@@ -304,10 +304,13 @@ proc_read_identity(const char *process_name, pid_t pid,
 	char stat_buffer[PROCESS_STAT_BUFFER];
 	char cmdline[PROCESS_CMDLINE_BUFFER];
 	char state = '?';
+	char verified_state = '?';
+	struct process_identity verified_identity;
 	size_t stat_length, cmdline_length;
 	char *argv0, *first_end, *second, *second_end;
 	size_t argv0_length, argv1_length;
 	int path_length;
+	int matched = 0;
 
 	path_length = snprintf(path, sizeof(path), "/proc/%ld/stat", (long)pid);
 	if (path_length < 0 || path_length >= (int)sizeof(path)) {
@@ -376,20 +379,51 @@ proc_read_identity(const char *process_name, pid_t pid,
 			argv1_length = (size_t)(second_end - second);
 			identity->argv1_hash = proc_hash(second, argv1_length);
 		}
-		if (!strcmp(proc_basename(argv0), process_name) ||
-		    (identity->comm_truncated && argv1_length > 0 &&
-		     !strcmp(proc_basename(second), process_name)) ||
-		    (!identity->comm_truncated &&
-		     !strcmp(identity->comm, process_name))) {
-			ops->release(context, argv0);
-			return PROCESS_PRESENCE_RUNNING;
-		}
+		matched = !strcmp(proc_basename(argv0), process_name) ||
+			  (identity->comm_truncated && argv1_length > 0 &&
+			   !strcmp(proc_basename(second), process_name)) ||
+			  (!identity->comm_truncated &&
+			   !strcmp(identity->comm, process_name));
 		ops->release(context, argv0);
 	} else if (!identity->comm_truncated &&
 		   !strcmp(identity->comm, process_name)) {
-		return PROCESS_PRESENCE_RUNNING;
+		matched = 1;
 	}
-	return PROCESS_PRESENCE_ABSENT;
+	if (!matched)
+		return PROCESS_PRESENCE_ABSENT;
+
+	/*
+	 * stat and cmdline are separate procfs reads. If the PID is recycled
+	 * between them, the old comm/start time can be combined with the new
+	 * process command line. Verify the same process instance still owns the
+	 * PID before accepting a candidate match.
+	 */
+	path_length = snprintf(path, sizeof(path), "/proc/%ld/stat", (long)pid);
+	if (path_length < 0 || path_length >= (int)sizeof(path)) {
+		*error = ENAMETOOLONG;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (ops->read_file(context, path, stat_buffer, sizeof(stat_buffer),
+			   &stat_length) != 0) {
+		*error = errno ? errno : EIO;
+		return (*error == ENOENT || *error == ESRCH) ?
+			PROCESS_PRESENCE_ABSENT : PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (proc_parse_stat(stat_buffer, stat_length, pid, &verified_identity,
+			    &verified_state) != 0) {
+		*error = errno ? errno : EPROTO;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (verified_state == 'Z' || verified_state == 'X' ||
+	    verified_state == 'x')
+		return PROCESS_PRESENCE_ABSENT;
+	if (verified_identity.start_time != identity->start_time ||
+	    verified_identity.comm_truncated != identity->comm_truncated ||
+	    strcmp(verified_identity.comm, identity->comm) != 0) {
+		*error = EAGAIN;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	return PROCESS_PRESENCE_RUNNING;
 }
 
 enum process_presence

@@ -1,7 +1,5 @@
 Current implementation checkpoint (2026-11-23):
-- USB p910nd maps each `/dev/usb/lpN` to port N and process identity `p910Nd`; readiness rollback uses that same identity (`9e03bac`, `e6a6a38`). Exact USB modem #45225619186 on `e52ec8f` PASS, including the GNU89/ASan/UBSan policy fixture; exact Storage #45225619727 PASS.
-- Exact Process fail-closed #45225619509 exposed a source-contract ordering bug: its launcher-failure gate matched the earlier port-validation error branch. THIS checkpoint anchors it after `eval()`. Exact AI handoff #45225619139 failed on a missing exact phrase `one atomic main commit`; restored in SESSION_HANDOFF without weakening whole-tree atomic commit/CAS.
-- XY-C1 #45225109549 on e6a6 passed preflight and was building; TRX and artifact upload were pending at last check. No L3 result claimed.
+- Shared process inventory now revalidates candidate `/proc/PID/stat` after reading cmdline, preventing PID reuse from mixing an old process `comm` with a replacement's command line. A GNU89 fake-proc regression injects reuse between reads and requires UNKNOWN/EAGAIN with no partial snapshot. Exact Process regression and XY-C1 Build/TRX/artifact checks for this source commit are pending.
 
 Current implementation checkpoint (2026-11-23):
 - APCLI startup fail-closes on unknown SSID/WISP state; pure GNU89 policy regression passes in Wireless radio state #45217541665. USB modem/Process/Firewall/XY checker consumers were blocked by an undefined `WIRELESS_TEST` variable in `check_modem_wan_start_status.py`; the declaration is being added. XY-C1 Build/TRX/artifact did not run on the first attempt.

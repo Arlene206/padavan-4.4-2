@@ -43,6 +43,10 @@ Every session MUST inspect live repository state before ending. Record only mate
 
 ## Active task
 
+### Shared process inventory PID-reuse race
+- `trunk/user/shared/src/process_inventory.c` read stat and cmdline separately without checking that the PID still represented the same process. A reused PID could pair an old matching `comm` with the replacement's cmdline and falsely report RUNNING. Candidate matches now re-read stat; a changed start time/comm returns UNKNOWN/EAGAIN before the snapshot is accepted.
+- Regression `tests/process_inventory.c:test_pid_reuse_between_stat_and_cmdline_is_unknown` injects PID reuse between reads and requires UNKNOWN/EAGAIN with no partial snapshot. Exact GNU89 Process workflow and XY-C1 checks are pending for this source commit.
+
 ### USB p910nd per-device identity and late-child rollback
 
 - `trunk/user/rc/src/services_usb.c` scans canonical raw printer devices `/dev/usb/lp0` through `lp9`, maps each to the corresponding p910nd port, and derives the corresponding process identity `p9100d`…`p9109d`. The same port is passed to p910nd, readiness checks that identity, and the stop list includes the original launcher plus all per-port identities.
@@ -64,13 +68,14 @@ Every session MUST inspect live repository state before ending. Record only mate
 - e6a6 Process lifecycle #45225109772, Process inventory #45225109604, Storage #45225109612 and NVRAM #45225109574 were IN_PROGRESS at last poll.
 - e6a6 XY-C1 #45225109549 was IN_PROGRESS before target Build; inspect Build, TRX and artifact upload individually. No L3 result is claimed.
 - Physical multi-printer behavior / router L4: NOT VERIFIED.
+- Shared process inventory PID-reuse race: source and fake-proc regression added on this commit; exact GNU89 host and XY-C1 checks pending.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head USB modem, Process lifecycle, Storage, Process inventory, NVRAM and AI docs Actions for THIS checker correction. Confirm the p910nd policy compile/run and all three per-port rollback source contracts pass. Diagnose failures from the first causal log line.
-2. Resolve e6a6 XY-C1 #45225109549 and any exact-source successor. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on one identical product-source SHA.
-3. Continue a new bounded stability/security source fix from the live roadmap. Do not repeat APCLI, WAN ARP or p910nd source reviews absent new evidence.
-4. Use one complete tree per logical task and non-forced expected-SHA updates to main; preserve the frozen backup.
+1. Fetch live main and inspect exact-head Process lifecycle / inventory checks for this PID-reuse change. Confirm the fake-proc regression passes under GNU89/Werror and changed identity returns UNKNOWN/EAGAIN.
+2. Inspect XY-C1 Build, TRX validation and artifact upload on the identical source SHA. Claim L3 only if all three pass together.
+3. Continue a new bounded stability/security source slice from the live roadmap; do not re-audit completed APCLI, WAN ARP, p910nd or SCUT watchdog work without new evidence.
+4. Use a complete tree, one atomic main commit, and a non-forced expected-SHA update; preserve the frozen backup branch.
 
 ## Cross-session operating constraints
 

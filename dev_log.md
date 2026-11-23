@@ -1,3 +1,12 @@
+## 2026-11-23 — Revalidate process identity across PID reuse
+
+- `proc_read_identity()` previously read `/proc/PID/stat` and `cmdline` once each. If the process exited and its PID was recycled between those reads, the scanner could combine the old process's matching `comm` with the replacement's unrelated command line, incorrectly report RUNNING and suppress a daemon restart.
+- Candidate matches now re-read and parse stat before returning RUNNING. Disappearance/zombie is ABSENT; malformed or inaccessible stat remains UNKNOWN; changed start time/comm/truncation is fail-closed UNKNOWN/EAGAIN. The extra read occurs only after a candidate match.
+- Added `test_pid_reuse_between_stat_and_cmdline_is_unknown()`: the fake procfs reader replaces PID 123 between reads, and the test requires UNKNOWN/EAGAIN plus an empty snapshot. The Process regression path already tracks both source and test files; XY-C1 tracks the shared source.
+- Parent main: `8aa5ef84403044d2f81160d3fc259384c67c4c60`. Exact-SHA GNU89 host regression, process source audit and XY-C1 build/TRX/artifact checks are pending. No local build is claimed.
+
+---
+
 ## 2026-11-23 — Anchor p910nd launch failure contract and restore handoff rule
 
 - Exact e52 USB modem #45225619186 PASS, including the p910nd GNU89/Werror/ASan/UBSan mapping fixture and USB NVRAM/source contract. Exact e52 Storage #45225619727 PASS.
