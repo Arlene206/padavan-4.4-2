@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Normalize DBDC error-return contract and restore handoff heading
+
+- Exact Wireless run #45157423895 on source SHA d9a5f32 passed the GNU89 policy binaries, Ralink config/SKU ASan/UBSan, bridge membership and guest-isolation tests, then failed at the DBDC peer-band source contract (inline Python line 649). The checker compacts all whitespace from the function body but expected `return -<status>;` with a space; the production source correctly returns `-rt_radio_status` / `-wl_radio_status`, which becomes `return-<status>;` in the compact representation. Updated the assertion to use the compact form; no runtime source change.
+- Exact AI handoff run #45157423846 failed because the handoff used heading `## Exact first action for the next session`, while the validator requires `## Exact first action for the next GPT`. Restored the protocol/validator-required heading and refreshed the checkpoint facts.
+- XY-C1 run #45157423889 on d9a5f32 completed workflow SUCCESS but Build XY-C1, TRX verification and artifact upload were all SKIPPED because this was checker/docs-only. Product-source XY-C1 #45156939135 on 0e4976cf remained IN_PROGRESS at Build; TRX/artifact pending. The latest confirmed full Build/TRX/artifact PASS remains #45154946558 on descendant product SHA eac5eeee. No L3 is claimed for 0e4976cf.
+
+---
+
 ## 2026-11-23 UTC — Normalize wireless guest-gate source-contract offsets
 
 - Exact Wireless run #45156939172 on product-source SHA 0e4976cfbe86c81f5172ce2256ed71801952682d passed the wireless radio policy, Ralink config/SKU ASan/UBSan, bridge-membership and guest-isolation binaries, then failed the final Python source contract at its guest-activation ordering assertion. The checker compared offsets from whitespace-preserved function text with offsets from compacted text, so its ordering comparison used incompatible coordinate spaces; this was a checker defect, not a production/test failure.

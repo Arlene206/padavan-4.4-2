@@ -721,7 +721,7 @@ jobs:
               checked_peer = f'wireless_nvram_get_int_status("{peer_key}",&{peer_var})'
               assert checked_peer in compact
               assert f"if({peer_status}!=0)" in compact
-              assert f"return -{peer_status};" in compact
+              assert f"return-{peer_status};" in compact
               assert f"{peer_band} radio enable state" in body
               read_pos = compact.index(checked_peer)
               error_pos = compact.index(f"if({peer_status}!=0)", read_pos)
