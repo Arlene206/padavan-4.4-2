@@ -395,6 +395,10 @@ ordered(r,[
     "vpn_server_lifecycle_lock_release(lock_fd)",
     "start_vpn_server_locked()",
     "restart_firewall()",
+    "nfs_reload_status = reload_nfsd();",
+    "if (nfs_reload_status != 0)",
+    "vpn_server_restart_first_error(restart_status,",
+    "nfs_reload_status)",
     'restore_shared_xl2tpd_locked("after VPN server restart")',
     "vpn_server_lifecycle_lock_release(lock_fd)",
     "return restart_status;"

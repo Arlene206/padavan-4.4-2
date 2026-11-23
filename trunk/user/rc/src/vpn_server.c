@@ -1086,6 +1086,9 @@ restart_vpn_server(void)
 {
 	int lock_fd, start_status, stop_status, saved_errno = 0, restore_status;
 	int release_status, restart_status = 0, release_errno, firewall_status;
+#if defined(APP_NFSD)
+	int nfs_reload_status;
+#endif
 
 	if (get_ap_mode())
 		return 0;
@@ -1134,7 +1137,18 @@ restart_vpn_server(void)
 	}
 	restart_status = vpn_server_restart_first_error(restart_status, firewall_status);
 #if defined(APP_NFSD)
-	reload_nfsd();
+	nfs_reload_status = reload_nfsd();
+	if (nfs_reload_status != 0) {
+		int nfs_reload_errno = errno ? errno : EIO;
+
+		if (restart_status == 0)
+			saved_errno = nfs_reload_errno;
+		logmessage(VPNS_LOG_NAME,
+			   "VPN server restarted but NFS export/share reload failed (status=%d, errno=%d)",
+			   nfs_reload_status, nfs_reload_errno);
+	}
+	restart_status = vpn_server_restart_first_error(restart_status,
+						 nfs_reload_status);
 #endif
 	/* Restore L2TP WAN client/VPNC before releasing the lifecycle lock. */
 	restore_status = restore_shared_xl2tpd_locked("after VPN server restart");

@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Propagate VPN-triggered NFS export reload failures
+
+- `restart_vpn_server()` called `reload_nfsd()` under `APP_NFSD` but discarded its status. Because NFS exports include VPN ACL/network policy, a failed export generation or NFS reload could leave stale share access after a VPN configuration change while reporting restart success.
+- The restart now records/logs the NFS reload result, preserves the first errno, merges it into the overall restart status, and still attempts shared xl2tpd restoration and lifecycle unlock. The regression source contract enforces ordering; the existing first-error unit policy covers error precedence.
+- Exact-head VPN Actions and XY-C1 build pending.
+---
+
 ## 2026-11-23 UTC — Align VPN stop checker with checked ownership setter
 
 - Exact VPN lifecycle run #45185622799 on `374a3c45664f2f06a84c1b39375d86bb389ca2e1` compiled and passed every C regression, including the new NVRAM write-status cases; the source checker then failed because a pre-existing stop-order assertion still searched for the removed raw `nvram_set_int_temp()` call.
