@@ -224,7 +224,16 @@ bound = c_function_body(lan, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
 publish = c_function_body(lan, "lan_dhcp_publish_hosts_and_schedule_retry(")
 assert "lan_hosts_retry" not in lan
 
-assert "refresh_hosts = lan_dhcp_hosts_refresh_required( is_changed, is_renew, get_ap_mode())" in compact(bound)
+bound_compact = compact(bound)
+assert "ap_mode_status = get_ap_mode_status(&is_ap_mode);" in bound_compact
+assert "refresh_mode_status = lan_dhcp_hosts_refresh_ap_mode_resolve( ap_mode_status, is_ap_mode, &refresh_as_ap);" in bound_compact
+assert "if (refresh_mode_status != 0)" in bound_compact
+assert "treating as AP (status=%d)" in bound
+assert "get_ap_mode()" not in bound
+assert "refresh_hosts = lan_dhcp_hosts_refresh_required( is_changed, is_renew, refresh_as_ap)" in bound_compact
+assert bound_compact.index("get_ap_mode_status(&is_ap_mode)") < bound_compact.index("lan_dhcp_hosts_refresh_ap_mode_resolve(")
+assert bound_compact.index("lan_dhcp_hosts_refresh_ap_mode_resolve(") < bound_compact.index("refresh_hosts = lan_dhcp_hosts_refresh_required(")
+assert "test_host_refresh_treats_unknown_mode_as_ap" in callback_test
 assert 'nvram_match("lan_hosts_retry"' not in bound
 assert "if (refresh_hosts)" in bound
 assert "lan_dhcp_publish_hosts_and_schedule_retry(" in bound

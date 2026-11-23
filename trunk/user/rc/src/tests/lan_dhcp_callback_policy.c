@@ -73,6 +73,26 @@ test_ap_same_value_renew_always_refreshes_hosts(void)
 }
 
 static void
+test_host_refresh_treats_unknown_mode_as_ap(void)
+{
+	int refresh_as_ap = 0;
+
+	assert(lan_dhcp_hosts_refresh_ap_mode_resolve(0, 0, &refresh_as_ap) == 0);
+	assert(refresh_as_ap == 0);
+	assert(lan_dhcp_hosts_refresh_ap_mode_resolve(0, 1, &refresh_as_ap) == 0);
+	assert(refresh_as_ap == 1);
+
+	/* A read failure must preserve the AP retry opportunity. */
+	refresh_as_ap = 0;
+	assert(lan_dhcp_hosts_refresh_ap_mode_resolve(EIO, 0, &refresh_as_ap) == EIO);
+	assert(refresh_as_ap == 1);
+	refresh_as_ap = 0;
+	assert(lan_dhcp_hosts_refresh_ap_mode_resolve(ENODEV, 0, &refresh_as_ap) == ENODEV);
+	assert(refresh_as_ap == 1);
+	assert(lan_dhcp_hosts_refresh_ap_mode_resolve(0, 1, NULL) == EINVAL);
+}
+
+static void
 test_networkmap_refreshes_changed_address_renewals(void)
 {
 	assert(lan_dhcp_networkmap_refresh_required(0, 0) == 1);
@@ -137,6 +157,7 @@ main(void)
 {
 	test_deconfig_metadata_restores_static_values_and_clears_dhcp_options();
 	test_ap_lan_protocol_mode_read_failure_fails_closed();
+	test_host_refresh_treats_unknown_mode_as_ap();
 	test_runtime_metadata_refresh_prepares_atomic_four_key_tuple();
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
 	test_watchdog_and_monitor_notification_failures_are_ancillary();

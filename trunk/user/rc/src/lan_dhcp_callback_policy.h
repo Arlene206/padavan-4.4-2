@@ -110,4 +110,22 @@ lan_dhcp_ap_mode_resolve(int read_status, int matches, int *use_dhcp)
 	return 0;
 }
 
+/*
+ * Unknown AP/router mode must prefer an AP host refresh: skipping it could
+ * leave stale leases in hosts after an AP RENEW. The caller logs the returned
+ * read error while retaining the conservative output for its retry path.
+ */
+static inline int
+lan_dhcp_hosts_refresh_ap_mode_resolve(int mode_status, int is_ap_mode,
+				       int *refresh_as_ap)
+{
+	if (!refresh_as_ap)
+		return EINVAL;
+	*refresh_as_ap = 1;
+	if (mode_status != 0)
+		return mode_status;
+	*refresh_as_ap = is_ap_mode != 0;
+	return 0;
+}
+
 #endif /* PADAVAN_LAN_DHCP_CALLBACK_POLICY_H */

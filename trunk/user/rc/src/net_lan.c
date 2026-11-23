@@ -3062,6 +3062,8 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	int nvram_rollback_status = 0, network_rollback_status = 0;
 	int network_rollback_cleanup_status = 0, network_transaction_applied = 0;
 	int refresh_hosts;
+	int is_ap_mode = 1, refresh_as_ap = 1;
+	int ap_mode_status, refresh_mode_status;
 	struct dhcp_lease_nvram_value lease_state[7];
 	struct lan_dhcp_bound_context context;
 	struct lan_dhcp_bound_nvram_state nvram_state;
@@ -3196,8 +3198,21 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	lease_state[6].name = "lan_lease_t";
 	lease_state[6].value = lease_text;
 	lease_state[6].previous_value = old_lease;
+	/*
+	 * A failed AP/router mode read must not suppress the periodic AP hosts
+	 * refresh fallback on an otherwise unchanged RENEW. Treat unknown mode
+	 * conservatively as AP; host publication is ancillary to the committed
+	 * lease and its failure is handled by the existing retry path.
+	 */
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	refresh_mode_status = lan_dhcp_hosts_refresh_ap_mode_resolve(
+		ap_mode_status, is_ap_mode, &refresh_as_ap);
+	if (refresh_mode_status != 0)
+		logmessage("DHCP LAN Client",
+			   "cannot verify AP/router mode before LAN DHCP host refresh; treating as AP (status=%d)",
+			   refresh_mode_status);
 	refresh_hosts = lan_dhcp_hosts_refresh_required(
-		is_changed, is_renew, get_ap_mode());
+		is_changed, is_renew, refresh_as_ap);
 
 	context.lan_ifname = lan_ifname;
 	context.lan_gateway = gateway_buf;
