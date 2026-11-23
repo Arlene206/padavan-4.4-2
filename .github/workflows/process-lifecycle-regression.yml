@@ -46,6 +46,7 @@ on:
       - "trunk/user/lldt/src/lldt_pidfile_policy.h"
       - "trunk/user/lldt/src/tests/lldt_pidfile_policy.c"
       - "trunk/user/lldt/src/lldt_config_path_policy.h"
+      - "trunk/user/lldt/src/lldt_config_parse_policy.h"
       - "trunk/user/lldt/src/tests/lldt_config_path_policy.c"
       - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/openssh/sshd.sh"

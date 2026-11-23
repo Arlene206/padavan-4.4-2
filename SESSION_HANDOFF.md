@@ -18,6 +18,9 @@
 
 - Exact LLDT run #45238183801 on `d0e68ad`: GNU89/Werror/ASan/UBSan compile and parser regression completed PASS; source checker failed only because it incorrectly expected two XY-C1 header path entries. The XY-C1 firmware workflow has one push-path filter (no PR trigger); checker-only correction now accepts one. Process inventory #45238182222 PASS; AI docs #45238182196 PASS. Process fail-closed #45238182167 and NVRAM audit #45238182242 remained pending at last poll.
 
+- On `d0e68ad217cb910e877dd69b6f4ce1d2b8abbf53`, LLDT run #45238183801 passed compile and all GNU89/ASan/UBSan fixture runtime cases, then failed the static source checker only because its XY-C1 path count expected two entries while the workflow has one push-only trigger. Commit `38d3732` corrected that test expectation.
+- The same d0 Process umbrella #45238182167 failed only at `scripts/check_process_lifecycle_integration.py`: a stale assertion still expected the former inline `sscanf("%255s = %255s%n")` parser after `main.c` had switched to shared `lldt_config_parse_policy.h`. This commit aligns the integration checker and adds its path trigger. Process inventory #45238182222 and AI docs #45238182196 PASS. NVRAM audit #45238182242 was PENDING at last poll.
+
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -41,10 +44,11 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect the latest exact-head LLDT parser/source-contract and Process Actions. The `d0e68ad` SHA already passed the GNU89/Werror/ASan/UBSan compile and all parser fixture cases; its Python checker failed only on an over-strict XY-C1 path count (the workflow has one push-only path filter). This checker correction is committed separately; require fresh exact-SHA LLDT and Process PASS.
-2. The earlier `eef4417` failed test compilation due double-escaped NUL character constants; `14be2b0` fixed those, and the fixture then reached execution. `d0e68ad` fixed the remaining double-escaped CR/LF test strings and verified the parser logic.
-3. On `d0e68ad`, Process inventory #45238182222 and AI docs #45238182196 PASS. Process fail-closed #45238182167 and NVRAM audit #45238182242 were in progress. Verify latest statuses; XY-C1 #45237411963 was still in progress on the production-source SHA `eef4417`.
-4. When exact LLDT and Process regressions pass, continue the next concrete whole-userland reliability/security fix. Do not wait on independent PENDING Actions; preserve backup and use complete-tree, non-forced expected-SHA commits.
+1. Fetch live `main` and verify exact-head Process lifecycle + LLDT parser workflows after the integration-checker correction. The LLDT fixture itself passed GNU89/Werror/ASan/UBSan runtime cases on `d0e68ad`; follow-up static checker fixes now validate the shared parser policy and new workflow input.
+2. Previous LLDT failures were test-contract defects, not confirmed production parser faults: `eef4417` had multi-character NUL literals; `14be2b0` corrected NUL but left literal backslash-n/r strings; `d0e68ad` fixed those and passed runtime cases, then failed a stale XY-C1 path-count expectation, corrected in `38d3732`.
+3. The Process umbrella on `d0e68ad` failed at the old inline-`sscanf` assertion in `check_process_lifecycle_integration.py`. This current commit updates that integration contract and adds `lldt_config_parse_policy.h` to Process workflow path filters; re-run exact Process tests.
+4. On `d0e68ad`, Process inventory #45238182222 and AI docs #45238182196 PASS, while NVRAM audit #45238182242 was PENDING. XY-C1 #45237411963 on `eef4417` was still in progress at last poll; check exact completion before making L3 statements.
+5. Once exact LLDT and Process checks pass, continue the next concrete whole-userland reliability/security task. Keep the backup branch immutable and use complete-tree non-forced expected-SHA commits.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.

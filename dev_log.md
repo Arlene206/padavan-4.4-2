@@ -1,3 +1,10 @@
+## 2026-11-23 — Align process integration contract with the shared LLDT parser
+
+- Exact LLDT parser regression #45238183801 on `d0e68ad` passed GNU89/Werror/ASan/UBSan compile and all runtime fixture assertions, then exposed only an over-strict LLDT checker expectation about the XY-C1 workflow's one push-only path filter. That expectation was corrected in `38d3732`.
+- The same `d0e68ad` Process integration run #45238182167 then exposed a stale pre-refactor LLDT assertion requiring the old inline `sscanf`/`memchr` parser. Updated the integration contract to verify the shared bounded parser, embedded-NUL rejection, token-capacity checks, checked icon path copy and new workflow header triggers. Process regression and checker must pass on a fresh exact SHA.
+
+---
+
 ## 2026-11-23 — Scope XY-C1 source-trigger assertion to its push filter
 
 - The corrected parser fixture on `d0e68ad` compiled and all GNU89/Werror/ASan/UBSan regression cases passed (#45238183801, compile/run step PASS). The source checker then failed because it required the production header to appear twice in XY-C1 workflow filters, while this firmware-only workflow intentionally has a single `push.paths` filter and no pull-request trigger.
