@@ -124,6 +124,13 @@ static int ra_switch_mdio_write(void *context, unsigned int port,
 	return mii_mgr_write(port, reg, value) ? 0 : -EIO;
 }
 
+static int ra_switch_mdio_write_cl45(unsigned int port,
+					   unsigned int dev, unsigned int reg,
+					   unsigned int value)
+{
+	return mii_mgr_write_cl45(port, dev, reg, value) ? 0 : -EIO;
+}
+
 static int tc_phy_read_page_reg_checked(u8 port, u8 page, u8 reg,
 					int local, u32 *value)
 {
@@ -2996,11 +3003,17 @@ static int setup_internal_gsw(void)
 
 	for (i = 0; i <= 4; i++) {
 		/*turn off PHY */
-		mii_mgr_read(i, 0x0, &reg_value);
+		status = ra_switch_mdio_read(NULL, i, 0x0, &reg_value);
+		if (status != 0)
+			goto mdio_error;
 		reg_value |= (0x1 << 11);
-		mii_mgr_write(i, 0x0, reg_value);
+		status = ra_switch_mdio_write(NULL, i, 0x0, reg_value);
+		if (status != 0)
+			goto mdio_error;
 	}
-	mii_mgr_write(31, 0x7000, 0x3);	/* reset switch */
+	status = ra_switch_mdio_write(NULL, 31, 0x7000, 0x3);	/* reset switch */
+	if (status != 0)
+		goto mdio_error;
 	usleep_range(100, 110);
 
 	#if defined(CONFIG_GE1_RGMII_FORCE_1200)
@@ -3017,12 +3030,18 @@ static int setup_internal_gsw(void)
 
 	/* (GE1, Force 1000M/FD, FC ON) */
 	sys_reg_write(RALINK_ETH_SW_BASE + 0x100, 0x2105e33b);
-	mii_mgr_write(31, 0x3600, 0x5e33b);
-	mii_mgr_read(31, 0x3600, &reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x3600, 0x5e33b);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 31, 0x3600, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	/* (GE2, Link down) */
 	sys_reg_write(RALINK_ETH_SW_BASE + 0x200, 0x00008000);
 
-	mii_mgr_read(31, 0x7804, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7804, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value &= ~(1 << 8);	/* Enable Port 6 */
 	reg_value |= (1 << 6);	/* Disable Port 5 */
 	reg_value |= (1 << 13);	/* Port 5 as GMAC, no Internal PHY */
@@ -3034,7 +3053,9 @@ static int setup_internal_gsw(void)
 		/*GMAC2= RGMII mode */
 		reg_bit_zero(SYSCFG1, 14, 2);
 		if (ei_local->architecture & GE2_RGMII_AN) {
-			mii_mgr_write(31, 0x3500, 0x56300);
+			status = ra_switch_mdio_write(NULL, 31, 0x3500, 0x56300);
+			if (status != 0)
+				goto mdio_error;
 			/* (GE2, auto-polling) */
 			sys_reg_write(RALINK_ETH_SW_BASE + 0x200, 0x21056300);
 			reg_value |= (1 << 6);	/* disable MT7530 P5 */
@@ -3042,7 +3063,9 @@ static int setup_internal_gsw(void)
 
 		} else {
 			/* MT7530 P5 Force 1000 */
-			mii_mgr_write(31, 0x3500, 0x5e33b);
+			status = ra_switch_mdio_write(NULL, 31, 0x3500, 0x5e33b);
+			if (status != 0)
+				goto mdio_error;
 			/* (GE2, Force 1000) */
 			sys_reg_write(RALINK_ETH_SW_BASE + 0x200, 0x2105e33b);
 			reg_value &= ~(1 << 6);	/* enable MT7530 P5 */
@@ -3056,8 +3079,12 @@ static int setup_internal_gsw(void)
 	reg_value &= ~(1 << 5);
 	reg_value |= (1 << 16);	/* change HW-TRAP */
 	pr_info("change HW-TRAP to 0x%x\n", reg_value);
-	mii_mgr_write(31, 0x7804, reg_value);
-	mii_mgr_read(31, 0x7800, &reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7804, reg_value);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 31, 0x7800, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value = (reg_value >> 9) & 0x3;
 	if (reg_value == 0x3) {	/* 25Mhz Xtal */
 		xtal_mode = 1;
@@ -3065,16 +3092,28 @@ static int setup_internal_gsw(void)
 	} else if (reg_value == 0x2) {	/* 40Mhz */
 		xtal_mode = 2;
 		/* disable MT7530 core clock */
-		mii_mgr_write_cl45(0, 0x1f, 0x410, 0x0);
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x410, 0x0);
+		if (status != 0)
+			goto mdio_error;
 
-		mii_mgr_write_cl45(0, 0x1f, 0x40d, 0x2020);
-		mii_mgr_write_cl45(0, 0x1f, 0x40e, 0x119);
-		mii_mgr_write_cl45(0, 0x1f, 0x40d, 0x2820);
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x40d, 0x2020);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x40e, 0x119);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x40d, 0x2820);
+		if (status != 0)
+			goto mdio_error;
 		usleep_range(20, 30);	/* suggest by CD */
 	#if defined(CONFIG_GE1_RGMII_FORCE_1200)
-		mii_mgr_write_cl45(0, 0x1f, 0x410, 0x3);
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x410, 0x3);
+		if (status != 0)
+			goto mdio_error;
 	#else
-		mii_mgr_write_cl45(0, 0x1f, 0x410, 0x1);
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x410, 0x1);
+		if (status != 0)
+			goto mdio_error;
 	#endif
 
 	} else {
@@ -3083,30 +3122,58 @@ static int setup_internal_gsw(void)
 
 	/* set MT7530 central align */
 	#if !defined(CONFIG_GE1_RGMII_FORCE_1200)  /* for RGMII 1000HZ */
-	mii_mgr_read(31, 0x7830, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7830, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value &= ~1;
 	reg_value |= 1 << 1;
-	mii_mgr_write(31, 0x7830, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7830, reg_value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(31, 0x7a40, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7a40, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value &= ~(1 << 30);
-	mii_mgr_write(31, 0x7a40, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7a40, reg_value);
+	if (status != 0)
+		goto mdio_error;
 
 	reg_value = 0x855;
-	mii_mgr_write(31, 0x7a78, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7a78, reg_value);
+	if (status != 0)
+		goto mdio_error;
 	#endif
 
-	mii_mgr_write(31, 0x7b00, 0x104);	/* delay setting for 10/1000M */
-	mii_mgr_write(31, 0x7b04, 0x10);	/* delay setting for 10/1000M */
+	status = ra_switch_mdio_write(NULL, 31, 0x7b00, 0x104);	/* delay setting for 10/1000M */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7b04, 0x10);	/* delay setting for 10/1000M */
+	if (status != 0)
+		goto mdio_error;
 
 	/*Tx Driving */
-	mii_mgr_write(31, 0x7a54, 0x88);	/* lower GE1 driving */
-	mii_mgr_write(31, 0x7a5c, 0x88);	/* lower GE1 driving */
-	mii_mgr_write(31, 0x7a64, 0x88);	/* lower GE1 driving */
-	mii_mgr_write(31, 0x7a6c, 0x88);	/* lower GE1 driving */
-	mii_mgr_write(31, 0x7a74, 0x88);	/* lower GE1 driving */
-	mii_mgr_write(31, 0x7a7c, 0x88);	/* lower GE1 driving */
-	mii_mgr_write(31, 0x7810, 0x11);	/* lower GE2 driving */
+	status = ra_switch_mdio_write(NULL, 31, 0x7a54, 0x88);	/* lower GE1 driving */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7a5c, 0x88);	/* lower GE1 driving */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7a64, 0x88);	/* lower GE1 driving */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7a6c, 0x88);	/* lower GE1 driving */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7a74, 0x88);	/* lower GE1 driving */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7a7c, 0x88);	/* lower GE1 driving */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 31, 0x7810, 0x11);	/* lower GE2 driving */
+	if (status != 0)
+		goto mdio_error;
 	/*Set MT7623 TX Driving */
 	sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x0354, 0x88);
 	sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x035c, 0x88);
@@ -3142,17 +3209,31 @@ static int setup_internal_gsw(void)
 	mt7530_phy_setting();
 	for (i = 0; i <= 4; i++) {
 		/*turn on PHY */
-		mii_mgr_read(i, 0x0, &reg_value);
+		status = ra_switch_mdio_read(NULL, i, 0x0, &reg_value);
+		if (status != 0)
+			goto mdio_error;
 		reg_value &= ~(0x1 << 11);
-		mii_mgr_write(i, 0x0, reg_value);
+		status = ra_switch_mdio_write(NULL, i, 0x0, reg_value);
+		if (status != 0)
+			goto mdio_error;
 	}
 
-	mii_mgr_read(31, 0x7808, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7808, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value |= (3 << 16);	/* Enable INTR */
-	mii_mgr_write(31, 0x7808, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7808, reg_value);
+	if (status != 0)
+		goto mdio_error;
 
 	iounmap(gpio_base_virt);
 	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: internal switch MDIO setup failed: %d\\n",
+			   __func__, status);
+	iounmap(gpio_base_virt);
+	return status;
 }
 
 void setup_external_gsw(void)
