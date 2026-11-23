@@ -1,3 +1,14 @@
+## 2026-11-23 — Handoff checkpoint
+
+- Live main SHA before this documentation commit: `2d5f218f7bbfcfb0f140be9c04f072173fe328c8`; backup branch SHA: `72f4f157a084f8184b9597ca5bf334b8080e5807` (untouched).
+- Exact-head Actions lookup: `iNIC signal lifecycle stability regression` run `45129983697` = `completed/success`; `watchdog signal lifecycle stability regression` run `45129983726` = `completed/success`; `NVRAM transaction boundary audit` run `45129983737` = `completed/success`; `XY-C1 Firmware Validation` run `45129983650` = `in_progress`; `AI handoff documentation contract` run `45129983606` = `completed/success`; `Wireless radio state regression` run `45129983626` = `completed/failure`; `Process lifecycle inventory - 2d5f218f7bbfcfb0f140be9c04f072173fe328c8` run `45129983638` = `completed/success`; `Process inventory and lifecycle fail-closed regression` run `45129983589` = `completed/success`; `HTTPD Authentication and Security Regression` run `45129983625` = `completed/success`.
+- Verified source work carried forward: checked timezone propagation in RC/PID1, console loglevel failure preservation, atomic Ralink SKU link publication, checked SYN-cookie WAN gate, transactional NAT helper selector read, transactional HNAT/SFE selector read.
+- The next verification gate is a real XY-C1 Build + TRX + artifact on the integrated NAT/offload source tree; a green workflow with those steps skipped is not a firmware-build pass.
+- First next task: Re-run/verify XY-C1 on the latest integrated source tree (the HNAT/SFE transactional selector and NAT-helper snapshot changes in net.c), and require Build XY-C1 + TRX verification + artifact upload to execute successfully; the previous checker-only exact-SHA run may report workflow success while skipping Build/TRX/artifact steps. Then move to the next independent P1 stability defect outside net.c.
+- Handoff/documentation commit: pending.
+
+---
+
 ## 2026-11-23 07:25 UTC — Restore exact previous wireless radio state on rollback
 
 - Reviewing the new MLME power/publish helper exposed a state-restoration bug: it compensated with `!target_on`, which is not necessarily the previous state. If the radio was already ON and an ON-to-ON request failed while publishing NVRAM state, the rollback would turn the radio OFF.

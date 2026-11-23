@@ -121,6 +121,8 @@ Current implementation checkpoint (2026-11-21):
 - Uploaded planet transaction cleanup follow-up: found an EXIT-trap registration gap if the pre-read of the previous NVRAM value failed after `.planet-import.*` creation. Cleanup now registers before the first fallible read, and rollback is gated on explicit publish/delete pending state; added NVRAM-get fault injection, preserving old file/NVRAM and upload, and checking no stage directory leaks. Exact-head verification pending.
 
 ## Priority queue
+- Verification gate — integrated NAT/HNAT/SFE source tree: confirm exact-head XY-C1 Build, TRX and artifact upload actually execute and pass; do not treat a checker-only green workflow or skipped build steps as L3 evidence.
+
 
 - P1 — Hardware/software offload selector reliability: `reload_nat_modules()` previously interpreted unchecked `sw_mode`, `hw_nat_mode`, `ip6_lan_auto` and `sfe_enable` failures as explicit disables, potentially unloading active `hw_nat`/`fast_classifier` or changing radio IPv6 registration. The selector tuple now comes from one checked NVRAM transaction; failures abort before module-state changes, preserving missing-key defaults. Parent `849edf...` Actions exposed stale contracts in both `scripts/check_modem_wan_start_status.py` (line 1319) and `.github/workflows/httpd-security.yml` (line 1365), which still expected an inline `nvram_get_int("hw_nat_mode")` after the source switched to `rc_nat_offload_settings_read()` and local `hw_nat_mode`. THIS FOLLOW-UP updates both contracts and asserts the checked snapshot/local value. Exact-head WAN, HTTPD, Process and XY-C1 reruns are pending.
 

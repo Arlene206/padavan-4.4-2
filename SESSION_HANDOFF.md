@@ -1,3 +1,39 @@
+# SESSION HANDOFF — 2026-11-23
+
+## Current repository state
+- Repository: https://github.com/Arlene206/padavan-4.4-2
+- Current main before this handoff commit: `2d5f218f7bbfcfb0f140be9c04f072173fe328c8`.
+- Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read only; not modified).
+- Previous commits remain on main; no force push or backup mutation was performed.
+- This handoff update is based on the live branch refs and exact-head Actions lookup performed immediately before creating this commit.
+
+## Exact-SHA Actions at current main
+- iNIC signal lifecycle stability regression: run 45129983697, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- watchdog signal lifecycle stability regression: run 45129983726, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- NVRAM transaction boundary audit: run 45129983737, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- XY-C1 Firmware Validation: run 45129983650, in_progress (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- AI handoff documentation contract: run 45129983606, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- Wireless radio state regression: run 45129983626, completed / failure (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- Process lifecycle inventory - 2d5f218f7bbfcfb0f140be9c04f072173fe328c8: run 45129983638, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- Process inventory and lifecycle fail-closed regression: run 45129983589, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+- HTTPD Authentication and Security Regression: run 45129983625, completed / success (exact SHA 2d5f218f7bbfcfb0f140be9c04f072173fe328c8).
+
+## Completed source work in the current development sequence
+- `setenv_tz()` and PID 1 recovery-shell TZ export now distinguish a missing NVRAM key from backend/read/close errors, use bounded formatting, and avoid publishing fabricated empty values on failures. GNU89/Werror/ASan/UBSan policy tests and source contracts were added.
+- Early-boot `console_loglevel` checked-read failure no longer collapses to zero and silences kernel console output; the kernel's prior default is retained on read errors.
+- Ralink SKU profile selection validates the regulatory code, distinguishes missing files from filesystem errors, publishes links via a private same-filesystem staging directory and atomic rename, and propagates failures to 2.4/5GHz config generation.
+- WAN SYN-cookie settings use checked NVRAM status; read/close failures preserve the secure-required WAN admission gate.
+- NAT-helper selector settings are read as one NVRAM transaction; read/close/parse errors abort before unloading currently required helper modules.
+- HNAT/SFE selectors (`sw_mode`, `hw_nat_mode`, `ip6_lan_auto`, `sfe_enable`) are read transactionally and malformed/error results abort before offload module changes.
+- Source regressions and workflow/path-filter contracts were added for the above slices. No local firmware build is claimed.
+
+## First task for the next session
+Re-run/verify XY-C1 on the latest integrated source tree (the HNAT/SFE transactional selector and NAT-helper snapshot changes in net.c), and require Build XY-C1 + TRX verification + artifact upload to execute successfully; the previous checker-only exact-SHA run may report workflow success while skipping Build/TRX/artifact steps. Then move to the next independent P1 stability defect outside net.c.
+
+## Operating constraints
+Continue small atomic commits; create a complete Git tree before each commit; update `main` only with `force:false` and an expected parent SHA; check exact-SHA Actions; don't wait on pending checks when independent work is available; never claim a firmware build unless Build XY-C1, TRX verification and artifact upload all actually succeeded. Keep `SESSION_HANDOFF.md`, `dev_log.md` and `REFACTOR_ROADMAP.md` synchronized.
+
+---
 # SESSION HANDOFF — Padavan 4.4
 
 ## Current repository state
