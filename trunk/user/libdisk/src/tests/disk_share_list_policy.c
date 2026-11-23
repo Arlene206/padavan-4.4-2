@@ -631,7 +631,7 @@ main(void)
 	test_account_defaults_write_complete_content();
 	test_account_defaults_write_reports_io_failure();
 	test_account_defaults_write_rejects_invalid_data();
-	return 0;	test_account_inventory_reads_one_checked_snapshot();
+	test_account_inventory_reads_one_checked_snapshot();
 	test_account_inventory_missing_count_is_empty();
 	test_account_inventory_count_read_error_is_not_zero();
 	test_account_inventory_username_error_frees_partial_list();
@@ -642,4 +642,5 @@ main(void)
 	test_account_inventory_rejects_invalid_get_status();
 	test_account_inventory_rejects_duplicate_names();
 
+	return 0;
 }

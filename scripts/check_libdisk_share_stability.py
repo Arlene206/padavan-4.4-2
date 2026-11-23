@@ -323,16 +323,27 @@ require("router_account_nvram_read_count" in ACCOUNT_POLICY and
         "disk_share_account_inventory_free(count, items)" in ACCOUNT_POLICY,
         "account inventory policy must check/parse count, copy cache-backed identity values, release its transaction, reject sparse/reserved records and free partial snapshots")
 
-for marker in (
+account_inventory_tests = (
     "test_account_inventory_reads_one_checked_snapshot",
+    "test_account_inventory_missing_count_is_empty",
     "test_account_inventory_count_read_error_is_not_zero",
     "test_account_inventory_username_error_frees_partial_list",
     "test_account_inventory_transaction_end_error_discards_snapshot",
+    "test_account_inventory_begin_error_does_not_end_transaction",
     "test_account_inventory_rejects_invalid_count_text_and_range",
     "test_account_inventory_rejects_sparse_and_reserved_names",
-):
+    "test_account_inventory_rejects_invalid_get_status",
+    "test_account_inventory_rejects_duplicate_names",
+)
+for marker in account_inventory_tests:
     require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
             "missing checked account inventory regression: " + marker)
+
+policy_test_main = function_body(POLICY_TEST, "main(void)")
+policy_test_return = policy_test_main.index("return 0;")
+for marker in account_inventory_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "account inventory regression is defined but not executed: " + marker)
 
 add_account_body = function_body(
     DISK_SOURCE, "int add_account(const char *const account, const char *const password)"
