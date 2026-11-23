@@ -1,3 +1,15 @@
+## 2026-11-23 11:53 UTC+8 — Make XY-C1 sys/queue.h fetch retryable and atomic
+
+- Exact XY-C1 run 45108415640 on main SHA 9de5f37d550244590158b302b6ac9935bff765b3 failed before firmware source compilation: the root Makefile sys/queue.h curl returned error 56, "Recv failure: Connection reset by peer", and Makefile exited from prepare-headers. Toolchain download succeeded; this is a transient prerequisite transport failure, not a compiler diagnosis.
+- Added scripts/install_musl_queue_header.sh and routed the root Makefile through it. Curl retries all errors (five retries with bounded timeouts); output goes to a unique temporary file in the same directory, empty responses are rejected, mode is normalized to 0644, and a complete file is atomically renamed into place. Failed/truncated transfers cannot replace an existing valid header; -s makes an empty stale file trigger a fresh fetch.
+- Added scripts/tests/test_install_musl_queue_header.py. It starts a local HTTP server that returns a truncated first response and a valid second response, verifies retry and exact final content, tests partial/empty failed downloads preserve an existing header and leave no temporary files, and checks Makefile/workflow wiring.
+- Added root Makefile, helper and regression paths to XY-C1 push filters and a dedicated test step. The root Makefile change is a firmware production input, so this exact commit should retry Build XY-C1, TRX and artifact upload for the delayed-signal PID1 source.
+- Exact 9de checks: BusyBox PID1 45108415639 PASS; AI docs 45108415662 PASS; Process inventory 45108415598 PASS; USB 45108415607 PASS; NVRAM 45108415605 PASS. XY-C1 45108415640 is the sole known failure and failed at header download, before compilation.
+- Local installer regression passed with curl 8.10.1 using a real truncated HTTP response and subsequent retry. New exact-head Actions and L3 for the signal accumulator remain pending.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 11:49 UTC+8 — Correct PID1 delayed-signal local declaration scope
 
 - Immediate source review after commit 352c47fef554d64ad8c536d1ed8227a3af261d96 found signal_error declared inside the conditional DEBUG_SEGV_HANDLER block, while the ordinary init signal setup uses it. This would leave the default production build with an undeclared identifier.

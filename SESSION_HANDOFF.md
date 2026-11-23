@@ -46,7 +46,7 @@ The user delegates one continuing engineering job across conversations. The repo
 
 ## Current repository state
 
-- Live main at the parent of this compile-scope correction: 352c47fef554d64ad8c536d1ed8227a3af261d96. The previous signal-coalescing commit contained the new event accumulator but its signal_error local was inserted in the DEBUG_SEGV_HANDLER block rather than the normal signal setup block; this correction moves the declaration next to its use.
+- Live main at the parent of this queue-header retry/atomic-install fix: 9de5f37d550244590158b302b6ac9935bff765b3. The frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 - Frozen backup: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
 - Production PID1 wait/reap baseline: 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; exact host/source regression follow-up 84060ba4f52823b396487b24cdfe66254baff0d0 passed.
 - XY-C1 workflow path correction: 11090e80b126fa1665758026d2163fd9e2f09e6a; detector fixture correction: a71253cc463befcab865afb8a90407afa7975e33; workflow-only full-build rerun: 7c556be9eb1caa343d720bcecd3df74c5461262a.
@@ -65,26 +65,27 @@ The user delegates one continuing engineering job across conversations. The repo
 
 ### XY-C1 production-build gate
 
-- The XY-C1 workflow watches trunk/user/busybox/busybox-1.24.x/init/**; the prior trigger omission is closed.
-- Exact XY-C1 run 45106983817 on workflow-only SHA 7c556be9eb1caa343d720bcecd3df74c5461262a completed SUCCESS: detector tests, Build XY-C1, TRX verification and artifact upload all passed.
-- Compare 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac..7c556be9eb1caa343d720bcecd3df74c5461262a confirms the intervening commits changed only workflow, test, script and dev-log paths; no production source changed after the BusyBox PID1 exact-child implementation. Therefore L3 is verified for that production-source baseline.
-- Exact XY-C1 run 45107256442 on test-only SHA 8331df0c690aafa00a7d46263dacea8ab8bfbb01 passed detector/host checks and correctly skipped Build/TRX/artifact. It is not L3 evidence for the new delayed-signal source change.
-- The next production init.c/header edit in this slice must trigger the full XY-C1 path; verify Build, TRX and artifact upload on the exact product-source SHA.
+- The XY-C1 workflow watches trunk/user/busybox/busybox-1.24.x/init/**; the BusyBox init trigger omission is closed.
+- Exact XY-C1 run 45106983817 on workflow-only SHA 7c556be9eb1caa343d720bcecd3df74c5461262a completed SUCCESS: Build XY-C1, TRX verification and artifact upload all passed. Compare 1f9d39bc..7c556be confirms no intervening production-source changes; L3 is VERIFIED for exact-child wait/reap.
+- The delayed-signal policy unit/source tests passed in the focused BusyBox job on 352c47fe and 9de5f37d. The ordinary signal_error declaration scope was corrected in 9de5f37d; exact-head BusyBox, Process, AI handoff, USB and NVRAM checks passed on 9de5f37d.
+- Exact XY-C1 run 45108415640 on 9de5f37d FAILED before firmware compilation: root Makefile's one-shot sys/queue.h download from raw.githubusercontent.com returned curl error 56, "Recv failure: Connection reset by peer", and make exited at Makefile:59-63. Toolchain download had succeeded; this is a prerequisite transport failure, not evidence of a PID1 compiler failure.
+- This commit retries all curl errors, writes queue.h to a unique temporary file in the destination directory, rejects empty results, normalizes mode to 0644 and atomically renames only a complete file. Existing valid headers remain intact on failure; empty stale headers no longer bypass installation. A local HTTP regression returns a truncated first response and valid second response to verify retry and final file integrity. XY path filters now watch root Makefile/helper/test and the workflow runs this regression.
+- Exact XY-C1 Build/TRX/artifact for delayed-signal source remains PENDING until the new helper commit's exact-head run completes; do not infer L3 from host-only tests.
 
 ## Verification boundary
 
-- L1: source review of the exact-child waitpid migration and bounded SIGTSTP deferred-reap path completed.
-- L2: callback tests and source contract PASS on exact SHA 84060ba4f52823b396487b24cdfe66254baff0d0. The repository-integrated GNU89/ASan/UBSan fork/waitid peer-preservation test passed in exact-head BusyBox run 45107256450 on 8331df0c690aafa00a7d46263dacea8ab8bfbb01; Process inventory 45107256374, USB hotplug 45107256428 and NVRAM audit 45107256356 also PASS on that SHA. The AI handoff contract 45107256439 failed only because this handoff omitted the validator-required explicit end-of-session checkpoint sentence; this correction adds it without weakening the validator.
-- XY detector tests and AI docs PASS on exact test-only SHA a71253cc; its target build was intentionally skipped. Workflow-only run 45106983817 on 7c556be remains pending at the time of this checkpoint.
-- L3: VERIFIED for the exact-child wait/reap production source from 1f9d39bc: exact XY-C1 run 45106983817 on 7c556be passed Build XY-C1, TRX verification and artifact upload; the intervening compare diff contains no production-source changes. The delayed-signal accumulator introduced in THIS COMMIT is not yet L3 verified. L4: NOT VERIFIED; no physical router boot/recovery test has been performed.
-- No complete local MIPS/uClibc toolchain or target PID1 binary is available in this session.
+- L1: source review of exact-child waitpid and bounded SIGTSTP deferred-reap path completed; delayed single-slot signal overwrite defect identified and replaced by independent sig_atomic_t event bits and a blocked snapshot/clear window.
+- L2: callback/source-contract checks and real fork/waitid peer-preservation regression passed on predecessor SHAs. The delayed-signal accumulator C test passed GNU89 with -Wall -Wextra -Werror and ASan/UBSan on 352c47fe and 9de5f37d; Process, AI docs, USB and NVRAM passed on 9de5f37d.
+- L3: exact-child wait/reap source from 1f9d39bc is VERIFIED by XY-C1 run 45106983817 on 7c556be, with Build, TRX and artifact upload success and no intervening product-source change. Delayed-signal source remains NOT YET L3 VERIFIED: 9de's exact XY run 45108415640 failed before compilation during the sys/queue.h curl (error 56). This commit repairs the observed prerequisite fetch and triggers a new exact-head build.
+- L4: NOT VERIFIED; no physical XY-C1 router boot/recovery test has been performed.
+- The 9de XY failure is reported as a transport reset before product compilation, not a source compiler failure. Claim L3 only after the new same-SHA Build/TRX/artifact gates pass.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify the frozen backup still matches 72f4f157a084f8184b9597ca5bf334b8080e5807.
-2. Inspect exact-head Actions for the declaration-placement correction; also inspect the prior 352c47fe run and diagnose any failure from its first causal log line. Check BusyBox unit/source-contract, AI handoff, Process inventory, NVRAM/USB and XY-C1 results.
-3. The existing exact-child wait/reap source baseline has L3 proof from XY run 45106983817 on 7c556be (Build, TRX and artifact PASS). The new delayed-signal source has L2/L3 pending until the corresponding exact-head tests and XY build pass.
-4. Continue PID1 only after the delayed-signal implementation compiles: inspect WAIT/SYSINIT action interactions and delayed-signal retry behavior; preserve shutdown precedence and the independent SIGCONT stop handler.
+1. Fetch live main and verify backup/pre-plugin-overhaul-2026-11-14 remains frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+2. Inspect exact-head Actions for this queue-header retry/atomic-install commit. Confirm the local HTTP partial-response regression and firmware-input detector pass.
+3. Inspect exact XY-C1 Build, TRX verification and artifact-upload steps. The 9de run failed before compiling product source because curl returned error 56 during sys/queue.h download; this commit must retry and atomically publish the header. If a source compiler error appears after the prerequisite passes, fix it with a focused regression. Otherwise record delayed-signal L3 only after Build/TRX/artifact all pass on this exact SHA.
+4. Continue PID1 review from the signal accumulator's mask-restoration and delayed-event ordering, preserving shutdown priority and the independent SIGCONT stop-handler path unless a concrete tested defect appears.
 
 ## Mandatory handoff checkpoint
 
@@ -100,8 +101,8 @@ Before ending a conversation, compare the live repository with this record: engi
 
 ## End-of-session accuracy checkpoint
 
-- Parent main SHA for the delayed-signal event accumulator source/test slice: 056edb68a0c9987d24cf397da377024bf5e77c2e; commit 352c47fef554d64ad8c536d1ed8227a3af261d96 added init_signal_pending.h, its tests, init.c integration, the source contract and focused workflow.
-- Review immediately after publication caught that signal_error had been inserted in the DEBUG_SEGV_HANDLER block while used in the normal signal setup. This correction moves the declaration into the correct scope. Do not claim that 352 compiled successfully.
-- A local GNU89 ASan/UBSan run of the standalone event-policy tests passed. It does not validate the full BusyBox init.c translation unit.
-- Previous exact-child source baseline L3: XY-C1 run 45106983817 on 7c556be passed Build XY-C1, TRX verification and artifact upload; compare 1f9d39bc..7c556be contains no intervening production-source changes.
-- Exact-head Actions for 352c47fe were IN_PROGRESS at the last check. The correction's Actions have not yet been created. New signal-fix L2/L3 remain pending; L4 hardware is not verified.
+- Parent main SHA for this build-reliability slice: 9de5f37d550244590158b302b6ac9935bff765b3.
+- Exact 9de results: BusyBox PID1 45108415639 PASS; AI handoff 45108415662 PASS; Process inventory 45108415598 PASS; USB hotplug 45108415607 PASS; NVRAM audit 45108415605 PASS. XY-C1 run 45108415640 FAILED before firmware compilation at root Makefile sys/queue.h fetch: curl error 56, connection reset by peer. No Build/TRX/artifact result exists on that SHA.
+- The 352 XY-C1 run 45108301425 remained IN_PROGRESS at the last check; its NVRAM audit 45108301379 was cancelled when 9de superseded it. It is not L3 evidence.
+- The exact-child production baseline L3 is verified by XY run 45106983817 on 7c556be: Build XY-C1, TRX and artifact upload succeeded, with no product-source change after 1f9d39bc.
+- This commit adds a tested curl retry/atomic-publication helper, Makefile wiring, XY trigger paths and a workflow regression. It triggers a new exact XY-C1 build; delayed-signal L3 stays pending until same-SHA Build/TRX/artifact pass. L4 remains not verified.

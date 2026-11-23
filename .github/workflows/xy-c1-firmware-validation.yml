@@ -5,6 +5,9 @@ on:
     branches:
       - main
     paths:
+      - "Makefile"
+      - "scripts/install_musl_queue_header.sh"
+      - "scripts/tests/test_install_musl_queue_header.py"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/aliddns/Makefile"
@@ -795,6 +798,8 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-nvram-policy
       - name: Test XY-C1 firmware input detector
         run: python3 scripts/tests/test_xy_c1_firmware_inputs.py
+      - name: Verify atomic musl sys/queue.h installation
+        run: python3 scripts/tests/test_install_musl_queue_header.py
 
       - name: Detect firmware production input changes
         id: firmware_inputs

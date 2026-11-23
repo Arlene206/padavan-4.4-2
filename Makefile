@@ -56,13 +56,13 @@ build:
 ifeq ($(TOOLCHAIN),mipsel-linux-musl)
 prepare-headers:
 	@echo "\033[1;36m===> 🔎 Checking sys/queue.h...\033[0m"
-	@if [ ! -f "$(QUEUE_H)" ]; then \
+	@if [ ! -s "$(QUEUE_H)" ]; then \
 		echo "\033[1;36m===> ⬇️ Installing sys/queue.h...\033[0m"; \
-		curl -fL --retry 3 --progress-bar "$(QUEUE_H_URL)" -o "$(QUEUE_H)" || { \
+		"$(TOPDIR)/scripts/install_musl_queue_header.sh" "$(QUEUE_H_URL)" "$(QUEUE_H)" || { \
 			echo "\033[1;31m===> ❌ queue.h installation failed. Check your network or URL.\033[0m"; exit 1; }; \
 		echo "\033[1;32m===> ✅ queue.h successfully installed.\033[0m"; \
 	else \
-		echo "\033[1;32m===> ✅ sys/queue.h already exists.\033[0m"; \
+		echo "\033[1;32m===> ✅ sys/queue.h already exists and is non-empty.\033[0m"; \
 	fi
 else
 prepare-headers:
