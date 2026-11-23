@@ -1,3 +1,11 @@
+## 2026-11-23 12:25 UTC+8 — Update mod_folder source contract for no-follow directory checks
+
+- Exact-head libdisk run `45105123378` on `e94bdc2ddb2defee0fe5e5edb3d2d298a9b7f7bb` passed both GNU89 ASan/UBSan regression binaries, then failed the source contract at a second stale assertion: it still expected `test_if_dir(full_path)` in `mod_folder()`. The symlink hardening commit correctly replaced that check with `lstat()` plus `disk_share_folder_entry_status()`.
+- Updated the ordering contract to require the no-follow check before the cached folder lookup and stale-snapshot refresh. The earlier fresh-enumeration contract also now matches the checker's space-normalized source representation. This is test-only; no product C code changed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 12:22 UTC+8 — Correct the lstat source-contract whitespace locator
 
 - Exact-head libdisk run `45105008310` on `e16fc458f434cdb097d27e17bda7daaf9f245dec` passed both GNU89 ASan/UBSan C test binaries, including the new temporary-directory symlink fixture, then failed the Python source contract. The source code itself used `lstat(testdir, &entry_status)`; the checker compared against `lstat(testdir,&entry_status)` even though `compact_all_folders` joins tokens with spaces.

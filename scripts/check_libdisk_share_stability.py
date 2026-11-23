@@ -1064,8 +1064,16 @@ mod_validate = mod_folder_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     mod_begin
 )
-mod_live_check = mod_folder_compact.index("test_if_dir(full_path)", mod_validate)
-mod_refresh = mod_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", mod_live_check)
+mod_live_check = mod_folder_compact.index("lstat(full_path,&target_stat)", mod_validate)
+mod_no_follow_check = mod_folder_compact.index(
+    "disk_share_folder_entry_status(result,errno", mod_live_check
+)
+mod_snapshot_check = mod_folder_compact.index(
+    "test_if_exist_folder_in_mount_path(mount_path,folder)", mod_no_follow_check
+)
+mod_refresh = mod_folder_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", mod_snapshot_check
+)
 mod_plan = mod_folder_compact.index(
     "disk_share_permission_batch_prepare_rewrite(mount_path,acc_num,account_list,target,new_target,&permission_batch,&permission_batch_count)",
     mod_refresh
@@ -1075,8 +1083,9 @@ mod_apply = mod_folder_compact.index(
     mod_plan
 )
 mod_release = mod_folder_compact.index("disk_share_account_nvram_end(&transaction)", mod_apply)
-require(mod_accounts < mod_begin < mod_validate < mod_live_check < mod_refresh <
-        mod_plan < mod_apply < mod_release and
+require(mod_accounts < mod_begin < mod_validate < mod_live_check <
+        mod_no_follow_check < mod_snapshot_check < mod_refresh < mod_plan <
+        mod_apply < mod_release and
         "disk_share_update_folder_permission_file(" not in mod_folder_compact,
         "folder rename must preflight every ACL image and delegate filesystem/ACL rollback to the tested transaction policy")
 
