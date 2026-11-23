@@ -373,8 +373,10 @@ del_account_body = function_body(
 del_account_compact = "".join(del_account_body.split())
 saved_count = del_account_compact.index("account_count=acc_num;")
 target_scan = del_account_compact.index("for(i=0;i<account_count;++i)")
+delete_begin = del_account_compact.index("disk_share_account_nvram_begin(&transaction)")
 delete_transaction = del_account_compact.index(
-    "disk_share_account_inventory_remove(&disk_share_account_nvram_operations,&transaction,account_count,target,MAX_ACCOUNT_NUM,account_list)"
+    "disk_share_account_inventory_remove_locked(&disk_share_account_nvram_operations,&transaction,account_count,target,MAX_ACCOUNT_NUM,account_list)",
+    delete_begin
 )
 delete_failure_free = del_account_compact.index(
     "free_2_dimension_list(&account_count,&account_list);", delete_transaction
@@ -394,15 +396,16 @@ require(saved_count < target_scan < delete_transaction < delete_failure_free <
 
 delete_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 delete_transaction = del_account_compact.index(
-    "disk_share_account_inventory_remove(&disk_share_account_nvram_operations,&transaction,account_count,target,MAX_ACCOUNT_NUM,account_list)"
+    "disk_share_account_inventory_remove_locked(&disk_share_account_nvram_operations,&transaction,account_count,target,MAX_ACCOUNT_NUM,account_list)"
 )
 delete_unlink = del_account_compact.index("unlink(var_file)", delete_transaction)
-require(delete_inventory < delete_transaction < delete_unlink and
+delete_end = del_account_compact.index("disk_share_account_nvram_end(&transaction)", delete_unlink)
+require(delete_inventory < delete_begin < delete_transaction < delete_unlink < delete_end and
         "nvram_set(" not in del_account_body and
         "nvram_set_int(" not in del_account_body and
         "nvram_safe_get(" not in del_account_body and
         "nvram_commit_safe(" not in del_account_body,
-        "del_account must resolve a complete storage inventory first and perform all account NVRAM mutation through the checked compensating transaction")
+        "del_account must resolve a complete storage inventory first and retain one checked writer lease through NVRAM compaction and per-volume metadata cleanup")
 
 
 commit_policy_tests = (
@@ -517,9 +520,18 @@ for marker in account_delete_tests:
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "atomic account deletion regression is defined but not executed: " + marker)
 delete_policy_body = function_body(
-    ACCOUNT_POLICY, "static inline int\ndisk_share_account_inventory_remove"
+    ACCOUNT_POLICY, "static inline int\ndisk_share_account_inventory_remove_locked"
 )
 delete_policy_compact = "".join(delete_policy_body.split())
+require("ops->begin(" not in delete_policy_body and "ops->end(" not in delete_policy_body,
+        "locked account deletion policy must leave transaction ownership with its caller")
+remove_wrapper_body = function_body(
+    ACCOUNT_POLICY, "disk_share_account_inventory_remove("
+)
+require("ops->begin(context)" in remove_wrapper_body and
+        "disk_share_account_inventory_remove_locked(" in remove_wrapper_body and
+        "ops->end(context)" in remove_wrapper_body,
+        "standalone account deletion adapter must preserve begin/operate/end semantics")
 
 for token in (
     "ops->set(context,\"acc_num\",count_value)",

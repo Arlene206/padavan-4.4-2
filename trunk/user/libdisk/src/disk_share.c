@@ -1400,7 +1400,7 @@ int del_account(const char *const account)
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
 
-	/* Preserve the coherent source inventory while the writer lease revalidates it. */
+	/* Preserve a coherent source inventory; revalidate it under the writer lease. */
 	if (get_account_list(&acc_num, &account_list) != 0)
 		return -1;
 	if (acc_num <= 0) {
@@ -1432,23 +1432,36 @@ int del_account(const char *const account)
 	}
 
 	/*
-	 * Compact account names/passwords and update last-account modes under
-	 * one exclusive transaction. Failed setters or commit are compensated
-	 * from the snapshot before the writer lease is released.
+	 * Retain the exclusive account writer lease across NVRAM compaction and
+	 * every volume unlink. Otherwise a new account with the same name could
+	 * publish new metadata between deletion and stale-file cleanup.
 	 */
-	result = disk_share_account_inventory_remove(
-		&disk_share_account_nvram_operations, &transaction,
-		account_count, target, MAX_ACCOUNT_NUM, account_list);
-	if (result != 0) {
+	if (disk_share_account_nvram_begin(&transaction) != 0) {
 		saved_errno = errno ? errno : EIO;
 		free_2_dimension_list(&account_count, &account_list);
 		free_disk_data(disk_list);
 		errno = saved_errno;
 		return -1;
 	}
+
+	result = disk_share_account_inventory_remove_locked(
+		&disk_share_account_nvram_operations, &transaction,
+		account_count, target, MAX_ACCOUNT_NUM, account_list);
+	if (result != 0) {
+		saved_errno = errno ? errno : EIO;
+		free_2_dimension_list(&account_count, &account_list);
+		free_disk_data(disk_list);
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0)
+			logmessage("disk_share", "account NVRAM transaction release failed after delete error (errno %d)",
+				   errno ? errno : EIO);
+		errno = saved_errno;
+		return -1;
+	}
+
 	free_2_dimension_list(&account_count, &account_list);
 
-	/* Remove stale per-volume metadata only after the NVRAM delete succeeds. */
+	/* Block same-name account creation until all old volume metadata is gone. */
 	for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
 		for (follow_partition = follow_disk->partitions;
 		     follow_partition != NULL; follow_partition = follow_partition->next) {
@@ -1469,6 +1482,9 @@ int del_account(const char *const account)
 		}
 	}
 	free_disk_data(disk_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0 && first_error == 0)
+		first_error = errno ? errno : EIO;
 
 	/* Reload services even when stale metadata could not be removed. */
 	errno = 0;
@@ -1484,7 +1500,6 @@ int del_account(const char *const account)
 
 	return 0;
 }
-
 // "new_account" can be the same with "account"!
 int mod_account(const char *const account, const char *const new_account, const char *const new_password)
 {

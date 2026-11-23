@@ -813,7 +813,7 @@ finish:
  * A NULL value passed to set() removes a previously absent key on rollback.
  */
 static inline int
-disk_share_account_inventory_remove(
+disk_share_account_inventory_remove_locked(
 	const struct disk_share_account_nvram_ops *ops, void *context,
 	int expected_count, int target, int max_count, char *const *expected_users)
 {
@@ -826,14 +826,14 @@ disk_share_account_inventory_remove(
 	int mode_present[2] = { 0, 0 };
 	int mode_default[2] = { 0, 0 };
 	int mode_attempted[2] = { 0, 0 };
-	int started = 0, writes_started = 0;
+	int writes_started = 0;
 	int status, result, saved_errno = 0, rollback_errno = 0;
 	int current_count = 0, commit_required = 0;
 	int key_length, i, j;
 	size_t mode_value_length;
 
-	if (!ops || !ops->begin || !ops->get || !ops->set || !ops->commit ||
-	    !ops->end || !expected_users || expected_count < 1 ||
+	if (!ops || !ops->get || !ops->set || !ops->commit ||
+	    !expected_users || expected_count < 1 ||
 	    expected_count > max_count || target < 0 || target >= expected_count ||
 	    max_count < 1) {
 		errno = EINVAL;
@@ -849,22 +849,15 @@ disk_share_account_inventory_remove(
 		goto finish;
 	}
 
-	errno = 0;
-	if (ops->begin(context) != 0) {
-		saved_errno = errno ? errno : EIO;
-		goto finish;
-	}
-	started = 1;
-
 	result = router_account_nvram_read_count(ops->get, context, "acc_num",
 						 max_count, &current_count);
 	if (result != 0) {
 		saved_errno = result;
-		goto transaction_finish;
+		goto finish;
 	}
 	if (current_count != expected_count) {
 		saved_errno = EAGAIN;
-		goto transaction_finish;
+		goto finish;
 	}
 
 	/* Reject a stale account list instead of compacting another writer's data. */
@@ -872,17 +865,17 @@ disk_share_account_inventory_remove(
 		key_length = snprintf(key, sizeof(key), "acc_username%d", i);
 		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
 			saved_errno = ENAMETOOLONG;
-			goto transaction_finish;
+			goto finish;
 		}
 		result = router_account_nvram_read_copy(
 			ops->get, context, key, "", current_user, sizeof(current_user));
 		if (result != 0) {
 			saved_errno = result;
-			goto transaction_finish;
+			goto finish;
 		}
 		if (!expected_users[i] || strcmp(current_user, expected_users[i]) != 0) {
 			saved_errno = EAGAIN;
-			goto transaction_finish;
+			goto finish;
 		}
 	}
 
@@ -891,25 +884,25 @@ disk_share_account_inventory_remove(
 		key_length = snprintf(key, sizeof(key), "acc_password%d", i);
 		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
 			saved_errno = ENAMETOOLONG;
-			goto transaction_finish;
+			goto finish;
 		}
 		value = NULL;
 		errno = 0;
 		status = ops->get(context, key, &value);
 		if (status < 0) {
 			saved_errno = errno ? errno : EIO;
-			goto transaction_finish;
+			goto finish;
 		}
 		if (status == 0)
 			continue;
 		if (status != 1 || !value) {
 			saved_errno = EIO;
-			goto transaction_finish;
+			goto finish;
 		}
 		mode_value_length = strlen(value);
 		if (mode_value_length >= DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX) {
 			saved_errno = ENAMETOOLONG;
-			goto transaction_finish;
+			goto finish;
 		}
 		memcpy(old_passwords[i], value, (size_t)mode_value_length + 1);
 		password_present[i] = 1;
@@ -924,13 +917,13 @@ disk_share_account_inventory_remove(
 			if (disk_share_account_mode_needs_default(
 				    status, value, &mode_default[j]) != 0) {
 				saved_errno = errno ? errno : EIO;
-				goto transaction_finish;
+				goto finish;
 			}
 			if (status == 1) {
 				mode_value_length = strlen(value);
 				if (mode_value_length >= sizeof(old_mode[j])) {
 					saved_errno = ENAMETOOLONG;
-					goto transaction_finish;
+					goto finish;
 				}
 				memcpy(old_mode[j], value, (size_t)mode_value_length + 1);
 				mode_present[j] = 1;
@@ -943,7 +936,7 @@ disk_share_account_inventory_remove(
 	status = ops->get(context, "nvram_manual", &value);
 	if (disk_share_account_commit_required(status, value, &commit_required) != 0) {
 		saved_errno = errno ? errno : EIO;
-		goto transaction_finish;
+		goto finish;
 	}
 
 	snprintf(old_count_value, sizeof(old_count_value), "%d", expected_count);
@@ -1003,7 +996,7 @@ disk_share_account_inventory_remove(
 			goto rollback;
 		}
 	}
-	goto transaction_finish;
+	goto finish;
 
 rollback:
 	/*
@@ -1052,17 +1045,44 @@ rollback:
 	if (rollback_errno != 0)
 		saved_errno = EIO;
 
-transaction_finish:
-	if (started) {
-		errno = 0;
-		if (ops->end(context) != 0 && saved_errno == 0)
-			saved_errno = errno ? errno : EIO;
-	}
 finish:
 	free(old_passwords);
 	free(password_present);
 	if (saved_errno != 0) {
 		errno = saved_errno;
+		return -1;
+	}
+	return 0;
+}
+
+static inline int
+disk_share_account_inventory_remove(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int target, int max_count, char *const *expected_users)
+{
+	int result, saved_errno, end_result, end_errno;
+
+	if (!ops || !ops->begin || !ops->end) {
+		errno = EINVAL;
+		return -1;
+	}
+	errno = 0;
+	if (ops->begin(context) != 0) {
+		errno = errno ? errno : EIO;
+		return -1;
+	}
+	result = disk_share_account_inventory_remove_locked(
+		ops, context, expected_count, target, max_count, expected_users);
+	saved_errno = result != 0 ? (errno ? errno : EIO) : 0;
+	errno = 0;
+	end_result = ops->end(context);
+	end_errno = errno;
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	if (end_result != 0) {
+		errno = end_errno ? end_errno : EIO;
 		return -1;
 	}
 	return 0;

@@ -1706,6 +1706,23 @@ test_account_inventory_update_rejects_snapshot_and_manual_read_errors(void)
 }
 
 static void
+test_account_inventory_remove_locked_keeps_caller_transaction_open(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	assert(fake_account_delete_begin(&fake) == 0);
+	assert(disk_share_account_inventory_remove_locked(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 0);
+	assert(fake.commit_calls == 1);
+	assert(strcmp(fake.usernames[1], "carol") == 0);
+	assert(fake_account_delete_end(&fake) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+}
+
+static void
 test_account_inventory_remove_compacts_under_one_transaction(void)
 {
 	struct fake_account_delete_nvram fake;
@@ -1945,6 +1962,7 @@ main(void)
 	test_account_inventory_update_rolls_back_ambiguous_setters();
 	test_account_inventory_update_rolls_back_failed_commit_and_absent_password();
 	test_account_inventory_update_rejects_snapshot_and_manual_read_errors();
+	test_account_inventory_remove_locked_keeps_caller_transaction_open();
 	test_account_inventory_remove_compacts_under_one_transaction();
 	test_account_inventory_remove_defaults_last_account_modes();
 	test_account_inventory_remove_rolls_back_last_account_mode_setter();
