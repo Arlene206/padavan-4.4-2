@@ -284,8 +284,8 @@ require(startup_gate_position < start_body.index('if ! zerotier_read_nat_enabled
 for marker in ("startup settings read error was accepted",
                "startup accepted invalid Moon-enable selector",
                "startup accepted invalid network ID",
-               "start accepted invalid selector zerotiermoon_enable",
-               "invalid selector zerotier_id stopped the existing daemon",
+               "start accepted invalid selector $setting",
+               "invalid selector $setting stopped the existing daemon",
                "startup settings partially published secret",
                "missing identity secret did not retain the legacy empty default"):
     require(marker in test, f"startup NVRAM read regression omits {marker}")

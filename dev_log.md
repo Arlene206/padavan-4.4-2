@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Match ZeroTier startup contract markers to loop-based regression
+
+- The startup-selector source logic and shell regression both ran, but the Python contract expected fully expanded key names while the test intentionally used one loop variable (`$setting`) for the two invalid-selector cases. Corrected the source contract to assert the actual reusable marker and its daemon-preservation assertion; no production source or runtime regression changed.
+- Exact-head ZeroTier lifecycle and AI documentation Actions are required.
+
+---
+
 ## 2026-11-23 UTC — Validate ZeroTier selectors before daemon replacement
 
 - `zerotier_load_start_settings()` checked all five NVRAM reads but accepted arbitrary values. A corrupted Moon toggle such as `2` or `enabled` fell through to the `remove_moon()` branch, while a malformed network ID was rejected only in `add_join()` after `start_zero()` had stopped the old daemon and cleaned its network state.
