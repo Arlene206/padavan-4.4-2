@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Normalize wireless guest-gate source-contract offsets
+
+- Exact Wireless run #45156939172 on product-source SHA 0e4976cfbe86c81f5172ce2256ed71801952682d passed the wireless radio policy, Ralink config/SKU ASan/UBSan, bridge-membership and guest-isolation binaries, then failed the final Python source contract at its guest-activation ordering assertion. The checker compared offsets from whitespace-preserved function text with offsets from compacted text, so its ordering comparison used incompatible coordinate spaces; this was a checker defect, not a production/test failure.
+- The contract now derives reset, guest-enable, radio-read/error, mode-read/error and interface-state offsets from one whitespace-compacted function representation. All existing checked-read and fail-before-interface/bridge assertions remain intact. No production C or policy tests were changed.
+- Exact-head Process inventory #45156939224, AI handoff docs #45156939070, watchdog #45156939026, iNIC #45156939083 and HTTPD security #45156939207 passed on the same SHA. NVRAM boundary #45156938997 and XY-C1 #45156939135 were still IN_PROGRESS at the last observation; XY-C1 had reached Build XY-C1, while TRX/artifact remained pending. Exact Wireless rerun is triggered by this checker correction. No local test, L3 artifact or hardware result is claimed.
+
+---
 ## 2026-11-23 UTC — Fail closed on wireless radio-enable NVRAM reads
 
 - Review found three remaining radio-enable decisions that used `get_enabled_radio_wl/rt()`, whose legacy `nvram_wlan_get_int()` path collapses a backend fault to zero: starting the 802.1X authenticator, deciding whether to activate a guest AP, and starting the peer band during DBDC reload. A transient read error could silently skip authenticator startup, guest activation, or an entire peer-band restart while the caller reported success.

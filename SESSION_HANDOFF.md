@@ -2,39 +2,33 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2.
-- Main SHA before this checkpoint: 15c93fe802fc6a45148d04c8d3c7f238ad11fd92. The latest Wireless exact-head failure was #45155297922 on a456ced; this commit updates only the stale WDS source contract. Always fetch live main before the next write.
-- Production source commit 9e9efbf6d9651e9bab82e544b02f718655a0a820 adds checked USB modem WAN identity reads before manual eject. Dedicated USB identity run #45154233466 PASS on that exact SHA. On 9e9efbf, Wireless #45154233785, general Process lifecycle inventory #45154233664, WAN route #45154233637, WAN DHCP #45154233589, AI docs #45154233499 and IPv6 type #45154233468 PASS. Process fail-closed #45154233474 and storage hotplug #45154233569 failed because source-contract scripts still expected the removed unchecked boolean identity call.
-- Those stale Process assertions reproduced on later wireless-only source descendants: #45154469315 at 56bcddef and #45154946827 at eac5eeee (the latter was still running at last observation). Independent wireless commits advanced main to e15f67ae9b92b0327a5ad1ef13c9c0cee6382df8 and then this parent a456ced83e2829c17a8953ec0b41608e1cf0d058; they harden checked WDS selector/mode/config reads, not the USB eject call graph.
-- On current parent a456ced, AI handoff #45155298252, HTTPD security #45155298151, Process fail-closed #45155298043, watchdog #45155298035, Process inventory #45155297990, iNIC #45155297987, XY-C1 #45155297930, Wireless #45155297922 and NVRAM #45155297969 were not yet complete at last poll (Process fail-closed and NVRAM queued/pending; XY still in progress).
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. It is read-only and must not be updated, deleted or merged.
-- Work only on main. No branches, temporary refs, force pushes or PRs. Historical PR #1 is closed and unmerged.
-- No persistent local checkout was available. Do not claim local builds, firmware artifacts, sanitizer execution or hardware tests unless observed.
-- Startup protocol and handoff have already been restored once. Do not repeat startup audits or completed WSD/DNSMasq/MTK investigations without new failure evidence.
+- Repository: Arlene206/padavan-4.4-2; writable branch: main only.
+- Main base SHA for this checkpoint: 0e4976cfbe86c81f5172ce2256ed71801952682d (the live main immediately before this checkpoint commit). Re-fetch live main at the next takeover; never chase a documentation-only SHA in this file.
+- Frozen archive: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; never modify, switch to, merge, delete or rename.
+- Branch inventory at takeover: only main and the frozen archive. Legacy PR #1 is closed and unmerged; there are no open PRs. Do not create branches or PRs.
+- No persistent local checkout was available. No local compilation, host regression or firmware build is claimed.
+- Startup recovery has been performed once. Do not repeat the completed broad recovery or re-audit the USB eject/MTK/WSD work without new evidence.
+
+## Active engineering baseline
+
+- Product-source commit: 0e4976cfbe86c81f5172ce2256ed71801952682d, fix(wireless): fail closed on radio enable read errors.
+- This source slice replaces error-collapsing get_enabled_radio_wl/rt() decisions with checked wl_radio_x/rt_radio_x reads in 802.1X startup, guest-AP activation and DBDC peer-band restarts. Read failures stop new authenticator/guest startup before driver, bridge or interface side effects; DBDC paths attempt fail-closed cleanup and preserve the primary read error.
+- Exact Wireless run #45156939172 on 0e4976 failed only in the final Python source-contract ordering assertion after all C policy/ASan-UBSan binaries passed. The checker compared byte offsets from un-compacted and compacted representations of the same function. The present checker correction makes every ordering offset use a single compacted representation; it does not remove or weaken any source safety assertion. Its exact-head rerun is the first action below.
+- On exact 0e4976: Process inventory #45156939224 PASS; AI handoff documentation #45156939070 PASS; watchdog #45156939026 PASS; iNIC #45156939083 PASS; HTTPD authentication/security #45156939207 PASS. NVRAM transaction boundary #45156938997 and XY-C1 #45156939135 were IN_PROGRESS at the last observation. XY-C1 had reached the target Build step; TRX and artifact were pending. Wireless #45156939172 FAIL is the checker failure described above.
+- The earlier WDS source change on a456ced was followed by checker repairs in 15c93fe/cd52aa09/af14a626; current Wireless exact-head action #45156268364 on af14a626 passed. Do not revisit the closed WDS checker task except if a new failure appears.
+- The exact product-source XY run #45155297930 on a456ced was still running when inspected, but the newer product-source XY run #45156939135 on 0e4976 is the relevant L3 gate for the current source baseline.
+- L1 review: PASS for checked radio-enable error gates and first-error rollback ordering by source inspection. L2: the current Wireless run failed at a static checker offset bug after its C/policy binaries passed; corrected checker rerun pending. Other exact-head runs above are individually scoped. L3: NOT VERIFIED until same-SHA Build XY-C1, TRX verification and artifact upload all pass. L4 hardware: NOT VERIFIED.
 
 ## Active task
 
-The next source change addresses error-collapsing radio-enable reads. The previous 802.1X helper read `radio_x` through `get_enabled_radio_*()` and could silently skip authenticator startup on NVRAM backend failure. Guest activation and DBDC peer-band restart made the same unknown-as-disabled assumption. This commit uses checked status reads and fail-closed ordering; exact-head Wireless and XY verification are pending.
+Finish the checker repair for the new wireless radio-enable source slice. The current atomic change updates .github/workflows/wireless-radio-state.yml so its guest-activation ordering contract uses a single compacted string for all offsets, adds the exact failure/correction record to dev_log.md, and replaces this handoff checkpoint. Product source and policy tests are unchanged.
 
-The WDS checked-configuration change on a456ced is in production source and policy coverage, but its first exact-head Wireless run failed only because duplicated workflow assertions still expected the pre-resolver variables and immediate returns. This checkpoint removes the obsolete block and replaces it with assertions matching the current checked resolver/cleanup path. The exact-head Wireless rerun is pending.
+## Exact first action for the next session
 
-The production USB modem eject fix is committed in `9e9efbf6d9651e9bab82e544b02f718655a0a820`. It adds `get_usb_modem_dev_wan_status()` backed by `nvram_get_checked()` and refuses modem teardown/reconnect on unknown identity while preserving the real errno. Dedicated USB identity run #45154233466 passed on that exact SHA.
-
-Process inventory/lifecycle and USB storage hotplug workflows exposed stale source contracts, not production regressions: `scripts/check_process_lifecycle_integration.py:983` and `scripts/check_storage_safe_remove.py:413` still required the removed unchecked boolean `get_usb_modem_dev_wan()` gate. This checkpoint updates both contracts to verify the checked reader, shared parser, errno propagation, physical-port/selected-device gates and ordering before `safe_remove_usb_modem()`. It adds the policy header to Process workflow filters and netutils.c/.h plus the policy header to storage hotplug filters. The exact source checker failures are confirmed by the Actions logs; exact corrected reruns are still pending.
-
-## Exact first action for the next GPT
-
-1. Inspect the exact-head Wireless rerun triggered by this commit. Confirm GNU89 policy binaries and ASan/UBSan Ralink config tests pass, then verify the complete WDS checked-read/resolver source contract; if it fails, inspect the exact assertion and preserve the safety checks.
-2. Check XY-C1 run #45155481405 on product source SHA 15c93fe: confirm Build XY-C1, TRX verification and artifact upload all succeed on that same SHA. Its result does not transfer to a later product-source commit.
-3. Revisit any newly observed exact-head CI failures, then continue another independent P1 from REFACTOR_ROADMAP.md. Do not repeat completed USB modem or WSD audits without new evidence.
-
-## Exact-SHA CI facts at the parent baseline
-- Parent main SHA for this checkpoint: `15c93fe802fc6a45148d04c8d3c7f238ad11fd92`. It includes the checked USB modem identity source fix and updated Process/USB source contracts.
-- On exact source SHA 15c93fe: Process fail-closed #45155481370 PASS; USB storage hotplug #45155481256 PASS; AI handoff docs #45155481272 PASS. The current commit is a workflow/docs contract-only update after that source tree.
-- Wireless radio run #45155297922 on source SHA a456ced83e2829c17a8953ec0b41608e1cf0d058: all GNU89 policy binaries, Ralink config ASan/UBSan, bridge membership and guest-isolation tests PASS; final Python source contract FAIL because the WDS assertions still targeted the pre-resolver implementation. This commit corrects the stale contract.
-- XY-C1 Firmware Validation #45155481405 on product source SHA 15c93fe was IN_PROGRESS at last observation; Build XY-C1, TRX verification and artifact upload are not yet confirmed. No L3 claim.
-- On a456ced, Process fail-closed #45155298043 also failed at the old USB boolean identity assertion; the updated checker is present in 15c93fe and its exact 15c run #45155481370 PASS. Do not repeat this failure.
-- Historical source results remain SHA-scoped: Switch CLI #45150824553 PASS on 3a7582ec; iNIC #45153133934 PASS on 63b15717; the older XY-C1 #45150223763 PASS Build/TRX/artifact on 45980023 only. None verify newer product-source commits.
+1. Check the Wireless radio state regression triggered by this commit on its exact new main SHA. Confirm every GNU89 / ASan-UBSan policy executable and the complete source contract pass. If it fails, inspect the exact assertion/log and fix the contract without relaxing source safety checks.
+2. Check XY-C1 run #45156939135 on product SHA 0e4976cfbe86c81f5172ce2256ed71801952682d: confirm Build XY-C1, TRX verification and artifact upload all complete successfully on that same SHA. A descendant docs/checker-only run that skips these steps is not L3 evidence.
+3. Revisit NVRAM transaction boundary run #45156938997 on exact SHA 0e4976 and repair any causal failure before considering that slice verified.
+4. After these gates close, choose the next unfinished high-risk module from the current REFACTOR_ROADMAP.md; prefer unresolved P1 stability/security work outside already heavily exercised Wireless/HTTPD/SkipDB. Do not repeat completed modules without new failure evidence.
 
 ## Completed source slices to preserve
 

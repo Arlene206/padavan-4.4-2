@@ -456,14 +456,15 @@ jobs:
               assert "if (mode_status != 0)" in body
               assert "return wireless_guest_isolation_control_result(0, &control_status);" in body
               assert "read " + band + " radio mode before guest activation" in body
-              reset_pos = body.index("wireless_guest_isolation_status_reset(&control_status)")
-              guest_gate_pos = body.index("if (guest_on)")
+              body_compact = "".join(body.split())
+              reset_pos = body_compact.index("wireless_guest_isolation_status_reset(&control_status)")
+              guest_gate_pos = body_compact.index("if(guest_on)")
               radio_read_pos = compact.index(checked_radio)
               radio_error_pos = compact.index("if(radio_status!=0)", radio_read_pos)
               read_pos = compact.index(checked_mode, radio_error_pos)
               error_pos = compact.index("if(mode_status!=0)", read_pos)
               mode_gate_pos = compact.index("if(i_mode_x==1||i_mode_x==3||!radio_on)", error_pos)
-              interface_pos = body.index("wireless_guest_interface_state_checked(", mode_gate_pos)
+              interface_pos = compact.index("wireless_guest_interface_state_checked(", mode_gate_pos)
               assert reset_pos < guest_gate_pos
               assert guest_gate_pos < radio_read_pos < radio_error_pos < read_pos < error_pos < mode_gate_pos < interface_pos
               assert "read " + band + " radio state before guest activation" in body
