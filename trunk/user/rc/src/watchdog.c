@@ -98,14 +98,7 @@ watchdog_checked_nvram_get(void *context, const char *name, char **value)
 static int
 watchdog_httpd_read_int(const char *name, int missing_value, int *result)
 {
-    char *value = NULL;
-    int api_result, saved_errno;
-
-    errno = 0;
-    api_result = nvram_get_checked(name, &value);
-    saved_errno = errno;
-    return rc_wan_nvram_read_int_status(api_result, saved_errno,
-                                        value, missing_value, result);
+    return watchdog_nvram_read_int_status(name, missing_value, result);
 }
 static int
 httpd_check_v2()
@@ -235,6 +228,22 @@ httpd_check_v2()
 #endif
 
 static int
+watchdog_nvram_read_int_status(const char *name, int missing_value, int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!name || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked(name, &text);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(
+		api_result, saved_errno, text, missing_value, value);
+}
+
+
+static int
 watchdog_ntp_transaction_get(void *context, const char *name, char **value)
 {
 	if (!context || !name || !value) {
@@ -309,14 +318,31 @@ refresh_ntp(void)
 int
 is_ntpc_updated(void)
 {
-	return (nvram_get_int("ntpc_counter") > 0) ? 1 : 0;
+	int ntpc_counter, status;
+
+	status = watchdog_nvram_read_int_status("ntpc_counter", 0,
+					       &ntpc_counter);
+	if (status != 0) {
+		logmessage("NTP Client",
+			   "cannot read NTP step counter; treating synchronization state as unknown (status=%d)",
+			   status);
+		return 0;
+	}
+	return ntpc_counter > 0;
 }
 
 static void
 ntpc_handler(void)
 {
-	int ntp_period = nvram_get_int("ntp_period");
+	int ntp_period, status;
 
+	status = watchdog_nvram_read_int_status("ntp_period", 0, &ntp_period);
+	if (status != 0) {
+		logmessage("NTP Client",
+			   "cannot read NTP refresh interval; skipping this refresh cycle (status=%d)",
+			   status);
+		return;
+	}
 	if (ntp_period < 1)
 		return;
 
@@ -347,12 +373,30 @@ ntpc_handler(void)
 static void
 ntpc_ready_handler(void)
 {
-	int ntpc_counter, ntp_ready, status;
+	int ntpc_counter = 0, ntp_ready = 0, retry_required = 0;
+	int counter_status, ready_status, status;
 
-	ntpc_counter = nvram_get_int("ntpc_counter");
-	ntp_ready = nvram_get_int("ntp_ready");
-	if (!watchdog_ntp_ready_retry_required(ntpc_counter, ntp_ready))
+	counter_status = watchdog_nvram_read_int_status(
+		"ntpc_counter", 0, &ntpc_counter);
+	ready_status = watchdog_nvram_read_int_status(
+		"ntp_ready", 0, &ntp_ready);
+	status = watchdog_ntp_ready_decision(
+		counter_status, ntpc_counter, ready_status, ntp_ready,
+		&retry_required);
+	if (status != 0) {
+		if (ntp_ready_publish_error != status)
+			logmessage("NTP Client",
+				   "cannot read NTP readiness state; retaining it until a checked retry (status=%d)",
+				   status);
+		ntp_ready_publish_error = status;
 		return;
+	}
+	if (!retry_required) {
+		if (ntp_ready_publish_error != 0)
+			logmessage("NTP Client", "NTP readiness state read recovered");
+		ntp_ready_publish_error = 0;
+		return;
+	}
 
 	status = nvram_set_int("ntp_ready", 1);
 	if (status != 0) {

@@ -50,6 +50,24 @@ watchdog_ntp_ready_retry_required(int ntpc_counter, int ntp_ready)
 	return ntpc_counter > 0 && ntp_ready != 1;
 }
 
+/* NTP readiness writes require both state reads to have completed cleanly. */
+static inline int
+watchdog_ntp_ready_decision(int counter_status, int ntpc_counter,
+			    int ready_status, int ntp_ready,
+			    int *retry_required)
+{
+	if (!retry_required)
+		return EINVAL;
+	*retry_required = 0;
+	if (counter_status != 0)
+		return counter_status;
+	if (ready_status != 0)
+		return ready_status;
+	*retry_required = watchdog_ntp_ready_retry_required(
+		ntpc_counter, ntp_ready);
+	return 0;
+}
+
 
 #define WATCHDOG_NTP_SERVER_MAX 256
 

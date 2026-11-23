@@ -163,6 +163,19 @@ assert "watchdog_ntp_step_has_offset" in _ntp_policy
 assert "watchdog_ntp_ready_retry_required" in _ntp_policy
 assert "test_ntp_step_requires_nonempty_offset" in _ntp_test
 assert "test_ntp_ready_publication_retries_only_after_a_real_step" in _ntp_test
+_ntpc_ready = function_body(_ntp_watchdog, "ntpc_ready_handler(void)")
+_ntpc_handler = function_body(_ntp_watchdog, "ntpc_handler(void)")
+_ntpc_updated = function_body(_ntp_watchdog, "is_ntpc_updated(void)")
+assert "watchdog_nvram_read_int_status(" in _ntpc_ready
+assert "watchdog_ntp_ready_decision(" in _ntpc_ready
+assert 'nvram_get_int("ntpc_counter")' not in _ntpc_ready
+assert 'nvram_get_int("ntp_ready")' not in _ntpc_ready
+assert "watchdog_nvram_read_int_status(" in _ntpc_handler
+assert 'nvram_get_int("ntp_period")' not in _ntpc_handler
+assert "watchdog_nvram_read_int_status(" in _ntpc_updated
+assert 'nvram_get_int("ntpc_counter")' not in _ntpc_updated
+assert "test_ntp_ready_decision_requires_both_checked_reads" in _ntp_test
+
 assert _ntp_watchdog.index("if (!watchdog_ntp_step_has_offset(offset))") < _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"')
 assert _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"') < _ntp_watchdog.index('ready_status = nvram_set_int("ntp_ready", 1)')
 assert "return ready_status;" in _ntp_watchdog

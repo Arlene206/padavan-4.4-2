@@ -54,6 +54,30 @@ test_ntp_step_requires_nonempty_offset(void)
 }
 
 static void
+test_ntp_ready_decision_requires_both_checked_reads(void)
+{
+    int retry_required = 1;
+
+    assert(watchdog_ntp_ready_decision(0, 1, 0, 0,
+                                       &retry_required) == 0);
+    assert(retry_required == 1);
+    assert(watchdog_ntp_ready_decision(0, 1, 0, 1,
+                                       &retry_required) == 0);
+    assert(retry_required == 0);
+
+    retry_required = 1;
+    assert(watchdog_ntp_ready_decision(EIO, 1, 0, 0,
+                                       &retry_required) == EIO);
+    assert(retry_required == 0);
+    retry_required = 1;
+    assert(watchdog_ntp_ready_decision(0, 1, ENODEV, 0,
+                                       &retry_required) == ENODEV);
+    assert(retry_required == 0);
+    assert(watchdog_ntp_ready_decision(0, 1, 0, 0, NULL) == EINVAL);
+}
+
+
+static void
 test_ntp_ready_publication_retries_only_after_a_real_step(void)
 {
 	assert(!watchdog_ntp_ready_retry_required(0, 0));
@@ -206,6 +230,7 @@ main(void)
 {
 	test_ntp_step_requires_nonempty_offset();
 	test_ntp_ready_publication_retries_only_after_a_real_step();
+	test_ntp_ready_decision_requires_both_checked_reads();
 	CHECK(test_ntp_server_pair_copies_cache_before_next_read() == 0);
 	CHECK(test_ntp_server_pair_failure_clears_partial_snapshot() == 0);
 	CHECK(test_ntp_missing_keys_preserve_legacy_fallbacks() == 0);
