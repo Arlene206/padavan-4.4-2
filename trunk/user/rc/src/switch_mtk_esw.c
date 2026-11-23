@@ -616,6 +616,22 @@ int mtk_esw_node(void)
 	return mknod(MTK_ESW_DEVPATH, S_IFCHR | 0666, makedev(MTK_ESW_DEVMAJOR, 0));
 }
 
+static int
+mtk_esw_command_uses_packed_argument(unsigned int cmd)
+{
+	switch (cmd)
+	{
+	case MTK_ESW_IOCTL_STATUS_LINK_PORT:
+	case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN:
+	case MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN:
+	case MTK_ESW_IOCTL_STATUS_SPEED_PORT:
+	case MTK_ESW_IOCTL_STATUS_MIB_PORT:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 int mtk_esw_main(int argc, char **argv)
 {
 	unsigned int cmd, par = 0, arg = 0;
@@ -626,8 +642,13 @@ int mtk_esw_main(int argc, char **argv)
 	if (switch_cli_parse_ioctl_command(argv[1], MTK_ESW_IOCTL_CMD_LENGTH_BITS, &cmd) != 0)
 		return show_usage(argv[0]);
 
-	if (argc > 2 && switch_cli_parse_uint(argv[2], 1, &arg) != 0)
-		return show_usage(argv[0]);
+	if (argc > 2) {
+		if (mtk_esw_command_uses_packed_argument(cmd)) {
+			if (switch_cli_parse_ioctl_parameter(argv[2], MTK_ESW_IOCTL_CMD_LENGTH_BITS, 1, &arg) != 0)
+				return show_usage(argv[0]);
+		} else if (switch_cli_parse_uint(argv[2], 1, &arg) != 0)
+			return show_usage(argv[0]);
+	}
 	if (argc > 3 && switch_cli_parse_ioctl_parameter(argv[3], MTK_ESW_IOCTL_CMD_LENGTH_BITS, 1, &par) != 0)
 		return show_usage(argv[0]);
 

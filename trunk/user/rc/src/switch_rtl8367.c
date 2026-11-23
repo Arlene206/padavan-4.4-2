@@ -655,6 +655,24 @@ int rtl8367_node(void)
 	return mknod(RTL8367_DEVPATH, S_IFCHR | 0666, makedev(RTL8367_DEVMAJOR, 0));
 }
 
+static int
+rtl8367_command_uses_packed_argument(unsigned int cmd)
+{
+	switch (cmd)
+	{
+	case RTL8367_IOCTL_STATUS_LINK_PORT:
+	case RTL8367_IOCTL_STATUS_SPEED_PORT:
+	case RTL8367_IOCTL_STATUS_MIB_PORT:
+	case RTL8367_IOCTL_REG_GET:
+	case RTL8367_IOCTL_PHY_REG_GET:
+	case RTL8367_IOCTL_REG_SET:
+	case RTL8367_IOCTL_PHY_REG_SET:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 int rtl8367_main(int argc, char **argv)
 {
 	unsigned int cmd, par = 0, arg = 0;
@@ -665,10 +683,20 @@ int rtl8367_main(int argc, char **argv)
 	if (switch_cli_parse_ioctl_command(argv[1], RTL8367_IOCTL_CMD_LENGTH_BITS, &cmd) != 0)
 		return show_usage(argv[0]);
 
-	if (argc > 2 && switch_cli_parse_uint(argv[2], 1, &arg) != 0)
-		return show_usage(argv[0]);
-	if (argc > 3 && switch_cli_parse_ioctl_parameter(argv[3], RTL8367_IOCTL_CMD_LENGTH_BITS, 1, &par) != 0)
-		return show_usage(argv[0]);
+	if (argc > 2) {
+		if (rtl8367_command_uses_packed_argument(cmd)) {
+			if (switch_cli_parse_ioctl_parameter(argv[2], RTL8367_IOCTL_CMD_LENGTH_BITS, 1, &arg) != 0)
+				return show_usage(argv[0]);
+		} else if (switch_cli_parse_uint(argv[2], 1, &arg) != 0)
+			return show_usage(argv[0]);
+	}
+	if (argc > 3) {
+		if (cmd == RTL8367_IOCTL_REG_SET || cmd == RTL8367_IOCTL_PHY_REG_SET) {
+			if (switch_cli_parse_uint(argv[3], 1, &par) != 0)
+				return show_usage(argv[0]);
+		} else if (switch_cli_parse_ioctl_parameter(argv[3], RTL8367_IOCTL_CMD_LENGTH_BITS, 1, &par) != 0)
+			return show_usage(argv[0]);
+	}
 
 	switch (cmd)
 	{

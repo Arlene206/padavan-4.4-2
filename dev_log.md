@@ -1,3 +1,15 @@
+## 2026-11-23 08:46 UTC+8 — Bound only actual packed switch ioctl operands
+
+- Parent main SHA: `ae30039aa9b0a70800d76c1c6d7b273d88c44540`. Reviewing per-command dispatch showed that `argv[2]` is packed into ioctl high bits for status-port and ASIC/PHY register commands, while `argv[3]` is a plain register-value payload for RTL8367 `REG_SET` / `PHY_REG_SET`. A global 24-bit cap on every third operand would incorrectly reject full-width register data and still leave the actual packed second operand exposed.
+- Added MTK/RTL command classifiers and applied the packed-parameter range check to the second operand only for commands that shift it into the ioctl request. RTL register-write third operands use the original full-width unsigned parser; generic ioctl third operands remain bounded.
+- Extended the Switch CLI workflow source contract to require the status/register command lists, bounded packed second operand, and full-width RTL register-write value path. Existing GNU89 sanitizer tests cover the 8-bit command and 24-bit packed-parameter limits.
+- Updated SESSION_HANDOFF and the Switch/PHY roadmap row. This is a correctness refinement to the preceding packed-field guard.
+- Parent exact-head Switch CLI `45090457040`, AI docs `45090457070`, Process inventory `45090457046`, HTTPD `45090457067` PASS; NVRAM `45090457094` in progress; XY-C1 `45090457058` Build in progress / TRX and artifact pending. This follow-up's exact-head checks remain required.
+- Local full firmware build unavailable; no L3/L4 claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 08:43 UTC+8 — Bound packed MTK/RTL switch ioctl fields
 
 - Parent main SHA: `73961add1641c5c23ed0d07c4f74c215e9cb8d1b`. Both RC switch front-ends lexically parsed unsigned integers but accepted values wider than the encoded ioctl request. Their wrappers mask the command into the low `*_IOCTL_CMD_LENGTH_BITS` and shift the third CLI operand into the remaining bits. For MTK's 8-bit command, decimal `297` aliases command `41` (port power); oversized packed parameters similarly lose high bits during the shift.
