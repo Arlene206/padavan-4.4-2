@@ -2,7 +2,10 @@
 #include <errno.h>
 #include <signal.h>
 #include <stddef.h>
+#include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "init_reap_queue.h"
 
@@ -190,6 +193,51 @@ static void test_wait_for_exact_child_rejects_invalid_inputs(void)
 }
 
 
+static void test_wait_for_exact_child_does_not_reap_peer(void)
+{
+	pid_t peer_pid, target_pid, reaped_pid;
+	siginfo_t info;
+	int attempts, child_reaped, status, wait_result;
+
+	peer_pid = fork();
+	assert(peer_pid >= 0);
+	if (peer_pid == 0)
+		_exit(17);
+
+	/* Wait until the peer is exited but remains a waitable child. */
+	for (attempts = 0; attempts < 1000; attempts++) {
+		memset(&info, 0, sizeof(info));
+		wait_result = waitid(P_PID, (id_t)peer_pid, &info,
+				     WEXITED | WNOHANG | WNOWAIT);
+		if (wait_result == 0 && info.si_pid == peer_pid)
+			break;
+		assert(wait_result == 0 || errno == EINTR);
+		usleep(1000);
+	}
+	assert(attempts < 1000);
+
+	target_pid = fork();
+	assert(target_pid >= 0);
+	if (target_pid == 0) {
+		usleep(50000);
+		_exit(23);
+	}
+
+	child_reaped = 0;
+	assert(init_wait_for_child(target_pid, waitpid, &child_reaped) == 0);
+	assert(child_reaped == 1);
+
+	/* Waiting for the target must not consume this unrelated zombie. */
+	reaped_pid = waitpid(peer_pid, &status, WNOHANG);
+	assert(reaped_pid == peer_pid);
+	assert(WIFEXITED(status) && WEXITSTATUS(status) == 17);
+
+	errno = 0;
+	assert(waitpid(target_pid, &status, WNOHANG) == -1);
+	assert(errno == ECHILD);
+}
+
+
 int main(void)
 {
 	test_wait_for_exact_child_only();
@@ -197,6 +245,7 @@ int main(void)
 	test_wait_for_exact_child_accepts_signal_handler_reap();
 	test_wait_for_exact_child_propagates_errors();
 	test_wait_for_exact_child_rejects_invalid_inputs();
+	test_wait_for_exact_child_does_not_reap_peer();
 	test_empty_queue();
 	test_rejects_invalid_pids();
 	test_fifo_drain_and_reuse();

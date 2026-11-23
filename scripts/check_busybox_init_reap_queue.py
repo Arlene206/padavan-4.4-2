@@ -57,6 +57,7 @@ for test_name in (
     "test_wait_for_exact_child_accepts_signal_handler_reap",
     "test_wait_for_exact_child_propagates_errors",
     "test_wait_for_exact_child_rejects_invalid_inputs",
+    "test_wait_for_exact_child_does_not_reap_peer",
 ):
     assert f"static void {test_name}(void)" in TEST, test_name
     assert f"{test_name}();" in TEST, test_name

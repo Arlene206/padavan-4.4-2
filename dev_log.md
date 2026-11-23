@@ -112,6 +112,17 @@
 
 ---
 
+## 2026-11-23 11:35 UTC+8 — Verify PID1 exact-child waiting against real child reaping
+
+- Parent main SHA: 7c556be9eb1caa343d720bcecd3df74c5461262a. The existing PID1 callback tests exercised injected waitpid results but did not prove the OS behavior that motivated the fix: a blocking wait for one action child must not consume an unrelated exited child.
+- Added test_wait_for_exact_child_does_not_reap_peer() to trunk/user/busybox/busybox-1.24.x/init/tests/init_reap_queue.c. It creates a peer child and waits for its exited-but-unreaped state with waitid(WNOWAIT), then starts a delayed target child and calls init_wait_for_child(target_pid, waitpid, ...). The test confirms the peer remains waitable and the target has been reaped. Registered the case in the source contract.
+- An isolated GNU89 -Wall -Wextra -Werror ASan/UBSan harness for the real fork/waitid scenario passed 10/10 locally. The full repository binary and source contract await this commit's exact-head BusyBox Actions.
+- Exact predecessor evidence: BusyBox regression 45106412054, Process inventory 45106412151, AI docs 45106411973, USB hotplug 45106411983, and NVRAM audit 45106412065 PASS on 84060ba4f52823b396487b24cdfe66254baff0d0. XY workflow unit regression 45106798326 and AI docs 45106798279 PASS on a71253cc; its target build was correctly skipped because that SHA only changed tests/docs.
+- The workflow-only XY-C1 run 45106983817 on 7c556be is still building; its terminal result is required before the PID1 L3 state can be claimed. No L4 claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 11:08 UTC+8 — Preserve ACLs when failed folder creation leaves a live directory
 
 - Parent main SHA: `256d736d8483227b5df3e26c074394ae4071786d`. In `add_folder()`, failure cleanup called `rmdir(full_path)`; if another writer populated the directory before rollback, removal failed but the old `else if (permission_init_started)` branch still deleted that folder's permission records from all accounts. The directory remained live while its ACL metadata was removed.
