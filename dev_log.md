@@ -1,3 +1,12 @@
+## 2026-11-22 — Align HTTPD PID1 contract with errno-preserving reaper
+
+- Exact-head HTTPD run `45086111706` on `f0ee5131e495a7b9f4a903293d53d304a3ec830b` failed only in its embedded PID 1 source contract: it still required the `waitpid()` loop and EINTR handling directly inside `catch_sig_reap()`. The production implementation intentionally moved the loop into `pid1_signal_reap_available_children()` so it can preserve the interrupted caller's errno and be exercised through an injected waitpid callback.
+- Updated the HTTPD contract to require handler delegation, the helper's waitpid/WNOHANG and EINTR loop, saved/restored errno, exact-child bookkeeping, and the injected regression. This is a test-contract correction; production behavior is unchanged.
+- Other exact-head results for `f0ee5131...`: PID 1 mdev/security `45086111693` PASS; notification queue `45086111684` PASS; USB storage hotplug `45086111681` PASS; DNS forwarder `45086111683` PASS; DNSMasq `45086111735` PASS; Process lifecycle `45086111753` PASS; Process umbrella `45086111764` PASS; AI handoff documentation `45086111726` PASS. HTTPD `45086111706` FAIL due to the stale source assertion. NVRAM audit `45086111754` and XY-C1 validation `45086111757` were IN_PROGRESS at last poll. The injected PID1 host regression passed in the PID1 workflow; no local compile was run.
+- Runtime scope: board BusyBox config has `CONFIG_INIT` disabled; Padavan's actual firmware PID 1 is `trunk/user/rc/src/init.c`. The generic BusyBox init deferred-reap work is not the running router PID1 and must not be presented as such.
+
+---
+
 ## 2026-11-22 — Preserve interrupted errno across PID1 child reaping
 
 - The shipped Padavan PID1 is the RC init binary (`trunk/user/rc/src/init.c`); the board BusyBox configuration explicitly has `CONFIG_INIT` disabled. Therefore the live runtime defect is in the RC SIGCHLD handler, not the optional BusyBox init applet.
