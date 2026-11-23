@@ -556,4 +556,16 @@ expect_dns_proxy_restart_status 31 "DNS proxy start failure"
 called stop_dns_proxy
 called start_dns_proxy:dnsproxy:8.8.8.8
 
+# A missing selected executable must be detected before touching the live daemon.
+reset
+mkdir -p "$TMP_DIR/no-dns-bin"
+saved_path=$PATH
+PATH="$TMP_DIR/no-dns-bin"
+export PATH
+expect_dns_proxy_restart_status 127 "DNS proxy executable missing"
+PATH=$saved_path
+export PATH
+not_called stop_dns_proxy
+not_called start_dns_proxy
+
 echo "Shadowsocks DNS proxy preflight regression: PASS"

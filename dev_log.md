@@ -1,3 +1,9 @@
+## 2026-11-23 — Cover missing DNS proxy executable without tearing down the current service
+
+- The DNS preflight checks `command -v` before stop, but the host regression suite had no missing-binary case. Added an isolated empty `PATH` fixture: a valid backend/upstream with no `dnsproxy` executable must return 127 and leave the stop/start stubs untouched. The test restores PATH before using external assertion helpers.
+- The Shadowsocks Python source contract now requires this negative case. Production code is unchanged; exact-head Shadowsocks and AI handoff Actions are the acceptance gate.
+
+---
 ## 2026-11-23 — Preserve RStats history view on selector read failure
 
 - `save_history_json()` still used `nvram_safe_get(RSTATS_NVKEY_DM)` after the speed selector had moved to checked NVRAM access. A `/dev/nvram` open/ioctl/close failure could collapse to an empty string and silently publish history index 0 under the wrong interface label.

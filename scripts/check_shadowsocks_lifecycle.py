@@ -546,6 +546,7 @@ require(dns_start.count("ss_restart_dns_proxy") == 2 and
 for marker in ("DNS proxy selector read failure", "DNS upstream read failure",
                "empty DNS upstream", "unsupported DNS proxy selector",
                "whitespace-only DNS upstream", "whitespace within DNS upstream",
+               "DNS proxy executable missing",
                "DNS proxy stop failure", "DNS proxy start failure",
                "Shadowsocks DNS proxy preflight regression: PASS"):
     require(marker in start_status_test, f"DNS proxy regression is missing {marker}")
