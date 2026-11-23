@@ -970,7 +970,8 @@ jobs:
           assert "integrated_start_status = start_stor_apps();" in storage_event
           assert "rc_service_start_event_is_complete(integrated_start_status)" in storage_event
           deferred_callback = function_body(storage, "on_deferred_hotplug_dev(void)")
-          storage_callback_code = deferred_callback.split("#else", 1)[0]
+          no_storage_branch = deferred_callback.index("\n#else\n\t/*\n\t * Builds without integrated storage support")
+          storage_callback_code = deferred_callback[:no_storage_branch]
           storage_callback_compact = "".join(storage_callback_code.split())
           assert 'storage_read_integer_status("usb_unplug_ms",0,&storage_unplug_value)' in storage_callback_compact
           assert 'storage_read_integer_status("usb_hotplug_ms",0,&storage_hotplug_value)' in storage_callback_compact

@@ -174,7 +174,7 @@ storage_launch_contracts = (
         "int run_itunes(void)",
         "void restart_itunes(void)",
         'launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);',
-        'if (!nvram_match("apps_itunes", "1"))',
+        'storage_service_enabled_status(\n\t\t"apps_itunes", "iTunes Server", &service_enabled);',
         "iTunes Server",
         "is_itunes_run()",
     ),
@@ -182,7 +182,7 @@ storage_launch_contracts = (
         "int run_torrent(void)",
         "void restart_torrent(void)",
         'launch_status = eval("/usr/bin/transmission.sh", "start");',
-        'if (!nvram_match("trmd_enable", "1"))',
+        'storage_service_enabled_status(\n\t\t"trmd_enable", "Transmission", &service_enabled);',
         "Transmission",
         "is_torrent_run()",
     ),
@@ -190,7 +190,7 @@ storage_launch_contracts = (
         "int run_aria(void)",
         "void restart_aria(void)",
         'launch_status = eval("/usr/bin/aria.sh", "start");',
-        'if (!nvram_match("aria_enable", "1"))',
+        'storage_service_enabled_status(\n\t\t"aria_enable", "Aria", &service_enabled);',
         "Aria",
         "is_aria_run()",
     ),
@@ -198,6 +198,12 @@ storage_launch_contracts = (
 for start_marker, end_marker, launcher, enable_guard, service_name, presence_call in storage_launch_contracts:
     start_body = storage_services.split(start_marker, 1)[1].split(chr(10) + end_marker, 1)[0]
     assert enable_guard in start_body
+    normalized_enable_start = " ".join(start_body.split())
+    assert "if (enable_status != 0)" in start_body
+    assert "return enable_status;" in start_body
+    assert "if (!service_enabled)" in start_body
+    assert normalized_enable_start.index("storage_service_enabled_status(") < normalized_enable_start.index("if (enable_status != 0)")
+    assert normalized_enable_start.index("if (enable_status != 0)") < normalized_enable_start.index("if (!service_enabled)") < normalized_enable_start.index("if (!is_")
     assert "int launch_status;" in start_body
 
 
