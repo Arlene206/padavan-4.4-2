@@ -1110,16 +1110,35 @@ require("disk_share_replace_file_atomic(" in set_permission and
         'fopen(var_file, "a+")' not in set_permission,
         "set_permission must use checked path construction and atomic publication")
 
-for signature in (
-    "int del_folder(const char *const mount_path, const char *const folder)",
-    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
-):
-    mutation = function_body(DISK_SOURCE, signature)
-    require("disk_share_update_folder_permission_file(" in mutation and
-            'fopen(var_file, "w")' not in mutation and
-            'fopen(var_file, "a+")' not in mutation and
-            "disk_share_format_account_var_path" in mutation,
-            signature + " must use the checked atomic account updater and reject truncated paths")
+del_folder_body = function_body(
+    DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
+)
+require("disk_share_permission_batch_prepare_delete(" in del_folder_body and
+        "disk_share_permission_batch_apply(" in del_folder_body and
+        "disk_share_permission_batch_rollback(" in del_folder_body and
+        "rmdir(staging_path)" in del_folder_body,
+        "folder deletion must use the checked, compensating permission batch before removing its staged directory")
+
+permission_batch_prepare = function_body(
+    DISK_SOURCE, "static int\ndisk_share_permission_batch_prepare_delete("
+)
+permission_batch_prepare_compact = "".join(permission_batch_prepare.split())
+require("disk_share_format_account_var_path(" in permission_batch_prepare_compact and
+        "read_whole_file(" in permission_batch_prepare_compact and
+        "disk_share_permission_rewrite(" in permission_batch_prepare_compact and
+        "saved_errno==ENOENT" in permission_batch_prepare_compact,
+        "folder deletion must snapshot each bounded permission file and distinguish missing metadata from real read/rewrite errors")
+
+mod_folder_body = function_body(
+    DISK_SOURCE,
+    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
+)
+require("disk_share_update_folder_permission_file(" in mod_folder_body and
+        'fopen(var_file, "w")' not in mod_folder_body and
+        'fopen(var_file, "a+")' not in mod_folder_body and
+        "disk_share_format_account_var_path" in mod_folder_body,
+        "folder rename must continue using the checked atomic account updater and reject truncated paths")
+
 
 for marker in (
     "test_permission_rewrite_removes_complete_record",
