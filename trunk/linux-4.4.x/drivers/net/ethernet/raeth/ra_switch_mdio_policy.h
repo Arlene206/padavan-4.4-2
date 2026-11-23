@@ -24,9 +24,9 @@ static inline int ra_switch_mdio_normalize_status(int status)
 
 /* Keep analog calibration search arithmetic inside its six-bit register field. */
 static inline unsigned int
-ra_switch_mdio_calibration_code_step(unsigned int current, int direction)
+ra_switch_mdio_calibration_code_step(unsigned int current_code, int direction)
 {
-	return (current + (unsigned int)direction) & 0x3fU;
+	return (current_code + (unsigned int)direction) & 0x3fU;
 }
 
 /* Do not let legacy PHY write wrappers silently discard MDIO failures. */

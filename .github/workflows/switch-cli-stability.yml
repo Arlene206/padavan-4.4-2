@@ -1181,6 +1181,7 @@ jobs:
           ):
               assert cleanup in compact, cleanup
           assert "ra_switch_mdio_calibration_code_step(" in policy
+          assert "ra_switch_mdio_calibration_code_step(unsigned int current_code," in policy
           assert "test_calibration_code_step_wraps_inside_six_bit_field();" in test
           print("FE VBG checked MDIO, bounded code/table access and best-effort cleanup: PASS")
           PY
