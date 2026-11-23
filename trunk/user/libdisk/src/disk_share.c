@@ -1440,7 +1440,9 @@ disk_info_t *disk_list = NULL, *follow_disk;
 	int account_order = -1;
 	char var_file[256], new_var_file[256];
 	struct stat old_stat, new_stat;
-	int first_error = 0, saved_errno, rename_result, rename_errno, rename_status;
+	struct disk_share_account_rename_entry *moves = NULL, *moves_tail = NULL;
+	struct disk_share_account_rename_entry *move, *next_move;
+	int first_error = 0, saved_errno, rollback_error = 0;
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
@@ -1503,63 +1505,94 @@ disk_info_t *disk_list = NULL, *follow_disk;
 	if (!strcmp(new_account, account))
 		goto rerun;
 
-	/* An incomplete inventory must not masquerade as no mounted volumes. */
-	if (read_disk_data_checked(&disk_list) != 0) {
+	/*
+	 * Preflight every mounted volume before publishing any metadata rename.
+	 * A failed inventory/path/stat check leaves all per-volume files untouched.
+	 */
+	if (first_error == 0 && read_disk_data_checked(&disk_list) != 0)
 		first_error = errno ? errno : EIO;
-	} else {
-	for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
-		for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
-			if (follow_partition->mount_point == NULL)
-				continue;
+	if (first_error == 0) {
+		for (follow_disk = disk_list; follow_disk != NULL && first_error == 0;
+		     follow_disk = follow_disk->next) {
+			for (follow_partition = follow_disk->partitions;
+			     follow_partition != NULL && first_error == 0;
+			     follow_partition = follow_partition->next) {
+				if (follow_partition->mount_point == NULL)
+					continue;
 
-			if (disk_share_format_account_var_path(
-				    var_file, sizeof(var_file),
-				    follow_partition->mount_point, account) != 0) {
-				if (first_error == 0)
+				if (disk_share_format_account_var_path(
+					    var_file, sizeof(var_file),
+					    follow_partition->mount_point, account) != 0) {
 					first_error = errno ? errno : EIO;
-				continue;
-			}
-			if (disk_share_format_account_var_path(
-				    new_var_file, sizeof(new_var_file),
-				    follow_partition->mount_point, new_account) != 0) {
-				if (first_error == 0)
+					break;
+				}
+				if (disk_share_format_account_var_path(
+					    new_var_file, sizeof(new_var_file),
+					    follow_partition->mount_point, new_account) != 0) {
 					first_error = errno ? errno : EIO;
-				continue;
-			}
+					break;
+				}
 
-			/* Missing sources are idempotent; reject malformed metadata. */
-			if (lstat(var_file, &old_stat) != 0) {
-				saved_errno = errno ? errno : EIO;
-				rename_status = disk_share_account_rename_status(-1, saved_errno);
-				if (rename_status != 0 && first_error == 0)
-					first_error = rename_status;
-				continue;
-			}
-			if (!S_ISREG(old_stat.st_mode)) {
-				if (first_error == 0)
-					first_error = EINVAL;
-				continue;
-			}
-			/* Never overwrite a stale destination permission file. */
-			if (lstat(new_var_file, &new_stat) == 0) {
-				if (first_error == 0)
-					first_error = EEXIST;
-				continue;
-			}
-			saved_errno = errno ? errno : EIO;
-			if (saved_errno != ENOENT) {
-				if (first_error == 0)
+				/* Missing sources are idempotent; reject other stat failures. */
+				if (lstat(var_file, &old_stat) != 0) {
+					saved_errno = errno ? errno : EIO;
+					if (saved_errno == ENOENT)
+						continue;
 					first_error = saved_errno;
-				continue;
+					break;
+				}
+				if (!S_ISREG(old_stat.st_mode)) {
+					first_error = EINVAL;
+					break;
+				}
+				/* Never overwrite a stale destination permission file. */
+				if (lstat(new_var_file, &new_stat) == 0) {
+					first_error = EEXIST;
+					break;
+				}
+				saved_errno = errno ? errno : EIO;
+				if (saved_errno != ENOENT) {
+					first_error = saved_errno;
+					break;
+				}
+
+				move = (struct disk_share_account_rename_entry *)
+					calloc(1, sizeof(*move));
+				if (!move) {
+					first_error = errno ? errno : ENOMEM;
+					break;
+				}
+				strcpy(move->source, var_file);
+				strcpy(move->destination, new_var_file);
+				move->previous = moves_tail;
+				if (moves_tail)
+					moves_tail->next = move;
+				else
+					moves = move;
+				moves_tail = move;
 			}
-			rename_result = rename(var_file, new_var_file);
-			rename_errno = errno;
-			rename_status = disk_share_account_rename_status(
-				rename_result, rename_errno);
-			if (rename_status != 0 && first_error == 0)
-				first_error = rename_status;
 		}
 	}
+
+	/* All paths are known safe before the first filesystem mutation. */
+	if (first_error == 0 && moves &&
+	    disk_share_account_rename_entries_apply(
+		    moves, rename, &rollback_error) != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (rollback_error != 0) {
+			logmessage("disk_share",
+				   "account metadata rename rollback failed (errno %d)",
+				   rollback_error);
+			first_error = EIO;
+		} else {
+			first_error = saved_errno;
+		}
+	}
+
+	while (moves) {
+		next_move = moves->next;
+		free(moves);
+		moves = next_move;
 	}
 	free_disk_data(disk_list);
 

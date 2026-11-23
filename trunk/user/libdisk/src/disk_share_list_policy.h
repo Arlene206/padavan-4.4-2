@@ -248,5 +248,60 @@ disk_share_account_rename_status(int rename_result, int saved_errno)
 	return saved_errno != 0 ? saved_errno : EIO;
 }
 
+/*
+ * Apply per-volume account metadata renames as one compensating batch.
+ * Every path is validated by the caller before this helper is entered. If a
+ * later rename fails, undo earlier moves in reverse order. rollback_error
+ * distinguishes an ordinary rename failure from an incomplete compensation.
+ */
+struct disk_share_account_rename_entry {
+	char source[256];
+	char destination[256];
+	int renamed;
+	struct disk_share_account_rename_entry *previous;
+	struct disk_share_account_rename_entry *next;
+};
+
+typedef int (*disk_share_rename_fn)(const char *, const char *);
+
+static inline int
+disk_share_account_rename_entries_apply(
+	struct disk_share_account_rename_entry *entries,
+	disk_share_rename_fn rename_path, int *rollback_error)
+{
+	struct disk_share_account_rename_entry *entry, *undo;
+	int operation_errno = 0, saved_rollback_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (!entries || !rename_path || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (entry = entries; entry; entry = entry->next) {
+		entry->renamed = 0;
+		errno = 0;
+		if (rename_path(entry->source, entry->destination) != 0) {
+			operation_errno = errno ? errno : EIO;
+			for (undo = entry->previous; undo; undo = undo->previous) {
+				if (!undo->renamed)
+					continue;
+				errno = 0;
+				if (rename_path(undo->destination, undo->source) != 0) {
+					if (saved_rollback_error == 0)
+						saved_rollback_error = errno ? errno : EIO;
+				} else {
+					undo->renamed = 0;
+				}
+			}
+			*rollback_error = saved_rollback_error;
+			errno = operation_errno;
+			return -1;
+		}
+		entry->renamed = 1;
+	}
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

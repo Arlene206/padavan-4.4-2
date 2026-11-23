@@ -520,18 +520,37 @@ mod_account_body = function_body(
 )
 mod_account_compact = "".join(mod_account_body.split())
 mod_inventory = mod_account_compact.index("read_disk_data_checked(&disk_list)")
+
+require("disk_share_account_rename_entries_apply" in POLICY and
+        "rename_path(undo->destination,undo->source)" in "".join(POLICY.split()),
+        "multi-volume account metadata rename policy must compensate prior moves in reverse order")
+for marker in (
+    "test_account_rename_batch_rolls_back_prior_moves",
+    "test_account_rename_batch_reports_incomplete_rollback",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing cross-volume rename rollback regression: " + marker)
+for marker in (
+    "test_account_rename_batch_rolls_back_prior_moves",
+    "test_account_rename_batch_reports_incomplete_rollback",
+):
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "cross-volume rename rollback regression is defined but not executed: " + marker)
+
 mod_loop = mod_account_compact.index("for(follow_disk=disk_list;", mod_inventory)
 mod_old_path = mod_account_compact.index("disk_share_format_account_var_path(var_file,sizeof(var_file),", mod_loop)
 mod_new_path = mod_account_compact.index("disk_share_format_account_var_path(new_var_file,sizeof(new_var_file),", mod_old_path)
 mod_old_stat = mod_account_compact.index("lstat(var_file,&old_stat)", mod_new_path)
 mod_target_stat = mod_account_compact.index("lstat(new_var_file,&new_stat)", mod_old_stat)
-mod_rename = mod_account_compact.index("rename(var_file,new_var_file)", mod_target_stat)
+mod_plan = mod_account_compact.index("calloc(1,sizeof(*move))", mod_target_stat)
+mod_rename = mod_account_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)", mod_plan)
 mod_cleanup = mod_account_compact.index("free_disk_data(disk_list)", mod_rename)
 mod_service = mod_account_compact.index('system("/sbin/run_ftpsamba")', mod_cleanup)
 mod_error = mod_account_compact.index("if(first_error!=0)", mod_service)
 require(mod_inventory < mod_loop < mod_old_path < mod_new_path < mod_old_stat <
-        mod_target_stat < mod_rename < mod_cleanup < mod_service < mod_error,
-        "mod_account must check inventory, bounded paths, source/target metadata and cleanup before reporting")
+        mod_target_stat < mod_plan < mod_rename < mod_cleanup < mod_service < mod_error and
+        "rename(var_file,new_var_file)" not in mod_account_compact,
+        "mod_account must preflight every volume before a compensating rename batch and must clean inventory before service reload")
 require("if(read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
         "first_error=errno?errno:EIO;" in mod_account_compact[mod_inventory:mod_loop],
         "mod_account must not treat incomplete storage inventory as empty")
