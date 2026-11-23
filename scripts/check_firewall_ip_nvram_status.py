@@ -84,6 +84,22 @@ for marker in (
     "test_checked_string_copy_rejects_truncation_and_invalid_arguments",
 ):
     assert marker in TEST and marker + "();" in TEST
+# The configured IPTV interface participates in IPv4 mangle TTL policy.
+# Do not silently fall back to MAN when a checked NVRAM read fails.
+mangle = body(SOURCE, "ipt_mangle_rules(const char *man_if")
+viptv_read = ('firewall_read_string_setting_copy_status(\n'
+              '\t\t"viptv_ifname", viptv_iflast, sizeof(viptv_iflast))')
+viptv_position = mangle.index(viptv_read)
+assert 'nvram_safe_get("viptv_ifname")' not in mangle
+assert "char viptv_iflast[16]" in mangle
+assert viptv_position < mangle.index("fput_int(")
+assert viptv_position < mangle.index('module_smart_load("iptable_mangle"')
+assert viptv_position < mangle.index("firewall_open_rule_file(ipt_file")
+assert "if (status != 0)\n\t\t\treturn;" in mangle[viptv_position:viptv_position + 240]
+assert "if (*viptv_iflast && is_interface_exist(viptv_iflast))" in mangle
+assert ("test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence" in TEST
+        and "test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence();" in TEST)
+
 
 # Virtual-server destination addresses must not turn NVRAM backend failures
 # into empty values and silently omit configured port-forward/filter rules.

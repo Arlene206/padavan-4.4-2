@@ -393,6 +393,31 @@ test_checked_string_copy_fails_closed_on_backend_and_invalid_results(void)
     assert(value[0] == '\0');
 }
 
+
+static void
+test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence(void)
+{
+	char interface_name[16] = "stale";
+
+	/* A missing optional key still selects the legacy MAN-interface fallback. */
+	assert(firewall_nvram_copy_string_status(0, 0, NULL,
+						 interface_name, sizeof(interface_name)) == 0);
+	assert(interface_name[0] == '\0');
+
+	assert(firewall_nvram_copy_string_status(1, 0, "eth2",
+						 interface_name, sizeof(interface_name)) == 0);
+	assert(strcmp(interface_name, "eth2") == 0);
+
+	/* Backend/close failures and values too long for an ifname must not be
+	 * mistaken for an absent override. */
+	assert(firewall_nvram_copy_string_status(-1, EIO, NULL,
+						 interface_name, sizeof(interface_name)) == EIO);
+	assert(interface_name[0] == '\0');
+	assert(firewall_nvram_copy_string_status(1, 0, "1234567890123456",
+						 interface_name, sizeof(interface_name)) == ENAMETOOLONG);
+	assert(interface_name[0] == '\0');
+}
+
 static void
 test_checked_string_copy_rejects_truncation_and_invalid_arguments(void)
 {
@@ -505,6 +530,7 @@ main(void)
 	test_optional_ipv4_copy_disables_oversized_values();
 	test_checked_string_copy_preserves_present_and_missing_values();
 	test_checked_string_copy_fails_closed_on_backend_and_invalid_results();
+	test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence();
 	test_checked_string_copy_rejects_truncation_and_invalid_arguments();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

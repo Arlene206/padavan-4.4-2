@@ -3021,6 +3021,7 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 	int is_multicast_enabled = 0;
 	int status, should_restore;
 	const char *dtype;
+	char viptv_iflast[16] = {0}; /* Linux IFNAMSIZ, including the terminator. */
 	char ipt_file[] = "/tmp/ipt_mangle.XXXXXX";
 
 	/* These NVRAM reads control packet TTL policy and must not turn backend
@@ -3040,6 +3041,15 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 			return;
 		if (!is_multicast_enabled)
 			i_wan_ttl_fix = 0;
+	}
+
+	/* Resolve the optional IPTV interface before any sysctl/module/rule side effect.
+	 * A backend error must not silently redirect the TTL rule to the MAN interface. */
+	if (i_wan_ttl_fix) {
+		status = firewall_read_string_setting_copy_status(
+			"viptv_ifname", viptv_iflast, sizeof(viptv_iflast));
+		if (status != 0)
+			return;
 	}
 
 	if (i_wan_ttl_value > 1) {
@@ -3082,7 +3092,6 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 
 	if (i_wan_ttl_fix) {
 		const char *viptv_if = man_if;
-		const char *viptv_iflast = nvram_safe_get("viptv_ifname");
 		if (*viptv_iflast && is_interface_exist(viptv_iflast))
 			viptv_if = viptv_iflast;
 		
