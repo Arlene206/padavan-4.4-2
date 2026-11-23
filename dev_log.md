@@ -1,3 +1,12 @@
+## 2026-11-23 — Correct the GE2 polling EEE regression fixture
+
+- The first exact-head Switch CLI run for source commit `bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`, #45271645960, reached the GNU89/Werror/ASan/UBSan RAETH policy binary and failed one newly added assertion: the intended half-duplex fixture used raw link-speed `0x24`, whose `0x20` duplex flag correctly denotes full duplex. This was a test-data error, not a production-code failure.
+- Corrected the test vector to `0x04` (100M half-duplex) so it independently exercises clearing the duplex flag alongside stale EEE bits.
+- A standalone GNU89/Werror/ASan/UBSan policy harness with the corrected sample passes the snapshot failure-injection and EEE rebuild cases. Exact repository regression and source contracts require a rerun on this correction SHA.
+- On `bfca47b`: AI handoff #45271646030 PASS; XY-C1 #45271645953 and NVRAM #45271645977 were IN_PROGRESS at the last poll. No kernel/MIPS build or hardware L4 is claimed.
+- Next: verify exact-head Switch CLI, AI docs and XY-C1 for this test correction; then continue the GE analog-calibration caller/restore audit.
+
+---
 ## 2026-11-23 — Make GE2 PHY link polling fail closed
 
 - Baseline main SHA: `72076155464bb033d5dc61d5d141e76cd08c2181`; source debug transaction fix `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` is already in main.

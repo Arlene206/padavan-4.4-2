@@ -1,13 +1,11 @@
 ### 2026-11-23 接力更新（最新快照）
 
-- 本轮 main 基线：`72076155464bb033d5dc61d5d141e76cd08c2181`，已包含 PHY debug fix `ad5bcd2b87b9b672dd2e921b6e133fb35393093c`。
-- 新修复 GE2 `phy_polling_thread()`：六次 Clause 22/45 读取聚合为完整快照；任何读取失败均丢弃快照并保留先前 MAC/link 状态，不再把 MDIO 超时误判为 link-down。只有确认的 link-down 样本才触发原 force-down 操作。
-- 修复 EEE capability stale-bit：重新协商未再支持 EEE 时清除旧 1G/100M EEE 位；每个成功样本更新 duplex/speed/flow-control/EEE 位，并保留无关位。
-- 回归覆盖六个读点故障注入、正错误码归一化、完整样本顺序、link-down 短路、无效 callback、失败状态保留和 stale EEE 清除；Switch CLI workflow 新增源码 contract。相关生产/测试/头文件已由 Switch CLI 与 XY-C1 path filters 覆盖。
-- 前一 debug source SHA `ad5bcd2`：Switch CLI #45270470838 PASS；AI docs #45270470371 因继承 roadmap 超 385 bytes FAIL，之后 docs-only SHA `7207615` 的 AI docs #45270615085 PASS；XY-C1 #45270470239、NVRAM #45270470405 当时 IN_PROGRESS。本次新提交 exact-SHA Actions 尚待检查。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，本轮未修改。
+- 当前产品源码 SHA：`bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`，修复 GE2 PHY polling 失败传播与 EEE renegotiation stale-bit。
+- 首次 Switch CLI exact-head #45271645960 失败在新增测试 fixture：`0x24` 含 duplex flag `0x20`，并非半双工样本；生产逻辑按输入正确保留 duplex。已将回归向量改为 `0x04`，并以 GNU89/Werror/ASan/UBSan 独立 policy harness 验证通过；仓库完整测试须在下一个 SHA 重跑。
+- `bfca47b` 的 AI docs #45271646030 PASS；XY-C1 #45271645953 与 NVRAM #45271645977 上次检查为 IN_PROGRESS。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
 - 无本地 MIPS/kernel build、无 XY-C1 Build/TRX/artifact 同 SHA 全 PASS 证明、无硬件 L4 声明。
-- 下个 GPT 第一项：检查本次提交 exact-SHA Switch CLI、AI docs、NVRAM、XY-C1；处理 FAIL，PENDING 时继续独立任务。随后分析 GE analog calibration 的寄存器保存/恢复契约，不可盲目批量替换兼容 wrapper。
+- 下个 GPT 第一项：检查本次测试修正提交 exact-SHA Switch CLI、AI docs、XY-C1 和 NVRAM；FAIL 查看日志修复，PENDING 时继续其他独立任务。然后追踪 GE analog calibration 保存/恢复顺序，选一条有界事务迁移。
 
 ---
 # Cross-session execution mandate
@@ -44,16 +42,16 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- Prior debug source SHA `ad5bcd2`: Switch CLI #45270470838 PASS; AI docs #45270470371 failed only on the inherited roadmap byte cap, fixed on docs-only child `7207615` with AI docs #45270615085 PASS. XY-C1 #45270470239 and NVRAM #45270470405 were in progress at last check.
-- This GE2 polling slice is new; exact-head Switch CLI/AI docs/NVRAM/XY-C1 statuses must be fetched after commit.
-- No local MIPS/kernel build or physical-router L4 is claimed. XY-C1 L3 requires Build, TRX and artifact upload all PASS on one production-source SHA.
+- Source SHA `bfca47b`: AI handoff #45271646030 PASS; Switch CLI #45271645960 FAIL only because the new half-duplex regression used `0x24` (the `0x20` duplex bit was set); the test fixture is corrected to `0x04` in the current follow-up. XY-C1 #45271645953 and NVRAM #45271645977 were IN_PROGRESS at the last poll.
+- Exact repository Switch CLI policy binary/source contracts must rerun on this test-only correction SHA.
+- No local MIPS/kernel build or physical-router L4 is claimed. XY-C1 L3 requires Build, TRX and artifact upload all PASS on the same production-source SHA.
 - Frozen backup remains untouched.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA Switch CLI, AI handoff, NVRAM and XY-C1 runs for this GE2 polling commit; diagnose every FAIL from its job log.
-2. If XY-C1 is PENDING, continue independent work. Claim L3 only after Build, TRX and artifact upload pass on the same production-source SHA.
-3. Trace `ge_cal_rext()`, `ge_cal_r50()`, `ge_cal_tx_amp()`, `ge_cal_tx_offset()` and `do_ge_phy_all_analog_cal()` for save/restore ordering before converting legacy MDIO wrappers.
+1. Fetch live `main` and inspect exact-SHA Switch CLI, AI handoff and XY-C1 Actions for the test-fixture correction; check NVRAM if it triggers. Diagnose any failure from its job log.
+2. Do not treat the corrected host regression as a firmware build. Claim L3 only after XY-C1 Build, TRX and artifact upload all pass on one source SHA.
+3. Continue the bounded GE analog-calibration save/restore analysis after CI state is recorded.
 
 
 ## Cross-session operating constraints

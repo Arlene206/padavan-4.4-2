@@ -379,7 +379,7 @@ static void test_ge2_mac_value_rebuild_clears_stale_eee_bits(void)
 	assert((value & 0xc0U) == 0xc0U);
 
 	value = ra_switch_mdio_update_ge2_mac_value(
-		value, 0xc00U, 0x400U, 0x24U, 0U, 0U);
+		value, 0xc00U, 0x400U, 0x04U, 0U, 0U);
 	assert((value & 0x30U) == 0U);
 	assert((value & 0x02U) == 0U);
 	assert((value & 0x0cU) == 0x04U);
