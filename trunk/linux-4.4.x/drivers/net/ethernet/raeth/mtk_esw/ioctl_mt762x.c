@@ -853,6 +853,11 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	}
 #endif
 
+	/* Do not modify port state until the old VLAN table is fully reset. */
+	status = esw_vlan_reset_table();
+	if (status != 0)
+		return status;
+
 	/* configure physical LAN/WAN ports */
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
 		if ((1u << i) & ESW_MASK_EXCLUDE)
@@ -889,11 +894,6 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	esw_port_ingress_mode_set(WAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
 #endif
 
-	/* Do not add new entries until every old entry has been reset. */
-	status = esw_vlan_reset_table();
-	if (status != 0)
-		return status;
-
 	/* fill VLAN table */
 	for (i = 0; i <= VLAN_ENTRY_ID_MAX; i++) {
 		if (!vlan_entry[i].valid)
@@ -922,6 +922,11 @@ static int esw_vlan_init_vid1(void)
 	port_untag &= ~(1u << ESW_PORT_PPE);
 #endif
 
+	/* Do not modify port state until the old VLAN table is fully reset. */
+	status = esw_vlan_reset_table();
+	if (status != 0)
+		return status;
+
 	/* configure physical LAN ports */
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
 		if ((1u << i) & ESW_MASK_EXCLUDE)
@@ -942,11 +947,6 @@ static int esw_vlan_init_vid1(void)
 #endif
 
 	esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
-
-	/* reset VLAN table */
-	status = esw_vlan_reset_table();
-	if (status != 0)
-		return status;
 
 	/* set all ports to VLAN 1 member (no SVID, no SWAP) */
 	status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);

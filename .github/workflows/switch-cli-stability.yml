@@ -747,6 +747,19 @@ jobs:
           vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
               "static int esw_vlan_init_vid1", 1
           )[0]
+          vlan_apply_reset = vlan_apply.index("status = esw_vlan_reset_table();")
+          vlan_apply_ports = vlan_apply.index("esw_vlan_pvid_set(")
+          vlan_apply_entries = vlan_apply.index("status = esw_vlan_set(")
+          assert vlan_apply_reset < vlan_apply_ports < vlan_apply_entries
+          vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
+              "static void esw_mask_bridge_isolate", 1
+          )[0]
+          vid1_reset = vid1_init.index("status = esw_vlan_reset_table();")
+          vid1_port_setup = vid1_init.index("esw_vlan_pvid_set(")
+          assert vid1_reset < vid1_port_setup
+          vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
+              "static int esw_vlan_init_vid1", 1
+          )[0]
           assert "status = esw_vlan_reset_table();" in vlan_apply
           assert "status = esw_vlan_set(" in vlan_apply
           bridge_isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
