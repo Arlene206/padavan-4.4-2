@@ -992,14 +992,14 @@ jobs:
           assert "failed to add MAN DNS route" in gateway_add
           assert "*gateway_route_status = 0;" in gateway_add
           gateway_host = gateway_add[gateway_add.index("/* Do not interpret inet_addr() failures as an off-subnet gateway. */"):gateway_add.index("/* default route via default gateway */")]
+          gateway_default = gateway_add[gateway_add.index("/* default route via default gateway */"):gateway_add.index("/* ... and to dns servers as well for demand ppp to work */")]
+          gateway_dns = gateway_add[gateway_add.index("/* ... and to dns servers as well for demand ppp to work */"):]
           assert "dhcp_lease_ipv4_is_valid(man_addr)" in gateway_add
           assert "dhcp_lease_netmask_is_valid(man_mask)" in gateway_add
           assert "route_status_gateway_host_route_required" in gateway_host
           assert "man_address_valid && man_netmask_valid" in gateway_host
           assert "man_address_valid && man_netmask_valid" in gateway_dns
           assert "skipping host and DNS gateway routes" in gateway_add
-          gateway_default = gateway_add[gateway_add.index("/* default route via default gateway */"):gateway_add.index("/* ... and to dns servers as well for demand ppp to work */")]
-          gateway_dns = gateway_add[gateway_add.index("/* ... and to dns servers as well for demand ppp to work */"):]
           required_accumulate = "*gateway_route_status = route_status_accumulate(*gateway_route_status, route_status);"
           assert required_accumulate in gateway_host and required_accumulate in gateway_default
           assert "*gateway_route_status" not in gateway_dns
