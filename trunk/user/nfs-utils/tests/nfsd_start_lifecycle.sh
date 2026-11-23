@@ -122,13 +122,6 @@ case "$name" in
 				awk -v path="$1" '$2 != path' "$MOUNTS_FILE" > "$MOUNTS_FILE.tmp"
 				mv "$MOUNTS_FILE.tmp" "$MOUNTS_FILE"
 				;;
-			killall)
-				for target in "$@"; do :; done
-				case "$target" in
-					nfsd) rm -f "$STATE_DIR/nfsd"; rm -rf "$PROC_ROOT/123" ;;
-					rpc.mountd) rm -f "$STATE_DIR/rpc.mountd"; rm -rf "$PROC_ROOT/124" ;;
-				esac
-				;;
 		esac
 		exit 0
 		;;
@@ -671,7 +664,11 @@ assert_failed "$status" "NFS stop with surviving daemons"
 assert_command kill
 assert_no_command exportfs
 assert_no_command umount
-grep -q '^kill -TERM 124
+grep -q '^kill -TERM 124$' "$COMMAND_LOG"
+grep -q '^kill -2 123$' "$COMMAND_LOG"
+grep -q '^kill -9 124$' "$COMMAND_LOG"
+grep -q '^kill -9 123$' "$COMMAND_LOG"
+! grep -q '^killall ' "$COMMAND_LOG"
 
 # Failed rpc_pipefs detach must retain etab and must not continue to nfsd unmount.
 reset_fixture
