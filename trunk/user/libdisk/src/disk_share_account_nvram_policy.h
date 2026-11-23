@@ -599,11 +599,15 @@ disk_share_account_inventory_update_validate_locked(
 		errno = EAGAIN;
 		return -1;
 	}
-	if (new_account && *new_account &&
-	    (!ops->valid_name(new_account) ||
-	     ops->reserved_name(new_account, NULL))) {
-		errno = EINVAL;
-		return -1;
+	if (new_account && *new_account) {
+		if (!ops->valid_name(new_account)) {
+			errno = EINVAL;
+			return -1;
+		}
+		if (ops->reserved_name(new_account, NULL)) {
+			errno = EPERM;
+			return -1;
+		}
 	}
 
 	result = router_account_nvram_read_count(
