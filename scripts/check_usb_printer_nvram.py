@@ -64,6 +64,16 @@ assert scan<action<status<unknown<running<cleanup<fork_pipe
 assert "already running; skipping duplicate launch" in launcher
 assert "cannot remove stale %s PID file" in launcher
 assert "errno != ENOENT" in launcher
+rollback_stop = body("usb_printer_daemon_rollback_stop(void *context)")
+assert "kill_services(service_names, 3, 1)" in rollback_stop
+recovery = body("usb_printer_daemon_start_failure_recover(const char *process_name,")
+assert "detached_daemon_start_rollback_with_ops(" in recovery
+assert "usb_printer_daemon_rollback_stop" in recovery
+assert "usb_printer_daemon_scan" in recovery
+assert "PROCESS_PRESENCE_ABSENT" in recovery
+assert "startup rollback incomplete" in recovery
+assert "usb_printer_daemon_start_failure_recover(process_name," in launcher
+assert "short exec-status write leaves process state uncertain" in launcher
 raw=body("start_p910nd(char *devlp)")
 read=raw.index('read_usb_printer_setting_status("rawd_enable"')
 gate=raw.index("if (setting_status != 0)",read)

@@ -1,3 +1,9 @@
+## 2026-11-23 — Roll back late USB printer daemons after failed readiness
+
+- Follow-up reliability defect: when U2EC/LPRng `execv()` succeeded but the bounded RUNNING postcondition timed out, was interrupted, or encountered an unknown process inventory, the caller returned failure without stopping a daemon that could appear late. A pipe read/partial-status error also left launch state uncertain.
+- The printer launcher now uses the shared `detached_daemon_start_rollback_with_ops()` policy on readiness and post-fork status-channel failures. It sends an identity-validated stop through `kill_services()`, takes a fresh process snapshot, logs confirmed absence versus incomplete rollback, and preserves the primary startup errno. A definitive full exec-error record still returns directly because no daemon was started.
+- The existing GNU89 rollback-policy regression already covers successful no-op, stop, final ABSENT/RUNNING/UNKNOWN and primary-error preservation; USB-printer and Process source contracts now pin this integration. Exact-head Actions pending.
+
 ## 2026-11-24 01:00 CST (UTC+8) — Restore mandatory handoff accuracy checkpoint after AI docs failure
 
 - Exact AI documentation run #45221089290 on `e4d34fd7f13baa203bbbae90130b0782a9b22e5c` failed with: “current handoff does not require an end-of-session accuracy checkpoint”. The handoff had been compacted but omitted the validator-required `Mandatory handoff checkpoint` section and exact conditional-edit sentence, along with its required cross-session heading and section names.

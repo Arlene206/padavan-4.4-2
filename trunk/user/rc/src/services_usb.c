@@ -214,6 +214,47 @@ usb_printer_daemon_postcondition(const char *process_name)
 	return status;
 }
 
+static int
+usb_printer_daemon_rollback_stop(void *context)
+{
+	char *service_names[2];
+
+	if (!context) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	service_names[0] = (char *)context;
+	service_names[1] = NULL;
+	return kill_services(service_names, 3, 1);
+}
+
+static int
+usb_printer_daemon_start_failure_recover(const char *process_name,
+					 int start_status)
+{
+	int start_errno = errno > 0 ? errno :
+		(start_status > 0 ? start_status : EIO);
+	int stop_status = 0, scan_error = 0, saved_errno, result;
+	enum process_presence final_state = PROCESS_PRESENCE_UNKNOWN;
+
+	result = detached_daemon_start_rollback_with_ops(
+		start_status, start_errno, usb_printer_daemon_rollback_stop,
+		usb_printer_daemon_scan, (void *)process_name,
+		&stop_status, &final_state, &scan_error);
+	saved_errno = errno;
+	if (final_state == PROCESS_PRESENCE_ABSENT) {
+		logmessage(LOGNAME,
+			   "%s startup rollback confirmed process absent (stop_status=%d)",
+			   process_name, stop_status);
+	} else {
+		logmessage(LOGNAME,
+			   "%s startup rollback incomplete (primary_status=%d, stop_status=%d, process_state=%d, scan_error=%d)",
+			   process_name, start_status, stop_status, final_state, scan_error);
+	}
+	errno = saved_errno;
+	return result;
+}
+
 /* Launch a detached daemon and report both execve and post-exec readiness
  * errors. The close-on-exec pipe distinguishes exec success from failure. */
 static int
@@ -323,12 +364,21 @@ start_usb_printer_daemon(char *const argv[], const char *process_name,
 	close(exec_pipe[0]);
 
 	if (read_error != 0)
-		return read_error;
-	if (received == 0)
-		return usb_printer_daemon_postcondition(process_name);
+		return usb_printer_daemon_start_failure_recover(process_name,
+							 read_error);
+	if (received == 0) {
+		start_status = usb_printer_daemon_postcondition(process_name);
+		if (start_status != 0)
+			return usb_printer_daemon_start_failure_recover(
+				process_name, start_status);
+		return 0;
+	}
 	if (received == sizeof(exec_error))
 		return exec_error;
-	return EIO;
+
+	/* A short exec-status write leaves process state uncertain. */
+	errno = EIO;
+	return usb_printer_daemon_start_failure_recover(process_name, EIO);
 }
 
 #if defined(SRV_U2EC)
