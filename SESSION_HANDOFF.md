@@ -1,32 +1,33 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main: `59a05efa4041e7bb1f6f531440d9b8c4ae23e6e9`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main: `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- No local checkout; no local test/build claims.
+- No local checkout; no local shell test/build claim outside Actions.
 
 ## Exact-SHA Actions
-- Production-source SHA `492730323b6361baa3a9351e487a9ea0f3e82eaa`: Process inventory `45131685896`, WAN route `45131685948`, AI docs `45131685890` all PASS; ZeroTier shell regression `45131686076` PASS but Python contract failed on stale inline getter and validation placement assumptions.
-- Checker corrections `1b29ed2...` / `59a05ef...`: AI docs `45131839596` PASS; ZeroTier `45131839631` failed because an assertion still expected NAT validation inside `rules()`. THIS Moon source/test slice also includes the matcher correction at `59a05ef`; exact-head rerun pending.
-- XY-C1 `45131685922` (`4927303...`) and `45131246305` (`4025152...`) remained IN_PROGRESS at last poll; inspect exact same-SHA Build/TRX/artifact. No L3 claim.
+- Moon source commit `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`: shell lifecycle regression PASS; Python contract failed before assertions because generic brace parser treated legacy backtick command substitutions inside `creat_moon()` as unterminated. This is a checker extraction limitation, not a shell test failure or production C/shell failure.
+- THIS COMMIT extracts the two Moon function slices by their explicit next-function boundaries, allowing the existing source assertions to run without changing production source.
+- AI docs `45132437976`, Process inventory `45132437950`, WAN route `45132437933` and XY-C1 `45132438010` were in progress at last poll. XY steps: Build running; TRX and artifact pending. The prior XY run `45131246305` on `4025152c...` completed SUCCESS with Build, TRX and artifact all PASS on that exact SHA; this predates the later NAT/static-route and Moon source changes and does not prove those.
+- Earlier ZeroTier checker repairs `1b29ed2...` / `59a05ef...` have exact-head ZeroTier and AI checks SUCCESS.
 
-## Active source task — ZeroTier Moon create/remove NVRAM reliability
-- Startup identity selectors and runtime NAT/static-route policy use checked NVRAM reads before stopping or publishing service state.
-- Remaining legacy Moon reads could mistake backend failures for empty configuration. THIS COMMIT uses `nvram get_checked` for `zerotiermoon_ip` and `zerotiermoon_id`; an address-read error aborts before WAN-interface fallback, and an ID-read error preserves signed files/JSON.
-- `remove_moon()` had a malformed test expression and did not correctly remove a present ID. It now validates a 10-hex ZeroTier address before composing the exact `000000<id>.moon` path, removes only that file plus Moon JSON, checks NVRAM set/commit results, and makes empty ID an idempotent no-op. `start_instance()` propagates Moon operation failures.
-- Lifecycle regressions inject both checked-read errors, malformed ID, valid removal and empty-ID no-op; Python source contract pins the new behavior.
+## Active work — ZeroTier Moon create/remove reliability
+- `creat_moon()` now reads `zerotiermoon_ip` with `nvram get_checked` and aborts before WAN-interface fallback on read error.
+- `remove_moon()` now checked-reads Moon ID, treats missing ID as a no-op, validates exactly ten hex digits, deletes only the named `000000<id>.moon` plus JSON, and checks NVRAM set/commit outcomes. The malformed conditional was corrected.
+- `start_instance()` propagates Moon operation failures.
+- Shell tests covering failed address/ID reads, no WAN fallback, malformed ID, successful deletion and empty-ID no-op passed on `d3f3aedd...`; source checker only failed during its generic extraction of legacy backtick command-substitution syntax. Exact-head rerun pending.
 
 ## Next actions
-1. Inspect THIS COMMIT's exact-head ZeroTier shell regression and Python contract; fix first causal failure without weakening coverage.
-2. Recheck XY-C1 `45131685922` and `45131246305`; L3 requires same-SHA Build, TRX and artifact all PASS.
-3. Continue on any first-causal regression or another independent userland stability defect while CI is pending.
+1. Verify this checker-only correction's exact-head ZeroTier and AI runs; fix any first causal contract or shell failure.
+2. Recheck XY-C1 `45132438010` and require Build, TRX and artifact all PASS on this production-source SHA for L3.
+3. Continue with any independent reliability defect while CI is pending; do not repeat already-passed Moon shell tests.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-Moon changes are L1 reviewed only until exact-head shell and Python checks pass. L3 same-SHA target Build/TRX/artifact unverified; L4 unverified.
+Moon shell L2 passes on `d3f3aedd...`; Python source contract rerun pending after bounded extraction fix. Same-SHA firmware L3 pending; physical L4 NOT VERIFIED.
 
 ## Cross-session mandate
-Small source/test slices; one complete tree and atomic commit each; update main with `force:false` and expected parent SHA; exact-SHA Actions; never touch backup or claim unobserved results.
+Small atomic changes; complete Git tree/commit per slice; only non-forced expected-SHA main updates; exact-SHA Actions; never touch backup or claim unobserved results.
 
 ---
 # SESSION HANDOFF — Padavan 4.4

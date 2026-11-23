@@ -1,3 +1,12 @@
+## 2026-11-23 08:26 UTC — Bound Moon checker extraction around shell backticks
+
+- Exact ZeroTier run `45132438035` on `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`: the new Moon lifecycle shell regression passed; the Python contract failed before semantic assertions because generic `function_body()` could not parse legacy backtick command substitutions in `creat_moon()`.
+- Changed the checker to extract `creat_moon()` and `remove_moon()` using their explicit neighboring function boundaries. Production source and shell tests are unchanged.
+- AI docs `45132437976`, Process inventory `45132437950`, WAN route `45132437933` and XY-C1 `45132438010` were still in progress at the last poll; XY Build running, TRX/artifact pending. Previous XY `45131246305` passed Build/TRX/artifact on the older `4025152...` source SHA, not the newer NAT/Moon changes.
+- Exact-head source-contract rerun pending; no local test/build claims.
+
+---
+
 ## 2026-11-23 08:18 UTC — Harden ZeroTier Moon creation and removal
 
 - Remaining direct Moon NVRAM reads were `zerotiermoon_ip` and `zerotiermoon_id`. A legacy getter failure could be mistaken for an empty address (triggering WAN-IP fallback) or empty identity (skipping cleanup).
