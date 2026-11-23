@@ -742,7 +742,9 @@ jobs:
           assert "ioctl_result = esw_mac_table_clear();" in ioctl_source
           assert "int power_changed = 0;" in ioctl_source
           assert "change_wan_lan_ports_power(uint_param, uint_value);" not in ioctl_source
-          assert "change_ports_power(uint_param, uint_value);" not in ioctl_source
+          assert "change_ports_power(uint_param, uint_value);" not in ioctl_source.replace(
+              "ioctl_result = change_ports_power(uint_param, uint_value);", ""
+          )
 
           for token in (
               "MTK_ESW_MAC_TABLE_BUSY_MASK",

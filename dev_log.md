@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Correct MTK ESW ioctl source-contract false positive
+
+- Exact-head Switch run `45149385794` on `215fd4c2cb6c77f60b699c7f29c480d631b647e3` compiled and passed the GNU89 ASan/UBSan MTK ESW policy regression, then failed at the final Python source assertion. The negative check for the obsolete two-argument `change_ports_power(uint_param, uint_value);` call also matched the new valid status-assignment call because the shorter text was a substring.
+- Tightened the negative contract by removing the expected status-bearing call before checking for the obsolete call. No production source or runtime test changed.
+- Exact-head Switch rerun pending. On the same source SHA, Process inventory `45149385585` and AI handoff docs `45149385574` PASS; XY-C1 `45149385586` remained IN_PROGRESS at Build XY-C1 (TRX/artifact not yet confirmed), and NVRAM audit `45149385665` remained IN_PROGRESS at the raw ioctl audit. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 UTC — Complete MTK PHY power error propagation at ioctl callsites
 
 - The XY-C1 exact-SHA firmware run `45147995734` for `e03fb56fd2be9f31110c1b133f137726816c7966` failed during kernel compilation at `mtk_esw/ioctl.c:130`: `change_wan_lan_ports_power()` now takes a third changed-state argument, but the direct PORTS_WAN_LAN_POWER ioctl call still used the old two-argument signature. The MAC and PHY helpers were correct in isolation; the direct user-facing callsites were not fully migrated.
