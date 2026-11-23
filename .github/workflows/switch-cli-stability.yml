@@ -1172,6 +1172,11 @@ jobs:
               assert "if (ioctl_result != 0)" in section
           assert "test_register_read_propagates_mdio_failures" in test
           assert "mtk_esw_register_read(" in policy
+          read_policy = policy.split("mtk_esw_register_read(", 1)[1].split(
+              "mtk_esw_register_update_bits", 1
+          )[0]
+          assert read_policy.index("if (!value)") < read_policy.index("*value = 0U;")
+          assert read_policy.index("*value = 0U;") < read_policy.index("if (!io || !io->read)")
           print("MTK ESW link/MIB checked reads and ioctl error propagation: PASS")
           print("MTK ESW IGMP/MLD checked writes and ioctl error propagation: PASS")
           print("MTK ESW link-mode policy, pre-MDIO guard and XY-C1 trigger contract: PASS")

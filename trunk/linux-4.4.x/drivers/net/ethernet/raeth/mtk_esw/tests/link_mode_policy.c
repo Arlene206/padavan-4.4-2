@@ -603,10 +603,14 @@ test_register_read_propagates_mdio_failures(void)
 	missing_read.read = NULL;
 	assert(mtk_esw_register_read(0x1fU, 0x40a8U, NULL,
 				     &fake_ops, &fake) == -EINVAL);
+	value = 0xdeadbeefU;
 	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
 				     NULL, &fake) == -EINVAL);
+	assert(value == 0U);
+	value = 0xdeadbeefU;
 	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
 				     &missing_read, &fake) == -EINVAL);
+	assert(value == 0U);
 	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
 }
 

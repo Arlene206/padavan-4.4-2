@@ -337,7 +337,10 @@ mtk_esw_register_read(unsigned int phy_addr, unsigned int reg,
 {
 	int status;
 
-	if (!value || !io || !io->read)
+	if (!value)
+		return -EINVAL;
+	*value = 0U;
+	if (!io || !io->read)
 		return -EINVAL;
 	status = io->read(context, phy_addr, reg, value);
 	if (status != 0) {
