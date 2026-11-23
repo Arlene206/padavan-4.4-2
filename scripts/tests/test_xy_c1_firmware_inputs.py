@@ -253,12 +253,12 @@ class FirmwareInputPathTests(unittest.TestCase):
     def test_xy_c1_workflow_only_push_triggers_build(self):
         def fake_git(args):
             if args[:2] == ["rev-parse", "HEAD"]:
-                return result(args, stdout=AFTER + "\\n")
+                return result(args, stdout=AFTER + "\n")
             if args[0] == "fetch":
                 return result(args)
             if args[0] == "diff":
                 return result(args, stdout=(
-                    ".github/workflows/xy-c1-firmware-validation.yml\\0"
+                    ".github/workflows/xy-c1-firmware-validation.yml\0"
                 ))
             self.fail("unexpected git args: " + repr(args))
 

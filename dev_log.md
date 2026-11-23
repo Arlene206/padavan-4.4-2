@@ -1,3 +1,11 @@
+## 2026-11-23 13:22 UTC+8 — Correct NUL and newline fixtures in XY-C1 workflow-only detector test
+
+- The exact-head XY-C1 workflow trigger correction at parent `11090e80b126fa1665758026d2163fd9e2f09e6a` started run `45106741184`; code review of the new detector regression found its mocked Git output encoded backslash characters rather than actual newline/NUL delimiters. That would have exercised the fail-safe invalid-SHA path instead of proving the targeted workflow-only diff behavior.
+- Corrected the test fixture literals so `rev-parse` returns a normal newline-terminated SHA and `git diff -z` returns a NUL-terminated path. Production detector and workflow configuration are unchanged; the current workflow run is still used to validate its full firmware build path, while this successor will assert the unit-test fixture accurately.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 13:18 UTC+8 — Trigger XY-C1 firmware validation for BusyBox PID1 production changes
 
 - Exact-head BusyBox PID1 regression run `45106412054` on parent `84060ba4f52823b396487b24cdfe66254baff0d0` passed the GNU89 ASan/UBSan test binary and full source-contract checker. The USB storage hotplug suite `45106411983` also passed on the same SHA; NVRAM audit `45106412065` was still in progress at this checkpoint.
