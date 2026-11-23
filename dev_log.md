@@ -1,3 +1,12 @@
+## 2026-11-23 07:10 UTC — Preserve HW NAT/SFE state when acceleration selectors cannot be read
+
+- A second unsafe module-state decision remained in `reload_nat_modules()`: `is_hwnat_allow()` used unchecked `nvram_get_int("sw_mode")`/`nvram_get_int("hw_nat_mode")`; the function also read `ip6_lan_auto`, `hw_nat_mode` again for radio registration, and `sfe_enable` using unchecked getters. A transient backend/read/close error could be mistaken for a configured disable and unload active `hw_nat` or `fast_classifier`, or turn off IPv6 acceleration registration.
+- Added a checked, transactionally copied acceleration-settings tuple. It preserves the old predicates (HW NAT allowed only in switch mode 1 or 4 and nonzero HW NAT mode; radio registration only when mode equals 1; IPv6 NAT and SFE enabled on integer value 1/nonzero as before), and retains the legacy zero defaults for missing keys. Any transaction/read/parse failure returns before any helper, HNAT or SFE module state is modified.
+- Added GNU89/Werror/ASan/UBSan tests for all selector combinations, missing values, every member read failure, transaction-close failure, malformed/oversized values, AP/SFE-only selection and unchanged output on errors. Extended WAN source contract and WAN/XY-C1 path filters. Exact-head WAN and XY-C1 Build/TRX/artifact checks pending; no local tests or firmware build claimed.
+- Parent `main`: `9e8e8ae58a0c7f0745ec0460da79c7a1296eb541`. Resulting commit: pending.
+
+---
+
 ## 2026-11-23 07:04 UTC — Preserve NAT helper modules when NVRAM selector reads fail
 
 - `reload_nat_modules()` read `wan_nat_x`, FTP helper ports and PPTP/H.323/SIP ALG flags using unchecked `nvram_get_int()`/`nvram_match()`. A transient NVRAM read/close error collapsed into disabled values; the reload could unload live NAT helpers even though persisted configuration still required them.

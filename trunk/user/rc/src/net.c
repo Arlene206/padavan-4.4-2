@@ -56,6 +56,7 @@
 #include "libc_gai_policy.h"
 #include "wan_nvram_status_policy.h"
 #include "nat_helper_settings_policy.h"
+#include "nat_offload_settings_policy.h"
 #include "xupnpd_config_file.h"
 #include "xupnpd_daemon_policy.h"
 #include "detached_daemon_start_policy.h"
@@ -1231,20 +1232,6 @@ is_hwnat_loaded_status(void)
 	return is_module_loaded_status("hw_nat");
 }
 
-static int
-is_hwnat_allow(void)
-{
-	int sw_mode = nvram_get_int("sw_mode");
-	int hw_nat_mode = nvram_get_int("hw_nat_mode");
-
-	if (sw_mode != 1 && sw_mode != 4)
-		return 0;
-
-	if (hw_nat_mode == 0)
-		return 0;
-
-	return 1;
-}
 
 static int
 hwnat_set_wan_vid(int wan_vid)
@@ -1406,9 +1393,12 @@ reload_nat_modules(void)
 #if defined (USE_HW_NAT)
 	char hnat_param[80];
 	int hwnat_wan_vid = -1;
-	int hwnat_allow = is_hwnat_allow();
+	int hwnat_allow;
+	int hw_nat_mode;
 	int hwnat_loaded = 0;
-	int ipv6_nat = nvram_get_int("ip6_lan_auto");
+	int ipv6_nat;
+	int hwnat_settings_status;
+	struct rc_nat_offload_settings nat_offload_settings;
 #endif
 #if defined (USE_SFE)
 	int sfe_enable;
@@ -1442,6 +1432,38 @@ reload_nat_modules(void)
 		needed_h323 = nat_settings.h323_enabled;
 		needed_sip = nat_settings.sip_enabled;
 	}
+
+#if defined (USE_HW_NAT) || defined (USE_SFE)
+	hwnat_settings_status = rc_nat_offload_settings_read(
+#if defined (USE_HW_NAT)
+		1,
+#else
+		0,
+#endif
+#if defined (USE_SFE)
+		1,
+#else
+		0,
+#endif
+		net_nvram_transaction_begin, net_nvram_transaction_get,
+		net_nvram_transaction_end, &nat_nvram_transaction,
+		&nat_offload_settings);
+	if (hwnat_settings_status != 0) {
+		errno = hwnat_settings_status;
+		logmessage(LOGNAME,
+			   "aborting NAT/offload reload because hardware/software acceleration settings cannot be read coherently (status=%d)",
+			   hwnat_settings_status);
+		return hwnat_settings_status;
+	}
+#if defined (USE_HW_NAT)
+	hwnat_allow = nat_offload_settings.hwnat_allowed;
+	hw_nat_mode = nat_offload_settings.hw_nat_mode;
+	ipv6_nat = nat_offload_settings.ipv6_nat;
+#endif
+#if defined (USE_SFE)
+	sfe_enable = nat_offload_settings.sfe_enabled;
+#endif
+#endif
 
 	pptp_modules[1].required = (wan_nat_x != 0);
 	h323_modules[1].required = (wan_nat_x != 0);
@@ -1625,7 +1647,7 @@ reload_nat_modules(void)
 #if defined (USE_MT7615_AP) || defined (USE_MT7915_AP) || defined (USE_MT76X2_AP)
 		if (hwnat_loaded == 1) {
 			module_status = rc_hwnat_configure_radio_policy(
-					hwnat_allow, 1, nvram_get_int("hw_nat_mode"),
+					hwnat_allow, 1, hw_nat_mode,
 						ipv6_nat, IFNAME_2G_MAIN, IFNAME_5G_MAIN,
 						hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug);
 			if (module_status != 0) {
@@ -1644,7 +1666,6 @@ reload_nat_modules(void)
 							 module_status);
 #endif
 #if defined (USE_SFE)
-	sfe_enable = nvram_get_int("sfe_enable");
 	if (sfe_enable) {
 		module_status = rc_module_load_verified("fast_classifier", NULL, &module_ops);
 		if (module_status == 0) {

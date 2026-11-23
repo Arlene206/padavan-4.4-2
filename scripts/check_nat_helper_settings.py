@@ -5,6 +5,8 @@ net = Path("trunk/user/rc/src/net.c").read_text()
 policy = Path("trunk/user/rc/src/nat_helper_settings_policy.h").read_text()
 test = Path("trunk/user/rc/src/tests/nat_helper_settings_policy.c").read_text()
 workflow = Path(".github/workflows/wan-route-status.yml").read_text()
+offload_policy = Path("trunk/user/rc/src/nat_offload_settings_policy.h").read_text()
+offload_test = Path("trunk/user/rc/src/tests/nat_offload_settings_policy.c").read_text()
 
 
 def body(source, signature):
@@ -77,5 +79,37 @@ push, pr = filters.split("  pull_request:", 1)
 for path in paths:
     assert push.count('"' + path + '"') == 1, path
     assert pr.count('"' + path + '"') == 1, path
+
+
+offload = body(net, "reload_nat_modules(void)")
+offload_compact = "".join(offload.split())
+assert '#include "nat_offload_settings_policy.h"' in net
+assert "rc_nat_offload_settings_read(" in offload_compact
+assert offload_compact.index("if(hwnat_settings_status!=0)") < offload_compact.index('rc_module_unload_verified("hw_nat"')
+assert "hwnat_allow=nat_offload_settings.hwnat_allowed;" in offload_compact
+assert "hw_nat_mode=nat_offload_settings.hw_nat_mode;" in offload_compact
+assert "ipv6_nat=nat_offload_settings.ipv6_nat;" in offload_compact
+assert "sfe_enable=nat_offload_settings.sfe_enabled;" in offload_compact
+for key in ("sw_mode", "hw_nat_mode", "ip6_lan_auto", "sfe_enable"):
+    assert f'nvram_get_int("{key}")' not in offload
+for marker in (
+    '"sw_mode"',
+    '"hw_nat_mode"',
+    '"ip6_lan_auto"',
+    '"sfe_enable"',
+    "rc_wan_nvram_copy_snapshot(fields, count",
+    "rc_wan_nvram_parse_int_snapshot(integer_texts, count, parsed)",
+):
+    assert marker in offload_policy, marker
+for case in (
+    "test_hwnat_and_sfe_selectors_share_one_snapshot",
+    "test_hwnat_enable_predicate_preserves_legacy_mode_rules",
+    "test_missing_values_keep_legacy_zero_defaults",
+    "test_every_snapshot_read_error_preserves_previous_settings",
+    "test_transaction_failure_and_invalid_values_do_not_publish_settings",
+    "test_selective_reads_and_no_feature_defaults",
+    "NAT offload setting snapshot: PASS",
+):
+    assert case in offload_test, case
 
 print("NAT helper reload checked-snapshot and failure-preservation contract: PASS")
