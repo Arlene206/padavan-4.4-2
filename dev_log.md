@@ -1,3 +1,12 @@
+## 2026-11-23 06:50 UTC — Extend checked timezone read to PID 1 recovery shell
+
+- Found a second use of `nvram_safe_get("time_zone_x")` in `init.c:run_shell()`. Unlike the RC process environment update, this path builds the rescue shell's explicit `envp`; a transient NVRAM fault could pass a false empty TZ value into PID 1's recovery console.
+- Reused `rc_timezone_env_format_status()` after `time_zone_x_mapping()`. Missing keys keep legacy `TZ=`; backend/close errors, invalid results, null-present data or truncation omit the TZ entry from the rescue shell environment rather than publishing fabricated data.
+- Extended the existing policy integration checker/workflow to pin both RC and PID 1 recovery-shell call paths. This production change touches `init.c`, so exact-head XY-C1 Build/TRX/artifact and timezone Actions will validate the combined tree. Pending; no local build claimed.
+- Resulting commit: pending.
+
+---
+
 ## 2026-11-23 06:45 UTC — Make Ralink regulatory SKU-link publication atomic and checked
 
 - `symlink_sku_file()` previously unlinked the live driver SKU path before selecting a replacement, ignored `symlink()` failures, and returned `void`. A filesystem/link error could therefore remove the existing regulatory profile while allowing wireless configuration generation to report success. The NVRAM `regspec_code` was also interpolated into a path without validation against the regulatory table.
@@ -18,10 +27,10 @@
 
 ## 2026-11-23 06:32 UTC — Preserve timezone environment when NVRAM reads fail
 
-- `setenv_tz()` previously used `nvram_safe_get("time_zone_x")`, which collapses NVRAM backend/read/close failures into an empty value and unconditionally replaces the process TZ. A transient fault could make PID 1 and standalone RC applets lose the configured local timezone.
+- `setenv_tz()` previously used `nvram_safe_get("time_zone_x")`, which collapses NVRAM backend/read/close failures into an empty value and unconditionally replaces the process TZ. A transient fault could make PID 1 and standalone RC applets lose the configured local timezone. The PID 1 recovery-shell path in `init.c` had the same error-collapsing read and could fabricate `TZ=` in the rescue shell.
 - The RC path now uses `nvram_get_checked()` and a bounded GNU89 policy helper. Missing keys retain the legacy empty-TZ behavior; backend errors, unexpected API results, null present values and overlong strings leave the existing process environment unchanged. `setenv()` copies the value, avoiding mutation of the prior environment through a shared `putenv()` buffer.
 - Added GNU89/Werror/ASan/UBSan regression coverage for present/absent keys, backend failures, invalid results, exact buffer limits and output preservation, plus a source/workflow integration contract.
-- Exact-head timezone regression, AI handoff documentation and XY-C1 Build/TRX/artifact checks pending. No local checkout, shell test or firmware build claimed.
+- Exact-head timezone regression, AI handoff documentation and XY-C1 Build/TRX/artifact checks had passed for the RC-only slice; recovery-shell extension validation pending. No local checkout, shell test or firmware build claimed.
 - Resulting commit: pending.
 
 ---

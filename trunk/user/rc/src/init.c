@@ -37,6 +37,7 @@
 #include <sys/sysmacros.h>
 
 #include "rc.h"
+#include "timezone_env_policy.h"
 #include "init_router_result_policy.h"
 #include "gpio_pins.h"
 #include "pid1_signal_policy.h"
@@ -277,6 +278,8 @@ run_shell(int timeout, int nowait)
 	sigset_t child_mask, saved_mask;
 	int child_mask_blocked = 0;
 	int console_status;
+	int tz_read_result, tz_read_errno, tz_status;
+	char *time_zone = NULL;
 	char tz[128];
 	char *envp[] = {
 		"TERM=" CONSOLE_TERMINAL,
@@ -358,9 +361,20 @@ run_shell(int timeout, int nowait)
 			_exit(125);
 		}
 
-		/* Pass on TZ */
+		/* Pass on TZ only when the checked NVRAM read is trustworthy. */
 		time_zone_x_mapping();
-		snprintf(tz, sizeof(tz), "TZ=%s", nvram_safe_get("time_zone_x"));
+		errno = 0;
+		tz_read_result = nvram_get_checked("time_zone_x", &time_zone);
+		tz_read_errno = errno;
+		tz_status = rc_timezone_env_format_status(
+			tz_read_result, tz_read_errno, time_zone, tz, sizeof(tz));
+		if (tz_status != 0) {
+			/* Do not pass an uninitialized or fabricated timezone to the shell. */
+			envp[6] = NULL;
+			logmessage(LOGNAME,
+				   "recovery shell will inherit no TZ because the NVRAM read or value validation failed (status=%d)",
+				   tz_status);
+		}
 
 		/* Now run it.  The new program will take over this PID, 
 		 * so nothing further in init.c should be run. */

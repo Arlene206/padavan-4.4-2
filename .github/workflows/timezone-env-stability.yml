@@ -8,6 +8,7 @@ on:
       - ".github/workflows/timezone-env-stability.yml"
       - "scripts/check_timezone_env.py"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/timezone_env_policy.h"
       - "trunk/user/rc/src/tests/timezone_env_policy.c"
   pull_request:
@@ -15,6 +16,7 @@ on:
       - ".github/workflows/timezone-env-stability.yml"
       - "scripts/check_timezone_env.py"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/timezone_env_policy.h"
       - "trunk/user/rc/src/tests/timezone_env_policy.c"
   workflow_dispatch:
@@ -40,5 +42,5 @@ jobs:
             trunk/user/rc/src/tests/timezone_env_policy.c \
             -o "$RUNNER_TEMP/timezone_env_policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/timezone_env_policy"
-      - name: Verify rc timezone publication uses checked NVRAM and preserves old TZ on failure
+      - name: Verify RC process and PID1 recovery shell timezone publication use checked NVRAM
         run: python3 scripts/check_timezone_env.py

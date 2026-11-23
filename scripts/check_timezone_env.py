@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 
+init = Path("trunk/user/rc/src/init.c").read_text()
 rc = Path("trunk/user/rc/src/rc.c").read_text()
 policy = Path("trunk/user/rc/src/timezone_env_policy.h").read_text()
 regression = Path("trunk/user/rc/src/tests/timezone_env_policy.c").read_text()
@@ -64,6 +65,15 @@ pr = workflow.split("  workflow_dispatch:", 1)[0].split("  pull_request:", 1)[1]
 for path in paths:
     assert push.count('"' + path + '"') == 1, path
     assert pr.count('"' + path + '"') == 1, path
+
+recovery_shell = body(init, "run_shell(int timeout, int nowait)")
+recovery_compact = "".join(recovery_shell.split())
+assert '#include "timezone_env_policy.h"' in init
+assert 'nvram_get_checked("time_zone_x",&time_zone)' in recovery_compact
+assert "rc_timezone_env_format_status(" in recovery_compact
+assert recovery_compact.index("if(tz_status!=0)") < recovery_compact.index("envp[6]=NULL")
+assert "time_zone_x_mapping();" in recovery_compact
+assert 'nvram_safe_get("time_zone_x")' not in recovery_compact
 
 assert "setenv_tz();" in body(rc, "set_timezone(void)")
 print("RC timezone checked-read and failure-preserving integration: PASS")
