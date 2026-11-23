@@ -1,3 +1,9 @@
+## 2026-11-23 — GE TX-offset checked MDIO
+
+- Replaced unchecked setup, four snapshots, comparator, waits and result writes with checked APIs; I/O errors abort, ordinary not-ready retains the 0x20 fallback.
+- Every exit attempts analog clear and all force-DAC/DB/DC/3E/DD resets; first error wins and the flag is published only after cleanup. Added source contract; exact-head CI pending.
+
+---
 ## 2026-11-23 — Make GE TX-amplitude calibration MDIO-status aware
 
 - Base main SHA: `ca05cf915058cbe2141f38bff01575f9133767dd`; converted the GE TX-amplitude setup, four-pair search, comparator reads and per-pair result writes from value-only C45/paged PHY wrappers to checked operations.
