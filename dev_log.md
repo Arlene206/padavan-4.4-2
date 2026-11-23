@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Normalize notification macro source-contract whitespace
+
+- WAN DHCP callback run #45160010474 on product/checker SHA edeb1e8354a97b312d8f3f5dd8787af030abfc6d compiled and passed the initial USB-modem, WAN interface-name, DHCP lease policy and WAN NVRAM ASan/UBSan binaries, then stopped at the new source-contract assertion for `RCN_RESTART_NETWORKMAP`. The checker expected one literal space while the shared header aligns macro definitions with tabs; this was a formatting-only checker false negative.
+- The assertion now removes source whitespace before comparing the macro name/value. Runtime code, queue policy and test semantics are unchanged. Exact-head WAN DHCP callback rerun required. Networkmap signal lifecycle #45160010227, PID 1 notification queue #45160010473, Wireless #45160010276 and AI docs #45160010425 already PASS on edeb1e8. XY-C1 #45160010405, Process umbrella #45160010508 and Process inventory #45160010184 were still in progress at last poll. No local MIPS build or hardware result is claimed.
+
+---
 ## 2026-11-23 UTC — Reject non-unicast Ethernet source addresses in WAN ARP
 
 - Extended the new ARP source-MAC parser beyond syntax: a sender address must be unicast, not all-zero and not broadcast. A syntactically valid multicast/group MAC (for example 01:00:5e:...) or reserved zero/broadcast value is not a valid station source address for the router's Ethernet/ARP probe, even though every nibble is hexadecimal.

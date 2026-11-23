@@ -337,7 +337,7 @@ assert "RCN_RESTART_NETWORKMAP" in networkmap_retry_probe
 assert "saved_errno == ENOENT" in networkmap_retry_probe
 assert "close(dir_fd)" in networkmap_retry_probe
 assert '#include <rc_notify_queue.h>' in lan
-assert '#define RCN_RESTART_NETWORKMAP "restart_networkmap"' in notify_header
+assert '#defineRCN_RESTART_NETWORKMAP"restart_networkmap"' in "".join(notify_header.split())
 assert "rc_notify_event_name_is_safe" in notify_queue_header
 notifications = c_function_body(rc_source, "handle_notifications(void)")
 networkmap_event = notifications.index(
