@@ -1162,7 +1162,7 @@ jobs:
               "static int change_ports_power", 1
           )[0]
           assert "esw_reg_get(" not in mib_status
-          assert "esw_reg_read_checked(" in mib_status
+          assert "mtk_esw_mib_snapshot_read(" in mib_status
           assert "*mibc = snapshot;" in mib_status
           assert "*pb = snapshot;" in mib_status
           assert "return status;" in mib_status
