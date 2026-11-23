@@ -811,6 +811,18 @@ jobs:
           assert "g_led_mode_applied && g_led_phy_mode == led_mode" in led_change
           assert "ioctl_result = change_led_mode(uint_value);" in ioctl_source
           assert "led_status = esw_led_mode(g_led_phy_mode)" in source
+          vlan_create = source.split("static int vlan_create_entry", 1)[1].split(
+              "static int change_port_link_mode_uapi", 1
+          )[0]
+          vlan_table_status_at = vlan_create.index("status = esw_vlan_set(")
+          vlan_error_gate = vlan_create.index("if (status != 0)", vlan_table_status_at)
+          vlan_error_return = vlan_create.index("return status;", vlan_error_gate)
+          port_setup = vlan_create.index("esw_port_attrib_set(", vlan_error_return)
+          assert vlan_table_status_at < vlan_error_gate < vlan_error_return < port_setup
+          assert "ioctl_result = esw_vlan_reset_table();" in ioctl_source
+          assert "ioctl_result = vlan_create_entry(uint_param, uint_value, 1);" in ioctl_source
+          assert "ioctl_result = vlan_create_entry(uint_param, uint_value, 0);" in ioctl_source
+          assert "esw_vlan_reset_table();\\n\\t\\tbreak;" not in ioctl_source
           assert "change_jumbo_frames_accept(uint_value);" not in ioctl_source.replace(
               "ioctl_result = change_jumbo_frames_accept(uint_value);", ""
           )

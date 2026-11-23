@@ -143,7 +143,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 		break;
 
 	case MTK_ESW_IOCTL_VLAN_RESET_TABLE: /* used by rc */
-		esw_vlan_reset_table();
+		ioctl_result = esw_vlan_reset_table();
 		break;
 	case MTK_ESW_IOCTL_VLAN_PVID_WAN_GET: /* used by rc */
 		uint_result = g_vlan_pvid_wan_untagged;
@@ -164,14 +164,14 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		vlan_create_entry(uint_param, uint_value, 1);
+		ioctl_result = vlan_create_entry(uint_param, uint_value, 1);
 		break;
 	case MTK_ESW_IOCTL_VLAN_CREATE_ENTRY: /* used by rc */
 		if (copy_from_user(&uint_value, (int __user *)arg, sizeof(int))) {
 			ioctl_result = -EFAULT;
 			break;
 		}
-		vlan_create_entry(uint_param, uint_value, 0);
+		ioctl_result = vlan_create_entry(uint_param, uint_value, 0);
 		break;
 	case MTK_ESW_IOCTL_VLAN_RULE_SET: /* used by rc */
 		if (copy_from_user(&uint_value, (int __user *)arg, sizeof(int))) {

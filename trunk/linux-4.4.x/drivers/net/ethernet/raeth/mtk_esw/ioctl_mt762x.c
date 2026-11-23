@@ -1496,7 +1496,7 @@ static void vlan_accept_port_mode(u32 accept_mode, u32 port_mask)
 	}
 }
 
-static void vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid)
+static int vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid)
 {
 	u32 i, cvid, prio, fid;
 	u32 mask_member, mask_untag;
@@ -1513,8 +1513,13 @@ static void vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid
 	if (cvid < 1)
 		cvid = 1;
 
-	/* set vlan table */
-	esw_vlan_set(cvid, 0, mask_member, mask_untag, 0, fid);
+	/* Do not touch per-port state unless the VLAN table write succeeds. */
+	{
+		int status = esw_vlan_set(cvid, 0, mask_member, mask_untag, 0, fid);
+
+		if (status != 0)
+			return status;
+	}
 
 	/* set ports attrib */
 	for (i = 0; i <= ESW_PORT_ID_MAX; i++) {
@@ -1531,6 +1536,8 @@ static void vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid
 
 	printk("%s - create vlan %s: vid=[%d], prio=[%d], member=[0x%02X], untag=[0x%02X], fid=[%d]\n",
 			MTK_ESW_DEVNAME, (set_port_vid) ? "ports" : "entry", cvid, prio, mask_member, mask_untag, fid);
+}
+	return 0;
 }
 
 static int change_port_link_mode_uapi(u32 port_id_uapi, u32 port_link_mode)
