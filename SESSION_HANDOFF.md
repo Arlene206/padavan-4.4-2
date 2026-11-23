@@ -2,26 +2,25 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Current parent for the Process checker re-trigger: 2816336f46e6b1874acc1ced25f5548b4d1637f9.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve permanently.
-- Product source on main includes checked MSD Lite, UDPXY/XUPNPD enable selectors, USB printer marker status, XUPNPD Lua IPTV config checked reads, and LAN STP checked selector handling (`2a9f7fe`). Keep these changes.
-- Process inline workflow previously failed exact runs #45189655889, #45190394210, #45190706662 on stale XUPNPD local-declaration/legacy-read assertions. Workflow contract was corrected in `8bac506` and the first inline indentation error was repaired in `2816336`.
-- This latest commit adds the same XUPNPD `xport_text[16]` declaration assertion to `scripts/check_process_lifecycle_integration.py` so the existing Process workflow path is triggered and both source-check contracts stay aligned. Exact Process run pending.
-- Exact `2a9f7fe` jobs already passed for the broad stability set recorded below in the previous handoff body; XY-C1 #45190707708 was still running. Older c8 XY-C1 #45189655698 is PASS but only validates product source `c8dade9`, not the later LAN STP source SHA.
-- `8bac506`'s own workflow push check #45191666225 failed without runnable jobs due inconsistent inline Python indentation; corrected by `2816336`. Exact process run was not triggered by workflow-file-only change, hence checker path is now updated.
-- VPN marker/checker fixes (`eb928a2`, `0e9056b`) and Infosvr PID-file fix/checker (`9fd7bafd`, `7d699d7`) still need exact reruns. No current 2a9 L3 claim unless XY-C1 Build, TRX and artifact upload all succeed.
-- No local checkout/build, MIPS/uClibc build or hardware result claimed; startup recovery was performed once.
+- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before this atomic slice: `054bf4966997b5a92d27f15ef8174447af0fced0`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve permanently. Branch inventory at the last main refresh: `main` and the frozen backup only.
+- Startup/bootstrap recovery was already completed; do not repeat it. No persistent local checkout or full MIPS/uClibc firmware environment is available in this session.
+- Main before this slice includes the Infosvr unaligned UDP packet fix from `73058a94fa263c931cf372bea71c79a3edee21cc`. Exact XY-C1 #45200629006 was IN_PROGRESS at last poll; Process inventory #45200628946 PASS. Infosvr packet/signal regression #45200628917 failed at its compile/run step, then a later exact run on `6a7ed2a` passed after checker-only corrections. NVRAM boundary run #45200629005 was cancelled; check the latest exact-main run before relying on it.
+- Earlier XY-C1 #45197766902 on production SHA `94989ac03de33301a73934a9e7afcc5a5d38be13` passed Build, TRX and artifact upload (artifact #14829918146, `XY-C1-firmware-94989ac03de33301a73934a9e7afcc5a5d38be13`, 12,761,265 bytes). It predates later Infosvr production-source changes and is not L3 evidence for the newer production source.
+- No physical hardware L4 validation is claimed.
 
 ## Active task
 
-- The Process inline workflow and source checker now both assert the actual checked XUPNPD selector declaration/order and Lua IPTV checked reads. This commit adds the checker declaration assertion to trigger exact Process CI.
-- No product source change in this slice. Poll exact Process run; then close the workflow regression before starting another source issue.
+- P2 stability fix in `trunk/user/rc/src/services.c`: remote syslog configuration previously used error-collapsing `nvram_safe_get()` / `nvram_safe_get_int()`, which could silently disable a configured remote log sink after an NVRAM backend/close failure.
+- This slice reads address and port under one checked NVRAM transaction, copies the cache-backed address before reading the port, retains missing-key and invalid-value defaults, and propagates read/transaction-close errors. Local syslogd still starts in local-only mode when the remote destination cannot be verified; the degraded status is returned only after the detached daemon postcondition succeeds, and klogd startup remains attempted.
+- Regression policy covers NVRAM status classification, missing values, address-copy bounds, port defaults/ranges/atoi-prefix compatibility/overflow, and first-failure aggregation. The Process source checker pins the read order, transaction end before daemon launch, local fallback, and removal of legacy getters.
+- Local GNU89/`-Wall -Wextra -Werror`/ASan/UBSan policy regression passed: `RC logger startup, remote NVRAM, and first-failure policies: PASS`. Exact-SHA Process/AI/XY-C1 workflows for this slice remain pending. L3 requires Build, TRX verification and artifact upload all PASS on the same production-source SHA.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-SHA Process lifecycle fail-closed run triggered by the checker update and verify the final inline LAN/PID1 contract passes.
-2. Poll exact-SHA product-source XY-C1 for `2a9f7fe`; require Build, TRX validation and artifact upload all PASS before L3.
-3. Continue a new independent P1 stability fix only after Process CI is green; avoid duplicating completed checked NVRAM selectors/markers, LAN STP, VPN/Infosvr, USB printer, SCUT or storage slices.
+1. Refresh live `main`; poll exact-SHA Process lifecycle, AI handoff and XY-C1 actions for this logger commit. Correct any stale assertions without weakening them. Require Build XY-C1, TRX and artifact upload PASS to close L3.
+2. Confirm the latest exact Infosvr packet/signal regression after the checker fixes that followed #45200628917, and poll the exact current XY-C1/NVRAM workflows before treating those changes as verified.
+3. Continue an independently testable P1/P2 stability defect elsewhere in Padavan userland; do not re-audit completed slices without new evidence.
 
 ## Relevant exact-SHA CI facts
 

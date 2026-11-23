@@ -249,7 +249,11 @@ stop_klogd(void)
 int
 start_syslogd(void)
 {
-	char *log_ipaddr, log_rot[8], host_dst[32];
+	char log_ipaddr[16] = "", log_rot[8], host_dst[32];
+	char *nvram_value = NULL;
+	struct nvram_transaction log_transaction;
+	int transaction_status, saved_errno, api_result, end_status;
+	int remote_config_status = 0, log_port = 514;
 	char *syslogd_argv[] = {
 		"/sbin/syslogd",
 		log_rot,			/* max size before rotation */
@@ -272,9 +276,43 @@ start_syslogd(void)
 
 	snprintf(log_rot, sizeof(log_rot), "-s%d", LOG_ROTATE_SIZE_MAX);
 
-	log_ipaddr = nvram_safe_get("log_ipaddr");
-	if (is_valid_ipv4(log_ipaddr)) {
-		int log_port = nvram_safe_get_int("log_port", 514, 1, 65535);
+	/* Preserve local syslog when the optional remote destination cannot be read. */
+	memset(&log_transaction, 0, sizeof(log_transaction));
+	log_transaction.lock_fd = -1;
+	errno = 0;
+	transaction_status = nvram_transaction_begin(&log_transaction);
+	saved_errno = errno;
+	remote_config_status = rc_wan_nvram_write_status(transaction_status, saved_errno);
+	if (remote_config_status == 0) {
+		nvram_value = NULL;
+		errno = 0;
+		api_result = nvram_transaction_get(&log_transaction, "log_ipaddr", &nvram_value);
+		saved_errno = errno;
+		remote_config_status = rc_logger_nvram_address_status(
+			api_result, saved_errno, nvram_value, log_ipaddr, sizeof(log_ipaddr));
+	}
+	if (remote_config_status == 0 && is_valid_ipv4(log_ipaddr)) {
+		nvram_value = NULL;
+		errno = 0;
+		api_result = nvram_transaction_get(&log_transaction, "log_port", &nvram_value);
+		saved_errno = errno;
+		remote_config_status = rc_logger_nvram_port_status(
+			api_result, saved_errno, nvram_value, 514, 1, 65535, &log_port);
+	}
+	if (log_transaction.lock_fd >= 0) {
+		errno = 0;
+		transaction_status = nvram_transaction_end(&log_transaction);
+		saved_errno = errno;
+		end_status = rc_wan_nvram_write_status(transaction_status, saved_errno);
+		if (remote_config_status == 0)
+			remote_config_status = end_status;
+	}
+	if (remote_config_status != 0) {
+		/* Never pass a stale or partially read destination to syslogd. */
+		log_ipaddr[0] = '\0';
+		log_port = 514;
+	}
+	if (remote_config_status == 0 && is_valid_ipv4(log_ipaddr)) {
 		snprintf(host_dst, sizeof(host_dst), "%s:%d", log_ipaddr, log_port);
 		syslogd_argv[7] = "-L";		/* local & remote */
 		syslogd_argv[8] = "-R";
@@ -302,8 +340,15 @@ start_syslogd(void)
 	}
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("syslogd", &scan_error);
-		if (process_presence_start_postcondition(start_status, process_state) == 0)
-			return 0;
+		if (process_presence_start_postcondition(start_status, process_state) == 0) {
+			if (remote_config_status != 0) {
+				errno = remote_config_status;
+				logmessage(LOGNAME,
+					   "remote syslog destination unavailable; local logging remains active (status=%d)",
+					   remote_config_status);
+			}
+			return remote_config_status;
+		}
 		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
 			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage(LOGNAME, "cannot verify syslogd startup (scan_error=%d)",
@@ -2477,7 +2522,7 @@ start_logger(int showinfo)
 
 	klog_status = start_klogd();
 	if (syslog_status != 0)
-		logmessage(LOGNAME, "syslogd startup failed (status=%d)", syslog_status);
+		logmessage(LOGNAME, "syslogd startup/configuration incomplete (status=%d)", syslog_status);
 	if (klog_status != 0)
 		logmessage(LOGNAME, "klogd startup failed (status=%d)", klog_status);
 

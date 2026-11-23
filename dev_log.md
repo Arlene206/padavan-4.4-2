@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Preserve local syslog while reporting checked remote-destination failures
+
+- `start_syslogd()` previously used `nvram_safe_get("log_ipaddr")` and `nvram_safe_get_int("log_port", ...)`, which collapse backend/close faults into empty/zero values and can silently disable a configured remote log sink.
+- The destination is now read in one checked NVRAM transaction, with the address copied before the cache-backed port read. Missing values and invalid legacy port values retain their previous local/default behavior; backend, close and malformed API-result errors remain distinguishable.
+- Local syslogd still launches in local-only mode when remote configuration cannot be verified. The degraded status is returned after the daemon startup postcondition succeeds, and klogd is still attempted.
+- Added GNU89/Werror/ASan/UBSan regression coverage for checked reads, missing values, copy bounds, port defaults/ranges/overflow and first-failure aggregation. Local policy binary PASS; exact-SHA Process, AI handoff and XY-C1 checks pending.
+
+---
+
 ## 2026-11-23 UTC — Mirror XUPNPD checked-port contract in Process source checker
 
 - Added the XUPNPD checked-port text buffer declaration to `scripts/check_process_lifecycle_integration.py` source assertions. The inline workflow now has the matching expectation; editing this checker also re-triggers the Process inventory/fail-closed workflow rather than depending on a workflow-file-only push.

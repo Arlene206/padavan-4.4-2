@@ -837,17 +837,34 @@ assert "logger_stop_status != 0" in time_restart
 logger_policy = (root / "trunk/user/rc/src/logger_start_policy.h").read_text()
 logger_test = (root / "trunk/user/rc/src/tests/logger_start_policy.c").read_text()
 logger_start = services_source.split("int\nstart_logger(int showinfo)", 1)[1].split("\n}\n", 1)[0]
+syslogd_start = services_source.split("int\nstart_syslogd(void)", 1)[1].split("\nint\nstart_klogd(void)", 1)[0]
 assert '#include "logger_start_policy.h"' in services_source
 assert "syslog_status = start_syslogd();" in logger_start
 assert "klog_status = start_klogd();" in logger_start
 assert logger_start.index("syslog_status = start_syslogd();") < logger_start.index("klog_status = start_klogd();")
-assert 'logmessage(LOGNAME, "syslogd startup failed (status=%d)", syslog_status);' in logger_start
+assert "nvram_transaction_begin(&log_transaction)" in syslogd_start
+assert 'nvram_transaction_get(&log_transaction, "log_ipaddr", &nvram_value)' in syslogd_start
+assert 'nvram_transaction_get(&log_transaction, "log_port", &nvram_value)' in syslogd_start
+assert "rc_logger_nvram_address_status(" in syslogd_start
+assert "rc_logger_nvram_port_status(" in syslogd_start
+assert "nvram_transaction_end(&log_transaction);" in syslogd_start
+assert syslogd_start.index('"log_ipaddr"') < syslogd_start.index('"log_port"')
+assert syslogd_start.index("nvram_transaction_end(&log_transaction);") < syslogd_start.index("_eval(syslogd_argv")
+assert "if (remote_config_status != 0)" in syslogd_start
+assert "log_ipaddr[0] = '\\0';" in syslogd_start
+assert "return remote_config_status;" in syslogd_start
+assert syslogd_start.index("process_presence_start_postcondition") < syslogd_start.index("return remote_config_status;")
+assert 'nvram_safe_get("log_ipaddr")' not in syslogd_start
+assert 'nvram_safe_get_int("log_port"' not in syslogd_start
+assert 'logmessage(LOGNAME, "syslogd startup/configuration incomplete (status=%d)", syslog_status);' in logger_start
 assert 'logmessage(LOGNAME, "klogd startup failed (status=%d)", klog_status);' in logger_start
 assert "return rc_logger_start_status_with_wait(syslog_status, settle_status, klog_status);" in logger_start
 assert "service_wait_microseconds(300000U)" in logger_start
 assert "usleep(300000)" not in logger_start
 assert "settle_status = errno > 0 ? errno : EIO;" in logger_start
 assert "rc_logger_start_status_with_wait" in logger_policy
+assert "rc_logger_nvram_address_status" in logger_policy
+assert "rc_logger_nvram_port_status" in logger_policy
 assert "return 0;" not in logger_start
 assert "return syslog_status != 0 ? syslog_status : klog_status;" in logger_policy
 for contract in (
@@ -857,6 +874,8 @@ for contract in (
     "rc_logger_start_status(17, 23) == 17",
     "rc_logger_start_status(-1, 0) == -1",
     "rc_logger_start_status(0, -1) == -1",
+    'rc_logger_nvram_address_status(-1, EACCES, "ignored"',
+    'rc_logger_nvram_port_status(-1, EIO, "1514"',
 ):
     assert contract in logger_test
 assert '"trunk/user/rc/src/logger_start_policy.h"' in process_workflow
