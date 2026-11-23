@@ -117,6 +117,27 @@ unset -f chmod
 [ "$copyscripts_seed_status" -eq 1 ]
 [ "$(stat -c %a "$tmp/storage/frp-mode-failure.sh")" = 644 ]
 
+# The packaged DDNS default uses the same atomic, no-follow publisher.
+# An operator-managed regular file remains untouched; a symlink is refused.
+copyscripts_seed_status=0
+seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns_script.sh" 755
+[ "$copyscripts_seed_status" -eq 0 ]
+[ "$(cat "$tmp/storage/ddns_script.sh")" = "factory default" ]
+printf 'operator DDNS script\\n' > "$tmp/storage/ddns-existing.sh"
+chmod 600 "$tmp/storage/ddns-existing.sh"
+seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns-existing.sh" 755
+[ "$(cat "$tmp/storage/ddns-existing.sh")" = "operator DDNS script" ]
+[ "$(stat -c %a "$tmp/storage/ddns-existing.sh")" = 600 ]
+ln -s "$tmp/external/sentinel" "$tmp/storage/ddns-linked.sh"
+copyscripts_seed_status=0
+if seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns-linked.sh" 755; then
+	echo "DDNS symlink destination was accepted" >&2
+	exit 1
+fi
+[ "$copyscripts_seed_status" -eq 1 ]
+[ "$(cat "$tmp/external/sentinel")" = "outside sentinel" ]
+[ -L "$tmp/storage/ddns-linked.sh" ]
+
 # A symlink to an existing sensitive file and a dangling symlink are both
 # refused without following either destination.
 printf 'outside sentinel\n' > "$tmp/external/sentinel"
@@ -159,6 +180,11 @@ fi
 grep -Fq 'seed_storage_file "/etc_ro/koolproxy_rules_script.sh" "/etc/storage/koolproxy_rules_script.sh" 755' "$copyscripts"
 grep -Fq 'seed_storage_file "/etc_ro/oversea_list.conf" "/etc/storage/dnsmasq.oversea/oversea_list.conf" 755' "$copyscripts"
 grep -Fq 'seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' "$copyscripts"
+grep -Fq 'seed_storage_file "/etc_ro/ddns_script.sh" "$ddns_script_path" 755' "$copyscripts"
+if grep -Fq 'cp -f /etc_ro/ddns_script.sh "$ddns_script_path"' "$copyscripts"; then
+	echo "DDNS default bypasses the exclusive storage publication helper" >&2
+	exit 1
+fi
 if grep -Fq 'cp -f /etc_ro/frp_script.sh "$frp_script_path"' "$copyscripts"; then
 	echo "FRP defaults bypass the exclusive storage publication helper" >&2
 	exit 1

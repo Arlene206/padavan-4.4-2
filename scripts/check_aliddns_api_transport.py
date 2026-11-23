@@ -492,9 +492,9 @@ require('ddns_template_path="${ALIDDNS_DDNS_TEMPLATE_PATH:-/etc_ro/ddns_script.s
 require('$(ROMFSINST) /etc_ro/ddns_script.sh' in package,
         "packaged DDNS default must be installed read-only in ROMFS")
 require('ddns_script_path="/etc/storage/ddns_script.sh"' in copy_scripts and
-        '[ -L "$ddns_script_path" ]' in copy_scripts and
-        "cp -rf /etc_ro/ddns_script.sh /etc/storage/" not in copy_scripts,
-        "boot-time script seeding must refuse persistent DDNS symlinks")
+        'seed_storage_file "/etc_ro/ddns_script.sh" "$ddns_script_path" 755' in copy_scripts and
+        'cp -f /etc_ro/ddns_script.sh "$ddns_script_path"' not in copy_scripts,
+        "boot-time DDNS default must use exclusive symlink-safe publication")
 ca_install = function_body(copy_scripts, "install_ca_trust_store() {")
 rc_router = function_body(rc, "init_router(void)")
 rc_router_compact = "".join(rc_router.split())

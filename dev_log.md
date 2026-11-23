@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Publish the DDNS factory script through the safe storage writer
+
+- The boot-time DDNS default path checked for a symlink and then used `cp -f` on the destination. That check/write sequence was not atomic: a concurrent replacement could redirect the privileged copy through a symlink, and the separate chmod also left a partial publication window.
+- Reused the existing `seed_storage_file()` transaction, which validates the storage root/parent/leaf, stages beside the destination, applies mode 0755 before publication, and links without replacing a concurrent destination. Existing operator-managed regular files remain untouched; symlink and non-regular targets fail closed and join the boot status.
+- Extended the script host regression and AliDDNS source contract to require DDNS default seeding through the shared no-follow publisher. The workflow already triggers for the source, test and checker paths. Exact-head AliDDNS, Process/XY-C1 and firmware checks are required; no local test or target build is claimed.
+
+---
+
 ## 2026-11-23 19:48:37 Beijing — Reject malformed Ethernet source MACs in gateway ARP replies
 
 - During a follow-on review of `detect_wan_arp_reply_matches()`, found it verified that Ethernet source and ARP sender-hardware fields matched each other but did not verify the sender MAC was a valid unicast station address. An attacker or malformed bridge frame could use a multicast, all-zero or broadcast sender address and still be treated as a live gateway reply, suppressing DHCP recovery.

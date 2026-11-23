@@ -147,23 +147,7 @@ seed_storage_file "/etc_ro/smartdns_whitelist-ip.conf" "/etc/storage/smartdns_wh
 seed_storage_file "/etc_ro/smartdns_custom.conf" "/etc/storage/smartdns_custom.conf" 755
 
 ddns_script_path="/etc/storage/ddns_script.sh"
-if [ -L "$ddns_script_path" ]; then
-	logger -t "启动脚本" "拒绝符号链接形式的 DDNS 地址获取脚本：$ddns_script_path"
-	copyscripts_seed_status=1
-elif [ ! -e "$ddns_script_path" ]; then
-	if cp -f /etc_ro/ddns_script.sh "$ddns_script_path"; then
-		if ! chmod 755 "$ddns_script_path"; then
-			logger -t "启动脚本" "DDNS 默认脚本权限设置失败"
-			copyscripts_seed_status=1
-		fi
-	else
-		logger -t "启动脚本" "DDNS 默认脚本复制失败"
-		copyscripts_seed_status=1
-	fi
-elif [ ! -f "$ddns_script_path" ]; then
-	logger -t "启动脚本" "DDNS 地址获取路径不是普通文件：$ddns_script_path"
-	copyscripts_seed_status=1
-fi
+seed_storage_file "/etc_ro/ddns_script.sh" "$ddns_script_path" 755
 seed_storage_file "/etc_ro/adbyby_adblack.sh" "/etc/storage/adbyby_adblack.sh" 755
 
 seed_storage_file "/etc_ro/adbyby_adesc.sh" "/etc/storage/adbyby_adesc.sh" 755
