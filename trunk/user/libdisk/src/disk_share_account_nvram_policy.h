@@ -314,6 +314,268 @@ disk_share_account_mode_needs_default(int read_status, const char *value,
 }
 
 /*
+ * Validate a new account against a caller-owned, already locked inventory.
+ * Callers hold the NVRAM writer transaction across this check, metadata
+ * creation and eventual publication so another account writer cannot make
+ * the caller's snapshot stale between those stages.
+ */
+static inline int
+disk_share_account_inventory_add_validate_locked(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int max_count, char *const *expected_users,
+	const char *account)
+{
+	char http_username[128], key[24], current_user[128];
+	int result, current_count, key_length, i, j;
+
+	if (!ops || !ops->get || !ops->valid_name || !ops->reserved_name ||
+	    !account || expected_count < 0 || max_count < 1 ||
+	    (expected_count > 0 && !expected_users)) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (expected_count >= max_count) {
+		errno = ENOSPC;
+		return -1;
+	}
+	if (!ops->valid_name(account)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	result = router_account_nvram_read_count(
+		ops->get, context, "acc_num", max_count, &current_count);
+	if (result != 0) {
+		errno = result;
+		return -1;
+	}
+	if (current_count != expected_count) {
+		errno = EAGAIN;
+		return -1;
+	}
+
+	result = router_account_nvram_read_copy(
+		ops->get, context, "http_username", "", http_username,
+		sizeof(http_username));
+	if (result != 0) {
+		errno = result;
+		return -1;
+	}
+	if (ops->reserved_name(account, http_username)) {
+		errno = EPERM;
+		return -1;
+	}
+
+	for (i = 0; i < expected_count; ++i) {
+		if (!expected_users[i] || !ops->valid_name(expected_users[i]) ||
+		    ops->reserved_name(expected_users[i], http_username)) {
+			errno = EINVAL;
+			return -1;
+		}
+		for (j = 0; j < i; ++j) {
+			if (strcmp(expected_users[j], expected_users[i]) == 0) {
+				errno = EINVAL;
+				return -1;
+			}
+		}
+		if (strcmp(expected_users[i], account) == 0) {
+			errno = EEXIST;
+			return -1;
+		}
+
+		key_length = snprintf(key, sizeof(key), "acc_username%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		result = router_account_nvram_read_copy(
+			ops->get, context, key, "", current_user,
+			sizeof(current_user));
+		if (result != 0) {
+			errno = result;
+			return -1;
+		}
+		if (strcmp(current_user, expected_users[i]) != 0) {
+			errno = EAGAIN;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * Publish count and credentials while the caller holds the exclusive NVRAM
+ * transaction. Snapshot overwritten tail slots and compensate ambiguous
+ * setter/commit failures before the caller releases the lock. A NULL value
+ * passed to set() removes a previously absent tail key.
+ */
+static inline int
+disk_share_account_inventory_add_locked(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int max_count, char *const *expected_users,
+	const char *account, const char *password)
+{
+	char key[24], count_value[16], old_count_value[16];
+	char old_username[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+	char old_password[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+	char *value = NULL;
+	int status, result, saved_errno = 0, rollback_errno = 0;
+	int commit_required = 0;
+	int username_present = 0, password_present = 0;
+	int count_attempted = 0, username_attempted = 0;
+	int password_attempted = 0;
+	int key_length;
+
+	if (!ops || !ops->get || !ops->set || !ops->commit ||
+	    !account || !password || !*password ||
+	    strlen(password) >= DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (disk_share_account_inventory_add_validate_locked(
+		    ops, context, expected_count, max_count, expected_users,
+		    account) != 0)
+		return -1;
+
+	key_length = snprintf(key, sizeof(key), "acc_username%d", expected_count);
+	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	errno = 0;
+	status = ops->get(context, key, &value);
+	if (status < 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finish;
+	}
+	if (status == 1 && value) {
+		if (strlen(value) >= sizeof(old_username)) {
+			saved_errno = ENAMETOOLONG;
+			goto finish;
+		}
+		strcpy(old_username, value);
+		username_present = 1;
+	} else if (status != 0) {
+		saved_errno = EIO;
+		goto finish;
+	}
+
+	key_length = snprintf(key, sizeof(key), "acc_password%d", expected_count);
+	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+		saved_errno = ENAMETOOLONG;
+		goto finish;
+	}
+	value = NULL;
+	errno = 0;
+	status = ops->get(context, key, &value);
+	if (status < 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finish;
+	}
+	if (status == 1 && value) {
+		if (strlen(value) >= sizeof(old_password)) {
+			saved_errno = ENAMETOOLONG;
+			goto finish;
+		}
+		strcpy(old_password, value);
+		password_present = 1;
+	} else if (status != 0) {
+		saved_errno = EIO;
+		goto finish;
+	}
+
+	value = NULL;
+	errno = 0;
+	status = ops->get(context, "nvram_manual", &value);
+	if (disk_share_account_commit_required(
+		    status, value, &commit_required) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finish;
+	}
+
+	snprintf(old_count_value, sizeof(old_count_value), "%d", expected_count);
+	snprintf(count_value, sizeof(count_value), "%d", expected_count + 1);
+
+	/* Mark each setter attempted before entering the ambiguous ioctl path. */
+	count_attempted = 1;
+	errno = 0;
+	if (ops->set(context, "acc_num", count_value) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto rollback;
+	}
+
+	key_length = snprintf(key, sizeof(key), "acc_username%d", expected_count);
+	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+		saved_errno = ENAMETOOLONG;
+		goto rollback;
+	}
+	username_attempted = 1;
+	errno = 0;
+	if (ops->set(context, key, account) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto rollback;
+	}
+
+	key_length = snprintf(key, sizeof(key), "acc_password%d", expected_count);
+	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+		saved_errno = ENAMETOOLONG;
+		goto rollback;
+	}
+	password_attempted = 1;
+	errno = 0;
+	if (ops->set(context, key, password) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto rollback;
+	}
+
+	if (commit_required) {
+		errno = 0;
+		if (ops->commit(context) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+	}
+	goto finish;
+
+rollback:
+	/* A failed ioctl or close may still have changed its target key. */
+	if (password_attempted) {
+		result = ops->set(context, key,
+				  password_present ? old_password : NULL);
+		if (result != 0 && rollback_errno == 0)
+			rollback_errno = errno ? errno : EIO;
+	}
+	if (username_attempted) {
+		key_length = snprintf(key, sizeof(key), "acc_username%d",
+				      expected_count);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			if (rollback_errno == 0)
+				rollback_errno = ENAMETOOLONG;
+		} else {
+			result = ops->set(context, key,
+					  username_present ? old_username : NULL);
+			if (result != 0 && rollback_errno == 0)
+				rollback_errno = errno ? errno : EIO;
+		}
+	}
+	if (count_attempted &&
+	    ops->set(context, "acc_num", old_count_value) != 0 &&
+	    rollback_errno == 0)
+		rollback_errno = errno ? errno : EIO;
+	if (commit_required && ops->commit(context) != 0 && rollback_errno == 0)
+		rollback_errno = errno ? errno : EIO;
+	if (rollback_errno != 0)
+		saved_errno = EIO;
+
+finish:
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
+}
+
+/*
  * Remove an account from one exclusive NVRAM transaction. Revalidate the
  * caller's inventory under the writer lease, snapshot every overwritten
  * value, and compensate all writes if a setter or flash commit fails.

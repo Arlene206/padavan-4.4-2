@@ -349,19 +349,24 @@ add_account_body = function_body(
     DISK_SOURCE, "int add_account(const char *const account, const char *const password)"
 )
 add_account_compact = "".join(add_account_body.split())
-add_inventory = add_account_compact.index("read_disk_data_checked(&disk_list)")
-add_init = add_account_compact.index("initial_one_var_file_in_mount_path(", add_inventory)
-add_publish = add_account_compact.index("nvram_set(nvram_name,account)", add_init)
-add_commit = add_account_compact.index("nvram_commit_safe()", add_publish)
+add_inventory = add_account_compact.index("get_account_list(&acc_num,&account_list)")
+add_disk_preflight = add_account_compact.index("read_disk_data_checked(&disk_list)")
+add_begin = add_account_compact.index("disk_share_account_nvram_begin(&transaction)")
+add_validate = add_account_compact.index("disk_share_account_inventory_add_validate_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account)")
+add_init = add_account_compact.index("initial_one_var_file_in_mount_path(", add_validate)
+add_publish = add_account_compact.index("disk_share_account_inventory_add_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account,password)")
 add_rollback = add_account_compact.index(
     "disk_share_account_created_files_rollback(files,unlink,&rollback_error)",
-    add_commit
+    add_publish
 )
-require(add_inventory < add_init < add_publish < add_commit < add_rollback and
-        "first_error=errno?errno:EIO;" in add_account_compact and
-        "nvram_unset(nvram_name)" in add_account_compact and
-        "nvram_unset(password_key)" in add_account_compact,
-        "add_account must preflight and initialize complete volume metadata before NVRAM publication, and restore prior tail keys on NVRAM failure")
+add_end = add_account_compact.index("disk_share_account_nvram_end(&transaction)", add_rollback)
+add_service_reload = add_account_compact.index('system("/sbin/run_samba")', add_end)
+require(add_inventory < add_disk_preflight < add_begin < add_validate < add_init <
+        add_publish < add_rollback < add_end < add_service_reload and
+        "nvram_set(" not in add_account_body and
+        "nvram_set_int(" not in add_account_body and
+        "nvram_commit_safe(" not in add_account_body,
+        "add_account must revalidate a checked inventory under one writer lease, create all volume metadata before transactional publication, compensate failure, and release the lease before service reload")
 del_account_body = function_body(
     DISK_SOURCE, "int del_account(const char *const account)"
 )
@@ -413,6 +418,48 @@ for marker in commit_policy_tests:
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "NVRAM commit policy regression is defined but not executed: " + marker)
 
+
+account_add_tests = (
+    "test_account_inventory_add_appends_under_locked_snapshot",
+    "test_account_inventory_add_handles_empty_inventory",
+    "test_account_inventory_add_honors_manual_commit",
+    "test_account_inventory_add_rejects_duplicate_and_stale_inventory",
+    "test_account_inventory_add_rejects_full_and_reserved_inventory",
+    "test_account_inventory_add_rejects_tail_snapshot_errors",
+    "test_account_inventory_add_rolls_back_each_failed_setter",
+    "test_account_inventory_add_rolls_back_failed_commit",
+    "test_account_inventory_add_reports_rollback_failure",
+)
+for marker in account_add_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing transactional account creation regression: " + marker)
+for marker in account_add_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "transactional account creation regression is defined but not executed: " + marker)
+
+add_validate_body = function_body(
+    ACCOUNT_POLICY, "disk_share_account_inventory_add_validate_locked("
+)
+add_validate_compact = "".join(add_validate_body.split())
+require("current_count!=expected_count" in add_validate_compact and
+        "ops->reserved_name(account,http_username)" in add_validate_compact and
+        "strcmp(current_user,expected_users[i])!=0" in add_validate_compact,
+        "account creation must reject stale snapshots and current management/reserved identities")
+
+add_policy_body = function_body(
+    ACCOUNT_POLICY, "disk_share_account_inventory_add_locked("
+)
+add_policy_compact = "".join(add_policy_body.split())
+for token in (
+    "ops->set(context,\"acc_num\",count_value)",
+    "ops->set(context,key,account)",
+    "ops->set(context,key,password)",
+    "rollback:",
+    "if(rollback_errno!=0)saved_errno=EIO;",
+    "disk_share_account_commit_required(",
+):
+    require(token in add_policy_compact,
+            "transactional account creation is missing rollback/commit protection: " + token)
 
 account_delete_tests = (
     "test_account_inventory_remove_compacts_under_one_transaction",
@@ -484,7 +531,6 @@ require(manual_read in commit_helper_compact and manual_policy in commit_helper_
         "account persistence must check the manual-commit read and commit result rather than collapsing NVRAM errors")
 
 for signature in (
-    "int add_account(const char *const account, const char *const password)",
     "int mod_account(const char *const account, const char *const new_account, const char *const new_password)",
 ):
     body = function_body(DISK_SOURCE, signature)

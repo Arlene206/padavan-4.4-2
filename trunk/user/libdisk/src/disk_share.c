@@ -1223,12 +1223,9 @@ int add_account(const char *const account, const char *const password)
 	partition_info_t *follow_partition;
 	int i, acc_num = 0, first_error = 0, init_result;
 	int service_result, service_error, rollback_error = 0;
+	int transaction_started = 0;
+	struct nvram_transaction transaction;
 	char **account_list = NULL;
-	char nvram_name[32], password_key[32];
-	char old_username[128], old_password[128];
-	char *old_value = NULL;
-	int old_username_present = 0, old_password_present = 0;
-	int username_attempted = 0, password_attempted = 0, count_attempted = 0;
 	struct stat metadata_stat;
 	struct disk_share_account_created_file_entry *files = NULL, *files_tail = NULL;
 	struct disk_share_account_created_file_entry *file, *next_file;
@@ -1252,7 +1249,6 @@ int add_account(const char *const account, const char *const password)
 			return -1;
 		}
 	}
-	free_2_dimension_list(&acc_num, &account_list);
 
 	/*
 	 * Build and preflight the complete metadata plan first. An incomplete
@@ -1307,6 +1303,23 @@ int add_account(const char *const account, const char *const password)
 		}
 	}
 
+	/*
+	 * Revalidate the inventory under the writer lease before creating files.
+	 * Keep the lease through publication so a concurrent add cannot replace
+	 * or roll back this account's per-volume metadata.
+	 */
+	if (first_error == 0) {
+		if (disk_share_account_nvram_begin(&transaction) != 0) {
+			first_error = errno ? errno : EIO;
+		} else {
+			transaction_started = 1;
+			if (disk_share_account_inventory_add_validate_locked(
+				    &disk_share_account_nvram_operations, &transaction,
+				    acc_num, MAX_ACCOUNT_NUM, account_list, account) != 0)
+				first_error = errno ? errno : EIO;
+		}
+	}
+
 	/* Create metadata on every volume before exposing the account in NVRAM. */
 	if (first_error == 0) {
 		for (file = files; file != NULL; file = file->next) {
@@ -1320,102 +1333,12 @@ int add_account(const char *const account, const char *const password)
 		}
 	}
 
-	/*
-	 * Preserve any stale tail slot that will be overwritten. Account deletion
-	 * compacts the active list but legacy firmware may leave old tail keys.
-	 */
-	if (first_error == 0) {
-		snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", acc_num);
-		errno = 0;
-		init_result = nvram_get_checked(nvram_name, &old_value);
-		if (init_result < 0) {
-			first_error = errno ? errno : EIO;
-		} else if (init_result == 1 && old_value) {
-			if (strlen(old_value) >= sizeof(old_username))
-				first_error = ENAMETOOLONG;
-			else {
-				strcpy(old_username, old_value);
-				old_username_present = 1;
-			}
-		} else if (init_result != 0) {
-			first_error = EIO;
-		}
-
-		if (first_error == 0) {
-			snprintf(password_key, sizeof(password_key), "acc_password%d", acc_num);
-			old_value = NULL;
-			errno = 0;
-			init_result = nvram_get_checked(password_key, &old_value);
-			if (init_result < 0) {
-				first_error = errno ? errno : EIO;
-			} else if (init_result == 1 && old_value) {
-				if (strlen(old_value) >= sizeof(old_password))
-					first_error = ENAMETOOLONG;
-				else {
-					strcpy(old_password, old_value);
-					old_password_present = 1;
-				}
-			} else if (init_result != 0) {
-				first_error = EIO;
-			}
-		}
-	}
-
-	/* Publish count and credentials only after all metadata files exist. */
-	if (first_error == 0) {
-		count_attempted = 1;
-		if (nvram_set_int("acc_num", acc_num + 1) != 0)
-			first_error = errno ? errno : EIO;
-
-		if (first_error == 0) {
-			snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", acc_num);
-			username_attempted = 1;
-			if (nvram_set(nvram_name, account) != 0)
-				first_error = errno ? errno : EIO;
-		}
-		if (first_error == 0) {
-			snprintf(password_key, sizeof(password_key), "acc_password%d", acc_num);
-			password_attempted = 1;
-			if (nvram_set(password_key, password) != 0)
-				first_error = errno ? errno : EIO;
-		}
-		if (first_error == 0 && nvram_commit_safe() != 0)
-			first_error = errno ? errno : EIO;
-	}
-
-	/* Any failed setter/commit restores the prior tail slot and account count. */
-	if (first_error != 0 &&
-	    (count_attempted || username_attempted || password_attempted)) {
-		int restore_error = 0;
-		int restore_result;
-
-		if (password_attempted) {
-			restore_result = old_password_present ?
-				nvram_set(password_key, old_password) :
-				nvram_unset(password_key);
-			if (restore_result != 0)
-				restore_error = errno ? errno : EIO;
-		}
-		if (username_attempted) {
-			snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", acc_num);
-			restore_result = old_username_present ?
-				nvram_set(nvram_name, old_username) :
-				nvram_unset(nvram_name);
-			if (restore_result != 0 && restore_error == 0)
-				restore_error = errno ? errno : EIO;
-		}
-		if (count_attempted &&
-		    nvram_set_int("acc_num", acc_num) != 0 && restore_error == 0)
-			restore_error = errno ? errno : EIO;
-		if (restore_error == 0 && nvram_commit_safe() != 0)
-			restore_error = errno ? errno : EIO;
-		if (restore_error != 0) {
-			logmessage("disk_share",
-				   "new account NVRAM rollback failed (errno %d)",
-				   restore_error);
-			first_error = EIO;
-		}
-	}
+	/* Publish account identity only after every volume is initialized. */
+	if (first_error == 0 &&
+	    disk_share_account_inventory_add_locked(
+		&disk_share_account_nvram_operations, &transaction,
+		acc_num, MAX_ACCOUNT_NUM, account_list, account, password) != 0)
+		first_error = errno ? errno : EIO;
 
 	/* Failed account publication must remove only metadata created by this call. */
 	if (first_error != 0 && files) {
@@ -1434,7 +1357,21 @@ int add_account(const char *const account, const char *const password)
 		free(files);
 		files = next_file;
 	}
+	free_2_dimension_list(&acc_num, &account_list);
 	free_disk_data(disk_list);
+	if (transaction_started) {
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0) {
+			int transaction_error = errno ? errno : EIO;
+
+			if (first_error == 0)
+				first_error = transaction_error;
+			else
+				logmessage("disk_share",
+					   "account NVRAM transaction release failed (errno %d)",
+					   transaction_error);
+		}
+	}
 
 	/* Reload Samba after the filesystem and NVRAM changes have settled. */
 	errno = 0;
