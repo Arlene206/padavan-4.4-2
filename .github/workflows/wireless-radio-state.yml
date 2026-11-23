@@ -889,7 +889,9 @@ jobs:
           assert inic_check.index("status = doSystem(") < inic_check.index("if (status != 0)") < inic_check.index("return wireless_radio_restart_status(0, status);")
           guest_state_check = "status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,"
           guest_state_error = "if (status != 0)"
-          guest_gate = "if (!guest_is_up && is_guest_allowed_rt())"
+          guest_schedule_check = "status = wireless_guest_allowed_rt_checked(&guest_allowed);"
+          guest_schedule_error = "iNIC guest AP schedule is unknown; recovery deferred until the next health check"
+          guest_gate = "if (guest_allowed)"
           guest_isolation_policy = (rc / "wireless_guest_isolation_policy.h").read_text()
           guest_isolation_test = (rc / "tests/wireless_guest_isolation_policy.c").read_text()
           assert guest_state_check in " ".join(inic_check.split())
@@ -900,8 +902,12 @@ jobs:
           guest_state_call_pos = inic_check.index("wireless_guest_interface_state_checked(")
           guest_state_error_pos = inic_check.index(guest_state_error, guest_state_call_pos)
           guest_state_return_pos = inic_check.index("return status;", guest_state_error_pos)
-          guest_state_gate_pos = inic_check.index(guest_gate)
-          assert guest_state_call_pos < guest_state_error_pos < guest_state_return_pos < guest_state_gate_pos
+          guest_schedule_call_pos = inic_check.index(guest_schedule_check, guest_state_return_pos)
+          guest_schedule_error_pos = inic_check.index("if (status != 0)", guest_schedule_call_pos)
+          guest_schedule_log_pos = inic_check.index(guest_schedule_error, guest_schedule_error_pos)
+          guest_schedule_return_pos = inic_check.index("return status;", guest_schedule_log_pos)
+          guest_state_gate_pos = inic_check.index(guest_gate, guest_schedule_return_pos)
+          assert guest_state_call_pos < guest_state_error_pos < guest_state_return_pos < guest_schedule_call_pos < guest_schedule_error_pos < guest_schedule_log_pos < guest_schedule_return_pos < guest_state_gate_pos
           assert "wireless_guest_isolation_link_state" in guest_isolation_policy
           assert "test_unknown_guest_link_state_still_requests_down" in guest_isolation_test
           assert "wireless_guest_isolation_link_state(-1, EACCES, ENODEV," in guest_isolation_test
@@ -909,6 +915,7 @@ jobs:
           assert "wireless_radio_status_success(status)" in inic_check
           assert "wif_control_success(IFNAME_INIC_GUEST, 1)" not in inic_check
           assert inic_check.index(guest_gate) < inic_check.index("status = wif_control(IFNAME_INIC_GUEST, 1);")
+          assert "is_guest_allowed_rt()" not in inic_check[inic_check.index(guest_state_check):]
           assert "iNIC guest AP recovery deferred until the next health check (status=%d)" in inic_check
           assert inic_check.rstrip().endswith("return 0;")
           assert "test_restart_failure_wait_status_is_normalized_and_sticky" in notification_test
