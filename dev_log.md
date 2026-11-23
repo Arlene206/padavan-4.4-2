@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Scope infosvr PID-file O_TRUNC contract to open flags
+
+- Exact Infosvr run #45184200774 on `9fd7bafd5ad6ecb6511d8f6b21b8a0942ff9ee7c` passed all six GNU89/Werror/ASan/UBSan policy binaries, including the new competing-open PID-file test. The Python source contract then failed because it searched for `O_TRUNC` anywhere in `acquire_pidfile()`, matching the explanatory comment that explicitly says not to use it.
+- This checker-only correction inspects the actual `open()` flag argument, so the contract still rejects truncating opens without rejecting the safeguard comment. No production source or regression behavior changed. Exact-head Infosvr rerun required.
+---
+
 ## 2026-11-23 UTC — Serialize infosvr daemon PID ownership
 
 - The RC start path uses a tri-state process preflight, but the check and daemon launch are not one atomic operation. Concurrent start requests can both observe ABSENT; infosvr enables SO_REUSEADDR on its UDP socket, so separate daemon children can bind the same service socket. The prior PID writer opened with truncation and ignored write/close errors, while shutdown unconditionally removed the shared marker.

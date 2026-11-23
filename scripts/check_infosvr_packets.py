@@ -194,7 +194,9 @@ assert pidfile_acquire.index("infosvr_pidfile_try_exclusive_lock(fd)") < pidfile
 assert pidfile_acquire.index("fstat(fd, &status)") < pidfile_acquire.index("infosvr_pidfile_write(fd, getpid())")
 assert "S_ISREG(status.st_mode)" in pidfile_acquire
 assert "status.st_nlink != 1" in pidfile_acquire
-assert "O_TRUNC" not in pidfile_acquire
+open_flags = re.search(r'open\s*\(\s*g_pidfile\s*,([^)]*)\)', pidfile_acquire)
+assert open_flags is not None
+assert "O_TRUNC" not in open_flags.group(1)
 cleanup = function_body(source, "res_cleanup(void)")
 assert "infosvr_pidfile_matches(g_pidfile_fd, getpid()) == 1" in cleanup
 assert "opened_status.st_dev == path_status.st_dev" in cleanup
