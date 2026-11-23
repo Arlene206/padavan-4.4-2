@@ -1958,6 +1958,85 @@ cleanup:
 		ge_cal_flag = 1;
 	}
 }
+/*
+ * Shared FE/GE R50 setup is used by the GE calibration path too.
+ * Keep this checked helper separate from the public legacy wrapper so
+ * GE calibration can abort before touching per-pair registers on failure.
+ */
+static int fe_ge_r50_common_checked(u8 port_num)
+{
+	struct ra_switch_page_update_context page;
+	unsigned int updated;
+	int status;
+
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 0U, 1, 0x2100U);
+	if (status != 0)
+		return status;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 2U, 25U, 0, 0xf0c0U);
+	if (status != 0)
+		return status;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 7U, 24U, 0, 0U);
+	if (status != 0)
+		return status;
+
+	page.page = 7U;
+	page.local = 0;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0U, 0x2000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0U, 0x4000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x1000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		return status;
+
+	page.page = 4U;
+	page.local = 1;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 23U, 0x0001U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		return status;
+
+	page.page = 3U;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 25U, 0x2000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		return status;
+
+	return ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0U, 0x1000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+}
+
+/* Preserve the pre-existing public void entry point for external callers. */
+void fe_ge_r50_common(u8 port_num)
+{
+	int status = fe_ge_r50_common_checked(port_num);
+
+	if (status != 0)
+		pr_err_ratelimited(
+			"%s: GE R50 common setup failed (port=%u status=%d)\n",
+			__func__, port_num, status);
+}
+
 void ge_cal_r50(u8 phyaddr, unsigned int delay)
 {
 	u8 rg_zcal_ctrl, rg_zcal_ctrl_filter, ready;

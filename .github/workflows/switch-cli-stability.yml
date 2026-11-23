@@ -1063,6 +1063,9 @@ jobs:
               assert "tc_phy_read_l_reg(" not in body
               assert "tc_phy_write_l_reg(" not in body
           assert "all_ge_ana_cal_wait_checked(" in r50
+          assert "static int fe_ge_r50_common_checked(" in source
+          assert "void fe_ge_r50_common(" in source
+          assert "status = fe_ge_r50_common_checked(phyaddr);" in r50
           assert "ra_switch_mdio_update_bits_checked(" in r50
           assert "clear_ckinv_ana_txvos_checked()" in r50
           assert "tc_phy_write_dev_reg_checked(" in r50
