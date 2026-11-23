@@ -722,6 +722,19 @@ jobs:
           assert "mii_mgr_write(" not in phy_setup
           assert "mii_mgr_write_cl45(" not in phy_setup
           assert "status = mt7530_phy_setting();" in setup_internal
+          fe_init = source.split("int fe_sw_init(void)", 1)[1].split(
+              "static void ra_switch_mdio_reset_delay(", 1
+          )[0]
+          vtss = source.split("int is_vtss_gigaphy(int ge)", 1)[1].split(
+              "void mt7622_esw_5port_gpio(", 1
+          )[0]
+          assert "mii_mgr_read(" not in fe_init and "mii_mgr_write(" not in fe_init
+          assert "status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr" in fe_init
+          assert "status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr" in fe_init
+          assert "status = is_vtss_gigaphy(1);" in fe_init
+          assert "status = is_vtss_gigaphy(2);" in fe_init
+          assert "return -EIO;" in vtss
+          assert "mii_mgr_read(" not in vtss
           print("RAETH global/local PHY helpers stop on page-select and register I/O failures: PASS")
           PY
 

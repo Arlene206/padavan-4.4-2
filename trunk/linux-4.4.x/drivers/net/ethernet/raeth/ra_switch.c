@@ -3675,14 +3675,10 @@ int is_vtss_gigaphy(int ge)
 	else
 		phy_address = mac_to_gigaphy_mode_addr2;
 
-	if (!mii_mgr_read(phy_address, 2, &phy_id0)) {
-		pr_info("\n Read PhyID 1 is Fail!!\n");
-		phy_id0 = 0;
-	}
-	if (!mii_mgr_read(phy_address, 3, &phy_id1)) {
-		pr_info("\n Read PhyID 1 is Fail!!\n");
-		phy_id1 = 0;
-	}
+	if (!ra_switch_mdio_read(NULL, phy_address, 2, &phy_id0))
+		return -EIO;
+	if (!ra_switch_mdio_read(NULL, phy_address, 3, &phy_id1))
+		return -EIO;
 
 	if ((phy_id0 == EV_VTSS_PHY_ID0) && (phy_id1 == EV_VTSS_PHY_ID1))
 		return 1;
@@ -4128,37 +4124,51 @@ int fe_sw_init(void)
 		enable_auto_negotiate(ei_local);
 		if (is_marvell_gigaphy(1)) {
 			if (ei_local->features & FE_FPGA_MODE) {
-				mii_mgr_read(mac_to_gigaphy_mode_addr, 9,
-					     &reg_value);
+				status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr, 9, &reg_value);
+				if (status != 0)
+					goto mdio_error;
 				/* turn off 1000Base-T Advertisement
 				 * (9.9=1000Full, 9.8=1000Half)
 				 */
 				reg_value &= ~(3 << 8);
-				mii_mgr_write(mac_to_gigaphy_mode_addr,
-					      9, reg_value);
+				status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr, 9, reg_value);
+				if (status != 0)
+					goto mdio_error;
 
 				/*10Mbps, debug */
-				mii_mgr_write(mac_to_gigaphy_mode_addr,
-					      4, 0x461);
+				status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr, 4, 0x461);
+				if (status != 0)
+					goto mdio_error;
 
-				mii_mgr_read(mac_to_gigaphy_mode_addr, 0,
-					     &reg_value);
+				status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr, 0, &reg_value);
+				if (status != 0)
+					goto mdio_error;
 				reg_value |= 1 << 9;	/* restart AN */
-				mii_mgr_write(mac_to_gigaphy_mode_addr,
-					      0, reg_value);
+				status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr, 0, reg_value);
+				if (status != 0)
+					goto mdio_error;
 			}
 		}
-		if (is_vtss_gigaphy(1)) {
-			mii_mgr_write(mac_to_gigaphy_mode_addr, 31, 1);
-			mii_mgr_read(mac_to_gigaphy_mode_addr, 28,
-				     &reg_value);
+		status = is_vtss_gigaphy(1);
+		if (status < 0)
+			goto mdio_error;
+		if (status > 0) {
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr, 31, 1);
+			if (status != 0)
+				goto mdio_error;
+			status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr, 28, &reg_value);
+			if (status != 0)
+				goto mdio_error;
 			pr_info("Vitesse phy skew: %x --> ", reg_value);
 			reg_value |= (0x3 << 12);
 			reg_value &= ~(0x3 << 14);
 			pr_info("%x\n", reg_value);
-			mii_mgr_write(mac_to_gigaphy_mode_addr, 28,
-				      reg_value);
-			mii_mgr_write(mac_to_gigaphy_mode_addr, 31, 0);
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr, 28, reg_value);
+			if (status != 0)
+				goto mdio_error;
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr, 31, 0);
+			if (status != 0)
+				goto mdio_error;
 		}
 	}
 
@@ -4176,59 +4186,79 @@ int fe_sw_init(void)
 		}
 
 		if (is_marvell_gigaphy(2)) {
-			mii_mgr_read(mac_to_gigaphy_mode_addr2, 9,
-				     &reg_value);
+			status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 9, &reg_value);
+			if (status != 0)
+				goto mdio_error;
 			/* turn off 1000Base-T Advertisement
 			 * (9.9=1000Full, 9.8=1000Half)
 			 */
 			reg_value &= ~(3 << 8);
-			mii_mgr_write(mac_to_gigaphy_mode_addr2, 9,
-				      reg_value);
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 9, reg_value);
+			if (status != 0)
+				goto mdio_error;
 
-			mii_mgr_read(mac_to_gigaphy_mode_addr2, 20,
-				     &reg_value);
+			status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 20, &reg_value);
+			if (status != 0)
+				goto mdio_error;
 			/* Add delay to RX_CLK for RXD Outputs */
 			reg_value |= 1 << 7;
-			mii_mgr_write(mac_to_gigaphy_mode_addr2, 20,
-				      reg_value);
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 20, reg_value);
+			if (status != 0)
+				goto mdio_error;
 
-			mii_mgr_read(mac_to_gigaphy_mode_addr2, 0,
-				     &reg_value);
+			status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 0, &reg_value);
+			if (status != 0)
+				goto mdio_error;
 			reg_value |= 1 << 15;	/* PHY Software Reset */
-			mii_mgr_write(mac_to_gigaphy_mode_addr2, 0,
-				      reg_value);
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 0, reg_value);
+			if (status != 0)
+				goto mdio_error;
 			if (ei_local->features & FE_FPGA_MODE) {
-				mii_mgr_read(mac_to_gigaphy_mode_addr2,
-					     9, &reg_value);
+				status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 9, &reg_value);
+				if (status != 0)
+					goto mdio_error;
 				/* turn off 1000Base-T Advertisement
 				 * (9.9=1000Full, 9.8=1000Half)
 				 */
 				reg_value &= ~(3 << 8);
-				mii_mgr_write(mac_to_gigaphy_mode_addr2,
-					      9, reg_value);
+				status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 9, reg_value);
+				if (status != 0)
+					goto mdio_error;
 
 				/*10Mbps, debug */
-				mii_mgr_write(mac_to_gigaphy_mode_addr2,
-					      4, 0x461);
+				status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 4, 0x461);
+				if (status != 0)
+					goto mdio_error;
 
-				mii_mgr_read(mac_to_gigaphy_mode_addr2,
-					     0, &reg_value);
+				status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 0, &reg_value);
+				if (status != 0)
+					goto mdio_error;
 				reg_value |= 1 << 9;	/* restart AN */
-				mii_mgr_write(mac_to_gigaphy_mode_addr2,
-					      0, reg_value);
+				status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 0, reg_value);
+				if (status != 0)
+					goto mdio_error;
 			}
 		}
-		if (is_vtss_gigaphy(2)) {
-			mii_mgr_write(mac_to_gigaphy_mode_addr2, 31, 1);
-			mii_mgr_read(mac_to_gigaphy_mode_addr2, 28,
-				     &reg_value);
+		status = is_vtss_gigaphy(2);
+		if (status < 0)
+			goto mdio_error;
+		if (status > 0) {
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 31, 1);
+			if (status != 0)
+				goto mdio_error;
+			status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 28, &reg_value);
+			if (status != 0)
+				goto mdio_error;
 			pr_info("Vitesse phy skew: %x --> ", reg_value);
 			reg_value |= (0x3 << 12);
 			reg_value &= ~(0x3 << 14);
 			pr_info("%x\n", reg_value);
-			mii_mgr_write(mac_to_gigaphy_mode_addr2, 28,
-				      reg_value);
-			mii_mgr_write(mac_to_gigaphy_mode_addr2, 31, 0);
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 28, reg_value);
+			if (status != 0)
+				goto mdio_error;
+			status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr2, 31, 0);
+			if (status != 0)
+				goto mdio_error;
 		}
 	}
 
@@ -4394,6 +4424,11 @@ int fe_sw_init(void)
 		}
 	}
 	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: switch/PHY initialization failed: %d\n",
+			   __func__, status);
+	return status;
 }
 
 void fe_sw_deinit(struct END_DEVICE *ei_local)
