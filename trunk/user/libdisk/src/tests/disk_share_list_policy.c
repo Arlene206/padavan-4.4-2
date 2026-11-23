@@ -607,6 +607,7 @@ test_account_inventory_rejects_duplicate_names(void)
 int
 main(void)
 {
+	assert(router_account_name_is_valid("storage"));
 	assert(router_account_name_is_reserved_after_read("admin", 1, "admin"));
 	assert(!router_account_name_is_reserved_after_read("storage", 1, "admin"));
 	assert(!router_account_name_is_reserved_after_read("storage", 0, NULL));

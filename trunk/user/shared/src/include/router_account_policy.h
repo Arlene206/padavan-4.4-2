@@ -57,7 +57,7 @@ router_account_name_is_reserved(const char *name, const char *management_name)
  * Treat a failed or inconsistent management-identity read as reserved.
  * 0 means the setting is absent; 1 requires a non-NULL value.
  */
-static int
+static inline int
 router_account_name_is_reserved_after_read(const char *name, int read_status,
                                            const char *management_name)
 {
