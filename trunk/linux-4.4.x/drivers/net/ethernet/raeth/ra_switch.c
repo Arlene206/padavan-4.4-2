@@ -442,173 +442,294 @@ u8 all_fe_ana_cal_wait(u32 delay, u8 port_num)
 }
 void fe_cal_tx_amp(u8 port_num, u32 delay)
 {
-	u8 all_ana_cal_status;
+	unsigned int read_value = 0U, page_value = 0U, updated;
+	unsigned int l2r23_temp = 0U, tx_amp_final;
+	unsigned int correction;
 	int ad_cal_comp_out_init;
-	u16 l3r25_temp, l0r26_temp, l2r20_temp;
-	u16 l2r23_temp = 0;
 	int calibration_polarity;
-	u8 tx_amp_reg_shift = 0;
-	int tx_amp_temp = 0, cnt = 0, phyaddr, tx_amp_cnt = 0;
-	u16 tx_amp_final;
+	int tx_amp_temp = 0x20;
+	int all_ana_cal_status = ANACAL_INIT;
+	u8 ready = 0, cnt = 0;
+	int status = 0, cleanup_status;
+	int calibration_completed = 0;
+	struct ra_switch_page_update_context page;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 
-	phyaddr = port_num + ephy_addr_base;
-	tx_amp_temp = 0x20;
-	/* *** Tx Amp Cal start ********************** */
-
-/*Set device in 100M mode*/
-	tc_phy_write_l_reg(port_num, 0, 0, 0x2100);
-/*TXG output DC differential 1V*/
-	tc_phy_write_g_reg(port_num, 2, 25, 0x10c0);
-
-	tc_phy_write_g_reg(port_num, 1, 26, (0x8000 | DAC_IN_2V));
-	tc_phy_write_g_reg(port_num, 4, 21, (0x0800));	/* set default */
-	tc_phy_write_l_reg(port_num, 0, 30, (0x02c0));
-	tc_phy_write_l_reg(port_num, 4, 21, (0x0000));
-
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, (0xc800));
-	tc_phy_write_l_reg(port_num, 3, 25, (0xc800));
-
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0x7000);
-
-	l3r25_temp = tc_phy_read_l_reg(port_num, 3, 25);
-	tc_phy_write_l_reg(port_num, 3, 25, (l3r25_temp | 0x400));
-
-	/*decide which port calibration RG_ZCALEN by port_num*/
-	l3r25_temp = tc_phy_read_l_reg(port_num, 3, 25);
-	l3r25_temp = l3r25_temp | 0x1000;
-	l3r25_temp = l3r25_temp & ~(0x200);
-	tc_phy_write_l_reg(port_num, 3, 25, l3r25_temp);
-
-	/*DA_PGA_MDIX_STASTUS_P0=0(L0R26[15:14] = 0x01*/
-	l0r26_temp = tc_phy_read_l_reg(port_num, 0, 26);
-	l0r26_temp = l0r26_temp & (~0xc000);
-	tc_phy_write_l_reg(port_num, 0, 26, 0x5203);/* Kant */
-
-	/*RG_RX2TX_EN_P0=0(L2R20[10] =0),*/
-	l2r20_temp = tc_phy_read_l_reg(port_num, 2, 20);
-	l2r20_temp = l2r20_temp & (~0x400);
-	tc_phy_write_l_reg(port_num, 2, 20, l2r20_temp);
-	tc_phy_write_l_reg(port_num, 2, 23, (tx_amp_temp));
-
-	all_ana_cal_status = all_fe_ana_cal_wait_txamp(delay, port_num);
-
-	if (all_ana_cal_status == 0) {
-		all_ana_cal_status = ANACAL_ERROR;
-		pr_info(" FE Tx amp AnaCal ERROR! (init)  \r\n");
+	fe_cal_flag = 0;
+	if (port_num >= 5U) {
+		pr_err_ratelimited("%s: invalid FE port %u\n",
+				   __func__, port_num);
+		return;
 	}
 
-	tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	ad_cal_comp_out_init = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
+	/* Set device in 100M mode and configure the TXG output path. */
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 0U, 1, 0x2100U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 2U, 25U, 0, 0x10c0U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 1U, 26U, 0, (0x8000U | DAC_IN_2V));
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 21U, 0, 0x0800U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 30U, 1, 0x02c0U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 21U, 1, 0U);
+	if (status != 0)
+		goto cleanup;
 
-	if (ad_cal_comp_out_init == 1)
-		calibration_polarity = -1;
-	else
-		calibration_polarity = 1;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 3U, 25U, 1, 0xc800U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 3U, 25U, 1, 0xc800U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 7U, 24U, 0, 0x7000U);
+	if (status != 0)
+		goto cleanup;
 
-	tx_amp_temp += calibration_polarity;
-	cnt = 0;
-	tx_amp_cnt = 0;
-	while (all_ana_cal_status < ANACAL_ERROR) {
-		tc_phy_write_l_reg(port_num, 2, 23, (tx_amp_temp));
-		l2r23_temp = tc_phy_read_l_reg(port_num, 2, 23);
-		cnt++;
-		tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-		tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-		all_ana_cal_status = all_fe_ana_cal_wait_txamp(delay, port_num);
+	/* Enable TXG/ZCAL and disable the opposing calibration bit. */
+	page.page = 3U;
+	page.local = 1;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0U, 0x0400U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0x0200U, 0x1000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
 
-		if (((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24)) & 0x1) !=
-		    ad_cal_comp_out_init) {
-			all_ana_cal_status = ANACAL_FINISH;
-			fe_cal_flag = 1;
-		}
-		if (all_ana_cal_status == 0) {
-			all_ana_cal_status = ANACAL_ERROR;
-			pr_info(" FE Tx amp AnaCal ERROR! (%d)  \r\n", cnt);
-		} else if ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1) !=
-			   ad_cal_comp_out_init) {
-			tx_amp_cnt++;
-			all_ana_cal_status = ANACAL_FINISH;
-			tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-			tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-			ad_cal_comp_out_init =
-			    tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
-		} else {
-			if ((l2r23_temp == 0x3f) || (l2r23_temp == 0x00)) {
+	/* Preserve the original fixed PGA/MDIX and RX-to-TX settings. */
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 26U, 1, 0x5203U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_read_page_reg_checked(
+		port_num, 2U, 20U, 1, &read_value);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 2U, 20U, 1, (read_value & ~0x0400U));
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 2U, 23U, 1, (unsigned int)tx_amp_temp);
+	if (status != 0)
+		goto cleanup;
+
+	/* TX-amp retains its original common-only pre-trigger reset mode. */
+	ready = 0;
+	status = all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready);
+	if (status != 0)
+		goto cleanup;
+	if (!ready) {
+		all_ana_cal_status = ANACAL_ERROR;
+		pr_info("FE TX-amplitude calibration did not become ready (init)\n");
+	} else {
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		ad_cal_comp_out_init = (int)(page_value & 0x1U);
+		calibration_polarity = ad_cal_comp_out_init ? -1 : 1;
+		tx_amp_temp = (int)ra_switch_mdio_calibration_code_step(
+			(unsigned int)tx_amp_temp, calibration_polarity);
+
+		while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
+			++cnt;
+			status = tc_phy_write_page_reg_checked(
+				port_num, 2U, 23U, 1,
+				(unsigned int)tx_amp_temp);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_page_reg_checked(
+				port_num, 2U, 23U, 1, &l2r23_temp);
+			if (status != 0)
+				goto cleanup;
+
+			/* Preserve comparator settling reads before each wait. */
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+
+			ready = 0;
+			status = all_fe_ana_cal_wait_checked(
+				delay, port_num, 0, &ready);
+			if (status != 0)
+				goto cleanup;
+			if (!ready) {
+				all_ana_cal_status = ANACAL_ERROR;
+				pr_info("FE TX-amplitude calibration timed out (step=%u)\n",
+					cnt);
+				break;
+			}
+
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+			if ((page_value & 0x1U) !=
+			    (unsigned int)ad_cal_comp_out_init) {
+				all_ana_cal_status = ANACAL_FINISH;
+				/* Keep the original post-crossing settling sequence. */
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				ad_cal_comp_out_init = (int)(page_value & 0x1U);
+			} else if ((l2r23_temp == 0x3fU) ||
+				   (l2r23_temp == 0U)) {
 				all_ana_cal_status = ANACAL_SATURATION;
-				pr_info
-				    (" Tx amp Cal Saturation(%d)(%x)(%x)\r\n",
-				     cnt, tc_phy_read_l_reg(0, 3, 25),
-				     tc_phy_read_l_reg(1, 3, 25));
-				pr_info
-				    (" Tx amp Cal Saturation(%x)(%x)(%x)\r\n",
-				     tc_phy_read_l_reg(2, 3, 25),
-				     tc_phy_read_l_reg(3, 3, 25),
-				     tc_phy_read_l_reg(0, 2, 30));
-				/* tx_amp_temp += calibration_polarity; */
+				pr_info("FE TX-amplitude calibration saturated (step=%u)\n",
+					cnt);
 			} else {
-				tx_amp_temp += calibration_polarity;
+				tx_amp_temp = (int)ra_switch_mdio_calibration_code_step(
+					(unsigned int)tx_amp_temp,
+					calibration_polarity);
 			}
 		}
+		if ((all_ana_cal_status == ANACAL_INIT) && (cnt >= 254U)) {
+			all_ana_cal_status = ANACAL_ERROR;
+			pr_info("FE TX-amplitude calibration exhausted its search range\n");
+		}
 	}
 
+	/* Retain the last bounded code on timeout/saturation, as before. */
 	if ((all_ana_cal_status == ANACAL_ERROR) ||
 	    (all_ana_cal_status == ANACAL_SATURATION)) {
-		l2r23_temp = tc_phy_read_l_reg(port_num, 2, 23);
-		tc_phy_write_l_reg(port_num, 2, 23,
-				   ((tx_amp_temp << tx_amp_reg_shift)));
-		l2r23_temp = tc_phy_read_l_reg(port_num, 2, 23);
+		status = tc_phy_write_page_reg_checked(
+			port_num, 2U, 23U, 1, (unsigned int)tx_amp_temp);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_read_page_reg_checked(
+			port_num, 2U, 23U, 1, &l2r23_temp);
+		if (status != 0)
+			goto cleanup;
 		pr_info("[%d] %s, ANACAL_SATURATION\n", port_num, __func__);
 	} else {
+		/* Preserve the existing per-chip and per-port final adjustments. */
 		if (ei_local->chip_name == MT7622_FE) {
-			if (port_num == 0)
-				l2r23_temp = l2r23_temp + 10;
-			else if (port_num == 1)
-				l2r23_temp = l2r23_temp + 11;
-			else if (port_num == 2)
-				l2r23_temp = l2r23_temp + 10;
-			else if (port_num == 3)
-				l2r23_temp = l2r23_temp + 9;
-			else if (port_num == 4)
-				l2r23_temp = l2r23_temp + 10;
+			if (port_num == 0U)
+				l2r23_temp += 10U;
+			else if (port_num == 1U)
+				l2r23_temp += 11U;
+			else if (port_num == 2U)
+				l2r23_temp += 10U;
+			else if (port_num == 3U)
+				l2r23_temp += 9U;
+			else if (port_num == 4U)
+				l2r23_temp += 10U;
 		} else if (ei_local->chip_name == LEOPARD_FE) {
-			if (port_num == 1)
-				l2r23_temp = l2r23_temp + 3;
-			else if (port_num == 2)
-				l2r23_temp = l2r23_temp + 3;
-			else if (port_num == 3)
-				l2r23_temp = l2r23_temp + 3 - 2;
-			else if (port_num == 4)
-				l2r23_temp = l2r23_temp + 2 - 1 + 2;
+			if (port_num == 1U)
+				l2r23_temp += 3U;
+			else if (port_num == 2U)
+				l2r23_temp += 3U;
+			else if (port_num == 3U)
+				l2r23_temp += 1U;
+			else if (port_num == 4U)
+				l2r23_temp += 3U;
 		}
-
-		tc_phy_write_l_reg(port_num, 2, 23, ((l2r23_temp) << tx_amp_reg_shift));
-		fe_cal_flag = 1;
+		status = tc_phy_write_page_reg_checked(
+			port_num, 2U, 23U, 1, l2r23_temp);
+		if (status != 0)
+			goto cleanup;
+		calibration_completed = 1;
 	}
 
-	tx_amp_final = tc_phy_read_l_reg(port_num, 2, 23) & 0x3f;
-	tc_phy_write_l_reg(port_num, 2, 24, ((tx_amp_final + 15)  << 8) | 0x20);
+	/* Read back the final code and program the corresponding correction. */
+	status = tc_phy_read_page_reg_checked(
+		port_num, 2U, 23U, 1, &read_value);
+	if (status != 0)
+		goto cleanup;
+	tx_amp_final = read_value & 0x3fU;
+	correction = ((tx_amp_final + 15U) << 8) | 0x20U;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 2U, 24U, 1, correction);
+	if (status != 0)
+		goto cleanup;
 
 	if (ei_local->chip_name == LEOPARD_FE) {
-		if (port_num == 1)
-			tc_phy_write_l_reg(port_num, 2, 24, ((tx_amp_final + 15 - 4)  << 8) | 0x20);
-		else if (port_num == 2)
-			tc_phy_write_l_reg(port_num, 2, 24, ((tx_amp_final + 15 + 2)  << 8) | 0x20);
-		else if (port_num == 3)
-			tc_phy_write_l_reg(port_num, 2, 24, ((tx_amp_final + 15 + 4)  << 8) | 0x20);
-		else if (port_num == 4)
-			tc_phy_write_l_reg(port_num, 2, 24, ((tx_amp_final + 15 + 4)  << 8) | 0x20);
+		if (port_num == 1U)
+			correction = ((tx_amp_final + 15U - 4U) << 8) | 0x20U;
+		else if (port_num == 2U)
+			correction = ((tx_amp_final + 15U + 2U) << 8) | 0x20U;
+		else if ((port_num == 3U) || (port_num == 4U))
+			correction = ((tx_amp_final + 15U + 4U) << 8) | 0x20U;
+		else
+			correction = 0U;
+		if (correction != 0U) {
+			status = tc_phy_write_page_reg_checked(
+				port_num, 2U, 24U, 1, correction);
+			if (status != 0)
+				goto cleanup;
+		}
 	}
-
 	pr_info("[%d] - tx_amp_final = 0x%x\n", port_num, tx_amp_final);
 
-	/*clear RG_CAL_CKINV/RG_ANA_CALEN/RG_TXVOS_CALEN*/
-	clear_ckinv_ana_txvos();
+cleanup:
+	/* Attempt every independent analog reset and keep the first error. */
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
 
-	tc_phy_write_l_reg(port_num, 3, 25, 0x0000);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, 0x0000);
-	tc_phy_write_g_reg(port_num, 1, 26, 0);
-	/* *** Tx Amp Cal end *** */
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 1U, 26U, 0, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	if (status != 0) {
+		pr_err_ratelimited(
+			"%s: FE TX-amplitude calibration failed (port=%u status=%d)\n",
+			__func__, port_num, status);
+		return;
+	}
+	if (calibration_completed)
+		fe_cal_flag = 1;
 }
 
 void fe_cal_tx_amp_mdix(u8 port_num, u32 delay)

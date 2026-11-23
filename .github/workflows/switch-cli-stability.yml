@@ -1185,6 +1185,34 @@ jobs:
           print("FE VBG checked MDIO, bounded code/table access and best-effort cleanup: PASS")
           PY
 
+      - name: Validate FE TX amplitude calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          amp = source.split("void fe_cal_tx_amp(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "void fe_cal_tx_amp_mdix(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait_txamp(", "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in amp, legacy
+          assert amp.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready)" in amp
+          assert "(cnt < 254U)" in amp
+          assert "ra_switch_mdio_calibration_code_step(" in amp
+          assert "fe_cal_flag = 0;" in amp
+          assert "clear_ckinv_ana_txvos_checked()" in amp
+          assert "tc_phy_write_page_reg_checked(" in amp
+          assert amp.index("cleanup:") < amp.index("if (calibration_completed)")
+          assert amp.index("if (status != 0)") < amp.index("fe_cal_flag = 1;")
+          assert "MT7622_FE" in amp and "LEOPARD_FE" in amp
+          print("FE TX-amplitude checked I/O, bounded search, chip offsets and cleanup: PASS")
+          PY
+
       - name: Validate FE TX offset calibration checks MDIO and cleanup
         run: |
           python3 - <<'PY'
