@@ -1546,9 +1546,19 @@ deferred_hotplug = body(storage, "on_deferred_hotplug_dev(void)")
 printer_events = deferred_hotplug[deferred_hotplug.index("printer_unplug_status ="):]
 printer_unplug = printer_events[printer_events.index("if (printer_unplug_pending)"):
                                printer_events.index("modem_unplug_marker_status =")]
-require(printer_unplug.index("stop_usb_printer_spoolers()") <
-        printer_unplug.index('storage_ack_event_marker_status("usb_unplug_lp")'),
-        "printer unplug marker must be acknowledged after its stop action")
+printer_unplug_compact = "".join(printer_unplug.split())
+require("printer_unplug_status=0;" in printer_unplug_compact and
+        "printer_unplug_status=stop_usb_printer_spoolers();" in printer_unplug_compact and
+        "if(printer_unplug_status==0)" in printer_unplug_compact and
+        "usb_hotplug_event_ack_status(printer_unplug_pending,printer_unplug_status,printer_marker_status,&printer_unplug_action_done)" in printer_unplug_compact and
+        printer_unplug_compact.index("printer_unplug_status=stop_usb_printer_spoolers();") <
+        printer_unplug_compact.index("if(printer_unplug_status==0)") <
+        printer_unplug_compact.index('storage_ack_event_marker_status("usb_unplug_lp")') <
+        printer_unplug_compact.index("usb_hotplug_event_ack_status("),
+        "printer unplug must propagate spooler stop failure and retain its marker for retry")
+printer_unplug_retry = printer_unplug[printer_unplug.index("if (printer_unplug_status != 0)"): ]
+require("keeping event queued for retry" in printer_unplug_retry and "alarm(5);" in printer_unplug_retry,
+        "failed printer spooler stop or unplug-marker acknowledgement must schedule retry")
 printer_start = printer_unplug[printer_unplug.index("if (printer_hotplug_pending)"):]
 require(printer_start.index("try_start_usb_printer_spoolers()") <
         printer_start.index('storage_ack_event_marker_status("usb_hotplug_lp")'),

@@ -10,24 +10,27 @@
 
 ## Active task
 
-### Verify the last FRP checker migration assertion
+### Preserve USB printer unplug event when a spooler stop fails
 
-- Product FRP private-script seeding is already committed at d2c388a04f6125666043bf94672a8f4222655d4b. The common seed_storage_file() now supplies symlink/non-regular path refusal, same-directory staged copy, exclusive ln publication and existing-file mode-0700 enforcement. The Process lifecycle source-contract and shell tests passed on f932.
-- Exact FRP lifecycle run 45115896479 on f932 failed only in a second, later assertion in scripts/check_frp_lifecycle.py around line 285 which still expected inline chmod 700/symlink tests in copyscripts.sh. The earlier block was already corrected; all runtime FRP regressions passed.
-- THIS COMMIT updates that final stale assertion to require the helper call, absence of legacy cp -f, and generic mode-enforcement behavior. No production source changes.
-- After its exact FRP rerun passes, resume the confirmed printer-unplug result-loss defect in trunk/user/rc/src/services_stor.c: stop_usb_printer_spoolers() return is discarded and usb_unplug_lp is cleared despite failed daemon stop. Make that status part of usb_hotplug_event_ack_status() and add positive error-status regression plus source contract.
+- Confirmed source defect in `trunk/user/rc/src/services_stor.c`: the `usb_unplug_lp` handler discarded the return value from `stop_usb_printer_spoolers()`, then passed action status 0 to `usb_hotplug_event_ack_status()` and cleared the marker. `trunk/user/rc/src/services_usb.c` implements the stop API as an aggregate of U2EC, LPD and p910nd stop results and can return a failure.
+- The new caller records the stop return in `printer_unplug_status`, skips NVRAM marker clear when it is nonzero, then passes the action status and marker-clear status to `usb_hotplug_event_ack_status()`. This preserves retry eligibility after failed stop. When stop succeeded but marker clear failed, the action latch prevents repeating the successful stop; subsequent retries only acknowledge the marker. If `usblp` is still needed by another port, the existing no-stop/no-op path continues to acknowledge the event.
+- `trunk/user/rc/src/tests/usb_hotplug_event_policy.c` adds a positive EBUSY action-failure case; `scripts/check_storage_safe_remove.py` now contracts the stop result, acknowledgement gating, error latch and retry scheduler. `.github/workflows/storage-hotplug-stability.yml` already covers all changed paths and runs the policy binary plus checker.
+- This is one source/test/checker atomic slice. No local checkout; exact-head storage workflow must provide L2 evidence. The new source SHA also requires XY-C1 MIPS/uClibc build, TRX and artifact stages for L3.
 
 ### Exact parallel baseline and Actions
 
-- The libdisk ambiguous ACL source fix on e757f86309b19f890797b2f36fb15f44f87a7e95 was followed by checker-only commit 5378fccc2201f4359ea3b0b37f1043d2b813a883, which defined the missing get_permission_body and set_permission_body source-checker regions.
-- Exact descendant libdisk workflow 45114769360, push, head 5378fccc2201f4359ea3b0b37f1043d2b813a883, completed SUCCESS. Both GNU89 ASan/UBSan regressions and the Python source contract passed.
-- e757 exact XY-C1 Firmware Validation run 45114634020 remains IN_PROGRESS at this checkpoint; inspect Build XY-C1, Verify TRX output and artifact upload. Only those three successful stages on the same product-source SHA close L3.
-- e757 NVRAM transaction boundary audit 45114633929 completed SUCCESS.
-- e757 HTTPD Authentication and Security Regression 45114633840 completed SUCCESS. e757 Process lifecycle inventory 45114634024 completed SUCCESS. These do not validate the FRP source change.
-
+- Libdisk unique ACL lookup source e757f86309b19f890797b2f36fb15f44f87a7e95 passed its descendant exact-head libdisk run 45114769360 on 5378fccc2201f4359ea3b0b37f1043d2b813a883, including both GNU89 sanitizer tests and the Python source contract.
+- e757 exact XY-C1 run 45114634020 completed SUCCESS. The same-SHA firmware build, TRX verification and artifact upload completed; this closes L3 for the e757 ACL source only. It does not validate later source changes.
+- e757 NVRAM transaction boundary audit 45114633929, HTTPD authentication/security 45114633840 and Process lifecycle inventory 45114634024 completed SUCCESS.
+- d2c FRP source commit `d2c388a04f6125666043bf94672a8f4222655d4b` exact XY-C1 run 45115500761 was still IN_PROGRESS at its last lookup; Build XY-C1 was running after successful prerequisites, detector and earlier host checks. TRX/artifact are not yet verified. Exact-head d2c FRP and Process workflows exposed only stale source contracts; Process run 45115500771 ran the copyscripts private FRP cases successfully before the checker-only failure.
+- Checker correction commit f9320f888b7ac284a4b657b1ae58feca40f0428f: Process lifecycle run 45115896497 completed SUCCESS; FRP run 45115896479 failed at its remaining second stale assertion in `scripts/check_frp_lifecycle.py` after all FRP shell tests passed. Checker-only commit 41285d396d7bd1f984f13c49699ed6dacbd27e92 fixes that last assertion; its exact FRP rerun 45116127095 was IN_PROGRESS at the last check and handoff validator 45116127034 completed SUCCESS.
+- FRP source contracts are distinct from product validation. Do not transfer L3 evidence between e757, d2c and this new printer source commit.
 ## Verification boundary
 
-- The d2c Process and FRP shell layers ran on GitHub: `copyscripts_ca_status.sh` reported private FRP publication PASS, and all FRP config/runner/lock tests passed. The failures were Python source-contract assertions only. On f932, Process run 45115896497 passed entirely; FRP run 45115896479 got through every shell regression and then failed the remaining line-285 source assertion being fixed here.
+- Prior e757 libdisk ACL change: L1 and L2 passed; L3 passed on exact e757 SHA 45114634020 (XY-C1 build, TRX and artifact upload); L4 NOT VERIFIED.
+- d2c FRP source: all focused shell regressions, including private FRP staging and mode repair, passed on GitHub; its source contracts were being updated. Exact XY-C1 run 45115500761 was still in progress; do not claim L3 unless the full same-SHA target job concluded successfully.
+- Checker-only f932: exact Process run 45115896497 SUCCESS; FRP run 45115896479 failed only in a second stale source contract after all shell tests passed. Commit 41285 corrects the last stale assertion; its exact FRP run 45116127095 was in progress. No local test is claimed.
+- New printer unplug source slice in THIS COMMIT has L1 review only; exact storage-hotplug host/sanitizer/source-checker and new-SHA XY-C1 build/TRX/artifact are required. L4 NOT VERIFIED.
 
 - L1: source-level issue and intended fix reviewed. The old FRP cp -f path is gone from the changed source; ordinary three-argument helper use remains unchanged and FRP gets the fourth private-mode flag.
 - L2: NOT YET VERIFIED for this FRP slice. There is no local checkout; the expanded copyscripts_ca_status.sh was not executed locally. Require the exact-head Process lifecycle regression push Action to run and pass the shell regression and full source contracts.
@@ -36,11 +39,11 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify the frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT and inspect the checker-only diff; do not assume the saved parent remains live.
-2. Inspect the exact-head FRP push run after this second checker correction. Process lifecycle already passed on f932; ensure the remaining source assertion accepts common private FRP seeding. Do not repeat unrelated CA bootstrap tests.
-3. Inspect d2c exact-head XY-C1 run 45115500761 and e757 run 45114634020; record their actual Build/TRX/artifact outcomes. Claim L3 only if all target stages pass for the same production-source SHA.
-4. NVRAM audit 45114633929 is already SUCCESS. Then fix the printer-unplug status loss described in Active task; do not wait idly for unrelated checks.
-5. Do not re-audit completed libdisk duplicate ACL lookup or BusyBox PID1 exact-child work without new evidence. Rotate to another concrete source-backed stability/security defect across the userland.
+1. Fetch live main and confirm the frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT from history and inspect the entire printer unplug diff; do not assume the saved parent remains live.
+2. Inspect the exact-head `storage-hotplug-stability` push run for THIS COMMIT. Require the USB hotplug policy GNU89 ASan/UBSan binary and `scripts/check_storage_safe_remove.py` to pass; read the first causal log and fix if not.
+3. Inspect the exact same-SHA XY-C1 detector/build/TRX/artifact workflow. No L3 claim until firmware build, TRX and artifact all pass for this source SHA.
+4. Revisit FRP checker exact-head run 45116127095 and d2c XY-C1 45115500761 if they remain material. e757 XY-C1 45114634020 is SUCCESS and NVRAM audit 45114633929 is SUCCESS; do not repeat those completed checks.
+5. After storage validation, continue the next source-backed stability/security issue across the userland. Do not re-audit completed libdisk ACL lookup or BusyBox PID1 work without new evidence.
 
 # Cross-session execution mandate
 

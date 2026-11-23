@@ -1,3 +1,13 @@
+## 2026-11-23 13:43 UTC+8 — Preserve USB printer unplug retries when spooler shutdown fails
+
+- Source review found a concrete event-loss defect in on_deferred_hotplug_dev(): the usb_unplug_lp branch called stop_usb_printer_spoolers() but discarded its result, then passed action_status=0 to usb_hotplug_event_ack_status() and acknowledged the NVRAM event. services_usb.c confirms that stop_usb_printer_spoolers() aggregates u2ec/lpd/p910nd stop errors and returns a nonzero errno-style status; therefore an un-stopped daemon could be left behind with no unplug retry queued.
+- The caller now initializes printer_unplug_status, captures the stop result, skips marker clearing when the stop failed, and passes the real action/marker statuses through usb_hotplug_event_ack_status(). Failed stop remains action-retryable; successful stop plus failed marker clear latches completion so retries only clear the marker and do not repeat the side effect. Existing usblp-in-use policy remains a successful no-op.
+- Added a positive EBUSY regression to usb_hotplug_event_policy.c. Extended check_storage_safe_remove.py to require stop-status propagation, marker-clear gating, the action-latch call and retry scheduling. The existing storage-hotplug workflow already compiles the policy test under GNU89 ASan/UBSan and runs the source checker.
+- At the latest check, e757 XY-C1 run 45114634020 completed SUCCESS (L3 build/TRX/artifact on that e757 production-source SHA). d2c XY-C1 run 45115500761 was still building on d2c; it does not validate the newer printer source. f932 Process lifecycle 45115896497 passed; f932 FRP 45115896479 exposed a second stale source assertion, which is fixed in parent commit 41285d396d7bd1f984f13c49699ed6dacbd27e92. Its exact-head FRP rerun 45116127095 was in progress at the last lookup; f932 handoff validator 45115896495 and the other previously noted jobs passed.
+- No local checkout, so no local host test was run. Require exact new-SHA storage-hotplug regression and XY-C1 target build/TRX/artifact for this source slice. No L4 claim.
+- Source, regression and source contract are one logical change with the handoff/log update. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 13:34 UTC+8 — Remove the remaining stale FRP inline-copy source assertion
 
 - Exact-head Process lifecycle run 45115896497 on f9320f888b7ac284a4b657b1ae58feca40f0428f completed SUCCESS. This validates the updated scripts/check_dev_init_boot.py and all process lifecycle regression steps, including the FRP credential seeding shell cases.

@@ -4769,19 +4769,22 @@ on_deferred_hotplug_dev(void)
 		if (!printer_hotplug_pending)
 			printer_hotplug_action_done = 0;
 		if (printer_unplug_pending) {
+			printer_unplug_status = 0;
 			if (usb_hotplug_event_action_should_run(printer_unplug_pending,
 							 printer_unplug_action_done)) {
 				if (!usb_port_module_used("usblp"))
-					stop_usb_printer_spoolers();
+					printer_unplug_status = stop_usb_printer_spoolers();
 			}
-			printer_marker_status = storage_ack_event_marker_status("usb_unplug_lp");
-			printer_marker_status = usb_hotplug_event_ack_status(
-				printer_unplug_pending, 0, printer_marker_status,
+			printer_marker_status = 0;
+			if (printer_unplug_status == 0)
+				printer_marker_status = storage_ack_event_marker_status("usb_unplug_lp");
+			printer_unplug_status = usb_hotplug_event_ack_status(
+				printer_unplug_pending, printer_unplug_status, printer_marker_status,
 				&printer_unplug_action_done);
-			if (printer_marker_status != 0) {
+			if (printer_unplug_status != 0) {
 				logmessage("USB Printer",
-					   "cannot acknowledge printer unplug event; keeping it queued (status=%d)",
-					   printer_marker_status);
+					   "printer spooler stop or unplug-event acknowledgement failed; keeping event queued for retry (status=%d)",
+					   printer_unplug_status);
 				alarm(5);
 			}
 		}
