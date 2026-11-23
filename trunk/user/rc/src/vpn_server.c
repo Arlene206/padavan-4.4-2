@@ -612,10 +612,30 @@ finish_transaction:
 
 
 static int
+vpn_server_set_l2tp_server_marker(int enabled)
+{
+	int api_result, saved_errno, status;
+
+	if (enabled != 0 && enabled != 1) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_set_int_temp("l2tp_srv_t", enabled);
+	saved_errno = errno;
+	status = vpn_server_config_write_status(api_result, saved_errno);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+static int
 start_vpn_server_locked(void)
 {
 	FILE *fp;
 	int i, i_type, xl2tpd_status, saved_errno;
+	int marker_status, rollback_status;
 	int enabled, config_status, acl_count = 0;
 	int acl_address_status;
 	unsigned int acl_addresses[MAX_CLIENTS_NUM];
@@ -773,15 +793,43 @@ start_vpn_server_locked(void)
 	}
 
 	if (i_type == 1) {
-		nvram_set_int_temp("l2tp_srv_t", 1);
+		marker_status = vpn_server_set_l2tp_server_marker(1);
+		if (marker_status != 0) {
+			saved_errno = marker_status;
+			rollback_status = vpn_server_set_l2tp_server_marker(0);
+			if (rollback_status != 0)
+				logmessage(VPNS_LOG_NAME,
+					   "cannot roll back L2TP server ownership marker after failed publication (status=%d)",
+					   rollback_status);
+			logmessage(VPNS_LOG_NAME,
+				   "refusing L2TP server startup: cannot publish ownership marker (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+
 		xl2tpd_status = safe_start_xl2tpd_locked();
 		if (xl2tpd_status < 0) {
-			nvram_set_int_temp("l2tp_srv_t", 0);
+			saved_errno = errno ? errno : EIO;
+			rollback_status = vpn_server_set_l2tp_server_marker(0);
+			if (rollback_status != 0)
+				logmessage(VPNS_LOG_NAME,
+					   "cannot roll back L2TP server ownership marker after daemon-start failure (status=%d)",
+					   rollback_status);
+			errno = saved_errno;
 			return -1;
 		}
 	} else {
-		nvram_set_int_temp("l2tp_srv_t", 0);
-		
+		marker_status = vpn_server_set_l2tp_server_marker(0);
+		if (marker_status != 0) {
+			saved_errno = marker_status;
+			logmessage(VPNS_LOG_NAME,
+				   "refusing PPTP server startup: cannot clear L2TP server ownership marker (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+
 		/* execute pptpd daemon */
 		return eval("/usr/sbin/pptpd", "-c", vpns_cfg);
 	}
@@ -818,6 +866,7 @@ static int
 stop_vpn_server_locked(void)
 {
 	int i, xl2tpd_active, path_length, config_status, saved_errno;
+	int marker_status;
 	char pppd_pidfiles[MAX_CLIENTS_NUM][64];
 	const char *pidfile_paths[MAX_CLIENTS_NUM + 1];
 	char *svcs[] = { "bcrelay", "pptpd", NULL, NULL };
@@ -867,14 +916,35 @@ stop_vpn_server_locked(void)
 	}
 #endif
 
-	nvram_set_int_temp("l2tp_srv_t", 0);
-	if (unlink(VPNS_PPP_UP_SCRIPT) != 0 && errno != ENOENT)
-		return -1;
-	if (unlink(VPNS_PPP_DW_SCRIPT) != 0 && errno != ENOENT)
-		return -1;
+	saved_errno = 0;
+	marker_status = vpn_server_set_l2tp_server_marker(0);
+	if (marker_status != 0) {
+		saved_errno = marker_status;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot clear L2TP server ownership marker during VPN stop (status=%d)",
+			   marker_status);
+	}
+
+	if (unlink(VPNS_PPP_UP_SCRIPT) != 0 && errno != ENOENT) {
+		if (saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot remove VPN up callback link (errno=%d)", errno);
+	}
+	if (unlink(VPNS_PPP_DW_SCRIPT) != 0 && errno != ENOENT) {
+		if (saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot remove VPN down callback link (errno=%d)", errno);
+	}
 
 	if (clear_vpns_lease_file() != 0) {
+		if (saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
 		logmessage(VPNS_LOG_NAME, "cannot clear VPN lease inventory safely (errno=%d)", errno);
+	}
+	if (saved_errno != 0) {
+		errno = saved_errno;
 		return -1;
 	}
 	return 0;

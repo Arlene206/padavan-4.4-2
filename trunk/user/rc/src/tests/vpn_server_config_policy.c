@@ -5,6 +5,15 @@
 #include "vpn_server_config_policy.h"
 
 static void
+test_runtime_marker_write_status_requires_success(void)
+{
+	assert(vpn_server_config_write_status(0, 0) == 0);
+	assert(vpn_server_config_write_status(-1, EACCES) == EACCES);
+	assert(vpn_server_config_write_status(-1, 0) == EIO);
+	assert(vpn_server_config_write_status(1, 0) == EIO);
+}
+
+static void
 test_enable_missing_key_is_disabled(void)
 {
 	int enabled = 1;
@@ -355,6 +364,7 @@ test_route_netmask_validation(void)
 int
 main(void)
 {
+	test_runtime_marker_write_status_requires_success();
 	test_enable_missing_key_is_disabled();
 	test_enable_requires_exact_one();
 	test_enable_backend_error_fails_closed();

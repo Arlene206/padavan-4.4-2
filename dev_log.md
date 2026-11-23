@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fail closed on VPN L2TP runtime marker writes
+
+- The VPN server's `nvram_set_int_temp("l2tp_srv_t", ...)` calls discarded all four setter results. An NVRAM device-node open/ioctl/close failure could start xl2tpd or pptpd while leaving PID 1's shared-daemon ownership marker stale, or report a successful stop with stale ownership state.
+- Added a checked setter wrapper that normalizes NVRAM API and close failures. L2TP startup now refuses daemon launch if marker publication fails and best-effort rolls the marker back while preserving the first error; PPTP startup refuses launch if it cannot clear a stale L2TP marker. Stop reports marker failure while continuing independent callback/lease cleanup.
+- Added GNU89/Werror/ASan/UBSan policy cases and exact source-order contracts. Exact VPN workflow and XY-C1 build pending.
+---
+
 ## 2026-11-23 UTC — Scope infosvr PID-file O_TRUNC contract to open flags
 
 - Exact Infosvr run #45184200774 on `9fd7bafd5ad6ecb6511d8f6b21b8a0942ff9ee7c` passed all six GNU89/Werror/ASan/UBSan policy binaries, including the new competing-open PID-file test. The Python source contract then failed because it searched for `O_TRUNC` anywhere in `acquire_pidfile()`, matching the explanatory comment that explicitly says not to use it.

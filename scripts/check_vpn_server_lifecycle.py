@@ -401,6 +401,42 @@ ordered(r,[
 ],"restart")
 require("return;" not in r and "return restart_status;" in r,
         "restart must return the accumulated stop/start/restore/unlock status")
+marker_writer = body(vpn, "vpn_server_set_l2tp_server_marker(int enabled)")
+require('nvram_set_int_temp("l2tp_srv_t", enabled)' in marker_writer and
+        "vpn_server_config_write_status(api_result, saved_errno)" in marker_writer,
+        "L2TP server ownership marker must normalize NVRAM write/close failures")
+require(vpn.count('nvram_set_int_temp("l2tp_srv_t"') == 1,
+        "L2TP marker writes must all pass through the checked setter")
+require("test_runtime_marker_write_status_requires_success" in config_policy_test and
+        "vpn_server_config_write_status(-1, EACCES) == EACCES" in config_policy_test and
+        "vpn_server_config_write_status(-1, 0) == EIO" in config_policy_test,
+        "L2TP runtime marker write failure regression is missing")
+
+l2tp_start_marker = sp.split("if (i_type == 1) {", 1)[1]
+ordered(l2tp_start_marker, [
+    "marker_status = vpn_server_set_l2tp_server_marker(1);",
+    "if (marker_status != 0)",
+    "rollback_status = vpn_server_set_l2tp_server_marker(0);",
+    "xl2tpd_status = safe_start_xl2tpd_locked();",
+    "if (xl2tpd_status < 0)",
+    "rollback_status = vpn_server_set_l2tp_server_marker(0);",
+    "marker_status = vpn_server_set_l2tp_server_marker(0);",
+    "return eval(\"/usr/sbin/pptpd\""
+], "L2TP/PPTP server ownership marker publication and rollback")
+require("refusing L2TP server startup: cannot publish ownership marker" in l2tp_start_marker and
+        "refusing PPTP server startup: cannot clear L2TP server ownership marker" in l2tp_start_marker,
+        "VPN server must refuse launch when runtime ownership marker publication fails")
+
+ordered(tp, [
+    "marker_status = vpn_server_set_l2tp_server_marker(0);",
+    "if (marker_status != 0)",
+    "unlink(VPNS_PPP_UP_SCRIPT)",
+    "unlink(VPNS_PPP_DW_SCRIPT)",
+    "clear_vpns_lease_file()",
+    "if (saved_errno != 0)",
+    "return -1;"
+], "VPN stop must report marker failure after attempting independent cleanup")
+
 require("int restart_vpn_server(void);" in rc_header,
         "restart status must be part of the public RC declaration")
 require('#include "vpn_server_restart_policy.h"' in vpn,

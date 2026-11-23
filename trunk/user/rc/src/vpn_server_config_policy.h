@@ -9,6 +9,15 @@
 #include <string.h>
 #include <stddef.h>
 
+/* NVRAM setters return zero on success; a failed ioctl/close must not be ignored. */
+static inline int
+vpn_server_config_write_status(int api_result, int saved_errno)
+{
+	if (api_result == 0)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
+
 /*
  * The VPN server is started unconditionally by PID 1. A missing enable key
  * means disabled; a failed NVRAM read must not be interpreted as permission
