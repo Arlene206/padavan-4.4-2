@@ -1,3 +1,10 @@
+## 2026-11-23 — Fail closed on unavailable or truncated WAN ARP egress interface
+
+- `detect_wan` previously obtained the router-mode probe interface through `get_man_ifname()`, which wraps `nvram_safe_get()`; a transient NVRAM error could be reduced to an empty name. The code also copied names into the legacy 14-byte `sockaddr.sa_data` without checking whether the selected interface name fit.
+- Linux 4.4 `SOCK_PACKET` send handling uses that 14-byte `spkt_device` field and forcibly NUL-terminates its last byte before device lookup. A truncated egress name could therefore fail lookup or select a different interface sharing its prefix, while the socket was independently bound using the full `ifreq` name.
+- The probe now reads `wan0_ifname` through the checked copy API, snapshots the AP bridge name explicitly, and requires one non-empty interface name to fit both `ifreq.ifr_name` and the 14-byte packet address before socket creation. The socket helper independently rejects empty or unterminated bind names.
+- Added GNU89 policy regressions for empty, overlong, non-terminated and valid device names; the test also proves invalid inputs do not partially mutate either output buffer. Exact-head ARP/XY-C1 Actions pending.
+
 ## 2026-11-23 UTC — Bind wireless APCLI policy test in shared source checker
 
 - Exact-SHA runs on `3dad528f978904976210ce7c7dcbeda6e81b53fc` exposed a checker bug: the new final assertion referenced `WIRELESS_TEST`, but `check_modem_wan_start_status.py` had not loaded `tests/wireless_radio_policy.c`.

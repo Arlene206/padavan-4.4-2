@@ -15,6 +15,53 @@
 } while (0)
 
 static int calls;
+
+static int
+test_device_name_is_bounded_and_copied_without_truncation(void)
+{
+    struct ifreq request;
+    struct sockaddr address;
+
+    memset(&request, 0xa5, sizeof(request));
+    memset(&address, 0xa5, sizeof(address));
+    CHECK(detect_wan_arp_socket_device_name_prepare(
+              "eth0", &request, &address) == 0);
+    CHECK(strcmp(request.ifr_name, "eth0") == 0);
+    CHECK(strcmp(address.sa_data, "eth0") == 0);
+    return 0;
+}
+
+static int
+test_invalid_device_names_fail_without_partial_output(void)
+{
+    static const char too_long_for_sock_packet[] = "abcdefghijklmn";
+    struct ifreq request, before_request;
+    struct sockaddr address, before_address;
+
+    memset(&request, 0x5a, sizeof(request));
+    memset(&address, 0xa5, sizeof(address));
+    memcpy(&before_request, &request, sizeof(request));
+    memcpy(&before_address, &address, sizeof(address));
+
+    CHECK(detect_wan_arp_socket_device_name_prepare(
+              "", &request, &address) == -1);
+    CHECK(errno == ENODEV);
+    CHECK(memcmp(&request, &before_request, sizeof(request)) == 0);
+    CHECK(memcmp(&address, &before_address, sizeof(address)) == 0);
+
+    CHECK(detect_wan_arp_socket_device_name_prepare(
+              too_long_for_sock_packet, &request, &address) == -1);
+    CHECK(errno == ENAMETOOLONG);
+    CHECK(memcmp(&request, &before_request, sizeof(request)) == 0);
+    CHECK(memcmp(&address, &before_address, sizeof(address)) == 0);
+
+    CHECK(detect_wan_arp_socket_device_name_prepare(
+              NULL, &request, &address) == -1);
+    CHECK(errno == EINVAL);
+    CHECK(memcmp(&request, &before_request, sizeof(request)) == 0);
+    CHECK(memcmp(&address, &before_address, sizeof(address)) == 0);
+    return 0;
+}
 static int fail_option;
 static int bad_arguments;
 
@@ -116,6 +163,19 @@ test_invalid_arguments_fail_without_syscalls(void)
     CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, NULL) == -1);
     CHECK(errno == EINVAL && calls == 0);
 
+    CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, NULL) == -1);
+    CHECK(errno == EINVAL && calls == 0);
+
+    memset(&request, 0, sizeof(request));
+    reset_mock(0);
+    CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, mock_setsockopt) == -1);
+    CHECK(errno == ENODEV && calls == 0);
+
+    memset(request.ifr_name, 'x', sizeof(request.ifr_name));
+    reset_mock(0);
+    CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, mock_setsockopt) == -1);
+    CHECK(errno == ENAMETOOLONG && calls == 0);
+
     /* Also compile-check compatibility with the platform setsockopt API. */
     CHECK(detect_wan_arp_socket_prepare(-1, &request, &timeout, setsockopt) == -1);
     CHECK(errno == EINVAL && calls == 0);
@@ -125,6 +185,8 @@ test_invalid_arguments_fail_without_syscalls(void)
 int
 main(void)
 {
+    CHECK(test_device_name_is_bounded_and_copied_without_truncation() == 0);
+    CHECK(test_invalid_device_names_fail_without_partial_output() == 0);
     CHECK(test_bind_failure_prevents_timeout_setup() == 0);
     CHECK(test_timeout_failure_is_reported() == 0);
     CHECK(test_success_installs_both_prerequisites() == 0);

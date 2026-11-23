@@ -175,7 +175,7 @@ arpping_gateway(int ap_mode)
     uint8_t mac[6];
     char gateway_storage[16];
     char hardware_address_storage[18];
-    char *ifname;
+    char interface_storage[IFNAMSIZ];
     int s, rv, rcv_bytes, probe_errno = 0, config_status;
     struct sockaddr addr;
     struct ifreq ifr;
@@ -192,7 +192,10 @@ arpping_gateway(int ap_mode)
     {
         ip = get_wan_ip4(1);
         config_status = get_wan_unit_value_copy_status(
-            0, "gateway", gateway_storage, sizeof(gateway_storage));
+            0, "ifname", interface_storage, sizeof(interface_storage));
+        if (config_status == 0)
+            config_status = get_wan_unit_value_copy_status(
+                0, "gateway", gateway_storage, sizeof(gateway_storage));
         if (config_status == 0)
             config_status = get_wan_unit_value_copy_status(
                 0, "hwaddr", hardware_address_storage,
@@ -201,8 +204,11 @@ arpping_gateway(int ap_mode)
     else
     {
         ip = get_lan_ip4();
-        config_status = rc_wan_nvram_copy_value(
-            detect_wan_nvram_get_checked, NULL, "lan_gateway_t",
+        config_status = rc_wan_nvram_copy_text(
+            IFNAME_BR, interface_storage, sizeof(interface_storage));
+        if (config_status == 0)
+            config_status = rc_wan_nvram_copy_value(
+                detect_wan_nvram_get_checked, NULL, "lan_gateway_t",
             gateway_storage, sizeof(gateway_storage));
         if (config_status == 0)
             config_status = rc_wan_nvram_copy_value(
@@ -231,6 +237,18 @@ arpping_gateway(int ap_mode)
         return detect_wan_arp_probe_result(0, config_status);
     }
 
+    memset(&addr, 0, sizeof(addr));
+    memset(&ifr, 0, sizeof(ifr));
+    config_status = detect_wan_arp_socket_device_name_prepare(
+        interface_storage, &ifr, &addr);
+    if (config_status < 0) {
+        probe_errno = errno ? errno : EIO;
+        logmessage("detect_wan",
+                   "invalid or unavailable ARP egress interface (status=%d)",
+                   probe_errno);
+        return detect_wan_arp_probe_result(0, probe_errno);
+    }
+
     s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
     if (s < 0)
         return detect_wan_arp_probe_result(0, errno ? errno : EIO);
@@ -253,15 +271,6 @@ arpping_gateway(int ap_mode)
     memcpy(arp.sInaddr, &ip, sizeof(ip));
     memcpy(arp.sHaddr, mac, 6);
     memcpy(arp.tInaddr, &gateway_ip, sizeof(gateway_ip));
-
-    memset(&addr, 0, sizeof(addr));
-    memset(&ifr, 0, sizeof(ifr));
-    if (!ap_mode)
-        ifname = get_man_ifname(0);
-    else
-        ifname = IFNAME_BR;
-    strncpy(addr.sa_data, ifname, sizeof(addr.sa_data));
-    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
 
     arp_timeout.tv_sec = 1;
     arp_timeout.tv_usec = 0;

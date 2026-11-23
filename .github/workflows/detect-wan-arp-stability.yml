@@ -206,6 +206,11 @@ jobs:
           arp_compact = "".join(arp_probe.split())
           assert "char gateway_storage[16];" in arp_probe
           assert "char hardware_address_storage[18];" in arp_probe
+          assert "char hardware_address_storage[18];" in arp_probe
+          assert "char interface_storage[IFNAMSIZ];" in arp_probe
+          assert 'get_wan_unit_value_copy_status(0, "ifname", interface_storage, sizeof(interface_storage))' in arp_probe
+          assert "get_man_ifname(0)" not in arp_probe
+          assert "detect_wan_arp_socket_device_name_prepare(" in arp_probe
           assert 'get_wan_unit_value_copy_status(0,"gateway",gateway_storage,sizeof(gateway_storage))' in arp_compact
           assert 'get_wan_unit_value_copy_status(0,"hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
           assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in arp_compact
@@ -239,6 +244,17 @@ jobs:
           assert "detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)" in arp_probe
 
           prepare = body(policy, "detect_wan_arp_socket_prepare(")
+          device_name = body(policy, "detect_wan_arp_socket_device_name_prepare(")
+          assert "sizeof(interface_request->ifr_name)" in device_name
+          assert "sizeof(packet_address->sa_data)" in device_name
+          assert "errno = ENODEV;" in device_name
+          assert "errno = ENAMETOOLONG;" in device_name
+          assert "memcpy(interface_request->ifr_name, interface_name, length + 1);" in device_name
+          assert "memcpy(packet_address->sa_data, interface_name, length + 1);" in device_name
+          assert "memchr(interface_request->ifr_name, '\\0'," in policy
+          assert "test_device_name_is_bounded_and_copied_without_truncation" in test
+          assert "test_invalid_device_names_fail_without_partial_output" in test
+          prepare = body(policy, "detect_wan_arp_socket_prepare(")
           bind_step = prepare.index("SO_BINDTODEVICE")
           timeout_step = prepare.index("SO_RCVTIMEO")
           assert bind_step < timeout_step
@@ -250,6 +266,7 @@ jobs:
           assert "test_bind_failure_prevents_timeout_setup" in test
           assert "test_timeout_failure_is_reported" in test
           assert "test_success_installs_both_prerequisites" in test
+          assert "test_invalid_arguments_fail_without_syscalls" in test
           assert "test_invalid_arguments_fail_without_syscalls" in test
           assert "SO_RCVTIMEO" in test and "SO_BINDTODEVICE" in test
 
