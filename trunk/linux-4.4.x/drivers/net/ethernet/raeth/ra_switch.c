@@ -12,6 +12,7 @@
  */
 #include "raether.h"
 #include "ra_switch.h"
+#include "ra_switch_mdio_policy.h"
 #include "ra_mac.h"
 #include "raeth_reg.h"
 
@@ -109,50 +110,84 @@ const u8 ZCAL_TO_FILTER_TBL[64] = {
 	12, 12, 12, 12, 12, 12, 12, 12
 };
 
+static int ra_switch_mdio_read(void *context, unsigned int port,
+				 unsigned int reg, unsigned int *value)
+{
+	(void)context;
+	return mii_mgr_read(port, reg, value) ? 0 : -EIO;
+}
+
+static int ra_switch_mdio_write(void *context, unsigned int port,
+				  unsigned int reg, unsigned int value)
+{
+	(void)context;
+	return mii_mgr_write(port, reg, value) ? 0 : -EIO;
+}
+
+static int tc_phy_read_page_reg_checked(u8 port, u8 page, u8 reg,
+					int local, u32 *value)
+{
+	return ra_switch_mdio_page_read(local, port, page, reg,
+					ra_switch_mdio_read,
+					ra_switch_mdio_write, NULL, value);
+}
+
+static int tc_phy_write_page_reg_checked(u8 port, u8 page, u8 reg,
+					 int local, u32 value)
+{
+	return ra_switch_mdio_page_write(local, port, page, reg, value,
+					 ra_switch_mdio_write, NULL);
+}
+
 void tc_phy_write_g_reg(u8 port_num, u8 page_num,
 			u8 reg_num, u32 reg_data)
 {
-	u32 r31 = 0;
+	int status = tc_phy_write_page_reg_checked(port_num, page_num, reg_num,
+						   0, reg_data);
 
-	r31 |= 0 << 15;	/* global */
-	r31 |= ((page_num & 0x7) << 12);	/* page no */
-	mii_mgr_write(port_num, 31, r31);	/* change Global page */
-	mii_mgr_write(port_num, reg_num, reg_data);
+	if (status != 0)
+		pr_err_ratelimited("%s: global PHY page write failed (port=%u page=%u reg=%u status=%d)\n",
+				    __func__, port_num, page_num, reg_num, status);
 }
 
 void tc_phy_write_l_reg(u8 port_no, u8 page_no,
 			u8 reg_num, u32 reg_data)
 {
-	u32 r31 = 0;
+	int status = tc_phy_write_page_reg_checked(port_no, page_no, reg_num,
+						   1, reg_data);
 
-	r31 |= 1 << 15;	/* local */
-	r31 |= ((page_no & 0x7) << 12);	/* page no */
-	mii_mgr_write(port_no, 31, r31); /* select local page x */
-	mii_mgr_write(port_no, reg_num, reg_data);
+	if (status != 0)
+		pr_err_ratelimited("%s: local PHY page write failed (port=%u page=%u reg=%u status=%d)\n",
+				    __func__, port_no, page_no, reg_num, status);
 }
 
 u32 tc_phy_read_g_reg(u8 port_num, u8 page_num, u8 reg_num)
 {
-	u32 phy_val;
+	u32 phy_val = 0;
+	int status;
 
-	u32 r31 = 0;
-
-	r31 |= 0 << 15;	/* global */
-	r31 |= ((page_num & 0x7) << 12);	/* page no */
-	mii_mgr_write(port_num, 31, r31);	/* change Global page */
-	mii_mgr_read(port_num, reg_num, &phy_val);
+	status = tc_phy_read_page_reg_checked(port_num, page_num, reg_num,
+					      0, &phy_val);
+	if (status != 0) {
+		pr_err_ratelimited("%s: global PHY page read failed (port=%u page=%u reg=%u status=%d)\n",
+				    __func__, port_num, page_num, reg_num, status);
+		return 0;
+	}
 	return phy_val;
 }
 
 u32 tc_phy_read_l_reg(u8 port_no, u8 page_no, u8 reg_num)
 {
-	u32 phy_val;
-	u32 r31 = 0;
+	u32 phy_val = 0;
+	int status;
 
-	r31 |= 1 << 15;	/* local */
-	r31 |= ((page_no & 0x7) << 12);	/* page no */
-	mii_mgr_write(port_no, 31, r31); /* select local page x */
-	mii_mgr_read(port_no, reg_num, &phy_val);
+	status = tc_phy_read_page_reg_checked(port_no, page_no, reg_num,
+					      1, &phy_val);
+	if (status != 0) {
+		pr_err_ratelimited("%s: local PHY page read failed (port=%u page=%u reg=%u status=%d)\n",
+				    __func__, port_no, page_no, reg_num, status);
+		return 0;
+	}
 	return phy_val;
 }
 

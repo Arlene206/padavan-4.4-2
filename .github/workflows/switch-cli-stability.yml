@@ -17,6 +17,9 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
@@ -44,6 +47,9 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
@@ -627,6 +633,24 @@ jobs:
               assert push.count('"' + path + '"') == 1, path
               assert pull_request.count('"' + path + '"') == 1, path
           print("RC RTL8367/MTK switch commands reject malformed, partial and overflowing numeric input: PASS")
+          PY
+
+      - name: Compile and run RAETH paged PHY MDIO failure regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c \
+            -o "$RUNNER_TEMP/raeth-paged-phy-mdio-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-paged-phy-mdio-policy"
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          assert '#include "ra_switch_mdio_policy.h"' in source
+          assert "tc_phy_read_page_reg_checked(" in source
+          assert "tc_phy_write_page_reg_checked(" in source
+          assert "ra_switch_mdio_page_read(" in source
+          assert "ra_switch_mdio_page_write(" in source
+          print("RAETH global/local PHY helpers stop on page-select and register I/O failures: PASS")
           PY
 
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
