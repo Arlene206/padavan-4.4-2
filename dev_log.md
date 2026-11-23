@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Fix SCUT watchdog own-PID cleanup
+
+- Exact-head SCUT watchdog run `45180376775` failed at `watchdog did not clean up its own replacement PID file`. Source inspection found `watchcat_cleanup_pidfile()` compared the stored PID to the literal `$` instead of the process ID `$$`; every own-PID cleanup therefore silently left a stale PID file behind.
+- Corrected the ownership comparison to `$$`. The child-process mock log/barrier variables were exported in the immediately preceding fixture-only commit `e52276039c74fc2a73d057a3d5a6e2238ec9b350`, after the failed job also showed the NVRAM mock redirecting to an empty path.
+- Exact-head SCUT PID safety rerun required. No local shell execution or router validation is claimed.
+
+---
+
 ## 2026-11-23 UTC — Repair SCUT watchdog regression harness environment
 
 - Exact-head SCUT watchdog run #45180376775 on `31676e8f363e976c930568041ec09690fb08a60f` passed shell syntax and reached the existing PID-replacement regression, then failed because the test-harness rewrite had accidentally dropped the export of `NVRAM_LOG`, `KILL_LOG` and `RM_BLOCKED`. The NVRAM mock therefore could not append its event log and never performed the injected PID replacement; this was a test fixture defect, not a product-code assertion.
