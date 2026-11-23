@@ -462,6 +462,66 @@ test_mac_table_clear_rejects_invalid_mode_and_missing_delay(void)
 }
 
 static void
+test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_read = fake_ops;
+	struct mtk_esw_link_mode_io missing_write = fake_ops;
+	const unsigned int reg = 0x1234U;
+	unsigned int expected;
+
+	fake_init(&fake);
+	fake.read_value = 0xa5a5c0d0U;
+	expected = (fake.read_value & ~MTK_ESW_JUMBO_MAX_RX_MASK) |
+		   MTK_ESW_JUMBO_MAX_RX_9K | MTK_ESW_JUMBO_RX_ENABLE;
+	assert(mtk_esw_jumbo_frames_apply(reg, 1, &fake_ops, &fake) == 0);
+	assert(fake.mdio_calls == 2U && fake.event_count == 2U);
+	assert(fake.events[0].type == FAKE_READ &&
+	       fake.events[0].phy == MTK_ESW_MAC_TABLE_PHY &&
+	       fake.events[0].reg == reg);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].phy == MTK_ESW_MAC_TABLE_PHY &&
+	       fake.events[1].reg == reg && fake.events[1].value == expected);
+
+	fake_init(&fake);
+	fake.read_value = 0x12345678U;
+	expected = (fake.read_value & ~MTK_ESW_JUMBO_MAX_RX_MASK) |
+		   MTK_ESW_JUMBO_MAX_RX_9K | MTK_ESW_JUMBO_RX_DISABLE;
+	assert(mtk_esw_jumbo_frames_apply(reg, 0, &fake_ops, &fake) == 0);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].value == expected);
+
+	/* A read error must not be converted into a zero-based register write. */
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = -EACCES;
+	assert(mtk_esw_jumbo_frames_apply(reg, 1, &fake_ops, &fake) == -EACCES);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].type == FAKE_READ);
+
+	/* A write error remains visible and prevents cached-state publication. */
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = -ETIMEDOUT;
+	assert(mtk_esw_jumbo_frames_apply(reg, 0, &fake_ops, &fake) == -ETIMEDOUT);
+	assert(fake.mdio_calls == 2U && fake.event_count == 2U);
+	assert(fake.events[1].type == FAKE_WRITE);
+
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = 1;
+	assert(mtk_esw_jumbo_frames_apply(reg, 1, &fake_ops, &fake) == -EIO);
+
+	missing_read.read = NULL;
+	missing_write.write = NULL;
+	assert(mtk_esw_jumbo_frames_apply(reg, 1, NULL, &fake) == -EINVAL);
+	assert(mtk_esw_jumbo_frames_apply(reg, 1, &missing_read, &fake) == -EINVAL);
+	assert(mtk_esw_jumbo_frames_apply(reg, 1, &missing_write, &fake) == -EINVAL);
+	assert(mtk_esw_jumbo_frames_apply(reg, 2, &fake_ops, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_vlan_rule_snapshot_is_committed_only_after_hardware_success(void)
 {
 	const unsigned int requested[4] = {
@@ -527,6 +587,7 @@ test_reserved_speed_flow_and_bits_are_rejected(void)
 int
 main(void)
 {
+	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
 	test_vlan_rule_snapshot_is_committed_only_after_hardware_success();
 	test_vlan_rule_snapshot_commit_rejects_invalid_buffers();
 	test_all_defined_speed_and_flow_modes();

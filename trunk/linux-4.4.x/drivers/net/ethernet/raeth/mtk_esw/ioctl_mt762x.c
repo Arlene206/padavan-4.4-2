@@ -1159,24 +1159,12 @@ static void esw_storm_control(u32 port_id, int set_bcast, int set_mcast, int set
 	esw_reg_set(REG_ESW_PORT_BSR_P0 + 0x100*port_id, reg_bsr);
 }
 
-static void esw_jumbo_control(u32 jumbo_frames_enabled)
+static int esw_jumbo_control(u32 jumbo_frames_enabled)
 {
-	u32 reg_gmaccr;
-
-	reg_gmaccr = esw_reg_get(REG_ESW_MAC_GMACCR);
-	reg_gmaccr &= ~(0x3f);
-	reg_gmaccr |= (9u << 2);		// MAX_RX_JUMBO = 9 KB
-
-	if (jumbo_frames_enabled) {
-		reg_gmaccr |= 0x3;		// MAX_RX_JUMBO
-	} else {
-		reg_gmaccr |= 0x1;		// 1536 bytes
-	}
-
-	esw_reg_set(REG_ESW_MAC_GMACCR, reg_gmaccr);
+	return mtk_esw_jumbo_frames_apply(REG_ESW_MAC_GMACCR,
+					  jumbo_frames_enabled ? 1 : 0,
+					  &mtk_esw_link_mode_io, NULL);
 }
-
-
 
 static void esw_led_mode(u32 led_mode)
 {
@@ -1732,19 +1720,28 @@ static void change_storm_control_broadcast(u32 control_rate_mbps)
 	}
 }
 
-static void change_jumbo_frames_accept(u32 jumbo_frames_enabled)
+static int change_jumbo_frames_accept(u32 jumbo_frames_enabled)
 {
+	int status;
+
 	if (jumbo_frames_enabled)
 		jumbo_frames_enabled = 1;
 
-	if (g_jumbo_frames_enabled != jumbo_frames_enabled) {
-		g_jumbo_frames_enabled = jumbo_frames_enabled;
-		printk("%s - jumbo frames accept: %d bytes\n", MTK_ESW_DEVNAME, (jumbo_frames_enabled) ? 9000 : 1536);
-		
-		esw_jumbo_control(jumbo_frames_enabled);
-	}
-}
+	if (g_jumbo_frames_enabled == jumbo_frames_enabled)
+		return 0;
 
+	status = esw_jumbo_control(jumbo_frames_enabled);
+	if (status != 0) {
+		pr_err("%s: jumbo-frame register update failed (status=%d)\\n",
+		       MTK_ESW_DEVNAME, status);
+		return status;
+	}
+
+	g_jumbo_frames_enabled = jumbo_frames_enabled;
+	printk("%s - jumbo frames accept: %d bytes\\n", MTK_ESW_DEVNAME,
+	       jumbo_frames_enabled ? 9000 : 1536);
+	return 0;
+}
 
 static void change_igmp_static_ports(u32 ports_mask)
 {

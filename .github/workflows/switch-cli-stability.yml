@@ -681,6 +681,7 @@ jobs:
               "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
               "test_vlan_rule_snapshot_is_committed_only_after_hardware_success",
               "test_vlan_rule_snapshot_commit_rejects_invalid_buffers",
+              "test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits",
               "test_phy_power_set_reads_and_writes_before_reporting_change",
               "test_phy_power_set_skips_unchanged_state_but_honors_force",
               "test_phy_power_set_read_and_write_errors_are_propagated",
@@ -711,6 +712,29 @@ jobs:
           vlan_apply = source[apply_start:apply_end]
           assert "g_vlan_rule[" not in vlan_apply
           assert "g_vlan_rule[i] = g_vlan_rule_user[i];" not in source
+
+          jumbo_apply = policy.split("mtk_esw_jumbo_frames_apply(", 1)[1].split(
+              "static inline int", 1
+          )[0]
+          assert "io->read(context, MTK_ESW_MAC_TABLE_PHY, reg, &value)" in jumbo_apply
+          assert "return mtk_esw_link_mode_io_error(status);" in jumbo_apply
+          assert "io->write(context, MTK_ESW_MAC_TABLE_PHY, reg, value)" in jumbo_apply
+          jumbo_control = source.split("static int esw_jumbo_control", 1)[1].split(
+              "static void esw_led_mode", 1
+          )[0]
+          assert "return mtk_esw_jumbo_frames_apply(REG_ESW_MAC_GMACCR," in jumbo_control
+          jumbo_change = source.split("static int change_jumbo_frames_accept", 1)[1].split(
+              "static void change_igmp_static_ports", 1
+          )[0]
+          jumbo_apply_at = jumbo_change.index("status = esw_jumbo_control(")
+          jumbo_error_at = jumbo_change.index("if (status != 0)", jumbo_apply_at)
+          jumbo_cache_at = jumbo_change.index("g_jumbo_frames_enabled = jumbo_frames_enabled;")
+          assert jumbo_apply_at < jumbo_error_at < jumbo_cache_at
+          assert "return status;" in jumbo_change[jumbo_error_at:]
+          assert "ioctl_result = change_jumbo_frames_accept(uint_value);" in ioctl_source
+          assert "change_jumbo_frames_accept(uint_value);" not in ioctl_source.replace(
+              "ioctl_result = change_jumbo_frames_accept(uint_value);", ""
+          )
           bridge = source.split("static int change_bridge_mode", 1)[1].split(
               "static void vlan_accept_port_mode", 1
           )[0]

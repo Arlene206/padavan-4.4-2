@@ -121,6 +121,42 @@ mtk_esw_link_mode_program(unsigned int phy_addr, unsigned int advertisement,
 
 
 #define MTK_ESW_MAC_TABLE_PHY              0x1fU
+#define MTK_ESW_JUMBO_MAX_RX_MASK          0x3fU
+#define MTK_ESW_JUMBO_MAX_RX_9K            (9U << 2)
+#define MTK_ESW_JUMBO_RX_ENABLE            0x3U
+#define MTK_ESW_JUMBO_RX_DISABLE           0x1U
+
+/*
+ * Preserve unrelated GMACCR bits and never write a fabricated register value
+ * when an MDIO read fails. The caller publishes its cached mode only on success.
+ */
+static inline int
+mtk_esw_jumbo_frames_apply(unsigned int reg, int enabled,
+			   const struct mtk_esw_link_mode_io *io,
+			   void *context)
+{
+	unsigned int value = 0;
+	int status;
+
+	if (!io || !io->read || !io->write ||
+	    (enabled != 0 && enabled != 1))
+		return -EINVAL;
+
+	status = io->read(context, MTK_ESW_MAC_TABLE_PHY, reg, &value);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	value &= ~MTK_ESW_JUMBO_MAX_RX_MASK;
+	value |= MTK_ESW_JUMBO_MAX_RX_9K;
+	value |= enabled ? MTK_ESW_JUMBO_RX_ENABLE :
+		MTK_ESW_JUMBO_RX_DISABLE;
+
+	status = io->write(context, MTK_ESW_MAC_TABLE_PHY, reg, value);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	return 0;
+}
 #define MTK_ESW_MAC_TABLE_REG              0x80U
 #define MTK_ESW_MAC_TABLE_BUSY_MASK        (1U << 15)
 #define MTK_ESW_MAC_TABLE_CLEAR_ALL        0x8002U

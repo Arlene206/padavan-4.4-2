@@ -194,7 +194,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_jumbo_frames_accept(uint_value);
+		ioctl_result = change_jumbo_frames_accept(uint_value);
 		break;
 
 	case MTK_ESW_IOCTL_IGMP_SNOOPING: /* used by rc */
