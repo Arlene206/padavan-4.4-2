@@ -22,6 +22,8 @@ parser = compact(SOURCE[start:end])
 assert "wsd_http_read_until_crlf(fd, buf, &len, bsize)" in parser
 assert parser.count("wsd_http_read_until_crlf(fd, buf, &len, bsize)") == 2
 assert "eol = wsd_http_find_crlf(p, len)" in parser
+assert "char *eol = NULL;" in parser
+assert parser.index("char *eol = NULL;") < parser.index("while (*p &&")
 assert "char *eol = strstr(p" not in parser
 assert "wsd_http_parse_content_length(val, &contentlength)" in parser
 assert "wsd_http_is_transfer_encoding_header(p)" in parser

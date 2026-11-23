@@ -912,7 +912,8 @@ static int wsd_parse_http_header(int fd, struct endpoint *ep,
 #define __FUNCTION__	"wsd_pars_http_header"
 	size_t contentlength = 0;
 	char *p = buf;
-	char *eol;
+	/* The first recv may end exactly after the request-line CRLF. */
+	char *eol = NULL;
 	static size_t endpointlen;
 
 	if (!endpointlen)
