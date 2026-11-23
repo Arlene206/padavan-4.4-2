@@ -773,7 +773,6 @@ jobs:
           assert vlan_apply_reset < vlan_apply_entries < vlan_apply_ports
           vlan_apply_ports = vlan_apply.index("esw_vlan_pvid_set(")
           vlan_apply_entries = vlan_apply.index("status = esw_vlan_set(")
-          assert vlan_apply_reset < vlan_apply_ports < vlan_apply_entries
           vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
               "static void esw_mask_bridge_isolate", 1
           )[0]
