@@ -367,15 +367,44 @@ get_usb_modem_wan(int unit)
 }
 
 int
+get_usb_modem_dev_wan_status(int unit, int devnum, int *is_selected)
+{
+	char key[32], *value = NULL;
+	int status, api_result, saved_errno;
+
+	if (!is_selected) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*is_selected = 0;
+
+	status = usb_modem_wan_format_nvram_key(unit, key, sizeof(key));
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(key, &value);
+	saved_errno = errno;
+	status = usb_modem_wan_devnum_matches_status(
+		api_result, saved_errno, value, devnum, is_selected);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+/* Legacy boolean wrapper. Callers that can report errors must use the
+ * status-bearing API above so an unknown identity is not reported as absent.
+ */
+int
 get_usb_modem_dev_wan(int unit, int devnum)
 {
-	char tmp[32], prefix[16];
+	int is_selected = 0;
+	int status;
 
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-	if (nvram_get_int(strcat_r(prefix, "modem_dev", tmp)) == devnum)
-		return 1;
-	else
-		return 0;
+	status = get_usb_modem_dev_wan_status(unit, devnum, &is_selected);
+	return status == 0 ? is_selected : 0;
 }
 
 static int

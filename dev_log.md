@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Preserve checked USB modem identity failures during eject
+
+- Found a lossy NVRAM identity gate in `safe_remove_usb_device()`: `get_usb_modem_dev_wan()` used `nvram_get_int("wan0_modem_dev")`, which collapses an NVRAM backend error to zero. The eject path then misreported a transient read/close failure as `ENODEV` and could not distinguish an absent/mismatched device from an unknown selected-modem identity.
+- Added `get_usb_modem_dev_wan_status()`, using `nvram_get_checked()` and the existing decimal-compatibility parser. The eject path now returns the original errno before any modem teardown/reconnect unless the physical device and configured WAN modem identity are both positively confirmed. The legacy boolean wrapper no longer calls the unchecked getter.
+- Added GNU89 ASan/UBSan policy cases for exact match, mismatch, absent-key compatibility, backend/API errors and invalid output. The USB modem workflow now pins the checked reader, legacy wrapper, error propagation and eject ordering. Exact-head USB modem, storage-hotplug and XY-C1 Build/TRX/artifact checks remain pending; no local or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Align wireless/iNIC source contracts with checked radio-state reads
 
 - Exact iNIC run 45152161414 on source SHA ae45305fec4c7a012c00e89756a80c184589c472 passed the GNU89 ASan/UBSan signal-policy executable, then failed only in scripts/check_inicd_signals.py: ordering offsets were computed from whitespace-compacted source but the errno assertion sliced the original un-compacted function text. The corrected assertion slices the same compacted representation.

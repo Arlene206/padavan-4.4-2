@@ -172,6 +172,7 @@ extern int       get_wan_proto(int unit);
 extern char*     get_man_ifname(int unit);
 extern int       get_usb_modem_wan(int unit);
 extern int       get_usb_modem_wan_status(int unit, int *is_modem);
+extern int       get_usb_modem_dev_wan_status(int unit, int devnum, int *is_selected);
 extern int       get_usb_modem_dev_wan(int unit, int devnum);
 extern int       set_usb_modem_dev_wan(int unit, int devnum);
 extern int       get_wan_ether_link_cached(void);

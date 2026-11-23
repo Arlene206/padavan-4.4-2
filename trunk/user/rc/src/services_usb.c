@@ -94,6 +94,7 @@ safe_remove_usb_device(int port, const char *dev_name)
 	if (modem_devnum) {
 		usb_info_t *usb_info, *follow_usb;
 		int has_modem_port = 0, modem_remove_status, wan_reconnect_status;
+		int modem_identity_status, is_selected_modem = 0;
 
 		usb_info = get_usb_info();
 		for (follow_usb = usb_info; follow_usb != NULL; follow_usb = follow_usb->next) {
@@ -105,7 +106,21 @@ safe_remove_usb_device(int port, const char *dev_name)
 		}
 		free_usb_info(usb_info);
 
-		if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum)) {
+		if (!has_modem_port) {
+			errno = ENODEV;
+			return -1;
+		}
+
+		modem_identity_status = get_usb_modem_dev_wan_status(
+			0, modem_devnum, &is_selected_modem);
+		if (modem_identity_status != 0) {
+			errno = modem_identity_status;
+			logmessage(LOGNAME,
+				   "cannot verify selected USB modem identity before eject (status=%d)",
+				   modem_identity_status);
+			return -1;
+		}
+		if (!is_selected_modem) {
 			errno = ENODEV;
 			return -1;
 		}

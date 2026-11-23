@@ -177,6 +177,45 @@ test_null_output_is_rejected(void)
 }
 
 static void
+test_devnum_match_requires_exact_selected_identity(void)
+{
+	int matches = 0;
+
+	assert(usb_modem_wan_devnum_matches_status(1, 0, "17", 17, &matches) == 0);
+	assert(matches == 1);
+	assert(usb_modem_wan_devnum_matches_status(1, 0, "18", 17, &matches) == 0);
+	assert(matches == 0);
+}
+
+static void
+test_devnum_match_preserves_absent_key_default(void)
+{
+	int matches = 1;
+
+	assert(usb_modem_wan_devnum_matches_status(0, 0, NULL, 17, &matches) == 0);
+	assert(matches == 0);
+	assert(usb_modem_wan_devnum_matches_status(0, 0, NULL, 0, &matches) == 0);
+	assert(matches == 1);
+}
+
+static void
+test_devnum_match_propagates_backend_errors(void)
+{
+	int matches = 1;
+
+	assert(usb_modem_wan_devnum_matches_status(-1, ENOSPC, NULL, 17, &matches) == ENOSPC);
+	assert(matches == 0);
+	assert(usb_modem_wan_devnum_matches_status(-1, 0, NULL, 17, &matches) == EIO);
+	assert(usb_modem_wan_devnum_matches_status(2, 0, "17", 17, &matches) == EIO);
+}
+
+static void
+test_devnum_match_rejects_null_output(void)
+{
+	assert(usb_modem_wan_devnum_matches_status(1, 0, "17", 17, NULL) == EINVAL);
+}
+
+static void
 test_legacy_boolean_fails_closed_on_identity_read_error(void)
 {
 	assert(usb_modem_wan_legacy_boolean(0, 0) == 0);
@@ -202,6 +241,10 @@ main(void)
 	test_backend_read_errors_are_not_treated_as_absent_key();
 	test_integer_overflow_is_reported();
 	test_null_output_is_rejected();
+	test_devnum_match_requires_exact_selected_identity();
+	test_devnum_match_preserves_absent_key_default();
+	test_devnum_match_propagates_backend_errors();
+	test_devnum_match_rejects_null_output();
 	test_legacy_boolean_fails_closed_on_identity_read_error();
 	puts("USB modem WAN checked identity read policy regression: PASS");
 	return 0;

@@ -41,6 +41,31 @@ usb_modem_wan_parse_devnum_status(int api_result, int saved_errno,
 }
 
 /*
+ * Resolve whether a specific USB device is the modem currently assigned to
+ * WAN. A failed NVRAM read is not the same as an absent key or a mismatch.
+ */
+static inline int
+usb_modem_wan_devnum_matches_status(int api_result, int saved_errno,
+                                    const char *value, int expected_devnum,
+                                    int *matches)
+{
+	int configured_devnum = 0;
+	int status;
+
+	if (!matches)
+		return EINVAL;
+	*matches = 0;
+
+	status = usb_modem_wan_parse_devnum_status(
+		api_result, saved_errno, value, &configured_devnum);
+	if (status != 0)
+		return status;
+
+	*matches = configured_devnum == expected_devnum;
+	return 0;
+}
+
+/*
  * Compatibility callers only have a boolean result. On an identity read
  * failure, choose the conservative modem branch instead of misclassifying
  * an unknown WAN as non-modem. Status-aware callers must use the API result.

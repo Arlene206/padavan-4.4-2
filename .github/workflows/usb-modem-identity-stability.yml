@@ -586,11 +586,40 @@ jobs:
 
           identity_reader = body(shared_netutils, "get_usb_modem_wan_status(int unit, int *is_modem)")
           legacy_identity_reader = body(shared_netutils, "get_usb_modem_wan(int unit)")
+          device_identity_reader = body(shared_netutils, "get_usb_modem_dev_wan_status(int unit, int devnum, int *is_selected)")
+          legacy_device_identity_reader = body(shared_netutils, "get_usb_modem_dev_wan(int unit, int devnum)")
           identity_test = (rc / "tests/usb_modem_wan_policy.c").read_text()
           assert "nvram_get_checked(key, &value)" in identity_reader
           assert "usb_modem_wan_parse_devnum_status(" in identity_reader
           assert "get_usb_modem_wan_status" in shared_header
           assert "get_usb_modem_wan_status(unit, &is_modem)" in legacy_identity_reader
+          assert "nvram_get_checked(key, &value)" in device_identity_reader
+          assert "usb_modem_wan_devnum_matches_status(" in device_identity_reader
+          assert "errno = status;" in device_identity_reader
+          assert "return status;" in device_identity_reader
+          assert "get_usb_modem_dev_wan_status" in shared_header
+          assert "get_usb_modem_dev_wan_status(unit, devnum, &is_selected)" in legacy_device_identity_reader
+          assert "nvram_get_int(" not in legacy_device_identity_reader
+          for marker in (
+              "test_devnum_match_requires_exact_selected_identity",
+              "test_devnum_match_preserves_absent_key_default",
+              "test_devnum_match_propagates_backend_errors",
+              "test_devnum_match_rejects_null_output",
+          ):
+              assert marker in identity_test and marker + "();" in identity_test
+
+          eject = body(services_usb, "safe_remove_usb_device(int port, const char *dev_name)")
+          compact = "".join(eject.split())
+          physical = "if(!has_modem_port){errno=ENODEV;return-1;}"
+          checked = "modem_identity_status=get_usb_modem_dev_wan_status(0,modem_devnum,&is_selected_modem);"
+          failed = "if(modem_identity_status!=0){errno=modem_identity_status;"
+          mismatch = "if(!is_selected_modem){errno=ENODEV;return-1;}"
+          removal = "modem_remove_status=safe_remove_usb_modem();"
+          assert physical in compact and checked in compact and failed in compact
+          assert mismatch in compact and removal in compact
+          assert compact.index(physical) < compact.index(checked) < compact.index(failed)
+          assert compact.index(failed) < compact.index(mismatch) < compact.index(removal)
+          assert "cannot verify selected USB modem identity before eject" in eject
           assert "usb_modem_wan_legacy_boolean(status, is_modem)" in legacy_identity_reader
           assert "return 0;" not in legacy_identity_reader
           assert "nvram_get_int(" not in legacy_identity_reader
