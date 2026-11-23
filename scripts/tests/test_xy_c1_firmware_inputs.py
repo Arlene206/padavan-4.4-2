@@ -142,9 +142,13 @@ class FirmwareInputPathTests(unittest.TestCase):
 
     def test_libdisk_io_tools_reader_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
-        path = "trunk/user/libdisk/src/disk_io_tools.c"
-        self.assertEqual(workflow.count('      - "' + path + '"'), 1)
-        self.assertFalse(is_non_firmware_input(path))
+        for path in (
+            "trunk/user/libdisk/src/disk_io_tools.c",
+            "trunk/user/libdisk/src/disk_io_tools.h",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(workflow.count('      - "' + path + '"'), 1)
+                self.assertFalse(is_non_firmware_input(path))
 
     def test_qmi_private_credentials_sources_require_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
