@@ -116,6 +116,13 @@ for signature in (
             signature + " must reset outputs before using the mount path")
 
 
+get_permission_body = function_body(
+    DISK_SOURCE, "int get_permission("
+)
+set_permission_body = function_body(
+    DISK_SOURCE, "int set_permission("
+)
+
 permission_lookup = function_body(
     POLICY,
     "disk_share_permission_find_unique_record(const char *source, const char *target,"
