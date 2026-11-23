@@ -80,10 +80,18 @@ mtk_esw_link_mode_delay(void *context, unsigned int milliseconds)
 	msleep(milliseconds);
 }
 
+static void
+mtk_esw_link_mode_delay_us(void *context, unsigned int microseconds)
+{
+	(void)context;
+	udelay(microseconds);
+}
+
 static const struct mtk_esw_link_mode_io mtk_esw_link_mode_io = {
 	mtk_esw_link_mode_mdio_read,
 	mtk_esw_link_mode_mdio_write,
-	mtk_esw_link_mode_delay
+	mtk_esw_link_mode_delay,
+	mtk_esw_link_mode_delay_us
 };
 
 
@@ -118,32 +126,15 @@ void esw_reg_set(u32 addr, u32 data)
 }
 
 static
-int mt7530_gsw_wait_wt_mac(void)
-{
-	u32 i, atc_val;
-
-	for (i = 0; i < 200; i++) {
-		udelay(100);
-		atc_val = 0;
-		mii_mgr_read(0x1f, 0x80, &atc_val);
-		if (!(atc_val & BIT(15)))
-			return 0;
-	}
-
-	return -1;
-}
-
-static
 int mt7530_gsw_mac_table_clear(int static_only)
 {
-	u32 atc_val;
+	int status;
 
-	/* clear all (non)static MAC entries */
-	atc_val = (static_only) ? 0x8602 : 0x8002;
-
-	mii_mgr_write(0x1f, 0x80, atc_val);
-
-	return mt7530_gsw_wait_wt_mac();
+	status = mtk_esw_mac_table_clear(static_only, &mtk_esw_link_mode_io, NULL);
+	if (status != 0)
+		printk("%s: MAC table clear failed (status=%d)\n",
+		       __FUNCTION__, status);
+	return status;
 }
 
 static
@@ -494,13 +485,15 @@ static void esw_igmp_mld_snooping(u32 enable_igmp, u32 enable_mld)
 }
 #endif
 
-static void esw_mac_table_clear(void)
+static int esw_mac_table_clear(void)
 {
-	mt7530_gsw_mac_table_clear(0);
+	int status = mt7530_gsw_mac_table_clear(0);
 #if defined (CONFIG_P4_MAC_TO_MT7530_GPHY_P0) || defined (CONFIG_P4_RGMII_TO_MT7530_GMAC_P5) || \
     defined (CONFIG_P4_MAC_TO_MT7530_GPHY_P4)
+	/* Preserve secondary-switch cleanup; report the MT7530 result. */
 	mt7620_esw_mac_table_clear(0);
 #endif
+	return status;
 }
 
 static int esw_write_vtcr(u32 vtcr_cmd, u32 vtcr_val)
@@ -1039,17 +1032,17 @@ static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	}
 }
 
-static void esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, int bridge_changed, int br_iso_changed, int vlan_rule_changed)
+static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, int bridge_changed, int br_iso_changed, int vlan_rule_changed)
 {
 	if (wan_bridge_mode == SWAPI_WAN_BRIDGE_DISABLE_WAN) {
 		if (!bridge_changed)
-			return;
-		
+			return 0;
+
 		esw_vlan_init_vid1();
 	} else {
 		if (!bridge_changed && !br_iso_changed && !vlan_rule_changed)
-			return;
-		
+			return 0;
+
 		esw_vlan_apply_rules(wan_bridge_mode, wan_bwan_isolation);
 	}
 
@@ -1062,7 +1055,7 @@ static void esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation,
 		esw_show_bridge_partitions(wan_bridge_mode);
 	}
 
-	esw_mac_table_clear();
+	return esw_mac_table_clear();
 }
 
 static void esw_mac_to_phy_enable(void)
@@ -1403,6 +1396,9 @@ static int change_wan_lan_ports_power(u32 power_on, u32 is_wan)
 static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 {
 	int i, bridge_changed, br_iso_changed, vlan_rule_changed, power_changed;
+	int isolation_status;
+	u32 previous_bridge_mode = g_wan_bridge_mode;
+	u32 previous_bwan_isolation = g_wan_bwan_isolation;
 
 	if (wan_bridge_mode > SWAPI_WAN_BRIDGE_DISABLE_WAN)
 		return -EINVAL;
@@ -1442,10 +1438,19 @@ static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 	if (bridge_changed || br_iso_changed)
 		esw_mask_bridge_isolate(wan_bridge_mode, wan_bwan_isolation);
 
-	esw_vlan_bridge_isolate(wan_bridge_mode, wan_bwan_isolation, bridge_changed, br_iso_changed, vlan_rule_changed);
+	isolation_status = esw_vlan_bridge_isolate(wan_bridge_mode, wan_bwan_isolation,
+					   bridge_changed, br_iso_changed,
+					   vlan_rule_changed);
 
 	if (power_changed)
 		change_wan_lan_ports_power(1, 1);
+
+	if (isolation_status != 0) {
+		/* Leave the requested transition retryable after partial HW updates. */
+		g_wan_bridge_mode = previous_bridge_mode;
+		g_wan_bwan_isolation = previous_bwan_isolation;
+		return isolation_status;
+	}
 
 	return 0;
 }

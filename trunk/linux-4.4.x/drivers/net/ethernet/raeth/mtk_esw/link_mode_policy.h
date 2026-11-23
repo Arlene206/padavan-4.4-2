@@ -44,6 +44,7 @@ struct mtk_esw_link_mode_io {
 	int (*write)(void *context, unsigned int phy_addr,
 		     unsigned int reg, unsigned int value);
 	void (*delay_ms)(void *context, unsigned int milliseconds);
+	void (*delay_us)(void *context, unsigned int microseconds);
 };
 
 static inline int
@@ -116,6 +117,50 @@ mtk_esw_link_mode_program(unsigned int phy_addr, unsigned int advertisement,
 		return mtk_esw_link_mode_io_error(status);
 
 	return 0;
+}
+
+
+#define MTK_ESW_MAC_TABLE_PHY              0x1fU
+#define MTK_ESW_MAC_TABLE_REG              0x80U
+#define MTK_ESW_MAC_TABLE_BUSY_MASK        (1U << 15)
+#define MTK_ESW_MAC_TABLE_CLEAR_ALL        0x8002U
+#define MTK_ESW_MAC_TABLE_CLEAR_STATIC     0x8602U
+#define MTK_ESW_MAC_TABLE_POLL_LIMIT       200U
+#define MTK_ESW_MAC_TABLE_POLL_DELAY_US   100U
+
+/* A failed status read is UNKNOWN, never proof that the table is idle. */
+static inline int
+mtk_esw_mac_table_clear(int static_only,
+			const struct mtk_esw_link_mode_io *io,
+			void *context)
+{
+	unsigned int atc_value = 0;
+	unsigned int i;
+	int status;
+
+	if (!io || !io->read || !io->write || !io->delay_us ||
+	    (static_only != 0 && static_only != 1))
+		return -EINVAL;
+
+	status = io->write(context, MTK_ESW_MAC_TABLE_PHY,
+			   MTK_ESW_MAC_TABLE_REG,
+			   static_only ? MTK_ESW_MAC_TABLE_CLEAR_STATIC :
+			   MTK_ESW_MAC_TABLE_CLEAR_ALL);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	for (i = 0; i < MTK_ESW_MAC_TABLE_POLL_LIMIT; ++i) {
+		io->delay_us(context, MTK_ESW_MAC_TABLE_POLL_DELAY_US);
+		atc_value = 0;
+		status = io->read(context, MTK_ESW_MAC_TABLE_PHY,
+				  MTK_ESW_MAC_TABLE_REG, &atc_value);
+		if (status != 0)
+			return mtk_esw_link_mode_io_error(status);
+		if (!(atc_value & MTK_ESW_MAC_TABLE_BUSY_MASK))
+			return 0;
+	}
+
+	return -ETIMEDOUT;
 }
 
 #endif /* MTK_ESW_LINK_MODE_POLICY_H */

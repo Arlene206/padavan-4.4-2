@@ -4,7 +4,7 @@
 
 #include "../link_mode_policy.h"
 
-enum fake_event_type { FAKE_READ = 1, FAKE_WRITE, FAKE_DELAY };
+enum fake_event_type { FAKE_READ = 1, FAKE_WRITE, FAKE_DELAY, FAKE_DELAY_US };
 
 struct fake_event {
 	enum fake_event_type type;
@@ -12,10 +12,12 @@ struct fake_event {
 };
 
 struct fake_mdio {
-	struct fake_event events[8];
+	struct fake_event events[512];
 	unsigned int event_count, mdio_calls;
 	int fail_at, fail_status;
 	unsigned int read_value;
+	unsigned int busy_reads;
+	int busy_forever;
 };
 
 static void
@@ -47,7 +49,18 @@ fake_read(void *context, unsigned int phy, unsigned int reg,
 	fake_record(fake, FAKE_READ, phy, reg, 0U);
 	if (fake_mdio_should_fail(fake))
 		return fake->fail_status ? fake->fail_status : -EIO;
-	*value = fake->read_value;
+	if (reg == MTK_ESW_MAC_TABLE_REG) {
+		if (fake->busy_forever || fake->busy_reads) {
+			*value = MTK_ESW_MAC_TABLE_BUSY_MASK;
+			if (fake->busy_reads)
+				fake->busy_reads--;
+		} else {
+			*value = 0U;
+		}
+	} else {
+		*value = fake->read_value;
+	}
+	fake->events[fake->event_count - 1].value = *value;
 	return 0;
 }
 
@@ -71,8 +84,16 @@ fake_delay(void *context, unsigned int milliseconds)
 	fake_record(fake, FAKE_DELAY, 0U, 0U, milliseconds);
 }
 
+static void
+fake_delay_us(void *context, unsigned int microseconds)
+{
+	struct fake_mdio *fake = (struct fake_mdio *)context;
+
+	fake_record(fake, FAKE_DELAY_US, 0U, 0U, microseconds);
+}
+
 static const struct mtk_esw_link_mode_io fake_ops = {
-	fake_read, fake_write, fake_delay
+	fake_read, fake_write, fake_delay, fake_delay_us
 };
 
 static void
@@ -85,6 +106,8 @@ fake_init(struct fake_mdio *fake)
 	fake->fail_at = -1;
 	fake->fail_status = 0;
 	fake->read_value = 0U;
+	fake->busy_reads = 0U;
+	fake->busy_forever = 0;
 	for (i = 0; i < sizeof(fake->events) / sizeof(fake->events[0]); ++i) {
 		fake->events[i].type = 0;
 		fake->events[i].phy = 0;
@@ -224,6 +247,106 @@ test_invalid_io_and_boolean_arguments_are_rejected(void)
 	assert(fake.event_count == 0U && fake.mdio_calls == 0U);
 }
 
+
+static void
+test_mac_table_clear_waits_for_confirmed_idle_state(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	fake.busy_reads = 2U;
+	assert(mtk_esw_mac_table_clear(0, &fake_ops, &fake) == 0);
+	assert(fake.mdio_calls == 4U && fake.event_count == 7U);
+	assert(fake.events[0].type == FAKE_WRITE &&
+	       fake.events[0].phy == MTK_ESW_MAC_TABLE_PHY &&
+	       fake.events[0].reg == MTK_ESW_MAC_TABLE_REG &&
+	       fake.events[0].value == MTK_ESW_MAC_TABLE_CLEAR_ALL);
+	assert(fake.events[1].type == FAKE_DELAY_US &&
+	       fake.events[1].value == MTK_ESW_MAC_TABLE_POLL_DELAY_US);
+	assert(fake.events[2].type == FAKE_READ &&
+	       fake.events[2].value == MTK_ESW_MAC_TABLE_BUSY_MASK);
+	assert(fake.events[3].type == FAKE_DELAY_US);
+	assert(fake.events[4].type == FAKE_READ &&
+	       fake.events[4].value == MTK_ESW_MAC_TABLE_BUSY_MASK);
+	assert(fake.events[5].type == FAKE_DELAY_US);
+	assert(fake.events[6].type == FAKE_READ && fake.events[6].value == 0U);
+}
+
+static void
+test_mac_table_clear_preserves_static_only_command(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	assert(mtk_esw_mac_table_clear(1, &fake_ops, &fake) == 0);
+	assert(fake.event_count == 3U && fake.mdio_calls == 2U);
+	assert(fake.events[0].type == FAKE_WRITE &&
+	       fake.events[0].value == MTK_ESW_MAC_TABLE_CLEAR_STATIC);
+	assert(fake.events[1].type == FAKE_DELAY_US);
+	assert(fake.events[2].type == FAKE_READ);
+}
+
+static void
+test_mac_table_clear_aborts_when_command_write_fails(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = -ETIMEDOUT;
+	assert(mtk_esw_mac_table_clear(0, &fake_ops, &fake) == -ETIMEDOUT);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].type == FAKE_WRITE);
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = 1;
+	assert(mtk_esw_mac_table_clear(0, &fake_ops, &fake) == -EIO);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+}
+
+static void
+test_mac_table_clear_treats_read_failure_as_unknown(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = -EIO;
+	assert(mtk_esw_mac_table_clear(0, &fake_ops, &fake) == -EIO);
+	assert(fake.mdio_calls == 2U && fake.event_count == 3U);
+	assert(fake.events[0].type == FAKE_WRITE);
+	assert(fake.events[1].type == FAKE_DELAY_US);
+	assert(fake.events[2].type == FAKE_READ);
+}
+
+static void
+test_mac_table_clear_times_out_when_busy_never_clears(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	fake.busy_forever = 1;
+	assert(mtk_esw_mac_table_clear(0, &fake_ops, &fake) == -ETIMEDOUT);
+	assert(fake.mdio_calls == 1U + MTK_ESW_MAC_TABLE_POLL_LIMIT);
+	assert(fake.event_count == 1U + 2U * MTK_ESW_MAC_TABLE_POLL_LIMIT);
+	assert(fake.events[fake.event_count - 1].type == FAKE_READ &&
+	       fake.events[fake.event_count - 1].value == MTK_ESW_MAC_TABLE_BUSY_MASK);
+}
+
+static void
+test_mac_table_clear_rejects_invalid_mode_and_missing_delay(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_delay = fake_ops;
+
+	fake_init(&fake);
+	assert(mtk_esw_mac_table_clear(2, &fake_ops, &fake) == -EINVAL);
+	missing_delay.delay_us = NULL;
+	assert(mtk_esw_mac_table_clear(0, &missing_delay, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
 static void
 test_all_defined_speed_and_flow_modes(void)
 {
@@ -255,6 +378,12 @@ main(void)
 {
 	test_all_defined_speed_and_flow_modes();
 	test_reserved_speed_flow_and_bits_are_rejected();
+	test_mac_table_clear_waits_for_confirmed_idle_state();
+	test_mac_table_clear_preserves_static_only_command();
+	test_mac_table_clear_aborts_when_command_write_fails();
+	test_mac_table_clear_treats_read_failure_as_unknown();
+	test_mac_table_clear_times_out_when_busy_never_clears();
+	test_mac_table_clear_rejects_invalid_mode_and_missing_delay();
 	test_autoneg_register_sequence_and_cache_ready_result();
 	test_forced_mode_power_cycles_before_final_control_write();
 	test_power_off_sets_down_bit_without_delay();
@@ -262,6 +391,6 @@ main(void)
 	test_mdio_errors_are_preserved_and_positive_failures_become_eio();
 	test_forced_final_write_failure_is_not_hidden_after_delay();
 	test_invalid_io_and_boolean_arguments_are_rejected();
-	puts("MTK ESW link-mode validation and MDIO programming policy: PASS");
+	puts("MTK ESW link-mode and MAC-table MDIO policies: PASS");
 	return 0;
 }

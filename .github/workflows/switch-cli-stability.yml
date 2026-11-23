@@ -617,7 +617,7 @@ jobs:
           print("RC RTL8367/MTK switch commands reject malformed, partial and overflowing numeric input: PASS")
           PY
 
-      - name: Validate MTK ESW PHY link-mode fields before register access
+      - name: Validate MTK ESW PHY and MAC-table MDIO failure propagation
         run: |
           ESW_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw
           cc -std=gnu89 -Wall -Wextra -Werror \
@@ -670,8 +670,44 @@ jobs:
               "test_invalid_io_and_boolean_arguments_are_rejected",
               "test_all_defined_speed_and_flow_modes",
               "test_reserved_speed_flow_and_bits_are_rejected",
+              "test_mac_table_clear_waits_for_confirmed_idle_state",
+              "test_mac_table_clear_preserves_static_only_command",
+              "test_mac_table_clear_aborts_when_command_write_fails",
+              "test_mac_table_clear_treats_read_failure_as_unknown",
+              "test_mac_table_clear_times_out_when_busy_never_clears",
+              "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
           ):
               assert marker in test and marker + "();" in test, marker
+
+          assert "mt7530_gsw_wait_wt_mac" not in source
+          mac_clear = source.split("static\\nint mt7530_gsw_mac_table_clear", 1)[1].split(
+              "static\\nu32 esw_get_port_mib_rgoc", 1
+          )[0]
+          assert "mtk_esw_mac_table_clear(static_only, &mtk_esw_link_mode_io, NULL)" in mac_clear
+          assert "if (status != 0)" in mac_clear and "return status;" in mac_clear
+          isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
+              "static void esw_mac_to_phy_enable", 1
+          )[0]
+          assert "return 0;" in isolate and "return esw_mac_table_clear();" in isolate
+          bridge = source.split("static int change_bridge_mode", 1)[1].split(
+              "static void vlan_accept_port_mode", 1
+          )[0]
+          propagation = bridge.index("isolation_status = esw_vlan_bridge_isolate(")
+          power_restore = bridge.index("change_wan_lan_ports_power(1, 1);", propagation)
+          failure_gate = bridge.index("if (isolation_status != 0)", power_restore)
+          assert "g_wan_bridge_mode = previous_bridge_mode;" in bridge[failure_gate:]
+          assert "g_wan_bwan_isolation = previous_bwan_isolation;" in bridge[failure_gate:]
+          assert "return isolation_status;" in bridge[failure_gate:]
+          assert power_restore < failure_gate
+          for token in (
+              "MTK_ESW_MAC_TABLE_BUSY_MASK",
+              "MTK_ESW_MAC_TABLE_POLL_LIMIT",
+              "MTK_ESW_MAC_TABLE_CLEAR_ALL",
+              "MTK_ESW_MAC_TABLE_CLEAR_STATIC",
+              "if (status != 0)",
+              "return -ETIMEDOUT;",
+          ):
+              assert token in policy, token
 
           filters = workflow.split("jobs:", 1)[0]
           for path in (

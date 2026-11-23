@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Propagate MT7530 MAC-table clear failures through bridge isolation
+
+- Found a false-success path in `mt7530_gsw_wait_wt_mac()`: the ATC status word was reset to zero, but `mii_mgr_read()` returned failure without being checked. A timeout therefore looked like an idle MAC table. The preceding `mii_mgr_write()` command result was also discarded. Bridge/VLAN isolation could report success while old dynamic forwarding entries remained.
+- Added a checked ATC policy that requires command-write success and a successful status read on each poll, returns `-EIO` on MDIO failure and `-ETIMEDOUT` when the busy bit remains set for all 200 polls. Propagated status through `esw_mac_table_clear()`, `esw_vlan_bridge_isolate()` and `change_bridge_mode()` to the ioctl result. On failure, the cached bridge/isolation selectors revert so a repeated request retries the transition; hardware changes already applied before failure are not represented as rolled back.
+- Added GNU89 ASan/UBSan regression cases for command selection, successful busy-to-idle polling, write/read errors, permanent busy timeout and invalid callback/input values. The exact policy suite is wired into Switch CLI stability Actions and the source contract checks error propagation and retry-state restoration.
+- Previous independent MTK link-mode source commit `98f6f87a27bce17c6672007ef38e641c85775a82`: Switch CLI run `45145475309` PASS and NVRAM transaction boundary `45145475570` PASS; XY-C1 `45145475372` was still in progress at the last poll (Build/TRX/artifact not confirmed). This MAC-table change needs its own exact-SHA Actions. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 UTC — Abort MTK ESW link-mode changes on MDIO failures
 
 - Confirmed a PHY stability defect in `change_port_link_mode_uapi()`: every `mii_mgr_read/write()` result was ignored even though the manager returns 1 on success and 0 on timeout/failure. A failed register-9 read left the temporary GigaPHY control word at zero, then wrote it back and could erase existing 1000Base-T advertisement. Failed writes were also hidden while `g_port_link_mode[]` advanced, causing repeated identical requests to skip repair.
