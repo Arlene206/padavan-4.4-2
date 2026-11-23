@@ -79,5 +79,14 @@ jobs:
                          'storage_service_enable_value_status(-1, "1", &enabled)',
                          'storage_service_enable_value_status(0, "01", &enabled)'):
               assert marker in test
+          deferred = body(source, "void on_deferred_hotplug_dev(void)")
+          no_storage_branch = deferred.split("#else", 1)[1].split("#endif", 1)[0]
+          deferred_compact = "".join(no_storage_branch.split())
+          for marker in ("storage_read_string_status(", "storage_service_enable_value_status(",
+                         "storage_deferred_start_dispatch_status(", "alarm(5)"):
+              assert marker in no_storage_branch
+          assert 'nvram_match("usb_hotplug_ms","1")' not in deferred_compact
+          assert 'nvram_match("usb_opt_start","1")' not in deferred_compact
+          assert deferred_compact.index("storage_deferred_start_dispatch_status(") < deferred_compact.index("try_start_stor_apps()")
           print("Storage service checked enable source contract: PASS")
           PY

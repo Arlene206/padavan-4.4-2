@@ -4928,6 +4928,13 @@ on_deferred_hotplug_dev(void)
 	int storage_optware_read_status, storage_dispatch_status;
 	int storage_dispatch_error, storage_should_start = 0;
 	static int storage_unplug_action_done;
+#else
+	char storage_hotplug_text[NVRAM_MAX_VALUE_LEN + 1] = {0};
+	char storage_optware_text[NVRAM_MAX_VALUE_LEN + 1] = {0};
+	int storage_hotplug_enabled = 0, storage_optware_enabled = 0;
+	int storage_hotplug_read_status, storage_optware_read_status;
+	int storage_dispatch_status, storage_dispatch_error;
+	int storage_should_start = 0;
 #endif
 
 #if defined (USE_STORAGE)
@@ -4982,9 +4989,34 @@ on_deferred_hotplug_dev(void)
 			alarm(5);
 	}
 #else
-	if (nvram_match("usb_hotplug_ms", "1") ||
-	    nvram_match("usb_opt_start", "1") ||
-	    storage_optware_result_fd >= 0) {
+	/*
+	 * Builds without integrated storage support can still have Optware
+	 * startup requests. Read both markers with status so a failed NVRAM
+	 * backend cannot silently discard the only deferred-start wakeup.
+	 */
+	storage_hotplug_read_status = storage_read_string_status(
+		"usb_hotplug_ms", storage_hotplug_text, sizeof(storage_hotplug_text));
+	storage_hotplug_read_status = storage_service_enable_value_status(
+		storage_hotplug_read_status, storage_hotplug_text,
+		&storage_hotplug_enabled);
+	storage_optware_read_status = storage_read_string_status(
+		"usb_opt_start", storage_optware_text, sizeof(storage_optware_text));
+	storage_optware_read_status = storage_service_enable_value_status(
+		storage_optware_read_status, storage_optware_text,
+		&storage_optware_enabled);
+	storage_dispatch_status = storage_deferred_start_dispatch_status(
+		0, 0,
+		storage_hotplug_read_status, storage_hotplug_enabled,
+		storage_optware_read_status, storage_optware_enabled,
+		storage_optware_result_fd >= 0, &storage_should_start);
+	if (storage_dispatch_status != 0) {
+		storage_dispatch_error = storage_dispatch_status > 0 ?
+			storage_dispatch_status : EIO;
+		logmessage("Storage",
+			   "cannot read deferred Optware startup markers; preserving pending requests for retry (status=%d)",
+			   storage_dispatch_error);
+		alarm(5);
+	} else if (storage_should_start) {
 		storage_start_result = try_start_stor_apps();
 		if (storage_start_result != 0)
 			alarm(5);
