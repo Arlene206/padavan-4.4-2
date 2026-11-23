@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Fail closed on MSD Lite enable-state publication
+
+- `start_udpxy()`'s `APP_MSD_LITE` path ignored the result of `nvram_set("msd_lite_enable", "1")` and launched `msd_lite` anyway. A failed NVRAM write could leave the daemon running while the enable state remained disabled, making restart/UI state inconsistent.
+- The branch now normalizes the setter result through the existing `rc_wan_nvram_write_status()` policy and refuses daemon launch if the enable-state write cannot be confirmed. The Process integration checker asserts that the failure gate precedes `eval`; the existing WAN NVRAM policy regression covers errno and errno-less write failures.
+- Exact Process lifecycle and same-SHA XY-C1 Build/TRX/artifact verification are pending. No router runtime result is claimed.
+---
 ## 2026-11-23 UTC — Align HTTPD cross-service checker with checked L2TP markers
 
 - Exact HTTPD run #45187074690 on `eb928a2b259f601792bd7b8a55078e5c45e82cfe` failed only at the embedded `Verify bounded service termination and WAN stop failure gates` source contract. The production WAN L2TP path now uses the checked marker setter, but this independent HTTPD workflow still asserted the removed raw `nvram_set_int_temp("l2tp_wan_t", ...)` calls.

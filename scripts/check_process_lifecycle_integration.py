@@ -404,6 +404,14 @@ assert "process_state == PROCESS_PRESENCE_UNKNOWN" in udpxy_start
 assert "process_state != PROCESS_PRESENCE_ABSENT" in udpxy_start
 assert 'launch_status = eval("/usr/bin/msd_lite"' in udpxy_start
 assert 'launch_status = eval("/usr/sbin/udpxy"' in udpxy_start
+# APP_MSD_LITE must publish its enable state successfully before daemon launch.
+assert 'marker_api_result = nvram_set("msd_lite_enable", "1");' in udpxy_start
+assert "rc_wan_nvram_write_status(marker_api_result, marker_errno)" in udpxy_start
+assert "if (marker_status != 0)" in udpxy_start
+assert "cannot publish MSD Lite enable state; refusing daemon startup" in udpxy_start
+assert "return marker_status;" in udpxy_start
+assert udpxy_start.index('nvram_set("msd_lite_enable", "1")') < udpxy_start.index('eval("/usr/bin/msd_lite"')
+assert udpxy_start.index('if (marker_status != 0)') < udpxy_start.index('eval("/usr/bin/msd_lite"')
 assert "launch_status = iptv_proxy_confirm_started(process_name, launch_status);" in udpxy_start
 assert '"%s launch/readiness failed (status=%d errno=%d)"' in udpxy_start
 assert udpxy_start.count("if (launch_status != 0)") == 1

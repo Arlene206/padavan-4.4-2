@@ -2,31 +2,25 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Parent of this handoff refresh: `ba4280cd91e149a6bde74c383cf4ab046f0ef313`.
-- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; never update, switch to, merge, delete or rename.
-- Branch inventory at this checkpoint: only `main` and the frozen archive. Legacy PR #1 is closed and unmerged; no open PR. Do not create branches or PRs.
-- Current main baseline: `ba4280cd91e149a6bde74c383cf4ab046f0ef313`. Latest production-source change is `ce39930eee413d71e0227c7d59e8e539b18e9f98` (`fix(scutclient): reject unknown WAN link state in watchdog`); descendants `bcd5a1d` and `ba4280c` are source-contract/dev-log updates. Main contains the NAT helper, IPv6 NAT, SFE and SYN-cookie selector hardening described below.
-- No persistent local checkout is available. No local compile, local sanitizer, MIPS/uClibc build or physical hardware result is claimed.
-- Startup recovery has already been performed once. Do not repeat broad bootstrap or completed USB eject/MTK/WSD audits without new evidence.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: main only. Parent for this slice: a139a012af0c41f489238bce994aaaac1298a555.
+- Frozen archive: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; do not update, switch, merge, delete or rename.
+- Recent main changes include checked VPN server/client and WAN xl2tpd ownership markers, VPN-triggered NFS export reload status propagation, and a VPN lifecycle checker declaration-order correction. The shared-xl2tpd marker C regressions passed on eb928a2; that run's checker failed with NameError, corrected in 0e9056. Exact-head VPN rerun remains pending.
+- Infosvr PID-file ownership fix 9fd7bafd and checker correction 7d699d752 are on main. Run #45184200774 passed six C policy binaries but failed the old O_TRUNC source assertion before its checker-only repair; exact rerun remains pending.
+- XY-C1 run #45181232264 passed Build, TRX verification and artifact upload only on source ce39930eee413d71e0227c7d59e8e539b18e9f98 (artifact 14822616674, 12,760,105 bytes). It does not cover later production changes.
+- SCUT watchdog/AI handoff #45181478770/#45181478768 passed on ba4280c; Process inventory #45181232027 and AI docs #45181232286 passed on ce39930. Avoid rerunning closed work absent new related source changes.
+- No persistent checkout exists in this environment; no local full build, MIPS/uClibc build or physical router result is claimed. Startup recovery was performed once.
 
-## Active task
+## Active source slice
 
-The active source slice is the SCUT watchdog hardening on `ce39930eee413d71e0227c7d59e8e539b18e9f98`:
+- `start_udpxy()`'s APP_MSD_LITE path now checks the `msd_lite_enable=1` NVRAM write and refuses to launch `msd_lite` if the marker cannot be published.
+- `scripts/check_process_lifecycle_integration.py` pins the status gate and ensures the failure return precedes daemon launch. Existing `rc_wan_nvram_write_status()` policy tests cover errno-preserving and errno-less write failures.
+- Exact Process lifecycle and same-SHA XY-C1 Build/TRX/artifact checks for this slice are pending.
 
-- `scutclient_watchcat.sh` now uses `nvram get_checked` for watchdog enable, client enable, auth-flag and force-reauth selectors. Empty legacy defaults are preserved; backend errors and unsupported boolean values abort before client restart. Pre-06:00 empty force flag retains the legacy forced re-auth default.
-- It now checks the exit status of `mtk_esw 11`; an ioctl error is not misread as "WAN link up". Confirmed WAN-down still skips health probes.
-- Cleanup removes the PID file only when its contents equal this watchdog process's PID (`$$`), and retains a concurrent replacement marker. Test-harness NVRAM/log/barrier variables are exported.
-- The POSIX lifecycle regression covers NVRAM failures at all four reads, invalid toggles, legacy force defaults, PID replacement, WAN ioctl failure and WAN-down behavior.
+## Exact first actions for the next GPT
 
-Exact SCUT regression #45181478770 and AI handoff contract #45181478768 both PASS on exact main descendant `ba4280cd91e149a6bde74c383cf4ab046f0ef313`. Process inventory #45181232027 and AI docs #45181232286 PASS on source `ce39930`. XY-C1 #45181232264 is still IN_PROGRESS on that exact production-source SHA (Build running; TRX and artifact pending), so do not claim L3 until all three steps pass on the same SHA.
-
-Prior firewall URL-schedule source slice remains L3 VERIFIED: exact XY-C1 #45161165974 passed on source `ad56220d066e771be499426708b6c2f744937467`, Build, TRX and artifact upload included (artifact `14812541338`, 12,759,350 bytes). Do not repeat this closed task.
-
-## Exact first action for the next GPT
-
-1. Poll exact XY-C1 run #45181232264 on `ce39930eee413d71e0227c7d59e8e539b18e9f98`. Require Build XY-C1, TRX verification and artifact upload all PASS, then record artifact ID/name/size. It is the latest product-source descendant covering the NAT helper, IPv6 NAT, SFE (including lower-level mode validation), SYN-cookie and SCUT watchdog product sources.
-2. SCUT PID/NVRAM/link-state host regression #45181478770 and AI handoff contract #45181478768 PASS on current main `ba4280c`; Process inventory #45181232027 and AI handoff #45181232286 PASS on `ce39930`. No hardware L4 claim. Do not re-run closed host workflows without new source changes.
-3. Continue a new P1 stability/security source task from the roadmap outside the currently active WAN/ZeroTier/HTTPD work. The process lifecycle queue still has independent callers; identify a concrete discarded return/error before editing, and add a focused regression. While XY is pending, do not wait idle.
+1. Poll exact-SHA Process lifecycle regression; verify MSD Lite fail-closed assertions pass.
+2. Poll same-SHA XY-C1; require Build, TRX verification and artifact upload all PASS before claiming L3.
+3. Continue another concrete high-priority discarded-status issue on an active service path; do not duplicate VPN, Infosvr, SCUT, or completed storage/wireless slices.
 
 ## Relevant exact-SHA CI facts
 

@@ -1,3 +1,5 @@
+Current implementation checkpoint (2026-11-23):
+- `start_udpxy()`'s APP_MSD_LITE path now checks the `msd_lite_enable=1` NVRAM state write and blocks daemon launch if publication fails. The Process integration checker pins the status gate before `eval`; existing WAN NVRAM policy tests cover errno and errno-less write failures. Exact-head Process and XY-C1 Build/TRX/artifact checks pending.
 Current implementation checkpoint (2026-11-21):
 - WAN reset/start protocol/MAC identity reads use checked NVRAM helpers; manual endpoint fields form one transaction.
 - The boolean manual-PPP classifier explicitly maps a failed checked protocol read to `true` (preserve unknown underlay), rather than treating an arbitrary enum as a valid protocol. Exact-head WAN/XY-C1 checks pending.

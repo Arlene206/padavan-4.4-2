@@ -591,6 +591,7 @@ start_udpxy(char *wan_ifname)
 		const char *src_conf = "/etc_ro/msd_lite.conf";
 		const char *dst_conf = "/etc/storage/msd_lite.conf";
 		int config_status;
+		int marker_api_result, marker_errno, marker_status;
 
 		config_status = msd_lite_config_publish(src_conf, dst_conf, wan_ifname, port);
 		if (config_status != 0) {
@@ -599,7 +600,17 @@ start_udpxy(char *wan_ifname)
 			return config_status;
 		}
 
-		nvram_set("msd_lite_enable", "1");
+		errno = 0;
+		marker_api_result = nvram_set("msd_lite_enable", "1");
+		marker_errno = errno;
+		marker_status = rc_wan_nvram_write_status(marker_api_result, marker_errno);
+		if (marker_status != 0) {
+			errno = marker_status;
+			logmessage(LOGNAME,
+				   "cannot publish MSD Lite enable state; refusing daemon startup (status=%d)",
+				   marker_status);
+			return marker_status;
+		}
 		errno = 0;
 		launch_status = eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
 	}
