@@ -416,7 +416,8 @@ test_account_inventory_reads_one_checked_snapshot(void)
 {
 	struct fake_account_nvram fake = {
 		"2", "admin", { "alice", "bob", NULL, NULL },
-		NULL, NULL, 0, 0, 0, 0, 0, 0
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = NULL;
 	int count = -1;
@@ -436,7 +437,8 @@ test_account_inventory_missing_count_is_empty(void)
 {
 	struct fake_account_nvram fake = {
 		NULL, NULL, { NULL, NULL, NULL, NULL },
-		NULL, NULL, 0, 0, 0, 0, 0, 0
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = (char **)1;
 	int count = 99;
@@ -455,7 +457,8 @@ test_account_inventory_count_read_error_is_not_zero(void)
 {
 	struct fake_account_nvram fake = {
 		"2", "admin", { "alice", "bob", NULL, NULL },
-		"acc_num", NULL, 0, 0, 0, 0, 0, 0
+		"acc_num", NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = (char **)1;
 	int count = 99;
@@ -474,7 +477,8 @@ test_account_inventory_username_error_frees_partial_list(void)
 {
 	struct fake_account_nvram fake = {
 		"2", "admin", { "alice", "bob", NULL, NULL },
-		"acc_username1", NULL, 0, 0, 0, 0, 0, 0
+		"acc_username1", NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = (char **)1;
 	int count = 99;
@@ -493,7 +497,8 @@ test_account_inventory_transaction_end_error_discards_snapshot(void)
 {
 	struct fake_account_nvram fake = {
 		"2", "admin", { "alice", "bob", NULL, NULL },
-		NULL, NULL, 0, 0, EBUSY, 0, 0, 0
+		NULL, NULL, 0, 0, EBUSY, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = (char **)1;
 	int count = 99;
@@ -512,7 +517,8 @@ test_account_inventory_begin_error_does_not_end_transaction(void)
 {
 	struct fake_account_nvram fake = {
 		"1", "admin", { "alice", NULL, NULL, NULL },
-		NULL, NULL, 0, EACCES, 0, 0, 0, 0
+		NULL, NULL, 0, EACCES, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = (char **)1;
 	int count = 99;
@@ -531,7 +537,8 @@ test_account_inventory_rejects_invalid_count_text_and_range(void)
 {
 	struct fake_account_nvram fake = {
 		"2x", "admin", { "alice", "bob", NULL, NULL },
-		NULL, NULL, 0, 0, 0, 0, 0, 0
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = NULL;
 	int count = 0;
@@ -557,7 +564,8 @@ test_account_inventory_rejects_sparse_and_reserved_names(void)
 {
 	struct fake_account_nvram fake = {
 		"2", "admin", { NULL, "alice", NULL, NULL },
-		NULL, NULL, 0, 0, 0, 0, 0, 0
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = NULL;
 	int count = 0;
@@ -585,7 +593,8 @@ test_account_inventory_rejects_invalid_get_status(void)
 {
 	struct fake_account_nvram fake = {
 		"1", "admin", { "alice", NULL, NULL, NULL },
-		NULL, "acc_username0", 2, 0, 0, 0, 0, 0
+		NULL, "acc_username0", 2, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = NULL;
 	int count = 0;
@@ -601,7 +610,8 @@ test_account_inventory_rejects_duplicate_names(void)
 {
 	struct fake_account_nvram fake = {
 		"2", "admin", { "alice", "alice", NULL, NULL },
-		NULL, NULL, 0, 0, 0, 0, 0, 0
+		NULL, NULL, 0, 0, 0, 0, 0, 0,
+		{ NULL, NULL, NULL, NULL }
 	};
 	char **items = NULL;
 	int count = 0;
@@ -626,7 +636,7 @@ test_account_password_shift_snapshot_copies_values_in_one_transaction(void)
 		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == 0);
 	assert(strcmp(passwords[0], "bob-secret") == 0);
 	assert(strcmp(passwords[1], "carol-secret") == 0);
-	assert(passwords[2][0] == '\\0');
+	assert(passwords[2][0] == '\0');
 	assert(fake.begin_calls == 1);
 	assert(fake.get_calls == 2);
 	assert(fake.end_calls == 1);
@@ -644,7 +654,7 @@ test_account_password_shift_snapshot_preserves_missing_as_empty(void)
 
 	assert(disk_share_account_password_shift_snapshot(
 		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == 0);
-	assert(passwords[0][0] == '\\0');
+	assert(passwords[0][0] == '\0');
 	assert(strcmp(passwords[1], "carol-secret") == 0);
 }
 
@@ -666,7 +676,7 @@ test_account_password_shift_snapshot_read_error_clears_all_values(void)
 		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == -1);
 	assert(errno == EIO);
 	for (i = 0; i < 4; ++i)
-		assert(passwords[i][0] == '\\0');
+		assert(passwords[i][0] == '\0');
 	assert(fake.begin_calls == 1 && fake.end_calls == 1);
 }
 
@@ -683,7 +693,7 @@ test_account_password_shift_snapshot_end_error_discards_values(void)
 	assert(disk_share_account_password_shift_snapshot(
 		&fake_account_nvram_ops, &fake, 3, 0, 4, passwords) == -1);
 	assert(errno == EBUSY);
-	assert(passwords[0][0] == '\\0' && passwords[1][0] == '\\0');
+	assert(passwords[0][0] == '\0' && passwords[1][0] == '\0');
 }
 
 static void
@@ -698,12 +708,12 @@ test_account_password_shift_snapshot_rejects_oversized_value(void)
 	char passwords[4][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
 
 	memset(oversized, 'x', sizeof(oversized) - 1);
-	oversized[sizeof(oversized) - 1] = '\\0';
+	oversized[sizeof(oversized) - 1] = '\0';
 	fake.passwords[1] = oversized;
 	assert(disk_share_account_password_shift_snapshot(
 		&fake_account_nvram_ops, &fake, 2, 0, 4, passwords) == -1);
 	assert(errno == ENAMETOOLONG);
-	assert(passwords[0][0] == '\\0');
+	assert(passwords[0][0] == '\0');
 }
 
 int
