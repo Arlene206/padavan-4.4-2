@@ -675,6 +675,17 @@ jobs:
           assert "mii_mgr_write(" not in setup_internal
           assert "mii_mgr_write_cl45(" not in setup_internal
           assert "goto mdio_error;" in setup_internal
+          vlan_wait = source.split("static int is_switch_vlan_table_busy(void)", 1)[1].split(
+              "static int lan_wan_partition(void)", 1
+          )[0]
+          vlan_partition = source.split("static int lan_wan_partition(void)", 1)[1].split(
+              "static int mt7530_phy_setting(void)", 1
+          )[0]
+          assert "mii_mgr_read(" not in vlan_wait
+          assert "mii_mgr_write(" not in vlan_partition
+          assert "return -ETIMEDOUT;" in vlan_wait
+          assert "status = is_switch_vlan_table_busy();" in vlan_partition
+          assert "status = lan_wan_partition();" in setup_internal
           phy_setup = source.split("static int mt7530_phy_setting(void)", 1)[1].split(
               "static void ra_switch_mdio_reset_delay(", 1
           )[0]

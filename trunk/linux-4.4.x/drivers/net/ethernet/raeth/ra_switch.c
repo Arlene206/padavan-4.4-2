@@ -2849,87 +2849,185 @@ void trgmii_set_7530(void)
 }
 
 #if !defined (CONFIG_RAETH_ESW_CONTROL)
-static void is_switch_vlan_table_busy(void)
+static int is_switch_vlan_table_busy(void)
 {
 	int j = 0;
 	unsigned int value = 0;
+	int status;
 
 	for (j = 0; j < 20; j++) {
-		mii_mgr_read(31, 0x90, &value);
+		status = ra_switch_mdio_read(NULL, 31, 0x90, &value);
+		if (status != 0)
+			return status;
 		if ((value & 0x80000000) == 0) {	/* table busy */
 			break;
 		}
 		mdelay(70);
 	}
-	if (j == 20)
-		pr_info("set vlan timeout value=0x%x.\n", value);
+	if (j == 20) {
+		pr_err_ratelimited("%s: VLAN table remained busy (VTCR=0x%x)\n",
+				   __func__, value);
+		return -ETIMEDOUT;
+	}
+	return 0;
 }
 
-static void lan_wan_partition(void)
+static int lan_wan_partition(void)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	int status;
 	/*Set  MT7530 */
 	if (ei_local->architecture & WAN_AT_P0) {
 		pr_info("set LAN/WAN WLLLL\n");
 		/*WLLLL, wan at P0 */
 		/*LAN/WAN ports as security mode */
-		mii_mgr_write(31, 0x2004, 0xff0003);	/* port0 */
-		mii_mgr_write(31, 0x2104, 0xff0003);	/* port1 */
-		mii_mgr_write(31, 0x2204, 0xff0003);	/* port2 */
-		mii_mgr_write(31, 0x2304, 0xff0003);	/* port3 */
-		mii_mgr_write(31, 0x2404, 0xff0003);	/* port4 */
-		mii_mgr_write(31, 0x2504, 0xff0003);	/* port5 */
-		mii_mgr_write(31, 0x2604, 0xff0003);	/* port6 */
+		status = ra_switch_mdio_write(NULL, 31, 0x2004, 0xff0003);	/* port0 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2104, 0xff0003);	/* port1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2204, 0xff0003);	/* port2 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2304, 0xff0003);	/* port3 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2404, 0xff0003);	/* port4 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2504, 0xff0003);	/* port5 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2604, 0xff0003);	/* port6 */
+		if (status != 0)
+			goto mdio_error;
 
 		/*set PVID */
-		mii_mgr_write(31, 0x2014, 0x10002);	/* port0 */
-		mii_mgr_write(31, 0x2114, 0x10001);	/* port1 */
-		mii_mgr_write(31, 0x2214, 0x10001);	/* port2 */
-		mii_mgr_write(31, 0x2314, 0x10001);	/* port3 */
-		mii_mgr_write(31, 0x2414, 0x10001);	/* port4 */
-		mii_mgr_write(31, 0x2514, 0x10002);	/* port5 */
-		mii_mgr_write(31, 0x2614, 0x10001);	/* port6 */
+		status = ra_switch_mdio_write(NULL, 31, 0x2014, 0x10002);	/* port0 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2114, 0x10001);	/* port1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2214, 0x10001);	/* port2 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2314, 0x10001);	/* port3 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2414, 0x10001);	/* port4 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2514, 0x10002);	/* port5 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2614, 0x10001);	/* port6 */
+		if (status != 0)
+			goto mdio_error;
 		/*port6 */
 		/*VLAN member */
-		is_switch_vlan_table_busy();
-		mii_mgr_write(31, 0x94, 0x405e0001);	/* VAWD1 */
-		mii_mgr_write(31, 0x90, 0x80001001);	/* VTCR, VID=1 */
-		is_switch_vlan_table_busy();
+		status = is_switch_vlan_table_busy();
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x94, 0x405e0001);	/* VAWD1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x90, 0x80001001);	/* VTCR, VID=1 */
+		if (status != 0)
+			goto mdio_error;
+		status = is_switch_vlan_table_busy();
+		if (status != 0)
+			goto mdio_error;
 
-		mii_mgr_write(31, 0x94, 0x40210001);	/* VAWD1 */
-		mii_mgr_write(31, 0x90, 0x80001002);	/* VTCR, VID=2 */
-		is_switch_vlan_table_busy();
+		status = ra_switch_mdio_write(NULL, 31, 0x94, 0x40210001);	/* VAWD1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x90, 0x80001002);	/* VTCR, VID=2 */
+		if (status != 0)
+			goto mdio_error;
+		status = is_switch_vlan_table_busy();
+		if (status != 0)
+			goto mdio_error;
 	}
 	if (ei_local->architecture & WAN_AT_P4) {
 		pr_info("set LAN/WAN LLLLW\n");
 		/*LLLLW, wan at P4 */
 		/*LAN/WAN ports as security mode */
-		mii_mgr_write(31, 0x2004, 0xff0003);	/* port0 */
-		mii_mgr_write(31, 0x2104, 0xff0003);	/* port1 */
-		mii_mgr_write(31, 0x2204, 0xff0003);	/* port2 */
-		mii_mgr_write(31, 0x2304, 0xff0003);	/* port3 */
-		mii_mgr_write(31, 0x2404, 0xff0003);	/* port4 */
-		mii_mgr_write(31, 0x2504, 0xff0003);	/* port5 */
-		mii_mgr_write(31, 0x2604, 0xff0003);	/* port6 */
+		status = ra_switch_mdio_write(NULL, 31, 0x2004, 0xff0003);	/* port0 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2104, 0xff0003);	/* port1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2204, 0xff0003);	/* port2 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2304, 0xff0003);	/* port3 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2404, 0xff0003);	/* port4 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2504, 0xff0003);	/* port5 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2604, 0xff0003);	/* port6 */
+		if (status != 0)
+			goto mdio_error;
 
 		/*set PVID */
-		mii_mgr_write(31, 0x2014, 0x10001);	/* port0 */
-		mii_mgr_write(31, 0x2114, 0x10001);	/* port1 */
-		mii_mgr_write(31, 0x2214, 0x10001);	/* port2 */
-		mii_mgr_write(31, 0x2314, 0x10001);	/* port3 */
-		mii_mgr_write(31, 0x2414, 0x10002);	/* port4 */
-		mii_mgr_write(31, 0x2514, 0x10002);	/* port5 */
-		mii_mgr_write(31, 0x2614, 0x10001);	/* port6 */
+		status = ra_switch_mdio_write(NULL, 31, 0x2014, 0x10001);	/* port0 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2114, 0x10001);	/* port1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2214, 0x10001);	/* port2 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2314, 0x10001);	/* port3 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2414, 0x10002);	/* port4 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2514, 0x10002);	/* port5 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x2614, 0x10001);	/* port6 */
+		if (status != 0)
+			goto mdio_error;
 
 		/*VLAN member */
-		is_switch_vlan_table_busy();
-		mii_mgr_write(31, 0x94, 0x404f0001);	/* VAWD1 */
-		mii_mgr_write(31, 0x90, 0x80001001);	/* VTCR, VID=1 */
-		is_switch_vlan_table_busy();
-		mii_mgr_write(31, 0x94, 0x40300001);	/* VAWD1 */
-		mii_mgr_write(31, 0x90, 0x80001002);	/* VTCR, VID=2 */
-		is_switch_vlan_table_busy();
+		status = is_switch_vlan_table_busy();
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x94, 0x404f0001);	/* VAWD1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x90, 0x80001001);	/* VTCR, VID=1 */
+		if (status != 0)
+			goto mdio_error;
+		status = is_switch_vlan_table_busy();
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x94, 0x40300001);	/* VAWD1 */
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, 31, 0x90, 0x80001002);	/* VTCR, VID=2 */
+		if (status != 0)
+			goto mdio_error;
+		status = is_switch_vlan_table_busy();
+		if (status != 0)
+			goto mdio_error;
 	}
+	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: LAN/WAN VLAN partition failed: %d\n",
+			   __func__, status);
+	return status;
 }
 #endif
 
@@ -3250,7 +3348,9 @@ static int setup_internal_gsw(void)
 	}
 
 #if !defined (CONFIG_RAETH_ESW_CONTROL)
-	lan_wan_partition();
+	status = lan_wan_partition();
+	if (status != 0)
+		goto mdio_error;
 #endif
 	status = mt7530_phy_setting();
 	if (status != 0)
