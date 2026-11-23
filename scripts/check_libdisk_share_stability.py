@@ -894,7 +894,7 @@ mod_stale_refresh = mod_folder_compact.index(
 )
 mod_rename_folder = mod_folder_compact.index("rename(full_path,new_full_path)", mod_stale_refresh)
 require(mod_source_exists < mod_snapshot_lookup < mod_stale_refresh < mod_rename_folder and
-        "add_folder(" not in mod_folder_compact[mod_snapshot_lookup:mod_rename_folder],
+        "add_folder(mount_path,folder)" not in mod_folder_compact[mod_snapshot_lookup:mod_rename_folder],
         "mod_folder must refresh a stale folder-list snapshot from the existing directory instead of trying to mkdir an already-existing source")
 
 get_permission = function_body(DISK_SOURCE, "int get_permission(")

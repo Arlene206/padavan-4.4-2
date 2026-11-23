@@ -1410,7 +1410,7 @@ test_account_inventory_matches_locked_rejects_invalid_or_failed_reads(void)
 	fake_account_delete_init_three(&fake);
 	errno = 0;
 	assert(fake_account_inventory_matches_run(&fake, 3, 4, users) == -1);
-	assert(errno == EINVAL && fake.get_calls == 1);
+	assert(errno == EINVAL && fake.get_calls == 2);
 
 	fake_account_delete_init_three(&fake);
 	fake.fail_get_call = 2;
