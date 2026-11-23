@@ -434,7 +434,10 @@ fake_account_name_valid(const char *name)
 static int
 fake_account_name_reserved(const char *name, const char *http_username)
 {
-	return strcmp(name, "anonymous") == 0 ||
+	return strcmp(name, "root") == 0 ||
+	       strcmp(name, "nobody") == 0 ||
+	       strcmp(name, "sshd") == 0 ||
+	       strcmp(name, "anonymous") == 0 ||
 	       (http_username && *http_username &&
 		strcmp(name, http_username) == 0);
 }
