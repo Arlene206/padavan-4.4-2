@@ -3007,7 +3007,7 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		}
 		spin_lock_irq(&ei_local->page_lock);
-		ephy_ioctl(dev, ifr, &ephy_data);
+		ret = ephy_ioctl(dev, ifr, &ephy_data);
 
 		break;
 

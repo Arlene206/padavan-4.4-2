@@ -1149,6 +1149,24 @@ jobs:
           print("GE analog wait callback context is fully defined before use: PASS")
           PY
 
+      - name: Validate RAETH EPHY ioctl propagates calibration failure status
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+          case = source.split("case RAETH_EPHY_IOCTL:", 1)[1].split(
+              chr(10) + "\tdefault:", 1
+          )[0]
+          assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in case
+          assert "ephy_ioctl(dev, ifr, &ephy_data);" in case
+          assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in case
+          assert "return ret;" in source.split("int ei_ioctl(", 1)[1].split(
+              chr(10) + "static const struct net_device_ops", 1
+          )[0]
+          print("RAETH_EPHY_IOCTL propagates calibration -EIO to ndo_do_ioctl caller: PASS")
+          PY
+
       - name: Validate calibration ioctl retries each port and reports failures
         run: |
           python3 - <<'PY'
