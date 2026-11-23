@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/libdisk-share-stability.yml"
       - "trunk/user/libdisk/src/disk_share.c"
+      - "trunk/user/libdisk/src/disk_io_tools.h"
       - "trunk/user/libdisk/src/disk_io_tools.c"
       - "trunk/user/libdisk/src/disk_share.h"
       - "trunk/user/libdisk/src/disk_share_list_policy.h"
@@ -20,6 +21,7 @@ on:
     paths:
       - ".github/workflows/libdisk-share-stability.yml"
       - "trunk/user/libdisk/src/disk_share.c"
+      - "trunk/user/libdisk/src/disk_io_tools.h"
       - "trunk/user/libdisk/src/disk_io_tools.c"
       - "trunk/user/libdisk/src/tests/disk_io_tools_read_test.c"
       - "trunk/user/libdisk/src/disk_share.h"
@@ -52,6 +54,6 @@ jobs:
             trunk/user/libdisk/src/tests/disk_io_tools_read_test.c \
             trunk/user/libdisk/src/disk_io_tools.c \
             -o /tmp/disk-io-tools-read
-          ASAN_OPTIONS=detect_leaks=1 /tmp/disk-io-tools-read
+          ASAN_OPTIONS=detect_leaks=1 timeout 10s /tmp/disk-io-tools-read
       - name: Verify public APIs and Samba failure cleanup
         run: python3 scripts/check_libdisk_share_stability.py

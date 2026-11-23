@@ -80,18 +80,25 @@ folder_list_reader = function_body(
     "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
 )
 folder_list_reader_compact = "".join(folder_list_reader.split())
-cache_missing = folder_list_reader_compact.index("if(!test_if_file(list_file))")
+cache_read = folder_list_reader_compact.index(
+    "list_info=read_regular_file_nofollow(list_file)"
+)
+cache_missing = folder_list_reader_compact.index(
+    "if(!list_info&&errno==ENOENT)", cache_read
+)
 cache_refresh = folder_list_reader_compact.index(
     "initial_folder_list_in_mount_path(mount_path)", cache_missing
 )
-cache_failure = folder_list_reader_compact.index("saved_errno=errno?errno:EIO;", cache_refresh)
-cache_cleanup = folder_list_reader_compact.index("free(list_file);", cache_failure)
-cache_restore_errno = folder_list_reader_compact.index("errno=saved_errno;", cache_cleanup)
-cache_return = folder_list_reader_compact.index("return-1;", cache_restore_errno)
-cache_read = folder_list_reader_compact.index("list_info=read_whole_file(list_file)", cache_return)
-require(cache_missing < cache_refresh < cache_failure < cache_cleanup <
-        cache_restore_errno < cache_return < cache_read,
-        "folder-list reads must stop on cache initialization failure, release the path buffer, and preserve the initialization errno")
+cache_retry = folder_list_reader_compact.index(
+    "list_info=read_regular_file_nofollow(list_file)", cache_refresh
+)
+cache_cleanup = folder_list_reader_compact.index("free(list_file);", cache_retry)
+cache_null = folder_list_reader_compact.index("if(!list_info)", cache_cleanup)
+require(cache_read < cache_missing < cache_refresh < cache_retry <
+        cache_cleanup < cache_null and
+        "test_if_file(list_file)" not in folder_list_reader_compact and
+        "read_whole_file(list_file)" not in folder_list_reader_compact,
+        "removable folder-list cache must use a nonblocking no-follow regular-file read and regenerate only on ENOENT")
 
 require("lstat(folder_path,&entry_status)" in folder_list_reader_compact and
         "disk_share_folder_entry_status" in folder_list_reader_compact and
@@ -376,18 +383,40 @@ read_failure = function_body(
 require("if (fclose(fp) != 0 && saved_errno == 0)" in read_failure and
         "errno = saved_errno ? saved_errno : EIO;" in read_failure,
         "read_whole_file failure cleanup must check close and preserve the primary errno")
+stream_body = function_body(
+    DISK_IO_SOURCE, "static char *\nread_whole_file_stream(FILE *fp)"
+)
+stream_compact = "".join(stream_body.split())
+require("READ_WHOLE_FILE_MAX(1024U*1024U)" in stream_compact and
+        "read_whole_file_failure(fp,buffer,EFBIG)" in stream_compact and
+        "fclose(fp)!=0" in stream_compact and
+        "saved_errno=errno?errno:EIO;" in stream_compact,
+        "shared stream reader must retain its 1 MiB bound and checked read/close handling")
 read_body = function_body(DISK_IO_SOURCE, "char *read_whole_file(const char *target)")
 require("errno = EINVAL;" in read_body and
-        "return read_whole_file_failure(fp, buffer, EFBIG);" in read_body and
-        "if (fclose(fp) != 0)" in read_body and
-        "saved_errno = errno ? errno : EIO;" in read_body,
-        "read_whole_file must report invalid paths, oversized files, read and close failures")
+        'fopen(target, "r")' in read_body and
+        "read_whole_file_stream(fp)" in read_body,
+        "legacy file reader must preserve its path validation and bounded stream behavior")
+safe_read = function_body(
+    DISK_IO_SOURCE, "char *read_regular_file_nofollow(const char *target)"
+)
+safe_compact = "".join(safe_read.split())
+require("open(target,O_RDONLY|O_NONBLOCK|O_NOFOLLOW)" in safe_compact and
+        "fstat(fd,&file_status)" in safe_compact and
+        "!S_ISREG(file_status.st_mode)" in safe_compact and
+        'fdopen(fd,"r")' in safe_compact and
+        "read_whole_file_stream(fp)" in safe_compact,
+        "untrusted cache reads must reject final symlinks and non-regular files without blocking")
 for marker in (
     "test_reads_complete_text_file",
     "test_reads_empty_file",
     "test_rejects_invalid_and_missing_paths",
     "test_rejects_oversized_file_with_efbig",
     "test_reports_directory_read_error",
+    "test_read_regular_file_nofollow_accepts_regular_file",
+    "test_read_regular_file_nofollow_rejects_symlink",
+    "test_read_regular_file_nofollow_rejects_fifo_without_blocking",
+    "test_read_regular_file_nofollow_rejects_directory",
 ):
     require(marker in IO_REGRESSION and marker + "();" in IO_REGRESSION,
             "missing read_whole_file regression: " + marker)

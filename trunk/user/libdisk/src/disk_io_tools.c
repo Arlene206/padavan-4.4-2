@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/vfs.h>
@@ -61,23 +62,21 @@ read_whole_file_failure(FILE *fp, char *buffer, int saved_errno)
 	return NULL;
 }
 
-char *read_whole_file(const char *target)
+/* Read one already-open stream, taking ownership and checking close status. */
+static char *
+read_whole_file_stream(FILE *fp)
 {
-	FILE *fp;
 	char *buffer = NULL, *new_buffer;
 	size_t used = 0, capacity = 0, next_capacity, n;
 	int ch, saved_errno;
 
-	/* Metadata/configuration files must not exhaust memory on removable media. */
-#define READ_WHOLE_FILE_MAX (1024U * 1024U)
-	if (!target || !*target) {
+	if (!fp) {
 		errno = EINVAL;
 		return NULL;
 	}
-	fp = fopen(target, "r");
-	if (!fp)
-		return NULL;
 
+	/* Metadata/configuration files must not exhaust memory on removable media. */
+#define READ_WHOLE_FILE_MAX (1024U * 1024U)
 	for (;;) {
 		if (capacity - used < 2) {
 			if (capacity >= (size_t)READ_WHOLE_FILE_MAX + 1) {
@@ -138,6 +137,62 @@ char *read_whole_file(const char *target)
 	}
 	return buffer;
 #undef READ_WHOLE_FILE_MAX
+}
+
+char *read_whole_file(const char *target)
+{
+	FILE *fp;
+
+	if (!target || !*target) {
+		errno = EINVAL;
+		return NULL;
+	}
+	fp = fopen(target, "r");
+	if (!fp)
+		return NULL;
+	return read_whole_file_stream(fp);
+}
+
+/*
+ * Read an untrusted removable-media metadata file without following its final
+ * path component or blocking on a FIFO/device. The stream reader keeps the
+ * same 1 MiB bound and checked read/close behavior as read_whole_file().
+ */
+char *read_regular_file_nofollow(const char *target)
+{
+	struct stat file_status;
+	FILE *fp;
+	int fd, saved_errno;
+
+	if (!target || !*target) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	fd = open(target, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
+	if (fd < 0)
+		return NULL;
+
+	if (fstat(fd, &file_status) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(fd);
+		errno = saved_errno;
+		return NULL;
+	}
+	if (!S_ISREG(file_status.st_mode)) {
+		(void)close(fd);
+		errno = EINVAL;
+		return NULL;
+	}
+
+	fp = fdopen(fd, "r");
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(fd);
+		errno = saved_errno;
+		return NULL;
+	}
+	return read_whole_file_stream(fp);
 }
 
 int mkdir_if_none(char *dir) {

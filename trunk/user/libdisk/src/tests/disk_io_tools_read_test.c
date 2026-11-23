@@ -105,6 +105,68 @@ static void test_reports_directory_read_error(void)
 }
 
 
+static void
+test_read_regular_file_nofollow_accepts_regular_file(void)
+{
+	char path[256];
+	const char *sample = "safe folder-list cache\n";
+	char *contents;
+
+	make_path(path, sizeof(path), "regular-cache.txt");
+	write_file(path, sample, strlen(sample));
+	contents = read_regular_file_nofollow(path);
+	assert(contents != NULL);
+	assert(strcmp(contents, sample) == 0);
+	free(contents);
+	assert(unlink(path) == 0);
+}
+
+static void
+test_read_regular_file_nofollow_rejects_symlink(void)
+{
+	char path[256], target[256];
+	char *contents;
+
+	make_path(path, sizeof(path), "linked-cache.txt");
+	make_path(target, sizeof(target), "cache-target.txt");
+	write_file(target, "must not be read\n", strlen("must not be read\n"));
+	assert(symlink(target, path) == 0);
+
+	errno = 0;
+	contents = read_regular_file_nofollow(path);
+	assert(contents == NULL);
+	assert(errno == ELOOP);
+
+	assert(unlink(path) == 0);
+	assert(unlink(target) == 0);
+}
+
+static void
+test_read_regular_file_nofollow_rejects_fifo_without_blocking(void)
+{
+	char path[256];
+	char *contents;
+
+	make_path(path, sizeof(path), "fifo-cache");
+	assert(mkfifo(path, 0600) == 0);
+	errno = 0;
+	contents = read_regular_file_nofollow(path);
+	assert(contents == NULL);
+	assert(errno == EINVAL);
+	assert(unlink(path) == 0);
+}
+
+static void
+test_read_regular_file_nofollow_rejects_directory(void)
+{
+	char *contents;
+
+	errno = 0;
+	contents = read_regular_file_nofollow(test_dir);
+	assert(contents == NULL);
+	assert(errno == EINVAL);
+}
+
 static void test_sanity_name_replaces_high_bit_reserved_byte(void)
 {
 	char name[] = { 'A', (char)0x84, 'B', '/', '\0' };
@@ -130,6 +192,10 @@ int main(void)
 	test_rejects_invalid_and_missing_paths();
 	test_rejects_oversized_file_with_efbig();
 	test_reports_directory_read_error();
+	test_read_regular_file_nofollow_accepts_regular_file();
+	test_read_regular_file_nofollow_rejects_symlink();
+	test_read_regular_file_nofollow_rejects_fifo_without_blocking();
+	test_read_regular_file_nofollow_rejects_directory();
 	test_sanity_name_replaces_high_bit_reserved_byte();
 
 	assert(rmdir(test_dir) == 0);

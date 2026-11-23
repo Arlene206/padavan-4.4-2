@@ -215,16 +215,17 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 
 	snprintf(list_file, list_file_len + 1, "%s/.__folder_list.txt", mount_path);
 
-	if (!test_if_file(list_file)) {
+	list_info = read_regular_file_nofollow(list_file);
+	if (!list_info && errno == ENOENT) {
 		if (initial_folder_list_in_mount_path(mount_path) != 0) {
 			saved_errno = errno ? errno : EIO;
 			free(list_file);
 			errno = saved_errno;
 			return -1;
 		}
+		list_info = read_regular_file_nofollow(list_file);
 	}
 
-	list_info = read_whole_file(list_file);
 	free(list_file);
 	if (!list_info)
 		return -1;
