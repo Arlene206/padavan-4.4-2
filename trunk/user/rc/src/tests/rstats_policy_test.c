@@ -380,6 +380,32 @@ test_nvram_selector_status_results(void)
 }
 
 static void
+test_history_selector_copy_results(void)
+{
+  char selector[16] = "stale";
+
+  assert(rstats_nvram_copy_selector(1, 0, "ppp0", selector,
+                                    sizeof(selector)) == 0);
+  assert(strcmp(selector, "ppp0") == 0);
+
+  memset(selector, 'x', sizeof(selector));
+  assert(rstats_nvram_copy_selector(0, 0, NULL, selector,
+                                    sizeof(selector)) == 0);
+  assert(selector[0] == '\0'); /* absent key keeps historical default */
+
+  strcpy(selector, "stale");
+  assert(rstats_nvram_copy_selector(-1, EACCES, "eth0", selector,
+                                    sizeof(selector)) == EACCES);
+  assert(selector[0] == '\0');
+  assert(rstats_nvram_copy_selector(1, 0, NULL, selector,
+                                    sizeof(selector)) == EIO);
+  assert(rstats_nvram_copy_selector(1, 0, "0123456789abcdef", selector,
+                                    sizeof(selector)) == ENAMETOOLONG);
+  assert(rstats_nvram_copy_selector(1, 0, "eth0", NULL, 1) == EINVAL);
+  assert(rstats_nvram_copy_selector(1, 0, "eth0", selector, 0) == EINVAL);
+}
+
+static void
 test_periodic_storage_save_retries_after_failure(void)
 {
   long elapsed = 3600;
@@ -456,6 +482,7 @@ int main(void) {
 
   test_atomic_write_and_fsync_retries(target);
   test_nvram_selector_status_results();
+  test_history_selector_copy_results();
   test_periodic_storage_save_retries_after_failure();
 
   /* Signal handlers only accumulate coalesced bits for normal-context work. */

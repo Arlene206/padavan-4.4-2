@@ -1,3 +1,10 @@
+## 2026-11-23 — Preserve RStats history view on selector read failure
+
+- `save_history_json()` still used `nvram_safe_get(RSTATS_NVKEY_DM)` after the speed selector had moved to checked NVRAM access. A `/dev/nvram` open/ioctl/close failure could collapse to an empty string and silently publish history index 0 under the wrong interface label.
+- The history exporter now uses `nvram_get_checked()`, immediately copies the shared-cache value into a bounded local buffer, preserves the historical empty/default selection when the key is absent, and returns before opening an output stream on backend, NULL-present or overlong values. The last published JSON is retained on UNKNOWN selector state.
+- Added GNU89 policy coverage for present, missing, backend `EACCES`, NULL, overlong and invalid destination inputs; extended the RStats workflow to require checked read → copy → UNKNOWN gate → atomic output open. Parent main: f3acf67d58203ae7d18b6d2755014840ba10cccc. Exact-head RStats/Process/AI/XY-C1 Actions pending; no local compilation or firmware result is claimed.
+
+---
 ## 2026-11-23 — Reject whitespace-corrupted DNS upstreams before proxy teardown
 
 - The DNS preflight accepted whitespace-only values (for example `tunnel_forward='   #53'`) and values containing embedded whitespace. They passed the old non-empty/`nil` check, so `ss_restart_dns_proxy()` could stop the healthy local DNS daemon before the replacement was guaranteed to be usable.

@@ -194,6 +194,19 @@ jobs:
           assert "rstats_nvram_read_status(-1, EACCES)" in test
           assert "rstats_nvram_write_status(-1, ENOSPC)" in test
           assert "failed to publish history view" in history_export
+          history_read = history_export.index(
+              "nvram_get_checked(RSTATS_NVKEY_DM, &nvram_netdev)")
+          history_copy = history_export.index("rstats_nvram_copy_selector(")
+          history_unknown_gate = history_export.index("if (netdev_read_status != 0)")
+          history_output_open = history_export.index(
+              "rstats_file_open_stream(RSTATS_JS_HISTORY, fn_tmp, sizeof(fn_tmp))")
+          assert history_read < history_copy < history_unknown_gate < history_output_open
+          assert "nvram_safe_get(RSTATS_NVKEY_DM)" not in history_export
+          assert "cannot trust selected history interface" in history_export
+          assert "rstats_nvram_copy_selector" in persistence_policy
+          assert "test_history_selector_copy_results" in test
+          assert "test_history_selector_copy_results();" in test
+          assert "ENAMETOOLONG" in test and "EACCES" in test
 
           for token in ("RSTATS_FILE_MAX_INTERRUPTS", "rstats_file_retry_interrupted",
                         "rstats_file_open_readonly_with", "rstats_file_read_exact_with",

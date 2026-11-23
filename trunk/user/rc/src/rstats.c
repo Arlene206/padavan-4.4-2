@@ -446,16 +446,34 @@ static void save_history_json(long next_time)
 {
 	FILE *fp;
 	int i, wan_idx;
-	char *netdev;
+	char *netdev, *nvram_netdev = NULL;
+	char netdev_text[sizeof(((speed_item_t *)0)->ifdesc)];
 	const history_t *ph;
 	char fn_tmp[PATH_MAX];
+	int netdev_read_result, netdev_read_errno, netdev_read_status;
 
 	if (next_time < 1)
 		next_time = 1;
 	else if (next_time > RSTATS_INTERVAL)
 		next_time = RSTATS_INTERVAL;
 
-	netdev = nvram_safe_get(RSTATS_NVKEY_DM);
+	/* Preserve the published view if the selector cannot be trusted.
+	 * nvram_get_checked() returns a shared-cache pointer; copy it now,
+	 * before another NVRAM read can invalidate the value. Missing retains
+	 * the legacy empty/default selection; backend/null/overlong is UNKNOWN. */
+	errno = 0;
+	netdev_read_result = nvram_get_checked(RSTATS_NVKEY_DM, &nvram_netdev);
+	netdev_read_errno = errno;
+	netdev_read_status = rstats_nvram_copy_selector(
+		netdev_read_result, netdev_read_errno, nvram_netdev,
+		netdev_text, sizeof(netdev_text));
+	if (netdev_read_status != 0) {
+		logmessage("rstats",
+			   "cannot trust selected history interface; keeping last published view (errno=%d)",
+			   netdev_read_status);
+		return;
+	}
+	netdev = netdev_text;
 
 	wan_idx = 0;
 	for (i = 0; i < MAX_HISTORY_IF; i++) {
