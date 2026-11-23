@@ -555,6 +555,40 @@ test_dhcp6_snapshot_rejects_invalid_mode_and_arguments(void)
 
 
 static int
+dnsmasq_split_dns_field_is_zero(const char *value, size_t value_size)
+{
+	size_t i;
+
+	if (!value)
+		return 0;
+	for (i = 0; i < value_size; ++i) {
+		if (value[i] != '\0')
+			return 0;
+	}
+	return 1;
+}
+
+/*
+ * Check the public snapshot values, not struct padding bytes. A failed read
+ * must invalidate every setting; padding is not part of the API contract.
+ */
+static int
+dnsmasq_split_dns_snapshot_is_zero(
+	const struct dnsmasq_split_dns_nvram_snapshot *snapshot)
+{
+	return snapshot &&
+		snapshot->vpn_private_dns_enabled == 0 &&
+		dnsmasq_split_dns_field_is_zero(
+			snapshot->vpn_domain, sizeof(snapshot->vpn_domain)) &&
+		dnsmasq_split_dns_field_is_zero(
+			snapshot->vpn_dns_servers, sizeof(snapshot->vpn_dns_servers)) &&
+		dnsmasq_split_dns_field_is_zero(
+			snapshot->man_domain, sizeof(snapshot->man_domain)) &&
+		dnsmasq_split_dns_field_is_zero(
+			snapshot->man_dns_servers, sizeof(snapshot->man_dns_servers));
+}
+
+static int
 fake_split_dns_nvram_snapshot(struct dnsmasq_split_dns_nvram_snapshot *snapshot,
 			      struct fake_dhcp_nvram *fake)
 {
@@ -617,10 +651,9 @@ static void
 test_split_dns_snapshot_read_failure_at_every_key_invalidates_tuple(void)
 {
 	struct fake_dhcp_nvram fake;
-	struct dnsmasq_split_dns_nvram_snapshot snapshot, zero;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot;
 	int failure_index;
 
-	memset(&zero, 0, sizeof(zero));
 	for (failure_index = 0; failure_index < 5; ++failure_index) {
 		fake_dhcp_nvram_init(&fake);
 		fake_add_split_dns_defaults(&fake);
@@ -629,7 +662,7 @@ test_split_dns_snapshot_read_failure_at_every_key_invalidates_tuple(void)
 		memset(&snapshot, 0xa5, sizeof(snapshot));
 		assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EACCES);
 		assert(fake.end_calls == 1 && !fake.active);
-		assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+		assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));
 	}
 }
 
@@ -637,15 +670,14 @@ static void
 test_split_dns_snapshot_begin_close_and_parse_errors_fail_closed(void)
 {
 	struct fake_dhcp_nvram fake;
-	struct dnsmasq_split_dns_nvram_snapshot snapshot, zero;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot;
 
-	memset(&zero, 0, sizeof(zero));
 	fake_dhcp_nvram_init(&fake);
 	fake.begin_error = EBUSY;
 	memset(&snapshot, 0xa5, sizeof(snapshot));
 	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EBUSY);
 	assert(fake.end_calls == 0);
-	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+	assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));
 
 	fake_dhcp_nvram_init(&fake);
 	fake_add_split_dns_defaults(&fake);
@@ -653,25 +685,24 @@ test_split_dns_snapshot_begin_close_and_parse_errors_fail_closed(void)
 	memset(&snapshot, 0xa5, sizeof(snapshot));
 	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EIO);
 	assert(fake.end_calls == 1 && !fake.active);
-	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+	assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));
 
 	fake_dhcp_nvram_init(&fake);
 	fake_dhcp_nvram_add(&fake, "vpnc_pdns", "1junk");
 	memset(&snapshot, 0xa5, sizeof(snapshot));
 	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == EINVAL);
 	assert(fake.end_calls == 1 && !fake.active);
-	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+	assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));
 }
 
 static void
 test_split_dns_snapshot_rejects_oversized_domain_and_server_lists(void)
 {
 	struct fake_dhcp_nvram fake;
-	struct dnsmasq_split_dns_nvram_snapshot snapshot, zero;
+	struct dnsmasq_split_dns_nvram_snapshot snapshot;
 	char oversized_domain[DNSMASQ_SPLIT_DNS_DOMAIN_VALUE_SIZE + 1];
 	char oversized_dns[DNSMASQ_SPLIT_DNS_LIST_VALUE_SIZE + 1];
 
-	memset(&zero, 0, sizeof(zero));
 	memset(oversized_domain, 'd', sizeof(oversized_domain) - 1);
 	oversized_domain[sizeof(oversized_domain) - 1] = '\0';
 	fake_dhcp_nvram_init(&fake);
@@ -679,7 +710,7 @@ test_split_dns_snapshot_rejects_oversized_domain_and_server_lists(void)
 	memset(&snapshot, 0xa5, sizeof(snapshot));
 	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == ENAMETOOLONG);
 	assert(fake.end_calls == 1 && !fake.active);
-	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+	assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));
 
 	memset(oversized_dns, '1', sizeof(oversized_dns) - 1);
 	oversized_dns[sizeof(oversized_dns) - 1] = '\0';
@@ -688,7 +719,7 @@ test_split_dns_snapshot_rejects_oversized_domain_and_server_lists(void)
 	memset(&snapshot, 0xa5, sizeof(snapshot));
 	assert(fake_split_dns_nvram_snapshot(&snapshot, &fake) == ENAMETOOLONG);
 	assert(fake.end_calls == 1 && !fake.active);
-	assert(memcmp(&snapshot, &zero, sizeof(snapshot)) == 0);
+	assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));
 }
 
 

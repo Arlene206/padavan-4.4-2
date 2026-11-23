@@ -202,6 +202,7 @@ for marker in (
     "test_split_dns_snapshot_read_failure_at_every_key_invalidates_tuple",
     "test_split_dns_snapshot_begin_close_and_parse_errors_fail_closed",
     "test_split_dns_snapshot_rejects_oversized_domain_and_server_lists",
+    "dnsmasq_split_dns_snapshot_is_zero",
 ):
     assert marker in TEST and marker + "();" in TEST, marker
 
