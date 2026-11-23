@@ -398,10 +398,6 @@ zerotier_load_start_settings() {
 
 start_instance() {
 	cfg="$1"
-	if ! zerotier_load_start_settings; then
-		logger -t "zerotier" "无法读取ZeroTier启动配置，取消本次启动"
-		return 1
-	fi
 	echo $cfg
 	port=""
 	args=""
@@ -952,6 +948,10 @@ zero_route() {
 
 start_zero() {
 	logger -t "zerotier" "正在启动zerotier"
+	if ! zerotier_load_start_settings; then
+		logger -t "zerotier" "无法读取ZeroTier启动配置，取消本次启动"
+		return 1
+	fi
 	if ! kill_z; then
 		logger -t "zerotier" "旧进程未能确认退出，取消启动"
 		return 1

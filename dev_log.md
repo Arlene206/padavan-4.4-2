@@ -1,3 +1,12 @@
+## 2026-11-23 07:45 UTC — Run ZeroTier settings preflight before stopping the daemon
+
+- Review of the checked-read gate found it was first called from `start_instance()`, but `start_zero()` stops the old daemon before calling that function. A read error would therefore preserve identity yet still take down a working ZeroTier service.
+- Moved the five-key settings preflight to `start_zero()`, before `kill_z()` and firewall replay. `start_instance()` no longer performs a second potentially failing read after the old daemon is stopped.
+- Added a regression that injects a `zerotier_secret` checked-read error and asserts the existing daemon remains running, no signal is sent, no network cleanup runs and no new instance launches. The source contract pins this ordering.
+- Exact-head ZeroTier, XY-C1, AI docs, WAN route and Process runs from the prior commit were pending at the last poll; follow-up Actions are checked on this new source SHA. No local test/build claim.
+
+---
+
 ## 2026-11-23 07:40 UTC — Fail closed on ZeroTier startup NVRAM read errors
 
 - Source review found that `start_instance()` used legacy `nvram get` for `zerotier_secret` and four related startup selectors. The NVRAM CLI's legacy getter can return success with no output on a read error. A transient identity-secret read failure could therefore be interpreted as an empty key and trigger generation/publication of a different permanent ZeroTier identity.

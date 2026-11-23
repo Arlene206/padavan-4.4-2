@@ -2,43 +2,32 @@
 
 ## Current repository state
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main before this source slice: `c79bb0c5ae955aeadd91986928d936668bcc8a3c`; this commit is based on that exact head.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only, never alter.
-- No local checkout is available in this session. Do not claim local shell tests, host builds or firmware builds.
-- Only `main` is writable. This slice creates all changed blobs and one complete tree/commit, then updates main with a non-forced expected-SHA guard.
+- Main before this follow-up: `da0b2cb22dd9e2ebba346f0d34ad1a67071f7764`; frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- No local checkout is available; do not claim local tests or builds. Only `main` is writable.
 
-## Exact-SHA Actions before this source slice
-- Wireless regression `45130357263`: SUCCESS on `c79bb0c5ae955aeadd91986928d936668bcc8a3c`; it fixes the earlier source-contract NameError and passes GNU89/Werror/ASan/UBSan plus source checks.
-- AI handoff contract `45130357161`: SUCCESS on the same `c79bb0c...` SHA.
-- XY-C1 `45130357194`: workflow SUCCESS on that SHA, but Build XY-C1, TRX verification and artifact upload were SKIPPED because that descendant changed only checker/docs. Not L3 evidence.
-- Integrated HNAT/SFE/NAT-helper source: XY-C1 run `45129983650` on `2d5f218f7bbfcfb0f140be9c04f072173fe328c8` was still IN_PROGRESS at the last query. Recheck the conclusion and require same-SHA Build, TRX and artifact upload; do not transfer it to later heads.
+## Exact-SHA Actions for the prior ZeroTier slice
+- Prior source commit: `da0b2cb22dd9e2ebba346f0d34ad1a67071f7764`.
+- At the last poll, ZeroTier lifecycle `45130983855`, AI handoff `45130983929`, XY-C1 `45130984042`, WAN route `45130983999`, and Process inventory `45130983955` were all IN_PROGRESS on that exact SHA. Recheck before claiming any result.
+- Wireless regression `45130357263` and AI docs `45130357161` passed on `c79bb0c...`. XY-C1 `45130357194` completed workflow SUCCESS but skipped Build/TRX/artifact; no L3 claim.
+- Integrated HNAT/SFE/NAT-helper XY-C1 run `45129983650` on `2d5f218...` was still IN_PROGRESS at the last query; recheck exact status.
 
-## Completed source work in the current sequence
-- Runtime timezone and early boot console logging now preserve prior/default behavior on NVRAM read/close errors rather than fabricating empty/zero values.
-- Ralink regulatory SKU publication is validated, staged and atomically replaced; failures propagate through wireless config generation.
-- SYN-cookie, NAT-helper and HNAT/SFE selectors use checked/transactional NVRAM snapshots and abort before weakening protection or removing active modules.
-- Wireless MLME power/state publication restores the exact previously persisted radio state on failure, including same-state requests. Latest Wireless regression and AI docs pass on `c79bb0c...`; the descendant XY workflow skipped target build/TRX/artifact.
+## Active task — protect ZeroTier identity and running service on NVRAM read errors
+- Defect: legacy `nvram get` conflates a backend/read/close error with an empty value. An unreadable permanent `zerotier_secret` could trigger new identity generation, and other selectors could be silently dropped.
+- Commit `da0b2cb...` added five `nvram get_checked` reads and all-reads-before-publish handling. Review identified one ordering gap: `start_zero()` stops the old daemon before calling `start_instance()`, so a checked read only inside `start_instance()` would still take down a working service on a transient NVRAM error.
+- THIS FOLLOW-UP moves the preflight to `start_zero()`, ahead of `kill_z()` and firewall replay; `start_instance()` consumes only the already-validated settings. The new shell regression injects a failed secret read and asserts no process signal, network cleanup or relaunch. The source contract pins the same ordering.
+- Exact-head ZeroTier lifecycle, XY-C1, AI, WAN route and Process Actions will be checked after this commit. No local test/build claim.
 
-## Active task — ZeroTier startup settings must fail closed on NVRAM read errors
-- Defect: `start_instance()` used legacy `nvram get` for `zerotier_secret`, `zerotier_moonid`, `zerotiermoon_enable`, `zerotier_planet` and `zerotier_id`. The legacy getter can return success with no output on a read error. An unreadable `zerotier_secret` can therefore look empty, causing `zerotier_prepare_identity()` to generate and publish a replacement identity; other faults can silently omit a moon, planet or network join.
-- THIS COMMIT adds `zerotier_load_start_settings()`, which reads all five keys via `nvram get_checked` before publishing any consumer-visible values. Missing keys retain empty defaults; backend/read/close failures abort before config-directory, identity, planet, network or daemon side effects.
-- Lifecycle tests cover all five read-failure positions, missing-key compatibility, complete snapshot publication and no partial global update. The source contract pins read/publish and start-side-effect ordering.
-- Exact-head ZeroTier lifecycle, XY-C1 and AI docs Actions for THIS COMMIT are pending at commit creation. No local test/build is claimed.
-
-## Exact first actions for the next session
-1. Fetch live `main`; inspect THIS COMMIT's exact-head ZeroTier lifecycle regression and fix the first causal failure without weakening coverage.
-2. Inspect exact-head XY-C1. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA; a green workflow with skipped steps is not enough.
-3. Continue with remaining unchecked ZeroTier runtime selectors (starting with `zerotier_nat` and static-route NVRAM inputs) as an independent slice; preserve missing-key defaults and avoid side effects on read errors.
-4. Recheck the integrated HNAT/SFE/NAT-helper build from run `45129983650`; L4 physical-router validation remains NOT VERIFIED.
+## Next actions
+1. Fetch live `main`, inspect THIS FOLLOW-UP's exact-head ZeroTier lifecycle run and fix the first causal failure without weakening tests.
+2. Inspect matching XY-C1 Build, TRX and artifact steps; L3 requires all three to PASS on one production-source SHA.
+3. Continue with checked reads for `zerotier_nat` and static-route configuration, including fail-closed cleanup semantics.
+4. Recheck the integrated HNAT/SFE/NAT-helper build and L4 router validation; L4 remains NOT VERIFIED.
 
 ## Validation boundary
-- L1 source review only for this ZeroTier slice until its exact-head regression passes.
-- L2 requires the matching host regression and source-contract run.
-- L3 requires same-SHA target Build + TRX + artifact upload.
-- L4 physical-router behavior remains NOT VERIFIED.
+L1 source review is complete for the ordering correction. L2 requires the matching ZeroTier shell and Python checks. L3 requires same-SHA Build/TRX/artifact. L4 physical router validation remains NOT VERIFIED.
 
-## Cross-session execution mandate
-Continue implementation rather than repeated audits. One logical source/test slice per atomic commit; create a complete Git tree and commit, then update `main` with `force:false` and expected parent SHA. Inspect exact-SHA Actions; when checks remain pending, work on another independent task. Never modify the frozen backup or claim tests/builds/CI results that were not observed.
+## Cross-session mandate
+Continue small atomic source/test commits, use one complete tree/commit per logical slice, update `main` with `force:false` and expected parent SHA, inspect exact-SHA Actions, never mutate the frozen backup, and never claim an unobserved result.
 
 ---
 # SESSION HANDOFF — Padavan 4.4

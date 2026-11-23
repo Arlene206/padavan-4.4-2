@@ -242,21 +242,22 @@ for key, temporary_name, public_name in startup_settings:
     startup_publish_positions.append(start_settings_body.index(publish_expression))
 require(max(startup_read_positions) < min(startup_publish_positions),
         "startup settings must all be read successfully before any consumer-visible selector is published")
-require('if ! zerotier_load_start_settings; then' in start_instance_body and
+require('if ! zerotier_load_start_settings; then' in start_body and
+        'if ! kill_z; then' in start_body and
+        'if ! zerotier_replay_firewall_state; then' in start_body and
+        "start_instance 'zerotier'" in start_body and
+        'if ! zerotier_load_start_settings; then' not in start_instance_body and
         'if ! zerotier_prepare_config_directory; then' in start_instance_body and
         'if ! zerotier_prepare_identity; then' in start_instance_body and
         'if ! zerotier_import_planet_file "$PLANET"; then' in start_instance_body and
         'if ! add_join "$zt_network_id"; then' in start_instance_body and
         'zt_network_id="$(nvram get zerotier_id)"' not in start_instance_body,
-        "startup must load checked settings before identity, planet, network or daemon side effects")
-startup_gate_position = start_instance_body.index('if ! zerotier_load_start_settings; then')
-require(startup_gate_position < start_instance_body.index('if ! zerotier_prepare_config_directory; then') <
-        start_instance_body.index('if ! zerotier_prepare_identity; then') <
-        start_instance_body.index('if [ -L "$PLANET" ]') <
-        start_instance_body.index('if [ -f "$PLANET" ]') <
-        start_instance_body.index('if ! add_join "$zt_network_id"; then') <
-        start_instance_body.index('$PROG $args $config_path'),
-        "checked settings preflight must precede all ZeroTier startup side effects")
+        "startup settings must be checked in start_zero before any service stop or launch")
+startup_gate_position = start_body.index('if ! zerotier_load_start_settings; then')
+require(startup_gate_position < start_body.index('if ! kill_z; then') <
+        start_body.index('if ! zerotier_replay_firewall_state; then') <
+        start_body.index("start_instance 'zerotier'"),
+        "checked settings preflight must precede stopping the old daemon and restarting")
 for marker in ("startup settings read error was accepted",
                "startup settings partially published secret",
                "missing identity secret did not retain the legacy empty default"):

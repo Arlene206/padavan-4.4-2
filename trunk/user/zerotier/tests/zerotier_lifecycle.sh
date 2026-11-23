@@ -292,6 +292,20 @@ for setting in zerotier_moonid zerotier_secret zerotiermoon_enable zerotier_plan
 done
 TEST_NVRAM_READ_FAIL_KEY=""
 
+# A checked startup read failure must not stop an already-running daemon.
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+TEST_NVRAM_READ_FAIL_KEY="zerotier_secret"
+if start_zero; then
+	fail "start proceeded after startup settings read error"
+fi
+[ ! -s "$TEST_KILL_LOG" ] || fail "start stopped the existing daemon before checking startup settings"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "start performed network cleanup or relaunched after a startup settings error"
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "startup settings error changed the prior daemon state"
+TEST_NVRAM_READ_FAIL_KEY=""
+
 iptables() {
 	iptables_raw="$*"
 	printf '%s\n' "$iptables_raw" >> "$TEST_IPTABLES_LOG"
