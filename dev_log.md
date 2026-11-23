@@ -1,3 +1,13 @@
+## 2026-11-24 07:24 CST (UTC+8) — Keep interrupts enabled during PHY calibration ioctl
+
+- Base main SHA: d855df7965ca1a0e393cb9af420491eccff6d089. EPHY ioctl runs synchronous FE/GE calibration across multiple ports with bounded retry and MDIO polling loops. ei_ioctl() previously reacquired page_lock with spin_lock_irq immediately before ephy_ioctl(), leaving local IRQs disabled throughout the full calibration.
+- Moved the relock until after ephy_ioctl() returns. The calibration functions use their dedicated checked PHY-page/MDIO transaction locks and do not access the CR register block protected by page_lock. The copy_from_user failure path still reacquires page_lock before the shared function-exit unlock.
+- Extended the EPHY ioctl source contract to require IRQ unlock before calibration and relock after the call. Source preflight confirms no successful-path reacquisition occurs until ephy_ioctl() completes.
+- Parent exact-SHA Switch CLI #45285332081 and AI handoff #45285331846 PASS. Older source SHA 6b1c7c4... target build was pending; new source commit triggers a fresh XY-C1 build.
+- No local MIPS build or physical hardware test. No L3/L4 claim.
+
+---
+
 ## 2026-11-24 07:20 CST (UTC+8) — Update FE contract for extracted cleanup callback
 
 - Base main SHA: 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147. Exact Switch CLI #45285025962 FAIL, job #138079002575, step 30. The old contract still expected teardown writes and saved-snapshot restore conditions to remain inline in the orchestrator. The source change intentionally moved them to ra_switch_fe_analog_cal_cleanup().

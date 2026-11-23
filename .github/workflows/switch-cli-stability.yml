@@ -1159,6 +1159,13 @@ jobs:
               chr(10) + "\tdefault:", 1
           )[0]
           assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in case
+          call_at = case.index("ret = ephy_ioctl(dev, ifr, &ephy_data);")
+          before_call = case[:call_at]
+          after_error_block = before_call.rsplit("}", 1)[-1]
+          after_call = case[call_at:]
+          assert "spin_unlock_irq(&ei_local->page_lock);" in before_call
+          assert "spin_lock_irq(&ei_local->page_lock);" not in after_error_block
+          assert after_call.index("spin_lock_irq(&ei_local->page_lock);") < after_call.index("break;")
           assert "ephy_ioctl(dev, ifr, &ephy_data);" in case
           assert "ret = ephy_ioctl(dev, ifr, &ephy_data);" in case
           assert "return ret;" in source.split("int ei_ioctl(", 1)[1].split(

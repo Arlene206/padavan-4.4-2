@@ -3006,8 +3006,9 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ret = -EFAULT;
 			break;
 		}
-		spin_lock_irq(&ei_local->page_lock);
+		/* PHY calibration polls MDIO for long periods; keep IRQs enabled. */
 		ret = ephy_ioctl(dev, ifr, &ephy_data);
+		spin_lock_irq(&ei_local->page_lock);
 
 		break;
 
