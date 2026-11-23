@@ -3419,7 +3419,7 @@ void ge_cal_tx_offset(u8 phyaddr, unsigned int delay)
 
 		cnt = 0;
 		tx_offset_temp += calibration_polarity;
-		while (all_ana_cal_status < ANACAL_ERROR) {
+		while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
 			cnt++;
 			cal_temp = tx_offset_temp;
 			val_tmp = (reg_temp | (cal_temp << tx_offset_reg_shift));
@@ -3455,7 +3455,11 @@ void ge_cal_tx_offset(u8 phyaddr, unsigned int delay)
 				}
 			}
 		}
-		if (all_ana_cal_status == ANACAL_ERROR) {
+		if ((all_ana_cal_status == ANACAL_ERROR) ||
+		    (all_ana_cal_status == ANACAL_SATURATION) ||
+		    ((all_ana_cal_status == ANACAL_INIT) && (cnt >= 254U))) {
+			/* No comparator crossing: leave this pair at the known 0 dB code. */
+			all_ana_cal_status = ANACAL_ERROR;
 			tx_offset_temp = 0x20;
 			val_tmp = (reg_temp | (tx_offset_temp << tx_offset_reg_shift));
 			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_offset_reg, val_tmp);
