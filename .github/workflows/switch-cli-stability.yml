@@ -1216,7 +1216,7 @@ jobs:
                   "if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))"
               )
               addr_failure = cl45_fn.index("goto out;", addr_check)
-              timer_reset = cl45_fn.index("t_start = jiffies;", addr_check)
+              timer_reset = cl45_fn.index("t_start_ns = ktime_get_ns();", addr_check)
               assert addr_check < addr_failure < timer_reset
           assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_read
           assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_write
