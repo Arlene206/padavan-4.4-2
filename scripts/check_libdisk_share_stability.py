@@ -916,23 +916,42 @@ del_validate = del_folder_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     del_begin
 )
-del_lookup = del_folder_compact.index("test_if_exist_folder_in_mount_path(mount_path,folder)", del_validate)
-del_error = del_folder_compact.index("if(result<0)", del_lookup)
-del_remove = del_folder_compact.index("if(rmdir(full_path)!=0)", del_error)
-del_snapshot = del_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", del_remove)
-del_permissions = del_folder_compact.index(
-    "disk_share_update_folder_permission_file(mount_path,account_list[i],target,NULL)",
+del_plan = del_folder_compact.index("disk_share_permission_batch_prepare_delete(", del_validate)
+del_stage = del_folder_compact.index("rename(full_path,staging_path)", del_plan)
+del_snapshot = del_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", del_stage)
+del_apply = del_folder_compact.index(
+    "disk_share_permission_batch_apply(permission_batch,permission_batch_count,disk_share_replace_file_atomic,&rollback_error)",
     del_snapshot
 )
-del_end = del_folder_compact.index("disk_share_account_nvram_end(&transaction)", del_permissions)
-require(del_inventory < del_begin < del_validate < del_lookup < del_error <
-        del_remove < del_snapshot < del_permissions < del_end and
-        "get_account_list(" not in del_folder_compact[del_begin:],
-        "folder deletion must revalidate its account snapshot under one writer lease and hold it through directory and per-account permission cleanup")
+del_remove = del_folder_compact.index("rmdir(staging_path)", del_apply)
+del_rollback = del_folder_compact.index(
+    "disk_share_permission_batch_rollback(permission_batch,permission_batch_count,disk_share_replace_file_atomic,&rollback_error)",
+    del_apply
+)
+del_restore_directory = del_folder_compact.index("rename(staging_path,full_path)", del_rollback)
+del_restore_snapshot = del_folder_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", del_restore_directory
+)
+del_release = del_folder_compact.index(
+    "disk_share_account_nvram_end(&transaction)", del_restore_snapshot
+)
+require(del_inventory < del_begin < del_validate < del_plan < del_stage <
+        del_snapshot < del_apply < del_remove < del_rollback <
+        del_restore_directory < del_restore_snapshot < del_release and
+        "disk_share_permission_batch_prepare_delete" in DISK_SOURCE and
+        "getpid()" in DISK_SOURCE and
+        "if(dp->d_name[0]=='.')" in "".join(DISK_SOURCE.split()),
+        "folder deletion must preflight metadata, stage the directory, batch-publish permissions and compensate files/directory/list on failure")
+
+for marker in (
+    "test_permission_batch_applies_and_restores_all_files",
+    "test_permission_batch_rolls_back_prior_file_after_write_failure",
+    "test_permission_batch_reports_and_retries_failed_compensation",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing permission batch rollback regression: " + marker)
 
 for signature, expected_update in (
-    ("int del_folder(const char *const mount_path, const char *const folder)",
-     "disk_share_update_folder_permission_file(mount_path, account_list[i], target, NULL)"),
     ("int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)",
      "disk_share_update_folder_permission_file(mount_path, account_list[i], target, new_target)"),
 ):

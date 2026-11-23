@@ -2141,14 +2141,139 @@ disk_share_update_folder_permission_file(const char *mount_path,
 	return 0;
 }
 
+
+static void
+disk_share_permission_batch_free(
+	struct disk_share_permission_batch_entry *entries, int count)
+{
+	int i;
+
+	if (!entries)
+		return;
+	for (i = 0; i < count; ++i) {
+		free(entries[i].before);
+		free(entries[i].after);
+	}
+	free(entries);
+}
+
+static int
+disk_share_permission_batch_prepare_delete(
+	const char *mount_path, int acc_num, char **account_list,
+	const char *target,
+	struct disk_share_permission_batch_entry **entries_out,
+	int *entry_count_out)
+{
+	struct disk_share_permission_batch_entry *entries = NULL;
+	int i, count, saved_errno;
+	const char *account;
+
+	if (entries_out)
+		*entries_out = NULL;
+	if (entry_count_out)
+		*entry_count_out = 0;
+	if (!mount_path || !*mount_path || acc_num < 0 ||
+	    acc_num > MAX_ACCOUNT_NUM ||
+	    (acc_num > 0 && !account_list) || !target ||
+	    !entries_out || !entry_count_out) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	count = acc_num + 1;
+	entries = (struct disk_share_permission_batch_entry *)
+		calloc((size_t)count, sizeof(*entries));
+	if (!entries)
+		return -1;
+
+	for (i = 0; i < count; ++i) {
+		account = i < acc_num ? account_list[i] : FTP_ANONYMOUS_USER;
+		if (disk_share_format_account_var_path(
+			    entries[i].path, sizeof(entries[i].path),
+			    mount_path, account) != 0)
+			goto failed;
+
+		entries[i].before = read_whole_file(entries[i].path);
+		if (!entries[i].before) {
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno == ENOENT) {
+				errno = 0;
+				continue;
+			}
+			errno = saved_errno;
+			goto failed;
+		}
+		entries[i].before_len = strlen(entries[i].before);
+		if (disk_share_permission_rewrite(
+			    entries[i].before, target, NULL,
+			    &entries[i].after, &entries[i].after_len) != 0) {
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno == ENOENT) {
+				errno = 0;
+				continue;
+			}
+			errno = saved_errno;
+			goto failed;
+		}
+		entries[i].needs_update = 1;
+	}
+
+	*entries_out = entries;
+	*entry_count_out = count;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	disk_share_permission_batch_free(entries, count);
+	errno = saved_errno;
+	return -1;
+}
+
+static int
+disk_share_find_folder_staging_path(const char *mount_path,
+                                    char *staging_path, size_t staging_size)
+{
+	unsigned int attempt;
+	struct stat status;
+	int path_len;
+
+	if (!mount_path || !*mount_path || !staging_path || staging_size == 0) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (attempt = 0; attempt < 32; ++attempt) {
+		path_len = snprintf(staging_path, staging_size,
+		                    "%s/.share-delete-%ld-%u",
+		                    mount_path, (long)getpid(), attempt);
+		if (path_len < 0 || (size_t)path_len >= staging_size) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		if (lstat(staging_path, &status) == 0)
+			continue;
+		if (errno == ENOENT) {
+			errno = 0;
+			return 0;
+		}
+		return -1;
+	}
+
+	errno = EEXIST;
+	return -1;
+}
+
 int del_folder(const char *const mount_path, const char *const folder)
 {
-	int result, i, saved_errno, first_error = 0;
-	int acc_num = 0, transaction_started = 0;
+	int result, saved_errno, rollback_error = 0;
+	int acc_num = 0, transaction_started = 0, staging_applied = 0;
+	int permission_batch_count = 0;
 	struct nvram_transaction transaction;
+	struct stat folder_status;
 	char **account_list = NULL;
-	char var_file[256];
+	char var_file[256], staging_path[256];
 	char *target = NULL, *full_path = NULL;
+	struct disk_share_permission_batch_entry *permission_batch = NULL;
 	size_t mount_len, folder_len, path_len, target_len;
 
 	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
@@ -2180,23 +2305,27 @@ int del_folder(const char *const mount_path, const char *const folder)
 	target[target_len - 1] = '=';
 	target[target_len] = '\0';
 
-	/* Preflight the complete inventory and every path before rmdir(). */
 	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
 		goto failed;
-	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-		                                       mount_path, account_list[i]) != 0)
+	if (acc_num < 0 || acc_num > MAX_ACCOUNT_NUM) {
+		errno = EINVAL;
+		goto failed;
+	}
+	for (result = 0; result < acc_num; ++result) {
+		if (disk_share_format_account_var_path(
+			    var_file, sizeof(var_file), mount_path,
+			    account_list[result]) != 0)
 			goto failed;
 	}
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+	if (disk_share_format_account_var_path(
+		    var_file, sizeof(var_file), mount_path,
+		    FTP_ANONYMOUS_USER) != 0)
 		goto failed;
 
 	/*
-	 * Hold the account writer lease while deleting permission records. This
-	 * keeps add_account from publishing a new user's metadata after the
-	 * inventory snapshot but before this folder's records are removed.
+	 * Serialize account identity changes while preparing, applying and
+	 * potentially compensating the folder's per-account permission batch.
 	 */
 	if (disk_share_account_nvram_begin(&transaction) != 0)
 		goto failed;
@@ -2209,34 +2338,43 @@ int del_folder(const char *const mount_path, const char *const folder)
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
 	if (result < 0)
 		goto failed;
-	if (result == 0 && test_if_dir(full_path) != 1) {
-		errno = ENOENT;
+	if (lstat(full_path, &folder_status) != 0)
+		goto failed;
+	if (!S_ISDIR(folder_status.st_mode)) {
+		errno = ENOTDIR;
 		goto failed;
 	}
-	/* Do not revoke access when rmdir fails (for example, a non-empty folder). */
-	if (rmdir(full_path) != 0)
+
+	/* Read/transform every metadata file before making any change. */
+	if (disk_share_permission_batch_prepare_delete(
+		    mount_path, acc_num, account_list, target,
+		    &permission_batch, &permission_batch_count) != 0)
+		goto failed;
+	if (disk_share_find_folder_staging_path(
+		    mount_path, staging_path, sizeof(staging_path)) != 0)
 		goto failed;
 
-	/* Report snapshot errors, but continue independent permission cleanup. */
+	/*
+	 * The directory is first moved to a dot-prefixed sibling, which is
+	 * excluded from share enumeration. Its inode and contents remain intact
+	 * until every permission file is published and rmdir succeeds.
+	 */
+	if (rename(full_path, staging_path) != 0)
+		goto failed;
+	staging_applied = 1;
 	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		first_error = errno ? errno : EIO;
+		goto rollback;
 
-	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_update_folder_permission_file(
-			    mount_path, account_list[i], target, NULL) != 0 &&
-		    first_error == 0)
-			first_error = errno ? errno : EIO;
-	}
-	if (disk_share_update_folder_permission_file(
-		    mount_path, FTP_ANONYMOUS_USER, target, NULL) != 0 &&
-	    first_error == 0)
-		first_error = errno ? errno : EIO;
+	if (disk_share_permission_batch_apply(
+		    permission_batch, permission_batch_count,
+		    disk_share_replace_file_atomic, &rollback_error) != 0)
+		goto rollback;
 
-	if (first_error != 0) {
-		errno = first_error;
-		goto failed;
-	}
+	if (rmdir(staging_path) != 0)
+		goto rollback;
+	staging_applied = 0;
 
+	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);
@@ -2246,8 +2384,38 @@ int del_folder(const char *const mount_path, const char *const folder)
 	transaction_started = 0;
 	return 0;
 
+rollback:
+	saved_errno = errno ? errno : EIO;
+	/* Retry any restore left pending by an earlier partial compensation. */
+	rollback_error = 0;
+	if (disk_share_permission_batch_rollback(
+		    permission_batch, permission_batch_count,
+		    disk_share_replace_file_atomic, &rollback_error) != 0)
+		logmessage("disk_share",
+			   "folder deletion permission rollback failed (errno %d)",
+			   rollback_error ? rollback_error : EIO);
+	if (staging_applied) {
+		if (rename(staging_path, full_path) != 0) {
+			if (rollback_error == 0)
+				rollback_error = errno ? errno : EIO;
+		} else {
+			staging_applied = 0;
+			if (initial_folder_list_in_mount_path(mount_path) != 0 &&
+			    rollback_error == 0)
+				rollback_error = errno ? errno : EIO;
+		}
+	}
+	if (rollback_error != 0) {
+		logmessage("disk_share",
+			   "folder deletion compensation incomplete (errno %d)",
+			   rollback_error);
+		saved_errno = EIO;
+	}
+	errno = saved_errno;
+
 failed:
 	saved_errno = errno ? errno : EIO;
+	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);

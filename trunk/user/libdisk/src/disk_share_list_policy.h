@@ -240,6 +240,110 @@ disk_share_permission_rewrite(const char *source, const char *target,
 }
 
 
+/*
+ * Apply multiple permission-file replacements as one compensating batch.
+ * Original contents remain available until the enclosing directory operation
+ * commits; rollback touches only files whose replacement actually succeeded.
+ */
+struct disk_share_permission_batch_entry {
+	char path[256];
+	char *before;
+	size_t before_len;
+	char *after;
+	size_t after_len;
+	int needs_update;
+	int applied;
+};
+
+typedef int (*disk_share_permission_batch_writer)(
+	const char *, const char *, size_t);
+
+static inline int
+disk_share_permission_batch_rollback(
+	struct disk_share_permission_batch_entry *entries, int count,
+	disk_share_permission_batch_writer write_file, int *rollback_error)
+{
+	int i, saved_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (count < 0 || (count > 0 && !entries) ||
+	    !write_file || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = count; i > 0; --i) {
+		struct disk_share_permission_batch_entry *entry = &entries[i - 1];
+
+		if (!entry->applied)
+			continue;
+		if (!entry->path[0] || !entry->before) {
+			if (saved_error == 0)
+				saved_error = EINVAL;
+			continue;
+		}
+		errno = 0;
+		if (write_file(entry->path, entry->before, entry->before_len) != 0) {
+			if (saved_error == 0)
+				saved_error = errno ? errno : EIO;
+		} else {
+			entry->applied = 0;
+		}
+	}
+
+	*rollback_error = saved_error;
+	if (saved_error != 0) {
+		errno = saved_error;
+		return -1;
+	}
+	return 0;
+}
+
+static inline int
+disk_share_permission_batch_apply(
+	struct disk_share_permission_batch_entry *entries, int count,
+	disk_share_permission_batch_writer write_file, int *rollback_error)
+{
+	int i, operation_error;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (count < 0 || (count > 0 && !entries) ||
+	    !write_file || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = 0; i < count; ++i) {
+		struct disk_share_permission_batch_entry *entry = &entries[i];
+
+		if (!entry->needs_update)
+			continue;
+		if (!entry->path[0] || !entry->before || !entry->after) {
+			operation_error = EINVAL;
+			goto compensate;
+		}
+		errno = 0;
+		if (write_file(entry->path, entry->after, entry->after_len) != 0) {
+			operation_error = errno ? errno : EIO;
+			goto compensate;
+		}
+		entry->applied = 1;
+	}
+	return 0;
+
+compensate:
+	if (disk_share_permission_batch_rollback(
+		    entries, i, write_file, rollback_error) != 0) {
+		errno = EIO;
+		return -1;
+	}
+	errno = operation_error;
+	return -1;
+}
+
+
 /* Missing source metadata is an idempotent no-op; preserve other rename errors. */
 static inline int
 disk_share_account_rename_status(int rename_result, int saved_errno)

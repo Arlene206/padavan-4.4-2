@@ -1987,6 +1987,140 @@ test_account_inventory_remove_rejects_password_read_error(void)
 }
 
 
+struct fake_permission_batch_state {
+	const char *paths[2];
+	char contents[2][32];
+	int calls;
+	int fail_call;
+	int rollback_fail_call;
+};
+
+static struct fake_permission_batch_state *fake_permission_batch_state;
+
+static int
+fake_permission_batch_write(const char *path, const char *contents, size_t length)
+{
+	int i;
+	struct fake_permission_batch_state *state = fake_permission_batch_state;
+
+	++state->calls;
+	if (state->calls == state->fail_call) {
+		errno = EACCES;
+		return -1;
+	}
+	if (state->calls == state->rollback_fail_call) {
+		errno = EROFS;
+		return -1;
+	}
+	for (i = 0; i < 2; ++i) {
+		if (state->paths[i] && strcmp(state->paths[i], path) == 0) {
+			if (length >= sizeof(state->contents[i])) {
+				errno = ENAMETOOLONG;
+				return -1;
+			}
+			memcpy(state->contents[i], contents, length);
+			state->contents[i][length] = '\0';
+			return 0;
+		}
+	}
+	errno = ENOENT;
+	return -1;
+}
+
+static void
+init_fake_permission_batch(
+	struct disk_share_permission_batch_entry entries[2],
+	struct fake_permission_batch_state *state)
+{
+	memset(entries, 0, sizeof(*entries) * 2);
+	memset(state, 0, sizeof(*state));
+	state->paths[0] = "/mnt/a";
+	state->paths[1] = "/mnt/b";
+	strcpy(state->contents[0], "old-a\n");
+	strcpy(state->contents[1], "old-b\n");
+	strcpy(entries[0].path, "/mnt/a");
+	strcpy(entries[1].path, "/mnt/b");
+	entries[0].before = (char *)"old-a\n";
+	entries[0].before_len = strlen(entries[0].before);
+	entries[0].after = (char *)"new-a\n";
+	entries[0].after_len = strlen(entries[0].after);
+	entries[0].needs_update = 1;
+	entries[1].before = (char *)"old-b\n";
+	entries[1].before_len = strlen(entries[1].before);
+	entries[1].after = (char *)"new-b\n";
+	entries[1].after_len = strlen(entries[1].after);
+	entries[1].needs_update = 1;
+	fake_permission_batch_state = state;
+}
+
+static void
+test_permission_batch_applies_and_restores_all_files(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state state;
+	int rollback_error = -1;
+
+	init_fake_permission_batch(entries, &state);
+	assert(disk_share_permission_batch_apply(
+		entries, 2, fake_permission_batch_write, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(state.contents[0], "new-a\n") == 0);
+	assert(strcmp(state.contents[1], "new-b\n") == 0);
+	assert(entries[0].applied && entries[1].applied);
+
+	assert(disk_share_permission_batch_rollback(
+		entries, 2, fake_permission_batch_write, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(state.contents[0], "old-a\n") == 0);
+	assert(strcmp(state.contents[1], "old-b\n") == 0);
+	assert(!entries[0].applied && !entries[1].applied);
+}
+
+static void
+test_permission_batch_rolls_back_prior_file_after_write_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state state;
+	int rollback_error = -1;
+
+	init_fake_permission_batch(entries, &state);
+	state.fail_call = 2;
+	assert(disk_share_permission_batch_apply(
+		entries, 2, fake_permission_batch_write, &rollback_error) == -1);
+	assert(errno == EACCES);
+	assert(rollback_error == 0);
+	assert(strcmp(state.contents[0], "old-a\n") == 0);
+	assert(strcmp(state.contents[1], "old-b\n") == 0);
+	assert(!entries[0].applied && !entries[1].applied);
+}
+
+static void
+test_permission_batch_reports_and_retries_failed_compensation(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state state;
+	int rollback_error = -1;
+
+	init_fake_permission_batch(entries, &state);
+	state.fail_call = 2;
+	state.rollback_fail_call = 3;
+	assert(disk_share_permission_batch_apply(
+		entries, 2, fake_permission_batch_write, &rollback_error) == -1);
+	assert(errno == EIO);
+	assert(rollback_error == EROFS);
+	assert(strcmp(state.contents[0], "new-a\n") == 0);
+	assert(entries[0].applied);
+
+	state.fail_call = 0;
+	state.rollback_fail_call = 0;
+	assert(disk_share_permission_batch_rollback(
+		entries, 2, fake_permission_batch_write, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(state.contents[0], "old-a\n") == 0);
+	assert(!entries[0].applied);
+}
+
+
 int
 main(void)
 {
@@ -1997,6 +2131,9 @@ main(void)
 	assert(router_account_name_is_reserved_after_read("admin", -1, NULL));
 	assert(router_account_name_is_reserved_after_read("admin", 1, NULL));
 
+	test_permission_batch_applies_and_restores_all_files();
+	test_permission_batch_rolls_back_prior_file_after_write_failure();
+	test_permission_batch_reports_and_retries_failed_compensation();
 	test_invalid_mount_paths_clear_outputs();
 	test_missing_output_parameters_are_safe();
 	test_valid_mount_path_starts_with_empty_outputs();
