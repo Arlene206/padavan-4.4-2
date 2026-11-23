@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
 #include "firewall_ppp_interface_policy.h"
 #include "ipv4_netmask_policy.h"
 
@@ -349,6 +350,39 @@ firewall_schedule_is_active(const char *date, const char *time)
 	return firewall_schedule_date_is_safe(date) &&
 	       firewall_schedule_time_is_safe(time) &&
 	       strcmp(date, "0000000") != 0;
+}
+
+/*
+ * Copy a checked schedule value before the next shared NVRAM read invalidates
+ * its pointer. Missing keys retain the legacy default; present-empty or
+ * oversized values stay inactive. A backend failure is never converted into
+ * the all-days/all-day default.
+ */
+static inline int
+firewall_schedule_copy_checked_value(int read_status, int present,
+				     const char *value,
+				     const char *legacy_default,
+				     char *destination, size_t destination_size)
+{
+	const char *resolved_value;
+	size_t value_length;
+
+	if (!destination || destination_size == 0 || !legacy_default)
+		return EINVAL;
+	destination[0] = '\0';
+	if (read_status != 0)
+		return read_status;
+
+	resolved_value = firewall_schedule_value_or_default(
+		present, value, legacy_default);
+	if (!resolved_value)
+		return EINVAL;
+	value_length = strlen(resolved_value);
+	if (value_length >= destination_size)
+		return 0;
+
+	memcpy(destination, resolved_value, value_length + 1);
+	return 0;
 }
 
 #endif /* PADAVAN_FIREWALL_FILTER_POLICY_H */

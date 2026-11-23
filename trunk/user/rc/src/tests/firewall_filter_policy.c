@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <errno.h>
 #include <assert.h>
 #include "../firewall_filter_policy.h"
 
@@ -186,6 +187,29 @@ main(void)
 	assert(!strcmp(firewall_schedule_value_or_default(0, NULL, "00002359"), "00002359"));
 	assert(!strcmp(firewall_schedule_value_or_default(1, "", "1111111"), ""));
 	assert(!strcmp(firewall_schedule_value_or_default(1, "0101010", "1111111"), "0101010"));
+
+	/* Checked URL/LWF schedule reads preserve defaults but never mask I/O errors. */
+	{
+		char date_value[8], time_value[9], short_value[4];
+
+		assert(firewall_schedule_copy_checked_value(
+			0, 0, NULL, "1111111", date_value, sizeof(date_value)) == 0);
+		assert(!strcmp(date_value, "1111111"));
+		assert(firewall_schedule_copy_checked_value(
+			0, 0, NULL, "00002359", time_value, sizeof(time_value)) == 0);
+		assert(!strcmp(time_value, "00002359"));
+		assert(firewall_schedule_copy_checked_value(
+			0, 1, "", "1111111", date_value, sizeof(date_value)) == 0);
+		assert(date_value[0] == '\0');
+		assert(firewall_schedule_copy_checked_value(
+			EIO, 0, NULL, "1111111", date_value, sizeof(date_value)) == EIO);
+		assert(date_value[0] == '\0');
+		assert(firewall_schedule_copy_checked_value(
+			0, 1, "11111111", "1111111", short_value, sizeof(short_value)) == 0);
+		assert(short_value[0] == '\0');
+		assert(firewall_schedule_copy_checked_value(
+			0, 0, NULL, "1111111", NULL, 0) == EINVAL);
+	}
 
 	/* The MAC filter UI exposes only disabled, allowlist and denylist modes. */
 	assert(firewall_mac_filter_mode_is_safe(0));

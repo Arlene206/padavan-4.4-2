@@ -1080,16 +1080,45 @@ timematch_conv_values(char *mstr, const char *date, const char *time)
 static int
 timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
 {
-	char *time, *date;
+	const char *date_value, *time_value;
+	char date_buffer[8], time_buffer[9];
+	int date_present, time_present, status;
 
-	date = nvram_get(nv_date);
-	if (!date)
-		date = "1111111";
-	time = nvram_get(nv_time);
-	if (!time)
-		time = "00002359";
+	if (!mstr || !nv_date || !nv_time) {
+		errno = EINVAL;
+		return -1;
+	}
+	mstr[0] = '\0';
 
-	return timematch_conv_values(mstr, date, time);
+	status = firewall_read_string_setting_with_presence(
+		nv_date, &date_value, &date_present);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	status = firewall_schedule_copy_checked_value(
+		0, date_present, date_value, "1111111",
+		date_buffer, sizeof(date_buffer));
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+
+	status = firewall_read_string_setting_with_presence(
+		nv_time, &time_value, &time_present);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	status = firewall_schedule_copy_checked_value(
+		0, time_present, time_value, "00002359",
+		time_buffer, sizeof(time_buffer));
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+
+	return timematch_conv_values(mstr, date_buffer, time_buffer);
 }
 
 /*
@@ -2693,20 +2722,35 @@ FILE *fp;
 			return -1;
 		}
 		if (url_status > 0) {
-		char mac_buf[24] = {0};
-		timematch[0] = 0;
-		if (timematch_conv(timematch, "url_date_x", "url_time_x")) {
-			mac_conv("url_mac_x", -1, mac_buf);
-			if (strlen(mac_buf) == 17) {
-				strcat(timematch, " -m mac");
-				if (is_url_inverse)
-					strcat(timematch, " !");
-				strcat(timematch, " --mac-source ");
-				strcat(timematch, mac_buf);
+			int url_schedule_status;
+			char mac_buf[24] = {0};
+
+			timematch[0] = 0;
+			url_schedule_status = timematch_conv(
+				timematch, "url_date_x", "url_time_x");
+			if (url_schedule_status < 0) {
+				saved_errno = errno ? errno : EIO;
+				logmessage(LOGNAME,
+					   "IPv4 filter: aborting after URL-filter schedule read error (errno=%d)",
+					   saved_errno);
+				(void)fclose(fp);
+				firewall_abort_core_restore_after_staging_failure();
+				firewall_rule_file_remove(ipt_file);
+				errno = saved_errno;
+				return -1;
 			}
-			fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
-			ret |= MODULE_WEBSTR_MASK;
-		}
+			if (url_schedule_status > 0) {
+				mac_conv("url_mac_x", -1, mac_buf);
+				if (strlen(mac_buf) == 17) {
+					strcat(timematch, " -m mac");
+					if (is_url_inverse)
+						strcat(timematch, " !");
+					strcat(timematch, " --mac-source ");
+					strcat(timematch, mac_buf);
+				}
+				fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
+				ret |= MODULE_WEBSTR_MASK;
+			}
 		}
 	}
 
@@ -3597,9 +3641,24 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			return -1;
 		}
 		if (url_status > 0) {
+			int url_schedule_status;
 			char mac_buf[24] = {0};
+
 			timematch[0] = 0;
-			if (timematch_conv(timematch, "url_date_x", "url_time_x")) {
+			url_schedule_status = timematch_conv(
+				timematch, "url_date_x", "url_time_x");
+			if (url_schedule_status < 0) {
+				saved_errno = errno ? errno : EIO;
+				logmessage(LOGNAME,
+					   "IPv6 filter: aborting after URL-filter schedule read error (errno=%d)",
+					   saved_errno);
+				(void)fclose(fp);
+				firewall_abort_core_restore_after_staging_failure();
+				firewall_rule_file_remove(ipt_file);
+				errno = saved_errno;
+				return -1;
+			}
+			if (url_schedule_status > 0) {
 				mac_conv("url_mac_x", -1, mac_buf);
 				if (strlen(mac_buf) == 17) {
 					strcat(timematch, " -m mac");

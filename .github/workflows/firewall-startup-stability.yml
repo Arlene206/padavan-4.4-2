@@ -780,6 +780,29 @@ jobs:
                                      ("IPv6 filter", ipv6_filter)):
               assert "firewall_read_url_entry_count(&i_url_count)" in builder, signature
               assert builder.index("firewall_read_url_entry_count(&i_url_count)") < builder.index("firewall_open_rule_file("), signature
+          url_schedule = body(firewall_source, "timematch_conv(char *mstr,")
+          url_schedule_compact = " ".join(url_schedule.split())
+          assert url_schedule_compact.count("firewall_read_string_setting_with_presence(") == 2
+          assert "firewall_schedule_copy_checked_value(" in url_schedule_compact
+          assert 'firewall_schedule_copy_checked_value( 0, date_present, date_value, "1111111",' in url_schedule_compact
+          assert 'firewall_schedule_copy_checked_value( 0, time_present, time_value, "00002359",' in url_schedule_compact
+          assert "errno = status;" in url_schedule
+          assert "return -1;" in url_schedule
+          assert "nvram_get(nv_date)" not in url_schedule
+          assert "nvram_get(nv_time)" not in url_schedule
+          assert "firewall_schedule_copy_checked_value" in filter_policy
+          assert "test_checked_url_schedule_copy_preserves_defaults_and_errors" in filter_test
+          for signature, builder in (("IPv4 filter", ipv4_filter),
+                                     ("IPv6 filter", ipv6_filter)):
+              compact_builder = " ".join(builder.split())
+              call = compact_builder.index('url_schedule_status = timematch_conv( timematch, "url_date_x", "url_time_x")')
+              error = compact_builder.index("if (url_schedule_status < 0)", call)
+              abort = compact_builder.index("firewall_abort_core_restore_after_staging_failure();", error)
+              cleanup = compact_builder.index("firewall_rule_file_remove(ipt_file);", abort)
+              fail_return = compact_builder.index("return -1;", cleanup)
+              rule = compact_builder.index('fprintf(fp, "-A %s -i %s%s -j %s\\n"', call)
+              assert call < error < abort < cleanup < fail_return < rule
+              assert "if (url_schedule_status > 0)" in compact_builder[error:]
           url_builder = body(firewall_source, "include_webstr_filter(FILE *fp")
           assert "include_webstr_filter(FILE *fp, int num_entries)" in firewall_source
           assert "for (i = 0; i < num_entries; ++i)" in url_builder
