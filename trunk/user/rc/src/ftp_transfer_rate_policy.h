@@ -3,6 +3,13 @@
 
 #include <errno.h>
 
+/* Only anonymous-only and mixed anonymous modes consume anon_max_rate. */
+static inline int
+ftp_transfer_rate_setting_required(int ftp_mode)
+{
+	return ftp_mode == 3 || ftp_mode == 4;
+}
+
 /* Preserve nvram_safe_get_int()'s legacy 0..maximum clamp. A failed checked
  * read must not be translated into zero, which means unlimited in vsftpd. */
 static inline int

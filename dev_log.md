@@ -1,3 +1,14 @@
+## 2026-11-23 14:35 UTC+8 — Avoid reading anonymous FTP rate when the active mode does not use it
+
+- Reviewed concurrent vsftpd hardening from `b330a2f96cc15730b591c8fd5e49a7a63b4bb5a4`. The checked `st_ftp_anmr` read correctly prevented backend errors from becoming `anon_max_rate=0` (unlimited), but it was unconditional: modes 1/2 do not emit or consume `anon_max_rate`, yet any rate-key read fault prevented configuration publication.
+- Added `ftp_transfer_rate_setting_required()` and moved normalized FTP-mode selection before the anonymous-rate snapshot. The checked rate read and clamp now run only for modes 3/4, which actually output `anon_max_rate`. Read faults in relevant modes still preserve the active config and fail closed.
+- Extended the existing GNU89 ASan/UBSan policy regression to assert modes 3/4 require the setting while modes 1/2 and unsupported modes do not. Updated the workflow source contract to require mode normalization before the guarded rate read and registration of predicate tests.
+- Firewall transaction fix `2c911df08141a3810f7d53cf8d0eaf1536e96a88` achieved exact L2 PASS on `1a99a9c543d237398294ef5738622f151c8d7f8e`, Firewall Startup run `45119408526`: source checker plus all compiled GNU89 sanitizer and integration checks succeeded. XY-C1 run `45119331092` on b330 had passed detection and entered Build; no TRX/artifact result was yet available. Exact new-SHA firmware proof still required.
+- Concurrent FTP checked-rate fix's original vsftpd action `45119331064` PASS; this mode-gated refinement needs a new exact-SHA vsftpd rerun. No local checkout/test/build claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 14:26 UTC+8 — Fail closed when IPv4 mangle NVRAM snapshots cannot be read
 
 - Source review found that `ipt_mangle_rules()` returned on errors reading `wan_ttl_fix`, `wan_ttl_value`, conditional `mr_enable_x` and conditional `viptv_ifname` without setting `firewall_core_restore_transaction.failed`. The caller could then continue to NAT/filter and finish with stale mangle rules mixed into the newly restored firewall.

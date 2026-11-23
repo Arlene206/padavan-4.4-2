@@ -4,10 +4,23 @@
 
 #include "ftp_transfer_rate_policy.h"
 
+static void
+test_rate_setting_is_read_only_for_modes_that_emit_anon_max_rate(void)
+{
+	assert(ftp_transfer_rate_setting_required(3));
+	assert(ftp_transfer_rate_setting_required(4));
+	assert(!ftp_transfer_rate_setting_required(1));
+	assert(!ftp_transfer_rate_setting_required(2));
+	assert(!ftp_transfer_rate_setting_required(0));
+	assert(!ftp_transfer_rate_setting_required(5));
+}
+
 int
 main(void)
 {
 	int rate = 99;
+
+	test_rate_setting_is_read_only_for_modes_that_emit_anon_max_rate();
 
 	/* Missing key defaults to unlimited (zero), preserving legacy behavior. */
 	assert(ftp_transfer_rate_value_status(0, 0, 10000, &rate) == 0);

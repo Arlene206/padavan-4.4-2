@@ -26,15 +26,14 @@
 
 ## Active task
 
-### Make IPv4 mangle preflight failures abort the complete firewall restore
+### Limit the vsftpd anonymous-rate NVRAM dependency to modes that use it
 
-- Product review found that `ipt_mangle_rules()` is a `void` table builder inside `start_firewall_ex_locked()`; the caller proceeds to NAT/filter when `firewall_core_restore_transaction.failed` remains clear.
-- Four checked NVRAM reads (`wan_ttl_fix`, `wan_ttl_value`, conditional `mr_enable_x`, conditional `viptv_ifname`) returned directly on error without setting that flag. A transient NVRAM failure could skip mangle regeneration yet allow new NAT/filter tables to commit and finish, leaving stale mangle rules mixed with a new firewall ruleset.
-- THIS COMMIT adds a policy helper to poison the enclosing transaction on any failed snapshot read, normalize negative status to EIO, log the specific setting and preserve errno. The caller's existing gate then aborts and rolls back the multi-table transaction. GNU89 regressions cover success-state preservation, backend errors, negative status and invalid pointers; the source contract pins all four gates plus caller abort-before-NAT.
-- The Firewall Startup failure on source SHA `5191010ad82a78dacaaabf8639620854f5316274` was only its new `vpns_vnet` gate matcher expecting literal whitespace. Checker-only child `4278a6905bc7c30c53690892ed0cb6f2a603bcbf` made the assertion structural; exact Firewall Startup run `45119079720` completed SUCCESS.
-- Concurrent source commit `1c5bf5f02bc006484692c592ce5bdc6fd587f06c` also propagates VPN server interface multicast setup failures. THIS COMMIT preserves its code and checker.
-- Exact XY-C1 for the combined 5191/1c5 source tree was pending at the last lookup; this commit changes production `firewall_ex.c` and needs its own exact-SHA XY-C1 Build, TRX and artifact proof.
-- Earlier IPTV checker correction `78bff6d33759d134febdbb4ac27cc63b2823c759` passed Firewall Startup `45118521708`, but not this new transaction behavior. DHCPv6 retry L2 remains PASS (`45117871967`, `45118077270`). Continue independent work; do not idle-poll.
+- Concurrent commit `b330a2f96cc15730b591c8fd5e49a7a63b4bb5a4` correctly checks `st_ftp_anmr` and prevents NVRAM errors from becoming an unlimited transfer rate.
+- Review found it reads that key unconditionally even when normalized FTP mode is 1 or 2 and the generated config never emits `anon_max_rate`. An unrelated transient read error therefore blocks generation/publication of otherwise valid authenticated-only or anonymous-write-only config. This is an unnecessary service-availability dependency.
+- THIS COMMIT derives `i_ftp_mode` before reading the rate and uses `ftp_transfer_rate_setting_required()` to read/validate `st_ftp_anmr` only for modes 3/4, the only modes that emit `anon_max_rate`. A read failure remains fail-closed when the setting is actually consumed. Tests cover all four modes and invalid values; the vsftpd workflow now checks normalization precedes the conditional read and the predicate is tested.
+- Firewall transaction-failure fix `2c911df08141a3810f7d53cf8d0eaf1536e96a88` has exact L2 PASS on its descendant `1a99a9c543d237398294ef5738622f151c8d7f8e`: Firewall Startup run `45119408526` passed source contract plus every GNU89 ASan/UBSan and integration step. Exact XY-C1 on descendant b330 run `45119331092` had passed pre-build gates and was still in Build at the last query; TRX/artifact are pending.
+- The independent checked anonymous-rate source fix has exact vsftpd run `45119331064` PASS before this conditional-dependency refinement. This commit requires a fresh exact-head vsftpd run and XY-C1 due production change.
+- Continue other source-backed stability/security tasks while exact-SHA XY-C1 and vsftpd checks are pending; don't idle-poll.
 
 ### Exact parallel baseline
 

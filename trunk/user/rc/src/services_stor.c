@@ -366,12 +366,16 @@ write_vsftpd_conf(void)
 
 	ftp_mode_status = storage_read_integer_status(
 		"st_ftp_mode", 0, &ftp_mode_value);
+	i_ftp_mode = ftp_share_mode_normalize(ftp_mode_value);
 	ftp_log_status = storage_read_integer_status(
 		"st_ftp_log", 0, &ftp_log_value);
-	ftp_anon_rate_status = storage_read_integer_status(
-		"st_ftp_anmr", 0, &ftp_anon_rate_value);
-	ftp_anon_rate_status = ftp_transfer_rate_value_status(
-		ftp_anon_rate_status, ftp_anon_rate_value, 10000, &ftp_anon_rate);
+	ftp_anon_rate_status = 0;
+	if (ftp_transfer_rate_setting_required(i_ftp_mode)) {
+		ftp_anon_rate_status = storage_read_integer_status(
+			"st_ftp_anmr", 0, &ftp_anon_rate_value);
+		ftp_anon_rate_status = ftp_transfer_rate_value_status(
+			ftp_anon_rate_status, ftp_anon_rate_value, 10000, &ftp_anon_rate);
+	}
 	max_user_status = storage_read_integer_status(
 		"st_max_user", 0, &max_user_value);
 	max_user_status = service_connection_limit_value_status(
@@ -434,7 +438,6 @@ write_vsftpd_conf(void)
 	fprintf(fp, "ssl_enable=%s\n", "NO");
 #endif
 
-	i_ftp_mode = ftp_share_mode_normalize(ftp_mode_value);
 	if (i_ftp_mode == 1 || i_ftp_mode == 3) {
 		fprintf(fp, "local_enable=%s\n", "NO");
 		fprintf(fp, "anonymous_enable=%s\n", "YES");
