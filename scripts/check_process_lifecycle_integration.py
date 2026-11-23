@@ -2532,4 +2532,4 @@ for token in (
 ):
     assert token in module_refcount_policy
 for test_case in ("test_valid_refcounts", "test_invalid_or_partial_records"):
-    assert test_case + "();" in module_refcount_test
+    assert "CHECK(" + test_case + "() == 0);" in module_refcount_test
