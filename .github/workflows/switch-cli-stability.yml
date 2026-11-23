@@ -1095,6 +1095,10 @@ jobs:
           assert "all_ge_ana_cal_wait(" not in txamp
           assert txamp.count("all_ge_ana_cal_wait_checked(") == 2
           assert "ra_switch_mdio_cleanup_cl45_writes(" in txamp
+          assert "cnt < 254U" in txamp
+          assert "all_ana_cal_status == ANACAL_SATURATION" in txamp
+          assert "cnt >= 254U" in txamp
+          assert "tx_amp_temp = 0x20;" in txamp
           assert "clear_ckinv_ana_txvos_checked()" in txamp
           assert txamp.index("cleanup:") < txamp.index("ge_cal_flag = 1;")
           assert "ra_switch_mdio_cleanup_cl45_writes(" in policy

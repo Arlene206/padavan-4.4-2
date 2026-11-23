@@ -3083,7 +3083,7 @@ void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 			calibration_polarity = 1;
 
 		cnt = 0;
-		while (all_ana_cal_status < ANACAL_ERROR) {
+		while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
 			cnt++;
 			tx_amp_temp += calibration_polarity;
 
@@ -3116,8 +3116,13 @@ void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 				}
 			}
 		}
-		if (all_ana_cal_status == ANACAL_ERROR) {
-			pr_info("ANACAL_ERROR\n");
+		if ((all_ana_cal_status == ANACAL_ERROR) ||
+		    (all_ana_cal_status == ANACAL_SATURATION) ||
+		    ((all_ana_cal_status == ANACAL_INIT) && (cnt >= 254U))) {
+			/* No comparator crossing: retain the known 0 dB TX amplitude. */
+			all_ana_cal_status = ANACAL_ERROR;
+			pr_info("GE TX amp calibration fallback (pair=%u)\\n",
+				(unsigned int)cal_pair);
 			tx_amp_temp = 0x20;
 			val_tmp = (reg_temp | (tx_amp_temp << tx_amp_reg_shift));
 			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg, val_tmp);
