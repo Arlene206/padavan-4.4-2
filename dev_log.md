@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Fail closed on unknown SCUT watchdog WAN link state
+
+- Follow-up review found `mtk_esw 11` was still consumed through command substitution without checking its exit code. An ioctl failure produced empty output that the old comparison interpreted as "WAN link up", allowing a health failure to restart SCUTClient while physical link state was unknown.
+- The watchdog now propagates switch command failures through its checked failure path and cleans only its own PID marker. A confirmed WAN-down value still skips health checks. Regression stubs inject the switch error and preserve the WAN-down path.
+- Updated the SCUT workflow ordering contract to target the new checked NVRAM gate and extended it to pin WAN ioctl error handling. Exact-head SCUT watchdog, Process inventory, AI handoff and XY-C1 Build/TRX/artifact validation remain required. No local execution or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Correct SCUT watchdog PID cleanup in source
 
 - The first follow-up commit `aabcc161` recorded the intended `$$` correction but a generated Git tree check showed the production blob was still unchanged; the source edit had not been materialized. This commit applies the correction and verifies the resulting source blob content before publication.

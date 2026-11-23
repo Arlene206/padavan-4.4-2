@@ -242,7 +242,13 @@ else
 fi
 [ "$watchcat_enabled" = "1" ] || go_exit
 
-if [ "$(mtk_esw 11)" != "WAN ports link state: 0" ]; then
+if watchcat_link_state=$(mtk_esw 11); then
+	:
+else
+	watchcat_link_status=$?
+	watchcat_fail "$watchcat_link_status" "cannot verify WAN link state"
+fi
+if [ "$watchcat_link_state" != "WAN ports link state: 0" ]; then
 	if watchcat_read_boolean scutclient_wdg_flag; then
 		:
 	else

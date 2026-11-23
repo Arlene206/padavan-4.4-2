@@ -45,7 +45,8 @@ esac
 MOCK
 cat > "$TEST_BIN/mtk_esw" <<'MOCK'
 #!/bin/sh
-printf 'WAN ports link state: 1\n'
+[ "${MTK_ESW_STATUS:-0}" -eq 0 ] || exit "$MTK_ESW_STATUS"
+printf '%s\n' "${WAN_LINK_STATE:-WAN ports link state: 1}"
 MOCK
 cat > "$TEST_BIN/scutclient.sh" <<'MOCK'
 #!/bin/sh
@@ -88,8 +89,11 @@ NVRAM_FAIL_KEY=
 NVRAM_FAIL_STATUS=75
 WATCHCAT_HOUR=12
 WATCHCAT_YEAR=2026
+MTK_ESW_STATUS=0
+WAN_LINK_STATE="WAN ports link state: 1"
 export WATCHCAT_ENABLED SCUTCLIENT_ENABLED WATCHCAT_FLAG_ENABLED WATCHCAT_FORCE
 export NVRAM_FAIL_KEY NVRAM_FAIL_STATUS WATCHCAT_HOUR WATCHCAT_YEAR
+export MTK_ESW_STATUS WAN_LINK_STATE
 
 command -v flock >/dev/null 2>&1 || {
 	echo "host flock utility is required for the kernel-lock regression" >&2; exit 1;
@@ -242,6 +246,8 @@ reset_watchcat_case()
 	NVRAM_FAIL_STATUS=75
 	WATCHCAT_HOUR=12
 	WATCHCAT_YEAR=2026
+	MTK_ESW_STATUS=0
+	WAN_LINK_STATE="WAN ports link state: 1"
 	unset REPLACE_PIDFILE_ON_NVRAM BLOCK_FIRST_RM
 	rm -f "$PIDFILE" "$RM_BLOCKED"
 	: > "$NVRAM_LOG"
@@ -332,4 +338,24 @@ run_watchcat 0
 	echo "explicitly disabled force-policy still restarted SCUTClient" >&2; exit 1;
 }
 
-echo "SCUT watchdog PID identity, serialized stale-PID reclaim, and checked NVRAM policy regression: PASS"
+# A failed switch ioctl must not be interpreted as "WAN link is up".
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+MTK_ESW_STATUS=74
+run_watchcat 74
+[ "$(wc -l < "$NVRAM_LOG")" -eq 2 ] && [ ! -s "$CLIENT_LOG" ] && [ ! -e "$PIDFILE" ] || {
+	echo "WAN link-state ioctl error was not propagated safely" >&2; exit 1;
+}
+
+# A confirmed WAN-down state must continue to skip the health check.
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WAN_LINK_STATE="WAN ports link state: 0"
+run_watchcat 0
+[ "$(wc -l < "$NVRAM_LOG")" -eq 2 ] && [ ! -s "$CLIENT_LOG" ] || {
+	echo "confirmed WAN-down state did not skip SCUTClient probing" >&2; exit 1;
+}
+
+echo "SCUT watchdog PID identity, serialized stale-PID reclaim, and checked NVRAM/link-state policy regression: PASS"

@@ -48,7 +48,7 @@ jobs:
           assert "flock -n 9" in source
           assert "exec 9>&-" in source
           claim = source.index("watchcat_claim_pidfile\nclaim_status=$?")
-          assert claim < source.index("exec 9>&-", claim) < source.index('if [ "$(nvram get scutclient_watchcat)"')
+          assert claim < source.index("exec 9>&-", claim) < source.index("if watchcat_read_boolean scutclient_watchcat; then")
           filters = Path(".github/workflows/scutclient-watchcat-safety.yml").read_text().split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
           for section in (push_filters, pr_filters):
@@ -66,6 +66,9 @@ jobs:
           assert 'if (set -C; printf' in source
           assert 'kill -9' not in source
           assert 'kill "$previous_pid"' not in source
-          assert '[ "$current_pid" = "$$" ] && rm -f "$pidfile"' in source
+          assert '[ "$current_pid" = "$" ] && rm -f "$pidfile"' in source
+          assert "if watchcat_link_state=$(mtk_esw 11); then" in source
+          assert 'watchcat_fail "$watchcat_link_status" "cannot verify WAN link state"' in source
+          assert "MTK_ESW_STATUS" in Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()
           print("SCUT watchdog refuses stale/reused PID signals and unknown process identity: PASS")
           PY
