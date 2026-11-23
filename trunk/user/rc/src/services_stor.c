@@ -2790,25 +2790,118 @@ stop_dms(void)
 	return storage_service_stop_complete(status, is_dms_run());
 }
 
+static int
+storage_read_transaction_integer_status(struct nvram_transaction *transaction,
+					const char *name, int missing_value,
+					int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!transaction || !name || !value) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &text);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    text, missing_value, value);
+}
+
+
+struct storage_minidlna_config_snapshot {
+	int notify_interval;
+	int root_container;
+	int force_sort;
+	char media_source1[NVRAM_MAX_VALUE_LEN + 1];
+	char media_source2[NVRAM_MAX_VALUE_LEN + 1];
+	char media_source3[NVRAM_MAX_VALUE_LEN + 1];
+};
+
+
+static int
+storage_read_minidlna_config_status(
+	struct storage_minidlna_config_snapshot *snapshot)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, end_errno;
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	memset(snapshot, 0, sizeof(*snapshot));
+	if (nvram_transaction_begin(&transaction) != 0) {
+		status = errno ? errno : EIO;
+		errno = status;
+		return status;
+	}
+
+	status = storage_read_transaction_integer_status(
+		&transaction, "dlna_disc", 0, &snapshot->notify_interval);
+	if (status == 0)
+		status = storage_read_transaction_integer_status(
+			&transaction, "dlna_root", 0, &snapshot->root_container);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			storage_read_transaction_nvram_string, &transaction,
+			"dlna_src1", snapshot->media_source1,
+			sizeof(snapshot->media_source1));
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			storage_read_transaction_nvram_string, &transaction,
+			"dlna_src2", snapshot->media_source2,
+			sizeof(snapshot->media_source2));
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			storage_read_transaction_nvram_string, &transaction,
+			"dlna_src3", snapshot->media_source3,
+			sizeof(snapshot->media_source3));
+	if (status == 0)
+		status = storage_read_transaction_integer_status(
+			&transaction, "dlna_sort", 0, &snapshot->force_sort);
+
+	errno = 0;
+	end_status = nvram_transaction_end(&transaction);
+	end_errno = errno;
+	if (status == 0 && end_status != 0)
+		status = end_errno ? end_errno : EIO;
+	if (status != 0) {
+		memset(snapshot, 0, sizeof(*snapshot));
+		errno = status;
+		return status;
+	}
+	return 0;
+}
+
+
 int update_minidlna_conf(const char *link_path, const char *conf_path)
 {
+	struct storage_minidlna_config_snapshot snapshot;
 	struct minidlna_config_values values;
 	const char *computer_name;
-	int dlna_disc, dlna_root, status;
+	int dlna_disc, status;
 
+	status = storage_read_minidlna_config_status(&snapshot);
+	if (status != 0) {
+		logmessage("MiniDLNA",
+			   "cannot read complete configuration snapshot; preserving active configuration (status=%d)",
+			   status);
+		return status;
+	}
 	computer_name = get_our_hostname();
 	if (computer_name == NULL)
 		return EIO;
 
-	dlna_disc = nvram_get_int("dlna_disc");
-	dlna_root = nvram_get_int("dlna_root");
-	values.media_source1 = nvram_safe_get("dlna_src1");
-	values.media_source2 = nvram_safe_get("dlna_src2");
-	values.media_source3 = nvram_safe_get("dlna_src3");
+	values.media_source1 = snapshot.media_source1;
+	values.media_source2 = snapshot.media_source2;
+	values.media_source3 = snapshot.media_source3;
 	if (!*values.media_source1 && !*values.media_source2 &&
 	    !*values.media_source3)
 		values.media_source1 = "/media";
 
+	dlna_disc = snapshot.notify_interval;
 	if (dlna_disc < 10)
 		dlna_disc = 10;
 	if (dlna_disc > 10800)
@@ -2816,8 +2909,8 @@ int update_minidlna_conf(const char *link_path, const char *conf_path)
 
 	values.interface_name = IFNAME_BR;
 	values.notify_interval = dlna_disc;
-	values.root_container = dlna_root;
-	values.force_sort = nvram_get_int("dlna_sort");
+	values.root_container = snapshot.root_container;
+	values.force_sort = snapshot.force_sort;
 	values.friendly_name = computer_name;
 	values.database_dir = link_path;
 

@@ -1,0 +1,86 @@
+name: MiniDLNA configuration snapshot and INI safety regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/minidlna-config-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/minidlna_config_file.h"
+      - "trunk/user/rc/src/tests/minidlna_config_file.c"
+  pull_request:
+    paths:
+      - ".github/workflows/minidlna-config-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/minidlna_config_file.h"
+      - "trunk/user/rc/src/tests/minidlna_config_file.c"
+
+permissions:
+  contents: read
+
+jobs:
+  minidlna-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run MiniDLNA atomic publication and INI injection regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/minidlna_config_file.c \
+            -o /tmp/minidlna-config-file
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/minidlna-config-file
+      - name: Verify transactional MiniDLNA NVRAM snapshot and safe config source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          config = Path("trunk/user/rc/src/minidlna_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/minidlna_config_file.c").read_text()
+
+          def body(text, signature):
+              start = text.find(signature)
+              assert start >= 0, f"missing definition: {signature}"
+              brace = text.find("{", start + len(signature))
+              assert brace >= 0, f"missing body: {signature}"
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError(f"unterminated body: {signature}")
+
+          snapshot = body(source, "storage_read_minidlna_config_status(")
+          updater = body(source, "update_minidlna_conf(")
+          assert "nvram_transaction_begin(&transaction)" in snapshot
+          keys = ('"dlna_disc"', '"dlna_root"', '"dlna_src1"',
+                  '"dlna_src2"', '"dlna_src3"', '"dlna_sort"')
+          positions = [snapshot.index(key) for key in keys]
+          assert positions == sorted(positions)
+          assert snapshot.index('"dlna_sort"') < snapshot.index("nvram_transaction_end(&transaction)")
+          assert snapshot.count("rc_wan_nvram_copy_value(") == 3
+          assert updater.index("storage_read_minidlna_config_status(") < updater.index("minidlna_config_publish(")
+          assert "if (status != 0)" in updater
+          for getter in ('nvram_get_int("dlna_disc")', 'nvram_get_int("dlna_root")',
+                         'nvram_get_int("dlna_sort")', 'nvram_safe_get("dlna_src1")',
+                         'nvram_safe_get("dlna_src2")', 'nvram_safe_get("dlna_src3")'):
+              assert getter not in updater
+
+          validator = body(config, "minidlna_config_text_is_safe(")
+          writer = body(config, "minidlna_config_values_are_safe(")
+          publisher = body(config, "minidlna_config_publish(")
+          assert "*cursor < 0x20" in validator and "*cursor == 0x7f" in validator
+          for field in ("interface_name", "media_source1", "media_source2",
+                        "media_source3", "friendly_name", "database_dir"):
+              assert f"minidlna_config_text_is_safe(values->{field})" in writer
+          assert "minidlna_config_values_are_safe(values)" in publisher
+          assert publisher.index("minidlna_config_values_are_safe(values)") < publisher.index("mkstemp(")
+          for marker in ("model_number=999", "media_dir=V,/etc", "notify_interval=1", "log_dir=/"):
+              assert marker in test
+          assert "last-good-configuration" in test
+          print("MiniDLNA transactional snapshot and config-injection contract: PASS")
+          PY

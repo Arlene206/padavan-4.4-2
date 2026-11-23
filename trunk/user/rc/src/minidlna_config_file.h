@@ -141,6 +141,35 @@ minidlna_config_write(FILE *stream,
 	return status;
 }
 
+static int
+minidlna_config_text_is_safe(const char *value)
+{
+	const unsigned char *cursor = (const unsigned char *)value;
+
+	if (!cursor)
+		return 0;
+	while (*cursor) {
+		if (*cursor < 0x20 || *cursor == 0x7f)
+			return 0;
+		cursor++;
+	}
+	return 1;
+}
+
+
+static int
+minidlna_config_values_are_safe(const struct minidlna_config_values *values)
+{
+	return values != NULL &&
+		minidlna_config_text_is_safe(values->interface_name) &&
+		minidlna_config_text_is_safe(values->media_source1) &&
+		minidlna_config_text_is_safe(values->media_source2) &&
+		minidlna_config_text_is_safe(values->media_source3) &&
+		minidlna_config_text_is_safe(values->friendly_name) &&
+		minidlna_config_text_is_safe(values->database_dir);
+}
+
+
 /* Replace the active config only after a complete, durable staged write. */
 static int
 minidlna_config_publish(const char *path,
@@ -154,7 +183,8 @@ minidlna_config_publish(const char *path,
 	int status = 0;
 	int sync_status;
 
-	if (path == NULL || path[0] == '\0' || values == NULL)
+	if (path == NULL || path[0] == '\0' ||
+	    !minidlna_config_values_are_safe(values))
 		return EINVAL;
 
 	path_length = strlen(path);
