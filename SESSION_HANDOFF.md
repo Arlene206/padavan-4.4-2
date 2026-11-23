@@ -1,26 +1,12 @@
-### 2026-11-23 接力更新（本轮开发快照）
+### 2026-11-23 接力更新（最新快照）
 
-- 本轮开始时 main 基线：`638dd487b626b0aac718eec046573dcd1393274c`；该 SHA 的提交说明：`fix(raeth): report proc MIB MDIO failures`。本记录作为后续原子文档提交的子提交；启动时仍以远端 main HEAD 为准。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 当前 SHA：`72f4f157a084f8184b9597ca5bf334b8080e5807`。只读保护，不做 checkout、合并、删除或更新。
-- 本轮 RAETH 可靠性代码方向：
-  - monotonic MDIO timeouts: false
-  - paged PHY access serialization/failure gating: true
-  - checked switch startup and VLAN initialization: true
-  - GE/embedded PHY error propagation: true
-  - legacy Clause 45 checked-read wrapper: false
-- 已接入的回归：MDIO timeout policy、MTK ESW MIB snapshot fail-closed、分页 PHY page-select/data 错误注入、selector/data serialization、reset-ready bounded poll，以及 switch source-contract 检查；以当前 workflow 文件和对应 SHA Actions 为准。
-- CI 快照（GitHub Actions 读取时间为本次 handoff 生成时）：
-  - NVRAM transaction boundary audit #45268913631：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
-  - XY-C1 Firmware Validation #45268911701：in_progress，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
-  - Switch CLI ioctl failure-status regression #45268911721：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
-  - AI handoff documentation contract #45268911599：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
-  - Process inventory and lifecycle fail-closed regression #45268911977：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
-  - 最近 XY-C1 Firmware Validation #45268911701：in_progress，SHA `638dd487b626b0aac718eec046573dcd1393274c`
-  - 最近 NVRAM transaction boundary audit #45268913631：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`
-  - 最近 AI handoff documentation contract #45268911599：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`
-- 本次环境没有本地 Padavan 交叉编译工具链；不要把静态检查或宿主机策略测试冒充 XY-C1 固件编译。
-- 下个 GPT 第一项：检查本接力文档提交之后的最新 main HEAD，并按 exact SHA 检查 Switch CLI、XY-C1 firmware、NVRAM、AI handoff Actions；逐项处理 FAIL，PENDING 时先做独立代码任务。随后继续审查 `ra_switch.c` 剩余兼容包装和 PHY/link 状态路径，再扩展至其他 userland 稳定性缺陷。
-- 保持操作规则：小步原子提交；完整 Git tree 后一次 commit；`main` 只用 expected SHA 非强制更新；绝不 force push；保护分支不动。
+- 本轮 main 源码提交：`ad5bcd2b87b9b672dd2e921b6e133fb35393093c`（`fix(raeth): fail closed on PHY debug MDIO errors`）。本次随后接力文档子提交仅压缩路线图历史段、刷新状态，不改变产品源码。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持冻结：`72f4f157a084f8184b9597ca5bf334b8080e5807`。
+- 已完成：MTK ESW 端口/VLAN/IGMP/MLD 检查式写入和错误传播；paged PHY page-select 门控与 IRQ-safe 序列锁；reset-ready 有界轮询；GSW/ESW 链路状态只发布成功 MDIO 样本；MT7621/MT7623 TRGMII 错误传播；proc MIB 失败读显示 `ERR`、snapshot 写失败可见；PHY token-ring 与 Clause 45 调试读取现在 fail-closed。
+- `ad5bcd2` 新增 Clause 45 checked-read 策略和失败注入；token-ring 调试序列检查每次写读、持有 PHY page 锁、始终尝试恢复 page 0；Leopard MMD 读失败时停止输出，避免把超时清零误报为测量值。Host regression 与 source checker 已加入 workflow；必须以 exact-SHA Actions 结果判定。
+- 前一产品源码 SHA `638dd487b626b0aac718eec046573dcd1393274c` 的 Switch CLI、AI docs、NVRAM、Process Actions 均 PASS；XY-C1 #45268911701 上次检查仍 IN_PROGRESS。后续文档子提交 `7ec66ff` 的 AI docs #45269398685 因路线图 131457 UTF-8 bytes 超过 131072 限制而失败；本子提交已缩短重复历史段。
+- 无本地 Linux/MIPS 交叉编译、无 XY-C1 Build/TRX/artifact 同 SHA 全 PASS 证明、无实体路由器 L4；不得将 host regression 写成固件构建通过。
+- 下一项：核对 `ad5bcd2` exact-SHA Switch CLI、AI docs、NVRAM、Process、XY-C1；随后选择一个有界 PHY calibration caller 家族，将 value-only MDIO 调用迁移为 status-bearing 操作并加回归测试。
 
 ---
 # Cross-session execution mandate
@@ -29,24 +15,23 @@
 
 ### 2026-11-23 continuation — current state
 
-- **Main source baseline:** parent `be150b19aaed819b0692952475f4aa611f555601` (`test(raeth): scope GE PHY contracts to complete function bodies`). Parent Switch CLI and AI documentation checks pass. This commit adds proc MIB error visibility and path-filter coverage.
-- **Backup branch:** `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, merge or delete it.
-- **Completed MTK ESW configuration work:** checked port matrix/PVID/ingress/attribute/accept writes and caller propagation; VLAN applied-state PVID cache ordering; IGMP flood-to-CPU, per-port learning and MLD/PIC checked writes with first-error propagation through bridge/init/ioctls.
-- **Completed paged PHY/link/TRGMII work:** failed page selection stops PHY register access; reset-ready polling is bounded/status-bearing; selector/data transactions are IRQ-safe serialized; GSW/ESW link notifications require successful samples; MT7621/MT7623 TRGMII setup/calibration propagate MDIO errors. MT7621 25MHz branches are braced; GE PHY workflow source contracts now isolate full function bodies.
-- **Current proc MIB slice (THIS COMMIT):** `DUMP_EACH_PORT` prints `ERR` for failed reads instead of false zero counters; both `0x4fe0` snapshot-control write failures are reported. Switch CLI source contract and Switch CLI/XY-C1 path filters now include `ra_dbg_proc.h/.c`.
-- **Parent exact-SHA Actions on `be150b19aaed819b0692952475f4aa611f555601`:** Switch CLI #45268640001 PASS; AI docs #45268640240 PASS. XY-C1 and NVRAM did not trigger for the workflow-only parent change. These results do not validate this MIB change.
-- **Verification boundary:** no local Linux kernel/MIPS build or physical-router L4 is claimed. XY-C1 Build, TRX and artifact upload must all PASS on one identical production-source SHA before claiming L3.
-- **Next implementation task:** inspect exact-head Switch CLI, AI docs, NVRAM and XY-C1 results for this proc MIB change. Then continue targeted audit of RAETH proc/debug telemetry for ignored MDIO reads/writes only where concrete failure paths exist.
-- **Working rule:** source change → targeted regression → one complete Git tree/atomic commit → expected-SHA non-forced update of `main` → exact-SHA Actions. Pending checks do not block independent work.
+- **Source commit:** `ad5bcd2b87b9b672dd2e921b6e133fb35393093c`, checked PHY debug reads, host failure-injection and source integration validation.
+- **Backup:** frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch.
+- **Parent verification:** source SHA `638dd487` Switch CLI #45268911721, AI docs #45268911599, NVRAM #45268913631 and Process #45268911977 PASS; XY-C1 #45268911701 was IN_PROGRESS. The docs-only child `7ec66ff` failed AI docs #45269398685 because roadmap was 131457/131072 UTF-8 bytes; this documentation child trims it to below 130000 bytes.
+- **Completed slices:** checked MTK ESW config/IGMP/MLD; paged PHY locking and selector errors; reset timeout; GSW/ESW link status propagation; TRGMII MDIO errors; proc MIB read/write diagnostics.
+- **Current slice:** token-ring debug reads/writes now propagate status internally, restore page 0 under the page lock, and suppress partial values; Leopard Clause 45 diagnostics use the checked-read policy.
+- **Verification boundary:** this source commit's exact-head Switch CLI/AI docs/XY-C1/NVRAM/Process status must be checked after the docs child is merged. No kernel/MIPS build, XY-C1 firmware pass or hardware L4 is claimed.
+- **Next implementation task:** inspect bounded production PHY calibration callers still using value-only `tc_phy_read_dev_reg()` / `tc_mii_read()`; migrate one safe caller set to checked status while preserving public ABI and add failure regression.
+- **Working rule:** source → tests → atomic tree/commit → expected-SHA non-forced `main` update → exact-SHA Actions. PENDING does not block independent work.
 
 
 ## Active task
 
-### RAETH proc MIB diagnostic failure visibility
+### RAETH PHY debug MDIO failure handling
 
-- Parent `be150b19aaed819b0692952475f4aa611f555601` passed Switch CLI and AI docs. `DUMP_EACH_PORT` currently hides a failed `mii_mgr_read()` as zero, and `internal_gsw_cnt_read()` ignores both MIB snapshot-control write results.
-- This commit prints aligned `ERR` markers for failed counter reads and explicit messages for each failed `0x4fe0` write. Source-contract checks and Switch CLI/XY-C1 path filters cover the proc files.
-- **Next task:** inspect exact-head Actions, then audit remaining RAETH proc/debug telemetry for concrete ignored MDIO returns.
+- Source commit `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` adds Clause 45 checked reads with failure-injection tests; token-ring debug checks writes and reads, holds the PHY-page lock, restores page 0 after every attempted transaction and publishes no partial value. The Leopard MMD logger stops on the first failed read.
+- Parent `638dd487`: Switch CLI, AI docs, NVRAM and Process PASS; XY-C1 was in progress. The docs-only child `7ec66ff` AI docs run failed on the roadmap byte cap; this docs child trims that repeated history.
+- **Next:** check exact-head Actions for `ad5bcd2`, then migrate one bounded production PHY calibration caller family from value-only MDIO wrappers to status-bearing operations.
 
 
 ### LLDT configuration parser parity
@@ -56,7 +41,8 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- Parent source SHA `be150b19aaed819b0692952475f4aa611f555601`: Switch CLI #45268640001 PASS; AI docs #45268640240 PASS. XY-C1 and NVRAM did not trigger for that workflow-only parent. The proc MIB source change is this commit; exact-head checks pending.
+- Source SHA `638dd487`: Switch CLI #45268911721 PASS; AI docs #45268911599 PASS; NVRAM #45268913631 PASS; Process #45268911977 PASS; XY-C1 #45268911701 IN_PROGRESS at last check.
+- Docs-only child `7ec66ff` AI docs #45269398685 failed only due roadmap size 131457/131072 UTF-8 bytes; this child trims the file. Current source commit `ad5bcd2` exact-SHA CI is pending. No kernel/MIPS or hardware L4 claimed.
 - Earlier production SHA `59622f3c9612949ddd642fc738e02463f5400def`: XY-C1 Build/TRX/artifact #45252058834 PASS and NVRAM #45252058851 PASS; those historical results do not validate later source changes.
 - Frozen backup remains untouched. Physical router hardware L4 and local MIPS compilation are NOT VERIFIED.
 - LLDT config parser: dedicated L2 workflow #45238664960 PASS; Process umbrella #45239229205 PASS. XY-C1 #45237411963 PASS on exact source SHA `eef4417` (Build/TRX/artifact). AI docs #45239229201 needs one workflow path-filter correction (this commit).
@@ -68,9 +54,9 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA Switch CLI, AI docs, NVRAM and XY-C1 Actions for this proc MIB change. Claim L3 only if Build, TRX and artifact upload all PASS on one identical production-source SHA.
-2. Inspect any failed workflow logs and distinguish source-checker failures from host regressions or firmware failures.
-3. Continue auditing RAETH proc/debug telemetry for concrete ignored MDIO returns, without changing unrelated counter interfaces.
+1. Fetch live `main` and inspect exact-SHA Switch CLI, AI docs, NVRAM, Process and XY-C1 runs for source commit `ad5bcd2b87b9b672dd2e921b6e133fb35393093c`. Ensure the AI docs checker now accepts the roadmap below its 131072-byte cap.
+2. Diagnose any failing host/source assertion from its job log; do not conflate it with firmware Build/TRX/artifact status.
+3. Inspect remaining PHY calibration callers of `tc_phy_read_dev_reg()` / `tc_mii_read()`; pick one bounded production setup path for checked status propagation and failure regression.
 
 
 ## Cross-session operating constraints

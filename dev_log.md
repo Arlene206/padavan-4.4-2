@@ -1,3 +1,12 @@
+## 2026-11-23 — Fail closed on PHY debug-register MDIO errors
+
+- Source commit `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` adds a checked Clause 45 read policy with failure injection, checks each token-ring Clause 22 write/read, serializes the complete page/control/data sequence under `ra_switch_phy_page_lock`, attempts to restore page 0 on every attempted transaction, and suppresses partial debug output. Leopard MMD diagnostic reads stop on the first failed sample. The legacy `phy_tr_dbg()` value-returning signature remains available.
+- Added a dedicated Switch CLI source-contract step for the checked adapter, token-ring sequence, page restoration/locking and the four MMD failure guards. Host regression is part of the existing GNU89/Werror/ASan/UBSan policy test step; exact-head run pending at this documentation update.
+- Source SHA `638dd487`: Switch CLI #45268911721 PASS; AI docs #45268911599 PASS; NVRAM #45268913631 PASS; Process #45268911977 PASS; XY-C1 #45268911701 was IN_PROGRESS at last check. Docs-only child `7ec66ff` failed AI docs #45269398685 because REFACTOR_ROADMAP.md measured 131457 UTF-8 bytes against a 131072-byte cap.
+- The docs-only child `7ec66ff` failed AI handoff validation solely because the roadmap reached 131457 UTF-8 bytes, 385 bytes above the 131072 limit. This commit compresses the duplicate historical WAN-route narrative to retain the transactional route behavior and checker-failure provenance; roadmap UTF-8 size is now 130000 bytes.
+- No local kernel/MIPS build, XY-C1 Build/TRX/artifact result for the debug source commit, or hardware L4 is claimed.
+- Next: inspect exact-SHA Switch CLI, AI docs, NVRAM, Process and XY-C1 Actions for `ad5bcd2`; then migrate one bounded PHY calibration caller family away from value-only MDIO wrappers without changing public ABI.
+
 ## 2026-11-23 — RAETH MDIO 错误传播扩展
 
 - 本轮代码基线 SHA：`638dd487b626b0aac718eec046573dcd1393274c`（提交：fix(raeth): report proc MIB MDIO failures）。
