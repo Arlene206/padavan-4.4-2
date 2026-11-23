@@ -41,7 +41,7 @@ for name,key,launch,pid_file in (
      'unlink("/var/run/u2ec.pid")'),
     ("start_lpd(void)","lprd_enable",
      'start_usb_printer_daemon(argv, "lpd", "/var/run/lpdparent.pid")',
-     'unlink("/var/run/lpdparent.pid)')):
+     'unlink("/var/run/lpdparent.pid")')):
     fn=body(name); read=fn.index("read_usb_printer_setting_status(")
     gate=fn.index("if (setting_status != 0)",read)
     prop=fn.index("return setting_status;",gate)
