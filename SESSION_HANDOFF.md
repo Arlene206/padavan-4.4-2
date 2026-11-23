@@ -2,25 +2,28 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before this atomic slice: `054bf4966997b5a92d27f15ef8174447af0fced0`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve permanently. Branch inventory at the last main refresh: `main` and the frozen backup only.
-- Startup/bootstrap recovery was already completed; do not repeat it. No persistent local checkout or full MIPS/uClibc firmware environment is available in this session.
-- Main before this slice includes the Infosvr unaligned UDP packet fix from `73058a94fa263c931cf372bea71c79a3edee21cc`. Exact XY-C1 #45200629006 was IN_PROGRESS at last poll; Process inventory #45200628946 PASS. Infosvr packet/signal regression #45200628917 failed at its compile/run step, then a later exact run on `6a7ed2a` passed after checker-only corrections. NVRAM boundary run #45200629005 was cancelled; check the latest exact-main run before relying on it.
-- Earlier XY-C1 #45197766902 on production SHA `94989ac03de33301a73934a9e7afcc5a5d38be13` passed Build, TRX and artifact upload (artifact #14829918146, `XY-C1-firmware-94989ac03de33301a73934a9e7afcc5a5d38be13`, 12,761,265 bytes). It predates later Infosvr production-source changes and is not L3 evidence for the newer production source.
-- No physical hardware L4 validation is claimed.
+- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Current main at handoff: `7fd28867d36ab1bf9aac0e496d8088d6333dd070`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it. Current branch inventory contains only main and this frozen backup.
+- Startup/bootstrap restore was already completed. Do not repeat it. No persistent local checkout or full MIPS/uClibc firmware environment is available; no local firmware or hardware result is claimed.
+- The last current-main refresh showed the logger checked-NVRAM change at `cb310c1d1fd89e77acbe5a9da898d4f2395105ea` (concurrent source commit, not this assistant's commit). Current exact-SHA Process inventory #45201803844, NVRAM transaction audit #45201803988, AI handoff #45201803995 and Infosvr #45201803859 PASS. Exact XY-C1 #45201803910 was still building; Build → TRX → artifact must all pass on the same SHA before an L3 claim.
+- NFS process-identity teardown fix is in main: `02c858a` corrected shell expansions, `2106f08` cleaned/extended the lifecycle test, and `06ada70` updated the storage workflow contract. Exact NFS regression #45197560702, Process inventory #45197561398 and storage hotplug #45198161869 PASS. These workflow runs exercise source descendants containing the NFS fix.
+- Wireless/iNIC schedule fail-closed fix is in main at `054bf4966997b5a92d27f15ef8174447af0fced0`. It reads the RT guest enable/date/weekday/weekend NVRAM keys with checked status before iNIC guest AP recovery, shares the weekly scheduler evaluator with `timecheck_wifi()`, and defers recovery when state is unknown. GNU89 ASan/UBSan policy tests and exact iNIC workflow #45201720346 PASS; Process inventory #45201720149 and AI handoff #45201720172 also PASS on that SHA.
+- Infosvr unaligned UDP input handling has a checker-marker correction at `6a7ed2a158230196937b161674ade9eaf760267c`; exact Infosvr run #45201353587 PASS. The latest descendant Infosvr run #45201803859 also PASS.
+- The concurrent logger change on current main replaces lossy remote-syslog NVRAM reads with one checked transaction and preserves local-only syslog on unknown remote settings. Its Process, NVRAM and AI contracts PASS as listed above; XY-C1 remains pending at last check.
 
-## Active task
+## Exact next actions
 
-- P2 stability fix in `trunk/user/rc/src/services.c`: remote syslog configuration previously used error-collapsing `nvram_safe_get()` / `nvram_safe_get_int()`, which could silently disable a configured remote log sink after an NVRAM backend/close failure.
-- This slice reads address and port under one checked NVRAM transaction, copies the cache-backed address before reading the port, retains missing-key and invalid-value defaults, and propagates read/transaction-close errors. Local syslogd still starts in local-only mode when the remote destination cannot be verified; the degraded status is returned only after the detached daemon postcondition succeeds, and klogd startup remains attempted.
-- Regression policy covers NVRAM status classification, missing values, address-copy bounds, port defaults/ranges/atoi-prefix compatibility/overflow, and first-failure aggregation. The Process source checker pins the read order, transaction end before daemon launch, local fallback, and removal of legacy getters.
-- Local GNU89/`-Wall -Wextra -Werror`/ASan/UBSan policy regression passed: `RC logger startup, remote NVRAM, and first-failure policies: PASS`. Exact-SHA Process/AI/XY-C1 workflows for this slice remain pending. L3 requires Build, TRX verification and artifact upload all PASS on the same production-source SHA.
+1. Refresh main and branches. Poll exact XY-C1 run #45201803910 (current SHA at this handoff was `cb310c1d1fd89e77acbe5a9da898d4f2395105ea`). Require Build XY-C1, TRX verification and artifact upload all PASS on that exact production-source SHA before L3.
+2. Check for any new exact-head FAIL among Actions started on `cb310c1`; inspect failing job logs and fix genuine regressions or stale assertions without weakening contracts. Do not re-audit passed NFS/iNIC/Infosvr slices absent new evidence.
+3. Continue an independent P1/P2 userland stability/security defect; make a complete atomic source+test+checker commit, use expected-SHA update of main, then check exact-SHA Actions. Keep moving on other independent work while Actions are pending.
 
-## Exact first actions for next GPT
+## Session-owned commits and exact evidence
 
-1. Refresh live `main`; poll exact-SHA Process lifecycle, AI handoff and XY-C1 actions for this logger commit. Correct any stale assertions without weakening them. Require Build XY-C1, TRX and artifact upload PASS to close L3.
-2. Confirm the latest exact Infosvr packet/signal regression after the checker fixes that followed #45200628917, and poll the exact current XY-C1/NVRAM workflows before treating those changes as verified.
-3. Continue an independently testable P1/P2 stability defect elsewhere in Padavan userland; do not re-audit completed slices without new evidence.
+- NFS process identity: `02c858a1301718f48d83697c18d3669cdd333ae4` (production shell fix), `2106f081a22fd222505eb849074ef53ad59e4fb9` (test), `06ada702ed4f12715b9e9bbcb143b15c87b74678` (workflow/checker). Regression #45197560702 PASS; Process #45197561398 PASS; storage #45198161869 PASS.
+- iNIC guest schedule fail-closed: `054bf4966997b5a92d27f15ef8174447af0fced0`. iNIC #45201720346 PASS; Process #45201720149 PASS; AI handoff #45201720172 PASS.
+- Infosvr checker repair: `6a7ed2a158230196937b161674ade9eaf760267c`. Exact Infosvr regression #45201353587 PASS; current descendant #45201803859 PASS.
+- Current main logger change: `cb310c1d1fd89e77acbe5a9da898d4f2395105ea` is concurrent. Exact Process #45201803844 PASS; NVRAM #45201803988 PASS; AI handoff #45201803995 PASS; XY-C1 #45201803910 pending at last poll.
+- No physical-router L4 validation is claimed.
 
 ## Relevant exact-SHA CI facts
 

@@ -1,3 +1,27 @@
+## 2026-11-23 UTC — Fail closed on unknown iNIC guest AP schedule
+
+- `check_inic_mii_rebooted()` previously used the value-only guest schedule helper. Backend/close read failures could collapse into the legacy unrestricted default and trigger a guest AP restart when schedule state was unknown.
+- Added checked reads for `rt_guest_enable`, `rt_guest_date_x`, `rt_guest_time_x` and `rt_guest_time2_x`; cache-backed strings are copied before subsequent reads. Backend/time conversion failures now defer the recovery action. The normal scheduler and iNIC recovery gate share one weekly/overnight evaluator; absent/malformed legacy values retain the historical unrestricted default.
+- Added GNU89 ASan/UBSan policy tests for weekday/weekend windows, overnight and week-boundary windows, and fail-closed NVRAM status resolution.
+- Commit `054bf4966997b5a92d27f15ef8174447af0fced0`; exact iNIC #45201720346, Process #45201720149 and AI handoff #45201720172 PASS.
+
+---
+
+## 2026-11-23 UTC — Stop NFS daemons using verified process identities
+
+- Replaced NFS stop-path name-wide `killall` signals with complete exact-name PID/start-time snapshots from `/proc/PID/stat`, identity revalidation before each signal, and separate snapshots before forced termination. Unreadable/malformed matching identities refuse signalling; the Linux 4.4 check-to-kill PID-reuse race is documented.
+- Kept the original graceful signal semantics (rpc.mountd TERM, kernel nfsd SIGINT) and delayed SIGKILL until the bounded grace period expires. Tests cover graceful/forced signals and malformed/missing stat identities refusing all signals and unmounts.
+- Production shell fix `02c858a1301718f48d83697c18d3669cdd333ae4`, test repair `2106f081a22fd222505eb849074ef53ad59e4fb9`, workflow contract `06ada702ed4f12715b9e9bbcb143b15c87b74678`. NFS #45197560702, Process #45197561398 and storage #45198161869 PASS.
+
+---
+
+## 2026-11-23 UTC — Align Infosvr regression checker with unaligned-input test
+
+- The updated dispatch regression prints `infosvr accepts unaligned input and clears cached replies: PASS`, while the static checker still required the old duplicate-opcode message. Updated only the stale expected marker; source and test were already exercising the unaligned packet fix.
+- Commit `6a7ed2a158230196937b161674ade9eaf760267c`; exact Infosvr #45201353587 PASS and latest descendant #45201803859 PASS.
+
+---
+
 ## 2026-11-23 UTC — Preserve local syslog while reporting checked remote-destination failures
 
 - `start_syslogd()` previously used `nvram_safe_get("log_ipaddr")` and `nvram_safe_get_int("log_port", ...)`, which collapse backend/close faults into empty/zero values and can silently disable a configured remote log sink.
