@@ -40,7 +40,7 @@ extern struct net_device *dev_raether;
 #define FE_CAL_COMMON			0
 #endif
 
-void fe_sw_init(void);
+int fe_sw_init(void);
 void fe_sw_preinit(struct END_DEVICE *ei_local);
 void fe_sw_deinit(struct END_DEVICE *ei_local);
 void sw_ioctl(struct ra_switch_ioctl_data *ioctl_data);

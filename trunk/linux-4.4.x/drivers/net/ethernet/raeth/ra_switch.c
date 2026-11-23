@@ -2939,13 +2939,20 @@ static void mt7530_phy_setting(void)
 	}
 }
 
-static void setup_internal_gsw(void)
+static void ra_switch_mdio_reset_delay(void *context)
+{
+	(void)context;
+	mdelay(10);
+}
+
+static int setup_internal_gsw(void)
 {
 	void __iomem *gpio_base_virt = ioremap(ETH_GPIO_BASE, 0x1000);
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 	u32 reg_value;
 	u32 xtal_mode;
 	u32 i;
+	int status;
 
 	if (ei_local->architecture &
 	    (GE1_TRGMII_FORCE_2000 | GE1_TRGMII_FORCE_2600))
@@ -2976,17 +2983,16 @@ static void setup_internal_gsw(void)
 	reg_bit_zero(RALINK_SYSCTL_BASE + 0x34, 2, 1);
 	mdelay(100);
 
-	/* Wait for Switch Reset Completed */
-	for (i = 0; i < 100; i++) {
-		mdelay(10);
-		mii_mgr_read(31, 0x7800, &reg_value);
-		if (reg_value != 0) {
-			pr_info("MT7530 Reset Completed!!\n");
-			break;
-		}
-		if (i == 99)
-			pr_info("MT7530 Reset Timeout!!\n");
+	/* Do not continue switch setup with an unreadable or unready switch. */
+	status = ra_switch_mdio_wait_nonzero(ra_switch_mdio_read,
+					     ra_switch_mdio_reset_delay, NULL,
+					     31U, 0x7800U, 100U, &reg_value);
+	if (status != 0) {
+		pr_err("MT7530 reset-ready check failed: %d\\n", status);
+		iounmap(gpio_base_virt);
+		return status;
 	}
+	pr_info("MT7530 Reset Completed!!\\n");
 
 	for (i = 0; i <= 4; i++) {
 		/*turn off PHY */
@@ -3146,6 +3152,7 @@ static void setup_internal_gsw(void)
 	mii_mgr_write(31, 0x7808, reg_value);
 
 	iounmap(gpio_base_virt);
+	return 0;
 }
 
 void setup_external_gsw(void)
@@ -3644,12 +3651,13 @@ void leopard_gmii_config(u8 enable)
 	iounmap(infra_base_virt);
 }
 
-void fe_sw_init(void)
+int fe_sw_init(void)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 	unsigned int reg_value = 0;
 	void __iomem *gpio_base_virt, *infra_base_virt, *ethsys_base_virt;
 	int i;
+	int status;
 	u16 r0_tmp;
 
 	/* Case1: MT7623/MT7622 GE1 + GigaPhy */
@@ -3766,8 +3774,11 @@ void fe_sw_init(void)
 	    (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
 	     GE1_TRGMII_FORCE_2600)) {
 		if ((ei_local->chip_name == MT7623_FE) ||
-		    (ei_local->chip_name == MT7621_FE))
-			setup_internal_gsw();
+		    (ei_local->chip_name == MT7621_FE)) {
+			status = setup_internal_gsw();
+			if (status != 0)
+				return status;
+		}
 		/* TODO
 		 * else if (ei_local->features & FE_FPGA_MODE)
 		 * setup_fpga_gsw();
@@ -3919,6 +3930,7 @@ void fe_sw_init(void)
 			iounmap(gpio_base_virt);
 		}
 	}
+	return 0;
 }
 
 void fe_sw_deinit(struct END_DEVICE *ei_local)

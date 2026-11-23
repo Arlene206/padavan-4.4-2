@@ -20,6 +20,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
@@ -50,6 +51,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
@@ -650,6 +652,10 @@ jobs:
           assert "tc_phy_write_page_reg_checked(" in source
           assert "ra_switch_mdio_page_read(" in source
           assert "ra_switch_mdio_page_write(" in source
+          assert "ra_switch_mdio_wait_nonzero(" in source
+          assert "status = setup_internal_gsw();" in source
+          assert "int fe_sw_init(void)" in source
+          assert "reset-ready check failed" in source
           print("RAETH global/local PHY helpers stop on page-select and register I/O failures: PASS")
           PY
 

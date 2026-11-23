@@ -695,6 +695,7 @@ static void ei_func_register(struct END_DEVICE *ei_local)
 static int __init ei_init(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
+	int err;
 
 	fe_reset();
 
@@ -756,7 +757,9 @@ static int __init ei_init(struct net_device *dev)
 
 	if (ei_local->chip_name == MT7621_FE) {
 		fe_gmac_reset();
-		fe_sw_init();
+		err = fe_sw_init();
+		if (err)
+			return err;
 	}
 
 	return 0;
@@ -2557,7 +2560,11 @@ int ei_open(struct net_device *dev)
 
 	if (ei_local->chip_name != MT7621_FE) {
 		fe_gmac_reset();
-		fe_sw_init();
+		err = fe_sw_init();
+		if (err) {
+			module_put(THIS_MODULE);
+			return err;
+		}
 	}
 
 	/* initialize fe and switch register */

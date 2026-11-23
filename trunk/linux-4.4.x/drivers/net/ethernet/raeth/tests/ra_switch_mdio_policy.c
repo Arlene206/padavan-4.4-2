@@ -89,12 +89,69 @@ static void test_invalid_callbacks_are_rejected_without_io(void)
 	assert(f.calls == 0 && value == 0x55);
 }
 
+struct fake_reset_poll {
+	unsigned int calls;
+	unsigned int delays;
+	unsigned int ready_after;
+	int fail_status;
+};
+
+static int fake_poll_read(void *context, unsigned int port,
+			  unsigned int reg, unsigned int *value)
+{
+	struct fake_reset_poll *fake = context;
+	(void)port;
+	(void)reg;
+	++fake->calls;
+	if (fake->fail_status)
+		return fake->fail_status;
+	*value = fake->calls >= fake->ready_after ? 1U : 0U;
+	return 0;
+}
+
+static void fake_poll_delay(void *context)
+{
+	struct fake_reset_poll *fake = context;
+	++fake->delays;
+}
+
+static void test_reset_poll_waits_until_ready_and_is_bounded(void)
+{
+	struct fake_reset_poll fake;
+	unsigned int value;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.ready_after = 3U;
+	assert(ra_switch_mdio_wait_nonzero(fake_poll_read, fake_poll_delay,
+					   &fake, 31U, 0x7800U, 5U,
+					   &value) == 0);
+	assert(fake.calls == 3U && fake.delays == 3U && value == 1U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.ready_after = 99U;
+	value = 0xfeedfaceU;
+	assert(ra_switch_mdio_wait_nonzero(fake_poll_read, fake_poll_delay,
+					   &fake, 31U, 0x7800U, 4U,
+					   &value) == -ETIMEDOUT);
+	assert(fake.calls == 4U && fake.delays == 4U && value == 0U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.ready_after = 99U;
+	fake.fail_status = -EIO;
+	value = 0xfeedfaceU;
+	assert(ra_switch_mdio_wait_nonzero(fake_poll_read, fake_poll_delay,
+					   &fake, 31U, 0x7800U, 4U,
+					   &value) == -EIO);
+	assert(fake.calls == 1U && fake.delays == 1U && value == 0U);
+}
+
 int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
 	test_page_select_failure_stops_second_access();
 	test_register_failures_and_positive_status_are_safe();
 	test_invalid_callbacks_are_rejected_without_io();
+	test_reset_poll_waits_until_ready_and_is_bounded();
 	puts("RAETH paged PHY MDIO failure propagation: PASS");
 	return 0;
 }
