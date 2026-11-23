@@ -1981,7 +1981,12 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
 	if (result < 0)
 		goto failed;
-	if (result == 0 && add_folder(mount_path, folder) != 0)
+	/*
+	 * The source directory already exists (checked above). If only the cached
+	 * folder snapshot is stale, rebuild it from the live directory instead
+	 * of calling add_folder(), whose mkdir() necessarily fails with EEXIST.
+	 */
+	if (result == 0 && initial_folder_list_in_mount_path(mount_path) != 0)
 		goto failed;
 	if (strcmp(folder, new_folder) == 0)
 		goto unchanged;

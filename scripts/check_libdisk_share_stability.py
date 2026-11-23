@@ -841,6 +841,23 @@ require(update_path < update_read < update_rewrite < update_replace and
         "errno = saved_errno;" in permission_update,
         "shared account updater must bound paths, skip only missing files/records and atomically publish complete permission data")
 
+mod_folder_body = function_body(
+    DISK_SOURCE,
+    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
+)
+mod_folder_compact = "".join(mod_folder_body.split())
+mod_source_exists = mod_folder_compact.index("if(test_if_dir(full_path)!=1)")
+mod_snapshot_lookup = mod_folder_compact.index(
+    "test_if_exist_folder_in_mount_path(mount_path,folder)", mod_source_exists
+)
+mod_stale_refresh = mod_folder_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", mod_snapshot_lookup
+)
+mod_rename_folder = mod_folder_compact.index("rename(full_path,new_full_path)", mod_stale_refresh)
+require(mod_source_exists < mod_snapshot_lookup < mod_stale_refresh < mod_rename_folder and
+        "add_folder(" not in mod_folder_compact[mod_snapshot_lookup:mod_rename_folder],
+        "mod_folder must refresh a stale folder-list snapshot from the existing directory instead of trying to mkdir an already-existing source")
+
 get_permission = function_body(DISK_SOURCE, "int get_permission(")
 get_permission_compact = " ".join(get_permission.split())
 get_path_check = get_permission_compact.index(
