@@ -1196,6 +1196,8 @@ int set_permission(const char *account,
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
 	int dms_right = DEFAULT_DMS_RIGHT;
 	size_t old_len, target_len, updated_len, separator_len;
+	size_t mount_len, folder_len, folder_path_len;
+	char *folder_path = NULL;
 	char record_rights[5];
 
 	if (flag < 0 || flag > 3 || !protocol ||
@@ -1244,6 +1246,44 @@ int set_permission(const char *account,
 		    &disk_share_account_nvram_operations, &transaction,
 		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
 		goto failed;
+
+	/*
+	 * Validate both the live directory and its cached folder-list entry while
+	 * holding the writer lease. A stale permission row must not let callers
+	 * recreate access metadata for a folder that has already been removed.
+	 */
+	mount_len = strlen(mount_path);
+	folder_len = strlen(folder);
+	if (folder_len > (size_t)-1 - 2 ||
+	    mount_len > (size_t)-1 - folder_len - 2) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
+	folder_path_len = mount_len + 1 + folder_len;
+	folder_path = (char *)malloc(folder_path_len + 1);
+	if (!folder_path)
+		goto failed;
+	memcpy(folder_path, mount_path, mount_len);
+	folder_path[mount_len] = '/';
+	memcpy(folder_path + mount_len + 1, folder, folder_len + 1);
+	if (test_if_dir(folder_path) != 1) {
+		errno = ENOENT;
+		goto failed;
+	}
+	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+	if (result < 0)
+		goto failed;
+	if (result == 0) {
+		if (initial_folder_list_in_mount_path(mount_path) != 0)
+			goto failed;
+		result = test_if_exist_folder_in_mount_path(mount_path, folder);
+		if (result < 0)
+			goto failed;
+		if (result == 0) {
+			errno = ENOENT;
+			goto failed;
+		}
+	}
 
 	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
 	                                       mount_path, account) != 0)
@@ -1354,6 +1394,7 @@ int set_permission(const char *account,
 	free(target);
 	free(var_info);
 	free(updated_info);
+	free(folder_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
 	if (disk_share_account_nvram_end(&transaction) != 0) {
@@ -1369,6 +1410,7 @@ int set_permission(const char *account,
 unchanged:
 	free(target);
 	free(var_info);
+	free(folder_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
 	if (disk_share_account_nvram_end(&transaction) != 0) {
@@ -1383,6 +1425,7 @@ failed:
 	free(target);
 	free(var_info);
 	free(updated_info);
+	free(folder_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	if (transaction_started) {
 		errno = 0;

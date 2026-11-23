@@ -330,14 +330,23 @@ set_validate = set_permission_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     set_begin
 )
-set_read = set_permission_compact.index("var_info=read_whole_file(var_file)", set_validate)
+set_live_dir = set_permission_compact.index("test_if_dir(folder_path)", set_validate)
+set_snapshot_lookup = set_permission_compact.index(
+    "test_if_exist_folder_in_mount_path(mount_path,folder)", set_live_dir
+)
+set_snapshot_refresh = set_permission_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", set_snapshot_lookup
+)
+set_read = set_permission_compact.index("var_info=read_whole_file(var_file)", set_snapshot_refresh)
 set_write = set_permission_compact.index("disk_share_replace_file_atomic(var_file", set_read)
 set_release = set_permission_compact.index("disk_share_account_nvram_end(&transaction)", set_write)
 set_reload = set_permission_compact.index('system("/sbin/run_samba")', set_release)
-require(set_accounts < set_account_lookup < set_begin < set_validate < set_read <
+require(set_accounts < set_account_lookup < set_begin < set_validate < set_live_dir <
+        set_snapshot_lookup < set_snapshot_refresh < set_read <
         set_write < set_release < set_reload and
         "if(!account_found)" in set_permission_compact and
         "saved_errno=ENOENT;" in set_permission_compact and
+        "errno=ENOENT;" in set_permission_compact and
         "get_account_list(" not in set_permission_compact[set_begin:],
         "permission updates must reject deleted accounts and serialize metadata read/modify/write under the shared account writer lease, releasing it before Samba reload")
 
