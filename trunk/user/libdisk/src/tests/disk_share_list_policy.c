@@ -314,6 +314,51 @@ test_account_defaults_write_rejects_invalid_data(void)
 }
 
 static void
+test_permission_lookup_finds_one_case_insensitive_record(void)
+{
+	const char *source = "# account ACL\n*Media=321\n*Public=103\n";
+	size_t offset = 99;
+
+	assert(disk_share_permission_find_unique_record(
+		source, "*public=", &offset) == 1);
+	assert(offset == (size_t)(strstr(source, "*Public=") - source));
+}
+
+static void
+test_permission_lookup_reports_missing_record(void)
+{
+	size_t offset = 99;
+
+	assert(disk_share_permission_find_unique_record(
+		"*Media=321\n", "*Public=", &offset) == 0);
+	assert(errno == ENOENT);
+	assert(offset == 0);
+}
+
+static void
+test_permission_lookup_rejects_duplicate_case_insensitive_records(void)
+{
+	const char *source = "*Public=331\n*Media=321\n*public=001\n";
+	size_t offset = 99;
+
+	assert(disk_share_permission_find_unique_record(
+		source, "*PUBLIC=", &offset) == -1);
+	assert(errno == EEXIST);
+	assert(offset == 0);
+}
+
+static void
+test_permission_lookup_rejects_malformed_rights(void)
+{
+	size_t offset = 99;
+
+	assert(disk_share_permission_find_unique_record(
+		"*Public=3x1\n", "*Public=", &offset) == -1);
+	assert(errno == EINVAL);
+	assert(offset == 0);
+}
+
+static void
 test_permission_rewrite_removes_complete_record(void)
 {
 	const char *source = "*Public=331\n*Media=321\n*Backup=301";
@@ -2638,6 +2683,10 @@ test_folder_name_visibility_policy();
 	test_account_service_command_status_accepts_exit_zero();
 	test_account_service_command_status_rejects_nonzero_exit_and_signal();
 	test_account_service_command_status_preserves_invocation_errno();
+	test_permission_lookup_finds_one_case_insensitive_record();
+	test_permission_lookup_reports_missing_record();
+	test_permission_lookup_rejects_duplicate_case_insensitive_records();
+	test_permission_lookup_rejects_malformed_rights();
 	test_permission_rewrite_removes_complete_record();
 	test_permission_rewrite_renames_key_and_preserves_rights();
 	test_permission_rewrite_rejects_duplicate_case_insensitive_records();

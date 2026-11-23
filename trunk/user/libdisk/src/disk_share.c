@@ -1226,7 +1226,8 @@ int get_permission(const char *account,
 {
 char var_file[256];
 	char *target, *follow_info, *var_info;
-	int len, result, saved_errno;
+	int len, result, saved_errno, lookup_status;
+	size_t record_offset;
 
 	if (!mount_path || !*mount_path || !is_valid_account_name(account) ||
 	    !is_valid_folder_name(folder) || !protocol)
@@ -1256,18 +1257,17 @@ char var_file[256];
 	sprintf(target, "*%s=", folder);
 	target[len] = 0;
 
-	follow_info = upper_strstr(var_info, target);
+	lookup_status = disk_share_permission_find_unique_record(
+		var_info, target, &record_offset);
 	free(target);
-	if (follow_info == NULL) {
+	if (lookup_status != 1) {
 		free(var_info);
+		if (lookup_status == 0)
+			errno = ENOENT;
 		return -1;
 	}
 
-	follow_info += len;
-	if (strlen(follow_info) < 4 || follow_info[3] != '\n') {
-		free(var_info);
-		return -1;
-	}
+	follow_info = var_info + record_offset + (size_t)len;
 
 	if (!strcmp(protocol, "cifs"))
 		result = follow_info[0] - '0';
@@ -1382,7 +1382,9 @@ int set_permission(const char *account,
 	struct nvram_transaction transaction;
 	int acc_num = 0, transaction_started = 0, account_found = 0;
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
+	int lookup_status;
 	int folder_stat_result, folder_stat_error, directory_status;
+	size_t record_offset;
 	struct stat folder_entry_stat;
 	int dms_right = DEFAULT_DMS_RIGHT;
 	size_t old_len, target_len, updated_len, separator_len;
@@ -1515,7 +1517,12 @@ int set_permission(const char *account,
 	sprintf(target, "*%s=", folder);
 	target[len] = '\0';
 
-	follow_info = upper_strstr(var_info, target);
+	lookup_status = disk_share_permission_find_unique_record(
+		var_info, target, &record_offset);
+	if (lookup_status < 0)
+		goto failed;
+	follow_info = lookup_status == 1 ?
+		var_info + record_offset : NULL;
 	if (!follow_info) {
 		result = initial_folder_list_in_mount_path(mount_path);
 		if (result != 0)

@@ -116,6 +116,28 @@ for signature in (
             signature + " must reset outputs before using the mount path")
 
 
+permission_lookup = function_body(
+    POLICY,
+    "disk_share_permission_find_unique_record(const char *source, const char *target,"
+)
+require("errno = EEXIST;" in permission_lookup and
+        "source[value_offset + 3] != '\\n'" in permission_lookup and
+        "source[value_offset] < '0'" in permission_lookup,
+        "permission lookup must reject duplicate case-insensitive keys and malformed rights")
+require("disk_share_permission_find_unique_record" in get_permission_body and
+        "upper_strstr(var_info, target)" not in get_permission_body and
+        "disk_share_permission_find_unique_record" in set_permission_body and
+        "upper_strstr(var_info, target)" not in set_permission_body,
+        "permission reads and writes must refuse ambiguous duplicate ACL records")
+for marker in (
+    "test_permission_lookup_finds_one_case_insensitive_record",
+    "test_permission_lookup_reports_missing_record",
+    "test_permission_lookup_rejects_duplicate_case_insensitive_records",
+    "test_permission_lookup_rejects_malformed_rights",
+):
+    require(marker + "();" in POLICY_TEST,
+            marker + " needs a policy regression test")
+
 permission_rewrite = function_body(
     POLICY,
     "disk_share_permission_rewrite(const char *source, const char *target,"

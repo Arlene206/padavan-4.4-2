@@ -188,6 +188,77 @@ disk_share_format_account_var_path(char *buffer, size_t buffer_size,
 }
 
 
+/*
+ * Locate one complete ACL record by its case-insensitive "*folder=" key.
+ * Returns 1 when unique, 0 when absent, and -1 for malformed/duplicate data.
+ * The offset points to the record key; callers must not use substring matches
+ * because removable-volume permission files are untrusted input.
+ */
+static inline int
+disk_share_permission_find_unique_record(const char *source, const char *target,
+                                          size_t *record_offset)
+{
+	size_t source_len, target_len, offset, i, value_offset;
+	int found = 0;
+
+	if (record_offset)
+		*record_offset = 0;
+	if (!source || !target || !*target || !record_offset) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	source_len = strlen(source);
+	target_len = strlen(target);
+	if (target[target_len - 1] != '=') {
+		errno = EINVAL;
+		return -1;
+	}
+	if (target_len > source_len) {
+		errno = ENOENT;
+		return 0;
+	}
+
+	for (offset = 0; offset <= source_len - target_len; ++offset) {
+		if (offset != 0 && source[offset - 1] != '\n')
+			continue;
+		for (i = 0; i < target_len; ++i) {
+			if (tolower((unsigned char)source[offset + i]) !=
+			    tolower((unsigned char)target[i]))
+				break;
+		}
+		if (i != target_len)
+			continue;
+		if (found) {
+			errno = EEXIST;
+			*record_offset = 0;
+			return -1;
+		}
+
+		value_offset = offset + target_len;
+		if (source_len - value_offset < 4 ||
+		    source[value_offset + 3] != '\n' ||
+		    source[value_offset] < '0' || source[value_offset] > '3' ||
+		    source[value_offset + 1] < '0' ||
+		    source[value_offset + 1] > '3' ||
+		    source[value_offset + 2] < '0' ||
+		    source[value_offset + 2] > '3') {
+			errno = EINVAL;
+			*record_offset = 0;
+			return -1;
+		}
+		found = 1;
+		*record_offset = offset;
+	}
+
+	if (!found) {
+		errno = ENOENT;
+		return 0;
+	}
+	return 1;
+}
+
+
 /* Rewrite one complete permission record without modifying the input buffer.
  * A NULL replacement removes the record; otherwise it renames only its key. */
 static inline int
