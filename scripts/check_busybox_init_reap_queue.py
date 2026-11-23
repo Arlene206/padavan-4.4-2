@@ -58,7 +58,10 @@ wait_eintr = waitfor.index("if (wait_status != EINTR)", wait_loop)
 wait_service = waitfor.index("check_delayed_wait_signals();", wait_eintr)
 wait_flush = waitfor.index("flush_pending_reaped_children();", wait_service)
 wait_close = waitfor.index("\n\t}", wait_flush)
+wait_final_service = waitfor.index("check_delayed_wait_signals();", wait_close)
+wait_status_check = waitfor.index("if (wait_status != 0)", wait_final_service)
 assert wait_loop < wait_eintr < wait_service < wait_flush < wait_close
+assert wait_close < wait_final_service < wait_status_check
 assert waitfor.count("init_wait_for_child(pid, waitpid, &child_reaped)") == 1
 assert "return EINTR;" in QUEUE
 assert "continue;" not in section(

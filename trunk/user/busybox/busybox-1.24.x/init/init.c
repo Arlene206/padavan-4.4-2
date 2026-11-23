@@ -610,6 +610,13 @@ static void waitfor(pid_t pid)
 		check_delayed_wait_signals();
 		flush_pending_reaped_children();
 	}
+
+	/*
+	 * waitpid may reap the target successfully while a delayed signal is
+	 * pending, instead of returning EINTR. Dispatch urgent events before
+	 * run_actions() advances to another action.
+	 */
+	check_delayed_wait_signals();
 	if (wait_status != 0)
 		message(L_LOG, "waitpid(%d) failed: %s", pid, strerror(wait_status));
 	else if (child_reaped)
