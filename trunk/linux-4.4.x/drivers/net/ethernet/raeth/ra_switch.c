@@ -6073,17 +6073,40 @@ int fe_sw_init(void)
 		mt7622_ephy_cal();
 	} else if (ei_local->architecture & LEOPARD_EPHY) {
 		leopard_ephy_cal();
-		tc_phy_write_l_reg(2, 1, 18, 0x21f);
-		tc_phy_write_l_reg(2, 1, 18, 0x22f);
-		tc_phy_write_l_reg(2, 1, 18, 0x23f);
-		tc_phy_write_l_reg(2, 1, 18, 0x24f);
-		tc_phy_write_l_reg(2, 1, 18, 0x4f);
-		tc_phy_write_l_reg(4, 1, 18, 0x21f);
-		tc_phy_write_l_reg(4, 1, 18, 0x22f);
-		tc_phy_write_l_reg(4, 1, 18, 0x2f);
-		r0_tmp = tc_phy_read_l_reg(3, 0, 0);
-		r0_tmp = r0_tmp | 0x200;
-		tc_phy_write_l_reg(3, 0, 0, r0_tmp);
+
+		/* Stop initialization if any Leopard EPHY MDIO operation fails. */
+		status = tc_phy_write_page_reg_checked(2U, 1U, 18U, 1, 0x021fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(2U, 1U, 18U, 1, 0x022fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(2U, 1U, 18U, 1, 0x023fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(2U, 1U, 18U, 1, 0x024fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(2U, 1U, 18U, 1, 0x004fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(4U, 1U, 18U, 1, 0x021fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(4U, 1U, 18U, 1, 0x022fU);
+		if (status != 0)
+			goto mdio_error;
+		status = tc_phy_write_page_reg_checked(4U, 1U, 18U, 1, 0x002fU);
+		if (status != 0)
+			goto mdio_error;
+
+		status = tc_phy_read_page_reg_checked(3U, 0U, 0U, 1, &reg_value);
+		if (status != 0)
+			goto mdio_error;
+		r0_tmp = (u16)(reg_value | 0x0200U);
+		status = tc_phy_write_page_reg_checked(3U, 0U, 0U, 1, r0_tmp);
+		if (status != 0)
+			goto mdio_error;
 	}
 
 	if (ei_local->chip_name == MT7621_FE) {

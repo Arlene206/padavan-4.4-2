@@ -1133,6 +1133,28 @@ jobs:
           print("RAETH GE TX-offset routine checks all MDIO samples and always clears analog/force state: PASS")
           PY
 
+      - name: Validate Leopard EPHY initialization checks each local MDIO operation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          init = source.split("int fe_sw_init(void)", 1)[1].split(
+              chr(10) + "void fe_sw_deinit(", 1
+          )[0]
+          setup = init.split("mt7622_ephy_cal();", 1)[1].split(
+              chr(10) + "\tif (ei_local->chip_name == MT7621_FE)", 1
+          )[0]
+          assert "tc_phy_write_l_reg(" not in init
+          assert "tc_phy_read_l_reg(" not in init
+          assert setup.count("tc_phy_write_page_reg_checked(") == 9
+          assert setup.count("tc_phy_read_page_reg_checked(") == 1
+          assert setup.count("goto mdio_error;") == 10
+          assert "r0_tmp = (u16)(reg_value | 0x0200U);" in setup
+          assert "mdio_error:" in init and "return status;" in init
+          print("Leopard EPHY initialization checks every local MDIO read/write and aborts on failure: PASS")
+          PY
+
       - name: Validate FE all-analog orchestration propagates child and MDIO failures
         run: |
           python3 - <<'PY'
