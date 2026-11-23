@@ -1,3 +1,13 @@
+## 2026-11-23 08:53 UTC+8 — Reject invalid MTK ESW PHY link-mode values
+
+- Parent main SHA: `c0a8285cc4b84cf05e0d691211759dc41a44c3f5`. MTK ESW `change_port_link_mode_uapi()` checked the mapped PHY port but not the packed link-mode word. Unsupported speed nibbles 10..14 fell through the speed switch while still programming default PHY registers; flow-control value 3 and reserved bits were silently accepted and cached.
+- Added `link_mode_policy.h` to permit only speeds 0..9 and force-power-off 15, flow modes 0..2, and documented fields (speed bits 0..3, flow bits 8..9). The kernel ioctl now returns `-EINVAL` before cache lookup or any MDIO access for malformed mode words.
+- Added GNU89/ASan/UBSan host tests for every defined speed/flow combination and unsupported speed, flow and reserved-bit values. Extended Switch CLI workflow path filters and source-order contract.
+- Updated SESSION_HANDOFF and the Switch/PHY roadmap row. Parent exact-head Switch CLI `45090987240` and AI docs `45090987221` PASS.
+- New exact-head Switch CLI/XY-C1 checks pending at commit creation. Full MIPS Build/TRX/artifact and physical hardware remain unverified until exact results exist.
+- Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 08:48 UTC+8 — Fix Switch CLI classifier source-contract locator
 
 - Parent main SHA: `60992c3f496f316baa8dc2377c829ce67a3986be`. Exact-head Switch CLI run `45090786761` reached the new switch parser policy test, which compiled under GNU89 with ASan/UBSan and printed PASS. The final source-contract check then failed with Python `IndexError`: it searched for a single-line `static int rtl8367_command_uses_packed_argument` and `static int mtk_esw_command_uses_packed_argument`, but the C declarations intentionally put `static int` on the previous line.

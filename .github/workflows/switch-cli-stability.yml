@@ -14,6 +14,9 @@ on:
       - "trunk/user/utils/src/switch/mii_mgr.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
       - ".github/workflows/switch-cli-stability.yml"
       - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/switch_mtk_esw.c"
@@ -32,6 +35,9 @@ on:
       - "trunk/user/utils/src/switch/mii_mgr.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
       - ".github/workflows/switch-cli-stability.yml"
       - "trunk/user/rc/src/switch_rtl8367.c"
       - "trunk/user/rc/src/switch_mtk_esw.c"
@@ -594,4 +600,45 @@ jobs:
               assert push.count('"' + path + '"') == 1, path
               assert pull_request.count('"' + path + '"') == 1, path
           print("RC RTL8367/MTK switch commands reject malformed, partial and overflowing numeric input: PASS")
+          PY
+
+      - name: Validate MTK ESW PHY link-mode fields before register access
+        run: |
+          ESW_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            "$ESW_DIR/tests/link_mode_policy.c" -o /tmp/mtk-esw-link-mode-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/mtk-esw-link-mode-policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          esw = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw")
+          source = (esw / "ioctl_mt762x.c").read_text()
+          policy = (esw / "link_mode_policy.h").read_text()
+          test = (esw / "tests/link_mode_policy.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          assert '#include "link_mode_policy.h"' in source
+          body = source.split("static int change_port_link_mode_uapi", 1)[1].split(
+              "static void change_storm_control_broadcast", 1
+          )[0]
+          validate = body.index("mtk_esw_link_mode_is_valid(port_link_mode)")
+          cache = body.index("g_port_link_mode[port_id] == port_link_mode")
+          first_mdio = body.index("mii_mgr_read(")
+          assert validate < cache < first_mdio
+          assert "return -EINVAL;" in body[validate:cache]
+          assert "MTK_ESW_LINK_MODE_VALID_MASK" in policy
+          assert "speed > 9U && speed != 15U" in policy
+          assert "return flow <= 2U;" in policy
+          assert "test_all_defined_speed_and_flow_modes" in test
+          assert "test_reserved_speed_flow_and_bits_are_rejected" in test
+
+          filters = workflow.split("jobs:", 1)[0]
+          for path in (
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
+          ):
+              assert filters.count('"' + path + '"') == 2, path
+          print("MTK ESW PHY link-mode validation and pre-MDIO source contract: PASS")
           PY

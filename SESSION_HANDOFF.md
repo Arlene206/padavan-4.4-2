@@ -4,32 +4,38 @@
 
 - Development branch: `main` only. Do not create feature branches or PRs; never force-push.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve it permanently; do not modify, rename, delete or check it out.
-- Current source checkpoint: THIS COMMIT (repair Switch CLI classifier source-contract locator); parent main SHA: `60992c3f496f316baa8dc2377c829ce67a3986be`. Fetch live `main` on takeover; do not chase a docs-only SHA.
+- Current source checkpoint: THIS COMMIT (reject invalid MTK ESW PHY link-mode encodings); parent main SHA: `c0a8285cc4b84cf05e0d691211759dc41a44c3f5`. Fetch live `main` on takeover; do not chase a docs-only SHA.
 - Continue implementation rather than repeating completed audits or asking what to do next.
 
 ## Active task
 
-The prior source slice `60992c3f496f316baa8dc2377c829ce67a3986be` applies command-specific packed-operand validation to MTK/RTL8367 switch CLIs. Its production C policy binary passed under ASan/UBSan, but the exact-head Switch CLI workflow failed in its Python source-contract step: the contract attempted to locate helper declarations using the literal `static int rtl8367_command_uses_packed_argument`, while the actual C formatting places `static int` and the function name on separate lines. The same stale locator existed for MTK. This follow-up corrects the test's source locator to match the actual declaration signature; no production logic is changed.
+The MTK ESW kernel ioctl `change_port_link_mode_uapi()` validated the port number but not the caller's packed `port_link_mode`. It extracts speed from bits 0..3 and flow control from bits 8..9, then writes MDIO registers. Unsupported speed values 10..14 fell through the speed switch and still programmed the default PHY configuration; flow value 3 fell through as the default flow setting. Reserved bits above the documented fields were silently accepted and cached in `g_port_link_mode[]`.
+
+This commit:
+- Adds a pure helper matching the UAPI: speeds 0..9 and 15 (power off), flow modes 0..2, and no reserved bits outside masks `0x0000000f` and `0x00000300`.
+- Rejects malformed encodings with `-EINVAL` before cache comparison and before any MDIO reads/writes.
+- Adds GNU89/ASan/UBSan host tests covering every valid speed/flow pair and unsupported speed, flow and reserved-bit values.
+- Extends Switch CLI workflow filters and production source-order assertions.
+
+The preceding classifier source-contract repair `c0a8285cc4b84cf05e0d691211759dc41a44c3f5` has exact-head Switch CLI `45090987240` PASS and AI docs `45090987221` PASS. This kernel/PHY task requires its own exact-head host and XY-C1 checks.
 
 ## Verification boundary
 
-Exact-head parent SHA `60992c3f496f316baa8dc2377c829ce67a3986be`:
-- Switch CLI run `45090786761`: FAIL only in the final Python embedded source contract at `source.split("static int rtl8367_command_uses_packed_argument", 1)`, which raised `IndexError`; policy compile and ASan/UBSan execution printed `RC switch CLI strict unsigned and packed ioctl parsing: PASS`, and prior switch workflow regression steps all passed.
-- Process lifecycle inventory `45090786764`: PASS.
-- AI handoff docs `45090786813`: PASS.
-- HTTPD security `45090786771`: PASS.
-- NVRAM audit `45090786770`: IN_PROGRESS at last poll.
-- XY-C1 `45090786847`: Build XY-C1 IN_PROGRESS; TRX verification and artifact upload PENDING.
+Parent source SHA `c0a8285cc4b84cf05e0d691211759dc41a44c3f5`:
+- Switch CLI source-contract repair `45090987240`: PASS.
+- AI handoff docs `45090987221`: PASS.
+- Prior source SHA `60992c3f496f316baa8dc2377c829ce67a3986be`: Process inventory `45090786764`, AI docs `45090786813`, HTTPD `45090786771`, NVRAM `45090786770` all PASS. Switch CLI `45090786761` failed only at the obsolete helper source locator after the GNU89/ASan/UBSan policy test printed PASS.
+- XY-C1 for `60992c3f496f316baa8dc2377c829ce67a3986be` run `45090786847` was still in progress at last poll (Build active, TRX/artifact pending); the docs/workflow-only repair did not trigger another firmware build.
 
-The correction in THIS COMMIT changes only the Python source-locator assertions, but its own exact-head Switch CLI rerun is required. The parent XY-C1 build does not validate this follow-up; inspect same-SHA Build/TRX/artifact. L3/L4 remain NOT VERIFIED.
+For THIS COMMIT, inspect exact-head Switch CLI and XY-C1. The host policy test must pass under GNU89/ASan/UBSan; same-SHA firmware Build/TRX/artifact must pass before L3 is claimed. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; confirm frozen backup `backup/pre-plugin-overhaul-2026-11-14` is still `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
-2. Inspect exact-head Switch CLI: confirm the corrected MTK/RTL helper locators pass, along with packed-operand and full-width RTL register-write contracts.
-3. Inspect exact-head XY-C1 on the same SHA for Build XY-C1, TRX verification and artifact upload; no host-only result substitutes for L3.
-4. While checks run, continue a separate concrete stability review. If a check fails, inspect its first causal step/log and repair it.
-5. Keep complete-tree atomic commits, fresh main parent, `force:false`, exact `expected_sha`.
+1. Fetch live `main` and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
+2. Inspect exact-head Switch CLI: GNU89/ASan/UBSan mode policy test, all defined speed/flow pairs, reserved-field rejection, and the source contract proving validation occurs before MDIO.
+3. Inspect same-SHA XY-C1 Build, TRX verification and artifact upload; host-only results are not L3.
+4. While checks are pending, pursue another independent concrete stability issue; if a job fails, inspect its first causal log and repair it.
+5. Keep complete-tree atomic commits on fresh main with `force:false` and exact `expected_sha`.
 
 ## Mandatory handoff checkpoint
 
@@ -41,7 +47,8 @@ Continue the same development effort across conversations. Use one atomic main c
 
 ## End-of-session accuracy checkpoint
 
-- Current implementation checkpoint: THIS COMMIT; parent main SHA `60992c3f496f316baa8dc2377c829ce67a3986be`.
-- This follow-up repairs only the embedded Python test locator for the already-added MTK/RTL command-specific packed-operand classifiers.
-- Parent exact-head Switch CLI `45090786761` failed only on that locator after the GNU89/ASan/UBSan policy test had printed PASS; Process inventory `45090786764`, AI docs `45090786813`, HTTPD `45090786771` PASS; NVRAM `45090786770` in progress; XY-C1 `45090786847` Build in progress / TRX and artifact pending.
-- THIS COMMIT needs its own exact-head Switch CLI/AI/XY-C1 validation. Parent results do not validate descendants; no L3/L4 claim.
+- Current implementation checkpoint: THIS COMMIT; parent main SHA `c0a8285cc4b84cf05e0d691211759dc41a44c3f5`.
+- MTK ESW `change_port_link_mode_uapi()` rejects speed codes 10..14, flow code 3, and reserved link-mode bits before cache lookup or MDIO. Speeds 0..9/15 and flows 0..2 remain valid.
+- Parent `c0a8285cc4b84cf05e0d691211759dc41a44c3f5`: exact-head Switch CLI `45090987240` and AI docs `45090987221` PASS. Prior source `60992c3f` Process inventory, AI docs, HTTPD and NVRAM PASS; its Switch CLI source-check failure was fixed by `c0a8285`.
+- XY-C1 `45090786847` for `60992c3f` was Build-in-progress at last poll; TRX/artifact not confirmed. This source change requires exact-head firmware checks.
+- Full MIPS build and hardware L4 NOT VERIFIED.

@@ -32,6 +32,7 @@
 #include "ioctl.h"
 //#include "ioctl_igmp.h"
 #include "ioctl_mt762x.h"
+#include "link_mode_policy.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
 
@@ -1488,6 +1489,9 @@ static int change_port_link_mode_uapi(u32 port_id_uapi, u32 port_link_mode)
 	u32 port_id = get_port_from_uapi(port_id_uapi);
 
 	if (port_id > ESW_EPHY_ID_MAX)
+		return -EINVAL;
+
+	if (!mtk_esw_link_mode_is_valid(port_link_mode))
 		return -EINVAL;
 
 	if (g_port_link_mode[port_id] == port_link_mode)
