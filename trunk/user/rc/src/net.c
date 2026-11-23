@@ -1227,7 +1227,7 @@ start_igmpproxy(char *wan_ifname)
 		return 0;
 
 	nvram_status = net_nvram_match_setting_status(
-		"mr_enable_x", "1", "1", &mr_enabled);
+		"mr_enable_x", "1", "", &mr_enabled);
 	if (nvram_status != 0) {
 		errno = nvram_status;
 		logmessage("IPTV", "cannot read IGMP proxy enable setting; refusing transition (status=%d)",
@@ -1247,7 +1247,7 @@ start_igmpproxy(char *wan_ifname)
 			altnet_mask = altnet;
 
 		nvram_status = net_nvram_match_setting_status(
-			"mr_qleave_x", "0", "0", &quickleave_is_zero);
+			"mr_qleave_x", "0", "", &quickleave_is_zero);
 		if (nvram_status != 0) {
 			errno = nvram_status;
 			logmessage("IPTV", "cannot read IGMP quickleave setting; refusing proxy start (status=%d)",

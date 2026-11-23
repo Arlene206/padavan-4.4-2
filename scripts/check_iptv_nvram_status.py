@@ -77,9 +77,9 @@ require('net_nvram_copy_setting_status(\n\t\t\t"viptv_ifname"' in stop and
         "return nvram_status;" in stop,
         "proxy stop must preserve an unreadable IPTV VLAN identity before kill_services")
 require('net_nvram_copy_setting_status(\n\t\t"viptv_ifname"' in start and
-        'net_nvram_match_setting_status(\n\t\t"mr_enable_x", "1", "1", &mr_enabled)' in start and
+        'net_nvram_match_setting_status(\n\t\t"mr_enable_x", "1", "", &mr_enabled)' in start and
         'net_nvram_copy_setting_status(\n\t\t\t"mr_altnet_x"' in start and
-        'net_nvram_match_setting_status(\n\t\t\t"mr_qleave_x", "0", "0", &quickleave_is_zero)' in start,
+        'net_nvram_match_setting_status(\n\t\t\t"mr_qleave_x", "0", "", &quickleave_is_zero)' in start,
         "proxy startup must check VLAN, enable, altnet and quickleave values")
 for marker in ("stop_igmpproxy(wan_ifname)", "start_udpxy(wan_ifname)",
                "igmpproxy_config_publish(igmpproxy_conf, &config_values)"):
