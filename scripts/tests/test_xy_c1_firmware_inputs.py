@@ -27,7 +27,6 @@ class FirmwareInputPathTests(unittest.TestCase):
 
     def test_documentation_workflow_checker_and_test_paths_skip_build(self):
         paths = [
-            ".github/workflows/xy-c1-firmware-validation.yml",
             "scripts/check_xy_c1_firmware_inputs.py",
             "scripts/tests/test_xy_c1_firmware_inputs.py",
             "docs/dev-log/INDEX.md",
@@ -39,6 +38,22 @@ class FirmwareInputPathTests(unittest.TestCase):
         for path in paths:
             with self.subTest(path=path):
                 self.assertTrue(is_non_firmware_input(path))
+
+    def test_xy_c1_workflow_and_busybox_init_sources_trigger_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        workflow_path = ".github/workflows/xy-c1-firmware-validation.yml"
+        self.assertEqual(workflow.count('      - "' + workflow_path + '"'), 1)
+        self.assertIn('      - "trunk/user/busybox/busybox-1.24.x/init/**"', workflow)
+        self.assertFalse(is_non_firmware_input(workflow_path))
+        self.assertFalse(is_non_firmware_input(
+            "trunk/user/busybox/busybox-1.24.x/init/init.c"
+        ))
+        self.assertFalse(is_non_firmware_input(
+            "trunk/user/busybox/busybox-1.24.x/init/init_reap_queue.h"
+        ))
+        self.assertTrue(is_non_firmware_input(
+            "trunk/user/busybox/busybox-1.24.x/init/tests/init_reap_queue.c"
+        ))
 
     def test_production_sources_and_configuration_require_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
@@ -55,6 +70,8 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/linux-4.4.x/net/ipv4/tcp.c",
             "trunk/configs/boards/XY-C1/kernel-4.4.x.config",
             "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src",
+            "trunk/user/busybox/busybox-1.24.x/init/init.c",
+            "trunk/user/busybox/busybox-1.24.x/init/init_reap_queue.h",
             "trunk/user/rc/Makefile",
             "trunk/user/802.1x/src/config.c",
         ]
@@ -233,6 +250,25 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(calls[1], ["fetch", "--no-tags", "--depth=1", "origin", BEFORE])
         self.assertEqual(calls[2], ["diff", "--name-only", "--no-renames", "-z", BEFORE, AFTER])
 
+    def test_xy_c1_workflow_only_push_triggers_build(self):
+        def fake_git(args):
+            if args[:2] == ["rev-parse", "HEAD"]:
+                return result(args, stdout=AFTER + "\\n")
+            if args[0] == "fetch":
+                return result(args)
+            if args[0] == "diff":
+                return result(args, stdout=(
+                    ".github/workflows/xy-c1-firmware-validation.yml\\0"
+                ))
+            self.fail("unexpected git args: " + repr(args))
+
+        changed, paths, reason = decide_firmware_build(
+            "push", BEFORE, AFTER, fake_git
+        )
+        self.assertTrue(changed)
+        self.assertEqual(paths, [".github/workflows/xy-c1-firmware-validation.yml"])
+        self.assertIn("production inputs changed", reason)
+
     def test_documentation_only_push_skips_build(self):
         def fake_git(args):
             if args[:2] == ["rev-parse", "HEAD"]:
@@ -241,7 +277,6 @@ class FirmwareInputPathTests(unittest.TestCase):
                 return result(args)
             if args[0] == "diff":
                 return result(args, stdout=(
-                    ".github/workflows/xy-c1-firmware-validation.yml\0"
                     "SESSION_HANDOFF.md\0"
                     "scripts/check_xy_c1_firmware_inputs.py\0"
                 ))
@@ -249,7 +284,7 @@ class FirmwareInputPathTests(unittest.TestCase):
 
         changed, paths, reason = decide_firmware_build("push", BEFORE, AFTER, fake_git)
         self.assertFalse(changed)
-        self.assertEqual(len(paths), 3)
+        self.assertEqual(len(paths), 2)
         self.assertIn("no firmware production input changed", reason)
 
     def test_empty_successful_diff_skips_build(self):

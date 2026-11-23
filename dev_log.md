@@ -1,3 +1,12 @@
+## 2026-11-23 13:18 UTC+8 — Trigger XY-C1 firmware validation for BusyBox PID1 production changes
+
+- Exact-head BusyBox PID1 regression run `45106412054` on parent `84060ba4f52823b396487b24cdfe66254baff0d0` passed the GNU89 ASan/UBSan test binary and full source-contract checker. The USB storage hotplug suite `45106411983` also passed on the same SHA; NVRAM audit `45106412065` was still in progress at this checkpoint.
+- The successful BusyBox fix had not started an XY-C1 build: the firmware workflow trigger list omitted `trunk/user/busybox/busybox-1.24.x/init/**`, even though it already tracked BusyBox UDHCP sources. Added the init subtree to the path filter. Also classified edits to the XY-C1 workflow itself as build-triggering inputs; otherwise workflow edits are discarded by the detector's blanket `.github/**` host-only rule. Added tests that distinguish production `init.c`/policy header from host-only init tests and assert a workflow-only push triggers validation. Kept ordinary documentation-only pushes build-free.
+- Parent BusyBox change SHA `1f9d39bc59f9882b9f0d0efae2f09e908110a1ac` is covered by exact-head regression PASS on follow-up `84060ba4f52823b396487b24cdfe66254baff0d0`; this workflow correction is intended to cause the next exact-head commit to run Build XY-C1, TRX verification and artifact upload. The current commit's L3 state remains pending until those steps complete.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 13:06 UTC+8 — Match PID1 wait regression declarations to the source-contract style
 
 - Exact-head BusyBox PID1 run `45106301790` on `1f9d39bc59f9882b9f0d0efae2f09e908110a1ac` compiled and ran the GNU89 ASan/UBSan test binary successfully, then the Python contract failed because its test-presence assertion expects the repository's existing single-line `static void test_name(void)` declaration form. The five new functions were formatted with the return type and name split across lines.

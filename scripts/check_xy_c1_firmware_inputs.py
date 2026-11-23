@@ -24,6 +24,9 @@ def is_non_firmware_input(path: str) -> bool:
     """Host-only and documentation paths skip the build; unknown paths build."""
     if not path or path.startswith("/"):
         return False
+    # Changes to the firmware workflow itself require validating its build path.
+    if path == ".github/workflows/xy-c1-firmware-validation.yml":
+        return False
     parts = PurePosixPath(path).parts
     return (
         path.startswith(".github/")
