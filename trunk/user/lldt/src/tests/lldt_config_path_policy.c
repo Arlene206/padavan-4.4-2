@@ -54,13 +54,13 @@ main(void)
         char name[256], value[256], short_name[8], short_value[8];
         char long_key_line[320], long_value_line[320];
         char embedded_nul[] = { 'i', 'c', 'o', 'n', ' ', '=', ' ', 'x', '\0', 'y' };
-        const char normal[] = "icon = /etc_ro/icon.ico\\n";
-        const char spaced[] = "  jumbo-icon = etc/icon.large.ico  \\r\\n";
-        const char compact[] = "test=probe\\n";
-        const char comment[] = "# ignored comment\\n";
-        const char missing[] = "missing equals\\n";
-        const char empty_value[] = "icon = \\n";
-        const char short_line[] = "icon = ok\\n";
+        const char normal[] = "icon = /etc_ro/icon.ico\n";
+        const char spaced[] = "  jumbo-icon = etc/icon.large.ico  \r\n";
+        const char compact[] = "test=probe\n";
+        const char comment[] = "# ignored comment\n";
+        const char missing[] = "missing equals\n";
+        const char empty_value[] = "icon = \n";
+        const char short_line[] = "icon = ok\n";
         unsigned long parsed;
 
         assert(lldt_config_parse_assignment(normal, sizeof(normal) - 1,

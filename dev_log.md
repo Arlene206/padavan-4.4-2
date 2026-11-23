@@ -1,3 +1,10 @@
+## 2026-11-23 — Correct LLDT test fixture line-ending escapes
+
+- The first fixture correction on `14be2b0` changed double-escaped NUL character constants, so GNU89 compilation completed. The rerun then exposed the same quoting mistake in seven C string fixtures: `\\\\n` / `\\\\r` produced literal backslash characters, and the first parsed value assertion failed (#45237898307, job #137914412295).
+- Converted those string tokens to actual C newline/CR escapes. The source parser has not failed its logic checks yet; rerun the complete ASan/UBSan fixture and source contract before acceptance.
+
+---
+
 ## 2026-11-23 — Fix LLDT regression fixture NUL character constants
 
 - Exact LLDT parser run #45237411685 and Process umbrella run #45237411877 failed at the GNU89/Werror compile step. The new C regression fixture emitted the two-character source spelling `'\\0'` (multi-character constant) instead of the single NUL escape `'\0'`; the compiler identified lines 56, 86, 92 and 98. The production parser implementation was not implicated.
