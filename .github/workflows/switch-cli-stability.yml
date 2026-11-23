@@ -726,7 +726,9 @@ jobs:
           wan_power = source.split("static int change_wan_lan_ports_power", 1)[1].split(
               "static int change_bridge_mode", 1
           )[0]
-          assert "return status;" in wan_power
+          assert "return first_error;" in wan_power
+          assert "mtk_esw_first_error(first_error, status)" in wan_power
+          assert "continue;" in wan_power
           assert "*any_power_changed |= port_power_changed;" in wan_power
           assert "power_status = change_wan_lan_ports_power(0, 1, &power_changed)" in bridge
           assert "restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)" in bridge
