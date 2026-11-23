@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Make LLDT startup cleanup regression detect shell commands
+
+- Follow-up review of the new LLDT init-wrapper contract found its Python raw-regex literal had been double-escaped, so the negative assertion could not match an `rm ... .pid` command if it regressed. Replaced it with a direct per-line command check; the production script is unchanged.
+- Exact-head LLDT PID-file workflow rerun is required. The initial source-fix commit remains the one that removes destructive PID-file cleanup; this commit only tightens regression detection.
+
+---
+
 ## 2026-11-23 UTC — Match the legacy EventTcp_WriteBuf buffer type
 
 - Review against `event_tcp.h` confirmed `EventTcp_WriteBuf()` accepts `char *`, not `const char *`. Made the shutdown acknowledgement buffer writable static storage to avoid a discarded-qualifier warning in the firmware build; the event API copies the bytes into its own state before queuing.
