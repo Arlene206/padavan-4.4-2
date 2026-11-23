@@ -613,6 +613,25 @@ assert "cannotverifyAPLANprotocolmode" in protocol_failure
 assert "test_ap_lan_protocol_mode_read_failure_fails_closed" in callback_test
 assert "lan_dhcp_ap_mode_resolve" in callback_policy
 manual_start = c_function_body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
+manual_snapshot = manual_start.index("gateway_status = rc_wan_nvram_copy_snapshot(")
+manual_snapshot_failure = manual_start.index("if (gateway_status != 0)", manual_snapshot)
+manual_lock = manual_start.index('lock = file_lock("resolv");')
+manual_route = manual_start.index("route_add(lan_ifname, 0,")
+assert manual_snapshot < manual_snapshot_failure < manual_lock < manual_route
+for index, key, destination in (
+    (0, "lan_gateway", "gateway_ip"),
+    (1, "lan_dns1", "dns1_ip"),
+    (2, "lan_dns2", "dns2_ip"),
+):
+    assert f'resolver_fields[{index}].param_name = "{key}";' in manual_start
+    assert f'resolver_fields[{index}].destination = {destination};' in manual_start
+assert "lan_dhcp_snapshot_begin" in manual_start
+assert "lan_dhcp_snapshot_get" in manual_start
+assert "lan_dhcp_snapshot_end" in manual_start
+assert 'nvram_safe_get("lan_dns1")' not in manual_start
+assert 'nvram_safe_get("lan_dns2")' not in manual_start
+assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_gateway"' not in compact(manual_start)
+assert "dhcp_lease_static_resolver_uses_gateway(" in manual_start
 assert "metadata_status = update_lan_status(0)" in manual_start
 assert "rc_first_service_start_status(status, metadata_status)" in manual_start
 

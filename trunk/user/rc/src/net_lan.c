@@ -2097,8 +2097,9 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	int dns_count = 0;
 	int status = 0;
 	int metadata_status;
-	char *dns_ip;
-	char gateway_ip[16];
+	char gateway_ip[16], dns1_ip[16], dns2_ip[16];
+	struct nvram_transaction resolver_transaction;
+	struct rc_wan_nvram_snapshot_field resolver_fields[3];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 
 	/* This value is also written to /etc/hosts and is resolver syntax, not
@@ -2111,13 +2112,28 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		return EINVAL;
 	}
 
-	gateway_status = rc_wan_nvram_copy_value(
-		lan_nvram_get_checked, NULL, "lan_gateway",
-		gateway_ip, sizeof(gateway_ip));
+	/*
+	 * Resolve all static resolver inputs from one checked NVRAM generation
+	 * before adding routes or replacing resolv.conf. A missing key is empty;
+	 * a backend/close/overflow error must preserve the old resolver.
+	 */
+	resolver_fields[0].param_name = "lan_gateway";
+	resolver_fields[0].destination = gateway_ip;
+	resolver_fields[0].destination_size = sizeof(gateway_ip);
+	resolver_fields[1].param_name = "lan_dns1";
+	resolver_fields[1].destination = dns1_ip;
+	resolver_fields[1].destination_size = sizeof(dns1_ip);
+	resolver_fields[2].param_name = "lan_dns2";
+	resolver_fields[2].destination = dns2_ip;
+	resolver_fields[2].destination_size = sizeof(dns2_ip);
+	gateway_status = rc_wan_nvram_copy_snapshot(
+		resolver_fields, 3, lan_dhcp_snapshot_begin,
+		lan_dhcp_snapshot_get, lan_dhcp_snapshot_end,
+		&resolver_transaction);
 	if (gateway_status != 0) {
 		errno = gateway_status;
 		logmessage(LOGNAME,
-			   "cannot snapshot manual LAN gateway before resolver update (status=%d)",
+			   "cannot snapshot manual LAN resolver inputs before configuration (status=%d)",
 			   gateway_status);
 		return gateway_status;
 	}
@@ -2161,19 +2177,18 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	if (*lan_dname)
 		fprintf(fp, "domain %s\n", lan_dname);
 
-	dns_ip = nvram_safe_get("lan_dns1");
-	if (is_valid_ipv4(dns_ip)) {
-		fprintf(fp, "nameserver %s\n", dns_ip);
+	if (is_valid_ipv4(dns1_ip)) {
+		fprintf(fp, "nameserver %s\n", dns1_ip);
 		dns_count++;
 	}
 
-	dns_ip = nvram_safe_get("lan_dns2");
-	if (is_valid_ipv4(dns_ip)) {
-		fprintf(fp, "nameserver %s\n", dns_ip);
+	if (is_valid_ipv4(dns2_ip)) {
+		fprintf(fp, "nameserver %s\n", dns2_ip);
 		dns_count++;
 	}
 
-	if (!dns_count && is_valid_ipv4(gateway_ip))
+	if (dhcp_lease_static_resolver_uses_gateway(
+			1, dns_count, is_valid_ipv4(gateway_ip)))
 		fprintf(fp, "nameserver %s\n", gateway_ip);
 
 	if (dnsmasq_file_publish(fp, resolv_temp, DNS_RESOLV_CONF, 0644) != 0) {
