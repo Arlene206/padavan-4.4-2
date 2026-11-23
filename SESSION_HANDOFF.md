@@ -9,15 +9,30 @@
 
 ## Active task
 
-The active source area is the actual Padavan RC PID 1, `trunk/user/rc/src/init.c`, not the BusyBox init applet. The board config `trunk/configs/boards/busybox.config` explicitly has `# CONFIG_INIT is not set`, so generic BusyBox init code is not built as the router's PID 1.
+The RC PID1 console-shell recovery path previously respawned an exact tracked child immediately after a quick shell exit. A failed/missing shell executable could spin PID 1 through repeated fork/exec. Commit `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de` adds an exact one-shot `console_shell_reaped` event and a one-second throttle only for shells running <2 seconds, with GNU89/ASan/UBSan host coverage.
 
-Source commit `f0ee5131e495a7b9f4a903293d53d304a3ec830b` fixes SIGCHLD errno clobber:
-- Added `pid1_signal_reap_available_children()` in `trunk/user/rc/src/pid1_signal_policy.h`. It saves errno, retries EINTR, records exact PIDs returned by `waitpid(-1, NULL, WNOHANG)`, then restores the interrupted caller's errno.
-- `catch_sig_reap()` delegates to this helper.
-- Added an injected host regression for an unrelated child, EINTR, tracked console-shell reap, terminal ECHILD and original errno restoration.
-- Exact-head PID1 host test passed in CI with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan.
+Exact push run `45087584585` on that SHA failed only at the newly added test's compiler command: the inserted workflow continuation characters were doubled. Existing mdev config/retry/TUN/boot-device and PID1 signal tests before that step passed. This checker/workflow correction removes the extra backslashes; no production source change is needed for this failure. Verify its exact-head rerun.
 
-The current follow-up fixes the HTTPD workflow's stale contract to assert the helper call and helper implementation rather than requiring the waitpid loop inline in `catch_sig_reap()`. HTTPD run `45086487150` on source head `fff2b43aa36e71dbe2b3bbda4c74079799419e59` passed.
+## Exact-head results for `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de`
+
+PASS:
+- AI handoff docs `45087584565`
+- HTTPD Authentication/Security `45087584572`
+- PID1 notification queue `45087584511`
+- DNS Forwarder `45087584533`
+- DNSMasq lifecycle `45087584507`
+- Process lifecycle inventory `45087584547`
+
+FAIL:
+- PID1 mdev hotplug configuration security regression `45087584585`: all earlier GNU89/ASan/UBSan binaries including `pid1_signal_policy` passed, but the new console test compile failed because its YAML block contained doubled shell continuation backslashes, producing linker input `\\`. Correcting the new step only; rerun exact SHA required.
+
+PENDING at last poll:
+- XY-C1 Firmware Validation `45087584681` (building through LAN IPv6 regression; Build/TRX/artifact not yet observed).
+- Process inventory/fail-closed `45087584469` (LAN startup caller regression).
+- NVRAM transaction audit `45087584527` (raw userland ioctl audit).
+- USB storage hotplug `45087584548` (BusyBox build/Optware lifecycle ash run).
+
+All listed runs are push events and have `head_sha` exactly `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de`. Do not transfer these results to a later commit.
 
 ## Verification boundary
 
@@ -46,11 +61,11 @@ No local checkout or compile was run in this connector-only session. MIPS firmwa
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and branch inventory once; confirm frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Verify AI handoff documentation on the exact new head; verify HTTPD already passed only on its own exact head `fff2b43...`. Recheck XY-C1 run `45086111757` using its recorded exact SHA.
-3. Continue with a concrete RC PID1 signal/lifecycle defect. Inspect signal-handler state transitions, child lifecycle, shutdown sequencing and console-shell behavior; add focused injected regression coverage before modifying behavior. Work on independent stability/security issues while Actions are pending.
-4. For every logical source fix, create all blobs and one complete tree, make one atomic commit, then update `main` with `force:false` and a freshly read `expected_sha`. Inspect only Actions whose `head_sha` exactly matches the commit.
-
+1. Fetch live `main` and branch inventory once; keep frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` immutable.
+2. Inspect the exact-head PID1 mdev run triggered by the corrected console-test compiler command; confirm the full suite reaches the source-contract step and passes. Its previous failure on `36bd2b1` was solely the doubled backslash; do not mark the source fix PASS until the new exact SHA run is green.
+3. Continue a focused actual RC PID1 review only after the console test passes; preserve one-shot signal-context event semantics and add regression coverage for any concrete child/shutdown defect. Prioritize NVRAM raw-ioctl audit and storage worker lifecycle results for independent follow-up while Actions are pending.
+4. Inspect XY-C1 run `45087584681` for Build XY-C1, TRX and artifact upload on its own exact SHA `36bd2b1`; never infer L3 from host tests.
+5. For each logical slice, create one complete tree and one atomic commit, then update `main` with `force:false` and freshly fetched exact `expected_sha`. Inspect only push Actions whose `head_sha` equals that commit.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional. Every continuation must leave the next GPT an accurate current SHA, exact verification boundary, first actionable task, and test/CI state. Do not churn documentation when the existing handoff remains accurate.
@@ -61,8 +76,8 @@ Continue the same development effort across conversations. Use one atomic main c
 
 ## End-of-session accuracy checkpoint
 
-- Current implementation SHA: `f0ee5131e495a7b9f4a903293d53d304a3ec830b`.
-- Current docs correction parent: `fff2b43aa36e71dbe2b3bbda4c74079799419e59`; this commit restores required AI handoff contract headings/wording and logs the prior docs failure.
-- Verified: RC PID1 injected waitpid/errno host regression passed on exact source SHA f0ee5131...; HTTPD workflow passed on exact SHA fff2b43....
-- Not verified: local checkout/build, MIPS firmware build on current head, TRX, uploaded artifact, XY-C1 hardware boot or physical router behavior.
+- Current implementation SHA: `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de` (rapid recovery console-shell respawn throttle).
+- Exact-head AI docs, HTTPD, PID1 notification queue, DNS Forwarder, DNSMasq and Process inventory Actions passed on that SHA. PID1 mdev failed only at the added console regression compile command (extra backslashes); exact-head correction pending. XY-C1, Process umbrella, NVRAM and USB storage were in progress at last poll.
+- The new PID1 signal-state and console retry regression code is present, but the console policy test did not compile in that run. Existing PID1 signal policy regression did compile/pass.
+- Not verified: local checkout/build; current-head MIPS firmware build, TRX, artifact, XY-C1 hardware boot or physical router behavior.
 - Parent-SHA PASS results never validate descendant commits.

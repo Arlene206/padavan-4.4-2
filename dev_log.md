@@ -1,3 +1,13 @@
+## 2026-11-23 08:15 UTC+8 — Fix PID1 console retry regression compiler command
+
+- Exact-head PID1 mdev run `45087584585` on `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de` failed at the newly added console retry test compile, after earlier GNU89/ASan/UBSan policy tests (including `pid1_signal_policy`) passed. Log showed literal double-backslash arguments to ld (`cannot find \\\\: No such file or directory`), caused by doubled YAML shell continuations.
+- Corrected the new workflow step to use one shell continuation per line. No production source or test semantics changed.
+- Updated handoff with exact-SHA PASS/FAIL/PENDING results and first action; roadmap now tracks the console test rerun rather than marking PID1 as closed.
+- Local checkout/build unavailable in this connector-only session. Exact-head mdev rerun required; XY-C1 `45087584681` was still in progress at last poll.
+- Base SHA: `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de`; resulting SHA: THIS COMMIT.
+
+---
+
 ## 2026-11-22 — Restore required cross-session handoff contract sections
 
 - AI handoff documentation run `45086487184` on exact SHA `fff2b43aa36e71dbe2b3bbda4c74079799419e59` failed because the rewritten session handoff omitted required section headings and exact cross-session/mandatory-checkpoint wording. Restored `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`, `## Mandatory handoff checkpoint`, and `# Cross-session execution mandate`, including the exact mandatory-vs-conditional checkpoint statement and atomic main-commit requirement.

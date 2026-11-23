@@ -82,10 +82,10 @@ jobs:
       - name: Build and run PID 1 console recovery retry regression
         run: |
           set -eu
-          cc -std=gnu89 -Wall -Wextra -Werror \\
-            -I trunk/user/rc/src \\
-            -fsanitize=address,undefined -fno-omit-frame-pointer \\
-            trunk/user/rc/src/tests/pid1_console_policy.c \\
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/pid1_console_policy.c \
             -o /tmp/pid1_console_policy
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/pid1_console_policy
       - name: Check PID 1 hotplug policy publication contract
