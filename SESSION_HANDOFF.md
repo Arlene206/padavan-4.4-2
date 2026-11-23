@@ -1,33 +1,35 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this RC API declaration follow-up: 0774f960873402a81c2ca1ae3dec62dabdfc688b.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only and untouched.
-- Latest independent main commit 0774f96 fixed wsdd2 HTTP parser initialization; this follow-up builds on it without reverting that change.
-- No local router build is claimed.
+- Repository: Arlene206/padavan-4.4-2. Current main: 940c53921c210898199bfc78b1b1b0cb33c206d6; WSD client deadline source commit: fc515297323886e9d7955e46f2a605f7396b0592; checker-only descendant: 940c53921c210898199bfc78b1b1b0cb33c206d6.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
+- No local checkout in this session. Do not claim local sanitizer tests, local host builds or firmware builds.
 
 ## Exact-SHA Actions
-- RC SSID hardening source SHA 80824697be5358d7fc38ca258ec0c1fd4beb252b: Process combined regression #45139858176 FAILED only at final source integration assertion for the public prototype. The three sanitizer tests before it — LLDT PID parser, LLTD config-path parser, and WLAN SSID encoder — all PASS.
-- AI handoff documentation #45139858373 PASS.
-- NVRAM transaction audit #45139858358 CANCELLED; this is not a pass or a test failure.
-- XY-C1 #45139858209 was IN_PROGRESS on Build XY-C1; TRX verification and artifact upload were pending when polled.
-- Newer main SHA 0774f960873402a81c2ca1ae3dec62dabdfc688b: process inventory #45140001262 PASS; XY-C1 #45140001410 and NVRAM audit #45140001652 were IN_PROGRESS. wsdd2 HTTP framing/send/XML regression checks #45140001431, #45140001496, and #45140001341 PASS.
+- WSD deadline source SHA `fc515297323886e9d7955e46f2a605f7396b0592`: WSD TCP send regression #45141178054 PASS; WSD XML reflection #45141178151 PASS; Process inventory #45141178220 PASS.
+- Initial WSD HTTP run #45141178185 on `fc51529` FAILED only at the Python source-contract assertion for the wrapped call to `wsd_http_deadline_after_ms`. The GNU99 ASan/UBSan socket-test binary completed before the checker and did not fail. Checker correction commit `940c539` fixes the whitespace-sensitive assertion; exact-descendant WSD HTTP run #45141306447 PASS, including the sanitizer binary and source contract.
+- NVRAM audit #45141178137 was still IN_PROGRESS in the raw userland ioctl audit when last polled; all preceding transaction test/compile steps passed.
+- XY-C1 #45141178162 was still IN_PROGRESS at Build XY-C1; all earlier host/source validation steps had passed; TRX verification and artifact upload had not yet run. No L3 claim.
+- The prior WSD parser-state source fix `0774f960873402a81c2ca1ae3dec62dabdfc688b` passed exact-SHA WSD HTTP #45140001431, TCP send #45140001496 and XML #45140001341, plus Process inventory #45140001262 and NVRAM audit #45140001652. XY-C1 #45140001410 was in progress at last poll; do not transfer L3 to newer source.
 
-## Active follow-up — RC WLAN SSID public API declaration
-- The SSID encoder implementation and both callers already use int char_to_ascii(char *output, size_t output_size, const char *input), but trunk/user/rc/src/rc.h still declared the old void char_to_ascii(char *output, char *input) interface. This mismatch would create a conflicting declaration at compilation and was caught by the Process source contract before firmware build.
-- THIS slice updates the public header to the capacity-bearing API and strengthens the contract to reject the obsolete prototype. The three sanitizer test steps on the previous source SHA had already passed; this header fix now awaits exact-head Process and XY-C1 validation.
+## Completed source slice — Bound WSD accepted-client time
+- In `wsd_recv()`, a read error on an accepted TCP client previously propagated as a negative service result, which the event loop treats as listener/service failure and restarts WSD. Accepted-client EOF/read/timeout failures now close only that client and return success to the listener loop; accept/listener errors still propagate.
+- The previous one-second `SO_RCVTIMEO` reset on every `recv()`, so a slow peer could drip data and occupy the single-threaded WSD loop indefinitely. A single five-second request deadline now covers initial receive, request line, all headers and the declared body through poll + nonblocking recv; timeout returns HTTP 408.
+- Added idle-client and slow-trickle socket regressions under GNU99 ASan/UBSan, plus production-source integration assertions. Exact WSD HTTP validation passes on descendant SHA `940c539`.
 
 ## Next actions
-1. Verify exact-head Process integration and all three sanitizer tests; fix the first real failure.
-2. Poll exact-SHA XY-C1 Build, TRX output check and artifact upload; L3 only when all three pass on one SHA.
-3. Verify the NVRAM transaction audit on a non-cancelled exact SHA.
-4. Continue another independent userland stability/security slice while checks are pending; physical router L4 remains NOT VERIFIED.
+1. Finish exact-source XY-C1 #45141178162 on source `fc515297`: verify Build XY-C1, TRX output and artifact upload; only claim L3 if all three complete successfully on this same source SHA.
+2. Finish NVRAM audit #45141178137 and record its exact result.
+3. Continue P1 DNSMasq split-DNS or packed switch-ioctl validation from the roadmap while unrelated Actions are running; do not repeat completed WSD tests.
+4. Keep physical-router L4 as NOT VERIFIED until exercised on hardware.
 
 ## Validation boundary
-The production encoder and regression tests passed their dedicated Process test steps on SHA 8082469, but final source integration failed because the public header had not been updated. THIS follow-up fixes that declaration; all tests/builds on the new SHA remain pending. No local firmware build or physical-router validation is claimed.
+- Exact WSD HTTP L2 passed on `940c539`; send/XML L2 and Process inventory passed on source `fc51529`. XY-C1 is not yet complete on the product-source SHA, so no new L3 claim is made.
+- No local test, build or physical-router result is claimed.
 
 ## Cross-session mandate
 One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; never modify the frozen backup; inspect exact-SHA Actions and never infer results.
+
 
 
 # SESSION HANDOFF — Padavan 4.4

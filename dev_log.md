@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Bound WSD accepted-client processing time
+
+- Found two related TCP availability defects in wsdd2: a negative recv on an accepted client propagated as a service failure and restarted the WSD listener; also, the per-recv SO_RCVTIMEO was reset after each read, allowing a slow-trickle peer to block the single-threaded event loop indefinitely.
+- Commit fc515297323886e9d7955e46f2a605f7396b0592 isolates accepted-client read failures, uses one five-second request deadline across the initial read, request line, headers and body with poll/nonblocking recv, and sends 408 on timeout. Added idle-client and slow-trickle socket regressions and production-source assertions.
+- Exact fc51529 Actions: WSD TCP send #45141178054 PASS, WSD XML #45141178151 PASS, Process inventory #45141178220 PASS. WSD HTTP #45141178185 failed only the Python source checker’s whitespace-sensitive assertion after the sanitizer binary had completed. Checker correction commit 940c53921c210898199bfc78b1b1b0cb33c206d6; exact-descendant WSD HTTP #45141306447 PASS (GNU99 ASan/UBSan socket test and source contract).
+- NVRAM audit #45141178137 and XY-C1 #45141178162 were still in progress at last poll; XY had reached Build XY-C1 with preceding source checks successful, TRX/artifact pending. No L3 claim and no local test/build claim.
+
+---
+
 ## 2026-11-23 UTC — Align the RC public SSID encoder prototype
 
 - Exact-head Process run #45139858176 on SHA 80824697be5358d7fc38ca258ec0c1fd4beb252b passed the LLDT PID parser, LLTD config-path parser and WLAN SSID encoder ASan/UBSan test steps, then failed at the final source integration assertion: rc.h still declared void char_to_ascii(char *output, char *input).
