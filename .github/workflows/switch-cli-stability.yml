@@ -686,6 +686,7 @@ jobs:
               "test_port_register_writes_continue_after_first_failure",
               "test_port_register_write_rejects_invalid_io_and_ranges",
               "test_register_update_bits_preserves_unmasked_bits_and_propagates_errors",
+              "test_register_write_propagates_mdio_failures",
               "test_phy_power_set_reads_and_writes_before_reporting_change",
               "test_phy_power_set_skips_unchanged_state_but_honors_force",
               "test_phy_power_set_read_and_write_errors_are_propagated",
@@ -867,6 +868,12 @@ jobs:
           assert "io->write(context, phy_addr, reg, value)" in register_update
           assert "test_register_update_bits_preserves_unmasked_bits_and_propagates_errors" in test
           assert "return mtk_esw_link_mode_io_error(status);" in register_update
+          register_write = policy.split("mtk_esw_register_write(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->write(context, phy_addr, reg, value)" in register_write
+          assert "return mtk_esw_link_mode_io_error(status);" in register_write
+          assert "test_register_write_propagates_mdio_failures" in test
           assert "mtk_esw_register_update_bits(" in source[source.index("static int esw_led_mode"):source.index("static u32 esw_status_link_port")]
           led_change = source[source.index("static int change_led_mode"):source.index("int esw_ioctl_init_post")]
           assert led_change.index("status = esw_led_mode(led_mode)") < led_change.index("g_led_phy_mode = led_mode;")

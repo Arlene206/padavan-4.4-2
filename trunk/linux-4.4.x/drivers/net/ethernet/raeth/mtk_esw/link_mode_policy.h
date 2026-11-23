@@ -356,6 +356,25 @@ mtk_esw_register_update_bits(unsigned int phy_addr, unsigned int reg,
 }
 
 /*
+ * Issue one checked register write and normalize callback failures.
+ */
+static inline int
+mtk_esw_register_write(unsigned int phy_addr, unsigned int reg,
+                       unsigned int value,
+                       const struct mtk_esw_link_mode_io *io, void *context)
+{
+	int status;
+
+	if (!io || !io->write)
+		return -EINVAL;
+	status = io->write(context, phy_addr, reg, value);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+	return 0;
+}
+
+
+/*
  * Write a per-port register value to every selected switch port. A failed write
  * must not prevent independent ports from being attempted, but any failure
  * keeps the higher-level cached configuration dirty for a later retry.

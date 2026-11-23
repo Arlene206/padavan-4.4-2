@@ -529,6 +529,44 @@ test_register_update_bits_preserves_unmasked_bits_and_propagates_errors(void)
 }
 
 static void
+test_register_write_propagates_mdio_failures(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_write = fake_ops;
+
+	fake_init(&fake);
+	assert(mtk_esw_register_write(0x1fU, 0x7d00U, 0x12345678U,
+				      &fake_ops, &fake) == 0);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].type == FAKE_WRITE &&
+	       fake.events[0].phy == 0x1fU &&
+	       fake.events[0].reg == 0x7d00U &&
+	       fake.events[0].value == 0x12345678U);
+
+	fake_init(&fake);
+	fake.fail_at = 0U;
+	fake.fail_status = -EACCES;
+	assert(mtk_esw_register_write(0x1fU, 0x7d00U, 1U,
+				      &fake_ops, &fake) == -EACCES);
+	assert(fake.mdio_calls == 1U && fake.events[0].type == FAKE_WRITE);
+
+	fake_init(&fake);
+	fake.fail_at = 0U;
+	fake.fail_status = 1;
+	assert(mtk_esw_register_write(0x1fU, 0x7d00U, 1U,
+				      &fake_ops, &fake) == -EIO);
+	assert(fake.mdio_calls == 1U);
+
+	fake_init(&fake);
+	missing_write.write = NULL;
+	assert(mtk_esw_register_write(0x1fU, 0x7d00U, 1U,
+				      NULL, &fake) == -EINVAL);
+	assert(mtk_esw_register_write(0x1fU, 0x7d00U, 1U,
+				      &missing_write, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_port_register_writes_continue_after_first_failure(void)
 {
 	struct fake_mdio fake;
@@ -853,6 +891,7 @@ int
 main(void)
 {
 	test_register_update_bits_preserves_unmasked_bits_and_propagates_errors();
+	test_register_write_propagates_mdio_failures();
 	test_port_register_writes_continue_after_first_failure();
 	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
