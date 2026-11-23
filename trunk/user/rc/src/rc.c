@@ -65,6 +65,7 @@
 #include "router_runtime_nvram_reset_policy.h"
 #include "wireless_radio_policy.h"
 #include "ddns_restart_policy.h"
+#include "logger_start_policy.h"
 #include "timezone_env_policy.h"
 #include "console_loglevel_policy.h"
 #if defined (USE_IPV6)
@@ -1415,6 +1416,9 @@ int
 init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
+	char *log_remote_nvram_value = NULL;
+	const char *log_remote_value = NULL;
+	int log_remote_api_result, log_remote_saved_errno, log_remote_status;
 	int ap_mode_status;
 	int storage_save_status, dnsmasq_start_status;
 	int boot_modules_status, boot_services_status;
@@ -1520,7 +1524,21 @@ init_router(void)
 
 	storage_load_time();
 
-	log_remote = nvram_invmatch("log_ipaddr", "");
+	errno = 0;
+	log_remote_api_result = nvram_get_checked("log_ipaddr", &log_remote_nvram_value);
+	log_remote_saved_errno = errno;
+	log_remote_status = firewall_nvram_string_value_status(
+		log_remote_api_result, log_remote_saved_errno,
+		log_remote_nvram_value, &log_remote_value);
+	log_remote_status = rc_logger_remote_start_deferred(
+		log_remote_status, log_remote_value, &log_remote);
+	if (log_remote_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot determine remote syslog startup phase; deferring logger until LAN is ready (status=%d)",
+			   log_remote_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, log_remote_status);
+	}
 	if (!log_remote) {
 		int logger_start_status = start_logger(1);
 		boot_services_status = rc_first_service_start_status(

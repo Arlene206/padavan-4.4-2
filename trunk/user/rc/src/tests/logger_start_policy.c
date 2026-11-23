@@ -10,6 +10,7 @@ main(void)
 {
 	char address[16];
 	int port;
+	int defer_until_lan;
 
 	assert(rc_logger_start_status(0, 0) == 0);
 	assert(rc_logger_start_status(17, 0) == 17);
@@ -23,6 +24,18 @@ main(void)
 	assert(rc_logger_start_status_with_wait(0, 0, 29) == 29);
 	assert(rc_logger_start_status_with_wait(-1, 23, 29) == -1);
 	assert(rc_logger_start_status_with_wait(0, -1, 29) == -1);
+
+	assert(rc_logger_remote_start_deferred(0, "", &defer_until_lan) == 0);
+	assert(defer_until_lan == 0);
+	assert(rc_logger_remote_start_deferred(0, "192.0.2.10", &defer_until_lan) == 0);
+	assert(defer_until_lan == 1);
+	assert(rc_logger_remote_start_deferred(EIO, NULL, &defer_until_lan) == EIO);
+	assert(defer_until_lan == 1);
+	assert(rc_logger_remote_start_deferred(0, NULL, &defer_until_lan) == EIO);
+	assert(defer_until_lan == 1);
+	assert(rc_logger_remote_start_deferred(EACCES, "192.0.2.10", &defer_until_lan) == EACCES);
+	assert(defer_until_lan == 1);
+	assert(rc_logger_remote_start_deferred(0, "", NULL) == EINVAL);
 
 	assert(rc_logger_nvram_address_status(1, 0, "192.0.2.10", address, sizeof(address)) == 0);
 	assert(strcmp(address, "192.0.2.10") == 0);

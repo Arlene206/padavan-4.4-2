@@ -106,4 +106,20 @@ rc_logger_nvram_port_status(int api_result, int saved_errno,
 	return 0;
 }
 
+/* Defer remote logging until LAN is ready when the destination is unknown. */
+static inline int
+rc_logger_remote_start_deferred(int read_status, const char *value,
+				int *defer_until_lan)
+{
+	if (!defer_until_lan)
+		return EINVAL;
+	*defer_until_lan = 1;
+	if (read_status != 0)
+		return read_status;
+	if (!value)
+		return EIO;
+	*defer_until_lan = value[0] != '\0';
+	return 0;
+}
+
 #endif

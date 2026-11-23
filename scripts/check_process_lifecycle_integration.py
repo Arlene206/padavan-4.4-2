@@ -2300,6 +2300,15 @@ assert 'nvram_get_int("usb3_disable")' not in usb_modules_compact
 print("USB XHCI checked NVRAM parameter and boot-status propagation: PASS")
 
 router_init = c_function_body(rc_source, "init_router(void)")
+assert 'nvram_get_checked("log_ipaddr", &log_remote_nvram_value)' in router_init
+assert "firewall_nvram_string_value_status(" in router_init
+assert "rc_logger_remote_start_deferred(" in router_init
+assert 'nvram_invmatch("log_ipaddr", "")' not in router_init
+assert router_init.index("rc_logger_remote_start_deferred(") < router_init.index("if (!log_remote)")
+assert router_init.index("start_lan(is_ap_mode, 0)") < router_init.index("if (log_remote)")
+assert "cannot determine remote syslog startup phase" in router_init
+assert "rc_logger_remote_start_deferred" in logger_policy
+assert "rc_logger_remote_start_deferred(EIO, NULL, &defer_until_lan) == EIO" in logger_test
 mode_read = router_init.index("ap_mode_status = get_ap_mode_status(&is_ap_mode);")
 mode_failure = router_init.index("if (ap_mode_status != 0)", mode_read)
 mode_fallback = router_init.index("is_ap_mode = 1;", mode_failure)

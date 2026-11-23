@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Defer logger startup when the remote destination selector is unknown
+
+- `init_router()` used `nvram_invmatch("log_ipaddr", "")` to choose whether syslogd starts before or after LAN setup. That legacy matcher collapses NVRAM read failures into an empty value, causing a configured remote logger to take the early/local-only startup path; the later phase was then skipped because the captured boolean was false.
+- The boot path now checks the selector read, resolves missing keys to the legacy empty value, and conservatively defers logger start until LAN is ready whenever the value is unknown. The read error is preserved in the boot service status; `start_syslogd()` then takes a fresh checked snapshot and either configures the remote sink or keeps local logging active.
+- Added policy cases for empty/configured values, read failures, malformed present values and invalid output pointers; the Process checker pins the checked selector and early-vs-late startup ordering.
+
+---
+
 ## 2026-11-23 UTC — Fail closed on unknown iNIC guest AP schedule
 
 - `check_inic_mii_rebooted()` previously used the value-only guest schedule helper. Backend/close read failures could collapse into the legacy unrestricted default and trigger a guest AP restart when schedule state was unknown.
