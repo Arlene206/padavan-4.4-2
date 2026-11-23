@@ -112,7 +112,9 @@ jobs:
               assert "get_ap_mode()" not in start_wifi_ap_rt
               assert "if (ap_mode_status != 0)" in start_wifi_ap_rt
               assert start_wifi_ap_rt.index("if (ap_mode_status != 0)") < start_wifi_ap_rt.index("wireless_bridge_membership_record(")
-          assert "static int wireless_nvram_get_int_status(const char *name, int *value);" in source
+          assert "int wireless_nvram_get_int_status(const char *name, int *value);" in source
+          assert "static int wireless_nvram_get_int_status(const char *name, int *value);" not in source
+          assert "int wireless_nvram_get_int_status(const char *name, int *value);" in (rc / "rc.h").read_text()
           for signature, key, getter in (
               ("start_wifi_ap_wl(int radio_on)", "wl_mode_x", "get_mode_radio_wl()"),
               ("start_wifi_wds_wl(int radio_on)", "wl_mode_x", "get_mode_radio_wl()"),
