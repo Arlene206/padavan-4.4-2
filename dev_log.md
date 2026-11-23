@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Keep scheduled actions on the last valid timezone
+
+- Found an unchecked NVRAM access in `watchdog.c:timecheck_reboot()`: unlike the checked timezone setup used by PID 1, this scheduler still called `nvram_safe_get("time_zone_x")` and overwrote process `TZ` with an empty value on a backend error. The resulting local-time comparison could trigger a configured reboot/update at the wrong wall-clock time. The same function also ignored `time()` failure and could evaluate an uninitialized timestamp.
+- Reused the existing `timezone_env_policy.h` checked-read formatter. The scheduler now validates/copies the timezone before changing `TZ`, preserves the prior environment and skips the scheduled action on read/validation/setenv errors, rate-limits repeated error logs, and checks the clock result before calling `localtime()`.
+- Added the existing timezone GNU89/Werror/ASan/UBSan policy test to the Process lifecycle workflow and source-order assertions for checked read → validate → apply → clock. Process and XY-C1 exact-head Actions are pending; no local compile or MIPS result is claimed.
+
+---
 ## 2026-11-23 UTC — Retry LAN networkmap when completion state cannot be inspected
 
 - Found a tri-state recovery bug in `udhcpc_lan_bound()`: a missing or inaccessible PID 1 incomplete-action directory made `lan_dhcp_networkmap_retry_pending()` return a negative error, but the caller converted that UNKNOWN state to zero. An unchanged DHCP RENEW then skipped retrying a previous failed networkmap refresh.

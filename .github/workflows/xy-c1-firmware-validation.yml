@@ -318,6 +318,7 @@ on:
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/rstats_file_policy.h"
       - "trunk/user/rc/src/watchdog_ntp_policy.h"
+      - "trunk/user/rc/src/timezone_env_policy.h"
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/watchdog_httpd_probe_policy.h"

@@ -1569,6 +1569,24 @@ assert '"trunk/user/rc/src/auth.c"' in process_workflow
 assert '"trunk/user/rc/src/auth.c"' in xy_workflow
 
 watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
+reboot_schedule = watchdog_source.split(
+    "int timecheck_reboot(char *activeSchedule)", 1
+)[1].split("\n}\n", 1)[0]
+assert '"timezone_env_policy.h"' in watchdog_source
+assert 'nvram_get_checked("time_zone_x", &time_zone)' in reboot_schedule
+assert "rc_timezone_env_format_status(" in reboot_schedule
+assert 'setenv("TZ", timezone_env + 3, 1)' in reboot_schedule
+assert "tzset();" in reboot_schedule
+assert 'nvram_safe_get("time_zone_x")' not in reboot_schedule
+timezone_read = reboot_schedule.index('nvram_get_checked("time_zone_x", &time_zone)')
+timezone_validate = reboot_schedule.index("rc_timezone_env_format_status(")
+timezone_apply = reboot_schedule.index('setenv("TZ", timezone_env + 3, 1)')
+clock_read = reboot_schedule.index("time(&now)")
+assert timezone_read < timezone_validate < timezone_apply < clock_read
+assert "cannot evaluate scheduled action because timezone is unavailable" in reboot_schedule
+assert "time(&now) == (time_t)-1" in reboot_schedule
+assert "timezone_env_policy.h" in process_workflow
+assert "timezone_env_policy.h" in xy_workflow
 httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
     "\nstatic int\nrefresh_ntp(void)", 1
 )[0]

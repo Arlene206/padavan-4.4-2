@@ -40,6 +40,7 @@
 #include "detached_daemon_start_policy.h"
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
+#include "timezone_env_policy.h"
 #include "watchdog_httpd_probe_policy.h"
 #include "wan_nvram_status_policy.h"
 
@@ -440,6 +441,10 @@ int timecheck_reboot(char *activeSchedule)
 {
 	int active, current_time, current_date, Time2Active, Date2Active;
 	int hour, minute, i;
+	int read_result, read_errno, timezone_status;
+	char *time_zone = NULL;
+	char timezone_env[64];
+	static int previous_timezone_error;
 	time_t now;
 	struct tm *tm;
 
@@ -460,9 +465,44 @@ int timecheck_reboot(char *activeSchedule)
 	if (hour > 23 || minute > 59)
 		return 0;
 
-	setenv("TZ", nvram_safe_get("time_zone_x"), 1);
+	errno = 0;
+	read_result = nvram_get_checked("time_zone_x", &time_zone);
+	read_errno = errno;
+	timezone_status = rc_timezone_env_format_status(
+		read_result, read_errno, time_zone,
+		timezone_env, sizeof(timezone_env));
+	if (timezone_status != 0) {
+		if (previous_timezone_error != timezone_status)
+			logmessage("reboot scheduler",
+				   "cannot evaluate scheduled action because timezone is unavailable (status=%d)",
+				   timezone_status);
+		previous_timezone_error = timezone_status;
+		errno = timezone_status;
+		return 0;
+	}
+	if (setenv("TZ", timezone_env + 3, 1) != 0) {
+		timezone_status = errno ? errno : EIO;
+		if (previous_timezone_error != timezone_status)
+			logmessage("reboot scheduler",
+				   "cannot publish timezone for scheduled action (status=%d)",
+				   timezone_status);
+		previous_timezone_error = timezone_status;
+		errno = timezone_status;
+		return 0;
+	}
+	tzset();
+	if (previous_timezone_error != 0)
+		logmessage("reboot scheduler", "timezone read recovered");
+	previous_timezone_error = 0;
 
-	time(&now);
+	if (time(&now) == (time_t)-1) {
+		int time_error = errno ? errno : EIO;
+		logmessage("reboot scheduler",
+			   "cannot read current time for scheduled action (status=%d)",
+			   time_error);
+		errno = time_error;
+		return 0;
+	}
 	tm = localtime(&now);
 	if (!tm)
 		return 0;
