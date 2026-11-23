@@ -194,7 +194,7 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 	char target[32];
 	char *list_file = NULL, *list_info = NULL;
 	char *follow_info, *line_end, *endptr;
-	int i, count;
+	int i, count, saved_errno;
 	long parsed_count;
 	size_t list_file_len, list_info_len, name_len;
 	int target_len;
@@ -211,8 +211,14 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 
 	snprintf(list_file, list_file_len + 1, "%s/.__folder_list.txt", mount_path);
 
-	if (!test_if_file(list_file))
-		initial_folder_list_in_mount_path(mount_path);
+	if (!test_if_file(list_file)) {
+		if (initial_folder_list_in_mount_path(mount_path) != 0) {
+			saved_errno = errno ? errno : EIO;
+			free(list_file);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 
 	list_info = read_whole_file(list_file);
 	free(list_file);

@@ -73,6 +73,24 @@ require('#include "disk_share_list_policy.h"' in DISK_SOURCE,
 require("disk_share_list_prepare_outputs" in POLICY,
         "shared output-preparation policy is missing")
 
+folder_list_reader = function_body(
+    DISK_SOURCE,
+    "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
+)
+folder_list_reader_compact = "".join(folder_list_reader.split())
+cache_missing = folder_list_reader_compact.index("if(!test_if_file(list_file))")
+cache_refresh = folder_list_reader_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", cache_missing
+)
+cache_failure = folder_list_reader_compact.index("saved_errno=errno?errno:EIO;", cache_refresh)
+cache_cleanup = folder_list_reader_compact.index("free(list_file);", cache_failure)
+cache_restore_errno = folder_list_reader_compact.index("errno=saved_errno;", cache_cleanup)
+cache_return = folder_list_reader_compact.index("return-1;", cache_restore_errno)
+cache_read = folder_list_reader_compact.index("list_info=read_whole_file(list_file)", cache_return)
+require(cache_missing < cache_refresh < cache_failure < cache_cleanup <
+        cache_restore_errno < cache_return < cache_read,
+        "folder-list reads must stop on cache initialization failure, release the path buffer, and preserve the initialization errno")
+
 for signature in (
     "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)",
     "int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)",
