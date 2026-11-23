@@ -81,6 +81,8 @@ process_inventory_test = (root / "trunk/user/shared/src/tests/process_inventory.
 pids_presence_policy = (root / "trunk/user/shared/src/pids_presence_policy.h").read_text()
 pids_presence_test = (root / "trunk/user/shared/src/tests/pids_presence_policy.c").read_text()
 common_ex = (root / "trunk/user/rc/src/common_ex.c").read_text()
+module_refcount_policy = (root / "trunk/user/rc/src/module_refcount_policy.h").read_text()
+module_refcount_test = (root / "trunk/user/rc/src/tests/module_refcount_policy.c").read_text()
 char_to_ascii_policy = (root / "trunk/user/rc/src/char_to_ascii_policy.h").read_text()
 char_to_ascii_test = (root / "trunk/user/rc/src/tests/char_to_ascii_policy.c").read_text()
 policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
@@ -2505,3 +2507,29 @@ xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text(
 for changed_path in ("trunk/user/scripts/files/usr/bin/ap_script.sh",
                      "trunk/user/scripts/tests/ap_script_lock_cleanup.sh"):
     assert changed_path in process_workflow and changed_path in xy_workflow
+
+# A module unload must fail closed when the sysfs refcount read is incomplete.
+module_refcount_reader = c_function_body(
+    common_ex, "get_module_refcount(const char *module_name)"
+)
+module_unloader = c_function_body(
+    common_ex, "module_smart_unload(const char *module_name, int recurse_unload)"
+)
+assert "ferror(fp)" in module_refcount_reader
+assert "fgetc(fp)" in module_refcount_reader
+assert "trailing_char != EOF" in module_refcount_reader
+assert "fclose(fp) != 0" in module_refcount_reader
+assert "module_refcount_parse(mod_refval, &refcount)" in module_refcount_reader
+assert module_refcount_reader.index("fgets(") < module_refcount_reader.index("ferror(fp)")
+assert module_refcount_reader.index("ferror(fp)") < module_refcount_reader.index("fgetc(fp)")
+assert module_refcount_reader.index("fgetc(fp)") < module_refcount_reader.index("fclose(fp)")
+assert module_unloader.index("get_module_refcount(module_name)") < module_unloader.index("if (refcount < 0)")
+assert module_unloader.index("if (refcount < 0)") < module_unloader.index("_eval(")
+for token in (
+    "module_refcount_parse",
+    "INT_MAX",
+    "digits >= 10",
+):
+    assert token in module_refcount_policy
+for test_case in ("test_valid_refcounts", "test_invalid_or_partial_records"):
+    assert test_case + "();" in module_refcount_test

@@ -165,6 +165,8 @@ on:
       - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
       - "trunk/user/rc/src/tests/wireless_guest_isolation_policy.c"
       - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
+      - "trunk/user/rc/src/module_refcount_policy.h"
+      - "trunk/user/rc/src/tests/module_refcount_policy.c"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
       - "trunk/user/rc/src/udhcpc_script_link_policy.h"
       - "trunk/user/rc/src/upnp_restart_policy.h"
@@ -407,6 +409,8 @@ on:
       - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
       - "trunk/user/rc/src/tests/wireless_guest_isolation_policy.c"
       - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
+      - "trunk/user/rc/src/module_refcount_policy.h"
+      - "trunk/user/rc/src/tests/module_refcount_policy.c"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
       - "trunk/user/rc/src/udhcpc_script_link_policy.h"
       - "trunk/user/rc/src/upnp_restart_policy.h"
@@ -1027,6 +1031,13 @@ jobs:
             trunk/user/rc/src/tests/wireless_module_load_policy.c \
             -o "$RUNNER_TEMP/wireless-module-load-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wireless-module-load-policy"
+      - name: Compile and run strict module refcount read regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/module_refcount_policy.c \
+            -o "$RUNNER_TEMP/module-refcount-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/module-refcount-policy"
       - name: Compile and run checked timezone environment policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

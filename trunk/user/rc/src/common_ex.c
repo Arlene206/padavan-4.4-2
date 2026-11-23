@@ -44,6 +44,7 @@
 
 #include "rc.h"
 #include "char_to_ascii_policy.h"
+#include "module_refcount_policy.h"
 #include "nvram_linux.h"
 #include "router_mode_nvram_policy.h"
 #include "network_sysctl.h"
@@ -721,9 +722,8 @@ int
 get_module_refcount(const char *module_name)
 {
 	FILE *fp;
-	char mod_path[64], mod_refval[16], *end;
-	long refcount;
-	int path_len;
+	char mod_path[64], mod_refval[16], *newline;
+	int refcount, path_len, read_status = 0, trailing_char;
 
 	if (!is_safe_module_name(module_name))
 		return -1;
@@ -734,19 +734,28 @@ get_module_refcount(const char *module_name)
 	if (!fp)
 		return -1;
 
-	if (!fgets(mod_refval, sizeof(mod_refval), fp)) {
-		fclose(fp);
-		return -1;
+	if (!fgets(mod_refval, sizeof(mod_refval), fp))
+		read_status = -1;
+	if (ferror(fp))
+		read_status = -1;
+
+	if (read_status == 0) {
+		/* Require EOF after this one complete line; reject truncation and tails. */
+		newline = strchr(mod_refval, '\n');
+		if (newline)
+			*newline = '\0';
+		trailing_char = fgetc(fp);
+		if (trailing_char != EOF || ferror(fp))
+			read_status = -1;
 	}
-	fclose(fp);
-
-	errno = 0;
-	refcount = strtol(mod_refval, &end, 10);
-		if (errno == ERANGE || end == mod_refval || (*end && *end != '\n') ||
-	    refcount < 0 || refcount > INT_MAX)
+	if (fclose(fp) != 0)
+		read_status = -1;
+	if (read_status != 0)
 		return -1;
 
-	return (int)refcount;
+	if (module_refcount_parse(mod_refval, &refcount) != 0)
+		return -1;
+	return refcount;
 }
 
 int
