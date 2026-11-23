@@ -1,3 +1,11 @@
+## 2026-11-23 12:22 UTC+8 — Correct the lstat source-contract whitespace locator
+
+- Exact-head libdisk run `45105008310` on `e16fc458f434cdb097d27e17bda7daaf9f245dec` passed both GNU89 ASan/UBSan C test binaries, including the new temporary-directory symlink fixture, then failed the Python source contract. The source code itself used `lstat(testdir, &entry_status)`; the checker compared against `lstat(testdir,&entry_status)` even though `compact_all_folders` joins tokens with spaces.
+- Corrected the source-contract token to match its normalized representation. No product source or test behavior changed in this checker-only correction; the full exact-head libdisk workflow must pass on the successor SHA before this slice is considered L2-verified.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 12:19 UTC+8 — Reject symlinked directories from the libdisk share inventory
 
 - Audited Samba's private-share builder: it consumes `get_folder_list_in_mount_path()` and constructs `path = mount_point/folder_name`. Both the fresh scanner and persisted folder-list cache previously accepted directory symlinks (the scanner used `opendir()`, and the cache trusted stored names), which could expose a path outside the intended removable-volume subtree. `mod_folder()` also used a symlink-following directory check before rename.

@@ -127,7 +127,7 @@ errno_restore = compact_all_folders.index(
     "errno = read_error != 0 ? read_error : EIO;", error_gate
 )
 require(read_entry < eof_gate < error_gate < errno_restore and
-        "lstat(testdir,&entry_status)" in compact_all_folders and
+        "lstat(testdir, &entry_status)" in compact_all_folders and
         "disk_share_folder_entry_status" in compact_all_folders and
         "test_if_dir(testdir)" not in compact_all_folders,
         "directory enumeration must reject symlinked/non-directory entries without following them")
