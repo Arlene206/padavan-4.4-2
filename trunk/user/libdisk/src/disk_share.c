@@ -480,7 +480,7 @@ failed:
 	return -1;
 }
 
-int initial_one_var_file_in_mount_path(const char *const account,
+static int initial_one_var_file_in_mount_path_locked(const char *const account,
                                       const char *const mount_path)
 {
 	int sh_num = 0, fd = -1, temp_created = 0;
@@ -669,6 +669,86 @@ failed:
 	return -1;
 }
 
+static int
+disk_share_account_metadata_write(
+	const char *const account, const char *const mount_path,
+	int (*writer)(const char *const, const char *const))
+{
+	int acc_num = 0, account_found = 0, transaction_started = 0;
+	int i, result, first_error = 0, end_error;
+	char **account_list = NULL;
+	struct nvram_transaction transaction;
+
+	if (!account || !is_valid_account_name(account) ||
+	    !mount_path || !*mount_path || !writer) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+
+	if (strcmp(account, FTP_ANONYMOUS_USER) == 0)
+		account_found = 1;
+	else {
+		for (i = 0; i < acc_num; ++i) {
+			if (account_list[i] && strcmp(account_list[i], account) == 0) {
+				account_found = 1;
+				break;
+			}
+		}
+	}
+	if (!account_found) {
+		first_error = ENOENT;
+		goto finished;
+	}
+
+	if (disk_share_account_nvram_begin(&transaction) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+	transaction_started = 1;
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0) {
+		first_error = errno ? errno : EIO;
+		goto release;
+	}
+
+	errno = 0;
+	result = writer(account, mount_path);
+	if (result != 0)
+		first_error = errno ? errno : EIO;
+
+release:
+	errno = 0;
+	if (transaction_started && disk_share_account_nvram_end(&transaction) != 0) {
+		end_error = errno ? errno : EIO;
+		if (first_error == 0)
+			first_error = end_error;
+		else
+			logmessage("disk_share",
+				   "account metadata transaction release failed (errno %d)",
+				   end_error);
+	}
+finished:
+	free_2_dimension_list(&acc_num, &account_list);
+	if (first_error != 0) {
+		errno = first_error;
+		return -1;
+	}
+	return 0;
+}
+
+int
+initial_one_var_file_in_mount_path(const char *const account,
+                                   const char *const mount_path)
+{
+	return disk_share_account_metadata_write(
+		account, mount_path, initial_one_var_file_in_mount_path_locked);
+}
+
 int initial_all_var_file_in_mount_path(const char *const mount_path)
 {
 	int i, first_error = 0, end_error;
@@ -723,14 +803,14 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 	}
 
 	/* Initialize anonymous defaults before account-specific permissions. */
-	if (initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,
+	if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,
 	                                       mount_path) != 0) {
 		first_error = errno ? errno : EIO;
 		goto finished;
 	}
 
 	for (i = 0; i < acc_num; ++i) {
-		if (initial_one_var_file_in_mount_path(account_list[i],
+		if (initial_one_var_file_in_mount_path_locked(account_list[i],
 		                                       mount_path) != 0) {
 			first_error = errno ? errno : EIO;
 			goto finished;
@@ -762,6 +842,9 @@ finished:
 	return 0;
 }
 
+
+static int modify_if_exist_new_folder_locked(
+	const char *const account, const char *const mount_path);
 
 static int
 create_if_no_var_files_with_accounts(const char *const mount_path,
@@ -800,10 +883,10 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 		return -1;
 	}
 	if (!test_if_file(var_file))
-		result = initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,
+		result = initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,
 		                                           mount_path);
 	else
-		result = modify_if_exist_new_folder(FTP_ANONYMOUS_USER, mount_path);
+		result = modify_if_exist_new_folder_locked(FTP_ANONYMOUS_USER, mount_path);
 	if (result != 0)
 		return -1;
 
@@ -816,10 +899,10 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 			break;
 		}
 		if (!test_if_file(var_file))
-			result = initial_one_var_file_in_mount_path(account_list[i],
+			result = initial_one_var_file_in_mount_path_locked(account_list[i],
 			                                           mount_path);
 		else
-			result = modify_if_exist_new_folder(account_list[i], mount_path);
+			result = modify_if_exist_new_folder_locked(account_list[i], mount_path);
 		if (result != 0)
 			break;
 	}
@@ -884,7 +967,7 @@ finished:
 }
 
 
-int modify_if_exist_new_folder(const char *const account,
+static int modify_if_exist_new_folder_locked(const char *const account,
                                   const char *const mount_path)
 {
 	int sh_num = 0, missing_count = 0, fd = -1, temp_created = 0;
@@ -1030,6 +1113,15 @@ failed:
 	errno = saved_errno;
 	return -1;
 }
+
+int
+modify_if_exist_new_folder(const char *const account,
+                           const char *const mount_path)
+{
+	return disk_share_account_metadata_write(
+		account, mount_path, modify_if_exist_new_folder_locked);
+}
+
 
 int get_permission(const char *account,
 		   const char *mount_path,
@@ -1296,7 +1388,7 @@ int set_permission(const char *account,
 			goto failed;
 		}
 		errno = 0;
-		result = initial_one_var_file_in_mount_path(account, mount_path);
+		result = initial_one_var_file_in_mount_path_locked(account, mount_path);
 		if (result != 0) {
 			if (!errno)
 				errno = EIO;
@@ -1544,7 +1636,7 @@ int add_account(const char *const account, const char *const password)
 	/* Create metadata on every volume before exposing the account in NVRAM. */
 	if (first_error == 0) {
 		for (file = files; file != NULL; file = file->next) {
-			init_result = initial_one_var_file_in_mount_path(
+			init_result = initial_one_var_file_in_mount_path_locked(
 				account, file->mount_path);
 			if (init_result != 0) {
 				first_error = errno ? errno : EIO;

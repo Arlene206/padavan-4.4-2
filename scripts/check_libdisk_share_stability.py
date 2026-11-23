@@ -132,12 +132,39 @@ require("unlink(temp_file)" in write_failure and
         "failed snapshot writes must remove the temporary file and preserve errno")
 
 
+metadata_begin_body = function_body(
+    DISK_SOURCE, "static int\\ndisk_share_account_metadata_write("
+)
+metadata_begin_compact = "".join(metadata_begin_body.split())
+require("get_account_list(&acc_num,&account_list)" in metadata_begin_compact and
+        "disk_share_account_nvram_begin(&transaction)" in metadata_begin_compact and
+        "disk_share_account_inventory_matches_locked(" in metadata_begin_compact and
+        "writer(account,mount_path)" in metadata_begin_compact and
+        "disk_share_account_nvram_end(&transaction)" in metadata_begin_compact,
+        "public account metadata writers must validate a live account snapshot and own the writer lease around file mutation")
+for public_writer in (
+    "int initial_one_var_file_in_mount_path(const char *const account,",
+    "int modify_if_exist_new_folder(const char *const account,",
+):
+    public_body = function_body(DISK_SOURCE, public_writer)
+    require("disk_share_account_metadata_write(" in public_body and
+            "disk_share_account_nvram_begin(" not in public_body,
+            "public metadata APIs must delegate to the single transaction-owning wrapper")
+for locked_writer in (
+    "static int initial_one_var_file_in_mount_path_locked(",
+    "static int modify_if_exist_new_folder_locked(",
+):
+    locked_body = function_body(DISK_SOURCE, locked_writer)
+    require("disk_share_account_nvram_begin(" not in locked_body and
+            "disk_share_account_nvram_end(" not in locked_body,
+            "lock-owned metadata workers must not acquire a nested NVRAM transaction")
+
 require("disk_share_write_account_defaults" in POLICY and
         "if (fflush(stream) != 0)" in POLICY,
         "account defaults writer must report buffered stream failures")
 account_writer = function_body(
     DISK_SOURCE,
-    "int initial_one_var_file_in_mount_path(const char *const account,"
+    "static int initial_one_var_file_in_mount_path_locked(const char *const account,"
 )
 account_mkstemp = account_writer.index("fd = mkstemp(temp_file)")
 account_content = account_writer.index(
@@ -159,7 +186,7 @@ require('fopen(var_file, "w")' not in account_writer,
 
 modify_writer = function_body(
     DISK_SOURCE,
-    "int modify_if_exist_new_folder(const char *const account,"
+    "static int modify_if_exist_new_folder_locked(const char *const account,"
 )
 compact_modify = " ".join(modify_writer.split())
 folder_lookup = compact_modify.index(
@@ -203,8 +230,8 @@ initial_all = function_body(
     "int initial_all_var_file_in_mount_path(const char *const mount_path)"
 )
 require("if (clear_share_var_files(mount_path) != 0)" in initial_all and
-        "if (initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER," in initial_all and
-        "if (initial_one_var_file_in_mount_path(account_list[i]," in initial_all and
+        "if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER," in initial_all and
+        "if (initial_one_var_file_in_mount_path_locked(account_list[i]," in initial_all and
         "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all,
         "full share metadata initialization must propagate every stage failure")
 initial_all = function_body(
@@ -219,8 +246,8 @@ initial_all_validate = initial_all_compact.index(
     initial_all_begin
 )
 initial_all_clear = initial_all_compact.index("clear_share_var_files(mount_path)", initial_all_validate)
-initial_all_anon = initial_all_compact.index("initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,mount_path)", initial_all_clear)
-initial_all_accounts = initial_all_compact.index("initial_one_var_file_in_mount_path(account_list[i],mount_path)", initial_all_anon)
+initial_all_anon = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)", initial_all_clear)
+initial_all_accounts = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(account_list[i],mount_path)", initial_all_anon)
 initial_all_snapshot = initial_all_compact.index("initial_folder_list_in_mount_path(mount_path)", initial_all_accounts)
 initial_all_end = initial_all_compact.index("disk_share_account_nvram_end(&transaction)", initial_all_snapshot)
 require(initial_all_inventory < initial_all_preflight < initial_all_begin <
@@ -251,7 +278,7 @@ worker_guard = (
 )
 worker_first_loop = create_with_accounts_compact.index("for(i=0;i<acc_num;++i){")
 worker_first_write = create_with_accounts_compact.index(
-    "initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,mount_path)"
+    "initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)"
 )
 require("get_account_list(" not in create_with_accounts and
         "intacc_num=0;" not in create_with_accounts_compact and
@@ -260,8 +287,8 @@ require("get_account_list(" not in create_with_accounts and
         "if(!account_list[i]||!*account_list[i])" in create_with_accounts_compact and
         worker_first_loop < worker_first_write and
         "path_len>=(int)sizeof(var_file)" in create_with_accounts_compact and
-        "result=modify_if_exist_new_folder" in create_with_accounts_compact and
-        "result=initial_one_var_file_in_mount_path" in create_with_accounts_compact and
+        "result=modify_if_exist_new_folder_locked" in create_with_accounts_compact and
+        "result=initial_one_var_file_in_mount_path_locked" in create_with_accounts_compact and
         "if(result!=0)" in create_with_accounts_compact,
         "incremental folder metadata worker must validate its bounded inventory and preflight every account path before the first permission write")
 
@@ -352,7 +379,7 @@ require(set_accounts < set_account_lookup < set_begin < set_validate < set_live_
 
 set_read = set_permission.index("var_info = read_whole_file(var_file);")
 set_enoent = set_permission.index("if (saved_errno != ENOENT)", set_read)
-set_init = set_permission.index("initial_one_var_file_in_mount_path(account, mount_path)", set_enoent)
+set_init = set_permission.index("initial_one_var_file_in_mount_path_locked(account, mount_path)", set_enoent)
 set_retry = set_permission.index("var_info = read_whole_file(var_file);", set_init)
 require(set_read < set_enoent < set_init < set_retry and
         "sleep(1);" not in set_permission,
@@ -432,7 +459,7 @@ add_inventory = add_account_compact.index("get_account_list(&acc_num,&account_li
 add_disk_preflight = add_account_compact.index("read_disk_data_checked(&disk_list)")
 add_begin = add_account_compact.index("disk_share_account_nvram_begin(&transaction)")
 add_validate = add_account_compact.index("disk_share_account_inventory_add_validate_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account)")
-add_init = add_account_compact.index("initial_one_var_file_in_mount_path(", add_validate)
+add_init = add_account_compact.index("initial_one_var_file_in_mount_path_locked(", add_validate)
 add_publish = add_account_compact.index("disk_share_account_inventory_add_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account,password)")
 add_rollback = add_account_compact.index(
     "disk_share_account_created_files_rollback(files,unlink,&rollback_error)",
