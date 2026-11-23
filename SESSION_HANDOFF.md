@@ -13,18 +13,18 @@
 - THIS COMMIT closes a remaining AP-client startup fail-open. Both `start_wifi_apcli_wl()` and `start_wifi_apcli_rt()` previously used lossy `nvram_wlan_get(..., "sta_ssid")` to decide whether to bring up APCLI and lossy `is_apcli_wisp_*()` to decide whether to attach that interface to the LAN bridge. A checked-NVRAM backend failure could be mistaken for empty SSID or non-WISP, potentially skipping APCLI startup or leaking a WAN-side WISP interface into LAN.
 - Added `wireless_apcli_wisp_settings_status()` that checks SSID first and only reads the band-specific WISP flag for a nonempty SSID. A read error prevents APCLI startup, best-effort shuts the interface down, removes any LAN bridge membership, records errno and returns a retryable error.
 - Added pure `wireless_apcli_start_config_status()` policy and GNU89 regression cases for SSID backend errors, missing/empty SSID, WISP backend errors, positive/negative WISP settings, invalid pointers and fail-closed output initialization. Extended the USB modem source checker and XY-C1 path filters.
-- Exact-SHA Wireless radio state, USB modem identity, Firewall, Process, AI docs and XY-C1 workflows for THIS commit are pending at creation. XY-C1 must complete Build, TRX verification and artifact upload on this source SHA before claiming firmware verification.
+- Exact-SHA results on THIS source SHA `3dad528f978904976210ce7c7dcbeda6e81b53fc`: Wireless radio state #45217541665 PASS; AI docs #45217543243 PASS; watchdog #45217542656 PASS; iNIC #45217542047 PASS; process inventory #45217541649 PASS. USB modem #45217541737 FAILS at the added checker assertion because `WIRELESS_TEST` was referenced without a module-level file read. Process #45217541804, Firewall #45217546022 and XY-C1 #45217542897 also fail at that same undefined checker variable after earlier work; XY-C1 Build/TRX/artifact were skipped. HTTPD #45217542023 PASS. THIS COMMIT adds the missing checker input binding; rerun the dependent checks.
 
 ## Exact first action for the next GPT
 
 1. Poll Actions for THIS commit SHA, especially wireless-radio-state and XY-C1. Inspect Build, TRX and upload-artifact steps separately.
-2. If a regression fails, obtain its exact job log and fix the source/test mismatch without weakening the fail-closed contract. If XY-C1 is pending, continue another independent stability or security source slice.
-3. Keep atomic expected-SHA updates on `main` only; never force-push or alter the frozen backup.
+3. If a regression still fails after the checker input loads, inspect its exact job log and fix the source/test mismatch without weakening the fail-closed contract. If XY-C1 is pending, continue another independent stability or security source slice.
+4. Keep atomic expected-SHA updates on `main` only; never force-push or alter the frozen backup.
 
 ## Exact-SHA CI facts
 
 - WISP checker source `7a31ac98ebcf9af3762975606364c167687e6060`: USB modem identity #45214590856 PASS; Process #45214590855 PASS; Firewall #45214591229 PASS; AI #45214591002 PASS. XY-C1 #45214590854 was job success but product Build/TRX/artifact steps were skipped because no production firmware file changed.
-- Main before THIS commit was `ac8fc9f83bf0e32b492249e02a1ba5a6347a83f2`; refresh main and use expected-SHA for every write. No force push, branches or backup mutation.
+- Main before the APCLI source commit was `ac8fc9f83bf0e32b492249e02a1ba5a6347a83f2`. Its first Actions pass: Wireless radio #45217541665 PASS, AI #45217543243 PASS, watchdog #45217542656 PASS, iNIC #45217542047 PASS, HTTPD #45217542023 PASS, inventory #45217541649 PASS. USB modem #45217541737, Process #45217541804, Firewall #45217546022 and XY-C1 #45217542897 all hit the same `NameError: WIRELESS_TEST is not defined`; XY-C1 product steps were skipped. Main before THIS checker fix is `3dad528f978904976210ce7c7dcbeda6e81b53fc`; use expected-SHA, no force push or backup mutation.
 
 
 

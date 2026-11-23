@@ -1,4 +1,7 @@
 Current implementation checkpoint (2026-11-23):
+- APCLI startup fail-closes on unknown SSID/WISP state; pure GNU89 policy regression passes in Wireless radio state #45217541665. USB modem/Process/Firewall/XY checker consumers were blocked by an undefined `WIRELESS_TEST` variable in `check_modem_wan_start_status.py`; the declaration is being added. XY-C1 Build/TRX/artifact did not run on the first attempt.
+
+Current implementation checkpoint (2026-11-23):
 - APCLI startup now uses checked SSID and band-specific WISP settings. UNKNOWN configuration prevents interface start, forces best-effort APCLI shutdown/LAN bridge detach, and propagates an error for retry. GNU89 policy tests cover unknown/missing/valid SSID/WISP states. Exact-head wireless-radio-state, USB modem, Firewall, Process, AI docs and XY-C1 Build/TRX/artifact verification pending.
 
 Current implementation checkpoint (2026-11-23):

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Bind wireless APCLI policy test in shared source checker
+
+- Exact-SHA runs on `3dad528f978904976210ce7c7dcbeda6e81b53fc` exposed a checker bug: the new final assertion referenced `WIRELESS_TEST`, but `check_modem_wan_start_status.py` had not loaded `tests/wireless_radio_policy.c`.
+- The production APCLI policy test itself passed in Wireless radio state #45217541665. USB modem #45217541737, Process #45217541804, Firewall #45217546022 and XY-C1 #45217542897 were stopped by the shared Python NameError; AI docs #45217543243, watchdog #45217542656, iNIC #45217542047, HTTPD #45217542023 and process inventory #45217541649 passed. XY-C1 Build/TRX/artifact steps were skipped.
+- Add the missing file binding and rerun exact-SHA checks; do not treat the earlier XY-C1 job as a firmware build.
+
+---
+
 ## 2026-11-23 UTC — Fail closed on unknown AP-client SSID/WISP startup settings
 
 - Replaced lossy `nvram_wlan_get(..., "sta_ssid")` and `is_apcli_wisp_*` decisions in 2.4/5 GHz AP-client startup. SSID and WISP state now come from the checked NVRAM reader; the WISP flag is only fetched after confirming a nonempty SSID.
