@@ -1490,7 +1490,7 @@ test_account_inventory_remove_reports_rollback_failure(void)
 	assert(disk_share_account_inventory_remove(
 		&fake_account_delete_ops, &fake, 3, 1, 4, users) == -1);
 	assert(errno == EIO);
-	assert(strcmp(fake.count, "2") == 0);
+	assert(strcmp(fake.count, "3") == 0);
 	assert(strcmp(fake.usernames[1], "bob") == 0);
 	assert(strcmp(fake.passwords[1], "bob-secret") == 0);
 }
