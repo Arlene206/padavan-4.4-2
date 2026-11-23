@@ -1,33 +1,32 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this slice: 5ef6145222006cac339a3053f0ff010217ca22ae.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged.
+- Repository Arlene206/padavan-4.4-2; parent main for this task: 151cec5076e366fa17b6afef34c821a75f83e8d7.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
 - No local checkout; no local tests/builds claimed.
 
 ## Exact-SHA Actions
-- On 5ef6145222006cac339a3053f0ff010217ca22ae, ZeroTier run 45135034609 FAIL at Python source contract; the preceding bounded shell regression PASS. First cause: contract expected initmoon without the production redirection to the staged JSON. THIS slice corrects the assertion.
-- Same SHA AI handoff 45135034495 PASS; WAN route 45135034518 PASS; Process inventory 45135034450 PASS.
-- XY-C1 run 45135034599 remained IN_PROGRESS at last poll: all pre-build checks PASS, Build XY-C1 still running, TRX and artifact steps pending. L3 requires all three PASS on one exact source SHA.
-- Previous creator SHA 380a9a9... had ZeroTier test fail on same-inode Moon rollback and AI docs fail on truncated log; SHA 5ef6145 fixed both: log archive restored, create/remove rollback checks added. Exact SHA 5ef ZeroTier shell portion passed.
-- Moon removal parent 53811e3...: ZeroTier 45133729249, AI docs 45133729245, Process 45133729187, WAN route 45133729185 and XY-C1 45133729221 all PASS.
+- Parent SHA 151cec5076e366fa17b6afef34c821a75f83e8d7: ZeroTier 45135317755 PASS (bounded shell regression and source contracts); AI docs 45135317794 PASS; WAN route 45135317918 PASS; Process inventory 45135317776 PASS.
+- XY-C1 45135317783 remained IN_PROGRESS at last poll; Build active, TRX and artifact pending. L3 requires all three PASS on one exact source SHA.
+- SHA 5ef6145222006cac339a3053f0ff010217ca22ae: AI docs 45135034495 PASS; WAN route 45135034518 PASS; Process inventory 45135034450 PASS; ZeroTier source contract failed only on its stale initmoon expectation, fixed in 151cec5.
+- SHA 151cec5 also corrected Moon creator/remover same-inode rollback, restored the full dev_log archive and corrected the planet import rollback trap.
 
-## Active source task — ZeroTier transactional rollback consistency
-- Moon create/remove backups and planet upload backups use hard links. mv backup target fails if the target still points to that same inode. Moon create/remove restores were changed to ln -f on SHA 5ef6145.
-- The same edge remained in planet import cleanup when its first publication rename is rejected. THIS slice changes planet rollback to ln -f and adds a no-recovery-directory-leak regression.
-- The 5ef source-contract failure was a stale assertion that omitted initmoon's staged JSON redirection; THIS slice aligns it with the actual source.
+## Active task — ZeroTier startup fail-closed on Moon management errors
+- start_instance() previously started zerotier-one and installed firewall/routes before invoking creat_moon()/remove_moon(). A Moon operation failure returned 1 while leaving the background process and published network state active.
+- THIS slice moves the checked Moon create/remove operation after planet validation/import but before add_join(), daemon launch and rules(); this management path requires only the prepared config directory/NVRAM.
+- Moon create/remove and planet-import rollback now use ln -f for hard-link snapshots; no-stage-leak regression and source contracts passed on parent SHA 151cec5.
 
 ## Next actions
-1. Verify exact-head ZeroTier and AI Actions for THIS slice; address the first remaining regression without weakening tests.
-2. Poll XY-C1 on this source SHA; only same-SHA Build, TRX and artifact PASS establishes L3.
-3. Continue independent userland reliability/security work while CI is pending.
+1. Verify exact-head ZeroTier and AI docs for this startup-order correction.
+2. Poll XY-C1 on current source SHA; only exact same-SHA Build + TRX + artifact PASS establishes L3.
+3. Continue an independent reliability/security defect while CI is pending.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-Moon rollback regression shell passed on 5ef6145; its Python source contract failed on the inaccurate initmoon assertion. Planet rollback and corrected checker await exact-head Actions. AI docs, WAN route and Process checks passed on 5ef6145. No local tests/builds or L3 claimed.
+Startup-order change is source-reviewed and awaits exact-head ZeroTier/AI checks. Parent ZeroTier, AI docs, WAN route and Process checks passed. XY-C1 L3 remains pending. No local tests/builds claimed.
 
 ## Cross-session mandate
-One complete Git tree and one atomic commit per task; non-force expected-SHA main update; inspect exact-SHA Actions; frozen backup untouched.
+One complete tree and one atomic commit per logical task; non-force expected-SHA main update; inspect exact-SHA Actions; frozen backup untouched.
 
 
 

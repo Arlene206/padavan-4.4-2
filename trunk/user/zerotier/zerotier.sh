@@ -434,6 +434,22 @@ start_instance() {
 		fi
 	fi
 
+	if [ -n "$enablemoonserv" ]; then
+		if [ "$enablemoonserv" -eq "1" ]; then
+			logger -t "zerotier" "creat moon start"
+			if ! creat_moon; then
+				logger -t "zerotier" "ZeroTier Moon创建失败"
+				return 1
+			fi
+		else
+			logger -t "zerotier" "remove moon start"
+			if ! remove_moon; then
+				logger -t "zerotier" "ZeroTier Moon清理失败"
+				return 1
+			fi
+		fi
+	fi
+
 	if ! add_join "$zt_network_id"; then
 		logger -t "zerotier" "无效的ZeroTier网络ID或无法创建加入文件"
 		return 1
@@ -455,21 +471,6 @@ start_instance() {
 	fi
 
 
-	if [ -n "$enablemoonserv" ]; then
-		if [ "$enablemoonserv" -eq "1" ]; then
-			logger -t "zerotier" "creat moon start"
-			if ! creat_moon; then
-				logger -t "zerotier" "ZeroTier Moon创建失败"
-				return 1
-			fi
-		else
-			logger -t "zerotier" "remove moon start"
-			if ! remove_moon; then
-				logger -t "zerotier" "ZeroTier Moon清理失败"
-				return 1
-			fi
-		fi
-	fi
 }
 
 add_join() {

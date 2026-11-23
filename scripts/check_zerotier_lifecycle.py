@@ -364,6 +364,11 @@ require('ln -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file"' in moon_rem
 require('if ! creat_moon; then' in start_instance_body and
         'if ! remove_moon; then' in start_instance_body,
         "Moon setup/removal failures must reach the start result")
+moon_manage_position = start_instance_body.index('if [ -n "$enablemoonserv" ]; then')
+daemon_launch_position = start_instance_body.index('$PROG $args $config_path >/dev/null 2>&1 &')
+rules_position = start_instance_body.index('if ! rules; then')
+require(moon_manage_position < daemon_launch_position < rules_position,
+        "Moon creation/removal must finish before daemon launch or firewall setup")
 for marker in ("Moon creation ignored initmoon failure",
                "Moon creation accepted an unsafe endpoint replacement string",
                "Moon creation ignored endpoint-edit failure",

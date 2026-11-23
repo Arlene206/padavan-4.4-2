@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Prevent Moon-management errors from leaving ZeroTier running
+
+- start_instance() previously ran creat_moon()/remove_moon() after starting zerotier-one and publishing firewall/routes. If Moon identity creation/removal failed, the function returned failure while the background daemon and network state remained active.
+- Moved the checked Moon operation after planet validation/import but before add_join(), daemon launch and rules(). Moon management only needs the prepared config directory and NVRAM, so failures now abort before a service process or firewall state is published.
+- Added a source-order contract requiring Moon management before daemon launch and firewall setup. Exact-head ZeroTier/AI checks pending; no local shell test/build claim.
+- Parent SHA 151cec5076e366fa17b6afef34c821a75f83e8d7: ZeroTier 45135317755 PASS; AI docs 45135317794 PASS; WAN route 45135317918 PASS; Process inventory 45135317776 PASS. XY-C1 45135317783 remained in progress at last poll.
+
+---
+
 ## 2026-11-23 UTC — Fix ZeroTier planet-import hard-link rollback and source contract
 
 - On exact SHA 5ef6145222006cac339a3053f0ff010217ca22ae, the bounded ZeroTier shell regression passed but the Python source contract failed because its initmoon assertion omitted the staged JSON redirection used by production code. Corrected the contract to check the actual invocation.
