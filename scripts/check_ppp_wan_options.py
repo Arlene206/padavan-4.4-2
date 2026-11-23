@@ -9,6 +9,10 @@ net_wan = (rc_dir / "net_wan.c").read_text()
 rc_header = (rc_dir / "rc.h").read_text()
 policy = (rc_dir / "ppp_wan_option_policy.h").read_text()
 test = (rc_dir / "tests/ppp_wan_option_policy.c").read_text()
+control_dir = ROOT / "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers"
+control_source = (control_dir / "cmd-control.c").read_text()
+control_policy = (control_dir / "cmd-control-status.h").read_text()
+control_test = (control_dir / "tests/cmd-control-status.c").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 
 
@@ -246,4 +250,31 @@ require("Compile and run PPP WAN option checked-read preflight regression" in wo
         "missing PPP policy compile/run step")
 require("Check PPP option reads fail closed before session changes" in workflow,
         "missing PPP source contract step")
-print("PPP NVRAM config read and default-route fail-closed contracts: PASS")
+
+require('#include "cmd-control-status.h"' in control_source and
+        "cmd_control_response_status(" in control_source and
+        "response_prefix_length" in control_source,
+        "l2tp-control must validate the daemon response before reporting command success")
+require("SO_SNDTIMEO" in control_source and "SO_RCVTIMEO" in control_source and
+        "CONTROL_IO_TIMEOUT_SECONDS" in control_source,
+        "l2tp-control socket reads and writes must be bounded")
+require("write_all(fd, cmd, strlen(cmd))" in control_source and
+        'write_all(fd, "\\n", 1)' in control_source and
+        "writev(" not in control_source,
+        "l2tp-control command delivery must handle partial writes")
+require("return EIO;" in control_policy and "return EPROTO;" in control_policy and
+        "response[0] == 'O' && response[1] == 'K'" in control_policy and
+        "response[0] == 'E'" in control_policy,
+        "l2tp-control response parser must accept OK only and reject ERR/malformed replies")
+for case in ("test_success_responses", "test_error_responses",
+             "test_malformed_and_truncated_responses"):
+    require(case in control_test and case + "();" in control_test,
+            "missing l2tp-control response regression: " + case)
+for path in ("trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control.c",
+             "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control-status.h",
+             "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/tests/cmd-control-status.c"):
+    require(path in push and path in pr,
+            "WAN route workflow path filter misses " + path)
+require("Compile and run rp-l2tp control response status regression" in workflow,
+        "missing l2tp-control response host regression compile/run step")
+print("PPP NVRAM config and rp-l2tp command status contracts: PASS")

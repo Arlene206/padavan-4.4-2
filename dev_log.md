@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Propagate RP-L2TP control-socket command failures
+
+- `start_rpl2tp()` treats a zero exit from `/usr/sbin/l2tp-control start-session` as a successful session. The bundled controller previously returned zero on every clean socket EOF, even when `cmd.so` had replied `ERR Unknown peer` or another command error; it also ignored partial/failed `writev()` and could block indefinitely waiting for a reply.
+- The controller now parses the daemon's `OK`/`ERR` response token before returning success, rejects empty/truncated/malformed replies, writes the command with an EINTR/partial-write loop, and applies five-second send/receive socket timeouts. Added GNU89 ASan/UBSan response-policy regression and checker/workflow path coverage; XY-C1 firmware validation is triggered for the production handler source. Exact-head Actions/build pending.
+
+---
+
 ## 2026-11-23 20:02:52 Beijing — Prevent premature AP relay lock release
 
 - Fixed a process-state bug in the generated AP relay monitor: its cleanup gate checked `ap_script_num` twice, so it removed `/tmp/apc.lock` when `ap_script.sh` had exited even if `sh_ezscript.sh` was still performing the relay scan. This allowed a second scan/reconfiguration to overlap the first.
