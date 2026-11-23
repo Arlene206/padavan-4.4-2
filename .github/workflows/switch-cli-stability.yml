@@ -710,7 +710,11 @@ jobs:
           assert "status = trgmii_set_7530();" in setup_internal
           assert "if (regValue == 0x3) { /* 25MHz */" in trgmii_7621
           assert "} else {" in trgmii_7621
-          assert "if (ei_local->chip_name == MT7623_FE) {\\n\\t\\tstatus = mt7530_trgmii_clock_setting(xtal_mode);" in setup_internal
+          mt7623_setup = setup_internal.split(
+              "if (ei_local->chip_name == MT7623_FE) {", 1
+          )[1].split("\n\t}", 1)[0]
+          assert "status = mt7530_trgmii_clock_setting(xtal_mode);" in mt7623_setup
+          assert "if (status != 0)" in mt7623_setup
           phy_setup = source.split("static int mt7530_phy_setting(void)", 1)[1].split(
               "static void ra_switch_mdio_reset_delay(", 1
           )[0]
