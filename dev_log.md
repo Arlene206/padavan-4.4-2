@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fix AP relay lock regression indentation handling
+
+- Process lifecycle run `45171514518` passed the PID 1 and DDNS boot checks but failed the AP relay lock test's line-count assertion. The production `rm -f /tmp/apc.lock` line is intentionally indented inside the generated helper script; the test used `grep -Fxc` against an unindented literal, so it counted zero despite extracting the correct single guarded operation.
+- Changed the test to count the command with an anchored whitespace-tolerant expression. The process-presence test still checks that the lock remains while either worker lives and is removed only when both are absent.
+
+---
+
 ## 2026-11-23 UTC — Align source contracts with the DDNS publisher and PPP response regression
 
 - The exact-head WAN run `45171234395` exposed a brittle test-name assertion: it looked for `function();`, while the test correctly checks each function's return with `CHECK(function() == 0)`. Relaxed the source contract to require the actual function call.

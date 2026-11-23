@@ -15,7 +15,7 @@ EXPECTED='if [[ $ap_script_num == "0" && $sh_ezscript_num == "0" ]]; then'
 printf '%s\n' "$SNIPPET" | grep -Fqx "$EXPECTED" || {
  echo "AP lock gate must independently check both process counts" >&2; exit 1;
 }
-[ "$(printf '%s\n' "$SNIPPET" | grep -Fxc 'rm -f /tmp/apc.lock')" -eq 1 ] || {
+[ "$(printf '%s\n' "$SNIPPET" | grep -Ec '^[[:space:]]*rm -f /tmp/apc\.lock[[:space:]]*$')" -eq 1 ] || {
  echo "AP lock removal must remain a single guarded operation" >&2; exit 1;
 }
 SNIPPET=$(printf '%s\n' "$SNIPPET" | sed 's|rm -f /tmp/apc.lock|rm -f "$APC_LOCK_FILE"|')
