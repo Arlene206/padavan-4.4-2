@@ -103,6 +103,11 @@ assert "hdr->MacAddress" not in processor
 assert "get_hwaddr(ifname, hwaddr" not in processor
 assert "get_hwaddr(ifname, info->MacAddress" in processor
 assert "packet_len < 0" in processor
+assert "memcpy(&header, packet, sizeof(header))" in processor
+assert "IBOX_COMM_PKT_HDR *hdr = &header" in processor
+assert "IBOX_COMM_PKT_RES_EX alignment;" in processor
+assert "char bytes[512];" in processor
+assert "(IBOX_COMM_PKT_HDR_EX *)packet" not in processor
 
 main = function_body(source, "main(int argc, char *argv[])")
 io_policy_test_body = function_body(io_test, "main(void)")

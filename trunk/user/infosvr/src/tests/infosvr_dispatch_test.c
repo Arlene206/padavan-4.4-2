@@ -98,6 +98,8 @@ main(void)
 	static const unsigned char remote_mac_a[6] = {0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0x01};
 	static const unsigned char remote_mac_b[6] = {0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0x02};
 	union packet_frame frame;
+	char unaligned_storage[sizeof(frame.bytes) + sizeof(DWORD)];
+	char *unaligned_packet = unaligned_storage;
 	IBOX_COMM_PKT_RES_EX *response;
 	PKT_GET_INFO *info;
 
@@ -109,6 +111,18 @@ main(void)
 	assert(process_packet(-1, frame.bytes, sizeof(frame.header), "br0") == NULL);
 
 	prepare_request(&frame, NET_CMD_ID_GETINFO, 0x24681357U, NULL);
+	while ((unsigned long)unaligned_packet % sizeof(DWORD) == 0)
+		++unaligned_packet;
+	memcpy(unaligned_packet, frame.bytes, sizeof(frame.bytes));
+	assert((unsigned long)unaligned_packet % sizeof(DWORD) != 0);
+	response = (IBOX_COMM_PKT_RES_EX *)process_packet(
+		-1, unaligned_packet, sizeof(IBOX_COMM_PKT_HDR), "br0");
+	assert(response != NULL);
+	assert(response->ServiceID == NET_SERVICE_ID_IBOX_INFO);
+	assert(response->PacketType == NET_PACKET_TYPE_RES);
+	assert(response->OpCode == NET_CMD_ID_GETINFO);
+
+	/* The regular aligned-frame path must retain the same response contract. */
 	response = (IBOX_COMM_PKT_RES_EX *)process_packet(
 		-1, frame.bytes, sizeof(IBOX_COMM_PKT_HDR), "br0");
 	assert(response != NULL);
@@ -123,6 +137,6 @@ main(void)
 	assert(memcmp(info->MacAddress, local_mac, sizeof(local_mac)) == 0);
 	assert(strcmp((char *)info->SSID, "ssid") == 0);
 
-	puts("infosvr rejects duplicate unsupported opcodes and clears cached replies: PASS");
+	puts("infosvr accepts unaligned input and clears cached replies: PASS");
 	return 0;
 }

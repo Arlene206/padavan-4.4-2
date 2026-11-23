@@ -145,14 +145,23 @@ int send_packet(int fd, void *packet, int size)
 
 void *process_packet(int fd, void *packet, int packet_len, char *ifname)
 {
-	static char packet_res[512] = {0};
-	IBOX_COMM_PKT_HDR_EX *hdr = packet;
-	IBOX_COMM_PKT_RES_EX *hdr_res = (IBOX_COMM_PKT_RES_EX *) &packet_res;
+	static union {
+		IBOX_COMM_PKT_RES_EX alignment;
+		char bytes[512];
+	} packet_res_storage;
+	char *packet_res = packet_res_storage.bytes;
+	IBOX_COMM_PKT_HDR header;
+	IBOX_COMM_PKT_HDR *hdr = &header;
+	IBOX_COMM_PKT_RES_EX *hdr_res =
+		(IBOX_COMM_PKT_RES_EX *)packet_res;
 	PKT_GET_INFO *info;
 
-	if (packet_len < 0 ||
-	    !infosvr_packet_length_valid((size_t)packet_len, sizeof(IBOX_COMM_PKT_HDR)))
+	if (!packet || packet_len < 0 ||
+	    !infosvr_packet_length_valid((size_t)packet_len, sizeof(header)))
 		return NULL;
+
+	/* UDP payload storage is byte-aligned; copy into a naturally aligned header. */
+	memcpy(&header, packet, sizeof(header));
 
 	if (hdr->ServiceID != NET_SERVICE_ID_IBOX_INFO ||
 	    hdr->PacketType != NET_PACKET_TYPE_CMD)
