@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Require confirmed readiness from the forked p910nd printer daemon
+
+- Found that standalone `p910nd` forks in its server path and exits the parent with status zero before the child acquires the per-port lock or binds the printer socket. `start_p910nd()` therefore treated a successful launcher parent as proof of a live spooler; child startup failures were silently acknowledged.
+- After successful launch, `start_p910nd()` now uses the existing bounded process-inventory postcondition for the daemon's renamed `p9100d` argv[0]. A launch failure is returned immediately; a missing child, UNKNOWN inventory or readiness timeout propagates through the USB printer event result.
+- Extended the Process workflow to assert the p910nd fork/parent-exit and argv[0]-rename contract, the readiness gate after both launcher forms, and future p910nd source path triggers. Reuses the detached-daemon GNU89/ASan/UBSan policy regression for delayed RUNNING, timeout, UNKNOWN and interrupted-wait behavior.
+- Exact-head Process, USB storage, AI handoff and XY-C1 Build/TRX/artifact checks are pending at commit creation. No local compile, MIPS/uClibc build or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Keep Samba snapshot regression GNU89-compatible
 
 - Moved the new snapshot-source policy test invocation below all local declarations in `main()`. The regression helper is now invoked without introducing a declaration-after-statement extension into the repository's GNU89 test compilation.

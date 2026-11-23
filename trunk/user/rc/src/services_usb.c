@@ -397,8 +397,21 @@ start_p910nd(char *devlp)
 	else
 		start_status = eval("/usr/sbin/p910nd", "-f", devlp, "0");
 
-	if (start_status != 0)
+	if (start_status != 0) {
 		logmessage("USB Printer", "p910nd launcher failed for %s (status=%d)",
+			   devlp, start_status);
+		return start_status;
+	}
+
+	/*
+	 * p910nd forks and reports success from the parent before the child
+	 * acquires its lock and binds the printer socket. Its argv[0] becomes
+	 * p9100d, so verify that detached child before acknowledging startup.
+	 */
+	start_status = usb_printer_daemon_postcondition("p9100d");
+	if (start_status != 0)
+		logmessage("USB Printer",
+			   "p910nd daemon readiness failed for %s (status=%d)",
 			   devlp, start_status);
 
 	return start_status;

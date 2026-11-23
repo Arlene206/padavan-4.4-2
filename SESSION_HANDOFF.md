@@ -2,30 +2,29 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Samba passdb/ACL generation-parity source commit: `a311a4d92d43db04958a44a52912a2a66befd6ed`. Exact Samba share regression #45209512265 PASS; HTTPD authentication/security #45209512732 PASS; AI handoff #45209512343 PASS; IPv6 #45209512267 PASS; NFS #45209511862 PASS; MiniDLNA #45209511924 PASS; vsftpd #45209511917 PASS; USB modem identity #45209512093 PASS; libdisk share list #45209512224 PASS; firewall #45209512170 PASS.
-- Exact Process inventory #45209512484, Process fail-closed #45209512296, USB storage #45209512410, NVRAM boundary #45209512329, Firefly #45209512268 and XY-C1 #45209512288 were still in progress at last poll; poll the final step statuses for this exact SHA.
-- Earlier USB printer readiness SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory, AI, USB modem identity and NVRAM checks passed; USB storage #45207830753 and Process fail-closed #45207830677 failed and need independent log triage. XY-C1 #45207830678 was still running.
-- Module-preflight fail-closed SHA `e7e9f6361756cc1ea97400d30280442b1be5ec41` passed Process/WAN/DNS/firewall/watchdog regressions and XY-C1 #45205333227. No full local MIPS/uClibc build or hardware L4 validation is claimed. Bootstrap recovery is already complete; do not repeat.
+- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. The only branches are `main` and the frozen `backup/pre-plugin-overhaul-2026-11-14`; the backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be changed.
+- Parent before this p910nd readiness slice: `4e0351691b5076817137a0ff5551f610c9c17bc2`.
+- Samba account-snapshot parity source `a311a4d92d43db04958a44a52912a2a66befd6ed`, followed by GNU89 test-order correction `4e0351691b5076817137a0ff5551f610c9c17bc2`: Samba #45209802441, HTTPD #45209802591, Process inventory #45209802627, AI docs #45209802642 and Samba parity #45209512265 all PASS on their recorded exact SHAs. NVRAM #45209802375 was still in progress at last poll.
+- Earlier U2EC/LPRng readiness fix `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory #45207830503, USB modem #45207830717, NVRAM #45207830836 and AI docs #45207830375 PASS; checker corrections `c8920ca` and `e0451c0` were validated by Process #45208311957 PASS, AI #45208311790 PASS and USB storage #45209095493 PASS. XY-C1 #45207830678 subsequently passed Build, TRX verification and artifact upload on source `8fa162a`; this does not validate the new p910nd change.
+- No persistent local checkout or MIPS/uClibc toolchain was available. No local target build or hardware L4 result is claimed.
 
 ## Active task
 
-- `run_samba()` and `write_smb_conf_unlocked()` now use the same username generation: run_samba passes account-name pointers/count from the checked NVRAM transaction into both smb.conf publication paths. Standalone public writer calls still use their own checked account-list snapshot. Only heap-owned fallback lists are freed.
-- Unit tests cover empty/non-empty snapshot selection, bounds and inconsistent source/count combinations. Samba and HTTPD workflow contracts assert that passdb and ACL generation share this snapshot.
-- Follow-up C89 cleanup: the newly added policy test invocation was moved after all local declarations in `main()`, so the test remains compatible with the repository's GNU89 build style.
-- Recheck exact-SHA Samba/HTTPD/Process/AI/NVRAM/XY-C1 Actions for the source commit and this test-ordering follow-up. L3 requires Build + TRX + artifact upload PASS on one production-source SHA.
+- THIS COMMIT extends confirmed post-exec readiness to raw USB printing (`p910nd`). The standalone p910nd path forks and its parent exits zero before the child obtains its lock and binds the printer socket. `start_p910nd()` now checks for the daemon's renamed `p9100d` process using the existing bounded, fail-closed process-inventory postcondition. Launch errors remain authoritative; a missing or UNKNOWN child now propagates a startup error rather than acknowledging a dead spooler.
+- The Process workflow contract checks the p910nd fork/parent-exit behavior, argv[0] rename and readiness-gate ordering; p910nd source is added to both push and pull-request path filters. The generic detached-daemon GNU89/ASan/UBSan regression covers RUNNING, delayed appearance, timeout, UNKNOWN and interrupted waits.
+- Exact-head Process, USB storage, AI documentation and XY-C1 checks for THIS p910nd source SHA are pending at commit creation. L3 requires Build + TRX + artifact upload PASS on the same production-source SHA.
 
-## Exact first actions for next GPT
+## Exact first action for the next GPT
 
-1. Poll Process inventory/fail-closed, USB storage, NVRAM boundary, Firefly and XY-C1 for the account-parity source commit; record Build, TRX and artifact upload individually.
-2. Poll exact-SHA Samba/HTTPD/AI workflows for the C89 test-ordering follow-up. If the source commit's XY-C1 is pending, do not infer build success from the test-only descendant.
-3. Triage the independent USB storage and Process fail-closed failures on `8fa162a`; then continue another P1/P2 reliability/security defect in Padavan userland.
+1. Read live main and poll the exact Actions SHA for THIS p910nd commit: Process fail-closed, USB storage, AI handoff and XY-C1. Treat each result separately; require all three XY-C1 product steps on this SHA before claiming L3.
+2. If any exact-SHA check fails, inspect its job log and repair the failing source or stale contract without weakening behavior assertions. If XY-C1 is pending, continue another independent stability/security source slice.
+3. Keep main-only expected-SHA atomic commits, preserve the frozen backup, and update this handoff with the exact resulting SHA and observed Actions outcomes.
 
 ## Relevant exact-SHA CI facts
 
-- Process workflow #45208311957 PASS and AI docs #45208311790 PASS on `c8920caabc88c7f107c2c5240dab0bfaab38783b`.
-- On source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`, USB storage #45207830753 failed only because its inline caller graph still expected the old launcher signature and one-argument calls. Its earlier storage tests, including BusyBox ash lifecycle tests, all passed. This checker-only source fix requires an exact rerun.
-- XY-C1 #45207830678 on `8fa162a` was pending in Build XY-C1; TRX and artifact had not started at last poll. It is the only available firmware evidence for this USB production source SHA; require all three product steps.
+- Previous U2EC/LPRng process-readiness behavior is verified by Process #45208311957 PASS on `c8920caabc88c7f107c2c5240dab0bfaab38783b`; the inline checker was subsequently aligned with the USB-storage caller graph, and USB storage #45209095493 PASS on `e0451c001b6e40d23d8d25e6cfb6e4d5f191bcd5`.
+- XY-C1 #45207830678 on the earlier U2EC/LPRng production source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8` completed Build, TRX verification and artifact upload successfully. It is not evidence for this p910nd source.
+- Main before THIS commit was `4e0351691b5076817137a0ff5551f610c9c17bc2`; current-source updates must use a fresh expected-SHA check. No force push, branches or PRs.
 
 
 ## Completed source slices to preserve

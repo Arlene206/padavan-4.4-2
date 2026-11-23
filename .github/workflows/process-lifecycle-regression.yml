@@ -129,6 +129,7 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/p910nd/p910nd.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
@@ -373,6 +374,7 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/p910nd/p910nd.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
@@ -1765,5 +1767,25 @@ jobs:
                        "test_wait_interruption_and_invalid_arguments_fail"):
               assert case in regression, "missing detached-daemon readiness case: " + case
 
-          print("USB printer U2EC/LPRng detached-daemon readiness contract: PASS")
+          p910nd_source = Path("trunk/user/p910nd/p910nd.c").read_text()
+          p910nd_server = p910nd_source.split("void server(int lpnumber)", 1)[1].split("\nint is_standalone", 1)[0]
+          p910nd_main = p910nd_source.split("int main(int argc, char *argv[])", 1)[1]
+          p910nd_start = source.split("int\nstart_p910nd(char *devlp)", 1)[1].split("\nint\nstop_p910nd", 1)[0]
+
+          # p910nd exits its parent successfully before the detached child has
+          # completed lock acquisition and socket setup.
+          assert "switch (fork())" in p910nd_server
+          assert "default:" in p910nd_server and "exit(0);" in p910nd_server
+          # The process inventory identifies this daemon by its rewritten argv[0].
+          assert 'strstr(progname, "p910n")' in p910nd_main
+          assert "p[4] = lpnumber;" in p910nd_main
+
+          launch = p910nd_start.index('start_status = eval("/usr/sbin/p910nd"')
+          launch_error_gate = p910nd_start.index("if (start_status != 0)")
+          readiness = p910nd_start.index('start_status = usb_printer_daemon_postcondition("p9100d");')
+          assert launch < launch_error_gate < readiness
+          assert "return start_status;" in p910nd_start[readiness:]
+          assert "p910nd daemon readiness failed" in p910nd_start
+
+          print("USB printer U2EC/LPRng/p910nd detached-daemon readiness contract: PASS")
           PY

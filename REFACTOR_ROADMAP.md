@@ -1,4 +1,7 @@
 Current implementation checkpoint (2026-11-23):
+- Raw USB printer startup now checks the detached p910nd child after the launcher parent exits; it requires a RUNNING `p9100d` process and propagates ABSENT/UNKNOWN/timeout failures. The Process source contract covers fork/parent exit, argv[0] rename, readiness-gate ordering and p910nd path filters. Exact-head Process, USB storage, AI docs and XY-C1 Build/TRX/artifact verification pending.
+
+Current implementation checkpoint (2026-11-23):
 - Added the XUPNPD `xport_text[16]` checked-selector declaration assertion to the Process source checker. This mirrors the updated inline workflow contract and re-triggers the Process CI path. No production source changed; exact run pending.
 Current implementation checkpoint (2026-11-23):
 - Fixed Python heredoc indentation in the XUPNPD inline Process workflow contract. The previous workflow-only commit `8bac506` had inconsistent indentation in the injected Lua assertions and failed before jobs were runnable; exact Process rerun pending.
