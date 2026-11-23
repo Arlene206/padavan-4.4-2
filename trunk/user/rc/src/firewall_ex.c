@@ -3012,6 +3012,22 @@ firewall_module_table_restore_required(const char *operation,
 	return status;
 }
 
+static int
+firewall_mangle_snapshot_check(const char *setting, int read_status)
+{
+	int status;
+
+	status = firewall_mangle_snapshot_failure_status(
+		read_status, &firewall_core_restore_transaction.failed);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read IPv4 mangle setting %s; aborting firewall rebuild (status=%d)",
+			   setting, status);
+		errno = status;
+	}
+	return status;
+}
+
 static void
 ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 {
@@ -3028,16 +3044,16 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 	 * failures into a silent mode-0 ruleset. Finish the checked snapshot before
 	 * touching sysctls, loading modules or staging the mangle table. */
 	status = firewall_read_integer_setting("wan_ttl_fix", 0, &i_wan_ttl_fix);
-	if (status != 0)
+	if (firewall_mangle_snapshot_check("wan_ttl_fix", status) != 0)
 		return;
 	status = firewall_read_integer_setting("wan_ttl_value", 0, &i_wan_ttl_value);
-	if (status != 0)
+	if (firewall_mangle_snapshot_check("wan_ttl_value", status) != 0)
 		return;
 
 	if (i_wan_ttl_fix == 2) {
 		status = firewall_read_match_setting("mr_enable_x", "1", 0,
 					     &is_multicast_enabled);
-		if (status != 0)
+		if (firewall_mangle_snapshot_check("mr_enable_x", status) != 0)
 			return;
 		if (!is_multicast_enabled)
 			i_wan_ttl_fix = 0;
@@ -3048,7 +3064,7 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 	if (i_wan_ttl_fix) {
 		status = firewall_read_string_setting_copy_status(
 			"viptv_ifname", viptv_iflast, sizeof(viptv_iflast));
-		if (status != 0)
+		if (firewall_mangle_snapshot_check("viptv_ifname", status) != 0)
 			return;
 	}
 

@@ -1,3 +1,14 @@
+## 2026-11-23 14:26 UTC+8 — Fail closed when IPv4 mangle NVRAM snapshots cannot be read
+
+- Source review found that `ipt_mangle_rules()` returned on errors reading `wan_ttl_fix`, `wan_ttl_value`, conditional `mr_enable_x` and conditional `viptv_ifname` without setting `firewall_core_restore_transaction.failed`. The caller could then continue to NAT/filter and finish with stale mangle rules mixed into the newly restored firewall.
+- Added `firewall_mangle_snapshot_failure_status()` to set the transaction failure flag and normalize negative return values to EIO. A source helper logs the failed setting, preserves errno and gates all four preflight reads before side effects; the caller's existing transaction-abort path rolls prior table restores back.
+- Added GNU89 sanitizer-policy regressions for success preserving transaction state, positive backend errors, negative status and invalid transaction pointers. The source contract checks all four gates and caller abort-before-NAT.
+- Exact Firewall Startup run `45118876044` on 5191 failed only at a literal-whitespace assertion for the new VPN subnet checked-read gate; checker-only commit `4278a6905bc7c30c53690892ed0cb6f2a603bcbf` repaired that assertion and exact run `45119079720` passed. This commit carries that checker correction forward and adds the independent mangle transaction fix.
+- Concurrent VPN server multicast failure propagation from `1c5bf5f02bc006484692c592ce5bdc6fd587f06c` is retained. Exact new-SHA Firewall Startup and XY-C1 Build/TRX/artifact are required.
+- No local checkout; no local compile/build is claimed. Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 14:12 UTC+8 — Add missing DHCPv6 source paths to XY-C1 firmware validation
 
 - Exact WAN callback run `45118077270` on contract-correction commit `84110056136496c2f7bcce4034b8450dc4c121a1` completed SUCCESS. Dedicated DHCPv6 sanitizer/source-contract run `45117871967` on product source `80811fc53de0257bf44973fa0d703014981fcaf5` also completed SUCCESS.

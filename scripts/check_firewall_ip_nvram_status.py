@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/rc/src/firewall_ex.c").read_text()
 POLICY = (ROOT / "trunk/user/rc/src/firewall_nvram_match_policy.h").read_text()
 TEST = (ROOT / "trunk/user/rc/src/tests/firewall_nvram_match_policy.c").read_text()
+MANGLE_POLICY = (ROOT / "trunk/user/rc/src/firewall_mangle_ttl_policy.h").read_text()
+MANGLE_TEST = (ROOT / "trunk/user/rc/src/tests/firewall_mangle_ttl_policy.c").read_text()
 
 
 def body(source: str, signature: str) -> str:
@@ -101,6 +103,39 @@ assert "if (status != 0)\n\t\t\treturn;" in mangle[viptv_position:viptv_position
 assert "if (*viptv_iflast && is_interface_exist(viptv_iflast))" in mangle
 assert ("test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence" in TEST
         and "test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence();" in TEST)
+
+
+# Failed mangle preflights must abort the enclosing multi-table restore.
+mangle_snapshot = body(SOURCE, "ipt_mangle_rules(const char *man_if")
+snapshot_helper = body(SOURCE, "firewall_mangle_snapshot_check(const char *setting, int read_status)")
+assert "firewall_mangle_snapshot_failure_status(" in snapshot_helper
+assert "&firewall_core_restore_transaction.failed" in snapshot_helper
+assert "errno = status;" in snapshot_helper
+mangle_compact = "".join(mangle_snapshot.split())
+for read_call, setting in (
+    ('firewall_read_integer_setting("wan_ttl_fix",0,&i_wan_ttl_fix)', "wan_ttl_fix"),
+    ('firewall_read_integer_setting("wan_ttl_value",0,&i_wan_ttl_value)', "wan_ttl_value"),
+    ('firewall_read_match_setting("mr_enable_x","1",0,&is_multicast_enabled)', "mr_enable_x"),
+    ('firewall_read_string_setting_copy_status("viptv_ifname",viptv_iflast,sizeof(viptv_iflast))', "viptv_ifname"),
+):
+    read_at = mangle_compact.index(read_call)
+    gate_at = mangle_compact.index(
+        f'if(firewall_mangle_snapshot_check("{setting}",status)!=0)return;', read_at)
+    assert read_at < gate_at
+assert "firewall_mangle_snapshot_failure_status" in MANGLE_POLICY
+for marker in (
+    "test_snapshot_success_preserves_transaction_state",
+    "test_snapshot_read_errors_abort_the_enclosing_transaction",
+):
+    assert marker in MANGLE_TEST and marker + "();" in MANGLE_TEST
+assert "firewall_mangle_snapshot_failure_status(EACCES,&failed)==EACCES" in "".join(MANGLE_TEST.split())
+assert "firewall_mangle_snapshot_failure_status(-1,&failed)==EIO" in "".join(MANGLE_TEST.split())
+mangle_caller = body(SOURCE, "start_firewall_ex_locked(void)")
+mangle_call_at = mangle_caller.index("ipt_mangle_rules(man_if, wan_if, i_use_man)")
+mangle_gate_at = mangle_caller.index(
+    "if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))", mangle_call_at)
+mangle_nat_at = mangle_caller.index("ipt_nat_rules(", mangle_call_at)
+assert mangle_call_at < mangle_gate_at < mangle_nat_at
 
 
 # Virtual-server destination addresses must not turn NVRAM backend failures
