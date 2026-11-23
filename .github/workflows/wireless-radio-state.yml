@@ -154,8 +154,8 @@ jobs:
               assert compact.index("if(mode_status!=0)") < compact.index("if(radio_on")
               assert compact.index(apply_read) < compact.index("if(config_status!=0)")
               assert compact.index("if(config_status!=0)") < compact.index("wif_control_success(")
-          assert "wireless_radio_wds_config_resolve" in policy
-          assert "test_wds_config_defaults_and_checked_count_validation" in test
+          assert "wireless_radio_wds_config_resolve" in notification_policy
+          assert "test_wds_config_defaults_and_checked_count_validation" in notification_test
 
           start_8021x_wl = function_body(source, "start_8021x_wl(void)")
           start_8021x_rt = function_body(source, "start_8021x_rt(void)")

@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fix WDS workflow checker variable names
+
+- Exact Wireless run #45155863877 on commit `cd52aa09e77d8b37322dc0f062e2faa513085e4e` passed the GNU89 wireless policy, Ralink ASan/UBSan, bridge membership and guest-isolation binaries; its final Python source contract then stopped with `NameError: name 'policy' is not defined`. The heredoc already loads the target policy/test files as `notification_policy` and `notification_test`; two new resolver assertions mistakenly referenced undefined aliases. Corrected them to the actual loaded variables. No production code or test coverage changed.
+- Exact XY-C1 run #45155864160 on the same commit concluded SUCCESS, but its Build XY-C1/TRX/artifact steps were skipped because this commit changes workflow/docs only. It is not L3 evidence. The immediately prior product-triggered XY run #45155481405 on source SHA `15c93fe802fc6a45148d04c8d3c7f238ad11fd92` also concluded SUCCESS with Build/TRX/artifact skipped; neither validates the newer production wireless changes. AI handoff docs #45155863841 PASS on cd52.
+
+---
+
 ## 2026-11-23 UTC — Align WDS source contracts with bounded configuration resolver
 
 - Wireless exact-head run #45155297922 on `a456ced83e2829c17a8953ec0b41608e1cf0d058` passed all GNU89 radio, Ralink ASan/UBSan, bridge-membership and guest-isolation binaries, then failed in the Python source contract at its obsolete WDS assumptions. The latest production WDS implementation snapshots `*_mode_x`, `*_wdsapply_x` and conditional `*_wdsnum_x` through checked reads, validates apply/count via `wireless_radio_wds_config_resolve()`, and uses a cleanup label to detach stale WDS memberships while preserving the first configuration error. The contract still expected the removed local `i_wds_num`, `wds_apply_status`/ `wds_num_status`, and direct `return -mode_status` statements.
