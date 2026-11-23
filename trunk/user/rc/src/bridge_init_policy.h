@@ -9,6 +9,61 @@ typedef struct {
 	const char *first_operation;
 } rc_bridge_init_status_t;
 
+typedef struct {
+	int rt_radio_on;
+	int rt_mode_x;
+	int wl_radio_on;
+	int wl_mode_x;
+} rc_bridge_wireless_state_t;
+
+typedef int (*rc_bridge_wireless_int_reader_fn)(void *context,
+						 const char *name,
+						 int *value);
+
+/* Resolve every bridge radio selector before changing hardware or interfaces. */
+static inline int
+rc_bridge_wireless_state_read(rc_bridge_wireless_int_reader_fn read_int,
+			      void *context, int read_rt_mode,
+			      int has_wl, rc_bridge_wireless_state_t *state)
+{
+	int status;
+
+	if (!read_int || !state ||
+	    (read_rt_mode != 0 && read_rt_mode != 1) ||
+	    (has_wl != 0 && has_wl != 1))
+		return EINVAL;
+
+	state->rt_radio_on = 0;
+	state->rt_mode_x = 0;
+	state->wl_radio_on = 0;
+	state->wl_mode_x = 0;
+
+	status = read_int(context, "rt_radio_x", &state->rt_radio_on);
+	if (status != 0)
+		goto fail;
+	if (read_rt_mode) {
+		status = read_int(context, "rt_mode_x", &state->rt_mode_x);
+		if (status != 0)
+			goto fail;
+	}
+	if (has_wl) {
+		status = read_int(context, "wl_radio_x", &state->wl_radio_on);
+		if (status != 0)
+			goto fail;
+		status = read_int(context, "wl_mode_x", &state->wl_mode_x);
+		if (status != 0)
+			goto fail;
+	}
+	return 0;
+
+fail:
+	state->rt_radio_on = 0;
+	state->rt_mode_x = 0;
+	state->wl_radio_on = 0;
+	state->wl_mode_x = 0;
+	return status;
+}
+
 static inline void
 rc_bridge_init_status_reset(rc_bridge_init_status_t *status)
 {

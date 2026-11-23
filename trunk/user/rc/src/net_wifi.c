@@ -38,7 +38,7 @@
 #include "switch.h"
 #include "gpio_pins.h"
 
-static int wireless_nvram_get_int_status(const char *name, int *value);
+int wireless_nvram_get_int_status(const char *name, int *value);
 static int wireless_nvram_get_text_status(const char *name, const char **value);
 static int wireless_apcli_wisp_settings_status(int is_5g,
 					      int *ssid_configured,
@@ -2105,7 +2105,7 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	return isolation_status;
 }
 
-static int
+int
 wireless_nvram_get_int_status(const char *name, int *value)
 {
 	char *stored_value = NULL;

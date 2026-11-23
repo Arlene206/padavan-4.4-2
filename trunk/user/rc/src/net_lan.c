@@ -305,6 +305,13 @@ init_bridge_load_module_verified(const char *module_name, const char *module_par
 	return rc_module_load_verified(module_name, module_param, &ops);
 }
 
+static int
+bridge_wireless_nvram_read_int(void *context, const char *name, int *value)
+{
+	(void)context;
+	return wireless_nvram_get_int_status(name, value);
+}
+
 int
 init_bridge(int is_ap_mode, int *switch_vlan_status)
 {
@@ -319,19 +326,50 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	int rt_guest_start_attempted = 0;
 	int wl_guest_start_attempted = 0;
 	int guest_isolation_status;
-	int rt_radio_on = get_enabled_radio_rt();
+	int rt_radio_on = 0;
 #if !defined(USE_RT3352_MII)
-	int rt_mode_x = get_mode_radio_rt();
+	int rt_mode_x = 0;
 #endif
 #if BOARD_HAS_5G_RADIO
-	int wl_radio_on = get_enabled_radio_wl();
-	int wl_mode_x = get_mode_radio_wl();
+	int wl_radio_on = 0;
+	int wl_mode_x = 0;
 #endif
+	rc_bridge_wireless_state_t wireless_state;
 	char lan_hwaddr[24];
 
 	rc_bridge_init_status_reset(&bridge_status);
 	if (switch_vlan_status)
 		*switch_vlan_status = 0;
+
+	/* Checked selector snapshot precedes all switch and interface side effects. */
+	operation_status = rc_bridge_wireless_state_read(
+		bridge_wireless_nvram_read_int, NULL,
+#if !defined(USE_RT3352_MII)
+		1,
+#else
+		0,
+#endif
+#if BOARD_HAS_5G_RADIO
+		1,
+#else
+		0,
+#endif
+		&wireless_state);
+	if (operation_status != 0) {
+		errno = operation_status > 0 ? operation_status : EIO;
+		logmessage(LOGNAME,
+			   "cannot read wireless radio selectors before bridge setup (status=%d)",
+			   operation_status);
+		return operation_status;
+	}
+	rt_radio_on = wireless_state.rt_radio_on;
+#if !defined(USE_RT3352_MII)
+	rt_mode_x = wireless_state.rt_mode_x;
+#endif
+#if BOARD_HAS_5G_RADIO
+	wl_radio_on = wireless_state.wl_radio_on;
+	wl_mode_x = wireless_state.wl_mode_x;
+#endif
 
 	/*
 	 * The NVRAM getter returns shared cache storage. Switch configuration

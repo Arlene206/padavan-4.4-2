@@ -99,6 +99,114 @@ test_stop_lan_router_address_read_failure_is_preserved(void)
 }
 
 
+struct bridge_wireless_reader_fixture {
+	const char *fail_key;
+	int failure_status;
+	int calls;
+	int values[4];
+	const char *seen_keys[4];
+};
+
+static int
+fake_bridge_wireless_reader(void *opaque, const char *name, int *value)
+{
+	static const char * const keys[4] = {
+		"rt_radio_x", "rt_mode_x", "wl_radio_x", "wl_mode_x"
+	};
+	struct bridge_wireless_reader_fixture *fixture =
+		(struct bridge_wireless_reader_fixture *)opaque;
+	int call_index, index;
+
+	if (!fixture || !name || !value)
+		return EINVAL;
+	call_index = fixture->calls++;
+	if (call_index >= 4)
+		return EOVERFLOW;
+	fixture->seen_keys[call_index] = name;
+	if (fixture->fail_key && strcmp(fixture->fail_key, name) == 0)
+		return fixture->failure_status;
+	for (index = 0; index < 4; ++index) {
+		if (strcmp(keys[index], name) == 0) {
+			*value = fixture->values[index];
+			return 0;
+		}
+	}
+	return EINVAL;
+}
+
+static void
+test_bridge_wireless_selectors_are_snapshotted_before_startup(void)
+{
+	static const char * const expected_keys[4] = {
+		"rt_radio_x", "rt_mode_x", "wl_radio_x", "wl_mode_x"
+	};
+	struct bridge_wireless_reader_fixture fixture;
+	rc_bridge_wireless_state_t state;
+	int index;
+
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.values[0] = 1;
+	fixture.values[1] = 3;
+	fixture.values[2] = 1;
+	fixture.values[3] = 0;
+	assert(rc_bridge_wireless_state_read(
+		       fake_bridge_wireless_reader, &fixture, 1, 1, &state) == 0);
+	assert(fixture.calls == 4);
+	for (index = 0; index < 4; ++index)
+		assert(strcmp(fixture.seen_keys[index], expected_keys[index]) == 0);
+	assert(state.rt_radio_on == 1 && state.rt_mode_x == 3);
+	assert(state.wl_radio_on == 1 && state.wl_mode_x == 0);
+}
+
+static void
+test_bridge_wireless_selector_failure_aborts_and_clears_snapshot(void)
+{
+	static const char * const failed_keys[4] = {
+		"rt_radio_x", "rt_mode_x", "wl_radio_x", "wl_mode_x"
+	};
+	static const int failures[4] = { EACCES, EIO, ENODEV, EINVAL };
+	struct bridge_wireless_reader_fixture fixture;
+	rc_bridge_wireless_state_t state;
+	int index, status;
+
+	for (index = 0; index < 4; ++index) {
+		memset(&fixture, 0, sizeof(fixture));
+		fixture.values[0] = 1;
+		fixture.values[1] = 3;
+		fixture.values[2] = 1;
+		fixture.values[3] = 3;
+		fixture.fail_key = failed_keys[index];
+		fixture.failure_status = failures[index];
+		memset(&state, 0x7f, sizeof(state));
+		status = rc_bridge_wireless_state_read(
+			fake_bridge_wireless_reader, &fixture, 1, 1, &state);
+		assert(status == failures[index]);
+		assert(fixture.calls == index + 1);
+		assert(state.rt_radio_on == 0 && state.rt_mode_x == 0);
+		assert(state.wl_radio_on == 0 && state.wl_mode_x == 0);
+	}
+
+	/* Missing/empty values map to zero through the checked reader. */
+	memset(&fixture, 0, sizeof(fixture));
+	assert(rc_bridge_wireless_state_read(
+		       fake_bridge_wireless_reader, &fixture, 1, 1, &state) == 0);
+	assert(fixture.calls == 4);
+	assert(state.rt_radio_on == 0 && state.rt_mode_x == 0);
+	assert(state.wl_radio_on == 0 && state.wl_mode_x == 0);
+
+	/* MII-only/single-band builds must not read unused selectors. */
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.values[0] = 1;
+	assert(rc_bridge_wireless_state_read(
+		       fake_bridge_wireless_reader, &fixture, 0, 0, &state) == 0);
+	assert(fixture.calls == 1);
+	assert(strcmp(fixture.seen_keys[0], "rt_radio_x") == 0);
+	assert(state.rt_radio_on == 1 && state.rt_mode_x == 0);
+	assert(state.wl_radio_on == 0 && state.wl_mode_x == 0);
+	assert(rc_bridge_wireless_state_read(
+		       fake_bridge_wireless_reader, &fixture, 2, 0, &state) == EINVAL);
+}
+
 static void
 test_bridge_lan_hwaddr_cache_copy_is_stable(void)
 {
@@ -389,6 +497,8 @@ test_bridge_add_idempotency_requires_confirmed_bridge(void)
 int
 main(void)
 {
+	test_bridge_wireless_selectors_are_snapshotted_before_startup();
+	test_bridge_wireless_selector_failure_aborts_and_clears_snapshot();
 	test_manual_lan_gateway_snapshot_survives_dns_reads();
 	test_router_hostname_domain_snapshot_survives_ipv6_reads();
 	test_udpxy_launch_options_are_owned_across_reads();

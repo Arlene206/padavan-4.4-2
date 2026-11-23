@@ -94,6 +94,7 @@ on:
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/bridge_init_policy.h"
       - "trunk/user/rc/src/tests/bridge_init_policy.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -342,6 +343,7 @@ on:
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/bridge_init_policy.h"
       - "trunk/user/rc/src/tests/bridge_init_policy.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -1538,6 +1540,32 @@ jobs:
           assert "int init_bridge(int is_ap_mode, int *switch_vlan_status);" in header
           assert "operation_status = switch_config_vlan(1);" in init_bridge
           bridge_compact = " ".join(init_bridge.split())
+          wireless_state_read = body(bridge_init_policy, "rc_bridge_wireless_state_read(")
+          for key in ('"rt_radio_x"', '"rt_mode_x"', '"wl_radio_x"', '"wl_mode_x"'):
+              assert key in wireless_state_read
+          assert wireless_state_read.index('"rt_radio_x"') < wireless_state_read.index('"rt_mode_x"')
+          assert wireless_state_read.index('"rt_mode_x"') < wireless_state_read.index('"wl_radio_x"')
+          assert wireless_state_read.index('"wl_radio_x"') < wireless_state_read.index('"wl_mode_x"')
+          assert "goto fail;" in wireless_state_read
+          for field in ("rt_radio_on", "rt_mode_x", "wl_radio_on", "wl_mode_x"):
+              assert wireless_state_read.count("state->" + field + " = 0;") == 2
+          assert "test_bridge_wireless_selectors_are_snapshotted_before_startup" in bridge_init_regression
+          assert "test_bridge_wireless_selector_failure_aborts_and_clears_snapshot" in bridge_init_regression
+          wireless_preflight_at = bridge_compact.index("rc_bridge_wireless_state_read(")
+          wireless_preflight_error_at = bridge_compact.index("if (operation_status != 0)", wireless_preflight_at)
+          wireless_preflight_return_at = bridge_compact.index("return operation_status;", wireless_preflight_error_at)
+          assert wireless_preflight_at < wireless_preflight_error_at < wireless_preflight_return_at
+          assert wireless_preflight_return_at < bridge_compact.index("rc_wan_nvram_copy_value(")
+          assert wireless_preflight_return_at < bridge_compact.index("switch_config_vlan(1)")
+          for legacy_getter in ("get_enabled_radio_rt()", "get_mode_radio_rt()",
+                                "get_enabled_radio_wl()", "get_mode_radio_wl()"):
+              assert legacy_getter not in init_bridge
+          assert "bridge_wireless_nvram_read_int" in init_bridge
+          assert "return wireless_nvram_get_int_status(name, value);" in lan
+          checked_wireless_reader = body(wifi, "int\\nwireless_nvram_get_int_status(")
+          assert "nvram_get_checked(name, &stored_value)" in checked_wireless_reader
+          assert "wireless_radio_nvram_int_status(" in checked_wireless_reader
+          assert "int wireless_nvram_get_int_status(const char *name, int *value);" in header
           assert "if (switch_vlan_status) *switch_vlan_status = 0;" in bridge_compact
           assert "char lan_hwaddr[24];" in init_bridge
           assert 'nvram_safe_get("lan_hwaddr")' not in init_bridge

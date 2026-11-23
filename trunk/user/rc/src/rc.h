@@ -470,6 +470,7 @@ int  get_enabled_guest_wl(void);
 int  get_enabled_guest_rt(void);
 int  get_mode_radio_wl(void);
 int  get_mode_radio_rt(void);
+int wireless_nvram_get_int_status(const char *name, int *value);
 int  is_apcli_wisp_wl(void);
 int  is_apcli_wisp_rt(void);
 int  get_apcli_sta_auto(int is_aband);
