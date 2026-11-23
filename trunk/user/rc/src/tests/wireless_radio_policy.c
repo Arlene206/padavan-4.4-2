@@ -7,33 +7,32 @@ static int
 test_apcli_wisp_config_fails_closed(void)
 {
 	int ssid_configured = 1, is_wisp = 1;
-
-	if (wireless_apcli_start_config_status(
-		    EACCES, "ssid", 0, 0, &ssid_configured, &is_wisp) != EACCES ||
+	if (wireless_apcli_start_config_status(EACCES, 1, 0, 0,
+					       &ssid_configured, &is_wisp) != EACCES ||
 	    ssid_configured || is_wisp)
 		return 1;
-	if (wireless_apcli_start_config_status(
-		    0, "", EIO, 1, &ssid_configured, &is_wisp) != 0 ||
+	if (wireless_apcli_start_config_status(0, 0, EIO, 1,
+					       &ssid_configured, &is_wisp) != 0 ||
 	    ssid_configured || is_wisp)
 		return 1;
-	if (wireless_apcli_start_config_status(
-		    0, "ssid", EIO, 1, &ssid_configured, &is_wisp) != EIO ||
-		    ssid_configured || is_wisp)
+	if (wireless_apcli_start_config_status(0, 1, EIO, 1,
+					       &ssid_configured, &is_wisp) != EIO ||
+	    ssid_configured || is_wisp)
 		return 1;
-	if (wireless_apcli_start_config_status(
-		    0, "ssid", 0, 1, &ssid_configured, &is_wisp) != 0 ||
-		    !ssid_configured || !is_wisp)
+	if (wireless_apcli_start_config_status(0, 1, 0, 1,
+					       &ssid_configured, &is_wisp) != 0 ||
+	    !ssid_configured || !is_wisp)
 		return 1;
-	if (wireless_apcli_start_config_status(
-		    0, "ssid", 0, 0, &ssid_configured, &is_wisp) != 0 ||
-		    !ssid_configured || is_wisp)
+	if (wireless_apcli_start_config_status(0, 1, 0, 0,
+					       &ssid_configured, &is_wisp) != 0 ||
+	    !ssid_configured || is_wisp)
 		return 1;
-	if (wireless_apcli_start_config_status(
-		    0, NULL, 0, 0, &ssid_configured, &is_wisp) != EIO ||
-		    ssid_configured || is_wisp)
+	if (wireless_apcli_start_config_status(0, 2, 0, 0,
+					       &ssid_configured, &is_wisp) != EINVAL ||
+	    ssid_configured || is_wisp)
 		return 1;
-	if (wireless_apcli_start_config_status(
-		    0, "ssid", 0, 0, NULL, &is_wisp) != EINVAL)
+	if (wireless_apcli_start_config_status(0, 1, 0, 0,
+					       NULL, &is_wisp) != EINVAL)
 		return 1;
 	return 0;
 }

@@ -1,3 +1,17 @@
+## 2026-11-23 latest implementation checkpoint
+
+- Parent before this cache-lifetime correction: `40ab459a16dfb914d571c8f559723e907a1b59e9`.
+- APCLI WISP discovery now snapshots the SSID-present bit before the subsequent `sta_wisp` NVRAM read. The value returned by `nvram_get_checked()` is cache-owned; the pure helper consumes a stable boolean and validates 0/1.
+- GNU89 tests cover read failure, absent SSID (WISP read ignored), present SSID with WISP read failure, valid WISP/non-WISP, invalid presence and output-pointer validation. The modem source checker asserts snapshot-before-WISP-read ordering.
+- Exact-SHA tests and XY-C1 Build/TRX/artifact for this production source change are pending. Earlier APCLI policy GNU89 test passed on #45217541665. After binding WIRELESS_TEST, downstream USB modem #45217939671, Process #45217939549, Firewall #45217939795 and AI #45217940061 passed on checker SHA `842553492a7d1a3045c8b4fa4ea8fb1fde0e398a`; XY-C1 #45217939694 skipped product steps because it was checker/docs-only.
+- No local MIPS/uClibc build or hardware result is claimed.
+
+## Exact first action for the next GPT
+
+Poll Actions for the new source SHA. Verify Wireless policy, USB modem checker and downstream Process/Firewall consumers; for XY-C1 require Build, TRX verification and artifact upload individually on the same SHA. Fix exact failures, then continue another independent stability/security slice. Use main-only expected-SHA commits; preserve frozen backup.
+
+---
+
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state

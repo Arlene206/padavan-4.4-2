@@ -1494,8 +1494,11 @@ assert "intget_apcli_wisp_ifname_status(constchar**p_wisp_ifname);" in tight(HEA
 # enabling the interface or deciding whether it belongs on the LAN bridge.
 apcli_settings = tight(body(NET_WIFI_SOURCE, "wireless_apcli_wisp_settings_status("))
 assert "wireless_nvram_get_text_status(ssid_key,&ssid)" in apcli_settings
-assert "wireless_nvram_get_int_status(wisp_key,&wisp_enabled)" in apcli_settings
-assert "wireless_apcli_start_config_status(" in apcli_settings
+assert "if(!ssid)returnEIO;" in apcli_settings
+assert "ssid_present=(ssid[0]!='\\0')" in apcli_settings
+assert "if(ssid_present)wisp_status=wireless_nvram_get_int_status(wisp_key,&wisp_enabled)" in apcli_settings
+assert "wireless_apcli_start_config_status(ssid_status,ssid_present,wisp_status,wisp_enabled,ssid_configured,is_wisp)" in apcli_settings
+assert apcli_settings.index("ssid_present=(ssid[0]!='\\0')") < apcli_settings.index("if(ssid_present)wisp_status=")
 
 for signature, band, old_wisp_getter in (
     ("start_wifi_apcli_wl(int radio_on)", "wl", "is_apcli_wisp_wl()"),

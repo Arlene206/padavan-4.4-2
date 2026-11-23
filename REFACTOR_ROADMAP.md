@@ -1,4 +1,7 @@
 Current implementation checkpoint (2026-11-23):
+- APCLI SSID presence is snapshotted before the next NVRAM read, avoiding reuse of a cache-owned text pointer after WISP lookup. Pure policy consumes and validates a boolean; GNU89 regression and source-checker assertions cover this. Exact-SHA Wireless, USB modem, Process/Firewall and XY-C1 Build/TRX/artifact verification pending.
+
+Current implementation checkpoint (2026-11-23):
 - APCLI startup fail-closes on unknown SSID/WISP state; pure GNU89 policy regression passes in Wireless radio state #45217541665. USB modem/Process/Firewall/XY checker consumers were blocked by an undefined `WIRELESS_TEST` variable in `check_modem_wan_start_status.py`; the declaration is being added. XY-C1 Build/TRX/artifact did not run on the first attempt.
 
 Current implementation checkpoint (2026-11-23):

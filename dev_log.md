@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Snapshot AP-client SSID presence before the next NVRAM read
+
+- `wireless_nvram_get_text_status()` returns a pointer to a cache-owned NVRAM value. The APCLI helper previously inspected that pointer, made a second checked NVRAM read for `sta_wisp`, then passed the original pointer to the policy helper. A subsequent NVRAM operation could invalidate or replace the cache value.
+- The helper now snapshots `ssid_present` immediately after the checked text read, before fetching the WISP flag. It passes only this stable boolean to the pure policy function; unexpected values fail with EINVAL.
+- Updated GNU89 policy tests and the shared source checker to enforce snapshot-before-WISP-read ordering. Existing Wireless and XY-C1 path filters include the production source and policy test. Exact-SHA Actions, target Build/TRX/artifact and hardware tests remain pending; no local target build claimed.
+
+---
+
 ## 2026-11-23 — Fail closed on unavailable or truncated WAN ARP egress interface
 
 - `detect_wan` previously obtained the router-mode probe interface through `get_man_ifname()`, which wraps `nvram_safe_get()`; a transient NVRAM error could be reduced to an empty name. The code also copied names into the legacy 14-byte `sockaddr.sa_data` without checking whether the selected interface name fit.

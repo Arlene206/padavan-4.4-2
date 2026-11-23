@@ -2151,7 +2151,8 @@ wireless_apcli_wisp_settings_status(int is_5g, int *ssid_configured,
 {
 	const char *ssid = "";
 	const char *ssid_key, *wisp_key;
-	int ssid_status, wisp_status = 0, wisp_enabled = 0;
+	int ssid_status, ssid_present = 0;
+	int wisp_status = 0, wisp_enabled = 0;
 
 	if (!ssid_configured || !is_wisp)
 		return EINVAL;
@@ -2162,12 +2163,18 @@ wireless_apcli_wisp_settings_status(int is_5g, int *ssid_configured,
 
 	ssid_key = is_5g ? "wl_sta_ssid" : "rt_sta_ssid";
 	wisp_key = is_5g ? "wl_sta_wisp" : "rt_sta_wisp";
-	ssid_status = wireless_nvram_get_text_status(ssid_key, &ssid);
-	if (ssid_status == 0 && ssid && ssid[0])
-		wisp_status = wireless_nvram_get_int_status(wisp_key, &wisp_enabled);
+ssid_status = wireless_nvram_get_text_status(ssid_key, &ssid);
+	if (ssid_status == 0) {
+		if (!ssid)
+			return EIO;
+		/* Snapshot cache-owned text before the next NVRAM read. */
+		ssid_present = (ssid[0] != '\0');
+		if (ssid_present)
+			wisp_status = wireless_nvram_get_int_status(wisp_key, &wisp_enabled);
+	}
 
 	return wireless_apcli_start_config_status(
-		ssid_status, ssid, wisp_status, wisp_enabled,
+		ssid_status, ssid_present, wisp_status, wisp_enabled,
 		ssid_configured, is_wisp);
 }
 
