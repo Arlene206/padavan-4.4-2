@@ -1,3 +1,8 @@
+## 2026-11-23 — Align Storage workflow with USB printer rollback
+
+- Storage hotplug run #45221949175 exposed a stale source assertion left over from the pre-rollback launcher: it required a direct `return EIO;` after a partial exec-status write. The implementation now invokes the shared failed-start rollback policy for that uncertain state.
+- Updated the Storage source contract to check the rollback hand-off and the dedicated stop/re-scan callbacks rather than the removed direct return. This was a test-contract mismatch, not a runtime storage failure.
+
 ## 2026-11-23 — Correct Process workflow rollback callback scope
 
 - Process run #45221949004 failed only because the new source-contract snippet searched for `kill_services()` inside the recovery function, although the call intentionally lives in its separate stop callback. The implementation and USB modem workflow checker both passed.

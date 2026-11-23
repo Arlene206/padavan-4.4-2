@@ -690,9 +690,18 @@ jobs:
           assert "child = fork();" in spawn_daemon
           assert "execv(argv[0], argv);" in spawn_daemon
           assert "return exec_error;" in spawn_daemon
-          assert "return EIO;" in spawn_daemon
+          assert "return usb_printer_daemon_start_failure_recover(process_name, EIO);" in spawn_daemon
           assert "received == 0" in spawn_daemon
           assert "usb_printer_daemon_postcondition(process_name)" in spawn_daemon
+          assert "usb_printer_daemon_start_failure_recover(process_name," in spawn_daemon
+          rollback_stop = function_body(usb, "usb_printer_daemon_rollback_stop(void *context)")
+          recovery = function_body(usb, "usb_printer_daemon_start_failure_recover(const char *process_name,")
+          assert "kill_services(service_names, 3, 1)" in rollback_stop
+          assert "detached_daemon_start_rollback_with_ops(" in recovery
+          assert "usb_printer_daemon_rollback_stop" in recovery
+          assert "usb_printer_daemon_scan" in recovery
+          assert "PROCESS_PRESENCE_ABSENT" in recovery
+          assert "startup rollback incomplete" in recovery
           assert "process_presence_start_action_for_state(presence)" in spawn_daemon
           assert "process_presence_start_status_for_action(" in spawn_daemon
           assert "PROCESS_PRESENCE_START_NOTIFY" in spawn_daemon
