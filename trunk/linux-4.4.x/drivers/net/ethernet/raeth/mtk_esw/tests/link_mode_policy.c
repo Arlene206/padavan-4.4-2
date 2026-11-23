@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../link_mode_policy.h"
 
@@ -512,6 +513,7 @@ test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits(void)
 	fake.fail_status = 1;
 	assert(mtk_esw_jumbo_frames_apply(reg, 1, &fake_ops, &fake) == -EIO);
 
+	fake_init(&fake);
 	missing_read.read = NULL;
 	missing_write.write = NULL;
 	assert(mtk_esw_jumbo_frames_apply(reg, 1, NULL, &fake) == -EINVAL);

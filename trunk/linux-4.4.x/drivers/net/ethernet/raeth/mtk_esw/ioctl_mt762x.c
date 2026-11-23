@@ -1732,7 +1732,7 @@ static int change_jumbo_frames_accept(u32 jumbo_frames_enabled)
 
 	status = esw_jumbo_control(jumbo_frames_enabled);
 	if (status != 0) {
-		pr_err("%s: jumbo-frame register update failed (status=%d)\\n",
+		pr_err("%s: jumbo-frame register update failed (status=%d)\n",
 		       MTK_ESW_DEVNAME, status);
 		return status;
 	}
