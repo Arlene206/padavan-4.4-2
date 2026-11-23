@@ -188,15 +188,34 @@ jobs:
           assert "manual WISP reassociation failed" in manual_reassoc
 
           wl = function_body(source, "mlme_radio_wl_apply(int is_on)")
-          assert "if (!wifname)" in wl
-          assert wl.index("if (!wifname)") < wl.index("return 0;") < wl.index("doSystem(")
-          assert wl.index("doSystem(") < wl.index("wireless_radio_status_success(ret)") < wl.index("mlme_state_wl(is_on)")
-          assert wl.index("mlme_state_wl(is_on)") < wl.index("LED_CONTROL(")
-
+          assert "context.publish_state = mlme_state_wl;" in wl
+          assert "wireless_mlme_radio_apply(&context, LED_SW5G, is_on)" in wl
           rt = function_body(source, "mlme_radio_rt_apply(int is_on)")
           assert "if (!wifname)" in rt
           assert "wireless_inic_radio_transition(is_on, &wireless_inic_radio_ops, &context)" in rt
+          assert "context.publish_state = mlme_state_rt;" in rt
+          assert "wireless_mlme_radio_apply(&context, LED_SW2G, is_on)" in rt
           assert rt.index("if (!wifname)") < rt.index("wireless_inic_radio_transition(") < rt.index("return 1;")
+
+          radio_apply = function_body(
+              source, "wireless_mlme_radio_apply(wireless_mlme_radio_context_t *context,")
+          assert "wireless_radio_state_transition(" in radio_apply
+          assert radio_apply.index("if (status != 0)") < radio_apply.index("LED_CONTROL(")
+          power = function_body(source, "wireless_mlme_radio_set_power(void *opaque, int is_on)")
+          assert 'doSystem("iwpriv %s set %s=%d"' in power
+          publish_state = function_body(
+              source, "wireless_mlme_radio_publish_state(void *opaque, int is_on)")
+          assert "context->publish_state(!!is_on)" in publish_state
+          wl_state = function_body(source, "mlme_state_wl(int is_on)")
+          rt_state = function_body(source, "mlme_state_rt(int is_on)")
+          assert 'return nvram_set_int("mlme_radio_wl", !!is_on);' in wl_state
+          assert 'return nvram_set_int("mlme_radio_rt", !!is_on);' in rt_state
+          assert "int mlme_state_wl(int is_on);" in header
+          assert "int mlme_state_rt(int is_on);" in header
+          assert "test_radio_state_transition_publishes_after_power" in notification_test
+          assert "test_radio_state_transition_rolls_back_publish_failure" in notification_test
+          assert "test_radio_state_transition_preserves_primary_and_rollback_errors" in notification_test
+          assert "test_radio_state_transition_rolls_back_power_command_failure" in notification_test
           mii_helpers = (
               "wireless_inic_radio_set_power(void *opaque, int is_on)",
               "wireless_inic_radio_set_isolation(void *opaque, int isolated)",
@@ -215,7 +234,7 @@ jobs:
           assert '"TxPower"' in prepare_on and "doSystem(" in prepare_on
           assert "return status;" in prepare_on
           publish = function_body(source, mii_helpers[3])
-          assert "status = nvram_set_int(\"mlme_radio_rt\", !!is_on);" in publish
+          assert "status = mlme_state_rt(\"mlme_radio_rt\", !!is_on);" in publish
           assert "if (status != 0)" in publish
           assert publish.index("if (status != 0)") < publish.index("LED_CONTROL(")
           assert "return status;" in publish and "return 0;" in publish

@@ -337,37 +337,99 @@ wireless_bridge_membership_record(int *all_started, const char *ifname, int is_a
 		*all_started, wireless_radio_status_success(status));
 }
 
-void
+int
 mlme_state_wl(int is_on)
 {
-	nvram_set_int("mlme_radio_wl", is_on);
+	return nvram_set_int("mlme_radio_wl", !!is_on);
 }
 
-void
+int
 mlme_state_rt(int is_on)
 {
-	nvram_set_int("mlme_radio_rt", is_on);
+	return nvram_set_int("mlme_radio_rt", !!is_on);
+}
+
+typedef struct wireless_mlme_radio_context {
+	const char *ifname;
+	const char *band_name;
+	int (*publish_state)(int is_on);
+} wireless_mlme_radio_context_t;
+
+static int
+wireless_mlme_radio_set_power(void *opaque, int is_on)
+{
+	wireless_mlme_radio_context_t *context =
+		(wireless_mlme_radio_context_t *)opaque;
+	int status;
+
+	/* Keep boards without a 5GHz radio on the legacy state-only path. */
+	if (!context->ifname)
+		return 0;
+	status = doSystem("iwpriv %s set %s=%d",
+			  context->ifname, "RadioOn", !!is_on);
+	if (!wireless_radio_status_success(status))
+		logmessage(LOGNAME, "%s RadioOn=%d failed (status=%d)",
+			   context->band_name, !!is_on, status);
+	return status;
+}
+
+static int
+wireless_mlme_radio_publish_state(void *opaque, int is_on)
+{
+	wireless_mlme_radio_context_t *context =
+		(wireless_mlme_radio_context_t *)opaque;
+	int status = context->publish_state(!!is_on);
+
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "failed to publish %s MLME radio state %d (status=%d)",
+			   context->band_name, !!is_on, status);
+	return status;
+}
+
+static const wireless_radio_state_ops_t wireless_mlme_radio_ops = {
+	wireless_mlme_radio_set_power,
+	wireless_mlme_radio_publish_state
+};
+
+static int
+wireless_mlme_radio_apply(wireless_mlme_radio_context_t *context,
+			  int led, int is_on)
+{
+	int status, rollback_status = 0;
+
+	status = wireless_radio_state_transition(
+		is_on, &wireless_mlme_radio_ops, context, &rollback_status);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "%s radio state transition failed (requested=%d, status=%d)",
+			   context->band_name, !!is_on, status);
+		if (rollback_status != 0)
+			logmessage(LOGNAME,
+				   "%s radio state rollback failed (status=%d)",
+				   context->band_name, rollback_status);
+		return 0;
+	}
+
+	LED_CONTROL(led, is_on ? LED_ON : LED_OFF);
+	return 1;
 }
 
 static int
 mlme_radio_wl_apply(int is_on)
 {
+	wireless_mlme_radio_context_t context;
+
 #if BOARD_HAS_5G_RADIO
-	const char *wifname = find_wlan_if_up(1);
-	int ret;
-
-	if (!wifname)
+	context.ifname = find_wlan_if_up(1);
+	if (!context.ifname)
 		return 0;
-
-	ret = doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
-	if (!wireless_radio_status_success(ret)) {
-		logmessage(LOGNAME, "5GHz RadioOn=%d failed (status %d)", (is_on) ? 1 : 0, ret);
-		return 0;
-	}
+#else
+	context.ifname = NULL;
 #endif
-	mlme_state_wl(is_on);
-	LED_CONTROL(LED_SW5G, (is_on) ? LED_ON : LED_OFF);
-	return 1;
+	context.band_name = "5GHz";
+	context.publish_state = mlme_state_wl;
+	return wireless_mlme_radio_apply(&context, LED_SW5G, is_on);
 }
 
 #if defined(USE_RT3352_MII)
@@ -437,7 +499,7 @@ wireless_inic_radio_publish(void *opaque, int is_on)
 	int status;
 
 	(void)opaque;
-	status = nvram_set_int("mlme_radio_rt", !!is_on);
+	status = mlme_state_rt(!!is_on);
 	if (status != 0) {
 		logmessage(LOGNAME,
 			   "failed to publish 2.4GHz iNIC radio state %d (status=%d)",
@@ -460,9 +522,10 @@ static int
 mlme_radio_rt_apply(int is_on)
 {
 	const char *wifname = find_wlan_if_up(0);
-	int ret;
 #if defined(USE_RT3352_MII)
 	wireless_inic_radio_context_t context;
+#else
+	wireless_mlme_radio_context_t context;
 #endif
 
 	if (!wifname)
@@ -475,23 +538,18 @@ mlme_radio_rt_apply(int is_on)
 	 * confirms the requested isolation state.
 	 */
 	context.ifname = wifname;
-	ret = wireless_inic_radio_transition(is_on, &wireless_inic_radio_ops, &context);
-	if (ret != 0) {
-		logmessage(LOGNAME, "2.4GHz iNIC radio transition incomplete (requested=%d, status=%d)",
-			   !!is_on, ret);
+	if (wireless_inic_radio_transition(is_on, &wireless_inic_radio_ops, &context) != 0) {
+		logmessage(LOGNAME, "2.4GHz iNIC radio transition incomplete (requested=%d)",
+			   !!is_on);
 		return 0;
 	}
-#else
-	ret = doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
-	if (!wireless_radio_status_success(ret)) {
-		logmessage(LOGNAME, "2.4GHz RadioOn=%d failed (status %d)", (is_on) ? 1 : 0, ret);
-		return 0;
-	}
-
-	mlme_state_rt(is_on);
-	LED_CONTROL(LED_SW2G, (is_on) ? LED_ON : LED_OFF);
-#endif
 	return 1;
+#else
+	context.ifname = wifname;
+	context.band_name = "2.4GHz";
+	context.publish_state = mlme_state_rt;
+	return wireless_mlme_radio_apply(&context, LED_SW2G, is_on);
+#endif
 }
 
 void

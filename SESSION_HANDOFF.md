@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Parent `main` SHA for the current bounded SYN-cookie integer parsing slice: `2e2af029329e422135bbbe0f376924beb2f7f251`; the source checkpoint is the commit containing this handoff update. Fetch live `main` on recovery and resolve the exact current SHA. Immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: `Arlene206/padavan-4.4-2`. Parent `main` SHA for the current wireless MLME runtime-state publication slice: `849edf14a54ed2b5f7b38b404b9efcbe34725ea0`; the source checkpoint is the commit containing this handoff update. Fetch live `main` on recovery and resolve the exact current SHA. Immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
 - The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
 - Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
@@ -26,34 +26,40 @@
 
 ## Active task
 
-### Bound SYN-cookie policy integer parsing
+### Propagate MLME radio-state publication failures
 
-- Parent `main` SHA: `2e2af029329e422135bbbe0f376924beb2f7f251`. Development remains on `main`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
-- The checked-read fix prevents NVRAM backend/close errors from being mistaken for an explicit `fw_syn_cook=0`, but its formatter still used `atoi()`. An out-of-range decimal string can invoke undefined behavior and return an implementation-dependent value, potentially weakening the SYN-cookie WAN admission policy.
-- THIS COMMIT replaces `atoi()` with `strtol()` and explicit `INT_MIN`/`INT_MAX`/`ERANGE` checks. It preserves legacy base-10 numeric-prefix semantics for representable values, including missing-key zero and nonnumeric-to-zero behavior, while rejecting overflow without changing the caller's initialized secure-required state.
-- Added exact INT boundary tests, positive/negative overflow tests, a very-long input test and source-checker assertions. The existing `wan-route-status.yml` already compiles the GNU89/Werror/ASan/UBSan regression and runs the checker; no path-filter change is needed.
-- No local checkout is available; no local compile/test or firmware build is claimed. Inspect exact-head WAN route, Process, NVRAM and XY-C1 Actions. L3 requires Build XY-C1, TRX and artifact upload all PASS on the same production-source SHA; L4 remains NOT VERIFIED.
-- Resulting source/test/docs tree: THIS COMMIT (parent `2e2af029...`).
+- Parent `main` SHA: `849edf14a54ed2b5f7b38b404b9efcbe34725ea0`. Development continues on `main`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
+- The classic 5GHz and non-MII 2.4GHz `mlme_radio_*_apply()` paths issued the driver `RadioOn` command, called `mlme_state_*()` (which discarded `nvram_set_int()` status), updated LEDs and reported success even if the runtime MLME state cache was not written. Later radio control then relied on stale `mlme_radio_*` state.
+- THIS COMMIT changes `mlme_state_wl/rt()` to return NVRAM write status and uses shared `wireless_radio_state_transition()` in classic 5GHz/non-MII 2.4GHz paths. Hardware power changes before state publication. A power-command or publish failure best-effort restores the previous power state; primary status is preserved and rollback status is separately reported. LEDs update only after both operations succeed. RT3352 MII retains its isolation-aware transition but shares the checked state writer.
+- Added GNU89 callback regression cases for ordering, power failure, publication failure, rollback error precedence and incomplete operations. Extended `.github/workflows/wireless-radio-state.yml` source contract; existing push/PR path filters already include the production files and policy test.
+- No local checkout exists; do not claim local tests or a firmware build. Exact-head Wireless radio-state workflow, Process inventory/umbrella and XY-C1 must be checked after commit. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same production-source SHA; L4 remains NOT VERIFIED.
+- Resulting source/test/docs tree: THIS COMMIT (parent `849edf14...`).
 
-### Exact parent-SHA verification baseline
+### Exact parent-SHA CI baseline
 
-- On `2e2af029329e422135bbbe0f376924beb2f7f251`: Firewall Startup `45127089949`, Crond `45127089701`, Process integration `45127089841`, Process inventory `45127089854`, HTTPD `45127089789`, WAN DHCP callback `45127089717`, DNSMasq `45127089801`, WAN route `45127089737`, watchdog `45127089944`, AI docs `45127089716`, USB hotplug `45127089749`, Router-mode NVRAM `45127089874` and NVRAM audit `45127090003` were all SUCCESS. XY-C1 `45127089883` was IN_PROGRESS at the last exact-head lookup.
-- Do not transfer parent-SHA results to THIS COMMIT. No L2/L3/L4 success is claimed until this commit's own matching Actions complete.
-
+- Parent `849edf14a54ed2b5f7b38b404b9efcbe34725ea0`: AI docs `45128657552` PASS; Process lifecycle inventory `45128657476` PASS; WAN DHCP callback `45128657484` PASS. NVRAM transaction audit `45128657459`, USB storage hotplug `45128657471`, WAN route `45128657501`, Process inventory/lifecycle fail-closed regression `45128657572` and XY-C1 `45128657523` were IN_PROGRESS at last lookup.
+- Firewall Startup `45128657449` and HTTPD authentication/security `45128657626` were FAIL on that same parent; first causal logs must be inspected and the failures resolved or accurately classified. Do not transfer these results to THIS COMMIT.
+- NAT helper settings source/test chain: `0f1fc4ac7af800c219a480853803e6b43c86268f`; fixture correction `a408ef42022655a64a9d7fc70c0c7761646c8011`; source-check parser fix `9e8e8ae58a0c7f0745ec0460da79c7a1296eb541`. WAN run `45127938295` on `a408ef...` passed sanitizer tests but failed in the Python checker; its filter-parser boundary was fixed in `9e8e8ae...`, with no NAT-specific exact-head rerun yet evidenced.
+- Hardware/software offload selector snapshot source/test chain is in progress: source/test baseline `c3894b095a0496e2fa73e0ced039c848d9f1e836`, with workflow header and USE_SFE declaration correction in `849edf14...`. Exact-head WAN, NVRAM audit and XY-C1 jobs are pending/failing as listed above.
+- SYN-cookie parser `3a802b83e861018e020f3298ec7de9d41ef9f1bf`: WAN route `45127632186`, AI docs `45127632183` and Process inventory `45127632194` PASS; NVRAM audit `45127632188` CANCELLED; XY-C1 `45127632232` was IN_PROGRESS at last lookup.
+- Parent/ancestor evidence is not validation of THIS COMMIT. No L2/L3/L4 success is claimed until current exact-head runs complete.
 ## Verification boundary
 
-- Historic libdisk removable-share ACL, FRP private seeding, USB printer unplug and DHCPv6 callback milestones retain exact-source test/build evidence in the earlier handoff history; do not infer fresh validation for later SHAs.
-- PID 1 recovery-shell timezone: exact-host workflow `45126854225` PASS on `acb8eff551bc6a189c8d207cd7d01cf9c21edca3`; Process, DNSMasq, DNS Forwarder, HTTPD and AI docs also PASS on that SHA. XY-C1 was still running at last query; no L3 claim.
-- Wireless SKU atomic publication: Wireless regression `45126385953` and AI docs `45126385917` PASS on parent `83145a6da831afad15b2676b7086463802f253a6`; later XY-C1 verification for its exact source SHA was not established in this checkpoint.
-- SYN-cookie checked-read source `2e2af029329e422135bbbe0f376924beb2f7f251`: Firewall Startup, Crond, Process, HTTPD, WAN DHCP, DNSMasq, WAN route, watchdog, AI docs, USB hotplug and Router-mode NVRAM exact-head Actions PASS; NVRAM audit PASS. XY-C1 `45127089883` was IN_PROGRESS. The follow-up integer-range validation in THIS COMMIT requires its own exact-head regression and firmware checks.
-- L4 physical-router validation remains NOT VERIFIED for the above current changes.
+- Historic libdisk removable-share ACL, FRP private seeding, USB printer unplug and DHCPv6 callback milestones retain exact-source test/build evidence from prior handoff records; do not infer fresh validation on later SHAs.
+- PID 1 recovery-shell timezone `acb8eff551bc6a189c8d207cd7d01cf9c21edca3`: exact-host timezone workflow `45126854225` PASS; Process, DNSMasq, DNS Forwarder, HTTPD and AI docs passed on that SHA. XY-C1 was still running at last query; no L3 claim.
+- Wireless regulatory SKU atomic publication `83145a6da831afad15b2676b7086463802f253a6`: Wireless regression `45126385953` and AI docs `45126385917` PASS; exact-source XY-C1 verification was not established here.
+- NAT helper module snapshot: sanitizer tests passed but the WAN checker failed on `a408ef...`; parser-boundary correction is on `9e8e8ae...`; exact NAT-specific rerun remains to be found.
+- Hardware/software offload selector reliability: exact-head WAN route, NVRAM audit and XY-C1 checks on `849edf...` are pending; Firewall Startup and HTTPD security runs failed and need log triage.
+- SYN-cookie overflow parser `3a802b83...`: WAN route, Process inventory and AI docs PASS; NVRAM audit CANCELLED; XY-C1 was IN_PROGRESS; no L3 claim.
+- Wireless MLME runtime-state publication: THIS COMMIT adds a common power/publish compensation transaction plus callback/source-contract tests; exact-head Wireless/Process/XY-C1 checks are pending.
+- L4 physical-router validation remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and match the current SYN-cookie integer parser commit SHA; do not repeat startup-protocol or frozen-backup audits.
-2. Inspect the exact-head WAN route workflow: the sanitizer binary and `scripts/check_network_sysctl_status.py` must both pass. On failure, diagnose the first causal assertion or compiler/test error and correct it without weakening policy.
-3. Check Process inventory/integration, NVRAM audit and XY-C1 runs by exact `head_sha`. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA; L4 remains NOT VERIFIED.
-4. Continue the next independent high-priority userland issue in the roadmap after this security parsing slice is verified; do not revisit completed timezone, console-loglevel or switch packed-operand work.
+1. Fetch live `main` and match THIS COMMIT's exact SHA; do not repeat startup-protocol or frozen-backup audits.
+2. Inspect exact-head `Wireless radio state regression`: GNU89/Werror callback tests, ASan/UBSan companion tests and Python source integration contract. Fix the first causal failure if any.
+3. Match Process inventory/umbrella and XY-C1 Actions by `head_sha`; L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA. L4 remains NOT VERIFIED.
+4. Triage the parent `849edf...` Firewall Startup `45128657449` and HTTPD security `45128657626` first-failure logs; resolve any regression rather than ignoring them. Also rerun exact-head NAT validation after the `jobs:` checker correction; pursue independent work while CI is pending.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.

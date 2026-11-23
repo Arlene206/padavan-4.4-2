@@ -1,3 +1,13 @@
+## 2026-11-23 07:13 UTC — Propagate MLME radio-state publication failures
+
+- The classic 5GHz and non-MII 2.4GHz MLME radio paths issued the driver `RadioOn` command, then called `mlme_state_*()` which discarded `nvram_set_int()` failure. LEDs and the reported success state could therefore advance while the cached runtime radio state remained stale.
+- Both MLME state setters now return the NVRAM write status. A common callback-tested power/publish transition publishes state only after the driver command succeeds and best-effort restores the previous power state if either the power command or state publication fails. It preserves the primary error and reports rollback failure separately; LEDs update only after successful publication.
+- RT3352 MII keeps its dedicated isolation-aware transaction, but the publish callback uses the same status-returning MLME state setter. Added GNU89 policy regressions for successful ordering, hardware failure, publication failure, rollback error precedence and incomplete callback tables; extended the wireless source-contract workflow.
+- Parent `main`: `849edf14a54ed2b5f7b38b404b9efcbe34725ea0`. Parent AI docs and Process lifecycle inventory passed; WAN route, NVRAM audit, storage hotplug, Process umbrella and XY-C1 were still running, while Firewall Startup and HTTPD security had failed and require first-log triage. No local checkout/tests/build are claimed for THIS COMMIT.
+- Resulting source/test/docs change: THIS COMMIT.
+
+---
+
 ## 2026-11-23 07:10 UTC — Preserve HW NAT/SFE state when acceleration selectors cannot be read
 
 - A second unsafe module-state decision remained in `reload_nat_modules()`: `is_hwnat_allow()` used unchecked `nvram_get_int("sw_mode")`/`nvram_get_int("hw_nat_mode")`; the function also read `ip6_lan_auto`, `hw_nat_mode` again for radio registration, and `sfe_enable` using unchecked getters. A transient backend/read/close error could be mistaken for a configured disable and unload active `hw_nat` or `fast_classifier`, or turn off IPv6 acceleration registration.

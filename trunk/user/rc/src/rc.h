@@ -456,8 +456,8 @@ int ovpn_server_expcli_main(int argc, char **argv);
 #endif
 
 /* net_wifi.c */
-void mlme_state_wl(int is_on);
-void mlme_state_rt(int is_on);
+int mlme_state_wl(int is_on);
+int mlme_state_rt(int is_on);
 void mlme_radio_wl(int is_on);
 void mlme_radio_rt(int is_on);
 int  get_mlme_radio_wl(void);
