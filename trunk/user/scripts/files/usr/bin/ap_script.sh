@@ -81,7 +81,7 @@ while [ -s /tmp/ap2g5g ]; do
 # [2023-1-11] check if ap_script.sh / sh_ezscript.sh exists
 ap_script_num=$(ps | grep -E "[a]p_script.sh" | wc -l)
 sh_ezscript_num=$(ps | grep -E "[s]h_ezscript.sh" | wc -l)
-if [[ $ap_script_num == "0" && $ap_script_num == "0" ]]; then
+if [[ $ap_script_num == "0" && $sh_ezscript_num == "0" ]]; then
   #logger -t "【移除apc.lock】" "没有找到中继检查进程"
   rm -f /tmp/apc.lock
 fi

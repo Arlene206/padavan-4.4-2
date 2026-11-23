@@ -431,6 +431,9 @@ on:
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - "trunk/user/p910nd/**"
       - "trunk/user/wsdd2/**"
+      - "trunk/user/scripts/files/usr/bin/ap_script.sh"
+      - "trunk/user/scripts/tests/ap_script_lock_cleanup.sh"
+
   workflow_dispatch:
 
 permissions:

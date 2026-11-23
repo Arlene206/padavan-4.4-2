@@ -2400,3 +2400,20 @@ assert 'MOCK_STOP_STATUS=37' in openssh_lifecycle_test
 assert "missing helper did not fail closed" in openssh_lifecycle_test
 assert "trunk/user/openssh/Makefile" in openssh_workflow
 assert "trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh" in openssh_workflow
+
+# The AP relay monitor must retain its lock until both independent workers exit.
+ap_script = (root / "trunk/user/scripts/files/usr/bin/ap_script.sh").read_text()
+ap_test = (root / "trunk/user/scripts/tests/ap_script_lock_cleanup.sh").read_text()
+ap_monitor_start = ap_script.index("ap_script_num=$(ps")
+ap_monitor_end = ap_script.index("\\nfi\\n", ap_monitor_start) + len("\\nfi")
+ap_monitor_gate = ap_script[ap_monitor_start:ap_monitor_end]
+assert 'if [[ $ap_script_num == "0" && $sh_ezscript_num == "0" ]]; then' in ap_monitor_gate
+assert 'if [[ $ap_script_num == "0" && $ap_script_num == "0" ]]; then' not in ap_monitor_gate
+for test_case in ("run_case helper_only keep", "run_case script_only keep",
+                  "run_case both keep", "run_case none remove"):
+    assert test_case in ap_test
+process_workflow = Path(".github/workflows/process-lifecycle-regression.yml").read_text()
+xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+for changed_path in ("trunk/user/scripts/files/usr/bin/ap_script.sh",
+                     "trunk/user/scripts/tests/ap_script_lock_cleanup.sh"):
+    assert changed_path in process_workflow and changed_path in xy_workflow

@@ -237,6 +237,9 @@ on:
 
       # Keep AliDDNS-owned tests in their dedicated lifecycle workflow.
       - "!trunk/user/aliddns/tests/**"
+      - "trunk/user/scripts/files/usr/bin/ap_script.sh"
+      - "trunk/user/scripts/tests/ap_script_lock_cleanup.sh"
+
   pull_request:
     paths:
       - "trunk/user/rc/src/timezone_env_policy.h"
@@ -473,6 +476,9 @@ on:
 
       # Keep AliDDNS-owned tests in their dedicated lifecycle workflow.
       - "!trunk/user/aliddns/tests/**"
+      - "trunk/user/scripts/files/usr/bin/ap_script.sh"
+      - "trunk/user/scripts/tests/ap_script_lock_cleanup.sh"
+
 permissions:
   contents: read
 
@@ -1172,6 +1178,11 @@ jobs:
             trunk/user/rc/src/tests/msd_lite_config_file.c \
             -o "$RUNNER_TEMP/msd-lite-config-file-regression"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/msd-lite-config-file-regression"
+      - name: Verify AP relay monitor lock cleanup waits for both processes
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/tests/ap_script_lock_cleanup.sh
+          sh trunk/user/scripts/tests/ap_script_lock_cleanup.sh
       - name: Verify OpenSSH PID-file reload identity
         run: |
           sh -n trunk/user/openssh/sshd.sh

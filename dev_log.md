@@ -1,10 +1,10 @@
-## 2026-11-23 UTC — Fix the DDNS symlink regression fixture setup
+## 2026-11-23 20:02:52 Beijing — Prevent premature AP relay lock release
 
-- Exact-head AliDDNS run `45169602661` and Process boot regression run `45169602600` both reached the same new test and failed because the DDNS symlink fixture referenced `$tmp/external/sentinel` before creating that sentinel. This was a test setup defect, not a production-path failure.
-- Create the sentinel immediately before constructing the DDNS symlink. The later generic symlink cases continue to reuse the same external file. Re-run both workflows on a new exact SHA before treating this slice as verified.
+- Fixed a process-state bug in the generated AP relay monitor: its cleanup gate checked `ap_script_num` twice, so it removed `/tmp/apc.lock` when `ap_script.sh` had exited even if `sh_ezscript.sh` was still performing the relay scan. This allowed a second scan/reconfiguration to overlap the first.
+- The gate now requires both independently measured counts to be zero. Added a shell regression that extracts and executes the exact production fragment under mocked process tables for script-only, helper-only, both-running and neither-running cases. Wired the test and AP script into Process CI push/PR filters and XY-C1 firmware input filtering.
+- Exact Process/XY-C1 validation for this SHA is pending; no local shell execution or firmware result is claimed.
 
 ---
-
 ## 2026-11-23 UTC — Correct the DDNS storage regression fixture
 
 - Pre-run review found the new DDNS publication test's `printf` format had a doubled backslash and would write a literal `\\n`, so the preservation assertion would fail for a fixture-format reason.
