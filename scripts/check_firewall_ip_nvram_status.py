@@ -99,7 +99,9 @@ assert "char viptv_iflast[16]" in mangle
 assert viptv_position < mangle.index("fput_int(")
 assert viptv_position < mangle.index('module_smart_load("iptable_mangle"')
 assert viptv_position < mangle.index("firewall_open_rule_file(ipt_file")
-assert "if (status != 0)\n\t\t\treturn;" in mangle[viptv_position:viptv_position + 240]
+viptv_gate = mangle[viptv_position:viptv_position + 240]
+assert 'firewall_mangle_snapshot_check("viptv_ifname", status) != 0' in viptv_gate
+assert "return;" in viptv_gate
 assert "if (*viptv_iflast && is_interface_exist(viptv_iflast))" in mangle
 assert ("test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence" in TEST
         and "test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence();" in TEST)
