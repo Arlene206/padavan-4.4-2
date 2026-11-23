@@ -17,6 +17,44 @@ static inline int ra_switch_mdio_normalize_status(int status)
 	return status > 0 ? -EIO : status;
 }
 
+/* Publish an MDIO sample only after the underlying transaction succeeds. */
+static inline int
+ra_switch_mdio_read_checked(unsigned int port, unsigned int reg,
+			    ra_switch_mdio_read_fn read, void *context,
+			    unsigned int *value)
+{
+	unsigned int result = 0;
+	int status;
+
+	if (!read || !value)
+		return -EINVAL;
+	*value = 0;
+	status = ra_switch_mdio_normalize_status(read(context, port, reg, &result));
+	if (status != 0)
+		return status;
+	*value = result;
+	return 0;
+}
+
+/* Keep the caller's previous link state untouched when an MDIO sample fails. */
+static inline int
+ra_switch_mdio_read_link_status(unsigned int port, unsigned int reg,
+				unsigned int link_mask,
+				ra_switch_mdio_read_fn read,
+				void *context, int *link_up)
+{
+	unsigned int value;
+	int status;
+
+	if (!link_up || !link_mask)
+		return -EINVAL;
+	status = ra_switch_mdio_read_checked(port, reg, read, context, &value);
+	if (status != 0)
+		return status;
+	*link_up = (value & link_mask) != 0;
+	return 0;
+}
+
 static inline int
 ra_switch_mdio_page_read(int local, unsigned int port, unsigned int page,
 			 unsigned int reg, ra_switch_mdio_read_fn read,
@@ -33,10 +71,7 @@ ra_switch_mdio_page_read(int local, unsigned int port, unsigned int page,
 	status = ra_switch_mdio_normalize_status(write(context, port, 31U, page_select));
 	if (status != 0)
 		return status;
-	status = ra_switch_mdio_normalize_status(read(context, port, reg, value));
-	if (status != 0)
-		*value = 0;
-	return status;
+	return ra_switch_mdio_read_checked(port, reg, read, context, value);
 }
 
 static inline int

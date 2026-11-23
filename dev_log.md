@@ -1,3 +1,12 @@
+## 2026-11-23 — Preserve switch link state when PHY MDIO reads fail
+
+- Both MTK/GSW and legacy ESW link interrupt paths ignored the success result from `mii_mgr_read()`. That API clears its output on failure, so an MDIO timeout could be mistaken for a genuine link-down sample; the GSW path also acknowledged all port-change flags even when an individual port-status read failed.
+- Added checked MDIO read/link-sample policy. GSW callbacks now run only after a successful sample, and W1C acknowledgement is restricted to successfully sampled port flags so failed samples remain pending. The legacy ESW path retains its previous cached state and skips transition/debug reporting on a failed read.
+- Added failure-injection coverage for negative/positive callback errors, successful link-bit decoding, invalid callbacks/masks, zeroed checked output and preservation of the caller's previous link state. Local GNU89/`-Wall -Wextra -Werror` ASan/UBSan host regression: PASS. Exact-source workflow contract and exact-head Actions are pending for this commit.
+- Parent main: `5ba21118a12464be1623b03c35dc3b48cb43f66d`. This atomic commit contains driver, policy, test, source checker, dev log and handoff. No local kernel/MIPS compile, same-source XY-C1 Build/TRX/artifact result or hardware L4 is claimed.
+- Parent exact-SHA Actions snapshot: Switch CLI #45266083220 IN_PROGRESS; XY-C1 #45266083296 IN_PROGRESS; AI handoff docs #45266083382 IN_PROGRESS; NVRAM #45266083302 QUEUED. These parent-head results do not validate this new commit.
+- Next: inspect definitions/callers of `esw_get_port_mib_rgpc()` and `esw_get_port_mib_tgpc()` used by WAN traffic telemetry; ensure packet and octet counters preserve MDIO read failures without changing exported ABI.
+
 ## 2026-11-23 — Propagate MTK ESW IGMP/MLD MDIO failures
 
 - Found that the optional IGMP flood-to-CPU, port-learning and MLD snooping paths still used unchecked esw_reg_get()/esw_reg_set() operations, and both IGMP ioctl handlers discarded their result.

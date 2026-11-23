@@ -7,6 +7,7 @@
 struct fake_io {
 	unsigned int calls, reg[3], value[3];
 	int fail_at, fail_status;
+	unsigned int read_value;
 	char op[3];
 };
 
@@ -19,7 +20,7 @@ static int fake_read(void *ctx, unsigned int port, unsigned int reg, unsigned in
 	f->op[n] = 'r'; f->reg[n] = reg;
 	*value = 0xdeadbeefU;
 	if ((int)n == f->fail_at) return f->fail_status;
-	*value = 0x12345678U;
+	*value = f->read_value ? f->read_value : 0x12345678U;
 	return 0;
 }
 
@@ -77,16 +78,57 @@ static void test_register_failures_and_positive_status_are_safe(void)
 	assert(f.calls == 2);
 }
 
+static void test_checked_link_reads_preserve_state_on_failure(void)
+{
+	struct fake_io f;
+	int link_up = 7;
+	unsigned int value = 0xfeedfaceU;
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -ETIMEDOUT;
+	assert(ra_switch_mdio_read_checked(1, 0x3008, fake_read, &f, &value) == -ETIMEDOUT);
+	assert(f.calls == 1 && value == 0);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -EIO;
+	assert(ra_switch_mdio_read_link_status(1, 0x3008, 1U, fake_read, &f, &link_up) == -EIO);
+	assert(f.calls == 1 && link_up == 7);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = 1;
+	assert(ra_switch_mdio_read_link_status(1, 1, 4U, fake_read, &f, &link_up) == -EIO);
+	assert(f.calls == 1 && link_up == 7);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	f.read_value = 4U;
+	assert(ra_switch_mdio_read_link_status(1, 1, 4U, fake_read, &f, &link_up) == 0);
+	assert(f.calls == 1 && link_up == 1);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	assert(ra_switch_mdio_read_link_status(1, 1, 0U, fake_read, &f, &link_up) == -EINVAL);
+	assert(f.calls == 0 && link_up == 1);
+}
+
 static void test_invalid_callbacks_are_rejected_without_io(void)
 {
 	struct fake_io f;
 	unsigned int value = 0x55;
+	int link_up = 3;
 	memset(&f, 0, sizeof(f)); f.fail_at = -1;
 	assert(ra_switch_mdio_page_read(0, 0, 0, 1, NULL, fake_write, &f, &value) == -EINVAL);
 	assert(ra_switch_mdio_page_read(0, 0, 0, 1, fake_read, NULL, &f, &value) == -EINVAL);
 	assert(ra_switch_mdio_page_read(0, 0, 0, 1, fake_read, fake_write, &f, NULL) == -EINVAL);
+	assert(ra_switch_mdio_read_checked(0, 0, NULL, &f, &value) == -EINVAL);
+	assert(ra_switch_mdio_read_checked(0, 0, fake_read, &f, NULL) == -EINVAL);
+	assert(ra_switch_mdio_read_link_status(0, 0, 1U, NULL, &f, &link_up) == -EINVAL);
+	assert(ra_switch_mdio_read_link_status(0, 0, 1U, fake_read, &f, NULL) == -EINVAL);
 	assert(ra_switch_mdio_page_write(0, 0, 0, 1, 2, NULL, &f) == -EINVAL);
-	assert(f.calls == 0 && value == 0x55);
+	assert(f.calls == 0 && value == 0x55 && link_up == 3);
 }
 
 struct fake_reset_poll {
@@ -150,8 +192,9 @@ int main(void)
 	test_page_read_selects_global_and_local_bank();
 	test_page_select_failure_stops_second_access();
 	test_register_failures_and_positive_status_are_safe();
+	test_checked_link_reads_preserve_state_on_failure();
 	test_invalid_callbacks_are_rejected_without_io();
 	test_reset_poll_waits_until_ready_and_is_bounded();
-	puts("RAETH paged PHY MDIO failure propagation: PASS");
+	puts("RAETH paged PHY/link MDIO failure propagation: PASS");
 	return 0;
 }

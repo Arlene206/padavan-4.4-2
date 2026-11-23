@@ -4122,42 +4122,83 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 void (*esw_link_status_hook)(u32 port_id, int port_link) = NULL;
 EXPORT_SYMBOL(esw_link_status_hook);
 
-static void esw_link_status_changed(int port_no, void *dev_id)
+static int esw_link_status_changed(int port_no, void *dev_id)
 {
-	unsigned int reg_val;
+	int port_link;
+	int status;
 
-	mii_mgr_read(31, (0x3008 + (port_no * 0x100)), &reg_val);
-
+	status = ra_switch_mdio_read_link_status(31U,
+						 0x3008U + (port_no * 0x100U),
+						 1U, ra_switch_mdio_read, NULL,
+						 &port_link);
+	if (status != 0)
+		return status;
 	if (esw_link_status_hook)
-		esw_link_status_hook(port_no, reg_val & 0x1);
+		esw_link_status_hook(port_no, port_link);
+	return 0;
 }
 
 irqreturn_t gsw_interrupt(int irq, void *resv)
 {
 	unsigned long flags;
-	unsigned int reg_int_val;
+	unsigned int reg_int_val = 0;
+	unsigned int ack_mask = 0;
 	struct net_device *dev = dev_raether;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	void *dev_id = NULL;
+	int status;
 
 	spin_lock_irqsave(&ei_local->page_lock, flags);
-	mii_mgr_read(31, 0x700c, &reg_int_val);
+	status = ra_switch_mdio_read_checked(31U, 0x700cU,
+					     ra_switch_mdio_read, NULL,
+					     &reg_int_val);
+	if (status != 0) {
+		pr_err_ratelimited("%s: switch link interrupt status read failed (status=%d)\n",
+				   __func__, status);
+		goto out;
+	}
+	if (reg_int_val & P4_LINK_CH) {
+		status = esw_link_status_changed(4, dev_id);
+		if (status == 0)
+			ack_mask |= P4_LINK_CH;
+		else
+			pr_err_ratelimited("%s: port 4 link status read failed (status=%d)\n", __func__, status);
+	}
+	if (reg_int_val & P3_LINK_CH) {
+		status = esw_link_status_changed(3, dev_id);
+		if (status == 0)
+			ack_mask |= P3_LINK_CH;
+		else
+			pr_err_ratelimited("%s: port 3 link status read failed (status=%d)\n", __func__, status);
+	}
+	if (reg_int_val & P2_LINK_CH) {
+		status = esw_link_status_changed(2, dev_id);
+		if (status == 0)
+			ack_mask |= P2_LINK_CH;
+		else
+			pr_err_ratelimited("%s: port 2 link status read failed (status=%d)\n", __func__, status);
+	}
+	if (reg_int_val & P1_LINK_CH) {
+		status = esw_link_status_changed(1, dev_id);
+		if (status == 0)
+			ack_mask |= P1_LINK_CH;
+		else
+			pr_err_ratelimited("%s: port 1 link status read failed (status=%d)\n", __func__, status);
+	}
+	if (reg_int_val & P0_LINK_CH) {
+		status = esw_link_status_changed(0, dev_id);
+		if (status == 0)
+			ack_mask |= P0_LINK_CH;
+		else
+			pr_err_ratelimited("%s: port 0 link status read failed (status=%d)\n", __func__, status);
+	}
 
-	if (reg_int_val & P4_LINK_CH)
-		esw_link_status_changed(4, dev_id);
-
-	if (reg_int_val & P3_LINK_CH)
-		esw_link_status_changed(3, dev_id);
-	if (reg_int_val & P2_LINK_CH)
-		esw_link_status_changed(2, dev_id);
-	if (reg_int_val & P1_LINK_CH)
-		esw_link_status_changed(1, dev_id);
-	if (reg_int_val & P0_LINK_CH)
-		esw_link_status_changed(0, dev_id);
-
-	mii_mgr_write(31, 0x700c, 0x1f);	/* ack switch link change */
+	/* Ack only sampled ports; failed reads remain pending for a later retry. */
+	if (ack_mask && !mii_mgr_write(31U, 0x700cU, ack_mask))
+		pr_err_ratelimited("%s: switch link interrupt ack failed (mask=0x%x)\n",
+				   __func__, ack_mask);
+out:
 	spin_unlock_irqrestore(&ei_local->page_lock, flags);
-
 	return IRQ_HANDLED;
 }
 
@@ -4287,7 +4328,8 @@ void esw_show_debug_log(u32 phy_addr)
 irqreturn_t esw_interrupt(int irq, void *resv)
 {
 	unsigned long flags;
-	u32 phy_val;
+	int link_up;
+	int status;
 	int i;
 	static unsigned int port_status[5] = {0, 0, 0, 0, 0};
 	struct net_device *dev = dev_raether;
@@ -4299,13 +4341,19 @@ irqreturn_t esw_interrupt(int irq, void *resv)
 	sys_reg_write(ETHDMASYS_ETH_SW_BASE, 0x04000000);
 	spin_unlock_irqrestore(&ei_local->page_lock, flags);
 	for (i = 0; i < 5; i++) {
-		mii_mgr_read(i, 1, &phy_val);
-		if (port_status[i] != ((phy_val & 0x4) >> 2)) {
-			if (port_status[i] == 0) {
-				port_status[i] = 1;
+		status = ra_switch_mdio_read_link_status(i, 1U, 0x4U,
+							 ra_switch_mdio_read, NULL,
+							 &link_up);
+		if (status != 0) {
+			pr_err_ratelimited("%s: PHY link status read failed (port=%d status=%d)\n",
+					   __func__, i, status);
+			continue;
+		}
+		if (port_status[i] != (unsigned int)link_up) {
+			port_status[i] = (unsigned int)link_up;
+			if (link_up) {
 				pr_info("ESW: Link Status Changed - Port%d Link Up\n", i);
 			} else {
-				port_status[i] = 0;
 				pr_info("ESW: Link Status Changed - Port%d Link Down\n", i);
 			}
 			if (ei_local->architecture & LEOPARD_EPHY) {
