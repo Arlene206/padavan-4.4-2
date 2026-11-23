@@ -176,7 +176,7 @@ jobs:
           assert "samba_local_master_value_status(0, 2, &enabled)" in config_mode_test
           assert "samba_local_master_value_status(0, 3, &enabled)" in config_mode_test
 
-          smb = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
+          smb = function_body(stor, "write_smb_conf_unlocked(const char *router_username,")
           integer_reader = function_body(stor, "samba_read_integer_status(const char *name, int missing_value, int *value)")
           boolean_reader = function_body(stor, "samba_read_boolean_status(const char *name, int missing_value, int *enabled)")
           mode_reader = function_body(stor, "samba_read_mode_status(int missing_value, int *mode)")
@@ -317,7 +317,7 @@ jobs:
           string_reader = function_body(stor, "storage_read_string_status(")
           string_getter = function_body(stor, "storage_read_nvram_string(")
           account_safety = function_body(stor, "samba_service_account_is_safe(")
-          writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
+          writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username,")
           writer_compact = "".join(writer.split())
           standalone_writer = function_body(stor, "int" + chr(10) + "write_smb_conf(void)")
           assert "rc_wan_nvram_copy_value(storage_read_nvram_string,NULL,name,value,value_size)" in "".join(string_reader.split())
@@ -327,7 +327,7 @@ jobs:
           assert 'storage_read_string_status("http_username",local_router_username,sizeof(local_router_username))' in writer_compact
           assert writer_compact.index('storage_read_string_status("http_username",local_router_username,sizeof(local_router_username))') < writer_compact.index("samba_config_file_open(")
           assert writer_compact.count("samba_service_account_is_safe(account_list[i],safe_router_username)") == 4
-          assert "write_smb_conf_unlocked(NULL)" in standalone_writer
+          assert "write_smb_conf_unlocked(NULL, NULL, 0)" in standalone_writer
           assert "rc_wan_nvram_copy_value" in nvram_policy
           assert "EIO" in nvram_policy_test and "ENAMETOOLONG" in nvram_policy_test
           run_samba = function_body(stor, "int run_samba(void)")
@@ -374,9 +374,9 @@ jobs:
           assert run_samba.index("samba_run_smbpasswd(") < run_samba.index("samba_config_transaction_begin(")
           assert run_samba.index("if (credential_failed)") < run_samba.index("samba_config_transaction_begin(")
           assert run_samba.index("samba_config_transaction_begin(") < run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)')
-          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked(router_username) != 0")
-          assert run_samba.count("write_smb_conf_unlocked(router_username) != 0") == 2
-          assert run_samba.index("write_smb_conf_unlocked(router_username) != 0") < run_samba.index("samba_config_transaction_commit(")
+          assert run_samba.index('rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)') < run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0")
+          assert run_samba.count("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0") == 2
+          assert run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0") < run_samba.index("samba_config_transaction_commit(")
           assert run_samba.index("samba_config_transaction_commit(") < run_samba.index('samba_ensure_daemon("nmbd"')
           assert "samba_config_transaction_abort(" in run_samba
           transaction = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
@@ -399,13 +399,13 @@ jobs:
           assert "samba_config_transaction_lock_acquire(" in transaction
           assert "Abrupt exit after both renames" in transaction_test
           assert "partial rollback can be retried" in transaction_test
-          writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username)")
+          writer = function_body(stor, "write_smb_conf_unlocked(const char *router_username,")
           public_writer = function_body(stor, "write_smb_conf(void)")
           assert public_writer.index("samba_config_transaction_prepare_parent_directory(") < public_writer.index("samba_config_transaction_recover(")
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in writer
           assert "samba_config_transaction_lock_acquire(" in public_writer
           assert "samba_config_transaction_recover(" in public_writer
-          assert "write_smb_conf_unlocked(NULL)" in public_writer
+          assert "write_smb_conf_unlocked(NULL, NULL, 0)" in public_writer
 
           passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
           account_count_fn = function_body(passdb_policy, "samba_passdb_account_count_status(")
@@ -463,7 +463,7 @@ jobs:
           assert 'process_inventory_scan("smbd", &smbd_snapshot)' in run_samba
           assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in run_samba
           assert run_samba.index('process_inventory_scan("smbd", &smbd_snapshot)') < run_samba.index("recreate_passwd_unix(0)")
-          assert run_samba.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < run_samba.index("write_smb_conf_unlocked(router_username)")
+          assert run_samba.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < run_samba.index("write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num)")
           assert 'samba_ensure_daemon("nmbd", &nmbd_snapshot)' in run_samba
           assert 'samba_ensure_daemon("smbd", &smbd_snapshot)' in run_samba
           assert "pids(" not in run_samba
@@ -679,4 +679,30 @@ jobs:
           assert group_stop.count("file_unlock(storage_lock);") == 1
 
           print("Samba share config publication, daemon lifecycle and storage-stop failure gates: PASS")
+          PY
+      - name: Verify Samba ACLs consume the passdb credential snapshot
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
+          writer = source.split("write_smb_conf_unlocked(const char *router_username,", 1)[1].split("\n}", 1)[0]
+          run_samba = source.split("int run_samba(void)", 1)[1].split("\nint restart_smbd(void)", 1)[0]
+          compact_writer = "".join(writer.split())
+          compact_run = "".join(run_samba.split())
+          assert "samba_passdb_account_list_source_status(" in writer
+          assert "if (account_list_use_snapshot)" in writer
+          assert "account_list=snapshot_account_names;" in compact_writer
+          assert "acc_num=snapshot_account_count;" in compact_writer
+          assert "get_account_list(&acc_num,&account_list)" in compact_writer
+          assert "if (account_list_owned)" in writer
+          assert "account_list_snapshot[i]=account_usernames[i];" in compact_run
+          assert compact_run.count("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)") == 2
+          assert compact_run.index("nvram_transaction_end(&account_snapshot)") < compact_run.index("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)")
+          assert "samba_passdb_account_list_source_status" in policy
+          assert "test_account_list_snapshot_source" in test
+          assert "write_smb_conf_unlocked(NULL,NULL,0)" in "".join(source.split())
+          print("Samba passdb/ACL account generation parity: PASS")
           PY

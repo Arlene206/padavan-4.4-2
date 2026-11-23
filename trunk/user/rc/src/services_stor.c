@@ -963,16 +963,27 @@ samba_read_runtime_enabled_status(int *enabled)
 
 
 static int
-write_smb_conf_unlocked(const char *router_username)
+write_smb_conf_unlocked(const char *router_username,
+                        char **snapshot_account_names,
+                        int snapshot_account_count)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
 	int i_maxuser = 0, i_maxuser_value = 0, i_maxuser_status;
 	int i_smb_mode, result = 0, account_status, saved_errno = 0;
+	int account_list_use_snapshot = 0;
 	char local_router_username[128];
 	const char *safe_router_username = router_username;
 	disk_info_t *follow_disk, *disks_info = NULL;
 	partition_info_t *follow_partition;
+
+	account_status = samba_passdb_account_list_source_status(
+		snapshot_account_names != NULL, snapshot_account_count,
+		MAX_ACCOUNT_NUM, &account_list_use_snapshot);
+	if (account_status != 0) {
+		errno = account_status;
+		return -1;
+	}
 
 	if (samba_read_config_mode_status(&i_smb_mode) != 0) {
 		int mode_error = errno ? errno : EIO;
@@ -1138,16 +1149,26 @@ write_smb_conf_unlocked(const char *router_username)
 		fprintf(fp, "map system = no\n");
 		fprintf(fp, "store dos attributes = yes\n\n");
 	} else {
-		int n, acc_num = 0, sh_num=0;
-		char **account_list;
-		
-		// get the account list
-		if (get_account_list(&acc_num, &account_list) < 0) {
-			free_2_dimension_list(&acc_num, &account_list);
-			result = -1;
-			goto confpage;
+		int n, acc_num = 0, sh_num=0, account_list_owned = 0;
+		char **account_list = NULL;
+
+		/*
+		 * run_samba() supplies the same account generation used for passdb.
+		 * Standalone writers fetch their own complete checked account list.
+		 */
+		if (account_list_use_snapshot) {
+			account_list = snapshot_account_names;
+			acc_num = snapshot_account_count;
+		} else {
+			account_list_owned = 1;
+			if (get_account_list(&acc_num, &account_list) < 0) {
+				if (account_list_owned)
+					free_2_dimension_list(&acc_num, &account_list);
+				result = -1;
+				goto confpage;
+			}
 		}
-		
+
 		for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
 			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
 				if (follow_partition->mount_point == NULL)
@@ -1158,7 +1179,8 @@ write_smb_conf_unlocked(const char *router_username)
 				// 1. get the folder list
 				if (get_folder_list_in_mount_path(follow_partition->mount_point, &sh_num, &folder_list) < 0) {
 					free_2_dimension_list(&sh_num, &folder_list);
-					free_2_dimension_list(&acc_num, &account_list);
+					if (account_list_owned)
+						free_2_dimension_list(&acc_num, &account_list);
 					result = -1;
 					goto confpage;
 				}
@@ -1180,7 +1202,8 @@ write_smb_conf_unlocked(const char *router_username)
 					if (fclose(fp) != 0) {
 						fp = NULL;
 						free_2_dimension_list(&sh_num, &folder_list);
-						free_2_dimension_list(&acc_num, &account_list);
+						if (account_list_owned)
+							free_2_dimension_list(&acc_num, &account_list);
 						result = -1;
 						goto confpage;
 					}
@@ -1189,7 +1212,8 @@ write_smb_conf_unlocked(const char *router_username)
 					share_exists = check_existed_share(share, staged_path);
 					if (share_exists < 0) {
 						free_2_dimension_list(&sh_num, &folder_list);
-						free_2_dimension_list(&acc_num, &account_list);
+						if (account_list_owned)
+							free_2_dimension_list(&acc_num, &account_list);
 						result = -1;
 						goto confpage;
 					}
@@ -1203,7 +1227,8 @@ write_smb_conf_unlocked(const char *router_username)
 						}
 						if (share_exists < 0) {
 							free_2_dimension_list(&sh_num, &folder_list);
-							free_2_dimension_list(&acc_num, &account_list);
+							if (account_list_owned)
+								free_2_dimension_list(&acc_num, &account_list);
 							result = -1;
 							goto confpage;
 						}
@@ -1212,7 +1237,8 @@ write_smb_conf_unlocked(const char *router_username)
 					fp = fopen(staged_path, "a");
 					if (fp == NULL) {
 						free_2_dimension_list(&sh_num, &folder_list);
-						free_2_dimension_list(&acc_num, &account_list);
+						if (account_list_owned)
+							free_2_dimension_list(&acc_num, &account_list);
 						result = -1;
 						goto confpage;
 					}
@@ -1314,7 +1340,8 @@ write_smb_conf_unlocked(const char *router_username)
 			}
 		}
 		
-		free_2_dimension_list(&acc_num, &account_list);
+		if (account_list_owned)
+			free_2_dimension_list(&acc_num, &account_list);
 	}
 
 confpage:
@@ -1373,7 +1400,7 @@ write_smb_conf(void)
 		return -1;
 	}
 
-	result = write_smb_conf_unlocked(NULL);
+	result = write_smb_conf_unlocked(NULL, NULL, 0);
 	if (samba_config_transaction_lock_release(lock_fd) != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage("Samba Server", "cannot release Samba configuration lock (errno %d)",
@@ -1729,6 +1756,7 @@ int run_samba(void)
 	char router_username[128];
 	char account_usernames[MAX_ACCOUNT_NUM][128];
 	char account_passwords[MAX_ACCOUNT_NUM][128];
+	char *account_list_snapshot[MAX_ACCOUNT_NUM];
 	enum process_presence smbd_presence, nmbd_presence;
 	struct process_snapshot smbd_snapshot, nmbd_snapshot;
 #if defined (APP_SMBD36)
@@ -1827,6 +1855,7 @@ int run_samba(void)
 			goto account_snapshot_done;
 		}
 
+		account_list_snapshot[i] = account_usernames[i];
 		if (!samba_service_account_is_safe(
 			    account_usernames[i], router_username))
 			continue;
@@ -1987,7 +2016,7 @@ account_snapshot_done:
 		goto out;
 	}
 
-	if (write_smb_conf_unlocked(router_username) != 0) {
+	if (write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage("Samba Server", "configuration publication failed; paired rollback requested (errno %d)",
 			   saved_errno);
@@ -2012,7 +2041,7 @@ account_snapshot_done:
 			logmessage("Samba Server", "passdb/config pair committed; transaction snapshot cleanup will be retried");
 	}
 #else
-	if (write_smb_conf_unlocked(router_username) != 0) {
+	if (write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0) {
 		logmessage("Samba Server", "configuration generation failed; service was not reloaded");
 		goto out;
 	}

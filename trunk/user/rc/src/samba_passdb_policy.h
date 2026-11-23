@@ -148,6 +148,28 @@ samba_passdb_restore_file(const char *passdb_path,
 	return -1;
 }
 
+/*
+ * Select the account-name source for smb.conf. run_samba() supplies names
+ * from its credential transaction; standalone writers fetch their own list.
+ */
+static inline int
+samba_passdb_account_list_source_status(int has_snapshot,
+				       int snapshot_count, int maximum,
+				       int *use_snapshot)
+{
+	if (!use_snapshot || maximum < 0 ||
+	    (has_snapshot != 0 && has_snapshot != 1))
+		return EINVAL;
+	*use_snapshot = 0;
+	if (has_snapshot) {
+		if (snapshot_count < 0 || snapshot_count > maximum)
+			return EINVAL;
+		*use_snapshot = 1;
+		return 0;
+	}
+	return snapshot_count == 0 ? 0 : EINVAL;
+}
+
 /* Preserve a credential-read failure over a later transaction-close error. */
 static inline int
 samba_passdb_snapshot_end_status(int snapshot_status, int end_status,

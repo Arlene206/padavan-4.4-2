@@ -10,9 +10,28 @@
 
 #include "samba_passdb_policy.h"
 
+static void
+test_account_list_snapshot_source(void)
+{
+	int use_snapshot = -1;
+
+	assert(samba_passdb_account_list_source_status(0, 0, 16, &use_snapshot) == 0);
+	assert(use_snapshot == 0);
+	assert(samba_passdb_account_list_source_status(1, 0, 16, &use_snapshot) == 0);
+	assert(use_snapshot == 1);
+	assert(samba_passdb_account_list_source_status(1, 16, 16, &use_snapshot) == 0);
+	assert(use_snapshot == 1);
+	assert(samba_passdb_account_list_source_status(1, -1, 16, &use_snapshot) == EINVAL);
+	assert(samba_passdb_account_list_source_status(1, 17, 16, &use_snapshot) == EINVAL);
+	assert(samba_passdb_account_list_source_status(0, 1, 16, &use_snapshot) == EINVAL);
+	assert(samba_passdb_account_list_source_status(0, 0, -1, &use_snapshot) == EINVAL);
+	assert(samba_passdb_account_list_source_status(0, 0, 16, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
+	test_account_list_snapshot_source();
 	char max_password[128];
 	char overlong_password[129];
 	char utf8_password[] = "router-密码-2026";

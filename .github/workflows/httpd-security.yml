@@ -3541,7 +3541,7 @@ jobs:
           assert partition.index("samba_conf_text_is_safe(disk_tag)") < partition.index('fprintf(fp, "comment = %s')
 
           # Per-folder names/paths are checked before permission lookup and config output.
-          folder_writer_start = source.index("write_smb_conf_unlocked(const char *router_username)")
+          folder_writer_start = source.index("write_smb_conf_unlocked(const char *router_username,")
           folder_writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", folder_writer_start)
           folder_writer = source[folder_writer_start:folder_writer_end]
           folder_start = folder_writer.index("// 2. start to get every share")
@@ -3605,7 +3605,7 @@ jobs:
           # lstat/chmod helper and must run before transaction recovery.
           parent_guard = run_body.index("samba_config_transaction_prepare_parent_directory(")
           assert parent_guard < run_body.index("samba_config_transaction_recover(")
-          assert "write_smb_conf_unlocked(router_username) != 0" in run_body
+          assert "write_smb_conf_unlocked(router_username, account_list_snapshot, sh_num) != 0" in run_body
           assert "samba_prepare_private_passdb(staged_passdb" in run_body
           assert 'rename(staged_passdb, SAMBA_CONFIG_TRANSACTION_PASSDB)' in run_body
           assert "fchmod(input_fd, 0600)" in source
@@ -3635,7 +3635,7 @@ jobs:
 
           # A failed disk/account discovery, append open, or stream close must
           # abort configuration generation instead of returning false success.
-          writer_start = source.index("write_smb_conf_unlocked(const char *router_username)")
+          writer_start = source.index("write_smb_conf_unlocked(const char *router_username,")
           writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", writer_start)
           writer = source[writer_start:writer_end]
           writer_compact = "".join(writer.split())
@@ -6189,3 +6189,29 @@ jobs:
 
       - name: Verify gateway static-route UI capacity boundary
         run: python3 scripts/check_static_route_ui.py
+      - name: Verify Samba ACLs consume the passdb credential snapshot
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          policy = Path("trunk/user/rc/src/samba_passdb_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
+          writer = source.split("write_smb_conf_unlocked(const char *router_username,", 1)[1].split("\n}", 1)[0]
+          run_samba = source.split("int run_samba(void)", 1)[1].split("\nint restart_smbd(void)", 1)[0]
+          compact_writer = "".join(writer.split())
+          compact_run = "".join(run_samba.split())
+          assert "samba_passdb_account_list_source_status(" in writer
+          assert "if (account_list_use_snapshot)" in writer
+          assert "account_list=snapshot_account_names;" in compact_writer
+          assert "acc_num=snapshot_account_count;" in compact_writer
+          assert "get_account_list(&acc_num,&account_list)" in compact_writer
+          assert "if (account_list_owned)" in writer
+          assert "account_list_snapshot[i]=account_usernames[i];" in compact_run
+          assert compact_run.count("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)") == 2
+          assert compact_run.index("nvram_transaction_end(&account_snapshot)") < compact_run.index("write_smb_conf_unlocked(router_username,account_list_snapshot,sh_num)")
+          assert "samba_passdb_account_list_source_status" in policy
+          assert "test_account_list_snapshot_source" in test
+          assert "write_smb_conf_unlocked(NULL,NULL,0)" in "".join(source.split())
+          print("Samba passdb/ACL account generation parity: PASS")
+          PY

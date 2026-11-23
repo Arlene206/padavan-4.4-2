@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Keep Samba ACL generation on the passdb credential snapshot
+
+- `run_samba()` now loads passdb credentials from one NVRAM transaction, but `write_smb_conf_unlocked()` independently fetched `get_account_list()` for `valid users`, `invalid users`, `read list` and `write list`. An intervening UI account edit could leave ACLs and passdb describing different generations.
+- The run_samba path now passes its stack-owned account pointers/count into smb.conf generation. Standalone public writers retain their own checked account-list read. Cleanup frees only the heap-owned fallback list, never caller-owned snapshot pointers.
+- Added policy tests for empty/non-empty snapshot selection and bounds, plus Samba/HTTPD source contracts requiring passdb/ACL generation parity.
+
+---
+
 ## 2026-11-23 UTC — Update USB storage caller contract for printer readiness gate
 
 - Process fail-closed workflow exact rerun #45208311957 passed on `c8920caabc88c7f107c2c5240dab0bfaab38783b`, confirming the earlier header-scope correction.
