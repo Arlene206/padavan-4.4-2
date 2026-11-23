@@ -1,3 +1,11 @@
+## 2026-11-23 13:06 UTC+8 — Match PID1 wait regression declarations to the source-contract style
+
+- Exact-head BusyBox PID1 run `45106301790` on `1f9d39bc59f9882b9f0d0efae2f09e908110a1ac` compiled and ran the GNU89 ASan/UBSan test binary successfully, then the Python contract failed because its test-presence assertion expects the repository's existing single-line `static void test_name(void)` declaration form. The five new functions were formatted with the return type and name split across lines.
+- Normalized those five test declarations to the existing test-file style. This is a checker-compatibility-only correction; helper and production behavior are unchanged. Re-running all exact-head checks on the successor commit.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 13:02 UTC+8 — Wait for the exact BusyBox PID1 action child
 
 - In BusyBox `init.c`, `waitfor(pid)` used `kill(pid, 0)` followed by unqualified `wait(NULL)`. The PID existence probe is vulnerable to PID reuse between probe and wait; if that reused PID belongs to an unrelated live process, init can block on that process instead of its completed action child. The unqualified wait also consumed arbitrary children while waiting for the target.

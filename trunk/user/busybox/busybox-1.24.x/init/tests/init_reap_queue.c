@@ -101,8 +101,7 @@ fake_init_waitpid(pid_t pid, int *status, int options)
 	return step.result;
 }
 
-static void
-test_wait_for_exact_child_only(void)
+static void test_wait_for_exact_child_only(void)
 {
 	int child_reaped = 0;
 
@@ -118,8 +117,7 @@ test_wait_for_exact_child_only(void)
 	assert(fake_waitpid_step_index == 1);
 }
 
-static void
-test_wait_for_exact_child_retries_eintr(void)
+static void test_wait_for_exact_child_retries_eintr(void)
 {
 	int child_reaped = 0;
 
@@ -139,8 +137,7 @@ test_wait_for_exact_child_retries_eintr(void)
 	assert(fake_waitpid_step_index == 2);
 }
 
-static void
-test_wait_for_exact_child_accepts_signal_handler_reap(void)
+static void test_wait_for_exact_child_accepts_signal_handler_reap(void)
 {
 	int child_reaped = 1;
 
@@ -157,8 +154,7 @@ test_wait_for_exact_child_accepts_signal_handler_reap(void)
 	assert(fake_waitpid_step_index == 1);
 }
 
-static void
-test_wait_for_exact_child_propagates_errors(void)
+static void test_wait_for_exact_child_propagates_errors(void)
 {
 	int child_reaped = 1;
 
@@ -181,8 +177,7 @@ test_wait_for_exact_child_propagates_errors(void)
 	assert(child_reaped == 0);
 }
 
-static void
-test_wait_for_exact_child_rejects_invalid_inputs(void)
+static void test_wait_for_exact_child_rejects_invalid_inputs(void)
 {
 	int child_reaped = 1;
 
