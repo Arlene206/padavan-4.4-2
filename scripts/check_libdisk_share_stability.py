@@ -575,13 +575,33 @@ mod_old_stat = mod_account_compact.index("lstat(var_file,&old_stat)", mod_new_pa
 mod_target_stat = mod_account_compact.index("lstat(new_var_file,&new_stat)", mod_old_stat)
 mod_plan = mod_account_compact.index("calloc(1,sizeof(*move))", mod_target_stat)
 mod_rename = mod_account_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)", mod_plan)
-mod_cleanup = mod_account_compact.index("free_disk_data(disk_list)", mod_rename)
+mod_username_publish = mod_account_compact.index("nvram_set(nvram_name,new_account)", mod_rename)
+mod_commit = mod_account_compact.index("nvram_commit_safe()", mod_username_publish)
+mod_fs_rollback = mod_account_compact.index("disk_share_account_rename_entries_rollback(moves,rename,&rollback_error)", mod_commit)
+mod_cleanup = mod_account_compact.index("free_disk_data(disk_list)", mod_fs_rollback)
 mod_service = mod_account_compact.index('system("/sbin/run_ftpsamba")', mod_cleanup)
 mod_error = mod_account_compact.index("if(first_error!=0)", mod_service)
 require(mod_inventory < mod_loop < mod_old_path < mod_new_path < mod_old_stat <
-        mod_target_stat < mod_plan < mod_rename < mod_cleanup < mod_service < mod_error and
+        mod_target_stat < mod_plan < mod_rename < mod_username_publish < mod_commit <
+        mod_fs_rollback < mod_cleanup < mod_service < mod_error and
         "rename(var_file,new_var_file)" not in mod_account_compact,
-        "mod_account must preflight every volume before a compensating rename batch and must clean inventory before service reload")
+        "mod_account must publish every volume rename before changing NVRAM, and compensate filesystem state if NVRAM publication fails")
+require("nvram_set(password_key,new_password)" in mod_account_compact and
+        "nvram_set(password_key,old_password)" in mod_account_compact and
+        "nvram_unset(password_key)" in mod_account_compact,
+        "mod_account must check password writes and restore the prior password on NVRAM failure")
+for marker in (
+    "test_account_rename_batch_rolls_back_after_successful_publish",
+    "test_account_rename_batch_reports_failed_compensation",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing compensating account rename regression: " + marker)
+for marker in (
+    "test_account_rename_batch_rolls_back_after_successful_publish",
+    "test_account_rename_batch_reports_failed_compensation",
+):
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "compensating account rename regression is defined but not executed: " + marker)
 require("if(first_error==0&&read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
         "first_error=errno?errno:EIO;" in mod_account_compact[mod_inventory:mod_loop],
         "mod_account must not treat incomplete storage inventory as empty")

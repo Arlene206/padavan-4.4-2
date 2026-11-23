@@ -315,5 +315,45 @@ disk_share_command_status(int wait_status, int saved_errno)
 	return 0;
 }
 
+/*
+ * Undo a previously successful account metadata rename batch when the
+ * corresponding NVRAM account update cannot be committed. Keep renamed set
+ * on failure so the caller can report incomplete compensation.
+ */
+static inline int
+disk_share_account_rename_entries_rollback(
+	struct disk_share_account_rename_entry *entries,
+	disk_share_rename_fn rename_path, int *rollback_error)
+{
+	struct disk_share_account_rename_entry *entry;
+	int saved_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (!entries || !rename_path || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (entry = entries; entry->next; entry = entry->next)
+		;
+	for (; entry; entry = entry->previous) {
+		if (!entry->renamed)
+			continue;
+		errno = 0;
+		if (rename_path(entry->destination, entry->source) != 0) {
+			if (saved_error == 0)
+				saved_error = errno ? errno : EIO;
+		} else {
+			entry->renamed = 0;
+		}
+	}
+	*rollback_error = saved_error;
+	if (saved_error != 0) {
+		errno = saved_error;
+		return -1;
+	}
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

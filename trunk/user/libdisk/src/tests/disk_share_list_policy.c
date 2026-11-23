@@ -953,6 +953,76 @@ test_account_service_command_status_preserves_invocation_errno(void)
 }
 
 
+static void
+test_account_rename_batch_rolls_back_after_successful_publish(void)
+{
+	struct disk_share_account_rename_entry entries[2];
+	struct fake_account_rename_state state;
+	int rollback_error = -1;
+
+	memset(entries, 0, sizeof(entries));
+	strcpy(entries[0].source, "/a/.__old_var.txt");
+	strcpy(entries[0].destination, "/a/.__new_var.txt");
+	strcpy(entries[1].source, "/b/.__old_var.txt");
+	strcpy(entries[1].destination, "/b/.__new_var.txt");
+	entries[0].next = &entries[1];
+	entries[1].previous = &entries[0];
+
+	state.paths[0] = entries[0].source;
+	state.paths[1] = entries[1].source;
+	state.paths[2] = NULL;
+	state.paths[3] = NULL;
+	state.calls = 0;
+	state.fail_call = 0;
+	state.rollback_fail_call = 0;
+	fake_account_rename_state = &state;
+
+	assert(disk_share_account_rename_entries_apply(
+		&entries[0], fake_account_rename, &rollback_error) == 0);
+	assert(entries[0].renamed && entries[1].renamed);
+	assert(disk_share_account_rename_entries_rollback(
+		&entries[0], fake_account_rename, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(!entries[0].renamed && !entries[1].renamed);
+	assert(strcmp(state.paths[0], entries[0].source) == 0);
+	assert(strcmp(state.paths[1], entries[1].source) == 0);
+	assert(state.calls == 4);
+}
+
+static void
+test_account_rename_batch_reports_failed_compensation(void)
+{
+	struct disk_share_account_rename_entry entries[2];
+	struct fake_account_rename_state state;
+	int rollback_error = 0;
+
+	memset(entries, 0, sizeof(entries));
+	strcpy(entries[0].source, "/a/.__old_var.txt");
+	strcpy(entries[0].destination, "/a/.__new_var.txt");
+	strcpy(entries[1].source, "/b/.__old_var.txt");
+	strcpy(entries[1].destination, "/b/.__new_var.txt");
+	entries[0].next = &entries[1];
+	entries[1].previous = &entries[0];
+
+	state.paths[0] = entries[0].source;
+	state.paths[1] = entries[1].source;
+	state.paths[2] = NULL;
+	state.paths[3] = NULL;
+	state.calls = 0;
+	state.fail_call = 0;
+	state.rollback_fail_call = 3;
+	fake_account_rename_state = &state;
+
+	assert(disk_share_account_rename_entries_apply(
+		&entries[0], fake_account_rename, &rollback_error) == 0);
+	assert(disk_share_account_rename_entries_rollback(
+		&entries[0], fake_account_rename, &rollback_error) == -1);
+	assert(rollback_error == EROFS);
+	assert(entries[0].renamed);
+	assert(!entries[1].renamed);
+}
+
+
 int
 main(void)
 {
@@ -971,6 +1041,8 @@ main(void)
 	test_account_rename_status_preserves_real_errors();
 	test_account_rename_batch_rolls_back_prior_moves();
 	test_account_rename_batch_reports_incomplete_rollback();
+	test_account_rename_batch_rolls_back_after_successful_publish();
+	test_account_rename_batch_reports_failed_compensation();
 	test_account_service_command_status_accepts_exit_zero();
 	test_account_service_command_status_rejects_nonzero_exit_and_signal();
 	test_account_service_command_status_preserves_invocation_errno();
