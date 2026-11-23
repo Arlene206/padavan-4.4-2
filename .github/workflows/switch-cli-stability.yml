@@ -702,7 +702,7 @@ jobs:
           assert "mtk_esw_mac_table_clear(static_only, &mtk_esw_link_mode_io, NULL)" in mac_clear
           assert "if (status != 0)" in mac_clear and "return status;" in mac_clear
           isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
-              "static void esw_mac_to_phy_enable", 1
+              "static int esw_mac_to_phy_enable", 1
           )[0]
           clear_status_at = isolate.index("status = esw_mac_table_clear();")
           disable_wan_guard_at = isolate.index(
@@ -800,7 +800,7 @@ jobs:
           vlan_apply_ports = vlan_apply.index("esw_vlan_pvid_set(")
           vlan_apply_entries = vlan_apply.index("status = esw_vlan_set(")
           vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
-              "static void esw_mask_bridge_isolate", 1
+              "static int esw_mask_bridge_isolate", 1
           )[0]
           vid1_reset = vid1_init.index("status = esw_vlan_reset_table();")
           vid1_entry = vid1_init.index("status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);")
@@ -813,11 +813,90 @@ jobs:
           assert "status = esw_vlan_reset_table();" in vlan_apply
           assert "status = esw_vlan_set(" in vlan_apply
           bridge_isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
-              "static void esw_mac_to_phy_enable", 1
+              "static int esw_mac_to_phy_enable", 1
           )[0]
           assert "status = esw_vlan_apply_rules(wan_bridge_mode, wan_bwan_isolation);" in bridge_isolate
           assert "status = esw_vlan_init_vid1();" in bridge_isolate
           assert bridge_isolate.index("if (status != 0)") < bridge_isolate.index("status = esw_mac_table_clear();")
+
+          port_matrix = source.split("static int esw_port_matrix_set", 1)[1].split(
+              "static int esw_port_ingress_mode_set", 1
+          )[0]
+          port_ingress = source.split("static int esw_port_ingress_mode_set", 1)[1].split(
+              "static int esw_port_attrib_set", 1
+          )[0]
+          port_attrib = source.split("static int esw_port_attrib_set", 1)[1].split(
+              "static int esw_port_accept_set", 1
+          )[0]
+          port_accept = source.split("static int esw_port_accept_set", 1)[1].split(
+              "static int esw_vlan_pvid_set", 1
+          )[0]
+          pvid_set = source.split("static int esw_vlan_pvid_set", 1)[1].split(
+              "#if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)", 1
+          )[0]
+          for setter in (port_matrix, port_ingress, port_attrib, port_accept):
+              assert "mtk_esw_register_update_bits(" in setter
+              assert "return -EINVAL;" in setter
+          assert "return esw_reg_write_checked(" in pvid_set
+
+          vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
+              "static int esw_vlan_init_vid1", 1
+          )[0]
+          for setter in ("esw_vlan_pvid_set(", "esw_port_attrib_set(",
+                         "esw_port_accept_set(", "esw_port_ingress_mode_set("):
+              assert "status = " + setter in vlan_apply
+          assert "return status;" in vlan_apply
+
+          vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
+              "static int esw_mask_bridge_isolate", 1
+          )[0]
+          for setter in ("esw_vlan_pvid_set(", "esw_port_attrib_set(",
+                         "esw_port_accept_set(", "esw_port_ingress_mode_set("):
+              assert "status = " + setter in vid1_init
+          assert "return status;" in vid1_init
+
+          bridge_mask = source.split("static int esw_mask_bridge_isolate", 1)[1].split(
+              "static int esw_vlan_bridge_isolate", 1
+          )[0]
+          assert "status = esw_port_matrix_set(" in bridge_mask
+          assert "first_error = mtk_esw_first_error(first_error, status);" in bridge_mask
+          assert "return first_error;" in bridge_mask
+
+          mac_enable = source.split("static int esw_mac_to_phy_enable", 1)[1].split(
+              "static int esw_port_phy_power", 1
+          )[0]
+          assert "esw_reg_write_checked(" in mac_enable
+          assert "return first_error;" in mac_enable
+
+          vlan_accept = source.split("static int vlan_accept_port_mode", 1)[1].split(
+              "static int vlan_create_entry", 1
+          )[0]
+          assert "status = esw_port_accept_set(" in vlan_accept
+          assert "return status;" in vlan_accept
+          ioctl_accept = ioctl_source.split("case MTK_ESW_IOCTL_VLAN_ACCEPT_PORT_MODE", 1)[1].split(
+              "case MTK_ESW_IOCTL_VLAN_CREATE_PORT_VID", 1
+          )[0]
+          assert "ioctl_result = vlan_accept_port_mode(" in ioctl_accept
+
+          vlan_create = source.split("static int vlan_create_entry", 1)[1].split(
+              "static int change_port_link_mode_uapi", 1
+          )[0]
+          assert "status = esw_port_attrib_set(" in vlan_create
+          assert "status = esw_vlan_pvid_set(" in vlan_create
+          assert "return status;" in vlan_create
+
+          bridge = source.split("static int change_bridge_mode", 1)[1].split(
+              "static int vlan_accept_port_mode", 1
+          )[0]
+          assert "isolation_status = esw_mask_bridge_isolate(" in bridge
+          assert "if (isolation_status == 0)" in bridge
+          assert "isolation_status = esw_vlan_bridge_isolate(" in bridge
+
+          init_post = source.split("int esw_ioctl_init_post(void)", 1)[1]
+          for call in ("esw_mask_bridge_isolate(", "esw_mac_to_phy_enable(",
+                       "esw_vlan_bridge_isolate("):
+              assert "status = " + call in init_post
+          assert "if (status != 0)" in init_post and "return status;" in init_post
 
           jumbo_apply = policy.split("mtk_esw_jumbo_frames_apply(", 1)[1].split(
               "static inline int", 1
@@ -897,7 +976,7 @@ jobs:
               "ioctl_result = change_jumbo_frames_accept(uint_value);", ""
           )
           bridge = source.split("static int change_bridge_mode", 1)[1].split(
-              "static void vlan_accept_port_mode", 1
+              "static int vlan_accept_port_mode", 1
           )[0]
           power_down = bridge.index(
               "power_status = change_wan_lan_ports_power(0, 1, &power_changed)"

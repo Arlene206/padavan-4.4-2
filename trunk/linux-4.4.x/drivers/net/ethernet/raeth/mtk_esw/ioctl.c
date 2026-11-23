@@ -157,7 +157,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		vlan_accept_port_mode(uint_param, uint_value);
+		ioctl_result = vlan_accept_port_mode(uint_param, uint_value);
 		break;
 	case MTK_ESW_IOCTL_VLAN_CREATE_PORT_VID: /* used by rc */
 		if (copy_from_user(&uint_value, (int __user *)arg, sizeof(int))) {

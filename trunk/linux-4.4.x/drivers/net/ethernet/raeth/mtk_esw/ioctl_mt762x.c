@@ -126,6 +126,12 @@ void esw_reg_set(u32 addr, u32 data)
 		printk("%s: FAILED at write to 0x%08X!\n", __FUNCTION__, addr);
 }
 
+static int esw_reg_write_checked(u32 addr, u32 data)
+{
+	return mtk_esw_register_write(0x1f, addr, data,
+				      &mtk_esw_link_mode_io, NULL);
+}
+
 static
 int mt7530_gsw_mac_table_clear(int static_only)
 {
@@ -343,54 +349,55 @@ static void esw_show_bridge_partitions(u32 wan_bridge_mode)
 	printk("%s - %s: %s%s%s\n", MTK_ESW_DEVNAME, "hw bridge", wanl, lans, wanr);
 }
 
-static void esw_port_matrix_set(u32 port_id, u32 fwd_mask, u32 pvlan_ingress_mode)
+static int esw_port_matrix_set(u32 port_id, u32 fwd_mask, u32 pvlan_ingress_mode)
 {
-	u32 reg_pcr;
-
-	reg_pcr = esw_reg_get(REG_ESW_PORT_PCR_P0 + 0x100*port_id);
-	reg_pcr &= ~(0xFF << 16);
-	reg_pcr &= ~(0x03);
-	reg_pcr |= ((fwd_mask & 0xFF) << 16);
-	reg_pcr |= (pvlan_ingress_mode & 0x03);
-	esw_reg_set(REG_ESW_PORT_PCR_P0 + 0x100*port_id, reg_pcr);
+	if (port_id > ESW_PORT_ID_MAX)
+		return -EINVAL;
+	return mtk_esw_register_update_bits(0x1f,
+		REG_ESW_PORT_PCR_P0 + 0x100*port_id,
+		(0xFFu << 16) | 0x03u,
+		((fwd_mask & 0xFFu) << 16) | (pvlan_ingress_mode & 0x03u),
+		&mtk_esw_link_mode_io, NULL);
 }
 
-static void esw_port_ingress_mode_set(u32 port_id, u32 pvlan_ingress_mode)
+static int esw_port_ingress_mode_set(u32 port_id, u32 pvlan_ingress_mode)
 {
-	u32 reg_pcr;
-
-	reg_pcr = esw_reg_get(REG_ESW_PORT_PCR_P0 + 0x100*port_id);
-	reg_pcr &= ~(0x03);
-	reg_pcr |= (pvlan_ingress_mode & 0x03);
-	esw_reg_set(REG_ESW_PORT_PCR_P0 + 0x100*port_id, reg_pcr);
+	if (port_id > ESW_PORT_ID_MAX)
+		return -EINVAL;
+	return mtk_esw_register_update_bits(0x1f,
+		REG_ESW_PORT_PCR_P0 + 0x100*port_id,
+		0x03u, pvlan_ingress_mode & 0x03u,
+		&mtk_esw_link_mode_io, NULL);
 }
 
-static void esw_port_attrib_set(u32 port_id, u32 port_attribute)
+static int esw_port_attrib_set(u32 port_id, u32 port_attribute)
 {
-	u32 reg_pvc;
-
-	reg_pvc = esw_reg_get(REG_ESW_PORT_PVC_P0 + 0x100*port_id);
-	reg_pvc &= 0x0000FF3F;
-	reg_pvc |= 0x81000000; // STAG VPID 8100
-	reg_pvc |= ((port_attribute & 0x03) << 6);
-	esw_reg_set(REG_ESW_PORT_PVC_P0 + 0x100*port_id, reg_pvc);
+	if (port_id > ESW_PORT_ID_MAX)
+		return -EINVAL;
+	return mtk_esw_register_update_bits(0x1f,
+		REG_ESW_PORT_PVC_P0 + 0x100*port_id,
+		~0x0000FF3Fu, 0x81000000u | ((port_attribute & 0x03u) << 6),
+		&mtk_esw_link_mode_io, NULL);
 }
 
-static void esw_port_accept_set(u32 port_id, u32 accept_frames)
+static int esw_port_accept_set(u32 port_id, u32 accept_frames)
 {
-	u32 reg_pvc;
-
-	reg_pvc = esw_reg_get(REG_ESW_PORT_PVC_P0 + 0x100*port_id);
-	reg_pvc &= 0xFFFFFFFC;
-	reg_pvc |= (accept_frames & 0x03);
-	esw_reg_set(REG_ESW_PORT_PVC_P0 + 0x100*port_id, reg_pvc);
+	if (port_id > ESW_PORT_ID_MAX)
+		return -EINVAL;
+	return mtk_esw_register_update_bits(0x1f,
+		REG_ESW_PORT_PVC_P0 + 0x100*port_id,
+		0x03u, accept_frames & 0x03u,
+		&mtk_esw_link_mode_io, NULL);
 }
 
-static void esw_vlan_pvid_set(u32 port_id, u32 pvid, u32 prio)
+static int esw_vlan_pvid_set(u32 port_id, u32 pvid, u32 prio)
 {
 	u32 reg_ppbv = (1u << 16) | ((prio & 0x7) << 13) | (pvid & 0xfff);
 
-	esw_reg_set(REG_ESW_PORT_PPBV1_P0 + 0x100*port_id, reg_ppbv);
+	if (port_id > ESW_PORT_ID_MAX)
+		return -EINVAL;
+	return esw_reg_write_checked(REG_ESW_PORT_PPBV1_P0 + 0x100*port_id,
+				     reg_ppbv);
 }
 
 #if !defined (CONFIG_RAETH_ESW_IGMP_SNOOP_OFF)
@@ -907,36 +914,59 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
 		if ((1u << i) & ESW_MASK_EXCLUDE)
 			continue;
-		esw_vlan_pvid_set(i, pvlan_member[i].pvid, pvlan_member[i].prio);
+		status = esw_vlan_pvid_set(i, pvlan_member[i].pvid, pvlan_member[i].prio);
+		if (status != 0)
+			return status;
 		if (!pvlan_member[i].tagg) {
-			esw_port_attrib_set(i, PORT_ATTRIBUTE_TRANSPARENT);
-			esw_port_accept_set(i, PORT_ACCEPT_FRAMES_UNTAGGED);
+			status = esw_port_attrib_set(i, PORT_ATTRIBUTE_TRANSPARENT);
+			if (status != 0)
+				return status;
+			status = esw_port_accept_set(i, PORT_ACCEPT_FRAMES_UNTAGGED);
 		} else {
-			esw_port_attrib_set(i, PORT_ATTRIBUTE_USER);
-			esw_port_accept_set(i, PORT_ACCEPT_FRAMES_ALL);
+			status = esw_port_attrib_set(i, PORT_ATTRIBUTE_USER);
+			if (status != 0)
+				return status;
+			status = esw_port_accept_set(i, PORT_ACCEPT_FRAMES_ALL);
 		}
+		if (status != 0)
+			return status;
 	}
 
 	/* configure CPU LAN port */
-	esw_vlan_pvid_set(LAN_PORT_CPU, 1, 0);
-	esw_port_accept_set(LAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
+	status = esw_vlan_pvid_set(LAN_PORT_CPU, 1, 0);
+	if (status != 0)
+		return status;
+	status = esw_port_accept_set(LAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
+	if (status != 0)
+		return status;
 #if defined (RAETH_GE2_MAC_TO_GPHY)
-	esw_port_attrib_set(LAN_PORT_CPU, (wan_bridge_mode != SWAPI_WAN_BRIDGE_DISABLE) ? PORT_ATTRIBUTE_USER : PORT_ATTRIBUTE_TRANSPARENT);
+	status = esw_port_attrib_set(LAN_PORT_CPU, (wan_bridge_mode != SWAPI_WAN_BRIDGE_DISABLE) ? PORT_ATTRIBUTE_USER : PORT_ATTRIBUTE_TRANSPARENT);
 #elif defined (MT7530_P6_UNTAGGED)
-	esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_TRANSPARENT);
+	status = esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_TRANSPARENT);
 #else
-	esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_USER);
+	status = esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_USER);
 #endif
-
-	esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
+	if (status != 0)
+		return status;
+	status = esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
+	if (status != 0)
+		return status;
 
 	/* configure CPU WAN port */
 #if defined (CONFIG_P4_RGMII_TO_MT7530_GMAC_P5) || defined (CONFIG_GE2_INTERNAL_GMAC_P5)
 	/* [MT7620 P4 -> MT7530 P5] or [MT7621 GE2 -> MT7530 P5] */
-	esw_vlan_pvid_set(WAN_PORT_CPU, pvlan_member_cpu_wan.pvid, pvlan_member_cpu_wan.prio);
-	esw_port_accept_set(WAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
-	esw_port_attrib_set(WAN_PORT_CPU, (pvlan_member_cpu_wan.pvid != untg_vid || pvlan_member_cpu_wan.tagg) ? PORT_ATTRIBUTE_USER : PORT_ATTRIBUTE_TRANSPARENT);
-	esw_port_ingress_mode_set(WAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
+	status = esw_vlan_pvid_set(WAN_PORT_CPU, pvlan_member_cpu_wan.pvid, pvlan_member_cpu_wan.prio);
+	if (status != 0)
+		return status;
+	status = esw_port_accept_set(WAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
+	if (status != 0)
+		return status;
+	status = esw_port_attrib_set(WAN_PORT_CPU, (pvlan_member_cpu_wan.pvid != untg_vid || pvlan_member_cpu_wan.tagg) ? PORT_ATTRIBUTE_USER : PORT_ATTRIBUTE_TRANSPARENT);
+	if (status != 0)
+		return status;
+	status = esw_port_ingress_mode_set(WAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
+	if (status != 0)
+		return status;
 #endif
 
 	return 0;
@@ -969,30 +999,42 @@ static int esw_vlan_init_vid1(void)
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
 		if ((1u << i) & ESW_MASK_EXCLUDE)
 			continue;
-		esw_vlan_pvid_set(i, 1, 0);
-		esw_port_attrib_set(i, PORT_ATTRIBUTE_TRANSPARENT);
-		esw_port_accept_set(i, PORT_ACCEPT_FRAMES_UNTAGGED);
+		status = esw_vlan_pvid_set(i, 1, 0);
+		if (status != 0)
+			return status;
+		status = esw_port_attrib_set(i, PORT_ATTRIBUTE_TRANSPARENT);
+		if (status != 0)
+			return status;
+		status = esw_port_accept_set(i, PORT_ACCEPT_FRAMES_UNTAGGED);
+		if (status != 0)
+			return status;
 	}
-
 	/* configure CPU port */
-	esw_vlan_pvid_set(LAN_PORT_CPU, 1, 0);
-	esw_port_accept_set(LAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
+	status = esw_vlan_pvid_set(LAN_PORT_CPU, 1, 0);
+	if (status != 0)
+		return status;
+	status = esw_port_accept_set(LAN_PORT_CPU, PORT_ACCEPT_FRAMES_ALL);
+	if (status != 0)
+		return status;
 #if defined (CONFIG_RALINK_MT7620) && !defined (MT7530_P5_ENABLED)
-	esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_USER);
+	status = esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_USER);
 #else
-	esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_TRANSPARENT);
+	status = esw_port_attrib_set(LAN_PORT_CPU, PORT_ATTRIBUTE_TRANSPARENT);
 #endif
-
-	esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
-
+	if (status != 0)
+		return status;
+	status = esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
+	if (status != 0)
+		return status;
 	return 0;
 }
 
-static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
+static int esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 {
 	u32 i;
 	u32 fwd_mask_bwan_lan;
 	u32 fwd_mask_lan, fwd_mask_wan, fwd_mask;
+	int status, first_error = 0;
 
 	fwd_mask_lan = get_ports_mask_lan(1, 0);
 
@@ -1001,22 +1043,25 @@ static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 		if ((fwd_mask_lan >> i) & 0x1) {
 			fwd_mask = fwd_mask_lan;
 			/* set all port ingress to security mode (VLAN + fwd_mask) */
-			esw_port_matrix_set(i, fwd_mask, PVLAN_INGRESS_MODE_SECURITY);
+			status = esw_port_matrix_set(i, fwd_mask, PVLAN_INGRESS_MODE_SECURITY);
+			first_error = mtk_esw_first_error(first_error, status);
 		}
 	}
 
 	/* clear forward mask for P5 */
 #if (MASK_WAN_PORT_CPU == 0)
-	esw_port_matrix_set(5, 0, PVLAN_INGRESS_MODE_SECURITY);
+	status = esw_port_matrix_set(5, 0, PVLAN_INGRESS_MODE_SECURITY);
+	first_error = mtk_esw_first_error(first_error, status);
 #endif
 
 	/* clear forward mask for P4/P0 */
 #if (MASK_WAN_PORT_X == 0 && WAN_PORT_X < 5)
-	esw_port_matrix_set(WAN_PORT_X, 0, PVLAN_INGRESS_MODE_SECURITY);
+	status = esw_port_matrix_set(WAN_PORT_X, 0, PVLAN_INGRESS_MODE_SECURITY);
+	first_error = mtk_esw_first_error(first_error, status);
 #endif
 
 	if (wan_bridge_mode == SWAPI_WAN_BRIDGE_DISABLE_WAN)
-		return;
+		return first_error;
 
 	fwd_mask_wan = get_ports_mask_wan(1, 0);
 	fwd_mask_bwan_lan = fwd_mask_wan & ~(MASK_WAN_PORT_X|MASK_WAN_PORT_CPU);
@@ -1055,9 +1100,11 @@ static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 			}
 			
 			/* set all port ingress to security mode (VLAN + fwd_mask) */
-			esw_port_matrix_set(i, fwd_mask, PVLAN_INGRESS_MODE_SECURITY);
+			status = esw_port_matrix_set(i, fwd_mask, PVLAN_INGRESS_MODE_SECURITY);
+			first_error = mtk_esw_first_error(first_error, status);
 		}
 	}
+	return first_error;
 }
 
 static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, int bridge_changed, int br_iso_changed, int vlan_rule_changed)
@@ -1096,19 +1143,22 @@ static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, 
 					 g_vlan_rule_user, g_vlan_rule);
 }
 
-static void esw_mac_to_phy_enable(void)
+static int esw_mac_to_phy_enable(void)
 {
 	u32 i, mac_mask, reg_pmcr;
+	int status, first_error = 0;
 
 	/* full AN */
 	reg_pmcr = 0x00056330;
-
 	mac_mask = MASK_WAN_PORT_X | MASK_LAN_PORTS_ALL;
-
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-		if ((mac_mask >> i) & 0x1)
-			esw_reg_set(REG_ESW_MAC_PMCR_P0 + 0x100*i, reg_pmcr);
+		if (!((mac_mask >> i) & 0x1))
+			continue;
+		status = esw_reg_write_checked(REG_ESW_MAC_PMCR_P0 + 0x100*i,
+					       reg_pmcr);
+		first_error = mtk_esw_first_error(first_error, status);
 	}
+	return first_error;
 }
 
 static int esw_port_phy_power(u32 phy_port_id, u32 power_on, int is_force,
@@ -1479,12 +1529,14 @@ static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 	}
 
 	if (power_status == 0) {
+		isolation_status = 0;
 		if (bridge_changed || br_iso_changed)
-			esw_mask_bridge_isolate(wan_bridge_mode, wan_bwan_isolation);
-
-		isolation_status = esw_vlan_bridge_isolate(
-			wan_bridge_mode, wan_bwan_isolation, bridge_changed,
-			br_iso_changed, vlan_rule_changed);
+			isolation_status = esw_mask_bridge_isolate(
+				wan_bridge_mode, wan_bwan_isolation);
+		if (isolation_status == 0)
+			isolation_status = esw_vlan_bridge_isolate(
+				wan_bridge_mode, wan_bwan_isolation, bridge_changed,
+				br_iso_changed, vlan_rule_changed);
 	} else {
 		isolation_status = power_status;
 	}
@@ -1509,9 +1561,10 @@ static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 	return 0;
 }
 
-static void vlan_accept_port_mode(u32 accept_mode, u32 port_mask)
+static int vlan_accept_port_mode(u32 accept_mode, u32 port_mask)
 {
 	u32 i, admit_frames = PORT_ACCEPT_FRAMES_ALL;
+	int status;
 
 	switch (accept_mode)
 	{
@@ -1522,19 +1575,22 @@ static void vlan_accept_port_mode(u32 accept_mode, u32 port_mask)
 		admit_frames = PORT_ACCEPT_FRAMES_TAGGED;
 		break;
 	}
-
 	port_mask = get_ports_mask_from_uapi(port_mask, 0);
-
 	for (i = 0; i <= ESW_PORT_ID_MAX; i++) {
-		if ((port_mask >> i) & 0x1)
-			esw_port_accept_set(i, admit_frames);
+		if (!((port_mask >> i) & 0x1))
+			continue;
+		status = esw_port_accept_set(i, admit_frames);
+		if (status != 0)
+			return status;
 	}
+	return 0;
 }
 
 static int vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid)
 {
 	u32 i, cvid, prio, fid;
 	u32 mask_member, mask_untag;
+	int status;
 
 	cvid = (vlan4k_info & 0x0FFF);
 	prio = ((vlan4k_info >> 12) & 0x7);
@@ -1549,24 +1605,26 @@ static int vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid)
 		cvid = 1;
 
 	/* Do not touch per-port state unless the VLAN table write succeeds. */
-	{
-		int status = esw_vlan_set(cvid, 0, mask_member, mask_untag, 0, fid);
-
-		if (status != 0)
-			return status;
-	}
+	status = esw_vlan_set(cvid, 0, mask_member, mask_untag, 0, fid);
+	if (status != 0)
+		return status;
 
 	/* set ports attrib */
 	for (i = 0; i <= ESW_PORT_ID_MAX; i++) {
-		if ((1u << i) & mask_member) {
-			if (!((1u << i) & mask_untag)) {
-				esw_port_attrib_set(i, PORT_ATTRIBUTE_USER);
-			} else {
-				if (set_port_vid)
-					esw_vlan_pvid_set(i, cvid, prio);
-				esw_port_attrib_set(i, PORT_ATTRIBUTE_TRANSPARENT);
+		if (!((1u << i) & mask_member))
+			continue;
+		if (!((1u << i) & mask_untag)) {
+			status = esw_port_attrib_set(i, PORT_ATTRIBUTE_USER);
+		} else {
+			if (set_port_vid) {
+				status = esw_vlan_pvid_set(i, cvid, prio);
+				if (status != 0)
+					return status;
 			}
+			status = esw_port_attrib_set(i, PORT_ATTRIBUTE_TRANSPARENT);
 		}
+		if (status != 0)
+			return status;
 	}
 
 	printk("%s - create vlan %s: vid=[%d], prio=[%d], member=[0x%02X], untag=[0x%02X], fid=[%d]\n",
@@ -1877,14 +1935,22 @@ static void esw_link_status_changed_state(u32 port_id, int port_link)
 
 int esw_ioctl_init_post(void)
 {
+	int status;
+
 	/* configure bridge isolation mode via forwards mask */
-	esw_mask_bridge_isolate(g_wan_bridge_mode, g_wan_bwan_isolation);
+	status = esw_mask_bridge_isolate(g_wan_bridge_mode, g_wan_bwan_isolation);
+	if (status != 0)
+		return status;
 
 	/* enable MAC for all PHY ports */
-	esw_mac_to_phy_enable();
+	status = esw_mac_to_phy_enable();
+	if (status != 0)
+		return status;
 
 	/* configure bridge isolation mode via VLAN */
-	esw_vlan_bridge_isolate(g_wan_bridge_mode, g_wan_bwan_isolation, 1, 1, 1);
+	status = esw_vlan_bridge_isolate(g_wan_bridge_mode, g_wan_bwan_isolation, 1, 1, 1);
+	if (status != 0)
+		return status;
 
 #if defined (CONFIG_RAETH_ESW_IGMP_SNOOP_HW)
 	/* configure igmp/mld snooping */
