@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Reject invalid ZeroTier static-route enable values
+
+- The ZeroTier route UI offers only `0` (disabled) and `1` (enabled), but preflight and route execution accepted every non-negative digit string as enabled. An invalid NVRAM value such as `2` could therefore install a route that the UI had no way to express intentionally.
+- Changed both preflight and add/delete execution to accept only empty/0 as disabled and 1 as enabled; all other values abort. Added regression coverage for no route side effects and preservation of a running daemon across both start and stop.
+- Exact-head ZeroTier lifecycle, WAN route, XY-C1 and AI Actions are required; device runtime is not claimed.
+
+---
+
 ## 2026-11-23 UTC — Match ZeroTier startup contract markers to loop-based regression
 
 - The startup-selector source logic and shell regression both ran, but the Python contract expected fully expanded key names while the test intentionally used one loop variable (`$setting`) for the two invalid-selector cases. Corrected the source contract to assert the actual reusable marker and its daemon-preservation assertion; no production source or runtime regression changed.

@@ -812,14 +812,12 @@ zerotier_preflight_static_routes() {
 		fi
 		case "$zt_preflight_enable" in
 			""|0) continue ;;
-			*[!0-9]*)
+			1) ;;
+			*)
 				logger -t "zerotier" "静态路由启用标志无效: $zt_preflight_j"
 				return 1
 				;;
 		esac
-		if [ "$zt_preflight_enable" -eq 0 ]; then
-			continue
-		fi
 		if ! zt_preflight_ip="$(nvram get_checked zero_ip_x$zt_preflight_j)"; then
 			logger -t "zerotier" "无法读取静态路由目标: $zt_preflight_j"
 			return 1
@@ -981,7 +979,8 @@ zero_route() {
 		fi
 		case "$route_enable" in
 			""|0) continue ;;
-			*[!0-9]*)
+			1) ;;
+			*)
 				logger -t "zerotier" "静态路由启用标志无效: $j"
 				if [ "$1" = "add" ]; then
 					return 1
@@ -990,9 +989,6 @@ zero_route() {
 				continue
 				;;
 		esac
-		if [ "$route_enable" -eq 0 ]; then
-			continue
-		fi
 		if ! zero_ip="$(nvram get_checked zero_ip_x$j)"; then
 			logger -t "zerotier" "无法读取静态路由目标: $j"
 			if [ "$1" = "add" ]; then

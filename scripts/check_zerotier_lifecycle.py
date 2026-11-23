@@ -287,6 +287,10 @@ for marker in ("startup settings read error was accepted",
                "start accepted invalid selector $setting",
                "invalid selector $setting stopped the existing daemon",
                "startup settings partially published secret",
+               "static route preflight accepted invalid enable selector 2",
+               "static route executor accepted invalid enable selector 2",
+               "invalid route enable selector stopped the daemon during start",
+               "invalid route enable selector stopped the daemon during stop",
                "missing identity secret did not retain the legacy empty default"):
     require(marker in test, f"startup NVRAM read regression omits {marker}")
 for token in ['config directory was not restricted to mode 700',
@@ -322,6 +326,11 @@ require('static-route preflight accepted unsupported count' in test and
         '00064' in test,
         "static route count regression must cover oversized, overflow-length and compatible normalized values")
 
+require('1) ;;' in route_preflight_body and
+        '1) ;;' in static_route_body and
+        'if [ "$zt_preflight_enable" -eq 0 ]; then' not in route_preflight_body and
+        'if [ "$route_enable" -eq 0 ]; then' not in static_route_body,
+        "static route enable selectors must accept only the UI's 0/1 values")
 require('nvram get_checked zero_staticnum_x' in route_preflight_body and
         'nvram get_checked zero_enable_x$zt_preflight_j' in route_preflight_body and
         'nvram get_checked zero_ip_x$zt_preflight_j' in route_preflight_body and

@@ -1891,6 +1891,47 @@ for valid_count in "" 0 00064; do
 	fi
 done
 
+# The route UI exposes exactly 0/1. Reject any other readable value in
+# both validation paths and preserve the running service on start/stop.
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_NVRAM_MOON_ENABLE_STATE=1
+TEST_NVRAM_ID_STATE=fedcba9876543210
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=2
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+zt0=""
+ip_segment=""
+: > "$TEST_ACTION_LOG"
+if zerotier_preflight_static_routes; then
+	fail "static route preflight accepted invalid enable selector 2"
+fi
+if zero_route add; then
+	fail "static route executor accepted invalid enable selector 2"
+fi
+[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid route enable selector issued network commands"
+
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+if start_zero; then
+	fail "start accepted invalid route enable selector"
+fi
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid route enable selector stopped the daemon during start"
+[ ! -s "$TEST_KILL_LOG" ] || fail "invalid route enable selector signalled the daemon during start"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid route enable selector changed network state during start"
+
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+echo running > "$TEST_STATE"
+if stop_zero; then
+	fail "stop accepted invalid route enable selector"
+fi
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "invalid route enable selector stopped the daemon during stop"
+[ ! -s "$TEST_KILL_LOG" ] || fail "invalid route enable selector signalled the daemon during stop"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "invalid route enable selector changed network state during stop"
+
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_NAT_ENABLE=0
