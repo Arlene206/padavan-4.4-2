@@ -116,31 +116,31 @@ main(void)
 	{
 		FILE *last_good = fopen(path, "w");
 		assert(last_good != NULL);
-		assert(fputs("last-good-configuration\\n", last_good) >= 0);
+		assert(fputs("last-good-configuration\n", last_good) >= 0);
 		assert(fclose(last_good) == 0);
 	}
 
-	values.friendly_name = "Padavan\\nmodel_number=999";
+	values.friendly_name = "Padavan\nmodel_number=999";
 	assert(minidlna_config_publish(path, &values) == EINVAL);
-	assert_contains(path, "last-good-configuration\\n");
+	assert_contains(path, "last-good-configuration\n");
 	assert_no_temporary_files(directory);
 
 	values.friendly_name = "Padavan media server";
-	values.media_source1 = "V,/media/video\\nmedia_dir=V,/etc";
+	values.media_source1 = "V,/media/video\nmedia_dir=V,/etc";
 	assert(minidlna_config_publish(path, &values) == EINVAL);
-	assert_contains(path, "last-good-configuration\\n");
+	assert_contains(path, "last-good-configuration\n");
 	assert_no_temporary_files(directory);
 
 	values.media_source1 = "V,/media/video";
-	values.interface_name = "br0\\nnotify_interval=1";
+	values.interface_name = "br0\nnotify_interval=1";
 	assert(minidlna_config_publish(path, &values) == EINVAL);
-	assert_contains(path, "last-good-configuration\\n");
+	assert_contains(path, "last-good-configuration\n");
 	assert_no_temporary_files(directory);
 
 	values.interface_name = "br0";
-	values.database_dir = "/mnt/minidlna\\nlog_dir=/";
+	values.database_dir = "/mnt/minidlna\nlog_dir=/";
 	assert(minidlna_config_publish(path, &values) == EINVAL);
-	assert_contains(path, "last-good-configuration\\n");
+	assert_contains(path, "last-good-configuration\n");
 	assert_no_temporary_files(directory);
 
 	values.database_dir = "/mnt/minidlna";
