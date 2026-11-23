@@ -65,6 +65,7 @@ on:
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
       - "trunk/user/nvram/src/nvram_cli_policy.h"
       - "trunk/user/nvram/src/tests/nvram_cli_policy.c"
+      - "scripts/check_httpd_auth_nvram_status.py"
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/aidisk.c"
@@ -128,6 +129,8 @@ on:
       - "trunk/user/scripts/tests/fixtures/ap_script_legacy_stock.sh"
       - "trunk/user/aliddns/aliddns.sh"
       - "trunk/user/httpd/src/base64.c"
+      - "trunk/user/httpd/src/httpd_auth_nvram_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_auth_nvram_policy.c"
       - "trunk/user/httpd/src/httpd_basic_auth.h"
       - "trunk/user/httpd/src/tests/httpd_basic_auth.c"
       - "trunk/user/httpd/src/httpd_login_policy.h"
@@ -338,6 +341,7 @@ on:
       - "trunk/user/nvram/src/tests/nvram_profile_policy.c"
       - "trunk/user/nvram/src/nvram_cli_policy.h"
       - "trunk/user/nvram/src/tests/nvram_cli_policy.c"
+      - "scripts/check_httpd_auth_nvram_status.py"
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/web_ex.c"
@@ -411,6 +415,8 @@ on:
       - "trunk/user/scripts/tests/fixtures/ap_script_legacy_stock.sh"
       - "trunk/user/aliddns/aliddns.sh"
       - "trunk/user/httpd/src/base64.c"
+      - "trunk/user/httpd/src/httpd_auth_nvram_policy.h"
+      - "trunk/user/httpd/src/tests/httpd_auth_nvram_policy.c"
       - "trunk/user/httpd/src/httpd_basic_auth.h"
       - "trunk/user/httpd/src/tests/httpd_basic_auth.c"
       - "trunk/user/httpd/src/httpd_login_policy.h"
@@ -4219,6 +4225,16 @@ jobs:
           assert "mkdir -p -m 700 /home/root" in dev_init
           print("Root-managed AP and AliDDNS temporary executable staging: OK")
           PY
+
+      - name: Compile and run checked HTTPD Basic-auth credential snapshot regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/httpd/src \
+            trunk/user/httpd/src/tests/httpd_auth_nvram_policy.c \
+            -o /tmp/httpd-auth-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/httpd-auth-nvram-policy
+          python3 scripts/check_httpd_auth_nvram_status.py
 
       - name: Verify HTTPD auth and route-access wiring
         run: |

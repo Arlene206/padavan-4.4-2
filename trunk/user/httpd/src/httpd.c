@@ -48,6 +48,7 @@
 #include "httpd_access_policy.h"
 #include "httpd_basic_auth.h"
 #include "httpd_login_policy.h"
+#include "httpd_auth_nvram_policy.h"
 #include "httpd_cgi_method_policy.h"
 #include "httpd_csrf_policy.h"
 
@@ -500,19 +501,60 @@ http_login(const uaddr *ip_now)
 	nvram_set_temp("login_timestamp", s_lts);
 }
 
-static void
+static int
+httpd_auth_nvram_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+httpd_auth_nvram_transaction_get(void *context, const char *name, char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     name, value);
+}
+
+static int
+httpd_auth_nvram_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+static int
 load_nvram_auth(void)
 {
-	const char *username = nvram_safe_get("http_username");
-	const char *password = nvram_safe_get("http_passwd");
-	int length;
+	struct nvram_transaction transaction;
+	char username[MAX_AUTH_LEN], password[MAX_AUTH_LEN];
+	int length, status;
 
+	/* A failed read must never leave a partial or empty credential accepted. */
+	auth_basic_valid = 0;
 	memset(auth_basic_data, 0, sizeof(auth_basic_data));
+
+	status = httpd_auth_nvram_snapshot_credentials(
+		"http_username", "http_passwd",
+		username, sizeof(username), password, sizeof(password),
+		httpd_auth_nvram_transaction_begin,
+		httpd_auth_nvram_transaction_get,
+		httpd_auth_nvram_transaction_end, &transaction);
+	if (status != 0) {
+		logmessage(SYSLOG_ID_HTTPD,
+			   "Basic-auth credentials unavailable; administrative requests will fail closed (status=%d)",
+			   status);
+		return status;
+	}
+
 	length = snprintf(auth_basic_data, sizeof(auth_basic_data), "%s:%s",
 			  username, password);
-	auth_basic_valid = (length >= 0 && (size_t)length < sizeof(auth_basic_data));
-	if (!auth_basic_valid)
+	if (length < 0 || (size_t)length >= sizeof(auth_basic_data)) {
 		memset(auth_basic_data, 0, sizeof(auth_basic_data));
+		logmessage(SYSLOG_ID_HTTPD,
+			   "Basic-auth credentials exceed the supported length; administrative requests will fail closed");
+		return ENAMETOOLONG;
+	}
+
+	auth_basic_valid = 1;
+	return 0;
 }
 
 static void
@@ -532,7 +574,7 @@ reset_login_data(void)
 
 	if (auth_nvram_changed) {
 		auth_nvram_changed = 0;
-		load_nvram_auth();
+		(void)load_nvram_auth();
 	}
 }
 
@@ -1437,7 +1479,7 @@ main(int argc, char **argv)
 	}
 
 	reset_login_data();
-	load_nvram_auth();
+	(void)load_nvram_auth();
 
 	chdir("/www");
 
