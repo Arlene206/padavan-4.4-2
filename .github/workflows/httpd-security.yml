@@ -1630,6 +1630,10 @@ jobs:
           caller = body(web_ex, "apply_cgi(const char *url")
           assert "httpd_nvram_group_compact" in nvram_x
           assert "nvram_del_group_map_x" in header
+          assert "nvram_transaction_begin(&transaction)" in nvram_x
+          assert "nvram_transaction_get((struct nvram_transaction *)context" in nvram_x
+          assert "nvram_transaction_set((struct nvram_transaction *)context" in nvram_x
+          assert "nvram_transaction_end(&transaction)" in nvram_x
           assert "ops->set(context, key, value) != 0" in compact
           assert "ops->set_temp(context, key, value) != 0" in compact
           assert "ops->unset(context, key) != 0" in compact

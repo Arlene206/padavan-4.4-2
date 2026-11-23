@@ -57,11 +57,11 @@ nvram_group_policy_get(void *context, const char *name, const char **value)
 	char *nvram_value = NULL;
 	int result;
 
-	(void)context;
-	if (!value)
+	if (!context || !value)
 		return -1;
 	*value = NULL;
-	result = nvram_get_checked(name, &nvram_value);
+	result = nvram_transaction_get((struct nvram_transaction *)context,
+				       name, &nvram_value);
 	if (result == 0)
 		return 0;
 	if (result != 1 || !nvram_value)
@@ -73,22 +73,28 @@ nvram_group_policy_get(void *context, const char *name, const char **value)
 static int
 nvram_group_policy_set(void *context, const char *name, const char *value)
 {
-	(void)context;
-	return nvram_set(name, value);
+	if (!context)
+		return -1;
+	return nvram_transaction_set((struct nvram_transaction *)context,
+				     name, value, 0);
 }
 
 static int
 nvram_group_policy_set_temp(void *context, const char *name, const char *value)
 {
-	(void)context;
-	return nvram_set_temp(name, value);
+	if (!context)
+		return -1;
+	return nvram_transaction_set((struct nvram_transaction *)context,
+				     name, value, 1);
 }
 
 static int
 nvram_group_policy_unset(void *context, const char *name)
 {
-	(void)context;
-	return nvram_unset(name);
+	if (!context)
+		return -1;
+	return nvram_transaction_set((struct nvram_transaction *)context,
+				     name, NULL, 0);
 }
 
 int
@@ -101,14 +107,26 @@ nvram_del_group_map_x(const char * const *names, int name_count,
 		nvram_group_policy_set_temp,
 		nvram_group_policy_unset
 	};
-	int result;
+	struct nvram_transaction transaction;
+	int result, end_status;
 
+	if (nvram_transaction_begin(&transaction) != 0) {
+		fprintf(stderr, "NVRAM group compaction could not acquire the transaction lock\n");
+		return -1;
+	}
 	result = httpd_nvram_group_compact(names, name_count, count_name,
 					   group_count, delMap,
-					   MAX_GROUP_COUNT, &ops, NULL);
+					   MAX_GROUP_COUNT, &ops, &transaction);
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0) {
+		fprintf(stderr, "NVRAM group compaction transaction release failed (operation status=%d)\n",
+			result);
+		if (result == 0)
+			result = -1;
+	}
 	if (result == -2)
 		fprintf(stderr, "NVRAM group compaction failed and rollback was incomplete; group count was not reduced\n");
-	else if (result != 0)
+	else if (result != 0 && end_status == 0)
 		fprintf(stderr, "NVRAM group compaction failed; group count was not reduced\n");
 	return result;
 }
