@@ -133,6 +133,10 @@ assert "end_transaction(context)" in static_host_snapshot
 assert "memset(snapshot, 0, sizeof(*snapshot))" in static_host_snapshot
 assert "errno = status;" in static_host_snapshot
 assert "item_count = DNSMASQ_STATIC_HOST_MAX" in static_host_snapshot
+assert "snapshot->arp_enabled != 0" in static_host_snapshot
+assert "snapshot->arp_enabled != 1" in static_host_snapshot
+assert "test_invalid_arp_enable_flag_fails_closed" in STATIC_HOST_NVRAM_TEST
+assert "test_invalid_arp_enable_flag_fails_closed();" in STATIC_HOST_NVRAM_TEST
 assert "dnsmasq_static_host_nvram_snapshot_read(" in static_host_builder
 assert static_host_builder.index("dnsmasq_static_host_nvram_snapshot_read(") < static_host_builder.index("dnsmasq_file_open(")
 assert "nvram_get_int(" not in static_host_builder

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Fail closed on invalid DNSMasq static-ARP selector
+
+- The static-host NVRAM snapshot parsed `dhcp_static_arp` as an arbitrary integer and copied it to `i_arp_bind`; any nonzero value enabled static ARP binding, although the web UI only exposes values `0` and `1`. A corrupted value such as `2` or `-1` could silently activate ARP bindings.
+- The snapshot now accepts exactly `0` or `1` and fails closed before reading the remaining table or staging/replacing DHCP host files. Regression checks cover invalid positive and negative values, transaction closure, zeroed output and no reads beyond the invalid selector. The source contract pins this behavior; the XY-C1 path filter now includes the production header.
+- Exact-head DNSMasq, AI handoff and XY-C1 build Actions are required. No local compile or device runtime validation is claimed.
+
+---
+
 ## 2026-11-23 UTC — Trigger DNSMasq ARP regression on pull requests
 
 - The DNSMasq lifecycle job reads and statically checks BusyBox `networking/arp.c` in its static-ARP validation step, and its push path filter already included that file; the pull-request filter did not. A PR changing only the ARP command handler therefore skipped the security regression.
