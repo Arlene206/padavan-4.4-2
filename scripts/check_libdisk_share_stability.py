@@ -367,14 +367,25 @@ del_account_body = function_body(
 )
 del_account_compact = "".join(del_account_body.split())
 saved_count = del_account_compact.index("account_count=acc_num;")
-decrement_count = del_account_compact.index("--acc_num;")
-free_inventory = del_account_compact.index(
-    "free_2_dimension_list(&account_count,&account_list)", decrement_count
+target_scan = del_account_compact.index("for(i=0;i<account_count;++i)")
+delete_transaction = del_account_compact.index(
+    "disk_share_account_inventory_remove(&disk_share_account_nvram_operations,&transaction,account_count,target,MAX_ACCOUNT_NUM,account_list)"
 )
-require(saved_count < decrement_count < free_inventory and
+delete_failure_free = del_account_compact.index(
+    "free_2_dimension_list(&account_count,&account_list);", delete_transaction
+)
+delete_failure_return = del_account_compact.index("return-1;", delete_failure_free)
+delete_success_free = del_account_compact.index(
+    "free_2_dimension_list(&account_count,&account_list);", delete_failure_return
+)
+require(saved_count < target_scan < delete_transaction < delete_failure_free <
+        delete_failure_return < delete_success_free and
         "free_2_dimension_list(&acc_num,&account_list);" in
-        del_account_compact[:decrement_count],
-        "del_account must release the complete original account list after preserving its pre-decrement count")
+        del_account_compact[:saved_count] and
+        "--acc_num;" not in del_account_compact and
+        "account_count,target,MAX_ACCOUNT_NUM,account_list" in
+        del_account_compact[delete_transaction:delete_failure_free],
+        "del_account must retain and pass the complete original account inventory to the checked transactional remover, then release it on both failure and success")
 
 delete_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 delete_transaction = del_account_compact.index(
