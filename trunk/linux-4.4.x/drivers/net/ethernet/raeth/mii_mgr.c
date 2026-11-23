@@ -132,6 +132,9 @@ u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 	u32 high_word;
 	u32 an_status = 0;
 
+	if (!read_data)
+		return 0;
+
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
 	      GE1_TRGMII_FORCE_2600)) && (phy_addr == 31)) {
@@ -236,17 +239,20 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 
 u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 {
-	u32 status = 0;
-	u32 rc = 0;
+		u32 rc = 0;
 	unsigned long t_start = jiffies;
 	u32 data = 0;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 	unsigned long flags;
 
+	if (!read_data)
+		return 0;
+
 	spin_lock_irqsave(&ei_local->mdio_lock, flags);
-	/* set address first */
-	mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);
-	/* udelay(10); */
+	/* Do not issue a data phase when address setup timed out. */
+	if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))
+		goto out;
+	t_start = jiffies;
 
 	enable_mdio(1);
 
@@ -280,7 +286,6 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 			    ("\n MDIO Read operation Time Out!!\n");
 			goto out;
 		}
-		status = sys_reg_read(MDIO_PHY_CONTROL_0);
 	}
 out:
 	spin_unlock_irqrestore(&ei_local->mdio_lock, flags);
@@ -296,9 +301,10 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ei_local->mdio_lock, flags);
-	/* set address first */
-	mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);
-	/* udelay(10); */
+	/* Do not issue a data phase when address setup timed out. */
+	if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))
+		goto out;
+	t_start = jiffies;
 
 	enable_mdio(1);
 	while (1) {

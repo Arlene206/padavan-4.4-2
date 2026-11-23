@@ -16,6 +16,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
@@ -39,6 +40,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
@@ -635,6 +637,7 @@ jobs:
           xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
           source = (esw / "ioctl_mt762x.c").read_text()
           ioctl_source = (esw / "ioctl.c").read_text()
+          mdio_driver = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c").read_text()
           esw_header = (esw / "ioctl_mt762x.h").read_text()
           policy = (esw / "link_mode_policy.h").read_text()
           test = (esw / "tests/link_mode_policy.c").read_text()
@@ -1172,6 +1175,25 @@ jobs:
               assert "if (ioctl_result != 0)" in section
           assert "test_register_read_propagates_mdio_failures" in test
           assert "mtk_esw_register_read(" in policy
+
+          cl45_read = mdio_driver.split("u32 mii_mgr_read_cl45", 1)[1].split(
+              "u32 mii_mgr_write_cl45", 1
+          )[0]
+          cl45_write = mdio_driver.split("u32 mii_mgr_write_cl45", 1)[1]
+          normal_read = mdio_driver.split("u32 mii_mgr_read(", 1)[1].split(
+              "EXPORT_SYMBOL(mii_mgr_read)", 1
+          )[0]
+          assert "if (!read_data)" in normal_read and "if (!read_data)" in cl45_read
+          for cl45_fn in (cl45_read, cl45_write):
+              addr_check = cl45_fn.index(
+                  "if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))"
+              )
+              addr_failure = cl45_fn.index("goto out;", addr_check)
+              timer_reset = cl45_fn.index("t_start = jiffies;", addr_check)
+              assert addr_check < addr_failure < timer_reset
+          assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_read
+          assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_write
+          print("RAETH Clause 45 MDIO address-phase error propagation: PASS")
           read_policy = policy.split("mtk_esw_register_read(", 1)[1].split(
               "mtk_esw_register_update_bits", 1
           )[0]
