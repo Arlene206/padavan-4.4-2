@@ -1,3 +1,12 @@
+## 2026-11-23 06:26 UTC — Move MiniDLNA assertions outside the Process launch loop
+
+- Commit `1d90559f4ca90a168942b1334763022ce40f30b9` added checked `apps_dms` assertions to the Process integration checker but inserted them inside the generic storage-launch loop before its remaining indented checks, breaking the Python block structure.
+- Relocated MiniDLNA-only assertions after the generic loop while preserving checks for the checked string read, nonzero-status return before capability checks, `strcmp()` disabled gate, and no legacy getter. Generic launch result/process-presence assertions remain within the loop for all four services.
+- The exact 1d Process run `45121324507` was still running at last query; no validation claim. The prior 1b run `45121083737` failed at the stale guard. New exact-head Process rerun is required.
+- Exact 1b MiniDLNA `45121083876`, Firewall Startup `45121083736`, Process inventory `45121083732`, HTTPD `45121083771`, Firefly `45121083818`, FTP `45121083826`, Samba `45121083776`, IPv6 `45121083819`, NFS `45121083745`, libdisk `45121083812`, and AI handoff `45121083832` PASS. XY-C1 `45121083755` was in Build with TRX/artifact pending.
+- No local Python/test/build claimed. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 06:10 UTC — Check MiniDLNA enable and identity reads before startup
 
 - After hardening dlna_rescan, reviewed the remaining run_dms() launch NVRAM inputs. nvram_match("apps_dms", "1") swallowed backend errors as 'disabled', dropping an enabled media-server start; nvram_safe_get("il0macaddr") swallowed identity-read errors and could start with a zero serial/MAC.

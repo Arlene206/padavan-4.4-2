@@ -200,6 +200,19 @@ for start_marker, end_marker, launcher, enable_guard, service_name, presence_cal
     assert enable_guard in start_body
     assert "int launch_status;" in start_body
 
+
+    assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
+    assert "if (process_state != PROCESS_PRESENCE_ABSENT)" in start_body
+    assert launcher in start_body
+    normalized_start_body = " ".join(start_body.split())
+    normalized_launcher = " ".join(launcher.split())
+    start_result_call = "storage_log_daemon_start_result( apps_name, launch_status,"
+    assert start_result_call in normalized_start_body
+    assert normalized_start_body.index(normalized_launcher) < normalized_start_body.index(start_result_call)
+    post_launch = start_body.split(launcher, 1)[1]
+    assert "process_state = " + presence_call + ";" in post_launch
+    assert service_name in start_body
+
 dms_body = storage_services.split("int run_dms(int force_rescan)", 1)[1].split(
     chr(10) + "int restart_dms(int force_rescan)", 1
 )[0]
@@ -216,17 +229,6 @@ assert dms_compact.index(dms_enable_read) < dms_compact.index(dms_enable_error)
 assert dms_compact.index(dms_enable_error) < dms_compact.index(dms_enable_match)
 assert dms_compact.index(dms_enable_failure_return) < dms_compact.index("is_dms_support()")
 assert 'nvram_match("apps_dms","1")' not in dms_compact
-    assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
-    assert "if (process_state != PROCESS_PRESENCE_ABSENT)" in start_body
-    assert launcher in start_body
-    normalized_start_body = " ".join(start_body.split())
-    normalized_launcher = " ".join(launcher.split())
-    start_result_call = "storage_log_daemon_start_result( apps_name, launch_status,"
-    assert start_result_call in normalized_start_body
-    assert normalized_start_body.index(normalized_launcher) < normalized_start_body.index(start_result_call)
-    post_launch = start_body.split(launcher, 1)[1]
-    assert "process_state = " + presence_call + ";" in post_launch
-    assert service_name in start_body
 
 start_result = storage_services.split("storage_log_daemon_start_result(", 1)[1].split(
     chr(10) + "#if defined (APP_FTPD)", 1

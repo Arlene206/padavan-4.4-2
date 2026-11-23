@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; parent for the current MiniDLNA launch-state follow-up is `507d80d8901131f75259a3b1f8d8f7837605fa3c`. Re-read main before every write and use expected-SHA compare-and-swap.
+- Repository: `Arlene206/padavan-4.4-2`. Live `main` parent before this Process checker syntax correction: `1d90559f4ca90a168942b1334763022ce40f30b9`; immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
 - The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
 - Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
@@ -26,13 +26,13 @@
 
 ## Active task
 
-### Make MiniDLNA launch decisions fail closed on service-state NVRAM errors
+### Finalize Process integration checker for checked MiniDLNA launch flag
 
-- run_dms() still had two unchecked NVRAM decisions after the configuration and rescan fixes: nvram_match("apps_dms", "1") collapsed a backend error into 'disabled', silently skipping the daemon; nvram_safe_get("il0macaddr") collapsed an identity read failure into an empty MAC and launched MiniDLNA with a zero server identity.
-- THIS COMMIT uses storage_read_string_status() for both values before any database-link/config side effects. Missing apps_dms remains the historical disabled default (empty != "1"); read errors return their status. Missing il0macaddr remains an empty string and preserves legacy zero-MAC formatting, while backend/truncation errors abort launch.
-- The existing checked dlna_rescan read remains conditional on !force_rescan, preserving caller override semantics. Workflow source contracts pin all three checked reads, no old lossy getter, and error gates before filesystem mutation.
-- Prior MiniDLNA fixture/source contract exact runs: 511f1eed... run 45120292969 PASS; 9597283... runs 45120463448 (MiniDLNA) and 45120463437 (AI handoff) PASS. The rescan fix is in commit 507d80d8901131f75259a3b1f8d8f7837605fa3c; exact MiniDLNA run 45120721550 PASS and AI handoff 45120721566 PASS. Exact XY-C1 45120721414 is pending Build on the 507 product-source tree; TRX/artifact pending.
-- THIS COMMIT changes production services_stor.c, so it needs fresh exact-head MiniDLNA source/host checks and XY-C1 Build/TRX/artifact. Continue separate userland work while pending; do not re-audit completed MiniDLNA INI/fixture/rescan or other fixed modules.
+- Commit `1d90559f4ca90a168942b1334763022ce40f30b9` updated `scripts/check_process_lifecycle_integration.py` to accept the checked `apps_dms` read and assert its failure gate. Review caught its new assertions inserted in the middle of the generic `for` loop; following loop-body assertions were then indented after a top-level block.
+- THIS COMMIT moves the MiniDLNA-specific checks after the generic storage-launch loop. It still requires checked `storage_read_string_status("apps_dms",...)`, the failure return before capability checks, the `strcmp()` disabled gate, and absence of the old lossy `nvram_match()` call. No product code changes.
+- Exact 1b MiniDLNA run `45121083876` PASS, Firewall Startup `45121083736` PASS and Process inventory `45121083732` PASS. Process integration `45121083737` failed at the stale legacy guard. Exact 1d Process run `45121324507` was still running at last query; no PASS claim.
+- XY-C1 run `45121083755` had entered Build XY-C1 with TRX and artifact pending. This commit requires an exact Process rerun; L3 requires exact-SHA Build/TRX/upload.
+- Next continue an independent source-backed userland stability/security issue; no repeated MiniDLNA product work.
 ### Exact parallel baseline
 
 - Earlier source milestones: libdisk ACL L3 PASS on e757 `45114634020`; FRP L3 PASS on d2c `45115500761`; USB printer unplug L2/L3 PASS on 200127 `45116268933` / `45116268960`.
@@ -47,10 +47,10 @@
 - DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated host run `45117871967` PASS (L2); WAN integration rerun `45118077270` PASS. L3 NOT VERIFIED: exact XY-C1 run on latest tree was still building and the source path coverage gap is fixed by THIS COMMIT. L4 NOT VERIFIED.
 - Firewall IPTV TTL interface source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`: source review and tests added; exact XY-C1 run `45118311710` pending at## Exact first action for the next GPT
 
-1. Read live main once; verify frozen backup SHA 72f4f157a084f8184b9597ca5bf334b8080e5807; resolve THIS COMMIT.
-2. Inspect exact-head MiniDLNA run for checked apps_dms, dlna_rescan and il0macaddr handling; require host test and source checker PASS.
-3. Inspect exact-head XY-C1: L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same product SHA.
-4. Continue an independent userland stability/security defect while checks are pending. L4 physical-router validation remains NOT VERIFIED.
+1. Read live main once; verify immutable backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Inspect exact-head Process lifecycle run for this checker correction: Python syntax, checked MiniDLNA-enable contract and all compiled tests must pass.
+3. Check XY-C1 `45121083755` or successor. L3 requires Build XY-C1, TRX and artifact upload all PASS on one production SHA.
+4. Continue an independent whole-userland stability/security issue. Do not repeat MiniDLNA INI/rescan/service-enable/MAC changes.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.
