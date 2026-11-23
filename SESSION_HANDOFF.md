@@ -30,6 +30,9 @@
 - WAN local IPv4 status commit `bd56c02f7f8d10374c6857f8aac1d56b1f7a4b6e`: WAN ARP #45241824790 PASS; WAN DHCP #45241824847 PASS; Process inventory #45241824430 PASS; AI docs #45241824655 PASS. WAN route #45241824836 and Process umbrella #45241824549 failed only at stale source assertions, both corrected in follow-up `<next SHA>`; exact reruns pending. XY-C1 #45241824748 and NVRAM #45241824746 were in progress at last poll.
 
 - WAN local IPv4 error separation follow-up `netutils.c`: invalid interface-name copies now set EINVAL; `get_interface_addr4()` preserves ioctl/close errors across cleanup. WAN EINVAL fixture and source contract added; exact CI pending.
+- Current WAN source follow-up is `d3772d64a0e2471be22658aabd6299dc3670caa8`: `copy_ifname()` sets EINVAL and `get_interface_addr4()` preserves ioctl/close errors; WAN ARP #45243513318, DHCP #45243513523, Process inventory #45243513456 and AI docs #45243513254 PASS. WAN route #45243513566 failed solely because the workflow path list had two `netutils.c` entries in each event, while `check_wan_vlan_setup.py` requires one. This commit restores the prior single-entry path list; the source-check additions remain.
+- Subsequent main commits `36861ae` and `eb92a7a` add bridge selector fail-closed handling and exact-source CI coverage; preserve those commits. On `eb92a7a`, AI handoff docs #45243797283 PASS; the remaining inventory/XY-C1/system checks were still running at last poll.
+
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -59,11 +62,11 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and verify exact-head WAN route and Process reruns for the checker-only follow-up. On `bd56c02`, WAN ARP #45241824790, DHCP #45241824847, Process inventory #45241824430 and AI docs #45241824655 PASS; WAN route #45241824836 and Process umbrella #45241824549 failed only on obsolete status-expression/source assertions now corrected. Confirm XY-C1 #45241824748 Build/TRX/artifact and NVRAM #45241824746 statuses before L3 claims.
-2. Previous LLDT failures were test-contract defects, not confirmed production parser faults: `eef4417` had multi-character NUL literals; `14be2b0` corrected NUL but left literal backslash-n/r strings; `d0e68ad` fixed those and passed runtime cases, then failed a stale XY-C1 path-count expectation, corrected in `38d3732`.
-3. The Process umbrella on `d0e68ad` failed at a stale inline-`sscanf` assertion. The correction in `79f4d53` now validates the shared parser and its path trigger; exact Process #45239229205 passed all steps.
-4. Process inventory #45238182222 and NVRAM audit #45238182242 PASS. XY-C1 #45237411963 on `eef4417` completed SUCCESS with Build/TRX/artifact; L3 is verified for shipped LLDT parser source changes. Reconfirm AI docs after this workflow path-filter repair.
-5. Once exact LLDT and Process checks pass, continue the next concrete whole-userland reliability/security task. Keep the backup branch immutable and use complete-tree non-forced expected-SHA commits.
+1. Verify exact-head WAN route after this workflow-only correction. `check_wan_vlan_setup.py` requires exactly one `netutils.c` path in push and pull_request; `d3772d6` accidentally added a second entry although the original filter already covered the file. This commit restores the original single-entry path set. The source-check additions in `check_wan_detect_wan_status.py` assert EINVAL from invalid interface names and ioctl/close errno preservation.
+2. Reconfirm exact-source XY-C1 Build/TRX/artifact for `d3772d6` (run #45243513374) and for the preceding WAN source changes; host-only validation is not L3.
+3. On `d3772d6`, WAN ARP #45243513318, DHCP #45243513523, Process inventory #45243513456, IPv6 service type #45243513641, USB modem identity #45243513479, wireless radio #45243513405 and AI docs #45243513254 PASS. WAN route #45243513566 failed only on duplicated path filters, now corrected. NVRAM #45243513452, XY-C1 #45243513374 and USB storage #45243513475 were in progress at last poll.
+4. Preserve concurrent main commits `36861ae` (bridge radio selector fail-closed fix) and `eb92a7a` (exact-source CI gate update). On `eb92a7a`, AI docs #45243797283 PASS; inspect remaining exact-SHA system/firmware checks before closing.
+5. Continue the next concrete userland reliability/security issue only after the route rerun is green; keep backup branch frozen and use complete-tree, expected-SHA non-forced updates.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.

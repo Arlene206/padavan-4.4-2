@@ -1,3 +1,11 @@
+## 2026-11-23 — Remove duplicate WAN route path filters
+
+- WAN route #45243513566 on source SHA `d3772d6` failed at the existing `check_wan_vlan_setup.py` contract because `trunk/user/shared/src/netutils.c` appeared twice under both push and pull_request. The original workflow already had the necessary single entry for this shared source.
+- Restored the original workflow path file (one netutils entry per event); kept the new EINVAL / ioctl-close source contracts in `check_wan_detect_wan_status.py`. This change only repairs CI filters and does not revert the production errno fix.
+- Parallel commits `36861ae` (bridge radio selector fail-closed policy) and `eb92a7a` (exact-source CI gates) landed on main after `d3772d6`; they are preserved unchanged. Exact-head WAN route rerun pending.
+
+---
+
 ## 2026-11-23 — Preserve netutils interface-address errno
 
 - Follow-up inspection found a gap in the WAN local-address error separation: `copy_ifname()` returned `-1` for null/empty/overlong interface names without setting errno, so a caller that clears errno could still classify a failed interface-name copy as an ordinary unassigned address.
