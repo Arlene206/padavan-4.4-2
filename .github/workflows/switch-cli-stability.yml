@@ -680,9 +680,9 @@ jobs:
               assert marker in test and marker + "();" in test, marker
 
           assert "mt7530_gsw_wait_wt_mac" not in source
-          mac_clear = source.split("static\\nint mt7530_gsw_mac_table_clear", 1)[1].split(
-              "static\\nu32 esw_get_port_mib_rgoc", 1
-          )[0]
+          mac_start = source.index("int mt7530_gsw_mac_table_clear(int static_only)")
+          mac_end = source.index("u32 esw_get_port_mib_rgoc", mac_start)
+          mac_clear = source[mac_start:mac_end]
           assert "mtk_esw_mac_table_clear(static_only, &mtk_esw_link_mode_io, NULL)" in mac_clear
           assert "if (status != 0)" in mac_clear and "return status;" in mac_clear
           isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(

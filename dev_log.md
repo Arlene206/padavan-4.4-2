@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Correct MAC-table source-contract function slicing
+
+- The MTK MAC-table policy and its six GNU89 sanitizer regression cases compiled and passed on exact source commit `149f6b4a5b170a17a7427abee4ae49311d681614`. The Switch CLI job then failed in the added Python source-contract stage, not in C compilation or the regression executable: the script attempted to split on a Python string containing a literal backslash-n instead of the C source newline, causing an `IndexError`.
+- Replaced the brittle escaped-newline split with stable function-signature indexes, leaving production code and tests unchanged. The same exact-SHA workflow will re-run on this follow-up commit; no PASS is claimed until it completes.
+- Earlier commit `98f6f87a27bce17c6672007ef38e641c85775a82` now has all four exact-SHA Actions successful, including XY-C1 build, TRX verification and artifact upload. Hardware L4 is still unverified.
+
+---
+
 ## 2026-11-23 UTC — Propagate MT7530 MAC-table clear failures through bridge isolation
 
 - Found a false-success path in `mt7530_gsw_wait_wt_mac()`: the ATC status word was reset to zero, but `mii_mgr_read()` returned failure without being checked. A timeout therefore looked like an idle MAC table. The preceding `mii_mgr_write()` command result was also discarded. Bridge/VLAN isolation could report success while old dynamic forwarding entries remained.
