@@ -131,7 +131,33 @@ set --
 ALD_BIN="$TEST_DIR/mock-aliyundrive-webdav"
 ALD_WORK_DIR="$TEST_DIR/aliyundrive-webdav-workdir"
 TEST_UMASK_LOG="$TEST_DIR/umask.log"
+TEST_EXE_IDENTITY_MODE=valid
 export ALD_WORK_DIR TEST_UMASK_LOG
+
+# Model the kernel's /proc/PID/exe identity without requiring a real daemon.
+# All other stat calls still exercise the real filesystem and BusyBox-compatible
+# stat format used by the lifecycle lock and private token directory checks.
+stat() {
+  if [ "$#" -eq 4 ] && [ "$1" = "-L" ] &&
+     [ "$2" = "-c" ] && [ "$3" = "%d:%i" ]; then
+    case "$4" in
+      "${ALD_BIN-}")
+        printf '%s\n' '8:100'
+        return 0
+        ;;
+      /proc/12345/exe)
+        case "$TEST_EXE_IDENTITY_MODE" in
+          valid) printf '%s\n' '8:100'; return 0 ;;
+          impostor) printf '%s\n' '8:101'; return 0 ;;
+          inaccessible) return 1 ;;
+          malformed) printf '%s\n' 'not-an-inode'; return 0 ;;
+          *) return 2 ;;
+        esac
+        ;;
+    esac
+  fi
+  command stat "$@"
+}
 ALD_START_WAIT_SECONDS=10
 
 # HTTP 5xx is not readiness; healthy and authentication-required status codes are.
@@ -314,6 +340,59 @@ fi
   echo "FAIL: unknown startup inventory did not propagate UNKNOWN" >&2; exit 1;
 }
 TEST_PIDOF_MODE=normal
+TEST_RUNNING=1
+
+# pidof's argv[0]/comm match is not proof that this is the configured daemon.
+TEST_EXE_IDENTITY_MODE=impostor
+if ald_process_state; then
+  echo "FAIL: a same-name process with a different executable was accepted" >&2
+  exit 1
+else
+  TEST_STATE_STATUS=$?
+fi
+[ "$TEST_STATE_STATUS" -eq 2 ] || {
+  echo "FAIL: executable mismatch was not reported as UNKNOWN" >&2; exit 1;
+}
+TEST_TERM_COUNT=0
+TEST_KILL_COUNT=0
+if kill_ald; then
+  echo "FAIL: stop accepted a same-name process with a different executable" >&2
+  exit 1
+fi
+[ "$TEST_TERM_COUNT" -eq 0 ] && [ "$TEST_KILL_COUNT" -eq 0 ] || {
+  echo "FAIL: executable mismatch caused a signal" >&2; exit 1;
+}
+rm -f "$TEST_ARG_LOG"
+if start_ald; then
+  echo "FAIL: start treated a same-name impostor as an existing daemon" >&2
+  exit 1
+fi
+[ ! -e "$TEST_ARG_LOG" ] || {
+  echo "FAIL: start launched another daemon while inventory was UNKNOWN" >&2; exit 1;
+}
+
+TEST_EXE_IDENTITY_MODE=inaccessible
+if ald_process_state; then
+  echo "FAIL: unreadable /proc/PID/exe was accepted as RUNNING" >&2
+  exit 1
+else
+  TEST_STATE_STATUS=$?
+fi
+[ "$TEST_STATE_STATUS" -eq 2 ] || {
+  echo "FAIL: unreadable executable identity did not return UNKNOWN" >&2; exit 1;
+}
+TEST_EXE_IDENTITY_MODE=malformed
+if ald_process_state; then
+  echo "FAIL: malformed executable identity was accepted as RUNNING" >&2
+  exit 1
+else
+  TEST_STATE_STATUS=$?
+fi
+[ "$TEST_STATE_STATUS" -eq 2 ] || {
+  echo "FAIL: malformed executable identity did not return UNKNOWN" >&2; exit 1;
+}
+
+TEST_EXE_IDENTITY_MODE=valid
 TEST_RUNNING=0
 
 # No-process stop is a no-op and must not signal anything.

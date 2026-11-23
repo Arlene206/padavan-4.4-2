@@ -28,6 +28,20 @@ ald_process_state() {
         esac
         [ "${#ald_pid}" -le 10 ] || return 2
         [ "$ald_pid" -gt 1 ] 2>/dev/null || return 2
+
+        # BusyBox pidof also matches comm/argv[0]. Bind every candidate to
+        # the configured executable so a spoofed process name is never signaled.
+        ald_expected_exe=$(stat -L -c '%d:%i' "$ALD_BIN" 2>/dev/null) || return 2
+        case "$ald_expected_exe" in
+          *:*) ;;
+          *) return 2 ;;
+        esac
+        case "$ald_expected_exe" in
+          ''|*[!0-9:]*|:*|*:|*:*:*) return 2 ;;
+        esac
+        ald_actual_exe=$(stat -L -c '%d:%i' "/proc/$ald_pid/exe" 2>/dev/null) || return 2
+        [ "$ald_actual_exe" = "$ald_expected_exe" ] || return 2
+
         ald_pid_count=$((ald_pid_count + 1))
       done
       [ "$ald_pid_count" -gt 0 ] || return 2

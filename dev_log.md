@@ -1,3 +1,10 @@
+## 2026-11-23 — Bind AliyunDrive process state to its executable inode
+
+- BusyBox 1.24 pidof accepts a process when its comm or basename of argv[0] matches the requested name. A different executable can therefore spoof aliyundrive-webdav; the previous tri-state wrapper treated that result as RUNNING and could send TERM/KILL to the wrong process during stop.
+- ald_process_state() now resolves the configured daemon and every /proc/PID/exe candidate with stat -L -c '%d:%i'. A missing, malformed or mismatched identity returns UNKNOWN (2), which blocks start/stop signalling; only candidates whose device/inode matches the packaged executable are RUNNING. The existing no-cached-PID and bounded stop policy is unchanged.
+- The lifecycle fixture mocks only these executable-identity stat calls and retains real stat behavior for lock/workdir checks. Added mismatch, inaccessible and malformed identity cases, including no-signal and no-duplicate-start assertions; the Python source contract pins the inode gate. Parent main: 53c6f6623e5531deeb889762e81bf1943c1abf50. Exact-head AliyunDrive lifecycle and AI handoff Actions are pending for this source slice. No local shell execution or firmware validation is claimed.
+
+---
 ## 2026-11-23 — Repair stale DNSMasq split-DNS test contract
 
 - Historical exact DNSMasq run #45110039566 on `d36ba24` compiled and executed the GNU89/ASan/UBSan NVRAM policy regression successfully, then failed in `check_dnsmasq_integer_options.py` because it required the helper `dnsmasq_split_dns_snapshot_is_zero` to also appear as a standalone `helper();` invocation. The test suite intentionally defines this helper to validate public snapshot fields without relying on struct padding, and its error-path tests call it with `&snapshot`.
