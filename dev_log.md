@@ -1,3 +1,11 @@
+## 2026-11-24 01:00 CST (UTC+8) — Restore mandatory handoff accuracy checkpoint after AI docs failure
+
+- Exact AI documentation run #45221089290 on `e4d34fd7f13baa203bbbae90130b0782a9b22e5c` failed with: “current handoff does not require an end-of-session accuracy checkpoint”. The handoff had been compacted but omitted the validator-required `Mandatory handoff checkpoint` section and exact conditional-edit sentence, along with its required cross-session heading and section names.
+- THIS commit restores the mandatory checkpoint contract, including “The checkpoint is mandatory; a document edit is conditional.”, live-state inspection, materiality/no-op guidance, cross-session atomic-main rules, and the four required handoff section headings. No product source changed.
+- USB modem checker PASS remains #45220509149 on f947; Process, NVRAM and Storage PASS remain #45220191260/#45220191315/#45220191366 on ecff. Exact AI docs rerun on THIS handoff correction is pending; XY-C1 runs #45220033426 (e6dc), #45220191233 (ecff), and #45221089272 (e4d34) were still in progress at last observation.
+
+---
+
 ## 2026-11-24 00:53 CST (UTC+8) — Trigger XY-C1 build on WAN ARP policy header changes
 
 - `detect_wan.c` directly includes `detect_wan_arp_socket_policy.h`, but the XY-C1 push path allowlist listed only the C file. A header-only production change could bypass firmware cross-build/TRX validation.
