@@ -19,6 +19,7 @@ static char const RCSID[] =
 #include "l2tp.h"
 #include "dstring.h"
 #include "event_tcp.h"
+#include "cmd-request-policy.h"
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -32,6 +33,7 @@ static char const RCSID[] =
 #include <signal.h>
 
 #define HANDLER_NAME "cmd"
+#define CMD_CONTROL_REQUEST_BUFFER_SIZE 512
 
 static int process_option(EventSelector *, char const *, char const *);
 static void cmd_acceptor(EventSelector *es, int fd);
@@ -222,7 +224,7 @@ process_option(EventSelector *es,
 static void
 cmd_acceptor(EventSelector *es, int fd)
 {
-    EventTcp_ReadBuf(es, fd, 512, '\n', cmd_handler, 5, NULL);
+    EventTcp_ReadBuf(es, fd, CMD_CONTROL_REQUEST_BUFFER_SIZE, '\n', cmd_handler, 5, NULL);
 }
 
 /**********************************************************************
@@ -249,20 +251,23 @@ cmd_handler(EventSelector *es,
 {
     char word[512];
 
-    if (flag == EVENT_TCP_FLAG_IOERROR || flag == EVENT_TCP_FLAG_TIMEOUT) {
+    /*
+     * EventTcp_ReadBuf allocates exactly CMD_CONTROL_REQUEST_BUFFER_SIZE
+     * bytes. Reject EOF, timeout, an unterminated line, and a full buffer
+     * before writing a terminator; no byte beyond that allocation is valid.
+     */
+    if (!cmd_control_request_is_valid(
+		flag == EVENT_TCP_FLAG_COMPLETE,
+		len > 0 ? (size_t) len : 0,
+		CMD_CONTROL_REQUEST_BUFFER_SIZE,
+		len > 0 && len < CMD_CONTROL_REQUEST_BUFFER_SIZE &&
+		    buf[len - 1] == '\n')) {
 	close(fd);
 	return;
     }
-    if (len < 511) {
-	buf[len+1] = 0;
-    } else {
-	buf[len] = 0;
-    }
 
-    /* Chop off newline */
-    if (len && (buf[len-1] == '\n')) {
-	buf[len-1] = 0;
-    }
+    buf[len] = '\0';
+    buf[len - 1] = '\0';
 
     /* Get first word */
     buf = (char *) l2tp_chomp_word(buf, word);

@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Bound RP-L2TP command framing before NUL termination
+
+- Review of the actual `EventTcp_ReadBuf()` implementation confirmed it allocates exactly the requested 512 bytes and reports `EVENT_TCP_FLAG_COMPLETE` both on delimiter match and when the receive limit is reached. `cmd_handler()` previously wrote `buf[len+1]` for lengths below 511 and `buf[len]` at length 512, then parsed EOF/timeout-truncated data. This allowed an uninitialized byte to be included in a command and a full-buffer request to write one byte beyond the heap allocation.
+- Added a shared request-framing policy: accept only a complete newline-terminated request with `0 < len < capacity`; reject EOF, timeout, empty, unterminated and capacity-sized input before touching the buffer; then terminate at `buf[len]` and replace the newline. Added GNU89 ASan/UBSan boundary regressions, source contracts and WAN/XY-C1 trigger coverage.
+
+---
+
 ## 2026-11-23 UTC — Fix AP monitor source-contract newline matching
 
 - Process lifecycle run `45172093429` passed all earlier PID 1, NVRAM and daemon regressions and failed in `scripts/check_process_lifecycle_integration.py` while locating the AP monitor block. The checker searched for literal backslash-`n` sequences (`\\nfi\\n`) although the source contains actual newline characters, so it raised `ValueError` before checking the AP lock contract.

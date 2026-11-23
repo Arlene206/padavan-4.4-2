@@ -3,6 +3,9 @@ name: WAN route operation status regression
 on:
   push:
     paths:
+      - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-request-policy.h"
+      - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/tests/cmd-request-policy.c"
+
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd.c"
 
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control.c"
@@ -123,6 +126,9 @@ on:
       - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
   pull_request:
     paths:
+      - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-request-policy.h"
+      - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/tests/cmd-request-policy.c"
+
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd.c"
 
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control.c"
@@ -510,6 +516,14 @@ jobs:
           sh -n trunk/user/pppoe/mwan.sh
           bash -n trunk/user/pppoe/tests/mwan_lifecycle.sh
           bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"
+      - name: Compile and run rp-l2tp control request framing regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/ \
+            trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/tests/cmd-request-policy.c \
+            -o /tmp/rp-l2tp-control-request
+          ASAN_OPTIONS=detect_leaks=1 /tmp/rp-l2tp-control-request
       - name: Compile and run rp-l2tp control response status regression
         run: |
           set -eu
