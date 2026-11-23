@@ -55,6 +55,7 @@
 #include "tcp_tweaks_policy.h"
 #include "libc_gai_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "nat_helper_settings_policy.h"
 #include "xupnpd_config_file.h"
 #include "xupnpd_daemon_policy.h"
 #include "detached_daemon_start_policy.h"
@@ -69,6 +70,27 @@ net_nvram_get_checked(void *context, const char *param_name, char **value)
 {
 	(void)context;
 	return nvram_get_checked(param_name, value);
+}
+
+static int
+net_nvram_transaction_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+
+static int
+net_nvram_transaction_get(void *context, const char *param_name, char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     param_name, value);
+}
+
+
+static int
+net_nvram_transaction_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
 }
 
 
@@ -1352,7 +1374,10 @@ reload_nat_modules(void)
 	int needed_sip = 0;
 	int needed_h323 = 0;
 	int needed_pptp = 0;
-	int wan_nat_x = nvram_get_int("wan_nat_x");
+	int wan_nat_x = 0;
+	int nat_settings_status;
+	struct nvram_transaction nat_nvram_transaction;
+	struct rc_nat_helper_settings nat_settings;
 	int reload_status = 0;
 	int module_status;
 	int is_ap_mode, ap_mode_status;
@@ -1398,21 +1423,24 @@ reload_nat_modules(void)
 		return ap_mode_status;
 	}
 
-	if (!is_ap_mode)
-	{
-		needed_ftp0 = nvram_get_int("nf_alg_ftp0");
-		needed_ftp1 = nvram_get_int("nf_alg_ftp1");
-		if (needed_ftp0 <   21 || needed_ftp0 > 65535) needed_ftp0 = 0;
-		if (needed_ftp1 < 1024 || needed_ftp1 > 65535) needed_ftp1 = 0;
+	nat_settings_status = rc_nat_helper_settings_read(
+		is_ap_mode, net_nvram_transaction_begin, net_nvram_transaction_get,
+		net_nvram_transaction_end, &nat_nvram_transaction, &nat_settings);
+	if (nat_settings_status != 0) {
+		errno = nat_settings_status;
+		logmessage(LOGNAME,
+			   "aborting NAT helper reload because module settings cannot be read coherently (status=%d)",
+			   nat_settings_status);
+		return nat_settings_status;
+	}
 
-		if (nvram_match("nf_alg_pptp", "1"))
-			needed_pptp = 1;
-
-		if (nvram_match("nf_alg_h323", "1"))
-			needed_h323 = 1;
-
-		if (nvram_match("nf_alg_sip", "1"))
-			needed_sip = 1;
+	wan_nat_x = nat_settings.wan_nat_x;
+	if (!is_ap_mode) {
+		needed_ftp0 = nat_settings.ftp0_port;
+		needed_ftp1 = nat_settings.ftp1_port;
+		needed_pptp = nat_settings.pptp_enabled;
+		needed_h323 = nat_settings.h323_enabled;
+		needed_sip = nat_settings.sip_enabled;
 	}
 
 	pptp_modules[1].required = (wan_nat_x != 0);

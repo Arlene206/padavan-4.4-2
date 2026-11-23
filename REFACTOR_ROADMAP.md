@@ -122,6 +122,8 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 
+- P1 — NAT helper module reload resilience: `reload_nat_modules()` used unchecked reads for `wan_nat_x`, FTP helper ports and PPTP/H.323/SIP ALG flags. Read/close errors appeared as explicit disables and could unload live helpers. The full selector tuple is now read transactionally and parsed before module changes; errors preserve current module state while missing keys retain legacy defaults. Sanitizer regression and source contract added; exact-head WAN/XY Actions pending.
+
 - P1 — Runtime TCP SYN-cookie policy reload: `restart_all_sysctl()` previously mapped an NVRAM read/close error to `fw_syn_cook=0`, wrote `tcp_syncookies=0`, and bypassed the existing WAN admission failure gate. Checked NVRAM status now preserves the secure-required state and stops the active WAN on backend errors. This follow-up replaces overflow-undefined `atoi()` with `strtol()` plus `INT_MIN`/`INT_MAX`/`ERANGE` checks, preserving legacy base-10 numeric-prefix behavior within range and rejecting overflow without lowering protection. GNU89/Werror/ASan/UBSan boundary and overflow regressions plus the source checker are wired into the WAN route workflow; exact-head Actions pending.
 
 - P2 — Wireless regulatory SKU profile publication: the Ralink helper destroyed the live SKU link before replacement, ignored symlink failure, and accepted unchecked NVRAM `regspec_code` as a path component. Candidate lookup now distinguishes absence from filesystem errors and validates the code; publication is staged privately and atomically replaced. Both band generators fail closed and discard staged DAT config on link errors. Filesystem regression and source contract added; exact-head Actions pending.

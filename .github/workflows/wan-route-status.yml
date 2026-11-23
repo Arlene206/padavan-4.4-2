@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/tests/nat_helper_settings_policy.c"
+      - "trunk/user/rc/src/nat_helper_settings_policy.h"
+      - "scripts/check_nat_helper_settings.py"
       - "trunk/user/rc/src/vlan_interface_policy.h"
       - "trunk/user/rc/src/tests/vlan_interface_policy.c"
       - "trunk/user/rc/src/detached_daemon_start_policy.h"
@@ -115,6 +118,9 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/tests/nat_helper_settings_policy.c"
+      - "trunk/user/rc/src/nat_helper_settings_policy.h"
+      - "scripts/check_nat_helper_settings.py"
       - "trunk/user/rc/src/vlan_interface_policy.h"
       - "trunk/user/rc/src/tests/vlan_interface_policy.c"
       - "trunk/user/rc/src/detached_daemon_start_policy.h"
@@ -273,6 +279,16 @@ jobs:
             trunk/user/rc/src/tests/network_sysctl_policy.c \
             -o /tmp/network-sysctl-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/network-sysctl-policy
+      - name: Compile and run NAT helper settings snapshot regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/nat_helper_settings_policy.c \
+            -o /tmp/nat-helper-settings-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nat-helper-settings-policy
+      - name: Check NAT helper reload preserves module state on NVRAM errors
+        run: python3 scripts/check_nat_helper_settings.py
       - name: Compile and run checked WAN interface publication policy regression
         run: |
           set -eu

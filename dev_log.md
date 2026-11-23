@@ -1,3 +1,12 @@
+## 2026-11-23 07:04 UTC — Preserve NAT helper modules when NVRAM selector reads fail
+
+- `reload_nat_modules()` read `wan_nat_x`, FTP helper ports and PPTP/H.323/SIP ALG flags using unchecked `nvram_get_int()`/`nvram_match()`. A transient NVRAM read/close error collapsed into disabled values; the reload could unload live NAT helpers even though persisted configuration still required them.
+- The selector tuple is now copied under one NVRAM transaction and parsed only after the transaction closes. Any read, close, truncation or malformed integer error aborts before module state changes; the current helper set remains intact. Missing keys and valid settings retain legacy disabled defaults, exact string matching, FTP port-range fallback and AP-mode limited reads.
+- Added GNU89/Werror/ASan/UBSan tests for coherent snapshots, missing defaults, every field read failure, close failure, malformed/oversized inputs and AP-mode behavior. Added source-contract CI and XY-C1 path filters. Exact-head WAN regression and XY-C1 Build/TRX/artifact checks pending; no local checkout or firmware build claimed.
+- Parent `main`: `3a802b83e861018e020f3298ec7de9d41ef9f1bf`. Resulting commit: pending.
+
+---
+
 ## 2026-11-23 07:00 UTC — Reject out-of-range SYN-cookie policy values
 
 - The checked-read fix for `fw_syn_cook` still passed the returned string to `atoi()`. An out-of-range persisted value can invoke undefined behavior; an implementation-dependent zero could bypass the explicit SYN-cookie WAN admission gate.
