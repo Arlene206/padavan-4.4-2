@@ -2405,7 +2405,7 @@ assert "trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh" in openssh_workflow
 ap_script = (root / "trunk/user/scripts/files/usr/bin/ap_script.sh").read_text()
 ap_test = (root / "trunk/user/scripts/tests/ap_script_lock_cleanup.sh").read_text()
 ap_monitor_start = ap_script.index("ap_script_num=$(ps")
-ap_monitor_end = ap_script.index("\\nfi\\n", ap_monitor_start) + len("\\nfi")
+ap_monitor_end = ap_script.index("\nfi\n", ap_monitor_start) + len("\nfi")
 ap_monitor_gate = ap_script[ap_monitor_start:ap_monitor_end]
 assert 'if [[ $ap_script_num == "0" && $sh_ezscript_num == "0" ]]; then' in ap_monitor_gate
 assert 'if [[ $ap_script_num == "0" && $ap_script_num == "0" ]]; then' not in ap_monitor_gate

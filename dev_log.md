@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fix AP monitor source-contract newline matching
+
+- Process lifecycle run `45172093429` passed all earlier PID 1, NVRAM and daemon regressions and failed in `scripts/check_process_lifecycle_integration.py` while locating the AP monitor block. The checker searched for literal backslash-`n` sequences (`\\nfi\\n`) although the source contains actual newline characters, so it raised `ValueError` before checking the AP lock contract.
+- Corrected the Python source literal to `"\nfi\n"` / `"\nfi"`. The separate AP lock regression already handles indentation and tests both worker lifetimes; this change repairs only the source extraction contract.
+
+---
+
 ## 2026-11-23 UTC — Make the L2TP newline source contract literal-safe
 
 - Tightened the RP-L2TP source contract to use a Python raw string for the C `\\n` token. Without the raw-string prefix, Python would interpret the escape as an actual newline and compare against the wrong source representation.
