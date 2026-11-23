@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Align HTTPD trust-boundary checker with coherent Samba NVRAM snapshots
+
+- The first exact-SHA Samba workflow passed after the transactional credential change, but the adjacent HTTPD trust-boundary workflow failed because its source contract still expected three separately checked NVRAM getters.
+- Updated the HTTPD checker to require the same single transaction for account count and credentials, transaction closure before process inventory, no legacy credential getter path, and retained password-policy checks. This is a checker-only adjustment; it does not relax the security contract.
+
+---
+
 ## 2026-11-23 UTC — Snapshot Samba passdb credentials from one NVRAM generation
 
 - `run_samba()` read `acc_num`, router username, account usernames and passwords through separate checked NVRAM API calls. Each read was individually safe, but concurrent UI writes could interleave and create a mixed-generation credential set.

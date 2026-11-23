@@ -3571,16 +3571,29 @@ jobs:
           run_start = source.index("int run_samba(void)")
           run_body = source[run_start:]
           run_body_compact = "".join(run_body.split())
-          router_identity_read = 'storage_read_string_status("http_username",router_username,sizeof(router_username))'
-          user_identity_read = 'storage_read_string_status(tmpuser,account_usernames[i],sizeof(account_usernames[i]))'
-          password_read = 'storage_read_string_status(tmp2,account_passwords[i],sizeof(account_passwords[i]))'
+          account_snapshot_begin = "nvram_transaction_begin(&account_snapshot)"
+          account_snapshot_end = "nvram_transaction_end(&account_snapshot)"
+          account_count_read = 'storage_read_transaction_integer_status(&account_snapshot,"acc_num",0,&account_count_value)'
+          router_identity_read = 'storage_read_transaction_string_status(&account_snapshot,"http_username",router_username,sizeof(router_username))'
+          user_identity_read = 'storage_read_transaction_string_status(&account_snapshot,tmpuser,account_usernames[i],sizeof(account_usernames[i]))'
+          password_read = 'storage_read_transaction_string_status(&account_snapshot,tmp2,account_passwords[i],sizeof(account_passwords[i]))'
+          assert account_snapshot_begin in run_body_compact
+          assert account_snapshot_end in run_body_compact
+          assert account_count_read in run_body_compact
           assert router_identity_read in run_body_compact
           assert user_identity_read in run_body_compact
           assert password_read in run_body_compact
+          assert run_body_compact.index(account_snapshot_begin) < run_body_compact.index(account_count_read)
+          assert run_body_compact.index(account_count_read) < run_body_compact.index(router_identity_read)
           assert run_body_compact.index(router_identity_read) < run_body_compact.index(user_identity_read)
           assert run_body_compact.index(user_identity_read) < run_body_compact.index(password_read)
+          assert run_body_compact.index(password_read) < run_body_compact.index(account_snapshot_end)
           first_inventory = run_body_compact.index('process_inventory_scan("smbd",&smbd_snapshot)')
-          assert run_body_compact.index(password_read) < first_inventory
+          assert run_body_compact.index(account_snapshot_end) < first_inventory
+          assert 'storage_read_integer_status("acc_num",0,&account_count_value)' not in run_body_compact
+          assert 'storage_read_string_status("http_username",router_username,sizeof(router_username))' not in run_body_compact
+          assert "samba_passdb_snapshot_end_status" in passdb_policy
+          assert "samba_passdb_password_is_safe" in passdb_policy
           assert "samba_passdb_password_is_safe(account_passwords[i])" in run_body
           assert "nvram_safe_get(tmpuser)" not in run_body
           assert "nvram_safe_get(tmp2)" not in run_body

@@ -3,22 +3,22 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Latest verified main before this Samba credential snapshot slice: `a06e536f4724d3a4a2b9a10ad67d44f66abab6bf`. Logger source and selector fixes on that SHA passed Process inventory #45202840049, Process fail-closed #45202839376, NVRAM boundary #45202839776, AI handoff #45202839983 and the other listed lifecycle/network/NVRAM regressions.
-- Exact XY-C1 #45202839704 on `a06e536` was still building at the last poll; TRX and artifact upload were pending. Do not claim L3 until Build, TRX and artifact upload pass on the same production-source SHA.
-- No local MIPS/uClibc firmware build or hardware L4 validation is claimed. Bootstrap recovery was performed once; do not repeat.
+- Active production commit: `007ba84e20c3d1e162e0f0e82c3ccbbd302530c2` — Samba passdb credential reads now share one checked NVRAM transaction.
+- Exact Samba share workflow #45204745566 PASS; AI handoff #45204745808 PASS; MiniDLNA #45204745727 PASS; NFS #45204745686 PASS; share-list #45204745728 PASS; Firefly #45204746022 PASS. Process inventory #45204745939 was in progress at last poll; Process fail-closed #45204745603 pending; NVRAM boundary #45204745901 in progress; XY-C1 #45204745847 in progress.
+- HTTPD authentication/security #45204745839 exposed a stale source assertion expecting the old separately-read Samba credentials. This checker-only commit updates that assertion to require one begin/read/end transaction and close-before-inventory; no production code is changed here.
+- No local MIPS/uClibc firmware build or hardware L4 validation is claimed. Bootstrap recovery already occurred; do not repeat it.
 
 ## Active task
 
-- Samba credential consistency: `run_samba()` previously performed individually checked but separately locked NVRAM reads for `acc_num`, router username, account usernames and passwords. A concurrent UI update could interleave between these successful reads and yield a mixed-generation passdb.
-- This slice now takes one NVRAM transaction across the account count and all relevant credentials, copying each cache-backed string before the next read. The transaction is ended before process inventory, filesystem cleanup, passdb staging or configuration publication. A read or transaction-end failure preserves the current passdb/configuration and aborts the service update.
-- Added snapshot-close result precedence regression tests and Samba workflow source assertions for begin/read/end ordering, and end-before-mutation.
-- Exact-SHA Samba, Process, AI and XY-C1 workflows for this commit remain to be verified. L3 requires Build + TRX + artifact upload all pass on one production SHA.
+- The production Samba slice `007ba84e20c3d1e162e0f0e82c3ccbbd302530c2` wraps `acc_num`, router username, account usernames and passwords in one `nvram_transaction`; all returned strings are copied immediately, and transaction end is required before any process inventory, cleanup, passdb staging or configuration publication. Read/close errors preserve the old passdb/config.
+- The Samba workflow passed compilation, tests and source contracts. An adjacent HTTPD security workflow was still asserting legacy independent getters; the current checker-only fix makes its security gate validate the new coherent-snapshot invariants.
+- Exact-SHA Process, NVRAM, AI, HTTPD and XY-C1 results for the resulting checker-fix commit must be polled. XY-C1 L3 requires Build, TRX and artifact upload on the same production-source SHA.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-SHA Samba share configuration, Process inventory/fail-closed, AI handoff, NVRAM boundary and XY-C1 workflows for this commit. Fix any concrete failures without weakening assertions.
-2. If XY-C1 #45202839704 completes for the parent logger fix, record its Build/TRX/upload result separately; it does not include this Samba credential change.
-3. Continue a fresh P1/P2 stability/security defect outside already-closed logger/NTP slices. Preserve main-only atomic commits and the frozen backup.
+1. Poll exact-SHA HTTPD security, Samba share, Process inventory/fail-closed, NVRAM boundary, AI handoff and XY-C1 workflows. The HTTPD check must pass on the new workflow SHA; do not weaken its invariants.
+2. Record final XY-C1 Build/TRX/upload state. Do not rely on earlier firmware runs for source changes not included in their SHA.
+3. Continue a fresh P1/P2 stability/security defect after CI is handled; keep main-only CAS commits and preserve the frozen backup.
 
 ## Relevant exact-SHA CI facts
 
