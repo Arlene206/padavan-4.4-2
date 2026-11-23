@@ -520,7 +520,7 @@ httpd_auth_nvram_transaction_end(void *context)
 	return nvram_transaction_end((struct nvram_transaction *)context);
 }
 
-static int
+static void
 load_nvram_auth(void)
 {
 	struct nvram_transaction transaction;
@@ -541,7 +541,7 @@ load_nvram_auth(void)
 		logmessage(SYSLOG_ID_HTTPD,
 			   "Basic-auth credentials unavailable; administrative requests will fail closed (status=%d)",
 			   status);
-		return status;
+		return;
 	}
 
 	length = snprintf(auth_basic_data, sizeof(auth_basic_data), "%s:%s",
@@ -550,11 +550,10 @@ load_nvram_auth(void)
 		memset(auth_basic_data, 0, sizeof(auth_basic_data));
 		logmessage(SYSLOG_ID_HTTPD,
 			   "Basic-auth credentials exceed the supported length; administrative requests will fail closed");
-		return ENAMETOOLONG;
+		return;
 	}
 
 	auth_basic_valid = 1;
-	return 0;
 }
 
 static void
@@ -574,7 +573,7 @@ reset_login_data(void)
 
 	if (auth_nvram_changed) {
 		auth_nvram_changed = 0;
-		(void)load_nvram_auth();
+		load_nvram_auth();
 	}
 }
 
@@ -1479,7 +1478,7 @@ main(int argc, char **argv)
 	}
 
 	reset_login_data();
-	(void)load_nvram_auth();
+	load_nvram_auth();
 
 	chdir("/www");
 
