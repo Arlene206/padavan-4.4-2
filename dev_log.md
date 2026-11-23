@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Fail closed on MTK PHY power-control MDIO errors
+
+- Found a second unchecked PHY control path in `esw_port_phy_power()`: a failed read of control register 0 left the local word at `0x3100`, so the function inferred a powered-on state incorrectly as powered-off. For a requested power-off this could return “unchanged” and omit the WAN link-down settle delay. The function also ignored failed writes and updated its cached selector anyway.
+- Added an injectable power-control policy that requires a successful register read, propagates read/write errors, and publishes the changed flag/cache only after any required write succeeds. The WAN/LAN power helper now separates status from the changed flag. Bridge mode transitions abort before VLAN/bridge mutation on a failed power-down, attempt to restore ports that may have changed, and propagate power-down, isolation or power-up failure through the ioctl return. On any error the requested bridge selectors are restored for retry; already applied hardware effects are not claimed to have been rolled back.
+- Added GNU89 ASan/UBSan cases for power-up/down bit programming, no-op/forced operation, read/write timeouts, positive status normalization and invalid callback arguments. Switch CLI source contracts now cover the bridge power sequencing and return path.
+- Source commit pending; the previous MAC-table source commit `149f6b4a5b170a17a7427abee4ae49311d681614` passed the new source/test stage after checker correction in `c919d6e07c3f6ea5efa916f73a0afe6cfc156d38`. Exact-SHA XY-C1 Build/TRX/artifact and NVRAM runs for `149f6b4` were still pending at the last poll. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 UTC — Correct MAC-table source-contract function slicing
 
 - The MTK MAC-table policy and its six GNU89 sanitizer regression cases compiled and passed on exact source commit `149f6b4a5b170a17a7427abee4ae49311d681614`. The Switch CLI job then failed in the added Python source-contract stage, not in C compilation or the regression executable: the script attempted to split on a Python string containing a literal backslash-n instead of the C source newline, causing an `IndexError`.

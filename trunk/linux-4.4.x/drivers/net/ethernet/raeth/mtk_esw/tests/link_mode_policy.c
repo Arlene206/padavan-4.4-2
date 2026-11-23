@@ -125,6 +125,14 @@ program_fake(struct fake_mdio *fake, unsigned int advertisement,
 					&fake_ops, fake);
 }
 
+static int
+power_fake(struct fake_mdio *fake, int power_on, int force,
+	   int enable_autoneg, int *power_changed)
+{
+	return mtk_esw_phy_power_set(3U, power_on, force, enable_autoneg,
+				     &fake_ops, fake, power_changed);
+}
+
 static void
 test_autoneg_register_sequence_and_cache_ready_result(void)
 {
@@ -247,6 +255,102 @@ test_invalid_io_and_boolean_arguments_are_rejected(void)
 	assert(fake.event_count == 0U && fake.mdio_calls == 0U);
 }
 
+
+
+static void
+test_phy_power_set_reads_and_writes_before_reporting_change(void)
+{
+	struct fake_mdio fake;
+	int changed = 0;
+
+	fake_init(&fake);
+	fake.read_value = 0x3100U; /* currently powered on */
+	assert(power_fake(&fake, 0, 0, 1, &changed) == 0);
+	assert(changed == 1 && fake.mdio_calls == 2U && fake.event_count == 2U);
+	assert(fake.events[0].type == FAKE_READ &&
+	       fake.events[0].reg == MTK_ESW_LINK_MODE_REG_CONTROL);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].value == 0x3900U);
+
+	fake_init(&fake);
+	fake.read_value = 0x3900U; /* currently powered down */
+	changed = 0;
+	assert(power_fake(&fake, 1, 0, 1, &changed) == 0);
+	assert(changed == 1 && fake.mdio_calls == 2U && fake.event_count == 2U);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].value == 0x3300U);
+}
+
+static void
+test_phy_power_set_skips_unchanged_state_but_honors_force(void)
+{
+	struct fake_mdio fake;
+	int changed = 1;
+
+	fake_init(&fake);
+	fake.read_value = 0x3100U;
+	assert(power_fake(&fake, 1, 0, 1, &changed) == 0);
+	assert(changed == 0 && fake.mdio_calls == 1U && fake.event_count == 1U);
+
+	fake_init(&fake);
+	fake.read_value = 0x3100U;
+	assert(power_fake(&fake, 1, 1, 1, &changed) == 0);
+	assert(changed == 0 && fake.mdio_calls == 2U && fake.event_count == 2U);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].value == 0x3300U);
+}
+
+static void
+test_phy_power_set_read_and_write_errors_are_propagated(void)
+{
+	struct fake_mdio fake;
+	int changed = 1;
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = -ETIMEDOUT;
+	assert(power_fake(&fake, 1, 0, 1, &changed) == -ETIMEDOUT);
+	assert(changed == 0 && fake.mdio_calls == 1U && fake.event_count == 1U);
+
+	fake_init(&fake);
+	fake.read_value = 0x3100U;
+	fake.fail_at = 1;
+	fake.fail_status = -EIO;
+	assert(power_fake(&fake, 0, 0, 1, &changed) == -EIO);
+	assert(changed == 0 && fake.mdio_calls == 2U && fake.event_count == 2U);
+}
+
+static void
+test_phy_power_set_normalizes_positive_callback_failure(void)
+{
+	struct fake_mdio fake;
+	int changed = 0;
+
+	fake_init(&fake);
+	fake.read_value = 0x3100U;
+	fake.fail_at = 1;
+	fake.fail_status = 1;
+	assert(power_fake(&fake, 0, 0, 1, &changed) == -EIO);
+	assert(changed == 0 && fake.mdio_calls == 2U);
+}
+
+static void
+test_phy_power_set_rejects_invalid_inputs(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_write = fake_ops;
+	int changed = 1;
+
+	fake_init(&fake);
+	assert(mtk_esw_phy_power_set(3U, 1, 0, 1, NULL, &fake, &changed) == -EINVAL);
+	assert(power_fake(&fake, 2, 0, 1, &changed) == -EINVAL);
+	assert(power_fake(&fake, 1, -1, 1, &changed) == -EINVAL);
+	assert(power_fake(&fake, 1, 0, 2, &changed) == -EINVAL);
+	missing_write.write = NULL;
+	assert(mtk_esw_phy_power_set(3U, 1, 0, 1, &missing_write,
+				     &fake, &changed) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
 
 static void
 test_mac_table_clear_waits_for_confirmed_idle_state(void)
@@ -378,6 +482,11 @@ main(void)
 {
 	test_all_defined_speed_and_flow_modes();
 	test_reserved_speed_flow_and_bits_are_rejected();
+	test_phy_power_set_reads_and_writes_before_reporting_change();
+	test_phy_power_set_skips_unchanged_state_but_honors_force();
+	test_phy_power_set_read_and_write_errors_are_propagated();
+	test_phy_power_set_normalizes_positive_callback_failure();
+	test_phy_power_set_rejects_invalid_inputs();
 	test_mac_table_clear_waits_for_confirmed_idle_state();
 	test_mac_table_clear_preserves_static_only_command();
 	test_mac_table_clear_aborts_when_command_write_fails();

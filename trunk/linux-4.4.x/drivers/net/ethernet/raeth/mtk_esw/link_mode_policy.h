@@ -163,4 +163,52 @@ mtk_esw_mac_table_clear(int static_only,
 	return -ETIMEDOUT;
 }
 
+
+/*
+ * Change PHY power only after a successful control-register read. A failed
+ * write is returned to the caller and must not be recorded as applied state.
+ */
+static inline int
+mtk_esw_phy_power_set(unsigned int phy_addr, int power_on, int force,
+		      int enable_autoneg, const struct mtk_esw_link_mode_io *io,
+		      void *context, int *power_changed)
+{
+	unsigned int control = 0;
+	int was_powered_on;
+	int status;
+
+	if (!power_changed || !io || !io->read || !io->write ||
+	    (power_on != 0 && power_on != 1) ||
+	    (force != 0 && force != 1) ||
+	    (enable_autoneg != 0 && enable_autoneg != 1))
+		return -EINVAL;
+
+	*power_changed = 0;
+	status = io->read(context, phy_addr, MTK_ESW_LINK_MODE_REG_CONTROL,
+			  &control);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	was_powered_on = !(control & MTK_ESW_LINK_MODE_POWER_DOWN);
+	control &= ~(MTK_ESW_LINK_MODE_POWER_DOWN |
+		     MTK_ESW_LINK_MODE_AUTONEG_RESTART);
+	if (enable_autoneg)
+		control |= MTK_ESW_LINK_MODE_AUTONEG_ENABLE;
+
+	if (power_on)
+		control |= MTK_ESW_LINK_MODE_AUTONEG_RESTART;
+	else
+		control |= MTK_ESW_LINK_MODE_POWER_DOWN;
+
+	if (force || was_powered_on != power_on) {
+		status = io->write(context, phy_addr,
+				   MTK_ESW_LINK_MODE_REG_CONTROL, control);
+		if (status != 0)
+			return mtk_esw_link_mode_io_error(status);
+	}
+
+	*power_changed = (was_powered_on != power_on);
+	return 0;
+}
+
 #endif /* MTK_ESW_LINK_MODE_POLICY_H */

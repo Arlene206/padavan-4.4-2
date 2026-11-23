@@ -1073,14 +1073,18 @@ static void esw_mac_to_phy_enable(void)
 	}
 }
 
-static int esw_port_phy_power(u32 phy_port_id, u32 power_on, int is_force)
+static int esw_port_phy_power(u32 phy_port_id, u32 power_on, int is_force,
+			      int *power_changed)
 {
-	u32 esw_phy_mcr = 0x3100;
 	u32 phy_mdio_addr = phy_port_id;
-	u32 i_port_speed, is_power_on;
+	u32 i_port_speed;
+	int status;
 
+	if (!power_changed)
+		return -EINVAL;
+	*power_changed = 0;
 	if (phy_port_id > ESW_EPHY_ID_MAX)
-		return 0;
+		return -EINVAL;
 
 	/* external GigaPHY */
 #if defined (CONFIG_P4_MAC_TO_PHY_MODE)
@@ -1099,28 +1103,17 @@ static int esw_port_phy_power(u32 phy_port_id, u32 power_on, int is_force)
 	if (i_port_speed == SWAPI_LINK_SPEED_MODE_FORCE_POWER_OFF)
 		power_on = 0;
 
-	is_power_on = 0;
-	if (mii_mgr_read(phy_mdio_addr, 0, &esw_phy_mcr)) {
-		is_power_on = (esw_phy_mcr & (1<<11)) ? 0 : 1;
-		esw_phy_mcr &= ~((1<<11)|(1<<9));
-		
-		/* fix PHY init after buggy Uboot 4.3.0.0 */
-		if (i_port_speed < SWAPI_LINK_SPEED_MODE_FORCE_100_FD)
-			esw_phy_mcr |= (1<<12);
-		
-		if (power_on)
-			esw_phy_mcr |= (1<<9);
-		else
-			esw_phy_mcr |= (1<<11);
-		
-		if (is_force || (is_power_on ^ power_on))
-			mii_mgr_write(phy_mdio_addr, 0, esw_phy_mcr);
+	status = mtk_esw_phy_power_set(phy_mdio_addr, !!power_on, !!is_force,
+				       (i_port_speed < SWAPI_LINK_SPEED_MODE_FORCE_100_FD),
+				       &mtk_esw_link_mode_io, NULL, power_changed);
+	if (status != 0) {
+		printk("%s: PHY %u power change failed (status=%d)\n",
+		       __FUNCTION__, phy_port_id, status);
+		return status;
 	}
 
-	g_port_phy_power[phy_port_id] = (power_on) ? 1 : 0;
-
-	/* return 1 when PHY power is changed */
-	return (is_power_on ^ power_on) ? 1 : 0;
+	g_port_phy_power[phy_port_id] = power_on ? 1 : 0;
+	return 0;
 }
 
 static void esw_storm_control(u32 port_id, int set_bcast, int set_mcast, int set_ucast, u32 rate_mbps)
@@ -1365,20 +1358,30 @@ static int esw_status_bytes_port_uapi(u32 port_id_uapi, port_bytes_t *pb)
 
 static void change_ports_power(u32 power_on, u32 ports_mask)
 {
+	int status, power_changed;
 	u32 i;
 
 	ports_mask = get_ports_mask_from_uapi(ports_mask, 1);
 
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-		if ((ports_mask >> i) & 0x1)
-			esw_port_phy_power(i, power_on, 0);
+		if ((ports_mask >> i) & 0x1) {
+			status = esw_port_phy_power(i, power_on, 0, &power_changed);
+			if (status != 0)
+				printk("%s: PHY %u power request failed (status=%d)\n",
+				       __FUNCTION__, i, status);
+		}
 	}
 }
 
-static int change_wan_lan_ports_power(u32 power_on, u32 is_wan)
+static int change_wan_lan_ports_power(u32 power_on, u32 is_wan,
+				       int *any_power_changed)
 {
-	int power_changed = 0;
+	int status, port_power_changed;
 	u32 i, ports_mask;
+
+	if (!any_power_changed)
+		return -EINVAL;
+	*any_power_changed = 0;
 
 	if (is_wan)
 		ports_mask = get_ports_mask_wan(0, 1);
@@ -1386,17 +1389,22 @@ static int change_wan_lan_ports_power(u32 power_on, u32 is_wan)
 		ports_mask = get_ports_mask_lan(0, 1);
 
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-		if ((ports_mask >> i) & 0x1)
-			power_changed |= esw_port_phy_power(i, power_on, 0);
+		if (!((ports_mask >> i) & 0x1))
+			continue;
+
+		status = esw_port_phy_power(i, power_on, 0, &port_power_changed);
+		if (status != 0)
+			return status;
+		*any_power_changed |= port_power_changed;
 	}
 
-	return power_changed;
+	return 0;
 }
 
 static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 {
 	int i, bridge_changed, br_iso_changed, vlan_rule_changed, power_changed;
-	int isolation_status;
+	int isolation_status, power_status = 0, restore_status, restore_changed = 0;
 	u32 previous_bridge_mode = g_wan_bridge_mode;
 	u32 previous_bwan_isolation = g_wan_bwan_isolation;
 
@@ -1428,22 +1436,33 @@ static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 
 	power_changed = 0;
 	if (bridge_changed || vlan_rule_changed) {
-		power_changed = change_wan_lan_ports_power(0, 1);
-		if (power_changed) {
-			// wait for PHY link down
+		power_status = change_wan_lan_ports_power(0, 1, &power_changed);
+		if (power_status == 0 && power_changed) {
+			/* Wait for the successfully powered-down PHY links. */
 			msleep(500);
 		}
 	}
 
-	if (bridge_changed || br_iso_changed)
-		esw_mask_bridge_isolate(wan_bridge_mode, wan_bwan_isolation);
+	if (power_status == 0) {
+		if (bridge_changed || br_iso_changed)
+			esw_mask_bridge_isolate(wan_bridge_mode, wan_bwan_isolation);
 
-	isolation_status = esw_vlan_bridge_isolate(wan_bridge_mode, wan_bwan_isolation,
-					   bridge_changed, br_iso_changed,
-					   vlan_rule_changed);
+		isolation_status = esw_vlan_bridge_isolate(
+			wan_bridge_mode, wan_bwan_isolation, bridge_changed,
+			br_iso_changed, vlan_rule_changed);
+	} else {
+		isolation_status = power_status;
+	}
 
-	if (power_changed)
-		change_wan_lan_ports_power(1, 1);
+	/* A failed write may have reached the PHY before its MDIO timeout. */
+	if (power_changed || power_status != 0) {
+		restore_status = change_wan_lan_ports_power(1, 1, &restore_changed);
+		if (isolation_status == 0 && restore_status != 0)
+			isolation_status = restore_status;
+		else if (restore_status != 0)
+			printk("%s: PHY power restore failed (status=%d)\n",
+			       __FUNCTION__, restore_status);
+	}
 
 	if (isolation_status != 0) {
 		/* Leave the requested transition retryable after partial HW updates. */
