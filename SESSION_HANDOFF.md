@@ -1,5 +1,21 @@
 # SESSION HANDOFF — Padavan 4.4
 
+## 2026-11-22 implementation checkpoint
+
+- Source checkpoint before this handoff update: `3a2c51ff5cd05110da6e0edc568799dd1e88c2e4` (branch `main`). Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; this session did not modify it.
+- This session continued the libdisk account-management stability slice and made these changes on main:
+  - Reworked `mod_account()` so all volume metadata paths are preflighted and renamed as a compensating batch before NVRAM account identity/password publication; attempted writes are restored on ambiguous setter/commit failures, and filesystem moves are rolled back when publication fails. Regression coverage includes partial rename rollback and failed compensation.
+  - Reworked `add_account()` to preflight the complete storage inventory and permission-file destinations, create volume metadata before publishing the account in NVRAM, snapshot tail keys, and compensate created files / NVRAM values on failure.
+  - Added `nvram_transaction_commit()`, which commits through `nvram_commit_unlocked()` while the existing exclusive transaction lease is held.
+  - Reworked `del_account()` to validate a complete storage inventory before mutation and compact usernames/passwords plus last-account modes in one exclusive NVRAM transaction. It revalidates the account snapshot, snapshots overwritten password/mode values, checks every setter and commit, and restores the prior state after setter/commit failures. Regression cases cover stale inventory, missing passwords, setter/commit failure, rollback failure, manual-commit mode, and last-account mode rollback.
+- Exact-SHA Actions observed for current source checkpoint:
+  - Process lifecycle inventory - 3a2c51ff5cd05110da6e0edc568799dd1e88c2e4 #45097953532: in_progress (head 3a2c51ff5cd05110da6e0edc568799dd1e88c2e4)
+  - libdisk share-list output safety #45097953581: in_progress (head 3a2c51ff5cd05110da6e0edc568799dd1e88c2e4)
+  - NVRAM transaction boundary audit #45097953535: in_progress (head 3a2c51ff5cd05110da6e0edc568799dd1e88c2e4)
+- Local firmware compilation was not independently run in this environment. Treat the GNU89 sanitizer regressions, NVRAM transaction-boundary audit, HTTPD/Samba checks, and XY-C1 firmware/TRX/artifact workflow as unverified unless an exact-head run above shows `completed / success`.
+- First action for the next GPT: poll the exact source checkpoint SHA `3a2c51ff5cd05110da6e0edc568799dd1e88c2e4` for all jobs; inspect and fix any failed GNU89/libdisk, NVRAM transaction-boundary, HTTPD/Samba, or XY-C1 build/TRX/artifact step. Do not restart completed work or touch the frozen backup branch. Then continue with checked/compensating NVRAM writes in the remaining account-management paths and keep this handoff current.
+
+
 # Cross-session execution mandate
 
 This repository is one continuous engineering project across GPT conversations. Take over from the live `main` tree and the exact handoff checkpoint; do not repeat completed audits or ask the user to choose the next task.
