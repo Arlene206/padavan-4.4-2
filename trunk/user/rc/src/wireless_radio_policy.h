@@ -132,30 +132,39 @@ wireless_radio_status_success(int operation_status)
 }
 
 typedef struct wireless_radio_state_ops {
+	int (*get_power)(void *context, int *is_on);
 	int (*set_power)(void *context, int is_on);
 	int (*publish_state)(void *context, int is_on);
 } wireless_radio_state_ops_t;
 
 /*
- * Couple a runtime radio power change to publishing its MLME state. On either
- * failure, best-effort restore the opposite power state and preserve the
- * original error; rollback_status reports a failed compensation separately.
+ * Couple a runtime radio power change to publishing its MLME state. Snapshot
+ * the prior state before touching hardware. On a power or publication error,
+ * restore that exact state (not simply the inverse of the requested state)
+ * and preserve the original error; rollback_status reports compensation
+ * failure separately.
  */
 static inline int
 wireless_radio_state_transition(int is_on, const wireless_radio_state_ops_t *ops,
 				void *context, int *rollback_status)
 {
 	int target_on = !!is_on;
+	int previous_on = 0;
 	int status;
 
 	if (rollback_status)
 		*rollback_status = 0;
-	if (!ops || !ops->set_power || !ops->publish_state)
+	if (!ops || !ops->get_power || !ops->set_power || !ops->publish_state)
 		return EINVAL;
+
+	status = ops->get_power(context, &previous_on);
+	if (status != 0)
+		return status;
+	previous_on = !!previous_on;
 
 	status = ops->set_power(context, target_on);
 	if (status != 0) {
-		int cleanup_status = ops->set_power(context, !target_on);
+		int cleanup_status = ops->set_power(context, previous_on);
 
 		if (rollback_status)
 			*rollback_status = cleanup_status;
@@ -164,7 +173,7 @@ wireless_radio_state_transition(int is_on, const wireless_radio_state_ops_t *ops
 
 	status = ops->publish_state(context, target_on);
 	if (status != 0) {
-		int cleanup_status = ops->set_power(context, !target_on);
+		int cleanup_status = ops->set_power(context, previous_on);
 
 		if (rollback_status)
 			*rollback_status = cleanup_status;

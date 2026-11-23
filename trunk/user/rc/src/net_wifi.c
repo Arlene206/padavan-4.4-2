@@ -352,8 +352,37 @@ mlme_state_rt(int is_on)
 typedef struct wireless_mlme_radio_context {
 	const char *ifname;
 	const char *band_name;
+	const char *state_name;
 	int (*publish_state)(int is_on);
 } wireless_mlme_radio_context_t;
+
+static int
+wireless_mlme_radio_get_power(void *opaque, int *is_on)
+{
+	wireless_mlme_radio_context_t *context =
+		(wireless_mlme_radio_context_t *)opaque;
+	char *state_value = NULL;
+	int api_result, saved_errno, status, enabled = 0;
+
+	if (!is_on || !context->state_name)
+		return EINVAL;
+
+	/* The state cache is the same source used by is_radio_on_*(). */
+	errno = 0;
+	api_result = nvram_get_checked(context->state_name, &state_value);
+	saved_errno = errno;
+	status = wireless_radio_nvram_flag_status(
+		api_result, saved_errno, state_value, &enabled);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot %s MLME radio state (status=%d)",
+			   context->band_name, status);
+		return status;
+	}
+
+	*is_on = enabled;
+	return 0;
+}
 
 static int
 wireless_mlme_radio_set_power(void *opaque, int is_on)
@@ -388,6 +417,7 @@ wireless_mlme_radio_publish_state(void *opaque, int is_on)
 }
 
 static const wireless_radio_state_ops_t wireless_mlme_radio_ops = {
+	wireless_mlme_radio_get_power,
 	wireless_mlme_radio_set_power,
 	wireless_mlme_radio_publish_state
 };
@@ -428,6 +458,7 @@ mlme_radio_wl_apply(int is_on)
 	context.ifname = NULL;
 #endif
 	context.band_name = "5GHz";
+	context.state_name = "mlme_radio_wl";
 	context.publish_state = mlme_state_wl;
 	return wireless_mlme_radio_apply(&context, LED_SW5G, is_on);
 }
@@ -547,6 +578,7 @@ mlme_radio_rt_apply(int is_on)
 #else
 	context.ifname = wifname;
 	context.band_name = "2.4GHz";
+	context.state_name = "mlme_radio_rt";
 	context.publish_state = mlme_state_rt;
 	return wireless_mlme_radio_apply(&context, LED_SW2G, is_on);
 #endif

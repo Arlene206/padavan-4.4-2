@@ -1,3 +1,12 @@
+## 2026-11-23 07:25 UTC — Restore exact previous wireless radio state on rollback
+
+- Reviewing the new MLME power/publish helper exposed a state-restoration bug: it compensated with `!target_on`, which is not necessarily the previous state. If the radio was already ON and an ON-to-ON request failed while publishing NVRAM state, the rollback would turn the radio OFF.
+- Added a `get_power` callback that reads the existing `mlme_radio_wl/rt` state using `nvram_get_checked()` and the strict wireless flag parser before any hardware change. A read/parse failure aborts the transition with no driver command. A later power or publication failure restores the exact cached prior state, not the inverse of the target.
+- Added callback regressions for preflight read ordering, prior-ON restoration after a failed OFF transition, already-ON same-state publication failure, prior-OFF restoration after a failed power command, and read failure with zero hardware side effects. Extended the existing Wireless workflow's source contract; path filters already include the affected files.
+- Parent `main`: `6e4c7f27cfad65fe437e88055e4f774d068ba437`. Its Firewall Startup/HTTPD/Process/USB modem/XY-C1 jobs were queued or running at last poll after the HW NAT contract correction. No local checkout, local test or firmware build is claimed; this source slice needs its own exact-head Actions.
+- Resulting source/test/workflow/governance change: THIS COMMIT.
+
+---
 ## 2026-11-23 07:20 UTC — Fix stale HW NAT selector assertions in shared CI contracts
 
 - Exact `6deab04...` Actions showed several unrelated-looking workflow failures sharing one cause: `scripts/check_modem_wan_start_status.py` still expected `nvram_get_int("hw_nat_mode")` in `reload_nat_modules()`, although the source had moved to the checked `rc_nat_offload_settings_read()` snapshot and a local `hw_nat_mode` value. Firewall Startup, XY-C1, Process fail-closed and USB modem identity all stopped at that assertion.

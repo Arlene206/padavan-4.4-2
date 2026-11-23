@@ -189,11 +189,13 @@ jobs:
 
           wl = function_body(source, "mlme_radio_wl_apply(int is_on)")
           assert "context.publish_state = mlme_state_wl;" in wl
+          assert 'context.state_name = "mlme_radio_wl";' in wl
           assert "wireless_mlme_radio_apply(&context, LED_SW5G, is_on)" in wl
           rt = function_body(source, "mlme_radio_rt_apply(int is_on)")
           assert "if (!wifname)" in rt
           assert "wireless_inic_radio_transition(is_on, &wireless_inic_radio_ops, &context)" in rt
           assert "context.publish_state = mlme_state_rt;" in rt
+          assert 'context.state_name = "mlme_radio_rt";' in rt
           assert "wireless_mlme_radio_apply(&context, LED_SW2G, is_on)" in rt
           assert rt.index("if (!wifname)") < rt.index("wireless_inic_radio_transition(") < rt.index("return 1;")
 
@@ -201,6 +203,12 @@ jobs:
               source, "wireless_mlme_radio_apply(wireless_mlme_radio_context_t *context,")
           assert "wireless_radio_state_transition(" in radio_apply
           assert radio_apply.index("if (status != 0)") < radio_apply.index("LED_CONTROL(")
+          reader = function_body(source, "wireless_mlme_radio_get_power(void *opaque, int *is_on)")
+          assert "nvram_get_checked(context->state_name, &state_value)" in reader
+          assert "wireless_radio_nvram_flag_status(" in reader
+          assert "get_power" in policy and "ops->get_power(context, &previous_on)" in policy
+          assert "ops->set_power(context, previous_on)" in policy
+          assert "ops->set_power(context, !target_on)" not in policy
           power = function_body(source, "wireless_mlme_radio_set_power(void *opaque, int is_on)")
           assert 'doSystem("iwpriv %s set %s=%d"' in power
           publish_state = function_body(
@@ -212,10 +220,12 @@ jobs:
           assert 'return nvram_set_int("mlme_radio_rt", !!is_on);' in rt_state
           assert "int mlme_state_wl(int is_on);" in header
           assert "int mlme_state_rt(int is_on);" in header
-          assert "test_radio_state_transition_publishes_after_power" in notification_test
-          assert "test_radio_state_transition_rolls_back_publish_failure" in notification_test
+          assert "test_radio_state_transition_reads_state_before_power" in notification_test
+          assert "test_radio_state_transition_restores_previous_power_after_publish_failure" in notification_test
+          assert "test_radio_state_transition_restores_already_on_state_after_publish_failure" in notification_test
           assert "test_radio_state_transition_preserves_primary_and_rollback_errors" in notification_test
-          assert "test_radio_state_transition_rolls_back_power_command_failure" in notification_test
+          assert "test_radio_state_transition_restores_previous_power_after_command_failure" in notification_test
+          assert "test_radio_state_transition_read_failure_prevents_power_change" in notification_test
           mii_helpers = (
               "wireless_inic_radio_set_power(void *opaque, int is_on)",
               "wireless_inic_radio_set_isolation(void *opaque, int isolated)",

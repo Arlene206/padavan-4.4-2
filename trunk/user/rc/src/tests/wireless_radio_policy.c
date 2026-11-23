@@ -21,7 +21,8 @@ test_inic_start_enable_gate_fails_closed(void)
 }
 
 enum wireless_radio_state_test_event {
-	WIRELESS_TEST_POWER_ON = 1,
+	WIRELESS_TEST_READ_STATE = 1,
+	WIRELESS_TEST_POWER_ON,
 	WIRELESS_TEST_POWER_OFF,
 	WIRELESS_TEST_PUBLISH_ON,
 	WIRELESS_TEST_PUBLISH_OFF
@@ -31,9 +32,26 @@ typedef struct wireless_radio_state_test_context {
 	int events[4];
 	int event_count;
 	int power_calls;
+	int read_status;
+	int initial_power;
 	int power_status[2];
 	int publish_status;
 } wireless_radio_state_test_context_t;
+
+static int
+wireless_radio_test_get_power(void *opaque, int *is_on)
+{
+	wireless_radio_state_test_context_t *context =
+		(wireless_radio_state_test_context_t *)opaque;
+
+	if (!is_on || context->event_count >= 4)
+		return EINVAL;
+	context->events[context->event_count++] = WIRELESS_TEST_READ_STATE;
+	if (context->read_status != 0)
+		return context->read_status;
+	*is_on = context->initial_power;
+	return 0;
+}
 
 static int
 wireless_radio_test_set_power(void *opaque, int is_on)
@@ -63,82 +81,134 @@ wireless_radio_test_publish_state(void *opaque, int is_on)
 }
 
 static const wireless_radio_state_ops_t wireless_radio_test_ops = {
+	wireless_radio_test_get_power,
 	wireless_radio_test_set_power,
 	wireless_radio_test_publish_state
 };
 
 static int
-test_radio_state_transition_publishes_after_power(void)
+test_radio_state_transition_reads_state_before_power(void)
 {
-	wireless_radio_state_test_context_t context = { { 0 }, 0, 0, { 0, 0 }, 0 };
+	wireless_radio_state_test_context_t context = {
+		{ 0 }, 0, 0, 0, 0, { 0, 0 }, 0
+	};
 	int rollback_status = -1;
 
 	if (wireless_radio_state_transition(
 		    1, &wireless_radio_test_ops, &context, &rollback_status) != 0)
 		return 1;
-	return rollback_status != 0 || context.event_count != 2 ||
-	       context.events[0] != WIRELESS_TEST_POWER_ON ||
-	       context.events[1] != WIRELESS_TEST_PUBLISH_ON;
+	return rollback_status != 0 || context.event_count != 3 ||
+	       context.events[0] != WIRELESS_TEST_READ_STATE ||
+	       context.events[1] != WIRELESS_TEST_POWER_ON ||
+	       context.events[2] != WIRELESS_TEST_PUBLISH_ON;
 }
 
 static int
-test_radio_state_transition_rolls_back_publish_failure(void)
+test_radio_state_transition_restores_previous_power_after_publish_failure(void)
 {
-	wireless_radio_state_test_context_t context = { { 0 }, 0, 0, { 0, 0 }, EIO };
+	wireless_radio_state_test_context_t context = {
+		{ 0 }, 0, 0, 0, 1, { 0, 0 }, EIO
+	};
 	int rollback_status = -1;
 
 	if (wireless_radio_state_transition(
 		    0, &wireless_radio_test_ops, &context, &rollback_status) != EIO)
 		return 1;
-	return rollback_status != 0 || context.event_count != 3 ||
-	       context.events[0] != WIRELESS_TEST_POWER_OFF ||
-	       context.events[1] != WIRELESS_TEST_PUBLISH_OFF ||
-	       context.events[2] != WIRELESS_TEST_POWER_ON;
+	return rollback_status != 0 || context.event_count != 4 ||
+	       context.events[0] != WIRELESS_TEST_READ_STATE ||
+	       context.events[1] != WIRELESS_TEST_POWER_OFF ||
+	       context.events[2] != WIRELESS_TEST_PUBLISH_OFF ||
+	       context.events[3] != WIRELESS_TEST_POWER_ON;
+}
+
+static int
+test_radio_state_transition_restores_already_on_state_after_publish_failure(void)
+{
+	wireless_radio_state_test_context_t context = {
+		{ 0 }, 0, 0, 0, 1, { 0, 0 }, EACCES
+	};
+	int rollback_status = -1;
+
+	if (wireless_radio_state_transition(
+		    1, &wireless_radio_test_ops, &context, &rollback_status) != EACCES)
+		return 1;
+	return rollback_status != 0 || context.event_count != 4 ||
+	       context.events[0] != WIRELESS_TEST_READ_STATE ||
+	       context.events[1] != WIRELESS_TEST_POWER_ON ||
+	       context.events[2] != WIRELESS_TEST_PUBLISH_ON ||
+	       context.events[3] != WIRELESS_TEST_POWER_ON;
 }
 
 static int
 test_radio_state_transition_preserves_primary_and_rollback_errors(void)
 {
 	wireless_radio_state_test_context_t context = {
-		{ 0 }, 0, 0, { 0, EBUSY }, EACCES
+		{ 0 }, 0, 0, 0, 0, { 0, EBUSY }, EACCES
 	};
 	int rollback_status = 0;
 
 	if (wireless_radio_state_transition(
 		    1, &wireless_radio_test_ops, &context, &rollback_status) != EACCES)
 		return 1;
-	return rollback_status != EBUSY || context.event_count != 3 ||
-	       context.events[0] != WIRELESS_TEST_POWER_ON ||
-	       context.events[1] != WIRELESS_TEST_PUBLISH_ON ||
-	       context.events[2] != WIRELESS_TEST_POWER_OFF;
+	return rollback_status != EBUSY || context.event_count != 4 ||
+	       context.events[0] != WIRELESS_TEST_READ_STATE ||
+	       context.events[1] != WIRELESS_TEST_POWER_ON ||
+	       context.events[2] != WIRELESS_TEST_PUBLISH_ON ||
+	       context.events[3] != WIRELESS_TEST_POWER_OFF;
 }
 
 static int
-test_radio_state_transition_rolls_back_power_command_failure(void)
+test_radio_state_transition_restores_previous_power_after_command_failure(void)
 {
 	wireless_radio_state_test_context_t context = {
-		{ 0 }, 0, 0, { ENODEV, 0 }, 0
+		{ 0 }, 0, 0, 0, 0, { ENODEV, 0 }, 0
 	};
 	int rollback_status = -1;
 
 	if (wireless_radio_state_transition(
 		    1, &wireless_radio_test_ops, &context, &rollback_status) != ENODEV)
 		return 1;
-	return rollback_status != 0 || context.event_count != 2 ||
-	       context.events[0] != WIRELESS_TEST_POWER_ON ||
-	       context.events[1] != WIRELESS_TEST_POWER_OFF;
+	return rollback_status != 0 || context.event_count != 3 ||
+	       context.events[0] != WIRELESS_TEST_READ_STATE ||
+	       context.events[1] != WIRELESS_TEST_POWER_ON ||
+	       context.events[2] != WIRELESS_TEST_POWER_OFF;
+}
+
+static int
+test_radio_state_transition_read_failure_prevents_power_change(void)
+{
+	wireless_radio_state_test_context_t context = {
+		{ 0 }, 0, 0, EACCES, 1, { 0, 0 }, 0
+	};
+	int rollback_status = -1;
+
+	if (wireless_radio_state_transition(
+		    0, &wireless_radio_test_ops, &context, &rollback_status) != EACCES)
+		return 1;
+	return rollback_status != 0 || context.event_count != 1 ||
+	       context.events[0] != WIRELESS_TEST_READ_STATE ||
+	       context.power_calls != 0;
 }
 
 static int
 test_radio_state_transition_rejects_incomplete_operations(void)
 {
 	wireless_radio_state_ops_t incomplete = {
-		wireless_radio_test_set_power, NULL
+		wireless_radio_test_get_power,
+		wireless_radio_test_set_power,
+		NULL
+	};
+	wireless_radio_state_ops_t missing_reader = {
+		NULL,
+		wireless_radio_test_set_power,
+		wireless_radio_test_publish_state
 	};
 	int rollback_status = 0;
 
 	return wireless_radio_state_transition(
 		       1, &incomplete, NULL, &rollback_status) != EINVAL ||
+	       wireless_radio_state_transition(
+		       1, &missing_reader, NULL, &rollback_status) != EINVAL ||
 	       rollback_status != 0;
 }
 
@@ -572,10 +642,12 @@ test_radio_nvram_flag_status_fails_closed(void)
 int
 main(void)
 {
-	if (test_radio_state_transition_publishes_after_power() ||
-	    test_radio_state_transition_rolls_back_publish_failure() ||
+	if (test_radio_state_transition_reads_state_before_power() ||
+	    test_radio_state_transition_restores_previous_power_after_publish_failure() ||
+	    test_radio_state_transition_restores_already_on_state_after_publish_failure() ||
 	    test_radio_state_transition_preserves_primary_and_rollback_errors() ||
-	    test_radio_state_transition_rolls_back_power_command_failure() ||
+	    test_radio_state_transition_restores_previous_power_after_command_failure() ||
+	    test_radio_state_transition_read_failure_prevents_power_change() ||
 	    test_radio_state_transition_rejects_incomplete_operations() ||
 	    test_radio_nvram_flag_status_fails_closed() ||
 	    test_txpower_nvram_read_status_fails_closed() ||
