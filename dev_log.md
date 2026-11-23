@@ -1,3 +1,11 @@
+## 2026-11-23 12:14 UTC+8 — Align libdisk source contract with folder rename transaction helper
+
+- Exact-head libdisk run `45104677566` on parent `cdc137f84a2d5c704198184d5b014d18b3ffe937` passed both GNU89 ASan/UBSan regression binaries, including the new four-case function-level folder-rename state-machine tests. Its final Python source contract failed with `ValueError: substring not found` because an older assertion still searched `mod_folder()` for the direct `rename(full_path,new_full_path)` call after commit `cdc137f84a2d5c704198184d5b014d18b3ffe937` delegated that operation to `disk_share_folder_rename_batch()`.
+- Updated the stale ordering assertion to locate the transaction-helper call after stale-cache refresh and reject the removed direct-rename form. This is a checker-only correction; no product C source changed. Parent NVRAM and XY-C1 exact-head runs remain in progress at this update; no L3/L4 claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 12:05 UTC+8 — Restore required handoff section heading after documentation CI failure
 
 - Current parent main SHA: `768fc390acf8ada74c935a9096c67308b15937b0`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
