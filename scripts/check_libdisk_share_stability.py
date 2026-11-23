@@ -858,24 +858,25 @@ require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
 del_folder = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
 )
-del_inventory = del_folder.index("get_account_list(&acc_num, &account_list)")
-del_begin = del_folder.index("disk_share_account_nvram_begin(&transaction)", del_inventory)
-del_validate = del_folder.index(
+del_folder_compact = "".join(del_folder.split())
+del_inventory = del_folder_compact.index("get_account_list(&acc_num,&account_list)")
+del_begin = del_folder_compact.index("disk_share_account_nvram_begin(&transaction)", del_inventory)
+del_validate = del_folder_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     del_begin
 )
-del_lookup = del_folder.index("test_if_exist_folder_in_mount_path(mount_path, folder)", del_validate)
-del_error = del_folder.index("if (result < 0)", del_lookup)
-del_remove = del_folder.index("if (rmdir(full_path) != 0)", del_error)
-del_snapshot = del_folder.index("initial_folder_list_in_mount_path(mount_path)", del_remove)
-del_permissions = del_folder.index(
-    "disk_share_update_folder_permission_file(mount_path, account_list[i], target, NULL)",
+del_lookup = del_folder_compact.index("test_if_exist_folder_in_mount_path(mount_path,folder)", del_validate)
+del_error = del_folder_compact.index("if(result<0)", del_lookup)
+del_remove = del_folder_compact.index("if(rmdir(full_path)!=0)", del_error)
+del_snapshot = del_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", del_remove)
+del_permissions = del_folder_compact.index(
+    "disk_share_update_folder_permission_file(mount_path,account_list[i],target,NULL)",
     del_snapshot
 )
-del_end = del_folder.index("disk_share_account_nvram_end(&transaction)", del_permissions)
+del_end = del_folder_compact.index("disk_share_account_nvram_end(&transaction)", del_permissions)
 require(del_inventory < del_begin < del_validate < del_lookup < del_error <
         del_remove < del_snapshot < del_permissions < del_end and
-        "get_account_list(" not in del_folder[del_begin:],
+        "get_account_list(" not in del_folder_compact[del_begin:],
         "folder deletion must revalidate its account snapshot under one writer lease and hold it through directory and per-account permission cleanup")
 
 for signature, expected_update in (
