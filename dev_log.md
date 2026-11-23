@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — SCUT watchdog checks NVRAM read status
+
+- `scutclient_watchcat.sh` used legacy `nvram get` for its enable, auth-flag and force-reauth selectors. An NVRAM backend fault therefore looked like an empty value: the watchdog could silently skip health monitoring, while a failed `scutclient_wdg_force` read before 06:00 looked "not 0" and could trigger repeated unnecessary client restarts.
+- The watchdog now uses `nvram get_checked` and preserves the empty legacy defaults (watchcat/client/auth-flag disabled; empty force-reauth remains enabled). Read errors and unsupported UI boolean values abort the watchdog action, remove only its own PID file and preserve the client; no speculative re-auth occurs on a failed policy read.
+- Expanded the existing POSIX shell lifecycle regression with injected errors for all four read positions, invalid selector values, the legacy empty-force behavior, and the explicit force-off case. The existing SCUT watchdog Actions workflow runs syntax, PID identity/race tests and the source contract. No local execution or router validation is claimed.
+
+---
+
 ## 2026-11-23 UTC — Make the SFE configuration policy reject unknown modes
 
 - Follow-up hardening after the NVRAM snapshot validation: `rc_sfe_configure_policy()` itself treated every value except 1 and 2 as a successful no-op. Although the startup snapshot now rejects values outside 0/1/2, a future direct caller could still pass 3 or -1 and report success while leaving a requested SFE configuration unapplied.

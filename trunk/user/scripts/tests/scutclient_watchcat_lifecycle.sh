@@ -21,7 +21,35 @@ printf '%s\n' "$*" >> "$NVRAM_LOG"
 if [ "${REPLACE_PIDFILE_ON_NVRAM:-0}" = "1" ]; then
 	printf '%s\n' 7777 > "$SCUTCLIENT_WATCHCAT_PIDFILE"
 fi
-printf '0\n'
+[ "$1" = "get_checked" ] && [ "$#" -eq 2 ] || exit 2
+[ "${NVRAM_FAIL_KEY:-}" != "$2" ] || exit "${NVRAM_FAIL_STATUS:-75}"
+case "$2" in
+	scutclient_watchcat) printf '%s\n' "${WATCHCAT_ENABLED:-0}" ;;
+	scutclient_enable) printf '%s\n' "${SCUTCLIENT_ENABLED:-0}" ;;
+	scutclient_wdg_flag) printf '%s\n' "${WATCHCAT_FLAG_ENABLED:-0}" ;;
+	scutclient_wdg_force) printf '%s\n' "${WATCHCAT_FORCE:-1}" ;;
+	*) exit 2 ;;
+esac
+MOCK
+cat > "$TEST_BIN/logger" <<'MOCK'
+#!/bin/sh
+printf '%s\n' "$*" >> "$LOG_LOG"
+MOCK
+cat > "$TEST_BIN/date" <<'MOCK'
+#!/bin/sh
+case "$1" in
+	+%H) printf '%s\n' "${WATCHCAT_HOUR:-12}" ;;
+	+%Y) printf '%s\n' "${WATCHCAT_YEAR:-2026}" ;;
+	*) exit 1 ;;
+esac
+MOCK
+cat > "$TEST_BIN/mtk_esw" <<'MOCK'
+#!/bin/sh
+printf 'WAN ports link state: 1\n'
+MOCK
+cat > "$TEST_BIN/scutclient.sh" <<'MOCK'
+#!/bin/sh
+printf '%s\n' "$*" >> "$CLIENT_LOG"
 MOCK
 cat > "$TEST_BIN/kill" <<'MOCK'
 #!/bin/sh
@@ -43,7 +71,25 @@ chmod 755 "$TEST_BIN/"*
 export PATH="$TEST_BIN:$PATH"
 export SCUTCLIENT_WATCHCAT_PIDFILE="$PIDFILE"
 export SCUTCLIENT_WATCHCAT_PROC_ROOT="$PROC_ROOT"
-export NVRAM_LOG KILL_LOG RM_BLOCKED
+LOG_LOG="$TEST_TMP/logger.log"
+CLIENT_LOG="$TEST_TMP/client.log"
+AUTH_FLAG="$TEST_TMP/auth.flag"
+: > "$LOG_LOG"
+: > "$CLIENT_LOG"
+printf '1\n' > "$AUTH_FLAG"
+export LOG_LOG CLIENT_LOG
+export SCUTCLIENT_WATCHCAT_AUTH_FLAG="$AUTH_FLAG"
+export SCUTCLIENT_WATCHCAT_CLIENT_BIN="$TEST_BIN/scutclient.sh"
+WATCHCAT_ENABLED=0
+SCUTCLIENT_ENABLED=0
+WATCHCAT_FLAG_ENABLED=0
+WATCHCAT_FORCE=1
+NVRAM_FAIL_KEY=
+NVRAM_FAIL_STATUS=75
+WATCHCAT_HOUR=12
+WATCHCAT_YEAR=2026
+export WATCHCAT_ENABLED SCUTCLIENT_ENABLED WATCHCAT_FLAG_ENABLED WATCHCAT_FORCE
+export NVRAM_FAIL_KEY NVRAM_FAIL_STATUS WATCHCAT_HOUR WATCHCAT_YEAR
 
 command -v flock >/dev/null 2>&1 || {
 	echo "host flock utility is required for the kernel-lock regression" >&2; exit 1;
@@ -186,4 +232,104 @@ run_watchcat 0
 }
 unset REPLACE_PIDFILE_ON_NVRAM
 
-echo "SCUT watchdog PID identity, serialized stale-PID reclaim and fail-closed lock regression: PASS"
+reset_watchcat_case()
+{
+	WATCHCAT_ENABLED=0
+	SCUTCLIENT_ENABLED=0
+	WATCHCAT_FLAG_ENABLED=0
+	WATCHCAT_FORCE=1
+	NVRAM_FAIL_KEY=
+	NVRAM_FAIL_STATUS=75
+	WATCHCAT_HOUR=12
+	WATCHCAT_YEAR=2026
+	unset REPLACE_PIDFILE_ON_NVRAM BLOCK_FIRST_RM
+	rm -f "$PIDFILE" "$RM_BLOCKED"
+	: > "$NVRAM_LOG"
+	: > "$KILL_LOG"
+	: > "$LOG_LOG"
+	: > "$CLIENT_LOG"
+}
+
+# Each watchdog control read must distinguish an NVRAM backend fault from
+# an empty/missing legacy value and abort without restarting the client.
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+NVRAM_FAIL_KEY=scutclient_watchcat
+run_watchcat 75
+[ "$(wc -l < "$NVRAM_LOG")" -eq 1 ] && [ ! -e "$PIDFILE" ] && [ ! -s "$CLIENT_LOG" ] || {
+	echo "watchdog-enable NVRAM error was not propagated safely" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+NVRAM_FAIL_KEY=scutclient_enable
+run_watchcat 75
+[ "$(wc -l < "$NVRAM_LOG")" -eq 2 ] && [ ! -e "$PIDFILE" ] && [ ! -s "$CLIENT_LOG" ] || {
+	echo "SCUTClient-enable NVRAM error was not propagated safely" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+NVRAM_FAIL_KEY=scutclient_wdg_flag
+run_watchcat 75
+[ "$(wc -l < "$NVRAM_LOG")" -eq 3 ] && [ ! -e "$PIDFILE" ] && [ ! -s "$CLIENT_LOG" ] || {
+	echo "watchdog auth-flag NVRAM error was not propagated safely" >&2; exit 1;
+}
+
+# A failed/invalid force-policy read must never cause a speculative restart
+# during the pre-06:00 path. The existing empty-value default still forces it.
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+WATCHCAT_HOUR=04
+NVRAM_FAIL_KEY=scutclient_wdg_force
+run_watchcat 75
+[ "$(wc -l < "$NVRAM_LOG")" -eq 4 ] && [ ! -s "$CLIENT_LOG" ] && [ ! -e "$PIDFILE" ] || {
+	echo "force re-auth NVRAM error caused an unsafe restart" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+WATCHCAT_HOUR=04
+WATCHCAT_FORCE=2
+run_watchcat 2
+[ ! -s "$CLIENT_LOG" ] && [ ! -e "$PIDFILE" ] || {
+	echo "invalid force re-auth selector caused a restart" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=2
+run_watchcat 2
+[ ! -s "$CLIENT_LOG" ] && [ ! -e "$PIDFILE" ] || {
+	echo "invalid watchdog enable selector was not rejected" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+WATCHCAT_HOUR=04
+WATCHCAT_FORCE=
+run_watchcat 0
+[ "$(cat "$CLIENT_LOG")" = "restart nolog" ] || {
+	echo "empty force-policy value did not preserve the legacy forced re-auth default" >&2; exit 1;
+}
+
+reset_watchcat_case
+WATCHCAT_ENABLED=1
+SCUTCLIENT_ENABLED=1
+WATCHCAT_FLAG_ENABLED=1
+WATCHCAT_HOUR=04
+WATCHCAT_FORCE=0
+run_watchcat 0
+[ ! -s "$CLIENT_LOG" ] || {
+	echo "explicitly disabled force-policy still restarted SCUTClient" >&2; exit 1;
+}
+
+echo "SCUT watchdog PID identity, serialized stale-PID reclaim, and checked NVRAM policy regression: PASS"

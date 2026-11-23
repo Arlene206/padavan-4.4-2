@@ -4,7 +4,8 @@ lockfile="${pidfile}.lock"
 proc_root="${SCUTCLIENT_WATCHCAT_PROC_ROOT:-/proc}"
 script_path="/usr/bin/scutclient_watchcat.sh"
 net="114.114.114.114 119.29.29.29"
-auth_flag="/tmp/scutclient_status"
+auth_flag="${SCUTCLIENT_WATCHCAT_AUTH_FLAG:-/tmp/scutclient_status}"
+scutclient_client_bin="${SCUTCLIENT_WATCHCAT_CLIENT_BIN:-/usr/bin/scutclient.sh}"
 
 # Return 0 only when the PID still identifies this exact watchdog script,
 # 1 when it is stale/another process, and 2 when procfs cannot decide.
@@ -119,37 +120,138 @@ case "$claim_status" in
 	;;
 esac
 
-go_exit(){
+watchcat_cleanup_pidfile(){
 	# A concurrent replacement must not have its PID file removed by us.
 	if [ -f "$pidfile" ] && [ ! -L "$pidfile" ]; then
 		current_pid=
 		IFS= read -r current_pid < "$pidfile" || :
-		[ "$current_pid" = "$$" ] && rm -f "$pidfile"
+		[ "$current_pid" = "$" ] && rm -f "$pidfile"
 	fi
+}
+
+go_exit(){
+	watchcat_cleanup_pidfile
 	exit 0
 }
 
+watchcat_fail(){
+	watchcat_failure_status=$1
+	case "$watchcat_failure_status" in
+		''|*[!0-9]*|0)
+			watchcat_failure_status=1
+			;;
+	esac
+	logger -t "scutclient_watchcat" "watchdog action aborted: $2 (status=$watchcat_failure_status)"
+	watchcat_cleanup_pidfile
+	exit "$watchcat_failure_status"
+}
+
+# Distinguish a missing key (successful empty value) from an NVRAM backend
+# failure. The legacy empty defaults are interpreted by the individual
+# selector below, but read errors must never silently disable monitoring or
+# trigger a speculative re-authentication.
+watchcat_read_checked(){
+	watchcat_key=$1
+	watchcat_value=$(nvram get_checked "$watchcat_key")
+	watchcat_read_status=$?
+	if [ "$watchcat_read_status" -ne 0 ]; then
+		logger -t "scutclient_watchcat" "cannot read NVRAM setting $watchcat_key (status=$watchcat_read_status)"
+		return "$watchcat_read_status"
+	fi
+	return 0
+}
+
+watchcat_read_boolean(){
+	if watchcat_read_checked "$1"; then
+		:
+	else
+		return $?
+	fi
+	case "$watchcat_value" in
+		''|0)
+			watchcat_enabled=0
+			;;
+		1)
+			watchcat_enabled=1
+			;;
+		*)
+			logger -t "scutclient_watchcat" "invalid boolean NVRAM setting $1"
+			return 2
+			;;
+	esac
+	return 0
+}
+
+watchcat_read_force(){
+	if watchcat_read_checked scutclient_wdg_force; then
+		:
+	else
+		return $?
+	fi
+	case "$watchcat_value" in
+		''|1)
+			# Preserve the legacy default: a missing force flag means re-auth.
+			watchcat_force=1
+			;;
+		0)
+			watchcat_force=0
+			;;
+		*)
+			logger -t "scutclient_watchcat" "invalid boolean NVRAM setting scutclient_wdg_force"
+			return 2
+			;;
+	esac
+	return 0
+}
+
 auth(){
-	if [ $(date '+%H') -lt 6 ]; then
-		# if NTP failed or force re-auth (default), then restart scutclient
-		if [ $(date '+%Y') -lt 2019 ] || [ "$(nvram get scutclient_wdg_force)" != "0" ]; then
-			/usr/bin/scutclient.sh restart nolog > /dev/null 2>&1
+	if [ "$(date '+%H')" -lt 6 ]; then
+		# NTP failure forces re-auth; otherwise honor the checked UI selector.
+		if [ "$(date '+%Y')" -lt 2019 ]; then
+			"$scutclient_client_bin" restart nolog > /dev/null 2>&1
+		else
+			if watchcat_read_force; then
+				:
+			else
+				watchcat_auth_status=$?
+				watchcat_fail "$watchcat_auth_status" "cannot verify force re-auth policy"
+			fi
+			[ "$watchcat_force" = "1" ] &&
+				"$scutclient_client_bin" restart nolog > /dev/null 2>&1
 		fi
 	else
 		logger -t "scutclient_watchcat" "Connection failed ($1), restart scutclient!"
-		/usr/bin/scutclient.sh restart > /dev/null 2>&1
+		"$scutclient_client_bin" restart > /dev/null 2>&1
 	fi
 	go_exit
 }
 
-if [ "$(nvram get scutclient_watchcat)" = "1" ] && \
-  [ "$(nvram get scutclient_enable)" = "1" ] && \
-  [ "$(mtk_esw 11)" != "WAN ports link state: 0" ]; then
+if watchcat_read_boolean scutclient_watchcat; then
+	:
+else
+	watchcat_config_status=$?
+	watchcat_fail "$watchcat_config_status" "cannot verify watchdog enable state"
+fi
+[ "$watchcat_enabled" = "1" ] || go_exit
 
-	if [ "$(nvram get scutclient_wdg_flag)" = "1" ]; then
-		if [ -f "$auth_flag" ] && [ "$(cat "$auth_flag")" = "1" ]; then
-			auth "flag"
-		fi
+if watchcat_read_boolean scutclient_enable; then
+	:
+else
+	watchcat_config_status=$?
+	watchcat_fail "$watchcat_config_status" "cannot verify SCUTClient enable state"
+fi
+[ "$watchcat_enabled" = "1" ] || go_exit
+
+if [ "$(mtk_esw 11)" != "WAN ports link state: 0" ]; then
+	if watchcat_read_boolean scutclient_wdg_flag; then
+		:
+	else
+		watchcat_config_status=$?
+		watchcat_fail "$watchcat_config_status" "cannot verify watchdog auth flag"
+	fi
+	if [ "$watchcat_enabled" = "1" ] && [ -f "$auth_flag" ] &&
+	   [ "$(cat "$auth_flag")" = "1" ]; then
+		auth "flag"
 	fi
 
 	for n in $net; do
