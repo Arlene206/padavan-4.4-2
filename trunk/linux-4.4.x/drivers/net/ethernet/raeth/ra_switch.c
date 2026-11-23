@@ -3477,10 +3477,11 @@ static int setup_internal_gsw(void)
 	/* set GE2 TUNE */
 	sys_reg_write((void __iomem *)gpio_base_virt + 0xed0, 0);
 
-	if (ei_local->chip_name == MT7623_FE)
+	if (ei_local->chip_name == MT7623_FE) {
 		status = mt7530_trgmii_clock_setting(xtal_mode);
 		if (status != 0)
 			goto mdio_error;
+	}
 	if (ei_local->architecture & GE1_RGMII_FORCE_1000) {
 		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x0350, 0x55);
 		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x0358, 0x55);

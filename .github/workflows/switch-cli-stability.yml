@@ -701,6 +701,7 @@ jobs:
           assert "status = trgmii_calibration_7623();" in trgmii_clock
           assert "status = trgmii_calibration_7530();" in trgmii_clock
           assert "status = mt7530_trgmii_clock_setting(xtal_mode);" in setup_internal
+          assert "if (ei_local->chip_name == MT7623_FE) {\\n\\t\\tstatus = mt7530_trgmii_clock_setting(xtal_mode);" in setup_internal
           phy_setup = source.split("static int mt7530_phy_setting(void)", 1)[1].split(
               "static void ra_switch_mdio_reset_delay(", 1
           )[0]
