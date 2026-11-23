@@ -369,6 +369,11 @@ require("disk_share_format_account_var_path" in POLICY and
         "account permission metadata paths must reject truncation")
 get_permission_body = function_body(DISK_SOURCE, "int get_permission(")
 set_permission_body = function_body(DISK_SOURCE, "int set_permission(")
+set_permission_compact = "".join(set_permission_body.split())
+require("lstat(folder_path,&folder_entry_stat)" in set_permission_compact and
+        "disk_share_folder_entry_status" in set_permission_compact and
+        "test_if_dir(folder_path)" not in set_permission_compact,
+        "permission updates must validate the live share directory without following removable-media symlinks")
 require("disk_share_format_account_var_path(var_file, sizeof(var_file)" in
         " ".join(get_permission_body.split()) and
         "disk_share_format_account_var_path(var_file, sizeof(var_file)" in

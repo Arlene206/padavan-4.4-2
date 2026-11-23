@@ -1377,6 +1377,8 @@ int set_permission(const char *account,
 	struct nvram_transaction transaction;
 	int acc_num = 0, transaction_started = 0, account_found = 0;
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
+	int folder_stat_result, folder_stat_error, directory_status;
+	struct stat folder_entry_stat;
 	int dms_right = DEFAULT_DMS_RIGHT;
 	size_t old_len, target_len, updated_len, separator_len;
 	size_t mount_len, folder_len, folder_path_len;
@@ -1449,8 +1451,16 @@ int set_permission(const char *account,
 	memcpy(folder_path, mount_path, mount_len);
 	folder_path[mount_len] = '/';
 	memcpy(folder_path + mount_len + 1, folder, folder_len + 1);
-	if (test_if_dir(folder_path) != 1) {
-		errno = ENOENT;
+	folder_stat_result = lstat(folder_path, &folder_entry_stat);
+	folder_stat_error = errno;
+	directory_status = disk_share_folder_entry_status(
+		folder_stat_result, folder_stat_error,
+		folder_stat_result == 0 ? folder_entry_stat.st_mode : (mode_t)0);
+	if (directory_status != 1) {
+		if (folder_stat_result != 0 && folder_stat_error == ENOENT)
+			errno = ENOENT;
+		else if (directory_status == 0)
+			errno = ENOTDIR;
 		goto failed;
 	}
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
