@@ -1,3 +1,12 @@
+## 2026-11-23 — Normalize p910nd rollback contracts and test invocation
+
+- Exact USB modem run #45225109809 on source SHA `e6a6a3868a0e409a009ede9b01d01c355c372b15` passed the WAN/modem/firewall contracts, then failed in `check_usb_printer_nvram.py` because the checker expected `marker();` while the GNU89 test invokes each case through `CHECK(test_name() == 0)`. The production test was correctly wired; the checker now verifies that actual invocation form.
+- The same checker and Process/Storage workflows previously encoded callback formatting or broad character-window assumptions. They now compact whitespace and explicitly assert `usb_printer_daemon_start_failure_recover(process_name,start_status)`, ensuring the port-specific identity is passed without relying on indentation.
+- The e6a6 source commit fixes the substantive nonzero-port rollback bug by passing the derived `process_name` rather than literal `p9100d`. USB modem #45225109809 is the checker failure described above; Process #45225109772, Storage #45225109612, process inventory #45225109604, NVRAM #45225109574 and XY-C1 #45225109549 were in progress at the last poll. AI docs #45225109551 PASS. Exact reruns of these checker corrections are pending.
+- No local test, MIPS firmware build, TRX, artifact or hardware printer result is claimed.
+
+---
+
 ## 2026-11-23 — Keep p910nd readiness rollback scoped to the selected printer
 
 - The first exact-SHA USB workflow caught a source-contract ordering assertion error; review of the same source also found that the new per-port readiness path still passed the old literal `p9100d` to the rollback helper. That could stop the wrong daemon when a non-zero port failed readiness.

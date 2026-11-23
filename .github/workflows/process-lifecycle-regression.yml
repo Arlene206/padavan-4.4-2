@@ -1820,7 +1820,8 @@ jobs:
           assert port_prepare < process_name < launch < launch_error_gate < readiness < failure_gate < rollback
           assert 'eval("/usr/sbin/p910nd", "-b", "-f", devlp, port)' in p910nd_start
           assert 'eval("/usr/sbin/p910nd", "-f", devlp, port)' in p910nd_start
-          assert 'usb_printer_daemon_start_failure_recover(\\n\\t\\t\\tprocess_name, start_status)' in p910nd_start
+          p910nd_start_compact = "".join(p910nd_start.split())
+          assert "usb_printer_daemon_start_failure_recover(process_name,start_status)" in p910nd_start_compact
           assert "return start_status;" in p910nd_start[rollback:]
           for index in range(10):
               assert f'"p910{index}d"' in p910nd_stop

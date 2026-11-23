@@ -91,7 +91,8 @@ failure_gate=raw.index("if (start_status != 0)",readiness_port)
 rollback=raw.index("usb_printer_daemon_start_failure_recover(",failure_gate)
 assert read<gate<prop<disabled<port_prepare<process_name<mode<bidir_launch<readiness_port<failure_gate<rollback
 assert mode<single_launch<readiness_port
-assert 'usb_printer_daemon_start_failure_recover(\n\t\t\tprocess_name, start_status)' in raw
+raw_compact = "".join(raw.split())
+assert "usb_printer_daemon_start_failure_recover(process_name,start_status)" in raw_compact
 assert "return start_status;" in raw[rollback:]
 stop_raw=body("stop_p910nd(void)")
 for index in range(10):
@@ -99,11 +100,12 @@ for index in range(10):
 assert '"p910nd"' in stop_raw
 assert "usb_printer_p910nd_port_from_device" in P910_POLICY
 assert "usb_printer_p910nd_process_name" in P910_POLICY
+p910_test_compact = "".join(P910_TEST.split())
 for marker in ("test_each_supported_device_maps_to_its_port",
                "test_invalid_device_paths_fail_without_mutation",
                "test_process_name_tracks_port_number",
                "test_invalid_process_names_fail_without_mutation"):
-    assert marker in P910_TEST and marker+"();" in P910_TEST
+    assert marker in P910_TEST and ("CHECK(" + marker + "()==0);") in p910_test_compact
 assert 'nvram_match("rawd_enable"' not in raw
 for marker in ("test_present_setting_is_copied_from_shared_cache","test_missing_setting_preserves_empty_legacy_default","test_backend_error_is_not_collapsed_to_default","test_errno_less_backend_failure_becomes_eio","test_unexpected_result_and_null_cache_are_rejected","test_overlong_setting_fails_before_use","test_invalid_arguments_are_rejected"):
     assert marker in TEST and marker+"();" in TEST

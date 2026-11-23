@@ -1,5 +1,6 @@
-Current implementation checkpoint (2026-11-24):
-- USB printer U2EC/LPD shared-launcher tri-state/idempotency contract passed USB modem identity #45220509149 on `f9475bf`; Process, NVRAM and USB storage passed on `ecff475`. WAN ARP GNU89/source contract passed on `40ab459`. XY-C1 Build/TRX/artifact remained pending on e6dc/ecff runs. Added included WAN ARP policy header to XY-C1's push path so future header-only changes trigger firmware validation.
+Current implementation checkpoint (2026-11-23):
+- USB p910nd now maps each `/dev/usb/lpN` device to port N and process identity `p910Nd`; readiness rollback targets that same identity (`9e03bac`, `e6a6a38`). Its GNU89 policy fixture covers all ten ports and malformed inputs. Exact e6a6 USB modem Action #45225109809 exposed a stale checker expectation for bare test calls rather than the fixture's `CHECK(test() == 0)`; THIS commit fixes that plus whitespace-sensitive rollback-call checks in USB/Process/Storage workflows. AI docs pass; Process, Storage, inventory, NVRAM and XY-C1 remain pending at the last poll.
+
 Current implementation checkpoint (2026-11-23):
 - APCLI startup fail-closes on unknown SSID/WISP state; pure GNU89 policy regression passes in Wireless radio state #45217541665. USB modem/Process/Firewall/XY checker consumers were blocked by an undefined `WIRELESS_TEST` variable in `check_modem_wan_start_status.py`; the declaration is being added. XY-C1 Build/TRX/artifact did not run on the first attempt.
 

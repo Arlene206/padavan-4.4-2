@@ -738,7 +738,8 @@ jobs:
           failure_gate = p910nd.index("if (start_status != 0)", readiness)
           rollback = p910nd.index("usb_printer_daemon_start_failure_recover(", failure_gate)
           assert readiness < failure_gate < rollback
-          assert "process_name" in p910nd[rollback:rollback+160]
+          p910nd_compact = "".join(p910nd.split())
+          assert "usb_printer_daemon_start_failure_recover(process_name,start_status)" in p910nd_compact
           assert "return start_status;" in p910nd[rollback:]
           p910nd_stop = function_body(usb, "stop_p910nd(void)")
           for index in range(10):
