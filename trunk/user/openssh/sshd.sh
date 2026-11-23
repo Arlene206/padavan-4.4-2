@@ -11,6 +11,7 @@ sshd_bin="${SSHD_BIN:-/usr/sbin/sshd}"
 ssh_keygen_bin="${SSHD_KEYGEN_BIN:-/usr/bin/ssh-keygen}"
 utmp_file="${SSHD_UTMP_FILE:-/var/run/utmp}"
 pid_file="${SSHD_PID_FILE:-/var/run/sshd.pid}"
+PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"
 
 func_create_config()
 {
@@ -188,7 +189,28 @@ func_start()
 
 func_stop()
 {
-	killall -q sshd
+	if [ ! -f "$PROCESS_LIFECYCLE_LIB" ] ||
+	   [ -L "$PROCESS_LIFECYCLE_LIB" ] ||
+	   [ ! -r "$PROCESS_LIFECYCLE_LIB" ]; then
+		logger -t "sshd" "stop refused: shared process lifecycle helper is missing or unsafe"
+		return 2
+	fi
+	. "$PROCESS_LIFECYCLE_LIB" || {
+		logger -t "sshd" "stop refused: cannot load shared process lifecycle helper"
+		return 2
+	}
+	if ! command -v pl_stop_named >/dev/null 2>&1; then
+		logger -t "sshd" "stop refused: shared process lifecycle helper is incomplete"
+		return 2
+	fi
+
+	if pl_stop_named sshd 3 2; then
+		return 0
+	else
+		stop_status=$?
+		logger -t "sshd" "daemon stop was not confirmed (status=$stop_status)"
+		return "$stop_status"
+	fi
 }
 
 # Resolve an sshd PID to a stable procfs start-time identity.

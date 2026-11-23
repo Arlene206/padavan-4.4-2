@@ -72,6 +72,8 @@ ifeq ($(CONFIG_FIRMWARE_INCLUDE_OPENSSH),y)
 	$(ROMFSINST) $(THISDIR)/$(SRC_NAME)/ssh-keygen /usr/bin/ssh-keygen
 	$(ROMFSINST) $(THISDIR)/$(SRC_NAME)/sshd /usr/sbin/sshd
 	$(ROMFSINST) -p +x /usr/bin/sshd.sh
+	mkdir -p $(INSTALLDIR)/usr/lib
+	$(ROMFSINST) -p +x $(THISDIR)/../shared/scripts/process_lifecycle.sh /usr/lib/process_lifecycle.sh
 endif
 	mkdir -p $(INSTALLDIR)/usr/libexec
 	$(ROMFSINST) $(THISDIR)/$(SRC_NAME)/sftp-server /usr/libexec/sftp-server

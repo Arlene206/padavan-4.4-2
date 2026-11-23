@@ -1,3 +1,10 @@
+## 2026-11-23 19:38:16 Beijing — Fail closed on standalone OpenSSH stop
+
+- Found a lifecycle gap in the standalone `/usr/bin/sshd.sh stop` entry point: `func_stop()` issued `killall -q sshd` without checking the initial process inventory or confirming shutdown. The main RC `stop_sshd()` path already uses the shared lifecycle transaction, but the script's direct CLI bypassed it.
+- Replaced the raw signal with the shared `pl_stop_named` transaction (tri-state inventory, bounded TERM wait, fresh recheck before KILL, and confirmed-absence postcondition). The OpenSSH package now installs `/usr/lib/process_lifecycle.sh` itself; a missing, symlinked or unreadable helper fails closed rather than reverting to `killall`.
+- Extended the existing OpenSSH shell regression for delegation, missing-helper refusal and helper error propagation; added a source contract and included the OpenSSH Makefile in Process and XY-C1 build triggers. Exact-head Process/XY-C1 validation pending; no local shell run or target image is claimed.
+
+---
 ## 2026-11-23 UTC — Reject duplicate static VPN peer addresses
 
 - `vpn_server_read_acl_snapshot()` validated every per-client address value individually but `start_vpn_server()` did not validate uniqueness across the snapshot. Two authenticated PPP clients could therefore receive the same configured static remote address in `chap-secrets`, creating a peer-address collision and ambiguous routing.

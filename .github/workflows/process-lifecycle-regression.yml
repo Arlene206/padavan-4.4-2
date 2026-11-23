@@ -49,6 +49,7 @@ on:
       - "trunk/user/lldt/src/tests/lldt_config_path_policy.c"
       - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/openssh/sshd.sh"
+      - "trunk/user/openssh/Makefile"
       - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"
       - "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h"
       - "trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c"

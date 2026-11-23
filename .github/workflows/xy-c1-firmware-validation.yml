@@ -275,6 +275,7 @@ on:
       - "trunk/user/mentohust/scripts/mentohust.sh"
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/openssh/sshd.sh"
+      - "trunk/user/openssh/Makefile"
       - "trunk/user/dropbear/sshd.sh"
       - "trunk/user/dropbear/Makefile"
       - "trunk/user/iperf3/Makefile"

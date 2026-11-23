@@ -9,6 +9,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 sed -n \
 	-e '/^sshd_process_start_time()/,/^}/p' \
 	-e '/^func_reload()/,/^}/p' \
+	-e '/^func_stop()/,/^}/p' \
 	"$SCRIPT" > "$TMP_DIR/functions.sh"
 [ -s "$TMP_DIR/functions.sh" ] || {
 	echo "could not extract OpenSSH PID-file lifecycle functions" >&2
@@ -147,4 +148,56 @@ fi
 	exit 1
 }
 
-printf '%s\n' "OpenSSH PID-file reload identity regression: PASS"
+
+# Direct stop must delegate to the shared tri-state stop transaction.
+PROCESS_LIFECYCLE_LIB="$TMP_DIR/process_lifecycle.sh"
+MOCK_STOP_LOG="$TMP_DIR/stop-helper.log"
+export PROCESS_LIFECYCLE_LIB MOCK_STOP_LOG
+cat > "$PROCESS_LIFECYCLE_LIB" <<'STUB'
+pl_stop_named()
+{
+	printf '%s\n' "$*" >> "$MOCK_STOP_LOG"
+	return "${MOCK_STOP_STATUS:-0}"
+}
+STUB
+: > "$MOCK_STOP_LOG"
+func_stop
+[ "$(cat "$MOCK_STOP_LOG")" = "sshd 3 2" ] || {
+	echo "direct stop did not invoke the bounded shared SSH lifecycle helper" >&2
+	exit 1
+}
+
+MOCK_STOP_STATUS=37
+export MOCK_STOP_STATUS
+: > "$MOCK_STOP_LOG"
+if func_stop; then
+	echo "direct stop hid a failed shared stop transaction" >&2
+	exit 1
+else
+	stop_status=$?
+fi
+[ "$stop_status" -eq 37 ] || {
+	echo "direct stop returned $stop_status instead of helper status 37" >&2
+	exit 1
+}
+[ "$(cat "$MOCK_STOP_LOG")" = "sshd 3 2" ] || {
+	echo "failed stop did not use the shared helper" >&2
+	exit 1
+}
+
+# A missing helper is UNKNOWN: never fall back to killall.
+PROCESS_LIFECYCLE_LIB="$TMP_DIR/missing-process-lifecycle.sh"
+export PROCESS_LIFECYCLE_LIB
+: > "$MOCK_STOP_LOG"
+if func_stop; then
+	echo "direct stop succeeded without its required lifecycle helper" >&2
+	exit 1
+else
+	stop_status=$?
+fi
+[ "$stop_status" -eq 2 ] && [ ! -s "$MOCK_STOP_LOG" ] || {
+	echo "missing helper did not fail closed" >&2
+	exit 1
+}
+
+printf '%s\n' "OpenSSH PID-file and direct-stop lifecycle regression: PASS"

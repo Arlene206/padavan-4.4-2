@@ -2382,3 +2382,21 @@ assert "if (unit < 0 || !param_name || !param_name[0])" in wan_param_setter
 assert wan_param_setter.index("if (unit < 0") < wan_param_setter.index("nvram_transaction_begin")
 
 print("Remaining AP/router mode consumers use checked NVRAM reads: PASS")
+
+# Standalone OpenSSH stop must use the shared bounded lifecycle transaction.
+openssh_script = (root / "trunk/user/openssh/sshd.sh").read_text()
+openssh_makefile = (root / "trunk/user/openssh/Makefile").read_text()
+openssh_lifecycle_test = (root / "trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh").read_text()
+openssh_stop = openssh_script.split("func_stop()\n{", 1)[1].split("\n}\n", 1)[0]
+openssh_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
+assert 'PROCESS_LIFECYCLE_LIB="${PROCESS_LIFECYCLE_LIB:-/usr/lib/process_lifecycle.sh}"' in openssh_script
+assert '. "$PROCESS_LIFECYCLE_LIB"' in openssh_stop
+assert "pl_stop_named sshd 3 2" in openssh_stop
+assert "killall" not in openssh_stop
+assert "shared process lifecycle helper is missing or unsafe" in openssh_stop
+assert '$(THISDIR)/../shared/scripts/process_lifecycle.sh /usr/lib/process_lifecycle.sh' in openssh_makefile
+assert "func_stop()" in openssh_lifecycle_test
+assert 'MOCK_STOP_STATUS=37' in openssh_lifecycle_test
+assert "missing helper did not fail closed" in openssh_lifecycle_test
+assert "trunk/user/openssh/Makefile" in openssh_workflow
+assert "trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh" in openssh_workflow
