@@ -1382,6 +1382,34 @@ test_account_inventory_remove_defaults_last_account_modes(void)
 }
 
 static void
+test_account_inventory_remove_rolls_back_last_account_mode_setter(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[1] = { "alice" };
+
+	memset(&fake, 0, sizeof(fake));
+	strcpy(fake.count, "1");
+	fake.count_present = 1;
+	strcpy(fake.usernames[0], "alice");
+	fake.username_present[0] = 1;
+	strcpy(fake.samba_mode, "0");
+	fake.samba_mode_present = 1;
+	strcpy(fake.ftp_mode, "0");
+	fake.ftp_mode_present = 1;
+	fake.fail_set_call = 2;
+
+	errno = 0;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 1, 0, 4, users) == -1);
+	assert(errno == EACCES);
+	assert(strcmp(fake.count, "1") == 0);
+	assert(strcmp(fake.samba_mode, "0") == 0);
+	assert(strcmp(fake.ftp_mode, "0") == 0);
+	assert(fake.commit_calls == 1);
+}
+
+
+static void
 test_account_inventory_remove_honors_manual_commit(void)
 {
 	struct fake_account_delete_nvram fake;
@@ -1537,6 +1565,7 @@ main(void)
 	test_account_password_shift_snapshot_rejects_oversized_value();
 	test_account_inventory_remove_compacts_under_one_transaction();
 	test_account_inventory_remove_defaults_last_account_modes();
+	test_account_inventory_remove_rolls_back_last_account_mode_setter();
 	test_account_inventory_remove_honors_manual_commit();
 	test_account_inventory_remove_rejects_stale_inventory();
 	test_account_inventory_remove_rolls_back_failed_set();

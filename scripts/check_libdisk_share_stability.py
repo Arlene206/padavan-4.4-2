@@ -406,6 +406,7 @@ for marker in commit_policy_tests:
 account_delete_tests = (
     "test_account_inventory_remove_compacts_under_one_transaction",
     "test_account_inventory_remove_defaults_last_account_modes",
+    "test_account_inventory_remove_rolls_back_last_account_mode_setter",
     "test_account_inventory_remove_honors_manual_commit",
     "test_account_inventory_remove_rejects_stale_inventory",
     "test_account_inventory_remove_rolls_back_failed_set",
