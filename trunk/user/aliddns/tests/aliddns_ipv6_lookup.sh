@@ -15,7 +15,9 @@ sed -n '/^aliddns_ipv6_public_valid() {/,/^}/p' "$SCRIPT_DIR/../aliddns.sh" >> "
 
 cat > "$MOCK_BIN/nvram" <<'MOCK_NVRAM'
 #!/bin/sh
-[ "$#" -eq 2 ] && [ "$1" = get ] && [ "$2" = wan0_ifname6 ] || exit 91
+[ "$#" -eq 2 ] && [ "$1" = get_checked ] && [ "$2" = wan0_ifname6 ] || exit 91
+status=${FAKE_NVRAM_STATUS:-0}
+[ "$status" -eq 0 ] || exit "$status"
 printf '%s\n' "$FAKE_WAN_IFNAME"
 MOCK_NVRAM
 cat > "$MOCK_BIN/ifconfig" <<'MOCK_IFCONFIG'
@@ -121,8 +123,9 @@ expect_success() {
 	FAKE_WAN_IFNAME="$1"
 	EXPECTED_IFNAME="$1"
 	FAKE_IFCONFIG_MODE="$2"
+	FAKE_NVRAM_STATUS=0
 	FAKE_IPV6_PREFIX="${4-}"
-	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE FAKE_IPV6_PREFIX
+	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE FAKE_IPV6_PREFIX FAKE_NVRAM_STATUS
 	actual=$(arIpAddress6) || fail "failed to discover WAN IPv6 on $1"
 	[ "$actual" = "$3" ] || fail "wrong address for $1: $actual"
 	aliddns_ipv6_valid "$actual" || fail "discovered address failed strict IPv6 validation"
@@ -132,8 +135,9 @@ expect_failure() {
 	FAKE_WAN_IFNAME="$1"
 	EXPECTED_IFNAME="$2"
 	FAKE_IFCONFIG_MODE="$3"
+	FAKE_NVRAM_STATUS=0
 	FAKE_IPV6_PREFIX="${4-}"
-	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE FAKE_IPV6_PREFIX
+	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE FAKE_IPV6_PREFIX FAKE_NVRAM_STATUS
 	if actual=$(arIpAddress6); then
 		fail "unexpected result for $3: $actual"
 	fi
@@ -142,6 +146,14 @@ expect_success ppp0 global 2001:4860:4860::8888
 expect_success sit0 sit-global 2001:4860::1
 expect_success ppp0 allocated-boundary '2cff::1' 2cff
 calls_before=$(wc -l < "$IFCONFIG_LOG")
+FAKE_NVRAM_STATUS=7
+export FAKE_NVRAM_STATUS
+if arIpAddress6; then
+	fail "WAN IPv6 discovery ignored an interface NVRAM read failure"
+fi
+[ "$(wc -l < "$IFCONFIG_LOG")" -eq "$calls_before" ] || fail "ifconfig ran after WAN6 NVRAM read failed"
+FAKE_NVRAM_STATUS=0
+export FAKE_NVRAM_STATUS
 malicious_ifname="ppp0;touch $TEST_DIR/injected"
 expect_failure "" "" global
 expect_failure "$malicious_ifname" "$malicious_ifname" global

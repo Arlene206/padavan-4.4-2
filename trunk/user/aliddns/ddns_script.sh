@@ -1,6 +1,6 @@
 # Stock IPv4 discovery uses the shared HTTPS/CA-verifying helper.
 arIpAddress () {
-	pppoemwan=$(nvram get pppoemwan_enable)
+	pppoemwan=$(nvram get_checked pppoemwan_enable) || return $?
 	case "$pppoemwan" in
 		""|0) /usr/bin/aliddns-ipv4.sh ;;
 		*) /usr/bin/aliddns-ipv4.sh ppp0 ;;
@@ -8,7 +8,7 @@ arIpAddress () {
 }
 
 arIpAddress6 () {
-	wan6_ifname=$(nvram get wan0_ifname6) || return 1
+	wan6_ifname=$(nvram get_checked wan0_ifname6) || return $?
 	case "$wan6_ifname" in
 		""|*[!A-Za-z0-9_.:-]*|-*) return 1 ;;
 	esac

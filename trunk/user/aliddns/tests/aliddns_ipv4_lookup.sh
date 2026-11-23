@@ -6,12 +6,20 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 HELPER="$SCRIPT_DIR/../aliddns-ipv4.sh"
 SOURCE="$SCRIPT_DIR/../aliddns.sh"
 FUNCTIONS="$TEST_DIR/address-functions.sh"
+DDNS_FUNCTIONS="$TEST_DIR/ddns-functions.sh"
+FAKE_DDNS_HELPER="$TEST_DIR/aliddns-ipv4.sh"
+DDNS_HELPER_LOG="$TEST_DIR/ddns-helper.log"
 MOCK_BIN="$TEST_DIR/bin"
 mkdir -p "$MOCK_BIN"
 : > "$FUNCTIONS"
+: > "$DDNS_HELPER_LOG"
 sed -n '/^aliddns_ipv4_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_ipv6_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^arIpAddress () {/,/^}/p' "$SCRIPT_DIR/../ddns_script.sh" |
+	sed "s|/usr/bin/aliddns-ipv4.sh|$FAKE_DDNS_HELPER|g" > "$DDNS_FUNCTIONS"
 . "$FUNCTIONS"
+. "$DDNS_FUNCTIONS"
+export DDNS_HELPER_LOG
 
 CA_BUNDLE="$TEST_DIR/ca-certificates.crt"
 CURL_ARGS_LOG="$TEST_DIR/curl-args.log"
@@ -24,6 +32,20 @@ cat > "$MOCK_BIN/logger" <<'MOCK_LOGGER'
 #!/bin/sh
 exit 0
 MOCK_LOGGER
+
+cat > "$MOCK_BIN/nvram" <<'MOCK_NVRAM'
+#!/bin/sh
+[ "$#" -eq 2 ] && [ "$1" = get_checked ] && [ "$2" = pppoemwan_enable ] || exit 91
+status=${FAKE_NVRAM_STATUS:-0}
+[ "$status" -eq 0 ] || exit "$status"
+printf '%s\n' "${FAKE_PPPOE_MWAN-}"
+MOCK_NVRAM
+
+cat > "$FAKE_DDNS_HELPER" <<'MOCK_DDNS_HELPER'
+#!/bin/sh
+printf 'argc=%s arg=%s\n' "$#" "${1-}" >> "$DDNS_HELPER_LOG"
+printf '%s\n' '8.8.8.8'
+MOCK_DDNS_HELPER
 
 cat > "$MOCK_BIN/curl" <<'MOCK_CURL'
 #!/bin/sh
@@ -43,7 +65,7 @@ case "$FAKE_SCENARIO" in
 	*) exit 90 ;;
 esac
 MOCK_CURL
-chmod 700 "$MOCK_BIN/logger" "$MOCK_BIN/curl"
+chmod 700 "$MOCK_BIN/logger" "$MOCK_BIN/nvram" "$MOCK_BIN/curl" "$FAKE_DDNS_HELPER"
 PATH="$MOCK_BIN:$PATH"
 export PATH
 
@@ -145,6 +167,30 @@ FAKE_IP=192.0.0.9
 export FAKE_IP
 result=$("$HELPER") || fail "globally reachable IETF anycast address was rejected"
 [ "$result" = "192.0.0.9" ] || fail "IETF anycast address was changed"
+
+# Checked WAN-mode reads preserve legacy defaults but never fall back on backend errors.
+FAKE_NVRAM_STATUS=0
+FAKE_PPPOE_MWAN=0
+export FAKE_NVRAM_STATUS FAKE_PPPOE_MWAN
+result=$(arIpAddress) || fail "checked ordinary-WAN selection failed"
+[ "$result" = "8.8.8.8" ] || fail "IPv4 DDNS wrapper did not relay helper output"
+grep -Fqx 'argc=0 arg=' "$DDNS_HELPER_LOG" || fail "disabled PPPoE-MWAN did not select ordinary WAN"
+FAKE_PPPOE_MWAN=1
+export FAKE_PPPOE_MWAN
+result=$(arIpAddress) || fail "checked PPPoE-MWAN selection failed"
+grep -Fqx 'argc=1 arg=ppp0' "$DDNS_HELPER_LOG" || fail "enabled PPPoE-MWAN did not bind helper to ppp0"
+helper_calls_before=$(wc -l < "$DDNS_HELPER_LOG")
+FAKE_NVRAM_STATUS=7
+export FAKE_NVRAM_STATUS
+if arIpAddress >/dev/null 2>&1; then
+	fail "IPv4 DDNS wrapper ignored a WAN-mode NVRAM read error"
+fi
+[ "$(wc -l < "$DDNS_HELPER_LOG")" -eq "$helper_calls_before" ] || fail "IPv4 discovery ran after WAN-mode NVRAM failure"
+FAKE_NVRAM_STATUS=0
+FAKE_PPPOE_MWAN=
+export FAKE_NVRAM_STATUS FAKE_PPPOE_MWAN
+result=$(arIpAddress) || fail "missing PPPoE-MWAN key did not preserve legacy behavior"
+grep -Fqx 'argc=0 arg=' "$DDNS_HELPER_LOG" || fail "missing PPPoE-MWAN key did not select ordinary WAN"
 
 # Keep the previous PPPoE source-interface policy with a validated one-item argument.
 reset_case valid

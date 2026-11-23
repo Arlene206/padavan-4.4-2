@@ -366,9 +366,20 @@ require("/usr/bin/aliddns-ipv4.sh" in ddns_script and "arIpAddress6" in ddns_scr
         "curl -k" not in ddns_script and "--no-check-certificate" not in ddns_script and
         "http://" not in ddns_script,
         "stock ROMFS DDNS script must use the secure IPv4 helper and preserve IPv6")
+ipv4_discovery = function_body(ddns_script, "arIpAddress ()")
+require(
+    'nvram get_checked pppoemwan_enable' in ipv4_discovery
+    and '|| return $?' in ipv4_discovery
+    and 'nvram get pppoemwan_enable' not in ipv4_discovery
+    and 'ppp0' in ipv4_discovery,
+    "stock IPv4 DDNS discovery must fail on WAN-mode NVRAM errors before choosing its source interface",
+)
+require("FAKE_NVRAM_STATUS=7" in ipv4_test and "pppoemwan_enable" in ipv4_test,
+        "IPv4 DDNS wrapper regression must cover WAN-mode read failure")
 ipv6_discovery = function_body(ddns_script, "arIpAddress6 ()")
 require(
-    'nvram get wan0_ifname6' in ipv6_discovery
+    'nvram get_checked wan0_ifname6' in ipv6_discovery
+    and 'nvram get wan0_ifname6' not in ipv6_discovery
     and 'ifconfig "$wan6_ifname"' in ipv6_discovery
     and 'case "$wan6_ifname" in' in ipv6_discovery
     and '[ "${#wan6_ifname}" -le 15 ]' in ipv6_discovery
@@ -381,6 +392,7 @@ require(
 )
 require(
     "WAN IPv6 discovery regression" in ipv6_test
+    and "FAKE_NVRAM_STATUS=7" in ipv6_test
     and "expect_success ppp0 global" in ipv6_test
     and "expect_success sit0 sit-global" in ipv6_test
     and "multiple-global" in ipv6_test
