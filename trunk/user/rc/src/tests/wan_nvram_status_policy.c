@@ -900,6 +900,78 @@ test_samba_wins_read_error_preserves_workgroup_copy(void)
 	assert(wins_server[0] == '\0');
 }
 
+static void
+test_miniupnpd_lan_identity_survives_shared_cache_overwrite(void)
+{
+	struct fake_nvram_reader fake;
+	char lan_addr[32], lan_mask[32], lan_hwaddr[32];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	fake.names[0] = "lan_ipaddr";
+	fake.names[1] = "lan_netmask";
+	fake.names[2] = "lan_hwaddr";
+	fake.values[0] = "192.0.2.1";
+	fake.values[1] = "255.255.255.0";
+	fake.values[2] = "02:11:22:33:44:55";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "lan_ipaddr",
+				       lan_addr, sizeof(lan_addr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "lan_netmask",
+				       lan_mask, sizeof(lan_mask)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "lan_hwaddr",
+				       lan_hwaddr, sizeof(lan_hwaddr)) == 0);
+	assert(fake.calls == 3);
+	assert(strcmp(lan_addr, "192.0.2.1") == 0);
+	assert(strcmp(lan_mask, "255.255.255.0") == 0);
+	assert(strcmp(lan_hwaddr, "02:11:22:33:44:55") == 0);
+}
+
+static void
+test_miniupnpd_lan_identity_read_failure_stops_snapshot(void)
+{
+	int failed_read;
+	for (failed_read = 0; failed_read < 3; failed_read++) {
+		struct fake_nvram_reader fake;
+		char lan_addr[32] = "stale";
+		char lan_mask[32] = "stale";
+		char lan_hwaddr[32] = "stale";
+		int status;
+
+		memset(&fake, 0, sizeof(fake));
+		fake.fail_at = failed_read;
+		fake.missing_at = -1;
+		fake.failure_errno = EACCES;
+		fake.names[0] = "lan_ipaddr";
+		fake.names[1] = "lan_netmask";
+		fake.names[2] = "lan_hwaddr";
+		fake.values[0] = "192.0.2.1";
+		fake.values[1] = "255.255.255.0";
+		fake.values[2] = "02:11:22:33:44:55";
+
+		status = rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+						 "lan_ipaddr", lan_addr,
+						 sizeof(lan_addr));
+		if (status == 0)
+			status = rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+							 "lan_netmask", lan_mask,
+							 sizeof(lan_mask));
+		if (status == 0)
+			status = rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+							 "lan_hwaddr", lan_hwaddr,
+							 sizeof(lan_hwaddr));
+		assert(status == EACCES);
+		assert(fake.calls == (unsigned int)failed_read + 1U);
+		if (failed_read == 0)
+			assert(lan_addr[0] == '\0');
+		else if (failed_read == 1)
+			assert(lan_mask[0] == '\0');
+		else
+			assert(lan_hwaddr[0] == '\0');
+	}
+}
+
 struct fake_nvram_text_cache {
 	const char *names[6];
 	const char *values[6];
@@ -2618,6 +2690,8 @@ main(void)
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
 	test_samba_workgroup_and_wins_values_survive_shared_cache_overwrite();
 	test_samba_wins_read_error_preserves_workgroup_copy();
+	test_miniupnpd_lan_identity_survives_shared_cache_overwrite();
+	test_miniupnpd_lan_identity_read_failure_stops_snapshot();
 	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_viptv_settings_survive_shared_cache_overwrite();
 	test_dhcp_hostname_and_vendor_class_survive_shared_cache_overwrite();

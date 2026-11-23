@@ -2178,6 +2178,37 @@ for test_case in (
     "test_samba_wins_read_error_preserves_workgroup_copy",
 ):
     assert test_case + "();" in samba_nvram_regression
+
+miniupnpd_nvram_get = c_function_body(
+    services_source,
+    "miniupnpd_nvram_get_checked(void *context, const char *param_name,",
+)
+assert "return nvram_get_checked(param_name, value);" in miniupnpd_nvram_get
+miniupnpd_nvram_copy = c_function_body(
+    services_source, "miniupnpd_copy_nvram_value(const char *param_name, char *destination,"
+)
+assert "rc_wan_nvram_copy_value(" in miniupnpd_nvram_copy
+miniupnpd_start = c_function_body(services_source, "start_upnp_locked(void)")
+miniupnpd_start_compact = " ".join(miniupnpd_start.split())
+for key, destination in (
+    ("lan_ipaddr", "lan_addr"),
+    ("lan_netmask", "lan_mask"),
+    ("lan_hwaddr", "lan_hwaddr"),
+):
+    assert 'miniupnpd_copy_nvram_value("' + key + '",' in miniupnpd_start_compact
+    assert destination + ", sizeof(" + destination + "))" in miniupnpd_start_compact
+assert "ether_atoe(lan_hwaddr, lan_mac);" in miniupnpd_start
+assert 'nvram_safe_get("lan_ipaddr")' not in miniupnpd_start
+assert 'nvram_safe_get("lan_netmask")' not in miniupnpd_start
+assert 'ether_atoe(nvram_safe_get("lan_hwaddr")' not in miniupnpd_start
+assert miniupnpd_start_compact.index(
+    'miniupnpd_copy_nvram_value("lan_ipaddr",'
+) < miniupnpd_start_compact.index("miniupnpd_config_publish(")
+for test_case in (
+    "test_miniupnpd_lan_identity_survives_shared_cache_overwrite",
+    "test_miniupnpd_lan_identity_read_failure_stops_snapshot",
+):
+    assert test_case + "();" in samba_nvram_regression
 ddns_start = c_function_body(services_source, "start_ddns_locked(int clear_cache)")
 assert "get_ap_mode_status(&is_ap_mode)" in ddns_start
 assert "return ap_mode_status;" in ddns_start

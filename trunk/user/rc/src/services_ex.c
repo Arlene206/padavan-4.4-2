@@ -2569,6 +2569,25 @@ miniupnpd_read_stop_policy(int *should_stop)
 static int stop_upnp_locked(void);
 
 static int
+miniupnpd_nvram_get_checked(void *context, const char *param_name,
+			    char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+
+static int
+miniupnpd_copy_nvram_value(const char *param_name, char *destination,
+			   size_t destination_size)
+{
+	return rc_wan_nvram_copy_value(miniupnpd_nvram_get_checked, NULL,
+				       param_name, destination,
+				       destination_size);
+}
+
+
+static int
 miniupnpd_read_nvram_integer(const char *name, int default_value,
                              int minimum, int maximum, int *result)
 {
@@ -2594,6 +2613,7 @@ static int
 start_upnp_locked(void)
 {
 	int ret, launch_status, start_status, start_errno, read_status;
+	int lan_identity_status;
 	int rollback_status, rollback_scan_error = 0;
 	int i_proto_use, i_upnp_secure, i_http_lanport;
 	int i_clean_min, i_clean_int, i_iports[2], i_eports[2];
@@ -2602,7 +2622,10 @@ start_upnp_locked(void)
 	int url_error;
 	int service_policy_status, should_stop;
 	enum process_presence state;
-	char *lan_addr, *lan_mask, *lan_url, *proto_upnp, *proto_npmp, *secured;
+	char lan_addr[NVRAM_MAX_VALUE_LEN + 1];
+	char lan_mask[NVRAM_MAX_VALUE_LEN + 1];
+	char lan_hwaddr[NVRAM_MAX_VALUE_LEN + 1];
+	char *lan_url, *proto_upnp, *proto_npmp, *secured;
 	char var[100];
 	char wan_ifname[16];
 	char lan_class[24];
@@ -2678,8 +2701,23 @@ start_upnp_locked(void)
 		return ret;
 	}
 
-	lan_addr = nvram_safe_get("lan_ipaddr");
-	lan_mask = nvram_safe_get("lan_netmask");
+	/*
+	 * nvram_safe_get() returns a pointer into the shared cache. Reading the
+	 * netmask immediately after the address can overwrite the first value;
+	 * snapshot all LAN identity fields before deriving or publishing config.
+	 */
+	if ((lan_identity_status = miniupnpd_copy_nvram_value(
+		     "lan_ipaddr", lan_addr, sizeof(lan_addr))) != 0 ||
+	    (lan_identity_status = miniupnpd_copy_nvram_value(
+		     "lan_netmask", lan_mask, sizeof(lan_mask))) != 0 ||
+	    (lan_identity_status = miniupnpd_copy_nvram_value(
+		     "lan_hwaddr", lan_hwaddr, sizeof(lan_hwaddr))) != 0) {
+		errno = lan_identity_status;
+		logmessage(LOGNAME,
+			   "miniupnpd start aborted: cannot read complete LAN identity (status=%d)",
+			   lan_identity_status);
+		return lan_identity_status;
+	}
 	if (!is_valid_ipv4(lan_addr) || !is_valid_ipv4(lan_mask) ||
 	    !ipv4_netmask_is_contiguous(lan_mask)) {
 		logmessage(LOGNAME, "miniupnpd start aborted: invalid LAN IPv4 address or non-contiguous netmask");
@@ -2688,7 +2726,7 @@ start_upnp_locked(void)
 	}
 	ip2class(lan_addr, lan_mask, lan_class, sizeof(lan_class));
 	memset(lan_mac, 0, sizeof(lan_mac));
-	ether_atoe(nvram_safe_get("lan_hwaddr"), lan_mac);
+	ether_atoe(lan_hwaddr, lan_mac);
 
 	if (miniupnpd_format_lan_url(lan_addr, i_http_lanport, var, sizeof(var)) != 0) {
 		url_error = errno > 0 ? errno : EIO;
