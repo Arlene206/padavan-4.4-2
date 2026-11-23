@@ -10,15 +10,13 @@
 
 ## Active task
 
-### Replace the FRP credential direct-copy exception with tested exclusive publication
+### Close the two stale FRP source contracts after private-helper migration
 
-- Files in this logical slice: trunk/user/scripts/files/usr/bin/copyscripts.sh; trunk/user/scripts/tests/copyscripts_ca_status.sh; dev_log.md; SESSION_HANDOFF.md.
-- The ordinary seed_storage_file() helper validates that /etc/storage and its parent are real directories, rejects a symlink or non-regular leaf, creates a same-directory mktemp file, copies and chmods it, then publishes with ln (exclusive hard-link creation). Existing normal three-argument callers preserve operator-managed files without changing their permissions.
-- The FRP credential-bearing script used a separate symlink test followed by cp -f /etc_ro/frp_script.sh. That check/use split allowed a leaf symlink to be introduced between check and write, and duplicated the common helper policy.
-- The current fix extends seed_storage_file() with optional fourth argument 1, meaning enforce the requested file mode for an existing regular file or a concurrently published regular file. Omitted fourth argument defaults to 0, preserving every existing three-argument caller. The FRP config is seeded with the existing helper, source /etc_ro/frp_script.sh, destination /etc/storage/frp_script.sh, mode 700, enforce-existing-mode flag 1; it shares no-follow path checks, staged copy and exclusive link publication.
-- If FRP mode repair fails, helper sets copyscripts_seed_status=1 and returns failure, so the existing final boot-preparation status gate reports the problem. Operator-managed file content is preserved while its sensitive mode is restored. The fresh target is never overwritten by a concurrent destination.
-- Regression additions test new FRP file creation at mode 0700, existing operator content preservation plus mode repair, injected chmod failure with status propagation, and static source assertions preventing the old direct cp path. Existing Process lifecycle workflow path filters already include both changed source and test paths and runs this regression.
-- Limitation: this shell helper follows the existing repository trust model for /etc/storage ownership. Do not describe the change as a universal kernel-level elimination of all path races; it replaces the known direct cp -f gap with the same exclusive no-follow staged publication policy already used for other storage defaults.
+- Product source fix is already on main at d2c388a04f6125666043bf94672a8f4222655d4b: copyscripts.sh routes /etc/storage/frp_script.sh through seed_storage_file() with mode 0700 and enforce-existing-mode flag 1. The helper stages beside the destination and publishes exclusively with ln; existing operator content is preserved while mode is restored.
+- The exact Process lifecycle run 45115500771 failed only because scripts/check_dev_init_boot.py still expected copyscripts_seed_status=1 to be assigned inline in the FRP branch. The generic seed helper owns and sets this status; its real shell regression passed.
+- The exact FRP lifecycle run 45115500757 failed only because scripts/check_frp_lifecycle.py still required the retired cp -f/chmod/symlink-check implementation. All FRP shell regressions before that checker passed, including frp_config.sh.
+- THIS COMMIT updates both contracts: require the shared helper invocation and enforce-existing-mode logic, and forbid the old cp -f exception. No product source or runtime behavior changes in this follow-up.
+- Once exact-head reruns pass, continue with a newly confirmed printer unplug defect in trunk/user/rc/src/services_stor.c: the branch calls stop_usb_printer_spoolers() but discards its nonzero return, then supplies action_status=0 to usb_hotplug_event_ack_status() and clears usb_unplug_lp. The stop API aggregates stop_u2ec/stop_lpd/stop_p910nd failures, so this can acknowledge the event while a spooler is still running. Next source slice must propagate printer_unplug_status through the acknowledgement policy and add a source contract plus positive error-status retry regression.
 
 ### Exact parallel baseline and Actions
 
@@ -37,10 +35,10 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main before acting and verify the frozen backup still equals 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT from history and inspect its complete diff; do not assume this handoff's parent is still main.
-2. Inspect push Actions whose head_sha exactly equals the FRP commit. Start with Process lifecycle regression and verify the copyscripts shell regression, including the injected chmod failure and direct-cp source contract. On failure, inspect the first causal step/log and fix it without repeating already-passed CA bootstrap tests.
+1. Fetch live main and verify backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT and inspect the checker-only diff; do not assume this saved parent is still main.
+2. Inspect exact-head FRP and Process push Actions after this checker correction. The d2c source runtime regressions already passed; ensure the corrected scripts/check_frp_lifecycle.py and scripts/check_dev_init_boot.py now accept the shared helper contract. Do not repeat unrelated CA bootstrap tests.
 3. Inspect same-SHA XY-C1 detector, Build XY-C1, TRX output and artifact upload. Claim L3 only if all target stages pass for this exact production-source SHA.
-4. Revisit e757 XY-C1 45114634020 if still open. NVRAM audit 45114633929 is already SUCCESS. Do not wait idly: continue the highest-risk independent userland defect after the FRP regression is committed and exact-head checks are recorded.
+4. Revisit e757 XY-C1 45114634020 if still open. NVRAM audit 45114633929 is already SUCCESS. Then fix the printer-unplug status loss described in Active task; do not wait idly for other unrelated checks.
 5. Do not re-audit completed libdisk duplicate ACL lookup or BusyBox PID1 exact-child work without new evidence. Rotate to another concrete source-backed stability/security defect across the userland.
 
 # Cross-session execution mandate

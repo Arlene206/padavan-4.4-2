@@ -1,3 +1,13 @@
+## 2026-11-23 13:27 UTC+8 — Update FRP source contracts for shared private seeding helper
+
+- Exact-head FRP lifecycle run 45115500757 on product/source SHA d2c388a04f6125666043bf94672a8f4222655d4b completed FAILURE only in scripts/check_frp_lifecycle.py:130: it still required the removed direct cp -f/chmod/-L/-f source block. All prior FRP shell regressions, including private runtime config, exact process stop, managed crontab and lifecycle lock, passed.
+- Exact-head Process lifecycle run 45115500771 on the same SHA completed FAILURE only in scripts/check_dev_init_boot.py:315: it still required an inline copyscripts_seed_status=1 assignment inside the FRP branch. The actual shared helper sets the status for every failure; copyscripts_ca_status.sh passed, including the new FRP mode-0700 creation, existing-file mode repair, injected chmod failure and no-old-cp source contract.
+- Updated both source contracts to require the common seed_storage_file() call with the enforce-existing-mode flag, two guarded chmod paths and the absence of the old direct FRP cp. This is a checker-only correction; production source remains unchanged.
+- Exact XY-C1 run 45115500761 on d2c388a04f6125666043bf94672a8f4222655d4b had passed the firmware input detector and all pre-build host checks; Build XY-C1 was still in progress at the last lookup; TRX and artifact upload were pending. Exact handoff validator 45115500743, inventory 45115500720, Adbyby host config 45115500738 and AliDDNS API transport 45115500805 all passed on d2c.
+- No local checkout. No local checker execution. Exact new-SHA FRP and Process Actions must pass before the checker migration is closed. No new L3/L4 claim.
+- Corrective checker commit: THIS COMMIT.
+
+---
 ## 2026-11-23 13:14 UTC+8 — Route FRP credential seeding through exclusive private publication
 
 - Source review found that copyscripts.sh already used seed_storage_file() for ordinary defaults, which stages beside the destination and publishes with an exclusive hard link to avoid following a leaf or parent symlink. The credential-bearing FRP script was a security-sensitive exception: a separate symlink check followed by cp -f had a check/use gap and duplicated path/type/mode handling.

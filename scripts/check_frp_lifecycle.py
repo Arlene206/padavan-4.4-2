@@ -127,11 +127,11 @@ require('value="FrpConf;"' in ui and
         'name="frpc_enable"' in ui and 'name="frps_enable"' in ui,
         "FRP UI must expose both enable flags and the persisted custom script")
 copy_scripts = (ROOT / "trunk/user/scripts/files/usr/bin/copyscripts.sh").read_text()
-require('cp -f /etc_ro/frp_script.sh "$frp_script_path"' in copy_scripts and
-        'chmod 700 "$frp_script_path"' in copy_scripts and
-        '[ -L "$frp_script_path" ]' in copy_scripts and
-        '[ ! -f "$frp_script_path" ]' in copy_scripts,
-        "boot must seed the persistent FRP script safely and enforce mode 0700")
+require('seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' in copy_scripts and
+        'cp -f /etc_ro/frp_script.sh "$frp_script_path"' not in copy_scripts and
+        'copyscripts_enforce_existing_mode=${4:-0}' in copy_scripts and
+        copy_scripts.count('if [ "$copyscripts_enforce_existing_mode" = "1" ]') >= 2,
+        "FRP boot seeding must use exclusive storage publication and enforce mode 0700")
 frp_template = (ROOT / "trunk/user/frp/frp_script.sh").read_text()
 frp_config_test = (ROOT / "trunk/user/frp/tests/frp_config.sh").read_text()
 require('frpc -c "$frp_runtime_dir/myfrpc.ini"' in frp_template and
