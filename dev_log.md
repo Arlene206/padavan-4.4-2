@@ -1,10 +1,10 @@
-## 2026-11-23 08:59 UTC+8 — Restore required end-of-session handoff checkpoint
+## 2026-11-23 09:03 UTC+8 — Restore cross-session execution mandate in handoff
 
-- Parent main SHA: `4ecc28778b3605743262514dbce53b7ffbebda2d`.
-- Exact-head AI handoff run `45091738990` failed because SESSION_HANDOFF lacked the mandatory `Mandatory handoff checkpoint` heading and exact conditional-edit sentence. Restored the required section and clarified that checkpoint verification is mandatory while edits/no-op commits are conditional on material change.
-- Recorded the exact status boundary: Switch CLI `45091738973` PASS; XY-C1 `45091739058` workflow SUCCESS but Build/TRX/artifact SKIPPED for workflow/docs-only changes; AI docs failure corrected by this commit.
-- Parent `4ecc2877` includes a follow-up whitespace-normalized Samba source contract and a miniupnpd fix that snapshots LAN IP/netmask/MAC before config generation to avoid shared-NVRAM-cache pointer overwrite. Exact-head Process and related host checks are in progress.
-- MTK ESW same-SHA kernel Build/TRX/artifact and physical hardware L4 remain unverified.
+- Parent main SHA: `a4e7170d826cf6b77cea4393122dcdfa1d7efdd9`; frozen backup rechecked at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head AI docs `45092211047` failed because SESSION_HANDOFF lacked the checker-required `# Cross-session execution mandate` section. Restored the section with the required literal rules for one atomic main commit and work completed before context exhaustion; the mandatory handoff checkpoint section is retained.
+- Parent MiniUPnP regression `45092211012` PASS after `a4e7170d` normalized whitespace in C call source-contract checks.
+- Parent Process lifecycle regression `45092211001` was still in progress at last poll.
+- MTK ESW target Build/TRX/artifact and hardware L4 remain unverified.
 - Resulting commit: THIS COMMIT.
 
 ---
