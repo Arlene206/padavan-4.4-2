@@ -15,6 +15,7 @@ typedef int (*ra_switch_mdio_read_cl45_fn)(void *, unsigned int, unsigned int,
 typedef int (*ra_switch_mdio_write_fn)(void *, unsigned int, unsigned int, unsigned int);
 typedef int (*ra_switch_mdio_write_cl45_fn)(void *, unsigned int, unsigned int,
 					    unsigned int, unsigned int);
+typedef void (*ra_switch_mdio_delay_fn)(void *);
 
 static inline int ra_switch_mdio_normalize_status(int status)
 {
@@ -81,6 +82,75 @@ ra_switch_mdio_read_cl45_checked(unsigned int port, unsigned int dev,
 		return status;
 	*value = result;
 	return 0;
+}
+
+/*
+ * Start an analog calibration, poll its ready bit, and always attempt to
+ * clear the trigger bit. A cleanup failure also invalidates a ready sample.
+ */
+static inline int
+ra_switch_mdio_calibration_wait(unsigned int port, unsigned int reg,
+				unsigned int trigger_mask,
+				unsigned int ready_mask,
+				unsigned int max_polls,
+				ra_switch_mdio_read_fn read,
+				 ra_switch_mdio_write_fn write,
+				 void *context,
+				 ra_switch_mdio_delay_fn delay,
+				 void *delay_context,
+				 unsigned int *ready)
+{
+	unsigned int value = 0;
+	unsigned int i;
+	int status;
+	int cleanup_status;
+
+	if (!read || !write || !ready || max_polls == 0U)
+		return -EINVAL;
+	*ready = 0;
+
+	status = ra_switch_mdio_read_checked(port, reg, read, context, &value);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_write_checked(port, reg,
+					      value & ~trigger_mask,
+					      write, context);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_read_checked(port, reg, read, context, &value);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_write_checked(port, reg,
+					      value | trigger_mask,
+					      write, context);
+	if (status != 0)
+		goto cleanup;
+
+	for (i = 0U; i < max_polls; ++i) {
+		if (delay)
+			delay(delay_context);
+		status = ra_switch_mdio_read_checked(port, reg, read,
+						     context, &value);
+		if (status != 0)
+			goto cleanup;
+		if (value & ready_mask) {
+			*ready = 1U;
+			break;
+		}
+	}
+
+cleanup:
+	/* Re-read before modifying the register; never restore stale control bits. */
+	cleanup_status = ra_switch_mdio_read_checked(port, reg, read,
+						     context, &value);
+	if (cleanup_status == 0)
+		cleanup_status = ra_switch_mdio_write_checked(
+			port, reg, value & ~trigger_mask, write, context);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	if (status != 0)
+		*ready = 0U;
+	return status;
 }
 
 /* One coherent snapshot for the GE2 link polling transaction. */

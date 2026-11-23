@@ -133,6 +133,145 @@ static void test_checked_phy_writes_propagate_and_normalize_failures(void)
 	assert(f.calls == 0U);
 }
 
+struct fake_cal_wait_io {
+	unsigned int calls;
+	unsigned int read_value;
+	unsigned int reg[8];
+	unsigned int value[8];
+	char op[8];
+	int fail_at;
+	int fail_status;
+	unsigned int delays;
+};
+
+static int fake_cal_wait_read(void *context, unsigned int port,
+			      unsigned int reg, unsigned int *value)
+{
+	struct fake_cal_wait_io *fake = context;
+	unsigned int n = fake->calls++;
+
+	(void)port;
+	assert(n < 8U);
+	fake->op[n] = 'r';
+	fake->reg[n] = reg;
+	*value = 0xdeadbeefU;
+	if ((int)n == fake->fail_at)
+		return fake->fail_status;
+	*value = fake->read_value;
+	return 0;
+}
+
+static int fake_cal_wait_write(void *context, unsigned int port,
+			       unsigned int reg, unsigned int value)
+{
+	struct fake_cal_wait_io *fake = context;
+	unsigned int n = fake->calls++;
+
+	(void)port;
+	assert(n < 8U);
+	fake->op[n] = 'w';
+	fake->reg[n] = reg;
+	fake->value[n] = value;
+	if ((int)n == fake->fail_at)
+		return fake->fail_status;
+	return 0;
+}
+
+static void fake_cal_wait_delay(void *context)
+{
+	struct fake_cal_wait_io *fake = context;
+
+	++fake->delays;
+}
+
+static void test_calibration_wait_checks_all_io_and_restores_trigger(void)
+{
+	struct fake_cal_wait_io fake;
+	unsigned int ready;
+	unsigned int i;
+	int status;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.read_value = 0x2U;
+	status = ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 3U, fake_cal_wait_read,
+		fake_cal_wait_write, &fake, fake_cal_wait_delay, &fake, &ready);
+	assert(status == 0 && ready == 1U);
+	assert(fake.calls == 7U && fake.delays == 1U);
+	assert(fake.op[0] == 'r' && fake.op[1] == 'w' &&
+	       fake.op[2] == 'r' && fake.op[3] == 'w' &&
+	       fake.op[4] == 'r' && fake.op[5] == 'r' &&
+	       fake.op[6] == 'w');
+	assert(fake.reg[0] == 24U && fake.value[1] == 0x2U);
+	assert(fake.value[3] == 0x12U && fake.value[6] == 0x2U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.read_value = 0U;
+	ready = 1U;
+	status = ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 2U, fake_cal_wait_read,
+		fake_cal_wait_write, &fake, fake_cal_wait_delay, &fake, &ready);
+	assert(status == 0 && ready == 0U);
+	assert(fake.calls == 8U && fake.delays == 2U);
+	assert(fake.op[6] == 'r' && fake.op[7] == 'w');
+
+	for (i = 0U; i < 5U; ++i) {
+		memset(&fake, 0, sizeof(fake));
+		fake.fail_at = (int)i;
+		fake.fail_status = -ETIMEDOUT;
+		fake.read_value = 0x2U;
+		ready = 1U;
+		status = ra_switch_mdio_calibration_wait(
+			0U, 24U, 0x10U, 0x2U, 2U, fake_cal_wait_read,
+			fake_cal_wait_write, &fake, fake_cal_wait_delay,
+			&fake, &ready);
+		assert(status == -ETIMEDOUT && ready == 0U);
+		assert(fake.calls == i + 3U);
+	}
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 4;
+	fake.fail_status = 1;
+	fake.read_value = 0x2U;
+	ready = 1U;
+	status = ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 2U, fake_cal_wait_read,
+		fake_cal_wait_write, &fake, fake_cal_wait_delay, &fake, &ready);
+	assert(status == -EIO && ready == 0U && fake.calls == 7U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 5;
+	fake.fail_status = -EHOSTDOWN;
+	fake.read_value = 0x2U;
+	ready = 1U;
+	status = ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 2U, fake_cal_wait_read,
+		fake_cal_wait_write, &fake, fake_cal_wait_delay, &fake, &ready);
+	assert(status == -EHOSTDOWN && ready == 0U && fake.calls == 6U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 6;
+	fake.fail_status = -ETIMEDOUT;
+	fake.read_value = 0x2U;
+	ready = 1U;
+	status = ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 2U, fake_cal_wait_read,
+		fake_cal_wait_write, &fake, fake_cal_wait_delay, &fake, &ready);
+	assert(status == -ETIMEDOUT && ready == 0U && fake.calls == 7U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 2U, NULL, fake_cal_wait_write,
+		&fake, fake_cal_wait_delay, &fake, &ready) == -EINVAL);
+	assert(ra_switch_mdio_calibration_wait(
+		0U, 24U, 0x10U, 0x2U, 0U, fake_cal_wait_read,
+		fake_cal_wait_write, &fake, fake_cal_wait_delay, &fake,
+		&ready) == -EINVAL);
+	assert(fake.calls == 0U);
+}
+
 static void test_page_read_selects_global_and_local_bank(void)
 {
 	struct fake_io f;
@@ -494,6 +633,7 @@ static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
 int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
+	test_calibration_wait_checks_all_io_and_restores_trigger();
 	test_checked_phy_writes_propagate_and_normalize_failures();
 	test_page_select_failure_stops_second_access();
 	test_register_failures_and_positive_status_are_safe();

@@ -912,6 +912,39 @@ jobs:
           print("RAETH legacy Clause 22/45 PHY wrappers report failed MDIO reads and writes: PASS")
           PY
 
+      - name: Validate GE analog calibration MDIO wait cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          wait = source.split("static int all_ge_ana_cal_wait_checked(", 1)[1].split(
+              chr(10) + "u8 all_ge_ana_cal_wait(", 1
+          )[0]
+          legacy = source.split("u8 all_ge_ana_cal_wait(", 1)[1].split(
+              chr(10) + "void ge_cal_rext", 1
+          )[0]
+          policy_wait = policy.split("ra_switch_mdio_calibration_wait(", 1)[1].split(
+              chr(10) + "/* One coherent snapshot", 1
+          )[0]
+          assert "ra_switch_mdio_calibration_wait(" in wait
+          assert "tc_phy_read_page_reg_checked(port, 7U" in source
+          assert "tc_phy_write_page_reg_checked(port, 7U" in source
+          assert "ANACAL_ERROR" in legacy and "status != 0" in legacy
+          assert "cleanup_status = ra_switch_mdio_read_checked(" in policy_wait
+          assert "value & ~trigger_mask" in policy_wait
+          assert "if (status != 0)" in policy_wait
+          for marker in (
+              "test_calibration_wait_checks_all_io_and_restores_trigger",
+              "test_calibration_wait_checks_all_io_and_restores_trigger();",
+          ):
+              assert marker in test
+          print("RAETH GE calibration wait distinguishes MDIO errors from timeout and clears trigger: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

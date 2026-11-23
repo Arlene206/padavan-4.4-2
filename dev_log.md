@@ -1,3 +1,14 @@
+## 2026-11-23 — Make GE analog-calibration wait status-bearing
+
+- Base SHA: `f432a3ef15430bd40828cd05c54898cbaf19ce25`. Its Switch CLI #45272997503 PASS and AI docs #45272997319 PASS, validating the checked C22/Clause45 write policy and legacy wrapper adapters. XY-C1 #45272997410 and NVRAM #45272997327 were still in progress at last poll.
+- Reviewed the shared GE calibration wait used by the REXT, R50, TX-amplitude and TX-offset algorithms. It previously used value-only page-register wrappers; an MDIO timeout returned zero and was indistinguishable from a genuine calibration timeout, while the trigger bit clear at the end was best-effort only through a void wrapper.
+- Added a callback-driven calibration wait policy: checked initial read, trigger-clear, re-read, trigger-set and bounded ready polling; every exit attempts a fresh read followed by trigger-bit clear. A transport failure or failed cleanup returns its errno, invalidates the ready result, and is distinct from an ordinary not-ready timeout.
+- Wired the production GE wait to page-7 register 24 through the existing IRQ-safe page accessors. The exported legacy `u8 all_ge_ana_cal_wait()` signature remains unchanged and maps transport failures to the existing `ANACAL_ERROR` sentinel so current calibration callers enter their established error/cleanup paths.
+- Added failure injection for every setup/poll/cleanup transaction, positive-status normalization, timeout, successful ready and invalid arguments. Switch CLI adds source-contract assertions for real page-7 access and trigger cleanup.
+- This slice only hardens the shared wait handshake; surrounding calibration algorithms still contain many legacy value-only MMD calls. Those remain a separate migration requiring explicit snapshot/restore design. No MIPS kernel build or physical hardware L4 is claimed.
+- Next: inspect exact-SHA Switch CLI/AI docs and XY-C1 job outcome; then trace one calibration algorithm's full register rollback path before expanding the conversion.
+
+---
 ## 2026-11-23 — Fix checked PHY write policy declaration order
 
 - Exact-head Switch CLI for `d8870638f6add35d455e0fdbf482508d05d7e15d` failed before running the RAETH regression: the new write-policy inline functions appeared above their callback typedefs and status-normalizer declaration, producing unknown-type errors under GNU89/Werror.

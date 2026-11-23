@@ -1492,30 +1492,64 @@ void do_fe_phy_all_analog_cal(u8 port_num)
 	tc_phy_write_g_reg(port_num, 0, 4, 0x5e1);
 }
 
-u8 all_ge_ana_cal_wait(unsigned int delay, u8 port_num) /* for EN7512 */
+struct ra_switch_ge_cal_wait_context {
+	unsigned int delay;
+};
+
+static int ra_switch_ge_cal_wait_read(void *context, unsigned int port,
+				      unsigned int reg, unsigned int *value)
 {
-	u8 all_ana_cal_status;
-	u16 cnt, g7r24_temp;
-
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp & (~0x10));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp | 0x10);
-
-	cnt = 1000;
-	do {
-		udelay(delay);
-		cnt--;
-		all_ana_cal_status =
-		    ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) >> 1) & 0x1);
-
-	} while ((all_ana_cal_status == 0) && (cnt != 0));
-	g7r24_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_temp & (~0x10));
-
-	return all_ana_cal_status;
+	(void)context;
+	return tc_phy_read_page_reg_checked(port, 7U, (u8)reg, 0, value);
 }
 
+static int ra_switch_ge_cal_wait_write(void *context, unsigned int port,
+				       unsigned int reg, unsigned int value)
+{
+	(void)context;
+	return tc_phy_write_page_reg_checked(port, 7U, (u8)reg, 0, value);
+}
+
+static void ra_switch_ge_cal_wait_delay(void *context)
+{
+	struct ra_switch_ge_cal_wait_context *wait = context;
+
+	udelay(wait->delay);
+}
+
+static int all_ge_ana_cal_wait_checked(unsigned int delay, u8 port_num,
+				       u8 *ready)
+{
+	struct ra_switch_ge_cal_wait_context wait;
+	unsigned int sample_ready = 0;
+	int status;
+
+	if (!ready)
+		return -EINVAL;
+	*ready = 0;
+	wait.delay = delay;
+	status = ra_switch_mdio_calibration_wait(
+		FE_CAL_COMMON, 24U, 0x10U, 0x2U, 1000U,
+		ra_switch_ge_cal_wait_read, ra_switch_ge_cal_wait_write,
+		&wait, ra_switch_ge_cal_wait_delay, &wait, &sample_ready);
+	if (status == 0)
+		*ready = (u8)sample_ready;
+	else
+		pr_err_ratelimited("%s: GE analog calibration MDIO wait failed (port=%u status=%d)\n",
+				   __func__, port_num, status);
+	return status;
+}
+
+u8 all_ge_ana_cal_wait(unsigned int delay, u8 port_num) /* for EN7512 */
+{
+	u8 ready = 0;
+	int status;
+
+	status = all_ge_ana_cal_wait_checked(delay, port_num, &ready);
+	if (status != 0)
+		return ANACAL_ERROR;
+	return ready;
+}
 void ge_cal_rext(u8 phyaddr, unsigned int delay)
 {
 	u8	rg_zcal_ctrl, all_ana_cal_status;

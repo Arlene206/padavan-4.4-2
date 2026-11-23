@@ -1,10 +1,12 @@
 ### 2026-11-23 接力更新（最新快照）
 
-- `d8870638` 尝试为 legacy C22/Clause45 PHY wrapper 加入 status-bearing write/read adapter；Switch CLI #45272697363 编译失败：新 write policy inline helper 写在 callback typedef / status normalizer 之前，GNU89/Werror 报未知类型。现已将 helper 移至声明之后，本提交仅修正声明顺序。
-- `d8870638` 的 AI docs / XY-C1 / NVRAM 状态须由下个 exact-SHA 检查；没有 MIPS/kernel build 或硬件 L4 声明。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
-- GE2 polling 当前修复保留；其 policy binary、source contract 在修正的 source-contract delimiter SHA `48bc28a` 上 PASS；XY-C1 `5abf4a5` workflow host-only，Build/TRX/upload SKIPPED。
-- 下个 GPT 第一项：检查本次 typedef-order 修正 exact-SHA Switch CLI/AI docs；如 PASS，再继续 all_ge_ana_cal_wait 的 MDIO 错误与校准结束位清理设计。
+- 上一提交 `f432a3ef` 修正 write-policy 声明顺序；Switch CLI #45272997503 PASS，AI docs #45272997319 PASS。XY-C1 #45272997410 与 NVRAM #45272997327 当时仍在运行。
+- 新增 GE analog-calibration wait status 路径：checked page-7 register 24 read/write、bounded ready polling、所有退出 fresh-read 并尝试清 trigger bit；transport error 不再与正常 timeout 混淆，ready 输出置 0。
+- 保持 legacy `u8 all_ge_ana_cal_wait()` 签名不变；底层 transport/cleanup error 转成已有 `ANACAL_ERROR`，调用者进入原错误处理路径。当前只迁移 wait handshake，GE REXT/R50/TX amp/TX offset 的其他 MMD 读写仍需后续事务化。
+- 新增每个 setup/poll/cleanup 位置故障注入、正状态归一化、timeout、ready 和非法参数测试；Switch CLI workflow 增加源码契约。本次 SHA Actions 待检。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，未触碰。
+- 无 MIPS kernel build、无 XY-C1 同 SHA Build/TRX/artifact 三项 PASS 证明、无硬件 L4 声明。
+- 下个 GPT 第一项：检查本次 SHA Switch CLI/AI docs/NVRAM/XY-C1；随后选择一个 GE calibration 算法梳理全部 register snapshot/restore，并在错误路径恢复触发位。
 
 ---
 # Cross-session execution mandate
@@ -41,15 +43,15 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- GE2 source contract fix SHA `48bc28a`: Switch CLI #45272254777 PASS; AI docs #45272254645 PASS.
-- Wrapper write-status SHA `d887063`: Switch CLI #45272697363 FAIL at compile because checked-write helpers preceded typedefs. This child only moves those helpers below the typedefs/normalizer; exact rerun pending.
-- XY-C1 `5abf4a5` host workflow passed, but Build/TRX/artifact upload were skipped because firmware inputs did not change. No L3 or hardware L4 claim.
+- Prior checked-write SHA `f432a3e`: Switch CLI #45272997503 PASS; AI docs #45272997319 PASS; XY-C1 #45272997410 and NVRAM #45272997327 were pending at last poll.
+- GE calibration wait status/cleanup slice is new; exact-head Actions must be checked after commit.
+- XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on the same source SHA. No such result is claimed here. No hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check exact-SHA Switch CLI and AI docs for the checked-write helper declaration-order correction; diagnose any FAIL from logs.
-2. Inspect XY-C1 job paths only when production inputs change; a host-only path-filter success is not an L3 firmware build.
-3. Resume the status-bearing `all_ge_ana_cal_wait()` review, ensuring an MDIO error is distinct from timeout and trigger-bit cleanup is attempted.
+1. Fetch live `main`; inspect this slice's exact-SHA Switch CLI, AI docs, NVRAM and XY-C1 jobs/logs.
+2. Check whether the XY-C1 workflow actually ran Build/TRX/upload; never infer L3 from a host-only skipped-build success.
+3. Continue with one GE calibration algorithm's full save/restore path; preserve ABI and trigger cleanup on each checked error.
 
 
 ## Cross-session operating constraints
