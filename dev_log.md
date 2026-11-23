@@ -1,3 +1,12 @@
+## 2026-11-24 00:53 CST (UTC+8) — Trigger XY-C1 build on WAN ARP policy header changes
+
+- `detect_wan.c` directly includes `detect_wan_arp_socket_policy.h`, but the XY-C1 push path allowlist listed only the C file. A header-only production change could bypass firmware cross-build/TRX validation.
+- Added the production policy header beside `detect_wan.c` in `.github/workflows/xy-c1-firmware-validation.yml`. The workflow remains main-only/push-only; its event model was not changed.
+- USB printer NVRAM checker correction landed in `f9475bf081db66e795df8c25332253ef7c6c80a2`; exact USB modem run #45220509149 PASS, including the previously failing source-contract step. Process fail-closed #45220191260, NVRAM audit #45220191315 and USB storage #45220191366 PASS on `ecff475abb782b32e0a8f4f02026acc709ea6844`.
+- XY-C1 #45220033426 (`e6dc19c`) and #45220191233 (`ecff475`) were still building at last observation, with TRX and artifact steps pending. No L3 claim is made. This workflow-only path correction does not retroactively retrigger those source builds.
+
+---
+
 ## 2026-11-23 — Align USB printer NVRAM checker with idempotent launcher
 
 - The first Process/Storage source review caught one stale checker assumption: `check_usb_printer_nvram.py` still expected U2EC/LPD to unlink PID files in the individual wrappers. Cleanup now belongs to the shared launcher after a tri-state ABSENT preflight, so the checker has been updated to verify the checked-setting gates, three-argument paths, fail-closed UNKNOWN handling, RUNNING no-op and cleanup-before-fork ordering.

@@ -336,6 +336,7 @@ on:
       - "trunk/user/rc/src/detect_link_nvram_policy.h"
       - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
       - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
       - "trunk/user/rc/src/detect_wan_arp_result_policy.h"
       - "trunk/user/rc/src/detect_wan_signal_policy.h"
       - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
