@@ -73,6 +73,33 @@ test_snapshot_clears_only_the_consumed_batch(void)
 }
 
 static int
+test_pending_termination_suppresses_remaining_batch_work(void)
+{
+	volatile sig_atomic_t pending = 0;
+	sig_atomic_t batch = WD_PENDING_TIME_REFRESH |
+		WD_PENDING_WIFI_STATE | WD_PENDING_TIMER;
+
+	CHECK(watchdog_should_dispatch_pending_event(
+		&pending, batch, WD_PENDING_TIME_REFRESH));
+	CHECK(watchdog_should_dispatch_pending_event(
+		&pending, batch, WD_PENDING_WIFI_STATE));
+	CHECK(watchdog_should_dispatch_pending_event(
+		&pending, batch, WD_PENDING_TIMER));
+	watchdog_record_signal(&pending, SIGTERM);
+	CHECK(!watchdog_should_dispatch_pending_event(
+		&pending, batch, WD_PENDING_TIME_REFRESH));
+	CHECK(!watchdog_should_dispatch_pending_event(
+		&pending, batch, WD_PENDING_WIFI_STATE));
+	CHECK(!watchdog_should_dispatch_pending_event(
+		&pending, batch, WD_PENDING_TIMER));
+	CHECK(!watchdog_should_dispatch_pending_event(NULL, batch, WD_PENDING_TIMER));
+	CHECK(!watchdog_should_dispatch_pending_event(&pending, batch, 0));
+	CHECK(!watchdog_should_dispatch_pending_event(
+		&pending, WD_PENDING_TIMER, WD_PENDING_WIFI_STATE));
+	return 0;
+}
+
+static int
 test_unmanaged_signals_and_null_state_are_ignored(void)
 {
 	volatile sig_atomic_t events = 0;
@@ -91,6 +118,7 @@ main(void)
 	CHECK(test_repeated_standard_signals_coalesce() == 0);
 	CHECK(test_termination_is_sticky_and_coexists_with_work() == 0);
 	CHECK(test_snapshot_clears_only_the_consumed_batch() == 0);
+	CHECK(test_pending_termination_suppresses_remaining_batch_work() == 0);
 	CHECK(test_unmanaged_signals_and_null_state_are_ignored() == 0);
 	puts("watchdog signal deferral policy: PASS");
 	return 0;

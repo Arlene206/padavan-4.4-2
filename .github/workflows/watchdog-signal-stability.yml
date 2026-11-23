@@ -179,9 +179,18 @@ jobs:
           assert "events = watchdog_take_pending_events(&wd_pending_events)" in main
 
           stop = main.index("if (events & WD_PENDING_TERMINATE)")
-          refresh = main.index("if (events & WD_PENDING_TIME_REFRESH)", stop)
-          wifi = main.index("if (events & WD_PENDING_WIFI_STATE)", refresh)
-          timer = main.index("if (events & WD_PENDING_TIMER)", wifi)
+          refresh = main.index(
+              "watchdog_should_dispatch_pending_event(\\n\\t\\t\\t    &wd_pending_events, events, WD_PENDING_TIME_REFRESH)",
+              stop
+          )
+          wifi = main.index(
+              "watchdog_should_dispatch_pending_event(\\n\\t\\t\\t    &wd_pending_events, events, WD_PENDING_WIFI_STATE)",
+              refresh
+          )
+          timer = main.index(
+              "watchdog_should_dispatch_pending_event(\\n\\t\\t\\t    &wd_pending_events, events, WD_PENDING_TIMER)",
+              wifi
+          )
           assert stop < refresh < wifi < timer
           unblock = main.index("sigprocmask(SIG_SETMASK, &dispatch_mask, NULL)")
           assert unblock < refresh
@@ -215,13 +224,16 @@ jobs:
           delay = schedule.index("sleep(70);", stop_guard)
           assert update < stop_guard < delay
 
+          assert "watchdog_should_dispatch_pending_event" in policy
+          assert "WD_PENDING_TERMINATE" in body(policy, "watchdog_should_dispatch_pending_event(")
           for bit in ("WD_PENDING_TIMER", "WD_PENDING_TIME_REFRESH",
                       "WD_PENDING_WIFI_STATE", "WD_PENDING_TERMINATE"):
               assert bit in policy
           for marker in ("test_signal_events_are_recorded",
                          "test_repeated_standard_signals_coalesce",
                          "test_termination_is_sticky_and_coexists_with_work",
-                         "test_snapshot_clears_only_the_consumed_batch"):
+                         "test_snapshot_clears_only_the_consumed_batch",
+                         "test_pending_termination_suppresses_remaining_batch_work"):
               assert marker in test
 
           time_notify = body(watchdog, "notify_watchdog_time(void)")

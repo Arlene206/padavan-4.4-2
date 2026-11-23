@@ -48,4 +48,20 @@ watchdog_take_pending_events(volatile sig_atomic_t *pending_events)
 	return events;
 }
 
+/*
+ * A termination signal may arrive after a batch snapshot was taken while
+ * signals are unblocked for dispatch. Do not start later work from that batch
+ * once shutdown has been queued.
+ */
+static inline int
+watchdog_should_dispatch_pending_event(
+	const volatile sig_atomic_t *pending_events,
+	sig_atomic_t batch_events, sig_atomic_t event)
+{
+	if (!pending_events || !event)
+		return 0;
+	return ((*pending_events & WD_PENDING_TERMINATE) == 0 &&
+		(batch_events & event) != 0);
+}
+
 #endif /* WATCHDOG_SIGNAL_POLICY_H */

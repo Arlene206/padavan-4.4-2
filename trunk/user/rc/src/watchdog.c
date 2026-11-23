@@ -1005,11 +1005,14 @@ watchdog_main(int argc, char *argv[])
 		}
 
 		/* Apply control updates before a timer poll in the same batch. */
-		if (events & WD_PENDING_TIME_REFRESH)
+		if (watchdog_should_dispatch_pending_event(
+			    &wd_pending_events, events, WD_PENDING_TIME_REFRESH))
 			watchdog_on_sighup();
-		if (events & WD_PENDING_WIFI_STATE)
+		if (watchdog_should_dispatch_pending_event(
+			    &wd_pending_events, events, WD_PENDING_WIFI_STATE))
 			watchdog_on_sigusr1();
-		if (events & WD_PENDING_TIMER)
+		if (watchdog_should_dispatch_pending_event(
+			    &wd_pending_events, events, WD_PENDING_TIMER))
 			watchdog_on_timer();
 
 		if (sigprocmask(SIG_BLOCK, &managed_signals, NULL) < 0) {
