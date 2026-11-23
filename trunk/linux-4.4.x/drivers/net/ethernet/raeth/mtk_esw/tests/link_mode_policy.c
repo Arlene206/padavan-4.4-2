@@ -515,6 +515,7 @@ test_register_update_bits_preserves_unmasked_bits_and_propagates_errors(void)
 	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
 					    &fake_ops, &fake) == -EIO);
 
+	fake_init(&fake);
 	missing_read.read = NULL;
 	missing_write.write = NULL;
 	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U, NULL, &fake) == -EINVAL);
