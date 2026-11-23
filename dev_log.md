@@ -1,3 +1,13 @@
+## 2026-11-23 13:14 UTC+8 — Route FRP credential seeding through exclusive private publication
+
+- Source review found that copyscripts.sh already used seed_storage_file() for ordinary defaults, which stages beside the destination and publishes with an exclusive hard link to avoid following a leaf or parent symlink. The credential-bearing FRP script was a security-sensitive exception: a separate symlink check followed by cp -f had a check/use gap and duplicated path/type/mode handling.
+- Extended the shared helper with an optional enforce-existing-mode flag. FRP now uses the same staged/exclusive publication path at mode 0700; an existing operator-managed regular file keeps its content but has its private mode restored on each boot. A concurrently published regular file retains its content while still receiving the requested private mode. Invalid mode policy and chmod failures propagate through the existing boot-seed status.
+- Expanded trunk/user/scripts/tests/copyscripts_ca_status.sh for private creation, existing-file content preservation plus mode repair, mode-repair failure, and source wiring that forbids the old direct FRP cp path. The Process lifecycle workflow already watches both changed paths and runs this test; no workflow filter change is needed.
+- The preceding libdisk ACL lookup source SHA e757f86309b19f890797b2f36fb15f44f87a7e95 passed its descendant source-contract rerun 45114769360 on 5378fccc2201f4359ea3b0b37f1043d2b813a883. Its exact XY-C1 run 45114634020 is IN_PROGRESS; the NVRAM boundary run 45114633929 is COMPLETED.
+- No local checkout is available, so the shell regression was not run locally. The exact-head Process lifecycle Action must validate it. No L3/L4 claim.
+- Product source and shell regression changed together. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 12:07 UTC+8 — Repair Python syntax in PID1 mask-failure source checker
 
 - Exact-head BusyBox job 137478257344 / run 45109466477 on SHA 81be0de7b68467468789d7a67c590b5eb737a449 compiled and ran both ASan/UBSan C binaries successfully, then failed in scripts/check_busybox_init_reap_queue.py at line 127: JavaScript const/indexOf syntax had been inserted in a Python assertion block.

@@ -1,109 +1,61 @@
 # SESSION HANDOFF — Padavan 4.4
 
-## 2026-11-23 BusyBox PID 1 exact-child wait checkpoint
-
-- The live development branch is main. The parent SHA for this test/handoff slice is 7c556be9eb1caa343d720bcecd3df74c5461262a; fetch live main again at takeover and immediately before any future write.
-- The explicitly preserved branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. It is an immutable archival snapshot: never write, delete, rename, merge, rebase, cherry-pick, prune or use it for development.
-- The previous active handoff task (libdisk share-folder transaction tests and watchdog signal source-checker repair) is complete in later main commits. Do not repeat those audits. The current engineering thread is BusyBox PID 1 child reaping and exact-child waiting.
-
-### Production change already on main
-
-- Production source commit: 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac, parent e3d9935d58d255d089392a1c8861779a2b6b1be9.
-- Files: trunk/user/busybox/busybox-1.24.x/init/init.c, init_reap_queue.h, the matching test/checker, and lossless dev-log rotation.
-- Defect: old waitfor(pid) probed with kill(pid,0), then used generic blocking wait(NULL). PID reuse could make PID 1 block on an unrelated live process; generic wait could also consume any other exited child instead of the requested action child.
-- Fix: init_wait_for_child() calls waitpid(target_pid,NULL,0) for the exact PID, retries EINTR, accepts ECHILD as the SIGTSTP handler having already reaped the child into the bounded queue, and propagates other failures. waitfor() marks the exact reaped child, collects only already-exited peers with waitpid(-1,NULL,WNOHANG), retries EINTR for that nonblocking sweep, then drains queued PIDs in normal context.
-- The SIGTSTP handler does not touch utmp or the mutable inittab list; it reaps only while the bounded queue has room and queues the PID. The main context drains while SIGTSTP is blocked. Inittab reload blocks SIGTSTP and drains queued children before changing the action list.
-- Existing callback regressions cover exact PID/options, EINTR retry, ECHILD, errno propagation, unexpected zero return and invalid inputs. This commit adds an OS-level fork/waitid/WNOWAIT regression: one child is made an exited-but-unreaped zombie, PID 1's helper waits for a second delayed child, and the first child must remain waitable afterward. The test therefore checks actual kernel waitpid semantics, not only a mocked callback.
-
-### Exact-head development and CI facts
-
-- Exact source-follow-up SHA 84060ba4f52823b396487b24cdfe66254baff0d0:
-  - BusyBox PID1 reap queue regression 45106412054: PASS (GNU89, ASan/UBSan host binary and full source contract).
-  - Process inventory 45106412151: PASS.
-  - AI handoff documentation contract 45106411973: PASS.
-  - USB storage hotplug 45106411983: PASS.
-  - NVRAM transaction audit 45106412065: PASS.
-- The production source SHA 1f9d39bc did not start XY-C1 validation because, at that SHA, .github/workflows/xy-c1-firmware-validation.yml did not watch the BusyBox init/** subtree. That trigger omission was corrected in 11090e80b126fa1665758026d2163fd9e2f09e6a by adding trunk/user/busybox/busybox-1.24.x/init/** to its push path filter.
-- The first workflow-fix run 45106741184 failed before firmware-input detection: the new mocked Git fixture had literal backslash-n/backslash-zero rather than actual newline/NUL delimiters. Process inventory 45106741192 and AI handoff contract 45106741330 passed. The literal fixtures were corrected in a71253cc463befcab865afb8a90407afa7975e33.
-- Exact-head XY run 45106798326 and AI docs run 45106798279 PASS on a71253cc. Detector tests executed successfully, while Build XY-C1/TRX/artifact were correctly SKIPPED because that commit changed only tests/docs. It is not L3 evidence.
-- The workflow-only trigger rerun at 7c556be9eb1caa343d720bcecd3df74c5461262a still has exact XY-C1 run 45106983817 IN_PROGRESS; AI docs run 45106983832 and Process inventory run 45106983853 PASS. Its Build XY-C1 step was in progress at the last check, with TRX/artifact pending. The later test-only commit 8331df0c690aafa00a7d46263dacea8ab8bfbb01 has BusyBox 45107256450, Process 45107256374, NVRAM 45107256356 and USB 45107256428 PASS; AI handoff run 45107256439 failed only because this live handoff lacked the explicit validator-required sentence now added in this correction. XY-C1 run 45107256442 passed its host/detector steps but intentionally skipped Build/TRX/artifact because this commit changed tests/docs only. Do not treat it as L3.
-- This commit modifies the BusyBox init test file only; the XY workflow should run host tests but the detector should classify this as tests-only and skip Build/TRX/artifact. The next real production-source change under init/** triggers the corrected full target path.
-
-# Cross-session execution mandate
-
-- Every logical source/test slice must be delivered as one atomic main commit, built from one complete Git tree and published by a non-forced expected-SHA update.
-- Before context exhaustion, finish and publish the current safe slice, inspect its exact-head Actions, and leave the next concrete task and validation boundary here.
-
-The user delegates one continuing engineering job across conversations. The repository is the project memory; resume from live GitHub state, not copied chat summaries.
-
-- Recover once, read the protocol and current handoff, confirm main and the frozen backup, then execute the active engineering task. Do not repeat completed audits or ask the user to select the next task.
-- Stability defect discovery and repair is the primary mission; security work continues in parallel. Confirmed critical vulnerabilities, data corruption, boot failures and severe system failures take immediate priority.
-- Use the loop: modify production source/tests → run focused checks → create one atomic commit on main → inspect Actions for that exact SHA. A failed exact-head run must be diagnosed from its first causal error; a pending run does not block independent engineering.
-- For each multi-file logical slice, create all blobs, one complete Git tree and one commit with the freshly fetched main as its only parent. Update main with force:false and the expected parent SHA. Never create feature/checkpoint branches, per-file partial commits, PRs, force-pushes, amended commits or rewritten history.
-- Preserve the frozen backup branch permanently and read-only. Do not alter GPT Session Rotator state or workflow.
-- Do not claim tests, commits, Actions, firmware images or hardware behavior that were not actually verified. Keep L1/L2 host evidence separate from L3 MIPS/TRX/artifact validation and L4 hardware validation.
-- Use bounded, reviewable slices. Finish and publish the current safe slice before beginning work that cannot be completed safely. Maintain exact resumable facts below; no follow-up commit solely to replace THIS COMMIT with its SHA.
-
 ## Current repository state
 
-- Live main at the parent of this queue-header retry/atomic-install fix: 9de5f37d550244590158b302b6ac9935bff765b3. The frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Frozen backup: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Production PID1 wait/reap baseline: 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; exact host/source regression follow-up 84060ba4f52823b396487b24cdfe66254baff0d0 passed.
-- XY-C1 workflow path correction: 11090e80b126fa1665758026d2163fd9e2f09e6a; detector fixture correction: a71253cc463befcab865afb8a90407afa7975e33; workflow-only full-build rerun: 7c556be9eb1caa343d720bcecd3df74c5461262a.
+- Repository: Arlene206/padavan-4.4-2. The authorized development branch is main. The parent for the current FRP credential seeding source/test slice is 5378fccc2201f4359ea3b0b37f1043d2b813a883. This commit is intended to include source, regression, log and handoff as one atomic commit; resolve THIS COMMIT from Git history and do not create a follow-up commit just to replace its placeholder SHA.
+- The immutable archival ref backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune, or develop from it.
+- Branch inventory at this checkpoint contains main and the frozen backup only. Do not create feature, fix, temporary or checkpoint branches. No pull request development.
+- There is no local repository checkout available in this session. Source changes are prepared by GitHub Git Data API; do not claim local shell tests, compiler runs or firmware builds.
+- Legacy PR #1 is closed and unmerged, head ba48e22609e0c81ad757b06756fe91d05f39cbf6 and base 9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74. The inspected AliDDNS HMAC helper, OpenSSL 3 EVP_MAC code, CA trust-store bootstrap, tests and package/workflow integration are already present in main. Do not reopen or develop its old head.
 
 ## Active task
 
-### BusyBox PID 1 delayed-signal event preservation
+### Replace the FRP credential direct-copy exception with tested exclusive publication
 
-- Immediate compile review found a declaration-scope defect in the initial source patch: signal_error was accidentally declared inside the optional DEBUG_SEGV_HANDLER block but used in the normal init signal setup. This commit removes the misplaced declaration and declares it in the ordinary setup block. Exact-head CI for both the original source slice and this correction must confirm the compile path.
+- Files in this logical slice: trunk/user/scripts/files/usr/bin/copyscripts.sh; trunk/user/scripts/tests/copyscripts_ca_status.sh; dev_log.md; SESSION_HANDOFF.md.
+- The ordinary seed_storage_file() helper validates that /etc/storage and its parent are real directories, rejects a symlink or non-regular leaf, creates a same-directory mktemp file, copies and chmods it, then publishes with ln (exclusive hard-link creation). Existing normal three-argument callers preserve operator-managed files without changing their permissions.
+- The FRP credential-bearing script used a separate symlink test followed by cp -f /etc_ro/frp_script.sh. That check/use split allowed a leaf symlink to be introduced between check and write, and duplicated the common helper policy.
+- The current fix extends seed_storage_file() with optional fourth argument 1, meaning enforce the requested file mode for an existing regular file or a concurrently published regular file. Omitted fourth argument defaults to 0, preserving every existing three-argument caller. The FRP config is seeded with the existing helper, source /etc_ro/frp_script.sh, destination /etc/storage/frp_script.sh, mode 700, enforce-existing-mode flag 1; it shares no-follow path checks, staged copy and exclusive link publication.
+- If FRP mode repair fails, helper sets copyscripts_seed_status=1 and returns failure, so the existing final boot-preparation status gate reports the problem. Operator-managed file content is preserved while its sensitive mode is restored. The fresh target is never overwritten by a concurrent destination.
+- Regression additions test new FRP file creation at mode 0700, existing operator content preservation plus mode repair, injected chmod failure with status propagation, and static source assertions preventing the old direct cp path. Existing Process lifecycle workflow path filters already include both changed source and test paths and runs this regression.
+- Limitation: this shell helper follows the existing repository trust model for /etc/storage ownership. Do not describe the change as a universal kernel-level elimination of all path races; it replaces the known direct cp -f gap with the same exclusive no-follow staged publication policy already used for other storage defaults.
 
-- Source review confirmed a lost-event race in check_delayed_sigs(): the main loop snapshots the single shared bb_got_signal value and then clears it, so a different delayed handler can overwrite that global between those operations. The source comment already acknowledged SIGHUP/Ctrl-Alt-Del collision; a shutdown request could also be overwritten by another delayed event.
-- This slice replaces the lossy single-signal slot for PID1 delayed events with independent sig_atomic_t event bits in init_signal_pending.h. A separate field retains the most recently delivered shutdown mode. Delayed handler sigaction masks are full to serialize the accumulator's read-modify-write; the main loop blocks the exact delayed signal set while taking/clearing a batch. A failed mask restore requeues the snapshot rather than discarding it.
-- Existing bb_got_signal/record_signo remains dedicated to SIGCONT inside stop_handler(); no other BusyBox applet or global libbb signal behavior is changed.
-- Focused tests cover different signals in one batch, repeated/coalesced requests, shutdown mode retention, snapshot restoration and invalid inputs. The source-contract script and BusyBox workflow compile/check this policy. Exact-head C test, source contract, Process inventory, AI docs and XY-C1 build are pending for the resulting SHA.
-- Next, inspect the interaction between delayed events, WAIT/SYSINIT actions and main-loop sleeps/waits. Preserve shutdown priority and SIGCONT stop handling; make no broader signal changes without a testable defect.
+### Exact parallel baseline and Actions
 
-### XY-C1 production-build gate
-
-- The XY-C1 workflow watches trunk/user/busybox/busybox-1.24.x/init/**; the BusyBox init trigger omission is closed.
-- Exact XY-C1 run 45106983817 on workflow-only SHA 7c556be9eb1caa343d720bcecd3df74c5461262a completed SUCCESS: Build XY-C1, TRX verification and artifact upload all passed. Compare 1f9d39bc..7c556be confirms no intervening production-source changes; L3 is VERIFIED for exact-child wait/reap.
-- The delayed-signal policy unit/source tests passed in the focused BusyBox job on 352c47fe and 9de5f37d. The ordinary signal_error declaration scope was corrected in 9de5f37d; exact-head BusyBox, Process, AI handoff, USB and NVRAM checks passed on 9de5f37d.
-- Exact XY-C1 run 45108415640 on 9de5f37d was still IN_PROGRESS at the latest verified poll; its job 137476531958 had completed detector checks and was IN_PROGRESS in Build XY-C1, with TRX and artifact steps pending. The earlier curl error 56 log came from a different/unmatched job and must not be attributed to this run.
-- This commit retries all curl errors, writes queue.h to a unique temporary file in the destination directory, rejects empty results, normalizes mode to 0644 and atomically renames only a complete file. Existing valid headers remain intact on failure; empty stale headers no longer bypass installation. A local HTTP regression returns a truncated first response and valid second response to verify retry and final file integrity. XY path filters now watch root Makefile/helper/test and the workflow runs this regression.
-- Exact XY-C1 run 45109162782 on ca609c08 is IN_PROGRESS. Its host detector and new atomic queue-header regression steps PASS; firmware input detection PASS; Build XY-C1 is IN_PROGRESS, TRX and artifact steps PENDING. The older 9de XY run 45108415640 is also still IN_PROGRESS at the last poll (Build stage), not failed. Do not infer L3 until a same-SHA Build/TRX/artifact run completes.
+- The libdisk ambiguous ACL source fix on e757f86309b19f890797b2f36fb15f44f87a7e95 was followed by checker-only commit 5378fccc2201f4359ea3b0b37f1043d2b813a883, which defined the missing get_permission_body and set_permission_body source-checker regions.
+- Exact descendant libdisk workflow 45114769360, push, head 5378fccc2201f4359ea3b0b37f1043d2b813a883, completed SUCCESS. Both GNU89 ASan/UBSan regressions and the Python source contract passed.
+- e757 exact XY-C1 Firmware Validation run 45114634020 remains IN_PROGRESS at this checkpoint; inspect Build XY-C1, Verify TRX output and artifact upload. Only those three successful stages on the same product-source SHA close L3.
+- e757 NVRAM transaction boundary audit 45114633929 completed SUCCESS.
+- e757 HTTPD Authentication and Security Regression 45114633840 completed SUCCESS. e757 Process lifecycle inventory 45114634024 completed SUCCESS. These do not validate the FRP source change.
 
 ## Verification boundary
 
-- L1: source review of exact-child waitpid and bounded SIGTSTP deferred-reap path completed; delayed single-slot signal overwrite defect identified and replaced by independent sig_atomic_t event bits and a blocked snapshot/clear window.
-- L2: callback/source-contract checks and real fork/waitid peer-preservation regression passed on predecessor SHAs. The delayed-signal accumulator C test passed GNU89 with -Wall -Wextra -Werror and ASan/UBSan on 352c47fe and 9de5f37d; Process, AI docs, USB and NVRAM passed on 9de5f37d.
-- L3: exact-child wait/reap source from 1f9d39bc is VERIFIED by XY-C1 run 45106983817 on 7c556be, with Build, TRX and artifact upload success and no intervening product-source change. Delayed-signal source remains NOT YET L3 VERIFIED. Exact XY-C1 9de run 45108415640 and ca609 run 45109162782 were both IN_PROGRESS in Build XY-C1 at the last verified polls; no terminal firmware result exists yet. The ca609 helper regression itself PASSED.
-- L4: NOT VERIFIED; no physical XY-C1 router boot/recovery test has been performed.
-- Do not attribute curl error 56 to 9de XY run 45108415640; the matching run/job lookup showed it remained in progress in Build XY-C1. Claim L3 only after the exact product-source SHA passes Build, TRX and artifact upload.
+- L1: source-level issue and intended fix reviewed. The old FRP cp -f path is gone from the changed source; ordinary three-argument helper use remains unchanged and FRP gets the fourth private-mode flag.
+- L2: NOT YET VERIFIED for this FRP slice. There is no local checkout; the expanded copyscripts_ca_status.sh was not executed locally. Require the exact-head Process lifecycle regression push Action to run and pass the shell regression and full source contracts.
+- L3: NOT YET VERIFIED for the e757 ACL source until run 45114634020 completes Build XY-C1, TRX verification and artifact upload on e757. The FRP source change also needs its own exact new-SHA XY-C1 production-input detector, target Build, TRX and artifact upload. No different SHA's green check substitutes.
+- L4: NOT VERIFIED; no physical router test is evidenced in this session.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify backup/pre-plugin-overhaul-2026-11-14 remains frozen at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-2. Inspect exact-head BusyBox run for this checker correction. The prior 81be run's C accumulator test PASSED; its source checker failed at Python SyntaxError because the newly added assertion used JavaScript syntax. Confirm the corrected Python checker and all source-contract assertions pass.
-3. Inspect exact-head AI docs, Process inventory, USB/NVRAM and XY-C1. The full XY run on 81be remains IN_PROGRESS in Build; ca609 XY is also in Build. Do not claim L3 until Build/TRX/artifact pass for the same source SHA.
-4. Continue PID1 signal handling review from mask restoration and delayed-event ordering, preserving shutdown priority and the independent SIGCONT stop-handler path unless another concrete, regression-testable defect is found.
+1. Fetch live main before acting and verify the frozen backup still equals 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT from history and inspect its complete diff; do not assume this handoff's parent is still main.
+2. Inspect push Actions whose head_sha exactly equals the FRP commit. Start with Process lifecycle regression and verify the copyscripts shell regression, including the injected chmod failure and direct-cp source contract. On failure, inspect the first causal step/log and fix it without repeating already-passed CA bootstrap tests.
+3. Inspect same-SHA XY-C1 detector, Build XY-C1, TRX output and artifact upload. Claim L3 only if all target stages pass for this exact production-source SHA.
+4. Revisit e757 XY-C1 45114634020 if still open. NVRAM audit 45114633929 is already SUCCESS. Do not wait idly: continue the highest-risk independent userland defect after the FRP regression is committed and exact-head checks are recorded.
+5. Do not re-audit completed libdisk duplicate ACL lookup or BusyBox PID1 exact-child work without new evidence. Rotate to another concrete source-backed stability/security defect across the userland.
+
+# Cross-session execution mandate
+
+- The same maintainer continues the same repository mission. Recover live state once, resume the recorded task and implement; do not ask the user what to do next or repeat completed audits.
+- Stability bug discovery and repair is primary; security hardening continues in parallel. Critical vulnerabilities, data corruption, boot failures and severe service faults take immediate priority. Cover the integrated Padavan userland rather than remaining in one subsystem.
+- Each logical source/test slice is one atomic main commit: fetch the latest main parent, create every blob, one full tree and one commit, then update main through non-forced compare-and-swap using expected_sha. Do not create sequential partial per-file commits. Never force-push, amend, rewrite history, branch for development or use PRs.
+- Verify the landed main SHA and complete diff. Inspect relevant push Actions only when head_sha exactly equals that commit. Diagnose the first causal failure. PASS closes that check; FAIL requires a fix; PENDING does not block independent work and is not a reason to poll idly.
+- Preserve security, architecture, compatibility and necessary regression tests. Review callers/callees before source edits. Do not weaken checks for a green result.
+- Distinguish L1 source review, L2 host test/build, L3 MIPS/uClibc target build + TRX + artifact on the same production-source SHA, and L4 physical router validation. A static checker or skipped build is not L3/L4.
+- Keep GPT Session Rotator unchanged. Do not reset or replay SHA 9d5a5cb or alter its quiet-period/de-duplication behavior.
+- Before context exhaustion, finish the current safe slice, inspect its diff, publish and check exact-head Actions. Leave an accurate first action for the next GPT.
 
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
 
-Every session MUST inspect the live repository state before ending, compare the active task, engineering baseline, exact-head Actions, validation boundary, blockers and exact next action, and update this handoff when one of those facts materially changes. If all facts and the first action remain accurate, leave this file untouched and do not create a no-op commit.
-
-The checkpoint is mandatory; a document edit is conditional.
-
-Every session MUST inspect the live repository state before ending, compare the active task, engineering baseline, exact-head Actions, validation boundary, blockers and exact next action, and update this handoff when one of those facts materially changes. If all facts and the first action remain accurate, leave this file untouched and do not create a no-op commit.
-
-Before ending a conversation, compare the live repository with this record: engineering/source baseline, active task, exact first action, relevant Actions status, validation boundary, blockers and frozen backup identity. If a fact or first action materially changes, update this file in the same logical engineering commit when possible. If it remains accurate, leave it untouched; do not chase the latest SHA with no-op commits.
-
-## End-of-session accuracy checkpoint
-
-- Main parent for the current checker correction: 81be0de7b68467468789d7a67c590b5eb737a449.
-- Exact 81be results: BusyBox run 45109466477 FAILED in source checker at line 127 with Python SyntaxError because a JavaScript const/.indexOf block was inserted into the Python file. Both C binaries compiled and ran before that step: init reap-queue and delayed-signal accumulator tests PASS. AI docs 45109466503 and Process inventory 45109466511 PASS. USB 45109466582 and NVRAM 45109466594 remained IN_PROGRESS at last poll.
-- Exact XY-C1 run 45109466474 on 81be is IN_PROGRESS in Build; TRX/artifact pending. Exact XY-C1 runs 45109162782 on ca609 and 45108415640 on 9de were also still in Build at their last matching polls; neither was confirmed failed. ca609 helper regression and detector PASS.
-- The earlier curl error 56 log was misattributed: it does not belong to exact XY run 45108415640. The atomic queue installer remains a defensive reliability improvement; do not report a proven failed 9de build prerequisite.
-- Exact-child wait/reap L3 remains verified by XY run 45106983817 on 7c556be (Build, TRX and artifact PASS; no intervening production-source changes from 1f9d39bc). The delayed-signal source is not yet L3 verified.
-- This correction only fixes the Python source checker. The fail-closed signal-mask restoration source remains committed on 81be and awaits its rerun; L4 hardware is NOT VERIFIED.
+Every session MUST inspect live GitHub before ending and compare the meaningful source baseline, active task, exact-head Actions, validation boundary, blockers, frozen backup identity and exact first action with this file. Update this handoff only if next-session-critical facts materially change. If it remains accurate, explicitly conclude the check with no file change and no commit. Do not chase documentation-only SHA changes or create a no-op commit.

@@ -89,6 +89,34 @@ seed_storage_file "$tmp/source.sh" "$tmp/storage/existing.sh" 755
 [ "$(cat "$tmp/storage/existing.sh")" = "operator config" ]
 [ "$(stat -c %a "$tmp/storage/existing.sh")" = 600 ]
 
+# FRP credentials must use exclusive publication and stay private even when
+# an operator-managed regular file already exists.
+copyscripts_seed_status=0
+seed_storage_file "$tmp/source.sh" "$tmp/storage/frp-new.sh" 700 1
+[ "$copyscripts_seed_status" -eq 0 ]
+[ "$(cat "$tmp/storage/frp-new.sh")" = "factory default" ]
+[ "$(stat -c %a "$tmp/storage/frp-new.sh")" = 700 ]
+[ "$(find "$tmp/storage" -name 'frp-new.sh.tmp.*' | wc -l)" -eq 0 ]
+
+printf 'operator FRP credentials\n' > "$tmp/storage/frp-existing.sh"
+chmod 644 "$tmp/storage/frp-existing.sh"
+seed_storage_file "$tmp/source.sh" "$tmp/storage/frp-existing.sh" 700 1
+[ "$(cat "$tmp/storage/frp-existing.sh")" = "operator FRP credentials" ]
+[ "$(stat -c %a "$tmp/storage/frp-existing.sh")" = 700 ]
+
+# A failed private-mode repair must block boot preparation.
+printf 'operator FRP credentials\n' > "$tmp/storage/frp-mode-failure.sh"
+chmod 644 "$tmp/storage/frp-mode-failure.sh"
+copyscripts_seed_status=0
+chmod() { return 1; }
+if seed_storage_file "$tmp/source.sh" "$tmp/storage/frp-mode-failure.sh" 700 1; then
+	echo "FRP mode-repair failure was accepted" >&2
+	exit 1
+fi
+unset -f chmod
+[ "$copyscripts_seed_status" -eq 1 ]
+[ "$(stat -c %a "$tmp/storage/frp-mode-failure.sh")" = 644 ]
+
 # A symlink to an existing sensitive file and a dangling symlink are both
 # refused without following either destination.
 printf 'outside sentinel\n' > "$tmp/external/sentinel"
@@ -130,7 +158,12 @@ fi
 
 grep -Fq 'seed_storage_file "/etc_ro/koolproxy_rules_script.sh" "/etc/storage/koolproxy_rules_script.sh" 755' "$copyscripts"
 grep -Fq 'seed_storage_file "/etc_ro/oversea_list.conf" "/etc/storage/dnsmasq.oversea/oversea_list.conf" 755' "$copyscripts"
-echo "copyscripts default-file symlink-safe publication: PASS"
+grep -Fq 'seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' "$copyscripts"
+if grep -Fq 'cp -f /etc_ro/frp_script.sh "$frp_script_path"' "$copyscripts"; then
+	echo "FRP defaults bypass the exclusive storage publication helper" >&2
+	exit 1
+fi
+echo "copyscripts default-file and private FRP publication: PASS"
 
 # Exercise the exact final status gate. A failed CA extraction or a failed
 # default-file publication must both be visible to PID 1; clean setup succeeds.

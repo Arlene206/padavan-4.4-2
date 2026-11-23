@@ -26,8 +26,17 @@ seed_storage_file() {
 	copyscripts_source_path=$1
 	copyscripts_destination_path=$2
 	copyscripts_file_mode=$3
+	copyscripts_enforce_existing_mode=${4:-0}
 	copyscripts_storage_root=/etc/storage
 
+	case "$copyscripts_enforce_existing_mode" in
+		0|1) ;;
+		*)
+			logger -t "启动脚本" "默认文件权限策略无效：$copyscripts_destination_path"
+			copyscripts_seed_status=1
+			return 1
+			;;
+	esac
 	case "$copyscripts_destination_path" in
 		"$copyscripts_storage_root"/*) ;;
 		*)
@@ -54,12 +63,18 @@ seed_storage_file() {
 		return 1
 	fi
 	if [ -e "$copyscripts_destination_path" ]; then
-		if [ -f "$copyscripts_destination_path" ]; then
-			return 0
+		if [ ! -f "$copyscripts_destination_path" ]; then
+			logger -t "启动脚本" "拒绝非普通文件默认目标：$copyscripts_destination_path"
+			copyscripts_seed_status=1
+			return 1
 		fi
-		logger -t "启动脚本" "拒绝非普通文件默认目标：$copyscripts_destination_path"
-		copyscripts_seed_status=1
-		return 1
+		if [ "$copyscripts_enforce_existing_mode" = "1" ] &&
+		   ! chmod "$copyscripts_file_mode" "$copyscripts_destination_path"; then
+			logger -t "启动脚本" "默认文件权限修复失败：$copyscripts_destination_path"
+			copyscripts_seed_status=1
+			return 1
+		fi
+		return 0
 	fi
 
 	copyscripts_staged_path=$(mktemp "${copyscripts_destination_path}.tmp.XXXXXX") || {
@@ -86,7 +101,15 @@ seed_storage_file() {
 			copyscripts_seed_status=1
 			return 1
 		fi
-		# A concurrent regular file wins; never replace operator-managed data.
+		# A concurrently published regular file wins; preserve its content but
+		# still enforce a private mode for credentials when requested.
+		if [ "$copyscripts_enforce_existing_mode" = "1" ] &&
+		   ! chmod "$copyscripts_file_mode" "$copyscripts_destination_path"; then
+			rm -f "$copyscripts_staged_path"
+			logger -t "启动脚本" "默认文件权限修复失败：$copyscripts_destination_path"
+			copyscripts_seed_status=1
+			return 1
+		fi
 	fi
 	if ! rm -f "$copyscripts_staged_path"; then
 		logger -t "启动脚本" "默认文件暂存清理失败：$copyscripts_staged_path"
@@ -110,28 +133,9 @@ seed_storage_file "/etc_ro/koolproxy_rules_list.sh" "/etc/storage/koolproxy_rule
 seed_storage_file "/etc_ro/ad_config_script.sh" "/etc/storage/ad_config_script.sh" 755
 
 # The persistent FRP script contains tokens and dashboard credentials.
-# Keep it private on every boot, including operator-modified existing copies.
+# Use exclusive no-follow publication and restore mode 0700 on existing copies.
 frp_script_path="/etc/storage/frp_script.sh"
-if [ -L "$frp_script_path" ]; then
-	logger -t "启动脚本" "拒绝符号链接形式的 FRP 配置脚本：$frp_script_path"
-	copyscripts_seed_status=1
-elif [ ! -e "$frp_script_path" ]; then
-	if cp -f /etc_ro/frp_script.sh "$frp_script_path"; then
-		if ! chmod 700 "$frp_script_path"; then
-			logger -t "启动脚本" "FRP 配置脚本权限设置失败：$frp_script_path"
-			copyscripts_seed_status=1
-		fi
-	else
-		logger -t "启动脚本" "FRP 默认配置脚本复制失败：$frp_script_path"
-		copyscripts_seed_status=1
-	fi
-elif [ ! -f "$frp_script_path" ]; then
-	logger -t "启动脚本" "FRP 配置脚本路径不是普通文件：$frp_script_path"
-	copyscripts_seed_status=1
-elif ! chmod 700 "$frp_script_path"; then
-	logger -t "启动脚本" "FRP 配置脚本权限修复失败：$frp_script_path"
-	copyscripts_seed_status=1
-fi
+seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1
 seed_storage_file "/etc_ro/caddy_script.sh" "/etc/storage/caddy_script.sh" 755
 
 seed_storage_file "/etc_ro/smartdns_address.conf" "/etc/storage/smartdns_address.conf" 755
