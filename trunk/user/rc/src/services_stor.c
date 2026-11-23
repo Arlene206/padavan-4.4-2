@@ -5455,6 +5455,11 @@ safe_remove_all_stor_devices(int do_spindown)
 		logmessage("Storage", "eject incomplete/unknown (unmount=%d fallback=%d mounts=%d); refusing storage persistence",
 			   path_status, fallback_status, mount_count);
 	}
+#if defined(APP_NFSD)
+	if (result == 0)
+		unload_nfsd();
+#endif
+	/* Home-link restoration failure must not skip independent NFS teardown. */
 	home_status = restore_home_dir();
 	if (home_status != 0) {
 		if (saved_errno == 0)
@@ -5462,10 +5467,6 @@ safe_remove_all_stor_devices(int do_spindown)
 		if (result == 0)
 			result = -1;
 	}
-#if defined(APP_NFSD)
-	if (result == 0)
-		unload_nfsd();
-#endif
 out:
 	free_disk_data(disks_info);
 	file_unlock(storage_lock);

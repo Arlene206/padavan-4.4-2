@@ -572,6 +572,7 @@ jobs:
           eject_all = function_body(storage, "safe_remove_all_stor_devices(int do_spindown)")
           assert "home_status = restore_home_dir()" in eject_all
           assert "if (home_status != 0)" in eject_all
+          assert eject_all.index("unload_nfsd();") < eject_all.index("if (home_status != 0)")
           stage_call = "storage_stage_ejected_partitions(&partitions)"
           unmount_loop = "for (entry = head; entry; entry = entry->next)"
           inactive_scan = "has_ejected_mounts = 1;"
