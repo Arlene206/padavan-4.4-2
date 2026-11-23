@@ -342,6 +342,30 @@ test_permission_rewrite_renames_key_and_preserves_rights(void)
 }
 
 static void
+test_permission_rewrite_rejects_duplicate_case_insensitive_records(void)
+{
+	const char *source = "*Public=331\n*public=001\n*Media=321\n";
+	char sentinel;
+	char *updated = &sentinel;
+	size_t updated_len = 17;
+
+	assert(disk_share_permission_rewrite(source, "*Public=", NULL,
+	                                     &updated, &updated_len) == -1);
+	assert(errno == EEXIST);
+	assert(updated == NULL);
+	assert(updated_len == 0);
+
+	updated = &sentinel;
+	updated_len = 17;
+	errno = 0;
+	assert(disk_share_permission_rewrite(source, "*public=", "*Archive=",
+	                                     &updated, &updated_len) == -1);
+	assert(errno == EEXIST);
+	assert(updated == NULL);
+	assert(updated_len == 0);
+}
+
+static void
 test_permission_rewrite_reports_missing_record_and_clears_outputs(void)
 {
 	char sentinel;
@@ -2616,6 +2640,7 @@ test_folder_name_visibility_policy();
 	test_account_service_command_status_preserves_invocation_errno();
 	test_permission_rewrite_removes_complete_record();
 	test_permission_rewrite_renames_key_and_preserves_rights();
+	test_permission_rewrite_rejects_duplicate_case_insensitive_records();
 	test_permission_rewrite_reports_missing_record_and_clears_outputs();
 	test_readdir_entry_and_clean_eof();
 	test_readdir_error_is_not_clean_eof();

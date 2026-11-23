@@ -116,6 +116,13 @@ for signature in (
             signature + " must reset outputs before using the mount path")
 
 
+permission_rewrite = function_body(
+    POLICY,
+    "disk_share_permission_rewrite(const char *source, const char *target,"
+)
+require("if (match)" in permission_rewrite and "errno = EEXIST;" in permission_rewrite,
+        "permission rewrite must reject duplicate case-insensitive ACL keys instead of leaving stale duplicate records")
+
 require("disk_share_folder_name_is_visible" in POLICY,
         "folder visibility policy must reject hidden and system directories")
 cached_folders = function_body(

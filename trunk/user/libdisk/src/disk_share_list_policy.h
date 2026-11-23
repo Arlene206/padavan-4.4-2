@@ -225,8 +225,16 @@ disk_share_permission_rewrite(const char *source, const char *target,
 				break;
 		}
 		if (i == target_len) {
+			if (match) {
+				/*
+				 * A permission key must have one authoritative record.
+				 * Refuse ambiguous metadata rather than updating/removing
+				 * only the first duplicate and leaving stale rights behind.
+				 */
+				errno = EEXIST;
+				return -1;
+			}
 			match = source + offset;
-			break;
 		}
 	}
 	if (!match) {
