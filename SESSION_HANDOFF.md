@@ -2,28 +2,27 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before this RStats source slice: `60ccb0e47651e27ab0409c8fab1805116c7e2fae`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, switch to, merge, or delete it.
-- Current main includes the logger-read gate, module-refcount UNKNOWN-state gate, and transactional Samba credential snapshot. The HTTPD checker failed on head `21cfc6016f24641365f5097e473b884af01ec3a8` at its Samba/Unix account identity source assertion; the corrected exact-head HTTPD run #45205484936 on `60ccb0e47651e27ab0409c8fab1805116c7e2fae` PASS. AI handoff #45205484979 on the same head PASS. Do not repeat those completed checks without new source changes.
-- Samba share #45204745566, Process inventory #45204745939 and Process fail-closed #45204745603 PASS on production SHA `007ba84e20c3d1e162e0f0e82c3ccbbd302530c2`. NVRAM boundary #45204745901 and XY-C1 #45204745847 were still in progress at the last observation; their results do not validate later source commits.
-- Bootstrap recovery was completed once. No persistent local checkout or full MIPS/uClibc firmware build environment is available.
+- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before the U2EC/LPRng readiness slice: `93e2d812a050da0029a339bee86b194968226992`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify, switch to, merge, or delete it.
+- RStats selector fix `93e2d812a050da0029a339bee86b194968226992`: exact RStats regression #45206017312 PASS, Process fail-closed #45206017643 PASS, Process inventory #45206017728 PASS, NVRAM boundary #45206017305 PASS, AI docs #45206017355 PASS, and HTTPD security #45206017395 PASS. Exact XY-C1 #45206017276 was still building at Build XY-C1 after all prior host/source steps passed; TRX and artifact upload pending. This is host L2 evidence, not L3 or L4.
+- Bootstrap recovery already occurred once. No persistent local checkout, full MIPS/uClibc build environment, or hardware L4 result is available locally.
 
 ## Active task
 
-- Confirmed RStats selector reliability defect in `trunk/user/rc/src/rstats.c::save_speed_json()`: lossy `nvram_safe_get(RSTATS_NVKEY_24)` collapsed a read/close failure into an empty selector, after which the first live interface was written back to NVRAM. A transient backend read failure could overwrite the user's configured selector. The subsequent `nvram_set()` result was also discarded.
-- THIS COMMIT replaces the value-only read with `nvram_get_checked()`, copies the cache-backed selector into a bounded interface buffer, and distinguishes missing, present, invalid and UNKNOWN results. The chart can use a temporary first-live-interface fallback, but UNKNOWN/overlong reads never trigger a write. Known missing/empty/stale selectors use a checked fallback write; failures are logged while export remains available.
-- Added policy unit coverage and strengthened the existing RStats workflow source contract. Local GNU89/ASan/UBSan status-policy test PASS. Exact-head RStats, Process inventory and AI docs are pending; XY-C1 must pass Build, TRX verification and artifact upload on the same production SHA before L3. No hardware L4 claim.
+- Confirmed detached-daemon startup gap in `trunk/user/rc/src/services_usb.c`: `start_usb_printer_daemon()` treated EOF on the close-on-exec pipe as success. This proves `execv()` succeeded, but not that U2EC or LPRng stays running. An immediate child exit after exec was invisible to the hotplug caller and could cause the deferred event to be acknowledged despite the printer daemon being absent.
+- THIS COMMIT passes explicit process names (`u2ec`, `lpd`) into the launch helper and requires a bounded, independent `process_inventory_scan()` postcondition using `detached_daemon_start_postcondition_with_ops()`. UNKNOWN inventory, interrupted waits and persistent ABSENT now return errors; deferred USB hotplug acknowledgement can retry.
+- Existing detached-daemon GNU89/ASan/UBSan regression covers running, delayed process appearance, timeout, UNKNOWN and wait interruption. The Process workflow now asserts the two U2EC/LPRng callsites and process inventory gate. Exact-head Process/USB regression and XY-C1 are pending; no L3/L4 claim.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-push RStats stability, Process inventory, AI handoff and XY-C1 runs for the current `main` SHA. Read failed job logs and repair real regressions without weakening assertions.
-2. Require XY-C1 Build + TRX + artifact upload PASS on that same product-source SHA before changing the RStats roadmap row to L3 verified. If pending, continue independent work rather than waiting.
-3. Continue the next independent P1/P2 userland stability/security candidate after the RStats exact-head host checks; do not reopen the finished logger, module-refcount, Samba or NFS slices.
+1. Poll this commit's exact-SHA Process fail-closed/USB startup and AI handoff workflows. Read any failed step logs and fix genuine regressions without loosening the process readiness assertions.
+2. Require same-SHA XY-C1 Build + TRX verification + artifact upload PASS before marking U2EC/LPRng L3. The previous RStats XY-C1 #45206017276 covers only its parent SHA, so it is not evidence for this USB source change.
+3. Continue a new independent P1/P2 userland reliability/security source fix after the process checks; avoid repeating the completed RStats, logger, module-refcount, Samba and NFS audits.
 
 ## Relevant exact-SHA CI facts
 
-- This RStats source/test/contract commit includes a new exact-SHA host test and documentation contract. All new RStats/Process/AI/XY runs are PENDING at commit creation.
-- The earlier RStats atomic persistence/time implementation was L3 verified only on `3523bb9f27ba33065731abcd946ae11726d04470`; that target build does not cover this new selector fix.
+- RStats selector SHA `93e2d812a050da0029a339bee86b194968226992`: RStats #45206017312, Process fail-closed #45206017643, Process inventory #45206017728, NVRAM boundary #45206017305, AI docs #45206017355 and HTTPD security #45206017395 all PASS. XY-C1 #45206017276 was still in the Build XY-C1 step when last polled; TRX and artifact upload remained pending.
+- The new U2EC/LPRng postcondition needs exact-head tests and same-SHA firmware verification; p910nd's earlier SIGPIPE L3 result on `23248f7` does not cover these daemons.
 
 
 ## Completed source slices to preserve

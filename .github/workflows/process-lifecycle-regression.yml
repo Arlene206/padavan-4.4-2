@@ -1720,3 +1720,48 @@ jobs:
           print("LAN startup error propagation and caller aggregation: PASS")
           PY
 
+
+      - name: Verify USB printer daemons require confirmed post-exec readiness
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_usb.c").read_text()
+          policy = Path("trunk/user/rc/src/detached_daemon_start_policy.h").read_text()
+          regression = Path("trunk/user/rc/src/tests/detached_daemon_start_policy.c").read_text()
+
+          assert '#include <process_inventory.h>' in source
+          assert '#include "detached_daemon_start_policy.h"' in source
+          assert '#include "service_wait_policy.h"' in source
+          assert "process_inventory_scan(process_name, &snapshot)" in source
+          assert "snapshot.error > 0 ? snapshot.error : EIO" in source
+          assert "process_snapshot_release(&snapshot)" in source
+          assert "return service_wait_seconds(seconds);" in source
+          assert "detached_daemon_start_postcondition_with_ops(" in source
+          assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in source
+          assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in source
+          assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in source
+
+          launcher = source.split("start_usb_printer_daemon(char *const argv[], const char *process_name)", 1)[1]
+          launcher = launcher.split("#if defined(SRV_U2EC)", 1)[0]
+          assert "received == 0" in launcher
+          assert "usb_printer_daemon_postcondition(process_name)" in launcher
+          assert "received == sizeof(exec_error)" in launcher
+          assert "return exec_error;" in launcher
+
+          u2ec = source.split("#if defined(SRV_U2EC)", 1)[1].split("#endif", 1)[0]
+          lpd = source.split("#if defined(SRV_LPRD)", 1)[1].split("#endif", 1)[0]
+          assert 'start_usb_printer_daemon(argv, "u2ec")' in u2ec
+          assert 'start_usb_printer_daemon(argv, "lpd")' in lpd
+
+          assert "PROCESS_PRESENCE_START_ABORT" in policy
+          assert "process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1" in policy
+          for case in ("test_running_process_is_required_after_launcher",
+                       "test_delayed_daemon_appearance_is_accepted",
+                       "test_absent_child_times_out",
+                       "test_unknown_inventory_fails_closed",
+                       "test_wait_interruption_and_invalid_arguments_fail"):
+              assert case in regression, "missing detached-daemon readiness case: " + case
+
+          print("USB printer U2EC/LPRng detached-daemon readiness contract: PASS")
+          PY

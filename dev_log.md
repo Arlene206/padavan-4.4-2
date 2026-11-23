@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Require U2EC/LPRng process readiness after exec
+
+- `start_usb_printer_daemon()` used EOF on a close-on-exec pipe as its success condition. That confirms only that `execv()` succeeded; a daemon that immediately exits after configuration parsing, pidfile setup or socket binding was still reported as successfully started.
+- U2EC and LPRng startup now wait for and independently verify their named process through `process_inventory_scan()`. The shared detached-daemon policy retries for a bounded interval, treats UNKNOWN inventory as an error, and returns ETIMEDOUT if the process never appears. Those errors propagate through printer spooler startup, so the deferred USB event remains retryable rather than being acknowledged as successful.
+- Reused the existing GNU89/ASan/UBSan detached-daemon policy regression (running child, delayed appearance, absent timeout, UNKNOWN and interrupted wait) and added a Process workflow source contract proving both U2EC and LPRng callsites require the postcondition. Exact-head Process, USB readiness and XY-C1 Build/TRX/artifact checks are PENDING at commit creation; no L3/L4 claim.
+- Parent main SHA: `93e2d812a050da0029a339bee86b194968226992`; source, regression contract, roadmap and handoff are committed atomically.
+
+---
+
 ## 2026-11-23 23:30 Beijing — Preserve the RStats interface selector on NVRAM read failure
 
 - `save_speed_json()` previously used `nvram_safe_get()` and then persisted its first-active-interface fallback. A failed NVRAM read/close was indistinguishable from a missing selector, so a transient backend error could replace the user's configured interface. The fallback `nvram_set()` result was also ignored.

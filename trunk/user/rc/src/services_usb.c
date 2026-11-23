@@ -39,11 +39,14 @@
 
 #include <dev_info.h>
 #include <usb_info.h>
+#include <process_inventory.h>
 #include <disk_initial.h>
 #include <disk_share.h>
 
 #include "rc.h"
 #include "service_start_status.h"
+#include "detached_daemon_start_policy.h"
+#include "service_wait_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
 #include "storage_hotplug_name_policy.h"
@@ -155,11 +158,66 @@ safe_remove_usb_device(int port, const char *dev_name)
 	return safe_remove_stor_device(port, port, dev_name, 1);
 }
 
-/* Launch a detached daemon and report execve errors to the caller.  The
- * close-on-exec pipe distinguishes successful exec from an immediate failure;
- * a shell background-list status would always mask the daemon's exit status. */
+/* A successful exec is only a launch acknowledgement; the daemon may exit
+ * immediately after parsing its configuration or binding its socket. */
+static enum process_presence
+usb_printer_daemon_scan(void *context, int *scan_error)
+{
+	const char *process_name = (const char *)context;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int saved_error;
+
+	if (!process_name || !process_name[0]) {
+		if (scan_error)
+			*scan_error = EINVAL;
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+
+	presence = process_inventory_scan(process_name, &snapshot);
+	saved_error = snapshot.error > 0 ? snapshot.error : EIO;
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = saved_error;
+	return presence;
+}
+
 static int
-start_usb_printer_daemon(char *const argv[])
+usb_printer_daemon_wait(void *context, unsigned int seconds)
+{
+	(void)context;
+	return service_wait_seconds(seconds);
+}
+
+static int
+usb_printer_daemon_postcondition(const char *process_name)
+{
+	int status;
+
+	status = detached_daemon_start_postcondition_with_ops(
+		0, usb_printer_daemon_scan, usb_printer_daemon_wait,
+		(void *)process_name,
+		PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS,
+		PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS,
+		PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
+	if (status != 0) {
+		if (status < 0)
+			status = errno > 0 ? errno : EIO;
+		errno = status;
+		logmessage(LOGNAME,
+			   "%s exec succeeded but daemon readiness was not confirmed (status=%d)",
+			   process_name, status);
+	}
+	return status;
+}
+
+/* Launch a detached daemon and report both execve and post-exec readiness
+ * errors. The close-on-exec pipe distinguishes exec success from failure. */
+static int
+start_usb_printer_daemon(char *const argv[], const char *process_name)
 {
 	int exec_pipe[2];
 	int pipe_flags, exec_error = 0, read_error = 0, saved_error;
@@ -167,6 +225,10 @@ start_usb_printer_daemon(char *const argv[])
 	ssize_t count;
 	size_t received = 0, written = 0;
 
+	if (!argv || !argv[0] || !process_name || !process_name[0]) {
+		errno = EINVAL;
+		return EINVAL;
+	}
 	if (pipe(exec_pipe) < 0)
 		return errno;
 
@@ -226,7 +288,7 @@ start_usb_printer_daemon(char *const argv[])
 	if (read_error != 0)
 		return read_error;
 	if (received == 0)
-		return 0;
+		return usb_printer_daemon_postcondition(process_name);
 	if (received == sizeof(exec_error))
 		return exec_error;
 	return EIO;
@@ -250,7 +312,7 @@ start_u2ec(void)
 		return 0;
 
 	unlink("/var/run/u2ec.pid");
-	start_status = start_usb_printer_daemon(argv);
+	start_status = start_usb_printer_daemon(argv, "u2ec");
 	if (start_status != 0) {
 		logmessage("USB Printer", "u2ec exec failed (status=%d)", start_status);
 		return start_status;
@@ -295,7 +357,7 @@ start_lpd(void)
 		return 0;
 
 	unlink("/var/run/lpdparent.pid");
-	start_status = start_usb_printer_daemon(argv);
+	start_status = start_usb_printer_daemon(argv, "lpd");
 	if (start_status != 0)
 		logmessage("USB Printer", "lpd exec failed (status=%d)", start_status);
 
