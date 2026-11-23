@@ -1498,4 +1498,70 @@ if rules; then
 fi
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "invalid NAT setting changed firewall rules"
 
+# Runtime NAT policy read errors must not be interpreted as "NAT disabled".
+: > "$TEST_IPTABLES_LOG"
+TEST_IFCONFIG_MODE=ready
+TEST_ROUTE_MODE=ready
+TEST_NAT_ENABLE=1
+TEST_NVRAM_READ_FAIL_KEY=zerotier_nat
+if rules; then
+	fail "rules accepted an unreadable NAT selector as disabled"
+fi
+[ ! -s "$TEST_IPTABLES_LOG" ] || fail "NAT selector read failure published partial firewall rules"
+TEST_NVRAM_READ_FAIL_KEY=""
+
+# A failed NAT read during stop must leave the live daemon and rules untouched.
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+TEST_NVRAM_READ_FAIL_KEY=zerotier_nat
+TEST_NAT_ENABLE=1
+zt0=ztunit
+ip_segment=10.147.17.0/24
+echo running > "$TEST_STATE"
+if stop_zero; then
+	fail "stop accepted an unreadable NAT selector"
+fi
+[ "$(cat "$TEST_STATE")" = "running" ] || fail "NAT selector read failure stopped the daemon"
+[ ! -s "$TEST_KILL_LOG" ] || fail "NAT selector read failure still signalled the daemon"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "NAT selector read failure changed firewall or route state"
+TEST_NVRAM_READ_FAIL_KEY=""
+
+# Every enabled static-route selector is checked; a fault must prevent
+# route commands and must not stop a currently working daemon.
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_NAT_ENABLE=0
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+zt0=ztunit
+ip_segment=10.147.17.0/24
+for setting in zero_staticnum_x zero_enable_x0 zero_ip_x0 zero_route_x0; do
+	TEST_NVRAM_READ_FAIL_KEY="$setting"
+	: > "$TEST_ACTION_LOG"
+	if zero_route add; then
+		fail "static-route add accepted a checked-read error for $setting"
+	fi
+	[ ! -s "$TEST_ACTION_LOG" ] || fail "static-route add changed routes after $setting read failure"
+	: > "$TEST_KILL_LOG"
+	echo running > "$TEST_STATE"
+	if start_zero; then
+		fail "start accepted a static-route preflight error for $setting"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "start stopped the daemon after $setting read failure"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "start signalled the daemon after $setting read failure"
+	: > "$TEST_KILL_LOG"
+	echo running > "$TEST_STATE"
+	if stop_zero; then
+		fail "stop accepted a static-route preflight error for $setting"
+	fi
+	[ "$(cat "$TEST_STATE")" = "running" ] || fail "stop stopped the daemon after $setting read failure"
+	[ ! -s "$TEST_KILL_LOG" ] || fail "stop signalled the daemon after $setting read failure"
+done
+TEST_NVRAM_READ_FAIL_KEY=""
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=0
+zt0=""
+ip_segment=""
+
 echo "ZeroTier bounded stop/start, readiness, firewall/static-route rollback and persistent-config preservation: PASS"

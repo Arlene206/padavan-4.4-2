@@ -1,3 +1,12 @@
+## 2026-11-23 07:52 UTC — Check ZeroTier NAT, static routes and rollback snapshots
+
+- Source review found additional legacy NVRAM reads in firewall publication, shutdown and static-route reconciliation. A failed `zerotier_nat` read looked like NAT disabled; failed route count/row reads looked like no configured route, potentially leaving an installed route while `stop_zero()` removed the persistent identity. Planet import's rollback snapshot could similarly collapse a read error to an empty old value.
+- Added a checked NAT reader used by firewall publication/start/stop, a complete enabled-route preflight before daemon stop/restart, and checked route reads in add/delete (delete failures aggregate rather than being treated as absent configuration). Planet-import rollback now snapshots with `nvram get_checked`.
+- Added injected checked-read failure coverage for NAT in rules/stop and for all static-route keys in add/start/stop. The Python contract pins checked reads and preflight-before-signal order.
+- Exact-head ZeroTier, XY-C1, WAN route, Process and AI Actions pending at commit creation. No local test/build claim; L3 requires same-SHA Build/TRX/artifact.
+
+---
+
 ## 2026-11-23 07:45 UTC — Run ZeroTier settings preflight before stopping the daemon
 
 - Review of the checked-read gate found it was first called from `start_instance()`, but `start_zero()` stops the old daemon before calling that function. A read error would therefore preserve identity yet still take down a working ZeroTier service.

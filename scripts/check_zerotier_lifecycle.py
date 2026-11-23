@@ -77,6 +77,8 @@ stop_body = function_body(script, "stop_zero()")
 planet_body = function_body(script, "zerotier_publish_planet_base64()")
 planet_import_body = function_body(script, "zerotier_import_planet_file()")
 start_instance_body = function_body(script, "start_instance()")
+nat_settings_body = function_body(script, "zerotier_read_nat_enabled()")
+route_preflight_body = function_body(script, "zerotier_preflight_static_routes()")
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
 identity_body = function_body(script, "zerotier_prepare_identity()")
@@ -176,7 +178,7 @@ require(planet_snapshot_copy < planet_snapshot_encode < planet_snapshot_publish 
         "uploaded planet file and NVRAM value must derive from one private snapshot")
 require('mktemp -d "$config_path/.planet-import.XXXXXX"' in planet_import_body and
         planet_import_body.index("trap 'zerotier_planet_import_cleanup") <
-        planet_import_body.index('zt_planet_old_value="$(nvram get zerotier_planet)"') and
+        planet_import_body.index('zt_planet_old_value="$(nvram get_checked zerotier_planet)"') and
         'if [ "$zt_planet_transaction_active" = "1" ] &&' in planet_import_body and
         '[ "$zt_planet_delete_pending" = "1" ]; then' in planet_import_body and
         '[ -L "$zt_planet_source" ] || [ ! -f "$zt_planet_source" ]' in planet_import_body and
@@ -243,6 +245,8 @@ for key, temporary_name, public_name in startup_settings:
 require(max(startup_read_positions) < min(startup_publish_positions),
         "startup settings must all be read successfully before any consumer-visible selector is published")
 require('if ! zerotier_load_start_settings; then' in start_body and
+        'if ! zerotier_read_nat_enabled; then' in start_body and
+        'if ! zerotier_preflight_static_routes; then' in start_body and
         'if ! kill_z; then' in start_body and
         'if ! zerotier_replay_firewall_state; then' in start_body and
         "start_instance 'zerotier'" in start_body and
@@ -252,12 +256,14 @@ require('if ! zerotier_load_start_settings; then' in start_body and
         'if ! zerotier_import_planet_file "$PLANET"; then' in start_instance_body and
         'if ! add_join "$zt_network_id"; then' in start_instance_body and
         'zt_network_id="$(nvram get zerotier_id)"' not in start_instance_body,
-        "startup settings must be checked in start_zero before any service stop or launch")
+        "startup settings and network selectors must be checked before any service stop or launch")
 startup_gate_position = start_body.index('if ! zerotier_load_start_settings; then')
-require(startup_gate_position < start_body.index('if ! kill_z; then') <
+require(startup_gate_position < start_body.index('if ! zerotier_read_nat_enabled; then') <
+        start_body.index('if ! zerotier_preflight_static_routes; then') <
+        start_body.index('if ! kill_z; then') <
         start_body.index('if ! zerotier_replay_firewall_state; then') <
         start_body.index("start_instance 'zerotier'"),
-        "checked settings preflight must precede stopping the old daemon and restarting")
+        "all ZeroTier startup config preflights must precede stopping the old daemon")
 for marker in ("startup settings read error was accepted",
                "startup settings partially published secret",
                "missing identity secret did not retain the legacy empty default"):
@@ -274,6 +280,39 @@ for token in ['config directory was not restricted to mode 700',
               'incomplete identity rollback was reported as success']:
     require(token in test, f"private ZeroTier writer regression missing {token}")
 
+
+require('nvram get_checked zerotier_nat' in nat_settings_body and
+        'nvram get zerotier_nat' not in nat_settings_body and
+        'case "$nat_enable" in' in nat_settings_body and
+        'if ! zerotier_read_nat_enabled; then' in rules_section and
+        'if ! zerotier_read_nat_enabled; then' in stop_body,
+        "runtime NAT state must use a checked read in both firewall publication and stop preflight")
+require('nvram get_checked zero_staticnum_x' in route_preflight_body and
+        'nvram get_checked zero_enable_x$zt_preflight_j' in route_preflight_body and
+        'nvram get_checked zero_ip_x$zt_preflight_j' in route_preflight_body and
+        'nvram get_checked zero_route_x$zt_preflight_j' in route_preflight_body and
+        route_preflight_body.index('nvram get_checked zero_staticnum_x') <
+        route_preflight_body.index('nvram get_checked zero_enable_x$zt_preflight_j') <
+        route_preflight_body.index('nvram get_checked zero_ip_x$zt_preflight_j') <
+        route_preflight_body.index('nvram get_checked zero_route_x$zt_preflight_j'),
+        "static route settings must be fully checked before restarting or stopping the daemon")
+require('nvram get_checked zero_staticnum_x' in static_route_body and
+        'nvram get_checked zero_enable_x$j' in static_route_body and
+        'nvram get_checked zero_ip_x$j' in static_route_body and
+        'nvram get_checked zero_route_x$j' in static_route_body and
+        'nvram get zero_staticnum_x' not in static_route_body and
+        'nvram get zero_enable_x$j' not in static_route_body,
+        "static-route executor must propagate checked NVRAM errors during add/delete")
+require('if ! zerotier_preflight_static_routes; then' in stop_body and
+        stop_body.index('if ! zerotier_preflight_static_routes; then') <
+        stop_body.index('if ! kill_z; then'),
+        "stop must validate route configuration before signalling the daemon")
+for marker in ("rules accepted an unreadable NAT selector as disabled",
+               "NAT selector read failure stopped the daemon",
+               "static-route add accepted a checked-read error",
+               "stop accepted a static-route preflight error",
+               "start stopped the daemon after"):
+    require(marker in test, f"checked route/NAT regression omits {marker}")
 
 require("ZEROTIER_RULE_DELETE_LIMIT=32" in script and
         'zerotier_rule_delete_count' in delete_rule_body and

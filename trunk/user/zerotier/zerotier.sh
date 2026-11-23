@@ -289,7 +289,7 @@ zerotier_import_planet_file() {
 		trap 'exit 1' HUP INT TERM
 
 		# Register cleanup before the first fallible operation after mktemp.
-		zt_planet_old_value="$(nvram get zerotier_planet)" || exit 1
+		zt_planet_old_value="$(nvram get_checked zerotier_planet)" || exit 1
 		# Preserve the old NVRAM value for recovery if both flash commits fail.
 		if ! printf '%s' "$zt_planet_old_value" > "$zt_planet_import_dir/planet.nvram.previous" ||
 		   ! chmod 600 "$zt_planet_import_dir/planet.nvram.previous"; then
@@ -732,20 +732,74 @@ zerotier_add_firewall_rule() {
 }
 
 
-rules() {
-	zt0="$(zerotier_wait_interface)" || {
-		logger -t "zerotier" "等待ZeroTier接口超时"
+zerotier_read_nat_enabled() {
+	if ! nat_enable="$(nvram get_checked zerotier_nat)"; then
+		logger -t "zerotier" "无法读取ZeroTier NAT配置"
 		return 1
-	}
-	nat_enable="$(nvram get zerotier_nat)"
+	fi
 	case "$nat_enable" in
-		"") nat_enable=0 ;;
-		0|1) ;;
+		""|0) nat_enable=0 ;;
+		1) ;;
 		*)
 			logger -t "zerotier" "无效的ZeroTier NAT配置"
 			return 1
 			;;
 	esac
+	return 0
+}
+
+zerotier_preflight_static_routes() {
+	if ! zt_preflight_route_count="$(nvram get_checked zero_staticnum_x)"; then
+		logger -t "zerotier" "无法读取静态路由数量配置"
+		return 1
+	fi
+	case "$zt_preflight_route_count" in
+		""|0) return 0 ;;
+		*[!0-9]*)
+			logger -t "zerotier" "静态路由数量配置无效"
+			return 1
+			;;
+	esac
+	for zt_preflight_i in $(seq 1 "$zt_preflight_route_count"); do
+		zt_preflight_j=$((zt_preflight_i - 1))
+		if ! zt_preflight_enable="$(nvram get_checked zero_enable_x$zt_preflight_j)"; then
+			logger -t "zerotier" "无法读取静态路由启用标志: $zt_preflight_j"
+			return 1
+		fi
+		case "$zt_preflight_enable" in
+			""|0) continue ;;
+			*[!0-9]*)
+				logger -t "zerotier" "静态路由启用标志无效: $zt_preflight_j"
+				return 1
+				;;
+		esac
+		if [ "$zt_preflight_enable" -eq 0 ]; then
+			continue
+		fi
+		if ! zt_preflight_ip="$(nvram get_checked zero_ip_x$zt_preflight_j)"; then
+			logger -t "zerotier" "无法读取静态路由目标: $zt_preflight_j"
+			return 1
+		fi
+		if ! zt_preflight_gateway="$(nvram get_checked zero_route_x$zt_preflight_j)"; then
+			logger -t "zerotier" "无法读取静态路由网关: $zt_preflight_j"
+			return 1
+		fi
+		if [ -z "$zt_preflight_ip" ] || [ -z "$zt_preflight_gateway" ]; then
+			logger -t "zerotier" "静态路由配置不完整: $zt_preflight_j"
+			return 1
+		fi
+	done
+	return 0
+}
+
+rules() {
+	zt0="$(zerotier_wait_interface)" || {
+		logger -t "zerotier" "等待ZeroTier接口超时"
+		return 1
+	}
+	if ! zerotier_read_nat_enabled; then
+		return 1
+	fi
 	ip_segment=""
 	if [ "$nat_enable" = "1" ]; then
 		ip_segment="$(zerotier_wait_route "$zt0")" || {
@@ -856,7 +910,10 @@ zero_route_entry_matches() {
 }
 
 zero_route() {
-	rulesnum="$(nvram get zero_staticnum_x)"
+	if ! rulesnum="$(nvram get_checked zero_staticnum_x)"; then
+		logger -t "zerotier" "无法读取静态路由数量配置"
+		return 1
+	fi
 	case "$1" in
 		add|del) ;;
 		*) return 2 ;;
@@ -872,9 +929,14 @@ zero_route() {
 	for i in $(seq 1 "$rulesnum")
 	do
 		j=$((i - 1))
-		route_enable="$(nvram get zero_enable_x$j)"
-		zero_ip="$(nvram get zero_ip_x$j)"
-		zero_route="$(nvram get zero_route_x$j)"
+		if ! route_enable="$(nvram get_checked zero_enable_x$j)"; then
+			logger -t "zerotier" "无法读取静态路由启用标志: $j"
+			if [ "$1" = "add" ]; then
+				return 1
+			fi
+			route_status=1
+			continue
+		fi
 		case "$route_enable" in
 			""|0) continue ;;
 			*[!0-9]*)
@@ -887,6 +949,22 @@ zero_route() {
 				;;
 		esac
 		if [ "$route_enable" -eq 0 ]; then
+			continue
+		fi
+		if ! zero_ip="$(nvram get_checked zero_ip_x$j)"; then
+			logger -t "zerotier" "无法读取静态路由目标: $j"
+			if [ "$1" = "add" ]; then
+				return 1
+			fi
+			route_status=1
+			continue
+		fi
+		if ! zero_route="$(nvram get_checked zero_route_x$j)"; then
+			logger -t "zerotier" "无法读取静态路由网关: $j"
+			if [ "$1" = "add" ]; then
+				return 1
+			fi
+			route_status=1
 			continue
 		fi
 		if [ -z "$zero_ip" ] || [ -z "$zero_route" ] || [ -z "$zt0" ]; then
@@ -950,6 +1028,14 @@ start_zero() {
 	logger -t "zerotier" "正在启动zerotier"
 	if ! zerotier_load_start_settings; then
 		logger -t "zerotier" "无法读取ZeroTier启动配置，取消本次启动"
+		return 1
+	fi
+	if ! zerotier_read_nat_enabled; then
+		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"
+		return 1
+	fi
+	if ! zerotier_preflight_static_routes; then
+		logger -t "zerotier" "无法确认静态路由配置，保留当前ZeroTier服务"
 		return 1
 	fi
 	if ! kill_z; then
@@ -1089,7 +1175,15 @@ stop_zero() {
 			[ -n "$ip_segment" ] || ip_segment="$zt_state_saved_segment"
 		fi
 	fi
-	if [ "$(nvram get zerotier_nat)" = "1" ] && [ -z "$ip_segment" ]; then
+	if ! zerotier_read_nat_enabled; then
+		logger -t "zerotier" "无法读取NAT策略，保留当前ZeroTier服务"
+		return 1
+	fi
+	if ! zerotier_preflight_static_routes; then
+		logger -t "zerotier" "无法确认静态路由配置，保留当前ZeroTier服务"
+		return 1
+	fi
+	if [ "$nat_enable" = "1" ] && [ -z "$ip_segment" ]; then
 		logger -t "zerotier" "无法在停止前读取ZeroTier内核路由，保留守护进程与网络配置"
 		return 1
 	fi
