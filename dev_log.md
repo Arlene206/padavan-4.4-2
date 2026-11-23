@@ -1,3 +1,12 @@
+## 2026-11-23 — Repair exact-source WAN/Process integration assertions
+
+- Current source SHA `bd56c02f7f8d10374c6857f8aac1d56b1f7a4b6e`: WAN ARP L2 #45241824790 PASS, WAN DHCP callbacks #45241824847 PASS, Process inventory #45241824430 PASS, and AI handoff #45241824655 PASS.
+- Two umbrella checks exposed stale contracts rather than source/test failures. WAN route #45241824836 reached `check_wan_detect_wan_status.py` and demanded a retired `inventory_error ? inventory_error : EIO` expression; the policy correctly rejects non-positive errno values with `inventory_error > 0 ? inventory_error : EIO`, already covered by its negative-value regression. Process fail-closed #45241824549 reached the legacy `get_wan_ip4()` assertion and rejected the new explicit `if (status != 0) { errno = status; ... }` failure path.
+- Updated both source contracts to assert the current fail-closed semantics rather than restore older code. These are checker-only changes; exact-head WAN route and Process reruns pending.
+- XY-C1 #45241824748 was still building at last poll; Build/TRX/artifact result must be confirmed before claiming L3. NVRAM #45241824746 was still running. No local test or firmware build is claimed.
+
+---
+
 ## 2026-11-23 — Preserve WAN interface-address lookup failures
 
 - Found a real health-monitor error collapse in `detect_wan.c`: both `chk_udhcpc()` and `arpping_gateway()` treated `INADDR_ANY` from `get_wan_ip4()/get_lan_ip4()` as a normal “no address” state. But `get_interface_addr4()` also returns `INADDR_ANY` when socket creation, interface-name validation or `SIOCGIFADDR` fails. That could make a local lookup failure look like a healthy gateway response and suppress DHCP recovery without reporting the probe as a local error.

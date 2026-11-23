@@ -27,6 +27,8 @@
 - Infosvr exact source commit `4e751b58b471e3d07e07a02ed64df3cc1edf0cd9`: GNU89/Werror/ASan/UBSan workflow #45201353587 PASS on checker descendant `6a7ed2a` (all policy binaries, packet source contract and RC lifecycle checker). XY-C1 #45200876769 on the actual production source SHA `4e751b5` PASS with Build, TRX and artifact upload. The earlier #45200876644 failed only on a stale `sizeof(IBOX_COMM_PKT_HDR)` matcher; it was fixed by `ac3228a`/`6a7ed2a`. L2 + L3 are verified; hardware broadcast L4 remains unverified.
 - WAN gateway ARP source fix `1cb817908e779c45d3c47105e39cd2002df0ba63`: exact XY-C1 #45218315124 PASS with Build/TRX/artifact; WAN L2 #45218700965 PASS on checker descendant `40ab459`; AI docs #45218701533 PASS. The earlier WAN L2 #45218314720 failed only on an outdated interface-source string assertion, normalized in `40ab459`. The current local-IP status/error correction supersedes this validation and needs fresh exact-head Actions.
 
+- WAN local IPv4 status commit `bd56c02f7f8d10374c6857f8aac1d56b1f7a4b6e`: WAN ARP #45241824790 PASS; WAN DHCP #45241824847 PASS; Process inventory #45241824430 PASS; AI docs #45241824655 PASS. WAN route #45241824836 and Process umbrella #45241824549 failed only at stale source assertions, both corrected in follow-up `<next SHA>`; exact reruns pending. XY-C1 #45241824748 and NVRAM #45241824746 were in progress at last poll.
+
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -56,7 +58,7 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and verify WAN local-address error-separation regression, Process lifecycle, AI handoff and XY-C1 on the exact new SHA. Prove `INADDR_ANY` plus clean errno/`EADDRNOTAVAIL` remains “no address”, while EACCES/EIO/socket/interface failures stay local errors and cannot be misreported as a healthy ARP response. Require exact XY-C1 Build/TRX/artifact; host-only is not L3.
+1. Fetch live `main` and verify exact-head WAN route and Process reruns for the checker-only follow-up. On `bd56c02`, WAN ARP #45241824790, DHCP #45241824847, Process inventory #45241824430 and AI docs #45241824655 PASS; WAN route #45241824836 and Process umbrella #45241824549 failed only on obsolete status-expression/source assertions now corrected. Confirm XY-C1 #45241824748 Build/TRX/artifact and NVRAM #45241824746 statuses before L3 claims.
 2. Previous LLDT failures were test-contract defects, not confirmed production parser faults: `eef4417` had multi-character NUL literals; `14be2b0` corrected NUL but left literal backslash-n/r strings; `d0e68ad` fixed those and passed runtime cases, then failed a stale XY-C1 path-count expectation, corrected in `38d3732`.
 3. The Process umbrella on `d0e68ad` failed at a stale inline-`sscanf` assertion. The correction in `79f4d53` now validates the shared parser and its path trigger; exact Process #45239229205 passed all steps.
 4. Process inventory #45238182222 and NVRAM audit #45238182242 PASS. XY-C1 #45237411963 on `eef4417` completed SUCCESS with Build/TRX/artifact; L3 is verified for shipped LLDT parser source changes. Reconfirm AI docs after this workflow path-filter repair.

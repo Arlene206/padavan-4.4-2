@@ -2354,11 +2354,16 @@ for signature in (
     function = c_function_body(wan_source, signature)
     assert "get_ap_mode_status(&is_ap_mode)" in function, signature
     assert "get_ap_mode()" not in function, signature
-    assert "if (ap_mode_status != 0)" in function or "if (status != 0 || is_ap_mode)" in function, signature
-    if signature != "get_wan_ip4(int only_broadband_wan)":
-        assert "return ap_mode_status;" in function, signature
-    else:
+    if signature == "get_wan_ip4(int only_broadband_wan)":
+        # A failed mode lookup must not masquerade as AP mode / no WAN address.
+        assert "if (status != 0)" in function, signature
+        status_failure = function.index("if (status != 0)")
+        status_errno = function.index("errno = status;", status_failure)
+        assert status_failure < status_errno
         assert "return INADDR_ANY;" in function, signature
+    else:
+        assert "if (ap_mode_status != 0)" in function, signature
+        assert "return ap_mode_status;" in function, signature
 
 for case in (
     "test_missing_and_routed_settings_keep_router_mode",
