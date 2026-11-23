@@ -132,6 +132,27 @@ function get_layer_items(new_layer_order, motion){
 	document.aidiskForm.submit_fake.click();
 }
 
+/*
+ * Folder names can originate on removable media and are inserted into HTML.
+ * JSON encoding at the ASP response boundary does not protect the later
+ * innerHTML sink after the browser has parsed the JavaScript array.
+ */
+function escapeFolderTreeHtml(value){
+	if(value == null)
+		value = "";
+
+	return String(value)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+function showFolderTreeText(value){
+	return escapeFolderTreeHtml(value).replace(/ /g, "&nbsp;");
+}
+
 function get_tree_items(treeitems, motion){
 	this.isLoading = 1;
 	this.Items = treeitems;
@@ -220,19 +241,19 @@ function BuildTree(){
 		 	else
 		 		short_ItemText = ItemText;
 		 	
-		 	shown_ItemText = showhtmlspace(short_ItemText);
+		 	shown_ItemText = showFolderTreeText(short_ItemText);
 			
 			TempObject += 
 		'<div id="b'+ItemBarCode+'" style="float:left; width:170px; overflow:hidden;" class="FdText">\n'+
 			'<img id="c'+ItemBarCode+'" onclick=\'$("d'+ItemBarCode+'").onclick();\' src="/bootstrap/img/wl_device/'+ItemIcon+'.gif" align=top>\n'+
-			'<span id="d'+ItemBarCode+'"'+SubClick+' title="'+ItemText+'">'+shown_ItemText+'</span>\n'+
+			'<span id="d'+ItemBarCode+'"'+SubClick+' title="'+escapeFolderTreeHtml(ItemText)+'">'+shown_ItemText+'</span>\n'+
 		'</div>\n';
 			
 			TempObject += 
 		'<div id=\"f'+ItemBarCode+'" class="FileStatus" style="margin-left: 10px;" onclick="getChangedPermission(this);"></div>\n\n';
 		}
 		else{
-			shown_ItemText = showhtmlspace(ItemText);
+			shown_ItemText = showFolderTreeText(ItemText);
 			
 			TempObject += 
 		'<div id="b'+ItemBarCode+'" class="FdText">\n'+

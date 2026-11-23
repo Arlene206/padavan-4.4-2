@@ -86,6 +86,8 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/aidisk.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_samba.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_ftp.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js"
+      - "scripts/tests/test_aidisk_folder_tree_xss.js"
       - "trunk/user/www/n56u_ribbon_fixed/aidisk/initial_account.asp"
       - "trunk/user/www/n56u_ribbon_fixed/aidisk/create_account.asp"
       - "trunk/user/www/n56u_ribbon_fixed/aidisk/delete_account.asp"
@@ -376,6 +378,8 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/aidisk.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_samba.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_ftp.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js"
+      - "scripts/tests/test_aidisk_folder_tree_xss.js"
       - "trunk/user/www/n56u_ribbon_fixed/aidisk/initial_account.asp"
       - "trunk/user/www/n56u_ribbon_fixed/aidisk/create_account.asp"
       - "trunk/user/www/n56u_ribbon_fixed/aidisk/delete_account.asp"
@@ -5453,6 +5457,11 @@ jobs:
 
           print("HTTPD private-key access policy and call-site wiring: OK")
           PY
+
+      - name: Verify AiDisk folder names are HTML-escaped before DOM insertion
+        run: |
+          set -eu
+          node scripts/tests/test_aidisk_folder_tree_xss.js
 
       - name: Verify Samba and Unix account identity boundaries
         run: |
