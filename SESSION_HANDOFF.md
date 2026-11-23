@@ -1,10 +1,35 @@
-### 2026-11-24 最新接力检查点
+### 2026-11-23 接力更新（当前实时检查点）
 
-- 当前父 main SHA：d855df7965ca1a0e393cb9af420491eccff6d089。冻结 backup branch SHA 72f4f157a084f8184b9597ca5bf334b8080e5807 未修改。
-- EPHY ioctl IRQ-off 延迟：ei_ioctl() 曾在 ephy_ioctl() 前重新 spin_lock_irq(page_lock)，而该函数同步执行多端口 FE/GE PHY calibration 和有界 MDIO busy polling，导致本地 IRQ 在整个流程内关闭。
-- 本次将 page_lock 重新获取移到 ephy_ioctl() 返回之后；校准路径使用专用 checked PHY-page/MDIO locks，不访问 page_lock 保护的 CR register block。copy_from_user 错误路径和 ei_ioctl() 统一出口的锁平衡保持不变。新增 workflow contract 验证 unlock→calibration→relock 顺序。
-- Parent exact Actions：Switch CLI #45285332081 PASS；AI handoff #45285331846 PASS。旧源码 SHA 6b1c7c4... 的 XY-C1 build 上次仍 pending；本次新源码需单独验证。
-- 未做本地 MIPS build 或硬件实测；无 L3/L4 声明。
+- live `main`：`02f174a93bf275930cede271d233dcf2c57438fa`；最近一个修改 raeth 源码的提交：`02f174a93bf275930cede271d233dcf2c57438fa`（main 是否为纯 workflow/docs 后续提交以 Git 历史为准）。
+- 已完成：FE VBG/R50/TX-offset/TX-amplitude 及 MDIX checked MDIO/wait、bounded search/fallback/cleanup；GE R50/TX-offset/TX-amplitude analog 检查；FE/GE orchestrator 和 EPHY batch/init 错误传播；校准 ioctl 重试耗尽返回 `-EIO`，且 `ei_ioctl()` 不再丢弃 `ephy_ioctl()` 返回值。
+- GE all-analog retry bounded=NOT CONFIRMED。下一位 GPT 应以 live 源码核验，不要只相信本记录。
+- 源码 SHA `02f174a93bf275930cede271d233dcf2c57438fa` 的 exact push Actions：
+- AI handoff documentation contract #45285734852: in_progress/PENDING
+- Switch CLI ioctl failure-status regression #45285734872: in_progress/PENDING
+- XY-C1 Firmware Validation #45285734450: in_progress/PENDING; target=Build XY-C1=pending,Verify TRX output=pending,Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9=pending
+- NVRAM transaction boundary audit #45285734861: in_progress/PENDING。
+- 同一 SHA 的 XY-C1 Build + TRX + artifact 三项全部 PASS：NO / NOT VERIFIED。host source contracts 不等于 MIPS/kernel target build；无实体设备硬件 L4 声明。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 当前 SHA：`72f4f157a084f8184b9597ca5bf334b8080e5807`；本轮未修改。
+- 下一项：确认最新 exact-SHA Actions 和 GE retry bounded 实际源码；修完任何 contract/target FAIL 后，转向 raeth 以外的 Padavan userland 稳定性缺陷（优先 rc/NVRAM/httpd），仍按源码—测试—原子提交—SHA Actions 工作。
+
+## Active task
+
+### EPHY calibration failure propagation and bounded retries
+
+- FE/GE analog production paths use checked paged MDIO and checked wait status; failure suppresses completion flags and cleanup retains the first transport error.
+- EPHY batch/init now propagate FE/GE calibration status. Calibration ioctl retries are bounded and report `-EIO`; `ei_ioctl()` passes the result to the netdev caller.
+- Workflow contracts were adjusted to use the current production function signatures and stable source block boundaries. Verify these on the current source SHA, not historical PASS runs.
+
+## Verification boundary
+- Source verification SHA: `02f174a93bf275930cede271d233dcf2c57438fa`; Actions listed above are its exact push runs.
+- Current main tree: `02f174a93bf275930cede271d233dcf2c57438fa`. When main is a later workflow/docs-only commit, do not call the source parent’s Actions a PASS for the newer tree.
+- XY-C1 L3 is NOT VERIFIED; no physical hardware L4 claimed.
+
+## Exact first action for the next GPT
+
+1. Fetch live `main`; check exact SHA Actions for `02f174a93bf275930cede271d233dcf2c57438fa` and current tree `02f174a93bf275930cede271d233dcf2c57438fa`, reading failing Switch CLI job logs.
+2. Confirm GE orchestrator retry is bounded to three attempts and that all init/ioctl callers propagate the returned error.
+3. Continue with one independent userland stability/security defect after the EPHY source slice is verified; add a regression contract, commit atomically and check same-SHA Actions.
 
 ---
 # Cross-session execution mandate

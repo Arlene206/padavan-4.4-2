@@ -1,3 +1,11 @@
+## 2026-11-23 — Update EPHY calibration handoff and verification boundary
+
+- Recorded live main `02f174a93bf275930cede271d233dcf2c57438fa`, latest raeth source SHA `02f174a93bf275930cede271d233dcf2c57438fa`, exact push Actions and backup branch `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Captured FE/GE checked analog I/O, bounded retries, EPHY init/batch and ioctl error propagation status. XY-C1 L3=NOT VERIFIED; no physical hardware L4 claim.
+- Next independent development slice is userland stability/security outside raeth after exact-head checks are reconciled.
+
+---
+
 ## 2026-11-24 07:24 CST (UTC+8) — Keep interrupts enabled during PHY calibration ioctl
 
 - Base main SHA: d855df7965ca1a0e393cb9af420491eccff6d089. EPHY ioctl runs synchronous FE/GE calibration across multiple ports with bounded retry and MDIO polling loops. ei_ioctl() previously reacquired page_lock with spin_lock_irq immediately before ephy_ioctl(), leaving local IRQs disabled throughout the full calibration.
