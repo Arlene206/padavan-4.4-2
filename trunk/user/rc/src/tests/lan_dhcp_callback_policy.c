@@ -112,10 +112,31 @@ test_runtime_metadata_refresh_prepares_atomic_four_key_tuple(void)
 	assert(strcmp(values[3].previous_value, "198.51.100.1") == 0);
 }
 
+static void
+test_ap_lan_protocol_mode_read_failure_fails_closed(void)
+{
+	int use_dhcp = 0;
+
+	assert(lan_dhcp_ap_mode_resolve(0, 1, &use_dhcp) == 0);
+	assert(use_dhcp == 1);
+	assert(lan_dhcp_ap_mode_resolve(0, 0, &use_dhcp) == 0);
+	assert(use_dhcp == 0);
+
+	/* A backend error must not be converted into manual/static mode. */
+	use_dhcp = 1;
+	assert(lan_dhcp_ap_mode_resolve(EIO, 1, &use_dhcp) == EIO);
+	assert(use_dhcp == 0);
+	use_dhcp = 1;
+	assert(lan_dhcp_ap_mode_resolve(ENODEV, 1, &use_dhcp) == ENODEV);
+	assert(use_dhcp == 0);
+	assert(lan_dhcp_ap_mode_resolve(0, 1, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
 	test_deconfig_metadata_restores_static_values_and_clears_dhcp_options();
+	test_ap_lan_protocol_mode_read_failure_fails_closed();
 	test_runtime_metadata_refresh_prepares_atomic_four_key_tuple();
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
 	test_watchdog_and_monitor_notification_failures_are_ancillary();

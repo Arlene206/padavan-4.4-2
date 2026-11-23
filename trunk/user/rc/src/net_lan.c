@@ -1500,6 +1500,8 @@ start_lan(int is_ap_mode, int do_wait)
 	int operation_status;
 	int phy_wait_status = 0;
 	int metadata_status = 0;
+	int lan_proto_dhcp = 0;
+	int lan_proto_status;
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status;
 #endif
@@ -1554,7 +1556,17 @@ start_lan(int is_ap_mode, int do_wait)
 					   hosts_status);
 		}
 
-		if (nvram_match("lan_proto_x", "1")) {
+		lan_proto_status = lan_nvram_get_match_status("lan_proto_x", "1",
+						   &lan_proto_dhcp);
+		lan_proto_status = lan_dhcp_ap_mode_resolve(
+			lan_proto_status, lan_proto_dhcp, &lan_proto_dhcp);
+		if (lan_proto_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot verify AP LAN protocol mode; refusing DHCP/manual setup (status=%d)",
+				   lan_proto_status);
+			start_status = rc_first_service_start_status(
+				start_status, lan_proto_status);
+		} else if (lan_proto_dhcp) {
 
 			/* The callback script is required for bound/renew/deconfig events. */
 			operation_status = rc_udhcpc_script_link_ensure(

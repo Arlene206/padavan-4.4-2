@@ -94,4 +94,20 @@ lan_dhcp_bound_callback_status(int transaction_status, int ancillary_status)
 	return transaction_status;
 }
 
+/*
+ * AP LAN must distinguish a disabled DHCP client from an unreadable protocol
+ * selector. On read failure neither DHCP nor manual/static setup is safe.
+ */
+static inline int
+lan_dhcp_ap_mode_resolve(int read_status, int matches, int *use_dhcp)
+{
+	if (!use_dhcp)
+		return EINVAL;
+	*use_dhcp = 0;
+	if (read_status != 0)
+		return read_status;
+	*use_dhcp = matches != 0;
+	return 0;
+}
+
 #endif /* PADAVAN_LAN_DHCP_CALLBACK_POLICY_H */
