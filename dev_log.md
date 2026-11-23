@@ -1,3 +1,14 @@
+## 2026-11-23 — RAETH MDIO 错误传播扩展
+
+- 本轮代码基线 SHA：`638dd487b626b0aac718eec046573dcd1393274c`（提交：fix(raeth): report proc MIB MDIO failures）。
+- 将关注面从 MII manager 扩展到 RAETH switch startup：分页 PHY 的 page-select/data 事务、Clause 45 访问、MT7530 reset-ready 等待、内部 switch 配置、MT7530 PHY 配置、TRGMII calibration、MT7621 VLAN partition、GE PHY identification，以及 embedded-switch GPIO PHY 配置。
+- 错误处理采用 checked MDIO adapter，将失败转为负 errno，并在初始化链路中停止后续寄存器写入；VLAN busy 轮询增加有界超时；PHY read wrapper 清零输出，避免失败时返回未初始化数据。
+- MIB 计数器快照测试覆盖逐寄存器失败注入，并要求完整快照成功后才发布；MDIO timeout 使用单调纳秒时钟，避免 IRQ-off 区域依赖 jiffies。
+- 回归测试已在 `switch-cli-stability.yml` 与 XY-C1 workflow 中接线；具体 PASS/FAIL/PENDING 以 exact-SHA Actions 状态为准，不把 PENDING 记作通过。
+- 备份保护分支仍为 `backup/pre-plugin-overhaul-2026-11-14` @ `72f4f157a084f8184b9597ca5bf334b8080e5807`，本轮未修改。
+- 下一步：按接力文档中记录的 exact SHA 对 Actions 做确认；优先修复失败检查/构建，再清理 RAETH 中剩余的兼容 MDIO wrappers，并继续向其他 userland 可靠性问题扩展。
+
+---
 ## 2026-11-23 — Report proc MIB read and snapshot-control failures
 
 - RAETH's `DUMP_EACH_PORT` macro ignored `mii_mgr_read()`'s boolean result. The driver clears the output to zero on failure, so proc output could report an MDIO timeout as a legitimate zero counter.

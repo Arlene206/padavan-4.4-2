@@ -1,3 +1,15 @@
+## 2026-11-23 状态增量：RAETH MDIO / Switch 初始化
+
+| 子系统 | 当前进展 | 验证/风险 | 下一步 |
+|---|---|---|---|
+| RAETH MII manager | MDIO timeout 改为单调纳秒；所有 timeout 点由可测策略函数覆盖 | 精确 SHA Actions 必须独立确认；硬件总线行为仍需设备实测 | 核对最新 Switch CLI / XY-C1 build 结果 |
+| MTK ESW MIB | 计数器通过临时 snapshot 聚合，任一读失败不发布半成品 | 已有逐寄存器故障注入回归 | 保留回归并关注寄存器清零语义 |
+| MTK PHY / switch init | page-select、reset-ready、VLAN busy、PHY config、TRGMII 与 GE PHY 初始化加入失败传播 | 多处 legacy API 仍以 0/void 表示失败；调用链需要持续检查 | 清理兼容 wrappers，审查 link state 和 teardown 路径 |
+| XY-C1 firmware | 构建只能由仓库 Actions 执行 | 不能用 host-only C policy test 代替固件构建 | 逐 SHA 检查构建、TRX、artifact 上传 |
+
+本记录对应代码基线 `638dd487b626b0aac718eec046573dcd1393274c`；远端 `main` 可能有并发提交，任何操作前必须重新读取 HEAD。保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持只读。
+
+---
 Current implementation checkpoint (2026-11-23; parent main 5a43b18722b9d2f3f864ef6bd1025084ff1edb85):
 - AliyunDrive executable-inode guard on ba0dfca: lifecycle #45230625667, Process #45230625920 and AI docs #45230625723 PASS; shell/QEMU CLI/lifecycle/lock/RC checks passed; target router shell runtime remains unverified.
 - Shared process inventory PID-reuse guard on 9ebc579: Process #45227637642, fail-closed #45227637610 and AI docs #45227637592 PASS; XY-C1 #45227637594 passed Build/TRX/artifact on identical SHA (L3).

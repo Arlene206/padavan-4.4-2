@@ -1,3 +1,28 @@
+### 2026-11-23 接力更新（本轮开发快照）
+
+- 本轮开始时 main 基线：`638dd487b626b0aac718eec046573dcd1393274c`；该 SHA 的提交说明：`fix(raeth): report proc MIB MDIO failures`。本记录作为后续原子文档提交的子提交；启动时仍以远端 main HEAD 为准。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 当前 SHA：`72f4f157a084f8184b9597ca5bf334b8080e5807`。只读保护，不做 checkout、合并、删除或更新。
+- 本轮 RAETH 可靠性代码方向：
+  - monotonic MDIO timeouts: false
+  - paged PHY access serialization/failure gating: true
+  - checked switch startup and VLAN initialization: true
+  - GE/embedded PHY error propagation: true
+  - legacy Clause 45 checked-read wrapper: false
+- 已接入的回归：MDIO timeout policy、MTK ESW MIB snapshot fail-closed、分页 PHY page-select/data 错误注入、selector/data serialization、reset-ready bounded poll，以及 switch source-contract 检查；以当前 workflow 文件和对应 SHA Actions 为准。
+- CI 快照（GitHub Actions 读取时间为本次 handoff 生成时）：
+  - NVRAM transaction boundary audit #45268913631：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
+  - XY-C1 Firmware Validation #45268911701：in_progress，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
+  - Switch CLI ioctl failure-status regression #45268911721：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
+  - AI handoff documentation contract #45268911599：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
+  - Process inventory and lifecycle fail-closed regression #45268911977：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`（当前基线）
+  - 最近 XY-C1 Firmware Validation #45268911701：in_progress，SHA `638dd487b626b0aac718eec046573dcd1393274c`
+  - 最近 NVRAM transaction boundary audit #45268913631：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`
+  - 最近 AI handoff documentation contract #45268911599：completed/success，SHA `638dd487b626b0aac718eec046573dcd1393274c`
+- 本次环境没有本地 Padavan 交叉编译工具链；不要把静态检查或宿主机策略测试冒充 XY-C1 固件编译。
+- 下个 GPT 第一项：检查本接力文档提交之后的最新 main HEAD，并按 exact SHA 检查 Switch CLI、XY-C1 firmware、NVRAM、AI handoff Actions；逐项处理 FAIL，PENDING 时先做独立代码任务。随后继续审查 `ra_switch.c` 剩余兼容包装和 PHY/link 状态路径，再扩展至其他 userland 稳定性缺陷。
+- 保持操作规则：小步原子提交；完整 Git tree 后一次 commit；`main` 只用 expected SHA 非强制更新；绝不 force push；保护分支不动。
+
+---
 # Cross-session execution mandate
 
 ## Current repository state
