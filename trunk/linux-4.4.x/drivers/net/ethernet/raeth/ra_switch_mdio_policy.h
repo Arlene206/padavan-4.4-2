@@ -5,6 +5,9 @@
 #include <linux/errno.h>
 #else
 #include <errno.h>
+
+#endif
+
 typedef void (*ra_switch_mdio_delay_fn)(void *context);
 
 static inline int
@@ -35,7 +38,6 @@ ra_switch_mdio_wait_nonzero(ra_switch_mdio_read_fn read,
 	return -ETIMEDOUT;
 }
 
-#endif
 
 /* Page-select register 31 gates every local/global PHY register access. */
 typedef int (*ra_switch_mdio_read_fn)(void *, unsigned int, unsigned int, unsigned int *);

@@ -2988,11 +2988,11 @@ static int setup_internal_gsw(void)
 					     ra_switch_mdio_reset_delay, NULL,
 					     31U, 0x7800U, 100U, &reg_value);
 	if (status != 0) {
-		pr_err("MT7530 reset-ready check failed: %d\\n", status);
+		pr_err("MT7530 reset-ready check failed: %d\n", status);
 		iounmap(gpio_base_virt);
 		return status;
 	}
-	pr_info("MT7530 Reset Completed!!\\n");
+	pr_info("MT7530 Reset Completed!!\n");
 
 	for (i = 0; i <= 4; i++) {
 		/*turn off PHY */
