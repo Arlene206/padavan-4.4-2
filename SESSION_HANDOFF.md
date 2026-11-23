@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; last verified parent before this MiniDLNA rescan status fix is `9597283bfa55eaa16d2b64212e073935e421dedf`. Re-read main before each write and use expected-SHA compare-and-swap.
+- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; parent for the current MiniDLNA launch-state follow-up is `507d80d8901131f75259a3b1f8d8f7837605fa3c`. Re-read main before every write and use expected-SHA compare-and-swap.
 - The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
 - The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
 - Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
@@ -26,14 +26,13 @@
 
 ## Active task
 
-### Preserve MiniDLNA database rescan requests when NVRAM reads fail
+### Make MiniDLNA launch decisions fail closed on service-state NVRAM errors
 
-- Review found that run_dms() read dlna_rescan using nvram_get_int() after publishing configuration. A transient NVRAM/backend/parse/close error collapsed to zero, silently omitting the configured -R or -U scan option while starting the daemon.
-- THIS COMMIT uses storage_read_integer_status() before unlinking/recreating the database link or publishing config. Read failure is logged and returned without startup side effects.
-- An explicit force_rescan bypasses the NVRAM read because the caller option takes precedence; this avoids introducing a dependency on an unused setting. Existing -R/-U selection semantics remain unchanged.
-- MiniDLNA newline-injection fixture correction 511f1eed74144fb270181dbb53de2ea9dc09be02 passed exact run 45120292969. Follow-up source-contract/handoff commit 9597283bfa55eaa16d2b64212e073935e421dedf passed MiniDLNA run 45120463448 and AI handoff contract 45120463437.
-- eebc7031068ac79d8653be0a6a439eb07f374164 Firewall Startup run 45120141334 PASS. Its exact XY-C1 run 45120141302 had passed prerequisites/input detection and was still at Build XY-C1 at last inspection; TRX/artifact were pending. This source commit changes services_stor.c and requires a fresh exact-head XY-C1 build/TRX/artifact.
-- Keep working across userland services while Actions are pending; do not repeat MiniDLNA INI/fixture, FTP rate, Firefly credential, VPN subnet or mangle rollback fixes.
+- run_dms() still had two unchecked NVRAM decisions after the configuration and rescan fixes: nvram_match("apps_dms", "1") collapsed a backend error into 'disabled', silently skipping the daemon; nvram_safe_get("il0macaddr") collapsed an identity read failure into an empty MAC and launched MiniDLNA with a zero server identity.
+- THIS COMMIT uses storage_read_string_status() for both values before any database-link/config side effects. Missing apps_dms remains the historical disabled default (empty != "1"); read errors return their status. Missing il0macaddr remains an empty string and preserves legacy zero-MAC formatting, while backend/truncation errors abort launch.
+- The existing checked dlna_rescan read remains conditional on !force_rescan, preserving caller override semantics. Workflow source contracts pin all three checked reads, no old lossy getter, and error gates before filesystem mutation.
+- Prior MiniDLNA fixture/source contract exact runs: 511f1eed... run 45120292969 PASS; 9597283... runs 45120463448 (MiniDLNA) and 45120463437 (AI handoff) PASS. The rescan fix is in commit 507d80d8901131f75259a3b1f8d8f7837605fa3c; exact MiniDLNA run 45120721550 PASS and AI handoff 45120721566 PASS. Exact XY-C1 45120721414 is pending Build on the 507 product-source tree; TRX/artifact pending.
+- THIS COMMIT changes production services_stor.c, so it needs fresh exact-head MiniDLNA source/host checks and XY-C1 Build/TRX/artifact. Continue separate userland work while pending; do not re-audit completed MiniDLNA INI/fixture/rescan or other fixed modules.
 ### Exact parallel baseline
 
 - Earlier source milestones: libdisk ACL L3 PASS on e757 `45114634020`; FRP L3 PASS on d2c `45115500761`; USB printer unplug L2/L3 PASS on 200127 `45116268933` / `45116268960`.
@@ -48,10 +47,10 @@
 - DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated host run `45117871967` PASS (L2); WAN integration rerun `45118077270` PASS. L3 NOT VERIFIED: exact XY-C1 run on latest tree was still building and the source path coverage gap is fixed by THIS COMMIT. L4 NOT VERIFIED.
 - Firewall IPTV TTL interface source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`: source review and tests added; exact XY-C1 run `45118311710` pending at## Exact first action for the next GPT
 
-1. Read live main once; verify the frozen backup ref remains 72f4f157a084f8184b9597ca5bf334b8080e5807; resolve THIS COMMIT.
-2. Inspect exact-head MiniDLNA workflow for the checked dlna_rescan source contract; require both host sanitizer test and source contract PASS.
-3. Inspect exact-head XY-C1 for this production services_stor.c change. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same SHA.
-4. Continue an independent cross-userland stability/security task while those checks are pending. L4 physical-router validation remains NOT VERIFIED.
+1. Read live main once; verify frozen backup SHA 72f4f157a084f8184b9597ca5bf334b8080e5807; resolve THIS COMMIT.
+2. Inspect exact-head MiniDLNA run for checked apps_dms, dlna_rescan and il0macaddr handling; require host test and source checker PASS.
+3. Inspect exact-head XY-C1: L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same product SHA.
+4. Continue an independent userland stability/security defect while checks are pending. L4 physical-router validation remains NOT VERIFIED.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.

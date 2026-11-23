@@ -2961,6 +2961,8 @@ storage_rollback_failed_start(const char *apps_name, const char *daemon,
 int run_dms(int force_rescan)
 {
 	int db_rescan_mode = 0;
+	int enable_status;
+	int mac_status;
 	int process_state;
 	int process_error;
 	int config_status;
@@ -2971,6 +2973,8 @@ int run_dms(int force_rescan)
 	int link_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
 	char mac_str[16];
+	char apps_enabled[8] = {0};
+	char mac_address[32] = {0};
 	char *apps_name = "Media Server";
 	char *link_path = "/mnt/minidlna";
 	char *conf_path = "/etc/minidlna.conf";
@@ -2983,7 +2987,14 @@ int run_dms(int force_rescan)
 		NULL
 	};
 
-	if (!nvram_match("apps_dms", "1"))
+	enable_status = storage_read_string_status(
+		"apps_dms", apps_enabled, sizeof(apps_enabled));
+	if (enable_status != 0) {
+		logmessage("minidlna", "cannot read service enable flag; refusing startup (status=%d)",
+			   enable_status);
+		return enable_status;
+	}
+	if (strcmp(apps_enabled, "1") != 0)
 		return 0;
 
 	if (!is_dms_support())
@@ -3006,6 +3017,14 @@ int run_dms(int force_rescan)
 			return config_status;
 		}
 	}
+	mac_status = storage_read_string_status(
+		"il0macaddr", mac_address, sizeof(mac_address));
+	if (mac_status != 0) {
+		logmessage(apps_name,
+			   "cannot read MiniDLNA server identity; aborting daemon start (status=%d)",
+			   mac_status);
+		return mac_status;
+	}
 
 	unlink(link_path);
 	link_status = create_mp_link_status(dest_dir, link_path, 0);
@@ -3024,7 +3043,7 @@ int run_dms(int force_rescan)
 		return config_status;
 	}
 
-	ether_atoe(nvram_safe_get("il0macaddr"), mac_bin);
+	ether_atoe(mac_address, mac_bin);
 	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);
 
 	if (force_rescan || db_rescan_mode == 2)

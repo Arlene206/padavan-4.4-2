@@ -1,3 +1,12 @@
+## 2026-11-23 06:10 UTC — Check MiniDLNA enable and identity reads before startup
+
+- After hardening dlna_rescan, reviewed the remaining run_dms() launch NVRAM inputs. nvram_match("apps_dms", "1") swallowed backend errors as 'disabled', dropping an enabled media-server start; nvram_safe_get("il0macaddr") swallowed identity-read errors and could start with a zero serial/MAC.
+- Replaced both with storage_read_string_status() before DB-link/config side effects. Missing apps_dms remains a false/disabled default, missing il0macaddr remains empty and preserves old formatting, while read/close/truncation errors now abort with the exact status.
+- Preserved conditional dlna_rescan read for !force_rescan. Extended CI source contract to require all status checks before side effects and prohibit the old lossy getters.
+- Commit 507d80d8901131f75259a3b1f8d8f7837605fa3c exact MiniDLNA workflow 45120721550 PASS and AI handoff 45120721566 PASS; XY-C1 45120721414 was building with TRX/artifact pending. This new production change requires exact-head reruns.
+- No local compile/build claimed. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 06:02 UTC — Fail closed when MiniDLNA cannot read database rescan mode
 
 - run_dms() used nvram_get_int("dlna_rescan") after publishing configuration. Transient backend/read/parse/close errors collapsed to zero and silently skipped a configured full (-R) or update-only (-U) scan while starting the daemon.
