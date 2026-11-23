@@ -55,6 +55,17 @@ modem_wan_start_status(int migration_status, int dhcp_status)
 	return migration_status != 0 ? migration_status : dhcp_status;
 }
 
+/* Normalize a direct Ethernet-link probe without confusing UNKNOWN for DOWN. */
+static inline int
+modem_wan_link_probe_error(int link_result, int saved_errno)
+{
+	if (link_result == 0 || link_result == 1)
+		return 0;
+	if (link_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	return EIO;
+}
+
 /*
  * Select the modem only from a complete configuration snapshot. A failed
  * priority read or uncertain Ethernet link must never be interpreted as

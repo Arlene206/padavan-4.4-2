@@ -1,3 +1,19 @@
+## 2026-11-23 UTC — Preserve unknown wired-WAN link state during USB modem auto-start
+
+- In `try_start_usb_modem_to_wan()`, priority 2 means the USB modem should start only when the wired WAN link is confirmed down and no AP-client WISP is active. The direct PHY helper returns -1 and sets errno when the checked `wan_src_phy` read or PHY status probe fails, but the caller changed that -1 to zero and proceeded as if the cable were disconnected.
+- The WAN device-selection path in `net_wan.c` already records the probe errno and fails closed through `modem_wan_select_device_status()`; this USB hotplug path had diverged.
+- Added a shared policy normalizer: only 0/1 are valid link results, negative results preserve errno (or EIO), and unexpected positive results are rejected. USB modem auto-start now returns the status and preserves the deferred event instead of initiating a competing WAN reconnect.
+- Added GNU89 policy tests for confirmed up/down, EACCES, errno-less failure and invalid positive state, plus source-order/negative-fallback assertions. Exact-head USB modem, Process, AI and XY-C1 Actions pending; no local compile, target build or hardware result is claimed.
+
+---
+
+## 2026-11-23 UTC — Validate forked p910nd readiness slice
+
+- On `bea2a85c96271c494076510ea06b96065d7c0b75`, Process fail-closed #45210393886 PASS, USB storage #45210396834 PASS, Process inventory #45210393909 PASS, AI docs #45210393826 PASS, USB modem identity #45210393790 PASS and NVRAM boundary #45210393769 PASS.
+- XY-C1 #45210393797 was still running Build; TRX verification and artifact upload had not started at the last poll. Do not claim firmware Build/TRX/artifact or L3 for p910nd until all three product steps complete on this exact source SHA.
+
+---
+
 ## 2026-11-23 UTC — Fail closed when QMI WDS client-ID publication fails
 
 - `uqmi`'s `--get-client-id wds` path previously called `fopen("/tmp/qmi-client-id", "w+")`, then ignored `fprintf()` and `fclose()` failures while returning success. `qmi_service_get_client_id()` marks the client ID persistent, so the daemon could keep a QMI client allocation even when its only recovery record was never published.

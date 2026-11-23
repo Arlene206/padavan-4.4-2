@@ -518,7 +518,8 @@ int
 try_start_usb_modem_to_wan(void)
 {
 	int modem_prio, modem_devnum, has_link;
-	int modem_config_status, modem_identity_status, is_modem_wan = 0;
+	int modem_config_status, modem_identity_status, link_status;
+	int is_modem_wan = 0;
 
 	if (get_ap_mode())
 		return 0;
@@ -555,10 +556,17 @@ try_start_usb_modem_to_wan(void)
 		if (get_apcli_wisp_ifname())
 			return 0;
 		
+		errno = 0;
 		has_link = get_wan_ether_link_direct(0);
-		if (has_link < 0)
-			has_link = 0;
-		
+		link_status = modem_wan_link_probe_error(has_link, errno);
+		if (link_status != 0) {
+			errno = link_status;
+			logmessage("USB hotplug",
+				   "refusing modem auto-start because WAN Ethernet link state is unknown (status=%d)",
+				   link_status);
+			return link_status;
+		}
+
 		if (has_link)
 			return 0;
 	}

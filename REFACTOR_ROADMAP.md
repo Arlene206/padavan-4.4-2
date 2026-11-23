@@ -1,5 +1,8 @@
 Current implementation checkpoint (2026-11-23):
-- Raw USB printer startup now checks the detached p910nd child after the launcher parent exits; it requires a RUNNING `p9100d` process and propagates ABSENT/UNKNOWN/timeout failures. The Process source contract covers fork/parent exit, argv[0] rename, readiness-gate ordering and p910nd path filters. Exact-head Process, USB storage, AI docs and XY-C1 Build/TRX/artifact verification pending.
+- USB modem priority-2 auto-start no longer converts a failed WAN-PHY probe into confirmed link-down. UNKNOWN/invalid link results propagate errno/EIO and keep the event retryable; GNU89 policy and source-order regression coverage added. Exact-head USB modem, Process, AI and XY-C1 verification pending.
+
+Current implementation checkpoint (2026-11-23):
+- Raw USB printer startup checks the detached p910nd child as `p9100d`. Exact Process #45210393886, USB storage #45210396834, Process inventory #45210393909, AI docs #45210393826, USB modem #45210393790 and NVRAM #45210393769 all PASS on `bea2a85`; XY-C1 #45210393797 was still at Build, with TRX/artifact pending.
 
 Current implementation checkpoint (2026-11-23):
 - Added the XUPNPD `xport_text[16]` checked-selector declaration assertion to the Process source checker. This mirrors the updated inline workflow contract and re-triggers the Process CI path. No production source changed; exact run pending.

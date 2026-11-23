@@ -153,6 +153,16 @@ test_modem_selection_fails_closed_on_unknown_ethernet_link(void)
 }
 
 static void
+test_modem_link_probe_error_fails_closed(void)
+{
+	assert(modem_wan_link_probe_error(0, 0) == 0);
+	assert(modem_wan_link_probe_error(1, 0) == 0);
+	assert(modem_wan_link_probe_error(-1, EACCES) == EACCES);
+	assert(modem_wan_link_probe_error(-1, 0) == EIO);
+	assert(modem_wan_link_probe_error(2, 0) == EIO);
+}
+
+static void
 test_modem_selection_prefers_wired_link_when_present(void)
 {
 	int selected = -1;
@@ -745,6 +755,7 @@ main(void)
 	test_modem_selection_preserves_missing_priority_default();
 	test_modem_selection_fails_closed_on_priority_read_error();
 	test_modem_selection_fails_closed_on_unknown_ethernet_link();
+	test_modem_link_probe_error_fails_closed();
 	test_modem_selection_prefers_wired_link_when_present();
 	test_modem_selection_uses_modem_only_after_confirmed_link_absence();
 	test_modem_selection_keeps_wisp_compatibility_without_link_probe();

@@ -2,30 +2,30 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; writable branch `main` only. Parent before this QMI WDS client-ID reliability slice: `bea2a85c96271c494076510ea06b96065d7c0b75`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve unchanged.
-- Latest source SHA before this work, `bea2a85c96271c494076510ea06b96065d7c0b75`, extended post-exec readiness to p910nd. Its exact Process fail-closed #45210393886, Process inventory #45210393909, USB storage #45210396834, NVRAM #45210393769, AI docs #45210393826 and USB modem #45210393790 all PASS. XY-C1 #45210393797 was still IN_PROGRESS at the last poll; do not claim p910nd L3 until Build, TRX and artifact all PASS on the same SHA.
-- U2EC/LPRng post-exec readiness source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process fail-closed #45208311957 PASS, USB storage #45209095493 PASS, AI #45208311790 PASS; XY-C1 #45207830678 completed Build, TRX verification and artifact upload successfully. This is L3 CI verification for the U2EC/LPRng source slice on 8fa, not for later p910nd additions.
-- Samba account-snapshot parity source `a311a4d92d43db04958a44a52912a2a66befd6ed` plus test compatibility correction `4e0351691b5076817137a0ff5551f610c9c17bc2`: Samba, HTTPD, Process and AI exact checks passed; NVRAM was still pending at the last observation.
-- No persistent local checkout, target MIPS/uClibc toolchain or hardware L4 validation is available. The standalone GNU89/ASan/UBSan QMI status-file test was compiled and run locally from the same helper/test sources and passed.
+- Repository: `Arlene206/padavan-4.4-2`; writable branch is `main` only. Branch inventory is `main` plus frozen `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve the backup unchanged.
+- Parent before THIS USB modem link-state correction: `00c05a29ecef2b69e87b66026f109b9732840e45`.
+- p910nd readiness source `bea2a85c96271c494076510ea06b96065d7c0b75`: Process fail-closed #45210393886 PASS, USB storage #45210396834 PASS, Process inventory #45210393909 PASS, AI handoff #45210393826 PASS, USB modem #45210393790 PASS and NVRAM #45210393769 PASS. XY-C1 #45210393797 was still building at last poll; TRX/artifact pending, so no L3 claim on this SHA.
+- Earlier U2EC/LPRng readiness source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory #45207830503, USB modem #45207830717, NVRAM #45207830836 and AI docs #45207830375 PASS. Checker corrections `c8920ca` and `e0451c0` validated Process #45208311957 PASS, AI #45208311790 PASS and USB storage #45209095493 PASS. XY-C1 #45207830678 passed Build, TRX and artifact upload on `8fa162a`; this does not validate later production sources.
+- No persistent local checkout or target MIPS/uClibc build was available. No hardware L4 result is claimed.
 
 ## Active task
 
-- Confirmed QMI client-ID reliability defect: `uqmi --get-client-id wds` used `fopen("w+")`, then ignored write/close errors while returning success. `qmi_service_get_client_id()` sets the service's keep-CID bit, so a failed or partial file write could strand a persistent WDS client ID without a recovery record. Parent `qmi_control_network_start()` also ignored the command's exit status and continued even if no readable ID was saved, eventually starting a WDS session with `--keep-client-id` but no tracked CID.
-- THIS COMMIT adds atomic 0600 QMI status-file publication via mkstemp/write/fsync/close/rename; on client-ID publish failure it marks the service CID for release before the device closes. The parent now requires a successful uqmi command and readable CID before continuing. Tests cover replacement, restrictive mode/owner, destination symlink, failed rename cleanup and invalid paths.
+- THIS COMMIT fixes a fail-open in `try_start_usb_modem_to_wan()`: for priority 2, a failed direct WAN-PHY link probe returned -1 with errno, but the caller overwrote it with zero and interpreted UNKNOWN as a confirmed disconnected Ethernet WAN. It could therefore start/reconnect a USB modem while the wired WAN was merely uninspectable.
+- The caller now clears stale errno, normalizes only documented 0/1 link states, propagates the probe errno (or EIO if absent), and refuses modem auto-start on UNKNOWN/invalid results. Confirmed link-up still suppresses modem start; only confirmed link-down proceeds. This aligns with `net_wan.c::select_usb_modem_to_wan()`, which already preserves a failed probe through `modem_wan_select_device_status()`.
+- Added GNU89 policy cases for 0, 1, -1 with/without errno and invalid positive values; strengthened the USB modem source-order contract. Exact-head USB modem, Process, XY-C1 and AI actions are pending at commit creation.
 
-## Exact first actions for next GPT
+## Exact first action for the next GPT
 
-1. Poll exact-SHA USB modem identity/QMI workflow, Process inventory/fail-closed, NVRAM audit, AI docs and XY-C1 created by THIS commit. Repair genuine failures or stale contracts without relaxing behavior assertions.
-2. Require same-SHA XY-C1 Build + TRX verification + artifact upload for any L3 claim on this QMI source. Continue independent work if firmware is pending.
-3. Poll p910nd source SHA `bea2a85c96271c494076510ea06b96065d7c0b75` XY-C1 #45210393797; its host workflows already passed exact-SHA. Update p910nd L3 only after all three product steps succeed.
-4. Continue next independent P1/P2 reliability/security code slice beyond the completed RStats, U2EC/LPRng, Samba account-parity and p910nd readiness work.
+1. Poll the exact SHA for THIS USB modem link-state fix: USB modem identity, Process fail-closed/inventory, AI handoff and XY-C1. Require Build + TRX verification + artifact upload on the same product-source SHA before claiming L3.
+2. On any FAIL, inspect the exact job log and repair only the broken assertion or production behavior. Do not normalize an unknown WAN link to DOWN.
+3. Continue independent P1/P2 security and stability work while firmware verification is pending; keep one complete tree/commit and expected-SHA main update per logical task.
 
 ## Relevant exact-SHA CI facts
 
-- p910nd `bea2a85c96271c494076510ea06b96065d7c0b75`: Process #45210393886, Process inventory #45210393909, Storage #45210396834, NVRAM #45210393769, AI #45210393826 and USB modem #45210393790 PASS; XY-C1 #45210393797 IN_PROGRESS at Build on last poll.
-- U2EC/LPRng `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process #45208311957 and AI #45208311790 PASS on checker descendant `c8920ca`; Storage #45209095493 PASS on checker descendant `e0451c0`; XY-C1 #45207830678 completed Build, TRX and artifact successfully on production source 8fa.
-- The current QMI source/test/workflow changes have not yet been pushed or run; parent main is `bea2a85c96271c494076510ea06b96065d7c0b75`.
+- p910nd post-fork readiness source `bea2a85c96271c494076510ea06b96065d7c0b75`: Process #45210393886 PASS, USB storage #45210396834 PASS, Process inventory #45210393909 PASS, AI docs #45210393826 PASS, USB modem #45210393790 PASS and NVRAM #45210393769 PASS. XY-C1 #45210393797 was still running Build; TRX and artifact were pending at the last poll.
+- p910nd's earlier product ancestry includes successful XY-C1 #45207830678 on `8fa162a`, Build + TRX + upload. That result is not a same-SHA build for p910nd.
+- The source-level direct WAN-PHY error behavior was confirmed in `get_wan_ether_link_direct()`: checked `wan_src_phy` or PHY status errors return -1 and set errno. `net_wan.c::select_usb_modem_to_wan()` already preserves that error and is the reference behavior.
+- Main before THIS commit was `00c05a29ecef2b69e87b66026f109b9732840e45`. Refresh main and use expected-SHA for every write; never force push or modify the frozen backup.
 
 
 ## Completed source slices to preserve

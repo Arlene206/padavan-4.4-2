@@ -896,6 +896,15 @@ assert "if(modem_config_status!=0)" in modem_start_tokens
 assert "returnmodem_config_status;" in modem_start_tokens
 assert modem_start_tokens.index("modem_config_status=get_modem_wan_start_config_status(") < modem_start_tokens.index("if(modem_config_status!=0)") < modem_start_tokens.index("returnmodem_config_status;") < modem_start_tokens.index("if(modem_prio<1)")
 assert modem_start_tokens.index("if(modem_prio<1)") < modem_start_tokens.index("get_usb_modem_wan_status(")
+assert "modem_wan_link_probe_error(has_link,errno)" in modem_start_tokens
+link_probe = "errno=0;has_link=get_wan_ether_link_direct(0);link_status=modem_wan_link_probe_error(has_link,errno);"
+link_error_gate = "if(link_status!=0){errno=link_status;"
+assert link_probe in modem_start_tokens
+assert link_error_gate in modem_start_tokens
+assert modem_start_tokens.index(link_probe) < modem_start_tokens.index(link_error_gate)
+assert modem_start_tokens.index(link_error_gate) < modem_start_tokens.index("if(has_link)return0;")
+assert "if(has_link<0)has_link=0" not in modem_start_tokens
+assert "test_modem_link_probe_error_fails_closed" in WAN_TEST
 assert 'nvram_get_int("modem_prio")' not in modem_start
 assert "!get_modem_devnum()" not in modem_start
 
