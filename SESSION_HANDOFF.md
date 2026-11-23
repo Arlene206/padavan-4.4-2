@@ -4,40 +4,32 @@
 
 - Development branch: `main` only. Do not create feature branches or PRs; never force-push.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve it permanently; do not modify, rename, delete or check it out.
-- Current source checkpoint: THIS COMMIT (RC switch command-specific packed operand validation); parent main SHA: `ae30039aa9b0a70800d76c1c6d7b273d88c44540`. Fetch live `main` on takeover; do not chase a docs-only SHA.
+- Current source checkpoint: THIS COMMIT (repair Switch CLI classifier source-contract locator); parent main SHA: `60992c3f496f316baa8dc2377c829ce67a3986be`. Fetch live `main` on takeover; do not chase a docs-only SHA.
 - Continue implementation rather than repeating completed audits or asking what to do next.
 
 ## Active task
 
-A follow-up to `ae30039aa9b0a70800d76c1c6d7b273d88c44540` refines packed-ioctl validation to match each command's actual call path. The first bounded-parser slice correctly prevented wide command IDs from aliasing low-byte ioctl commands, but its global third-argument cap treated every `argv[3]` as a packed request parameter. RTL8367 register writes do not use that shape: `REG_SET` / `PHY_REG_SET` pass `argv[3]` by pointer as the register value, while `argv[2]` is the packed register address. Status/register commands likewise pass `argv[2]` into the packed high bits.
-
-This commit:
-- Adds per-front-end command classifiers for commands whose second CLI operand is packed into the ioctl request (MTK link/speed/MIB status; RTL link/speed/MIB and register/PHY register operations).
-- Bounds those `argv[2]` operands to the actual UAPI parameter width, while ordinary data operands keep their full unsigned range.
-- For RTL register-write commands, parses the third operand as a normal unsigned register value; generic ioctl commands still bound `argv[3]` as their packed parameter.
-- Extends the Switch CLI source contract to pin command-specific routing, including preserving raw register-write values.
-
-Parent `ae30039aa9b0a70800d76c1c6d7b273d88c44540` has the initial low-command-bit and packed-parameter helper implementation; its Switch CLI and AI docs checks passed. Its XY-C1 Build was in progress, with TRX/artifact pending; current results are below.
+The prior source slice `60992c3f496f316baa8dc2377c829ce67a3986be` applies command-specific packed-operand validation to MTK/RTL8367 switch CLIs. Its production C policy binary passed under ASan/UBSan, but the exact-head Switch CLI workflow failed in its Python source-contract step: the contract attempted to locate helper declarations using the literal `static int rtl8367_command_uses_packed_argument`, while the actual C formatting places `static int` and the function name on separate lines. The same stale locator existed for MTK. This follow-up corrects the test's source locator to match the actual declaration signature; no production logic is changed.
 
 ## Verification boundary
 
-Parent source SHA `ae30039aa9b0a70800d76c1c6d7b273d88c44540` exact-head results at last poll:
-- Switch CLI ioctl failure-status regression `45090457040`: PASS.
-- AI handoff documentation contract `45090457070`: PASS.
-- Process lifecycle inventory `45090457046`: PASS.
-- HTTPD security `45090457067`: PASS.
-- NVRAM transaction boundary `45090457094`: IN_PROGRESS.
-- XY-C1 firmware `45090457058`: Build XY-C1 IN_PROGRESS; TRX and artifact upload PENDING.
+Exact-head parent SHA `60992c3f496f316baa8dc2377c829ce67a3986be`:
+- Switch CLI run `45090786761`: FAIL only in the final Python embedded source contract at `source.split("static int rtl8367_command_uses_packed_argument", 1)`, which raised `IndexError`; policy compile and ASan/UBSan execution printed `RC switch CLI strict unsigned and packed ioctl parsing: PASS`, and prior switch workflow regression steps all passed.
+- Process lifecycle inventory `45090786764`: PASS.
+- AI handoff docs `45090786813`: PASS.
+- HTTPD security `45090786771`: PASS.
+- NVRAM audit `45090786770`: IN_PROGRESS at last poll.
+- XY-C1 `45090786847`: Build XY-C1 IN_PROGRESS; TRX verification and artifact upload PENDING.
 
-These are parent results only. Inspect THIS COMMIT's exact-head Switch CLI, AI docs and XY-C1 runs after publication. The source refinement keeps register-write payloads full-width while bounding actual packed operands. No full MIPS build, TRX/artifact or physical-router result is inferred from the parent SHA; L3/L4 remain NOT VERIFIED.
+The correction in THIS COMMIT changes only the Python source-locator assertions, but its own exact-head Switch CLI rerun is required. The parent XY-C1 build does not validate this follow-up; inspect same-SHA Build/TRX/artifact. L3/L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and verify frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
-2. Inspect exact-head Switch CLI for the current source SHA. Confirm GNU89/ASan/UBSan packed-width tests, MTK and RTL command-specific packed-argument routing, and the full-width RTL register-write value contract pass.
-3. Inspect exact-head XY-C1 on the same SHA; confirm Build XY-C1, TRX verification and artifact upload actually execute and pass. Host-only checks are not L3.
-4. If checks are pending, continue another concrete module defect. If an exact-head job fails, inspect its first causal log and repair it before claiming the slice verified.
-5. Use complete-tree atomic commits on fresh main with `force:false` and exact `expected_sha`.
+1. Fetch live `main`; confirm frozen backup `backup/pre-plugin-overhaul-2026-11-14` is still `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
+2. Inspect exact-head Switch CLI: confirm the corrected MTK/RTL helper locators pass, along with packed-operand and full-width RTL register-write contracts.
+3. Inspect exact-head XY-C1 on the same SHA for Build XY-C1, TRX verification and artifact upload; no host-only result substitutes for L3.
+4. While checks run, continue a separate concrete stability review. If a check fails, inspect its first causal step/log and repair it.
+5. Keep complete-tree atomic commits, fresh main parent, `force:false`, exact `expected_sha`.
 
 ## Mandatory handoff checkpoint
 
@@ -49,7 +41,7 @@ Continue the same development effort across conversations. Use one atomic main c
 
 ## End-of-session accuracy checkpoint
 
-- Current implementation checkpoint: THIS COMMIT; parent main SHA `ae30039aa9b0a70800d76c1c6d7b273d88c44540`.
-- Command-width and packed-parameter helpers remain. This follow-up applies parameter-width validation only to operands actually shifted into ioctl high bits; RTL register-write values remain full-width data and register addresses are bounded.
-- Parent `ae30039aa9b0a70800d76c1c6d7b273d88c44540`: Switch CLI `45090457040`, AI docs `45090457070`, Process inventory `45090457046`, HTTPD `45090457067` PASS; NVRAM `45090457094` in progress; XY-C1 `45090457058` Build in progress / TRX and artifact pending.
-- This commit needs exact-head Switch CLI/AI/XY-C1. Parent PASS results do not validate descendants; L3/L4 remain NOT VERIFIED.
+- Current implementation checkpoint: THIS COMMIT; parent main SHA `60992c3f496f316baa8dc2377c829ce67a3986be`.
+- This follow-up repairs only the embedded Python test locator for the already-added MTK/RTL command-specific packed-operand classifiers.
+- Parent exact-head Switch CLI `45090786761` failed only on that locator after the GNU89/ASan/UBSan policy test had printed PASS; Process inventory `45090786764`, AI docs `45090786813`, HTTPD `45090786771` PASS; NVRAM `45090786770` in progress; XY-C1 `45090786847` Build in progress / TRX and artifact pending.
+- THIS COMMIT needs its own exact-head Switch CLI/AI/XY-C1 validation. Parent results do not validate descendants; no L3/L4 claim.

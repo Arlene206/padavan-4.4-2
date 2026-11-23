@@ -1,3 +1,13 @@
+## 2026-11-23 08:48 UTC+8 — Fix Switch CLI classifier source-contract locator
+
+- Parent main SHA: `60992c3f496f316baa8dc2377c829ce67a3986be`. Exact-head Switch CLI run `45090786761` reached the new switch parser policy test, which compiled under GNU89 with ASan/UBSan and printed PASS. The final source-contract check then failed with Python `IndexError`: it searched for a single-line `static int rtl8367_command_uses_packed_argument` and `static int mtk_esw_command_uses_packed_argument`, but the C declarations intentionally put `static int` on the previous line.
+- Updated both test locators to match the function signature instead of the formatting-sensitive prefix. No production C changed; command-specific packed operand validation and full-width RTL register-write behavior are unchanged.
+- Parent Process inventory `45090786764`, AI docs `45090786813`, HTTPD `45090786771` PASS. NVRAM `45090786770` was in progress and XY-C1 `45090786847` had Build XY-C1 in progress, with TRX/artifact pending at last poll.
+- Exact-head Switch CLI/AI/XY-C1 are required for this checker correction. No MIPS/TRX/L3 or hardware/L4 result is claimed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 08:46 UTC+8 — Bound only actual packed switch ioctl operands
 
 - Parent main SHA: `ae30039aa9b0a70800d76c1c6d7b273d88c44540`. Reviewing per-command dispatch showed that `argv[2]` is packed into ioctl high bits for status-port and ASIC/PHY register commands, while `argv[3]` is a plain register-value payload for RTL8367 `REG_SET` / `PHY_REG_SET`. A global 24-bit cap on every third operand would incorrectly reject full-width register data and still leave the actual packed second operand exposed.
