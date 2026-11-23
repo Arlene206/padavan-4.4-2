@@ -125,7 +125,7 @@ watchcat_cleanup_pidfile(){
 	if [ -f "$pidfile" ] && [ ! -L "$pidfile" ]; then
 		current_pid=
 		IFS= read -r current_pid < "$pidfile" || :
-		[ "$current_pid" = "$" ] && rm -f "$pidfile"
+		[ "$current_pid" = "$$" ] && rm -f "$pidfile"
 	fi
 }
 

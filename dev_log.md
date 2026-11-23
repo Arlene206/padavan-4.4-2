@@ -1,8 +1,8 @@
-## 2026-11-23 UTC — Fix SCUT watchdog own-PID cleanup
+## 2026-11-23 UTC — Correct SCUT watchdog PID cleanup in source
 
-- Exact-head SCUT watchdog run `45180376775` failed at `watchdog did not clean up its own replacement PID file`. Source inspection found `watchcat_cleanup_pidfile()` compared the stored PID to the literal `$` instead of the process ID `$$`; every own-PID cleanup therefore silently left a stale PID file behind.
-- Corrected the ownership comparison to `$$`. The child-process mock log/barrier variables were exported in the immediately preceding fixture-only commit `e52276039c74fc2a73d057a3d5a6e2238ec9b350`, after the failed job also showed the NVRAM mock redirecting to an empty path.
-- Exact-head SCUT PID safety rerun required. No local shell execution or router validation is claimed.
+- The first follow-up commit `aabcc161` recorded the intended `$$` correction but a generated Git tree check showed the production blob was still unchanged; the source edit had not been materialized. This commit applies the correction and verifies the resulting source blob content before publication.
+- `watchcat_cleanup_pidfile()` now removes the PID file only when its contents equal the current shell PID (`$$`). The exact-head SCUT regression `45180376775` remains the failure to rerun; the fixture export correction is already present in `e522760`.
+- The roadmap file is restored from the uncorrupted parent and its SCUT note is applied with a literal-safe replacement. No local shell execution or router validation is claimed.
 
 ---
 

@@ -45,54 +45,7 @@ Current implementation checkpoint (2026-11-21):
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.
-### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight; XUPnPD detached-child readiness; and SCUT/MentoHUST bounded RUNNING postconditions after background launch are implemented. This SCUT/MentoHUST slice awaits exact-head Process/XY-C1 verification. Follow-up: the SCUT watchdog cleanup previously compared its recorded owner PID against a literal `Current implementation checkpoint (2026-11-21):
-- WAN reset/start protocol/MAC identity reads use checked NVRAM helpers; manual endpoint fields form one transaction.
-- The boolean manual-PPP classifier explicitly maps a failed checked protocol read to `true` (preserve unknown underlay), rather than treating an arbitrary enum as a valid protocol. Exact-head WAN/XY-C1 checks pending.
-
-Current implementation checkpoint (2026-11-21):
-- WAN reset manual endpoint, protocol and MAC identity reads use checked APIs; the endpoint is one NVRAM transaction and MAC formatter preserves the legacy behavior.
-- WAN startup and boolean manual-PPP classification now consume the checked protocol reader. Startup latches errors and does not configure an interface on failed read; manual classification treats read errors conservatively as PPP to protect an unknown underlay. Exact-head WAN/XY-C1 Build/TRX/artifact pending.
-
-Current implementation checkpoint (2026-11-21):
-- WAN reset manual endpoint, protocol and hardware identity reads are status-bearing; manual endpoint values are one checked NVRAM transaction, and MAC override/fallback preserves legacy formatting.
-- THIS source slice hardens start_wan() with checked per-unit protocol reads, first-error retention and no interface setup after failed protocol retrieval. Exact-head Actions and XY-C1 Build/TRX/artifact pending.
-
-## Current checkpoint — 2026-11-21
-
-- LAN source chain: checked VLAN selector/VID/priority; checked soft-bridge/core-bridge multicast and router settings; checked switch VLAN snapshot before first rule apply; checked storm-control rates and switch jumbo/green/EEE before PHY writes. Latest switch source corrected a missing local `status` declaration and checker token whitespace; exact WAN route #44961918900 PASS.
-- WAN dynamic-route source checks on parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` exposed two stale contracts (short function locators and an old unchecked `nvram_match()` assertion). Checker-only correction `88054b9f272d9f673dabf45df60d497de441b2d2` fixes both; exact-head WAN/HTTPD reruns were not yet visible.
-- VLAN QoS compatibility fix: the checked-read migration had omitted the original `& 0x07` mask for `vlan_pri_lan3`; commit `9373ac1e3907be3e11d8538485bb38748ab0654e` restores it. Exact-head WAN route, HTTPD, NVRAM, Process and other host workflows PASS; XY-C1 #44962557368 was still building at last check.
-- WAN reset manual underlay: commit `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01` checks `x_DHCPClient` / `wan_pppoe_man` and snapshots the four manual endpoint values transactionally. Exact-head WAN/HTTPD and supporting host checks PASS; Process/NVRAM/XY-C1 were still in progress.
-- WAN reset protocol selector: `b2d084d7ffb7d756b60e159a38b93f6f31d4f1b0` replaces unchecked `get_wan_proto()` with a checked `wanN_proto` copy and fail-closed mapping. Its WAN route job failed only on a stale firewall checker assertion expecting the old helper; XY-C1 build/TRX/artifact steps were dependency-skipped.
-- Firewall reset source checker correction `4ed340591107245f946b6b49d065320722210098` passes WAN route #44963513805 and AI docs #44963513826. XY-C1 #44963513768 host checks PASS; firmware Build/TRX/artifact were skipped by the input detector because only checker/docs changed.
-- WAN reset hardware identity: `49bed878c17bf3d5c87a9da9303956de33f9b84e` replaces lossy MAC override/fallback reads with checked reads and adds compatibility tests. Its exact WAN route run failed only on an obsolete firewall checker assertion that searched for the old assignment; XY-C1 firmware steps were skipped due to this dependency.
-- THIS checker-only follow-up updates the firewall contract to the checked MAC snapshot/error-gate path. Exact-head WAN/XY-C1 reruns pending.
-- The `set_wan_unit_value_int()` / `set_wan_unit_param()` void-wrapper audit found no C callsites across `trunk/user/rc/src`; the only `set_wan_unit_value()` calls are optional uptime/RX/TX telemetry. Mandatory protocol and identity publication already uses result-returning helpers.
-- Same-source L3 still requires XY-C1 Build, TRX and artifact upload all PASS. Frozen backup remains read-only.
-
-## Historical checkpoint — 2026-11-21
-
-- Parent main SHA before this Samba source/test checkpoint: `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- WSD TCP send-all source `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`: WSD send #44946503639, XML #44946503555, HTTP #44946503545, Process inventory #44946503511, AI docs #44946503574 and NVRAM #44946503644 all completed/success. XY-C1 #44946503534 was still building at last poll; TRX/artifact pending, so no L3 claim for `9a0ed45`.
-- WSD HTTP framing source `1c0ac607` and XML metadata source `edc9d594` each passed same-SHA XY-C1 Build/TRX/artifact. LLMNR regression #44945105615 passed on `63854309`.
-- p910nd exact XY-C1 #44941685839 passed on source `23248f7`; MiniUPnP checked-configuration exact XY-C1 #44941839623 passed on `be4952e`.
-- MiniUPnP SOAP internal-port-zero validation is already closed on source `1eb75818300dbefc79fbd3f706670df0e3011a6a`: same-SHA XY-C1 #44747620571, MiniUPnP #44747620606, Process #44747620682, NVRAM #44747620692 and AI docs #44747620662 completed/success. Do not repeat this item.
-- HTTPD security checker correction passed exact descendant-head run #44945662341 on `f56fe999`; hardware L4 remains NOT VERIFIED.
-
-- DNSMasq DHCP integer snapshot hardening: this checkpoint validates `dhcp_lease` (present values 120..604800 seconds) and `dhcp_verbose` (present values 0..3) before generated-file writes; missing keys keep legacy zero defaults. Exact-head DNSMasq/Process/NVRAM/XY-C1 pending.
----
-
-# 2026-11-20 active checkpoint
-
-- Parent main before RT3352 TxPower failure handling: `31de47640faed47555e830d86cd69f7228887d7e`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
-- RT3352 MII boot-state isolation and six-event rollback regression passed Wireless/AI/Process exact-head checks on `31de4764`; NVRAM #44746039252 was pending. Product-source XY-C1 #44745705732 on `d250aff4` remained in progress; NVRAM #44745706021 passed there.
-- This slice closes another enable gap: TxPower command failure now prevents unisolation/state publication and triggers best-effort radio-off. Fresh same-SHA Wireless, AI, NVRAM and XY-C1 Build/TRX/artifact are required.
-- Hardware L4 remains NOT VERIFIED.
-
-## Whole-repository module status
-
-- WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.
- instead of `$`, leaving its own PID file stale on exit. The test fixture's mock log/barrier exports were corrected separately in `e522760`.
+### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight; XUPnPD detached-child readiness; and SCUT/MentoHUST bounded RUNNING postconditions after background launch are implemented. This SCUT/MentoHUST slice awaits exact-head Process/XY-C1 verification. Follow-up: SCUT watchdog owner-PID cleanup is corrected to compare against `$$`; the exact-head `45180376775` regression exposed the earlier literal-`$` comparison. Test child-process log/barrier exports were restored in `e522760`.
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.
 
