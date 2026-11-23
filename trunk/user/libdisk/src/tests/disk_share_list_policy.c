@@ -1633,6 +1633,16 @@ test_account_inventory_update_rejects_duplicate_reserved_and_stale(void)
 	assert(fake_account_inventory_update_run(
 		&fake, 3, 4, users, 0, "alice", "anna", NULL) == -1);
 	assert(errno == EAGAIN && fake.set_calls == 0);
+
+	{
+		char *malformed_users[3] = { "alice", NULL, "carol" };
+
+		fake_account_delete_init_three(&fake);
+		errno = 0;
+		assert(fake_account_inventory_update_run(
+			&fake, 3, 4, malformed_users, 1, "bob", "robert", NULL) == -1);
+		assert(errno == EINVAL && fake.set_calls == 0);
+	}
 }
 
 static void

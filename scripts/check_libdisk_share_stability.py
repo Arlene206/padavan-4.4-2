@@ -481,6 +481,7 @@ update_validate_body = function_body(
 )
 update_validate_compact = "".join(update_validate_body.split())
 require("current_count!=expected_count" in update_validate_compact and
+        "!expected_users[target]" in update_validate_compact and
         "strcmp(current_user,expected_users[i])!=0" in update_validate_compact and
         "strcmp(expected_users[i],new_account)==0" in update_validate_compact,
         "account updates must reject stale inventories and duplicate destinations")
@@ -699,25 +700,35 @@ mod_new_path = mod_account_compact.index("disk_share_format_account_var_path(new
 mod_old_stat = mod_account_compact.index("lstat(var_file,&old_stat)", mod_new_path)
 mod_target_stat = mod_account_compact.index("lstat(new_var_file,&new_stat)", mod_old_stat)
 mod_plan = mod_account_compact.index("calloc(1,sizeof(*move))", mod_target_stat)
-mod_rename = mod_account_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)", mod_plan)
-mod_username_publish = mod_account_compact.index("nvram_set(nvram_name,new_account)", mod_rename)
-mod_commit = mod_account_compact.index("nvram_commit_safe()", mod_username_publish)
-mod_fs_rollback = mod_account_compact.index("disk_share_account_rename_entries_rollback(moves,rename,&rollback_error)", mod_commit)
+mod_begin = mod_account_compact.index("disk_share_account_nvram_begin(&transaction)", mod_plan)
+mod_validate = mod_account_compact.index("disk_share_account_inventory_update_validate_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,account,rename_required?new_account:NULL)", mod_begin)
+mod_rename = mod_account_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)", mod_validate)
+mod_publish = mod_account_compact.index("disk_share_account_inventory_update_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,rename_required?new_account:NULL,password_update?new_password:NULL)", mod_rename)
+mod_fs_rollback = mod_account_compact.index("disk_share_account_rename_entries_rollback(moves,rename,&rollback_error)", mod_publish)
 mod_cleanup = mod_account_compact.index("free_disk_data(disk_list)", mod_fs_rollback)
-mod_service = mod_account_compact.index('system("/sbin/run_ftpsamba")', mod_cleanup)
+mod_end = mod_account_compact.index("disk_share_account_nvram_end(&transaction)", mod_cleanup)
+mod_service = mod_account_compact.index('system("/sbin/run_ftpsamba")', mod_end)
 mod_error = mod_account_compact.index("if(first_error!=0)", mod_service)
 require(mod_inventory < mod_loop < mod_old_path < mod_new_path < mod_old_stat <
-        mod_target_stat < mod_plan < mod_rename < mod_username_publish < mod_commit <
-        mod_fs_rollback < mod_cleanup < mod_service < mod_error and
-        "rename(var_file,new_var_file)" not in mod_account_compact,
-        "mod_account must publish every volume rename before changing NVRAM, and compensate filesystem state if NVRAM publication fails")
-require("nvram_set(password_key,new_password)" in mod_account_compact and
-        "password_attempted=1;" in mod_account_compact and
-        "username_attempted=1;" in mod_account_compact and
-        "nvram_set(password_key,old_password)" in mod_account_compact and
-        "nvram_unset(password_key)" in mod_account_compact and
-        "if(first_error!=0&&(username_attempted||password_attempted))" in mod_account_compact,
-        "mod_account must check password writes and restore the prior password on NVRAM failure")
+        mod_target_stat < mod_plan < mod_begin < mod_validate < mod_rename <
+        mod_publish < mod_fs_rollback < mod_cleanup < mod_end < mod_service < mod_error and
+        "rename(var_file,new_var_file)" not in mod_account_compact and
+        "nvram_set(" not in mod_account_body and
+        "nvram_set_int(" not in mod_account_body and
+        "nvram_commit_safe(" not in mod_account_body and
+        "nvram_get_checked(" not in mod_account_body,
+        "mod_account must preflight every volume, then revalidate and serialize the metadata rename/NVRAM update under one writer lease")
+require("saved_errno==ENOENT" in mod_account_compact[mod_old_stat:mod_target_stat] and
+        "S_ISREG(old_stat.st_mode)" in mod_account_body and
+        "first_error=EEXIST;" in mod_account_compact[mod_target_stat:mod_plan],
+        "mod_account must treat only missing source metadata as idempotent and reject non-regular or colliding paths")
+require("rollback_error!=0" in mod_account_compact and
+        "errno=first_error;" in mod_account_compact and
+        "return-1;" in mod_account_compact[mod_error:],
+        "mod_account must report incomplete rename compensation and preserve the first error")
+require("snprintf(var_file" not in mod_account_body and
+        "snprintf(new_var_file" not in mod_account_body,
+        "mod_account must use bounded account metadata path formatting")
 for marker in (
     "test_account_rename_batch_rolls_back_after_successful_publish",
     "test_account_rename_batch_reports_failed_compensation",
@@ -730,26 +741,6 @@ for marker in (
 ):
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "compensating account rename regression is defined but not executed: " + marker)
-require("if(first_error==0&&rename_required){if(read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
-        "first_error=errno?errno:EIO;" in mod_account_compact[mod_inventory:mod_loop],
-        "mod_account must not treat incomplete storage inventory as empty")
-require("S_ISREG(old_stat.st_mode)" in mod_account_body and
-        "first_error=EEXIST;" in mod_account_compact[mod_target_stat:mod_rename],
-        "mod_account must reject non-regular sources and pre-existing target metadata")
-require("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)" in mod_account_compact and
-        "rollback_error!=0" in mod_account_compact and
-        "errno=first_error;" in mod_account_compact and
-        "return-1;" in mod_account_compact[mod_error:],
-        "mod_account must aggregate batch rename/rollback/inventory errors after cleanup")
-require("snprintf(var_file" not in mod_account_body and
-        "snprintf(new_var_file" not in mod_account_body,
-        "mod_account must use bounded path formatter")
-for marker in (
-    "test_account_rename_status_accepts_success_and_missing_source",
-    "test_account_rename_status_preserves_real_errors",
-):
-    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
-            "missing account rename result policy regression: " + marker)
 
 add_folder_body = function_body(
     DISK_SOURCE,

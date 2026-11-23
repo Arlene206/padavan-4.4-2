@@ -595,6 +595,10 @@ disk_share_account_inventory_update_validate_locked(
 		errno = EINVAL;
 		return -1;
 	}
+	if (!expected_users[target]) {
+		errno = EINVAL;
+		return -1;
+	}
 	if (strcmp(expected_users[target], old_account) != 0) {
 		errno = EAGAIN;
 		return -1;
