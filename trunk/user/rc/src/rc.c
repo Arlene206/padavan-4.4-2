@@ -43,6 +43,7 @@
 #endif
 
 #include "rc.h"
+#include "char_to_ascii_policy.h"
 #include "modem_module_reload_policy.h"
 #include "modem_wan_start_policy.h"
 #include "storage_hotplug_name_policy.h"
@@ -793,7 +794,7 @@ failed:
 static int
 nvram_convert_misc_values(void)
 {
-	char buff[64];
+	char buff[RC_CHAR_TO_ASCII_MAX_OUTPUT_SIZE];
 	char *sw_mode_value = NULL;
 	int sw_mode, status, api_result, saved_errno;
 	int ntpc_counter_reset_status, ntp_ready_reset_status;
@@ -830,7 +831,11 @@ nvram_convert_misc_values(void)
 		nvram_wlan_set(1, "ssid", DEF_WLAN_5G_SSID);
 
 	memset(buff, 0, sizeof(buff));
-	char_to_ascii(buff, nvram_wlan_get(1, "ssid"));
+	if (char_to_ascii(buff, sizeof(buff), nvram_wlan_get(1, "ssid")) != 0) {
+		status = errno ? errno : EIO;
+		logmessage(LOGNAME, "unable to encode 5 GHz SSID (status=%d)", status);
+		return status;
+	}
 	nvram_wlan_set(1, "ssid2", buff);
 
 	if (strlen(nvram_wlan_get(1, "wpa_mode")) < 1)
@@ -861,7 +866,11 @@ nvram_convert_misc_values(void)
 		nvram_wlan_set(0, "ssid", DEF_WLAN_2G_SSID);
 
 	memset(buff, 0, sizeof(buff));
-	char_to_ascii(buff, nvram_wlan_get(0, "ssid"));
+	if (char_to_ascii(buff, sizeof(buff), nvram_wlan_get(0, "ssid")) != 0) {
+		status = errno ? errno : EIO;
+		logmessage(LOGNAME, "unable to encode 2.4 GHz SSID (status=%d)", status);
+		return status;
+	}
 	nvram_wlan_set(0, "ssid2", buff);
 
 	if (strlen(nvram_wlan_get(0, "gmode")) < 1)

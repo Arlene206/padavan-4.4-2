@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Bound RC WLAN SSID percent encoding
+
+- Found an RC memory-safety defect in common_ex.c::char_to_ascii(): it encoded arbitrary input without an output capacity, formatted signed char values with %X, copied a temporary via strcpy(), then advanced the destination by only three bytes. High-bit bytes could expand beyond the assumed %HH width; worst-case valid 32-octet SSID escaping also needs 97 bytes while rc.c supplied only 64.
+- Replaced the implementation with an unsigned-byte %HH encoder that preflights the complete output size, rejects inputs above the 32-octet SSID limit, and leaves output untouched on any failure. Changed both 2.4/5 GHz callers to a 97-byte buffer and to stop before publishing ssid2 when encoding fails.
+- Added GNU89 ASan/UBSan regression for safe characters, space/percent escaping, UTF-8 bytes, maximum expansion, oversized SSID rejection, insufficient capacity and invalid pointers. Process workflow now runs the test and source integration checks; XY-C1 path trigger includes the policy header.
+- Parent main 67e3c7a457ef9fbdd4684bcf0bf6e0a4609ee731 Actions: Process #45138662121 PASS, inventory #45138661934 PASS, AI docs #45138662283 PASS, NVRAM audit #45138662025 PASS, LLDT lock #45138661939 PASS; XY-C1 #45138662159 still running Build XY-C1 (TRX/artifact pending). No local test/build claim.
+
+---
+
 ## 2026-11-23 UTC — Serialize LLDT PID-file check and publish
 
 - Review found a check-then-act race in `osl_write_pidfile()`: it reads and validates the current PID file, closes that descriptor, then separately opens/truncates/writes the new PID. Two LLTD starts can both observe ENOENT or the same stale PID and both continue, overwriting the PID file while both daemons launch.

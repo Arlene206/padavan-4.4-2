@@ -56,6 +56,8 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/rc/src/auth.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/char_to_ascii_policy.h"
+      - "trunk/user/rc/src/tests/char_to_ascii_policy.c"
       - "trunk/user/rc/src/ddns_restart_policy.h"
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_link.c"
@@ -287,6 +289,8 @@ on:
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
       - "trunk/user/rc/src/auth.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/char_to_ascii_policy.h"
+      - "trunk/user/rc/src/tests/char_to_ascii_policy.c"
       - "trunk/user/rc/src/ddns_restart_policy.h"
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_link.c"
@@ -655,6 +659,14 @@ jobs:
             trunk/user/lldt/src/tests/lldt_config_path_policy.c \
             -o "$RUNNER_TEMP/lldt-config-path-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lldt-config-path-policy"
+      - name: Compile and run bounded WLAN SSID percent-encoding regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/char_to_ascii_policy.c \
+            -o "$RUNNER_TEMP/char-to-ascii-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/char-to-ascii-policy"
       - name: Compile and run legacy shared PID-file parser regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

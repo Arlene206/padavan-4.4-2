@@ -1,32 +1,35 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main before LLDT concurrency slice: 880487bf61154786218115e6fd8448c07d6be6eb.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged.
-- No local checkout; no local test or firmware build claimed.
+- Repository Arlene206/padavan-4.4-2; parent main before the RC WLAN SSID encoding hardening: 67e3c7a457ef9fbdd4684bcf0bf6e0a4609ee731.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
+- No local checkout; no local host tests or firmware build claimed.
 
-## Exact-SHA Actions
-- Parent SHA Actions: Process inventory and lifecycle fail-closed regression 45138112617: success; AI handoff documentation contract 45138112370: success.
-- Previous LLDT PID-file work validated malformed PID content, symlinks and non-regular files; the active remaining defect is serialization of concurrent PID-file writers.
-- No L3 claim is made unless Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA.
+## Exact-SHA Actions on 67e3c7a457ef9fbdd4684bcf0bf6e0a4609ee731
+- Process lifecycle #45138662121 PASS.
+- Process inventory #45138661934 PASS.
+- AI handoff docs #45138662283 PASS.
+- NVRAM transaction audit #45138662025 PASS.
+- LLDT PID file lock regression #45138661939 PASS.
+- XY-C1 firmware validation #45138662159 IN_PROGRESS at last poll: Build XY-C1 still running, TRX verification and artifact upload pending. No L3 claim.
 
-## Active source task — Serialize LLDT PID-file check and publish
-- `osl_write_pidfile()` previously read/checked the PID file, closed it, then independently opened/truncated/wrote the replacement. Two concurrent LLTD starts can both observe an absent/stale PID and both pass before either publishes.
-- Added a validated sidecar `.lock` opened with O_NOFOLLOW/O_NONBLOCK; it must be a single-link regular file owned by the effective UID and not group/world writable. A nonblocking exclusive flock now covers the complete read/check/write sequence.
-- Added a host regression proving two independent opens cannot both acquire the same exclusive flock, a source-order checker, and a dedicated exact-SHA Actions workflow.
+## Active source task — RC WLAN SSID percent-encoding stack overflow
+- `common_ex.c::char_to_ascii()` had no output-capacity parameter, used signed `char` in `%X`, and copied a temporary string with `strcpy()` while advancing the destination by only three bytes. A high-bit input byte could expand to a sign-extended value such as `%FFFFFF80`; encoded SSIDs can also require up to 97 bytes for a valid 32-octet SSID, but both `rc.c` callers supplied only `char buff[64]`.
+- THIS slice replaces the encoder with an unsigned-byte, capacity-checked uppercase %HH policy. It rejects over-32-byte SSIDs and insufficient buffers without modifying output, uses a 97-byte caller buffer, and propagates encode errors before writing `ssid2`.
+- GNU89 ASan/UBSan regression covers safe ASCII, reserved characters, UTF-8/high-bit octets, full 32-byte expansion, 33-byte rejection, too-small output and invalid pointers. Process workflow runs the test and checks production callsites; XY-C1 path filter includes changed production RC source/header/policy.
+- Previous LLDT PID parsing and sidecar-lock work remains complete on the relevant exact-SHA Actions; this task is separate.
 
 ## Next actions
-1. Verify the LLDT PID lock workflow and Process Lifecycle integration on the new exact SHA; repair first causal failures.
-2. Inspect newest XY-C1 run and require same-SHA Build + TRX + artifact before claiming L3.
-3. Continue an independent userland stability/security defect while CI is pending.
+1. Verify exact-head Process lifecycle regression and AI handoff contract; fix any first causal failure.
+2. Poll exact-SHA XY-C1 Build, TRX verification and artifact upload; all three must PASS on one SHA for L3.
+3. Continue another independent userland stability/security defect while CI is pending.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The LLDT lock source/test/checker/workflow changes are source-reviewed; exact-head Actions are pending. No local compile/test or firmware build is claimed. L3/L4 unverified.
+The SSID encoder source, policy helper, caller capacity/error handling, ASan/UBSan test and CI wiring are committed but pending execution on their exact source SHA. No local tests/builds are claimed. L3 and hardware L4 remain NOT VERIFIED.
 
 ## Cross-session mandate
-One complete Git tree and one atomic commit per task; update main with non-force expected-SHA; inspect exact-SHA Actions; never modify the frozen backup.
-
+Use one complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; never modify the frozen backup; inspect exact-SHA Actions and never infer results.
 
 
 # SESSION HANDOFF — Padavan 4.4

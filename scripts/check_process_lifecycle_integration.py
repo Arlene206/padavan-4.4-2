@@ -81,6 +81,8 @@ process_inventory_test = (root / "trunk/user/shared/src/tests/process_inventory.
 pids_presence_policy = (root / "trunk/user/shared/src/pids_presence_policy.h").read_text()
 pids_presence_test = (root / "trunk/user/shared/src/tests/pids_presence_policy.c").read_text()
 common_ex = (root / "trunk/user/rc/src/common_ex.c").read_text()
+char_to_ascii_policy = (root / "trunk/user/rc/src/char_to_ascii_policy.h").read_text()
+char_to_ascii_test = (root / "trunk/user/rc/src/tests/char_to_ascii_policy.c").read_text()
 policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
 usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
 usb_modem = (root / "trunk/user/rc/src/usb_modem.c").read_text()
@@ -1493,6 +1495,10 @@ assert shutdown_router.index("auth_stop_status = stop_8021x_all();") < shutdown_
 )
 assert '"trunk/user/rc/src/net_wifi.c"' in process_workflow
 assert '"trunk/user/rc/src/rc.c"' in process_workflow
+assert '"trunk/user/rc/src/common_ex.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.h"' in process_workflow
+assert '"trunk/user/rc/src/char_to_ascii_policy.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/char_to_ascii_policy.c"' in process_workflow
 
 auth_source = (root / "trunk/user/rc/src/auth.c").read_text()
 auth_stop_kabinet = auth_source.split("int stop_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
@@ -1995,7 +2001,38 @@ for field in (
 ):
     assert field in wan0_init, "WAN0 initialization field missing: " + field
 
+char_to_ascii_impl = c_function_body(
+    common_ex, "char_to_ascii(char *output, size_t output_size, const char *input)"
+)
+assert '#include "char_to_ascii_policy.h"' in common_ex
+assert '#include "char_to_ascii_policy.h"' in rc_source
+assert 'int char_to_ascii(char *output, size_t output_size, const char *input);' in rc_header
+assert "return rc_char_to_ascii_encode(output, output_size, input);" in char_to_ascii_impl
+assert "sprintf(" not in char_to_ascii_impl and "strcpy(" not in char_to_ascii_impl
+assert "const unsigned char *source" in char_to_ascii_policy
+assert "input_length == RC_WLAN_SSID_MAX_LEN" in char_to_ascii_policy
+assert "required > output_size" in char_to_ascii_policy
+assert "hex[value >> 4]" in char_to_ascii_policy
+assert "hex[value & 0x0f]" in char_to_ascii_policy
+assert "errno = EMSGSIZE" in char_to_ascii_policy
+assert "errno = ENOSPC" in char_to_ascii_policy
+assert "RC_CHAR_TO_ASCII_MAX_OUTPUT_SIZE (RC_WLAN_SSID_MAX_LEN * 3U + 1U)" in char_to_ascii_policy
+for marker in (
+    "Bounded WLAN SSID percent-encoding regression: PASS",
+    "RC_WLAN_SSID_MAX_LEN * 3U",
+    '"ssid%20with%2525"',
+    '"%C3%A9"',
+    "errno == EMSGSIZE",
+    "errno == ENOSPC",
+):
+    assert marker in char_to_ascii_test, marker
+
 misc_init = c_function_body(rc_source, "nvram_convert_misc_values(void)")
+assert misc_init.count("char_to_ascii(buff, sizeof(buff), nvram_wlan_get(") == 2
+assert "char buff[RC_CHAR_TO_ASCII_MAX_OUTPUT_SIZE];" in misc_init
+assert misc_init.count("if (char_to_ascii(") == 2
+assert "return status;" in misc_init
+
 assert "status = set_wan0_vars();" in misc_init
 assert misc_init.index("status = set_wan0_vars();") < misc_init.index("set_usb_modem_dev_wan(0, 0);")
 assert "if (status != 0) return status;" in re.sub(r"\s+", " ", misc_init)
@@ -2187,6 +2224,9 @@ assert "Compile and run AP/router mode checked-read regression" in process_workf
 xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 assert '"trunk/user/shared/src/tests/ap_mode_read_policy.c"' in xy_workflow
 assert '"trunk/user/rc/src/rc.c"' in xy_workflow
+assert '"trunk/user/rc/src/common_ex.c"' in xy_workflow
+assert '"trunk/user/rc/src/rc.h"' in xy_workflow
+assert '"trunk/user/rc/src/char_to_ascii_policy.h"' in xy_workflow
 print("Checked AP/router mode NVRAM read and fail-closed boot/WAN/firewall gates: PASS")
 
 shutdown = c_function_body(rc_source, "shutdown_router(int level)")

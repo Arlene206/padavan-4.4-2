@@ -43,6 +43,7 @@
 #include <flash_mtd.h>
 
 #include "rc.h"
+#include "char_to_ascii_policy.h"
 #include "nvram_linux.h"
 #include "router_mode_nvram_policy.h"
 #include "network_sysctl.h"
@@ -559,31 +560,10 @@ restart_all_sysctl(void)
 	return restart_status;
 }
 
-void
-char_to_ascii(char *output, char *input)
+int
+char_to_ascii(char *output, size_t output_size, const char *input)
 {
-	int i;
-	char tmp[10];
-	char *ptr;
-
-	ptr = output;
-	for (i = 0; i < strlen(input); i++) {
-		if ((input[i] >= '0' && input[i] <= '9')
-			||(input[i] >= 'A' && input[i] <= 'Z')
-			||(input[i] >= 'a' && input[i] <= 'z')
-			|| input[i] == '!' || input[i] == '*'
-			|| input[i] == '(' || input[i] == ')'
-			|| input[i] == '_' || input[i] == '-'
-			|| input[i] == '\'' || input[i] == '.') {
-			*ptr = input[i];
-			ptr ++;
-		} else {
-			sprintf(tmp, "%%%.02X", input[i]);
-			strcpy(ptr, tmp);
-			ptr += 3;
-		}
-	}
-	*(ptr) = '\0';
+	return rc_char_to_ascii_encode(output, output_size, input);
 }
 
 int

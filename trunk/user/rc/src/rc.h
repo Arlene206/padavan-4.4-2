@@ -18,6 +18,8 @@
 #ifndef _rc_h_
 #define _rc_h_
 
+#include <stddef.h>
+
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>

@@ -303,6 +303,7 @@ on:
       - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
       - "trunk/user/rc/src/ipv6_global_conf_policy.h"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/char_to_ascii_policy.h"
       - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
       - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
       - "scripts/check_rwfs_mount_integration.py"
