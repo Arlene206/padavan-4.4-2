@@ -1896,7 +1896,8 @@ disk_share_update_folder_permission_file(const char *mount_path,
 int del_folder(const char *const mount_path, const char *const folder)
 {
 	int result, i, saved_errno, first_error = 0;
-	int acc_num = 0;
+	int acc_num = 0, transaction_started = 0;
+	struct nvram_transaction transaction;
 	char **account_list = NULL;
 	char var_file[256];
 	char *target = NULL, *full_path = NULL;
@@ -1944,6 +1945,19 @@ int del_folder(const char *const mount_path, const char *const folder)
 	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
 		goto failed;
 
+	/*
+	 * Hold the account writer lease while deleting permission records. This
+	 * keeps add_account from publishing a new user's metadata after the
+	 * inventory snapshot but before this folder's records are removed.
+	 */
+	if (disk_share_account_nvram_begin(&transaction) != 0)
+		goto failed;
+	transaction_started = 1;
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
+		goto failed;
+
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
 	if (result < 0)
 		goto failed;
@@ -1978,6 +1992,10 @@ int del_folder(const char *const mount_path, const char *const folder)
 	free(target);
 	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0)
+		return -1;
+	transaction_started = 0;
 	return 0;
 
 failed:
@@ -1985,6 +2003,13 @@ failed:
 	free(target);
 	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);
+	if (transaction_started) {
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0)
+			logmessage("disk_share",
+				   "folder deletion transaction release failed (errno %d)",
+				   errno ? errno : EIO);
+	}
 	errno = saved_errno;
 	return -1;
 }
