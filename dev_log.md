@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Preserve checked IPTV NVRAM state in XUPNPD config
+
+- `start_xupnpd()` had a second unchecked read of `udpxy_enable_x` while generating `xupnpd.lua`, and used `nvram_match("xupnpd_udpxy", "1")` without distinguishing a missing/false setting from an NVRAM backend read failure. A backend fault could silently remove the IPTV URL from an otherwise successful XUPNPD configuration.
+- Both configuration reads now use the shared checked NVRAM copy helper; the port is strictly parsed/range-checked and the integration flag keeps the exact legacy string-equals-1 behavior. Read/parse errors abort the temporary config transaction before rename, preserving the previous live Lua config.
+- The Process integration checker pins the checked reads and parser order. Existing checked-copy/strict-parse GNU89 policy regressions apply. Exact Process and XY-C1 Build/TRX/artifact checks are pending.
+---
 ## 2026-11-23 UTC — Propagate USB printer runtime-marker write failures
 
 - `start_u2ec()` launched the printer daemon, ignored failure from `nvram_set("apps_u2ec_ex", "1")`, and always returned success. A NVRAM write/close failure therefore hid an incomplete printer hotplug action from the retry queue.

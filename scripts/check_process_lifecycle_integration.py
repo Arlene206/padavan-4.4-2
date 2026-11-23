@@ -478,6 +478,17 @@ assert "xupnpd_config_valid_interface(wan_ifname)" in xupnpd_start
 assert "rc_wan_nvram_copy_value(net_nvram_get_checked, NULL," in xupnpd_start
 assert '"lan_ipaddr_t"' in xupnpd_start
 assert "xupnpd_config_valid_ipv4(lan_addr)" in xupnpd_start
+lua_udpxy = xupnpd_start.split('else if (strstr(line, "cfg.udpxy_url="))', 1)[1].split('else if (strstr(line, "cfg.daemon")', 1)[0]
+assert '"udpxy_enable_x"' in lua_udpxy
+assert "rc_wan_nvram_parse_int_value(udpxy_port_text, &udpxy_port)" in lua_udpxy
+assert '"xupnpd_udpxy"' in lua_udpxy
+assert 'strcmp(udpxy_enable_text, "1") == 0' in lua_udpxy
+assert 'nvram_get_int("udpxy_enable_x")' not in lua_udpxy
+assert 'nvram_match("xupnpd_udpxy", "1")' not in lua_udpxy
+assert "cannot read IPTV proxy port while preparing xupnpd configuration" in lua_udpxy
+assert "cannot read xupnpd IPTV proxy integration setting" in lua_udpxy
+assert lua_udpxy.index('"udpxy_enable_x"') < lua_udpxy.index("rc_wan_nvram_parse_int_value")
+assert lua_udpxy.index("rc_wan_nvram_parse_int_value") < lua_udpxy.index('"xupnpd_udpxy"')
 assert 'nvram_safe_get("lan_ipaddr_t")' not in xupnpd_start
 assert xupnpd_start.count("xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1))") == 2
 assert 'fopen(tmp1, "w")' not in xupnpd_start

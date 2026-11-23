@@ -2,25 +2,25 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Writable branch: main only. Parent for this slice: cf14929359a7d1428a85a17693eb5235b0539d57.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: main only. Parent for this slice: c8dade94faeb765a1089ba77c269e6a9e87da489.
 - Frozen archive: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; do not update, switch, merge, delete or rename.
-- Main now includes `ba688353` (checked MSD Lite enable-state write), `00507a9` (checked and strictly parsed `udpxy_enable_x`), and `cf14929` (checked and strictly parsed `xupnpd_enable_x`). The MSD Lite exact Process regression #45188158003 passed along with AI handoff #45188157883, WAN DHCP #45188157906, Process inventory #45188157881, HTTPD #45188158173, Firewall Startup #45188157749 and WAN route #45188157823. At last poll XY-C1 #45188157886, NVRAM #45188157864 and USB storage #45188157929 were still running.
-- VPN ownership marker/checker-order fixes are `eb928a2` and `0e9056b`; exact-head VPN rerun is pending. Infosvr PID-file fix `9fd7bafd` and checker correction `7d699d752` need exact rerun after the earlier checker failure.
-- Older XY-C1 L3 pass #45181232264 only verifies product SHA `ce39930eee413d71e0227c7d59e8e539b18e9f98` (artifact 14822616674, 12,760,105 bytes), not later source changes.
-- SCUT watchdog/AI handoff #45181478770/#45181478768 passed on `ba4280c`; Process inventory #45181232027 and AI docs #45181232286 passed on `ce39930`. Do not repeat closed audits without new related source changes.
+- Main includes `ba688353` (checked MSD Lite enable-state write), `00507a9` (strict/checked `udpxy_enable_x` startup selector), `cf14929` (strict/checked `xupnpd_enable_x` startup selector), and `c8dade9` (USB printer `apps_u2ec_ex` write-status propagation). Exact USB modem/printer workflow #45189656100 on c8dade9 passed including the checked USB printer NVRAM C policy binary and source checker; AI docs #45189655450 and Process inventory #45189655952 passed. Process lifecycle #45189655889, USB storage #45189655720, NVRAM audit #45189655923 and XY-C1 #45189655698 were still running at last poll.
+- On ba688353, Process lifecycle #45188158003, AI docs #45188157883, WAN DHCP #45188157906, Process inventory #45188157881, HTTPD #45188158173, Firewall Startup #45188157749, WAN route #45188157823, NVRAM #45188157864 and USB storage #45188157929 all passed; XY-C1 #45188157886 was still running.
+- VPN ownership-marker/checker-order fixes are `eb928a2` and `0e9056b`; exact-head VPN rerun remains pending. Infosvr PID-file fix `9fd7bafd` and checker correction `7d699d752` need exact rerun after the earlier checker failure.
+- Older XY-C1 L3 pass #45181232264 only verifies product SHA `ce39930eee413d71e0227c7d59e8e539b18e9f98` (artifact 14822616674, 12,760,105 bytes), not later production changes.
 - No persistent checkout exists; no local full build, MIPS/uClibc build or physical-router result is claimed. Startup recovery was performed once.
 
 ## Active source slice
 
-- `start_u2ec()` now propagates NVRAM `apps_u2ec_ex=1` marker write failure after a successful daemon exec, rather than returning success unconditionally. The caller receives the error so the incomplete hotplug event remains retryable.
-- `usb_printer_nvram_policy.h` includes the errno-preserving write result normalizer; `usb_printer_nvram_policy.c` tests success, preserved errno, missing errno and unexpected return values. `scripts/check_usb_printer_nvram.py` pins the start/status/failure-return order.
-- Exact USB modem/printer policy workflow and same-SHA XY-C1 Build/TRX/artifact checks for this source are pending.
+- `start_xupnpd()` Lua config generation now uses checked reads for `udpxy_enable_x` and `xupnpd_udpxy`, strict-parses/range-checks the port, and aborts the temporary config transaction on backend/config errors.
+- `scripts/check_process_lifecycle_integration.py` pins both checked read paths and asserts no unchecked `nvram_get_int()`/`nvram_match()` remain in the Lua config block. Existing WAN NVRAM policy tests cover checked-copy and strict-integer parsing.
+- Exact Process lifecycle and same-SHA XY-C1 Build/TRX/artifact checks for this slice are pending.
 
 ## Exact first actions for the next GPT
 
-1. Poll exact-SHA USB modem/printer regression and verify the four write-status cases and source checker pass.
-2. Poll exact-SHA XY-C1; require Build, TRX verification and artifact upload all PASS before claiming L3.
-3. Continue with another concrete P1 stability issue; do not repeat completed MSD Lite/UDPxY/XUPnP enable-port slices, VPN/Infosvr fixes or closed SCUT/storage work.
+1. Poll exact-SHA Process lifecycle regression and ensure XUPNPD Lua config checked-read contract passes.
+2. Poll same-SHA XY-C1; require Build, TRX verification and artifact upload all PASS before claiming L3.
+3. Continue another concrete P1 status/configuration failure in a different service; do not repeat completed MSD Lite, USB printer, `udpxy_enable_x` startup, VPN/Infosvr, SCUT or storage work.
 
 ## Relevant exact-SHA CI facts
 

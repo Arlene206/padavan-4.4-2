@@ -1019,12 +1019,39 @@ start_xupnpd(char *wan_ifname)
 			snprintf(line, sizeof(line), "cfg.http_port=%d\n", xport);
 		else if (strstr(line, "cfg.udpxy_url=")) {
 			char *lua_rem = "--";
-			int udpxy_port = nvram_get_int("udpxy_enable_x");
-			if (udpxy_port < 0 || udpxy_port > 65535) {
-				config_status = EINVAL;
+			char udpxy_port_text[16], udpxy_enable_text[8];
+			int udpxy_port = 0, udpxy_status, udpxy_enabled;
+
+			udpxy_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+							"udpxy_enable_x", udpxy_port_text,
+							sizeof(udpxy_port_text));
+			if (udpxy_status == 0)
+				udpxy_status = rc_wan_nvram_parse_int_value(udpxy_port_text, &udpxy_port);
+			if (udpxy_status != 0) {
+				config_status = udpxy_status;
+				errno = config_status;
+				logmessage(LOGNAME, "cannot read IPTV proxy port while preparing xupnpd configuration (status=%d)",
+					   config_status);
 				break;
 			}
-			if (udpxy_port > 1023 && nvram_match("xupnpd_udpxy", "1"))
+			if (udpxy_port < 0 || udpxy_port > 65535) {
+				config_status = ERANGE;
+				errno = config_status;
+				logmessage(LOGNAME, "IPTV proxy port is out of range while preparing xupnpd configuration");
+				break;
+			}
+			udpxy_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+							"xupnpd_udpxy", udpxy_enable_text,
+							sizeof(udpxy_enable_text));
+			if (udpxy_status != 0) {
+				config_status = udpxy_status;
+				errno = config_status;
+				logmessage(LOGNAME, "cannot read xupnpd IPTV proxy integration setting (status=%d)",
+					   config_status);
+				break;
+			}
+			udpxy_enabled = (strcmp(udpxy_enable_text, "1") == 0);
+			if (udpxy_port > 1023 && udpxy_enabled)
 				lua_rem = "";
 			if (udpxy_port == 0)
 				udpxy_port = 4022;
