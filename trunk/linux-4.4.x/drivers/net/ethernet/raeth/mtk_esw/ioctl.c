@@ -186,7 +186,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_storm_control_broadcast(uint_value);
+		ioctl_result = change_storm_control_broadcast(uint_value);
 		break;
 
 	case MTK_ESW_IOCTL_JUMBO_FRAMES: /* used by rc */

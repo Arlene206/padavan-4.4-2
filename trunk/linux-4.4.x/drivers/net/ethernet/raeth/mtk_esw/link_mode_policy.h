@@ -257,6 +257,40 @@ mtk_esw_first_error(int first_status, int next_status)
 }
 
 /*
+ * Write a per-port register value to every selected switch port. A failed write
+ * must not prevent independent ports from being attempted, but any failure
+ * keeps the higher-level cached configuration dirty for a later retry.
+ */
+static inline int
+mtk_esw_register_write_ports(unsigned int phy_addr, unsigned int reg_base,
+			     unsigned int reg_stride, unsigned int port_count,
+			     unsigned int port_mask, unsigned int value,
+			     const struct mtk_esw_link_mode_io *io,
+			     void *context)
+{
+	unsigned int port;
+	int status, first_error = 0;
+
+	if (!io || !io->write || !reg_stride || !port_count ||
+	    port_count > 32U ||
+	    (port_count > 1U &&
+	     reg_stride > (~0U - reg_base) / (port_count - 1U)))
+		return -EINVAL;
+
+	for (port = 0; port < port_count; ++port) {
+		if (!(port_mask & (1U << port)))
+			continue;
+
+		status = io->write(context, phy_addr,
+				   reg_base + reg_stride * port, value);
+		if (status != 0)
+			first_error = mtk_esw_first_error(first_error, status);
+	}
+
+	return first_error;
+}
+
+/*
  * Publish requested VLAN rule state only after the caller's complete hardware
  * transition succeeds (including the MAC-table flush). On failure the old
  * snapshot stays dirty so a repeated request retries the programming sequence.

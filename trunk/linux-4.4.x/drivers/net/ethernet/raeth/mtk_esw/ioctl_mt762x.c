@@ -1119,7 +1119,8 @@ static int esw_port_phy_power(u32 phy_port_id, u32 power_on, int is_force,
 	return 0;
 }
 
-static void esw_storm_control(u32 port_id, int set_bcast, int set_mcast, int set_ucast, u32 rate_mbps)
+static int esw_storm_control(int set_bcast, int set_mcast, int set_ucast,
+			     u32 rate_mbps)
 {
 	u32 reg_bsr = 0;
 	u32 rate_unit_1000;
@@ -1129,34 +1130,37 @@ static void esw_storm_control(u32 port_id, int set_bcast, int set_mcast, int set
 	if (rate_mbps > 0) {
 		if (rate_mbps > (0xff * 4))
 			rate_mbps = (0xff * 4);
-		
+
 		rate_unit_1000 = rate_mbps;
 		rate_unit_100 = (rate_mbps < 90) ? rate_mbps : 90;
 		rate_unit_10 = (rate_mbps < 9) ? rate_mbps : 9;
-		
-		reg_bsr |= BIT(31);			// STRM_MODE = Rate-based
+
+		reg_bsr |= BIT(31);
 		if (set_bcast)
-			reg_bsr |= BIT(30);		// STRM_BC_INC
+			reg_bsr |= BIT(30);
 		if (set_mcast)
-			reg_bsr |= BIT(29);		// STRM_MC_INC
+			reg_bsr |= BIT(29);
 		if (set_ucast)
-			reg_bsr |= BIT(28);		// STRM_UC_INC
-		
+			reg_bsr |= BIT(28);
+
 		if (rate_mbps > 0xff) {
 			rate_unit_1000 >>= 2;
 			rate_unit_100 >>= 2;
 			rate_unit_10 >>= 2;
-			reg_bsr |= (3u << 24);		// STRM_UNIT = 4 Mbps
+			reg_bsr |= (3u << 24);
 		} else {
-			reg_bsr |= (2u << 24);		// STRM_UNIT = 1 Mbps
+			reg_bsr |= (2u << 24);
 		}
-		
-		reg_bsr |= (rate_unit_1000 << 16);	// STORM_1G
-		reg_bsr |= (rate_unit_100 << 8);	// STORM_100M
-		reg_bsr |= (rate_unit_10);		// STORM_10M
+
+		reg_bsr |= (rate_unit_1000 << 16);
+		reg_bsr |= (rate_unit_100 << 8);
+		reg_bsr |= rate_unit_10;
 	}
 
-	esw_reg_set(REG_ESW_PORT_BSR_P0 + 0x100*port_id, reg_bsr);
+	return mtk_esw_register_write_ports(
+		MTK_ESW_MAC_TABLE_PHY, REG_ESW_PORT_BSR_P0, 0x100U,
+		ESW_EPHY_ID_MAX + 1U, ~ESW_MASK_EXCLUDE, reg_bsr,
+		&mtk_esw_link_mode_io, NULL);
 }
 
 static int esw_jumbo_control(u32 jumbo_frames_enabled)
@@ -1694,30 +1698,33 @@ static int change_port_link_mode_uapi(u32 port_id_uapi, u32 port_link_mode)
 	return 0;
 }
 
-static void change_storm_control_broadcast(u32 control_rate_mbps)
+static int change_storm_control_broadcast(u32 control_rate_mbps)
 {
-	u32 i;
 	char rate_desc[16];
+	int status;
 
 	if (control_rate_mbps >= 1024)
 		control_rate_mbps = 0;
 
-	if (g_storm_rate_limit != control_rate_mbps) {
-		g_storm_rate_limit = control_rate_mbps;
-		
-		if (control_rate_mbps > 0)
-			snprintf(rate_desc, sizeof(rate_desc), "%d mbps", control_rate_mbps);
-		else
-			strcpy(rate_desc, "off");
-		
-		printk("%s - set broadcast storm control rate as: %s\n", MTK_ESW_DEVNAME, rate_desc);
-		
-		for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-			if ((1u << i) & ESW_MASK_EXCLUDE)
-				continue;
-			esw_storm_control(i, 1, 0, 0, control_rate_mbps);
-		}
+	if (g_storm_rate_limit == control_rate_mbps)
+		return 0;
+
+	status = esw_storm_control(1, 0, 0, control_rate_mbps);
+	if (status != 0) {
+		pr_err("%s: broadcast storm-control update failed (status=%d)\n",
+		       MTK_ESW_DEVNAME, status);
+		return status;
 	}
+
+	g_storm_rate_limit = control_rate_mbps;
+	if (control_rate_mbps > 0)
+		snprintf(rate_desc, sizeof(rate_desc), "%d mbps", control_rate_mbps);
+	else
+		strcpy(rate_desc, "off");
+
+	printk("%s - set broadcast storm control rate as: %s\n",
+	       MTK_ESW_DEVNAME, rate_desc);
+	return 0;
 }
 
 static int change_jumbo_frames_accept(u32 jumbo_frames_enabled)

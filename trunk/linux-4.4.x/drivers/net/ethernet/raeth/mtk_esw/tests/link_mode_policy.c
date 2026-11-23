@@ -463,6 +463,66 @@ test_mac_table_clear_rejects_invalid_mode_and_missing_delay(void)
 }
 
 static void
+test_port_register_writes_continue_after_first_failure(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = -ETIMEDOUT;
+	assert(mtk_esw_register_write_ports(0x1fU, 0x1000U, 0x100U,
+					    4U, 0x0bU, 0x55aaU,
+					    &fake_ops, &fake) == -ETIMEDOUT);
+	assert(fake.mdio_calls == 3U && fake.event_count == 3U);
+	assert(fake.events[0].type == FAKE_WRITE &&
+	       fake.events[0].phy == 0x1fU &&
+	       fake.events[0].reg == 0x1000U &&
+	       fake.events[0].value == 0x55aaU);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].reg == 0x1100U);
+	assert(fake.events[2].type == FAKE_WRITE &&
+	       fake.events[2].reg == 0x1300U);
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = 1;
+	assert(mtk_esw_register_write_ports(0x1fU, 0x2000U, 0x10U,
+					    3U, 0x07U, 0U,
+					    &fake_ops, &fake) == -EIO);
+	assert(fake.mdio_calls == 3U && fake.event_count == 3U);
+	assert(fake.events[2].reg == 0x2020U);
+}
+
+static void
+test_port_register_write_rejects_invalid_io_and_ranges(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_write = fake_ops;
+
+	fake_init(&fake);
+	missing_write.write = NULL;
+	assert(mtk_esw_register_write_ports(0x1fU, 0x1000U, 0x100U,
+					    4U, 0x0fU, 1U,
+					    NULL, &fake) == -EINVAL);
+	assert(mtk_esw_register_write_ports(0x1fU, 0x1000U, 0x100U,
+					    4U, 0x0fU, 1U,
+					    &missing_write, &fake) == -EINVAL);
+	assert(mtk_esw_register_write_ports(0x1fU, 0x1000U, 0U,
+					    4U, 0x0fU, 1U,
+					    &fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_register_write_ports(0x1fU, 0x1000U, 0x100U,
+					    0U, 0x0fU, 1U,
+					    &fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_register_write_ports(0x1fU, 0x1000U, 0x100U,
+					    33U, 0x0fU, 1U,
+					    &fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_register_write_ports(0x1fU, ~0U - 0x10U, 0x20U,
+					    2U, 0x03U, 1U,
+					    &fake_ops, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits(void)
 {
 	struct fake_mdio fake;
@@ -589,6 +649,8 @@ test_reserved_speed_flow_and_bits_are_rejected(void)
 int
 main(void)
 {
+	test_port_register_writes_continue_after_first_failure();
+	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
 	test_vlan_rule_snapshot_is_committed_only_after_hardware_success();
 	test_vlan_rule_snapshot_commit_rejects_invalid_buffers();
