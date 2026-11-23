@@ -753,7 +753,7 @@ require("cannot restore shared xl2tpd after incomplete VPN client teardown" in
         client_stop_failure,
         "VPN client rollback must log an unsuccessful shared-daemon restore")
 
-client_active = body(vpn, "static int\nget_xl2tpd_vpnc_active(int *active)")
+client_active = body(vpn_client, "static int\nget_xl2tpd_vpnc_active(int *active)")
 ordered(client_active, [
     "nvram_transaction_begin(&transaction)",
     '"vpnc_enable"',
@@ -768,14 +768,14 @@ require('nvram_match("vpnc_enable"' not in client_active and
         'nvram_match("l2tp_cli_t"' not in client_active,
         "VPN client xl2tpd stop-set must not use error-collapsing match getters")
 
-client_dependencies = body(vpn, "static int\nvpn_client_read_shared_xl2tpd_dependencies(")
+client_dependencies = body(vpn_client, "static int\nvpn_client_read_shared_xl2tpd_dependencies(")
 ordered(client_dependencies, [
     "nvram_transaction_begin(&transaction)",
     '"l2tp_wan_t"',
     '"l2tp_srv_t"',
     "nvram_transaction_end(&transaction)"
 ], "VPN client shared xl2tpd dependency snapshot")
-client_shared_restore = body(vpn, "static int\nvpn_client_restore_shared_xl2tpd_locked(")
+client_shared_restore = body(vpn_client, "static int\nvpn_client_restore_shared_xl2tpd_locked(")
 ordered(client_shared_restore, [
     "if (!xl2tpd_killed_vpnc)",
     "vpn_client_read_shared_xl2tpd_dependencies(",

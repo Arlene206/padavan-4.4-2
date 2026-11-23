@@ -1,3 +1,12 @@
+## 2026-11-23 — Correct VPN lifecycle source-checker input binding
+
+- Exact VPN lifecycle run #45250371491 reached the integration checker after the selector-policy and VPN client runtime NVRAM/DNS checks passed, then failed because the newly added VPN-client helper assertions called `body(vpn, ...)` even though the checker stores the VPN client source in `vpn_client`. Corrected all three lookups (ownership snapshot, shared-dependency snapshot, and restore helper) to inspect the actual VPN client translation unit.
+- This was a test-harness source-variable mismatch; no new production-source failure was demonstrated by that run. Exact-head VPN lifecycle must be rerun after this correction.
+- Switch helper restoration commit `895a2f060cae5893b9daf3c3b76575bfda5ca479` restores the two definitions whose absence caused XY-C1 compile errors on `26f2617`; Switch CLI #45250584832 and XY-C1 #45250584713 are queued/in progress. Their outcomes, especially actual firmware compilation, must be verified before claiming recovery.
+- AI handoff documentation #45250371547 PASS on `1915008aa573073bb5533b08f7a74e034bc9373f`; the historical `dev_log.md` was restored and is no longer truncated.
+
+---
+
 ## 2026-11-23 — Restore MTK ESW ioctl helper definitions after XY-C1 compile failure
 
 - XY-C1 run #45249235493 on `26f2617f744227f906b9e15baad4ae52b2d8e3be` failed while compiling `ioctl_mt762x.c`: `ioctl.c` referenced missing `change_vlan_rule()` and `esw_link_status_changed_state`, producing implicit-declaration / undeclared-identifier errors. Both static helper definitions existed in known-good baseline `7391f2e6245e64941ca709784719ebfb723043dc` but were absent after the recent switch refactor.

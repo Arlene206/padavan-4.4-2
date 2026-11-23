@@ -1,6 +1,6 @@
 # Cross-session execution mandate
 
-## 2026-11-23 continuation handoff (engineering parent main: 1915008aa573073bb5533b08f7a74e034bc9373f; fetch live main at takeover)
+## 2026-11-23 continuation handoff (engineering parent main: 895a2f060cae5893b9daf3c3b76575bfda5ca479; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
 - `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
@@ -44,11 +44,11 @@
 
 ### VPN client shared xl2tpd ownership and MTK switch build recovery
 
-- WAN local IPv4 correction L2/L3 remains closed: `d3772d64a0e2471be22658aabd6299dc3670caa8` and verification #45244253977 (WAN route), #45244253913 (AI docs), #45244253978 (XY-C1 Build/TRX/artifact) on the corresponding SHA lineage. Hardware L4 is not claimed.
-- VPN client source `26f2617f744227f906b9e15baad4ae52b2d8e3be` uses checked transactions for VPNC ownership and WAN/server L2TP dependencies, with conservative restoration when dependencies are unreadable. A checker follow-up now looks for the phase-argument helper prefix rather than a zero-argument spelling; exact-head VPN lifecycle is rerunning.
-- AI docs #45249835953 PASS after restoring the full chronological log. Latest VPN and docs run outcomes must be confirmed against the new main SHA.
-- XY-C1 #45249235493 on source SHA `26f2617` FAILED during kernel compile. `ioctl.c` includes calls to `change_vlan_rule()` and assigns `esw_link_status_changed_state` to the link callback, but a switch refactor dropped both static definitions from `ioctl_mt762x.c`; the last known-good baseline `7391f2e` contained them. This source slice restores both helpers before the inclusion of `ioctl.c` and extends Switch CLI's exact-source checker to prevent their accidental deletion.
-- The switch VLAN table policy/test work includes recent commits `f12360d` and `ef51117`; do not revert them. Re-run exact-head Switch CLI and XY-C1 Build/TRX/artifact after restoring the missing helpers. No L3 PASS is claimed until build and artifact stages pass together.
+- WAN local IPv4 fix L2/L3 is closed: WAN route #45244253977 and AI docs #45244253913 PASS; XY-C1 #45244253978 completed Build, TRX and artifact on the corresponding source descendant. Hardware L4 remains unverified.
+- VPN source `26f2617f744227f906b9e15baad4ae52b2d8e3be` now uses checked transactions for VPNC xl2tpd ownership and WAN/server dependencies, restores shared xl2tpd conservatively on unreadable dependency state, and has parser/restart regressions. The exact integration checker was corrected in two steps: phase helper call prefix, then source variable binding (`vpn_client` rather than VPN-server source `vpn`). Selector policy and NVRAM/DNS source checks passed; exact-head lifecycle needs a fresh rerun.
+- AI docs #45250371547 PASS and the complete historical `dev_log.md` is restored.
+- XY-C1 #45249235493 on `26f2617` failed kernel compilation because `change_vlan_rule()` and `esw_link_status_changed_state()` were missing from `ioctl_mt762x.c`, despite calls from included `ioctl.c`. Commit `895a2f060cae5893b9daf3c3b76575bfda5ca479` restores both helpers and adds exact-source checks. Its Switch CLI #45250584832 and XY-C1 #45250584713 were queued/in progress at handoff refresh; L3 is not claimed until Build, TRX and artifact all pass on the same SHA.
+- Do not revert the current switch VLAN status/error propagation commits; hardware L4 is not claimed.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -66,9 +66,9 @@
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VPN lifecycle/AI docs for the phase-aware helper assertion fix; do not infer source success from the older failed run.
-2. Verify the current MTK switch fix: `ioctl_mt762x.c` now restores `change_vlan_rule()` and `esw_link_status_changed_state()`, which were missing and caused the `26f2617` XY-C1 compile failure. Its workflow checker now enforces both definitions and both call sites.
-3. Require exact-head Switch CLI PASS and XY-C1 Build, TRX verification and artifact upload PASS on the same production-source SHA. Then continue other reliability/security work; leave backup untouched and use expected-SHA non-forced atomic commits.
+1. Re-run exact-head VPN lifecycle after the checker now reads all VPN client helper bodies from `vpn_client`; inspect any new failure rather than relying on prior stale-checker runs.
+2. Verify Switch CLI #45250584832 and XY-C1 #45250584713 for helper restoration. If firmware build passes, require TRX verification and artifact upload on that same production-source SHA; if it fails, diagnose the first actual compiler error.
+3. Continue the next reliability/security source issue only after the active failures are reconciled. Preserve the frozen backup branch and commit complete trees to `main` via expected-SHA, non-forced updates.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
