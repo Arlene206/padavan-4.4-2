@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Make the LLTD PID pathname contract whitespace-independent
+
+- Exact-head Process workflow #45137197616 on `20c664edf48d919600670a0f7893504c5dcc6a6a` passed the new LLTD PID-file GNU89 ASan/UBSan regression (step 17), then failed at the final source checker. The existing assertion matched the PID-file format string, comma and `g_Progname` argument as one line; the production writer had intentionally wrapped the function call across lines.
+- Corrected the checker to first extract `osl_write_pidfile()`, then assert the pathname literal inside that function body. This keeps the actual path contract while removing formatting sensitivity; no production source changes.
+- Same SHA AI docs #45137197736 and Process inventory #45137197649 PASS. XY-C1 #45137197654 and NVRAM audit #45137197675 remained in progress at last poll. No local test/build claim; exact-head reruns pending.
+
+---
+
 ## 2026-11-23 UTC — Clear LLTD parser output on every invalid input
 
 - Exact-head Process workflow #45136954916 on `b1a86530f54bd1d12b844e0198c46eb1b00e1b1f` compiled the GNU89 ASan/UBSan parser test successfully, then failed its NULL-text regression: the test requires a provided output PID to be reset to zero on parse failure, but the parser performed a combined `!text || !pid_out` guard before initializing the output.

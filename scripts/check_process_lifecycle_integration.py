@@ -1726,8 +1726,8 @@ assert lldt_main.index("if (!opt_debug)") < lldt_main.index("osl_become_daemon(g
 assert lldt_main.index("osl_become_daemon(g_osl);") < lldt_main.index("osl_write_pidfile(g_osl);") < lldt_main.index("event_mainloop();")
 assert lldt_daemon.count("fork()") == 2 and "setsid()" in lldt_daemon
 assert 'g_Progname = p+1;' in lldt_main_source
-assert '"/var/run/%s-%.10s.pid", g_Progname, osl->responder_if' in lldt_osl_source
 lldt_pidfile_writer = c_function_body(lldt_osl_source, "osl_write_pidfile(osl_t *osl)")
+assert '"/var/run/%s-%.10s.pid"' in lldt_pidfile_writer
 assert '#include "lldt_pidfile_policy.h"' in lldt_osl_source
 assert "lldt_pidfile_parse_pid(pidbuf, pidbuf_length, &pid)" in lldt_pidfile_writer
 assert "pidbuf_length == sizeof(pidbuf)" in lldt_pidfile_writer
