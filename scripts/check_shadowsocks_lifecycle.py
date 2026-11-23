@@ -535,8 +535,11 @@ require("nvram get pdnsd_enable" in dns_proxy_config and
         "DNS proxy selector/upstream/executable preflight must precede service stop")
 ordered(dns_proxy_restart, ("ss_dns_proxy_config_read", "stop_dns_proxy", "start_dns_proxy"),
         "DNS proxy preflight/stop/start order")
+dns_start_lines = [line.strip() for line in dns_start.splitlines()]
 require(dns_start.count("ss_restart_dns_proxy") == 2 and
-        "stop_dns_proxy" not in dns_start and "start_dns_proxy" not in dns_start,
+        not any(line.startswith(("stop_dns_proxy", "start_dns_proxy",
+                                 "if stop_dns_proxy", "if start_dns_proxy"))
+                for line in dns_start_lines),
         "router and gfw modes must use the checked DNS proxy restart path")
 for marker in ("DNS proxy selector read failure", "DNS upstream read failure",
                "empty DNS upstream", "unsupported DNS proxy selector",
