@@ -231,18 +231,28 @@ require('fopen(var_file, "a+")' not in modify_writer,
         "new-folder updates must not append unchecked partial rows")
 
 
-clear_body = function_body(DISK_SOURCE, "clear_share_var_files(const char *mount_path)")
-clear_compact = " ".join(clear_body.split())
-clear_read = clear_compact.index(
-    "disk_share_list_next_entry(dir, readdir, &entry, &read_error)"
+stale_pruner = function_body(
+    DISK_SOURCE, "remove_stale_share_var_files("
 )
-clear_eof = clear_compact.index("if (read_status == 0)", clear_read)
-clear_error = clear_compact.index("if (read_status < 0)", clear_eof)
-clear_unlink = clear_compact.index("if (unlink(path) != 0 && errno != ENOENT)", clear_error)
-require(clear_read < clear_eof < clear_error < clear_unlink and
-        "if (closedir(dir) != 0)" in clear_compact and
-        "return -1;" in clear_compact,
-        "managed metadata cleanup must fail closed on directory and unlink errors")
+stale_pruner_compact = "".join(stale_pruner.split())
+prune_read = stale_pruner_compact.index(
+    "disk_share_list_next_entry(dir,readdir,&entry,&read_error)"
+)
+prune_eof = stale_pruner_compact.index("if(read_status==0)", prune_read)
+prune_error = stale_pruner_compact.index("if(read_status<0)", prune_eof)
+prune_skip_anonymous = stale_pruner_compact.index(
+    "strcmp(account,FTP_ANONYMOUS_USER)==0", prune_error
+)
+prune_active_match = stale_pruner_compact.index(
+    "strcmp(account_list[i],account)==0", prune_skip_anonymous
+)
+prune_unlink = stale_pruner_compact.index("unlink(path)", prune_active_match)
+require(prune_read < prune_eof < prune_error < prune_skip_anonymous <
+        prune_active_match < prune_unlink and
+        "if(closedir(dir)!=0)" in stale_pruner_compact and
+        "strcmp(entry->d_name+name_len-8,\"_var.txt\")" in stale_pruner_compact and
+        "return-1;" in stale_pruner_compact,
+        "stale metadata cleanup must fail closed while preserving active and anonymous ACL files")
 initial_all = function_body(
     DISK_SOURCE,
     "int initial_all_var_file_in_mount_path(const char *const mount_path)"
