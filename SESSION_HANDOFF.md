@@ -1,45 +1,46 @@
 ### 2026-11-24 最新接力检查点
 
-- 产品源码基线：`5157b869cb62a22e04057033ffc5d6e1149a5e6e`（`fix(raeth): report failed calibration ioctls`）；当前 main 上的 `e77a76bc61a790cd6282ac0d0d70b01f081cb4a8` 只修正了 GE wait-context workflow contract 的 forward-declaration 查找。
-- 当前 Switch CLI run #45283594271（exact SHA `e77a76b...`）FAIL，job #138074054184，step 28：Leopard EPHY source contract 将范围从 MT7622 分支之后开始，额外包含两个分支状态检查，导致错误的 `goto mdio_error` 计数。生产代码本身的 Leopard 部分有 9 个 checked page writes、1 个 checked page read，十个对应的 MDIO error gates。
-- 本次 main commit 将 contract 起点改为 `status = leopard_ephy_cal();` 之后，使检查范围只包含 Leopard 专属本地寄存器初始化；产品源码没有更改。
-- Parent SHA `e77a76bc61a790cd6282ac0d0d70b01f081cb4a8`: AI handoff #45283594232 success; Switch CLI #45283594271 FAIL（contract 范围过宽）。产品源码 SHA `5157b869...`: XY-C1 #45283497318 in_progress; NVRAM #45283497339 success。L3 尚未确认。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持只读，SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`。没有本地 MIPS/kernel 编译或硬件验证。
+- 当前父 main SHA：`f7183840c0de8e8096d60940eb2e5d4b60687839`（`test(raeth): match GE orchestrator status API`）。冻结备份 `backup/pre-plugin-overhaul-2026-11-14` SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
+- FE all-analog 真实早期失败问题：两个 snapshot reads（local page0/reg26、reg30）失败时跳转公共 cleanup，但在这之前本次调用尚未开始 PHY setup；旧 cleanup 仍清共享 analog control 并写 page1/reg26、BMCR `0x3100`、advertisement `0x05e1`，可能不必要重置 PHY。
+- THIS commit 在第一个 setup MDIO write 之前设置 `setup_attempted`（为覆盖写事务错误但硬件可能已收到的情况）；初始 snapshot 失败时跳过硬件 teardown；已尝试 setup 写入后继续完整 best-effort cleanup。清理被提取到 `ra_switch_fe_analog_cal_cleanup()`，保持所有原 cleanup、saved snapshots 条件恢复及 first-error 语义。
+- 新增 `ra_switch_mdio_cleanup_if_started()` 以及 GNU89 callback fault-injection test（setup 前跳过、setup 后调用、错误透传、正状态归一化、NULL callback）。Switch CLI workflow 增加 ASan/UBSan host test 和源码顺序检查。
+- Parent exact Actions：Switch CLI #45284655414 PASS；AI handoff #45284655394 PASS。产品源码 SHA `30f6a0e...` 的 XY-C1 #45284437855 当时 IN_PROGRESS、NVRAM #45284437839 SUCCESS。THIS commit 的新 run 必须按 exact SHA 核验。
+- 没有本地 MIPS/kernel build 或硬件测试；无 L3/L4 声明。
 
 ---
 # Cross-session execution mandate
 
 ## Current repository state
 
-### 2026-11-24 continuation — RAETH PHY calibration
+### 2026-11-24 continuation — RAETH PHY reliability
 
-- **FE VBG/R50:** checked paged/C22/C45 MDIO, bounded calibration search, timeout fallback and best-effort cleanup are implemented.
-- **FE all-analog orchestration:** checked snapshots, setup, valid-snapshot restoration and child completion gates are implemented. Continue review only where register semantics establish a concrete safety issue.
-- **GE Rext/R50/TX amplitude/TX offset:** checked I/O and cleanup are in place; TX amplitude and TX offset searches have hard bounds and preserve the known 0 dB fallback.
-- **EPHY bring-up:** FE/GE calibration errors propagate through MT7622/Leopard runners into `fe_sw_init()`; GE wait context and retry-failure handling are present.
-- **Current CI task:** THIS commit narrows the Leopard EPHY source-contract extraction to the Leopard branch after its batch calibration call; production source is unchanged.
+- **FE VBG/R50/TX amplitude/TX offset:** checked paged/C22/C45 I/O, bounded searches, failure propagation, fallback and cleanup are in place.
+- **FE all-analog orchestrator:** snapshots and child completion gates are checked. THIS commit prevents teardown writes when snapshot reads fail before setup starts; the original complete best-effort teardown remains after the first attempted setup write.
+- **GE calibration:** Rext/R50/TX amplitude/TX offset use checked I/O, bounded searches and cleanup; errors propagate through EPHY initialization.
+- **Leopard EPHY:** local MDIO initialization is checked and fail-fast.
+- **EPHY ioctl:** calibration error status propagates through `ei_ioctl()`; exhausted FE/GE retry sequences return `-EIO`.
 
 ## Active task
 
-### Validate Leopard EPHY branch contract, then continue RAETH runtime/error review
+### Validate FE cleanup gate, then continue independent stability fixes
 
-- Fetch live main and query exact-head Switch CLI and AI handoff push runs for the new commit.
-- Confirm all earlier RAETH source-contract checks pass after step 28.
-- Refresh product-source SHA `5157b869...` XY-C1 run #45283497318; inspect Build/TRX/artifact steps individually and require same SHA for L3.
-- After the contract suite passes, continue source review in the PHY ioctl / initialization paths for real status propagation or resource cleanup defects. Do not change common FE orchestrator cleanup without verified hardware register semantics.
+- Fetch live main and exact-head Switch CLI + AI handoff push runs for THIS commit.
+- Require the GNU89 policy test with ASan/UBSan and FE source-contract step to pass.
+- Refresh same-SHA XY-C1 Build, TRX and artifact upload; L3 only when all three pass on identical source SHA.
+- Continue a concrete independent stability defect outside completed checked-MDIO calibration migration.
 
 ## Verification boundary
 
-- Product-source SHA: `5157b869cb62a22e04057033ffc5d6e1149a5e6e`.
-- Workflow-only parent `e77a76bc61a790cd6282ac0d0d70b01f081cb4a8`: AI #45283594232 success; Switch CLI #45283594271 FAIL (Leopard checker included the two enclosing branch error gates).
-- Product-source runs: XY-C1 #45283497318 in_progress; NVRAM #45283497339 success. These are not actions for the current workflow-only child SHA, but they do build/audit its unchanged source ancestor.
-- No local MIPS build, complete same-SHA Build+TRX+artifact L3, router flash or hardware L4 is claimed.
+- Parent: `f7183840c0de8e8096d60940eb2e5d4b60687839`; THIS commit changes `ra_switch.c`, `ra_switch_mdio_policy.h`, `tests/ra_switch_mdio_policy.c`, Switch CLI workflow, `dev_log.md`, and `SESSION_HANDOFF.md`.
+- Parent exact Actions: Switch CLI #45284655414 PASS; AI handoff #45284655394 PASS.
+- Previous source SHA `30f6a0e...`: XY-C1 #45284437855 IN_PROGRESS (last observed); NVRAM #45284437839 SUCCESS. These do not verify THIS commit.
+- No local cross-build, same-SHA complete XY-C1 L3, router flash or hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify exact-head Switch CLI + AI handoff Actions.
-2. If Switch CLI passes, resume broad RAETH source review and choose a confirmed defect for a source+regression atomic commit.
-3. Refresh XY-C1 Build/TRX/artifact on product-source SHA `5157b869...`; keep host/source-contract checks separate from L3.
+1. Fetch live main and inspect exact-head Switch CLI and AI handoff Actions; read logs for any failures.
+2. Verify the new cleanup callback host test/source contract, then refresh XY-C1 Build/TRX/artifact for the new source SHA.
+3. Continue another confirmed stability issue in RAETH/userland; do not repeat completed PHY checked-I/O migrations.
 
 ---
 ## Cross-session operating constraints
@@ -57,3 +58,4 @@ Every session MUST inspect live repository state before ending. Record only mate
 - PASS advances; FAIL is diagnosed and fixed; PENDING does not block independent work.
 - Preserve Linux 4.4, GNU89, MIPS/uClibc compatibility, router configuration, security, architecture and backward compatibility.
 - Before context exhaustion, record exact latest SHA, tests, CI state, unresolved issues and one concrete first task. Never claim unverified work.
+

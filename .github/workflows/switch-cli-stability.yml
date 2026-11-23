@@ -1310,6 +1310,36 @@ jobs:
           print("FE analog orchestrator checks paged/C45 I/O, restores only valid snapshots and aborts after child failure: PASS")
           PY
 
+      - name: Validate FE orchestrator gates teardown until setup write is attempted
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "ra_switch.c").read_text()
+          policy = (root / "ra_switch_mdio_policy.h").read_text()
+          test = (root / "tests/ra_switch_mdio_policy.c").read_text()
+          body = source.split("static int do_fe_phy_all_analog_cal_checked(", 1)[1].split(
+              chr(10) + "/* Keep the public void entry point", 1
+          )[0]
+          cleanup = source.split("static int ra_switch_fe_analog_cal_cleanup(void *context)", 1)[1].split(
+              "static int do_fe_phy_all_analog_cal_checked(", 1
+          )[0]
+          first_setup = body.index("setup_attempted = 1;")
+          first_write = body.index("tc_phy_write_page_reg_checked(port_num, 0U, 26U, 1, 0x5600U)")
+          assert body.index("l0r26_saved = 1;") < body.index("l0r30_saved = 1;") < first_setup < first_write
+          assert body.index("ra_switch_mdio_cleanup_if_started(") > body.index("cleanup:")
+          assert "if (!setup_attempted)" in policy and "if (!cleanup)" in policy
+          for required in (
+              "clear_ckinv_ana_txvos_checked()", "0x1000U, 0U",
+              "0U, 0U, 1, 0x3100U", "0U, 4U, 0, 0x05e1U",
+              "if (cleanup->l0r26_saved)", "if (cleanup->l0r30_saved)"
+          ):
+              assert required in cleanup, required
+          assert cleanup.count("if (status == 0 && cleanup_status != 0)") >= 7
+          assert "test_calibration_cleanup_runs_only_after_setup_attempted();" in test
+          print("FE analog teardown is skipped on snapshot failure and preserves best-effort cleanup after setup attempt: PASS")
+          PY
+
       - name: Validate GE all-analog orchestration propagates child and MDIO failures
         run: |
           python3 - <<'PY'
@@ -1521,6 +1551,14 @@ jobs:
           assert fe_r50.index("cleanup:") < fe_r50.index("fe_cal_r50_flag = 1;")
           print("FE R50 checks page/C45 status, bounds table indexes, and runs best-effort cleanup: PASS")
           PY
+
+      - name: Compile and run RAETH MDIO calibration cleanup policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c \
+            -o "$RUNNER_TEMP/ra-switch-mdio-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ra-switch-mdio-policy"
 
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |

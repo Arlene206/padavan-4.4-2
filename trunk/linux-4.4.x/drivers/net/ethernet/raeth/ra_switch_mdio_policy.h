@@ -22,6 +22,21 @@ static inline int ra_switch_mdio_normalize_status(int status)
 	return status > 0 ? -EIO : status;
 }
 
+/* Gate hardware-specific calibration teardown until setup has started. */
+typedef int (*ra_switch_mdio_cleanup_fn)(void *context);
+
+static inline int
+ra_switch_mdio_cleanup_if_started(int setup_attempted,
+				  ra_switch_mdio_cleanup_fn cleanup,
+				  void *context)
+{
+	if (!setup_attempted)
+		return 0;
+	if (!cleanup)
+		return -EINVAL;
+	return ra_switch_mdio_normalize_status(cleanup(context));
+}
+
 /* Keep analog calibration search arithmetic inside its six-bit register field. */
 static inline unsigned int
 ra_switch_mdio_calibration_code_step(unsigned int current_code, int direction)

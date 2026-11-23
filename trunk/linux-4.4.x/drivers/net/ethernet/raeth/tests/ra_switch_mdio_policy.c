@@ -834,6 +834,35 @@ static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
 	assert(fake.calls == 0U);
 }
 
+struct fake_conditional_cleanup {
+	unsigned int calls;
+	int status;
+};
+
+static int fake_conditional_cleanup_run(void *context)
+{
+	struct fake_conditional_cleanup *fake = context;
+	++fake->calls;
+	return fake->status;
+}
+
+static void test_calibration_cleanup_runs_only_after_setup_attempted(void)
+{
+	struct fake_conditional_cleanup fake;
+	memset(&fake, 0, sizeof(fake));
+	fake.status = -ETIMEDOUT;
+	assert(ra_switch_mdio_cleanup_if_started(0, fake_conditional_cleanup_run, &fake) == 0);
+	assert(fake.calls == 0U);
+	assert(ra_switch_mdio_cleanup_if_started(1, fake_conditional_cleanup_run, &fake) == -ETIMEDOUT);
+	assert(fake.calls == 1U);
+	fake.status = 1;
+	assert(ra_switch_mdio_cleanup_if_started(1, fake_conditional_cleanup_run, &fake) == -EIO);
+	assert(fake.calls == 2U);
+	assert(ra_switch_mdio_cleanup_if_started(1, NULL, &fake) == -EINVAL);
+	assert(fake.calls == 2U);
+	assert(ra_switch_mdio_cleanup_if_started(0, NULL, NULL) == 0);
+}
+
 static void
 test_calibration_code_step_wraps_inside_six_bit_field(void)
 {
@@ -846,6 +875,7 @@ test_calibration_code_step_wraps_inside_six_bit_field(void)
 
 int main(void)
 {
+	test_calibration_cleanup_runs_only_after_setup_attempted();
 	test_calibration_code_step_wraps_inside_six_bit_field();
 	test_page_read_selects_global_and_local_bank();
 	test_checked_cleanup_attempts_both_writes_and_keeps_first_error();

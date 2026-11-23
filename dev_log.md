@@ -1,3 +1,13 @@
+## 2026-11-24 07:18 CST (UTC+8) — Gate FE analog teardown on setup attempt
+
+- Base main SHA: `f7183840c0de8e8096d60940eb2e5d4b60687839`. The FE all-analog orchestrator's first two local register snapshot reads can fail before this invocation mutates hardware, yet the common cleanup previously cleared shared analog controls and wrote local page1/register26, BMCR `0x3100`, and advertisement `0x05e1`. This may reset a PHY before calibration setup has begun.
+- Added `setup_attempted` immediately before the first mutating MDIO write. The marker is deliberately before the transaction because a reported MDIO failure may still mean the PHY received the write. Early snapshot failures skip teardown; failures after setup attempt retain all existing best-effort cleanup operations and valid-snapshot restore behavior.
+- Extracted cleanup into `ra_switch_fe_analog_cal_cleanup()`. Added `ra_switch_mdio_cleanup_if_started()` and a GNU89 callback fault-injection regression covering pre-setup skip, post-setup invocation, timeout propagation, positive-status normalization and NULL callback handling. Added explicit ASan/UBSan host compile/run and source-order contract to Switch CLI workflow.
+- Parent exact push Actions: Switch CLI #45284655414 SUCCESS; AI handoff #45284655394 SUCCESS. Product parent `30f6a0e1694d3f0d1b0e35e78c2aac9e725ae2a2`: XY-C1 #45284437855 was IN_PROGRESS at last check; NVRAM #45284437839 completed SUCCESS. New product commit requires its own XY-C1 run.
+- No local MIPS/kernel build or hardware test. L3 requires Build, TRX and artifact upload all PASS on the same source SHA.
+
+---
+
 ## 2026-11-24 06:52 CST (UTC+8) — Scope Leopard EPHY init contract to Leopard branch
 
 - Base main SHA: `e77a76bc61a790cd6282ac0d0d70b01f081cb4a8`. Switch CLI #45283594271 failed at workflow step 28, `Validate Leopard EPHY initialization checks each local MDIO operation`. Its extracted block started immediately after `mt7622_ephy_cal();`, therefore it also counted the MT7622 error gate and Leopard batch-runner error gate in addition to the ten Leopard page operations; the assertion expected ten gotos and was off by two.

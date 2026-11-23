@@ -2048,9 +2048,67 @@ cleanup:
 
 #define CALDLY 40
 
+/*
+ * Run FE analog teardown only after setup has attempted a hardware write.
+ * A failed MDIO write may have reached the PHY, so mark setup before issuing it.
+ */
+struct ra_switch_fe_analog_cleanup_context {
+	u8 port_num;
+	u16 l0r26_temp;
+	u16 l0r30_temp;
+	int l0r26_saved;
+	int l0r30_saved;
+};
+
+static int ra_switch_fe_analog_cal_cleanup(void *context)
+{
+	struct ra_switch_fe_analog_cleanup_context *cleanup = context;
+	struct ra_switch_page_update_context page;
+	unsigned int updated = 0U;
+	int status = 0;
+	int cleanup_status;
+
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	page.page = 3U;
+	page.local = 1;
+	cleanup_status = ra_switch_mdio_update_bits_checked(
+		cleanup->port_num, 25U, 0x1000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		cleanup->port_num, 1U, 26U, 0, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	if (cleanup->l0r26_saved) {
+		cleanup_status = tc_phy_write_page_reg_checked(
+			cleanup->port_num, 0U, 26U, 1, cleanup->l0r26_temp);
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
+	}
+	if (cleanup->l0r30_saved) {
+		cleanup_status = tc_phy_write_page_reg_checked(
+			cleanup->port_num, 0U, 30U, 1, cleanup->l0r30_temp);
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
+	}
+	cleanup_status = tc_phy_write_page_reg_checked(
+		cleanup->port_num, 0U, 0U, 1, 0x3100U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		cleanup->port_num, 0U, 4U, 0, 0x05e1U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	return status;
+}
+
 static int do_fe_phy_all_analog_cal_checked(u8 port_num)
 {
-	struct ra_switch_page_update_context page;
+	struct ra_switch_fe_analog_cleanup_context cleanup_context;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 	unsigned int read_value = 0U;
 	u16 l0r26_temp = 0U, l0r30_temp = 0U;
@@ -2058,6 +2116,7 @@ static int do_fe_phy_all_analog_cal_checked(u8 port_num)
 	unsigned int j;
 	unsigned long t_s, t_e;
 	int l0r26_saved = 0, l0r30_saved = 0;
+	int setup_attempted = 0;
 	int status = 0, cleanup_status;
 	const char *failed_stage = "setup";
 	static const u8 eye_regs[] = { 20U, 23U, 24U, 26U, 27U, 29U, 30U };
@@ -2132,6 +2191,8 @@ static int do_fe_phy_all_analog_cal_checked(u8 port_num)
 	l0r30_temp = (u16)read_value;
 	l0r30_saved = 1;
 
+	/* Set before issuing MDIO: a failed write may still have reached hardware. */
+	setup_attempted = 1;
 	status = tc_phy_write_page_reg_checked(port_num, 0U, 26U, 1, 0x5600U);
 	if (status != 0)
 		goto cleanup;
@@ -2270,39 +2331,14 @@ static int do_fe_phy_all_analog_cal_checked(u8 port_num)
 	fe_cal_flag_mdix = 0;
 
 cleanup:
-	cleanup_status = clear_ckinv_ana_txvos_checked();
-	if (status == 0 && cleanup_status != 0)
-		status = cleanup_status;
-	page.page = 3U;
-	page.local = 1;
-	cleanup_status = ra_switch_mdio_update_bits_checked(
-		port_num, 25U, 0x1000U, 0U,
-		ra_switch_page_update_read, ra_switch_page_update_write,
-		&page, &read_value);
-	if (status == 0 && cleanup_status != 0)
-		status = cleanup_status;
-	cleanup_status = tc_phy_write_page_reg_checked(
-		port_num, 1U, 26U, 0, 0U);
-	if (status == 0 && cleanup_status != 0)
-		status = cleanup_status;
-	if (l0r26_saved) {
-		cleanup_status = tc_phy_write_page_reg_checked(
-			port_num, 0U, 26U, 1, l0r26_temp);
-		if (status == 0 && cleanup_status != 0)
-			status = cleanup_status;
-	}
-	if (l0r30_saved) {
-		cleanup_status = tc_phy_write_page_reg_checked(
-			port_num, 0U, 30U, 1, l0r30_temp);
-		if (status == 0 && cleanup_status != 0)
-			status = cleanup_status;
-	}
-	cleanup_status = tc_phy_write_page_reg_checked(
-		port_num, 0U, 0U, 1, 0x3100U);
-	if (status == 0 && cleanup_status != 0)
-		status = cleanup_status;
-	cleanup_status = tc_phy_write_page_reg_checked(
-		port_num, 0U, 4U, 0, 0x05e1U);
+	cleanup_context.port_num = port_num;
+	cleanup_context.l0r26_temp = l0r26_temp;
+	cleanup_context.l0r30_temp = l0r30_temp;
+	cleanup_context.l0r26_saved = l0r26_saved;
+	cleanup_context.l0r30_saved = l0r30_saved;
+	cleanup_status = ra_switch_mdio_cleanup_if_started(
+		setup_attempted, ra_switch_fe_analog_cal_cleanup,
+		&cleanup_context);
 	if (status == 0 && cleanup_status != 0)
 		status = cleanup_status;
 
