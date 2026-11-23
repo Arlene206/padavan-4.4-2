@@ -124,6 +124,23 @@ assert delayed.index("init_signal_pending_take(&pending_init_signals") < delayed
     "sigprocmask(SIG_SETMASK, &old_set, NULL)"
 )
 assert "init_signal_pending_restore(&pending_init_signals" in delayed
+
+# A failed mask build or SIG_BLOCK would otherwise leave queued events
+# undrained and allow init_main() to enter sleep()/waitpid().
+build_failure_start = delayed.index("if (error) {")
+block_start = delayed.index("if (sigprocmask(SIG_BLOCK, &pending_set, &old_set) != 0)")
+build_failure = delayed[build_failure_start:block_start]
+assert "cannot build delayed signal mask" in build_failure
+assert "pause_and_low_level_reboot(RB_HALT_SYSTEM)" in build_failure
+assert "return sigs_seen" not in build_failure
+
+block_failure_end = delayed.index(
+    "events = init_signal_pending_take(&pending_init_signals", block_start
+)
+block_failure = delayed[block_start:block_failure_end]
+assert "cannot block delayed init signals" in block_failure
+assert "pause_and_low_level_reboot(RB_HALT_SYSTEM)" in block_failure
+assert "return sigs_seen" not in block_failure
 restore_start = delayed.index("if (sigprocmask(SIG_SETMASK, &old_set, NULL) != 0)")
 restore_end = delayed.index("\n\t\tif (events < 0)", restore_start)
 assert restore_start >= 0 and restore_end > restore_start

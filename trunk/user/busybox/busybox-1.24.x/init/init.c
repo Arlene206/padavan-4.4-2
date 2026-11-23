@@ -1135,13 +1135,21 @@ static int check_delayed_sigs(void)
 		if (error) {
 			message(L_LOG, "cannot build delayed signal mask: %s",
 				strerror(error));
-			return sigs_seen;
+			/*
+			 * Without the complete mask we cannot safely snapshot queued
+			 * events; returning could leave PID 1 blocked in waitpid().
+			 */
+			pause_and_low_level_reboot(RB_HALT_SYSTEM);
 		}
 		if (sigprocmask(SIG_BLOCK, &pending_set, &old_set) != 0) {
 			error = errno > 0 ? errno : EIO;
 			message(L_LOG, "cannot block delayed init signals: %s",
 				strerror(error));
-			return sigs_seen;
+			/*
+			 * The pending flags cannot be taken without excluding every
+			 * writer. Do not return to a potentially blocking child wait.
+			 */
+			pause_and_low_level_reboot(RB_HALT_SYSTEM);
 		}
 
 		events = init_signal_pending_take(&pending_init_signals,
