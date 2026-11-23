@@ -31,10 +31,11 @@ test_account_list_snapshot_source(void)
 int
 main(void)
 {
-	test_account_list_snapshot_source();
 	char max_password[128];
 	char overlong_password[129];
 	char utf8_password[] = "router-密码-2026";
+
+	test_account_list_snapshot_source();
 
 	memset(max_password, 'x', sizeof(max_password) - 1);
 	max_password[sizeof(max_password) - 1] = '\0';

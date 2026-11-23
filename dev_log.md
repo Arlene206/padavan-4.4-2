@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Keep Samba snapshot regression GNU89-compatible
+
+- Moved the new snapshot-source policy test invocation below all local declarations in `main()`. The regression helper is now invoked without introducing a declaration-after-statement extension into the repository's GNU89 test compilation.
+
+---
+
 ## 2026-11-23 UTC — Keep Samba ACL generation on the passdb credential snapshot
 
 - `run_samba()` now loads passdb credentials from one NVRAM transaction, but `write_smb_conf_unlocked()` independently fetched `get_account_list()` for `valid users`, `invalid users`, `read list` and `write list`. An intervening UI account edit could leave ACLs and passdb describing different generations.

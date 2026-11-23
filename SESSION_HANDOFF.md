@@ -3,22 +3,23 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent before this Samba account-parity slice: `e0451c001b6e40d23d8d25e6cfb6e4d5f191bcd5`.
-- RStats selector fix `93e2d812a050da0029a339bee86b194968226992`: RStats #45206017312 PASS, Process inventory #45206017728 PASS, Process fail-closed #45206017643 PASS, NVRAM #45206017305 PASS, HTTPD #45206017395 PASS and AI #45206017355 PASS; XY-C1 #45206017276 had been in progress.
-- USB printer post-exec readiness fix `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory #45207830503 PASS, AI #45207830375 PASS, USB modem identity #45207830717 PASS and NVRAM #45207830836 PASS. USB storage #45207830753 FAIL and Process fail-closed #45207830677 FAIL; XY-C1 #45207830678 was running at last poll. These need independent exact-log triage.
-- Module preflight fail-closed fix `e7e9f6361756cc1ea97400d30280442b1be5ec41`: Process/WAN/DNS/firewall/watchdog regressions and XY-C1 #45205333227 PASS. No full local MIPS/uClibc build or hardware L4 validation is claimed. Bootstrap recovery completed; do not repeat.
+- Samba passdb/ACL generation-parity source commit: `a311a4d92d43db04958a44a52912a2a66befd6ed`. Exact Samba share regression #45209512265 PASS; HTTPD authentication/security #45209512732 PASS; AI handoff #45209512343 PASS; IPv6 #45209512267 PASS; NFS #45209511862 PASS; MiniDLNA #45209511924 PASS; vsftpd #45209511917 PASS; USB modem identity #45209512093 PASS; libdisk share list #45209512224 PASS; firewall #45209512170 PASS.
+- Exact Process inventory #45209512484, Process fail-closed #45209512296, USB storage #45209512410, NVRAM boundary #45209512329, Firefly #45209512268 and XY-C1 #45209512288 were still in progress at last poll; poll the final step statuses for this exact SHA.
+- Earlier USB printer readiness SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory, AI, USB modem identity and NVRAM checks passed; USB storage #45207830753 and Process fail-closed #45207830677 failed and need independent log triage. XY-C1 #45207830678 was still running.
+- Module-preflight fail-closed SHA `e7e9f6361756cc1ea97400d30280442b1be5ec41` passed Process/WAN/DNS/firewall/watchdog regressions and XY-C1 #45205333227. No full local MIPS/uClibc build or hardware L4 validation is claimed. Bootstrap recovery is already complete; do not repeat.
 
 ## Active task
 
-- Samba account-generation consistency: `run_samba()` snapshots account count, usernames and passwords under one NVRAM transaction, but `write_smb_conf_unlocked()` used to fetch `get_account_list()` again when producing per-user ACL lines. A concurrent account edit could make smb.conf ACLs refer to a newer generation than the passdb.
-- This slice passes stack-owned account-name pointers/count from the credential snapshot into both run_samba smb.conf publication paths. The public standalone writer retains its own checked account-list read; only that heap-owned fallback is freed. Added unit tests for empty/non-empty snapshot selection, count bounds and inconsistent source/count inputs, plus Samba/HTTPD source parity assertions.
-- Exact-SHA Samba, HTTPD, Process, AI and XY-C1 workflows for this commit must be polled. L3 requires Build + TRX + artifact upload PASS on one production-source SHA.
+- `run_samba()` and `write_smb_conf_unlocked()` now use the same username generation: run_samba passes account-name pointers/count from the checked NVRAM transaction into both smb.conf publication paths. Standalone public writer calls still use their own checked account-list snapshot. Only heap-owned fallback lists are freed.
+- Unit tests cover empty/non-empty snapshot selection, bounds and inconsistent source/count combinations. Samba and HTTPD workflow contracts assert that passdb and ACL generation share this snapshot.
+- Follow-up C89 cleanup: the newly added policy test invocation was moved after all local declarations in `main()`, so the test remains compatible with the repository's GNU89 build style.
+- Recheck exact-SHA Samba/HTTPD/Process/AI/NVRAM/XY-C1 Actions for the source commit and this test-ordering follow-up. L3 requires Build + TRX + artifact upload PASS on one production-source SHA.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-SHA Samba share, HTTPD security, Process inventory/fail-closed, AI handoff and XY-C1 workflows for this account-parity commit. Fix genuine failures without weakening contracts.
-2. Triage USB storage #45207830753 and Process fail-closed #45207830677 on `8fa162a`; record final XY-C1 #45207830678 and RStats #45206017276 separately.
-3. Continue a fresh P1/P2 reliability/security defect elsewhere in Padavan userland; keep main-only expected-SHA writes and preserve the frozen backup.
+1. Poll Process inventory/fail-closed, USB storage, NVRAM boundary, Firefly and XY-C1 for the account-parity source commit; record Build, TRX and artifact upload individually.
+2. Poll exact-SHA Samba/HTTPD/AI workflows for the C89 test-ordering follow-up. If the source commit's XY-C1 is pending, do not infer build success from the test-only descendant.
+3. Triage the independent USB storage and Process fail-closed failures on `8fa162a`; then continue another P1/P2 reliability/security defect in Padavan userland.
 
 ## Relevant exact-SHA CI facts
 
