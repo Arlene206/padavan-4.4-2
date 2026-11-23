@@ -2667,6 +2667,7 @@ start_services_once(int is_ap_mode)
 {
 	int start_status = 0;
 	int bridge_stp_status, bridge_forward_delay_status;
+	int lan_stp_disabled = 0, lan_stp_read_status;
 
 	{
 		int wl_auth_start_status = start_8021x_wl();
@@ -2716,7 +2717,15 @@ start_services_once(int is_ap_mode)
 		if (!is_upnp_run())
 			start_status = rc_first_service_start_status(start_status, start_upnp());
 
-		if (!nvram_match("lan_stp", "0")) {
+		lan_stp_read_status = service_nvram_match_status(
+			"lan_stp", "0", 0, &lan_stp_disabled);
+		if (lan_stp_read_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read LAN STP selector; refusing bridge STP changes (status=%d)",
+				   lan_stp_read_status);
+			start_status = rc_first_service_start_status(
+				start_status, lan_stp_read_status);
+		} else if (!lan_stp_disabled) {
 			bridge_stp_status = br_set_stp(IFNAME_BR, 1);
 			if (bridge_stp_status != 0)
 				logmessage(LOGNAME, "LAN bridge STP enable failed (status=%d)",

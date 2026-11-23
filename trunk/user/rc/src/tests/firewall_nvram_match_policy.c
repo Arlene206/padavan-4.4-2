@@ -541,6 +541,32 @@ test_optional_ipv4_copy_disables_oversized_values(void)
 	assert(strcmp(address, "192.0.2.1") == 0);
 }
 
+static void
+test_lan_stp_selector_preserves_missing_default_and_backend_errors(void)
+{
+	int lan_stp_disabled = 23;
+
+	/* Missing lan_stp historically does not match "0", so STP stays enabled. */
+	assert(firewall_nvram_match_status(
+		0, 0, NULL, "0", 0, &lan_stp_disabled) == 0);
+	assert(lan_stp_disabled == 0);
+
+	assert(firewall_nvram_match_status(
+		1, 0, "0", "0", 0, &lan_stp_disabled) == 0);
+	assert(lan_stp_disabled == 1);
+	assert(firewall_nvram_match_status(
+		1, 0, "1", "0", 0, &lan_stp_disabled) == 0);
+	assert(lan_stp_disabled == 0);
+
+	lan_stp_disabled = 23;
+	assert(firewall_nvram_match_status(
+		-1, EACCES, NULL, "0", 0, &lan_stp_disabled) == EACCES);
+	assert(lan_stp_disabled == 23);
+	assert(firewall_nvram_match_status(
+		-1, 0, NULL, "0", 0, &lan_stp_disabled) == EIO);
+	assert(lan_stp_disabled == 23);
+}
+
 int
 main(void)
 {
@@ -576,5 +602,6 @@ main(void)
 	test_checked_string_copy_rejects_truncation_and_invalid_arguments();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
+	test_lan_stp_selector_preserves_missing_default_and_backend_errors();
 	return 0;
 }

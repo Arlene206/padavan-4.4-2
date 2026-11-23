@@ -1457,6 +1457,24 @@ for band, block, stop_auth, stop_radio, status_var in (
     assert block.index(stop_radio) < block.index(
         f"rc_first_service_start_status(start_status, {status_var})"
     ), f"{band} boot status must be aggregated after rollback is attempted"
+
+# LAN STP is a boot-time bridge mutation: an unreadable selector must not be
+# collapsed into the legacy "not disabled" result and must skip both writes.
+boot_services_compact = "".join(boot_services.split())
+lan_stp_read = 'lan_stp_read_status=service_nvram_match_status("lan_stp","0",0,&lan_stp_disabled);'
+assert boot_services_compact.count(lan_stp_read) == 1
+lan_stp_read_at = boot_services_compact.index(lan_stp_read)
+lan_stp_error_at = boot_services_compact.index("if(lan_stp_read_status!=0)", lan_stp_read_at)
+lan_stp_enable_at = boot_services_compact.index("elseif(!lan_stp_disabled)", lan_stp_error_at)
+lan_stp_config_at = boot_services_compact.index("br_set_stp(IFNAME_BR,1)", lan_stp_enable_at)
+lan_forward_delay_at = boot_services_compact.index("br_set_fd(IFNAME_BR,15)", lan_stp_config_at)
+assert lan_stp_read_at < lan_stp_error_at < lan_stp_enable_at < lan_stp_config_at < lan_forward_delay_at
+lan_stp_error_block = boot_services.split("if (lan_stp_read_status != 0)", 1)[1].split(
+    "else if (!lan_stp_disabled)", 1
+)[0]
+assert "cannot read LAN STP selector; refusing bridge STP changes" in lan_stp_error_block
+assert "rc_first_service_start_status(start_status, lan_stp_read_status)" in lan_stp_error_block
+assert 'nvram_match("lan_stp", "0")' not in boot_services
 watchdog_start = services_source.split("int" + chr(10) + "start_watchdog_cpu(void)", 1)[1].split(chr(10) + "}", 1)[0]
 common_source = (root / "trunk/user/rc/src/common_ex.c").read_text()
 module_load_start = common_source.split("int" + chr(10) + "module_smart_load(", 1)[1].split(
