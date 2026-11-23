@@ -16,6 +16,9 @@ callback_policy = (root / "trunk/user/rc/src/lan_dhcp_callback_policy.h").read_t
 callback_test = (root / "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c").read_text()
 udhcpc_start_header = (root / "trunk/user/rc/src/udhcpc_start_readiness.h").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
+rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
+notify_header = (root / "trunk/user/shared/src/notify_rc.h").read_text()
+notify_queue_header = (root / "trunk/user/shared/src/rc_notify_queue.h").read_text()
 nvram_snapshot_policy = (root / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 nvram_snapshot_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 busybox = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
@@ -296,22 +299,54 @@ assert 'nvram_set_temp("lan_ipaddr_t", lease_ip)' not in bound
 iappd_start = bound.index('int iappd_status = system("/usr/bin/iappd.sh restart");')
 iappd_failure = bound.index("if (iappd_status != 0)", iappd_start)
 iappd_log = bound.index("IAPP daemon restart after lease update failed", iappd_failure)
-networkmap_gate = bound.index(
-    "if (lan_dhcp_networkmap_refresh_required(address_changed, is_renew))",
-    iappd_log,
+networkmap_probe = bound.index(
+    "networkmap_retry_pending = lan_dhcp_networkmap_retry_pending();", iappd_log
 )
-networkmap_start = bound.index("int networkmap_status = restart_networkmap();", networkmap_gate)
-networkmap_failure = bound.index("if (networkmap_status != 0)", networkmap_start)
-networkmap_log = bound.index("networkmap refresh after lease update failed", networkmap_failure)
-callback_return = bound.index("return lan_dhcp_bound_callback_status(0, hosts_status);", networkmap_log)
-assert iappd_start < iappd_failure < iappd_log < networkmap_gate < networkmap_start < networkmap_failure < networkmap_log < callback_return
+networkmap_gate = bound.index(
+    "if (lan_dhcp_networkmap_request_required(", networkmap_probe
+)
+pending_gate = bound.index("if (networkmap_retry_pending)", networkmap_gate)
+pending_queue = bound.index(
+    "networkmap_retry_status = notify_rc_status(RCN_RESTART_NETWORKMAP);",
+    pending_gate,
+)
+direct_start = bound.index("networkmap_status = restart_networkmap();", pending_gate)
+direct_failure = bound.index("if (networkmap_status != 0)", direct_start)
+deferred_queue = bound.index(
+    "networkmap_retry_status = notify_rc_status(RCN_RESTART_NETWORKMAP);",
+    direct_failure,
+)
+callback_return = bound.index("return lan_dhcp_bound_callback_status(0, hosts_status);", deferred_queue)
+assert iappd_start < iappd_failure < iappd_log < networkmap_probe < networkmap_gate < pending_gate
+assert pending_gate < pending_queue < direct_start < direct_failure < deferred_queue < callback_return
 assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
 assert bound.count("restart_networkmap()") == 1
-assert "lan_dhcp_networkmap_refresh_required(address_changed, is_renew)" in bound
-assert "lan_dhcp_networkmap_refresh_required(int address_changed, int is_renew)" in callback_policy
+assert "lan_dhcp_networkmap_request_required(" in bound
+assert "lan_dhcp_networkmap_request_required(int address_changed, int is_renew," in callback_policy
 assert "test_networkmap_refreshes_changed_address_renewals" in callback_test
-assert "lan_dhcp_networkmap_refresh_required(1, 1) == 1" in callback_test
-assert "lan_dhcp_networkmap_refresh_required(0, 1) == 0" in callback_test
+assert "test_networkmap_pending_refresh_retries_unchanged_renew" in callback_test
+assert "lan_dhcp_networkmap_request_required(0, 1, 0) == 0" in callback_test
+assert "lan_dhcp_networkmap_request_required(0, 1, 1) == 1" in callback_test
+
+networkmap_retry_probe = c_function_body(
+    lan, "lan_dhcp_networkmap_retry_pending(void)"
+)
+assert "rc_notify_queue_open_dir(DIR_RC_INCOMPLETE, 0)" in networkmap_retry_probe
+assert "rc_notify_queue_marker_is_safe_at(" in networkmap_retry_probe
+assert "RCN_RESTART_NETWORKMAP" in networkmap_retry_probe
+assert "saved_errno == ENOENT" in networkmap_retry_probe
+assert "close(dir_fd)" in networkmap_retry_probe
+assert '#include <rc_notify_queue.h>' in lan
+assert '#define RCN_RESTART_NETWORKMAP "restart_networkmap"' in notify_header
+assert "rc_notify_event_name_is_safe" in notify_queue_header
+notifications = c_function_body(rc_source, "handle_notifications(void)")
+networkmap_event = notifications.index(
+    "strcmp(entry->d_name, RCN_RESTART_NETWORKMAP) == 0"
+)
+networkmap_action = notifications.index("restart_networkmap()", networkmap_event)
+assert networkmap_event < networkmap_action
+assert "rc_notify_merge_action_result" in notifications[networkmap_event:networkmap_action]
+assert "action_result < 0" in notifications[networkmap_action:]
 assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in callback_test
 assert publish.count("notify_rc_status(RCN_RESTART_DHCPD)") == 2
 assert "notification_status = notify_rc_status(RCN_RESTART_DHCPD);" in publish

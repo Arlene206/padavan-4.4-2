@@ -20,6 +20,7 @@
 
 #define RCN_RESTART_FIREWALL		"restart_firewall"
 #define RCN_RESTART_DHCPD		"restart_dhcpd"
+#define RCN_RESTART_NETWORKMAP		"restart_networkmap"
 #define RCN_RESTART_RADV		"restart_radv"
 #define RCN_RESTART_DDNS		"restart_ddns"
 #define RCN_MANUAL_DDNS_UPDATE		"manual_ddns_update"

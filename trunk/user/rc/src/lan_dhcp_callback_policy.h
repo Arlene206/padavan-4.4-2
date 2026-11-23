@@ -87,6 +87,15 @@ lan_dhcp_networkmap_refresh_required(int address_changed, int is_renew)
 	return address_changed || !is_renew;
 }
 
+/* Retry a previously failed scan request even when this lease is unchanged. */
+static inline int
+lan_dhcp_networkmap_request_required(int address_changed, int is_renew,
+				     int retry_pending)
+{
+	return retry_pending ||
+		lan_dhcp_networkmap_refresh_required(address_changed, is_renew);
+}
+
 static inline int
 lan_dhcp_bound_callback_status(int transaction_status, int ancillary_status)
 {

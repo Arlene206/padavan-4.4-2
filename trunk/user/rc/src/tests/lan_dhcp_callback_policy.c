@@ -101,6 +101,15 @@ test_networkmap_refreshes_changed_address_renewals(void)
 }
 
 static void
+test_networkmap_pending_refresh_retries_unchanged_renew(void)
+{
+	assert(lan_dhcp_networkmap_request_required(0, 1, 0) == 0);
+	assert(lan_dhcp_networkmap_request_required(0, 1, 1) == 1);
+	assert(lan_dhcp_networkmap_request_required(1, 1, 0) == 1);
+	assert(lan_dhcp_networkmap_request_required(0, 0, 0) == 1);
+}
+
+static void
 test_transaction_failure_remains_fatal(void)
 {
 	assert(lan_dhcp_bound_callback_status(EIO, 0) == EIO);
@@ -163,6 +172,7 @@ main(void)
 	test_watchdog_and_monitor_notification_failures_are_ancillary();
 	test_ap_same_value_renew_always_refreshes_hosts();
 	test_networkmap_refreshes_changed_address_renewals();
+	test_networkmap_pending_refresh_retries_unchanged_renew();
 	test_transaction_failure_remains_fatal();
 	puts("LAN DHCP runtime/deconfig metadata, networkmap and ancillary callback policy: PASS");
 	return 0;

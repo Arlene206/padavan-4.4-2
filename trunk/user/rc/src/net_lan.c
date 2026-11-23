@@ -40,6 +40,7 @@
 #include "route_status_policy.h"
 #include "service_wait_policy.h"
 #include <process_pidfile.h>
+#include <rc_notify_queue.h>
 #include "process_presence_start_policy.h"
 #include "udhcpc_start_readiness.h"
 #include "dnsmasq_file.h"
@@ -3068,6 +3069,30 @@ lan_dhcp_bound_snapshot(struct lan_dhcp_bound_nvram_state *snapshot)
 
 
 static int
+lan_dhcp_networkmap_retry_pending(void)
+{
+	int dir_fd, marker_status, saved_errno;
+
+	dir_fd = rc_notify_queue_open_dir(DIR_RC_INCOMPLETE, 0);
+	if (dir_fd < 0)
+		return -(errno ? errno : EIO);
+
+	errno = 0;
+	marker_status = rc_notify_queue_marker_is_safe_at(
+		dir_fd, RCN_RESTART_NETWORKMAP, 0);
+	saved_errno = errno;
+	if (close(dir_fd) != 0 && marker_status == 0)
+		return -(errno ? errno : EIO);
+
+	if (marker_status == 0)
+		return 1;
+	if (saved_errno == ENOENT)
+		return 0;
+	return -(saved_errno ? saved_errno : EIO);
+}
+
+
+static int
 udhcpc_lan_bound(char *lan_ifname, int is_renew)
 {
 	char *value, *lease_ip, *lease_netmask, *lease_domain;
@@ -3084,7 +3109,8 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	int watchdog_status, monitor_status;
 	int nvram_rollback_status = 0, network_rollback_status = 0;
 	int network_rollback_cleanup_status = 0, network_transaction_applied = 0;
-	int refresh_hosts;
+	int refresh_hosts, networkmap_retry_pending;
+	int networkmap_status, networkmap_retry_status;
 	int is_ap_mode = 1, refresh_as_ap = 1;
 	int ap_mode_status, refresh_mode_status;
 	struct dhcp_lease_nvram_value lease_state[7];
@@ -3333,13 +3359,40 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 			udhcpc_lan_state, lease_ip, lease_netmask, gateway_buf, lease_dur);
 	}
 
-	if (lan_dhcp_networkmap_refresh_required(address_changed, is_renew)) {
-		int networkmap_status = restart_networkmap();
+	/*
+	 * A failed networkmap refresh is retained in PID 1's incomplete-action
+	 * directory. Requeue it on every later BOUND/RENEW callback, including
+	 * same-address renewals, until the daemon confirms a full-scan request.
+	 */
+	networkmap_retry_pending = lan_dhcp_networkmap_retry_pending();
+	if (networkmap_retry_pending < 0) {
+		logmessage("DHCP LAN Client",
+			   "cannot inspect pending networkmap refresh (status=%d)",
+			   -networkmap_retry_pending);
+		networkmap_retry_pending = 0;
+	}
 
-		if (networkmap_status != 0)
-			logmessage("DHCP LAN Client",
-				   "networkmap refresh after lease update failed on %s (status=%d)",
-				   lan_ifname, networkmap_status);
+	if (lan_dhcp_networkmap_request_required(
+		address_changed, is_renew, networkmap_retry_pending)) {
+		if (networkmap_retry_pending) {
+			networkmap_retry_status = notify_rc_status(RCN_RESTART_NETWORKMAP);
+			if (networkmap_retry_status != 0)
+				logmessage("DHCP LAN Client",
+					   "cannot requeue pending networkmap refresh (errno=%d)",
+					   errno ? errno : EIO);
+		} else {
+			networkmap_status = restart_networkmap();
+			if (networkmap_status != 0) {
+				logmessage("DHCP LAN Client",
+					   "networkmap refresh after lease update failed on %s (status=%d)",
+					   lan_ifname, networkmap_status);
+				networkmap_retry_status = notify_rc_status(RCN_RESTART_NETWORKMAP);
+				if (networkmap_retry_status != 0)
+					logmessage("DHCP LAN Client",
+						   "cannot queue deferred networkmap refresh (errno=%d)",
+						   errno ? errno : EIO);
+			}
+		}
 	}
 
 	return lan_dhcp_bound_callback_status(0, hosts_status);

@@ -2718,6 +2718,11 @@ handle_notifications(void)
 				action_result = rc_notify_merge_action_result(action_result, restart_dhcpd());
 			}
 		}
+		else if (strcmp(entry->d_name, RCN_RESTART_NETWORKMAP) == 0)
+		{
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_networkmap());
+		}
 		else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)
 		{
 			action_result = rc_notify_merge_action_result(action_result, restart_upnp());
