@@ -2973,14 +2973,15 @@ int trgmii_set_7530(void)
 	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
 	if (status != 0)
 		goto mdio_error;
-	if (regValue == 0x3) /* 25MHz */
+	if (regValue == 0x3) { /* 25MHz */
 		status = ra_switch_mdio_write(NULL, 0, 14, 0x57);
 		if (status != 0)
 			goto mdio_error;
-	else
+	} else {
 		status = ra_switch_mdio_write(NULL, 0, 14, 0x87);
 		if (status != 0)
 			goto mdio_error;
+	}
 
 /* PLL BIAS en */
 	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);

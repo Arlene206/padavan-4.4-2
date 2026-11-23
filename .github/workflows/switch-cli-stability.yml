@@ -708,6 +708,8 @@ jobs:
           assert "mii_mgr_write(" not in trgmii_7621
           assert "mii_mgr_write_cl45(" not in trgmii_7621
           assert "status = trgmii_set_7530();" in setup_internal
+          assert "if (regValue == 0x3) { /* 25MHz */" in trgmii_7621
+          assert "} else {" in trgmii_7621
           assert "if (ei_local->chip_name == MT7623_FE) {\\n\\t\\tstatus = mt7530_trgmii_clock_setting(xtal_mode);" in setup_internal
           phy_setup = source.split("static int mt7530_phy_setting(void)", 1)[1].split(
               "static void ra_switch_mdio_reset_delay(", 1
