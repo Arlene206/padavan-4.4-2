@@ -14,6 +14,8 @@ control_source = (control_dir / "cmd-control.c").read_text()
 control_server_source = (control_dir / "cmd.c").read_text()
 control_request_policy = (control_dir / "cmd-request-policy.h").read_text()
 control_request_test = (control_dir / "tests/cmd-request-policy.c").read_text()
+error_utils_source = (ROOT / "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/utils.c").read_text()
+error_utils_test = (ROOT / "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/tests/l2tp_error_message_va_list.c").read_text()
 control_policy = (control_dir / "cmd-control-status.h").read_text()
 control_test = (control_dir / "tests/cmd-control-status.c").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
@@ -333,4 +335,21 @@ for path in ("trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-request-policy.h",
             "WAN route workflow path filter misses " + path)
 require("Compile and run rp-l2tp control request framing regression" in workflow,
         "missing l2tp-control request framing host regression compile/run step")
+error_formatter = body(error_utils_source,
+    "l2tp_set_errmsg(char const *fmt, ...)")
+require("va_start(format_args, fmt)" in error_formatter and
+        "vsnprintf(errmsg, MAX_ERRMSG_LEN, fmt, format_args)" in error_formatter and
+        "va_end(format_args)" in error_formatter and
+        "va_start(log_args, fmt)" in error_formatter and
+        "vsyslog(LOG_ERR, fmt, log_args)" in error_formatter and
+        "va_end(log_args)" in error_formatter,
+        "l2tp_set_errmsg must format and syslog with independent live va_list instances")
+require("vsyslog(LOG_ERR, fmt, ap)" not in error_formatter,
+        "l2tp_set_errmsg must not reuse a va_list after va_end")
+for case in ("test_multiple_argument_types",
+             "test_repeated_calls_get_fresh_argument_lists"):
+    require(case in error_utils_test and case + "()" in error_utils_test,
+            "missing RP-L2TP error logging regression: " + case)
+require("Compile and run rp-l2tp error-message va_list regression" in workflow,
+        "missing RP-L2TP error-message va_list host regression compile/run step")
 print("PPP NVRAM config and rp-l2tp command status contracts: PASS")

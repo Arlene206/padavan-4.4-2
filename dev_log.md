@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fix RP-L2TP error logging's ended va_list reuse
+
+- `l2tp_set_errmsg()` passed its `va_list` to `vsnprintf()`, called `va_end()`, and then passed that ended list to `vsyslog()`. Reusing a `va_list` after `va_end` is undefined behavior; the log record could contain corrupted arguments or fail while handling an error.
+- The formatter and syslog paths now each receive a fresh `va_start()` / `va_end()` pair. Added a host regression that intercepts `vsyslog()` and checks mixed string/integer arguments and successive calls, plus source-contract and WAN/XY-C1 trigger coverage.
+
+---
+
 ## 2026-11-23 UTC — Match watchdog signal workflow push and pull-request inputs
 
 - The watchdog workflow's first regression compiles and executes `watchdog_httpd_probe_policy.h` and its test, but both paths were present in `push.paths` and absent from `pull_request.paths`. A pull request changing either dependency alone would not run the regression.
