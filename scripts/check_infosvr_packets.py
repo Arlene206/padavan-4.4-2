@@ -70,12 +70,13 @@ ibox = read("trunk/user/shared/src/include/ibox.h")
 workflow = read(".github/workflows/infosvr-packet-stability.yml")
 
 for token in ("memset(packet, 0, size)", "errno = EINVAL",
-              "received >= required", "required != 0"):
+              "received >= required", "required != 0",
+              "received <= capacity", "capacity != 0"):
     assert token in policy, token
 
 reader = function_body(source, "read_packet(int fd, void *packet, int size)")
 prepare = reader.index("infosvr_packet_buffer_prepare(packet, (size_t)size)")
-receive = reader.index("recvfrom(fd, packet, (size_t)size")
+receive = reader.index("recvfrom(fd, packet, (size_t)size, MSG_TRUNC")
 assert prepare < receive
 assert "sizeof(*packet)" not in reader
 assert "return res;" in reader
@@ -176,6 +177,10 @@ assert process_call < stop_after_process < cleanup_call
 select_error = main.index("if (res < 0 && infosvr_io_error_retryable(errno))")
 select_fatal = main.index('perror("select")', select_error)
 read_call = main.index("res = read_packet(g_fd4, packet, sizeof(packet))")
+oversize_gate = main.index("infosvr_packet_length_fits((size_t)res, sizeof(packet))", read_call)
+min_header_gate = main.index("if (res < (int)sizeof(IBOX_COMM_PKT_HDR))", oversize_gate)
+assert oversize_gate < min_header_gate
+assert "MSG_TRUNC" in reader
 recv_error = main.index("if (res < 0) {", read_call)
 recv_retry = main.index("if (infosvr_io_error_retryable(errno))", recv_error)
 recv_fatal = main.index('perror("recvfrom")', recv_retry)

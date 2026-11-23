@@ -51,6 +51,12 @@ main(void)
 			  "complete extended MAC prefix is accepted");
 	failures += check(!infosvr_packet_length_valid(512, 0),
 			  "zero required header length is rejected");
+	failures += check(infosvr_packet_length_fits(512, 512),
+			  "datagram filling the receive buffer is accepted");
+	failures += check(!infosvr_packet_length_fits(513, 512),
+			  "oversized datagram is rejected");
+	failures += check(!infosvr_packet_length_fits(1, 0),
+			  "zero receive capacity is rejected");
 
 	if (failures)
 		return 1;

@@ -115,7 +115,7 @@ int read_packet(int fd, void *packet, int size)
 		return -1;
 
 	do {
-		res = recvfrom(fd, packet, (size_t)size, 0, NULL, NULL);
+		res = recvfrom(fd, packet, (size_t)size, MSG_TRUNC, NULL, NULL);
 	} while (res < 0 && errno == EINTR &&
 		 !INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested));
 
@@ -354,6 +354,9 @@ int main(int argc, char *argv[])
 			exit_status = 1;
 			break;
 		}
+		/* MSG_TRUNC reports the full UDP datagram length on Linux. */
+		if (!infosvr_packet_length_fits((size_t)res, sizeof(packet)))
+			continue;
 		if (res < (int)sizeof(IBOX_COMM_PKT_HDR))
 			continue;
 

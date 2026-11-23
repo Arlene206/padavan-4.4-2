@@ -18,6 +18,13 @@ infosvr_packet_buffer_prepare(void *packet, size_t size)
 	return 0;
 }
 
+/* Reject a datagram whose real wire length exceeds its receive buffer. */
+static inline int
+infosvr_packet_length_fits(size_t received, size_t capacity)
+{
+	return capacity != 0 && received <= capacity;
+}
+
 /* Validate the minimum wire prefix before a caller dereferences it. */
 static inline int
 infosvr_packet_length_valid(size_t received, size_t required)
