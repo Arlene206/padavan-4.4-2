@@ -1362,7 +1362,10 @@ jobs:
           assert "reload_status = rc_first_service_start_status(reload_status," in hnat_reload
           assert "rc_hwnat_configure_radio_policy(" in hnat_reload
           assert "if (hwnat_loaded == 1)" in hnat_reload
-          assert "hwnat_allow, 1, nvram_get_int(\"hw_nat_mode\")" in hnat_reload
+          assert "hwnat_allow, 1, hw_nat_mode" in hnat_reload
+          assert "rc_nat_offload_settings_read(" in hnat_reload
+          assert "hw_nat_mode = nat_offload_settings.hw_nat_mode;" in hnat_reload
+          assert 'nvram_get_int("hw_nat_mode")' not in hnat_reload
           assert "is_hwnat_loaded();" not in hnat_reload
           assert "if (hwnat_loaded && !hwnat_allow)" not in hnat_reload
           radio_setter = body(net, "hwnat_set_radio_registration(const char *ifname, int enabled)")

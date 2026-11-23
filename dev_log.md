@@ -1,3 +1,12 @@
+## 2026-11-23 07:20 UTC — Fix stale HW NAT selector assertions in shared CI contracts
+
+- Exact `6deab04...` Actions showed several unrelated-looking workflow failures sharing one cause: `scripts/check_modem_wan_start_status.py` still expected `nvram_get_int("hw_nat_mode")` in `reload_nat_modules()`, although the source had moved to the checked `rc_nat_offload_settings_read()` snapshot and a local `hw_nat_mode` value. Firewall Startup, XY-C1, Process fail-closed and USB modem identity all stopped at that assertion.
+- HTTPD security had a duplicate inline assertion in `.github/workflows/httpd-security.yml`; its job failed on the same obsolete expression. Wireless radio's larger inline checker reached its last group of checks and then failed at line 162 for the same HW NAT expectation after prior wireless, SKU, bridge and guest-LAN checks passed.
+- Updated the shared Python checker to assert the checked snapshot call, local mode assignment and absence of the old unchecked getter. Updated the HTTPD inline contract identically. These are checker-only fixes; no production code behavior changed.
+- `93bbadd...` exact follow-up runs Wireless `45128993444`, XY-C1 `45128993406` and AI docs `45128993523` were IN_PROGRESS at the last lookup. The checker fixes in THIS COMMIT need their own exact-head Actions. No local checkout, compile/test or firmware build is claimed.
+- Parent SHA: `93bbadd21165a9458e97b166a47d4e0cfc1ab447`. Resulting atomic checker/governance commit: THIS COMMIT.
+
+---
 ## 2026-11-23 07:15 UTC — Correct wireless MLME source-contract assertion
 
 - A post-commit diff review found one stale assertion in `.github/workflows/wireless-radio-state.yml`: the MII publish callback now calls the status-returning `mlme_state_rt(!!is_on)`, but the checker expected the removed two-argument direct `nvram_set_int` call.

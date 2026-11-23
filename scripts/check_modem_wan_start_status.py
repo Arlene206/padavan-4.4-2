@@ -1316,7 +1316,10 @@ assert "rc_hwnat_command_status_policy(command_status, saved_errno)" in compact(
 assert "WIFEXITED(wait_status)" in HWNAT_POLICY_SOURCE
 assert "rc_hwnat_configure_radio_policy(" in nat_reload
 assert "if (hwnat_loaded == 1)" in nat_reload
-assert "hwnat_allow, 1, nvram_get_int(\"hw_nat_mode\")" in nat_reload
+assert "hwnat_allow, 1, hw_nat_mode" in nat_reload
+assert "rc_nat_offload_settings_read(" in nat_reload
+assert "hw_nat_mode = nat_offload_settings.hw_nat_mode;" in nat_reload
+assert 'nvram_get_int("hw_nat_mode")' not in nat_reload
 assert "is_hwnat_loaded();" not in nat_reload
 assert "if (hwnat_loaded && !hwnat_allow)" not in nat_reload
 assert "hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug" in nat_reload
