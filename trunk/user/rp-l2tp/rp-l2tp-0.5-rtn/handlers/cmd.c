@@ -348,7 +348,7 @@ static void
 cmd_exit(EventSelector *es,
 	 int fd)
 {
-    static char const reply[] = "OK Shutting down";
+    static char reply[] = "OK Shutting down";
 
     /*
      * The event write must complete before the daemon exits; queueing a

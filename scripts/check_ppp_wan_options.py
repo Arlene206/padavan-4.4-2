@@ -325,6 +325,7 @@ require("if (!EventTcp_ReadBuf(" in control_acceptor and "close(fd);" in control
 require("if (!EventTcp_WriteBuf(" in control_reply and "close(fd);" in control_reply,
         "L2TP control reply must close sockets when transmit-event allocation fails")
 require("EventTcp_WriteBuf(" in control_exit and "cmd_exit_finish" in control_exit and
+        'static char reply[] = "OK Shutting down";' in control_exit and
         "cmd_reply(" not in control_exit,
         "L2TP shutdown must defer exit until its acknowledgement is written")
 require("close(fd);" in control_exit_finish and

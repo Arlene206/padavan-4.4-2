@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Match the legacy EventTcp_WriteBuf buffer type
+
+- Review against `event_tcp.h` confirmed `EventTcp_WriteBuf()` accepts `char *`, not `const char *`. Made the shutdown acknowledgement buffer writable static storage to avoid a discarded-qualifier warning in the firmware build; the event API copies the bytes into its own state before queuing.
+
+---
+
 ## 2026-11-23 UTC — Preserve LLDT live PID markers during startup
 
 - `S75lld2` unconditionally removed `/var/run/lld2d*.pid` before launching the daemon. Re-entering the start wrapper while an LLDT daemon was live therefore erased the PID evidence that `osl_write_pidfile()` uses to reject a second instance; the sidecar lock serializes publication but cannot recover a marker deleted before the next launch.
