@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Repair Switch workflow YAML after mis-targeted marker insertion
+
+- The exact-SHA run for `e03fb56fd2be9f31110c1b133f137726816c7966` failed before a job was created: the workflow YAML was malformed because the five PHY-power regression markers were inserted into the first unrelated `for marker` tuple in the file, not the MTK ESW tuple. This was a workflow-editing error, not evidence of a C regression.
+- Rebuilt the Switch workflow from its last valid version (`c6378b894f5b210c15d173290f9eacc8b1df4ed3`), inserted power-case markers into the unique MTK MAC-table test tuple, and added the PHY power/error-propagation source assertions next to the existing bridge-isolation checks. The production C/header/test changes remain unchanged; exact-SHA reruns are required.
+- The e03 XY-C1 and NVRAM jobs were still running at last poll. No Build/TRX/artifact or NVRAM PASS is claimed yet.
+
+---
+
 ## 2026-11-23 UTC — Fail closed on MTK PHY power-control MDIO errors
 
 - Found a second unchecked PHY control path in `esw_port_phy_power()`: a failed read of control register 0 left the local word at `0x3100`, so the function inferred a powered-on state incorrectly as powered-off. For a requested power-off this could return “unchanged” and omit the WAN link-down settle delay. The function also ignored failed writes and updated its cached selector anyway.

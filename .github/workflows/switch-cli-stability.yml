@@ -445,12 +445,7 @@ jobs:
               "test_search_timeout_is_bounded",
               "test_invalid_wait_inputs_fail",
               "switch table-engine bounded wait policy: PASS",
-                        "test_phy_power_set_reads_and_writes_before_reporting_change",
-              "test_phy_power_set_skips_unchanged_state_but_honors_force",
-              "test_phy_power_set_read_and_write_errors_are_propagated",
-              "test_phy_power_set_normalizes_positive_callback_failure",
-              "test_phy_power_set_rejects_invalid_inputs",
-):
+          ):
               assert marker in test, marker
           filters = workflow.split("jobs:", 1)[0]
           push, pull_request = filters.split("  pull_request:", 1)
@@ -681,26 +676,14 @@ jobs:
               "test_mac_table_clear_treats_read_failure_as_unknown",
               "test_mac_table_clear_times_out_when_busy_never_clears",
               "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
+              "test_phy_power_set_reads_and_writes_before_reporting_change",
+              "test_phy_power_set_skips_unchanged_state_but_honors_force",
+              "test_phy_power_set_read_and_write_errors_are_propagated",
+              "test_phy_power_set_normalizes_positive_callback_failure",
+              "test_phy_power_set_rejects_invalid_inputs",
           ):
               assert marker in test and marker + "();" in test, marker
 
-          power_function = source.split("static int esw_port_phy_power", 1)[1].split(
-              "static void change_ports_power", 1
-          )[0]
-          assert "mtk_esw_phy_power_set(" in power_function
-          assert "if (status != 0)" in power_function
-          assert "return status;" in power_function
-          assert "g_port_phy_power[phy_port_id] = power_on ? 1 : 0;" in power_function
-          wan_power = source.split("static int change_wan_lan_ports_power", 1)[1].split(
-              "static int change_bridge_mode", 1
-          )[0]
-          assert "return status;" in wan_power
-          assert "*any_power_changed |= port_power_changed;" in wan_power
-          bridge.index("power_status = change_wan_lan_ports_power(0, 1, &power_changed)")
-          assert "if (power_status == 0)" in bridge
-          assert "if (power_changed || power_status != 0)" in bridge
-          assert "restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)" in bridge
-          assert "return isolation_status;" in bridge
           assert "mt7530_gsw_wait_wt_mac" not in source
           mac_start = source.index("int mt7530_gsw_mac_table_clear(int static_only)")
           mac_end = source.index("u32 esw_get_port_mib_rgoc", mac_start)
@@ -721,6 +704,24 @@ jobs:
           assert "g_wan_bwan_isolation = previous_bwan_isolation;" in bridge[failure_gate:]
           assert "return isolation_status;" in bridge[failure_gate:]
           assert power_restore < failure_gate
+
+          power_function = source.split("static int esw_port_phy_power", 1)[1].split(
+              "static void change_ports_power", 1
+          )[0]
+          assert "mtk_esw_phy_power_set(" in power_function
+          assert "if (status != 0)" in power_function
+          assert "return status;" in power_function
+          assert "g_port_phy_power[phy_port_id] = power_on ? 1 : 0;" in power_function
+          assert "mii_mgr_read(" not in power_function and "mii_mgr_write(" not in power_function
+          wan_power = source.split("static int change_wan_lan_ports_power", 1)[1].split(
+              "static int change_bridge_mode", 1
+          )[0]
+          assert "return status;" in wan_power
+          assert "*any_power_changed |= port_power_changed;" in wan_power
+          assert "power_status = change_wan_lan_ports_power(0, 1, &power_changed)" in bridge
+          assert "restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)" in bridge
+          assert "if (power_changed || power_status != 0)" in bridge
+
           for token in (
               "MTK_ESW_MAC_TABLE_BUSY_MASK",
               "MTK_ESW_MAC_TABLE_POLL_LIMIT",
