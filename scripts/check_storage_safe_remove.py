@@ -359,9 +359,12 @@ for token in ("storage_deferred_event_action_should_run",
               "test_deferred_cleanup_failure_remains_retryable();"):
     require(token in deferred_storage_policy + deferred_storage_test,
             "deferred unplug action/ack regression missing " + token)
+storage_use_start = deferred_storage.index("#if defined (USE_STORAGE)")
+storage_use_else = deferred_storage.index("#else", storage_use_start)
+storage_use_declarations = deferred_storage[storage_use_start:storage_use_else]
 require(
     "storage_unplug_pending=1;" in deferred_storage_code
-    and deferred_storage_code.count("storage_should_start=0;") == 1
+    and storage_use_declarations.count("storage_should_start=0;") == 1
     and deferred_storage_code.index("storage_should_start=0;") < deferred_storage_code.index(unplug_read)
     and "if(storage_dispatch_status!=0)" in deferred_storage_code
     and "alarm(5);" in deferred_storage_code

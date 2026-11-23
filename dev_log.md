@@ -1,3 +1,12 @@
+## 2026-11-23 06:31 UTC — Scope deferred storage startup initialization check to USE_STORAGE branch
+
+- Exact USB storage hotplug run `45123777839` on `5d8a220b7e16375d0308704c061e066d4304b513` passed the whole-caller-graph step, then failed in `scripts/check_storage_safe_remove.py` at the deferred-worker assertion. The checker counted `storage_should_start = 0` across both preprocessor branches; the function intentionally declares that local once in the `USE_STORAGE` branch and once in the non-integrated-storage branch, so the global count of one was invalid.
+- Corrected the source contract to count the initialization inside the `#if defined (USE_STORAGE)` declaration branch only. Retained the ordering assertion before the first checked unplug read, the dispatch-error gate, retry alarm, and start gate; no production behavior or assertion coverage was removed.
+- Exact-head USB storage hotplug and AI handoff runs required for this checker-only correction. No local checkout or shell test claimed.
+- Resulting commit: pending.
+
+---
+
 ## 2026-11-23 06:26 UTC — Move MiniDLNA assertions outside the Process launch loop
 
 - Commit `1d90559f4ca90a168942b1334763022ce40f30b9` added checked `apps_dms` assertions to the Process integration checker but inserted them inside the generic storage-launch loop before its remaining indented checks, breaking the Python block structure.
