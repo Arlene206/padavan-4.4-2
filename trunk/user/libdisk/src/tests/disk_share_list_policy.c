@@ -5,10 +5,51 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "disk_share_list_policy.h"
 #include "disk_share_account_nvram_policy.h"
 #include "router_account_policy.h"
+
+static void
+test_folder_entry_status_rejects_symlinks_and_non_directories(void)
+{
+	char directory_template[] = "/tmp/disk-share-entry-XXXXXX";
+	char real_path[256], link_path[256], missing_path[256];
+	struct stat entry_status;
+	char *directory;
+
+	directory = mkdtemp(directory_template);
+	assert(directory != NULL);
+	assert(snprintf(real_path, sizeof(real_path), "%s/real", directory) > 0);
+	assert(snprintf(link_path, sizeof(link_path), "%s/link", directory) > 0);
+	assert(snprintf(missing_path, sizeof(missing_path), "%s/missing", directory) > 0);
+	assert(mkdir(real_path, 0700) == 0);
+	assert(symlink(real_path, link_path) == 0);
+
+	assert(lstat(real_path, &entry_status) == 0);
+	assert(disk_share_folder_entry_status(
+		0, 0, entry_status.st_mode) == 1);
+	assert(lstat(link_path, &entry_status) == 0);
+	assert(disk_share_folder_entry_status(
+		0, 0, entry_status.st_mode) == 0);
+
+	errno = 0;
+	assert(lstat(missing_path, &entry_status) == -1);
+	assert(errno == ENOENT);
+	assert(disk_share_folder_entry_status(-1, errno, 0) == 0);
+	errno = 0;
+	assert(disk_share_folder_entry_status(-1, EACCES, 0) == -1);
+	assert(errno == EACCES);
+	errno = 0;
+	assert(disk_share_folder_entry_status(-1, 0, 0) == -1);
+	assert(errno == EIO);
+
+	assert(unlink(link_path) == 0);
+	assert(rmdir(real_path) == 0);
+	assert(rmdir(directory) == 0);
+}
+
 
 static void
 test_invalid_mount_paths_clear_outputs(void)
@@ -2364,6 +2405,7 @@ main(void)
 	assert(router_account_name_is_reserved_after_read("admin", 1, NULL));
 
 	test_folder_rollback_preserves_permissions_when_directory_survives();
+	test_folder_entry_status_rejects_symlinks_and_non_directories();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();
 	test_folder_rename_batch_restores_directory_after_snapshot_failure();
 	test_folder_rename_batch_restores_files_and_directory_after_write_failure();

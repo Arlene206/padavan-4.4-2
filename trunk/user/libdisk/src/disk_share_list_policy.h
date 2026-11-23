@@ -6,9 +6,27 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+
+/*
+ * Classify a storage entry without following symbolic links. Missing entries
+ * are stale cache data and are skipped; other stat errors invalidate the scan
+ * so callers never publish an incomplete share inventory.
+ */
+static inline int
+disk_share_folder_entry_status(int stat_result, int stat_error, mode_t mode)
+{
+	if (stat_result == 0)
+		return S_ISDIR(mode) ? 1 : 0;
+	if (stat_error == ENOENT)
+		return 0;
+	errno = stat_error ? stat_error : EIO;
+	return -1;
+}
+
 
 /*
  * Reset caller-owned outputs before rejecting invalid inputs. This keeps

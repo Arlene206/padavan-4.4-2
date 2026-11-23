@@ -72,6 +72,8 @@ require('#include "disk_share_list_policy.h"' in DISK_SOURCE,
         "disk_share.c must include the output-preparation policy")
 require("disk_share_list_prepare_outputs" in POLICY,
         "shared output-preparation policy is missing")
+require("disk_share_folder_entry_status" in POLICY,
+        "real-directory-only storage share entry policy is missing")
 
 folder_list_reader = function_body(
     DISK_SOURCE,
@@ -90,6 +92,11 @@ cache_read = folder_list_reader_compact.index("list_info=read_whole_file(list_fi
 require(cache_missing < cache_refresh < cache_failure < cache_cleanup <
         cache_restore_errno < cache_return < cache_read,
         "folder-list reads must stop on cache initialization failure, release the path buffer, and preserve the initialization errno")
+
+require("lstat(folder_path,&entry_status)" in folder_list_reader_compact and
+        "disk_share_folder_entry_status" in folder_list_reader_compact and
+        "valid_count" in folder_list_reader_compact,
+        "cached folder names must be revalidated against real non-symlink directories before sharing")
 
 for signature in (
     "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)",
@@ -119,6 +126,12 @@ error_gate = compact_all_folders.index("if (read_status < 0)", eof_gate)
 errno_restore = compact_all_folders.index(
     "errno = read_error != 0 ? read_error : EIO;", error_gate
 )
+require(read_entry < eof_gate < error_gate < errno_restore and
+        "lstat(testdir,&entry_status)" in compact_all_folders and
+        "disk_share_folder_entry_status" in compact_all_folders and
+        "test_if_dir(testdir)" not in compact_all_folders,
+        "directory enumeration must reject symlinked/non-directory entries without following them")
+
 require(read_entry < eof_gate < error_gate < errno_restore,
         "directory iteration must distinguish clean EOF from readdir errors")
 failure_cleanup = compact_all_folders[compact_all_folders.index("failed:"):]
@@ -1025,6 +1038,7 @@ require(del_inventory < del_begin < del_validate < del_plan < del_stage <
         "folder deletion must preflight metadata, stage the directory, batch-publish permissions and compensate files/directory/list on failure")
 
 for marker in (
+    "test_folder_entry_status_rejects_symlinks_and_non_directories",
     "test_folder_rename_batch_commits_directory_snapshot_and_permissions",
     "test_folder_rename_batch_restores_directory_after_snapshot_failure",
     "test_folder_rename_batch_restores_files_and_directory_after_write_failure",
@@ -1111,7 +1125,8 @@ mod_folder_body = function_body(
     "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
 )
 mod_folder_compact = "".join(mod_folder_body.split())
-mod_source_exists = mod_folder_compact.index("if(test_if_dir(full_path)!=1)")
+mod_source_exists = mod_folder_compact.index("lstat(full_path,&target_stat)")
+mod_no_follow = mod_folder_compact.index("disk_share_folder_entry_status(result,errno", mod_source_exists)
 mod_snapshot_lookup = mod_folder_compact.index(
     "test_if_exist_folder_in_mount_path(mount_path,folder)", mod_source_exists
 )
@@ -1122,7 +1137,7 @@ mod_rename_batch = mod_folder_compact.index(
     "disk_share_folder_rename_batch(full_path,new_full_path,mount_path",
     mod_stale_refresh
 )
-require(mod_source_exists < mod_snapshot_lookup < mod_stale_refresh < mod_rename_batch and
+require(mod_source_exists < mod_no_follow < mod_snapshot_lookup < mod_stale_refresh < mod_rename_batch and
         "add_folder(mount_path,folder)" not in mod_folder_compact[mod_snapshot_lookup:mod_rename_batch] and
         "rename(full_path,new_full_path)" not in mod_folder_compact,
         "mod_folder must refresh stale folder metadata, then delegate directory/ACL publication and rollback to the tested rename batch")

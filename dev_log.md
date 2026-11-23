@@ -1,3 +1,12 @@
+## 2026-11-23 12:19 UTC+8 — Reject symlinked directories from the libdisk share inventory
+
+- Audited Samba's private-share builder: it consumes `get_folder_list_in_mount_path()` and constructs `path = mount_point/folder_name`. Both the fresh scanner and persisted folder-list cache previously accepted directory symlinks (the scanner used `opendir()`, and the cache trusted stored names), which could expose a path outside the intended removable-volume subtree. `mod_folder()` also used a symlink-following directory check before rename.
+- Added a shared `lstat()` status policy. Fresh scans now accept only real directories; cached names are revalidated and compacted before publication, skipping missing/stale/symlink/non-directory entries while failing closed on other stat errors. `mod_folder()` now applies the same no-follow gate before renaming. The GNU89 regression builds a real directory and symlink and checks real-dir accept, symlink reject, ENOENT skip, and EACCES/unknown-error fail-closed semantics. Source contracts pin all three call paths.
+- Parent main SHA `a835089b13114527c9acafe5edab3fddaa046725`. Parent libdisk run `45104677566` on `cdc137f84a2d5c704198184d5b014d18b3ffe937` passed both ASan/UBSan C regression binaries but failed its final checker on a stale direct-rename locator; checker-only fix `a835089b13114527c9acafe5edab3fddaa046725` updated the transaction helper assertion. This code change triggers a fresh exact-head libdisk run. NVRAM audit `45104677474` and XY-C1 `45104677571` on `cdc137f` were still in progress at last poll. No L3/L4 result claimed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 12:14 UTC+8 — Align libdisk source contract with folder rename transaction helper
 
 - Exact-head libdisk run `45104677566` on parent `cdc137f84a2d5c704198184d5b014d18b3ffe937` passed both GNU89 ASan/UBSan regression binaries, including the new four-case function-level folder-rename state-machine tests. Its final Python source contract failed with `ValueError: substring not found` because an older assertion still searched `mod_folder()` for the direct `rename(full_path,new_full_path)` call after commit `cdc137f84a2d5c704198184d5b014d18b3ffe937` delegated that operation to `disk_share_folder_rename_batch()`.

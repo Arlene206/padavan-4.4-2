@@ -194,9 +194,13 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 	char target[32];
 	char *list_file = NULL, *list_info = NULL;
 	char *follow_info, *line_end, *endptr;
-	int i, count, saved_errno;
+	int i, count, saved_errno, valid_count = 0;
+	int stat_result, stat_error, directory_status;
 	long parsed_count;
+	struct stat entry_status;
+	char *folder_path = NULL;
 	size_t list_file_len, list_info_len, name_len;
+	size_t mount_len, folder_path_size;
 	int target_len;
 
 	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
@@ -246,6 +250,17 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 		return 0;
 	}
 
+	/* Revalidate cached entries without following attacker-controlled links. */
+	mount_len = strlen(mount_path);
+	if (mount_len > (size_t)-1 - 257) {
+		errno = ENAMETOOLONG;
+		goto invalid_list;
+	}
+	folder_path_size = mount_len + 257;
+	folder_path = (char *)malloc(folder_path_size);
+	if (!folder_path)
+		goto invalid_list;
+
 	/* Each entry needs at least: newline + "sh_nameN=" + newline. */
 	if ((size_t)count > list_info_len / 11)
 		goto invalid_list;
@@ -280,16 +295,42 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 		tmp_folder_list[i][name_len] = '\0';
 		if (!is_valid_folder_name(tmp_folder_list[i]))
 			goto invalid_entries;
+
+		target_len = snprintf(folder_path, folder_path_size, "%s/%s",
+		                     mount_path, tmp_folder_list[i]);
+		if (target_len < 0 || (size_t)target_len >= folder_path_size) {
+			errno = ENAMETOOLONG;
+			goto invalid_entries;
+		}
+		stat_result = lstat(folder_path, &entry_status);
+		stat_error = errno;
+		directory_status = disk_share_folder_entry_status(
+			stat_result, stat_error,
+			stat_result == 0 ? entry_status.st_mode : (mode_t)0);
+		if (directory_status < 0)
+			goto invalid_entries;
+		if (directory_status == 0) {
+			free(tmp_folder_list[i]);
+			tmp_folder_list[i] = NULL;
+			continue;
+		}
+		if (valid_count != i) {
+			tmp_folder_list[valid_count] = tmp_folder_list[i];
+			tmp_folder_list[i] = NULL;
+		}
+		++valid_count;
 	}
 
+	free(folder_path);
 	free(list_info);
-	*sh_num = count;
+	*sh_num = valid_count;
 	*folder_list = tmp_folder_list;
 	return 0;
 
 invalid_entries:
 	free_2_dimension_list(&count, &tmp_folder_list);
 invalid_list:
+	free(folder_path);
 	free(list_info);
 	return -1;
 }
@@ -301,6 +342,8 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 	char **tmp_folder_list = NULL, **new_folder_list;
 	int count = 0, i;
 	int read_status, read_error, saved_errno;
+	int stat_result, stat_error, directory_status;
+	struct stat entry_status;
 	size_t mount_len, name_len, path_len;
 
 	if (disk_share_list_prepare_outputs(mount_path, sh_num, folder_list) != 0)
@@ -338,9 +381,20 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 			goto failed;
 
 		snprintf(testdir, path_len + 1, "%s/%s", mount_path, dp->d_name);
-		if (!test_if_dir(testdir)) {
+		stat_result = lstat(testdir, &entry_status);
+		stat_error = errno;
+		directory_status = disk_share_folder_entry_status(
+			stat_result, stat_error,
+			stat_result == 0 ? entry_status.st_mode : (mode_t)0);
+		if (directory_status == 0) {
 			free(testdir);
 			continue;
+		}
+		if (directory_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			free(testdir);
+			errno = saved_errno;
+			goto failed;
 		}
 		free(testdir);
 
@@ -2658,8 +2712,15 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
 		goto failed;
 
-	if (test_if_dir(full_path) != 1) {
-		errno = ENOENT;
+	errno = 0;
+	result = lstat(full_path, &target_stat);
+	if (disk_share_folder_entry_status(
+		    result, errno,
+		    result == 0 ? target_stat.st_mode : (mode_t)0) != 1) {
+		if (result != 0 && errno == 0)
+			errno = EIO;
+		else if (result == 0)
+			errno = ENOTDIR;
 		goto failed;
 	}
 	result = test_if_exist_folder_in_mount_path(mount_path, folder);
