@@ -148,4 +148,18 @@ samba_passdb_restore_file(const char *passdb_path,
 	return -1;
 }
 
+/* Preserve a credential-read failure over a later transaction-close error. */
+static inline int
+samba_passdb_snapshot_end_status(int snapshot_status, int end_status,
+				 int end_errno)
+{
+	if (snapshot_status != 0)
+		return snapshot_status > 0 ? snapshot_status : EIO;
+	if (end_status == 0)
+		return 0;
+	if (end_errno > 0)
+		return end_errno;
+	return end_status > 0 ? end_status : EIO;
+}
+
 #endif /* PADAVAN_SAMBA_PASSDB_POLICY_H */

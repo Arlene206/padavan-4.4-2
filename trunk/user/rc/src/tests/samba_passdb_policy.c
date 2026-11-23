@@ -57,6 +57,14 @@ main(void)
 		assert(samba_passdb_account_count_status(0, 8, 16, NULL) == EINVAL);
 	}
 
+	/* Transaction end is mandatory; retain a previous read error. */
+	assert(samba_passdb_snapshot_end_status(0, 0, 0) == 0);
+	assert(samba_passdb_snapshot_end_status(0, -1, EACCES) == EACCES);
+	assert(samba_passdb_snapshot_end_status(0, -1, 0) == EIO);
+	assert(samba_passdb_snapshot_end_status(0, EBUSY, 0) == EBUSY);
+	assert(samba_passdb_snapshot_end_status(EACCES, -1, EIO) == EACCES);
+	assert(samba_passdb_snapshot_end_status(-1, 0, 0) == EIO);
+
 	/*
 	 * A failed paired configuration publish must be able to restore the old
 	 * passdb without copying credential hashes into another file.

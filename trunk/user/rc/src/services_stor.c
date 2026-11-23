@@ -361,6 +361,45 @@ storage_read_string_status(const char *name, char *value, size_t value_size)
 }
 
 
+static int
+storage_read_transaction_integer_status(struct nvram_transaction *transaction,
+					const char *name, int missing_value,
+					int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!transaction || !name || !value) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &text);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    text, missing_value, value);
+}
+
+
+static int
+storage_read_transaction_string_status(struct nvram_transaction *transaction,
+				       const char *name, char *value,
+				       size_t value_size)
+{
+	int status;
+
+	if (!transaction || !name || !value || value_size == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	status = rc_wan_nvram_copy_value(storage_read_transaction_nvram_string,
+					 transaction, name, value, value_size);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+
 
 static int
 storage_service_enabled_status(const char *key, const char *service,
@@ -1681,8 +1720,11 @@ int run_samba(void)
 {
 	int lock_fd, sh_num = 0, account_count_value = 0;
 	int account_count_status, account_value_status, i, j;
+	int account_snapshot_status = 0, account_snapshot_end_status;
+	int account_snapshot_end_errno;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
 	int runtime_enabled;
+	struct nvram_transaction account_snapshot;
 	char tmpuser[40], tmp2[40];
 	char router_username[128];
 	char account_usernames[MAX_ACCOUNT_NUM][128];
@@ -1725,54 +1767,64 @@ int run_samba(void)
 	memset(account_passwords, 0, sizeof(account_passwords));
 
 	/*
-	 * acc_num controls how many credential rows are rebuilt. A failed read
-	 * previously became zero via nvram_safe_get_int(), allowing an empty
-	 * staged passdb to replace the last-known-good account database.
-	 * Snapshot and validate it before any cleanup or passdb staging.
+	 * Read the count and every credential from one NVRAM generation.
+	 * Individual checked getters use separate transactions and can otherwise
+	 * interleave with a UI update, producing a mixed passdb generation.
 	 */
-	account_count_status = storage_read_integer_status(
-		"acc_num", 0, &account_count_value);
-	account_count_status = samba_passdb_account_count_status(
+	memset(&account_snapshot, 0, sizeof(account_snapshot));
+	account_snapshot.lock_fd = -1;
+	if (nvram_transaction_begin(&account_snapshot) != 0) {
+		int snapshot_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot begin credential NVRAM snapshot; preserving current passdb and configuration (errno %d)",
+			   snapshot_error);
+		errno = snapshot_error;
+		goto out;
+	}
+
+	account_count_status = storage_read_transaction_integer_status(
+		&account_snapshot, "acc_num", 0, &account_count_value);
+	account_snapshot_status = samba_passdb_account_count_status(
 		account_count_status, account_count_value, MAX_ACCOUNT_NUM, &sh_num);
-	if (account_count_status != 0) {
-		int account_error = account_count_status > 0 ?
-			account_count_status : EIO;
+	if (account_snapshot_status != 0) {
+		int account_error = account_snapshot_status > 0 ?
+			account_snapshot_status : EIO;
 
 		logmessage("Samba Server",
 			   "cannot read a valid account count; preserving current passdb and configuration (errno %d)",
 			   account_error);
-		errno = account_error;
-		goto out;
+		goto account_snapshot_done;
 	}
 
 	/*
-	 * Snapshot every credential value before process scans, cleanup or
-	 * passdb staging. nvram_get_checked() values are cache-backed and can be
-	 * invalidated by the next NVRAM read, so copy each one immediately.
-	 * Any backend error or overlong value must preserve the current passdb.
+	 * Copy cache-backed values before the next transaction read. Any read,
+	 * validation or transaction-close failure prevents passdb publication.
 	 */
 	if (sh_num > 0) {
-		account_value_status = storage_read_string_status(
-			"http_username", router_username, sizeof(router_username));
+		account_value_status = storage_read_transaction_string_status(
+			&account_snapshot, "http_username",
+			router_username, sizeof(router_username));
 		if (account_value_status != 0) {
+			account_snapshot_status = account_value_status;
 			logmessage("Samba Server",
 				   "cannot read router account identity; preserving passdb and configuration (errno %d)",
 				   account_value_status);
-			errno = account_value_status;
-			goto out;
+			goto account_snapshot_done;
 		}
 	}
 
 	for (i = 0; i < sh_num; i++) {
 		snprintf(tmpuser, sizeof(tmpuser), "acc_username%d", i);
-		account_value_status = storage_read_string_status(
-			tmpuser, account_usernames[i], sizeof(account_usernames[i]));
+		account_value_status = storage_read_transaction_string_status(
+			&account_snapshot, tmpuser,
+			account_usernames[i], sizeof(account_usernames[i]));
 		if (account_value_status != 0) {
+			account_snapshot_status = account_value_status;
 			logmessage("Samba Server",
 				   "cannot read SMB account identity %s; preserving passdb and configuration (errno %d)",
 				   tmpuser, account_value_status);
-			errno = account_value_status;
-			goto out;
+			goto account_snapshot_done;
 		}
 
 		if (!samba_service_account_is_safe(
@@ -1782,34 +1834,52 @@ int run_samba(void)
 		/* Preserve the existing duplicate-identity rejection semantics. */
 		for (j = 0; j < i; j++) {
 			if (!strcmp(account_usernames[i], account_usernames[j])) {
+				account_snapshot_status = EEXIST;
 				logmessage("Samba Server",
 					   "duplicate SMB account identity %s; preserving passdb and configuration",
 					   account_usernames[i]);
-				errno = EEXIST;
-				goto out;
+				goto account_snapshot_done;
 			}
 		}
 
 		snprintf(tmp2, sizeof(tmp2), "acc_password%d", i);
-		account_value_status = storage_read_string_status(
-			tmp2, account_passwords[i], sizeof(account_passwords[i]));
+		account_value_status = storage_read_transaction_string_status(
+			&account_snapshot, tmp2,
+			account_passwords[i], sizeof(account_passwords[i]));
 		if (account_value_status != 0) {
+			account_snapshot_status = account_value_status;
 			logmessage("Samba Server",
 				   "cannot read SMB account password for %s; preserving passdb and configuration (errno %d)",
 				   account_usernames[i], account_value_status);
-			errno = account_value_status;
-			goto out;
+			goto account_snapshot_done;
 		}
 		if (!samba_passdb_password_is_safe(account_passwords[i])) {
+			account_snapshot_status = EINVAL;
 			logmessage("Samba Server",
 				   "unsafe SMB account password for %s; preserving passdb and configuration",
 				   account_usernames[i]);
-			errno = EINVAL;
-			goto out;
+			goto account_snapshot_done;
 		}
 	}
 
-	/* Inventory every daemon before account, config or cleanup mutation. */
+account_snapshot_done:
+	errno = 0;
+	account_snapshot_end_status = nvram_transaction_end(&account_snapshot);
+	account_snapshot_end_errno = errno;
+	account_snapshot_status = samba_passdb_snapshot_end_status(
+		account_snapshot_status, account_snapshot_end_status,
+		account_snapshot_end_errno);
+	if (account_snapshot_status != 0) {
+		int snapshot_error = account_snapshot_status > 0 ?
+			account_snapshot_status : EIO;
+
+		logmessage("Samba Server",
+			   "credential NVRAM snapshot is incomplete; preserving current passdb and configuration (errno %d)",
+			   snapshot_error);
+		errno = snapshot_error;
+		goto out;
+	}
+
 	smbd_presence = process_inventory_scan("smbd", &smbd_snapshot);
 	if (smbd_presence == PROCESS_PRESENCE_UNKNOWN) {
 		errno = smbd_snapshot.error ? smbd_snapshot.error : EIO;
@@ -2831,26 +2901,6 @@ stop_dms(void)
 	file_unlock(storage_lock);
 	return storage_service_stop_complete(status, is_dms_run());
 }
-
-static int
-storage_read_transaction_integer_status(struct nvram_transaction *transaction,
-					const char *name, int missing_value,
-					int *value)
-{
-	char *text = NULL;
-	int api_result, saved_errno;
-
-	if (!transaction || !name || !value) {
-		errno = EINVAL;
-		return EINVAL;
-	}
-	errno = 0;
-	api_result = nvram_transaction_get(transaction, name, &text);
-	saved_errno = errno;
-	return rc_wan_nvram_read_int_status(api_result, saved_errno,
-					    text, missing_value, value);
-}
-
 
 struct storage_minidlna_config_snapshot {
 	int notify_interval;

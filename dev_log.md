@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Snapshot Samba passdb credentials from one NVRAM generation
+
+- `run_samba()` read `acc_num`, router username, account usernames and passwords through separate checked NVRAM API calls. Each read was individually safe, but concurrent UI writes could interleave and create a mixed-generation credential set.
+- Added a single NVRAM transaction around the complete account-count/credential preload. Every cache-backed string is copied before the next transaction read; the transaction closes before process inventory, file cleanup, passdb staging or configuration publication.
+- Read/validation failures always close the transaction and block publication; close errors also block publication, with the first read failure taking precedence over close failure.
+- Added GNU89/Werror regression cases for successful close, errno-bearing and errno-less close failures, and first-error precedence, plus Samba workflow source assertions. Exact-SHA Samba/Process/AI/XY-C1 runs pending.
+
+---
+
 ## 2026-11-23 UTC — Defer logger startup when the remote destination selector is unknown
 
 - `init_router()` used `nvram_invmatch("log_ipaddr", "")` to choose whether syslogd starts before or after LAN setup. That legacy matcher collapses NVRAM read failures into an empty value, causing a configured remote logger to take the early/local-only startup path; the later phase was then skipped because the captured boolean was false.

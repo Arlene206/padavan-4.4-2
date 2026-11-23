@@ -2,25 +2,23 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before this atomic slice: `aac992097df07f7d15d79cab9b72fd5d339fd6b5`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve permanently. No branch creation, PR or force update.
-- Startup/bootstrap recovery was already completed. No persistent local checkout or full MIPS/uClibc firmware build environment is available.
-- Previous exact logger-source SHA `cb310c1d1fd89e77acbe5a9da898d4f2395105ea`: Process inventory #45201804104 PASS; Process fail-closed regression #45201803844 PASS; AI handoff #45201803995 PASS; NVRAM transaction boundary #45201803988 PASS; Infosvr regression #45201803859 PASS. XY-C1 #45201803910 was still building; Build, TRX and upload had not completed at last poll.
-- The earlier Infosvr regression #45200628917 failed on `73058a94`; subsequent checker corrections passed on `6a7ed2a`, and the exact Infosvr run on `cb310c1` passed.
-- Prior XY-C1 #45197766902 on production SHA `94989ac03de33301a73934a9e7afcc5a5d38be13` passed Build/TRX/artifact upload (artifact #14829918146, 12,761,265 bytes), but it predates the Infosvr source change and is not L3 evidence for current main. No hardware L4 claim.
+- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest verified main before this Samba credential snapshot slice: `a06e536f4724d3a4a2b9a10ad67d44f66abab6bf`. Logger source and selector fixes on that SHA passed Process inventory #45202840049, Process fail-closed #45202839376, NVRAM boundary #45202839776, AI handoff #45202839983 and the other listed lifecycle/network/NVRAM regressions.
+- Exact XY-C1 #45202839704 on `a06e536` was still building at the last poll; TRX and artifact upload were pending. Do not claim L3 until Build, TRX and artifact upload pass on the same production-source SHA.
+- No local MIPS/uClibc firmware build or hardware L4 validation is claimed. Bootstrap recovery was performed once; do not repeat.
 
 ## Active task
 
-- Logger reliability has two related fixes: (1) `start_syslogd()` snapshots remote address/port under one checked NVRAM transaction and reports read/close failures while keeping local syslog active; (2) `init_router()` now checks the `log_ipaddr` selector used to choose early vs post-LAN logger startup. Previously a failed `nvram_invmatch()` read could be mistaken for an empty address and suppress the post-LAN remote logger phase.
-- Unknown remote destination state now defers logger startup until LAN is ready and contributes the read error to the boot service status. The later logger startup takes a fresh checked transaction snapshot and keeps local logging operational if the remote destination is still unavailable. Klogd remains attempted and first-failure aggregation is preserved.
-- GNU89/Werror/ASan/UBSan policy regression passed locally for the checked remote address/port policy. The new phase-selection assertions must pass the exact-SHA Process workflow; XY-C1 L3 still requires Build, TRX and artifact upload on one production-source SHA.
-- No persistent firmware build was run locally; no hardware L4 verification.
+- Samba credential consistency: `run_samba()` previously performed individually checked but separately locked NVRAM reads for `acc_num`, router username, account usernames and passwords. A concurrent UI update could interleave between these successful reads and yield a mixed-generation passdb.
+- This slice now takes one NVRAM transaction across the account count and all relevant credentials, copying each cache-backed string before the next read. The transaction is ended before process inventory, filesystem cleanup, passdb staging or configuration publication. A read or transaction-end failure preserves the current passdb/configuration and aborts the service update.
+- Added snapshot-close result precedence regression tests and Samba workflow source assertions for begin/read/end ordering, and end-before-mutation.
+- Exact-SHA Samba, Process, AI and XY-C1 workflows for this commit remain to be verified. L3 requires Build + TRX + artifact upload all pass on one production SHA.
 
 ## Exact first actions for next GPT
 
-1. Poll exact-SHA Process inventory/fail-closed, AI handoff, NVRAM boundary, Infosvr and XY-C1 actions for this commit. Correct real regressions without weakening source contracts. Require Build + TRX + artifact upload PASS on the same SHA before claiming L3.
-2. If XY-C1 on the previous logger commit #45201803910 completes, record its final step statuses and artifact; it does not cover the new `rc.c` change in this commit.
-3. Continue a concrete P1/P2 stability fix outside already-closed logger/storage/NFS slices; preserve `main`-only atomic writes and the frozen backup.
+1. Poll exact-SHA Samba share configuration, Process inventory/fail-closed, AI handoff, NVRAM boundary and XY-C1 workflows for this commit. Fix any concrete failures without weakening assertions.
+2. If XY-C1 #45202839704 completes for the parent logger fix, record its Build/TRX/upload result separately; it does not include this Samba credential change.
+3. Continue a fresh P1/P2 stability/security defect outside already-closed logger/NTP slices. Preserve main-only atomic commits and the frozen backup.
 
 ## Relevant exact-SHA CI facts
 
