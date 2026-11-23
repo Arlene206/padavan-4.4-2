@@ -460,8 +460,11 @@ for signature in (
 ):
     body = function_body(DISK_SOURCE, signature)
     compact = "".join(body.split())
-    require("nvram_commit_safe()!=0&&first_error==0" in compact and
-            "first_error=errno?errno:EIO;" in compact,
+    commit_failure_checked = (
+        "nvram_commit_safe()!=0&&first_error==0" in compact or
+        "if(first_error==0&&nvram_commit_safe()!=0)" in compact
+    )
+    require(commit_failure_checked and "first_error=errno?errno:EIO;" in compact,
             "account mutators must propagate manual-policy or NVRAM commit failure: " + signature)
 modify_body = function_body(
     DISK_SOURCE, "int mod_account(const char *const account, const char *const new_account, const char *const new_password)"
