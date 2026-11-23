@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Correct URL MAC regression test boundaries
+
+- Exact-head run #45164372502 stopped in the Firewall Startup source checker because the new source assertion expected a checked-getter call on one line while production intentionally wrapped its arguments across lines. HTTPD regression #45164372525 compiled the new firewall policy test and exposed a bad test boundary: a 23-byte buffer was expected to fail even though the formatter contract requires only 18 bytes.
+- Fixed the source contract to validate the normalized multiline call and changed the negative buffer test to pass 17 bytes. Production firewall code is unchanged; rerun exact-SHA Firewall Startup and HTTPD checks before accepting the fix.
+
+---
 ## 2026-11-23 UTC — Fail closed on URL-filter MAC qualifier reads
 
 - Found that both IPv4 and IPv6 URL-filter builders called the generic `mac_conv("url_mac_x")`, which uses error-collapsing `nvram_safe_get()` and only checked stored string length. An NVRAM backend error could silently remove a configured MAC qualifier, and a 12-byte non-hex value could become an untrusted bare `--mac-source` token in the staged iptables-restore file.

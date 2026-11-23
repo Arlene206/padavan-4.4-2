@@ -715,7 +715,8 @@ jobs:
           assert "return timematch_conv_values(match, date_buffer, time_buffer);" in mac_schedule
           url_mac_reader = body(firewall_source, "firewall_read_url_filter_mac(char *formatted, size_t formatted_size)")
           url_mac_reader_compact = " ".join(url_mac_reader.split())
-          assert 'firewall_read_string_setting_with_presence("url_mac_x", &value, &present)' in url_mac_reader_compact
+          assert "firewall_read_string_setting_with_presence(" in url_mac_reader_compact
+          assert '"url_mac_x", &value, &present' in url_mac_reader_compact
           assert "firewall_url_mac_format_status(read_status, present, value," in url_mac_reader_compact
           assert "read_status != 0 ? read_status : EINVAL" in url_mac_reader
           assert "firewall_url_mac_format_status" in firewall_policy

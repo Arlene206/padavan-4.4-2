@@ -280,7 +280,7 @@ main(void)
 		assert(firewall_url_mac_format_status(0, 1, NULL,
 						      formatted, sizeof(formatted)) < 0);
 		assert(firewall_url_mac_format_status(0, 1, "A1B2C3D4E5F6",
-						      formatted, sizeof(formatted) - 1) < 0);
+						      formatted, 17) < 0);
 	}
 
 	return 0;
