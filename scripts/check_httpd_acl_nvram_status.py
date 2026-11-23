@@ -77,7 +77,7 @@ require("saved_errno > 0 ? saved_errno : EIO" in policy and
         "return configuration_valid || is_loopback;" in policy,
         "ACL policy must preserve read errors and keep loopback recovery access")
 require("parsed = strtol(value, &end, 10)" in policy and
-        "if (*end != '\\\\0' || parsed < 0)" in policy and
+        "if (*end != '\\0' || parsed < 0)" in policy and
         "parsed > INT_MAX" in policy,
         "malformed or negative ACL modes must not be parsed as disabled")
 for name in ("test_missing_key_preserves_disabled_acl_default",

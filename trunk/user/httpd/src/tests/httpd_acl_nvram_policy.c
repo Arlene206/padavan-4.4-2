@@ -23,7 +23,7 @@ test_present_acl_modes_keep_decimal_and_whitespace_compatibility(void)
 	assert(mode == 1 && valid == 1);
 	assert(httpd_acl_nvram_mode_status(1, 0, "2", &mode, &valid) == 0);
 	assert(mode == 2 && valid == 1);
-	assert(httpd_acl_nvram_mode_status(1, 0, " +2 \\t", &mode, &valid) == 0);
+	assert(httpd_acl_nvram_mode_status(1, 0, " +2 \t", &mode, &valid) == 0);
 	assert(mode == 2 && valid == 1);
 }
 

@@ -43,7 +43,7 @@ httpd_acl_nvram_mode_status(int read_result, int saved_errno,
 			return EINVAL;
 		while (*end && isspace((unsigned char)*end))
 			++end;
-		if (*end != '\\0' || parsed < 0)
+		if (*end != '\0' || parsed < 0)
 			return EINVAL;
 		if (errno == ERANGE || parsed > INT_MAX)
 			return ERANGE;
