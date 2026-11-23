@@ -472,28 +472,26 @@ test_register_update_bits_preserves_unmasked_bits_and_propagates_errors(void)
 	const unsigned int mask = 0x00077777U;
 	unsigned int expected;
 
+	/* LED-on clears the target field and then sets it, preserving all other bits. */
 	fake_init(&fake);
 	fake.read_value = 0xa5a5c0d0U;
 	expected = (fake.read_value & ~mask) | mask;
 	assert(mtk_esw_register_update_bits(phy, reg, mask, mask,
-					    &fake_ops, &fake) == -EINVAL);
-	assert(fake.mdio_calls == 0U);
-
-	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
 					    &fake_ops, &fake) == 0);
 	assert(fake.mdio_calls == 2U && fake.event_count == 2U);
 	assert(fake.events[0].type == FAKE_READ &&
 	       fake.events[0].phy == phy && fake.events[0].reg == reg);
 	assert(fake.events[1].type == FAKE_WRITE &&
-	       fake.events[1].phy == phy && fake.events[1].reg == reg);
-	assert(fake.events[1].value == (0xa5a5c0d0U & ~mask));
+	       fake.events[1].phy == phy && fake.events[1].reg == reg &&
+	       fake.events[1].value == expected);
 
+	/* LED-off clears the field without disturbing unrelated register bits. */
 	fake_init(&fake);
 	fake.read_value = 0xa5a5c0d0U;
-	expected = (fake.read_value & ~mask) | mask;
-	assert(mtk_esw_register_update_bits(phy, reg, mask, mask ^ mask,
+	expected = fake.read_value & ~mask;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
 					    &fake_ops, &fake) == 0);
-	assert(fake.events[1].value == (expected & ~mask));
+	assert(fake.events[1].value == expected);
 
 	/* Read failure must never turn into a write based on an all-zero value. */
 	fake_init(&fake);

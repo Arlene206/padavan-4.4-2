@@ -269,7 +269,7 @@ mtk_esw_register_update_bits(unsigned int phy_addr, unsigned int reg,
 	unsigned int value = 0;
 	int status;
 
-	if (!io || !io->read || !io->write || (clear_mask & set_mask))
+	if (!io || !io->read || !io->write)
 		return -EINVAL;
 
 	status = io->read(context, phy_addr, reg, &value);
