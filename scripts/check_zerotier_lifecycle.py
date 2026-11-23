@@ -340,8 +340,8 @@ require('ln "$zt_moon_create_moon_file" "$zt_moon_create_moon_backup"' in creat_
         'if ! mv -f "$zt_moon_create_json_stage" "$zt_moon_create_json_file"; then' in creat_moon_body and
         'if ! nvram set zerotiermoon_id="$zt_moon_create_id" || ! nvram commit; then' in creat_moon_body,
         "Moon JSON/signature and persistent ID must be published as a checked transaction")
-require('mv -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file"' in moon_create_rollback_body and
-        'mv -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file"' in moon_create_rollback_body and
+require('ln -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file"' in moon_create_rollback_body and
+        'ln -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file"' in moon_create_rollback_body and
         'nvram set zerotiermoon_id="$zt_moon_create_old_id"' in moon_create_rollback_body,
         "Moon creation rollback must restore both file snapshots and the prior identity")
 require('nvram get_checked zerotiermoon_id' in remove_moon_body and
@@ -355,8 +355,8 @@ require('nvram get_checked zerotiermoon_id' in remove_moon_body and
         remove_moon_body.index('if ! nvram set zerotiermoon_id="" || ! nvram commit; then') <
         remove_moon_body.index('if ! rm -f "$zt_moon_remove_file" "$zt_moon_remove_json"; then'),
         "Moon removal must back up files and persist ID clear before destructive cleanup")
-require('mv -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file"' in moon_remove_rollback_body and
-        'mv -f "$zt_moon_remove_json_backup" "$zt_moon_remove_json"' in moon_remove_rollback_body and
+require('ln -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file"' in moon_remove_rollback_body and
+        'ln -f "$zt_moon_remove_json_backup" "$zt_moon_remove_json"' in moon_remove_rollback_body and
         'nvram set zerotiermoon_id="$zt_moon_remove_old_id"' in moon_remove_rollback_body,
         "Moon removal rollback must restore both files and original NVRAM ID")
 require('if ! creat_moon; then' in start_instance_body and
@@ -371,6 +371,10 @@ for marker in ("Moon creation ignored initmoon failure",
                "valid Moon generation failed",
                "successful Moon JSON did not include the configured stable endpoint",
                "successful Moon generation did not publish the signed file",
+               "JSON publication rollback retained a staging directory",
+               "NVRAM set failure rollback retained a staging directory",
+               "NVRAM commit failure rollback retained a staging directory",
+               "partial deletion rollback retained a staging directory",
                "Moon removal ignored NVRAM set failure",
                "Moon removal ignored NVRAM commit failure",
                "Moon removal ignored partial file deletion failure",

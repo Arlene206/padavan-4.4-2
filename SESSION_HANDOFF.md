@@ -1,32 +1,34 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before this Moon creator slice: `53811e3dec39896e71204b2c709be882a20414a1`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only.
-- No local checkout. Use one complete Git tree and non-force expected-SHA main update per atomic task; do not claim local tests/builds.
+- Repository: Arlene206/padavan-4.4-2; parent main for this correction: 9272415b3da2ab2ff1367c8b0f11e377126e50f5.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
+- No local checkout; do not claim local tests or builds.
 
 ## Exact-SHA Actions
-- WAN IPTV DHCP fix `efe51152578e62ef6bc173adc2a85e8dc792f29d`: WAN DHCP callback `45133320373` PASS; AI handoff `45133320565` PASS.
-- On `efe511...`: ZeroTier lifecycle `45133320459`, WAN route `45133320448`, Process inventory `45133320363`, DNSMasq `45133320527`, watchdog signal `45133320659` PASS.
-- Moon removal rollback commit `53811e3dec39896e71204b2c709be882a20414a1`: ZeroTier lifecycle `45133729249` PASS; AI docs `45133729245` PASS. Process inventory `45133729187` and WAN route `45133729185` were IN_PROGRESS at last poll.
-- XY-C1 `45133729221` on `53811e3...` was IN_PROGRESS at last poll. L3 requires Build, TRX and artifact all PASS on one source SHA; no L3 claim.
+- Moon creator SHA 380a9a9f6eb42ceab7e57dcc4ea5068e49ba135e: ZeroTier lifecycle 45134470465 FAIL — GNU mv refused the same-inode hard-link restore after injected JSON publication failure; cleanup assertion detected the leaked stage.
+- Same SHA AI docs 45134470452 FAIL — dev_log.md had been truncated to one entry; this correction restores the full parent archive and prepends the current records.
+- Same SHA WAN route 45134470540 PASS and Process inventory 45134470473 PASS.
+- XY-C1 45134470507 on 380a9a9... remained IN_PROGRESS at last poll; no L3 claim. L3 requires Build, TRX and artifact PASS on one exact source SHA.
+- Prior Moon remover SHA 53811e3...: ZeroTier 45133729249 PASS; AI docs 45133729245 PASS; Process inventory 45133729187 PASS; WAN route 45133729185 PASS; XY-C1 45133729221 SUCCESS.
 
-## Active source task — ZeroTier Moon creation atomicity
-- `creat_moon()` did not check `initmoon`; invoked `sed` inside command substitution instead of checking its status; continued after endpoint-edit failure; and ignored generated-signature, file publication and NVRAM outcomes.
-- THIS SLICE validates dotted-quad IPv4, stages JSON/signature privately, checks generator/edit/ID/signature steps, backs up prior JSON/signature, and rolls files plus old NVRAM ID back after partial publication or failed set/commit.
-- Added shell fault injection for initmoon, endpoint edit, genmoon, NVRAM set-after-write and second-file rename, plus success checks. Exact-head ZeroTier/AI CI pending; no local test claimed.
+## Active correction — Moon rollback semantics and log archive
+- Both creator/remover helpers backed up files using hard links, then tried mv -f backup target. If the target had not yet been moved/deleted, source and destination were the same inode; mv failed and the private stage leaked.
+- Restores now use ln -f backup target. Added explicit tests for no .moon-create.* and .moon-remove.* directory after injected rollback failures.
+- Restored all historic dev_log.md content from parent 53811e3... (71 complete entries in the current history) and prepended both current Moon task records.
 
 ## Next actions
-1. Verify exact-head ZeroTier lifecycle and AI source-contract Actions; repair the first causal failure without weakening rollback.
-2. Check exact-source XY-C1 Build, TRX and artifact; all three must PASS on one SHA for L3.
-3. Check Process inventory / WAN route runs `45133729187` / `45133729185` for source `53811e3...`.
-4. Continue independent userland reliability/security work while CI is pending. Physical router L4 remains NOT VERIFIED.
+1. Inspect exact-head ZeroTier lifecycle and AI docs for this correction; resolve the first causal failure.
+2. Poll XY-C1 for the current source SHA; require Build + TRX + artifact on that same SHA before L3.
+3. Continue to another independent stability/security defect while CI is pending.
+4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-Moon creator source/tests are L1-reviewed; exact-head CI pending. The prior WAN IPTV fix has exact-head WAN DHCP and AI workflow PASS. No local tests or firmware build claimed; L3/L4 remain unverified.
+The hard-link rollback correction, stage-cleanup assertions and log restoration await exact-head Actions. No local test/build claim; L3/L4 unverified.
 
 ## Cross-session mandate
-One complete tree and one atomic commit per task; non-force compare-and-swap main using the exact parent SHA; inspect exact-SHA Actions; never modify the frozen backup.
+One complete tree and atomic commit per logical slice; update main non-force using expected parent SHA; inspect exact-SHA Actions; never modify the frozen backup.
+
 
 
 # SESSION HANDOFF — Padavan 4.4

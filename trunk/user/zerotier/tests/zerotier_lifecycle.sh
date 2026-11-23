@@ -660,6 +660,8 @@ unset -f mv
 [ ! -e "$TEST_CONFIG/moons.d/0000000123456789.moon" ] || fail "JSON publication rollback left the new signature"
 [ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "JSON publication rollback lost the prior JSON"
 [ "$TEST_NVRAM_MOON_ID_STATE" = "abcdef0123" ] || fail "JSON publication failure changed the stored ID"
+set -- "$TEST_CONFIG"/.moon-create.*
+[ ! -e "$1" ] || fail "JSON publication rollback retained a staging directory"
 
 if ! creat_moon; then
 	fail "valid Moon generation failed"
@@ -711,6 +713,8 @@ fi
 [ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "last-good-moon-file" ] || fail "NVRAM set failure lost the Moon signature"
 [ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "NVRAM set failure lost the Moon JSON"
 [ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "NVRAM set failure lost the Moon ID"
+set -- "$TEST_CONFIG"/.moon-remove.*
+[ ! -e "$1" ] || fail "NVRAM set failure rollback retained a staging directory"
 
 # Commit failure after the volatile ID changes must restore the old value.
 TEST_NVRAM_MOON_COMMIT_FAIL_ONCE=1
@@ -720,6 +724,8 @@ fi
 [ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "last-good-moon-file" ] || fail "NVRAM commit failure lost the Moon signature"
 [ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "NVRAM commit failure lost the Moon JSON"
 [ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "NVRAM commit failure did not restore the Moon ID"
+set -- "$TEST_CONFIG"/.moon-remove.*
+[ ! -e "$1" ] || fail "NVRAM commit failure rollback retained a staging directory"
 
 # The mock removes the signature, then reports failure to exercise partial-delete rollback.
 TEST_NVRAM_MOON_RM_FAIL_ONCE=1
@@ -729,6 +735,8 @@ fi
 [ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "last-good-moon-file" ] || fail "partial deletion failure did not restore the Moon signature"
 [ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "partial deletion failure did not restore the Moon JSON"
 [ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "partial deletion failure did not restore the Moon ID"
+set -- "$TEST_CONFIG"/.moon-remove.*
+[ ! -e "$1" ] || fail "partial deletion rollback retained a staging directory"
 
 if ! remove_moon; then
 	fail "valid Moon identity was not removed"

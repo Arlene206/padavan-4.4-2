@@ -1236,14 +1236,14 @@ zerotier_rollback_moon_create() {
 	zt_moon_create_rollback_status=0
 	if [ "$zt_moon_create_moon_publish_attempted" -eq 1 ]; then
 		if [ "$zt_moon_create_old_moon_present" -eq 1 ]; then
-			mv -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file" || zt_moon_create_rollback_status=1
+			ln -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file" || zt_moon_create_rollback_status=1
 		else
 			rm -f "$zt_moon_create_moon_file" || zt_moon_create_rollback_status=1
 		fi
 	fi
 	if [ "$zt_moon_create_json_publish_attempted" -eq 1 ]; then
 		if [ "$zt_moon_create_old_json_present" -eq 1 ]; then
-			mv -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file" || zt_moon_create_rollback_status=1
+			ln -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file" || zt_moon_create_rollback_status=1
 		else
 			rm -f "$zt_moon_create_json_file" || zt_moon_create_rollback_status=1
 		fi
@@ -1419,12 +1419,12 @@ creat_moon() {
 zerotier_rollback_moon_remove() {
 	zt_moon_remove_rollback_status=0
 	if [ "$zt_moon_remove_old_file_present" -eq 1 ]; then
-		mv -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file" || zt_moon_remove_rollback_status=1
+		ln -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file" || zt_moon_remove_rollback_status=1
 	else
 		rm -f "$zt_moon_remove_file" || zt_moon_remove_rollback_status=1
 	fi
 	if [ "$zt_moon_remove_old_json_present" -eq 1 ]; then
-		mv -f "$zt_moon_remove_json_backup" "$zt_moon_remove_json" || zt_moon_remove_rollback_status=1
+		ln -f "$zt_moon_remove_json_backup" "$zt_moon_remove_json" || zt_moon_remove_rollback_status=1
 	else
 		rm -f "$zt_moon_remove_json" || zt_moon_remove_rollback_status=1
 	fi
