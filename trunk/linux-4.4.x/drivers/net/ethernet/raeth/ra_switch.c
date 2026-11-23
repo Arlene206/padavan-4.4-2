@@ -2914,79 +2914,166 @@ void trgmii_set_7621(void)
 	pr_info("trgmii_set_7621 Completed!!\n");
 }
 
-void trgmii_set_7530(void)
+int trgmii_set_7530(void)
 {
 	u32 regValue;
+	int status;
 
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x404);
-	mii_mgr_write(0, 13, 0x401f);
-	mii_mgr_read(31, 0x7800, &regValue);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x404);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 31, 0x7800, &regValue);
+	if (status != 0)
+		goto mdio_error;
 	regValue = (regValue >> 9) & 0x3;
-	if (regValue == 0x3)
-		mii_mgr_write(0, 14, 0x0C00);/*25Mhz XTAL for 150Mhz CLK */
-	 else if (regValue == 0x2)
-		mii_mgr_write(0, 14, 0x0780);/*40Mhz XTAL for 150Mhz CLK */
+	if (regValue == 0x3) {
+		status = ra_switch_mdio_write(NULL, 0, 14, 0x0C00);/*25Mhz XTAL for 150Mhz CLK */
+		if (status != 0)
+			goto mdio_error;
+	} else if (regValue == 0x2) {
+		status = ra_switch_mdio_write(NULL, 0, 14, 0x0780);/*40Mhz XTAL for 150Mhz CLK */
+		if (status != 0)
+			goto mdio_error;
+	}
 
 	mdelay(1);
 
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x409);
-	mii_mgr_write(0, 13, 0x401f);
-	if (regValue == 0x3) /* 25MHz */
-		mii_mgr_write(0, 14, 0x57);
-	else
-		mii_mgr_write(0, 14, 0x87);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x409);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	if (regValue == 0x3) { /* 25MHz */
+		status = ra_switch_mdio_write(NULL, 0, 14, 0x57);
+		if (status != 0)
+			goto mdio_error;
+	} else {
+		status = ra_switch_mdio_write(NULL, 0, 14, 0x87);
+		if (status != 0)
+			goto mdio_error;
+	}
 	mdelay(1);
 
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x40a);
-	mii_mgr_write(0, 13, 0x401f);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x40a);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
 	if (regValue == 0x3) /* 25MHz */
-		mii_mgr_write(0, 14, 0x57);
+		status = ra_switch_mdio_write(NULL, 0, 14, 0x57);
+		if (status != 0)
+			goto mdio_error;
 	else
-		mii_mgr_write(0, 14, 0x87);
+		status = ra_switch_mdio_write(NULL, 0, 14, 0x87);
+		if (status != 0)
+			goto mdio_error;
 
 /* PLL BIAS en */
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x403);
-	mii_mgr_write(0, 13, 0x401f);
-	mii_mgr_write(0, 14, 0x1800);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x403);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x1800);
+	if (status != 0)
+		goto mdio_error;
 	mdelay(1);
 
 /* BIAS LPF en */
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x403);
-	mii_mgr_write(0, 13, 0x401f);
-	mii_mgr_write(0, 14, 0x1c00);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x403);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x1c00);
+	if (status != 0)
+		goto mdio_error;
 
 /* sys PLL en */
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x401);
-	mii_mgr_write(0, 13, 0x401f);
-	mii_mgr_write(0, 14, 0xc020);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x401);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0xc020);
+	if (status != 0)
+		goto mdio_error;
 
 /* LCDDDS PWDS */
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x406);
-	mii_mgr_write(0, 13, 0x401f);
-	mii_mgr_write(0, 14, 0xa030);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x406);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0xa030);
+	if (status != 0)
+		goto mdio_error;
 	mdelay(1);
 
 /* GSW_2X_CLK */
-	mii_mgr_write(0, 13, 0x1f);
-	mii_mgr_write(0, 14, 0x410);
-	mii_mgr_write(0, 13, 0x401f);
-	mii_mgr_write(0, 14, 0x0003);
-	mii_mgr_write_cl45(0, 0x1f, 0x410, 0x0003);
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x1f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x410);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 13, 0x401f);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write(NULL, 0, 14, 0x0003);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x410, 0x0003);
+	if (status != 0)
+		goto mdio_error;
 
 /* enable P6 */
-	mii_mgr_write(31, 0x3600, 0x5e33b);
+	status = ra_switch_mdio_write(NULL, 31, 0x3600, 0x5e33b);
+	if (status != 0)
+		goto mdio_error;
 
 /* enable TRGMII */
-	mii_mgr_write(31, 0x7830, 0x1);
+	status = ra_switch_mdio_write(NULL, 31, 0x7830, 0x1);
+	if (status != 0)
+		goto mdio_error;
 
 	pr_info("trgmii_set_7530 Completed!!\n");
+	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: trgmii_set_7530 MDIO operation failed: %d\n",
+			   __func__, status);
+	return status;
 }
 
 #if !defined (CONFIG_RAETH_ESW_CONTROL)
@@ -3304,7 +3391,9 @@ static int setup_internal_gsw(void)
 	#if defined(CONFIG_GE1_RGMII_FORCE_1200)
 
 	if (ei_local->chip_name == MT7621_FE) {
-	trgmii_set_7530();
+	status = trgmii_set_7530();
+	if (status != 0)
+		goto mdio_error;
 	/* enable MDIO to control MT7530 */
 	reg_value = sys_reg_read(RALINK_SYSCTL_BASE + 0x60);
 	reg_value &= ~(0x3 << 12);
