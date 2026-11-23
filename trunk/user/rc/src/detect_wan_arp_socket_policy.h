@@ -5,6 +5,7 @@
 #include <net/if.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <string.h>
 
 typedef int (*detect_wan_setsockopt_fn)(int, int, int, const void *, socklen_t);
 

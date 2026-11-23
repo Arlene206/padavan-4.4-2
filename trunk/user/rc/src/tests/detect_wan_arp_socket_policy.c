@@ -163,9 +163,6 @@ test_invalid_arguments_fail_without_syscalls(void)
     CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, NULL) == -1);
     CHECK(errno == EINVAL && calls == 0);
 
-    CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, NULL) == -1);
-    CHECK(errno == EINVAL && calls == 0);
-
     memset(&request, 0, sizeof(request));
     reset_mock(0);
     CHECK(detect_wan_arp_socket_prepare(7, &request, &timeout, mock_setsockopt) == -1);
