@@ -26,13 +26,13 @@
 
 ## Active task
 
-### Retry DHCPv6 configuration events after callback script failure
+### Rerun WAN callback contract after DHCPv6 retry integration
 
-- Confirmed active production path: `start_dhcp6c()` in `trunk/user/rc/src/net_wan6.c` starts `/sbin/dhcp6c`; BusyBox Kbuild includes `dhcp6c.o`, `dhcp6c_script.o` and `dhcp6c_ia.o` when CONFIG_DHCP6C is enabled. Do not confuse this with legacy `d6_dhcpc.c`, which is not the production client applet.
-- Source finding: `dhcp6_script()` in `dhcp6c_script.c` returns the child exit/spawn status and frees its environment, but `client6_recvreply()` in `dhcp6c.c` logged the status and always removed the DHCP event. It also armed Information Refresh Time before the callback succeeded. A transient configuration callback failure could discard the DHCP retry event and delay restoration of IPv6 DNS/NVRAM state until a later exchange.
-- THIS COMMIT changes `client6_recvreply()`: callback status defaults to 0 when no script is configured; a nonzero status retains the current DHCP event, resets its retransmission parameters, sets its timer to a 5-second retry and returns before `dhcp6_remove_event()`. Information Refresh Time is scheduled only after script success. Existing child environment cleanup is unchanged.
-- New files: `dhcp6c_script_retry_policy.h`, `tests/dhcp6c_script_retry_policy.c`, `scripts/check_dhcp6c_script_retry.py`, and `.github/workflows/dhcp6c-script-retry-stability.yml`. Host policy test covers success, positive child failure, spawn failure and retry interval. Source checker verifies callback status propagation, event retention, retransmission reset, retry timer and Information Refresh Time ordering. Workflow compiles GNU89 with ASan/UBSan and runs the Python contract.
-- No local checkout; neither the new host test nor BusyBox target compile has been run locally. Exact-head GitHub Actions are required. Treat this change as L1 only until its host workflow passes (L2) and the same production-source SHA passes XY-C1 MIPS/uClibc build, TRX verification and artifact upload (L3).
+- Product source commit `80811fc53de0257bf44973fa0d703014981fcaf5` implements DHCPv6 Reply script-result retry: nonzero callback status retains the event, resets retry parameters and schedules a five-second retry; Information Refresh Time is armed only after callback success.
+- Dedicated DHCPv6 workflow `45117871967` on exact SHA 80811 completed SUCCESS, including GNU89 ASan/UBSan policy regression and source contract.
+- Exact WAN callback workflow `45117872004` on 80811 failed only because its final inline source contract still expected the removed old DHCPv6 log strings. All preceding WAN/IPv6/LAN compiled regressions and source assertions passed. THIS COMMIT updates the two stale assertions to require the retry gate, new logs, retry-parameter reset and retry timer; no product source changes.
+- After this checker-only correction, require exact-head WAN callback rerun to pass. Also establish exact-SHA XY-C1 MIPS/uClibc build, TRX and artifact status for product SHA 80811; no exact-head XY-C1 run had appeared in the latest returned push-run inventory. Do not claim L3 without it.
+- Once these checks are recorded, continue with a separate source-backed defect across another userland subsystem. Do not idle-poll Actions.
 
 ### Exact parallel baseline
 
@@ -45,15 +45,14 @@
 - Prior libdisk ACL: L1/L2/L3 PASS on the SHA/run evidence listed above; L4 NOT VERIFIED.
 - FRP private seeding: focused shell regression and source contracts PASS; exact d2c XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
 - USB printer unplug: exact storage-hotplug GNU89 ASan/UBSan/source-contract PASS and exact 200127 XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
-- DHCPv6 Reply callback retry in THIS COMMIT: L1 source review only. The dedicated host workflow and exact-new-SHA XY-C1 build/TRX/artifact must pass before L2/L3 close.
+- DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated exact-head host workflow `45117871967` PASS (GNU89 ASan/UBSan + source contract), so L2 PASS. The WAN callback integration workflow `45117872004` failed only in two stale source log assertions; THIS COMMIT updates that contract. L3 remains NOT VERIFIED: no exact-head XY-C1 run was found for 80811 in the latest returned push inventory. L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify the backup still equals `72f4f157a084f8184b9597ca5bf334b8080e5807`. Resolve THIS COMMIT from history and inspect the full DHCPv6 diff; do not assume this saved parent is still live.
-2. Find push Actions whose `head_sha` exactly equals the DHCPv6 commit. Require `BusyBox DHCPv6 Reply script failure retry regression` to pass both the GNU89 ASan/UBSan policy binary and `scripts/check_dhcp6c_script_retry.py`. Diagnose the first failure and correct source/test/checker atomically.
-3. Inspect exact same-SHA XY-C1 production-input detector, firmware build, TRX verification and artifact upload. Claim L3 only after all succeed on this source SHA.
-4. PENDING must not block independent work. Continue the next concrete, source-backed stability/security issue in another integrated userland subsystem; do not repeat libdisk ACL, FRP storage, printer-unplug or BusyBox PID1 audits without new evidence.
-
+1. Fetch live main and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Resolve THIS COMMIT and inspect the WAN workflow-only diff; do not assume this saved parent remains live.
+2. Inspect the exact-head WAN callback push run for this correction. It must pass the final inline source contract that now expects DHCPv6 retry logs and timer behavior; if it fails, inspect the first assertion and update the contract without weakening product checks.
+3. Establish exact-SHA XY-C1 firmware evidence for product SHA `80811fc53de0257bf44973fa0d703014981fcaf5`: verify production-input detector, Build XY-C1, TRX verification and artifact upload. No L3 claim until all three stages pass on that same production-source SHA.
+4. The dedicated DHCPv6 host regression `45117871967` is already PASS. Other previous L2/L3 source milestones are recorded above; don't repeat them. Continue another independent, concrete whole-userland stability/security task while any checks are pending.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.

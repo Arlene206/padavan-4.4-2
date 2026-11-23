@@ -1,3 +1,12 @@
+## 2026-11-23 14:06 UTC+8 — Align WAN callback source contract with DHCPv6 event retry
+
+- Exact DHCPv6 retry workflow run `45117871967` on `80811fc53de0257bf44973fa0d703014981fcaf5` completed SUCCESS: GNU89 ASan/UBSan policy test and the DHCPv6 source integration checker both passed.
+- The same-SHA WAN DHCP callback workflow `45117872004` completed FAILURE only at its final inline Python source contract. Its legacy assertions still required the old DHCPv6 log strings `configuration script failed to execute` / `exited with status %d`; the source fix deliberately replaces them with explicit `retrying event` log messages and a retained-event retry path. All preceding WAN/IPv6/LAN policy binaries and source contracts in that job passed.
+- Updated the WAN workflow's stale DHCPv6 callback assertions to require the retry-policy gate, both new diagnostics, retransmission reset and five-second event timer. This is a test-contract migration only; no product C source changed.
+- No exact-head XY-C1 run appeared in the returned push-run inventory for SHA 80811 at the latest lookup. The dedicated DHCPv6 host workflow passed, but L3 is still NOT VERIFIED until the same production-source SHA gets XY-C1 MIPS/uClibc build, TRX and artifact upload.
+- No local checkout; no local test/build claim. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 14:00 UTC+8 — Retry DHCPv6 Reply events when configuration scripts fail
 
 - Confirmed active production path: `start_dhcp6c()` in `trunk/user/rc/src/net_wan6.c` launches `/sbin/dhcp6c`; BusyBox Kbuild includes `dhcp6c.o`, `dhcp6c_script.o` and `dhcp6c_ia.o` under CONFIG_DHCP6C. The legacy `d6_dhcpc.c` is not this router's DHCPv6 client and was not modified.

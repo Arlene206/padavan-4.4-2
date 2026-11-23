@@ -942,8 +942,11 @@ jobs:
           assert "BB_EXECVP(argv[0], argv)" in spawn_child
           reply_handler = body(dhcp6_client_source, "static int client6_recvreply(struct dhcp6_if *ifp,")
           assert "script_status = dhcp6_script(" in reply_handler
-          assert "DHCPv6 configuration script failed to execute" in reply_handler
-          assert "DHCPv6 configuration script exited with status %d" in reply_handler
+          assert "dhcp6c_script_retry_required(script_status)" in reply_handler
+          assert "DHCPv6 configuration script failed; retrying event" in reply_handler
+          assert "DHCPv6 configuration script exited with status %d; retrying event" in reply_handler
+          assert "dhcp6_set_timeoparam(ev);" in reply_handler
+          assert "dhcp6_timer_set(DHCP6C_SCRIPT_RETRY_DELAY_MS, ev->timer);" in reply_handler
           signal_adapter = body(common_ex_source, "service_lifecycle_send_signal(void *context")
           assert "signal_number != SIGTERM && signal_number != SIGKILL" in signal_adapter
           assert "kill(identity->pid, signal_number)" in signal_adapter
