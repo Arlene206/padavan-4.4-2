@@ -56,6 +56,7 @@ jobs:
 
           snapshot = body(source, "storage_read_minidlna_config_status(")
           updater = body(source, "update_minidlna_conf(")
+          daemon_start = body(source, "int run_dms(int force_rescan)")
           # Require one C escape for LF in each attack fixture. Two source
           # backslashes would pass literal backslash+n, not a control character.
           malicious_config_literals = (
@@ -76,6 +77,18 @@ jobs:
           assert snapshot.count("rc_wan_nvram_copy_value(") == 3
           assert updater.index("storage_read_minidlna_config_status(") < updater.index("minidlna_config_publish(")
           assert "if (status != 0)" in updater
+          # The configured -R/-U scan mode must not be lost on NVRAM errors.
+          rescan_read_compact = 'storage_read_integer_status("dlna_rescan",0,&db_rescan_mode)'
+          rescan_compact = "".join(daemon_start.split())
+          assert rescan_read_compact in rescan_compact
+          assert 'nvram_get_int("dlna_rescan")' not in daemon_start
+          force_gate = rescan_compact.index("if(!force_rescan)")
+          rescan_at = rescan_compact.index(rescan_read_compact)
+          failure_gate = rescan_compact.index("if(config_status!=0)", rescan_at)
+          link_mutation = rescan_compact.index("unlink(link_path)")
+          assert force_gate < rescan_at < failure_gate < link_mutation
+          assert "cannot read database rescan mode; aborting daemon start" in daemon_start
+          assert "if (force_rescan || db_rescan_mode == 2)" in daemon_start
           for getter in ('nvram_get_int("dlna_disc")', 'nvram_get_int("dlna_root")',
                          'nvram_get_int("dlna_sort")', 'nvram_safe_get("dlna_src1")',
                          'nvram_safe_get("dlna_src2")', 'nvram_safe_get("dlna_src3")'):

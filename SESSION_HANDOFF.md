@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; latest verified parent before this MiniDLNA fixture-contract follow-up is `511f1eed74144fb270181dbb53de2ea9dc09be02`. Re-read main immediately before every write and use expected-SHA compare-and-swap.
+- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; last verified parent before this MiniDLNA rescan status fix is `9597283bfa55eaa16d2b64212e073935e421dedf`. Re-read main before each write and use expected-SHA compare-and-swap.
 - The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
 - The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
 - Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
@@ -26,17 +26,14 @@
 
 ## Active task
 
-### Pin real newline characters in MiniDLNA configuration-injection regressions
+### Preserve MiniDLNA database rescan requests when NVRAM reads fail
 
-- Product commit `eebc7031068ac79d8653be0a6a439eb07f374164` adds a single NVRAM transaction for the six MiniDLNA configuration settings and rejects control bytes in all INI values before atomic publication.
-- Exact MiniDLNA workflow `45120141433` exposed a flawed test: attack strings contained two C-source backslashes before `n`, so the runtime input had literal backslash+n rather than an LF. The EINVAL check failed at line 124. Commit `511f1eed74144fb270181dbb53de2ea9dc09be02` fixes the fixtures and the last-good sentinel to use real C newline escapes.
-- Exact MiniDLNA run `45120292969` on 511 completed SUCCESS: GNU89 ASan/UBSan publication regression and source contract both passed.
-- THIS checker-only follow-up pins the four exact C-source spellings with Python raw-string assertions, ensuring the regression cannot silently revert to harmless escaped text. It changes no product C source; no firmware target evidence is affected.
-- Exact eebc XY-C1 run `45120141302` had completed all prerequisites/input detection and was still at Build XY-C1 when last inspected; TRX/artifact were pending. This is the production-source L3 gate for eebc and descendant 511 (test-only diff). Claim L3 only after Build, TRX and artifact upload all pass on eebc.
-- Exact eebc Firewall Startup `45120141334` completed SUCCESS. Process inventory `45120141526`, Process integration `45120141298`, IPv6 `45120141363`, Firefly `45120141512`, vsftpd `45120141343`, libdisk `45120141493`, USB modem `45120141452`, USB storage `45120141384`, HTTPD `45120141619`, Samba `45120141333`, and NVRAM `45120141562` were in progress/pending at last lookup.
-- Earlier product source slices: VPN subnet validation `229495207dda582789da01c24b3635b4a45a99ce` Firewall `45120014106` PASS; mangle transaction rollback `2c911df...` Firewall descendant `45119408526` PASS; FTP mode-scoped anonymous-rate `c75d39...` vsftpd `45119601925` PASS; Firefly INI/credential safety `d02cf9...` Firefly `45119820496` PASS.
-- Continue on a new independent cross-userland source-backed defect; do not repeat MiniDLNA fixture, Firefly, FTP-rate, VPN-subnet or mangle fixes.
-
+- Review found that run_dms() read dlna_rescan using nvram_get_int() after publishing configuration. A transient NVRAM/backend/parse/close error collapsed to zero, silently omitting the configured -R or -U scan option while starting the daemon.
+- THIS COMMIT uses storage_read_integer_status() before unlinking/recreating the database link or publishing config. Read failure is logged and returned without startup side effects.
+- An explicit force_rescan bypasses the NVRAM read because the caller option takes precedence; this avoids introducing a dependency on an unused setting. Existing -R/-U selection semantics remain unchanged.
+- MiniDLNA newline-injection fixture correction 511f1eed74144fb270181dbb53de2ea9dc09be02 passed exact run 45120292969. Follow-up source-contract/handoff commit 9597283bfa55eaa16d2b64212e073935e421dedf passed MiniDLNA run 45120463448 and AI handoff contract 45120463437.
+- eebc7031068ac79d8653be0a6a439eb07f374164 Firewall Startup run 45120141334 PASS. Its exact XY-C1 run 45120141302 had passed prerequisites/input detection and was still at Build XY-C1 at last inspection; TRX/artifact were pending. This source commit changes services_stor.c and requires a fresh exact-head XY-C1 build/TRX/artifact.
+- Keep working across userland services while Actions are pending; do not repeat MiniDLNA INI/fixture, FTP rate, Firefly credential, VPN subnet or mangle rollback fixes.
 ### Exact parallel baseline
 
 - Earlier source milestones: libdisk ACL L3 PASS on e757 `45114634020`; FRP L3 PASS on d2c `45115500761`; USB printer unplug L2/L3 PASS on 200127 `45116268933` / `45116268960`.
@@ -51,11 +48,10 @@
 - DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated host run `45117871967` PASS (L2); WAN integration rerun `45118077270` PASS. L3 NOT VERIFIED: exact XY-C1 run on latest tree was still building and the source path coverage gap is fixed by THIS COMMIT. L4 NOT VERIFIED.
 - Firewall IPTV TTL interface source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`: source review and tests added; exact XY-C1 run `45118311710` pending at## Exact first action for the next GPT
 
-1. Read live main once and verify frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; resolve the latest source and checker commit SHAs.
-2. Check the exact-head MiniDLNA rerun after the fixture-contract follow-up; both GNU89 ASan/UBSan test and source checker must pass.
-3. Inspect eebc XY-C1 `45120141302`: L3 requires Build XY-C1, TRX verification and artifact upload all PASS on that production source SHA. Retain eebc Firewall Startup `45120141334` PASS.
-4. Continue a new stability/security task outside the recently fixed MiniDLNA/Firefly/FTP/firewall slices. Do not idle-poll. L4 physical-router validation remains NOT VERIFIED.
-
+1. Read live main once; verify the frozen backup ref remains 72f4f157a084f8184b9597ca5bf334b8080e5807; resolve THIS COMMIT.
+2. Inspect exact-head MiniDLNA workflow for the checked dlna_rescan source contract; require both host sanitizer test and source contract PASS.
+3. Inspect exact-head XY-C1 for this production services_stor.c change. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on the same SHA.
+4. Continue an independent cross-userland stability/security task while those checks are pending. L4 physical-router validation remains NOT VERIFIED.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.

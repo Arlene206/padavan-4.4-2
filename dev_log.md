@@ -1,3 +1,13 @@
+## 2026-11-23 06:02 UTC — Fail closed when MiniDLNA cannot read database rescan mode
+
+- run_dms() used nvram_get_int("dlna_rescan") after publishing configuration. Transient backend/read/parse/close errors collapsed to zero and silently skipped a configured full (-R) or update-only (-U) scan while starting the daemon.
+- Replaced that lossy getter with storage_read_integer_status() before any DB-link unlink/recreation or config publication. The exact error is logged/returned with no startup side effects. force_rescan bypasses the read because the explicit caller mode supersedes the setting.
+- Extended MiniDLNA workflow source contract to pin the checked read, forced-scan bypass, failure gate before link mutation, preservation of -R/-U behavior and removal of the lossy getter.
+- MiniDLNA fixture correction 511f1eed74144fb270181dbb53de2ea9dc09be02 exact run 45120292969 PASS. Checker/handoff commit 9597283bfa55eaa16d2b64212e073935e421dedf exact MiniDLNA run 45120463448 PASS and AI handoff contract 45120463437 PASS.
+- eebc production tree Firewall Startup 45120141334 PASS. Its XY-C1 run 45120141302 had passed prerequisites and was at Build XY-C1; TRX/artifact pending. This production source change requires its own exact-SHA firmware build validation.
+- No local compile/build claimed. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 05:55 UTC — Pin MiniDLNA newline-injection fixture semantics
 
 - Exact MiniDLNA run `45120141433` failed the ASan/UBSan host test at line 124 because all malicious inputs encoded two backslashes before `n`; they were literal text, not control bytes, so the expected EINVAL did not occur.

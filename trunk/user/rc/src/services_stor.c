@@ -2960,7 +2960,7 @@ storage_rollback_failed_start(const char *apps_name, const char *daemon,
 
 int run_dms(int force_rescan)
 {
-	int db_rescan_mode;
+	int db_rescan_mode = 0;
 	int process_state;
 	int process_error;
 	int config_status;
@@ -2996,6 +2996,16 @@ int run_dms(int force_rescan)
 		logmessage("minidlna", "startup skipped because process inventory is unknown");
 		return errno ? errno : EIO;
 	}
+	if (!force_rescan) {
+		config_status = storage_read_integer_status(
+			"dlna_rescan", 0, &db_rescan_mode);
+		if (config_status != 0) {
+			logmessage(apps_name,
+				   "cannot read database rescan mode; aborting daemon start (status=%d)",
+				   config_status);
+			return config_status;
+		}
+	}
 
 	unlink(link_path);
 	link_status = create_mp_link_status(dest_dir, link_path, 0);
@@ -3017,7 +3027,6 @@ int run_dms(int force_rescan)
 	ether_atoe(nvram_safe_get("il0macaddr"), mac_bin);
 	minidlna_argv[4] = ether_etoa3(mac_bin, mac_str);
 
-	db_rescan_mode = nvram_get_int("dlna_rescan");
 	if (force_rescan || db_rescan_mode == 2)
 		minidlna_argv[5] = "-R";
 	else if (db_rescan_mode == 1)
