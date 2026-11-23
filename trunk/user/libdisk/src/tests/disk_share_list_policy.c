@@ -7,6 +7,7 @@
 
 #include "disk_share_list_policy.h"
 #include "disk_share_account_nvram_policy.h"
+#include "router_account_policy.h"
 
 static void
 test_invalid_mount_paths_clear_outputs(void)
@@ -606,6 +607,12 @@ test_account_inventory_rejects_duplicate_names(void)
 int
 main(void)
 {
+	assert(router_account_name_is_reserved_after_read("admin", 1, "admin"));
+	assert(!router_account_name_is_reserved_after_read("storage", 1, "admin"));
+	assert(!router_account_name_is_reserved_after_read("storage", 0, NULL));
+	assert(router_account_name_is_reserved_after_read("admin", -1, NULL));
+	assert(router_account_name_is_reserved_after_read("admin", 1, NULL));
+
 	test_invalid_mount_paths_clear_outputs();
 	test_missing_output_parameters_are_safe();
 	test_valid_mount_path_starts_with_empty_outputs();

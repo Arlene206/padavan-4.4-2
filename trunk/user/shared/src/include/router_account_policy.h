@@ -53,4 +53,19 @@ router_account_name_is_reserved(const char *name, const char *management_name)
 	return 0;
 }
 
+/*
+ * Treat a failed or inconsistent management-identity read as reserved.
+ * 0 means the setting is absent; 1 requires a non-NULL value.
+ */
+static int
+router_account_name_is_reserved_after_read(const char *name, int read_status,
+                                           const char *management_name)
+{
+	if (read_status == 0)
+		return router_account_name_is_reserved(name, NULL);
+	if (read_status != 1 || !management_name)
+		return 1;
+	return router_account_name_is_reserved(name, management_name);
+}
+
 #endif /* PADAVAN_ROUTER_ACCOUNT_POLICY_H */

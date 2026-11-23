@@ -53,11 +53,25 @@ is_valid_account_name(const char *name)
 static int
 is_reserved_account_name(const char *name)
 {
+	char *management_name = NULL;
+	int read_status;
+
 	if (!name || !*name)
 		return 1;
+	if (router_account_name_is_reserved(name, NULL) ||
+	    !strcmp(name, FTP_ANONYMOUS_USER))
+		return 1;
 
-	return router_account_name_is_reserved(name, nvram_safe_get("http_username")) ||
-	       !strcmp(name, FTP_ANONYMOUS_USER);
+	/*
+	 * Do not permit a new storage identity to shadow the router's management
+	 * account when a transient NVRAM error makes the cached getter look empty.
+	 */
+	errno = 0;
+	read_status = nvram_get_checked("http_username", &management_name);
+	if (read_status < 0 && errno == 0)
+		errno = EIO;
+	return router_account_name_is_reserved_after_read(
+		name, read_status, management_name);
 }
 
 static int

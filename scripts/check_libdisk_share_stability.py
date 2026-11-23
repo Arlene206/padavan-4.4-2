@@ -13,6 +13,7 @@ IO_REGRESSION = (LIBDISK / "tests/disk_io_tools_read_test.c").read_text()
 POLICY = (LIBDISK / "disk_share_list_policy.h").read_text()
 ACCOUNT_POLICY = (LIBDISK / "disk_share_account_nvram_policy.h").read_text()
 DISK_INITIAL_HEADER = (LIBDISK / "disk_initial.h").read_text()
+ACCOUNT_NAME_POLICY = (ROOT / "trunk/user/shared/src/include/router_account_policy.h").read_text()
 REGRESSION = (LIBDISK / "tests/disk_share_list_policy.c").read_text()
 SAMBA_SOURCE = (ROOT / "trunk/user/rc/src/services_stor.c").read_text()
 
@@ -281,6 +282,20 @@ require("if (result != 0)" in set_permission[set_init:set_retry],
         "permission update must propagate metadata initialization failure")
 
 
+
+
+reserved_account_body = function_body(
+    DISK_SOURCE, "static int\nis_reserved_account_name(const char *name)"
+)
+reserved_account_compact = "".join(reserved_account_body.split())
+require("nvram_get_checked(\"http_username\",&management_name)" in reserved_account_compact and
+        "router_account_name_is_reserved_after_read(" in reserved_account_compact and
+        "nvram_safe_get(" not in reserved_account_compact and
+        "if(read_status<0&&errno==0)errno=EIO;" in reserved_account_compact,
+        "reserved storage-account checks must reject transient or inconsistent management-name reads rather than treating errors as an absent username")
+require("router_account_name_is_reserved_after_read" in ACCOUNT_NAME_POLICY and
+        "read_status!=1||!management_name" in "".join(ACCOUNT_NAME_POLICY.split()),
+        "reserved-name policy must fail closed for backend errors and inconsistent present-value results")
 
 account_list_body = function_body(
     DISK_SOURCE, "int get_account_list(int *acc_num, char ***account_list)"

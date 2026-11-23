@@ -11,6 +11,7 @@ on:
       - "trunk/user/libdisk/src/disk_share_list_policy.h"
       - "trunk/user/libdisk/src/disk_share_account_nvram_policy.h"
       - "trunk/user/shared/src/router_account_nvram_policy.h"
+      - "trunk/user/shared/src/include/router_account_policy.h"
       - "trunk/user/libdisk/src/tests/disk_share_list_policy.c"
       - "trunk/user/libdisk/src/tests/disk_io_tools_read_test.c"
       - "trunk/user/rc/src/services_stor.c"
@@ -40,7 +41,7 @@ jobs:
       - name: GNU89 address/undefined sanitizer regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
-            -I trunk/user/libdisk/src -I trunk/user/shared/src \
+            -I trunk/user/libdisk/src -I trunk/user/shared/src -I trunk/user/shared/src/include \
             trunk/user/libdisk/src/tests/disk_share_list_policy.c \
             -o /tmp/disk-share-list-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/disk-share-list-policy
