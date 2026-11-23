@@ -137,7 +137,10 @@ u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 	u32 high_word;
 	u32 an_status = 0;
 
-	if (!read_data || !dev_raether)
+	if (!read_data)
+		return 0;
+	*read_data = 0;
+	if (!dev_raether)
 		return 0;
 	ei_local = netdev_priv(dev_raether);
 
@@ -255,7 +258,10 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 	struct END_DEVICE *ei_local;
 	unsigned long flags;
 
-	if (!read_data || !dev_raether)
+	if (!read_data)
+		return 0;
+	*read_data = 0;
+	if (!dev_raether)
 		return 0;
 	ei_local = netdev_priv(dev_raether);
 

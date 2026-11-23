@@ -1192,21 +1192,25 @@ jobs:
               "u32 mii_mgr_write_cl45", 1
           )[0]
           cl45_write = mdio_driver.split("u32 mii_mgr_write_cl45", 1)[1]
-          for function_start, function_end, required_guard in (
-              ("u32 mii_mgr_read(", "EXPORT_SYMBOL(mii_mgr_read)", "if (!read_data || !dev_raether)"),
-              ("u32 mii_mgr_write(", "EXPORT_SYMBOL(mii_mgr_write)", "if (!dev_raether)"),
-              ("u32 mii_mgr_read_cl45(", "u32 mii_mgr_write_cl45(", "if (!read_data || !dev_raether)"),
-              ("u32 mii_mgr_write_cl45(", "", "if (!dev_raether)")
+          for function_start, function_end in (
+              ("u32 mii_mgr_write(", "EXPORT_SYMBOL(mii_mgr_write)"),
+              ("u32 mii_mgr_write_cl45(", "")
           ):
               function = mdio_driver.split(function_start, 1)[1]
               if function_end:
                   function = function.split(function_end, 1)[0]
-              assert required_guard in function
-              assert function.index(required_guard) < function.index("netdev_priv(dev_raether)")
+              assert "if (!dev_raether)" in function
+              assert function.index("if (!dev_raether)") < function.index("netdev_priv(dev_raether)")
           normal_read = mdio_driver.split("u32 mii_mgr_read(", 1)[1].split(
               "EXPORT_SYMBOL(mii_mgr_read)", 1
           )[0]
           assert "if (!read_data)" in normal_read and "if (!read_data)" in cl45_read
+          for read_fn in (normal_read, cl45_read):
+              null_guard = read_fn.index("if (!read_data)")
+              clear_output = read_fn.index("*read_data = 0;")
+              device_guard = read_fn.index("if (!dev_raether)")
+              priv_access = read_fn.index("netdev_priv(dev_raether)")
+              assert null_guard < clear_output < device_guard < priv_access
           for cl45_fn in (cl45_read, cl45_write):
               addr_check = cl45_fn.index(
                   "if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))"
