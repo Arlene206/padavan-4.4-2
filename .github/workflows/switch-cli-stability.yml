@@ -640,14 +640,38 @@ jobs:
           )[0]
           validate = body.index("mtk_esw_link_mode_is_valid(port_link_mode)")
           cache = body.index("g_port_link_mode[port_id] == port_link_mode")
-          first_mdio = body.index("mii_mgr_read(")
-          assert validate < cache < first_mdio
+          program = body.index("program_status = mtk_esw_link_mode_program(")
+          program_guard = body.index("if (program_status != 0)", program)
+          cache_update = body.index("g_port_link_mode[port_id] = port_link_mode;", program_guard)
+          assert validate < cache < program < program_guard < cache_update
           assert "return -EINVAL;" in body[validate:cache]
-          assert "MTK_ESW_LINK_MODE_VALID_MASK" in policy
-          assert "speed > 9U && speed != 15U" in policy
-          assert "return flow <= 2U;" in policy
-          assert "test_all_defined_speed_and_flow_modes" in test
-          assert "test_reserved_speed_flow_and_bits_are_rejected" in test
+          assert "return program_status;" in body[program_guard:cache_update]
+          assert "mii_mgr_read(" not in body and "mii_mgr_write(" not in body
+          assert "mii_mgr_read(phy_addr, reg, value) ? 0 : -EIO;" in source
+          assert "mii_mgr_write(phy_addr, reg, value) ? 0 : -EIO;" in source
+          assert "msleep(milliseconds);" in source
+          for token in (
+              "MTK_ESW_LINK_MODE_VALID_MASK",
+              "MTK_ESW_LINK_MODE_REG_GIGABIT",
+              "MTK_ESW_LINK_MODE_REG_ADVERTISEMENT",
+              "MTK_ESW_LINK_MODE_REG_CONTROL",
+              "return status < 0 ? status : -EIO;",
+              "if (status != 0)",
+              "io->delay_ms(context, 500U);",
+          ):
+              assert token in policy, token
+          for marker in (
+              "test_autoneg_register_sequence_and_cache_ready_result",
+              "test_forced_mode_power_cycles_before_final_control_write",
+              "test_power_off_sets_down_bit_without_delay",
+              "test_read_and_each_write_failure_abort_without_later_io",
+              "test_mdio_errors_are_preserved_and_positive_failures_become_eio",
+              "test_forced_final_write_failure_is_not_hidden_after_delay",
+              "test_invalid_io_and_boolean_arguments_are_rejected",
+              "test_all_defined_speed_and_flow_modes",
+              "test_reserved_speed_flow_and_bits_are_rejected",
+          ):
+              assert marker in test and marker + "();" in test, marker
 
           filters = workflow.split("jobs:", 1)[0]
           for path in (

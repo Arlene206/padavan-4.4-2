@@ -57,6 +57,36 @@ static u32 g_storm_rate_limit                    = ESW_DEFAULT_STORM_RATE;
 static u32 g_port_link_mode[ESW_EPHY_ID_MAX+1]   = {0, 0, 0, 0, 0};
 static u32 g_port_phy_power[ESW_EPHY_ID_MAX+1]   = {0, 0, 0, 0, 0};
 
+static int
+mtk_esw_link_mode_mdio_read(void *context, unsigned int phy_addr,
+			    unsigned int reg, unsigned int *value)
+{
+	(void)context;
+	return mii_mgr_read(phy_addr, reg, value) ? 0 : -EIO;
+}
+
+static int
+mtk_esw_link_mode_mdio_write(void *context, unsigned int phy_addr,
+			     unsigned int reg, unsigned int value)
+{
+	(void)context;
+	return mii_mgr_write(phy_addr, reg, value) ? 0 : -EIO;
+}
+
+static void
+mtk_esw_link_mode_delay(void *context, unsigned int milliseconds)
+{
+	(void)context;
+	msleep(milliseconds);
+}
+
+static const struct mtk_esw_link_mode_io mtk_esw_link_mode_io = {
+	mtk_esw_link_mode_mdio_read,
+	mtk_esw_link_mode_mdio_write,
+	mtk_esw_link_mode_delay
+};
+
+
 static u32 g_vlan_rule[SWAPI_VLAN_RULE_NUM]      = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 static u32 g_vlan_rule_user[SWAPI_VLAN_RULE_NUM] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
@@ -1485,6 +1515,7 @@ static int change_port_link_mode_uapi(u32 port_id_uapi, u32 port_link_mode)
 	u32 i_port_speed, i_port_flowc, i_port_power;
 	u32 esw_phy_ana = 0x05e1;
 	u32 esw_phy_mcr = 0x3100; /* 100 FD + auto-negotiation */
+	int program_status;
 	u32 phy_mdio_addr;
 	u32 port_id = get_port_from_uapi(port_id_uapi);
 
@@ -1588,72 +1619,42 @@ static int change_port_link_mode_uapi(u32 port_id_uapi, u32 port_link_mode)
 #endif
 
 	/* MT7621/MT7530 GSW or external GigaPHY */
-#if 1
-	{
-		u32 esw_phy_gcr = 0;
-		
-		/* set MII control register [6,13] */
-		if (i_port_speed <= SWAPI_LINK_SPEED_MODE_AUTO_1000_FD) {
-			/* set 1000 Mbps */
-			esw_phy_mcr &= ~(1<<13);
-			esw_phy_mcr |=  (1<<6);
-		}
-		
-		/* set auto-negotiation advertisement register [5,6,7,8] */
-		if (i_port_speed == SWAPI_LINK_SPEED_MODE_AUTO_1000_FD) {
-			/* disable ability 100 FD, 100 HD, 10 FD, 10 HD */
-			esw_phy_ana &= ~((1<<8)|(1<<7)|(1<<6)|(1<<5));
-			link_desc = "1000FD [AN]";
-		}
-		
-		/* set auto-negotiation advertisement register [11] */
-		if (i_port_speed <= SWAPI_LINK_SPEED_MODE_AUTO_1000_FD &&
-		    i_port_flowc == SWAPI_LINK_FLOW_CONTROL_TX_ASYNC) {
-			/* enable asymmetric pause ability (A6) */
-			esw_phy_ana |= (1<<11);
-			flow_desc = "TX Asy";
-		}
-		
-		/* set 1000Base-T control register [8,9] */
-		mii_mgr_read(phy_mdio_addr, 9, &esw_phy_gcr);
-		if (i_port_speed <= SWAPI_LINK_SPEED_MODE_AUTO_1000_FD) {
-			/* enable 1000Base-T Advertisement */
-			esw_phy_gcr |=  ((1<<9)|(1<<8));
-		} else {
-			/* disable 1000Base-T Advertisement */
-			esw_phy_gcr &= ~((1<<9)|(1<<8));
-		}
-		mii_mgr_write(phy_mdio_addr, 9, esw_phy_gcr);
-	}
-#endif
-
-	/* set PHY ability */
-	mii_mgr_write(phy_mdio_addr, 4, esw_phy_ana);
-
-	if (i_port_power) {
-		if (!(esw_phy_mcr & (1<<12))) {
-			/* power-down PHY */
-			esw_phy_mcr |= (1<<11);
-			
-			/* set PHY mode */
-			mii_mgr_write(phy_mdio_addr, 0, esw_phy_mcr);
-			
-			/* wait for PHY down */
-			msleep(500);
-			
-			/* power-up PHY */
-			esw_phy_mcr &= ~(1<<11);
-		} else {
-			/* restart PHY auto-negotiation */
-			esw_phy_mcr |= (1<<9);
-		}
-	} else {
-		/* power-down PHY */
-		esw_phy_mcr |= (1<<11);
+	/* set MII control register [6,13] */
+	if (i_port_speed <= SWAPI_LINK_SPEED_MODE_AUTO_1000_FD) {
+		/* set 1000 Mbps */
+		esw_phy_mcr &= ~(1<<13);
+		esw_phy_mcr |=  (1<<6);
 	}
 
-	/* set PHY mode */
-	mii_mgr_write(phy_mdio_addr, 0, esw_phy_mcr);
+	/* set auto-negotiation advertisement register [5,6,7,8] */
+	if (i_port_speed == SWAPI_LINK_SPEED_MODE_AUTO_1000_FD) {
+		/* disable ability 100 FD, 100 HD, 10 FD, 10 HD */
+		esw_phy_ana &= ~((1<<8)|(1<<7)|(1<<6)|(1<<5));
+		link_desc = "1000FD [AN]";
+	}
+
+	/* set auto-negotiation advertisement register [11] */
+	if (i_port_speed <= SWAPI_LINK_SPEED_MODE_AUTO_1000_FD &&
+	    i_port_flowc == SWAPI_LINK_FLOW_CONTROL_TX_ASYNC) {
+		/* enable asymmetric pause ability (A6) */
+		esw_phy_ana |= (1<<11);
+		flow_desc = "TX Asy";
+	}
+
+	program_status = mtk_esw_link_mode_program(
+		phy_mdio_addr, esw_phy_ana, esw_phy_mcr,
+		(i_port_speed <= SWAPI_LINK_SPEED_MODE_AUTO_1000_FD),
+		i_port_power, &mtk_esw_link_mode_io, NULL);
+	if (program_status != 0) {
+		pr_err("%s - %s PHY link-mode programming failed (status=%d)\n",
+		       MTK_ESW_DEVNAME, get_port_desc(port_id), program_status);
+		return program_status;
+	}
+
+	if (!i_port_power) {
+		link_desc = "Power OFF";
+		flow_desc = "N/A";
+	}
 
 	g_port_link_mode[port_id] = port_link_mode;
 

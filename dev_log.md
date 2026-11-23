@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Abort MTK ESW link-mode changes on MDIO failures
+
+- Confirmed a PHY stability defect in `change_port_link_mode_uapi()`: every `mii_mgr_read/write()` result was ignored even though the manager returns 1 on success and 0 on timeout/failure. A failed register-9 read left the temporary GigaPHY control word at zero, then wrote it back and could erase existing 1000Base-T advertisement. Failed writes were also hidden while `g_port_link_mode[]` advanced, causing repeated identical requests to skip repair.
+- Added an injectable MDIO programming policy that checks the GigaPHY read, register-9/register-4 writes and both possible control-register writes; it stops at the first error, maps legacy false returns to `-EIO`, and preserves negative errno from status-aware callers. Forced modes retain their power-down/delay/power-up sequence. The ioctl cache updates only after the full required register sequence succeeds, allowing retry after partial hardware effects.
+- Added GNU89 regression cases for auto-negotiation register ordering, forced-mode power cycling, power-off, read/write failure boundaries, error propagation and argument validation. The policy/test source passed the local GNU89 -Wall -Wextra -Werror ASan/UBSan host harness; exact-head Switch CLI and XY-C1 Build/TRX/artifact checks remain pending.
+- Resulting source commit: THIS COMMIT. XY-C1 L3 and physical-router L4 remain unverified.
+
+---
+
 ## 2026-11-23 UTC — Bound WSD accepted-client processing time
 
 - Found two related TCP availability defects in wsdd2: a negative recv on an accepted client propagated as a service failure and restarted the WSD listener; also, the per-recv SO_RCVTIMEO was reset after each read, allowing a slow-trickle peer to block the single-threaded event loop indefinitely.
