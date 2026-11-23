@@ -1,3 +1,11 @@
+## 2026-11-23 — Make GE R50 calibration propagate MDIO failures
+
+- Base main SHA: `d524e61986a573eaa92c800893273e79f78f2f6f`; this slice covers the GE R50 common setup and four-pair calibration routine.
+- Added a status-bearing common-setup helper while preserving the legacy public `fe_ge_r50_common()` ABI. Converted port-local page 3/4 operations, global page-7 register-24 RMW, pair-select Clause 45 writes, comparator reads and each pair's packed result read/modify/write/readback to checked APIs.
+- GE R50 now uses the checked GE calibration wait; a transport error aborts remaining pairs. Timeout/saturation retains the legacy 0 dB fallback behavior. Common analog cleanup and the final Clause 45 calibration-disable write are both attempted on every exit, preserving the first error; `ge_cal_r50_flag` is not set on transport/cleanup failure.
+- Reused the existing tested MDIO update-bits policy and added workflow source contracts for both checked common setup and the full R50 path. Exact-head Actions remain required; no MIPS L3 or hardware L4 is claimed.
+
+---
 ## 2026-11-23 — Make GE Rext calibration fail closed on MDIO errors
 
 - Base main SHA: `2dfd89151b59774bad5598636fde26a98ba2b48b`; product changes are limited to `ge_cal_rext()` plus shared RAETH policy and regression coverage.

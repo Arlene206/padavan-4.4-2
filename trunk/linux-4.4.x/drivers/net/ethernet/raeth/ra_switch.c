@@ -1133,38 +1133,66 @@ void set_r50_mt7622(u8 port_num, u32 r50_cal_result)
 		port_num, tc_phy_read_l_reg(port_num, 4, 22));
 }
 
-void fe_ge_r50_common(u8 port_num)
+static int fe_ge_r50_common_checked(u8 port_num)
 {
-	u16 l3r25_temp, g7r24_tmp, l4r23_temp;
-	u8 phyaddr;
+	struct ra_switch_page_update_context page;
+	unsigned int updated;
+	int status;
 
-	phyaddr = port_num;
-	tc_phy_write_l_reg(port_num, 0, 0, 0x2100);
-	/*g2r25[7:5]:0x110, BG voltage output*/
-	tc_phy_write_g_reg(FE_CAL_COMMON, 2, 25, 0xf0c0);
+	status = tc_phy_write_page_reg_checked(port_num, 0U, 0U, 1,
+					       0x2100U);
+	if (status != 0)
+		return status;
+	status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 2U, 25U, 0,
+					       0xf0c0U);
+	if (status != 0)
+		return status;
+	status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 7U, 24U, 0,
+					       0U);
+	if (status != 0)
+		return status;
 
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0x0000);
-	/*g7r24[13]:0x01, RG_ANA_CALEN_P0=1*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp | 0x2000));
-	/*g7r24[14]:0x01, RG_CAL_CKINV_P0=1*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp | 0x4000));
+	page.page = 7U;
+	page.local = 0;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0U, 0x2000U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0U, 0x4000U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x1000U, 0U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	if (status != 0)
+		return status;
 
-	/*g7r24[12]:0x01, DA_TXVOS_CALEN_P0=0*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp & (~0x1000)));
+	page.page = 4U;
+	page.local = 1;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 23U, 0x0001U, 0U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	if (status != 0)
+		return status;
 
-	/*DA_R50OHM_CAL_EN l4r23[0] = 0*/
-	l4r23_temp = tc_phy_read_l_reg(port_num, 4, 23);
-	l4r23_temp = l4r23_temp & ~(0x01);
-	tc_phy_write_l_reg(port_num, 4, 23, l4r23_temp);
-
-	/*RG_REXT_CALEN l2r25[13] = 0*/
-	l3r25_temp = tc_phy_read_l_reg(FE_CAL_COMMON, 3, 25);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, (l3r25_temp & (~0x2000)));
+	page.page = 3U;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 25U, 0x2000U, 0U, ra_switch_page_update_read,
+		ra_switch_page_update_write, &page, &updated);
+	return status;
 }
 
+void fe_ge_r50_common(u8 port_num)
+{
+	int status = fe_ge_r50_common_checked(port_num);
+
+	if (status != 0)
+		pr_err_ratelimited("%s: GE R50 common setup failed (port=%u status=%d)\n",
+				   __func__, port_num, status);
+}
 void fe_cal_r50(u8 port_num, u32 delay)
 {
 	int rg_zcal_ctrl, all_ana_cal_status, rg_zcal_ctrl_tx, rg_zcal_ctrl_rx;
@@ -1771,178 +1799,284 @@ cleanup:
 }
 void ge_cal_r50(u8 phyaddr, unsigned int delay)
 {
-	u8	rg_zcal_ctrl, all_ana_cal_status, i;
-	u16	ad_cal_comp_out_init;
-	u16	dev1e_e0_ana_cal_r5;
-	int	calibration_polarity;
-	u16	cal_pair, val_tmp, g7r24_tmp;
-	u16	dev1e_174_tmp, dev1e_175_tmp, l3r25_temp;
-	u8	rg_zcal_ctrl_filter, cnt = 0;
+	u8 rg_zcal_ctrl, rg_zcal_ctrl_filter, ready;
+	unsigned int ad_cal_comp_out_init = 0;
+	unsigned int page_value, updated, dev1e_174_tmp, dev1e_175_tmp;
+	unsigned int val_tmp, readback;
+	unsigned int pair_select;
+	unsigned int cal_pair, i;
+	int calibration_polarity;
+	unsigned int cnt;
+	int all_ana_cal_status;
+	int status = 0;
+	int cleanup_status;
+	int disable_status;
+	struct ra_switch_page_update_context page;
 
 	/* *** R50 Cal start***************** */
-	fe_ge_r50_common(phyaddr);
-	/* 1e_db[12]:rg_cal_ckinv, [8]:rg_ana_calen, [4]:rg_rext_calen, [0]:rg_zcalen_a */
-	/* 1e_dc[0]:rg_txvos_calen */
-	/*disable RG_ZCALEN*/
-	/*decide which port calibration RG_ZCALEN by port_num*/
-	for (i = 1; i <= 4; i++) {
-		l3r25_temp = tc_phy_read_l_reg(i, 3, 25);
-		l3r25_temp = l3r25_temp & ~(0x1000);
-		tc_phy_write_l_reg(i, 3, 25, l3r25_temp);
+	status = fe_ge_r50_common_checked(phyaddr);
+	if (status != 0)
+		goto cleanup;
+
+	/* Disable RG_ZCALEN on ports 1..4 before selecting each calibration pair. */
+	page.page = 3U;
+	page.local = 1;
+	for (i = 1U; i <= 4U; ++i) {
+		status = ra_switch_mdio_update_bits_checked(
+			i, 25U, 0x1000U, 0U, ra_switch_page_update_read,
+			ra_switch_page_update_write, &page, &updated);
+		if (status != 0)
+			goto cleanup;
 	}
-	for (cal_pair = ANACAL_PAIR_A; cal_pair <= ANACAL_PAIR_D; cal_pair++) {
-		rg_zcal_ctrl = 0x20;/* start with 0 dB */
-		dev1e_e0_ana_cal_r5 = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x00e0) & (~0x003f));
-		/* 1e_e0[5:0]:rg_zcal_ctrl */
-		if (cal_pair == ANACAL_PAIR_A) {
-	/* 1e_db[12]:rg_cal_ckinv, [8]:rg_ana_calen, [4]:rg_rext_calen, [0]:rg_zcalen_a */
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x1000);
-		} else if (cal_pair == ANACAL_PAIR_B) {
-	/* 1e_db[12]:rg_cal_ckinv, [8]:rg_ana_calen, [4]:rg_rext_calen, [0]:rg_zcalen_a */
-	/* 1e_dc[12]:rg_zcalen_b */
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0100);
-		} else if (cal_pair == ANACAL_PAIR_C) {
-	/* 1e_db[12]:rg_cal_ckinv, [8]:rg_ana_calen, [4]:rg_rext_calen, [0]:rg_zcalen_a */
-	/* 1e_dc[8]:rg_zcalen_c */
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0010);
 
-		} else {/* if(cal_pair == ANACAL_PAIR_D) */
-
-	/* 1e_db[12]:rg_cal_ckinv, [8]:rg_ana_calen, [4]:rg_rext_calen, [0]:rg_zcalen_a */
-	/* 1e_dc[4]:rg_zcalen_d */
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0001);
+	page.page = 7U;
+	page.local = 0;
+	for (cal_pair = ANACAL_PAIR_A; cal_pair <= ANACAL_PAIR_D; ++cal_pair) {
+		rg_zcal_ctrl = 0x20; /* start with 0 dB */
+		switch (cal_pair) {
+		case ANACAL_PAIR_A:
+			pair_select = 0x1000U;
+			break;
+		case ANACAL_PAIR_B:
+			pair_select = 0x0100U;
+			break;
+		case ANACAL_PAIR_C:
+			pair_select = 0x0010U;
+			break;
+		default:
+			pair_select = 0x0001U;
+			break;
 		}
-		rg_zcal_ctrl = 0x20;	/* start with 0 dB */
-		g7r24_tmp = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (~0xfc0));
-		tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_tmp | ((rg_zcal_ctrl & 0x3f) << 6));
+		status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00dd,
+						       pair_select);
+		if (status != 0)
+			goto cleanup;
 
-		/*wait AD_CAL_COMP_OUT = 1*/
-		all_ana_cal_status = all_ge_ana_cal_wait(delay, phyaddr);
-		if (all_ana_cal_status == 0) {
+		status = ra_switch_mdio_update_bits_checked(
+			FE_CAL_COMMON, 24U, 0x0fc0U,
+			((unsigned int)(rg_zcal_ctrl & 0x3fU) << 6),
+			ra_switch_page_update_read, ra_switch_page_update_write,
+			&page, &updated);
+		if (status != 0)
+			goto cleanup;
+
+		/* Wait for AD_CAL_COMP_OUT and distinguish timeout from MDIO failure. */
+		all_ana_cal_status = ANACAL_INIT;
+		ready = 0;
+		status = all_ge_ana_cal_wait_checked(delay, phyaddr, &ready);
+		if (status != 0)
+			goto cleanup;
+		if (!ready) {
 			all_ana_cal_status = ANACAL_ERROR;
 			pr_info(" GE R50 AnaCal ERROR! (init)   \r\n");
-		}
-		ad_cal_comp_out_init = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
-		if (ad_cal_comp_out_init == 1)
-			calibration_polarity = -1;
-		else
-			calibration_polarity = 1;
+		} else {
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+			ad_cal_comp_out_init = page_value & 0x1U;
+			if (ad_cal_comp_out_init == 1U)
+				calibration_polarity = -1;
+			else
+				calibration_polarity = 1;
 
-		cnt = 0;
-		while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254)) {
-			cnt++;
-
-			rg_zcal_ctrl += calibration_polarity;
-			g7r24_tmp = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (~0xfc0));
-			tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24,
-					   g7r24_tmp | ((rg_zcal_ctrl & 0x3f) << 6));
-			all_ana_cal_status = all_ge_ana_cal_wait(delay, phyaddr);
-
-			if (all_ana_cal_status == 0) {
-				all_ana_cal_status = ANACAL_ERROR;
-				pr_info(" GE R50 AnaCal ERROR! (%d)  \r\n", cnt);
-			} else if ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1) !=
-				ad_cal_comp_out_init) {
-				all_ana_cal_status = ANACAL_FINISH;
-			} else {
-				if ((rg_zcal_ctrl == 0x3F) || (rg_zcal_ctrl == 0x00)) {
+			cnt = 0U;
+			while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
+				++cnt;
+				rg_zcal_ctrl = (u8)(rg_zcal_ctrl +
+						    calibration_polarity);
+				status = ra_switch_mdio_update_bits_checked(
+					FE_CAL_COMMON, 24U, 0x0fc0U,
+					((unsigned int)(rg_zcal_ctrl & 0x3fU) << 6),
+					ra_switch_page_update_read,
+					ra_switch_page_update_write, &page,
+					&updated);
+				if (status != 0)
+					goto cleanup;
+				ready = 0;
+				status = all_ge_ana_cal_wait_checked(
+					delay, phyaddr, &ready);
+				if (status != 0)
+					goto cleanup;
+				if (!ready) {
+					all_ana_cal_status = ANACAL_ERROR;
+					pr_info(" GE R50 AnaCal ERROR! (%u)  \r\n",
+						cnt);
+					break;
+				}
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				if ((page_value & 0x1U) != ad_cal_comp_out_init) {
+					all_ana_cal_status = ANACAL_FINISH;
+				} else if ((rg_zcal_ctrl == 0x3fU) ||
+					   (rg_zcal_ctrl == 0x00U)) {
 					all_ana_cal_status = ANACAL_SATURATION;
-					pr_info(" GE R50 Cal Sat! rg_zcal_ctrl = 0x%x(%d)\n",
-						cnt, rg_zcal_ctrl);
+					pr_info(" GE R50 Cal Sat! rg_zcal_ctrl = 0x%x(%u)\n",
+						rg_zcal_ctrl, cnt);
 				}
 			}
 		}
 
 		if ((all_ana_cal_status == ANACAL_ERROR) ||
 		    (all_ana_cal_status == ANACAL_SATURATION)) {
-			rg_zcal_ctrl = 0x20;  /* 0 dB */
-			rg_zcal_ctrl_filter = 8; /*default value*/
+			rg_zcal_ctrl = 0x20; /* 0 dB */
+			rg_zcal_ctrl_filter = 8U; /* default value */
 		} else {
-			/*DA_TX_R50*/
 			rg_zcal_ctrl_filter = rg_zcal_ctrl;
 			rg_zcal_ctrl = ZCAL_TO_R50ohm_GE_TBL[rg_zcal_ctrl];
-			/*DA_TX_FILTER*/
-			rg_zcal_ctrl_filter = ZCAL_TO_FILTER_TBL[rg_zcal_ctrl_filter];
-			rg_zcal_ctrl_filter = rg_zcal_ctrl_filter & 0xf;
-			rg_zcal_ctrl_filter = rg_zcal_ctrl_filter << 8 | rg_zcal_ctrl_filter;
+			rg_zcal_ctrl_filter =
+				ZCAL_TO_FILTER_TBL[rg_zcal_ctrl_filter];
+			rg_zcal_ctrl_filter &= 0x0fU;
+			rg_zcal_ctrl_filter = (u8)((rg_zcal_ctrl_filter << 8) |
+						   rg_zcal_ctrl_filter);
 		}
+
 		if (all_ana_cal_status == ANACAL_FINISH) {
 			if (cal_pair == ANACAL_PAIR_A) {
-				dev1e_174_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0174);
-				dev1e_174_tmp = dev1e_174_tmp & ~(0xff00);
-				if (rg_zcal_ctrl > 4) {
-					val_tmp = (((rg_zcal_ctrl - 4) << 8) & 0xff00) |
-						dev1e_174_tmp;
-				} else {
-					val_tmp = (((0) << 8) & 0xff00) | dev1e_174_tmp;
-				}
-
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0174, val_tmp);
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x03a0, rg_zcal_ctrl_filter);
-
-				pr_info("R50_PAIR_A : 1e_174 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0174));
-				pr_info("R50_PAIR_A : 1e_3a0 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x03a0));
-
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0174, &dev1e_174_tmp);
+				if (status != 0)
+					goto cleanup;
+				dev1e_174_tmp &= ~0xff00U;
+				if (rg_zcal_ctrl > 4U)
+					val_tmp = (((rg_zcal_ctrl - 4U) << 8) &
+						   0xff00U) | dev1e_174_tmp;
+				else
+					val_tmp = dev1e_174_tmp;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x0174, val_tmp);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a0,
+					rg_zcal_ctrl_filter);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0174, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_A : 1e_174 = 0x%x\n", readback);
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a0, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_A : 1e_3a0 = 0x%x\n", readback);
 			} else if (cal_pair == ANACAL_PAIR_B) {
-				dev1e_174_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0174);
-				dev1e_174_tmp = dev1e_174_tmp & (~0x007f);
-				if (rg_zcal_ctrl > 2) {
-					val_tmp = (((rg_zcal_ctrl - 2) << 0) & 0xff) |
-						dev1e_174_tmp;
-				} else {
-					val_tmp = (((0) << 0) & 0xff) |
-						dev1e_174_tmp;
-				}
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0174, val_tmp);
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x03a1, rg_zcal_ctrl_filter);
-				pr_info("R50_PAIR_B : 1e_174 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0174));
-				pr_info("R50_PAIR_B : 1e_3a1 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x03a1));
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0174, &dev1e_174_tmp);
+				if (status != 0)
+					goto cleanup;
+				dev1e_174_tmp &= ~0x007fU;
+				if (rg_zcal_ctrl > 2U)
+					val_tmp = ((rg_zcal_ctrl - 2U) & 0xffU) |
+						  dev1e_174_tmp;
+				else
+					val_tmp = dev1e_174_tmp;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x0174, val_tmp);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a1,
+					rg_zcal_ctrl_filter);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0174, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_B : 1e_174 = 0x%x\n", readback);
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a1, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_B : 1e_3a1 = 0x%x\n", readback);
 			} else if (cal_pair == ANACAL_PAIR_C) {
-				dev1e_175_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0175);
-				dev1e_175_tmp =  dev1e_175_tmp & (~0x7f00);
-				if (rg_zcal_ctrl > 4) {
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0175, &dev1e_175_tmp);
+				if (status != 0)
+					goto cleanup;
+				dev1e_175_tmp &= ~0x7f00U;
+				if (rg_zcal_ctrl > 4U)
 					val_tmp = dev1e_175_tmp |
-						(((rg_zcal_ctrl - 4) << 8) & 0xff00);
-				} else {
-					val_tmp = dev1e_175_tmp | (((0) << 8) & 0xff00);
-				}
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0175, val_tmp);
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x03a2, rg_zcal_ctrl_filter);
-				pr_info("R50_PAIR_C : 1e_175 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0175));
-				pr_info("R50_PAIR_C : 1e_3a2 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x03a2));
-
-			} else {/* if(cal_pair == ANACAL_PAIR_D) */
-				dev1e_175_tmp = tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0175);
-				dev1e_175_tmp = dev1e_175_tmp & (~0x007f);
-				if (rg_zcal_ctrl > 6) {
+						(((rg_zcal_ctrl - 4U) << 8) &
+						 0xff00U);
+				else
+					val_tmp = dev1e_175_tmp;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x0175, val_tmp);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a2,
+					rg_zcal_ctrl_filter);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0175, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_C : 1e_175 = 0x%x\n", readback);
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a2, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_C : 1e_3a2 = 0x%x\n", readback);
+			} else {
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0175, &dev1e_175_tmp);
+				if (status != 0)
+					goto cleanup;
+				dev1e_175_tmp &= ~0x007fU;
+				if (rg_zcal_ctrl > 6U)
 					val_tmp = dev1e_175_tmp |
-						(((rg_zcal_ctrl - 6)  << 0) & 0xff);
-				} else {
-					val_tmp = dev1e_175_tmp |
-						(((0)  << 0) & 0xff);
-				}
-
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0175, val_tmp);
-				tc_phy_write_dev_reg(phyaddr, 0x1e, 0x03a3, rg_zcal_ctrl_filter);
-				pr_info("R50_PAIR_D : 1e_175 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x0175));
-				pr_info("R50_PAIR_D : 1e_3a3 = 0x%x\n",
-					tc_phy_read_dev_reg(phyaddr, 0x1e, 0x03a3));
+						((rg_zcal_ctrl - 6U) & 0xffU);
+				else
+					val_tmp = dev1e_175_tmp;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x0175, val_tmp);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_write_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a3,
+					rg_zcal_ctrl_filter);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x0175, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_D : 1e_175 = 0x%x\n", readback);
+				status = tc_phy_read_dev_reg_checked(
+					phyaddr, 0x1e, 0x03a3, &readback);
+				if (status != 0)
+					goto cleanup;
+				pr_info("R50_PAIR_D : 1e_3a3 = 0x%x\n", readback);
 			}
 		}
 	}
-	clear_ckinv_ana_txvos();
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00db, 0x0000);
+
+cleanup:
+	/* Always clear common analog bits and the R50 calibration enable. */
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	disable_status = tc_phy_write_dev_reg_checked(
+		phyaddr, 0x1e, 0x00db, 0x0000);
+	if (status == 0 && disable_status != 0)
+		status = disable_status;
+	if (status != 0) {
+		pr_err_ratelimited("%s: GE R50 calibration transaction failed (port=%u status=%d cleanup=%d disable=%d)\n",
+				   __func__, phyaddr, status, cleanup_status,
+				   disable_status);
+		return;
+	}
 	ge_cal_r50_flag = 1;
 	/* *** R50 Cal end *** */
 }
-
 void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 {
 	u8	all_ana_cal_status;
