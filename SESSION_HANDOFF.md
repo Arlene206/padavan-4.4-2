@@ -2,21 +2,16 @@
 
 ## 2026-11-23 continuation — current state
 
-- **main HEAD at handoff:** `d86e5b1d6aa745ba1db87ec21b153e35c80a4446` (`test(switch): cover staged VLAN entry failures`).
-- **Backup branch:** `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it was not modified.
-- **Code focus completed in this slice:** checked LAN wireless-selector snapshot before bridge side effects; MT7530 VLAN applied-state publication only after FDB flush succeeds; checked VTCR write/poll with bounded timeout and retry-preserving VLAN pool; VLAN data-word/VTCR staging helper; VLAN create/reset ioctl error propagation; VLAN table preflight before PVID/port setup; checked jumbo, storm-control and LED register paths with cache publication after hardware success.
-- **Latest regression work:** staged VLAN entry failure-injection coverage (VAWD1, VAWD2, VTCR write/read) and the exact-source Switch CI contract were aligned with `mtk_esw_vlan_entry_apply()`. Earlier exact-SHA Switch runs exposed stale source assertions; do not treat those failures as current production failures without checking the newer run.
-- **Exact-SHA Actions status for `d86e5b1d6aa745ba1db87ec21b153e35c80a4446`: PENDING / not all checks completed**
-- XY-C1 Firmware Validation: in_progress (run 45253098709)
-- NVRAM transaction boundary audit: in_progress (run 45253098328)
-- AI handoff documentation contract: completed/success (run 45253098335)
-- Switch CLI ioctl failure-status regression: completed/success (run 45253098429)
-- **Tests:** host regression cases are included in `.github/workflows/switch-cli-stability.yml`; actual result is governed by the exact-SHA Actions state above. Do not claim a local compile was run in this session.
-- **Next implementation task:** continue propagating checked MDIO errors through the remaining MT7530 port/PVID helpers (`esw_vlan_pvid_set`, `esw_port_matrix_set`, ingress/attribute/accept setters and their callers). Preserve GNU89/Linux 4.4/uClibc compatibility, update host fault-injection tests and the exact-source contract, then verify the XY-C1 firmware workflow on the resulting SHA.
-- **Working rule:** source change → relevant regression → one full Git tree/atomic commit → non-force `main` update with expected SHA → exact-SHA Actions. Pending Actions do not block independent work; failed checks must be diagnosed against their logs.
+- **main HEAD:** `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e` — `fix(mtk-esw): propagate port register MDIO failures`.
+- **Frozen backup:** `backup/pre-plugin-overhaul-2026-11-14` last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`; this development sequence has not written to it.
+- **Earlier same-target L3 evidence:** source SHA `59622f3c9612949ddd642fc738e02463f5400def` passed XY-C1 Build, TRX verification and artifact upload (#45252058834), NVRAM #45252058851 and AI docs #45252059088. Switch CLI #45252851887 and AI docs #45252851808 PASS on descendant `6acc5001a8e68a21c11ec0974099cf4793e23f27`. These results do not validate `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`.
+- **Current source SHA verification:** exact-head Switch CLI, NVRAM and XY-C1 Build/TRX/artifact must be fetched afresh. No L3 claim is made for this SHA without a same-SHA successful run.
+- **Current source slice:** port PVID, ingress, attribute, frame-accept and forwarding-matrix helpers now use checked MDIO status; failures propagate through VLAN rule/VID-1, custom VLAN, accept ioctl, bridge transitions, MAC-to-PHY setup and init-post.
+- **Remaining work:** IGMP/MLD configuration still uses legacy unchecked register reads/writes; telemetry-only reads are a separate scope.
+- **Build limitations:** no local MIPS kernel toolchain or physical router validation is claimed.
+- **Operating loop:** source → regression → complete tree/atomic commit → expected-SHA non-forced main update → exact-SHA Actions; continue independent work while checks are pending.
 
-
-## 2026-11-23 continuation handoff (engineering parent main: 09ce12e4aa014d478ab78e9d05cea42d0cf1db60; fetch live main at takeover)
+## 2026-11-23 continuation handoff (engineering parent main: 3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
 - `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
@@ -58,12 +53,12 @@
 
 ## Active task
 
-### MTK ESW VLAN status propagation (active)
+### MTK ESW checked port-register status propagation
 
-- Exact source SHA `59622f3c9612949ddd642fc738e02463f5400def` has AI docs #45252059088 PASS and NVRAM transaction audit #45252058851 PASS. XY-C1 #45252058834 was still running at the last poll; inspect final Build/TRX/artifact stages before claiming L3.
-- Switch CLI #45252058892 failed after the host MDIO policy binary printed PASS. Its Python checker still required `esw_vlan_set()` to call `esw_write_vtcr(1, cvid)` directly, but commit `59622f3` correctly moved VAWD1/VAWD2/VTCR ordering into the tested `mtk_esw_vlan_entry_apply()` helper and publishes `g_vlan_pool` only after success. This commit aligns the stale checker with that transaction.
-- A separate stability gap is confirmed in `ioctl_mt762x.c`: `esw_reg_get()` collapses MDIO read failures to zero and `esw_reg_set()` logs but discards write errors. Port matrix/PVID/accept/attribute helpers remain `void`, so VLAN/bridge init may report success after failed MDIO operations. Next source slice: use checked MDIO read/modify/write helpers, convert callers to return the first failure, add tests for register writes/status propagation, and preserve existing PHY code.
-- No local MIPS build or hardware validation is available. L3 is not claimed until exact-head XY-C1 Build, TRX and artifact all pass on the same source SHA.
+- Production SHA `59622f3c9612949ddd642fc738e02463f5400def`: XY-C1 Build/TRX/artifact #45252058834 PASS; NVRAM #45252058851 PASS; AI docs #45252059088 PASS. Switch CLI #45252851887 and AI docs #45252851808 PASS on descendant `6acc500`.
+- Prep commit `a0ff74d73e6d8b9ecb45ba9937c267bf3f4d4916` added `mtk_esw_register_write()` and GNU89/Werror/ASan/UBSan tests for success, negative/positive callback errors and invalid callbacks.
+- Source commit `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e` converted five port-control helpers to checked status APIs and propagated errors through VLAN apply/VID1, custom VLAN create, accept-mode ioctl, bridge matrix, MAC-to-PHY and init-post. Exact-head CI is not inferred from any ancestor SHA.
+- Next task: convert IGMP/MLD register programming from legacy unchecked accessors to checked policy reads/writes, including propagation through callers.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -72,6 +67,9 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
+- Production SHA `59622f3c9612949ddd642fc738e02463f5400def`: XY-C1 Build/TRX/artifact #45252058834 PASS, NVRAM #45252058851 PASS, AI docs #45252059088 PASS. Switch CLI #45252851887 and AI docs #45252851808 PASS on descendant `6acc500`.
+- Current source SHA `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`: exact-head CI statuses must be checked separately; no Build/TRX/artifact pass is attributed without all three passing on this identical SHA.
+- Frozen backup remains untouched. Physical router hardware L4 and local MIPS compilation are NOT VERIFIED.
 - LLDT config parser: dedicated L2 workflow #45238664960 PASS; Process umbrella #45239229205 PASS. XY-C1 #45237411963 PASS on exact source SHA `eef4417` (Build/TRX/artifact). AI docs #45239229201 needs one workflow path-filter correction (this commit).
 - Shadowsocks DNS proxy preflight and upstream whitespace fixes: #45234515153 PASS, Process #45234515707 PASS and AI docs #45234515042 PASS on `f3acf67`; XY-C1 #45234516216 was pending.
 - RStats `601ad73`: RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS; AI doc repair #45236207680 PASS on `3760b93`. XY-C1 #45234873441 still requires final same-SHA step confirmation before an L3 claim.
@@ -81,9 +79,10 @@
 
 ## Exact first action for the next GPT
 
-1. Verify XY-C1 #45252058834 on source SHA `59622f3c9612949ddd642fc738e02463f5400def`; NVRAM #45252058851 and AI docs #45252059088 already PASS on that SHA.
-2. Confirm the exact-head Switch CLI rerun after this checker correction. The prior native MDIO policy test binary passed; the failure was a stale checker expectation for a direct VTCR call after the new helper refactor.
-3. Fix unchecked MTK ESW port register operations: replace error-collapsing `esw_reg_get/set` use in PVID/attribute/accept/matrix/VLAN paths with checked status APIs and propagate failures through bridge/VLAN/ioctl callers. Add policy unit tests and source assertions.
+1. Fetch live main and exact-head Switch CLI, NVRAM, XY-C1 and AI docs Actions for `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`; diagnose from the first failing stage. Do not transfer earlier firmware results.
+2. Claim L3 only if Build XY-C1, TRX verification and artifact upload all PASS on one identical production-source SHA.
+3. Continue IGMP/MLD checked register access and caller error propagation. Keep backup frozen and use a complete tree plus expected-SHA non-forced update.
+
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.

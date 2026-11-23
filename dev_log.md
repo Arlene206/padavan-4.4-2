@@ -1,3 +1,13 @@
+## 2026-11-23 — Propagate MTK ESW port-register MDIO failures
+
+- Found that `esw_reg_get()` returns zero on MDIO read failure and `esw_reg_set()` only logs write failure. Port PVID, ingress, attribute, frame-accept and forwarding-matrix helpers were void, allowing VLAN/bridge setup to report success after failed hardware programming.
+- Source commit `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e` converts those helpers to checked status APIs. Masked operations use `mtk_esw_register_update_bits()`; direct PVID and MAC-to-PHY writes use `mtk_esw_register_write()`, which validates callbacks and normalizes positive callback failures to `-EIO`.
+- Propagated errors through VLAN rule/VID-1 setup, custom VLAN creation, accept-mode ioctl, bridge forwarding matrix, MAC-to-PHY setup and init-post. Independent per-port matrix/MAC updates preserve the first failure while attempting other selected ports; sequential VLAN transitions stop on first failure.
+- Prep commit `a0ff74d73e6d8b9ecb45ba9937c267bf3f4d4916` added GNU89/Werror/ASan/UBSan regression for checked-write success, negative errno, positive-status normalization and invalid callbacks; the source workflow now checks helper/caller propagation.
+- Earlier source SHA `59622f3c9612949ddd642fc738e02463f5400def` passed XY-C1 Build/TRX/artifact #45252058834, NVRAM #45252058851 and AI docs #45252059088. Switch CLI #45252851887 and AI docs #45252851808 passed on descendant `6acc500`. Exact-head validation for `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e` must be checked separately. No local MIPS build or physical-device result is claimed.
+
+---
+
 ## 2026-11-23 — Align Switch CLI checker with transactional VLAN-entry helper
 
 ## 2026-11-23 — MT7530/VLAN reliability continuation
