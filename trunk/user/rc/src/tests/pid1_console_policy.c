@@ -185,13 +185,11 @@ test_attach_requires_complete_standard_io_and_terminal_setup(void)
 }
 
 static void
-test_console_retry_throttles_fast_child_exit(void)
+test_console_retry_throttles_every_child_exit(void)
 {
-	assert(pid1_console_retry_delay_seconds(-1) == 1U);
-	assert(pid1_console_retry_delay_seconds(0) == 1U);
-	assert(pid1_console_retry_delay_seconds(1) == 1U);
-	assert(pid1_console_retry_delay_seconds(2) == 0U);
-	assert(pid1_console_retry_delay_seconds(60) == 0U);
+	/* Shell duration is not observable from the pre-fork parent timestamp. */
+	assert(pid1_console_retry_delay_seconds() == PID1_CONSOLE_RETRY_DELAY_SECONDS);
+	assert(pid1_console_retry_delay_seconds() == 1U);
 }
 
 static void
@@ -207,7 +205,7 @@ int
 main(void)
 {
 	tcflag_t retained_flags;
-	test_console_retry_throttles_fast_child_exit();
+	test_console_retry_throttles_every_child_exit();
 	test_console_retry_wait_stops_for_shutdown();
 
 	reset_mocks();

@@ -938,7 +938,6 @@ init_main_loop(void)
 	int original_mask_ready = 0;
 	init_mdev_retry_state_t mdev_retry_state = { 0 };
 	int i;
-	long console_shell_started_at = 0;
 	sigset_t wait_mask, original_mask;
 
 	umask(0000);
@@ -1084,9 +1083,8 @@ init_main_loop(void)
 		       (!signal_state.shutdown_pending || shutdown_handled)) {
 			if (pid1_signal_take_console_shell_reaped(&signal_state) &&
 			    !signal_state.shutdown_pending) {
-				long console_shell_runtime = uptime() - console_shell_started_at;
 				unsigned int console_shell_retry_delay =
-					pid1_console_retry_delay_seconds(console_shell_runtime);
+					pid1_console_retry_delay_seconds();
 
 				/* A broken/missing shell must not spin PID 1 through fork/exec. */
 				while (pid1_console_retry_should_wait(
@@ -1124,7 +1122,6 @@ init_main_loop(void)
 					continue;
 				}
 				wait_mask_ready = 0;
-				console_shell_started_at = uptime();
 				if (run_shell(0, 1) < 0)
 					sleep(1);
 				mask_status = init_signal_mask_update(

@@ -98,15 +98,16 @@ pid1_console_attach(int fd, pid_t foreground_group, int terminal_available,
 	return 0;
 }
 
-#define PID1_CONSOLE_RETRY_FAST_EXIT_SECONDS 2L
 #define PID1_CONSOLE_RETRY_DELAY_SECONDS 1U
 
-/* Avoid a tight fork/exec loop when the recovery shell cannot stay alive. */
+/*
+ * Always bound recovery-shell respawns. The parent's elapsed time includes
+ * pre-exec console/NVRAM setup and is not a reliable measure of shell life.
+ */
 static inline unsigned int
-pid1_console_retry_delay_seconds(long runtime_seconds)
+pid1_console_retry_delay_seconds(void)
 {
-	return runtime_seconds < PID1_CONSOLE_RETRY_FAST_EXIT_SECONDS ?
-		PID1_CONSOLE_RETRY_DELAY_SECONDS : 0U;
+	return PID1_CONSOLE_RETRY_DELAY_SECONDS;
 }
 
 /* Stop the throttle promptly when PID 1 receives an ordinary shutdown. */

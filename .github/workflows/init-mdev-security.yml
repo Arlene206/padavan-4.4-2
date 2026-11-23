@@ -297,20 +297,20 @@ jobs:
           main_compact = "".join(main_loop.split())
           assert "if(!noconsole&&!signal_state.shutdown_pending&&!signal_state.console_shell_pid)" in main_compact
           assert "kill(shell_pid,0)" not in main_compact
-          assert "console_shell_started_at=uptime()" in main_compact
+          assert "console_shell_started_at" not in main_compact
+          assert "console_shell_runtime" not in main_compact
           reaped_at = main_compact.index("pid1_signal_take_console_shell_reaped(&signal_state)")
-          delay_at = main_compact.index("pid1_console_retry_delay_seconds(console_shell_runtime)", reaped_at)
+          delay_at = main_compact.index("pid1_console_retry_delay_seconds()", reaped_at)
           sleep_at = main_compact.index("while(pid1_console_retry_should_wait(console_shell_retry_delay,signal_state.shutdown_pending))console_shell_retry_delay=sleep(console_shell_retry_delay);", delay_at)
           shutdown_break_at = main_compact.index("if(signal_state.shutdown_pending)break;", sleep_at)
           launch_at = main_compact.index("run_shell(0,1)", shutdown_break_at)
           assert reaped_at < delay_at < sleep_at < shutdown_break_at < launch_at
           assert "if(!noconsole&&!signal_state.shutdown_pending&&!signal_state.console_shell_pid)" in main_compact
           assert "}elseif(!signal_state.shutdown_pending){" in main_compact
-          retry_policy = body(console_policy, "pid1_console_retry_delay_seconds(")
-          assert "runtime_seconds < PID1_CONSOLE_RETRY_FAST_EXIT_SECONDS" in retry_policy
-          assert "PID1_CONSOLE_RETRY_DELAY_SECONDS" in retry_policy
-          assert "pid1_console_retry_delay_seconds(1) == 1U" in console_test
-          assert "pid1_console_retry_delay_seconds(2) == 0U" in console_test
+          retry_policy = body(console_policy, "pid1_console_retry_delay_seconds(void)")
+          assert "return PID1_CONSOLE_RETRY_DELAY_SECONDS;" in retry_policy
+          assert "PID1_CONSOLE_RETRY_FAST_EXIT_SECONDS" not in console_policy
+          assert "pid1_console_retry_delay_seconds() == 1U" in console_test
           assert "pid1_console_retry_should_wait(1U, 1) == 0" in console_test
           assert "pid1_console_retry_should_wait(1U, 0) == 1" in console_test
           assert "remaining_seconds > 0U && !shutdown_pending" in console_policy
@@ -339,6 +339,8 @@ jobs:
               "trunk/user/rc/src/tests/boot_device_node_policy.c",
               "trunk/user/rc/src/pid1_signal_policy.h",
               "trunk/user/rc/src/tests/pid1_signal_policy.c",
+              "trunk/user/rc/src/pid1_console_policy.h",
+              "trunk/user/rc/src/tests/pid1_console_policy.c",
               "trunk/user/rc/src/init_mdev_config_file.h",
               "trunk/user/rc/src/init_mdev_retry_policy.h",
               "trunk/user/rc/src/tests/init_mdev_config_file.c",
