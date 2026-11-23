@@ -1285,6 +1285,9 @@ jobs:
           body = source.split("static int do_fe_phy_all_analog_cal_checked(", 1)[1].split(
               chr(10) + "void do_fe_phy_all_analog_cal(", 1
           )[0]
+          cleanup = source.split("static int ra_switch_fe_analog_cal_cleanup(void *context)", 1)[1].split(
+              "static int do_fe_phy_all_analog_cal_checked(", 1
+          )[0]
           for legacy in (
               "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
               "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
@@ -1295,7 +1298,7 @@ jobs:
           assert "tc_phy_write_page_reg_checked(" in body
           assert "tc_phy_write_dev_reg_checked(" in body
           assert "l0r26_saved" in body and "l0r30_saved" in body
-          assert "if (l0r26_saved)" in body and "if (l0r30_saved)" in body
+          assert "if (cleanup->l0r26_saved)" in cleanup and "if (cleanup->l0r30_saved)" in cleanup
           for flag in (
               "fe_cal_vbg_flag", "fe_cal_r50_flag",
               "fe_cal_tx_offset_flag", "fe_cal_tx_offset_flag_mdix",
@@ -1305,7 +1308,9 @@ jobs:
           assert body.index("if (!fe_cal_r50_flag)") < body.index("fe_cal_tx_offset(port_num")
           assert body.index("if (!fe_cal_tx_offset_flag)") < body.index("fe_cal_tx_offset_mdix(port_num")
           assert body.index("if (!fe_cal_flag)") < body.index("fe_cal_tx_amp_mdix(port_num")
-          assert "clear_ckinv_ana_txvos_checked()" in body
+          assert "clear_ckinv_ana_txvos_checked()" in cleanup
+          assert "ra_switch_mdio_cleanup_if_started(" in body
+          assert "setup_attempted = 1;" in body
           assert "failed_stage" in body and "return status;" in body
           print("FE analog orchestrator checks paged/C45 I/O, restores only valid snapshots and aborts after child failure: PASS")
           PY

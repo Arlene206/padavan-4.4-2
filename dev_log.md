@@ -1,3 +1,12 @@
+## 2026-11-24 07:20 CST (UTC+8) — Update FE contract for extracted cleanup callback
+
+- Base main SHA: 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147. Exact Switch CLI #45285025962 FAIL, job #138079002575, step 30. The old contract still expected teardown writes and saved-snapshot restore conditions to remain inline in the orchestrator. The source change intentionally moved them to ra_switch_fe_analog_cal_cleanup().
+- Updated the contract to inspect the callback for saved-snapshot restoration and analog clear, and assert that the orchestrator invokes the setup-gated cleanup policy. Existing checked-MDIO, child-failure and retry-order assertions remain unchanged.
+- The GNU89 cleanup-policy regression and FE gate contract were skipped because step 30 failed earlier in the job; no host test PASS is claimed. Parent AI handoff #45285025900 PASS. XY-C1 #45285025914 and NVRAM #45285025931 were IN_PROGRESS at last query.
+- Workflow-only correction; product source remains SHA 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147. No local MIPS build or hardware test.
+
+---
+
 ## 2026-11-24 07:18 CST (UTC+8) — Gate FE analog teardown on setup attempt
 
 - Base main SHA: `f7183840c0de8e8096d60940eb2e5d4b60687839`. The FE all-analog orchestrator's first two local register snapshot reads can fail before this invocation mutates hardware, yet the common cleanup previously cleared shared analog controls and wrote local page1/register26, BMCR `0x3100`, and advertisement `0x05e1`. This may reset a PHY before calibration setup has begun.

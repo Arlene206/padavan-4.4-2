@@ -1,11 +1,9 @@
 ### 2026-11-24 最新接力检查点
 
-- 当前父 main SHA：`f7183840c0de8e8096d60940eb2e5d4b60687839`（`test(raeth): match GE orchestrator status API`）。冻结备份 `backup/pre-plugin-overhaul-2026-11-14` SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
-- FE all-analog 真实早期失败问题：两个 snapshot reads（local page0/reg26、reg30）失败时跳转公共 cleanup，但在这之前本次调用尚未开始 PHY setup；旧 cleanup 仍清共享 analog control 并写 page1/reg26、BMCR `0x3100`、advertisement `0x05e1`，可能不必要重置 PHY。
-- THIS commit 在第一个 setup MDIO write 之前设置 `setup_attempted`（为覆盖写事务错误但硬件可能已收到的情况）；初始 snapshot 失败时跳过硬件 teardown；已尝试 setup 写入后继续完整 best-effort cleanup。清理被提取到 `ra_switch_fe_analog_cal_cleanup()`，保持所有原 cleanup、saved snapshots 条件恢复及 first-error 语义。
-- 新增 `ra_switch_mdio_cleanup_if_started()` 以及 GNU89 callback fault-injection test（setup 前跳过、setup 后调用、错误透传、正状态归一化、NULL callback）。Switch CLI workflow 增加 ASan/UBSan host test 和源码顺序检查。
-- Parent exact Actions：Switch CLI #45284655414 PASS；AI handoff #45284655394 PASS。产品源码 SHA `30f6a0e...` 的 XY-C1 #45284437855 当时 IN_PROGRESS、NVRAM #45284437839 SUCCESS。THIS commit 的新 run 必须按 exact SHA 核验。
-- 没有本地 MIPS/kernel build 或硬件测试；无 L3/L4 声明。
+- 当前产品源码 SHA：6b1c7c42edb393ffa9f38ac35bd62dac66cb8147（FE all-analog teardown gate）。本次只修复 Switch CLI 旧 source-contract 的检查范围，不修改产品源码。
+- Parent exact Actions：AI handoff #45285025900 PASS；Switch CLI #45285025962 FAIL，job #138079002575 step 30。旧 FE contract 误将 clear_ckinv_ana_txvos_checked() 和 saved-snapshot restore gates 要求在 orchestrator 函数体内；实际已提取到 ra_switch_fe_analog_cal_cleanup()，属于过时测试契约。
+- 本次 contract 改为检查 callback 内的 analog cleanup 和有效 snapshot restore，并继续检查 orchestrator 中的 setup_attempted 与 ra_switch_mdio_cleanup_if_started()。GNU89 host regression 和新 FE gate contract 在 step 30 之后被 skip，尚未验证。
+- 产品源码 SHA 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147 的 XY-C1 #45285025914 与 NVRAM #45285025931 上次仍 IN_PROGRESS；应刷新 exact SHA。冻结 backup SHA 72f4f157a084f8184b9597ca5bf334b8080e5807 未动。无本地 MIPS build，无 L3/L4 声明。
 
 ---
 # Cross-session execution mandate
@@ -14,33 +12,32 @@
 
 ### 2026-11-24 continuation — RAETH PHY reliability
 
-- **FE VBG/R50/TX amplitude/TX offset:** checked paged/C22/C45 I/O, bounded searches, failure propagation, fallback and cleanup are in place.
-- **FE all-analog orchestrator:** snapshots and child completion gates are checked. THIS commit prevents teardown writes when snapshot reads fail before setup starts; the original complete best-effort teardown remains after the first attempted setup write.
-- **GE calibration:** Rext/R50/TX amplitude/TX offset use checked I/O, bounded searches and cleanup; errors propagate through EPHY initialization.
-- **Leopard EPHY:** local MDIO initialization is checked and fail-fast.
-- **EPHY ioctl:** calibration error status propagates through `ei_ioctl()`; exhausted FE/GE retry sequences return `-EIO`.
+- FE VBG/R50/TX-amplitude/TX-offset: checked paged/C22/C45 I/O, bounded search, error propagation, fallback and cleanup.
+- FE all-analog orchestrator: this source SHA gates teardown on the first attempted setup write; the original full cleanup is in a dedicated callback.
+- GE analog: checked MDIO, bounded search and cleanup; EPHY errors propagate to the network ioctl caller.
+- Current CI repair: this commit updates the old FE source contract to inspect the extracted callback.
 
 ## Active task
 
-### Validate FE cleanup gate, then continue independent stability fixes
+### Validate cleanup-policy regression and exact-source firmware build
 
-- Fetch live main and exact-head Switch CLI + AI handoff push runs for THIS commit.
-- Require the GNU89 policy test with ASan/UBSan and FE source-contract step to pass.
-- Refresh same-SHA XY-C1 Build, TRX and artifact upload; L3 only when all three pass on identical source SHA.
-- Continue a concrete independent stability defect outside completed checked-MDIO calibration migration.
+- Fetch live main and exact-head Switch CLI + AI handoff Actions for the latest commit.
+- Confirm the GNU89 cleanup-policy test and FE gate source contract pass.
+- Refresh XY-C1 Build, TRX and artifact on product SHA 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147; all must pass on identical SHA for L3.
+- Then continue another concrete RAETH/userland stability issue.
 
 ## Verification boundary
 
-- Parent: `f7183840c0de8e8096d60940eb2e5d4b60687839`; THIS commit changes `ra_switch.c`, `ra_switch_mdio_policy.h`, `tests/ra_switch_mdio_policy.c`, Switch CLI workflow, `dev_log.md`, and `SESSION_HANDOFF.md`.
-- Parent exact Actions: Switch CLI #45284655414 PASS; AI handoff #45284655394 PASS.
-- Previous source SHA `30f6a0e...`: XY-C1 #45284437855 IN_PROGRESS (last observed); NVRAM #45284437839 SUCCESS. These do not verify THIS commit.
-- No local cross-build, same-SHA complete XY-C1 L3, router flash or hardware L4 is claimed.
+- Product source SHA: 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147; this commit changes workflow and continuity docs only.
+- Parent exact actions: Switch CLI #45285025962 FAIL (stale inline-cleanup assertion); AI handoff #45285025900 PASS.
+- XY-C1 #45285025914 and NVRAM #45285025931 were IN_PROGRESS at last query.
+- No local MIPS build, same-SHA completed Build+TRX+artifact L3, device flash or hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Switch CLI and AI handoff Actions; read logs for any failures.
-2. Verify the new cleanup callback host test/source contract, then refresh XY-C1 Build/TRX/artifact for the new source SHA.
-3. Continue another confirmed stability issue in RAETH/userland; do not repeat completed PHY checked-I/O migrations.
+1. Fetch live main and check exact-head Switch CLI/AI handoff Actions for this workflow correction.
+2. Confirm the host callback regression and FE setup-gate source contract execute and pass.
+3. Refresh Build/TRX/artifact for source SHA 6b1c7c42edb393ffa9f38ac35bd62dac66cb8147, then continue another concrete stability issue.
 
 ---
 ## Cross-session operating constraints
