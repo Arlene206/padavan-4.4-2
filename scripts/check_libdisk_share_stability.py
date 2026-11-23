@@ -222,6 +222,9 @@ create_with_accounts = function_body(
 )
 create_with_accounts_compact = "".join(create_with_accounts.split())
 require("get_account_list(" not in create_with_accounts and
+        "int acc_num=0;" not in create_with_accounts_compact and
+        "char**account_list=NULL;" not in create_with_accounts_compact and
+        "for(i=0;i<acc_num;++i)" in create_with_accounts_compact and
         "path_len>=(int)sizeof(var_file)" in create_with_accounts_compact and
         "result=modify_if_exist_new_folder" in create_with_accounts_compact and
         "result=initial_one_var_file_in_mount_path" in create_with_accounts_compact and

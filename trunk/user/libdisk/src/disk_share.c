@@ -715,12 +715,11 @@ static int
 create_if_no_var_files_with_accounts(const char *const mount_path,
                                      int acc_num, char **account_list)
 {
-	int acc_num = 0;
-	char **account_list = NULL;
 	int i, path_len, result;
 	char var_file[256];
 
-	if (!mount_path || !*mount_path) {
+	if (!mount_path || !*mount_path || acc_num < 0 ||
+	    (acc_num > 0 && !account_list)) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -738,11 +737,6 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 		result = modify_if_exist_new_folder(FTP_ANONYMOUS_USER, mount_path);
 	if (result != 0)
 		return -1;
-
-    if (acc_num < 0 || (acc_num > 0 && !account_list)) {
-        errno = EINVAL;
-        return -1;
-    }
 
 	for (i = 0; i < acc_num; ++i) {
 		path_len = snprintf(var_file, sizeof(var_file), "%s/.__%s_var.txt",
@@ -1913,8 +1907,10 @@ failed:
 	free_2_dimension_list(&acc_num, &account_list);
 	if (transaction_started) {
 		errno = 0;
-		if (disk_share_account_nvram_end(&transaction) != 0 && saved_errno == 0)
-			saved_errno = errno ? errno : EIO;
+		if (disk_share_account_nvram_end(&transaction) != 0)
+			logmessage("disk_share",
+				   "folder creation transaction release failed (errno %d)",
+				   errno ? errno : EIO);
 	}
 	errno = saved_errno;
 	return -1;
