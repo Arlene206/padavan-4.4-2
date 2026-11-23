@@ -823,19 +823,28 @@ add_success_end = add_compact.index(
     "disk_share_account_nvram_end(&transaction)", add_permissions
 )
 add_rollback = add_compact.index("rmdir(full_path)", add_success_end)
+add_permission_rollback = add_compact.index(
+    "disk_share_update_folder_permission_file(mount_path,account_list[i],target,NULL)",
+    add_rollback
+)
+add_anonymous_rollback = add_compact.index(
+    "disk_share_update_folder_permission_file(mount_path,FTP_ANONYMOUS_USER,target,NULL)",
+    add_permission_rollback
+)
 add_snapshot_restore = add_compact.index(
-    "initial_folder_list_in_mount_path(mount_path)", add_rollback
+    "initial_folder_list_in_mount_path(mount_path)", add_anonymous_rollback
 )
 add_failed_end = add_compact.index(
     "disk_share_account_nvram_end(&transaction)", add_snapshot_restore
 )
 require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
         add_publish < add_permissions < add_success_end < add_rollback <
-        add_snapshot_restore < add_failed_end and
+        add_permission_rollback < add_anonymous_rollback < add_snapshot_restore <
+        add_failed_end and
         "errno=EEXIST;" in add_compact and
         "errno=ENAMETOOLONG;" in add_compact and
         "create_if_no_var_files(mount_path)" not in add_folder_body,
-        "add_folder must serialize with account mutations, initialize permission files from one checked snapshot, and roll back directory/snapshot on failure")
+        "add_folder must serialize with account mutations and undo partial permission rows, directory creation and folder snapshot on failure")
 
 
 del_folder = function_body(
