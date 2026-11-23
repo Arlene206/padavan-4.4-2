@@ -50,7 +50,7 @@ fake_read(void *context, unsigned int phy, unsigned int reg,
 	fake_record(fake, FAKE_READ, phy, reg, 0U);
 	if (fake_mdio_should_fail(fake))
 		return fake->fail_status ? fake->fail_status : -EIO;
-	if (reg == MTK_ESW_MAC_TABLE_REG) {
+	if (reg == MTK_ESW_MAC_TABLE_REG || reg == MTK_ESW_VLAN_TABLE_REG) {
 		if (fake->busy_forever || fake->busy_reads) {
 			*value = MTK_ESW_MAC_TABLE_BUSY_MASK;
 			if (fake->busy_reads)
@@ -648,6 +648,63 @@ test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits(void)
 }
 
 static void
+test_vlan_table_write_waits_for_idle_and_propagates_io_failures(void)
+{
+	struct fake_mdio fake;
+
+	fake_init(&fake);
+	fake.busy_reads = 2U;
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 1U, 4094U,
+					&fake_ops, &fake) == 0);
+	assert(fake.mdio_calls == 4U && fake.event_count == 7U);
+	assert(fake.events[0].type == FAKE_WRITE &&
+	       fake.events[0].phy == MTK_ESW_MAC_TABLE_PHY &&
+	       fake.events[0].reg == MTK_ESW_VLAN_TABLE_REG &&
+	       fake.events[0].value ==
+		((1U << 12) | 4094U | MTK_ESW_VLAN_TABLE_BUSY_MASK));
+	assert(fake.events[1].type == FAKE_DELAY_US &&
+	       fake.events[1].value == MTK_ESW_VLAN_TABLE_POLL_DELAY_US);
+	assert(fake.events[2].type == FAKE_READ &&
+	       (fake.events[2].value & MTK_ESW_VLAN_TABLE_BUSY_MASK));
+	assert(fake.events[6].type == FAKE_READ &&
+	       !(fake.events[6].value & MTK_ESW_VLAN_TABLE_BUSY_MASK));
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = -EIO;
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 1U, 2U,
+					&fake_ops, &fake) == -EIO);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].type == FAKE_WRITE);
+
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = -EACCES;
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 2U, 4095U,
+					&fake_ops, &fake) == -EACCES);
+	assert(fake.mdio_calls == 2U && fake.event_count == 3U);
+	assert(fake.events[2].type == FAKE_READ);
+
+	fake_init(&fake);
+	fake.busy_forever = 1;
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 2U, 1U,
+					&fake_ops, &fake) == -ETIMEDOUT);
+	assert(fake.mdio_calls == MTK_ESW_VLAN_TABLE_POLL_LIMIT + 1U);
+	assert(fake.event_count == 1U + (MTK_ESW_VLAN_TABLE_POLL_LIMIT * 2U));
+
+	fake_init(&fake);
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 0U, 1U,
+					&fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 3U, 1U,
+					&fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 1U, 4096U,
+					&fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_vlan_table_write(MTK_ESW_VLAN_TABLE_REG, 1U, 1U,
+					NULL, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_vlan_rule_snapshot_is_committed_only_after_hardware_success(void)
 {
 	const unsigned int requested[4] = {
@@ -717,6 +774,7 @@ main(void)
 	test_port_register_writes_continue_after_first_failure();
 	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
+	test_vlan_table_write_waits_for_idle_and_propagates_io_failures();
 	test_vlan_rule_snapshot_is_committed_only_after_hardware_success();
 	test_vlan_rule_snapshot_commit_rejects_invalid_buffers();
 	test_all_defined_speed_and_flow_modes();

@@ -163,6 +163,10 @@ mtk_esw_jumbo_frames_apply(unsigned int reg, int enabled,
 #define MTK_ESW_MAC_TABLE_CLEAR_STATIC     0x8602U
 #define MTK_ESW_MAC_TABLE_POLL_LIMIT       200U
 #define MTK_ESW_MAC_TABLE_POLL_DELAY_US   100U
+#define MTK_ESW_VLAN_TABLE_REG             0x90U
+#define MTK_ESW_VLAN_TABLE_BUSY_MASK       (1U << 31)
+#define MTK_ESW_VLAN_TABLE_POLL_LIMIT      200U
+#define MTK_ESW_VLAN_TABLE_POLL_DELAY_US   100U
 
 /* A failed status read is UNKNOWN, never proof that the table is idle. */
 static inline int
@@ -193,6 +197,44 @@ mtk_esw_mac_table_clear(int static_only,
 		if (status != 0)
 			return mtk_esw_link_mode_io_error(status);
 		if (!(atc_value & MTK_ESW_MAC_TABLE_BUSY_MASK))
+			return 0;
+	}
+
+	return -ETIMEDOUT;
+}
+
+
+/*
+ * A failed VTCR write/read is never treated as an idle table. Keep the
+ * caller's VLAN-pool bookkeeping unchanged unless the switch confirms that
+ * the command completed.
+ */
+static inline int
+mtk_esw_vlan_table_write(unsigned int vtcr_reg, unsigned int command,
+			 unsigned int vid,
+			 const struct mtk_esw_link_mode_io *io, void *context)
+{
+	unsigned int value = 0;
+	unsigned int poll;
+	int status;
+
+	if (!io || !io->read || !io->write || !io->delay_us ||
+	    (command != 1U && command != 2U) || vid > 4095U)
+		return -EINVAL;
+
+	status = io->write(context, MTK_ESW_MAC_TABLE_PHY, vtcr_reg,
+			   (command << 12) | vid | MTK_ESW_VLAN_TABLE_BUSY_MASK);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	for (poll = 0; poll < MTK_ESW_VLAN_TABLE_POLL_LIMIT; ++poll) {
+		io->delay_us(context, MTK_ESW_VLAN_TABLE_POLL_DELAY_US);
+		value = 0;
+		status = io->read(context, MTK_ESW_MAC_TABLE_PHY, vtcr_reg,
+				  &value);
+		if (status != 0)
+			return mtk_esw_link_mode_io_error(status);
+		if (!(value & MTK_ESW_VLAN_TABLE_BUSY_MASK))
 			return 0;
 	}
 

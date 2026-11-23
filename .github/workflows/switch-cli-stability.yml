@@ -681,6 +681,7 @@ jobs:
               "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
               "test_vlan_rule_snapshot_is_committed_only_after_hardware_success",
               "test_vlan_rule_snapshot_commit_rejects_invalid_buffers",
+              "test_vlan_table_write_waits_for_idle_and_propagates_io_failures",
               "test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits",
               "test_port_register_writes_continue_after_first_failure",
               "test_port_register_write_rejects_invalid_io_and_ranges",
@@ -715,6 +716,39 @@ jobs:
           vlan_apply = source[apply_start:apply_end]
           assert "g_vlan_rule[" not in vlan_apply
           assert "g_vlan_rule[i] = g_vlan_rule_user[i];" not in source
+
+          vlan_table_write = policy.split("mtk_esw_vlan_table_write(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->write(context, MTK_ESW_MAC_TABLE_PHY, vtcr_reg" in vlan_table_write
+          assert "io->read(context, MTK_ESW_MAC_TABLE_PHY, vtcr_reg" in vlan_table_write
+          assert "io->delay_us(context, MTK_ESW_VLAN_TABLE_POLL_DELAY_US)" in vlan_table_write
+          assert "return -ETIMEDOUT;" in vlan_table_write
+          assert "test_vlan_table_write_waits_for_idle_and_propagates_io_failures" in test
+          vtcr = source.split("static int esw_write_vtcr", 1)[1].split(
+              "static int esw_vlan_set", 1
+          )[0]
+          assert "mtk_esw_vlan_table_write(REG_ESW_VLAN_VTCR" in vtcr
+          vlan_set = source.split("static int esw_vlan_set", 1)[1].split(
+              "static int esw_vlan_reset_table", 1
+          )[0]
+          assert "REG_ESW_VLAN_VAWD1" in vlan_set and "REG_ESW_VLAN_VAWD2" in vlan_set
+          assert vlan_set.index("status = esw_write_vtcr(1, cvid)") < vlan_set.index("set_bit(cvid, g_vlan_pool)")
+          vlan_reset = source.split("static int esw_vlan_reset_table", 1)[1].split(
+              "static int is_vlan_rule_included", 1
+          )[0]
+          assert vlan_reset.index("if (status != 0)") < vlan_reset.index("clear_bit(i, g_vlan_pool)")
+          vlan_apply = source.split("static int esw_vlan_apply_rules", 1)[1].split(
+              "static int esw_vlan_init_vid1", 1
+          )[0]
+          assert "status = esw_vlan_reset_table();" in vlan_apply
+          assert "status = esw_vlan_set(" in vlan_apply
+          bridge_isolate = source.split("static int esw_vlan_bridge_isolate", 1)[1].split(
+              "static void esw_mac_to_phy_enable", 1
+          )[0]
+          assert "status = esw_vlan_apply_rules(wan_bridge_mode, wan_bwan_isolation);" in bridge_isolate
+          assert "status = esw_vlan_init_vid1();" in bridge_isolate
+          assert bridge_isolate.index("if (status != 0)") < bridge_isolate.index("status = esw_mac_table_clear();")
 
           jumbo_apply = policy.split("mtk_esw_jumbo_frames_apply(", 1)[1].split(
               "static inline int", 1

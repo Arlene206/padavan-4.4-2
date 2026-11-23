@@ -499,25 +499,22 @@ static int esw_mac_table_clear(void)
 
 static int esw_write_vtcr(u32 vtcr_cmd, u32 vtcr_val)
 {
-	u32 i, reg_vtcr;
+	int status;
 
-	reg_vtcr = (vtcr_cmd << 12) | vtcr_val | 0x80000000;
-	esw_reg_set(REG_ESW_VLAN_VTCR, reg_vtcr);
-
-	for (i = 0; i < 200; i++) {
-		udelay(100);
-		reg_vtcr = esw_reg_get(REG_ESW_VLAN_VTCR);
-		if (!(reg_vtcr & 0x80000000))
-			return 0;
-	}
-
-	printk("%s: VTCR timeout!\n", MTK_ESW_DEVNAME);
-	return -1;
+	status = mtk_esw_vlan_table_write(REG_ESW_VLAN_VTCR,
+					  vtcr_cmd, vtcr_val,
+					  &mtk_esw_link_mode_io, NULL);
+	if (status != 0)
+		pr_err("%s: VLAN table command failed (cmd=%u vid=%u status=%d)\\n",
+		       MTK_ESW_DEVNAME, vtcr_cmd, vtcr_val, status);
+	return status;
 }
 
-static void esw_vlan_set(u32 cvid, u32 svid, u32 mask_member, u32 mask_untag, u32 mask_swap, u32 fid)
+static int esw_vlan_set(u32 cvid, u32 svid, u32 mask_member, u32 mask_untag,
+			u32 mask_swap, u32 fid)
 {
 	u32 i, reg_val, reg_val2;
+	int status;
 
 	cvid &= 0xfff;
 	svid &= 0xfff;
@@ -527,78 +524,66 @@ static void esw_vlan_set(u32 cvid, u32 svid, u32 mask_member, u32 mask_untag, u3
 	fid &= 0x7;
 
 	reg_val2 = 0;
-
-	// set vlan member
-	reg_val = 1;				// VALID
+	reg_val = 1;
 #if !ESW_USE_IVL_MODE
 	if (fid > 0)
-		reg_val |= (fid << 1);		// FID
+		reg_val |= (fid << 1);
 	else
 #endif
-	reg_val |= (1u << 30);			// IVL=1
-	reg_val |= (svid << 4);			// S_TAG
-	reg_val |= (mask_member << 16);		// PORT_MEM
+		reg_val |= (1u << 30);
+	reg_val |= (svid << 4);
+	reg_val |= (mask_member << 16);
 	if (svid)
-		reg_val |= (1u << 27);		// COPY_PRI
-	reg_val |= (1u << 28);			// VTAG_EN=1
+		reg_val |= (1u << 27);
+	reg_val |= (1u << 28);
 
-	/* set vlan untag ports */
 	for (i = 0; i < 7; i++) {
 		if (!(mask_member & (1u << i)))
 			continue;
-		
 		if (!(mask_untag & (1u << i))) {
 			if (mask_swap & (1u << i))
-				reg_val2 |= (0x1u << (i*2));	// EG_TAG=Swap
+				reg_val2 |= (0x1u << (i*2));
 			else
-				reg_val2 |= (0x2u << (i*2));	// EG_TAG=Tagged
+				reg_val2 |= (0x2u << (i*2));
 		}
 	}
 
-	esw_reg_set(REG_ESW_VLAN_VAWD1, reg_val);
-	esw_reg_set(REG_ESW_VLAN_VAWD2, reg_val2);
+	status = mtk_esw_link_mode_io.write(NULL, MTK_ESW_MAC_TABLE_PHY,
+					    REG_ESW_VLAN_VAWD1, reg_val);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+	status = mtk_esw_link_mode_io.write(NULL, MTK_ESW_MAC_TABLE_PHY,
+					    REG_ESW_VLAN_VAWD2, reg_val2);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
 
-	esw_write_vtcr(1, cvid);
+	status = esw_write_vtcr(1, cvid);
+	if (status != 0)
+		return status;
+
 	set_bit(cvid, g_vlan_pool);
+	return 0;
 }
 
-static void esw_vlan_reset_table(void)
+static int esw_vlan_reset_table(void)
 {
 	u32 i;
+	int status, first_error = 0;
 
-	/* Reset VLAN table from VID #2 */
+	/* Keep failed entries in the pool so the next reset can retry them. */
 	for (i = 2; i < 4096; i++) {
-		if (test_and_clear_bit(i, g_vlan_pool))
-			esw_write_vtcr(2, i);
-	}
-}
-
-#define VLAN_ENTRY_ID_MAX	(15)
-static u32 find_vlan_slot(vlan_entry_t *vlan_entry, u32 start_idx, u32 cvid)
-{
-	u32 i;
-
-	for (i = start_idx; i <= VLAN_ENTRY_ID_MAX; i++) {
-		if (!vlan_entry[i].valid || vlan_entry[i].cvid == cvid)
-			return i;
-	}
-
-	return VLAN_ENTRY_ID_MAX + 1; // not found
-}
-
-static u32 find_free_min_pvid(u32 *pvid_list, u32 vid)
-{
-	u32 i, vid_new;
-
-	vid_new = vid;
-	for (i = 0; i < SWAPI_VLAN_RULE_NUM; i++) {
-		if (vid == pvid_list[i]) {
-			/* recursion step */
-			vid_new = find_free_min_pvid(pvid_list, vid+1);
-			break;
+		if (!test_bit(i, g_vlan_pool))
+			continue;
+		status = esw_write_vtcr(2, i);
+		if (status != 0) {
+			if (!first_error)
+				first_error = status;
+			continue;
 		}
+		clear_bit(i, g_vlan_pool);
 	}
-	return vid_new;
+
+	return first_error;
 }
 
 static int is_vlan_rule_included(u32 wan_bridge_mode, u32 rule_id)
@@ -623,7 +608,7 @@ static int is_wan_vid_valid(u32 vid)
 	return (vid == 2 || vid >= MIN_EXT_VLAN_VID) ? 1 : 0;
 }
 
-static void esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
+static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 {
 	vlan_entry_t vlan_entry[VLAN_ENTRY_ID_MAX+1];
 	pvlan_member_t pvlan_member[ESW_EPHY_ID_MAX+1];
@@ -631,6 +616,7 @@ static void esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	u32 prio[SWAPI_VLAN_RULE_NUM] = {0};
 	u32 tagg[SWAPI_VLAN_RULE_NUM] = {0};
 	u32 i, cvid, next_fid, untg_vid, vlan_idx, vlan_filter_on;
+	int status;
 
 #if defined (CONFIG_P4_RGMII_TO_MT7530_GMAC_P5) || defined (CONFIG_GE2_INTERNAL_GMAC_P5)
 	pvlan_member_t pvlan_member_cpu_wan;
@@ -903,8 +889,10 @@ static void esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	esw_port_ingress_mode_set(WAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
 #endif
 
-	/* reset VLAN table */
-	esw_vlan_reset_table();
+	/* Do not add new entries until every old entry has been reset. */
+	status = esw_vlan_reset_table();
+	if (status != 0)
+		return status;
 
 	/* fill VLAN table */
 	for (i = 0; i <= VLAN_ENTRY_ID_MAX; i++) {
@@ -912,15 +900,20 @@ static void esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 			continue;
 		if (!vlan_entry[i].port_member)
 			continue;
-		esw_vlan_set(vlan_entry[i].cvid, vlan_entry[i].svid,
-			vlan_entry[i].port_member, vlan_entry[i].port_untag, 0, vlan_entry[i].fid);
+		status = esw_vlan_set(vlan_entry[i].cvid, vlan_entry[i].svid,
+				      vlan_entry[i].port_member,
+				      vlan_entry[i].port_untag, 0,
+				      vlan_entry[i].fid);
+		if (status != 0)
+			return status;
 	}
 
+	return 0;
 }
-
-static void esw_vlan_init_vid1(void)
+static int esw_vlan_init_vid1(void)
 {
 	u32 i, port_member, port_untag;
+	int status;
 
 	port_member = 0xFF;
 	port_member &= ~(ESW_MASK_EXCLUDE);
@@ -951,11 +944,13 @@ static void esw_vlan_init_vid1(void)
 	esw_port_ingress_mode_set(LAN_PORT_CPU, PVLAN_INGRESS_MODE_SECURITY);
 
 	/* reset VLAN table */
-	esw_vlan_reset_table();
+	status = esw_vlan_reset_table();
+	if (status != 0)
+		return status;
 
 	/* set all ports to VLAN 1 member (no SVID, no SWAP) */
-	esw_vlan_set(1, 0, port_member, port_untag, 0, 1);
-
+	status = esw_vlan_set(1, 0, port_member, port_untag, 0, 1);
+	return status;
 }
 
 static void esw_mask_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation)
@@ -1037,12 +1032,16 @@ static int esw_vlan_bridge_isolate(u32 wan_bridge_mode, u32 wan_bwan_isolation, 
 		if (!bridge_changed)
 			return 0;
 
-		esw_vlan_init_vid1();
+		status = esw_vlan_init_vid1();
+		if (status != 0)
+			return status;
 	} else {
 		if (!bridge_changed && !br_iso_changed && !vlan_rule_changed)
 			return 0;
 
-		esw_vlan_apply_rules(wan_bridge_mode, wan_bwan_isolation);
+		status = esw_vlan_apply_rules(wan_bridge_mode, wan_bwan_isolation);
+		if (status != 0)
+			return status;
 	}
 
 	if (bridge_changed) {
