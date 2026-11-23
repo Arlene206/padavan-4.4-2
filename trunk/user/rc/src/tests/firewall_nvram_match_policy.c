@@ -418,6 +418,30 @@ test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence(void)
 	assert(interface_name[0] == '\0');
 }
 
+
+static void
+test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors(void)
+{
+	char subnet[16] = "stale";
+
+	/* An absent optional pool setting keeps the legacy empty-string default. */
+	assert(firewall_nvram_copy_string_status(0, 0, NULL,
+						 subnet, sizeof(subnet)) == 0);
+	assert(subnet[0] == '\0');
+
+	assert(firewall_nvram_copy_string_status(1, 0, "10.8.0.0",
+						 subnet, sizeof(subnet)) == 0);
+	assert(strcmp(subnet, "10.8.0.0") == 0);
+
+	/* Backend/close failures and values too long for an IPv4 literal fail closed. */
+	assert(firewall_nvram_copy_string_status(-1, EIO, NULL,
+						 subnet, sizeof(subnet)) == EIO);
+	assert(subnet[0] == '\0');
+	assert(firewall_nvram_copy_string_status(1, 0, "255.255.255.255x",
+						 subnet, sizeof(subnet)) == ENAMETOOLONG);
+	assert(subnet[0] == '\0');
+}
+
 static void
 test_checked_string_copy_rejects_truncation_and_invalid_arguments(void)
 {
@@ -531,6 +555,7 @@ main(void)
 	test_checked_string_copy_preserves_present_and_missing_values();
 	test_checked_string_copy_fails_closed_on_backend_and_invalid_results();
 	test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence();
+	test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors();
 	test_checked_string_copy_rejects_truncation_and_invalid_arguments();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

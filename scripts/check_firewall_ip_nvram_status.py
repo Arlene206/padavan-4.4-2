@@ -147,4 +147,20 @@ for marker in (
 ):
     assert marker in TEST and marker + "();" in TEST
 
+
+# VPN server subnet data influences MASQUERADE routes and must be snapshotted
+# before opening the NAT rules file; backend errors must not become an empty pool.
+nat_builder = body(SOURCE, "ipt_nat_rules(char *man_if")
+vpns_read = nat_builder.index("firewall_read_string_setting_copy_status(")
+vpns_call_end = nat_builder.index(";", vpns_read)
+vpns_call = nat_builder[vpns_read:vpns_call_end]
+assert '"vpns_vnet"' in vpns_call and "vpns_vnet" in vpns_call
+assert "char vpns_vnet[16]" in nat_builder
+assert vpns_read < nat_builder.index('firewall_open_rule_file(ipt_file, "IPv4 NAT")')
+assert "if (firewall_status != 0)\\n\\t\\t\\treturn firewall_status;" in nat_builder[vpns_read:vpns_call_end + 100]
+assert 'nvram_safe_get("vpns_vnet")' not in nat_builder
+assert "ip2class(vpns_vnet, VPN_SERVER_SUBNET_MASK, vpn_net, sizeof(vpn_net));" in nat_builder
+assert ("test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors" in TEST
+        and "test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors();" in TEST)
+
 print("Firewall IP NVRAM snapshot contract: PASS")

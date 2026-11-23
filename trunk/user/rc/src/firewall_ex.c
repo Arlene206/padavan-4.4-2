@@ -3823,6 +3823,7 @@ FILE *fp;
 	int i_aria_pport = 0, i_aria_rport = 0;
 #endif
 	int firewall_status, i_vpns_vuse = 0, i_vpns_actl = 0;
+	char vpns_vnet[16] = {0}; /* IPv4 address text, including the terminator. */
 	int vts_status, saved_errno;
 #if defined (USE_IPV6)
 	int ipv6_type;
@@ -3931,6 +3932,11 @@ FILE *fp;
 		if (firewall_status != 0)
 			return firewall_status;
 		firewall_status = firewall_read_integer_setting("vpns_actl", 0, &i_vpns_actl);
+		if (firewall_status != 0)
+			return firewall_status;
+		/* Do not publish NAT rules from an empty fallback if the VPN pool read failed. */
+		firewall_status = firewall_read_string_setting_copy_status(
+			"vpns_vnet", vpns_vnet, sizeof(vpns_vnet));
 		if (firewall_status != 0)
 			return firewall_status;
 	}
@@ -4174,7 +4180,7 @@ FILE *fp;
 		/* masquerade WAN connection for VPN server clients */
 		if (i_vpns_enable) {
 			char vpn_net[24] = {0};
-			ip2class(nvram_safe_get("vpns_vnet"), VPN_SERVER_SUBNET_MASK, vpn_net, sizeof(vpn_net));
+			ip2class(vpns_vnet, VPN_SERVER_SUBNET_MASK, vpn_net, sizeof(vpn_net));
 			if (strcmp(vpn_net, lan_net) != 0) {
 #if defined (APP_OPENVPN)
 				if (i_vpns_type == 2) {
