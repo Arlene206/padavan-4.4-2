@@ -1149,6 +1149,52 @@ jobs:
           print("GE analog wait callback context is fully defined before use: PASS")
           PY
 
+      - name: Validate calibration ioctl retries each port and reports failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          ioctl = source.split("int ephy_ioctl(", 1)[1].split(
+              chr(10) + "static const struct of_device_id", 1
+          )[0]
+          vbg = ioctl.split("case RAETH_VBG_IEXT_CALIBRATION:", 1)[1].split(
+              "case RAETH_TXG_R50_CALIBRATION:", 1
+          )[0]
+          r50 = ioctl.split("case RAETH_TXG_R50_CALIBRATION:", 1)[1].split(
+              "case RAETH_TXG_OFFSET_CALIBRATION:", 1
+          )[0]
+          for block, flag in ((vbg, "fe_cal_vbg_flag"), (r50, "fe_cal_r50_flag")):
+              assert "for (port_num = 0; port_num < 5; port_num++)" in block
+              assert "cnt = 0;" in block
+              assert flag + " = 0;" in block
+              assert "if (!" + flag + ")" in block
+              assert "ret = -EIO;" in block
+          offset = ioctl.split("case RAETH_TXG_OFFSET_CALIBRATION:", 1)[1].split(
+              "case RAETH_TXG_AMP_CALIBRATION:", 1
+          )[0]
+          amp = ioctl.split("case RAETH_TXG_AMP_CALIBRATION:", 1)[1].split(
+              "case GE_TXG_R50_CALIBRATION:", 1
+          )[0]
+          for block, flags in (
+              (offset, ("fe_cal_tx_offset_flag", "fe_cal_tx_offset_flag_mdix")),
+              (amp, ("fe_cal_flag", "fe_cal_flag_mdix"))
+          ):
+              for flag in flags:
+                  assert flag + " = 0;" in block
+                  assert "if (!" + flag + ")" in block
+              assert block.count("ret = -EIO;") == 2
+          for case, flag, end in (
+              ("GE_TXG_R50_CALIBRATION", "ge_cal_r50_flag", "GE_TXG_OFFSET_CALIBRATION"),
+              ("GE_TXG_OFFSET_CALIBRATION", "ge_cal_tx_offset_flag", "GE_TXG_AMP_CALIBRATION"),
+              ("GE_TXG_AMP_CALIBRATION", "ge_cal_flag", "default:")
+          ):
+              block = ioctl.split("case " + case + ":", 1)[1].split(end, 1)[0]
+              assert "if (!" + flag + ")" in block
+              assert "ret = -EIO;" in block
+          print("Calibration ioctl resets per-port retries and returns -EIO after exhausted FE/GE calibration attempts: PASS")
+          PY
+
       - name: Validate EPHY batch initialization propagates analog failures
         run: |
           python3 - <<'PY'

@@ -6706,27 +6706,36 @@ int ephy_ioctl(struct net_device *dev, struct ifreq *ifr,
 	pr_info("%s : cmd =%x\n", __func__, cmd);
 	switch (cmd) {
 	case RAETH_VBG_IEXT_CALIBRATION:
-		cnt = 0;
-		fe_cal_vbg_flag = 0; /*restart calibration*/
 		for (port_num = 0; port_num < 5; port_num++) {
+			/* Reset both retry and completion state for every port. */
+			cnt = 0;
+			fe_cal_vbg_flag = 0;
 			while ((fe_cal_vbg_flag == 0) && (cnt < 0x3)) {
 				fe_cal_vbg(port_num, 1);
 				cnt++;
 				if (fe_cal_vbg_flag == 0)
 					pr_info(" VBG wait! (%d)\n", cnt);
 			}
+			if (!fe_cal_vbg_flag) {
+				ret = -EIO;
+				break;
+			}
 		}
 		break;
 
 	case RAETH_TXG_R50_CALIBRATION:
-		cnt = 0;
-		fe_cal_r50_flag = 0;
 		for (port_num = 0; port_num < 5; port_num++) {
+			cnt = 0;
+			fe_cal_r50_flag = 0;
 			while ((fe_cal_r50_flag == 0) && (cnt < 0x3)) {
 				fe_cal_r50(port_num, 1);
 				cnt++;
 				if (fe_cal_r50_flag == 0)
 					pr_info(" FE R50 wait! (%d)\n", cnt);
+			}
+			if (!fe_cal_r50_flag) {
+				ret = -EIO;
+				break;
 			}
 		}
 		break;
@@ -6742,15 +6751,23 @@ int ephy_ioctl(struct net_device *dev, struct ifreq *ifr,
 					pr_info("FeTxOffsetAnaCal wait!(%d)\n",
 						cnt);
 			}
+			if (!fe_cal_tx_offset_flag) {
+				ret = -EIO;
+				break;
+			}
+
 			cnt = 0;
 			fe_cal_tx_offset_flag_mdix = 0;
 			while ((fe_cal_tx_offset_flag_mdix == 0) && (cnt < 0x3)) {
 				fe_cal_tx_offset_mdix(port_num, 100);
 				cnt++;
 				if (fe_cal_tx_offset_flag_mdix == 0)
-					pr_info
-					    ("FeTxOffsetAnaCal mdix wait!(%d)\n",
-					     cnt);
+					pr_info("FeTxOffsetAnaCal mdix wait!(%d)\n",
+						cnt);
+			}
+			if (!fe_cal_tx_offset_flag_mdix) {
+				ret = -EIO;
+				break;
 			}
 		}
 		break;
@@ -6766,15 +6783,23 @@ int ephy_ioctl(struct net_device *dev, struct ifreq *ifr,
 					pr_info("FETxAmpAnaCal wait!(%d)\n",
 						cnt);
 			}
+			if (!fe_cal_flag) {
+				ret = -EIO;
+				break;
+			}
+
 			cnt = 0;
 			fe_cal_flag_mdix = 0;
 			while ((fe_cal_flag_mdix == 0) && (cnt < 0x3)) {
 				fe_cal_tx_amp_mdix(port_num, 300);
 				cnt++;
 				if (fe_cal_flag_mdix == 0)
-					pr_info
-					    ("FETxAmpAnaCal mdix wait!(%d)\n",
-					     cnt);
+					pr_info("FETxAmpAnaCal mdix wait!(%d)\n",
+						cnt);
+			}
+			if (!fe_cal_flag_mdix) {
+				ret = -EIO;
+				break;
 			}
 		}
 		break;
@@ -6788,30 +6813,34 @@ int ephy_ioctl(struct net_device *dev, struct ifreq *ifr,
 			if (ge_cal_r50_flag == 0)
 				pr_info(" GE R50 wait! (%d)\n", cnt);
 		}
+		if (!ge_cal_r50_flag)
+			ret = -EIO;
 		break;
 
 	case GE_TXG_OFFSET_CALIBRATION:
 		cnt = 0;
 		ge_cal_tx_offset_flag = 0;
 		while ((ge_cal_tx_offset_flag == 0) && (cnt < 0x3)) {
-			ge_cal_tx_offset(port_num, 20);
+			ge_cal_tx_offset(0, 20);
 			cnt++;
 			if (ge_cal_tx_offset_flag == 0)
-				pr_info("GeTxOffsetAnaCal wait!(%d)\n",
-					cnt);
+				pr_info("GeTxOffsetAnaCal wait!(%d)\n", cnt);
 		}
+		if (!ge_cal_tx_offset_flag)
+			ret = -EIO;
 		break;
 
 	case GE_TXG_AMP_CALIBRATION:
 		cnt = 0;
 		ge_cal_flag = 0;
 		while ((ge_cal_flag == 0) && (cnt < 0x3)) {
-			ge_cal_tx_amp(port_num, 20);
+			ge_cal_tx_amp(0, 20);
 			cnt++;
 			if (ge_cal_flag == 0)
-				pr_info("GETxAmpAnaCal wait!(%d)\n",
-					cnt);
+				pr_info("GETxAmpAnaCal wait!(%d)\n", cnt);
 		}
+		if (!ge_cal_flag)
+			ret = -EIO;
 		break;
 	default:
 		ret = 1;
