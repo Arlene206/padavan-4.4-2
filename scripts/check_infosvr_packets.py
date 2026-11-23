@@ -302,6 +302,6 @@ assert "NET_CMD_ID_SETINFO" in dispatch_test
 assert "duplicate unsupported command" in dispatch_test
 assert "response->Info == 0" in dispatch_test
 assert "memcmp(response->MacAddress, info->PrinterInfo, sizeof(response->MacAddress)) == 0" in dispatch_test
-assert "infosvr rejects duplicate unsupported opcodes and clears cached replies: PASS" in dispatch_test
+assert "infosvr accepts unaligned input and clears cached replies: PASS" in dispatch_test
 
 print("infosvr packet bounds, opcode dispatch and SIGTERM signal-lifecycle source contracts: PASS")
