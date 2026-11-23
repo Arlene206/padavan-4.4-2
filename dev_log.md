@@ -1,3 +1,13 @@
+## 2026-11-23 08:18 UTC — Harden ZeroTier Moon creation and removal
+
+- Remaining direct Moon NVRAM reads were `zerotiermoon_ip` and `zerotiermoon_id`. A legacy getter failure could be mistaken for an empty address (triggering WAN-IP fallback) or empty identity (skipping cleanup).
+- `creat_moon()` now uses `nvram get_checked` and aborts before WAN-interface fallback on a read error.
+- `remove_moon()` uses a checked ID read, treats absent ID as an idempotent no-op, validates the 10-hex ZeroTier address before constructing the signed-file path, checks file deletion and NVRAM set/commit results, and fixes the malformed condition that blocked removal of present IDs.
+- `start_instance()` propagates Moon create/remove failures. Added shell regressions for failed IP/ID reads, no WAN fallback, unsafe ID, valid deletion and empty-ID no-op; Python source contracts pin read/path/return rules.
+- L1 source review only; exact-head ZeroTier/AI Actions pending. No local tests/builds claimed.
+
+---
+
 ## 2026-11-23 08:07 UTC — Check NAT validation in its helper, not rules()
 
 - Exact ZeroTier run `45131839631` on `1b29ed2fe3ed96a310ac9e83cfda6b455b25e901`: shell lifecycle regression PASS; Python contract failed only because it still expected `case "$nat_enable"` validation inside `rules()`. Validation now correctly resides in `zerotier_read_nat_enabled()`.

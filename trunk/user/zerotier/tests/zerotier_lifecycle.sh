@@ -13,16 +13,19 @@ TEST_NVRAM_GET_FAIL=0
 TEST_NVRAM_READ_FAIL_KEY=""
 TEST_NVRAM_MOONID_STATE=""
 TEST_NVRAM_MOON_ENABLE_STATE=""
+TEST_NVRAM_MOON_IP_STATE=""
+TEST_NVRAM_MOON_ID_STATE=""
 TEST_NVRAM_ID_STATE=""
 TEST_NVRAM_SET_FAIL=0
 TEST_NVRAM_COMMIT_FAIL=0
-export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_GET_FAIL TEST_NVRAM_READ_FAIL_KEY TEST_NVRAM_MOONID_STATE TEST_NVRAM_MOON_ENABLE_STATE TEST_NVRAM_ID_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
+export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_GET_FAIL TEST_NVRAM_READ_FAIL_KEY TEST_NVRAM_MOONID_STATE TEST_NVRAM_MOON_ENABLE_STATE TEST_NVRAM_MOON_IP_STATE TEST_NVRAM_MOON_ID_STATE TEST_NVRAM_ID_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
 TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_ACTION_LOG="$TEST_TMP/actions.log"
 TEST_IPTABLES_LOG="$TEST_TMP/iptables.log"
 TEST_IPTABLES_STATE_FILE="$TEST_TMP/iptables.state"
 TEST_IFCONFIG_COUNT="$TEST_TMP/ifconfig.count"
+TEST_IFCONFIG_CALL_LOG="$TEST_TMP/ifconfig.calls"
 TEST_ROUTE_COUNT="$TEST_TMP/route.count"
 TEST_IFCONFIG_MODE=none
 TEST_ROUTE_MODE=none
@@ -43,10 +46,11 @@ TEST_IPTABLES_FAIL_ON=""
 TEST_IPTABLES_CHECK_FAIL_ON=""
 TEST_IPTABLES_DELETE_FAIL_ON=""
 : > "$TEST_IFCONFIG_COUNT"
+: > "$TEST_IFCONFIG_CALL_LOG"
 : > "$TEST_ROUTE_COUNT"
 : > "$TEST_IPTABLES_STATE_FILE"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
-export TEST_IPTABLES_LOG TEST_IPTABLES_STATE_FILE TEST_IFCONFIG_COUNT TEST_ROUTE_COUNT
+export TEST_IPTABLES_LOG TEST_IPTABLES_STATE_FILE TEST_IFCONFIG_COUNT TEST_IFCONFIG_CALL_LOG TEST_ROUTE_COUNT
 export TEST_IFCONFIG_MODE TEST_ROUTE_MODE TEST_NAT_ENABLE
 export TEST_START_INSTANCE_STATUS
 trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
@@ -128,6 +132,9 @@ kill() {
 }
 
 ifconfig() {
+	if [ -n "${TEST_IFCONFIG_CALL_LOG:-}" ]; then
+		printf '%s\n' "$*" >> "$TEST_IFCONFIG_CALL_LOG"
+	fi
 	case "$TEST_IFCONFIG_MODE" in
 		running-only)
 			case "$(cat "$TEST_STATE")" in
@@ -216,6 +223,8 @@ nvram() {
 				zerotier_moonid) printf '%s\n' "$TEST_NVRAM_MOONID_STATE" ;;
 				zerotier_secret) cat "$TEST_NVRAM_SECRET_STATE" ;;
 				zerotiermoon_enable) printf '%s\n' "$TEST_NVRAM_MOON_ENABLE_STATE" ;;
+				zerotiermoon_ip) printf '%s\n' "$TEST_NVRAM_MOON_IP_STATE" ;;
+				zerotiermoon_id) printf '%s\n' "$TEST_NVRAM_MOON_ID_STATE" ;;
 				zerotier_planet)
 					[ "${TEST_NVRAM_GET_FAIL:-0}" != 1 ] || return 1
 					cat "$TEST_NVRAM_PLANET_STATE"
@@ -233,6 +242,10 @@ nvram() {
 				zerotier_secret=*)
 					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
 					printf '%s' "${2#zerotier_secret=}" > "$TEST_NVRAM_SECRET_STATE"
+					;;
+				zerotiermoon_id=*)
+					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
+					TEST_NVRAM_MOON_ID_STATE="${2#zerotiermoon_id=}"
 					;;
 				zerotier_planet=*)
 					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
@@ -512,6 +525,54 @@ fi
 [ ! -e "$TEST_TMP/networks-target/created" ] || fail "networks.d symlink target was modified"
 /bin/rm "$config_path/networks.d"
 /bin/mv "$TEST_TMP/networks.d.saved" "$config_path/networks.d"
+
+# Moon address read errors must not be mistaken for an empty address/WAN fallback.
+: > "$TEST_IFCONFIG_CALL_LOG"
+echo "last-good-moon-json" > "$TEST_CONFIG/moon.json"
+TEST_NVRAM_READ_FAIL_KEY="zerotiermoon_ip"
+if creat_moon; then
+	fail "Moon creation accepted an unreadable address selector"
+fi
+[ ! -s "$TEST_IFCONFIG_CALL_LOG" ] || fail "Moon address read failure triggered the WAN-interface fallback"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "Moon address read failure modified the last-good Moon JSON"
+TEST_NVRAM_READ_FAIL_KEY=""
+
+# Moon identity read failures and malformed IDs must preserve signed files/JSON.
+mkdir -p "$TEST_CONFIG/moons.d"
+TEST_NVRAM_MOON_ID_STATE="0123456789"
+echo "last-good-moon-file" > "$TEST_CONFIG/moons.d/0000000123456789.moon"
+echo "last-good-moon-json" > "$TEST_CONFIG/moon.json"
+TEST_NVRAM_READ_FAIL_KEY="zerotiermoon_id"
+if remove_moon; then
+	fail "Moon removal accepted an unreadable identity selector"
+fi
+[ -f "$TEST_CONFIG/moons.d/0000000123456789.moon" ] || fail "Moon identity read error deleted the signed file"
+[ -f "$TEST_CONFIG/moon.json" ] || fail "Moon identity read error deleted the JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "Moon identity read error cleared the NVRAM ID"
+TEST_NVRAM_READ_FAIL_KEY=""
+
+TEST_NVRAM_MOON_ID_STATE="../escape!!"
+if remove_moon; then
+	fail "Moon removal accepted an unsafe non-hex identity path"
+fi
+[ -f "$TEST_CONFIG/moons.d/0000000123456789.moon" ] || fail "malformed Moon ID removed the last-good signed file"
+[ -f "$TEST_CONFIG/moon.json" ] || fail "malformed Moon ID deleted the last-good JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "../escape!!" ] || fail "malformed Moon ID was cleared from NVRAM"
+TEST_NVRAM_MOON_ID_STATE="0123456789"
+
+if ! remove_moon; then
+	fail "valid Moon identity was not removed"
+fi
+[ ! -e "$TEST_CONFIG/moons.d/0000000123456789.moon" ] || fail "valid Moon removal retained its signed file"
+[ ! -e "$TEST_CONFIG/moon.json" ] || fail "valid Moon removal retained the JSON"
+[ -z "$TEST_NVRAM_MOON_ID_STATE" ] || fail "valid Moon removal did not clear the persistent ID"
+
+TEST_NVRAM_MOON_ID_STATE=""
+echo "unrelated-moon-json" > "$TEST_CONFIG/moon.json"
+if ! remove_moon; then
+	fail "removing an already-absent Moon identity was not idempotent"
+fi
+[ "$(cat "$TEST_CONFIG/moon.json")" = "unrelated-moon-json" ] || fail "empty Moon ID deleted unrelated Moon JSON"
 
 add_join "" || fail "an empty optional network ID should be a no-op"
 [ ! -e "$config_path/networks.d/.conf" ] || fail "empty network ID created a .conf file"

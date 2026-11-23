@@ -80,6 +80,8 @@ start_instance_body = function_body(script, "start_instance()")
 nat_settings_body = function_body(script, "zerotier_read_nat_enabled()")
 route_preflight_body = function_body(script, "zerotier_preflight_static_routes()")
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
+creat_moon_body = function_body(script, "creat_moon()")
+remove_moon_body = function_body(script, "remove_moon()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
 identity_body = function_body(script, "zerotier_prepare_identity()")
 add_join_body = function_body(script, "add_join()")
@@ -313,6 +315,29 @@ for marker in ("rules accepted an unreadable NAT selector as disabled",
                "stop accepted a static-route preflight error",
                "start stopped the daemon after"):
     require(marker in test, f"checked route/NAT regression omits {marker}")
+
+require('nvram get_checked zerotiermoon_ip' in creat_moon_body and
+        'nvram get zerotiermoon_ip' not in creat_moon_body and
+        'if ! moonip="$(nvram get_checked zerotiermoon_ip)"; then' in creat_moon_body,
+        "Moon creation must abort before WAN-IP fallback when its checked address read fails")
+require('nvram get_checked zerotiermoon_id' in remove_moon_body and
+        'nvram get zerotiermoon_id' not in remove_moon_body and
+        '*[!0123456789abcdefABCDEF]*' in remove_moon_body and
+        '"${#zmoonid}" -ne 10' in remove_moon_body and
+        'if ! rm -f "$zt_moon_file" "$config_path/moon.json"; then' in remove_moon_body and
+        'if ! nvram set zerotiermoon_id=""; then' in remove_moon_body and
+        'if ! nvram commit; then' in remove_moon_body,
+        "Moon removal must validate the stored address, delete its exact file, and propagate NVRAM failures")
+require('if ! creat_moon; then' in start_instance_body and
+        'if ! remove_moon; then' in start_instance_body,
+        "Moon setup/removal failures must reach the start result")
+for marker in ("Moon creation accepted an unreadable address selector",
+               "Moon address read failure triggered the WAN-interface fallback",
+               "Moon removal accepted an unreadable identity selector",
+               "Moon removal accepted an unsafe non-hex identity path",
+               "valid Moon identity was not removed",
+               "empty Moon ID deleted unrelated Moon JSON"):
+    require(marker in test, f"Moon lifecycle regression omits {marker}")
 
 require("ZEROTIER_RULE_DELETE_LIMIT=32" in script and
         'zerotier_rule_delete_count' in delete_rule_body and

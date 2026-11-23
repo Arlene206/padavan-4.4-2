@@ -458,10 +458,16 @@ start_instance() {
 	if [ -n "$enablemoonserv" ]; then
 		if [ "$enablemoonserv" -eq "1" ]; then
 			logger -t "zerotier" "creat moon start"
-			creat_moon
+			if ! creat_moon; then
+				logger -t "zerotier" "ZeroTier Moon创建失败"
+				return 1
+			fi
 		else
 			logger -t "zerotier" "remove moon start"
-			remove_moon
+			if ! remove_moon; then
+				logger -t "zerotier" "ZeroTier Moon清理失败"
+				return 1
+			fi
 		fi
 	fi
 }
@@ -1211,7 +1217,10 @@ stop_zero() {
 
 #创建moon节点
 creat_moon() {
-	moonip="$(nvram get zerotiermoon_ip)"
+	if ! moonip="$(nvram get_checked zerotiermoon_ip)"; then
+		logger -t "zerotier" "无法读取ZeroTier Moon地址配置"
+		return 1
+	fi
 	logger -t "zerotier" "moonip $moonip"
 	#检查是否合法ip
 	regex="\b(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[1-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[1-9])\b"
@@ -1263,14 +1272,35 @@ creat_moon() {
 }
 
 remove_moon() {
-	zmoonid="$(nvram get zerotiermoon_id)"
-	
-	if [ ! -n "$zmoonid"]; then
-		rm -f $config_path/moons.d/000000$zmoonid.moon
-		rm -f $config_path/moon.json
-		nvram set zerotiermoon_id=""
-		nvram commit
+	if ! zmoonid="$(nvram get_checked zerotiermoon_id)"; then
+		logger -t "zerotier" "无法读取ZeroTier Moon身份配置"
+		return 1
 	fi
+	[ -n "$zmoonid" ] || return 0
+	case "$zmoonid" in
+		*[!0123456789abcdefABCDEF]*)
+			logger -t "zerotier" "ZeroTier Moon身份地址无效"
+			return 1
+			;;
+	esac
+	if [ "${#zmoonid}" -ne 10 ]; then
+		logger -t "zerotier" "ZeroTier Moon身份地址长度无效"
+		return 1
+	fi
+	zt_moon_file="$config_path/moons.d/000000$zmoonid.moon"
+	if ! rm -f "$zt_moon_file" "$config_path/moon.json"; then
+		logger -t "zerotier" "ZeroTier Moon文件清理失败"
+		return 1
+	fi
+	if ! nvram set zerotiermoon_id=""; then
+		logger -t "zerotier" "ZeroTier Moon身份配置清理失败"
+		return 1
+	fi
+	if ! nvram commit; then
+		logger -t "zerotier" "ZeroTier Moon身份配置持久化失败"
+		return 1
+	fi
+	return 0
 }
 
 case $1 in
