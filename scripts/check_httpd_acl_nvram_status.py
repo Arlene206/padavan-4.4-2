@@ -76,7 +76,12 @@ tests = (ROOT / "trunk/user/httpd/src/tests/httpd_acl_nvram_policy.c").read_text
 require("saved_errno > 0 ? saved_errno : EIO" in policy and
         "return configuration_valid || is_loopback;" in policy,
         "ACL policy must preserve read errors and keep loopback recovery access")
+require("parsed = strtol(value, &end, 10)" in policy and
+        "if (*end != '\\\\0' || parsed < 0)" in policy and
+        "parsed > INT_MAX" in policy,
+        "malformed or negative ACL modes must not be parsed as disabled")
 for name in ("test_missing_key_preserves_disabled_acl_default",
+             "test_malformed_or_negative_acl_values_fail_closed",
              "test_backend_failure_does_not_disable_acl",
              "test_failure_without_errno_and_unexpected_result_fail_closed"):
     require(name in tests, "ACL NVRAM regression is missing: " + name)

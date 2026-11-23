@@ -1,7 +1,9 @@
 #ifndef HTTPD_ACL_NVRAM_POLICY_H
 #define HTTPD_ACL_NVRAM_POLICY_H
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 
 /*
@@ -26,8 +28,27 @@ httpd_acl_nvram_mode_status(int read_result, int saved_errno,
 	if (read_result != 1 || !value)
 		return EIO;
 
-	/* Keep the legacy atoi() interpretation for readable NVRAM values. */
-	*mode = atoi(value);
+	/*
+	 * Preserve decimal integer settings, but do not let corrupt text (for
+	 * example, "invalid") turn the ACL off through atoi()'s zero fallback.
+	 * Whitespace and an optional sign remain accepted for compatibility.
+	 */
+	{
+		char *end;
+		long parsed;
+
+		errno = 0;
+		parsed = strtol(value, &end, 10);
+		if (end == value)
+			return EINVAL;
+		while (*end && isspace((unsigned char)*end))
+			++end;
+		if (*end != '\\0' || parsed < 0)
+			return EINVAL;
+		if (errno == ERANGE || parsed > INT_MAX)
+			return ERANGE;
+		*mode = (int)parsed;
+	}
 	*valid = 1;
 	return 0;
 }
