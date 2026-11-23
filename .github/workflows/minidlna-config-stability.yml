@@ -56,6 +56,17 @@ jobs:
 
           snapshot = body(source, "storage_read_minidlna_config_status(")
           updater = body(source, "update_minidlna_conf(")
+          # Require one C escape for LF in each attack fixture. Two source
+          # backslashes would pass literal backslash+n, not a control character.
+          malicious_config_literals = (
+              r'values.friendly_name = "Padavan\nmodel_number=999";',
+              r'values.media_source1 = "V,/media/video\nmedia_dir=V,/etc";',
+              r'values.interface_name = "br0\nnotify_interval=1";',
+              r'values.database_dir = "/mnt/minidlna\nlog_dir=/";',
+          )
+          for fixture in malicious_config_literals:
+              assert fixture in test, f"missing real newline-injection fixture: {fixture}"
+
           assert "nvram_transaction_begin(&transaction)" in snapshot
           keys = ('"dlna_disc"', '"dlna_root"', '"dlna_src1"',
                   '"dlna_src2"', '"dlna_src3"', '"dlna_sort"')

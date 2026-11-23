@@ -1,3 +1,13 @@
+## 2026-11-23 05:55 UTC — Pin MiniDLNA newline-injection fixture semantics
+
+- Exact MiniDLNA run `45120141433` failed the ASan/UBSan host test at line 124 because all malicious inputs encoded two backslashes before `n`; they were literal text, not control bytes, so the expected EINVAL did not occur.
+- Concurrent commit `511f1eed74144fb270181dbb53de2ea9dc09be02` replaced the doubled escapes with one C newline escape, including the last-good configuration fixture. Exact rerun `45120292969` completed SUCCESS: both the GNU89 sanitizer test and transactional source contract passed.
+- Added source-contract checks to require the exact four malicious C literals, so each has one C LF escape and can't silently regress to backslash+n. Test run 45120292969 verifies the corrected fixture content; a fresh source-contract run on THIS commit is required.
+- Exact eebc production-source Firewall Startup `45120141334` PASS. eebc XY-C1 `45120141302` had passed prerequisites and was building; TRX/artifact remained pending. Other eebc process/IPv6/Firefly/vsftpd/libdisk/USB/HTTPD/Samba/NVRAM jobs were pending/in progress.
+- No local checkout or local build claimed. Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 14:45 UTC+8 — Validate VPN server subnet text before deriving NAT network
 
 - Audited the new checked `vpns_vnet` snapshot in `ipt_nat_rules()`. Although backend errors, transaction-close errors and overlong strings already fail closed, any short malformed IPv4 token still reached legacy `ip2class()`, which calls `inet_addr()` without checking its parse result and can derive a bogus network from `INADDR_NONE`.
