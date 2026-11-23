@@ -1,106 +1,104 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: Arlene206/padavan-4.4-2. Current main: 940c53921c210898199bfc78b1b1b0cb33c206d6; WSD client deadline source commit: fc515297323886e9d7955e46f2a605f7396b0592; checker-only descendant: 940c53921c210898199bfc78b1b1b0cb33c206d6.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- No local checkout in this session. Do not claim local sanitizer tests, local host builds or firmware builds.
 
-## Exact-SHA Actions
-- WSD deadline source SHA `fc515297323886e9d7955e46f2a605f7396b0592`: WSD TCP send regression #45141178054 PASS; WSD XML reflection #45141178151 PASS; Process inventory #45141178220 PASS.
-- Initial WSD HTTP run #45141178185 on `fc51529` FAILED only at the Python source-contract assertion for the wrapped call to `wsd_http_deadline_after_ms`. The GNU99 ASan/UBSan socket-test binary completed before the checker and did not fail. Checker correction commit `940c539` fixes the whitespace-sensitive assertion; exact-descendant WSD HTTP run #45141306447 PASS, including the sanitizer binary and source contract.
-- NVRAM audit #45141178137 was still IN_PROGRESS in the raw userland ioctl audit when last polled; all preceding transaction test/compile steps passed.
-- XY-C1 #45141178162 was still IN_PROGRESS at Build XY-C1; all earlier host/source validation steps had passed; TRX verification and artifact upload had not yet run. No L3 claim.
-- The prior WSD parser-state source fix `0774f960873402a81c2ca1ae3dec62dabdfc688b` passed exact-SHA WSD HTTP #45140001431, TCP send #45140001496 and XML #45140001341, plus Process inventory #45140001262 and NVRAM audit #45140001652. XY-C1 #45140001410 was in progress at last poll; do not transfer L3 to newer source.
-
-## Completed source slice — Bound WSD accepted-client time
-- In `wsd_recv()`, a read error on an accepted TCP client previously propagated as a negative service result, which the event loop treats as listener/service failure and restarts WSD. Accepted-client EOF/read/timeout failures now close only that client and return success to the listener loop; accept/listener errors still propagate.
-- The previous one-second `SO_RCVTIMEO` reset on every `recv()`, so a slow peer could drip data and occupy the single-threaded WSD loop indefinitely. A single five-second request deadline now covers initial receive, request line, all headers and the declared body through poll + nonblocking recv; timeout returns HTTP 408.
-- Added idle-client and slow-trickle socket regressions under GNU99 ASan/UBSan, plus production-source integration assertions. Exact WSD HTTP validation passes on descendant SHA `940c539`.
-
-## Next actions
-1. Finish exact-source XY-C1 #45141178162 on source `fc515297`: verify Build XY-C1, TRX output and artifact upload; only claim L3 if all three complete successfully on this same source SHA.
-2. Finish NVRAM audit #45141178137 and record its exact result.
-3. Continue P1 DNSMasq split-DNS or packed switch-ioctl validation from the roadmap while unrelated Actions are running; do not repeat completed WSD tests.
-4. Keep physical-router L4 as NOT VERIFIED until exercised on hardware.
-
-## Validation boundary
-- Exact WSD HTTP L2 passed on `940c539`; send/XML L2 and Process inventory passed on source `fc51529`. XY-C1 is not yet complete on the product-source SHA, so no new L3 claim is made.
-- No local test, build or physical-router result is claimed.
-
-## Cross-session mandate
-One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; never modify the frozen backup; inspect exact-SHA Actions and never infer results.
-
-
-
-# SESSION HANDOFF — Padavan 4.4
-
-## Current repository state
-
-- Repository: `Arlene206/padavan-4.4-2`. Parent for the current exact-prior-radio-state compensation slice: `6e4c7f27cfad65fe437e88055e4f774d068ba437`; previous wireless runtime-state source: `6deab04c8fe625abd785447a7a558d45eebf7766`. Resolve live `main` on recovery. Immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
-- The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
-- Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
-
-## Completed source and validation milestones
-
-### libdisk removable-share ACL records
-
-- Source SHA `e757f86309b19f890797b2f36fb15f44f87a7e95` added unique line-anchored, case-insensitive folder ACL record handling; duplicate and malformed records are rejected. Checker-only descendant `5378fccc2201f4359ea3b0b37f1043d2b813a883` fixed undefined caller-body extraction variables. Exact descendant libdisk run `45114769360` passed both GNU89 ASan/UBSan binaries and the Python source contract.
-- Exact-source e757 XY-C1 run `45114634020` completed SUCCESS with firmware build, TRX verification and artifact upload. L3 closed for that source SHA. NVRAM transaction audit `45114633929`, HTTPD security `45114633840` and Process inventory `45114634024` also completed SUCCESS.
-
-### FRP credential storage
-
-- Product commit `d2c388a04f6125666043bf94672a8f4222655d4b` routes `/etc/storage/frp_script.sh` through `seed_storage_file()` with mode 0700 and enforce-existing-mode flag. It preserves operator file content, restores private mode and uses staged exclusive publication instead of the prior check-then-`cp -f` path.
-- Shell regressions cover private creation, existing content preservation/mode repair, injected chmod failure and source wiring. Checker correction `f9320f888b7ac284a4b657b1ae58feca40f0428f` made Process run `45115896497` PASS; final FRP checker correction `41285d396d7bd1f984f13c49699ed6dacbd27e92` made exact FRP run `45116127095` PASS. Exact d2c XY-C1 run `45115500761` completed SUCCESS with target build/TRX/artifact; L2/L3 closed for FRP source.
-
-### USB printer unplug event acknowledgement
-
-- Commit `20012786541a3789f0391793345e403eb96c77d8` preserves the result from `stop_usb_printer_spoolers()`, skips marker clear when stopping fails, sends the real status through `usb_hotplug_event_ack_status()` and schedules retry. This prevents acknowledging `usb_unplug_lp` while a printer daemon may still be running.
-- Positive `EBUSY` regression and source contract passed exact storage-hotplug run `45116268933`. Exact-source XY-C1 run `45116268960` SUCCESS included target build, TRX verification and artifact upload. L2/L3 are closed for the 200127 source SHA. L4 physical-router test remains NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2.
+- Main SHA before this checkpoint commit: ff0bb4a154f7065308d0776f64c71cfe241ece67. The next GPT must fetch the live main ref and latest commit before any edit because other parallel sessions can advance main while a task is running.
+- This checkpoint is one complete main commit containing the iNIC monitor NVRAM source fix, its executable source contract, the development log, roadmap and this handoff. Never infer its final SHA from the parent recorded here.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. It is read-only and must not be updated, deleted or merged.
+- Work only on main. No branches, temporary checkpoint refs, force pushes or PRs. The historical PR #1 is closed and unmerged; all authorized content was already ported.
+- No local checkout was available in this session. Do not claim local builds, firmware images, sanitizer execution or physical-device tests. Use exact-SHA GitHub Actions as the evidence boundary.
+- Startup protocol and handoff have already been restored once for this takeover. Do not repeat the initial repository audit or revisit completed WSD, DNSMasq, WAN and MTK investigations unless a new failure is observed.
 
 ## Active task
 
-### Re-run exact-prior-state wireless radio compensation regression
+A concrete fail-open behavior was found in the RT3352 iNIC health callback, check_inic_mii_rebooted() in trunk/user/rc/src/net_wifi.c.
 
-- Production-source commit: `2d5f218f7bbfcfb0f140be9c04f072173fe328c8` (parent `6e4c7f27cfad65fe437e88055e4f774d068ba437`). The current main also contains a docs-only NAT/offload checkpoint `b2577fe95d0783d6a7168ab94237d582ea43bc6c`. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains untouched/read-only.
-- The runtime transition snapshots `mlme_radio_wl/rt` via `nvram_get_checked()` before issuing power commands. It restores the exact prior value on power/publish failure; unreadable/invalid state aborts with no hardware mutation. Regressions cover read ordering, ON restoration after failed OFF, same-state ON publication failure, OFF restoration after command failure, and read-error no-side-effect behavior.
-- Exact-head Wireless run `45129983626` on `2d5f218...` FAILED in the inline Python source contract with `NameError: name 'policy' is not defined` at line 134. The workflow already loaded the policy header as `notification_policy`; the new assertions referenced an undefined name. THIS FOLLOW-UP switches those assertions to `notification_policy` and does not change production source.
-- Exact `2d5f218...` status from the latest recorded checkpoint: Wireless `45129983626` FAIL (checker NameError); AI docs `45129983606`, Process inventory `45129983638`, Process fail-closed `45129983589`, HTTPD security `45129983625`, iNIC signal `45129983697`, watchdog signal `45129983726`, and NVRAM transaction audit `45129983737` PASS; XY-C1 `45129983650` remained IN_PROGRESS. The follow-up needs a new Wireless run; verify the exact `2d5f218...` XY-C1 result separately.
-- No local checkout, local host test or local firmware build is claimed. L3 requires Build XY-C1, TRX verification and artifact upload all PASS on one production-source SHA. L4 physical-router validation remains NOT VERIFIED.
+The callback runs every 15 seconds in the iNIC health-monitor daemon. Before this change it called get_mlme_radio_rt() and get_mode_radio_rt(), which read through nvram_get_int()/nvram_wlan_get_int(). Those legacy convenience APIs collapse NVRAM device-node, ioctl and close errors into a numeric zero. The two zero fallbacks had hardware side effects:
+- If the mlme_radio_rt read failed, the monitor treated the state as radio disabled and sent iwpriv RadioOn=0. A transient backend failure could therefore power off the iNIC even though the configured state was unknown.
+- If the radio-state read succeeded as enabled but rt_mode_x failed, the monitor guessed operating mode zero (AP) and could start/recover the guest interface despite not knowing the actual configured mode.
 
-### Related pending verification
+The source now reads mlme_radio_rt and rt_mode_x through nvram_get_checked(), captures errno immediately, and uses the existing wireless_radio_nvram_flag_status() and wireless_radio_nvram_int_status() parsers. An absent or empty key retains the old zero default. Backend, malformed-value and invalid-API errors are logged and returned before the corresponding hardware or guest-interface action. The source contract in scripts/check_inicd_signals.py pins both reads, the parser/error gates and operation ordering, and rejects the legacy unchecked getters in this callback.
 
-- HW NAT selector source checker mismatch fixed in `6e4c7f2...`: shared `scripts/check_modem_wan_start_status.py` and inline HTTPD source contract now expect `rc_nat_offload_settings_read()` plus local `hw_nat_mode`, not the removed inline unchecked getter. Exact `6e4c7f2...` Firewall Startup/HTTPD/Process/USB modem/XY-C1 checks were green after the change; see current action history before repeating claims.
-- NAT helper snapshot tests passed sanitizer binaries on `a408ef...` in `45127938295`, but the workflow-header parser in the source contract failed; `9e8e8ae...` bounds parsing at `jobs:`. Confirm a new exact-head NAT/WAN run.
-## Verification boundary
-
-- Historic libdisk ACL, FRP private credentials, USB printer hotplug and DHCPv6 callback milestones retain only their earlier exact-source evidence; do not transfer those claims to newer source SHAs.
-- PID 1 recovery-shell timezone `acb8eff...`: exact timezone workflow `45126854225` PASS and Process/DNSMasq/DNS Forwarder/HTTPD/AI docs passed; L3 XY-C1 close not established.
-- Wireless regulatory SKU publication `83145a...`: Wireless regression `45126385953` and AI docs `45126385917` PASS; exact-source XY-C1 close not established.
-- SYN-cookie integer parsing `3a802b...`: WAN route, Process inventory and AI docs PASS; NVRAM audit cancelled; XY-C1 confirmation not recorded.
-- HW NAT selector checked transaction: stale shared/inline checker expectations fixed in `6e4c7f2...`; its exact Firewall Startup/HTTPD/Process/USB modem/XY-C1 checks were green at the later recorded checkpoint.
-- Wireless exact-prior-state rollback source `2d5f218...`: Wireless run `45129983626` failed only on undefined `policy` in its inline source checker; AI docs `45129983606`, Process inventory `45129983638`, Process fail-closed `45129983589`, HTTPD `45129983625`, iNIC `45129983697`, watchdog `45129983726`, and NVRAM audit `45129983737` PASS. XY-C1 `45129983650` was still in progress at last record.
-- THIS FOLLOW-UP corrects the workflow variable reference; no Actions for the correction yet. L4 remains NOT VERIFIED.
+The existing tests in tests/wireless_radio_policy.c already cover the status parsers for missing/empty values, backend errors, invalid API results, malformed numeric strings and integer overflow. They are compiled by the Wireless radio state regression; net_wifi.c also triggers the iNIC signal lifecycle workflow and the wider Process inventory/XY-C1 path filters.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; do not repeat startup recovery or touch the frozen backup.
-2. Inspect the new exact-head Wireless radio-state workflow after the `notification_policy` variable correction. Verify the sanitizer-built policy executable and source integration contract.
-3. Check `2d5f218...` XY-C1 run `45129983650` and record Build, TRX and artifact jobs by exact production-source `head_sha`; L3 requires all three PASS on the same source SHA.
-4. Recheck NVRAM audit and Process fail-closed status from `2d5f218...`; continue NAT helper exact-head test/checker verification after the `jobs:` parser fix. L4 remains NOT VERIFIED.
+1. Fetch live main and inspect the exact commit created by this checkpoint. Check the exact-head Actions for that SHA, especially iNIC signal lifecycle stability, Wireless radio state, Process inventory/lifecycle and XY-C1 firmware validation.
+2. Do not claim this slice passes until the iNIC source contract and the Wireless GNU89 radio-policy regression both pass on the new exact SHA. Resolve a real failure at that SHA; if a workflow is PENDING, work on an independent source task rather than waiting.
+3. Check XY-C1 Build, TRX verification and artifact upload for the same product-source SHA. A docs or test-only descendant does not confer firmware verification on a later production source commit. L3 is not verified until all three target steps pass on the exact production source SHA.
+4. Once the iNIC slice is green, continue the next independent P1 from REFACTOR_ROADMAP.md. Good candidates include the unfinished storage/USB hotplug status propagation, WAN ARP validation L3, Samba account/config identity handling or remaining DNSMasq DHCPv6 transaction boundaries. Before editing, check whether another concurrent session already closed the issue and inspect the relevant workflow.
+5. Make a focused source fix and regression for an evidenced defect; do not turn an unproven suspicion into a code change. Trace callers, target compatibility, error conventions and rollback side effects before changing interfaces.
+
+## Exact-SHA CI facts at the parent baseline
+
+The current parent main SHA before the iNIC source fix is ff0bb4a154f7065308d0776f64c71cfe241ece67:
+- Switch CLI ioctl failure-status regression 45150824553: PASS on this exact SHA after the WAN PHY best-effort first-error source contract was corrected. GNU89 ASan/UBSan MTK ESW policy tests and static contracts passed.
+- AI handoff documentation contract 45150824594: PASS on this exact SHA.
+- XY-C1 Firmware Validation 45150223763: targets product-source SHA 45980023a2894eb0bf13257b02ee8f4cc5b5b4ac and was IN_PROGRESS at Build XY-C1 on the last inspection. TRX verification and artifact upload were not yet confirmed; no L3 claim.
+- On product-source SHA 45980023a2894eb0bf13257b02ee8f4cc5b5b4ac, the NVRAM transaction audit 45150223232, Process inventory 45150224244, DNSMasq lifecycle 45150223112, WAN DHCP callback 45150222970, WAN route status 45150223168, Firewall Startup 45150223557, Wireless radio state 45150223325, HTTPD authentication/security 45150222876, IPv6 checked-read 45150223345, detect_link signal 45150223229, watchdog signal 45150223005, Process inventory/lifecycle umbrella 45150223022 and detect_internet signal 45150223214 all PASS.
+- The above 45980023 Actions precede the present iNIC source edit. Their PASS conclusions remain evidence for only the files and SHA they tested. The current iNIC source change requires fresh exact-head verification.
+- Older Switch source failures on 22f6877 and 14623e0 are superseded by the PASS on 3a7582e; do not re-open them.
+
+## Completed source slices to preserve
+
+### MTK ESW / switch / PHY
+
+- Strict RC switch CLI parsing and packed ioctl-field bounds prevent out-of-range or shifted parameter values from aliasing another operation.
+- MTK link-mode programming validates reserved speed/flow encodings before MDIO and publishes the cached mode only after the register sequence succeeds.
+- MT7530 ATC/MAC-table clear checks command writes and busy-status reads, returning EIO on MDIO errors and ETIMEDOUT when the busy bit remains asserted.
+- PHY power operations propagate errno through PORTS_POWER and PORTS_WAN_LAN_POWER. Both selected-port loops continue through all independent PHYs, preserve the first normalized error with mtk_esw_first_error(), and retain successful changed-state flags for bridge recovery.
+- Exact Switch CLI run 45150824553 passed on 3a7582ec84255ac7639037591ff54ac9fca97f25. It is an L2 host/action result only; physical MDIO/link/port-power behavior is still not verified on hardware.
+
+### DNSMasq split-DNS
+
+- fill_dnsmasq_servers() takes one bounded NVRAM transaction snapshot of vpnc_pdns, vpnc_dom_t, vpnc_dns_t, wanx_domain and wanx_dns.
+- Read, close, parse or truncation errors abort before temporary server-file staging/publication, so a backend fault cannot silently remove VPN/MAN routing and leak those names to the default resolver.
+- DNSMasq exact Action 45150223112 passed on 45980023. The policy regression covers transaction failures. Do not repeat this completed audit without a newly observed fault.
+
+### Ethernet LED checked NVRAM
+
+- Commit 45980023a2894eb0bf13257b02ee8f4cc5b5b4ac changed update_ether_leds() to read ether_led0, ether_led1 and led_ether_t via status-bearing checked NVRAM APIs before touching hardware.
+- Any read failure preserves current hardware LED state instead of interpreting backend failure as zero. Process inventory 45150224244 and WAN DHCP callback 45150222970 passed on that source SHA.
+
+### WAN callbacks and route operations
+
+- Checked DHCP renew snapshots preserve prior lease/route/MTU state when NVRAM reads fail. Exact WAN DHCP Action 45150222970 passed on 45980023.
+- WAN route operation status Action 45150223168 passed on 45980023. Scope the claim to the covered source and test paths.
+
+### WSD HTTP/TCP reliability
+
+- Accepted-client recv errors close only that client instead of restarting the WSD listener. A single five-second deadline spans the request line, headers and declared body, preventing a slow-trickle peer from indefinitely occupying the single-threaded server.
+- WSD HTTP/TCP/XML and Process source fixes were verified on exact descendant SHA 940c53921c210898199bfc78b1b1b0cb33c206d6. Do not repeat unless WSD source changes.
+
+## Verification boundary
+
+- L1 source review: PASS for the described iNIC read path and existing status-parser implementation.
+- L2 host/Actions for this iNIC monitor change: PENDING until the new exact-SHA iNIC source contract and Wireless radio policy regression pass.
+- L3 XY-C1 firmware: NOT VERIFIED for this new iNIC source commit. The older 45980023 build was pending at Build XY-C1 when last inspected; its TRX/artifact steps were not confirmed.
+- L4 router hardware: NOT VERIFIED, including RT3352 MII PHY recovery, guest AP recovery, MDIO fault injection and electrical radio/switch sequencing.
+- Do not extrapolate results from XY-C1 to RT3352 hardware or other boards.
+
+## Working method
+
+- Each logical task is: inspect a concrete source defect, change production source, add or strengthen a regression contract/test, commit one complete tree, then inspect GitHub Actions for that exact SHA.
+- Multi-file writes must create all blobs, one full Git tree and one commit. Update main once using force=false and expected_sha set to the current parent. Never expose a sequence of partially updated files.
+- Fetch the live main SHA before writes. If another session moves it, rebase the intended changes onto that new main after inspecting intervening commits; never overwrite someone else's work.
+- PASS means only the named workflow for its exact SHA passed. FAIL means inspect logs and fix the failing condition. PENDING means record the run and continue another independent safe task.
+- Preserve GNU89, Werror, sanitizers where appropriate, Linux 4.4 / MIPS / uClibc compatibility, hardware isolation order, error normalization and rollback semantics.
+- Update dev_log.md for each meaningful milestone. It retains 92 dated records before this checkpoint; do not rotate until a new entry would hit 120. Keep records newest first.
+- REFACTOR_ROADMAP.md is the single whole-repository status dashboard. Update materially changed module state; do not append duplicate audit snapshots or grow already-large documents unnecessarily.
+- Keep this handoff as one current checkpoint and rewrite it in place. Do not append an old snapshot after it or create additional handoff archives.
+
 # Cross-session execution mandate
 
-- The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.
-- Stability defect discovery and repair remains primary; security hardening continues in parallel. Critical vulnerabilities, data corruption, boot blockers and severe service faults take priority. Expand across the integrated userland rather than staying in one subsystem.
-- For each logical source/test slice, fetch latest main, create every changed blob, one complete Git tree and one commit, then advance main with a non-forced expected-SHA compare-and-swap. One logical task is one atomic main commit. Never create per-file partial commits, force-push, amend, rewrite history, create working/checkpoint branches or develop through PRs.
-- Verify landed main SHA and complete diff. Inspect only push Actions whose `head_sha` exactly matches the commit. PASS means continue; FAIL means diagnose the first causal failure and fix; PENDING means advance independent work, never idle-poll.
-- Preserve safety, architecture, compatibility and necessary tests. Review actual production callers/callees before editing. Do not weaken checks to make Actions green.
-- Distinguish L1 source review; L2 host build/regression; L3 MIPS/uClibc target build, TRX and artifact upload on the same production-source SHA; L4 physical router validation. Never transfer evidence between SHAs or overstate the validation level.
-- Keep GPT Session Rotator unchanged. Do not reset its workflow/state or replay SHA `9d5a5cb`.
-- Before context exhaustion, finish the active safe slice, inspect the full diff, publish it and inspect exact-SHA Actions. Preserve an accurate next first task; never claim uncommitted work was remotely saved.
+- The user expects continuous development across chats. Do not ask what to do next, ask for repeated authorization, or report every micro-step.
+- Main is the only writable branch. The backup is frozen. Every logical task must end in one atomic main commit; force push is prohibited.
+- Before context exhaustion, complete the current safe slice, check exact-SHA Actions, and leave the next GPT a precise first action, source baseline and verification boundary.
+- Never claim local tests, firmware builds, artifacts, commits, Actions or hardware results that were not observed.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional.
+Each session must compare the live repository with this checkpoint and update it only when the source baseline, active task, exact-SHA evidence, verification boundary or next action materially changes.
 
-Every session MUST inspect live GitHub before ending and compare source baseline, active task, exact-head Actions, validation boundary, unresolved blockers, frozen backup identity and exact first action with this file. Update the handoff only when next-session-critical information materially changes. If it remains accurate, conclude the checkpoint with no file change and no commit. Do not chase documentation-only SHA changes or create a no-op commit.
+The checkpoint is mandatory; a document edit is conditional. A stale handoff is a defect; a no-op documentation commit is churn.

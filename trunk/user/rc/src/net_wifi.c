@@ -927,11 +927,35 @@ fail_start:
 int
 check_inic_mii_rebooted(void)
 {
+	char *radio_value = NULL;
+	char *mode_value = NULL;
+	int api_result;
+	int saved_errno;
+	int radio_read_status;
+	int mode_read_status;
+	int radio_enabled = 0;
 	int rt_mode_x;
 	int guest_is_up;
 	int status;
 
-	if (!get_mlme_radio_rt()) {
+	/*
+	 * The legacy getters collapse NVRAM backend errors to zero. Never turn an
+	 * unknown MLME state into a force-radio-off command or an unknown mode
+	 * into a guest-AP recovery operation.
+	 */
+	errno = 0;
+	api_result = nvram_get_checked("mlme_radio_rt", &radio_value);
+	saved_errno = errno;
+	radio_read_status = wireless_radio_nvram_flag_status(
+		api_result, saved_errno, radio_value, &radio_enabled);
+	if (radio_read_status != 0) {
+		logmessage(LOGNAME,
+			   "iNIC health check deferred: cannot read MLME radio state (status=%d)",
+			   radio_read_status);
+		return radio_read_status;
+	}
+
+	if (!radio_enabled) {
 		status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,
 				  "RadioOn", 0);
 		if (status != 0) {
@@ -943,7 +967,19 @@ check_inic_mii_rebooted(void)
 		return 0;
 	}
 
-	rt_mode_x = get_mode_radio_rt();
+	/* nvram_wlan_get_int(0, "mode_x") reads the rt_mode_x key. */
+	errno = 0;
+	api_result = nvram_get_checked("rt_mode_x", &mode_value);
+	saved_errno = errno;
+	mode_read_status = wireless_radio_nvram_int_status(
+		api_result, saved_errno, mode_value, 0, &rt_mode_x);
+	if (mode_read_status != 0) {
+		logmessage(LOGNAME,
+			   "iNIC health check deferred: cannot read 2.4GHz operating mode (status=%d)",
+			   mode_read_status);
+		return mode_read_status;
+	}
+
 	if (rt_mode_x != 1 && rt_mode_x != 3) {
 		/* Do not confuse an ioctl/socket failure with a down guest interface. */
 		status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,

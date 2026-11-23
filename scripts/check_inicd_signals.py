@@ -158,18 +158,45 @@ assert "return -1;" in stop_wifi[stop_daemon:isolate_hardware]
 assert "iNIC health monitor did not stop" in stop_wifi[stop_daemon:isolate_hardware]
 assert "int\ncheck_inic_mii_rebooted(void)" in wifi
 inic_check = function_body(wifi, "check_inic_mii_rebooted(void)")
-disabled_gate = "if (!get_mlme_radio_rt())"
+radio_read_call = 'api_result = nvram_get_checked("mlme_radio_rt", &radio_value);'
+radio_parse_call = "radio_read_status = wireless_radio_nvram_flag_status("
+radio_error_gate = "if (radio_read_status != 0)"
+disabled_gate = "if (!radio_enabled)"
 disable_call = 'status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,'
 disable_error = "if (status != 0)"
 disable_return = "return wireless_radio_restart_status(0, status);"
-assert disabled_gate in inic_check
-assert disable_call in " ".join(inic_check.split())
-assert disable_error in inic_check
-assert disable_return in inic_check
-assert inic_check.index(disabled_gate) < inic_check.index("status = doSystem(")
-assert inic_check.index("status = doSystem(") < inic_check.index(disable_error)
-assert inic_check.index(disable_error) < inic_check.index(disable_return)
-assert "iNIC radio force-disable command failed" in inic_check
+mode_read_call = 'api_result = nvram_get_checked("rt_mode_x", &mode_value);'
+mode_parse_call = "mode_read_status = wireless_radio_nvram_int_status("
+mode_error_gate = "if (mode_read_status != 0)"
+mode_gate = "if (rt_mode_x != 1 && rt_mode_x != 3)"
+inic_compact = " ".join(inic_check.split())
+assert radio_read_call in inic_compact
+assert radio_parse_call in inic_compact
+assert radio_error_gate in inic_compact
+assert "return radio_read_status;" in inic_check
+assert disabled_gate in inic_compact
+assert disable_call in inic_compact
+assert "get_mlme_radio_rt()" not in inic_check
+assert "get_mode_radio_rt()" not in inic_check
+radio_read_pos = inic_compact.index(radio_read_call)
+radio_parse_pos = inic_compact.index(radio_parse_call)
+radio_error_pos = inic_compact.index(radio_error_gate)
+disabled_pos = inic_compact.index(disabled_gate)
+disable_pos = inic_compact.index("status = doSystem(")
+assert radio_read_pos < radio_parse_pos < radio_error_pos < disabled_pos < disable_pos
+assert inic_compact.index("saved_errno = errno;", radio_read_pos) < radio_parse_pos
+assert mode_read_call in inic_compact
+assert mode_parse_call in inic_compact
+assert mode_error_gate in inic_compact
+assert "return mode_read_status;" in inic_check
+mode_read_pos = inic_compact.index(mode_read_call)
+mode_parse_pos = inic_compact.index(mode_parse_call)
+mode_error_pos = inic_compact.index(mode_error_gate)
+mode_gate_pos = inic_compact.index(mode_gate)
+guest_state_pos = inic_compact.index("status = wireless_guest_interface_state_checked(")
+guest_action_pos = inic_compact.index("status = wif_control(IFNAME_INIC_GUEST, 1)")
+assert mode_read_pos < mode_parse_pos < mode_error_pos < mode_gate_pos < guest_state_pos < guest_action_pos
+assert "saved_errno = errno;" in inic_check[mode_read_pos:mode_parse_pos]
 guest_state_check = "status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,"
 guest_state_error = "if (status != 0)"
 guest_gate = "if (!guest_is_up && is_guest_allowed_rt())"

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Fail closed on iNIC monitor radio-state NVRAM errors
+
+- check_inic_mii_rebooted() previously used get_mlme_radio_rt() and get_mode_radio_rt(), whose nvram_get_int()/nvram_wlan_get_int() paths silently turn a device-node, ioctl or close failure into zero. A transient mlme_radio_rt read error could therefore look like an explicit radio-off setting and issue iwpriv RadioOn=0; a failed rt_mode_x read could be mistaken for AP mode and trigger an unsolicited guest-interface recovery.
+- The monitor now reads mlme_radio_rt and rt_mode_x with nvram_get_checked(), parses them through the existing wireless_radio_nvram_flag_status() / wireless_radio_nvram_int_status() policies, preserves the legacy absent-key defaults, and returns the read error before any radio-off or guest-recovery operation. The iNIC source contract now pins both checked reads, parse/error gates and their ordering. Existing GNU89 wireless policy tests cover backend errors, malformed values and missing-key defaults.
+- Exact-head iNIC signal and Wireless radio Actions are triggered by net_wifi.c and the checker change; their results are pending until inspected on the new main SHA. No local build or hardware verification was performed; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 UTC — Correct MTK ESW ioctl source-contract false positive
 
 - Exact-head Switch run `45149385794` on `215fd4c2cb6c77f60b699c7f29c480d631b647e3` compiled and passed the GNU89 ASan/UBSan MTK ESW policy regression, then failed at the final Python source assertion. The negative check for the obsolete two-argument `change_ports_power(uint_param, uint_value);` call also matched the new valid status-assignment call because the shorter text was a substring.
