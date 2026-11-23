@@ -2933,35 +2933,65 @@ static void lan_wan_partition(void)
 }
 #endif
 
-static void mt7530_phy_setting(void)
+static int mt7530_phy_setting(void)
 {
 	u32 i;
 	u32 reg_value;
+	int status;
 
 	for (i = 0; i < 5; i++) {
 		/* Disable EEE */
-		mii_mgr_write_cl45(i, 0x7, 0x3c, 0);
+		status = ra_switch_mdio_write_cl45(i, 0x7, 0x3c, 0);
+		if (status != 0)
+			goto mdio_error;
 		/* Enable HW auto downshift */
-		mii_mgr_write(i, 31, 0x1);
-		mii_mgr_read(i, 0x14, &reg_value);
+		status = ra_switch_mdio_write(NULL, i, 31, 0x1);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_read(NULL, i, 0x14, &reg_value);
+		if (status != 0)
+			goto mdio_error;
 		reg_value |= (1 << 4);
-		mii_mgr_write(i, 0x14, reg_value);
+		status = ra_switch_mdio_write(NULL, i, 0x14, reg_value);
+		if (status != 0)
+			goto mdio_error;
 		/* Increase SlvDPSready time */
-		mii_mgr_write(i, 31, 0x52b5);
-		mii_mgr_write(i, 16, 0xafae);
-		mii_mgr_write(i, 18, 0x2f);
-		mii_mgr_write(i, 16, 0x8fae);
+		status = ra_switch_mdio_write(NULL, i, 31, 0x52b5);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, i, 16, 0xafae);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, i, 18, 0x2f);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, i, 16, 0x8fae);
+		if (status != 0)
+			goto mdio_error;
 		/* Incease post_update_timer */
-		mii_mgr_write(i, 31, 0x3);
-		mii_mgr_write(i, 17, 0x4b);
+		status = ra_switch_mdio_write(NULL, i, 31, 0x3);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_write(NULL, i, 17, 0x4b);
+		if (status != 0)
+			goto mdio_error;
 		/* Adjust 100_mse_threshold */
-		mii_mgr_write_cl45(i, 0x1e, 0x123, 0xffff);
+		status = ra_switch_mdio_write_cl45(i, 0x1e, 0x123, 0xffff);
+		if (status != 0)
+			goto mdio_error;
 		/* Disable mcc */
-		mii_mgr_write_cl45(i, 0x1e, 0xa6, 0x300);
+		status = ra_switch_mdio_write_cl45(i, 0x1e, 0xa6, 0x300);
+		if (status != 0)
+			goto mdio_error;
 	}
-}
+	}
+	return 0;
 
-static void ra_switch_mdio_reset_delay(void *context)
+mdio_error:
+	pr_err_ratelimited("%s: MT7530 PHY initialization failed: %d\n",
+			   __func__, status);
+	return status;
+}static void ra_switch_mdio_reset_delay(void *context)
 {
 	(void)context;
 	mdelay(10);
@@ -3221,7 +3251,9 @@ static int setup_internal_gsw(void)
 #if !defined (CONFIG_RAETH_ESW_CONTROL)
 	lan_wan_partition();
 #endif
-	mt7530_phy_setting();
+	status = mt7530_phy_setting();
+	if (status != 0)
+		goto mdio_error;
 	for (i = 0; i <= 4; i++) {
 		/*turn on PHY */
 		status = ra_switch_mdio_read(NULL, i, 0x0, &reg_value);
@@ -3245,7 +3277,7 @@ static int setup_internal_gsw(void)
 	return 0;
 
 mdio_error:
-	pr_err_ratelimited("%s: internal switch MDIO setup failed: %d\\n",
+	pr_err_ratelimited("%s: internal switch MDIO setup failed: %d\n",
 			   __func__, status);
 	iounmap(gpio_base_virt);
 	return status;
