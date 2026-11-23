@@ -42,6 +42,8 @@ static void cmd_handler(EventSelector *es,
 
 
 static void cmd_exit(EventSelector *es, int fd);
+static void cmd_exit_finish(EventSelector *es, int fd, char *buf,
+			    int len, int flag, void *data);
 static void cmd_start_session(EventSelector *es, int fd, char *buf);
 static void cmd_stop_session(EventSelector *es, int fd, char *buf);
 static void cmd_dump_sessions(EventSelector *es, int fd, char *buf);
@@ -321,13 +323,41 @@ cmd_reply(EventSelector *es,
 *  Tears down tunnels and quits
 ***********************************************************************/
 static void
-cmd_exit(EventSelector *es,
-	 int fd)
+cmd_exit_finish(EventSelector *es,
+		int fd,
+		char *buf,
+		int len,
+		int flag,
+		void *data)
 {
-    cmd_reply(es, fd, "OK Shutting down");
+    (void) es;
+    (void) buf;
+    (void) len;
+    (void) flag;
+    (void) data;
+
+    if (fd >= 0) {
+	close(fd);
+    }
     l2tp_tunnel_stop_all("Stopped by system administrator");
     l2tp_cleanup();
     exit(0);
+}
+
+static void
+cmd_exit(EventSelector *es,
+	 int fd)
+{
+    static char const reply[] = "OK Shutting down";
+
+    /*
+     * The event write must complete before the daemon exits; queueing a
+     * reply and immediately calling exit() drops the response on the floor.
+     */
+    if (!EventTcp_WriteBuf(es, fd, reply, sizeof(reply) - 1,
+			   cmd_exit_finish, 10, NULL)) {
+	cmd_exit_finish(es, fd, NULL, 0, EVENT_TCP_FLAG_IOERROR, NULL);
+    }
 }
 
 /**********************************************************************

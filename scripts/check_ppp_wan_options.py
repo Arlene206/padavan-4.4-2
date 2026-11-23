@@ -308,6 +308,10 @@ control_acceptor = body(control_server_source,
     "static void\ncmd_acceptor(EventSelector *es, int fd)")
 control_reply = body(control_server_source,
     "static void\ncmd_reply(EventSelector *es,")
+control_exit = body(control_server_source,
+    "static void\ncmd_exit(EventSelector *es,")
+control_exit_finish = body(control_server_source,
+    "static void\ncmd_exit_finish(EventSelector *es,")
 require("cmd_control_request_is_valid(" in control_handler and
         "flag == EVENT_TCP_FLAG_COMPLETE" in control_handler and
         "buf[len] = '\\0';" in control_handler and
@@ -320,6 +324,13 @@ require("if (!EventTcp_ReadBuf(" in control_acceptor and "close(fd);" in control
         "L2TP control acceptor must close sockets when receive-event allocation fails")
 require("if (!EventTcp_WriteBuf(" in control_reply and "close(fd);" in control_reply,
         "L2TP control reply must close sockets when transmit-event allocation fails")
+require("EventTcp_WriteBuf(" in control_exit and "cmd_exit_finish" in control_exit and
+        "cmd_reply(" not in control_exit,
+        "L2TP shutdown must defer exit until its acknowledgement is written")
+require("close(fd);" in control_exit_finish and
+        control_exit_finish.find("close(fd);") < control_exit_finish.find("l2tp_tunnel_stop_all(") <
+        control_exit_finish.find("l2tp_cleanup();") < control_exit_finish.find("exit(0);"),
+        "L2TP shutdown completion must close the client then stop tunnels and clean up")
 require("static inline int\ncmd_control_request_is_valid(" in control_request_policy and
         "length < capacity" in control_request_policy and
         "has_newline" in control_request_policy,

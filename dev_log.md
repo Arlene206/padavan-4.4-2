@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Flush the RP-L2TP shutdown acknowledgement before exit
+
+- `cmd_exit()` queued `OK Shutting down` through the asynchronous `EventTcp_WriteBuf()` path and then immediately ran cleanup and `exit(0)`. The event loop never got a chance to send the queued acknowledgement; with the controller now validating response tokens, `l2tp-control exit` would correctly see an empty reply and report failure.
+- Shutdown now runs from the write-completion callback, which closes the client socket after the complete acknowledgement (or on write failure/timeout) and then stops tunnels, performs cleanup and exits. Event-registration failure takes the same cleanup path synchronously. Added source-contract coverage for the ordering.
+
+---
+
 ## 2026-11-23 UTC — Fix RP-L2TP error logging's ended va_list reuse
 
 - `l2tp_set_errmsg()` passed its `va_list` to `vsnprintf()`, called `va_end()`, and then passed that ended list to `vsyslog()`. Reusing a `va_list` after `va_end` is undefined behavior; the log record could contain corrupted arguments or fail while handling an error.
