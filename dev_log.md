@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Supply the configured PREFIX to the RP-L2TP host harness
+
+- The exact-head WAN run `45174056209` passed the source contract and reached the new error-message test, but the standalone host compile failed because `utils.c` normally receives `PREFIX` from the configured build and the isolated test compile did not provide it. This was a harness build-configuration omission; no production compile failure was observed.
+- The host harness now defines `PREFIX` as `/usr`, matching the installed-prefix string use in the unused loader section, and the source contract requires that compile flag. The test still links only the error-formatting sections under `--gc-sections`.
+
+---
+
 ## 2026-11-23 UTC — Flush the RP-L2TP shutdown acknowledgement before exit
 
 - `cmd_exit()` queued `OK Shutting down` through the asynchronous `EventTcp_WriteBuf()` path and then immediately ran cleanup and `exit(0)`. The event loop never got a chance to send the queued acknowledgement; with the controller now validating response tokens, `l2tp-control exit` would correctly see an empty reply and report failure.

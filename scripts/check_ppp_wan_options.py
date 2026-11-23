@@ -363,4 +363,6 @@ for case in ("test_multiple_argument_types",
             "missing RP-L2TP error logging regression: " + case)
 require("Compile and run rp-l2tp error-message va_list regression" in workflow,
         "missing RP-L2TP error-message va_list host regression compile/run step")
+require("-DPREFIX='\"/usr\"'" in workflow,
+        "RP-L2TP utils host regression must supply the configured PREFIX macro")
 print("PPP NVRAM config and rp-l2tp command status contracts: PASS")

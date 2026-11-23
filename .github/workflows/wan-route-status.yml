@@ -526,6 +526,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -ffunction-sections -fdata-sections \
+            -DPREFIX='"/usr"' \
             -Itrunk/user/rp-l2tp/rp-l2tp-0.5-rtn \
             -Itrunk/user/rp-l2tp/rp-l2tp-0.5-rtn/libevent \
             -c trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/utils.c \
