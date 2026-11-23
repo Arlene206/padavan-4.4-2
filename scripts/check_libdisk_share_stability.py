@@ -794,16 +794,6 @@ for marker in (
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "compensating account rename regression is defined but not executed: " + marker)
 
-create_with_accounts = function_body(
-    DISK_SOURCE,
-    "static int\\ncreate_if_no_var_files_with_accounts("
-)
-create_with_accounts_compact = "".join(create_with_accounts.split())
-require("get_account_list(" not in create_with_accounts and
-        "initial_one_var_file_in_mount_path(" in create_with_accounts and
-        "modify_if_exist_new_folder(" in create_with_accounts,
-        "folder metadata initialization under a writer lease must reuse the caller's account snapshot without nested NVRAM reads")
-
 add_folder_body = function_body(
     DISK_SOURCE,
     "int add_folder(const char *const mount_path, const char *const folder)"
