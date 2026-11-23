@@ -64,6 +64,7 @@
 #include "router_runtime_nvram_reset_policy.h"
 #include "wireless_radio_policy.h"
 #include "ddns_restart_policy.h"
+#include "timezone_env_policy.h"
 #if defined (USE_IPV6)
 #include "ipv6_restart_policy.h"
 #endif
@@ -1200,11 +1201,31 @@ fail:
 void 
 setenv_tz(void)
 {
-	static char TZ_env[64];
+	char *time_zone = NULL;
+	char timezone_env[64];
+	int read_result, read_errno, status;
 
-	snprintf(TZ_env, sizeof(TZ_env), "TZ=%s", nvram_safe_get("time_zone_x"));
-	TZ_env[sizeof(TZ_env)-1] = '\0';
-	putenv(TZ_env);
+	errno = 0;
+	read_result = nvram_get_checked("time_zone_x", &time_zone);
+	read_errno = errno;
+	status = rc_timezone_env_format_status(
+		read_result, read_errno, time_zone,
+		timezone_env, sizeof(timezone_env));
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot update timezone environment because NVRAM read or value validation failed (status=%d)",
+			   status);
+		return;
+	}
+
+	/* setenv() copies the value, so a failed update preserves the old TZ. */
+	if (setenv("TZ", timezone_env + 3, 1) != 0) {
+		status = errno ? errno : EIO;
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot publish timezone environment (status=%d)", status);
+	}
 }
 
 void 

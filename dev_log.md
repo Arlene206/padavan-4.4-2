@@ -1,10 +1,20 @@
+## 2026-11-23 06:32 UTC — Preserve timezone environment when NVRAM reads fail
+
+- `setenv_tz()` previously used `nvram_safe_get("time_zone_x")`, which collapses NVRAM backend/read/close failures into an empty value and unconditionally replaces the process TZ. A transient fault could make PID 1 and standalone RC applets lose the configured local timezone.
+- The RC path now uses `nvram_get_checked()` and a bounded GNU89 policy helper. Missing keys retain the legacy empty-TZ behavior; backend errors, unexpected API results, null present values and overlong strings leave the existing process environment unchanged. `setenv()` copies the value, avoiding mutation of the prior environment through a shared `putenv()` buffer.
+- Added GNU89/Werror/ASan/UBSan regression coverage for present/absent keys, backend failures, invalid results, exact buffer limits and output preservation, plus a source/workflow integration contract.
+- Exact-head timezone regression, AI handoff documentation and XY-C1 Build/TRX/artifact checks pending. No local checkout, shell test or firmware build claimed.
+- Resulting commit: pending.
+
+---
+
 ## 2026-11-23 06:31 UTC — Scope deferred storage startup initialization check to USE_STORAGE branch
 
 - Exact USB storage hotplug run `45123777839` on `5d8a220b7e16375d0308704c061e066d4304b513` passed the whole-caller-graph step, then failed in `scripts/check_storage_safe_remove.py` at the deferred-worker assertion. The checker counted `storage_should_start = 0` across both preprocessor branches; the function intentionally declares that local once in the `USE_STORAGE` branch and once in the non-integrated-storage branch, so the global count of one was invalid.
 - Corrected the source contract to count the initialization inside the `#if defined (USE_STORAGE)` declaration branch only. Retained the ordering assertion before the first checked unplug read, the dispatch-error gate, retry alarm, and start gate; no production behavior or assertion coverage was removed.
-- Exact run `45124098843` still failed this assertion: the extracted preprocessor declaration branch was counted before whitespace normalization, so its spaced C declaration did not match the compact needle. The branch slice is now normalized with the same whitespace compaction as the full function before the one-in-branch count.
-- The matching AI handoff run `45124098824` passed; XY-C1 run `45124098820` passed on `f339589`. Exact USB storage hotplug and AI handoff checks are required after this follow-up. No local checkout or shell test claimed.
-- Resulting commit: pending.
+- The first correction run `45124098843` still failed this assertion because the extracted declaration branch had not yet been whitespace-normalized. Commit `3d048175aff0e01c0dc27b67401aed051da89494` normalizes the branch before counting; exact USB storage run `45124463284` and AI handoff run `45124463323` both PASS.
+- XY-C1 run `45124463354` returned workflow success but skipped Build XY-C1, TRX verification and artifact upload because this checker-only commit did not change a production firmware input. It is not L3 evidence.
+- No local checkout or shell test claimed. Resulting checker-only commit: `3d048175aff0e01c0dc27b67401aed051da89494`.
 
 ---
 

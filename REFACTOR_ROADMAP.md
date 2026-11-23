@@ -122,6 +122,8 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 
+- P2 — RC timezone environment reliability: `setenv_tz()` used error-collapsing `nvram_safe_get("time_zone_x")` and could replace TZ with an empty value after transient NVRAM faults. This slice switches to checked-read status, preserves legacy missing-key behavior, rejects truncation and leaves the process environment unchanged on read/format/publication failure. GNU89 sanitizer regression and source contract added; exact-head validation pending.
+
 - P1 — RC switch front-end packed ioctl aliasing fixed in this source slice. Both RTL8367 and MTK ioctl wrappers mask the low command bits and shift the third CLI argument into the remaining request bits; previously over-width command/parameter values were accepted and silently aliased/truncated (MTK command 297 becomes command 41, the port-power operation). This slice bounds both values using the actual UAPI bit widths and adds GNU89 sanitizer boundary tests plus exact source contracts. Exact-head Switch CLI/XY-C1 validation pending; target/hardware unverified.
 
 - P1 — DNSMasq split-DNS routing failure fixed in source; exact-head verification pending. fill_dnsmasq_servers() previously collapsed reads of vpnc_pdns, vpnc_dom_t, vpnc_dns_t, wanx_domain and wanx_dns. A backend fault could remove VPN/MAN domain routing rules and leak those queries to the default resolver. One bounded NVRAM transaction now snapshots the five inputs and aborts before file staging/publication on read/close/parse/truncation errors. Host regression and source contract are added. Exact DNSMasq/Process/XY-C1 Actions pending; target build and hardware remain unverified.
