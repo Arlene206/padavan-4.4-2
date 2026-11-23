@@ -537,6 +537,11 @@ init_signals(void)
 		mask_status = init_signal_mask_add_group(
 			&sa.sa_mask, signals_event, ARRAY_SIZE(signals_event),
 			"initialize event signal mask");
+	/* A shutdown handler must not interrupt the event priority check/write. */
+	if (mask_status == 0)
+		mask_status = init_signal_mask_add_group(
+			&sa.sa_mask, signals_shutdown, ARRAY_SIZE(signals_shutdown),
+			"initialize event signal mask");
 	if (mask_status == 0) {
 		for (i = 0; i < ARRAY_SIZE(signals_event); i++)
 			first_status = init_signal_install_status(

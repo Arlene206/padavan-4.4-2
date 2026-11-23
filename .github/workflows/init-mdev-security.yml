@@ -208,6 +208,11 @@ jobs:
           assert "init_signal_install_status(first_status,signals_shutdown[i],&sa)" in signal_init_compact
           assert "init_signal_install_status(first_status,SIGCHLD,&sa)" in signal_init_compact
           assert "init_signal_install_status(first_status,signals_event[i],&sa)" in signal_init_compact
+          event_handler_start = init.index("sa.sa_handler = catch_sig_event;")
+          event_handler_end = init.index("return first_status;", event_handler_start)
+          event_handler_setup = init[event_handler_start:event_handler_end]
+          assert "&sa.sa_mask, signals_event, ARRAY_SIZE(signals_event)" in event_handler_setup
+          assert "&sa.sa_mask, signals_shutdown, ARRAY_SIZE(signals_shutdown)" in event_handler_setup
           assert "returnfirst_status;" in signal_init_compact
           signal_mask = body(pid1_policy, "pid1_signal_update_mask")
           signal_mask_control = body(init, "control_signal(int sig, int how)")

@@ -1,3 +1,13 @@
+## 2026-11-23 08:32 UTC+8 — Serialize PID1 shutdown and event signal handlers
+
+- Parent main SHA: `42fa5cfa6bc52db1b62434c1dc9d39947f4ae05f`. The event handler's action mask blocked only SIGUSR1/SIGALRM, whereas shutdown handlers blocked both groups. A shutdown could interrupt the event handler after its `shutdown_pending` check but before it wrote `usr1_pending`/`alarm_pending`; after clearing the queue, the shutdown handler could return to an event handler that republished lower-priority work.
+- Added `signals_shutdown` to the event-handler `sa_mask`, making event and shutdown state transitions mutually serialized. Extended the embedded PID1 source contract to require both groups in the event-handler mask. Existing GNU89 state tests already verify that events after shutdown cannot enqueue work.
+- Updated SESSION_HANDOFF to reflect the new active task and recorded exact parent test status. Roadmap priority/module inventory unchanged.
+- Local compile/test: NOT RUN (no local checkout). Exact-head PID1/AI/XY-C1 Actions: PENDING at commit creation; match exact `head_sha`. L3/L4 NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 08:29 UTC+8 — Prevent PID1 SIGCHLD lost wakeup during event-loop sleep
 
 - Parent main SHA: `b58eed6ae04458d8647d606a6d509da62562d87a`. The SIGCHLD handler reaps the exact recovery-console child and posts a one-shot completion flag, but the main-loop wait mask previously blocked SIGUSR1, SIGALRM and shutdown signals without blocking SIGCHLD. A child could exit after the loop checked its state but before `sigsuspend()`; the handler would publish completion before the sleep, allowing PID 1 to sleep indefinitely with the console child already reaped.
