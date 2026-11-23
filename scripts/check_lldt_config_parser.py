@@ -55,5 +55,5 @@ for path in tracked:
     assert workflow.count('      - "' + path + '"') >= 2, (
         "missing push/PR workflow trigger: " + path
     )
-assert xy_workflow.count('      - "trunk/user/lldt/src/lldt_config_parse_policy.h"') >= 2
+assert xy_workflow.count('      - "trunk/user/lldt/src/lldt_config_parse_policy.h"') >= 1
 print("LLDT production/conformance config parser source contract: PASS")

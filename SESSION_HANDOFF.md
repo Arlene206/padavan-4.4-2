@@ -16,6 +16,8 @@
 - Exact-source commit `eef441729725ff6b06c45a95b7c8414ab16d2f72` added bounded parsing to both `lld2d` and optional `lld2test`, including strict numeric parsing, ASan/UBSan cases, a dedicated workflow and XY-C1 path trigger. Its LLDT #45237411685 and Process #45237411877 failed only because seven fixture character literals were emitted as multi-character `'\\\\0'` instead of NUL `'\\0'`; follow-up corrects them and requires fresh exact-SHA verification. AI docs #45237411785 PASS. XY-C1 #45237411963 and NVRAM audit #45237411699 were still in progress at last poll.
 - Follow-up `14be2b00c5f32eccb8694281f42d8b1bfed3dcb5`: NUL character spelling was corrected, but exact LLDT #45237898307 then reached execution and failed on the first fixture assertion because test input strings also contained doubled CR/LF escapes. The next test-only commit corrects these remaining test literals. AI handoff #45237898460 PASS; Process umbrella #45237898424, Process lifecycle #45237898195 and NVRAM #45237898280 were pending at last poll.
 
+- Exact LLDT run #45238183801 on `d0e68ad`: GNU89/Werror/ASan/UBSan compile and parser regression completed PASS; source checker failed only because it incorrectly expected two XY-C1 header path entries. The XY-C1 firmware workflow has one push-path filter (no PR trigger); checker-only correction now accepts one. Process inventory #45238182222 PASS; AI docs #45238182196 PASS. Process fail-closed #45238182167 and NVRAM audit #45238182242 remained pending at last poll.
+
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -39,10 +41,10 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect exact-head LLDT parser and Process Actions on the latest test-fixture follow-up. Confirm the GNU89/Werror/ASan/UBSan executable completes all cases, then confirm the Python source contract and Process umbrella are PASS. Review XY-C1 only if the production build input SHA contains parser source changes.
-2. `eef4417`: first LLDT #45237411685 and Process #45237411877 failed compilation because seven C NUL character constants were multi-character literals. `14be2b0` corrected them, then LLDT #45237898307 reached runtime and failed the first string-parse assertion because the test input strings still encoded literal backslash-n/r. This is a fixture issue, not a confirmed production parser bug.
-3. On `14be2b0`, AI docs #45237898460 PASS; Process umbrella #45237898424, Process inventory #45237898195 and NVRAM audit #45237898280 were still in progress at last poll. Recheck these, and the eef XY-C1 #45237411963, before closing the task.
-4. Once LLDT fixture and integration checks pass, continue a new whole-userland reliability/security slice rather than repeating completed reviews. Keep the backup immutable, commit complete trees atomically with non-forced expected-SHA CAS.
+1. Fetch live `main` and inspect the latest exact-head LLDT parser/source-contract and Process Actions. The `d0e68ad` SHA already passed the GNU89/Werror/ASan/UBSan compile and all parser fixture cases; its Python checker failed only on an over-strict XY-C1 path count (the workflow has one push-only path filter). This checker correction is committed separately; require fresh exact-SHA LLDT and Process PASS.
+2. The earlier `eef4417` failed test compilation due double-escaped NUL character constants; `14be2b0` fixed those, and the fixture then reached execution. `d0e68ad` fixed the remaining double-escaped CR/LF test strings and verified the parser logic.
+3. On `d0e68ad`, Process inventory #45238182222 and AI docs #45238182196 PASS. Process fail-closed #45238182167 and NVRAM audit #45238182242 were in progress. Verify latest statuses; XY-C1 #45237411963 was still in progress on the production-source SHA `eef4417`.
+4. When exact LLDT and Process regressions pass, continue the next concrete whole-userland reliability/security fix. Do not wait on independent PENDING Actions; preserve backup and use complete-tree, non-forced expected-SHA commits.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.

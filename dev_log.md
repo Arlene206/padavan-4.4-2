@@ -1,3 +1,10 @@
+## 2026-11-23 — Scope XY-C1 source-trigger assertion to its push filter
+
+- The corrected parser fixture on `d0e68ad` compiled and all GNU89/Werror/ASan/UBSan regression cases passed (#45238183801, compile/run step PASS). The source checker then failed because it required the production header to appear twice in XY-C1 workflow filters, while this firmware-only workflow intentionally has a single `push.paths` filter and no pull-request trigger.
+- Relaxed that source contract to require the production header at least once in the XY-C1 build-trigger filter. The dedicated LLDT parser workflow still independently requires both push and pull-request path entries. Fresh exact-head LLDT and Process Actions are the acceptance gate.
+
+---
+
 ## 2026-11-23 — Correct LLDT test fixture line-ending escapes
 
 - The first fixture correction on `14be2b0` changed double-escaped NUL character constants, so GNU89 compilation completed. The rerun then exposed the same quoting mistake in seven C string fixtures: `\\\\n` / `\\\\r` produced literal backslash characters, and the first parsed value assertion failed (#45237898307, job #137914412295).
