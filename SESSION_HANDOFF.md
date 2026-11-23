@@ -1,35 +1,33 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main before the RC WLAN SSID encoding hardening: 67e3c7a457ef9fbdd4684bcf0bf6e0a4609ee731.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
-- No local checkout; no local host tests or firmware build claimed.
+- Repository Arlene206/padavan-4.4-2; parent main for this RC API declaration follow-up: 0774f960873402a81c2ca1ae3dec62dabdfc688b.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; read-only and untouched.
+- Latest independent main commit 0774f96 fixed wsdd2 HTTP parser initialization; this follow-up builds on it without reverting that change.
+- No local router build is claimed.
 
-## Exact-SHA Actions on 67e3c7a457ef9fbdd4684bcf0bf6e0a4609ee731
-- Process lifecycle #45138662121 PASS.
-- Process inventory #45138661934 PASS.
-- AI handoff docs #45138662283 PASS.
-- NVRAM transaction audit #45138662025 PASS.
-- LLDT PID file lock regression #45138661939 PASS.
-- XY-C1 firmware validation #45138662159 IN_PROGRESS at last poll: Build XY-C1 still running, TRX verification and artifact upload pending. No L3 claim.
+## Exact-SHA Actions
+- RC SSID hardening source SHA 80824697be5358d7fc38ca258ec0c1fd4beb252b: Process combined regression #45139858176 FAILED only at final source integration assertion for the public prototype. The three sanitizer tests before it — LLDT PID parser, LLTD config-path parser, and WLAN SSID encoder — all PASS.
+- AI handoff documentation #45139858373 PASS.
+- NVRAM transaction audit #45139858358 CANCELLED; this is not a pass or a test failure.
+- XY-C1 #45139858209 was IN_PROGRESS on Build XY-C1; TRX verification and artifact upload were pending when polled.
+- Newer main SHA 0774f960873402a81c2ca1ae3dec62dabdfc688b: process inventory #45140001262 PASS; XY-C1 #45140001410 and NVRAM audit #45140001652 were IN_PROGRESS. wsdd2 HTTP framing/send/XML regression checks #45140001431, #45140001496, and #45140001341 PASS.
 
-## Active source task — RC WLAN SSID percent-encoding stack overflow
-- `common_ex.c::char_to_ascii()` had no output-capacity parameter, used signed `char` in `%X`, and copied a temporary string with `strcpy()` while advancing the destination by only three bytes. A high-bit input byte could expand to a sign-extended value such as `%FFFFFF80`; encoded SSIDs can also require up to 97 bytes for a valid 32-octet SSID, but both `rc.c` callers supplied only `char buff[64]`.
-- THIS slice replaces the encoder with an unsigned-byte, capacity-checked uppercase %HH policy. It rejects over-32-byte SSIDs and insufficient buffers without modifying output, uses a 97-byte caller buffer, and propagates encode errors before writing `ssid2`.
-- GNU89 ASan/UBSan regression covers safe ASCII, reserved characters, UTF-8/high-bit octets, full 32-byte expansion, 33-byte rejection, too-small output and invalid pointers. Process workflow runs the test and checks production callsites; XY-C1 path filter includes changed production RC source/header/policy.
-- Previous LLDT PID parsing and sidecar-lock work remains complete on the relevant exact-SHA Actions; this task is separate.
+## Active follow-up — RC WLAN SSID public API declaration
+- The SSID encoder implementation and both callers already use int char_to_ascii(char *output, size_t output_size, const char *input), but trunk/user/rc/src/rc.h still declared the old void char_to_ascii(char *output, char *input) interface. This mismatch would create a conflicting declaration at compilation and was caught by the Process source contract before firmware build.
+- THIS slice updates the public header to the capacity-bearing API and strengthens the contract to reject the obsolete prototype. The three sanitizer test steps on the previous source SHA had already passed; this header fix now awaits exact-head Process and XY-C1 validation.
 
 ## Next actions
-1. Verify exact-head Process lifecycle regression and AI handoff contract; fix any first causal failure.
-2. Poll exact-SHA XY-C1 Build, TRX verification and artifact upload; all three must PASS on one SHA for L3.
-3. Continue another independent userland stability/security defect while CI is pending.
-4. Physical router L4 remains NOT VERIFIED.
+1. Verify exact-head Process integration and all three sanitizer tests; fix the first real failure.
+2. Poll exact-SHA XY-C1 Build, TRX output check and artifact upload; L3 only when all three pass on one SHA.
+3. Verify the NVRAM transaction audit on a non-cancelled exact SHA.
+4. Continue another independent userland stability/security slice while checks are pending; physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The SSID encoder source, policy helper, caller capacity/error handling, ASan/UBSan test and CI wiring are committed but pending execution on their exact source SHA. No local tests/builds are claimed. L3 and hardware L4 remain NOT VERIFIED.
+The production encoder and regression tests passed their dedicated Process test steps on SHA 8082469, but final source integration failed because the public header had not been updated. THIS follow-up fixes that declaration; all tests/builds on the new SHA remain pending. No local firmware build or physical-router validation is claimed.
 
 ## Cross-session mandate
-Use one complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; never modify the frozen backup; inspect exact-SHA Actions and never infer results.
+One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; never modify the frozen backup; inspect exact-SHA Actions and never infer results.
 
 
 # SESSION HANDOFF — Padavan 4.4

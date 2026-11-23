@@ -2007,6 +2007,8 @@ char_to_ascii_impl = c_function_body(
 assert '#include "char_to_ascii_policy.h"' in common_ex
 assert '#include "char_to_ascii_policy.h"' in rc_source
 assert 'int char_to_ascii(char *output, size_t output_size, const char *input);' in rc_header
+assert "void char_to_ascii(char *output, char *input);" not in rc_header
+assert "#include <stddef.h>" in rc_header
 assert "return rc_char_to_ascii_encode(output, output_size, input);" in char_to_ascii_impl
 assert "sprintf(" not in char_to_ascii_impl and "strcpy(" not in char_to_ascii_impl
 assert "const unsigned char *source" in char_to_ascii_policy

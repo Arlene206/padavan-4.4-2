@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Align the RC public SSID encoder prototype
+
+- Exact-head Process run #45139858176 on SHA 80824697be5358d7fc38ca258ec0c1fd4beb252b passed the LLDT PID parser, LLTD config-path parser and WLAN SSID encoder ASan/UBSan test steps, then failed at the final source integration assertion: rc.h still declared void char_to_ascii(char *output, char *input).
+- The implementation and both RC callers already used the bounded three-argument integer-returning API. This stale public declaration was a real compile-time integration defect, not merely a checker variable issue. Updated rc.h to the actual API and strengthened the contract to prohibit the old declaration and require stddef.h.
+- Parent main 0774f960873402a81c2ca1ae3dec62dabdfc688b also contains an independent wsdd2 HTTP header initialization fix. On that SHA, inventory #45140001262 PASS; XY-C1 #45140001410 and NVRAM audit #45140001652 were still in progress. Exact-head Process/XY Actions for this follow-up pending; no local firmware-build claim.
+
+---
+
 ## 2026-11-23 UTC — Bound RC WLAN SSID percent encoding
 
 - Found an RC memory-safety defect in common_ex.c::char_to_ascii(): it encoded arbitrary input without an output capacity, formatted signed char values with %X, copied a temporary via strcpy(), then advanced the destination by only three bytes. High-bit bytes could expand beyond the assumed %HH width; worst-case valid 32-octet SSID escaping also needs 97 bytes while rc.c supplied only 64.
