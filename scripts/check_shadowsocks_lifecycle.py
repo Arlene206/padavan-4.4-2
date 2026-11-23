@@ -427,7 +427,7 @@ print("Shadowsocks required-stage startup status source contract: PASS")
 
 
 dns_stop_start = script.index("stop_dns_proxy() {")
-dns_start_start = script.index("start_dns_proxy() {", dns_stop_start)
+dns_start_start = script.index("ss_dns_proxy_config_read() {", dns_stop_start)
 dns_start_end = script.index("\n\nstart_dns() {", dns_start_start)
 dns_stop = script[dns_stop_start:dns_start_start]
 dns_start = script[dns_start_start:dns_start_end]

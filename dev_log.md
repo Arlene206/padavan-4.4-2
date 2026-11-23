@@ -1,3 +1,10 @@
+## 2026-11-23 — Update DNS readiness contract for preflight/launcher split
+
+- Exact 7a48 Shadowsocks #45232308218: shell syntax and all host regressions passed, including the repaired direct process-lifecycle fixtures. The Python source checker then failed because its existing readiness assertion sliced only `start_dns_proxy()` but still expected the executable `command -v` check there; that check now correctly lives in the preceding `ss_dns_proxy_config_read()` preflight.
+- Corrected the source-contract slice to cover the ordered preflight → launcher → restart wrapper block. The existing ordered assertions still require executable validation before the backend launch, bounded readiness observation, cleanup on launch failure, and propagation through the stop/start wrapper. No production code changed in this correction.
+- Exact 7a48 AI handoff and Process inventory workflows passed. XY-C1 validation remained a separate pending run; rerun the exact-head Shadowsocks and Process Actions for this checker correction.
+
+---
 ## 2026-11-23 — Align direct DNS process lifecycle fixtures with preflight snapshots
 
 - Exact DC8 Shadowsocks run #45231946878: shell syntax, startup status regression, DNSMasq cleanup regression and the new DNS proxy preflight regression all PASS. The subsequent existing process-lifecycle test FAILED because it extracted `start_dns_proxy()` and invoked it directly without first sourcing/calling the new `ss_dns_proxy_config_read()` helper; under `set -u`, the missing snapshot correctly failed closed (`SS_DNS_PROXY_PROCESS: parameter not set`).
