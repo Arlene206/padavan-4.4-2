@@ -1,6 +1,6 @@
 # Cross-session execution mandate
 
-## 2026-11-23 continuation handoff (latest main: `e52ec8ffe785dbf129e0de69ec60869101213149`)
+## 2026-11-23 continuation handoff (parent before this checkpoint: `0e9eb13c56c6f83fe75fbd8261eedaaef6ff154c`; always fetch live main)
 
 ### Completed production slices
 - `e01860cab922e8e7da2c92b3f04db913b777ad09`: propagate checked modem-WAN identity/queue errors and retry deferred reconnect delivery in `detect_link`.
@@ -9,20 +9,23 @@
 - `0b6226df2faa8752fc526db3053eea74809bf5cb`: roll back U2EC/LPRng after readiness or uncertain exec-status-channel failure; preserve the primary error and verify final process state.
 - `9e03bacbb7b72c60379fcac1d7f52d06b46088cc`: allocate each p910nd printer its own `/dev/usb/lpN`-derived port/process identity, add the GNU89 policy regression and USB/Process/Storage source contracts.
 - `e6a6a3868a0e409a009ede9b01d01c355c372b15`: scope p910nd readiness rollback to the same per-port process identity and correct the checker order contract.
+- `e52ec8ffe785dbf129e0de69ec60869101213149`: fix GNU89 per-port fixture invocation and whitespace-normalized rollback source contracts; exact USB modem and Storage checks pass. The Process workflow still failed because its launcher-error assertion searched from the beginning of the function and matched input validation; this checkpoint fixes the anchor.
 
 ### Verification state
 - Earlier baseline `ecff475abb782b32e0a8f4f02026acc709ea6844` passed XY-C1 firmware build, TRX validation and artifact upload, but predates the later printer rollback and p910nd per-port changes; do not treat that run as verification of current `main`.
-- The p910nd policy is covered by a GNU89 ASan/UBSan workflow test for lp0–lp9 mapping, malformed device paths, buffer sizing and rewritten process names. Exact-current-SHA USB/Process/Storage/XY-C1 Actions must be checked before calling it PASS; hardware multi-printer behavior is not verified.
+- Exact e52 USB modem #45225619186 PASS, including GNU89/Werror/ASan/UBSan p910nd policy compilation/run and source contracts; exact e52 Storage #45225619727 PASS. Exact e52 Process fail-closed #45225619509 FAIL at the p910nd source-order contract; fixed in this checkpoint by anchoring `launch_error_gate` after `eval()`. Exact e52 AI docs #45225619139 FAIL because this file lacked the literal `one atomic main commit`; that exact phrase is restored above.
+- XY-C1 #45225109549 on e6a6 reached Build XY-C1 after all preflight contracts passed; TRX and artifact were still pending at last observation. No L3 result is claimed. Hardware multi-printer behavior is not verified.
 - Backup branch remains protected: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never force-push or modify it.
 
 ### First task for the next continuation
-1. Read current Actions for exact main SHA `e52ec8ffe785dbf129e0de69ec60869101213149`, especially `USB modem identity / printer`, `Process lifecycle`, `Storage hotplug`, and `XY-C1 firmware validation`. If any FAIL, inspect that job's logs and fix the source/checker mismatch in a small atomic commit. If XY-C1 is still pending, continue other independent work; require Build XY-C1 + TRX check + artifact upload PASS on the final source SHA.
-2. After exact-SHA checks, continue the next open stability/security ledger item across Padavan userland; do not repeat the completed bootstrap audit or revisit the fixed modem/ARP/printer slices without a new regression.
-3. Keep this handoff and `REFACTOR_ROADMAP.md` synchronized after each verified slice. Hardware-only verification must remain explicitly marked unverified unless performed.
+1. Fetch live main and inspect exact-head Process fail-closed and AI handoff Actions for the new checkpoint; confirm the p910nd source-order contract and literal handoff wording pass. USB modem and Storage passed on parent e52 (`#45225619186`, `#45225619727`).
+2. Poll XY-C1 #45225109549 on e6a6; claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on one identical product-source SHA. If still pending, continue other independent work.
+3. Continue the next open stability/security source task from the whole-repository roadmap. Do not re-audit completed bootstrap/APCLI/WAN-ARP/printer work absent new evidence.
+4. Keep one complete tree per logical change, update main with non-forced expected-SHA CAS, and preserve the backup. Before context exhaustion, record exact commit, test/CI states and a concrete first action.
 
 
 
-Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one complete Git tree and one commit, followed by a non-forced compare-and-swap ref update. Do not ask the user what to do next.
+Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update main using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
 
 ## Mandatory handoff checkpoint
 

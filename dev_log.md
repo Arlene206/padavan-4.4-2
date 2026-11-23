@@ -1,3 +1,9 @@
+## 2026-11-23 — Anchor p910nd launch failure contract and restore handoff rule
+
+- Exact e52 USB modem #45225619186 PASS, including the p910nd GNU89/Werror/ASan/UBSan mapping fixture and USB NVRAM/source contract. Exact e52 Storage #45225619727 PASS.
+- Exact e52 Process fail-closed #45225619509 FAIL: `launch_error_gate` was found with an unanchored `index()`, so the assertion selected the earlier invalid-device input error branch, not the launcher failure branch. The Process workflow now searches for the error gate starting at the `eval()` launch.
+- Exact e52 AI handoff #45225619139 FAIL because `SESSION_HANDOFF.md` did not include the exact required phrase `one atomic main commit`; restored it while retaining one full Git tree and expected-SHA non-forced update.
+- A documentation-only continuation commit `0e9eb13c56c6f83fe75fbd8261eedaaef6ff154c` added the previous cross-session task summary but left those two exact failures unresolved. This atomic checkpoint corrects them. XY-C1 #45225109549 on e6a6 was still building; TRX/artifact pending. No L3 or hardware result claimed.
 ## 2026-11-23 — Normalize p910nd rollback contracts and test invocation
 
 - Exact USB modem run #45225109809 on source SHA `e6a6a3868a0e409a009ede9b01d01c355c372b15` passed the WAN/modem/firewall contracts, then failed in `check_usb_printer_nvram.py` because the checker expected `marker();` while the GNU89 test invokes each case through `CHECK(test_name() == 0)`. The production test was correctly wired; the checker now verifies that actual invocation form.

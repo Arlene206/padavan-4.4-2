@@ -1808,12 +1808,10 @@ jobs:
           assert 'strstr(progname, "p910n")' in p910nd_main
           assert "p[4] = lpnumber;" in p910nd_main
 
-          launch = p910nd_start.index('start_status = eval("/usr/sbin/p910nd"')
-          launch_error_gate = p910nd_start.index("if (start_status != 0)")
           port_prepare = p910nd_start.index("usb_printer_p910nd_port_from_device(")
           process_name = p910nd_start.index("usb_printer_p910nd_process_name(")
           launch = p910nd_start.index('start_status = eval("/usr/sbin/p910nd"')
-          launch_error_gate = p910nd_start.index("if (start_status != 0)")
+          launch_error_gate = p910nd_start.index("if (start_status != 0)", launch)
           readiness = p910nd_start.index("start_status = usb_printer_daemon_postcondition(process_name);")
           failure_gate = p910nd_start.index("if (start_status != 0)", readiness)
           rollback = p910nd_start.index("usb_printer_daemon_start_failure_recover(", failure_gate)
