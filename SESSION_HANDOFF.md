@@ -21,16 +21,23 @@ THIS COMMIT changes the XY-C1 workflow itself, which is in its push allowlist; i
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and verify frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
-2. Inspect exact-head Switch CLI, confirming the MTK ESW GNU89/ASan/UBSan test, pre-MDIO validation source contract, and XY-C1 trigger-path assertions pass.
-3. Inspect exact-head XY-C1 on the same SHA; Build XY-C1, TRX verification and artifact upload must all pass for L3.
-4. Continue another independent stability issue while jobs are pending. Repair first causal failures from their logs.
-5. Preserve complete-tree atomic commits on freshly fetched main, `force:false`, exact `expected_sha`.
+1. Fetch live `main` once and verify frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
+2. Inspect current exact-head Process inventory run `45091972548` and remaining host regressions on `4ecc28778b3605743262514dbce53b7ffbebda2d`; this parent adds Samba checker whitespace normalization and miniupnpd LAN identity snapshots. Repair first causal failures only.
+3. Confirm AI handoff docs pass after the mandatory checkpoint section in this commit. Previous exact-head run `45091738990` failed solely because that required section/sentence was absent.
+4. Switch CLI `45091738973` passed on `7dd05bff`. XY-C1 `45091739058` completed successfully but Build/TRX/artifact were SKIPPED because `7dd05bff` changed only workflow/docs; the MTK kernel path filter is corrected but its next relevant-source exact-head Build/TRX/artifact must be observed.
+5. Continue independent concrete stability work while checks are pending; keep complete-tree atomic commits on fresh main with `force:false` and exact `expected_sha`.
+
+## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional.
+
+At the end of every session, inspect the live repository state and compare it with this handoff. Verify the current main SHA, frozen backup SHA, engineering baseline, active task, relevant exact-head Actions results (including transitions from PENDING to PASS/FAIL), validation boundaries, unresolved blockers, and the exact first action for the next GPT. Update this handoff and dev log when those facts materially change. If the facts and first action remain accurate, leave the files untouched and do not create a no-op commit.
 
 ## End-of-session accuracy checkpoint
 
-- Current implementation checkpoint: THIS COMMIT; parent main SHA `a3a7d64ba1fbaab7cc6f6d74d9c9650c017242ee`.
-- Parent `a905ff6c`: Switch CLI `45091472374` and AI docs `45091472379` PASS; NVRAM `45091472420` cancelled by concurrent main advancement.
-- Parent `a3a7d64ba1fbaab7cc6f6d74d9c9650c017242ee` triggered XY-C1 `45091634154` via Samba changes; Build was pending at last poll. It includes MTK ESW link-mode hardening, but did not prove that the driver path itself is watched.
-- THIS COMMIT adds MTK ESW driver/header/test paths to the XY-C1 push filter and pins them in the host workflow contract. Its own exact-head XY-C1 is required.
-- No L3/TRX/artifact or physical hardware L4 claim until observed.
+- Current implementation checkpoint: THIS COMMIT; parent main SHA `4ecc28778b3605743262514dbce53b7ffbebda2d`.
+- Exact-head Switch CLI `45091738973` on `7dd05bff`: PASS, including MTK ESW GNU89/ASan/UBSan policy test and source-order checks.
+- Exact-head XY-C1 `45091739058` on `7dd05bff`: workflow SUCCESS; Build XY-C1, TRX verification and artifact upload were SKIPPED because the commit changed only workflow/docs. It is not L3 validation.
+- Exact-head AI docs `45091738990` on `7dd05bff`: FAIL solely due to missing mandatory handoff checkpoint section/sentence; this commit restores them.
+- Exact-head Process lifecycle regression `45091738946` on `7dd05bff`: FAILED at a Samba multiline-call source assertion. Concurrent `b803d7a5` normalized that whitespace; current parent `4ecc2877` additionally adds checked miniupnpd LAN identity snapshots and regression coverage. Its Process inventory/other exact-head checks are in flight.
+- The MTK ESW XY-C1 push filter now includes driver/header/test. Same-SHA kernel Build/TRX/artifact and hardware L4 remain NOT VERIFIED.
