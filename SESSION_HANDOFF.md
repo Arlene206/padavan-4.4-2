@@ -14,26 +14,32 @@ This repository is one continuous engineering project across GPT conversations. 
 
 - Development branch: `main` only. Do not create feature branches or PRs; never force-push.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve it permanently; do not modify, rename, delete or check it out.
-- Current main checkpoint: THIS COMMIT (restore the required root development-log rolling window and update the source/CI handoff); parent main SHA `1b4d7138730431ecfc7d317adc4d8f4efa027ddd`. Product-source changes remain `a3a7d64b` (Samba) and `4ecc2877` (MiniUPnP). Fetch live main on takeover; do not chase a docs-only SHA.
+- Current main checkpoint: THIS COMMIT records PID 1 recovery-shell respawn throttle fix `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c`; its parent is `7a4280c7b5de32dca77aed16a7c256551d16147b`. Earlier product-source fixes remain Samba `a3a7d64b` and MiniUPnP `4ecc2877`. Fetch live main on takeover; do not chase a docs-only SHA.
 - Continue implementation rather than repeating completed audits or asking what to do next.
 
 ## Active task
 
-The AI handoff documentation validator exposed a second pre-existing handoff-history problem after the cross-session section was restored: `dev_log.md` had only one dated record, despite the rolling-window contract requiring 20–119 complete newest records. Commit `7dd05bff` replaced the previous 100-record root window with a one-entry checkpoint note. This commit restores the original 100-record root snapshot from parent product source `a3a7d64b`, then prepends subsequent verified source/checker/handoff records without modifying archived shards.
+New PID 1 stability defect fixed in source commit `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c`:
 
-The service-start source fixes remain:
+- `init_main_loop()` previously stored `uptime()` immediately before `run_shell(0, 1)`, then treated time until the child was reaped as shell runtime. The forked child still had to reset signal handlers, initialize/attach the console, map timezone and prepare the environment before `execve(SYS_SHELL)`. Slow pre-exec setup could therefore exceed the two-second threshold even when the actual recovery shell exited immediately; the retry throttle disappeared and PID 1 could enter a repeated fork/exec loop.
+- Removed that misleading parent-side elapsed-time estimate. `pid1_console_retry_delay_seconds()` now returns a one-second delay for every reaped recovery-shell child, independent of pre-exec setup latency. The existing shutdown-aware wait loop still cancels promptly on a shutdown request. Updated policy regression and workflow source contract; the path contract now explicitly includes the console policy header/test.
+- The small trade-off is a one-second pause after an intentional long-lived recovery shell exits; this is preferable to an unbounded respawn loop under slow console setup.
+
+Previously completed service-start fixes remain:
 - Samba checked workgroup/hostname/WINS snapshots in `a3a7d64ba1fbaab7cc6f6d74d9c9650c017242ee`.
 - MiniUPnP checked LAN IP/netmask/MAC snapshots in `4ecc28778b3605743262514dbce53b7ffbebda2d`.
 
-Both implementation regressions and their source contracts now pass on checker descendant `a4e7170d826cf6b77cea4393122dcdfa1d7efdd9`: MiniUPnP `45092211012` PASS; Process lifecycle `45092211001` PASS. AI docs run `45092323908` on parent `1b4d7138` failed because the root log had only one record; this commit repairs that root-window count. Verify the new exact-head AI documentation run.
+The PID 1 source slice was committed atomically across `init.c`, `pid1_console_policy.h`, its regression test and the workflow contract. Exact-head CI results are recorded below; XY-C1 Build/TRX/artifact are still running or pending.
 
 ## Verification boundary
 
-Parent source/checker SHA `a4e7170d826cf6b77cea4393122dcdfa1d7efdd9` exact-head results:
-- MiniUPnP atomic configuration publication regression `45092211012`: PASS.
-- Process inventory/lifecycle regression `45092211001`: PASS.
-- AI handoff docs run `45092211047`: FAIL because the handoff lacked `# Cross-session execution mandate`; restored by `1b4d7138`.
-- AI handoff docs run `45092323908` on `1b4d7138`: FAIL because `dev_log.md` contained only one dated record, below the 20-record rolling-window minimum. This commit restores 100 verified root records and appends eight current records; the new exact-head AI run must confirm the validator passes.
+Exact-head Actions on PID 1 source commit `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c`:
+- PID 1 mdev/security workflow `45093300454`: PASS. This includes compilation and execution of the PID 1 console recovery retry policy regression and the inline PID 1 source contract.
+- Process inventory/lifecycle umbrella `45093300665`: PASS, including the PID 1 required-boot-environment contract and the broader GNU89/ASan/UBSan lifecycle suite.
+- AI handoff docs `45093300644`: PASS; root log archive integrity and the required handoff structure validate.
+- PID 1 notification queue `45093300520`, DNSMasq lifecycle `45093300505`, DNS forwarder `45093300535`, HTTPD security `45093300612`, and complete process inventory artifact `45093300456`: PASS.
+- USB storage hotplug `45093300506` and NVRAM transaction boundary audit `45093300474`: IN_PROGRESS at last poll; these are independent of the PID 1 code change.
+- XY-C1 firmware validation `45093300583`: host contracts and pre-build checks PASS; actual `Build XY-C1` step IN_PROGRESS. TRX verification and artifact upload remain PENDING. This is the relevant product-source commit and must not be called L3 until all three complete.
 
 Earlier exact-head results on `7dd05bff`:
 - Switch CLI `45091738973`: PASS.
@@ -44,11 +50,11 @@ MTK ESW's link-mode policy host regression passed on exact-head Switch CLI, but 
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and verify frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
-2. Inspect the exact-head AI documentation run for THIS COMMIT; confirm the 100-record restored root window, unchanged archive index/blob hashes, cross-session mandate and mandatory checkpoint all pass.
-3. Monitor XY-C1 run `45091972678` on product source `4ecc2877` for Build, TRX verification and artifact upload; record each step independently.
-4. MiniUPnP `45092211012` and Process lifecycle `45092211001` on source/checker SHA `a4e7170d` both PASS. Do not repeat unless a relevant source change requires it.
-5. Continue a new concrete service-start/userland stability issue while unrelated CI is pending; preserve atomic main commits with `force:false` and exact `expected_sha`.
+1. Fetch live `main` and verify frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify the backup.
+2. Check exact XY-C1 run `45093300583` for commit `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c`: record Build XY-C1, TRX verification and artifact upload independently; only all three PASS permit the L3 claim.
+3. Check independent NVRAM audit `45093300474` and USB hotplug run `45093300506` for their final status; diagnose only a real failure, do not wait before independent work.
+4. PID 1 mdev/security `45093300454`, Process lifecycle `45093300665` and AI handoff docs `45093300644` all PASS on the exact source SHA. Do not rerun these unless relevant files change.
+5. Continue the next high-priority, independently testable stability/security issue across the Padavan userland. Preserve complete-tree atomic commits with `force:false` and exact `expected_sha`.
 
 ## Mandatory handoff checkpoint
 
@@ -58,8 +64,8 @@ At the end of every session, inspect the live repository state and compare it wi
 
 ## End-of-session accuracy checkpoint
 
-- Current implementation/documentation checkpoint: THIS COMMIT; parent main SHA `1b4d7138730431ecfc7d317adc4d8f4efa027ddd`.
+- Current implementation source checkpoint: `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c`, parent `7a4280c7b5de32dca77aed16a7c256551d16147b`.
 - `# Cross-session execution mandate` and `## Mandatory handoff checkpoint` remain present with exact required wording.
-- Restored root `dev_log.md` from the original 100-record snapshot at `a3a7d64b`, then prepended eight subsequent source/checker/handoff entries; resulting count is 108 dated records (<120), so no archive rotation is due. Archived shards remain byte-identical.
-- Parent `a4e7170d`: MiniUPnP `45092211012` PASS and Process lifecycle `45092211001` PASS. Parent `1b4d7138` AI docs `45092323908` failed only because root dev log had one entry; the 100-record window is restored here.
-- XY-C1 `45091972678` is still IN_PROGRESS on product source `4ecc2877`; TRX/artifact are not yet confirmed. MTK ESW same-SHA target build and hardware L4 remain NOT VERIFIED.
+- Root `dev_log.md` remains a 108-record (<120) rolling window; this source change will be added as the 109th complete record in the next docs commit. No archive rotation required.
+- Exact-head PID 1 mdev/security `45093300454`, Process lifecycle `45093300665`, AI docs `45093300644`, notification queue `45093300520`, DNSMasq `45093300505`, DNS forwarder `45093300535`, HTTPD `45093300612` and process inventory `45093300456`: PASS.
+- XY-C1 `45093300583` is IN_PROGRESS at Build XY-C1; TRX and artifact steps are PENDING. USB hotplug `45093300506` and NVRAM audit `45093300474` were still in progress. L3/L4 are NOT VERIFIED.

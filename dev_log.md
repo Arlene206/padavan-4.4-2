@@ -1,3 +1,13 @@
+## 2026-11-23 09:13 UTC+8 — Make PID 1 recovery-shell respawn throttling independent of pre-exec latency
+
+- Confirmed the old timer in `init_main_loop()` started before `run_shell(0, 1)` and stopped only after the child exited. This measured fork + signal reset + console attach + timezone setup + shell runtime, not shell runtime itself. Slow pre-exec setup could incorrectly make a repeatedly failing shell appear to have lived at least two seconds, removing the throttle and allowing a rapid restart loop.
+- Source commit `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c` removes the misleading uptime timestamp/threshold. Every reaped recovery-shell child now gets a one-second throttle; the existing wait predicate still cancels the delay for a pending shutdown. Updated the policy regression, exact source contract, and its file list for the console policy header/test.
+- Exact same-SHA PID 1 mdev/security `45093300454` PASS (including Build/run PID 1 console recovery retry regression and source contract); Process lifecycle `45093300665` PASS; AI docs `45093300644` PASS. PID 1 notification queue `45093300520`, DNSMasq `45093300505`, DNS forwarder `45093300535`, HTTPD `45093300612`, process inventory `45093300456` PASS.
+- XY-C1 `45093300583` host checks PASS and Build XY-C1 IN_PROGRESS; TRX verification and artifact upload not yet run. NVRAM audit `45093300474` and USB hotplug `45093300506` still in progress at the last poll. Do not claim L3/L4.
+- Resulting source commit: `3d0917068e0311d38f6e4a01c5ec0c9c3bab3d0c`.
+
+---
+
 ## 2026-11-23 09:04 UTC+8 — Restore the 20–119 record development-log root window
 
 - Parent main SHA `1b4d7138730431ecfc7d317adc4d8f4efa027ddd` had only one dated record in root `dev_log.md`, violating the validator's rolling-window contract. The prior 100-record root snapshot remains at parent `a3a7d64ba1fbaab7cc6f6d74d9c9650c017242ee`; restored it verbatim and added eight subsequent dated records. Root now contains 108 complete records and stays below the 120-record rotation threshold. No archived shard was changed.
