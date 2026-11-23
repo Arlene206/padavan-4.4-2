@@ -1080,6 +1080,8 @@ unset -f mv
 	fail "failed planet publish changed NVRAM"
 [ -f "$TEST_TMP/planet-upload" ] ||
 	fail "failed planet publish deleted its upload"
+set -- "$TEST_CONFIG"/.planet-import.*
+[ ! -e "$1" ] || fail "failed planet publish rollback leaked its recovery directory"
 
 umask "$saved_umask"
 

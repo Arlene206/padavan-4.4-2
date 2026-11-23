@@ -194,8 +194,9 @@ require('mktemp -d "$config_path/.planet-import.XXXXXX"' in planet_import_body a
         'nvram set zerotier_planet="$zt_planet_old_value"' in planet_import_body and
         'planet.nvram.previous' in planet_import_body and
         'printf \'%s\' "$zt_planet_old_value" > "$zt_planet_import_dir/planet.nvram.previous"' in planet_import_body and
-        'zt_planet_preserve_backup=1' in planet_import_body,
-        "uploaded planet import must retain old file/NVRAM state on failure")
+        'zt_planet_preserve_backup=1' in planet_import_body and
+        'ln -f "$zt_planet_backup" "$zt_planet_target"' in planet_import_body,
+        "uploaded planet import must retain old file/NVRAM state on failure and safely restore hard links")
 require('if ! zerotier_import_planet_file "$PLANET"; then' in start_instance_body and
         'if [ -L "$PLANET" ]' in start_instance_body and
         'cp -f $PLANET $config_path/planet' not in start_instance_body and
@@ -208,6 +209,7 @@ for marker in ("uploaded planet contents were not published",
                "failed planet NVRAM rollback did not retain its old-value recovery snapshot",
                "planet NVRAM recovery snapshot was not private",
                "failed planet publish changed NVRAM",
+               "failed planet publish rollback leaked its recovery directory",
                "failed NVRAM read leaked the private import directory",
                "planet import published a file that differs from the pre-encoding upload snapshot",
                "planet import NVRAM does not encode the published snapshot"):
@@ -327,7 +329,7 @@ require('NF != 4 { exit 1 }' in moon_ip_body and
         '$i + 0 > 255' in moon_ip_body and
         'if ! zerotier_moon_ipv4_is_valid "$ip_addr"; then' in creat_moon_body,
         "Moon creation must reject malformed and out-of-range IPv4 endpoints")
-require('if ! "$PROGIDT" initmoon "$zt_moon_create_identity_public"; then' in creat_moon_body and
+require('if ! "$PROGIDT" initmoon "$zt_moon_create_identity_public" > "$zt_moon_create_json_stage"; then' in creat_moon_body and
         'if ! sed -i ' in creat_moon_body and
         'if `sed -i ' not in creat_moon_body and
         'grep -F' in creat_moon_body and

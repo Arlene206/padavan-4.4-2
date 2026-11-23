@@ -264,7 +264,7 @@ zerotier_import_planet_file() {
 			   [ "$zt_planet_delete_pending" = "1" ]; then
 				if [ "$zt_planet_had_original" = "1" ]; then
 					if [ -e "$zt_planet_backup" ]; then
-						mv -f "$zt_planet_backup" "$zt_planet_target" ||
+						ln -f "$zt_planet_backup" "$zt_planet_target" ||
 							zt_planet_rollback_status=1
 					else
 						zt_planet_rollback_status=1

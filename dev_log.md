@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Fix ZeroTier planet-import hard-link rollback and source contract
+
+- On exact SHA 5ef6145222006cac339a3053f0ff010217ca22ae, the bounded ZeroTier shell regression passed but the Python source contract failed because its initmoon assertion omitted the staged JSON redirection used by production code. Corrected the contract to check the actual invocation.
+- The same shell run exposed another same-inode rollback warning in planet import: when the first publish rename is rejected, target planet and planet.previous are still hard links to the same inode, so mv fails and the cleanup trap unnecessarily preserves the .planet-import.* directory.
+- Changed planet-import rollback to restore the hard-link snapshot with ln -f and added a regression requiring the prior planet/NVRAM/upload state with no leaked recovery directory after injected publish failure. The deliberately retained recovery directory after an uncertain NVRAM commit remains unchanged.
+- Exact SHA 5ef6145: AI handoff 45135034495 PASS; WAN route 45135034518 PASS; Process inventory 45135034450 PASS; ZeroTier 45135034609 failed only the source checker after bounded shell regression PASS. XY-C1 45135034599 remained in progress at the latest poll (Build running; TRX/artifact pending). No firmware/L3 claim.
+
+---
+
 ## 2026-11-23 UTC — Correct same-inode hard-link rollback and restore the dev log
 
 - Exact-head ZeroTier run 45134470465 on 380a9a9f6eb42ceab7e57dcc4ea5068e49ba135e failed in second-file publication rollback. GNU mv refuses to move a hard-link backup over a target that already references the same inode; it left the private .moon-create.* directory behind.
@@ -13,8 +22,6 @@
 - Moon endpoint input is validated as IPv4 before interpolation. JSON and signature are produced in a private same-filesystem stage; endpoint insertion, generated 10-hex ID/signature, file modes and every publication operation are checked.
 - Existing JSON/signature are hard-linked before replacement. Failed second-file publication or NVRAM set/commit triggers restoration of both previous files and the old `zerotiermoon_id`; incomplete rollback preserves the private recovery directory.
 - Added shell regressions for invalid endpoint, initmoon/sed/genmoon failures, setter that writes then reports failure, second-file rename failure and successful generation. Exact-head ZeroTier/AI Actions pending; no local test/build claim.
-
----
 
 ---
 ## 2026-11-23 08:55 UTC — Make ZeroTier Moon removal rollback-safe
