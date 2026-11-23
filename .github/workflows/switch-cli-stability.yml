@@ -613,6 +613,7 @@ jobs:
           from pathlib import Path
 
           esw = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw")
+          xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
           source = (esw / "ioctl_mt762x.c").read_text()
           policy = (esw / "link_mode_policy.h").read_text()
           test = (esw / "tests/link_mode_policy.c").read_text()
@@ -640,5 +641,12 @@ jobs:
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
           ):
               assert filters.count('"' + path + '"') == 2, path
-          print("MTK ESW PHY link-mode validation and pre-MDIO source contract: PASS")
+          xy_filters = xy_workflow.split("workflow_dispatch:", 1)[0]
+          for path in (
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
+          ):
+              assert xy_filters.count('"' + path + '"') == 1, path
+          print("MTK ESW link-mode policy, pre-MDIO guard and XY-C1 trigger contract: PASS")
           PY
