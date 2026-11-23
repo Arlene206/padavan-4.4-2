@@ -97,5 +97,5 @@ void fe_cal_vbg(u8 port_num, u32 delay);
 void ge_cal_r50(u8 port_num, u32 delay);
 void ge_cal_tx_amp(u8 port_num, u32 delay);
 void ge_cal_tx_offset(u8 port_num, u32 delay);
-void do_ge_phy_all_analog_cal(u8 phyaddr);
+int do_ge_phy_all_analog_cal(u8 phyaddr);
 #endif

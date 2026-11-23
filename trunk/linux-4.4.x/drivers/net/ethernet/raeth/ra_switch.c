@@ -3511,7 +3511,7 @@ cleanup:
 	ge_cal_tx_offset_flag = 1;
 }
 
-void do_ge_phy_all_analog_cal(u8 phyaddr)
+int do_ge_phy_all_analog_cal(u8 phyaddr)
 {
 	u16	reg0_temp, dev1e_145_temp, reg_temp;
 	u16	reg_tmp;
@@ -3801,38 +3801,46 @@ cleanup:
 	if (status != 0)
 		pr_err_ratelimited("%s: GE all-analog calibration failed (port=%u status=%d)\\n",
 				   __func__, phyaddr, status);
+	return status;
 }
 
-static void mt7622_ephy_cal(void)
+static int mt7622_ephy_cal(void)
 {
-	int i;
+	int i, status;
 	unsigned long t_s, t_e;
 
 	t_s = jiffies;
-	for (i = 0; i < 5; i++)
-		do_fe_phy_all_analog_cal(i);
+	for (i = 0; i < 5; i++) {
+		status = do_fe_phy_all_analog_cal_checked((u8)i);
+		if (status != 0)
+			return status;
+	}
 	t_e = jiffies;
 	if (show_time)
 		pr_info("cal time = %lu\n", (t_e - t_s) * 4);
+	return 0;
 }
 
-static void leopard_ephy_cal(void)
+static int leopard_ephy_cal(void)
 {
-	int i, dbg;
+	int i, status;
 	unsigned long t_s, t_e;
 
-	dbg = 1;
-	if (dbg) {
-		t_s = jiffies;
-		for (i = 1; i < 5; i++)
-			do_fe_phy_all_analog_cal(i);
-
-		do_ge_phy_all_analog_cal(0);
-
-		t_e = jiffies;
+	t_s = jiffies;
+	for (i = 1; i < 5; i++) {
+		status = do_fe_phy_all_analog_cal_checked((u8)i);
+		if (status != 0)
+			return status;
 	}
+
+	status = do_ge_phy_all_analog_cal(0U);
+	if (status != 0)
+		return status;
+
+	t_e = jiffies;
 	if (show_time)
 		pr_info("cal time = %lu\n", (t_e - t_s) * 4);
+	return 0;
 }
 
 static void wait_loop(void)
@@ -5880,10 +5888,15 @@ int fe_sw_init(void)
 		set_ge2_an();
 		set_ge2_gmii();
 		if (ei_local->chip_name == LEOPARD_FE) {
-			for (i = 1; i < 5; i++)
-				do_fe_phy_all_analog_cal(i);
+			for (i = 1; i < 5; i++) {
+				status = do_fe_phy_all_analog_cal_checked((u8)i);
+				if (status != 0)
+					goto mdio_error;
+			}
 
-			do_ge_phy_all_analog_cal(0);
+			status = do_ge_phy_all_analog_cal(0U);
+			if (status != 0)
+				goto mdio_error;
 		}
 
 		status = is_marvell_gigaphy(2);
@@ -6070,9 +6083,13 @@ int fe_sw_init(void)
 	}
 
 	if (ei_local->architecture & MT7622_EPHY) {
-		mt7622_ephy_cal();
+		status = mt7622_ephy_cal();
+		if (status != 0)
+			goto mdio_error;
 	} else if (ei_local->architecture & LEOPARD_EPHY) {
-		leopard_ephy_cal();
+		status = leopard_ephy_cal();
+		if (status != 0)
+			goto mdio_error;
 
 		/* Stop initialization if any Leopard EPHY MDIO operation fails. */
 		status = tc_phy_write_page_reg_checked(2U, 1U, 18U, 1, 0x021fU);

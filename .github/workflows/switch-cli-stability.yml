@@ -1133,6 +1133,40 @@ jobs:
           print("RAETH GE TX-offset routine checks all MDIO samples and always clears analog/force state: PASS")
           PY
 
+      - name: Validate EPHY batch initialization propagates analog failures
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "ra_switch.c").read_text()
+          header = (root / "ra_switch.h").read_text()
+          ge = source.split("int do_ge_phy_all_analog_cal(", 1)[1].split(
+              chr(10) + "static int mt7622_ephy_cal(", 1
+          )[0]
+          mt = source.split("static int mt7622_ephy_cal(", 1)[1].split(
+              chr(10) + "static int leopard_ephy_cal(", 1
+          )[0]
+          leopard = source.split("static int leopard_ephy_cal(", 1)[1].split(
+              chr(10) + "static void wait_loop(", 1
+          )[0]
+          init = source.split("int fe_sw_init(void)", 1)[1].split(
+              chr(10) + "void fe_sw_deinit(", 1
+          )[0]
+          assert "int do_ge_phy_all_analog_cal(u8 phyaddr);" in header
+          assert "return status;" in ge
+          for runner in (mt, leopard):
+              assert "do_fe_phy_all_analog_cal_checked(" in runner
+              assert "if (status != 0)" in runner
+              assert "return status;" in runner
+          assert "do_fe_phy_all_analog_cal(i);" not in init
+          assert "status = do_ge_phy_all_analog_cal(0U);" in init
+          assert "status = mt7622_ephy_cal();" in init
+          assert "status = leopard_ephy_cal();" in init
+          assert "if (status != 0)" in init and "goto mdio_error;" in init
+          print("FE/GE calibration failures propagate through both EPHY batch runners into fe_sw_init: PASS")
+          PY
+
       - name: Validate Leopard EPHY initialization checks each local MDIO operation
         run: |
           python3 - <<'PY'
