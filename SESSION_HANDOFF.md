@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; the parent of the current DHCPv6 source/test slice is `20012786541a3789f0391793345e403eb96c77d8`. Resolve THIS COMMIT from live history; do not create another commit merely to replace its placeholder SHA.
+- Repository: `Arlene206/padavan-4.4-2`. Live development ref is `main`; latest observed main before this CI trigger-coverage slice was `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`, which preserves DHCPv6 source commit `80811fc53de0257bf44973fa0d703014981fcaf5` and adds checked IPTV interface handling. Resolve THIS COMMIT from live history; do not create another commit merely to replace its placeholder SHA.
 - The only authorized refs are `main` and immutable archive `backup/pre-plugin-overhaul-2026-11-14`. Backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, delete, rename, merge, rebase, cherry-pick, reset, prune or develop from the backup.
 - The repository has no local checkout in this session. Source changes are authored through GitHub Git Data API; do not claim local shell tests, host compiles or firmware builds.
 - Legacy PR #1 is closed and unmerged (base `9d5a5cb4ab574c0e610ed7a0815c0b1ad749da74`, head `ba48e22609e0c81ad757b06756fe91d05f39cbf6`). Its AliDDNS HMAC/EVP_MAC, CA bootstrap, package and test changes are already present in current main. Do not revive its old head.
@@ -26,33 +26,32 @@
 
 ## Active task
 
-### Rerun WAN callback contract after DHCPv6 retry integration
+### Validate the DHCPv6 callback retry on XY-C1 firmware
 
-- Product source commit `80811fc53de0257bf44973fa0d703014981fcaf5` implements DHCPv6 Reply script-result retry: nonzero callback status retains the event, resets retry parameters and schedules a five-second retry; Information Refresh Time is armed only after callback success.
-- Dedicated DHCPv6 workflow `45117871967` on exact SHA 80811 completed SUCCESS, including GNU89 ASan/UBSan policy regression and source contract.
-- Exact WAN callback workflow `45117872004` on 80811 failed only because its final inline source contract still expected the removed old DHCPv6 log strings. All preceding WAN/IPv6/LAN compiled regressions and source assertions passed. THIS COMMIT updates the two stale assertions to require the retry gate, new logs, retry-parameter reset and retry timer; no product source changes.
-- After this checker-only correction, require exact-head WAN callback rerun to pass. Also establish exact-SHA XY-C1 MIPS/uClibc build, TRX and artifact status for product SHA 80811; no exact-head XY-C1 run had appeared in the latest returned push-run inventory. Do not claim L3 without it.
-- Once these checks are recorded, continue with a separate source-backed defect across another userland subsystem. Do not idle-poll Actions.
+- Product fix is committed at `80811fc53de0257bf44973fa0d703014981fcaf5`: `client6_recvreply()` retains the DHCP event after a failed configuration script, resets retransmission parameters, retries after five seconds and arms Information Refresh Time only after callback success.
+- Exact-head dedicated DHCPv6 workflow `45117871967` PASS (GNU89 ASan/UBSan policy test and source contract). Exact WAN integration run `45118077270` PASS after source-contract migration in commit `84110056136496c2f7bcce4034b8450dc4c121a1`.
+- The XY-C1 workflow already self-triggers, but its path list omitted the product client `dhcp6c.c`, related `dhcp6c.h`/`dhcp6c_script.c` and retry policy header. THIS COMMIT adds those source paths so future DHCPv6 client changes launch firmware verification. It changes CI only.
+- Another maintainer's main commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1` fixes checked IPTV interface reads before TTL-rule side effects; it was preserved as the parent. Exact XY-C1 run `45118311710` for that tree was IN_PROGRESS (ccache stage) at last inspection; it contains the DHCPv6 product code but is not a completed L3 result.
+- Inspect the exact-head XY-C1 run triggered by THIS COMMIT. Require production-input detection, Build XY-C1, TRX verification and artifact upload to pass on the same tree containing DHCPv6 source commit 80811. L3 is not yet claimed.
 
 ### Exact parallel baseline
 
-- Before this DHCPv6 change, product source baseline was `20012786541a3789f0391793345e403eb96c77d8`. Its storage regression run `45116268933` and exact XY-C1 target run `45116268960` both completed SUCCESS.
-- FRP checker exact rerun `45116127095` completed SUCCESS on `41285d396d7bd1f984f13c49699ed6dacbd27e92`. The d2c exact XY-C1 run `45115500761` completed SUCCESS. e757 exact XY-C1 run `45114634020` completed SUCCESS.
-- No physical router test has been performed; L4 remains NOT VERIFIED.
-
+- Earlier source milestones: libdisk ACL L3 PASS on e757 `45114634020`; FRP L3 PASS on d2c `45115500761`; USB printer unplug L2/L3 PASS on 200127 `45116268933` / `45116268960`.
+- DHCPv6 product source SHA 80811 has dedicated host/sanitizer/source-contract PASS `45117871967`. WAN integration source-contract rerun after correction commit 8411 passed `45118077270`.
+- Main then advanced with firewall source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`; it checks the optional IPTV interface using a bounded NVRAM snapshot before TTL side effects. Exact XY-C1 run `45118311710` on 3eba was IN_PROGRESS (ccache stage) at the last lookup; TRX/artifact pending.
+- No exact completed XY-C1 target result existed yet for the DHCPv6 retry product source. This path filter correction should start that run. Do not transfer target validation evidence across unrelated source SHAs.
 ## Verification boundary
 
-- Prior libdisk ACL: L1/L2/L3 PASS on the SHA/run evidence listed above; L4 NOT VERIFIED.
-- FRP private seeding: focused shell regression and source contracts PASS; exact d2c XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
-- USB printer unplug: exact storage-hotplug GNU89 ASan/UBSan/source-contract PASS and exact 200127 XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
-- DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated exact-head host workflow `45117871967` PASS (GNU89 ASan/UBSan + source contract), so L2 PASS. The WAN callback integration workflow `45117872004` failed only in two stale source log assertions; THIS COMMIT updates that contract. L3 remains NOT VERIFIED: no exact-head XY-C1 run was found for 80811 in the latest returned push inventory. L4 NOT VERIFIED.
+- Prior libdisk ACL: L1/L2/L3 PASS on the SHA/run evidence above; L4 NOT VERIFIED.
+- FRP private seeding: focused shell regression/source contracts PASS; exact d2c XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
+- USB printer unplug: storage-hotplug GNU89 ASan/UBSan/source contract and exact 200127 XY-C1 Build/TRX/artifact PASS. L2/L3 PASS; L4 NOT VERIFIED.
+- DHCPv6 Reply callback retry source `80811fc53de0257bf44973fa0d703014981fcaf5`: dedicated host run `45117871967` PASS (L2); WAN integration rerun `45118077270` PASS. L3 NOT VERIFIED: exact XY-C1 run on latest tree was still building and the source path coverage gap is fixed by THIS COMMIT. L4 NOT VERIFIED.
+- Firewall IPTV TTL interface source commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1`: source review and tests added; exact XY-C1 run `45118311710` pending at## Exact first action for the next GPT
 
-## Exact first action for the next GPT
-
-1. Fetch live main and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Resolve THIS COMMIT and inspect the WAN workflow-only diff; do not assume this saved parent remains live.
-2. Inspect the exact-head WAN callback push run for this correction. It must pass the final inline source contract that now expects DHCPv6 retry logs and timer behavior; if it fails, inspect the first assertion and update the contract without weakening product checks.
-3. Establish exact-SHA XY-C1 firmware evidence for product SHA `80811fc53de0257bf44973fa0d703014981fcaf5`: verify production-input detector, Build XY-C1, TRX verification and artifact upload. No L3 claim until all three stages pass on that same production-source SHA.
-4. The dedicated DHCPv6 host regression `45117871967` is already PASS. Other previous L2/L3 source milestones are recorded above; don't repeat them. Continue another independent, concrete whole-userland stability/security task while any checks are pending.
+1. Fetch live main and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Inspect THIS COMMIT diff and confirm the XY-C1 path filter covers `dhcp6c.c`, `dhcp6c.h`, `dhcp6c_script.c` and the retry header.
+2. Inspect exact-head `XY-C1 Firmware Validation` for THIS COMMIT. Require the source-input detector, Build XY-C1, TRX verification and artifact upload to pass on the tree containing product source commit 80811. Diagnose the first failure if any.
+3. Revisit exact run `45118311710` on parent 3eba only as historical context; it is not a substitute for the new commit's exact-head run. DHCPv6 host `45117871967` and WAN integration `45118077270` are already PASS.
+4. Continue another independent, source-backed stability/security task while any exact-head target steps are pending. Do not idle-poll or re-audit already completed libdisk, FRP, printer-unplug or BusyBox PID1 slices without new evidence.
 # Cross-session execution mandate
 
 - The same maintainer continues the same Padavan repository mission across conversations. Restore the handoff once, then implement; do not repeat completed audits or ask the user what to do next.

@@ -1,3 +1,13 @@
+## 2026-11-23 14:12 UTC+8 — Add missing DHCPv6 source paths to XY-C1 firmware validation
+
+- Exact WAN callback run `45118077270` on contract-correction commit `84110056136496c2f7bcce4034b8450dc4c121a1` completed SUCCESS. Dedicated DHCPv6 sanitizer/source-contract run `45117871967` on product source `80811fc53de0257bf44973fa0d703014981fcaf5` also completed SUCCESS.
+- The XY-C1 workflow already included its own workflow file in push paths, but omitted production `dhcp6c.c`, `dhcp6c.h`, `dhcp6c_script.c` and the new retry policy header. Its only related existing path was `dhcp6c_common.c`; thus the DHCPv6 product change did not itself launch firmware validation.
+- Added those four DHCPv6 client/source/header paths to the XY-C1 push filter. This commit changes CI trigger coverage only, not product C source.
+- While preparing this change, main advanced with commit `3eba7fc820f0c3f9dc2dd7a80db313b39f63fff1` (`fix(firewall): check IPTV interface before TTL rules`). Preserved it as the new parent. Its exact XY-C1 run `45118311710` was in progress at the last lookup after prerequisites; this tree includes DHCPv6 source commit 80811, but no L3 claim is made until exact same-tree Build/TRX/artifact completion.
+- Earlier e757, d2c and USB-printer slices have their own exact-SHA XY-C1 Build/TRX/artifact SUCCESS; those do not replace this DHCPv6 target validation. No local checkout or build.
+- Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 14:06 UTC+8 — Align WAN callback source contract with DHCPv6 event retry
 
 - Exact DHCPv6 retry workflow run `45117871967` on `80811fc53de0257bf44973fa0d703014981fcaf5` completed SUCCESS: GNU89 ASan/UBSan policy test and the DHCPv6 source integration checker both passed.
