@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Correct second HTTPD Samba identity contract for the snapshot API
+
+- The next exact-head HTTPD rerun passed the Samba share/ACL policy stage but exposed a second source contract in the Unix-account identity stage that still expected the old independent `storage_read_string_status("http_username",...)` call.
+- Updated that contract to require the transaction-backed account count and credential reads, mandatory transaction end before process inventory, and the snapshot close-status policy. No production code or security assertion was relaxed.
+
+---
+
 ## 2026-11-23 UTC — Align HTTPD trust-boundary checker with coherent Samba NVRAM snapshots
 
 - The first exact-SHA Samba workflow passed after the transactional credential change, but the adjacent HTTPD trust-boundary workflow failed because its source contract still expected three separately checked NVRAM getters.
