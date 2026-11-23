@@ -468,7 +468,7 @@ set_validate = set_permission_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     set_begin
 )
-set_live_dir = set_permission_compact.index("test_if_dir(folder_path)", set_validate)
+set_live_dir = set_permission_compact.index("lstat(folder_path,&folder_entry_stat)", set_validate)
 set_snapshot_lookup = set_permission_compact.index(
     "test_if_exist_folder_in_mount_path(mount_path,folder)", set_live_dir
 )
