@@ -158,17 +158,17 @@ main(int argc, char *argv[])
 		}
 	}
 
+	if (write_all(STDOUT_FILENO, "\n", 1) != 0) {
+		perror("stdout");
+		close(fd);
+		return 1;
+	}
+
 	response_status = cmd_control_response_status(
 		response_prefix, response_prefix_length);
 	if (response_status != 0) {
 		fprintf(stderr, "l2tp-control: daemon rejected or malformed the response: %s\n",
 			strerror(response_status));
-		close(fd);
-		return 1;
-	}
-
-	if (write_all(STDOUT_FILENO, "\n", 1) != 0) {
-		perror("stdout");
 		close(fd);
 		return 1;
 	}

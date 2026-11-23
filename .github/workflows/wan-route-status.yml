@@ -3,6 +3,8 @@ name: WAN route operation status regression
 on:
   push:
     paths:
+      - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd.c"
+
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control.c"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control-status.h"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/tests/cmd-control-status.c"
@@ -121,6 +123,8 @@ on:
       - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
   pull_request:
     paths:
+      - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd.c"
+
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control.c"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control-status.h"
       - "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/tests/cmd-control-status.c"

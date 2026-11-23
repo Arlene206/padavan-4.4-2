@@ -182,7 +182,15 @@ process_option(EventSelector *es,
 	close(fd);
 	return -1;
     }
-    (void) chmod(sockname, 0600);
+    if (chmod(sockname, 0600) < 0) {
+	int saved_errno = errno;
+
+	l2tp_set_errmsg("cmd: process_option: chmod: %s", strerror(saved_errno));
+	close(fd);
+	(void) remove(sockname);
+	errno = saved_errno;
+	return -1;
+    }
     if (listen(fd, 5) < 0) {
 	l2tp_set_errmsg("cmd: process_option: listen: %s", strerror(errno));
 	close(fd);

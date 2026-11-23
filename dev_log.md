@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fail closed when the RP-L2TP control socket cannot be secured
+
+- `handlers/cmd.c` ignored the return value from `chmod(sockname, 0600)` and proceeded to `listen()`. If the permission change failed, the daemon could expose its privileged local control socket with the mode inherited from the process umask. Startup now records the chmod error, closes the listener, removes the socket path, restores `errno`, and aborts before `listen()`.
+- Preserved the controller's historical trailing newline for both `OK` and `ERR` replies. Extended the PPP/RP-L2TP source contract for the server permission gate and newline ordering, and added `cmd.c` to WAN and XY-C1 production-input triggers.
+
+---
+
 ## 2026-11-23 UTC — Fix AP relay lock regression indentation handling
 
 - Process lifecycle run `45171514518` passed the PID 1 and DDNS boot checks but failed the AP relay lock test's line-count assertion. The production `rm -f /tmp/apc.lock` line is intentionally indented inside the generated helper script; the test used `grep -Fxc` against an unindented literal, so it counted zero despite extracting the correct single guarded operation.

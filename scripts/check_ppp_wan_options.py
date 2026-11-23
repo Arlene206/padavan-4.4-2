@@ -11,6 +11,7 @@ policy = (rc_dir / "ppp_wan_option_policy.h").read_text()
 test = (rc_dir / "tests/ppp_wan_option_policy.c").read_text()
 control_dir = ROOT / "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers"
 control_source = (control_dir / "cmd-control.c").read_text()
+control_server_source = (control_dir / "cmd.c").read_text()
 control_policy = (control_dir / "cmd-control-status.h").read_text()
 control_test = (control_dir / "tests/cmd-control-status.c").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
@@ -266,6 +267,21 @@ require("return EIO;" in control_policy and "return EPROTO;" in control_policy a
         "response[0] == 'O' && response[1] == 'K'" in control_policy and
         "response[0] == 'E'" in control_policy,
         "l2tp-control response parser must accept OK only and reject ERR/malformed replies")
+
+require(control_source.index('write_all(STDOUT_FILENO, "\n", 1)') <
+        control_source.index("response_status = cmd_control_response_status("),
+        "l2tp-control must preserve its terminating newline for ERR replies")
+server_start = body(control_server_source, "process_option(EventSelector *es,")
+chmod_gate = server_start.find("if (chmod(sockname, 0600) < 0)")
+listen_gate = server_start.find("if (listen(fd, 5) < 0)")
+require(chmod_gate >= 0 and listen_gate > chmod_gate,
+        "L2TP control socket permissions must be enforced before listen")
+chmod_failure = server_start[chmod_gate:listen_gate]
+require("l2tp_set_errmsg" in chmod_failure and "close(fd);" in chmod_failure and
+        "(void) remove(sockname);" in chmod_failure and "return -1;" in chmod_failure and
+        "errno = saved_errno;" in chmod_failure and
+        "(void) chmod(sockname, 0600)" not in server_start,
+        "L2TP command socket must fail closed and clean up when chmod fails")
 for case in ("test_success_responses", "test_error_responses",
              "test_malformed_and_truncated_responses"):
     require(case in control_test and case + "()" in control_test,
