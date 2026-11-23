@@ -544,4 +544,9 @@ for marker in ("DNS proxy selector read failure", "DNS upstream read failure",
                "DNS proxy stop failure", "DNS proxy start failure",
                "Shadowsocks DNS proxy preflight regression: PASS"):
     require(marker in start_status_test, f"DNS proxy regression is missing {marker}")
+require("ss_dns_proxy_config_read" in test and
+        "ss_dns_proxy_config_read || fail" in test and
+        "empty DNS upstream rejected before launch" in test and
+        "unsupported DNS proxy backend rejected before launch" in test,
+        "direct DNS process lifecycle tests must load a validated selector/upstream snapshot before launching")
 print("Shadowsocks DNS proxy preflight source contract: PASS")

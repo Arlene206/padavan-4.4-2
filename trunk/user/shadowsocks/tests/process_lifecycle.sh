@@ -204,6 +204,7 @@ sed -n \
 	-e '/^ss_restart_dhcpd() {/,/^}/p' \
 	-e '/^ss_publish_and_restart_dnsmasq() {/,/^}/p' \
 	-e '/^stop_dns_proxy() {/,/^}/p' \
+	-e '/^ss_dns_proxy_config_read() {/,/^}/p' \
 	-e '/^start_dns_proxy() {/,/^}/p' \
 	-e '/^ss_launch_watchcat() {/,/^}/p' \
 	-e '/^start_watchcat() {/,/^}/p' \
@@ -535,6 +536,7 @@ expect_status 0 "watchcat no active services" start_watchcat
 # The required DNS proxy stage must observe the selected daemon after launch.
 export DNS_PDNSD_ENABLE=0 DNS_UPSTREAM='8.8.8.8#53' DNS_START_MODE=ready
 rm -f "$PROCESS_STATE_DIR/dnsproxy" "$PROCESS_STATE_DIR/dns2tcp" "$PROCESS_STATE_DIR/pidof_unknown"
+ss_dns_proxy_config_read || fail "dnsproxy config preflight failed"
 start_dns_proxy
 [ -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "dnsproxy launch was not observed"
 stop_dns_proxy
@@ -542,6 +544,7 @@ stop_dns_proxy
 
 # dns2tcp is an alternate backend and is subject to the same readiness gate.
 DNS_PDNSD_ENABLE=1
+ss_dns_proxy_config_read || fail "dns2tcp config preflight failed"
 start_dns_proxy
 [ -f "$PROCESS_STATE_DIR/dns2tcp" ] || fail "dns2tcp launch was not observed"
 stop_dns_proxy
@@ -549,20 +552,22 @@ stop_dns_proxy
 # Immediate child exit is not reported as a healthy DNS service.
 DNS_PDNSD_ENABLE=0
 DNS_START_MODE=fail
+ss_dns_proxy_config_read || fail "failed-child config preflight failed"
 expect_status 1 "DNS proxy child launch failure" start_dns_proxy
 [ ! -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "failed dnsproxy fixture became visible"
 
 # Unknown inventory is distinct from confirmed absence and must not signal.
 : > "$KILL_LOG"
 DNS_START_MODE=unknown
+ss_dns_proxy_config_read || fail "unknown-inventory config preflight failed"
 expect_status 2 "DNS proxy unknown startup inventory" start_dns_proxy
 [ ! -s "$KILL_LOG" ] || fail "unknown DNS proxy inventory caused a signal"
 rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/dnsproxy"
 
 DNS_UPSTREAM=''
 DNS_START_MODE=ready
-expect_status 1 "empty DNS upstream rejected" start_dns_proxy
+expect_status 1 "empty DNS upstream rejected before launch" ss_dns_proxy_config_read
 DNS_UPSTREAM='8.8.8.8#53'
 DNS_PDNSD_ENABLE=9
-expect_status 1 "unsupported DNS proxy backend rejected" start_dns_proxy
+expect_status 1 "unsupported DNS proxy backend rejected before launch" ss_dns_proxy_config_read
 echo "Shadowsocks process lifecycle regression: PASS"

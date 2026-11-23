@@ -1,3 +1,10 @@
+## 2026-11-23 — Align direct DNS process lifecycle fixtures with preflight snapshots
+
+- Exact DC8 Shadowsocks run #45231946878: shell syntax, startup status regression, DNSMasq cleanup regression and the new DNS proxy preflight regression all PASS. The subsequent existing process-lifecycle test FAILED because it extracted `start_dns_proxy()` and invoked it directly without first sourcing/calling the new `ss_dns_proxy_config_read()` helper; under `set -u`, the missing snapshot correctly failed closed (`SS_DNS_PROXY_PROCESS: parameter not set`).
+- Updated that production-linked lifecycle harness to extract the preflight helper and validate both dnsproxy/dns2tcp fixtures before launch. Empty-upstream and unsupported-backend negative cases now assert the preflight function rejects configuration before any launcher invocation. Added a source-contract check to prevent direct-launch tests bypassing the snapshot.
+- Rerun the complete exact-head Shadowsocks workflow after this correction; the initial DC8 AI handoff contract and Process inventory workflows passed. XY-C1 #45231946608 remained in progress during the failure diagnosis.
+
+---
 ## 2026-11-23 — Preflight DNS proxy replacement before stopping the live service
 
 - `start_dns()` stopped `dnsproxy`/`dns2tcp` before `start_dns_proxy()` read `pdnsd_enable`, `tunnel_forward` and checked the selected executable. A transient NVRAM read failure, empty upstream, invalid selector or missing binary could therefore take down a working local DNS upstream before the replacement was rejected.
