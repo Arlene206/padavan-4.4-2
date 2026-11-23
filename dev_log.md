@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Align SCUT watchdog source contract with fixed PID comparison
+
+- Exact-head SCUT watchdog run #45181232164 on `ce39930eee413d71e0227c7d59e8e539b18e9f98` passed shell syntax and the full PID/NVRAM/link-state shell regression. Its source-contract step then failed because one legacy checker assertion still expected the old literal-`$` PID comparison; the production code correctly uses `$$`.
+- Updated the workflow assertion to require the current-shell PID comparison. This is a checker-only repair; no production or test behavior changed. Exact-head SCUT/AI/Process reruns and XY-C1 Build/TRX/artifact remain the verification gate.
+
+---
+
 ## 2026-11-23 UTC — Fail closed on unknown SCUT watchdog WAN link state
 
 - Follow-up review found `mtk_esw 11` was still consumed through command substitution without checking its exit code. An ioctl failure produced empty output that the old comparison interpreted as "WAN link up", allowing a health failure to restart SCUTClient while physical link state was unknown.
