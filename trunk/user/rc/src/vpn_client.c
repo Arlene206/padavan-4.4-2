@@ -83,10 +83,60 @@ control_xl2tpd(const char *cmd, const char *lac)
 }
 
 static int
-get_xl2tpd_vpnc_active(void)
+vpn_client_read_transaction_int(struct nvram_transaction *transaction,
+                                const char *name, int default_value,
+                                int minimum, int maximum, int *result)
 {
-	return ((nvram_match("vpnc_enable", "1") && nvram_match("vpnc_type", "1")) || 
-		 nvram_match("l2tp_cli_t", "1"));
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &value);
+	saved_errno = errno;
+	status = vpn_client_nvram_read_int_status(
+		api_result, saved_errno, value, default_value,
+		minimum, maximum, result);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+/* Capture all selectors before touching the shared daemon or PPP state. */
+static int
+get_xl2tpd_vpnc_active(int *active)
+{
+	struct nvram_transaction transaction;
+	int enabled = 0, type = 0, l2tp_client = 0;
+	int status, saved_errno = 0, end_status;
+
+	if (!active) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	status = vpn_client_read_transaction_int(
+		&transaction, "vpnc_enable", 0, 0, 1, &enabled);
+	if (status == 0)
+		status = vpn_client_read_transaction_int(
+			&transaction, "vpnc_type", 0, 0, 2, &type);
+	if (status == 0)
+		status = vpn_client_read_transaction_int(
+			&transaction, "l2tp_cli_t", 0, 0, 1, &l2tp_client);
+	if (status != 0)
+		saved_errno = status;
+
+	end_status = nvram_transaction_end(&transaction);
+	if (status == 0 && end_status != 0)
+		saved_errno = errno ? errno : EIO;
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	*active = (enabled && type == 1) || l2tp_client;
+	return 0;
 }
 
 int
@@ -407,15 +457,24 @@ static int
 stop_vpn_client_locked(void)
 {
 	int stop_status, scan_error, control_status;
-	int cleanup_status = 0, route_status;
+	int cleanup_status = 0, route_status, config_status;
+	int xl2tpd_vpnc_active = 0;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
 
-	/* Do not mutate PPP or VPN client state if the shared daemon's presence
-	 * cannot be established from a complete process inventory. */
+	/* Unknown NVRAM ownership is just as unsafe as unknown process presence. */
+	config_status = get_xl2tpd_vpnc_active(&xl2tpd_vpnc_active);
+	if (config_status != 0) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client cleanup: xl2tpd ownership is unknown (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 	action = PROCESS_PRESENCE_START_NEW;
-	if (get_xl2tpd_vpnc_active()) {
+	if (xl2tpd_vpnc_active) {
 		presence = process_inventory_scan("xl2tpd", &snapshot);
 		scan_error = snapshot.error;
 		process_snapshot_release(&snapshot);
@@ -523,9 +582,18 @@ stop_vpn_client(void)
 static int
 stop_vpn_client_force(void)
 {
-	int stop_status;
+	int stop_status, config_status, xl2tpd_vpnc_active = 0;
 
-	if (!get_xl2tpd_vpnc_active())
+	config_status = get_xl2tpd_vpnc_active(&xl2tpd_vpnc_active);
+	if (config_status != 0) {
+		int saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing forced VPN client restart: xl2tpd ownership is unknown (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	if (!xl2tpd_vpnc_active)
 		return 0;
 	stop_status = stop_vpn_client_ppp(1);
 	if (stop_status != 0) {
@@ -536,6 +604,78 @@ stop_vpn_client_force(void)
 	}
 	xl2tpd_killed_vpnc = 1;
 	return 0;
+}
+
+static int
+vpn_client_read_shared_xl2tpd_dependencies(int *wan_l2tp_enabled,
+                                           int *vpn_server_l2tp_enabled)
+{
+	struct nvram_transaction transaction;
+	int wan_enabled = 0, server_enabled = 0;
+	int status, saved_errno = 0, end_status;
+
+	if (!wan_l2tp_enabled || !vpn_server_l2tp_enabled) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	status = vpn_client_read_transaction_int(
+		&transaction, "l2tp_wan_t", 0, 0, 1, &wan_enabled);
+	if (status == 0)
+		status = vpn_client_read_transaction_int(
+			&transaction, "l2tp_srv_t", 0, 0, 1, &server_enabled);
+	if (status != 0)
+		saved_errno = status;
+
+	end_status = nvram_transaction_end(&transaction);
+	if (status == 0 && end_status != 0)
+		saved_errno = errno ? errno : EIO;
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	*wan_l2tp_enabled = wan_enabled;
+	*vpn_server_l2tp_enabled = server_enabled;
+	return 0;
+}
+
+static int
+vpn_client_restore_shared_xl2tpd_locked(const char *phase)
+{
+	int dependency_status, saved_errno = 0;
+	int wan_l2tp_enabled = 0, vpn_server_l2tp_enabled = 0;
+	int restore_status;
+
+	if (!xl2tpd_killed_vpnc)
+		return 0;
+
+	dependency_status = vpn_client_read_shared_xl2tpd_dependencies(
+		&wan_l2tp_enabled, &vpn_server_l2tp_enabled);
+	if (dependency_status != 0)
+		saved_errno = errno ? errno : EIO;
+
+	if (!vpn_client_restart_should_attempt_restore_shared_xl2tpd(
+		    xl2tpd_killed_vpnc, dependency_status,
+		    wan_l2tp_enabled, vpn_server_l2tp_enabled))
+		return 0;
+
+	/* Unknown dependency state requires conservative daemon restoration. */
+	restore_status = safe_start_xl2tpd_locked();
+	if (restore_status < 0)
+		logmessage(VPNC_LOG_NAME,
+			   "cannot restore shared xl2tpd daemon %s (status=%d, errno=%d)",
+			   phase, restore_status, errno ? errno : EIO);
+	if (dependency_status != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "cannot verify shared xl2tpd dependencies %s; restoration was attempted (errno=%d)",
+			   phase, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	return restore_status < 0 ? restore_status : 0;
 }
 
 static int
@@ -555,21 +695,16 @@ restart_vpn_client_locked(void)
 	if (stop_status != 0) {
 		saved_errno = errno ? errno : EIO;
 		/*
-		 * The force-stop above already removed VPNC's xl2tpd daemon.
-		 * A later identity-aware cleanup failure must not strand an
-		 * independently configured WAN L2TP client or L2TP server.
+		 * Forced stop may already have removed the shared xl2tpd daemon.
+		 * Restore on unreadable dependency state as well as active users.
 		 */
-		if (vpn_client_restart_should_restore_shared_xl2tpd(
-			    xl2tpd_killed_vpnc,
-			    nvram_match("l2tp_wan_t", "1"),
-			    nvram_match("l2tp_srv_t", "1"))) {
-			restore_status = safe_start_xl2tpd_locked();
-			if (restore_status < 0) {
-				int restore_errno = errno ? errno : EIO;
-				logmessage(VPNC_LOG_NAME,
-					   "cannot restore shared xl2tpd after incomplete VPN client teardown (status=%d, errno=%d)",
-					   restore_status, restore_errno);
-			}
+		restore_status = vpn_client_restore_shared_xl2tpd_locked(
+			"after incomplete VPN client teardown");
+		if (restore_status < 0) {
+			int restore_errno = errno ? errno : EIO;
+			logmessage(VPNC_LOG_NAME,
+				   "cannot restore shared xl2tpd after incomplete VPN client teardown (status=%d, errno=%d)",
+				   restore_status, restore_errno);
 		}
 		errno = saved_errno;
 		return stop_status;
@@ -597,14 +732,12 @@ restart_vpn_client_locked(void)
 			   firewall_status);
 	}
 
-	/* restore L2TP WAN client or L2TP VPNS */
-	if (xl2tpd_killed_vpnc &&
-	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_srv_t", "1"))) {
-		restore_status = safe_start_xl2tpd_locked();
-		if (restore_status < 0 && start_status == 0) {
-			start_status = -1;
-			saved_errno = errno ? errno : EIO;
-		}
+	/* Recreate shared xl2tpd when dependencies are present or unreadable. */
+	restore_status = vpn_client_restore_shared_xl2tpd_locked(
+		"after VPN client restart");
+	if (restore_status < 0 && start_status == 0) {
+		start_status = -1;
+		saved_errno = errno ? errno : EIO;
 	}
 	if (start_status != 0 && saved_errno != 0)
 		errno = saved_errno;

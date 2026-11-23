@@ -744,8 +744,7 @@ client_stop_failure=client_restart_locked.split(
 ordered(client_stop_failure, [
     "if (stop_status != 0)",
     "saved_errno = errno ? errno : EIO;",
-    "vpn_client_restart_should_restore_shared_xl2tpd(",
-    "safe_start_xl2tpd_locked()",
+    "vpn_client_restore_shared_xl2tpd_locked(",
     "if (restore_status < 0)",
     "errno = saved_errno;",
     "return stop_status;"
@@ -753,6 +752,48 @@ ordered(client_stop_failure, [
 require("cannot restore shared xl2tpd after incomplete VPN client teardown" in
         client_stop_failure,
         "VPN client rollback must log an unsuccessful shared-daemon restore")
+
+client_active = body(vpn, "static int\nget_xl2tpd_vpnc_active(int *active)")
+ordered(client_active, [
+    "nvram_transaction_begin(&transaction)",
+    '"vpnc_enable"',
+    "vpn_client_read_transaction_int(",
+    '"vpnc_type"',
+    '"l2tp_cli_t"',
+    "nvram_transaction_end(&transaction)",
+    "*active = (enabled && type == 1) || l2tp_client;"
+], "VPN client xl2tpd stop-set checked NVRAM snapshot")
+require('nvram_match("vpnc_enable"' not in client_active and
+        'nvram_match("vpnc_type"' not in client_active and
+        'nvram_match("l2tp_cli_t"' not in client_active,
+        "VPN client xl2tpd stop-set must not use error-collapsing match getters")
+
+client_dependencies = body(vpn, "static int\nvpn_client_read_shared_xl2tpd_dependencies(")
+ordered(client_dependencies, [
+    "nvram_transaction_begin(&transaction)",
+    '"l2tp_wan_t"',
+    '"l2tp_srv_t"',
+    "nvram_transaction_end(&transaction)"
+], "VPN client shared xl2tpd dependency snapshot")
+client_shared_restore = body(vpn, "static int\nvpn_client_restore_shared_xl2tpd_locked(")
+ordered(client_shared_restore, [
+    "if (!xl2tpd_killed_vpnc)",
+    "vpn_client_read_shared_xl2tpd_dependencies(",
+    "vpn_client_restart_should_attempt_restore_shared_xl2tpd(",
+    "safe_start_xl2tpd_locked()",
+    "if (dependency_status != 0)",
+    "return -1"
+], "VPN client shared xl2tpd fail-safe restoration")
+require("vpn_client_nvram_read_int_status" in
+        (ROOT / "trunk/user/rc/src/vpn_client_nvram_policy.h").read_text() and
+        "test_integer_read_status_preserves_defaults_and_checks_bounds" in
+        (ROOT / "trunk/user/rc/src/tests/vpn_client_nvram_policy.c").read_text(),
+        "VPN client transaction selector parser lacks bounded integer regression")
+require("vpn_client_restart_should_attempt_restore_shared_xl2tpd" in
+        (ROOT / "trunk/user/rc/src/vpn_client_restart_policy.h").read_text() and
+        "test_client_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails" in
+        (ROOT / "trunk/user/rc/src/tests/vpn_server_restart_policy.c").read_text(),
+        "VPN client unknown-dependency restore policy regression missing")
 
 wan_stop_lock=body(net_wan,"run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
 ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",

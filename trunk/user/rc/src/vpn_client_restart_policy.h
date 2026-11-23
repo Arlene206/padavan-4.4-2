@@ -12,4 +12,16 @@ vpn_client_restart_should_restore_shared_xl2tpd(int xl2tpd_was_stopped,
 		(wan_l2tp_active || vpn_server_l2tp_active);
 }
 
+/* An unreadable dependency snapshot is not evidence that xl2tpd is unused. */
+static inline int
+vpn_client_restart_should_attempt_restore_shared_xl2tpd(
+    int xl2tpd_was_stopped, int dependency_read_status,
+    int wan_l2tp_active, int vpn_server_l2tp_active)
+{
+    return xl2tpd_was_stopped &&
+        (dependency_read_status != 0 || wan_l2tp_active ||
+         vpn_server_l2tp_active);
+}
+
 #endif /* VPN_CLIENT_RESTART_POLICY_H */
+

@@ -1,6 +1,6 @@
 # Cross-session execution mandate
 
-## 2026-11-23 continuation handoff (parent main: 3760b93c10430cb1bdad3e158b35823147da75a6; fetch live main at takeover)
+## 2026-11-23 continuation handoff (engineering parent main: c6b5dda145894feacbe67a2cabd4f5f60b99b046; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
 - `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
@@ -42,10 +42,13 @@
 
 ## Active task
 
-### WAN local IPv4 lookup error separation
-- The monitor previously treated every `INADDR_ANY` from `get_wan_ip4()/get_lan_ip4()` as “no address”. The underlying `get_interface_addr4()` also returns that value on local socket/ioctl/interface-name failures, so `arpping_gateway()` could report a synthetic healthy reply and `chk_udhcpc()` could silently decline renewal on a local error.
-- The current source-policy change captures errno at the address lookup, treats only a clean no-address result and `EADDRNOTAVAIL` as absence, and preserves other failures as errors. `get_wan_ip4()` also now propagates AP-mode lookup status through errno. New tests and exact source-order checks are committed but Actions are pending.
-- Next: inspect exact SHA WAN sanitizer/source contract, Process, AI handoff, and XY-C1 results; fix any genuine failure and never treat host-only as firmware success.
+### VPN client shared xl2tpd ownership and recovery
+
+- WAN local IPv4 error separation is closed at L2/L3: `d3772d64a0e2471be22658aabd6299dc3670caa8` preserves invalid-interface EINVAL and ioctl/close errno; WAN route #45244253977 and AI docs #45244253913 PASS on workflow-only descendant `7391f2e6245e64941ca709784719ebfb723043dc`; XY-C1 #45244253978 on that same descendant passed Build, TRX verification and artifact upload. Physical router L4 remains unverified.
+- Confirmed defect in `trunk/user/rc/src/vpn_client.c`: the old `get_xl2tpd_vpnc_active()` used error-collapsing `nvram_match()` calls, and restart recovery used unchecked `l2tp_wan_t` / `l2tp_srv_t` matches after the forced stop. NVRAM read errors could be interpreted as “no shared users”, leaving WAN L2TP or L2TP VPN server without `xl2tpd`.
+- This source slice replaces the stop-set decision with a checked NVRAM transaction (VPNC enable/type/client marker), validates bounded selector values, and aborts teardown if ownership is unknown. WAN/server dependencies are read from a second consistent transaction.
+- If dependency state is unknown after the restart has stopped `xl2tpd`, recovery now attempts conservative daemon restoration and still reports the read error. Confirmed active dependencies also restore; confirmed absence is a no-op.
+- GNU89 policy regression additions cover missing/empty/default values, malformed/overflow values and backend errors; restart-policy tests cover unknown dependency restoration; the source checker asserts transaction boundaries and fail-safe ordering. Exact-head Actions are pending; no local compile or router hardware validation is claimed.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -62,11 +65,10 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Verify exact-head WAN route after this workflow-only correction. `check_wan_vlan_setup.py` requires exactly one `netutils.c` path in push and pull_request; `d3772d6` accidentally added a second entry although the original filter already covered the file. This commit restores the original single-entry path set. The source-check additions in `check_wan_detect_wan_status.py` assert EINVAL from invalid interface names and ioctl/close errno preservation.
-2. Reconfirm exact-source XY-C1 Build/TRX/artifact for `d3772d6` (run #45243513374) and for the preceding WAN source changes; host-only validation is not L3.
-3. On `d3772d6`, WAN ARP #45243513318, DHCP #45243513523, Process inventory #45243513456, IPv6 service type #45243513641, USB modem identity #45243513479, wireless radio #45243513405 and AI docs #45243513254 PASS. WAN route #45243513566 failed only on duplicated path filters, now corrected. NVRAM #45243513452, XY-C1 #45243513374 and USB storage #45243513475 were in progress at last poll.
-4. Preserve concurrent main commits `36861ae` (bridge radio selector fail-closed fix) and `eb92a7a` (exact-source CI gate update). On `eb92a7a`, AI docs #45243797283 PASS; inspect remaining exact-SHA system/firmware checks before closing.
-5. Continue the next concrete userland reliability/security issue only after the route rerun is green; keep backup branch frozen and use complete-tree, expected-SHA non-forced updates.
+
+1. Fetch live `main` and inspect exact-head push Actions for the VPN server lifecycle regression (client shared-xl2tpd transaction and recovery), Process lifecycle, AI handoff docs and XY-C1. Diagnose every real FAIL; continue independent work while runs remain PENDING.
+2. L2 is complete only when the new GNU89 policy tests and `scripts/check_vpn_server_lifecycle.py` pass on a current exact SHA. L3 requires XY-C1 Build, TRX verification and artifact upload all PASS on the identical production-source SHA. Hardware L4 remains unverified.
+3. Then continue one concrete reliability/security source issue outside the corrected VPN client shared-xl2tpd path. Keep `backup/pre-plugin-overhaul-2026-11-14` frozen; use complete-tree commits and expected-SHA non-forced updates on `main`.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
