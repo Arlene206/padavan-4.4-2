@@ -596,17 +596,25 @@ failed:
 }
 
 static int
-clear_share_var_files(const char *mount_path)
+remove_stale_share_var_files(const char *mount_path,
+                             int acc_num, char *const *account_list)
 {
 	DIR *dir;
 	struct dirent *entry;
 	char account[32 + 1], *path;
-	int read_status, read_error, managed, saved_errno;
+	int read_status, read_error, stale, saved_errno, i;
 	size_t mount_len, name_len, account_len, path_len;
 
-	if (!mount_path || !*mount_path) {
+	if (!mount_path || !*mount_path || acc_num < 0 ||
+	    acc_num > MAX_ACCOUNT_NUM || (acc_num > 0 && !account_list)) {
 		errno = EINVAL;
 		return -1;
+	}
+	for (i = 0; i < acc_num; ++i) {
+		if (!account_list[i] || !is_valid_account_name(account_list[i])) {
+			errno = EINVAL;
+			return -1;
+		}
 	}
 
 	dir = opendir(mount_path);
@@ -625,20 +633,28 @@ clear_share_var_files(const char *mount_path)
 		}
 
 		name_len = strlen(entry->d_name);
-		managed = 0;
-		if (strcmp(entry->d_name, ".__folder_list.txt") == 0) {
-			managed = 1;
-		} else if (name_len > 3 + 8 &&
-			   strncmp(entry->d_name, ".__", 3) == 0 &&
-			   strcmp(entry->d_name + name_len - 8, "_var.txt") == 0) {
-			account_len = name_len - 3 - 8;
-			if (account_len > 0 && account_len <= 31) {
-				memcpy(account, entry->d_name + 3, account_len);
-				account[account_len] = '\0';
-				managed = is_valid_account_name(account);
+		if (name_len <= 3 + 8 ||
+		    strncmp(entry->d_name, ".__", 3) != 0 ||
+		    strcmp(entry->d_name + name_len - 8, "_var.txt") != 0)
+			continue;
+
+		account_len = name_len - 3 - 8;
+		if (account_len == 0 || account_len > 31)
+			continue;
+		memcpy(account, entry->d_name + 3, account_len);
+		account[account_len] = '\0';
+		if (!is_valid_account_name(account) ||
+		    strcmp(account, FTP_ANONYMOUS_USER) == 0)
+			continue;
+
+		stale = 1;
+		for (i = 0; i < acc_num; ++i) {
+			if (strcmp(account_list[i], account) == 0) {
+				stale = 0;
+				break;
 			}
 		}
-		if (!managed)
+		if (!stale)
 			continue;
 
 		if (mount_len > (size_t)-1 - name_len - 2) {
@@ -674,7 +690,6 @@ failed:
 	errno = saved_errno;
 	return -1;
 }
-
 static int
 disk_share_account_metadata_write(
 	const char *const account, const char *const mount_path,
@@ -773,9 +788,10 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 	}
 
 	/*
-	 * Read and preflight the complete identity set before deleting anything.
-	 * Then hold the same writer lease as account and folder mutations until
-	 * every metadata file and the folder-list snapshot has been rebuilt.
+	 * Read and preflight the complete identity set before changing any file.
+	 * Rebuild active metadata atomically first, then prune orphaned account
+	 * files only after every active file and the folder-list snapshot succeed.
+	 * A failed rebuild therefore never starts by deleting working ACLs.
 	 */
 	if (get_account_list(&acc_num, &account_list) != 0) {
 		first_error = errno ? errno : EIO;
@@ -806,12 +822,6 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 		goto finished;
 	}
 
-	/* Delete managed files without interpolating the mount path into a shell. */
-	if (clear_share_var_files(mount_path) != 0) {
-		first_error = errno ? errno : EIO;
-		goto finished;
-	}
-
 	/* Initialize anonymous defaults before account-specific permissions. */
 	if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,
 	                                       mount_path) != 0) {
@@ -828,7 +838,16 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 	}
 
 	/* Publish the folder-list snapshot only after all account files exist. */
-	if (initial_folder_list_in_mount_path(mount_path) != 0)
+	if (initial_folder_list_in_mount_path(mount_path) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+
+	/*
+	 * All active files are now durable. Remove only valid, unreferenced user
+	 * files; never delete the just-rebuilt active or anonymous ACLs.
+	 */
+	if (remove_stale_share_var_files(mount_path, acc_num, account_list) != 0)
 		first_error = errno ? errno : EIO;
 
 finished:

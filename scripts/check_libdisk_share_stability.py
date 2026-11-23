@@ -247,11 +247,11 @@ initial_all = function_body(
     DISK_SOURCE,
     "int initial_all_var_file_in_mount_path(const char *const mount_path)"
 )
-require("if (clear_share_var_files(mount_path) != 0)" in initial_all and
-        "if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER," in initial_all and
+require("if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER," in initial_all and
         "if (initial_one_var_file_in_mount_path_locked(account_list[i]," in initial_all and
-        "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all,
-        "full share metadata initialization must propagate every stage failure")
+        "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all and
+        "if (remove_stale_share_var_files(mount_path, acc_num, account_list) != 0)" in initial_all,
+        "full share metadata initialization must rebuild active ACLs before pruning stale files and propagate every stage failure")
 initial_all = function_body(
     DISK_SOURCE, "int initial_all_var_file_in_mount_path(const char *const mount_path)"
 )
@@ -263,17 +263,28 @@ initial_all_validate = initial_all_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     initial_all_begin
 )
-initial_all_clear = initial_all_compact.index("clear_share_var_files(mount_path)", initial_all_validate)
-initial_all_anon = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)", initial_all_clear)
+initial_all_anon = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)", initial_all_validate)
 initial_all_accounts = initial_all_compact.index("initial_one_var_file_in_mount_path_locked(account_list[i],mount_path)", initial_all_anon)
 initial_all_snapshot = initial_all_compact.index("initial_folder_list_in_mount_path(mount_path)", initial_all_accounts)
-initial_all_end = initial_all_compact.index("disk_share_account_nvram_end(&transaction)", initial_all_snapshot)
+initial_all_prune = initial_all_compact.index("remove_stale_share_var_files(mount_path,acc_num,account_list)", initial_all_snapshot)
+initial_all_end = initial_all_compact.index("disk_share_account_nvram_end(&transaction)", initial_all_prune)
 require(initial_all_inventory < initial_all_preflight < initial_all_begin <
-        initial_all_validate < initial_all_clear < initial_all_anon <
-        initial_all_accounts < initial_all_snapshot < initial_all_end and
+        initial_all_validate < initial_all_anon < initial_all_accounts <
+        initial_all_snapshot < initial_all_prune < initial_all_end and
+        "clear_share_var_files(" not in initial_all_compact and
         "get_account_list(" not in initial_all_compact[initial_all_begin:] and
         "first_error=errno?errno:EIO;" in initial_all_compact,
-        "full metadata rebuild must preflight one account snapshot, revalidate it under the shared writer lease, and hold the lease through destructive cleanup and all file recreation")
+        "full metadata rebuild must preflight one account snapshot, rebuild each active file first, and prune only stale files after the folder-list snapshot succeeds")
+
+stale_pruner = function_body(
+    DISK_SOURCE, "static int\\nremove_stale_share_var_files("
+)
+stale_pruner_compact = "".join(stale_pruner.split())
+require("strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
+        "strcmp(account_list[i],account)==0" in stale_pruner_compact and
+        "unlink(path)" in stale_pruner_compact and
+        'strcmp(entry->d_name,".__folder_list.txt")' not in stale_pruner_compact,
+        "metadata cleanup must preserve anonymous and active accounts, and remove only orphaned account files after rebuild")
 
 create_all = function_body(
     DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
