@@ -32,7 +32,7 @@ This repository is one continuous engineering project across GPT conversations. 
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 - Never force-push, rewrite history, or create feature branches/PRs. Build a complete Git tree for each logical change and update `main` with `force:false` and the freshly read expected SHA.
 
-## Active work
+## Active task
 
 ### Libdisk share-folder integrity
 

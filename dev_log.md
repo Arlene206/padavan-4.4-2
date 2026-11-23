@@ -1,3 +1,13 @@
+## 2026-11-23 12:05 UTC+8 — Restore required handoff section heading after documentation CI failure
+
+- Current parent main SHA: `768fc390acf8ada74c935a9096c67308b15937b0`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact-head watchdog run `45104441871` completed PASS after the C whitespace-normalized source dispatch assertions were introduced. All runtime policy sanitizer tests and source wiring checks passed.
+- The documentation contract run `45104441878` failed because the prior handoff rewrite renamed a required heading from `## Active task` to `## Active work`. The section content is intact; this commit restores the protocol-required heading without changing the active engineering record.
+- XY-C1 run `45104213876`: all host checks PASS, Build XY-C1 still IN_PROGRESS, TRX and artifact upload PENDING. NVRAM audit `45104213886`: all transaction/locking regressions PASS, raw ioctl/kernel caller audit IN_PROGRESS. Process inventory `45104213913` PASS. HTTPD authentication `45104213964` PASS. DNSMasq lifecycle `45104213901` PASS; HTTPD daemon lifecycle `45104213888` PASS.
+- No firmware L3 or hardware L4 claim. dev_log count after this entry must remain below 120.
+
+---
+
 ## 2026-11-23 11:45 UTC+8 — Fix watchdog signal lifecycle source checker whitespace matching
 
 - Exact-head watchdog run `45104213963` on `5892a4229e9683979bc1e97fca71b2e8528d2413` passed GNU89 ASan/UBSan signal deferral, NTP/service lifecycle, and CPU-watchdog postcondition regressions, then failed the final Python source-wiring step with `ValueError: substring not found`.
