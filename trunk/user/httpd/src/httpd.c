@@ -49,6 +49,7 @@
 #include "httpd_basic_auth.h"
 #include "httpd_login_policy.h"
 #include "httpd_auth_nvram_policy.h"
+#include "httpd_acl_nvram_policy.h"
 #include "httpd_cgi_method_policy.h"
 #include "httpd_csrf_policy.h"
 
@@ -117,6 +118,7 @@ int http_is_ssl = 0;
 static int daemon_exit = 0;
 static int http_has_lang = 0;
 static int http_acl_mode = 0;
+static int http_acl_config_valid = 0;
 static int login_safe = 0;		// the login from LAN/VPN
 static time_t login_timestamp = 0;	// the timestamp of the initial login
 static unsigned long login_last_activity = 0;	// idle-timeout activity timestamp
@@ -323,10 +325,13 @@ is_http_client_allowed(const usockaddr *usa)
 	int mac_in_sta_list, is_lan_client = 0;
 	unsigned char mac[8] = {0};
 
+	usockaddr_to_uaddr(usa, &uip);
+	if (!httpd_acl_client_allowed(http_acl_config_valid,
+				      is_uaddr_localhost(&uip)))
+		return 0;
+
 	if (http_acl_mode < 1)
 		return 1;
-
-	usockaddr_to_uaddr(usa, &uip);
 
 	/* 1. get MAC from IP (allow if failed) */
 	if (find_mac_from_ip(&uip, mac, &is_lan_client) < 0)
@@ -557,10 +562,30 @@ load_nvram_auth(void)
 }
 
 static void
+httpd_load_acl_mode(void)
+{
+	char *value = NULL;
+	int read_result, saved_errno, status;
+
+	errno = 0;
+	read_result = nvram_get_checked("http_access", &value);
+	saved_errno = errno;
+	status = httpd_acl_nvram_mode_status(read_result, saved_errno,
+					     value, &http_acl_mode,
+					     &http_acl_config_valid);
+	if (status != 0) {
+		logmessage(SYSLOG_ID_HTTPD,
+			   "HTTP access ACL setting unavailable; rejecting remote connections (status=%d)",
+			   status);
+		return;
+	}
+}
+
+static void
 reset_login_data(void)
 {
-	// load new acl mode
-	http_acl_mode = nvram_get_int("http_access");
+	/* Refresh ACL mode without converting an NVRAM read error into mode 0. */
+	httpd_load_acl_mode();
 	http_has_lang = (strlen(nvram_safe_get("preferred_lang")) > 1) ? 1 : 0;
 
 	memset(&login_ip, 0, sizeof(uaddr));
