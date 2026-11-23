@@ -11,4 +11,13 @@ samba_fastpath_should_enable(int configured,
 	return configured == 1 && smbd_presence == PROCESS_PRESENCE_RUNNING;
 }
 
+/* A daemon stop is not complete while stale SMB acceleration remains set. */
+static inline int
+samba_fastpath_stop_result(int daemon_stop_status, int fastpath_write_status)
+{
+	if (daemon_stop_status != 0)
+		return daemon_stop_status;
+	return fastpath_write_status == 0 ? 0 : -1;
+}
+
 #endif /* PADAVAN_SAMBA_FASTPATH_POLICY_H */

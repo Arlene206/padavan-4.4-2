@@ -1439,7 +1439,7 @@ stop_samba_locked(int force_stop)
 	 "nmbd", NULL };
 
 	const int nmbdidx = sizeof(svcs) / sizeof(svcs[0]) - 2;
-	int stop_status, wins_enabled = 0;
+	int stop_status, stop_errno, fastpath_status, wins_enabled = 0;
 
 	if (!force_stop) {
 		if (samba_read_boolean_status("wins_enable", 0,
@@ -1457,9 +1457,17 @@ stop_samba_locked(int force_stop)
 	}
 
 	stop_status = kill_services(svcs, 5, 1);
-	fput_int("/proc/net/netfilter/nf_fp_smb", 0);
+	stop_errno = errno;
+	fastpath_status = fput_int("/proc/net/netfilter/nf_fp_smb", 0);
+
+	if (fastpath_status != 0)
+		logmessage("Samba Server",
+			   "failed to clear SMB fastpath state during stop (status=%d)",
+			   fastpath_status);
 
 	if (stop_status != 0) {
+		if (stop_errno != 0)
+			errno = stop_errno;
 		logmessage("Samba Server", "one or more requested Samba daemons did not stop");
 		return stop_status;
 	}
@@ -1472,12 +1480,17 @@ stop_samba_locked(int force_stop)
 		return -1;
 #endif
 	if (!svcs[nmbdidx])
-		return 0;
+		goto fastpath_result;
 	if (samba_require_daemon_absent("nmbd", "after stop") != 0)
 		return -1;
 
 	clean_smbd_trash();
-	return 0;
+
+fastpath_result:
+	stop_status = samba_fastpath_stop_result(stop_status, fastpath_status);
+	if (fastpath_status != 0)
+		errno = fastpath_status > 0 ? fastpath_status : EIO;
+	return stop_status;
 }
 
 int
