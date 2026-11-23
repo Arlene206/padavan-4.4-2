@@ -13,6 +13,7 @@
 - `601ad73cb90227d01497a1a4f28a967de8c17a6a`: RStats selector uses checked NVRAM read and copies the cache-backed value before later operations. Exact RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS. Its AI-doc failure was corrected by `3760b93`, exact AI docs #45236207680 PASS; XY-C1 #45234873441 was pending.
 - `5a43b18722b9d2f3f864ef6bd1025084ff1edb85`: missing-DNS-proxy-executable regression; exact Shadowsocks #45235046114 and Process #45235046275 PASS. Its AI-doc failure was likewise corrected by `3760b93`; exact AI docs #45236207680 PASS.
 
+- Exact-source commit `eef441729725ff6b06c45a95b7c8414ab16d2f72` added bounded parsing to both `lld2d` and optional `lld2test`, including strict numeric parsing, ASan/UBSan cases, a dedicated workflow and XY-C1 path trigger. Its LLDT #45237411685 and Process #45237411877 failed only because seven fixture character literals were emitted as multi-character `'\\\\0'` instead of NUL `'\\0'`; follow-up corrects them and requires fresh exact-SHA verification. AI docs #45237411785 PASS. XY-C1 #45237411963 and NVRAM audit #45237411699 were still in progress at last poll.
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -36,10 +37,10 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect exact-head LLDT config parser, AI handoff, Process inventory and XY-C1 Actions for the current source SHA. Verify GNU89/Werror/ASan/UBSan parser boundaries, both production and optional utility source contracts, and same-SHA XY-C1 Build/TRX/artifact. Diagnose any FAIL before claiming L2/L3.
-2. RStats source SHA `601ad73`: exact RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS; XY-C1 #45234873441 was pending. AI doc repair on `3760b93`, exact AI #45236207680 PASS.
-3. Missing-executable test `5a43b18`: exact Shadowsocks #45235046114 and Process #45235046275 PASS; handoff validator repaired by `3760b93`, exact AI #45236207680 PASS. `f3acf67` Shadowsocks lifecycle #45234515153, Process #45234515707 and AI docs #45234515042 PASS; XY-C1 #45234516216 pending at last poll.
-4. After LLDT is verified, continue with the next concrete reliability/security issue in the whole-userland roadmap. Work independently while Actions are PENDING; preserve the backup branch and use complete-tree, non-forced expected-SHA commits.
+1. Fetch live `main` and inspect the new LLDT fixture-fix SHA's exact-head LLDT parser, Process inventory, AI docs and XY-C1 runs. Ensure the GNU89/Werror compile succeeds, the parser/path regression passes, the Python source checker passes, and XY-C1 Build/TRX/artifact all pass on the same source SHA.
+2. Known failure on `eef4417`: LLDT #45237411685 and Process #45237411877 both failed on multi-character C char constants in the regression fixture (`'\\\\0'` instead of `'\\0'`). The production source checker did not execute in the dedicated run because compilation failed. Fix is committed separately; require its fresh exact-SHA checks.
+3. At the last poll on `eef4417`, AI docs #45237411785 PASS, Process inventory #45237412141 PASS, while NVRAM audit #45237411699 and XY-C1 #45237411963 remained PENDING. Recheck exact runs individually before relying on them.
+4. After LLDT is closed, continue the next concrete whole-userland reliability/security issue; do independent work while unrelated Actions are PENDING. Preserve the frozen backup and use complete-tree, non-forced expected-SHA commits.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.

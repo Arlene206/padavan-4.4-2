@@ -1,3 +1,10 @@
+## 2026-11-23 — Fix LLDT regression fixture NUL character constants
+
+- Exact LLDT parser run #45237411685 and Process umbrella run #45237411877 failed at the GNU89/Werror compile step. The new C regression fixture emitted the two-character source spelling `'\\0'` (multi-character constant) instead of the single NUL escape `'\0'`; the compiler identified lines 56, 86, 92 and 98. The production parser implementation was not implicated.
+- Corrected all seven affected character literals to standard C NUL character constants. Exact-head LLDT, Process and XY-C1 checks must be rerun before claiming L2 or L3.
+
+---
+
 ## 2026-11-23 — Bound LLDT conformance-tool configuration parsing
 
 - The shipped LLDT daemon's configuration parser had already been bounded, but the optional `lld2test` conformance utility retained an unbounded `sscanf("%s")`, a non-terminated `strncpy` icon path, and overflow-prone `atoi` option parsing.

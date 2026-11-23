@@ -53,7 +53,7 @@ main(void)
     {
         char name[256], value[256], short_name[8], short_value[8];
         char long_key_line[320], long_value_line[320];
-        char embedded_nul[] = { 'i', 'c', 'o', 'n', ' ', '=', ' ', 'x', '\\0', 'y' };
+        char embedded_nul[] = { 'i', 'c', 'o', 'n', ' ', '=', ' ', 'x', '\0', 'y' };
         const char normal[] = "icon = /etc_ro/icon.ico\\n";
         const char spaced[] = "  jumbo-icon = etc/icon.large.ico  \\r\\n";
         const char compact[] = "test=probe\\n";
@@ -83,19 +83,19 @@ main(void)
         errno = 0;
         assert(lldt_config_parse_assignment(embedded_nul, sizeof(embedded_nul),
                                             name, sizeof(name), value, sizeof(value)) == -1);
-        assert(errno == EINVAL && name[0] == '\\0' && value[0] == '\\0');
+        assert(errno == EINVAL && name[0] == '\0' && value[0] == '\0');
         memset(long_key_line, 'k', sizeof(long_key_line));
         memcpy(long_key_line + 299, " = value", 8);
         errno = 0;
         assert(lldt_config_parse_assignment(long_key_line, 307, name, 16,
                                             value, sizeof(value)) == -1);
-        assert(errno == ENAMETOOLONG && name[0] == '\\0' && value[0] == '\\0');
+        assert(errno == ENAMETOOLONG && name[0] == '\0' && value[0] == '\0');
         memset(long_value_line, 'x', sizeof(long_value_line));
         memcpy(long_value_line, "icon = ", 7);
         errno = 0;
         assert(lldt_config_parse_assignment(long_value_line, sizeof(long_value_line),
                                             name, sizeof(name), value, 16) == -1);
-        assert(errno == ENAMETOOLONG && name[0] == '\\0' && value[0] == '\\0');
+        assert(errno == ENAMETOOLONG && name[0] == '\0' && value[0] == '\0');
         assert(lldt_config_parse_assignment(short_line, sizeof(short_line) - 1,
                                             short_name, sizeof(short_name),
                                             short_value, sizeof(short_value)) == 1);
