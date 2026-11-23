@@ -1390,6 +1390,10 @@ reload_nat_modules(void)
 		{ "nf_conntrack_ftp", NULL, 0 },
 		{ "nf_nat_ftp", NULL, 0 }
 	};
+#if defined (USE_HW_NAT) || defined (USE_SFE)
+	int hwnat_settings_status;
+	struct rc_nat_offload_settings nat_offload_settings;
+#endif
 #if defined (USE_HW_NAT)
 	char hnat_param[80];
 	int hwnat_wan_vid = -1;
@@ -1397,8 +1401,6 @@ reload_nat_modules(void)
 	int hw_nat_mode;
 	int hwnat_loaded = 0;
 	int ipv6_nat;
-	int hwnat_settings_status;
-	struct rc_nat_offload_settings nat_offload_settings;
 #endif
 #if defined (USE_SFE)
 	int sfe_enable;

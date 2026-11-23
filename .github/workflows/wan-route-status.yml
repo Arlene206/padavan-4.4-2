@@ -1,3 +1,6 @@
+name: WAN route operation status regression
+
+on:
   push:
     paths:
       - ".github/workflows/wan-route-status.yml"
