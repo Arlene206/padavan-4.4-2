@@ -739,13 +739,13 @@ xupnpd_confirm_started(int launch_status)
 int
 start_xupnpd(char *wan_ifname)
 {
-	int i, xport, has_daemon, launch_status;
+	int i, xport = 0, xport_status, has_daemon, launch_status;
 	int config_status, saved_errno, sync_status, config_fd, scan_error;
 	int launch_errno;
 	enum process_presence process_state;
 	int copy_storage, directory_status, copy_status;
 	FILE *fp1, *fp2;
-	char tmp1[128], tmp2[128], line[256], lan_addr[16];
+	char tmp1[128], tmp2[128], line[256], lan_addr[16], xport_text[16];
 	char *dir_src = "/etc_ro/xupnpd";
 	char *dir_dst = "/etc/storage/xupnpd";
 	char *xdir1[] = { "config", "playlists", NULL };
@@ -754,6 +754,30 @@ start_xupnpd(char *wan_ifname)
 
 	if (!is_xupnpd_support())
 		return 0;
+
+	/* A missing/empty enable port remains the legacy disabled value (0). */
+	xport_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+					       "xupnpd_enable_x", xport_text,
+					       sizeof(xport_text));
+	if (xport_status == 0)
+		xport_status = rc_wan_nvram_parse_int_value(xport_text, &xport);
+	if (xport_status != 0) {
+		errno = xport_status;
+		logmessage(LOGNAME,
+			   "cannot read xupnpd enable-port selector (status=%d)",
+			   xport_status);
+		return xport_status;
+	}
+	if (xport < 1024)
+		return 0;
+	if (xport > 65535) {
+		errno = EINVAL;
+		logmessage(LOGNAME,
+			   "refusing xupnpd startup: configured port is out of range (%d)",
+			   xport);
+		return EINVAL;
+	}
+
 	if (!xupnpd_config_valid_interface(wan_ifname))
 		return EINVAL;
 
@@ -768,12 +792,6 @@ start_xupnpd(char *wan_ifname)
 		return config_status;
 	}
 	if (!xupnpd_config_valid_ipv4(lan_addr))
-		return EINVAL;
-
-	xport = nvram_get_int("xupnpd_enable_x");
-	if (xport < 1024)
-		return 0;
-	if (xport > 65535)
 		return EINVAL;
 
 	/* A complete procfs inventory is required before touching the live PID

@@ -453,7 +453,17 @@ for signature, confirm_name, process_name in (
 
 xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n#endif", 1)[0]
 assert "if (!is_xupnpd_support())" in xupnpd_start
-assert "if (xport < 1024)" in xupnpd_start
+assert "rc_wan_nvram_copy_value(net_nvram_get_checked, NULL," in xupnpd_start
+assert '"xupnpd_enable_x"' in xupnpd_start
+assert "rc_wan_nvram_parse_int_value(xport_text, &xport)" in xupnpd_start
+assert 'nvram_get_int("xupnpd_enable_x")' not in xupnpd_start
+checked_xupnpd_port = xupnpd_start.index('"xupnpd_enable_x"')
+xupnpd_disabled_gate = xupnpd_start.index("if (xport < 1024)")
+xupnpd_lan_snapshot = xupnpd_start.index('"lan_ipaddr_t"')
+xupnpd_preflight = xupnpd_start.index("xupnpd_process_presence(NULL, &scan_error)")
+assert checked_xupnpd_port < xupnpd_disabled_gate < xupnpd_lan_snapshot < xupnpd_preflight
+assert "cannot read xupnpd enable-port selector" in xupnpd_start
+assert "if (xport > 65535)" in xupnpd_start
 assert 'launch_status = eval("/usr/bin/xupnpd");' in xupnpd_start
 assert 'launch_status = system("/usr/bin/xupnpd &");' in xupnpd_start
 assert "launch_status = xupnpd_confirm_started(launch_status);" in xupnpd_start

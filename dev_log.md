@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Check XUPNPD enable-port reads before service preparation
+
+- `start_xupnpd()` used `nvram_get_int("xupnpd_enable_x")`, so an NVRAM device read failure collapsed to port 0 and was treated as a disabled service. It also loaded and validated the AP LAN address before checking the enable port, even when the service was disabled.
+- It now uses the checked NVRAM copy and strict integer parser first, preserves missing/empty as the legacy disabled zero, rejects backend/malformed values and out-of-range enabled ports, then performs interface/LAN/procfs/storage preflight only for an enabled service.
+- The Process integration checker pins checked read → disabled/range gate → LAN snapshot → process preflight. Reuses the existing checked-copy/parser regressions. Exact-head Process/XY-C1 checks pending.
+---
+
 ## 2026-11-23 UTC — Fail closed on IPTV proxy port-selector reads
 
 - `start_udpxy()` used `nvram_get_int("udpxy_enable_x")` and returned success for values below 1024. That API collapses an NVRAM backend read failure into the integer default, so a failed read was silently misreported as an intentionally disabled IPTV relay; malformed values also passed through prefix/overflow-prone conversion.
