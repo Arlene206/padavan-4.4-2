@@ -1,3 +1,13 @@
+## 2026-11-23 12:02 UTC+8 — Fail closed if PID 1 cannot restore delayed signal mask; correct CI status attribution
+
+- Source review found that check_delayed_sigs() requeued a snapshot when sigprocmask(SIG_SETMASK, &old_set, NULL) failed, but then returned to the main loop. The delayed signal set may still be blocked, leaving PID 1 deaf to reboot/shutdown requests. The failure branch now requeues the captured events and calls the existing NORETURN pause_and_low_level_reboot(RB_HALT_SYSTEM) rather than continue.
+- Extended scripts/check_busybox_init_reap_queue.py to require the mask-restore failure branch to retain the pending events and invoke the fatal halt path, and to require the NORETURN declaration. The focused BusyBox source-contract workflow will exercise it on this commit.
+- Corrected an earlier CI attribution error in SESSION_HANDOFF.md and REFACTOR_ROADMAP.md: exact XY run 45108415640 on 9de was still IN_PROGRESS at its last matching job lookup (job 137476531958 was at Build XY-C1); it was not confirmed failed. The curl error 56 log came from another unmatched job and should not be attributed to that run.
+- Exact ca609 run 45109162782: detector, new atomic queue-header regression and production-input detection PASS; Build XY-C1 IN_PROGRESS, TRX/artifact PENDING at the last poll. Exact AI docs 45109162785 and Process inventory 45109162805 PASS. No L3 claim for delayed-signal source.
+- The queue-header helper remains a defensive retry/atomic-publication improvement. Its regression PASS on the exact ca609 workflow; this change is not represented as a repair for a proven 9de failure.
+- Resulting commit: THIS COMMIT.
+---
+
 ## 2026-11-23 11:53 UTC+8 — Make XY-C1 sys/queue.h fetch retryable and atomic
 
 - Exact XY-C1 run 45108415640 on main SHA 9de5f37d550244590158b302b6ac9935bff765b3 failed before firmware source compilation: the root Makefile sys/queue.h curl returned error 56, "Recv failure: Connection reset by peer", and Makefile exited from prepare-headers. Toolchain download succeeded; this is a transient prerequisite transport failure, not a compiler diagnosis.

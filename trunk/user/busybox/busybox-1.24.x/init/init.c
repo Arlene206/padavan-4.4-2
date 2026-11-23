@@ -1154,7 +1154,12 @@ static int check_delayed_sigs(void)
 								  shutdown_signal);
 			message(L_LOG, "cannot restore delayed init signal mask: %s",
 				strerror(error));
-			return sigs_seen;
+			/*
+			 * The delayed signal set may still be blocked. Continuing the
+			 * main loop could leave PID 1 unable to receive shutdown requests.
+			 */
+			pause_and_low_level_reboot(RB_HALT_SYSTEM);
+			/* not reached */
 		}
 		if (events < 0) {
 			message(L_LOG, "invalid delayed init signal state");
