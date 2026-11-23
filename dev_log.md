@@ -1,3 +1,8 @@
+## 2026-11-23 — Normalize invalid process-inventory error values
+
+- Tightened the shared process-presence start policy: an UNKNOWN scan now maps zero or negative/non-errno error values to `EIO`, preserving only positive errno values. This prevents a negative internal result from escaping as a negative startup status or being confused with a launcher convention.
+- Added a GNU89 regression for negative inventory status and a source-contract assertion. Exact-SHA Process, Storage and XY-C1 Actions are tracked on the successor commit.
+
 ## 2026-11-23 — Make USB printer daemon launch idempotent across hotplug retries
 
 - Fixed a retry-path duplication defect in U2EC/LPRng startup. A previous launch can leave the daemon running even when the subsequent NVRAM/hotplug acknowledgement fails; the retry path previously unlinked that live daemon's PID file and forked another instance.

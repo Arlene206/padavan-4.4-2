@@ -23,6 +23,9 @@ test_start_status_preserves_launch_and_inventory_failures(void)
 		PROCESS_PRESENCE_START_ABORT, ENOMEM, 0) == ENOMEM);
 	assert(process_presence_start_status_for_action(
 		PROCESS_PRESENCE_START_ABORT, 0, 0) == EIO);
+	/* A negative backend result is not a valid errno; normalize it to EIO. */
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_ABORT, -1, 0) == EIO);
 	assert(process_presence_start_status_for_action(
 		(enum process_presence_start_action)7, 0, 0) == EIO);
 }

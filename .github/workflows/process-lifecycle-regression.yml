@@ -1770,6 +1770,7 @@ jobs:
 
           assert "detached_daemon_start_postcondition_with_ops" in policy
           assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
+          assert "inventory_error > 0 ? inventory_error : EIO" in presence_policy
           assert "process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1" in presence_policy
           for case in ("test_running_process_is_required_after_launcher",
                        "test_delayed_daemon_appearance_is_accepted",

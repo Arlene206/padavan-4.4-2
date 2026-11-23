@@ -35,7 +35,7 @@ process_presence_start_status_for_action(
 	case PROCESS_PRESENCE_START_NOTIFY:
 		return 0;
 	case PROCESS_PRESENCE_START_ABORT:
-		return inventory_error ? inventory_error : EIO;
+		return inventory_error > 0 ? inventory_error : EIO;
 	default:
 		return EIO;
 	}
