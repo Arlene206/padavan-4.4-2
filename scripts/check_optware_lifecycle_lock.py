@@ -13,6 +13,8 @@ STOP_TEST = ROOT / "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
 START_CALLER = ROOT / "trunk/user/optware/opt-start.sh"
 MOUNT_CALLER = ROOT / "trunk/user/optware/opt-mount.sh"
 STOP_CALLER = ROOT / "trunk/user/optware/opt-umount.sh"
+PROCESS_LIB = ROOT / "trunk/user/shared/scripts/process_lifecycle.sh"
+PROCESS_TEST = ROOT / "trunk/user/shared/tests/process_lifecycle.sh"
 WORKFLOW = ROOT / ".github/workflows/process-lifecycle-regression.yml"
 
 
@@ -30,6 +32,8 @@ stop_test = STOP_TEST.read_text()
 start_caller = START_CALLER.read_text()
 mount_caller = MOUNT_CALLER.read_text()
 stop_caller = STOP_CALLER.read_text()
+process_lib = PROCESS_LIB.read_text()
+process_test = PROCESS_TEST.read_text()
 workflow = WORKFLOW.read_text()
 
 start = helper.index("_optware_lifecycle_lock_open()")
@@ -118,3 +122,43 @@ require("sh trunk/user/scripts/tests/optware_lifecycle_lock.sh" in workflow and
         "Process workflow must run all three Optware lifecycle regressions")
 
 print("Optware pre-provisioned private lifecycle lock source contract: PASS")
+
+require('. /usr/lib/process_lifecycle.sh || {' in stop_caller,
+        "Optware teardown must load the shared process inventory")
+for token in (
+    "pl_process_pattern_state()",
+    'pgrep -f "$pl_pattern"',
+    "pl_pattern_status",
+):
+    require(token in process_lib, "missing full-command-line inventory primitive: " + token)
+for token in (
+    "/usr/bin/ipkg[.]sh",
+    "/usr/bin/opkg[.]sh",
+    "/usr/bin/opt-ipkg-upd[.]sh",
+    "/usr/bin/opt-opkg-upd[.]sh",
+    'pl_stop_named "$package_binary" 5 2',
+):
+    require(token in stop_caller, "Optware teardown misses a package client: " + token)
+package_check = stop_caller.index("if ! optware_lifecycle_check_package_clients; then")
+service_stop = stop_caller.index("optware_lifecycle_stop_services /opt/etc/init.d")
+swap_stop = stop_caller.index("optware_lifecycle_swapoff_file /opt/.swap")
+unmount = stop_caller.index("optware_lifecycle_umount_opt")
+require(package_check < service_stop < swap_stop < unmount,
+        "package clients must be checked before service, swap and /opt teardown")
+require("killall -q ipkg" not in stop_caller and "killall -q opkg" not in stop_caller,
+        "do not use killall executable names for shell-script package managers")
+for token in (
+    'expect_pattern_state "$PL_TEST_PATTERN" 0',
+    'expect_pattern_state "$PL_TEST_PATTERN" 1',
+    'expect_pattern_state "$PL_TEST_PATTERN" 2',
+    'echo malformed > "$PL_PATTERN_STATE_FILE"',
+    'echo pid1 > "$PL_PATTERN_STATE_FILE"',
+):
+    require(token in process_test, "missing pgrep inventory regression: " + token)
+for path in (
+    "trunk/user/optware/opt-umount.sh",
+    "trunk/user/shared/scripts/process_lifecycle.sh",
+    "trunk/user/shared/tests/process_lifecycle.sh",
+):
+    require(workflow.count('      - "' + path + '"') == 2,
+            "both Process workflow events must watch " + path)

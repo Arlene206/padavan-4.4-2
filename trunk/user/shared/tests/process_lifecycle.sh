@@ -28,6 +28,20 @@ printf '%s:%s\n' "$mode" "$*" >> "$PL_TEST_EVENTS"
 if [ "$mode" = TERM ]; then echo "$PL_TERM_STATE" > "$PL_TEST_STATE"; exit "$PL_TERM_STATUS"; fi
 echo "$PL_KILL_STATE" > "$PL_TEST_STATE"; exit "$PL_KILL_STATUS"
 STUB
+cat > "$tmp/bin/pgrep" <<'STUB'
+#!/bin/sh
+[ "$1" = "-f" ] && [ "$2" = "$PL_TEST_PATTERN" ] || exit 2
+case "$(cat "$PL_PATTERN_STATE_FILE")" in
+    running) printf '%s\n' 456; exit 0 ;;
+    multiple) printf '%s\n' 456 457; exit 0 ;;
+    absent) exit 1 ;;
+    unknown) exit 2 ;;
+    empty-success) exit 0 ;;
+    malformed) printf '%s\n' '456 nope'; exit 0 ;;
+    pid1) printf '%s\n' 1; exit 0 ;;
+    *) exit 2 ;;
+esac
+STUB
 cat > "$tmp/bin/sleep" <<'STUB'
 #!/bin/sh
 echo sleep >> "$PL_TEST_EVENTS"
@@ -45,6 +59,10 @@ STUB
 chmod 755 "$tmp/bin/"*
 PATH="$tmp/bin:$PATH"
 PL_TEST_STATE="$state_file"; PL_TEST_EVENTS="$events_file"
+PL_PATTERN_STATE_FILE="$tmp/pattern-state"
+PL_TEST_PATTERN='(^|[[:space:]])/usr/bin/ipkg[.]sh([[:space:]]|$)'
+echo absent > "$PL_PATTERN_STATE_FILE"
+export PL_PATTERN_STATE_FILE PL_TEST_PATTERN
 PL_TEST_SLEEP_COUNT="$tmp/sleep-count"; PL_TEST_SLEEP_AFTER=0; PL_TEST_SLEEP_STATE=running
 PL_TERM_STATE=absent; PL_KILL_STATE=absent
 PL_TERM_STATUS=0; PL_KILL_STATUS=0; PL_SLEEP_STATUS=0
@@ -154,4 +172,29 @@ echo running > "$state_file"; : > "$events_file"; PL_TERM_STATE=running; PL_KILL
 if pl_stop_named test-daemon 1 1; then fail "stubborn daemon accepted"; else status=$?; fi
 [ "$status" -eq 1 ] || fail "stubborn stop returned $status"
 [ "$(count_event 'KILL:-q -9 test-daemon')" -eq 1 ] || fail "stubborn process not escalated"
+
+# Full-command-line lookup must distinguish running scripts from verified absence.
+expect_pattern_state()
+{
+    pattern_expected="$2"
+    if pl_process_pattern_state "$1"; then pattern_actual=0; else pattern_actual=$?; fi
+    [ "$pattern_actual" -eq "$pattern_expected" ] ||
+        fail "pgrep pattern state returned $pattern_actual, expected $pattern_expected"
+}
+
+echo running > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 0
+echo multiple > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 0
+echo absent > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 1
+echo unknown > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 2
+echo empty-success > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 2
+echo malformed > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 2
+echo pid1 > "$PL_PATTERN_STATE_FILE"
+expect_pattern_state "$PL_TEST_PATTERN" 2
+expect_pattern_state "" 2
 echo "shared process lifecycle regression: PASS"

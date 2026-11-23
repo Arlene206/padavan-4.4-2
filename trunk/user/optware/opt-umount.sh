@@ -35,12 +35,49 @@ fi
 
 logger -t "${self_name}" "started [$@]"
 
-# try to kill ipkg/opkg (may be running)
-killall -q ipkg
-killall -q opkg
+# Package managers are shell scripts, so their process comm is "sh";
+# killall ipkg/opkg does not reliably find these command lines. Refuse to
+# detach /opt while a script/update client is active or its inventory unknown.
+. /usr/lib/process_lifecycle.sh || {
+	logger -t "$self_name" "cannot load shared process lifecycle checks; refusing unmount"
+	optware_lifecycle_lock_release
+	exit 1
+}
 
-# try to kill mc (may be running)
-killall -q mc
+optware_lifecycle_check_package_clients()
+{
+	for package_pattern in \
+		'(^|[[:space:]])/usr/bin/ipkg[.]sh([[:space:]]|$)' \
+		'(^|[[:space:]])/usr/bin/opkg[.]sh([[:space:]]|$)' \
+		'(^|[[:space:]])/usr/bin/opt-ipkg-upd[.]sh([[:space:]]|$)' \
+		'(^|[[:space:]])/usr/bin/opt-opkg-upd[.]sh([[:space:]]|$)'; do
+		if pl_process_pattern_state "$package_pattern"; then
+			logger -t "$self_name" "package manager is still active; refusing unmount: $package_pattern"
+			return 1
+		else
+			package_pattern_status=$?
+			if [ "$package_pattern_status" -ne 1 ]; then
+				logger -t "$self_name" "cannot verify package manager state; refusing unmount: $package_pattern"
+				return 1
+			fi
+		fi
+	done
+
+	# The script wrappers must be absent before stopping any remaining binaries.
+	for package_binary in ipkg opkg mc; do
+		if ! pl_stop_named "$package_binary" 5 2; then
+			logger -t "$self_name" "package client did not stop cleanly: $package_binary"
+			return 1
+		fi
+	done
+	return 0
+}
+
+if ! optware_lifecycle_check_package_clients; then
+	logger -t "$self_name" "package clients are active or process inventory is unknown; refusing /opt teardown"
+	optware_lifecycle_lock_release
+	exit 1
+fi
 
 # Stop every service even if one fails, but do not detach /opt unless all
 # service stop hooks succeeded. The storage caller will retain the mount and

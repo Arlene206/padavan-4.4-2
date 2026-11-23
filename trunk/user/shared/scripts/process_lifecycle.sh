@@ -117,3 +117,37 @@ pl_stop_named()
     if pl_wait_stopped "$pl_stop_name" "$pl_kill_wait"; then return 0; else pl_wait_status=$?; fi
     case "$pl_wait_status" in 1) return 1 ;; *) return 2 ;; esac
 }
+
+
+# pl_process_pattern_state ERE: 0=RUNNING, 1=confirmed ABSENT, 2=UNKNOWN.
+# Use pgrep -f for shell-script clients whose process comm is only "sh".
+pl_process_pattern_state()
+{
+    pl_pattern="$1"
+    [ -n "$pl_pattern" ] || return 2
+    command -v pgrep >/dev/null 2>&1 || return 2
+
+    if pl_pattern_pids=$(pgrep -f "$pl_pattern" 2>/dev/null); then
+        [ -n "$pl_pattern_pids" ] || return 2
+        printf '%s\n' "$pl_pattern_pids" |
+            awk -v self_pid="$$" '
+                {
+                    for (i = 1; i <= NF; i++) {
+                        if ($i !~ /^[1-9][0-9]*$/ || $i == 1 || $i == self_pid)
+                            invalid = 1
+                        count++
+                    }
+                }
+                END {
+                    if (invalid || count == 0)
+                        exit 1
+                    exit 0
+                }
+            ' >/dev/null 2>&1 || return 2
+        return 0
+    else
+        pl_pattern_status=$?
+        [ "$pl_pattern_status" -eq 1 ] && [ -z "$pl_pattern_pids" ] || return 2
+        return 1
+    fi
+}
