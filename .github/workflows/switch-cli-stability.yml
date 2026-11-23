@@ -1133,6 +1133,22 @@ jobs:
           print("RAETH GE TX-offset routine checks all MDIO samples and always clears analog/force state: PASS")
           PY
 
+      - name: Validate GE analog wait context is complete before callback use
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          declaration = source.index("struct ra_switch_ge_cal_wait_context {")
+          delay = source.index("static void ra_switch_ge_cal_wait_delay(")
+          wait = source.index("static int all_ge_ana_cal_wait_checked(")
+          assert declaration < delay < wait
+          block = source[declaration:delay]
+          assert "unsigned int delay;" in block
+          assert "struct ra_switch_ge_cal_wait_context *wait = context;" in source[delay:wait]
+          print("GE analog wait callback context is fully defined before use: PASS")
+          PY
+
       - name: Validate EPHY batch initialization propagates analog failures
         run: |
           python3 - <<'PY'

@@ -2330,6 +2330,10 @@ void do_fe_phy_all_analog_cal(u8 port_num)
 			__func__, port_num, status);
 }
 
+struct ra_switch_ge_cal_wait_context {
+	unsigned int delay;
+};
+
 static int ra_switch_ge_cal_wait_read(void *context, unsigned int port,
 				      unsigned int reg, unsigned int *value)
 {
