@@ -28,7 +28,7 @@ assert 'nvram_get_checked("console_loglevel",&console_loglevel_text)' in compact
 assert "rc_console_loglevel_parse_status(" in compact
 assert compact.index("if(console_loglevel_status!=0)") < compact.index("klogctl(8,NULL,console_loglevel)")
 assert "retaining kernel default" in restore
-assert "if (klogctl(8,NULL,console_loglevel) < 0)" in compact
+assert "if(klogctl(8,NULL,console_loglevel)<0)" in compact
 assert 'nvram_get_int("console_loglevel")' not in restore
 
 for marker in (
