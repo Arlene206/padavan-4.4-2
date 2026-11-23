@@ -501,6 +501,7 @@ require("test_first_failure_survives_later_restore_and_unlock_errors" in restart
 # Every RC path that starts/stops the shared PPP/L2TP transport must
 # participate in the same lifecycle barrier as server callbacks.
 safe_start=body(net_ppp,"safe_start_xl2tpd(void)")
+safe_start_locked = body(net_ppp, "safe_start_xl2tpd_locked(void)")
 runtime_marker_writer = body(
     net_ppp, "ppp_l2tp_runtime_marker_set_status(const char *name, int enabled)"
 )
@@ -530,7 +531,6 @@ require(wan_marker < wan_launch and
         "refusing xl2tpd WAN launch: cannot publish WAN ownership marker" in wan_start,
         "WAN xl2tpd must not launch before publishing its dependency marker")
 
-safe_start_locked=body(net_ppp,"safe_start_xl2tpd_locked(void)")
 ordered(safe_start,["vpn_server_lifecycle_lock_acquire()",
                     "safe_start_xl2tpd_locked()",
                     "vpn_server_lifecycle_lock_release(lock_fd)"],"public xl2tpd start")

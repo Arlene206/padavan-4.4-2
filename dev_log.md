@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Fix VPN marker checker declaration order
+
+- Exact VPN lifecycle run #45187074365 on `eb928a2b259f601792bd7b8a55078e5c45e82cfe` compiled and passed the new GNU89 shared-xl2tpd marker status regression plus all existing VPN C regressions, but the Python source checker raised `NameError`: the newly inserted ownership-order assertions referenced `safe_start_locked` before the original assignment later in the file.
+- Moved the existing function-body extraction above those assertions; no production code or test behavior changed. Exact-head VPN rerun required.
+---
+
 ## 2026-11-23 UTC — Check WAN and VPN-client shared xl2tpd ownership publication
 
 - A source pass across the shared xl2tpd call graph found three additional unchecked runtime marker writes in `net_ppp.c`: `l2tp_cli_t=1` immediately before daemon launch and `l2tp_wan_t=0/1` before RPL2TP/xl2tpd WAN launch. A backend write/close failure could launch a shared transport without the marker used by VPN teardown/restoration to decide whether an independent WAN or VPN client still depends on it.
