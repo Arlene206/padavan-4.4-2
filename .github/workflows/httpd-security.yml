@@ -3614,8 +3614,14 @@ jobs:
           writer_start = source.index("write_smb_conf_unlocked(const char *router_username)")
           writer_end = source.index("static void" + chr(10) + "clean_smbd_trash", writer_start)
           writer = source[writer_start:writer_end]
-          assert "if (!disks_info)" in writer
-          assert "disks_info = read_disk_data();" in writer
+          writer_compact = "".join(writer.split())
+          inventory_read = "read_disk_data_checked(&disks_info)"
+          assert inventory_read in writer_compact
+          assert "disks_info=read_disk_data();" not in writer_compact
+          assert "if(!disks_info)" not in writer_compact
+          assert writer_compact.index(inventory_read) < writer_compact.index("for(follow_disk=disks_info;")
+          assert "saved_errno=errno?errno:EIO;" in writer_compact
+          assert "errno=saved_errno;return-1;" in writer_compact
           assert "if (get_account_list(&acc_num, &account_list) < 0)" in writer
           assert "samba_config_file_open(SAMBA_CONF" in writer
           assert "write_smb_conf_header(fp)" in writer

@@ -196,6 +196,13 @@ jobs:
           assert "rc_wan_nvram_parse_int_value" in nvram_policy
           assert 'nvram_get_int("st_samba_mode")' not in smb
           assert "samba_read_config_mode_status(&i_smb_mode)" in smb
+          smb_compact = "".join(smb.split())
+          inventory_read = "read_disk_data_checked(&disks_info)"
+          assert inventory_read in smb_compact
+          assert "disks_info=read_disk_data();" not in smb_compact
+          assert "if(!disks_info)" not in smb_compact
+          assert "saved_errno=errno?errno:EIO;" in smb_compact
+          assert "errno=saved_errno;return-1;" in smb_compact
           assert smb.index("samba_read_config_mode_status(&i_smb_mode)") < smb.index("samba_config_file_open(SAMBA_CONF")
           assert "i_smb_mode == 0" in smb
           assert "result = -1;" in smb[smb.index("i_smb_mode == 0"):]

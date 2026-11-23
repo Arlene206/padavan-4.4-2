@@ -877,7 +877,7 @@ write_smb_conf_unlocked(const char *router_username)
 	FILE *fp = NULL;
 	char staged_path[64];
 	int i_maxuser = 0, i_maxuser_value = 0, i_maxuser_status;
-	int i_smb_mode, result = 0, account_status;
+	int i_smb_mode, result = 0, account_status, saved_errno = 0;
 	char local_router_username[128];
 	const char *safe_router_username = router_username;
 	disk_info_t *follow_disk, *disks_info = NULL;
@@ -983,8 +983,15 @@ write_smb_conf_unlocked(const char *router_username)
 	fprintf(fp, "delete veto files = yes\n");
 	fprintf(fp, "\n");
 
-	disks_info = read_disk_data();
-	if (!disks_info) {
+	/*
+	 * A complete empty inventory is valid when no storage is attached; only
+	 * an incomplete/unknown scan must block replacing the active config.
+	 */
+	if (read_disk_data_checked(&disks_info) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server",
+			   "cannot read complete storage inventory; preserving active configuration (errno %d)",
+			   saved_errno);
 		result = -1;
 		goto confpage;
 	}
@@ -1221,12 +1228,17 @@ write_smb_conf_unlocked(const char *router_username)
 
 confpage:
 	if (result != 0) {
+		if (saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
 		samba_config_file_discard(&fp, staged_path);
 		free_disk_data(disks_info);
+		errno = saved_errno;
 		return -1;
 	}
 	if (samba_config_file_publish(&fp, staged_path, SAMBA_CONF) != 0) {
+		saved_errno = errno ? errno : EIO;
 		free_disk_data(disks_info);
+		errno = saved_errno;
 		return -1;
 	}
 	free_disk_data(disks_info);
