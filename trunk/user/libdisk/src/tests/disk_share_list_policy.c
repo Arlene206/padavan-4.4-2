@@ -1342,6 +1342,98 @@ fake_account_delete_init_three(struct fake_account_delete_nvram *fake)
 }
 
 static int
+fake_account_inventory_matches_run(struct fake_account_delete_nvram *fake,
+				   int expected_count, int max_count,
+				   char *const *expected_users)
+{
+	int result, saved_errno, end_result, end_errno;
+
+	if (fake_account_delete_begin(fake) != 0)
+		return -1;
+	result = disk_share_account_inventory_matches_locked(
+		&fake_account_delete_ops, fake, expected_count, max_count,
+		expected_users);
+	saved_errno = errno;
+	errno = 0;
+	end_result = fake_account_delete_end(fake);
+	end_errno = errno;
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+	if (end_result != 0) {
+		errno = end_errno ? end_errno : EIO;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_account_inventory_matches_locked_accepts_current_snapshot(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	assert(fake_account_inventory_matches_run(&fake, 3, 4, users) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(fake.get_calls == 4);
+}
+
+static void
+test_account_inventory_matches_locked_rejects_stale_snapshot(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	strcpy(fake.count, "2");
+	errno = 0;
+	assert(fake_account_inventory_matches_run(&fake, 3, 4, users) == -1);
+	assert(errno == EAGAIN && fake.set_calls == 0);
+	assert(fake.end_calls == 1);
+
+	fake_account_delete_init_three(&fake);
+	strcpy(fake.usernames[1], "mallory");
+	errno = 0;
+	assert(fake_account_inventory_matches_run(&fake, 3, 4, users) == -1);
+	assert(errno == EAGAIN && fake.set_calls == 0);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_inventory_matches_locked_rejects_invalid_or_failed_reads(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", NULL, "carol" };
+
+	fake_account_delete_init_three(&fake);
+	errno = 0;
+	assert(fake_account_inventory_matches_run(&fake, 3, 4, users) == -1);
+	assert(errno == EINVAL && fake.get_calls == 1);
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_get_call = 2;
+	errno = 0;
+	{
+		char *valid_users[3] = { "alice", "bob", "carol" };
+		assert(fake_account_inventory_matches_run(
+			&fake, 3, 4, valid_users) == -1);
+	}
+	assert(errno == EACCES && fake.end_calls == 1 && fake.set_calls == 0);
+}
+
+static void
+test_account_inventory_matches_locked_accepts_empty_inventory(void)
+{
+	struct fake_account_delete_nvram fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(fake_account_inventory_matches_run(&fake, 0, 4, NULL) == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+}
+
+static int
 fake_account_inventory_add_run(struct fake_account_delete_nvram *fake,
 			       int expected_count, int max_count,
 			       char *const *expected_users,
@@ -1947,6 +2039,10 @@ main(void)
 	test_account_password_shift_snapshot_read_error_clears_all_values();
 	test_account_password_shift_snapshot_end_error_discards_values();
 	test_account_password_shift_snapshot_rejects_oversized_value();
+	test_account_inventory_matches_locked_accepts_current_snapshot();
+	test_account_inventory_matches_locked_rejects_stale_snapshot();
+	test_account_inventory_matches_locked_rejects_invalid_or_failed_reads();
+	test_account_inventory_matches_locked_accepts_empty_inventory();
 	test_account_inventory_add_appends_under_locked_snapshot();
 	test_account_inventory_add_handles_empty_inventory();
 	test_account_inventory_add_honors_manual_commit();

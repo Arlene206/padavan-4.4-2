@@ -422,6 +422,28 @@ for marker in commit_policy_tests:
             "NVRAM commit policy regression is defined but not executed: " + marker)
 
 
+account_snapshot_tests = (
+    "test_account_inventory_matches_locked_accepts_current_snapshot",
+    "test_account_inventory_matches_locked_rejects_stale_snapshot",
+    "test_account_inventory_matches_locked_rejects_invalid_or_failed_reads",
+    "test_account_inventory_matches_locked_accepts_empty_inventory",
+)
+for marker in account_snapshot_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing locked account-snapshot regression: " + marker)
+for marker in account_snapshot_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "locked account-snapshot regression is defined but not executed: " + marker)
+
+snapshot_match_body = function_body(
+    ACCOUNT_POLICY, "disk_share_account_inventory_matches_locked("
+)
+snapshot_match_compact = "".join(snapshot_match_body.split())
+require("current_count!=expected_count" in snapshot_match_compact and
+        "strcmp(current_user,expected_users[i])!=0" in snapshot_match_compact and
+        "if(!expected_users[i])" in snapshot_match_compact,
+        "folder metadata writers must be able to revalidate an owned account inventory under the shared writer lease")
+
 account_add_tests = (
     "test_account_inventory_add_appends_under_locked_snapshot",
     "test_account_inventory_add_handles_empty_inventory",

@@ -314,6 +314,63 @@ disk_share_account_mode_needs_default(int read_status, const char *value,
 }
 
 /*
+ * Confirm a caller-owned account snapshot is still current while the caller
+ * holds the exclusive NVRAM writer transaction. Folder metadata operations
+ * use this before touching per-account files so account add/delete/rename
+ * cannot race a stale list.
+ */
+static inline int
+disk_share_account_inventory_matches_locked(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int max_count, char *const *expected_users)
+{
+	char key[24], current_user[128];
+	int result, current_count, key_length, i;
+
+	if (!ops || !ops->get || expected_count < 0 ||
+	    max_count < 1 || expected_count > max_count ||
+	    (expected_count > 0 && !expected_users)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	result = router_account_nvram_read_count(
+		ops->get, context, "acc_num", max_count, &current_count);
+	if (result != 0) {
+		errno = result;
+		return -1;
+	}
+	if (current_count != expected_count) {
+		errno = EAGAIN;
+		return -1;
+	}
+
+	for (i = 0; i < expected_count; ++i) {
+		if (!expected_users[i]) {
+			errno = EINVAL;
+			return -1;
+		}
+		key_length = snprintf(key, sizeof(key), "acc_username%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		result = router_account_nvram_read_copy(
+			ops->get, context, key, "", current_user,
+			sizeof(current_user));
+		if (result != 0) {
+			errno = result;
+			return -1;
+		}
+		if (strcmp(current_user, expected_users[i]) != 0) {
+			errno = EAGAIN;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+/*
  * Validate a new account against a caller-owned, already locked inventory.
  * Callers hold the NVRAM writer transaction across this check, metadata
  * creation and eventual publication so another account writer cannot make
