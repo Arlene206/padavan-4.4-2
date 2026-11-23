@@ -15,7 +15,7 @@ struct fake_nvram {
 	int read_error;
 	int begin_error;
 	int end_error;
-	char cache[32];
+	char cache[64];
 };
 
 static int
