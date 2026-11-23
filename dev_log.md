@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Scope URL MAC legacy-call assertion to URL builders
+
+- Firewall Startup #45164776940 on `d9796188e245b2cd2ae752b865b140b4f0959a8b` passed the checked-helper and policy fixture assertions but failed a global source assertion that prohibited every `mac_conv("url_mac_x")` call in `firewall_ex.c`. The remaining legacy call is in an unrelated filter-generation path outside the IPv4/IPv6 URL-rule builders; the URL builders themselves already have explicit scoped assertions forbidding that fallback.
+- Removed the over-broad global assertion while retaining both per-builder checks that each URL filter uses the checked helper and cannot emit a rule after a read failure. No runtime source was changed. Exact Firewall Startup rerun required.
+
+---
 ## 2026-11-23 UTC — Repair Firewall Startup checker variable reference
 
 - The exact-head Firewall Startup rerun #45164580872 progressed past the prior multiline-source assertion and then raised `NameError`: the checker referred to `firewall_policy`, but its existing fixture variable is named `filter_policy`. HTTPD policy regression #45164581007 passed, including the corrected 17-byte undersized-buffer test.

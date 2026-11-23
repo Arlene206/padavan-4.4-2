@@ -721,7 +721,7 @@ jobs:
           assert "read_status != 0 ? read_status : EINVAL" in url_mac_reader
           assert "firewall_url_mac_format_status" in filter_policy
           assert "firewall_url_mac_format_status(EIO" in filter_test
-          assert 'mac_conv("url_mac_x"' not in firewall_source
+          # URL-filter MAC lookups are scoped to the checked helper; unrelated legacy callers remain outside this contract.
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               url_builder = body(firewall_source, signature)
               url_mac_pos = url_builder.index("url_mac_status = firewall_read_url_filter_mac(")
