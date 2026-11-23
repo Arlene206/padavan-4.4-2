@@ -1,11 +1,22 @@
 #ifndef PADAVAN_FIREWALL_NVRAM_MATCH_POLICY_H
 #define PADAVAN_FIREWALL_NVRAM_MATCH_POLICY_H
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+
+/* A VPN subnet is passed to ip2class(), which cannot report inet_addr()
+ * parse errors. Validate the entire NVRAM token before using it as an address. */
+static inline int
+firewall_nvram_ipv4_address_is_valid(const char *value)
+{
+	struct in_addr address;
+
+	return value && inet_pton(AF_INET, value, &address) == 1;
+}
 
 /* nvram_get_checked(): 1=value present, 0=key absent, -1=read/backend error.
  * Missing values use the explicit legacy default; errors never become false. */

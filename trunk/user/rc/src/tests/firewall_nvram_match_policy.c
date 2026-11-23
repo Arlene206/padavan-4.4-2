@@ -443,6 +443,22 @@ test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors(void)
 }
 
 static void
+test_vpns_vnet_requires_strict_ipv4_address(void)
+{
+	assert(firewall_nvram_ipv4_address_is_valid("10.8.0.0"));
+	assert(firewall_nvram_ipv4_address_is_valid("192.168.255.254"));
+	assert(!firewall_nvram_ipv4_address_is_valid(NULL));
+	assert(!firewall_nvram_ipv4_address_is_valid(""));
+	assert(!firewall_nvram_ipv4_address_is_valid("10.8.0"));
+	assert(!firewall_nvram_ipv4_address_is_valid("10.8.0.0/24"));
+	assert(!firewall_nvram_ipv4_address_is_valid("10.8.0.256"));
+	assert(!firewall_nvram_ipv4_address_is_valid("256.8.0.1"));
+	assert(!firewall_nvram_ipv4_address_is_valid("010.8.0.1"));
+	assert(!firewall_nvram_ipv4_address_is_valid("10.8.0.0x"));
+}
+
+
+static void
 test_checked_string_copy_rejects_truncation_and_invalid_arguments(void)
 {
     char value[8] = "stale";
@@ -556,6 +572,7 @@ main(void)
 	test_checked_string_copy_fails_closed_on_backend_and_invalid_results();
 	test_viptv_interface_snapshot_fails_closed_without_changing_legacy_absence();
 	test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors();
+	test_vpns_vnet_requires_strict_ipv4_address();
 	test_checked_string_copy_rejects_truncation_and_invalid_arguments();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();

@@ -26,14 +26,14 @@
 
 ## Active task
 
-### Limit the vsftpd anonymous-rate NVRAM dependency to modes that use it
+### Validate the VPN server subnet before ip2class() and NAT publication
 
-- Concurrent commit `b330a2f96cc15730b591c8fd5e49a7a63b4bb5a4` correctly checks `st_ftp_anmr` and prevents NVRAM errors from becoming an unlimited transfer rate.
-- Review found it reads that key unconditionally even when normalized FTP mode is 1 or 2 and the generated config never emits `anon_max_rate`. An unrelated transient read error therefore blocks generation/publication of otherwise valid authenticated-only or anonymous-write-only config. This is an unnecessary service-availability dependency.
-- THIS COMMIT derives `i_ftp_mode` before reading the rate and uses `ftp_transfer_rate_setting_required()` to read/validate `st_ftp_anmr` only for modes 3/4, the only modes that emit `anon_max_rate`. A read failure remains fail-closed when the setting is actually consumed. Tests cover all four modes and invalid values; the vsftpd workflow now checks normalization precedes the conditional read and the predicate is tested.
-- Firewall transaction-failure fix `2c911df08141a3810f7d53cf8d0eaf1536e96a88` has exact L2 PASS on its descendant `1a99a9c543d237398294ef5738622f151c8d7f8e`: Firewall Startup run `45119408526` passed source contract plus every GNU89 ASan/UBSan and integration step. Exact XY-C1 on descendant b330 run `45119331092` had passed pre-build gates and was still in Build at the last query; TRX/artifact are pending.
-- The independent checked anonymous-rate source fix has exact vsftpd run `45119331064` PASS before this conditional-dependency refinement. This commit requires a fresh exact-head vsftpd run and XY-C1 due production change.
-- Continue other source-backed stability/security tasks while exact-SHA XY-C1 and vsftpd checks are pending; don't idle-poll.
+- Product review found that `ipt_nat_rules()` now snapshots `vpns_vnet` through a checked 16-byte NVRAM reader, but passes it unvalidated to `ip2class()`. That legacy helper calls `inet_addr()` without checking `INADDR_NONE`; malformed NVRAM can therefore become a bogus network (for example, an invalid address is ANDed with the subnet mask) and emit an incorrect VPN-client masquerade rule.
+- THIS COMMIT adds strict dotted-IPv4 validation via `inet_pton(AF_INET)` after the checked snapshot and before NAT rule-file staging. Missing/invalid VPN server subnet now returns EINVAL rather than constructing an unsafe route/NAT network. The same API is covered by the existing GNU89 ASan/UBSan NVRAM policy test with valid, empty, NULL, short, CIDR-suffixed, out-of-range, leading-zero and trailing-junk cases.
+- Updated the Firewall Startup source checker to require the validation call before opening the IPv4 NAT stage and before the later `ip2class()` use, plus regression registration. The workflow already compiles this policy test and runs the checker.
+- Exact firewall transaction fix `2c911df08141a3810f7d53cf8d0eaf1536e96a88` is L2 PASS on descendant `1a99a9c543d237398294ef5738622f151c8d7f8e`, Firewall Startup `45119408526` (all source and compiled sanitizer steps SUCCESS). Its exact XY-C1 run was still building on b330 `45119331092`; later exact d02 XY-C1 `45119820478` was also in progress. L3 requires Build/TRX/artifact on the exact tree or a source-identical production descendant.
+- FTP anonymous-rate mode gating `c75d39be5a6a0a40b3db12b1e76f175a140410e7` exact vsftpd regression `45119601925` PASS. Firefly credential/INI safety commit `d02cf9dcf4cb0f3f5b87983c20a7f427f281c21c` exact Firefly test `45119820496` PASS. This commit requires fresh exact Firewall and XY-C1 checks.
+- Continue independent stability/security fixes while Actions are pending; do not idle-poll completed tests.
 
 ### Exact parallel baseline
 

@@ -199,6 +199,15 @@ assert "if (firewall_status != 0)" in vpns_error_gate
 assert "return firewall_status;" in vpns_error_gate
 assert 'nvram_safe_get("vpns_vnet")' not in nat_builder
 assert "ip2class(vpns_vnet, VPN_SERVER_SUBNET_MASK, vpn_net, sizeof(vpn_net));" in nat_builder
+vpns_valid_call = "firewall_nvram_ipv4_address_is_valid(vpns_vnet)"
+assert vpns_valid_call in nat_builder
+vpns_valid_at = nat_builder.index(vpns_valid_call)
+vpns_file_open_at = nat_builder.index('firewall_open_rule_file(ipt_file, "IPv4 NAT")')
+vpns_ip2class_at = nat_builder.index("ip2class(vpns_vnet, VPN_SERVER_SUBNET_MASK, vpn_net, sizeof(vpn_net));")
+assert vpns_valid_at < vpns_file_open_at < vpns_ip2class_at
+assert "invalid VPN server subnet address; refusing IPv4 NAT rules" in nat_builder
+assert "test_vpns_vnet_requires_strict_ipv4_address" in TEST
+assert "test_vpns_vnet_requires_strict_ipv4_address();" in TEST
 assert ("test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors" in TEST
         and "test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors();" in TEST)
 

@@ -3955,6 +3955,12 @@ FILE *fp;
 			"vpns_vnet", vpns_vnet, sizeof(vpns_vnet));
 		if (firewall_status != 0)
 			return firewall_status;
+		if (!firewall_nvram_ipv4_address_is_valid(vpns_vnet)) {
+			logmessage(LOGNAME,
+				   "invalid VPN server subnet address; refusing IPv4 NAT rules");
+			errno = EINVAL;
+			return EINVAL;
+		}
 	}
 
 	if (is_nat_enabled && is_fw_enabled) {

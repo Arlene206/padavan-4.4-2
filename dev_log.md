@@ -1,3 +1,13 @@
+## 2026-11-23 14:45 UTC+8 — Validate VPN server subnet text before deriving NAT network
+
+- Audited the new checked `vpns_vnet` snapshot in `ipt_nat_rules()`. Although backend errors, transaction-close errors and overlong strings already fail closed, any short malformed IPv4 token still reached legacy `ip2class()`, which calls `inet_addr()` without checking its parse result and can derive a bogus network from `INADDR_NONE`.
+- Added `firewall_nvram_ipv4_address_is_valid()` using strict `inet_pton(AF_INET)`; invalid/missing VPN server pool text now returns EINVAL before IPv4 NAT staging. Existing bounded checked copy remains first.
+- Extended the existing GNU89/ASan/UBSan firewall NVRAM policy test for valid dotted quads and NULL/empty/short/CIDR/out-of-range/leading-zero/trailing-junk inputs. Extended the Firewall Startup source contract to pin validation before both staged-file open and `ip2class()`.
+- Prior Firewall mangle transaction regression exact run `45119408526` PASS, including all source and sanitizer tests. FTP mode-gating exact run `45119601925` PASS. Firefly credential safety `45119820496` PASS. The current pre-change d02 XY-C1 `45119820478` was still running; this production firewall source change requires an exact-head XY-C1 build/TRX/artifact and fresh Firewall Startup.
+- No local checkout or local build claimed. Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 14:35 UTC+8 — Avoid reading anonymous FTP rate when the active mode does not use it
 
 - Reviewed concurrent vsftpd hardening from `b330a2f96cc15730b591c8fd5e49a7a63b4bb5a4`. The checked `st_ftp_anmr` read correctly prevented backend errors from becoming `anon_max_rate=0` (unlimited), but it was unconditional: modes 1/2 do not emit or consume `anon_max_rate`, yet any rate-key read fault prevented configuration publication.
