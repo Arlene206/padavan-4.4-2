@@ -1055,8 +1055,16 @@ jobs:
           assert "kill(1, SIGALRM)" in child_launcher
 
           deferred_event = function_body(storage, "on_deferred_hotplug_dev(void)")
-          assert 'nvram_match("usb_hotplug_ms", "1")' in deferred_event
-          assert 'nvram_match("usb_opt_start", "1")' in deferred_event
+          storage_else_marker = "\\n#else\\n\\t/*\\n\\t * Builds without integrated storage support"
+          no_storage_branch = deferred_event.split(storage_else_marker, 1)[1].split("#endif", 1)[0]
+          integrated_branch = deferred_event.split(storage_else_marker, 1)[0]
+          assert "storage_read_integer_status(" in integrated_branch
+          assert "storage_deferred_start_dispatch_status(" in integrated_branch
+          assert "storage_read_string_status(" in no_storage_branch
+          assert "storage_service_enable_value_status(" in no_storage_branch
+          assert "storage_deferred_start_dispatch_status(" in no_storage_branch
+          assert 'nvram_match("usb_hotplug_ms", "1")' not in deferred_event
+          assert 'nvram_match("usb_opt_start", "1")' not in deferred_event
           assert "storage_optware_result_fd >= 0" in deferred_event
           assert "if (storage_start_result != 0)" in deferred_event
           assert "alarm(5);" in deferred_event
