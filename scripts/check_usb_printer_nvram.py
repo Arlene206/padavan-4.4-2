@@ -35,16 +35,35 @@ assert marker < saved < normalize < failure < failure_return < success_return
 assert "u2ec started but runtime marker publication failed" in u2ec
 assert "if (result < 0)" in POLICY and "EIO" in POLICY
 assert "if (result == 0)" in POLICY and "ENAMETOOLONG" in POLICY
-for name,key,side in (
-    ("start_u2ec(void)","u2ec_enable",'unlink("/var/run/u2ec.pid")'),
-    ("start_lpd(void)","lprd_enable",'unlink("/var/run/lpdparent.pid")')):
+for name,key,launch,pid_file in (
+    ("start_u2ec(void)","u2ec_enable",
+     'start_usb_printer_daemon(argv, "u2ec", "/var/run/u2ec.pid")',
+     'unlink("/var/run/u2ec.pid")'),
+    ("start_lpd(void)","lprd_enable",
+     'start_usb_printer_daemon(argv, "lpd", "/var/run/lpdparent.pid")',
+     'unlink("/var/run/lpdparent.pid)')):
     fn=body(name); read=fn.index("read_usb_printer_setting_status(")
     gate=fn.index("if (setting_status != 0)",read)
     prop=fn.index("return setting_status;",gate)
     decision=fn.index('strcmp(setting, "0")',prop)
-    effect=fn.index(side,decision)
+    effect=fn.index(launch,decision)
     assert f'"{key}"' in fn and read<gate<prop<decision<effect
+    assert pid_file not in fn
     assert f'nvram_match("{key}"' not in fn
+
+# The shared launcher must never erase a live PID file or duplicate a daemon.
+launcher = body("start_usb_printer_daemon(char *const argv[], const char *process_name,\n                         const char *pid_file)")
+scan = launcher.index("usb_printer_daemon_scan((void *)process_name, &scan_error)")
+action = launcher.index("process_presence_start_action_for_state(presence)")
+status = launcher.index("process_presence_start_status_for_action(")
+unknown = launcher.index("if (start_status != 0)", status)
+running = launcher.index("if (start_action == PROCESS_PRESENCE_START_NOTIFY)", unknown)
+cleanup = launcher.index("unlink(pid_file)", running)
+fork_pipe = launcher.index("pipe(exec_pipe)", cleanup)
+assert scan<action<status<unknown<running<cleanup<fork_pipe
+assert "already running; skipping duplicate launch" in launcher
+assert "cannot remove stale %s PID file" in launcher
+assert "errno != ENOENT" in launcher
 raw=body("start_p910nd(char *devlp)")
 read=raw.index('read_usb_printer_setting_status("rawd_enable"')
 gate=raw.index("if (setting_status != 0)",read)

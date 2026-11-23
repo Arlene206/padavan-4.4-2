@@ -1,3 +1,8 @@
+## 2026-11-23 — Align USB printer NVRAM checker with idempotent launcher
+
+- The first Process/Storage source review caught one stale checker assumption: `check_usb_printer_nvram.py` still expected U2EC/LPD to unlink PID files in the individual wrappers. Cleanup now belongs to the shared launcher after a tri-state ABSENT preflight, so the checker has been updated to verify the checked-setting gates, three-argument paths, fail-closed UNKNOWN handling, RUNNING no-op and cleanup-before-fork ordering.
+- This is a regression-check correction, not a production-code change. The initial USB modem workflow failed only this stale assertion; exact successor Actions are pending.
+
 ## 2026-11-23 — Normalize invalid process-inventory error values
 
 - Tightened the shared process-presence start policy: an UNKNOWN scan now maps zero or negative/non-errno error values to `EIO`, preserving only positive errno values. This prevents a negative internal result from escaping as a negative startup status or being confused with a launcher convention.
