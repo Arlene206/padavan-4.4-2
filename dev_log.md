@@ -1,3 +1,12 @@
+## 2026-11-23 06:37 UTC — Retain kernel console logging on NVRAM read failure
+
+- `nvram_restore_defaults()` previously passed `nvram_get_int("console_loglevel")` directly to `klogctl(8)`. A transient NVRAM backend/read/close failure was collapsed to zero, suppressing all kernel console output just before later boot checks could report faults.
+- Boot now distinguishes present, missing and failed reads. Present values keep legacy `atoi()` conversion; a missing key keeps the legacy zero default; a backend error skips `klogctl` and retains the kernel's current default level. The syscall result is also logged if applying the requested setting fails.
+- Added GNU89/Werror/ASan/UBSan policy coverage and an exact source/workflow contract. Exact-head validation pending; no local shell/firmware build claimed.
+- Resulting commit: pending.
+
+---
+
 ## 2026-11-23 06:32 UTC — Preserve timezone environment when NVRAM reads fail
 
 - `setenv_tz()` previously used `nvram_safe_get("time_zone_x")`, which collapses NVRAM backend/read/close failures into an empty value and unconditionally replaces the process TZ. A transient fault could make PID 1 and standalone RC applets lose the configured local timezone.

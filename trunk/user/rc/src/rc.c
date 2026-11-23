@@ -65,6 +65,7 @@
 #include "wireless_radio_policy.h"
 #include "ddns_restart_policy.h"
 #include "timezone_env_policy.h"
+#include "console_loglevel_policy.h"
 #if defined (USE_IPV6)
 #include "ipv6_restart_policy.h"
 #endif
@@ -180,6 +181,9 @@ nvram_restore_defaults(void)
 {
 	int restore_defaults;
 	int need_commit, ipv6_type_status;
+	int console_loglevel_api_result, console_loglevel_read_errno;
+	int console_loglevel_status, console_loglevel = 0;
+	char *console_loglevel_text = NULL;
 #if defined (USE_USB_SUPPORT)
 	int modem_settings_status, modem_rule = 0, modem_type = 0;
 #endif
@@ -205,7 +209,25 @@ nvram_restore_defaults(void)
 		return -1;
 	}
 
-	klogctl(8, NULL, nvram_get_int("console_loglevel"));
+	errno = 0;
+	console_loglevel_api_result = nvram_get_checked(
+		"console_loglevel", &console_loglevel_text);
+	console_loglevel_read_errno = errno;
+	console_loglevel_status = rc_console_loglevel_parse_status(
+		console_loglevel_api_result, console_loglevel_read_errno,
+		console_loglevel_text, &console_loglevel);
+	if (console_loglevel_status != 0) {
+		errno = console_loglevel_status;
+		logmessage(LOGNAME,
+			   "cannot read kernel console log level; retaining kernel default (status=%d)",
+			   console_loglevel_status);
+	} else if (klogctl(8, NULL, console_loglevel) < 0) {
+		console_loglevel_status = errno ? errno : EIO;
+		errno = console_loglevel_status;
+		logmessage(LOGNAME,
+			   "cannot apply kernel console log level (status=%d)",
+			   console_loglevel_status);
+	}
 
 	/* Load modem settings as one checked pair so a backend error cannot
 	 * become a false zero baseline for a later destructive module reload. */
