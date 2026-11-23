@@ -3680,8 +3680,8 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			return -1;
 		}
 		if (url_status > 0) {
-			int url_schedule_status;
-			char mac_buf[24] = {0};
+			int url_schedule_status, url_mac_status;
+			char mac_buf[18] = {0};
 
 			timematch[0] = 0;
 			url_schedule_status = timematch_conv(
@@ -3698,8 +3698,20 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 				return -1;
 			}
 			if (url_schedule_status > 0) {
-				mac_conv("url_mac_x", -1, mac_buf);
-				if (strlen(mac_buf) == 17) {
+				url_mac_status = firewall_read_url_filter_mac(
+					mac_buf, sizeof(mac_buf));
+				if (url_mac_status < 0) {
+					saved_errno = errno ? errno : EIO;
+					logmessage(LOGNAME,
+						   "IPv6 filter: aborting after URL-filter MAC read/validation error (errno=%d)",
+						   saved_errno);
+					(void)fclose(fp);
+					firewall_abort_core_restore_after_staging_failure();
+					firewall_rule_file_remove(ipt_file);
+					errno = saved_errno;
+					return -1;
+				}
+				if (url_mac_status > 0) {
 					strcat(timematch, " -m mac");
 					if (is_url_inverse)
 						strcat(timematch, " !");

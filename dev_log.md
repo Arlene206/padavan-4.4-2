@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Close IPv6 URL-filter MAC fail-open gap
+
+- Source review after the IPv4 URL-MAC checker repairs found the matching IPv6 `ip6t_filter_rules()` branch still called `mac_conv("url_mac_x")`. Unlike the updated IPv4 branch, it still collapsed an NVRAM backend failure into an empty qualifier and could publish an IPv6 URL-filter rule without its per-client MAC restriction. This was a real fail-open gap, not a checker-only issue.
+- Replaced the IPv6 fallback with the shared presence-aware checked reader. Backend or malformed-value errors now abort core restore, remove the staged rule file, preserve errno and return before appending the URL-filter rule, matching IPv4 behavior. The destination is sized to the exact 18-byte formatted-MAC requirement.
+- Existing Firewall Startup source contract iterates both `ipt_filter_rules()` and `ip6t_filter_rules()` and verifies checked-reader → abort → staged-file removal → error return precede the MAC rule. Exact-head Firewall Startup rerun required; no local build or sanitizer result is claimed.
+
+---
 ## 2026-11-23 UTC — Scope URL MAC legacy-call assertion to URL builders
 
 - Firewall Startup #45164776940 on `d9796188e245b2cd2ae752b865b140b4f0959a8b` passed the checked-helper and policy fixture assertions but failed a global source assertion that prohibited every `mac_conv("url_mac_x")` call in `firewall_ex.c`. The remaining legacy call is in an unrelated filter-generation path outside the IPv4/IPv6 URL-rule builders; the URL builders themselves already have explicit scoped assertions forbidding that fallback.
