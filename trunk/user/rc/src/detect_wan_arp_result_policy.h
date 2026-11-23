@@ -35,6 +35,7 @@ detect_wan_arp_parse_hardware_address(const char *text,
 {
     uint8_t parsed[6];
     size_t length, octet;
+    int all_zero = 1, all_broadcast = 1;
 
     if (!text || !hardware_address)
         return EINVAL;
@@ -54,7 +55,15 @@ detect_wan_arp_parse_hardware_address(const char *text,
         if (octet < 5 && text[offset + 2] != ':')
             return EINVAL;
         parsed[octet] = (uint8_t)((high << 4) | low);
+        if (parsed[octet] != 0)
+            all_zero = 0;
+        if (parsed[octet] != 0xff)
+            all_broadcast = 0;
     }
+
+    /* An Ethernet source must be a unicast, non-reserved station address. */
+    if ((parsed[0] & 0x01) != 0 || all_zero || all_broadcast)
+        return EINVAL;
 
     memcpy(hardware_address, parsed, sizeof(parsed));
     return 0;

@@ -13,26 +13,23 @@
 
 ## Active task
 
-A malformed-input defect was found in arpping_gateway() in trunk/user/rc/src/detect_wan.c. The WAN MAC override formatter intentionally retains historical behavior and formats a 12-character string into colon-separated pairs without validating hexadecimal characters. The ARP probe then decoded each pair with strtol(tmp, NULL, 16) and ignored where parsing stopped. Invalid nibbles could silently produce zero or partial octets, then be copied into the outgoing Ethernet/ARP source fields and misrepresent the router identity during gateway liveness detection.
+The current WAN ARP fix adds strict source-MAC parsing at the frame-construction boundary. The follow-up validation also requires an Ethernet station address to be unicast, non-zero and non-broadcast: syntactically valid multicast, all-zero and all-ones values are not valid local ARP Ethernet sources. Locally administered unicast and globally administered unicast values remain accepted. The legacy WAN override formatter remains unchanged; rejection is local to the packet boundary.
 
-The new detect_wan_arp_parse_hardware_address() helper in detect_wan_arp_result_policy.h enforces exactly six colon-separated hex octets (upper/lowercase accepted). Parsing is transactional: no output bytes change on malformed input. arpping_gateway() calls it only when a real probe is needed and returns a checked local probe error before opening the packet socket if parsing fails. The legacy WAN override formatter remains untouched for configuration compatibility.
-
-The existing GNU89 ASan/UBSan executable tests/detect_wan_arp_result_policy.c now covers valid mixed-case values, invalid hex, invalid separators/length, null pointers and output-preservation. The existing WAN ARP workflow pins parser use, malformed-input rejection, removal of strtol, and check ordering before socket creation.
+The regression tests cover valid mixed-case locally administered and globally administered values, malformed separator/length/hex values, null pointers, all-zero/broadcast/multicast addresses and transactional output preservation. The exact first source commit's WAN ARP run #45159121550 PASS; this refinement needs its own exact-head run.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head WAN ARP Action for this commit. Confirm GNU89 -Wall -Wextra -Werror ASan/UBSan tests, new parser tests and the full production source contract pass. Fix genuine failures at their source; do not weaken parser or ordering checks.
-2. Inspect exact-head XY-C1 Firmware Validation. Since this commit changes product source, Build XY-C1, TRX verification and artifact upload must all PASS on the same commit SHA to claim L3.
-3. Continue another independent P1 from REFACTOR_ROADMAP.md only after confirming parallel sessions have not completed it; focus on evidenced faults and add regression tests instead of repeating audits.
+1. Verify the exact-head WAN ARP action on this commit, including the new group-address/zero/broadcast cases, sanitizer run and inline source ordering contract.
+2. Verify XY-C1 Build, TRX output and artifact upload all pass on this exact product-source SHA. Do not transfer the prior source's result.
+3. Continue a separate P1 only after checking latest roadmap/history for parallel completion; avoid repeating the USB eject, wireless contract and WAN ARP-parser audits.
 
 ## Exact-SHA CI facts at the parent baseline
 
-- Parent main SHA: af80debca9112c03b72fbe27dd8cd2838fe82ff2, commit test(wireless): normalize DBDC peer return lookup.
-- On exact parent SHA af80debca9112c03b72fbe27dd8cd2838fe82ff2: Wireless #45158308492 PASS and AI handoff #45158308561 PASS. XY-C1 #45158308815 completed successfully but Build XY-C1, TRX verification and artifact upload were skipped because the parent changed only workflow/docs files.
-- Production source SHA 0e4976cfbe86c81f5172ce2256ed71801952682d has exact XY-C1 run #45156939135 PASS, with Build XY-C1, TRX verification and artifact upload all passing on that SHA. This includes USB modem and checked wireless production fixes but not the new ARP source-MAC parser in this checkpoint.
-- This commit replaces the permissive strtol MAC decoder in detect_wan.c, adds sanitizer tests and updates the inline ARP source contract. Exact-head WAN ARP and XY-C1 results for this new source change are pending.
-- USB modem identity #45154233466 PASS on 9e9efbf; Process fail-closed #45155481370 and storage hotplug #45155481256 PASS on 15c93fe.
-- No physical router L4 result is claimed.
+- Parent main SHA: 8dde087a3410da9dc57724668e368c24c78d769b, commit fix(wan): validate ARP source hardware address.
+- WAN gateway ARP probe regression #45159121550 PASS on exact SHA 8dde087a3410da9dc57724668e368c24c78d769b. It compiled and ran the GNU89 -Wall -Wextra -Werror ASan/UBSan socket, ARP identity/local-error policy, checked-NVRAM and signal-deferral binaries, then passed the production source integration contract.
+- AI handoff #45159121218 PASS; Process lifecycle inventory #45159121362 PASS on 8dde087a. Process fail-closed #45159121174 and NVRAM audit #45159121639 were IN_PROGRESS at last poll.
+- XY-C1 #45159121291 on SHA 8dde087a was IN_PROGRESS at last poll; Build XY-C1, TRX verification and artifact upload had not completed.
+- The first strict syntax parser is in the current parent. This unicast refinement is new product source; exact-head WAN ARP and XY-C1 results are pending.
 
 ## Completed source slices to preserve
 
@@ -71,10 +68,10 @@ The existing GNU89 ASan/UBSan executable tests/detect_wan_arp_result_policy.c no
 
 ## Verification boundary
 
-- L1 source review: PASS for strict six-octet MAC syntax checking, transactional output and error propagation before packet socket creation. Legacy WAN override normalization is unchanged.
-- L2 host/Actions: PENDING exact-head WAN ARP regression, including GNU89/Werror/ASan/UBSan and the inline source contract.
-- L3 XY-C1 firmware: PASS for parent production source SHA 0e4976cf (#45156939135 Build, TRX and artifact all PASS). NOT VERIFIED for this new source change until exact-head Build XY-C1, TRX verification and artifact upload all pass on one SHA.
-- L4 physical router: NOT VERIFIED, including gateway ARP/no-reply, malformed NVRAM/override recovery, WAN failover and router Ethernet hardware behavior.
+- L1 source review: PASS for exact six-octet parsing and pre-socket rejection of malformed input. This follow-up also rejects multicast, all-zero and broadcast Ethernet source addresses while retaining both globally and locally administered unicast.
+- L2 host/Actions: WAN ARP #45159121550 PASS on 8dde087a for the first strict syntax parser. Exact-head regression for the unicast refinement is pending.
+- L3 XY-C1 firmware: PASS for prior product SHA 0e4976cf (#45156939135 Build, TRX and artifact PASS). NOT VERIFIED for source SHA 8dde087a or this unicast refinement until same-SHA stages pass; run #45159121291 was still in progress at last poll.
+- L4 physical router: NOT VERIFIED, including physical gateway reachability, ARP packet source identity, WAN failover and router Ethernet behavior.
 
 ## Working method
 
@@ -83,7 +80,7 @@ The existing GNU89 ASan/UBSan executable tests/detect_wan_arp_result_policy.c no
 - Fetch the live main SHA before writes. If another session moves it, rebase the intended changes onto that new main after inspecting intervening commits; never overwrite someone else's work.
 - PASS means only the named workflow for its exact SHA passed. FAIL means inspect logs and fix the failing condition. PENDING means record the run and continue another independent safe task.
 - Preserve GNU89, Werror, sanitizers where appropriate, Linux 4.4 / MIPS / uClibc compatibility, hardware isolation order, error normalization and rollback semantics.
-- Update dev_log.md for each meaningful milestone. The root log had 102 records before this checkpoint and will have 103 after it. Do not rotate until a new entry would hit 120. Keep records newest first.
+- Update dev_log.md for each meaningful milestone. The root log had 103 records before this checkpoint and will have 104 after it. Do not rotate until a new entry would hit 120. Keep records newest first.
 - REFACTOR_ROADMAP.md is the single whole-repository status dashboard. Update materially changed module state; do not append duplicate audit snapshots or grow already-large documents unnecessarily.
 - Keep this handoff as one current checkpoint and rewrite it in place. Do not append an old snapshot after it or create additional handoff archives.
 

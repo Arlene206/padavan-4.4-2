@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Reject non-unicast Ethernet source addresses in WAN ARP
+
+- Extended the new ARP source-MAC parser beyond syntax: a sender address must be unicast, not all-zero and not broadcast. A syntactically valid multicast/group MAC (for example 01:00:5e:...) or reserved zero/broadcast value is not a valid station source address for the router's Ethernet/ARP probe, even though every nibble is hexadecimal.
+- Kept locally administered unicast addresses accepted (02:...) and added explicit globally administered unicast coverage (00:11:22:...). Added transactional rejection cases for zero, broadcast, IPv4 multicast and IPv6 multicast source MACs; the output buffer remains unchanged on failure.
+- The check remains local to ARP frame construction and does not change the historical WAN override formatter or NVRAM values. Exact-head regression and XY-C1 Build/TRX/artifact checks for this source refinement are pending.
+
+---
+
 ## 2026-11-23 UTC — Validate WAN ARP source MAC before packet construction
 
 - Confirmed a malformed-input boundary in arpping_gateway(): the WAN/LAN MAC is read through checked NVRAM APIs, but each octet was decoded with strtol(tmp, NULL, 16). The end pointer was ignored, so non-hex legacy override text silently became zero or a partially parsed byte and was transmitted as the Ethernet/ARP source address.

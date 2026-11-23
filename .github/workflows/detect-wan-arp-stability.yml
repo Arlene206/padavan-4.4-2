@@ -154,6 +154,8 @@ jobs:
           assert "detect_wan_arp_reply_matches" in probe_policy
           assert "detect_wan_arp_parse_hardware_address" in probe_policy
           assert "detect_wan_arp_hex_nibble" in probe_policy
+          assert "(parsed[0] & 0x01) != 0" in probe_policy
+          assert "all_zero || all_broadcast" in probe_policy
           assert "reply->ethernet_protocol != htons(ETH_P_ARP)" in probe_policy
           assert "reply->hardware_type != htons(ARPHRD_ETHER)" in probe_policy
           assert "reply->protocol_type != htons(ETH_P_IP)" in probe_policy
@@ -170,6 +172,9 @@ jobs:
           assert "test_dhcp_renew_requires_three_real_no_reply_probes" in probe_test
           assert "test_arp_source_hardware_address_requires_colon_hex" in probe_test
           assert "test_invalid_arp_source_hardware_address_is_rejected_transactionally" in probe_test
+          assert '"00:00:00:00:00:00"' in probe_test
+          assert '"ff:ff:ff:ff:ff:ff"' in probe_test
+          assert '"01:00:5e:00:00:01"' in probe_test
           assert '#include "wan_nvram_status_policy.h"' in detect
           checked_callback = body(detect, "detect_wan_nvram_get_checked(void *context, const char *param_name,")
           assert "nvram_get_checked(param_name, value)" in checked_callback

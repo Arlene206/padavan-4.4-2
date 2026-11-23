@@ -151,6 +151,12 @@ test_arp_source_hardware_address_requires_colon_hex(void)
         "02:11:22:aA:BB:ff", actual);
     CHECK(status == 0);
     CHECK(memcmp(actual, expected, sizeof(expected)) == 0);
+
+    memset(actual, 0, sizeof(actual));
+    status = detect_wan_arp_parse_hardware_address(
+        "00:11:22:33:44:55", actual);
+    CHECK(status == 0);
+    CHECK(actual[0] == 0x00 && actual[5] == 0x55);
     return 0;
 }
 
@@ -162,7 +168,9 @@ test_invalid_arp_source_hardware_address_is_rejected_transactionally(void)
         "02-11-22-33-44-55", "02:11:22:33:44:5g",
         "02:11:22:33:44:5", "02:11:22:33:44:5Z",
         "0:11:22:33:44:55", "0211:22:33:44:55",
-        " 02:11:22:33:44:55"
+        " 02:11:22:33:44:55", "00:00:00:00:00:00",
+        "ff:ff:ff:ff:ff:ff", "01:00:5e:00:00:01",
+        "33:33:00:00:00:01"
     };
     uint8_t actual[6], before[6];
     size_t index, byte_index;
