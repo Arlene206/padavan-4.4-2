@@ -24,11 +24,12 @@ test_timeout_expires_at_deadline(void)
 static void
 test_unsigned_elapsed_time_survives_counter_wrap(void)
 {
-	unsigned long long start_ns = ULLONG_MAX - 50ULL;
+	unsigned long long start_ns =
+		ULLONG_MAX - (MDIO_BUSY_TIMEOUT_NS - 51ULL);
 
 	/* A monotonic u64 counter can wrap; unsigned subtraction remains valid. */
 	assert(!mii_mgr_busy_timeout_expired(start_ns, 48ULL));
-	assert(mii_mgr_busy_timeout_expired(start_ns, 49ULL));
+	assert(mii_mgr_busy_timeout_expired(start_ns, 50ULL));
 }
 
 int
