@@ -2253,9 +2253,9 @@ disk_share_permission_batch_free(
 }
 
 static int
-disk_share_permission_batch_prepare_delete(
+disk_share_permission_batch_prepare_rewrite(
 	const char *mount_path, int acc_num, char **account_list,
-	const char *target,
+	const char *target, const char *replacement,
 	struct disk_share_permission_batch_entry **entries_out,
 	int *entry_count_out)
 {
@@ -2300,7 +2300,7 @@ disk_share_permission_batch_prepare_delete(
 		}
 		entries[i].before_len = strlen(entries[i].before);
 		if (disk_share_permission_rewrite(
-			    entries[i].before, target, NULL,
+			    entries[i].before, target, replacement,
 			    &entries[i].after, &entries[i].after_len) != 0) {
 			saved_errno = errno ? errno : EIO;
 			if (saved_errno == ENOENT) {
@@ -2441,8 +2441,8 @@ int del_folder(const char *const mount_path, const char *const folder)
 	}
 
 	/* Read/transform every metadata file before making any change. */
-	if (disk_share_permission_batch_prepare_delete(
-		    mount_path, acc_num, account_list, target,
+	if (disk_share_permission_batch_prepare_rewrite(
+		    mount_path, acc_num, account_list, target, NULL,
 		    &permission_batch, &permission_batch_count) != 0)
 		goto failed;
 	if (disk_share_find_folder_staging_path(
@@ -2528,15 +2528,16 @@ failed:
 
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
-	int result, i, saved_errno, first_error = 0;
-	int acc_num = 0, transaction_started = 0;
-	int rename_applied = 0, rollback_error = 0;
+	int result, saved_errno, rollback_error = 0;
+	int acc_num = 0, transaction_started = 0, rename_applied = 0;
+	int permission_batch_count = 0;
 	char **account_list = NULL;
 	struct nvram_transaction transaction;
 	char var_file[256];
 	char *target = NULL, *new_target = NULL;
 	char *full_path = NULL, *new_full_path = NULL;
 	struct stat target_stat;
+	struct disk_share_permission_batch_entry *permission_batch = NULL;
 	size_t mount_len, folder_len, new_folder_len, path_len;
 	size_t target_len, new_target_len;
 
@@ -2572,17 +2573,22 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	new_full_path[mount_len] = '/';
 	memcpy(new_full_path + mount_len + 1, new_folder, new_folder_len + 1);
 
-	/* The account inventory is captured before, then checked under, the lease. */
 	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
 		goto failed;
-	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-		                                       mount_path, account_list[i]) != 0)
+	if (acc_num < 0 || acc_num > MAX_ACCOUNT_NUM) {
+		errno = EINVAL;
+		goto failed;
+	}
+	for (result = 0; result < acc_num; ++result) {
+		if (disk_share_format_account_var_path(
+			    var_file, sizeof(var_file), mount_path,
+			    account_list[result]) != 0)
 			goto failed;
 	}
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, FTP_ANONYMOUS_USER) != 0)
+	if (disk_share_format_account_var_path(
+		    var_file, sizeof(var_file), mount_path,
+		    FTP_ANONYMOUS_USER) != 0)
 		goto failed;
 
 	if (disk_share_account_nvram_begin(&transaction) != 0)
@@ -2593,11 +2599,6 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
 		goto failed;
 
-	/*
-	 * All folder writers use this same lease. Recheck the live directory and
-	 * snapshot after acquisition so no concurrent rename/add/delete invalidates
-	 * the earlier path or name decisions.
-	 */
 	if (test_if_dir(full_path) != 1) {
 		errno = ENOENT;
 		goto failed;
@@ -2641,29 +2642,23 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	new_target[new_target_len - 1] = '=';
 	new_target[new_target_len] = '\0';
 
+	if (disk_share_permission_batch_prepare_rewrite(
+		    mount_path, acc_num, account_list, target, new_target,
+		    &permission_batch, &permission_batch_count) != 0)
+		goto failed;
+
 	if (rename(full_path, new_full_path) != 0)
 		goto failed;
 	rename_applied = 1;
 	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		goto failed;
+		goto rollback;
 
-	/* Keep processing independent accounts even when one file is damaged. */
-	for (i = 0; i < acc_num; ++i) {
-		if (disk_share_update_folder_permission_file(
-			    mount_path, account_list[i], target, new_target) != 0 &&
-		    first_error == 0)
-			first_error = errno ? errno : EIO;
-	}
-	if (disk_share_update_folder_permission_file(
-		    mount_path, FTP_ANONYMOUS_USER, target, new_target) != 0 &&
-	    first_error == 0)
-		first_error = errno ? errno : EIO;
+	if (disk_share_permission_batch_apply(
+		    permission_batch, permission_batch_count,
+		    disk_share_replace_file_atomic, &rollback_error) != 0)
+		goto rollback;
 
-	if (first_error != 0) {
-		errno = first_error;
-		goto failed;
-	}
-
+	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(new_target);
 	free(full_path);
@@ -2676,6 +2671,7 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	return 0;
 
 unchanged:
+	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(new_target);
 	free(full_path);
@@ -2687,39 +2683,31 @@ unchanged:
 	transaction_started = 0;
 	return 0;
 
+rollback:
+	saved_errno = errno ? errno : EIO;
+	rollback_error = 0;
+	if (disk_share_permission_batch_rollback(
+		    permission_batch, permission_batch_count,
+		    disk_share_replace_file_atomic, &rollback_error) != 0)
+		logmessage("disk_share",
+			   "folder rename permission rollback failed (errno %d)",
+			   rollback_error ? rollback_error : EIO);
+	if (rename(new_full_path, full_path) != 0 && rollback_error == 0)
+		rollback_error = errno ? errno : EIO;
+	if (initial_folder_list_in_mount_path(mount_path) != 0 &&
+	    rollback_error == 0)
+		rollback_error = errno ? errno : EIO;
+	if (rollback_error != 0) {
+		logmessage("disk_share",
+			   "folder rename compensation incomplete (errno %d)",
+			   rollback_error);
+		saved_errno = EIO;
+	}
+	errno = saved_errno;
+
 failed:
 	saved_errno = errno ? errno : EIO;
-	if (rename_applied) {
-		/*
-		 * Reverse every successful per-account rewrite. Missing new-name
-		 * rows are harmless, so this also handles a failure on the first
-		 * account without needing a separate changed-file counter.
-		 */
-		rollback_error = 0;
-		for (i = 0; i < acc_num; ++i) {
-			if (disk_share_update_folder_permission_file(
-				    mount_path, account_list[i], new_target, target) != 0 &&
-				    rollback_error == 0)
-				rollback_error = errno ? errno : EIO;
-		}
-		if (disk_share_update_folder_permission_file(
-			    mount_path, FTP_ANONYMOUS_USER, new_target, target) != 0 &&
-		    rollback_error == 0)
-			rollback_error = errno ? errno : EIO;
-
-		if (rename(new_full_path, full_path) != 0 &&
-		    rollback_error == 0)
-			rollback_error = errno ? errno : EIO;
-		if (initial_folder_list_in_mount_path(mount_path) != 0 &&
-		    rollback_error == 0)
-			rollback_error = errno ? errno : EIO;
-		if (rollback_error != 0) {
-			logmessage("disk_share",
-				   "folder rename compensation incomplete (errno %d)",
-				   rollback_error);
-			saved_errno = EIO;
-		}
-	}
+	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(new_target);
 	free(full_path);
@@ -2735,6 +2723,7 @@ failed:
 	errno = saved_errno;
 	return -1;
 }
+
 
 int test_if_exist_account(const char *const account)
 {
