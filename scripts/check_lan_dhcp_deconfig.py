@@ -589,15 +589,15 @@ assert metadata_update < dhcp_launch
 assert "metadata_status == 0" in lan_start
 assert lan_start.count("metadata_status = update_lan_status(0)") == 2
 
-lan_start_compact = compact(lan_start)
-protocol_read = 'lan_proto_status = lan_nvram_get_match_status("lan_proto_x", "1", &lan_proto_dhcp);'
-protocol_resolve = 'lan_proto_status = lan_dhcp_ap_mode_resolve(lan_proto_status, lan_proto_dhcp, &lan_proto_dhcp);'
-protocol_error = "if (lan_proto_status != 0)"
-protocol_dhcp = "else if (lan_proto_dhcp)"
-manual_setup = "operation_status = lan_up_manual(lan_ifname, lan_dname);"
+lan_start_compact = "".join(lan_start.split())
+protocol_read = 'lan_proto_status=lan_nvram_get_match_status("lan_proto_x","1",&lan_proto_dhcp);'
+protocol_resolve = 'lan_proto_status=lan_dhcp_ap_mode_resolve(lan_proto_status,lan_proto_dhcp,&lan_proto_dhcp);'
+protocol_error = "if(lan_proto_status!=0)"
+protocol_dhcp = "elseif(lan_proto_dhcp)"
+manual_setup = "operation_status=lan_up_manual(lan_ifname,lan_dname);"
 assert protocol_read in lan_start_compact
 assert protocol_resolve in lan_start_compact
-assert 'nvram_match("lan_proto_x", "1")' not in lan_start_compact
+assert 'nvram_match("lan_proto_x","1")' not in lan_start_compact
 assert protocol_error in lan_start_compact
 assert protocol_dhcp in lan_start_compact
 assert manual_setup in lan_start_compact
@@ -608,8 +608,8 @@ assert lan_start_compact.index(protocol_dhcp) < lan_start_compact.index(manual_s
 protocol_failure = lan_start_compact[
     lan_start_compact.index(protocol_error):lan_start_compact.index(protocol_dhcp)
 ]
-assert "start_status = rc_first_service_start_status(start_status, lan_proto_status);" in protocol_failure
-assert "cannot verify AP LAN protocol mode" in protocol_failure
+assert "start_status=rc_first_service_start_status(start_status,lan_proto_status);" in protocol_failure
+assert "cannotverifyAPLANprotocolmode" in protocol_failure
 assert "test_ap_lan_protocol_mode_read_failure_fails_closed" in callback_test
 assert "lan_dhcp_ap_mode_resolve" in callback_policy
 manual_start = c_function_body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
