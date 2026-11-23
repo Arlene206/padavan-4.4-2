@@ -29,6 +29,8 @@ extern int nvram_transaction_get(struct nvram_transaction *transaction,
 				 const char *name, char **value);
 extern int nvram_transaction_set(struct nvram_transaction *transaction,
 				 const char *name, const char *value, int is_temp);
+/* Commit the current transaction without reacquiring its already-held lock. */
+extern int nvram_transaction_commit(struct nvram_transaction *transaction);
 extern int nvram_transaction_clear(struct nvram_transaction *transaction);
 
 extern char *nvram_get(const char *name);

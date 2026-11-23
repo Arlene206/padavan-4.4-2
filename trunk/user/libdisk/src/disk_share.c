@@ -143,6 +143,19 @@ disk_share_account_nvram_end(void *context)
 }
 
 static int
+disk_share_account_nvram_set(void *context, const char *name, const char *value)
+{
+	return nvram_transaction_set((struct nvram_transaction *)context,
+	                             name, value, 0);
+}
+
+static int
+disk_share_account_nvram_commit(void *context)
+{
+	return nvram_transaction_commit((struct nvram_transaction *)context);
+}
+
+static int
 disk_share_account_name_valid(const char *name)
 {
 	return is_valid_account_name(name);
@@ -161,7 +174,9 @@ disk_share_account_nvram_operations = {
 	disk_share_account_nvram_get,
 	disk_share_account_nvram_end,
 	disk_share_account_name_valid,
-	disk_share_account_name_reserved
+	disk_share_account_name_reserved,
+	disk_share_account_nvram_set,
+	disk_share_account_nvram_commit
 };
 
 int get_account_list(int *acc_num, char ***account_list)
@@ -1438,19 +1453,17 @@ int del_account(const char *const account)
 {
 	disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
-	int acc_num = 0, account_count, target;
+	int acc_num = 0, account_count, target = -1;
 	struct nvram_transaction transaction;
-	char shifted_passwords[MAX_ACCOUNT_NUM][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
 	char **account_list = NULL;
 	int result, i, first_error = 0, saved_errno;
 	int service_result, service_error;
-	char nvram_name[16];
 	char var_file[256];
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
 
-	/* Keep the original inventory length for freeing after the NVRAM shift. */
+	/* Preserve the coherent source inventory while the writer lease revalidates it. */
 	if (get_account_list(&acc_num, &account_list) != 0)
 		return -1;
 	if (acc_num <= 0) {
@@ -1459,118 +1472,68 @@ int del_account(const char *const account)
 	}
 	account_count = acc_num;
 
-	result = 0;
-	for (i = 0; i < acc_num; ++i)
+	for (i = 0; i < account_count; ++i) {
 		if (!strcmp(account_list[i], account)) {
-			result = 1;
 			target = i;
 			break;
 		}
-	if (result == 0) {
+	}
+	if (target < 0) {
 		free_2_dimension_list(&account_count, &account_list);
 		return -1;
 	}
 
 	/*
-	 * Snapshot all shifted passwords under one checked NVRAM lease before
-	 * changing the account inventory. A backend read error must not erase a
-	 * surviving account's password by collapsing it to an empty string.
+	 * Resolve a complete volume snapshot before changing NVRAM. A failed
+	 * inventory must not delete the account while leaving unknown metadata.
 	 */
-	if (disk_share_account_password_shift_snapshot(
-		    &disk_share_account_nvram_operations, &transaction,
-		    account_count, target, MAX_ACCOUNT_NUM,
-		    shifted_passwords) != 0) {
+	if (read_disk_data_checked(&disk_list) != 0) {
 		saved_errno = errno ? errno : EIO;
 		free_2_dimension_list(&account_count, &account_list);
 		errno = saved_errno;
 		return -1;
 	}
 
-	/* 2. remove the account from the persistent NVRAM inventory. */
-	--acc_num;
-	nvram_set_int("acc_num", acc_num);
-
-	for (i = target; i < acc_num; ++i) {
-		sprintf(nvram_name, "acc_username%d", i);
-		nvram_set(nvram_name, account_list[i+1]);
-
-		sprintf(nvram_name, "acc_password%d", i);
-		nvram_set(nvram_name, shifted_passwords[i]);
-	}
-
 	/*
-	 * 3. When no account remains, reset only modes that can be read reliably.
-	 * A failed read must not be mistaken for an absent/zero setting.
+	 * Compact account names/passwords and update last-account modes under
+	 * one exclusive transaction. Failed setters or commit are compensated
+	 * from the snapshot before the writer lease is released.
 	 */
-	if (acc_num < 1) {
-		char *mode_value = NULL;
-		int samba_mode_default = 0, ftp_mode_default = 0;
-		int samba_mode_status, ftp_mode_status, mode_reads_ok = 1;
-		int mode_error;
-
-		errno = 0;
-		samba_mode_status = nvram_get_checked("st_samba_mode", &mode_value);
-		if (disk_share_account_mode_needs_default(
-			    samba_mode_status, mode_value, &samba_mode_default) != 0) {
-			mode_error = errno ? errno : EIO;
-			if (first_error == 0)
-				first_error = mode_error;
-			mode_reads_ok = 0;
-		}
-
-		mode_value = NULL;
-		errno = 0;
-		ftp_mode_status = nvram_get_checked("st_ftp_mode", &mode_value);
-		if (disk_share_account_mode_needs_default(
-			    ftp_mode_status, mode_value, &ftp_mode_default) != 0) {
-			mode_error = errno ? errno : EIO;
-			if (first_error == 0)
-				first_error = mode_error;
-			mode_reads_ok = 0;
-		}
-
-		if (mode_reads_ok && samba_mode_default &&
-		    nvram_set_int("st_samba_mode", 1) != 0 && first_error == 0)
-			first_error = errno ? errno : EIO;
-		if (mode_reads_ok && ftp_mode_default &&
-		    nvram_set_int("st_ftp_mode", 1) != 0 && first_error == 0)
-			first_error = errno ? errno : EIO;
+	result = disk_share_account_inventory_remove(
+		&disk_share_account_nvram_operations, &transaction,
+		account_count, target, MAX_ACCOUNT_NUM, account_list);
+	if (result != 0) {
+		saved_errno = errno ? errno : EIO;
+		free_2_dimension_list(&account_count, &account_list);
+		free_disk_data(disk_list);
+		errno = saved_errno;
+		return -1;
 	}
-
-	if (nvram_commit_safe() != 0 && first_error == 0)
-		first_error = errno ? errno : EIO;
-
-	/* Free with the pre-decrement count; account_list still owns that many strings. */
 	free_2_dimension_list(&account_count, &account_list);
 
-	/* 4. clean every volume in a complete inventory; preserve scan failures. */
-	if (read_disk_data_checked(&disk_list) != 0) {
-		if (first_error == 0)
-			first_error = errno ? errno : EIO;
-		disk_list = NULL;
-	} else {
-		for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
-			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
-				if (follow_partition->mount_point == NULL)
-					continue;
-	
-				if (disk_share_format_account_var_path(
-					    var_file, sizeof(var_file),
-					    follow_partition->mount_point, account) != 0) {
-					if (first_error == 0)
-						first_error = errno ? errno : EIO;
-					continue;
-				}
-	
-				if (unlink(var_file) != 0 && errno != ENOENT &&
-				    first_error == 0)
+	/* Remove stale per-volume metadata only after the NVRAM delete succeeds. */
+	for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {
+		for (follow_partition = follow_disk->partitions;
+		     follow_partition != NULL; follow_partition = follow_partition->next) {
+			if (follow_partition->mount_point == NULL)
+				continue;
+
+			if (disk_share_format_account_var_path(
+				    var_file, sizeof(var_file),
+				    follow_partition->mount_point, account) != 0) {
+				if (first_error == 0)
 					first_error = errno ? errno : EIO;
+				continue;
 			}
+
+			if (unlink(var_file) != 0 && errno != ENOENT &&
+			    first_error == 0)
+				first_error = errno ? errno : EIO;
 		}
 	}
 	free_disk_data(disk_list);
 
-	/* 6. reload services even when stale metadata could not be removed. */
+	/* Reload services even when stale metadata could not be removed. */
 	errno = 0;
 	service_result = system("/sbin/run_ftpsamba");
 	service_error = disk_share_command_status(service_result, errno);

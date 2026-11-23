@@ -20,6 +20,8 @@ struct disk_share_account_nvram_ops {
 	int (*end)(void *context);
 	int (*valid_name)(const char *name);
 	int (*reserved_name)(const char *name, const char *http_username);
+	int (*set)(void *context, const char *name, const char *value);
+	int (*commit)(void *context);
 };
 
 static inline void
@@ -308,6 +310,266 @@ disk_share_account_mode_needs_default(int read_status, const char *value,
 		return -1;
 	}
 	*needs_default = ((int)parsed != 1 && (int)parsed != 3);
+	return 0;
+}
+
+/*
+ * Remove an account from one exclusive NVRAM transaction. Revalidate the
+ * caller's inventory under the writer lease, snapshot every overwritten
+ * value, and compensate all writes if a setter or flash commit fails.
+ * A NULL value passed to set() removes a previously absent key on rollback.
+ */
+static inline int
+disk_share_account_inventory_remove(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int target, int max_count, char *const *expected_users)
+{
+	char (*old_passwords)[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX] = NULL;
+	unsigned char *password_present = NULL;
+	char key[24], count_value[16], old_count_value[16];
+	char current_user[128], old_mode[2][32];
+	const char *mode_names[2] = { "st_samba_mode", "st_ftp_mode" };
+	char *value = NULL;
+	int mode_present[2] = { 0, 0 };
+	int mode_default[2] = { 0, 0 };
+	int mode_attempted[2] = { 0, 0 };
+	int started = 0, writes_started = 0;
+	int status, result, saved_errno = 0, rollback_errno = 0;
+	int current_count = 0, commit_required = 0;
+	int key_length, i, j, mode_value_length;
+
+	if (!ops || !ops->begin || !ops->get || !ops->set || !ops->commit ||
+	    !ops->end || !expected_users || expected_count < 1 ||
+	    expected_count > max_count || target < 0 || target >= expected_count ||
+	    max_count < 1) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	old_passwords = (char (*)[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX])
+		calloc((size_t)max_count, sizeof(*old_passwords));
+	password_present = (unsigned char *)calloc((size_t)max_count, 1);
+	if (!old_passwords || !password_present) {
+		saved_errno = errno ? errno : ENOMEM;
+		goto finish;
+	}
+
+	errno = 0;
+	if (ops->begin(context) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finish;
+	}
+	started = 1;
+
+	result = router_account_nvram_read_count(ops->get, context, "acc_num",
+						 max_count, &current_count);
+	if (result != 0) {
+		saved_errno = result;
+		goto transaction_finish;
+	}
+	if (current_count != expected_count) {
+		saved_errno = EAGAIN;
+		goto transaction_finish;
+	}
+
+	/* Reject a stale account list instead of compacting another writer's data. */
+	for (i = 0; i < expected_count; ++i) {
+		key_length = snprintf(key, sizeof(key), "acc_username%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			saved_errno = ENAMETOOLONG;
+			goto transaction_finish;
+		}
+		result = router_account_nvram_read_copy(
+			ops->get, context, key, "", current_user, sizeof(current_user));
+		if (result != 0) {
+			saved_errno = result;
+			goto transaction_finish;
+		}
+		if (!expected_users[i] || strcmp(current_user, expected_users[i]) != 0) {
+			saved_errno = EAGAIN;
+			goto transaction_finish;
+		}
+	}
+
+	/* Snapshot every password slot that this delete will overwrite. */
+	for (i = target; i < expected_count; ++i) {
+		key_length = snprintf(key, sizeof(key), "acc_password%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			saved_errno = ENAMETOOLONG;
+			goto transaction_finish;
+		}
+		value = NULL;
+		errno = 0;
+		status = ops->get(context, key, &value);
+		if (status < 0) {
+			saved_errno = errno ? errno : EIO;
+			goto transaction_finish;
+		}
+		if (status == 0)
+			continue;
+		if (status != 1 || !value) {
+			saved_errno = EIO;
+			goto transaction_finish;
+		}
+		mode_value_length = (int)strlen(value);
+		if (mode_value_length >= DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX) {
+			saved_errno = ENAMETOOLONG;
+			goto transaction_finish;
+		}
+		memcpy(old_passwords[i], value, (size_t)mode_value_length + 1);
+		password_present[i] = 1;
+	}
+
+	/* Last-account mode changes also need exact rollback snapshots. */
+	if (expected_count == 1) {
+		for (j = 0; j < 2; ++j) {
+			value = NULL;
+			errno = 0;
+			status = ops->get(context, mode_names[j], &value);
+			if (disk_share_account_mode_needs_default(
+				    status, value, &mode_default[j]) != 0) {
+				saved_errno = errno ? errno : EIO;
+				goto transaction_finish;
+			}
+			if (status == 1) {
+				mode_value_length = (int)strlen(value);
+				if (mode_value_length >= (int)sizeof(old_mode[j])) {
+					saved_errno = ENAMETOOLONG;
+					goto transaction_finish;
+				}
+				memcpy(old_mode[j], value, (size_t)mode_value_length + 1);
+				mode_present[j] = 1;
+			}
+		}
+	}
+
+	value = NULL;
+	errno = 0;
+	status = ops->get(context, "nvram_manual", &value);
+	if (disk_share_account_commit_required(status, value, &commit_required) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto transaction_finish;
+	}
+
+	snprintf(old_count_value, sizeof(old_count_value), "%d", expected_count);
+	snprintf(count_value, sizeof(count_value), "%d", expected_count - 1);
+
+	/* Mark the first setter attempted before calling into the ioctl adapter. */
+	writes_started = 1;
+	errno = 0;
+	if (ops->set(context, "acc_num", count_value) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto rollback;
+	}
+
+	for (i = target; i < expected_count - 1; ++i) {
+		key_length = snprintf(key, sizeof(key), "acc_username%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			saved_errno = ENAMETOOLONG;
+			goto rollback;
+		}
+		errno = 0;
+		if (ops->set(context, key, expected_users[i + 1]) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+
+		key_length = snprintf(key, sizeof(key), "acc_password%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			saved_errno = ENAMETOOLONG;
+			goto rollback;
+		}
+		/* Preserve the legacy safe_get() behavior for a missing source slot. */
+		errno = 0;
+		if (ops->set(context, key, password_present[i + 1] ?
+			     old_passwords[i + 1] : "") != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+	}
+
+	if (expected_count == 1) {
+		for (j = 0; j < 2; ++j) {
+			if (!mode_default[j])
+				continue;
+			mode_attempted[j] = 1;
+			errno = 0;
+			if (ops->set(context, mode_names[j], "1") != 0) {
+				saved_errno = errno ? errno : EIO;
+				goto rollback;
+			}
+		}
+	}
+
+	if (commit_required) {
+		errno = 0;
+		if (ops->commit(context) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+	}
+	goto transaction_finish;
+
+rollback:
+	/*
+	 * A failed ioctl/close can have changed the key despite returning error.
+	 * Restore the complete pre-delete snapshot, not just successful setters.
+	 */
+	if (writes_started) {
+		result = ops->set(context, "acc_num", old_count_value);
+		if (result != 0 && rollback_errno == 0)
+			rollback_errno = errno ? errno : EIO;
+
+		for (i = target; i < expected_count - 1; ++i) {
+			key_length = snprintf(key, sizeof(key), "acc_username%d", i);
+			if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+				if (rollback_errno == 0)
+					rollback_errno = ENAMETOOLONG;
+			} else {
+				result = ops->set(context, key, expected_users[i]);
+				if (result != 0 && rollback_errno == 0)
+					rollback_errno = errno ? errno : EIO;
+			}
+
+			key_length = snprintf(key, sizeof(key), "acc_password%d", i);
+			if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+				if (rollback_errno == 0)
+					rollback_errno = ENAMETOOLONG;
+			} else {
+				result = ops->set(context, key,
+						  password_present[i] ? old_passwords[i] : NULL);
+				if (result != 0 && rollback_errno == 0)
+					rollback_errno = errno ? errno : EIO;
+			}
+		}
+
+		for (j = 0; j < 2; ++j) {
+			if (!mode_attempted[j])
+				continue;
+			result = ops->set(context, mode_names[j],
+					  mode_present[j] ? old_mode[j] : NULL);
+			if (result != 0 && rollback_errno == 0)
+				rollback_errno = errno ? errno : EIO;
+		}
+		if (commit_required && ops->commit(context) != 0 && rollback_errno == 0)
+			rollback_errno = errno ? errno : EIO;
+	}
+	if (rollback_errno != 0)
+		saved_errno = EIO;
+
+transaction_finish:
+	if (started) {
+		errno = 0;
+		if (ops->end(context) != 0 && saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+	}
+finish:
+	free(old_passwords);
+	free(password_present);
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
 	return 0;
 }
 

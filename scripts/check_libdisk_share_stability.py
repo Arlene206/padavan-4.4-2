@@ -376,16 +376,17 @@ require(saved_count < decrement_count < free_inventory and
         del_account_compact[:decrement_count],
         "del_account must release the complete original account list after preserving its pre-decrement count")
 
-password_snapshot = del_account_compact.index(
-    "disk_share_account_password_shift_snapshot(&disk_share_account_nvram_operations"
+delete_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
+delete_transaction = del_account_compact.index(
+    "disk_share_account_inventory_remove(&disk_share_account_nvram_operations,&transaction,account_count,target,MAX_ACCOUNT_NUM,account_list)"
 )
-password_snapshot_end = del_account_compact.index(
-    "free_2_dimension_list(&account_count,&account_list)", decrement_count
-)
-require(password_snapshot < decrement_count < password_snapshot_end and
+delete_unlink = del_account_compact.index("unlink(var_file)", delete_transaction)
+require(delete_inventory < delete_transaction < delete_unlink and
+        "nvram_set(" not in del_account_body and
+        "nvram_set_int(" not in del_account_body and
         "nvram_safe_get(" not in del_account_body and
-        "shifted_passwords[i]" in del_account_body,
-        "del_account must copy every shifted password under a checked transaction before mutating NVRAM and must not collapse a failed password read into an empty value")
+        "nvram_commit_safe(" not in del_account_body,
+        "del_account must resolve a complete storage inventory first and perform all account NVRAM mutation through the checked compensating transaction")
 
 
 commit_policy_tests = (
@@ -402,6 +403,32 @@ for marker in commit_policy_tests:
             "NVRAM commit policy regression is defined but not executed: " + marker)
 
 
+account_delete_tests = (
+    "test_account_inventory_remove_compacts_under_one_transaction",
+    "test_account_inventory_remove_defaults_last_account_modes",
+    "test_account_inventory_remove_honors_manual_commit",
+    "test_account_inventory_remove_rejects_stale_inventory",
+    "test_account_inventory_remove_rolls_back_failed_set",
+    "test_account_inventory_remove_rolls_back_failed_commit",
+    "test_account_inventory_remove_reports_rollback_failure",
+    "test_account_inventory_remove_rejects_password_read_error",
+)
+for marker in account_delete_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing atomic account deletion regression: " + marker)
+for marker in account_delete_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "atomic account deletion regression is defined but not executed: " + marker)
+for token in (
+    "ops->set(context,\"acc_num\",count_value)",
+    "ops->commit(context)",
+    "rollback:",
+    "if(rollback_errno!=0)saved_errno=EIO;",
+    "current_count!=expected_count",
+):
+    require(token in delete_policy_compact,
+            "atomic account deletion policy is missing rollback/snapshot behavior: " + token)
+
 account_mode_tests = (
     "test_account_mode_policy_defaults_missing_values",
     "test_account_mode_policy_preserves_supported_modes",
@@ -417,20 +444,14 @@ require("disk_share_account_mode_needs_default" in ACCOUNT_POLICY and
         "parsed<INT_MIN||parsed>INT_MAX" in "".join(ACCOUNT_POLICY.split()),
         "last-account mode policy must reject invalid backend values and integer overflow")
 
-del_mode_body = function_body(
-    DISK_SOURCE, "int del_account(const char *const account)"
+delete_policy_body = function_body(
+    ACCOUNT_POLICY, "static inline int\ndisk_share_account_inventory_remove"
 )
-del_mode_compact = "".join(del_mode_body.split())
-samba_mode_read = 'nvram_get_checked("st_samba_mode",&mode_value)'
-ftp_mode_read = 'nvram_get_checked("st_ftp_mode",&mode_value)'
-require(samba_mode_read in del_mode_compact and ftp_mode_read in del_mode_compact and
-        del_mode_compact.count("disk_share_account_mode_needs_default(") == 2 and
-        'nvram_get_int("st_samba_mode")' not in del_mode_body and
-        'nvram_get_int("st_ftp_mode")' not in del_mode_body and
-        del_mode_compact.index(samba_mode_read) < del_mode_compact.index("nvram_set_int(\"st_samba_mode\",1)") and
-        del_mode_compact.index(ftp_mode_read) < del_mode_compact.index("nvram_set_int(\"st_ftp_mode\",1)") and
-        "mode_reads_ok" in del_mode_compact,
-        "last-account removal must check both mode reads before changing either share-mode setting")
+delete_policy_compact = "".join(delete_policy_body.split())
+require("disk_share_account_mode_needs_default(status,value,&mode_default[j])" in delete_policy_compact and
+        "mode_attempted[j]=1;" in delete_policy_compact and
+        "mode_present[j]?old_mode[j]:NULL" in delete_policy_compact,
+        "last-account mode updates must snapshot and restore exact prior values inside the account transaction")
 
 require("disk_share_account_commit_required" in ACCOUNT_POLICY,
         "account persistence policy must preserve the legacy manual-commit rule")

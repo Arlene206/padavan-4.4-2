@@ -439,12 +439,31 @@ fake_account_name_reserved(const char *name, const char *http_username)
 		strcmp(name, http_username) == 0);
 }
 
+static int
+fake_account_nvram_set_unused(void *context, const char *name, const char *value)
+{
+	(void)context;
+	(void)name;
+	(void)value;
+	errno = ENOTSUP;
+	return -1;
+}
+
+static int
+fake_account_nvram_commit_unused(void *context)
+{
+	(void)context;
+	return 0;
+}
+
 static const struct disk_share_account_nvram_ops fake_account_nvram_ops = {
 	fake_account_nvram_begin,
 	fake_account_nvram_get,
 	fake_account_nvram_end,
 	fake_account_name_valid,
-	fake_account_name_reserved
+	fake_account_name_reserved,
+	fake_account_nvram_set_unused,
+	fake_account_nvram_commit_unused
 };
 
 static void
@@ -1125,6 +1144,345 @@ test_account_created_file_rollback_reports_failures_and_continues(void)
 }
 
 
+struct fake_account_delete_nvram {
+	char count[16];
+	int count_present;
+	char usernames[4][128];
+	int username_present[4];
+	char passwords[4][128];
+	int password_present[4];
+	char manual[16];
+	int manual_present;
+	char samba_mode[32];
+	int samba_mode_present;
+	char ftp_mode[32];
+	int ftp_mode_present;
+	int begin_calls;
+	int get_calls;
+	int set_calls;
+	int commit_calls;
+	int end_calls;
+	int fail_get_call;
+	int fail_set_call;
+	int rollback_fail_set_call;
+	int fail_commit_count;
+	int end_error;
+};
+
+static int
+fake_account_delete_begin(void *context)
+{
+	struct fake_account_delete_nvram *fake = context;
+
+	++fake->begin_calls;
+	return 0;
+}
+
+static int
+fake_account_delete_get(void *context, const char *name, char **value)
+{
+	struct fake_account_delete_nvram *fake = context;
+	int index;
+
+	++fake->get_calls;
+	*value = NULL;
+	if (fake->fail_get_call == fake->get_calls) {
+		errno = EACCES;
+		return -1;
+	}
+	if (!strcmp(name, "acc_num")) {
+		if (!fake->count_present)
+			return 0;
+		*value = fake->count;
+		return 1;
+	}
+	if (!strcmp(name, "nvram_manual")) {
+		if (!fake->manual_present)
+			return 0;
+		*value = fake->manual;
+		return 1;
+	}
+	if (!strcmp(name, "st_samba_mode")) {
+		if (!fake->samba_mode_present)
+			return 0;
+		*value = fake->samba_mode;
+		return 1;
+	}
+	if (!strcmp(name, "st_ftp_mode")) {
+		if (!fake->ftp_mode_present)
+			return 0;
+		*value = fake->ftp_mode;
+		return 1;
+	}
+	if (sscanf(name, "acc_username%d", &index) == 1 &&
+	    index >= 0 && index < 4) {
+		if (!fake->username_present[index])
+			return 0;
+		*value = fake->usernames[index];
+		return 1;
+	}
+	if (sscanf(name, "acc_password%d", &index) == 1 &&
+	    index >= 0 && index < 4) {
+		if (!fake->password_present[index])
+			return 0;
+		*value = fake->passwords[index];
+		return 1;
+	}
+	return 0;
+}
+
+static int
+fake_account_delete_set(void *context, const char *name, const char *value)
+{
+	struct fake_account_delete_nvram *fake = context;
+	char *destination = NULL;
+	int *present = NULL;
+	int index = -1;
+
+	++fake->set_calls;
+	if (!strcmp(name, "acc_num")) {
+		destination = fake->count;
+		present = &fake->count_present;
+	} else if (!strcmp(name, "st_samba_mode")) {
+		destination = fake->samba_mode;
+		present = &fake->samba_mode_present;
+	} else if (!strcmp(name, "st_ftp_mode")) {
+		destination = fake->ftp_mode;
+		present = &fake->ftp_mode_present;
+	} else if (sscanf(name, "acc_username%d", &index) == 1 &&
+		   index >= 0 && index < 4) {
+		destination = fake->usernames[index];
+		present = &fake->username_present[index];
+	} else if (sscanf(name, "acc_password%d", &index) == 1 &&
+		   index >= 0 && index < 4) {
+		destination = fake->passwords[index];
+		present = &fake->password_present[index];
+	} else {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* Simulate an ambiguous close error: the key changes but the call fails. */
+	if (value) {
+		snprintf(destination, 128, "%s", value);
+		*present = 1;
+	} else {
+		destination[0] = '\0';
+		*present = 0;
+	}
+	if (fake->set_calls == fake->fail_set_call) {
+		errno = EACCES;
+		return -1;
+	}
+	if (fake->set_calls == fake->rollback_fail_set_call) {
+		errno = EROFS;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fake_account_delete_commit(void *context)
+{
+	struct fake_account_delete_nvram *fake = context;
+
+	++fake->commit_calls;
+	if (fake->fail_commit_count > 0) {
+		--fake->fail_commit_count;
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fake_account_delete_end(void *context)
+{
+	struct fake_account_delete_nvram *fake = context;
+
+	++fake->end_calls;
+	if (fake->end_error) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+static const struct disk_share_account_nvram_ops fake_account_delete_ops = {
+	fake_account_delete_begin,
+	fake_account_delete_get,
+	fake_account_delete_end,
+	fake_account_name_valid,
+	fake_account_name_reserved,
+	fake_account_delete_set,
+	fake_account_delete_commit
+};
+
+static void
+fake_account_delete_init_three(struct fake_account_delete_nvram *fake)
+{
+	memset(fake, 0, sizeof(*fake));
+	strcpy(fake->count, "3");
+	fake->count_present = 1;
+	strcpy(fake->usernames[0], "alice");
+	strcpy(fake->usernames[1], "bob");
+	strcpy(fake->usernames[2], "carol");
+	fake->username_present[0] = 1;
+	fake->username_present[1] = 1;
+	fake->username_present[2] = 1;
+	strcpy(fake->passwords[0], "alice-secret");
+	strcpy(fake->passwords[1], "bob-secret");
+	strcpy(fake->passwords[2], "carol-secret");
+	fake->password_present[0] = 1;
+	fake->password_present[1] = 1;
+	fake->password_present[2] = 1;
+}
+
+static void
+test_account_inventory_remove_compacts_under_one_transaction(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == 0);
+	assert(strcmp(fake.count, "2") == 0);
+	assert(strcmp(fake.usernames[0], "alice") == 0);
+	assert(strcmp(fake.usernames[1], "carol") == 0);
+	assert(strcmp(fake.passwords[1], "carol-secret") == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(fake.commit_calls == 1);
+}
+
+static void
+test_account_inventory_remove_defaults_last_account_modes(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[1] = { "alice" };
+
+	memset(&fake, 0, sizeof(fake));
+	strcpy(fake.count, "1");
+	fake.count_present = 1;
+	strcpy(fake.usernames[0], "alice");
+	fake.username_present[0] = 1;
+	strcpy(fake.passwords[0], "alice-secret");
+	fake.password_present[0] = 1;
+	strcpy(fake.samba_mode, "0");
+	fake.samba_mode_present = 1;
+	strcpy(fake.ftp_mode, "3");
+	fake.ftp_mode_present = 1;
+
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 1, 0, 4, users) == 0);
+	assert(strcmp(fake.count, "0") == 0);
+	assert(strcmp(fake.samba_mode, "1") == 0);
+	assert(strcmp(fake.ftp_mode, "3") == 0);
+	assert(fake.commit_calls == 1);
+}
+
+static void
+test_account_inventory_remove_honors_manual_commit(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	strcpy(fake.manual, "1");
+	fake.manual_present = 1;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == 0);
+	assert(fake.commit_calls == 0);
+	assert(strcmp(fake.count, "2") == 0);
+}
+
+static void
+test_account_inventory_remove_rejects_stale_inventory(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	strcpy(fake.usernames[1], "mallory");
+	errno = 0;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == -1);
+	assert(errno == EAGAIN);
+	assert(fake.set_calls == 0 && fake.commit_calls == 0);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_inventory_remove_rolls_back_failed_set(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_set_call = 3;
+	errno = 0;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == -1);
+	assert(errno == EACCES);
+	assert(strcmp(fake.count, "3") == 0);
+	assert(strcmp(fake.usernames[1], "bob") == 0);
+	assert(strcmp(fake.passwords[1], "bob-secret") == 0);
+	assert(fake.commit_calls == 1);
+	assert(fake.end_calls == 1);
+}
+
+static void
+test_account_inventory_remove_rolls_back_failed_commit(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_commit_count = 1;
+	errno = 0;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == -1);
+	assert(errno == EIO);
+	assert(strcmp(fake.count, "3") == 0);
+	assert(strcmp(fake.usernames[1], "bob") == 0);
+	assert(strcmp(fake.passwords[1], "bob-secret") == 0);
+	assert(fake.commit_calls == 2);
+}
+
+static void
+test_account_inventory_remove_reports_rollback_failure(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_set_call = 3;
+	fake.rollback_fail_set_call = 4;
+	errno = 0;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == -1);
+	assert(errno == EIO);
+	assert(strcmp(fake.count, "2") == 0);
+	assert(strcmp(fake.usernames[1], "bob") == 0);
+	assert(strcmp(fake.passwords[1], "bob-secret") == 0);
+}
+
+static void
+test_account_inventory_remove_rejects_password_read_error(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_get_call = 5;
+	errno = 0;
+	assert(disk_share_account_inventory_remove(
+		&fake_account_delete_ops, &fake, 3, 1, 4, users) == -1);
+	assert(errno == EACCES);
+	assert(fake.set_calls == 0 && fake.commit_calls == 0);
+}
+
+
 int
 main(void)
 {
@@ -1177,6 +1535,14 @@ main(void)
 	test_account_password_shift_snapshot_read_error_clears_all_values();
 	test_account_password_shift_snapshot_end_error_discards_values();
 	test_account_password_shift_snapshot_rejects_oversized_value();
+	test_account_inventory_remove_compacts_under_one_transaction();
+	test_account_inventory_remove_defaults_last_account_modes();
+	test_account_inventory_remove_honors_manual_commit();
+	test_account_inventory_remove_rejects_stale_inventory();
+	test_account_inventory_remove_rolls_back_failed_set();
+	test_account_inventory_remove_rolls_back_failed_commit();
+	test_account_inventory_remove_reports_rollback_failure();
+	test_account_inventory_remove_rejects_password_read_error();
 	test_account_commit_policy_defaults_to_commit_for_missing_key();
 	test_account_commit_policy_preserves_manual_commit_setting();
 	test_account_commit_policy_rejects_read_errors();

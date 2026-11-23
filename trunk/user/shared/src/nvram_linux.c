@@ -523,6 +523,14 @@ nvram_transaction_set(struct nvram_transaction *transaction,
 }
 
 int
+nvram_transaction_commit(struct nvram_transaction *transaction)
+{
+	if (!nvram_transaction_valid(transaction))
+		return -1;
+	return nvram_commit_unlocked();
+}
+
+int
 nvram_transaction_clear(struct nvram_transaction *transaction)
 {
 	if (!nvram_transaction_valid(transaction))

@@ -321,6 +321,7 @@ def run() -> int:
         ("nvram_transaction_getall", "nvram_getall_unlocked"),
         ("nvram_transaction_get", "nvram_get_checked_unlocked"),
         ("nvram_transaction_set", "nvram_set_unlocked"),
+        ("nvram_transaction_commit", "nvram_commit_unlocked"),
         ("nvram_transaction_clear", "nvram_clear_unlocked"),
     )
     for function, unlocked in transaction_contracts:
