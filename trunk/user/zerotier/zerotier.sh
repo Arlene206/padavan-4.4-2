@@ -1216,61 +1216,205 @@ stop_zero() {
 }
 
 #创建moon节点
+zerotier_moon_ipv4_is_valid() {
+	[ "$#" -eq 1 ] || return 1
+	printf '%s\n' "$1" | awk -F. '
+		NF != 4 { exit 1 }
+		{
+			for (i = 1; i <= 4; ++i) {
+				if ($i !~ /^[0-9][0-9]?[0-9]?$/ || $i + 0 > 255 ||
+				    ($i ~ /^0[0-9]+$/))
+					exit 1
+			}
+			if ($1 + 0 == 0 || $4 + 0 == 0)
+				exit 1
+		}
+	'
+}
+
+zerotier_rollback_moon_create() {
+	zt_moon_create_rollback_status=0
+	if [ "$zt_moon_create_moon_publish_attempted" -eq 1 ]; then
+		if [ "$zt_moon_create_old_moon_present" -eq 1 ]; then
+			mv -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file" || zt_moon_create_rollback_status=1
+		else
+			rm -f "$zt_moon_create_moon_file" || zt_moon_create_rollback_status=1
+		fi
+	fi
+	if [ "$zt_moon_create_json_publish_attempted" -eq 1 ]; then
+		if [ "$zt_moon_create_old_json_present" -eq 1 ]; then
+			mv -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file" || zt_moon_create_rollback_status=1
+		else
+			rm -f "$zt_moon_create_json_file" || zt_moon_create_rollback_status=1
+		fi
+	fi
+	if [ "$zt_moon_create_nvram_attempted" -eq 1 ]; then
+		if ! nvram set zerotiermoon_id="$zt_moon_create_old_id" || ! nvram commit; then
+			logger -t "zerotier" "Moon身份NVRAM回滚失败"
+			zt_moon_create_rollback_status=1
+		fi
+	fi
+	if [ "$zt_moon_create_rollback_status" -eq 0 ]; then
+		rm -rf "$zt_moon_create_stage_dir" || zt_moon_create_rollback_status=1
+	fi
+	if [ "$zt_moon_create_rollback_status" -ne 0 ]; then
+		logger -t "zerotier" "Moon创建事务回滚不完整，保留私有备份目录: $zt_moon_create_stage_dir"
+	fi
+	return "$zt_moon_create_rollback_status"
+}
+
 creat_moon() {
 	if ! moonip="$(nvram get_checked zerotiermoon_ip)"; then
 		logger -t "zerotier" "无法读取ZeroTier Moon地址配置"
 		return 1
 	fi
-	logger -t "zerotier" "moonip $moonip"
-	#检查是否合法ip
-	regex="\b(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[1-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[1-9])\b"
-	ckStep2=`echo $moonip | egrep $regex | wc -l`
+	if ! zt_moon_create_old_id="$(nvram get_checked zerotiermoon_id)"; then
+		logger -t "zerotier" "无法读取原有ZeroTier Moon身份配置"
+		return 1
+	fi
 
-	logger -t "zerotier" "搭建ZeroTier的Moon中转服务器，生成moon配置文件"
 	if [ -z "$moonip" ]; then
-		#自动获取wanip
-		ip_addr=`ifconfig -a ppp0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'`
-	#elif [ $ckStep2 -eq 0 ]; then
-		#不是ip
-	#	ip_addr = `curl $moonip`
+		ip_addr="$(ifconfig -a ppp0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}')"
 	else
-		ip_addr=$moonip
+		ip_addr="$moonip"
 	fi
-	logger -t "zerotier" "moonip $ip_addr"
-	if [ -e $config_path/identity.public ]; then
-
-		$PROGIDT initmoon $config_path/identity.public > $config_path/moon.json
-		if `sed -i "s/\[\]/\[ \"$ip_addr\/9993\" \]/" $config_path/moon.json >/dev/null 2>/dev/null`; then
-			logger -t "zerotier" "生成moon配置文件成功"
-		else
-			logger -t "zerotier" "生成moon配置文件失败"
-		fi
-
-		logger -t "zerotier" "生成签名文件"
-		cd $config_path
-		pwd
-		$PROGIDT genmoon $config_path/moon.json
-		[ $? -ne 0 ] && return 1
-		logger -t "zerotier" "创建moons.d文件夹，并把签名文件移动到文件夹内"
-		if [ ! -d "$config_path/moons.d" ]; then
-			mkdir -p $config_path/moons.d
-		fi
-		
-		#服务器加入moon server
-		mv $config_path/*.moon $config_path/moons.d/ >/dev/null 2>&1
-		logger -t "zerotier" "moon节点创建完成"
-
-		zmoonid=`cat moon.json | awk -F "[id]" '/"id"/{print$0}'` >/dev/null 2>&1
-		zmoonid=`echo $zmoonid | awk -F "[:]" '/"id"/{print$2}'` >/dev/null 2>&1
-		zmoonid=`echo $zmoonid | tr -d '"|,'`
-
-		nvram set zerotiermoon_id="$zmoonid"
-		nvram commit
-	else
-		logger -t "zerotier" "identity.public不存在"
+	if ! zerotier_moon_ipv4_is_valid "$ip_addr"; then
+		logger -t "zerotier" "ZeroTier Moon地址不是有效IPv4地址"
+		return 1
 	fi
+
+	zt_moon_create_identity_public="$config_path/identity.public"
+	zt_moon_create_moon_dir="$config_path/moons.d"
+	zt_moon_create_json_file="$config_path/moon.json"
+	if [ -L "$config_path" ] || [ ! -d "$config_path" ] ||
+	   [ -L "$zt_moon_create_identity_public" ] ||
+	   [ ! -f "$zt_moon_create_identity_public" ]; then
+		logger -t "zerotier" "ZeroTier Moon身份文件或配置目录不安全"
+		return 1
+	fi
+	if [ -L "$zt_moon_create_moon_dir" ] ||
+	   { [ -e "$zt_moon_create_moon_dir" ] && [ ! -d "$zt_moon_create_moon_dir" ]; }; then
+		logger -t "zerotier" "ZeroTier Moon签名目录不安全"
+		return 1
+	fi
+	if [ -L "$zt_moon_create_json_file" ] ||
+	   { [ -e "$zt_moon_create_json_file" ] && [ ! -f "$zt_moon_create_json_file" ]; }; then
+		logger -t "zerotier" "ZeroTier Moon JSON目标不安全"
+		return 1
+	fi
+	if ! mkdir -p "$zt_moon_create_moon_dir" || ! chmod 700 "$zt_moon_create_moon_dir"; then
+		logger -t "zerotier" "无法创建或保护ZeroTier Moon签名目录"
+		return 1
+	fi
+
+	zt_moon_create_stage_dir="$(mktemp -d "$config_path/.moon-create.XXXXXX")" || return 1
+	zt_moon_create_json_stage="$zt_moon_create_stage_dir/moon.json"
+	if ! "$PROGIDT" initmoon "$zt_moon_create_identity_public" > "$zt_moon_create_json_stage"; then
+		logger -t "zerotier" "ZeroTier Moon JSON初始化失败"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+	# The endpoint is restricted to numeric IPv4 dotted-quad above, so it
+	# cannot inject sed replacement syntax. Check sed's status directly.
+	if ! sed -i "s/\"stableEndpoints\"[[:space:]]*:[[:space:]]*\[\]/\"stableEndpoints\": [ \"$ip_addr\/9993\" ]/" "$zt_moon_create_json_stage"; then
+		logger -t "zerotier" "ZeroTier Moon端点写入失败"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+	if ! grep -F "\"$ip_addr/9993\"" "$zt_moon_create_json_stage" >/dev/null 2>&1; then
+		logger -t "zerotier" "ZeroTier Moon JSON缺少已配置端点"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+
+	zt_moon_create_id="$(awk -F '"' '/"id"[[:space:]]*:/ { print $4; exit }' "$zt_moon_create_json_stage")"
+	case "$zt_moon_create_id" in
+		*[!0123456789abcdefABCDEF]*)
+			logger -t "zerotier" "ZeroTier Moon初始化结果包含无效身份地址"
+			rm -rf "$zt_moon_create_stage_dir"
+			return 1
+			;;
+	esac
+	if [ "${#zt_moon_create_id}" -ne 10 ]; then
+		logger -t "zerotier" "ZeroTier Moon初始化结果身份地址长度无效"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+
+	zt_moon_create_moon_stage="$zt_moon_create_stage_dir/000000$zt_moon_create_id.moon"
+	if ! (cd "$zt_moon_create_stage_dir" && "$PROGIDT" genmoon "$zt_moon_create_json_stage"); then
+		logger -t "zerotier" "ZeroTier Moon签名生成失败"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+	if [ ! -s "$zt_moon_create_moon_stage" ]; then
+		logger -t "zerotier" "ZeroTier Moon签名输出不存在或为空"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+	if ! chmod 600 "$zt_moon_create_json_stage" "$zt_moon_create_moon_stage"; then
+		logger -t "zerotier" "无法保护ZeroTier Moon生成文件"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+
+	zt_moon_create_moon_file="$zt_moon_create_moon_dir/000000$zt_moon_create_id.moon"
+	if [ -L "$zt_moon_create_moon_file" ] ||
+	   { [ -e "$zt_moon_create_moon_file" ] && [ ! -f "$zt_moon_create_moon_file" ]; }; then
+		logger -t "zerotier" "ZeroTier Moon签名目标不安全"
+		rm -rf "$zt_moon_create_stage_dir"
+		return 1
+	fi
+	zt_moon_create_moon_backup="$zt_moon_create_stage_dir/moon-file.previous"
+	zt_moon_create_json_backup="$zt_moon_create_stage_dir/moon-json.previous"
+	zt_moon_create_old_moon_present=0
+	zt_moon_create_old_json_present=0
+	zt_moon_create_moon_publish_attempted=0
+	zt_moon_create_json_publish_attempted=0
+	zt_moon_create_nvram_attempted=0
+	if [ -e "$zt_moon_create_moon_file" ]; then
+		if ! ln "$zt_moon_create_moon_file" "$zt_moon_create_moon_backup"; then
+			logger -t "zerotier" "无法备份现有ZeroTier Moon签名"
+			rm -rf "$zt_moon_create_stage_dir"
+			return 1
+		fi
+		zt_moon_create_old_moon_present=1
+	fi
+	if [ -e "$zt_moon_create_json_file" ]; then
+		if ! ln "$zt_moon_create_json_file" "$zt_moon_create_json_backup"; then
+			logger -t "zerotier" "无法备份现有ZeroTier Moon JSON"
+			rm -rf "$zt_moon_create_stage_dir"
+			return 1
+		fi
+		zt_moon_create_old_json_present=1
+	fi
+
+	zt_moon_create_moon_publish_attempted=1
+	if ! mv -f "$zt_moon_create_moon_stage" "$zt_moon_create_moon_file"; then
+		logger -t "zerotier" "ZeroTier Moon签名发布失败"
+		zerotier_rollback_moon_create
+		return 1
+	fi
+	zt_moon_create_json_publish_attempted=1
+	if ! mv -f "$zt_moon_create_json_stage" "$zt_moon_create_json_file"; then
+		logger -t "zerotier" "ZeroTier Moon JSON发布失败"
+		zerotier_rollback_moon_create
+		return 1
+	fi
+
+	zt_moon_create_nvram_attempted=1
+	if ! nvram set zerotiermoon_id="$zt_moon_create_id" || ! nvram commit; then
+		logger -t "zerotier" "ZeroTier Moon身份配置持久化失败"
+		zerotier_rollback_moon_create
+		return 1
+	fi
+	if ! rm -rf "$zt_moon_create_stage_dir"; then
+		logger -t "zerotier" "ZeroTier Moon创建成功但临时备份目录清理失败"
+		return 1
+	fi
+	logger -t "zerotier" "ZeroTier Moon节点创建完成: $zt_moon_create_id"
+	return 0
 }
-
 
 zerotier_rollback_moon_remove() {
 	zt_moon_remove_rollback_status=0

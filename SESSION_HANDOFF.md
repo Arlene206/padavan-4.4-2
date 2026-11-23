@@ -1,40 +1,34 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before this slice: `312b80bcfbc223239343b002dcfb002bec269c3d`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- No local checkout. Changes are authored through Git Data API; do not claim local host or firmware tests.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before this Moon creator slice: `53811e3dec39896e71204b2c709be882a20414a1`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and read-only.
+- No local checkout. Use one complete Git tree and non-force expected-SHA main update per atomic task; do not claim local tests/builds.
 
 ## Exact-SHA Actions
-- Checker-only SHA `312b80bcfbc223239343b002dcfb002bec269c3d`: ZeroTier lifecycle `45132591397` PASS; AI handoff contract `45132591442` PASS. The Moon checker extraction failure on parent `d3f3aedd...` is closed; do not repeat.
-- Production-source SHA `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`: shell lifecycle PASS; ZeroTier contract failed only due to the old generic parser, corrected and verified on `312b80...`. Same-SHA Process `45132437950`, WAN route `45132437933`, AI docs `45132437976` PASS.
-- XY-C1 `45132438010` on `d3f3aedd...` was BUILD IN_PROGRESS at last poll; TRX and artifact pending. L3 requires all three on the same production SHA.
+- WAN IPTV DHCP fix `efe51152578e62ef6bc173adc2a85e8dc792f29d`: WAN DHCP callback `45133320373` PASS; AI handoff `45133320565` PASS.
+- On `efe511...`: ZeroTier lifecycle `45133320459`, WAN route `45133320448`, Process inventory `45133320363`, DNSMasq `45133320527`, watchdog signal `45133320659` PASS.
+- Moon removal rollback commit `53811e3dec39896e71204b2c709be882a20414a1`: ZeroTier lifecycle `45133729249` PASS; AI docs `45133729245` PASS. Process inventory `45133729187` and WAN route `45133729185` were IN_PROGRESS at last poll.
+- XY-C1 `45133729221` on `53811e3...` was IN_PROGRESS at last poll. L3 requires Build, TRX and artifact all PASS on one source SHA; no L3 claim.
 
-## Active source task — WAN DHCP IPTV renew consistency
-- `udhcpc_viptv_renew()` treated absent `subnet` and `ip` as unchanged because the comparisons were guarded by `value &&`, unlike physical WAN `udhcpc_renew()`, which forces the full bound path for missing mandatory options.
-- THIS SLICE aligns physical WAN and IPTV renew fast paths via a shared policy helper. Missing `subnet`/ `ip` triggers the full bound callback, allowing the legacy subnet default to be applied and invalid/missing address data to be rejected.
-- Added GNU89 unit cases for equal, changed, missing and empty options, and source-contract assertions for both renew paths. Exact-head Actions pending.
-
-## Parallel active task — ZeroTier Moon cleanup atomicity
-- On current parent `efe51152578e62ef6bc173adc2a85e8dc792f29d`, exact-SHA ZeroTier lifecycle `45133320459` PASS and AI docs `45133320565` PASS; Process inventory `45133320363` PASS and WAN route `45133320448` PASS.
-- The Moon creator currently validates and reports file/NVRAM operation failures, but the remover still deleted JSON/signature before NVRAM commit. THIS COMMIT changes removal to backup files, commit ID clear before delete, and restore ID/files on set/commit/partial-rm failure.
-- Exact-head ZeroTier/AI/XY-C1 for THIS commit pending. XY-C1 `45133320400` on `efe511...` was still IN_PROGRESS at last poll, with Build step pending after ccache; no L3 claim.
+## Active source task — ZeroTier Moon creation atomicity
+- `creat_moon()` did not check `initmoon`; invoked `sed` inside command substitution instead of checking its status; continued after endpoint-edit failure; and ignored generated-signature, file publication and NVRAM outcomes.
+- THIS SLICE validates dotted-quad IPv4, stages JSON/signature privately, checks generator/edit/ID/signature steps, backs up prior JSON/signature, and rolls files plus old NVRAM ID back after partial publication or failed set/commit.
+- Added shell fault injection for initmoon, endpoint edit, genmoon, NVRAM set-after-write and second-file rename, plus success checks. Exact-head ZeroTier/AI CI pending; no local test claimed.
 
 ## Next actions
-1. Inspect THIS commit's exact-head ZeroTier shell/source Actions; repair first causal failure without weakening rollback coverage.
-2. Continue tracking the parallel WAN IPTV DHCP callback and AI Actions from `efe511...`.
-3. Check exact-head XY-C1 for the current source SHA; L3 requires Build, TRX and artifact all PASS together.
-4. Continue another independent reliability/security defect while CI is pending.
-4. Physical router L4 remains NOT VERIFIED.
+1. Verify exact-head ZeroTier lifecycle and AI source-contract Actions; repair the first causal failure without weakening rollback.
+2. Check exact-source XY-C1 Build, TRX and artifact; all three must PASS on one SHA for L3.
+3. Check Process inventory / WAN route runs `45133729187` / `45133729185` for source `53811e3...`.
+4. Continue independent userland reliability/security work while CI is pending. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-ZeroTier Moon removal rollback is L1 source-reviewed pending exact-head CI. The parallel IPTV renew source/test change awaits its WAN DHCP and AI Actions. No local tests/builds claimed; current same-SHA L3 remains pending; L4 NOT VERIFIED.
+Moon creator source/tests are L1-reviewed; exact-head CI pending. The prior WAN IPTV fix has exact-head WAN DHCP and AI workflow PASS. No local tests or firmware build claimed; L3/L4 remain unverified.
 
 ## Cross-session mandate
-One complete tree and atomic commit per logical slice; update `main` without force using the exact expected parent SHA; exact-SHA Actions; never touch the frozen backup.
+One complete tree and one atomic commit per task; non-force compare-and-swap main using the exact parent SHA; inspect exact-SHA Actions; never modify the frozen backup.
 
 
----
 # SESSION HANDOFF — Padavan 4.4
 
 ## Current repository state

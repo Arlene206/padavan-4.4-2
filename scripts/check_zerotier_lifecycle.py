@@ -80,7 +80,9 @@ start_instance_body = function_body(script, "start_instance()")
 nat_settings_body = function_body(script, "zerotier_read_nat_enabled()")
 route_preflight_body = function_body(script, "zerotier_preflight_static_routes()")
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
-creat_moon_body = script.split("creat_moon() {", 1)[1].split("\nremove_moon() {", 1)[0]
+creat_moon_body = script.split("creat_moon() {", 1)[1].split("\n\nzerotier_rollback_moon_remove()", 1)[0]
+moon_ip_body = function_body(script, "zerotier_moon_ipv4_is_valid()")
+moon_create_rollback_body = function_body(script, "zerotier_rollback_moon_create()")
 remove_moon_body = script.split("remove_moon() {", 1)[1].split("\ncase $1 in", 1)[0]
 moon_remove_rollback_body = function_body(script, "zerotier_rollback_moon_remove()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
@@ -321,6 +323,27 @@ require('nvram get_checked zerotiermoon_ip' in creat_moon_body and
         'nvram get zerotiermoon_ip' not in creat_moon_body and
         'if ! moonip="$(nvram get_checked zerotiermoon_ip)"; then' in creat_moon_body,
         "Moon creation must abort before WAN-IP fallback when its checked address read fails")
+require('NF != 4 { exit 1 }' in moon_ip_body and
+        '$i + 0 > 255' in moon_ip_body and
+        'if ! zerotier_moon_ipv4_is_valid "$ip_addr"; then' in creat_moon_body,
+        "Moon creation must reject malformed and out-of-range IPv4 endpoints")
+require('if ! "$PROGIDT" initmoon "$zt_moon_create_identity_public"; then' in creat_moon_body and
+        'if ! sed -i ' in creat_moon_body and
+        'if `sed -i ' not in creat_moon_body and
+        'grep -F' in creat_moon_body and
+        'if ! (cd "$zt_moon_create_stage_dir" && "$PROGIDT" genmoon' in creat_moon_body and
+        '[ ! -s "$zt_moon_create_moon_stage" ]' in creat_moon_body,
+        "Moon creation must check every generation/edit step before publication")
+require('ln "$zt_moon_create_moon_file" "$zt_moon_create_moon_backup"' in creat_moon_body and
+        'ln "$zt_moon_create_json_file" "$zt_moon_create_json_backup"' in creat_moon_body and
+        'if ! mv -f "$zt_moon_create_moon_stage" "$zt_moon_create_moon_file"; then' in creat_moon_body and
+        'if ! mv -f "$zt_moon_create_json_stage" "$zt_moon_create_json_file"; then' in creat_moon_body and
+        'if ! nvram set zerotiermoon_id="$zt_moon_create_id" || ! nvram commit; then' in creat_moon_body,
+        "Moon JSON/signature and persistent ID must be published as a checked transaction")
+require('mv -f "$zt_moon_create_moon_backup" "$zt_moon_create_moon_file"' in moon_create_rollback_body and
+        'mv -f "$zt_moon_create_json_backup" "$zt_moon_create_json_file"' in moon_create_rollback_body and
+        'nvram set zerotiermoon_id="$zt_moon_create_old_id"' in moon_create_rollback_body,
+        "Moon creation rollback must restore both file snapshots and the prior identity")
 require('nvram get_checked zerotiermoon_id' in remove_moon_body and
         'nvram get zerotiermoon_id' not in remove_moon_body and
         '*[!0123456789abcdefABCDEF]*' in remove_moon_body and
@@ -339,7 +362,16 @@ require('mv -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file"' in moon_rem
 require('if ! creat_moon; then' in start_instance_body and
         'if ! remove_moon; then' in start_instance_body,
         "Moon setup/removal failures must reach the start result")
-for marker in ("Moon removal ignored NVRAM set failure",
+for marker in ("Moon creation ignored initmoon failure",
+               "Moon creation accepted an unsafe endpoint replacement string",
+               "Moon creation ignored endpoint-edit failure",
+               "Moon creation ignored genmoon failure",
+               "Moon creation ignored NVRAM set failure after write",
+               "Moon creation ignored JSON publication failure",
+               "valid Moon generation failed",
+               "successful Moon JSON did not include the configured stable endpoint",
+               "successful Moon generation did not publish the signed file",
+               "Moon removal ignored NVRAM set failure",
                "Moon removal ignored NVRAM commit failure",
                "Moon removal ignored partial file deletion failure",
                "partial deletion failure did not restore the Moon signature",

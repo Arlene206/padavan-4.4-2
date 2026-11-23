@@ -18,6 +18,7 @@ TEST_NVRAM_MOON_ID_STATE=""
 TEST_NVRAM_ID_STATE=""
 TEST_NVRAM_SET_FAIL=0
 TEST_NVRAM_COMMIT_FAIL=0
+TEST_NVRAM_MOON_SET_FAIL_AFTER_WRITE=0
 TEST_NVRAM_MOON_SET_FAIL_ONCE=0
 TEST_NVRAM_MOON_COMMIT_FAIL_ONCE=0
 TEST_NVRAM_MOON_RM_FAIL_ONCE=0
@@ -259,6 +260,10 @@ nvram() {
 					fi
 					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
 					TEST_NVRAM_MOON_ID_STATE="${2#zerotiermoon_id=}"
+					if [ "${TEST_NVRAM_MOON_SET_FAIL_AFTER_WRITE:-0}" = 1 ]; then
+						TEST_NVRAM_MOON_SET_FAIL_AFTER_WRITE=0
+						return 1
+					fi
 					;;
 				zerotier_planet=*)
 					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
@@ -553,6 +558,124 @@ fi
 [ ! -s "$TEST_IFCONFIG_CALL_LOG" ] || fail "Moon address read failure triggered the WAN-interface fallback"
 [ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "Moon address read failure modified the last-good Moon JSON"
 TEST_NVRAM_READ_FAIL_KEY=""
+
+# Moon generation is a staged transaction: invalid input or tool failures
+# must preserve the last-good JSON, signature and persistent identity.
+TEST_MOON_INIT_FAIL=0
+TEST_MOON_GEN_FAIL=0
+export TEST_MOON_INIT_FAIL TEST_MOON_GEN_FAIL
+cat > "$TEST_TMP/moon-idtool" <<'EOF'
+#!/bin/sh
+case "$1" in
+	initmoon)
+		[ "${TEST_MOON_INIT_FAIL:-0}" != 1 ] || exit 1
+		cat <<'JSON'
+{
+  "id": "0123456789",
+  "stableEndpoints": []
+}
+JSON
+		;;
+	genmoon)
+		[ "${TEST_MOON_GEN_FAIL:-0}" != 1 ] || exit 1
+		printf '%s\n' generated-moon-signature > 0000000123456789.moon
+		;;
+	*)
+		exit 2
+		;;
+esac
+EOF
+chmod 700 "$TEST_TMP/moon-idtool"
+PROGIDT="$TEST_TMP/moon-idtool"
+printf '%s\n' existing-public > "$TEST_CONFIG/identity.public"
+mkdir -p "$TEST_CONFIG/moons.d"
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10"
+TEST_NVRAM_MOON_ID_STATE="abcdef0123"
+echo "last-good-moon-file" > "$TEST_CONFIG/moons.d/000000abcdef0123.moon"
+echo "last-good-moon-json" > "$TEST_CONFIG/moon.json"
+
+TEST_MOON_INIT_FAIL=1
+if creat_moon; then
+	fail "Moon creation ignored initmoon failure"
+fi
+[ "$(cat "$TEST_CONFIG/moons.d/000000abcdef0123.moon")" = "last-good-moon-file" ] || fail "initmoon failure changed the last-good signature"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "initmoon failure changed the last-good JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "abcdef0123" ] || fail "initmoon failure changed the stored ID"
+TEST_MOON_INIT_FAIL=0
+
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10;touch $TEST_TMP/moon-injected"
+if creat_moon; then
+	fail "Moon creation accepted an unsafe endpoint replacement string"
+fi
+[ ! -e "$TEST_TMP/moon-injected" ] || fail "Moon endpoint validation allowed command side effects"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "invalid endpoint changed the last-good JSON"
+TEST_NVRAM_MOON_IP_STATE="192.0.2.10"
+
+TEST_MOON_SED_FAIL=1
+sed() {
+	[ "${TEST_MOON_SED_FAIL:-0}" != 1 ] || return 1
+	command sed "$@"
+}
+if creat_moon; then
+	fail "Moon creation ignored endpoint-edit failure"
+fi
+TEST_MOON_SED_FAIL=0
+[ "$(cat "$TEST_CONFIG/moons.d/000000abcdef0123.moon")" = "last-good-moon-file" ] || fail "endpoint-edit failure changed the last-good signature"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "endpoint-edit failure changed the last-good JSON"
+
+TEST_MOON_GEN_FAIL=1
+if creat_moon; then
+	fail "Moon creation ignored genmoon failure"
+fi
+TEST_MOON_GEN_FAIL=0
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "genmoon failure changed the last-good JSON"
+[ "$(cat "$TEST_CONFIG/moons.d/000000abcdef0123.moon")" = "last-good-moon-file" ] || fail "genmoon failure changed the last-good signature"
+
+# Simulate a setter that writes the new ID but reports failure afterwards.
+TEST_NVRAM_MOON_SET_FAIL_AFTER_WRITE=1
+if creat_moon; then
+	fail "Moon creation ignored NVRAM set failure after write"
+fi
+[ "$TEST_NVRAM_MOON_ID_STATE" = "abcdef0123" ] || fail "Moon creation set-failure rollback lost the prior ID"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "Moon creation set-failure rollback lost the JSON"
+[ "$(cat "$TEST_CONFIG/moons.d/000000abcdef0123.moon")" = "last-good-moon-file" ] || fail "Moon creation set-failure rollback lost the signature"
+set -- "$TEST_CONFIG"/.moon-create.*
+[ ! -e "$1" ] || fail "successful Moon creation rollback retained a staging directory"
+
+# Fail the second publication once; the first rename and both file snapshots
+# must be rolled back before the function reports failure.
+TEST_MOON_JSON_MV_FAIL=1
+mv() {
+	if [ "$#" -eq 3 ] && [ "$3" = "$TEST_CONFIG/moon.json" ] &&
+	   [ "${TEST_MOON_JSON_MV_FAIL:-0}" = 1 ]; then
+		TEST_MOON_JSON_MV_FAIL=0
+		return 1
+	fi
+	command mv "$@"
+}
+if creat_moon; then
+	fail "Moon creation ignored JSON publication failure"
+fi
+unset -f mv
+[ ! -e "$TEST_CONFIG/moons.d/0000000123456789.moon" ] || fail "JSON publication rollback left the new signature"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "JSON publication rollback lost the prior JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "abcdef0123" ] || fail "JSON publication failure changed the stored ID"
+
+if ! creat_moon; then
+	fail "valid Moon generation failed"
+fi
+[ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "successful Moon generation did not persist its identity"
+grep -F '"192.0.2.10/9993"' "$TEST_CONFIG/moon.json" >/dev/null || fail "successful Moon JSON did not include the configured stable endpoint"
+[ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "generated-moon-signature" ] || fail "successful Moon generation did not publish the signed file"
+[ "$(stat -c '%a' "$TEST_CONFIG/moons.d/0000000123456789.moon")" = 600 ] || fail "published Moon signature permissions are not private"
+[ "$(stat -c '%a' "$TEST_CONFIG/moon.json")" = 600 ] || fail "published Moon JSON permissions are not private"
+set -- "$TEST_CONFIG"/.moon-create.*
+[ ! -e "$1" ] || fail "successful Moon generation retained a staging directory"
+
+/bin/rm -f "$TEST_CONFIG/moons.d/000000abcdef0123.moon"
+echo "last-good-moon-file" > "$TEST_CONFIG/moons.d/0000000123456789.moon"
+echo "last-good-moon-json" > "$TEST_CONFIG/moon.json"
+TEST_NVRAM_MOON_ID_STATE="0123456789"
 
 # Moon identity read failures and malformed IDs must preserve signed files/JSON.
 mkdir -p "$TEST_CONFIG/moons.d"
