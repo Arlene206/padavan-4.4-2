@@ -123,7 +123,7 @@ copyscripts_seed_status=0
 seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns_script.sh" 755
 [ "$copyscripts_seed_status" -eq 0 ]
 [ "$(cat "$tmp/storage/ddns_script.sh")" = "factory default" ]
-printf 'operator DDNS script\\n' > "$tmp/storage/ddns-existing.sh"
+printf '%s\n' 'operator DDNS script' > "$tmp/storage/ddns-existing.sh"
 chmod 600 "$tmp/storage/ddns-existing.sh"
 seed_storage_file "$tmp/source.sh" "$tmp/storage/ddns-existing.sh" 755
 [ "$(cat "$tmp/storage/ddns-existing.sh")" = "operator DDNS script" ]

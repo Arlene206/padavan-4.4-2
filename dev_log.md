@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Correct the DDNS storage regression fixture
+
+- Pre-run review found the new DDNS publication test's `printf` format had a doubled backslash and would write a literal `\\n`, so the preservation assertion would fail for a fixture-format reason.
+- Changed the fixture to pass the string separately to `printf '%s\\n'`. Production code is unchanged; exact-head rerun is required.
+
+---
+
 ## 2026-11-23 UTC — Publish the DDNS factory script through the safe storage writer
 
 - The boot-time DDNS default path checked for a symlink and then used `cp -f` on the destination. That check/write sequence was not atomic: a concurrent replacement could redirect the privileged copy through a symlink, and the separate chmod also left a partial publication window.
