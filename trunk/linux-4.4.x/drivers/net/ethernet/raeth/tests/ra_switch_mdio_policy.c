@@ -24,6 +24,23 @@ static int fake_read(void *ctx, unsigned int port, unsigned int reg, unsigned in
 	return 0;
 }
 
+static int fake_read_cl45(void *ctx, unsigned int port, unsigned int dev,
+			  unsigned int reg, unsigned int *value)
+{
+	struct fake_io *f = ctx;
+	unsigned int n = f->calls++;
+	(void)port;
+	assert(n < 3U);
+	f->op[n] = 'c';
+	f->reg[n] = reg;
+	f->value[n] = dev;
+	*value = 0xdeadbeefU;
+	if ((int)n == f->fail_at)
+		return f->fail_status;
+	*value = f->read_value ? f->read_value : 0x12345678U;
+	return 0;
+}
+
 static int fake_write(void *ctx, unsigned int port, unsigned int reg, unsigned int value)
 {
 	struct fake_io *f = ctx;
@@ -76,6 +93,46 @@ static void test_register_failures_and_positive_status_are_safe(void)
 	memset(&f, 0, sizeof(f)); f.fail_at = 1; f.fail_status = 1;
 	assert(ra_switch_mdio_page_write(0, 0, 0, 1, 2, fake_write, &f) == -EIO);
 	assert(f.calls == 2);
+}
+
+static void test_checked_cl45_reads_reject_partial_samples(void)
+{
+	struct fake_io f;
+	unsigned int value = 0xfeedfaceU;
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = -ETIMEDOUT;
+	assert(ra_switch_mdio_read_cl45_checked(4U, 0x1eU, 0x9bU,
+			fake_read_cl45, &f, &value) == -ETIMEDOUT);
+	assert(f.calls == 1U && f.op[0] == 'c' &&
+	       f.value[0] == 0x1eU && f.reg[0] == 0x9bU && value == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = 0;
+	f.fail_status = 1;
+	value = 0xfeedfaceU;
+	assert(ra_switch_mdio_read_cl45_checked(4U, 0x1eU, 0x9cU,
+			fake_read_cl45, &f, &value) == -EIO);
+	assert(f.calls == 1U && value == 0U);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	f.read_value = 0xa55aU;
+	value = 0U;
+	assert(ra_switch_mdio_read_cl45_checked(4U, 0x1eU, 0x9bU,
+			fake_read_cl45, &f, &value) == 0);
+	assert(f.calls == 1U && value == 0xa55aU);
+
+	memset(&f, 0, sizeof(f));
+	f.fail_at = -1;
+	value = 0xfeedfaceU;
+	assert(ra_switch_mdio_read_cl45_checked(4U, 0x1eU, 0x9bU,
+			NULL, &f, &value) == -EINVAL);
+	assert(f.calls == 0U && value == 0xfeedfaceU);
+	assert(ra_switch_mdio_read_cl45_checked(4U, 0x1eU, 0x9bU,
+			fake_read_cl45, &f, NULL) == -EINVAL);
+	assert(f.calls == 0U);
 }
 
 static void test_checked_link_reads_preserve_state_on_failure(void)
@@ -193,6 +250,7 @@ int main(void)
 	test_page_select_failure_stops_second_access();
 	test_register_failures_and_positive_status_are_safe();
 	test_checked_link_reads_preserve_state_on_failure();
+	test_checked_cl45_reads_reject_partial_samples();
 	test_invalid_callbacks_are_rejected_without_io();
 	test_reset_poll_waits_until_ready_and_is_bounded();
 	puts("RAETH paged PHY/link MDIO failure propagation: PASS");

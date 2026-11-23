@@ -789,6 +789,42 @@ jobs:
           print("RAETH GSW/ESW link events are published only after successful MDIO reads: PASS")
           PY
 
+      - name: Validate RAETH PHY debug MDIO error propagation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          def body(start, end):
+              left = source.index(start)
+              right = source.index(end, left)
+              return source[left:right]
+
+          assert "ra_switch_mdio_read_cl45_checked(" in policy
+          assert "test_checked_cl45_reads_reject_partial_samples();" in test
+          cl45_adapter = body("static int ra_switch_mdio_read_cl45(", "\nstatic int ra_switch_mdio_write_cl45(")
+          assert "mii_mgr_read_cl45(port, dev, reg, value) ? 0 : -EIO" in cl45_adapter
+
+          token = body("static int phy_tr_dbg_checked(", "\nu32 phy_tr_dbg(")
+          assert token.count("ra_switch_mdio_write(") >= 3
+          assert token.count("ra_switch_mdio_read_checked(") == 2
+          assert "spin_lock_irqsave(&ra_switch_phy_page_lock" in token
+          assert "spin_unlock_irqrestore(&ra_switch_phy_page_lock" in token
+          assert "restore_status = ra_switch_mdio_write(NULL, phyaddr, page_reg, 0);" in token
+
+          show = body("void esw_show_debug_log(u32 phy_addr)", "\nirqreturn_t esw_interrupt(")
+          assert "phy_tr_dbg_checked(" in show
+          assert show.count("esw_debug_read_mmd(") == 4
+          assert show.count("return;") >= 5
+          assert "ra_switch_mdio_read_cl45_checked(" in body(
+              "static int esw_debug_read_mmd(", "\nvoid esw_show_debug_log("
+          )
+          print("RAETH token-ring and MMD debug reads stop on MDIO failures: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

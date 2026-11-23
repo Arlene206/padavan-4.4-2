@@ -10,6 +10,8 @@
 
 /* Page-select register 31 gates every local/global PHY register access. */
 typedef int (*ra_switch_mdio_read_fn)(void *, unsigned int, unsigned int, unsigned int *);
+typedef int (*ra_switch_mdio_read_cl45_fn)(void *, unsigned int, unsigned int,
+					   unsigned int, unsigned int *);
 typedef int (*ra_switch_mdio_write_fn)(void *, unsigned int, unsigned int, unsigned int);
 
 static inline int ra_switch_mdio_normalize_status(int status)
@@ -30,6 +32,26 @@ ra_switch_mdio_read_checked(unsigned int port, unsigned int reg,
 		return -EINVAL;
 	*value = 0;
 	status = ra_switch_mdio_normalize_status(read(context, port, reg, &result));
+	if (status != 0)
+		return status;
+	*value = result;
+	return 0;
+}
+
+/* Publish a Clause 45 sample only after the complete MDIO transaction succeeds. */
+static inline int
+ra_switch_mdio_read_cl45_checked(unsigned int port, unsigned int dev,
+				 unsigned int reg, ra_switch_mdio_read_cl45_fn read,
+				 void *context, unsigned int *value)
+{
+	unsigned int result = 0;
+	int status;
+
+	if (!read || !value)
+		return -EINVAL;
+	*value = 0;
+	status = ra_switch_mdio_normalize_status(
+		read(context, port, dev, reg, &result));
 	if (status != 0)
 		return status;
 	*value = result;

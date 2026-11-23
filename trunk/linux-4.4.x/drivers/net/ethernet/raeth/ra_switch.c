@@ -127,6 +127,14 @@ static int ra_switch_mdio_write(void *context, unsigned int port,
 	return mii_mgr_write(port, reg, value) ? 0 : -EIO;
 }
 
+static int ra_switch_mdio_read_cl45(void *context, unsigned int port,
+				    unsigned int dev, unsigned int reg,
+				    unsigned int *value)
+{
+	(void)context;
+	return mii_mgr_read_cl45(port, dev, reg, value) ? 0 : -EIO;
+}
+
 static int ra_switch_mdio_write_cl45(unsigned int port,
 					   unsigned int dev, unsigned int reg,
 					   unsigned int value)
@@ -4679,7 +4687,8 @@ out:
 	return IRQ_HANDLED;
 }
 
-u32 phy_tr_dbg(u8 phyaddr, char *type, u32 data_addr, u8 ch_num)
+static int phy_tr_dbg_checked(u8 phyaddr, const char *type,
+			      u32 data_addr, u8 ch_num, u32 *result)
 {
 	u16 page_reg = 31;
 	u32 token_ring_debug_reg = 0x52B5;
@@ -4688,118 +4697,168 @@ u32 phy_tr_dbg(u8 phyaddr, char *type, u32 data_addr, u8 ch_num)
 	u32 token_ring_high_data_reg = 0x12;
 	u16 ch_addr = 0;
 	u32 node_addr = 0;
-	u32 value = 0;
+	u32 value;
 	u32 value_high = 0;
 	u32 value_low = 0;
+	unsigned long flags;
+	int status;
+	int restore_status;
 
+	if (!type || !result)
+		return -EINVAL;
+	*result = 0;
 	if (strncmp(type, "DSPF", 4) == 0) {
-		/* DSP Filter Debug Node*/
 		ch_addr = 0x02;
 		node_addr = 0x0D;
 	} else if (strncmp(type, "PMA", 3) == 0) {
-		/*PMA Debug Node*/
 		ch_addr = 0x01;
 		node_addr = 0x0F;
 	} else if (strncmp(type, "TR", 2) == 0) {
-		/* Timing Recovery  Debug Node */
 		ch_addr = 0x01;
 		node_addr = 0x0D;
 	} else if (strncmp(type, "PCS", 3) == 0) {
-		/* R1000PCS Debug Node */
 		ch_addr = 0x02;
 		node_addr = 0x0F;
 	} else if (strncmp(type, "FFE", 3) == 0) {
-		/* FFE Debug Node */
 		ch_addr = ch_num;
 		node_addr = 0x04;
 	} else if (strncmp(type, "EC", 2) == 0) {
-		/* ECC Debug Node */
 		ch_addr = ch_num;
 		node_addr = 0x00;
 	} else if (strncmp(type, "ECT", 3) == 0) {
-		/* EC/Tail Debug Node */
 		ch_addr = ch_num;
 		node_addr = 0x01;
 	} else if (strncmp(type, "NC", 2) == 0) {
-		/* EC/NC Debug Node */
 		ch_addr = ch_num;
 		node_addr = 0x01;
 	} else if (strncmp(type, "DFEDC", 5) == 0) {
-		/* DFETail/DC Debug Node */
 		ch_addr = ch_num;
 		node_addr = 0x05;
 	} else if (strncmp(type, "DEC", 3) == 0) {
-		/* R1000DEC Debug Node */
 		ch_addr = 0x00;
 		node_addr = 0x07;
 	} else if (strncmp(type, "CRC", 3) == 0) {
-		/* R1000CRC Debug Node */
 		ch_addr = ch_num;
 		node_addr = 0x06;
 	} else if (strncmp(type, "AN", 2) == 0) {
-		/* Autoneg Debug Node */
 		ch_addr = 0x00;
 		node_addr = 0x0F;
 	} else if (strncmp(type, "CMI", 3) == 0) {
-		/* CMI Debug Node */
 		ch_addr = 0x03;
 		node_addr = 0x0F;
 	} else if (strncmp(type, "SUPV", 4) == 0) {
-		/* SUPV PHY  Debug Node */
 		ch_addr = 0x00;
 		node_addr = 0x0D;
 	} else {
-		pr_info("Wrong TR register Type !");
+		return -EINVAL;
+	}
+	data_addr &= 0x3F;
+
+	/* Serialize the token-ring page/control/data sequence against paged PHY I/O. */
+	spin_lock_irqsave(&ra_switch_phy_page_lock, flags);
+	status = ra_switch_mdio_write(NULL, phyaddr, page_reg,
+				      token_ring_debug_reg);
+	if (status == 0)
+		status = ra_switch_mdio_write(NULL, phyaddr,
+					      token_ring_control_reg,
+					      (1U << 15) | (1U << 13) |
+					      (ch_addr << 11) |
+					      (node_addr << 7) |
+					      (data_addr << 1));
+	if (status == 0)
+		status = ra_switch_mdio_read_checked(phyaddr,
+						     token_ring_low_data_reg,
+						     ra_switch_mdio_read,
+						     NULL, &value_low);
+	if (status == 0)
+		status = ra_switch_mdio_read_checked(phyaddr,
+						     token_ring_high_data_reg,
+						     ra_switch_mdio_read,
+						     NULL, &value_high);
+
+	/* Restore page 0 after success or failure; retain the first error. */
+	restore_status = ra_switch_mdio_write(NULL, phyaddr, page_reg, 0);
+	if (status == 0)
+		status = restore_status;
+	spin_unlock_irqrestore(&ra_switch_phy_page_lock, flags);
+	if (status != 0)
+		return status;
+
+	value = value_low + ((value_high & 0x00FF) << 16);
+	*result = value;
+	pr_info("*%s => Phyaddr=%d, ch_addr=0x%X, node_addr=0x%X, data_addr=0x%X , value=0x%X\r\n",
+		type, phyaddr, ch_addr, node_addr, data_addr, value);
+	return 0;
+}
+
+/* Keep the legacy value-returning entry point for existing in-tree callers. */
+u32 phy_tr_dbg(u8 phyaddr, char *type, u32 data_addr, u8 ch_num)
+{
+	u32 value = 0;
+	int status;
+
+	status = phy_tr_dbg_checked(phyaddr, type, data_addr, ch_num, &value);
+	if (status != 0) {
+		pr_err_ratelimited("%s: token-ring PHY debug read failed (phy=%u status=%d)\n",
+				   __func__, phyaddr, status);
 		return 0xFFFF;
 	}
-	data_addr = data_addr & 0x3F;
-
-	tc_mii_write(phyaddr, page_reg, token_ring_debug_reg);
-	tc_mii_write(phyaddr, token_ring_control_reg,
-		     (1 << 15) | (1 << 13) | (ch_addr << 11) | (node_addr << 7) | (data_addr << 1));
-
-	value_low = tc_mii_read(phyaddr, token_ring_low_data_reg);
-	value_high = tc_mii_read(phyaddr, token_ring_high_data_reg);
-	value = value_low + ((value_high & 0x00FF) << 16);
-	pr_info("*%s => Phyaddr=%d, ch_addr=%d, node_addr=0x%X, data_addr=0x%X , value=0x%X\r\n",
-		type, phyaddr, ch_addr, node_addr, data_addr, value);
-	tc_mii_write(phyaddr, page_reg, 0x00);/* V1.11 */
-
 	return value;
+}
+
+static int esw_debug_read_mmd(u32 phy_addr, u32 dev_addr,
+			      u32 reg_addr, u32 *value)
+{
+	int status;
+
+	status = ra_switch_mdio_read_cl45_checked(phy_addr, dev_addr, reg_addr,
+						  ra_switch_mdio_read_cl45,
+						  NULL, value);
+	if (status != 0)
+		pr_err_ratelimited("%s: PHY debug CL45 read failed (phy=%u dev=%u reg=0x%x status=%d)\n",
+				   __func__, phy_addr, dev_addr, reg_addr, status);
+	return status;
 }
 
 void esw_show_debug_log(u32 phy_addr)
 {
 	u32 val;
+	int status;
 
-	val = phy_tr_dbg(phy_addr, "PMA", 0x38, 0);
+	status = phy_tr_dbg_checked(phy_addr, "PMA", 0x38, 0, &val);
+	if (status != 0) {
+		pr_err_ratelimited("%s: token-ring PHY debug unavailable (phy=%u status=%d)\n",
+				   __func__, phy_addr, status);
+		return;
+	}
 	pr_info("VgaStateA =0x%x\n", ((val >> 4) & 0x1F));
 	pr_info("VgaStateB =0x%x\n", ((val >> 9) & 0x1F));
 	pr_info("VgaStateC =0x%x\n", ((val >> 14) & 0x1F));
 	pr_info("VgaStateD =0x%x\n", ((val >> 19) & 0x1F));
 
-	/* pairA */
-	val = tc_phy_read_dev_reg(phy_addr, 0x1E, 0x9B);
+	/* Pair A */
+	if (esw_debug_read_mmd(phy_addr, 0x1E, 0x9B, &val))
+		return;
 	pr_info("XX0 0x1E,0x9B =0x%x\n", val);
-	val = (val >> 8) & 0xFF;
-	pr_info("AA0 lch_mse_mdcA =0x%x\r\n", val);
+	pr_info("AA0 lch_mse_mdcA =0x%x\r\n", (val >> 8) & 0xFF);
 
 	/* Pair B */
-	val = tc_phy_read_dev_reg(phy_addr, 0x1E, 0x9B);
+	if (esw_debug_read_mmd(phy_addr, 0x1E, 0x9B, &val))
+		return;
 	pr_info("XX1 0x1E,0x9B =0x%x\n", val);
-	val = (val) & 0xFF;	/* V1.16 */
-	pr_info("AA1 lch_mse_mdcB =0x%x\r\n", val);
+	pr_info("AA1 lch_mse_mdcB =0x%x\r\n", val & 0xFF);
+
 	/* Pair C */
-	val = tc_phy_read_dev_reg(phy_addr, 0x1E, 0x9C);
+	if (esw_debug_read_mmd(phy_addr, 0x1E, 0x9C, &val))
+		return;
 	pr_info("XX2 0x1E,0x9C =0x%x\n", val);
-	val = (val >> 8) & 0xFF;
-	pr_info("AA2 lch_mse_mdcC =0x%x\r\n", val);
+	pr_info("AA2 lch_mse_mdcC =0x%x\r\n", (val >> 8) & 0xFF);
 
 	/* Pair D */
-	val = tc_phy_read_dev_reg(phy_addr, 0x1E, 0x9C);
+	if (esw_debug_read_mmd(phy_addr, 0x1E, 0x9C, &val))
+		return;
 	pr_info("XX3 0x1E,0x9C =0x%x\n", val);
-	val = (val) & 0xFF;	/* V1.16 */
-	pr_info("AA3 lch_mse_mdcD =0x%x\r\n", val);
+	pr_info("AA3 lch_mse_mdcD =0x%x\r\n", val & 0xFF);
 }
 
 irqreturn_t esw_interrupt(int irq, void *resv)
