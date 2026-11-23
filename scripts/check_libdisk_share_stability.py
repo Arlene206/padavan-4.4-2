@@ -431,6 +431,11 @@ for marker in account_delete_tests:
 for marker in account_delete_tests:
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "atomic account deletion regression is defined but not executed: " + marker)
+delete_policy_body = function_body(
+    ACCOUNT_POLICY, "static inline int\\ndisk_share_account_inventory_remove"
+)
+delete_policy_compact = "".join(delete_policy_body.split())
+
 for token in (
     "ops->set(context,\"acc_num\",count_value)",
     "ops->commit(context)",
