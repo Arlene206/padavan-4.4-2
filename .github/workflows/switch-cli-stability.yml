@@ -1141,7 +1141,7 @@ jobs:
           source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
           declaration = source.index("struct ra_switch_ge_cal_wait_context {")
           delay = source.index("static void ra_switch_ge_cal_wait_delay(")
-          wait = source.index("static int all_ge_ana_cal_wait_checked(")
+          wait = source.index("static int all_ge_ana_cal_wait_checked(", delay)
           assert declaration < delay < wait
           block = source[declaration:delay]
           assert "unsigned int delay;" in block
