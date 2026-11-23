@@ -207,6 +207,29 @@ require("if (clear_share_var_files(mount_path) != 0)" in initial_all and
         "if (initial_one_var_file_in_mount_path(account_list[i]," in initial_all and
         "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all,
         "full share metadata initialization must propagate every stage failure")
+initial_all = function_body(
+    DISK_SOURCE, "int initial_all_var_file_in_mount_path(const char *const mount_path)"
+)
+initial_all_compact = "".join(initial_all.split())
+initial_all_inventory = initial_all_compact.index("get_account_list(&acc_num,&account_list)")
+initial_all_preflight = initial_all_compact.index("disk_share_format_account_var_path(var_file,sizeof(var_file),mount_path,FTP_ANONYMOUS_USER)", initial_all_inventory)
+initial_all_begin = initial_all_compact.index("disk_share_account_nvram_begin(&transaction)", initial_all_preflight)
+initial_all_validate = initial_all_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    initial_all_begin
+)
+initial_all_clear = initial_all_compact.index("clear_share_var_files(mount_path)", initial_all_validate)
+initial_all_anon = initial_all_compact.index("initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,mount_path)", initial_all_clear)
+initial_all_accounts = initial_all_compact.index("initial_one_var_file_in_mount_path(account_list[i],mount_path)", initial_all_anon)
+initial_all_snapshot = initial_all_compact.index("initial_folder_list_in_mount_path(mount_path)", initial_all_accounts)
+initial_all_end = initial_all_compact.index("disk_share_account_nvram_end(&transaction)", initial_all_snapshot)
+require(initial_all_inventory < initial_all_preflight < initial_all_begin <
+        initial_all_validate < initial_all_clear < initial_all_anon <
+        initial_all_accounts < initial_all_snapshot < initial_all_end and
+        "get_account_list(" not in initial_all_compact[initial_all_begin:] and
+        "first_error=errno?errno:EIO;" in initial_all_compact,
+        "full metadata rebuild must preflight one account snapshot, revalidate it under the shared writer lease, and hold the lease through destructive cleanup and all file recreation")
+
 create_all = function_body(
     DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
 )

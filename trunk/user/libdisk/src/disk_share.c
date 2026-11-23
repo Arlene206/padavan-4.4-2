@@ -671,45 +671,97 @@ failed:
 
 int initial_all_var_file_in_mount_path(const char *const mount_path)
 {
-	int i;
-	int acc_num = 0;
+	int i, first_error = 0, end_error;
+	int acc_num = 0, transaction_started = 0;
 	char **account_list = NULL;
+	char var_file[256];
+	struct nvram_transaction transaction;
 
-	if (mount_path == NULL || strlen(mount_path) <= 0)
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
 		return -1;
+	}
+
+	/*
+	 * Read and preflight the complete identity set before deleting anything.
+	 * Then hold the same writer lease as account and folder mutations until
+	 * every metadata file and the folder-list snapshot has been rebuilt.
+	 */
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+	                                       mount_path, FTP_ANONYMOUS_USER) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+	for (i = 0; i < acc_num; ++i) {
+		if (disk_share_format_account_var_path(var_file, sizeof(var_file),
+		                                       mount_path, account_list[i]) != 0) {
+			first_error = errno ? errno : EIO;
+			goto finished;
+		}
+	}
+
+	if (disk_share_account_nvram_begin(&transaction) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+	transaction_started = 1;
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
 
 	/* Delete managed files without interpolating the mount path into a shell. */
-	if (clear_share_var_files(mount_path) != 0)
-		return -1;
+	if (clear_share_var_files(mount_path) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
 
 	/* Initialize anonymous defaults before account-specific permissions. */
 	if (initial_one_var_file_in_mount_path(FTP_ANONYMOUS_USER,
-	                                       mount_path) != 0)
-		return -1;
-
-	/* Get and initialize every configured account. */
-	if (get_account_list(&acc_num, &account_list) != 0) {
-		free_2_dimension_list(&acc_num, &account_list);
-		return -1;
+	                                       mount_path) != 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
 	}
+
 	for (i = 0; i < acc_num; ++i) {
 		if (initial_one_var_file_in_mount_path(account_list[i],
 		                                       mount_path) != 0) {
-			int saved_errno = errno ? errno : EIO;
-
-			free_2_dimension_list(&acc_num, &account_list);
-			errno = saved_errno;
-			return -1;
+			first_error = errno ? errno : EIO;
+			goto finished;
 		}
 	}
-	free_2_dimension_list(&acc_num, &account_list);
 
 	/* Publish the folder-list snapshot only after all account files exist. */
 	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		return -1;
+		first_error = errno ? errno : EIO;
 
+finished:
+	free_2_dimension_list(&acc_num, &account_list);
+	if (transaction_started) {
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0) {
+			end_error = errno ? errno : EIO;
+			if (first_error == 0)
+				first_error = end_error;
+			else
+				logmessage("disk_share",
+					   "full metadata rebuild transaction release failed (errno %d)",
+					   end_error);
+		}
+	}
+	if (first_error != 0) {
+		errno = first_error;
+		return -1;
+	}
 	return 0;
 }
+
 
 static int
 create_if_no_var_files_with_accounts(const char *const mount_path,
