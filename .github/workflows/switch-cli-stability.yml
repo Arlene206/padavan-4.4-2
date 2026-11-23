@@ -711,8 +711,8 @@ jobs:
           assert clear_status_at < disable_wan_guard_at < commit_at
           assert "g_vlan_rule_user, g_vlan_rule" in isolate[commit_at:]
           assert "return esw_mac_table_clear();" not in isolate
-          apply_start = source.index("static void esw_vlan_apply_rules(")
-          apply_end = source.index("static void esw_vlan_init_vid1(", apply_start)
+          apply_start = source.index("static int esw_vlan_apply_rules(")
+          apply_end = source.index("static int esw_vlan_init_vid1(", apply_start)
           vlan_apply = source[apply_start:apply_end]
           assert "g_vlan_rule[" not in vlan_apply
           assert "g_vlan_rule[i] = g_vlan_rule_user[i];" not in source
