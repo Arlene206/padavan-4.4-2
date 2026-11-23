@@ -623,7 +623,7 @@ for marker in (
 ):
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "compensating account rename regression is defined but not executed: " + marker)
-require("if(first_error==0&&read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
+require("if(first_error==0&&rename_required){if(read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
         "first_error=errno?errno:EIO;" in mod_account_compact[mod_inventory:mod_loop],
         "mod_account must not treat incomplete storage inventory as empty")
 require("S_ISREG(old_stat.st_mode)" in mod_account_body and
