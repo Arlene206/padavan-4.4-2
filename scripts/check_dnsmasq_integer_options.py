@@ -200,7 +200,9 @@ for token in (
     "preserving existing server file",
 ):
     assert token in split_dns_publish, token
-assert "dnsmasq_split_dns_snapshot_is_zero(" in TEST
+split_dns_zero_helper = function_body(TEST, "dnsmasq_split_dns_snapshot_is_zero(")
+assert "dnsmasq_split_dns_field_is_zero(" in split_dns_zero_helper
+assert "assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));" in TEST
 
 for marker in (
     "test_split_dns_snapshot_copies_one_generation",

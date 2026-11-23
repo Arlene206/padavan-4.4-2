@@ -1,3 +1,9 @@
+## 2026-11-23 — Repair stale DNSMasq split-DNS test contract
+
+- Historical exact DNSMasq run #45110039566 on `d36ba24` compiled and executed the GNU89/ASan/UBSan NVRAM policy regression successfully, then failed in `check_dnsmasq_integer_options.py` because it required the helper `dnsmasq_split_dns_snapshot_is_zero` to also appear as a standalone `helper();` invocation. The test suite intentionally defines this helper to validate public snapshot fields without relying on struct padding, and its error-path tests call it with `&snapshot`.
+- Corrected the checker to extract the helper body and require the field-zero predicate plus an actual `assert(dnsmasq_split_dns_snapshot_is_zero(&snapshot));` call. This removes the false negative without weakening the failure-path test contract or changing production code. Exact-head DNSMasq and XY-C1 Actions are required for this current checkpoint.
+
+---
 ## 2026-11-23 — Repair the backup-server (`reserver`) startup path
 
 - `ressp()` called `start_redir`, which is not defined in `shadowsocks.sh`; the actual TCP proxy was therefore not launched. Its next `start_rules $BACKUP_SERVER` passed an ignored argument to a helper that reads `GLOBAL_SERVER`, leaving firewall/config generation on the primary node. Stage errors were ignored and the function always printed “backup server started successfully”.
