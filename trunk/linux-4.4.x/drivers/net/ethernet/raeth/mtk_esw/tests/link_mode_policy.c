@@ -717,11 +717,10 @@ test_mib_snapshot_rejects_invalid_read_context_and_range(void)
 	memset(&snapshot, 0x5a, sizeof(snapshot));
 	memcpy(&before, &snapshot, sizeof(before));
 	assert(mtk_esw_mib_snapshot_read(0U, NULL, &fake, &snapshot) == -EINVAL);
-	assert(mtk_esw_mib_snapshot_read(0U, fake_mib_register_read,
-					 &fake, &snapshot) == 0);
 	assert(mtk_esw_mib_snapshot_read(0xffffbf54U,
 					 fake_mib_register_read,
 					 &fake, &snapshot) == -EINVAL);
+	assert(fake.calls == 0U);
 	assert(memcmp(&snapshot, &before, sizeof(snapshot)) == 0);
 }
 
