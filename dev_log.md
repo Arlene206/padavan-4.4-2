@@ -1,3 +1,11 @@
+## 2026-11-23 — WAN modem reconnect delivery retry
+
+- Source parent: `7a31ac98ebcf9af3762975606364c167687e6060`; implementation commit and exact-SHA Actions are recorded in the active handoff.
+- Fixed a dropped-recovery defect: `detect_link` previously cleared its single 20-second modem-check deadline before calling a `void` notifier. Checked NVRAM/WISP/modem identity failures and `notify_rc` queue errors were therefore silently terminal until another physical link transition.
+- `notify_modem_on_wan_ether_link_changed()` now returns checked failure status, and requires `notify_rc_status()` to accept the secure `auto_wan_reconnect` queue markers before reporting success. No-op cases remain successful.
+- Added a dedicated GNU89 policy/test for two bounded retries at four-second intervals. `detect_link` now retries failed notifications and clears retry state on success, exhaustion, reset, or a new WAN link transition.
+- Local ASan/UBSan policy regression: PASS. Exact-SHA GitHub Actions and XY-C1 Build/TRX/artifact status: pending.
+
 ## 2026-11-23 UTC — Fix WISP contract expected whitespace
 
 - The first checker-only correction moved the detector extraction to `tight()`, which removes all whitespace, but the expected literals still contained spaces after commas and around `errno = status` / `goto read_failed`. This caused the exact-SHA workflows to fail at the same added assertion.

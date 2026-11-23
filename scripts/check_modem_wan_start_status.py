@@ -12,6 +12,9 @@ MODEM_NODE_POLICY_SOURCE = (RC / "modem_node_identity_policy.h").read_text()
 MODEM_NODE_TEST_SOURCE = (RC / "tests/modem_node_file.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
 NET_WIFI_SOURCE = (RC / "net_wifi.c").read_text()
+DETECT_LINK_SOURCE = (RC / "detect_link.c").read_text()
+MODEM_RECONNECT_POLICY_SOURCE = (RC / "detect_link_modem_reconnect_policy.h").read_text()
+MODEM_RECONNECT_POLICY_TEST = (RC / "tests/detect_link_modem_reconnect_policy.c").read_text()
 PPP_SOURCE = (RC / "net_ppp.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
 NET_LAN_SOURCE = (RC / "net_lan.c").read_text()
@@ -1481,4 +1484,21 @@ assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in tight(body(WAN_SOURCE, "c
 assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in tight(body(WAN_SOURCE, "manual_wisp_reassoc(void)"))
 assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in tight(body(NET_WIFI_SOURCE, "check_apcli_wan(int is_5g, int radio_on)"))
 assert "intget_apcli_wisp_ifname_status(constchar**p_wisp_ifname);" in tight(HEADER)
-print("AP-client WISP checked-NVRAM discovery and WAN/modem fail-closed consumers: PASS")
+
+# detect_link's delayed modem recovery must retry checked-state and queue failures.
+modem_notify = tight(body(USB_SOURCE, "notify_modem_on_wan_ether_link_changed(int has_link)"))
+assert 'notify_rc_status("auto_wan_reconnect")' in modem_notify
+assert "saved_errno=errno>0?errno:EIO;" in modem_notify
+assert "returnstatus;" in modem_notify
+assert "returnsaved_errno;" in modem_notify
+assert "intnotify_modem_on_wan_ether_link_changed(int has_link);" in tight(HEADER)
+modem_dispatch = tight(body(DETECT_LINK_SOURCE, "dl_handle_link_wan(void)"))
+assert "detect_link_modem_reconnect_retry_status(" in modem_dispatch
+assert "notify_modem_on_wan_ether_link_changed(dl_status_wan)" in modem_dispatch
+assert "dl_modem_reconnect_retries=0;" in tight(DETECT_LINK_SOURCE)
+assert "DETECT_LINK_MODEM_RECONNECT_MAX_RETRIES2U" in tight(MODEM_RECONNECT_POLICY_SOURCE)
+for marker in ("test_failed_notifications_schedule_bounded_retries",
+               "test_success_and_not_needed_state_clear_pending_retry",
+               "test_invalid_outputs_fail_closed_without_partial_mutation"):
+    assert marker in MODEM_RECONNECT_POLICY_TEST
+print("detect_link bounded modem reconnect retry and status propagation: PASS")

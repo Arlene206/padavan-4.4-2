@@ -1272,12 +1272,12 @@ reload_modem_modules(int modem_type, int reload)
 	return status;
 }
 
-void
+int
 notify_modem_on_wan_ether_link_changed(int has_link)
 {
 	int modem_priority = 0, modem_devnum = 0;
 	int is_wisp_active = 0, is_modem_wan = 0, reconnect = 0;
-	int status;
+	int status, saved_errno;
 
 	/*
 	 * Use one checked start-configuration snapshot for both modem priority
@@ -1290,10 +1290,10 @@ notify_modem_on_wan_ether_link_changed(int has_link)
 		logmessage(LOGNAME,
 			   "skipping modem WAN reconnect: configuration read failed (status=%d)",
 			   status);
-		return;
+		return status;
 	}
 	if (modem_priority != 2 || modem_devnum <= 0)
-		return;
+		return 0;
 
 	/* The legacy boolean wrapper treats unknown WISP identity as active. */
 	status = get_wan_wisp_active_status(&is_wisp_active, NULL);
@@ -1301,17 +1301,17 @@ notify_modem_on_wan_ether_link_changed(int has_link)
 		logmessage(LOGNAME,
 			   "skipping modem WAN reconnect: WISP identity read failed (status=%d)",
 			   status);
-		return;
+		return status;
 	}
 	if (is_wisp_active)
-		return;
+		return 0;
 
 	status = get_usb_modem_wan_status(0, &is_modem_wan);
 	if (status != 0) {
 		logmessage(LOGNAME,
 			   "skipping modem WAN reconnect: modem identity read failed (status=%d)",
 			   status);
-		return;
+		return status;
 	}
 
 	status = modem_wan_link_change_reconnect_enabled(
@@ -1320,10 +1320,24 @@ notify_modem_on_wan_ether_link_changed(int has_link)
 		logmessage(LOGNAME,
 			   "skipping modem WAN reconnect: invalid link-change state (status=%d)",
 			   status);
-		return;
+		return status;
 	}
-	if (reconnect)
-		notify_rc("auto_wan_reconnect");
+	if (!reconnect)
+		return 0;
+
+	/* Do not drop the one-shot link recovery when PID 1 cannot queue it. */
+	errno = 0;
+	status = notify_rc_status("auto_wan_reconnect");
+	if (status != 0) {
+		saved_errno = errno > 0 ? errno : EIO;
+		logmessage(LOGNAME,
+			   "failed to queue modem WAN reconnect after Ethernet link change (status=%d, errno=%d)",
+			   status, saved_errno);
+		errno = saved_errno;
+		return saved_errno;
+	}
+
+	return 0;
 }
 
 #if 0

@@ -40,6 +40,7 @@
 #include "detect_link_nvram_policy.h"
 #include "detect_link_notification_policy.h"
 #include "detect_link_dhcp_renew_policy.h"
+#include "detect_link_modem_reconnect_policy.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
@@ -53,6 +54,9 @@ static unsigned long dl_counter_wan_down = 0;
 static unsigned long dl_counter_dhcpc_renew = 0;
 static unsigned long dl_counter_modem_check = 0;
 static unsigned int dl_dhcpc_renew_retries = 0;
+#if defined (USE_USB_SUPPORT)
+static unsigned int dl_modem_reconnect_retries = 0;
+#endif
 
 /* Signal handlers only publish pending events; the main loop owns all work. */
 static volatile sig_atomic_t dl_pending_events = 0;
@@ -100,6 +104,9 @@ dl_reset_state(void)
 	dl_counter_dhcpc_renew = 0;
 	dl_counter_modem_check = 0;
 	dl_dhcpc_renew_retries = 0;
+#if defined (USE_USB_SUPPORT)
+	dl_modem_reconnect_retries = 0;
+#endif
 
 	dl_status_wisp = 0;
 	dl_status_wisp_old = 0;
@@ -153,6 +160,9 @@ dl_handle_link_wan(void)
 			wan_addr = "0.0.0.0";
 
 		dl_status_wan_old = dl_status_wan;
+#if defined (USE_USB_SUPPORT)
+		dl_modem_reconnect_retries = 0;
+#endif
 		
 
 		front_led_x = nvram_get_int("front_led_wan");
@@ -232,9 +242,24 @@ dl_handle_link_wan(void)
 
 #if defined (USE_USB_SUPPORT)
 	if ((dl_counter_modem_check > 0) && (dl_counter_total >= dl_counter_modem_check)) {
-		dl_counter_modem_check = 0;
-		
-		notify_modem_on_wan_ether_link_changed(dl_status_wan);
+		int modem_status, retry_status;
+
+		modem_status = notify_modem_on_wan_ether_link_changed(dl_status_wan);
+		retry_status = detect_link_modem_reconnect_retry_status(
+			modem_status, &dl_modem_reconnect_retries,
+			dl_counter_total, &dl_counter_modem_check);
+		if (retry_status > 0) {
+			logmessage("detect_link",
+				   "USB modem WAN reconnect notification failed (status=%d); retry %u/%u in %u seconds",
+				   modem_status, dl_modem_reconnect_retries,
+				   (unsigned int)DETECT_LINK_MODEM_RECONNECT_MAX_RETRIES,
+				   (unsigned int)(DL_POLL_INTERVAL * DETECT_LINK_MODEM_RECONNECT_RETRY_TICKS));
+		} else if (retry_status < 0) {
+			logmessage("detect_link",
+				   "USB modem WAN reconnect notification failed after %u attempts (status=%d); giving up",
+				   (unsigned int)(DETECT_LINK_MODEM_RECONNECT_MAX_RETRIES + 1),
+				   modem_status);
+		}
 	}
 #endif
 }

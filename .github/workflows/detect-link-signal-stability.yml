@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/detect-link-signal-stability.yml"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_pidfile.h"
@@ -16,6 +17,8 @@ on:
       - "trunk/user/rc/src/tests/detect_link_notification_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
       - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -28,6 +31,7 @@ on:
     paths:
       - ".github/workflows/detect-link-signal-stability.yml"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_pidfile.h"
@@ -39,6 +43,8 @@ on:
       - "trunk/user/rc/src/tests/detect_link_notification_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
       - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -72,6 +78,15 @@ jobs:
             trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c \
             -o /tmp/detect-link-dhcp-renew-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-dhcp-renew-policy
+      - name: Compile and run bounded USB modem reconnect retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c \
+            -o /tmp/detect-link-modem-reconnect-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/detect-link-modem-reconnect-policy
       - name: Compile and run detect_link notification result regression
         run: |
           set -eu
@@ -102,6 +117,9 @@ jobs:
           wan = (rc / "net_wan.c").read_text()
           renew_policy = (rc / "detect_link_dhcp_renew_policy.h").read_text()
           renew_test = (rc / "tests/detect_link_dhcp_renew_policy.c").read_text()
+          modem_policy = (rc / "detect_link_modem_reconnect_policy.h").read_text()
+          modem_test = (rc / "tests/detect_link_modem_reconnect_policy.c").read_text()
+          usb_modem = (rc / "usb_modem.c").read_text()
           lan = (rc / "net_lan.c").read_text()
           services = (rc / "services.c").read_text()
           makefile = (rc / "Makefile").read_text()
@@ -151,6 +169,23 @@ jobs:
                          "test_invalid_outputs_fail_closed",
                          "detect_link bounded WAN DHCP renewal retry policy: PASS"):
               assert marker in renew_test
+          assert "DETECT_LINK_MODEM_RECONNECT_RETRY_TICKS 2UL" in modem_policy
+          assert "DETECT_LINK_MODEM_RECONNECT_MAX_RETRIES 2U" in modem_policy
+          for marker in ("test_failed_notifications_schedule_bounded_retries",
+                         "test_success_and_not_needed_state_clear_pending_retry",
+                         "test_invalid_outputs_fail_closed_without_partial_mutation",
+                         "detect_link bounded USB modem reconnect retry policy: PASS"):
+              assert marker in modem_test
+          modem_notify = body(usb_modem, "notify_modem_on_wan_ether_link_changed(int has_link)")
+          assert 'notify_rc_status("auto_wan_reconnect")' in modem_notify
+          assert "saved_errno = errno > 0 ? errno : EIO;" in modem_notify
+          assert "return saved_errno;" in modem_notify
+          assert "return status;" in modem_notify
+          modem_dispatch = body(detect, "dl_handle_link_wan(void)")
+          assert "detect_link_modem_reconnect_retry_status(" in modem_dispatch
+          assert "notify_modem_on_wan_ether_link_changed(dl_status_wan)" in modem_dispatch
+          assert "dl_modem_reconnect_retries = 0;" in detect
+          assert "int notify_modem_on_wan_ether_link_changed(int has_link);" in header
           nvram_policy = (rc / "detect_link_nvram_policy.h").read_text()
           mirror_test = (rc / "tests/detect_link_nvram_policy.c").read_text()
           assert "if (result == 0)" in nvram_policy and "*last_published = status;" in nvram_policy
@@ -272,6 +307,9 @@ jobs:
               "trunk/user/rc/src/tests/detect_link_nvram_policy.c",
               "trunk/user/rc/src/tests/detect_link_signal_policy.c",
               "trunk/user/rc/src/detect_link_dhcp_renew_policy.h",
+              "trunk/user/rc/src/detect_link_modem_reconnect_policy.h",
+              "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c",
+              "trunk/user/rc/src/usb_modem.c",
               "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
