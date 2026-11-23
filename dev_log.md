@@ -1,3 +1,13 @@
+## 2026-11-23 08:35 UTC+8 — Cancel PID1 recovery-shell retry during shutdown
+
+- Parent main SHA: `aa163f6cc5993029684fd55a489528f3133fbf26`. After the previous fast-exit throttle, an ordinary shutdown signal could arrive during `sleep()`; the retry loop kept waiting and then continued through the console relaunch path before the outer loop handled shutdown.
+- Added a shutdown-aware retry-wait predicate, immediate event-loop exit on pending shutdown, and guards that prevent console relaunch or another suspend while shutdown is already published. Added GNU89 policy coverage for normal waiting, shutdown cancellation and elapsed-delay completion, plus exact source-contract assertions.
+- Updated `SESSION_HANDOFF.md` because the previous first action (verify the fixed compiler step) is complete and the resumable task has materially changed. Roadmap priority/module state is unchanged; no roadmap rewrite.
+- Local compile/test: NOT RUN (no local repository checkout/network access). Exact-head PID1 mdev and XY-C1 push Actions: PENDING at commit creation; match each run's `head_sha` to THIS COMMIT. L3/L4 NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 08:15 UTC+8 — Fix PID1 console retry regression compiler command
 
 - Exact-head PID1 mdev run `45087584585` on `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de` failed at the newly added console retry test compile, after earlier GNU89/ASan/UBSan policy tests (including `pid1_signal_policy`) passed. Log showed literal double-backslash arguments to ld (`cannot find \\\\: No such file or directory`), caused by doubled YAML shell continuations.

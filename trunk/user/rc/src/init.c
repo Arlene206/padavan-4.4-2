@@ -1079,8 +1079,12 @@ init_main_loop(void)
 					pid1_console_retry_delay_seconds(console_shell_runtime);
 
 				/* A broken/missing shell must not spin PID 1 through fork/exec. */
-				while (console_shell_retry_delay > 0)
+				while (pid1_console_retry_should_wait(
+					       console_shell_retry_delay,
+					       signal_state.shutdown_pending))
 					console_shell_retry_delay = sleep(console_shell_retry_delay);
+				if (signal_state.shutdown_pending)
+					break;
 			}
 			if (!wait_mask_ready) {
 				if (wait_mask_build_status != 0) {
@@ -1098,7 +1102,8 @@ init_main_loop(void)
 				original_mask_ready = 1;
 				wait_mask_ready = 1;
 			}
-			if (!noconsole && !signal_state.console_shell_pid) {
+			if (!noconsole && !signal_state.shutdown_pending &&
+			    !signal_state.console_shell_pid) {
 				/* Keep console setup from starving a signal that arrives now. */
 				mask_status = init_signal_mask_update(
 					SIG_SETMASK, &original_mask, NULL,
@@ -1119,7 +1124,7 @@ init_main_loop(void)
 					wait_mask_ready = 1;
 				else
 					sleep(1);
-			} else {
+			} else if (!signal_state.shutdown_pending) {
 				errno = 0;
 				if (sigsuspend(&original_mask) < 0 && errno != EINTR) {
 					mask_status = errno > 0 ? errno : EIO;

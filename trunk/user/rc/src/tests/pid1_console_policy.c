@@ -194,11 +194,21 @@ test_console_retry_throttles_fast_child_exit(void)
 	assert(pid1_console_retry_delay_seconds(60) == 0U);
 }
 
+static void
+test_console_retry_wait_stops_for_shutdown(void)
+{
+	assert(pid1_console_retry_should_wait(1U, 0) == 1);
+	assert(pid1_console_retry_should_wait(1U, 1) == 0);
+	assert(pid1_console_retry_should_wait(0U, 0) == 0);
+	assert(pid1_console_retry_should_wait(0U, 1) == 0);
+}
+
 int
 main(void)
 {
 	tcflag_t retained_flags;
 	test_console_retry_throttles_fast_child_exit();
+	test_console_retry_wait_stops_for_shutdown();
 
 	reset_mocks();
 	assert(pid1_console_configure(4, NULL, fake_setattr) == EINVAL);

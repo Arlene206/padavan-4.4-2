@@ -109,4 +109,12 @@ pid1_console_retry_delay_seconds(long runtime_seconds)
 		PID1_CONSOLE_RETRY_DELAY_SECONDS : 0U;
 }
 
+/* Stop the throttle promptly when PID 1 receives an ordinary shutdown. */
+static inline int
+pid1_console_retry_should_wait(unsigned int remaining_seconds,
+			       int shutdown_pending)
+{
+	return remaining_seconds > 0U && !shutdown_pending;
+}
+
 #endif /* PID1_CONSOLE_POLICY_H */
