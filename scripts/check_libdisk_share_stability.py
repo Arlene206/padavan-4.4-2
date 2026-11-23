@@ -1084,7 +1084,7 @@ require(del_inventory < del_begin < del_validate < del_plan < del_stage <
         "disk_share_remove_folder_path" in DISK_SOURCE and
         "mkdir(path, 0700)" in DISK_SOURCE and
         "lstat(staging_path" not in DISK_SOURCE and
-        "if(dp->d_name[0]=='.')" in "".join(DISK_SOURCE.split()),
+        "disk_share_folder_name_is_visible" in "".join(DISK_SOURCE.split()),
         "folder deletion must preflight metadata then use the tested staged-directory/ACL/snapshot compensation state machine")
 
 for marker in (
