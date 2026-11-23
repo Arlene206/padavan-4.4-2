@@ -29,6 +29,6 @@ assert.notStrictEqual(buildTreeStart, -1);
 const buildTree = source.slice(buildTreeStart);
 assert.ok(buildTree.includes("shown_ItemText = showFolderTreeText(short_ItemText);"));
 assert.ok(buildTree.includes("shown_ItemText = showFolderTreeText(ItemText);"));
-assert.ok(buildTree.includes('title="'+escapeFolderTreeHtml(ItemText)+'">'));
+assert.ok(buildTree.includes("title=\"'+escapeFolderTreeHtml(ItemText)+'\">"));
 
 console.log("AiDisk folder-tree HTML escaping regression: PASS");
