@@ -44,6 +44,7 @@
 #include "static_route_policy.h"
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
+#include "iptv_proxy_nvram_policy.h"
 #include "service_start_status.h"
 #include "vlan_interface_policy.h"
 #include "service_wait_policy.h"
@@ -132,6 +133,73 @@ static int
 net_nvram_transaction_end(void *context)
 {
 	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+
+static int
+net_iptv_nvram_copy_transaction(void *context, const char *name,
+				char *destination, size_t destination_size)
+{
+	return rc_wan_nvram_copy_value(net_nvram_transaction_get, context, name,
+				       destination, destination_size);
+}
+
+static int
+net_iptv_nvram_match_transaction(void *context, const char *name,
+				 const char *expected,
+				 const char *missing_value, int *matches)
+{
+	char *value = NULL;
+	int read_result, saved_errno, status;
+
+	if (!context || !name || !name[0] || !expected || !missing_value ||
+	    !matches) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	errno = 0;
+	read_result = net_nvram_transaction_get(context, name, &value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(read_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (read_result == 0)
+		value = (char *)missing_value;
+	else if (!value)
+		return EIO;
+	return rc_wan_nvram_match_status(0, value, expected, matches);
+}
+
+static int
+net_iptv_proxy_nvram_settings_read(
+	struct iptv_proxy_nvram_settings *settings)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, saved_errno;
+
+	if (!settings) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	memset(settings, 0, sizeof(*settings));
+	errno = 0;
+	if (net_nvram_transaction_begin(&transaction) != 0)
+		return errno > 0 ? errno : EIO;
+
+	status = iptv_proxy_nvram_settings_read(
+		settings, net_iptv_nvram_copy_transaction,
+		net_iptv_nvram_match_transaction, &transaction);
+	errno = 0;
+	end_status = net_nvram_transaction_end(&transaction);
+	saved_errno = errno;
+	if (end_status != 0 && status == 0)
+		status = saved_errno > 0 ? saved_errno : EIO;
+	if (status != 0) {
+		memset(settings, 0, sizeof(*settings));
+		errno = status;
+		return status;
+	}
+	return 0;
 }
 
 
@@ -1164,118 +1232,73 @@ start_xupnpd(char *wan_ifname)
 
 #endif
 
-int
-stop_igmpproxy(char *wan_ifname)
+static int
+stop_igmpproxy_with_viptv(char *wan_ifname, const char *viptv_iflast)
 {
 	char *svcs[] = { "xupnpd", "udpxy", "msd_lite", "igmpproxy", NULL };
 
-	/* check used IPTV via VLAN interface */
-	if (wan_ifname) {
-		char viptv_iflast[IFNAMSIZ];
-		int nvram_status;
-
-		nvram_status = net_nvram_copy_setting_status(
-			"viptv_ifname", viptv_iflast, sizeof(viptv_iflast));
-		if (nvram_status != 0) {
-			errno = nvram_status;
-			logmessage("IPTV", "cannot read IPTV VLAN interface; refusing proxy stop (status=%d)",
-				   nvram_status);
-			return nvram_status;
-		}
-		if (viptv_iflast[0] && is_interface_exist(viptv_iflast) &&
-		    strcmp(wan_ifname, viptv_iflast))
-			return 0;
-	}
-
+	if (wan_ifname && viptv_iflast && *viptv_iflast &&
+	    is_interface_exist((char *)viptv_iflast) &&
+	    strcmp(wan_ifname, viptv_iflast))
+		return 0;
 	return kill_services(svcs, 3, 1);
 }
 
 int
-start_igmpproxy(char *wan_ifname)
+stop_igmpproxy(char *wan_ifname)
+{
+	char viptv_iflast[IFNAMSIZ];
+	int nvram_status;
+
+	if (!wan_ifname)
+		return stop_igmpproxy_with_viptv(NULL, NULL);
+	nvram_status = net_nvram_copy_setting_status(
+		"viptv_ifname", viptv_iflast, sizeof(viptv_iflast));
+	if (nvram_status != 0) {
+		errno = nvram_status;
+		logmessage("IPTV", "cannot read IPTV VLAN interface; refusing proxy stop (status=%d)",
+			   nvram_status);
+		return nvram_status;
+	}
+	return stop_igmpproxy_with_viptv(wan_ifname, viptv_iflast);
+}
+
+static int
+start_igmpproxy_with_settings(char *wan_ifname,
+			      const struct iptv_proxy_nvram_settings *settings)
 {
 	struct igmpproxy_config_values config_values;
-	char viptv_iflast[IFNAMSIZ];
-	char altnet[64];
 	const char *altnet_mask = "0.0.0.0/0";
 	char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	int config_status, launch_status, scan_error = 0, saved_errno;
 	int launch_errno;
 	int start_status = 0;
-	int mr_enabled, quickleave_is_zero = 1, quickleave = 0;
-	int nvram_status;
 	enum process_presence process_state;
 
-	if (wan_ifname == NULL || *wan_ifname == '\0')
+	if (wan_ifname == NULL || *wan_ifname == '\0' || settings == NULL)
 		return EINVAL;
-
-	/*
-	 * Read interface identity and multicast policy before stopping or starting
-	 * any service. A lossy safe_get/get wrapper can otherwise move the proxy
-	 * from the IPTV VLAN to the WAN interface or broaden altnet after an I/O
-	 * failure. Missing keys retain their historical defaults.
-	 */
-	nvram_status = net_nvram_copy_setting_status(
-		"viptv_ifname", viptv_iflast, sizeof(viptv_iflast));
-	if (nvram_status != 0) {
-		errno = nvram_status;
-		logmessage("IPTV", "cannot read IPTV VLAN interface; refusing proxy start (status=%d)",
-			   nvram_status);
-		return nvram_status;
-	}
-	if (viptv_iflast[0] && is_interface_exist(viptv_iflast) &&
-	    strcmp(wan_ifname, viptv_iflast))
+	if (settings->viptv_ifname[0] &&
+	    is_interface_exist(settings->viptv_ifname) &&
+	    strcmp(wan_ifname, settings->viptv_ifname))
 		return 0;
 
-	nvram_status = net_nvram_match_setting_status(
-		"mr_enable_x", "1", "1", &mr_enabled);
-	if (nvram_status != 0) {
-		errno = nvram_status;
-		logmessage("IPTV", "cannot read IGMP proxy enable setting; refusing transition (status=%d)",
-			   nvram_status);
-		return nvram_status;
-	}
-	if (mr_enabled) {
-		nvram_status = net_nvram_copy_setting_status(
-			"mr_altnet_x", altnet, sizeof(altnet));
-		if (nvram_status != 0) {
-			errno = nvram_status;
-			logmessage("IPTV", "cannot read IGMP proxy altnet; refusing proxy start (status=%d)",
-				   nvram_status);
-			return nvram_status;
-		}
-		if (strlen(altnet) > 6)
-			altnet_mask = altnet;
-
-		nvram_status = net_nvram_match_setting_status(
-			"mr_qleave_x", "0", "0", &quickleave_is_zero);
-		if (nvram_status != 0) {
-			errno = nvram_status;
-			logmessage("IPTV", "cannot read IGMP quickleave setting; refusing proxy start (status=%d)",
-				   nvram_status);
-			return nvram_status;
-		}
-		quickleave = !quickleave_is_zero;
-	}
-
-	/* Do not start replacements until every old IPTV process is confirmed stopped. */
+	/* Only the validated snapshot is used after the service transition begins. */
 	{
-		int stop_status = stop_igmpproxy(wan_ifname);
+		int stop_status = stop_igmpproxy_with_viptv(
+			wan_ifname, settings->viptv_ifname);
 		if (stop_status != 0) {
 			logmessage("IPTV", "proxy restart aborted because an existing proxy did not stop (status=%d)",
 				   stop_status);
 			return stop_status;
 		}
 	}
-
 	start_status = rc_first_service_start_status(start_status, start_udpxy(wan_ifname));
 #if defined(APP_XUPNPD)
 	start_status = rc_first_service_start_status(start_status, start_xupnpd(wan_ifname));
 #endif
-
-	if (!mr_enabled)
+	if (!settings->enabled)
 		return start_status;
 
-	/* IGMPproxy forks by default; never trust the short-lived parent status. */
 	process_state = iptv_proxy_process_presence((void *)"igmpproxy", &scan_error);
 	if (process_state == PROCESS_PRESENCE_UNKNOWN) {
 		saved_errno = scan_error > 0 ? scan_error : EIO;
@@ -1290,18 +1313,18 @@ start_igmpproxy(char *wan_ifname)
 		logmessage("IPTV", "igmpproxy is already present or its state is invalid; refusing duplicate startup");
 		return rc_first_service_start_status(start_status, saved_errno);
 	}
-
+	if (strlen(settings->altnet) > 6)
+		altnet_mask = settings->altnet;
 	config_values.upstream_interface = wan_ifname;
-	config_values.altnet = altnet_mask;
+	config_values.altnet = (char *)altnet_mask;
 	config_values.downstream_interface = IFNAME_BR;
-	config_values.quickleave = quickleave;
+	config_values.quickleave = settings->quickleave;
 	config_status = igmpproxy_config_publish(igmpproxy_conf, &config_values);
 	if (config_status != 0) {
 		logmessage("IPTV", "igmpproxy config publication failed (status=%d)",
 			   config_status);
 		return rc_first_service_start_status(start_status, config_status);
 	}
-
 	errno = 0;
 	launch_status = eval("/bin/igmpproxy", igmpproxy_conf);
 	launch_status = iptv_proxy_confirm_started("igmpproxy", launch_status);
@@ -1316,51 +1339,73 @@ start_igmpproxy(char *wan_ifname)
 }
 
 int
+start_igmpproxy(char *wan_ifname)
+{
+	struct iptv_proxy_nvram_settings settings;
+	int nvram_status;
+
+	if (!wan_ifname || !wan_ifname[0])
+		return EINVAL;
+	nvram_status = net_iptv_proxy_nvram_settings_read(&settings);
+	if (nvram_status != 0) {
+		errno = nvram_status;
+		logmessage("IPTV", "cannot read proxy settings; refusing transition (status=%d)",
+			   nvram_status);
+		return nvram_status;
+	}
+	return start_igmpproxy_with_settings(wan_ifname, &settings);
+}
+
+int
 restart_iptv(int is_ap_mode)
 {
-    int operation_status;
-    int stop_status;
-    int start_status = 0;
-    int nvram_status;
-    char viptv_iflast[IFNAMSIZ] = { 0 };
+	int operation_status;
+	int stop_status;
+	int start_status = 0;
+	char *wan_ifname = NULL;
+	struct iptv_proxy_nvram_settings proxy_settings;
 
-    /* Resolve the IPTV VLAN before changing bridge or proxy state. */
-    if (!is_ap_mode) {
-        nvram_status = net_nvram_copy_setting_status(
-            "viptv_ifname", viptv_iflast, sizeof(viptv_iflast));
-        if (nvram_status != 0) {
-            errno = nvram_status;
-            logmessage("IPTV", "cannot read IPTV VLAN interface; refusing restart (status=%d)",
-                       nvram_status);
-            return nvram_status;
-        }
-    }
+	/* Snapshot all required NVRAM values before changing the bridge. */
+	if (!is_ap_mode) {
+		operation_status = net_iptv_proxy_nvram_settings_read(&proxy_settings);
+		if (operation_status != 0) {
+			errno = operation_status;
+			logmessage("IPTV", "cannot read proxy settings; refusing restart before bridge changes (status=%d)",
+				   operation_status);
+			return operation_status;
+		}
+		wan_ifname = get_man_ifname(0);
+		if (!wan_ifname || !wan_ifname[0]) {
+			errno = EINVAL;
+			logmessage("IPTV", "cannot resolve WAN interface; refusing restart before bridge changes");
+			return EINVAL;
+		}
+	}
 
-    operation_status = config_bridge(is_ap_mode);
-    start_status = rc_first_service_start_status(start_status, operation_status);
+	operation_status = config_bridge(is_ap_mode);
+	start_status = rc_first_service_start_status(start_status, operation_status);
 
-    if (!is_ap_mode) {
-        char *wan_ifname;
+	if (!is_ap_mode) {
+		/* Bridge setup may create the configured IPTV VLAN; check it afterwards. */
+		if (proxy_settings.viptv_ifname[0] &&
+		    is_interface_exist(proxy_settings.viptv_ifname))
+			wan_ifname = proxy_settings.viptv_ifname;
+		operation_status = start_igmpproxy_with_settings(
+			wan_ifname, &proxy_settings);
+		return rc_first_service_start_status(start_status, operation_status);
+	}
 
-        if (viptv_iflast[0] && is_interface_exist(viptv_iflast))
-            wan_ifname = viptv_iflast;
-        else
-            wan_ifname = get_man_ifname(0);
-        operation_status = start_igmpproxy(wan_ifname);
-        return rc_first_service_start_status(start_status, operation_status);
-    }
-
-    stop_status = stop_igmpproxy(NULL);
-    if (stop_status != 0) {
-        logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop (status=%d)",
-                   stop_status);
-        return rc_first_service_start_status(start_status, stop_status);
-    }
-    start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));
+	stop_status = stop_igmpproxy(NULL);
+	if (stop_status != 0) {
+		logmessage("IPTV", "AP-mode proxy restart aborted because an existing proxy did not stop (status=%d)",
+			   stop_status);
+		return rc_first_service_start_status(start_status, stop_status);
+	}
+	start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));
 #if defined(APP_XUPNPD)
-    start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));
+	start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));
 #endif
-    return start_status;
+	return start_status;
 }
 
 int
