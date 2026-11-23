@@ -93,6 +93,7 @@ chk_udhcpc(int ap_mode)
 	enum process_presence presence;
 	int scan_error, renew_decision, renew_status;
 	int gateway_status, wan_proto = 0;
+	int ip_lookup_errno, ip_lookup_status;
 
 	if (dw_stopping)
 		return 0;
@@ -110,10 +111,20 @@ chk_udhcpc(int ap_mode)
 			return 0;
 	}
 
+	errno = 0;
 	if (!ap_mode)
 		ip = get_wan_ip4(1);
 	else
 		ip = get_lan_ip4();
+	ip_lookup_errno = errno;
+	ip_lookup_status = detect_wan_local_ip4_status(ip, ip_lookup_errno);
+	if (ip_lookup_status != 0) {
+		errno = ip_lookup_status;
+		logmessage("detect_wan",
+			   "cannot read local IPv4 address before DHCP health check (status=%d)",
+			   ip_lookup_status);
+		return ip_lookup_status;
+	}
 	if (ip == INADDR_ANY)
 		return 0;
 
@@ -177,6 +188,7 @@ arpping_gateway(int ap_mode)
     char hardware_address_storage[18];
     char interface_storage[IFNAMSIZ];
     int s, rv, rcv_bytes, probe_errno = 0, config_status;
+    int ip_lookup_errno, ip_lookup_status;
     struct sockaddr addr;
     struct ifreq ifr;
     struct arpMsg arp;
@@ -188,9 +200,11 @@ arpping_gateway(int ap_mode)
     if (dw_stopping)
         return DETECT_WAN_ARP_PROBE_NO_REPLY;
 
+    errno = 0;
     if (!ap_mode)
     {
         ip = get_wan_ip4(1);
+        ip_lookup_errno = errno;
         config_status = get_wan_unit_value_copy_status(
             0, "ifname", interface_storage, sizeof(interface_storage));
         if (config_status == 0)
@@ -204,6 +218,7 @@ arpping_gateway(int ap_mode)
     else
     {
         ip = get_lan_ip4();
+        ip_lookup_errno = errno;
         config_status = rc_wan_nvram_copy_text(
             IFNAME_BR, interface_storage, sizeof(interface_storage));
         if (config_status == 0)
@@ -221,6 +236,14 @@ arpping_gateway(int ap_mode)
                    "cannot read gateway ARP identity (status=%d)",
                    config_status);
         return detect_wan_arp_probe_result(0, config_status);
+    }
+    ip_lookup_status = detect_wan_local_ip4_status(ip, ip_lookup_errno);
+    if (ip_lookup_status != 0) {
+        errno = ip_lookup_status;
+        logmessage("detect_wan",
+                   "cannot read local IPv4 address for gateway ARP probe (status=%d)",
+                   ip_lookup_status);
+        return detect_wan_arp_probe_result(0, ip_lookup_status);
     }
     gateway_ip = inet_addr_safe(gateway_storage);
 

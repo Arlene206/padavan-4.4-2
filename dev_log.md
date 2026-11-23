@@ -1,3 +1,11 @@
+## 2026-11-23 — Preserve WAN interface-address lookup failures
+
+- Found a real health-monitor error collapse in `detect_wan.c`: both `chk_udhcpc()` and `arpping_gateway()` treated `INADDR_ANY` from `get_wan_ip4()/get_lan_ip4()` as a normal “no address” state. But `get_interface_addr4()` also returns `INADDR_ANY` when socket creation, interface-name validation or `SIOCGIFADDR` fails. That could make a local lookup failure look like a healthy gateway response and suppress DHCP recovery without reporting the probe as a local error.
+- Added an errno-aware policy that keeps a genuinely absent address (including Linux `EADDRNOTAVAIL`) distinct from other lookup errors; clear/capture errno immediately around both local address reads before later NVRAM calls can overwrite it. `get_wan_ip4()` now stores the AP-mode lookup status in errno rather than silently folding it into the no-address result.
+- Added GNU89 regression coverage for missing address versus EACCES/EIO/invalid status and an exact call-order/source contract in the WAN workflow. Exact-head sanitizer, Process, AI docs and XY-C1 Build/TRX/artifact checks are pending. No local compiler run is claimed.
+
+---
+
 ## 2026-11-23 — Restore Process workflow path-set symmetry
 
 - Exact Process umbrella #45239229205 on `79f4d535af499995fc1f2be1d24b52b93a35d2f4` completed SUCCESS. The shared LLDT parser integration contract, process scanner, PID identity, lifecycle, DHCP, firewall, storage and other regression steps all passed.

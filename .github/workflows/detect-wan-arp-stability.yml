@@ -149,6 +149,9 @@ jobs:
           assert '#include "detect_wan_arp_result_policy.h"' in detect
           assert "DETECT_WAN_ARP_PROBE_ERROR" in probe_policy
           assert "detect_wan_arp_probe_result" in probe_policy
+          assert "detect_wan_local_ip4_status" in probe_policy
+          assert "EADDRNOTAVAIL" in probe_policy
+          assert "test_local_ipv4_lookup_errors_are_not_absent_addresses" in probe_test
           assert "detect_wan_arp_should_renew" in probe_policy
           assert "struct detect_wan_arp_reply" in probe_policy
           assert "detect_wan_arp_reply_matches" in probe_policy
@@ -181,7 +184,19 @@ jobs:
           assert '#include "wan_nvram_status_policy.h"' in detect
           checked_callback = body(detect, "detect_wan_nvram_get_checked(void *context, const char *param_name,")
           assert "nvram_get_checked(param_name, value)" in checked_callback
+          wan_ip_reader = body(wan, "get_wan_ip4(int only_broadband_wan)")
+          ap_mode_check = wan_ip_reader.index("status = get_ap_mode_status(&is_ap_mode);")
+          ap_mode_failure = wan_ip_reader.index("errno = status;", ap_mode_check)
+          assert ap_mode_check < ap_mode_failure
+          assert "if (status != 0)" in wan_ip_reader
+
           chk = body(detect, "chk_udhcpc(int ap_mode)")
+          ip_reset = chk.index("errno = 0;")
+          ip_capture = chk.index("ip_lookup_errno = errno;", ip_reset)
+          ip_policy = chk.index("detect_wan_local_ip4_status(ip, ip_lookup_errno)", ip_capture)
+          ip_absent = chk.index("if (ip == INADDR_ANY)", ip_policy)
+          assert ip_reset < ip_capture < ip_policy < ip_absent
+          assert "cannot read local IPv4 address before DHCP health check" in chk
           chk_compact = "".join(chk.split())
           assert chk.rstrip().endswith("return 0;")
           assert "char gateway_storage[16];" in chk
@@ -193,6 +208,15 @@ jobs:
           assert chk_compact.index("get_wan_unit_proto_checked_status(0,&wan_proto)") < chk_compact.index('get_wan_unit_value_copy_status(0,"gateway"') < chk_compact.index("process_inventory_scan(")
           assert "test_gateway_arp_identity_snapshots_survive_cache_reuse" in nvram_status_test
           arp_probe = body(detect, "arpping_gateway(int ap_mode)")
+          arp_ip_reset = arp_probe.index("errno = 0;")
+          arp_ip_capture = arp_probe.index("ip_lookup_errno = errno;", arp_ip_reset)
+          arp_ip_policy = arp_probe.index("detect_wan_local_ip4_status(ip, ip_lookup_errno)", arp_ip_capture)
+          arp_config_failure = arp_probe.index("if (config_status != 0)")
+          arp_ip_failure = arp_probe.index("if (ip_lookup_status != 0)", arp_ip_policy)
+          arp_no_address = arp_probe.index("if (gateway_ip == INADDR_ANY || ip == INADDR_ANY", arp_ip_failure)
+          assert arp_ip_reset < arp_ip_capture < arp_ip_policy < arp_ip_failure < arp_no_address
+          assert "detect_wan_arp_probe_result(0, ip_lookup_status)" in arp_probe
+          assert arp_config_failure < arp_ip_failure
           assert "errno == EINTR" in arp_probe
           assert "errno == EAGAIN || errno == EWOULDBLOCK" in arp_probe
           assert "probe_errno = errno ? errno : EIO;" in arp_probe

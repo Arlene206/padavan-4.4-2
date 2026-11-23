@@ -229,6 +229,18 @@ test_invalid_arp_source_hardware_address_is_rejected_transactionally(void)
 }
 
 static int
+test_local_ipv4_lookup_errors_are_not_absent_addresses(void)
+{
+    CHECK(detect_wan_local_ip4_status(INADDR_ANY, 0) == 0);
+    CHECK(detect_wan_local_ip4_status(INADDR_ANY, EADDRNOTAVAIL) == 0);
+    CHECK(detect_wan_local_ip4_status(INADDR_ANY, EACCES) == EACCES);
+    CHECK(detect_wan_local_ip4_status(INADDR_ANY, EIO) == EIO);
+    CHECK(detect_wan_local_ip4_status(INADDR_ANY, -1) == EIO);
+    CHECK(detect_wan_local_ip4_status(htonl(0xc0000202U), EIO) == 0);
+    return 0;
+}
+
+static int
 test_probe_result_keeps_local_errors_distinct(void)
 {
     errno = 0;
@@ -267,6 +279,7 @@ main(void)
     CHECK(test_arp_reply_rejects_invalid_sender_hardware_address() == 0);
     CHECK(test_arp_source_hardware_address_requires_colon_hex() == 0);
     CHECK(test_invalid_arp_source_hardware_address_is_rejected_transactionally() == 0);
+    CHECK(test_local_ipv4_lookup_errors_are_not_absent_addresses() == 0);
     CHECK(test_probe_result_keeps_local_errors_distinct() == 0);
     CHECK(test_dhcp_renew_requires_three_real_no_reply_probes() == 0);
     puts("WAN ARP reply validation and DHCP-renewal policy: PASS");

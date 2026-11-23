@@ -24,6 +24,9 @@
 - Exact source base `eef441729725ff6b06c45a95b7c8414ab16d2f72` adds the shared bounded LLDT config parser to shipped `lld2d` and optional `lld2test`. XY-C1 #45237411963 on that exact production-source SHA completed SUCCESS with Build XY-C1, TRX verification and artifact upload all PASS (L3); NVRAM audit #45237411699 and Process inventory #45237412141 also PASS. Dedicated LLDT workflow #45238664960 (GNU89/Werror/ASan/UBSan compile, runtime and Python checker) and AI docs #45238664839 PASS on test/docs descendant `38d3732`.
 - Process umbrella #45239229205 PASS on `79f4d535af499995fc1f2be1d24b52b93a35d2f4`, including the corrected shared-parser integration contract. AI docs #45239229201 failed only because the newly added parser-header trigger existed in push but not pull_request; this commit restores path-set symmetry and requires fresh exact-head docs PASS.
 
+- Infosvr exact source commit `4e751b58b471e3d07e07a02ed64df3cc1edf0cd9`: GNU89/Werror/ASan/UBSan workflow #45201353587 PASS on checker descendant `6a7ed2a` (all policy binaries, packet source contract and RC lifecycle checker). XY-C1 #45200876769 on the actual production source SHA `4e751b5` PASS with Build, TRX and artifact upload. The earlier #45200876644 failed only on a stale `sizeof(IBOX_COMM_PKT_HDR)` matcher; it was fixed by `ac3228a`/`6a7ed2a`. L2 + L3 are verified; hardware broadcast L4 remains unverified.
+- WAN gateway ARP source fix `1cb817908e779c45d3c47105e39cd2002df0ba63`: exact XY-C1 #45218315124 PASS with Build/TRX/artifact; WAN L2 #45218700965 PASS on checker descendant `40ab459`; AI docs #45218701533 PASS. The earlier WAN L2 #45218314720 failed only on an outdated interface-source string assertion, normalized in `40ab459`. The current local-IP status/error correction supersedes this validation and needs fresh exact-head Actions.
+
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -33,10 +36,15 @@
 
 ## Active task
 
+### WAN local IPv4 lookup error separation
+- The monitor previously treated every `INADDR_ANY` from `get_wan_ip4()/get_lan_ip4()` as “no address”. The underlying `get_interface_addr4()` also returns that value on local socket/ioctl/interface-name failures, so `arpping_gateway()` could report a synthetic healthy reply and `chk_udhcpc()` could silently decline renewal on a local error.
+- The current source-policy change captures errno at the address lookup, treats only a clean no-address result and `EADDRNOTAVAIL` as absence, and preserves other failures as errors. `get_wan_ip4()` also now propagates AP-mode lookup status through errno. New tests and exact source-order checks are committed but Actions are pending.
+- Next: inspect exact SHA WAN sanitizer/source contract, Process, AI handoff, and XY-C1 results; fix any genuine failure and never treat host-only as firmware success.
+
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
 - This source slice introduces `lldt_config_parse_policy.h` and applies it to both configuration readers. The optional tool now uses checked icon path copying and strict bounded numeric parsing with safe legacy defaults.
-- Dedicated LLDT #45238664960 and AI docs #45238664839 PASS on `38d3732`; GNU89/Werror/ASan/UBSan compile/runtime and source checks passed. Process umbrella #45239229205 PASS on `79f4d53`. XY-C1 #45237411963 on production-source SHA `eef4417` PASS, including firmware Build, TRX and artifact upload. Fresh AI-doc validation is pending only because push/pull path sets were asymmetric.
+- Dedicated LLDT #45238664960 and AI docs #45238664839 PASS on `38d3732`; GNU89/Werror/ASan/UBSan compile/runtime and source checks passed. Process umbrella #45239229205 PASS on `79f4d53`; current Process #45239753092 and AI docs #45239753450 PASS on `f688ae9`. XY-C1 #45237411963 on production-source SHA `eef4417` PASS, including Build, TRX and artifact upload.
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
@@ -48,7 +56,7 @@
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and verify AI handoff docs after the Process workflow push/pull path-set correction. Process umbrella #45239229205 PASS on `79f4d53` and LLDT parser #45238664960 PASS on `38d3732`; AI docs #45239229201 failed only because `lldt_config_parse_policy.h` was present in push but absent from pull_request, now fixed. Require exact-head AI docs PASS.
+1. Fetch live `main` and verify WAN local-address error-separation regression, Process lifecycle, AI handoff and XY-C1 on the exact new SHA. Prove `INADDR_ANY` plus clean errno/`EADDRNOTAVAIL` remains “no address”, while EACCES/EIO/socket/interface failures stay local errors and cannot be misreported as a healthy ARP response. Require exact XY-C1 Build/TRX/artifact; host-only is not L3.
 2. Previous LLDT failures were test-contract defects, not confirmed production parser faults: `eef4417` had multi-character NUL literals; `14be2b0` corrected NUL but left literal backslash-n/r strings; `d0e68ad` fixed those and passed runtime cases, then failed a stale XY-C1 path-count expectation, corrected in `38d3732`.
 3. The Process umbrella on `d0e68ad` failed at a stale inline-`sscanf` assertion. The correction in `79f4d53` now validates the shared parser and its path trigger; exact Process #45239229205 passed all steps.
 4. Process inventory #45238182222 and NVRAM audit #45238182242 PASS. XY-C1 #45237411963 on `eef4417` completed SUCCESS with Build/TRX/artifact; L3 is verified for shipped LLDT parser source changes. Reconfirm AI docs after this workflow path-filter repair.

@@ -148,6 +148,22 @@ detect_wan_arp_reply_matches(const struct detect_wan_arp_reply *reply,
            memcmp(reply->target_hardware, local_hardware, 6) == 0;
 }
 
+/*
+ * get_interface_addr4() and get_wan_ip4() use INADDR_ANY for both a missing
+ * address and lookup failures. Callers clear/capture errno around the lookup:
+ * a clean zero or EADDRNOTAVAIL means no IPv4 address; other failures must
+ * remain errors so a failed local lookup cannot masquerade as a healthy peer.
+ */
+static inline int
+detect_wan_local_ip4_status(in_addr_t address, int lookup_errno)
+{
+    if (address != INADDR_ANY)
+        return 0;
+    if (lookup_errno == 0 || lookup_errno == EADDRNOTAVAIL)
+        return 0;
+    return lookup_errno > 0 ? lookup_errno : EIO;
+}
+
 /* Local socket/I/O failure is not evidence that the gateway did not answer. */
 static inline int
 detect_wan_arp_probe_result(int reply_received, int operation_error)

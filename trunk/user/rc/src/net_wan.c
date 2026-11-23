@@ -7398,7 +7398,11 @@ get_wan_ip4(int only_broadband_wan)
 	const char *ifname = NULL;
 
 	status = get_ap_mode_status(&is_ap_mode);
-	if (status != 0 || is_ap_mode)
+	if (status != 0) {
+		errno = status;
+		return INADDR_ANY;
+	}
+	if (is_ap_mode)
 		return INADDR_ANY;
 
 	status = get_wan_unit_value_copy_status(unit, "ifname_t",
