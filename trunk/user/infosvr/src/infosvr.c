@@ -177,7 +177,7 @@ void *process_packet(int fd, void *packet, int packet_len, char *ifname)
 		return NULL;
 
 	/* This response buffer is reused; clear every field before building a reply. */
-	memset(packet_res, 0, sizeof(packet_res));
+	memset(packet_res, 0, sizeof(packet_res_storage.bytes));
 	hdr_res->ServiceID = NET_SERVICE_ID_IBOX_INFO;
 	hdr_res->PacketType = NET_PACKET_TYPE_RES;
 	hdr_res->OpCode = hdr->OpCode;

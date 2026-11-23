@@ -90,7 +90,7 @@ processor = function_body(
 )
 assert "hdr->OpCode == hdr_res->OpCode" not in processor
 supported_guard = processor.index("if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU)")
-response_reset = processor.index("memset(packet_res, 0, sizeof(packet_res))")
+response_reset = processor.index("memset(packet_res, 0, sizeof(packet_res_storage.bytes))")
 response_header = processor.index("hdr_res->ServiceID =")
 assert supported_guard < response_reset < response_header
 assert "only the implemented read-only opcodes" in processor.lower().lower()
