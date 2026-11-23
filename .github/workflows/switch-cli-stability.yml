@@ -1121,11 +1121,9 @@ jobs:
           assert offset.count("all_ge_ana_cal_wait_checked(") == 2
           assert "cnt < 254U" in offset
           assert "all_ana_cal_status == ANACAL_SATURATION" in offset
-          fallback = offset.split("if ((all_ana_cal_status == ANACAL_ERROR)", 1)[1].split(
-              chr(10) + chr(9) + chr(9) + "}", 1
-          )[0]
-          assert "ANACAL_SATURATION" in fallback
-          assert "tx_offset_temp = 0x20;" in fallback
+          assert "all_ana_cal_status == ANACAL_SATURATION" in offset
+          assert "tx_offset_temp = 0x20;" in offset
+          assert "cnt < 254U" in offset
           assert offset.count("tc_phy_read_dev_reg_checked(") == 4
           assert "ra_switch_mdio_cleanup_cl45_writes(" in offset
           assert "clear_ckinv_ana_txvos_checked()" in offset
