@@ -1221,7 +1221,6 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 #if DEBUG_SEGV_HANDLER
 	{
 		struct sigaction sa;
-		int signal_error;
 		memset(&sa, 0, sizeof(sa));
 		sa.sa_sigaction = handle_sigsegv;
 		sa.sa_flags = SA_SIGINFO;
@@ -1340,6 +1339,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 	/* Set up signal handlers */
 	if (!DEBUG_INIT) {
 		struct sigaction sa;
+		int signal_error;
 
 		/* Stop handler must allow only SIGCONT inside itself */
 		memset(&sa, 0, sizeof(sa));

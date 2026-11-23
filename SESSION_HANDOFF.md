@@ -46,7 +46,7 @@ The user delegates one continuing engineering job across conversations. The repo
 
 ## Current repository state
 
-- Live main at the parent of this PID1 signal-coalescing slice: 056edb68a0c9987d24cf397da377024bf5e77c2e. The last product-source baseline is 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; XY-C1 L3 build/TRX/artifact validation passed for that unchanged source tree on 7c556be9eb1caa343d720bcecd3df74c5461262a.
+- Live main at the parent of this compile-scope correction: 352c47fef554d64ad8c536d1ed8227a3af261d96. The previous signal-coalescing commit contained the new event accumulator but its signal_error local was inserted in the DEBUG_SEGV_HANDLER block rather than the normal signal setup block; this correction moves the declaration next to its use.
 - Frozen backup: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
 - Production PID1 wait/reap baseline: 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; exact host/source regression follow-up 84060ba4f52823b396487b24cdfe66254baff0d0 passed.
 - XY-C1 workflow path correction: 11090e80b126fa1665758026d2163fd9e2f09e6a; detector fixture correction: a71253cc463befcab865afb8a90407afa7975e33; workflow-only full-build rerun: 7c556be9eb1caa343d720bcecd3df74c5461262a.
@@ -54,6 +54,8 @@ The user delegates one continuing engineering job across conversations. The repo
 ## Active task
 
 ### BusyBox PID 1 delayed-signal event preservation
+
+- Immediate compile review found a declaration-scope defect in the initial source patch: signal_error was accidentally declared inside the optional DEBUG_SEGV_HANDLER block but used in the normal init signal setup. This commit removes the misplaced declaration and declares it in the ordinary setup block. Exact-head CI for both the original source slice and this correction must confirm the compile path.
 
 - Source review confirmed a lost-event race in check_delayed_sigs(): the main loop snapshots the single shared bb_got_signal value and then clears it, so a different delayed handler can overwrite that global between those operations. The source comment already acknowledged SIGHUP/Ctrl-Alt-Del collision; a shutdown request could also be overwritten by another delayed event.
 - This slice replaces the lossy single-signal slot for PID1 delayed events with independent sig_atomic_t event bits in init_signal_pending.h. A separate field retains the most recently delivered shutdown mode. Delayed handler sigaction masks are full to serialize the accumulator's read-modify-write; the main loop blocks the exact delayed signal set while taking/clearing a batch. A failed mask restore requeues the snapshot rather than discarding it.
@@ -79,10 +81,10 @@ The user delegates one continuing engineering job across conversations. The repo
 
 ## Exact first action for the next GPT
 
-1. Fetch the new live main SHA and confirm the frozen backup remains at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-2. Inspect the exact-head BusyBox PID1 workflow: run the new delayed-signal C test, the expanded source contract and existing peer-preservation regression. Fix only the first causal failure, without weakening assertions.
-3. Inspect exact-head AI handoff docs, Process inventory, USB/NVRAM checks and XY-C1. The prior production PID1 source baseline already passed L3 on run 45106983817/7c556be (Build, TRX and artifact all PASS); the new delayed-signal source change needs its own L3 validation.
-4. Continue PID1 from the signal event accumulator's ordering and mask-restoration path. Verify concurrent SIGHUP, SIGINT, SIGQUIT and shutdown handling; preserve the separate SIGCONT stop-handler path.
+1. Fetch live main and verify the frozen backup still matches 72f4f157a084f8184b9597ca5bf334b8080e5807.
+2. Inspect exact-head Actions for the declaration-placement correction; also inspect the prior 352c47fe run and diagnose any failure from its first causal log line. Check BusyBox unit/source-contract, AI handoff, Process inventory, NVRAM/USB and XY-C1 results.
+3. The existing exact-child wait/reap source baseline has L3 proof from XY run 45106983817 on 7c556be (Build, TRX and artifact PASS). The new delayed-signal source has L2/L3 pending until the corresponding exact-head tests and XY build pass.
+4. Continue PID1 only after the delayed-signal implementation compiles: inspect WAIT/SYSINIT action interactions and delayed-signal retry behavior; preserve shutdown precedence and the independent SIGCONT stop handler.
 
 ## Mandatory handoff checkpoint
 
@@ -98,7 +100,8 @@ Before ending a conversation, compare the live repository with this record: engi
 
 ## End-of-session accuracy checkpoint
 
-- Parent main SHA for this source/test/CI slice: 056edb68a0c9987d24cf397da377024bf5e77c2e. New product files are init_signal_pending.h and tests/init_signal_pending.c; init.c, the source checker and focused workflow are updated together.
-- The exact-child wait/reap production baseline from 1f9d39bc has L3 evidence: XY-C1 run 45106983817 on 7c556be completed SUCCESS, with Build XY-C1, TRX verification and artifact upload all PASS. Commit comparison shows no intervening production-source changes.
-- Exact 8331 results: BusyBox PID1 45107256450 PASS; Process inventory 45107256374 PASS; USB hotplug 45107256428 PASS; NVRAM audit 45107256356 PASS; XY host/detector 45107256442 PASS with target build intentionally skipped. AI handoff 45107256439 failed due the missing mandatory checkpoint sentence; docs-only correction 056edb68 then failed exact-head AI run 45107711807 because it also lacked the required phrases one atomic main commit and Before context exhaustion. This source/test slice adds those exact rules without changing the validator.
-- The current source slice's exact-head Actions have not yet been created. L2/L3 for the delayed-signal accumulator remain pending. L4 is not verified.
+- Parent main SHA for the delayed-signal event accumulator source/test slice: 056edb68a0c9987d24cf397da377024bf5e77c2e; commit 352c47fef554d64ad8c536d1ed8227a3af261d96 added init_signal_pending.h, its tests, init.c integration, the source contract and focused workflow.
+- Review immediately after publication caught that signal_error had been inserted in the DEBUG_SEGV_HANDLER block while used in the normal signal setup. This correction moves the declaration into the correct scope. Do not claim that 352 compiled successfully.
+- A local GNU89 ASan/UBSan run of the standalone event-policy tests passed. It does not validate the full BusyBox init.c translation unit.
+- Previous exact-child source baseline L3: XY-C1 run 45106983817 on 7c556be passed Build XY-C1, TRX verification and artifact upload; compare 1f9d39bc..7c556be contains no intervening production-source changes.
+- Exact-head Actions for 352c47fe were IN_PROGRESS at the last check. The correction's Actions have not yet been created. New signal-fix L2/L3 remain pending; L4 hardware is not verified.

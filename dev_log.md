@@ -1,3 +1,13 @@
+## 2026-11-23 11:49 UTC+8 — Correct PID1 delayed-signal local declaration scope
+
+- Immediate source review after commit 352c47fef554d64ad8c536d1ed8227a3af261d96 found signal_error declared inside the conditional DEBUG_SEGV_HANDLER block, while the ordinary init signal setup uses it. This would leave the default production build with an undeclared identifier.
+- Moved the declaration into the ordinary signal setup block and removed it from the debug-only block. The code is checked for same-block declaration/use before creating this commit.
+- The standalone new signal accumulator tests passed under GNU89 with -Wall -Wextra -Werror and ASan/UBSan. This policy test does not compile the full BusyBox init.c; exact-head BusyBox and XY-C1 Actions must verify that translation unit and target build.
+- The exact-child wait/reap baseline already has L3 evidence: XY-C1 run 45106983817 on 7c556be passed Build, TRX and artifact upload. The signal accumulator change itself is not yet L2/L3 verified.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 11:47 UTC+8 — Preserve concurrent PID1 delayed-signal requests
 
 - Source review confirmed a lost-event race in check_delayed_sigs(): the main loop snapshots the single bb_got_signal value and then clears it, so a different delayed handler can overwrite that global between those operations. The source comment already acknowledged SIGHUP/Ctrl-Alt-Del collision; a shutdown request could also be overwritten by another delayed event.
