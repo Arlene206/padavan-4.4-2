@@ -21,6 +21,9 @@
 - On `d0e68ad217cb910e877dd69b6f4ce1d2b8abbf53`, LLDT run #45238183801 passed compile and all GNU89/ASan/UBSan fixture runtime cases, then failed the static source checker only because its XY-C1 path count expected two entries while the workflow has one push-only trigger. Commit `38d3732` corrected that test expectation.
 - The same d0 Process umbrella #45238182167 failed only at `scripts/check_process_lifecycle_integration.py`: a stale assertion still expected the former inline `sscanf("%255s = %255s%n")` parser after `main.c` had switched to shared `lldt_config_parse_policy.h`. This commit aligns the integration checker and adds its path trigger. Process inventory #45238182222 and AI docs #45238182196 PASS. NVRAM audit #45238182242 was PENDING at last poll.
 
+- Exact source base `eef441729725ff6b06c45a95b7c8414ab16d2f72` adds the shared bounded LLDT config parser to shipped `lld2d` and optional `lld2test`. XY-C1 #45237411963 on that exact production-source SHA completed SUCCESS with Build XY-C1, TRX verification and artifact upload all PASS (L3); NVRAM audit #45237411699 and Process inventory #45237412141 also PASS. Dedicated LLDT workflow #45238664960 (GNU89/Werror/ASan/UBSan compile, runtime and Python checker) and AI docs #45238664839 PASS on test/docs descendant `38d3732`.
+- Process umbrella #45239229205 PASS on `79f4d535af499995fc1f2be1d24b52b93a35d2f4`, including the corrected shared-parser integration contract. AI docs #45239229201 failed only because the newly added parser-header trigger existed in push but not pull_request; this commit restores path-set symmetry and requires fresh exact-head docs PASS.
+
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
@@ -31,23 +34,24 @@
 ## Active task
 
 ### LLDT configuration parser parity
-- The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`.
+- The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
 - This source slice introduces `lldt_config_parse_policy.h` and applies it to both configuration readers. The optional tool now uses checked icon path copying and strict bounded numeric parsing with safe legacy defaults.
-- GNU89/Werror/ASan/UBSan tests cover assignment parsing, embedded NUL, oversized names/values, numeric boundaries and path termination. Exact source and firmware Actions are pending for the new commit.
+- Dedicated LLDT #45238664960 and AI docs #45238664839 PASS on `38d3732`; GNU89/Werror/ASan/UBSan compile/runtime and source checks passed. Process umbrella #45239229205 PASS on `79f4d53`. XY-C1 #45237411963 on production-source SHA `eef4417` PASS, including firmware Build, TRX and artifact upload. Fresh AI-doc validation is pending only because push/pull path sets were asymmetric.
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
+- LLDT config parser: dedicated L2 workflow #45238664960 PASS; Process umbrella #45239229205 PASS. XY-C1 #45237411963 PASS on exact source SHA `eef4417` (Build/TRX/artifact). AI docs #45239229201 needs one workflow path-filter correction (this commit).
 - Shadowsocks DNS proxy preflight and upstream whitespace fixes: #45234515153 PASS, Process #45234515707 PASS and AI docs #45234515042 PASS on `f3acf67`; XY-C1 #45234516216 was pending.
-- RStats `601ad73`: RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS; AI doc repair #45236207680 PASS on `3760b93`; XY-C1 #45234873441 was pending.
+- RStats `601ad73`: RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS; AI doc repair #45236207680 PASS on `3760b93`. XY-C1 #45234873441 still requires final same-SHA step confirmation before an L3 claim.
 - Shadowsocks missing-executable test `5a43b18`: lifecycle #45235046114 and Process #45235046275 PASS; AI documentation repaired by #45236207680 on `3760b93`.
-- Local GNU89/Werror/ASan/UBSan parser-policy fixture passed. No full router tree or MIPS/uClibc firmware compile was run locally. Exact-head LLDT L2 and same-SHA XY-C1 Build/TRX/artifact remain required.
+- Exact LLDT #45238664960 on `38d3732` passed GNU89/Werror/ASan/UBSan compile/runtime and its Python production/optional-tool checker; AI docs #45238664839 PASS. Process #45239229205 PASS on `79f4d53`. XY-C1 #45237411963 on the production source SHA `eef4417` passed Build, TRX and artifact upload. AI docs #45239229201 exposed only the path-filter asymmetry corrected in this commit. No local compile is claimed.
 - Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and verify exact-head Process lifecycle + LLDT parser workflows after the integration-checker correction. The LLDT fixture itself passed GNU89/Werror/ASan/UBSan runtime cases on `d0e68ad`; follow-up static checker fixes now validate the shared parser policy and new workflow input.
+1. Fetch live `main` and verify AI handoff docs after the Process workflow push/pull path-set correction. Process umbrella #45239229205 PASS on `79f4d53` and LLDT parser #45238664960 PASS on `38d3732`; AI docs #45239229201 failed only because `lldt_config_parse_policy.h` was present in push but absent from pull_request, now fixed. Require exact-head AI docs PASS.
 2. Previous LLDT failures were test-contract defects, not confirmed production parser faults: `eef4417` had multi-character NUL literals; `14be2b0` corrected NUL but left literal backslash-n/r strings; `d0e68ad` fixed those and passed runtime cases, then failed a stale XY-C1 path-count expectation, corrected in `38d3732`.
-3. The Process umbrella on `d0e68ad` failed at the old inline-`sscanf` assertion in `check_process_lifecycle_integration.py`. This current commit updates that integration contract and adds `lldt_config_parse_policy.h` to Process workflow path filters; re-run exact Process tests.
-4. On `d0e68ad`, Process inventory #45238182222 and AI docs #45238182196 PASS, while NVRAM audit #45238182242 was PENDING. XY-C1 #45237411963 on `eef4417` was still in progress at last poll; check exact completion before making L3 statements.
+3. The Process umbrella on `d0e68ad` failed at a stale inline-`sscanf` assertion. The correction in `79f4d53` now validates the shared parser and its path trigger; exact Process #45239229205 passed all steps.
+4. Process inventory #45238182222 and NVRAM audit #45238182242 PASS. XY-C1 #45237411963 on `eef4417` completed SUCCESS with Build/TRX/artifact; L3 is verified for shipped LLDT parser source changes. Reconfirm AI docs after this workflow path-filter repair.
 5. Once exact LLDT and Process checks pass, continue the next concrete whole-userland reliability/security task. Keep the backup branch immutable and use complete-tree non-forced expected-SHA commits.
 
 ## Cross-session operating constraints

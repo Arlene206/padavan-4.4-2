@@ -1,3 +1,11 @@
+## 2026-11-23 — Restore Process workflow path-set symmetry
+
+- Exact Process umbrella #45239229205 on `79f4d535af499995fc1f2be1d24b52b93a35d2f4` completed SUCCESS. The shared LLDT parser integration contract, process scanner, PID identity, lifecycle, DHCP, firewall, storage and other regression steps all passed.
+- AI handoff validation #45239229201 on the same SHA failed because the Process workflow's push paths included `lldt_config_parse_policy.h`, but its pull-request paths did not. The parser header is now included in both path sets; this is a workflow filter mismatch, not a source or test failure. Exact-head AI docs rerun pending.
+- LLDT parser L2 #45238664960 and AI docs #45238664839 passed on `38d3732`. XY-C1 run #45237411963 on the production source SHA `eef4417` completed successfully: Build XY-C1, TRX verification and artifact upload all PASS.
+
+---
+
 ## 2026-11-23 — Align process integration contract with the shared LLDT parser
 
 - Exact LLDT parser regression #45238183801 on `d0e68ad` passed GNU89/Werror/ASan/UBSan compile and all runtime fixture assertions, then exposed only an over-strict LLDT checker expectation about the XY-C1 workflow's one push-only path filter. That expectation was corrected in `38d3732`.
