@@ -2048,185 +2048,287 @@ cleanup:
 
 #define CALDLY 40
 
-void do_fe_phy_all_analog_cal(u8 port_num)
+static int do_fe_phy_all_analog_cal_checked(u8 port_num)
 {
-	u16 l0r26_temp, l0r30_temp, l3r25_tmp;
-	u8 cnt = 0, phyaddr, i, iext_port;
-	u32 iext_s, iext_e, r50_s, r50_e, txo_s, txo_e, txa_s, txa_e;
+	struct ra_switch_page_update_context page;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	unsigned int read_value = 0U;
+	u16 l0r26_temp = 0U, l0r30_temp = 0U;
+	u8 phyaddr, iext_port = 0xffU, i, attempt;
+	unsigned int j;
+	unsigned long t_s, t_e;
+	int l0r26_saved = 0, l0r30_saved = 0;
+	int status = 0, cleanup_status;
+	const char *failed_stage = "setup";
+	static const u8 eye_regs[] = { 20U, 23U, 24U, 26U, 27U, 29U, 30U };
+	static const u16 eye_values[] = {
+		0x0170U, 0x0220U, 0x0206U, 0x0370U,
+		0x02f2U, 0x001bU, 0x0002U
+	};
+	static const u8 leopard_eye_regs[] = {
+		19U, 20U, 21U, 22U, 23U, 24U,
+		25U, 26U, 27U, 28U, 29U, 30U
+	};
+	static const u16 leopard_eye_values[] = {
+		0x0100U, 0x0161U, 0x00f0U, 0x0046U,
+		0x0210U, 0x0206U, 0x0238U, 0x0360U,
+		0x02f2U, 0x0240U, 0x0010U, 0x0002U
+	};
+	static const u16 leopard_zero_dev_regs[] = {
+		0x017dU, 0x017eU, 0x017fU, 0x0180U,
+		0x0181U, 0x0182U, 0x0183U, 0x0184U,
+		0x00dbU, 0x00dcU, 0x003eU, 0x00ddU
+	};
+	struct fe_default_register {
+		u8 page;
+		u8 reg;
+		u8 local;
+		u16 value;
+	};
+	static const struct fe_default_register fe_defaults[] = {
+		{ 3U, 23U, 0U, 0x0000U },
+		{ 3U, 23U, 1U, 0x2004U },
+		{ 2U, 21U, 1U, 0x8551U },
+		{ 4U, 17U, 1U, 0x2000U },
+		{ 7U, 20U, 0U, 0x7c62U },
+		{ 4U, 20U, 1U, 0x4444U },
+		{ 2U, 22U, 1U, 0x1011U },
+		{ 4U, 28U, 1U, 0x1011U },
+		{ 4U, 19U, 1U, 0x2222U },
+		{ 4U, 29U, 1U, 0x2222U },
+		{ 2U, 28U, 1U, 0x3444U },
+		{ 2U, 29U, 1U, 0x04c6U },
+		{ 4U, 30U, 1U, 0x0006U },
+		{ 5U, 16U, 1U, 0x04c6U }
+	};
 
+	if (port_num >= 5U)
+		return -EINVAL;
 	ephy_addr_base = 0;
-	phyaddr = port_num + ephy_addr_base;
-	l0r26_temp = tc_phy_read_l_reg(port_num, 0, 26);
-	tc_phy_write_l_reg(port_num, 0, 26, 0x5600);
-	tc_phy_write_l_reg(port_num, 4, 21, 0x0000);
-	tc_phy_write_l_reg(port_num, 0, 0, 0x2100);
+	phyaddr = port_num;
+	if (ei_local->chip_name == MT7622_FE)
+		iext_port = 0U;
+	else if (ei_local->chip_name == LEOPARD_FE)
+		iext_port = 1U;
+	else
+		return -EINVAL;
 
-	l0r30_temp = tc_phy_read_l_reg(port_num, 0, 30);
+	fe_cal_vbg_flag = 0;
+	fe_cal_r50_flag = 0;
+	fe_cal_tx_offset_flag = 0;
+	fe_cal_tx_offset_flag_mdix = 0;
+	fe_cal_flag = 0;
+	fe_cal_flag_mdix = 0;
 
-/*eye pic.*/
-	tc_phy_write_g_reg(port_num, 5, 20, 0x0170);
-	tc_phy_write_g_reg(port_num, 5, 23, 0x0220);
-	tc_phy_write_g_reg(port_num, 5, 24, 0x0206);
-	tc_phy_write_g_reg(port_num, 5, 26, 0x0370);
-	tc_phy_write_g_reg(port_num, 5, 27, 0x02f2);
-	tc_phy_write_g_reg(port_num, 5, 29, 0x001b);
-	tc_phy_write_g_reg(port_num, 5, 30, 0x0002);
-/*Yiron default setting*/
-	for (i = port_num; i < 5; i++) {
-		tc_phy_write_g_reg(i, 3, 23, 0x0);
-		tc_phy_write_l_reg(i, 3, 23, 0x2004);
-		tc_phy_write_l_reg(i, 2, 21, 0x8551);
-		tc_phy_write_l_reg(i, 4, 17, 0x2000);
-		tc_phy_write_g_reg(i, 7, 20, 0x7c62);
-		tc_phy_write_l_reg(i, 4, 20, 0x4444);
-		tc_phy_write_l_reg(i, 2, 22, 0x1011);
-		tc_phy_write_l_reg(i, 4, 28, 0x1011);
-		tc_phy_write_l_reg(i, 4, 19, 0x2222);
-		tc_phy_write_l_reg(i, 4, 29, 0x2222);
-		tc_phy_write_l_reg(i, 2, 28, 0x3444);
-		tc_phy_write_l_reg(i, 2, 29, 0x04c6);
-		tc_phy_write_l_reg(i, 4, 30, 0x0006);
-		tc_phy_write_l_reg(i, 5, 16, 0x04c6);
+	/* Save each local register only after a successful read. */
+	status = tc_phy_read_page_reg_checked(port_num, 0U, 26U, 1, &read_value);
+	if (status != 0)
+		goto cleanup;
+	l0r26_temp = (u16)read_value;
+	l0r26_saved = 1;
+	status = tc_phy_read_page_reg_checked(port_num, 0U, 30U, 1, &read_value);
+	if (status != 0)
+		goto cleanup;
+	l0r30_temp = (u16)read_value;
+	l0r30_saved = 1;
+
+	status = tc_phy_write_page_reg_checked(port_num, 0U, 26U, 1, 0x5600U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(port_num, 4U, 21U, 1, 0x0000U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(port_num, 0U, 0U, 1, 0x2100U);
+	if (status != 0)
+		goto cleanup;
+
+	for (j = 0; j < ARRAY_SIZE(eye_regs); ++j) {
+		status = tc_phy_write_page_reg_checked(
+			port_num, 5U, eye_regs[j], 0, eye_values[j]);
+		if (status != 0)
+			goto cleanup;
+	}
+	for (i = port_num; i < 5U; ++i) {
+		for (j = 0; j < ARRAY_SIZE(fe_defaults); ++j) {
+			status = tc_phy_write_page_reg_checked(
+				i, fe_defaults[j].page, fe_defaults[j].reg,
+				fe_defaults[j].local, fe_defaults[j].value);
+			if (status != 0)
+				goto cleanup;
+		}
 	}
 	if (ei_local->chip_name == LEOPARD_FE) {
-		tc_phy_write_l_reg(port_num, 0, 20, 0x0c0c);
-		tc_phy_write_dev_reg(0, 0x1e, 0x017d, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x017e, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x017f, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x0180, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x0181, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x0182, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x0183, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x0184, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x00db, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x00dc, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x003e, 0x0000);
-		tc_phy_write_dev_reg(0, 0x1e, 0x00dd, 0x0000);
-
-		/*eye pic.*/
-		tc_phy_write_g_reg(1, 5, 19, 0x0100);
-		tc_phy_write_g_reg(1, 5, 20, 0x0161);
-		tc_phy_write_g_reg(1, 5, 21, 0x00f0);
-		tc_phy_write_g_reg(1, 5, 22, 0x0046);
-		tc_phy_write_g_reg(1, 5, 23, 0x0210);
-		tc_phy_write_g_reg(1, 5, 24, 0x0206);
-		tc_phy_write_g_reg(1, 5, 25, 0x0238);
-		tc_phy_write_g_reg(1, 5, 26, 0x0360);
-		tc_phy_write_g_reg(1, 5, 27, 0x02f2);
-		tc_phy_write_g_reg(1, 5, 28, 0x0240);
-		tc_phy_write_g_reg(1, 5, 29, 0x0010);
-		tc_phy_write_g_reg(1, 5, 30, 0x0002);
+		status = tc_phy_write_page_reg_checked(
+			port_num, 0U, 20U, 1, 0x0c0cU);
+		if (status != 0)
+			goto cleanup;
+		for (j = 0; j < ARRAY_SIZE(leopard_zero_dev_regs); ++j) {
+			status = tc_phy_write_dev_reg_checked(
+				0U, 0x1eU, leopard_zero_dev_regs[j], 0U);
+			if (status != 0)
+				goto cleanup;
+		}
+		for (j = 0; j < ARRAY_SIZE(leopard_eye_regs); ++j) {
+			status = tc_phy_write_page_reg_checked(
+				1U, 5U, leopard_eye_regs[j], 0,
+				leopard_eye_values[j]);
+			if (status != 0)
+				goto cleanup;
+		}
 	}
-	if (ei_local->chip_name == MT7622_FE)
-		iext_port = 0;
-	else if (ei_local->chip_name == LEOPARD_FE)
-		iext_port = 1;
 
 	if (port_num == iext_port) {
-			/*****VBG & IEXT Calibration*****/
-		cnt = 0;
-		while ((fe_cal_vbg_flag == 0) && (cnt < 0x03)) {
-			iext_s = jiffies;
-			fe_cal_vbg(port_num, 1);	/* allen_20160608 */
-			iext_e = jiffies;
+		failed_stage = "VBG";
+		for (attempt = 0; attempt < 3U && !fe_cal_vbg_flag; ++attempt) {
+			t_s = jiffies;
+			fe_cal_vbg(port_num, 1U);
+			t_e = jiffies;
 			if (show_time)
-				pr_info("port[%d] fe_cal_vbg time = %u\n",
-					port_num, (iext_e - iext_s) * 4);
-			cnt++;
-			if (fe_cal_vbg_flag == 0)
-				pr_info(" FE-%d VBG wait! (%d)  \r\n", phyaddr, cnt);
+				pr_info("port[%u] fe_cal_vbg time = %lu\n",
+					port_num, (t_e - t_s) * 4UL);
+		}
+		if (!fe_cal_vbg_flag) {
+			status = -EIO;
+			goto cleanup;
 		}
 		fe_cal_vbg_flag = 0;
-		/**** VBG & IEXT Calibration end ****/
 	}
 
-	/* *** R50 Cal start *************************************** */
-	cnt = 0;
-	while ((fe_cal_r50_flag == 0) && (cnt < 0x03)) {
-		r50_s = jiffies;
-
-		fe_cal_r50(port_num, 1);
-
-		r50_e = jiffies;
+	failed_stage = "R50";
+	for (attempt = 0; attempt < 3U && !fe_cal_r50_flag; ++attempt) {
+		t_s = jiffies;
+		fe_cal_r50(port_num, 1U);
+		t_e = jiffies;
 		if (show_time)
-			pr_info("port[%d] fe_r50 time = %u\n",
-				port_num, (r50_e - r50_s) * 4);
-		cnt++;
-		if (fe_cal_r50_flag == 0)
-			pr_info(" FE-%d R50 wait! (%d)  \r\n", phyaddr, cnt);
+			pr_info("port[%u] fe_cal_r50 time = %lu\n",
+				port_num, (t_e - t_s) * 4UL);
+	}
+	if (!fe_cal_r50_flag) {
+		status = -EIO;
+		goto cleanup;
 	}
 	fe_cal_r50_flag = 0;
-	cnt = 0;
-	/* *** R50 Cal end *** */
-	/* *** Tx offset Cal start ********************************* */
 
-	cnt = 0;
-	while ((fe_cal_tx_offset_flag == 0) && (cnt < 0x03)) {
-		txo_s = jiffies;
+	failed_stage = "TX offset";
+	for (attempt = 0; attempt < 3U && !fe_cal_tx_offset_flag; ++attempt) {
+		t_s = jiffies;
 		fe_cal_tx_offset(port_num, CALDLY);
-		txo_e = jiffies;
+		t_e = jiffies;
 		if (show_time)
-			pr_info("port[%d] fe_cal_tx_offset time = %u\n",
-				port_num, (txo_e - txo_s) * 4);
-		cnt++;
+			pr_info("port[%u] fe_cal_tx_offset time = %lu\n",
+				port_num, (t_e - t_s) * 4UL);
+	}
+	if (!fe_cal_tx_offset_flag) {
+		status = -EIO;
+		goto cleanup;
 	}
 	fe_cal_tx_offset_flag = 0;
-	cnt = 0;
 
-	while ((fe_cal_tx_offset_flag_mdix == 0) && (cnt < 0x03)) {
-		txo_s = jiffies;
+	failed_stage = "TX offset MDIX";
+	for (attempt = 0; attempt < 3U && !fe_cal_tx_offset_flag_mdix; ++attempt) {
+		t_s = jiffies;
 		fe_cal_tx_offset_mdix(port_num, CALDLY);
-		txo_e = jiffies;
+		t_e = jiffies;
 		if (show_time)
-			pr_info("port[%d] fe_cal_tx_offset_mdix time = %u\n",
-				port_num, (txo_e - txo_s) * 4);
-		cnt++;
+			pr_info("port[%u] fe_cal_tx_offset_mdix time = %lu\n",
+				port_num, (t_e - t_s) * 4UL);
+	}
+	if (!fe_cal_tx_offset_flag_mdix) {
+		status = -EIO;
+		goto cleanup;
 	}
 	fe_cal_tx_offset_flag_mdix = 0;
-	cnt = 0;
-	/* *** Tx offset Cal end *** */
 
-	/* *** Tx Amp Cal start ************************************** */
-	cnt = 0;
-	while ((fe_cal_flag == 0) && (cnt < 0x3)) {
-		txa_s = jiffies;
-		fe_cal_tx_amp(port_num, CALDLY);	/* allen_20160608 */
-		txa_e = jiffies;
+	failed_stage = "TX amplitude";
+	for (attempt = 0; attempt < 3U && !fe_cal_flag; ++attempt) {
+		t_s = jiffies;
+		fe_cal_tx_amp(port_num, CALDLY);
+		t_e = jiffies;
 		if (show_time)
-			pr_info("port[%d] fe_cal_tx_amp time = %u\n",
-				port_num, (txa_e - txa_s) * 4);
-		cnt++;
+			pr_info("port[%u] fe_cal_tx_amp time = %lu\n",
+				port_num, (t_e - t_s) * 4UL);
+	}
+	if (!fe_cal_flag) {
+		status = -EIO;
+		goto cleanup;
 	}
 	fe_cal_flag = 0;
-	cnt = 0;
-	while ((fe_cal_flag_mdix == 0) && (cnt < 0x3)) {
-		txa_s = jiffies;
+
+	failed_stage = "TX amplitude MDIX";
+	for (attempt = 0; attempt < 3U && !fe_cal_flag_mdix; ++attempt) {
+		t_s = jiffies;
 		fe_cal_tx_amp_mdix(port_num, CALDLY);
-		txa_e = jiffies;
+		t_e = jiffies;
 		if (show_time)
-			pr_info("port[%d] fe_cal_tx_amp_mdix time = %u\n",
-				port_num, (txa_e - txa_s) * 4);
-		cnt++;
+			pr_info("port[%u] fe_cal_tx_amp_mdix time = %lu\n",
+				port_num, (t_e - t_s) * 4UL);
+	}
+	if (!fe_cal_flag_mdix) {
+		status = -EIO;
+		goto cleanup;
 	}
 	fe_cal_flag_mdix = 0;
-	cnt = 0;
 
-	l3r25_tmp = tc_phy_read_l_reg(port_num, 3, 25);
-	l3r25_tmp = l3r25_tmp & ~(0x1000);/*[12] RG_ZCALEN = 0*/
-	tc_phy_write_l_reg(port_num, 3, 25, l3r25_tmp);
-	tc_phy_write_g_reg(port_num, 1, 26, 0x0000);
-	tc_phy_write_l_reg(port_num, 0, 26, l0r26_temp);
-	tc_phy_write_l_reg(port_num, 0, 30, l0r30_temp);
-	tc_phy_write_g_reg(port_num, 1, 26, 0x0000);
-	tc_phy_write_l_reg(port_num, 0, 0, 0x3100);
-	/*enable flow control*/
-	tc_phy_write_g_reg(port_num, 0, 4, 0x5e1);
+cleanup:
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	page.page = 3U;
+	page.local = 1;
+	cleanup_status = ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0x1000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &read_value);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 1U, 26U, 0, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	if (l0r26_saved) {
+		cleanup_status = tc_phy_write_page_reg_checked(
+			port_num, 0U, 26U, 1, l0r26_temp);
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
+	}
+	if (l0r30_saved) {
+		cleanup_status = tc_phy_write_page_reg_checked(
+			port_num, 0U, 30U, 1, l0r30_temp);
+		if (status == 0 && cleanup_status != 0)
+			status = cleanup_status;
+	}
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 0U, 1, 0x3100U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 4U, 0, 0x05e1U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	fe_cal_vbg_flag = 0;
+	fe_cal_r50_flag = 0;
+	fe_cal_tx_offset_flag = 0;
+	fe_cal_tx_offset_flag_mdix = 0;
+	fe_cal_flag = 0;
+	fe_cal_flag_mdix = 0;
+	if (status != 0)
+		pr_err_ratelimited(
+			"%s: FE all-analog calibration failed (port=%u stage=%s status=%d)\n",
+			__func__, port_num, failed_stage, status);
+	return status;
 }
 
-struct ra_switch_ge_cal_wait_context {
-	unsigned int delay;
-};
+/* Keep the public void entry point for existing platform initialization callers. */
+void do_fe_phy_all_analog_cal(u8 port_num)
+{
+	int status = do_fe_phy_all_analog_cal_checked(port_num);
+
+	if (status != 0)
+		pr_err_ratelimited(
+			"%s: calibration request for FE port %u did not complete (status=%d)\n",
+			__func__, port_num, status);
+}
 
 static int ra_switch_ge_cal_wait_read(void *context, unsigned int port,
 				      unsigned int reg, unsigned int *value)
