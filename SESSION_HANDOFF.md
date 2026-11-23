@@ -1,12 +1,12 @@
-### 2026-11-23 接力更新（最新工程检查点）
+### 2026-11-23 最新接力检查点
 
-- 当前 main 父提交：`d0c858d552b211a7f8b8faeaee080fe3f6ce332d`（FE R50 checked-MDIO）。该 SHA 的 Switch CLI #45278800489、AI docs #45278800567、NVRAM #45278800373、XY-C1 #45278800520 上次检查均为 IN_PROGRESS，尚无完成结果。
-- 最新源码切片：`fe_cal_vbg()` 的全部 C22 页寄存器 setup、RMW、comparator、wait 和输出编程改为 checked API；MDIO 传输/cleanup 错误不再被当作零值或成功。
-- 搜索码步进显式限制在 6-bit 范围，Leopard 的 `ZCAL_TO_REXT_TBL` 索引增加 `ARRAY_SIZE` 检查；not-ready、saturation 和 254 次穷尽保留 0x20 fallback。
-- VBG 所有退出都尝试 common analog clear、port/common page-3 register-25 reset；completion flag 仅在输出与 cleanup 全部成功且 calibration 真正完成后发布。新增 6-bit wrap host regression 和 Switch CLI source contract。
-- 新 FE VBG 切片尚需 exact-head Actions；无本地 MIPS/kernel build、无同 SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 仍冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，未修改。
-- 下个 GPT 第一项：检查本次 FE VBG 源码 SHA 的 Switch CLI、AI docs、NVRAM 与 XY-C1 Build/TRX/artifact；之后迁移 `fe_cal_tx_offset()` 的未检查 C22 操作与 cleanup。
+- 当前源码/测试基线 SHA：`ee0bf75292e0436e8820d3a30cd8b9a28c2bfee1`；提交信息：`fix(raeth): check FE VBG calibration MDIO`；父 SHA：`d0c858d552b211a7f8b8faeaee080fe3f6ce332d`。
+- 当前 exact-SHA Actions 快照：NVRAM transaction boundary audit #45279437099: in_progress; XY-C1 Firmware Validation #45279437381: in_progress; AI handoff documentation contract #45279437408: success; Switch CLI ioctl failure-status regression #45279437249: failure
+- 当前 exact-SHA check-runs：validate-handoff-records: success; Cross-build XY-C1 firmware: in_progress; switch-cli-contract: failure; nvram-transaction-boundary: in_progress
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 当前 SHA：`72f4f157a084f8184b9597ca5bf334b8080e5807`（保持只读，不更新）。
+- 最近源码工作：GE analog orchestrator 的 C22/C45 status propagation + child completion gates；FE R50 的 checked page/C45 search/set/cleanup；MT7622 R50 table index underflow/out-of-range guard 已提取为 policy helper 并加入 host regression。
+- 校验边界：host policy tests 和 workflow 源码契约已添加；若 exact-SHA Actions 仍运行/失败，需先按 run/job logs 跟进。没有 MIPS/kernel build、没有同 SHA XY-C1 Build+TRX+artifact L3、没有硬件 L4 的声明。
+- 下个 GPT 第一项：按上面 run IDs 刷新 exact-SHA Actions；FAIL 先取失败 job logs 修复，PENDING 继续下列独立任务。随后审查 `fe_cal_vbg()` 及 FE all-analog orchestrator 中剩余 unchecked MDIO/wait/cleanup。
 
 ---
 # Cross-session execution mandate
@@ -29,26 +29,26 @@
 
 ## Active task
 
-### FE VBG checked MDIO, bounded calibration code and cleanup
+### FE R50 checked MDIO, bounds and cleanup
 
-- C22 setup, page-7 update-bits, local page-3 setup, comparator samples, wait and final output writes all use checked operations.
-- Six-bit stepping is explicit; table access is range-checked. The existing 0x20 not-ready/saturation/exhaustion fallback remains.
-- Every exit attempts checked common analog clear and both port/common page-3 register-25 resets; the completion flag is cleared at entry and only published after successful calibration and cleanup.
-- Next bounded candidate: convert `fe_cal_tx_offset()` to checked C22 page I/O and fail-safe cleanup.
-
-
+- FE R50 setup and page-7/reg24 + page3/4 updates use checked APIs; both FE waits and comparator reads abort on transport failure.
+- The legacy void setters remain for compatibility; the calibrator calls checked internal setters. MT7622 TX/RX per-port offsets are checked by a tested policy helper before lookup-table reads.
+- Timeout, saturation and bounded search exhaustion use the 0x20 fallback; I/O and cleanup failures withhold `fe_cal_r50_flag`.
+- Next candidate: `fe_cal_vbg()`, then FE all-analog orchestration.
 
 
 ## Verification boundary
-- Parent FE R50 SHA `d0c858d552b211a7f8b8faeaee080fe3f6ce332d`: Switch CLI #45278800489, AI docs #45278800567, NVRAM #45278800373 and XY-C1 #45278800520 were IN_PROGRESS at last poll; no completed result or L3 claim was available.
-- Current FE VBG source, policy regression, workflow and handoff changes require their own exact-head Actions.
-- No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact L3 or physical hardware L4 is claimed.
+- Source checkpoint: `ee0bf75292e0436e8820d3a30cd8b9a28c2bfee1`.
+- Exact SHA Actions at handoff: NVRAM transaction boundary audit #45279437099: in_progress; XY-C1 Firmware Validation #45279437381: in_progress; AI handoff documentation contract #45279437408: success; Switch CLI ioctl failure-status regression #45279437249: failure
+- Exact SHA check-runs: validate-handoff-records: success; Cross-build XY-C1 firmware: in_progress; switch-cli-contract: failure; nvram-transaction-boundary: in_progress
+- Backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- No same-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 is claimed unless the above exact-head run results explicitly show all product stages successful.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and identify this FE VBG source commit SHA; inspect its exact push Actions, especially Switch CLI and XY-C1 Build/TRX/artifact.
-2. Diagnose exact-head failures from logs; do not count queued, in-progress or skipped target work as L3.
-3. Continue with `fe_cal_tx_offset()` as the next independent checked-I/O/cleanup slice.
+1. Refresh exact-SHA Actions for `ee0bf75292e0436e8820d3a30cd8b9a28c2bfee1` from the run IDs above; inspect failed job logs and do not count queued/in-progress/skipped XY-C1 Build/TRX/artifact work as L3.
+2. Continue with `fe_cal_vbg()` as a distinct checked-I/O/cleanup slice, then inspect FE all-analog orchestration.
+3. Preserve the backup branch `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged and make each source task an atomic expected-SHA commit.
 
 
 ## Cross-session operating constraints

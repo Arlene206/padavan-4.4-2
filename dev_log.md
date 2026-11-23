@@ -1,3 +1,11 @@
+## 2026-11-23 — Exact-head handoff refresh
+
+- Source checkpoint at inspection: `ee0bf75292e0436e8820d3a30cd8b9a28c2bfee1` (`fix(raeth): check FE VBG calibration MDIO`).
+- Exact SHA workflow runs: NVRAM transaction boundary audit #45279437099: in_progress; XY-C1 Firmware Validation #45279437381: in_progress; AI handoff documentation contract #45279437408: success; Switch CLI ioctl failure-status regression #45279437249: failure
+- Exact SHA check-runs: validate-handoff-records: success; Cross-build XY-C1 firmware: in_progress; switch-cli-contract: failure; nvram-transaction-boundary: in_progress
+- Backup branch kept read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; no target L3 or hardware L4 claim made without same-SHA evidence.
+
+---
 ## 2026-11-23 — Make FE VBG calibration fail closed on MDIO errors
 
 - Converted FE VBG setup, page-7 control RMW, local page-3 setup, comparator reads, wait and result programming to checked MDIO. Transport errors stop calibration and withhold completion.
@@ -468,17 +476,3 @@
 - USB modem checker PASS remains #45220509149 on f947; Process, NVRAM and Storage PASS remain #45220191260/#45220191315/#45220191366 on ecff. Exact AI docs rerun on THIS handoff correction is pending; XY-C1 runs #45220033426 (e6dc), #45220191233 (ecff), and #45221089272 (e4d34) were still in progress at last observation.
 
 ---
-
-## 2026-11-24 00:53 CST (UTC+8) — Trigger XY-C1 build on WAN ARP policy header changes
-
-- `detect_wan.c` directly includes `detect_wan_arp_socket_policy.h`, but the XY-C1 push path allowlist listed only the C file. A header-only production change could bypass firmware cross-build/TRX validation.
-- Added the production policy header beside `detect_wan.c` in `.github/workflows/xy-c1-firmware-validation.yml`. The workflow remains main-only/push-only; its event model was not changed.
-- USB printer NVRAM checker correction landed in `f9475bf081db66e795df8c25332253ef7c6c80a2`; exact USB modem run #45220509149 PASS, including the previously failing source-contract step. Process fail-closed #45220191260, NVRAM audit #45220191315 and USB storage #45220191366 PASS on `ecff475abb782b32e0a8f4f02026acc709ea6844`.
-- XY-C1 #45220033426 (`e6dc19c`) and #45220191233 (`ecff475`) were still building at last observation, with TRX and artifact steps pending. No L3 claim is made. This workflow-only path correction does not retroactively retrigger those source builds.
-
----
-
-## 2026-11-23 — Align USB printer NVRAM checker with idempotent launcher
-
-- The first Process/Storage source review caught one stale checker assumption: `check_usb_printer_nvram.py` still expected U2EC/LPD to unlink PID files in the individual wrappers. Cleanup now belongs to the shared launcher after a tri-state ABSENT preflight, so the checker has been updated to verify the checked-setting gates, three-argument paths, fail-closed UNKNOWN handling, RUNNING no-op and cleanup-before-fork ordering.
-- This is a regression-check correction, not a production-code change. The initial USB modem workflow failed only this stale assertion; exact successor Actions are pending.
