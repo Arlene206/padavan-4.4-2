@@ -1,6 +1,7 @@
 #ifndef PADAVAN_BUSYBOX_INIT_REAP_QUEUE_H
 #define PADAVAN_BUSYBOX_INIT_REAP_QUEUE_H
 
+#include <errno.h>
 #include <signal.h>
 #include <stddef.h>
 #include <sys/types.h>
@@ -19,6 +20,41 @@ struct init_reap_queue {
 	volatile sig_atomic_t count;
 	volatile sig_atomic_t pids[INIT_REAP_QUEUE_CAPACITY];
 };
+
+/*
+ * Wait for one direct child without consuming a different child. ECHILD is a
+ * normal completion state here: the SIGTSTP handler may already have reaped
+ * this PID into pending_reaped_children, which the caller drains afterward.
+ */
+typedef pid_t (*init_waitpid_fn)(pid_t, int *, int);
+
+static inline int
+init_wait_for_child(pid_t target_pid, init_waitpid_fn wait_child,
+		    int *child_reaped)
+{
+	pid_t result;
+
+	if (child_reaped)
+		*child_reaped = 0;
+	if (target_pid <= 0 || !wait_child || !child_reaped)
+		return EINVAL;
+
+	for (;;) {
+		errno = 0;
+		result = wait_child(target_pid, NULL, 0);
+		if (result == target_pid) {
+			*child_reaped = 1;
+			return 0;
+		}
+		if (result < 0 && errno == EINTR)
+			continue;
+		if (result < 0 && errno == ECHILD)
+			return 0;
+		if (result < 0)
+			return errno > 0 ? errno : EIO;
+		return EIO;
+	}
+}
 
 static inline int
 init_reap_queue_has_capacity(const struct init_reap_queue *queue)

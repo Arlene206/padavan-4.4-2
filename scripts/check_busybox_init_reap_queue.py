@@ -43,10 +43,23 @@ assert "init_reap_queue_drain" in reaper
 assert "mark_terminated(pending_pids[i])" in reaper
 
 waitfor = section(SOURCE, "static void waitfor(pid_t pid)", "/* Run all commands")
-assert waitfor.index("kill(pid, 0)") < waitfor.index("wait(NULL)")
-assert "errno == ESRCH" in waitfor
-assert "wpid < 0 && errno != EINTR" in waitfor
+assert "init_wait_for_child(pid, waitpid, &child_reaped)" in waitfor
+assert "kill(pid, 0)" not in waitfor
+assert "wait(NULL)" not in waitfor
+assert "mark_terminated(pid)" in waitfor
+assert "waitpid(-1, NULL, WNOHANG)" in waitfor
+assert "wpid < 0 && errno == EINTR" in waitfor
 assert "flush_pending_reaped_children();" in waitfor
+assert "init_wait_for_child" in QUEUE
+for test_name in (
+    "test_wait_for_exact_child_only",
+    "test_wait_for_exact_child_retries_eintr",
+    "test_wait_for_exact_child_accepts_signal_handler_reap",
+    "test_wait_for_exact_child_propagates_errors",
+    "test_wait_for_exact_child_rejects_invalid_inputs",
+):
+    assert f"static void {test_name}(void)" in TEST, test_name
+    assert f"{test_name}();" in TEST, test_name
 
 reload = section(SOURCE, "static void reload_inittab(void)", "static int check_delayed_sigs(void)")
 assert reload.index("sigprocmask(SIG_BLOCK") < reload.index("parse_inittab();")

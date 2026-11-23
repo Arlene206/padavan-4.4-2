@@ -583,22 +583,33 @@ static void flush_pending_reaped_children(void)
 
 static void waitfor(pid_t pid)
 {
+	int child_reaped, wait_status;
+	pid_t wpid;
+
 	/* waitfor(run(x)): protect against failed fork inside run() */
 	if (pid <= 0)
 		return;
 
-	/* The SIGTSTP handler may already have reaped this exact child. Check
-	 * before wait(): otherwise wait() can block on an unrelated live child. */
-	while (1) {
-		pid_t wpid;
+	/*
+	 * Wait for this exact action child. The SIGTSTP stop handler may already
+	 * have reaped it and queued its PID, in which case waitpid reports ECHILD.
+	 * Avoid a separate PID-existence probe followed by a generic blocking wait:
+	 * PID reuse can otherwise make init wait on an unrelated live process.
+	 */
+	wait_status = init_wait_for_child(pid, waitpid, &child_reaped);
+	if (wait_status != 0)
+		message(L_LOG, "waitpid(%d) failed: %s", pid, strerror(wait_status));
+	else if (child_reaped)
+		mark_terminated(pid);
 
-		if (kill(pid, 0) != 0 && errno == ESRCH)
-			break;
-
-		wpid = wait(NULL);
+	/* Preserve init's opportunistic global reaping without blocking on peers. */
+	for (;;) {
+		wpid = waitpid(-1, NULL, WNOHANG);
 		if (wpid > 0) {
 			mark_terminated(wpid);
-		} else if (wpid < 0 && errno != EINTR) {
+		} else if (wpid < 0 && errno == EINTR) {
+			continue;
+		} else {
 			break;
 		}
 	}
