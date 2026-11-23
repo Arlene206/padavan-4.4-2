@@ -3949,127 +3949,229 @@ void set_sgmii_an(int port_num)
 	iounmap(virt_addr);
 }
 
-static void mt7622_esw_5port_gpio(void)
+static int mt7622_esw_5port_gpio(void)
 {
 	u32 ret, value, i;
+	int status;
 
-	mii_mgr_write(0, 31, 0x2000); /* change G2 page */
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x2000); /* change G2 page */
+	if (status != 0)
+		goto mdio_error;
 
-	ret = mii_mgr_read(0, 31, &value);
+	status = ra_switch_mdio_read(NULL, 0U, 31U, &value);
+	if (status != 0)
+		goto mdio_error;
+	ret = 1;
 	pr_debug("(%d) R31: %x!\n", ret, value);
 
-	mii_mgr_read(0, 25, &value);
+	status = ra_switch_mdio_read(NULL, 0, 25, &value);
+	if (status != 0)
+		goto mdio_error;
 	value = 0xf020;
-	mii_mgr_write(0, 25, value);
-	mii_mgr_read(0, 25, &value);
+	status = ra_switch_mdio_write(NULL, 0, 25, value);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 0, 25, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G2_R25: %x!\n", value);
 
-	mii_mgr_write(0, 31, 0x7000); /* change G7 page */
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x7000); /* change G7 page */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 
 	if (value & 0x8000) {
 		pr_debug("G7_R22[15]: 1\n");
 	} else {
-		mii_mgr_write(0, 22, (value | (1 << 15)));
+		status = ra_switch_mdio_write(NULL, 0, 22, (value | (1 << 15)));
+		if (status != 0)
+			goto mdio_error;
 		pr_debug("G7_R22[15]: set to 1\n");
 	}
 
-	mii_mgr_write(0, 31, 0x3000); /* change G3 page */
-	mii_mgr_read(0, 16, &value);
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x3000); /* change G3 page */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 0, 16, &value);
+	if (status != 0)
+		goto mdio_error;
 	value |= (1 << 3);
-	mii_mgr_write(0, 16, value);
+	status = ra_switch_mdio_write(NULL, 0, 16, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 16, &value);
+	status = ra_switch_mdio_read(NULL, 0, 16, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G3_R16: %x!\n", value);
 
-	mii_mgr_write(0, 31, 0x7000); /* change G7 page */
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x7000); /* change G7 page */
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 	value |= (1 << 5);
-	mii_mgr_write(0, 22, value);
+	status = ra_switch_mdio_write(NULL, 0, 22, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 24, &value);
+	status = ra_switch_mdio_read(NULL, 0, 24, &value);
+	if (status != 0)
+		goto mdio_error;
 	value &= 0xDFFF;
-	mii_mgr_write(0, 24, value);
+	status = ra_switch_mdio_write(NULL, 0, 24, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 24, &value);
+	status = ra_switch_mdio_read(NULL, 0, 24, &value);
+	if (status != 0)
+		goto mdio_error;
 	value |= (1 << 14);
-	mii_mgr_write(0, 24, value);
+	status = ra_switch_mdio_write(NULL, 0, 24, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G7_R22: %x!\n", value);
 
-	mii_mgr_read(0, 24, &value);
+	status = ra_switch_mdio_read(NULL, 0, 24, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G7_R24: %x!\n", value);
 
 	for (i = 0; i <= 4; i++) {
-		mii_mgr_write(i, 31, 0x8000); /* change L0 page */
+		status = ra_switch_mdio_write(NULL, i, 31, 0x8000); /* change L0 page */
+		if (status != 0)
+			goto mdio_error;
 
-		mii_mgr_read(i, 30, &value);
+		status = ra_switch_mdio_read(NULL, i, 30, &value);
+		if (status != 0)
+			goto mdio_error;
 		value |= 0x3FFF;
-		mii_mgr_write(i, 30, value);
-		mii_mgr_read(i, 30, &value);
+		status = ra_switch_mdio_write(NULL, i, 30, value);
+		if (status != 0)
+			goto mdio_error;
+		status = ra_switch_mdio_read(NULL, i, 30, &value);
+		if (status != 0)
+			goto mdio_error;
 		pr_debug("port %d L0_R30: %x!\n", i, value);
 
-		mii_mgr_write(i, 31, 0xB000); /* change L3 page */
+		status = ra_switch_mdio_write(NULL, i, 31, 0xB000); /* change L3 page */
+		if (status != 0)
+			goto mdio_error;
 
-		mii_mgr_read(i, 26, &value);
+		status = ra_switch_mdio_read(NULL, i, 26, &value);
+		if (status != 0)
+			goto mdio_error;
 		value |= (1 << 12);
-		mii_mgr_write(i, 26, value);
+		status = ra_switch_mdio_write(NULL, i, 26, value);
+		if (status != 0)
+			goto mdio_error;
 
-		mii_mgr_read(i, 26, &value);
+		status = ra_switch_mdio_read(NULL, i, 26, &value);
+		if (status != 0)
+			goto mdio_error;
 		pr_debug("port %d L3_R26: %x!\n", i, value);
 
-		mii_mgr_read(i, 25, &value);
+		status = ra_switch_mdio_read(NULL, i, 25, &value);
+		if (status != 0)
+			goto mdio_error;
 		value |= (1 << 8);
 		value |= (1 << 12);
-		mii_mgr_write(i, 25, value);
+		status = ra_switch_mdio_write(NULL, i, 25, value);
+		if (status != 0)
+			goto mdio_error;
 
-		mii_mgr_read(i, 25, &value);
+		status = ra_switch_mdio_read(NULL, i, 25, &value);
+		if (status != 0)
+			goto mdio_error;
 		pr_debug("port %d L3_R25: %x!\n", i, value);
 	}
 
-	mii_mgr_write(0, 31, 0x2000); /* change G2 page */
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x2000); /* change G2 page */
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 25, &value);
+	status = ra_switch_mdio_read(NULL, 0, 25, &value);
+	if (status != 0)
+		goto mdio_error;
 
 	pr_debug("G2_R25 before: %x!\n", value);
 	/* value &= 0xFFFF3FFF; */
 	/* G2_R25: 1020!-->0020 */
 	/* value &= 0xFFFF2FFF; */
 	value = 0x20;
-	mii_mgr_write(0, 25, value);
+	status = ra_switch_mdio_write(NULL, 0, 25, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 25, &value);
+	status = ra_switch_mdio_read(NULL, 0, 25, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G2_R25: %x!\n", value);
 
 	/* LDO */
-	mii_mgr_write(0, 31, 0x7000); /* change G7 page */
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x7000); /* change G7 page */
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 16, &value);
+	status = ra_switch_mdio_read(NULL, 0, 16, &value);
+	if (status != 0)
+		goto mdio_error;
 	value |= (1 << 2);
-	mii_mgr_write(0, 16, value);
+	status = ra_switch_mdio_write(NULL, 0, 16, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 16, &value);
+	status = ra_switch_mdio_read(NULL, 0, 16, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G7_R16: %x!\n", value);
 
 	/* BG */
-	mii_mgr_write(0, 31, 0x2000); /* change G2 page */
+	status = ra_switch_mdio_write(NULL, 0, 31, 0x2000); /* change G2 page */
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 	value |= (1 << 12);
 	value |= (1 << 13);
 	value |= (1 << 14);
-	mii_mgr_write(0, 22, value);
+	status = ra_switch_mdio_write(NULL, 0, 22, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G2_R22: %x!\n", value);
 
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 	value &= 0x7FFF;
-	mii_mgr_write(0, 22, value);
+	status = ra_switch_mdio_write(NULL, 0, 22, value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(0, 22, &value);
+	status = ra_switch_mdio_read(NULL, 0, 22, &value);
+	if (status != 0)
+		goto mdio_error;
 	pr_debug("G2_R22: %x!\n", value);
+	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: embedded-switch GPIO PHY setup failed: %d\n",
+			   __func__, status);
+	return status;
 }
 
 void leopard_gmii_config(u8 enable)
@@ -4396,7 +4498,11 @@ int fe_sw_init(void)
 		iounmap(gpio_base_virt);
 
 		/* set ephy to 5-port gpio mode */
-		mt7622_esw_5port_gpio();
+		status = mt7622_esw_5port_gpio();
+		if (status != 0) {
+			clk_disable_unprepare(ei_local->clks[MTK_CLK_GP0]);
+			goto mdio_error;
+		}
 
 		/* set agpio to 0-port ephy */
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x100);
