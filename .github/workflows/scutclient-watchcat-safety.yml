@@ -66,7 +66,7 @@ jobs:
           assert 'if (set -C; printf' in source
           assert 'kill -9' not in source
           assert 'kill "$previous_pid"' not in source
-          assert '[ "$current_pid" = "$" ] && rm -f "$pidfile"' in source
+          assert '[ "$current_pid" = "$$" ] && rm -f "$pidfile"' in source
           assert "if watchcat_link_state=$(mtk_esw 11); then" in source
           assert 'watchcat_fail "$watchcat_link_status" "cannot verify WAN link state"' in source
           assert "MTK_ESW_STATUS" in Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()

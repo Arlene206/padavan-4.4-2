@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Update the SCUT workflow's PID cleanup assertion
+
+- Exact-head SCUT run `45181232164` passed shell syntax and lifecycle/PID-race execution but its inline source contract still expected the old literal-`$` cleanup expression. A concurrent source-contract update has already aligned the NVRAM ordering check with `watchcat_read_boolean`; this follow-up changes the remaining PID assertion to require `$$`.
+- No production code changed. Exact-head SCUT rerun required.
+
+---
+
 ## 2026-11-23 UTC — Align SCUT watchdog source contract with fixed PID comparison
 
 - Exact-head SCUT watchdog run #45181232164 on `ce39930eee413d71e0227c7d59e8e539b18e9f98` passed shell syntax and the full PID/NVRAM/link-state shell regression. Its source-contract step then failed because one legacy checker assertion still expected the old literal-`$` PID comparison; the production code correctly uses `$$`.
