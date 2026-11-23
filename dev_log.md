@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Enforce removal of all unchecked URL MAC fallbacks
+
+- After the IPv6 source fix, a fresh source scan confirms exactly two URL-MAC consumers (IPv4 and IPv6) call `firewall_read_url_filter_mac()` and there are no remaining `mac_conv("url_mac_x")` fallbacks anywhere in `firewall_ex.c`.
+- Restored a whole-file negative assertion in the Firewall Startup contract now that the previously missed IPv6 branch has been converted. The per-protocol checked-read → abort → staged-file removal → return ordering assertions remain in place. The exact Firewall Startup rerun on the IPv6-fix SHA #45165224108 passed; this adds a regression guard for future accidental fallback reintroduction.
+
+---
 ## 2026-11-23 UTC — Close IPv6 URL-filter MAC fail-open gap
 
 - Source review after the IPv4 URL-MAC checker repairs found the matching IPv6 `ip6t_filter_rules()` branch still called `mac_conv("url_mac_x")`. Unlike the updated IPv4 branch, it still collapsed an NVRAM backend failure into an empty qualifier and could publish an IPv6 URL-filter rule without its per-client MAC restriction. This was a real fail-open gap, not a checker-only issue.
