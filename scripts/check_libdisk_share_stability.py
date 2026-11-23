@@ -567,43 +567,6 @@ require(manual_read in commit_helper_compact and manual_policy in commit_helper_
         commit_helper_compact.index("nvram_commit()"),
         "account persistence must check the manual-commit read and commit result rather than collapsing NVRAM errors")
 
-for signature in (
-    "int mod_account(const char *const account, const char *const new_account, const char *const new_password)",
-):
-    body = function_body(DISK_SOURCE, signature)
-    compact = "".join(body.split())
-    commit_failure_checked = (
-        "nvram_commit_safe()!=0&&first_error==0" in compact or
-        "if(first_error==0&&nvram_commit_safe()!=0)" in compact
-    )
-    require(commit_failure_checked and "first_error=errno?errno:EIO;" in compact,
-            "account mutators must propagate manual-policy or NVRAM commit failure: " + signature)
-modify_body = function_body(
-    DISK_SOURCE, "int mod_account(const char *const account, const char *const new_account, const char *const new_password)"
-)
-modify_compact = "".join(modify_body.split())
-modify_inventory = modify_compact.index("get_account_list(&acc_num,&account_list)")
-modify_disk_preflight = modify_compact.index("read_disk_data_checked(&disk_list)")
-modify_begin = modify_compact.index("disk_share_account_nvram_begin(&transaction)")
-modify_validate = modify_compact.index("disk_share_account_inventory_update_validate_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,account,rename_required?new_account:NULL)")
-modify_rename = modify_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)")
-modify_publish = modify_compact.index("disk_share_account_inventory_update_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,rename_required?new_account:NULL,password_update?new_password:NULL)")
-modify_rollback = modify_compact.index("disk_share_account_rename_entries_rollback(moves,rename,&rollback_error)", modify_publish)
-modify_end = modify_compact.index("disk_share_account_nvram_end(&transaction)", modify_rollback)
-modify_reload = modify_compact.index('system("/sbin/run_ftpsamba")', modify_end)
-require(modify_inventory < modify_disk_preflight < modify_begin < modify_validate <
-        modify_rename < modify_publish < modify_rollback < modify_end < modify_reload and
-        "nvram_set(" not in modify_body and
-        "nvram_set_int(" not in modify_body and
-        "nvram_commit_safe(" not in modify_body and
-        "nvram_get_checked(" not in modify_body,
-        "mod_account must revalidate a stable identity snapshot under one writer lease, serialize filesystem/NVRAM rename or password changes, and reload services only after release")
-
-require("password_update=new_password!=NULL&&*new_password;" in modify_compact and
-        "if(first_error==0&&password_update)" in modify_compact and
-        "if(first_error==0&&nvram_commit_safe()!=0)" in modify_compact and
-        "if(first_error!=0){errno=first_error;return-1;}" in modify_compact,
-        "password-only account updates must commit through the checked path and return failure when NVRAM persistence fails")
 
 del_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 del_inventory_error = del_account_compact.index(

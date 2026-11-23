@@ -1681,14 +1681,14 @@ test_account_inventory_update_rejects_snapshot_and_manual_read_errors(void)
 	char *users[3] = { "alice", "bob", "carol" };
 
 	fake_account_delete_init_three(&fake);
-	fake.fail_get_call = 9;
+	fake.fail_get_call = 11;
 	errno = 0;
 	assert(fake_account_inventory_update_run(
 		&fake, 3, 4, users, 0, "alice", NULL, "new-secret") == -1);
 	assert(errno == EACCES && fake.set_calls == 0);
 
 	fake_account_delete_init_three(&fake);
-	fake.fail_get_call = 10;
+	fake.fail_get_call = 12;
 	errno = 0;
 	assert(fake_account_inventory_update_run(
 		&fake, 3, 4, users, 0, "alice", NULL, "new-secret") == -1);
