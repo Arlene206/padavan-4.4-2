@@ -1301,9 +1301,8 @@ start_wifi_wds_wl(int radio_on)
 	int all_started = 1;
 #if BOARD_HAS_5G_RADIO
 	int interface_started;
-	int i_mode_x = 0, mode_status;
-	int i_wds_num = 4, wds_apply = 0;
-	int wds_apply_status, wds_num_status;
+	int i_mode_x = 0, mode_status, apply_status = 0, config_status = 0;
+	int wds_apply = 0, wds_num = 4, count_status = 0, wds_count = 4;
 
 	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
 	if (mode_status != 0) {
@@ -1311,65 +1310,61 @@ start_wifi_wds_wl(int radio_on)
 		logmessage(LOGNAME,
 			   "5GHz WDS startup aborted: cannot read mode_x (status=%d)",
 			   mode_status);
-		return -mode_status;
+		goto cleanup_wds;
 	}
 
-	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
-	{
-		wds_apply_status = wireless_nvram_get_int_status(
+	if (radio_on && (i_mode_x == 1 || i_mode_x == 2)) {
+		apply_status = wireless_nvram_get_int_status(
 			"wl_wdsapply_x", &wds_apply);
-		if (wds_apply_status != 0) {
-			errno = wds_apply_status;
+		if (apply_status == 0 && wds_apply == 1)
+			count_status = wireless_nvram_get_int_status(
+				"wl_wdsnum_x", &wds_num);
+		config_status = wireless_radio_wds_config_resolve(
+			apply_status, wds_apply, count_status, wds_num, &wds_count);
+		if (config_status != 0) {
+			errno = config_status;
 			logmessage(LOGNAME,
-				   "5GHz WDS startup aborted: cannot read wdsapply_x (status=%d)",
-				   wds_apply_status);
-			return -wds_apply_status;
+				   "5GHz WDS startup aborted: cannot verify interface count (status=%d)",
+				   config_status);
+			goto cleanup_wds;
 		}
-		if (wds_apply == 1) {
-			wds_num_status = wireless_nvram_get_int_status(
-				"wl_wdsnum_x", &i_wds_num);
-			if (wds_num_status != 0) {
-				errno = wds_num_status;
-				logmessage(LOGNAME,
-					   "5GHz WDS startup aborted: cannot read wdsnum_x (status=%d)",
-					   wds_num_status);
-				return -wds_num_status;
-			}
-		}
-		
-		if (i_wds_num > 3) {
+
+		if (wds_count > 3) {
 			interface_started = wif_control_success(IFNAME_5G_WDS3, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started)
 				wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS3, 1);
 		}
-		
-		if (i_wds_num > 2) {
+		if (wds_count > 2) {
 			interface_started = wif_control_success(IFNAME_5G_WDS2, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started)
 				wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS2, 1);
 		}
-		
-		if (i_wds_num > 1) {
+		if (wds_count > 1) {
 			interface_started = wif_control_success(IFNAME_5G_WDS1, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started)
 				wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS1, 1);
 		}
-		
 		interface_started = wif_control_success(IFNAME_5G_WDS0, 1);
 		all_started = wireless_radio_startup_status(all_started, interface_started);
 		if (interface_started)
 			wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS0, 1);
+		return wireless_radio_startup_result(all_started);
 	}
-	else
-	{
-		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS3, 0);
-		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS2, 0);
-		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS1, 0);
-		wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS0, 0);
-	}
+
+cleanup_wds:
+	wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS3, 0);
+	wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS2, 0);
+	wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS1, 0);
+	wireless_bridge_membership_record(&all_started, IFNAME_5G_WDS0, 0);
+	if (mode_status != 0)
+		return wireless_radio_status_merge(-mode_status,
+					   wireless_radio_startup_result(all_started));
+	if (config_status != 0)
+		return wireless_radio_status_merge(-config_status,
+					   wireless_radio_startup_result(all_started));
 #endif
 
 	return wireless_radio_startup_result(all_started);
@@ -1380,44 +1375,35 @@ start_wifi_wds_rt(int radio_on)
 {
 	int all_started = 1;
 	int interface_started;
-
-	int i_mode_x = 0, mode_status;
-	int i_wds_num = 4, wds_apply = 0;
-	int wds_apply_status, wds_num_status;
+	int i_mode_x = 0, mode_status, apply_status = 0, config_status = 0;
+	int wds_apply = 0, wds_num = 4, count_status = 0, wds_count = 4;
 
 	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
 	if (mode_status != 0) {
 		errno = mode_status;
 		logmessage(LOGNAME,
 			   "2.4GHz WDS startup aborted: cannot read mode_x (status=%d)",
-		   mode_status);
-		return -mode_status;
+			   mode_status);
+		goto cleanup_wds;
 	}
 
-	if (radio_on && (i_mode_x == 1 || i_mode_x == 2))
-	{
-		wds_apply_status = wireless_nvram_get_int_status(
+	if (radio_on && (i_mode_x == 1 || i_mode_x == 2)) {
+		apply_status = wireless_nvram_get_int_status(
 			"rt_wdsapply_x", &wds_apply);
-		if (wds_apply_status != 0) {
-			errno = wds_apply_status;
+		if (apply_status == 0 && wds_apply == 1)
+			count_status = wireless_nvram_get_int_status(
+				"rt_wdsnum_x", &wds_num);
+		config_status = wireless_radio_wds_config_resolve(
+			apply_status, wds_apply, count_status, wds_num, &wds_count);
+		if (config_status != 0) {
+			errno = config_status;
 			logmessage(LOGNAME,
-				   "2.4GHz WDS startup aborted: cannot read wdsapply_x (status=%d)",
-				   wds_apply_status);
-			return -wds_apply_status;
+				   "2.4GHz WDS startup aborted: cannot verify interface count (status=%d)",
+				   config_status);
+			goto cleanup_wds;
 		}
-		if (wds_apply == 1) {
-			wds_num_status = wireless_nvram_get_int_status(
-				"rt_wdsnum_x", &i_wds_num);
-			if (wds_num_status != 0) {
-				errno = wds_num_status;
-				logmessage(LOGNAME,
-					   "2.4GHz WDS startup aborted: cannot read wdsnum_x (status=%d)",
-					   wds_num_status);
-				return -wds_num_status;
-			}
-		}
-		
-		if (i_wds_num > 3) {
+
+		if (wds_count > 3) {
 			interface_started = wif_control_success(IFNAME_2G_WDS3, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started) {
@@ -1426,8 +1412,7 @@ start_wifi_wds_rt(int radio_on)
 #endif
 			}
 		}
-		
-		if (i_wds_num > 2) {
+		if (wds_count > 2) {
 			interface_started = wif_control_success(IFNAME_2G_WDS2, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started) {
@@ -1436,8 +1421,7 @@ start_wifi_wds_rt(int radio_on)
 #endif
 			}
 		}
-		
-		if (i_wds_num > 1) {
+		if (wds_count > 1) {
 			interface_started = wif_control_success(IFNAME_2G_WDS1, 1);
 			all_started = wireless_radio_startup_status(all_started, interface_started);
 			if (interface_started) {
@@ -1446,7 +1430,6 @@ start_wifi_wds_rt(int radio_on)
 #endif
 			}
 		}
-		
 		interface_started = wif_control_success(IFNAME_2G_WDS0, 1);
 		all_started = wireless_radio_startup_status(all_started, interface_started);
 		if (interface_started) {
@@ -1454,20 +1437,25 @@ start_wifi_wds_rt(int radio_on)
 			wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS0, 1);
 #endif
 		}
+		return wireless_radio_startup_result(all_started);
 	}
+
+cleanup_wds:
 #if !defined(USE_RT3352_MII)
-	else
-	{
-		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS3, 0);
-		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS2, 0);
-		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS1, 0);
-		wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS0, 0);
-	}
+	wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS3, 0);
+	wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS2, 0);
+	wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS1, 0);
+	wireless_bridge_membership_record(&all_started, IFNAME_2G_WDS0, 0);
 #endif
+	if (mode_status != 0)
+		return wireless_radio_status_merge(-mode_status,
+					   wireless_radio_startup_result(all_started));
+	if (config_status != 0)
+		return wireless_radio_status_merge(-config_status,
+					   wireless_radio_startup_result(all_started));
 
 	return wireless_radio_startup_result(all_started);
 }
-
 int
 start_wifi_apcli_wl(int radio_on)
 {

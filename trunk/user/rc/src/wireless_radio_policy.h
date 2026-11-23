@@ -330,4 +330,31 @@ wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
 	return 0;
 }
 
+/*
+ * Preserve the legacy four-interface default unless WDS is explicitly
+ * enabled. Once enabled, an unreadable or invalid count must not be
+ * interpreted as a valid partial WDS configuration.
+ */
+static inline int
+wireless_radio_wds_config_resolve(int apply_status, int apply_value,
+                                  int count_status, int count_value,
+                                  int *wds_count)
+{
+	if (!wds_count)
+		return EINVAL;
+	*wds_count = 0;
+	if (apply_status != 0)
+		return apply_status;
+	if (apply_value != 1) {
+		*wds_count = 4;
+		return 0;
+	}
+	if (count_status != 0)
+		return count_status;
+	if (count_value < 0 || count_value > 4)
+		return EINVAL;
+	*wds_count = count_value;
+	return 0;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */

@@ -4,6 +4,32 @@
 #include <stdio.h>
 
 static int
+test_wds_config_defaults_and_checked_count_validation(void)
+{
+	int count = -1;
+
+	if (wireless_radio_wds_config_resolve(0, 0, EIO, 99, &count) != 0 || count != 4)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 2, ENODEV, 99, &count) != 0 || count != 4)
+		return 1;
+	if (wireless_radio_wds_config_resolve(EIO, 1, 0, 3, &count) != EIO || count != 0)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 1, ENODEV, 3, &count) != ENODEV || count != 0)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 1, 0, -1, &count) != EINVAL || count != 0)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 1, 0, 5, &count) != EINVAL || count != 0)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 1, 0, 0, &count) != 0 || count != 0)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 1, 0, 4, &count) != 0 || count != 4)
+		return 1;
+	if (wireless_radio_wds_config_resolve(0, 1, 0, 3, NULL) != EINVAL)
+		return 1;
+	return 0;
+}
+
+static int
 test_inic_start_enable_gate_fails_closed(void)
 {
 	int enabled = 1;
@@ -642,7 +668,8 @@ test_radio_nvram_flag_status_fails_closed(void)
 int
 main(void)
 {
-	if (test_radio_state_transition_reads_state_before_power() ||
+	if (test_wds_config_defaults_and_checked_count_validation() ||
+	    test_radio_state_transition_reads_state_before_power() ||
 	    test_radio_state_transition_restores_previous_power_after_publish_failure() ||
 	    test_radio_state_transition_restores_already_on_state_after_publish_failure() ||
 	    test_radio_state_transition_preserves_primary_and_rollback_errors() ||
