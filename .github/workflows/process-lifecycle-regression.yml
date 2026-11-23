@@ -1804,8 +1804,11 @@ jobs:
           launch = p910nd_start.index('start_status = eval("/usr/sbin/p910nd"')
           launch_error_gate = p910nd_start.index("if (start_status != 0)")
           readiness = p910nd_start.index('start_status = usb_printer_daemon_postcondition("p9100d");')
-          assert launch < launch_error_gate < readiness
-          assert "return start_status;" in p910nd_start[readiness:]
+          failure_gate = p910nd_start.index("if (start_status != 0)", readiness)
+          rollback = p910nd_start.index("usb_printer_daemon_start_failure_recover(", failure_gate)
+          assert launch < launch_error_gate < readiness < failure_gate < rollback
+          assert "p9100d" in p910nd_start[rollback:rollback+128]
+          assert "return start_status;" in p910nd_start[rollback:]
           assert "p910nd daemon readiness failed" in p910nd_start
 
           print("USB printer U2EC/LPRng/p910nd detached-daemon readiness contract: PASS")

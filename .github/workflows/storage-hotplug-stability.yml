@@ -728,7 +728,12 @@ jobs:
           p910nd = function_body(usb, "start_p910nd(char *devlp)")
           assert 'start_status = eval("/usr/sbin/p910nd", "-b", "-f", devlp, "0");' in p910nd
           assert 'start_status = eval("/usr/sbin/p910nd", "-f", devlp, "0");' in p910nd
-          assert "return start_status;" in p910nd
+          readiness = p910nd.index('start_status = usb_printer_daemon_postcondition("p9100d");')
+          failure_gate = p910nd.index("if (start_status != 0)", readiness)
+          rollback = p910nd.index("usb_printer_daemon_start_failure_recover(", failure_gate)
+          assert readiness < failure_gate < rollback
+          assert "p9100d" in p910nd[rollback:rollback+128]
+          assert "return start_status;" in p910nd[rollback:]
 
           printer_start = function_body(usb, "exec_printer_daemons(int call_fw)")
           assert "start_status = start_p910nd(dev_lp);" in printer_start

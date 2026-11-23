@@ -1,3 +1,9 @@
+## 2026-11-23 — Roll back late p910nd children after readiness failure
+
+- `start_p910nd()` previously returned a readiness timeout or process-inventory error after `p910nd` had already detached its child. The caller observed only the launcher parent, so an incompletely initialized listener could remain running and be retried later.
+- The readiness failure path now invokes the shared identity-validated rollback with process name `p9100d` (the child’s rewritten argv[0]), then re-scans process state while preserving the original failure status. This is limited to post-launch/readiness failures; a confirmed launcher failure still returns directly.
+- Extended the USB modem, Process and Storage source contracts to require the `p9100d` rollback after the readiness gate. The existing GNU89 detached-daemon policy regression covers cleanup outcomes and primary-error preservation; exact-head Actions are required before treating this slice as verified.
+
 ## 2026-11-23 — Align Storage workflow with USB printer rollback
 
 - Storage hotplug run #45221949175 exposed a stale source assertion left over from the pre-rollback launcher: it required a direct `return EIO;` after a partial exec-status write. The implementation now invokes the shared failed-start rollback policy for that uncertain state.

@@ -82,6 +82,12 @@ disabled=raw.index('strcmp(setting, "0")',prop)
 mode=raw.index('strcmp(setting, "2")',disabled)
 launch=raw.index('eval("/usr/sbin/p910nd"',mode)
 assert read<gate<prop<disabled<mode<launch
+readiness=raw.index('start_status = usb_printer_daemon_postcondition("p9100d");')
+failure_gate=raw.index("if (start_status != 0)",readiness)
+rollback=raw.index("usb_printer_daemon_start_failure_recover(",failure_gate)
+assert launch<readiness<failure_gate<rollback
+assert "p9100d" in raw[rollback:rollback+128]
+assert "return start_status;" in raw[rollback:]
 assert 'nvram_match("rawd_enable"' not in raw
 for marker in ("test_present_setting_is_copied_from_shared_cache","test_missing_setting_preserves_empty_legacy_default","test_backend_error_is_not_collapsed_to_default","test_errno_less_backend_failure_becomes_eio","test_unexpected_result_and_null_cache_are_rejected","test_overlong_setting_fails_before_use","test_invalid_arguments_are_rejected"):
     assert marker in TEST and marker+"();" in TEST

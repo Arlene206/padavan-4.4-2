@@ -494,10 +494,14 @@ start_p910nd(char *devlp)
 	 * p9100d, so verify that detached child before acknowledging startup.
 	 */
 	start_status = usb_printer_daemon_postcondition("p9100d");
-	if (start_status != 0)
+	if (start_status != 0) {
+		/* eval() observes only the daemonizing parent; stop a late child. */
+		start_status = usb_printer_daemon_start_failure_recover(
+			"p9100d", start_status);
 		logmessage("USB Printer",
 			   "p910nd daemon readiness failed for %s (status=%d)",
 			   devlp, start_status);
+	}
 
 	return start_status;
 }
