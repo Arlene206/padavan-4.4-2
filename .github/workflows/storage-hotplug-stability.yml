@@ -29,6 +29,7 @@ on:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
+      - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/scripts/files/sbin/hddtune.sh"
       - "trunk/user/scripts/tests/hddtune_status.sh"
@@ -117,6 +118,7 @@ on:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
+      - "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/scripts/files/sbin/hddtune.sh"
       - "trunk/user/scripts/tests/hddtune_status.sh"
@@ -1542,6 +1544,7 @@ jobs:
               "trunk/user/scripts/tests/spindown_mount_guard.sh",
               "trunk/user/optware/opt-mount.sh",
               "trunk/user/nfs-utils/nfsd.sh",
+              "trunk/user/nfs-utils/tests/nfsd_start_lifecycle.sh",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/storage_optware_start_policy.h",
               "trunk/user/rc/src/tests/storage_optware_start_policy.c",
@@ -1555,7 +1558,29 @@ jobs:
           nfs_umount = function_body(nfs_script, "func_unmount_if_mounted()")
           assert "func_process_presence rpc.mountd" in nfs_stop
           assert "func_process_presence nfsd" in nfs_stop
-          assert "killall -q -9 rpc.mountd" in nfs_stop and "killall -q -9 nfsd" in nfs_stop
+          nfs_process_start = function_body(nfs_script, "func_process_start_time()")
+          nfs_process_snapshot = function_body(nfs_script, "func_snapshot_processes()")
+          nfs_process_identity = function_body(nfs_script, "func_process_identity_matches()")
+          nfs_signal_snapshot = function_body(nfs_script, "func_signal_snapshot()")
+          assert "stat_tail=${stat_line##*) }" in nfs_process_start
+          assert "process_start_time=${20}" in nfs_process_start
+          assert "func_process_start_time" in nfs_process_snapshot
+          assert "func_process_start_time" in nfs_process_identity
+          assert '"$nfsd_kill_command" "-$signal_number" "$process_pid"' in nfs_signal_snapshot
+          assert nfs_signal_snapshot.index("func_process_identity_matches") < nfs_signal_snapshot.index('"$nfsd_kill_command"')
+          assert "func_snapshot_processes rpc.mountd" in nfs_stop
+          assert "func_snapshot_processes nfsd" in nfs_stop
+          assert "func_signal_snapshot TERM rpc.mountd" in nfs_stop
+          assert "func_signal_snapshot 2 nfsd" in nfs_stop
+          assert "func_signal_snapshot 9 rpc.mountd" in nfs_stop
+          assert "func_signal_snapshot 9 nfsd" in nfs_stop
+          assert "killall" not in nfs_stop
+          mountd_term = nfs_stop.index("func_signal_snapshot TERM rpc.mountd")
+          nfsd_term = nfs_stop.index("func_signal_snapshot 2 nfsd")
+          mountd_forced_snapshot = nfs_stop.index("mountd_snapshot=$(func_snapshot_processes rpc.mountd)", mountd_term)
+          nfsd_forced_snapshot = nfs_stop.index("nfsd_snapshot=$(func_snapshot_processes nfsd)", nfsd_term)
+          assert mountd_term < mountd_forced_snapshot < nfs_stop.index("func_signal_snapshot 9 rpc.mountd")
+          assert nfsd_term < nfsd_forced_snapshot < nfs_stop.index("func_signal_snapshot 9 nfsd")
           assert 'if [ "$mountd_state" -ne 1 ] || [ "$nfsd_state" -ne 1 ]; then' in nfs_stop
           assert "return 1" in nfs_stop and "return 0" in nfs_stop
           assert nfs_stop.index('if [ "$mountd_state" -ne 1 ] || [ "$nfsd_state" -ne 1 ]; then') < nfs_stop.index('/sbin/exportfs -ua')
