@@ -716,7 +716,7 @@ jobs:
           assert power_restore < failure_gate
 
           power_function = source.split("static int esw_port_phy_power", 1)[1].split(
-              "static void change_ports_power", 1
+              "static int change_ports_power", 1
           )[0]
           assert "mtk_esw_phy_power_set(" in power_function
           assert "if (status != 0)" in power_function
