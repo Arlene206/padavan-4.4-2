@@ -757,6 +757,9 @@ static int send_http_resp_header(int fd, struct endpoint *ep,
 	case 400:
 		status_str = "400 Bad Request";
 		break;
+	case 408:
+		status_str = "408 Request Timeout";
+		break;
 	case 413:
 		status_str = "413 Payload Too Large";
 		break;
@@ -907,7 +910,8 @@ out:
  * Return MIME error code.
  */
 static int wsd_parse_http_header(int fd, struct endpoint *ep,
-				char *buf, size_t len, size_t bsize)
+				char *buf, size_t len, size_t bsize,
+				const struct timeval *deadline)
 {
 #define __FUNCTION__	"wsd_pars_http_header"
 	size_t contentlength = 0;
@@ -920,11 +924,14 @@ static int wsd_parse_http_header(int fd, struct endpoint *ep,
 		endpointlen = strlen(wsd_endpoint);
 
 	/* TCP may split the request line; never dereference a missing CRLF. */
-	if (wsd_http_read_until_crlf(fd, buf, &len, bsize) != 0) {
-		ep->errstr = (errno == EMSGSIZE) ?
+	if (wsd_http_read_until_crlf_until(fd, buf, &len, bsize, deadline) != 0) {
+		ep->errstr = (errno == ETIMEDOUT) ?
+			__FUNCTION__ ": HTTP request timed out" :
+			(errno == EMSGSIZE) ?
 			__FUNCTION__ ": HTTP request line too long" :
 			__FUNCTION__ ": Data receiving error";
-		return (errno == EMSGSIZE) ? 400 : 500;
+		return (errno == ETIMEDOUT) ? 408 :
+			(errno == EMSGSIZE) ? 400 : 500;
 	}
 	eol = wsd_http_find_crlf(p, len);
 	if (!eol) {
@@ -991,11 +998,14 @@ again:
 	buf[len] = '\0';
 
 	if (!eoh) {/* Have not reached end of header. */
-		if (wsd_http_read_until_crlf(fd, buf, &len, bsize) != 0) {
-			ep->errstr = (errno == EMSGSIZE) ?
+		if (wsd_http_read_until_crlf_until(fd, buf, &len, bsize, deadline) != 0) {
+			ep->errstr = (errno == ETIMEDOUT) ?
+				__FUNCTION__ ": HTTP request timed out" :
+				(errno == EMSGSIZE) ?
 				__FUNCTION__ ": HTTP header line too long" :
 				__FUNCTION__ ": Data receiving error";
-			return (errno == EMSGSIZE) ? 400 : 500;
+			return (errno == ETIMEDOUT) ? 408 :
+				(errno == EMSGSIZE) ? 400 : 500;
 		}
 		goto again;
 	}
@@ -1006,9 +1016,11 @@ again:
 	}
 
 	if (len < contentlength &&
-	    wsd_http_read_exact(fd, buf, &len, contentlength) != 0) {
-		ep->errstr = __FUNCTION__ ": Data receiving error";
-		return 500;
+	    wsd_http_read_exact_until(fd, buf, &len, contentlength, deadline) != 0) {
+		ep->errstr = (errno == ETIMEDOUT) ?
+			__FUNCTION__ ": HTTP request body timed out" :
+			__FUNCTION__ ": Data receiving error";
+		return (errno == ETIMEDOUT) ? 408 : 500;
 	}
 	buf[contentlength] = '\0';
 	return 200;
@@ -1084,32 +1096,51 @@ int wsd_recv(struct endpoint *ep)
 {
 	char buf[10000];
 	_saddr_t sa;
+	struct timeval deadline;
 	socklen_t slen = (ep->family == AF_INET) ? sizeof sa.in : sizeof sa.in6;
 	int fd = ep->sock;
+	int accepted_client = 0;
 	ssize_t len;
 
 	memset(&sa, 0, slen);
 
 	if (ep->type == SOCK_STREAM) {
-		struct timeval to = { .tv_sec = 1, .tv_usec = 0};
-
 		fd = accept(ep->sock, (struct sockaddr *)&sa, &slen);
 		if (fd < 0) {
 			ep->errstr = "wsd_recv: accept";
 			ep->_errno = errno;
 			return -1;
 		}
-		if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof to) < 0) {
-			DEBUG(3, W, "Unable to set receive timeout\n");
+		accepted_client = 1;
+		if (wsd_http_deadline_after_ms(
+			    &deadline, WSD_HTTP_REQUEST_TIMEOUT_MS) != 0) {
+			ep->errstr = "wsd_recv: cannot start request deadline";
+			ep->_errno = errno ? errno : EIO;
+			close(fd);
+			return 0;
 		}
-		len = recv(fd, buf, sizeof buf - 1, 0);
+		len = wsd_http_recv_until(fd, buf, sizeof buf - 1, &deadline);
 	} else
 		len = recvfrom(fd, buf, sizeof buf - 1, 0,
 				(struct sockaddr *)&sa, &slen);
 
+	/* An accepted client's read failure must not restart the listener. */
 	if (len <= 0) {
-		if (ep->sock != fd)
+		if (accepted_client) {
+			if (len < 0) {
+				int saved_errno = errno ? errno : EIO;
+
+				ep->errstr = saved_errno == ETIMEDOUT ?
+					"wsd_recv: HTTP request timed out" :
+					"wsd_recv: accepted client read failed";
+				ep->_errno = saved_errno;
+				if (saved_errno == ETIMEDOUT)
+					(void)send_http_resp_header(fd, ep, &sa, 408, 0);
+				errno = saved_errno;
+			}
 			close(fd);
+			return 0;
+		}
 		return len;
 	}
 
@@ -1125,7 +1156,7 @@ int wsd_recv(struct endpoint *ep)
 	if (ep->type == SOCK_STREAM) {
 		if (!strncmp(buf, "POST ", 5)) {
 			int status = wsd_parse_http_header(fd, ep,
-							buf, len, sizeof buf);
+							buf, len, sizeof buf, &deadline);
 
 			{
 				char ip[_ADDRSTRLEN];

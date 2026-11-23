@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/wsdd2/src/wsd.c").read_text()
 POLICY = (ROOT / "trunk/user/wsdd2/src/wsd_http_header_policy.h").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wsdd2-http-framing-regression.yml").read_text()
+TEST = (ROOT / "trunk/user/wsdd2/src/tests/wsd_http_header_policy_test.c").read_text()
 XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 
@@ -19,8 +20,10 @@ assert '#include "wsd_http_header_policy.h"' in SOURCE
 start = SOURCE.index("static int wsd_parse_http_header(")
 end = SOURCE.index("static char hostname[", start)
 parser = compact(SOURCE[start:end])
-assert "wsd_http_read_until_crlf(fd, buf, &len, bsize)" in parser
-assert parser.count("wsd_http_read_until_crlf(fd, buf, &len, bsize)") == 2
+assert "wsd_http_read_until_crlf_until(fd, buf, &len, bsize, deadline)" in parser
+assert parser.count("wsd_http_read_until_crlf_until(fd, buf, &len, bsize, deadline)") == 2
+assert "wsd_http_read_exact_until(fd, buf, &len, contentlength, deadline)" in parser
+assert "const struct timeval *deadline" in parser
 assert "eol = wsd_http_find_crlf(p, len)" in parser
 assert "char *eol = NULL;" in parser
 assert parser.index("char *eol = NULL;") < parser.index("while (*p &&")
@@ -32,9 +35,10 @@ assert parser.index("wsd_http_is_transfer_encoding_header(p)") < parser.index("w
 assert "wsd_http_is_transfer_encoding_header" in POLICY
 assert "Invalid or duplicate Content-Length" in parser
 assert "atoi(val)" not in parser
-assert "wsd_http_read_exact(fd, buf, &len, contentlength)" in parser
+assert "wsd_http_read_exact(fd, buf, &len, contentlength)" not in parser
 assert re.search(r"memmove\(buf, p, len\); p = buf;", parser), parser
 assert "errno == EMSGSIZE" in parser
+assert re.search(r'case\s+408:\s*status_str = "408 Request Timeout";', SOURCE)
 assert re.search(r'case\s+413:\s*status_str = "413 Payload Too Large";', SOURCE)
 tag_finder = SOURCE[SOURCE.index("static const char *wsd_tag_find("):
                      SOURCE.index("static struct wsd_req_info *wsd_req_parse(")]
@@ -54,6 +58,11 @@ policy = compact(POLICY)
 for token in (
     "i + 1 < length",
     "buffer[i] == '\\r' && buffer[i + 1] == '\\n'",
+    "WSD_HTTP_REQUEST_TIMEOUT_MS 5000U",
+    "poll(&descriptor, 1, (int)remaining_ms)",
+    "gettimeofday(&now, NULL)",
+    "MSG_DONTWAIT",
+    "errno = ETIMEDOUT",
     "capacity - *length - 1",
     "received < 0 && errno == EINTR",
     "ECONNRESET",
@@ -70,4 +79,15 @@ for path in (
 ):
     assert path in WORKFLOW, path
 assert 'trunk/user/wsdd2/**' in XY_WORKFLOW
-print("wsdd2 bounded HTTP framing source contract: PASS")
+
+recv_handler = SOURCE[SOURCE.index("int wsd_recv(struct endpoint *ep)"):]
+recv_compact = compact(recv_handler)
+assert "wsd_http_deadline_after_ms(&deadline, WSD_HTTP_REQUEST_TIMEOUT_MS)" in recv_compact
+assert "wsd_http_recv_until(fd, buf, sizeof buf - 1, &deadline)" in recv_compact
+assert "SO_RCVTIMEO" not in recv_handler
+assert "accepted_client = 1;" in recv_handler
+assert "close(fd); return 0;" in recv_compact
+assert "wsd_parse_http_header(fd, ep, buf, len, sizeof buf, &deadline)" in recv_compact
+assert "test_absolute_deadline_rejects_slow_trickle" in TEST
+assert "test_idle_client_deadline" in TEST
+print("wsdd2 bounded HTTP framing and absolute client deadline source contract: PASS")

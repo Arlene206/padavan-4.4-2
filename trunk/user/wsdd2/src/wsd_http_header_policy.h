@@ -3,9 +3,13 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <poll.h>
 #include <stddef.h>
 #include <strings.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <time.h>
 
 /* Locate CRLF without reading beyond the bytes currently buffered. */
 static inline char *
@@ -20,6 +24,167 @@ wsd_http_find_crlf(char *buffer, size_t length)
 			return buffer + i;
 	}
 	return NULL;
+}
+
+
+#define WSD_HTTP_REQUEST_TIMEOUT_MS 5000U
+
+/*
+ * Use one absolute connection deadline across the request line, all headers
+ * and the body. SO_RCVTIMEO alone is a per-recv timeout and can be defeated
+ * by a peer that trickles one byte before each timeout expires.
+ */
+static inline int
+wsd_http_deadline_after_ms(struct timeval *deadline, unsigned int timeout_ms)
+{
+	if (!deadline) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (gettimeofday(deadline, NULL) != 0)
+		return -1;
+	deadline->tv_sec += (time_t)(timeout_ms / 1000U);
+	deadline->tv_usec += (suseconds_t)((timeout_ms % 1000U) * 1000U);
+	if (deadline->tv_usec >= 1000000) {
+		deadline->tv_sec++;
+		deadline->tv_usec -= 1000000;
+	}
+	return 0;
+}
+
+static inline int
+wsd_http_wait_readable_until(int fd, const struct timeval *deadline)
+{
+	struct pollfd descriptor;
+
+	if (fd < 0 || !deadline) {
+		errno = EINVAL;
+		return -1;
+	}
+	descriptor.fd = fd;
+	descriptor.events = POLLIN;
+	descriptor.revents = 0;
+
+	for (;;) {
+		struct timeval now;
+		long long remaining_us, remaining_ms;
+		int status;
+
+		if (gettimeofday(&now, NULL) != 0)
+			return -1;
+		remaining_us =
+			((long long)deadline->tv_sec - (long long)now.tv_sec) *
+			1000000LL +
+			((long long)deadline->tv_usec - (long long)now.tv_usec);
+		if (remaining_us <= 0) {
+			errno = ETIMEDOUT;
+			return -1;
+		}
+		remaining_ms = (remaining_us + 999LL) / 1000LL;
+		if (remaining_ms > INT_MAX)
+			remaining_ms = INT_MAX;
+
+		descriptor.revents = 0;
+		status = poll(&descriptor, 1, (int)remaining_ms);
+		if (status < 0 && errno == EINTR)
+			continue;
+		if (status < 0)
+			return -1;
+		if (status == 0) {
+			errno = ETIMEDOUT;
+			return -1;
+		}
+		if (descriptor.revents & POLLNVAL) {
+			errno = EBADF;
+			return -1;
+		}
+		if (descriptor.revents & (POLLIN | POLLHUP | POLLERR))
+			return 0;
+		errno = EIO;
+		return -1;
+	}
+}
+
+static inline ssize_t
+wsd_http_recv_until(int fd, void *buffer, size_t length,
+                    const struct timeval *deadline)
+{
+	if ((!buffer && length != 0) || !deadline) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (length == 0)
+		return 0;
+
+	for (;;) {
+		ssize_t received;
+
+		if (wsd_http_wait_readable_until(fd, deadline) != 0)
+			return -1;
+		received = recv(fd, buffer, length, MSG_DONTWAIT);
+		if (received < 0 &&
+		    (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
+			continue;
+		return received;
+	}
+}
+
+static inline int
+wsd_http_read_until_crlf_until(int fd, char *buffer, size_t *length,
+                               size_t capacity,
+                               const struct timeval *deadline)
+{
+	if (!buffer || !length || capacity == 0 || *length >= capacity ||
+	    !deadline) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	buffer[*length] = '\0';
+	while (!wsd_http_find_crlf(buffer, *length)) {
+		ssize_t received;
+
+		if (*length >= capacity - 1) {
+			errno = EMSGSIZE;
+			return -1;
+		}
+		received = wsd_http_recv_until(
+			fd, buffer + *length, capacity - *length - 1, deadline);
+		if (received == 0) {
+			errno = ECONNRESET;
+			return -1;
+		}
+		if (received < 0)
+			return -1;
+		*length += (size_t)received;
+		buffer[*length] = '\0';
+	}
+	return 0;
+}
+
+static inline int
+wsd_http_read_exact_until(int fd, char *buffer, size_t *length,
+                          size_t expected,
+                          const struct timeval *deadline)
+{
+	if (!buffer || !length || *length > expected || !deadline) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	while (*length < expected) {
+		ssize_t received = wsd_http_recv_until(
+			fd, buffer + *length, expected - *length, deadline);
+
+		if (received == 0) {
+			errno = ECONNRESET;
+			return -1;
+		}
+		if (received < 0)
+			return -1;
+		*length += (size_t)received;
+	}
+	return 0;
 }
 
 /* Read one complete CRLF-terminated line without overrunning the buffer. */

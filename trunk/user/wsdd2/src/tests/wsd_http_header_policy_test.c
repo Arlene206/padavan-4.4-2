@@ -1,8 +1,10 @@
 #include <assert.h>
 #include <errno.h>
+#include <signal.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -134,6 +136,62 @@ test_eof_is_reported(void)
 	close(sockets[0]);
 }
 
+
+static void
+test_absolute_deadline_rejects_slow_trickle(void)
+{
+	int sockets[2];
+	pid_t child;
+	char buffer[64];
+	size_t length = 0;
+	struct timeval deadline;
+
+	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+	child = fork();
+	assert(child >= 0);
+	if (child == 0) {
+		const char byte = 'x';
+
+		close(sockets[0]);
+		(void)signal(SIGPIPE, SIG_IGN);
+		for (;;) {
+			if (write(sockets[1], &byte, 1) != 1)
+				_exit(0);
+			usleep(30000);
+		}
+	}
+	close(sockets[1]);
+	assert(wsd_http_deadline_after_ms(&deadline, 180) == 0);
+	assert(wsd_http_read_until_crlf_until(
+		sockets[0], buffer, &length, sizeof(buffer), &deadline) == -1);
+	assert(errno == ETIMEDOUT);
+	close(sockets[0]);
+	{
+		int status;
+
+		assert(waitpid(child, &status, 0) == child);
+		assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+	}
+}
+
+static void
+test_idle_client_deadline(void)
+{
+	int sockets[2];
+	char buffer[8];
+	ssize_t received;
+	struct timeval deadline;
+
+	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
+	assert(wsd_http_deadline_after_ms(&deadline, 80) == 0);
+	received = wsd_http_recv_until(sockets[0], buffer,
+	                               sizeof(buffer), &deadline);
+	assert(received == -1);
+	assert(errno == ETIMEDOUT);
+	close(sockets[0]);
+	close(sockets[1]);
+}
+
 int
 main(void)
 {
@@ -143,5 +201,7 @@ main(void)
 	test_fragmented_line_and_body();
 	test_unterminated_line_is_bounded();
 	test_eof_is_reported();
+	test_absolute_deadline_rejects_slow_trickle();
+	test_idle_client_deadline();
 	return 0;
 }
