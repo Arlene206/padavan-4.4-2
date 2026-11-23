@@ -1562,7 +1562,7 @@ jobs:
               assert legacy_getter not in init_bridge
           assert "bridge_wireless_nvram_read_int" in init_bridge
           assert "return wireless_nvram_get_int_status(name, value);" in lan
-          checked_wireless_reader = body(wifi, "int\\nwireless_nvram_get_int_status(")
+          checked_wireless_reader = body(wifi, "int\nwireless_nvram_get_int_status(")
           assert "nvram_get_checked(name, &stored_value)" in checked_wireless_reader
           assert "wireless_radio_nvram_int_status(" in checked_wireless_reader
           assert "int wireless_nvram_get_int_status(const char *name, int *value);" in header
