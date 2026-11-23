@@ -2686,7 +2686,7 @@ static int sqm_status_hook(int eid, webs_t wp, int argc, char **argv)
 		}
 		pclose(fp);
 	}
-	websWrite(wp, "function sqm_status() { return %d;}\\n", sqm_status_code);
+	websWrite(wp, "function sqm_status() { return %d;}\n", sqm_status_code);
 	return 0;
 }
 #endif
@@ -3547,7 +3547,7 @@ write_json_string(webs_t wp, const char *value)
 			websWrite(wp, "%s", "\\f");
 			break;
 		case '\n':
-			websWrite(wp, "%s", "\\n");
+			websWrite(wp, "%s", "\n");
 			break;
 		case '\r':
 			websWrite(wp, "%s", "\\r");
@@ -3971,7 +3971,7 @@ int ej_shown_language_option(int eid, webs_t wp, int argc, char **argv) {
 			if (!strcmp(key, lang_set))
 				selected = " selected";
 			
-			websWrite(wp, "<option value=\"%s\"%s>%s</option>\\n", key, selected, target);
+			websWrite(wp, "<option value=\"%s\"%s>%s</option>\n", key, selected, target);
 			
 			break;
 		}
@@ -4241,7 +4241,7 @@ apply_cgi(const char *url, webs_t wp)
 						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_DELETE);
 					else if (!strncmp(value1, " Add ", 5)) {
 						if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD) != 1) {
-							websError(wp, 500, "Unable to add this entry safely; the group count was not increased.\\n");
+							websError(wp, 500, "Unable to add this entry safely; the group count was not increased.\n");
 							return 0;
 						}
 					}
@@ -4871,7 +4871,7 @@ do_storage_file(const char *url, FILE *stream)
 		if (backup_result == 0 && f_exists(storage_file)) {
 			do_file(storage_file, stream);
 		} else {
-			websError(stream, 500, "Unable to create a valid storage backup.\\n");
+			websError(stream, 500, "Unable to create a valid storage backup.\n");
 		}
 		unlink(storage_file);
 	}

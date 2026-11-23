@@ -1635,7 +1635,7 @@ jobs:
           add_restore = body(helper, "httpd_nvram_group_add_restore(")
           add_wrapper = body(nvram_x, "nvram_add_group_map_x(")
           add_item = body(web_ex, "nvram_add_group_item(webs_t wp")
-          add_dispatch = body(web_ex, "static int\\napply_cgi_group(webs_t wp")
+          add_dispatch = body(web_ex, "static int\napply_cgi_group(webs_t wp")
           remove = body(web_ex, "nvram_remove_group_item(struct variable")
           caller = body(web_ex, "apply_cgi(const char *url")
           assert "httpd_nvram_group_compact" in nvram_x
