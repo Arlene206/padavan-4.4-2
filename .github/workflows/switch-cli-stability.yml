@@ -1144,6 +1144,44 @@ jobs:
           print("GE analog orchestrator checked I/O, child result gates and saved-state restore: PASS")
           PY
 
+      - name: Validate FE VBG calibration checks MDIO, bounds code and cleans up
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          source = (root / "ra_switch.c").read_text()
+          policy = (root / "ra_switch_mdio_policy.h").read_text()
+          test = (root / "tests/ra_switch_mdio_policy.c").read_text()
+          vbg = source.split("void fe_cal_vbg(", 1)[1].split(
+              chr(10) + "#define CALDLY", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in vbg, legacy
+          assert vbg.count("all_fe_ana_cal_wait_checked(") == 2
+          assert vbg.count("ra_switch_mdio_update_bits_checked(") >= 7
+          assert "fe_cal_vbg_flag = 0;" in vbg
+          assert "ra_switch_mdio_calibration_code_step(" in vbg
+          assert "ARRAY_SIZE(ZCAL_TO_REXT_TBL)" in vbg
+          assert "rg_zcal_ctrl = 0x20U;" in vbg
+          assert "clear_ckinv_ana_txvos_checked()" in vbg
+          assert vbg.index("cleanup:") < vbg.index("iext_cal_result = rg_zcal_ctrl;")
+          assert vbg.index("if (status != 0)") < vbg.index("fe_cal_vbg_flag = 1;")
+          compact = " ".join(vbg.split())
+          for cleanup in (
+              "tc_phy_write_page_reg_checked( port_num, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( FE_CAL_COMMON, 3U, 25U, 1, 0U)"
+          ):
+              assert cleanup in compact, cleanup
+          assert "ra_switch_mdio_calibration_code_step(" in policy
+          assert "test_calibration_code_step_wraps_inside_six_bit_field();" in test
+          print("FE VBG checked MDIO, bounded code/table access and best-effort cleanup: PASS")
+          PY
+
       - name: Validate FE R50 calibration fails closed on MDIO errors
         run: |
           python3 - <<'PY'

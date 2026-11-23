@@ -1,12 +1,12 @@
 ### 2026-11-23 接力更新（最新工程检查点）
 
-- 当前 main 基线：`7696612da682e35f95219c14e0a79f59b5a85ecb`。GE orchestrator 最近提交 SHA 为 `7696612`；其 exact-head Switch CLI、AI docs、NVRAM PASS，XY-C1 Firmware Validation #45278137921 仍 in_progress，不能宣称 L3。
-- 当前源码切片：FE R50 common page-7/reg24、FE local page3/4、comparator 及两处 FE calibration wait 全部改为 checked API；MDIO transport 错误不会再当成零值继续。
-- 新增兼容性保留的 checked Leopard/MT7622 output setters。MT7622 per-port subtraction 前检查 offset、table index 和 port，修复潜在 unsigned underflow / 64-entry table 越界。
-- 普通 not-ready/saturation 仍使用 0x20 fallback；254 次边界穷尽也退回 fallback，而非发布未经确认 code。所有退出都尝试 common analog clear 与 port/common page3 reset；只有输出写和 cleanup 全部成功才置 `fe_cal_r50_flag`。
-- 新增 Switch CLI source contract；无本地 MIPS build、无本次 SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结不变。
-- 下个 GPT 第一项：检查本次 FE R50 exact-head Actions；然后审查 `fe_cal_vbg()` 与 FE top-level analog orchestration 的剩余 unchecked MDIO/waits。
+- 当前 main 父提交：`d0c858d552b211a7f8b8faeaee080fe3f6ce332d`（FE R50 checked-MDIO）。该 SHA 的 Switch CLI #45278800489、AI docs #45278800567、NVRAM #45278800373、XY-C1 #45278800520 上次检查均为 IN_PROGRESS，尚无完成结果。
+- 最新源码切片：`fe_cal_vbg()` 的全部 C22 页寄存器 setup、RMW、comparator、wait 和输出编程改为 checked API；MDIO 传输/cleanup 错误不再被当作零值或成功。
+- 搜索码步进显式限制在 6-bit 范围，Leopard 的 `ZCAL_TO_REXT_TBL` 索引增加 `ARRAY_SIZE` 检查；not-ready、saturation 和 254 次穷尽保留 0x20 fallback。
+- VBG 所有退出都尝试 common analog clear、port/common page-3 register-25 reset；completion flag 仅在输出与 cleanup 全部成功且 calibration 真正完成后发布。新增 6-bit wrap host regression 和 Switch CLI source contract。
+- 新 FE VBG 切片尚需 exact-head Actions；无本地 MIPS/kernel build、无同 SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 仍冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，未修改。
+- 下个 GPT 第一项：检查本次 FE VBG 源码 SHA 的 Switch CLI、AI docs、NVRAM 与 XY-C1 Build/TRX/artifact；之后迁移 `fe_cal_tx_offset()` 的未检查 C22 操作与 cleanup。
 
 ---
 # Cross-session execution mandate
@@ -20,32 +20,35 @@
 - **Legacy PHY wrappers:** status-bearing C22/Clause45 adapters preserve ABI and log failures; Switch CLI #45272997503 and AI docs #45272997319 PASS on `f432a3e`.
 - **GE wait:** `87e233d` checks page-7/reg24 trigger setup, bounded polling and final trigger cleanup; Switch CLI #45273294951, AI docs #45273294849, NVRAM #45273294824 PASS; XY-C1 #45273294825 remained in progress at last poll.
 - **Analog cleanup RMW:** `51f2958` added checked RMW and retained final register-zero cleanup; Switch CLI #45273676193 PASS. AI docs on that SHA failed only because its dev log had been truncated; full history was restored in docs child `bff3d15`.
-- **FE wait:** current slice uses checked global trigger/poll and always attempts both local page-4/reg23 cleanup writes; TX-amp and normal pre-trigger differences are retained. Exact-head checks pending.
+- **FE VBG:** C22/page RMW, comparator, wait and output paths now use checked APIs; six-bit stepping/table bounds are host-tested, and every exit attempts shared analog/page-3 cleanup.
+- **FE R50:** checked page-7/page-3/page-4 operations and checked output setters retain bounded MT7622 table indexes and best-effort cleanup; exact-head Actions were pending on d0c858d.
 - **Backup:** frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - **Verification:** no same-SHA XY-C1 Build+TRX+artifact PASS and no hardware L4 claim.
-- **Next:** inspect exact-head CI and continue one calibration RMW/save/restore sequence at a time.
+- **Next:** inspect this FE VBG commit's exact-head checks, then migrate FE TX-offset.
 
 
 ## Active task
 
-### FE R50 checked setup, search, result programming and cleanup
+### FE VBG checked MDIO, bounded calibration code and cleanup
 
-- FE page-7/reg24 and page3/4 RMW operations use checked status-bearing helpers; both waits and comparator reads abort on MDIO failure.
-- The Leopard/MT7622 setters retain their legacy void entry points, while FE calibration calls checked internal helpers and checks table bounds before MT7622 offset subtraction/indexing.
-- Timeout, saturation and bounded search exhaustion use the 0x20 fallback; transport and result-write failures do not publish completion. All exits attempt common analog clear and local page3 resets.
-- Next bounded candidate: inspect `fe_cal_vbg()` for checked I/O and guaranteed cleanup.
+- C22 setup, page-7 update-bits, local page-3 setup, comparator samples, wait and final output writes all use checked operations.
+- Six-bit stepping is explicit; table access is range-checked. The existing 0x20 not-ready/saturation/exhaustion fallback remains.
+- Every exit attempts checked common analog clear and both port/common page-3 register-25 resets; the completion flag is cleared at entry and only published after successful calibration and cleanup.
+- Next bounded candidate: convert `fe_cal_tx_offset()` to checked C22 page I/O and fail-safe cleanup.
+
+
 
 
 ## Verification boundary
-- GE orchestrator SHA `7696612`: Switch CLI, AI docs and NVRAM PASS; XY-C1 run #45278137921 was still in progress at last check.
-- Current FE R50 source/workflow contract changes are new and require their own exact-head Actions.
-- No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 is claimed.
+- Parent FE R50 SHA `d0c858d552b211a7f8b8faeaee080fe3f6ce332d`: Switch CLI #45278800489, AI docs #45278800567, NVRAM #45278800373 and XY-C1 #45278800520 were IN_PROGRESS at last poll; no completed result or L3 claim was available.
+- Current FE VBG source, policy regression, workflow and handoff changes require their own exact-head Actions.
+- No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact L3 or physical hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect this FE R50 SHA's exact push Actions for Switch CLI, AI docs, NVRAM and XY-C1 Build/TRX/artifact outcomes.
-2. Diagnose exact-head failures from their logs; queued or skipped target work is not L3.
-3. Continue with `fe_cal_vbg()` as a separate checked-I/O/cleanup slice.
+1. Fetch live `main` and identify this FE VBG source commit SHA; inspect its exact push Actions, especially Switch CLI and XY-C1 Build/TRX/artifact.
+2. Diagnose exact-head failures from logs; do not count queued, in-progress or skipped target work as L3.
+3. Continue with `fe_cal_tx_offset()` as the next independent checked-I/O/cleanup slice.
 
 
 ## Cross-session operating constraints

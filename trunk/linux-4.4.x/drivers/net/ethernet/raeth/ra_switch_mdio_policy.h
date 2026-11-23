@@ -22,6 +22,13 @@ static inline int ra_switch_mdio_normalize_status(int status)
 	return status > 0 ? -EIO : status;
 }
 
+/* Keep analog calibration search arithmetic inside its six-bit register field. */
+static inline unsigned int
+ra_switch_mdio_calibration_code_step(unsigned int current, int direction)
+{
+	return (current + (unsigned int)direction) & 0x3fU;
+}
+
 /* Do not let legacy PHY write wrappers silently discard MDIO failures. */
 static inline int
 ra_switch_mdio_write_checked(unsigned int port, unsigned int reg,

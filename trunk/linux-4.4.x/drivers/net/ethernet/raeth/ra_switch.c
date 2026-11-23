@@ -1351,109 +1351,220 @@ cleanup:
 }
 void fe_cal_vbg(u8 port_num, u32 delay)
 {
-	int rg_zcal_ctrl, all_ana_cal_status;
-	int ad_cal_comp_out_init, port_no;
-	u16 l3r25_temp, l0r4, g7r24_tmp, l3r26_temp;
+	unsigned int rg_zcal_ctrl = 0U;
+	unsigned int page_value = 0U, updated;
+	unsigned int rg_bg_rasel = 0U;
+	int all_ana_cal_status = ANACAL_INIT;
+	int ad_cal_comp_out_init;
 	int calibration_polarity;
+	u8 cnt = 0, ready = 0, port_no;
+	int status = 0, cleanup_status;
+	int calibration_completed = 0;
+	struct ra_switch_page_update_context page;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
-	u16 g2r22_temp, rg_bg_rasel;
-	u8 cnt = 0, phyaddr;
 
+	fe_cal_vbg_flag = 0;
 	ephy_addr_base = 0;
-	phyaddr = port_num + ephy_addr_base;
-
-	tc_phy_write_g_reg(FE_CAL_COMMON, 2, 25, 0x30c0);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 0, 25, 0x0030);
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp | 0x2000));
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp | 0x4000));
-
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp & (~0x1000)));
-
-	l3r25_temp = tc_phy_read_l_reg(FE_CAL_COMMON, 3, 25);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, (l3r25_temp | 0x2000));
-
-	for (port_no = port_num; port_no < 5; port_no++) {
-		l3r25_temp = tc_phy_read_l_reg(port_no, 3, 25);
-		tc_phy_write_l_reg(port_no, 3, 25, (l3r25_temp & (~0x1000)));
+	if (port_num >= 5U) {
+		pr_err_ratelimited("%s: invalid FE port %u\n",
+				   __func__, port_num);
+		return;
 	}
-	rg_zcal_ctrl = 0x0;	/* start with 0 dB */
 
-	g7r24_tmp = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (~0xfc0));
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_tmp | ((rg_zcal_ctrl & 0x3f) << 6));
+	/* Configure the common VBG calibration path. */
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 2U, 25U, 0, 0x30c0U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 0U, 25U, 0, 0x0030U);
+	if (status != 0)
+		goto cleanup;
 
-	all_ana_cal_status = all_fe_ana_cal_wait(delay, port_num);
-	if (all_ana_cal_status == 0) {
+	page.page = 7U;
+	page.local = 0;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0U, 0x2000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0U, 0x4000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x1000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+
+	/* Mark VBG calibration in the common local control. */
+	page.page = 3U;
+	page.local = 1;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 25U, 0U, 0x2000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+
+	/* Disable RG_ZCALEN on this and all later FE ports. */
+	for (port_no = port_num; port_no < 5U; ++port_no) {
+		status = ra_switch_mdio_update_bits_checked(
+			port_no, 25U, 0x1000U, 0U,
+			ra_switch_page_update_read, ra_switch_page_update_write,
+			&page, &updated);
+		if (status != 0)
+			goto cleanup;
+	}
+
+	/* Start at code zero and keep the six-bit field bounded. */
+	page.page = 7U;
+	page.local = 0;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x0fc0U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+
+	ready = 0;
+	status = all_fe_ana_cal_wait_checked(delay, port_num, 1, &ready);
+	if (status != 0)
+		goto cleanup;
+	if (!ready) {
 		all_ana_cal_status = ANACAL_ERROR;
-		pr_info(" fe_cal_vbg ERROR! (init)   \r\n");
+		pr_info("fe_cal_vbg did not become ready (port=%u)\n", port_num);
 	}
-	ad_cal_comp_out_init = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
 
-	if (ad_cal_comp_out_init == 1)
-		calibration_polarity = -1;
-	else
-		calibration_polarity = 1;
+	status = tc_phy_read_page_reg_checked(
+		FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+	if (status != 0)
+		goto cleanup;
+	ad_cal_comp_out_init = (int)(page_value & 0x1U);
+	calibration_polarity = ad_cal_comp_out_init ? -1 : 1;
 
-	cnt = 0;
-	while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254)) {
-		cnt++;
-		rg_zcal_ctrl += calibration_polarity;
-		g7r24_tmp = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (~0xfc0));
-		tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_tmp | ((rg_zcal_ctrl & 0x3f) << 6));
-		all_ana_cal_status = all_fe_ana_cal_wait(delay, port_num);
+	while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
+		++cnt;
+		rg_zcal_ctrl = ra_switch_mdio_calibration_code_step(
+			rg_zcal_ctrl, calibration_polarity);
+		status = ra_switch_mdio_update_bits_checked(
+			FE_CAL_COMMON, 24U, 0x0fc0U,
+			((rg_zcal_ctrl & 0x3fU) << 6),
+			ra_switch_page_update_read, ra_switch_page_update_write,
+			&page, &updated);
+		if (status != 0)
+			goto cleanup;
 
-		if (all_ana_cal_status == 0) {
+		ready = 0;
+		status = all_fe_ana_cal_wait_checked(
+			delay, port_num, 1, &ready);
+		if (status != 0)
+			goto cleanup;
+		if (!ready) {
 			all_ana_cal_status = ANACAL_ERROR;
-			pr_info("VBG ERROR(%d)status=%d\n", cnt, all_ana_cal_status);
-		} else if ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1) !=
-			ad_cal_comp_out_init) {
+			pr_info("VBG calibration timed out at step %u\n", cnt);
+			break;
+		}
+
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		if ((page_value & 0x1U) !=
+		    (unsigned int)ad_cal_comp_out_init) {
 			all_ana_cal_status = ANACAL_FINISH;
-		} else {
-			if ((rg_zcal_ctrl == 0x3F) || (rg_zcal_ctrl == 0x00)) {
-				all_ana_cal_status = ANACAL_SATURATION;
-				pr_info(" VBG0 AnaCal Saturation! (%d)  \r\n",
-					cnt);
-			} else {
-				l0r4 = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-				l0r4 = l0r4 & 0x1;
-			}
+		} else if ((rg_zcal_ctrl == 0x3fU) ||
+			   (rg_zcal_ctrl == 0x00U)) {
+			all_ana_cal_status = ANACAL_SATURATION;
+			pr_info("VBG calibration saturated at step %u\n", cnt);
 		}
 	}
+	if ((all_ana_cal_status == ANACAL_INIT) && (cnt >= 254U)) {
+		all_ana_cal_status = ANACAL_ERROR;
+		pr_info("VBG calibration exhausted its search range\n");
+	}
+
 	if ((all_ana_cal_status == ANACAL_ERROR) ||
 	    (all_ana_cal_status == ANACAL_SATURATION)) {
-		rg_zcal_ctrl = 0x20;	/* 0 dB */
+		/* Preserve the original 0 dB fallback instead of publishing the
+		 * last partially searched comparator value.
+		 */
+		rg_zcal_ctrl = 0x20U;
 	} else {
-		fe_cal_vbg_flag = 1;
+		calibration_completed = 1;
 	}
 
-	rg_zcal_ctrl = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (0xfc0)) >> 6;
-	iext_cal_result = rg_zcal_ctrl;
-	pr_info("iext_cal_result = 0x%x\n", iext_cal_result);
+	/* Validate the six-bit value before indexing the 64-entry table. */
+	rg_zcal_ctrl &= 0x3fU;
+	if (rg_zcal_ctrl >= ARRAY_SIZE(ZCAL_TO_REXT_TBL)) {
+		status = -ERANGE;
+		goto cleanup;
+	}
 	if (ei_local->chip_name == LEOPARD_FE)
-		rg_bg_rasel =  ZCAL_TO_REXT_TBL[rg_zcal_ctrl];
+		rg_bg_rasel = ZCAL_TO_REXT_TBL[rg_zcal_ctrl];
 
-	l3r26_temp = tc_phy_read_l_reg(FE_CAL_COMMON, 3, 26);
-	l3r26_temp = l3r26_temp & (~0xfc0);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 26, l3r26_temp | ((rg_zcal_ctrl & 0x3f) << 6));
+	/* Publish the selected code in the local FE calibration register. */
+	page.page = 3U;
+	page.local = 1;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 26U, 0x0fc0U,
+		((rg_zcal_ctrl & 0x3fU) << 6),
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
 
-	g2r22_temp = tc_phy_read_g_reg(FE_CAL_COMMON, 2, 22);
-	g2r22_temp = g2r22_temp & (~0xe00);/*[11:9]*/
-
+	/* Preserve unrelated global bias bits while programming the chip value. */
+	page.page = 2U;
+	page.local = 0;
 	if (ei_local->chip_name == LEOPARD_FE) {
-		rg_bg_rasel = rg_bg_rasel & 0x7;
-		tc_phy_write_g_reg(FE_CAL_COMMON, 2, 22,
-				   g2r22_temp | (rg_bg_rasel << 9));
+		rg_bg_rasel &= 0x7U;
+		status = ra_switch_mdio_update_bits_checked(
+			FE_CAL_COMMON, 22U, 0x0e00U,
+			(rg_bg_rasel << 9),
+			ra_switch_page_update_read, ra_switch_page_update_write,
+			&page, &updated);
+		if (status != 0)
+			goto cleanup;
 	} else if (ei_local->chip_name == MT7622_FE) {
-		rg_zcal_ctrl = rg_zcal_ctrl & 0x38;
-		tc_phy_write_g_reg(FE_CAL_COMMON, 2, 22,
-				   g2r22_temp | (((rg_zcal_ctrl & 0x38) >> 3) << 9));
+		status = ra_switch_mdio_update_bits_checked(
+			FE_CAL_COMMON, 22U, 0x0e00U,
+			(((rg_zcal_ctrl & 0x38U) >> 3) << 9),
+			ra_switch_page_update_read, ra_switch_page_update_write,
+			&page, &updated);
+		if (status != 0)
+			goto cleanup;
 	}
-	clear_ckinv_ana_txvos();
 
-	tc_phy_write_l_reg(port_num, 3, 25, 0x0000);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, 0x0000);
+cleanup:
+	/* Best-effort shutdown is required even after a setup/search failure. */
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	if (status != 0) {
+		pr_err_ratelimited("%s: FE VBG calibration failed (port=%u status=%d)\n",
+				   __func__, port_num, status);
+		return;
+	}
+	iext_cal_result = rg_zcal_ctrl;
+	if (calibration_completed)
+		fe_cal_vbg_flag = 1;
 }
 
 #define CALDLY 40

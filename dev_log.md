@@ -1,3 +1,11 @@
+## 2026-11-23 — Make FE VBG calibration fail closed on MDIO errors
+
+- Converted FE VBG setup, page-7 control RMW, local page-3 setup, comparator reads, wait and result programming to checked MDIO. Transport errors stop calibration and withhold completion.
+- Added a pure six-bit calibration-code step helper with GNU89 host coverage for both wrap directions. The Leopard REXT table index is bounded before access; ordinary timeout/saturation and exhausted search retain the 0x20 fallback.
+- Every exit attempts shared analog clear and both port/common page-3 resets, preserving the first error; the VBG completion flag is published only after successful output programming and cleanup. Added Switch CLI source contract; exact-head Actions and XY-C1 L3 are pending.
+
+---
+
 ## 2026-11-23 — FE R50 checked MDIO and safe table indexing
 
 - Converted FE R50 setup, shared page-7/register-24 bit updates, FE page-3/4 state, comparator reads and both calibration waits to checked APIs. MDIO errors now abort the calibration instead of being treated as zero-valued samples.

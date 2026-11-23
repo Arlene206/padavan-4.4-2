@@ -834,8 +834,19 @@ static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
 	assert(fake.calls == 0U);
 }
 
+static void
+test_calibration_code_step_wraps_inside_six_bit_field(void)
+{
+	assert(ra_switch_mdio_calibration_code_step(0U, -1) == 0x3fU);
+	assert(ra_switch_mdio_calibration_code_step(0x3fU, 1) == 0U);
+	assert(ra_switch_mdio_calibration_code_step(0x20U, -1) == 0x1fU);
+	assert(ra_switch_mdio_calibration_code_step(0x20U, 1) == 0x21U);
+	assert(ra_switch_mdio_calibration_code_step(0x40U, -1) == 0x3fU);
+}
+
 int main(void)
 {
+	test_calibration_code_step_wraps_inside_six_bit_field();
 	test_page_read_selects_global_and_local_bank();
 	test_checked_cleanup_attempts_both_writes_and_keeps_first_error();
 	test_restore_cl45_register_always_attempts_disable();
