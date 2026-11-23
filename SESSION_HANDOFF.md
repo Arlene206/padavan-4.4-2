@@ -1,11 +1,11 @@
 ### 2026-11-23 接力更新（最新工程检查点）
 
-- 当前 main 基线：`d524e61986a573eaa92c800893273e79f78f2f6f`，GE Rext 已在前一提交改为 checked Clause 45 I/O 和可靠 restore/disable；该 SHA Switch CLI #45275576269、AI docs #45275576266 PASS，NVRAM #45275576404 与 XY-C1 #45275576662 仍在执行。
-- 当前源码切片：GE R50 common setup 和四 pair 校准不再调用 value-only PHY wrapper。分页寄存器、port-local RMW、pair selector、GE wait/comparator、四组 packed output 和 readback 均检查 MDIO 状态。
-- 任一传输错误停止剩余 pair；所有退出都尝试 checked analog cleanup 和最终 Clause 45 `1e:db=0`。超时/saturation 保留原有 0 dB fallback；只有两项 cleanup 成功才设置 `ge_cal_r50_flag`。
-- 新增 Switch CLI source contract；复用已由 GNU89/Werror/ASan/UBSan 覆盖的 checked update-bits policy。此提交 exact-head Actions 待检查，未声称 MIPS/kernel build、XY-C1 L3 或硬件 L4。
-- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`。
-- 下个 GPT 第一项：检查本次 SHA 的 Switch CLI / AI docs / NVRAM / XY-C1 exact-head runs；然后迁移 `ge_cal_tx_amp()` 的 checked save/restore 与错误传播。
+- 当前 main 源基线：`ca05cf915058cbe2141f38bff01575f9133767dd`。GE R50 在前一 SHA `ca05cf9` 已切换到 checked four-pair I/O 和 cleanup；其 exact-head Switch CLI / AI docs / NVRAM / XY-C1 尚待本轮检查。
+- 当前源码切片：`ge_cal_tx_amp()` 的启动写入、四 pair 控制寄存器读写、page-7 comparator 和 wait 均改为 checked MDIO API；日志不再用 value-only wrapper 读取回显值，而输出成功写入的计算值。
+- transport error 停止后续 pair 并进入 best-effort cleanup。新增 Clause45 cleanup-sequence helper 继续尝试整组写入、保留首错误；common analog clear、TX force register reset、辅助寄存器复位和 DB/DC/3E/DD disable 都按独立组执行。普通 timeout 仍沿用 0 dB fallback；失败不再错误设置 `ge_cal_flag`。
+- 新增 host fault injection + Switch CLI source contract。无 MIPS/kernel build、无同 SHA XY-C1 Build/TRX/artifact L3、无硬件 L4 声明。
+- 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 保持冻结。
+- 下个 GPT 第一项：检查本次 SHA 的 Switch CLI / AI docs / NVRAM / XY-C1 exact-head Actions；随后迁移 `ge_cal_tx_offset()`，特别审查 saved control fields 与最终 restore/disable 语义。
 
 ---
 # Cross-session execution mandate
@@ -27,12 +27,13 @@
 
 ## Active task
 
-### GE R50 four-pair calibration checked I/O and cleanup
+### GE TX-amplitude four-pair calibration checked I/O and cleanup
 
-- Checked common setup preserves the public legacy void ABI; the GE R50 body checks all page-register and Clause 45 operations.
-- The shared page-7/register-24 RMW changes only z-calibration bits. FE ports 1..4 page3/reg25 disables, each pair-selector write, calibration wait/comparator and all pair result fields are checked.
-- All exits attempt checked common analog cleanup and Clause 45 calibration disable. First error is retained, and the completion flag is withheld on transport/cleanup failures.
-- Next bounded candidate: migrate `ge_cal_tx_amp()` with checked snapshots, wait status and guaranteed analog-disable cleanup.
+- Setup and per-pair C45/paged register accesses use checked APIs. Transport errors abort the remaining algorithm rather than converting failures to zero values.
+- Ordinary not-ready timeout keeps the 0 dB fallback behavior. Every exit attempts the common analog clear and all C45 cleanup groups; first error is retained and the completion flag is withheld on failures.
+- Clause 45 cleanup sequence is host-fault-injection tested and the Switch CLI workflow enforces production source contracts.
+- Next candidate: inspect and migrate `ge_cal_tx_offset()` without altering its saved control register restoration semantics.
+
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -41,15 +42,15 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- Previous GE Rext SHA `d524e619`: Switch CLI #45275576269 PASS and AI docs #45275576266 PASS. NVRAM #45275576404 and XY-C1 #45275576662 were in progress at last poll.
-- The GE R50 source and static-contract changes are new; exact-head Actions still need inspection.
+- Previous R50 SHA `ca05cf9`: exact-head Switch CLI / AI docs / NVRAM / XY-C1 status is being checked; no L3 or L4 is claimed.
+- Current GE TX-amplitude source/policy/test/workflow changes are new and require their own exact-head Actions.
 - No local kernel/MIPS build, same-SHA XY-C1 Build+TRX+artifact L3 or physical hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect this GE R50 commit's exact push Actions for Switch CLI, AI docs, NVRAM and XY-C1, including Build/TRX/artifact conclusions.
-2. Diagnose any exact-head FAIL from its job logs; never treat queued/running/skipped XY-C1 work as L3.
-3. Continue with `ge_cal_tx_amp()` as a separate slice; inspect its FE/GE mixed page selection and cleanup before touching TX-offset calibration.
+1. Fetch live `main`; inspect this TX-amplitude SHA's exact push Actions for Switch CLI, AI docs, NVRAM and XY-C1, including Build/TRX/artifact job results.
+2. Diagnose exact-head failures from job logs; never count PENDING or skipped target build steps as L3.
+3. Continue with `ge_cal_tx_offset()` as a separate slice, preserving its original saved-value restore/final disable contract.
 
 
 ## Cross-session operating constraints

@@ -1072,6 +1072,33 @@ jobs:
           print("RAETH GE R50 calibration checks Clause 45 and paged MDIO paths and always runs cleanup: PASS")
           PY
 
+      - name: Validate GE TX amplitude calibration checks MDIO and best-effort cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+          txamp = source.split("void ge_cal_tx_amp(", 1)[1].split(
+              chr(10) + "void ge_cal_tx_offset(", 1
+          )[0]
+          assert "tc_phy_read_dev_reg(" not in txamp
+          assert "tc_phy_write_dev_reg(" not in txamp
+          assert "tc_phy_read_g_reg(" not in txamp
+          assert "tc_phy_write_g_reg(" not in txamp
+          assert "tc_phy_read_l_reg(" not in txamp
+          assert "tc_phy_write_l_reg(" not in txamp
+          assert "all_ge_ana_cal_wait(" not in txamp
+          assert txamp.count("all_ge_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_cleanup_cl45_writes(" in txamp
+          assert "clear_ckinv_ana_txvos_checked()" in txamp
+          assert txamp.index("cleanup:") < txamp.index("ge_cal_flag = 1;")
+          assert "ra_switch_mdio_cleanup_cl45_writes(" in policy
+          assert "test_cl45_cleanup_sequence_attempts_all_and_keeps_first_error();" in test
+          print("RAETH GE TX-amplitude path checks every MDIO operation and attempts all cleanup writes: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

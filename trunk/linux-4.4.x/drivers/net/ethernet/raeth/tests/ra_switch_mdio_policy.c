@@ -330,6 +330,45 @@ static void test_restore_cl45_register_always_attempts_disable(void)
 	assert(fake.calls == 0U);
 }
 
+static void test_cl45_cleanup_sequence_attempts_all_and_keeps_first_error(void)
+{
+	struct fake_io fake;
+	static const unsigned int registers[] = { 0x17dU, 0x17eU, 0x17fU };
+	static const unsigned int values[] = { 0U, 0U, 0U };
+	int status;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	status = ra_switch_mdio_cleanup_cl45_writes(
+		2U, 0x1eU, registers, values, 3U, fake_write_cl45, &fake);
+	assert(status == 0 && fake.calls == 3U);
+	assert(fake.reg[0] == 0x17dU && fake.reg[1] == 0x17eU &&
+	       fake.reg[2] == 0x17fU);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 1;
+	fake.fail_status = -ETIMEDOUT;
+	status = ra_switch_mdio_cleanup_cl45_writes(
+		2U, 0x1eU, registers, values, 3U, fake_write_cl45, &fake);
+	assert(status == -ETIMEDOUT && fake.calls == 3U);
+	assert(fake.reg[2] == 0x17fU);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.fail_status = 1;
+	status = ra_switch_mdio_cleanup_cl45_writes(
+		2U, 0x1eU, registers, values, 3U, fake_write_cl45, &fake);
+	assert(status == -EIO && fake.calls == 3U);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(ra_switch_mdio_cleanup_cl45_writes(
+		2U, 0x1eU, NULL, values, 3U, fake_write_cl45, &fake) == -EINVAL);
+	assert(ra_switch_mdio_cleanup_cl45_writes(
+		2U, 0x1eU, registers, values, 3U, NULL, &fake) == -EINVAL);
+	assert(fake.calls == 0U);
+}
+
 static void test_checked_update_bits_stops_on_read_error_and_preserves_bits(void)
 {
 	struct fake_io f;
@@ -800,6 +839,7 @@ int main(void)
 	test_page_read_selects_global_and_local_bank();
 	test_checked_cleanup_attempts_both_writes_and_keeps_first_error();
 	test_restore_cl45_register_always_attempts_disable();
+	test_cl45_cleanup_sequence_attempts_all_and_keeps_first_error();
 	test_checked_update_bits_stops_on_read_error_and_preserves_bits();
 	test_calibration_wait_checks_all_io_and_restores_trigger();
 	test_checked_phy_writes_propagate_and_normalize_failures();

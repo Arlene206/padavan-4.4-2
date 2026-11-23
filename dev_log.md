@@ -1,3 +1,11 @@
+## 2026-11-23 — Make GE TX-amplitude calibration MDIO-status aware
+
+- Base main SHA: `ca05cf915058cbe2141f38bff01575f9133767dd`; converted the GE TX-amplitude setup, four-pair search, comparator reads and per-pair result writes from value-only C45/paged PHY wrappers to checked operations.
+- The checked GE analog wait distinguishes transport errors from ordinary not-ready timeout; MDIO failures stop the remaining pair loops. A timeout keeps the existing 0 dB fallback behavior. Successful calibration is published only after cleanup.
+- Added a reusable Clause 45 cleanup-sequence helper that attempts every register write and retains the first error. TX-amplitude cleanup clears common analog state, restores the eight forced TX control registers and supporting C45/global registers, then disables DB/DC/3E/DD; each independent cleanup group is attempted even when an earlier write fails.
+- Added GNU89 policy fault injection for complete cleanup after a middle write failure and a Switch CLI source contract covering the production TX-amplitude function. Exact-head CI required; no MIPS build, XY-C1 L3 or hardware L4 is claimed.
+
+---
 ## 2026-11-23 — Make GE R50 calibration propagate MDIO failures
 
 - Base main SHA: `d524e61986a573eaa92c800893273e79f78f2f6f`; this slice covers the GE R50 common setup and four-pair calibration routine.

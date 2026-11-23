@@ -2079,7 +2079,7 @@ cleanup:
 }
 void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 {
-	u8	all_ana_cal_status;
+	u8	all_ana_cal_status, ready = 0;
 	u16	ad_cal_comp_out_init;
 	int	calibration_polarity;
 	u16	cal_pair;
@@ -2089,73 +2089,169 @@ void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 
 	u16	tx_amp_temp_L, tx_amp_temp_M;
 	u16	tx_amp_L_100, tx_amp_M_100;
+	unsigned int read_value = 0, page_value = 0;
+	int status = 0, cleanup_status;
+	static const unsigned int tx_amp_cleanup_dev1e_regs[] = {
+		0x017dU, 0x017eU, 0x017fU, 0x0180U,
+		0x0181U, 0x0182U, 0x0183U, 0x0184U,
+		0x00c9U, 0x00dbU, 0x00dcU, 0x003eU, 0x00ddU
+	};
+	static const unsigned int tx_amp_cleanup_dev1e_values[] = {
+		0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U,
+		0x0fffU, 0U, 0U, 0U, 0U
+	};
+	static const unsigned int tx_amp_cleanup_dev1f_regs[] = { 0x0273U };
+	static const unsigned int tx_amp_cleanup_dev1f_values[] = { 0x2000U };
 	/* *** Tx Amp Cal start ***/
-	tc_phy_write_l_reg(0, 0, 0, 0x0140);
+	status = tc_phy_write_page_reg_checked(0, 0, 0, 1, 0x0140);
+	if (status != 0)
+		goto cleanup;
 
-	tc_phy_write_dev_reg(0, 0x1e, 0x3e, 0xf808);
-	tc_phy_write_dev_reg(0, 0x1e, 0x145, 0x5010);
-	tc_phy_write_dev_reg(0, 0x1e, 0x17d, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x17e, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x17f, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x180, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x181, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x182, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x183, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x184, 0x80f0);
-	tc_phy_write_dev_reg(0, 0x1e, 0x00db, 0x1000);
-	tc_phy_write_dev_reg(0, 0x1e, 0x00dc, 0x0001);
-	tc_phy_write_dev_reg(0, 0x1f, 0x300, 0x4);
-	tc_phy_write_dev_reg(0, 0x1f, 0x27a, 0x33);
-	tc_phy_write_g_reg(1, 2, 25, 0xf020);
-	tc_phy_write_dev_reg(0, 0x1f, 0x300, 0x14);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0x7000);
-	l3r25_temp = tc_phy_read_l_reg(FE_CAL_COMMON, 3, 25);
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x3e, 0xf808);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x145, 0x5010);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x17d, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x17e, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x17f, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x180, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x181, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x182, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x183, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x184, 0x80f0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x00db, 0x1000);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1e, 0x00dc, 0x0001);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1f, 0x300, 0x4);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1f, 0x27a, 0x33);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(1, 2, 25, 0, 0xf020);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(0, 0x1f, 0x300, 0x14);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 7, 24, 0, 0x7000);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_read_page_reg_checked(FE_CAL_COMMON, 3, 25, 1, &read_value);
+	if (status != 0)
+		goto cleanup;
+	l3r25_temp = (u16)read_value;
 	l3r25_temp = l3r25_temp | 0x200;
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, l3r25_temp);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x11, 0xff00);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x273, 0);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0xc9, 0xffff);
-	tc_phy_write_g_reg(1, 2, 25, 0xb020);
+	status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 3, 25, 1, l3r25_temp);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x11, 0xff00);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1f, 0x273, 0);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0xc9, 0xffff);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(1, 2, 25, 0, 0xb020);
+	if (status != 0)
+		goto cleanup;
 
 	for (cal_pair = ANACAL_PAIR_A; cal_pair <= ANACAL_PAIR_D; cal_pair++) {
 		tx_amp_temp = 0x20;	/* start with 0 dB */
-		tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0x7000);
+		status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 7, 24, 0, 0x7000);
+		if (status != 0)
+			goto cleanup;
 		if (cal_pair == ANACAL_PAIR_A) {
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x1000);
-			reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x012) & (~0xfc00));
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00dd, 0x1000);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x012, &read_value);
+			if (status != 0)
+				goto cleanup;
+			reg_temp = (u16)(read_value & (~0xfc00));
 			tx_amp_reg_shift = 10;
 			tx_amp_reg = 0x12;
 			tx_amp_reg_100 = 0x16;
 		} else if (cal_pair == ANACAL_PAIR_B) {
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0100);
-			reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x017) & (~0x3f00));
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00dd, 0x0100);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x017, &read_value);
+			if (status != 0)
+				goto cleanup;
+			reg_temp = (u16)(read_value & (~0x3f00));
 			tx_amp_reg_shift = 8;
 			tx_amp_reg = 0x17;
 			tx_amp_reg_100 = 0x18;
 		} else if (cal_pair == ANACAL_PAIR_C) {
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0010);
-			reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x019) & (~0x3f00));
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00dd, 0x0010);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x019, &read_value);
+			if (status != 0)
+				goto cleanup;
+			reg_temp = (u16)(read_value & (~0x3f00));
 			tx_amp_reg_shift = 8;
 			tx_amp_reg = 0x19;
 			tx_amp_reg_100 = 0x20;
 		} else {/* if(cal_pair == ANACAL_PAIR_D) */
-			tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0001);
-			reg_temp = (tc_phy_read_dev_reg(phyaddr, 0x1e, 0x021) & (~0x3f00));
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, 0x00dd, 0x0001);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_dev_reg_checked(phyaddr, 0x1e, 0x021, &read_value);
+			if (status != 0)
+				goto cleanup;
+			reg_temp = (u16)(read_value & (~0x3f00));
 			tx_amp_reg_shift = 8;
 			tx_amp_reg = 0x21;
 			tx_amp_reg_100 = 0x22;
 		}
 		/* 1e_12, 1e_17, 1e_19, 1e_21 */
 		val_tmp = tx_amp_temp | (tx_amp_temp << tx_amp_reg_shift);
-		tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg, val_tmp);
-		tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg_100, val_tmp);
-		all_ana_cal_status = all_ge_ana_cal_wait(delay, phyaddr);
+		status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg, val_tmp);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg_100, val_tmp);
+		if (status != 0)
+			goto cleanup;
+		ready = 0;
+		status = all_ge_ana_cal_wait_checked(delay, phyaddr, &ready);
+		if (status != 0)
+			goto cleanup;
+		all_ana_cal_status = ready ? ANACAL_INIT : ANACAL_ERROR;
 		if (all_ana_cal_status == 0) {
 			all_ana_cal_status = ANACAL_ERROR;
 			pr_info(" GE Tx amp AnaCal ERROR!   \r\n");
 		}
 /* 1e_17a[8]:ad_cal_comp_out */
-		ad_cal_comp_out_init = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		ad_cal_comp_out_init = (u16)(page_value & 0x1U);
 		if (ad_cal_comp_out_init == 1)
 			calibration_polarity = -1;
 		else
@@ -2167,19 +2263,31 @@ void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 			tx_amp_temp += calibration_polarity;
 
 			val_tmp = (tx_amp_temp | (tx_amp_temp << tx_amp_reg_shift));
-			tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg, val_tmp);
-			tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg_100, val_tmp);
-			all_ana_cal_status = all_ge_ana_cal_wait(delay, phyaddr);
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg, val_tmp);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg_100, val_tmp);
+			if (status != 0)
+				goto cleanup;
+			ready = 0;
+			status = all_ge_ana_cal_wait_checked(delay, phyaddr, &ready);
+			if (status != 0)
+				goto cleanup;
+			all_ana_cal_status = ready ? ANACAL_INIT : ANACAL_ERROR;
 			if (all_ana_cal_status == 0) {
 				all_ana_cal_status = ANACAL_ERROR;
 				pr_info(" GE Tx amp AnaCal ERROR!\n");
-			} else if ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1) !=
-				    ad_cal_comp_out_init) {
-				all_ana_cal_status = ANACAL_FINISH;
 			} else {
-				if ((tx_amp_temp == 0x3f) || (tx_amp_temp == 0x00)) {
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				if ((page_value & 0x1U) != ad_cal_comp_out_init) {
+					all_ana_cal_status = ANACAL_FINISH;
+				} else if ((tx_amp_temp == 0x3f) ||
+					   (tx_amp_temp == 0x00)) {
 					all_ana_cal_status = ANACAL_SATURATION;
-					pr_info(" GE Tx amp AnaCal Saturation!  \r\n");
+					pr_info(" GE Tx amp AnaCal Saturation!  \\r\\n");
 				}
 			}
 		}
@@ -2187,7 +2295,9 @@ void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 			pr_info("ANACAL_ERROR\n");
 			tx_amp_temp = 0x20;
 			val_tmp = (reg_temp | (tx_amp_temp << tx_amp_reg_shift));
-			tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg, val_tmp);
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg, val_tmp);
+			if (status != 0)
+				goto cleanup;
 		}
 
 		if (all_ana_cal_status == ANACAL_FINISH) {
@@ -2253,66 +2363,87 @@ void ge_cal_tx_amp(u8 phyaddr, unsigned int delay)
 					((tx_amp_M_100) << tx_amp_reg_shift));
 			}
 
-			tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg, val_tmp);
-			tc_phy_write_dev_reg(phyaddr, 0x1e, tx_amp_reg_100, val_tmp_100);
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg, val_tmp);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_write_dev_reg_checked(phyaddr, 0x1e, tx_amp_reg_100, val_tmp_100);
+			if (status != 0)
+				goto cleanup;
 
 			if (cal_pair == ANACAL_PAIR_A) {
 				pr_info("TX_AMP_PAIR_A : 1e_%x = 0x%x\n",
 					tx_amp_reg,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg));
+					val_tmp);
 				pr_info("TX_AMP_PAIR_A : 1e_%x = 0x%x\n",
 					tx_amp_reg_100,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg_100));
+					val_tmp_100);
 			} else if (cal_pair == ANACAL_PAIR_B) {
 				pr_info("TX_AMP_PAIR_B : 1e_%x = 0x%x\n",
 					tx_amp_reg,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg));
+					val_tmp);
 				pr_info("TX_AMP_PAIR_B : 1e_%x = 0x%x\n",
 					tx_amp_reg_100,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg_100));
+					val_tmp_100);
 			} else if (cal_pair == ANACAL_PAIR_C) {
 				pr_info("TX_AMP_PAIR_C : 1e_%x = 0x%x\n",
 					tx_amp_reg,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg));
+					val_tmp);
 				pr_info("TX_AMP_PAIR_C : 1e_%x = 0x%x\n",
 					tx_amp_reg_100,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg_100));
+					val_tmp_100);
 
 			} else {/* if(cal_pair == ANACAL_PAIR_D) */
 				pr_info("TX_AMP_PAIR_D : 1e_%x = 0x%x\n",
 					tx_amp_reg,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg));
+					val_tmp);
 				pr_info("TX_AMP_PAIR_D : 1e_%x = 0x%x\n",
 					tx_amp_reg_100,
-					tc_phy_read_dev_reg(phyaddr, 0x1e, tx_amp_reg_100));
+					val_tmp_100);
 			}
 		}
 	}
 
+cleanup:
+	/* Attempt all independent shutdown writes and retain the first error. */
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = ra_switch_mdio_cleanup_cl45_writes(
+		phyaddr, 0x1eU, tx_amp_cleanup_dev1e_regs,
+		tx_amp_cleanup_dev1e_values,
+		sizeof(tx_amp_cleanup_dev1e_regs) /
+			sizeof(tx_amp_cleanup_dev1e_regs[0]),
+		ra_switch_mdio_write_cl45_cb, NULL);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = ra_switch_mdio_cleanup_cl45_writes(
+		phyaddr, 0x1fU, tx_amp_cleanup_dev1f_regs,
+		tx_amp_cleanup_dev1f_values,
+		sizeof(tx_amp_cleanup_dev1f_regs) /
+			sizeof(tx_amp_cleanup_dev1f_regs[0]),
+		ra_switch_mdio_write_cl45_cb, NULL);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = tc_phy_write_page_reg_checked(
+		1U, 2U, 25U, 0, 0xb020U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	cleanup_status = tc_phy_write_dev_reg_checked(
+		0U, 0x1eU, 0x0145U, 0x1000U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	if (status != 0) {
+		pr_err_ratelimited("%s: GE TX amplitude calibration failed (port=%u status=%d)\\n",
+				   __func__, phyaddr, status);
+		return;
+	}
 	ge_cal_flag = 1;
-	pr_info("GE_TX_AMP END\n");
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x017d, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x017e, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x017f, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0180, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0181, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0182, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0183, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x0184, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1f, 0x273, 0x2000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0xc9, 0x0fff);
-	tc_phy_write_g_reg(1, 2, 25, 0xb020);
-	tc_phy_write_dev_reg(0, 0x1e, 0x145, 0x1000);
-
-/* disable analog calibration circuit */
-/* disable Tx offset calibration circuit */
-/* disable Tx VLD force mode */
-/* disable Tx offset/amplitude calibration circuit */
-
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00db, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dc, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x003e, 0x0000);
-	tc_phy_write_dev_reg(phyaddr, 0x1e, 0x00dd, 0x0000);
+	pr_info("GE_TX_AMP END\\n");
 	/* *** Tx Amp Cal end *** */
 }
 

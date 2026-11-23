@@ -46,6 +46,32 @@ ra_switch_mdio_write_cl45_checked(unsigned int port, unsigned int dev,
 }
 
 /*
+ * Attempt an entire Clause 45 cleanup sequence even after an I/O error.
+ * Keep the first failure so callers can continue independent cleanup groups.
+ */
+static inline int
+ra_switch_mdio_cleanup_cl45_writes(
+		unsigned int port, unsigned int dev,
+		const unsigned int *registers, const unsigned int *values,
+		unsigned int count, ra_switch_mdio_write_cl45_fn write,
+		void *context)
+{
+	unsigned int i;
+	int status = 0;
+	int write_status;
+
+	if (!write || (count != 0U && (!registers || !values)))
+		return -EINVAL;
+	for (i = 0U; i < count; ++i) {
+		write_status = ra_switch_mdio_write_cl45_checked(
+			port, dev, registers[i], values[i], write, context);
+		if (status == 0 && write_status != 0)
+			status = write_status;
+	}
+	return status;
+}
+
+/*
  * Restore a saved calibration register when valid, then always try to
  * disable the calibration engine. Preserve the first I/O error.
  */
