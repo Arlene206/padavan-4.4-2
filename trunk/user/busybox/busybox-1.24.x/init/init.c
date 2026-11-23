@@ -598,7 +598,18 @@ static void waitfor(pid_t pid)
 	 * Avoid a separate PID-existence probe followed by a generic blocking wait:
 	 * PID reuse can otherwise make init wait on an unrelated live process.
 	 */
-	wait_status = init_wait_for_child(pid, waitpid, &child_reaped);
+	for (;;) {
+		wait_status = init_wait_for_child(pid, waitpid, &child_reaped);
+		if (wait_status != EINTR)
+			break;
+		/*
+		 * Shutdown/restart must not be held behind a blocking SYSINIT/WAIT
+		 * child. HUP and Ctrl-Alt-Del stay queued until run_actions() has
+		 * finished traversing the mutable inittab list.
+		 */
+		check_delayed_wait_signals();
+		flush_pending_reaped_children();
+	}
 	if (wait_status != 0)
 		message(L_LOG, "waitpid(%d) failed: %s", pid, strerror(wait_status));
 	else if (child_reaped)
@@ -1119,6 +1130,53 @@ static int init_install_delayed_signal_handlers(void)
 		return error;
 #endif
 	return 0;
+}
+
+/*
+ * waitfor() is called while run_actions() is traversing init_action_list.
+ * Service terminal restart/shutdown immediately when waitpid is interrupted,
+ * but leave HUP and Ctrl-Alt-Del pending until that traversal is complete.
+ */
+static void check_delayed_wait_signals(void)
+{
+	sigset_t pending_set, old_set;
+	sig_atomic_t events;
+	int shutdown_signal = 0;
+	int error;
+
+	error = init_build_delayed_signal_set(&pending_set);
+	if (error) {
+		message(L_LOG, "cannot build delayed wait signal mask: %s",
+			strerror(error));
+		pause_and_low_level_reboot(RB_HALT_SYSTEM);
+	}
+	if (sigprocmask(SIG_BLOCK, &pending_set, &old_set) != 0) {
+		error = errno > 0 ? errno : EIO;
+		message(L_LOG, "cannot block delayed wait signals: %s",
+			strerror(error));
+		pause_and_low_level_reboot(RB_HALT_SYSTEM);
+	}
+
+	events = init_signal_pending_take_urgent(&pending_init_signals,
+						 &shutdown_signal);
+	if (sigprocmask(SIG_SETMASK, &old_set, NULL) != 0) {
+		error = errno > 0 ? errno : EIO;
+		if (events >= 0)
+			(void)init_signal_pending_restore(&pending_init_signals,
+							  events,
+							  shutdown_signal);
+		message(L_LOG, "cannot restore delayed wait signal mask: %s",
+			strerror(error));
+		pause_and_low_level_reboot(RB_HALT_SYSTEM);
+	}
+	if (events < 0) {
+		message(L_LOG, "invalid delayed wait signal state");
+		pause_and_low_level_reboot(RB_HALT_SYSTEM);
+	}
+	if (events & INIT_SIGNAL_PENDING_SHUTDOWN)
+		halt_reboot_pwoff(shutdown_signal);
+	if (events & INIT_SIGNAL_PENDING_QUIT)
+		exec_restart_action();
 }
 
 static int check_delayed_sigs(void)

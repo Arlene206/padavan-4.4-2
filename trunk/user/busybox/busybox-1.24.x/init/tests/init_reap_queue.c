@@ -120,24 +120,20 @@ static void test_wait_for_exact_child_only(void)
 	assert(fake_waitpid_step_index == 1);
 }
 
-static void test_wait_for_exact_child_retries_eintr(void)
+static void test_wait_for_exact_child_reports_eintr_to_main_loop(void)
 {
-	int child_reaped = 0;
+	int child_reaped = 1;
 
 	fake_waitpid_steps[0].expected_pid = 1234;
 	fake_waitpid_steps[0].result = (pid_t)-1;
 	fake_waitpid_steps[0].expected_options = 0;
 	fake_waitpid_steps[0].error_number = EINTR;
-	fake_waitpid_steps[1].expected_pid = 1234;
-	fake_waitpid_steps[1].result = 1234;
-	fake_waitpid_steps[1].expected_options = 0;
-	fake_waitpid_steps[1].error_number = 0;
-	fake_waitpid_step_count = 2;
+	fake_waitpid_step_count = 1;
 	fake_waitpid_step_index = 0;
 
-	assert(init_wait_for_child(1234, fake_init_waitpid, &child_reaped) == 0);
-	assert(child_reaped == 1);
-	assert(fake_waitpid_step_index == 2);
+	assert(init_wait_for_child(1234, fake_init_waitpid, &child_reaped) == EINTR);
+	assert(child_reaped == 0);
+	assert(fake_waitpid_step_index == 1);
 }
 
 static void test_wait_for_exact_child_accepts_signal_handler_reap(void)
@@ -241,7 +237,7 @@ static void test_wait_for_exact_child_does_not_reap_peer(void)
 int main(void)
 {
 	test_wait_for_exact_child_only();
-	test_wait_for_exact_child_retries_eintr();
+	test_wait_for_exact_child_reports_eintr_to_main_loop();
 	test_wait_for_exact_child_accepts_signal_handler_reap();
 	test_wait_for_exact_child_propagates_errors();
 	test_wait_for_exact_child_rejects_invalid_inputs();

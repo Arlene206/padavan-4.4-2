@@ -53,10 +53,19 @@ assert "mark_terminated(pid)" in waitfor
 assert "waitpid(-1, NULL, WNOHANG)" in waitfor
 assert "wpid < 0 && errno == EINTR" in waitfor
 assert "flush_pending_reaped_children();" in waitfor
-assert "init_wait_for_child" in QUEUE
+wait_eintr = waitfor.index("if (wait_status != EINTR)")
+wait_service = waitfor.index("check_delayed_wait_signals();", wait_eintr)
+wait_flush = waitfor.index("flush_pending_reaped_children();", wait_service)
+wait_continue = waitfor.index("continue;", wait_flush)
+wait_retry = waitfor.index("init_wait_for_child(pid, waitpid, &child_reaped)", wait_continue)
+assert wait_eintr < wait_service < wait_flush < wait_continue < wait_retry
+assert "return EINTR;" in QUEUE
+assert "continue;" not in section(
+    QUEUE, "init_wait_for_child(pid_t target_pid", "static inline int\\ninit_reap_queue_has_capacity"
+)
 for test_name in (
     "test_wait_for_exact_child_only",
-    "test_wait_for_exact_child_retries_eintr",
+    "test_wait_for_exact_child_reports_eintr_to_main_loop",
     "test_wait_for_exact_child_accepts_signal_handler_reap",
     "test_wait_for_exact_child_propagates_errors",
     "test_wait_for_exact_child_rejects_invalid_inputs",
@@ -99,6 +108,19 @@ signal_handler = section(
     "static int init_add_delayed_signal(sigset_t *set, int signo)",
 )
 assert "init_signal_pending_record(&pending_init_signals, signo)" in signal_handler
+urgent_wait = section(
+    SOURCE,
+    "static void check_delayed_wait_signals(void)",
+    "static int check_delayed_sigs(void)",
+)
+assert "init_signal_pending_take_urgent(&pending_init_signals" in urgent_wait
+assert "sigprocmask(SIG_BLOCK, &pending_set, &old_set)" in urgent_wait
+assert "init_signal_pending_restore(&pending_init_signals" in urgent_wait
+assert "halt_reboot_pwoff(shutdown_signal)" in urgent_wait
+assert "exec_restart_action()" in urgent_wait
+assert "reload_inittab()" not in urgent_wait
+assert "run_actions(CTRLALTDEL)" not in urgent_wait
+
 signal_install = section(
     SOURCE,
     "static int init_install_delayed_signal_handlers(void)",
@@ -172,6 +194,8 @@ for test_name in (
     "test_retains_shutdown_mode_and_clears_each_batch",
     "test_restores_a_batch_without_overwriting_newer_shutdown",
     "test_ignores_unhandled_signals_and_rejects_invalid_state",
+    "test_take_urgent_keeps_reload_and_ctrl_alt_del_pending",
+    "test_take_urgent_handles_restart_without_clearing_deferred_events",
 ):
     assert f"static void {test_name}(void)" in SIGNAL_TEST, test_name
     assert f"{test_name}();" in SIGNAL_TEST, test_name

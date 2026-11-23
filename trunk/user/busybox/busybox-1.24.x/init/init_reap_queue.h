@@ -47,7 +47,7 @@ init_wait_for_child(pid_t target_pid, init_waitpid_fn wait_child,
 			return 0;
 		}
 		if (result < 0 && errno == EINTR)
-			continue;
+			return EINTR;
 		if (result < 0 && errno == ECHILD)
 			return 0;
 		if (result < 0)

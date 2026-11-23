@@ -74,6 +74,35 @@ init_signal_pending_take(struct init_signal_pending *pending,
 	return events;
 }
 
+/*
+ * While waitfor() owns the inittab traversal, process only shutdown/restart
+ * requests. HUP reloads and Ctrl-Alt-Del action traversal must remain queued
+ * until run_actions() returns, otherwise the current action-list cursor can
+ * be invalidated by reload_inittab().
+ */
+static inline sig_atomic_t
+init_signal_pending_take_urgent(struct init_signal_pending *pending,
+				int *shutdown_signal)
+{
+	const sig_atomic_t urgent_events = INIT_SIGNAL_PENDING_QUIT
+		| INIT_SIGNAL_PENDING_SHUTDOWN;
+	sig_atomic_t events;
+
+	if (!pending)
+		return (sig_atomic_t)-1;
+
+	events = pending->events & urgent_events;
+	pending->events &= ~urgent_events;
+	if (shutdown_signal)
+		*shutdown_signal = 0;
+	if (events & INIT_SIGNAL_PENDING_SHUTDOWN) {
+		if (shutdown_signal)
+			*shutdown_signal = (int)pending->shutdown_signal;
+		pending->shutdown_signal = 0;
+	}
+	return events;
+}
+
 /* Requeue a taken batch if the caller cannot restore its previous signal mask. */
 static inline int
 init_signal_pending_restore(struct init_signal_pending *pending,
