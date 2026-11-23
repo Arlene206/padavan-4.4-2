@@ -52,6 +52,17 @@ test_folder_entry_status_rejects_symlinks_and_non_directories(void)
 
 
 static void
+test_folder_name_visibility_policy(void)
+{
+	assert(disk_share_folder_name_is_visible("media", 1, 0) == 1);
+	assert(disk_share_folder_name_is_visible(".hidden", 1, 0) == 0);
+	assert(disk_share_folder_name_is_visible("lost+found", 1, 1) == 0);
+	assert(disk_share_folder_name_is_visible("media", 0, 0) == 0);
+	assert(disk_share_folder_name_is_visible("", 1, 0) == 0);
+	assert(disk_share_folder_name_is_visible(NULL, 1, 0) == 0);
+}
+
+static void
 test_invalid_mount_paths_clear_outputs(void)
 {
 	char *sentinel = "stale";
@@ -2562,6 +2573,7 @@ main(void)
 
 	test_folder_rollback_preserves_permissions_when_directory_survives();
 	test_folder_entry_status_rejects_symlinks_and_non_directories();
+test_folder_name_visibility_policy();
 	test_folder_delete_batch_commits_directory_snapshot_and_permissions();
 	test_folder_delete_batch_restores_directory_after_snapshot_failure();
 	test_folder_delete_batch_restores_files_and_directory_after_write_failure();

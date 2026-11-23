@@ -29,6 +29,18 @@ disk_share_folder_entry_status(int stat_result, int stat_error, mode_t mode)
 
 
 /*
+ * Only real, valid, non-hidden, non-system directories are shareable.
+ * A removable-volume folder-list cache is untrusted input, so callers must
+ * apply this policy to cached names as well as names returned by readdir().
+ */
+static inline int
+disk_share_folder_name_is_visible(const char *name, int valid_name,
+                                  int system_folder)
+{
+	return name && *name && name[0] != '.' && valid_name && !system_folder;
+}
+
+/*
  * Reset caller-owned outputs before rejecting invalid inputs. This keeps
  * error cleanup safe in callers that always release the returned list.
  */

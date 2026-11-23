@@ -296,6 +296,13 @@ int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, cha
 		tmp_folder_list[i][name_len] = '\0';
 		if (!is_valid_folder_name(tmp_folder_list[i]))
 			goto invalid_entries;
+		if (!disk_share_folder_name_is_visible(
+			    tmp_folder_list[i], 1,
+			    test_if_System_folder(tmp_folder_list[i]))) {
+			free(tmp_folder_list[i]);
+			tmp_folder_list[i] = NULL;
+			continue;
+		}
 
 		target_len = snprintf(folder_path, folder_path_size, "%s/%s",
 		                     mount_path, tmp_folder_list[i]);
@@ -365,14 +372,12 @@ int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char
 			goto failed;
 		}
 
-		if (dp->d_name[0] == '.')
-			continue;
-		if (test_if_System_folder(dp->d_name) == 1)
+		if (!disk_share_folder_name_is_visible(
+			    dp->d_name, is_valid_folder_name(dp->d_name),
+			    test_if_System_folder(dp->d_name)))
 			continue;
 
 		name_len = strlen(dp->d_name);
-		if (!is_valid_folder_name(dp->d_name))
-			continue;
 		if (mount_len > (size_t)-1 - name_len - 2)
 			goto failed;
 

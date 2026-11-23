@@ -116,6 +116,24 @@ for signature in (
             signature + " must reset outputs before using the mount path")
 
 
+require("disk_share_folder_name_is_visible" in POLICY,
+        "folder visibility policy must reject hidden and system directories")
+cached_folders = function_body(
+    DISK_SOURCE,
+    "int get_folder_list_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
+)
+fresh_folders = function_body(
+    DISK_SOURCE,
+    "int get_all_folder_in_mount_path(const char *const mount_path, int *sh_num, char ***folder_list)"
+)
+require("disk_share_folder_name_is_visible" in cached_folders and
+        "test_if_System_folder" in cached_folders and
+        "disk_share_folder_name_is_visible" in fresh_folders and
+        "test_if_System_folder" in fresh_folders,
+        "cached share names must not bypass hidden/system-directory exclusions")
+require("test_folder_name_visibility_policy();" in POLICY_TEST,
+        "hidden/system directory cache bypass needs a policy regression test")
+
 require("disk_share_list_next_entry" in POLICY,
         "shared readdir status policy is missing")
 all_folders = function_body(DISK_SOURCE,
