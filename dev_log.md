@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Correct AP-client WISP static-check whitespace normalization
+
+- Exact-SHA USB modem workflow #45213624031 on `7c16ec5c8738e3b8b698c75f5b01b1d9ab41aca7` completed all compiled C regression steps and all earlier checker groups successfully, then failed on the new WISP text-reader assertion.
+- Root cause was in the new test only: the shared `compact()` function collapses whitespace to one space, while the added assertions compared strings with all spaces removed. Changed the new WISP assertions to use an explicit whitespace-stripping helper; no production source behavior changed.
+- Require the rerun of USB modem identity and the exact-SHA XY-C1 Build/TRX/artifact steps before calling this WISP slice verified. The first failure is not evidence of a firmware build result.
+
+---
+
 ## 2026-11-23 UTC — Preserve unknown AP-client WISP state during WAN/modem selection
 
 - Found that `get_apcli_wisp_ifname()` derived WAN policy from lossy `nvram_wlan_get_int()` and `nvram_wlan_get()` accessors. A backend failure could be converted to zero/empty and reported as no WISP, which could allow priority-2 USB modem startup or WAN identity changes while the actual AP-client configuration was unknown.

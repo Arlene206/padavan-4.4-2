@@ -14,7 +14,7 @@
 - THIS COMMIT fixes a fail-open around modem/WAN selection: `get_apcli_wisp_ifname()` used lossy `nvram_wlan_get_int()` / `nvram_wlan_get()` accessors. If a WLAN NVRAM read failed, its safe-get fallback could return radio disabled, WISP disabled or empty SSID, causing callers to mistake an active/uninspectable AP-client WISP configuration for ordinary Ethernet WAN.
 - Added `get_apcli_wisp_ifname_status()`, which checks per-band mode, radio-enable, WISP-enable and SSID using the existing checked integer reader plus a checked text reader. Backend and malformed integer errors propagate; an actually missing SSID retains the historical empty-string behavior. The legacy pointer API remains as a compatibility wrapper.
 - USB modem hotplug and initial WAN modem-device selection now abort/retry if WISP identity cannot be read; they never start a competing USB modem on UNKNOWN WISP state. AP-client WAN migration, manual reassociation and post-radio WAN recovery now use the checked result too.
-- Extended the USB modem identity workflow's source contract and path filters to include `net_wifi.c`. Exact-head USB modem, Process/AI docs and XY-C1 actions for this WISP source are pending at commit creation.
+- Extended the USB modem identity workflow's source contract and path filters to include `net_wifi.c`. The first exact-head run #45213624031 reached the final static source contract after all prior C regressions and checker groups passed, then failed because the new assertions used a no-whitespace comparison while the existing `compact()` helper preserves single spaces. THIS COMMIT changes the new block to use a whitespace-stripping comparator. Re-run the exact USB modem check; Process/AI docs and XY-C1 remain independently pending.
 
 ## Exact first action for the next GPT
 
@@ -25,6 +25,7 @@
 ## Exact-SHA CI facts at this checkpoint
 
 - On `a05ef61364ba4c24ec138e2911fd7469290b1648`: USB modem identity #45211762454 PASS; Process inventory #45211762366 PASS; Process fail-closed #45211762281 PASS; AI docs #45211762276 PASS; USB storage #45211762307 PASS; Firewall #45211762429 PASS; NVRAM #45211762395 PASS.
+- On WISP SHA `7c16ec5c8738e3b8b698c75f5b01b1d9ab41aca7`, USB modem identity #45213624031 FAILED only at the just-added checker assertion `nvram_get_checked(name,&stored_value)`; the preceding compiled C regressions and all earlier source-contract groups passed. This is a checker-normalization mismatch, not a production compile result. The exact-SHA run must be repeated after this correction.
 - XY-C1 #45211762656 was IN_PROGRESS at the last poll: Build running, TRX and artifact pending. The earlier XY-C1 #45207830678 success was on older source `8fa162a` and does not validate current code.
 - Main before THIS WISP commit was `a05ef61364ba4c24ec138e2911fd7469290b1648`; refresh main and pass expected-SHA on every write. Never force-push, create branches or touch the frozen archive.
 

@@ -1,5 +1,5 @@
 Current implementation checkpoint (2026-11-23):
-- AP-client WISP detection now uses checked per-band NVRAM reads for mode, radio-enable, WISP flag and SSID. USB modem auto-start/device selection and AP-client WAN recovery paths propagate UNKNOWN WISP identity rather than treating it as absent. Exact-head USB modem identity and XY-C1 verification pending.
+- AP-client WISP detection now uses checked per-band NVRAM reads for mode, radio-enable, WISP flag and SSID. USB modem auto-start/device selection and AP-client WAN recovery paths propagate UNKNOWN WISP identity rather than treating it as absent. Exact-head USB modem identity #45213624031 first failed only in the newly added Python whitespace assertion; checker fix and exact-SHA rerun pending.
 
 
 
