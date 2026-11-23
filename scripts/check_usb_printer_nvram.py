@@ -81,18 +81,17 @@ read=raw.index('read_usb_printer_setting_status("rawd_enable"')
 gate=raw.index("if (setting_status != 0)",read)
 prop=raw.index("return setting_status;",gate)
 disabled=raw.index('strcmp(setting, "0")',prop)
-mode=raw.index('strcmp(setting, "2")',disabled)
-launch=raw.index('eval("/usr/sbin/p910nd"',mode)
-assert read<gate<prop<disabled<mode<launch
 port_prepare=raw.index("usb_printer_p910nd_port_from_device(")
 process_name=raw.index("usb_printer_p910nd_process_name(")
+mode=raw.index('strcmp(setting, "2")',disabled)
 bidir_launch=raw.index('eval("/usr/sbin/p910nd", "-b", "-f", devlp, port)')
 single_launch=raw.index('eval("/usr/sbin/p910nd", "-f", devlp, port)')
 readiness_port=raw.index("start_status = usb_printer_daemon_postcondition(process_name);")
 failure_gate=raw.index("if (start_status != 0)",readiness_port)
 rollback=raw.index("usb_printer_daemon_start_failure_recover(",failure_gate)
-assert launch<port_prepare<process_name<bidir_launch<readiness_port<failure_gate<rollback
-assert process_name<single_launch<readiness_port
+assert read<gate<prop<disabled<port_prepare<process_name<mode<bidir_launch<readiness_port<failure_gate<rollback
+assert mode<single_launch<readiness_port
+assert 'usb_printer_daemon_start_failure_recover(\n\t\t\tprocess_name, start_status)' in raw
 assert "return start_status;" in raw[rollback:]
 stop_raw=body("stop_p910nd(void)")
 for index in range(10):

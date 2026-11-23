@@ -511,7 +511,7 @@ start_p910nd(char *devlp)
 	if (start_status != 0) {
 		/* eval() observes only the daemonizing parent; stop a late child. */
 		start_status = usb_printer_daemon_start_failure_recover(
-			"p9100d", start_status);
+			process_name, start_status);
 		logmessage("USB Printer",
 			   "p910nd daemon readiness failed for %s (status=%d)",
 			   devlp, start_status);

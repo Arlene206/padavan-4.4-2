@@ -1,3 +1,9 @@
+## 2026-11-23 — Keep p910nd readiness rollback scoped to the selected printer
+
+- The first exact-SHA USB workflow caught a source-contract ordering assertion error; review of the same source also found that the new per-port readiness path still passed the old literal `p9100d` to the rollback helper. That could stop the wrong daemon when a non-zero port failed readiness.
+- Changed rollback to use the same validated `process_name` used by readiness. Corrected the checker ordering to reflect that port parsing/name construction precedes the port-specific launch. Process workflow now explicitly guards the per-port rollback target.
+- Initial p910nd test compile and full exact-head XY-C1/Process/Storage results are being checked on successor SHA.
+
 ## 2026-11-23 — Correct p910nd per-printer port and process identity
 
 - Fixed a concrete multi-printer defect: the hotplug loop scans `/dev/usb/lp0` through `lp9`, but every p910nd launch passed port `0`. p910nd uses that digit for its TCP port, lock/PID filename, and rewritten process identity (`p9100d` through `p9109d`), so multiple printers collided and readiness for later devices could be falsely satisfied by the first daemon.
