@@ -30,4 +30,13 @@ usb_printer_nvram_copy_setting_status(usb_printer_nvram_get_fn get_value, void *
     memcpy(destination, cached_value, length + 1);
     return 0;
 }
+/* Normalize nvram_set() errors before reporting printer startup success. */
+static inline int
+usb_printer_nvram_write_status(int result, int saved_errno)
+{
+    if (result == 0)
+        return 0;
+    return saved_errno > 0 ? saved_errno : EIO;
+}
+
 #endif

@@ -58,6 +58,23 @@ static void test_invalid_arguments_are_rejected(void)
     assert(usb_printer_nvram_copy_setting_status(fake_get,&fake,"x",value,0)==EINVAL);
     assert(fake.calls==0);
 }
+static void test_write_status_accepts_success(void)
+{
+    assert(usb_printer_nvram_write_status(0, EACCES) == 0);
+}
+static void test_write_status_preserves_backend_errno(void)
+{
+    assert(usb_printer_nvram_write_status(-1, ENOSPC) == ENOSPC);
+}
+static void test_write_status_without_errno_defaults_to_eio(void)
+{
+    assert(usb_printer_nvram_write_status(-1, 0) == EIO);
+}
+static void test_write_status_rejects_unexpected_result(void)
+{
+    assert(usb_printer_nvram_write_status(1, 0) == EIO);
+}
+
 int main(void)
 {
     test_present_setting_is_copied_from_shared_cache();
@@ -67,6 +84,10 @@ int main(void)
     test_unexpected_result_and_null_cache_are_rejected();
     test_overlong_setting_fails_before_use();
     test_invalid_arguments_are_rejected();
+    test_write_status_accepts_success();
+    test_write_status_preserves_backend_errno();
+    test_write_status_without_errno_defaults_to_eio();
+    test_write_status_rejects_unexpected_result();
     puts("USB printer checked NVRAM setting regression: PASS");
     return 0;
 }

@@ -237,6 +237,7 @@ int
 start_u2ec(void)
 {
 	int start_status, setting_status;
+	int marker_result, marker_errno, marker_status;
 	char setting[16];
 	char *argv[] = { "/usr/sbin/u2ec", NULL };
 
@@ -255,7 +256,17 @@ start_u2ec(void)
 		return start_status;
 	}
 
-	nvram_set("apps_u2ec_ex", "1");
+	errno = 0;
+	marker_result = nvram_set("apps_u2ec_ex", "1");
+	marker_errno = errno;
+	marker_status = usb_printer_nvram_write_status(marker_result, marker_errno);
+	if (marker_status != 0) {
+		errno = marker_status;
+		logmessage("USB Printer",
+			   "u2ec started but runtime marker publication failed (status=%d); keeping hotplug action retryable",
+			   marker_status);
+		return marker_status;
+	}
 	return 0;
 }
 

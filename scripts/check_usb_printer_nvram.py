@@ -18,6 +18,21 @@ def body(signature):
 assert '#include "usb_printer_nvram_policy.h"' in SOURCE
 assert "nvram_get_checked(name, value)" in SOURCE
 assert "usb_printer_nvram_copy_setting_status(" in SOURCE
+assert "usb_printer_nvram_write_status" in POLICY
+for marker in ("test_write_status_accepts_success",
+               "test_write_status_preserves_backend_errno",
+               "test_write_status_without_errno_defaults_to_eio",
+               "test_write_status_rejects_unexpected_result"):
+    assert marker in TEST and marker + "();" in TEST
+u2ec = body("start_u2ec(void)")
+marker = u2ec.index('marker_result = nvram_set("apps_u2ec_ex", "1");')
+saved = u2ec.index("marker_errno = errno;", marker)
+normalize = u2ec.index("usb_printer_nvram_write_status(marker_result, marker_errno)", saved)
+failure = u2ec.index("if (marker_status != 0)", normalize)
+failure_return = u2ec.index("return marker_status;", failure)
+success_return = u2ec.index("return 0;", failure_return)
+assert marker < saved < normalize < failure < failure_return < success_return
+assert "u2ec started but runtime marker publication failed" in u2ec
 assert "if (result < 0)" in POLICY and "EIO" in POLICY
 assert "if (result == 0)" in POLICY and "ENAMETOOLONG" in POLICY
 for name,key,side in (

@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Propagate USB printer runtime-marker write failures
+
+- `start_u2ec()` launched the printer daemon, ignored failure from `nvram_set("apps_u2ec_ex", "1")`, and always returned success. A NVRAM write/close failure therefore hid an incomplete printer hotplug action from the retry queue.
+- Added an errno-preserving printer NVRAM write policy and GNU89-friendly unit cases. `start_u2ec()` now returns the write failure after logging that the daemon was started but the marker could not be confirmed; the caller keeps the hotplug action retryable rather than falsely completing it.
+- The exact USB modem/printer policy workflow and same-SHA XY-C1 firmware checks are pending. No runtime or hardware result is claimed.
+---
 ## 2026-11-23 UTC — Check XUPNPD enable-port reads before service preparation
 
 - `start_xupnpd()` used `nvram_get_int("xupnpd_enable_x")`, so an NVRAM device read failure collapsed to port 0 and was treated as a disabled service. It also loaded and validated the AP LAN address before checking the enable port, even when the service was disabled.

@@ -2,25 +2,25 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Writable branch: main only. Parent for this slice: a139a012af0c41f489238bce994aaaac1298a555.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: main only. Parent for this slice: cf14929359a7d1428a85a17693eb5235b0539d57.
 - Frozen archive: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. Preserve permanently; do not update, switch, merge, delete or rename.
-- Recent main changes include checked VPN server/client and WAN xl2tpd ownership markers, VPN-triggered NFS export reload status propagation, and a VPN lifecycle checker declaration-order correction. The shared-xl2tpd marker C regressions passed on eb928a2; that run's checker failed with NameError, corrected in 0e9056. Exact-head VPN rerun remains pending.
-- Infosvr PID-file ownership fix 9fd7bafd and checker correction 7d699d752 are on main. Run #45184200774 passed six C policy binaries but failed the old O_TRUNC source assertion before its checker-only repair; exact rerun remains pending.
-- XY-C1 run #45181232264 passed Build, TRX verification and artifact upload only on source ce39930eee413d71e0227c7d59e8e539b18e9f98 (artifact 14822616674, 12,760,105 bytes). It does not cover later production changes.
-- SCUT watchdog/AI handoff #45181478770/#45181478768 passed on ba4280c; Process inventory #45181232027 and AI docs #45181232286 passed on ce39930. Avoid rerunning closed work absent new related source changes.
-- No persistent checkout exists in this environment; no local full build, MIPS/uClibc build or physical router result is claimed. Startup recovery was performed once.
+- Main now includes `ba688353` (checked MSD Lite enable-state write), `00507a9` (checked and strictly parsed `udpxy_enable_x`), and `cf14929` (checked and strictly parsed `xupnpd_enable_x`). The MSD Lite exact Process regression #45188158003 passed along with AI handoff #45188157883, WAN DHCP #45188157906, Process inventory #45188157881, HTTPD #45188158173, Firewall Startup #45188157749 and WAN route #45188157823. At last poll XY-C1 #45188157886, NVRAM #45188157864 and USB storage #45188157929 were still running.
+- VPN ownership marker/checker-order fixes are `eb928a2` and `0e9056b`; exact-head VPN rerun is pending. Infosvr PID-file fix `9fd7bafd` and checker correction `7d699d752` need exact rerun after the earlier checker failure.
+- Older XY-C1 L3 pass #45181232264 only verifies product SHA `ce39930eee413d71e0227c7d59e8e539b18e9f98` (artifact 14822616674, 12,760,105 bytes), not later source changes.
+- SCUT watchdog/AI handoff #45181478770/#45181478768 passed on `ba4280c`; Process inventory #45181232027 and AI docs #45181232286 passed on `ce39930`. Do not repeat closed audits without new related source changes.
+- No persistent checkout exists; no local full build, MIPS/uClibc build or physical-router result is claimed. Startup recovery was performed once.
 
 ## Active source slice
 
-- `start_udpxy()`'s APP_MSD_LITE path now checks the `msd_lite_enable=1` NVRAM write and refuses to launch `msd_lite` if the marker cannot be published.
-- `scripts/check_process_lifecycle_integration.py` pins the status gate and ensures the failure return precedes daemon launch. Existing `rc_wan_nvram_write_status()` policy tests cover errno-preserving and errno-less write failures.
-- Exact Process lifecycle and same-SHA XY-C1 Build/TRX/artifact checks for this slice are pending.
+- `start_u2ec()` now propagates NVRAM `apps_u2ec_ex=1` marker write failure after a successful daemon exec, rather than returning success unconditionally. The caller receives the error so the incomplete hotplug event remains retryable.
+- `usb_printer_nvram_policy.h` includes the errno-preserving write result normalizer; `usb_printer_nvram_policy.c` tests success, preserved errno, missing errno and unexpected return values. `scripts/check_usb_printer_nvram.py` pins the start/status/failure-return order.
+- Exact USB modem/printer policy workflow and same-SHA XY-C1 Build/TRX/artifact checks for this source are pending.
 
 ## Exact first actions for the next GPT
 
-1. Poll exact-SHA Process lifecycle regression; verify MSD Lite fail-closed assertions pass.
-2. Poll same-SHA XY-C1; require Build, TRX verification and artifact upload all PASS before claiming L3.
-3. Continue another concrete high-priority discarded-status issue on an active service path; do not duplicate VPN, Infosvr, SCUT, or completed storage/wireless slices.
+1. Poll exact-SHA USB modem/printer regression and verify the four write-status cases and source checker pass.
+2. Poll exact-SHA XY-C1; require Build, TRX verification and artifact upload all PASS before claiming L3.
+3. Continue with another concrete P1 stability issue; do not repeat completed MSD Lite/UDPxY/XUPnP enable-port slices, VPN/Infosvr fixes or closed SCUT/storage work.
 
 ## Relevant exact-SHA CI facts
 

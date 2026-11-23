@@ -1,4 +1,6 @@
 Current implementation checkpoint (2026-11-23):
+- USB printer `start_u2ec()` now propagates failure to write `apps_u2ec_ex` after successful exec instead of masking it as success. The retryable hotplug action can re-run the printer start/stop transaction. Added errno-preserving policy tests and a source-order contract; exact USB policy + XY-C1 Build/TRX/artifact checks pending.
+Current implementation checkpoint (2026-11-23):
 - `start_udpxy()`'s APP_MSD_LITE path now checks the `msd_lite_enable=1` NVRAM state write and blocks daemon launch if publication fails. The Process integration checker pins the status gate before `eval`; existing WAN NVRAM policy tests cover errno and errno-less write failures. Exact-head Process and XY-C1 Build/TRX/artifact checks pending.
 Current implementation checkpoint (2026-11-21):
 - WAN reset/start protocol/MAC identity reads use checked NVRAM helpers; manual endpoint fields form one transaction.
