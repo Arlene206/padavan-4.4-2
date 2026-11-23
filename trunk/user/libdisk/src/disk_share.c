@@ -2160,7 +2160,8 @@ failed:
 
 		remove_result = rmdir(full_path);
 		remove_errno = errno;
-		if (remove_result != 0 && remove_errno != ENOENT) {
+		if (!disk_share_folder_rollback_can_remove_permissions(
+			    remove_result, remove_errno)) {
 			if (rollback_error == 0)
 				rollback_error = remove_errno ? remove_errno : EIO;
 			logmessage("disk_share",

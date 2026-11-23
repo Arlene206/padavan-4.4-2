@@ -345,6 +345,19 @@ compensate:
 
 
 /*
+ * Permission metadata belongs to its directory. If rollback cannot remove a
+ * newly-created directory (for example, another writer populated it), keep
+ * its ACL rows instead of leaving a live share with missing permissions.
+ */
+static inline int
+disk_share_folder_rollback_can_remove_permissions(int directory_remove_result,
+                                                    int directory_remove_errno)
+{
+	return directory_remove_result == 0 || directory_remove_errno == ENOENT;
+}
+
+
+/*
  * Reserve a hidden staging directory with mkdir's exclusive creation
  * semantics. lstat()+rename() could replace a raced empty destination.
  */

@@ -1,3 +1,12 @@
+## 2026-11-23 11:08 UTC+8 — Preserve ACLs when failed folder creation leaves a live directory
+
+- Parent main SHA: `256d736d8483227b5df3e26c074394ae4071786d`. In `add_folder()`, failure cleanup called `rmdir(full_path)`; if another writer populated the directory before rollback, removal failed but the old `else if (permission_init_started)` branch still deleted that folder's permission records from all accounts. The directory remained live while its ACL metadata was removed.
+- Added `disk_share_folder_rollback_can_remove_permissions()`: ACL-row compensation is allowed only when the directory was removed or already absent (`ENOENT`). If it survives (for example `ENOTEMPTY`, `EBUSY` or `EACCES`), preserve its ACL rows, report incomplete rollback, and refresh the visible folder snapshot. Added policy regressions for success, ENOENT, ENOTEMPTY, EBUSY and EACCES, and pinned guard ordering in the source contract.
+- Parent exact-head libdisk run `45103728364` on `7bd561845032ed68084e53c609da8c0a22655a6a`: PASS (GNU89 ASan/UBSan host regressions and source contract). NVRAM audit `45103585419` on product SHA `b5458732188ea2ac1b6ab27ca8f1c73a87e3c06e`: PASS. XY-C1 run `45103585439` on that product SHA remains IN_PROGRESS at Build XY-C1; TRX and artifact upload are PENDING. This commit's exact-head Actions are pending. No local compile, L3 build or L4 hardware result is claimed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 11:20 UTC+8 — Make folder permission changes compensating and staging creation exclusive
 
 - `0e83450aa686d745f80547604bd4f08479a43538` added a reusable per-file permission batch with original-content snapshots, reverse-order rollback and retryable compensation. `del_folder()` now stages its directory and only removes it after all permission updates succeed; failures restore the directory and folder snapshot. Added success, later-write failure and rollback-failure/retry policy regressions.

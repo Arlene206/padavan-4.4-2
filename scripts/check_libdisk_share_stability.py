@@ -948,6 +948,10 @@ add_success_end = add_compact.index(
     "disk_share_account_nvram_end(&transaction)", add_permissions
 )
 add_rollback = add_compact.index("rmdir(full_path)", add_success_end)
+add_remove_guard = add_compact.index(
+    "disk_share_folder_rollback_can_remove_permissions(remove_result,remove_errno)",
+    add_rollback
+)
 add_permission_rollback = add_compact.index(
     "disk_share_update_folder_permission_file(mount_path,account_list[i],target,NULL)",
     add_rollback
@@ -963,13 +967,16 @@ add_failed_end = add_compact.index(
     "disk_share_account_nvram_end(&transaction)", add_snapshot_restore
 )
 require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
-        add_publish < add_permissions < add_success_end < add_rollback <
+        add_publish < add_permissions < add_success_end < add_rollback < add_remove_guard <
         add_permission_rollback < add_anonymous_rollback < add_snapshot_restore <
         add_failed_end and
         "errno=EEXIST;" in add_compact and
         "errno=ENAMETOOLONG;" in add_compact and
-        "create_if_no_var_files(mount_path)" not in add_folder_body,
-        "add_folder must serialize with account mutations and undo partial permission rows, directory creation and folder snapshot on failure")
+        "create_if_no_var_files(mount_path)" not in add_folder_body and
+        "disk_share_folder_rollback_can_remove_permissions" in POLICY and
+        "test_folder_rollback_preserves_permissions_when_directory_survives" in POLICY_TEST and
+        "test_folder_rollback_preserves_permissions_when_directory_survives();" in POLICY_TEST,
+        "add_folder must serialize with account mutations, preserve ACL rows when rollback cannot remove a surviving directory, and undo partial permission rows only after directory removal")
 
 
 require("disk_share_reserve_staging_directory" in POLICY and

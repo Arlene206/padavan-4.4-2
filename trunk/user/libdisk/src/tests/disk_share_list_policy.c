@@ -2121,6 +2121,17 @@ test_permission_batch_reports_and_retries_failed_compensation(void)
 }
 
 
+static void
+test_folder_rollback_preserves_permissions_when_directory_survives(void)
+{
+	assert(disk_share_folder_rollback_can_remove_permissions(0, 0));
+	assert(disk_share_folder_rollback_can_remove_permissions(-1, ENOENT));
+	assert(!disk_share_folder_rollback_can_remove_permissions(-1, ENOTEMPTY));
+	assert(!disk_share_folder_rollback_can_remove_permissions(-1, EBUSY));
+	assert(!disk_share_folder_rollback_can_remove_permissions(-1, EACCES));
+}
+
+
 struct fake_staging_directory_state {
 	int calls;
 	int collisions;
@@ -2207,6 +2218,7 @@ main(void)
 	assert(router_account_name_is_reserved_after_read("admin", -1, NULL));
 	assert(router_account_name_is_reserved_after_read("admin", 1, NULL));
 
+	test_folder_rollback_preserves_permissions_when_directory_survives();
 	test_staging_directory_reserves_with_atomic_collision_retry();
 	test_staging_directory_preserves_create_errors();
 	test_staging_directory_rejects_truncated_paths_before_create();
