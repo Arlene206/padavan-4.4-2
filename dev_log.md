@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Trigger DNSMasq ARP regression on pull requests
+
+- The DNSMasq lifecycle job reads and statically checks BusyBox `networking/arp.c` in its static-ARP validation step, and its push path filter already included that file; the pull-request filter did not. A PR changing only the ARP command handler therefore skipped the security regression.
+- Added the missing source path to `pull_request.paths`, added it to the step's declared dependency contract, and made the workflow assert complete push/pull_request path-set parity so another one-sided trigger omission is caught automatically.
+- Exact-head DNSMasq lifecycle and AI handoff Actions are required.
+
+---
+
 ## 2026-11-23 UTC — Reject invalid ZeroTier static-route enable values
 
 - The ZeroTier route UI offers only `0` (disabled) and `1` (enabled), but preflight and route execution accepted every non-negative digit string as enabled. An invalid NVRAM value such as `2` could therefore install a route that the UI had no way to express intentionally.
