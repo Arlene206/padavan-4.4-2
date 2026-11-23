@@ -1,6 +1,6 @@
 # Cross-session execution mandate
 
-## 2026-11-23 continuation handoff (parent main: f3acf67d58203ae7d18b6d2755014840ba10cccc; fetch live main at takeover)
+## 2026-11-23 continuation handoff (parent main: 3760b93c10430cb1bdad3e158b35823147da75a6; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
 - `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
@@ -9,6 +9,9 @@
 - `53c6f6623e5531deeb889762e81bf1943c1abf50`: DNSMasq split-DNS source-contract correction. Exact DNSMasq #45229862631 and AI handoff #45229862614 PASS.
 - Shadowsocks DNS proxy preflight plus malformed-upstream whitespace rejection and fixture/checker updates: exact lifecycle #45234515153 PASS on `f3acf67d58203ae7d18b6d2755014840ba10cccc`; Process #45234515707 PASS; AI docs #45234515042 PASS. XY-C1 #45234516216 was IN_PROGRESS at the last poll. Previous exact lifecycle #45233294870 on `7fdf985` also passed.
 - Current RStats source slice (parent `f3acf67d58203ae7d18b6d2755014840ba10cccc`): `save_history_json()` now reads its interface selector through `nvram_get_checked()`, copies the shared NVRAM cache value before another NVRAM operation, and returns before atomic output staging on backend, NULL-present or overlong state. Missing key retains legacy empty/default behaviour. Exact-head Actions pending.
+
+- `601ad73cb90227d01497a1a4f28a967de8c17a6a`: RStats selector uses checked NVRAM read and copies the cache-backed value before later operations. Exact RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS. Its AI-doc failure was corrected by `3760b93`, exact AI docs #45236207680 PASS; XY-C1 #45234873441 was pending.
+- `5a43b18722b9d2f3f864ef6bd1025084ff1edb85`: missing-DNS-proxy-executable regression; exact Shadowsocks #45235046114 and Process #45235046275 PASS. Its AI-doc failure was likewise corrected by `3760b93`; exact AI docs #45236207680 PASS.
 
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
@@ -19,24 +22,24 @@
 
 ## Active task
 
-### RStats history selector
-- Production: `trunk/user/rc/src/rstats.c`, `save_history_json()`; policy: `trunk/user/rc/src/rstats_persistence_policy.h`; test: `trunk/user/rc/src/tests/rstats_policy_test.c`; source contract: `.github/workflows/rstats-stability.yml`.
-- `RSTATS_NVKEY_DM` is the history-interface selector. The old `nvram_safe_get()` collapsed absent key and backend failure, allowing a transient read/close failure to silently select history index 0.
-- `rstats_nvram_copy_selector()` preserves absent-key legacy default, copies a present non-NULL selector only when it fits, and maps backend, present-NULL, overlong and invalid-destination states to errno while clearing stale output.
-- `save_history_json()` captures errno immediately after checked read, copies the cache-backed value before further NVRAM operations, and returns before `rstats_file_open_stream()` on error. A valid-but-unmatched selector keeps the existing first-interface fallback.
-- GNU89 policy regression covers present, absent, backend `EACCES`, NULL, overlong, NULL destination and zero capacity. Workflow contract requires checked read → copy → UNKNOWN gate → atomic stream open.
+### LLDT configuration parser parity
+- The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`.
+- This source slice introduces `lldt_config_parse_policy.h` and applies it to both configuration readers. The optional tool now uses checked icon path copying and strict bounded numeric parsing with safe legacy defaults.
+- GNU89/Werror/ASan/UBSan tests cover assignment parsing, embedded NUL, oversized names/values, numeric boundaries and path termination. Exact source and firmware Actions are pending for the new commit.
+- `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- Current pre-RStats source SHA `f3acf67` has Shadowsocks lifecycle #45234515153 PASS, Process #45234515707 PASS and AI handoff #45234515042 PASS; XY-C1 #45234516216 was running at last poll. The RStats commit must be checked independently on its exact SHA.
-- Earlier proven L3 baselines: XY-C1 #45227637594 on `9ebc579` and #45228682113 on `7e81b11` both passed Build, TRX and artifact upload on the identical SHA.
-- AliyunDrive L2 runs #45230625667/#45230625920/#45230625723 PASS; DNSMasq #45229862631 and AI docs #45229862614 PASS on `53c6f66`.
-- RStats exact acceptance: GNU89/Werror/ASan/UBSan policy compile/run, source-order contract, Process umbrella, AI handoff and same-SHA XY-C1 Build/TRX/artifact. Physical router L4 remains NOT VERIFIED.
+- Shadowsocks DNS proxy preflight and upstream whitespace fixes: #45234515153 PASS, Process #45234515707 PASS and AI docs #45234515042 PASS on `f3acf67`; XY-C1 #45234516216 was pending.
+- RStats `601ad73`: RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS; AI doc repair #45236207680 PASS on `3760b93`; XY-C1 #45234873441 was pending.
+- Shadowsocks missing-executable test `5a43b18`: lifecycle #45235046114 and Process #45235046275 PASS; AI documentation repaired by #45236207680 on `3760b93`.
+- Local GNU89/Werror/ASan/UBSan parser-policy fixture passed. No full router tree or MIPS/uClibc firmware compile was run locally. Exact-head LLDT L2 and same-SHA XY-C1 Build/TRX/artifact remain required.
+- Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main`; inspect exact-push RStats, Process inventory, AI handoff and XY-C1 Actions for the current commit. Verify GNU89/Werror/ASan/UBSan selector policy, checked-read/copy/error/publication ordering, and same-SHA firmware steps. Fix exact failures before claiming L2/L3.
-2. If relevant Actions remain PENDING, work on an independent security/reliability defect rather than waiting. If any test fails, diagnose the actual failing step and commit a focused correction with a new exact-SHA check.
-3. Once RStats is closed, select the next highest-priority unaddressed defect in the whole-userland roadmap; do not re-audit process PID reuse, AliyunDrive inode identity, Shadowsocks backup/DNS lifecycle or DNSMasq split-DNS without new evidence.
-4. For each logical change, create all changed blobs and one complete Git tree/commit, then update `main` with non-forced expected-SHA CAS. Preserve the backup branch.
+1. Fetch live `main` and inspect exact-head LLDT config parser, AI handoff, Process inventory and XY-C1 Actions for the current source SHA. Verify GNU89/Werror/ASan/UBSan parser boundaries, both production and optional utility source contracts, and same-SHA XY-C1 Build/TRX/artifact. Diagnose any FAIL before claiming L2/L3.
+2. RStats source SHA `601ad73`: exact RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS; XY-C1 #45234873441 was pending. AI doc repair on `3760b93`, exact AI #45236207680 PASS.
+3. Missing-executable test `5a43b18`: exact Shadowsocks #45235046114 and Process #45235046275 PASS; handoff validator repaired by `3760b93`, exact AI #45236207680 PASS. `f3acf67` Shadowsocks lifecycle #45234515153, Process #45234515707 and AI docs #45234515042 PASS; XY-C1 #45234516216 pending at last poll.
+4. After LLDT is verified, continue with the next concrete reliability/security issue in the whole-userland roadmap. Work independently while Actions are PENDING; preserve the backup branch and use complete-tree, non-forced expected-SHA commits.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.
@@ -44,7 +47,9 @@ Treat this repository as one continuous engineering assignment across GPT conver
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
 
-Every session MUST inspect live repository state before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures or a changed first action. If the checkpoint facts and first action remain accurate, explicitly conclude with no file change and no no-op commit.
+Every session MUST perform a handoff checkpoint before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
+
+Every session MUST inspect live repository state before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures or a changed first action. Do not manufacture documentation churn or no-op commits.
 
 ## Development loop
 - Source modification → targeted regression → one complete Git tree/one atomic commit → exact-SHA Actions.

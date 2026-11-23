@@ -1,3 +1,11 @@
+## 2026-11-23 — Bound LLDT conformance-tool configuration parsing
+
+- The shipped LLDT daemon's configuration parser had already been bounded, but the optional `lld2test` conformance utility retained an unbounded `sscanf("%s")`, a non-terminated `strncpy` icon path, and overflow-prone `atoi` option parsing.
+- Added a shared length-aware assignment parser with embedded-NUL and token-capacity rejection, plus strict bounded decimal parsing. Both `lld2d` and `lld2test` now share the checked icon-path copy; the utility's pause/response options retain safe legacy fallback values on malformed or out-of-range input.
+- Added GNU89 ASan/UBSan boundary regressions, an exact-source checker, a dedicated LLDT config workflow, and the production header's XY-C1 input trigger. Exact-head L2 and firmware validation are pending; `ctmain.c` belongs to optional `lld2test`, not the ROMFS-installed daemon.
+
+---
+
 ## 2026-11-23 — Correct handoff headings rejected by exact documentation contract
 
 - AI handoff run #45235046184 on `5a43b187` failed because `SESSION_HANDOFF.md` used `### Repository invariants`, `### Active task — ...` and `### Verification boundary` instead of the required top-level `## Current repository state`, `## Active task` and `## Verification boundary`. It also used “the document edit”, while the validator requires the exact clause “a document edit”.

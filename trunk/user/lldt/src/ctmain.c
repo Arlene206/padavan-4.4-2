@@ -26,6 +26,8 @@
 
 #define	DECLARING_GLOBALS
 #include "globals.h"
+#include "lldt_config_path_policy.h"
+#include "lldt_config_parse_policy.h"
 
 #include "statemachines.h"
 #include "packetio.h"
@@ -232,24 +234,29 @@ init_from_conf_file()
     while ((numread = getline(&line, &len, conf_file)) != -1)
     {
         var[0] = val[0] = '\0';
-        assigns = sscanf(line, "%s = %s", var, val);
+        assigns = lldt_config_parse_assignment(line, (size_t)numread,
+                                                  var, sizeof(var),
+                                                  val, sizeof(val));
+        if (assigns < 0)
+        {
+            warn("line ignored - malformed or overlong configuration assignment\n");
+            continue;
+        }
 
-        if (assigns==2)
+        if (assigns==1)
         {
             /* compare to the 1 allowed var... */
             if (!strcmp(var,"icon")) {
                 char *path = NULL;
-                char *cur  = NULL;
+                size_t path_capacity = strlen(val) + 6;
 
-                path = xmalloc(strlen(val)+6); // always allow enough room for a possible prefix of '/etc/'
-                cur = path;
-
-                /* Check for leading '/' and prefix '/etc/' if missing */
-                if (val[0] != '/')
+                path = xmalloc(path_capacity);
+                if (lldt_config_path_copy(val, path, path_capacity) != 0)
                 {
-                    strcpy(cur,"/etc/"); cur += 5;
+                    warn("line ignored - icon path is invalid or too long\n");
+                    xfree(path);
+                    continue;
                 }
-                strncpy(cur,val,strlen(val));
 
                 if (g_icon_path) xfree(g_icon_path);	// always use the most recent occurrence
                 g_icon_path = path;
@@ -266,12 +273,22 @@ init_from_conf_file()
                     printf("Testing with Charges\n");
                 }
             } else if (!strcmp(var,"pause-usec")) {
-                pauseTime = atoi(val);
-                if (pauseTime > 100000) pauseTime = 0;
+                unsigned long parsed_value;
+
+                if (lldt_config_parse_unsigned(val, 100000UL,
+                                               &parsed_value) == 0)
+                    pauseTime = (uint)parsed_value;
+                else
+                    pauseTime = 0;
                 printf("interpacket pause set to %d us\n",pauseTime);
             } else if (!strcmp(var,"response-window-msec")) {
-                responseTime = atoi(val);
-                if (responseTime > 1000) responseTime = 200;
+                unsigned long parsed_value;
+
+                if (lldt_config_parse_unsigned(val, 1000UL,
+                                               &parsed_value) == 0)
+                    responseTime = (uint)parsed_value;
+                else
+                    responseTime = 200;
                 printf("pause for query-responses set to %d ms\n",responseTime);
             } else {
                 warn("line ignored - var does not match a known string\n");

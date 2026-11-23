@@ -30,6 +30,7 @@
 #define	DECLARING_GLOBALS
 #include "globals.h"
 #include "lldt_config_path_policy.h"
+#include "lldt_config_parse_policy.h"
 
 #include "statemachines.h"
 #include "packetio.h"
@@ -67,7 +68,6 @@ init_from_conf_file()
     size_t  len  = 0;
     ssize_t numread;
     int     assigns;
-    int     consumed;
     char    default_icon_path[] = {"/etc/icon.ico"};
 
     /* Set default values for configuration options */
@@ -81,21 +81,16 @@ init_from_conf_file()
     while ((numread = getline(&line, &len, conf_file)) != -1)
     {
         var[0] = val[0] = '\0';
-        consumed = 0;
-        assigns = sscanf(line, "%255s = %255s%n", var, val, &consumed);
-        if (numread > 0 && memchr(line, '\0', (size_t)numread) != NULL)
+        assigns = lldt_config_parse_assignment(line, (size_t)numread,
+                                                  var, sizeof(var),
+                                                  val, sizeof(val));
+        if (assigns < 0)
         {
-            warn("line ignored - embedded NUL byte in configuration\\n");
-            continue;
-        }
-        if (assigns == 2 && line[consumed] != '\0' &&
-            !isspace((unsigned char)line[consumed]))
-        {
-            warn("line ignored - configuration value is too long\\n");
+            warn("line ignored - malformed or overlong configuration assignment\n");
             continue;
         }
 
-        if (assigns==2)
+        if (assigns==1)
         {
             /* compare to each of the 2 allowed vars... */
             if (!strcmp(var,"icon")) {

@@ -141,6 +141,7 @@ on:
       - "trunk/user/lldt/src/lldt_pidfile_policy.h"
       - "trunk/user/lldt/src/main.c"
       - "trunk/user/lldt/src/lldt_config_path_policy.h"
+      - "trunk/user/lldt/src/lldt_config_parse_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
       - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
