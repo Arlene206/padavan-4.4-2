@@ -719,7 +719,7 @@ jobs:
           assert '"url_mac_x", &value, &present' in url_mac_reader_compact
           assert "firewall_url_mac_format_status(read_status, present, value," in url_mac_reader_compact
           assert "read_status != 0 ? read_status : EINVAL" in url_mac_reader
-          assert "firewall_url_mac_format_status" in firewall_policy
+          assert "firewall_url_mac_format_status" in filter_policy
           assert "firewall_url_mac_format_status(EIO" in filter_test
           assert 'mac_conv("url_mac_x"' not in firewall_source
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):

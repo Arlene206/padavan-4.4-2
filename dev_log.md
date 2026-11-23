@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Repair Firewall Startup checker variable reference
+
+- The exact-head Firewall Startup rerun #45164580872 progressed past the prior multiline-source assertion and then raised `NameError`: the checker referred to `firewall_policy`, but its existing fixture variable is named `filter_policy`. HTTPD policy regression #45164581007 passed, including the corrected 17-byte undersized-buffer test.
+- Updated the Firewall Startup contract to use the already-loaded `filter_policy` variable. This is a checker-only fix; rerun Firewall Startup on the next main SHA.
+
+---
 ## 2026-11-23 UTC — Correct URL MAC regression test boundaries
 
 - Exact-head run #45164372502 stopped in the Firewall Startup source checker because the new source assertion expected a checked-getter call on one line while production intentionally wrapped its arguments across lines. HTTPD regression #45164372525 compiled the new firewall policy test and exposed a bad test boundary: a 23-byte buffer was expected to fail even though the formatter contract requires only 18 bytes.
