@@ -46,6 +46,8 @@ on:
       - "scripts/check_modem_module_reload.py"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/modem_module_reload_policy.h"
       - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
@@ -100,6 +102,8 @@ on:
       - "scripts/check_modem_module_reload.py"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_link_modem_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/modem_module_reload_policy.h"
       - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
@@ -583,6 +587,8 @@ jobs:
               "trunk/user/rc/src/modem_wan_start_policy.h",
               "trunk/user/rc/src/tests/modem_wan_start_policy.c",
               "trunk/user/rc/src/detect_link.c",
+              "trunk/user/rc/src/detect_link_modem_reconnect_policy.h",
+              "trunk/user/rc/src/tests/detect_link_modem_reconnect_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -779,13 +785,18 @@ jobs:
           )
           link_policy_error = link_change.index("if(status!=0)", link_policy)
           link_reconnect = link_change.index(
-              'notify_rc("auto_wan_reconnect")', link_policy_error
+              'notify_rc_status("auto_wan_reconnect")', link_policy_error
           )
+          link_notify_error = link_change.index("if(status!=0)", link_reconnect)
+          link_notify_errno = link_change.index("saved_errno=errno>0?errno:EIO;", link_notify_error)
+          link_notify_return = link_change.index("returnsaved_errno;", link_notify_errno)
           assert (
               link_config < link_config_error < link_priority_gate < link_wisp <
               link_wisp_error < link_wisp_gate < link_identity <
-              link_identity_error < link_policy < link_policy_error < link_reconnect
+              link_identity_error < link_policy < link_policy_error < link_reconnect <
+              link_notify_error < link_notify_errno < link_notify_return
           )
+          assert "notify_rc(" not in link_change
           assert "nvram_get_int(" not in link_change
           assert "get_modem_devnum()" not in link_change
           assert "get_wan_wisp_active(" not in link_change
