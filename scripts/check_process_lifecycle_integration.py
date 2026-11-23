@@ -166,7 +166,7 @@ storage_launch_contracts = (
         "int run_dms(int force_rescan)",
         "void restart_dms(int force_rescan)",
         'launch_status = _eval(minidlna_argv, NULL, 0, NULL);',
-        'if (!nvram_match("apps_dms", "1"))',
+        'if (strcmp(apps_enabled, "1") != 0)',
         "Media Server",
         "is_dms_run()",
     ),
@@ -199,6 +199,23 @@ for start_marker, end_marker, launcher, enable_guard, service_name, presence_cal
     start_body = storage_services.split(start_marker, 1)[1].split(chr(10) + end_marker, 1)[0]
     assert enable_guard in start_body
     assert "int launch_status;" in start_body
+
+dms_body = storage_services.split("int run_dms(int force_rescan)", 1)[1].split(
+    chr(10) + "int restart_dms(int force_rescan)", 1
+)[0]
+dms_compact = "".join(dms_body.split())
+dms_enable_read = 'storage_read_string_status("apps_dms",apps_enabled,sizeof(apps_enabled))'
+dms_enable_error = "if(enable_status!=0)"
+dms_enable_match = 'if(strcmp(apps_enabled,"1")!=0)'
+dms_enable_failure_return = "returnenable_status;"
+assert dms_enable_read in dms_compact
+assert dms_enable_error in dms_compact
+assert dms_enable_match in dms_compact
+assert dms_enable_failure_return in dms_compact
+assert dms_compact.index(dms_enable_read) < dms_compact.index(dms_enable_error)
+assert dms_compact.index(dms_enable_error) < dms_compact.index(dms_enable_match)
+assert dms_compact.index(dms_enable_failure_return) < dms_compact.index("is_dms_support()")
+assert 'nvram_match("apps_dms","1")' not in dms_compact
     assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
     assert "if (process_state != PROCESS_PRESENCE_ABSENT)" in start_body
     assert launcher in start_body
