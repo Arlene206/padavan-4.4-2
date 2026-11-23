@@ -1,3 +1,13 @@
+## 2026-11-23 13:34 UTC+8 — Remove the remaining stale FRP inline-copy source assertion
+
+- Exact-head Process lifecycle run 45115896497 on f9320f888b7ac284a4b657b1ae58feca40f0428f completed SUCCESS. This validates the updated scripts/check_dev_init_boot.py and all process lifecycle regression steps, including the FRP credential seeding shell cases.
+- Exact-head FRP lifecycle run 45115896479 on the same SHA completed FAILURE in a second, later assertion in scripts/check_frp_lifecycle.py at line 285. The initial checker block had been fixed, but this second assertion still required the removed inline FRP chmod 700 and symlink/regular-file tests rather than the shared seed_storage_file() contract. Every FRP shell regression before that source contract passed.
+- Updated the remaining assertion to require the FRP helper invocation, forbid the retired direct cp -f, and assert the shared optional private-mode enforcement branch. This is checker-only; production source is unchanged.
+- f932 exact AliyunDrive WebDAV, HTTPD authentication/security and handoff validator runs 45115896556, 45115896513 and 45115896495 completed SUCCESS. The only known f932 failure is this stale FRP checker block; its exact-head rerun is required.
+- d2c XY-C1 run 45115500761 and e757 XY-C1 run 45114634020 remain to be inspected for final Build/TRX/artifact conclusions. No local checkout; no local execution claim.
+- Corrective checker commit: THIS COMMIT.
+
+---
 ## 2026-11-23 13:27 UTC+8 — Update FRP source contracts for shared private seeding helper
 
 - Exact-head FRP lifecycle run 45115500757 on product/source SHA d2c388a04f6125666043bf94672a8f4222655d4b completed FAILURE only in scripts/check_frp_lifecycle.py:130: it still required the removed direct cp -f/chmod/-L/-f source block. All prior FRP shell regressions, including private runtime config, exact process stop, managed crontab and lifecycle lock, passed.

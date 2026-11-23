@@ -10,13 +10,12 @@
 
 ## Active task
 
-### Close the two stale FRP source contracts after private-helper migration
+### Verify the last FRP checker migration assertion
 
-- Product source fix is already on main at d2c388a04f6125666043bf94672a8f4222655d4b: copyscripts.sh routes /etc/storage/frp_script.sh through seed_storage_file() with mode 0700 and enforce-existing-mode flag 1. The helper stages beside the destination and publishes exclusively with ln; existing operator content is preserved while mode is restored.
-- The exact Process lifecycle run 45115500771 failed only because scripts/check_dev_init_boot.py still expected copyscripts_seed_status=1 to be assigned inline in the FRP branch. The generic seed helper owns and sets this status; its real shell regression passed.
-- The exact FRP lifecycle run 45115500757 failed only because scripts/check_frp_lifecycle.py still required the retired cp -f/chmod/symlink-check implementation. All FRP shell regressions before that checker passed, including frp_config.sh.
-- THIS COMMIT updates both contracts: require the shared helper invocation and enforce-existing-mode logic, and forbid the old cp -f exception. No product source or runtime behavior changes in this follow-up.
-- Once exact-head reruns pass, continue with a newly confirmed printer unplug defect in trunk/user/rc/src/services_stor.c: the branch calls stop_usb_printer_spoolers() but discards its nonzero return, then supplies action_status=0 to usb_hotplug_event_ack_status() and clears usb_unplug_lp. The stop API aggregates stop_u2ec/stop_lpd/stop_p910nd failures, so this can acknowledge the event while a spooler is still running. Next source slice must propagate printer_unplug_status through the acknowledgement policy and add a source contract plus positive error-status retry regression.
+- Product FRP private-script seeding is already committed at d2c388a04f6125666043bf94672a8f4222655d4b. The common seed_storage_file() now supplies symlink/non-regular path refusal, same-directory staged copy, exclusive ln publication and existing-file mode-0700 enforcement. The Process lifecycle source-contract and shell tests passed on f932.
+- Exact FRP lifecycle run 45115896479 on f932 failed only in a second, later assertion in scripts/check_frp_lifecycle.py around line 285 which still expected inline chmod 700/symlink tests in copyscripts.sh. The earlier block was already corrected; all runtime FRP regressions passed.
+- THIS COMMIT updates that final stale assertion to require the helper call, absence of legacy cp -f, and generic mode-enforcement behavior. No production source changes.
+- After its exact FRP rerun passes, resume the confirmed printer-unplug result-loss defect in trunk/user/rc/src/services_stor.c: stop_usb_printer_spoolers() return is discarded and usb_unplug_lp is cleared despite failed daemon stop. Make that status part of usb_hotplug_event_ack_status() and add positive error-status regression plus source contract.
 
 ### Exact parallel baseline and Actions
 
@@ -28,6 +27,8 @@
 
 ## Verification boundary
 
+- The d2c Process and FRP shell layers ran on GitHub: `copyscripts_ca_status.sh` reported private FRP publication PASS, and all FRP config/runner/lock tests passed. The failures were Python source-contract assertions only. On f932, Process run 45115896497 passed entirely; FRP run 45115896479 got through every shell regression and then failed the remaining line-285 source assertion being fixed here.
+
 - L1: source-level issue and intended fix reviewed. The old FRP cp -f path is gone from the changed source; ordinary three-argument helper use remains unchanged and FRP gets the fourth private-mode flag.
 - L2: NOT YET VERIFIED for this FRP slice. There is no local checkout; the expanded copyscripts_ca_status.sh was not executed locally. Require the exact-head Process lifecycle regression push Action to run and pass the shell regression and full source contracts.
 - L3: NOT YET VERIFIED for the e757 ACL source until run 45114634020 completes Build XY-C1, TRX verification and artifact upload on e757. The FRP source change also needs its own exact new-SHA XY-C1 production-input detector, target Build, TRX and artifact upload. No different SHA's green check substitutes.
@@ -35,10 +36,10 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT and inspect the checker-only diff; do not assume this saved parent is still main.
-2. Inspect exact-head FRP and Process push Actions after this checker correction. The d2c source runtime regressions already passed; ensure the corrected scripts/check_frp_lifecycle.py and scripts/check_dev_init_boot.py now accept the shared helper contract. Do not repeat unrelated CA bootstrap tests.
-3. Inspect same-SHA XY-C1 detector, Build XY-C1, TRX output and artifact upload. Claim L3 only if all target stages pass for this exact production-source SHA.
-4. Revisit e757 XY-C1 45114634020 if still open. NVRAM audit 45114633929 is already SUCCESS. Then fix the printer-unplug status loss described in Active task; do not wait idly for other unrelated checks.
+1. Fetch live main and verify the frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Resolve THIS COMMIT and inspect the checker-only diff; do not assume the saved parent remains live.
+2. Inspect the exact-head FRP push run after this second checker correction. Process lifecycle already passed on f932; ensure the remaining source assertion accepts common private FRP seeding. Do not repeat unrelated CA bootstrap tests.
+3. Inspect d2c exact-head XY-C1 run 45115500761 and e757 run 45114634020; record their actual Build/TRX/artifact outcomes. Claim L3 only if all target stages pass for the same production-source SHA.
+4. NVRAM audit 45114633929 is already SUCCESS. Then fix the printer-unplug status loss described in Active task; do not wait idly for unrelated checks.
 5. Do not re-audit completed libdisk duplicate ACL lookup or BusyBox PID1 exact-child work without new evidence. Rotate to another concrete source-backed stability/security defect across the userland.
 
 # Cross-session execution mandate

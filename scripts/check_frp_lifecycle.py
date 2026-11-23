@@ -283,10 +283,11 @@ for marker in ("FRPC survived stop", "FRPS survived stop",
 
 # FRP private configuration must not be exposed as a world-readable script.
 require("# The persistent FRP script contains tokens and dashboard credentials." in copy_scripts and
-        'chmod 700 "$frp_script_path"' in copy_scripts and
-        '[ -L "$frp_script_path" ]' in copy_scripts and
-        '[ ! -f "$frp_script_path" ]' in copy_scripts,
-        "boot must reject unsafe FRP script paths and enforce mode 0700 without overwriting user content")
+        'seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' in copy_scripts and
+        'cp -f /etc_ro/frp_script.sh "$frp_script_path"' not in copy_scripts and
+        'copyscripts_enforce_existing_mode=${4:-0}' in copy_scripts and
+        copy_scripts.count('if [ "$copyscripts_enforce_existing_mode" = "1" ]') >= 2,
+        "boot must use exclusive no-follow FRP publication and enforce mode 0700 without overwriting user content")
 require("HTTPD_FILE_TYPE_PRIVATE_SCRIPT" in script_policy and
         "httpd_script_file_mode" in script_policy and "0700" in script_policy and
         "httpd_script_file_read_allowed" in script_policy and
