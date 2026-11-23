@@ -1614,6 +1614,7 @@ jobs:
           header = Path("trunk/user/httpd/src/nvram_x.h").read_text()
           helper = Path("trunk/user/httpd/src/httpd_nvram_group_policy.h").read_text()
           web_ex = Path("trunk/user/httpd/src/web_ex.c").read_text()
+          group_tests = Path("trunk/user/httpd/src/tests/httpd_nvram_group_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
           def body(source, signature):
@@ -1630,9 +1631,16 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           compact = body(helper, "httpd_nvram_group_compact(")
+          add = body(helper, "httpd_nvram_group_add(")
+          add_restore = body(helper, "httpd_nvram_group_add_restore(")
+          add_wrapper = body(nvram_x, "nvram_add_group_map_x(")
+          add_item = body(web_ex, "nvram_add_group_item(webs_t wp")
+          add_dispatch = body(web_ex, "static int\\napply_cgi_group(webs_t wp")
           remove = body(web_ex, "nvram_remove_group_item(struct variable")
           caller = body(web_ex, "apply_cgi(const char *url")
           assert "httpd_nvram_group_compact" in nvram_x
+          assert "httpd_nvram_group_add" in nvram_x
+          assert "nvram_add_group_map_x" in header
           assert "nvram_del_group_map_x" in header
           assert "nvram_transaction_begin(&transaction)" in nvram_x
           assert "nvram_transaction_get((struct nvram_transaction *)context" in nvram_x
@@ -1655,6 +1663,29 @@ jobs:
           assert success_cleanup.index("free(count_snapshot)") < success_cleanup.index("return 0;")
           assert compact.count("free(count_snapshot)") >= 3
           assert compact.index("Do not remove old rows") < compact.index("ops->set(context, count_name, count_value)")
+          assert "httpd_nvram_group_count_parse(stored_count, max_group_count" in add
+          assert "ops->unset(context, key) != 0" in add
+          assert "ops->set(context, key, values[column]) != 0" in add
+          assert "ops->set(context, count_name, count_value) != 0" in add
+          assert add.index("/* Publish the count only after every group column is written. */") < add.index("ops->set(context, count_name, count_value)")
+          assert "ops->set(context, count_name, count_snapshot) != 0" in add_restore
+          assert "ops->unset(context, count_name) != 0" in add_restore
+          assert "nvram_transaction_begin(&transaction)" in add_wrapper
+          assert "httpd_nvram_group_add(names, name_count, count_name, values" in add_wrapper
+          assert "nvram_transaction_end(&transaction)" in add_wrapper
+          assert "nvram_add_group_map_x(names, name_count, v->argv[3], values)" in add_item
+          assert "return nvram_add_group_item(wp, v) == 0 ? 1 : -1;" in add_dispatch
+          assert "test_add_group_appends_all_columns_and_clears_delete_cache" in group_tests
+          assert "test_add_group_read_failure_aborts_before_mutation" in group_tests
+          assert "test_add_group_row_write_failure_rolls_back_every_column" in group_tests
+          assert "test_add_group_count_write_applied_then_failed_rolls_back" in group_tests
+          assert "test_add_group_malformed_or_full_count_fails_closed" in group_tests
+          assert 'apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD) != 1' in caller
+          add_error = caller.index('if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD) != 1)')
+          add_refresh = caller.index('else if (!strncmp(value1, " Del ", 5))', add_error)
+          add_failure_branch = caller[add_error:add_refresh]
+          assert 'websError(wp, 500' in add_failure_branch
+          assert 'return 0;' in add_failure_branch
           assert "nvram_del_group_map_x" in remove
           assert "nvram_set_int" not in remove
           assert "apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0" in caller

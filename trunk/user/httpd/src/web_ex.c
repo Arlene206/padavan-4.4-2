@@ -4239,8 +4239,12 @@ apply_cgi(const char *url, webs_t wp)
 					
 					if (!strncmp(value1, " Delete ", 8))
 						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_DELETE);
-					else if (!strncmp(value1, " Add ", 5))
-						apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD);
+					else if (!strncmp(value1, " Add ", 5)) {
+						if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_ADD) != 1) {
+							websError(wp, 500, "Unable to add this entry safely; the group count was not increased.\\n");
+							return 0;
+						}
+					}
 					else if (!strncmp(value1, " Del ", 5)) {
 						if (apply_cgi_group(wp, sid, NULL, groupId, GROUP_FLAG_REMOVE) < 0) {
 							websError(wp, 500, "Unable to remove this entry safely; the group count was not reduced.\n");
@@ -4289,37 +4293,53 @@ nvram_clr_group_temp(struct variable *v)
 	}
 }
 
-static void
+static int
 nvram_add_group_item(webs_t wp, struct variable *v)
 {
-	char name[64], *value;
+	char name[64];
 	struct variable *gv;
-	int gcount;
+	const char **names, **values;
+	int name_count = 0, index = 0, length, result;
 
-	if (v->argv[0]==NULL)
-		return;
+	if (!v || !v->argv || !v->argv[0] || !v->argv[3] ||
+	    !*v->argv[3])
+		return -1;
 
-	if (!v || !v->argv || !v->argv[0] || !v->argv[3])
-		return;
-	gcount = nvram_get_int(v->argv[3]);
-	if (gcount < 0)
-		gcount = 0;
-	if (gcount >= MAX_GROUP_COUNT)
-		return;
+	for (gv = (struct variable *)v->argv[0]; gv->name != NULL; ++gv) {
+		if (name_count == INT_MAX)
+			return -1;
+		++name_count;
+	}
+	if (name_count < 1 ||
+	    (size_t)name_count > (size_t)-1 / sizeof(*names))
+		return -1;
 
-	for (gv = (struct variable *)v->argv[0]; gv->name!=NULL; gv++) {
-		snprintf(name, sizeof(name), "%s_0", gv->name);
-		
-		/* clear last deleted value */
-		nvram_unset(name);
-		
-		value = websGetVar(wp, name, "");
-		snprintf(name, sizeof(name), "%s%d", gv->name, gcount);
-		nvram_set(name, value);
+	names = (const char **)calloc((size_t)name_count, sizeof(*names));
+	values = (const char **)calloc((size_t)name_count, sizeof(*values));
+	if (!names || !values) {
+		free(names);
+		free(values);
+		return -1;
 	}
 
-	gcount++;
-	nvram_set_int(v->argv[3], gcount);
+	for (gv = (struct variable *)v->argv[0]; gv->name != NULL; ++gv) {
+		length = snprintf(name, sizeof(name), "%s_0", gv->name);
+		if (length < 0 || (size_t)length >= sizeof(name)) {
+			free(names);
+			free(values);
+			return -1;
+		}
+		names[index] = gv->name;
+		values[index] = websGetVar(wp, name, "");
+		if (!values[index])
+			values[index] = "";
+		++index;
+	}
+
+	result = nvram_add_group_map_x(names, name_count, v->argv[3], values);
+	free(names);
+	free(values);
+	return result;
 }
 
 static int
@@ -4497,10 +4517,8 @@ apply_cgi_group(webs_t wp, int sid, struct variable *var, const char *groupName,
 	if (v->name == NULL)
 		return 0;
 
-	if (flag == GROUP_FLAG_ADD) {
-		nvram_add_group_item(wp, v);
-		return 1;
-	} else if (flag == GROUP_FLAG_REMOVE) {
+	if (flag == GROUP_FLAG_ADD)
+		return nvram_add_group_item(wp, v) == 0 ? 1 : -1; else if (flag == GROUP_FLAG_REMOVE) {
 		return nvram_remove_group_item(v, group_del_map);
 	}
 

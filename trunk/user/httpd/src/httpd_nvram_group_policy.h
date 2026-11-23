@@ -40,22 +40,35 @@ httpd_nvram_group_make_key(char *key, size_t key_size,
  * stale; compare it with the count read under the lock before moving any row.
  */
 static int
-httpd_nvram_group_count_matches(const char *text, int expected)
+httpd_nvram_group_count_parse(const char *text, int maximum, int *value)
 {
 	char *end;
 	long parsed;
 
-	if (!text || expected < 0)
+	if (!text || !value || maximum < 0)
 		return 0;
 
 	errno = 0;
 	parsed = strtol(text, &end, 10);
-	if (end == text || errno == ERANGE || parsed < 0 || parsed > INT_MAX)
+	if (end == text || errno == ERANGE || parsed < 0 || parsed > maximum)
 		return 0;
 	while (*end && isspace((unsigned char)*end))
 		++end;
+	if (*end != '\0')
+		return 0;
 
-	return (*end == '\0' && parsed == expected);
+	*value = (int)parsed;
+	return 1;
+}
+
+static int
+httpd_nvram_group_count_matches(const char *text, int expected)
+{
+	int parsed;
+
+	return expected >= 0 &&
+	       httpd_nvram_group_count_parse(text, INT_MAX, &parsed) &&
+	       parsed == expected;
 }
 
 static void
@@ -119,6 +132,200 @@ httpd_nvram_group_restore(const char * const *names, int name_count,
 	if (ops->set(context, count_name, count_value) != 0)
 		failed = 1;
 	return failed ? -1 : 0;
+}
+
+/*
+ * Restore one append destination, each deleted-value cache and the count.
+ * The caller still holds the NVRAM transaction lock.
+ */
+static int
+httpd_nvram_group_add_restore(const char * const *names, int name_count,
+			      int group_index,
+			      struct httpd_nvram_group_cell *cells,
+			      struct httpd_nvram_group_cell *last_cells,
+			      const char *count_name,
+			      const char *count_snapshot, int count_present,
+			      const struct httpd_nvram_group_ops *ops,
+			      void *context)
+{
+	char key[HTTPD_NVRAM_GROUP_KEY_SIZE];
+	int column, length, failed = 0;
+
+	for (column = 0; column < name_count; ++column) {
+		if (httpd_nvram_group_make_key(key, sizeof(key), names[column],
+					       group_index) != 0) {
+			failed = 1;
+		} else if (cells[column].present) {
+			if (ops->set(context, key, cells[column].value) != 0)
+				failed = 1;
+		} else if (ops->unset(context, key) != 0) {
+			failed = 1;
+		}
+
+		length = snprintf(key, sizeof(key), "%s_0", names[column]);
+		if (length < 0 || (size_t)length >= sizeof(key)) {
+			failed = 1;
+			continue;
+		}
+		if (last_cells[column].present) {
+			if (ops->set_temp(context, key,
+					  last_cells[column].value) != 0)
+				failed = 1;
+		} else if (ops->unset(context, key) != 0) {
+			failed = 1;
+		}
+	}
+
+	if (count_present) {
+		if (ops->set(context, count_name, count_snapshot) != 0)
+			failed = 1;
+	} else if (ops->unset(context, count_name) != 0) {
+		failed = 1;
+	}
+	return failed ? -1 : 0;
+}
+
+/*
+ * Append one complete row while the caller holds the NVRAM transaction.
+ * Missing legacy counts start at zero. Snapshot every destination before
+ * mutation, clear the last-deleted cache, and publish the count last.
+ * Return 0 on success, -1 on failure with successful rollback, or -2 if
+ * rollback was incomplete.
+ */
+static int
+httpd_nvram_group_add(const char * const *names, int name_count,
+		      const char *count_name, const char * const *values,
+		      int max_group_count,
+		      const struct httpd_nvram_group_ops *ops, void *context)
+{
+	struct httpd_nvram_group_cell *cells = NULL, *last_cells = NULL;
+	char key[HTTPD_NVRAM_GROUP_KEY_SIZE];
+	char count_value[16];
+	char *count_snapshot = NULL;
+	const char *stored_count = NULL;
+	int count_status, count_present = 0, group_count = 0, new_count;
+	int column, other, length, rollback_result;
+	int result = -1;
+
+	if (!names || name_count < 1 || !count_name || !*count_name ||
+	    strlen(count_name) >= sizeof(key) || !values ||
+	    !ops || !ops->get || !ops->set || !ops->set_temp || !ops->unset ||
+	    !context || max_group_count < 1)
+		return -1;
+
+	count_status = ops->get(context, count_name, &stored_count);
+	if (count_status < 0 || count_status > 1 ||
+	    (count_status == 1 && !stored_count))
+		return -1;
+	if (count_status == 1) {
+		count_present = 1;
+		count_snapshot = strdup(stored_count);
+		if (!count_snapshot)
+			return -1;
+		if (!httpd_nvram_group_count_parse(stored_count, max_group_count,
+						   &group_count))
+			goto done;
+	}
+	if (group_count >= max_group_count)
+		goto done;
+
+	for (column = 0; column < name_count; ++column) {
+		if (!names[column] || !*names[column] || !values[column] ||
+		    !strcmp(names[column], count_name) ||
+		    strlen(names[column]) + 3 >= sizeof(key) ||
+		    httpd_nvram_group_make_key(key, sizeof(key), names[column],
+					       group_count) != 0 ||
+		    !strcmp(key, count_name)) 
+			goto done;
+		for (other = 0; other < column; ++other) {
+			if (!strcmp(names[column], names[other]))
+				goto done;
+		}
+		length = snprintf(key, sizeof(key), "%s_0", names[column]);
+		if (length < 0 || (size_t)length >= sizeof(key) ||
+		    !strcmp(key, count_name))
+			goto done;
+	}
+
+	cells = (struct httpd_nvram_group_cell *)calloc(
+		(size_t)name_count, sizeof(*cells));
+	last_cells = (struct httpd_nvram_group_cell *)calloc(
+		(size_t)name_count, sizeof(*last_cells));
+	if (!cells || !last_cells)
+		goto done;
+
+	/* Snapshot all append destinations and cache cells before any write. */
+	for (column = 0; column < name_count; ++column) {
+		const char *value = NULL;
+		int get_status;
+
+		if (httpd_nvram_group_make_key(key, sizeof(key), names[column],
+					       group_count) != 0)
+			goto done;
+		get_status = ops->get(context, key, &value);
+		if (get_status < 0 || get_status > 1 ||
+		    (get_status == 1 && !value))
+			goto done;
+		if (get_status == 1) {
+			cells[column].value = strdup(value);
+			if (!cells[column].value)
+				goto done;
+			cells[column].present = 1;
+		}
+
+		length = snprintf(key, sizeof(key), "%s_0", names[column]);
+		if (length < 0 || (size_t)length >= sizeof(key))
+			goto done;
+		value = NULL;
+		get_status = ops->get(context, key, &value);
+		if (get_status < 0 || get_status > 1 ||
+		    (get_status == 1 && !value))
+			goto done;
+		if (get_status == 1) {
+			last_cells[column].value = strdup(value);
+			if (!last_cells[column].value)
+				goto done;
+			last_cells[column].present = 1;
+		}
+	}
+
+	new_count = group_count + 1;
+	length = snprintf(count_value, sizeof(count_value), "%d", new_count);
+	if (length < 0 || (size_t)length >= sizeof(count_value))
+		goto done;
+
+	/* A failed write may have taken effect: rollback every saved key. */
+	for (column = 0; column < name_count; ++column) {
+		length = snprintf(key, sizeof(key), "%s_0", names[column]);
+		if (length < 0 || (size_t)length >= sizeof(key))
+			goto rollback;
+		if (ops->unset(context, key) != 0)
+			goto rollback;
+		if (httpd_nvram_group_make_key(key, sizeof(key), names[column],
+					       group_count) != 0)
+			goto rollback;
+		if (ops->set(context, key, values[column]) != 0)
+			goto rollback;
+	}
+
+	/* Publish the count only after every group column is written. */
+	if (ops->set(context, count_name, count_value) != 0)
+		goto rollback;
+
+	result = 0;
+	goto done;
+
+rollback:
+	rollback_result = httpd_nvram_group_add_restore(
+		names, name_count, group_count, cells, last_cells, count_name,
+		count_snapshot, count_present, ops, context);
+	result = rollback_result == 0 ? -1 : -2;
+
+done:
+	httpd_nvram_group_free_cells(cells, (size_t)name_count);
+	httpd_nvram_group_free_cells(last_cells, (size_t)name_count);
+	free(count_snapshot);
+	return result;
 }
 
 /*

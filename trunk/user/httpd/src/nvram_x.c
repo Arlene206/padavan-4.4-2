@@ -98,6 +98,39 @@ nvram_group_policy_unset(void *context, const char *name)
 }
 
 int
+nvram_add_group_map_x(const char * const *names, int name_count,
+		      const char *count_name, const char * const *values)
+{
+	static const struct httpd_nvram_group_ops ops = {
+		nvram_group_policy_get,
+		nvram_group_policy_set,
+		nvram_group_policy_set_temp,
+		nvram_group_policy_unset
+	};
+	struct nvram_transaction transaction;
+	int result, end_status;
+
+	if (nvram_transaction_begin(&transaction) != 0) {
+		fprintf(stderr, "NVRAM group add could not acquire the transaction lock\\n");
+		return -1;
+	}
+	result = httpd_nvram_group_add(names, name_count, count_name, values,
+				       MAX_GROUP_COUNT, &ops, &transaction);
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0) {
+		fprintf(stderr, "NVRAM group add transaction release failed (operation status=%d)\\n",
+			result);
+		if (result == 0)
+			result = -1;
+	}
+	if (result == -2)
+		fprintf(stderr, "NVRAM group add failed and rollback was incomplete\\n");
+	else if (result != 0 && end_status == 0)
+		fprintf(stderr, "NVRAM group add failed; group count was not increased\\n");
+	return result;
+}
+
+int
 nvram_del_group_map_x(const char * const *names, int name_count,
 		      const char *count_name, int group_count, int *delMap)
 {
