@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fail closed on URL-filter MAC qualifier reads
+
+- Found that both IPv4 and IPv6 URL-filter builders called the generic `mac_conv("url_mac_x")`, which uses error-collapsing `nvram_safe_get()` and only checked stored string length. An NVRAM backend error could silently remove a configured MAC qualifier, and a 12-byte non-hex value could become an untrusted bare `--mac-source` token in the staged iptables-restore file.
+- Added a checked, presence-aware URL MAC reader. Confirmed missing/empty/zero/broadcast values retain the historical optional-no-qualifier behavior; valid 12-hex-digit values are formatted through the existing strict MAC policy; backend errors and malformed present values abort and remove the unpublished IPv4/IPv6 rule file before core restore publication.
+- Extended the GNU89 firewall policy test with missing/present/read-error/invalid-input cases and the Firewall Startup source contract with both-family abort-before-rule assertions. Exact-SHA Firewall Startup, HTTPD and XY-C1 runs are required; no local compile, MIPS build or hardware result is claimed.
+
+---
 ## 2026-11-23 UTC — Match watchdog timezone source filters for pull requests
 
 - AI handoff check #45163084187 on `da6c721111852b8ca888d2797717a9b29b4713fb` exposed two path-filter asymmetries in `.github/workflows/process-lifecycle-regression.yml`: the watchdog-timezone policy header and its GNU89 regression test were added to `push.paths` by the timezone scheduler fix but omitted from `pull_request.paths`.

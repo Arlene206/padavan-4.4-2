@@ -225,6 +225,26 @@ firewall_mac_filter_address_format(const char *value, char *formatted,
 	return 1;
 }
 
+/*
+ * Preserve the legacy optional-MAC behavior only for a confirmed missing key,
+ * empty value, zero address or broadcast sentinel. A failed checked read or
+ * malformed configured value must not silently drop the URL filter qualifier.
+ */
+static int
+firewall_url_mac_format_status(int read_status, int present, const char *value,
+			       char *formatted, size_t formatted_size)
+{
+	if (!formatted || formatted_size < 18)
+		return -1;
+	formatted[0] = '\0';
+	if (read_status != 0)
+		return -1;
+	if (!present)
+		value = "";
+	return firewall_mac_filter_address_format(value, formatted,
+						  formatted_size);
+}
+
 static int
 firewall_port_span_is_safe(const char *start, const char *end,
                            unsigned int *number)

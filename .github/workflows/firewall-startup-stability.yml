@@ -713,6 +713,24 @@ jobs:
           assert 'firewall_schedule_value_or_default(date_present, date_value, "1111111")' in mac_schedule_compact
           assert 'firewall_schedule_value_or_default(time_present, time_value, "00002359")' in mac_schedule_compact
           assert "return timematch_conv_values(match, date_buffer, time_buffer);" in mac_schedule
+          url_mac_reader = body(firewall_source, "firewall_read_url_filter_mac(char *formatted, size_t formatted_size)")
+          url_mac_reader_compact = " ".join(url_mac_reader.split())
+          assert 'firewall_read_string_setting_with_presence("url_mac_x", &value, &present)' in url_mac_reader_compact
+          assert "firewall_url_mac_format_status(read_status, present, value," in url_mac_reader_compact
+          assert "read_status != 0 ? read_status : EINVAL" in url_mac_reader
+          assert "firewall_url_mac_format_status" in firewall_policy
+          assert "firewall_url_mac_format_status(EIO" in filter_test
+          assert 'mac_conv("url_mac_x"' not in firewall_source
+          for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
+              url_builder = body(firewall_source, signature)
+              url_mac_pos = url_builder.index("url_mac_status = firewall_read_url_filter_mac(")
+              url_mac_abort = url_builder.index("firewall_abort_core_restore_after_staging_failure();", url_mac_pos)
+              url_mac_cleanup = url_builder.index("firewall_rule_file_remove(ipt_file);", url_mac_abort)
+              url_mac_return = url_builder.index("return -1;", url_mac_cleanup)
+              url_mac_rule = url_builder.index('strcat(timematch, " --mac-source ");', url_mac_pos)
+              assert url_mac_pos < url_mac_abort < url_mac_cleanup < url_mac_return < url_mac_rule
+              assert "if (url_mac_status > 0)" in url_builder[url_mac_pos:url_mac_rule]
+              assert 'mac_conv("url_mac_x"' not in url_builder
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               builder = body(firewall_source, signature)
               mac_call = "include_mac_filter(fp, i_mac_filter, i_mac_filter_count,"

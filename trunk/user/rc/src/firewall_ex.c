@@ -818,6 +818,33 @@ firewall_read_string_setting(const char *param_name, const char **value)
 	return firewall_read_string_setting_with_presence(param_name, value, NULL);
 }
 
+/*
+ * Read the optional URL-filter MAC qualifier without collapsing NVRAM faults
+ * into an empty value. Missing keys keep the historical no-MAC behavior.
+ */
+static int
+firewall_read_url_filter_mac(char *formatted, size_t formatted_size)
+{
+	const char *value = NULL;
+	int present = 0;
+	int read_status, status;
+
+	if (!formatted || formatted_size < 18) {
+		errno = EINVAL;
+		return -1;
+	}
+	formatted[0] = '\0';
+	read_status = firewall_read_string_setting_with_presence(
+		"url_mac_x", &value, &present);
+	status = firewall_url_mac_format_status(read_status, present, value,
+						 formatted, formatted_size);
+	if (status < 0) {
+		errno = read_status != 0 ? read_status : EINVAL;
+		return -1;
+	}
+	return status;
+}
+
 /* Copy before another NVRAM read can invalidate the shared cache pointer. */
 static int
 firewall_read_string_setting_copy_status(const char *param_name,
@@ -2722,7 +2749,7 @@ FILE *fp;
 			return -1;
 		}
 		if (url_status > 0) {
-			int url_schedule_status;
+			int url_schedule_status, url_mac_status;
 			char mac_buf[24] = {0};
 
 			timematch[0] = 0;
@@ -2740,8 +2767,20 @@ FILE *fp;
 				return -1;
 			}
 			if (url_schedule_status > 0) {
-				mac_conv("url_mac_x", -1, mac_buf);
-				if (strlen(mac_buf) == 17) {
+				url_mac_status = firewall_read_url_filter_mac(
+					mac_buf, sizeof(mac_buf));
+				if (url_mac_status < 0) {
+					saved_errno = errno ? errno : EIO;
+					logmessage(LOGNAME,
+						   "firewall filter: aborting after URL-filter MAC read/validation error (errno=%d)",
+						   saved_errno);
+					(void)fclose(fp);
+					firewall_abort_core_restore_after_staging_failure();
+					firewall_rule_file_remove(ipt_file);
+					errno = saved_errno;
+					return -1;
+				}
+				if (url_mac_status > 0) {
 					strcat(timematch, " -m mac");
 					if (is_url_inverse)
 						strcat(timematch, " !");

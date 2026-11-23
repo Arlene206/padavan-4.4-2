@@ -252,5 +252,36 @@ main(void)
 							  formatted, sizeof(formatted) - 1) < 0);
 	}
 
+	/* Optional URL MAC: only confirmed absence may omit the qualifier. */
+	{
+		char formatted[24];
+
+		memset(formatted, 'X', sizeof(formatted));
+		assert(firewall_url_mac_format_status(0, 0, "A1B2C3D4E5F6",
+						      formatted, sizeof(formatted)) == 0);
+		assert(formatted[0] == '\0');
+		assert(firewall_url_mac_format_status(0, 1, "",
+						      formatted, sizeof(formatted)) == 0);
+		assert(firewall_url_mac_format_status(0, 1, "000000000000",
+						      formatted, sizeof(formatted)) == 0);
+		assert(firewall_url_mac_format_status(0, 1, "FFFFFFFFFFFF",
+						      formatted, sizeof(formatted)) == 0);
+		assert(firewall_url_mac_format_status(0, 1, "A1B2C3D4E5F6",
+						      formatted, sizeof(formatted)) == 1);
+		assert(!strcmp(formatted, "A1:B2:C3:D4:E5:F6"));
+
+		memset(formatted, 'X', sizeof(formatted));
+		assert(firewall_url_mac_format_status(EIO, 1, "A1B2C3D4E5F6",
+						      formatted, sizeof(formatted)) < 0);
+		assert(formatted[0] == '\0');
+		assert(firewall_url_mac_format_status(0, 1, "A1B2C3D4E5G6",
+						      formatted, sizeof(formatted)) < 0);
+		assert(formatted[0] == '\0');
+		assert(firewall_url_mac_format_status(0, 1, NULL,
+						      formatted, sizeof(formatted)) < 0);
+		assert(firewall_url_mac_format_status(0, 1, "A1B2C3D4E5F6",
+						      formatted, sizeof(formatted) - 1) < 0);
+	}
+
 	return 0;
 }
