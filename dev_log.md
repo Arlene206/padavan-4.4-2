@@ -1,3 +1,15 @@
+## 2026-11-23 11:20 UTC+8 — Make folder permission changes compensating and staging creation exclusive
+
+- `0e83450aa686d745f80547604bd4f08479a43538` added a reusable per-file permission batch with original-content snapshots, reverse-order rollback and retryable compensation. `del_folder()` now stages its directory and only removes it after all permission updates succeed; failures restore the directory and folder snapshot. Added success, later-write failure and rollback-failure/retry policy regressions.
+- `f00ed9b4ba735b1943887ccd95b4dcda75255e88` reused the batch for `mod_folder()`, precomputing old-to-new ACL contents before the directory rename and restoring exact original file images on failure.
+- `b5458732188ea2ac1b6ab27ca8f1c73a87e3c06e` removed the staging-path check/use race by reserving a hidden parent through exclusive `mkdir()` semantics before moving the folder. It retries only `EEXIST`; tests cover collision retry, hard creation errors and path truncation.
+- Checker-only descendants `44e3a626bebf255b8a08eb212a62c5fb07ebe74b` and `7bd561845032ed68084e53c609da8c0a22655a6a` repaired stale ACL-pruner/source locators. Exact current-head libdisk run `45103728364`: PASS (both GNU89 sanitizer binaries and source contracts).
+- Product-source XY-C1 run `45103585439`: host checks PASS; Build XY-C1 IN_PROGRESS; TRX and artifact upload PENDING. NVRAM boundary audit `45103585419`: policy/locking regressions PASS, raw ioctl/kernel caller audit IN_PROGRESS. HTTPD `45103585429` and Process inventory `45103585424`: PASS.
+- The root log had 109 dated records before this entry and now has 110, below the 120-record rotation threshold. No shard rotation performed.
+- Next: finish exact product-source build/TRX/upload and NVRAM audit status; then add function-level filesystem failure injection for folder delete/rename compensation.
+
+---
+
 ## 2026-11-23 09:13 UTC+8 — Make PID 1 recovery-shell respawn throttling independent of pre-exec latency
 
 - Confirmed the old timer in `init_main_loop()` started before `run_shell(0, 1)` and stopped only after the child exited. This measured fork + signal reset + console attach + timezone setup + shell runtime, not shell runtime itself. Slow pre-exec setup could incorrectly make a repeatedly failing shell appear to have lived at least two seconds, removing the throttle and allowing a rapid restart loop.
