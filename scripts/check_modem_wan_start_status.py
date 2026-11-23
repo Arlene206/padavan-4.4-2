@@ -1460,15 +1460,15 @@ def tight(source: str) -> str:
 
 
 wisp_detector = tight(body(NET_WIFI_SOURCE, "get_apcli_wisp_ifname_status("))
-assert 'wireless_nvram_get_int_status("rt_mode_x", &mode_x)' in wisp_detector
-assert 'wireless_nvram_get_int_status("rt_radio_x", &radio_enabled)' in wisp_detector
-assert 'wireless_nvram_get_int_status("rt_sta_wisp", &wisp_enabled)' in wisp_detector
-assert 'wireless_nvram_get_text_status("rt_sta_ssid", &ssid)' in wisp_detector
-assert 'wireless_nvram_get_int_status("wl_mode_x", &mode_x)' in wisp_detector
-assert 'wireless_nvram_get_int_status("wl_radio_x", &radio_enabled)' in wisp_detector
-assert 'wireless_nvram_get_int_status("wl_sta_wisp", &wisp_enabled)' in wisp_detector
-assert 'wireless_nvram_get_text_status("wl_sta_ssid", &ssid)' in wisp_detector
-assert "goto read_failed;" in wisp_detector
+assert 'wireless_nvram_get_int_status("rt_mode_x",&mode_x)' in wisp_detector
+assert 'wireless_nvram_get_int_status("rt_radio_x",&radio_enabled)' in wisp_detector
+assert 'wireless_nvram_get_int_status("rt_sta_wisp",&wisp_enabled)' in wisp_detector
+assert 'wireless_nvram_get_text_status("rt_sta_ssid",&ssid)' in wisp_detector
+assert 'wireless_nvram_get_int_status("wl_mode_x",&mode_x)' in wisp_detector
+assert 'wireless_nvram_get_int_status("wl_radio_x",&radio_enabled)' in wisp_detector
+assert 'wireless_nvram_get_int_status("wl_sta_wisp",&wisp_enabled)' in wisp_detector
+assert 'wireless_nvram_get_text_status("wl_sta_ssid",&ssid)' in wisp_detector
+assert "gotoread_failed;" in wisp_detector
 assert "errno=status;" in wisp_detector
 wisp_text_reader = tight(body(NET_WIFI_SOURCE, "wireless_nvram_get_text_status("))
 assert "nvram_get_checked(name,&stored_value)" in wisp_text_reader

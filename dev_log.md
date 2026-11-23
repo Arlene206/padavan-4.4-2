@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Fix WISP contract expected whitespace
+
+- The first checker-only correction moved the detector extraction to `tight()`, which removes all whitespace, but the expected literals still contained spaces after commas and around `errno = status` / `goto read_failed`. This caused the exact-SHA workflows to fail at the same added assertion.
+- Updated the expected source fragments to the same whitespace-free representation. This is a static test-only correction; the WISP production implementation is unchanged.
+- Run USB modem, Process, Firewall and XY-C1 again on the next exact source SHA. The failed XY-C1 run had Build/TRX/artifact steps skipped before the source checker was fixed.
+
+---
+
 ## 2026-11-23 UTC — Correct AP-client WISP static-check whitespace normalization
 
 - Exact-SHA USB modem workflow #45213624031 on `7c16ec5c8738e3b8b698c75f5b01b1d9ab41aca7` completed all compiled C regression steps and all earlier checker groups successfully, then failed on the new WISP text-reader assertion.
