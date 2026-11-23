@@ -962,12 +962,16 @@ reconnect_policy = link_change.index(
     "modem_wan_link_change_reconnect_enabled("
 )
 policy_error = link_change.index("if(status!=0)", reconnect_policy)
-reconnect_notify = link_change.index('notify_rc("auto_wan_reconnect")')
+reconnect_notify = link_change.index('notify_rc_status("auto_wan_reconnect")')
+notify_error = link_change.index("if(status!=0)", reconnect_notify)
+notify_errno = link_change.index("saved_errno=errno>0?errno:EIO;", notify_error)
+notify_return = link_change.index("returnsaved_errno;", notify_errno)
 assert (
     config_probe < config_error < priority_gate < wisp_probe < wisp_error <
     wisp_gate < identity_probe < identity_error < reconnect_policy <
-    policy_error < reconnect_notify
+    policy_error < reconnect_notify < notify_error < notify_errno < notify_return
 )
+assert "notify_rc(" not in link_change
 assert "nvram_get_int(" not in link_change
 assert "get_modem_devnum()" not in link_change
 assert "get_wan_wisp_active(" not in link_change
