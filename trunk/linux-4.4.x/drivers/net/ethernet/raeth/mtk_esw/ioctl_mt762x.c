@@ -126,6 +126,12 @@ void esw_reg_set(u32 addr, u32 data)
 		printk("%s: FAILED at write to 0x%08X!\n", __FUNCTION__, addr);
 }
 
+static int esw_reg_read_checked(u32 addr, u32 *value)
+{
+	return mtk_esw_register_read(0x1f, addr, value,
+				     &mtk_esw_link_mode_io, NULL);
+}
+
 static int esw_reg_write_checked(u32 addr, u32 data)
 {
 	return mtk_esw_register_write(0x1f, addr, data,
@@ -145,21 +151,41 @@ int mt7530_gsw_mac_table_clear(int static_only)
 }
 
 static
-u32 esw_get_port_mib_rgoc(u32 port_id, u32 *HighPart)
+int esw_get_port_mib_rgoc(u32 port_id, ULARGE_INTEGER *mib_value)
 {
-	u32 mib_val = 0;
-	mib_val   = esw_reg_get(0x40A8 + 0x100*port_id);
-	*HighPart = esw_reg_get(0x40AC + 0x100*port_id);
-	return mib_val;
+	u32 low_part, high_part;
+	int status;
+
+	if (!mib_value)
+		return -EINVAL;
+	status = esw_reg_read_checked(0x40A8 + 0x100*port_id, &low_part);
+	if (status != 0)
+		return status;
+	status = esw_reg_read_checked(0x40AC + 0x100*port_id, &high_part);
+	if (status != 0)
+		return status;
+	mib_value->LowPart = low_part;
+	mib_value->HighPart = high_part;
+	return 0;
 }
 
 static
-u32 esw_get_port_mib_tgoc(u32 port_id, u32 *HighPart)
+int esw_get_port_mib_tgoc(u32 port_id, ULARGE_INTEGER *mib_value)
 {
-	u32 mib_val = 0;
-	mib_val   = esw_reg_get(0x4048 + 0x100*port_id);
-	*HighPart = esw_reg_get(0x404C + 0x100*port_id);
-	return mib_val;
+	u32 low_part, high_part;
+	int status;
+
+	if (!mib_value)
+		return -EINVAL;
+	status = esw_reg_read_checked(0x4048 + 0x100*port_id, &low_part);
+	if (status != 0)
+		return status;
+	status = esw_reg_read_checked(0x404C + 0x100*port_id, &high_part);
+	if (status != 0)
+		return status;
+	mib_value->LowPart = low_part;
+	mib_value->HighPart = high_part;
+	return 0;
 }
 
 u32 get_ports_mask_lan(u32 include_cpu, int is_phy_id)
@@ -1273,10 +1299,14 @@ static int esw_led_mode(u32 led_mode)
 		&mtk_esw_link_mode_io, NULL);
 }
 
-static u32 esw_status_link_port(u32 port_id)
+static int esw_status_link_port(u32 port_id, u32 *link)
 {
 	u32 reg_pmsr;
+	int status;
 
+	if (!link)
+		return -EINVAL;
+	*link = 0;
 #if defined (RAETH_GE2_MAC_TO_GPHY)
 	if (port_id == WAN_PORT_X)
 		reg_pmsr = sysRegRead(REG_ETH_GE2_MAC_STATUS);	// read state from GE2
@@ -1286,18 +1316,28 @@ static u32 esw_status_link_port(u32 port_id)
 		reg_pmsr = sysRegRead(RALINK_ETH_SW_BASE+REG_ESW_MAC_PMSR_P0 + 0x100*4);	// read state from P4
 	else
 #endif
-		reg_pmsr = esw_reg_get(REG_ESW_MAC_PMSR_P0 + 0x100*port_id);
+	{
+		status = esw_reg_read_checked(
+			REG_ESW_MAC_PMSR_P0 + 0x100*port_id, &reg_pmsr);
+		if (status != 0)
+			return status;
+	}
 
-	return (reg_pmsr & 0x1);
+	*link = reg_pmsr & 0x1;
+	return 0;
 }
 
-static u32 esw_status_speed_port_uapi(u32 port_id_uapi)
+static int esw_status_speed_port_uapi(u32 port_id_uapi, u32 *result)
 {
 	u32 port_link, port_duplex, port_speed;
 	u32 port_eee, port_fc_rx, port_fc_tx;
 	u32 reg_pmsr;
 	u32 port_id = get_port_from_uapi(port_id_uapi);
+	int status;
 
+	if (!result)
+		return -EINVAL;
+	*result = 0;
 	if (port_id > ESW_EPHY_ID_MAX)
 		return 0;
 
@@ -1313,10 +1353,14 @@ static u32 esw_status_speed_port_uapi(u32 port_id_uapi)
 		reg_pmsr = sysRegRead(RALINK_ETH_SW_BASE+REG_ESW_MAC_PMSR_P0 + 0x100*4);	// read state from P4
 	else
 #endif
-		reg_pmsr = esw_reg_get(REG_ESW_MAC_PMSR_P0 + 0x100*port_id);
+	{
+		status = esw_reg_read_checked(
+			REG_ESW_MAC_PMSR_P0 + 0x100*port_id, &reg_pmsr);
+		if (status != 0)
+			return status;
+	}
 
-	port_link = (reg_pmsr & 0x1);
-
+	port_link = reg_pmsr & 0x1;
 	if (!port_link)
 		return 0;
 
@@ -1326,39 +1370,49 @@ static u32 esw_status_speed_port_uapi(u32 port_id_uapi)
 	port_fc_rx  = (reg_pmsr >> 5) & 0x1;
 	port_eee    = (reg_pmsr >> 6) & 0x3;
 
-	return ((port_link << 16) | (port_eee << 11) | (port_fc_rx << 10) | (port_fc_tx << 9) | (port_duplex << 8) | port_speed);
+	*result = ((port_link << 16) | (port_eee << 11) | (port_fc_rx << 10) |
+		   (port_fc_tx << 9) | (port_duplex << 8) | port_speed);
+	return 0;
 }
 
-static u32 esw_status_link_port_uapi(u32 port_id_uapi)
+static int esw_status_link_port_uapi(u32 port_id_uapi, u32 *link)
 {
 	u32 port_id = get_port_from_uapi(port_id_uapi);
 
+	if (!link)
+		return -EINVAL;
+	*link = 0;
 	if (port_id > ESW_EPHY_ID_MAX)
 		return 0;
-
-	return esw_status_link_port(port_id);
+	return esw_status_link_port(port_id, link);
 }
 
-static u32 esw_status_link_ports(int is_wan_ports)
+static int esw_status_link_ports(int is_wan_ports, u32 *link)
 {
-	int i;
-	u32 port_link = 0;
+	int status;
+	u32 i, port_link = 0;
 	u32 portmask;
 
+	if (!link)
+		return -EINVAL;
+	*link = 0;
 	if (is_wan_ports)
 		portmask = get_ports_mask_wan(0, 1);
 	else
 		portmask = get_ports_mask_lan(0, 1);
 
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-		if ((portmask >> i) & 0x1) {
-			port_link = esw_status_link_port(i);
-			if (port_link)
-				break;
+		if (!((portmask >> i) & 0x1))
+			continue;
+		status = esw_status_link_port(i, &port_link);
+		if (status != 0)
+			return status;
+		if (port_link) {
+			*link = port_link;
+			break;
 		}
 	}
-
-	return port_link;
+	return 0;
 }
 
 static u32 esw_status_link_changed(void)
@@ -1373,71 +1427,136 @@ extern int VirtualIF_get_bytes(port_bytes_t *pb);
 static int esw_status_mib_port_uapi(u32 port_id_uapi, esw_mib_counters_t *mibc)
 {
 	ULARGE_INTEGER rx_goct, tx_goct;
+	esw_mib_counters_t snapshot;
+	port_bytes_t bytes;
 	u32 port_id = get_port_from_uapi(port_id_uapi);
+	u32 counter;
+	int status;
 
+	if (!mibc)
+		return -EINVAL;
 	if (port_id > ESW_PORT_ID_MAX)
 		return -EINVAL;
+	memset(&snapshot, 0, sizeof(snapshot));
 
 #if defined (RAETH_GE2_MAC_TO_GPHY)
 	if (port_id == WAN_PORT_X || port_id == WAN_PORT_CPU) {
-		port_bytes_t pb;
-		memset(mibc, 0, sizeof(esw_mib_counters_t));
-		if (VirtualIF_get_bytes(&pb) == 0) {
-			mibc->TxGoodOctets = pb.TX;
-			mibc->RxGoodOctets = pb.RX;
-		}
+		status = VirtualIF_get_bytes(&bytes);
+		if (status != 0)
+			return mtk_esw_link_mode_io_error(status);
+		snapshot.TxGoodOctets = bytes.TX;
+		snapshot.RxGoodOctets = bytes.RX;
+		*mibc = snapshot;
 		return 0;
 	}
 #endif
 
-	rx_goct.u.LowPart = esw_get_port_mib_rgoc(port_id, &rx_goct.u.HighPart);
-	tx_goct.u.LowPart = esw_get_port_mib_tgoc(port_id, &tx_goct.u.HighPart);
+	status = esw_get_port_mib_rgoc(port_id, &rx_goct);
+	if (status != 0)
+		return status;
+	status = esw_get_port_mib_tgoc(port_id, &tx_goct);
+	if (status != 0)
+		return status;
+	snapshot.TxGoodOctets = tx_goct.QuadPart;
+	snapshot.RxGoodOctets = rx_goct.QuadPart;
 
-	mibc->TxGoodOctets	= tx_goct.QuadPart;
-	mibc->RxGoodOctets	= rx_goct.QuadPart;
+	status = esw_reg_read_checked(0x4000 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxDropFrames = counter;
+	status = esw_reg_read_checked(0x4004 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxCRCError = counter;
+	status = esw_reg_read_checked(0x4008 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxUcastFrames = counter;
+	status = esw_reg_read_checked(0x400c + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxMcastFrames = counter;
+	status = esw_reg_read_checked(0x4010 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxBcastFrames = counter;
+	status = esw_reg_read_checked(0x4014 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxCollision = counter;
+	status = esw_reg_read_checked(0x402c + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.TxPauseFrames = counter;
 
-	mibc->TxDropFrames	= esw_reg_get(0x4000 + 0x100*port_id);
-	mibc->TxCRCError	= esw_reg_get(0x4004 + 0x100*port_id);
-	mibc->TxUcastFrames	= esw_reg_get(0x4008 + 0x100*port_id);
-	mibc->TxMcastFrames	= esw_reg_get(0x400c + 0x100*port_id);
-	mibc->TxBcastFrames	= esw_reg_get(0x4010 + 0x100*port_id);
-	mibc->TxCollision	= esw_reg_get(0x4014 + 0x100*port_id);
-	mibc->TxPauseFrames	= esw_reg_get(0x402c + 0x100*port_id);
+	status = esw_reg_read_checked(0x4060 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxDropFrames = counter;
+	status = esw_reg_read_checked(0x4064 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxFilterFrames = counter;
+	status = esw_reg_read_checked(0x4068 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxUcastFrames = counter;
+	status = esw_reg_read_checked(0x406c + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxMcastFrames = counter;
+	status = esw_reg_read_checked(0x4070 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxBcastFrames = counter;
+	status = esw_reg_read_checked(0x4074 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxAligmentError = counter;
+	status = esw_reg_read_checked(0x4078 + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxCRCError = counter;
+	status = esw_reg_read_checked(0x408c + 0x100*port_id, &counter);
+	if (status != 0)
+		return status;
+	snapshot.RxPauseFrames = counter;
 
-	mibc->RxDropFrames	= esw_reg_get(0x4060 + 0x100*port_id);
-	mibc->RxFilterFrames	= esw_reg_get(0x4064 + 0x100*port_id);
-	mibc->RxUcastFrames	= esw_reg_get(0x4068 + 0x100*port_id);
-	mibc->RxMcastFrames	= esw_reg_get(0x406c + 0x100*port_id);
-	mibc->RxBcastFrames	= esw_reg_get(0x4070 + 0x100*port_id);
-	mibc->RxAligmentError	= esw_reg_get(0x4074 + 0x100*port_id);
-	mibc->RxCRCError	= esw_reg_get(0x4078 + 0x100*port_id);
-//	mibc->RxUndersizeError	= esw_reg_get(0x407c + 0x100*port_id);
-//	mibc->RxFragmentError	= esw_reg_get(0x4080 + 0x100*port_id);
-//	mibc->RxOversizeError	= esw_reg_get(0x4084 + 0x100*port_id);
-//	mibc->RxJabberError	= esw_reg_get(0x4088 + 0x100*port_id);
-	mibc->RxPauseFrames	= esw_reg_get(0x408c + 0x100*port_id);
+	*mibc = snapshot;
 	return 0;
 }
 
 static int esw_status_bytes_port_uapi(u32 port_id_uapi, port_bytes_t *pb)
 {
 	ULARGE_INTEGER rx_goct, tx_goct;
+	port_bytes_t snapshot;
 	u32 port_id = get_port_from_uapi(port_id_uapi);
+	int status;
 
+	if (!pb)
+		return -EINVAL;
 	if (port_id > ESW_PORT_ID_MAX)
 		return -EINVAL;
 
 #if defined (RAETH_GE2_MAC_TO_GPHY)
-	if (port_id == WAN_PORT_X || port_id == WAN_PORT_CPU)
-		return VirtualIF_get_bytes(pb);
+	if (port_id == WAN_PORT_X || port_id == WAN_PORT_CPU) {
+		status = VirtualIF_get_bytes(&snapshot);
+		if (status != 0)
+			return mtk_esw_link_mode_io_error(status);
+		*pb = snapshot;
+		return 0;
+	}
 #endif
 
-	rx_goct.u.LowPart = esw_get_port_mib_rgoc(port_id, &rx_goct.u.HighPart);
-	tx_goct.u.LowPart = esw_get_port_mib_tgoc(port_id, &tx_goct.u.HighPart);
-
-	pb->RX = rx_goct.QuadPart;
-	pb->TX = tx_goct.QuadPart;
-
+	status = esw_get_port_mib_rgoc(port_id, &rx_goct);
+	if (status != 0)
+		return status;
+	status = esw_get_port_mib_tgoc(port_id, &tx_goct);
+	if (status != 0)
+		return status;
+	snapshot.RX = rx_goct.QuadPart;
+	snapshot.TX = tx_goct.QuadPart;
+	*pb = snapshot;
 	return 0;
 }
 

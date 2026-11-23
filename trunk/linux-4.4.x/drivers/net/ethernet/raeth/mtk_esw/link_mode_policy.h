@@ -327,6 +327,27 @@ mtk_esw_first_error(int first_status, int next_status)
 }
 
 /*
+ * Read one register and normalize callback failures. On failure the caller
+ * receives no stale or partially written value.
+ */
+static inline int
+mtk_esw_register_read(unsigned int phy_addr, unsigned int reg,
+		      unsigned int *value,
+		      const struct mtk_esw_link_mode_io *io, void *context)
+{
+	int status;
+
+	if (!value || !io || !io->read)
+		return -EINVAL;
+	status = io->read(context, phy_addr, reg, value);
+	if (status != 0) {
+		*value = 0U;
+		return mtk_esw_link_mode_io_error(status);
+	}
+	return 0;
+}
+
+/*
  * Perform a fail-closed masked register update. The caller may publish its
  * software cache only after both the read and write complete successfully.
  */

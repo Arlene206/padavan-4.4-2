@@ -63,21 +63,27 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 	switch(req)
 	{
 	case MTK_ESW_IOCTL_STATUS_LINK_PORT: /* used by rc */
-		uint_result = esw_status_link_port_uapi(uint_param);
+		ioctl_result = esw_status_link_port_uapi(uint_param, &uint_result);
+		if (ioctl_result != 0)
+			break;
 		if (put_user(uint_result, (unsigned int __user *)arg)) {
 			ioctl_result = -EFAULT;
 			break;
 		}
 		break;
 	case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN: /* used by rc */
-		uint_result = esw_status_link_ports(1);
+		ioctl_result = esw_status_link_ports(1, &uint_result);
+		if (ioctl_result != 0)
+			break;
 		if (put_user(uint_result, (unsigned int __user *)arg)) {
 			ioctl_result = -EFAULT;
 			break;
 		}
 		break;
 	case MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN: /* used by rc */
-		uint_result = esw_status_link_ports(0);
+		ioctl_result = esw_status_link_ports(0, &uint_result);
+		if (ioctl_result != 0)
+			break;
 		if (put_user(uint_result, (unsigned int __user *)arg)) {
 			ioctl_result = -EFAULT;
 			break;
@@ -92,7 +98,9 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 		break;
 
 	case MTK_ESW_IOCTL_STATUS_SPEED_PORT: /* used by rc */
-		uint_result = esw_status_speed_port_uapi(uint_param);
+		ioctl_result = esw_status_speed_port_uapi(uint_param, &uint_result);
+		if (ioctl_result != 0)
+			break;
 		if (put_user(uint_result, (unsigned int __user *)arg)) {
 			ioctl_result = -EFAULT;
 			break;
@@ -101,6 +109,8 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 
 	case MTK_ESW_IOCTL_STATUS_BYTES_PORT: /* used by rc */
 		ioctl_result = esw_status_bytes_port_uapi(uint_param, &port_bytes);
+		if (ioctl_result != 0)
+			break;
 		if (copy_to_user((port_bytes_t __user *)arg, &port_bytes, sizeof(port_bytes_t))) {
 			ioctl_result = -EFAULT;
 			break;
@@ -109,6 +119,8 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 
 	case MTK_ESW_IOCTL_STATUS_MIB_PORT: /* used by rc */
 		ioctl_result = esw_status_mib_port_uapi(uint_param, &port_counters);
+		if (ioctl_result != 0)
+			break;
 		if (copy_to_user((esw_mib_counters_t __user *)arg, &port_counters, sizeof(esw_mib_counters_t))) {
 			ioctl_result = -EFAULT;
 			break;

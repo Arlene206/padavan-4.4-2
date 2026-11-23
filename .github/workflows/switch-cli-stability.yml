@@ -1123,6 +1123,40 @@ jobs:
           init_post = source.split("int esw_ioctl_init_post(void)", 1)[1]
           assert "status = esw_igmp_mld_snooping(" in init_post
           assert "return status;" in init_post
+          read_wrapper = source.split("static int esw_reg_read_checked", 1)[1].split(
+              "static int esw_reg_write_checked", 1
+          )[0]
+          assert "mtk_esw_register_read(" in read_wrapper
+
+          link_status = source.split("static int esw_status_link_port", 1)[1].split(
+              "static u32 esw_status_link_changed", 1
+          )[0]
+          assert "esw_reg_get(" not in link_status
+          assert "esw_reg_read_checked(" in link_status
+          assert "return status;" in link_status
+
+          mib_status = source.split("static int esw_status_mib_port_uapi", 1)[1].split(
+              "static int change_ports_power", 1
+          )[0]
+          assert "esw_reg_get(" not in mib_status
+          assert "esw_reg_read_checked(" in mib_status
+          assert "*mibc = snapshot;" in mib_status
+          assert "*pb = snapshot;" in mib_status
+          assert "return status;" in mib_status
+
+          for ioctl_case, next_case in (
+              ("case MTK_ESW_IOCTL_STATUS_LINK_PORT:", "case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN:"),
+              ("case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN:", "case MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN:"),
+              ("case MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN:", "case MTK_ESW_IOCTL_STATUS_LINK_CHANGED:"),
+              ("case MTK_ESW_IOCTL_STATUS_SPEED_PORT:", "case MTK_ESW_IOCTL_STATUS_BYTES_PORT:"),
+              ("case MTK_ESW_IOCTL_STATUS_BYTES_PORT:", "case MTK_ESW_IOCTL_STATUS_MIB_PORT:"),
+              ("case MTK_ESW_IOCTL_STATUS_MIB_PORT:", "case MTK_ESW_IOCTL_PORTS_POWER:")
+          ):
+              section = ioctl_source.split(ioctl_case, 1)[1].split(next_case, 1)[0]
+              assert "if (ioctl_result != 0)" in section
+          assert "test_register_read_propagates_mdio_failures" in test
+          assert "mtk_esw_register_read(" in policy
+          print("MTK ESW link/MIB checked reads and ioctl error propagation: PASS")
           print("MTK ESW IGMP/MLD checked writes and ioctl error propagation: PASS")
           print("MTK ESW link-mode policy, pre-MDIO guard and XY-C1 trigger contract: PASS")
           PY

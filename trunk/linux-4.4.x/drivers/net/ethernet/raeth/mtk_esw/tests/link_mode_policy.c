@@ -567,6 +567,50 @@ test_register_write_propagates_mdio_failures(void)
 }
 
 static void
+test_register_read_propagates_mdio_failures(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_read = fake_ops;
+	unsigned int value = 0xdeadbeefU;
+
+	fake_init(&fake);
+	fake.read_value = 0x12345678U;
+	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
+				     &fake_ops, &fake) == 0);
+	assert(value == 0x12345678U);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].type == FAKE_READ &&
+	       fake.events[0].phy == 0x1fU &&
+	       fake.events[0].reg == 0x40a8U);
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = -EACCES;
+	value = 0xdeadbeefU;
+	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
+				     &fake_ops, &fake) == -EACCES);
+	assert(value == 0U && fake.mdio_calls == 1U);
+
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = 1;
+	value = 0xdeadbeefU;
+	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
+				     &fake_ops, &fake) == -EIO);
+	assert(value == 0U && fake.mdio_calls == 1U);
+
+	fake_init(&fake);
+	missing_read.read = NULL;
+	assert(mtk_esw_register_read(0x1fU, 0x40a8U, NULL,
+				     &fake_ops, &fake) == -EINVAL);
+	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
+				     NULL, &fake) == -EINVAL);
+	assert(mtk_esw_register_read(0x1fU, 0x40a8U, &value,
+				     &missing_read, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_port_register_writes_continue_after_first_failure(void)
 {
 	struct fake_mdio fake;
@@ -911,6 +955,7 @@ main(void)
 {
 	test_register_update_bits_preserves_unmasked_bits_and_propagates_errors();
 	test_register_write_propagates_mdio_failures();
+	test_register_read_propagates_mdio_failures();
 	test_port_register_writes_continue_after_first_failure();
 	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
