@@ -728,7 +728,7 @@ jobs:
               primary_peer_start = compact.index("start_wifi_ap_" + ("rt" if peer_key.startswith("rt") else "wl") + "(")
               assert read_pos < error_pos < primary_peer_start
               assert own_auth_stop in compact and own_stop+"<0" in compact and peer_stop+"<0" in compact
-              assert compact.index(own_auth_stop, error_pos) < compact.index(f"return -{peer_status};", error_pos)
+              assert compact.index(own_auth_stop, error_pos) < compact.index(f"return-{peer_status};", error_pos)
               assert "get_enabled_radio_" not in body
           for name, helpers, own_auth, peer_helpers, peer_auth, own_stop, peer_stop in (
               ("restart_wifi_wl",

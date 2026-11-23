@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Complete compact DBDC return-order assertions
+
+- Exact Wireless #45157966807 on SHA 280e959c passed the wireless policy executable, Ralink config ASan/UBSan, bridge membership, guest isolation and the first DBDC token-presence checks, then failed with `ValueError: substring not found` at inline Python line 656. The second DBDC ordering lookup still searched for `return -<peer_status>;` in a whitespace-stripped function string. The prior correction fixed the token-presence assertion but missed this second occurrence; this checkpoint aligns the remaining ordering lookup with the same compact representation. Production wireless code is unchanged.
+- AI handoff documentation #45157966954 passed on 280e959c after restoring the validator-required heading `## Exact first action for the next GPT`.
+- XY-C1 #45157966804 on 280e959c was IN_PROGRESS at last poll, with the build step not yet completed; TRX and artifact outcomes remain unverified. The source product baseline remains 0e4976cf, whose #45156939135 build was also still in progress at last poll. Checker-only descendant runs with skipped product steps do not establish L3.
+
+---
+
 ## 2026-11-23 UTC — Normalize DBDC error-return contract and restore handoff heading
 
 - Exact Wireless run #45157423895 on source SHA d9a5f32 passed the GNU89 policy binaries, Ralink config/SKU ASan/UBSan, bridge membership and guest-isolation tests, then failed at the DBDC peer-band source contract (inline Python line 649). The checker compacts all whitespace from the function body but expected `return -<status>;` with a space; the production source correctly returns `-rt_radio_status` / `-wl_radio_status`, which becomes `return-<status>;` in the compact representation. Updated the assertion to use the compact form; no runtime source change.
