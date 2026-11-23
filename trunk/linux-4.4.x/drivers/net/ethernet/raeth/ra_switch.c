@@ -2984,14 +2984,15 @@ static int mt7530_phy_setting(void)
 		if (status != 0)
 			goto mdio_error;
 	}
-	}
 	return 0;
 
 mdio_error:
 	pr_err_ratelimited("%s: MT7530 PHY initialization failed: %d\n",
 			   __func__, status);
 	return status;
-}static void ra_switch_mdio_reset_delay(void *context)
+}
+
+static void ra_switch_mdio_reset_delay(void *context)
 {
 	(void)context;
 	mdelay(10);
