@@ -1128,6 +1128,12 @@ jobs:
           )[0]
           assert "mtk_esw_register_read(" in read_wrapper
 
+          mib_helpers = source.split("int esw_get_port_mib_rgoc", 1)[1].split(
+              "u32 get_ports_mask_lan", 1
+          )[0]
+          assert mib_helpers.count("mib_value->u.LowPart = low_part;") == 2
+          assert mib_helpers.count("mib_value->u.HighPart = high_part;") == 2
+
           link_status = source.split("static int esw_status_link_port", 1)[1].split(
               "static u32 esw_status_link_changed", 1
           )[0]

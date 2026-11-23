@@ -164,8 +164,8 @@ int esw_get_port_mib_rgoc(u32 port_id, ULARGE_INTEGER *mib_value)
 	status = esw_reg_read_checked(0x40AC + 0x100*port_id, &high_part);
 	if (status != 0)
 		return status;
-	mib_value->LowPart = low_part;
-	mib_value->HighPart = high_part;
+	mib_value->u.LowPart = low_part;
+	mib_value->u.HighPart = high_part;
 	return 0;
 }
 
@@ -183,8 +183,8 @@ int esw_get_port_mib_tgoc(u32 port_id, ULARGE_INTEGER *mib_value)
 	status = esw_reg_read_checked(0x404C + 0x100*port_id, &high_part);
 	if (status != 0)
 		return status;
-	mib_value->LowPart = low_part;
-	mib_value->HighPart = high_part;
+	mib_value->u.LowPart = low_part;
+	mib_value->u.HighPart = high_part;
 	return 0;
 }
 
