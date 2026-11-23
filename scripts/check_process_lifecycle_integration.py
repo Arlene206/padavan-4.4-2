@@ -2158,13 +2158,14 @@ samba_nvram_copy = c_function_body(
     services_source, "samba_ex_copy_nvram_value(const char *param_name, char *destination,"
 )
 assert "rc_wan_nvram_copy_value(" in samba_nvram_copy
+samba_header_compact = " ".join(samba_header.split())
 for key, destination in (
     ("st_samba_workgroup", "workgroup"),
     ("dhcp_wins_x", "wins_server"),
 ):
-    assert 'samba_ex_copy_nvram_value("' + key + '", ' in samba_header
-    assert destination + ", sizeof(" + destination + ")" in samba_header
-assert "rc_wan_nvram_copy_text(get_our_hostname()" in samba_header
+    assert 'samba_ex_copy_nvram_value("' + key + '",' in samba_header_compact
+    assert destination + ", sizeof(" + destination + ")" in samba_header_compact
+assert "rc_wan_nvram_copy_text(get_our_hostname()," in samba_header_compact
 assert "p_workgroup = workgroup;" in samba_header
 assert "p_computer_name = computer_name;" in samba_header
 assert 'nvram_safe_get("st_samba_workgroup")' not in samba_header
