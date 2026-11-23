@@ -507,15 +507,22 @@ require("password_update=new_password!=NULL&&*new_password;" in modify_compact a
 
 del_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 del_inventory_error = del_account_compact.index(
-    "first_error=errno?errno:EIO;", del_inventory
+    "saved_errno=errno?errno:EIO;", del_inventory
+)
+del_inventory_errno_restore = del_account_compact.index(
+    "errno=saved_errno;", del_inventory_error
+)
+del_inventory_return = del_account_compact.index(
+    "return-1;", del_inventory_errno_restore
 )
 del_path = del_account_compact.index(
     "disk_share_format_account_var_path(var_file,sizeof(var_file),",
-    del_inventory
+    del_inventory_return
 )
 del_unlink = del_account_compact.index("unlink(var_file)", del_path)
 require("read_disk_data()" not in del_account_compact and
-        del_inventory < del_inventory_error < del_path < del_unlink and
+        del_inventory < del_inventory_error < del_inventory_errno_restore <
+        del_inventory_return < del_path < del_unlink and
         "if(disk_share_format_account_var_path(" in del_account_compact and
         "errno!=ENOENT" in del_account_compact[del_unlink:] and
         "first_error==0" in del_account_compact[del_unlink:],
