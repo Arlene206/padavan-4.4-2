@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Align source contracts with the DDNS publisher and PPP response regression
+
+- The exact-head WAN run `45171234395` exposed a brittle test-name assertion: it looked for `function();`, while the test correctly checks each function's return with `CHECK(function() == 0)`. Relaxed the source contract to require the actual function call.
+- The exact-head Process lifecycle run `45171234444` exposed a stale boot contract that still expected inline `copyscripts_seed_status=1` in the DDNS call site. The shared `seed_storage_file()` helper owns that error aggregation now; the checker explicitly requires the DDNS helper invocation and rejects the old direct `cp -f` path. The preceding test step confirms the symlink and external sentinel behavior.
+- Both were checker mismatches revealed by CI; no production source change in this follow-up. New exact-head WAN, Process and XY-C1 runs must verify the revised contracts and RP-L2TP host test.
+
+---
+
 ## 2026-11-23 UTC — Propagate RP-L2TP control-socket command failures
 
 - `start_rpl2tp()` treats a zero exit from `/usr/sbin/l2tp-control start-session` as a successful session. The bundled controller previously returned zero on every clean socket EOF, even when `cmd.so` had replied `ERR Unknown peer` or another command error; it also ignored partial/failed `writev()` and could block indefinitely waiting for a reply.

@@ -317,7 +317,9 @@ assert 'seed_storage_file "/etc_ro/frp_script.sh" "$frp_script_path" 700 1' in f
 assert 'cp -f /etc_ro/frp_script.sh "$frp_script_path"' not in frp_seed
 assert 'copyscripts_enforce_existing_mode=${4:-0}' in seed_body
 assert seed_body.count('if [ "$copyscripts_enforce_existing_mode" = "1" ]') >= 2
-assert 'copyscripts_seed_status=1' in copyscripts.split('ddns_script_path=', 1)[1].split('seed_storage_file "/etc_ro/adbyby_adblack.sh"', 1)[0]
+ddns_seed = copyscripts.split('ddns_script_path=', 1)[1].split('seed_storage_file "/etc_ro/adbyby_adblack.sh"', 1)[0]
+assert 'seed_storage_file "/etc_ro/ddns_script.sh" "$ddns_script_path" 755' in ddns_seed
+assert 'cp -f /etc_ro/ddns_script.sh "$ddns_script_path"' not in ddns_seed
 assert 'if [ "$copyscripts_ca_status" -ne 0 ] || [ "$copyscripts_seed_status" -ne 0 ]; then' in copyscripts
 assert "copyscripts_seed_status" in copyscripts.split("exit 0", 1)[0]
 assert '[ "$copyscripts_seed_status" -eq 1 ]' in (Path("trunk/user/scripts/tests/copyscripts_ca_status.sh")).read_text()

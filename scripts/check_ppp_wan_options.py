@@ -268,7 +268,7 @@ require("return EIO;" in control_policy and "return EPROTO;" in control_policy a
         "l2tp-control response parser must accept OK only and reject ERR/malformed replies")
 for case in ("test_success_responses", "test_error_responses",
              "test_malformed_and_truncated_responses"):
-    require(case in control_test and case + "();" in control_test,
+    require(case in control_test and case + "()" in control_test,
             "missing l2tp-control response regression: " + case)
 for path in ("trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control.c",
              "trunk/user/rp-l2tp/rp-l2tp-0.5-rtn/handlers/cmd-control-status.h",
