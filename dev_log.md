@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Align wireless/iNIC source contracts with checked radio-state reads
+
+- Exact iNIC run 45152161414 on source SHA ae45305fec4c7a012c00e89756a80c184589c472 passed the GNU89 ASan/UBSan signal-policy executable, then failed only in scripts/check_inicd_signals.py: ordering offsets were computed from whitespace-compacted source but the errno assertion sliced the original un-compacted function text. The corrected assertion slices the same compacted representation.
+- Exact Wireless radio run 45152161484 on the same SHA passed the radio policy, Ralink config/SKU, bridge membership and guest-isolation policy executables, then failed the workflow's duplicated iNIC source contract because it still required the old get_mlme_radio_rt() guard. Updated that contract to require both checked reads, parsers, fail-closed returns and ordering before iwpriv/guest actions. It also rejects the legacy getters; no production source is changed by this checker-only follow-up.
+- XY-C1 run 45150223763 on product SHA 45980023a2894eb0bf13257b02ee8f4cc5b5b4ac completed PASS: Build XY-C1, TRX verification and artifact upload all succeeded on that exact source SHA. Newer product-source runs 45152161385 (ae45305) and 45152197051 (ac770e45) were IN_PROGRESS at last poll; L3 is not inferred for descendants. Exact iNIC/Wireless reruns will be triggered by this commit.
+
+---
+
 ## 2026-11-23 UTC — Fail closed on iNIC monitor radio-state NVRAM errors
 
 - check_inic_mii_rebooted() previously used get_mlme_radio_rt() and get_mode_radio_rt(), whose nvram_get_int()/nvram_wlan_get_int() paths silently turn a device-node, ioctl or close failure into zero. A transient mlme_radio_rt read error could therefore look like an explicit radio-off setting and issue iwpriv RadioOn=0; a failed rt_mode_x read could be mistaken for AP mode and trigger an unsolicited guest-interface recovery.

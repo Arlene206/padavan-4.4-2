@@ -712,8 +712,41 @@ jobs:
           # The periodic iNIC health check must surface failed recovery commands.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
           assert "int\ncheck_inic_mii_rebooted(void)" in source
-          disabled_gate = "if (!get_mlme_radio_rt())"
-          assert disabled_gate in inic_check
+          inic_check_compact = " ".join(inic_check.split())
+          radio_read_call = 'api_result = nvram_get_checked("mlme_radio_rt", &radio_value);'
+          radio_parse_call = "radio_read_status = wireless_radio_nvram_flag_status("
+          radio_error_gate = "if (radio_read_status != 0)"
+          disabled_gate = "if (!radio_enabled)"
+          assert radio_read_call in inic_check_compact
+          assert radio_parse_call in inic_check_compact
+          assert radio_error_gate in inic_check_compact
+          assert disabled_gate in inic_check_compact
+          assert "return radio_read_status;" in inic_check
+          assert "get_mlme_radio_rt()" not in inic_check
+          assert "get_mode_radio_rt()" not in inic_check
+          radio_read_pos = inic_check_compact.index(radio_read_call)
+          radio_parse_pos = inic_check_compact.index(radio_parse_call)
+          radio_error_pos = inic_check_compact.index(radio_error_gate)
+          disabled_pos = inic_check_compact.index(disabled_gate)
+          disable_pos = inic_check_compact.index("status = doSystem(")
+          assert radio_read_pos < radio_parse_pos < radio_error_pos < disabled_pos < disable_pos
+          assert inic_check_compact.index("saved_errno = errno;", radio_read_pos) < radio_parse_pos
+          mode_read_call = 'api_result = nvram_get_checked("rt_mode_x", &mode_value);'
+          mode_parse_call = "mode_read_status = wireless_radio_nvram_int_status("
+          mode_error_gate = "if (mode_read_status != 0)"
+          mode_gate = "if (rt_mode_x != 1 && rt_mode_x != 3)"
+          assert mode_read_call in inic_check_compact
+          assert mode_parse_call in inic_check_compact
+          assert mode_error_gate in inic_check_compact
+          assert "return mode_read_status;" in inic_check
+          mode_read_pos = inic_check_compact.index(mode_read_call)
+          mode_parse_pos = inic_check_compact.index(mode_parse_call)
+          mode_error_pos = inic_check_compact.index(mode_error_gate)
+          mode_gate_pos = inic_check_compact.index(mode_gate)
+          guest_state_pos = inic_check_compact.index("status = wireless_guest_interface_state_checked(")
+          guest_action_pos = inic_check_compact.index("status = wif_control(IFNAME_INIC_GUEST, 1)")
+          assert mode_read_pos < mode_parse_pos < mode_error_pos < mode_gate_pos < guest_state_pos < guest_action_pos
+          assert "saved_errno = errno;" in inic_check_compact[mode_read_pos:mode_parse_pos]
           assert 'status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,' in " ".join(inic_check.split())
           assert "if (status != 0)" in inic_check
           assert "iNIC radio force-disable command failed" in inic_check

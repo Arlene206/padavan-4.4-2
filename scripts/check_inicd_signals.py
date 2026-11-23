@@ -196,7 +196,7 @@ mode_gate_pos = inic_compact.index(mode_gate)
 guest_state_pos = inic_compact.index("status = wireless_guest_interface_state_checked(")
 guest_action_pos = inic_compact.index("status = wif_control(IFNAME_INIC_GUEST, 1)")
 assert mode_read_pos < mode_parse_pos < mode_error_pos < mode_gate_pos < guest_state_pos < guest_action_pos
-assert "saved_errno = errno;" in inic_check[mode_read_pos:mode_parse_pos]
+assert "saved_errno = errno;" in inic_compact[mode_read_pos:mode_parse_pos]
 guest_state_check = "status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,"
 guest_state_error = "if (status != 0)"
 guest_gate = "if (!guest_is_up && is_guest_allowed_rt())"
