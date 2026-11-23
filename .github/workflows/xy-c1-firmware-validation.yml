@@ -407,6 +407,7 @@ permissions:
   contents: read
 
 # Give every commit its own run; newer pushes must not cancel an exact-SHA firmware build.
+# BusyBox init is production code: its PID1 child-reaping changes require an XY-C1 rebuild.
 concurrency:
   group: xy-c1-firmware-validation-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false

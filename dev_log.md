@@ -1,3 +1,12 @@
+## 2026-11-23 13:32 UTC+8 — Run XY-C1 build after repairing firmware input detector tests
+
+- The workflow-trigger change at `11090e80b126fa1665758026d2163fd9e2f09e6a` correctly queued XY-C1 validation, but its detector unit test failed because the first fixture version used double-escaped Git delimiters. The corrected fixture commit `a71253cc463befcab865afb8a90407afa7975e33` passed the full XY-C1 workflow, including the detector tests; Build XY-C1/TRX/artifact steps were skipped because that commit changed only host tests and dev log.
+- Trigger the corrected validation again by clarifying the workflow's own comment that BusyBox init is production code and requires XY-C1 rebuilds. The path filter already includes `trunk/user/busybox/busybox-1.24.x/init/**`, and the detector now treats edits to this workflow as build inputs. This next exact-SHA run should therefore pass tests, detect the workflow change, and run the full build/TRX/artifact stages against the latest BusyBox PID1 source.
+- Parent main SHA: `a71253cc463befcab865afb8a90407afa7975e33`. BusyBox PID1 regression, USB storage hotplug and process-lifecycle inventory have each passed exact-head host validation on the current source tree; NVRAM audit passed on the previous exact head `84060ba4f52823b396487b24cdfe66254baff0d0`.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 13:22 UTC+8 — Correct NUL and newline fixtures in XY-C1 workflow-only detector test
 
 - The exact-head XY-C1 workflow trigger correction at parent `11090e80b126fa1665758026d2163fd9e2f09e6a` started run `45106741184`; code review of the new detector regression found its mocked Git output encoded backslash characters rather than actual newline/NUL delimiters. That would have exercised the fail-safe invalid-SHA path instead of proving the targeted workflow-only diff behavior.
