@@ -2244,7 +2244,7 @@ static void wait_loop(void)
 		read_data = sys_reg_read(RALINK_ETH_SW_BASE + 0x108);
 }
 
-static void trgmii_calibration_7623(void)
+static int trgmii_calibration_7623(void)
 {
 	/* minimum delay for all correct */
 	unsigned int tap_a[5] = {
@@ -2255,6 +2255,7 @@ static void trgmii_calibration_7623(void)
 		0, 0, 0, 0, 0
 	};
 	unsigned int final_tap[5];
+	int status;
 	unsigned int rxc_step_size;
 	unsigned int rxd_step_size;
 	unsigned int read_data;
@@ -2295,9 +2296,13 @@ static void trgmii_calibration_7623(void)
 		reg_bit_one(TRGMII_7623_RD_0 + i * 8, 31, 1);
 
 	/* Enable Training Mode in MT7530 */
-	mii_mgr_read(0x1F, 0x7A40, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, 0x7A40, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data |= 0xc0000000;
-	mii_mgr_write(0x1F, 0x7A40, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, 0x7A40, read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	err_total_flag = 0;
 	read_data = 0x0;
@@ -2440,14 +2445,25 @@ static void trgmii_calibration_7623(void)
 		sys_reg_write(TRGMII_7623_RD_0 + i * 8, read_data);
 	}
 
-	mii_mgr_read(0x1F, 0x7A40, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, 0x7A40, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data &= 0x3fffffff;
-	mii_mgr_write(0x1F, 0x7A40, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, 0x7A40, read_data);
+	if (status != 0)
+		goto mdio_error;
+	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: trgmii_calibration_7623 MDIO operation failed: %d\n",
+			   __func__, status);
+	return status;
 }
 
-static void trgmii_calibration_7530(void)
+static int trgmii_calibration_7530(void)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	int status;
 	unsigned int tap_a[5] = {
 		0, 0, 0, 0, 0
 	};
@@ -2484,32 +2500,54 @@ static void trgmii_calibration_7530(void)
 	TRGMII_7530_TX_base = TRGMII_7530_base + 0x50;
 
 	reg_bit_one(TRGMII_7623_base + 0x40, 31, 1);
-	mii_mgr_read(0x1F, 0x7a10, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, 0x7a10, &read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	/* RX clock gating in MT7530 */
-	mii_mgr_read(0x1F, TRGMII_7530_base + 0x04, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base + 0x04, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data &= 0x3fffffff;
-	mii_mgr_write(0x1F, TRGMII_7530_base + 0x04, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base + 0x04, read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	/* Set TX OE edge in  MT7530 */
-	mii_mgr_read(0x1F, TRGMII_7530_base + 0x78, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base + 0x78, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data |= 0x00002000;
-	mii_mgr_write(0x1F, TRGMII_7530_base + 0x78, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base + 0x78, read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	/* Assert RX  reset in MT7530 */
-	mii_mgr_read(0x1F, TRGMII_7530_base, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data |= 0x80000000;
-	mii_mgr_write(0x1F, TRGMII_7530_base, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base, read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	/* Release RX reset in MT7530 */
-	mii_mgr_read(0x1F, TRGMII_7530_base, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data &= 0x7fffffff;
-	mii_mgr_write(0x1F, TRGMII_7530_base, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base, read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	/* Disable RX clock gating in MT7530 */
-	mii_mgr_read(0x1F, TRGMII_7530_base + 0x04, &read_data);
+	status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base + 0x04, &read_data);
+	if (status != 0)
+		goto mdio_error;
 	read_data |= 0xC0000000;
-	mii_mgr_write(0x1F, TRGMII_7530_base + 0x04, read_data);
+	status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base + 0x04, read_data);
+	if (status != 0)
+		goto mdio_error;
 
 	/*Enable Training Mode in MT7623 */
 	reg_bit_zero(TRGMII_7623_base + 0x40, 30, 1);
@@ -2530,15 +2568,18 @@ static void trgmii_calibration_7530(void)
 	while (err_total_flag == 0 && (read_data != 0x68)) {
 		/* Enable EDGE CHK in MT7530 */
 		for (i = 0; i < 5; i++) {
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x40000000;
 			read_data &= 0x4fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-				      read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+			if (status != 0)
+				goto mdio_error;
 			wait_loop();
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &err_cnt[i]);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &err_cnt[i]);
+			if (status != 0)
+				goto mdio_error;
 			err_cnt[i] >>= 8;
 			err_cnt[i] &= 0x0000ff0f;
 			rd_wd = err_cnt[i] >> 8;
@@ -2556,44 +2597,68 @@ static void trgmii_calibration_7530(void)
 			else
 				err_total_flag = err_flag[i] & err_total_flag;
 			/* Disable EDGE CHK in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x40000000;
 			read_data &= 0x4fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-				      read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+			if (status != 0)
+				goto mdio_error;
 			wait_loop();
 		}
 		/*Adjust RXC delay */
 		if (err_total_flag == 0) {
 			/* Assert RX  reset in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_base, &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x80000000;
-			mii_mgr_write(0x1F, TRGMII_7530_base, read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base, read_data);
+			if (status != 0)
+				goto mdio_error;
 
 			/* RX clock gating in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_base + 0x04, &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base + 0x04, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data &= 0x3fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_base + 0x04, read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base + 0x04, read_data);
+			if (status != 0)
+				goto mdio_error;
 
-			mii_mgr_read(0x1F, TRGMII_7530_base, &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			tmp = read_data;
 			tmp &= 0x0000007f;
 			tmp += rxc_step_size;
 			read_data &= 0xffffff80;
 			read_data |= tmp;
-			mii_mgr_write(0x1F, TRGMII_7530_base, read_data);
-			mii_mgr_read(0x1F, TRGMII_7530_base, &read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base, read_data);
+			if (status != 0)
+				goto mdio_error;
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base, &read_data);
+			if (status != 0)
+				goto mdio_error;
 
 			/* Release RX reset in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_base, &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data &= 0x7fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_base, read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base, read_data);
+			if (status != 0)
+				goto mdio_error;
 
 			/* Disable RX clock gating in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_base + 0x04, &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_base + 0x04, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0xc0000000;
-			mii_mgr_write(0x1F, TRGMII_7530_base + 0x04, read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_base + 0x04, read_data);
+			if (status != 0)
+				goto mdio_error;
 		}
 		read_data = tmp;
 	}
@@ -2602,12 +2667,14 @@ static void trgmii_calibration_7530(void)
 		rd_tap = 0;
 		while (err_flag[i] != 0 && rd_tap != 128) {
 			/* Enable EDGE CHK in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x40000000;
 			read_data &= 0x4fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-				      read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+			if (status != 0)
+				goto mdio_error;
 			wait_loop();
 			err_cnt[i] = (read_data >> 8) & 0x0000000f;
 			rd_wd = (read_data >> 16) & 0x000000ff;
@@ -2620,25 +2687,29 @@ static void trgmii_calibration_7530(void)
 				/* Add RXD delay in MT7530 */
 				rd_tap = (read_data & 0x7f) + rxd_step_size;
 				read_data = (read_data & 0xffffff80) | rd_tap;
-				mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-					      read_data);
+				status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+				if (status != 0)
+					goto mdio_error;
 				tap_a[i] = rd_tap;
 			} else {
 				/* Record the min delay TAP_A */
 				tap_a[i] = (read_data & 0x0000007f);
 				rd_tap = tap_a[i] + 0x4;
 				read_data = (read_data & 0xffffff80) | rd_tap;
-				mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-					      read_data);
+				status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+				if (status != 0)
+					goto mdio_error;
 			}
 
 			/* Disable EDGE CHK in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x40000000;
 			read_data &= 0x4fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-				      read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+			if (status != 0)
+				goto mdio_error;
 			wait_loop();
 		}
 		pr_info("MT7530 %dth bit  Tap_a = %d\n", i, tap_a[i]);
@@ -2647,12 +2718,14 @@ static void trgmii_calibration_7530(void)
 		rd_tap = 0;
 		while (err_flag[i] == 0 && (rd_tap != 128)) {
 			/* Enable EDGE CHK in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x40000000;
 			read_data &= 0x4fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-				      read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+			if (status != 0)
+				goto mdio_error;
 			wait_loop();
 			err_cnt[i] = (read_data >> 8) & 0x0000000f;
 			rd_wd = (read_data >> 16) & 0x000000ff;
@@ -2665,16 +2738,19 @@ static void trgmii_calibration_7530(void)
 				/* Add RXD delay in MT7530 */
 				rd_tap = (read_data & 0x7f) + rxd_step_size;
 				read_data = (read_data & 0xffffff80) | rd_tap;
-				mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-					      read_data);
+				status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+				if (status != 0)
+					goto mdio_error;
 			}
 			/* Disable EDGE CHK in MT7530 */
-			mii_mgr_read(0x1F, TRGMII_7530_RD_0 + i * 8,
-				     &read_data);
+			status = ra_switch_mdio_read(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, &read_data);
+			if (status != 0)
+				goto mdio_error;
 			read_data |= 0x40000000;
 			read_data &= 0x4fffffff;
-			mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8,
-				      read_data);
+			status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+			if (status != 0)
+				goto mdio_error;
 			wait_loop();
 		}
 		tap_b[i] = rd_tap;	/* - rxd_step_size; */
@@ -2682,72 +2758,137 @@ static void trgmii_calibration_7530(void)
 		/* Calculate RXD delay = (TAP_A + TAP_B)/2 */
 		final_tap[i] = (tap_a[i] + tap_b[i]) / 2;
 		read_data = (read_data & 0xffffff80) | final_tap[i];
-		mii_mgr_write(0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+		status = ra_switch_mdio_write(NULL, 0x1F, TRGMII_7530_RD_0 + i * 8, read_data);
+		if (status != 0)
+			goto mdio_error;
 	}
 	if (ei_local->architecture & GE1_TRGMII_FORCE_2000)
 		reg_bit_zero(TRGMII_7623_base + 0x40, 31, 1);
 	else
 		reg_bit_zero(TRGMII_7623_base + 0x40, 30, 2);
+	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: trgmii_calibration_7530 MDIO operation failed: %d\n",
+			   __func__, status);
+	return status;
 }
 
-static void mt7530_trgmii_clock_setting(u32 xtal_mode)
+static int mt7530_trgmii_clock_setting(u32 xtal_mode)
 {
 	u32 reg_value;
+	int status;
 	/* TRGMII Clock */
-	mii_mgr_write_cl45(0, 0x1f, 0x410, 0x1);
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x410, 0x1);
+	if (status != 0)
+		goto mdio_error;
 	if (xtal_mode == 1) {	/* 25MHz */
-		mii_mgr_write_cl45(0, 0x1f, 0x404, MT7530_TRGMII_PLL_25M);
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x404, MT7530_TRGMII_PLL_25M);
+		if (status != 0)
+			goto mdio_error;
 	} else if (xtal_mode == 2) {	/* 40MHz */
-		mii_mgr_write_cl45(0, 0x1f, 0x404, MT7530_TRGMII_PLL_40M);
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x404, MT7530_TRGMII_PLL_40M);
+		if (status != 0)
+			goto mdio_error;
 	}
-	mii_mgr_write_cl45(0, 0x1f, 0x405, 0);
-	if (xtal_mode == 1)	/* 25MHz */
-		mii_mgr_write_cl45(0, 0x1f, 0x409, 0x57);
-	else
-		mii_mgr_write_cl45(0, 0x1f, 0x409, 0x87);
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x405, 0);
+	if (status != 0)
+		goto mdio_error;
+	if (xtal_mode == 1) { /* 25MHz */
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x409, 0x57);
+		if (status != 0)
+			goto mdio_error;
+	} else {
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x409, 0x87);
+		if (status != 0)
+			goto mdio_error;
+	}
 
-	if (xtal_mode == 1)	/* 25MHz */
-		mii_mgr_write_cl45(0, 0x1f, 0x40a, 0x57);
-	else
-		mii_mgr_write_cl45(0, 0x1f, 0x40a, 0x87);
+	if (xtal_mode == 1) { /* 25MHz */
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x40a, 0x57);
+		if (status != 0)
+			goto mdio_error;
+	} else {
+		status = ra_switch_mdio_write_cl45(0, 0x1f, 0x40a, 0x87);
+		if (status != 0)
+			goto mdio_error;
+	}
 
-	mii_mgr_write_cl45(0, 0x1f, 0x403, 0x1800);
-	mii_mgr_write_cl45(0, 0x1f, 0x403, 0x1c00);
-	mii_mgr_write_cl45(0, 0x1f, 0x401, 0xc020);
-	mii_mgr_write_cl45(0, 0x1f, 0x406, 0xa030);
-	mii_mgr_write_cl45(0, 0x1f, 0x406, 0xa038);
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x403, 0x1800);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x403, 0x1c00);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x401, 0xc020);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x406, 0xa030);
+	if (status != 0)
+		goto mdio_error;
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x406, 0xa038);
+	if (status != 0)
+		goto mdio_error;
 	usleep_range(120, 130);	/* for MT7623 bring up test */
-	mii_mgr_write_cl45(0, 0x1f, 0x410, 0x3);
+	status = ra_switch_mdio_write_cl45(0, 0x1f, 0x410, 0x3);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(31, 0x7830, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7830, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value &= 0xFFFFFFFC;
 	reg_value |= 0x00000001;
-	mii_mgr_write(31, 0x7830, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7830, reg_value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_read(31, 0x7a40, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7a40, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value &= ~(0x1 << 30);
 	reg_value &= ~(0x1 << 28);
-	mii_mgr_write(31, 0x7a40, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7a40, reg_value);
+	if (status != 0)
+		goto mdio_error;
 
-	mii_mgr_write(31, 0x7a78, 0x55);
+	status = ra_switch_mdio_write(NULL, 31, 0x7a78, 0x55);
+	if (status != 0)
+		goto mdio_error;
 	usleep_range(100, 110);	/* for mt7623 bring up test */
 
 	/* Release MT7623 RXC reset */
 	reg_bit_zero(ETHDMASYS_ETH_SW_BASE + 0x0300, 31, 1);
 
-	trgmii_calibration_7623();
-	trgmii_calibration_7530();
+	status = trgmii_calibration_7623();
+	if (status != 0)
+		goto mdio_error;
+	status = trgmii_calibration_7530();
+	if (status != 0)
+		goto mdio_error;
 	/* Assert RX  reset in MT7623 */
 	reg_bit_one(ETHDMASYS_ETH_SW_BASE + 0x0300, 31, 1);
 	/* Release RX reset in MT7623 */
 	reg_bit_zero(ETHDMASYS_ETH_SW_BASE + 0x0300, 31, 1);
-	mii_mgr_read(31, 0x7a00, &reg_value);
+	status = ra_switch_mdio_read(NULL, 31, 0x7a00, &reg_value);
+	if (status != 0)
+		goto mdio_error;
 	reg_value |= (0x1 << 31);
-	mii_mgr_write(31, 0x7a00, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7a00, reg_value);
+	if (status != 0)
+		goto mdio_error;
 	mdelay(1);
 	reg_value &= ~(0x1 << 31);
-	mii_mgr_write(31, 0x7a00, reg_value);
+	status = ra_switch_mdio_write(NULL, 31, 0x7a00, reg_value);
+	if (status != 0)
+		goto mdio_error;
 	mdelay(100);
+	return 0;
+
+mdio_error:
+	pr_err_ratelimited("%s: mt7530_trgmii_clock_setting MDIO operation failed: %d\n",
+			   __func__, status);
+	return status;
 }
 
 void trgmii_set_7621(void)
@@ -3337,7 +3478,9 @@ static int setup_internal_gsw(void)
 	sys_reg_write((void __iomem *)gpio_base_virt + 0xed0, 0);
 
 	if (ei_local->chip_name == MT7623_FE)
-		mt7530_trgmii_clock_setting(xtal_mode);
+		status = mt7530_trgmii_clock_setting(xtal_mode);
+		if (status != 0)
+			goto mdio_error;
 	if (ei_local->architecture & GE1_RGMII_FORCE_1000) {
 		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x0350, 0x55);
 		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x0358, 0x55);

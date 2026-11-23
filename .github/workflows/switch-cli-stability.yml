@@ -686,6 +686,21 @@ jobs:
           assert "return -ETIMEDOUT;" in vlan_wait
           assert "status = is_switch_vlan_table_busy();" in vlan_partition
           assert "status = lan_wan_partition();" in setup_internal
+          trgmii_7623 = source.split("static int trgmii_calibration_7623(void)", 1)[1].split(
+              "static int trgmii_calibration_7530(void)", 1
+          )[0]
+          trgmii_7530 = source.split("static int trgmii_calibration_7530(void)", 1)[1].split(
+              "static int mt7530_trgmii_clock_setting(u32 xtal_mode)", 1
+          )[0]
+          trgmii_clock = source.split("static int mt7530_trgmii_clock_setting(u32 xtal_mode)", 1)[1].split(
+              "void trgmii_set_7621", 1
+          )[0]
+          assert "mii_mgr_read(" not in trgmii_7623 and "mii_mgr_write(" not in trgmii_7623
+          assert "mii_mgr_read(" not in trgmii_7530 and "mii_mgr_write(" not in trgmii_7530
+          assert "mii_mgr_write_cl45(" not in trgmii_clock and "mii_mgr_read(" not in trgmii_clock
+          assert "status = trgmii_calibration_7623();" in trgmii_clock
+          assert "status = trgmii_calibration_7530();" in trgmii_clock
+          assert "status = mt7530_trgmii_clock_setting(xtal_mode);" in setup_internal
           phy_setup = source.split("static int mt7530_phy_setting(void)", 1)[1].split(
               "static void ra_switch_mdio_reset_delay(", 1
           )[0]
