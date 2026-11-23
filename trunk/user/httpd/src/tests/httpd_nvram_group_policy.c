@@ -17,6 +17,7 @@ struct fake_nvram {
 	struct fake_entry entries[FAKE_MAX_KEYS];
 	int operation_count;
 	const char *fail_key;
+	const char *fail_read_key;
 	int fail_after_apply;
 };
 
@@ -109,8 +110,28 @@ fake_unset(void *context, const char *key)
 	return 0;
 }
 
+static int
+fake_get_checked(void *context, const char *key, const char **value)
+{
+	struct fake_nvram *fake = (struct fake_nvram *)context;
+	struct fake_entry *entry;
+
+	if (!value)
+		return -1;
+	*value = NULL;
+	if (fake->fail_read_key && !strcmp(fake->fail_read_key, key)) {
+		fake->fail_read_key = NULL;
+		return -1;
+	}
+	entry = fake_find(fake, key, 0);
+	if (!entry || !entry->value)
+		return 0;
+	*value = entry->value;
+	return 1;
+}
+
 static const struct httpd_nvram_group_ops fake_ops = {
-	fake_get, fake_set, fake_set_temp, fake_unset
+	fake_get_checked, fake_set, fake_set_temp, fake_unset
 };
 
 static void
@@ -316,10 +337,75 @@ test_stale_cleanup_failure_rolls_back(void)
 	return 0;
 }
 
+static int
+test_count_read_failure_aborts_before_mutation(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	int del_map[] = { 1, -1 };
+
+	fake_init_group(&fake);
+	fake.fail_read_key = "group_count";
+	if (httpd_nvram_group_compact(names, 2, "group_count", 4, del_map,
+				      128, &fake_ops, &fake) == 0)
+		return 1;
+	if (fake.operation_count != 0 ||
+	    !expect_value(&fake, "group_count", "4") ||
+	    !expect_value(&fake, "alpha1", "a1") ||
+	    !expect_value(&fake, "beta1", "b1") ||
+	    !expect_value(&fake, "alpha_0", "old-alpha-cache"))
+		return 1;
+	return 0;
+}
+
+static int
+test_row_read_failure_aborts_before_mutation(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	int del_map[] = { 1, -1 };
+
+	fake_init_group(&fake);
+	fake.fail_read_key = "beta2";
+	if (httpd_nvram_group_compact(names, 2, "group_count", 4, del_map,
+				      128, &fake_ops, &fake) == 0)
+		return 1;
+	if (fake.operation_count != 0 ||
+	    !expect_value(&fake, "group_count", "4") ||
+	    !expect_value(&fake, "alpha0", "a0") ||
+	    !expect_value(&fake, "alpha1", "a1") ||
+	    !expect_value(&fake, "beta2", "b2"))
+		return 1;
+	return 0;
+}
+
+static int
+test_cleanup_cache_read_failure_aborts_before_mutation(void)
+{
+	struct fake_nvram fake;
+	const char *names[] = { "alpha", "beta" };
+	int del_map[] = { 1, -1 };
+
+	fake_init_group(&fake);
+	fake.fail_read_key = "beta_0";
+	if (httpd_nvram_group_compact(names, 2, "group_count", 4, del_map,
+				      128, &fake_ops, &fake) == 0)
+		return 1;
+	if (fake.operation_count != 0 ||
+	    !expect_value(&fake, "group_count", "4") ||
+	    !expect_value(&fake, "alpha_0", "old-alpha-cache") ||
+	    !expect_value(&fake, "beta_0", "old-beta-cache"))
+		return 1;
+	return 0;
+}
+
 int
 main(void)
 {
-	if (test_single_delete() || test_multiple_delete() || test_invalid_map() ||
+	if (test_count_read_failure_aborts_before_mutation() ||
+	    test_row_read_failure_aborts_before_mutation() ||
+	    test_cleanup_cache_read_failure_aborts_before_mutation() ||
+	    test_single_delete() || test_multiple_delete() || test_invalid_map() ||
 	    test_later_column_failure_rolls_back() ||
 	    test_deleted_value_cache_failure_rolls_back() ||
 	    test_count_write_failure_rolls_back() ||

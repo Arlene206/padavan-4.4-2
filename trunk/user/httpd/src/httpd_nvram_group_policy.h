@@ -9,7 +9,8 @@
 #define HTTPD_NVRAM_GROUP_EXTRA_ROWS 8
 
 struct httpd_nvram_group_ops {
-	const char *(*get)(void *context, const char *name);
+	/* 1=present, 0=missing, -1=backend/read error. */
+	int (*get)(void *context, const char *name, const char **value);
 	int (*set)(void *context, const char *name, const char *value);
 	int (*set_temp)(void *context, const char *name, const char *value);
 	int (*unset)(void *context, const char *name);
@@ -138,8 +139,11 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 		return 0;
 
 	{
-		const char *stored_count = ops->get(context, count_name);
-		if (!stored_count)
+		const char *stored_count = NULL;
+		int get_status;
+
+		get_status = ops->get(context, count_name, &stored_count);
+		if (get_status != 1 || !stored_count)
 			return -1;
 		count_snapshot = strdup(stored_count);
 		if (!count_snapshot)
@@ -177,15 +181,19 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 	for (column = 0; column < name_count; ++column) {
 		for (row = 0; row < row_slots; ++row) {
 			struct httpd_nvram_group_cell *cell;
-			const char *value;
+			const char *value = NULL;
+			int get_status;
 
 			if (httpd_nvram_group_make_key(key, sizeof(key),
 						       names[column], row) != 0)
 				goto fail_before_write;
-			value = ops->get(context, key);
+			get_status = ops->get(context, key, &value);
+			if (get_status < 0 || get_status > 1 ||
+			    (get_status == 1 && !value))
+				goto fail_before_write;
 			cell = &cells[(size_t)column * (size_t)row_slots +
 				      (size_t)row];
-			if (value) {
+			if (get_status == 1) {
 				cell->value = strdup(value);
 				if (!cell->value)
 					goto fail_before_write;
@@ -197,8 +205,14 @@ httpd_nvram_group_compact(const char * const *names, int name_count,
 		if (length < 0 || (size_t)length >= sizeof(key))
 			goto fail_before_write;
 		{
-			const char *value = ops->get(context, key);
-			if (value) {
+			const char *value = NULL;
+			int get_status;
+
+			get_status = ops->get(context, key, &value);
+			if (get_status < 0 || get_status > 1 ||
+			    (get_status == 1 && !value))
+				goto fail_before_write;
+			if (get_status == 1) {
 				last_cells[column].value = strdup(value);
 				if (!last_cells[column].value)
 					goto fail_before_write;

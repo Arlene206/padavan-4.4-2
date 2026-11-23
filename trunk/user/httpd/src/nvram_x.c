@@ -51,11 +51,23 @@ int nvram_match_list_x(const char *name, char *match, int index)
 	return value && !strcmp(value, match);
 }
 
-static const char *
-nvram_group_policy_get(void *context, const char *name)
+static int
+nvram_group_policy_get(void *context, const char *name, const char **value)
 {
+	char *nvram_value = NULL;
+	int result;
+
 	(void)context;
-	return nvram_get(name);
+	if (!value)
+		return -1;
+	*value = NULL;
+	result = nvram_get_checked(name, &nvram_value);
+	if (result == 0)
+		return 0;
+	if (result != 1 || !nvram_value)
+		return -1;
+	*value = nvram_value;
+	return 1;
 }
 
 static int

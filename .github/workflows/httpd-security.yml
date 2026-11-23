@@ -1633,7 +1633,10 @@ jobs:
           assert "ops->set(context, key, value) != 0" in compact
           assert "ops->set_temp(context, key, value) != 0" in compact
           assert "ops->unset(context, key) != 0" in compact
-          assert "const char *stored_count = ops->get(context, count_name)" in compact
+          assert "get_status = ops->get(context, count_name, &stored_count)" in compact
+          assert "get_status < 0 || get_status > 1" in compact
+          assert "result = nvram_get_checked(name, &nvram_value)" in nvram_x
+          assert "nvram_group_policy_get(void *context, const char *name, const char **value)" in nvram_x
           restore = body(helper, "httpd_nvram_group_restore(")
           assert "ops->set(context, count_name, count_value) != 0" in restore
           success_cleanup = compact[compact.index("httpd_nvram_group_free_cells(last_cells, (size_t)name_count);"):]
