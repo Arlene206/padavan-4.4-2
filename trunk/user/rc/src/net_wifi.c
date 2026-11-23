@@ -1687,7 +1687,22 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
 	if (need_reload_conf) {
-		int rt_radio_on = get_enabled_radio_rt();
+		int rt_radio_on = 0;
+		int rt_radio_status = wireless_nvram_get_int_status("rt_radio_x", &rt_radio_on);
+
+		if (rt_radio_status != 0) {
+			errno = rt_radio_status;
+			logmessage(LOGNAME,
+				   "DBDC restart aborted: cannot read 2.4GHz radio enable state (status=%d)",
+				   rt_radio_status);
+			if (stop_8021x_wl() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 5GHz 802.1X daemon");
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "DBDC 2.4GHz rollback was incomplete");
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "DBDC 5GHz rollback was incomplete");
+			return -rt_radio_status;
+		}
 		if (rt_radio_on)
 			rt_radio_on = is_radio_allowed_rt();
 		if (start_wifi_ap_rt(rt_radio_on) < 0 ||
@@ -1809,7 +1824,22 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	}
 #if defined (BOARD_MT7615_DBDC) || defined (BOARD_MT7915_DBDC)
 	if (need_reload_conf) {
-		int wl_radio_on = get_enabled_radio_wl();
+		int wl_radio_on = 0;
+		int wl_radio_status = wireless_nvram_get_int_status("wl_radio_x", &wl_radio_on);
+
+		if (wl_radio_status != 0) {
+			errno = wl_radio_status;
+			logmessage(LOGNAME,
+				   "DBDC restart aborted: cannot read 5GHz radio enable state (status=%d)",
+				   wl_radio_status);
+			if (stop_8021x_rt() != 0)
+				logmessage(LOGNAME, "DBDC rollback could not stop the 2.4GHz 802.1X daemon");
+			if (stop_wifi_all_wl() < 0)
+				logmessage(LOGNAME, "DBDC 5GHz rollback was incomplete");
+			if (stop_wifi_all_rt() < 0)
+				logmessage(LOGNAME, "DBDC 2.4GHz rollback was incomplete");
+			return -wl_radio_status;
+		}
 		if (wl_radio_on)
 			wl_radio_on = is_radio_allowed_wl();
 		if (start_wifi_ap_wl(wl_radio_on) < 0 ||
@@ -1909,7 +1939,17 @@ start_8021x_wl(void)
 	const char *wifname;
 
 #if BOARD_HAS_5G_RADIO
-	if (!get_enabled_radio_wl())
+	int radio_enabled = 0;
+
+	read_status = wireless_nvram_get_int_status("wl_radio_x", &radio_enabled);
+	if (read_status != 0) {
+		errno = read_status;
+		logmessage(LOGNAME,
+			   "5GHz 802.1X startup deferred: cannot read radio enable state (status=%d)",
+			   read_status);
+		return read_status;
+	}
+	if (!radio_enabled)
 		return 0;
 #endif
 
@@ -1966,7 +2006,17 @@ start_8021x_rt(void)
 	const char *wifname;
 
 #if !defined(USE_RT3352_MII)
-	if (!get_enabled_radio_rt())
+	int radio_enabled = 0;
+
+	read_status = wireless_nvram_get_int_status("rt_radio_x", &radio_enabled);
+	if (read_status != 0) {
+		errno = read_status;
+		logmessage(LOGNAME,
+			   "2.4GHz 802.1X startup deferred: cannot read radio enable state (status=%d)",
+			   read_status);
+		return read_status;
+	}
+	if (!radio_enabled)
 		return 0;
 #endif
 
@@ -2179,7 +2229,7 @@ control_guest_wl(int guest_on, int manual)
 #if BOARD_HAS_5G_RADIO
 	const char *ifname_ap = IFNAME_5G_GUEST;
 	const char *bridge_ifname = IFNAME_5G_GUEST;
-	int radio_on = get_enabled_radio_wl();
+	int radio_on = 0, radio_status;
 	int i_mode_x = 0, mode_status;
 	int operation_status;
 	int isolation_status;
@@ -2192,6 +2242,16 @@ control_guest_wl(int guest_on, int manual)
 	wireless_guest_isolation_status_reset(&control_status);
 #if BOARD_HAS_5G_RADIO
 	if (guest_on) {
+		radio_status = wireless_nvram_get_int_status("wl_radio_x", &radio_on);
+		if (radio_status != 0) {
+			errno = radio_status;
+			logmessage(LOGNAME,
+				   "5GHz guest AP activation deferred: cannot read radio enable state (status=%d)",
+				   radio_status);
+			wireless_guest_isolation_status_record(&control_status,
+				"read 5GHz radio state before guest activation", radio_status);
+			return wireless_guest_isolation_control_result(0, &control_status);
+		}
 		mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
 		if (mode_status != 0) {
 			errno = mode_status;
@@ -2290,7 +2350,7 @@ control_guest_rt(int guest_on, int manual)
 	int guest_is_up = 0;
 	int rollback_candidate = 0;
 	const char *ifname_ap = IFNAME_2G_GUEST;
-	int radio_on = get_enabled_radio_rt();
+	int radio_on = 0, radio_status;
 	int i_mode_x = 0, mode_status;
 #if defined(USE_RT3352_MII)
 	int is_ap_mode = 0, ap_mode_status, ap_mode_known = 0;
@@ -2301,6 +2361,16 @@ control_guest_rt(int guest_on, int manual)
 
 	wireless_guest_isolation_status_reset(&control_status);
 	if (guest_on) {
+		radio_status = wireless_nvram_get_int_status("rt_radio_x", &radio_on);
+		if (radio_status != 0) {
+			errno = radio_status;
+			logmessage(LOGNAME,
+				   "2.4GHz guest AP activation deferred: cannot read radio enable state (status=%d)",
+				   radio_status);
+			wireless_guest_isolation_status_record(&control_status,
+				"read 2.4GHz radio state before guest activation", radio_status);
+			return wireless_guest_isolation_control_result(0, &control_status);
+		}
 		mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
 		if (mode_status != 0) {
 			errno = mode_status;

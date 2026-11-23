@@ -159,15 +159,26 @@ jobs:
 
           start_8021x_wl = function_body(source, "start_8021x_wl(void)")
           start_8021x_rt = function_body(source, "start_8021x_rt(void)")
-          for body, band, kick_key, assoc_key in (
-              (start_8021x_wl, "5GHz", "wl_KickStaRssiLow", "wl_AssocReqRssiThres"),
-              (start_8021x_rt, "2.4GHz", "rt_KickStaRssiLow", "rt_AssocReqRssiThres"),
+          for body, band, radio_key, kick_key, assoc_key in (
+              (start_8021x_wl, "5GHz", "wl_radio_x", "wl_KickStaRssiLow", "wl_AssocReqRssiThres"),
+              (start_8021x_rt, "2.4GHz", "rt_radio_x", "rt_KickStaRssiLow", "rt_AssocReqRssiThres"),
           ):
-              assert "wireless_nvram_get_int_status(" in body
+              compact = "".join(body.split())
+              radio_read = f'wireless_nvram_get_int_status("{radio_key}",&radio_enabled)'
+              assert radio_read in compact
+              assert "if(read_status!=0)" in compact
+              assert "if(!radio_enabled)" in compact
+              assert "get_enabled_radio_" not in body
               assert f'"{kick_key}"' in body and f'"{assoc_key}"' in body
               assert "nvram_get_int(" not in body
               assert "iwpriv" in body and "wireless_radio_status_merge" in body
+              assert "startup deferred: cannot read radio enable state" in body
               assert "startup deferred: cannot read RSSI driver settings" in body
+              assert compact.index(radio_read) < compact.index("if(read_status!=0)") < compact.index("if(!radio_enabled)")
+              if band == "5GHz":
+                  assert "#if BOARD_HAS_5G_RADIO" in body
+              else:
+                  assert "#if !defined(USE_RT3352_MII)" in body
               assert body.index("startup deferred: cannot read RSSI driver settings") < body.index("eval(") if "eval(" in body else True
           assert "wireless_radio_nvram_int_status(" in source
           assert "wireless_radio_status_merge(" in source
@@ -431,22 +442,31 @@ jobs:
           assert "wireless_radio_status_success(ret)" in control
           assert control.index("wireless_radio_status_success(ret)") < control.index("return 0;") < control.index("return 1;")
 
-          for signature, key, band in (
-              ("control_guest_wl(int guest_on, int manual)", "wl_mode_x", "5GHz"),
-              ("control_guest_rt(int guest_on, int manual)", "rt_mode_x", "2.4GHz"),
+          for signature, radio_key, key, band in (
+              ("control_guest_wl(int guest_on, int manual)", "wl_radio_x", "wl_mode_x", "5GHz"),
+              ("control_guest_rt(int guest_on, int manual)", "rt_radio_x", "rt_mode_x", "2.4GHz"),
           ):
               body = function_body(source, signature)
-              checked_mode = f'wireless_nvram_get_int_status("{key}", &i_mode_x)'
-              assert checked_mode in body, f"{signature}: guest activation must verify radio mode"
+              compact = "".join(body.split())
+              checked_radio = f'wireless_nvram_get_int_status("{radio_key}",&radio_on)'
+              checked_mode = f'wireless_nvram_get_int_status("{key}",&i_mode_x)'
+              assert checked_radio in compact, f"{signature}: guest activation must verify radio enable state"
+              assert "if(radio_status!=0)" in compact
+              assert checked_mode in compact, f"{signature}: guest activation must verify radio mode"
               assert "if (mode_status != 0)" in body
               assert "return wireless_guest_isolation_control_result(0, &control_status);" in body
               assert "read " + band + " radio mode before guest activation" in body
               reset_pos = body.index("wireless_guest_isolation_status_reset(&control_status)")
-              read_pos = body.index(checked_mode)
-              error_pos = body.index("if (mode_status != 0)", read_pos)
-              mode_gate_pos = body.index("if (i_mode_x == 1 || i_mode_x == 3 || !radio_on)", error_pos)
+              guest_gate_pos = body.index("if (guest_on)")
+              radio_read_pos = compact.index(checked_radio)
+              radio_error_pos = compact.index("if(radio_status!=0)", radio_read_pos)
+              read_pos = compact.index(checked_mode, radio_error_pos)
+              error_pos = compact.index("if(mode_status!=0)", read_pos)
+              mode_gate_pos = compact.index("if(i_mode_x==1||i_mode_x==3||!radio_on)", error_pos)
               interface_pos = body.index("wireless_guest_interface_state_checked(", mode_gate_pos)
-              assert reset_pos < read_pos < error_pos < mode_gate_pos < interface_pos
+              assert reset_pos < guest_gate_pos
+              assert guest_gate_pos < radio_read_pos < radio_error_pos < read_pos < error_pos < mode_gate_pos < interface_pos
+              assert "read " + band + " radio state before guest activation" in body
               legacy = "get_mode_radio_wl()" if band == "5GHz" else "get_mode_radio_rt()"
               assert legacy not in body
           rt_guest = function_body(source, "control_guest_rt(int guest_on, int manual)")
@@ -690,6 +710,25 @@ jobs:
               "iNIC health monitor startup failure must be aggregated"
           )
 
+          restart_wl_body = function_body(source, "restart_wifi_wl(int radio_on, int need_reload_conf)")
+          restart_rt_body = function_body(source, "restart_wifi_rt(int radio_on, int need_reload_conf)")
+          for body, peer_key, peer_var, peer_status, peer_band, own_auth_stop, own_stop, peer_stop in (
+              (restart_wl_body, "rt_radio_x", "rt_radio_on", "rt_radio_status", "2.4GHz", "stop_8021x_wl()", "stop_wifi_all_wl()", "stop_wifi_all_rt()"),
+              (restart_rt_body, "wl_radio_x", "wl_radio_on", "wl_radio_status", "5GHz", "stop_8021x_rt()", "stop_wifi_all_rt()", "stop_wifi_all_wl()"),
+          ):
+              compact = "".join(body.split())
+              checked_peer = f'wireless_nvram_get_int_status("{peer_key}",&{peer_var})'
+              assert checked_peer in compact
+              assert f"if({peer_status}!=0)" in compact
+              assert f"return -{peer_status};" in compact
+              assert f"{peer_band} radio enable state" in body
+              read_pos = compact.index(checked_peer)
+              error_pos = compact.index(f"if({peer_status}!=0)", read_pos)
+              primary_peer_start = compact.index("start_wifi_ap_" + ("rt" if peer_key.startswith("rt") else "wl") + "(")
+              assert read_pos < error_pos < primary_peer_start
+              assert own_auth_stop in compact and own_stop+"<0" in compact and peer_stop+"<0" in compact
+              assert compact.index(own_auth_stop, error_pos) < compact.index(f"return -{peer_status};", error_pos)
+              assert "get_enabled_radio_" not in body
           for name, helpers, own_auth, peer_helpers, peer_auth, own_stop, peer_stop in (
               ("restart_wifi_wl",
                ("start_wifi_ap_wl(radio_on)", "start_wifi_wds_wl(radio_on)", "start_wifi_apcli_wl(radio_on)"),

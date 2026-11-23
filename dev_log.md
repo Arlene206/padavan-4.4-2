@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Fail closed on wireless radio-enable NVRAM reads
+
+- Review found three remaining radio-enable decisions that used `get_enabled_radio_wl/rt()`, whose legacy `nvram_wlan_get_int()` path collapses a backend fault to zero: starting the 802.1X authenticator, deciding whether to activate a guest AP, and starting the peer band during DBDC reload. A transient read error could silently skip authenticator startup, guest activation, or an entire peer-band restart while the caller reported success.
+- Replaced those decisions with checked `wl_radio_x`/`rt_radio_x` reads. 802.1X startup now returns the backend error before launching the authenticator or setting RSSI driver attributes. Guest-on requests record and return the error before reading mode or changing bridge/interface state; guest-off retains its best-effort cleanup behavior. DBDC reload checks the peer-radio setting and rolls both bands/auth daemons back before returning the first read error rather than treating unknown as disabled.
+- Extended the Wireless source contract to assert checked reads/error gates and operation ordering for both 802.1X helpers, guest controls and both DBDC restart directions. The existing GNU89 radio policy tests already cover checked integer-read failure/default behavior. Exact-head Wireless/XY Actions pending; no local build or hardware verification claimed.
+
+---
+
 ## 2026-11-23 UTC — Fix WDS workflow checker variable names
 
 - Exact Wireless run #45155863877 on commit `cd52aa09e77d8b37322dc0f062e2faa513085e4e` passed the GNU89 wireless policy, Ralink ASan/UBSan, bridge membership and guest-isolation binaries; its final Python source contract then stopped with `NameError: name 'policy' is not defined`. The heredoc already loads the target policy/test files as `notification_policy` and `notification_test`; two new resolver assertions mistakenly referenced undefined aliases. Corrected them to the actual loaded variables. No production code or test coverage changed.

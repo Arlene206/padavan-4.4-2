@@ -14,6 +14,8 @@
 
 ## Active task
 
+The next source change addresses error-collapsing radio-enable reads. The previous 802.1X helper read `radio_x` through `get_enabled_radio_*()` and could silently skip authenticator startup on NVRAM backend failure. Guest activation and DBDC peer-band restart made the same unknown-as-disabled assumption. This commit uses checked status reads and fail-closed ordering; exact-head Wireless and XY verification are pending.
+
 The WDS checked-configuration change on a456ced is in production source and policy coverage, but its first exact-head Wireless run failed only because duplicated workflow assertions still expected the pre-resolver variables and immediate returns. This checkpoint removes the obsolete block and replaces it with assertions matching the current checked resolver/cleanup path. The exact-head Wireless rerun is pending.
 
 The production USB modem eject fix is committed in `9e9efbf6d9651e9bab82e544b02f718655a0a820`. It adds `get_usb_modem_dev_wan_status()` backed by `nvram_get_checked()` and refuses modem teardown/reconnect on unknown identity while preserving the real errno. Dedicated USB identity run #45154233466 passed on that exact SHA.
