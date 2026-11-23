@@ -1089,10 +1089,22 @@ void
 update_ether_leds(void)
 {
 #if (BOARD_NUM_ETH_LEDS > 1)
-	int led0 = nvram_get_int("ether_led0");
-	int led1 = nvram_get_int("ether_led1");
+	int led0, led1, led_enabled, status;
 
-	if (!nvram_get_int("led_ether_t")) {
+	status = lan_nvram_get_int_status("ether_led0", &led0);
+	if (status == 0)
+		status = lan_nvram_get_int_status("ether_led1", &led1);
+	if (status == 0)
+		status = lan_nvram_get_int_status("led_ether_t", &led_enabled);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read Ethernet LED configuration; preserving hardware state (status=%d)",
+			   status);
+		errno = status;
+		return;
+	}
+
+	if (!led_enabled) {
 		led0 = SWAPI_LED_OFF;
 		led1 = SWAPI_LED_OFF;
 	}
@@ -1104,9 +1116,20 @@ update_ether_leds(void)
 	phy_led_mode_yellow(led1);
 #endif
 #elif (BOARD_NUM_ETH_LEDS == 1)
-	int led0 = nvram_get_int("ether_led0");
+	int led0, led_enabled, status;
 
-	if (!nvram_get_int("led_ether_t"))
+	status = lan_nvram_get_int_status("ether_led0", &led0);
+	if (status == 0)
+		status = lan_nvram_get_int_status("led_ether_t", &led_enabled);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read Ethernet LED configuration; preserving hardware state (status=%d)",
+			   status);
+		errno = status;
+		return;
+	}
+
+	if (!led_enabled)
 		led0 = SWAPI_LED_OFF;
 #if BOARD_ETH_LED_SWAP
 	phy_led_mode_yellow(led0);

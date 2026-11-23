@@ -669,6 +669,16 @@ assert "dhcp_lease_static_resolver_uses_gateway(" in manual_start
 assert "metadata_status = update_lan_status(0)" in manual_start
 assert "rc_first_service_start_status(status, metadata_status)" in manual_start
 
+led_update = c_function_body(lan, "update_ether_leds(void)")
+led_update_compact = compact(led_update)
+assert 'lan_nvram_get_int_status("ether_led0", &led0)' in led_update_compact
+assert 'lan_nvram_get_int_status("led_ether_t", &led_enabled)' in led_update_compact
+assert 'nvram_get_int("ether_led0")' not in led_update
+assert 'nvram_get_int("ether_led1")' not in led_update
+assert 'nvram_get_int("led_ether_t")' not in led_update
+assert "cannot read Ethernet LED configuration; preserving hardware state" in led_update
+assert led_update_compact.index('lan_nvram_get_int_status("ether_led0", &led0)') < led_update_compact.index("if (status != 0)")
+assert led_update_compact.index("if (status != 0)") < led_update_compact.index("phy_led_mode_")
 bridge_init = c_function_body(lan, "init_bridge(int is_ap_mode, int *switch_vlan_status)")
 bridge_init_compact = compact(bridge_init)
 wireless_marker = 'operation_status = nvram_set_int_temp("reload_svc_wl", 0);'
