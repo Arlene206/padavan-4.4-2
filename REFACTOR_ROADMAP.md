@@ -1,4 +1,7 @@
 Current implementation checkpoint (2026-11-23):
+- APCLI startup now uses checked SSID and band-specific WISP settings. UNKNOWN configuration prevents interface start, forces best-effort APCLI shutdown/LAN bridge detach, and propagates an error for retry. GNU89 policy tests cover unknown/missing/valid SSID/WISP states. Exact-head wireless-radio-state, USB modem, Firewall, Process, AI docs and XY-C1 Build/TRX/artifact verification pending.
+
+Current implementation checkpoint (2026-11-23):
 - AP-client WISP detection now uses checked per-band NVRAM reads for mode, radio-enable, WISP flag and SSID. USB modem auto-start/device selection and AP-client WAN recovery paths propagate UNKNOWN WISP identity rather than treating it as absent. USB modem #45213624031 and #45213993738 plus Process #45213993599, Firewall #45213993561 and XY-C1 preflight #45213993569 were blocked by the same new checker expected-string whitespace mismatch; corrected literals and exact-SHA reruns pending.
 
 

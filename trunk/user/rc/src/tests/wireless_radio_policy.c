@@ -4,6 +4,41 @@
 #include <stdio.h>
 
 static int
+test_apcli_wisp_config_fails_closed(void)
+{
+	int ssid_configured = 1, is_wisp = 1;
+
+	if (wireless_apcli_start_config_status(
+		    EACCES, "ssid", 0, 0, &ssid_configured, &is_wisp) != EACCES ||
+	    ssid_configured || is_wisp)
+		return 1;
+	if (wireless_apcli_start_config_status(
+		    0, "", EIO, 1, &ssid_configured, &is_wisp) != 0 ||
+	    ssid_configured || is_wisp)
+		return 1;
+	if (wireless_apcli_start_config_status(
+		    0, "ssid", EIO, 1, &ssid_configured, &is_wisp) != EIO ||
+		    ssid_configured || is_wisp)
+		return 1;
+	if (wireless_apcli_start_config_status(
+		    0, "ssid", 0, 1, &ssid_configured, &is_wisp) != 0 ||
+		    !ssid_configured || !is_wisp)
+		return 1;
+	if (wireless_apcli_start_config_status(
+		    0, "ssid", 0, 0, &ssid_configured, &is_wisp) != 0 ||
+		    !ssid_configured || is_wisp)
+		return 1;
+	if (wireless_apcli_start_config_status(
+		    0, NULL, 0, 0, &ssid_configured, &is_wisp) != EIO ||
+		    ssid_configured || is_wisp)
+		return 1;
+	if (wireless_apcli_start_config_status(
+		    0, "ssid", 0, 0, NULL, &is_wisp) != EINVAL)
+		return 1;
+	return 0;
+}
+
+static int
 test_wds_config_defaults_and_checked_count_validation(void)
 {
 	int count = -1;
@@ -668,7 +703,8 @@ test_radio_nvram_flag_status_fails_closed(void)
 int
 main(void)
 {
-	if (test_wds_config_defaults_and_checked_count_validation() ||
+	if (test_apcli_wisp_config_fails_closed() ||
+	    test_wds_config_defaults_and_checked_count_validation() ||
 	    test_radio_state_transition_reads_state_before_power() ||
 	    test_radio_state_transition_restores_previous_power_after_publish_failure() ||
 	    test_radio_state_transition_restores_already_on_state_after_publish_failure() ||

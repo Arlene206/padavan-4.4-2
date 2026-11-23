@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Fail closed on unknown AP-client SSID/WISP startup settings
+
+- Replaced lossy `nvram_wlan_get(..., "sta_ssid")` and `is_apcli_wisp_*` decisions in 2.4/5 GHz AP-client startup. SSID and WISP state now come from the checked NVRAM reader; the WISP flag is only fetched after confirming a nonempty SSID.
+- If either required setting cannot be read, APCLI startup is deferred, the interface is best-effort shut down, its LAN bridge membership is removed where applicable, and the error is returned so the restart can retry. This prevents an unknown WAN-side AP-client from being treated as a LAN interface.
+- Added a GNU89-tested policy for the SSID/WISP decision, with cases for backend failures, absent SSID, WISP/non-WISP and invalid output pointers. Strengthened the existing modem/WISP source-contract checker and XY-C1 path filters.
+- Exact-SHA Wireless radio, USB modem, Firewall, Process, AI docs and XY-C1 workflows are pending. No local target build or hardware result is claimed.
+
+---
+
 ## 2026-11-23 — WAN modem reconnect delivery retry
 
 - Source parent: `7a31ac98ebcf9af3762975606364c167687e6060`; implementation commit and exact-SHA Actions are recorded in the active handoff.

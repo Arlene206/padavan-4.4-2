@@ -39,9 +39,10 @@
 #include "gpio_pins.h"
 
 static int wireless_nvram_get_int_status(const char *name, int *value);
-#if !defined(USE_RT3352_MII) || BOARD_HAS_5G_RADIO
 static int wireless_nvram_get_text_status(const char *name, const char **value);
-#endif
+static int wireless_apcli_wisp_settings_status(int is_5g,
+					      int *ssid_configured,
+					      int *is_wisp);
 #include <gpioutils.h>
 
 static int
@@ -1630,6 +1631,7 @@ start_wifi_apcli_wl(int radio_on)
 	int all_started = 1;
 	const char *ifname_apcli = IFNAME_5G_APCLI;
 	int i_mode_x = 0, mode_status;
+	int ssid_configured = 0, is_wisp = 0, config_status;
 
 	mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
 	if (mode_status != 0) {
@@ -1640,32 +1642,46 @@ start_wifi_apcli_wl(int radio_on)
 		return -mode_status;
 	}
 
-	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(1, "sta_ssid")) > 0))
-	{
+	if (radio_on && (i_mode_x == 3 || i_mode_x == 4)) {
+		config_status = wireless_apcli_wisp_settings_status(
+			1, &ssid_configured, &is_wisp);
+		if (config_status != 0) {
+			if (!wif_control_success(ifname_apcli, 0))
+				logmessage(LOGNAME,
+					   "failed to shut down AP-client after configuration read failure");
+			wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
+			errno = config_status;
+			logmessage(LOGNAME,
+				   "5GHz AP-client startup deferred: cannot verify SSID/WISP state (status=%d)",
+				   config_status);
+			return -config_status;
+		}
+	}
+
+	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && ssid_configured) {
 		if (!wif_control_success(ifname_apcli, 1))
 			return -EIO;
-		wireless_bridge_membership_record(&all_started, ifname_apcli, !is_apcli_wisp_wl() || get_ap_mode());
+		wireless_bridge_membership_record(
+			&all_started, ifname_apcli, !is_wisp || get_ap_mode());
 		if (nvram_wlan_get_int(1, "sta_auto"))
 #if defined (USE_WID_5G) && (USE_WID_5G==7615 || USE_WID_5G==7915)
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3))) {
-			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-			return -EIO;
-		}
+				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+				return -EIO;
+			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 		}
 #else
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1))) {
-			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-			return -EIO;
-		}
+				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+				return -EIO;
+			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 		}
 #endif
-	}
-	else
-	{
+	} else {
 		wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
 	}
 #endif
@@ -1682,45 +1698,63 @@ start_wifi_apcli_rt(int radio_on)
 	int all_started = 1;
 	const char *ifname_apcli = IFNAME_2G_APCLI;
 	int i_mode_x = 0, mode_status;
+	int ssid_configured = 0, is_wisp = 0, config_status;
 
 	mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
 	if (mode_status != 0) {
 		errno = mode_status;
 		logmessage(LOGNAME,
 			   "2.4GHz AP-client startup aborted: cannot read mode_x (status=%d)",
-		   mode_status);
+			   mode_status);
 		return -mode_status;
 	}
 
-	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && (strlen(nvram_wlan_get(0, "sta_ssid")) > 0))
-	{
+	if (radio_on && (i_mode_x == 3 || i_mode_x == 4)) {
+		config_status = wireless_apcli_wisp_settings_status(
+			0, &ssid_configured, &is_wisp);
+		if (config_status != 0) {
+			if (!wif_control_success(ifname_apcli, 0))
+				logmessage(LOGNAME,
+					   "failed to shut down AP-client after configuration read failure");
+#if !defined(USE_RT3352_MII)
+			wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
+#endif
+			errno = config_status;
+			logmessage(LOGNAME,
+				   "2.4GHz AP-client startup deferred: cannot verify SSID/WISP state (status=%d)",
+				   config_status);
+			return -config_status;
+		}
+	}
+
+	if (radio_on && (i_mode_x == 3 || i_mode_x == 4) && ssid_configured) {
 		if (!wif_control_success(ifname_apcli, 1))
 			return -EIO;
 #if !defined(USE_RT3352_MII)
-		wireless_bridge_membership_record(&all_started, ifname_apcli, !is_apcli_wisp_rt() || get_ap_mode());
+		wireless_bridge_membership_record(
+			&all_started, ifname_apcli, !is_wisp || get_ap_mode());
 		if (nvram_wlan_get_int(0, "sta_auto"))
 #if defined (USE_WID_2G) && (USE_WID_2G==7615 || USE_WID_2G==7915)
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3))) {
-			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-			return -EIO;
-		}
+				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+				return -EIO;
+			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 		}
 #else
 		{
 			if (!wireless_radio_status_success(doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1))) {
-			logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
-			return -EIO;
-		}
+				logmessage(LOGNAME, "failed to configure APCLI auto-connect on %s", ifname_apcli);
+				return -EIO;
+			}
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 		}
 #endif
 #endif
 	}
 #if !defined(USE_RT3352_MII)
-	else
-	{
+	else {
 		wireless_bridge_membership_record(&all_started, ifname_apcli, 0);
 	}
 #endif
@@ -2086,7 +2120,6 @@ wireless_nvram_get_int_status(const char *name, int *value)
 		api_result, saved_errno, stored_value, 0, value);
 }
 
-#if !defined(USE_RT3352_MII) || BOARD_HAS_5G_RADIO
 static int
 wireless_nvram_get_text_status(const char *name, const char **value)
 {
@@ -2111,7 +2144,32 @@ wireless_nvram_get_text_status(const char *name, const char **value)
 	*value = stored_value;
 	return 0;
 }
-#endif
+
+static int
+wireless_apcli_wisp_settings_status(int is_5g, int *ssid_configured,
+				    int *is_wisp)
+{
+	const char *ssid = "";
+	const char *ssid_key, *wisp_key;
+	int ssid_status, wisp_status = 0, wisp_enabled = 0;
+
+	if (!ssid_configured || !is_wisp)
+		return EINVAL;
+	*ssid_configured = 0;
+	*is_wisp = 0;
+	if (is_5g != 0 && is_5g != 1)
+		return EINVAL;
+
+	ssid_key = is_5g ? "wl_sta_ssid" : "rt_sta_ssid";
+	wisp_key = is_5g ? "wl_sta_wisp" : "rt_sta_wisp";
+	ssid_status = wireless_nvram_get_text_status(ssid_key, &ssid);
+	if (ssid_status == 0 && ssid && ssid[0])
+		wisp_status = wireless_nvram_get_int_status(wisp_key, &wisp_enabled);
+
+	return wireless_apcli_start_config_status(
+		ssid_status, ssid, wisp_status, wisp_enabled,
+		ssid_configured, is_wisp);
+}
 
 
 

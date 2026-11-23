@@ -3,34 +3,30 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; writable branch `main` only. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve it unchanged.
-- Parent before this AP-client WISP checked-read slice: `a05ef61364ba4c24ec138e2911fd7469290b1648`.
-- USB modem WAN link-state source `a05ef61364ba4c24ec138e2911fd7469290b1648`: USB modem WDM/NDIS #45211762454 PASS, Process inventory #45211762366 PASS, Process fail-closed #45211762281 PASS, AI handoff #45211762276 PASS, USB storage #45211762307 PASS, Firewall startup #45211762429 PASS and NVRAM boundary #45211762395 PASS.
-- XY-C1 #45211762656 was still in progress at last poll. The production Build step was running; TRX verification and artifact upload were pending. Do not claim L3 or same-SHA product verification until all three steps pass.
-- Earlier p910nd readiness source `bea2a85c96271c494076510ea06b96065d7c0b75`: Process fail-closed #45210393886, USB storage #45210396834, Process inventory #45210393909, AI #45210393826, USB modem #45210393790 and NVRAM #45210393769 PASS. XY-C1 #45210393797 needs exact-SHA product-step confirmation if the product status matters.
-- No persistent local checkout or MIPS/uClibc toolchain was available. No local target build or hardware L4 result is claimed.
+- Parent before THIS AP-client startup hardening slice: `ac8fc9f83bf0e32b492249e02a1ba5a6347a83f2`.
+- AP-client WISP discovery source `7c16ec5c8738e3b8b698c75f5b01b1d9ab41aca7`; checker literal normalization `7a31ac98ebcf9af3762975606364c167687e6060`. On that checker-correction SHA, USB modem identity #45214590856, Process #45214590855, Firewall #45214591229 and AI docs #45214591002 passed. XY-C1 #45214590854 completed success as a job but skipped production Build/TRX/artifact because that commit changed only checker/docs.
+- The WAN modem link-state source `a05ef61364ba4c24ec138e2911fd7469290b1648` passed USB modem #45211762454, Process #45211762366, Process fail-closed #45211762281, AI #45211762276, USB storage #45211762307, Firewall #45211762429 and NVRAM #45211762395. XY-C1 #45211762656 subsequently completed success with Build/TRX/artifact on that exact source SHA.
+- Main before THIS commit was `ac8fc9f83bf0e32b492249e02a1ba5a6347a83f2`. No persistent local checkout or MIPS/uClibc toolchain is available; no local firmware build or hardware L4 result is claimed.
 
 ## Active task
 
-- THIS COMMIT fixes a fail-open around modem/WAN selection: `get_apcli_wisp_ifname()` used lossy `nvram_wlan_get_int()` / `nvram_wlan_get()` accessors. If a WLAN NVRAM read failed, its safe-get fallback could return radio disabled, WISP disabled or empty SSID, causing callers to mistake an active/uninspectable AP-client WISP configuration for ordinary Ethernet WAN.
-- Added `get_apcli_wisp_ifname_status()`, which checks per-band mode, radio-enable, WISP-enable and SSID using the existing checked integer reader plus a checked text reader. Backend and malformed integer errors propagate; an actually missing SSID retains the historical empty-string behavior. The legacy pointer API remains as a compatibility wrapper.
-- USB modem hotplug and initial WAN modem-device selection now abort/retry if WISP identity cannot be read; they never start a competing USB modem on UNKNOWN WISP state. AP-client WAN migration, manual reassociation and post-radio WAN recovery now use the checked result too.
-- Extended the USB modem identity workflow's source contract and path filters to include `net_wifi.c`. Exact runs #45213624031 and #45213993738 both reached the new contract and failed due to its comparison strings retaining spaces while the local `tight()` helper removes them. Process #45213993599, Firewall #45213993561 and XY-C1 #45213993569 were also blocked by the identical final static-check exception; all earlier C regressions passed up to that last assertion. THIS COMMIT normalizes expected literals to whitespace-free form. Re-run all relevant exact-SHA checks.
+- THIS COMMIT closes a remaining AP-client startup fail-open. Both `start_wifi_apcli_wl()` and `start_wifi_apcli_rt()` previously used lossy `nvram_wlan_get(..., "sta_ssid")` to decide whether to bring up APCLI and lossy `is_apcli_wisp_*()` to decide whether to attach that interface to the LAN bridge. A checked-NVRAM backend failure could be mistaken for empty SSID or non-WISP, potentially skipping APCLI startup or leaking a WAN-side WISP interface into LAN.
+- Added `wireless_apcli_wisp_settings_status()` that checks SSID first and only reads the band-specific WISP flag for a nonempty SSID. A read error prevents APCLI startup, best-effort shuts the interface down, removes any LAN bridge membership, records errno and returns a retryable error.
+- Added pure `wireless_apcli_start_config_status()` policy and GNU89 regression cases for SSID backend errors, missing/empty SSID, WISP backend errors, positive/negative WISP settings, invalid pointers and fail-closed output initialization. Extended the USB modem source checker and XY-C1 path filters.
+- Exact-SHA Wireless radio state, USB modem identity, Firewall, Process, AI docs and XY-C1 workflows for THIS commit are pending at creation. XY-C1 must complete Build, TRX verification and artifact upload on this source SHA before claiming firmware verification.
 
 ## Exact first action for the next GPT
 
-1. Poll Actions for THIS WISP source SHA. Require the USB modem identity static contract and XY-C1 Build + TRX + artifact upload all to PASS on this exact SHA.
-2. Inspect any failing job's exact log. Do not restore lossy WISP fallbacks; distinguish missing keys (legacy defaults) from backend errors.
-3. Continue another independent stability/security source slice while the product build is pending. Keep atomic expected-SHA updates on `main` only.
+1. Poll Actions for THIS commit SHA, especially wireless-radio-state and XY-C1. Inspect Build, TRX and upload-artifact steps separately.
+2. If a regression fails, obtain its exact job log and fix the source/test mismatch without weakening the fail-closed contract. If XY-C1 is pending, continue another independent stability or security source slice.
+3. Keep atomic expected-SHA updates on `main` only; never force-push or alter the frozen backup.
 
-## Exact-SHA CI facts at this checkpoint
+## Exact-SHA CI facts
 
-- On `a05ef61364ba4c24ec138e2911fd7469290b1648`: USB modem identity #45211762454 PASS; Process inventory #45211762366 PASS; Process fail-closed #45211762281 PASS; AI docs #45211762276 PASS; USB storage #45211762307 PASS; Firewall #45211762429 PASS; NVRAM #45211762395 PASS.
-- On WISP SHA `7c16ec5c8738e3b8b698c75f5b01b1d9ab41aca7`, USB modem identity #45213624031 failed at a newly-added WISP text-reader assertion after all preceding compiled C regressions and source checks passed. Checker-only follow-up #5fec8eac still failed because the expected assertion literals retained spaces while `tight()` removes them. Consequently USB modem #45213993738, Process #45213993599, Firewall #45213993561 and XY-C1 #45213993569 on that same SHA also failed/stopped at the shared checker. No production compile or TRX claim is made for #45213993569; its firmware steps were skipped. THIS COMMIT fixes the expected literals.
-- XY-C1 #45211762656 was IN_PROGRESS at the last poll: Build running, TRX and artifact pending. The earlier XY-C1 #45207830678 success was on older source `8fa162a` and does not validate current code.
-- Main before THIS WISP commit was `a05ef61364ba4c24ec138e2911fd7469290b1648`; refresh main and pass expected-SHA on every write. Never force-push, create branches or touch the frozen archive.
+- WISP checker source `7a31ac98ebcf9af3762975606364c167687e6060`: USB modem identity #45214590856 PASS; Process #45214590855 PASS; Firewall #45214591229 PASS; AI #45214591002 PASS. XY-C1 #45214590854 was job success but product Build/TRX/artifact steps were skipped because no production firmware file changed.
+- Main before THIS commit was `ac8fc9f83bf0e32b492249e02a1ba5a6347a83f2`; refresh main and use expected-SHA for every write. No force push, branches or backup mutation.
 
 
-## Completed source slices to preserve
 
 ### SCUT watchdog checked-NVRAM and process-safety source slice
 

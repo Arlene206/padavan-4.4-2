@@ -130,6 +130,7 @@ on:
       - "trunk/user/rc/src/switch_cli_parse_policy.h"
       - "trunk/user/rc/src/tests/switch_cli_parse_policy.c"
       - "trunk/user/rc/src/wireless_radio_policy.h"
+      - "trunk/user/rc/src/tests/wireless_radio_policy.c"
       - "trunk/user/802.1x/src/rtdot1x.c"
       - "trunk/user/802.1x/src/config.c"
       - "trunk/user/802.1x/src/auth_startup_handshake.h"

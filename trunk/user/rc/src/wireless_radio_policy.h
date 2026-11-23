@@ -357,4 +357,31 @@ wireless_radio_wds_config_resolve(int apply_status, int apply_value,
 	return 0;
 }
 
+/*
+ * AP-client startup requires a verified SSID and WISP flag. An unreadable
+ * value must not be interpreted as an absent SSID or a non-WISP LAN port.
+ */
+static inline int
+wireless_apcli_start_config_status(int ssid_status, const char *ssid,
+				   int wisp_status, int wisp_enabled,
+				   int *ssid_configured, int *is_wisp)
+{
+	if (!ssid_configured || !is_wisp)
+		return EINVAL;
+	*ssid_configured = 0;
+	*is_wisp = 0;
+	if (ssid_status != 0)
+		return ssid_status;
+	if (!ssid)
+		return EIO;
+	if (!ssid[0])
+		return 0;
+	if (wisp_status != 0)
+		return wisp_status;
+
+	*ssid_configured = 1;
+	*is_wisp = !!wisp_enabled;
+	return 0;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */

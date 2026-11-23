@@ -1489,6 +1489,37 @@ assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in tight(body(WAN_SOURCE, "m
 assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in tight(body(NET_WIFI_SOURCE, "check_apcli_wan(int is_5g, int radio_on)"))
 assert "intget_apcli_wisp_ifname_status(constchar**p_wisp_ifname);" in tight(HEADER)
 
+# AP-client startup must verify SSID and WISP identity before
+# enabling the interface or deciding whether it belongs on the LAN bridge.
+apcli_settings = tight(body(NET_WIFI_SOURCE, "wireless_apcli_wisp_settings_status("))
+assert "wireless_nvram_get_text_status(ssid_key,&ssid)" in apcli_settings
+assert "wireless_nvram_get_int_status(wisp_key,&wisp_enabled)" in apcli_settings
+assert "wireless_apcli_start_config_status(" in apcli_settings
+
+for signature, band, old_wisp_getter in (
+    ("start_wifi_apcli_wl(int radio_on)", "wl", "is_apcli_wisp_wl()"),
+    ("start_wifi_apcli_rt(int radio_on)", "rt", "is_apcli_wisp_rt()"),
+):
+    apcli_start = tight(body(NET_WIFI_SOURCE, signature))
+    band_id = "1" if band == "wl" else "0"
+    read_call = f"wireless_apcli_wisp_settings_status({band_id},&ssid_configured,&is_wisp)"
+    config_gate = "if(config_status!=0){"
+    start_gate = "if(radio_on&&(i_mode_x==3||i_mode_x==4)&&ssid_configured){"
+    assert read_call in apcli_start
+    assert config_gate in apcli_start
+    assert start_gate in apcli_start
+    assert "if(!wif_control_success(ifname_apcli,0))" in apcli_start
+    assert f'nvram_wlan_get({band_id},"sta_ssid")' not in apcli_start
+    assert old_wisp_getter not in apcli_start
+    assert apcli_start.index(read_call) < apcli_start.index(config_gate) < apcli_start.index(start_gate)
+    if band == "wl":
+        assert "wireless_bridge_membership_record(&all_started,ifname_apcli,!is_wisp||get_ap_mode())" in apcli_start
+        assert "wireless_bridge_membership_record(&all_started,ifname_apcli,0)" in apcli_start
+    else:
+        assert "wireless_bridge_membership_record(&all_started,ifname_apcli,!is_wisp||get_ap_mode())" in apcli_start
+        assert "#if!defined(USE_RT3352_MII)" in apcli_start
+assert "test_apcli_wisp_config_fails_closed" in WIRELESS_TEST
+
 # detect_link's delayed modem recovery must retry checked-state and queue failures.
 modem_notify = tight(body(USB_SOURCE, "notify_modem_on_wan_ether_link_changed(int has_link)"))
 assert 'notify_rc_status("auto_wan_reconnect")' in modem_notify
