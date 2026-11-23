@@ -485,7 +485,6 @@ require(manual_read in commit_helper_compact and manual_policy in commit_helper_
 
 for signature in (
     "int add_account(const char *const account, const char *const password)",
-    "int del_account(const char *const account)",
     "int mod_account(const char *const account, const char *const new_account, const char *const new_password)",
 ):
     body = function_body(DISK_SOURCE, signature)
