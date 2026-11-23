@@ -745,6 +745,21 @@ jobs:
           assert "io->delay_us(context, MTK_ESW_VLAN_TABLE_POLL_DELAY_US)" in vlan_table_write
           assert "return -ETIMEDOUT;" in vlan_table_write
           assert "test_vlan_table_write_waits_for_idle_and_propagates_io_failures" in test
+          assert "test_vlan_entry_apply_stops_on_each_failed_stage" in test
+          vlan_entry_apply = policy.split("mtk_esw_vlan_entry_apply(", 1)[1].split(
+              "/*", 1
+          )[0]
+          for reg in ("vawd1_reg", "vawd2_reg", "vtcr_reg"):
+              assert reg in vlan_entry_apply
+          assert vlan_entry_apply.index("io->write(context, MTK_ESW_MAC_TABLE_PHY, vawd1_reg") < vlan_entry_apply.index(
+              "io->write(context, MTK_ESW_MAC_TABLE_PHY, vawd2_reg"
+          )
+          assert "return mtk_esw_vlan_table_write(vtcr_reg, 1U, vid, io, context);" in vlan_entry_apply
+          vlan_set = source.split("static int esw_vlan_set", 1)[1].split(
+              "static int esw_vlan_reset_table", 1
+          )[0]
+          assert "mtk_esw_vlan_entry_apply(" in vlan_set
+          assert vlan_set.index("mtk_esw_vlan_entry_apply(") < vlan_set.index("set_bit(cvid, g_vlan_pool)")
           fake_read = test.split("fake_read(void *context", 1)[1].split(
               "static int\\nfake_write", 1
           )[0]

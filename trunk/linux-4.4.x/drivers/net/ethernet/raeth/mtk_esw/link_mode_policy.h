@@ -243,6 +243,34 @@ mtk_esw_vlan_table_write(unsigned int vtcr_reg, unsigned int command,
 
 
 /*
+ * A VLAN entry is not published until both data words and the VTCR command
+ * complete successfully. A failed stage stops subsequent writes so callers
+ * can retain their software pool state and retry the entry.
+ */
+static inline int
+mtk_esw_vlan_entry_apply(unsigned int vawd1_reg, unsigned int vawd2_reg,
+			 unsigned int vtcr_reg, unsigned int vid,
+			 unsigned int vawd1, unsigned int vawd2,
+			 const struct mtk_esw_link_mode_io *io, void *context)
+{
+	int status;
+
+	if (!io || !io->read || !io->write || !io->delay_us || vid > 4095U)
+		return -EINVAL;
+
+	status = io->write(context, MTK_ESW_MAC_TABLE_PHY, vawd1_reg, vawd1);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	status = io->write(context, MTK_ESW_MAC_TABLE_PHY, vawd2_reg, vawd2);
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	return mtk_esw_vlan_table_write(vtcr_reg, 1U, vid, io, context);
+}
+
+
+/*
  * Change PHY power only after a successful control-register read. A failed
  * write is returned to the caller and must not be recorded as applied state.
  */

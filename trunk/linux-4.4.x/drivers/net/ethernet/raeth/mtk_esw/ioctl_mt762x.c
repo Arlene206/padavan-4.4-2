@@ -548,16 +548,10 @@ static int esw_vlan_set(u32 cvid, u32 svid, u32 mask_member, u32 mask_untag,
 		}
 	}
 
-	status = mtk_esw_link_mode_io.write(NULL, MTK_ESW_MAC_TABLE_PHY,
-					    REG_ESW_VLAN_VAWD1, reg_val);
-	if (status != 0)
-		return mtk_esw_link_mode_io_error(status);
-	status = mtk_esw_link_mode_io.write(NULL, MTK_ESW_MAC_TABLE_PHY,
-					    REG_ESW_VLAN_VAWD2, reg_val2);
-	if (status != 0)
-		return mtk_esw_link_mode_io_error(status);
-
-	status = esw_write_vtcr(1, cvid);
+	status = mtk_esw_vlan_entry_apply(
+		REG_ESW_VLAN_VAWD1, REG_ESW_VLAN_VAWD2,
+		REG_ESW_VLAN_VTCR, cvid, reg_val, reg_val2,
+		&mtk_esw_link_mode_io, NULL);
 	if (status != 0)
 		return status;
 

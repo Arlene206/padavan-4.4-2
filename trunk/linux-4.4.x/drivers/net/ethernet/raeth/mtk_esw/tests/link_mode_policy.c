@@ -650,6 +650,65 @@ test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits(void)
 }
 
 static void
+test_vlan_entry_apply_stops_on_each_failed_stage(void)
+{
+	struct fake_mdio fake;
+	unsigned int index;
+
+	fake_init(&fake);
+	assert(mtk_esw_vlan_entry_apply(0x94U, 0x98U,
+					MTK_ESW_VLAN_TABLE_REG, 27U,
+					0x12345678U, 0x87654321U,
+					&fake_ops, &fake) == 0);
+	assert(fake.mdio_calls == 4U && fake.event_count == 5U);
+	assert(fake.events[0].type == FAKE_WRITE &&
+	       fake.events[0].reg == 0x94U &&
+	       fake.events[0].value == 0x12345678U);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].reg == 0x98U &&
+	       fake.events[1].value == 0x87654321U);
+	assert(fake.events[2].type == FAKE_WRITE &&
+	       fake.events[2].reg == MTK_ESW_VLAN_TABLE_REG);
+	assert(fake.events[3].type == FAKE_DELAY_US);
+	assert(fake.events[4].type == FAKE_READ);
+
+	for (index = 0; index < 4U; ++index) {
+		fake_init(&fake);
+		fake.fail_at = index;
+		fake.fail_status = -EIO;
+		assert(mtk_esw_vlan_entry_apply(0x94U, 0x98U,
+						MTK_ESW_VLAN_TABLE_REG, 27U,
+						0x12345678U, 0x87654321U,
+						&fake_ops, &fake) == -EIO);
+		assert(fake.mdio_calls == index + 1U);
+		if (index < 3U)
+			assert(fake.event_count == index + 1U);
+		else
+			assert(fake.event_count == 5U);
+		assert(fake.events[0].type == FAKE_WRITE);
+		if (index == 0U)
+			assert(fake.events[0].reg == 0x94U);
+		else if (index == 1U)
+			assert(fake.events[1].reg == 0x98U);
+		else if (index == 2U)
+			assert(fake.events[2].reg == MTK_ESW_VLAN_TABLE_REG);
+		else
+			assert(fake.events[4].type == FAKE_READ);
+	}
+
+	fake_init(&fake);
+	assert(mtk_esw_vlan_entry_apply(0x94U, 0x98U,
+					MTK_ESW_VLAN_TABLE_REG, 4096U,
+					1U, 2U, &fake_ops, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+
+	assert(mtk_esw_vlan_entry_apply(0x94U, 0x98U,
+					MTK_ESW_VLAN_TABLE_REG, 1U,
+					1U, 2U, NULL, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_vlan_table_write_waits_for_idle_and_propagates_io_failures(void)
 {
 	struct fake_mdio fake;
@@ -776,6 +835,7 @@ main(void)
 	test_port_register_writes_continue_after_first_failure();
 	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
+	test_vlan_entry_apply_stops_on_each_failed_stage();
 	test_vlan_table_write_waits_for_idle_and_propagates_io_failures();
 	test_vlan_rule_snapshot_is_committed_only_after_hardware_success();
 	test_vlan_rule_snapshot_commit_rejects_invalid_buffers();
