@@ -388,7 +388,7 @@ password_snapshot = del_account_compact.index(
     "disk_share_account_password_shift_snapshot(&disk_share_account_nvram_operations"
 )
 password_snapshot_end = del_account_compact.index(
-    "free_2_dimension_list(&account_count,&account_list)", password_snapshot
+    "free_2_dimension_list(&account_count,&account_list)", decrement_count
 )
 require(password_snapshot < decrement_count < password_snapshot_end and
         "nvram_safe_get(" not in del_account_body and
