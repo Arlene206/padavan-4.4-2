@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Align VPN stop checker with checked ownership setter
+
+- Exact VPN lifecycle run #45185622799 on `374a3c45664f2f06a84c1b39375d86bb389ca2e1` compiled and passed every C regression, including the new NVRAM write-status cases; the source checker then failed because a pre-existing stop-order assertion still searched for the removed raw `nvram_set_int_temp()` call.
+- Updated that assertion to require the checked marker wrapper after OpenVPN stop and before callback cleanup. The new marker-specific source contracts had already passed before the stale assertion was reached. Exact-head VPN/XY-C1 rerun required.
+---
+
 ## 2026-11-23 UTC — Fail closed on VPN L2TP runtime marker writes
 
 - The VPN server's `nvram_set_int_temp("l2tp_srv_t", ...)` calls discarded all four setter results. An NVRAM device-node open/ioctl/close failure could start xl2tpd or pptpd while leaving PID 1's shared-daemon ownership marker stale, or report a successful stop with stale ownership state.

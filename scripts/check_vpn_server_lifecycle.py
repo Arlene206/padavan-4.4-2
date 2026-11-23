@@ -935,7 +935,7 @@ for path in ("trunk/user/rc/src/l2tp_config_file.h",
             f"XY-C1 firmware workflow must rebuild OpenVPN source dependency: {path}")
 vpn_server_stop=body(vpn,"static int\nstop_vpn_server_locked(void)")
 require("if (stop_openvpn_server() != 0)" in vpn_server_stop and
-        vpn_server_stop.index("if (stop_openvpn_server() != 0)") < vpn_server_stop.index('nvram_set_int_temp("l2tp_srv_t", 0)') and
+        vpn_server_stop.index("if (stop_openvpn_server() != 0)") < vpn_server_stop.index("vpn_server_set_l2tp_server_marker(0)") and
         vpn_server_stop.index("if (stop_openvpn_server() != 0)") < vpn_server_stop.index("unlink(VPNS_PPP_UP_SCRIPT)"),
         "VPN server cleanup must wait for OpenVPN stop")
 vpn_client_stop=body(vpn_client,"static int\nstop_vpn_client_locked(void)")
