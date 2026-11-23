@@ -129,6 +129,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/p910nd/p910nd.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/firewall_nvram_match_policy.h"
@@ -374,6 +376,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/usb_printer_p910nd_policy.h"
+      - "trunk/user/rc/src/tests/usb_printer_p910nd_policy.c"
       - "trunk/user/p910nd/p910nd.c"
       - "trunk/user/rc/src/sshd_daemon_policy.h"
       - "trunk/user/rc/src/firewall_nvram_match_policy.h"
@@ -1792,6 +1796,9 @@ jobs:
           p910nd_server = p910nd_source.split("void server(int lpnumber)", 1)[1].split("\nint is_standalone", 1)[0]
           p910nd_main = p910nd_source.split("int main(int argc, char *argv[])", 1)[1]
           p910nd_start = source.split("int\nstart_p910nd(char *devlp)", 1)[1].split("\nint\nstop_p910nd", 1)[0]
+          p910nd_policy = Path("trunk/user/rc/src/usb_printer_p910nd_policy.h").read_text()
+          p910nd_policy_test = Path("trunk/user/rc/src/tests/usb_printer_p910nd_policy.c").read_text()
+          p910nd_stop = source.split("int\nstop_p910nd(void)", 1)[1].split("\nstatic int", 1)[0]
 
           # p910nd exits its parent successfully before the detached child has
           # completed lock acquisition and socket setup.
@@ -1803,12 +1810,26 @@ jobs:
 
           launch = p910nd_start.index('start_status = eval("/usr/sbin/p910nd"')
           launch_error_gate = p910nd_start.index("if (start_status != 0)")
-          readiness = p910nd_start.index('start_status = usb_printer_daemon_postcondition("p9100d");')
+          port_prepare = p910nd_start.index("usb_printer_p910nd_port_from_device(")
+          process_name = p910nd_start.index("usb_printer_p910nd_process_name(")
+          launch = p910nd_start.index('start_status = eval("/usr/sbin/p910nd"')
+          launch_error_gate = p910nd_start.index("if (start_status != 0)")
+          readiness = p910nd_start.index("start_status = usb_printer_daemon_postcondition(process_name);")
           failure_gate = p910nd_start.index("if (start_status != 0)", readiness)
           rollback = p910nd_start.index("usb_printer_daemon_start_failure_recover(", failure_gate)
-          assert launch < launch_error_gate < readiness < failure_gate < rollback
-          assert "p9100d" in p910nd_start[rollback:rollback+128]
+          assert port_prepare < process_name < launch < launch_error_gate < readiness < failure_gate < rollback
+          assert 'eval("/usr/sbin/p910nd", "-b", "-f", devlp, port)' in p910nd_start
+          assert 'eval("/usr/sbin/p910nd", "-f", devlp, port)' in p910nd_start
           assert "return start_status;" in p910nd_start[rollback:]
+          for index in range(10):
+              assert f'"p910{index}d"' in p910nd_stop
+          assert '"p910nd"' in p910nd_stop
+          assert "USB_PRINTER_P910ND_DEVICE_PREFIX" in p910nd_policy
+          for marker in ("test_each_supported_device_maps_to_its_port",
+                         "test_invalid_device_paths_fail_without_mutation",
+                         "test_process_name_tracks_port_number",
+                         "test_invalid_process_names_fail_without_mutation"):
+              assert marker in p910nd_policy_test
           assert "p910nd daemon readiness failed" in p910nd_start
 
           print("USB printer U2EC/LPRng/p910nd detached-daemon readiness contract: PASS")

@@ -1,3 +1,9 @@
+## 2026-11-23 — Correct p910nd per-printer port and process identity
+
+- Fixed a concrete multi-printer defect: the hotplug loop scans `/dev/usb/lp0` through `lp9`, but every p910nd launch passed port `0`. p910nd uses that digit for its TCP port, lock/PID filename, and rewritten process identity (`p9100d` through `p9109d`), so multiple printers collided and readiness for later devices could be falsely satisfied by the first daemon.
+- Startup now strictly parses the canonical `/dev/usb/lpN` path, passes that same digit to p910nd, derives the matching rewritten process name, and performs readiness plus failure rollback against that specific instance. Stop now targets the launcher name and all ten rewritten daemon identities.
+- Added a GNU89 ASan/UBSan policy regression for the complete 0–9 map, malformed paths, invalid ports, and non-mutating error paths. USB, Process and Storage workflow source contracts and path triggers are updated. Exact-head Actions pending; hardware multi-printer runtime remains unverified.
+
 ## 2026-11-23 — Roll back late p910nd children after readiness failure
 
 - `start_p910nd()` previously returned a readiness timeout or process-inventory error after `p910nd` had already detached its child. The caller observed only the launcher parent, so an incompletely initialized listener could remain running and be retried later.

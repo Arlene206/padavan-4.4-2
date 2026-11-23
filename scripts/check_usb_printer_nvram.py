@@ -6,6 +6,8 @@ RC=ROOT/"trunk/user/rc/src"
 SOURCE=(RC/"services_usb.c").read_text()
 POLICY=(RC/"usb_printer_nvram_policy.h").read_text()
 TEST=(RC/"tests/usb_printer_nvram_policy.c").read_text()
+P910_POLICY=(RC/"usb_printer_p910nd_policy.h").read_text()
+P910_TEST=(RC/"tests/usb_printer_p910nd_policy.c").read_text()
 WORKFLOW=(ROOT/".github/workflows/usb-modem-identity-stability.yml").read_text()
 def body(signature):
     start=SOURCE.index(signature); opening=SOURCE.index("{",start); depth=0
@@ -82,18 +84,34 @@ disabled=raw.index('strcmp(setting, "0")',prop)
 mode=raw.index('strcmp(setting, "2")',disabled)
 launch=raw.index('eval("/usr/sbin/p910nd"',mode)
 assert read<gate<prop<disabled<mode<launch
-readiness=raw.index('start_status = usb_printer_daemon_postcondition("p9100d");')
-failure_gate=raw.index("if (start_status != 0)",readiness)
+port_prepare=raw.index("usb_printer_p910nd_port_from_device(")
+process_name=raw.index("usb_printer_p910nd_process_name(")
+bidir_launch=raw.index('eval("/usr/sbin/p910nd", "-b", "-f", devlp, port)')
+single_launch=raw.index('eval("/usr/sbin/p910nd", "-f", devlp, port)')
+readiness_port=raw.index("start_status = usb_printer_daemon_postcondition(process_name);")
+failure_gate=raw.index("if (start_status != 0)",readiness_port)
 rollback=raw.index("usb_printer_daemon_start_failure_recover(",failure_gate)
-assert launch<readiness<failure_gate<rollback
-assert "p9100d" in raw[rollback:rollback+128]
+assert launch<port_prepare<process_name<bidir_launch<readiness_port<failure_gate<rollback
+assert process_name<single_launch<readiness_port
 assert "return start_status;" in raw[rollback:]
+stop_raw=body("stop_p910nd(void)")
+for index in range(10):
+    assert f'"p910{index}d"' in stop_raw
+assert '"p910nd"' in stop_raw
+assert "usb_printer_p910nd_port_from_device" in P910_POLICY
+assert "usb_printer_p910nd_process_name" in P910_POLICY
+for marker in ("test_each_supported_device_maps_to_its_port",
+               "test_invalid_device_paths_fail_without_mutation",
+               "test_process_name_tracks_port_number",
+               "test_invalid_process_names_fail_without_mutation"):
+    assert marker in P910_TEST and marker+"();" in P910_TEST
 assert 'nvram_match("rawd_enable"' not in raw
 for marker in ("test_present_setting_is_copied_from_shared_cache","test_missing_setting_preserves_empty_legacy_default","test_backend_error_is_not_collapsed_to_default","test_errno_less_backend_failure_becomes_eio","test_unexpected_result_and_null_cache_are_rejected","test_overlong_setting_fails_before_use","test_invalid_arguments_are_rejected"):
     assert marker in TEST and marker+"();" in TEST
 FILTERS=WORKFLOW.split("permissions:",1)[0]
-for path in (".github/workflows/usb-modem-identity-stability.yml","trunk/user/rc/src/services_usb.c","trunk/user/rc/src/usb_printer_nvram_policy.h","trunk/user/rc/src/tests/usb_printer_nvram_policy.c","scripts/check_usb_printer_nvram.py"):
+for path in (".github/workflows/usb-modem-identity-stability.yml","trunk/user/rc/src/services_usb.c","trunk/user/rc/src/usb_printer_nvram_policy.h","trunk/user/rc/src/tests/usb_printer_nvram_policy.c","trunk/user/rc/src/usb_printer_p910nd_policy.h","trunk/user/rc/src/tests/usb_printer_p910nd_policy.c","scripts/check_usb_printer_nvram.py"):
     assert FILTERS.count(path)==2,f"workflow filter missing {path}"
 assert "usb_printer_nvram_policy.c" in WORKFLOW
 assert "python3 scripts/check_usb_printer_nvram.py" in WORKFLOW
+assert "usb_printer_p910nd_policy.c" in WORKFLOW
 print("USB printer checked NVRAM lifecycle contract: PASS")

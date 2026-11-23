@@ -52,6 +52,7 @@
 #include "storage_hotplug_name_policy.h"
 #include "modem_wan_start_policy.h"
 #include "usb_printer_nvram_policy.h"
+#include "usb_printer_p910nd_policy.h"
 
 static int
 usb_printer_nvram_get_checked(void *context, const char *name, char **value)
@@ -467,7 +468,7 @@ int
 start_p910nd(char *devlp)
 {
 	int start_status, setting_status;
-	char setting[16];
+	char setting[16], port[2], process_name[sizeof("p9100d")];
 
 	setting_status = read_usb_printer_setting_status("rawd_enable", setting, sizeof(setting));
 	if (setting_status != 0) {
@@ -477,10 +478,23 @@ start_p910nd(char *devlp)
 	if (strcmp(setting, "0") == 0)
 		return 0;
 
+	start_status = usb_printer_p910nd_port_from_device(
+		devlp, port, sizeof(port));
+	if (start_status != 0) {
+		logmessage("USB Printer",
+			   "invalid raw printer device path %s (status=%d)",
+			   devlp ? devlp : "(null)", start_status);
+		return start_status;
+	}
+	start_status = usb_printer_p910nd_process_name(
+		port[0], process_name, sizeof(process_name));
+	if (start_status != 0)
+		return start_status;
+
 	if (strcmp(setting, "2") == 0)
-		start_status = eval("/usr/sbin/p910nd", "-b", "-f", devlp, "0");
+		start_status = eval("/usr/sbin/p910nd", "-b", "-f", devlp, port);
 	else
-		start_status = eval("/usr/sbin/p910nd", "-f", devlp, "0");
+		start_status = eval("/usr/sbin/p910nd", "-f", devlp, port);
 
 	if (start_status != 0) {
 		logmessage("USB Printer", "p910nd launcher failed for %s (status=%d)",
@@ -493,7 +507,7 @@ start_p910nd(char *devlp)
 	 * acquires its lock and binds the printer socket. Its argv[0] becomes
 	 * p9100d, so verify that detached child before acknowledging startup.
 	 */
-	start_status = usb_printer_daemon_postcondition("p9100d");
+	start_status = usb_printer_daemon_postcondition(process_name);
 	if (start_status != 0) {
 		/* eval() observes only the daemonizing parent; stop a late child. */
 		start_status = usb_printer_daemon_start_failure_recover(
@@ -509,7 +523,12 @@ start_p910nd(char *devlp)
 int
 stop_p910nd(void)
 {
-	char* svcs[] = { "p910nd", NULL };
+	char* svcs[] = {
+		"p910nd",
+		"p9100d", "p9101d", "p9102d", "p9103d", "p9104d",
+		"p9105d", "p9106d", "p9107d", "p9108d", "p9109d",
+		NULL
+	};
 	return kill_services(svcs, 3, 1);
 }
 
