@@ -34,6 +34,7 @@
 #include "wan_ifname_policy.h"
 #include "service_wait_policy.h"
 #include "wireless_guest_isolation_policy.h"
+#include "wireless_guest_schedule_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
 
@@ -926,6 +927,86 @@ fail_start:
 	return wireless_radio_startup_result(all_started);
 }
 
+
+/* Read a bounded schedule string without collapsing NVRAM backend errors. */
+static int
+wireless_guest_schedule_read_value(const char *name, char *buffer,
+				   size_t buffer_size)
+{
+	char *stored_value = NULL;
+	size_t value_length;
+	int api_result, saved_errno;
+
+	if (!name || !name[0] || !buffer || buffer_size == 0)
+		return EINVAL;
+	buffer[0] = '\0';
+	errno = 0;
+	api_result = nvram_get_checked(name, &stored_value);
+	saved_errno = errno;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !stored_value)
+		return EIO;
+	value_length = strlen(stored_value);
+	/* Preserve the legacy unrestricted default for malformed lengths. */
+	if (value_length >= buffer_size)
+		return 0;
+	memcpy(buffer, stored_value, value_length + 1);
+	return 0;
+}
+
+/* Restarting an iNIC guest AP requires a known enable flag and known schedule. */
+static int
+wireless_guest_allowed_rt_checked(int *allowed)
+{
+	char *enabled_value = NULL;
+	char date[8], weekday_time[9], weekend_time[9];
+	int api_result, saved_errno, enabled = 0;
+	int enable_status, schedule_status = 0, schedule_allowed = 0;
+	time_t now;
+	struct tm *local_time;
+
+	if (!allowed)
+		return EINVAL;
+	*allowed = 0;
+	errno = 0;
+	api_result = nvram_get_checked("rt_guest_enable", &enabled_value);
+	saved_errno = errno;
+	enable_status = wireless_radio_nvram_flag_status(
+		api_result, saved_errno, enabled_value, &enabled);
+	if (enable_status != 0)
+		return wireless_guest_schedule_resolve(enable_status, enabled, 0, 0, allowed);
+	if (!enabled)
+		return wireless_guest_schedule_resolve(0, 0, 0, 0, allowed);
+
+	schedule_status = wireless_guest_schedule_read_value(
+		"rt_guest_date_x", date, sizeof(date));
+	if (schedule_status == 0)
+		schedule_status = wireless_guest_schedule_read_value(
+			"rt_guest_time_x", weekday_time, sizeof(weekday_time));
+	if (schedule_status == 0)
+		schedule_status = wireless_guest_schedule_read_value(
+			"rt_guest_time2_x", weekend_time, sizeof(weekend_time));
+	if (schedule_status == 0) {
+		errno = 0;
+		if (time(&now) == (time_t)-1) {
+			schedule_status = errno > 0 ? errno : EIO;
+		} else {
+			local_time = localtime(&now);
+			if (!local_time)
+				schedule_status = errno > 0 ? errno : EIO;
+			else
+				schedule_allowed = wireless_guest_schedule_time_allowed(
+					date, weekday_time, weekend_time, local_time->tm_wday,
+					local_time->tm_hour, local_time->tm_min);
+		}
+	}
+	return wireless_guest_schedule_resolve(
+		enable_status, enabled, schedule_status, schedule_allowed, allowed);
+}
+
 int
 check_inic_mii_rebooted(void)
 {
@@ -938,6 +1019,7 @@ check_inic_mii_rebooted(void)
 	int radio_enabled = 0;
 	int rt_mode_x;
 	int guest_is_up;
+	int guest_allowed;
 	int status;
 
 	/*
@@ -993,13 +1075,22 @@ check_inic_mii_rebooted(void)
 			return status;
 		}
 
-		if (!guest_is_up && is_guest_allowed_rt()) {
-			status = wif_control(IFNAME_INIC_GUEST, 1);
-			if (!wireless_radio_status_success(status)) {
+		if (!guest_is_up) {
+			status = wireless_guest_allowed_rt_checked(&guest_allowed);
+			if (status != 0) {
 				logmessage(LOGNAME,
-					   "iNIC guest AP recovery deferred until the next health check (status=%d)",
+					   "iNIC guest AP schedule is unknown; recovery deferred until the next health check (status=%d)",
 					   status);
-				return wireless_radio_restart_status(0, status);
+				return status;
+			}
+			if (guest_allowed) {
+				status = wif_control(IFNAME_INIC_GUEST, 1);
+				if (!wireless_radio_status_success(status)) {
+					logmessage(LOGNAME,
+						   "iNIC guest AP recovery deferred until the next health check (status=%d)",
+						   status);
+					return wireless_radio_restart_status(0, status);
+				}
 			}
 		}
 	}
@@ -2899,142 +2990,19 @@ manual_change_guest_wl(int radio_on)
 int 
 timecheck_wifi(int is_aband, const char *nv_date, const char *nv_time1, const char *nv_time2)
 {
-#define DOW_MASK_SUN (1 << 0)
-#define DOW_MASK_MON (1 << 1)
-#define DOW_MASK_TUE (1 << 2)
-#define DOW_MASK_WED (1 << 3)
-#define DOW_MASK_THU (1 << 4)
-#define DOW_MASK_FRI (1 << 5)
-#define DOW_MASK_SAT (1 << 6)
-
 	time_t now;
 	struct tm *tm;
 	char *aDate, *aTime1, *aTime2;
-	int i, current_min, current_dow, schedul_dow, iTime1B, iTime1E, iTime2B, iTime2E;
 
-	aDate  = nvram_wlan_get(is_aband, nv_date);
+	aDate = nvram_wlan_get(is_aband, nv_date);
 	aTime1 = nvram_wlan_get(is_aband, nv_time1);
 	aTime2 = nvram_wlan_get(is_aband, nv_time2);
-
-	if (strlen(aDate) != 7 || strlen(aTime1) != 8 || strlen(aTime2) != 8)
+	if (time(&now) == (time_t)-1)
 		return 1;
-
-	if (strcmp(aDate, "1111111")==0 &&
-	    strcmp(aTime1, "00002359")==0 &&
-	    strcmp(aTime2, "00002359")==0)
-		return 1;
-
-	// Mon..Fri time
-	iTime1B = ((aTime1[0]-'0')*10 + (aTime1[1]-'0'))*60 + (aTime1[2]-'0')*10 + (aTime1[3]-'0');
-	iTime1E = ((aTime1[4]-'0')*10 + (aTime1[5]-'0'))*60 + (aTime1[6]-'0')*10 + (aTime1[7]-'0');
-
-	// Sat, Sun time
-	iTime2B = ((aTime2[0]-'0')*10 + (aTime2[1]-'0'))*60 + (aTime2[2]-'0')*10 + (aTime2[3]-'0');
-	iTime2E = ((aTime2[4]-'0')*10 + (aTime2[5]-'0'))*60 + (aTime2[6]-'0')*10 + (aTime2[7]-'0');
-
-	time(&now);
 	tm = localtime(&now);
-	current_min = tm->tm_hour * 60 + tm->tm_min;
-	current_dow = 1 << tm->tm_wday;
-
-	schedul_dow = 0;
-	for(i=0; i<7; i++){
-		if (aDate[i] == '1')
-			schedul_dow |= (1 << i);
-	}
-
-	/* Saturday */
-	if (current_dow & DOW_MASK_SAT)
-	{
-		if (schedul_dow & DOW_MASK_SAT)
-		{
-			if (iTime2B < iTime2E)
-			{
-				if (current_min >= iTime2B && current_min <= iTime2E)
-					return 1;
-			}
-			else
-			{
-				if (current_min >= iTime2B)
-					return 1;
-				
-				/* Check Friday -> Saturday after midnight (special check after workweek) */
-				if ((schedul_dow & DOW_MASK_FRI) && (iTime1B < iTime1E) && (current_min <= iTime2E))
-					return 1;
-			}
-		}
-		
-		/* Check cross-night from Friday */
-		if ((schedul_dow & DOW_MASK_FRI) && (iTime1B >= iTime1E) && (current_min <= iTime1E))
-			return 1;
-	}
-	else /* Sunday */
-	if (current_dow & DOW_MASK_SUN)
-	{
-		if (schedul_dow & DOW_MASK_SUN)
-		{
-			if (iTime2B < iTime2E)
-			{
-				if (current_min >= iTime2B && current_min <= iTime2E)
-					return 1;
-			}
-			else
-			{
-				if (current_min >= iTime2B)
-					return 1;
-			}
-		}
-		
-		/* Check cross-night from Saturday */
-		if ((schedul_dow & DOW_MASK_SAT) && (iTime2B >= iTime2E) && (current_min <= iTime2E))
-			return 1;
-	}
-	else /* Monday */
-	if (current_dow & DOW_MASK_MON)
-	{
-		if (schedul_dow & DOW_MASK_MON)
-		{
-			if (iTime1B < iTime1E)
-			{
-				if (current_min >= iTime1B && current_min <= iTime1E)
-					return 1;
-			}
-			else
-			{
-				if (current_min >= iTime1B)
-					return 1;
-				
-				/* Check Sunday -> Monday after midnight (special check after weekend) */
-				if ((schedul_dow & DOW_MASK_SUN) && (iTime2B < iTime2E) && (current_min <= iTime1E))
-					return 1;
-			}
-		}
-		
-		/* Check cross-night from Sunday */
-		if ((schedul_dow & DOW_MASK_SUN) && (iTime2B >= iTime2E) && (current_min <= iTime2E))
-			return 1;
-	}
-	else /* Tuesday..Friday */
-	{
-		if (schedul_dow & current_dow)
-		{
-			if (iTime1B < iTime1E)
-			{
-				if (current_min >= iTime1B && current_min <= iTime1E)
-					return 1;
-			}
-			else
-			{
-				if (current_min >= iTime1B)
-					return 1;
-			}
-		}
-		
-		/* Check cross-night from previous day */
-		if ((schedul_dow & (current_dow >> 1)) && (iTime1B >= iTime1E) && (current_min <= iTime1E))
-			return 1;
-	}
-
-	return 0;
+	if (!tm)
+		return 1;
+	return wireless_guest_schedule_time_allowed(
+		aDate, aTime1, aTime2, tm->tm_wday, tm->tm_hour, tm->tm_min);
 }
 

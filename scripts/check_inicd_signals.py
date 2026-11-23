@@ -55,6 +55,8 @@ def function_body(source, signature):
 source = read("trunk/user/rc/src/inicd.c")
 policy = read("trunk/user/rc/src/inicd_signal_policy.h")
 test = read("trunk/user/rc/src/tests/inicd_signal_policy.c")
+schedule_policy = read("trunk/user/rc/src/wireless_guest_schedule_policy.h")
+schedule_test = read("trunk/user/rc/src/tests/wireless_guest_schedule_policy.c")
 wifi = read("trunk/user/rc/src/net_wifi.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
@@ -199,17 +201,25 @@ assert mode_read_pos < mode_parse_pos < mode_error_pos < mode_gate_pos < guest_s
 assert "saved_errno = errno;" in inic_compact[mode_read_pos:mode_parse_pos]
 guest_state_check = "status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,"
 guest_state_error = "if (status != 0)"
-guest_gate = "if (!guest_is_up && is_guest_allowed_rt())"
+guest_gate = "if (!guest_is_up)"
 assert guest_state_check in " ".join(inic_check.split())
 assert guest_state_error in inic_check
 assert "iNIC guest AP state is unknown; recovery deferred until the next health check" in inic_check
 assert guest_gate in inic_check
+assert "is_guest_allowed_rt()" not in inic_check
+assert "wireless_guest_allowed_rt_checked(&guest_allowed)" in inic_check
+assert "iNIC guest AP schedule is unknown; recovery deferred until the next health check" in inic_check
 assert "is_interface_up(IFNAME_INIC_GUEST)" not in inic_check
 guest_state_call_pos = inic_check.index("wireless_guest_interface_state_checked(")
 guest_state_error_pos = inic_check.index(guest_state_error, guest_state_call_pos)
 guest_state_return_pos = inic_check.index("return status;", guest_state_error_pos)
 guest_state_gate_pos = inic_check.index(guest_gate)
+schedule_check_pos = inic_check.index("wireless_guest_allowed_rt_checked(&guest_allowed)")
+schedule_error_pos = inic_check.index("if (status != 0)", schedule_check_pos)
+schedule_return_pos = inic_check.index("return status;", schedule_error_pos)
+guest_action_gate_pos = inic_check.index("if (guest_allowed)", schedule_check_pos)
 assert guest_state_call_pos < guest_state_error_pos < guest_state_return_pos < guest_state_gate_pos
+assert guest_state_gate_pos < schedule_check_pos < schedule_error_pos < schedule_return_pos < guest_action_gate_pos < inic_check.index("status = wif_control(IFNAME_INIC_GUEST, 1);")
 assert "test_unknown_guest_link_state_still_requests_down" in read("trunk/user/rc/src/tests/wireless_guest_isolation_policy.c")
 assert "wireless_guest_isolation_link_state(-1, EACCES, ENODEV," in read("trunk/user/rc/src/tests/wireless_guest_isolation_policy.c")
 assert "status = wif_control(IFNAME_INIC_GUEST, 1);" in inic_check
@@ -218,6 +228,22 @@ assert "wif_control_success(IFNAME_INIC_GUEST, 1)" not in inic_check
 assert inic_check.index(guest_gate) < inic_check.index("status = wif_control(IFNAME_INIC_GUEST, 1);")
 assert inic_check.index("wireless_radio_status_success(status)") < inic_check.rindex(disable_return)
 assert "iNIC guest AP recovery deferred until the next health check (status=%d)" in inic_check
+assert "wireless_guest_schedule_policy.h" in wifi
+schedule_reader = function_body(wifi, "wireless_guest_schedule_read_value(const char *name, char *buffer,")
+schedule_resolver = function_body(wifi, "wireless_guest_allowed_rt_checked(int *allowed)")
+assert "nvram_get_checked(name, &stored_value)" in schedule_reader
+assert "value_length >= buffer_size" in schedule_reader
+for key in ("rt_guest_enable", "rt_guest_date_x", "rt_guest_time_x", "rt_guest_time2_x"):
+    assert '"' + key + '"' in schedule_resolver
+assert "wireless_guest_schedule_resolve" in schedule_resolver
+assert "wireless_guest_schedule_time_allowed" in schedule_resolver
+timecheck = function_body(wifi, "timecheck_wifi(int is_aband,")
+assert "wireless_guest_schedule_time_allowed" in timecheck
+assert "get_enabled_guest_rt" not in schedule_resolver
+for token in ("wireless_guest_schedule_time_allowed", "wireless_guest_schedule_resolve", "DOW_MASK_SUN", "DOW_MASK_SAT"):
+    assert token in schedule_policy
+for token in ("test_legacy_defaults", "test_weekday_and_weekend_windows", "test_weekday_overnight_window", "test_weekend_and_week_boundary_overnight", "test_checked_status_is_fail_closed"):
+    assert token in schedule_test
 assert inic_check.rstrip().endswith("return 0;")
 assert "wireless_radio_restart_status(0, 256)" in read("trunk/user/rc/src/tests/wireless_radio_policy.c")
 
@@ -228,6 +254,8 @@ paths = (
     "trunk/user/rc/src/inicd_signal_policy.h",
     "trunk/user/rc/src/tests/inicd_signal_policy.c",
     "trunk/user/rc/src/net_wifi.c",
+    "trunk/user/rc/src/wireless_guest_schedule_policy.h",
+    "trunk/user/rc/src/tests/wireless_guest_schedule_policy.c",
     "trunk/user/rc/src/rc.c",
     "trunk/user/rc/src/rc.h",
     "trunk/user/rc/src/Makefile",
