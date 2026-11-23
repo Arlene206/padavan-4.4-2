@@ -10,13 +10,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "mii_mgr.h"
+#include <linux/ktime.h>
 
-/*
- * MDIO commands normally finish in microseconds. Keep IRQ-off polling bounded
- * so a wedged switch cannot stall the CPU for several seconds.
- */
-#define MDIO_BUSY_TIMEOUT	(HZ / 10)
+#include "mii_mgr.h"
+#include "mii_mgr_timeout_policy.h"
 
 void set_an_polling(u32 an_status)
 {
@@ -30,12 +27,13 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 {
 	u32 status = 0;
 	u32 rc = 0;
-	unsigned long t_start = jiffies;
+	u64 t_start_ns;
 	u32 data = 0;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 	unsigned long flags;
 
 	spin_lock_irqsave(&ei_local->mdio_lock, flags);
+	t_start_ns = ktime_get_ns();
 	/* We enable mdio gpio purpose register, and disable it when exit. */
 	enable_mdio(1);
 
@@ -44,7 +42,7 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 		/* 0 : Read/write operation complete */
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Read operation is ongoing !!\n");
@@ -59,7 +57,7 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 	sys_reg_write(MDIO_PHY_CONTROL_0, (data | (1 << 31)));
 
 	/* make sure read operation is complete */
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			status = sys_reg_read(MDIO_PHY_CONTROL_0);
@@ -68,7 +66,7 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err
@@ -83,20 +81,21 @@ out:
 
 u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 {
-	unsigned long t_start = jiffies;
+	u64 t_start_ns;
 	u32 data;
 	u32 rc = 0;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 	unsigned long flags;
 
 	spin_lock_irqsave(&ei_local->mdio_lock, flags);
+	t_start_ns = ktime_get_ns();
 	enable_mdio(1);
 
 	/* make sure previous write operation is complete */
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Write operation ongoing\n");
@@ -111,7 +110,7 @@ u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 	sys_reg_write(MDIO_PHY_CONTROL_0, (data | (1 << 31))); /*start*/
 	/* pr_err("\n Set Command [0x%08X] to PHY !!\n",MDIO_PHY_CONTROL_0); */
 
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 
 	/* make sure write operation is complete */
 	while (1) {
@@ -119,7 +118,7 @@ u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Write operation Time Out\n");
@@ -215,7 +214,7 @@ EXPORT_SYMBOL(mii_mgr_write);
 u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 {
 	u32 rc = 0;
-	unsigned long t_start = jiffies;
+	u64 t_start_ns = ktime_get_ns();
 	u32 data = 0;
 
 	enable_mdio(1);
@@ -223,7 +222,7 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			pr_err("\n MDIO Read operation is ongoing !!\n");
 			return rc;
@@ -235,12 +234,12 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 	sys_reg_write(MDIO_PHY_CONTROL_0, data);
 	sys_reg_write(MDIO_PHY_CONTROL_0, (data | (1 << 31)));
 
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			enable_mdio(0);
 			return 1;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			pr_err("\n MDIO Write operation Time Out\n");
 			return 0;
@@ -251,7 +250,7 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 {
 	u32 rc = 0;
-	unsigned long t_start = jiffies;
+	u64 t_start_ns;
 	u32 data = 0;
 	struct END_DEVICE *ei_local;
 	unsigned long flags;
@@ -264,14 +263,14 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 	/* Do not issue a data phase when address setup timed out. */
 	if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))
 		goto out;
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 
 	enable_mdio(1);
 
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Read operation is ongoing !!\n");
@@ -283,7 +282,7 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 	    reg_addr;
 	sys_reg_write(MDIO_PHY_CONTROL_0, data);
 	sys_reg_write(MDIO_PHY_CONTROL_0, (data | (1 << 31)));
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			*read_data =
@@ -291,7 +290,7 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err
@@ -307,7 +306,7 @@ out:
 u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 {
 	u32 rc = 0;
-	unsigned long t_start = jiffies;
+	u64 t_start_ns;
 	u32 data = 0;
 	struct END_DEVICE *ei_local;
 	unsigned long flags;
@@ -320,13 +319,13 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 	/* Do not issue a data phase when address setup timed out. */
 	if (!mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr))
 		goto out;
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 
 	enable_mdio(1);
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Read operation is ongoing !!\n");
@@ -340,14 +339,14 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 	sys_reg_write(MDIO_PHY_CONTROL_0, data);
 	sys_reg_write(MDIO_PHY_CONTROL_0, (data | (1 << 31)));
 
-	t_start = jiffies;
+	t_start_ns = ktime_get_ns();
 
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
+		} else if (mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Write operation Time Out\n");

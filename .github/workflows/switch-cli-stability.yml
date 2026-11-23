@@ -17,6 +17,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
@@ -41,6 +43,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c"
@@ -623,6 +627,14 @@ jobs:
           print("RC RTL8367/MTK switch commands reject malformed, partial and overflowing numeric input: PASS")
           PY
 
+      - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c \
+            -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
+
       - name: Validate MTK ESW PHY and MAC-table MDIO failure propagation
         run: |
           ESW_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw
@@ -1204,9 +1216,13 @@ jobs:
               assert addr_check < addr_failure < timer_reset
           assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_read
           assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_write
-          assert "#define MDIO_BUSY_TIMEOUT\t(HZ / 10)" in mdio_driver
-          assert mdio_driver.count("t_start + MDIO_BUSY_TIMEOUT") == 10
-          assert "5 * HZ" not in mdio_driver
+          timeout_policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h").read_text()
+          assert "#include <linux/ktime.h>" in mdio_driver
+          assert '#include "mii_mgr_timeout_policy.h"' in mdio_driver
+          assert mdio_driver.count("mii_mgr_busy_timeout_expired(t_start_ns, ktime_get_ns())") == 10
+          assert "time_after(jiffies" not in mdio_driver
+          assert "MDIO_BUSY_TIMEOUT_NS" in timeout_policy
+          assert "100000000ULL" in timeout_policy
           print("RAETH Clause 45 MDIO address-phase error propagation: PASS")
           read_policy = policy.split("mtk_esw_register_read(", 1)[1].split(
               "mtk_esw_register_update_bits", 1
