@@ -244,6 +244,172 @@ static void test_reset_poll_waits_until_ready_and_is_bounded(void)
 	assert(fake.calls == 1U && fake.delays == 1U && value == 0U);
 }
 
+struct fake_phy_poll_io {
+	unsigned int calls;
+	unsigned int reg[6];
+	unsigned int dev[6];
+	unsigned int value[6];
+	char op[6];
+	int fail_at;
+	int fail_status;
+};
+
+static int fake_phy_poll_next(struct fake_phy_poll_io *fake, char op,
+			      unsigned int dev, unsigned int reg,
+			      unsigned int *value)
+{
+	unsigned int n = fake->calls++;
+
+	assert(n < 6U);
+	fake->op[n] = op;
+	fake->dev[n] = dev;
+	fake->reg[n] = reg;
+	if ((int)n == fake->fail_at)
+		return fake->fail_status;
+	*value = fake->value[n];
+	return 0;
+}
+
+static int fake_phy_poll_read_c22(void *context, unsigned int port,
+				  unsigned int reg, unsigned int *value)
+{
+	(void)port;
+	return fake_phy_poll_next(context, '2', 0U, reg, value);
+}
+
+static int fake_phy_poll_read_cl45(void *context, unsigned int port,
+				    unsigned int dev, unsigned int reg,
+				    unsigned int *value)
+{
+	(void)port;
+	return fake_phy_poll_next(context, '5', dev, reg, value);
+}
+
+static void init_fake_phy_poll(struct fake_phy_poll_io *fake)
+{
+	memset(fake, 0, sizeof(*fake));
+	fake->fail_at = -1;
+	fake->value[0] = 0x4U;
+	fake->value[1] = 0xc00U;
+	fake->value[2] = 0xc00U;
+	fake->value[3] = 0x28U;
+	fake->value[4] = 0x6U;
+	fake->value[5] = 0x6U;
+}
+
+static void assert_empty_phy_poll_snapshot(
+		const struct ra_switch_mdio_phy_link_snapshot *snapshot)
+{
+	assert(snapshot->link_up == 0U);
+	assert(snapshot->fc_phy == 0U);
+	assert(snapshot->fc_lp == 0U);
+	assert(snapshot->link_speed == 0U);
+	assert(snapshot->local_eee == 0U);
+	assert(snapshot->lp_eee == 0U);
+}
+
+static void test_phy_poll_snapshot_stops_and_discards_every_failed_read(void)
+{
+	struct fake_phy_poll_io fake;
+	struct ra_switch_mdio_phy_link_snapshot snapshot;
+	unsigned int i;
+	int status;
+
+	for (i = 0U; i < 6U; ++i) {
+		init_fake_phy_poll(&fake);
+		fake.fail_at = (int)i;
+		fake.fail_status = -ETIMEDOUT;
+		memset(&snapshot, 0xa5, sizeof(snapshot));
+		status = ra_switch_mdio_read_phy_link_snapshot(
+			0U, fake_phy_poll_read_c22,
+			fake_phy_poll_read_cl45, &fake, &snapshot);
+		assert(status == -ETIMEDOUT);
+		assert(fake.calls == i + 1U);
+		assert_empty_phy_poll_snapshot(&snapshot);
+	}
+
+	init_fake_phy_poll(&fake);
+	fake.fail_at = 4;
+	fake.fail_status = 1;
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	status = ra_switch_mdio_read_phy_link_snapshot(
+		0U, fake_phy_poll_read_c22, fake_phy_poll_read_cl45,
+		&fake, &snapshot);
+	assert(status == -EIO && fake.calls == 5U);
+	assert_empty_phy_poll_snapshot(&snapshot);
+}
+
+static void test_phy_poll_snapshot_publishes_only_complete_sample(void)
+{
+	struct fake_phy_poll_io fake;
+	struct ra_switch_mdio_phy_link_snapshot snapshot;
+
+	init_fake_phy_poll(&fake);
+	memset(&snapshot, 0, sizeof(snapshot));
+	assert(ra_switch_mdio_read_phy_link_snapshot(
+		0U, fake_phy_poll_read_c22, fake_phy_poll_read_cl45,
+		&fake, &snapshot) == 0);
+	assert(fake.calls == 6U && snapshot.link_up == 1U);
+	assert(snapshot.fc_phy == 0xc00U && snapshot.fc_lp == 0xc00U);
+	assert(snapshot.link_speed == 0x28U);
+	assert(snapshot.local_eee == 0x6U && snapshot.lp_eee == 0x6U);
+	assert(fake.op[0] == '2' && fake.reg[0] == 0x1U);
+	assert(fake.op[1] == '2' && fake.reg[1] == 0x4U);
+	assert(fake.op[2] == '2' && fake.reg[2] == 0x5U);
+	assert(fake.op[3] == '5' && fake.dev[3] == 0x1eU && fake.reg[3] == 0xa2U);
+	assert(fake.op[4] == '5' && fake.dev[4] == 0x7U && fake.reg[4] == 0x3cU);
+	assert(fake.op[5] == '5' && fake.dev[5] == 0x7U && fake.reg[5] == 0x3dU);
+
+	init_fake_phy_poll(&fake);
+	fake.value[0] = 0U;
+	assert(ra_switch_mdio_read_phy_link_snapshot(
+		0U, fake_phy_poll_read_c22, fake_phy_poll_read_cl45,
+		&fake, &snapshot) == 0);
+	assert(fake.calls == 1U && snapshot.link_up == 0U);
+	assert_empty_phy_poll_snapshot(&snapshot);
+}
+
+static void test_ge2_mac_value_rebuild_clears_stale_eee_bits(void)
+{
+	unsigned int value = 0xffU;
+
+	value = ra_switch_mdio_update_ge2_mac_value(
+		value, 0xc00U, 0xc00U, 0x28U, 0x6U, 0x6U);
+	assert((value & 0xf2U) == 0xf2U);
+	assert((value & 0xc0U) == 0xc0U);
+
+	value = ra_switch_mdio_update_ge2_mac_value(
+		value, 0xc00U, 0x400U, 0x24U, 0U, 0U);
+	assert((value & 0x30U) == 0U);
+	assert((value & 0x02U) == 0U);
+	assert((value & 0x0cU) == 0x04U);
+	assert((value & 0xc0U) == 0U);
+	assert((value & 0x01U) == 0x01U);
+
+	value = ra_switch_mdio_update_ge2_mac_value(
+		value, 0U, 0U, 0x08U, 0x2U, 0x2U);
+	assert((value & 0x80U) == 0U && (value & 0x40U) != 0U);
+}
+
+static void test_phy_poll_snapshot_rejects_invalid_callbacks(void)
+{
+	struct fake_phy_poll_io fake;
+	struct ra_switch_mdio_phy_link_snapshot snapshot;
+
+	init_fake_phy_poll(&fake);
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(ra_switch_mdio_read_phy_link_snapshot(
+		0U, NULL, fake_phy_poll_read_cl45, &fake, &snapshot) == -EINVAL);
+	assert(fake.calls == 0U);
+	assert(ra_switch_mdio_read_phy_link_snapshot(
+		0U, fake_phy_poll_read_c22, NULL, &fake, &snapshot) == -EINVAL);
+	assert(fake.calls == 0U);
+	assert(ra_switch_mdio_read_phy_link_snapshot(
+		0U, fake_phy_poll_read_c22, fake_phy_poll_read_cl45,
+		&fake, NULL) == -EINVAL);
+	assert(fake.calls == 0U);
+}
+
 int main(void)
 {
 	test_page_read_selects_global_and_local_bank();
@@ -253,6 +419,10 @@ int main(void)
 	test_checked_cl45_reads_reject_partial_samples();
 	test_invalid_callbacks_are_rejected_without_io();
 	test_reset_poll_waits_until_ready_and_is_bounded();
-	puts("RAETH paged PHY/link MDIO failure propagation: PASS");
+	test_phy_poll_snapshot_stops_and_discards_every_failed_read();
+	test_phy_poll_snapshot_publishes_only_complete_sample();
+	test_ge2_mac_value_rebuild_clears_stale_eee_bits();
+	test_phy_poll_snapshot_rejects_invalid_callbacks();
+	puts("RAETH paged PHY/link and GE2 polling MDIO failure propagation: PASS");
 	return 0;
 }

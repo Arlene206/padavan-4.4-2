@@ -16,6 +16,7 @@
 #include "ra_mac.h"
 #include "ra_ioctl.h"
 #include "ra_switch.h"
+#include "ra_switch_mdio_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -1061,47 +1062,46 @@ static int fe_reset_thread(void *data)
 	return 0;
 }
 
+static int raether_phy_poll_read_c22(void *context, unsigned int port,
+				      unsigned int reg, unsigned int *value)
+{
+	(void)context;
+	return mii_mgr_read(port, reg, value) ? 0 : -EIO;
+}
+
+static int raether_phy_poll_read_cl45(void *context, unsigned int port,
+					 unsigned int dev, unsigned int reg,
+					 unsigned int *value)
+{
+	(void)context;
+	return mii_mgr_read_cl45(port, dev, reg, value) ? 0 : -EIO;
+}
+
 static int phy_polling_thread(void *data)
 {
-	unsigned int link_status, link_speed, duplex;
-	unsigned int local_eee, lp_eee;
-	unsigned int fc_phy, fc_lp;
-	unsigned int val_tmp;
+	struct ra_switch_mdio_phy_link_snapshot snapshot;
+	unsigned int val_tmp = 1;
+	int status;
 
 	pr_info("%s called\n", __func__);
-	val_tmp = 1;
 	for (;;) {
-		mii_mgr_read(0x0, 0x1, &link_status);
-		link_status = (link_status >> 2) & 0x1;
-		if (link_status) {
-			mii_mgr_read(0x0, 0x4, &fc_phy);
-			mii_mgr_read(0x0, 0x5, &fc_lp);
-			if ((fc_phy & 0xc00) == (fc_lp & 0xc00))
-				val_tmp = val_tmp | 0x30;
-			else
-				val_tmp = val_tmp & (~0x30);
-			mii_mgr_read_cl45(0, 0x1e, 0xa2, &link_speed);
-			duplex = link_speed & 0x20;
-			if (duplex)
-				val_tmp = val_tmp | 0x2;
-			else
-				val_tmp = val_tmp & (~0x2);
-			link_speed = link_speed & 0xe;
-			val_tmp = val_tmp & (~0xc);
-			if (link_speed == 0x04)
-				val_tmp = val_tmp | (0x4);
-			else if (link_speed == 0x08)
-				val_tmp = val_tmp | (0x8);
-			mii_mgr_read_cl45(0, 0x7, 0x3c, &local_eee);
-			mii_mgr_read_cl45(0, 0x7, 0x3d, &lp_eee);
-			if ((local_eee & 0x4) == 4 && (lp_eee & 0x4) == 4)/*1g eee*/
-				val_tmp = val_tmp | 0x80;
-			if ((local_eee & 0x2) == 2 && ((lp_eee & 0x2) == 2))/*100m eee*/
-				val_tmp = val_tmp | 0x40;
-			val_tmp = val_tmp & 0xff;
-			sys_reg_write(ETHDMASYS_ETH_MAC_BASE + 0x200, 0x2105e300 | val_tmp);
+		status = ra_switch_mdio_read_phy_link_snapshot(0U,
+						      raether_phy_poll_read_c22,
+						      raether_phy_poll_read_cl45,
+						      NULL, &snapshot);
+		if (status != 0) {
+			/* Keep the last programmed link state on an incomplete sample. */
+			pr_err_ratelimited("%s: PHY link poll MDIO read failed (status=%d)\n",
+					   __func__, status);
+		} else if (snapshot.link_up) {
+			val_tmp = ra_switch_mdio_update_ge2_mac_value(
+				val_tmp, snapshot.fc_phy, snapshot.fc_lp,
+				snapshot.link_speed, snapshot.local_eee,
+				snapshot.lp_eee);
+			sys_reg_write(ETHDMASYS_ETH_MAC_BASE + 0x200,
+				      0x2105e300 | val_tmp);
 		} else {
-			/*force link down*/
+			/* A successful down sample is different from an MDIO error. */
 			set_ge2_force_link_down();
 		}
 
@@ -1113,7 +1113,6 @@ static int phy_polling_thread(void *data)
 	pr_info("%s leaved\n", __func__);
 	return 0;
 }
-
 static irqreturn_t ei_interrupt_napi_rx_only(int irq, void *dev_id)
 {
 	struct net_device *dev = (struct net_device *)dev_id;

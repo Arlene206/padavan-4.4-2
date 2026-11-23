@@ -1,3 +1,15 @@
+## 2026-11-23 — Make GE2 PHY link polling fail closed
+
+- Baseline main SHA: `72076155464bb033d5dc61d5d141e76cd08c2181`; source debug transaction fix `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` is already in main.
+- Found an unchecked-MDIO defect in `phy_polling_thread()`: it ignored all six Clause 22/45 read results. The MII manager clears failed read outputs to zero, so a timeout at the first read looked like a real link-down event; later failures could publish fabricated pause/speed/EEE capabilities.
+- The poll now obtains one complete status-bearing PHY snapshot. It publishes MAC link capabilities only on full success; failed samples are logged and leave the prior hardware state untouched. A confirmed link-down sample still invokes the existing force-down path.
+- Fixed a second state bug: EEE bits were only ORed into persistent `val_tmp` and never cleared when renegotiation stopped advertising EEE. Capability bits are now rebuilt on each successful sample while unrelated bits are preserved.
+- Added GNU89 policy regressions for all six MDIO read failure points, positive callback normalization, complete-sample ordering, link-down short-circuit, invalid callbacks, state preservation and stale EEE clearing. Added exact-source assertions to Switch CLI workflow; production/test/header paths are in both Switch CLI and XY-C1 push filters.
+- Previous PHY debug SHA `ad5bcd2`: Switch CLI #45270470838 PASS; AI docs #45270470371 FAIL only because its tree inherited the oversized roadmap (131457/131072 bytes), corrected on docs-only main child `7207615` with AI docs #45270615085 PASS. XY-C1 #45270470239 and NVRAM #45270470405 were IN_PROGRESS at last check. This new slice's Actions have not yet run.
+- No local MIPS/kernel build or hardware L4 is claimed.
+- Next: inspect this commit's exact-head Switch CLI, AI docs, NVRAM and XY-C1 runs; then trace the GE analog-calibration save/restore graph before converting legacy wrappers.
+
+---
 ## 2026-11-23 — Fail closed on PHY debug-register MDIO errors
 
 - Source commit `ad5bcd2b87b9b672dd2e921b6e133fb35393093c` adds a checked Clause 45 read policy with failure injection, checks each token-ring Clause 22 write/read, serializes the complete page/control/data sequence under `ra_switch_phy_page_lock`, attempts to restore page 0 on every attempted transaction, and suppresses partial debug output. Leopard MMD diagnostic reads stop on the first failed sample. The legacy `phy_tr_dbg()` value-returning signature remains available.

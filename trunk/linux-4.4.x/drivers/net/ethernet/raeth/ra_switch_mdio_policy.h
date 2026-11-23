@@ -58,6 +58,117 @@ ra_switch_mdio_read_cl45_checked(unsigned int port, unsigned int dev,
 	return 0;
 }
 
+/* One coherent snapshot for the GE2 link polling transaction. */
+struct ra_switch_mdio_phy_link_snapshot {
+	unsigned int link_up;
+	unsigned int fc_phy;
+	unsigned int fc_lp;
+	unsigned int link_speed;
+	unsigned int local_eee;
+	unsigned int lp_eee;
+};
+
+/* Do not publish a partial link sample or turn an MDIO error into link-down. */
+static inline int
+ra_switch_mdio_read_phy_link_snapshot(unsigned int port,
+				      ra_switch_mdio_read_fn read,
+				      ra_switch_mdio_read_cl45_fn read_cl45,
+				      void *context,
+				      struct ra_switch_mdio_phy_link_snapshot *snapshot)
+{
+	struct ra_switch_mdio_phy_link_snapshot sample;
+	unsigned int value;
+	int status;
+
+	if (!read || !read_cl45 || !snapshot)
+		return -EINVAL;
+
+	snapshot->link_up = 0;
+	snapshot->fc_phy = 0;
+	snapshot->fc_lp = 0;
+	snapshot->link_speed = 0;
+	snapshot->local_eee = 0;
+	snapshot->lp_eee = 0;
+	sample.link_up = 0;
+	sample.fc_phy = 0;
+	sample.fc_lp = 0;
+	sample.link_speed = 0;
+	sample.local_eee = 0;
+	sample.lp_eee = 0;
+
+	status = ra_switch_mdio_read_checked(port, 0x1U, read, context, &value);
+	if (status != 0)
+		return status;
+	sample.link_up = (value >> 2) & 0x1U;
+	if (!sample.link_up) {
+		*snapshot = sample;
+		return 0;
+	}
+
+	status = ra_switch_mdio_read_checked(port, 0x4U, read, context,
+					     &sample.fc_phy);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_read_checked(port, 0x5U, read, context,
+					     &sample.fc_lp);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_read_cl45_checked(port, 0x1eU, 0xa2U,
+						  read_cl45, context,
+						  &sample.link_speed);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3cU,
+						  read_cl45, context,
+						  &sample.local_eee);
+	if (status != 0)
+		return status;
+	status = ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3dU,
+						  read_cl45, context,
+						  &sample.lp_eee);
+	if (status != 0)
+		return status;
+
+	*snapshot = sample;
+	return 0;
+}
+
+/* Rebuild volatile capability bits so renegotiation can clear stale EEE. */
+static inline unsigned int
+ra_switch_mdio_update_ge2_mac_value(unsigned int previous,
+				    unsigned int fc_phy,
+				    unsigned int fc_lp,
+				    unsigned int link_speed,
+				    unsigned int local_eee,
+				    unsigned int lp_eee)
+{
+	unsigned int value = previous;
+
+	if ((fc_phy & 0xc00U) == (fc_lp & 0xc00U))
+		value |= 0x30U;
+	else
+		value &= ~0x30U;
+
+	if (link_speed & 0x20U)
+		value |= 0x2U;
+	else
+		value &= ~0x2U;
+
+	value &= ~0x0cU;
+	if ((link_speed & 0x0eU) == 0x04U)
+		value |= 0x04U;
+	else if ((link_speed & 0x0eU) == 0x08U)
+		value |= 0x08U;
+
+	value &= ~(0x80U | 0x40U);
+	if ((local_eee & 0x4U) && (lp_eee & 0x4U))
+		value |= 0x80U;
+	if ((local_eee & 0x2U) && (lp_eee & 0x2U))
+		value |= 0x40U;
+
+	return value & 0xffU;
+}
+
 /* Keep the caller's previous link state untouched when an MDIO sample fails. */
 static inline int
 ra_switch_mdio_read_link_status(unsigned int port, unsigned int reg,

@@ -825,6 +825,59 @@ jobs:
           print("RAETH token-ring and MMD debug reads stop on MDIO failures: PASS")
           PY
 
+      - name: Validate RAETH GE2 PHY polling fail-closed status updates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c").read_text()
+          policy = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h").read_text()
+          test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
+
+          poll = source.split("static int phy_polling_thread(", 1)[1].split(
+              "\\nstatic irqreturn_t ei_interrupt_napi_rx_only", 1
+          )[0]
+          c22 = source.split("static int raether_phy_poll_read_c22(", 1)[1].split(
+              "\\nstatic int raether_phy_poll_read_cl45", 1
+          )[0]
+          c45 = source.split("static int raether_phy_poll_read_cl45(", 1)[1].split(
+              "\\nstatic int phy_polling_thread", 1
+          )[0]
+          assert "ra_switch_mdio_read_phy_link_snapshot(" in poll
+          assert "mii_mgr_read(" not in poll and "mii_mgr_read_cl45(" not in poll
+          assert "mii_mgr_read(port, reg, value) ? 0 : -EIO;" in c22
+          assert "mii_mgr_read_cl45(port, dev, reg, value) ? 0 : -EIO;" in c45
+          assert poll.index("if (status != 0)") < poll.index("else if (snapshot.link_up)")
+          error_branch = poll.split("if (status != 0)", 1)[1].split(
+              "else if (snapshot.link_up)", 1
+          )[0]
+          assert "set_ge2_force_link_down" not in error_branch
+          assert "sys_reg_write" not in error_branch
+          assert "set_ge2_force_link_down();" in poll
+          assert "ra_switch_mdio_update_ge2_mac_value(" in poll
+          snapshot = policy.split("ra_switch_mdio_read_phy_link_snapshot(", 1)[1].split(
+              "\\n/* Keep the caller", 1
+          )[0]
+          assert snapshot.index("ra_switch_mdio_read_checked(port, 0x1U") < snapshot.index(
+              "if (!sample.link_up)"
+          ) < snapshot.index("ra_switch_mdio_read_checked(port, 0x4U")
+          assert snapshot.index("ra_switch_mdio_read_cl45_checked(port, 0x1eU") < snapshot.index(
+              "ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3cU"
+          ) < snapshot.index("ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3dU")
+          update = policy.split("ra_switch_mdio_update_ge2_mac_value(", 1)[1].split(
+              "\\n#endif", 1
+          )[0]
+          assert "value &= ~(0x80U | 0x40U);" in update
+          for marker in (
+              "test_phy_poll_snapshot_stops_and_discards_every_failed_read",
+              "test_phy_poll_snapshot_publishes_only_complete_sample",
+              "test_ge2_mac_value_rebuild_clears_stale_eee_bits",
+              "test_phy_poll_snapshot_rejects_invalid_callbacks",
+          ):
+              assert marker in test and marker + "();" in test
+          print("RAETH GE2 link polling preserves prior state on MDIO errors and clears stale EEE: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
