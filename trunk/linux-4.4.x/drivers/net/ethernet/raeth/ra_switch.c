@@ -734,192 +734,297 @@ cleanup:
 
 void fe_cal_tx_amp_mdix(u8 port_num, u32 delay)
 {
-	u8 all_ana_cal_status;
+	unsigned int read_value = 0U, page_value = 0U, updated;
+	unsigned int l4r26_temp_amp = 0U, tx_amp_mdix_final;
+	unsigned int correction;
 	int ad_cal_comp_out_init;
-	u16 l3r25_temp, l4r26_temp, l0r26_temp;
-	u16 l2r20_temp, l4r26_temp_amp;
 	int calibration_polarity;
-	int tx_amp_temp = 0, cnt = 0, phyaddr, tx_amp_cnt = 0;
-	u16 tx_amp_mdix_final;
+	int tx_amp_temp = 0x20;
+	int all_ana_cal_status = ANACAL_INIT;
+	u8 ready = 0, cnt = 0;
+	int status = 0, cleanup_status;
+	int calibration_completed = 0;
+	struct ra_switch_page_update_context page;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 
-	phyaddr = port_num + ephy_addr_base;
-	tx_amp_temp = 0x20;
-/*Set device in 100M mode*/
-	tc_phy_write_l_reg(port_num, 0, 0, 0x2100);
-/*TXG output DC differential 0V*/
-	tc_phy_write_g_reg(port_num, 2, 25, 0x10c0);
+	fe_cal_flag_mdix = 0;
+	if (port_num >= 5U) {
+		pr_err_ratelimited("%s: invalid FE port %u\n",
+				   __func__, port_num);
+		return;
+	}
 
-	tc_phy_write_g_reg(port_num, 1, 26, (0x8000 | DAC_IN_2V));
-	tc_phy_write_g_reg(port_num, 4, 21, (0x0800));	/* set default */
-	tc_phy_write_l_reg(port_num, 0, 30, (0x02c0));/*0x3f80  // l0r30[9], [7], [6], [1]*/
-	tc_phy_write_l_reg(port_num, 4, 21, (0x0000));
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, (0xc800));
-	tc_phy_write_l_reg(port_num, 3, 25, (0xc800));	/* 0xca00 */
-	/* *** Tx Amp Cal start ********************** */
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0x7000);
-	/* pr_info(" g7r24[%d] = %x\n", port_num, tc_phy_read_g_reg(port_num, 7, 24)); */
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 0U, 1, 0x2100U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 2U, 25U, 0, 0x10c0U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 1U, 26U, 0, (0x8000U | DAC_IN_2V));
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 21U, 0, 0x0800U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 30U, 1, 0x02c0U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 21U, 1, 0U);
+	if (status != 0)
+		goto cleanup;
 
-	/*RG_TXG_CALEN =1 l3r25[10]by port number*/
-	l3r25_temp = tc_phy_read_l_reg(port_num, 3, 25);
-	tc_phy_write_l_reg(port_num, 3, 25, (l3r25_temp | 0x400));
-	/*decide which port calibration RG_ZCALEN l3r25[12] by port_num*/
-	l3r25_temp = tc_phy_read_l_reg(port_num, 3, 25);
-	l3r25_temp = l3r25_temp | 0x1000;
-	l3r25_temp = l3r25_temp & ~(0x200);
-	tc_phy_write_l_reg(port_num, 3, 25, l3r25_temp);
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 3U, 25U, 1, 0xc800U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 3U, 25U, 1, 0xc800U);
+	if (status != 0)
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 7U, 24U, 0, 0x7000U);
+	if (status != 0)
+		goto cleanup;
 
-	/*DA_PGA_MDIX_STASTUS_P0=0(L0R26[15:14] = 0x10) & RG_RX2TX_EN_P0=0(L2R20[10] =1),*/
-	l0r26_temp = tc_phy_read_l_reg(port_num, 0, 26);
-	l0r26_temp = l0r26_temp & (~0xc000);
-	tc_phy_write_l_reg(port_num, 0, 26, 0x9203); /* Kant */
-	l2r20_temp = tc_phy_read_l_reg(port_num, 2, 20);
-	l2r20_temp = l2r20_temp | 0x400;
-	tc_phy_write_l_reg(port_num, 2, 20, l2r20_temp);
+	page.page = 3U;
+	page.local = 1;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0U, 0x0400U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0x0200U, 0x1000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
 
-	l3r25_temp = tc_phy_read_l_reg(port_num, 3, 25);
-	tc_phy_write_l_reg(port_num, 3, 25, (l3r25_temp | 0x0400));
-/*DA_TX_I2MPB_MDIX L4R26[5:0]*/
-	l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-	/* pr_info("111l4r26 =%x\n", tc_phy_read_l_reg(port_num, 4, 26)); */
-	l4r26_temp = l4r26_temp & (~0x3f);
-	tc_phy_write_l_reg(port_num, 4, 26, (l4r26_temp | tx_amp_temp));
-	/* pr_info("222l4r26 =%x\n", tc_phy_read_l_reg(port_num, 4, 26)); */
-	all_ana_cal_status = all_fe_ana_cal_wait_txamp(delay, port_num);
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 26U, 1, 0x9203U);
+	if (status != 0)
+		goto cleanup;
+	page.page = 2U;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 20U, 0U, 0x0400U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
 
-	if (all_ana_cal_status == 0) {
+	/* MDIX TX-amplitude code is carried in local page 4/register 26 [5:0]. */
+	page.page = 4U;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 26U, 0x003fU, (unsigned int)tx_amp_temp,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
+
+	/* TX-amp MDIX shares the historical common-only pre-trigger wait. */
+	ready = 0;
+	status = all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready);
+	if (status != 0)
+		goto cleanup;
+	if (!ready) {
 		all_ana_cal_status = ANACAL_ERROR;
-		pr_info(" FE Tx amp mdix AnaCal ERROR! (init)  \r\n");
-	}
-
-	tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	/*ad_cal_comp_out_init = (tc_phy_read_l_reg(FE_CAL_COMMON, 4, 23) >> 4) & 0x1;*/
-	ad_cal_comp_out_init = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
-	/* pr_info("mdix ad_cal_comp_out_init = %d\n", ad_cal_comp_out_init); */
-	if (ad_cal_comp_out_init == 1) {
-		calibration_polarity = -1;
-		/* tx_amp_temp = 0x10; */
+		pr_info("FE TX-amplitude MDIX calibration did not become ready (init)\n");
 	} else {
-		calibration_polarity = 1;
-	}
-	tx_amp_temp += calibration_polarity;
-	cnt = 0;
-	tx_amp_cnt = 0;
-	while (all_ana_cal_status < ANACAL_ERROR) {
-		l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-		l4r26_temp = l4r26_temp & (~0x3f);
-		tc_phy_write_l_reg(port_num, 4, 26, (l4r26_temp | tx_amp_temp));
-		l4r26_temp = (tc_phy_read_l_reg(port_num, 4, 26));
-		l4r26_temp_amp = (tc_phy_read_l_reg(port_num, 4, 26)) & 0x3f;
-		cnt++;
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		ad_cal_comp_out_init = (int)(page_value & 0x1U);
+		calibration_polarity = ad_cal_comp_out_init ? -1 : 1;
+		tx_amp_temp = (int)ra_switch_mdio_calibration_code_step(
+			(unsigned int)tx_amp_temp, calibration_polarity);
 
-		tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-		tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-		all_ana_cal_status = all_fe_ana_cal_wait_txamp(delay, port_num);
+		while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
+			++cnt;
+			page.page = 4U;
+			status = ra_switch_mdio_update_bits_checked(
+				port_num, 26U, 0x003fU,
+				(unsigned int)tx_amp_temp,
+				ra_switch_page_update_read,
+				ra_switch_page_update_write, &page, &updated);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_page_reg_checked(
+				port_num, 4U, 26U, 1, &read_value);
+			if (status != 0)
+				goto cleanup;
+			l4r26_temp_amp = read_value & 0x3fU;
 
-		if (((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24)) & 0x1) !=
-		    ad_cal_comp_out_init) {
-			all_ana_cal_status = ANACAL_FINISH;
-			fe_cal_flag_mdix = 1;
-		}
-		if (all_ana_cal_status == 0) {
-			all_ana_cal_status = ANACAL_ERROR;
-			pr_info(" FE Tx amp mdix AnaCal ERROR! (%d)  \r\n", cnt);
-		} else if (((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24)) & 0x1) !=
-			   ad_cal_comp_out_init) {
-			all_ana_cal_status = ANACAL_FINISH;
-			tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-			tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-			ad_cal_comp_out_init =
-			    (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24)) & 0x1;
-		} else {
-			if ((l4r26_temp_amp == 0x3f) || (l4r26_temp_amp == 0x00)) {
-				all_ana_cal_status = ANACAL_SATURATION;
-				pr_info
-				    (" Tx amp Cal mdix Saturation(%d)(%x)(%x)\r\n",
-				     cnt, tc_phy_read_l_reg(0, 3, 25),
-				     tc_phy_read_l_reg(1, 3, 25));
-				pr_info
-				    (" Tx amp Cal mdix Saturation(%x)(%x)(%x)\r\n",
-				     tc_phy_read_l_reg(2, 3, 25),
-				     tc_phy_read_l_reg(3, 3, 25),
-				     tc_phy_read_l_reg(0, 2, 30));
-				/* tx_amp_temp += calibration_polarity; */
-			} else {
-				tx_amp_temp += calibration_polarity;
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+
+			ready = 0;
+			status = all_fe_ana_cal_wait_checked(
+				delay, port_num, 0, &ready);
+			if (status != 0)
+				goto cleanup;
+			if (!ready) {
+				all_ana_cal_status = ANACAL_ERROR;
+				pr_info("FE TX-amplitude MDIX calibration timed out (step=%u)\n",
+					cnt);
+				break;
 			}
+
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+			if ((page_value & 0x1U) !=
+			    (unsigned int)ad_cal_comp_out_init) {
+				all_ana_cal_status = ANACAL_FINISH;
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				status = tc_phy_read_page_reg_checked(
+					FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+				if (status != 0)
+					goto cleanup;
+				ad_cal_comp_out_init = (int)(page_value & 0x1U);
+			} else if ((l4r26_temp_amp == 0x3fU) ||
+				   (l4r26_temp_amp == 0U)) {
+				all_ana_cal_status = ANACAL_SATURATION;
+				pr_info("FE TX-amplitude MDIX calibration saturated\n");
+			} else {
+				tx_amp_temp = (int)ra_switch_mdio_calibration_code_step(
+					(unsigned int)tx_amp_temp,
+					calibration_polarity);
+			}
+		}
+		if ((all_ana_cal_status == ANACAL_INIT) && (cnt >= 254U)) {
+			all_ana_cal_status = ANACAL_ERROR;
+			pr_info("FE TX-amplitude MDIX calibration exhausted its search range\n");
 		}
 	}
 
 	if ((all_ana_cal_status == ANACAL_ERROR) ||
 	    (all_ana_cal_status == ANACAL_SATURATION)) {
-		l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-		pr_info(" FE-%d Tx amp AnaCal mdix Saturation! (%d)(l4r26=0x%x)  \r\n",
-			phyaddr, cnt, l4r26_temp);
-		tc_phy_write_l_reg(port_num, 4, 26,
-				   ((l4r26_temp & (~0x3f)) | tx_amp_temp));
-		l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-		pr_info(" FE-%d Tx amp AnaCal mdix Saturation! (%d)(l4r26=0x%x)  \r\n",
-			phyaddr, cnt, l4r26_temp);
-		pr_info("[%d] %s, ANACAL_SATURATION\n", port_num, __func__);
+		/* Preserve the last bounded code as the original fallback. */
+		page.page = 4U;
+		status = ra_switch_mdio_update_bits_checked(
+			port_num, 26U, 0x003fU, (unsigned int)tx_amp_temp,
+			ra_switch_page_update_read, ra_switch_page_update_write,
+			&page, &updated);
+		if (status != 0)
+			goto cleanup;
+		status = tc_phy_read_page_reg_checked(
+			port_num, 4U, 26U, 1, &read_value);
+		if (status != 0)
+			goto cleanup;
+		pr_info("FE-%u TX-amplitude MDIX fallback register=0x%x\n",
+			port_num, read_value);
 	} else {
+		/* Preserve the original MT7622/Leopard per-port adjustments. */
+		status = tc_phy_read_page_reg_checked(
+			port_num, 4U, 26U, 1, &read_value);
+		if (status != 0)
+			goto cleanup;
 		if (ei_local->chip_name == MT7622_FE) {
-			if (port_num == 0) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 10;
-			} else if (port_num == 1) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 11;
-			} else if (port_num == 2) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 9;
-			} else if (port_num == 3) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 9;
-			} else if (port_num == 4) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 9;
-			}
+			if (port_num == 0U)
+				read_value += 10U;
+			else if (port_num == 1U)
+				read_value += 11U;
+			else
+				read_value += 9U;
 		} else if (ei_local->chip_name == LEOPARD_FE) {
-			if (port_num == 1) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 4 - 2;
-			} else if (port_num == 2) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 3 - 1;
-			} else if (port_num == 3) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 4 - 3;
-			} else if (port_num == 4) {
-				l4r26_temp = tc_phy_read_l_reg(port_num, 4, 26);
-				l4r26_temp = l4r26_temp + 4 - 2 + 1;
-			}
+			if (port_num == 1U)
+				read_value += 2U;
+			else if (port_num == 2U)
+				read_value += 2U;
+			else if (port_num == 3U)
+				read_value += 1U;
+			else if (port_num == 4U)
+				read_value += 3U;
 		}
-		tc_phy_write_l_reg(port_num, 4, 26, l4r26_temp);
-		fe_cal_flag_mdix = 1;
+		status = tc_phy_write_page_reg_checked(
+			port_num, 4U, 26U, 1, read_value);
+		if (status != 0)
+			goto cleanup;
+		calibration_completed = 1;
 	}
 
-	tx_amp_mdix_final = tc_phy_read_l_reg(port_num, 4, 26) & 0x3f;
-	tc_phy_write_l_reg(port_num, 4, 27, ((tx_amp_mdix_final + 15) << 8) | 0x20);
+	status = tc_phy_read_page_reg_checked(
+		port_num, 4U, 26U, 1, &read_value);
+	if (status != 0)
+		goto cleanup;
+	tx_amp_mdix_final = read_value & 0x3fU;
+	correction = ((tx_amp_mdix_final + 15U) << 8) | 0x20U;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 27U, 1, correction);
+	if (status != 0)
+		goto cleanup;
 	if (ei_local->chip_name == LEOPARD_FE) {
-		if (port_num == 2)
-			tc_phy_write_l_reg(port_num, 4, 27,
-					   ((tx_amp_mdix_final + 15 + 1)  << 8) | 0x20);
-		else if (port_num == 3)
-			tc_phy_write_l_reg(port_num, 4, 27,
-					   ((tx_amp_mdix_final + 15 + 4)  << 8) | 0x20);
-		else if (port_num == 4)
-			tc_phy_write_l_reg(port_num, 4, 27,
-					   ((tx_amp_mdix_final + 15 + 4)  << 8) | 0x20);
+		if (port_num == 2U)
+			correction = ((tx_amp_mdix_final + 15U + 1U) << 8) | 0x20U;
+		else if ((port_num == 3U) || (port_num == 4U))
+			correction = ((tx_amp_mdix_final + 15U + 4U) << 8) | 0x20U;
+		else
+			correction = 0U;
+		if (correction != 0U) {
+			status = tc_phy_write_page_reg_checked(
+				port_num, 4U, 27U, 1, correction);
+			if (status != 0)
+				goto cleanup;
+		}
 	}
-	pr_info("[%d] - tx_amp_mdix_final = 0x%x\n", port_num, tx_amp_mdix_final);
+	pr_info("[%d] - tx_amp_mdix_final = 0x%x\n",
+		port_num, tx_amp_mdix_final);
 
-	clear_ckinv_ana_txvos();
-	tc_phy_write_l_reg(port_num, 3, 25, 0x0000);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, 0x0000);
-	tc_phy_write_g_reg(port_num, 1, 26, 0);
-	/* *** Tx Amp Cal end *** */
+cleanup:
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 1U, 26U, 0, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	if (status != 0) {
+		pr_err_ratelimited(
+			"%s: FE TX-amplitude MDIX calibration failed (port=%u status=%d)\n",
+			__func__, port_num, status);
+		return;
+	}
+	if (calibration_completed)
+		fe_cal_flag_mdix = 1;
 }
 
 void fe_cal_tx_offset(u8 port_num, u32 delay)

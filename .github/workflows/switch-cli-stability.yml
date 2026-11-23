@@ -1213,6 +1213,33 @@ jobs:
           print("FE TX-amplitude checked I/O, bounded search, chip offsets and cleanup: PASS")
           PY
 
+      - name: Validate FE TX-amplitude MDIX calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          mdix = source.split("void fe_cal_tx_amp_mdix(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "void fe_cal_tx_offset(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait_txamp(", "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in mdix, legacy
+          assert mdix.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "all_fe_ana_cal_wait_checked(delay, port_num, 0, &ready)" in mdix
+          assert "(cnt < 254U)" in mdix
+          assert "ra_switch_mdio_calibration_code_step(" in mdix
+          assert "fe_cal_flag_mdix = 0;" in mdix
+          assert "clear_ckinv_ana_txvos_checked()" in mdix
+          assert mdix.index("cleanup:") < mdix.index("if (calibration_completed)")
+          assert mdix.index("if (status != 0)") < mdix.index("fe_cal_flag_mdix = 1;")
+          assert "MT7622_FE" in mdix and "LEOPARD_FE" in mdix
+          print("FE TX-amplitude MDIX checked I/O, bounded search, per-chip offsets and cleanup: PASS")
+          PY
+
       - name: Validate FE TX-offset MDIX calibration checks MDIO and cleanup
         run: |
           python3 - <<'PY'
