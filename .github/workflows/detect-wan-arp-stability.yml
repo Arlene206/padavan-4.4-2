@@ -206,11 +206,11 @@ jobs:
           arp_compact = "".join(arp_probe.split())
           assert "char gateway_storage[16];" in arp_probe
           assert "char hardware_address_storage[18];" in arp_probe
-          assert "char hardware_address_storage[18];" in arp_probe
           assert "char interface_storage[IFNAMSIZ];" in arp_probe
-          assert 'get_wan_unit_value_copy_status(0, "ifname", interface_storage, sizeof(interface_storage))' in arp_probe
+          assert 'get_wan_unit_value_copy_status(0,"ifname",interface_storage,sizeof(interface_storage))' in arp_compact
           assert "get_man_ifname(0)" not in arp_probe
           assert "detect_wan_arp_socket_device_name_prepare(" in arp_probe
+          assert 'rc_wan_nvram_copy_text(IFNAME_BR,interface_storage,sizeof(interface_storage))' in arp_compact
           assert 'get_wan_unit_value_copy_status(0,"gateway",gateway_storage,sizeof(gateway_storage))' in arp_compact
           assert 'get_wan_unit_value_copy_status(0,"hwaddr",hardware_address_storage,sizeof(hardware_address_storage))' in arp_compact
           assert 'rc_wan_nvram_copy_value(detect_wan_nvram_get_checked,NULL,"lan_gateway_t",gateway_storage,sizeof(gateway_storage))' in arp_compact
@@ -222,9 +222,11 @@ jobs:
           mac_error = arp_compact.index("if(config_status!=0)", mac_parse)
           no_probe = arp_compact.index(
               "if(gateway_ip==INADDR_ANY||ip==INADDR_ANY||gateway_ip==ip)")
+          device_name_prepare = arp_compact.index(
+              "detect_wan_arp_socket_device_name_prepare(interface_storage,&ifr,&addr)")
           socket_create = arp_compact.index(
               "s=socket(PF_PACKET,SOCK_PACKET,htons(ETH_P_ARP));")
-          assert no_probe < mac_parse < mac_error < socket_create
+          assert no_probe < mac_parse < mac_error < device_name_prepare < socket_create
           assert "nvram_safe_get(" not in arp_probe
           assert "get_wan_unit_value(" not in arp_probe
           assert "arp_reply.ethernet_source = arp.h_source;" in arp_probe
