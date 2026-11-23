@@ -520,6 +520,18 @@ not_called stop_dns_proxy
 not_called start_dns_proxy
 
 reset
+MOCK_TUNNEL_FORWARD='   #53'
+expect_dns_proxy_restart_status 1 "whitespace-only DNS upstream"
+not_called stop_dns_proxy
+not_called start_dns_proxy
+
+reset
+MOCK_TUNNEL_FORWARD='8.8.8.8 extra#53'
+expect_dns_proxy_restart_status 1 "whitespace within DNS upstream"
+not_called stop_dns_proxy
+not_called start_dns_proxy
+
+reset
 MOCK_PDNSD_ENABLE=1
 MOCK_TUNNEL_FORWARD=9.9.9.9#53
 expect_dns_proxy_restart_status 0 "valid dns2tcp restart"

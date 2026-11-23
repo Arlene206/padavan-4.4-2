@@ -447,11 +447,17 @@ ss_dns_proxy_config_read() {
 		return "$dns_status"
 	fi
 
-dnsserver=${dnsstr%%#*}
+	dnsserver=${dnsstr%%#*}
 	[ -n "$dnsserver" ] && [ "$dnsserver" != "nil" ] || {
 		log "DNS upstream is empty; refusing proxy restart"
 		return 1
 	}
+	case "$dnsserver" in
+		*[[:space:]]*)
+			log "DNS upstream contains whitespace; refusing proxy restart"
+			return 1
+			;;
+	esac
 
 	case "$pdnsd_enable" in
 		1) dns_process=dns2tcp ;;

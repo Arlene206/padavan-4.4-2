@@ -527,12 +527,14 @@ dns_start = shell_function(script, "start_dns")
 require("nvram get pdnsd_enable" in dns_proxy_config and
         "nvram get tunnel_forward" in dns_proxy_config and
         'command -v "$dns_process"' in dns_proxy_config and
+        'case "$dnsserver" in' in dns_proxy_config and
+        '*[[:space:]]*' in dns_proxy_config and
         "SS_DNS_PROXY_PROCESS=$dns_process" in dns_proxy_config and
         "SS_DNS_PROXY_SERVER=$dnsserver" in dns_proxy_config and
         "nvram get" not in dns_proxy_start and
         "SS_DNS_PROXY_PROCESS" in dns_proxy_start and
         "SS_DNS_PROXY_SERVER" in dns_proxy_start,
-        "DNS proxy selector/upstream/executable preflight must precede service stop")
+        "DNS proxy selector/upstream/executable and whitespace preflight must precede service stop")
 ordered(dns_proxy_restart, ("ss_dns_proxy_config_read", "stop_dns_proxy", "start_dns_proxy"),
         "DNS proxy preflight/stop/start order")
 dns_start_lines = [line.strip() for line in dns_start.splitlines()]
@@ -543,6 +545,7 @@ require(dns_start.count("ss_restart_dns_proxy") == 2 and
         "router and gfw modes must use the checked DNS proxy restart path")
 for marker in ("DNS proxy selector read failure", "DNS upstream read failure",
                "empty DNS upstream", "unsupported DNS proxy selector",
+               "whitespace-only DNS upstream", "whitespace within DNS upstream",
                "DNS proxy stop failure", "DNS proxy start failure",
                "Shadowsocks DNS proxy preflight regression: PASS"):
     require(marker in start_status_test, f"DNS proxy regression is missing {marker}")

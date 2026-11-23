@@ -36,6 +36,7 @@
 | `docs/dev-log/2026/11/part-027.md` | 101 | 2026-11-22 20:10 CST (UTC+8) — Propagate add-account volume metadata initialization errors → 2026-11-22 — Correct AliDDNS source-contract checker bindings | 140425 | `a2d2368be253d33223791eedbd25365e297f522b` |
 | `docs/dev-log/2026/11/part-028.md` | 100 | 2026-11-22 → 2026-11-23 08:53 UTC+8 | 104525 | `85261db802939a9a3f2204531ae08e6a7282da10` |
 | `docs/dev-log/2026/11/part-029.md` | 100 | 2026-11-23 08:55 UTC+8 → 2026-11-23 UTC | 125656 | `0e05f30d39b22ae0dc1baf997ff16b47fcf5f497` |
+| `docs/dev-log/2026/11/part-030.md` | 100 | 2026-11-23 UTC — Normalize DBDC error-return contract and restore handoff heading → 2026-11-23 UTC — Snapshot AP-client SSID presence before the next NVRAM read | 87781 | `d70f5f113c50c6785b91689199b6c06da0ce42e3` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
