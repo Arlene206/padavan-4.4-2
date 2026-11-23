@@ -62,7 +62,7 @@ assert wait_loop < wait_eintr < wait_service < wait_flush < wait_close
 assert waitfor.count("init_wait_for_child(pid, waitpid, &child_reaped)") == 1
 assert "return EINTR;" in QUEUE
 assert "continue;" not in section(
-    QUEUE, "init_wait_for_child(pid_t target_pid", "static inline int\\ninit_reap_queue_has_capacity"
+    QUEUE, "init_wait_for_child(pid_t target_pid", "static inline int\ninit_reap_queue_has_capacity"
 )
 for test_name in (
     "test_wait_for_exact_child_only",
