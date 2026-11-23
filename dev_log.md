@@ -1,3 +1,11 @@
+## 2026-11-22 — Restore required cross-session handoff contract sections
+
+- AI handoff documentation run `45086487184` on exact SHA `fff2b43aa36e71dbe2b3bbda4c74079799419e59` failed because the rewritten session handoff omitted required section headings and exact cross-session/mandatory-checkpoint wording. Restored `## Active task`, `## Verification boundary`, `## Exact first action for the next GPT`, `## Mandatory handoff checkpoint`, and `# Cross-session execution mandate`, including the exact mandatory-vs-conditional checkpoint statement and atomic main-commit requirement.
+- The HTTPD security regression on the same exact SHA passed (run `45086487150`). The new handoff docs result is pending on the resulting commit; do not transfer the old docs failure to its descendant.
+- Actual firmware PID 1 remains RC init; board BusyBox `CONFIG_INIT` is disabled. Current implementation/test scope is recorded in `SESSION_HANDOFF.md`.
+
+---
+
 ## 2026-11-22 — Repair HTTPD workflow block indentation
 
 - The first follow-up commit `00cb20522874510b126cc647efc7afcb1d2952f4` inserted the corrected PID 1 assertions without preserving the embedded Python block's ten-space YAML indentation. GitHub reported the HTTPD workflow run `45086402010` as failed before creating a job (`total_count: 0`); this was a workflow formatting error, not a source/test regression.
