@@ -51,14 +51,17 @@ rc_network_sysctl_parse_syncookies_status(int read_result, int read_errno,
 	}
 
 	{
+		char *end;
 		long parsed_value;
 
 		errno = 0;
-		parsed_value = strtol(value, NULL, 10);
-		if (errno == ERANGE || parsed_value > INT_MAX ||
-		    parsed_value < INT_MIN)
+		parsed_value = strtol(value, &end, 10);
+		if (errno == ERANGE)
 			return ERANGE;
-		*enabled = parsed_value != 0 ? 1 : 0;
+		if (end == value || *end != '\0' ||
+		    (parsed_value != 0 && parsed_value != 1))
+			return EINVAL;
+		*enabled = (int)parsed_value;
 	}
 	return 0;
 }

@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <errno.h>
-#include <limits.h>
 #include <stdio.h>
 #include "network_sysctl_policy.h"
 
@@ -70,32 +69,32 @@ static void test_syncookies_checked_read_preserves_legacy_values(void)
 	assert(enabled == 1);
 	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "0", &enabled) == 0);
 	assert(enabled == 0);
-	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "not-a-number", &enabled) == 0);
-	assert(enabled == 0);
 	assert(rc_network_sysctl_parse_syncookies_status(0, EACCES, NULL, &enabled) == 0);
 	assert(enabled == 0);
 }
-static void test_syncookies_integer_boundaries_and_overflow(void)
+static void test_syncookies_boolean_domain_and_overflow(void)
 {
-	char maximum[32];
-	char minimum[32];
 	int enabled = 1;
 
-	assert(snprintf(maximum, sizeof(maximum), "%d", INT_MAX) > 0);
-	assert(snprintf(minimum, sizeof(minimum), "%d", INT_MIN) > 0);
-	assert(rc_network_sysctl_parse_syncookies_status(1, 0, maximum, &enabled) == 0);
-	assert(enabled == 1);
-	assert(rc_network_sysctl_parse_syncookies_status(1, 0, minimum, &enabled) == 0);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "0", &enabled) == 0);
+	assert(enabled == 0);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "1", &enabled) == 0);
 	assert(enabled == 1);
 
-	enabled = 1;
-	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "2147483648", &enabled) == ERANGE);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "2", &enabled) == EINVAL);
 	assert(enabled == 1);
-	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "-2147483649", &enabled) == ERANGE);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "-1", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "1junk", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "not-a-number", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "", &enabled) == EINVAL);
 	assert(enabled == 1);
 	assert(rc_network_sysctl_parse_syncookies_status(1, 0,
 		"999999999999999999999999999999999999", &enabled) == ERANGE);
 	assert(enabled == 1);
+	assert(!rc_network_sysctl_tcp_syncookies_allows_wan(enabled, EINVAL));
 }
 
 static void test_syncookies_checked_read_failure_does_not_disable_policy(void)
@@ -120,7 +119,7 @@ int main(void)
 	test_success_and_empty(); test_configured_syncookies_gate(); test_invalid_callback();
 	test_syncookies_checked_read_preserves_legacy_values();
 	test_syncookies_checked_read_failure_does_not_disable_policy();
-	test_syncookies_integer_boundaries_and_overflow();
+	test_syncookies_boolean_domain_and_overflow();
 	puts("Network sysctl attempt-all/first-error policy: PASS");
 	return 0;
 }

@@ -74,13 +74,15 @@ require("first failure" in POLICY,"policy must document first-error semantics")
 require("return first_status;" in POLICY,"policy must preserve first failure")
 require("read_result < 0" in POLICY and "read_result > 1" in POLICY,
         "SYN-cookie policy parsing must reject failed/invalid NVRAM read results")
-require("#include <limits.h>" in POLICY and "strtol(value, NULL, 10)" in POLICY and
-        "parsed_value > INT_MAX" in POLICY and "parsed_value < INT_MIN" in POLICY and
+require("strtol(value, &end, 10)" in POLICY and
+        "end == value" in POLICY and "*end != '\\0'" in POLICY and
+        "parsed_value != 0 && parsed_value != 1" in POLICY and
         "errno == ERANGE" in POLICY and "atoi(value)" not in POLICY,
-        "SYN-cookie numeric parsing must preserve int-range values and reject overflow")
-require("test_syncookies_integer_boundaries_and_overflow" in TEST and
-        "\"2147483648\"" in TEST and "\"-2147483649\"" in TEST,
-        "regression must cover SYN-cookie integer boundaries and overflow")
+        "SYN-cookie parsing must accept only complete boolean 0/1 values and reject overflow")
+require("test_syncookies_boolean_domain_and_overflow" in TEST and
+        "\"2\"" in TEST and "\"-1\"" in TEST and
+        "\"1junk\"" in TEST and "\"not-a-number\"" in TEST,
+        "regression must reject malformed and out-of-domain SYN-cookie selectors")
 require("return connected" not in POLICY,"unrelated readiness policy must not be included")
 require("mock_status[0] = EIO" in TEST and "mock_status[3] = EACCES" in TEST,
         "regression must verify first-error and continue-after-failure")

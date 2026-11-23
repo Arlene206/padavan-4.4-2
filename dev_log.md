@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Reject malformed SYN-cookie policy selectors
+
+- The Basic Firewall UI exposes `fw_syn_cook` only as radio values `0` and `1`, but `rc_network_sysctl_parse_syncookies_status()` used `strtol(value, NULL, 10)` and treated any nonnumeric string as 0. A corrupted value such as `not-a-number` therefore looked like an explicit request to disable SYN cookies; `1junk` was also accepted as enabled. This weakened a security setting despite a successful NVRAM read.
+- The parser now requires a complete decimal value in the 0/1 domain before publishing the setting. An absent key still preserves the legacy disabled default; malformed, empty, negative and out-of-range values return an error without changing the caller's enabled state. Regressions cover valid 0/1, invalid 2/-1/junk/empty and numeric overflow, and verify the WAN admission gate remains closed on parse failure.
+- Exact-head WAN route GNU89/Werror/ASan/UBSan, NVRAM audit and XY-C1 Build/TRX/artifact Actions are required. No local compile or hardware validation is claimed.
+
+---
+
 ## 2026-11-23 UTC — Validate the SFE mode domain before module reload
 
 - `rc_sfe_configure_policy()` supports mode 0 (disabled), 1 and 2 (two distinct `skip_to_bridge_ingress` settings). The NAT offload snapshot previously accepted any integer. A corrupt value such as 3 was truthy in `reload_nat_modules()`, so it could load `fast_classifier`, while the SFE configuration policy treated the unknown mode as a successful no-op and left the accelerator unconfigured.
