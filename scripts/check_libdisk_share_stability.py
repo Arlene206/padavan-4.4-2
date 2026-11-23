@@ -462,8 +462,11 @@ modify_body = function_body(
     DISK_SOURCE, "int mod_account(const char *const account, const char *const new_account, const char *const new_password)"
 )
 modify_compact = "".join(modify_body.split())
-require("if(new_account==NULL||strlen(new_account)<=0){if(first_error!=0){errno=first_error;return-1;}return0;}" in modify_compact,
-        "password-only account updates must not report success when NVRAM commit failed")
+require("password_update=new_password!=NULL&&*new_password;" in modify_compact and
+        "if(first_error==0&&password_update)" in modify_compact and
+        "if(first_error==0&&nvram_commit_safe()!=0)" in modify_compact and
+        "if(first_error!=0){errno=first_error;return-1;}" in modify_compact,
+        "password-only account updates must commit through the checked path and return failure when NVRAM persistence fails")
 
 del_inventory = del_account_compact.index("read_disk_data_checked(&disk_list)")
 del_inventory_error = del_account_compact.index(
