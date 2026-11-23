@@ -52,4 +52,14 @@ watchdog_httpd_probe_port_unchanged(int read_status, int current_port,
            current_port == expected_port;
 }
 
+/* A missing prior result is fine; other unlink failures leave stale data. */
+static inline int
+watchdog_httpd_probe_stale_file_remove_status(int remove_result,
+                                               int saved_errno)
+{
+    if (remove_result == 0 || saved_errno == ENOENT)
+        return 0;
+    return saved_errno > 0 ? saved_errno : EIO;
+}
+
 #endif /* WATCHDOG_HTTPD_PROBE_POLICY_H */

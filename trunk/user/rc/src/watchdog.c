@@ -112,6 +112,7 @@ httpd_check_v2()
 {
     FILE *fp = NULL;
     int i, httpd_live, http_port, http_proto = 0, current_port, status;
+    int remove_result, remove_errno;
     char line[80], login_timestamp[32];
     unsigned long login_uptime;
     long now;
@@ -176,7 +177,22 @@ httpd_check_v2()
             0, 1, http_port, http_proto))
         return 1;
 
-    remove(DETECT_HTTPD_FILE);
+    /*
+     * Do not trust a stale successful probe file if it could not be removed.
+     * ENOENT is expected on the first run; any other cleanup error cancels
+     * this probe so it cannot suppress recovery for a dead HTTPD process.
+     */
+    errno = 0;
+    remove_result = remove(DETECT_HTTPD_FILE);
+    remove_errno = errno;
+    status = watchdog_httpd_probe_stale_file_remove_status(
+        remove_result, remove_errno);
+    if (status != 0) {
+        logmessage("watchdog",
+                   "cannot clear stale HTTPD probe result; skipping liveness decision (status=%d)",
+                   status);
+        return 1;
+    }
 
     /* httpd will not count 127.0.0.1 */
     /* The probe is detached; bound its network wait instead of killing every wget. */
