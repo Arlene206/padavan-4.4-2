@@ -1,7 +1,7 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this LLTD config parser slice: 64c795f904f42daa738598274d648e0c8c2d1a07.
+- Repository Arlene206/padavan-4.4-2; parent main for this LLTD config parser slice: b30898d2bedbfa3a5d159e27da40a1f8ee9ee2f3.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
 - No local checkout; host tests are executed by exact-SHA GitHub Actions only; no local test/build claim.
 
@@ -9,7 +9,7 @@
 - Parent SHA 20c664edf48d919600670a0f7893504c5dcc6a6a: AI handoff #45137197736 PASS; Process inventory #45137197649 PASS; LLTD PID parser GNU89 ASan/UBSan regression (Process step 17) PASS.
 - Process integration #45137197616 failed only at the final source contract due to a physical-line assertion for a wrapped PID pathname. Checker correction 64c795f904f42daa738598274d648e0c8c2d1a07 extracts the writer body before asserting the pathname.
 - Parent 20c664e XY-C1 #45137197654 and NVRAM audit #45137197675 were still in progress at last poll. Parent b1a86530 first LLTD parser test failed its NULL-text output-reset case; 20c664e fixed it.
-- Exact Actions for checker correction 64c795f are pending.
+- Exact SHA 64c795f Process run #45137561990 failed only because the PID-file source contract expected `if (errno != ESRCH)`, while production correctly preserves the value in saved_errno and tests `if (saved_errno != ESRCH)`. THIS checker correction matches the implementation's saved-errno fail-closed guard. Exact SHA b30898d2 queued Process #45138006556, AI #45138006583, NVRAM #45138006560, XY-C1 #45138006606 and inventory #45138006856; verify their results after the next commit.
 
 ## Active task — LLTD config parser memory safety
 - init_from_conf_file() used unbounded %s conversions into 256-byte var/val arrays. Both icon and jumbo-icon path builders allocated enough space for /etc/ plus the value but copied only strlen(val) bytes with strncpy(), leaving the result without a NUL terminator; later string/filesystem calls could read beyond the allocated path.
@@ -23,7 +23,7 @@
 4. Continue another independent userland stability/security task while workflows are pending; physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The LLTD PID parser GNU89 ASan/UBSan regression passed on exact SHA 20c664e after the NULL-input output contract fix. The Process workflow then failed only at a formatting-sensitive source assertion; commit 64c795f corrects that checker. The config parser changes and regression are committed with pending Actions; no local tests/builds claimed. L3 and hardware L4 are NOT VERIFIED.
+LLTD PID parser GNU89 ASan/UBSan test step 17 passed on exact SHA 20c664e. Process source checker failed on SHA 64c795f only because its assertion used errno instead of production's saved_errno; THIS checker-only commit aligns the assertion. The new config-parser slice already committed at b30898d, with its exact-head Actions still running/pending. No local tests/builds are claimed. L3 and hardware L4 are NOT VERIFIED.
 
 ## Cross-session mandate
 One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; frozen backup remains untouched; inspect exact-SHA Actions and never infer results.

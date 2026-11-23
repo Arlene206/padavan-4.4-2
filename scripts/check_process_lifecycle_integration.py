@@ -1751,7 +1751,7 @@ assert "pidbuf_length == sizeof(pidbuf)" in lldt_pidfile_writer
 assert "O_NOFOLLOW" in lldt_pidfile_writer and "O_NONBLOCK" in lldt_pidfile_writer
 assert lldt_pidfile_writer.count("fstat(fd, &st)") == 2
 assert lldt_pidfile_writer.count("S_ISREG(st.st_mode)") == 2
-assert "if (errno != ESRCH)" in lldt_pidfile_writer
+assert "if (saved_errno != ESRCH)" in lldt_pidfile_writer
 assert "if (ret == 0)" in lldt_pidfile_writer
 assert "ftruncate(fd, 0)" in lldt_pidfile_writer
 assert "while (written < pidbuf_length)" in lldt_pidfile_writer

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Match LLTD PID probe contract to saved errno
+
+- Exact-head Process run #45137561990 on SHA 64c795f passed all earlier checks and LLTD PID regression, but the final source contract still expected the literal condition "if (errno != ESRCH)".
+- Production saves errno immediately after kill(pid, 0), then tests "if (saved_errno != ESRCH)" so diagnostics and later operations cannot accidentally observe a clobbered errno. The source implementation is safer; the checker was stale. Updated the assertion to pin the saved_errno guard.
+- Parent SHA b30898d Process #45138006556, AI #45138006583, NVRAM #45138006560, XY-C1 #45138006606 and inventory #45138006856 were queued/running at last poll; no local tests/build claim.
+
+---
+
 ## 2026-11-23 UTC — Bound LLTD config tokens and terminate icon paths
 
 - Source review found init_from_conf_file() used unbounded %s conversions into 256-byte var and val arrays. Both icon and jumbo-icon builders allocated enough space for /etc/ plus the value but copied only strlen(val) bytes with strncpy(), leaving each path without a NUL terminator.
