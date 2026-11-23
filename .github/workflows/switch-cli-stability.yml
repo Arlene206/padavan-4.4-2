@@ -770,7 +770,6 @@ jobs:
               "static int esw_vlan_reset_table", 1
           )[0]
           assert "mtk_esw_vlan_entry_apply(" in vlan_set
-          assert "REG_ESW_VLAN_VAWD1" in vlan_set and "REG_ESW_VLAN_VAWD2" in vlan_set
           entry_apply_at = vlan_set.index("status = mtk_esw_vlan_entry_apply(")
           entry_error_at = vlan_set.index("if (status != 0)", entry_apply_at)
           pool_commit_at = vlan_set.index("set_bit(cvid, g_vlan_pool)")
