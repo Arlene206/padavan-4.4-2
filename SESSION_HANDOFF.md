@@ -1,7 +1,7 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main for this LLTD task: 96bfc395bf84bae9870ffa562cd90432cf7315f1.
+- Repository Arlene206/padavan-4.4-2; parent main for this LLTD follow-up: b1a86530f54bd1d12b844e0198c46eb1b00e1b1f.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and read-only.
 - No local checkout; no local shell tests/builds claimed. The new bounded PID parser regression is wired into the exact-head Process workflow.
 
@@ -15,7 +15,7 @@
 ## Active task — LLTD PID-file parsing and stale-process safety
 - `osl_write_pidfile()` read up to 16 bytes into an unterminated stack buffer then passed it to `strtol()`, which could read beyond the bytes returned by `read()`. It also treated every `kill(pid, 0)` error as a stale PID, so `EPERM` or another probe error could overwrite a possibly live daemon's PID file.
 - THIS slice adds a length-bounded strict decimal parser with overflow/zero/malformed-input rejection, regular-file and no-follow checks, EINTR/short-read handling, and fail-closed PID liveness semantics (only ESRCH proves the old PID absent). The write side now refuses symlinks/special files before truncation and handles partial/EINTR writes.
-- GNU89 ASan/UBSan parser tests and exact source contracts are added to `.github/workflows/process-lifecycle-regression.yml`; the LLTD source and helper header are added to XY-C1 path filters so the firmware build covers this product code. Exact-head Process/AI/XY-C1 checks are pending; no local test/build claim.
+- GNU89 ASan/UBSan parser tests and exact source contracts are wired into `.github/workflows/process-lifecycle-regression.yml`; LLTD product source/header are included in XY-C1 path filters. On exact SHA `b1a86530`, the parser compiled with `-Werror` but the test failed at the NULL-text case because the helper promised to zero the output PID even when text is NULL, while production cleared it only after the combined pointer guard. THIS follow-up initializes a valid output pointer before validating input text. Parent exact-head Process run `45136954916` failed only at test step 17; Process inventory `45136955217` and AI handoff `45136955195` PASS. XY-C1 `45136955095` and NVRAM audit `45136955054` remained in progress; no local test/build claim.
 
 ## Next actions
 1. Verify exact-head Process lifecycle and AI handoff Actions; inspect logs for any failure and repair the actual first cause.
@@ -24,7 +24,7 @@
 4. Continue another independent userland stability/security slice while those workflows are pending; physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-The parser test and source contract are committed but not yet executed on this source SHA. Parent main's Watchdog signal, AI docs and Process inventory checks passed; parent XY-C1 and NVRAM transaction audit remain in progress. No local tests or firmware build are claimed. L3 and hardware L4 are NOT VERIFIED.
+The parent SHA b1a86530 parser compile passed GNU89/-Werror/ASan/UBSan build, but its regression exposed the NULL-input output-initialization mismatch described above. THIS follow-up awaits exact-head Process rerun. AI handoff and Process inventory parent Actions passed. Parent XY-C1 build and NVRAM audit were still in progress; no local tests or firmware build are claimed. L3 and hardware L4 are NOT VERIFIED.
 
 ## Cross-session mandate
 One complete Git tree and one atomic commit per logical task; update main only with non-force expected-SHA; frozen backup remains untouched; inspect exact-SHA Actions and never infer results.

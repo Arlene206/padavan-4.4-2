@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Clear LLTD parser output on every invalid input
+
+- Exact-head Process workflow #45136954916 on `b1a86530f54bd1d12b844e0198c46eb1b00e1b1f` compiled the GNU89 ASan/UBSan parser test successfully, then failed its NULL-text regression: the test requires a provided output PID to be reset to zero on parse failure, but the parser performed a combined `!text || !pid_out` guard before initializing the output.
+- Fixed the contract by validating the output pointer first, clearing a valid output pointer immediately, then rejecting NULL input text. The test's invalid-input path now exercises the intended output-reset behavior.
+- Same parent SHA Process inventory #45136955217 and AI handoff #45136955195 PASS. XY-C1 #45136955095 and NVRAM transaction audit #45136955054 were still in progress at last poll. No local test/build claim; exact-head reruns pending.
+
+---
+
 ## 2026-11-23 UTC — Bound LLTD PID-file parsing and fail closed on uncertain PID probes
 
 - `osl_write_pidfile()` previously read into a fixed buffer without NUL termination and passed it to `strtol()`; a full/partial record could trigger an out-of-bounds read or accept malformed trailing bytes.

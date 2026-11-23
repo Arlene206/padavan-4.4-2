@@ -16,11 +16,15 @@ lldt_pidfile_parse_pid(const char *text, size_t length, pid_t *pid_out)
 	unsigned long value = 0;
 	size_t index;
 
-	if (!text || !pid_out) {
+	if (!pid_out) {
 		errno = EINVAL;
 		return -1;
 	}
 	*pid_out = (pid_t)0;
+	if (!text) {
+		errno = EINVAL;
+		return -1;
+	}
 	if (length > LLDT_PIDFILE_MAX_TEXT) {
 		errno = EINVAL;
 		return -1;
