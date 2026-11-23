@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Repair SCUT watchdog regression harness environment
+
+- Exact-head SCUT watchdog run #45180376775 on `31676e8f363e976c930568041ec09690fb08a60f` passed shell syntax and reached the existing PID-replacement regression, then failed because the test-harness rewrite had accidentally dropped the export of `NVRAM_LOG`, `KILL_LOG` and `RM_BLOCKED`. The NVRAM mock therefore could not append its event log and never performed the injected PID replacement; this was a test fixture defect, not a product-code assertion.
+- Restored the three environment exports alongside the new logger/client test paths. The watchdog source and its fail-closed NVRAM behavior are unchanged. Exact-head SCUT watchdog, AI handoff, Process and XY-C1 checks must pass before closing the slice.
+
+---
+
 ## 2026-11-23 UTC — SCUT watchdog checks NVRAM read status
 
 - `scutclient_watchcat.sh` used legacy `nvram get` for its enable, auth-flag and force-reauth selectors. An NVRAM backend fault therefore looked like an empty value: the watchdog could silently skip health monitoring, while a failed `scutclient_wdg_force` read before 06:00 looked "not 0" and could trigger repeated unnecessary client restarts.
