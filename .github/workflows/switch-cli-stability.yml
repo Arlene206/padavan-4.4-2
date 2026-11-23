@@ -548,6 +548,21 @@ jobs:
           test = (rc / "tests/switch_cli_parse_policy.c").read_text()
           workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
 
+          def function_body(source, signature):
+              start = source.find(signature)
+              assert start >= 0, f"missing function: {signature}"
+              opening = source.find("{", start + len(signature))
+              assert opening >= 0, f"missing function body: {signature}"
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError(f"unterminated function: {signature}")
+
           assert "UINT_MAX" in policy and "return ERANGE;" in policy
           assert "return EINVAL;" in policy
           assert "parsed > (UINT_MAX - digit) / base" in policy
@@ -562,7 +577,7 @@ jobs:
           ):
               source = (rc / path).read_text()
               assert '#include "switch_cli_parse_policy.h"' in source
-              main = source.split(signature, 1)[1]
+              main = function_body(source, signature)
               assert "argc < 2 || argc > 4" in main
               main_compact = "".join(main.split())
               if path == "switch_rtl8367.c":
@@ -573,14 +588,14 @@ jobs:
               assert "switch_cli_parse_ioctl_parameter(argv[2]," + command_bits + ",1,&arg)" in main_compact
               assert "switch_cli_parse_uint(argv[2], 1, &arg)" in main
               if path == "switch_rtl8367.c":
-                  arg_policy = source.split("rtl8367_command_uses_packed_argument(unsigned int cmd)", 1)[1].split("default:", 1)[0]
+                  arg_policy = function_body(source, "rtl8367_command_uses_packed_argument(unsigned int cmd)")
                   for command in ("RTL8367_IOCTL_STATUS_LINK_PORT", "RTL8367_IOCTL_STATUS_SPEED_PORT", "RTL8367_IOCTL_STATUS_MIB_PORT", "RTL8367_IOCTL_REG_GET", "RTL8367_IOCTL_PHY_REG_GET", "RTL8367_IOCTL_REG_SET", "RTL8367_IOCTL_PHY_REG_SET"):
                       assert "case " + command + ":" in arg_policy
                   assert "cmd == RTL8367_IOCTL_REG_SET || cmd == RTL8367_IOCTL_PHY_REG_SET" in main
                   assert "switch_cli_parse_uint(argv[3], 1, &par)" in main
                   assert "switch_cli_parse_ioctl_parameter(argv[3], RTL8367_IOCTL_CMD_LENGTH_BITS, 1, &par)" in main
               else:
-                  arg_policy = source.split("mtk_esw_command_uses_packed_argument(unsigned int cmd)", 1)[1].split("default:", 1)[0]
+                  arg_policy = function_body(source, "mtk_esw_command_uses_packed_argument(unsigned int cmd)")
                   for command in ("MTK_ESW_IOCTL_STATUS_LINK_PORT", "MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN", "MTK_ESW_IOCTL_STATUS_LINK_PORTS_LAN", "MTK_ESW_IOCTL_STATUS_SPEED_PORT", "MTK_ESW_IOCTL_STATUS_MIB_PORT"):
                       assert "case " + command + ":" in arg_policy
                   assert "switch_cli_parse_ioctl_parameter(argv[2], MTK_ESW_IOCTL_CMD_LENGTH_BITS, 1, &arg)" in main
