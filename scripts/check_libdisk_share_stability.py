@@ -210,11 +210,12 @@ require("if (clear_share_var_files(mount_path) != 0)" in initial_all and
 create_all = function_body(
     DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
 )
-require("get_account_list(&acc_num, &account_list)" in create_all and
-        "disk_share_account_nvram_begin(&transaction)" in create_all and
-        "disk_share_account_inventory_matches_locked(" in create_all and
-        "create_if_no_var_files_with_accounts(mount_path, acc_num, account_list)" in create_all and
-        "disk_share_account_nvram_end(&transaction)" in create_all,
+create_all_compact = "".join(create_all.split())
+require("get_account_list(&acc_num,&account_list)" in create_all_compact and
+        "disk_share_account_nvram_begin(&transaction)" in create_all_compact and
+        "disk_share_account_inventory_matches_locked(" in create_all_compact and
+        "create_if_no_var_files_with_accounts(mount_path,acc_num,account_list)" in create_all_compact and
+        "disk_share_account_nvram_end(&transaction)" in create_all_compact,
         "public incremental metadata initialization must serialize its owned account snapshot through permission-file publication")
 create_with_accounts = function_body(
     DISK_SOURCE, "create_if_no_var_files_with_accounts("
