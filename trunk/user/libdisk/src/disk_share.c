@@ -1138,6 +1138,9 @@ int set_permission(const char *account,
 {
 	char var_file[256];
 	char *target = NULL, *follow_info, *var_info = NULL, *updated_info = NULL;
+	char **account_list = NULL;
+	struct nvram_transaction transaction;
+	int acc_num = 0, transaction_started = 0, account_found = 0;
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
 	int dms_right = DEFAULT_DMS_RIGHT;
 	size_t old_len, target_len, updated_len, separator_len;
@@ -1152,28 +1155,66 @@ int set_permission(const char *account,
 		return -1;
 	}
 
+	/*
+	 * Permission updates share the account writer lease with account/folder
+	 * lifecycle operations. Without it, a stale read-modify-write can restore
+	 * a deleted folder row or overwrite a concurrent rename/add operation.
+	 */
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
+		free_2_dimension_list(&acc_num, &account_list);
+		errno = saved_errno;
+		return -1;
+	}
+	if (strcmp(account, FTP_ANONYMOUS_USER) == 0) {
+		account_found = 1;
+	} else {
+		int i;
+
+		for (i = 0; i < acc_num; ++i) {
+			if (account_list[i] && strcmp(account_list[i], account) == 0) {
+				account_found = 1;
+				break;
+			}
+		}
+	}
+	if (!account_found) {
+		saved_errno = ENOENT;
+		free_2_dimension_list(&acc_num, &account_list);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (disk_share_account_nvram_begin(&transaction) != 0)
+		goto failed;
+	transaction_started = 1;
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
+		goto failed;
+
 	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
 	                                       mount_path, account) != 0)
-		return -1;
+		goto failed;
 	var_info = read_whole_file(var_file);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno != ENOENT) {
 			errno = saved_errno;
-			return -1;
+			goto failed;
 		}
 		errno = 0;
 		result = initial_one_var_file_in_mount_path(account, mount_path);
 		if (result != 0) {
 			if (!errno)
 				errno = EIO;
-			return -1;
+			goto failed;
 		}
 		var_info = read_whole_file(var_file);
 		if (!var_info) {
 			if (!errno)
 				errno = EIO;
-			return -1;
+			goto failed;
 		}
 	}
 
@@ -1261,6 +1302,14 @@ int set_permission(const char *account,
 	free(target);
 	free(var_info);
 	free(updated_info);
+	free_2_dimension_list(&acc_num, &account_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		errno = errno ? errno : EIO;
+		return -1;
+	}
+	transaction_started = 0;
+
 	if (!strcmp(protocol, "cifs"))
 		system("/sbin/run_samba");
 	return 0;
@@ -1268,6 +1317,13 @@ int set_permission(const char *account,
 unchanged:
 	free(target);
 	free(var_info);
+	free_2_dimension_list(&acc_num, &account_list);
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		errno = errno ? errno : EIO;
+		return -1;
+	}
+	transaction_started = 0;
 	return 0;
 
 failed:
@@ -1275,6 +1331,14 @@ failed:
 	free(target);
 	free(var_info);
 	free(updated_info);
+	free_2_dimension_list(&acc_num, &account_list);
+	if (transaction_started) {
+		errno = 0;
+		if (disk_share_account_nvram_end(&transaction) != 0)
+			logmessage("disk_share",
+				   "permission update transaction release failed (errno %d)",
+				   errno ? errno : EIO);
+	}
 	errno = saved_errno;
 	return -1;
 }

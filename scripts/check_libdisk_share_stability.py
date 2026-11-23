@@ -299,6 +299,25 @@ require(get_read < get_missing < get_denied_error and
         "errno = saved_errno;" in get_permission[get_denied_error - 80:get_denied_error + 40],
         "permission query must preserve no-grant on ENOENT but report metadata I/O errors")
 set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
+set_permission_compact = "".join(set_permission.split())
+set_accounts = set_permission_compact.index("get_account_list(&acc_num,&account_list)")
+set_account_lookup = set_permission_compact.index("strcmp(account,FTP_ANONYMOUS_USER)==0", set_accounts)
+set_begin = set_permission_compact.index("disk_share_account_nvram_begin(&transaction)", set_account_lookup)
+set_validate = set_permission_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    set_begin
+)
+set_read = set_permission_compact.index("var_info=read_whole_file(var_file)", set_validate)
+set_write = set_permission_compact.index("disk_share_replace_file_atomic(var_file", set_read)
+set_release = set_permission_compact.index("disk_share_account_nvram_end(&transaction)", set_write)
+set_reload = set_permission_compact.index('system("/sbin/run_samba")', set_release)
+require(set_accounts < set_account_lookup < set_begin < set_validate < set_read <
+        set_write < set_release < set_reload and
+        "if(!account_found)" in set_permission_compact and
+        "saved_errno=ENOENT;" in set_permission_compact and
+        "get_account_list(" not in set_permission_compact[set_begin:],
+        "permission updates must reject deleted accounts and serialize metadata read/modify/write under the shared account writer lease, releasing it before Samba reload")
+
 set_read = set_permission.index("var_info = read_whole_file(var_file);")
 set_enoent = set_permission.index("if (saved_errno != ENOENT)", set_read)
 set_init = set_permission.index("initial_one_var_file_in_mount_path(account, mount_path)", set_enoent)
