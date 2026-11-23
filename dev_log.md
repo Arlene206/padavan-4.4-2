@@ -1,5 +1,19 @@
 ## 2026-11-23 — Align Switch CLI checker with transactional VLAN-entry helper
 
+## 2026-11-23 — MT7530/VLAN reliability continuation
+
+- Current `main`: `d86e5b1d6aa745ba1db87ec21b153e35c80a4446`; backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Implemented/continued checked VLAN data-word + VTCR staging, retry-safe pool publication, status propagation, and table-before-port preflight; regression coverage includes injected MDIO failures.
+- Additional checked register work covers jumbo frames, broadcast storm control and LED mode, with cache updates only after successful hardware writes.
+- Exact-SHA Actions snapshot: **PENDING / not all checks completed**.
+- XY-C1 Firmware Validation: in_progress (run 45253098709)
+- NVRAM transaction boundary audit: in_progress (run 45253098328)
+- AI handoff documentation contract: completed/success (run 45253098335)
+- Switch CLI ioctl failure-status regression: completed/success (run 45253098429)
+- Next: propagate MDIO status through remaining port/PVID/ingress/attribute/accept helpers and verify XY-C1 on the new exact SHA.
+- No local firmware compile is claimed; use Actions results for build verification.
+
+
 - Exact Switch CLI #45252058892 on `59622f3c9612949ddd642fc738e02463f5400def` ran the host MDIO policy binary successfully, then failed in the Python source checker with `ValueError: substring not found`. The stale checker required direct `esw_write_vtcr(1, cvid)` and raw VAWD1/VAWD2 writes inside `esw_vlan_set()`.
 - Source commit `59622f3` intentionally factored VAWD1, VAWD2 and the VTCR wait into `mtk_esw_vlan_entry_apply()`; the helper test passed, and `g_vlan_pool` is published only after the transaction succeeds. Updated the checker to assert that helper call, its error gate, and the software-pool commit ordering.
 - On source SHA `59622f3`, NVRAM audit #45252058851 PASS and AI docs #45252059088 PASS. XY-C1 #45252058834 was still running at the last poll; exact Build/TRX/artifact status must be checked.

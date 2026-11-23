@@ -1,5 +1,21 @@
 # Cross-session execution mandate
 
+## 2026-11-23 continuation — current state
+
+- **main HEAD at handoff:** `d86e5b1d6aa745ba1db87ec21b153e35c80a4446` (`test(switch): cover staged VLAN entry failures`).
+- **Backup branch:** `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it was not modified.
+- **Code focus completed in this slice:** checked LAN wireless-selector snapshot before bridge side effects; MT7530 VLAN applied-state publication only after FDB flush succeeds; checked VTCR write/poll with bounded timeout and retry-preserving VLAN pool; VLAN data-word/VTCR staging helper; VLAN create/reset ioctl error propagation; VLAN table preflight before PVID/port setup; checked jumbo, storm-control and LED register paths with cache publication after hardware success.
+- **Latest regression work:** staged VLAN entry failure-injection coverage (VAWD1, VAWD2, VTCR write/read) and the exact-source Switch CI contract were aligned with `mtk_esw_vlan_entry_apply()`. Earlier exact-SHA Switch runs exposed stale source assertions; do not treat those failures as current production failures without checking the newer run.
+- **Exact-SHA Actions status for `d86e5b1d6aa745ba1db87ec21b153e35c80a4446`: PENDING / not all checks completed**
+- XY-C1 Firmware Validation: in_progress (run 45253098709)
+- NVRAM transaction boundary audit: in_progress (run 45253098328)
+- AI handoff documentation contract: completed/success (run 45253098335)
+- Switch CLI ioctl failure-status regression: completed/success (run 45253098429)
+- **Tests:** host regression cases are included in `.github/workflows/switch-cli-stability.yml`; actual result is governed by the exact-SHA Actions state above. Do not claim a local compile was run in this session.
+- **Next implementation task:** continue propagating checked MDIO errors through the remaining MT7530 port/PVID helpers (`esw_vlan_pvid_set`, `esw_port_matrix_set`, ingress/attribute/accept setters and their callers). Preserve GNU89/Linux 4.4/uClibc compatibility, update host fault-injection tests and the exact-source contract, then verify the XY-C1 firmware workflow on the resulting SHA.
+- **Working rule:** source change → relevant regression → one full Git tree/atomic commit → non-force `main` update with expected SHA → exact-SHA Actions. Pending Actions do not block independent work; failed checks must be diagnosed against their logs.
+
+
 ## 2026-11-23 continuation handoff (engineering parent main: 09ce12e4aa014d478ab78e9d05cea42d0cf1db60; fetch live main at takeover)
 
 ### Completed engineering slices and exact evidence
