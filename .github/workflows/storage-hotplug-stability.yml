@@ -77,6 +77,8 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+      - "trunk/user/rc/src/storage_home_link_policy.h"
+      - "trunk/user/rc/src/tests/storage_home_link_policy.c"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
       - "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
       - "trunk/user/scripts/tests/optware_lifecycle_startup.sh"
@@ -163,6 +165,8 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
       - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
+      - "trunk/user/rc/src/storage_home_link_policy.h"
+      - "trunk/user/rc/src/tests/storage_home_link_policy.c"
       - "trunk/user/scripts/tests/optware_lifecycle_lock.sh"
       - "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"
       - "trunk/user/scripts/tests/optware_lifecycle_startup.sh"
@@ -369,6 +373,11 @@ jobs:
             trunk/user/rc/src/tests/storage_ejected_inventory_policy.c \
             -o /tmp/storage-ejected-inventory
           /tmp/storage-ejected-inventory
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_home_link_policy.c \
+            -o /tmp/storage-home-link-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/storage-home-link-policy
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/libdisk/src \
             trunk/user/rc/src/tests/storage_swap_policy.c \
@@ -480,6 +489,8 @@ jobs:
           usb = (rc_dir / "services_usb.c").read_text()
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
           ejected_policy_test = (rc_dir / "tests/storage_ejected_inventory_policy.c").read_text()
+          home_link_policy = (rc_dir / "storage_home_link_policy.h").read_text()
+          home_link_test = (rc_dir / "tests/storage_home_link_policy.c").read_text()
           optware_policy = (rc_dir / "storage_optware_start_policy.h").read_text()
           optware_policy_test = (rc_dir / "tests/storage_optware_start_policy.c").read_text()
           storage_stop_policy = (rc_dir / "storage_service_stop_policy.h").read_text()
@@ -545,7 +556,22 @@ jobs:
           assert "storage_ejected_inventory_complete(" in stage
           assert "free_storage_ejected_partitions(head)" in stage
 
+          home_restore = function_body(storage, "restore_home_dir(void)")
+          assert "storage_home_link_restore_status(" in home_restore
+          assert 'unlink("/home/admin")' in home_restore
+          assert 'symlink("/home/root", "/home/admin")' in home_restore
+          assert "failed to restore /home/admin link to /home/root" in home_restore
+          assert home_restore.index('unlink("/home/admin")') < home_restore.index('symlink("/home/root", "/home/admin")')
+          assert "storage_home_link_restore_status" in home_link_policy
+          assert "storage home-directory link restoration status: PASS" in home_link_test
+
           eject = function_body(storage, "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)")
+          assert "home_status = restore_home_dir()" in eject
+          assert "if (home_status != 0)" in eject
+          assert "return restore_home_dir() == 0 ? 0 : -1;" in eject
+          eject_all = function_body(storage, "safe_remove_all_stor_devices(int do_spindown)")
+          assert "home_status = restore_home_dir()" in eject_all
+          assert "if (home_status != 0)" in eject_all
           stage_call = "storage_stage_ejected_partitions(&partitions)"
           unmount_loop = "for (entry = head; entry; entry = entry->next)"
           inactive_scan = "has_ejected_mounts = 1;"
@@ -729,6 +755,8 @@ jobs:
               "trunk/user/rc/src/tests/service_start_status.c",
               "trunk/user/rc/src/storage_ejected_inventory_policy.h",
               "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c",
+              "trunk/user/rc/src/storage_home_link_policy.h",
+              "trunk/user/rc/src/tests/storage_home_link_policy.c",
               "trunk/user/shared/src/process_inventory.h",
           )
           filters = workflow.split("jobs:", 1)[0]

@@ -69,6 +69,7 @@
 #include "storage_optware_start_policy.h"
 #include "storage_deferred_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
+#include "storage_home_link_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
 #include "storage_service_enable_policy.h"
@@ -4002,13 +4003,33 @@ storage_ejected_swap_file_is_on_ejected_mount(
 	return 0;
 }
 
-static void
+static int
 restore_home_dir(void)
 {
-	if (!check_if_dir_exist("/home/admin")) {
-		unlink("/home/admin");
-		symlink("/home/root", "/home/admin");
+	int unlink_status, unlink_error, symlink_status = 0, symlink_error = 0;
+	int status;
+
+	if (check_if_dir_exist("/home/admin"))
+		return 0;
+
+	errno = 0;
+	unlink_status = unlink("/home/admin");
+	unlink_error = errno;
+	if (unlink_status == 0 || unlink_error == ENOENT) {
+		errno = 0;
+		symlink_status = symlink("/home/root", "/home/admin");
+		symlink_error = errno;
 	}
+
+	status = storage_home_link_restore_status(
+		0, unlink_status, unlink_error, symlink_status, symlink_error);
+	if (status != 0) {
+		errno = status;
+		logmessage("Storage",
+			   "failed to restore /home/admin link to /home/root (status=%d)",
+			   status);
+	}
+	return status;
 }
 
 /* Retry failed physical-unplug cleanup without entering the app-start path. */
@@ -4047,7 +4068,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	int swapoff_status, swap_status;
 	int mount_read_error, mount_close_error, mount_parse_error;
 	int has_ejected_mounts, has_ejected_swaps, stop_status, rollback_status;
-	int mount_count, start_status;
+	int mount_count, start_status, home_status;
 	struct storage_ejected_mount_entry *head, *tail, *entry;
 	struct storage_ejected_partition_entry *partitions = NULL;
 	struct storage_ejected_swap_entry *swaps = NULL, *swap_entry;
@@ -4055,10 +4076,11 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	head = tail = NULL;
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
 	if (!procpt) {
-		saved_errno = errno;
+		saved_errno = errno ? errno : EIO;
 		logmessage("Storage", "cannot read %s for ejected-device cleanup (errno %d)",
 			   PROC_MOUNTS_FILE, saved_errno);
-		restore_home_dir();
+		(void)restore_home_dir();
+		errno = saved_errno;
 		return -1;
 	}
 
@@ -4099,25 +4121,30 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 		logmessage("Storage", "incomplete %s during ejected-device cleanup (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d)",
 			   PROC_MOUNTS_FILE, mount_read_error, mount_close_error,
 			   mount_parse_error);
+		saved_errno = errno ? errno : EIO;
 		free_storage_ejected_mounts(head);
-		restore_home_dir();
+		(void)restore_home_dir();
+		errno = saved_errno;
 		return -1;
 	}
 
 	if (storage_stage_ejected_swaps(&swaps) != 0) {
+		saved_errno = errno ? errno : EIO;
 		free_storage_ejected_mounts(head);
-		restore_home_dir();
+		(void)restore_home_dir();
+		errno = saved_errno;
 		return -1;
 	}
 	if (!head && !swaps) {
 		free_storage_ejected_swaps(swaps);
-		restore_home_dir();
-		return 0;
+		return restore_home_dir() == 0 ? 0 : -1;
 	}
 	if (storage_stage_ejected_partitions(&partitions) != 0) {
+		saved_errno = errno ? errno : EIO;
 		free_storage_ejected_mounts(head);
 		free_storage_ejected_swaps(swaps);
-		restore_home_dir();
+		(void)restore_home_dir();
+		errno = saved_errno;
 		return -1;
 	}
 
@@ -4151,8 +4178,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	if (!head && !has_ejected_swaps) {
 		free_storage_ejected_partitions(partitions);
 		free_storage_ejected_swaps(swaps);
-		restore_home_dir();
-		return 0;
+		return restore_home_dir() == 0 ? 0 : -1;
 	}
 
 	/*
@@ -4194,7 +4220,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 			free_storage_ejected_mounts(head);
 			free_storage_ejected_partitions(partitions);
 			free_storage_ejected_swaps(swaps);
-			restore_home_dir();
+			(void)restore_home_dir();
 			errno = saved_errno;
 			return -1;
 		}
@@ -4266,7 +4292,18 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 		}
 	}
 
-	restore_home_dir();
+	if (result != 0 && saved_errno == 0)
+		saved_errno = errno ? errno : EIO;
+	home_status = restore_home_dir();
+	if (home_status != 0) {
+		if (saved_errno == 0)
+			saved_errno = home_status;
+		result = -1;
+	}
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	else
+		errno = 0;
 	return result;
 }
 
@@ -5362,7 +5399,7 @@ safe_remove_all_stor_devices(int do_spindown)
 	int storage_lock;
 	disk_info_t *disks_info = NULL;
 	int path_status, fallback_status, mount_count;
-	int stop_status, rollback_status;
+	int stop_status, rollback_status, home_status;
 	int result = -1, saved_errno = 0;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -5418,7 +5455,13 @@ safe_remove_all_stor_devices(int do_spindown)
 		logmessage("Storage", "eject incomplete/unknown (unmount=%d fallback=%d mounts=%d); refusing storage persistence",
 			   path_status, fallback_status, mount_count);
 	}
-	restore_home_dir();
+	home_status = restore_home_dir();
+	if (home_status != 0) {
+		if (saved_errno == 0)
+			saved_errno = home_status;
+		if (result == 0)
+			result = -1;
+	}
 #if defined(APP_NFSD)
 	if (result == 0)
 		unload_nfsd();
