@@ -52,7 +52,9 @@ fake_read(void *context, unsigned int phy, unsigned int reg,
 		return fake->fail_status ? fake->fail_status : -EIO;
 	if (reg == MTK_ESW_MAC_TABLE_REG || reg == MTK_ESW_VLAN_TABLE_REG) {
 		if (fake->busy_forever || fake->busy_reads) {
-			*value = MTK_ESW_MAC_TABLE_BUSY_MASK;
+			*value = (reg == MTK_ESW_VLAN_TABLE_REG) ?
+				MTK_ESW_VLAN_TABLE_BUSY_MASK :
+				MTK_ESW_MAC_TABLE_BUSY_MASK;
 			if (fake->busy_reads)
 				fake->busy_reads--;
 		} else {

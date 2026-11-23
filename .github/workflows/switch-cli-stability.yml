@@ -725,6 +725,12 @@ jobs:
           assert "io->delay_us(context, MTK_ESW_VLAN_TABLE_POLL_DELAY_US)" in vlan_table_write
           assert "return -ETIMEDOUT;" in vlan_table_write
           assert "test_vlan_table_write_waits_for_idle_and_propagates_io_failures" in test
+          fake_read = test.split("fake_read(void *context", 1)[1].split(
+              "static int\\nfake_write", 1
+          )[0]
+          assert "(reg == MTK_ESW_VLAN_TABLE_REG) ?" in fake_read
+          assert "MTK_ESW_VLAN_TABLE_BUSY_MASK" in fake_read
+          assert "MTK_ESW_MAC_TABLE_BUSY_MASK" in fake_read
           vtcr = source.split("static int esw_write_vtcr", 1)[1].split(
               "static int esw_vlan_set", 1
           )[0]
