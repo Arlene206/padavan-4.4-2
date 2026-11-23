@@ -2,28 +2,33 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Parent of this handoff refresh: `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4`.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Parent of this handoff refresh: `ba4280cd91e149a6bde74c383cf4ab046f0ef313`.
 - Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; never update, switch to, merge, delete or rename.
 - Branch inventory at this checkpoint: only `main` and the frozen archive. Legacy PR #1 is closed and unmerged; no open PR. Do not create branches or PRs.
-- Current source baseline: `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4` (`fix(rc): reject invalid NAT helper boolean selectors`), parent `b8313201f520ecaa00f2bf76cb89821b208824c9`.
+- Current main baseline: `ba4280cd91e149a6bde74c383cf4ab046f0ef313`. Latest production-source change is `ce39930eee413d71e0227c7d59e8e539b18e9f98` (`fix(scutclient): reject unknown WAN link state in watchdog`); descendants `bcd5a1d` and `ba4280c` are source-contract/dev-log updates. Main contains the NAT helper, IPv6 NAT, SFE and SYN-cookie selector hardening described below.
 - No persistent local checkout is available. No local compile, local sanitizer, MIPS/uClibc build or physical hardware result is claimed.
 - Startup recovery has already been performed once. Do not repeat broad bootstrap or completed USB eject/MTK/WSD audits without new evidence.
 
 ## Active task
 
-Close exact-SHA validation for strict NVRAM boolean selectors used by `reload_nat_modules()`. The NAT helper snapshot previously interpreted every nonzero `wan_nat_x` as enabled and converted malformed PPTP/H.323/SIP ALG values to disabled unless they were exactly `1`. A corrupted value such as `2` could silently unload a configured helper during a reload.
+The active source slice is the SCUT watchdog hardening on `ce39930eee413d71e0227c7d59e8e539b18e9f98`:
 
-Source commit `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4` now enforces the supported empty/0/1 domain for all four selectors before publishing the snapshot or changing module state. Missing and empty values preserve the legacy disabled default. The GNU89 test exercises `2`, `-1` and malformed text in every selector and verifies the caller's previous snapshot remains untouched. The existing WAN route workflow compiles this policy using `-Wall -Wextra -Werror` and ASan/UBSan, then runs `scripts/check_nat_helper_settings.py`.
+- `scutclient_watchcat.sh` now uses `nvram get_checked` for watchdog enable, client enable, auth-flag and force-reauth selectors. Empty legacy defaults are preserved; backend errors and unsupported boolean values abort before client restart. Pre-06:00 empty force flag retains the legacy forced re-auth default.
+- It now checks the exit status of `mtk_esw 11`; an ioctl error is not misread as "WAN link up". Confirmed WAN-down still skips health probes.
+- Cleanup removes the PID file only when its contents equal this watchdog process's PID (`$$`), and retains a concurrent replacement marker. Test-harness NVRAM/log/barrier variables are exported.
+- The POSIX lifecycle regression covers NVRAM failures at all four reads, invalid toggles, legacy force defaults, PID replacement, WAN ioctl failure and WAN-down behavior.
 
-The previous firewall URL-schedule task is closed at L3: exact XY-C1 #45161165974 passed on source SHA `ad56220d066e771be499426708b6c2f744937467`, including Build XY-C1, TRX verification and artifact upload (artifact `14812541338`, 12,759,350 bytes). Do not repeat that task.
+Exact SCUT regression #45181478770 and AI handoff contract #45181478768 both PASS on exact main descendant `ba4280cd91e149a6bde74c383cf4ab046f0ef313`. Process inventory #45181232027 and AI docs #45181232286 PASS on source `ce39930`. XY-C1 #45181232264 is still IN_PROGRESS on that exact production-source SHA (Build running; TRX and artifact pending), so do not claim L3 until all three steps pass on the same SHA.
+
+Prior firewall URL-schedule source slice remains L3 VERIFIED: exact XY-C1 #45161165974 passed on source `ad56220d066e771be499426708b6c2f744937467`, Build, TRX and artifact upload included (artifact `14812541338`, 12,759,350 bytes). Do not repeat this closed task.
 
 ## Exact first action for the next GPT
 
-1. Poll these exact-source runs for `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4`: WAN route #45178293988, XY-C1 #45178294111, Process inventory #45178294031 and NVRAM boundary #45178294032. AI handoff contract #45178294028 already PASSed. If any test fails, inspect the corresponding job log and fix the actual issue; do not loosen the regression.
-2. Confirm the WAN route GNU89/Werror/ASan/UBSan binary and source contract pass. For L3, require Build XY-C1, TRX verification and artifact upload all PASS on the same source SHA; record the artifact ID/name/size. Until then, mark L3 PENDING.
-3. While runs are pending, continue an independent P1 stability/security task from the roadmap, preferably outside the heavily exercised Wireless/HTTPD/DHCP paths. Never wait idle or repeat a closed audit without new evidence.
+1. Poll exact XY-C1 run #45181232264 on `ce39930eee413d71e0227c7d59e8e539b18e9f98`. Require Build XY-C1, TRX verification and artifact upload all PASS, then record artifact ID/name/size. It is the latest product-source descendant covering the NAT helper, IPv6 NAT, SFE (including lower-level mode validation), SYN-cookie and SCUT watchdog product sources.
+2. SCUT PID/NVRAM/link-state host regression #45181478770 and AI handoff contract #45181478768 PASS on current main `ba4280c`; Process inventory #45181232027 and AI handoff #45181232286 PASS on `ce39930`. No hardware L4 claim. Do not re-run closed host workflows without new source changes.
+3. Continue a new P1 stability/security source task from the roadmap outside the currently active WAN/ZeroTier/HTTPD work. The process lifecycle queue still has independent callers; identify a concrete discarded return/error before editing, and add a focused regression. While XY is pending, do not wait idle.
 
-## Exact-SHA CI facts at the parent baseline
+## Relevant exact-SHA CI facts
 
 - Product-source `ad56220d066e771be499426708b6c2f744937467`: WAN DHCP callback #45161165802 PASS. Its first Firewall Startup run #45161165818 failed at a stale inline test-name assertion after earlier checked-NVRAM/lifecycle/startup/enable/static-route stages passed; corrected checker-only descendant db60 has Firewall Startup #45161387113 PASS and AI docs #45161387099 PASS. XY-C1 #45161165974 was IN_PROGRESS at Build XY-C1; TRX and artifact pending.
 - LAN networkmap-retry source `edeb1e8354a97b312d8f3f5dd8787af030abfc6d`: WAN DHCP callback #45160239807 PASS on descendant cbec; XY-C1 #45160010405 PASS on exact edeb for Build, TRX verification and artifact upload. Artifact ID 14811585463, name `XY-C1-firmware-edeb1e8354a97b312d8f3f5dd8787af030abfc6d`, 12,759,150 bytes. This is L3 for product source through edeb, not for later product source ad562.
@@ -32,6 +37,54 @@ The previous firewall URL-schedule task is closed at L3: exact XY-C1 #4516116597
 - Exact XY-C1 #45160240051 on cbec was host-only: Build/TRX/artifact were skipped, so it is not L3 evidence. Do not reuse it.
 
 ## Completed source slices to preserve
+
+### SCUT watchdog checked-NVRAM and process-safety source slice
+
+- Source SHA `ce39930eee413d71e0227c7d59e8e539b18e9f98`: SCUT watchdog regression #45181232164 first failed only because the workflow still expected the removed legacy `nvram get` source marker; after the checked-read source-order assertion was corrected, the shell PID/NVRAM/link-state regression passed in #45181232164 but the remaining PID cleanup assertion still expected a literal `# SESSION HANDOFF — 2026-11-23
+
+## Current repository state
+
+- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Parent of this handoff refresh: `ba4280cd91e149a6bde74c383cf4ab046f0ef313`.
+- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; never update, switch to, merge, delete or rename.
+- Branch inventory at this checkpoint: only `main` and the frozen archive. Legacy PR #1 is closed and unmerged; no open PR. Do not create branches or PRs.
+- Current main baseline: `ba4280cd91e149a6bde74c383cf4ab046f0ef313`. Latest production-source change is `ce39930eee413d71e0227c7d59e8e539b18e9f98` (`fix(scutclient): reject unknown WAN link state in watchdog`); descendants `bcd5a1d` and `ba4280c` are source-contract/dev-log updates. Main contains the NAT helper, IPv6 NAT, SFE and SYN-cookie selector hardening described below.
+- No persistent local checkout is available. No local compile, local sanitizer, MIPS/uClibc build or physical hardware result is claimed.
+- Startup recovery has already been performed once. Do not repeat broad bootstrap or completed USB eject/MTK/WSD audits without new evidence.
+
+## Active task
+
+The active source slice is the SCUT watchdog hardening on `ce39930eee413d71e0227c7d59e8e539b18e9f98`:
+
+- `scutclient_watchcat.sh` now uses `nvram get_checked` for watchdog enable, client enable, auth-flag and force-reauth selectors. Empty legacy defaults are preserved; backend errors and unsupported boolean values abort before client restart. Pre-06:00 empty force flag retains the legacy forced re-auth default.
+- It now checks the exit status of `mtk_esw 11`; an ioctl error is not misread as "WAN link up". Confirmed WAN-down still skips health probes.
+- Cleanup removes the PID file only when its contents equal this watchdog process's PID (`$$`), and retains a concurrent replacement marker. Test-harness NVRAM/log/barrier variables are exported.
+- The POSIX lifecycle regression covers NVRAM failures at all four reads, invalid toggles, legacy force defaults, PID replacement, WAN ioctl failure and WAN-down behavior.
+
+Exact SCUT regression #45181478770 and AI handoff contract #45181478768 both PASS on exact main descendant `ba4280cd91e149a6bde74c383cf4ab046f0ef313`. Process inventory #45181232027 and AI docs #45181232286 PASS on source `ce39930`. XY-C1 #45181232264 is still IN_PROGRESS on that exact production-source SHA (Build running; TRX and artifact pending), so do not claim L3 until all three steps pass on the same SHA.
+
+Prior firewall URL-schedule source slice remains L3 VERIFIED: exact XY-C1 #45161165974 passed on source `ad56220d066e771be499426708b6c2f744937467`, Build, TRX and artifact upload included (artifact `14812541338`, 12,759,350 bytes). Do not repeat this closed task.
+
+## Exact first action for the next GPT
+
+1. Poll exact XY-C1 run #45181232264 on `ce39930eee413d71e0227c7d59e8e539b18e9f98`. Require Build XY-C1, TRX verification and artifact upload all PASS, then record artifact ID/name/size. It is the latest product-source descendant covering the NAT helper, IPv6 NAT, SFE (including lower-level mode validation), SYN-cookie and SCUT watchdog product sources.
+2. SCUT PID/NVRAM/link-state host regression #45181478770 and AI handoff contract #45181478768 PASS on current main `ba4280c`; Process inventory #45181232027 and AI handoff #45181232286 PASS on `ce39930`. No hardware L4 claim. Do not re-run closed host workflows without new source changes.
+3. Continue a new P1 stability/security source task from the roadmap outside the currently active WAN/ZeroTier/HTTPD work. The process lifecycle queue still has independent callers; identify a concrete discarded return/error before editing, and add a focused regression. While XY is pending, do not wait idle.
+
+## Relevant exact-SHA CI facts
+
+- Product-source `ad56220d066e771be499426708b6c2f744937467`: WAN DHCP callback #45161165802 PASS. Its first Firewall Startup run #45161165818 failed at a stale inline test-name assertion after earlier checked-NVRAM/lifecycle/startup/enable/static-route stages passed; corrected checker-only descendant db60 has Firewall Startup #45161387113 PASS and AI docs #45161387099 PASS. XY-C1 #45161165974 was IN_PROGRESS at Build XY-C1; TRX and artifact pending.
+- LAN networkmap-retry source `edeb1e8354a97b312d8f3f5dd8787af030abfc6d`: WAN DHCP callback #45160239807 PASS on descendant cbec; XY-C1 #45160010405 PASS on exact edeb for Build, TRX verification and artifact upload. Artifact ID 14811585463, name `XY-C1-firmware-edeb1e8354a97b312d8f3f5dd8787af030abfc6d`, 12,759,150 bytes. This is L3 for product source through edeb, not for later product source ad562.
+- WAN ARP source-MAC parser regression #45159476012 PASS on c98; edeb is a later product-source descendant and has the above same-SHA XY-C1 pass.
+- Wireless source-contract regression #45158308492 PASS on af80. XY-C1 #45156939135 PASS on product SHA `0e4976cfbe86c81f5172ce2256ed71801952682d` for Build/TRX/artifact; later product-source XY #45160010405 on edeb includes that wireless implementation.
+- Exact XY-C1 #45160240051 on cbec was host-only: Build/TRX/artifact were skipped, so it is not L3 evidence. Do not reuse it.
+
+. Workflow assertion correction commit `ba4280cd91e149a6bde74c383cf4ab046f0ef313` changed it to `$`; exact SCUT #45181478770 then PASS, AI handoff #45181478768 PASS, Process #45181232027 PASS. XY-C1 #45181232264 on ce399 remained IN_PROGRESS as of this handoff. No claim of firmware artifact or L4 hardware until that exact run completes.
+
+### NVRAM selector stability chain
+
+- NAT helper selectors source `3e5bcc5b81fc4ebca8ab9a58d6f7d1495bdca2b4`: WAN route #45178293988, Process #45178294031, NVRAM boundary #45178294032 and AI docs #45178294028 all PASS; exact XY-C1 #45178294111 PASS, including Build/TRX/artifact.
+- IPv6 NAT selector source `eeaefd869d1bfc8b0eea168e9674242cf8c6bd44`: WAN route #45178885851, Process #45178885839, AI docs #45178885949 and XY-C1 #45178886032 PASS (Build/TRX/artifact). SFE selector range and lower-level policy source `5348b38a00aafd4c64a2c19380801e92aec46a48` / `3a6cb1a370b3073e6a736b4e5405edc8813421bc`: NVRAM #45179216366 and Process #45179926371 PASS; XY-C1 #45179216075 PASS on 5348; exact descendant XY #45179926387 still pending at last poll, with later descendant #45181232264 used to close product-source verification.
+- SYN-cookie strict selector source `9eadb3c1e07eebef480a366a882158ee8a3c8d9c`: WAN route #45179723265, Process #45179723106, AI docs #45179723263 and XY-C1 #45179723319 PASS. XY artifact ID `14821522264`, name `XY-C1-firmware-9eadb3c1e07eebef480a366a882158ee8a3c8d9c`, size 12,760,059 bytes. NVRAM boundary check #45179723165 was cancelled; the later descendant NVRAM audit #45179926278 PASS.
 
 ### MTK ESW / switch / PHY
 
