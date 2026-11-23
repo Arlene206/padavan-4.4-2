@@ -2094,6 +2094,7 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 {
 	int result, i, saved_errno, first_error = 0;
 	int acc_num = 0, transaction_started = 0;
+	int rename_applied = 0, rollback_error = 0;
 	char **account_list = NULL;
 	struct nvram_transaction transaction;
 	char var_file[256];
@@ -2206,17 +2207,9 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 
 	if (rename(full_path, new_full_path) != 0)
 		goto failed;
-	if (initial_folder_list_in_mount_path(mount_path) != 0) {
-		saved_errno = errno ? errno : EIO;
-		if (rename(new_full_path, full_path) != 0)
-			logmessage("disk_share", "cannot roll back folder rename after list publication failure");
-		errno = saved_errno;
+	rename_applied = 1;
+	if (initial_folder_list_in_mount_path(mount_path) != 0)
 		goto failed;
-	}
-	free(full_path);
-	full_path = NULL;
-	free(new_full_path);
-	new_full_path = NULL;
 
 	/* Keep processing independent accounts even when one file is damaged. */
 	for (i = 0; i < acc_num; ++i) {
@@ -2260,6 +2253,37 @@ unchanged:
 
 failed:
 	saved_errno = errno ? errno : EIO;
+	if (rename_applied) {
+		/*
+		 * Reverse every successful per-account rewrite. Missing new-name
+		 * rows are harmless, so this also handles a failure on the first
+		 * account without needing a separate changed-file counter.
+		 */
+		rollback_error = 0;
+		for (i = 0; i < acc_num; ++i) {
+			if (disk_share_update_folder_permission_file(
+				    mount_path, account_list[i], new_target, target) != 0 &&
+				    rollback_error == 0)
+				rollback_error = errno ? errno : EIO;
+		}
+		if (disk_share_update_folder_permission_file(
+			    mount_path, FTP_ANONYMOUS_USER, new_target, target) != 0 &&
+		    rollback_error == 0)
+			rollback_error = errno ? errno : EIO;
+
+		if (rename(new_full_path, full_path) != 0 &&
+		    rollback_error == 0)
+			rollback_error = errno ? errno : EIO;
+		if (initial_folder_list_in_mount_path(mount_path) != 0 &&
+		    rollback_error == 0)
+			rollback_error = errno ? errno : EIO;
+		if (rollback_error != 0) {
+			logmessage("disk_share",
+				   "folder rename compensation incomplete (errno %d)",
+				   rollback_error);
+			saved_errno = EIO;
+		}
+	}
 	free(target);
 	free(new_target);
 	free(full_path);

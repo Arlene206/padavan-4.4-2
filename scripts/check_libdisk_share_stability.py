@@ -925,12 +925,21 @@ mod_permissions = mod_folder_compact.index(
     "disk_share_update_folder_permission_file(mount_path,account_list[i],target,new_target)",
     mod_rename
 )
-mod_release = mod_folder_compact.index("disk_share_account_nvram_end(&transaction)", mod_permissions)
+mod_reverse = mod_folder_compact.index(
+    "disk_share_update_folder_permission_file(mount_path,account_list[i],new_target,target)",
+    mod_permissions
+)
+mod_rename_rollback = mod_folder_compact.index("rename(new_full_path,full_path)", mod_reverse)
+mod_snapshot_restore = mod_folder_compact.index(
+    "initial_folder_list_in_mount_path(mount_path)", mod_rename_rollback
+)
+mod_release = mod_folder_compact.index("disk_share_account_nvram_end(&transaction)", mod_snapshot_restore)
 require(mod_accounts < mod_begin < mod_validate < mod_live_check < mod_refresh <
-        mod_rename < mod_permissions < mod_release and
+        mod_rename < mod_permissions < mod_reverse < mod_rename_rollback <
+        mod_snapshot_restore < mod_release and
         "get_account_list(" not in mod_folder_compact[mod_begin:] and
         "add_folder(mount_path,folder)" not in mod_folder_compact,
-        "folder rename must revalidate the account snapshot and all live folder state under one writer lease through permission-file publication")
+        "folder rename must serialize account state and compensate permission rows, directory rename and folder snapshot after partial failure")
 
 permission_update = function_body(
     DISK_SOURCE, "static int\ndisk_share_update_folder_permission_file("
