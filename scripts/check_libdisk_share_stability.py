@@ -548,6 +548,9 @@ for marker in (
             "service reload regression is defined but not executed: " + marker)
 
 
+require("sizeof(((structdisk_share_account_created_file_entry*)0)->mount_path)" in "".join(add_account_body.split()),
+        "add_account must validate mount-path length against the complete fixed-size destination buffer")
+
 require("disk_share_account_created_files_rollback" in POLICY and
         "unlink_path(entry->path)" in "".join(POLICY.split()),
         "new account metadata must support compensating removal after failed NVRAM publication")

@@ -1270,7 +1270,7 @@ int add_account(const char *const account, const char *const password)
 					break;
 				}
 				if (strlen(follow_partition->mount_point) >=
-				    sizeof(files_tail ? files_tail->mount_path : ((struct disk_share_account_created_file_entry *)0)->mount_path)) {
+				    sizeof(((struct disk_share_account_created_file_entry *)0)->mount_path)) {
 					first_error = ENAMETOOLONG;
 					break;
 				}
