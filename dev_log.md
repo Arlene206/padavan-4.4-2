@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Update HTTPD umbrella contract for checked firewall schedule calls
+
+- HTTPD authentication/security run #45162166214 on code SHA 444674117db122af04538cff330777f5421dd0e4 passed all HTTPD auth/upload/route contracts, then failed in its shared firewall source audit at inline Python line 831. That umbrella checker still required two direct `if (timematch_conv(...))` calls which were deliberately replaced in ad562 by explicit `url_schedule_status = timematch_conv(...)` handling so NVRAM errors can abort the staged IPv4/IPv6 restore.
+- Updated the umbrella contract to require both checked call sites and both negative-error gates. The dedicated Firewall Startup source-order contract remains stronger and still verifies abort/cleanup/return before rule publication. No production code changed in this checker-only repair; exact HTTPD rerun required.
+
+---
 ## 2026-11-23 UTC — Keep scheduled actions on the last valid timezone
 
 - Found an unchecked NVRAM access in `watchdog.c:timecheck_reboot()`: unlike the checked timezone setup used by PID 1, this scheduler still called `nvram_safe_get("time_zone_x")` and overwrote process `TZ` with an empty value on a backend error. The resulting local-time comparison could trigger a configured reboot/update at the wrong wall-clock time. The same function also ignored `time()` failure and could evaluate an uninitialized timestamp.
