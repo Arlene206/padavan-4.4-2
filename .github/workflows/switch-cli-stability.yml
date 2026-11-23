@@ -1213,6 +1213,38 @@ jobs:
           print("FE TX-amplitude checked I/O, bounded search, chip offsets and cleanup: PASS")
           PY
 
+      - name: Validate FE TX-offset MDIX calibration checks MDIO and cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          mdix = source.split("void fe_cal_tx_offset_mdix(u8 port_num, u32 delay)", 1)[1].split(
+              chr(10) + "static int set_r50_leopard_checked(", 1
+          )[0]
+          for legacy in (
+              "tc_phy_read_l_reg(", "tc_phy_write_l_reg(",
+              "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+              "all_fe_ana_cal_wait("
+          ):
+              assert legacy not in mdix, legacy
+          assert mdix.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_calibration_code_step(" in mdix
+          assert "fe_cal_tx_offset_flag_mdix = 0;" in mdix
+          assert "0x3f00U" in mdix
+          assert "clear_ckinv_ana_txvos_checked()" in mdix
+          assert mdix.index("cleanup:") < mdix.index("if (calibration_completed)")
+          assert mdix.index("if (status != 0)") < mdix.index("fe_cal_tx_offset_flag_mdix = 1;")
+          compact = " ".join(mdix.split())
+          for cleanup in (
+              "tc_phy_write_page_reg_checked( port_num, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( FE_CAL_COMMON, 3U, 25U, 1, 0U)",
+              "tc_phy_write_page_reg_checked( port_num, 1U, 26U, 0, 0U)"
+          ):
+              assert cleanup in compact, cleanup
+          print("FE TX-offset MDIX checks paged MDIO/waits and programs explicit bounded fallback: PASS")
+          PY
+
       - name: Validate FE TX offset calibration checks MDIO and cleanup
         run: |
           python3 - <<'PY'
