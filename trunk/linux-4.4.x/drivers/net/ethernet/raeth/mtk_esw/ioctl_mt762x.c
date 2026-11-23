@@ -2154,13 +2154,20 @@ int esw_ioctl_init_post(void)
 int esw_get_traffic_port_wan(struct rtnl_link_stats64 *stats)
 {
 	ULARGE_INTEGER rx_goct, tx_goct;
+	int status;
 
-	rx_goct.u.LowPart = esw_get_port_mib_rgoc(WAN_PORT_X, &rx_goct.u.HighPart);
-	tx_goct.u.LowPart = esw_get_port_mib_tgoc(WAN_PORT_X, &tx_goct.u.HighPart);
+	if (!stats)
+		return -EINVAL;
+
+	status = esw_get_port_mib_rgoc(WAN_PORT_X, &rx_goct);
+	if (status != 0)
+		return status;
+	status = esw_get_port_mib_tgoc(WAN_PORT_X, &tx_goct);
+	if (status != 0)
+		return status;
 
 	stats->rx_packets = esw_get_port_mib_rgpc(WAN_PORT_X);
 	stats->tx_packets = esw_get_port_mib_tgpc(WAN_PORT_X);
-
 	stats->rx_bytes = rx_goct.QuadPart;
 	stats->tx_bytes = tx_goct.QuadPart;
 

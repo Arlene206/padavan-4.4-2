@@ -969,7 +969,7 @@ jobs:
           assert "io->write(context, phy_addr, reg, value)" in register_write
           assert "return mtk_esw_link_mode_io_error(status);" in register_write
           assert "test_register_write_propagates_mdio_failures" in test
-          assert "mtk_esw_register_update_bits(" in source[source.index("static int esw_led_mode"):source.index("static u32 esw_status_link_port")]
+          assert "mtk_esw_register_update_bits(" in source[source.index("static int esw_led_mode"):source.index("static int esw_status_link_port")]
           led_change = source[source.index("static int change_led_mode"):source.index("int esw_ioctl_init_post")]
           assert led_change.index("status = esw_led_mode(led_mode)") < led_change.index("g_led_phy_mode = led_mode;")
           assert "g_led_mode_applied && g_led_phy_mode == led_mode" in led_change
@@ -1143,6 +1143,16 @@ jobs:
           assert "*mibc = snapshot;" in mib_status
           assert "*pb = snapshot;" in mib_status
           assert "return status;" in mib_status
+
+          wan_traffic = source.split("int esw_get_traffic_port_wan", 1)[1].split(
+              "EXPORT_SYMBOL(esw_get_traffic_port_wan)", 1
+          )[0]
+          assert "if (!stats)" in wan_traffic
+          assert "status = esw_get_port_mib_rgoc(" in wan_traffic
+          assert "status = esw_get_port_mib_tgoc(" in wan_traffic
+          assert wan_traffic.index("if (status != 0)") < wan_traffic.index("stats->rx_packets")
+          tx_read = wan_traffic.index("status = esw_get_port_mib_tgoc(")
+          assert wan_traffic.index("if (status != 0)", tx_read) < wan_traffic.index("stats->rx_packets")
 
           for ioctl_case, next_case in (
               ("case MTK_ESW_IOCTL_STATUS_LINK_PORT:", "case MTK_ESW_IOCTL_STATUS_LINK_PORTS_WAN:"),
