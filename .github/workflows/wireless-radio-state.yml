@@ -234,7 +234,7 @@ jobs:
           assert '"TxPower"' in prepare_on and "doSystem(" in prepare_on
           assert "return status;" in prepare_on
           publish = function_body(source, mii_helpers[3])
-          assert "status = mlme_state_rt(\"mlme_radio_rt\", !!is_on);" in publish
+          assert "status = mlme_state_rt(!!is_on);" in publish
           assert "if (status != 0)" in publish
           assert publish.index("if (status != 0)") < publish.index("LED_CONTROL(")
           assert "return status;" in publish and "return 0;" in publish

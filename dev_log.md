@@ -1,3 +1,12 @@
+## 2026-11-23 07:15 UTC — Correct wireless MLME source-contract assertion
+
+- A post-commit diff review found one stale assertion in `.github/workflows/wireless-radio-state.yml`: the MII publish callback now calls the status-returning `mlme_state_rt(!!is_on)`, but the checker expected the removed two-argument direct `nvram_set_int` call.
+- Corrected the assertion to match the actual helper invocation. This follow-up changes no production source; it prevents a false-negative source-contract test and ensures CI checks the intended checked writer.
+- Source implementation remains in `6deab04c8fe625abd785447a7a558d45eebf7766`. Exact-head Actions had not appeared at the last query; rerun on THIS COMMIT is required. No local test or firmware build is claimed.
+- Resulting checker/handoff/roadmap update: THIS COMMIT.
+
+---
+
 ## 2026-11-23 07:13 UTC — Propagate MLME radio-state publication failures
 
 - The classic 5GHz and non-MII 2.4GHz MLME radio paths issued the driver `RadioOn` command, then called `mlme_state_*()` which discarded `nvram_set_int()` failure. LEDs and the reported success state could therefore advance while the cached runtime radio state remained stale.
