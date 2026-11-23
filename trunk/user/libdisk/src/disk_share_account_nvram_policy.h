@@ -576,6 +576,229 @@ finish:
 }
 
 /*
+ * Revalidate one account update against the live inventory while the caller
+ * owns the exclusive NVRAM transaction. The full snapshot check serializes
+ * rename/password updates with add and delete operations.
+ */
+static inline int
+disk_share_account_inventory_update_validate_locked(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int max_count, char *const *expected_users,
+	int target, const char *old_account, const char *new_account)
+{
+	char http_username[128], key[24], current_user[128];
+	int result, current_count, key_length, i, j;
+
+	if (!ops || !ops->get || !ops->valid_name || !ops->reserved_name ||
+	    !expected_users || !old_account || expected_count < 1 ||
+	    expected_count > max_count || target < 0 || target >= expected_count) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (strcmp(expected_users[target], old_account) != 0) {
+		errno = EAGAIN;
+		return -1;
+	}
+	if (new_account && *new_account &&
+	    (!ops->valid_name(new_account) ||
+	     ops->reserved_name(new_account, NULL))) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	result = router_account_nvram_read_count(
+		ops->get, context, "acc_num", max_count, &current_count);
+	if (result != 0) {
+		errno = result;
+		return -1;
+	}
+	if (current_count != expected_count) {
+		errno = EAGAIN;
+		return -1;
+	}
+	result = router_account_nvram_read_copy(
+		ops->get, context, "http_username", "", http_username,
+		sizeof(http_username));
+	if (result != 0) {
+		errno = result;
+		return -1;
+	}
+	if (new_account && *new_account &&
+	    ops->reserved_name(new_account, http_username)) {
+		errno = EPERM;
+		return -1;
+	}
+
+	for (i = 0; i < expected_count; ++i) {
+		if (!expected_users[i] || !ops->valid_name(expected_users[i]) ||
+		    ops->reserved_name(expected_users[i], http_username)) {
+			errno = EINVAL;
+			return -1;
+		}
+		if (new_account && *new_account && i != target &&
+		    strcmp(expected_users[i], new_account) == 0) {
+			errno = EEXIST;
+			return -1;
+		}
+		for (j = 0; j < i; ++j) {
+			if (strcmp(expected_users[j], expected_users[i]) == 0) {
+				errno = EINVAL;
+				return -1;
+			}
+		}
+		key_length = snprintf(key, sizeof(key), "acc_username%d", i);
+		if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		result = router_account_nvram_read_copy(
+			ops->get, context, key, "", current_user,
+			sizeof(current_user));
+		if (result != 0) {
+			errno = result;
+			return -1;
+		}
+		if (strcmp(current_user, expected_users[i]) != 0) {
+			errno = EAGAIN;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * Apply a rename and/or password change while the caller holds the account
+ * writer transaction. Preserve absent password keys and compensate setters
+ * that may have taken effect even when the ioctl/close reports failure.
+ */
+static inline int
+disk_share_account_inventory_update_locked(
+	const struct disk_share_account_nvram_ops *ops, void *context,
+	int expected_count, int max_count, char *const *expected_users,
+	int target, const char *old_account, const char *new_account,
+	const char *new_password)
+{
+	char username_key[24], password_key[24];
+	char old_username[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+	char old_password[DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
+	char *value = NULL;
+	int rename_required, password_update, password_present = 0;
+	int status, result, saved_errno = 0, rollback_errno = 0;
+	int commit_required = 0, username_attempted = 0;
+	int password_attempted = 0, key_length;
+
+	rename_required = new_account && *new_account &&
+		strcmp(new_account, old_account) != 0;
+	password_update = new_password && *new_password;
+	if (!ops || !ops->get || !ops->set || !ops->commit ||
+	    !old_account || (!rename_required && !password_update) ||
+	    (password_update &&
+	     strlen(new_password) >= DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX)) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (disk_share_account_inventory_update_validate_locked(
+		    ops, context, expected_count, max_count, expected_users,
+		    target, old_account, rename_required ? new_account : NULL) != 0)
+		return -1;
+
+	if (strlen(old_account) >= sizeof(old_username)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	strcpy(old_username, old_account);
+	key_length = snprintf(username_key, sizeof(username_key),
+			      "acc_username%d", target);
+	if (key_length < 0 || (size_t)key_length >= sizeof(username_key)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	key_length = snprintf(password_key, sizeof(password_key),
+			      "acc_password%d", target);
+	if (key_length < 0 || (size_t)key_length >= sizeof(password_key)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	if (password_update) {
+		errno = 0;
+		status = ops->get(context, password_key, &value);
+		if (status < 0) {
+			saved_errno = errno ? errno : EIO;
+			goto finish;
+		}
+		if (status == 1 && value) {
+			if (strlen(value) >= sizeof(old_password)) {
+				saved_errno = ENAMETOOLONG;
+				goto finish;
+			}
+			strcpy(old_password, value);
+			password_present = 1;
+		} else if (status != 0) {
+			saved_errno = EIO;
+			goto finish;
+		}
+	}
+
+	value = NULL;
+	errno = 0;
+	status = ops->get(context, "nvram_manual", &value);
+	if (disk_share_account_commit_required(
+		    status, value, &commit_required) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finish;
+	}
+
+	if (rename_required) {
+		username_attempted = 1;
+		errno = 0;
+		if (ops->set(context, username_key, new_account) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+	}
+	if (password_update) {
+		password_attempted = 1;
+		errno = 0;
+		if (ops->set(context, password_key, new_password) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+	}
+	if (commit_required) {
+		errno = 0;
+		if (ops->commit(context) != 0) {
+			saved_errno = errno ? errno : EIO;
+			goto rollback;
+		}
+	}
+	goto finish;
+
+rollback:
+	if (password_attempted) {
+		result = ops->set(context, password_key,
+				  password_present ? old_password : NULL);
+		if (result != 0 && rollback_errno == 0)
+			rollback_errno = errno ? errno : EIO;
+	}
+	if (username_attempted &&
+	    ops->set(context, username_key, old_username) != 0 &&
+	    rollback_errno == 0)
+		rollback_errno = errno ? errno : EIO;
+	if (commit_required && ops->commit(context) != 0 && rollback_errno == 0)
+		rollback_errno = errno ? errno : EIO;
+	if (rollback_errno != 0)
+		saved_errno = EIO;
+
+finish:
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
+}
+
+/*
  * Remove an account from one exclusive NVRAM transaction. Revalidate the
  * caller's inventory under the writer lease, snapshot every overwritten
  * value, and compensate all writes if a setter or flash commit fails.

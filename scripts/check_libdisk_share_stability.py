@@ -461,6 +461,43 @@ for token in (
     require(token in add_policy_compact,
             "transactional account creation is missing rollback/commit protection: " + token)
 
+account_update_tests = (
+    "test_account_inventory_update_renames_and_changes_password_atomically",
+    "test_account_inventory_update_supports_password_only_and_manual_commit",
+    "test_account_inventory_update_rejects_duplicate_reserved_and_stale",
+    "test_account_inventory_update_rolls_back_ambiguous_setters",
+    "test_account_inventory_update_rolls_back_failed_commit_and_absent_password",
+    "test_account_inventory_update_rejects_snapshot_and_manual_read_errors",
+)
+for marker in account_update_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing transactional account-update regression: " + marker)
+for marker in account_update_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "transactional account-update regression is defined but not executed: " + marker)
+
+update_validate_body = function_body(
+    ACCOUNT_POLICY, "disk_share_account_inventory_update_validate_locked("
+)
+update_validate_compact = "".join(update_validate_body.split())
+require("current_count!=expected_count" in update_validate_compact and
+        "strcmp(current_user,expected_users[i])!=0" in update_validate_compact and
+        "strcmp(expected_users[i],new_account)==0" in update_validate_compact,
+        "account updates must reject stale inventories and duplicate destinations")
+update_policy_body = function_body(
+    ACCOUNT_POLICY, "disk_share_account_inventory_update_locked("
+)
+update_policy_compact = "".join(update_policy_body.split())
+for token in (
+    "ops->set(context,username_key,new_account)",
+    "ops->set(context,password_key,new_password)",
+    "rollback:",
+    "password_present?old_password:NULL",
+    "disk_share_account_commit_required(",
+):
+    require(token in update_policy_compact,
+            "transactional account updates are missing compensation/commit policy: " + token)
+
 account_delete_tests = (
     "test_account_inventory_remove_compacts_under_one_transaction",
     "test_account_inventory_remove_defaults_last_account_modes",
@@ -545,6 +582,23 @@ modify_body = function_body(
     DISK_SOURCE, "int mod_account(const char *const account, const char *const new_account, const char *const new_password)"
 )
 modify_compact = "".join(modify_body.split())
+modify_inventory = modify_compact.index("get_account_list(&acc_num,&account_list)")
+modify_disk_preflight = modify_compact.index("read_disk_data_checked(&disk_list)")
+modify_begin = modify_compact.index("disk_share_account_nvram_begin(&transaction)")
+modify_validate = modify_compact.index("disk_share_account_inventory_update_validate_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,account,rename_required?new_account:NULL)")
+modify_rename = modify_compact.index("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)")
+modify_publish = modify_compact.index("disk_share_account_inventory_update_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list,account_order,rename_required?new_account:NULL,password_update?new_password:NULL)")
+modify_rollback = modify_compact.index("disk_share_account_rename_entries_rollback(moves,rename,&rollback_error)", modify_publish)
+modify_end = modify_compact.index("disk_share_account_nvram_end(&transaction)", modify_rollback)
+modify_reload = modify_compact.index('system("/sbin/run_ftpsamba")', modify_end)
+require(modify_inventory < modify_disk_preflight < modify_begin < modify_validate <
+        modify_rename < modify_publish < modify_rollback < modify_end < modify_reload and
+        "nvram_set(" not in modify_body and
+        "nvram_set_int(" not in modify_body and
+        "nvram_commit_safe(" not in modify_body and
+        "nvram_get_checked(" not in modify_body,
+        "mod_account must revalidate a stable identity snapshot under one writer lease, serialize filesystem/NVRAM rename or password changes, and reload services only after release")
+
 require("password_update=new_password!=NULL&&*new_password;" in modify_compact and
         "if(first_error==0&&password_update)" in modify_compact and
         "if(first_error==0&&nvram_commit_safe()!=0)" in modify_compact and

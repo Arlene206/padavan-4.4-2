@@ -1539,6 +1539,162 @@ test_account_inventory_add_reports_rollback_failure(void)
 	assert(fake.commit_calls == 1);
 }
 
+static int
+fake_account_inventory_update_run(struct fake_account_delete_nvram *fake,
+				  int expected_count, int max_count,
+				  char *const *expected_users, int target,
+				  const char *old_account, const char *new_account,
+				  const char *new_password)
+{
+	int result, saved_errno, end_result, end_errno;
+
+	if (fake_account_delete_begin(fake) != 0)
+		return -1;
+	if (disk_share_account_inventory_update_validate_locked(
+		    &fake_account_delete_ops, fake, expected_count, max_count,
+		    expected_users, target, old_account,
+		    new_account && *new_account &&
+		    strcmp(new_account, old_account) ? new_account : NULL) != 0) {
+		result = -1;
+	} else {
+		result = disk_share_account_inventory_update_locked(
+			&fake_account_delete_ops, fake, expected_count, max_count,
+			expected_users, target, old_account, new_account,
+			new_password);
+	}
+	saved_errno = errno;
+	errno = 0;
+	end_result = fake_account_delete_end(fake);
+	end_errno = errno;
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+	if (end_result != 0) {
+		errno = end_errno ? end_errno : EIO;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_account_inventory_update_renames_and_changes_password_atomically(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 1, "bob", "robert", "robert-secret") == 0);
+	assert(strcmp(fake.usernames[1], "robert") == 0);
+	assert(strcmp(fake.passwords[1], "robert-secret") == 0);
+	assert(strcmp(fake.count, "3") == 0);
+	assert(fake.begin_calls == 1 && fake.end_calls == 1);
+	assert(fake.commit_calls == 1);
+}
+
+static void
+test_account_inventory_update_supports_password_only_and_manual_commit(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	strcpy(fake.manual, "1");
+	fake.manual_present = 1;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", NULL, "new-secret") == 0);
+	assert(strcmp(fake.usernames[0], "alice") == 0);
+	assert(strcmp(fake.passwords[0], "new-secret") == 0);
+	assert(fake.commit_calls == 0);
+}
+
+static void
+test_account_inventory_update_rejects_duplicate_reserved_and_stale(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	errno = 0;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", "bob", NULL) == -1);
+	assert(errno == EEXIST && fake.set_calls == 0);
+
+	fake_account_delete_init_three(&fake);
+	errno = 0;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", "root", NULL) == -1);
+	assert(errno == EPERM && fake.set_calls == 0);
+
+	fake_account_delete_init_three(&fake);
+	strcpy(fake.usernames[0], "mallory");
+	errno = 0;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", "anna", NULL) == -1);
+	assert(errno == EAGAIN && fake.set_calls == 0);
+}
+
+static void
+test_account_inventory_update_rolls_back_ambiguous_setters(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+	int failure;
+
+	for (failure = 1; failure <= 2; ++failure) {
+		fake_account_delete_init_three(&fake);
+		fake.fail_set_call = failure;
+		errno = 0;
+		assert(fake_account_inventory_update_run(
+			&fake, 3, 4, users, 0, "alice", "anna", "new-secret") == -1);
+		assert(errno == EACCES);
+		assert(strcmp(fake.usernames[0], "alice") == 0);
+		assert(strcmp(fake.passwords[0], "alice-secret") == 0);
+		assert(fake.commit_calls == 1);
+	}
+}
+
+static void
+test_account_inventory_update_rolls_back_failed_commit_and_absent_password(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	fake.password_present[0] = 0;
+	fake.passwords[0][0] = '\0';
+	fake.fail_commit_count = 1;
+	errno = 0;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", "anna", "new-secret") == -1);
+	assert(errno == EIO);
+	assert(strcmp(fake.usernames[0], "alice") == 0);
+	assert(!fake.password_present[0]);
+	assert(fake.commit_calls == 2);
+}
+
+static void
+test_account_inventory_update_rejects_snapshot_and_manual_read_errors(void)
+{
+	struct fake_account_delete_nvram fake;
+	char *users[3] = { "alice", "bob", "carol" };
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_get_call = 9;
+	errno = 0;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", NULL, "new-secret") == -1);
+	assert(errno == EACCES && fake.set_calls == 0);
+
+	fake_account_delete_init_three(&fake);
+	fake.fail_get_call = 10;
+	errno = 0;
+	assert(fake_account_inventory_update_run(
+		&fake, 3, 4, users, 0, "alice", NULL, "new-secret") == -1);
+	assert(errno == EACCES && fake.set_calls == 0);
+}
+
 static void
 test_account_inventory_remove_compacts_under_one_transaction(void)
 {
@@ -1773,6 +1929,12 @@ main(void)
 	test_account_inventory_add_rolls_back_each_failed_setter();
 	test_account_inventory_add_rolls_back_failed_commit();
 	test_account_inventory_add_reports_rollback_failure();
+	test_account_inventory_update_renames_and_changes_password_atomically();
+	test_account_inventory_update_supports_password_only_and_manual_commit();
+	test_account_inventory_update_rejects_duplicate_reserved_and_stale();
+	test_account_inventory_update_rolls_back_ambiguous_setters();
+	test_account_inventory_update_rolls_back_failed_commit_and_absent_password();
+	test_account_inventory_update_rejects_snapshot_and_manual_read_errors();
 	test_account_inventory_remove_compacts_under_one_transaction();
 	test_account_inventory_remove_defaults_last_account_modes();
 	test_account_inventory_remove_rolls_back_last_account_mode_setter();
