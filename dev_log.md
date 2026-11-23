@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Reject invalid NAT helper boolean selectors
+
+- `reload_nat_modules()` consumes `wan_nat_x` and the PPTP/H.323/SIP ALG switches before unloading or loading kernel helpers. The snapshot parser accepted every integer for `wan_nat_x`, while ALG values other than exactly `1` silently became disabled; a corrupted selector such as `2` could therefore disable a configured helper during reload.
+- Added strict empty/0/1-compatible boolean parsing for all four selectors. Missing keys and empty legacy values remain disabled; any other numeric or malformed value aborts the entire snapshot before publishing settings or changing module state. Added GNU89 regression cases for `2`, `-1` and malformed text in every selector, including preservation of the caller's prior snapshot.
+- The existing WAN route workflow already compiles the regression with GNU89, `-Wall -Wextra -Werror`, ASan/UBSan and runs the source-order contract. Exact-head WAN route and XY-C1 Build/TRX/artifact validation are required; no local run or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Fail closed on invalid DNSMasq static-ARP selector
 
 - The static-host NVRAM snapshot parsed `dhcp_static_arp` as an arbitrary integer and copied it to `i_arp_bind`; any nonzero value enabled static ARP binding, although the web UI only exposes values `0` and `1`. A corrupted value such as `2` or `-1` could silently activate ARP bindings.

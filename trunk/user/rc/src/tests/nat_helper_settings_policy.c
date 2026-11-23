@@ -199,6 +199,37 @@ test_invalid_integer_and_oversized_value_do_not_publish_settings(void)
 }
 
 static void
+test_boolean_selectors_reject_unknown_values_without_publishing(void)
+{
+	static const int selector_indices[] = { 0, 3, 4, 5 };
+	static const char *const invalid_values[] = { "2", "-1", "1junk" };
+	unsigned int i, j;
+
+	for (i = 0; i < sizeof(selector_indices) / sizeof(selector_indices[0]); ++i) {
+		for (j = 0; j < sizeof(invalid_values) / sizeof(invalid_values[0]); ++j) {
+			struct fake_nvram fake;
+			struct rc_nat_helper_settings settings;
+			struct rc_nat_helper_settings before;
+
+			fake_init(&fake);
+			fake.values[selector_indices[i]] = invalid_values[j];
+			settings.wan_nat_x = 1;
+			settings.ftp0_port = 2121;
+			settings.ftp1_port = 2021;
+			settings.pptp_enabled = 1;
+			settings.h323_enabled = 1;
+			settings.sip_enabled = 1;
+			before = settings;
+
+			assert(rc_nat_helper_settings_read(0, fake_begin, fake_get, fake_end,
+						   &fake, &settings) == EINVAL);
+			assert(fake.begin_calls == 1 && fake.end_calls == 1);
+			assert(memcmp(&settings, &before, sizeof(settings)) == 0);
+		}
+	}
+}
+
+static void
 test_ap_mode_reads_only_wan_nat_selector(void)
 {
 	struct fake_nvram fake;
@@ -237,6 +268,7 @@ main(void)
 	test_each_snapshot_read_error_preserves_current_module_decisions();
 	test_transaction_close_error_preserves_current_module_decisions();
 	test_invalid_integer_and_oversized_value_do_not_publish_settings();
+	test_boolean_selectors_reject_unknown_values_without_publishing();
 	test_ap_mode_reads_only_wan_nat_selector();
 	test_invalid_arguments_fail_closed();
 	puts("NAT helper module setting snapshot: PASS");

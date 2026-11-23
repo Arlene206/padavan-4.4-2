@@ -15,6 +15,24 @@ struct rc_nat_helper_settings {
 	int sip_enabled;
 };
 
+/* Boolean NVRAM selectors must not turn an unknown value into "disabled". */
+static inline int
+rc_nat_helper_parse_boolean_value(const char *text, int *value)
+{
+	int parsed;
+	int status;
+
+	if (!value)
+		return EINVAL;
+	status = rc_wan_nvram_parse_int_value(text, &parsed);
+	if (status != 0)
+		return status;
+	if (parsed != 0 && parsed != 1)
+		return EINVAL;
+	*value = parsed;
+	return 0;
+}
+
 /*
  * Read the complete NAT-helper selector tuple under one NVRAM transaction.
  * On any read/close/validation error, leave the published settings untouched
@@ -39,6 +57,7 @@ rc_nat_helper_settings_read(int is_ap_mode,
 	int parsed[3] = {0, 0, 0};
 	struct rc_nat_helper_settings result;
 	unsigned int field_count, integer_count, i;
+	int pptp_enabled = 0, h323_enabled = 0, sip_enabled = 0;
 	int status;
 
 	if (!settings || (is_ap_mode != 0 && is_ap_mode != 1) ||
@@ -65,9 +84,23 @@ rc_nat_helper_settings_read(int is_ap_mode,
 					 integer_count, parsed);
 	if (status != 0)
 		return status;
+	if (parsed[0] != 0 && parsed[0] != 1)
+		return EINVAL;
+
+	if (!is_ap_mode) {
+		status = rc_nat_helper_parse_boolean_value(values[3], &pptp_enabled);
+		if (status != 0)
+			return status;
+		status = rc_nat_helper_parse_boolean_value(values[4], &h323_enabled);
+		if (status != 0)
+			return status;
+		status = rc_nat_helper_parse_boolean_value(values[5], &sip_enabled);
+		if (status != 0)
+			return status;
+	}
 
 	memset(&result, 0, sizeof(result));
-	result.wan_nat_x = parsed[0] != 0;
+	result.wan_nat_x = parsed[0];
 	if (!is_ap_mode) {
 		result.ftp0_port = parsed[1];
 		result.ftp1_port = parsed[2];
@@ -75,9 +108,9 @@ rc_nat_helper_settings_read(int is_ap_mode,
 			result.ftp0_port = 0;
 		if (result.ftp1_port < 1024 || result.ftp1_port > 65535)
 			result.ftp1_port = 0;
-		result.pptp_enabled = (strcmp(values[3], "1") == 0);
-		result.h323_enabled = (strcmp(values[4], "1") == 0);
-		result.sip_enabled = (strcmp(values[5], "1") == 0);
+		result.pptp_enabled = pptp_enabled;
+		result.h323_enabled = h323_enabled;
+		result.sip_enabled = sip_enabled;
 	}
 
 	*settings = result;

@@ -50,9 +50,11 @@ for key in ("nf_alg_ftp0", "nf_alg_ftp1", "nf_alg_pptp", "nf_alg_h323", "nf_alg_
 for marker in (
     "rc_wan_nvram_copy_snapshot(fields, field_count",
     "rc_wan_nvram_parse_int_snapshot(integer_texts",
-    'strcmp(values[3], "1") == 0',
-    'strcmp(values[4], "1") == 0',
-    'strcmp(values[5], "1") == 0',
+    "rc_nat_helper_parse_boolean_value(const char *text, int *value)",
+    "if (parsed[0] != 0 && parsed[0] != 1)",
+    "rc_nat_helper_parse_boolean_value(values[3], &pptp_enabled)",
+    "rc_nat_helper_parse_boolean_value(values[4], &h323_enabled)",
+    "rc_nat_helper_parse_boolean_value(values[5], &sip_enabled)",
 ):
     assert marker in policy, marker
 
@@ -62,6 +64,7 @@ for case in (
     "test_each_snapshot_read_error_preserves_current_module_decisions",
     "test_transaction_close_error_preserves_current_module_decisions",
     "test_invalid_integer_and_oversized_value_do_not_publish_settings",
+    "test_boolean_selectors_reject_unknown_values_without_publishing",
     "test_ap_mode_reads_only_wan_nat_selector",
     "NAT helper module setting snapshot: PASS",
 ):
