@@ -768,10 +768,12 @@ create_if_no_var_files_with_accounts(const char *const mount_path,
 
 
 int
+int
 create_if_no_var_files(const char *const mount_path)
 {
-	int acc_num = 0, result, saved_errno;
+	int acc_num = 0, result, saved_errno = 0, end_errno;
 	char **account_list = NULL;
+	struct nvram_transaction transaction;
 
 	if (!mount_path || !*mount_path) {
 		errno = EINVAL;
@@ -783,11 +785,38 @@ create_if_no_var_files(const char *const mount_path)
 		errno = saved_errno;
 		return -1;
 	}
+
+	if (disk_share_account_nvram_begin(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finished;
+	}
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto release;
+	}
+
 	result = create_if_no_var_files_with_accounts(
 		mount_path, acc_num, account_list);
-	saved_errno = result != 0 ? (errno ? errno : EIO) : 0;
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+
+release:
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		end_errno = errno ? errno : EIO;
+		if (saved_errno == 0)
+			saved_errno = end_errno;
+		else
+			logmessage("disk_share",
+				   "metadata initialization transaction release failed (errno %d)",
+				   end_errno);
+	}
+
+finished:
 	free_2_dimension_list(&acc_num, &account_list);
-	if (result != 0) {
+	if (saved_errno != 0) {
 		errno = saved_errno;
 		return -1;
 	}

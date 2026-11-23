@@ -211,8 +211,11 @@ create_all = function_body(
     DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"
 )
 require("get_account_list(&acc_num, &account_list)" in create_all and
-        "create_if_no_var_files_with_accounts(mount_path, acc_num, account_list)" in create_all,
-        "public incremental metadata initialization must snapshot accounts once and delegate to its snapshot worker")
+        "disk_share_account_nvram_begin(&transaction)" in create_all and
+        "disk_share_account_inventory_matches_locked(" in create_all and
+        "create_if_no_var_files_with_accounts(mount_path, acc_num, account_list)" in create_all and
+        "disk_share_account_nvram_end(&transaction)" in create_all,
+        "public incremental metadata initialization must serialize its owned account snapshot through permission-file publication")
 create_with_accounts = function_body(
     DISK_SOURCE, "create_if_no_var_files_with_accounts("
 )
