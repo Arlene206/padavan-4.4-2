@@ -697,6 +697,16 @@ test_vlan_entry_apply_stops_on_each_failed_stage(void)
 	}
 
 	fake_init(&fake);
+	fake.fail_at = 0U;
+	fake.fail_status = 1;
+	assert(mtk_esw_vlan_entry_apply(0x94U, 0x98U,
+					MTK_ESW_VLAN_TABLE_REG, 27U,
+					0x12345678U, 0x87654321U,
+					&fake_ops, &fake) == -EIO);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].reg == 0x94U);
+
+	fake_init(&fake);
 	assert(mtk_esw_vlan_entry_apply(0x94U, 0x98U,
 					MTK_ESW_VLAN_TABLE_REG, 4096U,
 					1U, 2U, &fake_ops, &fake) == -EINVAL);

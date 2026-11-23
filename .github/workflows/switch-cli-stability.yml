@@ -773,8 +773,10 @@ jobs:
           vlan_set = source.split("static int esw_vlan_set", 1)[1].split(
               "static int esw_vlan_reset_table", 1
           )[0]
-          assert "REG_ESW_VLAN_VAWD1" in vlan_set and "REG_ESW_VLAN_VAWD2" in vlan_set
-          assert vlan_set.index("status = esw_write_vtcr(1, cvid)") < vlan_set.index("set_bit(cvid, g_vlan_pool)")
+          assert "mtk_esw_vlan_entry_apply(" in vlan_set
+          assert "REG_ESW_VLAN_VAWD1" not in vlan_set and "REG_ESW_VLAN_VAWD2" not in vlan_set
+          assert "status = esw_write_vtcr(1, cvid)" not in vlan_set
+          assert vlan_set.index("mtk_esw_vlan_entry_apply(") < vlan_set.index("set_bit(cvid, g_vlan_pool)")
           vlan_reset = source.split("static int esw_vlan_reset_table", 1)[1].split(
               "static int is_vlan_rule_included", 1
           )[0]
