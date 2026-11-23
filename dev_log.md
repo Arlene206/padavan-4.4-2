@@ -1,3 +1,13 @@
+## 2026-11-23 UTC — Fail closed when QMI WDS client-ID publication fails
+
+- `uqmi`'s `--get-client-id wds` path previously called `fopen("/tmp/qmi-client-id", "w+")`, then ignored `fprintf()` and `fclose()` failures while returning success. `qmi_service_get_client_id()` marks the client ID persistent, so the daemon could keep a QMI client allocation even when its only recovery record was never published.
+- Added `uqmi_status_file_write()`: writes into a private 0600 `mkstemp()` staging file, checks owner/type/link/mode, handles short writes and EINTR, checks fsync/close, and atomically renames only after success. Failure leaves an existing destination untouched and removes the staging file. If client ID publication fails, uqmi calls `qmi_service_release_client_id()` before exiting so `qmi_device_close()` releases the newly allocated CID.
+- `qmi_control_network_start()` now checks the uqmi process exit status and strictly refuses to continue with `--keep-client-id` unless the newly published client ID is readable. This prevents a transient file write failure from silently proceeding with an untracked persistent WDS CID.
+- Added GNU89/ASan/UBSan tests for atomic replacement, 0600 ownership/mode, symlink-target preservation, failed-rename cleanup and invalid paths; local test PASS. Added exact USB modem workflow compilation/source-contract steps. Exact-head USB modem, Process, NVRAM/AI and XY-C1 checks are pending on the resulting SHA; no L3/L4 claim.
+- Parent main SHA: `bea2a85c96271c494076510ea06b96065d7c0b75`; source, test, workflow, roadmap and handoff changes are one atomic commit.
+
+---
+
 ## 2026-11-23 UTC — Require confirmed readiness from the forked p910nd printer daemon
 
 - Found that standalone `p910nd` forks in its server path and exits the parent with status zero before the child acquires the per-port lock or binds the printer socket. `start_p910nd()` therefore treated a successful launcher parent as proof of a live spooler; child startup failures were silently acknowledged.

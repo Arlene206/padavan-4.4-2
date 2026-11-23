@@ -2,29 +2,30 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. The only branches are `main` and the frozen `backup/pre-plugin-overhaul-2026-11-14`; the backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be changed.
-- Parent before this p910nd readiness slice: `4e0351691b5076817137a0ff5551f610c9c17bc2`.
-- Samba account-snapshot parity source `a311a4d92d43db04958a44a52912a2a66befd6ed`, followed by GNU89 test-order correction `4e0351691b5076817137a0ff5551f610c9c17bc2`: Samba #45209802441, HTTPD #45209802591, Process inventory #45209802627, AI docs #45209802642 and Samba parity #45209512265 all PASS on their recorded exact SHAs. NVRAM #45209802375 was still in progress at last poll.
-- Earlier U2EC/LPRng readiness fix `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory #45207830503, USB modem #45207830717, NVRAM #45207830836 and AI docs #45207830375 PASS; checker corrections `c8920ca` and `e0451c0` were validated by Process #45208311957 PASS, AI #45208311790 PASS and USB storage #45209095493 PASS. XY-C1 #45207830678 subsequently passed Build, TRX verification and artifact upload on source `8fa162a`; this does not validate the new p910nd change.
-- No persistent local checkout or MIPS/uClibc toolchain was available. No local target build or hardware L4 result is claimed.
+- Repository: `Arlene206/padavan-4.4-2`; writable branch `main` only. Parent before this QMI WDS client-ID reliability slice: `bea2a85c96271c494076510ea06b96065d7c0b75`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve unchanged.
+- Latest source SHA before this work, `bea2a85c96271c494076510ea06b96065d7c0b75`, extended post-exec readiness to p910nd. Its exact Process fail-closed #45210393886, Process inventory #45210393909, USB storage #45210396834, NVRAM #45210393769, AI docs #45210393826 and USB modem #45210393790 all PASS. XY-C1 #45210393797 was still IN_PROGRESS at the last poll; do not claim p910nd L3 until Build, TRX and artifact all PASS on the same SHA.
+- U2EC/LPRng post-exec readiness source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process fail-closed #45208311957 PASS, USB storage #45209095493 PASS, AI #45208311790 PASS; XY-C1 #45207830678 completed Build, TRX verification and artifact upload successfully. This is L3 CI verification for the U2EC/LPRng source slice on 8fa, not for later p910nd additions.
+- Samba account-snapshot parity source `a311a4d92d43db04958a44a52912a2a66befd6ed` plus test compatibility correction `4e0351691b5076817137a0ff5551f610c9c17bc2`: Samba, HTTPD, Process and AI exact checks passed; NVRAM was still pending at the last observation.
+- No persistent local checkout, target MIPS/uClibc toolchain or hardware L4 validation is available. The standalone GNU89/ASan/UBSan QMI status-file test was compiled and run locally from the same helper/test sources and passed.
 
 ## Active task
 
-- THIS COMMIT extends confirmed post-exec readiness to raw USB printing (`p910nd`). The standalone p910nd path forks and its parent exits zero before the child obtains its lock and binds the printer socket. `start_p910nd()` now checks for the daemon's renamed `p9100d` process using the existing bounded, fail-closed process-inventory postcondition. Launch errors remain authoritative; a missing or UNKNOWN child now propagates a startup error rather than acknowledging a dead spooler.
-- The Process workflow contract checks the p910nd fork/parent-exit behavior, argv[0] rename and readiness-gate ordering; p910nd source is added to both push and pull-request path filters. The generic detached-daemon GNU89/ASan/UBSan regression covers RUNNING, delayed appearance, timeout, UNKNOWN and interrupted waits.
-- Exact-head Process, USB storage, AI documentation and XY-C1 checks for THIS p910nd source SHA are pending at commit creation. L3 requires Build + TRX + artifact upload PASS on the same production-source SHA.
+- Confirmed QMI client-ID reliability defect: `uqmi --get-client-id wds` used `fopen("w+")`, then ignored write/close errors while returning success. `qmi_service_get_client_id()` sets the service's keep-CID bit, so a failed or partial file write could strand a persistent WDS client ID without a recovery record. Parent `qmi_control_network_start()` also ignored the command's exit status and continued even if no readable ID was saved, eventually starting a WDS session with `--keep-client-id` but no tracked CID.
+- THIS COMMIT adds atomic 0600 QMI status-file publication via mkstemp/write/fsync/close/rename; on client-ID publish failure it marks the service CID for release before the device closes. The parent now requires a successful uqmi command and readable CID before continuing. Tests cover replacement, restrictive mode/owner, destination symlink, failed rename cleanup and invalid paths.
 
-## Exact first action for the next GPT
+## Exact first actions for next GPT
 
-1. Read live main and poll the exact Actions SHA for THIS p910nd commit: Process fail-closed, USB storage, AI handoff and XY-C1. Treat each result separately; require all three XY-C1 product steps on this SHA before claiming L3.
-2. If any exact-SHA check fails, inspect its job log and repair the failing source or stale contract without weakening behavior assertions. If XY-C1 is pending, continue another independent stability/security source slice.
-3. Keep main-only expected-SHA atomic commits, preserve the frozen backup, and update this handoff with the exact resulting SHA and observed Actions outcomes.
+1. Poll exact-SHA USB modem identity/QMI workflow, Process inventory/fail-closed, NVRAM audit, AI docs and XY-C1 created by THIS commit. Repair genuine failures or stale contracts without relaxing behavior assertions.
+2. Require same-SHA XY-C1 Build + TRX verification + artifact upload for any L3 claim on this QMI source. Continue independent work if firmware is pending.
+3. Poll p910nd source SHA `bea2a85c96271c494076510ea06b96065d7c0b75` XY-C1 #45210393797; its host workflows already passed exact-SHA. Update p910nd L3 only after all three product steps succeed.
+4. Continue next independent P1/P2 reliability/security code slice beyond the completed RStats, U2EC/LPRng, Samba account-parity and p910nd readiness work.
 
 ## Relevant exact-SHA CI facts
 
-- Previous U2EC/LPRng process-readiness behavior is verified by Process #45208311957 PASS on `c8920caabc88c7f107c2c5240dab0bfaab38783b`; the inline checker was subsequently aligned with the USB-storage caller graph, and USB storage #45209095493 PASS on `e0451c001b6e40d23d8d25e6cfb6e4d5f191bcd5`.
-- XY-C1 #45207830678 on the earlier U2EC/LPRng production source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8` completed Build, TRX verification and artifact upload successfully. It is not evidence for this p910nd source.
-- Main before THIS commit was `4e0351691b5076817137a0ff5551f610c9c17bc2`; current-source updates must use a fresh expected-SHA check. No force push, branches or PRs.
+- p910nd `bea2a85c96271c494076510ea06b96065d7c0b75`: Process #45210393886, Process inventory #45210393909, Storage #45210396834, NVRAM #45210393769, AI #45210393826 and USB modem #45210393790 PASS; XY-C1 #45210393797 IN_PROGRESS at Build on last poll.
+- U2EC/LPRng `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process #45208311957 and AI #45208311790 PASS on checker descendant `c8920ca`; Storage #45209095493 PASS on checker descendant `e0451c0`; XY-C1 #45207830678 completed Build, TRX and artifact successfully on production source 8fa.
+- The current QMI source/test/workflow changes have not yet been pushed or run; parent main is `bea2a85c96271c494076510ea06b96065d7c0b75`.
 
 
 ## Completed source slices to preserve

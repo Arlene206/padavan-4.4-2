@@ -9,6 +9,7 @@
 
 #include "uqmi.h"
 #include "commands.h"
+#include "uqmi-status-file.h"
 
 static struct blob_buf status;
 static char uqmi_command_buffer[2048];
@@ -52,8 +53,7 @@ cmd_version_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg
 static enum qmi_cmd_result
 cmd_get_client_id_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
-	FILE *fp;
-	int qmi_client_id;
+	int qmi_client_id, saved_errno;
 	QmiService svc = qmi_service_get_by_name(arg);
 
 	if (svc < 0) {
@@ -67,11 +67,23 @@ cmd_get_client_id_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct q
 	}
 
 	qmi_client_id = qmi_service_get_client_id(qmi, svc);
+	if (qmi_client_id < 0) {
+		errno = EIO;
+		qmi_service_release_client_id(qmi, svc);
+		fprintf(stderr, "Failed to obtain a valid WDS client ID\n");
+		return QMI_CMD_EXIT;
+	}
 
-	fp = fopen("/tmp/qmi-client-id", "w+");
-	if (fp) {
-		fprintf(fp, "%d", qmi_client_id);
-		fclose(fp);
+	if (uqmi_status_file_write("/tmp/qmi-client-id",
+				   (unsigned long)qmi_client_id) < 0) {
+		saved_errno = errno > 0 ? errno : EIO;
+		/* get_client_id() marks the CID persistent; release it if its
+		 * only recovery record could not be safely published. */
+		qmi_service_release_client_id(qmi, svc);
+		errno = saved_errno;
+		fprintf(stderr, "Failed to publish WDS client ID: %s\n",
+			strerror(saved_errno));
+		return QMI_CMD_EXIT;
 	}
 
 	printf("%d\n", qmi_client_id);

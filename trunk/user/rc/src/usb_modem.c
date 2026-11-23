@@ -868,11 +868,22 @@ qmi_control_network_start(const char *device_path)
 			"/bin/uqmi", "-d", (char *)device_path,
 			"--get-client-id", "wds", NULL
 		};
-		_eval(client_argv, NULL, 0, NULL);
+		status = _eval(client_argv, NULL, 0, NULL);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "uqmi failed to acquire and persist WDS client ID (status=%d); refusing network start",
+				   status);
+			goto done;
+		}
 	}
 	qmi_client_id = get_qmi_handle(QMI_CLIENT_ID);
-	if (qmi_client_id >= 0)
-		snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
+	if (qmi_client_id < 0) {
+		status = EIO;
+		logmessage(LOGNAME,
+			   "uqmi reported success without a readable WDS client ID; refusing to keep an untracked CID");
+		goto done;
+	}
+	snprintf(client_id_arg, sizeof(client_id_arg), "wds,%d", qmi_client_id);
 
 	unlink(QMI_HANDLE_PDH);
 	for (i = 0; i < MAX_QMI_TRIES; i++) {
