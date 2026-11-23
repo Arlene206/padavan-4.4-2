@@ -409,6 +409,37 @@ for marker in commit_policy_tests:
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "NVRAM commit policy regression is defined but not executed: " + marker)
 
+
+account_mode_tests = (
+    "test_account_mode_policy_defaults_missing_values",
+    "test_account_mode_policy_preserves_supported_modes",
+    "test_account_mode_policy_rejects_backend_and_malformed_values",
+)
+for marker in account_mode_tests:
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing checked account mode regression: " + marker)
+for marker in account_mode_tests:
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "account mode regression is defined but not executed: " + marker)
+require("disk_share_account_mode_needs_default" in ACCOUNT_POLICY and
+        "parsed<INT_MIN||parsed>INT_MAX" in "".join(ACCOUNT_POLICY.split()),
+        "last-account mode policy must reject invalid backend values and integer overflow")
+
+del_mode_body = function_body(
+    DISK_SOURCE, "int del_account(const char *const account)"
+)
+del_mode_compact = "".join(del_mode_body.split())
+samba_mode_read = 'nvram_get_checked("st_samba_mode",&mode_value)'
+ftp_mode_read = 'nvram_get_checked("st_ftp_mode",&mode_value)'
+require(samba_mode_read in del_mode_compact and ftp_mode_read in del_mode_compact and
+        del_mode_compact.count("disk_share_account_mode_needs_default(") == 2 and
+        'nvram_get_int("st_samba_mode")' not in del_mode_body and
+        'nvram_get_int("st_ftp_mode")' not in del_mode_body and
+        del_mode_compact.index(samba_mode_read) < del_mode_compact.index("nvram_set_int(\"st_samba_mode\",1)") and
+        del_mode_compact.index(ftp_mode_read) < del_mode_compact.index("nvram_set_int(\"st_ftp_mode\",1)") and
+        "mode_reads_ok" in del_mode_compact,
+        "last-account removal must check both mode reads before changing either share-mode setting")
+
 require("disk_share_account_commit_required" in ACCOUNT_POLICY,
         "account persistence policy must preserve the legacy manual-commit rule")
 

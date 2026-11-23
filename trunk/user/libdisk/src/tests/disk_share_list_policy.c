@@ -766,6 +766,62 @@ test_account_commit_policy_rejects_inconsistent_results(void)
 }
 
 
+static void
+test_account_mode_policy_defaults_missing_values(void)
+{
+	int needs_default = -1;
+
+	assert(disk_share_account_mode_needs_default(0, NULL,
+		&needs_default) == 0);
+	assert(needs_default == 1);
+}
+
+static void
+test_account_mode_policy_preserves_supported_modes(void)
+{
+	int needs_default = -1;
+
+	assert(disk_share_account_mode_needs_default(1, "1",
+		&needs_default) == 0);
+	assert(needs_default == 0);
+	assert(disk_share_account_mode_needs_default(1, "3",
+		&needs_default) == 0);
+	assert(needs_default == 0);
+	assert(disk_share_account_mode_needs_default(1, "0",
+		&needs_default) == 0);
+	assert(needs_default == 1);
+	assert(disk_share_account_mode_needs_default(1, "4",
+		&needs_default) == 0);
+	assert(needs_default == 1);
+}
+
+static void
+test_account_mode_policy_rejects_backend_and_malformed_values(void)
+{
+	int needs_default = -1;
+
+	errno = EBUSY;
+	assert(disk_share_account_mode_needs_default(-1, NULL,
+		&needs_default) == -1);
+	assert(errno == EBUSY);
+	assert(disk_share_account_mode_needs_default(2, "1",
+		&needs_default) == -1);
+	assert(errno == EIO);
+	assert(disk_share_account_mode_needs_default(1, NULL,
+		&needs_default) == -1);
+	assert(errno == EIO);
+	assert(disk_share_account_mode_needs_default(1, "1x",
+		&needs_default) == -1);
+	assert(errno == EINVAL);
+	assert(disk_share_account_mode_needs_default(1, "999999999999999999999999",
+		&needs_default) == -1);
+	assert(errno == EINVAL);
+	assert(disk_share_account_mode_needs_default(1, "1",
+		NULL) == -1);
+	assert(errno == EINVAL);
+}
+
+
 int
 main(void)
 {
@@ -813,6 +869,9 @@ main(void)
 	test_account_commit_policy_preserves_manual_commit_setting();
 	test_account_commit_policy_rejects_read_errors();
 	test_account_commit_policy_rejects_inconsistent_results();
+	test_account_mode_policy_defaults_missing_values();
+	test_account_mode_policy_preserves_supported_modes();
+	test_account_mode_policy_rejects_backend_and_malformed_values();
 
 	return 0;
 }

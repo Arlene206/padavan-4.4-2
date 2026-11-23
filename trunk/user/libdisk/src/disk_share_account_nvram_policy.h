@@ -2,6 +2,7 @@
 #define PADAVAN_DISK_SHARE_ACCOUNT_NVRAM_POLICY_H
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -266,6 +267,47 @@ disk_share_account_commit_required(int read_status, const char *manual_value,
 		return -1;
 	}
 	*commit_required = (atoi(manual_value) != 1);
+	return 0;
+}
+
+/*
+ * Last-account removal resets incompatible modes to the ordinary shared
+ * mode. Missing keys retain nvram_get_int()'s legacy zero default, while
+ * failed or malformed reads must not silently rewrite configuration.
+ */
+static inline int
+disk_share_account_mode_needs_default(int read_status, const char *value,
+                                      int *needs_default)
+{
+	char *end;
+	long parsed;
+
+	if (!needs_default) {
+		errno = EINVAL;
+		return -1;
+	}
+	*needs_default = 0;
+	if (read_status == 0) {
+		*needs_default = 1;
+		return 0;
+	}
+	if (read_status < 0) {
+		if (errno == 0)
+			errno = EIO;
+		return -1;
+	}
+	if (read_status != 1 || !value) {
+		errno = EIO;
+		return -1;
+	}
+	errno = 0;
+	parsed = strtol(value, &end, 10);
+	if (errno == ERANGE || end == value || *end != '\0' ||
+	    parsed < INT_MIN || parsed > INT_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	*needs_default = ((int)parsed != 1 && (int)parsed != 3);
 	return 0;
 }
 

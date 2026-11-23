@@ -1346,17 +1346,43 @@ int del_account(const char *const account)
 		nvram_set(nvram_name, shifted_passwords[i]);
 	}
 
-	/* 3. change to the share mode when no account remains. */
+	/*
+	 * 3. When no account remains, reset only modes that can be read reliably.
+	 * A failed read must not be mistaken for an absent/zero setting.
+	 */
 	if (acc_num < 1) {
-		int i_mode;
+		char *mode_value = NULL;
+		int samba_mode_default = 0, ftp_mode_default = 0;
+		int samba_mode_status, ftp_mode_status, mode_reads_ok = 1;
+		int mode_error;
 
-		i_mode = nvram_get_int("st_samba_mode");
-		if (i_mode != 1 && i_mode != 3)
-			nvram_set_int("st_samba_mode", 1);
+		errno = 0;
+		samba_mode_status = nvram_get_checked("st_samba_mode", &mode_value);
+		if (disk_share_account_mode_needs_default(
+			    samba_mode_status, mode_value, &samba_mode_default) != 0) {
+			mode_error = errno ? errno : EIO;
+			if (first_error == 0)
+				first_error = mode_error;
+			mode_reads_ok = 0;
+		}
 
-		i_mode = nvram_get_int("st_ftp_mode");
-		if (i_mode != 1 && i_mode != 3)
-			nvram_set_int("st_ftp_mode", 1);
+		mode_value = NULL;
+		errno = 0;
+		ftp_mode_status = nvram_get_checked("st_ftp_mode", &mode_value);
+		if (disk_share_account_mode_needs_default(
+			    ftp_mode_status, mode_value, &ftp_mode_default) != 0) {
+			mode_error = errno ? errno : EIO;
+			if (first_error == 0)
+				first_error = mode_error;
+			mode_reads_ok = 0;
+		}
+
+		if (mode_reads_ok && samba_mode_default &&
+		    nvram_set_int("st_samba_mode", 1) != 0 && first_error == 0)
+			first_error = errno ? errno : EIO;
+		if (mode_reads_ok && ftp_mode_default &&
+		    nvram_set_int("st_ftp_mode", 1) != 0 && first_error == 0)
+			first_error = errno ? errno : EIO;
 	}
 
 	if (nvram_commit_safe() != 0 && first_error == 0)
