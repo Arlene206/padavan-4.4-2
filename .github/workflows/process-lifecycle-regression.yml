@@ -1353,13 +1353,26 @@ jobs:
 
           manual = body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
           assert "return EINVAL;" in manual
-          assert "return saved_errno;" in manual
-          assert "int route_status = route_add(" in manual
+          assert "return gateway_status;" in manual
+          assert "int lock, saved_errno, notify_status, gateway_status;" in manual
           manual_compact = " ".join(manual.split())
-          assert "char gateway_ip[16];" in manual
-          assert 'rc_wan_nvram_copy_value( lan_nvram_get_checked, NULL, "lan_gateway"' in manual_compact
+          assert "char gateway_ip[16], dns1_ip[16], dns2_ip[16];" in manual
+          assert "struct rc_wan_nvram_snapshot_field resolver_fields[3];" in manual
+          for index, key, destination in (
+              (0, "lan_gateway", "gateway_ip"),
+              (1, "lan_dns1", "dns1_ip"),
+              (2, "lan_dns2", "dns2_ip"),
+          ):
+              assert f'resolver_fields[{index}].param_name = "{key}";' in manual
+              assert f"resolver_fields[{index}].destination = {destination};" in manual
+          assert "rc_wan_nvram_copy_snapshot(" in manual
+          assert "lan_dhcp_snapshot_begin" in manual
+          assert "lan_dhcp_snapshot_get" in manual
+          assert "lan_dhcp_snapshot_end" in manual
           assert 'nvram_safe_get("lan_gateway")' not in manual
-          manual_snapshot = manual_compact.index('"lan_gateway"')
+          assert 'nvram_safe_get("lan_dns1")' not in manual
+          assert 'nvram_safe_get("lan_dns2")' not in manual
+          manual_snapshot = manual_compact.index("gateway_status = rc_wan_nvram_copy_snapshot(")
           manual_error = manual_compact.index("if (gateway_status != 0)", manual_snapshot)
           manual_return = manual_compact.index("return gateway_status;", manual_error)
           manual_lock = manual_compact.index('lock = file_lock("resolv")')
