@@ -652,6 +652,18 @@ jobs:
           assert "tc_phy_write_page_reg_checked(" in source
           assert "ra_switch_mdio_page_read(" in source
           assert "ra_switch_mdio_page_write(" in source
+
+          for wrapper_start, call_name in (
+              ("static int tc_phy_read_page_reg_checked", "ra_switch_mdio_page_read("),
+              ("static int tc_phy_write_page_reg_checked", "ra_switch_mdio_page_write("),
+          ):
+              wrapper = source.split(wrapper_start, 1)[1].split("\\n}", 1)[0]
+              lock_at = wrapper.index("spin_lock_irqsave(&ra_switch_phy_page_lock")
+              call_at = wrapper.index(call_name)
+              unlock_at = wrapper.index("spin_unlock_irqrestore(&ra_switch_phy_page_lock")
+              assert lock_at < call_at < unlock_at
+          assert "static DEFINE_SPINLOCK(ra_switch_phy_page_lock);" in source
+          print("RAETH paged PHY selector/data serialization: PASS")
           assert "ra_switch_mdio_wait_nonzero(" in source
           assert "status = setup_internal_gsw();" in source
           assert "int fe_sw_init(void)" in source

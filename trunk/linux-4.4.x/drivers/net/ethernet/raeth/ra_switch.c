@@ -15,6 +15,9 @@
 #include "ra_switch_mdio_policy.h"
 #include "ra_mac.h"
 #include "raeth_reg.h"
+#include <linux/spinlock.h>
+
+static DEFINE_SPINLOCK(ra_switch_phy_page_lock);
 
 #define MT7622_CHIP_ID 0x08000008
 
@@ -134,16 +137,28 @@ static int ra_switch_mdio_write_cl45(unsigned int port,
 static int tc_phy_read_page_reg_checked(u8 port, u8 page, u8 reg,
 					int local, u32 *value)
 {
-	return ra_switch_mdio_page_read(local, port, page, reg,
+	unsigned long flags;
+	int status;
+
+	spin_lock_irqsave(&ra_switch_phy_page_lock, flags);
+	status = ra_switch_mdio_page_read(local, port, page, reg,
 					ra_switch_mdio_read,
 					ra_switch_mdio_write, NULL, value);
+	spin_unlock_irqrestore(&ra_switch_phy_page_lock, flags);
+	return status;
 }
 
 static int tc_phy_write_page_reg_checked(u8 port, u8 page, u8 reg,
 					 int local, u32 value)
 {
-	return ra_switch_mdio_page_write(local, port, page, reg, value,
+	unsigned long flags;
+	int status;
+
+	spin_lock_irqsave(&ra_switch_phy_page_lock, flags);
+	status = ra_switch_mdio_page_write(local, port, page, reg, value,
 					 ra_switch_mdio_write, NULL);
+	spin_unlock_irqrestore(&ra_switch_phy_page_lock, flags);
+	return status;
 }
 
 void tc_phy_write_g_reg(u8 port_num, u8 page_num,
