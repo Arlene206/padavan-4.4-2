@@ -963,7 +963,8 @@ require(mod_accounts < mod_begin < mod_validate < mod_live_check < mod_refresh <
         "folder rename must serialize account state and compensate permission rows, directory rename and folder snapshot after partial failure")
 
 permission_update = function_body(
-    DISK_SOURCE, "static int\ndisk_share_update_folder_permission_file("
+    DISK_SOURCE,
+    "static int\ndisk_share_update_folder_permission_file(const char *mount_path,\n                                         const char *account,\n                                         const char *target,\n                                         const char *replacement)\n{"
 )
 update_compact = " ".join(permission_update.split())
 update_path = update_compact.index(
