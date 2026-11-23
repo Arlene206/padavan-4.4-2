@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Make the L2TP newline source contract literal-safe
+
+- Tightened the RP-L2TP source contract to use a Python raw string for the C `\\n` token. Without the raw-string prefix, Python would interpret the escape as an actual newline and compare against the wrong source representation.
+- No production behavior changed; exact-head WAN and XY-C1 validation remain required for the control-socket hardening slice.
+
+---
+
 ## 2026-11-23 UTC — Fail closed when the RP-L2TP control socket cannot be secured
 
 - `handlers/cmd.c` ignored the return value from `chmod(sockname, 0600)` and proceeded to `listen()`. If the permission change failed, the daemon could expose its privileged local control socket with the mode inherited from the process umask. Startup now records the chmod error, closes the listener, removes the socket path, restores `errno`, and aborts before `listen()`.

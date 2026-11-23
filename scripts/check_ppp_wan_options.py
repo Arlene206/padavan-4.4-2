@@ -268,7 +268,7 @@ require("return EIO;" in control_policy and "return EPROTO;" in control_policy a
         "response[0] == 'E'" in control_policy,
         "l2tp-control response parser must accept OK only and reject ERR/malformed replies")
 
-require(control_source.index('write_all(STDOUT_FILENO, "\n", 1)') <
+require(control_source.index(r'write_all(STDOUT_FILENO, "\n", 1)') <
         control_source.index("response_status = cmd_control_response_status("),
         "l2tp-control must preserve its terminating newline for ERR replies")
 server_start = body(control_server_source, "process_option(EventSelector *es,")
