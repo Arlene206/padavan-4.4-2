@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Align HTTPD cross-service checker with checked L2TP markers
+
+- Exact HTTPD run #45187074690 on `eb928a2b259f601792bd7b8a55078e5c45e82cfe` failed only at the embedded `Verify bounded service termination and WAN stop failure gates` source contract. The production WAN L2TP path now uses the checked marker setter, but this independent HTTPD workflow still asserted the removed raw `nvram_set_int_temp("l2tp_wan_t", ...)` calls.
+- Updated the embedded assertions to require the allow-listed checked setter and the fail-closed RPL2TP/xl2tpd launch messages. No HTTPD or WAN production code changed. Exact-head HTTPD rerun required.
+---
+
 ## 2026-11-23 UTC — Fix VPN marker checker declaration order
 
 - Exact VPN lifecycle run #45187074365 on `eb928a2b259f601792bd7b8a55078e5c45e82cfe` compiled and passed the new GNU89 shared-xl2tpd marker status regression plus all existing VPN C regressions, but the Python source checker raised `NameError`: the newly inserted ownership-order assertions referenced `safe_start_locked` before the original assignment later in the file.

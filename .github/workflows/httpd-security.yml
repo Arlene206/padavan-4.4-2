@@ -5771,8 +5771,10 @@ jobs:
               assert l2tp_stop.index("if (launch_mode->use_rpl2tp)") < l2tp_stop.index("kill_services(svcs, 5, 1)")
               assert 'svcs[0] = "l2tpd";' in l2tp_stop and 'svcs[0] = "xl2tpd";' in l2tp_stop
               assert launch_phase.index("if (launch_mode->use_rpl2tp)") < launch_phase.index("start_rpl2tp(unit)")
-              assert launch_phase.index('nvram_set_int_temp("l2tp_wan_t", 0);') < launch_phase.index("start_rpl2tp(unit)")
-          assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 1);') < l2tp_start.index("safe_start_xl2tpd_locked()")
+              assert launch_phase.index('ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 0)') < launch_phase.index("start_rpl2tp(unit)")
+          assert "refusing RPL2TP WAN launch: cannot clear xl2tpd ownership marker" in launch_phase
+          assert l2tp_start.index('ppp_l2tp_runtime_marker_set_status("l2tp_wan_t", 1)') < l2tp_start.index("safe_start_xl2tpd_locked()")
+          assert "refusing xl2tpd WAN launch: cannot publish WAN ownership marker" in l2tp_start
           print("Service termination, WAN stop gates and L2TP transport startup contracts: OK")
           PY
 
