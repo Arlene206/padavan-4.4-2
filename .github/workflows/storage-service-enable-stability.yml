@@ -1,0 +1,83 @@
+name: Storage application checked enable snapshot regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/storage-service-enable-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_service_enable_policy.h"
+      - "trunk/user/rc/src/tests/storage_service_enable_policy.c"
+  pull_request:
+    paths:
+      - ".github/workflows/storage-service-enable-stability.yml"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_service_enable_policy.h"
+      - "trunk/user/rc/src/tests/storage_service_enable_policy.c"
+
+permissions:
+  contents: read
+
+jobs:
+  storage-service-enable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run exact-string service-enable policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_service_enable_policy.c \
+            -o /tmp/storage-service-enable-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/storage-service-enable-policy
+      - name: Verify checked NVRAM enable reads precede storage-service side effects
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_stor.c").read_text()
+          policy = Path("trunk/user/rc/src/storage_service_enable_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/storage_service_enable_policy.c").read_text()
+
+          def body(text, signature):
+              start = text.find(signature)
+              assert start >= 0, f"missing function: {signature}"
+              opening = text.find("{", start + len(signature))
+              assert opening >= 0, f"missing body: {signature}"
+              depth = 0
+              for pos in range(opening, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[opening + 1:pos]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          enable_reader = body(source, "storage_service_enabled_status(")
+          assert "storage_read_string_status(" in enable_reader
+          assert "storage_service_enable_value_status(" in enable_reader
+
+          for signature, key, support_probe, link_mutation in (
+              ("int run_itunes(void)", '"apps_itunes"', "is_itunes_support()", "unlink(link_path)"),
+              ("int run_torrent(void)", '"trmd_enable"', "is_torrent_support()", "unlink(link_path)"),
+              ("int run_aria(void)", '"aria_enable"', "is_aria_support()", "unlink(link_path)"),
+          ):
+              start = source.index(signature)
+              fn = body(source, signature)
+              read_call = "storage_service_enabled_status(" + key
+              assert read_call in "".join(fn.split()), signature
+              compact = "".join(fn.split())
+              assert compact.index(read_call) < compact.index("if(enable_status!=0)")
+              assert compact.index("if(enable_status!=0)") < compact.index("if(!service_enabled)")
+              assert compact.index("if(enable_status!=0)") < compact.index(support_probe)
+              assert compact.index("if(enable_status!=0)") < compact.index(link_mutation)
+              assert "returnenable_status;" in compact
+              assert 'nvram_match(' not in fn
+          assert "strcmp(stored_value, \"1\") == 0" in policy
+          for marker in ('storage_service_enable_value_status(EIO, "", &enabled)',
+                         'storage_service_enable_value_status(-1, "1", &enabled)',
+                         'storage_service_enable_value_status(0, "01", &enabled)'):
+              assert marker in test
+          print("Storage service checked enable source contract: PASS")
+          PY

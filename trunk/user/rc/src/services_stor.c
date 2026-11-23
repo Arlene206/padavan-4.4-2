@@ -71,6 +71,7 @@
 #include "storage_ejected_inventory_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
+#include "storage_service_enable_policy.h"
 #include "firefly_config_file.h"
 #include "minidlna_config_file.h"
 #include "switch.h"
@@ -356,6 +357,33 @@ storage_read_string_status(const char *name, char *value, size_t value_size)
 	if (status != 0)
 		errno = status;
 	return status;
+}
+
+
+
+static int
+storage_service_enabled_status(const char *key, const char *service,
+			       int *enabled)
+{
+	char configured_value[NVRAM_MAX_VALUE_LEN + 1] = {0};
+	int read_status, status;
+
+	if (!enabled)
+		return EINVAL;
+	*enabled = 0;
+
+	read_status = storage_read_string_status(
+		key, configured_value, sizeof(configured_value));
+	status = storage_service_enable_value_status(
+		read_status, configured_value, enabled);
+	if (status != 0) {
+		logmessage(service,
+			   "cannot read service enable setting %s; refusing startup (status=%d)",
+			   key ? key : "(null)", status);
+		return status;
+	}
+
+	return 0;
 }
 
 
@@ -3256,8 +3284,13 @@ int run_itunes(void)
 	int config_status;
 	int path_length;
 	int link_status;
+	int service_enabled, enable_status;
 
-	if (!nvram_match("apps_itunes", "1"))
+	enable_status = storage_service_enabled_status(
+		"apps_itunes", "iTunes Server", &service_enabled);
+	if (enable_status != 0)
+		return enable_status;
+	if (!service_enabled)
 		return 0;
 
 	if (!is_itunes_support())
@@ -3449,8 +3482,13 @@ int run_torrent(void)
 	int start_status;
 	int start_errno;
 	int link_status;
+	int service_enabled, enable_status;
 
-	if (!nvram_match("trmd_enable", "1"))
+	enable_status = storage_service_enabled_status(
+		"trmd_enable", "Transmission", &service_enabled);
+	if (enable_status != 0)
+		return enable_status;
+	if (!service_enabled)
 		return 0;
 
 	if (!is_torrent_support())
@@ -3609,8 +3647,13 @@ int run_aria(void)
 	int start_status;
 	int start_errno;
 	int link_status;
+	int service_enabled, enable_status;
 
-	if (!nvram_match("aria_enable", "1"))
+	enable_status = storage_service_enabled_status(
+		"aria_enable", "Aria", &service_enabled);
+	if (enable_status != 0)
+		return enable_status;
+	if (!service_enabled)
 		return 0;
 
 	if (!is_aria_support())
