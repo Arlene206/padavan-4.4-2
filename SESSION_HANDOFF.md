@@ -4,36 +4,41 @@
 
 - Development branch: `main` only. Do not create feature branches or PRs; never force-push.
 - Frozen backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve it permanently; do not modify, rename, delete or check it out.
-- Current source checkpoint: THIS COMMIT (RC PID1 console recovery shutdown/throttle integration); parent main SHA: `aa163f6cc5993029684fd55a489528f3133fbf26`. Fetch live `main` on takeover; do not chase a docs-only SHA.
+- Current source checkpoint: THIS COMMIT (RC PID1 SIGCHLD wait-mask lost-wakeup correction); parent main SHA: `b58eed6ae04458d8647d606a6d509da62562d87a`. Fetch live `main` on takeover; do not chase a docs-only SHA.
 - Continue implementation rather than repeating completed audits or asking what to do next.
 
 ## Active task
 
-The actual router PID 1 is RC init, `trunk/user/rc/src/init.c` (the board BusyBox `CONFIG_INIT` is disabled). The current bounded fix addresses a shutdown race in console recovery: if SIGTERM/SIGQUIT arrived during the one-second throttle after a fast shell exit, the old loop kept sleeping until timeout and then could fork/exec another recovery shell before the outer loop processed shutdown.
+The actual router PID 1 is RC init, `trunk/user/rc/src/init.c` (the board BusyBox `CONFIG_INIT` is disabled). The current defect is a lost-wakeup race in the main event loop: the SIGCHLD handler can reap the recovery shell and publish `console_shell_reaped` after the loop checks its flags but just before `sigsuspend()`. Because SIGCHLD was not in the blocked wait mask, the handler could run before PID 1 entered `sigsuspend()`; PID 1 could then sleep indefinitely with the one-shot completion already set and fail to respawn its recovery console.
 
 This commit:
-- Makes the retry wait condition observe `signal_state.shutdown_pending`, so an ordinary shutdown cancels the remaining throttle immediately.
-- Breaks out of the event-wait loop before any relaunch/suspend work when shutdown is pending, and also guards the console launch/suspend branches against an already-published shutdown flag.
-- Adds GNU89 policy regressions for normal delay, remaining-delay cancellation, and zero remaining time; extends the PID1 workflow source contract to pin the production signal guard and branch ordering.
+- Adds SIGCHLD to the checked `wait_mask` before that mask is blocked. The original mask remains the one passed to `sigsuspend()`, so SIGCHLD is atomically unblocked as the sleep begins; a signal arriving in the check-to-suspend window stays pending and wakes the loop.
+- Uses the existing `init_signal_set_add()` status/error path; a failure retains the existing recovery-polling fallback instead of using a partial/uninitialized mask.
+- Adds a GNU89 injected set-add regression for SIGCHLD and a production source contract requiring it to be added before the wait mask is blocked.
 
-The preceding recovery-shell retry implementation remains in parent `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de`; its corrected console retry test now passed in exact-head PID1 mdev run `45087866598` on `aa163f6cc5993029684fd55a489528f3133fbf26`.
+Parent main `b58eed6ae04458d8647d606a6d509da62562d87a` contains the shutdown-aware console retry guards. The earlier exact-head PID1 run on `d26ca8f30da14e917bd4ab08f3a6c5f37923f78b` failed only because its source contract retained one obsolete assertion for the pre-guard condition; descendant `62193804176e35820f4b61c3053424c9475c095c` removed that stale assertion, and its exact-head PID1 run passed. The subsequent `b58eed6ae04458d8647d606a6d509da62562d87a` change independently hardens Optware package-client teardown; preserve it.
 
 ## Verification boundary
 
-Exact push runs for parent `aa163f6cc5993029684fd55a489528f3133fbf26`:
-- PID1 mdev/security `45087866598`: PASS, including the corrected console retry test compile/run and all source contracts.
-- AI handoff documentation `45087866713`: PASS.
-- XY-C1 host validation `45087866595`: PASS; firmware Build, TRX and artifact upload were correctly skipped because that parent commit changed only CI/docs. This is not L3 validation for the source baseline.
+Relevant exact-head parent results:
+- `d26ca8f30da14e917bd4ab08f3a6c5f37923f78b` PID1 mdev/security `45088770855`: FAIL only at the embedded Python source contract's obsolete `if(!noconsole&&!signal_state.console_shell_pid)` assertion; all GNU89/ASan/UBSan compile/run steps, including the fast-exit console test, passed.
+- Workflow-only correction `62193804176e35820f4b61c3053424c9475c095c`: PID1 mdev `45088928932` PASS and AI handoff docs `45088928924` PASS. Its XY-C1 run `45088928941` was IN_PROGRESS at last poll.
+- Latest parent `b58eed6ae04458d8647d606a6d509da62562d87a` Actions at last poll:
+- AI handoff documentation contract `45089031261`: COMPLETED / SUCCESS; exact head `b58eed6ae04458d8647d606a6d509da62562d87a`.
+- XY-C1 Firmware Validation `45089031256`: IN_PROGRESS; exact head `b58eed6ae04458d8647d606a6d509da62562d87a`.
+- USB storage hotplug stability regression `45089031251`: IN_PROGRESS; exact head `b58eed6ae04458d8647d606a6d509da62562d87a`.
+- Process inventory and lifecycle fail-closed regression `45089031222`: IN_PROGRESS; exact head `b58eed6ae04458d8647d606a6d509da62562d87a`.
+- Process lifecycle inventory - b58eed6ae04458d8647d606a6d509da62562d87a `45089031300`: COMPLETED / SUCCESS; exact head `b58eed6ae04458d8647d606a6d509da62562d87a`.
 
-For THIS COMMIT, the PID1 mdev and XY-C1 firmware workflows should trigger from the RC source/header/test changes; inspect only push runs whose `head_sha` equals the fetched new main SHA. No local checkout/compile was possible in this connector-only environment. Do not claim host test, MIPS build/TRX/artifact or hardware success until those exact results are observed. Hardware L4 remains NOT VERIFIED.
+These parent results do not validate THIS COMMIT. Inspect its own exact-head PID1/AI/XY-C1 push runs after publication. Local checkout/compile is unavailable in this connector-only environment. Do not infer Build/TRX/artifact or hardware success from host regressions. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` once and confirm the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch the backup.
-2. Inspect the exact-head PID1 mdev run on the new source SHA. Confirm GNU89/ASan/UBSan console policy tests and the full signal/console source contract pass.
-3. Inspect the exact-head XY-C1 run for the same SHA; verify whether Build XY-C1, TRX verification and artifact upload actually executed and passed. The parent docs-only result `45087866595` is host-only and cannot satisfy L3.
-4. After relevant exact-head checks pass, continue the focused RC PID1 lifecycle review. Consider further child/signal edge cases only with concrete source evidence and injected regression coverage.
-5. Keep each source slice atomic: create the complete Git tree and one commit on latest main, then publish with `force:false` and `expected_sha` equal to the freshly fetched parent.
+1. Fetch live `main` and verify frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not touch it.
+2. Inspect exact-head PID1 mdev/security for the current source SHA. Confirm the GNU89/ASan/UBSan signal policy regression and source contract requiring SIGCHLD in the wait mask before blocking pass.
+3. Inspect exact-head XY-C1 validation on the same SHA. Verify Build XY-C1, TRX validation and artifact upload actually execute and pass; host-only validation is not L3.
+4. If exact-head checks pass, continue the focused RC PID1 signal/lifecycle review. If a run fails, inspect its first causal step/log and repair that on main before declaring the slice verified.
+5. Preserve atomic main commits: complete Git tree, one commit parented to freshly fetched main, then non-forced ref update with that exact expected SHA.
 
 ## Mandatory handoff checkpoint
 
@@ -45,12 +50,8 @@ Continue the same development effort across conversations. Use one atomic main c
 
 ## End-of-session accuracy checkpoint
 
-- Current implementation checkpoint: THIS COMMIT; parent main SHA `aa163f6cc5993029684fd55a489528f3133fbf26`.
-- The console-shell retry test compiler issue was fixed and passed on parent SHA `aa163f6cc5993029684fd55a489528f3133fbf26` (PID1 mdev run `45087866598`); this commit adds shutdown-aware retry cancellation and restart gating.
-- New exact-head PID1/XY-C1 Actions must be checked after the push. No local tests/compile were run; current MIPS Build/TRX/artifact and physical hardware behavior are NOT VERIFIED.
-- Parent-SHA PASS results never validate descendant commits.
-- Current implementation SHA: `36bd2b1e01c0472b7d8fdc0a31e4a56e3b6762de` (rapid recovery console-shell respawn throttle).
-- Exact-head AI docs, HTTPD, PID1 notification queue, DNS Forwarder, DNSMasq and Process inventory Actions passed on that SHA. PID1 mdev failed only at the added console regression compile command (extra backslashes); exact-head correction pending. XY-C1, Process umbrella, NVRAM and USB storage were in progress at last poll.
-- The new PID1 signal-state and console retry regression code is present, but the console policy test did not compile in that run. Existing PID1 signal policy regression did compile/pass.
-- Not verified: local checkout/build; current-head MIPS firmware build, TRX, artifact, XY-C1 hardware boot or physical router behavior.
+- Current implementation checkpoint: THIS COMMIT; parent main SHA `b58eed6ae04458d8647d606a6d509da62562d87a`.
+- PID1 now includes SIGCHLD in the main-loop wait mask before blocking it, closing the reaper completion check-to-sigsuspend lost-wakeup window. A GNU89 set-add regression and production source contract are included.
+- Earlier parent PID1 mdev contract failure on `d26ca8f` was corrected by `6219380`; exact mdev run `45088928932` and AI docs run `45088928924` passed there. Parent `b58eed6ae04458d8647d606a6d509da62562d87a` runs are recorded above as of the last poll.
+- New exact-head PID1/AI/XY-C1 Actions are required for THIS COMMIT. Local compile/test NOT RUN. Current MIPS Build/TRX/artifact and hardware L4 remain NOT VERIFIED.
 - Parent-SHA PASS results never validate descendant commits.

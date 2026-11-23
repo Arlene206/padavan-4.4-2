@@ -237,6 +237,10 @@ jobs:
           assert "if (!wait_mask_ready)" in main_loop
           assert "original_mask_ready ? NULL : &original_mask" in main_loop
           assert "if (sigsuspend(&original_mask) < 0 && errno != EINTR)" in main_loop
+          wait_mask_compact = "".join(main_loop.split())
+          child_wait_mask_at = wait_mask_compact.index("init_signal_set_add(&wait_mask,SIGCHLD,")
+          wait_mask_block_at = wait_mask_compact.index("init_signal_mask_update(SIG_BLOCK,&wait_mask,&original_mask,")
+          assert child_wait_mask_at < wait_mask_block_at
           for token in ("pid1_signal_install_action", "pid1_signal_status_merge",
                         "if (!install || !action)", "return errno > 0 ? errno : EIO;"):
               assert token in pid1_policy, token

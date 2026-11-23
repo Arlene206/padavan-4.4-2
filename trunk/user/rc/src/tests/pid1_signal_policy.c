@@ -75,6 +75,13 @@ test_pid1_signal_set_initialization_reports_failures(void)
 	    sigismember(&set, SIGUSR2) != 1 || errno != 0)
 		return 1;
 
+	/* SIGCHLD must be part of PID 1's blocked wait mask before sigsuspend. */
+	fake_add_calls = 0;
+	if (pid1_signal_add_set(fake_signal_add, &set, SIGCHLD) != 0 ||
+	    fake_add_calls != 1 || fake_add_signal != SIGCHLD ||
+	    sigismember(&set, SIGCHLD) != 1)
+		return 1;
+
 	fake_add_result = -1;
 	fake_add_errno = ERANGE;
 	if (pid1_signal_add_set(fake_signal_add, &set, SIGTERM) != ERANGE)

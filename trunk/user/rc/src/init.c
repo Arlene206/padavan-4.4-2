@@ -1051,6 +1051,11 @@ init_main_loop(void)
 			    wait_mask_build_status == 0)
 				wait_mask_build_status = errno > 0 ? errno : EIO;
 		}
+		/* Keep child exits pending until sigsuspend atomically begins its wait. */
+		if (wait_mask_build_status == 0)
+			wait_mask_build_status = init_signal_set_add(
+				&wait_mask, SIGCHLD,
+				"block child-reap notifications while waiting");
 	}
 	if (wait_mask_build_status == 0) {
 		mask_status = init_signal_mask_update(SIG_BLOCK, &wait_mask,

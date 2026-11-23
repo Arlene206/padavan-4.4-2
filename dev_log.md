@@ -1,4 +1,15 @@
-## 2026-11-23 08:35 UTC+8 — Cancel PID1 recovery-shell retry during shutdown
+## 2026-11-23 08:29 UTC+8 — Prevent PID1 SIGCHLD lost wakeup during event-loop sleep
+
+- Parent main SHA: `b58eed6ae04458d8647d606a6d509da62562d87a`. The SIGCHLD handler reaps the exact recovery-console child and posts a one-shot completion flag, but the main-loop wait mask previously blocked SIGUSR1, SIGALRM and shutdown signals without blocking SIGCHLD. A child could exit after the loop checked its state but before `sigsuspend()`; the handler would publish completion before the sleep, allowing PID 1 to sleep indefinitely with the console child already reaped.
+- Added SIGCHLD to the checked wait mask before blocking it. SIGCHLD is held pending across the check-to-suspend boundary and delivered atomically when `sigsuspend(original_mask)` begins; mask-construction failure retains the existing recovery-polling fallback.
+- Added an injected GNU89 set-add regression for SIGCHLD and an embedded source contract requiring it to be added before the wait-mask block.
+- Updated SESSION_HANDOFF with the actual active source task and corrected its stale duplicate end-checkpoint bullets. Corrected the preceding log timestamp to the parent commit's actual 08:26 Beijing time. No roadmap priority/module-state change.
+- Local compile/test: NOT RUN (no local checkout). Exact-head PID1/AI/XY-C1 Actions: PENDING at commit creation; match exact `head_sha`. L3/L4 NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+
+---
+
+## 2026-11-23 08:26 UTC+8 — Cancel PID1 recovery-shell retry during shutdown
 
 - Parent main SHA: `aa163f6cc5993029684fd55a489528f3133fbf26`. After the previous fast-exit throttle, an ordinary shutdown signal could arrive during `sleep()`; the retry loop kept waiting and then continued through the console relaunch path before the outer loop handled shutdown.
 - Added a shutdown-aware retry-wait predicate, immediate event-loop exit on pending shutdown, and guards that prevent console relaunch or another suspend while shutdown is already published. Added GNU89 policy coverage for normal waiting, shutdown cancellation and elapsed-delay completion, plus exact source-contract assertions.
