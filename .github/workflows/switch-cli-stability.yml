@@ -1193,6 +1193,9 @@ jobs:
               assert addr_check < addr_failure < timer_reset
           assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_read
           assert "mii_mgr_cl45_set_address(port_num, dev_addr, reg_addr);" not in cl45_write
+          assert "#define MDIO_BUSY_TIMEOUT\t(HZ / 10)" in mdio_driver
+          assert mdio_driver.count("t_start + MDIO_BUSY_TIMEOUT") == 10
+          assert "5 * HZ" not in mdio_driver
           print("RAETH Clause 45 MDIO address-phase error propagation: PASS")
           read_policy = policy.split("mtk_esw_register_read(", 1)[1].split(
               "mtk_esw_register_update_bits", 1

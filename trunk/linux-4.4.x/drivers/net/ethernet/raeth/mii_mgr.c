@@ -12,6 +12,12 @@
  */
 #include "mii_mgr.h"
 
+/*
+ * MDIO commands normally finish in microseconds. Keep IRQ-off polling bounded
+ * so a wedged switch cannot stall the CPU for several seconds.
+ */
+#define MDIO_BUSY_TIMEOUT	(HZ / 10)
+
 void set_an_polling(u32 an_status)
 {
 	if (an_status == 1)
@@ -38,7 +44,7 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 		/* 0 : Read/write operation complete */
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Read operation is ongoing !!\n");
@@ -62,7 +68,7 @@ u32 __mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err
@@ -90,7 +96,7 @@ u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Write operation ongoing\n");
@@ -113,7 +119,7 @@ u32 __mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Write operation Time Out\n");
@@ -212,7 +218,7 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			pr_err("\n MDIO Read operation is ongoing !!\n");
 			return rc;
@@ -229,7 +235,7 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			enable_mdio(0);
 			return 1;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			pr_err("\n MDIO Write operation Time Out\n");
 			return 0;
@@ -259,7 +265,7 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Read operation is ongoing !!\n");
@@ -279,7 +285,7 @@ u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err
@@ -310,7 +316,7 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 	while (1) {
 		if (!(sys_reg_read(MDIO_PHY_CONTROL_0) & (0x1 << 31))) {
 			break;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Read operation is ongoing !!\n");
@@ -331,7 +337,7 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 			enable_mdio(0);
 			rc = 1;
 			goto out;
-		} else if (time_after(jiffies, t_start + 5 * HZ)) {
+		} else if (time_after(jiffies, t_start + MDIO_BUSY_TIMEOUT)) {
 			enable_mdio(0);
 			rc = 0;
 			pr_err("\n MDIO Write operation Time Out\n");
