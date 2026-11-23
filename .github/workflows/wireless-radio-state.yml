@@ -126,45 +126,34 @@ jobs:
               assert "if (mode_status != 0)" in body
               assert getter not in body, f"{signature}: legacy getter hides NVRAM errors"
               assert body.index("if (mode_status != 0)") < body.index("if (radio_on")
-              assert "return -mode_status;" in body
-          for signature, prefix, band in (
-              ("start_wifi_wds_wl(int radio_on)", "wl", "5GHz"),
-              ("start_wifi_wds_rt(int radio_on)", "rt", "2.4GHz"),
-          ):
-              body = function_body(source, signature)
-              apply_read = f'wireless_nvram_get_int_status("{prefix}_wdsapply_x", &wds_apply)'
-              num_read = f'wireless_nvram_get_int_status("{prefix}_wdsnum_x", &i_wds_num)'
-              assert apply_read in body and num_read in body
-              assert "if (wds_apply_status != 0)" in body
-              assert "if (wds_num_status != 0)" in body
-              assert "nvram_wlan_get_int(" not in body
-              assert f"{band} WDS startup aborted: cannot read wdsapply_x" in body
-              assert f"{band} WDS startup aborted: cannot read wdsnum_x" in body
-              apply_pos = body.index(apply_read)
-              apply_error_pos = body.index("if (wds_apply_status != 0)", apply_pos)
-              selector_pos = body.index("if (wds_apply == 1)", apply_error_pos)
-              num_pos = body.index(num_read, selector_pos)
-              num_error_pos = body.index("if (wds_num_status != 0)", num_pos)
-              first_interface = body.index("wif_control_success(", num_error_pos)
-              assert apply_pos < apply_error_pos < selector_pos < num_pos < num_error_pos < first_interface
+              if signature.startswith("start_wifi_wds_"):
+                  assert "wireless_radio_status_merge(-mode_status," in body
+              else:
+                  assert "return -mode_status;" in body
           start_wds_wl = function_body(source, "start_wifi_wds_wl(int radio_on)")
           start_wds_rt = function_body(source, "start_wifi_wds_rt(int radio_on)")
           for body, mode_key, apply_key, count_key in (
               (start_wds_wl, "wl_mode_x", "wl_wdsapply_x", "wl_wdsnum_x"),
               (start_wds_rt, "rt_mode_x", "rt_wdsapply_x", "rt_wdsnum_x"),
           ):
-              assert f'wireless_nvram_get_int_status("{mode_key}", &i_mode_x)' in body
-              assert f'wireless_nvram_get_int_status("{apply_key}", &wds_apply)' in body
-              assert f'wireless_nvram_get_int_status("{count_key}", &wds_num)' in body
-              assert "wireless_radio_wds_config_resolve(" in body
+              compact = "".join(body.split())
+              mode_read = f'wireless_nvram_get_int_status("{mode_key}",&i_mode_x)'
+              apply_read = f'wireless_nvram_get_int_status("{apply_key}",&wds_apply)'
+              count_read = f'wireless_nvram_get_int_status("{count_key}",&wds_num)'
+              assert mode_read in compact
+              assert apply_read in compact and count_read in compact
+              assert "wireless_radio_wds_config_resolve(apply_status,wds_apply,count_status,wds_num,&wds_count)" in compact
               assert "get_mode_radio_" not in body
               assert "nvram_wlan_get_int(" not in body
-              assert "if (mode_status != 0)" in body
-              assert "if (config_status != 0)" in body
-              assert "cleanup_wds:" in body
-              assert body.index("if (mode_status != 0)") < body.index("if (radio_on")
-              assert body.index("if (config_status != 0)") < body.index("wif_control_success(")
-              assert "return -mode_status;" in body
+              assert "if(mode_status!=0)" in compact
+              assert "if(config_status!=0)" in compact
+              assert "cleanup_wds:" in compact
+              assert "wireless_radio_status_merge(-mode_status," in compact
+              assert "wireless_radio_status_merge(-config_status," in compact
+              assert "if(apply_status==0&&wds_apply==1)" in compact
+              assert compact.index("if(mode_status!=0)") < compact.index("if(radio_on")
+              assert compact.index(apply_read) < compact.index("if(config_status!=0)")
+              assert compact.index("if(config_status!=0)") < compact.index("wif_control_success(")
           assert "wireless_radio_wds_config_resolve" in policy
           assert "test_wds_config_defaults_and_checked_count_validation" in test
 

@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Align WDS source contracts with bounded configuration resolver
+
+- Wireless exact-head run #45155297922 on `a456ced83e2829c17a8953ec0b41608e1cf0d058` passed all GNU89 radio, Ralink ASan/UBSan, bridge-membership and guest-isolation binaries, then failed in the Python source contract at its obsolete WDS assumptions. The latest production WDS implementation snapshots `*_mode_x`, `*_wdsapply_x` and conditional `*_wdsnum_x` through checked reads, validates apply/count via `wireless_radio_wds_config_resolve()`, and uses a cleanup label to detach stale WDS memberships while preserving the first configuration error. The contract still expected the removed local `i_wds_num`, `wds_apply_status`/ `wds_num_status`, and direct `return -mode_status` statements.
+- Removed that duplicate stale block and replaced the remaining WDS contract with whitespace-normalized assertions for the checked mode/apply/count reads, resolver call, fail-closed config gate, cleanup, and first-error return. The generic mode contract now accepts the WDS cleanup/merge return while still requiring direct error returns for AP/AP-client paths. No production source or policy test was weakened.
+- On main SHA `15c93fe802fc6a45148d04c8d3c7f238ad11fd92`, Process fail-closed #45155481370 and USB storage hotplug #45155481256 passed after the concurrent checker updates; AI handoff #45155481272 also passed. XY-C1 #45155481405 remained IN_PROGRESS at last observation; no Build/TRX/artifact claim yet. This commit triggers exact-head Wireless and documentation reruns.
+
+---
+
 ## 2026-11-23 UTC — Repair stale process/storage modem-eject source contracts
 
 - On production source SHA 9e9efbf6d9651e9bab82e544b02f718655a0a820, USB modem identity Action #45154233466 passed. Process fail-closed #45154233474 and USB storage hotplug #45154233569 failed at scripts/check_process_lifecycle_integration.py:983 and scripts/check_storage_safe_remove.py:413 because both still required the removed unchecked get_usb_modem_dev_wan() boolean expression. The Process failure reproduced at the same assertion on descendants 56bcddef (#45154469315) and eac5eeee (#45154946827 had not yet completed at last observation).
