@@ -301,7 +301,7 @@ account_list_body = function_body(
     DISK_SOURCE, "int get_account_list(int *acc_num, char ***account_list)"
 )
 account_list_compact = "".join(account_list_body.split())
-require("disk_share_account_inventory_read(&ops,&transaction,MAX_ACCOUNT_NUM,acc_num,account_list)" in account_list_compact and
+require("disk_share_account_inventory_read(&disk_share_account_nvram_operations,&transaction,MAX_ACCOUNT_NUM,acc_num,account_list)" in account_list_compact and
         "nvram_get_int(" not in account_list_body and
         "nvram_safe_get(" not in account_list_body,
         "get_account_list must use the checked account inventory policy rather than error-collapsing NVRAM getters")
