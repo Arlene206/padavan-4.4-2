@@ -1,4 +1,6 @@
 Current implementation checkpoint (2026-11-23):
+- Updated stale inline Process workflow assertions for checked XUPNPD startup and IPTV Lua-config NVRAM selectors. Historical jobs #45189655889, #45190394210 and #45190706662 failed only in the obsolete final source contract; exact rerun pending.
+Current implementation checkpoint (2026-11-23):
 - RC boot now reads `lan_stp` with the checked NVRAM adapter before mutating bridge STP/forward-delay settings. Missing-key behavior remains compatible; backend/invalid reads skip both bridge changes and propagate a boot status. Added GNU89 firewall NVRAM policy cases and Process integration ordering assertions. Production/test source: `2a9f7fe`; checker whitespace-only correction: `a9053a0`. Exact Firewall Startup #45190708304 passed; Process rerun and same-product-SHA XY-C1 Build/TRX/artifact verification pending.
 
 Current implementation checkpoint (2026-11-23):

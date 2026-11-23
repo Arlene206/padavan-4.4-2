@@ -1,3 +1,9 @@
+## 2026-11-23 UTC — Repair stale XUPNPD assertions in Process workflow
+
+- Exact Process lifecycle runs #45189655889 (c8dade9), #45190394210 (a2a5892) and #45190706662 (2a9f7fe) passed preceding C regressions but failed the final LAN/PID1 inline source contract on obsolete XUPNPD expectations: the declaration omitted `xport_text`, and the old test expected `nvram_get_int("xupnpd_enable_x")` after LAN address loading.
+- Updated the inline workflow to pin checked selector → disabled gate → LAN snapshot → procfs preflight order, and the checked `udpxy_enable_x`/`xupnpd_udpxy` reads in Lua URL generation. It also asserts the unchecked legacy getter/matcher are absent.
+- Checker-only correction; no product source changed. Exact Process rerun pending; historical failures were stale workflow assertions, not C-policy test failures.
+---
 ## 2026-11-23 UTC — Fail closed on LAN STP selector NVRAM read
 
 - `start_services_once()` used `nvram_match("lan_stp", "0")` to decide whether to set bridge STP and forward delay. That API collapses an NVRAM backend read failure into a non-match, so a read fault could enable both bridge mutations while boot status remained successful.

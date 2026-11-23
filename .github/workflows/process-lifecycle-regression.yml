@@ -1285,12 +1285,28 @@ jobs:
 
           xupnpd = body(net, "start_xupnpd(char *wan_ifname)")
           xupnpd_compact = " ".join(xupnpd.split())
-          assert "char tmp1[128], tmp2[128], line[256], lan_addr[16];" in xupnpd
+          assert "char tmp1[128], tmp2[128], line[256], lan_addr[16], xport_text[16];" in xupnpd
           assert 'rc_wan_nvram_copy_value(net_nvram_get_checked, NULL, "lan_ipaddr_t", lan_addr, sizeof(lan_addr))' in xupnpd_compact
           assert "nvram_safe_get(" not in xupnpd
           assert "xupnpd_config_valid_ipv4(lan_addr)" in xupnpd
-          assert xupnpd_compact.index('"lan_ipaddr_t"') < xupnpd_compact.index('xport = nvram_get_int("xupnpd_enable_x")')
-          assert 'snprintf(line, sizeof(line), "%scfg.udpxy_url=' in xupnpd
+          checked_xupnpd_port = xupnpd_compact.index('"xupnpd_enable_x"')
+          xupnpd_disabled_gate = xupnpd_compact.index("if (xport < 1024)")
+          xupnpd_lan_snapshot = xupnpd_compact.index('"lan_ipaddr_t"')
+          xupnpd_proc_preflight = xupnpd_compact.index("xupnpd_process_presence(NULL, &scan_error)")
+          assert checked_xupnpd_port < xupnpd_disabled_gate < xupnpd_lan_snapshot < xupnpd_proc_preflight
+          assert "rc_wan_nvram_parse_int_value(xport_text, &xport)" in xupnpd_compact
+          assert 'nvram_get_int("xupnpd_enable_x")' not in xupnpd
+          assert "cannot read xupnpd enable-port selector" in xupnpd
+                    lua_udpxy = xupnpd_compact.split('else if (strstr(line, "cfg.udpxy_url="))', 1)[1].split('else if (strstr(line, "cfg.daemon")', 1)[0]
+          assert '"udpxy_enable_x"' in lua_udpxy
+          assert "rc_wan_nvram_parse_int_value(udpxy_port_text, &udpxy_port)" in lua_udpxy
+          assert '"xupnpd_udpxy"' in lua_udpxy
+          assert 'strcmp(udpxy_enable_text, "1") == 0' in lua_udpxy
+          assert 'nvram_get_int("udpxy_enable_x")' not in lua_udpxy
+          assert 'nvram_match("xupnpd_udpxy", "1")' not in lua_udpxy
+          assert "cannot read IPTV proxy port while preparing xupnpd configuration" in lua_udpxy
+          assert "cannot read xupnpd IPTV proxy integration setting" in lua_udpxy
+assert 'snprintf(line, sizeof(line), "%scfg.udpxy_url=' in xupnpd
           assert "test_hostname_fallback_is_owned_across_cache_reuse" in bridge_init_regression
           assert "test_xupnpd_lan_address_is_owned_across_port_reads" in bridge_init_regression
           udpxy = body(net, "start_udpxy(char *wan_ifname)")
