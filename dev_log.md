@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Make the SFE configuration policy reject unknown modes
+
+- Follow-up hardening after the NVRAM snapshot validation: `rc_sfe_configure_policy()` itself treated every value except 1 and 2 as a successful no-op. Although the startup snapshot now rejects values outside 0/1/2, a future direct caller could still pass 3 or -1 and report success while leaving a requested SFE configuration unapplied.
+- Mode 0 remains the explicit no-write/disabled state; modes 1 and 2 retain their existing sysfs behavior. All other values now return `EINVAL` before invoking the writer. Regression coverage checks -1, 3 and 99 produce no writes, and the WAN source checker pins the API contract. The existing XY-C1 workflow already tracks the production header and test.
+- Exact-head WAN route GNU89/Werror/ASan/UBSan and XY-C1 Build/TRX/artifact Actions are required. No local compile or hardware validation is claimed.
+
+---
+
 ## 2026-11-23 UTC — Reject malformed SYN-cookie policy selectors
 
 - The Basic Firewall UI exposes `fw_syn_cook` only as radio values `0` and `1`, but `rc_network_sysctl_parse_syncookies_status()` used `strtol(value, NULL, 10)` and treated any nonnumeric string as 0. A corrupted value such as `not-a-number` therefore looked like an explicit request to disable SYN cookies; `1junk` was also accepted as enabled. This weakened a security setting despite a successful NVRAM read.

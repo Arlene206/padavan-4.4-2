@@ -10,12 +10,14 @@ rc_sfe_configure_policy(int sfe_enable, int (*set_skip_to_bridge_ingress)(int))
 	int skip_to_bridge_ingress;
 	int status;
 
+	if (sfe_enable == 0)
+		return 0;
 	if (sfe_enable == 1)
 		skip_to_bridge_ingress = 0;
 	else if (sfe_enable == 2)
 		skip_to_bridge_ingress = 1;
 	else
-		return 0;
+		return EINVAL;
 
 	if (!set_skip_to_bridge_ingress)
 		return EINVAL;

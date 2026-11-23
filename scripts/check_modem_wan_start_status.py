@@ -1300,6 +1300,14 @@ assert "hwnat_set_wan_vid(int wan_vid)" in compact(NET_SOURCE)
 assert "test_wan_vid_write_failure_is_reported" in HWNAT_POLICY_TEST
 assert "test_missing_wan_vid_is_reported" in HWNAT_POLICY_TEST
 assert "rc_sfe_configure_policy(sfe_enable, sfe_set_skip_to_bridge_ingress)" in nat_reload
+
+sfe_policy = body(SFE_POLICY_SOURCE, "rc_sfe_configure_policy(")
+assert "sfe_enable == 0" in sfe_policy
+assert "sfe_enable == 1" in sfe_policy
+assert "sfe_enable == 2" in sfe_policy
+assert "return EINVAL;" in sfe_policy
+assert "test_unknown_modes_fail_before_side_effects" in SFE_POLICY_TEST
+assert "invalid_modes[] = { -1, 3, 99 }" in SFE_POLICY_TEST
 assert "fput_int(\"/sys/fast_classifier/skip_to_bridge_ingress\", skip)" in NET_SOURCE
 assert "doSystem(\"echo 0 > /sys/fast_classifier/skip_to_bridge_ingress\")" not in nat_reload
 assert "doSystem(\"echo 1 > /sys/fast_classifier/skip_to_bridge_ingress\")" not in nat_reload

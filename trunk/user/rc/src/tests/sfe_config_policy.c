@@ -25,12 +25,25 @@ reset_case(int status)
 }
 
 static void
-test_unconfigured_mode_does_not_write(void)
+test_disabled_mode_does_not_write(void)
 {
 	reset_case(0);
 	assert(rc_sfe_configure_policy(0, mock_set_skip_to_bridge_ingress) == 0);
-	assert(rc_sfe_configure_policy(3, mock_set_skip_to_bridge_ingress) == 0);
 	assert(write_calls == 0);
+}
+
+static void
+test_unknown_modes_fail_before_side_effects(void)
+{
+	static const int invalid_modes[] = { -1, 3, 99 };
+	unsigned int i;
+
+	for (i = 0; i < sizeof(invalid_modes) / sizeof(invalid_modes[0]); ++i) {
+		reset_case(0);
+		assert(rc_sfe_configure_policy(
+			invalid_modes[i], mock_set_skip_to_bridge_ingress) == EINVAL);
+		assert(write_calls == 0);
+	}
 }
 
 static void
@@ -74,7 +87,8 @@ test_missing_writer_fails_before_side_effects(void)
 int
 main(void)
 {
-	test_unconfigured_mode_does_not_write();
+	test_disabled_mode_does_not_write();
+	test_unknown_modes_fail_before_side_effects();
 	test_mode_one_disables_skip_to_bridge_ingress();
 	test_mode_two_enables_skip_to_bridge_ingress();
 	test_failed_sfe_config_write_is_reported();
