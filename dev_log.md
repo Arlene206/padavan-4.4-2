@@ -2,8 +2,8 @@
 
 - `nvram_restore_defaults()` previously passed `nvram_get_int("console_loglevel")` directly to `klogctl(8)`. A transient NVRAM backend/read/close failure was collapsed to zero, suppressing all kernel console output just before later boot checks could report faults.
 - Boot now distinguishes present, missing and failed reads. Present values keep legacy `atoi()` conversion; a missing key keeps the legacy zero default; a backend error skips `klogctl` and retains the kernel's current default level. The syscall result is also logged if applying the requested setting fails.
-- Added GNU89/Werror/ASan/UBSan policy coverage and an exact source/workflow contract. Exact-head validation pending; no local shell/firmware build claimed.
-- Resulting commit: pending.
+- Added GNU89/Werror/ASan/UBSan policy coverage and an exact source/workflow contract. Host GNU89/ASan/UBSan test passed on initial commit. Console integration checker run `45125348511` failed only because the checker retained spaces inside a multiline function call while matching a normalized string. This follow-up removes all whitespace before matching; exact checker rerun pending. No local checkout or firmware build claimed.
+- Source commit under validation: `a18a2e0148ec861719a5836fab454ee9a0ed785c`; checker-only correction: pending.
 
 ---
 

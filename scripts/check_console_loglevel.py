@@ -22,13 +22,13 @@ def body(source, signature):
 
 
 restore = body(rc, "nvram_restore_defaults(void)")
-compact = " ".join(restore.split())
+compact = "".join(restore.split())
 assert '#include "console_loglevel_policy.h"' in rc
-assert 'nvram_get_checked("console_loglevel", &console_loglevel_text)' in compact
+assert 'nvram_get_checked("console_loglevel",&console_loglevel_text)' in compact
 assert "rc_console_loglevel_parse_status(" in compact
-assert compact.index("if (console_loglevel_status != 0)") < compact.index("klogctl(8, NULL, console_loglevel)")
+assert compact.index("if(console_loglevel_status!=0)") < compact.index("klogctl(8,NULL,console_loglevel)")
 assert "retaining kernel default" in restore
-assert "if (klogctl(8, NULL, console_loglevel) < 0)" in compact
+assert "if (klogctl(8,NULL,console_loglevel) < 0)" in compact
 assert 'nvram_get_int("console_loglevel")' not in restore
 
 for marker in (
