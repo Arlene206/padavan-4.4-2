@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Make ZeroTier route-count contract parsing shell-safe
+
+- The bounded-route shell regression passed on `aee9699d`, but the Python source-contract parser treated the apostrophe in a shell comment as the start of a character literal and failed while extracting the new helper. Reused the checker's established explicit function-boundary strategy for this shell helper, avoiding false parsing of shell comments without weakening the count assertions.
+- Exact-head ZeroTier lifecycle, AI handoff and XY-C1 validation are required; no local execution is claimed.
+
+---
+
 ## 2026-11-23 UTC — Bound ZeroTier static-route count before iteration
 
 - The web UI limits ZeroTier static routes to 64 entries, but both `zerotier_preflight_static_routes()` and `zero_route()` trusted any digit-only NVRAM count and fed it directly to `seq`. A corrupted or externally modified count could create an effectively unbounded startup/stop loop before daemon state changes.
