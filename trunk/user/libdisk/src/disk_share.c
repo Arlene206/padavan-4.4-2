@@ -1207,6 +1207,7 @@ int add_account(const char *const account, const char *const password)
 	disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
 	int i, acc_num = 0, first_error = 0, init_result;
+	int service_result, service_error;
 	char **account_list = NULL;
 	char nvram_name[32];
 
@@ -1274,7 +1275,11 @@ int add_account(const char *const account, const char *const password)
 	 * inventory, reload Samba even when the inventory/metadata failed, and
 	 * return the first error without mistaking an unknown inventory for empty.
 	 */
-	system("/sbin/run_samba");
+	errno = 0;
+	service_result = system("/sbin/run_samba");
+	service_error = disk_share_command_status(service_result, errno);
+	if (service_error != 0 && first_error == 0)
+		first_error = service_error;
 	if (first_error != 0) {
 		errno = first_error;
 		return -1;
@@ -1292,6 +1297,7 @@ int del_account(const char *const account)
 	char shifted_passwords[MAX_ACCOUNT_NUM][DISK_SHARE_ACCOUNT_PASSWORD_VALUE_MAX];
 	char **account_list = NULL;
 	int result, i, first_error = 0, saved_errno;
+	int service_result, service_error;
 	char nvram_name[16];
 	char var_file[256];
 
@@ -1419,7 +1425,11 @@ int del_account(const char *const account)
 	free_disk_data(disk_list);
 
 	/* 6. reload services even when stale metadata could not be removed. */
-	system("/sbin/run_ftpsamba");
+	errno = 0;
+	service_result = system("/sbin/run_ftpsamba");
+	service_error = disk_share_command_status(service_result, errno);
+	if (service_error != 0 && first_error == 0)
+		first_error = service_error;
 	if (first_error != 0) {
 		saved_errno = first_error;
 		errno = saved_errno;
@@ -1443,6 +1453,7 @@ disk_info_t *disk_list = NULL, *follow_disk;
 	struct disk_share_account_rename_entry *moves = NULL, *moves_tail = NULL;
 	struct disk_share_account_rename_entry *move, *next_move;
 	int first_error = 0, saved_errno, rollback_error = 0;
+	int service_result, service_error;
 
 	if (!is_valid_account_name(account) || !strcmp(account, FTP_ANONYMOUS_USER))
 		return -1;
@@ -1598,7 +1609,11 @@ disk_info_t *disk_list = NULL, *follow_disk;
 
 rerun:
 	/* 6. re-run ftp and samba even when one volume's metadata could not move. */
-	system("/sbin/run_ftpsamba");
+	errno = 0;
+	service_result = system("/sbin/run_ftpsamba");
+	service_error = disk_share_command_status(service_result, errno);
+	if (service_error != 0 && first_error == 0)
+		first_error = service_error;
 	if (first_error != 0) {
 		errno = first_error;
 		return -1;

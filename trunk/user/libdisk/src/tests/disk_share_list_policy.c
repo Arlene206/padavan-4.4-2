@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <signal.h>
 #include <stddef.h>
 #include <dirent.h>
 #include <errno.h>
@@ -931,6 +932,27 @@ test_account_rename_batch_reports_incomplete_rollback(void)
 }
 
 
+static void
+test_account_service_command_status_accepts_exit_zero(void)
+{
+	assert(disk_share_command_status(0, EACCES) == 0);
+}
+
+static void
+test_account_service_command_status_rejects_nonzero_exit_and_signal(void)
+{
+	assert(disk_share_command_status(1 << 8, 0) == EIO);
+	assert(disk_share_command_status(SIGTERM, 0) == EIO);
+}
+
+static void
+test_account_service_command_status_preserves_invocation_errno(void)
+{
+	assert(disk_share_command_status(-1, EACCES) == EACCES);
+	assert(disk_share_command_status(-1, 0) == EIO);
+}
+
+
 int
 main(void)
 {
@@ -949,6 +971,9 @@ main(void)
 	test_account_rename_status_preserves_real_errors();
 	test_account_rename_batch_rolls_back_prior_moves();
 	test_account_rename_batch_reports_incomplete_rollback();
+	test_account_service_command_status_accepts_exit_zero();
+	test_account_service_command_status_rejects_nonzero_exit_and_signal();
+	test_account_service_command_status_preserves_invocation_errno();
 	test_permission_rewrite_removes_complete_record();
 	test_permission_rewrite_renames_key_and_preserves_rights();
 	test_permission_rewrite_reports_missing_record_and_clears_outputs();

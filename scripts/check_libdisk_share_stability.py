@@ -521,6 +521,37 @@ mod_account_body = function_body(
 mod_account_compact = "".join(mod_account_body.split())
 mod_inventory = mod_account_compact.index("read_disk_data_checked(&disk_list)")
 
+
+require("disk_share_command_status" in POLICY,
+        "account-management service reloads must normalize system() wait status")
+for signature, command in (
+    ("int add_account(const char *const account, const char *const password)", 'system("/sbin/run_samba")'),
+    ("int del_account(const char *const account)", 'system("/sbin/run_ftpsamba")'),
+    ("int mod_account(const char *const account, const char *const new_account, const char *const new_password)", 'system("/sbin/run_ftpsamba")'),
+):
+    body = function_body(DISK_SOURCE, signature)
+    compact = "".join(body.split())
+    command_offset = compact.index(command)
+    status_offset = compact.index("disk_share_command_status(serviceresult,errno)", command_offset)
+    error_offset = compact.index("first_error=service_error;", status_offset)
+    require(command_offset < status_offset < error_offset and
+            "service_error!=0&&first_error==0" in compact[status_offset:error_offset + 40],
+            "account-management functions must propagate failed service reloads: " + signature)
+for marker in (
+    "test_account_service_command_status_accepts_exit_zero",
+    "test_account_service_command_status_rejects_nonzero_exit_and_signal",
+    "test_account_service_command_status_preserves_invocation_errno",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing service reload result regression: " + marker)
+for marker in (
+    "test_account_service_command_status_accepts_exit_zero",
+    "test_account_service_command_status_rejects_nonzero_exit_and_signal",
+    "test_account_service_command_status_preserves_invocation_errno",
+):
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "service reload regression is defined but not executed: " + marker)
+
 require("disk_share_account_rename_entries_apply" in POLICY and
         "rename_path(undo->destination,undo->source)" in "".join(POLICY.split()),
         "multi-volume account metadata rename policy must compensate prior moves in reverse order")

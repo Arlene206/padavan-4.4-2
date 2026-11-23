@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
+#include <sys/wait.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -300,6 +301,17 @@ disk_share_account_rename_entries_apply(
 		}
 		entry->renamed = 1;
 	}
+	return 0;
+}
+
+/* Convert system(3)'s wait status to a stable errno-style failure result. */
+static inline int
+disk_share_command_status(int wait_status, int saved_errno)
+{
+	if (wait_status == -1)
+		return saved_errno != 0 ? saved_errno : EIO;
+	if (!WIFEXITED(wait_status) || WEXITSTATUS(wait_status) != 0)
+		return EIO;
 	return 0;
 }
 
