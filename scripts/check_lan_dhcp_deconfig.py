@@ -612,6 +612,31 @@ assert "start_status=rc_first_service_start_status(start_status,lan_proto_status
 assert "cannotverifyAPLANprotocolmode" in protocol_failure
 assert "test_ap_lan_protocol_mode_read_failure_fails_closed" in callback_test
 assert "lan_dhcp_ap_mode_resolve" in callback_policy
+auto_resolver = c_function_body(lan, "lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)")
+auto_compact = " ".join(auto_resolver.split())
+auto_snapshot = auto_compact.index("status = rc_wan_nvram_copy_snapshot(")
+auto_snapshot_failure = auto_compact.index("if (status != 0)", auto_snapshot)
+auto_parse = auto_compact.index("status = rc_wan_nvram_parse_int_value(dns_mode_text, &dns_mode);")
+auto_parse_failure = auto_compact.index("if (status != 0)", auto_parse)
+auto_lock = auto_compact.index('lock = file_lock("resolv")')
+auto_static_dns = auto_compact.index("if (dns_mode == 0)")
+auto_publish = auto_compact.index("dnsmasq_file_publish(")
+assert auto_snapshot < auto_snapshot_failure < auto_parse < auto_parse_failure < auto_lock
+assert auto_lock < auto_static_dns < auto_publish
+for index, key, destination in (
+    (0, "lan_dns_x", "dns_mode_text"),
+    (1, "lan_dns1", "dns1_ip"),
+    (2, "lan_dns2", "dns2_ip"),
+):
+    assert f'resolver_fields[{index}].param_name = "{key}";' in auto_resolver
+    assert f'resolver_fields[{index}].destination = {destination};' in auto_resolver
+assert "lan_dhcp_snapshot_begin" in auto_resolver
+assert "lan_dhcp_snapshot_get" in auto_resolver
+assert "lan_dhcp_snapshot_end" in auto_resolver
+assert 'nvram_get_int("lan_dns_x")' not in auto_resolver
+assert 'nvram_safe_get("lan_dns1")' not in auto_resolver
+assert 'nvram_safe_get("lan_dns2")' not in auto_resolver
+assert "test_checked_integer_parser_rejects_malformed_and_overflow" in nvram_snapshot_test
 manual_start = c_function_body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
 manual_snapshot = manual_start.index("gateway_status = rc_wan_nvram_copy_snapshot(")
 manual_snapshot_failure = manual_start.index("if (gateway_status != 0)", manual_snapshot)

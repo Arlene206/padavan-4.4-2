@@ -2634,6 +2634,23 @@ test_vpnc_dns_missing_server_keeps_legacy_empty_fallback_signal(void)
 		&fake) == 0);
 	assert(pdns == 2 && servers[0] == '\0');
 }
+static void
+test_checked_integer_parser_rejects_malformed_and_overflow(void)
+{
+	int value = -1;
+
+	assert(rc_wan_nvram_parse_int_value("0", &value) == 0);
+	assert(value == 0);
+	assert(rc_wan_nvram_parse_int_value(" 1 ", &value) == 0);
+	assert(value == 1);
+	/* Empty/whitespace NVRAM preserves atoi()'s legacy zero default. */
+	assert(rc_wan_nvram_parse_int_value("", &value) == 0);
+	assert(value == 0);
+	assert(rc_wan_nvram_parse_int_value("1;reboot", &value) == EINVAL);
+	assert(rc_wan_nvram_parse_int_value("2147483648", &value) == ERANGE);
+	assert(rc_wan_nvram_parse_int_value(NULL, &value) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -2645,6 +2662,7 @@ main(void)
 	test_required_param_sequence_stops_at_first_error();
 	test_invalid_required_param_arguments_fail_closed();
 	test_checked_read_accepts_present_and_absent_values();
+	test_checked_integer_parser_rejects_malformed_and_overflow();
 	test_checked_read_preserves_backend_error();
 	test_checked_read_without_errno_falls_back_to_eio();
 	test_checked_read_rejects_unexpected_result();

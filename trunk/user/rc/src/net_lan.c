@@ -2225,9 +2225,46 @@ static int
 lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 {
 	FILE *fp;
-	int lock, status = 0, dns_count = 0;
-	char word[100], *next, *dns_ip;
+	int lock, status = 0, dns_count = 0, dns_mode = 0;
+	char dns_mode_text[8], dns1_ip[16], dns2_ip[16];
+	char word[100], *next;
+	struct nvram_transaction resolver_transaction;
+	struct rc_wan_nvram_snapshot_field resolver_fields[3];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
+
+	/*
+	 * Snapshot the DNS selector and static addresses as one NVRAM generation.
+	 * Failed reads must not turn into the legacy "static DNS" default and
+	 * replace the resolver with an incomplete configuration.
+	 */
+	resolver_fields[0].param_name = "lan_dns_x";
+	resolver_fields[0].destination = dns_mode_text;
+	resolver_fields[0].destination_size = sizeof(dns_mode_text);
+	resolver_fields[1].param_name = "lan_dns1";
+	resolver_fields[1].destination = dns1_ip;
+	resolver_fields[1].destination_size = sizeof(dns1_ip);
+	resolver_fields[2].param_name = "lan_dns2";
+	resolver_fields[2].destination = dns2_ip;
+	resolver_fields[2].destination_size = sizeof(dns2_ip);
+	status = rc_wan_nvram_copy_snapshot(
+		resolver_fields, 3, lan_dhcp_snapshot_begin,
+		lan_dhcp_snapshot_get, lan_dhcp_snapshot_end,
+		&resolver_transaction);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot snapshot LAN DHCP resolver settings (status=%d)",
+			   status);
+		return status;
+	}
+	status = rc_wan_nvram_parse_int_value(dns_mode_text, &dns_mode);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot parse LAN DHCP resolver mode (status=%d)",
+			   status);
+		return status;
+	}
 
 	errno = 0;
 	lock = file_lock("resolv");
@@ -2250,16 +2287,14 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 	if (lan_dname && *lan_dname)
 		fprintf(fp, "domain %s\n", lan_dname);
 
-	if (nvram_get_int("lan_dns_x") == 0) {
-		dns_ip = nvram_safe_get("lan_dns1");
-		if (is_valid_ipv4(dns_ip)) {
-			fprintf(fp, "nameserver %s\n", dns_ip);
+	if (dns_mode == 0) {
+		if (is_valid_ipv4(dns1_ip)) {
+			fprintf(fp, "nameserver %s\n", dns1_ip);
 			dns_count++;
 		}
 
-		dns_ip = nvram_safe_get("lan_dns2");
-		if (is_valid_ipv4(dns_ip)) {
-			fprintf(fp, "nameserver %s\n", dns_ip);
+		if (is_valid_ipv4(dns2_ip)) {
+			fprintf(fp, "nameserver %s\n", dns2_ip);
 			dns_count++;
 		}
 	} else {
