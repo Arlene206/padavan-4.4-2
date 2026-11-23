@@ -56,11 +56,15 @@ copy_ifname(char *dest, size_t dest_size, const char *ifname)
 {
 	size_t len;
 
-	if (!dest || !ifname)
+	if (!dest || !ifname) {
+		errno = EINVAL;
 		return -1;
+	}
 	len = strnlen(ifname, IFNAMSIZ);
-	if (len == 0 || len >= IFNAMSIZ || len >= dest_size)
+	if (len == 0 || len >= IFNAMSIZ || len >= dest_size) {
+		errno = EINVAL;
 		return -1;
+	}
 	memcpy(dest, ifname, len + 1);
 	return 0;
 }
@@ -719,6 +723,7 @@ in_addr_t
 get_interface_addr4(const char *ifname)
 {
 	int sockfd;
+	int lookup_error = 0;
 	struct ifreq ifr;
 	in_addr_t ipv4_addr = INADDR_ANY;
 
@@ -728,18 +733,24 @@ get_interface_addr4(const char *ifname)
 	memset(&ifr, 0, sizeof(ifr));
 	if (copy_ifname(ifr.ifr_name, sizeof(ifr.ifr_name), ifname) < 0) {
 		close(sockfd);
+		errno = EINVAL;
 		return INADDR_ANY;
 	}
 
-	/* Get IPv4 address */
+	/* Get IPv4 address; retain ioctl/close failures across descriptor cleanup. */
 	if (ioctl(sockfd, SIOCGIFADDR, &ifr) == 0) {
 		struct sockaddr_in *ipv4_inaddr = (struct sockaddr_in *)&ifr.ifr_addr;
 		if (ipv4_inaddr->sin_addr.s_addr != INADDR_ANY &&
 		    ipv4_inaddr->sin_addr.s_addr != INADDR_NONE)
 			ipv4_addr = ipv4_inaddr->sin_addr.s_addr;
+	} else {
+		lookup_error = errno ? errno : EIO;
 	}
 
-	close(sockfd);
+	if (close(sockfd) != 0 && lookup_error == 0)
+		lookup_error = errno ? errno : EIO;
+	if (ipv4_addr == INADDR_ANY && lookup_error != 0)
+		errno = lookup_error;
 
 	return ipv4_addr;
 }

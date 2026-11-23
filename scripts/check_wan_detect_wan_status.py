@@ -11,6 +11,7 @@ TEST = (RC / "tests/process_presence_start_policy.c").read_text()
 ROUTE_STATUS_TEST = (RC / "tests/route_status_policy.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
 RC_HEADER = (RC / "rc.h").read_text()
+NETUTILS = (ROOT / "trunk/user/shared/src/netutils.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 PROCESS_WORKFLOW = (ROOT / ".github/workflows/process-lifecycle-regression.yml").read_text()
 
@@ -63,6 +64,21 @@ def require(condition, message):
     if not condition:
         raise SystemExit("WAN gateway ARP checker status contract: FAIL: " + message)
 
+
+copy_ifname = body(NETUTILS, "copy_ifname(")
+require(
+    "errno = EINVAL;" in copy_ifname
+    and "len == 0 || len >= IFNAMSIZ || len >= dest_size" in copy_ifname,
+    "invalid interface names must leave an errno for callers that distinguish missing IP from local lookup failure",
+)
+interface_addr = body(NETUTILS, "get_interface_addr4(const char *ifname)")
+require(
+    "lookup_error = errno ? errno : EIO;" in interface_addr
+    and "if (close(sockfd) != 0 && lookup_error == 0)" in interface_addr
+    and "if (ipv4_addr == INADDR_ANY && lookup_error != 0)" in interface_addr
+    and "errno = lookup_error;" in interface_addr,
+    "interface-address ioctl errors must survive descriptor close and remain visible to WAN health checks",
+)
 
 wan_up = body(WAN, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
 gateway_scope = wan_up.rindex(

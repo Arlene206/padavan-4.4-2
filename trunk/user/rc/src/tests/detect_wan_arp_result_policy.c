@@ -234,6 +234,7 @@ test_local_ipv4_lookup_errors_are_not_absent_addresses(void)
     CHECK(detect_wan_local_ip4_status(INADDR_ANY, 0) == 0);
     CHECK(detect_wan_local_ip4_status(INADDR_ANY, EADDRNOTAVAIL) == 0);
     CHECK(detect_wan_local_ip4_status(INADDR_ANY, EACCES) == EACCES);
+    CHECK(detect_wan_local_ip4_status(INADDR_ANY, EINVAL) == EINVAL);
     CHECK(detect_wan_local_ip4_status(INADDR_ANY, EIO) == EIO);
     CHECK(detect_wan_local_ip4_status(INADDR_ANY, -1) == EIO);
     CHECK(detect_wan_local_ip4_status(htonl(0xc0000202U), EIO) == 0);

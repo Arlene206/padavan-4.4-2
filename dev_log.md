@@ -1,3 +1,11 @@
+## 2026-11-23 — Preserve netutils interface-address errno
+
+- Follow-up inspection found a gap in the WAN local-address error separation: `copy_ifname()` returned `-1` for null/empty/overlong interface names without setting errno, so a caller that clears errno could still classify a failed interface-name copy as an ordinary unassigned address.
+- `get_interface_addr4()` now marks invalid interface names as `EINVAL`, preserves `SIOCGIFADDR` errors across `close()`, and surfaces a close error when the address lookup itself returned no usable address. A valid IP address is retained even if closing the temporary socket later fails.
+- Extended the WAN errno fixture with EINVAL and added an exact source contract for the shared address helper; the WAN route workflow now triggers on changes to `netutils.c`. XY-C1 already tracks this source. Exact-head WAN route, L2, Process, docs and XY-C1 Build/TRX/artifact verification pending. No local compile is claimed.
+
+---
+
 ## 2026-11-23 — Repair exact-source WAN/Process integration assertions
 
 - Current source SHA `bd56c02f7f8d10374c6857f8aac1d56b1f7a4b6e`: WAN ARP L2 #45241824790 PASS, WAN DHCP callbacks #45241824847 PASS, Process inventory #45241824430 PASS, and AI handoff #45241824655 PASS.

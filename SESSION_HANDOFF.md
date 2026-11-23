@@ -29,6 +29,7 @@
 
 - WAN local IPv4 status commit `bd56c02f7f8d10374c6857f8aac1d56b1f7a4b6e`: WAN ARP #45241824790 PASS; WAN DHCP #45241824847 PASS; Process inventory #45241824430 PASS; AI docs #45241824655 PASS. WAN route #45241824836 and Process umbrella #45241824549 failed only at stale source assertions, both corrected in follow-up `<next SHA>`; exact reruns pending. XY-C1 #45241824748 and NVRAM #45241824746 were in progress at last poll.
 
+- WAN local IPv4 error separation follow-up `netutils.c`: invalid interface-name copies now set EINVAL; `get_interface_addr4()` preserves ioctl/close errors across cleanup. WAN EINVAL fixture and source contract added; exact CI pending.
 ## Current repository state
 - Repository `Arlene206/padavan-4.4-2`; work only on `main`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
