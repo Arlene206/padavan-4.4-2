@@ -1,3 +1,14 @@
+## 2026-11-23 14:00 UTC+8 — Retry DHCPv6 Reply events when configuration scripts fail
+
+- Confirmed active production path: `start_dhcp6c()` in `trunk/user/rc/src/net_wan6.c` launches `/sbin/dhcp6c`; BusyBox Kbuild includes `dhcp6c.o`, `dhcp6c_script.o` and `dhcp6c_ia.o` under CONFIG_DHCP6C. The legacy `d6_dhcpc.c` is not this router's DHCPv6 client and was not modified.
+- Defect: `dhcp6_script()` in `dhcp6c_script.c` returns the real `spawn_and_wait()` result, but `client6_recvreply()` in `dhcp6c.c` only logged a failed callback and unconditionally removed the DHCP event. It also armed Information Refresh Time before the script callback completed. A transient callback failure could discard the DHCP retry event and delay restoration of IPv6 DNS/NVRAM state until a later exchange.
+- Fix: initialize script status to success when no callback is configured; on a nonzero status retain the current DHCP event, reset its retransmission parameters using `dhcp6_set_timeoparam()`, schedule the event timer for 5 seconds and return before `dhcp6_remove_event()`. The Information Refresh Time timer is now armed only after callback success. The existing child environment cleanup path remains unchanged.
+- Added a policy header and GNU89 host regression for success, positive child exit status, spawn failure and retry interval. Added a Python source contract verifying the callback result, event retention, retry timer and Information Refresh Time ordering. A dedicated workflow compiles/runs the policy under ASan/UBSan and executes the source contract.
+- Previous source slices now have complete verification: USB printer unplug commit `20012786541a3789f0391793345e403eb96c77d8` passed storage-hotplug host/sanitizer/source checks in run `45116268933` and exact-SHA XY-C1 build/TRX/artifact in run `45116268960`; FRP source `d2c388a04f6125666043bf94672a8f4222655d4b` passed exact-SHA XY-C1 run `45115500761`; FRP checker correction `41285d396d7bd1f984f13c49699ed6dacbd27e92` passed run `45116127095`.
+- No local checkout is available; no local compile or test is claimed. The dedicated DHCPv6 host workflow and exact-new-SHA XY-C1 MIPS/uClibc build, TRX and artifact upload are required before L2/L3 closure. L4 router validation remains unavailable.
+- Source, policy, test, checker, workflow and this handoff/log update form one atomic slice. Resulting commit: THIS COMMIT.
+
+---
 ## 2026-11-23 13:43 UTC+8 — Preserve USB printer unplug retries when spooler shutdown fails
 
 - Source review found a concrete event-loss defect in on_deferred_hotplug_dev(): the usb_unplug_lp branch called stop_usb_printer_spoolers() but discarded its result, then passed action_status=0 to usb_hotplug_event_ack_status() and acknowledged the NVRAM event. services_usb.c confirms that stop_usb_printer_spoolers() aggregates u2ec/lpd/p910nd stop errors and returns a nonzero errno-style status; therefore an un-stopped daemon could be left behind with no unplug retry queued.

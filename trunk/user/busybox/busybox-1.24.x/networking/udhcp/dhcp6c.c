@@ -39,6 +39,7 @@
 /* Override ENABLE_FEATURE_PIDFILE */
 #define WANT_PIDFILE 1
 #include "dhcp6c.h"
+#include "dhcp6c_script_retry_policy.h"
 #include "dhcp6c_auth.h"
 
 #define DHCP6C_CONF     "/etc/dhcp6c.conf"
@@ -1059,7 +1060,7 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 				struct dhcp6_optinfo *optinfo)
 {
 	struct dhcp6_listval *lv;
-	int state, script_status;
+	int state, script_status = 0;
 
 	state = ev->state;
 	if (state != DHCP6S_INFOREQ &&
@@ -1095,6 +1096,40 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 		bb_info_msg("status code: %s", dhcp6stcodestr(lv->val_num16));
 	}
 
+
+	/* update stateful configuration information */
+	if (state != DHCP6S_RELEASE) {
+		update_ia(&optinfo->ia_list, ifp, &optinfo->serverID IF_FEATURE_DHCP6_AUTH(, ev->authparam));
+	}
+
+	/*
+	 * Call the configuration script, if specified, to handle various
+	 * configuration parameters.
+	 */
+	if (ifp->scriptpath != NULL && ifp->scriptpath[0] != '\0') {
+		log1("executes %s", ifp->scriptpath);
+		script_status = dhcp6_script(ifp->scriptpath,
+					     fill_envp_client6(optinfo, ifp->ifname));
+		if (dhcp6c_script_retry_required(script_status)) {
+			if (script_status < 0)
+				bb_perror_msg("DHCPv6 configuration script failed; retrying event");
+			else
+				bb_error_msg("DHCPv6 configuration script exited with status %d; retrying event",
+					     script_status);
+
+			/*
+			 * Keep the valid DHCP event alive until local configuration
+			 * succeeds. Reset the retransmission budget and retry the same
+			 * exchange after a bounded delay. Information Refresh Time is
+			 * armed only after the callback succeeds.
+			 */
+			ev->timeouts = 0;
+			dhcp6_set_timeoparam(ev);
+			dhcp6_timer_set(DHCP6C_SCRIPT_RETRY_DELAY_MS, ev->timer);
+			return -1;
+		}
+	}
+
 	/*
 	 * Set refresh timer for configuration information specified in
 	 * information-request.  If the timer value is specified by the server
@@ -1126,26 +1161,6 @@ static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
 		 * is only used for information-request and reply exchanges.
 		 */
 		bb_info_msg("unexpected information refresh time option (ignored)");
-	}
-
-	/* update stateful configuration information */
-	if (state != DHCP6S_RELEASE) {
-		update_ia(&optinfo->ia_list, ifp, &optinfo->serverID IF_FEATURE_DHCP6_AUTH(, ev->authparam));
-	}
-
-	/*
-	 * Call the configuration script, if specified, to handle various
-	 * configuration parameters.
-	 */
-	if (ifp->scriptpath != NULL && ifp->scriptpath[0] != '\0') {
-		log1("executes %s", ifp->scriptpath);
-		script_status = dhcp6_script(ifp->scriptpath,
-					     fill_envp_client6(optinfo, ifp->ifname));
-		if (script_status < 0)
-			bb_perror_msg("DHCPv6 configuration script failed to execute");
-		else if (script_status != 0)
-			bb_error_msg("DHCPv6 configuration script exited with status %d",
-				     script_status);
 	}
 
 	dhcp6_remove_event(ev);
