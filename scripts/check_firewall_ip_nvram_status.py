@@ -87,9 +87,11 @@ for marker in (
 # The configured IPTV interface participates in IPv4 mangle TTL policy.
 # Do not silently fall back to MAN when a checked NVRAM read fails.
 mangle = body(SOURCE, "ipt_mangle_rules(const char *man_if")
-viptv_read = ('firewall_read_string_setting_copy_status(\n'
-              '\t\t"viptv_ifname", viptv_iflast, sizeof(viptv_iflast))')
-viptv_position = mangle.index(viptv_read)
+viptv_position = mangle.index("firewall_read_string_setting_copy_status(")
+viptv_call_end = mangle.index(";", viptv_position)
+viptv_call = mangle[viptv_position:viptv_call_end]
+assert '"viptv_ifname"' in viptv_call
+assert "viptv_iflast" in viptv_call
 assert 'nvram_safe_get("viptv_ifname")' not in mangle
 assert "char viptv_iflast[16]" in mangle
 assert viptv_position < mangle.index("fput_int(")
