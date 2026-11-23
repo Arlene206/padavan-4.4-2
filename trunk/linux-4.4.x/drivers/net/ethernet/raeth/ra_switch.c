@@ -1050,255 +1050,305 @@ void fe_cal_tx_offset_mdix(u8 port_num, u32 delay)
 	tc_phy_write_g_reg(port_num, 1, 26, 0);
 }
 
+static int set_r50_leopard_checked(u8 port_num, u32 r50_cal_result)
+{
+	unsigned int l4r22_temp;
+	unsigned int tx_value, rx_value;
+	int status;
+
+	if (port_num > 4U)
+		return -EINVAL;
+	if (r50_cal_result >= ARRAY_SIZE(ZCAL_TO_R50OHM_TBL_100))
+		return -ERANGE;
+
+	tx_value = ZCAL_TO_R50OHM_TBL_100[r50_cal_result] + 4U;
+	rx_value = ZCAL_TO_R50OHM_TBL_100[r50_cal_result] + 6U;
+	if (tx_value > 0x7fU)
+		tx_value = 0x7fU;
+	if (rx_value > 0x7fU)
+		rx_value = 0x7fU;
+
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 22U, 1, tx_value << 8);
+	if (status != 0)
+		return status;
+	status = tc_phy_read_page_reg_checked(
+		port_num, 4U, 22U, 1, &l4r22_temp);
+	if (status != 0)
+		return status;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 22U, 1, l4r22_temp | rx_value);
+	if (status != 0)
+		return status;
+	status = tc_phy_read_page_reg_checked(
+		port_num, 4U, 22U, 1, &l4r22_temp);
+	if (status != 0)
+		return status;
+	pr_info("port_num=%u set R50 TX/RX to %u/%u (reg=0x%x)\n",
+		port_num, tx_value, rx_value, l4r22_temp);
+	return 0;
+}
+
+static int set_r50_mt7622_checked(u8 port_num, u32 r50_cal_result)
+{
+	static const u8 tx_offset[5] = { 5U, 3U, 4U, 4U, 4U };
+	static const u8 rx_offset[5] = { 5U, 3U, 5U, 3U, 5U };
+	unsigned int tx_index, rx_index;
+	unsigned int l4r22_temp;
+	unsigned int tx_value, rx_value;
+	int status;
+
+	if (port_num >= ARRAY_SIZE(tx_offset))
+		return -EINVAL;
+	/* Avoid unsigned underflow and out-of-range calibration-table reads. */
+	if ((r50_cal_result < tx_offset[port_num]) ||
+	    (r50_cal_result < rx_offset[port_num]))
+		return -ERANGE;
+	tx_index = r50_cal_result - tx_offset[port_num];
+	rx_index = r50_cal_result - rx_offset[port_num];
+	if ((tx_index >= ARRAY_SIZE(ZCAL_TO_R50OHM_TBL_100)) ||
+	    (rx_index >= ARRAY_SIZE(ZCAL_TO_R50OHM_TBL_100)))
+		return -ERANGE;
+
+	tx_value = ZCAL_TO_R50OHM_TBL_100[tx_index] + 4U;
+	rx_value = ZCAL_TO_R50OHM_TBL_100[rx_index] + 6U;
+	if (tx_value > 0x7fU)
+		tx_value = 0x7fU;
+	if (rx_value > 0x7fU)
+		rx_value = 0x7fU;
+
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 22U, 1, tx_value << 8);
+	if (status != 0)
+		return status;
+	status = tc_phy_read_page_reg_checked(
+		port_num, 4U, 22U, 1, &l4r22_temp);
+	if (status != 0)
+		return status;
+	status = tc_phy_write_page_reg_checked(
+		port_num, 4U, 22U, 1, l4r22_temp | rx_value);
+	if (status != 0)
+		return status;
+	status = tc_phy_read_page_reg_checked(
+		port_num, 4U, 22U, 1, &l4r22_temp);
+	if (status != 0)
+		return status;
+	pr_info("port_num=%u set R50 TX/RX to %u/%u (reg=0x%x)\n",
+		port_num, tx_value, rx_value, l4r22_temp);
+	return 0;
+}
+
+/* Keep the legacy void entry points for out-of-tree callers. */
 void set_r50_leopard(u8 port_num, u32 r50_cal_result)
 {
-	int rg_zcal_ctrl_tx, rg_zcal_ctrl_rx;
-	u16 l4r22_temp;
+	int status = set_r50_leopard_checked(port_num, r50_cal_result);
 
-	rg_zcal_ctrl_rx = 0;
-	rg_zcal_ctrl_tx = 0;
-	pr_info("r50_cal_result  = 0x%x\n", r50_cal_result);
-	if (port_num == 0) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)];
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)];
+	if (status != 0) {
+		pr_err_ratelimited("%s: failed (port=%u result=%u status=%d)\n",
+				   __func__, port_num, r50_cal_result, status);
+		return;
 	}
-	if (port_num == 1) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 4;
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 4;
-	}
-	if (port_num == 2) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 4;
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 6;
-	}
-	if (port_num == 3) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 5;
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 6;
-	}
-	if (port_num == 4) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 4;
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result)] + 4;
-	}
-	if (rg_zcal_ctrl_tx > 0x7f)
-		rg_zcal_ctrl_tx = 0x7f;
-	if (rg_zcal_ctrl_rx > 0x7f)
-		rg_zcal_ctrl_rx = 0x7f;
-/*R50OHM_RSEL_TX= LP4R22[14:8]*/
-	tc_phy_write_l_reg(port_num, 4, 22, ((rg_zcal_ctrl_tx << 8)));
-	l4r22_temp = tc_phy_read_l_reg(port_num, 4, 22);
-/*R50OHM_RSEL_RX= LP4R22[6:0]*/
-	tc_phy_write_l_reg(port_num, 4, 22,
-			   (l4r22_temp | (rg_zcal_ctrl_rx << 0)));
 	fe_cal_r50_flag = 1;
-	pr_info("[%d] - r50 final result l4r22[%d] = %x\n", port_num,
-		port_num, tc_phy_read_l_reg(port_num, 4, 22));
 }
 
 void set_r50_mt7622(u8 port_num, u32 r50_cal_result)
 {
-	int rg_zcal_ctrl_tx, rg_zcal_ctrl_rx;
-	u16 l4r22_temp;
+	int status = set_r50_mt7622_checked(port_num, r50_cal_result);
 
-	rg_zcal_ctrl_rx = 0;
-	rg_zcal_ctrl_tx = 0;
-	pr_info("r50_cal_result  = 0x%x\n", r50_cal_result);
-
-	if (port_num == 0) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 5)];
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 5)];
+	if (status != 0) {
+		pr_err_ratelimited("%s: failed (port=%u result=%u status=%d)\n",
+				   __func__, port_num, r50_cal_result, status);
+		return;
 	}
-	if (port_num == 1) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 3)];
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 3)];
-	}
-	if (port_num == 2) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 4)];
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 5)];
-	}
-	if (port_num == 3) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 4)];
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 3)];
-	}
-	if (port_num == 4) {
-		rg_zcal_ctrl_tx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 4)];
-		rg_zcal_ctrl_rx = ZCAL_TO_R50OHM_TBL_100[(r50_cal_result - 5)];
-	}
-/*R50OHM_RSEL_TX= LP4R22[14:8]*/
-	tc_phy_write_l_reg(port_num, 4, 22, ((rg_zcal_ctrl_tx << 8)));
-	l4r22_temp = tc_phy_read_l_reg(port_num, 4, 22);
-/*R50OHM_RSEL_RX= LP4R22[6:0]*/
-	tc_phy_write_l_reg(port_num, 4, 22,
-			   (l4r22_temp | (rg_zcal_ctrl_rx << 0)));
 	fe_cal_r50_flag = 1;
-	pr_info("[%d] - r50 final result l4r22[%d] = %x\n", port_num,
-		port_num, tc_phy_read_l_reg(port_num, 4, 22));
 }
-
-static int fe_ge_r50_common_checked(u8 port_num)
+void fe_cal_r50(u8 port_num, unsigned int delay)
 {
+	u8 rg_zcal_ctrl = 0x20U;
+	u8 ready = 0;
+	u8 calibration_polarity = 1;
+	u8 all_ana_cal_status = ANACAL_INIT;
+	u8 cnt = 0;
+	unsigned int page_value, updated;
+	unsigned int r50_cal_result;
+	int status = 0;
+	int cleanup_status;
 	struct ra_switch_page_update_context page;
-	unsigned int updated;
-	int status;
+	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 
-	status = tc_phy_write_page_reg_checked(port_num, 0U, 0U, 1,
-					       0x2100U);
+	fe_cal_r50_flag = 0;
+
+	/* Enable FE calibration mode and prepare the shared R50 control. */
+	status = tc_phy_write_page_reg_checked(
+		port_num, 0U, 0U, 1, 0x2100U);
 	if (status != 0)
-		return status;
-	status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 2U, 25U, 0,
-					       0xf0c0U);
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 2U, 25U, 0, 0xf0c0U);
 	if (status != 0)
-		return status;
-	status = tc_phy_write_page_reg_checked(FE_CAL_COMMON, 7U, 24U, 0,
-					       0U);
+		goto cleanup;
+	status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 7U, 24U, 0, 0U);
 	if (status != 0)
-		return status;
+		goto cleanup;
 
 	page.page = 7U;
 	page.local = 0;
 	status = ra_switch_mdio_update_bits_checked(
-		FE_CAL_COMMON, 24U, 0U, 0x2000U, ra_switch_page_update_read,
-		ra_switch_page_update_write, &page, &updated);
+		FE_CAL_COMMON, 24U, 0U, 0x2000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
 	if (status != 0)
-		return status;
+		goto cleanup;
 	status = ra_switch_mdio_update_bits_checked(
-		FE_CAL_COMMON, 24U, 0U, 0x4000U, ra_switch_page_update_read,
-		ra_switch_page_update_write, &page, &updated);
+		FE_CAL_COMMON, 24U, 0U, 0x4000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
 	if (status != 0)
-		return status;
+		goto cleanup;
 	status = ra_switch_mdio_update_bits_checked(
-		FE_CAL_COMMON, 24U, 0x1000U, 0U, ra_switch_page_update_read,
-		ra_switch_page_update_write, &page, &updated);
+		FE_CAL_COMMON, 24U, 0x1000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
 	if (status != 0)
-		return status;
+		goto cleanup;
 
 	page.page = 4U;
 	page.local = 1;
 	status = ra_switch_mdio_update_bits_checked(
-		port_num, 23U, 0x0001U, 0U, ra_switch_page_update_read,
-		ra_switch_page_update_write, &page, &updated);
+		port_num, 23U, 0U, 0x0001U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
 	if (status != 0)
-		return status;
+		goto cleanup;
 
 	page.page = 3U;
 	status = ra_switch_mdio_update_bits_checked(
-		FE_CAL_COMMON, 25U, 0x2000U, 0U, ra_switch_page_update_read,
-		ra_switch_page_update_write, &page, &updated);
-	return status;
-}
-
-void fe_ge_r50_common(u8 port_num)
-{
-	int status = fe_ge_r50_common_checked(port_num);
-
+		FE_CAL_COMMON, 25U, 0x2000U, 0U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
 	if (status != 0)
-		pr_err_ratelimited("%s: GE R50 common setup failed (port=%u status=%d)\n",
-				   __func__, port_num, status);
-}
-void fe_cal_r50(u8 port_num, u32 delay)
-{
-	int rg_zcal_ctrl, all_ana_cal_status, rg_zcal_ctrl_tx, rg_zcal_ctrl_rx;
-	int ad_cal_comp_out_init;
-	u16 l3r25_temp, l0r4, g7r24_tmp, l4r23_temp;
-	int calibration_polarity;
-	u8 cnt = 0, phyaddr;
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+		goto cleanup;
+	status = ra_switch_mdio_update_bits_checked(
+		port_num, 25U, 0U, 0x1000U,
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
 
-	phyaddr = port_num + ephy_addr_base;
-	tc_phy_write_l_reg(port_num, 0, 0, 0x2100);
-	/*g2r25[7:5]:0x110, BG voltage output*/
-	tc_phy_write_g_reg(FE_CAL_COMMON, 2, 25, 0xf0c0);
+	/* Search all calibration codes with a status-bearing bounded wait. */
+	page.page = 7U;
+	page.local = 0;
+	status = ra_switch_mdio_update_bits_checked(
+		FE_CAL_COMMON, 24U, 0x0fc0U,
+		((unsigned int)(rg_zcal_ctrl & 0x3fU) << 6),
+		ra_switch_page_update_read, ra_switch_page_update_write,
+		&page, &updated);
+	if (status != 0)
+		goto cleanup;
 
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, 0x0000);
-	/*g7r24[13]:0x01, RG_ANA_CALEN_P0=1*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp | 0x2000));
-	/*g7r24[14]:0x01, RG_CAL_CKINV_P0=1*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp | 0x4000));
-
-	/*g7r24[12]:0x01, DA_TXVOS_CALEN_P0=0*/
-	g7r24_tmp = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, (g7r24_tmp & (~0x1000)));
-
-	/* pr_info("g7r24 = %x\n", g7r24_tmp); */
-
-	/*DA_R50OHM_CAL_EN l4r23[0] = 1*/
-	l4r23_temp = tc_phy_read_l_reg(port_num, 4, 23);
-	tc_phy_write_l_reg(port_num, 4, 23, (l4r23_temp | (0x01)));
-
-	/*RG_REXT_CALEN l2r25[13] = 0*/
-	l3r25_temp = tc_phy_read_l_reg(FE_CAL_COMMON, 3, 25);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, (l3r25_temp & (~0x2000)));
-
-	/*decide which port calibration RG_ZCALEN by port_num*/
-	l3r25_temp = tc_phy_read_l_reg(port_num, 3, 25);
-	tc_phy_write_l_reg(port_num, 3, 25, (l3r25_temp | 0x1000));
-
-	rg_zcal_ctrl = 0x20;	/* start with 0 dB */
-	g7r24_tmp = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (~0xfc0));
-	tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_tmp | ((rg_zcal_ctrl & 0x3f) << 6));
-
-	/*wait AD_CAL_COMP_OUT = 1*/
-	all_ana_cal_status = all_fe_ana_cal_wait(delay, port_num);
-	if (all_ana_cal_status == 0) {
+	status = all_fe_ana_cal_wait_checked(delay, port_num, 1, &ready);
+	if (status != 0)
+		goto cleanup;
+	if (!ready) {
 		all_ana_cal_status = ANACAL_ERROR;
-		pr_info(" FE R50 AnaCal ERROR! (init)   \r\n");
-	}
+		pr_info("FE R50 calibration did not become ready (port=%u)\n",
+			port_num);
+	} else {
+		status = tc_phy_read_page_reg_checked(
+			FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+		if (status != 0)
+			goto cleanup;
+		if ((page_value & 0x1U) != 0U)
+			calibration_polarity = (u8)-1;
+		else
+			calibration_polarity = 1U;
 
-	ad_cal_comp_out_init = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1;
-
-	if (ad_cal_comp_out_init == 1)
-		calibration_polarity = -1;
-	else
-		calibration_polarity = 1;
-
-	cnt = 0;
-	while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254)) {
-		cnt++;
-
-		rg_zcal_ctrl += calibration_polarity;
-		g7r24_tmp = (tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & (~0xfc0));
-		tc_phy_write_g_reg(FE_CAL_COMMON, 7, 24, g7r24_tmp | ((rg_zcal_ctrl & 0x3f) << 6));
-		all_ana_cal_status = all_fe_ana_cal_wait(delay, port_num);
-
-		if (all_ana_cal_status == 0) {
-			all_ana_cal_status = ANACAL_ERROR;
-			pr_info(" FE R50 AnaCal ERROR! (%d)  \r\n", cnt);
-		} else if ((tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24) & 0x1) !=
-			ad_cal_comp_out_init) {
-			all_ana_cal_status = ANACAL_FINISH;
-		} else {
-			if ((rg_zcal_ctrl == 0x3F) || (rg_zcal_ctrl == 0x00)) {
-				all_ana_cal_status = ANACAL_SATURATION;
-				pr_info(" FE R50 AnaCal Saturation! (%d)  \r\n",
+		while ((all_ana_cal_status < ANACAL_ERROR) && (cnt < 254U)) {
+			++cnt;
+			rg_zcal_ctrl = (u8)(rg_zcal_ctrl + calibration_polarity);
+			status = ra_switch_mdio_update_bits_checked(
+				FE_CAL_COMMON, 24U, 0x0fc0U,
+				((unsigned int)(rg_zcal_ctrl & 0x3fU) << 6),
+				ra_switch_page_update_read,
+				ra_switch_page_update_write, &page, &updated);
+			if (status != 0)
+				goto cleanup;
+			ready = 0;
+			status = all_fe_ana_cal_wait_checked(
+				delay, port_num, 1, &ready);
+			if (status != 0)
+				goto cleanup;
+			if (!ready) {
+				all_ana_cal_status = ANACAL_ERROR;
+				pr_info("FE R50 calibration timed out at step %u\n",
 					cnt);
-			} else {
-				l0r4 = tc_phy_read_g_reg(FE_CAL_COMMON, 7, 24);
-				l0r4 = l0r4 & 0x1;
+				break;
+			}
+			status = tc_phy_read_page_reg_checked(
+				FE_CAL_COMMON, 7U, 24U, 0, &page_value);
+			if (status != 0)
+				goto cleanup;
+			if ((page_value & 0x1U) != 0U) {
+				/* Comparator has crossed from its initial state. */
+				if (calibration_polarity == 1U)
+					all_ana_cal_status = ANACAL_FINISH;
+			} else if (calibration_polarity == (u8)-1) {
+				all_ana_cal_status = ANACAL_FINISH;
+			}
+			if (all_ana_cal_status == ANACAL_FINISH)
+				break;
+			if ((rg_zcal_ctrl == 0x3fU) || (rg_zcal_ctrl == 0x00U)) {
+				all_ana_cal_status = ANACAL_SATURATION;
+				pr_info("FE R50 calibration saturated (port=%u)\n",
+					port_num);
+				break;
 			}
 		}
+		if ((all_ana_cal_status == ANACAL_INIT) && (cnt >= 254U)) {
+			all_ana_cal_status = ANACAL_ERROR;
+			pr_info("FE R50 calibration exhausted its search range\n");
+		}
 	}
-	if (port_num == 0)
-		r50_p0_cal_result = rg_zcal_ctrl;
 
 	if ((all_ana_cal_status == ANACAL_ERROR) ||
-	    (all_ana_cal_status == ANACAL_SATURATION)) {
-		rg_zcal_ctrl = 0x20;	/* 0 dB */
-		rg_zcal_ctrl_tx = 0x7f;
-		rg_zcal_ctrl_rx = 0x7f;
-		pr_info("[%d] %s, ANACAL_SATURATION\n", port_num, __func__);
-	} else {
-		fe_cal_r50_flag = 1;
-	}
+	    (all_ana_cal_status == ANACAL_SATURATION))
+		r50_cal_result = 0x20U;
+	else
+		r50_cal_result = rg_zcal_ctrl;
+
+	if (port_num == 0U)
+		r50_p0_cal_result = r50_cal_result;
 	if (ei_local->chip_name == MT7622_FE)
-		set_r50_mt7622(port_num, rg_zcal_ctrl);
+		status = set_r50_mt7622_checked(port_num, r50_cal_result);
 	else if (ei_local->chip_name == LEOPARD_FE)
-		set_r50_leopard(port_num, rg_zcal_ctrl);
+		status = set_r50_leopard_checked(port_num, r50_cal_result);
+	else
+		status = -ENODEV;
+	if (status != 0)
+		goto cleanup;
 
-	clear_ckinv_ana_txvos();
-	tc_phy_write_l_reg(port_num, 3, 25, 0x0000);
-	tc_phy_write_l_reg(FE_CAL_COMMON, 3, 25, 0x0000);
+cleanup:
+	/* Cleanup is best-effort: keep the first error but try every reset. */
+	cleanup_status = clear_ckinv_ana_txvos_checked();
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		port_num, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+	cleanup_status = tc_phy_write_page_reg_checked(
+		FE_CAL_COMMON, 3U, 25U, 1, 0U);
+	if (status == 0 && cleanup_status != 0)
+		status = cleanup_status;
+
+	if (status != 0) {
+		pr_err_ratelimited("%s: FE R50 calibration failed (port=%u status=%d cleanup=%d)\n",
+				   __func__, port_num, status, cleanup_status);
+		return;
+	}
+	fe_cal_r50_flag = 1;
 }
-
 void fe_cal_vbg(u8 port_num, u32 delay)
 {
 	int rg_zcal_ctrl, all_ana_cal_status;

@@ -1144,6 +1144,37 @@ jobs:
           print("GE analog orchestrator checked I/O, child result gates and saved-state restore: PASS")
           PY
 
+      - name: Validate FE R50 calibration fails closed on MDIO errors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          leopard = source.split("static int set_r50_leopard_checked(", 1)[1].split(
+              chr(10) + "/* Keep the legacy void entry points", 1
+          )[0]
+          mt7622 = source.split("static int set_r50_mt7622_checked(", 1)[1].split(
+              chr(10) + "/* Keep the legacy void entry points", 1
+          )[0]
+          fe_r50 = source.split("void fe_cal_r50(", 1)[1].split(
+              chr(10) + "void fe_cal_vbg(", 1
+          )[0]
+          for body in (leopard, mt7622, fe_r50):
+              for legacy in ("tc_phy_read_dev_reg(", "tc_phy_write_dev_reg(",
+                             "tc_phy_read_g_reg(", "tc_phy_write_g_reg(",
+                             "tc_phy_read_l_reg(", "tc_phy_write_l_reg("):
+                  assert legacy not in body
+          assert "r50_cal_result < tx_offset[port_num]" in mt7622
+          assert "r50_cal_result < rx_offset[port_num]" in mt7622
+          assert "ARRAY_SIZE(ZCAL_TO_R50OHM_TBL_100)" in mt7622
+          assert "all_fe_ana_cal_wait(" not in fe_r50
+          assert fe_r50.count("all_fe_ana_cal_wait_checked(") == 2
+          assert "ra_switch_mdio_update_bits_checked(" in fe_r50
+          assert "clear_ckinv_ana_txvos_checked()" in fe_r50
+          assert fe_r50.index("cleanup:") < fe_r50.index("fe_cal_r50_flag = 1;")
+          print("FE R50 checks page/C45 status, bounds table indexes, and runs best-effort cleanup: PASS")
+          PY
+
       - name: Compile and run IRQ-safe RAETH MDIO timeout policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

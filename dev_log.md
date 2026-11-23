@@ -1,3 +1,11 @@
+## 2026-11-23 — FE R50 checked MDIO and safe table indexing
+
+- Converted FE R50 setup, shared page-7/register-24 bit updates, FE page-3/4 state, comparator reads and both calibration waits to checked APIs. MDIO errors now abort the calibration instead of being treated as zero-valued samples.
+- Added checked Leopard/MT7622 R50 output helpers while retaining the existing public void setters for compatibility. The MT7622 path now validates the per-port subtraction offsets before indexing the 64-entry lookup table, preventing unsigned-underflow out-of-bounds reads.
+- Not-ready/saturation still uses the 0x20 fallback; a bounded search that exhausts all 254 attempts also falls back instead of publishing an unverified code. Best-effort cleanup always attempts the common analog clear and both local page-3 register resets; the completion flag is set only after all output and cleanup operations succeed.
+- Added Switch CLI source-contract checks for the production FE R50 path and table bounds. The pre-existing GNU89/Werror/ASan/UBSan policy suite continues to test the checked update-bits primitive; exact-head target build is still required.
+
+---
 ## 2026-11-23 — GE all-analog orchestration checked I/O
 
 - Top-level C22/C45 setup and RX-offset/eye/bias accesses now use checked APIs; BMCR and 1e:145 restore only when snapshots succeeded.
@@ -466,8 +474,3 @@
 
 - The first Process/Storage source review caught one stale checker assumption: `check_usb_printer_nvram.py` still expected U2EC/LPD to unlink PID files in the individual wrappers. Cleanup now belongs to the shared launcher after a tri-state ABSENT preflight, so the checker has been updated to verify the checked-setting gates, three-argument paths, fail-closed UNKNOWN handling, RUNNING no-op and cleanup-before-fork ordering.
 - This is a regression-check correction, not a production-code change. The initial USB modem workflow failed only this stale assertion; exact successor Actions are pending.
-
-## 2026-11-23 — Normalize invalid process-inventory error values
-
-- Tightened the shared process-presence start policy: an UNKNOWN scan now maps zero or negative/non-errno error values to `EIO`, preserving only positive errno values. This prevents a negative internal result from escaping as a negative startup status or being confused with a launcher convention.
-- Added a GNU89 regression for negative inventory status and a source-contract assertion. Exact-SHA Process, Storage and XY-C1 Actions are tracked on the successor commit.
