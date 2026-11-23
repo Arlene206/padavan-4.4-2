@@ -1,3 +1,10 @@
+## 2026-11-23 — Repair the backup-server (`reserver`) startup path
+
+- `ressp()` called `start_redir`, which is not defined in `shadowsocks.sh`; the actual TCP proxy was therefore not launched. Its next `start_rules $BACKUP_SERVER` passed an ignored argument to a helper that reads `GLOBAL_SERVER`, leaving firewall/config generation on the primary node. Stage errors were ignored and the function always printed “backup server started successfully”.
+- The backup path now rejects unreadable/empty/`nil` selectors, switches process-local `GLOBAL_SERVER` to the selected backup, and follows the primary startup sequence: firewall, cgroup setup, TCP, optional UDP, DNS, configured local SOCKS5 and watchcat. It preserves the first required error while keeping cron best-effort; the `reserver` CLI propagates failure.
+- Extended the production-linked startup fixture and Python source contract for backup node identity, `same` UDP/local mapping, invalid/unreadable configuration, TCP/UDP dependency gates and optional cron failure. Exact-head Actions are required before calling this slice verified; no router failover is claimed.
+
+---
 ## 2026-11-23 — Revalidate process identity across PID reuse
 
 - `proc_read_identity()` previously read `/proc/PID/stat` and `cmdline` once each. If the process exited and its PID was recycled between those reads, the scanner could combine the old process's matching `comm` with the replacement's unrelated command line, incorrectly report RUNNING and suppress a daemon restart.

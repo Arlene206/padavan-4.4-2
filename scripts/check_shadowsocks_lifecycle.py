@@ -395,6 +395,30 @@ require("FAIL_TCP=31" in startup_test and "FAIL_UDP=32" in startup_test and
         "FAIL_DETECT=42" in startup_test and "FAIL_AUTO_UPDATE=55" in startup_test and
         "Shadowsocks startup/shutdown status regression: PASS" in startup_test,
         "startup status regression must cover required failures and disabled semantics")
+backup_start = script[script.index("ressp() {"):script.index("\n\ncase $1 in", script.index("ressp() {"))]
+require('BACKUP_SERVER=$(nvram get backup_server)' in backup_start and
+        'GLOBAL_SERVER=$BACKUP_SERVER' in backup_start and
+        'if rules; then' in backup_start and
+        'if start_redir_tcp; then' in backup_start and
+        'if start_redir_udp; then' in backup_start and
+        'if start_dns; then' in backup_start and
+        'nvram get socks5_enable' in backup_start and
+        'if start_watchcat; then' in backup_start and
+        'Optional backup Shadowsocks update scheduling failed' in backup_start and
+        '备用服务器启动成功！' in backup_start and
+        '[ "$SS_START_STATUS" -ne 0 ] && return "$SS_START_STATUS"' in backup_start and
+        'start_redir $BACKUP_SERVER' not in backup_start and
+        'start_rules $BACKUP_SERVER' not in backup_start,
+        "backup startup must use the selected node, real proxy stages and checked failure status")
+require('ressp || exit $?' in script and
+        'Backup server is not configured; refusing backup start' in backup_start and
+        'FAIL_BACKUP_READ=74' in startup_test and
+        'backup TCP start failure' in startup_test and
+        'backup UDP start failure' in startup_test and
+        'rules_for:backup-node:backup-node' in startup_test,
+        "backup regression must cover invalid config, error propagation, dependency gates and node identity")
+
+print("Shadowsocks backup-server startup status source contract: PASS")
 print("Shadowsocks required-stage startup status source contract: PASS")
 
 

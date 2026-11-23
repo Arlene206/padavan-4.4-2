@@ -1165,16 +1165,88 @@ kill_process() {
 
 # ========== 启用备用服务器 ==========
 ressp() {
-	BACKUP_SERVER=$(nvram get backup_server)
-	start_redir $BACKUP_SERVER
-	start_rules $BACKUP_SERVER
-	start_dns
-	start_local
-	start_watchcat
-	auto_update
+	local stage_status
+	local local_server
+
+	SS_START_STATUS=0
+	if BACKUP_SERVER=$(nvram get backup_server); then
+		:
+	else
+		stage_status=$?
+		log "Cannot read backup server configuration (status=$stage_status)"
+		return "$stage_status"
+	fi
+	case "$BACKUP_SERVER" in
+		''|nil)
+			log "Backup server is not configured; refusing backup start"
+			return 1
+			;;
+	esac
+
+	# Firewall and config generators read GLOBAL_SERVER, not an argument.
+	GLOBAL_SERVER=$BACKUP_SERVER
+	if rules; then
+		if cgroups_init; then
+			:
+		else
+			stage_status=$?
+			ssp_record_start_failure "backup resource limits" "$stage_status"
+		fi
+		if start_redir_tcp; then
+			if start_redir_udp; then
+				:
+			else
+				stage_status=$?
+				ssp_record_start_failure "backup UDP relay" "$stage_status"
+			fi
+			if start_dns; then
+				:
+			else
+				stage_status=$?
+				ssp_record_start_failure "backup DNS proxy" "$stage_status"
+			fi
+		else
+			stage_status=$?
+			ssp_record_start_failure "backup TCP proxy" "$stage_status"
+		fi
+	else
+		stage_status=$?
+		ssp_record_start_failure "backup firewall policy" "$stage_status"
+	fi
+
+	if local_server=$(nvram get socks5_enable); then
+		if [ -n "$local_server" ] && [ "$local_server" != "nil" ]; then
+			if start_local; then
+				:
+			else
+				stage_status=$?
+				ssp_record_start_failure "backup local SOCKS5 proxy" "$stage_status"
+			fi
+		fi
+	else
+		stage_status=$?
+		ssp_record_start_failure "backup local SOCKS5 configuration" "$stage_status"
+	fi
+
+	if start_watchcat; then
+		:
+	else
+		stage_status=$?
+		ssp_record_start_failure "backup watchcat" "$stage_status"
+	fi
+
+	# Optional cron scheduling is diagnostic-only and cannot mask startup errors.
+	if auto_update; then
+		:
+	else
+		stage_status=$?
+		log "Optional backup Shadowsocks update scheduling failed (status=$stage_status)"
+	fi
 	ENABLE_SERVER=$(nvram get global_server)
+	[ "$SS_START_STATUS" -ne 0 ] && return "$SS_START_STATUS"
 	log "备用服务器启动成功！"
 	log "内网IP控制为: $lancons"
+	return 0
 }
 
 case $1 in
@@ -1202,7 +1274,7 @@ reserver)
 	if ! ssp_close; then
 		exit 1
 	fi
-	ressp
+	ressp || exit $?
 	echo 3 > /proc/sys/vm/drop_caches
 	;;
 *)

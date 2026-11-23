@@ -19,6 +19,7 @@ sed -n \
 	-e '/^ssp_record_start_failure() {/,/^}/p' \
 	-e '/^ssp_run_pppoe_detect() {/,/^}/p' \
 	-e '/^ssp_start() {/,/^}/p' \
+	-e '/^ressp() {/,/^}/p' \
 	-e '/^ss_publish_and_restart_dnsmasq() {/,/^}/p' \
 	-e '/^ss_restart_dhcpd() {/,/^}/p' \
 	-e '/^ss_run_detect() {/,/^}/p' \
@@ -36,9 +37,13 @@ nvram() {
 		get:ss_cgroups) record cgroups_enabled_probe; echo "${MOCK_SS_CGROUPS:-0}" ;;
 		get:ss_cgoups_cpu_s) echo "${MOCK_CPU_LIMIT:-128}" ;;
 		get:ss_cgoups_mem_s) echo "${MOCK_MEM_LIMIT:-1048576}" ;;
-		get:global_server) echo "$GLOBAL_SERVER" ;;
+		get:global_server) echo "${MOCK_CONFIGURED_GLOBAL_SERVER:-$GLOBAL_SERVER}" ;;
 		get:socks5_enable) echo "$SOCKS5_ENABLE" ;;
-		get:udp_relay_server) echo nil ;;
+		get:backup_server)
+			[ "${FAIL_BACKUP_READ:-0}" -eq 0 ] || return "$FAIL_BACKUP_READ"
+			echo "${MOCK_BACKUP_SERVER:-backup-node}"
+			;;
+		get:udp_relay_server) echo "${MOCK_UDP_RELAY_SERVER:-nil}" ;;
 		set:check_mode=0) record "nvram:set:$2"; return "${FAIL_NVRAM_SET:-0}" ;;
 		*) return 90 ;;
 	esac
@@ -60,11 +65,11 @@ ss_cgroup_read_value() {
 	[ "${FAIL_CGROUP_READ:-0}" -eq 0 ] || return "${FAIL_CGROUP_READ}"
 	printf '%s' "${MOCK_MEM_LIMIT_BYTES:-1048576}"
 }
-start_rules() { record rules; return "${FAIL_RULES:-0}"; }
-start_redir_tcp() { record start_redir_tcp; return "${FAIL_TCP:-0}"; }
-start_redir_udp() { record start_redir_udp; return "${FAIL_UDP:-0}"; }
+start_rules() { record rules; record "rules_for:$GLOBAL_SERVER:$UDP_RELAY_SERVER"; return "${FAIL_RULES:-0}"; }
+start_redir_tcp() { record start_redir_tcp; record "tcp_server:$GLOBAL_SERVER"; return "${FAIL_TCP:-0}"; }
+start_redir_udp() { record start_redir_udp; record "udp_server:$GLOBAL_SERVER:$UDP_RELAY_SERVER"; return "${FAIL_UDP:-0}"; }
 start_dns() { record start_dns; return "${FAIL_DNS:-0}"; }
-start_local() { record start_local; return "${FAIL_LOCAL:-0}"; }
+start_local() { record start_local; record "local_global_server:$GLOBAL_SERVER"; return "${FAIL_LOCAL:-0}"; }
 start_watchcat() { record start_watchcat; return "${FAIL_WATCHCAT:-0}"; }
 auto_update() { record auto_update; return "${FAIL_AUTO_UPDATE:-0}"; }
 ssp_run_pppoe_detect() { record pppoe_detect; return "${FAIL_DETECT:-0}"; }
@@ -82,6 +87,13 @@ reset() {
 	unset FAIL_RULES FAIL_CGROUPS FAIL_TCP FAIL_UDP FAIL_DNS FAIL_LOCAL
 	unset FAIL_WATCHCAT FAIL_AUTO_UPDATE FAIL_NVRAM_SET FAIL_DETECT
 	unset FAIL_CGROUP_MKDIR FAIL_CGROUP_CPU_WRITE FAIL_CGROUP_MEM_WRITE FAIL_CGROUP_READ
+	unset MOCK_BACKUP_SERVER MOCK_UDP_RELAY_SERVER MOCK_CONFIGURED_GLOBAL_SERVER FAIL_BACKUP_READ
+}
+expect_ressp_status() {
+	expected=$1
+	label=$2
+	if ressp; then actual=0; else actual=$?; fi
+	[ "$actual" -eq "$expected" ] || fail "$label returned $actual, expected $expected"
 }
 expect_status() {
 	expected=$1
@@ -227,6 +239,75 @@ called "log:Optional Shadowsocks update scheduling failed (status=55)"
 called start_local
 called "log:已启动科学上网..."
 
+# Backup-server recovery must use the selected backup node for firewall, proxy and local config.
+reset
+MOCK_BACKUP_SERVER=backup-node
+MOCK_CONFIGURED_GLOBAL_SERVER=primary-node
+MOCK_UDP_RELAY_SERVER=same
+SOCKS5_ENABLE=same
+expect_ressp_status 0 "healthy backup start"
+called rules
+called rules_for:backup-node:backup-node
+called cgroups_enabled_probe
+called start_redir_tcp
+called tcp_server:backup-node
+called start_redir_udp
+called udp_server:backup-node:backup-node
+called start_dns
+called start_local
+called local_global_server:backup-node
+called start_watchcat
+called auto_update
+[ "$ENABLE_SERVER" = "primary-node" ] || fail "backup start overwrote configured primary selector"
+[ "$GLOBAL_SERVER" = "backup-node" ] || fail "backup selector was not applied to service generation"
+grep -Fq '备用服务器启动成功！' "$LOG_FILE" || fail "healthy backup start did not report success"
+
+# Reject missing or unreadable backup selectors before firewall/proxy mutation.
+reset
+MOCK_BACKUP_SERVER=nil
+SOCKS5_ENABLE=nil
+expect_ressp_status 1 "missing backup server"
+not_called rules
+not_called start_redir_tcp
+if grep -Fq '备用服务器启动成功！' "$LOG_FILE"; then fail "missing backup was reported as started"; fi
+
+reset
+FAIL_BACKUP_READ=74
+SOCKS5_ENABLE=nil
+expect_ressp_status 74 "backup NVRAM read failure"
+not_called rules
+not_called start_redir_tcp
+
+# A failed TCP readiness check prevents dependent UDP/DNS startup and false success.
+reset
+FAIL_TCP=31
+SOCKS5_ENABLE=nil
+expect_ressp_status 31 "backup TCP start failure"
+called rules_for:backup-node:nil
+called start_redir_tcp
+not_called start_redir_udp
+not_called start_dns
+if grep -Fq '备用服务器启动成功！' "$LOG_FILE"; then fail "backup TCP failure was reported as success"; fi
+
+# UDP failure is returned while DNS and independent monitor/cron stages still run.
+reset
+FAIL_UDP=32
+SOCKS5_ENABLE=nil
+expect_ressp_status 32 "backup UDP start failure"
+called start_dns
+called start_watchcat
+called auto_update
+if grep -Fq '备用服务器启动成功！' "$LOG_FILE"; then fail "backup UDP failure was reported as success"; fi
+
+# Optional cron maintenance remains best-effort on healthy backup startup.
+reset
+FAIL_AUTO_UPDATE=55
+SOCKS5_ENABLE=nil
+expect_ressp_status 0 "optional backup cron failure"
+called start_redir_tcp
+called start_dns
+called "log:Optional backup Shadowsocks update scheduling failed (status=55)"
+grep -Fq '备用服务器启动成功！' "$LOG_FILE" || fail "optional cron failure hid healthy backup startup"
 # Exercise the shutdown contract with injected service and cleanup failures.
 SS_RULES=mock_ss_rules
 mock_ss_rules() { record "ss_rules:$1"; return "${FAIL_SS_RULES:-0}"; }
