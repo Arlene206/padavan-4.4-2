@@ -2626,13 +2626,21 @@ config_vinet_wan(void)
 static int
 config_apcli_wisp(void)
 {
-	int unit = 0, publication_status, ifname_status;
+	int unit = 0, publication_status, ifname_status, wisp_status;
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status;
 #endif
 	char man_ifname[16], man_ifname_nvram[16];
-	char *wisp_ifname = get_apcli_wisp_ifname();
+	const char *wisp_ifname = NULL;
 
+	wisp_status = get_apcli_wisp_ifname_status(&wisp_ifname);
+	if (wisp_status != 0) {
+		errno = wisp_status;
+		logmessage(LOGNAME,
+			   "cannot migrate AP-client WAN without verified WISP configuration (status=%d)",
+			   wisp_status);
+		return wisp_status;
+	}
 	if (!wisp_ifname)
 		return 0;
 
@@ -6151,9 +6159,17 @@ manual_wan_reconnect(void)
 int
 manual_wisp_reassoc(void)
 {
-	char *wisp_ifname = get_apcli_wisp_ifname();
-	int reconnect_status;
+	const char *wisp_ifname = NULL;
+	int reconnect_status, wisp_status;
 
+	wisp_status = get_apcli_wisp_ifname_status(&wisp_ifname);
+	if (wisp_status != 0) {
+		errno = wisp_status;
+		logmessage(LOGNAME,
+			   "cannot reassociate AP-client WAN without verified WISP configuration (status=%d)",
+			   wisp_status);
+		return wisp_status;
+	}
 	if (!wisp_ifname)
 		return 0;
 
@@ -7096,6 +7112,10 @@ select_usb_modem_to_wan(void)
 	int priority_status = 0, link_probe_status = 0;
 	int is_apcli_wisp = 0, has_link = 0;
 	int status;
+#if defined (USE_USB_SUPPORT)
+	int wisp_status;
+	const char *wisp_ifname = NULL;
+#endif
 
 #if defined (USE_USB_SUPPORT)
 	/* check modem enabled and ready */
@@ -7104,7 +7124,15 @@ select_usb_modem_to_wan(void)
 		priority_status = get_nvram_int_checked_status("modem_prio",
 							 &modem_priority);
 		if (priority_status == 0 && modem_priority == 2) {
-			is_apcli_wisp = (get_apcli_wisp_ifname() != NULL);
+			wisp_status = get_apcli_wisp_ifname_status(&wisp_ifname);
+			if (wisp_status != 0) {
+				logmessage(LOGNAME,
+					   "aborting USB modem WAN selection because AP-client WISP configuration is unavailable (status=%d)",
+					   wisp_status);
+				errno = wisp_status;
+				return wisp_status;
+			}
+			is_apcli_wisp = (wisp_ifname != NULL);
 			if (!is_apcli_wisp) {
 				errno = 0;
 				has_link = get_wan_ether_link_direct(0);

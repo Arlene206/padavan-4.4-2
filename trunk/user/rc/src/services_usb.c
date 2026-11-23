@@ -518,8 +518,9 @@ int
 try_start_usb_modem_to_wan(void)
 {
 	int modem_prio, modem_devnum, has_link;
-	int modem_config_status, modem_identity_status, link_status;
+	int modem_config_status, modem_identity_status, link_status, wisp_status;
 	int is_modem_wan = 0;
+	const char *wisp_ifname = NULL;
 
 	if (get_ap_mode())
 		return 0;
@@ -553,9 +554,17 @@ try_start_usb_modem_to_wan(void)
 		return 0;
 
 	if (modem_prio == 2) {
-		if (get_apcli_wisp_ifname())
+		wisp_status = get_apcli_wisp_ifname_status(&wisp_ifname);
+		if (wisp_status != 0) {
+			errno = wisp_status;
+			logmessage("USB hotplug",
+				   "refusing modem auto-start because AP-client WISP configuration is unavailable (status=%d)",
+				   wisp_status);
+			return wisp_status;
+		}
+		if (wisp_ifname)
 			return 0;
-		
+
 		errno = 0;
 		has_link = get_wan_ether_link_direct(0);
 		link_status = modem_wan_link_probe_error(has_link, errno);

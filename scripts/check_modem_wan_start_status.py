@@ -11,6 +11,7 @@ HOTPLUG_SOURCE = (RC / "hotplug_usb.c").read_text()
 MODEM_NODE_POLICY_SOURCE = (RC / "modem_node_identity_policy.h").read_text()
 MODEM_NODE_TEST_SOURCE = (RC / "tests/modem_node_file.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
+NET_WIFI_SOURCE = (RC / "net_wifi.c").read_text()
 PPP_SOURCE = (RC / "net_ppp.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
 NET_LAN_SOURCE = (RC / "net_lan.c").read_text()
@@ -1450,3 +1451,30 @@ for hook in ("Shadowsocks firewall hook", "Persistent post-firewall hook", "Optw
 assert re.search(r"errno\s*!=\s*ENOENT", hook_dispatch)
 assert "firewall_log_hook_cleanup_failure" in hook_dispatch
 print("Optional firewall hook failure and staged-file cleanup propagation: PASS")
+
+
+# AP-client WISP state is WAN-selection input: a checked-NVRAM failure must
+# never become the legacy NULL/non-WISP result and trigger Ethernet/modem start.
+wisp_detector = compact(body(NET_WIFI_SOURCE, "get_apcli_wisp_ifname_status("))
+assert 'wireless_nvram_get_int_status("rt_mode_x", &mode_x)' in wisp_detector
+assert 'wireless_nvram_get_int_status("rt_radio_x", &radio_enabled)' in wisp_detector
+assert 'wireless_nvram_get_int_status("rt_sta_wisp", &wisp_enabled)' in wisp_detector
+assert 'wireless_nvram_get_text_status("rt_sta_ssid", &ssid)' in wisp_detector
+assert 'wireless_nvram_get_int_status("wl_mode_x", &mode_x)' in wisp_detector
+assert 'wireless_nvram_get_int_status("wl_radio_x", &radio_enabled)' in wisp_detector
+assert 'wireless_nvram_get_int_status("wl_sta_wisp", &wisp_enabled)' in wisp_detector
+assert 'wireless_nvram_get_text_status("wl_sta_ssid", &ssid)' in wisp_detector
+assert "goto read_failed;" in wisp_detector
+assert "errno = status;" in wisp_detector
+wisp_text_reader = compact(body(NET_WIFI_SOURCE, "wireless_nvram_get_text_status("))
+assert "nvram_get_checked(name,&stored_value)" in wisp_text_reader
+assert "rc_wan_nvram_read_status(api_result,saved_errno)" in wisp_text_reader
+assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in compact(body(SERVICES_USB_SOURCE, "try_start_usb_modem_to_wan(void)"))
+assert "if(wisp_status!=0)" in compact(body(SERVICES_USB_SOURCE, "try_start_usb_modem_to_wan(void)"))
+assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in compact(body(WAN_SOURCE, "select_usb_modem_to_wan(void)"))
+assert "if(wisp_status!=0)" in compact(body(WAN_SOURCE, "select_usb_modem_to_wan(void)"))
+assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in compact(body(WAN_SOURCE, "config_apcli_wisp(void)"))
+assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in compact(body(WAN_SOURCE, "manual_wisp_reassoc(void)"))
+assert "get_apcli_wisp_ifname_status(&wisp_ifname)" in compact(body(NET_WIFI_SOURCE, "check_apcli_wan(int is_5g, int radio_on)"))
+assert "intget_apcli_wisp_ifname_status(constchar**p_wisp_ifname);" in compact(HEADER)
+print("AP-client WISP checked-NVRAM discovery and WAN/modem fail-closed consumers: PASS")

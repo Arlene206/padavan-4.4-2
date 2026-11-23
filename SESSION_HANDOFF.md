@@ -2,30 +2,31 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; writable branch is `main` only. Branch inventory is `main` plus frozen `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve the backup unchanged.
-- Parent before THIS USB modem link-state correction: `00c05a29ecef2b69e87b66026f109b9732840e45`.
-- p910nd readiness source `bea2a85c96271c494076510ea06b96065d7c0b75`: Process fail-closed #45210393886 PASS, USB storage #45210396834 PASS, Process inventory #45210393909 PASS, AI handoff #45210393826 PASS, USB modem #45210393790 PASS and NVRAM #45210393769 PASS. XY-C1 #45210393797 was still building at last poll; TRX/artifact pending, so no L3 claim on this SHA.
-- Earlier U2EC/LPRng readiness source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process inventory #45207830503, USB modem #45207830717, NVRAM #45207830836 and AI docs #45207830375 PASS. Checker corrections `c8920ca` and `e0451c0` validated Process #45208311957 PASS, AI #45208311790 PASS and USB storage #45209095493 PASS. XY-C1 #45207830678 passed Build, TRX and artifact upload on `8fa162a`; this does not validate later production sources.
-- No persistent local checkout or target MIPS/uClibc build was available. No hardware L4 result is claimed.
+- Repository: `Arlene206/padavan-4.4-2`; writable branch `main` only. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve it unchanged.
+- Parent before this AP-client WISP checked-read slice: `a05ef61364ba4c24ec138e2911fd7469290b1648`.
+- USB modem WAN link-state source `a05ef61364ba4c24ec138e2911fd7469290b1648`: USB modem WDM/NDIS #45211762454 PASS, Process inventory #45211762366 PASS, Process fail-closed #45211762281 PASS, AI handoff #45211762276 PASS, USB storage #45211762307 PASS, Firewall startup #45211762429 PASS and NVRAM boundary #45211762395 PASS.
+- XY-C1 #45211762656 was still in progress at last poll. The production Build step was running; TRX verification and artifact upload were pending. Do not claim L3 or same-SHA product verification until all three steps pass.
+- Earlier p910nd readiness source `bea2a85c96271c494076510ea06b96065d7c0b75`: Process fail-closed #45210393886, USB storage #45210396834, Process inventory #45210393909, AI #45210393826, USB modem #45210393790 and NVRAM #45210393769 PASS. XY-C1 #45210393797 needs exact-SHA product-step confirmation if the product status matters.
+- No persistent local checkout or MIPS/uClibc toolchain was available. No local target build or hardware L4 result is claimed.
 
 ## Active task
 
-- THIS COMMIT fixes a fail-open in `try_start_usb_modem_to_wan()`: for priority 2, a failed direct WAN-PHY link probe returned -1 with errno, but the caller overwrote it with zero and interpreted UNKNOWN as a confirmed disconnected Ethernet WAN. It could therefore start/reconnect a USB modem while the wired WAN was merely uninspectable.
-- The caller now clears stale errno, normalizes only documented 0/1 link states, propagates the probe errno (or EIO if absent), and refuses modem auto-start on UNKNOWN/invalid results. Confirmed link-up still suppresses modem start; only confirmed link-down proceeds. This aligns with `net_wan.c::select_usb_modem_to_wan()`, which already preserves a failed probe through `modem_wan_select_device_status()`.
-- Added GNU89 policy cases for 0, 1, -1 with/without errno and invalid positive values; strengthened the USB modem source-order contract. Exact-head USB modem, Process, XY-C1 and AI actions are pending at commit creation.
+- THIS COMMIT fixes a fail-open around modem/WAN selection: `get_apcli_wisp_ifname()` used lossy `nvram_wlan_get_int()` / `nvram_wlan_get()` accessors. If a WLAN NVRAM read failed, its safe-get fallback could return radio disabled, WISP disabled or empty SSID, causing callers to mistake an active/uninspectable AP-client WISP configuration for ordinary Ethernet WAN.
+- Added `get_apcli_wisp_ifname_status()`, which checks per-band mode, radio-enable, WISP-enable and SSID using the existing checked integer reader plus a checked text reader. Backend and malformed integer errors propagate; an actually missing SSID retains the historical empty-string behavior. The legacy pointer API remains as a compatibility wrapper.
+- USB modem hotplug and initial WAN modem-device selection now abort/retry if WISP identity cannot be read; they never start a competing USB modem on UNKNOWN WISP state. AP-client WAN migration, manual reassociation and post-radio WAN recovery now use the checked result too.
+- Extended the USB modem identity workflow's source contract and path filters to include `net_wifi.c`. Exact-head USB modem, Process/AI docs and XY-C1 actions for this WISP source are pending at commit creation.
 
 ## Exact first action for the next GPT
 
-1. Poll the exact SHA for THIS USB modem link-state fix: USB modem identity, Process fail-closed/inventory, AI handoff and XY-C1. Require Build + TRX verification + artifact upload on the same product-source SHA before claiming L3.
-2. On any FAIL, inspect the exact job log and repair only the broken assertion or production behavior. Do not normalize an unknown WAN link to DOWN.
-3. Continue independent P1/P2 security and stability work while firmware verification is pending; keep one complete tree/commit and expected-SHA main update per logical task.
+1. Poll Actions for THIS WISP source SHA. Require the USB modem identity static contract and XY-C1 Build + TRX + artifact upload all to PASS on this exact SHA.
+2. Inspect any failing job's exact log. Do not restore lossy WISP fallbacks; distinguish missing keys (legacy defaults) from backend errors.
+3. Continue another independent stability/security source slice while the product build is pending. Keep atomic expected-SHA updates on `main` only.
 
-## Relevant exact-SHA CI facts
+## Exact-SHA CI facts at this checkpoint
 
-- p910nd post-fork readiness source `bea2a85c96271c494076510ea06b96065d7c0b75`: Process #45210393886 PASS, USB storage #45210396834 PASS, Process inventory #45210393909 PASS, AI docs #45210393826 PASS, USB modem #45210393790 PASS and NVRAM #45210393769 PASS. XY-C1 #45210393797 was still running Build; TRX and artifact were pending at the last poll.
-- p910nd's earlier product ancestry includes successful XY-C1 #45207830678 on `8fa162a`, Build + TRX + upload. That result is not a same-SHA build for p910nd.
-- The source-level direct WAN-PHY error behavior was confirmed in `get_wan_ether_link_direct()`: checked `wan_src_phy` or PHY status errors return -1 and set errno. `net_wan.c::select_usb_modem_to_wan()` already preserves that error and is the reference behavior.
-- Main before THIS commit was `00c05a29ecef2b69e87b66026f109b9732840e45`. Refresh main and use expected-SHA for every write; never force push or modify the frozen backup.
+- On `a05ef61364ba4c24ec138e2911fd7469290b1648`: USB modem identity #45211762454 PASS; Process inventory #45211762366 PASS; Process fail-closed #45211762281 PASS; AI docs #45211762276 PASS; USB storage #45211762307 PASS; Firewall #45211762429 PASS; NVRAM #45211762395 PASS.
+- XY-C1 #45211762656 was IN_PROGRESS at the last poll: Build running, TRX and artifact pending. The earlier XY-C1 #45207830678 success was on older source `8fa162a` and does not validate current code.
+- Main before THIS WISP commit was `a05ef61364ba4c24ec138e2911fd7469290b1648`; refresh main and pass expected-SHA on every write. Never force-push, create branches or touch the frozen archive.
 
 
 ## Completed source slices to preserve

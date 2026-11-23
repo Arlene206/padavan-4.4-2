@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Preserve unknown AP-client WISP state during WAN/modem selection
+
+- Found that `get_apcli_wisp_ifname()` derived WAN policy from lossy `nvram_wlan_get_int()` and `nvram_wlan_get()` accessors. A backend failure could be converted to zero/empty and reported as no WISP, which could allow priority-2 USB modem startup or WAN identity changes while the actual AP-client configuration was unknown.
+- Added status-aware reads for each supported band: mode, radio-enable, `sta_wisp` and SSID. Missing settings preserve legacy defaults; checked-backend errors and malformed integer values are returned rather than hidden. Kept the old pointer API as a compatibility wrapper.
+- Migrated modem auto-start, initial WAN modem device selection, AP-client WAN migration, manual WISP reassociation and WAN recovery after radio changes to the checked API.
+- Extended the USB modem identity workflow path filters and static source-order/propagation contract to cover `net_wifi.c`; exact-head USB modem and XY-C1 actions pending. No local firmware build or hardware result is claimed.
+
+---
+
 ## 2026-11-23 UTC — Preserve unknown wired-WAN link state during USB modem auto-start
 
 - In `try_start_usb_modem_to_wan()`, priority 2 means the USB modem should start only when the wired WAN link is confirmed down and no AP-client WISP is active. The direct PHY helper returns -1 and sets errno when the checked `wan_src_phy` read or PHY status probe fails, but the caller changed that -1 to zero and proceeded as if the cable were disconnected.

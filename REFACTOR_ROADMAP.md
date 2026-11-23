@@ -1,5 +1,7 @@
 Current implementation checkpoint (2026-11-23):
-- USB modem priority-2 auto-start no longer converts a failed WAN-PHY probe into confirmed link-down. UNKNOWN/invalid link results propagate errno/EIO and keep the event retryable; GNU89 policy and source-order regression coverage added. Exact-head USB modem, Process, AI and XY-C1 verification pending.
+- AP-client WISP detection now uses checked per-band NVRAM reads for mode, radio-enable, WISP flag and SSID. USB modem auto-start/device selection and AP-client WAN recovery paths propagate UNKNOWN WISP identity rather than treating it as absent. Exact-head USB modem identity and XY-C1 verification pending.
+
+
 
 Current implementation checkpoint (2026-11-23):
 - Raw USB printer startup checks the detached p910nd child as `p9100d`. Exact Process #45210393886, USB storage #45210396834, Process inventory #45210393909, AI docs #45210393826, USB modem #45210393790 and NVRAM #45210393769 all PASS on `bea2a85`; XY-C1 #45210393797 was still at Build, with TRX/artifact pending.

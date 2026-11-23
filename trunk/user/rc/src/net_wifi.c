@@ -39,6 +39,9 @@
 #include "gpio_pins.h"
 
 static int wireless_nvram_get_int_status(const char *name, int *value);
+#if !defined(USE_RT3352_MII) || BOARD_HAS_5G_RADIO
+static int wireless_nvram_get_text_status(const char *name, const char **value);
+#endif
 #include <gpioutils.h>
 
 static int
@@ -673,24 +676,90 @@ get_apcli_sta_auto(int is_aband)
 	return i_sta_auto;
 }
 
+int
+get_apcli_wisp_ifname_status(const char **p_wisp_ifname)
+{
+#if !defined(USE_RT3352_MII) || BOARD_HAS_5G_RADIO
+	int mode_x = 0, radio_enabled = 0, wisp_enabled = 0;
+	int status;
+	const char *ssid = NULL;
+#endif
+
+	if (!p_wisp_ifname)
+		return EINVAL;
+	*p_wisp_ifname = NULL;
+
+#if !defined(USE_RT3352_MII)
+	status = wireless_nvram_get_int_status("rt_mode_x", &mode_x);
+	if (status != 0)
+		goto read_failed;
+	if (mode_x == 3 || mode_x == 4) {
+		status = wireless_nvram_get_int_status("rt_radio_x", &radio_enabled);
+		if (status != 0)
+			goto read_failed;
+		if (radio_enabled) {
+			status = wireless_nvram_get_int_status("rt_sta_wisp", &wisp_enabled);
+			if (status != 0)
+				goto read_failed;
+			if (wisp_enabled) {
+				status = wireless_nvram_get_text_status("rt_sta_ssid", &ssid);
+				if (status != 0)
+					goto read_failed;
+				if (ssid[0]) {
+					*p_wisp_ifname = IFNAME_2G_APCLI;
+					return 0;
+				}
+			}
+		}
+	}
+#endif
+#if BOARD_HAS_5G_RADIO
+	mode_x = radio_enabled = wisp_enabled = 0;
+	ssid = NULL;
+	status = wireless_nvram_get_int_status("wl_mode_x", &mode_x);
+	if (status != 0)
+		goto read_failed;
+	if (mode_x == 3 || mode_x == 4) {
+		status = wireless_nvram_get_int_status("wl_radio_x", &radio_enabled);
+		if (status != 0)
+			goto read_failed;
+		if (radio_enabled) {
+			status = wireless_nvram_get_int_status("wl_sta_wisp", &wisp_enabled);
+			if (status != 0)
+				goto read_failed;
+			if (wisp_enabled) {
+				status = wireless_nvram_get_text_status("wl_sta_ssid", &ssid);
+				if (status != 0)
+					goto read_failed;
+				if (ssid[0]) {
+					*p_wisp_ifname = IFNAME_5G_APCLI;
+					return 0;
+				}
+			}
+		}
+	}
+#endif
+	return 0;
+
+#if !defined(USE_RT3352_MII) || BOARD_HAS_5G_RADIO
+read_failed:
+	*p_wisp_ifname = NULL;
+	errno = status;
+	return status;
+#endif
+}
+
 char *
 get_apcli_wisp_ifname(void)
 {
-	int i_mode_x;
+	const char *wisp_ifname = NULL;
+	int status = get_apcli_wisp_ifname_status(&wisp_ifname);
 
-#if !defined(USE_RT3352_MII)
-	i_mode_x = get_mode_radio_rt();
-	if (get_enabled_radio_rt() && (i_mode_x == 3 || i_mode_x == 4) && is_apcli_wisp_rt() &&
-	   (strlen(nvram_wlan_get(0, "sta_ssid")) > 0))
-		return IFNAME_2G_APCLI;
-#endif
-#if BOARD_HAS_5G_RADIO
-	i_mode_x = get_mode_radio_wl();
-	if (get_enabled_radio_wl() && (i_mode_x == 3 || i_mode_x == 4) && is_apcli_wisp_wl() &&
-	   (strlen(nvram_wlan_get(1, "sta_ssid")) > 0))
-		return IFNAME_5G_APCLI;
-#endif
-	return NULL;
+	if (status != 0) {
+		errno = status;
+		return NULL;
+	}
+	return (char *)wisp_ifname;
 }
 
 static int
@@ -699,7 +768,7 @@ check_apcli_wan(int is_5g, int radio_on)
 	int man_id, wisp_id;
 	int status = 0, ap_mode_status, is_ap_mode, ifname_status;
 	char man_ifname[16], man_ifname_nvram[16];
-	char *wisp_ifname;
+	const char *wisp_ifname;
 
 	ap_mode_status = get_ap_mode_status(&is_ap_mode);
 	if (ap_mode_status != 0) {
@@ -752,7 +821,14 @@ check_apcli_wan(int is_5g, int radio_on)
 #endif
 
 	wisp_id = -1;
-	wisp_ifname = get_apcli_wisp_ifname();
+	status = get_apcli_wisp_ifname_status(&wisp_ifname);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot decide AP-client WAN recovery without verified WISP configuration (status=%d)",
+			   status);
+		return status;
+	}
 	if (wisp_ifname) {
 		if (strcmp(wisp_ifname, IFNAME_2G_APCLI) == 0)
 			wisp_id = 0;
@@ -2009,6 +2085,34 @@ wireless_nvram_get_int_status(const char *name, int *value)
 	return wireless_radio_nvram_int_status(
 		api_result, saved_errno, stored_value, 0, value);
 }
+
+#if !defined(USE_RT3352_MII) || BOARD_HAS_5G_RADIO
+static int
+wireless_nvram_get_text_status(const char *name, const char **value)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!name || !name[0] || !value)
+		return EINVAL;
+	*value = "";
+	errno = 0;
+	api_result = nvram_get_checked(name, &stored_value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (api_result == 0)
+		return 0;
+	if (!stored_value)
+		return EIO;
+
+	/* Inspect this cache-owned value before issuing another NVRAM read. */
+	*value = stored_value;
+	return 0;
+}
+#endif
+
 
 
 int is_need_8021x(char *auth_mode)
