@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Validate the SFE mode domain before module reload
+
+- `rc_sfe_configure_policy()` supports mode 0 (disabled), 1 and 2 (two distinct `skip_to_bridge_ingress` settings). The NAT offload snapshot previously accepted any integer. A corrupt value such as 3 was truthy in `reload_nat_modules()`, so it could load `fast_classifier`, while the SFE configuration policy treated the unknown mode as a successful no-op and left the accelerator unconfigured.
+- The snapshot now rejects SFE values below 0 or above 2 before publishing settings. Regression coverage exercises `3`, `-1` and malformed text, verifies transaction closure and preserves the prior settings on failure; a positive mode-2 case confirms that the second supported mode remains compatible. The WAN source checker pins the 0/1/2 domain. The immediately preceding source SHA `eeaefd8` separately added strict 0/1 validation for `ip6_lan_auto`.
+- Exact-head WAN route GNU89/Werror/ASan/UBSan and XY-C1 Build/TRX/artifact Actions are required. No local compilation or hardware behavior is claimed.
+
+---
+
 ## 2026-11-23 UTC — Reject invalid IPv6 NAT auto selector values
 
 - The `ip6_lan_auto` option is a 0/1 toggle in the IPv6 UI, but the NAT offload snapshot previously accepted any integer and forwarded it as the `ipv6_nat` mode. The HW NAT radio-policy adapter only enables IPv6 NAT for exactly `1`, so an invalid value silently forced the feature off during an otherwise successful module reload.

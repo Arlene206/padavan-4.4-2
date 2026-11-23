@@ -81,6 +81,15 @@ rc_nat_offload_settings_read(int read_hwnat, int read_sfe,
 	    parsed[ipv6_nat_index] != 1)
 		return EINVAL;
 
+	/*
+	 * SFE mode 0 disables offload; modes 1 and 2 select the two supported
+	 * skip_to_bridge_ingress behaviors. Unknown nonzero values would load the
+	 * module but leave its sysfs configuration untouched.
+	 */
+	if (read_sfe && (parsed[sfe_enable_index] < 0 ||
+			 parsed[sfe_enable_index] > 2))
+		return EINVAL;
+
 	memset(&result, 0, sizeof(result));
 	if (read_hwnat) {
 		result.hw_nat_mode = parsed[hw_nat_mode_index];

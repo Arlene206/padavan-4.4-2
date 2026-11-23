@@ -45,6 +45,8 @@ HWNAT_POLICY_SOURCE = (RC / "hwnat_config_policy.h").read_text()
 HWNAT_POLICY_TEST = (RC / "tests/hwnat_config_policy.c").read_text()
 SFE_POLICY_SOURCE = (RC / "sfe_config_policy.h").read_text()
 SFE_POLICY_TEST = (RC / "tests/sfe_config_policy.c").read_text()
+NAT_OFFLOAD_POLICY_SOURCE = (RC / "nat_offload_settings_policy.h").read_text()
+NAT_OFFLOAD_POLICY_TEST = (RC / "tests/nat_offload_settings_policy.c").read_text()
 ROUTE_FLUSH_POLICY_SOURCE = (RC / "wan_route_flush_policy.h").read_text()
 ROUTE_FLUSH_POLICY_TEST = (RC / "tests/wan_route_flush_policy.c").read_text()
 POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
@@ -1326,6 +1328,13 @@ assert "hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug" in nat_reload
 assert "test_system_wait_status_is_normalized" in HWNAT_POLICY_TEST
 assert "test_radio_failures_do_not_skip_independent_writes" in HWNAT_POLICY_TEST
 assert "test_disabled_or_unloaded_radio_policy_has_no_side_effects" in HWNAT_POLICY_TEST
+
+# SFE is a three-state mode, not a generic truth value: accept only 0/1/2.
+assert "read_sfe && (parsed[sfe_enable_index] < 0" in NAT_OFFLOAD_POLICY_SOURCE
+assert "parsed[sfe_enable_index] > 2" in NAT_OFFLOAD_POLICY_SOURCE
+assert "test_invalid_sfe_modes_preserve_previous_settings" in NAT_OFFLOAD_POLICY_TEST
+assert "invalid_values" in NAT_OFFLOAD_POLICY_TEST
+assert 'fake.values[0] = "2";' in NAT_OFFLOAD_POLICY_TEST
 print("Optional SFE, HW NAT WAN VID and radio/debugfs configuration result contracts: PASS")
 
 # Configured NAT helper requirements must be post-load verified and their first
