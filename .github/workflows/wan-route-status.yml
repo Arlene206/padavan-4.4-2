@@ -991,7 +991,13 @@ jobs:
           assert "failed to add MAN default route" in gateway_add
           assert "failed to add MAN DNS route" in gateway_add
           assert "*gateway_route_status = 0;" in gateway_add
-          gateway_host = gateway_add[gateway_add.index("/* if the gateway is out of the subnet */"):gateway_add.index("/* default route via default gateway */")]
+          gateway_host = gateway_add[gateway_add.index("/* Do not interpret inet_addr() failures as an off-subnet gateway. */"):gateway_add.index("/* default route via default gateway */")]
+          assert "dhcp_lease_ipv4_is_valid(man_addr)" in gateway_add
+          assert "dhcp_lease_netmask_is_valid(man_mask)" in gateway_add
+          assert "route_status_gateway_host_route_required" in gateway_host
+          assert "man_address_valid && man_netmask_valid" in gateway_host
+          assert "man_address_valid && man_netmask_valid" in gateway_dns
+          assert "skipping host and DNS gateway routes" in gateway_add
           gateway_default = gateway_add[gateway_add.index("/* default route via default gateway */"):gateway_add.index("/* ... and to dns servers as well for demand ppp to work */")]
           gateway_dns = gateway_add[gateway_add.index("/* ... and to dns servers as well for demand ppp to work */"):]
           required_accumulate = "*gateway_route_status = route_status_accumulate(*gateway_route_status, route_status);"
@@ -1062,8 +1068,12 @@ jobs:
           assert "skipping WAN post-up script" in wan_up
           assert "if (wan_gate)" not in wan_up
           assert "ppp_index = ppp_ifindex(wan_ifname);" in wan_up
-          assert "gateway_off_subnet = gateway_valid && ppp_index < 0 &&" in wan_up
-          assert "route_status_wan_gateway_host_route_required(gateway_valid,ppp_index,gateway_off_subnet)" in "".join(wan_up.split())
+          assert "wan_address_valid = wan_addr_status == 0 &&" in wan_up
+          assert "wan_netmask_valid = wan_mask_status == 0 &&" in wan_up
+          assert "dhcp_lease_ipv4_is_valid(wan_addr)" in wan_up
+          assert "dhcp_lease_netmask_is_valid(wan_mask)" in wan_up
+          assert "gateway_off_subnet = gateway_valid && wan_address_valid &&" in wan_up
+          assert "route_status_wan_gateway_host_route_required(gateway_valid,wan_address_valid,wan_netmask_valid,ppp_index,gateway_off_subnet)" in "".join(wan_up.split())
           assert 'route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");' in wan_up
           assert wan_up.count("route_status_accumulate(status, route_status)") >= 6
           assert "route_status = start_auth_kabinet();" in wan_up
