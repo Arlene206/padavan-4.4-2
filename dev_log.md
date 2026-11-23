@@ -1,3 +1,8 @@
+## 2026-11-23 — Correct Process workflow rollback callback scope
+
+- Process run #45221949004 failed only because the new source-contract snippet searched for `kill_services()` inside the recovery function, although the call intentionally lives in its separate stop callback. The implementation and USB modem workflow checker both passed.
+- Updated the workflow to inspect the stop callback and recovery function independently. No production code changed; rerun on the successor SHA is required.
+
 ## 2026-11-23 — Roll back late USB printer daemons after failed readiness
 
 - Follow-up reliability defect: when U2EC/LPRng `execv()` succeeded but the bounded RUNNING postcondition timed out, was interrupted, or encountered an unknown process inventory, the caller returned failure without stopping a daemon that could appear late. A pipe read/partial-status error also left launch state uncertain.

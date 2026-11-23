@@ -1759,10 +1759,12 @@ jobs:
           assert "received == 0" in launcher
           assert "usb_printer_daemon_postcondition(process_name)" in launcher
           assert "usb_printer_daemon_start_failure_recover(process_name," in launcher
+          rollback_stop = source.split("usb_printer_daemon_rollback_stop(void *context)", 1)[1].split("usb_printer_daemon_start_failure_recover(", 1)[0]
           recovery = source.split("usb_printer_daemon_start_failure_recover(const char *process_name,", 1)[1].split("#if defined(SRV_U2EC)", 1)[0]
+          assert "kill_services(service_names, 3, 1)" in rollback_stop
           assert "detached_daemon_start_rollback_with_ops(" in recovery
           assert "usb_printer_daemon_rollback_stop" in recovery
-          assert "kill_services(service_names, 3, 1)" in recovery
+          assert "usb_printer_daemon_scan" in recovery
           assert "PROCESS_PRESENCE_ABSENT" in recovery
           assert "startup rollback incomplete" in recovery
           assert "received == sizeof(exec_error)" in launcher
