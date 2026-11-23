@@ -144,8 +144,8 @@ run_watchcat 0
 # A command whose later argument merely names the watchdog script is
 # not the watchdog executable. Substring matching could pin a stale PID file.
 mkdir -p "$PROC_ROOT/52525252"
-printf '/usr/sbin/other-service\\000--script\\000/usr/bin/scutclient_watchcat.sh\\000' > "$PROC_ROOT/52525252/cmdline"
-printf '52525252\\n' > "$PIDFILE"
+printf '/usr/sbin/other-service\000--script\000/usr/bin/scutclient_watchcat.sh\000' > "$PROC_ROOT/52525252/cmdline"
+printf '52525252\n' > "$PIDFILE"
 : > "$KILL_LOG"
 run_watchcat 0
 [ ! -e "$PIDFILE" ] || {
