@@ -330,3 +330,9 @@ Next isolated process-lifecycle candidate: HTTPD, Samba and MiniUPnP service-sta
 | SmartDNS | NVRAM status propagation and unsupported Adbyby switch-call removal implemented. Exact-SHA DNSMasq checkpoint: DNSMasq lifecycle stability regression=completed/success | Trace actual runtime DNS ownership in both directions; add regression coverage. |
 
 Firmware/device verification is separate; do not mark XY-C1 or hardware as passed without exact-SHA evidence.
+
+
+## 2026-11-23 implementation continuation
+
+The following source slices have been implemented on `main`: checked modem-WAN reconnect delivery/retry (`e01860c`), checked WAN ARP egress-interface identity (`1cb8179`), idempotent U2EC/LPRng startup (`e6dc19c`), bounded printer-start rollback (`0b6226d`), per-device p910nd port/process identity (`9e03bac`), and port-scoped p910nd rollback (`e6a6a38`). The earlier `ecff475` XY-C1 build/TRX/artifact PASS predates the final printer rollback and p910nd updates; it is not current-head firmware evidence. Exact-current-SHA Actions (USB, Process, Storage, XY-C1) are the next verification gate. Hardware multi-printer behavior remains unverified.
+

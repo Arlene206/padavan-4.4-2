@@ -1,5 +1,27 @@
 # Cross-session execution mandate
 
+## 2026-11-23 continuation handoff (latest main: `e52ec8ffe785dbf129e0de69ec60869101213149`)
+
+### Completed production slices
+- `e01860cab922e8e7da2c92b3f04db913b777ad09`: propagate checked modem-WAN identity/queue errors and retry deferred reconnect delivery in `detect_link`.
+- `1cb817908e779c45d3c47105e39cd2002df0ba63`: use a checked, bounded WAN ARP egress-interface identity; reject empty/truncated/unterminated legacy `SOCK_PACKET` names.
+- `e6dc19c7c8ddf9c185d48817c28dc952412028b9`: make U2EC/LPRng startup idempotent across hotplug retries; only a complete ABSENT inventory permits stale PID cleanup/fork.
+- `0b6226df2faa8752fc526db3053eea74809bf5cb`: roll back U2EC/LPRng after readiness or uncertain exec-status-channel failure; preserve the primary error and verify final process state.
+- `9e03bacbb7b72c60379fcac1d7f52d06b46088cc`: allocate each p910nd printer its own `/dev/usb/lpN`-derived port/process identity, add the GNU89 policy regression and USB/Process/Storage source contracts.
+- `e6a6a3868a0e409a009ede9b01d01c355c372b15`: scope p910nd readiness rollback to the same per-port process identity and correct the checker order contract.
+
+### Verification state
+- Earlier baseline `ecff475abb782b32e0a8f4f02026acc709ea6844` passed XY-C1 firmware build, TRX validation and artifact upload, but predates the later printer rollback and p910nd per-port changes; do not treat that run as verification of current `main`.
+- The p910nd policy is covered by a GNU89 ASan/UBSan workflow test for lp0–lp9 mapping, malformed device paths, buffer sizing and rewritten process names. Exact-current-SHA USB/Process/Storage/XY-C1 Actions must be checked before calling it PASS; hardware multi-printer behavior is not verified.
+- Backup branch remains protected: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never force-push or modify it.
+
+### First task for the next continuation
+1. Read current Actions for exact main SHA `e52ec8ffe785dbf129e0de69ec60869101213149`, especially `USB modem identity / printer`, `Process lifecycle`, `Storage hotplug`, and `XY-C1 firmware validation`. If any FAIL, inspect that job's logs and fix the source/checker mismatch in a small atomic commit. If XY-C1 is still pending, continue other independent work; require Build XY-C1 + TRX check + artifact upload PASS on the final source SHA.
+2. After exact-SHA checks, continue the next open stability/security ledger item across Padavan userland; do not repeat the completed bootstrap audit or revisit the fixed modem/ARP/printer slices without a new regression.
+3. Keep this handoff and `REFACTOR_ROADMAP.md` synchronized after each verified slice. Hardware-only verification must remain explicitly marked unverified unless performed.
+
+
+
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one complete Git tree and one commit, followed by a non-forced compare-and-swap ref update. Do not ask the user what to do next.
 
 ## Mandatory handoff checkpoint
