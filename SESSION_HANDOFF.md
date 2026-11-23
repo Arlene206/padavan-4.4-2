@@ -2,38 +2,32 @@
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; writable branch is main only.
-- Main parent for this checkpoint: af80debca9112c03b72fbe27dd8cd2838fe82ff2. Re-fetch live main before every write; parallel sessions may advance it.
-- USB modem eject production fix is in 9e9efbf6d9651e9bab82e544b02f718655a0a820. USB identity #45154233466 PASS; Process fail-closed #45155481370 and USB storage hotplug #45155481256 PASS on descendant SHA 15c93fe802fc6a45148d04c8d3c7f238ad11fd92.
-- Production source baseline before this checkpoint is 0e4976cfbe86c81f5172ce2256ed71801952682d; exact XY-C1 #45156939135 is confirmed PASS for Build XY-C1, TRX verification and artifact upload on that same SHA. Current main parent af80debca9112c03b72fbe27dd8cd2838fe82ff2 is a check/docs descendant of that product source. Wireless #45158308492 and AI handoff #45158308561 passed on af80. XY-C1 #45158308815 skipped product build/TRX/artifact because af80 only changed test/docs files.
-- This checkpoint adds strict local source-MAC parsing to detect_wan.c at the ARP packet boundary. It intentionally does not change the legacy WAN MAC override formatter; malformed NVRAM text is rejected only before Ethernet frame construction.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Read-only; do not update, delete, merge or rename.
-- No persistent local checkout is available. Do not claim local compile, local sanitizers, firmware build or physical hardware results unless actually observed.
-- Startup recovery has already been performed once. Do not repeat broad startup or completed USB eject/MTK/WSD investigations without new evidence.
+- Repository: Arlene206/padavan-4.4-2. Writable branch: `main` only. Live parent before this documentation checkpoint: `db60eb4deb95f7702c63f50563b8cc9b23d350e9`.
+- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Preserve permanently; never update, switch to, merge, delete or rename.
+- Branch inventory at this checkpoint: only `main` and the frozen archive. Legacy PR #1 is closed and unmerged; no open PR. Do not create branches or PRs.
+- Current product-source commit: `ad56220d066e771be499426708b6c2f744937467`, `fix(firewall): fail closed on URL schedule read errors`. Documentation/checker-only descendant: `db60eb4deb95f7702c63f50563b8cc9b23d350e9`.
+- No persistent local checkout is available. No local compile, local sanitizer, MIPS/uClibc build or physical hardware result is claimed.
+- Startup recovery has already been performed once. Do not repeat broad bootstrap or completed USB eject/MTK/WSD audits without new evidence.
 
 ## Active task
 
-The current WAN ARP fix adds strict source-MAC parsing at the frame-construction boundary. The follow-up validation also requires an Ethernet station address to be unicast, non-zero and non-broadcast: syntactically valid multicast, all-zero and all-ones values are not valid local ARP Ethernet sources. Locally administered unicast and globally administered unicast values remain accepted. The legacy WAN override formatter remains unchanged; rejection is local to the packet boundary.
+Close the production-source L3 gate for the firewall URL-filter schedule fix. The source change replaces unchecked `nvram_get()` fallbacks with checked presence-aware reads, copies date/time values before the next NVRAM access invalidates the shared pointer, and propagates backend errors. Both IPv4 and IPv6 builders discard staged rules and abort core restore before publication on a schedule read failure. Missing-key defaults remain compatible; present-empty and oversized schedules remain inactive.
 
-The regression tests cover valid mixed-case locally administered and globally administered values, malformed separator/length/hex values, null pointers, all-zero/broadcast/multicast addresses and transactional output preservation. The exact first source commit's WAN ARP run #45159121550 PASS; this refinement needs its own exact-head run.
+Source commit `ad56220d066e771be499426708b6c2f744937467` also adds a policy helper and direct unit coverage. The first Firewall Startup run #45161165818 failed only because its inline checker named a nonexistent test function; checker correction is `db60eb4deb95f7702c63f50563b8cc9b23d350e9`. Exact Firewall Startup #45161387113 PASS and AI docs #45161387099 PASS on db60. Exact WAN DHCP callback #45161165802 PASS on ad562.
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head WAN ARP action on this commit, including the new group-address/zero/broadcast cases, sanitizer run and inline source ordering contract.
-2. Verify XY-C1 Build, TRX output and artifact upload all pass on this exact product-source SHA. Do not transfer the prior source's result.
-3. Continue a separate P1 only after checking latest roadmap/history for parallel completion; avoid repeating the USB eject, wireless contract and WAN ARP-parser audits.
+1. Poll XY-C1 run #45161165974 on exact product-source SHA `ad56220d066e771be499426708b6c2f744937467`. At last poll, Build XY-C1 was IN_PROGRESS and TRX verification/artifact upload were pending. Confirm all three pass on that SHA; if Build fails, inspect its job log and fix the actual compile failure before claiming L3.
+2. If #45161165974 passes, record its artifact ID/name/size and mark L3 for the firewall URL-schedule slice. If it fails, keep L3 NOT VERIFIED and repair the source/build issue.
+3. Continue the next unfinished P1 stability/security slice from `REFACTOR_ROADMAP.md`; prefer work outside the already heavily exercised Wireless/HTTPD/DHCP paths. Do not repeat completed tasks without new failure evidence.
 
 ## Exact-SHA CI facts at the parent baseline
 
-- Parent main SHA: 8dde087a3410da9dc57724668e368c24c78d769b, commit fix(wan): validate ARP source hardware address.
-- WAN gateway ARP probe regression #45159121550 PASS on exact SHA 8dde087a3410da9dc57724668e368c24c78d769b. It compiled and ran the GNU89 -Wall -Wextra -Werror ASan/UBSan socket, ARP identity/local-error policy, checked-NVRAM and signal-deferral binaries, then passed the production source integration contract.
-- AI handoff #45159121218 PASS; Process lifecycle inventory #45159121362 PASS on 8dde087a. Process fail-closed #45159121174 and NVRAM audit #45159121639 were IN_PROGRESS at last poll.
-- XY-C1 #45159121291 on SHA 8dde087a was IN_PROGRESS at last poll; Build XY-C1, TRX verification and artifact upload had not completed.
-- The first strict syntax parser is in the current parent. This unicast refinement is new product source; exact-head WAN ARP and XY-C1 results are pending.
-
-## Completed source slices to preserve
-
-## Completed source slices to preserve
+- Product-source `ad56220d066e771be499426708b6c2f744937467`: WAN DHCP callback #45161165802 PASS. Its first Firewall Startup run #45161165818 failed at a stale inline test-name assertion after earlier checked-NVRAM/lifecycle/startup/enable/static-route stages passed; corrected checker-only descendant db60 has Firewall Startup #45161387113 PASS and AI docs #45161387099 PASS. XY-C1 #45161165974 was IN_PROGRESS at Build XY-C1; TRX and artifact pending.
+- LAN networkmap-retry source `edeb1e8354a97b312d8f3f5dd8787af030abfc6d`: WAN DHCP callback #45160239807 PASS on descendant cbec; XY-C1 #45160010405 PASS on exact edeb for Build, TRX verification and artifact upload. Artifact ID 14811585463, name `XY-C1-firmware-edeb1e8354a97b312d8f3f5dd8787af030abfc6d`, 12,759,150 bytes. This is L3 for product source through edeb, not for later product source ad562.
+- WAN ARP source-MAC parser regression #45159476012 PASS on c98; edeb is a later product-source descendant and has the above same-SHA XY-C1 pass.
+- Wireless source-contract regression #45158308492 PASS on af80. XY-C1 #45156939135 PASS on product SHA `0e4976cfbe86c81f5172ce2256ed71801952682d` for Build/TRX/artifact; later product-source XY #45160010405 on edeb includes that wireless implementation.
+- Exact XY-C1 #45160240051 on cbec was host-only: Build/TRX/artifact were skipped, so it is not L3 evidence. Do not reuse it.
 
 ## Completed source slices to preserve
 
@@ -66,12 +60,34 @@ The regression tests cover valid mixed-case locally administered and globally ad
 - Accepted-client recv errors close only that client instead of restarting the WSD listener. A single five-second deadline spans the request line, headers and declared body, preventing a slow-trickle peer from indefinitely occupying the single-threaded server.
 - WSD HTTP/TCP/XML and Process source fixes were verified on exact descendant SHA 940c53921c210898199bfc78b1b1b0cb33c206d6. Do not repeat unless WSD source changes.
 
+### LAN DHCP networkmap refresh retry
+
+- A failed initial BOUND or changed-address RENEW networkmap refresh is now recorded in PID 1's secure incomplete-action queue. The PID 1 notification handler retries the refresh and retains its marker on failure; subsequent BOUND/RENEW callbacks, including same-address renewals, requeue a pending marker. The lease commit remains independent of this ancillary refresh.
+- Exact WAN DHCP callback #45160239807 PASS on cbec; exact XY-C1 #45160010405 on product-source SHA edeb PASS for Build, TRX verification and artifact upload (artifact ID 14811585463, 12,759,150 bytes).
+
+### Firewall URL-filter schedule read
+
+- IPv4 and IPv6 URL-filter schedules now use checked, presence-aware NVRAM reads and copy values before the next shared-cache lookup. Missing keys retain historical all-days/all-day defaults; present-empty or oversized values stay inactive; backend errors abort staged rule publication rather than silently falling back to defaults.
+- GNU89/Werror/ASan/UBSan policy tests and the complete firewall source-order contract passed in Firewall Startup #45161387113 on db60 (production code from ad562). WAN DHCP callback #45161165802 PASS on ad562. Exact XY-C1 #45161165974 on ad562 was still building at last poll; L3 for this firewall source slice remains pending.
+
+### WAN gateway ARP source identity
+
+- The ARP receive boundary validates exact six-octet syntax and rejects multicast, all-zero and broadcast Ethernet source addresses while accepting locally and globally administered unicast. The legacy `wan_hwaddr` formatter remains unchanged.
+- Exact WAN ARP source regression #45159476012 passed on c98; subsequent product-source XY-C1 #45160010405 on descendant edeb passed Build/TRX/artifact, covering the parser in the product firmware baseline. Hardware gateway reachability remains unverified.
+
+### Wireless checked radio-enable state
+
+- 802.1X startup, guest activation and DBDC peer-band restart paths use checked radio-enable reads and fail closed before new authenticator/interface/bridge side effects; DBDC cleanup preserves the first read error.
+- Exact Wireless action #45158308492 PASS on af80 after the static-contract whitespace fixes. The product-source baseline #0e4976 and descendants through edeb have same-source XY-C1 Build/TRX/artifact verification; physical radio and switch behavior remains unverified.
+
+
+
 ## Verification boundary
 
-- L1 source review: PASS for exact six-octet parsing and pre-socket rejection of malformed input. This follow-up also rejects multicast, all-zero and broadcast Ethernet source addresses while retaining both globally and locally administered unicast.
-- L2 host/Actions: WAN ARP #45159121550 PASS on 8dde087a for the first strict syntax parser. Exact-head regression for the unicast refinement is pending.
-- L3 XY-C1 firmware: PASS for prior product SHA 0e4976cf (#45156939135 Build, TRX and artifact PASS). NOT VERIFIED for source SHA 8dde087a or this unicast refinement until same-SHA stages pass; run #45159121291 was still in progress at last poll.
-- L4 physical router: NOT VERIFIED, including physical gateway reachability, ARP packet source identity, WAN failover and router Ethernet behavior.
+- L1 source review: PASS for checked URL schedule reads, presence-aware legacy defaults, pointer lifetime/copy ordering and abort-before-publication on both IPv4 and IPv6.
+- L2 host/Actions: Firewall Startup #45161387113 PASS on db60 (production source parent ad562), including GNU89/Werror/ASan/UBSan policy helper tests and full URL-schedule source-order contract. WAN DHCP callback #45161165802 PASS on ad562.
+- L3 XY-C1 firmware: PASS through prior product SHA edeb (Build, TRX and artifact). NOT VERIFIED for current production source ad562 until exact run #45161165974 completes Build, TRX verification and artifact upload on the same SHA.
+- L4 physical router: NOT VERIFIED; no physical firewall schedule/NVRAM fault injection or radio/WAN topology test was performed.
 
 ## Working method
 
