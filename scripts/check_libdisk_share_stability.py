@@ -1009,35 +1009,31 @@ del_validate = del_folder_compact.index(
     del_begin
 )
 del_plan = del_folder_compact.index("disk_share_permission_batch_prepare_rewrite(", del_validate)
-del_stage = del_folder_compact.index("rename(full_path,staging_path)", del_plan)
-del_snapshot = del_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", del_stage)
-del_apply = del_folder_compact.index(
-    "disk_share_permission_batch_apply(permission_batch,permission_batch_count,disk_share_replace_file_atomic,&rollback_error)",
-    del_snapshot
-)
-del_remove = del_folder_compact.index("rmdir(staging_path)", del_apply)
-del_rollback = del_folder_compact.index(
-    "disk_share_permission_batch_rollback(permission_batch,permission_batch_count,disk_share_replace_file_atomic,&rollback_error)",
-    del_apply
-)
-del_restore_directory = del_folder_compact.index("rename(staging_path,full_path)", del_rollback)
-del_restore_snapshot = del_folder_compact.index(
-    "initial_folder_list_in_mount_path(mount_path)", del_restore_directory
+del_stage = del_folder_compact.index("disk_share_create_folder_staging_paths(", del_plan)
+del_batch = del_folder_compact.index(
+    "disk_share_folder_delete_batch(full_path,staging_path,mount_path,permission_batch,permission_batch_count,disk_share_replace_file_atomic,disk_share_rename_folder_path,disk_share_remove_folder_path,disk_share_refresh_folder_snapshot,&staging_applied,&rollback_error)",
+    del_stage
 )
 del_release = del_folder_compact.index(
-    "disk_share_account_nvram_end(&transaction)", del_restore_snapshot
+    "disk_share_account_nvram_end(&transaction)", del_batch
 )
 require(del_inventory < del_begin < del_validate < del_plan < del_stage <
-        del_snapshot < del_apply < del_remove < del_rollback <
-        del_restore_directory < del_restore_snapshot < del_release and
+        del_batch < del_release and
         "disk_share_permission_batch_prepare_rewrite" in DISK_SOURCE and
         "disk_share_reserve_staging_directory" in DISK_SOURCE and
+        "disk_share_folder_delete_batch" in POLICY and
+        "disk_share_remove_folder_path" in DISK_SOURCE and
         "mkdir(path, 0700)" in DISK_SOURCE and
         "lstat(staging_path" not in DISK_SOURCE and
         "if(dp->d_name[0]=='.')" in "".join(DISK_SOURCE.split()),
-        "folder deletion must preflight metadata, stage the directory, batch-publish permissions and compensate files/directory/list on failure")
+        "folder deletion must preflight metadata then use the tested staged-directory/ACL/snapshot compensation state machine")
 
 for marker in (
+    "test_folder_delete_batch_commits_directory_snapshot_and_permissions",
+    "test_folder_delete_batch_restores_directory_after_snapshot_failure",
+    "test_folder_delete_batch_restores_files_and_directory_after_write_failure",
+    "test_folder_delete_batch_restores_after_staged_directory_remove_failure",
+    "test_folder_delete_batch_preserves_staging_on_directory_compensation_failure",
     "test_folder_entry_status_rejects_symlinks_and_non_directories",
     "test_folder_rename_batch_commits_directory_snapshot_and_permissions",
     "test_folder_rename_batch_restores_directory_after_snapshot_failure",
@@ -1052,6 +1048,29 @@ for marker in (
 ):
     require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
             "missing permission batch rollback regression: " + marker)
+
+folder_delete_policy = function_body(POLICY, "disk_share_folder_delete_batch(")
+folder_delete_policy_compact = "".join(folder_delete_policy.split())
+delete_move = folder_delete_policy_compact.index("move_path(folder_path,staging_path)")
+delete_refresh = folder_delete_policy_compact.index("refresh_snapshot(mount_path)", delete_move)
+delete_apply = folder_delete_policy_compact.index(
+    "disk_share_permission_batch_apply(entries,count,write_file,&compensation_error)",
+    delete_refresh
+)
+delete_remove = folder_delete_policy_compact.index("remove_path(staging_path)", delete_apply)
+delete_rollback = folder_delete_policy_compact.index(
+    "disk_share_permission_batch_rollback(entries,count,write_file,&compensation_error)",
+    delete_remove
+)
+delete_move_back = folder_delete_policy_compact.index(
+    "move_path(staging_path,folder_path)", delete_rollback
+)
+delete_refresh_back = folder_delete_policy_compact.index(
+    "refresh_snapshot(mount_path)", delete_move_back
+)
+require(delete_move < delete_refresh < delete_apply < delete_remove <
+        delete_rollback < delete_move_back < delete_refresh_back,
+        "delete policy must compensate ACLs, directory placement and folder snapshot after any post-stage failure")
 
 mod_folder_body = function_body(
     DISK_SOURCE,

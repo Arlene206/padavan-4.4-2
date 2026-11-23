@@ -1,3 +1,12 @@
+## 2026-11-23 12:34 UTC+8 — Exercise the complete folder deletion transaction with fault injection
+
+- Parent main SHA: `b08863f2dc42c06abf1b9765b8ca42f69025fd7b`. The rename path already had injected callback tests, but `del_folder()` still embedded directory staging, snapshot refresh, ACL publication, staged-directory removal and rollback directly in its public wrapper. That left the delete path's rollback combinations untested at policy level.
+- Extracted `disk_share_folder_delete_batch()` with injected move/remove/refresh/file-writer callbacks, then routed `del_folder()` through it. The helper preserves the staging directory when a failed rename-back leaves data there, always attempts to refresh the visible snapshot after compensation, and returns the original operation errno unless compensation is incomplete (then EIO). Added five GNU89 state-machine tests: successful delete; initial snapshot failure; partial ACL write failure; staged-directory removal failure; and failed directory compensation with explicit staged-data retention. Updated source contracts to pin operation/rollback ordering.
+- Parent exact-head libdisk run `45105209634` is in progress at this update; earlier `e16fc458` exact-head run `45105008310` passed both sanitizer binaries but failed the first source contract because its normalizer preserved spaces. The next exact-head run will validate the corrected contract and these new tests. No L3/L4 claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 12:25 UTC+8 — Update mod_folder source contract for no-follow directory checks
 
 - Exact-head libdisk run `45105123378` on `e94bdc2ddb2defee0fe5e5edb3d2d298a9b7f7bb` passed both GNU89 ASan/UBSan regression binaries, then failed the source contract at a second stale assertion: it still expected `test_if_dir(full_path)` in `mod_folder()`. The symlink hardening commit correctly replaced that check with `lstat()` plus `disk_share_folder_entry_status()`.

@@ -2450,6 +2450,12 @@ disk_share_refresh_folder_snapshot(const char *mount_path)
 	return initial_folder_list_in_mount_path(mount_path);
 }
 
+static int
+disk_share_remove_folder_path(const char *path)
+{
+	return rmdir(path);
+}
+
 
 int del_folder(const char *const mount_path, const char *const folder)
 {
@@ -2545,24 +2551,23 @@ int del_folder(const char *const mount_path, const char *const folder)
 	staging_dir_created = 1;
 
 	/*
-	 * The directory is first moved to a dot-prefixed sibling, which is
-	 * excluded from share enumeration. Its inode and contents remain intact
-	 * until every permission file is published and rmdir succeeds.
+	 * The policy helper stages the directory, refreshes the visible list,
+	 * publishes the complete ACL batch, and compensates all three on failure.
+	 * The output flag keeps the staging parent when a failed rename-back leaves
+	 * the directory there, so data is never discarded during cleanup.
 	 */
-	if (rename(full_path, staging_path) != 0)
-		goto failed;
-	staging_applied = 1;
-	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		goto rollback;
-
-	if (disk_share_permission_batch_apply(
+	if (disk_share_folder_delete_batch(
+		    full_path, staging_path, mount_path,
 		    permission_batch, permission_batch_count,
-		    disk_share_replace_file_atomic, &rollback_error) != 0)
-		goto rollback;
-
-	if (rmdir(staging_path) != 0)
-		goto rollback;
-	staging_applied = 0;
+		    disk_share_replace_file_atomic, disk_share_rename_folder_path,
+		    disk_share_remove_folder_path, disk_share_refresh_folder_snapshot,
+		    &staging_applied, &rollback_error) != 0) {
+		if (rollback_error != 0)
+			logmessage("disk_share",
+				   "folder deletion compensation incomplete (errno %d)",
+				   rollback_error);
+		goto failed;
+	}
 	if (rmdir(staging_dir) == 0 || errno == ENOENT)
 		staging_dir_created = 0;
 	else
@@ -2579,41 +2584,6 @@ int del_folder(const char *const mount_path, const char *const folder)
 		return -1;
 	transaction_started = 0;
 	return 0;
-
-rollback:
-	saved_errno = errno ? errno : EIO;
-	/* Retry any restore left pending by an earlier partial compensation. */
-	rollback_error = 0;
-	if (disk_share_permission_batch_rollback(
-		    permission_batch, permission_batch_count,
-		    disk_share_replace_file_atomic, &rollback_error) != 0)
-		logmessage("disk_share",
-			   "folder deletion permission rollback failed (errno %d)",
-			   rollback_error ? rollback_error : EIO);
-	if (staging_applied) {
-		if (rename(staging_path, full_path) != 0) {
-			if (rollback_error == 0)
-				rollback_error = errno ? errno : EIO;
-		} else {
-			staging_applied = 0;
-			if (initial_folder_list_in_mount_path(mount_path) != 0 &&
-			    rollback_error == 0)
-				rollback_error = errno ? errno : EIO;
-		}
-	}
-	if (!staging_applied && staging_dir_created) {
-		if (rmdir(staging_dir) == 0 || errno == ENOENT)
-			staging_dir_created = 0;
-		else if (rollback_error == 0)
-			rollback_error = errno ? errno : EIO;
-	}
-	if (rollback_error != 0) {
-		logmessage("disk_share",
-			   "folder deletion compensation incomplete (errno %d)",
-			   rollback_error);
-		saved_errno = EIO;
-	}
-	errno = saved_errno;
 
 failed:
 	saved_errno = errno ? errno : EIO;

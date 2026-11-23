@@ -2255,6 +2255,8 @@ struct fake_folder_rename_state {
 	int fail_move_call;
 	int refresh_calls;
 	int fail_refresh_call;
+	int remove_calls;
+	int fail_remove_call;
 };
 
 static struct fake_folder_rename_state *fake_folder_rename_state;
@@ -2276,6 +2278,26 @@ fake_folder_move_path(const char *old_path, const char *new_path)
 	snprintf(state->current_path, sizeof(state->current_path), "%s", new_path);
 	return 0;
 }
+
+static int
+fake_folder_remove_staged(const char *path)
+{
+	struct fake_folder_rename_state *state = fake_folder_rename_state;
+
+	++state->remove_calls;
+	if (state->remove_calls == state->fail_remove_call) {
+		errno = EBUSY;
+		return -1;
+	}
+	if (strcmp(state->current_path, path) != 0) {
+		errno = ENOENT;
+		return -1;
+	}
+	snprintf(state->current_path, sizeof(state->current_path), "%s",
+	         "removed");
+	return 0;
+}
+
 
 static int
 fake_folder_refresh_snapshot(const char *mount_path)
@@ -2394,6 +2416,140 @@ test_folder_rename_batch_reports_directory_compensation_failure(void)
 }
 
 
+static void
+test_folder_delete_batch_commits_directory_snapshot_and_permissions(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int directory_staged = -1, rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	assert(disk_share_folder_delete_batch(
+		"/mnt/share/old", "/mnt/share/.stage/old", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_remove_staged, fake_folder_refresh_snapshot,
+		&directory_staged, &rollback_error) == 0);
+	assert(directory_staged == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "removed") == 0);
+	assert(folder_state.move_calls == 1);
+	assert(folder_state.refresh_calls == 1);
+	assert(folder_state.remove_calls == 1);
+	assert(strcmp(permission_state.contents[0], "new-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "new-b\n") == 0);
+}
+
+
+static void
+test_folder_delete_batch_restores_directory_after_snapshot_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int directory_staged = -1, rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	folder_state.fail_refresh_call = 1;
+	assert(disk_share_folder_delete_batch(
+		"/mnt/share/old", "/mnt/share/.stage/old", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_remove_staged, fake_folder_refresh_snapshot,
+		&directory_staged, &rollback_error) == -1);
+	assert(errno == EIO);
+	assert(directory_staged == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "/mnt/share/old") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+	assert(folder_state.remove_calls == 0);
+	assert(strcmp(permission_state.contents[0], "old-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "old-b\n") == 0);
+}
+
+
+static void
+test_folder_delete_batch_restores_files_and_directory_after_write_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int directory_staged = -1, rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	permission_state.fail_call = 2;
+	assert(disk_share_folder_delete_batch(
+		"/mnt/share/old", "/mnt/share/.stage/old", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_remove_staged, fake_folder_refresh_snapshot,
+		&directory_staged, &rollback_error) == -1);
+	assert(errno == EACCES);
+	assert(directory_staged == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "/mnt/share/old") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+	assert(folder_state.remove_calls == 0);
+	assert(strcmp(permission_state.contents[0], "old-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "old-b\n") == 0);
+}
+
+
+static void
+test_folder_delete_batch_restores_after_staged_directory_remove_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int directory_staged = -1, rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	folder_state.fail_remove_call = 1;
+	assert(disk_share_folder_delete_batch(
+		"/mnt/share/old", "/mnt/share/.stage/old", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_remove_staged, fake_folder_refresh_snapshot,
+		&directory_staged, &rollback_error) == -1);
+	assert(errno == EBUSY);
+	assert(directory_staged == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "/mnt/share/old") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+	assert(folder_state.remove_calls == 1);
+	assert(strcmp(permission_state.contents[0], "old-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "old-b\n") == 0);
+}
+
+
+static void
+test_folder_delete_batch_preserves_staging_on_directory_compensation_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int directory_staged = -1, rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	folder_state.fail_remove_call = 1;
+	folder_state.fail_move_call = 2;
+	assert(disk_share_folder_delete_batch(
+		"/mnt/share/old", "/mnt/share/.stage/old", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_remove_staged, fake_folder_refresh_snapshot,
+		&directory_staged, &rollback_error) == -1);
+	assert(errno == EIO);
+	assert(directory_staged == 1);
+	assert(rollback_error == EXDEV);
+	assert(strcmp(folder_state.current_path, "/mnt/share/.stage/old") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+	assert(folder_state.remove_calls == 1);
+	assert(strcmp(permission_state.contents[0], "old-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "old-b\n") == 0);
+}
+
+
 int
 main(void)
 {
@@ -2406,6 +2562,11 @@ main(void)
 
 	test_folder_rollback_preserves_permissions_when_directory_survives();
 	test_folder_entry_status_rejects_symlinks_and_non_directories();
+	test_folder_delete_batch_commits_directory_snapshot_and_permissions();
+	test_folder_delete_batch_restores_directory_after_snapshot_failure();
+	test_folder_delete_batch_restores_files_and_directory_after_write_failure();
+	test_folder_delete_batch_restores_after_staged_directory_remove_failure();
+	test_folder_delete_batch_preserves_staging_on_directory_compensation_failure();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();
 	test_folder_rename_batch_restores_directory_after_snapshot_failure();
 	test_folder_rename_batch_restores_files_and_directory_after_write_failure();
