@@ -102,6 +102,22 @@ firefly_config_write_defaults(FILE *output,
 		1, 1, 1, 1, "WINDOWS-1251", "/usr/lib/mt-daapd");
 }
 
+static int
+firefly_config_text_is_safe(const char *value)
+{
+	const unsigned char *cursor = (const unsigned char *)value;
+
+	if (!cursor)
+		return 0;
+	while (*cursor) {
+		if (*cursor < 0x20 || *cursor == 0x7f)
+			return 0;
+		cursor++;
+	}
+	return 1;
+}
+
+
 /* Publish a complete config; never replace the last good file on failure. */
 static int
 firefly_config_publish(const char *path, const char *source_path,
@@ -119,7 +135,9 @@ firefly_config_publish(const char *path, const char *source_path,
 	int sync_status;
 
 	if (path == NULL || path[0] == '\0' ||
-	    link_path == NULL || username == NULL || password == NULL)
+	    !firefly_config_text_is_safe(link_path) ||
+	    !firefly_config_text_is_safe(username) ||
+	    !firefly_config_text_is_safe(password))
 		return EINVAL;
 
 	values.link_path = link_path;

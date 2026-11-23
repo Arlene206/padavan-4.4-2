@@ -333,6 +333,19 @@ storage_read_nvram_string(void *context, const char *name, char **value)
 	return nvram_get_checked(name, value);
 }
 
+
+static int
+storage_read_transaction_nvram_string(void *context, const char *name,
+				      char **value)
+{
+	if (!context || !name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     name, value);
+}
+
 static int
 storage_read_string_status(const char *name, char *value, size_t value_size)
 {
@@ -3032,20 +3045,73 @@ stop_itunes(void)
 }
 
 static int
+storage_read_firefly_credentials_status(char *username, size_t username_size,
+					char *password, size_t password_size)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, end_errno, saved_errno;
+
+	if (!username || username_size == 0 || !password || password_size == 0) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	username[0] = '\0';
+	password[0] = '\0';
+
+	if (nvram_transaction_begin(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		errno = saved_errno;
+		return saved_errno;
+	}
+
+	status = rc_wan_nvram_copy_value(storage_read_transaction_nvram_string,
+					 &transaction, "http_username",
+					 username, username_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(storage_read_transaction_nvram_string,
+						 &transaction, "http_passwd",
+						 password, password_size);
+	saved_errno = status;
+	errno = 0;
+	end_status = nvram_transaction_end(&transaction);
+	end_errno = errno;
+	if (saved_errno == 0 && end_status != 0)
+		saved_errno = end_errno ? end_errno : EIO;
+	if (saved_errno != 0) {
+		username[0] = '\0';
+		password[0] = '\0';
+		errno = saved_errno;
+		return saved_errno;
+	}
+
+	return 0;
+}
+
+
+static int
 update_firefly_conf(const char *link_path, const char *conf_path,
 		    const char *conf_file)
 {
 	char conf_full[128];
-	int path_length;
+	char username[256], password[256];
+	int path_length, credential_status;
 
 	path_length = snprintf(conf_full, sizeof(conf_full), "%s/%s",
 			       conf_path, conf_file);
 	if (path_length < 0 || (size_t)path_length >= sizeof(conf_full))
 		return ENAMETOOLONG;
 
+	credential_status = storage_read_firefly_credentials_status(
+		username, sizeof(username), password, sizeof(password));
+	if (credential_status != 0) {
+		logmessage("Firefly",
+			   "cannot read web credentials; refusing configuration publication (status=%d)",
+			   credential_status);
+		return credential_status;
+	}
+
 	return firefly_config_publish(conf_full, conf_full, link_path,
-				      nvram_safe_get("http_username"),
-				      nvram_safe_get("http_passwd"));
+				      username, password);
 }
 
 int run_itunes(void)

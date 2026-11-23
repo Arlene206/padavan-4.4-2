@@ -111,6 +111,24 @@ main(void)
 	assert_no_temporary_files(directory);
 
 	write_file(path, "last-good-configuration\n");
+	status = firefly_config_publish(path, NULL, "/mnt/firefly",
+					"media-user\nadmin_pw = injected", "media-pass");
+	assert(status == EINVAL);
+	assert_contains(path, "last-good-configuration\n");
+	assert_no_temporary_files(directory);
+
+	status = firefly_config_publish(path, NULL, "/mnt/firefly",
+					"media-user", "media-pass\r\nrunas = root");
+	assert(status == EINVAL);
+	assert_contains(path, "last-good-configuration\n");
+	assert_no_temporary_files(directory);
+
+	status = firefly_config_publish(path, NULL, "/mnt/firefly\n[plugins]",
+					"media-user", "media-pass");
+	assert(status == EINVAL);
+	assert_contains(path, "last-good-configuration\n");
+	assert_no_temporary_files(directory);
+
 	status = firefly_config_publish(path, directory, "/mnt/firefly",
 					"media-user", "media-pass");
 	assert(status != 0);
