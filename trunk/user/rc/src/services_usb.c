@@ -217,17 +217,54 @@ usb_printer_daemon_postcondition(const char *process_name)
 /* Launch a detached daemon and report both execve and post-exec readiness
  * errors. The close-on-exec pipe distinguishes exec success from failure. */
 static int
-start_usb_printer_daemon(char *const argv[], const char *process_name)
+start_usb_printer_daemon(char *const argv[], const char *process_name,
+                         const char *pid_file)
 {
 	int exec_pipe[2];
 	int pipe_flags, exec_error = 0, read_error = 0, saved_error;
+	int scan_error = 0, start_status;
 	pid_t child;
 	ssize_t count;
 	size_t received = 0, written = 0;
+	enum process_presence presence;
+	enum process_presence_start_action start_action;
 
-	if (!argv || !argv[0] || !process_name || !process_name[0]) {
+	if (!argv || !argv[0] || !process_name || !process_name[0] ||
+	    !pid_file || !pid_file[0]) {
 		errno = EINVAL;
 		return EINVAL;
+	}
+
+	/*
+	 * A hotplug completion retry can arrive after a previous start succeeded
+	 * but its NVRAM acknowledgement failed. Never unlink the live daemon's
+	 * PID file or fork a duplicate; only a complete ABSENT scan authorizes
+	 * stale PID-file cleanup and a new launch.
+	 */
+	presence = usb_printer_daemon_scan((void *)process_name, &scan_error);
+	start_action = process_presence_start_action_for_state(presence);
+	start_status = process_presence_start_status_for_action(
+		start_action, scan_error, 0);
+	if (start_status != 0) {
+		errno = start_status;
+		logmessage(LOGNAME,
+			   "%s process inventory is unknown; refusing duplicate-safe startup (status=%d)",
+			   process_name, start_status);
+		return start_status;
+	}
+	if (start_action == PROCESS_PRESENCE_START_NOTIFY) {
+		logmessage(LOGNAME, "%s is already running; skipping duplicate launch",
+			   process_name);
+		return 0;
+	}
+
+	if (unlink(pid_file) < 0 && errno != ENOENT) {
+		saved_error = errno > 0 ? errno : EIO;
+		errno = saved_error;
+		logmessage(LOGNAME,
+			   "cannot remove stale %s PID file %s (status=%d)",
+			   process_name, pid_file, saved_error);
+		return saved_error;
 	}
 	if (pipe(exec_pipe) < 0)
 		return errno;
@@ -311,8 +348,7 @@ start_u2ec(void)
 	if (strcmp(setting, "0") == 0)
 		return 0;
 
-	unlink("/var/run/u2ec.pid");
-	start_status = start_usb_printer_daemon(argv, "u2ec");
+	start_status = start_usb_printer_daemon(argv, "u2ec", "/var/run/u2ec.pid");
 	if (start_status != 0) {
 		logmessage("USB Printer", "u2ec exec failed (status=%d)", start_status);
 		return start_status;
@@ -356,8 +392,7 @@ start_lpd(void)
 	if (strcmp(setting, "0") == 0)
 		return 0;
 
-	unlink("/var/run/lpdparent.pid");
-	start_status = start_usb_printer_daemon(argv, "lpd");
+	start_status = start_usb_printer_daemon(argv, "lpd", "/var/run/lpdparent.pid");
 	if (start_status != 0)
 		logmessage("USB Printer", "lpd exec failed (status=%d)", start_status);
 

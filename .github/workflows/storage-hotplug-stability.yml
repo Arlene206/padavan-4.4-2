@@ -7,6 +7,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
       - "trunk/user/shared/src/usb_modem_wan_policy.h"
       - "trunk/user/shared/src/netutils.h"
       - "trunk/user/shared/src/netutils.c"
@@ -96,6 +98,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
       - "trunk/user/shared/src/usb_modem_wan_policy.h"
       - "trunk/user/shared/src/netutils.h"
       - "trunk/user/shared/src/netutils.c"
@@ -680,7 +684,7 @@ jobs:
           assert "Wireless notification %s failed" not in notifications
 
           # USB printer startup must report launcher errors to both retry paths.
-          spawn_daemon = function_body(usb, "start_usb_printer_daemon(char *const argv[], const char *process_name)")
+          spawn_daemon = function_body(usb, "start_usb_printer_daemon(char *const argv[], const char *process_name,\n                         const char *pid_file)")
           assert "pipe(exec_pipe)" in spawn_daemon
           assert "FD_CLOEXEC" in spawn_daemon
           assert "child = fork();" in spawn_daemon
@@ -689,18 +693,26 @@ jobs:
           assert "return EIO;" in spawn_daemon
           assert "received == 0" in spawn_daemon
           assert "usb_printer_daemon_postcondition(process_name)" in spawn_daemon
+          assert "process_presence_start_action_for_state(presence)" in spawn_daemon
+          assert "process_presence_start_status_for_action(" in spawn_daemon
+          assert "PROCESS_PRESENCE_START_NOTIFY" in spawn_daemon
+          assert "already running; skipping duplicate launch" in spawn_daemon
+          assert spawn_daemon.index("process_presence_start_action_for_state(") < spawn_daemon.index("unlink(pid_file)")
+          assert spawn_daemon.index("unlink(pid_file)") < spawn_daemon.index("pipe(exec_pipe)")
           assert "process_inventory_scan(process_name, &snapshot)" in usb
           assert "detached_daemon_start_postcondition_with_ops(" in usb
 
           u2ec = function_body(usb, "start_u2ec(void)")
-          assert 'start_status = start_usb_printer_daemon(argv, "u2ec");' in u2ec
+          assert 'start_status = start_usb_printer_daemon(argv, "u2ec", "/var/run/u2ec.pid");' in u2ec
+          assert 'unlink("/var/run/u2ec.pid")' not in u2ec
           assert "system(" not in u2ec
           assert "if (start_status != 0)" in u2ec
           assert u2ec.index("if (start_status != 0)") < u2ec.index('nvram_set("apps_u2ec_ex", "1");')
           assert "return start_status;" in u2ec and "return 0;" in u2ec
 
           lpd = function_body(usb, "start_lpd(void)")
-          assert 'start_status = start_usb_printer_daemon(argv, "lpd");' in lpd
+          assert 'start_status = start_usb_printer_daemon(argv, "lpd", "/var/run/lpdparent.pid");' in lpd
+          assert 'unlink("/var/run/lpdparent.pid")' not in lpd
           assert "system(" not in lpd
           assert "if (start_status != 0)" in lpd and "return start_status;" in lpd
 
@@ -765,6 +777,8 @@ jobs:
               "trunk/user/rc/src/storage_home_link_policy.h",
               "trunk/user/rc/src/tests/storage_home_link_policy.c",
               "trunk/user/shared/src/process_inventory.h",
+              "trunk/user/rc/src/process_presence_start_policy.h",
+              "trunk/user/rc/src/tests/process_presence_start_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

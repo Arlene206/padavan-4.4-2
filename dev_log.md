@@ -1,3 +1,9 @@
+## 2026-11-23 — Make USB printer daemon launch idempotent across hotplug retries
+
+- Fixed a retry-path duplication defect in U2EC/LPRng startup. A previous launch can leave the daemon running even when the subsequent NVRAM/hotplug acknowledgement fails; the retry path previously unlinked that live daemon's PID file and forked another instance.
+- `start_usb_printer_daemon()` now takes ownership of the daemon PID-file path, performs a tri-state process inventory before any cleanup or fork, treats RUNNING as an idempotent success, and fails closed on UNKNOWN. A stale PID file is removed only after a complete ABSENT scan, and unlink errors are propagated instead of ignored.
+- U2EC and LPRng no longer unlink PID files before the shared preflight. Existing process-presence policy regression and the Process/Storage source contracts are extended to assert RUNNING/UNKNOWN gates precede PID cleanup and fork. Exact-head Process/Storage/XY-C1 validation pending; hardware USB printer behavior remains unverified.
+
 ## 2026-11-23 UTC — Snapshot AP-client SSID presence before the next NVRAM read
 
 - `wireless_nvram_get_text_status()` returns a pointer to a cache-owned NVRAM value. The APCLI helper previously inspected that pointer, made a second checked NVRAM read for `sta_wisp`, then passed the original pointer to the policy helper. A subsequent NVRAM operation could invalidate or replace the cache value.

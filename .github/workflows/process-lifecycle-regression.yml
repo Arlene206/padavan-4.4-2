@@ -1745,8 +1745,17 @@ jobs:
           assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in source
           assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in source
 
-          launcher = source.split("start_usb_printer_daemon(char *const argv[], const char *process_name)", 1)[1]
+          launcher = source.split("start_usb_printer_daemon(char *const argv[], const char *process_name,\n                         const char *pid_file)", 1)[1]
           launcher = launcher.split("#if defined(SRV_U2EC)", 1)[0]
+          assert "usb_printer_daemon_scan((void *)process_name, &scan_error)" in launcher
+          assert "process_presence_start_action_for_state(presence)" in launcher
+          assert "process_presence_start_status_for_action(" in launcher
+          assert "PROCESS_PRESENCE_START_NOTIFY" in launcher
+          assert "already running; skipping duplicate launch" in launcher
+          assert "unlink(pid_file)" in launcher
+          assert "cannot remove stale %s PID file" in launcher
+          assert launcher.index("process_presence_start_action_for_state(") < launcher.index("unlink(pid_file)")
+          assert launcher.index("unlink(pid_file)") < launcher.index("pipe(exec_pipe)")
           assert "received == 0" in launcher
           assert "usb_printer_daemon_postcondition(process_name)" in launcher
           assert "received == sizeof(exec_error)" in launcher
@@ -1754,8 +1763,10 @@ jobs:
 
           u2ec = source.split("#if defined(SRV_U2EC)", 1)[1].split("#endif", 1)[0]
           lpd = source.split("#if defined(SRV_LPRD)", 1)[1].split("#endif", 1)[0]
-          assert 'start_usb_printer_daemon(argv, "u2ec")' in u2ec
-          assert 'start_usb_printer_daemon(argv, "lpd")' in lpd
+          assert 'start_usb_printer_daemon(argv, "u2ec", "/var/run/u2ec.pid")' in u2ec
+          assert 'start_usb_printer_daemon(argv, "lpd", "/var/run/lpdparent.pid")' in lpd
+          assert 'unlink("/var/run/u2ec.pid")' not in u2ec
+          assert 'unlink("/var/run/lpdparent.pid")' not in lpd
 
           assert "detached_daemon_start_postcondition_with_ops" in policy
           assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
