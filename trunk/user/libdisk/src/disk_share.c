@@ -2384,6 +2384,19 @@ disk_share_create_folder_staging_paths(
 	return 0;
 }
 
+static int
+disk_share_rename_folder_path(const char *old_path, const char *new_path)
+{
+	return rename(old_path, new_path);
+}
+
+static int
+disk_share_refresh_folder_snapshot(const char *mount_path)
+{
+	return initial_folder_list_in_mount_path(mount_path);
+}
+
+
 int del_folder(const char *const mount_path, const char *const folder)
 {
 	int result, saved_errno, rollback_error = 0;
@@ -2575,7 +2588,7 @@ failed:
 int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
 {
 	int result, saved_errno, rollback_error = 0;
-	int acc_num = 0, transaction_started = 0, rename_applied = 0;
+	int acc_num = 0, transaction_started = 0;
 	int permission_batch_count = 0;
 	char **account_list = NULL;
 	struct nvram_transaction transaction;
@@ -2693,16 +2706,18 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		    &permission_batch, &permission_batch_count) != 0)
 		goto failed;
 
-	if (rename(full_path, new_full_path) != 0)
-		goto failed;
-	rename_applied = 1;
-	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		goto rollback;
-
-	if (disk_share_permission_batch_apply(
+	if (disk_share_folder_rename_batch(
+		    full_path, new_full_path, mount_path,
 		    permission_batch, permission_batch_count,
-		    disk_share_replace_file_atomic, &rollback_error) != 0)
-		goto rollback;
+		    disk_share_replace_file_atomic,
+		    disk_share_rename_folder_path,
+		    disk_share_refresh_folder_snapshot, &rollback_error) != 0) {
+		if (rollback_error != 0)
+			logmessage("disk_share",
+				   "folder rename compensation incomplete (errno %d)",
+				   rollback_error);
+		goto failed;
+	}
 
 	disk_share_permission_batch_free(permission_batch, permission_batch_count);
 	free(target);
@@ -2728,28 +2743,6 @@ unchanged:
 		return -1;
 	transaction_started = 0;
 	return 0;
-
-rollback:
-	saved_errno = errno ? errno : EIO;
-	rollback_error = 0;
-	if (disk_share_permission_batch_rollback(
-		    permission_batch, permission_batch_count,
-		    disk_share_replace_file_atomic, &rollback_error) != 0)
-		logmessage("disk_share",
-			   "folder rename permission rollback failed (errno %d)",
-			   rollback_error ? rollback_error : EIO);
-	if (rename(new_full_path, full_path) != 0 && rollback_error == 0)
-		rollback_error = errno ? errno : EIO;
-	if (initial_folder_list_in_mount_path(mount_path) != 0 &&
-	    rollback_error == 0)
-		rollback_error = errno ? errno : EIO;
-	if (rollback_error != 0) {
-		logmessage("disk_share",
-			   "folder rename compensation incomplete (errno %d)",
-			   rollback_error);
-		saved_errno = EIO;
-	}
-	errno = saved_errno;
 
 failed:
 	saved_errno = errno ? errno : EIO;

@@ -1025,6 +1025,10 @@ require(del_inventory < del_begin < del_validate < del_plan < del_stage <
         "folder deletion must preflight metadata, stage the directory, batch-publish permissions and compensate files/directory/list on failure")
 
 for marker in (
+    "test_folder_rename_batch_commits_directory_snapshot_and_permissions",
+    "test_folder_rename_batch_restores_directory_after_snapshot_failure",
+    "test_folder_rename_batch_restores_files_and_directory_after_write_failure",
+    "test_folder_rename_batch_reports_directory_compensation_failure",
     "test_staging_directory_reserves_with_atomic_collision_retry",
     "test_staging_directory_preserves_create_errors",
     "test_staging_directory_rejects_truncated_paths_before_create",
@@ -1052,29 +1056,35 @@ mod_plan = mod_folder_compact.index(
     "disk_share_permission_batch_prepare_rewrite(mount_path,acc_num,account_list,target,new_target,&permission_batch,&permission_batch_count)",
     mod_refresh
 )
-mod_rename = mod_folder_compact.index("rename(full_path,new_full_path)", mod_plan)
-mod_snapshot = mod_folder_compact.index("initial_folder_list_in_mount_path(mount_path)", mod_rename)
 mod_apply = mod_folder_compact.index(
-    "disk_share_permission_batch_apply(permission_batch,permission_batch_count,disk_share_replace_file_atomic,&rollback_error)",
-    mod_snapshot
+    "disk_share_folder_rename_batch(full_path,new_full_path,mount_path,permission_batch,permission_batch_count,disk_share_replace_file_atomic,disk_share_rename_folder_path,disk_share_refresh_folder_snapshot,&rollback_error)",
+    mod_plan
 )
-mod_rollback = mod_folder_compact.index(
-    "disk_share_permission_batch_rollback(permission_batch,permission_batch_count,disk_share_replace_file_atomic,&rollback_error)",
-    mod_apply
-)
-mod_rename_back = mod_folder_compact.index("rename(new_full_path,full_path)", mod_rollback)
-mod_snapshot_restore = mod_folder_compact.index(
-    "initial_folder_list_in_mount_path(mount_path)", mod_rename_back
-)
-mod_release = mod_folder_compact.index(
-    "disk_share_account_nvram_end(&transaction)", mod_snapshot_restore
-)
+mod_release = mod_folder_compact.index("disk_share_account_nvram_end(&transaction)", mod_apply)
 require(mod_accounts < mod_begin < mod_validate < mod_live_check < mod_refresh <
-        mod_plan < mod_rename < mod_snapshot < mod_apply < mod_rollback <
-        mod_rename_back < mod_snapshot_restore < mod_release and
-        "get_account_list(" not in mod_folder_compact[mod_begin:] and
+        mod_plan < mod_apply < mod_release and
         "disk_share_update_folder_permission_file(" not in mod_folder_compact,
-        "folder rename must preflight original permission contents, atomically apply the rewrite batch and compensate files, directory and snapshot on failure")
+        "folder rename must preflight every ACL image and delegate filesystem/ACL rollback to the tested transaction policy")
+
+folder_rename_policy = function_body(POLICY, "disk_share_folder_rename_batch(")
+folder_rename_policy_compact = "".join(folder_rename_policy.split())
+policy_move = folder_rename_policy_compact.index("move_path(old_path,new_path)")
+policy_refresh = folder_rename_policy_compact.index("refresh_snapshot(mount_path)", policy_move)
+policy_apply = folder_rename_policy_compact.index(
+    "disk_share_permission_batch_apply(entries,count,write_file,&compensation_error)",
+    policy_refresh
+)
+policy_rollback = folder_rename_policy_compact.index(
+    "disk_share_permission_batch_rollback(entries,count,write_file,&compensation_error)",
+    policy_apply
+)
+policy_move_back = folder_rename_policy_compact.index("move_path(new_path,old_path)", policy_rollback)
+policy_refresh_back = folder_rename_policy_compact.index("refresh_snapshot(mount_path)", policy_move_back)
+require(policy_move < policy_refresh < policy_apply < policy_rollback <
+        policy_move_back < policy_refresh_back,
+        "rename policy must compensate permission contents, directory name and folder snapshot after a failed step")
+
+
 
 permission_update = function_body(
     DISK_SOURCE,
@@ -1170,12 +1180,12 @@ mod_folder_body = function_body(
     DISK_SOURCE,
     "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
 )
-require("disk_share_permission_batch_prepare_rewrite(" in mod_folder_body and
-        "disk_share_permission_batch_apply(" in mod_folder_body and
-        "disk_share_permission_batch_rollback(" in mod_folder_body and
+require("disk_share_folder_rename_batch(" in mod_folder_body and
+        "disk_share_rename_folder_path" in DISK_SOURCE and
+        "disk_share_refresh_folder_snapshot" in DISK_SOURCE and
         'fopen(var_file, "w")' not in mod_folder_body and
         'fopen(var_file, "a+")' not in mod_folder_body,
-        "folder rename must use the checked compensating batch rather than sequential permission updates")
+        "folder rename must use the tested filesystem/permission transaction policy")
 
 for marker in (
     "test_permission_rewrite_removes_complete_record",

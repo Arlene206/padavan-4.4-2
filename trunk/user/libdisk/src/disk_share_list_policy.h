@@ -402,6 +402,61 @@ disk_share_reserve_staging_directory(
 }
 
 
+typedef int (*disk_share_folder_move_fn)(const char *, const char *);
+typedef int (*disk_share_folder_refresh_fn)(const char *);
+
+static inline int
+disk_share_folder_rename_batch(
+	const char *old_path, const char *new_path, const char *mount_path,
+	struct disk_share_permission_batch_entry *entries, int count,
+	disk_share_permission_batch_writer write_file,
+	disk_share_folder_move_fn move_path,
+	disk_share_folder_refresh_fn refresh_snapshot, int *rollback_error)
+{
+	int operation_error, compensation_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (!old_path || !*old_path || !new_path || !*new_path ||
+	    !mount_path || !*mount_path || count < 0 ||
+	    (count > 0 && !entries) || !write_file || !move_path ||
+	    !refresh_snapshot || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (move_path(old_path, new_path) != 0)
+		return -1;
+	if (refresh_snapshot(mount_path) != 0)
+		goto compensate;
+	if (disk_share_permission_batch_apply(
+		    entries, count, write_file, &compensation_error) != 0)
+		goto compensate;
+	return 0;
+
+compensate:
+	operation_error = errno ? errno : EIO;
+	/*
+	 * apply() attempts its own rollback. A second pass retries any entry
+	 * still marked applied before the directory is restored.
+	 */
+	(void)disk_share_permission_batch_rollback(
+		entries, count, write_file, &compensation_error);
+	if (move_path(new_path, old_path) != 0 && compensation_error == 0)
+		compensation_error = errno ? errno : EIO;
+	if (refresh_snapshot(mount_path) != 0 && compensation_error == 0)
+		compensation_error = errno ? errno : EIO;
+
+	*rollback_error = compensation_error;
+	if (compensation_error != 0) {
+		errno = EIO;
+		return -1;
+	}
+	errno = operation_error;
+	return -1;
+}
+
+
 /* Missing source metadata is an idempotent no-op; preserve other rename errors. */
 static inline int
 disk_share_account_rename_status(int rename_result, int saved_errno)

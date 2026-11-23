@@ -2208,6 +2208,151 @@ test_staging_directory_rejects_truncated_paths_before_create(void)
 }
 
 
+struct fake_folder_rename_state {
+	char current_path[64];
+	int move_calls;
+	int fail_move_call;
+	int refresh_calls;
+	int fail_refresh_call;
+};
+
+static struct fake_folder_rename_state *fake_folder_rename_state;
+
+static int
+fake_folder_move_path(const char *old_path, const char *new_path)
+{
+	struct fake_folder_rename_state *state = fake_folder_rename_state;
+
+	++state->move_calls;
+	if (state->move_calls == state->fail_move_call) {
+		errno = EXDEV;
+		return -1;
+	}
+	if (strcmp(state->current_path, old_path) != 0) {
+		errno = ENOENT;
+		return -1;
+	}
+	snprintf(state->current_path, sizeof(state->current_path), "%s", new_path);
+	return 0;
+}
+
+static int
+fake_folder_refresh_snapshot(const char *mount_path)
+{
+	struct fake_folder_rename_state *state = fake_folder_rename_state;
+
+	assert(strcmp(mount_path, "/mnt/share") == 0);
+	++state->refresh_calls;
+	if (state->refresh_calls == state->fail_refresh_call) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+init_fake_folder_rename(
+	struct disk_share_permission_batch_entry entries[2],
+	struct fake_permission_batch_state *permission_state,
+	struct fake_folder_rename_state *folder_state)
+{
+	init_fake_permission_batch(entries, permission_state);
+	memset(folder_state, 0, sizeof(*folder_state));
+	snprintf(folder_state->current_path, sizeof(folder_state->current_path),
+	         "%s", "/mnt/share/old");
+	fake_folder_rename_state = folder_state;
+}
+
+static void
+test_folder_rename_batch_commits_directory_snapshot_and_permissions(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	assert(disk_share_folder_rename_batch(
+		"/mnt/share/old", "/mnt/share/new", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_refresh_snapshot, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "/mnt/share/new") == 0);
+	assert(folder_state.move_calls == 1);
+	assert(folder_state.refresh_calls == 1);
+	assert(strcmp(permission_state.contents[0], "new-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "new-b\n") == 0);
+}
+
+static void
+test_folder_rename_batch_restores_directory_after_snapshot_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	folder_state.fail_refresh_call = 1;
+	assert(disk_share_folder_rename_batch(
+		"/mnt/share/old", "/mnt/share/new", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_refresh_snapshot, &rollback_error) == -1);
+	assert(errno == EIO);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "/mnt/share/old") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+	assert(strcmp(permission_state.contents[0], "old-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "old-b\n") == 0);
+}
+
+static void
+test_folder_rename_batch_restores_files_and_directory_after_write_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	permission_state.fail_call = 2;
+	assert(disk_share_folder_rename_batch(
+		"/mnt/share/old", "/mnt/share/new", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_refresh_snapshot, &rollback_error) == -1);
+	assert(errno == EACCES);
+	assert(rollback_error == 0);
+	assert(strcmp(folder_state.current_path, "/mnt/share/old") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+	assert(strcmp(permission_state.contents[0], "old-a\n") == 0);
+	assert(strcmp(permission_state.contents[1], "old-b\n") == 0);
+}
+
+static void
+test_folder_rename_batch_reports_directory_compensation_failure(void)
+{
+	struct disk_share_permission_batch_entry entries[2];
+	struct fake_permission_batch_state permission_state;
+	struct fake_folder_rename_state folder_state;
+	int rollback_error = -1;
+
+	init_fake_folder_rename(entries, &permission_state, &folder_state);
+	folder_state.fail_refresh_call = 1;
+	folder_state.fail_move_call = 2;
+	assert(disk_share_folder_rename_batch(
+		"/mnt/share/old", "/mnt/share/new", "/mnt/share",
+		entries, 2, fake_permission_batch_write, fake_folder_move_path,
+		fake_folder_refresh_snapshot, &rollback_error) == -1);
+	assert(errno == EIO);
+	assert(rollback_error == EXDEV);
+	assert(strcmp(folder_state.current_path, "/mnt/share/new") == 0);
+	assert(folder_state.move_calls == 2);
+	assert(folder_state.refresh_calls == 2);
+}
+
+
 int
 main(void)
 {
@@ -2219,6 +2364,10 @@ main(void)
 	assert(router_account_name_is_reserved_after_read("admin", 1, NULL));
 
 	test_folder_rollback_preserves_permissions_when_directory_survives();
+	test_folder_rename_batch_commits_directory_snapshot_and_permissions();
+	test_folder_rename_batch_restores_directory_after_snapshot_failure();
+	test_folder_rename_batch_restores_files_and_directory_after_write_failure();
+	test_folder_rename_batch_reports_directory_compensation_failure();
 	test_staging_directory_reserves_with_atomic_collision_retry();
 	test_staging_directory_preserves_create_errors();
 	test_staging_directory_rejects_truncated_paths_before_create();
