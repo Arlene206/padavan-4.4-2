@@ -278,7 +278,7 @@ jobs:
           assert "sigaddset(&child_mask,SIGCHLD)" not in shell_compact
           assert "return-1;" in shell_compact
           main_compact = "".join(main_loop.split())
-          assert "if(!noconsole&&!signal_state.console_shell_pid)" in main_compact
+          assert "if(!noconsole&&!signal_state.shutdown_pending&&!signal_state.console_shell_pid)" in main_compact
           assert "kill(shell_pid,0)" not in main_compact
           assert "console_shell_started_at=uptime()" in main_compact
           reaped_at = main_compact.index("pid1_signal_take_console_shell_reaped(&signal_state)")
