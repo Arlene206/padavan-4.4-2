@@ -1,3 +1,11 @@
+## 2026-11-23 — Fix checked PHY write policy declaration order
+
+- Exact-head Switch CLI for `d8870638f6add35d455e0fdbf482508d05d7e15d` failed before running the RAETH regression: the new write-policy inline functions appeared above their callback typedefs and status-normalizer declaration, producing unknown-type errors under GNU89/Werror.
+- Moved the checked-write helpers below the callback typedefs and `ra_switch_mdio_normalize_status()`; no semantics changed. The next exact-SHA Switch CLI run recompiles and executes the full failure-injection suite.
+- AI docs, XY-C1 and NVRAM results for `d887063` are tracked separately; no MIPS kernel build/hardware L4 is claimed.
+- Next: inspect the corrected run and continue the GE calibration wait helper audit.
+
+---
 ## 2026-11-23 — Make legacy PHY wrapper MDIO errors visible
 
 - Current base main SHA: `48bc28ab58076e9ac90a0a9546e8ca91996caa56`. The GE2 polling source-contract delimiter correction passed Switch CLI #45272254777 and AI docs #45272254645 on that exact SHA.
