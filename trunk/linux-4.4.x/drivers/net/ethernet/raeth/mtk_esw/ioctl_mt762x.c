@@ -44,6 +44,7 @@ static u32 g_wan_bridge_mode                     = SWAPI_WAN_BRIDGE_DISABLE;
 static u32 g_wan_bwan_isolation                  = SWAPI_WAN_BWAN_ISOLATION_NONE;
 
 static u32 g_led_phy_mode                        = SWAPI_LED_LINK_ACT;
+static int g_led_mode_applied                    = 0;
 
 static u32 g_jumbo_frames_enabled                = ESW_DEFAULT_JUMBO_FRAMES;
 
@@ -1170,17 +1171,12 @@ static int esw_jumbo_control(u32 jumbo_frames_enabled)
 					  &mtk_esw_link_mode_io, NULL);
 }
 
-static void esw_led_mode(u32 led_mode)
+static int esw_led_mode(u32 led_mode)
 {
-	u32 reg_ledc;
-
-	reg_ledc = esw_reg_get(0x7d00);
-	reg_ledc |= 0x77777;
-
-	if (led_mode == SWAPI_LED_OFF)
-		reg_ledc &= ~(0x77777);
-
-	esw_reg_set(0x7d00, reg_ledc);
+	return mtk_esw_register_update_bits(
+		MTK_ESW_MAC_TABLE_PHY, 0x7d00U, 0x77777U,
+		(led_mode == SWAPI_LED_OFF) ? 0U : 0x77777U,
+		&mtk_esw_link_mode_io, NULL);
 }
 
 static u32 esw_status_link_port(u32 port_id)
@@ -1784,51 +1780,26 @@ static void change_igmp_snooping_control(u32 igmp_snooping_enabled)
 #endif
 }
 
-static void change_led_mode(u32 led_mode)
+static int change_led_mode(u32 led_mode)
 {
+	int status;
+
 	if (led_mode != SWAPI_LED_OFF)
 		led_mode = SWAPI_LED_LINK_ACT;
 
-	if (g_led_phy_mode != led_mode) {
-		g_led_phy_mode = led_mode;
-		esw_led_mode(led_mode);
+	if (g_led_mode_applied && g_led_phy_mode == led_mode)
+		return 0;
+
+	status = esw_led_mode(led_mode);
+	if (status != 0) {
+		pr_err("%s: LED mode register update failed (status=%d)\\n",
+		       MTK_ESW_DEVNAME, status);
+		return status;
 	}
-}
 
-static int change_vlan_rule(u32 vlan_rule_id, u32 vlan_rule)
-{
-	if (vlan_rule_id > SWAPI_VLAN_RULE_WAN_LAN4)
-		return -EINVAL;
-
-	if ((vlan_rule & 0xFFFF) > 4094)
-		return -EINVAL;
-
-	if (((vlan_rule >> 16) & 0xFF) > 7)
-		return -EINVAL;
-
-	g_vlan_rule_user[vlan_rule_id] = vlan_rule;
-
+	g_led_phy_mode = led_mode;
+	g_led_mode_applied = 1;
 	return 0;
-}
-
-static void esw_link_status_changed_state(u32 port_id, int port_link)
-{
-	const char *port_state;
-	u32 wan_ports_mask;
-
-	if (port_id <= ESW_EPHY_ID_MAX)
-		atomic_set(&g_port_link_changed, 1);
-
-	/* only printk wan link change */
-	wan_ports_mask = get_ports_mask_wan(0, 1);
-
-	if (!(wan_ports_mask & (1u << port_id)))
-		return;
-
-	port_state = (port_link) ? "Up" : "Down";
-
-	printk("%s: Link Status Changed - Port %s Link %s\n",
-		MTK_ESW_DEVNAME, get_port_desc(port_id), port_state);
 }
 
 int esw_ioctl_init_post(void)
@@ -1848,8 +1819,17 @@ int esw_ioctl_init_post(void)
 	esw_igmp_mld_snooping(g_igmp_snooping_enabled, g_igmp_snooping_enabled);
 #endif
 
-	/* configure leds */
-	esw_led_mode(g_led_phy_mode);
+	/* Keep the mode retryable if the initial hardware update fails. */
+	{
+		int led_status = esw_led_mode(g_led_phy_mode);
+
+		if (led_status == 0) {
+			g_led_mode_applied = 1;
+		} else {
+			pr_err("%s: initial LED mode programming failed (status=%d)\\n",
+			       MTK_ESW_DEVNAME, led_status);
+		}
+	}
 
 	atomic_set(&g_switch_inited, 1);
 	atomic_set(&g_switch_allow_irq, 1);

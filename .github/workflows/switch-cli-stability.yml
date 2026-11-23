@@ -684,6 +684,7 @@ jobs:
               "test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits",
               "test_port_register_writes_continue_after_first_failure",
               "test_port_register_write_rejects_invalid_io_and_ranges",
+              "test_register_update_bits_preserves_unmasked_bits_and_propagates_errors",
               "test_phy_power_set_reads_and_writes_before_reporting_change",
               "test_phy_power_set_skips_unchanged_state_but_honors_force",
               "test_phy_power_set_read_and_write_errors_are_propagated",
@@ -757,7 +758,19 @@ jobs:
           assert "change_storm_control_broadcast(uint_value);" not in ioctl_source.replace(
               "ioctl_result = change_storm_control_broadcast(uint_value);", ""
           )
-          assert "ioctl_result = change_jumbo_frames_accept(uint_value);" in ioctl_source
+          register_update = policy.split("mtk_esw_register_update_bits(", 1)[1].split(
+              "/*", 1
+          )[0]
+          assert "io->read(context, phy_addr, reg, &value)" in register_update
+          assert "io->write(context, phy_addr, reg, value)" in register_update
+          assert "test_register_update_bits_preserves_unmasked_bits_and_propagates_errors" in test
+          assert "return mtk_esw_link_mode_io_error(status);" in register_update
+          assert "mtk_esw_register_update_bits(" in source[source.index("static int esw_led_mode"):source.index("static u32 esw_status_link_port")]
+          led_change = source[source.index("static int change_led_mode"):source.index("int esw_ioctl_init_post")]
+          assert led_change.index("status = esw_led_mode(led_mode)") < led_change.index("g_led_phy_mode = led_mode;")
+          assert "g_led_mode_applied && g_led_phy_mode == led_mode" in led_change
+          assert "ioctl_result = change_led_mode(uint_value);" in ioctl_source
+          assert "led_status = esw_led_mode(g_led_phy_mode)" in source
           assert "change_jumbo_frames_accept(uint_value);" not in ioctl_source.replace(
               "ioctl_result = change_jumbo_frames_accept(uint_value);", ""
           )

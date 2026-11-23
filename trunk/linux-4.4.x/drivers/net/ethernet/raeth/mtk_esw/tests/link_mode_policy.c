@@ -463,6 +463,71 @@ test_mac_table_clear_rejects_invalid_mode_and_missing_delay(void)
 }
 
 static void
+test_register_update_bits_preserves_unmasked_bits_and_propagates_errors(void)
+{
+	struct fake_mdio fake;
+	struct mtk_esw_link_mode_io missing_read = fake_ops;
+	struct mtk_esw_link_mode_io missing_write = fake_ops;
+	const unsigned int phy = 0x1fU, reg = 0x7d00U;
+	const unsigned int mask = 0x00077777U;
+	unsigned int expected;
+
+	fake_init(&fake);
+	fake.read_value = 0xa5a5c0d0U;
+	expected = (fake.read_value & ~mask) | mask;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, mask,
+					    &fake_ops, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U);
+
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
+					    &fake_ops, &fake) == 0);
+	assert(fake.mdio_calls == 2U && fake.event_count == 2U);
+	assert(fake.events[0].type == FAKE_READ &&
+	       fake.events[0].phy == phy && fake.events[0].reg == reg);
+	assert(fake.events[1].type == FAKE_WRITE &&
+	       fake.events[1].phy == phy && fake.events[1].reg == reg);
+	assert(fake.events[1].value == (0xa5a5c0d0U & ~mask));
+
+	fake_init(&fake);
+	fake.read_value = 0xa5a5c0d0U;
+	expected = (fake.read_value & ~mask) | mask;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, mask ^ mask,
+					    &fake_ops, &fake) == 0);
+	assert(fake.events[1].value == (expected & ~mask));
+
+	/* Read failure must never turn into a write based on an all-zero value. */
+	fake_init(&fake);
+	fake.fail_at = 0;
+	fake.fail_status = -EACCES;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
+					    &fake_ops, &fake) == -EACCES);
+	assert(fake.mdio_calls == 1U && fake.event_count == 1U);
+	assert(fake.events[0].type == FAKE_READ);
+
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = -ETIMEDOUT;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
+					    &fake_ops, &fake) == -ETIMEDOUT);
+	assert(fake.mdio_calls == 2U && fake.events[1].type == FAKE_WRITE);
+
+	fake_init(&fake);
+	fake.fail_at = 1;
+	fake.fail_status = 1;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
+					    &fake_ops, &fake) == -EIO);
+
+	missing_read.read = NULL;
+	missing_write.write = NULL;
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U, NULL, &fake) == -EINVAL);
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
+					    &missing_read, &fake) == -EINVAL);
+	assert(mtk_esw_register_update_bits(phy, reg, mask, 0U,
+					    &missing_write, &fake) == -EINVAL);
+	assert(fake.mdio_calls == 0U && fake.event_count == 0U);
+}
+
+static void
 test_port_register_writes_continue_after_first_failure(void)
 {
 	struct fake_mdio fake;
@@ -649,6 +714,7 @@ test_reserved_speed_flow_and_bits_are_rejected(void)
 int
 main(void)
 {
+	test_register_update_bits_preserves_unmasked_bits_and_propagates_errors();
 	test_port_register_writes_continue_after_first_failure();
 	test_port_register_write_rejects_invalid_io_and_ranges();
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();

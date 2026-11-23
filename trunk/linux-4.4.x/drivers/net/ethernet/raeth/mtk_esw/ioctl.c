@@ -218,7 +218,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_led_mode(uint_value);
+		ioctl_result = change_led_mode(uint_value);
 		break;
 
 	case MTK_ESW_IOCTL_SPEED_PORT: /* used by rc */
