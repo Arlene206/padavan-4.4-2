@@ -64,12 +64,48 @@ test_overflow_is_rejected_without_output_changes(void)
 	return 0;
 }
 
+static int
+test_ioctl_fields_must_fit_packed_request(void)
+{
+	unsigned int value = 17U;
+
+	CHECK(switch_cli_parse_ioctl_command("255", 8U, &value) == 0);
+	CHECK(value == 255U);
+	value = 17U;
+	CHECK(switch_cli_parse_ioctl_command("256", 8U, &value) == ERANGE);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_command("266", 8U, &value) == ERANGE);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_command("297", 8U, &value) == ERANGE);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_command("0x29", 8U, &value) == EINVAL);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_command("1", 0U, &value) == EINVAL);
+	CHECK(switch_cli_parse_ioctl_command("1", 32U, &value) == EINVAL);
+
+	CHECK(switch_cli_parse_ioctl_parameter("0xffffff", 8U, 1, &value) == 0);
+	CHECK(value == 0xffffffU);
+	value = 17U;
+	CHECK(switch_cli_parse_ioctl_parameter("0x1000000", 8U, 1, &value) == ERANGE);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_parameter("16777215", 8U, 0, &value) == 0);
+	CHECK(value == 0xffffffU);
+	value = 17U;
+	CHECK(switch_cli_parse_ioctl_parameter("16777216", 8U, 0, &value) == ERANGE);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_parameter("0x10", 8U, 0, &value) == EINVAL);
+	CHECK(value == 17U);
+	CHECK(switch_cli_parse_ioctl_parameter("1", 32U, 1, &value) == EINVAL);
+	return 0;
+}
+
 int
 main(void)
 {
 	CHECK(test_valid_decimal_and_hex_values() == 0);
 	CHECK(test_malformed_values_are_rejected_without_output_changes() == 0);
 	CHECK(test_overflow_is_rejected_without_output_changes() == 0);
-	puts("RC switch CLI strict unsigned parsing: PASS");
+	CHECK(test_ioctl_fields_must_fit_packed_request() == 0);
+	puts("RC switch CLI strict unsigned and packed ioctl parsing: PASS");
 	return 0;
 }

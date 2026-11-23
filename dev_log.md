@@ -1,3 +1,14 @@
+## 2026-11-23 08:43 UTC+8 — Bound packed MTK/RTL switch ioctl fields
+
+- Parent main SHA: `73961add1641c5c23ed0d07c4f74c215e9cb8d1b`. Both RC switch front-ends lexically parsed unsigned integers but accepted values wider than the encoded ioctl request. Their wrappers mask the command into the low `*_IOCTL_CMD_LENGTH_BITS` and shift the third CLI operand into the remaining bits. For MTK's 8-bit command, decimal `297` aliases command `41` (port power); oversized packed parameters similarly lose high bits during the shift.
+- Added policy helpers deriving maximum command and packed-parameter values from each actual UAPI bit width. Both MTK and RTL8367 front-ends now reject over-width fields before the ioctl wrapper; the ordinary data argument's established unsigned/optional-hex semantics remain unchanged.
+- Added GNU89 boundary tests for max valid values, 256/266/297 command alias attempts, 24-bit parameter truncation, malformed hex and invalid bit counts. Extended Switch CLI workflow source contracts for both hardware front-ends and the policy test.
+- Updated SESSION_HANDOFF, the Switch/PHY roadmap row and P1 priority queue. No unrelated roadmap state changed.
+- Local test: policy compile/run to be performed independently where the working container toolchain permits; no full router build is available here. Exact-head Switch CLI and XY-C1 checks are pending at commit creation; no L3/L4 claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-23 08:36 UTC+8 — Quiesce PID 1 after a returning halt hook
 
 - Parent main SHA: `4fe1b4b72faa35085f8cca3b16603a32b78bd60a`. `SIGQUIT` is handled outside signal context and maps to `shutdown_router(1)`; that function stops services and returns. `init_main_loop()` then set `shutdown_handled` and continued, but its wait predicate permits handled shutdowns while both console launch and `sigsuspend()` are suppressed by `shutdown_pending`. With no pending event work, PID 1 consumed a CPU indefinitely.

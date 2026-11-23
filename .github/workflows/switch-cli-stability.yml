@@ -547,6 +547,8 @@ jobs:
           assert "parsed > (UINT_MAX - digit) / base" in policy
           assert "test_malformed_values_are_rejected_without_output_changes" in test
           assert "test_overflow_is_rejected_without_output_changes" in test
+          assert "test_ioctl_fields_must_fit_packed_request" in test
+          assert "UINT_MAX>>command_bits" in "".join(policy.split())
 
           for path, signature in (
               ("switch_rtl8367.c", "rtl8367_main(int argc, char **argv)"),
@@ -556,9 +558,16 @@ jobs:
               assert '#include "switch_cli_parse_policy.h"' in source
               main = source.split(signature, 1)[1]
               assert "argc < 2 || argc > 4" in main
-              assert "switch_cli_parse_uint(argv[1], 0, &cmd)" in main
+              main_compact = "".join(main.split())
+              if path == "switch_rtl8367.c":
+                  command_bits = "RTL8367_IOCTL_CMD_LENGTH_BITS"
+              else:
+                  command_bits = "MTK_ESW_IOCTL_CMD_LENGTH_BITS"
+              assert "switch_cli_parse_ioctl_command(argv[1]," + command_bits + ",&cmd)" in main_compact
               assert "switch_cli_parse_uint(argv[2], 1, &arg)" in main
-              assert "switch_cli_parse_uint(argv[3], 1, &par)" in main
+              assert "switch_cli_parse_ioctl_parameter(argv[3]," + command_bits + ",1,&par)" in main_compact
+              assert "switch_cli_parse_uint(argv[1], 0, &cmd)" not in main
+              assert "switch_cli_parse_uint(argv[3], 1, &par)" not in main
               assert "atoi(argv[1])" not in main
               assert "get_param_int_hex(argv[" not in main
 

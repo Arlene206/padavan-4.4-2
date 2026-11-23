@@ -662,12 +662,12 @@ int rtl8367_main(int argc, char **argv)
 	if (argc < 2 || argc > 4)
 		return show_usage(argv[0]);
 
-	if (switch_cli_parse_uint(argv[1], 0, &cmd) != 0)
+	if (switch_cli_parse_ioctl_command(argv[1], RTL8367_IOCTL_CMD_LENGTH_BITS, &cmd) != 0)
 		return show_usage(argv[0]);
 
 	if (argc > 2 && switch_cli_parse_uint(argv[2], 1, &arg) != 0)
 		return show_usage(argv[0]);
-	if (argc > 3 && switch_cli_parse_uint(argv[3], 1, &par) != 0)
+	if (argc > 3 && switch_cli_parse_ioctl_parameter(argv[3], RTL8367_IOCTL_CMD_LENGTH_BITS, 1, &par) != 0)
 		return show_usage(argv[0]);
 
 	switch (cmd)
