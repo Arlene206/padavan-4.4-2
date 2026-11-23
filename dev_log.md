@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Complete MTK PHY power error propagation at ioctl callsites
+
+- The XY-C1 exact-SHA firmware run `45147995734` for `e03fb56fd2be9f31110c1b133f137726816c7966` failed during kernel compilation at `mtk_esw/ioctl.c:130`: `change_wan_lan_ports_power()` now takes a third changed-state argument, but the direct PORTS_WAN_LAN_POWER ioctl call still used the old two-argument signature. The MAC and PHY helpers were correct in isolation; the direct user-facing callsites were not fully migrated.
+- Updated `mtk_esw/ioctl.c` to capture the returned errno from PORTS_POWER, PORTS_WAN_LAN_POWER and MAC_TABLE_CLEAR. Updated `change_ports_power()` to return the first per-port MDIO failure while still attempting the remaining selected ports. The WAN/LAN call now passes its changed-state output. Strengthened the Switch static contract to check all ioctl callsites and added `ioctl.c` to both Switch and XY-C1 workflow path filters.
+- This corrects a real XY-C1 compile failure and closes the direct-call status propagation gap; the resulting exact-SHA build and regression jobs must still pass before claiming verified firmware.
+- Prior Switch workflow correction commit `cec6516307a47279e8d1f4c80a158b214df0d638`: Switch CLI failure-status regression and AI documentation contract both PASS. Prior e03 XY-C1 failed for the third-argument mismatch; its NVRAM transaction run was cancelled. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 UTC — Align PHY power source contract with checked restore API
 
 - Switch CLI exact-SHA run `45148233501` on `36265b475c6ff1f9f36ed28f403431c35ae717e4` compiled and ran the expanded MTK ESW GNU89 ASan/UBSan regression binary successfully (`MTK ESW link-mode and MAC-table MDIO policies: PASS`). The subsequent Python source contract failed with `ValueError: substring not found` because its earlier MAC-clear check still searched for the pre-refactor call `change_wan_lan_ports_power(1, 1);`.

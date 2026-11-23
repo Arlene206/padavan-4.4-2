@@ -49,6 +49,7 @@ static void fill_bridge_members(void)
 static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg)
 {
 	int ioctl_result = 0;
+	int power_changed = 0;
 	u32 uint_value = 0;
 	u32 uint_result = 0;
 	port_bytes_t port_bytes = {0};
@@ -119,7 +120,7 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_ports_power(uint_param, uint_value);
+		ioctl_result = change_ports_power(uint_param, uint_value);
 		break;
 
 	case MTK_ESW_IOCTL_PORTS_WAN_LAN_POWER: /* used by rc */
@@ -127,10 +128,10 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 			ioctl_result = -EFAULT;
 			break;
 		}
-		change_wan_lan_ports_power(uint_param, uint_value);
+		ioctl_result = change_wan_lan_ports_power(uint_param, uint_value, &power_changed);
 		break;
 	case MTK_ESW_IOCTL_MAC_TABLE_CLEAR: /* used by rc */
-		esw_mac_table_clear();
+		ioctl_result = esw_mac_table_clear();
 		break;
 
 	case MTK_ESW_IOCTL_BRIDGE_MODE: /* used by rc */

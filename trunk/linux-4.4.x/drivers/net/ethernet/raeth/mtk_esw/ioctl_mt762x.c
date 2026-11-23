@@ -1356,21 +1356,27 @@ static int esw_status_bytes_port_uapi(u32 port_id_uapi, port_bytes_t *pb)
 	return 0;
 }
 
-static void change_ports_power(u32 power_on, u32 ports_mask)
+static int change_ports_power(u32 power_on, u32 ports_mask)
 {
-	int status, power_changed;
+	int status, first_error = 0, power_changed;
 	u32 i;
 
 	ports_mask = get_ports_mask_from_uapi(ports_mask, 1);
 
 	for (i = 0; i <= ESW_EPHY_ID_MAX; i++) {
-		if ((ports_mask >> i) & 0x1) {
-			status = esw_port_phy_power(i, power_on, 0, &power_changed);
-			if (status != 0)
-				printk("%s: PHY %u power request failed (status=%d)\n",
-				       __FUNCTION__, i, status);
+		if (!((ports_mask >> i) & 0x1))
+			continue;
+
+		status = esw_port_phy_power(i, power_on, 0, &power_changed);
+		if (status != 0) {
+			printk("%s: PHY %u power request failed (status=%d)\n",
+			       __FUNCTION__, i, status);
+			if (first_error == 0)
+				first_error = status;
 		}
 	}
+
+	return first_error;
 }
 
 static int change_wan_lan_ports_power(u32 power_on, u32 is_wan,
