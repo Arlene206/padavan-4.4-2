@@ -2156,7 +2156,7 @@ control_guest_wl(int guest_on, int manual)
 	const char *ifname_ap = IFNAME_5G_GUEST;
 	const char *bridge_ifname = IFNAME_5G_GUEST;
 	int radio_on = get_enabled_radio_wl();
-	int i_mode_x = get_mode_radio_wl();
+	int i_mode_x = 0, mode_status;
 	int operation_status;
 	int isolation_status;
 	int state_status;
@@ -2167,8 +2167,20 @@ control_guest_wl(int guest_on, int manual)
 
 	wireless_guest_isolation_status_reset(&control_status);
 #if BOARD_HAS_5G_RADIO
-	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on))
-		return 0;
+	if (guest_on) {
+		mode_status = wireless_nvram_get_int_status("wl_mode_x", &i_mode_x);
+		if (mode_status != 0) {
+			errno = mode_status;
+			logmessage(LOGNAME,
+				   "5GHz guest AP activation deferred: cannot read mode_x (status=%d)",
+				   mode_status);
+			wireless_guest_isolation_status_record(&control_status,
+				"read 5GHz radio mode before guest activation", mode_status);
+			return wireless_guest_isolation_control_result(0, &control_status);
+		}
+		if (i_mode_x == 1 || i_mode_x == 3 || !radio_on)
+			return 0;
+	}
 
 	if (guest_on) {
 		state_status = wireless_guest_interface_state_checked(IFNAME_5G_MAIN,
@@ -2255,17 +2267,45 @@ control_guest_rt(int guest_on, int manual)
 	int rollback_candidate = 0;
 	const char *ifname_ap = IFNAME_2G_GUEST;
 	int radio_on = get_enabled_radio_rt();
-	int i_mode_x = get_mode_radio_rt();
+	int i_mode_x = 0, mode_status;
 #if defined(USE_RT3352_MII)
-	int is_ap_mode = get_ap_mode();
-	const char *bridge_ifname = wireless_guest_rt_bridge_ifname(is_ap_mode);
+	int is_ap_mode = 0, ap_mode_status, ap_mode_known = 0;
+	const char *bridge_ifname = IFNAME_INIC_GUEST_VLAN;
 #else
 	const char *bridge_ifname = IFNAME_2G_GUEST;
 #endif
 
 	wireless_guest_isolation_status_reset(&control_status);
-	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on))
-		return 0;
+	if (guest_on) {
+		mode_status = wireless_nvram_get_int_status("rt_mode_x", &i_mode_x);
+		if (mode_status != 0) {
+			errno = mode_status;
+			logmessage(LOGNAME,
+				   "2.4GHz guest AP activation deferred: cannot read mode_x (status=%d)",
+				   mode_status);
+			wireless_guest_isolation_status_record(&control_status,
+				"read 2.4GHz radio mode before guest activation", mode_status);
+			return wireless_guest_isolation_control_result(0, &control_status);
+		}
+		if (i_mode_x == 1 || i_mode_x == 3 || !radio_on)
+			return 0;
+	}
+#if defined(USE_RT3352_MII)
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status == 0) {
+		ap_mode_known = 1;
+		bridge_ifname = wireless_guest_rt_bridge_ifname(is_ap_mode);
+	} else {
+		errno = ap_mode_status;
+		logmessage(LOGNAME,
+			   "2.4GHz guest AP control cannot verify AP/router mode (status=%d)",
+			   ap_mode_status);
+		wireless_guest_isolation_status_record(&control_status,
+			"verify AP/router mode for iNIC guest bridge", ap_mode_status);
+		if (guest_on)
+			return wireless_guest_isolation_control_result(0, &control_status);
+	}
+#endif
 	if (guest_on) {
 		state_status = wireless_guest_interface_state_checked(IFNAME_2G_MAIN,
 							      &main_is_up);
@@ -2319,7 +2359,7 @@ control_guest_rt(int guest_on, int manual)
 			}
 		}
 #if defined(USE_RT3352_MII)
-		if (!is_ap_mode) {
+		if (ap_mode_known && !is_ap_mode) {
 			operation_status = br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 0);
 			wireless_guest_isolation_record(&control_status,
 				"detach iNIC guest VLAN from LAN bridge", operation_status);

@@ -401,6 +401,29 @@ jobs:
           assert "wireless_radio_status_success(ret)" in control
           assert control.index("wireless_radio_status_success(ret)") < control.index("return 0;") < control.index("return 1;")
 
+          for signature, key, band in (
+              ("control_guest_wl(int guest_on, int manual)", "wl_mode_x", "5GHz"),
+              ("control_guest_rt(int guest_on, int manual)", "rt_mode_x", "2.4GHz"),
+          ):
+              body = function_body(source, signature)
+              checked_mode = f'wireless_nvram_get_int_status("{key}", &i_mode_x)'
+              assert checked_mode in body, f"{signature}: guest activation must verify radio mode"
+              assert "if (mode_status != 0)" in body
+              assert "return wireless_guest_isolation_control_result(0, &control_status);" in body
+              assert "read " + band + " radio mode before guest activation" in body
+              reset_pos = body.index("wireless_guest_isolation_status_reset(&control_status)")
+              read_pos = body.index(checked_mode)
+              error_pos = body.index("if (mode_status != 0)", read_pos)
+              mode_gate_pos = body.index("if (i_mode_x == 1 || i_mode_x == 3 || !radio_on)", error_pos)
+              interface_pos = body.index("wireless_guest_interface_state_checked(", mode_gate_pos)
+              assert reset_pos < read_pos < error_pos < mode_gate_pos < interface_pos
+              legacy = "get_mode_radio_wl()" if band == "5GHz" else "get_mode_radio_rt()"
+              assert legacy not in body
+          rt_guest = function_body(source, "control_guest_rt(int guest_on, int manual)")
+          assert "ap_mode_status = get_ap_mode_status(&is_ap_mode);" in rt_guest
+          assert "ap_mode_known = 1;" in rt_guest
+          assert "if (ap_mode_known && !is_ap_mode)" in rt_guest
+          assert "int is_ap_mode = get_ap_mode();" not in rt_guest
           for name, finish_label in (("control_guest_wl", "finish_wl"),
                                       ("control_guest_rt", "finish_rt")):
               body = function_body(source, name + "(int guest_on, int manual)")
