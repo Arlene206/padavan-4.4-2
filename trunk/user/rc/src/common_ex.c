@@ -45,6 +45,7 @@
 #include "rc.h"
 #include "char_to_ascii_policy.h"
 #include "module_refcount_policy.h"
+#include "wireless_module_load_policy.h"
 #include "nvram_linux.h"
 #include "router_mode_nvram_policy.h"
 #include "network_sysctl.h"
@@ -763,11 +764,12 @@ module_smart_load(const char *module_name, const char *module_param)
 {
 	char *param_copy = NULL, *cursor, *token;
 	char *argv[32];
-	int argc = 0, ret;
+	int argc = 0, ret, module_status;
 
 	if (!is_safe_module_name(module_name))
 		return 0;
-	if (is_module_loaded(module_name))
+	module_status = is_module_loaded_status(module_name);
+	if (!rc_module_load_probe_allows_attempt(module_status))
 		return 0;
 
 	argv[argc++] = "modprobe";

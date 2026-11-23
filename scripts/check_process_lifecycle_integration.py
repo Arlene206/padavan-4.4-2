@@ -1502,10 +1502,20 @@ assert "rc_first_service_start_status(start_status,lan_stp_read_status)" in lan_
 assert 'nvram_match("lan_stp", "0")' not in boot_services
 watchdog_start = services_source.split("int" + chr(10) + "start_watchdog_cpu(void)", 1)[1].split(chr(10) + "}", 1)[0]
 common_source = (root / "trunk/user/rc/src/common_ex.c").read_text()
+module_load_policy = (root / "trunk/user/rc/src/wireless_module_load_policy.h").read_text()
+module_load_test = (root / "trunk/user/rc/src/tests/wireless_module_load_policy.c").read_text()
 module_load_start = common_source.split("int" + chr(10) + "module_smart_load(", 1)[1].split(
     chr(10) + "}", 1
 )[0]
-assert "if (is_module_loaded(module_name))" in module_load_start
+module_probe_pos = module_load_start.index("module_status = is_module_loaded_status(module_name)")
+module_preflight_pos = module_load_start.index("if (!rc_module_load_probe_allows_attempt(module_status))")
+module_modprobe_pos = module_load_start.index('argv[argc++] = "modprobe"')
+assert module_probe_pos < module_preflight_pos < module_modprobe_pos
+assert "is_module_loaded(module_name)" not in module_load_start
+assert "rc_module_load_probe_allows_attempt" in module_load_policy
+assert "return module_status == 0;" in module_load_policy
+assert "test_load_preflight_requires_confirmed_absence" in module_load_test
+assert "rc_module_load_probe_allows_attempt(-EIO) == 0" in module_load_test
 assert "return 0;" in module_load_start
 assert "return (ret == 0) ? 1 : 0;" in module_load_start
 assert watchdog_start.index('module_smart_load("rt_timer_wdg", NULL)') < watchdog_start.index(

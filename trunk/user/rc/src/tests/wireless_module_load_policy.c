@@ -58,6 +58,15 @@ reset_case(int loaded, int result, int visible)
 }
 
 static void
+test_load_preflight_requires_confirmed_absence(void)
+{
+	assert(rc_module_load_probe_allows_attempt(0) == 1);
+	assert(rc_module_load_probe_allows_attempt(1) == 0);
+	assert(rc_module_load_probe_allows_attempt(-EIO) == 0);
+	assert(rc_module_load_probe_allows_attempt(-EACCES) == 0);
+}
+
+static void
 test_already_loaded_is_success(void)
 {
 	reset_case(1, 0, 0);
@@ -422,6 +431,7 @@ test_unload_postcondition_probe_error_is_reported(void)
 int
 main(void)
 {
+	test_load_preflight_requires_confirmed_absence();
 	test_already_loaded_is_success();
 	test_newly_loaded_is_success();
 	test_failed_modprobe_is_not_success();

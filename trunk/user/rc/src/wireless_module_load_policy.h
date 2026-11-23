@@ -13,6 +13,17 @@ typedef struct {
 typedef rc_module_load_ops_t rc_wireless_module_load_ops_t;
 
 /*
+ * Only a confirmed ABSENT (0) sysfs state permits a new modprobe request.
+ * A loaded module (1) or an unreadable/unknown state (negative errno) must
+ * not be collapsed into the legacy boolean "not loaded" result.
+ */
+static inline int
+rc_module_load_probe_allows_attempt(int module_status)
+{
+	return module_status == 0;
+}
+
+/*
  * module_smart_load() is not a reliable success indicator: it returns zero
  * both when a module is already present and when modprobe fails. The
  * /sys/module post-load state is authoritative; preserve module parameters.
