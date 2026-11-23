@@ -2,27 +2,28 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; writable branch is `main` only. Checker correction parent: `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve unchanged.
-- RStats selector source SHA `93e2d812a050da0029a339bee86b194968226992`: RStats #45206017312, Process fail-closed #45206017643, Process inventory #45206017728, NVRAM boundary #45206017305, AI docs #45206017355 and HTTPD security #45206017395 PASS. XY-C1 #45206017276 was still building at last poll; do not claim L3 without exact Build/TRX/artifact.
-- USB printer readiness source SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: the Process workflow reached the new USB source contract after all previous compile/sanitizer checks passed, then failed because two policy assertions read the wrong header. The symbols belong in `process_presence_start_policy.h`, not the detached helper header. THIS checker-only commit fixes the scope; exact rerun pending.
-- No persistent local checkout or full MIPS/uClibc build environment; no hardware L4 result is claimed.
+- Repository: `Arlene206/padavan-4.4-2`; writable branch is `main` only. Parent of this storage-checker correction: `c8920caabc88c7f107c2c5240dab0bfaab38783b`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve unchanged.
+- RStats source `93e2d812a050da0029a339bee86b194968226992`: RStats #45206017312, Process fail-closed #45206017643, Process inventory #45206017728, NVRAM #45206017305, AI docs #45206017355 and HTTPD #45206017395 PASS. XY-C1 #45206017276 was still running Build at last poll; no L3 claim.
+- USB readiness source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process fail-closed #45207830677 failed only because its added contract inspected the wrong header; correction at `c8920ca` now has Process rerun #45208311957 PASS and AI docs #45208311790 PASS. USB storage #45207830753 failed only at its older function-signature assertion after all preceding storage host/sanitizer/ash steps passed; THIS checker-only commit updates that assertion and explicit U2EC/LPRng callsites and requires the new process-readiness contract. Exact storage rerun pending.
+- XY-C1 #45207830678 on USB production source `8fa162a` was IN_PROGRESS at Build XY-C1 on last poll; TRX and artifact pending. No MIPS/uClibc local build or hardware L4 result is available.
 
 ## Active task
 
-- Production fix already committed on `8fa162a`: U2EC and LPRng starts now require a bounded process-inventory RUNNING postcondition after `execv()`; UNKNOWN, delayed-absence timeout and wait interruption propagate failure so USB hotplug event acknowledgement remains retryable.
-- Process fail-closed run #45207830677 failed only in the new inline source contract, at the header-scope assertion. Its detached-daemon GNU89/ASan/UBSan compile/test and every preceding shared process check passed. THIS commit corrects the static checker to read `process_presence_start_policy.h` for the action enum and RUNNING predicate while continuing to inspect `detached_daemon_start_policy.h` for the actual wrapper.
+- Production source fix `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: U2EC and LPRng starts require bounded process-inventory RUNNING confirmation after `execv()`; UNKNOWN, interrupted wait or persistent ABSENT propagates a failure so deferred USB hotplug acknowledgement can retry.
+- Both affected source contracts are now corrected in separate atomic checker commits: Process contract was corrected at `c8920ca` and its exact rerun PASS; storage caller graph is corrected in THIS commit. The storage workflow must be rerun and pass before claiming all exact-host checks green.
 
 ## Exact first actions for next GPT
 
-1. Poll the exact Process rerun for this checker-only correction. If the source contract still fails, diagnose and repair the exact assertion; do not loosen or remove the behavior checks.
-2. Poll exact-SHA XY-C1 Build/TRX/artifact and other USB/AI workflows for production source SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`. Require same SHA for L3.
-3. Continue an independent P1/P2 userland fix after these checks, without repeating the completed RStats/logger/module-refcount/Samba/NFS audits.
+1. Poll this commit's exact-SHA USB storage regression and confirm the corrected caller graph contract passes. If it still fails, inspect the failing assertion and fix only the stale/incorrect expectation.
+2. Poll XY-C1 #45207830678 for the production source SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`; require Build + TRX verification + artifact upload before an L3 claim. Also poll USB modem #45207830717, Process inventory #45207830503, NVRAM #45207830836 and AI docs #45207830375 (all were completed SUCCESS at the last observation except the XY build).
+3. After the USB checks, continue a separate P1/P2 userland stability/security source fix; avoid re-auditing completed RStats/logger/module-refcount/Samba/NFS items.
 
 ## Relevant exact-SHA CI facts
 
-- `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process fail-closed #45207830677 failed only at the new USB contract header-scope assertion; prior process-policy host tests passed. XY-C1 #45207830678, USB storage #45207830753, USB modem #45207830717, Process inventory #45207830503, NVRAM audit #45207830836 and AI docs #45207830375 were in progress at the last poll.
-- The RStats selector fix at parent SHA `93e2d812a050da0029a339bee86b194968226992` has exact-host L2 PASS; XY-C1 was pending there, and it does not validate the later USB source.
+- Process workflow #45208311957 PASS and AI docs #45208311790 PASS on `c8920caabc88c7f107c2c5240dab0bfaab38783b`.
+- On source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`, USB storage #45207830753 failed only because its inline caller graph still expected the old launcher signature and one-argument calls. Its earlier storage tests, including BusyBox ash lifecycle tests, all passed. This checker-only source fix requires an exact rerun.
+- XY-C1 #45207830678 on `8fa162a` was pending in Build XY-C1; TRX and artifact had not started at last poll. It is the only available firmware evidence for this USB production source SHA; require all three product steps.
 
 
 ## Completed source slices to preserve

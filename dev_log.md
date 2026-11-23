@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Update USB storage caller contract for printer readiness gate
+
+- Process fail-closed workflow exact rerun #45208311957 passed on `c8920caabc88c7f107c2c5240dab0bfaab38783b`, confirming the earlier header-scope correction.
+- USB storage regression #45207830753 on production source `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8` had passed all storage host, sanitizer and BusyBox-ash steps before failing at its older inline source lookup for `start_usb_printer_daemon(char *const argv[])`; its U2EC/LPRng assertions also still expected the old one-argument calls. THIS checker-only change updates the signature and both explicit process-name callsites and asserts the EOF postcondition/process-inventory gate. No production code or behavior assertion was relaxed. Exact storage rerun pending.
+
+---
+
 ## 2026-11-23 UTC — Correct USB printer readiness contract header scope
 
 - Exact Process regression #45207830677 on `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8` passed every compile, sanitizer and pre-existing source check, then the new USB printer source contract failed because it searched for `PROCESS_PRESENCE_START_ABORT` and the RUNNING postcondition expression in `detached_daemon_start_policy.h`; those declarations correctly live in its included `process_presence_start_policy.h`.

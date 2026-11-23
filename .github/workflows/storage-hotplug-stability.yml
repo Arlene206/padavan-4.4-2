@@ -680,23 +680,27 @@ jobs:
           assert "Wireless notification %s failed" not in notifications
 
           # USB printer startup must report launcher errors to both retry paths.
-          spawn_daemon = function_body(usb, "start_usb_printer_daemon(char *const argv[])")
+          spawn_daemon = function_body(usb, "start_usb_printer_daemon(char *const argv[], const char *process_name)")
           assert "pipe(exec_pipe)" in spawn_daemon
           assert "FD_CLOEXEC" in spawn_daemon
           assert "child = fork();" in spawn_daemon
           assert "execv(argv[0], argv);" in spawn_daemon
           assert "return exec_error;" in spawn_daemon
           assert "return EIO;" in spawn_daemon
+          assert "received == 0" in spawn_daemon
+          assert "usb_printer_daemon_postcondition(process_name)" in spawn_daemon
+          assert "process_inventory_scan(process_name, &snapshot)" in usb
+          assert "detached_daemon_start_postcondition_with_ops(" in usb
 
           u2ec = function_body(usb, "start_u2ec(void)")
-          assert "start_status = start_usb_printer_daemon(argv);" in u2ec
+          assert 'start_status = start_usb_printer_daemon(argv, "u2ec");' in u2ec
           assert "system(" not in u2ec
           assert "if (start_status != 0)" in u2ec
           assert u2ec.index("if (start_status != 0)") < u2ec.index('nvram_set("apps_u2ec_ex", "1");')
           assert "return start_status;" in u2ec and "return 0;" in u2ec
 
           lpd = function_body(usb, "start_lpd(void)")
-          assert "start_status = start_usb_printer_daemon(argv);" in lpd
+          assert 'start_status = start_usb_printer_daemon(argv, "lpd");' in lpd
           assert "system(" not in lpd
           assert "if (start_status != 0)" in lpd and "return start_status;" in lpd
 
