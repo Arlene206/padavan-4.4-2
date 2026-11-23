@@ -1,3 +1,11 @@
+## 2026-11-23 — Fix GE2 polling source-contract newline delimiters
+
+- The corrected GE2 test fixture follow-up `5abf4a5c4b3fb08b6c3f5e8d13418679aec4dd58` passed AI docs #45271922401. Its Switch CLI #45271922464 then passed the compiled RAETH policy binary (including the corrected half-duplex/EEE case) and existing source contracts, but failed in the new GE2 source-contract step because escaped newline delimiters were emitted as literal backslash-n text.
+- Replaced those delimiters with `chr(10)` boundaries; this is a checker-only correction and does not weaken production assertions. The policy regression itself had already passed in the failing run.
+- XY-C1 #45271922442 and NVRAM #45271922399 were still running at last poll on the test-fixture SHA; this follow-up's exact-head Actions are required for current verification.
+- Next: confirm the exact reruns, then continue tracing GE analog calibration cleanup with the status-bearing helper design in mind.
+
+---
 ## 2026-11-23 — Correct the GE2 polling EEE regression fixture
 
 - The first exact-head Switch CLI run for source commit `bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`, #45271645960, reached the GNU89/Werror/ASan/UBSan RAETH policy binary and failed one newly added assertion: the intended half-duplex fixture used raw link-speed `0x24`, whose `0x20` duplex flag correctly denotes full duplex. This was a test-data error, not a production-code failure.

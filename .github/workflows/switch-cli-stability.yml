@@ -835,13 +835,13 @@ jobs:
           test = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c").read_text()
 
           poll = source.split("static int phy_polling_thread(", 1)[1].split(
-              "\\nstatic irqreturn_t ei_interrupt_napi_rx_only", 1
+              chr(10) + "static irqreturn_t ei_interrupt_napi_rx_only", 1
           )[0]
           c22 = source.split("static int raether_phy_poll_read_c22(", 1)[1].split(
-              "\\nstatic int raether_phy_poll_read_cl45", 1
+              chr(10) + "static int raether_phy_poll_read_cl45", 1
           )[0]
           c45 = source.split("static int raether_phy_poll_read_cl45(", 1)[1].split(
-              "\\nstatic int phy_polling_thread", 1
+              chr(10) + "static int phy_polling_thread", 1
           )[0]
           assert "ra_switch_mdio_read_phy_link_snapshot(" in poll
           assert "mii_mgr_read(" not in poll and "mii_mgr_read_cl45(" not in poll
@@ -856,7 +856,7 @@ jobs:
           assert "set_ge2_force_link_down();" in poll
           assert "ra_switch_mdio_update_ge2_mac_value(" in poll
           snapshot = policy.split("ra_switch_mdio_read_phy_link_snapshot(", 1)[1].split(
-              "\\n/* Keep the caller", 1
+              chr(10) + "/* Keep the caller", 1
           )[0]
           assert snapshot.index("ra_switch_mdio_read_checked(port, 0x1U") < snapshot.index(
               "if (!sample.link_up)"
@@ -865,7 +865,7 @@ jobs:
               "ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3cU"
           ) < snapshot.index("ra_switch_mdio_read_cl45_checked(port, 0x7U, 0x3dU")
           update = policy.split("ra_switch_mdio_update_ge2_mac_value(", 1)[1].split(
-              "\\n#endif", 1
+              chr(10) + "#endif", 1
           )[0]
           assert "value &= ~(0x80U | 0x40U);" in update
           for marker in (

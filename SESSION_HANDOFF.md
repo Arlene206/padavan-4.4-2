@@ -1,11 +1,11 @@
 ### 2026-11-23 接力更新（最新快照）
 
-- 当前产品源码 SHA：`bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`，修复 GE2 PHY polling 失败传播与 EEE renegotiation stale-bit。
-- 首次 Switch CLI exact-head #45271645960 失败在新增测试 fixture：`0x24` 含 duplex flag `0x20`，并非半双工样本；生产逻辑按输入正确保留 duplex。已将回归向量改为 `0x04`，并以 GNU89/Werror/ASan/UBSan 独立 policy harness 验证通过；仓库完整测试须在下一个 SHA 重跑。
-- `bfca47b` 的 AI docs #45271646030 PASS；XY-C1 #45271645953 与 NVRAM #45271645977 上次检查为 IN_PROGRESS。
+- 当前产品源码修复：`bfca47b0c33cae7679ea2e671cc71a015ebfc5d4`，GE2 PHY polling 不完整读时保留原 MAC/link 状态，EEE 位随协商重建。
+- 测试修正子提交：`5abf4a5c4b3fb08b6c3f5e8d13418679aec4dd58` 修正错误的半双工测试向量（`0x24` 实为 full-duplex，改为 `0x04`）。其 AI docs #45271922401 PASS；Switch CLI #45271922464 的 GNU89/Werror/ASan/UBSan policy binary 与此前 source checks 通过，新的 GE2 source-contract step 因换行分隔符被双重转义而失败。现将边界写成 `chr(10)`；属于 checker 修正，不更改产品逻辑。
+- `5abf4a5` 的 XY-C1 #45271922442、NVRAM #45271922399 当时仍在执行。本次 checker 修正提交 exact-SHA Actions 尚待检查。
 - 保护分支 `backup/pre-plugin-overhaul-2026-11-14` 冻结于 `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
-- 无本地 MIPS/kernel build、无 XY-C1 Build/TRX/artifact 同 SHA 全 PASS 证明、无硬件 L4 声明。
-- 下个 GPT 第一项：检查本次测试修正提交 exact-SHA Switch CLI、AI docs、XY-C1 和 NVRAM；FAIL 查看日志修复，PENDING 时继续其他独立任务。然后追踪 GE analog calibration 保存/恢复顺序，选一条有界事务迁移。
+- 无本地 MIPS/kernel build 或硬件 L4 声明；XY-C1 L3 仍需同一 SHA 的 Build/TRX/artifact 三项 PASS。
+- 下个 GPT 第一项：检查本次 checker 修正 SHA 的 Switch CLI/AI docs/XY-C1/NVRAM。之后继续审查 GE analog calibration 的保存/恢复顺序，谨慎设计 checked MDIO 事务的错误清理。
 
 ---
 # Cross-session execution mandate
@@ -42,16 +42,15 @@
 - `ctmain.c` is the optional `lld2test` developer utility; package ROMFS installs production `lld2d`, not `lld2test`. This utility hardening is not presented as a firmware runtime change.
 
 ## Verification boundary
-- Source SHA `bfca47b`: AI handoff #45271646030 PASS; Switch CLI #45271645960 FAIL only because the new half-duplex regression used `0x24` (the `0x20` duplex bit was set); the test fixture is corrected to `0x04` in the current follow-up. XY-C1 #45271645953 and NVRAM #45271645977 were IN_PROGRESS at the last poll.
-- Exact repository Switch CLI policy binary/source contracts must rerun on this test-only correction SHA.
-- No local MIPS/kernel build or physical-router L4 is claimed. XY-C1 L3 requires Build, TRX and artifact upload all PASS on the same production-source SHA.
-- Frozen backup remains untouched.
+- GE2 product source SHA `bfca47b`: NVRAM and XY-C1 were pending at its successor checkpoint; do not infer their result.
+- Test correction SHA `5abf4a5`: AI docs #45271922401 PASS; Switch CLI #45271922464 compiled and ran the GNU89/Werror/ASan/UBSan policy regression successfully but failed the newly added source contract due to escaped newline delimiters. This child fixes those delimiters only. XY-C1 #45271922442 and NVRAM #45271922399 were in progress at last poll.
+- The checker-fix SHA's exact-head Actions remain to be checked. No MIPS/kernel build or hardware L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA Switch CLI, AI handoff and XY-C1 Actions for the test-fixture correction; check NVRAM if it triggers. Diagnose any failure from its job log.
-2. Do not treat the corrected host regression as a firmware build. Claim L3 only after XY-C1 Build, TRX and artifact upload all pass on one source SHA.
-3. Continue the bounded GE analog-calibration save/restore analysis after CI state is recorded.
+1. Fetch live `main` and inspect exact-SHA Switch CLI, AI docs, NVRAM and XY-C1 Actions for the checker newline fix; diagnose any FAIL from job logs.
+2. Verify XY-C1 Build, TRX and artifact upload on one identical source SHA before claiming L3; otherwise leave it pending/unverified.
+3. Resume the GE analog calibration save/restore graph; do not bulk-replace legacy wrapper calls without defined abort and cleanup semantics.
 
 
 ## Cross-session operating constraints
