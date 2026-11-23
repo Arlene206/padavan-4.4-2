@@ -1055,9 +1055,12 @@ jobs:
           assert "kill(1, SIGALRM)" in child_launcher
 
           deferred_event = function_body(storage, "on_deferred_hotplug_dev(void)")
-          storage_else_marker = "\\n#else\\n\\t/*\\n\\t * Builds without integrated storage support"
-          no_storage_branch = deferred_event.split(storage_else_marker, 1)[1].split("#endif", 1)[0]
-          integrated_branch = deferred_event.split(storage_else_marker, 1)[0]
+          storage_comment = deferred_event.index("Builds without integrated storage support")
+          storage_else_at = deferred_event.rfind("#else", 0, storage_comment)
+          storage_endif_at = deferred_event.index("#endif", storage_comment)
+          assert storage_else_at >= 0
+          no_storage_branch = deferred_event[storage_else_at + len("#else"):storage_endif_at]
+          integrated_branch = deferred_event[:storage_else_at]
           assert "storage_read_integer_status(" in integrated_branch
           assert "storage_deferred_start_dispatch_status(" in integrated_branch
           assert "storage_read_string_status(" in no_storage_branch
