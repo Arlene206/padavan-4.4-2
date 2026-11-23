@@ -681,8 +681,6 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 			return -ENOSPC;
 	}
 
-	g_vlan_pvid_wan_untagged = untg_vid;
-
 	if (!is_wan_vid_valid(pvid[SWAPI_VLAN_RULE_WAN_INET])) {
 		pvid[SWAPI_VLAN_RULE_WAN_INET] = untg_vid; // VID 2
 		prio[SWAPI_VLAN_RULE_WAN_INET] = 0;
@@ -968,6 +966,11 @@ static int esw_vlan_apply_rules(u32 wan_bridge_mode, u32 wan_bwan_isolation)
 	if (status != 0)
 		return status;
 #endif
+
+	status = mtk_esw_applied_value_commit(
+		status, untg_vid, &g_vlan_pvid_wan_untagged);
+	if (status != 0)
+		return status;
 
 	return 0;
 }
@@ -1564,7 +1567,7 @@ static int change_bridge_mode(u32 wan_bwan_isolation, u32 wan_bridge_mode)
 static int vlan_accept_port_mode(u32 accept_mode, u32 port_mask)
 {
 	u32 i, admit_frames = PORT_ACCEPT_FRAMES_ALL;
-	int status;
+	int status, first_error = 0;
 
 	switch (accept_mode)
 	{
@@ -1580,10 +1583,9 @@ static int vlan_accept_port_mode(u32 accept_mode, u32 port_mask)
 		if (!((port_mask >> i) & 0x1))
 			continue;
 		status = esw_port_accept_set(i, admit_frames);
-		if (status != 0)
-			return status;
+		first_error = mtk_esw_first_error(first_error, status);
 	}
-	return 0;
+	return first_error;
 }
 
 static int vlan_create_entry(u32 vlan4k_info, u32 vlan4k_mask, int set_port_vid)

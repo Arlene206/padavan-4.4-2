@@ -825,6 +825,25 @@ test_vlan_table_write_waits_for_idle_and_propagates_io_failures(void)
 }
 
 static void
+test_applied_value_cache_is_committed_only_after_success(void)
+{
+	unsigned int applied = 2U;
+
+	assert(mtk_esw_applied_value_commit(-ETIMEDOUT, 7U, &applied) ==
+	       -ETIMEDOUT);
+	assert(applied == 2U);
+
+	assert(mtk_esw_applied_value_commit(1, 7U, &applied) == -EIO);
+	assert(applied == 2U);
+
+	assert(mtk_esw_applied_value_commit(0, 7U, &applied) == 0);
+	assert(applied == 7U);
+
+	assert(mtk_esw_applied_value_commit(0, 8U, NULL) == -EINVAL);
+	assert(applied == 7U);
+}
+
+static void
 test_vlan_rule_snapshot_is_committed_only_after_hardware_success(void)
 {
 	const unsigned int requested[4] = {
@@ -897,6 +916,7 @@ main(void)
 	test_jumbo_frame_register_update_is_fail_closed_and_preserves_other_bits();
 	test_vlan_entry_apply_stops_on_each_failed_stage();
 	test_vlan_table_write_waits_for_idle_and_propagates_io_failures();
+	test_applied_value_cache_is_committed_only_after_success();
 	test_vlan_rule_snapshot_is_committed_only_after_hardware_success();
 	test_vlan_rule_snapshot_commit_rejects_invalid_buffers();
 	test_all_defined_speed_and_flow_modes();

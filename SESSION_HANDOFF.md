@@ -2,63 +2,24 @@
 
 ## 2026-11-23 continuation — current state
 
-- **main HEAD:** `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e` — `fix(mtk-esw): propagate port register MDIO failures`.
-- **Frozen backup:** `backup/pre-plugin-overhaul-2026-11-14` last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`; this development sequence has not written to it.
-- **Earlier same-target L3 evidence:** source SHA `59622f3c9612949ddd642fc738e02463f5400def` passed XY-C1 Build, TRX verification and artifact upload (#45252058834), NVRAM #45252058851 and AI docs #45252059088. Switch CLI #45252851887 and AI docs #45252851808 PASS on descendant `6acc5001a8e68a21c11ec0974099cf4793e23f27`. These results do not validate `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`.
-- **Current source SHA verification:** exact-head Switch CLI, NVRAM and XY-C1 Build/TRX/artifact must be fetched afresh. No L3 claim is made for this SHA without a same-SHA successful run.
-- **Current source slice:** port PVID, ingress, attribute, frame-accept and forwarding-matrix helpers now use checked MDIO status; failures propagate through VLAN rule/VID-1, custom VLAN, accept ioctl, bridge transitions, MAC-to-PHY setup and init-post.
-- **Remaining work:** IGMP/MLD configuration still uses legacy unchecked register reads/writes; telemetry-only reads are a separate scope.
-- **Build limitations:** no local MIPS kernel toolchain or physical router validation is claimed.
-- **Operating loop:** source → regression → complete tree/atomic commit → expected-SHA non-forced main update → exact-SHA Actions; continue independent work while checks are pending.
-
-## 2026-11-23 continuation handoff (engineering parent main: 3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e; fetch live main at takeover)
-
-### Completed engineering slices and exact evidence
-- `ba0dfca34d3e87f68cc44190509e29b2ce4e5853`: AliyunDrive process presence bound to configured executable device/inode, rejecting BusyBox `pidof` comm/argv[0] spoofing. Exact lifecycle #45230625667 PASS (shell syntax, MIPSel CLI under QEMU, lifecycle, early-lock and RC integration); Process #45230625920 PASS; AI docs #45230625723 PASS. L2 host/QEMU only; target router shell runtime and physical L4 not verified.
-- `9ebc57999dad5da47e20414174cd7572ee64bbd7`: shared process inventory revalidates `/proc/PID/stat` after cmdline reads and rejects PID reuse. Exact Process #45227637642, fail-closed #45227637610 and AI docs #45227637592 PASS. XY-C1 #45227637594 passed Build, TRX and artifact upload on the identical SHA (L3).
-- `7e81b11d63b1bf20d8a1eb103cc7598b9b898b1a`: repair Shadowsocks backup-server startup, firewall node identity and required-stage error propagation. Exact Shadowsocks #45228682477, Process #45228682072 and AI docs #45228682265 PASS. XY-C1 #45228682113 passed Build/TRX/artifact on the same SHA (L3).
-- `53c6f6623e5531deeb889762e81bf1943c1abf50`: DNSMasq split-DNS source-contract correction. Exact DNSMasq #45229862631 and AI handoff #45229862614 PASS.
-- Shadowsocks DNS proxy preflight plus malformed-upstream whitespace rejection and fixture/checker updates: exact lifecycle #45234515153 PASS on `f3acf67d58203ae7d18b6d2755014840ba10cccc`; Process #45234515707 PASS; AI docs #45234515042 PASS. XY-C1 #45234516216 was IN_PROGRESS at the last poll. Previous exact lifecycle #45233294870 on `7fdf985` also passed.
-- Current RStats source slice (parent `f3acf67d58203ae7d18b6d2755014840ba10cccc`): `save_history_json()` now reads its interface selector through `nvram_get_checked()`, copies the shared NVRAM cache value before another NVRAM operation, and returns before atomic output staging on backend, NULL-present or overlong state. Missing key retains legacy empty/default behaviour. Exact-head Actions pending.
-
-- `601ad73cb90227d01497a1a4f28a967de8c17a6a`: RStats selector uses checked NVRAM read and copies the cache-backed value before later operations. Exact RStats #45234873403, Process #45234873149/#45234873148, NVRAM #45234873426 and HTTPD #45234873048 PASS. Its AI-doc failure was corrected by `3760b93`, exact AI docs #45236207680 PASS; XY-C1 #45234873441 was pending.
-- `5a43b18722b9d2f3f864ef6bd1025084ff1edb85`: missing-DNS-proxy-executable regression; exact Shadowsocks #45235046114 and Process #45235046275 PASS. Its AI-doc failure was likewise corrected by `3760b93`; exact AI docs #45236207680 PASS.
-
-- Exact-source commit `eef441729725ff6b06c45a95b7c8414ab16d2f72` added bounded parsing to both `lld2d` and optional `lld2test`, including strict numeric parsing, ASan/UBSan cases, a dedicated workflow and XY-C1 path trigger. Its LLDT #45237411685 and Process #45237411877 failed only because seven fixture character literals were emitted as multi-character `'\\\\0'` instead of NUL `'\\0'`; follow-up corrects them and requires fresh exact-SHA verification. AI docs #45237411785 PASS. XY-C1 #45237411963 and NVRAM audit #45237411699 were still in progress at last poll.
-- Follow-up `14be2b00c5f32eccb8694281f42d8b1bfed3dcb5`: NUL character spelling was corrected, but exact LLDT #45237898307 then reached execution and failed on the first fixture assertion because test input strings also contained doubled CR/LF escapes. The next test-only commit corrects these remaining test literals. AI handoff #45237898460 PASS; Process umbrella #45237898424, Process lifecycle #45237898195 and NVRAM #45237898280 were pending at last poll.
-
-- Exact LLDT run #45238183801 on `d0e68ad`: GNU89/Werror/ASan/UBSan compile and parser regression completed PASS; source checker failed only because it incorrectly expected two XY-C1 header path entries. The XY-C1 firmware workflow has one push-path filter (no PR trigger); checker-only correction now accepts one. Process inventory #45238182222 PASS; AI docs #45238182196 PASS. Process fail-closed #45238182167 and NVRAM audit #45238182242 remained pending at last poll.
-
-- On `d0e68ad217cb910e877dd69b6f4ce1d2b8abbf53`, LLDT run #45238183801 passed compile and all GNU89/ASan/UBSan fixture runtime cases, then failed the static source checker only because its XY-C1 path count expected two entries while the workflow has one push-only trigger. Commit `38d3732` corrected that test expectation.
-- The same d0 Process umbrella #45238182167 failed only at `scripts/check_process_lifecycle_integration.py`: a stale assertion still expected the former inline `sscanf("%255s = %255s%n")` parser after `main.c` had switched to shared `lldt_config_parse_policy.h`. This commit aligns the integration checker and adds its path trigger. Process inventory #45238182222 and AI docs #45238182196 PASS. NVRAM audit #45238182242 was PENDING at last poll.
-
-- Exact source base `eef441729725ff6b06c45a95b7c8414ab16d2f72` adds the shared bounded LLDT config parser to shipped `lld2d` and optional `lld2test`. XY-C1 #45237411963 on that exact production-source SHA completed SUCCESS with Build XY-C1, TRX verification and artifact upload all PASS (L3); NVRAM audit #45237411699 and Process inventory #45237412141 also PASS. Dedicated LLDT workflow #45238664960 (GNU89/Werror/ASan/UBSan compile, runtime and Python checker) and AI docs #45238664839 PASS on test/docs descendant `38d3732`.
-- Process umbrella #45239229205 PASS on `79f4d535af499995fc1f2be1d24b52b93a35d2f4`, including the corrected shared-parser integration contract. AI docs #45239229201 failed only because the newly added parser-header trigger existed in push but not pull_request; this commit restores path-set symmetry and requires fresh exact-head docs PASS.
-
-- Infosvr exact source commit `4e751b58b471e3d07e07a02ed64df3cc1edf0cd9`: GNU89/Werror/ASan/UBSan workflow #45201353587 PASS on checker descendant `6a7ed2a` (all policy binaries, packet source contract and RC lifecycle checker). XY-C1 #45200876769 on the actual production source SHA `4e751b5` PASS with Build, TRX and artifact upload. The earlier #45200876644 failed only on a stale `sizeof(IBOX_COMM_PKT_HDR)` matcher; it was fixed by `ac3228a`/`6a7ed2a`. L2 + L3 are verified; hardware broadcast L4 remains unverified.
-- WAN gateway ARP source fix `1cb817908e779c45d3c47105e39cd2002df0ba63`: exact XY-C1 #45218315124 PASS with Build/TRX/artifact; WAN L2 #45218700965 PASS on checker descendant `40ab459`; AI docs #45218701533 PASS. The earlier WAN L2 #45218314720 failed only on an outdated interface-source string assertion, normalized in `40ab459`. The current local-IP status/error correction supersedes this validation and needs fresh exact-head Actions.
-
-- WAN local IPv4 status commit `bd56c02f7f8d10374c6857f8aac1d56b1f7a4b6e`: WAN ARP #45241824790 PASS; WAN DHCP #45241824847 PASS; Process inventory #45241824430 PASS; AI docs #45241824655 PASS. WAN route #45241824836 and Process umbrella #45241824549 failed only at stale source assertions, both corrected in follow-up `<next SHA>`; exact reruns pending. XY-C1 #45241824748 and NVRAM #45241824746 were in progress at last poll.
-
-- WAN local IPv4 error separation follow-up `netutils.c`: invalid interface-name copies now set EINVAL; `get_interface_addr4()` preserves ioctl/close errors across cleanup. WAN EINVAL fixture and source contract added; exact CI pending.
-- Current WAN source follow-up is `d3772d64a0e2471be22658aabd6299dc3670caa8`: `copy_ifname()` sets EINVAL and `get_interface_addr4()` preserves ioctl/close errors; WAN ARP #45243513318, DHCP #45243513523, Process inventory #45243513456 and AI docs #45243513254 PASS. WAN route #45243513566 failed solely because the workflow path list had two `netutils.c` entries in each event, while `check_wan_vlan_setup.py` requires one. This commit restores the prior single-entry path list; the source-check additions remain.
-- Subsequent main commits `36861ae` and `eb92a7a` add bridge selector fail-closed handling and exact-source CI coverage; preserve those commits. On `eb92a7a`, AI handoff docs #45243797283 PASS; the remaining inventory/XY-C1/system checks were still running at last poll.
-
-## Current repository state
-- Repository `Arlene206/padavan-4.4-2`; work only on `main`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify, reset, merge, rebase or force-push it.
-- PR #1 is closed/unmerged. AliDDNS CA trust-store/HMAC work is represented or superseded on current `main`.
-- No local checkout or MIPS/uClibc toolchain is available. Do not claim local GNU89 test execution, target firmware/TRX/artifact or physical-device validation; exact GitHub Actions are the verification source.
-- XY-C1 disables `CONFIG_FIRMWARE_INCLUDE_ALDRIVER`; AliyunDrive shell runtime is not covered by XY-C1. Its dedicated workflow establishes only host/QEMU checks.
+- **main parent at this handoff:** `2ea2105e917f1b00e7269650f46dbe2831f877f7`; this checkpoint is committed atomically with the source slice below. Fetch live `main` at takeover for the resulting SHA.
+- **Backup branch:** `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify or merge it.
+- **Completed MTK ESW work:** checked port matrix/PVID/ingress/attribute/accept MDIO APIs and caller propagation are on `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`; prep commit `a0ff74d73e6d8b9ecb45ba9937c267bf3f4d4916` added checked-write tests. Do not repeat this work.
+- **Current source slice:** defer publication of `g_vlan_pvid_wan_untagged` until VLAN-table and port-register programming all succeed; make the multiport VLAN accept ioctl continue independent selected ports and return the first error. Add host policy failure-injection regression and exact-source assertions.
+- **Exact-SHA ancestor checks:** Switch CLI #45256010667 and AI docs #45256010835 completed/success on `3ab6e43`; NVRAM #45256010659 completed/success there. XY-C1 Firmware Validation #45256010859 was in progress at last poll. The docs-only child `2ea2105` has AI docs #45256947168 in progress. Do not transfer these statuses to the new source SHA.
+- **Tests:** host tests compile with GNU89/Werror/ASan/UBSan in Switch CLI workflow. No local kernel/MIPS compile or physical-router test is claimed. Verify new exact-SHA Actions before any L3 claim.
+- **Next implementation task:** convert remaining optional IGMP flood/port-learning/MLD-snooping paths that still use error-collapsing `esw_reg_get/set` into checked MDIO APIs, accumulate per-port failures, and propagate status through VLAN bridge/init callers. Then address telemetry-only link/MIB reads through status-safe interfaces.
+- **Working rule:** source change → targeted regression → complete Git tree and single atomic commit → expected-SHA non-forced update of `main` → exact-SHA Actions. Pending checks do not block other independent work.
 
 ## Active task
 
-### MTK ESW checked port-register status propagation
+### MTK ESW applied-state cache correctness
 
-- Production SHA `59622f3c9612949ddd642fc738e02463f5400def`: XY-C1 Build/TRX/artifact #45252058834 PASS; NVRAM #45252058851 PASS; AI docs #45252059088 PASS. Switch CLI #45252851887 and AI docs #45252851808 PASS on descendant `6acc500`.
-- Prep commit `a0ff74d73e6d8b9ecb45ba9937c267bf3f4d4916` added `mtk_esw_register_write()` and GNU89/Werror/ASan/UBSan tests for success, negative/positive callback errors and invalid callbacks.
-- Source commit `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e` converted five port-control helpers to checked status APIs and propagated errors through VLAN apply/VID1, custom VLAN create, accept-mode ioctl, bridge matrix, MAC-to-PHY and init-post. Exact-head CI is not inferred from any ancestor SHA.
-- Next task: convert IGMP/MLD register programming from legacy unchecked accessors to checked policy reads/writes, including propagation through callers.
+- Checked per-port matrix/PVID/ingress/attribute/accept operations and their bridge/VLAN/init/ioctl error propagation are already committed on `main` (`3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`); do not repeat.
+- This source slice fixes a remaining applied-state bug: `g_vlan_pvid_wan_untagged` was published before the VLAN table and port configuration completed. It now commits only after every required hardware stage succeeds. VLAN accept mode also attempts all selected independent ports while preserving the first MDIO error.
+- Added a host-testable applied-value commit policy covering negative errors, positive callback normalization, success and invalid pointers. The Switch workflow source checker verifies the cache update is after all port setters and that accept mode does not exit on the first port failure.
+- **Exact-SHA Actions:** pending for the new source SHA. Check Switch CLI, XY-C1 Build/TRX/artifact and NVRAM runs independently; no local kernel/MIPS compile is claimed.
+- **Next task:** checked MDIO status propagation for optional IGMP flood, per-port learning and MLD snooping operations, followed by safe link/MIB telemetry reads. Add fault-injection coverage and exact-source contracts.
 
 ### LLDT configuration parser parity
 - The shipped `lld2d` parser was already bounded; optional `lld2test` retained unbounded `sscanf("%s")`, an unterminated `strncpy` icon path and overflow-prone `atoi`. Both now use the shared length-delimited parser; the optional tool also uses strict bounded numeric parsing.
@@ -79,10 +40,9 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and exact-head Switch CLI, NVRAM, XY-C1 and AI docs Actions for `3ab6e43a2ca7db2ab7521962566c34a4b8b70b1e`; diagnose from the first failing stage. Do not transfer earlier firmware results.
-2. Claim L3 only if Build XY-C1, TRX verification and artifact upload all PASS on one identical production-source SHA.
-3. Continue IGMP/MLD checked register access and caller error propagation. Keep backup frozen and use a complete tree plus expected-SHA non-forced update.
-
+1. Fetch live `main` and inspect all Actions with `head_sha` equal to the source commit in this handoff. Confirm Switch CLI host tests/source assertions, NVRAM audit, and XY-C1 Build, TRX and artifact upload on the identical SHA.
+2. Diagnose any failed exact-SHA job from its log and fix the source/checker failure atomically. Pending Actions do not block independent implementation.
+3. Convert `esw_igmp_flood_to_cpu`, `esw_igmp_ports_config` and `esw_igmp_mld_snooping` from legacy unchecked `esw_reg_get/set` access to checked reads/writes; propagate results through `esw_vlan_bridge_isolate()` and `esw_ioctl_init_post()`. Add host failure-injection tests and source assertions, then inspect link/MIB read error propagation.
 
 ## Cross-session operating constraints
 Treat this repository as one continuous engineering assignment across GPT conversations. Recover once, then execute. Work only on `main`; each logical source or CI change is one atomic main commit: create all changed blobs and one complete Git tree before creating that commit, then update `main` using a non-forced expected-SHA compare-and-swap. Do not ask the user what to do next.

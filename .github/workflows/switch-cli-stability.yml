@@ -679,6 +679,7 @@ jobs:
               "test_mac_table_clear_treats_read_failure_as_unknown",
               "test_mac_table_clear_times_out_when_busy_never_clears",
               "test_mac_table_clear_rejects_invalid_mode_and_missing_delay",
+              "test_applied_value_cache_is_committed_only_after_success",
               "test_vlan_rule_snapshot_is_committed_only_after_hardware_success",
               "test_vlan_rule_snapshot_commit_rejects_invalid_buffers",
               "test_vlan_table_write_waits_for_idle_and_propagates_io_failures",
@@ -846,6 +847,16 @@ jobs:
                          "esw_port_accept_set(", "esw_port_ingress_mode_set("):
               assert "status = " + setter in vlan_apply
           assert "return status;" in vlan_apply
+          cache_commit = vlan_apply.index(
+              "mtk_esw_applied_value_commit("
+          )
+          for setter in (
+              "esw_vlan_pvid_set(", "esw_port_attrib_set(",
+              "esw_port_accept_set(", "esw_port_ingress_mode_set("
+          ):
+              assert vlan_apply.rindex("status = " + setter) < cache_commit
+          assert "g_vlan_pvid_wan_untagged = untg_vid;" not in vlan_apply
+          assert "test_applied_value_cache_is_committed_only_after_success" in test
 
           vid1_init = source.split("static int esw_vlan_init_vid1", 1)[1].split(
               "static int esw_mask_bridge_isolate", 1
@@ -872,7 +883,9 @@ jobs:
               "static int vlan_create_entry", 1
           )[0]
           assert "status = esw_port_accept_set(" in vlan_accept
-          assert "return status;" in vlan_accept
+          assert "first_error = mtk_esw_first_error(first_error, status);" in vlan_accept
+          assert "return first_error;" in vlan_accept
+          assert "return status;" not in vlan_accept
           ioctl_accept = ioctl_source.split("case MTK_ESW_IOCTL_VLAN_ACCEPT_PORT_MODE", 1)[1].split(
               "case MTK_ESW_IOCTL_VLAN_CREATE_PORT_VID", 1
           )[0]

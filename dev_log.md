@@ -1,3 +1,10 @@
+## 2026-11-23 — Commit WAN fallback PVID only after confirmed switch programming
+
+- Found that `esw_vlan_apply_rules()` published `g_vlan_pvid_wan_untagged` before resetting/programming VLAN table entries or applying per-port PVID/attribute/accept/ingress registers. A later MDIO timeout could therefore make `MTK_ESW_IOCTL_VLAN_PVID_WAN_GET` report a new fallback VID while hardware remained on the previous configuration.
+- Added a checked applied-value commit policy and failure-injection regression: negative and positive callback failures preserve the previous value; only successful programming publishes the requested VID. Moved the cache update to the successful tail after all required hardware operations.
+- `vlan_accept_port_mode()` now attempts every selected independent port and returns the first normalized MDIO error instead of leaving later ports untouched after the first failure. The exact-source Switch CLI checker asserts publication ordering and best-effort multiport error aggregation.
+- Parent main: `2ea2105e917f1b00e7269650f46dbe2831f877f7`. Exact-SHA Actions for this source commit are pending; no local kernel/toolchain compile or physical hardware test is claimed.
+
 ## 2026-11-23 — Propagate MTK ESW port-register MDIO failures
 
 - Found that `esw_reg_get()` returns zero on MDIO read failure and `esw_reg_set()` only logs write failure. Port PVID, ingress, attribute, frame-accept and forwarding-matrix helpers were void, allowing VLAN/bridge setup to report success after failed hardware programming.

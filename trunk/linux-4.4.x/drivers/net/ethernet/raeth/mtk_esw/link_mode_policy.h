@@ -430,4 +430,21 @@ mtk_esw_vlan_rules_commit(int status, unsigned int rule_count,
 	return 0;
 }
 
+/*
+ * Publish a single applied-state value only after its hardware transition has
+ * succeeded. A failed attempt leaves the previous value available to readers.
+ */
+static inline int
+mtk_esw_applied_value_commit(int status, unsigned int requested,
+			     unsigned int *applied)
+{
+	if (!applied)
+		return -EINVAL;
+	if (status != 0)
+		return mtk_esw_link_mode_io_error(status);
+
+	*applied = requested;
+	return 0;
+}
+
 #endif /* MTK_ESW_LINK_MODE_POLICY_H */
