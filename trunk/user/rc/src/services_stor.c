@@ -1460,7 +1460,7 @@ stop_samba_locked(int force_stop)
 	stop_errno = errno;
 	fastpath_status = fput_int("/proc/net/netfilter/nf_fp_smb", 0);
 
-	if (fastpath_status != 0)
+	if (fastpath_status != 0 && fastpath_status != ENOENT)
 		logmessage("Samba Server",
 			   "failed to clear SMB fastpath state during stop (status=%d)",
 			   fastpath_status);
@@ -1488,7 +1488,7 @@ stop_samba_locked(int force_stop)
 
 fastpath_result:
 	stop_status = samba_fastpath_stop_result(stop_status, fastpath_status);
-	if (fastpath_status != 0)
+	if (fastpath_status != 0 && fastpath_status != ENOENT)
 		errno = fastpath_status > 0 ? fastpath_status : EIO;
 	return stop_status;
 }

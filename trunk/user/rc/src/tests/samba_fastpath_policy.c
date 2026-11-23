@@ -15,6 +15,8 @@ main(void)
 	assert(!samba_fastpath_should_enable(-1, PROCESS_PRESENCE_RUNNING));
 
 	assert(samba_fastpath_stop_result(0, 0) == 0);
+	/* No proc hook means this kernel has no SMB fastpath state to clear. */
+	assert(samba_fastpath_stop_result(0, ENOENT) == 0);
 	assert(samba_fastpath_stop_result(0, EIO) == -1);
 	assert(samba_fastpath_stop_result(0, EACCES) == -1);
 	assert(samba_fastpath_stop_result(-1, EIO) == -1);

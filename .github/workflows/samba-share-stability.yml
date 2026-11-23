@@ -473,11 +473,13 @@ jobs:
           assert "process_snapshot_release(&snapshot)" in fastpath
           assert "samba_fastpath_should_enable" in fastpath_policy
           assert "configured == 1 && smbd_presence == PROCESS_PRESENCE_RUNNING" in fastpath_policy
+          assert "fastpath_write_status == 0 || fastpath_write_status == ENOENT" in fastpath_policy
           assert "Samba fastpath process-presence and stop-state policy: PASS" in fastpath_test
           stop_samba = function_body(stor, "stop_samba_locked(int force_stop)")
           assert "fastpath_status = fput_int(\"/proc/net/netfilter/nf_fp_smb\", 0);" in stop_samba
           assert "samba_fastpath_stop_result(stop_status, fastpath_status)" in stop_samba
           assert "failed to clear SMB fastpath state during stop" in stop_samba
+          assert "fastpath_status != 0 && fastpath_status != ENOENT" in stop_samba
           assert stop_samba.index("kill_services(svcs, 5, 1)") < stop_samba.index("fastpath_status = fput_int(")
           assert stop_samba.index("samba_require_daemon_absent(\"smbd\", \"after stop\")") < stop_samba.index("fastpath_result:")
           assert stop_samba.index("samba_require_daemon_absent(\"nmbd\", \"after stop\")") < stop_samba.index("fastpath_result:")
@@ -551,7 +553,7 @@ jobs:
           for token in ("samba_fastpath_should_enable(1, PROCESS_PRESENCE_RUNNING)",
                         "samba_fastpath_should_enable(1, PROCESS_PRESENCE_ABSENT)",
                         "samba_fastpath_should_enable(1, PROCESS_PRESENCE_UNKNOWN)",
-                        "Samba fastpath process-presence gate: PASS"):
+                        "Samba fastpath process-presence and stop-state policy: PASS"):
               assert token in fastpath_test
           for token in ("PROCESS_PRESENCE_UNKNOWN","signal_count==0",
                         "errno==EACCES","errno==EPERM","errno==EBUSY",
