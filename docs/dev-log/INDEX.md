@@ -35,6 +35,7 @@
 | `docs/dev-log/2026/11/part-026.md` | 104 | 2026-11-22 — Align the storage caller-graph regression with durable marker acknowledgement → 2026-11-22 20:06 CST (UTC+8) — Fix the remaining libdisk source-contract whitespace mismatch | 115941 | `1207154a43fd80df1b59c40eb191ec4f73b1dedf` |
 | `docs/dev-log/2026/11/part-027.md` | 101 | 2026-11-22 20:10 CST (UTC+8) — Propagate add-account volume metadata initialization errors → 2026-11-22 — Correct AliDDNS source-contract checker bindings | 140425 | `a2d2368be253d33223791eedbd25365e297f522b` |
 | `docs/dev-log/2026/11/part-028.md` | 100 | 2026-11-22 → 2026-11-23 08:53 UTC+8 | 104525 | `85261db802939a9a3f2204531ae08e6a7282da10` |
+| `docs/dev-log/2026/11/part-029.md` | 100 | 2026-11-23 08:55 UTC+8 → 2026-11-23 UTC | 125656 | `0e05f30d39b22ae0dc1baf997ff16b47fcf5f497` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -118,3 +119,5 @@
 - **Rolling-window catch-up:** 101 oldest complete records evicted when root `dev_log.md` contained 121 records at parent main `ff25eacd70dccd78c6416c76ad199ad69aa8f61d` are preserved verbatim, oldest first, in `part-027.md`; pre-rotation root blob: `7cae2b972ef97bb74cf8b112f9625ca8bfa42e9d`. Root retains the newest 20 complete records. No entry was rewritten or discarded.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 entries are preserved verbatim, oldest first, in part-028; source root blob before rotation: `22c871a813e0213dff3b8a7fb37913304702b969`. Root retains the newest 20 complete records.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` reached 120 records at parent main `e525274ee5a75490627bdc11593a5e3da9b53558` are preserved verbatim, oldest first, in `part-029.md`; pre-rotation root blob: `7e49c2af9566db3197751c61384cacc705646e16`. Root retains the newest 20 complete records.

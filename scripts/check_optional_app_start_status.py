@@ -1183,17 +1183,25 @@ def check_sshd():
         run_dir = base / "run"
         run_dir.mkdir()
         sshd_log = base / "sshd.log"
+        killall_log = base / "killall.log"
+        lifecycle_helper = base / "process_lifecycle.sh"
+        lifecycle_helper.write_text(
+            'pl_stop_named()\n{\n\tkillall -q "$1"\n}\n'
+        )
         executable(bin_dir / "sshd", """#!/bin/sh
 echo "$*" >> "$MOCK_SSHD_LOG"
 exit "${MOCK_SSHD_STATUS:-0}"
 """)
         executable(bin_dir / "killall", """#!/bin/sh
+printf '%s\\n' "$*" >> "$MOCK_KILLALL_LOG"
 exit "${MOCK_KILLALL_STATUS:-0}"
 """)
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "MOCK_SSHD_LOG": str(sshd_log),
+            "MOCK_KILLALL_LOG": str(killall_log),
+            "PROCESS_LIFECYCLE_LIB": str(lifecycle_helper),
             "MOCK_LOG": str(base / "logger.log"),
             "MOCK_SSHD_STATUS": "59",
             "MOCK_KILLALL_STATUS": "61",
@@ -1217,7 +1225,10 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         assert started.returncode == 0, started.stderr
         stopped = run(["/bin/sh", str(SSHD_SCRIPT), "stop"], env)
         assert stopped.returncode == 61, (
-            f"sshd must propagate killall status 61, got {stopped.returncode}"
+            f"sshd must propagate lifecycle stop status 61, got {stopped.returncode}"
+        )
+        assert killall_log.read_text().splitlines() == ["-q sshd"], (
+            "sshd direct stop must delegate exactly one stop to the process helper"
         )
 
 
