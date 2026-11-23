@@ -178,23 +178,26 @@ jobs:
           assert "pause()" not in main
           assert "events = watchdog_take_pending_events(&wd_pending_events)" in main
 
-          stop = main.index("if (events & WD_PENDING_TERMINATE)")
-          refresh = main.index(
-              "watchdog_should_dispatch_pending_event(\\n\\t\\t\\t    &wd_pending_events, events, WD_PENDING_TIME_REFRESH)",
+          # Normalize C whitespace once; literal escaped newlines in the old
+          # checks made the source contract depend on an exact formatter layout.
+          main_compact = "".join(main.split())
+          stop = main_compact.index("if(events&WD_PENDING_TERMINATE)")
+          refresh = main_compact.index(
+              "watchdog_should_dispatch_pending_event(&wd_pending_events,events,WD_PENDING_TIME_REFRESH)",
               stop
           )
-          wifi = main.index(
-              "watchdog_should_dispatch_pending_event(\\n\\t\\t\\t    &wd_pending_events, events, WD_PENDING_WIFI_STATE)",
+          wifi = main_compact.index(
+              "watchdog_should_dispatch_pending_event(&wd_pending_events,events,WD_PENDING_WIFI_STATE)",
               refresh
           )
-          timer = main.index(
-              "watchdog_should_dispatch_pending_event(\\n\\t\\t\\t    &wd_pending_events, events, WD_PENDING_TIMER)",
+          timer = main_compact.index(
+              "watchdog_should_dispatch_pending_event(&wd_pending_events,events,WD_PENDING_TIMER)",
               wifi
           )
           assert stop < refresh < wifi < timer
-          unblock = main.index("sigprocmask(SIG_SETMASK, &dispatch_mask, NULL)")
+          unblock = main_compact.index("sigprocmask(SIG_SETMASK,&dispatch_mask,NULL)")
           assert unblock < refresh
-          reblock = main.index("sigprocmask(SIG_BLOCK, &managed_signals, NULL)", timer)
+          reblock = main_compact.index("sigprocmask(SIG_BLOCK,&managed_signals,NULL)", timer)
           assert timer < reblock
           assert "if (wd_alarmtimer(WD_NORMAL_PERIOD, 0) < 0)" in main
           cleanup = main.index("watchdog_cleanup:")

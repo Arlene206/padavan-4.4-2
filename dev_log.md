@@ -1,3 +1,14 @@
+## 2026-11-23 11:45 UTC+8 — Fix watchdog signal lifecycle source checker whitespace matching
+
+- Exact-head watchdog run `45104213963` on `5892a4229e9683979bc1e97fca71b2e8528d2413` passed GNU89 ASan/UBSan signal deferral, NTP/service lifecycle, and CPU-watchdog postcondition regressions, then failed the final Python source-wiring step with `ValueError: substring not found`.
+- Root cause: the embedded Python assertions searched for literal escaped newline/tab sequences in `watchdog_main()`, although the C source has ordinary formatting whitespace. The same ordering assertions now operate on `"".join(main.split())` and compare all offsets in that normalized view.
+- The adjacent libdisk follow-up `1ccfaed9ba04feaa5c1d6802e6708d788e16f953` fixed a live-directory rollback bug in `add_folder()`; exact-head libdisk run `45104177783` passed.
+- Parent SHA `5892a4229e9683979bc1e97fca71b2e8528d2413`: XY-C1 run `45104213876` host stages PASS / Build IN_PROGRESS / TRX and artifact upload PENDING; NVRAM audit `45104213886` policy and lock regressions PASS / raw caller audit IN_PROGRESS; HTTPD auth `45104213964` PASS; Process inventory `45104213913` IN_PROGRESS; DNSMasq lifecycle `45104213901`, HTTPD daemon lifecycle `45104213888`, and handoff contract `45104213904` PASS.
+- This correction changes only the workflow's source-contract assertion and the handoff/log status, not watchdog runtime code. No L3 or hardware L4 validation claimed.
+- dev_log now has ${(log.match(/^## \d{4}-\d{2}-\d{2}/gm)||[]).length+1} dated records; it remains below the 120-record rotation threshold.
+
+---
+
 ## 2026-11-23 11:08 UTC+8 — Preserve ACLs when failed folder creation leaves a live directory
 
 - Parent main SHA: `256d736d8483227b5df3e26c074394ae4071786d`. In `add_folder()`, failure cleanup called `rmdir(full_path)`; if another writer populated the directory before rollback, removal failed but the old `else if (permission_init_started)` branch still deleted that folder's permission records from all accounts. The directory remained live while its ACL metadata was removed.
