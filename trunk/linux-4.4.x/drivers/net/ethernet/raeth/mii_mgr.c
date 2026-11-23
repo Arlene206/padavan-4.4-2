@@ -133,13 +133,14 @@ out:
 
 u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 {
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	struct END_DEVICE *ei_local;
 	u32 low_word;
 	u32 high_word;
 	u32 an_status = 0;
 
-	if (!read_data)
+	if (!read_data || !dev_raether)
 		return 0;
+	ei_local = netdev_priv(dev_raether);
 
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
@@ -174,8 +175,12 @@ EXPORT_SYMBOL(mii_mgr_read);
 
 u32 mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 {
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	struct END_DEVICE *ei_local;
 	u32 an_status = 0;
+
+	if (!dev_raether)
+		return 0;
+	ei_local = netdev_priv(dev_raether);
 
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
@@ -245,14 +250,15 @@ u32 mii_mgr_cl45_set_address(u32 port_num, u32 dev_addr, u32 reg_addr)
 
 u32 mii_mgr_read_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 *read_data)
 {
-		u32 rc = 0;
+	u32 rc = 0;
 	unsigned long t_start = jiffies;
 	u32 data = 0;
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	struct END_DEVICE *ei_local;
 	unsigned long flags;
 
-	if (!read_data)
+	if (!read_data || !dev_raether)
 		return 0;
+	ei_local = netdev_priv(dev_raether);
 
 	spin_lock_irqsave(&ei_local->mdio_lock, flags);
 	/* Do not issue a data phase when address setup timed out. */
@@ -303,8 +309,12 @@ u32 mii_mgr_write_cl45(u32 port_num, u32 dev_addr, u32 reg_addr, u32 write_data)
 	u32 rc = 0;
 	unsigned long t_start = jiffies;
 	u32 data = 0;
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	struct END_DEVICE *ei_local;
 	unsigned long flags;
+
+	if (!dev_raether)
+		return 0;
+	ei_local = netdev_priv(dev_raether);
 
 	spin_lock_irqsave(&ei_local->mdio_lock, flags);
 	/* Do not issue a data phase when address setup timed out. */

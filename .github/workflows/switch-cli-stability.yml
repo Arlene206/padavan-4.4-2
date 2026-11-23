@@ -1180,6 +1180,17 @@ jobs:
               "u32 mii_mgr_write_cl45", 1
           )[0]
           cl45_write = mdio_driver.split("u32 mii_mgr_write_cl45", 1)[1]
+          for function_start, function_end, required_guard in (
+              ("u32 mii_mgr_read(", "EXPORT_SYMBOL(mii_mgr_read)", "if (!read_data || !dev_raether)"),
+              ("u32 mii_mgr_write(", "EXPORT_SYMBOL(mii_mgr_write)", "if (!dev_raether)"),
+              ("u32 mii_mgr_read_cl45(", "u32 mii_mgr_write_cl45(", "if (!read_data || !dev_raether)"),
+              ("u32 mii_mgr_write_cl45(", "", "if (!dev_raether)")
+          ):
+              function = mdio_driver.split(function_start, 1)[1]
+              if function_end:
+                  function = function.split(function_end, 1)[0]
+              assert required_guard in function
+              assert function.index(required_guard) < function.index("netdev_priv(dev_raether)")
           normal_read = mdio_driver.split("u32 mii_mgr_read(", 1)[1].split(
               "EXPORT_SYMBOL(mii_mgr_read)", 1
           )[0]
