@@ -1315,8 +1315,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
-          body = source.split("void do_ge_phy_all_analog_cal(", 1)[1].split(
-              chr(10) + "static void mt7622_ephy_cal(", 1
+          body = source.split("int do_ge_phy_all_analog_cal(", 1)[1].split(
+              chr(10) + "static int mt7622_ephy_cal(", 1
           )[0]
           for legacy in ("tc_phy_read_dev_reg(", "tc_phy_write_dev_reg(",
                          "tc_mii_read(", "tc_mii_write("):
@@ -1325,6 +1325,7 @@ jobs:
                           "tc_mii_read_checked(", "tc_mii_write_checked("):
               assert checked in body
           assert "reg0_saved" in body and "dev145_saved" in body
+          assert "return status;" in body
           assert "if (!ge_cal_r50_flag)" in body
           assert "if (!ge_cal_tx_offset_flag)" in body
           assert "if (!ge_cal_flag)" in body
