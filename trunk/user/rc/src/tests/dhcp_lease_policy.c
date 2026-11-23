@@ -645,6 +645,21 @@ test_dhcp_lease_text_fits_buffer(void)
 }
 
 
+static void
+test_dhcp_lease_required_option_is_missing_or_changed(void)
+{
+	assert(!dhcp_lease_required_option_is_missing_or_changed(
+		"255.255.255.0", "255.255.255.0"));
+	assert(dhcp_lease_required_option_is_missing_or_changed(
+		"255.255.255.0", "255.255.254.0"));
+	assert(dhcp_lease_required_option_is_missing_or_changed(
+		"255.255.255.0", NULL));
+	assert(!dhcp_lease_required_option_is_missing_or_changed(NULL, ""));
+	assert(dhcp_lease_required_option_is_missing_or_changed(
+		"", "192.0.2.10"));
+}
+
+
 struct dhcp_viptv_nvram_fake {
 	const char *names[5];
 	const char *old_values[5];
@@ -972,6 +987,7 @@ main(void)
 	struct dhcp_viptv_deconfig_fake viptv_fake;
 	int rollback_status, transaction_status;
 
+	test_dhcp_lease_required_option_is_missing_or_changed();
 	assert(dhcp_lease_ipv4_is_valid("192.0.2.1"));
 	assert(!dhcp_lease_ipv4_is_valid("0.0.0.0"));
 	assert(!dhcp_lease_ipv4_list_is_valid("0.0.0.0 192.0.2.1", 255, 16, 1));

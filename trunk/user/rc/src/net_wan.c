@@ -9143,7 +9143,8 @@ udhcpc_renew(char *wan_ifname)
 	}
 
 	value = getenv("subnet");
-	if (!value || strcmp(previous_state.netmask, trim_r(value)) != 0)
+	if (dhcp_lease_required_option_is_missing_or_changed(
+		previous_state.netmask, value ? trim_r(value) : NULL))
 		return udhcpc_bound(wan_ifname, 1);
 	value = getenv("router");
 	if (dhcp_lease_router_is_changed(
@@ -9151,7 +9152,8 @@ udhcpc_renew(char *wan_ifname)
 		gateway_buf, sizeof(gateway_buf)))
 		return udhcpc_bound(wan_ifname, 1);
 	value = getenv("ip");
-	if (!value || strcmp(previous_state.ipaddr, trim_r(value)) != 0)
+	if (dhcp_lease_required_option_is_missing_or_changed(
+		previous_state.ipaddr, value ? trim_r(value) : NULL))
 		return udhcpc_bound(wan_ifname, 1);
 
 	/* Changed route options must re-run WAN setup after removing old routes. */
@@ -9352,7 +9354,8 @@ udhcpc_viptv_renew(char *man_ifname)
 	}
 
 	value = getenv("subnet");
-	if (value && strcmp(previous_state.netmask, trim_r(value)) != 0)
+	if (dhcp_lease_required_option_is_missing_or_changed(
+		previous_state.netmask, value ? trim_r(value) : NULL))
 		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = getenv("router");
@@ -9362,7 +9365,8 @@ udhcpc_viptv_renew(char *man_ifname)
 		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = getenv("ip");
-	if (value && strcmp(previous_state.ipaddr, trim_r(value)) != 0)
+	if (dhcp_lease_required_option_is_missing_or_changed(
+		previous_state.ipaddr, value ? trim_r(value) : NULL))
 		return udhcpc_viptv_bound(man_ifname, 1);
 
 	value = safe_getenv("routes");

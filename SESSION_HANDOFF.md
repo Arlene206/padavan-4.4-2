@@ -1,33 +1,32 @@
 # SESSION HANDOFF — 2026-11-23
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main: `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- No local checkout; no local shell test/build claim outside Actions.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before this slice: `312b80bcfbc223239343b002dcfb002bec269c3d`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
+- No local checkout. Changes are authored through Git Data API; do not claim local host or firmware tests.
 
 ## Exact-SHA Actions
-- Moon source commit `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`: shell lifecycle regression PASS; Python contract failed before assertions because generic brace parser treated legacy backtick command substitutions inside `creat_moon()` as unterminated. This is a checker extraction limitation, not a shell test failure or production C/shell failure.
-- THIS COMMIT extracts the two Moon function slices by their explicit next-function boundaries, allowing the existing source assertions to run without changing production source.
-- AI docs `45132437976`, Process inventory `45132437950`, WAN route `45132437933` and XY-C1 `45132438010` were in progress at last poll. XY steps: Build running; TRX and artifact pending. The prior XY run `45131246305` on `4025152c...` completed SUCCESS with Build, TRX and artifact all PASS on that exact SHA; this predates the later NAT/static-route and Moon source changes and does not prove those.
-- Earlier ZeroTier checker repairs `1b29ed2...` / `59a05ef...` have exact-head ZeroTier and AI checks SUCCESS.
+- Checker-only SHA `312b80bcfbc223239343b002dcfb002bec269c3d`: ZeroTier lifecycle `45132591397` PASS; AI handoff contract `45132591442` PASS. The Moon checker extraction failure on parent `d3f3aedd...` is closed; do not repeat.
+- Production-source SHA `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`: shell lifecycle PASS; ZeroTier contract failed only due to the old generic parser, corrected and verified on `312b80...`. Same-SHA Process `45132437950`, WAN route `45132437933`, AI docs `45132437976` PASS.
+- XY-C1 `45132438010` on `d3f3aedd...` was BUILD IN_PROGRESS at last poll; TRX and artifact pending. L3 requires all three on the same production SHA.
 
-## Active work — ZeroTier Moon create/remove reliability
-- `creat_moon()` now reads `zerotiermoon_ip` with `nvram get_checked` and aborts before WAN-interface fallback on read error.
-- `remove_moon()` now checked-reads Moon ID, treats missing ID as a no-op, validates exactly ten hex digits, deletes only the named `000000<id>.moon` plus JSON, and checks NVRAM set/commit outcomes. The malformed conditional was corrected.
-- `start_instance()` propagates Moon operation failures.
-- Shell tests covering failed address/ID reads, no WAN fallback, malformed ID, successful deletion and empty-ID no-op passed on `d3f3aedd...`; source checker only failed during its generic extraction of legacy backtick command-substitution syntax. Exact-head rerun pending.
+## Active source task — WAN DHCP IPTV renew consistency
+- `udhcpc_viptv_renew()` treated absent `subnet` and `ip` as unchanged because the comparisons were guarded by `value &&`, unlike physical WAN `udhcpc_renew()`, which forces the full bound path for missing mandatory options.
+- THIS SLICE aligns physical WAN and IPTV renew fast paths via a shared policy helper. Missing `subnet`/ `ip` triggers the full bound callback, allowing the legacy subnet default to be applied and invalid/missing address data to be rejected.
+- Added GNU89 unit cases for equal, changed, missing and empty options, and source-contract assertions for both renew paths. Exact-head Actions pending.
 
 ## Next actions
-1. Verify this checker-only correction's exact-head ZeroTier and AI runs; fix any first causal contract or shell failure.
-2. Recheck XY-C1 `45132438010` and require Build, TRX and artifact all PASS on this production-source SHA for L3.
-3. Continue with any independent reliability defect while CI is pending; do not repeat already-passed Moon shell tests.
+1. Check exact-head WAN DHCP callback and AI Actions; diagnose any first causal failure.
+2. Recheck XY-C1 `45132438010` on source `d3f3aedd...`; record L3 only if Build, TRX and artifact all PASS on that exact SHA.
+3. Continue with another independent userland reliability/security defect while CI is pending.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-Moon shell L2 passes on `d3f3aedd...`; Python source contract rerun pending after bounded extraction fix. Same-SHA firmware L3 pending; physical L4 NOT VERIFIED.
+This IPTV renew source/test change awaits exact-head WAN DHCP callback, AI handoff and XY-C1 checks. No local tests or builds claimed; L3 remains pending on `d3f3aedd...`; L4 NOT VERIFIED.
 
 ## Cross-session mandate
-Small atomic changes; complete Git tree/commit per slice; only non-forced expected-SHA main updates; exact-SHA Actions; never touch backup or claim unobserved results.
+One complete tree and atomic commit per logical slice; update `main` without force using the exact expected parent SHA; exact-SHA Actions; never touch the frozen backup.
+
 
 ---
 # SESSION HANDOFF — Padavan 4.4

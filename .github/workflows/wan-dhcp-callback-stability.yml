@@ -568,6 +568,12 @@ jobs:
           assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values,snapshot_count,rollback_values)" in callback_compact
           lease_policy = (rc / "dhcp_lease_policy.h").read_text()
           lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
+          required_option_policy = body(lease_policy, "dhcp_lease_required_option_is_missing_or_changed(")
+          assert "if (!option_value)" in required_option_policy
+          assert "return 1;" in required_option_policy
+          assert "strcmp(stored_value ? stored_value : \"\", option_value)" in required_option_policy
+          assert "test_dhcp_lease_required_option_is_missing_or_changed" in lease_policy_test
+          assert "test_dhcp_lease_required_option_is_missing_or_changed();" in lease_policy_test
           assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
           assert "preserving current interface/routes" in callback
           callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
@@ -584,6 +590,7 @@ jobs:
           wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
           wan_dhcp_renew_compact = "".join(wan_dhcp_renew.split())
           assert "wan_dhcp_renew_state_snapshot(prefix,1,&previous_state);" in wan_dhcp_renew_compact
+          assert wan_dhcp_renew_compact.count("dhcp_lease_required_option_is_missing_or_changed(") == 2
           for field,target in (("lease_error","lease_error"),("route_error","route_error"),("mtu_error","mtu_error")):
               assert ("rc_wan_nvram_parse_int_value(previous_state."+field+",&"+target+");") in wan_dhcp_renew_compact
           retry_decision = wan_dhcp_renew_compact.index("dhcp_wan_bound_retry_decide(")
@@ -606,6 +613,7 @@ jobs:
           wan_iptv_renew_compact = "".join(wan_iptv_renew.split())
           assert 'strcpy(prefix, "manv_")' in wan_iptv_renew
           assert "wan_dhcp_renew_state_snapshot(prefix,0,&previous_state);" in wan_iptv_renew_compact
+          assert wan_iptv_renew_compact.count("dhcp_lease_required_option_is_missing_or_changed(") == 2
           for field,target in (("lease_error","lease_error"),("route_error","route_error"),("mtu_error","mtu_error")):
               assert ("rc_wan_nvram_parse_int_value(previous_state."+field+",&"+target+");") in wan_iptv_renew_compact
           iptv_retry_decision = wan_iptv_renew_compact.index("dhcp_wan_bound_retry_decide(")

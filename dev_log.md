@@ -1,3 +1,12 @@
+## 2026-11-23 UTC — Rebind IPTV DHCP when mandatory address options are absent
+
+- Review of `udhcpc_viptv_renew()` found an asymmetry with physical WAN: absent `subnet` or `ip` was treated as unchanged because comparisons used `value &&`. This could skip applying the bound-path default subnet mask after option withdrawal and could let a renewal missing its address return success without validation.
+- Added a shared mandatory-option comparator and used it in both physical WAN and IPTV fast-renew paths. Missing `ip`/`subnet` now triggers full bound processing; optional router/route/DNS options retain their existing withdrawal behavior.
+- Added GNU89 unit tests for equal, changed, missing and empty values, plus workflow source-contract assertions for helper semantics and both call sites.
+- Exact-head WAN DHCP callback, AI handoff, and XY-C1 Actions are pending; no local tests/builds claimed.
+
+---
+
 ## 2026-11-23 08:26 UTC — Bound Moon checker extraction around shell backticks
 
 - Exact ZeroTier run `45132438035` on `d3f3aedd1b5a3d83dd6b178506ef59df0fff8ce9`: the new Moon lifecycle shell regression passed; the Python contract failed before semantic assertions because generic `function_body()` could not parse legacy backtick command substitutions in `creat_moon()`.

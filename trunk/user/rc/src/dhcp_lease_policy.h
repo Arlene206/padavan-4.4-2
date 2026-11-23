@@ -156,6 +156,20 @@ dhcp_lease_router_is_changed(const char *stored_gateway,
 	return strcmp(stored_gateway ? stored_gateway : "", next_gateway) != 0;
 }
 
+/*
+ * Mandatory address options must not be mistaken for an unchanged lease
+ * when an event omits them. A missing option always requires full bound
+ * processing; optional DHCP options continue to use their own defaults.
+ */
+static inline int
+dhcp_lease_required_option_is_missing_or_changed(const char *stored_value,
+                                                 const char *option_value)
+{
+	if (!option_value)
+		return 1;
+	return strcmp(stored_value ? stored_value : "", option_value) != 0;
+}
+
 /* A missing old default route is harmless during lease reconciliation;
  * other delete errors must stop publication of the replacement lease. */
 static inline int
