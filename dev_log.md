@@ -1,3 +1,11 @@
+## 2026-11-23 — Report proc MIB read and snapshot-control failures
+
+- RAETH's `DUMP_EACH_PORT` macro ignored `mii_mgr_read()`'s boolean result. The driver clears the output to zero on failure, so proc output could report an MDIO timeout as a legitimate zero counter.
+- Failed per-port counter reads now print an aligned `ERR` marker; successful reads keep the existing numeric format. Both MIB snapshot-control writes to `0x4fe0` now emit explicit failure messages. Register values, ordering and write attempts are unchanged.
+- Added exact-source workflow assertions for read-result handling, numeric/error output and both snapshot write guards/messages. Added `ra_dbg_proc.h/.c` to Switch CLI push/PR and XY-C1 push path filters, plus path-filter contract checks.
+- Parent exact-SHA Actions: Switch CLI #45268640001 PASS and AI docs #45268640240 PASS on `2a45c674`; XY-C1 and NVRAM did not trigger on that workflow-only commit. This commit's exact-head runs are pending. No local kernel/MIPS build or hardware L4 is claimed.
+- Next: inspect exact-head Actions, then continue a targeted audit of RAETH proc/debug telemetry for any other concrete ignored MDIO status.
+
 ## 2026-11-23 — Preserve switch link state when PHY MDIO reads fail
 
 - Both MTK/GSW and legacy ESW link interrupt paths ignored the success result from `mii_mgr_read()`. That API clears its output on failure, so an MDIO timeout could be mistaken for a genuine link-down sample; the GSW path also acknowledged all port-change flags even when an individual port-status read failed.

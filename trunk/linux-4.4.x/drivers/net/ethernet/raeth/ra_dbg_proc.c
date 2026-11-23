@@ -1170,8 +1170,10 @@ void internal_gsw_cnt_read(struct seq_file *seq)
 	seq_puts(seq, "\n");
 	seq_puts(seq, "Rx Pause Packet     :");
 	DUMP_EACH_PORT(0x408C);
-	mii_mgr_write(31, 0x4fe0, 0xf0);
-	mii_mgr_write(31, 0x4fe0, 0x800000f0);
+	if (!mii_mgr_write(31, 0x4fe0, 0xf0))
+		seq_puts(seq, "\nMIB snapshot control write 0x4fe0=0x000000f0 failed\n");
+	if (!mii_mgr_write(31, 0x4fe0, 0x800000f0))
+		seq_puts(seq, "MIB snapshot control write 0x4fe0=0x800000f0 failed\n");
 
 	seq_puts(seq, "\n");
 }

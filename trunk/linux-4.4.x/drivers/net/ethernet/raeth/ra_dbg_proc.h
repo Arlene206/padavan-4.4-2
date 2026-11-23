@@ -68,10 +68,12 @@ int int_stats_update(unsigned int int_status);
 
 #define DUMP_EACH_PORT(base)					\
 	for (i = 0; i < 7; i++) {					\
-		mii_mgr_read(31, (base) + (i * 0x100), &pkt_cnt); \
-		seq_printf(seq, "%8u ", pkt_cnt);			\
+		if (mii_mgr_read(31, (base) + (i * 0x100), &pkt_cnt)) \
+			seq_printf(seq, "%8u ", pkt_cnt);		\
+		else							\
+			seq_printf(seq, "%8s ", "ERR");		\
 	}							\
-
+ 
 /* HW LRO functions */
 int hwlro_debug_proc_init(struct proc_dir_entry *proc_reg_dir);
 void hwlro_debug_proc_exit(struct proc_dir_entry *proc_reg_dir);

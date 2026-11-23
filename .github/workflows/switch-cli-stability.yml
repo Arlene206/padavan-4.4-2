@@ -20,6 +20,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
@@ -51,6 +53,8 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/ra_switch_mdio_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch_mdio_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr_timeout_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/mii_mgr_timeout_policy.c"
@@ -1243,6 +1247,8 @@ jobs:
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h",
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
               ".github/workflows/switch-cli-stability.yml",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c",
           ):
               assert filters.count('"' + path + '"') == 2, path
           xy_filters = xy_workflow.split("workflow_dispatch:", 1)[0]
@@ -1252,6 +1258,8 @@ jobs:
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.h",
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/link_mode_policy.h",
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/link_mode_policy.c",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h",
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c",
           ):
               assert xy_filters.count('"' + path + '"') == 1, path
           igmp_flood = source.split("int esw_igmp_flood_to_cpu", 1)[1].split(
@@ -1402,4 +1410,22 @@ jobs:
           print("MTK ESW link/MIB checked reads and ioctl error propagation: PASS")
           print("MTK ESW IGMP/MLD checked writes and ioctl error propagation: PASS")
           print("MTK ESW link-mode policy, pre-MDIO guard and XY-C1 trigger contract: PASS")
+
+          proc_header = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.h").read_text()
+          proc_source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_dbg_proc.c").read_text()
+          dump_macro = proc_header.split("#define DUMP_EACH_PORT(base)", 1)[1].split(
+              "/* HW LRO functions */", 1
+          )[0]
+          assert "if (mii_mgr_read(" in dump_macro
+          assert 'seq_printf(seq, "%8u ", pkt_cnt);' in dump_macro
+          assert 'seq_printf(seq, "%8s ", "ERR");' in dump_macro
+          assert dump_macro.index("if (mii_mgr_read(") < dump_macro.index('seq_printf(seq, "%8u ", pkt_cnt);')
+          internal_dump = proc_source.split("void internal_gsw_cnt_read(struct seq_file *seq)", 1)[1].split(
+              "void pse_qdma_drop_cnt(void)", 1
+          )[0]
+          for value in ("0xf0", "0x800000f0"):
+              assert f"if (!mii_mgr_write(31, 0x4fe0, {value}))" in internal_dump
+          assert "MIB snapshot control write 0x4fe0=0x000000f0 failed" in internal_dump
+          assert "MIB snapshot control write 0x4fe0=0x800000f0 failed" in internal_dump
+          print("RAETH proc MIB dumps distinguish MDIO failures from zero counters: PASS")
           PY
