@@ -19,6 +19,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_connection_limit_policy.h"
       - "trunk/user/rc/src/ftp_passive_port_policy.h"
+      - "trunk/user/rc/src/ftp_transfer_rate_policy.h"
+      - "trunk/user/rc/src/tests/ftp_transfer_rate_policy.c"
       - "trunk/user/rc/src/tests/ftp_passive_port_policy.c"
       - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/service_wait_policy.h"
@@ -48,6 +50,8 @@ on:
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_connection_limit_policy.h"
       - "trunk/user/rc/src/ftp_passive_port_policy.h"
+      - "trunk/user/rc/src/ftp_transfer_rate_policy.h"
+      - "trunk/user/rc/src/tests/ftp_transfer_rate_policy.c"
       - "trunk/user/rc/src/tests/ftp_passive_port_policy.c"
       - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/service_wait_policy.h"
@@ -83,6 +87,11 @@ jobs:
             trunk/user/rc/src/tests/ftp_passive_port_policy.c \
             -o /tmp/ftp-passive-port-policy
           /tmp/ftp-passive-port-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ftp_transfer_rate_policy.c \
+            -o /tmp/ftp-transfer-rate-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ftp-transfer-rate-policy
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/rc/src -I trunk/user/shared/src \
             trunk/user/rc/src/tests/ftp_daemon_policy.c \
@@ -108,6 +117,8 @@ jobs:
           daemon_test = Path("trunk/user/rc/src/tests/ftp_daemon_policy.c").read_text()
           service_wait_policy = Path("trunk/user/rc/src/service_daemon_wait_policy.h").read_text()
           passive_port_policy = Path("trunk/user/rc/src/ftp_passive_port_policy.h").read_text()
+          transfer_rate_policy = Path("trunk/user/rc/src/ftp_transfer_rate_policy.h").read_text()
+          transfer_rate_test = Path("trunk/user/rc/src/tests/ftp_transfer_rate_policy.c").read_text()
           passive_port_test = Path("trunk/user/rc/src/tests/ftp_passive_port_policy.c").read_text()
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
@@ -190,6 +201,16 @@ jobs:
           assert "minimum_value > maximum_value" in passive_port_policy
           assert "minimum_status != 0" in passive_port_policy
           assert "maximum_status != 0" in passive_port_policy
+          anon_rate_read = 'storage_read_integer_status("st_ftp_anmr",0,&ftp_anon_rate_value)'
+          anon_rate_gate = 'ftp_transfer_rate_value_status(ftp_anon_rate_status,ftp_anon_rate_value,10000,&ftp_anon_rate)'
+          assert anon_rate_read in config_compact and anon_rate_gate in config_compact
+          assert config_compact.index(anon_rate_read) < config_compact.index(ftp_config_open)
+          assert config_compact.index(anon_rate_gate) < config_compact.index(ftp_config_open)
+          assert 'nvram_safe_get_int("st_ftp_anmr"' not in config
+          assert 'fprintf(fp, "anon_max_rate=%u\\n", (unsigned int)ftp_anon_rate * 1024U);' in config
+          assert "ftp_transfer_rate_value_status" in transfer_rate_policy
+          assert "ftp_transfer_rate_value_status(EIO, 0, 10000, &rate) == EIO" in transfer_rate_test
+          assert "ftp_transfer_rate_value_status(0, 20000, 10000, &rate) == 0" in transfer_rate_test
           assert "INT_MIN" in passive_port_test and "INT_MAX" in passive_port_test
           assert "EACCES" in passive_port_test and "EINVAL" in passive_port_test
           assert 'nvram_get_int("st_max_user")' not in config

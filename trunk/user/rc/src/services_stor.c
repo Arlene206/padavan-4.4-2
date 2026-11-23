@@ -62,6 +62,7 @@
 #include "samba_passdb_policy.h"
 #include "ftp_share_policy.h"
 #include "ftp_passive_port_policy.h"
+#include "ftp_transfer_rate_policy.h"
 #include "ftp_config_file.h"
 #include "ftp_daemon_policy.h"
 #include "storage_mount_inventory_policy.h"
@@ -352,11 +353,12 @@ write_vsftpd_conf(void)
 	char staged_path[64];
 	int i_maxuser = 0, max_user_value = 0;
 	int ftp_mode_value = 0, ftp_log_value = 0;
+	int ftp_anon_rate_value = 0, ftp_anon_rate = 0;
 	int ftp_min_value = 50000, ftp_max_value = 50100;
 	int ftp_min_port = 50000, ftp_max_port = 50100;
 	int max_user_status, ftp_mode_status, ftp_log_status;
 	int ftp_min_status, ftp_max_status, ftp_passive_port_status;
-	int config_status, saved_errno, i_ftp_mode;
+	int config_status, saved_errno, i_ftp_mode, ftp_anon_rate_status;
 #if defined (USE_IPV6)
 	int ipv6_type, ipv6_type_status;
 #endif
@@ -366,6 +368,10 @@ write_vsftpd_conf(void)
 		"st_ftp_mode", 0, &ftp_mode_value);
 	ftp_log_status = storage_read_integer_status(
 		"st_ftp_log", 0, &ftp_log_value);
+	ftp_anon_rate_status = storage_read_integer_status(
+		"st_ftp_anmr", 0, &ftp_anon_rate_value);
+	ftp_anon_rate_status = ftp_transfer_rate_value_status(
+		ftp_anon_rate_status, ftp_anon_rate_value, 10000, &ftp_anon_rate);
 	max_user_status = storage_read_integer_status(
 		"st_max_user", 0, &max_user_value);
 	max_user_status = service_connection_limit_value_status(
@@ -379,7 +385,8 @@ write_vsftpd_conf(void)
 		&ftp_min_port, &ftp_max_port);
 	config_status = ftp_mode_status != 0 ? ftp_mode_status :
 		ftp_log_status != 0 ? ftp_log_status :
-		max_user_status != 0 ? max_user_status : ftp_passive_port_status;
+		max_user_status != 0 ? max_user_status :
+		ftp_passive_port_status != 0 ? ftp_passive_port_status : ftp_anon_rate_status;
 	if (config_status != 0) {
 		saved_errno = config_status > 0 ? config_status : EIO;
 		logmessage("FTP server",
@@ -444,7 +451,7 @@ write_vsftpd_conf(void)
 	}
 
 	if (i_ftp_mode == 3 || i_ftp_mode == 4)
-		fprintf(fp, "anon_max_rate=%u\n", nvram_safe_get_int("st_ftp_anmr", 0, 0, 1000*10) * 1024);
+		fprintf(fp, "anon_max_rate=%u\n", (unsigned int)ftp_anon_rate * 1024U);
 
 	/* Do not run vsftpd unprivileged workers as root. */
 	fprintf(fp, "nopriv_user=%s\n", "nobody");
