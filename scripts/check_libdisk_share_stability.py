@@ -582,16 +582,17 @@ require(mod_inventory < mod_loop < mod_old_path < mod_new_path < mod_old_stat <
         mod_target_stat < mod_plan < mod_rename < mod_cleanup < mod_service < mod_error and
         "rename(var_file,new_var_file)" not in mod_account_compact,
         "mod_account must preflight every volume before a compensating rename batch and must clean inventory before service reload")
-require("if(read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
+require("if(first_error==0&&read_disk_data_checked(&disk_list)!=0)" in mod_account_compact and
         "first_error=errno?errno:EIO;" in mod_account_compact[mod_inventory:mod_loop],
         "mod_account must not treat incomplete storage inventory as empty")
 require("S_ISREG(old_stat.st_mode)" in mod_account_body and
         "first_error=EEXIST;" in mod_account_compact[mod_target_stat:mod_rename],
         "mod_account must reject non-regular sources and pre-existing target metadata")
-require("disk_share_account_rename_status(rename_result,rename_errno)" in mod_account_compact and
+require("disk_share_account_rename_entries_apply(moves,rename,&rollback_error)" in mod_account_compact and
+        "rollback_error!=0" in mod_account_compact and
         "errno=first_error;" in mod_account_compact and
         "return-1;" in mod_account_compact[mod_error:],
-        "mod_account must aggregate rename/inventory errors after cleanup")
+        "mod_account must aggregate batch rename/rollback/inventory errors after cleanup")
 require("snprintf(var_file" not in mod_account_body and
         "snprintf(new_var_file" not in mod_account_body,
         "mod_account must use bounded path formatter")
