@@ -396,7 +396,16 @@ assert "return wait_status;" in pppoe_confirm
 assert "sleep(1);" not in pppoe_confirm
 assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
 udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n#if defined(APP_XUPNPD)", 1)[0]
-assert "if (port < 1024)" in udpxy_start
+assert "rc_wan_nvram_copy_value(net_nvram_get_checked, NULL," in udpxy_start
+assert '"udpxy_enable_x"' in udpxy_start
+assert "rc_wan_nvram_parse_int_value(port_text, &port)" in udpxy_start
+assert 'nvram_get_int("udpxy_enable_x")' not in udpxy_start
+checked_port = udpxy_start.index('"udpxy_enable_x"')
+disabled_gate = udpxy_start.index("if (port < 1024)")
+process_preflight = udpxy_start.index("iptv_proxy_process_presence((void *)process_name, &scan_error)")
+assert checked_port < disabled_gate < process_preflight
+assert "cannot read IPTV proxy port selector" in udpxy_start
+assert "if (port > 65535)" in udpxy_start
 assert 'process_name = "msd_lite";' in udpxy_start
 assert 'process_name = "udpxy";' in udpxy_start
 assert "iptv_proxy_process_presence((void *)process_name, &scan_error)" in udpxy_start

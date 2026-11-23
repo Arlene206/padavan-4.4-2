@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Fail closed on IPTV proxy port-selector reads
+
+- `start_udpxy()` used `nvram_get_int("udpxy_enable_x")` and returned success for values below 1024. That API collapses an NVRAM backend read failure into the integer default, so a failed read was silently misreported as an intentionally disabled IPTV relay; malformed values also passed through prefix/overflow-prone conversion.
+- The selector is now copied through the shared checked NVRAM reader and parsed as a complete decimal integer before the disable gate or process/config side effects. Missing/empty retains the legacy port-0 disabled default; backend errors and malformed/overflow values abort; configured enabled ports above 65535 are rejected.
+- Existing GNU89 policy tests cover checked-copy missing/error and strict integer parsing; the Process integration checker now asserts checked read → parse → disabled gate → process inventory ordering. Exact-head Process/XY-C1 checks pending.
+---
+
 ## 2026-11-23 UTC — Fail closed on MSD Lite enable-state publication
 
 - `start_udpxy()`'s `APP_MSD_LITE` path ignored the result of `nvram_set("msd_lite_enable", "1")` and launched `msd_lite` anyway. A failed NVRAM write could leave the daemon running while the enable state remained disabled, making restart/UI state inconsistent.

@@ -551,7 +551,8 @@ stop_udpxy(void)
 int
 start_udpxy(char *wan_ifname)
 {
-	int port = nvram_get_int("udpxy_enable_x");
+	char port_text[16];
+	int port = 0, port_status;
 	int launch_status, scan_error = 0, saved_errno, launch_errno;
 #if !defined (APP_MSD_LITE)
 	char udpxy_port[16], udpxy_clients[16], udpxy_renew_period[16];
@@ -560,8 +561,32 @@ start_udpxy(char *wan_ifname)
 	enum process_presence process_state;
 	const char *process_name;
 
+	/*
+	 * A failed NVRAM read is not the same as a disabled service. Preserve
+	 * the historical missing/empty default (port 0), but fail closed on
+	 * backend errors, malformed values and ports outside the TCP/UDP range.
+	 */
+	port_status = rc_wan_nvram_copy_value(net_nvram_get_checked, NULL,
+					      "udpxy_enable_x", port_text,
+					      sizeof(port_text));
+	if (port_status == 0)
+		port_status = rc_wan_nvram_parse_int_value(port_text, &port);
+	if (port_status != 0) {
+		errno = port_status;
+		logmessage(LOGNAME,
+			   "cannot read IPTV proxy port selector (status=%d)",
+			   port_status);
+		return port_status;
+	}
 	if (port < 1024)
 		return 0;
+	if (port > 65535) {
+		errno = ERANGE;
+		logmessage(LOGNAME,
+			   "refusing IPTV proxy startup: configured port is out of range (%d)",
+			   port);
+		return ERANGE;
+	}
 
 #if defined (APP_MSD_LITE)
 	process_name = "msd_lite";
