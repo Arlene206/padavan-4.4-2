@@ -2189,15 +2189,15 @@ miniupnpd_nvram_copy = c_function_body(
 )
 assert "rc_wan_nvram_copy_value(" in miniupnpd_nvram_copy
 miniupnpd_start = c_function_body(services_source, "start_upnp_locked(void)")
-miniupnpd_start_compact = " ".join(miniupnpd_start.split())
+miniupnpd_start_compact = "".join(miniupnpd_start.split())
 for key, destination in (
     ("lan_ipaddr", "lan_addr"),
     ("lan_netmask", "lan_mask"),
     ("lan_hwaddr", "lan_hwaddr"),
 ):
     assert 'miniupnpd_copy_nvram_value("' + key + '",' in miniupnpd_start_compact
-    assert destination + ", sizeof(" + destination + "))" in miniupnpd_start_compact
-assert "ether_atoe(lan_hwaddr, lan_mac);" in miniupnpd_start
+    assert destination + ",sizeof(" + destination + "))" in miniupnpd_start_compact
+assert "ether_atoe(lan_hwaddr,lan_mac);" in miniupnpd_start_compact
 assert 'nvram_safe_get("lan_ipaddr")' not in miniupnpd_start
 assert 'nvram_safe_get("lan_netmask")' not in miniupnpd_start
 assert 'ether_atoe(nvram_safe_get("lan_hwaddr")' not in miniupnpd_start
