@@ -572,11 +572,38 @@ jobs:
               assert token in writer, token
 
           start = function_body(service, "start_upnp_locked(void)")
-          lan_addr_read = start.index('lan_addr = nvram_safe_get("lan_ipaddr");')
-          lan_mask_read = start.index('lan_mask = nvram_safe_get("lan_netmask");', lan_addr_read)
-          mask_validate = start.index("ipv4_netmask_is_contiguous(lan_mask)", lan_mask_read)
-          subnet_derive = start.index("ip2class(lan_addr, lan_mask, lan_class", mask_validate)
-          assert lan_addr_read < lan_mask_read < mask_validate < subnet_derive
+          start_compact = " ".join(start.split())
+          checked_copy = function_body(
+              service, "miniupnpd_copy_nvram_value(const char *param_name, char *destination,"
+          )
+          checked_get = function_body(
+              service, "miniupnpd_nvram_get_checked(void *context, const char *param_name,"
+          )
+          assert "nvram_get_checked(param_name, value)" in checked_get
+          assert "rc_wan_nvram_copy_value(" in checked_copy
+          lan_addr_read = start_compact.index(
+              'miniupnpd_copy_nvram_value("lan_ipaddr", lan_addr, sizeof(lan_addr))'
+          )
+          lan_mask_read = start_compact.index(
+              'miniupnpd_copy_nvram_value("lan_netmask", lan_mask, sizeof(lan_mask))',
+              lan_addr_read,
+          )
+          lan_hwaddr_read = start_compact.index(
+              'miniupnpd_copy_nvram_value("lan_hwaddr", lan_hwaddr, sizeof(lan_hwaddr))',
+              lan_mask_read,
+          )
+          mask_validate = start_compact.index("ipv4_netmask_is_contiguous(lan_mask)", lan_hwaddr_read)
+          subnet_derive = start_compact.index("ip2class(lan_addr, lan_mask, lan_class", mask_validate)
+          config_publish = start_compact.index('miniupnpd_config_publish("/etc/miniupnpd.conf"')
+          assert lan_addr_read < lan_mask_read < lan_hwaddr_read < mask_validate < subnet_derive < config_publish
+          assert "ether_atoe(lan_hwaddr, lan_mac);" in start
+          for unsafe_read in (
+              'nvram_safe_get("lan_ipaddr")',
+              'nvram_safe_get("lan_netmask")',
+              'nvram_safe_get("lan_hwaddr")',
+          ):
+              assert unsafe_read not in start
+          assert "cannot read complete LAN identity" in start
           assert "invalid LAN IPv4 address or non-contiguous netmask" in start
           assert "ipv4_netmask_is_contiguous" in netmask_policy
           assert "ipv4_netmask_policy.h" in service
