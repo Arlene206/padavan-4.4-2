@@ -350,26 +350,18 @@ add_account_body = function_body(
 )
 add_account_compact = "".join(add_account_body.split())
 add_inventory = add_account_compact.index("read_disk_data_checked(&disk_list)")
-add_inventory_error = add_account_compact.index(
-    "first_error=errno?errno:EIO;", add_inventory
+add_init = add_account_compact.index("initial_one_var_file_in_mount_path(", add_inventory)
+add_publish = add_account_compact.index("nvram_set(nvram_name,account)", add_init)
+add_commit = add_account_compact.index("nvram_commit_safe()", add_publish)
+add_rollback = add_account_compact.index(
+    "disk_share_account_created_files_rollback(files,unlink,&rollback_error)",
+    add_commit
 )
-add_init_assignment = (
-    "init_result=initial_one_var_file_in_mount_path("
-    "account,follow_partition->mount_point);"
-)
-add_init = add_account_compact.index(add_init_assignment, add_inventory)
-add_cleanup = add_account_compact.index("free_disk_data(disk_list)", add_init)
-add_samba = add_account_compact.index('system("/sbin/run_samba")', add_cleanup)
-add_error_return = add_account_compact.index("if(first_error!=0)", add_samba)
-require(add_account_compact.count("read_disk_data_checked(&disk_list)") == 1 and
-        "read_disk_data()" not in add_account_compact and
-        add_inventory < add_inventory_error < add_init < add_cleanup < add_samba < add_error_return and
-        "if(init_result!=0&&first_error==0)" in add_account_compact and
-        "errno=first_error;" in add_account_compact and
-        "return-1;" in add_account_compact[add_error_return:] and
-        "return0;" not in add_account_compact[add_inventory:add_samba],
-        "add_account must distinguish an empty inventory from a failed scan, keep processing accessible volumes, reload Samba even for empty/unknown inventory, and return the first inventory/metadata error")
-
+require(add_inventory < add_init < add_publish < add_commit < add_rollback and
+        "first_error=errno?errno:EIO;" in add_account_compact and
+        "nvram_unset(nvram_name)" in add_account_compact and
+        "nvram_unset(password_key)" in add_account_compact,
+        "add_account must preflight and initialize complete volume metadata before NVRAM publication, and restore prior tail keys on NVRAM failure")
 del_account_body = function_body(
     DISK_SOURCE, "int del_account(const char *const account)"
 )
@@ -554,6 +546,23 @@ for marker in (
 ):
     require(policy_test_main.index(marker + "();") < policy_test_return,
             "service reload regression is defined but not executed: " + marker)
+
+
+require("disk_share_account_created_files_rollback" in POLICY and
+        "unlink_path(entry->path)" in "".join(POLICY.split()),
+        "new account metadata must support compensating removal after failed NVRAM publication")
+for marker in (
+    "test_account_created_file_rollback_removes_all_created_files",
+    "test_account_created_file_rollback_reports_failures_and_continues",
+):
+    require(marker in POLICY_TEST and marker + "();" in POLICY_TEST,
+            "missing new-account metadata rollback regression: " + marker)
+for marker in (
+    "test_account_created_file_rollback_removes_all_created_files",
+    "test_account_created_file_rollback_reports_failures_and_continues",
+):
+    require(policy_test_main.index(marker + "();") < policy_test_return,
+            "new-account metadata rollback regression is defined but not executed: " + marker)
 
 require("disk_share_account_rename_entries_apply" in POLICY and
         "rename_path(undo->destination,undo->source)" in "".join(POLICY.split()),

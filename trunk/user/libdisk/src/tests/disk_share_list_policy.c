@@ -1023,6 +1023,108 @@ test_account_rename_batch_reports_failed_compensation(void)
 }
 
 
+struct fake_account_unlink_state {
+	const char *paths[4];
+	int present[4];
+	int calls;
+	int fail_call;
+};
+
+static struct fake_account_unlink_state *fake_account_unlink_state;
+
+static int
+fake_account_unlink(const char *path)
+{
+	int i;
+	struct fake_account_unlink_state *state = fake_account_unlink_state;
+
+	++state->calls;
+	if (state->calls == state->fail_call) {
+		errno = EACCES;
+		return -1;
+	}
+	for (i = 0; i < 4; ++i) {
+		if (state->present[i] && state->paths[i] &&
+		    strcmp(state->paths[i], path) == 0) {
+			state->present[i] = 0;
+			return 0;
+		}
+	}
+	errno = ENOENT;
+	return -1;
+}
+
+static void
+test_account_created_file_rollback_removes_all_created_files(void)
+{
+	struct disk_share_account_created_file_entry entries[3];
+	struct fake_account_unlink_state state;
+	int rollback_error = -1;
+
+	memset(entries, 0, sizeof(entries));
+	strcpy(entries[0].path, "/a/.router/alice_var.txt");
+	strcpy(entries[1].path, "/b/.router/alice_var.txt");
+	strcpy(entries[2].path, "/c/.router/alice_var.txt");
+	entries[0].created = entries[1].created = entries[2].created = 1;
+	entries[0].next = &entries[1];
+	entries[1].previous = &entries[0];
+	entries[1].next = &entries[2];
+	entries[2].previous = &entries[1];
+
+	state.paths[0] = entries[0].path;
+	state.paths[1] = entries[1].path;
+	state.paths[2] = entries[2].path;
+	state.paths[3] = NULL;
+	state.present[0] = state.present[1] = state.present[2] = 1;
+	state.present[3] = 0;
+	state.calls = 0;
+	state.fail_call = 0;
+	fake_account_unlink_state = &state;
+
+	assert(disk_share_account_created_files_rollback(
+		&entries[0], fake_account_unlink, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(state.calls == 3);
+	assert(!state.present[0] && !state.present[1] && !state.present[2]);
+	assert(!entries[0].created && !entries[1].created && !entries[2].created);
+}
+
+static void
+test_account_created_file_rollback_reports_failures_and_continues(void)
+{
+	struct disk_share_account_created_file_entry entries[3];
+	struct fake_account_unlink_state state;
+	int rollback_error = 0;
+
+	memset(entries, 0, sizeof(entries));
+	strcpy(entries[0].path, "/a/.router/alice_var.txt");
+	strcpy(entries[1].path, "/b/.router/alice_var.txt");
+	strcpy(entries[2].path, "/c/.router/alice_var.txt");
+	entries[0].created = entries[1].created = entries[2].created = 1;
+	entries[0].next = &entries[1];
+	entries[1].previous = &entries[0];
+	entries[1].next = &entries[2];
+	entries[2].previous = &entries[1];
+
+	state.paths[0] = entries[0].path;
+	state.paths[1] = entries[1].path;
+	state.paths[2] = entries[2].path;
+	state.paths[3] = NULL;
+	state.present[0] = state.present[1] = state.present[2] = 1;
+	state.present[3] = 0;
+	state.calls = 0;
+	state.fail_call = 2;
+	fake_account_unlink_state = &state;
+
+	assert(disk_share_account_created_files_rollback(
+		&entries[0], fake_account_unlink, &rollback_error) == -1);
+	assert(rollback_error == EACCES);
+	assert(state.calls == 3);
+	assert(!state.present[0] && state.present[1] && !state.present[2]);
+	assert(!entries[0].created && entries[1].created && !entries[2].created);
+}
+
+
 int
 main(void)
 {
@@ -1043,6 +1145,8 @@ main(void)
 	test_account_rename_batch_reports_incomplete_rollback();
 	test_account_rename_batch_rolls_back_after_successful_publish();
 	test_account_rename_batch_reports_failed_compensation();
+	test_account_created_file_rollback_removes_all_created_files();
+	test_account_created_file_rollback_reports_failures_and_continues();
 	test_account_service_command_status_accepts_exit_zero();
 	test_account_service_command_status_rejects_nonzero_exit_and_signal();
 	test_account_service_command_status_preserves_invocation_errno();

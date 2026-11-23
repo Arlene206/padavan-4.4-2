@@ -355,5 +355,55 @@ disk_share_account_rename_entries_rollback(
 	return 0;
 }
 
+/* Roll back only metadata files created by the current add-account attempt. */
+struct disk_share_account_created_file_entry {
+	char path[256];
+	char mount_path[256];
+	int created;
+	struct disk_share_account_created_file_entry *previous;
+	struct disk_share_account_created_file_entry *next;
+};
+
+typedef int (*disk_share_unlink_fn)(const char *);
+
+static inline int
+disk_share_account_created_files_rollback(
+	struct disk_share_account_created_file_entry *entries,
+	disk_share_unlink_fn unlink_path, int *rollback_error)
+{
+	struct disk_share_account_created_file_entry *entry;
+	int saved_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (!entries || !unlink_path || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (entry = entries; entry->next; entry = entry->next)
+		;
+	for (; entry; entry = entry->previous) {
+		if (!entry->created)
+			continue;
+		errno = 0;
+		if (unlink_path(entry->path) != 0) {
+			if (errno == ENOENT) {
+				entry->created = 0;
+				continue;
+			}
+			if (saved_error == 0)
+				saved_error = errno ? errno : EIO;
+		} else {
+			entry->created = 0;
+		}
+	}
+	*rollback_error = saved_error;
+	if (saved_error != 0) {
+		errno = saved_error;
+		return -1;
+	}
+	return 0;
+}
+
 #endif /* PADAVAN_DISK_SHARE_LIST_POLICY_H */
 

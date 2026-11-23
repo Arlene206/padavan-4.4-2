@@ -1207,74 +1207,221 @@ int add_account(const char *const account, const char *const password)
 	disk_info_t *disk_list = NULL, *follow_disk;
 	partition_info_t *follow_partition;
 	int i, acc_num = 0, first_error = 0, init_result;
-	int service_result, service_error;
+	int service_result, service_error, rollback_error = 0;
 	char **account_list = NULL;
-	char nvram_name[32];
+	char nvram_name[32], password_key[32];
+	char old_username[128], old_password[128];
+	char *old_value = NULL;
+	int old_username_present = 0, old_password_present = 0;
+	int username_attempted = 0, password_attempted = 0, count_attempted = 0;
+	struct stat metadata_stat;
+	struct disk_share_account_created_file_entry *files = NULL, *files_tail = NULL;
+	struct disk_share_account_created_file_entry *file, *next_file;
+	char var_file[256];
 
 	if (!is_valid_account_name(account) || is_reserved_account_name(account))
 		return -1;
 	if (!is_valid_account_password(password))
 		return -1;
 
-	// 1. check if can create the account
+	/* 1. Check the current account inventory before staging any file. */
 	if (get_account_list(&acc_num, &account_list) != 0)
 		return -1;
 	if (acc_num >= MAX_ACCOUNT_NUM) {
 		free_2_dimension_list(&acc_num, &account_list);
 		return -1;
 	}
-
-	for (i = 0; i < acc_num; ++i)
+	for (i = 0; i < acc_num; ++i) {
 		if (!strcmp(account, account_list[i])) {
 			free_2_dimension_list(&acc_num, &account_list);
 			return -1;
 		}
-
-	if (!strcmp(account, FTP_ANONYMOUS_USER)) {
-		free_2_dimension_list(&acc_num, &account_list);
-		return -1;
 	}
-
-	// 2. create nvram value about the new account
-	nvram_set_int("acc_num", acc_num+1);
-
-	sprintf(nvram_name, "acc_username%d", acc_num);
-	nvram_set(nvram_name, account);
-
-	sprintf(nvram_name, "acc_password%d", acc_num);
-	nvram_set(nvram_name, password);
-
-	if (nvram_commit_safe() != 0 && first_error == 0)
-		first_error = errno ? errno : EIO;
-
 	free_2_dimension_list(&acc_num, &account_list);
 
-	// 3. find every pool
+	/*
+	 * Build and preflight the complete metadata plan first. An incomplete
+	 * mount inventory or an existing account file must not publish a new
+	 * NVRAM account whose volume permissions cannot be initialized.
+	 */
 	if (read_disk_data_checked(&disk_list) != 0) {
-		if (first_error == 0)
-			first_error = errno ? errno : EIO;
-		disk_list = NULL;
+		first_error = errno ? errno : EIO;
 	} else {
-		for (follow_disk = disk_list; follow_disk != NULL; follow_disk = follow_disk->next) {			
-			for (follow_partition = follow_disk->partitions; follow_partition != NULL; follow_partition = follow_partition->next) {
-				if (follow_partition->mount_point == NULL)
+		for (follow_disk = disk_list;
+		     follow_disk != NULL && first_error == 0;
+		     follow_disk = follow_disk->next) {
+			for (follow_partition = follow_disk->partitions;
+			     follow_partition != NULL && first_error == 0;
+			     follow_partition = follow_partition->next) {
+				if (!follow_partition->mount_point)
 					continue;
-				
-				// 4. initialize the account metadata on every mounted volume.
-				init_result = initial_one_var_file_in_mount_path(
-					account, follow_partition->mount_point);
-				if (init_result != 0 && first_error == 0)
+				if (disk_share_format_account_var_path(
+					    var_file, sizeof(var_file),
+					    follow_partition->mount_point, account) != 0) {
 					first_error = errno ? errno : EIO;
+					break;
+				}
+				if (lstat(var_file, &metadata_stat) == 0) {
+					first_error = EEXIST;
+					break;
+				}
+				if (errno != ENOENT) {
+					first_error = errno ? errno : EIO;
+					break;
+				}
+				if (strlen(follow_partition->mount_point) >=
+				    sizeof(files_tail ? files_tail->mount_path : ((struct disk_share_account_created_file_entry *)0)->mount_path)) {
+					first_error = ENAMETOOLONG;
+					break;
+				}
+				file = (struct disk_share_account_created_file_entry *)
+					calloc(1, sizeof(*file));
+				if (!file) {
+					first_error = errno ? errno : ENOMEM;
+					break;
+				}
+				strcpy(file->path, var_file);
+				strcpy(file->mount_path, follow_partition->mount_point);
+				file->previous = files_tail;
+				if (files_tail)
+					files_tail->next = file;
+				else
+					files = file;
+				files_tail = file;
 			}
 		}
 	}
-	free_disk_data(disk_list);
+
+	/* Create metadata on every volume before exposing the account in NVRAM. */
+	if (first_error == 0) {
+		for (file = files; file != NULL; file = file->next) {
+			init_result = initial_one_var_file_in_mount_path(
+				account, file->mount_path);
+			if (init_result != 0) {
+				first_error = errno ? errno : EIO;
+				break;
+			}
+			file->created = 1;
+		}
+	}
 
 	/*
-	 * NVRAM already contains the account. Process every volume in a complete
-	 * inventory, reload Samba even when the inventory/metadata failed, and
-	 * return the first error without mistaking an unknown inventory for empty.
+	 * Preserve any stale tail slot that will be overwritten. Account deletion
+	 * compacts the active list but legacy firmware may leave old tail keys.
 	 */
+	if (first_error == 0) {
+		snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", acc_num);
+		errno = 0;
+		init_result = nvram_get_checked(nvram_name, &old_value);
+		if (init_result < 0) {
+			first_error = errno ? errno : EIO;
+		} else if (init_result == 1 && old_value) {
+			if (strlen(old_value) >= sizeof(old_username))
+				first_error = ENAMETOOLONG;
+			else {
+				strcpy(old_username, old_value);
+				old_username_present = 1;
+			}
+		} else if (init_result != 0) {
+			first_error = EIO;
+		}
+
+		if (first_error == 0) {
+			snprintf(password_key, sizeof(password_key), "acc_password%d", acc_num);
+			old_value = NULL;
+			errno = 0;
+			init_result = nvram_get_checked(password_key, &old_value);
+			if (init_result < 0) {
+				first_error = errno ? errno : EIO;
+			} else if (init_result == 1 && old_value) {
+				if (strlen(old_value) >= sizeof(old_password))
+					first_error = ENAMETOOLONG;
+				else {
+					strcpy(old_password, old_value);
+					old_password_present = 1;
+				}
+			} else if (init_result != 0) {
+				first_error = EIO;
+			}
+		}
+	}
+
+	/* Publish count and credentials only after all metadata files exist. */
+	if (first_error == 0) {
+		count_attempted = 1;
+		if (nvram_set_int("acc_num", acc_num + 1) != 0)
+			first_error = errno ? errno : EIO;
+
+		if (first_error == 0) {
+			snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", acc_num);
+			username_attempted = 1;
+			if (nvram_set(nvram_name, account) != 0)
+				first_error = errno ? errno : EIO;
+		}
+		if (first_error == 0) {
+			snprintf(password_key, sizeof(password_key), "acc_password%d", acc_num);
+			password_attempted = 1;
+			if (nvram_set(password_key, password) != 0)
+				first_error = errno ? errno : EIO;
+		}
+		if (first_error == 0 && nvram_commit_safe() != 0)
+			first_error = errno ? errno : EIO;
+	}
+
+	/* Any failed setter/commit restores the prior tail slot and account count. */
+	if (first_error != 0 &&
+	    (count_attempted || username_attempted || password_attempted)) {
+		int restore_error = 0;
+		int restore_result;
+
+		if (password_attempted) {
+			restore_result = old_password_present ?
+				nvram_set(password_key, old_password) :
+				nvram_unset(password_key);
+			if (restore_result != 0)
+				restore_error = errno ? errno : EIO;
+		}
+		if (username_attempted) {
+			snprintf(nvram_name, sizeof(nvram_name), "acc_username%d", acc_num);
+			restore_result = old_username_present ?
+				nvram_set(nvram_name, old_username) :
+				nvram_unset(nvram_name);
+			if (restore_result != 0 && restore_error == 0)
+				restore_error = errno ? errno : EIO;
+		}
+		if (count_attempted &&
+		    nvram_set_int("acc_num", acc_num) != 0 && restore_error == 0)
+			restore_error = errno ? errno : EIO;
+		if (restore_error == 0 && nvram_commit_safe() != 0)
+			restore_error = errno ? errno : EIO;
+		if (restore_error != 0) {
+			logmessage("disk_share",
+				   "new account NVRAM rollback failed (errno %d)",
+				   restore_error);
+			first_error = EIO;
+		}
+	}
+
+	/* Failed account publication must remove only metadata created by this call. */
+	if (first_error != 0 && files) {
+		rollback_error = 0;
+		if (disk_share_account_created_files_rollback(
+			    files, unlink, &rollback_error) != 0) {
+			logmessage("disk_share",
+				   "new account metadata rollback failed (errno %d)",
+				   rollback_error);
+			first_error = EIO;
+		}
+	}
+
+	while (files) {
+		next_file = files->next;
+		free(files);
+		files = next_file;
+	}
+	free_disk_data(disk_list);
+
+	/* Reload Samba after the filesystem and NVRAM changes have settled. */
 	errno = 0;
 	service_result = system("/sbin/run_samba");
 	service_error = disk_share_command_status(service_result, errno);
@@ -1284,7 +1431,6 @@ int add_account(const char *const account, const char *const password)
 		errno = first_error;
 		return -1;
 	}
-
 	return 0;
 }
 
