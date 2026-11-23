@@ -62,6 +62,8 @@ signal_policy = read("trunk/user/infosvr/src/infosvr_signal_policy.h")
 interface_policy = read("trunk/user/infosvr/src/infosvr_interface_policy.h")
 interface_test = read("trunk/user/infosvr/src/tests/infosvr_interface_policy.c")
 signal_test = read("trunk/user/infosvr/src/tests/infosvr_signal_policy.c")
+pidfile_policy = read("trunk/user/infosvr/src/infosvr_pidfile_policy.h")
+pidfile_test = read("trunk/user/infosvr/src/tests/infosvr_pidfile_policy.c")
 ibox = read("trunk/user/shared/src/include/ibox.h")
 workflow = read(".github/workflows/infosvr-packet-stability.yml")
 
@@ -148,8 +150,10 @@ assert "if (INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))" in sender
 sigempty = main.index("sigemptyset(&sigterm_action.sa_mask)")
 sig_handler_install = main.index("sigaction(SIGTERM, &sigterm_action, NULL)")
 daemon_call = main.index("daemon(0, 0)")
+pidfile_call = main.index("if (acquire_pidfile() != 0)")
+loop_start = main.index("while (!INFOSVR_SIGNAL_STOP_PENDING(g_stop_requested))")
 assert main.index("sigterm_action.sa_handler = catch_sig_infosvr") < sigempty
-assert sigempty < sig_handler_install < daemon_call
+assert sigempty < sig_handler_install < daemon_call < pidfile_call < loop_start
 assert "sigterm_action.sa_flags = 0" in main
 assert "sigterm_action.sa_flags = SA_RESTART" not in main
 
@@ -174,6 +178,39 @@ for token in (
     assert token in signal_policy, token
 assert "INFOSVR_SIGNAL_REQUEST_STOP(stop_requested);" in signal_test
 assert "infosvr SIGTERM signal deferral policy: PASS" in signal_test
+
+for token in (
+    "flock(fd, LOCK_EX | LOCK_NB)",
+    "ftruncate(fd, 0)",
+    "written < 0 && errno == EINTR",
+    "infosvr_pidfile_matches",
+):
+    assert token in pidfile_policy, token
+
+pidfile_acquire = function_body(source, "acquire_pidfile(void)")
+assert 'open(g_pidfile, O_RDWR | O_CREAT | O_NOFOLLOW, 0644)' in pidfile_acquire
+assert "infosvr_pidfile_try_exclusive_lock(fd)" in pidfile_acquire
+assert pidfile_acquire.index("infosvr_pidfile_try_exclusive_lock(fd)") < pidfile_acquire.index("fstat(fd, &status)")
+assert pidfile_acquire.index("fstat(fd, &status)") < pidfile_acquire.index("infosvr_pidfile_write(fd, getpid())")
+assert "S_ISREG(status.st_mode)" in pidfile_acquire
+assert "status.st_nlink != 1" in pidfile_acquire
+assert "O_TRUNC" not in pidfile_acquire
+cleanup = function_body(source, "res_cleanup(void)")
+assert "infosvr_pidfile_matches(g_pidfile_fd, getpid()) == 1" in cleanup
+assert "opened_status.st_dev == path_status.st_dev" in cleanup
+assert "opened_status.st_ino == path_status.st_ino" in cleanup
+assert cleanup.index("infosvr_pidfile_matches") < cleanup.index("unlink(g_pidfile)") < cleanup.index("close(g_pidfile_fd)")
+assert "remove(g_pidfile)" not in source
+assert "g_pidfile_fd = -1" in cleanup
+
+for token in (
+    "contender must not truncate",
+    "EWOULDBLOCK || errno == EAGAIN",
+    'infosvr_pidfile_write(contender_fd, (pid_t)9876)',
+    'infosvr_pidfile_matches(contender_fd, (pid_t)4321) == 0',
+    "infosvr PID-file exclusive lock, complete publication and owner cleanup policy: PASS",
+):
+    assert token in pidfile_test, token
 
 mac_source = function_body(asus, "get_hwaddr(char *ifname, void *buf, int size)")
 assert "size < 6" in mac_source
@@ -201,6 +238,8 @@ paths = (
     "trunk/user/infosvr/src/tests/infosvr_packet_policy.c",
     "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c",
     "trunk/user/infosvr/src/infosvr_signal_policy.h",
+    "trunk/user/infosvr/src/infosvr_pidfile_policy.h",
+    "trunk/user/infosvr/src/tests/infosvr_pidfile_policy.c",
     "trunk/user/infosvr/src/tests/infosvr_signal_policy.c",
     "trunk/user/shared/src/include/ibox.h",
 )

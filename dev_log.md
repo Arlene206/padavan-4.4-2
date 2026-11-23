@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Serialize infosvr daemon PID ownership
+
+- The RC start path uses a tri-state process preflight, but the check and daemon launch are not one atomic operation. Concurrent start requests can both observe ABSENT; infosvr enables SO_REUSEADDR on its UDP socket, so separate daemon children can bind the same service socket. The prior PID writer opened with truncation and ignored write/close errors, while shutdown unconditionally removed the shared marker.
+- Infosvr now opens the PID file without truncation or symlink following, requires a single-link regular file, and obtains a nonblocking exclusive flock before replacing stale PID contents. The child holds that lock for its lifetime. PID publication checks truncate/seek/write and retries EINTR; shutdown unlinks only an exact current-PID record whose path still resolves to the locked inode.
+- Added GNU89/Werror/ASan/UBSan regression for competing opens, no-clobber behavior, lock handoff, exact ownership and invalid PID inputs. Wired the regression and source-order/path-filter assertions into the Infosvr workflow. Local helper regression passed; exact-SHA Actions pending.
+---
+
 ## 2026-11-23 UTC — Update the SCUT workflow's PID cleanup assertion
 
 - Exact-head SCUT run `45181232164` passed shell syntax and lifecycle/PID-race execution but its inline source contract still expected the old literal-`$` cleanup expression. A concurrent source-contract update has already aligned the NVRAM ordering check with `watchcat_read_boolean`; this follow-up changes the remaining PID assertion to require `$$`.

@@ -29,17 +29,20 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <net/if.h>
+#include <sys/stat.h>
 
 #include <ibox.h>
 #include "infosvr.h"
 #include "infosvr_packet_policy.h"
 #include "infosvr_signal_policy.h"
 #include "infosvr_interface_policy.h"
+#include "infosvr_pidfile_policy.h"
 
 #define SRV_ADDR INADDR_ANY
 #define CLN_ADDR INADDR_BROADCAST
 
 static const char* g_pidfile = "/var/run/infosvr.pid";
+static int g_pidfile_fd = -1;
 static int g_fd4 = -1;
 static volatile sig_atomic_t g_stop_requested = 0;
 
@@ -196,7 +199,61 @@ void res_cleanup(void)
 		close(g_fd4);
 		g_fd4 = -1;
 	}
-	remove(g_pidfile);
+
+	if (g_pidfile_fd >= 0) {
+		struct stat opened_status, path_status;
+
+		/*
+		 * A stale or replaced PID file is not ours to remove. The lock
+		 * remains held until after the owner check and conditional unlink.
+		 */
+		if (infosvr_pidfile_matches(g_pidfile_fd, getpid()) == 1 &&
+		    fstat(g_pidfile_fd, &opened_status) == 0 &&
+		    lstat(g_pidfile, &path_status) == 0 &&
+		    S_ISREG(path_status.st_mode) &&
+		    opened_status.st_dev == path_status.st_dev &&
+		    opened_status.st_ino == path_status.st_ino &&
+		    opened_status.st_nlink == 1)
+			unlink(g_pidfile);
+
+		close(g_pidfile_fd);
+		g_pidfile_fd = -1;
+	}
+}
+
+static int
+acquire_pidfile(void)
+{
+	struct stat status;
+	int fd, saved_errno;
+
+	/*
+	 * Do not use O_TRUNC here: a competing daemon must acquire the inode
+	 * lock before the active PID record can be replaced.
+	 */
+	fd = open(g_pidfile, O_RDWR | O_CREAT | O_NOFOLLOW, 0644);
+	if (fd < 0)
+		return -1;
+
+	if (infosvr_pidfile_try_exclusive_lock(fd) != 0)
+		goto fail;
+	if (fstat(fd, &status) != 0)
+		goto fail;
+	if (!S_ISREG(status.st_mode) || status.st_nlink != 1) {
+		errno = EINVAL;
+		goto fail;
+	}
+	if (infosvr_pidfile_write(fd, getpid()) != 0)
+		goto fail;
+
+	g_pidfile_fd = fd;
+	return 0;
+
+fail:
+	saved_errno = errno;
+	close(fd);
+	errno = saved_errno;
+	return -1;
 }
 
 static void catch_sig_infosvr(int sig)
@@ -207,7 +264,6 @@ static void catch_sig_infosvr(int sig)
 
 int main(int argc, char *argv[])
 {
-	FILE *fp;
 	char packet[512], *reply, *ifname;
 	int max_fd, res;
 	fd_set rfds, active_rfds;
@@ -247,11 +303,17 @@ int main(int argc, char *argv[])
 		exit(errno);
 	}
 
-	/* write pid */
-	if ((fp=fopen(g_pidfile, "w"))!=NULL)
-	{
-		fprintf(fp, "%d", getpid());
-		fclose(fp);
+	/* The daemonized child must own the singleton PID-file lock before serving. */
+	if (acquire_pidfile() != 0) {
+		int saved_errno = errno;
+
+		if (g_fd4 >= 0) {
+			close(g_fd4);
+			g_fd4 = -1;
+		}
+		errno = saved_errno;
+		perror("pidfile");
+		return 1;
 	}
 
 	FD_ZERO(&rfds);
