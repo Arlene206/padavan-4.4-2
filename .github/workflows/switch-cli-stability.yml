@@ -742,6 +742,11 @@ jobs:
           assert "status = ra_switch_mdio_write(NULL, mac_to_gigaphy_mode_addr" in fe_init
           assert "status = is_vtss_gigaphy(1);" in fe_init
           assert "status = is_vtss_gigaphy(2);" in fe_init
+          marvell = function_body("int is_marvell_gigaphy(int ge)")
+          assert "mii_mgr_read(" not in marvell
+          assert "return -EIO;" in marvell
+          assert "status = is_marvell_gigaphy(1);" in fe_init
+          assert "status = is_marvell_gigaphy(2);" in fe_init
           gpio_init = function_body("static int mt7622_esw_5port_gpio(void)")
           assert "mii_mgr_read(" not in gpio_init and "mii_mgr_write(" not in gpio_init
           assert "goto mdio_error;" in gpio_init

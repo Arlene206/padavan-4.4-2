@@ -3651,14 +3651,10 @@ void setup_external_gsw(void)
 	else
 		phy_address = mac_to_gigaphy_mode_addr2;
 
-	if (!mii_mgr_read(phy_address, 2, &phy_id0)) {
-		pr_info("\n Read PhyID 1 is Fail!!\n");
-		phy_id0 = 0;
-	}
-	if (!mii_mgr_read(phy_address, 3, &phy_id1)) {
-		pr_info("\n Read PhyID 1 is Fail!!\n");
-		phy_id1 = 0;
-	}
+	if (!ra_switch_mdio_read(NULL, phy_address, 2, &phy_id0))
+		return -EIO;
+	if (!ra_switch_mdio_read(NULL, phy_address, 3, &phy_id1))
+		return -EIO;
 
 	if ((phy_id0 == EV_MARVELL_PHY_ID0) && (phy_id1 == EV_MARVELL_PHY_ID1))
 		return 1;
@@ -4224,7 +4220,10 @@ int fe_sw_init(void)
 	/* Case1: MT7623/MT7622 GE1 + GigaPhy */
 	if (ei_local->architecture & GE1_RGMII_AN) {
 		enable_auto_negotiate(ei_local);
-		if (is_marvell_gigaphy(1)) {
+		status = is_marvell_gigaphy(1);
+		if (status < 0)
+			goto mdio_error;
+		if (status > 0) {
 			if (ei_local->features & FE_FPGA_MODE) {
 				status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr, 9, &reg_value);
 				if (status != 0)
@@ -4287,7 +4286,10 @@ int fe_sw_init(void)
 			do_ge_phy_all_analog_cal(0);
 		}
 
-		if (is_marvell_gigaphy(2)) {
+		status = is_marvell_gigaphy(2);
+		if (status < 0)
+			goto mdio_error;
+		if (status > 0) {
 			status = ra_switch_mdio_read(NULL, mac_to_gigaphy_mode_addr2, 9, &reg_value);
 			if (status != 0)
 				goto mdio_error;
