@@ -1,3 +1,11 @@
+## 2026-11-23 UTC — Align PHY power source contract with checked restore API
+
+- Switch CLI exact-SHA run `45148233501` on `36265b475c6ff1f9f36ed28f403431c35ae717e4` compiled and ran the expanded MTK ESW GNU89 ASan/UBSan regression binary successfully (`MTK ESW link-mode and MAC-table MDIO policies: PASS`). The subsequent Python source contract failed with `ValueError: substring not found` because its earlier MAC-clear check still searched for the pre-refactor call `change_wan_lan_ports_power(1, 1);`.
+- The implementation now uses the checked API `restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)`; the checker is updated to assert the ordering of checked PHY power-down, isolation and checked restore before bridge-error publication. No production source or runtime tests were changed for this checker-only correction.
+- Exact-head Switch CLI rerun pending. The AI handoff documentation contract passed on `36265b4`. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-23 UTC — Repair Switch workflow YAML after mis-targeted marker insertion
 
 - The exact-SHA run for `e03fb56fd2be9f31110c1b133f137726816c7966` failed before a job was created: the workflow YAML was malformed because the five PHY-power regression markers were inserted into the first unrelated `for marker` tuple in the file, not the MTK ESW tuple. This was a workflow-editing error, not evidence of a C regression.

@@ -697,9 +697,16 @@ jobs:
           bridge = source.split("static int change_bridge_mode", 1)[1].split(
               "static void vlan_accept_port_mode", 1
           )[0]
-          propagation = bridge.index("isolation_status = esw_vlan_bridge_isolate(")
-          power_restore = bridge.index("change_wan_lan_ports_power(1, 1);", propagation)
+          power_down = bridge.index(
+              "power_status = change_wan_lan_ports_power(0, 1, &power_changed)"
+          )
+          propagation = bridge.index("isolation_status = esw_vlan_bridge_isolate(", power_down)
+          power_restore = bridge.index(
+              "restore_status = change_wan_lan_ports_power(1, 1, &restore_changed)",
+              propagation
+          )
           failure_gate = bridge.index("if (isolation_status != 0)", power_restore)
+          assert power_down < propagation < power_restore < failure_gate
           assert "g_wan_bridge_mode = previous_bridge_mode;" in bridge[failure_gate:]
           assert "g_wan_bwan_isolation = previous_bwan_isolation;" in bridge[failure_gate:]
           assert "return isolation_status;" in bridge[failure_gate:]
