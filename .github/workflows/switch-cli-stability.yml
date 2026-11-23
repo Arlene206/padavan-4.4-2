@@ -1235,12 +1235,17 @@ jobs:
           from pathlib import Path
 
           source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
-          init = source.split("int fe_sw_init(void)", 1)[1].split(
-              chr(10) + "void fe_sw_deinit(", 1
-          )[0]
-          setup = init.split("status = leopard_ephy_cal();", 1)[1].split(
-              chr(10) + "\tif (ei_local->chip_name == MT7621_FE)", 1
-          )[0]
+          init_start = source.index("int fe_sw_init(void)")
+          init_end = source.index(chr(10) + "void fe_sw_deinit(", init_start)
+          init = source[init_start:init_end]
+          setup_start = init.index(
+              "/* Stop initialization if any Leopard EPHY MDIO operation fails. */"
+          )
+          setup_end = init.index(
+              chr(10) + "\t}" + chr(10) + chr(10) +
+              "\tif (ei_local->chip_name == MT7621_FE)", setup_start
+          )
+          setup = init[setup_start:setup_end]
           assert "tc_phy_write_l_reg(" not in init
           assert "tc_phy_read_l_reg(" not in init
           assert setup.count("tc_phy_write_page_reg_checked(") == 9
@@ -1248,6 +1253,8 @@ jobs:
           assert setup.count("goto mdio_error;") == 10
           assert "r0_tmp = (u16)(reg_value | 0x0200U);" in setup
           assert "mdio_error:" in init and "return status;" in init
+          assert "status = leopard_ephy_cal();" in init
+          assert "if (status != 0)" in init
           print("Leopard EPHY initialization checks every local MDIO read/write and aborts on failure: PASS")
           PY
 
