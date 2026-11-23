@@ -1253,11 +1253,12 @@ void fe_cal_tx_offset_mdix(u8 port_num, u32 delay)
 		port_num, 0U, 26U, 1, 0x9203U);
 	if (status != 0)
 		goto cleanup;
+	page.page = 2U;
+	page.local = 1;
 	status = ra_switch_mdio_update_bits_checked(
 		port_num, 20U, 0U, 0x0400U,
 		ra_switch_page_update_read, ra_switch_page_update_write,
-		&(struct ra_switch_page_update_context){ 2U, 1 },
-		&updated);
+		&page, &updated);
 	if (status != 0)
 		goto cleanup;
 
