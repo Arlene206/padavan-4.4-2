@@ -2,27 +2,27 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`. Writable branch: `main` only. Parent before the U2EC/LPRng readiness slice: `93e2d812a050da0029a339bee86b194968226992`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify, switch to, merge, or delete it.
-- RStats selector fix `93e2d812a050da0029a339bee86b194968226992`: exact RStats regression #45206017312 PASS, Process fail-closed #45206017643 PASS, Process inventory #45206017728 PASS, NVRAM boundary #45206017305 PASS, AI docs #45206017355 PASS, and HTTPD security #45206017395 PASS. Exact XY-C1 #45206017276 was still building at Build XY-C1 after all prior host/source steps passed; TRX and artifact upload pending. This is host L2 evidence, not L3 or L4.
-- Bootstrap recovery already occurred once. No persistent local checkout, full MIPS/uClibc build environment, or hardware L4 result is available locally.
+- Repository: `Arlene206/padavan-4.4-2`; writable branch is `main` only. Checker correction parent: `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; preserve unchanged.
+- RStats selector source SHA `93e2d812a050da0029a339bee86b194968226992`: RStats #45206017312, Process fail-closed #45206017643, Process inventory #45206017728, NVRAM boundary #45206017305, AI docs #45206017355 and HTTPD security #45206017395 PASS. XY-C1 #45206017276 was still building at last poll; do not claim L3 without exact Build/TRX/artifact.
+- USB printer readiness source SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: the Process workflow reached the new USB source contract after all previous compile/sanitizer checks passed, then failed because two policy assertions read the wrong header. The symbols belong in `process_presence_start_policy.h`, not the detached helper header. THIS checker-only commit fixes the scope; exact rerun pending.
+- No persistent local checkout or full MIPS/uClibc build environment; no hardware L4 result is claimed.
 
 ## Active task
 
-- Confirmed detached-daemon startup gap in `trunk/user/rc/src/services_usb.c`: `start_usb_printer_daemon()` treated EOF on the close-on-exec pipe as success. This proves `execv()` succeeded, but not that U2EC or LPRng stays running. An immediate child exit after exec was invisible to the hotplug caller and could cause the deferred event to be acknowledged despite the printer daemon being absent.
-- THIS COMMIT passes explicit process names (`u2ec`, `lpd`) into the launch helper and requires a bounded, independent `process_inventory_scan()` postcondition using `detached_daemon_start_postcondition_with_ops()`. UNKNOWN inventory, interrupted waits and persistent ABSENT now return errors; deferred USB hotplug acknowledgement can retry.
-- Existing detached-daemon GNU89/ASan/UBSan regression covers running, delayed process appearance, timeout, UNKNOWN and wait interruption. The Process workflow now asserts the two U2EC/LPRng callsites and process inventory gate. Exact-head Process/USB regression and XY-C1 are pending; no L3/L4 claim.
+- Production fix already committed on `8fa162a`: U2EC and LPRng starts now require a bounded process-inventory RUNNING postcondition after `execv()`; UNKNOWN, delayed-absence timeout and wait interruption propagate failure so USB hotplug event acknowledgement remains retryable.
+- Process fail-closed run #45207830677 failed only in the new inline source contract, at the header-scope assertion. Its detached-daemon GNU89/ASan/UBSan compile/test and every preceding shared process check passed. THIS commit corrects the static checker to read `process_presence_start_policy.h` for the action enum and RUNNING predicate while continuing to inspect `detached_daemon_start_policy.h` for the actual wrapper.
 
 ## Exact first actions for next GPT
 
-1. Poll this commit's exact-SHA Process fail-closed/USB startup and AI handoff workflows. Read any failed step logs and fix genuine regressions without loosening the process readiness assertions.
-2. Require same-SHA XY-C1 Build + TRX verification + artifact upload PASS before marking U2EC/LPRng L3. The previous RStats XY-C1 #45206017276 covers only its parent SHA, so it is not evidence for this USB source change.
-3. Continue a new independent P1/P2 userland reliability/security source fix after the process checks; avoid repeating the completed RStats, logger, module-refcount, Samba and NFS audits.
+1. Poll the exact Process rerun for this checker-only correction. If the source contract still fails, diagnose and repair the exact assertion; do not loosen or remove the behavior checks.
+2. Poll exact-SHA XY-C1 Build/TRX/artifact and other USB/AI workflows for production source SHA `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`. Require same SHA for L3.
+3. Continue an independent P1/P2 userland fix after these checks, without repeating the completed RStats/logger/module-refcount/Samba/NFS audits.
 
 ## Relevant exact-SHA CI facts
 
-- RStats selector SHA `93e2d812a050da0029a339bee86b194968226992`: RStats #45206017312, Process fail-closed #45206017643, Process inventory #45206017728, NVRAM boundary #45206017305, AI docs #45206017355 and HTTPD security #45206017395 all PASS. XY-C1 #45206017276 was still in the Build XY-C1 step when last polled; TRX and artifact upload remained pending.
-- The new U2EC/LPRng postcondition needs exact-head tests and same-SHA firmware verification; p910nd's earlier SIGPIPE L3 result on `23248f7` does not cover these daemons.
+- `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8`: Process fail-closed #45207830677 failed only at the new USB contract header-scope assertion; prior process-policy host tests passed. XY-C1 #45207830678, USB storage #45207830753, USB modem #45207830717, Process inventory #45207830503, NVRAM audit #45207830836 and AI docs #45207830375 were in progress at the last poll.
+- The RStats selector fix at parent SHA `93e2d812a050da0029a339bee86b194968226992` has exact-host L2 PASS; XY-C1 was pending there, and it does not validate the later USB source.
 
 
 ## Completed source slices to preserve

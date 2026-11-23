@@ -1728,6 +1728,7 @@ jobs:
 
           source = Path("trunk/user/rc/src/services_usb.c").read_text()
           policy = Path("trunk/user/rc/src/detached_daemon_start_policy.h").read_text()
+          presence_policy = Path("trunk/user/rc/src/process_presence_start_policy.h").read_text()
           regression = Path("trunk/user/rc/src/tests/detached_daemon_start_policy.c").read_text()
 
           assert '#include <process_inventory.h>' in source
@@ -1754,8 +1755,9 @@ jobs:
           assert 'start_usb_printer_daemon(argv, "u2ec")' in u2ec
           assert 'start_usb_printer_daemon(argv, "lpd")' in lpd
 
-          assert "PROCESS_PRESENCE_START_ABORT" in policy
-          assert "process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1" in policy
+          assert "detached_daemon_start_postcondition_with_ops" in policy
+          assert "PROCESS_PRESENCE_START_ABORT" in presence_policy
+          assert "process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1" in presence_policy
           for case in ("test_running_process_is_required_after_launcher",
                        "test_delayed_daemon_appearance_is_accepted",
                        "test_absent_child_times_out",

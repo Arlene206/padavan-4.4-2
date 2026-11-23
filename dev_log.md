@@ -1,3 +1,10 @@
+## 2026-11-23 UTC — Correct USB printer readiness contract header scope
+
+- Exact Process regression #45207830677 on `8fa162ae5df3fa865bdeedfac2dafc2f21de1ff8` passed every compile, sanitizer and pre-existing source check, then the new USB printer source contract failed because it searched for `PROCESS_PRESENCE_START_ABORT` and the RUNNING postcondition expression in `detached_daemon_start_policy.h`; those declarations correctly live in its included `process_presence_start_policy.h`.
+- Corrected the contract to inspect the shared detached-daemon helper and presence policy separately. This is checker-only; no production source or assertions were weakened. Exact Process rerun pending.
+
+---
+
 ## 2026-11-23 UTC — Require U2EC/LPRng process readiness after exec
 
 - `start_usb_printer_daemon()` used EOF on a close-on-exec pipe as its success condition. That confirms only that `execv()` succeeded; a daemon that immediately exits after configuration parsing, pidfile setup or socket binding was still reported as successfully started.
