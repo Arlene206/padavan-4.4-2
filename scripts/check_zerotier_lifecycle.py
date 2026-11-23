@@ -82,6 +82,7 @@ route_preflight_body = function_body(script, "zerotier_preflight_static_routes()
 start_settings_body = function_body(script, "zerotier_load_start_settings()")
 creat_moon_body = script.split("creat_moon() {", 1)[1].split("\nremove_moon() {", 1)[0]
 remove_moon_body = script.split("remove_moon() {", 1)[1].split("\ncase $1 in", 1)[0]
+moon_remove_rollback_body = function_body(script, "zerotier_rollback_moon_remove()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
 identity_body = function_body(script, "zerotier_prepare_identity()")
 add_join_body = function_body(script, "add_join()")
@@ -323,15 +324,28 @@ require('nvram get_checked zerotiermoon_ip' in creat_moon_body and
 require('nvram get_checked zerotiermoon_id' in remove_moon_body and
         'nvram get zerotiermoon_id' not in remove_moon_body and
         '*[!0123456789abcdefABCDEF]*' in remove_moon_body and
-        '"${#zmoonid}" -ne 10' in remove_moon_body and
-        'if ! rm -f "$zt_moon_file" "$config_path/moon.json"; then' in remove_moon_body and
-        'if ! nvram set zerotiermoon_id=""; then' in remove_moon_body and
-        'if ! nvram commit; then' in remove_moon_body,
-        "Moon removal must validate the stored address, delete its exact file, and propagate NVRAM failures")
+        '"${#zt_moon_remove_old_id}" -ne 10' in remove_moon_body and
+        'ln "$zt_moon_remove_file" "$zt_moon_remove_file_backup"' in remove_moon_body and
+        'ln "$zt_moon_remove_json" "$zt_moon_remove_json_backup"' in remove_moon_body and
+        'if ! nvram set zerotiermoon_id="" || ! nvram commit; then' in remove_moon_body and
+        'if ! rm -f "$zt_moon_remove_file" "$zt_moon_remove_json"; then' in remove_moon_body and
+        remove_moon_body.index('if ! nvram set zerotiermoon_id="" || ! nvram commit; then') <
+        remove_moon_body.index('if ! rm -f "$zt_moon_remove_file" "$zt_moon_remove_json"; then'),
+        "Moon removal must back up files and persist ID clear before destructive cleanup")
+require('mv -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file"' in moon_remove_rollback_body and
+        'mv -f "$zt_moon_remove_json_backup" "$zt_moon_remove_json"' in moon_remove_rollback_body and
+        'nvram set zerotiermoon_id="$zt_moon_remove_old_id"' in moon_remove_rollback_body,
+        "Moon removal rollback must restore both files and original NVRAM ID")
 require('if ! creat_moon; then' in start_instance_body and
         'if ! remove_moon; then' in start_instance_body,
         "Moon setup/removal failures must reach the start result")
-for marker in ("Moon creation accepted an unreadable address selector",
+for marker in ("Moon removal ignored NVRAM set failure",
+               "Moon removal ignored NVRAM commit failure",
+               "Moon removal ignored partial file deletion failure",
+               "partial deletion failure did not restore the Moon signature",
+               "partial deletion failure did not restore the Moon JSON",
+               "partial deletion failure did not restore the Moon ID",
+               "Moon creation accepted an unreadable address selector",
                "Moon address read failure triggered the WAN-interface fallback",
                "Moon removal accepted an unreadable identity selector",
                "Moon removal accepted an unsafe non-hex identity path",

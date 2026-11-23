@@ -15,14 +15,20 @@
 - THIS SLICE aligns physical WAN and IPTV renew fast paths via a shared policy helper. Missing `subnet`/ `ip` triggers the full bound callback, allowing the legacy subnet default to be applied and invalid/missing address data to be rejected.
 - Added GNU89 unit cases for equal, changed, missing and empty options, and source-contract assertions for both renew paths. Exact-head Actions pending.
 
+## Parallel active task — ZeroTier Moon cleanup atomicity
+- On current parent `efe51152578e62ef6bc173adc2a85e8dc792f29d`, exact-SHA ZeroTier lifecycle `45133320459` PASS and AI docs `45133320565` PASS; Process inventory `45133320363` PASS and WAN route `45133320448` PASS.
+- The Moon creator currently validates and reports file/NVRAM operation failures, but the remover still deleted JSON/signature before NVRAM commit. THIS COMMIT changes removal to backup files, commit ID clear before delete, and restore ID/files on set/commit/partial-rm failure.
+- Exact-head ZeroTier/AI/XY-C1 for THIS commit pending. XY-C1 `45133320400` on `efe511...` was still IN_PROGRESS at last poll, with Build step pending after ccache; no L3 claim.
+
 ## Next actions
-1. Check exact-head WAN DHCP callback and AI Actions; diagnose any first causal failure.
-2. Recheck XY-C1 `45132438010` on source `d3f3aedd...`; record L3 only if Build, TRX and artifact all PASS on that exact SHA.
-3. Continue with another independent userland reliability/security defect while CI is pending.
+1. Inspect THIS commit's exact-head ZeroTier shell/source Actions; repair first causal failure without weakening rollback coverage.
+2. Continue tracking the parallel WAN IPTV DHCP callback and AI Actions from `efe511...`.
+3. Check exact-head XY-C1 for the current source SHA; L3 requires Build, TRX and artifact all PASS together.
+4. Continue another independent reliability/security defect while CI is pending.
 4. Physical router L4 remains NOT VERIFIED.
 
 ## Validation boundary
-This IPTV renew source/test change awaits exact-head WAN DHCP callback, AI handoff and XY-C1 checks. No local tests or builds claimed; L3 remains pending on `d3f3aedd...`; L4 NOT VERIFIED.
+ZeroTier Moon removal rollback is L1 source-reviewed pending exact-head CI. The parallel IPTV renew source/test change awaits its WAN DHCP and AI Actions. No local tests/builds claimed; current same-SHA L3 remains pending; L4 NOT VERIFIED.
 
 ## Cross-session mandate
 One complete tree and atomic commit per logical slice; update `main` without force using the exact expected parent SHA; exact-SHA Actions; never touch the frozen backup.

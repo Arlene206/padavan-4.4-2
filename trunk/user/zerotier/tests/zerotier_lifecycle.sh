@@ -18,6 +18,9 @@ TEST_NVRAM_MOON_ID_STATE=""
 TEST_NVRAM_ID_STATE=""
 TEST_NVRAM_SET_FAIL=0
 TEST_NVRAM_COMMIT_FAIL=0
+TEST_NVRAM_MOON_SET_FAIL_ONCE=0
+TEST_NVRAM_MOON_COMMIT_FAIL_ONCE=0
+TEST_NVRAM_MOON_RM_FAIL_ONCE=0
 export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_GET_FAIL TEST_NVRAM_READ_FAIL_KEY TEST_NVRAM_MOONID_STATE TEST_NVRAM_MOON_ENABLE_STATE TEST_NVRAM_MOON_IP_STATE TEST_NVRAM_MOON_ID_STATE TEST_NVRAM_ID_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
 TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
@@ -120,6 +123,12 @@ start_instance() {
 }
 
 rm() {
+	if [ "${TEST_NVRAM_MOON_RM_FAIL_ONCE:-0}" = 1 ] && [ "$1" = "-f" ]; then
+		TEST_NVRAM_MOON_RM_FAIL_ONCE=0
+		shift
+		/bin/rm -f "$1"
+		return 1
+	fi
 	if [ "$1" = "-rf" ]; then
 		printf 'rm:%s\n' "$*" >> "$TEST_ACTION_LOG"
 	fi
@@ -244,6 +253,10 @@ nvram() {
 					printf '%s' "${2#zerotier_secret=}" > "$TEST_NVRAM_SECRET_STATE"
 					;;
 				zerotiermoon_id=*)
+					if [ "${TEST_NVRAM_MOON_SET_FAIL_ONCE:-0}" = 1 ]; then
+						TEST_NVRAM_MOON_SET_FAIL_ONCE=0
+						return 1
+					fi
 					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
 					TEST_NVRAM_MOON_ID_STATE="${2#zerotiermoon_id=}"
 					;;
@@ -254,6 +267,10 @@ nvram() {
 			esac
 			;;
 		commit)
+			if [ "${TEST_NVRAM_MOON_COMMIT_FAIL_ONCE:-0}" = 1 ]; then
+				TEST_NVRAM_MOON_COMMIT_FAIL_ONCE=0
+				return 1
+			fi
 			[ "${TEST_NVRAM_COMMIT_FAIL:-0}" != 1 ] || return 1
 			;;
 	esac
@@ -559,6 +576,36 @@ fi
 [ -f "$TEST_CONFIG/moon.json" ] || fail "malformed Moon ID deleted the last-good JSON"
 [ "$TEST_NVRAM_MOON_ID_STATE" = "../escape!!" ] || fail "malformed Moon ID was cleared from NVRAM"
 TEST_NVRAM_MOON_ID_STATE="0123456789"
+
+# NVRAM set failure must retain signed material and the stored identity.
+echo "last-good-moon-file" > "$TEST_CONFIG/moons.d/0000000123456789.moon"
+echo "last-good-moon-json" > "$TEST_CONFIG/moon.json"
+TEST_NVRAM_MOON_ID_STATE="0123456789"
+TEST_NVRAM_MOON_SET_FAIL_ONCE=1
+if remove_moon; then
+	fail "Moon removal ignored NVRAM set failure"
+fi
+[ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "last-good-moon-file" ] || fail "NVRAM set failure lost the Moon signature"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "NVRAM set failure lost the Moon JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "NVRAM set failure lost the Moon ID"
+
+# Commit failure after the volatile ID changes must restore the old value.
+TEST_NVRAM_MOON_COMMIT_FAIL_ONCE=1
+if remove_moon; then
+	fail "Moon removal ignored NVRAM commit failure"
+fi
+[ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "last-good-moon-file" ] || fail "NVRAM commit failure lost the Moon signature"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "NVRAM commit failure lost the Moon JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "NVRAM commit failure did not restore the Moon ID"
+
+# The mock removes the signature, then reports failure to exercise partial-delete rollback.
+TEST_NVRAM_MOON_RM_FAIL_ONCE=1
+if remove_moon; then
+	fail "Moon removal ignored partial file deletion failure"
+fi
+[ "$(cat "$TEST_CONFIG/moons.d/0000000123456789.moon")" = "last-good-moon-file" ] || fail "partial deletion failure did not restore the Moon signature"
+[ "$(cat "$TEST_CONFIG/moon.json")" = "last-good-moon-json" ] || fail "partial deletion failure did not restore the Moon JSON"
+[ "$TEST_NVRAM_MOON_ID_STATE" = "0123456789" ] || fail "partial deletion failure did not restore the Moon ID"
 
 if ! remove_moon; then
 	fail "valid Moon identity was not removed"

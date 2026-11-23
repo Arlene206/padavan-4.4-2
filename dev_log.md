@@ -1,3 +1,11 @@
+## 2026-11-23 08:55 UTC — Make ZeroTier Moon removal rollback-safe
+
+- Source review found `remove_moon()` deleted the signed file and JSON before clearing/committing `zerotiermoon_id`; NVRAM set/commit failure could leave a stale ID pointing at missing files.
+- The remover now checks safe regular-file targets, snapshots existing file state with hard links in a private directory, clears and commits the ID before deleting files, and restores original ID/files if NVRAM set/commit or partial deletion fails.
+- Added one-shot NVRAM set, commit and partial-rm failures; each regression checks that the prior Moon ID, signed file and JSON survive the failed operation.
+- This slice is L1 source-reviewed; exact-head ZeroTier/AI/XY-C1 Actions pending. No local test/build claims.
+
+---
 ## 2026-11-23 UTC — Rebind IPTV DHCP when mandatory address options are absent
 
 - Review of `udhcpc_viptv_renew()` found an asymmetry with physical WAN: absent `subnet` or `ip` was treated as unchanged because comparisons used `value &&`. This could skip applying the bound-path default subnet mask after option withdrawal and could let a renewal missing its address return success without validation.

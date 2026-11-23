@@ -1271,35 +1271,100 @@ creat_moon() {
 	fi
 }
 
+
+zerotier_rollback_moon_remove() {
+	zt_moon_remove_rollback_status=0
+	if [ "$zt_moon_remove_old_file_present" -eq 1 ]; then
+		mv -f "$zt_moon_remove_file_backup" "$zt_moon_remove_file" || zt_moon_remove_rollback_status=1
+	else
+		rm -f "$zt_moon_remove_file" || zt_moon_remove_rollback_status=1
+	fi
+	if [ "$zt_moon_remove_old_json_present" -eq 1 ]; then
+		mv -f "$zt_moon_remove_json_backup" "$zt_moon_remove_json" || zt_moon_remove_rollback_status=1
+	else
+		rm -f "$zt_moon_remove_json" || zt_moon_remove_rollback_status=1
+	fi
+	if [ "$zt_moon_remove_nvram_attempted" -eq 1 ]; then
+		if ! nvram set zerotiermoon_id="$zt_moon_remove_old_id" || ! nvram commit; then
+			logger -t "zerotier" "Moon身份NVRAM回滚失败"
+			zt_moon_remove_rollback_status=1
+		fi
+	fi
+	if [ "$zt_moon_remove_rollback_status" -eq 0 ]; then
+		rm -rf "$zt_moon_remove_stage_dir" || zt_moon_remove_rollback_status=1
+	else
+		logger -t "zerotier" "Moon清理事务回滚不完整，保留临时备份目录: $zt_moon_remove_stage_dir"
+	fi
+	return "$zt_moon_remove_rollback_status"
+}
+
 remove_moon() {
-	if ! zmoonid="$(nvram get_checked zerotiermoon_id)"; then
+	if ! zt_moon_remove_old_id="$(nvram get_checked zerotiermoon_id)"; then
 		logger -t "zerotier" "无法读取ZeroTier Moon身份配置"
 		return 1
 	fi
-	[ -n "$zmoonid" ] || return 0
-	case "$zmoonid" in
+	[ -n "$zt_moon_remove_old_id" ] || return 0
+	case "$zt_moon_remove_old_id" in
 		*[!0123456789abcdefABCDEF]*)
 			logger -t "zerotier" "ZeroTier Moon身份地址无效"
 			return 1
 			;;
 	esac
-	if [ "${#zmoonid}" -ne 10 ]; then
+	if [ "${#zt_moon_remove_old_id}" -ne 10 ]; then
 		logger -t "zerotier" "ZeroTier Moon身份地址长度无效"
 		return 1
 	fi
-	zt_moon_file="$config_path/moons.d/000000$zmoonid.moon"
-	if ! rm -f "$zt_moon_file" "$config_path/moon.json"; then
-		logger -t "zerotier" "ZeroTier Moon文件清理失败"
+
+	zt_moon_remove_dir="$config_path/moons.d"
+	zt_moon_remove_file="$zt_moon_remove_dir/000000$zt_moon_remove_old_id.moon"
+	zt_moon_remove_json="$config_path/moon.json"
+	if [ -L "$config_path" ] || [ ! -d "$config_path" ] ||
+	   [ -L "$zt_moon_remove_dir" ] ||
+	   { [ -e "$zt_moon_remove_dir" ] && [ ! -d "$zt_moon_remove_dir" ]; } ||
+	   [ -L "$zt_moon_remove_file" ] ||
+	   { [ -e "$zt_moon_remove_file" ] && [ ! -f "$zt_moon_remove_file" ]; } ||
+	   [ -L "$zt_moon_remove_json" ] ||
+	   { [ -e "$zt_moon_remove_json" ] && [ ! -f "$zt_moon_remove_json" ]; }; then
+		logger -t "zerotier" "Moon清理目标路径不安全"
 		return 1
 	fi
-	if ! nvram set zerotiermoon_id=""; then
+
+	zt_moon_remove_stage_dir="$(mktemp -d "$config_path/.moon-remove.XXXXXX")" || return 1
+	chmod 700 "$zt_moon_remove_stage_dir" || { rm -rf "$zt_moon_remove_stage_dir"; return 1; }
+	zt_moon_remove_file_backup="$zt_moon_remove_stage_dir/moon-file.previous"
+	zt_moon_remove_json_backup="$zt_moon_remove_stage_dir/moon-json.previous"
+	zt_moon_remove_old_file_present=0
+	zt_moon_remove_old_json_present=0
+	zt_moon_remove_nvram_attempted=0
+	if [ -e "$zt_moon_remove_file" ]; then
+		if ! ln "$zt_moon_remove_file" "$zt_moon_remove_file_backup"; then
+			logger -t "zerotier" "无法备份Moon签名文件"
+			rm -rf "$zt_moon_remove_stage_dir"
+			return 1
+		fi
+		zt_moon_remove_old_file_present=1
+	fi
+	if [ -e "$zt_moon_remove_json" ]; then
+		if ! ln "$zt_moon_remove_json" "$zt_moon_remove_json_backup"; then
+			logger -t "zerotier" "无法备份Moon JSON"
+			rm -rf "$zt_moon_remove_stage_dir"
+			return 1
+		fi
+		zt_moon_remove_old_json_present=1
+	fi
+
+	zt_moon_remove_nvram_attempted=1
+	if ! nvram set zerotiermoon_id="" || ! nvram commit; then
 		logger -t "zerotier" "ZeroTier Moon身份配置清理失败"
+		zerotier_rollback_moon_remove
 		return 1
 	fi
-	if ! nvram commit; then
-		logger -t "zerotier" "ZeroTier Moon身份配置持久化失败"
+	if ! rm -f "$zt_moon_remove_file" "$zt_moon_remove_json"; then
+		logger -t "zerotier" "ZeroTier Moon文件清理失败"
+		zerotier_rollback_moon_remove
 		return 1
 	fi
+	rm -rf "$zt_moon_remove_stage_dir" || logger -t "zerotier" "Moon清理临时目录删除失败"
 	return 0
 }
 
