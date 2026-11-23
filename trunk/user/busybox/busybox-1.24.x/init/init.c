@@ -120,6 +120,7 @@
 #endif
 #include "reboot.h"
 #include "init_reap_queue.h" /* reboot() constants */
+#include "init_signal_pending.h"
 
 #if DEBUG_SEGV_HANDLER
 # undef _GNU_SOURCE
@@ -203,6 +204,7 @@ static struct init_action *init_action_list = NULL;
 /* SIGTSTP reaps are deferred to the main loop, never touching utmp or the
  * mutable inittab list from signal context. */
 static struct init_reap_queue pending_reaped_children;
+static struct init_signal_pending pending_init_signals;
 
 static const char *log_console = VC_5;
 
@@ -811,8 +813,8 @@ static void run_shutdown_and_kill_processes(void)
  * Immediate handlers execute at any time, even while, say, sysinit
  * is running.
  *
- * Delayed handlers just set a flag variable. The variable is checked
- * in the main loop and acted upon.
+ * Delayed handlers accumulate independent event bits. The main loop snapshots
+ * and clears a batch while those signals are blocked, then performs the actions.
  *
  * halt/poweroff/reboot and restart have immediate handlers.
  * They only traverse linked list of struct action's, never modify it,
@@ -829,8 +831,8 @@ static void run_shutdown_and_kill_processes(void)
  * Ctrl-Alt-Del has a delayed handler. Not a must, but allowing
  * it to happen even somewhere inside "sysinit" would be a bit awkward.
  *
- * There is a tiny probability that SIGHUP and Ctrl-Alt-Del will collide
- * and only one will be remembered and acted upon.
+ * Distinct delayed requests are retained together instead of overwriting a
+ * single shared signal number.
  */
 
 /* The SIGPWR/SIGUSR[12]/SIGTERM handler */
@@ -1023,37 +1025,157 @@ static void reload_inittab(void)
 }
 #endif
 
+static void record_init_delayed_signal(int signo)
+{
+	(void)init_signal_pending_record(&pending_init_signals, signo);
+}
+
+static int init_add_delayed_signal(sigset_t *set, int signo)
+{
+	if (sigaddset(set, signo) != 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
+static int init_build_delayed_signal_set(sigset_t *set)
+{
+	int error;
+
+	if (!set)
+		return EINVAL;
+	if (sigemptyset(set) != 0)
+		return errno > 0 ? errno : EIO;
+	error = init_add_delayed_signal(set, SIGINT);
+	if (error)
+		return error;
+	error = init_add_delayed_signal(set, SIGQUIT);
+	if (error)
+		return error;
+#ifdef SIGPWR
+	error = init_add_delayed_signal(set, SIGPWR);
+	if (error)
+		return error;
+#endif
+	error = init_add_delayed_signal(set, SIGUSR1);
+	if (error)
+		return error;
+	error = init_add_delayed_signal(set, SIGTERM);
+	if (error)
+		return error;
+	error = init_add_delayed_signal(set, SIGUSR2);
+	if (error)
+		return error;
+#if ENABLE_FEATURE_USE_INITTAB
+	error = init_add_delayed_signal(set, SIGHUP);
+	if (error)
+		return error;
+#endif
+	return 0;
+}
+
+static int init_install_one_delayed_signal(int signo,
+					   const struct sigaction *sa)
+{
+	if (sigaction_set(signo, sa) != 0)
+		return errno > 0 ? errno : EIO;
+	return 0;
+}
+
+static int init_install_delayed_signal_handlers(void)
+{
+	struct sigaction sa;
+	int error;
+
+	memset(&sa, 0, sizeof(sa));
+	if (sigfillset(&sa.sa_mask) != 0)
+		return errno > 0 ? errno : EIO;
+	sa.sa_handler = record_init_delayed_signal;
+	/* No SA_RESTART: delayed signals must interrupt wait() and sleep(). */
+	sa.sa_flags = 0;
+
+	error = init_install_one_delayed_signal(SIGINT, &sa);
+	if (error)
+		return error;
+	error = init_install_one_delayed_signal(SIGQUIT, &sa);
+	if (error)
+		return error;
+#ifdef SIGPWR
+	error = init_install_one_delayed_signal(SIGPWR, &sa);
+	if (error)
+		return error;
+#endif
+	error = init_install_one_delayed_signal(SIGUSR1, &sa);
+	if (error)
+		return error;
+	error = init_install_one_delayed_signal(SIGTERM, &sa);
+	if (error)
+		return error;
+	error = init_install_one_delayed_signal(SIGUSR2, &sa);
+	if (error)
+		return error;
+#if ENABLE_FEATURE_USE_INITTAB
+	error = init_install_one_delayed_signal(SIGHUP, &sa);
+	if (error)
+		return error;
+#endif
+	return 0;
+}
+
 static int check_delayed_sigs(void)
 {
 	int sigs_seen = 0;
 
-	while (1) {
-		smallint sig = bb_got_signal;
+	for (;;) {
+		sigset_t pending_set, old_set;
+		sig_atomic_t events;
+		int shutdown_signal = 0;
+		int error;
 
-		if (!sig)
+		error = init_build_delayed_signal_set(&pending_set);
+		if (error) {
+			message(L_LOG, "cannot build delayed signal mask: %s",
+				strerror(error));
 			return sigs_seen;
-		bb_got_signal = 0;
+		}
+		if (sigprocmask(SIG_BLOCK, &pending_set, &old_set) != 0) {
+			error = errno > 0 ? errno : EIO;
+			message(L_LOG, "cannot block delayed init signals: %s",
+				strerror(error));
+			return sigs_seen;
+		}
+
+		events = init_signal_pending_take(&pending_init_signals,
+						  &shutdown_signal);
+		if (sigprocmask(SIG_SETMASK, &old_set, NULL) != 0) {
+			error = errno > 0 ? errno : EIO;
+			if (events >= 0)
+				(void)init_signal_pending_restore(&pending_init_signals,
+								  events,
+								  shutdown_signal);
+			message(L_LOG, "cannot restore delayed init signal mask: %s",
+				strerror(error));
+			return sigs_seen;
+		}
+		if (events < 0) {
+			message(L_LOG, "invalid delayed init signal state");
+			return sigs_seen;
+		}
+		if (events == 0)
+			return sigs_seen;
+
 		sigs_seen = 1;
+
+		/* A shutdown request takes precedence over restart and service actions. */
+		if (events & INIT_SIGNAL_PENDING_SHUTDOWN)
+			halt_reboot_pwoff(shutdown_signal);
+		if (events & INIT_SIGNAL_PENDING_QUIT)
+			exec_restart_action();
 #if ENABLE_FEATURE_USE_INITTAB
-		if (sig == SIGHUP)
+		if (events & INIT_SIGNAL_PENDING_HUP)
 			reload_inittab();
 #endif
-		if (sig == SIGINT)
+		if (events & INIT_SIGNAL_PENDING_INT)
 			run_actions(CTRLALTDEL);
-		if (sig == SIGQUIT) {
-			exec_restart_action();
-			/* returns only if no restart action defined */
-		}
-		if ((1 << sig) & (0
-#ifdef SIGPWR
-		    + (1 << SIGPWR)
-#endif
-		    + (1 << SIGUSR1)
-		    + (1 << SIGUSR2)
-		    + (1 << SIGTERM)
-		)) {
-			halt_reboot_pwoff(sig);
-		}
 	}
 }
 
@@ -1099,6 +1221,7 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 #if DEBUG_SEGV_HANDLER
 	{
 		struct sigaction sa;
+		int signal_error;
 		memset(&sa, 0, sizeof(sa));
 		sa.sa_sigaction = handle_sigsegv;
 		sa.sa_flags = SA_SIGINFO;
@@ -1235,19 +1358,12 @@ int init_main(int argc UNUSED_PARAM, char **argv)
 		/* These signals must interrupt wait(),
 		 * setting handler without SA_RESTART flag.
 		 */
-		bb_signals_recursive_norestart(0
-			+ (1 << SIGINT)  /* Ctrl-Alt-Del */
-			+ (1 << SIGQUIT) /* re-exec another init */
-#ifdef SIGPWR
-			+ (1 << SIGPWR)  /* halt */
-#endif
-			+ (1 << SIGUSR1) /* halt */
-			+ (1 << SIGTERM) /* reboot */
-			+ (1 << SIGUSR2) /* poweroff */
-#if ENABLE_FEATURE_USE_INITTAB
-			+ (1 << SIGHUP)  /* reread /etc/inittab */
-#endif
-			, record_signo);
+		signal_error = init_install_delayed_signal_handlers();
+		if (signal_error != 0) {
+			message(L_CONSOLE, "can't install init signal handlers: %s",
+				strerror(signal_error));
+			pause_and_low_level_reboot(RB_HALT_SYSTEM);
+		}
 	}
 
 	/* Now run everything that needs to be run */

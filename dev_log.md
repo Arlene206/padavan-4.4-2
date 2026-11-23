@@ -1,3 +1,14 @@
+## 2026-11-23 11:47 UTC+8 — Preserve concurrent PID1 delayed-signal requests
+
+- Source review confirmed a lost-event race in check_delayed_sigs(): the main loop snapshots the single bb_got_signal value and then clears it, so a different delayed handler can overwrite that global between those operations. The source comment already acknowledged SIGHUP/Ctrl-Alt-Del collision; a shutdown request could also be overwritten by another delayed event.
+- Added init_signal_pending.h with independent event bits and a retained shutdown signal; init.c installs PID1-only delayed handlers with a full signal mask, snapshots and clears pending events while the delayed signal set is blocked, processes shutdown before restart/service actions, and requeues a taken batch if restoring the prior mask fails. The general libbb bb_got_signal path is retained for SIGCONT in stop_handler().
+- Added GNU89 ASan/UBSan tests for distinct events, coalescing, shutdown mode, snapshot restore and invalid inputs; extended the source-contract script and BusyBox workflow to compile/run them. A local GNU89 -Wall -Wextra -Werror ASan/UBSan compile and execution of the standalone policy test passed.
+- The earlier exact-child source change already has L3 evidence: XY-C1 run 45106983817 on 7c556be passed Build XY-C1, TRX verification and artifact upload; compare 1f9d39bc..7c556be contains only workflow, test, script and log paths after the production source.
+- Handoff CI is being repaired alongside this source slice: run 45107256439 first found the missing mandatory checkpoint sentence; exact-head run 45107711807 on 056edb68 then found the additional required phrases one atomic main commit and Before context exhaustion. Added the exact rules without changing the validator. Exact Actions for this source/test commit remain pending.
+- Resulting commit: THIS COMMIT. New signal-fix L2/L3 and hardware L4 are not yet claimed.
+
+---
+
 ## 2026-11-23 11:42 UTC+8 — Restore the explicit end-of-session handoff checkpoint contract
 
 - The exact-head AI handoff documentation job 45107256439 on 8331df0c690aafa00a7d46263dacea8ab8bfbb01 failed at its validator with: current handoff does not require an end-of-session accuracy checkpoint. The log and roadmap were not the cause.

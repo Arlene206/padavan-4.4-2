@@ -9,6 +9,9 @@ INIT_DIR = ROOT / "trunk/user/busybox/busybox-1.24.x/init"
 SOURCE = (INIT_DIR / "init.c").read_text()
 QUEUE = (INIT_DIR / "init_reap_queue.h").read_text()
 TEST = (INIT_DIR / "tests/init_reap_queue.c").read_text()
+SIGNAL_PENDING = (INIT_DIR / "init_signal_pending.h").read_text()
+SIGNAL_TEST = (INIT_DIR / "tests/init_signal_pending.c").read_text()
+WORKFLOW = (ROOT / ".github/workflows/busybox-init-reap-queue.yml").read_text()
 
 
 def section(text, start_marker, end_marker):
@@ -88,5 +91,67 @@ for test_name in (
 ):
     assert f"static void {test_name}(void)" in TEST, test_name
     assert f"{test_name}();" in TEST, test_name
+
+
+signal_handler = section(
+    SOURCE,
+    "static void record_init_delayed_signal(int signo)",
+    "static int init_add_delayed_signal(sigset_t *set, int signo)",
+)
+assert "init_signal_pending_record(&pending_init_signals, signo)" in signal_handler
+signal_install = section(
+    SOURCE,
+    "static int init_install_delayed_signal_handlers(void)",
+    "static int check_delayed_sigs(void)",
+)
+assert "sigfillset(&sa.sa_mask)" in signal_install
+assert "sa.sa_flags = 0" in signal_install
+assert "bb_signals_recursive_norestart" not in signal_install
+for signal_name in ("SIGINT", "SIGQUIT", "SIGUSR1", "SIGTERM", "SIGUSR2"):
+    assert f"init_install_one_delayed_signal({signal_name}, &sa)" in signal_install
+assert "#ifdef SIGPWR" in signal_install
+assert "#if ENABLE_FEATURE_USE_INITTAB" in signal_install
+
+delayed = section(
+    SOURCE,
+    "static int check_delayed_sigs(void)",
+    "#if DEBUG_SEGV_HANDLER",
+)
+assert delayed.index("sigprocmask(SIG_BLOCK, &pending_set, &old_set)") < delayed.index(
+    "init_signal_pending_take(&pending_init_signals"
+)
+assert delayed.index("init_signal_pending_take(&pending_init_signals") < delayed.index(
+    "sigprocmask(SIG_SETMASK, &old_set, NULL)"
+)
+assert "init_signal_pending_restore(&pending_init_signals" in delayed
+assert "bb_got_signal" not in delayed
+assert delayed.index("INIT_SIGNAL_PENDING_SHUTDOWN") < delayed.index(
+    "INIT_SIGNAL_PENDING_QUIT"
+)
+assert delayed.index("INIT_SIGNAL_PENDING_QUIT") < delayed.index(
+    "INIT_SIGNAL_PENDING_HUP"
+)
+assert delayed.index("INIT_SIGNAL_PENDING_HUP") < delayed.index(
+    "INIT_SIGNAL_PENDING_INT"
+)
+assert "init_install_delayed_signal_handlers()" in SOURCE
+assert "bb_signals_recursive_norestart(0" not in SOURCE
+assert "signal(SIGCONT, record_signo)" in stop_handler
+assert "volatile sig_atomic_t events" in SIGNAL_PENDING
+assert "pending->events |= flag" in SIGNAL_PENDING
+assert "pending->events = 0;" in SIGNAL_PENDING
+assert "The main loop" in SIGNAL_PENDING
+for test_name in (
+    "test_collects_distinct_delayed_events",
+    "test_coalesces_repeated_events_without_losing_other_events",
+    "test_retains_shutdown_mode_and_clears_each_batch",
+    "test_restores_a_batch_without_overwriting_newer_shutdown",
+    "test_ignores_unhandled_signals_and_rejects_invalid_state",
+):
+    assert f"static void {test_name}(void)" in SIGNAL_TEST, test_name
+    assert f"{test_name}();" in SIGNAL_TEST, test_name
+assert "init_signal_pending.h" in WORKFLOW
+assert "tests/init_signal_pending.c" in WORKFLOW
+assert "Compile and run delayed signal accumulator regression" in WORKFLOW
 
 print("BusyBox PID1 deferred reap queue and signal-context contract: PASS")

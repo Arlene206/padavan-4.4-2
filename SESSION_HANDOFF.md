@@ -31,6 +31,9 @@
 
 # Cross-session execution mandate
 
+- Every logical source/test slice must be delivered as one atomic main commit, built from one complete Git tree and published by a non-forced expected-SHA update.
+- Before context exhaustion, finish and publish the current safe slice, inspect its exact-head Actions, and leave the next concrete task and validation boundary here.
+
 The user delegates one continuing engineering job across conversations. The repository is the project memory; resume from live GitHub state, not copied chat summaries.
 
 - Recover once, read the protocol and current handoff, confirm main and the frozen backup, then execute the active engineering task. Do not repeat completed audits or ask the user to select the next task.
@@ -43,45 +46,49 @@ The user delegates one continuing engineering job across conversations. The repo
 
 ## Current repository state
 
-- Live main at the parent of this handoff-contract correction: 8331df0c690aafa00a7d46263dacea8ab8bfbb01. The last BusyBox production-source baseline remains 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; later commits add host tests, CI trigger governance and this handoff correction. Fetch live main again at the next takeover and immediately before any write.
+- Live main at the parent of this PID1 signal-coalescing slice: 056edb68a0c9987d24cf397da377024bf5e77c2e. The last product-source baseline is 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; XY-C1 L3 build/TRX/artifact validation passed for that unchanged source tree on 7c556be9eb1caa343d720bcecd3df74c5461262a.
 - Frozen backup: backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
 - Production PID1 wait/reap baseline: 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac; exact host/source regression follow-up 84060ba4f52823b396487b24cdfe66254baff0d0 passed.
 - XY-C1 workflow path correction: 11090e80b126fa1665758026d2163fd9e2f09e6a; detector fixture correction: a71253cc463befcab865afb8a90407afa7975e33; workflow-only full-build rerun: 7c556be9eb1caa343d720bcecd3df74c5461262a.
 
 ## Active task
 
-### BusyBox PID 1 wait/reap integration regression
+### BusyBox PID 1 delayed-signal event preservation
 
-- Primary files: trunk/user/busybox/busybox-1.24.x/init/init.c, init_reap_queue.h, init/tests/init_reap_queue.c, scripts/check_busybox_init_reap_queue.py, .github/workflows/busybox-init-reap-queue.yml.
-- Existing implementation and callback tests are on main. This checkpoint adds a real-fork test ensuring init_wait_for_child(target_pid,waitpid,...) cannot reap a different zombie child while blocking on the target.
-- The focused BusyBox workflow compiles under -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined, executes the C tests, then checks the PID1 wiring/source contract. The new test must be registered in both main() and the Python source contract.
-- After this commit, inspect its exact-head BusyBox PID1 run, Process inventory/lifecycle, AI handoff docs and XY-C1 host run. If a check fails, fetch job logs and fix the first causal issue without weakening coverage.
-- Once the real waitpid test passes, continue the PID1 review at the next concrete failure/race discovered from stop_handler(), pending queue drain, reload_inittab(), main-loop child reaping and recovery-shell respawn. Do not introduce speculative signal-handler rewrites. If no concrete PID1 issue remains, select the next high-risk module from the roadmap rather than polishing this component indefinitely.
+- Source review confirmed a lost-event race in check_delayed_sigs(): the main loop snapshots the single shared bb_got_signal value and then clears it, so a different delayed handler can overwrite that global between those operations. The source comment already acknowledged SIGHUP/Ctrl-Alt-Del collision; a shutdown request could also be overwritten by another delayed event.
+- This slice replaces the lossy single-signal slot for PID1 delayed events with independent sig_atomic_t event bits in init_signal_pending.h. A separate field retains the most recently delivered shutdown mode. Delayed handler sigaction masks are full to serialize the accumulator's read-modify-write; the main loop blocks the exact delayed signal set while taking/clearing a batch. A failed mask restore requeues the snapshot rather than discarding it.
+- Existing bb_got_signal/record_signo remains dedicated to SIGCONT inside stop_handler(); no other BusyBox applet or global libbb signal behavior is changed.
+- Focused tests cover different signals in one batch, repeated/coalesced requests, shutdown mode retention, snapshot restoration and invalid inputs. The source-contract script and BusyBox workflow compile/check this policy. Exact-head C test, source contract, Process inventory, AI docs and XY-C1 build are pending for the resulting SHA.
+- Next, inspect the interaction between delayed events, WAIT/SYSINIT actions and main-loop sleeps/waits. Preserve shutdown priority and SIGCONT stop handling; make no broader signal changes without a testable defect.
 
 ### XY-C1 production-build gate
 
-- XY-C1 firmware validation now watches trunk/user/busybox/busybox-1.24.x/init/**; this closes the prior trigger omission for BusyBox PID1 source.
-- Exact run 45106741184 on workflow-fix SHA 11090e80 failed only because the detector test fixture encoded literal delimiters; corrected by a71253cc.
-- Exact run 45106798326 on a71253cc passed detector/host checks but skipped Build/TRX/artifact because that commit changed only host tests/docs. This did not verify L3 for the production PID1 source.
-- Exact workflow-only run 45106983817 on 7c556be is still IN_PROGRESS. Its purpose is to execute Build XY-C1, TRX verification and artifact upload for the current PID1 source baseline. Verify that exact run's terminal state; do not substitute a host-only pass.
-- The next actual change to init.c or init_reap_queue.h must result in a push-triggered XY-C1 build. Do not manually dispatch and misrepresent it as same-SHA main push validation.
+- The XY-C1 workflow watches trunk/user/busybox/busybox-1.24.x/init/**; the prior trigger omission is closed.
+- Exact XY-C1 run 45106983817 on workflow-only SHA 7c556be9eb1caa343d720bcecd3df74c5461262a completed SUCCESS: detector tests, Build XY-C1, TRX verification and artifact upload all passed.
+- Compare 1f9d39bc59f9882b9f0d0efae2f09e908110a1ac..7c556be9eb1caa343d720bcecd3df74c5461262a confirms the intervening commits changed only workflow, test, script and dev-log paths; no production source changed after the BusyBox PID1 exact-child implementation. Therefore L3 is verified for that production-source baseline.
+- Exact XY-C1 run 45107256442 on test-only SHA 8331df0c690aafa00a7d46263dacea8ab8bfbb01 passed detector/host checks and correctly skipped Build/TRX/artifact. It is not L3 evidence for the new delayed-signal source change.
+- The next production init.c/header edit in this slice must trigger the full XY-C1 path; verify Build, TRX and artifact upload on the exact product-source SHA.
 
 ## Verification boundary
 
 - L1: source review of the exact-child waitpid migration and bounded SIGTSTP deferred-reap path completed.
 - L2: callback tests and source contract PASS on exact SHA 84060ba4f52823b396487b24cdfe66254baff0d0. The repository-integrated GNU89/ASan/UBSan fork/waitid peer-preservation test passed in exact-head BusyBox run 45107256450 on 8331df0c690aafa00a7d46263dacea8ab8bfbb01; Process inventory 45107256374, USB hotplug 45107256428 and NVRAM audit 45107256356 also PASS on that SHA. The AI handoff contract 45107256439 failed only because this handoff omitted the validator-required explicit end-of-session checkpoint sentence; this correction adds it without weakening the validator.
 - XY detector tests and AI docs PASS on exact test-only SHA a71253cc; its target build was intentionally skipped. Workflow-only run 45106983817 on 7c556be remains pending at the time of this checkpoint.
-- L3: NOT VERIFIED until 45106983817 completes Build XY-C1, TRX verification and artifact upload successfully on the same exact main SHA. L4: NOT VERIFIED; no physical router boot/recovery test has been performed.
+- L3: VERIFIED for the exact-child wait/reap production source from 1f9d39bc: exact XY-C1 run 45106983817 on 7c556be passed Build XY-C1, TRX verification and artifact upload; the intervening compare diff contains no production-source changes. The delayed-signal accumulator introduced in THIS COMMIT is not yet L3 verified. L4: NOT VERIFIED; no physical router boot/recovery test has been performed.
 - No complete local MIPS/uClibc toolchain or target PID1 binary is available in this session.
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main SHA and confirm the frozen backup remains unchanged.
-2. Inspect the AI handoff contract run created by this correction. The prior exact-head failure 45107256439 was caused by the missing required checkpoint sentence; confirm the new run passes, and do not weaken the validator.
-3. Recheck exact-head XY-C1 run 45106983817 on 7c556be. Its Build step was still running at the latest check, with TRX and artifact upload pending. Mark L3 verified only if all three stages pass on the same product-source SHA.
-4. Continue PID1 review from check_delayed_sigs(): its single shared bb_got_signal slot can lose one event when SIGHUP/SIGINT/SIGQUIT/shutdown signals overlap between the local snapshot and subsequent clear. Verify the race and signal-mask behavior, add a regression preserving distinct pending events, then implement a serialized PID1-only event accumulator without changing other BusyBox applets. Preserve shutdown signal precedence and stop_handler's separate SIGCONT handling.
+1. Fetch the new live main SHA and confirm the frozen backup remains at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+2. Inspect the exact-head BusyBox PID1 workflow: run the new delayed-signal C test, the expanded source contract and existing peer-preservation regression. Fix only the first causal failure, without weakening assertions.
+3. Inspect exact-head AI handoff docs, Process inventory, USB/NVRAM checks and XY-C1. The prior production PID1 source baseline already passed L3 on run 45106983817/7c556be (Build, TRX and artifact all PASS); the new delayed-signal source change needs its own L3 validation.
+4. Continue PID1 from the signal event accumulator's ordering and mask-restoration path. Verify concurrent SIGHUP, SIGINT, SIGQUIT and shutdown handling; preserve the separate SIGCONT stop-handler path.
 
 ## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional.
+
+Every session MUST inspect the live repository state before ending, compare the active task, engineering baseline, exact-head Actions, validation boundary, blockers and exact next action, and update this handoff when one of those facts materially changes. If all facts and the first action remain accurate, leave this file untouched and do not create a no-op commit.
 
 The checkpoint is mandatory; a document edit is conditional.
 
@@ -91,9 +98,7 @@ Before ending a conversation, compare the live repository with this record: engi
 
 ## End-of-session accuracy checkpoint
 
-- Parent main SHA for the preceding test checkpoint: 7c556be9eb1caa343d720bcecd3df74c5461262a; its child 8331df0c690aafa00a7d46263dacea8ab8bfbb01 contains the real fork/waitid peer-preservation test, source-contract registration, updated PID1 roadmap and handoff.
-- Exact 8331 results: BusyBox PID1 run 45107256450 PASS; Process inventory 45107256374 PASS; USB hotplug 45107256428 PASS; NVRAM boundary audit 45107256356 PASS; XY-C1 host/detector run 45107256442 PASS with Build/TRX/artifact intentionally skipped; AI handoff contract 45107256439 FAIL solely because this handoff omitted the explicit end-of-session checkpoint sentence. This correction adds the required sentence and updates checkpoint facts.
-- Workflow-fix SHA 11090e80: XY-C1 run 45106741184 failed at the detector mock delimiter fixture; corrected by a71253cc. Process inventory 45106741192 PASS; AI docs 45106741330 PASS.
-- Test-fixture correction SHA a71253cc: XY-C1 host run 45106798326 PASS, Build/TRX/artifact SKIPPED; AI docs 45106798279 PASS.
-- Workflow-only rerun SHA 7c556be: XY-C1 run 45106983817 IN_PROGRESS at the last check; Process inventory 45106983853 and AI docs 45106983832 PASS. Build was IN_PROGRESS and TRX/artifact pending.
-- The current correction's Actions will be fetched by exact resulting SHA after publication. L3 remains unverified pending Build/TRX/artifact on 7c556be; L4 is not verified.
+- Parent main SHA for this source/test/CI slice: 056edb68a0c9987d24cf397da377024bf5e77c2e. New product files are init_signal_pending.h and tests/init_signal_pending.c; init.c, the source checker and focused workflow are updated together.
+- The exact-child wait/reap production baseline from 1f9d39bc has L3 evidence: XY-C1 run 45106983817 on 7c556be completed SUCCESS, with Build XY-C1, TRX verification and artifact upload all PASS. Commit comparison shows no intervening production-source changes.
+- Exact 8331 results: BusyBox PID1 45107256450 PASS; Process inventory 45107256374 PASS; USB hotplug 45107256428 PASS; NVRAM audit 45107256356 PASS; XY host/detector 45107256442 PASS with target build intentionally skipped. AI handoff 45107256439 failed due the missing mandatory checkpoint sentence; docs-only correction 056edb68 then failed exact-head AI run 45107711807 because it also lacked the required phrases one atomic main commit and Before context exhaustion. This source/test slice adds those exact rules without changing the validator.
+- The current source slice's exact-head Actions have not yet been created. L2/L3 for the delayed-signal accumulator remain pending. L4 is not verified.
