@@ -9,7 +9,7 @@ Continue this repository as one cross-session development stream. A logical sour
 Every session MUST inspect the live repository state before ending: verify main and the frozen backup, identify the exact current SHA, inspect relevant exact-head Actions, record any state transitions from PENDING to PASS/FAIL, and name the next concrete implementation task. Before context exhaustion, complete the current safe slice and update this handoff accurately. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, explicitly conclude the check with no file change and no no-op commit. Do not claim tests, builds, artifacts or hardware checks that were not actually performed.
 
 
-- Parent main SHA before this checker correction: 0db869b438d344406375dde71ee8b1764b047272; fetch live main for the exact current tip before any write. This checkpoint records completed exact-SHA validation for the descriptor-pinned libdisk deletion slice; fetch live main for its exact SHA before every write.
+- Parent main SHA before the latest DHCP checker correction: 0db869b438d344406375dde71ee8b1764b047272. Live main is fetched again before every write; the source-validation baseline is recorded separately below.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify/delete it.
 - PR #1 remains closed/unmerged; core AliDDNS CA-bootstrap/HMAC changes are integrated on main with later evolution. Do not port stale PR wholesale.
 - Main-only development: one complete tree and one commit per logical task, then non-forced expected-SHA update. Never force-push or create development branches.
@@ -19,20 +19,22 @@ Every session MUST inspect the live repository state before ending: verify main 
 ### Cross-userland continuation — WAN DHCP client transitions
 
 - The libdisk removable-share ACL mount identity slice is implemented in production (del_folder() now pins one volume and staging descriptor set) and its GNU89 ASan/UBSan/source-contract tests passed on exact source SHA 80f1bfccd255536a0a2682c7d046f0216038a922.
-- WAN DHCP client NAK/leasefail contracts are now explicit: REQUESTING skips deconfig; active-lease NAK must deconfigure and defer INIT_SELECTING on failure; wrong-server NAKs remain filtered; leasefail callback status stays advisory. Added GNU89 coverage for the REQUESTING/active lease gate and source assertions for NAK and leasefail ordering. Next, continue broader exact transition integration coverage for failed deconfig, lease expiry and SIGUSR2/-R while DECONFIG_PENDING.
-- Main parent for this checkpoint is 0db869b438d344406375dde71ee8b1764b047272; the frozen backup is 72f4f157a084f8184b9597ca5bf334b8080e5807 and remains untouched. No PR/branch work.
+- WAN DHCP client NAK/leasefail semantics are covered: REQUESTING skips deconfig; active-lease NAK must deconfigure and defer INIT_SELECTING on failure; wrong-server NAKs remain filtered; leasefail callback status remains advisory. Shared retry delay is one second minimum, and SIGUSR2/-R preserve pending cleanup/release behavior.
+- The follow-up now extracts the complete DECONFIG_PENDING retry state/timer payload into a GNU89-testable plan (resume state, release intent, retry timeout, packet counter, elapsed counter), prepares it before closing the listener, and only publishes it after switching to LISTEN_NONE. Source contracts also pin pending-resume socket/timer setup, lease-expiry ordering and the SIGUSR2/-R release path. Exact L2/Actions for this source slice will be checked on its own SHA.
+- Prior validation: commit `98168ad16689cf47e1efeb2ee3999374790cbc41` passed udhcpc #45479146215 and AI handoff #45479146192. Product-source L3 remains only the earlier verified SHA `80f1bfccd255536a0a2682c7d046f0216038a922`; hardware L4 is not verified.
 ## Verification boundary
 
 - L3 VERIFIED for product-source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact; libdisk, Process, HTTPD, NVRAM PASS). Hardware L4 NOT VERIFIED.
 - Exact da2bdbcf1ec3720d547c2665c638900bb628d289 results must be checked by run ID; it preceded the shared retry-delay changes. Its C/host suite and NAK/leasefail/source checks must not be conflated with THIS commit's expanded retry tests.
 - Exact SHA `36a10c0e5844daf31b3cc483c20d9e25a798ef6b`: udhcpc #45476128312 C regression PASS / Python checker FAIL at the whitespace-normalized retry-helper return assertion; Process lifecycle #45476128289, Process inventory #45476128257, USB storage #45476128360, NVRAM #45476128492, XY-C1 #45476128451 and AI handoff #45476128686 all completed SUCCESS.
-- Exact SHA `0db869b438d344406375dde71ee8b1764b047272`: udhcpc #45476513525 C regression PASS / Python checker FAIL at line 236 because `policy_compact` removes the space after `return`; AI handoff #45476513417 PASS. THIS COMMIT corrects that remaining checker token; its exact-head Actions are pending.
-- The last verified L3 source baseline remains `80f1bfccd255536a0a2682c7d046f0216038a922` (XY-C1 Build + TRX + artifact); later DHCP product-source changes require their own exact-SHA target-build evidence. Hardware L4 remains NOT VERIFIED.
+- Exact SHA `0db869b438d344406375dde71ee8b1764b047272`: udhcpc #45476513525 C regression PASS / Python checker failed on compact-return whitespace; AI handoff #45476513417 PASS.
+- Exact SHA `98168ad16689cf47e1efeb2ee3999374790cbc41`: udhcpc #45479146215 PASS (GNU89 -Werror ASan/UBSan C regression and Python source contract); AI handoff #45479146192 PASS.
+- THIS commit adds the retry-state plan regression and strengthens source contracts. Its exact-head udhcpc, AI handoff, XY-C1, Process and NVRAM checks are pending; do not claim this new product-source SHA is L3 until XY-C1 Build/TRX/artifact pass on the same SHA.
+- Last verified L3 product-source baseline remains `80f1bfccd255536a0a2682c7d046f0216038a922` (XY-C1 Build + TRX + artifact). Hardware L4 remains NOT VERIFIED.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is immutable.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-SHA udhcpc workflow triggered by THIS compact-return assertion correction; require both the GNU89 -Werror ASan/UBSan C regression and the Python source contract to pass.
-2. If another assertion fails, compare its compact-source expression with the actual normalized production code and correct only the checker expectation while preserving ordering/semantic coverage.
-3. Once the checker passes, continue the deeper DHCP transition contracts for active-lease deconfig retry (state, sockets and timer), lease expiry, and SIGUSR2/`-R` while `DECONFIG_PENDING`; retain wrong-server NAK filtering.
+1. Inspect the exact-SHA udhcpc workflow for THIS retry-state plan/test/checker slice; require the GNU89 -Werror ASan/UBSan binary and every Python state/socket/timer/release contract to pass.
+2. Inspect exact-head AI handoff, Process inventory/lifecycle, NVRAM and XY-C1 runs. Only same-SHA Build + TRX verification + artifact upload establish L3; hardware L4 remains unverified.
+3. Continue the WAN DHCP transition audit across timeout accounting, NAK/expiry cleanup and SIGUSR2/exit cleanup; fix a source defect only when its runtime semantics are demonstrated, preserving the wrong-server filter.

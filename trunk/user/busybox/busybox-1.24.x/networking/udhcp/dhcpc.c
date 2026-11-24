@@ -1126,13 +1126,17 @@ udhcpc_schedule_deconfig_retry(int resume_state, int release_on_usr2,
 				int retry_timeout, int *timeout,
 				int *packet_num, unsigned *already_waited_sec)
 {
-	deconfig_resume_state = resume_state;
-	deconfig_release_on_usr2 = release_on_usr2 != 0;
+	struct udhcpc_deconfig_retry_plan plan;
+
+	udhcpc_deconfig_retry_plan_init(&plan, resume_state, release_on_usr2,
+					retry_timeout);
 	change_listen_mode(LISTEN_NONE);
+	deconfig_resume_state = plan.resume_state;
+	deconfig_release_on_usr2 = plan.release_on_usr2;
 	state = DECONFIG_PENDING;
-	*timeout = udhcpc_retry_delay(retry_timeout);
-	*packet_num = 0;
-	*already_waited_sec = 0;
+	*timeout = plan.timeout;
+	*packet_num = plan.packet_num;
+	*already_waited_sec = plan.already_waited_sec;
 }
 
 /* Called only on SIGUSR1 */

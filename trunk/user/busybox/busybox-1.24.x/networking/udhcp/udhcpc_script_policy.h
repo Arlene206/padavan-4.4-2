@@ -80,6 +80,31 @@ udhcpc_retry_delay(int retry_timeout)
 	return retry_timeout > 0 ? retry_timeout : 1;
 }
 
+/*
+ * Prepare one DECONFIG_PENDING transition before publishing it to the event
+ * loop. Keeping the state and timer fields together makes the retry contract
+ * host-testable without emulating BusyBox sockets or signals.
+ */
+struct udhcpc_deconfig_retry_plan {
+	int resume_state;
+	int release_on_usr2;
+	int timeout;
+	int packet_num;
+	unsigned already_waited_sec;
+};
+
+static inline void
+udhcpc_deconfig_retry_plan_init(struct udhcpc_deconfig_retry_plan *plan,
+				int resume_state, int release_on_usr2,
+				int retry_timeout)
+{
+	plan->resume_state = resume_state;
+	plan->release_on_usr2 = release_on_usr2 != 0;
+	plan->timeout = udhcpc_retry_delay(retry_timeout);
+	plan->packet_num = 0;
+	plan->already_waited_sec = 0;
+}
+
 /* Keep retries bounded away from a busy loop when -A is zero or negative. */
 static inline int
 udhcpc_decline_retry_delay(int retry_timeout)

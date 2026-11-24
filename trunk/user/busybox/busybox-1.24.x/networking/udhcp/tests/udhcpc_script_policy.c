@@ -46,6 +46,33 @@ static int test_failed_deconfig_blocks_state_transition(void)
 
 
 
+static int test_deconfig_retry_plan_resets_state_and_timer(void)
+{
+	struct udhcpc_deconfig_retry_plan plan;
+
+	udhcpc_deconfig_retry_plan_init(&plan, 4, 1, 30);
+	CHECK(plan.resume_state == 4);
+	CHECK(plan.release_on_usr2 == 1);
+	CHECK(plan.timeout == 30);
+	CHECK(plan.packet_num == 0);
+	CHECK(plan.already_waited_sec == 0);
+
+	udhcpc_deconfig_retry_plan_init(&plan, 5, 0, 0);
+	CHECK(plan.resume_state == 5);
+	CHECK(plan.release_on_usr2 == 0);
+	CHECK(plan.timeout == 1);
+	CHECK(plan.packet_num == 0);
+	CHECK(plan.already_waited_sec == 0);
+
+	udhcpc_deconfig_retry_plan_init(&plan, 6, -1, -3);
+	CHECK(plan.resume_state == 6);
+	CHECK(plan.release_on_usr2 == 1);
+	CHECK(plan.timeout == 1);
+	CHECK(plan.packet_num == 0);
+	CHECK(plan.already_waited_sec == 0);
+	return 0;
+}
+
 static int test_cleanup_retry_delay_has_one_second_floor(void)
 {
 	CHECK(udhcpc_retry_delay(5) == 5);
@@ -175,6 +202,7 @@ int main(void)
 	    test_nak_server_id_filter_rejects_missing_and_mismatched_server() != 0 ||
 	    test_arp_probe_errors_do_not_publish_a_dhcp_lease() != 0 ||
 	    test_failed_deconfig_blocks_state_transition() != 0 ||
+	    test_deconfig_retry_plan_resets_state_and_timer() != 0 ||
 	    test_cleanup_retry_delay_has_one_second_floor() != 0 ||
 	    test_failed_packet_send_blocks_dhcp_reselection_until_retry() != 0 ||
 	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||

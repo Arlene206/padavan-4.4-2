@@ -1,3 +1,11 @@
+## 2026-11-25 — Make DHCP deconfig retry state and timer planning testable
+
+- Extends the active WAN DHCP transition slice by extracting the pending-cleanup resume tuple into a pure GNU89 policy plan: resume state, release intent, retry timeout (including the one-second floor), packet count and elapsed-wait counter. The event loop prepares the tuple before closing its listener, then publishes the saved transition and timer only after switching to LISTEN_NONE.
+- Added regression cases for normal retry, zero/negative retry intervals and release-intent normalization. Expanded source contracts for the pending transition publication order, INIT_SELECTING versus non-discovery resume socket/timer setup, lease-expiry gating, SIGUSR2 release-on-pending and -R exit cleanup. Wrong-server DHCPNAK filtering remains required.
+- Parent `98168ad16689cf47e1efeb2ee3999374790cbc41`; THIS COMMIT changes only DHCP production/header/test/checker and the active handoff/log. No local checkout is available, so no local compiler run is claimed. Exact-head GNU89 ASan/UBSan, Python contracts and XY-C1 Build/TRX/artifact remain pending; L3 baseline remains `80f1bfccd255536a0a2682c7d046f0216038a922`, L4 unverified.
+
+---
+
 ## 2026-11-25 — Normalize the udhcpc retry-helper return contract
 
 - Exact main SHA `0db869b438d344406375dde71ee8b1764b047272`, udhcpc run #45476513525: the GNU89 -Werror ASan/UBSan policy binary compiled and passed; the Python source contract failed at its retry-helper return assertion. The checker compares `policy_compact`, which removes all whitespace, but the expected token still contained a space after `return`.
