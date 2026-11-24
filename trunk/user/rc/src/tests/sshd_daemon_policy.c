@@ -161,9 +161,25 @@ static void test_checked_sshd_enable_mode_read(void)
     assert(sshd_nvram_mode_status(1, 0, "1", NULL) == EINVAL);
 }
 
+static void
+test_sshd_enable_mode_rejects_unsupported_values(void)
+{
+	int mode = 77;
+
+	assert(sshd_nvram_mode_status(1, 0, "-1", &mode) == EINVAL);
+	assert(mode == 77);
+	assert(sshd_nvram_mode_status(1, 0, "3", &mode) == EINVAL);
+	assert(mode == 77);
+	assert(sshd_nvram_mode_status(1, 0, "-2147483648", &mode) == EINVAL);
+	assert(mode == 77);
+	assert(sshd_nvram_mode_status(1, 0, "2147483647", &mode) == EINVAL);
+	assert(mode == 77);
+}
+
 int main(void)
 {
 	test_checked_sshd_enable_mode_read();
+	test_sshd_enable_mode_rejects_unsupported_values();
 	test_process_name_selection_matches_inventory_backend();
 	test_direct_start_requires_confirmed_absence();
 	test_restart_initial_inventory_gates_name_based_stop();

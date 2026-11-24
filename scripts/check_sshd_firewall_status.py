@@ -99,6 +99,7 @@ assert "sshd_nvram_mode_status(api_result, saved_errno" in mode_reader
 assert "return saved_errno > 0 ? saved_errno : EIO;" in mode_policy
 assert "if (api_result != 1 || !value)" in mode_policy
 assert "strtol(cursor, &end, 10)" in mode_policy
+assert "if (parsed < 0 || parsed > 2)" in mode_policy
 assert "api_result == 0" in mode_policy
 assert "if (api_result < 0)" in mode_policy
 assert "sshd_enabled_mode_read(&sshd_mode)" in start_wrapper
@@ -106,6 +107,11 @@ assert "start_sshd_with_mode(sshd_mode)" in start_wrapper
 assert 'nvram_get_int("sshd_enable")' not in start_wrapper
 assert 'nvram_get_int("sshd_enable")' not in start
 assert "test_checked_sshd_enable_mode_read();" in TEST
+assert "test_sshd_enable_mode_rejects_unsupported_values();" in TEST
+mode_range_test = body(TEST, "test_sshd_enable_mode_rejects_unsupported_values(void)")
+for invalid_mode in ('"-1"', '"3"', '"-2147483648"', '"2147483647"'):
+    assert invalid_mode in mode_range_test
+assert mode_range_test.count("assert(mode == 77);") == 4
 
 assert "process_presence_start_postcondition" in start_policy
 recovery = body(SERVICES, "sshd_start_failure_recover(int failure_status, const char *phase)")

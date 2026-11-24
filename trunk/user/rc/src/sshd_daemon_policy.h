@@ -54,6 +54,10 @@ sshd_nvram_mode_status(int api_result, int saved_errno,
     if (*end)
         return EINVAL;
 
+    /* sshd_enable supports only 0=disabled, 1=Dropbear and 2=OpenSSH. */
+    if (parsed < 0 || parsed > 2)
+        return EINVAL;
+
     *mode = (int)parsed;
     return 0;
 }

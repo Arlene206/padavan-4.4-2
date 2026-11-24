@@ -1,3 +1,11 @@
+## 2026-11-24 — Reject unsupported SSH daemon mode values
+
+- `sshd_nvram_mode_status()` accepted any in-range integer, but `start_sshd_with_mode()` implements only modes 0 (disabled), 1 (Dropbear) and 2 (OpenSSH). A corrupt value such as 3 could therefore pass configuration validation and return success without starting a listener; negative modes were silently treated as disabled.
+- Reject values outside 0..2 with `EINVAL` without modifying the caller's output. Added GNU89 sentinel-preservation tests for -1, 3, INT_MIN and INT_MAX, and exact-source assertions for the range guard and all boundary cases. The Process Lifecycle Regression workflow already filters these source/test/checker paths and runs the policy test under ASan/UBSan.
+- Parent main SHA: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`. Exact-head Process Lifecycle and AI handoff validation are pending after this atomic commit. XY-C1 #45503440356 is still pending on the earlier product-source SHA 6d and is tracked separately. No target MIPS/uClibc runtime or physical-router validation is claimed.
+
+---
+
 ## 2026-11-24 — Restore the required handoff checkpoint contract wording
 
 - AI handoff documentation #45503784498 on SHA `2be0e5125bb29f01fc3a9a15fe8938a554387452` failed only because the rewritten handoff omitted the validator's exact sentence `The checkpoint is mandatory; a document edit is conditional.`.
@@ -10,7 +18,7 @@
 
 - Firewall Startup Stability #45503440459 on product SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1` failed before compiling the new policy test: the Python source checker searched for the checked NVRAM call as one line while the C invocation is intentionally wrapped.
 - The checker now normalizes source whitespace before validating read/classify/failure/return/use ordering, while retaining checks for both fail-closed ruleset diagnostics and removal of the old lossy `portrange_conv(vts_lport_x)` path.
-- The standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan VTS policy test compiled and passed locally. Exact-head Firewall rerun is pending; XY-C1 #45503440356 for source SHA 6d was still building at last poll.
+- The standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan VTS policy test compiled and passed locally. Firewall Startup Stability #45503784466 PASS on checker-fix SHA `2be0e5125bb29f01fc3a9a15fe8938a554387452`, including the test compile/run and both exact-source checks. XY-C1 #45503440356 for source SHA 6d was still building at last poll.
 - Parent main SHA: `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`. No production source changed in this checker-only correction.
 
 ---

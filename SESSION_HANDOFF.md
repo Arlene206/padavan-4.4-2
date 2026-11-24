@@ -6,22 +6,24 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Firewall virtual-server optional translation-port reads
+### Reject unsupported SSH daemon mode values
 
-Source commit `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1` fixes `include_vts_filter()` and `include_vts_nat()` treating failed reads of optional `vts_lport_x` as missing/empty. That fallback could change a mapping (for example, WAN 8080 -> LAN:8080 rather than LAN:80). Both builders now read the indexed string with presence information; absent/empty retains legacy external-port fallback, while a backend or malformed read result aborts incomplete rule staging so the previously published firewall ruleset remains active.
+`sshd_nvram_mode_status()` strictly parsed an integer but accepted every value in the C `int` range. `start_sshd_with_mode()` handles only 1 (Dropbear) and 2 (OpenSSH); other values returned success without starting a daemon, while negative values silently acted like disabled mode. A corrupt `sshd_enable=3` could therefore falsely report successful startup with no SSH listener.
 
-The new GNU89 regression covers absent, empty, configured values, backend errno, malformed presence/value results and output preservation. Its standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan compile/run passed locally.
-
-Firewall Startup Stability #45503440459 on SHA 6d failed before the test compile because the Python checker searched for the checked NVRAM call on one line, while C wraps the invocation across lines. The production source/test was not exercised by that run. This checker-only follow-up normalizes whitespace before asserting the source order. Exact-head firewall rerun is pending.
+The parser now rejects values outside 0..2 with `EINVAL` and leaves the output untouched. GNU89 regression cases cover -1, 3, INT_MIN and INT_MAX with sentinel preservation. The Process Lifecycle Regression workflow already filters the policy header, test and exact-source checker, and compiles the test with `-Wall -Wextra -Werror -fsanitize=address,undefined`. Parent main SHA: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`; exact-head Process Lifecycle, AI docs and applicable XY-C1 validation must be checked after this atomic commit.
 
 ## Completed source slices
+
+### Firewall virtual-server optional translation-port reads
+
+Commit `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1` fixed `include_vts_filter()` and `include_vts_nat()` conflating failed `vts_lport_x` reads with absent/empty optional values, which could publish the wrong internal-port mapping. Missing/empty settings keep the legacy external-port fallback; backend and malformed results abort incomplete staging to retain the previously published ruleset. Firewall Startup Stability #45503784466 PASS on checker-fix SHA `2be0e5125bb29f01fc3a9a15fe8938a554387452`, including the VTS policy test compile/run and exact-source contract.
 
 ### OpenVPN client certificate lifetime arguments
 
@@ -54,20 +56,20 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 - HTTPD authentication/security #45502092764: PASS.
 - OpenVPN client credential staging #45502092820: PASS.
 
-### Firewall source SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1
+### Firewall / checker SHA 2be0e5125bb29f01fc3a9a15fe8938a554387452
 
-- Firewall Startup Stability #45503440459: FAIL at the first Python source-check step due only to a multiline-sensitive substring search; compile/run test was skipped. Checker corrected in the current commit; rerun pending.
-- WAN route #45503440493 and IPv6 service checked-read #45503440453: PASS.
-- AI handoff docs #45503440345: PASS.
-- WAN DHCP #45503440341, process inventory #45503440565, HTTPD #45503440466, NVRAM audit #45503440350, XY-C1 #45503440356 and FULLCONENAT #45503440566 were in progress at last poll.
+- Firewall Startup Stability #45503784466: PASS. The exact-source checker and GNU89 ASan/UBSan VTS policy test passed, together with the other firewall policy checks.
+- AI handoff documentation #45503784498: FAIL because the handoff omitted the validator's exact mandatory-checkpoint sentence. Commit #05356ed622d1762e5e251c6adeb5fcd7be7713b6 restores it; rerun #45504014822 was in progress at the last poll.
+- XY-C1 #45503440356 remains PENDING on older product-source SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1; it does not validate later SSH source.
+- NVRAM audit #45503440350, WAN route #45503440493, IPv6 service #45503440453, AI docs #45503440345, WAN DHCP #45503440341, process inventory #45503440565, HTTPD #45503440466 and FULLCONENAT #45503440566: PASS on SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1.
 - No target MIPS/uClibc runtime or physical-router L4 validation is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect the Firewall Startup Stability rerun triggered by this checker correction. Confirm the exact-source checker passes and the GNU89 ASan/UBSan VTS policy test actually runs; diagnose any new failure rather than assuming the previous failure was fixed.
-2. Poll XY-C1 #45503440356 for product source SHA 6d and the preceding d096 run #45502092732 separately. Claim L3 only for an exact SHA whose run concludes SUCCESS and whose Build, TRX verification and artifact upload all pass.
-3. Check AI docs on the checker-fix commit. Continue other independent stability/security source work while firmware build remains pending.
-4. Keep the backup read-only. Before any write, refresh live main and expected SHA; before ending, update this handoff only when the first action or validation boundary materially changes.
+1. Inspect exact-head Process Lifecycle Regression and AI handoff documentation runs for the SSH mode validation commit. Confirm the GNU89 ASan/UBSan test, exact-source contract and handoff checker pass; fix the first real failing step.
+2. Recheck XY-C1 #45503440356 on source SHA 6d separately; claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on the identical SHA. Do not transfer this result to newer SSH source.
+3. Continue a concrete uncovered stability/security defect across Padavan userland. Do not reopen completed VTS port-read, WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
+4. Before any write, refresh live main and the frozen backup ref; before ending, refresh exact-SHA Actions and leave the first concrete next action.
 
 ## Mandatory handoff checkpoint
 
