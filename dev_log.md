@@ -1,3 +1,11 @@
+## 2026-11-24 18:50 Beijing — Align Process LLDT path contract with full interface identity
+
+- Main source commit `0b532570d102824d27fd3bb3ab4d6683f956d94f` removes the prior 10-character interface truncation from LLDT PID filenames, validates nonempty slash-free interface names no longer than Linux IFNAMSIZ-1 (15), and tests names sharing the same first ten characters. Dedicated LLDT run #45376256149 PASS.
+- Process regression #45376256143 on exact SHA `0b532570d102824d27fd3bb3ab4d6683f956d94f` passed the LLTD PID parser and failed only because its source contract still expected the removed `/var/run/%s-%.10s.pid` formatter. Updated the contract to require `lldt_pidfile_format_path()`, its 15-character interface validation, and the full-name identity fixture.
+- Process inventory #45376256035 and NVRAM audit #45376256079 PASS on the same SHA. XY-C1 run #45376256112 remained in Build XY-C1; TRX verification and artifact upload were pending. The checker/docs follow-up awaits exact-head Actions.
+
+---
+
 ## 2026-11-24 18:43 Beijing — Restore mandatory handoff checkpoint contract
 
 - Exact AI handoff documentation run #45375798381 on `72e1e72dd494e6d930bdfef46f349f20da7065be` failed because the prior handoff rewrite omitted the validator-required `## Mandatory handoff checkpoint` section and its exact conditional-edit rule. Restored the mandatory section and end-of-session accuracy checkpoint.
