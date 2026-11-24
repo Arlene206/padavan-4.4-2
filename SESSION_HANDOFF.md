@@ -25,13 +25,13 @@
 
 ## Mandatory handoff checkpoint
 
-Checkpoint updates are mandatory; documentation edits are conditional. Record material Actions transitions, source commits, real failures or a changed first action. Do not manufacture no-op documentation churn.
+The checkpoint is mandatory; a document edit is conditional. Record material Actions transitions, source commits, real failures or a changed first action. Do not manufacture no-op documentation churn.
 
 # Cross-session execution mandate
 
 Recover once from live state and work on main. Never create a development branch or PR; backup remains immutable.
 
-For each multi-file logical slice, create all blobs, one complete tree based on latest main, one commit with the exact main parent, then a non-forced compare-and-swap update-ref using expected_sha. Never create partial commits, force-push, amend or rewrite history.
+For each multi-file logical slice, create all blobs, one complete tree based on latest main, one commit with the exact main parent, then a non-forced compare-and-swap update-ref using expected_sha. This is one atomic main commit. Never create partial commits, force-push, amend or rewrite history.
 
 Continue implementation; PASS advances, FAIL is fixed, PENDING does not block independent work. Preserve Linux 4.4, GNU89, MIPS/uClibc, router compatibility, security and configuration.
 

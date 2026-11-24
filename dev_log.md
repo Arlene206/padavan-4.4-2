@@ -1,3 +1,9 @@
+## 2026-11-24 — Repair exact-head DHCPDECLINE and handoff validator failures
+
+- Exact push SHA 4ca919b compiled and passed the GNU89 ASan/UBSan udhcpc policy binary, but its Python source contract retained one old assertion requiring a literal INIT_SELECTING argument after the ARP-conflict retry path became a status-dependent resume_state. Updated the contract to check the new resume_state call.
+- Exact AI docs workflow also caught that SESSION_HANDOFF.md used equivalent but non-canonical checkpoint wording and omitted the required exact phrase “one atomic main commit.” Restored those mandatory handoff contract strings. Both failures were validator-only; DHCPDECLINE product code remains unchanged in this correction.
+
+---
 ## 2026-11-24 — Retry failed DHCPDECLINE before requesting another address
 
 - ARP conflict handling ignored the return value from send_decline(). It immediately restarted DHCP selection even when DHCPDECLINE could not be sent, so the server could offer the same conflicting address again; the source violated the required decline-before-restart sequence.

@@ -132,7 +132,7 @@ assert "udhcpc_decline_retry_delay(int retry_timeout)" in policy
 assert "test_failed_dhcpdecline_blocks_reselection_until_retry" in test
 assert "if (state != REQUESTING)" in arp_conflict
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in arp_conflict
-assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in arp_conflict
+assert "udhcpc_schedule_deconfig_retry(resume_state, 0," in arp_conflict
 
 decline_start = dhcpc.index("case DECLINE_PENDING:")
 decline_end = dhcpc.index("/* case RELEASED:", decline_start)
