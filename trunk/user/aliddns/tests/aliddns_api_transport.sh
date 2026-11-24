@@ -45,6 +45,9 @@ NVRAM_LOG="$TEST_DIR/nvram.log"
 export CURL_ARGS_LOG CURL_CONFIG_LOG CURL_COUNT_FILE NVRAM_LOG
 
 logger() { :; }
+test_encode() {
+	bash -c '. "$1"; enc "$2"' _ "$FUNCTIONS" "$1"
+}
 nvram() {
 	[ "$1" = "set" ] || return 1
 	shift
@@ -146,13 +149,13 @@ fail() {
 
 # Encoding must preserve unreserved bytes and encode spaces, delimiters,
 # backslashes, quotes and UTF-8 as RFC 3986 byte sequences.
-encoded=$(enc 'a b/c+d=e&f%g~ quote\slash"')
+encoded=$(test_encode 'a b/c+d=e&f%g~ quote\slash"')
 [ "$encoded" = 'a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22' ] ||
 	fail "RFC 3986 encoder corrupted reserved characters or whitespace"
-encoded=$(enc '测试')
+encoded=$(test_encode '测试')
 [ "$encoded" = '%E6%B5%8B%E8%AF%95' ] ||
 	fail "RFC 3986 encoder did not percent-encode UTF-8 bytes"
-encoded=$(enc 'line
+encoded=$(test_encode 'line
 break')
 [ "$encoded" = 'line%0Abreak' ] ||
 	fail "RFC 3986 encoder did not preserve line-feed bytes"
@@ -177,8 +180,8 @@ grep -Fqx -- '-' "$CURL_ARGS_LOG" || fail "curl config source is not stdin"
 ! grep -Fq 'Signature=' "$CURL_ARGS_LOG" || fail "HMAC signature leaked into curl argv"
 expected_signing_input='GET&%2F&AccessKeyId%3Dtest-access-key%26Action%3DDescribeSubDomainRecords%26Format%3Djson%26SignatureMethod%3DHMAC-SHA1%26SignatureNonce%3Dnonce%26SignatureVersion%3D1.0%26SubDomain%3Dwww.example.com%26Timestamp%3D2026-11-12T16%253A30%253A00Z%26Type%3DA%26Version%3D2015-01-09'
 expected_signature=$(printf '%s\000%s' 'test-access-secret&' "$expected_signing_input" | "$TEST_DIR/aliddns-hmac-sha1") ||
-expected_signature_url=$(enc "$expected_signature") || fail "signature URL encoding failed"
 	fail "HMAC helper could not sign the expected canonical request"
+expected_signature_url=$(enc "$expected_signature") || fail "signature URL encoding failed"
 grep -Fqx "url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature_url\"" "$CURL_CONFIG_LOG" ||
 	fail "signed URL was not passed unchanged through curl stdin"
 ! grep -Fqx -- '-k' "$CURL_ARGS_LOG" || fail "TLS verification bypass was enabled"

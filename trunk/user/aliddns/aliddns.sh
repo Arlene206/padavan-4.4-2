@@ -547,21 +547,16 @@ fi
 }
 
 urlencode() {
-	# RFC 3986 percent-encoding over the input bytes. Shell "read -n" is
-	# not portable and consumes IFS whitespace/backslash escapes.
-	LC_ALL=C od -An -v -tu1 | LC_ALL=C awk '
-	{
-		for (i = 1; i <= NF; ++i) {
-			byte = $i + 0
-			if ((byte >= 65 && byte <= 90) ||
-			    (byte >= 97 && byte <= 122) ||
-			    (byte >= 48 && byte <= 57) ||
-			    byte == 45 || byte == 46 || byte == 95 || byte == 126)
-				printf "%c", byte
-			else
-				printf "%%%02X", byte
-		}
-	}'
+	# Read exact bytes under the C locale. IFS= and -r preserve whitespace
+	# and backslashes; -d '' makes LF data rather than a record delimiter.
+	LC_ALL=C
+	export LC_ALL
+	while IFS= read -r -d '' -n1 c; do
+		case "$c" in
+			[a-zA-Z0-9._~-]) printf '%s' "$c" ;;
+			*) printf '%%%02X' "'$c" ;;
+		esac
+	done
 }
 
 enc() {

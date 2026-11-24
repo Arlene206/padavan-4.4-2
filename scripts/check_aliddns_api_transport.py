@@ -121,10 +121,12 @@ require("-k" not in send_request and "--insecure" not in send_request and
         "signed requests must not disable TLS checks or forward credentials through redirects")
 require("--config -" in send_request and 'url = "$request_url"' in send_request,
         "credential-bearing AliDNS URL must be delivered through curl stdin rather than argv")
-require("od -An -v -tu1" in urlencode and "LC_ALL=C" in urlencode and
-        'printf "%c", byte' in urlencode and 'byte == 126' in urlencode and
+require("IFS= read -r -d '' -n1 c" in urlencode and "LC_ALL=C" in urlencode and
+        '[a-zA-Z0-9._~-]' in urlencode and
         'printf \'%s\' "$1" | urlencode' in enc and
-        "read -n1" not in urlencode and "echo -n" not in enc,
+        "echo -n" not in enc and
+        "CONFIG_OD=y" not in busybox_config,
+        "AliDNS encoder must be byte-safe using only the target BusyBox ash shell builtin")
         "AliDNS canonical encoding must preserve every input byte with RFC 3986 unreserved semantics")
 require("a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22" in test and
         "%E6%B5%8B%E8%AF%95" in test and "line%0Abreak" in test,
