@@ -542,6 +542,32 @@ test_optional_ipv4_copy_disables_oversized_values(void)
 }
 
 static void
+test_storage_time_persistence_gate_preserves_legacy_absence_and_fails_closed(void)
+{
+	int store_enabled = 23;
+
+	/* An absent key historically behaves like nvram_match(key, "0") == false. */
+	assert(firewall_nvram_not_zero_status(
+		0, 0, NULL, 1, &store_enabled) == 0);
+	assert(store_enabled == 1);
+
+	assert(firewall_nvram_not_zero_status(
+		1, 0, "0", 1, &store_enabled) == 0);
+	assert(store_enabled == 0);
+	assert(firewall_nvram_not_zero_status(
+		1, 0, "1", 1, &store_enabled) == 0);
+	assert(store_enabled == 1);
+
+	store_enabled = 23;
+	assert(firewall_nvram_not_zero_status(
+		-1, EACCES, NULL, 1, &store_enabled) == EACCES);
+	assert(store_enabled == 23);
+	assert(firewall_nvram_not_zero_status(
+		-1, 0, NULL, 1, &store_enabled) == EIO);
+	assert(store_enabled == 23);
+}
+
+static void
 test_lan_stp_selector_preserves_missing_default_and_backend_errors(void)
 {
 	int lan_stp_disabled = 23;
@@ -602,6 +628,7 @@ main(void)
 	test_checked_string_copy_rejects_truncation_and_invalid_arguments();
 	test_vts_protocol_name_preserves_legacy_modes();
 	test_lightweight_filter_drop_mode_match_uses_legacy_defaults();
+	test_storage_time_persistence_gate_preserves_legacy_absence_and_fails_closed();
 	test_lan_stp_selector_preserves_missing_default_and_backend_errors();
 	return 0;
 }

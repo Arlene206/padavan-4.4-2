@@ -211,4 +211,24 @@ assert "test_vpns_vnet_requires_strict_ipv4_address();" in TEST
 assert ("test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors" in TEST
         and "test_vpns_vnet_snapshot_preserves_missing_and_rejects_read_errors();" in TEST)
 
+
+# Persistent clock writes must distinguish a missing setting from an NVRAM
+# transport failure. Missing retains the legacy enabled default, explicit 0
+# disables writes, and any backend error aborts before file creation.
+rc_source = (ROOT / "trunk/user/rc/src/rc.c").read_text()
+storage_save = body(rc_source, "storage_save_time(time_t delta)")
+storage_compact = "".join(storage_save.split())
+assert 'nvram_get_checked("stime_stored",&stored_value)' in storage_compact
+assert ("firewall_nvram_not_zero_status(api_result,read_errno,stored_value,1,&store_enabled)"
+        in storage_compact)
+assert 'nvram_match("stime_stored","0")' not in storage_compact
+read_at = storage_compact.index('nvram_get_checked("stime_stored",&stored_value)')
+read_gate_at = storage_compact.index("if(read_status!=0)", read_at)
+disabled_at = storage_compact.index("if(!store_enabled)", read_gate_at)
+write_at = storage_compact.index("mkstemp(temp_path)", disabled_at)
+assert read_at < read_gate_at < disabled_at < write_at
+assert "test_storage_time_persistence_gate_preserves_legacy_absence_and_fails_closed" in TEST
+assert ("test_storage_time_persistence_gate_preserves_legacy_absence_and_fails_closed();"
+        in TEST)
+
 print("Firewall IP NVRAM snapshot contract: PASS")

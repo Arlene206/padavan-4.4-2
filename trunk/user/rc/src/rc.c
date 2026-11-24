@@ -1168,11 +1168,29 @@ storage_save_time(time_t delta)
 	FILE *fp = NULL;
 	int fd = -1;
 	int saved_errno;
+	int api_result, read_errno, read_status, store_enabled = 0;
+	char *stored_value = NULL;
 	time_t now_time;
 	struct tm now_tm;
 	char temp_path[] = "/etc/storage/.system_time.XXXXXX";
 
-	if (nvram_match("stime_stored", "0"))
+	/*
+	 * Preserve the legacy missing-key default (persistence enabled), but do
+	 * not treat a failed NVRAM read as permission to write flash.
+	 */
+	errno = 0;
+	api_result = nvram_get_checked("stime_stored", &stored_value);
+	read_errno = errno;
+	read_status = firewall_nvram_not_zero_status(
+		api_result, read_errno, stored_value, 1, &store_enabled);
+	if (read_status != 0) {
+		errno = read_status;
+		logmessage(LOGNAME,
+			   "cannot read system-time persistence setting (status=%d)",
+			   read_status);
+		return -1;
+	}
+	if (!store_enabled)
 		return 0;
 
 	errno = 0;
