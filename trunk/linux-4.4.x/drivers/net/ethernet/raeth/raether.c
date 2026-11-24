@@ -2816,7 +2816,7 @@ int ei_close(struct net_device *dev)
 	fe_reset();
 	fe_int_disable(dev);
 
-	if (ei_local->features & FE_GE2_SUPPORT)
+	if ((ei_local->features & FE_GE2_SUPPORT) && ei_local->pseudo_dev)
 		virtualif_close(ei_local->pseudo_dev);
 
 	ei_deinit_dma(dev);

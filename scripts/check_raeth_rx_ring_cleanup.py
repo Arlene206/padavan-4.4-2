@@ -427,3 +427,8 @@ disable_body = function_body(RAETHER_SOURCE, "static int fe_int_disable(")
 assert "cancel_work_sync(&ei_local->reset_task)" not in disable_body
 assert "cancel_work_sync(&ei_local->rx_wq)" in disable_body
 print("RAETH no longer cancels the uninitialized and never-queued reset_task work item: PASS")
+
+close_body = function_body(RAETHER_SOURCE, "int ei_close(")
+assert "if ((ei_local->features & FE_GE2_SUPPORT) && ei_local->pseudo_dev)" in close_body
+assert "virtualif_close(ei_local->pseudo_dev);" in close_body
+print("RAETH close tolerates a pseudo interface whose netdev registration failed: PASS")
