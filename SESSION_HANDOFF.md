@@ -10,7 +10,7 @@
 
 ## Active task
 
-Audit the remaining `mtk_gsw_probe()` and switch-node ownership paths: verify `irq_of_parse_and_map()`/mapping disposal on probe failure and remove; balance the unmanaged `pinctrl_get()` handle with `pinctrl_put()`; validate `of_parse_phandle()` NULL/error handling for the pctl regmap and call `of_node_put()` on every path; then check `switch_np` lifetime from `of_parse_phandle()` in `rather_probe()` through probe rollback and netdev uninit/removal. Make a separate focused source/checker commit once a concrete defect is confirmed.
+Audit `switch_np` node-reference lifetime and primary netdev teardown: `rather_probe()` acquires the `mediatek,switch` phandle but current `ei_uninit()`/probe-error cleanup does not appear to release it, and `raether_remove()` currently only disables clocks/QDMA resources without unregistering the primary netdev. Trace every registration and rollback edge before changing lifecycle ordering; add regression checks for probe failure and removal/uninit paths.
 
 ## Completed development slices
 
@@ -21,16 +21,12 @@ Audit the remaining `mtk_gsw_probe()` and switch-node ownership paths: verify `i
 
 ## Verification boundary
 
-- Previous exact production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI, NVRAM and XY-C1 all **PASS**; XY-C1 Build, TRX and artifact upload completed successfully.
-- Previous AI handoff #45324509191 **PASS** on `81b978`; #45324629954 **FAIL** on `8f14157` because Roadmap size was 132155 bytes. This commit removes the duplicated snapshot and requires a new exact-head AI docs run.
-- The new switch source/checker changes require exact-head Switch CLI plus XY-C1 Build→TRX→artifact verification. Do not infer those results from the parent source SHA.
-- Hardware L4 remains NOT VERIFIED.
+- The preinit source commit `615d6be0f8db31905bda066be38804490b02e45f` passed AI documentation #45325334351. Its Switch CLI #45325334356 failed only on a newly-added checker assertion that incorrectly expected a NULL-pdev path to jump to the post-acquisition put label; checker-only commit `65103b60d8267e769efbc7aff5395f2662a7d83e` corrected that boundary and Switch CLI #45325386250 **PASS**. NVRAM #45325334304 and XY-C1 #45325334328 were pending at last poll.
+- Previous production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12` had Switch CLI/NVRAM PASS and XY-C1 Build, TRX and artifact upload PAS## Exact first action for the next GPT
 
-## Exact first action for the next GPT
-
-1. Fetch live `main`; inspect its exact-SHA AI handoff and Switch CLI runs, then poll XY-C1 on that same SHA for Build, TRX and artifact-upload status.
-2. Inspect any failure in the new MT7622 preinit source contract or compile/build path; correct it atomically before advancing.
-3. Continue the focused `mtk_gsw_probe()` pinctrl/IRQ/DT-node ownership audit and `switch_np` lifecycle tracing.
+1. Fetch live `main`; poll the exact-head AI docs, Switch CLI and NVRAM runs, and XY-C1 validation. For the XY-C1 job verify Build, TRX check and artifact upload individually.
+2. Diagnose any regression from the `mtk_gsw_probe()` lifecycle fix on its exact SHA before moving on.
+3. Continue the `switch_np` phandle ownership and primary netdev unregister/remove audit; make one focused source/checker commit when the lifetime issue is confirmed.
 
 # Cross-session execution mandate
 

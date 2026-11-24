@@ -1,3 +1,13 @@
+## 2026-11-24 — Balance MTK GSW probe resources
+
+- Audited `mtk_gsw_probe()`: `irq_of_parse_and_map()` returns unsigned zero on failure, but the old code compared it with < 0; successfully mapped IRQs were not disposed on later probe errors or remove. The pctl phandle was not released, the code tested the phandle instead of the returned regmap for IS_ERR, and pinctrl_get's ERR_PTR result was tested as a boolean while its successful non-devm handle was never put.
+- Probe now validates IRQ zero, checks the pctl node for NULL, drops its reference after resolving the syscon regmap, checks the regmap/pinctrl handles correctly, and sends all post-map failures through a common pinctrl/IRQ cleanup path. Remove releases both retained resources. Added source-contract coverage for each ownership edge.
+- Parent main: `65103b60d8267e769efbc7aff5395f2662a7d83e`. Preinit source commit `615d6be0f8db31905bda066be38804490b02e45f` AI docs #45325334351 **PASS**; original Switch CLI #45325334356 exposed a checker-only range assertion error. Checker correction `65103b60d8267e769efbc7aff5395f2662a7d83e` Switch CLI #45325386250 **PASS**. NVRAM #45325334304 and XY-C1 #45325334328 were still PENDING at the last poll.
+- Earlier production source `f7bd670c88520298c8c4628b1ff06e0c95251f12` had Switch CLI, NVRAM and XY-C1 Build/TRX/artifact **PASS**. No L4 hardware verification.
+- Next source task: trace `switch_np` phandle ownership and primary RAETH netdev teardown across `rather_probe()`, `ei_uninit()`, `raether_remove()` and failed `register_netdev()`.
+
+---
+
 ## 2026-11-24 — Pair MT7622 switch regulator state and release lookup references
 
 - MT7622 `fe_sw_preinit()` called `of_find_device_by_node()` without checking the NULL result, dereferenced missing platform drvdata, and never released the device reference. It also ignored voltage/enable failures and continued opening the netdev; `fe_sw_deinit()` unconditionally disabled rails even when the matching enable failed or never ran.

@@ -16,6 +16,8 @@
 #include "ra_mac.h"
 #include "raeth_reg.h"
 #include <linux/spinlock.h>
+#include <linux/irqdomain.h>
+#include <linux/of_irq.h>
 
 static DEFINE_SPINLOCK(ra_switch_phy_page_lock);
 
@@ -7132,7 +7134,7 @@ static int mtk_gsw_probe(struct platform_device *pdev)
 	gsw->dev = &pdev->dev;
 	gsw->trgmii_force = 2000;
 	gsw->irq = irq_of_parse_and_map(np, 0);
-	if (gsw->irq < 0)
+	if (!gsw->irq)
 		return -EINVAL;
 
 	err = of_property_read_string(pdev->dev.of_node, "mcm", &pm);
@@ -7143,69 +7145,97 @@ static int mtk_gsw_probe(struct platform_device *pdev)
 
 	gsw->ethsys = syscon_regmap_lookup_by_phandle(np, "mediatek,ethsys");
 	if (IS_ERR(gsw->ethsys)) {
-		pr_err("fail at %s %d\n", __func__, __LINE__);
-		return PTR_ERR(gsw->ethsys);
+		err = PTR_ERR(gsw->ethsys);
+		pr_err("fail at %s %d: %d\n", __func__, __LINE__, err);
+		goto err_cleanup;
 	}
 
 	if (!gsw->mcm) {
 		gsw->reset_pin = of_get_named_gpio(np, "mediatek,reset-pin", 0);
 		if (gsw->reset_pin < 0) {
-			pr_err("fail at %s %d\n", __func__, __LINE__);
-			return -1;
+			err = gsw->reset_pin;
+			pr_err("fail at %s %d: %d\n", __func__, __LINE__, err);
+			goto err_cleanup;
 		}
 		pr_debug("reset_pin_port= %d\n", gsw->reset_pin);
 
 		pctl = of_parse_phandle(np, "mediatek,pctl-regmap", 0);
-		if (IS_ERR(pctl)) {
-			pr_err("fail at %s %d\n", __func__, __LINE__);
-			return PTR_ERR(pctl);
+		if (!pctl) {
+			err = -EINVAL;
+			pr_err("missing mediatek,pctl-regmap phandle\n");
+			goto err_cleanup;
 		}
 
 		gsw->pctl = syscon_node_to_regmap(pctl);
-		if (IS_ERR(pctl)) {
-			pr_err("fail at %s %d\n", __func__, __LINE__);
-			return PTR_ERR(pctl);
+		of_node_put(pctl);
+		if (IS_ERR(gsw->pctl)) {
+			err = PTR_ERR(gsw->pctl);
+			pr_err("failed to resolve pctl regmap: %d\n", err);
+			goto err_cleanup;
 		}
 
 		gsw->pins = pinctrl_get(&pdev->dev);
-		if (gsw->pins) {
-			gsw->ps_reset =
-			    pinctrl_lookup_state(gsw->pins, "reset");
+		if (IS_ERR(gsw->pins)) {
+			err = PTR_ERR(gsw->pins);
+			gsw->pins = NULL;
+			dev_err(&pdev->dev, "gsw get pinctrl fail: %d\n", err);
+			goto err_cleanup;
+		}
 
-			if (IS_ERR(gsw->ps_reset)) {
-				dev_err(&pdev->dev,
-					"failed to lookup the gsw_reset state\n");
-				return PTR_ERR(gsw->ps_reset);
-			}
-		} else {
-			dev_err(&pdev->dev, "gsw get pinctrl fail\n");
-			return PTR_ERR(gsw->pins);
+		gsw->ps_reset = pinctrl_lookup_state(gsw->pins, "reset");
+		if (IS_ERR(gsw->ps_reset)) {
+			err = PTR_ERR(gsw->ps_reset);
+			gsw->ps_reset = NULL;
+			dev_err(&pdev->dev,
+				"failed to lookup the gsw_reset state: %d\n", err);
+			goto err_cleanup;
 		}
 	}
 
 	gsw->supply = devm_regulator_get(&pdev->dev, "mt7530");
 	if (IS_ERR(gsw->supply)) {
-		pr_info("fail at %s %d\n", __func__, __LINE__);
-		return PTR_ERR(gsw->supply);
+		err = PTR_ERR(gsw->supply);
+		pr_info("fail at %s %d: %d\n", __func__, __LINE__, err);
+		goto err_cleanup;
 	}
 
 	if (gsw->mcm) {
 		gsw->b3v = devm_regulator_get(&pdev->dev, "b3v");
-		if (IS_ERR(gsw->b3v))
-			return PTR_ERR(gsw->b3v);
+		if (IS_ERR(gsw->b3v)) {
+			err = PTR_ERR(gsw->b3v);
+			goto err_cleanup;
+		}
 	}
 
 	gsw->wllll = of_property_read_bool(np, "mediatek,wllll");
 
 	platform_set_drvdata(pdev, gsw);
-
 	return 0;
+
+err_cleanup:
+	if (gsw->pins)
+		pinctrl_put(gsw->pins);
+	if (gsw->irq)
+		irq_dispose_mapping(gsw->irq);
+	return err;
 }
 
 static int mtk_gsw_remove(struct platform_device *pdev)
 {
-	platform_set_drvdata(pdev, NULL);
+	struct mtk_gsw *gsw = platform_get_drvdata(pdev);
 
+	if (gsw) {
+		if (gsw->pins) {
+			pinctrl_put(gsw->pins);
+			gsw->pins = NULL;
+		}
+		if (gsw->irq) {
+			irq_dispose_mapping(gsw->irq);
+			gsw->irq = 0;
+		}
+	}
+
+	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 

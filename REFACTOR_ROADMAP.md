@@ -390,8 +390,9 @@ Completed in this continuation:
 - [x] MT7621 GP0 clock-enable failure propagation and removal of the never-initialized `reset_task` cancellation.
 - [x] Regression assertions integrated into the Switch CLI stability workflow.
 
-Verified exact production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869 **PASS**, NVRAM audit #45323341860 **PASS**, and XY-C1 #45323341920 **PASS** including firmware build, TRX validation and artifact upload. Hardware L4 remains unverified.
+Previously verified production-source SHA `f7bd670c88520298c8c4628b1ff06e0c95251f12`: Switch CLI #45323341869, NVRAM #45323341860 and XY-C1 #45323341920 **PASS**, including Build, TRX validation and artifact upload. On the newer MT7622 preinit fix, AI docs #45325334351 **PASS** and the corrected Switch CLI run #45325386250 **PASS**; NVRAM #45325334304 and XY-C1 #45325334328 were still running when this snapshot was prepared. No hardware L4 claim.
 
 Next active item:
-- [x] Correct MT7622 GSW preinitialization platform-device reference leaks, unchecked regulator failures, and regulator disable calls not paired to successful enables.
-- [ ] Audit the remaining `mtk_gsw_probe()` pinctrl, IRQ mapping and DT-node ownership paths.
+- [x] Correct MT7622 GSW preinitialization platform-device reference leaks and regulator enable/disable state pairing.
+- [x] Correct `mtk_gsw_probe()` IRQ mapping, pctl phandle, regmap error and pinctrl acquisition/release handling.
+- [ ] Audit `switch_np` node-reference lifetime and primary RAETH netdev teardown through probe failure, uninit and platform removal.

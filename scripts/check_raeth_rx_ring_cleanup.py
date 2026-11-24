@@ -498,3 +498,41 @@ RAETHER_HEADER = Path(
 assert "unsigned int switch_supply_enabled;" in RAETHER_HEADER
 assert "unsigned int switch_b3v_enabled;" in RAETHER_HEADER
 print("MT7622 GSW platform reference, regulator enable state, rollback and deinit pairing: PASS")
+
+# mtk_gsw_probe owns the IRQ mapping, parsed pctl phandle and non-devm pinctrl.
+gsw_probe = function_body(SWITCH_SOURCE, "static int mtk_gsw_probe(")
+irq_map = gsw_probe.index("irq_of_parse_and_map(np, 0)")
+irq_invalid = gsw_probe.index("if (!gsw->irq)", irq_map)
+ethsys_lookup = gsw_probe.index("syscon_regmap_lookup_by_phandle", irq_invalid)
+ethsys_error = gsw_probe.index("if (IS_ERR(gsw->ethsys))", ethsys_lookup)
+assert irq_map < irq_invalid < ethsys_lookup < ethsys_error
+assert "if (gsw->irq < 0)" not in gsw_probe
+assert "goto err_cleanup;" in gsw_probe[ethsys_error:]
+pctl_lookup = gsw_probe.index('of_parse_phandle(np, "mediatek,pctl-regmap", 0)')
+pctl_null = gsw_probe.index("if (!pctl)", pctl_lookup)
+pctl_regmap = gsw_probe.index("syscon_node_to_regmap(pctl)", pctl_null)
+pctl_put = gsw_probe.index("of_node_put(pctl)", pctl_regmap)
+pctl_error = gsw_probe.index("if (IS_ERR(gsw->pctl))", pctl_put)
+assert pctl_lookup < pctl_null < pctl_regmap < pctl_put < pctl_error
+assert "if (IS_ERR(pctl))" not in gsw_probe[pctl_lookup:pctl_regmap]
+pins_get = gsw_probe.index("pinctrl_get(&pdev->dev)")
+pins_error = gsw_probe.index("if (IS_ERR(gsw->pins))", pins_get)
+state_lookup = gsw_probe.index('pinctrl_lookup_state(gsw->pins, "reset")', pins_error)
+state_error = gsw_probe.index("if (IS_ERR(gsw->ps_reset))", state_lookup)
+assert pins_get < pins_error < state_lookup < state_error
+assert "gsw->pins = NULL;" in gsw_probe[pins_error:state_lookup]
+for failed in ("PTR_ERR(gsw->supply)", "PTR_ERR(gsw->b3v)"):
+    pos = gsw_probe.index(failed)
+    assert "goto err_cleanup;" in gsw_probe[pos:gsw_probe.index("platform_set_drvdata",pos)]
+cleanup = gsw_probe.index("err_cleanup:")
+assert "pinctrl_put(gsw->pins);" in gsw_probe[cleanup:]
+assert "irq_dispose_mapping(gsw->irq);" in gsw_probe[cleanup:]
+assert gsw_probe.count("return ") == 4
+assert gsw_probe[ethsys_error:].count("return ") == 2
+
+gsw_remove = function_body(SWITCH_SOURCE, "static int mtk_gsw_remove(")
+assert "pinctrl_put(gsw->pins);" in gsw_remove
+assert "irq_dispose_mapping(gsw->irq);" in gsw_remove
+assert gsw_remove.index("pinctrl_put(gsw->pins);") < gsw_remove.index("platform_set_drvdata(pdev, NULL);")
+assert gsw_remove.index("irq_dispose_mapping(gsw->irq);") < gsw_remove.index("platform_set_drvdata(pdev, NULL);")
+print("MTK GSW probe/remove balances DT phandle, pinctrl handle and IRQ mapping: PASS")
