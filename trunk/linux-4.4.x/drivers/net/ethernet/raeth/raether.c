@@ -3102,14 +3102,18 @@ int ei_ioc_setting(struct platform_device *pdev, struct END_DEVICE *ei_local)
 	return 0;
 }
 
-void fe_chip_name_config(struct END_DEVICE *ei_local, struct platform_device *pdev)
+static int fe_chip_name_config(struct END_DEVICE *ei_local, struct platform_device *pdev)
 {
 	const char *pm;
 	int ret;
 
 	ret = of_property_read_string(pdev->dev.of_node, "compatible", &pm);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to read Ethernet compatible property: %d\n", ret);
+		return ret;
+	}
 
-	if (!ret && !strcasecmp(pm, "mediatek,mt7621-eth")) {
+	if (!strcasecmp(pm, "mediatek,mt7621-eth")) {
 		ei_local->chip_name = MT7621_FE;
 		pr_info("CHIP_ID = MT7621\n");
 	} else if (!strcasecmp(pm, "mediatek,mt7622-raeth")) {
@@ -3122,10 +3126,12 @@ void fe_chip_name_config(struct END_DEVICE *ei_local, struct platform_device *pd
 		ei_local->chip_name = LEOPARD_FE;
 		pr_info("CHIP_ID = LEOPARD_FE\n");
 	} else {
-		pr_info("CHIP_ID error\n");
+		dev_err(&pdev->dev, "unsupported Ethernet compatible: %s\n", pm);
+		return -EINVAL;
 	}
-}
 
+	return 0;
+}
 void raeth_set_wol(bool enable)
 {
 	unsigned int reg_value = 0;
@@ -3169,7 +3175,7 @@ void raeth_arch_setting(struct END_DEVICE *ei_local, struct platform_device *pde
 		if (!ret && !strcasecmp(pm, "p4")) {
 			ei_local->architecture |= WAN_AT_P4;
 			pr_info("WAN at P4\n");
-		} else if (!strcasecmp(pm, "p0")) {
+		} else if (!ret && !strcasecmp(pm, "p0")) {
 			ei_local->architecture |= WAN_AT_P0;
 			pr_info("WAN at P0\n");
 		}
@@ -3182,31 +3188,31 @@ void raeth_arch_setting(struct END_DEVICE *ei_local, struct platform_device *pde
 		if (!ret && !strcasecmp(pm, "force-2500")) {
 			pr_info("GE1_SGMII_FORCE_2500\n");
 			ei_local->architecture |= GE1_SGMII_FORCE_2500;
-		} else if (!strcasecmp(pm, "an")) {
+		} else if (!ret && !strcasecmp(pm, "an")) {
 			pr_info("GE1_SGMII_AN\n");
 			ei_local->architecture |= GE1_SGMII_AN;
 			of_property_read_u32(pdev->dev.of_node, "gmac1-phy-address", &val);
 			mac_to_gigaphy_mode_addr = val;
 			pr_info("mac_to_gigaphy_mode_addr = 0x%x\n", mac_to_gigaphy_mode_addr);
 		}
-	} else if (!strcasecmp(pm, "rgmii-1")) {
+	} else if (!ret && !strcasecmp(pm, "rgmii-1")) {
 		pr_info("GMAC1 support rgmii\n");
 		ret = of_property_read_string(pdev->dev.of_node, "rgmii-mode-1", &pm);
 		if (!ret && !strcasecmp(pm, "force-1000")) {
 			pr_info("GE1_RGMII_FORCE_1000\n");
 			ei_local->architecture |= GE1_RGMII_FORCE_1000;
-		} else if (!strcasecmp(pm, "an")) {
+		} else if (!ret && !strcasecmp(pm, "an")) {
 			pr_info("GE1_RGMII_AN\n");
 			of_property_read_u32(pdev->dev.of_node, "gmac1-phy-address", &val);
 			mac_to_gigaphy_mode_addr = val;
 			ei_local->architecture |= GE1_RGMII_AN;
 			pr_info("mac_to_gigaphy_mode_addr = 0x%x\n", mac_to_gigaphy_mode_addr);
-		} else if (!strcasecmp(pm, "one-ephy")) {
+		} else if (!ret && !strcasecmp(pm, "one-ephy")) {
 			pr_info("GE1_RGMII_ONE_EPHY\n");
 			ei_local->architecture |= GE1_RGMII_ONE_EPHY;
 		}
 
-	} else if (!strcasecmp(pm, "esw")) {
+	} else if (!ret && !strcasecmp(pm, "esw")) {
 		pr_info("Embedded 5-Port Switch\n");
 		ei_local->architecture |= RAETH_ESW;
 		if (ei_local->chip_name == MT7622_FE) {
@@ -3217,7 +3223,7 @@ void raeth_arch_setting(struct END_DEVICE *ei_local, struct platform_device *pde
 				ei_local->architecture |= LEOPARD_EPHY_GMII;
 			ei_local->architecture |= LEOPARD_EPHY;
 		}
-	} else if (!strcasecmp(pm, "none")) {
+	} else if (!ret && !strcasecmp(pm, "none")) {
 		pr_info("GE1_RGMII_NONE\n");
 		ei_local->architecture |= GE1_RGMII_NONE;
 	}  else {
@@ -3241,25 +3247,25 @@ void raeth_arch_setting(struct END_DEVICE *ei_local, struct platform_device *pde
 				ei_local->architecture |= SGMII_SWITCH;
 				pr_info("GE2_SGMII_FORCE LINK SWITCH\n");
 			}
-		} else if (!strcasecmp(pm, "an")) {
+		} else if (!ret && !strcasecmp(pm, "an")) {
 			pr_info("GE2_SGMII_AN\n");
 			ei_local->architecture |= GE2_SGMII_AN;
 			of_property_read_u32(pdev->dev.of_node, "gmac2-phy-address", &val);
 			mac_to_gigaphy_mode_addr2 = val;
 		}
-	} else if (!strcasecmp(pm, "rgmii-2")) {
+	} else if (!ret && !strcasecmp(pm, "rgmii-2")) {
 		pr_info("GMAC2 support rgmii\n");
 		ret = of_property_read_string(pdev->dev.of_node, "rgmii-mode-2", &pm);
 		if (!ret && !strcasecmp(pm, "force-1000")) {
 			pr_info("GE2_RGMII_FORCE_1000\n");
 			ei_local->architecture |= GE2_RGMII_FORCE_1000;
-		} else if (!strcasecmp(pm, "an")) {
+		} else if (!ret && !strcasecmp(pm, "an")) {
 			pr_info("RGMII_AN (External GigaPhy)\n");
 			of_property_read_u32(pdev->dev.of_node, "gmac2-phy-address", &val);
 			mac_to_gigaphy_mode_addr2 = val;
 			pr_info("mac_to_gigaphy_mode_addr2 = 0x%x\n", mac_to_gigaphy_mode_addr2);
 			ei_local->architecture |= GE2_RGMII_AN;
-		} else if (!strcasecmp(pm, "an-internal")) {
+		} else if (!ret && !strcasecmp(pm, "an-internal")) {
 			pr_info("RGMII_AN (Internal GigaPhy)\n");
 			ei_local->architecture |= GE2_INTERNAL_GPHY;
 		}
@@ -3331,7 +3337,9 @@ static int rather_probe(struct platform_device *pdev)
 	ei_local->netdev = netdev;
 	fe_features_config(ei_local);
 	fe_architecture_config(ei_local);
-	fe_chip_name_config(ei_local, pdev);
+	ret = fe_chip_name_config(ei_local, pdev);
+	if (ret)
+		goto err_free_dev;
 	raeth_arch_setting(ei_local, pdev);
 	fe_tx_rx_dec(ei_local, pdev);
 
@@ -3492,6 +3500,8 @@ static int rather_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_dev:
+	if (dev_raether == netdev)
+		dev_raether = NULL;
 	if (clocks_enabled)
 		ei_clock_disable(ei_local);
 	if (ethdma_mac_base) {

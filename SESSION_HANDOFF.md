@@ -2,14 +2,14 @@
 
 ## Current repository state
 
-- Parent `main` for the AliyunDrive post-launch readiness cleanup: `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`; live branch was checked immediately before building this atomic commit. Archival `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- RAETH compile-integrity correction `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`: exact-head Switch CLI #45312564409 **PASS** (new unique-definition/signature contract passed) and AI docs #45312564408 **PASS**. NVRAM #45312564407 and XY-C1 #45312564566 were **IN_PROGRESS** at last observation; the target build result is not yet known.
-- The previous GE2 SGMII fix on `edb529c4baf1e60df1fd542a4e8192cf608ffbdc` passed Switch CLI/AI/NVRAM but XY-C1 failed at RAETH compilation. The duplicate-definition and stale-prototype corrections are now in `dd0b374`; do not transfer parent results or claim L3 until same-SHA Build/TRX/artifact complete.
-- New userland lifecycle correction: when the daemon launched by the current start call remains executable-confirmed RUNNING but never serves a valid HTTP response, clean it up using the existing bounded stop routine. Existing pre-existing unhealthy processes and UNKNOWN executable states must remain untouched.
+- Current parent `main` for RAETH DT-selector hardening: `3160f80e4e2c82d2188bddc12f88589898a79327`; live ref was verified immediately before creating this atomic source/test/handoff commit. The archival `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- RAETH XY-C1 compile correction `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`: exact Switch CLI #45312564409 **PASS**, AI docs #45312564408 **PASS**, NVRAM audit #45312564407 **PASS**; XY-C1 #45312564566 remained **IN_PROGRESS** at the latest observation. The build is for `dd0b374`, not later source heads.
+- AliyunDrive failed-start cleanup `3160f80e4e2c82d2188bddc12f88589898a79327`: Process inventory #45312872116 **PASS**, AI docs #45312872263 **PASS**, AliyunDrive lifecycle #45312872098 **IN_PROGRESS**. The test covers HTTP-503 timeout cleanup; no PASS is claimed yet.
+- New RAETH defect: `raeth_arch_setting()` compared a possibly stale/uninitialized `pm` after failed DT reads (particularly missing `gmac1-support`). Alternate selectors now require the most recent read to succeed. `fe_chip_name_config()` reports invalid compatible data and probe aborts/clears its global pointer safely.
 
 ## Active task
 
-Verify the AliyunDrive failed-start cleanup regression on its exact `main` SHA. Confirm the lifecycle Action proves a newly launched but permanently HTTP-503 daemon receives bounded TERM cleanup, while a pre-existing unhealthy process and UNKNOWN state remain fail-closed. In parallel, check XY-C1 Build/TRX/artifact on this same SHA for the RAETH compile fix; diagnose any new compiler failure before moving on.
+Verify the RAETH DT-selector fail-closed contract on this exact `main` SHA using the Switch CLI workflow. In parallel, finish checking the AliyunDrive lifecycle run #45312872098 on its own exact source SHA `3160f80e4e2c82d2188bddc12f88589898a79327`; inspect the 503 failed-start cleanup test output. Continue polling XY-C1 #45312564566 for `dd0b374` only, and verify Build/TRX/artifact on that source SHA before any L3 claim.
 
 ## Completed development slices
 
@@ -39,14 +39,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Parent `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`: Switch CLI #45312564409 **PASS**, AI docs #45312564408 **PASS**, NVRAM #45312564407 **IN_PROGRESS**, XY-C1 #45312564566 **IN_PROGRESS**. These parent results do not validate AliyunDrive.
-- The AliyunDrive startup cleanup in THIS COMMIT has not yet run in CI. No new firmware/TRX/artifact or hardware result is claimed.
+- RAETH compile correction `dd0b374`: Switch CLI #45312564409 **PASS**, AI docs #45312564408 **PASS**, NVRAM #45312564407 **PASS**; XY-C1 #45312564566 **IN_PROGRESS** at last poll.
+- AliyunDrive lifecycle commit `3160f80`: Process inventory #45312872116 **PASS**, AI docs #45312872263 **PASS**, AliyunDrive lifecycle #45312872098 **IN_PROGRESS**. This status belongs to `3160f80`, not the current RAETH source SHA.
+- RAETH DT selector changes in THIS COMMIT have not yet run in exact-head CI. No new MIPS build/TRX/artifact or hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main` and inspect this commit's exact-SHA AliyunDrive lifecycle and AI handoff Actions; verify the test log includes the 503 startup-timeout cleanup case.
-2. Check the exact same SHA's XY-C1 kernel build. Confirm `raether.o` passes, then verify full firmware Build, TRX and artifact upload; do not carry forward older-SHA results.
-3. If both checks pass, resume the next highest-risk independent stability issue; keep unknown process states fail-closed and leave the archival backup unchanged.
+1. Fetch current `main` and inspect its exact push Switch CLI job; confirm the DT selector checker passes and inspect any first failure before changing code.
+2. Poll AliyunDrive lifecycle #45312872098 on SHA `3160f80e4e2c82d2188bddc12f88589898a79327`; diagnose the 503 cleanup regression if it fails.
+3. Poll XY-C1 #45312564566 on product source SHA `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`; report Build/TRX/artifact only for that exact SHA. Keep backup read-only.
 
 
 # Cross-session execution mandate

@@ -1,3 +1,19 @@
+## 2026-11-24 — Fail closed on missing RAETH device-tree selectors
+
+- `raeth_arch_setting()` reused one `pm` pointer across `of_property_read_string()` calls. When `gmac1-support` was absent, the first `else if (!strcasecmp(pm, ...))` dereferenced an uninitialized/stale pointer; when later selector reads failed, their `else if` branches could interpret the previous property's value as the missing selector.
+- Guarded every alternate `gmac1`/`gmac2` and mode comparison with the status of its immediately preceding property read. Missing or malformed optional selector values now skip that mode branch instead of consulting stale data.
+- `fe_chip_name_config()` now returns an error on failed or unsupported `compatible`, and probe propagates that error to `err_free_dev`; the failed probe clears `dev_raether` before freeing the unpublished net_device. Extended the existing RAETH compile-integrity checker to pin these error/selector guards.
+- Parent `3160f80e4e2c82d2188bddc12f88589898a79327`: AI docs #45312872263 **PASS**, Process inventory #45312872116 **PASS**, AliyunDrive lifecycle #45312872098 **IN_PROGRESS**. This new driver change requires exact-head Switch CLI and XY-C1 validation; no target build or hardware result is claimed.
+
+---
+## 2026-11-24 — Clean up a newly launched AliyunDrive daemon that never becomes HTTP-ready
+
+- `ald_start_unlocked()` previously returned failure after a full bounded HTTP readiness timeout but left its newly launched, executable-confirmed daemon running. Subsequent starts then treated it as a pre-existing unhealthy process and refused to launch another copy, requiring manual stop.
+- Added `ald_cleanup_failed_start()`, restricted to the post-launch readiness-failure path. It revalidates executable identity, uses the existing bounded TERM/KILL routine only for a confirmed RUNNING child, treats ABSENT as already clean, and never signals UNKNOWN. Existing pre-existing unhealthy-daemon and UNKNOWN-state paths are unchanged.
+- The lifecycle shell regression adds a permanently HTTP-503 newly launched child; it requires a failed start, eleven bounded HTTP probes, ten readiness sleeps, one TERM, no KILL, and removal of the process marker. This commit's exact-head lifecycle Action was still running when the next RAETH issue was selected; no PASS is claimed.
+- Commit `3160f80e4e2c82d2188bddc12f88589898a79327`: Process inventory #45312872116 **PASS** and AI docs #45312872263 **PASS**; AliyunDrive lifecycle #45312872098 **IN_PROGRESS** at last poll.
+
+---
 ## 2026-11-24 — Unblock XY-C1 RAETH compilation after exact-SHA build failure
 
 - The exact XY-C1 Action on `edb529c4baf1e60df1fd542a4e8192cf608ffbdc` failed in `drivers/net/ethernet/raeth/raether.o`, before TRX/artifact stages. The compiler reported conflicting `set_ge2_gmii` / `set_ge0_gmii` prototypes (`ra_mac.h` said `void`, while `raether.h` and `ra_mac.c` correctly returned `int`), plus duplicate definitions of `fe_chip_name_config`, `raeth_set_wol`, `raeth_arch_setting` and `fe_tx_rx_dec` in `raether.c`.
