@@ -38,6 +38,7 @@ cc -std=gnu89 -Wall -Wextra -Werror "$SCRIPT_DIR/../src/aliddns-hmac-sha1.c" \
 	-lcrypto -o "$TEST_DIR/aliddns-hmac-sha1"
 aliddns_hmac_sha1() {
 	"$TEST_DIR/aliddns-hmac-sha1"
+}
 
 ALIDDNS_CA_BUNDLE="$TEST_DIR/ca-certificates.crt"
 : > "$ALIDDNS_CA_BUNDLE"
@@ -49,10 +50,14 @@ NVRAM_LOG="$TEST_DIR/nvram.log"
 export CURL_ARGS_LOG CURL_CONFIG_LOG CURL_COUNT_FILE NVRAM_LOG
 
 logger() { :; }
+test_encode() {
+	bash -c '. "$1"; enc "$2"' _ "$FUNCTIONS" "$1"
+}
 nvram() {
 	[ "$1" = "set" ] || return 1
 	shift
 	printf '%s\n' "$*" >> "$NVRAM_LOG"
+}
 sleep() { :; }
 cat > "$MOCK_BIN/curl" <<'MOCK_CURL'
 #!/bin/sh
@@ -141,19 +146,21 @@ reset_scenario() {
 	export FAKE_SCENARIO
 	rm -f "$CURL_COUNT_FILE"
 	: > "$NVRAM_LOG"
+}
 fail() {
 	echo "AliDDNS API transport regression: FAIL: $1" >&2
 	exit 1
+}
 
 # Encoding must preserve unreserved bytes and encode spaces, delimiters,
 # backslashes, quotes and UTF-8 as RFC 3986 byte sequences.
-encoded=$(enc 'a b/c+d=e&f%g~ quote\slash"')
+encoded=$(test_encode 'a b/c+d=e&f%g~ quote\slash"')
 [ "$encoded" = 'a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22' ] ||
 	fail "RFC 3986 encoder corrupted reserved characters or whitespace"
-encoded=$(enc '测试')
+encoded=$(test_encode '测试')
 [ "$encoded" = '%E6%B5%8B%E8%AF%95' ] ||
 	fail "RFC 3986 encoder did not percent-encode UTF-8 bytes"
-encoded=$(enc 'line
+encoded=$(test_encode 'line
 break')
 [ "$encoded" = 'line%0Abreak' ] ||
 	fail "RFC 3986 encoder did not preserve line-feed bytes"
