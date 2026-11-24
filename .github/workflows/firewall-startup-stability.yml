@@ -230,7 +230,8 @@ jobs:
           assert '"wan_nat_x", &nat_required' in startup
           assert startup.index('"fw_enable_x", &firewall_enabled') < startup.index("nat_restore_status = ipt_nat_default();")
           assert startup.index('"wan_nat_x", &nat_required') < startup.index("nat_restore_status = ipt_nat_default();")
-          assert "firewall_startup_status = firewall_startup_policy_wan_failure_status(" in startup
+          assert "firewall_startup_status =" in startup
+          assert "firewall_startup_policy_wan_failure_status(" in startup
           assert "test_unreadable_firewall_enable_state_blocks_wan" in startup_test
           assert "test_firewall_failure_degrades_router_readiness" in startup_test
           assert "firewall_startup_policy_wan_failure_status(" in policy

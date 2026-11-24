@@ -1,3 +1,11 @@
+## 2026-11-25 00:15 CST (UTC+8) — Correct firewall startup workflow source contract
+
+- Exact SHA `7ca46fc7049f3380755f6b2fe5073d86727c6382`: firewall policy and checked-NVRAM host regressions passed; the static startup contract failed because it expected `firewall_startup_status = firewall_startup_policy_wan_failure_status(` as one contiguous line, while the valid C assignment is line-wrapped. Changed the contract to assert the status assignment and helper invocation separately.
+- Exact-head Process inventory #45434352443 PASS. AI handoff #45434352428 was cancelled after a newer concurrent push; rerun on this commit. XY-C1 #45434352284 still had Build XY-C1 IN_PROGRESS, TRX and artifact pending. No L3 claim.
+- Concurrent RAETH Clause 45 ioctl bounds commit `a76f771cd56c1ad623769d32400562f853330e34` landed after `7ca46fc`; its Switch CLI and XY-C1 actions require exact-head inspection.
+
+---
+
 ## 2026-11-25 00:09 CST (UTC+8) — Bound RAETH QDMA selectors and switch rate ioctl inputs
 
 - Main commits `c0ba5c6`, `56f4a10`, `4ab45d3`, `4920912` and `a937cc4` bound QDMA queue selectors/register offsets and ESW ingress/egress rate ioctl port/bandwidth inputs. The `4920912` Switch CLI regression exposed a checker false-positive: the egress slice still began at the ingress case, so its order assertion mixed the two paths. `a937cc4` now extracts each switch case by explicit boundaries and adds QDMA access-path coverage.
