@@ -1,3 +1,11 @@
+## 2026-11-25 — Restore C89 prototype for descriptor-relative folder lookup
+
+- Exact main SHA `53ef9feca9ef9a031fae2782f0f83144be832d18`: libdisk host regression #45468585750 PASS; AI handoff #45468585944, Process inventory #45468585831, HTTPD auth #45468585722 and NVRAM audit #45468585988 PASS. XY-C1 push run #45468585947 FAILED during the MIPS build: `set_permission()` called `disk_share_folder_exists_in_directory_fd()` before its later `static` definition, producing an implicit declaration followed by “static declaration follows non-static declaration”. TRX verification and artifact upload were skipped.
+- Added the file-scope prototype before `set_permission()` and a source-contract assertion that prevents the declaration-order regression. No runtime behavior changed. This is a buildability correction to the descriptor-pinned libdisk change.
+- Exact-head libdisk and XY-C1 Actions must rerun on THIS COMMIT. L3 remains NOT VERIFIED until Build, TRX verification and artifact upload all pass on the same SHA; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-25 — Pin folder rename and ACL rollback to one removable-volume descriptor
 
 - Review found `mod_folder()` independently re-resolved mount_path for source/destination checks, ACL preparation, directory rename, snapshot refresh and rollback. A mountpoint replacement/hotplug race could move the folder on one volume while updating or compensating another volume's ACL files.

@@ -151,6 +151,13 @@ get_permission_body = function_body(
 set_permission_body = function_body(
     DISK_SOURCE, "int set_permission("
 )
+folder_exists_prototype = DISK_SOURCE.index(
+    "static int disk_share_folder_exists_in_directory_fd(int directory_fd,"
+)
+set_permission_definition = DISK_SOURCE.index("int set_permission(")
+require(folder_exists_prototype < set_permission_definition,
+        "set_permission must see a file-scope prototype for the later static folder lookup helper")
+
 
 permission_lookup = function_body(
     POLICY,
