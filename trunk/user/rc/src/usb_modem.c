@@ -831,6 +831,11 @@ qmi_control_network_start(const char *device_path)
 		goto done;
 	}
 	status = rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "invalid QMI modem network-mode setting (status=%d)", status);
+		goto done;
+	}
 
 	/* A valid PDH file represents a prior session; never erase it and start another. */
 	errno = 0;
@@ -841,11 +846,6 @@ qmi_control_network_start(const char *device_path)
 			logmessage(LOGNAME, "existing QMI packet-data handle %d; refusing duplicate session start", pdh_handle);
 		else
 			logmessage(LOGNAME, "cannot validate existing QMI packet-data handle (status=%d); refusing network start", status);
-		goto done;
-	}
-	if (status != 0) {
-		logmessage(LOGNAME,
-			   "invalid QMI modem network-mode setting (status=%d)", status);
 		goto done;
 	}
 

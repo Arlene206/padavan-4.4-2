@@ -1,3 +1,10 @@
+## 2026-11-23 — Preserve QMI network-mode validation before session preflight
+
+- Post-commit source review found a status-variable ordering bug in the previous QMI preflight change: the PDH preflight overwrote `status` before the `modem_nets` parse result was checked, which could turn an invalid `modem_nets` setting into a false successful parse.
+- Moved the `modem_nets` parse error gate immediately after parsing and before any PDH/CID decisions. Added an exact-source ordering assertion so future changes cannot reuse the status variable before the selector's error is handled.
+- Parent main: d8c800ebf2c6a2cb6e42b654d83e768d5fcba111. On d8c800, USB identity #45349445016, AI handoff #45349444955, HTTPD #45349444927, WAN teardown #45349444890, WAN DHCP #45349445017 and detect_link #45349445165 passed; NVRAM #45349445005, Process fail-closed #45349444915, Process inventory #45349445166 and XY-C1 #45349444899 were still in progress at last poll. No same-SHA firmware L3 claim.
+
+---
 ## 2026-11-23 — Reuse persisted QMI client IDs and block duplicate sessions
 
 - Found that qmi_control_network_start() always requested a new WDS CID, even when a previous failed/ambiguous start left a kept CID file. The next invocation could leak the old CID by atomically overwriting its only record. It also erased a valid prior PDH marker before another start.

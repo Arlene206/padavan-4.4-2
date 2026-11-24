@@ -926,6 +926,7 @@ jobs:
           qmi_start_function = modem[qmi_start_offset:qmi_start_end]
           assert "modem_qmi_existing_pdh_start_status(pdh_handle, errno)" in qmi_start_function
           assert qmi_start_function.index("modem_qmi_existing_pdh_start_status") < qmi_start_function.index("if (pin_code[0])")
+          assert qmi_start_function.index("rc_wan_nvram_parse_int_value(modem_nets_text, &modem_nets)") < qmi_start_function.index("invalid QMI modem network-mode setting") < qmi_start_function.index("modem_qmi_existing_pdh_start_status")
           assert "modem_qmi_client_id_should_allocate(qmi_client_id, errno)" in qmi_start_function
           assert "reusing persisted WDS client ID" in qmi_start_function
           assert "persisted WDS client ID is invalid or unreadable" in qmi_start_function
