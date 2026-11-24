@@ -316,6 +316,27 @@ expect_uint(const char* text, unsigned int maximum, int expected_status,
 
 
 static int
+expect_epsv_protocol(const char* text, int is_ipv6, int expected_success)
+{
+  struct mystr value = INIT_MYSTR;
+  unsigned int protocol = 0;
+  int accepted;
+
+  test_string_init(&value, text);
+  accepted = vsf_sysutil_parse_uint(&value, 2U, &protocol) &&
+             protocol >= 1U && (is_ipv6 || protocol != 2U);
+  test_string_free(&value);
+  if (accepted != expected_success)
+  {
+    fprintf(stderr, "EPSV protocol parser mismatch for [%s], IPv6=%d\\n",
+            text, is_ipv6);
+    return 1;
+  }
+  return 0;
+}
+
+
+static int
 expect_eprt_delimiter(const char* text, int expected_status,
                       char expected_delimiter)
 {
@@ -432,6 +453,19 @@ main(void)
   failed |= expect_uint("-1", 65535U, 0, 0U);
   failed |= expect_uint(" 1", 65535U, 0, 0U);
   failed |= expect_uint("1 ", 65535U, 0, 0U);
+
+  failed |= expect_epsv_protocol("1", 0, 1);
+  failed |= expect_epsv_protocol("1", 1, 1);
+  failed |= expect_epsv_protocol("2", 1, 1);
+  failed |= expect_epsv_protocol("2", 0, 0);
+  failed |= expect_epsv_protocol("0", 1, 0);
+  failed |= expect_epsv_protocol("3", 1, 0);
+  failed |= expect_epsv_protocol("1tail", 1, 0);
+  failed |= expect_epsv_protocol("+1", 1, 0);
+  failed |= expect_epsv_protocol("-1", 1, 0);
+  failed |= expect_epsv_protocol(" 1", 1, 0);
+  failed |= expect_epsv_protocol("1 ", 1, 0);
+  failed |= expect_epsv_protocol("", 1, 0);
 
   failed |= expect_octets("192,0,2,1,4,20", ',', port_expected, 6, 1);
   failed |= expect_octets("192,0,2,1,4tail,20", ',', port_expected, 6, 0);

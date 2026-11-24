@@ -786,6 +786,7 @@ jobs:
           octet_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_uchar_string_sep(")
           port = function_body(vsftpd_postlogin, "handle_port(")
           eprt = function_body(vsftpd_postlogin, "handle_eprt(")
+          pasv = function_body(vsftpd_postlogin, "handle_pasv(")
           assert "ftp_active_data_port_is_valid((unsigned int) the_port)" in port
           assert "ftp_active_data_port_is_valid(port_value)" in eprt
           assert "port > 0U && port <= 65535U" in vsftpd_active_port_policy
@@ -801,6 +802,13 @@ jobs:
           assert "vsf_sysutil_parse_uchar_string_sep" in port
           assert "vsf_sysutil_parse_uint(&s_part2_str, 2U, &proto_value)" in eprt
           assert "vsf_sysutil_parse_uint(&s_part2_str, 65535U, &port_value)" in eprt
+          assert "vsf_sysutil_parse_uint(&p_sess->ftp_arg_str, 2U, &argval)" in pasv
+          assert "argval < 1U || (!is_ipv6 && argval == 2U)" in pasv
+          assert "vsf_sysutil_atoi" not in pasv
+          assert 'str_equal_text(&p_sess->ftp_arg_str, "ALL")' in pasv
+          assert "expect_epsv_protocol" in ipaddrparse_test
+          assert 'expect_epsv_protocol("2", 0, 0)' in ipaddrparse_test
+          assert 'expect_epsv_protocol("1tail", 1, 0)' in ipaddrparse_test
           assert "str_atoi(&s_part2_str)" not in eprt
           assert "vsf_sysutil_parse_eprt_delimiter(&p_sess->ftp_arg_str, &delimiter)" in eprt
           assert eprt.count("str_split_char(") == 5

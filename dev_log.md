@@ -1,3 +1,12 @@
+## 2026-11-24 — Reject malformed EPSV protocol selectors
+
+- `handle_pasv()` previously used `atoi()` for the optional EPSV network-protocol selector. Numeric prefixes such as `1junk` and signed/whitespace forms could therefore be accepted as protocol 1 instead of rejected.
+- Replaced the permissive conversion with the existing length-aware bounded decimal parser, preserving `EPSV ALL` semantics and IPv4/IPv6 protocol compatibility. IPv4 accepts protocol 1 only; IPv6 accepts 1 or 2.
+- Extended the production-parser host regression with protocol-family cases and malformed selector cases. The VSFTPD workflow already compiles and runs this regression; its source contract now pins strict parser use in `handle_pasv()` and rejects a return to `atoi()`.
+- Local checkout is unavailable in this runtime; the exact-SHA Actions run is the authoritative compile/regression gate. No firmware or router-hardware result is claimed.
+
+---
+
 ## 2026-11-24 — Serialize forced-mode indirect MMD access as one MDIO transaction
 
 - In forced 1000/2000/2600 mode on PHY address 31, `mii_mgr_read()` and `mii_mgr_write()` issue three Clause-22 commands: select the MMD page, access the low word, then access the high word. Previously every command independently acquired/released `mdio_lock`, so another MDIO user (including Clause 45) could interleave and replace the page selector between phases. The operation could then return or write data from the wrong MMD register. Auto-negotiation polling was also toggled outside that multi-command critical section.

@@ -583,7 +583,7 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
   int is_ipv6 = vsf_sysutil_sockaddr_is_ipv6(p_sess->p_local_addr);
   if (is_epsv && !str_isempty(&p_sess->ftp_arg_str))
   {
-    int argval;
+    unsigned int argval = 0;
     str_upper(&p_sess->ftp_arg_str);
     if (str_equal_text(&p_sess->ftp_arg_str, "ALL"))
     {
@@ -591,8 +591,8 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
       vsf_cmdio_write(p_sess, FTP_EPSVALLOK, "EPSV ALL ok.");
       return;
     }
-    argval = vsf_sysutil_atoi(str_getbuf(&p_sess->ftp_arg_str));
-    if (argval < 1 || argval > 2 || (!is_ipv6 && argval == 2))
+    if (!vsf_sysutil_parse_uint(&p_sess->ftp_arg_str, 2U, &argval) ||
+        argval < 1U || (!is_ipv6 && argval == 2U))
     {
       vsf_cmdio_write(p_sess, FTP_EPSVBAD, "Bad network protocol.");
       return;
