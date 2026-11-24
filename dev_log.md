@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore add_folder and pin creation/rollback to one volume
+
+- The latest main commit had replaced the public `add_folder()` implementation with its rollback ACL helper, leaving the header-declared API without a definition. Restored the operation and closed its mountpoint-swap race: folder existence scan, `mkdirat`, snapshot publication, account ACL initialization, rollback removal and ACL compensation now all use one opened mount directory descriptor.
+- Added a GNU89 policy regression that renames the volume and redirects the former mount path before directory create/rollback; both operations remain on the original descriptor and leave the redirected volume untouched. The rollback ACL writer now accepts the pinned FD instead of reopening the mount pathname.
+- Restored the static contract to the current metadata rebuild's per-operation pinned wrappers. CI boundary: prior host ASan/UBSan binaries passed, but this restored API/source slice requires fresh exact-SHA validation. No local build claimed.
+
+---
+
 ## 2026-11-24 — Anchor staging-removal checker to its definition
 
 - Exact-head libdisk run `45458513380` on `c2e9b4213b3cd039061539a52141d04e17b9e6bb` passed the GNU89 ASan/UBSan regressions but failed the static staging-helper contract. The checker searched for `disk_share_remove_folder_path(` and captured its earlier cleanup call inside the staging-path builder instead of the helper definition. It now anchors extraction to the full `static int` definition, so the pinned-parent/remove-leaf/cleanup assertions exercise the actual helper body.

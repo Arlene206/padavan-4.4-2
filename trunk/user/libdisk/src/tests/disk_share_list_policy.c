@@ -2735,6 +2735,58 @@ test_staging_directory_operations_use_pinned_parent_fd(void)
 
 
 static void
+test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd(void)
+{
+	char root_template[] = "/tmp/disk-share-createat-XXXXXX";
+	char mount_dir[256], moved_dir[256], redirect_dir[256], moved_share[256];
+	char *root;
+	struct stat status;
+	int directory_fd, redirect_fd;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(snprintf(moved_share, sizeof(moved_share), "%s/Shared", moved_dir) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	redirect_fd = open(redirect_dir, O_RDONLY | O_DIRECTORY);
+	assert(redirect_fd >= 0);
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+
+	assert(disk_share_create_directory_entry_nofollow(
+		directory_fd, "Shared", 0777) == 0);
+	assert(lstat(moved_share, &status) == 0);
+	assert(S_ISDIR(status.st_mode));
+	errno = 0;
+	assert(fstatat(redirect_fd, "Shared", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+
+	/* Rollback must remove the entry from the same pinned volume too. */
+	assert(disk_share_remove_directory_entry_nofollow(
+		directory_fd, "Shared") == 0);
+	errno = 0;
+	assert(fstatat(directory_fd, "Shared", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	errno = 0;
+	assert(fstatat(redirect_fd, "Shared", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+
+	assert(close(directory_fd) == 0);
+	assert(close(redirect_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
 test_folder_scans_use_pinned_directory_descriptors(void)
 {
 	char root_template[] = "/tmp/disk-share-scanat-XXXXXX";
@@ -3094,6 +3146,7 @@ test_folder_name_visibility_policy();
 	test_folder_delete_batch_restores_after_staged_directory_remove_failure();
 	test_folder_delete_batch_preserves_staging_on_directory_compensation_failure();
 	test_staging_directory_operations_use_pinned_parent_fd();
+	test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd();
 	test_folder_scans_use_pinned_directory_descriptors();
 	test_folder_rename_uses_pinned_parent_descriptors();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();

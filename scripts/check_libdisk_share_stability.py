@@ -489,15 +489,13 @@ require("disk_share_open_mount_directory(mount_path)" in modify_wrapper_compact 
 
 
 
+
 rollback_permission_writer = function_body(
-    DISK_SOURCE, "disk_share_update_folder_permission_file(const char *mount_path,"
+    DISK_SOURCE, "disk_share_update_folder_permission_file(int directory_fd,"
 )
 rollback_permission_writer_compact = "".join(rollback_permission_writer.split())
-rollback_open = rollback_permission_writer_compact.index(
-    "disk_share_open_mount_directory(mount_path)"
-)
 rollback_read = rollback_permission_writer_compact.index(
-    "read_regular_file_nofollow_at(directory_fd,var_leaf)", rollback_open
+    "read_regular_file_nofollow_at(directory_fd,var_leaf)"
 )
 rollback_rewrite = rollback_permission_writer_compact.index(
     "disk_share_permission_rewrite(var_info,target,replacement,&updated_info,&updated_len)",
@@ -507,12 +505,67 @@ rollback_publish = rollback_permission_writer_compact.index(
     "disk_share_replace_file_atomic_at(directory_fd,var_leaf,updated_info,updated_len)",
     rollback_rewrite
 )
-rollback_close = rollback_permission_writer_compact.index("close(directory_fd)", rollback_publish)
-require(rollback_open < rollback_read < rollback_rewrite < rollback_publish < rollback_close and
+require(rollback_read < rollback_rewrite < rollback_publish and
+        "disk_share_open_mount_directory" not in rollback_permission_writer_compact and
         "read_regular_file_nofollow(" not in rollback_permission_writer_compact and
         "disk_share_replace_file_atomic(" not in rollback_permission_writer_compact and
         "disk_share_format_account_var_path" not in rollback_permission_writer_compact,
-        "rollback ACL rewrites must read and atomically replace metadata through one pinned mount descriptor")
+        "folder rollback ACL rewrites must use the same caller-pinned volume descriptor for read and atomic replace")
+
+
+add_folder_body = function_body(
+    DISK_SOURCE, "int add_folder(const char *const mount_path, const char *const folder)"
+)
+add_folder_compact = "".join(add_folder_body.split())
+add_inventory = add_folder_compact.index("get_account_list(&acc_num,&account_list)")
+add_begin = add_folder_compact.index("disk_share_account_nvram_begin(&transaction)", add_inventory)
+add_validate = add_folder_compact.index(
+    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
+    add_begin
+)
+add_open = add_folder_compact.index(
+    "mount_directory_fd=disk_share_open_mount_directory(mount_path)", add_validate
+)
+add_lookup = add_folder_compact.index(
+    "disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)", add_open
+)
+add_create = add_folder_compact.index(
+    "disk_share_create_directory_entry_nofollow(mount_directory_fd,folder,0777)",
+    add_lookup
+)
+add_snapshot = add_folder_compact.index(
+    "initial_folder_list_in_directory_fd(mount_directory_fd)", add_create
+)
+add_acl_init = add_folder_compact.index(
+    "create_if_no_var_files_with_accounts_at(mount_directory_fd,acc_num,account_list)",
+    add_snapshot
+)
+add_rollback_remove = add_folder_compact.index(
+    "disk_share_remove_directory_entry_nofollow(mount_directory_fd,folder)",
+    add_acl_init
+)
+add_acl_rollback = add_folder_compact.index(
+    "disk_share_update_folder_permission_file(mount_directory_fd,account_list[i],target,NULL)",
+    add_rollback_remove
+)
+add_anonymous_rollback = add_folder_compact.index(
+    "disk_share_update_folder_permission_file(mount_directory_fd,FTP_ANONYMOUS_USER,target,NULL)",
+    add_acl_rollback
+)
+add_snapshot_rollback = add_folder_compact.index(
+    "initial_folder_list_in_directory_fd(mount_directory_fd)", add_anonymous_rollback
+)
+require(add_inventory < add_begin < add_validate < add_open < add_lookup <
+        add_create < add_snapshot < add_acl_init < add_rollback_remove <
+        add_acl_rollback < add_anonymous_rollback < add_snapshot_rollback and
+        "test_if_exist_folder_in_mount_path" not in add_folder_compact and
+        "mkdir(full_path" not in add_folder_compact and
+        "rmdir(full_path" not in add_folder_compact and
+        "initial_folder_list_in_mount_path" not in add_folder_compact and
+        "create_if_no_var_files_with_accounts(mount_path" not in add_folder_compact and
+        "test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd" in POLICY_TEST and
+        "test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd();" in POLICY_TEST,
+        "add_folder must create, publish ACLs/snapshot and compensate through one pinned volume descriptor")
 
 stale_pruner = function_body(
     DISK_SOURCE, "remove_stale_share_var_files("
@@ -638,7 +691,7 @@ metadata_release = metadata_rebuild_compact.index(
 require(metadata_inventory < anonymous_path_preflight < account_path_preflight <
         metadata_begin < metadata_validate < anonymous_write < account_write <
         snapshot_publish < stale_prune < inventory_free < metadata_release and
-        "disk_share_open_mount_directory(mount_path)" in metadata_rebuild_compact,
+        "initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)" in metadata_rebuild_compact,
         "full metadata rebuild must preflight one checked account inventory, serialize ACL writes, publish folder snapshot before stale pruning, and release the NVRAM lease")
 
 
