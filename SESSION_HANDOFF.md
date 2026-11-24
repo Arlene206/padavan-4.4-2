@@ -2,19 +2,24 @@
 
 # Cross-session execution mandate
 
-Continue one autonomous engineering stream on `main`. For each logical source/test slice, create all changed blobs, one complete Git tree based on the current main root tree, and one commit; then update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work. Do not spend another takeover repeating completed audits.
+Continue one autonomous engineering stream on `main`. For each logical source/test slice, create all changed blobs, one complete Git tree based on the current main root tree, and one atomic main commit; then update main with a non-forced expected-SHA compare-and-swap. Never force-push, create/use feature branches, make PRs, split one logical change into per-file commits, or modify the frozen backup. A PENDING workflow never blocks independent work. Do not spend another takeover repeating completed audits.
 
 ## Branch and checkpoint
 
-- Current source baseline before this documentation checkpoint: `717f983f07434cd78a4ad00ebdb944b8f6d30fa5`.
-- This handoff/log/roadmap refresh is a single documentation-only child of that baseline. The live main SHA is authoritative; fetch it on takeover instead of assuming the SHA written here equals current main.
+- Current main before the wireless radio source slice: `cdf1517864852839b6651a5a82fa76add097bc10`, a documentation-only child of source baseline `717f983f07434cd78a4ad00ebdb944b8f6d30fa5`. Fetch the live main ref before every write; never assume a stored SHA remains current.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and unchanged.
 - `main` is the only development ref. PR #1 remains closed/unmerged and deeply behind main; do not port it wholesale.
 - The source tree at 717 was verified against original main baseline `054ff22bf517a45bf29f2da21963a4206f8b3b83`: GitHub compare reports exactly four modified files, namely udhcpc source, policy header, policy test, and static checker. The root tree contains the expected repository directories and the full current repository content.
 
 ## Active task
 
-### BusyBox udhcpc — DHCPNAK identity handling in REBINDING
+### Wireless radio control — checked state reads and truthful notifications
+
+Review found that `is_radio_on_wl/rt()` use the legacy `get_mlme_radio_wl/rt()` NVRAM getters on IWPRIV/RT3352-MII boards. A failed read collapses to zero. Control and notification paths then interpret the failed read as “radio already OFF”; an explicit OFF request may be reported as a successful no-op, and manual toggle may skip the operation.
+
+This source slice adds a status-bearing `wireless_radio_power_status()` using checked MLME reads, negative status propagation from radio control, checked `wl_radio_x`/`rt_radio_x` enable reads for manual toggles, and `wireless_radio_notification_status_result()` so state-reader or operation errors cannot become successful no-ops. Legacy boolean readers remain available for display-only callers. GNU89/ASan/UBSan regressions and exact-head source-contract checks must pass; XY-C1 Build, TRX and artifact upload must also pass on the same SHA before claiming L3.
+
+### Completed concurrent source slice — BusyBox udhcpc DHCPNAK identity handling in REBINDING
 
 Completed source slice:
 - `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c`: the DHCPNAK branch now tells the identity policy whether the client is in `REBINDING`.
@@ -39,10 +44,11 @@ The initial source commit `ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5` was mistake
 - MiniDLNA config safety #45489318793: PASS.
 - DNSMasq lifecycle #45489318703: PASS.
 - EAPoL configuration/credential escaping #45489318738: PASS.
-- AI handoff docs #45489318581: FAIL only at its explicit checkpoint assertion: current `SESSION_HANDOFF.md` did not contain the mandatory end-of-session handoff checkpoint rule. This documentation-only checkpoint adds the required section and phrase; verify the new exact-head AI workflow after this commit.
-- XY-C1 firmware validation #45489316847: at last poll, 1–36 passed; production-input detector step 37 was IN_PROGRESS; Build step 38, TRX step 39 and artifact upload step 40 were PENDING. Do not claim L3 for 717 until all three product steps are PASS on this exact source SHA.
-- WAN DHCP callback #45489318671: QUEUED at last poll.
-- VSFTPD configuration publication #45489317086: IN_PROGRESS at last poll.
+- Wireless radio state regression #45489316780: PASS on 717.
+- NVRAM transaction boundary audit #45489317079: PASS on 717.
+- WAN DHCP callback #45489318671 and VSFTPD configuration publication #45489317086: PASS on 717.
+- AI handoff docs #45489793605 on documentation child cdf: FAIL at the exact handoff assertion requiring the phrase `one atomic main commit`; this update adds that wording. Earlier 717 AI run #45489318581 failed at the missing mandatory checkpoint section, also present in the current handoff. Verify the next exact-head AI run.
+- XY-C1 firmware validation #45489316847: at last poll, steps 1–37 PASS, Build step 38 IN_PROGRESS, TRX step 39 and artifact upload step 40 PENDING. Do not claim L3 for 717 until all three product steps are PASS on that exact source SHA.
 - Other current-head workflows may have progressed since this checkpoint; fetch the live Actions list and handle any FAIL before declaring the corresponding slice validated. A pending run is not a reason to stop independent work.
 
 ### Earlier exact source SHA 7e700e86e191bfbf11d563fce7f9cfbbcd539516
@@ -56,11 +62,11 @@ The initial source commit `ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5` was mistake
 
 ## Exact first action for the next GPT
 
-1. Fetch the live main ref and exact-head Actions. Inspect the new AI handoff run triggered by this documentation checkpoint; the previous #45489318581 failure should be closed only after its required checkpoint assertion passes.
-2. Recheck XY-C1 #45489316847 for source SHA 717. If Build, TRX and artifact upload all pass, record L3 for 717; if a step fails, inspect its log and fix the first cause in one new atomic main slice. Also revisit WAN DHCP callback #45489318671 and VSFTPD #45489317086, processing any completed FAIL rather than waiting on queued runs.
-3. Continue repository-wide stability work after those checks. LAN DHCP/AP-mode lease remains PARTIAL/AUDITING: the state-aware DHCPNAK fix is now covered, but `leasefail`, full live lease/NAK transitions, target MIPS/uClibc runtime and physical L4 remain open. Do not reopen the completed NAK policy regression or repeat the 7e NVRAM/XY audits.
-4. Select the next concrete high-risk source defect from the module dashboard in `REFACTOR_ROADMAP.md`; prioritize severe service/network failure and security issues, then implement source + regression, run relevant tests, atomically commit and inspect that exact SHA's Actions. PENDING means move to another independent task.
-5. Before context exhaustion, perform the mandatory handoff checkpoint and update the root handoff in place only if material facts or the next action changed.
+1. Inspect exact-head Wireless radio state regression for this checked-state slice. Fix the first compiler, GNU89/ASan/UBSan, or source-contract failure and rerun on the new SHA.
+2. Inspect same-SHA XY-C1 Build, TRX and artifact-upload steps. The older 717 run #45489316847 had steps 1–37 PASS and Build step 38 IN_PROGRESS at last poll; only all three product steps PASS on one SHA permit L3.
+3. Check the AI handoff documentation contract after the exact-phrase fix; then process any remaining FAIL from the exact-head Actions list.
+4. Continue with the next P1 stability/security defect in `REFACTOR_ROADMAP.md`. LAN DHCP/AP-mode lease remains PARTIAL/AUDITING (`leasefail`, full live lease/NAK transitions, target MIPS/uClibc runtime and physical L4 remain open). Do not reopen the completed DHCPNAK policy or closed VSFTPD/process/NVRAM checks.
+5. Before context exhaustion, perform the mandatory handoff checkpoint; edit root docs only when a material fact or first action has changed.
 
 ## Mandatory handoff checkpoint
 

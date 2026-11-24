@@ -2461,6 +2461,66 @@ is_radio_on_rt(void)
 #endif
 }
 
+/*
+ * Status-bearing form of is_radio_on_* for control/notification paths. The
+ * legacy boolean accessors remain for display callers, but must not be used
+ * to decide whether a requested transition is a no-op when MLME NVRAM is
+ * unreadable.
+ */
+int
+wireless_radio_power_status(int is_5g, int *is_on)
+{
+	if (!is_on || (is_5g != 0 && is_5g != 1))
+		return -EINVAL;
+	*is_on = 0;
+
+	if (is_5g) {
+#if BOARD_HAS_5G_RADIO && defined(USE_IWPRIV_RADIO_5G)
+		wireless_mlme_radio_context_t context;
+		int status, mlme_on = 0;
+
+		if (!is_interface_up(IFNAME_5G_MAIN))
+			return 0;
+		context.ifname = IFNAME_5G_MAIN;
+		context.band_name = "5GHz";
+		context.state_name = "mlme_radio_wl";
+		context.publish_state = mlme_state_wl;
+		status = wireless_mlme_radio_get_power(&context, &mlme_on);
+		if (status != 0)
+			return -status;
+		*is_on = mlme_on;
+		return 0;
+#elif BOARD_HAS_5G_RADIO
+		*is_on = is_radio_on_wl();
+		return 0;
+#else
+		return 0;
+#endif
+	}
+
+#if defined(USE_IWPRIV_RADIO_2G) || defined(USE_RT3352_MII)
+	{
+		wireless_mlme_radio_context_t context;
+		int status, mlme_on = 0;
+
+		if (!is_interface_up(IFNAME_2G_MAIN))
+			return 0;
+		context.ifname = IFNAME_2G_MAIN;
+		context.band_name = "2.4GHz";
+		context.state_name = "mlme_radio_rt";
+		context.publish_state = mlme_state_rt;
+		status = wireless_mlme_radio_get_power(&context, &mlme_on);
+		if (status != 0)
+			return -status;
+		*is_on = mlme_on;
+		return 0;
+	}
+#else
+	*is_on = is_radio_on_rt();
+	return 0;
+#endif
+}
+
 int 
 is_radio_allowed_wl(void)
 {
@@ -2489,68 +2549,64 @@ is_guest_allowed_rt(void)
 	return 0;
 }
 
-int 
+int
 control_radio_wl(int radio_on, int manual)
 {
 	int is_radio_changed = 0;
+	int was_on = 0;
+	int status;
+
+	radio_on = !!radio_on;
+	status = wireless_radio_power_status(1, &was_on);
+	if (status != 0)
+		return status;
 
 #if BOARD_HAS_5G_RADIO
-	if (radio_on)
-	{
-		if (!is_radio_on_wl()) {
+	if (was_on != radio_on) {
 #if defined(USE_IWPRIV_RADIO_5G)
-			is_radio_changed = mlme_radio_wl_apply(1);
+		if (!mlme_radio_wl_apply(radio_on))
+			return -EIO;
 #else
-			is_radio_changed = wireless_radio_status_success(restart_wifi_wl(1, 0));
+		status = restart_wifi_wl(radio_on, 0);
+		if (status != 0)
+			return wireless_radio_restart_status(0, status);
 #endif
-		}
-	}
-	else
-	{
-		if (is_radio_on_wl()) {
-#if defined(USE_IWPRIV_RADIO_5G)
-			is_radio_changed = mlme_radio_wl_apply(0);
-#else
-			is_radio_changed = wireless_radio_status_success(restart_wifi_wl(0, 0));
-#endif
-		}
+		is_radio_changed = 1;
 	}
 
 	if (is_radio_changed && !manual)
-		logmessage("WiFi scheduler", "5GHz radio: %s", (radio_on) ? "ON" : "OFF");
+		logmessage("WiFi scheduler", "5GHz radio: %s", radio_on ? "ON" : "OFF");
 #endif
 
 	return is_radio_changed;
 }
 
-int 
+int
 control_radio_rt(int radio_on, int manual)
 {
 	int is_radio_changed = 0;
+	int was_on = 0;
+	int status;
 
-	if (radio_on)
-	{
-		if (!is_radio_on_rt()) {
+	radio_on = !!radio_on;
+	status = wireless_radio_power_status(0, &was_on);
+	if (status != 0)
+		return status;
+
+	if (was_on != radio_on) {
 #if defined(USE_IWPRIV_RADIO_2G) || defined(USE_RT3352_MII)
-			is_radio_changed = mlme_radio_rt_apply(1);
+		if (!mlme_radio_rt_apply(radio_on))
+			return -EIO;
 #else
-			is_radio_changed = wireless_radio_status_success(restart_wifi_rt(1, 0));
+		status = restart_wifi_rt(radio_on, 0);
+		if (status != 0)
+			return wireless_radio_restart_status(0, status);
 #endif
-		}
-	}
-	else
-	{
-		if (is_radio_on_rt()) {
-#if defined(USE_IWPRIV_RADIO_2G) || defined(USE_RT3352_MII)
-			is_radio_changed = mlme_radio_rt_apply(0);
-#else
-			is_radio_changed = wireless_radio_status_success(restart_wifi_rt(0, 0));
-#endif
-		}
+		is_radio_changed = 1;
 	}
 
 	if (is_radio_changed && !manual)
-		logmessage("WiFi scheduler", "2.4GHz radio: %s", (radio_on) ? "ON" : "OFF");
+		logmessage("WiFi scheduler", "2.4GHz radio: %s", radio_on ? "ON" : "OFF");
 
 	return is_radio_changed;
 }
@@ -3037,46 +3093,86 @@ restart_guest_lan_isolation(void)
 	return wireless_guest_isolation_status_result(&status);
 }
 
-int 
+static int
+wireless_radio_enabled_status(int is_5g, int *enabled)
+{
+	const char *key;
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!enabled || (is_5g != 0 && is_5g != 1))
+		return -EINVAL;
+	*enabled = 0;
+#if !BOARD_HAS_5G_RADIO
+	if (is_5g)
+		return 0;
+#endif
+
+	key = is_5g ? "wl_radio_x" : "rt_radio_x";
+	errno = 0;
+	api_result = nvram_get_checked(key, &value);
+	saved_errno = errno;
+	status = wireless_radio_nvram_flag_status(
+		api_result, saved_errno, value, enabled);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "manual radio toggle aborted: cannot read %s enable flag (status=%d)",
+			   is_5g ? "5GHz" : "2.4GHz", status);
+		return -status;
+	}
+	return 0;
+}
+
+int
 manual_toggle_radio_rt(int radio_on)
 {
-	if (!get_enabled_radio_rt())
+	int enabled, was_on, status;
+
+	status = wireless_radio_enabled_status(0, &enabled);
+	if (status != 0)
+		return status;
+	if (!enabled)
+		return 0;
+	status = wireless_radio_power_status(0, &was_on);
+	if (status != 0)
+		return status;
+
+	radio_on = radio_on < 0 ? !was_on : !!radio_on;
+	if (was_on == radio_on)
 		return 0;
 
-	if (radio_on < 0) {
-		radio_on = !is_radio_on_rt();
-	} else {
-		if (is_radio_on_rt() == radio_on)
-			return 0;
-	}
-
 	notify_watchdog_wifi(0);
-
-	logmessage(LOGNAME, "Perform manual toggle %s radio: %s", "2.4GHz", (radio_on) ? "ON" : "OFF");
-
+	logmessage(LOGNAME, "Perform manual toggle %s radio: %s",
+		   "2.4GHz", radio_on ? "ON" : "OFF");
 	return control_radio_rt(radio_on, 1);
 }
 
-int 
+int
 manual_toggle_radio_wl(int radio_on)
 {
 #if BOARD_HAS_5G_RADIO
-	if (!get_enabled_radio_wl())
+	int enabled, was_on, status;
+
+	status = wireless_radio_enabled_status(1, &enabled);
+	if (status != 0)
+		return status;
+	if (!enabled)
+		return 0;
+	status = wireless_radio_power_status(1, &was_on);
+	if (status != 0)
+		return status;
+
+	radio_on = radio_on < 0 ? !was_on : !!radio_on;
+	if (was_on == radio_on)
 		return 0;
 
-	if (radio_on < 0) {
-		radio_on = !is_radio_on_wl();
-	} else {
-		if (is_radio_on_wl() == radio_on)
-			return 0;
-	}
-
 	notify_watchdog_wifi(1);
-
-	logmessage(LOGNAME, "Perform manual toggle %s radio: %s", "5GHz", (radio_on) ? "ON" : "OFF");
-
+	logmessage(LOGNAME, "Perform manual toggle %s radio: %s",
+		   "5GHz", radio_on ? "ON" : "OFF");
 	return control_radio_wl(radio_on, 1);
 #else
+	(void)radio_on;
 	return 0;
 #endif
 }

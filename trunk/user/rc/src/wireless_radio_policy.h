@@ -284,6 +284,25 @@ wireless_radio_notification_result(int was_on, int requested_on,
 }
 
 /*
+ * A notification may report success only after its state snapshot succeeded
+ * and its requested control operation did not fail. The legacy helper takes
+ * a boolean change result, so it cannot distinguish "no change" from an
+ * unchecked NVRAM read that was collapsed to OFF.
+ */
+static inline int
+wireless_radio_notification_status_result(int state_status,
+					  int operation_status,
+					  int was_on, int requested_on)
+{
+	if (state_status != 0)
+		return state_status < 0 ? state_status : -state_status;
+	if (operation_status < 0)
+		return operation_status;
+	return wireless_radio_notification_result(
+		was_on, requested_on, operation_status);
+}
+
+/*
  * RT3352 MII radio state crosses a switch-isolation boundary. Do not publish
  * state until the driver and switch both complete the requested transition.
  */

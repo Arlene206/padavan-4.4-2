@@ -503,6 +503,7 @@ int stop_8021x_rt(void);
 int stop_8021x_all(void);
 int  is_radio_on_wl(void);
 int  is_radio_on_rt(void);
+int  wireless_radio_power_status(int is_5g, int *is_on);
 int  is_radio_allowed_wl(void);
 int  is_radio_allowed_rt(void);
 int  is_guest_allowed_wl(void);

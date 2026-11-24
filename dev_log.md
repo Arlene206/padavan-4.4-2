@@ -1,3 +1,14 @@
+## 2026-11-24 — Harden wireless radio status reads and notification outcomes
+
+- PID-1 radio notification and manual-toggle paths used legacy `is_radio_on_wl/rt()` readers that call lossy `get_mlme_radio_wl/rt()` on IWPRIV/RT3352-MII boards. An NVRAM read error becomes zero, so explicit OFF may look like an already-satisfied no-op and be reported as success.
+- Added checked `wireless_radio_power_status()`, negative-status propagation from radio control, checked `wl_radio_x`/`rt_radio_x` enable reads for manual toggles, and a notification-result helper that preserves state and operation errors. Added GNU89 policy regressions for failed state snapshots and operations when the old/fallback state equals the requested state. Updated Wireless workflow source contracts.
+- Exact 717 SHA: Wireless #45489316780 PASS; NVRAM audit #45489317079 PASS; WAN DHCP #45489318671 PASS; VSFTPD #45489317086 PASS; udhcpc #45489316871 PASS; Process inventory #45489318666 PASS. XY-C1 #45489316847 had steps 1–37 PASS with Build step 38 IN_PROGRESS and TRX/artifact pending at last poll; no L3 claim.
+- Exact cdf documentation child AI handoff #45489793605 failed because the handoff lacked the exact phrase `one atomic main commit`; the updated SESSION_HANDOFF now includes that phrase and the checkpoint section. Verify the next exact-head documentation run.
+- The NAK tree-recovery issue is closed: ff9's incomplete tree was followed by 717, which restored the root tree and retained the four intended DHCP changes. Compare 054..717 shows only those four paths modified. No history rewrite or backup modification.
+- No physical-router L4 test is claimed.
+
+---
+
 ## 2026-11-24 — Accept authoritative DHCPNAK replies during REBINDING
 
 - `trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c` now passes the current state to the server-ID filter. DHCPNAKs during REBINDING may come from any server reached by the broadcast DHCPREQUEST; a missing server-ID is still rejected. SELECTING/RENEWING retain strict original-server matching, and the legacy no-known-server behavior remains unchanged.

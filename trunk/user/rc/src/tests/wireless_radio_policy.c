@@ -515,6 +515,17 @@ test_radio_notification_failed_transitions_remain_pending(void)
 	       wireless_radio_notification_result(0, 1, 2) != -EIO;
 }
 
+static int
+test_radio_notification_status_errors_never_become_noop_success(void)
+{
+	return wireless_radio_notification_status_result(EIO, 0, 0, 0) != -EIO ||
+	       wireless_radio_notification_status_result(-EACCES, 0, 0, 0) != -EACCES ||
+	       wireless_radio_notification_status_result(0, -EBUSY, 0, 0) != -EBUSY ||
+	       wireless_radio_notification_status_result(0, 0, 0, 0) != 0 ||
+	       wireless_radio_notification_status_result(0, 1, 0, 1) != 0 ||
+	       wireless_radio_notification_status_result(0, 0, 0, 1) != -EIO;
+}
+
 enum inic_radio_test_event {
 	INIC_EVENT_RADIO_ON = 1, INIC_EVENT_RADIO_OFF, INIC_EVENT_PREPARE_ON,
 	INIC_EVENT_UNISOLATE, INIC_EVENT_ISOLATE, INIC_EVENT_PUBLISH_ON,
@@ -796,6 +807,7 @@ main(void)
 	    test_radio_notification_noop_is_success_only_when_already_at_target() ||
 	    test_radio_notification_successful_transitions() ||
 	    test_radio_notification_failed_transitions_remain_pending() ||
+	    test_radio_notification_status_errors_never_become_noop_success() ||
 	    test_inic_radio_enable_orders_power_before_unisolation_and_publication() ||
 	    test_inic_radio_disable_isolates_before_power_off_and_publication() ||
 	    test_inic_radio_power_on_failure_rolls_back_without_publishing() ||

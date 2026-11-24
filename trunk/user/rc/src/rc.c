@@ -2149,22 +2149,22 @@ shutdown_router(int level)
 static int
 rc_manual_toggle_radio_status(int is_5g, int requested_on)
 {
-	int was_on;
-	int effective_request;
-	int changed;
+	int was_on = 0;
+	int effective_request = requested_on < 0 ? 0 : !!requested_on;
+	int state_status;
+	int operation_status = 0;
 
-	if (is_5g) {
-		was_on = is_radio_on_wl();
+	state_status = wireless_radio_power_status(is_5g, &was_on);
+	if (state_status == 0) {
 		effective_request = requested_on < 0 ? !was_on : !!requested_on;
-		changed = manual_toggle_radio_wl(requested_on);
-	} else {
-		was_on = is_radio_on_rt();
-		effective_request = requested_on < 0 ? !was_on : !!requested_on;
-		changed = manual_toggle_radio_rt(requested_on);
+		if (is_5g)
+			operation_status = manual_toggle_radio_wl(requested_on);
+		else
+			operation_status = manual_toggle_radio_rt(requested_on);
 	}
 
-	return wireless_radio_notification_result(was_on, effective_request,
-						    changed);
+	return wireless_radio_notification_status_result(
+		state_status, operation_status, was_on, effective_request);
 }
 
 static int
@@ -2184,24 +2184,25 @@ rc_manual_change_radio_status(int is_5g, int requested_on)
 static int
 rc_notify_apply_radio_control(int is_5g, int radio_on, int manual)
 {
-	int was_on;
-	int change_reported;
+	int was_on = 0;
+	int state_status;
+	int operation_status = 0;
 	int status;
 
-	if (is_5g) {
-		was_on = is_radio_on_wl();
-		change_reported = control_radio_wl(radio_on, manual);
-	} else {
-		was_on = is_radio_on_rt();
-		change_reported = control_radio_rt(radio_on, manual);
+	state_status = wireless_radio_power_status(is_5g, &was_on);
+	if (state_status == 0) {
+		if (is_5g)
+			operation_status = control_radio_wl(radio_on, manual);
+		else
+			operation_status = control_radio_rt(radio_on, manual);
 	}
 
-	status = wireless_radio_notification_result(was_on, radio_on,
-						    change_reported);
+	status = wireless_radio_notification_status_result(
+		state_status, operation_status, was_on, radio_on);
 	if (status != 0)
-		logmessage(LOGNAME, "%s radio notification incomplete (requested=%d, was_on=%d, changed=%d)",
+		logmessage(LOGNAME, "%s radio notification incomplete (requested=%d, was_on=%d, state_status=%d, operation_status=%d)",
 			   is_5g ? "5GHz" : "2.4GHz", !!radio_on, !!was_on,
-			   change_reported);
+			   state_status, operation_status);
 	return status;
 }
 
