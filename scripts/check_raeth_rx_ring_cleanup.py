@@ -452,9 +452,9 @@ preinit_put = switch_preinit.index("put_device(&pdev->dev);")
 assert switch_preinit.index("if (!ei_local || !ei_local->switch_np)") < preinit_lookup
 assert preinit_lookup < preinit_pdev_guard < preinit_drvdata < preinit_gsw_guard < preinit_put
 assert switch_preinit.count("put_device(&pdev->dev);") == 1
-assert switch_preinit[preinit_lookup:].count("return ") == 1
+assert switch_preinit[preinit_drvdata:].count("return ") == 1
 assert "goto out_put_device;" in switch_preinit[preinit_gsw_guard:preinit_put]
-assert "goto out_put_device;" in switch_preinit[preinit_pdev_guard:preinit_drvdata]
+assert "return -ENODEV;" in switch_preinit[preinit_pdev_guard:preinit_drvdata]
 
 main_voltage = switch_preinit.index("regulator_set_voltage(gsw->supply")
 main_voltage_check = switch_preinit.index("if (ret)", main_voltage)
