@@ -2,7 +2,6 @@
 """Verify modem driver alternatives are attempted and readiness is propagated."""
 
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
@@ -76,6 +75,7 @@ for marker in (
     "test_modem_settings_second_read_error_discards_partial_pair",
     "test_modem_settings_absent_keys_keep_legacy_defaults",
     "test_modem_settings_reject_invalid_arguments",
+    "test_module_reload_cache_published_only_after_success",
 ):
     assert marker in TEST
 
@@ -112,19 +112,45 @@ notify_end = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER
 notify = RC_SOURCE[notify_start:notify_end]
 notify_config = notify.index("rc_modem_read_nvram_settings_status(")
 notify_config_error = notify.index("if (modem_settings_status != 0)", notify_config)
-notify_identity = notify.index("if (!stop_failed)", notify_config_error)
+notify_identity = notify.index("if (!transition_failed)", notify_config_error)
 assert notify_config < notify_config_error < notify_identity
 assert 'nvram_get_int("modem_rule")' not in notify
 assert 'nvram_get_int("modem_type")' not in notify
-assert "if (!stop_failed && nvram_modem_rule != modem_rule)" in notify
+assert "if (!transition_failed && nvram_modem_rule != modem_rule)" in notify
 assert notify.count("if (!modem_wan_restart_allowed(modem_identity_status))") == 1
 assert notify.count("modem_identity_status = get_usb_modem_wan_status(") == 1
-assert notify.index("if (!stop_failed && nvram_modem_rule != modem_rule)") > notify_config_error
-notify_pattern = (
-    r"rc_notify_merge_action_result\s*\(\s*action_result\s*,\s*"
-    r"reload_modem_modules\(modem_type, 1\)\s*\)"
-)
-assert len(re.findall(notify_pattern, notify)) == 2
+assert notify.index("if (!transition_failed && nvram_modem_rule != modem_rule)") > notify_config_error
+assert "stop_failed" not in notify
+assert notify.count("rc_modem_module_reload_cache_publish(") == 2
+assert notify.count("reload_modem_modules(modem_type, 1)") == 2
+
+rule_change = notify.index("if (!transition_failed && nvram_modem_rule != modem_rule)")
+rule_publish = notify.index("rc_modem_module_reload_cache_publish(", rule_change)
+rule_failure = notify.index("if (module_reload_status != 0)", rule_publish)
+rule_failed = notify.index("transition_failed = 1;", rule_failure)
+rule_ready = notify.index("modules_reloaded = 1;", rule_failed)
+rule_unload = notify.index("unload_modem_modules();", rule_change)
+rule_disabled_cache = notify.index("nvram_modem_rule = modem_rule;", rule_unload)
+assert rule_change < rule_publish < rule_failure < rule_failed < rule_ready
+assert rule_unload < rule_disabled_cache and rule_disabled_cache > rule_ready
+assert "reload_modem_modules(modem_type, 1)" in notify[rule_publish:rule_failure]
+assert "action_result = rc_notify_merge_action_result(" in notify[rule_failure:rule_ready]
+
+type_change = notify.index("if (!transition_failed && nvram_modem_type != modem_type)")
+type_publish = notify.index("rc_modem_module_reload_cache_publish(", type_change)
+type_failure = notify.index("if (module_reload_status != 0)", type_publish)
+type_failed = notify.index("transition_failed = 1;", type_failure)
+type_cache = notify.index("nvram_modem_type = modem_type;", type_failed)
+wan_restart = notify.index("if (!transition_failed && need_restart_wan)")
+assert type_change < type_publish < type_failure < type_failed < type_cache < wan_restart
+assert "reload_modem_modules(modem_type, 1)" in notify[type_publish:type_failure]
+assert "retaining previous cache for retry" in notify
+cache_publish = body(POLICY, "rc_modem_module_reload_cache_publish(")
+assert "if (!cached_value)" in cache_publish and "return EINVAL;" in cache_publish
+assert "if (reload_status != 0)" in cache_publish
+assert "return reload_status > 0 ? reload_status : EIO;" in cache_publish
+assert "*cached_value = requested_value;" in cache_publish
+assert notify.index("if (!transition_failed && need_restart_wan)") > type_failed
 
 assert "if (probe_status == 1)" in POLICY
 assert "probe_status < 0" in POLICY

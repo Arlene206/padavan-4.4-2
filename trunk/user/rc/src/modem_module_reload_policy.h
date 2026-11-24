@@ -35,6 +35,23 @@ rc_modem_read_nvram_settings_status(rc_modem_nvram_int_read_fn read_int,
 	return 0;
 }
 
+
+/* Publish a requested module setting only after the new driver group is ready.
+ * A failed reload must leave the old cache value intact so the retained
+ * notification can retry the transition instead of silently skipping it.
+ */
+static inline int
+rc_modem_module_reload_cache_publish(int reload_status, int *cached_value,
+				     int requested_value)
+{
+	if (!cached_value)
+		return EINVAL;
+	if (reload_status != 0)
+		return reload_status > 0 ? reload_status : EIO;
+	*cached_value = requested_value;
+	return 0;
+}
+
 typedef struct {
 	int (*load)(const char *module_name, const char *module_param);
 	int (*is_loaded)(const char *module_name);

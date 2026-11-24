@@ -2474,8 +2474,9 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))
 		{
 			int wan_stopped = 0;
-			int stop_failed = 0;
+			int transition_failed = 0;
 			int wan_stop_status = 0;
+			int module_reload_status = 0;
 			int modules_reloaded = 0;
 			int modem_identity_status;
 			int modem_settings_status;
@@ -2490,10 +2491,10 @@ handle_notifications(void)
 					   modem_settings_status);
 				action_result = rc_notify_merge_action_result(
 					action_result, modem_settings_status);
-				stop_failed = 1;
+				transition_failed = 1;
 			}
 
-			if (!stop_failed) {
+			if (!transition_failed) {
 				modem_identity_status = get_usb_modem_wan_status(
 					0, &need_restart_wan);
 				if (!modem_wan_restart_allowed(modem_identity_status)) {
@@ -2502,33 +2503,44 @@ handle_notifications(void)
 						   modem_identity_status);
 					action_result = rc_notify_merge_action_result(
 						action_result, modem_identity_status);
-					stop_failed = 1;
+					transition_failed = 1;
 				}
 			}
-			if (!stop_failed && nvram_modem_rule != modem_rule)
+			if (!transition_failed && nvram_modem_rule != modem_rule)
 			{
 				if (need_restart_wan) {
 					wan_stop_status = stop_wan();
 					if (wan_stop_status != 0) {
 						action_result = rc_notify_merge_action_result(
 							action_result, wan_stop_status);
-						stop_failed = 1;
+						transition_failed = 1;
 					} else {
 						wan_stopped = 1;
 					}
 				}
-				if (!stop_failed) {
-					nvram_modem_rule = modem_rule;
+				if (!transition_failed) {
 					if (modem_rule > 0) {
-						modules_reloaded = 1;
-						action_result = rc_notify_merge_action_result(
-							action_result, reload_modem_modules(modem_type, 1));
+						module_reload_status =
+							rc_modem_module_reload_cache_publish(
+								reload_modem_modules(modem_type, 1),
+								&nvram_modem_rule, modem_rule);
+						if (module_reload_status != 0) {
+							logmessage("USB",
+								   "modem rule transition failed; retaining previous cache for retry (status=%d)",
+								   module_reload_status);
+							action_result = rc_notify_merge_action_result(
+								action_result, module_reload_status);
+							transition_failed = 1;
+						} else {
+							modules_reloaded = 1;
+						}
 					} else {
 						unload_modem_modules();
+						nvram_modem_rule = modem_rule;
 					}
 				}
 			}
-			if (!stop_failed && nvram_modem_type != modem_type)
+			if (!transition_failed && nvram_modem_type != modem_type)
 			{
 				if (nvram_modem_type == 3 || modem_type == 3) {
 					if (modem_rule > 0 && !modules_reloaded) {
@@ -2537,20 +2549,31 @@ handle_notifications(void)
 							if (wan_stop_status != 0) {
 								action_result = rc_notify_merge_action_result(
 									action_result, wan_stop_status);
-								stop_failed = 1;
+								transition_failed = 1;
 							} else {
 								wan_stopped = 1;
 							}
 						}
-						if (!stop_failed)
-							action_result = rc_notify_merge_action_result(
-								action_result, reload_modem_modules(modem_type, 1));
+						if (!transition_failed) {
+							module_reload_status =
+								rc_modem_module_reload_cache_publish(
+									reload_modem_modules(modem_type, 1),
+									&nvram_modem_type, modem_type);
+							if (module_reload_status != 0) {
+								logmessage("USB",
+									   "modem type transition failed; retaining previous cache for retry (status=%d)",
+									   module_reload_status);
+								action_result = rc_notify_merge_action_result(
+									action_result, module_reload_status);
+								transition_failed = 1;
+							}
+						}
 					}
 				}
-				if (!stop_failed)
+				if (!transition_failed)
 					nvram_modem_type = modem_type;
 			}
-			if (!stop_failed && need_restart_wan)
+			if (!transition_failed && need_restart_wan)
 				action_result = rc_notify_merge_action_result(
 					action_result, full_restart_wan());
 		}

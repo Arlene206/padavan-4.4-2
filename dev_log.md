@@ -1,3 +1,12 @@
+## 2026-11-24 — Keep USB modem restart retries effective after failed driver reload
+
+- `RCN_RESTART_MODEM` retained its in-flight marker when driver readiness failed, but it had already advanced the in-memory `modem_rule`/`modem_type` cache and allowed WAN restart to continue. A retry therefore saw the requested values as current, skipped the failed module reload, and could clear the incomplete marker without restoring the selected modem driver.
+- Cache publication now occurs only after `reload_modem_modules()` confirms an NDIS/RAS alternative. A failed readiness check keeps the previous baseline, marks the transition failed, and prevents WAN restart; the retained notification can retry the module transition.
+- Added GNU89 regression cases for failed/successful cache publication and strengthened the exact-source contract. Exact-head USB modem, Process, AI docs and XY-C1 validation are pending after this commit.
+- Parent main SHA: `786c504c8247fe42d5d1d5f2dc3ad28757fafc80`. No target runtime or physical-router validation is claimed.
+
+---
+
 ## 2026-11-24 — Reject malformed persisted WAN traffic baselines
 
 - `wanlink_hook()` in `web_ex.c` read persisted `bytes_rx`/`bytes_tx` baselines with `strtoull(..., NULL, 10)`. That accepts numeric prefixes such as `"40junk"` as 40, yielding a plausible but false WAN traffic delta rather than reporting invalid persisted state.

@@ -326,6 +326,21 @@ test_invalid_group_fails_before_side_effects(void)
 		assert(load_calls[i] == 0 && probe_calls[i] == 0);
 }
 
+
+static void
+test_module_reload_cache_published_only_after_success(void)
+{
+	int cached_value = 1;
+
+	assert(rc_modem_module_reload_cache_publish(EACCES, &cached_value, 2) == EACCES);
+	assert(cached_value == 1);
+	assert(rc_modem_module_reload_cache_publish(-1, &cached_value, 3) == EIO);
+	assert(cached_value == 1);
+	assert(rc_modem_module_reload_cache_publish(0, &cached_value, 3) == 0);
+	assert(cached_value == 3);
+	assert(rc_modem_module_reload_cache_publish(0, NULL, 4) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -341,6 +356,7 @@ main(void)
 	test_modem_settings_second_read_error_discards_partial_pair();
 	test_modem_settings_absent_keys_keep_legacy_defaults();
 	test_modem_settings_reject_invalid_arguments();
+	test_module_reload_cache_published_only_after_success();
 	puts("USB modem module alternative readiness policy: PASS");
 	return 0;
 }
