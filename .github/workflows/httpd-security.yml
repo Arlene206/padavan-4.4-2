@@ -4586,7 +4586,9 @@ jobs:
               "HTTPD_DIRECT_EJ_SELF_GUARDED",
               "HTTPD_DIRECT_EJ_TRUSTED_MUTATION",
           }
-          js_nvram_get = body(web, "static int\\nej_nvram_get_js(")
+          js_nvram_start = web.index("static int\nej_nvram_get_js(")
+          js_nvram_end = web.index("\nstatic int\nej_nvram_get_ddns(", js_nvram_start)
+          js_nvram_get = web[js_nvram_start:js_nvram_end]
           assert 'ejArgs(argc, argv, "%s %s", &sid, &name)' in js_nvram_get
           assert "write_js_string(wp, nvram_safe_get(name));" in js_nvram_get
           assert '"nvram_get_js", ej_nvram_get_js' in ej_table
