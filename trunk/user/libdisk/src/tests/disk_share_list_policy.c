@@ -111,6 +111,109 @@ test_stale_metadata_unlink_uses_pinned_directory_fd(void)
 }
 
 
+
+struct disk_share_stream_writer_fixture {
+	const char *contents;
+	int fail_after_write;
+};
+
+static int
+disk_share_test_stream_writer(FILE *stream, void *opaque)
+{
+	struct disk_share_stream_writer_fixture *fixture =
+		(struct disk_share_stream_writer_fixture *)opaque;
+
+	if (!fixture || !fixture->contents) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (fputs(fixture->contents, stream) == EOF)
+		return -1;
+	if (fixture->fail_after_write) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+
+static void
+test_atomic_stream_failure_preserves_previous_metadata(void)
+{
+	char root_template[] = "/tmp/disk-share-stream-failure-XXXXXX";
+	char mount_dir[256], target_path[256];
+	char buffer[128], temp_prefix[128];
+	char *root;
+	DIR *directory;
+	struct dirent *entry;
+	struct stat status;
+	struct disk_share_stream_writer_fixture fixture;
+	int directory_fd, file_fd, temp_count = 0;
+	ssize_t bytes_read;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(target_path, sizeof(target_path),
+	                "%s/.__stream_var.txt", mount_dir) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	file_fd = openat(directory_fd, ".__stream_var.txt",
+	                 O_CREAT | O_EXCL | O_WRONLY, 0640);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "last-good\n", 10) == 10);
+	assert(close(file_fd) == 0);
+
+	fixture.contents = "partial update\n";
+	fixture.fail_after_write = 1;
+	errno = 0;
+	assert(disk_share_write_stream_atomic_at(
+		directory_fd, ".__stream_var.txt", disk_share_test_stream_writer,
+		&fixture, 0) == -1);
+	assert(errno == EIO);
+
+	file_fd = openat(directory_fd, ".__stream_var.txt", O_RDONLY);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == 10);
+	assert(memcmp(buffer, "last-good\n", 10) == 0);
+	assert(close(file_fd) == 0);
+
+	assert(snprintf(temp_prefix, sizeof(temp_prefix),
+	                "..__stream_var.txt.tmp.") > 0);
+	directory = opendir(mount_dir);
+	assert(directory != NULL);
+	while ((entry = readdir(directory)) != NULL)
+		if (strncmp(entry->d_name, temp_prefix, strlen(temp_prefix)) == 0)
+			++temp_count;
+	assert(closedir(directory) == 0);
+	assert(temp_count == 0);
+
+	fixture.contents = "complete update\n";
+	fixture.fail_after_write = 0;
+	assert(disk_share_write_stream_atomic_at(
+		directory_fd, ".__stream_var.txt", disk_share_test_stream_writer,
+		&fixture, 0) == 0);
+	file_fd = openat(directory_fd, ".__stream_var.txt", O_RDONLY);
+	assert(file_fd >= 0);
+	bytes_read = read(file_fd, buffer, sizeof(buffer));
+	assert(bytes_read == 16);
+	assert(memcmp(buffer, "complete update\n", 16) == 0);
+	assert(close(file_fd) == 0);
+	assert(fstatat(directory_fd, ".__stream_var.txt", &status,
+	               AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISREG(status.st_mode));
+	assert((status.st_mode & 0777) == 0600);
+
+	assert(close(directory_fd) == 0);
+	assert(unlink(target_path) == 0);
+	assert(rmdir(mount_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
 static void
 test_atomic_metadata_replace_stays_in_pinned_directory(void)
 {
@@ -2811,6 +2914,7 @@ main(void)
 	test_folder_entry_status_rejects_symlinks_and_non_directories();
 	test_stale_metadata_unlink_uses_pinned_directory_fd();
 	test_atomic_metadata_replace_stays_in_pinned_directory();
+	test_atomic_stream_failure_preserves_previous_metadata();
 test_folder_name_visibility_policy();
 	test_folder_delete_batch_commits_directory_snapshot_and_permissions();
 	test_folder_delete_batch_restores_directory_after_snapshot_failure();

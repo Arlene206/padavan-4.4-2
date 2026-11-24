@@ -1322,9 +1322,9 @@ atomic_replace_at = function_body(
     POLICY, "disk_share_replace_file_atomic_at(int directory_fd,"
 )
 atomic_replace_at_compact = "".join(atomic_replace_at.split())
-require("have_existing=1;" in atomic_replace_at_compact and
-        "if(have_existing&&fchmod(fd,existing_stat.st_mode&0777)!=0)" in atomic_replace_at_compact,
-        "atomic replacement must not read an uninitialized stat result for a new metadata file")
+require("have_existing=1;" in atomic_stream_compact and
+        "if(preserve_existing_mode&&have_existing&&fchmod(fd,existing_stat.st_mode&0777)!=0)" in atomic_stream_compact,
+        "atomic replacement must only preserve an initialized existing-file mode when explicitly requested")
 
 set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
 require("disk_share_replace_file_atomic(" in set_permission and
