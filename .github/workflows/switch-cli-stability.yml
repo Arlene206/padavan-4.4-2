@@ -375,6 +375,14 @@ jobs:
           manager = Path(
               "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
           ).read_text()
+          policy = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/"
+              "raeth_mdio_cl45_address_policy.h"
+          ).read_text()
+          test = Path(
+              "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/"
+              "raeth_mdio_cl45_address_policy.c"
+          ).read_text()
 
           def case_body(start, end):
               start_at = source.index(start)
