@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Active branch: `main`; checker-only follow-up parent for the XUPnP config-pair transaction: `eb0fbb1f3d858876e754efc2815c3880b74f764a`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- Active branch: `main`; lifecycle-checker correction parent for the XUPnP pair transaction: `2fd4c7440cf87ca423e4db5eba89530d973fedce`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
 - MTK AP private-ioctl, HTTPD selector, WAN source-PHY range and QMI WDS/PDH teardown fixes retain recorded exact-SHA L3 Build/TRX/artifact evidence. Physical-router L4 remains unverified.
 - DHCPDECLINE retry/send-result chain: `4ca919b` / `02ddda7` / `4015869` / `aae46a6`. Exact-head udhcpc GNU89 ASan/UBSan regression/source contract #45400755028 PASS after the renamed test runner was fixed. AI handoff #45400755063 and Process lifecycle #45400755089 PASS; USB storage #45400755158 and NVRAM #45400755163 were pending at last poll. XY-C1 for production `4015869` #45400399157 was still building; TRX/artifact pending. Latest `aae46a6` is test/docs-only.
  
@@ -13,13 +13,13 @@
 ## Verification boundary
 
 - Parent `aae46a6391f1d50c3122ac4e7f4098175023d832`: udhcpc event-script policy/source regression, AI handoff and Process lifecycle PASS; USB storage and NVRAM audit pending at last poll.
-- Exact DNSMasq lifecycle #45401700240 on `eb0fbb1`: DNSMasq staged-file C regression PASS; XUPnP source checker FAIL due mixed compact/raw offsets (fixed in this follow-up). AI docs #45401700548, WAN DHCP #45401700416, WAN route #45401700385, USB #45401700357, HTTPD #45401700213, Process inventory #45401700188 and Firewall #45401700158 PASS. NVRAM #45401700436, Process #45401700271 and XY-C1 #45401700209 were pending at last poll. Pair workflow and firmware L3 must be verified on the correction SHA; no L3 claim until same-SHA Build/TRX/artifact all pass.
+- On `eb0fbb1`, DNSMasq lifecycle #45401700240 failed only its XUPnP source checker after the GNU89/ASan/UBSan C regression passed; Process lifecycle #45401700271 passed the XUPnPD storage/file-safety and other earlier C tests, then failed at a stale source assertion for sequential `tmp1/tmp2` publication. The DNSMasq source-offset comparison was corrected in `2fd4c74`; the Process lifecycle checker correction is this follow-up. AI docs #45401700548, WAN DHCP #45401700416, WAN route #45401700385, USB #45401700357, HTTPD #45401700213, Process inventory #45401700188 and Firewall #45401700158 PASS. NVRAM #45401700436 and XY-C1 #45401700209 were still in progress at last poll. Exact-head DNSMasq/Process + XY-C1 Build/TRX/artifact must be verified on this checker-correction SHA; no L3 claim until same-SHA firmware steps all pass.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and verify the exact-head DNSMasq/XUPnP source checker and GNU89 ASan/UBSan regressions.
-2. Check the same-SHA XY-C1 Build/TRX/artifact and remaining Process/NVRAM runs; record only verified results.
-3. Continue the next independent userland stability/security defect after the checker correction is green.
+1. Fetch live `main` and verify exact-head DNSMasq + Process lifecycle runs execute both XUPnP pair source contracts and GNU89/ASan/UBSan tests.
+2. Check same-SHA XY-C1 Build/TRX/artifact and NVRAM; fix any first failing causal contract atomically.
+3. Continue the next independent userland stability/security defect after these validators are green.
 
 ## Mandatory handoff checkpoint
 

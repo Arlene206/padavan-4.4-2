@@ -511,15 +511,18 @@ assert "cannot read xupnpd IPTV proxy integration setting" in lua_udpxy
 assert lua_udpxy.index('"udpxy_enable_x"') < lua_udpxy.index("rc_wan_nvram_parse_int_value")
 assert lua_udpxy.index("rc_wan_nvram_parse_int_value") < lua_udpxy.index('"xupnpd_udpxy"')
 assert 'nvram_safe_get("lan_ipaddr_t")' not in xupnpd_start
-assert xupnpd_start.count("xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1))") == 2
+assert "xupnpd_config_tempfile_open(common_path, common_stage, sizeof(common_stage))" in xupnpd_start
+assert "xupnpd_config_tempfile_open(runtime_path, runtime_stage, sizeof(runtime_stage))" in xupnpd_start
+assert "xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1))" not in xupnpd_start
 assert 'fopen(tmp1, "w")' not in xupnpd_start
 xupnpd_config_header = (root / "trunk/user/rc/src/xupnpd_config_file.h").read_text()
 xupnpd_config_test = (root / "trunk/user/rc/src/tests/xupnpd_config_file.c").read_text()
 assert "mkstemp(temporary)" in xupnpd_config_header
 assert "lstat(destination, &st)" in xupnpd_config_header
 assert "fchmod(fd, mode)" in xupnpd_config_header
-assert "xupnpd_config_source_open(tmp2)" in xupnpd_start
-assert xupnpd_start.count("xupnpd_config_source_open(tmp2)") == 2
+assert "xupnpd_config_source_open(common_path)" in xupnpd_start
+assert "xupnpd_config_source_open(runtime_path)" in xupnpd_start
+assert "xupnpd_config_source_open(tmp2)" not in xupnpd_start
 assert 'fopen(tmp2, "r")' not in xupnpd_start
 assert "lstat(source_path, &path_stat)" in xupnpd_config_header
 assert "O_NONBLOCK" in xupnpd_config_header and "O_NOFOLLOW" in xupnpd_config_header
@@ -540,8 +543,12 @@ assert "test_storage_directory_rejects_symlinks_and_non_directories" in xupnpd_c
 assert "mkfifo(fifo_path" in xupnpd_config_test
 
 assert "ferror(fp2)" in xupnpd_start and "fflush(fp1)" in xupnpd_start
-assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_start
-assert "unlink(tmp1)" in xupnpd_start
+assert "fsync(fileno(fp1))" in xupnpd_start and "fsync(fileno(fp3))" in xupnpd_start
+assert "dnsmasq_file_publish_pair(" in xupnpd_start
+assert "rename(tmp1, tmp2)" not in xupnpd_start
+assert "dnsmasq_file_discard(common_stage)" in xupnpd_start
+assert "dnsmasq_file_discard(runtime_stage)" in xupnpd_start
+assert '#include "dnsmasq_file.h"' in net_source
 assert xupnpd_start.index("if (has_daemon)") < xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");')
 assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("if (launch_status != 0)")
 assert '#include "service_start_status.h"' in net_source
