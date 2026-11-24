@@ -2,8 +2,9 @@
 
 ## Current repository state
 
-- Current live `main` parent for this slice: `89128ba053ffdefc026079459f582dc49d07827a`. The previous C-side JavaScript output migration is committed; exact HTTPD contract test and all non-firmware side regressions passed on that SHA.
-- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
+- Current live main parent for this slice: fd68cee59bf32b95cb2fc6e044e1da73bd4d768c.
+- Previous exact SHA 89128ba: HTTPD, AI handoff, process inventory/lifecycle, NVRAM audit, FRP, Inadyn, AdGuardHome, USB storage and AliyunDrive all PASS. XY-C1 detector test PASS; firmware Build remains in progress with TRX/artifact pending at last poll.
+- Read-only backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and never written.
 - Main-only, single complete Git tree/commit, non-forced expected-SHA update. Do not force push or write to backup.
 
 ## Active task
@@ -30,18 +31,19 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `89128ba` HTTPD Authentication and Security Regression `#45300665513`: **PASS**, including the NVRAM HTML/JavaScript context checker and JSON/HTML GNU89 sanitizer tests. AI handoff `#45300665430`, Process inventory `#45300665463`, Process lifecycle inventory `#45300665517`, NVRAM transaction audit `#45300665431`, FRP `#45300665527`, Inadyn `#45300665514`, AdGuardHome `#45300665471`, USB storage `#45300665447` and AliyunDrive `#45300665429`: **PASS**.
-- Exact `89128ba` XY-C1 Firmware Validation `#45300665497`: detector test **PASS**; Build XY-C1 still **IN_PROGRESS** at last check; TRX verification and artifact upload **PENDING**. No L3 claim yet.
-- Exact `dd099f6` HTTPD `#45300345684`: **FAIL** due to an over-broad source-contract assertion that rejected static `"No link"`; narrowed in child `c6f5805`. Exact `c6f5805` HTTPD `#45300471389` and AI handoff `#45300471279`: **PASS**.
-- Exact `08c6d43` HTTPD `#45299995452`, AI handoff `#45299995515`, Process inventory `#45299995463`, Process lifecycle `#45299995326`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage `#45299995495`: **PASS**; XY-C1 `#45299995388` did not complete before newer commits.
-- Exact `212aed2` XY-C1 `#45299517972`: detector test **PASS**, but Build was still running with TRX/artifact pending. Exact `5c8c62f` XY-C1 `#45298161504` and exact `861e3fe` XY-C1 `#45298770098`: **PASS**, including Build, TRX and artifact upload.
-- No physical-router L4 result is claimed. Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 89128ba HTTPD run #45300665513: PASS, including JavaScript/JSON output-context check. AI handoff #45300665430, Process inventory #45300665463, Process lifecycle inventory #45300665517, NVRAM audit #45300665431, FRP #45300665527, Inadyn #45300665514, AdGuardHome #45300665471, USB storage #45300665447 and AliyunDrive #45300665429: PASS.
+- Exact 89128ba XY-C1 run #45300665497: detector PASS; Build IN_PROGRESS; TRX and artifact upload PENDING.
+- Exact fd68cee runs were queued/in progress when checkpointed; its WOL JSON source change and contract assertions are unverified until exact-SHA Actions finish.
+- Exact dd099f6 HTTPD #45300345684: FAIL due to an over-broad source-contract assertion; narrowed in c6f5805, whose HTTPD #45300471389 and AI #45300471279 both PASS.
+- Exact 08c6d43 HTTPD #45299995452, AI #45299995515, Process inventory #45299995463, lifecycle inventory #45299995326, FRP #45299995540, Inadyn #45299995467, AliyunDrive #45299995485, AdGuardHome #45299995325 and USB storage #45299995495: PASS.
+- Exact 212aed2 XY-C1 detector test #45299517972: PASS; Build was still in progress with TRX/artifact pending at last poll. Exact 5c8c62f XY-C1 #45298161504 and 861e3fe XY-C1 #45298770098: PASS, including Build, TRX and artifact upload.
+- No physical-router L4 result is claimed. Backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Verify the JSON-encoder hardening for the WOL response on the new exact SHA; ensure HTTPD contract tests remain green and inspect XY-C1 Build/TRX/artifact status for that same SHA.
-2. Continue reviewing remaining HTTPD endpoints that serialize runtime state; use the shared JS/JSON encoders where strings are emitted, and retain strict input validation at the WOL and other action boundaries.
-3. Keep backup read-only and continue source → regression → atomic commit → exact-SHA Actions without waiting on pending independent runs.
+1. Verify the WOL JSON response migration on its exact SHA; correct the checker source-index escape and inspect HTTPD Actions.
+2. Continue reviewing remaining HTTPD endpoints that serialize runtime state. Use shared JavaScript/JSON encoders for strings and retain strict input validation at action boundaries.
+3. Check exact-head XY-C1 Build/TRX/artifact status without waiting on it; keep the backup read-only.
 
 # Cross-session execution mandate
 

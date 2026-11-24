@@ -175,8 +175,8 @@ def check_dynamic_js_hooks():
     assert "return '%s'" not in source
     assert source.count("write_js_string(wp, action_mode);") == 2
 
-    wol_start = source.index("static int\\nwol_action_hook(")
-    nf_start = source.index("\\nstatic int\\nnf_values_hook(", wol_start)
+    wol_start = source.index("static int\nwol_action_hook(")
+    nf_start = source.index("\nstatic int\nnf_values_hook(", wol_start)
     wol = source[wol_start:nf_start]
     assert 'websWrite(wp, "{\\\"wol_mac\\\": \\\"%s\\\"}", wol_mac);' not in wol
     assert 'websWrite(wp, "{\\\"wol_mac\\\": ");' in wol

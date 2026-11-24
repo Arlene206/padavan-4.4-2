@@ -1,3 +1,10 @@
+## 2026-11-23 — Correct checker source-index escapes for WOL JSON contract
+
+- The WOL JSON migration added source-range assertions to the HTTPD checker. Inspection found its source.index() needles contained doubled backslashes and would search for literal backslash-n rather than actual line boundaries.
+- Corrected both function-boundary needles to use Python newline escapes. This is a regression-test-only follow-up; the source implementation from fd68cee remains unchanged.
+- Parent fd68cee exact-SHA Actions were queued/in progress; no result for this follow-up is claimed.
+
+---
 ## 2026-11-23 — Use the shared JSON encoder for the WOL response
 
 - `wol_action_hook()` already enforces a strict 12/17-character MAC allowlist before waking a client. Replaced its manual JSON `%s` interpolation with `write_json_string()` as defense in depth and moved the function prototype to the common declaration block.
