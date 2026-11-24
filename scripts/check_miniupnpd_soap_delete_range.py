@@ -64,7 +64,7 @@ error_guard_at = compact.index("if (soap_error != 0)")
 soap_error_at = compact.index('SoapError(h, soap_error, "ActionFailed")')
 success_at = compact.index("BuildSendAndCloseSoapResp(h, body, bodylen)")
 assert delete_at < record_at < free_at < error_at < error_guard_at < soap_error_at < success_at
-assert "r < 0 ? \\"failed\\" : \\"ok\\"" in body
+assert 'r < 0 ? "failed" : "ok"' in body
 assert "return;" in compact[error_guard_at:success_at]
 assert "return 730;" in policy and "return status->failed ? 501 : 0;" in policy
 assert "delete_result < 0" in policy
