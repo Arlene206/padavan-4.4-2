@@ -144,6 +144,10 @@ test_atomic_metadata_replace_stays_in_pinned_directory(void)
 	assert(fchmod(file_fd, 0640) == 0);
 	assert(close(file_fd) == 0);
 
+	file_fd = open(redirect_file, O_CREAT | O_EXCL | O_WRONLY, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, "redirect\n", 9) == 9);
+	assert(close(file_fd) == 0);
 	file_fd = open(symlink_target, O_CREAT | O_EXCL | O_WRONLY, 0600);
 	assert(file_fd >= 0);
 	assert(write(file_fd, "preserve\n", 9) == 9);
@@ -167,7 +171,7 @@ test_atomic_metadata_replace_stays_in_pinned_directory(void)
 	assert(file_fd >= 0);
 	bytes_read = read(file_fd, buffer, sizeof(buffer));
 	assert(bytes_read == 9);
-	assert(memcmp(buffer, "preserve\n", 9) == 0);
+	assert(memcmp(buffer, "redirect\n", 9) == 0);
 	assert(close(file_fd) == 0);
 
 	assert(unlinkat(directory_fd, leaf, 0) == 0);
