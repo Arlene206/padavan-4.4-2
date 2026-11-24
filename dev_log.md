@@ -1,3 +1,12 @@
+## 2026-11-25 — Confirm descriptor-pinned libdisk L3 and refresh cross-userland handoff
+
+- Re-polled exact Actions after the docs-only checkpoint correction. On production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922, libdisk share-list #45471885325 PASS, Process inventory #45471885205 PASS, HTTPD auth #45471889467 PASS, NVRAM audit #45471885464 PASS, and XY-C1 #45471885211 PASS with Build, TRX verification and artifact upload all successful. L3 is VERIFIED for that exact production source tree; no hardware/router L4 claim.
+- The only failure on 80f1 was AI handoff #45471885677, caused by missing mandatory checkpoint wording. Docs-only correction 5ec726d5123bbfde442f15b1afad114e64747511 passed AI handoff #45472190508. That commit changed only SESSION_HANDOFF.md and dev_log.md, so product source inputs remain identical to the L3-verified 80f1 tree. Its docs-only path filter did not rerun product workflows.
+- Reconfirmed main 5ec726d5123bbfde442f15b1afad114e64747511 and frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807; backup untouched.
+- Next concrete cross-userland task: deepen the WAN DHCP client state-transition tests around NAK/leasefail, active-lease deconfig retry, expiry and release while cleanup is pending. The current callbacks are advisory/no-op for NAK and leasefail, so preserve established runtime semantics unless a test demonstrates a real gap; use the WAN DHCP callback workflow.
+
+---
+
 ## 2026-11-25 — Restore mandatory handoff checkpoint contract after exact-SHA CI failure
 
 - Exact main 80f1bfccd255536a0a2682c7d046f0216038a922: libdisk share-list #45471885325 PASS (both GNU89 sanitizer regressions and public API/source-contract verification). This confirms the new FD-pinned del_folder policy and host regression harness pass in that workflow.
