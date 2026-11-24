@@ -831,12 +831,27 @@ jobs:
           restart_identity = restart_compact.index("get_usb_modem_wan_status(0,&need_restart_wan)")
           restart_unknown = restart_compact.index("if(!modem_wan_restart_allowed(modem_identity_status))", restart_identity)
           restart_error_merge = restart_compact.index("rc_notify_merge_action_result(", restart_unknown)
-          restart_abort = restart_compact.index("stop_failed=1;", restart_error_merge)
-          restart_module_gate = restart_compact.index("if(!stop_failed)", restart_abort)
-          restart_reload = restart_compact.index("reload_modem_modules(", restart_module_gate)
-          restart_final_gate = restart_compact.index("if(!stop_failed&&need_restart_wan)", restart_module_gate)
+          restart_abort = restart_compact.index("transition_failed=1;", restart_error_merge)
+          restart_module_gate = restart_compact.index("if(!transition_failed&&nvram_modem_rule!=modem_rule)", restart_abort)
+          restart_cache_publish = restart_compact.index("rc_modem_module_reload_cache_publish(", restart_module_gate)
+          restart_reload = restart_compact.index("reload_modem_modules(", restart_cache_publish)
+          restart_reload_failed = restart_compact.index("if(module_reload_status!=0)", restart_reload)
+          restart_reload_abort = restart_compact.index("transition_failed=1;", restart_reload_failed)
+          restart_type_gate = restart_compact.index("if(!transition_failed&&nvram_modem_type!=modem_type)", restart_reload_abort)
+          restart_type_publish = restart_compact.index("rc_modem_module_reload_cache_publish(", restart_type_gate)
+          restart_type_reload = restart_compact.index("reload_modem_modules(", restart_type_publish)
+          restart_type_failed = restart_compact.index("if(module_reload_status!=0)", restart_type_reload)
+          restart_type_abort = restart_compact.index("transition_failed=1;", restart_type_failed)
+          restart_final_gate = restart_compact.index("if(!transition_failed&&need_restart_wan)", restart_type_abort)
           restart_final = restart_compact.index("full_restart_wan()", restart_final_gate)
-          assert restart_identity < restart_unknown < restart_error_merge < restart_abort < restart_module_gate < restart_reload < restart_final_gate < restart_final
+          assert (
+              restart_identity < restart_unknown < restart_error_merge < restart_abort <
+              restart_module_gate < restart_cache_publish < restart_reload <
+              restart_reload_failed < restart_reload_abort < restart_type_gate <
+              restart_type_publish < restart_type_reload < restart_type_failed <
+              restart_type_abort < restart_final_gate < restart_final
+          )
+          assert restart_compact.count("rc_modem_module_reload_cache_publish(") == 2
           assert "get_usb_modem_wan(" not in restart
 
           led_link = body(detect_link_source, "dl_handle_link_wan(void)")

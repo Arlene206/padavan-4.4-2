@@ -1,3 +1,12 @@
+## 2026-11-24 — Align USB modem caller contract with retry-safe cache publication
+
+- The exact-head USB modem workflow #45499228398 reached its inline WDM/NDIS caller-graph contract, which still searched for the old `stop_failed` flag. The source transition now uses `transition_failed` so module-readiness failure also blocks WAN restart; the stale contract stopped the workflow before the dedicated modem module checker could run.
+- Updated the inline contract to verify both rule/type reloads pass through guarded cache publication, each failure marks the transition failed, and WAN restart occurs only after both failure gates.
+- Follow-up parent source SHA: `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a`. The previous exact-head run failed only at this stale workflow assertion; the C policy and GNU89 sanitizer tests passed. The rerun must confirm the newly updated caller contract and dedicated checker; XY-C1 build/TRX/artifact remain a separate exact-SHA gate.
+- No target runtime or physical-router validation is claimed.
+
+---
+
 ## 2026-11-24 — Keep USB modem restart retries effective after failed driver reload
 
 - `RCN_RESTART_MODEM` retained its in-flight marker when driver readiness failed, but it had already advanced the in-memory `modem_rule`/`modem_type` cache and allowed WAN restart to continue. A retry therefore saw the requested values as current, skipped the failed module reload, and could clear the incomplete marker without restoring the selected modem driver.
