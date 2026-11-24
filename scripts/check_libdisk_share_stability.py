@@ -835,23 +835,30 @@ require("disk_io_open_parent_nofollow(path,&leaf)" in mkdir_staging_compact and
 
 permission_update = function_body(
     DISK_SOURCE,
-    "static int\ndisk_share_update_folder_permission_file(const char *mount_path,\n                                         const char *account,\n                                         const char *target,\n                                         const char *replacement)\n{"
+    "disk_share_update_folder_permission_file(int directory_fd,"
 )
-update_compact = " ".join(permission_update.split())
-update_path = update_compact.index(
-    "disk_share_format_account_var_path(var_file, sizeof(var_file)"
+update_compact = "".join(permission_update.split())
+update_leaf = update_compact.index(
+    'snprintf(var_leaf,sizeof(var_leaf),".__%s_var.txt",account)'
 )
-update_read = update_compact.index("read_regular_file_nofollow(var_file)", update_path)
+update_read = update_compact.index(
+    "read_regular_file_nofollow_at(directory_fd,var_leaf)", update_leaf
+)
 update_rewrite = update_compact.index(
-    "disk_share_permission_rewrite(var_info, target, replacement", update_read
+    "disk_share_permission_rewrite(var_info,target,replacement,&updated_info,&updated_len)",
+    update_read
 )
 update_replace = update_compact.index(
-    "disk_share_replace_file_atomic(var_file, updated_info", update_rewrite
+    "disk_share_replace_file_atomic_at(directory_fd,var_leaf,updated_info,updated_len)",
+    update_rewrite
 )
-require(update_path < update_read < update_rewrite < update_replace and
+require(update_leaf < update_read < update_rewrite < update_replace and
         "if (saved_errno == ENOENT)" in permission_update and
-        "errno = saved_errno;" in permission_update,
-        "shared account updater must bound paths, skip only missing files/records and atomically publish complete permission data")
+        "errno = saved_errno;" in permission_update and
+        "disk_share_format_account_var_path" not in permission_update and
+        "read_regular_file_nofollow(var_file)" not in permission_update and
+        "disk_share_replace_file_atomic(var_file" not in permission_update,
+        "ACL updater must derive a bounded leaf, no-follow read and atomically replace it through the same pinned directory descriptor; only ENOENT may be skipped and other errors must propagate")
 
 mod_folder_body = function_body(
     DISK_SOURCE,

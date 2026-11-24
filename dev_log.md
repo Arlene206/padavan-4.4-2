@@ -1,3 +1,10 @@
+## 2026-11-25 03:20 CST (UTC+8) — Align libdisk ACL updater contract with pinned descriptor API
+
+- Exact b0d3012e1144f7edd3c6f16658da4d047c5ba8ae libdisk run #45465855322 passed both GNU89 ASan/UBSan host binaries, then failed the Python source contract at the ACL updater assertion. Production `disk_share_update_folder_permission_file()` now accepts the caller's pinned `directory_fd`, builds a bounded account leaf, reads it with `read_regular_file_nofollow_at()` and publishes with `disk_share_replace_file_atomic_at()`; the checker still expected the removed mount-path formatter/reader/writer API. THIS COMMIT aligns the contract to that descriptor-relative implementation and retains ENOENT-only skip and other-error propagation assertions. No product C or regression binary changed.
+- Exact b0d3012 AI handoff run #45465855318 PASS. On f148, udhcpc #45465557325, USB storage #45465557087, NVRAM #45465557210, Process inventory #45465557323, Process regression #45465557058 and AI handoff #45465557053 PASS; XY-C1 #45465557176 remained IN_PROGRESS at the last check. No L3 or L4 claim.
+
+---
+
 ## 2026-11-24 — Check staging mkdir/remove syscalls on their own policy helpers
 
 - Exact fe2e86b3a6f3d36537bc3c6f9c6b64f04e37c86d libdisk run #45465306855 passed both GNU89 ASan/UBSan host binaries, then failed the Python source contract. The staging contract incorrectly searched rename_directory_entry_nofollow() for mkdirat()/unlinkat(); those calls correctly live in the separate create/remove directory-entry policy helpers. Updated the checker to extract and assert each helper independently rather than weakening the descriptor-relative/no-follow requirements.
