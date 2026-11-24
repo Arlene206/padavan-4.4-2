@@ -47,6 +47,17 @@ test_qmi_start_retry_is_blocked_when_session_may_exist(void)
 }
 
 static void
+test_qmi_ambiguous_start_preserves_published_handle(void)
+{
+	assert(modem_qmi_start_attempt_preserve_handle(1, 17));
+	assert(modem_qmi_start_attempt_preserve_handle(1, 0));
+	assert(!modem_qmi_start_attempt_preserve_handle(0, 17));
+	assert(!modem_qmi_start_attempt_preserve_handle(0, 0));
+	assert(!modem_qmi_start_attempt_preserve_handle(1, -1));
+	assert(!modem_qmi_start_attempt_preserve_handle(0, -1));
+}
+
+static void
 test_qmi_handle_cleanup_distinguishes_missing_from_other_errors(void)
 {
 	assert(modem_qmi_handle_file_unlink_status(0, 0) == 0);
@@ -825,6 +836,7 @@ main(void)
 	test_qmi_stop_status_requires_success_before_cleanup();
 	test_qmi_start_requires_command_success_and_valid_handle();
 	test_qmi_start_retry_is_blocked_when_session_may_exist();
+	test_qmi_ambiguous_start_preserves_published_handle();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
 	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
 	test_link_change_reconnect_requires_checked_modem_state();

@@ -1,17 +1,17 @@
 ## Current repository state
 
-- Live parent main before this atomic change: `08f39868ce700f008ba6501b4388eb06681cac64`.
+- Live parent main before this atomic change: `5de929ef21c09630adffaaeff06f057afb2ba704`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
 ## Active task
 
-QMI WAN startup ambiguous-result retry policy:
-- QMI startup rejects stale/unparseable PDH files, checks `uqmi --start-network`, strictly parses the single PDH token, and requires both command success and valid handle. `cmd_wds_start_network_cb()` uses private, atomic `/tmp/qmi-handle` publication.
-- A successful `uqmi --start-network` process result with no valid persisted PDH is ambiguous: the modem may have created a live session while the callback failed to publish its handle. Abort instead of retrying to avoid duplicate sessions. A failed command with no PDH is retryable; a failed command with a valid PDH is already ambiguous.
-- Added a GNU89 policy helper and matrix regression for all command-status/PDH combinations, plus an exact source-contract assertion that the startup path uses the helper. QMI teardown also preserves CID/PDH state when `--stop-network` or `--release-client-id` fails.
-- At parent d549f80, Process inventory #45347342258, Process fail-closed #45347342171, HTTPD #45347342170, WAN teardown #45347342223, DHCP callback #45347342218, detect_link #45347342139 and AI handoff #45347342145 PASS; USB modem identity #45347342135 failed only because the workflow tried to slice the stop function by an escaped newline delimiter (fixed in 08f3986). NVRAM #45347342159 and XY-C1 #45347342256 were still running at last poll. No target hardware validation is claimed.
+QMI ambiguous-start retry and recovery-state preservation:
+- QMI startup rejects stale/unparseable PDH files, checks uqmi --start-network, strictly parses one PDH token, requires command success plus valid handle, and atomically publishes the PDH.
+- A successful uqmi process result without a valid persisted PDH is ambiguous because the void WDS callback may have failed to publish the handle while the modem did create the session. A failed start with a valid PDH is also ambiguous; both abort retries. A failed start without a PDH remains retryable.
+- New recovery-state defect: the ambiguous failed-command/valid-PDH path unlinked /tmp/qmi-handle before exiting. The modem could remain live while its only recovery handle was erased. This slice preserves a valid PDH when the result is ambiguous and only unlinks malformed/missing PDH state. GNU89 regressions cover this preservation matrix; the workflow asserts the preservation decision precedes unlink.
+- Parent 5de929 exact Actions: USB modem identity #45347628860, AI handoff #45347628915, HTTPD #45347628767, WAN teardown #45347629033, WAN DHCP callback #45347628857, detect_link #45347628882 and Process inventory #45347628829 PASS. Process fail-closed #45347628853, NVRAM #45347628791 and XY-C1 #45347628749 were still running. XY-C1 Build/TRX/artifact were pending; no firmware L3 or hardware claim.
 
 ## Verification boundary
 
@@ -22,9 +22,9 @@ QMI WAN startup ambiguous-result retry policy:
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head USB modem identity for the ambiguous QMI start result policy; fix any regression in the GNU89 test or embedded workflow contract.
-2. Check exact-head AI handoff and USB modem actions; poll d549f80 NVRAM/XY-C1 runs for final outcomes and verify same-SHA Build/TRX/artifact steps.
-3. Continue another independent userland stability/security slice once the QMI startup and teardown policies pass.
+1. Verify exact-head USB modem identity and GNU89 regression for preserving /tmp/qmi-handle on ambiguous failed starts.
+2. Poll parent 5de929 Process fail-closed, NVRAM and XY-C1 outcomes, checking same-SHA Build, TRX and artifact separately.
+3. Continue another independent userland stability/security defect after QMI recovery-state preservation passes.
 
 # Cross-session execution mandate
 

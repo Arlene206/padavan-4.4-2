@@ -962,6 +962,11 @@ qmi_control_network_start(const char *device_path)
 			   "uqmi start-network did not publish a valid packet-data handle (command status=%d, handle=%d)",
 			   start_status, pdh_handle);
 
+		/* Preserve a valid PDH if uqmi may have created a live session. */
+		if (modem_qmi_start_attempt_preserve_handle(ambiguous_session,
+								   pdh_handle))
+			goto done;
+
 		/* Remove any partial/invalid publication before a retry. */
 		unlink_status = unlink(QMI_HANDLE_PDH);
 		cleanup_status = modem_qmi_handle_file_unlink_status(unlink_status,

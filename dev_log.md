@@ -1,3 +1,12 @@
+## 2026-11-23 — Preserve a QMI handle when start outcome is ambiguous
+
+- Review found that the ambiguous QMI failed-command/valid-PDH path unlinked /tmp/qmi-handle before exiting. That file may be the only recovery handle for a still-live modem session; deleting it prevents later explicit teardown.
+- Added modem_qmi_start_attempt_preserve_handle() and a GNU89 regression matrix. The startup path exits before cleanup when the result is ambiguous and a valid PDH exists. Missing/malformed handles are still removed with checked unlink semantics; confirmed failed commands with no PDH remain retryable.
+- Extended the USB modem workflow contract to ensure the preserve decision precedes PDH unlink and that the regression is compiled/executed.
+- Parent main: 5de929ef21c09630adffaaeff06f057afb2ba704. At parent SHA, USB modem identity, AI handoff, HTTPD, WAN teardown, WAN DHCP callback, detect_link and Process inventory passed; Process fail-closed, NVRAM and XY-C1 were still running. No firmware L3 or physical modem validation is claimed.
+
+---
+
 ## 2026-11-23 — Avoid retrying an ambiguous successful QMI start
 
 - A QMI start command that exits successfully but leaves no valid PDH file is not necessarily safe to retry: the WDS response may have created a live session while local handle publication failed.

@@ -41,6 +41,14 @@ modem_qmi_start_attempt_is_ambiguous(int command_status,
 		packet_data_handle >= 0;
 }
 
+/* A valid PDH from an ambiguous start may be the only recovery handle. */
+static inline int
+modem_qmi_start_attempt_preserve_handle(int ambiguous_session,
+					int packet_data_handle)
+{
+	return ambiguous_session && packet_data_handle >= 0;
+}
+
 /* Missing old status files are benign; other unlink failures block startup. */
 static inline int
 modem_qmi_handle_file_unlink_status(int unlink_status, int saved_errno)
