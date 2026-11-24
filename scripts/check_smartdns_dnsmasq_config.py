@@ -115,7 +115,7 @@ lock_start = smartdns.index("if smartdns_lifecycle_lock_acquire; then")
 snapshot_call = smartdns.index("if smartdns_load_runtime_nvram_state; then")
 read_ini_call = smartdns.index("if Read_ini; then")
 assert lock_start < snapshot_call < read_ini_call, "runtime snapshot must be taken under the lifecycle lock"
-assert "smartdns runtime NVRAM snapshot failed" in smartdns
+assert "SmartDNS runtime NVRAM snapshot failed" in smartdns
 assert 'value=1' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
 assert 'value=0' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
 assert "SmartDNS binary enable selector validation: PASS" in enable_test
