@@ -838,15 +838,15 @@ static inline int ei_init_ptx_prx(struct net_device *dev)
 	if (ei_local->features & FE_HW_LRO) {
 		err = fe_hw_lro_init(dev);
 		if (err)
-			return err;
+			goto fail_pdma_rx;
 	} else if (ei_local->features & FE_RSS_4RING) {
 		err = fe_rss_4ring_init(dev);
 		if (err)
-			return err;
+			goto fail_pdma_rx;
 	} else if (ei_local->features & FE_RSS_2RING) {
 		err = fe_rss_2ring_init(dev);
 		if (err)
-			return err;
+			goto fail_pdma_rx;
 	}
 #ifdef CONFIG_RAETH_RW_PDMAPTR_FROM_VAR
 	fe_dma_rx_cal_idx_init(ei_local);
@@ -854,7 +854,7 @@ static inline int ei_init_ptx_prx(struct net_device *dev)
 
 	err = fe_pdma_tx_dma_init(dev);
 	if (err)
-		return err;
+		goto fail_accel;
 
 	set_fe_pdma_glo_cfg();
 
@@ -863,9 +863,20 @@ static inline int ei_init_ptx_prx(struct net_device *dev)
 				     ADMA_MULTI_RXD_PREFETCH_EN);
 
 	return 0;
+
+fail_accel:
+	if (ei_local->features & FE_HW_LRO)
+		fe_hw_lro_deinit(dev);
+	else if (ei_local->features & FE_RSS_4RING)
+		fe_rss_4ring_deinit(dev);
+	else if (ei_local->features & FE_RSS_2RING)
+		fe_rss_2ring_deinit(dev);
+fail_pdma_rx:
+	fe_pdma_rx_dma_deinit(dev);
+	return err;
 }
 
-static inline int ei_init_qtx_prx(struct net_device *dev)
+int ei_init_qtx_prx(struct net_device *dev)
 {
 	int err;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
@@ -884,20 +895,20 @@ static inline int ei_init_qtx_prx(struct net_device *dev)
 
 	err = fe_pdma_rx_dma_init(dev);
 	if (err)
-		return err;
+		goto fail_qdma_rx;
 
 	if (ei_local->features & FE_HW_LRO) {
 		err = fe_hw_lro_init(dev);
 		if (err)
-			return err;
+			goto fail_pdma_rx;
 	} else if (ei_local->features & FE_RSS_4RING) {
 		err = fe_rss_4ring_init(dev);
 		if (err)
-			return err;
+			goto fail_pdma_rx;
 	} else if (ei_local->features & FE_RSS_2RING) {
 		err = fe_rss_2ring_init(dev);
 		if (err)
-			return err;
+			goto fail_pdma_rx;
 	}
 #ifdef CONFIG_RAETH_RW_PDMAPTR_FROM_VAR
 	fe_dma_rx_cal_idx_init(ei_local);
@@ -905,7 +916,7 @@ static inline int ei_init_qtx_prx(struct net_device *dev)
 
 	err = fe_qdma_tx_dma_init(dev);
 	if (err)
-		return err;
+		goto fail_accel;
 
 	set_fe_pdma_glo_cfg();
 	set_fe_qdma_glo_cfg();
@@ -915,9 +926,22 @@ static inline int ei_init_qtx_prx(struct net_device *dev)
 				     ADMA_MULTI_RXD_PREFETCH_EN);
 
 	return 0;
+
+fail_accel:
+	if (ei_local->features & FE_HW_LRO)
+		fe_hw_lro_deinit(dev);
+	else if (ei_local->features & FE_RSS_4RING)
+		fe_rss_4ring_deinit(dev);
+	else if (ei_local->features & FE_RSS_2RING)
+		fe_rss_2ring_deinit(dev);
+fail_pdma_rx:
+	fe_pdma_rx_dma_deinit(dev);
+fail_qdma_rx:
+	fe_qdma_rx_dma_deinit(dev);
+	return err;
 }
 
-static inline int ei_init_qtx_qrx(struct net_device *dev)
+int ei_init_qtx_qrx(struct net_device *dev)
 {
 	int err;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
@@ -936,14 +960,18 @@ static inline int ei_init_qtx_qrx(struct net_device *dev)
 
 	err = fe_qdma_tx_dma_init(dev);
 	if (err)
-		return err;
+		goto fail_qdma_rx;
 
 	set_fe_qdma_glo_cfg();
 
 	return 0;
+
+fail_qdma_rx:
+	fe_qdma_rx_dma_deinit(dev);
+	return err;
 }
 
-static int ei_init_dma(struct net_device *dev)
+int ei_init_dma(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 

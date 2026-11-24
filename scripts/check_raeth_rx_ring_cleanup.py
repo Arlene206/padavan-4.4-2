@@ -197,3 +197,42 @@ assert lro_unmap_guard >= 0 and lro_unmap_guard < lro_unmap_at
 assert lro_ring_free_guard >= 0 and lro_ring_free_guard < lro_ring_free_at
 assert "ei_local->rx_ring[i] = NULL;" in lro_deinit[lro_ring_free_at:]
 print("Hardware LRO partial-init rollback and DMA teardown: PASS")
+
+RAETHER_SOURCE = Path(
+    "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+).read_text()
+
+ptx = function_body(RAETHER_SOURCE, "int ei_init_ptx_prx(")
+assert "err = fe_pdma_rx_dma_init(dev);" in ptx
+assert "err = fe_hw_lro_init(dev);" in ptx
+assert "err = fe_rss_4ring_init(dev);" in ptx
+assert "err = fe_rss_2ring_init(dev);" in ptx
+assert "err = fe_pdma_tx_dma_init(dev);" in ptx
+assert "if (err)\n\t\tgoto fail_accel;" in ptx
+ptx_accel_fail = ptx.index("fail_accel:")
+ptx_rx_fail = ptx.index("fail_pdma_rx:", ptx_accel_fail)
+assert ptx.index("fe_hw_lro_deinit(dev);", ptx_accel_fail) < ptx_rx_fail
+assert ptx.index("fe_rss_4ring_deinit(dev);", ptx_accel_fail) < ptx_rx_fail
+assert ptx.index("fe_rss_2ring_deinit(dev);", ptx_accel_fail) < ptx_rx_fail
+assert ptx.index("fe_pdma_rx_dma_deinit(dev);", ptx_rx_fail) > ptx_rx_fail
+
+qtx_prx = function_body(RAETHER_SOURCE, "int ei_init_qtx_prx(")
+assert qtx_prx.index("fe_qdma_rx_dma_init(dev)") < qtx_prx.index("fe_pdma_rx_dma_init(dev)")
+assert "if (err)\n\t\tgoto fail_qdma_rx;" in qtx_prx
+assert "if (err)\n\t\tgoto fail_pdma_rx;" in qtx_prx
+assert "if (err)\n\t\tgoto fail_accel;" in qtx_prx
+qtx_accel_fail = qtx_prx.index("fail_accel:")
+qtx_pdma_fail = qtx_prx.index("fail_pdma_rx:", qtx_accel_fail)
+qtx_qdma_fail = qtx_prx.index("fail_qdma_rx:", qtx_pdma_fail)
+assert qtx_prx.index("fe_hw_lro_deinit(dev);", qtx_accel_fail) < qtx_pdma_fail
+assert qtx_prx.index("fe_rss_4ring_deinit(dev);", qtx_accel_fail) < qtx_pdma_fail
+assert qtx_prx.index("fe_rss_2ring_deinit(dev);", qtx_accel_fail) < qtx_pdma_fail
+assert qtx_prx.index("fe_pdma_rx_dma_deinit(dev);", qtx_pdma_fail) < qtx_qdma_fail
+assert qtx_prx.index("fe_qdma_rx_dma_deinit(dev);", qtx_qdma_fail) < qtx_prx.index("return err;", qtx_qdma_fail)
+
+qtx_qrx = function_body(RAETHER_SOURCE, "int ei_init_qtx_qrx(")
+assert qtx_qrx.index("fe_qdma_rx_dma_init(dev)") < qtx_qrx.index("fe_qdma_tx_dma_init(dev)")
+assert "if (err)\n\t\tgoto fail_qdma_rx;" in qtx_qrx
+assert qtx_qrx.index("fe_qdma_rx_dma_deinit(dev);") > qtx_qrx.index("fail_qdma_rx:")
+assert qtx_qrx.index("return err;", qtx_qrx.index("fail_qdma_rx:")) > qtx_qrx.index("fe_qdma_rx_dma_deinit(dev);")
+print("RAETH PDMA/QDMA initialization now unwinds previously completed RX stages on later failures: PASS")
