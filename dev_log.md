@@ -1,3 +1,11 @@
+## 2026-11-24 — Correct the EPRT DEL-byte test fixture
+
+- Exact `b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5` VSFTPD job `#45353862964` compiled the C tests and passed earlier FTP suites, but the parser regression's DEL test contained a double-escaped C `\\x7f`, so runtime input was literal text instead of ASCII 127.
+- Replaced it with adjacent string literals containing the bounded octal `\177` escape (also avoiding C hex escape digit coalescing) and fixed the diagnostic newline. Production parser/handler remain unchanged. Exact-head regression pending.
+- Exact `b37af6b`: Process inventory `#45353862966` and AI handoff `#45353863108` PASS. Exact `d651b0f`: HTTPD #45354160704 and Process #45354160643 PASS; AliDNS #45354160627 failed on outdated signature expectation; XY-C1 #45354160727 pending at last observation. AliDNS expectation calibration followed in `6a82821`, exact-head verification pending.
+
+---
+
 ## 2026-11-24 — Honor RFC 2428 EPRT delimiters
 
 - `handle_eprt()` hard-coded `|` for every field boundary. RFC 2428 section 2 allows any printable ASCII delimiter (33–126); `|` is recommended only when it does not collide with a character used by the address.

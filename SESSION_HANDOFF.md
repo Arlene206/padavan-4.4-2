@@ -1,29 +1,33 @@
 ## Current repository state
 
-- Live parent main before this atomic change: `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`.
+- Live parent main before this atomic VSFTPD test correction: `6a82821ef8f39fd6964f6fb314d493c6fd5c7379`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- FRP exact argv/process-identity hardening and checker correction are recorded in `d2b954034d1a41de7dd9c170d597fbb6c2fa39b0` and `f933a44bcfa494d4aa4622b69d50c1713b6d2fc4`.
-- VSFTPD strict numeric PORT/EPRT parsing and IPv4/IPv6 shape validation are in `d7490d832b53d7e74b92ed92642413e1c19ed412`, `990fe8a814c515df8c161231d088af0efb9de41f`, `008c440e32d624fc98f7e2d0cf6ee56279b46abc`, and `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`.
+- FRP exact argv/process-identity hardening and checker correction: `d2b954034d1a41de7dd9c170d597fbb6c2fa39b0`, `f933a44bcfa494d4aa4622b69d50c1713b6d2fc4`.
+- VSFTPD strict numeric parsing, IPv4/IPv6 shape checks, hextet width, and RFC 2428 EPRT delimiter implementation: `d7490d832b53d7e74b92ed92642413e1c19ed412`, `990fe8a814c515df8c161231d088af0efb9de41f`, `008c440e32d624fc98f7e2d0cf6ee56279b46abc`, `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`, `b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5`.
+- Concurrent AliDNS RFC3986 byte-encoding fix: `d651b0f9d17861459b10f5026ef146172d568c54`; exact `d651b0f` run #45354160627 failed on the pre-change signature-encoding expectation. Follow-up test calibration is in `6a82821ef8f39fd6964f6fb314d493c6fd5c7379`; exact-head Actions are still running.
 
 ## Active task
 
-RFC 2428 EPRT delimiter compatibility:
-- `handle_eprt()` split all four EPRT fields on the literal `|`, although RFC 2428 section 2 permits any printable ASCII delimiter (33–126) and recommends `|` only when it does not conflict with a character needed by the address.
-- Added `vsf_sysutil_parse_eprt_delimiter()` to validate the opening delimiter and exactly four occurrences, then use the captured delimiter for all four EPRT field splits. Host regression covers standard/alternate delimiters, ASCII range rejection, missing/extra delimiters and unchanged output on rejection.
-- Exact `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`: VSFTPD run `#45353454360` PASS; Process inventory `#45353454331` PASS; AI handoff `#45353454513` PASS; NVRAM audit `#45353454240` was IN_PROGRESS at last observation. Exact-head verification for this change is pending. No hardware validation.
+Correct and re-run the EPRT DEL-byte regression:
+- Exact `b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5` VSFTPD run `#45353862964` compiled all policy binaries and passed earlier FTP suites, but parser policy failed because the C fixture had two backslashes before `x7f`, passing literal text instead of byte 127.
+- Corrected the DEL input to adjacent C string literals with the bounded octal escape `\177`, and corrected the diagnostic newline. Adjacent literals also avoid C hexadecimal-escape digit coalescing. Production parser/handler remain unchanged; exact-head regression and static checker still need to pass.
+- Exact `b37af6b`: Process inventory `#45353862966` and AI handoff `#45353863108` PASS.
+- Exact `d651b0f`: HTTPD #45354160704 PASS, Process inventory #45354160643 PASS, AliDNS #45354160627 FAIL on the old signature expectation, and XY-C1 #45354160727 was pending. The follow-up AliDNS test commit on `6a82821` requires exact-head confirmation.
 
 ## Verification boundary
 
-- Exact `e9ab40bb6118977f757d617e1deb5e49f1861f0c`: VSFTPD `#45353255628` PASS and AI handoff `#45353255604` PASS.
-- Exact `008c440e32d624fc98f7e2d0cf6ee56279b46abc`: Process inventory `#45352668198` PASS and NVRAM boundary audit `#45352668211` PASS. VSFTPD `#45352668295` had a static checker locator false-negative, corrected and verified by `e9ab40b`.
-- Exact `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`: VSFTPD/Process/AI handoff PASS; NVRAM audit was still running at last observation.
-- No XY-C1 firmware Build/TRX/artifact L3 or physical router L4 validation is claimed for this VSFTPD slice.
+- Exact `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`: VSFTPD #45353454360, Process inventory #45353454331, AI handoff #45353454513 PASS; NVRAM #45353454240 cancelled.
+- Exact `b37af6b`: VSFTPD failed only on the malformed DEL test fixture; Process and AI docs PASS.
+- Exact `d651b0f`: Process/HTTPD PASS; AliDNS test failed; XY-C1 was pending.
+- Exact `6a82821`: AliDNS regression and Process inventory were in progress at last observation.
+- No XY-C1 Build/TRX/artifact L3 or physical router L4 claim until exact-SHA evidence is complete.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head VSFTPD GNU89 parser regression and static source contract for RFC 2428 delimiter handling.
-2. Check the final status of NVRAM audit `#45353454240`, then continue the next independent userland stability/security defect.
-3. Record exact latest SHA and Actions transitions, and keep the frozen backup untouched.
+1. Verify the corrected exact-head VSFTPD GNU89 parser regression and static source contract.
+2. Confirm exact-head AliDNS regression and Process results for `6a82821`; fix any remaining test or production issue without weakening RFC3986 byte encoding.
+3. Check exact-SHA XY-C1 Build, TRX and artifact state; then continue another independent userland stability/security defect.
+4. Keep the frozen backup untouched and development on main only.
 
 # Cross-session execution mandate
 

@@ -329,7 +329,7 @@ expect_eprt_delimiter(const char* text, int expected_status,
       (expected_status && delimiter != expected_delimiter) ||
       (!expected_status && delimiter != '?'))
   {
-    fprintf(stderr, "EPRT delimiter status mismatch for [%s]\\n", text);
+    fprintf(stderr, "EPRT delimiter status mismatch for [%s]\n", text);
     return 1;
   }
   return 0;
@@ -417,7 +417,7 @@ main(void)
   failed |= expect_eprt_delimiter("!1!192.0.2.1!21!", 1, '!');
   failed |= expect_eprt_delimiter("~2~2001:db8::1~65535~", 1, '~');
   failed |= expect_eprt_delimiter(" 1 192.0.2.1 21 ", 0, '?');
-  failed |= expect_eprt_delimiter("\\x7f1\\x7f192.0.2.1\\x7f21\\x7f", 0, '?');
+  failed |= expect_eprt_delimiter("\177" "1" "\177" "192.0.2.1" "\177" "21" "\177", 0, '?');
   failed |= expect_eprt_delimiter("!1!192.0.2.1!21", 0, '?');
   failed |= expect_eprt_delimiter("!1!192.0!2.1!21!", 0, '?');
   failed |= expect_eprt_delimiter("", 0, '?');
