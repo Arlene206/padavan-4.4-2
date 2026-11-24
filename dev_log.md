@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix AliDNS Python checker syntax
+
+- Exact ca9267 AliDNS Action #45356506023 passed shell syntax, signed transport, address lookup, lifecycle/NVRAM and HMAC argument-privacy regression steps. The final source-contract step failed with SyntaxError: unterminated string literal at Python line 127.
+- The failure was in a newly added nested-quote assertion for the encoder printf format, not in production encoding or the shell tests. Simplified it to a valid Python double-quoted format-string assertion.
+- Exact corrected-head AliDNS and AI handoff runs #45356634683 / #45356634556 were in progress at last observation.
+
+---
+
 ## 2026-11-24 — Correct the AliDNS POSIX encoder checker quoting
 
 - The first POSIX encoder commit ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6 included an invalidly quoted Python source assertion for the printf format expression.

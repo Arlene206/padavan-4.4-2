@@ -124,7 +124,7 @@ require("--config -" in send_request and 'url = "$request_url"' in send_request,
 require("while :" in urlencode and "IFS= read -r value" in urlencode and
         "LC_ALL=C" in urlencode and
         '[a-zA-Z0-9._~-]' in urlencode and
-        "%02X" in urlencode and "'$c" in urlencode and
+        "printf '%%%02X'" in urlencode and
         'printf \'%%0A\'' in urlencode and
         'printf \'%s\' "$1" | urlencode' in enc and
         "read -n" not in urlencode and "read -d" not in urlencode and
