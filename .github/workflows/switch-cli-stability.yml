@@ -1632,6 +1632,99 @@ jobs:
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
 
+      - name: Validate RTL8367 and Leopard GPIO mappings fail closed
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          def check_sequential_mappings(implementation, variable, expected):
+              lines = implementation.splitlines()
+              maps = [index for index, line in enumerate(lines)
+                      if f"{variable} = ioremap(" in line]
+              assert len(maps) == expected, (variable, len(maps))
+              for mapped in maps:
+                  guard = next(
+                      (index for index in range(mapped + 1, len(lines))
+                       if lines[index].strip() == f"if (!{variable}) {{"),
+                      None,
+                  )
+                  assert guard is not None, f"{variable} map lacks NULL check"
+                  failure = next(
+                      (index for index in range(guard + 1, len(lines))
+                       if lines[index].strip() in ("return -ENOMEM;", "return;")),
+                      None,
+                  )
+                  assert failure is not None, f"{variable} map failure is not propagated"
+                  first_access = next(
+                      (index for index in range(mapped + 1, len(lines))
+                       if "sys_reg_read(" in lines[index] or
+                          "sys_reg_write(" in lines[index]),
+                      None,
+                  )
+                  assert first_access is not None and guard < failure < first_access, (
+                      f"{variable} is accessed before handling ioremap failure"
+                  )
+
+          rtl_init = body("int init_rtl8367s(void)")
+          check_sequential_mappings(rtl_init, "virt_addr", 3)
+          assert rtl_init.count("iounmap(virt_addr);") == 3
+
+          leopard = body("int leopard_gmii_config(u8 enable)")
+          check_sequential_mappings(leopard, "infra_base_virt", 1)
+          check_sequential_mappings(leopard, "gpio_base_virt", 1)
+          assert leopard.index("infra_base_virt = ioremap(") < leopard.index(
+              "gpio_base_virt = ioremap("
+          ) < leopard.index("sys_reg_read(")
+          assert "iounmap(infra_base_virt);\n\t\treturn -ENOMEM;" in leopard
+          assert leopard.count("iounmap(") == 3
+          assert leopard.rstrip().endswith("return 0;")
+
+          for signature in (
+              "int set_rtl8367s_sgmii(void)",
+              "int set_rtl8367s_rgmii(void)",
+          ):
+              wrapper = body(signature)
+              assert "status = init_rtl8367s();" in wrapper
+              assert "if (status != 0)" in wrapper
+              assert "return status;" in wrapper
+
+          deinit = body("void fe_sw_deinit(struct END_DEVICE *ei_local)")
+          check_sequential_mappings(deinit, "gpio_base_virt", 3)
+          assert deinit.count("iounmap(gpio_base_virt);") == 3
+
+          init = body("int fe_sw_init(void)")
+          for call in (
+              "status = set_rtl8367s_sgmii();",
+              "status = set_rtl8367s_rgmii();",
+              "status = leopard_gmii_config(0);",
+              "status = leopard_gmii_config(1);",
+          ):
+              assert call in init, call
+              start = init.index(call)
+              tail = init[start:start + 180]
+              assert "if (status != 0)" in tail, call
+              assert "goto mdio_error;" in tail, call
+
+          assert init.count("status = leopard_gmii_config(") == 3
+          assert init.count("status = set_rtl8367s_sgmii();") == 2
+          print("RTL8367, Leopard GMII and FE deinit register mappings fail closed: PASS")
+          PY
+
       - name: Validate fe_sw_init checks every register mapping
         run: |
           python3 - <<'PY'

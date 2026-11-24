@@ -5396,30 +5396,41 @@ int init_rtl8367s(void)
 		/* release switch reset */
 		/* set GPIO54 as GPIO mode */
 		virt_addr = ioremap(GPIO_MODE2, 0x10);
+		if (!virt_addr) {
+			pr_err_ratelimited("%s: failed to map GPIO mode registers\n", __func__);
+			return -ENOMEM;
+		}
 		reg_value = sys_reg_read(virt_addr);
 		reg_value &= 0xfff0ffff;
-		reg_value |= (1 << 16);	/* 1: GPIO16 (IO) */
+		reg_value |= (1 << 16);
 		sys_reg_write(virt_addr, reg_value);
 		iounmap(virt_addr);
 
 		/* set GPIO54 as output mode */
 		virt_addr = ioremap(GPIO_DIR1, 0x10);
+		if (!virt_addr) {
+			pr_err_ratelimited("%s: failed to map GPIO direction registers\n", __func__);
+			return -ENOMEM;
+		}
 		reg_value = sys_reg_read(virt_addr);
-		reg_value |= (1 << 22);	/* output */
+		reg_value |= (1 << 22);
 		sys_reg_write(virt_addr, reg_value);
 		iounmap(virt_addr);
 
 		/* set GPIO54 as output 1 */
 		virt_addr = ioremap(GPIO_DOUT1, 0x10);
+		if (!virt_addr) {
+			pr_err_ratelimited("%s: failed to map GPIO output registers\n", __func__);
+			return -ENOMEM;
+		}
 		reg_value = sys_reg_read(virt_addr);
-		reg_value |= (1 << 22);	/* output 1 */
+		reg_value |= (1 << 22);
 		sys_reg_write(virt_addr, reg_value);
 		iounmap(virt_addr);
 
 		mdelay(500);
 	}
 	rtk_hal_switch_init();
-
 	switch_init = 1;
 
 	/* Set LAN/WAN VLAN partition */
@@ -5471,12 +5482,16 @@ int init_rtl8367s(void)
 	return 0;
 }
 
-void set_rtl8367s_sgmii(void)
+int set_rtl8367s_sgmii(void)
 {
 	rtk_port_mac_ability_t mac_cfg;
 	rtk_mode_ext_t mode;
+	int status;
 
-	init_rtl8367s();
+	status = init_rtl8367s();
+	if (status != 0)
+		return status;
+
 	mode = MODE_EXT_HSGMII;
 	mac_cfg.forcemode = MAC_FORCE;
 	mac_cfg.speed = PORT_SPEED_2500M;
@@ -5488,14 +5503,18 @@ void set_rtl8367s_sgmii(void)
 	rtk_port_macForceLinkExt_set(EXT_PORT0, mode, &mac_cfg);
 	rtk_port_sgmiiNway_set(EXT_PORT0, DISABLED);
 	rtk_port_phyEnableAll_set(ENABLED);
+	return 0;
 }
 
-void set_rtl8367s_rgmii(void)
+int set_rtl8367s_rgmii(void)
 {
 	rtk_port_mac_ability_t mac_cfg;
 	rtk_mode_ext_t mode;
+	int status;
 
-	init_rtl8367s();
+	status = init_rtl8367s();
+	if (status != 0)
+		return status;
 
 	mode = MODE_EXT_RGMII;
 	mac_cfg.forcemode = MAC_FORCE;
@@ -5508,6 +5527,7 @@ void set_rtl8367s_rgmii(void)
 	rtk_port_macForceLinkExt_set(EXT_PORT1, mode, &mac_cfg);
 	rtk_port_rgmiiDelayExt_set(EXT_PORT1, 1, 3);
 	rtk_port_phyEnableAll_set(ENABLED);
+	return 0;
 }
 
 int set_sgmii_force_link(int port_num, int speed)
@@ -5863,18 +5883,28 @@ mdio_error:
 	return status;
 }
 
-void leopard_gmii_config(u8 enable)
+int leopard_gmii_config(u8 enable)
 {
 	unsigned int reg_value = 0;
 	void __iomem *gpio_base_virt, *infra_base_virt;
 	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
 
+	/* Acquire both register windows before changing the PHY mux. */
+	infra_base_virt = ioremap(INFRA_BASE, 0x10);
+	if (!infra_base_virt) {
+		return -ENOMEM;
+	}
+	gpio_base_virt = ioremap(GPIO_GO_BASE, 0x10);
+	if (!gpio_base_virt) {
+		iounmap(infra_base_virt);
+		return -ENOMEM;
+	}
+
 	/*bit[1]: gphy connect GMAC0 or GMAC2 1:GMAC0. 0:GMAC2*/
 	/*bit[0]: Co-QPHY path selection 0:U3path, 1:SGMII*/
-	infra_base_virt = ioremap(INFRA_BASE, 0x10);
 	reg_value = sys_reg_read(infra_base_virt);
 	if (enable) {
-		reg_value = reg_value | 0x02;
+		reg_value |= 0x02;
 		sys_reg_write(infra_base_virt, reg_value);
 
 		mac_to_gigaphy_mode_addr = 0;
@@ -5885,20 +5915,19 @@ void leopard_gmii_config(u8 enable)
 		/*port5 an mode, port6 fix*/
 		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0xc8, 0x20503bfa);
 	} else {
-			reg_value = reg_value & (~0x2);
-			sys_reg_write(infra_base_virt, reg_value);
-			sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x84, 0);
-			sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x90, 0x10007f7f);
-			sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0xc8, 0x05503f38);
+		reg_value &= ~0x2;
+		sys_reg_write(infra_base_virt, reg_value);
+		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x84, 0);
+		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x90, 0x10007f7f);
+		sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0xc8, 0x05503f38);
 	}
-	/*10000710	GEPHY_CTRL0[9:6] = 0 */
-	gpio_base_virt = ioremap(GPIO_GO_BASE, 0x10);
-	reg_value = sys_reg_read(gpio_base_virt);
-	/*reg_value = reg_value & ~(0xfffff3cf);*/
+
+	/*10000710 GEPHY_CTRL0[9:6] = 0 */
 	reg_value = 0x10000820;
 	sys_reg_write(gpio_base_virt, reg_value);
 	iounmap(gpio_base_virt);
 	iounmap(infra_base_virt);
+	return 0;
 }
 
 int fe_sw_init(void)
@@ -5968,7 +5997,9 @@ int fe_sw_init(void)
 
 	/* Case2: RT3883/MT7621 GE2 + GigaPhy */
 	if (ei_local->architecture & GE2_RGMII_AN) {
-		leopard_gmii_config(0);
+		status = leopard_gmii_config(0);
+		if (status != 0)
+			goto mdio_error;
 		enable_auto_negotiate(ei_local);
 		set_ge2_an();
 		set_ge2_gmii();
@@ -6087,8 +6118,11 @@ int fe_sw_init(void)
 		set_ge2_force_1000();
 		if (ei_local->chip_name == MT7623_FE)
 			setup_external_gsw();
-		if (ei_local->chip_name == MT7622_FE)
-			set_rtl8367s_rgmii();
+		if (ei_local->chip_name == MT7622_FE) {
+			status = set_rtl8367s_rgmii();
+			if (status != 0)
+				goto mdio_error;
+		}
 	}
 	/*TODO
 	 * else
@@ -6131,10 +6165,14 @@ int fe_sw_init(void)
 			sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x04, 0xfbffffff);
 			sys_reg_write(ETHDMASYS_ETH_SW_BASE + 0x9c, 0x0008a041);
 			if (ei_local->architecture & LEOPARD_EPHY_GMII) {
-				leopard_gmii_config(1);
+				status = leopard_gmii_config(1);
+				if (status != 0)
+					goto mdio_error;
 				set_ge0_gmii();
 			} else {
-				leopard_gmii_config(0);
+				status = leopard_gmii_config(0);
+				if (status != 0)
+					goto mdio_error;
 			}
 		}
 	}
@@ -6153,7 +6191,9 @@ int fe_sw_init(void)
 	}
 
 	if (ei_local->architecture & GE1_SGMII_FORCE_2500) {
-		set_rtl8367s_sgmii();
+		status = set_rtl8367s_sgmii();
+		if (status != 0)
+			goto mdio_error;
 		status = set_sgmii_force_link(1, 1);
 		if (status != 0)
 			goto mdio_error;
@@ -6181,7 +6221,9 @@ int fe_sw_init(void)
 
 	if (ei_local->architecture & GE2_SGMII_FORCE_2500) {
 		if (ei_local->architecture & SGMII_SWITCH)
-			set_rtl8367s_sgmii();
+			status = set_rtl8367s_sgmii();
+			if (status != 0)
+				goto mdio_error;
 		status = set_sgmii_force_link(2, 1);
 		if (status != 0)
 			goto mdio_error;
@@ -6327,34 +6369,40 @@ void fe_sw_deinit(struct END_DEVICE *ei_local)
 	}
 
 	if (ei_local->architecture & MT7622_EPHY) {
-		/* set ephy to 5-port gpio mode */
 		mt7622_esw_5port_gpio();
-
-		/* set agpio to 0-port ephy */
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x100);
+		if (!gpio_base_virt) {
+			pr_err_ratelimited("%s: failed to map MT7622 shutdown GPIO registers\n", __func__);
+			return;
+		}
 		reg_value = sys_reg_read(gpio_base_virt + 0xF0);
 		reg_value |= BITS(24, 28);
 		sys_reg_write(gpio_base_virt + 0xF0, reg_value);
 		iounmap(gpio_base_virt);
 	} else if (ei_local->architecture & LEOPARD_EPHY) {
 		mt7622_esw_5port_gpio();
-		/*10000710	GEPHY_CTRL0[9:6] = 1 */
 		gpio_base_virt = ioremap(GPIO_GO_BASE, 0x10);
+		if (!gpio_base_virt) {
+			pr_err_ratelimited("%s: failed to map Leopard shutdown GPIO registers\n", __func__);
+			return;
+		}
 		reg_value = sys_reg_read(gpio_base_virt);
-		reg_value = reg_value | 0x3c0;
+		reg_value |= 0x3c0;
 		sys_reg_write(gpio_base_virt, reg_value);
 		iounmap(gpio_base_virt);
 
 		gpio_base_virt = ioremap(GPIO_MODE_BASE, 0x100);
-		/*10217310	GPIO_MODE1 [31:16] = 0x0*/
+		if (!gpio_base_virt) {
+			pr_err_ratelimited("%s: failed to map Leopard GPIO mode registers\n", __func__);
+			return;
+		}
 		reg_value = sys_reg_read(gpio_base_virt + 0x10);
 		reg_value &= 0x0000ffff;
-		reg_value = reg_value & (~0xffff0000);
+		reg_value &= ~0xffff0000;
 		sys_reg_write(gpio_base_virt + 0x10, reg_value);
 
-		/*10217320	GPIO_MODE2(gpio17/18/21/22/23)*/
 		reg_value = sys_reg_read(gpio_base_virt + 0x20);
-		reg_value = reg_value & (~0xfff00fff);
+		reg_value &= ~0xfff00fff;
 		sys_reg_write(gpio_base_virt + 0x20, reg_value);
 		iounmap(gpio_base_virt);
 	}
