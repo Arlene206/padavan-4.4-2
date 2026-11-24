@@ -1,3 +1,12 @@
+## 2026-11-23 — Preserve ambiguous unreadable QMI packet-data markers
+
+- Review found that ambiguous QMI start cleanup unlinked `/tmp/qmi-handle` when the file existed but strict parsing failed or the read returned EACCES/EIO. It could therefore erase the only recovery marker for a live session.
+- Expanded `modem_qmi_start_attempt_preserve_handle()` to preserve any non-ENOENT marker on an ambiguous attempt. Only genuinely missing PDH state is eligible for checked cleanup/retry.
+- Added GNU89 regression for EACCES/EINVAL/EIO preservation and ENOENT cleanup; the exact USB modem workflow pins the captured read status and preserve-before-unlink ordering.
+- Parent main: 61da9828ecbca9e124bf270d2651a372dd667359. Its exact Actions were still running at last poll; no pending result is claimed.
+
+---
+
 ## 2026-11-23 — Preserve QMI network-mode validation before session preflight
 
 - Post-commit source review found a status-variable ordering bug in the previous QMI preflight change: the PDH preflight overwrote `status` before the `modem_nets` parse result was checked, which could turn an invalid `modem_nets` setting into a false successful parse.

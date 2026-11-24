@@ -67,11 +67,13 @@ modem_qmi_client_id_should_allocate(int client_id, int read_status)
 }
 
 /* A valid PDH from an ambiguous start may be the only recovery handle. */
+/* Preserve non-missing PDH state while a start result is ambiguous. */
 static inline int
 modem_qmi_start_attempt_preserve_handle(int ambiguous_session,
-					int packet_data_handle)
+					int packet_data_handle, int handle_read_status)
 {
-	return ambiguous_session && packet_data_handle >= 0;
+	return ambiguous_session &&
+		(packet_data_handle >= 0 || handle_read_status != ENOENT);
 }
 
 /* Missing old status files are benign; other unlink failures block startup. */

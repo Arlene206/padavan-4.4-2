@@ -950,6 +950,7 @@ jobs:
           assert "modem_qmi_client_id_is_valid(qmi_client_id)" in qmi_start_function
           preserve_handle = qmi_start_function.index("modem_qmi_start_attempt_preserve_handle(ambiguous_session,")
           partial_cleanup = qmi_start_function.index("unlink_status = unlink(QMI_HANDLE_PDH)", preserve_handle)
+          assert "pdh_handle, handle_read_status))" in qmi_start_function
           assert preserve_handle < partial_cleanup
           assert "cannot remove failed QMI packet-data handle" in qmi_start_function
           qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()

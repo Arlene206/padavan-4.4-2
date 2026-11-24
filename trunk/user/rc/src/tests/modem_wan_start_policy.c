@@ -49,12 +49,15 @@ test_qmi_start_retry_is_blocked_when_session_may_exist(void)
 static void
 test_qmi_ambiguous_start_preserves_published_handle(void)
 {
-	assert(modem_qmi_start_attempt_preserve_handle(1, 17));
-	assert(modem_qmi_start_attempt_preserve_handle(1, 0));
-	assert(!modem_qmi_start_attempt_preserve_handle(0, 17));
-	assert(!modem_qmi_start_attempt_preserve_handle(0, 0));
-	assert(!modem_qmi_start_attempt_preserve_handle(1, -1));
-	assert(!modem_qmi_start_attempt_preserve_handle(0, -1));
+	assert(modem_qmi_start_attempt_preserve_handle(1, 17, 0));
+	assert(modem_qmi_start_attempt_preserve_handle(1, 0, 0));
+	assert(modem_qmi_start_attempt_preserve_handle(1, -1, EACCES));
+	assert(modem_qmi_start_attempt_preserve_handle(1, -1, EINVAL));
+	assert(modem_qmi_start_attempt_preserve_handle(1, -1, EIO));
+	assert(!modem_qmi_start_attempt_preserve_handle(1, -1, ENOENT));
+	assert(!modem_qmi_start_attempt_preserve_handle(0, -1, ENOENT));
+	assert(!modem_qmi_start_attempt_preserve_handle(0, 17, 0));
+	assert(!modem_qmi_start_attempt_preserve_handle(0, 0, 0));
 }
 
 static void

@@ -993,9 +993,9 @@ qmi_control_network_start(const char *device_path)
 			   "uqmi start-network did not publish a valid packet-data handle (command status=%d, handle=%d)",
 			   start_status, pdh_handle);
 
-		/* Preserve a valid PDH if uqmi may have created a live session. */
+		/* Preserve valid or unreadable PDH state if a session may exist. */
 		if (modem_qmi_start_attempt_preserve_handle(ambiguous_session,
-								   pdh_handle))
+								   pdh_handle, handle_read_status))
 			goto done;
 
 		/* Remove any partial/invalid publication before a retry. */

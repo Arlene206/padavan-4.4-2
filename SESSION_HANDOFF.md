@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Live parent main before this atomic change: `f12c4a3292e53378751eefb7c2c8b05364791900`.
+- Live parent main before this atomic change: `61da9828ecbca9e124bf270d2651a372dd667359`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
@@ -8,10 +8,9 @@
 ## Active task
 
 QMI persisted CID reuse and duplicate-session prevention:
-- The QMI start path always requested a new WDS CID even when a previous failed/ambiguous start had left a valid kept CID in /tmp/qmi-client-id. That allocated another persistent CID and overwrote the only record of the old one. It also erased any valid /tmp/qmi-handle marker before a new start.
-- This slice makes status reads preserve errno, refuses a new start while a valid PDH marker exists, fails closed on malformed/unreadable markers, and reuses a valid persisted one-byte CID. A new CID is requested only when the CID file is genuinely absent. Teardown no longer discards an invalid/unreadable CID record before release.
-- GNU89 tests cover PDH preflight, CID bounds/reuse, missing-vs-invalid reads and ambiguous start status. The USB modem workflow checks full-function ordering and cleanup guards.
-- Parent f12c4a3 exact USB modem identity #45348552081 and AI handoff #45348552061 passed; Process inventory #45348551991 passed. NVRAM #45348551978 and XY-C1 #45348552126 were still in progress at last poll; no same-SHA Build/TRX/artifact completion or hardware validation claimed.
+- QMI start refuses an existing valid PDH marker, reuses a valid persisted one-byte WDS CID, and only allocates a new CID when its status file is genuinely absent. Malformed/unreadable CID or PDH state fails closed; invalid modem network-mode settings are rejected before QMI side effects.
+- Follow-up review found the ambiguous failed-start path still unlinked `/tmp/qmi-handle` when the file existed but was unreadable or malformed. That could erase a live session's only recovery marker. The preservation policy now keeps any ambiguous non-ENOENT marker and only permits cleanup/retry when the PDH file is genuinely absent.
+- GNU89 policy tests and the exact USB modem workflow contract cover valid, malformed and unreadable PDH preservation before unlink. Physical modem behavior remains unverified.
 ## Verification boundary
 
 - Exact e006c68f711c0fc47e6d46d7f34b3c337a06f7da: NVRAM audit #45347148992, Process inventory #45347149044, AI handoff #45347148865, XY-C1 firmware #45347148972 and USB modem identity #45347148897 were IN_PROGRESS/QUEUED at last observation. Check final statuses before relying on them.
@@ -21,9 +20,9 @@ QMI persisted CID reuse and duplicate-session prevention:
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head USB modem identity and QMI policy regression for persisted CID reuse, PDH preflight and status-read error handling.
-2. Check exact-head XY-C1 Build, TRX and artifact upload individually; also record NVRAM audit and Process inventory outcomes.
-3. Continue the next independent stability/security source defect; do not wait for pending Actions.
+1. Verify exact-head USB modem identity and GNU89 tests for preserving unreadable/malformed ambiguous PDH markers.
+2. Poll exact-head XY-C1 Build, TRX and artifact, plus NVRAM and Process lifecycle results.
+3. Continue the next independent userland stability/security source defect.
 # Cross-session execution mandate
 
 Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change is one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
