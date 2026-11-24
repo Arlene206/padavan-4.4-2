@@ -404,7 +404,8 @@ jobs:
           assert "if (state_status == 0)" in notification_adapter
           assert "is_radio_on_" not in notification_adapter
 
-          assert "int wireless_radio_power_status(int is_5g, int *is_on);" in header
+          header_compact = "".join(header.split())
+          assert "intwireless_radio_power_status(intis_5g,int*is_on);" in header_compact
           notification_handler = function_body(rc_source, "handle_notifications(void)")
           assert notification_handler.count("rc_notify_apply_radio_control(") == 6
           assert "control_radio_wl(" not in notification_handler
