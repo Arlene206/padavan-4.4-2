@@ -7,11 +7,69 @@
 mkdir -p /tmp/dnsmasq.dom
 logger -t "防止 DNSmasq 启动失败，创建/tmp/dnsmasq.dom/"
 
+# Publish packaged defaults without following persistent symlinks. These
+# paths are restored from user-controlled storage archives, so a dangling link
+# must not redirect a privileged boot-time copy outside /etc/storage.
+autostart_seed_storage_script()
+{
+	_autostart_source=$1
+	_autostart_destination=$2
+	_autostart_tmp=
+
+	case "$_autostart_destination" in
+		/etc/storage/*) ;;
+		*)
+			logger -t "自动启动" "Refusing to seed script outside /etc/storage: $_autostart_destination"
+			return 1
+			;;
+	esac
+	if [ -L /etc/storage ] || [ ! -d /etc/storage ]; then
+		logger -t "自动启动" "Refusing to seed script through an invalid storage directory"
+		return 1
+	fi
+	if [ -L "$_autostart_destination" ]; then
+		logger -t "自动启动" "Refusing to follow persistent script symlink: $_autostart_destination"
+		return 1
+	fi
+	if [ -e "$_autostart_destination" ] && [ ! -f "$_autostart_destination" ]; then
+		logger -t "自动启动" "Refusing to replace non-regular persistent script: $_autostart_destination"
+		return 1
+	fi
+	if [ -x "$_autostart_destination" ]; then
+		return 0
+	fi
+	if [ ! -f "$_autostart_source" ] || [ -L "$_autostart_source" ] || [ ! -r "$_autostart_source" ]; then
+		logger -t "自动启动" "Packaged script source is unavailable: $_autostart_source"
+		return 1
+	fi
+
+	_autostart_tmp=$(mktemp "${_autostart_destination}.tmp.XXXXXX") || {
+		logger -t "自动启动" "Cannot allocate temporary script beside $_autostart_destination"
+		return 1
+	}
+	if ! cat "$_autostart_source" > "$_autostart_tmp" ||
+	   ! chmod 755 "$_autostart_tmp"; then
+		rm -f "$_autostart_tmp"
+		logger -t "自动启动" "Cannot prepare packaged script for $_autostart_destination"
+		return 1
+	fi
+	# Same-directory rename prevents readers from observing a partial copy.
+	# rename replaces a final symlink itself; it does not write through it.
+	if ! mv -f "$_autostart_tmp" "$_autostart_destination"; then
+		rm -f "$_autostart_tmp"
+		logger -t "自动启动" "Cannot publish packaged script: $_autostart_destination"
+		return 1
+	fi
+	return 0
+}
+
 # ap relay monitor [simonchen]
-if [ ! -x /etc/storage/sh_ezscript.sh ]; then
-	cp /usr/bin/sh_ezscript.sh /etc/storage/sh_ezscript.sh
+if ! autostart_seed_storage_script /usr/bin/sh_ezscript.sh /etc/storage/sh_ezscript.sh; then
+	logger -t "自动启动" "Skipping sh_ezscript default publication"
 fi
-if [ -x /etc/storage/ap_script.sh ]; then
+if [ -L /etc/storage/ap_script.sh ]; then
+	logger -t "自动启动" "Skipping symlinked persistent ap_script.sh"
+elif [ -x /etc/storage/ap_script.sh ]; then
 	# Replace only the byte-identical pre-hardening stock copy; never clobber
 	# a user-customized persistent script.
 	if [ -x /usr/bin/ap_script_migrate.sh ]; then
@@ -19,7 +77,9 @@ if [ -x /etc/storage/ap_script.sh ]; then
 	fi
 	/etc/storage/ap_script.sh >/dev/null 2>&1 &
 else
-	cp /usr/bin/ap_script.sh /etc/storage/ap_script.sh
+	if ! autostart_seed_storage_script /usr/bin/ap_script.sh /etc/storage/ap_script.sh; then
+		logger -t "自动启动" "Skipping ap_script default publication"
+	fi
 fi
 smartdns_conf="/etc/storage/smartdns_custom.conf"
 
