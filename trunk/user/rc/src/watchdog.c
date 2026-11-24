@@ -853,7 +853,7 @@ watchdog_on_sighup(void)
 static void
 watchdog_on_sigusr1(void)
 {
-	int wd_notify_id, is_5ghz;
+	int wd_notify_id = 0, is_5ghz;
 	int read_status, status;
 
 	read_status = watchdog_nvram_read_int_status(

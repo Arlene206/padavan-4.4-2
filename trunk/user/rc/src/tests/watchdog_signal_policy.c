@@ -148,6 +148,8 @@ test_wifi_signal_band_dispatch_requires_checked_recognized_selector(void)
 
 	CHECK(watchdog_wifi_notification_band_status(
 		EACCES, 2, 1, 2, &is_5ghz) == EACCES);
+	CHECK(watchdog_wifi_notification_band_status(
+		EACCES, 0, 1, 2, &is_5ghz) == EACCES);
 	CHECK(is_5ghz == -1);
 	CHECK(watchdog_wifi_notification_band_status(
 		0, 0, 1, 2, &is_5ghz) == EINVAL);

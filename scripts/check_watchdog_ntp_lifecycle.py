@@ -296,6 +296,7 @@ assert "test_wifi_signal_requires_published_band_selector" in _wifi_signal_test
 # before dispatch. Checked-read errors and unknown IDs must not update either band.
 _wifi_dispatch = function_body(_ntp_watchdog, "watchdog_on_sigusr1(void)")
 assert "watchdog_nvram_read_int_status(" in _wifi_dispatch
+assert "int wd_notify_id = 0, is_5ghz;" in _wifi_dispatch
 assert "watchdog_wifi_notification_band_status(" in _wifi_dispatch
 assert _wifi_dispatch.index("watchdog_nvram_read_int_status(") < _wifi_dispatch.index(
     "watchdog_wifi_notification_band_status("
