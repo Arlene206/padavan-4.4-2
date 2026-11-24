@@ -134,9 +134,92 @@ read_exact(const char *path, const char *expected)
 	assert(fclose(fp) == 0);
 }
 
+static int
+test_xupnpd_pair_preserves_modes_and_rolls_back(void)
+{
+	char directory[] = "/tmp/dnsmasq-pair-XXXXXX";
+	char first[160], second[160];
+	char first_stage[192], second_stage[192];
+	char first_backup[224], second_backup[224];
+	FILE *first_fp, *second_fp;
+	struct stat st;
+
+	assert(mkdtemp(directory) != NULL);
+	assert(snprintf(first, sizeof(first), "%s/common.lua", directory) > 0);
+	assert(snprintf(second, sizeof(second), "%s/xupnpd.lua", directory) > 0);
+
+	/* A successful pair commit preserves both destination modes. */
+	first_fp = fopen(first, "w");
+	assert(first_fp != NULL && fputs("old-common\n", first_fp) >= 0);
+	assert(fclose(first_fp) == 0);
+	second_fp = fopen(second, "w");
+	assert(second_fp != NULL && fputs("old-runtime\n", second_fp) >= 0);
+	assert(fclose(second_fp) == 0);
+	assert(chmod(first, 0600) == 0 && chmod(second, 0640) == 0);
+
+	assert(snprintf(first_stage, sizeof(first_stage), "%s/common.stage.XXXXXX", directory) > 0);
+	assert(snprintf(second_stage, sizeof(second_stage), "%s/runtime.stage.XXXXXX", directory) > 0);
+	assert(snprintf(first_backup, sizeof(first_backup), "%s/common.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(second_backup, sizeof(second_backup), "%s/runtime.rollback.XXXXXX", directory) > 0);
+	first_fp = dnsmasq_file_open(first_stage);
+	second_fp = dnsmasq_file_open(second_stage);
+	assert(first_fp != NULL && second_fp != NULL);
+	assert(fchmod(fileno(first_fp), 0600) == 0);
+	assert(fchmod(fileno(second_fp), 0640) == 0);
+	assert(fputs("new-common\n", first_fp) >= 0);
+	assert(fputs("new-runtime\n", second_fp) >= 0);
+	assert(dnsmasq_file_publish_pair(first_fp, first_stage, first, first_backup,
+					 second_fp, second_stage, second, second_backup,
+					 DNSMASQ_FILE_PRESERVE_MODE) == 0);
+	read_exact(first, "new-common\n");
+	read_exact(second, "new-runtime\n");
+	assert(stat(first, &st) == 0 && (st.st_mode & 0777) == 0600);
+	assert(stat(second, &st) == 0 && (st.st_mode & 0777) == 0640);
+	assert(first_stage[0] == '\0' && second_stage[0] == '\0');
+	assert(first_backup[0] == '\0' && second_backup[0] == '\0');
+
+	/* A real second rename failure must restore both old files and modes. */
+	first_fp = fopen(first, "w");
+	assert(first_fp != NULL && fputs("rollback-common\n", first_fp) >= 0);
+	assert(fclose(first_fp) == 0);
+	second_fp = fopen(second, "w");
+	assert(second_fp != NULL && fputs("rollback-runtime\n", second_fp) >= 0);
+	assert(fclose(second_fp) == 0);
+	assert(chmod(first, 0600) == 0 && chmod(second, 0640) == 0);
+
+	assert(snprintf(first_stage, sizeof(first_stage), "%s/common.rollback-stage.XXXXXX", directory) > 0);
+	assert(snprintf(second_stage, sizeof(second_stage), "%s/runtime.rollback-stage.XXXXXX", directory) > 0);
+	assert(snprintf(first_backup, sizeof(first_backup), "%s/common.rollback.XXXXXX", directory) > 0);
+	assert(snprintf(second_backup, sizeof(second_backup), "%s/runtime.rollback.XXXXXX", directory) > 0);
+	first_fp = dnsmasq_file_open(first_stage);
+	second_fp = dnsmasq_file_open(second_stage);
+	assert(first_fp != NULL && second_fp != NULL);
+	assert(fchmod(fileno(first_fp), 0600) == 0);
+	assert(fchmod(fileno(second_fp), 0640) == 0);
+	assert(fputs("not-committed-common\n", first_fp) >= 0);
+	assert(fputs("not-committed-runtime\n", second_fp) >= 0);
+	assert(unlink(second_stage) == 0);
+	errno = 0;
+	assert(dnsmasq_file_publish_pair(first_fp, first_stage, first, first_backup,
+					 second_fp, second_stage, second, second_backup,
+					 DNSMASQ_FILE_PRESERVE_MODE) == -1);
+	assert(errno == ENOENT);
+	read_exact(first, "rollback-common\n");
+	read_exact(second, "rollback-runtime\n");
+	assert(stat(first, &st) == 0 && (st.st_mode & 0777) == 0600);
+	assert(stat(second, &st) == 0 && (st.st_mode & 0777) == 0640);
+	assert(first_stage[0] == '\0' && second_stage[0] == '\0');
+	assert(first_backup[0] == '\0' && second_backup[0] == '\0');
+
+	assert(unlink(first) == 0 && unlink(second) == 0);
+	assert(rmdir(directory) == 0);
+	return 0;
+}
+
 int
 main(void)
 {
+	assert(test_xupnpd_pair_preserves_modes_and_rolls_back() == 0);
 	char directory[] = "/tmp/dnsmasq-file-test.XXXXXX";
 	char sentinel[256], destination[256], template[256], staged[256];
 	char fail_template[256], fail_path[256], rename_fail_template[256], rename_fail_path[256], lease_path[256];

@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include "dnsmasq_domain_policy.h"
 
+/* Preserve the staged file's preselected mode when publishing a related set. */
+#define DNSMASQ_FILE_PRESERVE_MODE ((mode_t)-1)
+
 /* Bit flags mirror the service options emitted below.  Only DHCP modes that
  * emit dhcp-leasefile make the persistent lease path part of startup. */
 #define DNSMASQ_DHCP_FEATURE_LEASES 0x01
@@ -129,7 +132,8 @@ dnsmasq_file_publish(FILE *fp, char *path, const char *destination, mode_t mode)
 		failed = 1;
 		saved_errno = errno ? errno : EIO;
 	}
-	if (!failed && fchmod(fileno(fp), mode) != 0) {
+	if (!failed && mode != DNSMASQ_FILE_PRESERVE_MODE &&
+	    fchmod(fileno(fp), mode) != 0) {
 		failed = 1;
 		saved_errno = errno ? errno : EIO;
 	}

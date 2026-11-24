@@ -1,3 +1,12 @@
+## 2026-11-24 — Publish XUPnP Lua configuration as a rollback-capable pair
+
+- `start_xupnpd()` previously renamed staged `common.lua` live before preparing `xupnpd.lua`. A later source/NVRAM/write/fsync failure could leave a mixed config generation while startup returned an error.
+- Both files are now fully read, rendered, flushed and fsynced before either destination changes. `dnsmasq_file_publish_pair()` snapshots both old paths and restores the first if the second rename fails. A preserve-mode sentinel retains each tempfile's preselected destination mode.
+- Added GNU89 ASan/UBSan regression for distinct mode retention and forced second-rename rollback, plus a Python source-order contract. DNSMasq lifecycle now watches `net.c` and runs the new contract after the pair regression.
+- Parent `aae46a6`: udhcpc regression/source contract, AI handoff and Process lifecycle PASS; USB storage and NVRAM audit pending at last poll. XY-C1 for production `4015869` still needed Build/TRX/artifact confirmation.
+
+---
+
 ## 2026-11-24 — Fix stale DHCPDECLINE regression invocation
 
 - Exact SHA `4015869` udhcpc workflow #45400399177 failed GNU89 compilation: the regression was renamed to `test_failed_packet_send_blocks_dhcp_reselection_until_retry()`, but `main()` still invoked the removed `test_failed_dhcpdecline_blocks_reselection_until_retry()` name. This also triggered an unused-function error for the new definition.

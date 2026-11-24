@@ -24,6 +24,8 @@ on:
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
+      - "trunk/user/rc/src/net.c"
+      - "scripts/check_xupnpd_config_pair.py"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
@@ -92,6 +94,8 @@ on:
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/dnsmasq_file.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
+      - "trunk/user/rc/src/net.c"
+      - "scripts/check_xupnpd_config_pair.py"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/init.c"
@@ -176,6 +180,8 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_file.c \
             -o "$RUNNER_TEMP/dnsmasq-file"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-file"
+      - name: Verify XUPnP config pair is staged before rollback-capable publication
+        run: python3 scripts/check_xupnpd_config_pair.py
       - name: Compile and run DNSMasq checked option NVRAM regression
         run: |
           set -eu

@@ -59,6 +59,7 @@
 #include "nat_helper_settings_policy.h"
 #include "nat_offload_settings_policy.h"
 #include "xupnpd_config_file.h"
+#include "dnsmasq_file.h"
 #include "xupnpd_daemon_policy.h"
 #include "detached_daemon_start_policy.h"
 #if defined (APP_MSD_LITE)
@@ -823,12 +824,15 @@ int
 start_xupnpd(char *wan_ifname)
 {
 	int i, xport = 0, xport_status, has_daemon, launch_status;
-	int config_status, saved_errno, sync_status, config_fd, scan_error;
+	int config_status, saved_errno, sync_status, config_fd, scan_error, path_length;
 	int launch_errno;
 	enum process_presence process_state;
 	int copy_storage, directory_status, copy_status;
-	FILE *fp1, *fp2;
+	FILE *fp1 = NULL, *fp2 = NULL, *fp3 = NULL, *fp4 = NULL;
 	char tmp1[128], tmp2[128], line[256], lan_addr[16], xport_text[16];
+	char common_path[128] = "", runtime_path[128] = "";
+	char common_stage[160] = "", runtime_stage[160] = "";
+	char common_backup[192] = "", runtime_backup[192] = "";
 	char *dir_src = "/etc_ro/xupnpd";
 	char *dir_dst = "/etc/storage/xupnpd";
 	char *xdir1[] = { "config", "playlists", NULL };
@@ -1020,26 +1024,39 @@ start_xupnpd(char *wan_ifname)
 	}
 
 	/*
-	 * Do not replace a working config with an empty/truncated file when the
-	 * old config cannot be read or a write/close/rename step fails.
+	 * Stage both generated Lua files completely before publishing either.
+	 * The pair publisher snapshots both old paths and restores the first if
+	 * the second rename fails, avoiding a mixed-generation config set.
 	 */
-	snprintf(tmp2, sizeof(tmp2), "%s/config/common.lua", dir_dst);
-	config_fd = xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1));
-	if (config_fd < 0)
-		return errno ? errno : EIO;
+	path_length = snprintf(common_path, sizeof(common_path),
+			       "%s/config/common.lua", dir_dst);
+	if (path_length < 0 || (size_t)path_length >= sizeof(common_path)) {
+		config_status = ENAMETOOLONG;
+		goto xupnpd_config_prepare_failed;
+	}
+	path_length = snprintf(runtime_path, sizeof(runtime_path),
+			       "%s/xupnpd.lua", dir_dst);
+	if (path_length < 0 || (size_t)path_length >= sizeof(runtime_path)) {
+		config_status = ENAMETOOLONG;
+		goto xupnpd_config_prepare_failed;
+	}
+
+	config_fd = xupnpd_config_tempfile_open(common_path, common_stage,
+						sizeof(common_stage));
+	if (config_fd < 0) {
+		config_status = errno ? errno : EIO;
+		goto xupnpd_config_prepare_failed;
+	}
 	fp1 = fdopen(config_fd, "w");
 	if (fp1 == NULL) {
-		saved_errno = errno ? errno : EIO;
+		config_status = errno ? errno : EIO;
 		close(config_fd);
-		unlink(tmp1);
-		return saved_errno;
+		goto xupnpd_config_prepare_failed;
 	}
-	fp2 = xupnpd_config_source_open(tmp2);
+	fp2 = xupnpd_config_source_open(common_path);
 	if (fp2 == NULL) {
-		saved_errno = errno ? errno : EIO;
-		fclose(fp1);
-		unlink(tmp1);
-		return saved_errno;
+		config_status = errno ? errno : EIO;
+		goto xupnpd_config_prepare_failed;
 	}
 	config_status = 0;
 	while (fgets(line, sizeof(line), fp2)) {
@@ -1056,7 +1073,10 @@ start_xupnpd(char *wan_ifname)
 		config_status = errno ? errno : EIO;
 	if (fclose(fp2) != 0 && config_status == 0)
 		config_status = errno ? errno : EIO;
+	fp2 = NULL;
 	if (config_status == 0 && fflush(fp1) != 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0 && ferror(fp1))
 		config_status = errno ? errno : EIO;
 	if (config_status == 0) {
 		do {
@@ -1066,36 +1086,29 @@ start_xupnpd(char *wan_ifname)
 		if (sync_status != 0)
 			config_status = errno ? errno : EIO;
 	}
-	if (fclose(fp1) != 0 && config_status == 0)
-		config_status = errno ? errno : EIO;
-	if (config_status == 0 && rename(tmp1, tmp2) != 0)
-		config_status = errno ? errno : EIO;
-	if (config_status != 0) {
-		unlink(tmp1);
-		return config_status;
-	}
+	if (config_status != 0)
+		goto xupnpd_config_prepare_failed;
 
 	has_daemon = 0;
-	snprintf(tmp2, sizeof(tmp2), "%s/xupnpd.lua", dir_dst);
-	config_fd = xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1));
-	if (config_fd < 0)
-		return errno ? errno : EIO;
-	fp1 = fdopen(config_fd, "w");
-	if (fp1 == NULL) {
-		saved_errno = errno ? errno : EIO;
-		close(config_fd);
-		unlink(tmp1);
-		return saved_errno;
+	config_fd = xupnpd_config_tempfile_open(runtime_path, runtime_stage,
+						sizeof(runtime_stage));
+	if (config_fd < 0) {
+		config_status = errno ? errno : EIO;
+		goto xupnpd_config_prepare_failed;
 	}
-	fp2 = xupnpd_config_source_open(tmp2);
-	if (fp2 == NULL) {
-		saved_errno = errno ? errno : EIO;
-		fclose(fp1);
-		unlink(tmp1);
-		return saved_errno;
+	fp3 = fdopen(config_fd, "w");
+	if (fp3 == NULL) {
+		config_status = errno ? errno : EIO;
+		close(config_fd);
+		goto xupnpd_config_prepare_failed;
+	}
+	fp4 = xupnpd_config_source_open(runtime_path);
+	if (fp4 == NULL) {
+		config_status = errno ? errno : EIO;
+		goto xupnpd_config_prepare_failed;
 	}
 	config_status = 0;
-	while (fgets(line, sizeof(line), fp2)) {
+	while (fgets(line, sizeof(line), fp4)) {
 		if (strstr(line, "cfg.mcast_interface=") && !strstr(line, "--"))
 			snprintf(line, sizeof(line), "cfg.mcast_interface='%s'\n", wan_ifname);
 		else if (strstr(line, "cfg.http_port=") && !strstr(line, "--"))
@@ -1144,32 +1157,62 @@ start_xupnpd(char *wan_ifname)
 			snprintf(line, sizeof(line), "cfg.daemon=true\n");
 			has_daemon = 1;
 		}
-		if (fputs(line, fp1) == EOF) {
+		if (fputs(line, fp3) == EOF) {
 			config_status = errno ? errno : EIO;
 			break;
 		}
 	}
-	if (config_status == 0 && ferror(fp2))
+	if (config_status == 0 && ferror(fp4))
 		config_status = errno ? errno : EIO;
-	if (fclose(fp2) != 0 && config_status == 0)
+	if (fclose(fp4) != 0 && config_status == 0)
 		config_status = errno ? errno : EIO;
-	if (config_status == 0 && fflush(fp1) != 0)
+	fp4 = NULL;
+	if (config_status == 0 && fflush(fp3) != 0)
+		config_status = errno ? errno : EIO;
+	if (config_status == 0 && ferror(fp3))
 		config_status = errno ? errno : EIO;
 	if (config_status == 0) {
 		do {
 			errno = 0;
-			sync_status = fsync(fileno(fp1));
+			sync_status = fsync(fileno(fp3));
 		} while (sync_status != 0 && errno == EINTR);
 		if (sync_status != 0)
 			config_status = errno ? errno : EIO;
 	}
-	if (fclose(fp1) != 0 && config_status == 0)
-		config_status = errno ? errno : EIO;
-	if (config_status == 0 && rename(tmp1, tmp2) != 0)
-		config_status = errno ? errno : EIO;
-	if (config_status != 0) {
-		unlink(tmp1);
-		return config_status;
+	if (config_status != 0)
+		goto xupnpd_config_prepare_failed;
+
+	path_length = snprintf(common_backup, sizeof(common_backup),
+			       "%s.rollback.XXXXXX", common_path);
+	if (path_length < 0 || (size_t)path_length >= sizeof(common_backup)) {
+		config_status = ENAMETOOLONG;
+		goto xupnpd_config_prepare_failed;
+	}
+	path_length = snprintf(runtime_backup, sizeof(runtime_backup),
+			       "%s.rollback.XXXXXX", runtime_path);
+	if (path_length < 0 || (size_t)path_length >= sizeof(runtime_backup)) {
+		config_status = ENAMETOOLONG;
+		goto xupnpd_config_prepare_failed;
+	}
+
+	sync_status = dnsmasq_file_publish_pair(
+		fp1, common_stage, common_path, common_backup,
+		fp3, runtime_stage, runtime_path, runtime_backup,
+		DNSMASQ_FILE_PRESERVE_MODE);
+	fp1 = NULL;
+	fp3 = NULL;
+	if (sync_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		if (common_backup[0])
+			logmessage(LOGNAME,
+				   "xupnpd common.lua recovery copy retained at %s",
+				   common_backup);
+		if (runtime_backup[0])
+			logmessage(LOGNAME,
+				   "xupnpd.lua recovery copy retained at %s",
+				   runtime_backup);
+		errno = saved_errno;
+		return saved_errno;
 	}
 
 	/* Config preparation can take several seconds; recheck immediately before
@@ -1203,6 +1246,24 @@ start_xupnpd(char *wan_ifname)
 			"xupnpd", launch_status, launch_errno);
 	}
 	return launch_status;
+
+xupnpd_config_prepare_failed:
+	saved_errno = config_status ? config_status : (errno ? errno : EIO);
+	if (fp2)
+		fclose(fp2);
+	if (fp4)
+		fclose(fp4);
+	if (fp1)
+		fclose(fp1);
+	if (fp3)
+		fclose(fp3);
+	if (common_stage[0] && dnsmasq_file_discard(common_stage) != 0)
+		logmessage(LOGNAME, "xupnpd common.lua staging cleanup failed: %s", common_stage);
+	if (runtime_stage[0] && dnsmasq_file_discard(runtime_stage) != 0)
+		logmessage(LOGNAME, "xupnpd.lua staging cleanup failed: %s", runtime_stage);
+	errno = saved_errno;
+	logmessage(LOGNAME, "xupnpd config pair preparation failed (status=%d)", saved_errno);
+	return saved_errno;
 }
 
 #endif
