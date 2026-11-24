@@ -2699,7 +2699,12 @@ jobs:
           assert "dhcp_lease_ipv4_list_is_valid(lease_dns, 255, 16, 1)" in lan_bound
           assert "dhcp_lease_ipv4_list_is_valid(lease_wins, 255, 16, 1)" in lan_bound
           assert "dnsmasq_valid_server_domain(lease_domain)" in lan_bound
-          assert "dhcp_lease_decimal_is_valid(value, 0U, 2147483647U" in lan_bound
+          assert "lan_dhcp_effective_lease_seconds(" in lan_bound
+          assert "lease_dur = (int)parsed_lease;" in lan_bound
+          assert "dhcp_lease_decimal_is_valid(value, 0U, 2147483647U" not in lan_bound
+          assert "lan_dhcp_effective_lease_seconds(" in lan_callback_policy
+          assert "LAN_DHCP_DEFAULT_LEASE_SECONDS 3600U" in lan_callback_policy
+          assert "test_lan_lease_duration_requires_canonical_client_value" in lan_callback_test
           assert "atoi(value)" not in lan_bound
           assert "dhcp_lease_bound_apply(" in lan_bound
           transaction_call = lan_bound.index("status = dhcp_lease_bound_apply(")
