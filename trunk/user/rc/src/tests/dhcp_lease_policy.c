@@ -1021,6 +1021,15 @@ main(void)
 	assert(dhcp_lease_static_resolver_uses_gateway(0, 1, 1));
 	assert(!dhcp_lease_static_resolver_uses_gateway(0, 0, 0));
 	assert(!dhcp_lease_static_resolver_uses_gateway(1, 0, 0));
+
+	/* lan_dns_x is exposed as a binary Yes/No UI selector. Numeric
+	 * corruption must not silently switch between static and DHCP DNS. */
+	assert(dhcp_lease_binary_selector_is_valid(0));
+	assert(dhcp_lease_binary_selector_is_valid(1));
+	assert(!dhcp_lease_binary_selector_is_valid(-1));
+	assert(!dhcp_lease_binary_selector_is_valid(2));
+	assert(!dhcp_lease_binary_selector_is_valid(INT_MIN));
+	assert(!dhcp_lease_binary_selector_is_valid(INT_MAX));
 	assert(!dhcp_lease_route_destination_is_valid("192.0.2.0", 33));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1;reboot"));
 	assert(!dhcp_lease_ipv4_is_valid("192.0.2.1\n"));

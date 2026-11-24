@@ -2353,6 +2353,14 @@ lan_publish_resolver_auto(char *lan_gateway, char *lan_dname, char *lan_dns)
 		return status;
 	}
 
+	if (!dhcp_lease_binary_selector_is_valid(dns_mode)) {
+		errno = EINVAL;
+		logmessage(LOGNAME,
+			   "invalid LAN DHCP resolver mode (%d); refusing resolver publication",
+			   dns_mode);
+		return EINVAL;
+	}
+
 	errno = 0;
 	lock = file_lock("resolv");
 	if (lock < 0)
@@ -2632,6 +2640,13 @@ lan_down_auto(char *lan_ifname)
 			   "cannot parse LAN DNS mode during deconfig on %s (status=%d); retaining lease state",
 			   lan_ifname, status);
 		return status;
+	}
+	if (!dhcp_lease_binary_selector_is_valid(static_dns_mode)) {
+		errno = EINVAL;
+		logmessage("DHCP LAN Client",
+			   "invalid LAN DNS mode during deconfig on %s (value=%d); retaining lease state",
+			   lan_ifname, static_dns_mode);
+		return EINVAL;
 	}
 	use_static_dns = (static_dns_mode == 0);
 

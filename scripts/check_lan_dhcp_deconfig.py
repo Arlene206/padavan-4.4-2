@@ -139,9 +139,12 @@ assert "dhcp_lease_static_resolver_uses_gateway(" in cleanup
 dns_mode_parse = cleanup.index("status = rc_wan_nvram_parse_int_value(snapshot.static_dns_mode,")
 dns_mode_guard = cleanup.index("if (status != 0)", dns_mode_parse)
 dns_mode_return = cleanup.index("return status;", dns_mode_guard)
-route_delete_for_mode = cleanup.index("route_status = route_del(", dns_mode_return)
-assert dns_mode_parse < dns_mode_guard < dns_mode_return < route_delete_for_mode
+dns_mode_range_guard = cleanup.index("if (!dhcp_lease_binary_selector_is_valid(static_dns_mode))", dns_mode_return)
+dns_mode_range_return = cleanup.index("return EINVAL;", dns_mode_range_guard)
+route_delete_for_mode = cleanup.index("route_status = route_del(", dns_mode_range_return)
+assert dns_mode_parse < dns_mode_guard < dns_mode_return < dns_mode_range_guard < dns_mode_range_return < route_delete_for_mode
 assert "cannot parse LAN DNS mode during deconfig" in cleanup
+assert "invalid LAN DNS mode during deconfig" in cleanup
 assert "use_static_dns = (static_dns_mode == 0);" in cleanup
 assert "atoi(snapshot.static_dns_mode)" not in cleanup
 assert cleanup.count("use_static_dns &&") == 2
@@ -681,11 +684,14 @@ auto_snapshot = auto_compact.index("status = rc_wan_nvram_copy_snapshot(")
 auto_snapshot_failure = auto_compact.index("if (status != 0)", auto_snapshot)
 auto_parse = auto_compact.index("status = rc_wan_nvram_parse_int_value(dns_mode_text, &dns_mode);")
 auto_parse_failure = auto_compact.index("if (status != 0)", auto_parse)
+auto_range_guard = auto_compact.index("if (!dhcp_lease_binary_selector_is_valid(dns_mode))", auto_parse_failure)
+auto_range_return = auto_compact.index("return EINVAL;", auto_range_guard)
 auto_lock = auto_compact.index('lock = file_lock("resolv")')
 auto_static_dns = auto_compact.index("if (dns_mode == 0)")
 auto_publish = auto_compact.index("dnsmasq_file_publish(")
-assert auto_snapshot < auto_snapshot_failure < auto_parse < auto_parse_failure < auto_lock
+assert auto_snapshot < auto_snapshot_failure < auto_parse < auto_parse_failure < auto_range_guard < auto_range_return < auto_lock
 assert auto_lock < auto_static_dns < auto_publish
+assert "invalid LAN DHCP resolver mode" in auto_resolver
 for index, key, destination in (
     (0, "lan_dns_x", "dns_mode_text"),
     (1, "lan_dns1", "dns1_ip"),

@@ -212,6 +212,15 @@ dhcp_lease_static_resolver_uses_gateway(int use_static_dns, int dns_count,
 	return (!use_static_dns || dns_count == 0) && gateway_valid;
 }
 
+/* LAN DNS mode is a two-state UI selector (0 = static, 1 = DHCP).
+ * Reject corrupt numeric values rather than interpreting every nonzero
+ * value as permission to replace the resolver with DHCP-provided data. */
+static inline int
+dhcp_lease_binary_selector_is_valid(int value)
+{
+	return value == 0 || value == 1;
+}
+
 
 /* Route creation can report EEXIST when the desired default route is already
  * installed. Treat that as an idempotent success, but do not later delete a
