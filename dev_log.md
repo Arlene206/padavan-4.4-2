@@ -1,3 +1,11 @@
+## 2026-11-24 — Verify VSFTPD malformed ACL record rejection
+
+- Exact VSFTPD workflow #45408307661 passed on `82962240fea531c282def4176c5a0833ceeae676`, including GNU89 ACL policy regressions and source-order assertions for malformed duplicate and unterminated records.
+- AI handoff documentation #45408307604 and Process inventory #45408307674 also passed on the same SHA. NVRAM audit #45408307596 and XY-C1 firmware #45408308038 were still in progress at last poll; the firmware Build was running, with TRX verification and artifact upload pending.
+- No L3 claim for the current VSFTPD SHA. The separately verified XUPnP source SHA `eb0fbb1` retains its own Build/TRX/artifact PASS evidence.
+
+---
+
 ## 2026-11-24 — Reject unterminated duplicate VSFTPD ACL records
 
 - Follow-up review found the same fail-open pattern at EOF: after a valid permission line, the parser stopped at a final unterminated line before checking whether it repeated the requested `*folder=` key. A truncated duplicate could therefore be silently ignored.
