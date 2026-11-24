@@ -1,3 +1,12 @@
+## 2026-11-24 — Make AliDNS RFC3986 encoder portable to configured ash
+
+- The read -d '' -n1 encoder relied on optional BusyBox ash extensions not enabled by the board configuration; the Bash re-exec in the test fixture masked the target-shell mismatch.
+- Replaced it with a POSIX read -r line loop, byte-wise parameter expansion under LC_ALL=C and explicit %0A output for each LF consumed by read. No read -n/read -d, od or Bash is used.
+- Removed Bash re-exec/helper from the fixture; sourced production functions are now exercised directly under /bin/sh. Local /bin/sh checks passed for reserved punctuation, quote/backslash, whitespace, UTF-8, controls, single/multiple/empty LF and unterminated final input. Exact full regression pending.
+- Parent 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS #45356096386 and Process #45356096367 PASS. Parent 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS.
+
+---
+
 ## 2026-11-24 — Restore VSFTPD decimal parser source-contract binding
 
 - Exact b87 VSFTPD run #45355332629 compiled and ran the GNU89 REST policy and existing parser tests successfully, but the workflow's Python source checker raised NameError: name 'decimal_parser' is not defined: REST assertions had displaced an existing local function-body binding.

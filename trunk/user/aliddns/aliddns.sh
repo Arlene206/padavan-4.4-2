@@ -547,15 +547,27 @@ fi
 }
 
 urlencode() {
-	# Read exact bytes under the C locale. IFS= and -r preserve whitespace
-	# and backslashes; -d '' makes LF data rather than a record delimiter.
+	# POSIX read -r preserves bytes without optional shell extensions.
+	# Process lines in the C locale and encode each consumed LF explicitly.
 	LC_ALL=C
 	export LC_ALL
-	while IFS= read -r -d '' -n1 c; do
-		case "$c" in
-			[a-zA-Z0-9._~-]) printf '%s' "$c" ;;
-			*) printf '%%%02X' "'$c" ;;
-		esac
+	while :; do
+		value=
+		if IFS= read -r value; then
+			have_newline=1
+		else
+			have_newline=0
+		fi
+		while [ -n "$value" ]; do
+			c=${value%"${value#?}"}
+			value=${value#?}
+			case "$c" in
+				[a-zA-Z0-9._~-]) printf '%s' "$c" ;;
+				*) printf '%%%02X' "'$c" ;;
+			esac
+		done
+		[ "$have_newline" -eq 0 ] && break
+		printf '%%0A'
 	done
 }
 

@@ -1,32 +1,31 @@
 ## Current repository state
 
-- Live parent main before this atomic checker fix: e942deb224896716d3c968a80255430eb4006ae7.
+- Live parent main before the current AliDNS portability repair: 825e3ac7faab97eec889dc1e0109b34ba4785547.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- FRP process argument/identity fix and checker correction: d2b954034d1a41de7dd9c170d597fbb6c2fa39b0, f933a44bcfa494d4aa4622b69d50c1713b6d2fc4.
-- VSFTPD PORT/EPRT decimal parsing, IPv4/IPv6 structural validation, hextet width, RFC2428 delimiter and DEL-fixture repair: d7490d832b53d7e74b92ed92642413e1c19ed412, 990fe8a814c515df8c161231d088af0efb9de41f, 008c440e32d624fc98f7e2d0cf6ee56279b46abc, b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7, b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5, ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf.
-- FTP REST strict marker validation: b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94; unit-test compile/execution PASS, first source checker missed the decimal parser local binding (NameError). This commit restores the binding and only changes the checker.
-- AliDNS encoder changed in d651b0f9d17861459b10f5026ef146172d568c54, then moved to BusyBox ash read -d/-n in 7b9b8aeb8c56f539e1a8532654056c6cb90748a8. The current test fixture re-execs Bash and an overlapping concurrent change removed several closing braces in the test script, so exact e942 AliDNS run #45355770998 failed at its test step. The read -n dependency is not enabled in the board's BusyBox ash configuration; replace it with target-safe logic, not a Bash-only test workaround.
+- FRP process argument/identity hardening and checker repair: d2b954034d1a41de7dd9c170d597fbb6c2fa39b0, f933a44bcfa494d4aa4622b69d50c1713b6d2fc4.
+- VSFTPD PORT/EPRT numeric parsing, IPv4/IPv6 structure, hextet width, RFC2428 delimiter support and DEL fixture repair: d7490d832b53d7e74b92ed92642413e1c19ed412, 990fe8a814c515df8c161231d088af0efb9de41f, 008c440e32d624fc98f7e2d0cf6ee56279b46abc, b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7, b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5, ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf.
+- VSFTPD REST strict 1–15 digit parser and regression: b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94. Exact checker repair 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS. NVRAM #45355332714 later PASS; XY-C1 #45355332727 was still IN_PROGRESS at last observation.
+- AliDNS RFC3986 encoder was changed in d651b0f9d17861459b10f5026ef146172d568c54, then moved to optional ash read -d/-n in 7b9b8aeb8c56f539e1a8532654056c6cb90748a8. That extension is not enabled in the board configuration and previous tests masked the mismatch by running Bash. Commit 825e3ac7faab97eec889dc1e0109b34ba4785547 restored the full fixture after an e942 test-script break; exact AliDNS #45356096386 and Process #45356096367 PASS.
 
 ## Active task
 
-Restore VSFTPD static-source contract and validate the existing REST guard:
-- Exact b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94 run #45355332629 had GNU89 compilation and C policy tests PASS (including REST offset test), then failed the static contract with NameError: name 'decimal_parser' is not defined. The REST insertion replaced the pre-existing decimal parser binding.
-- Restored decimal_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_uint(") before octet_parser. No production code or test behavior changed; exact-head validation pending.
-- Exact b87 Process #45355332631 and AI handoff #45355332668 PASS; XY-C1 #45355332727 and NVRAM #45355332714 were still running at last observed status. The e942 AliDNS test run #45355770998 FAILED; Process #45355770855 PASS.
+Remove the AliDNS BusyBox ash read-extension dependency:
+- Replaced read -d '' -n1 with a POSIX read -r line loop under LC_ALL=C; byte-wise shell parameter expansion and printf percent-encode octets, while each consumed LF is explicitly encoded as %0A. The encoder uses no read -n, read -d, od or Bash.
+- Removed the test's Bash re-exec and helper; tests call the sourced production functions directly under /bin/sh. Local /bin/sh checks passed for reserved ASCII, quote/backslash, spaces, UTF-8, controls, one/multiple/empty LF and unterminated final bytes. Exact-head CI pending.
+- Parent 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS #45356096386 and Process #45356096367 PASS. Parent 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS.
 
 ## Verification boundary
 
+- Exact 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS signed API transport regression and Process lifecycle inventory PASS.
+- Exact 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD stability regression and AI handoff contract PASS.
 - Exact ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf: VSFTPD #45354611125, Process #45354611121, AI handoff #45354611170 and NVRAM #45354611026 PASS.
-- Exact b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94: VSFTPD C compile/tests PASS; Python source contract FAIL (missing decimal_parser binding); Process/AI PASS; XY-C1 and NVRAM pending at last check.
-- Exact e942deb224896716d3c968a80255430eb4006ae7: AliDNS #45355770998 FAIL in shell regression test; Process #45355770855 PASS.
-- No claimed physical router validation. Do not equate a queued firmware build with PASS.
+- No physical router validation; in-progress XY-C1 runs are not marked PASS.
 
 ## Exact first action for the next GPT
 
-1. Verify the VSFTPD static source checker passes on this checker-only commit.
-2. Repair AliDNS test script structure and replace optional ash read -n usage with a target-safe byte-preserving encoder plus tests executed under POSIX ash-compatible shell.
-3. Recheck exact b87 XY-C1/NVRAM run final statuses, then continue an independent userland stability/security defect.
-4. Keep backup frozen and all development on main only.
+1. Verify exact-head POSIX AliDNS encoder tests and static contract.
+2. Check exact b87 XY-C1 Build/TRX/artifact run #45355332727 final status; if still pending, inspect latest firmware SHA.
+3. Continue independent userland stability/security work; keep backup frozen and main-only.
 
 # Cross-session execution mandate
 

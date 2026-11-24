@@ -121,19 +121,22 @@ require("-k" not in send_request and "--insecure" not in send_request and
         "signed requests must not disable TLS checks or forward credentials through redirects")
 require("--config -" in send_request and 'url = "$request_url"' in send_request,
         "credential-bearing AliDNS URL must be delivered through curl stdin rather than argv")
-require("IFS= read -r -d '' -n1 c" in urlencode and "LC_ALL=C" in urlencode and
+require("while :" in urlencode and "IFS= read -r value" in urlencode and
+        "LC_ALL=C" in urlencode and
         '[a-zA-Z0-9._~-]' in urlencode and
+        'printf \'%%%02X\' "'$c"' in urlencode and
+        'printf \'%%0A\'' in urlencode and
         'printf \'%s\' "$1" | urlencode' in enc and
-        "echo -n" not in enc and
-        '# CONFIG_OD is not set' in busybox_config,
-        "AliDNS encoder must be byte-safe using only the target BusyBox ash shell builtin")
-require('if [ -z "${BASH_VERSION:-}" ]; then' in test and
-        'exec bash "$0" "$@"' in test and
-        'bash -c \'. "$1"; enc "$2"\' _ "$FUNCTIONS" "$1"' in test and
+        "read -n" not in urlencode and "read -d" not in urlencode and
+        "od" not in urlencode,
+        "AliDNS encoder must use POSIX read and preserve bytes without optional BusyBox ash features")
+require('if [ -z "${BASH_VERSION:-}" ]; then' not in test and
+        "exec bash" not in test and
+        "test_encode" not in test and
         "expected_signature_url=$(enc \"$expected_signature\")" in test and
         "a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22" in test and
         "%E6%B5%8B%E8%AF%95" in test and "line%0Abreak" in test,
-        "AliDNS API fixture must cover reserved bytes, whitespace and UTF-8 canonical encoding")
+        "AliDDNS fixture must run under POSIX /bin/sh and test RFC3986 byte encoding")
 require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"' in send_request and
         'signing_input="GET&%2F&$(enc "$args")"' in send_request and
         'hash=$(printf \'%s\\000%s\' "$aliddns_sk&" "$signing_input" | aliddns_hmac_sha1)' in send_request and
