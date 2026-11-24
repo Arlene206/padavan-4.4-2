@@ -1643,6 +1643,7 @@ assert '"trunk/user/rc/src/tests/char_to_ascii_policy.c"' in process_workflow
 auth_source = (root / "trunk/user/rc/src/auth.c").read_text()
 auth_stop_kabinet = auth_source.split("int stop_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
 auth_stop_eapol = auth_source.split("int stop_auth_eapol(void)", 1)[1].split("\n}", 1)[0]
+auth_start_eapol = auth_source.split("int start_auth_eapol(", 1)[1].split("\n}", 1)[0]
 auth_start_kabinet = auth_source.split("int start_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
 auth_nvram_get = auth_source.split("auth_kabinet_nvram_get(void *context", 1)[1].split("\n}", 1)[0]
 auth_read_value = auth_source.split("auth_kabinet_read_value(void *context", 1)[1].split("\n}", 1)[0]

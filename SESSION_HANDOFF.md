@@ -6,16 +6,16 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `dc1d0654022a1cfec415d589f2f4c05fa352f541`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Remove LAN authentication password from the daemon argument vector
+### Verify private LAN authentication credential transport
 
-`start_auth_kabinet()` still launches `/usr/sbin/lanauth` using `eval(..., "-p", password)`, exposing the configured secret in the process argument vector. Inspect the `lanauth` option parser and daemon input paths before changing the interface. Prefer a private mode-0600 credential/config file or inherited descriptor that the daemon can read without exposing the secret in `/proc/*/cmdline`; preserve the existing `-s` gateway behavior, stop/readiness semantics and backward compatibility. Add a host regression and source contract for the new secret transport. This remains open after the checked-read fix.
+The checked-read fix and file-based `lanauth -f` transport are committed. Verify exact-head Process and XY-C1 runs for the private credential file loader, its no-follow/permissions checks, one-shot unlink, and the RC caller contract. Repair only real failures; no firmware L3 claim until Build, TRX and artifact upload all pass on the same SHA.
 
 ## Completed source slices
 
@@ -119,10 +119,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head Process regression and XY-C1 build for the private lanauth credential-file transport. Confirm the GNU89 ASan/UBSan reader test, source integration contract, Build, TRX and artifact upload before claiming firmware validation.
-2. Inspect exact-head Process and AI handoff runs for the new source commit and close any remaining FAIL/PENDING gate accurately.
-3. Continue an uncovered Padavan userland security/stability defect after confirming this credential transport; do not reopen validated account snapshots, FTP ACL visibility, SSH modes, VTS rules, WAN counter, USB retry or OpenVPN lifetime slices without new failing evidence.
-4. Refresh main and the frozen backup before writes; keep main-only atomic commits and update the handoff when its first task changes.
+1. Check exact-head Process #45507787228, AI handoff #45507787206, XY-C1 #45507787157 and the other exact-head gates for source SHA 4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120. Process run #45507075779 failed at a follow-up checker NameError (`auth_start_eapol` declaration was dropped); this correction restores that declaration. Check the new Process rerun before claiming the credential test passed.
+2. Confirm XY-C1 Build, TRX and artifact upload all pass on the same source SHA before claiming firmware validation.
+3. Continue with one uncovered userland security/stability defect only after resolving those exact-head gates. Keep main-only atomic CAS commits and leave the frozen backup unchanged.
 
 
 ## Mandatory handoff checkpoint

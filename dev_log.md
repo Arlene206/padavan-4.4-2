@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore EAPoL source variable in process integration checker
+
+- Process lifecycle run #45507075779 on source SHA 3e31c744db7c4fd27665ccadc7325058c3c60a83 failed after the checked-read stop assertion was corrected: the checker still referenced `auth_start_eapol`, but the prior replacement had removed its declaration. Restored the declaration without changing EAPoL production assertions.
+- The private lanauth credential transport is on main at 4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120; exact Process rerun, new AI docs, XY-C1 and NVRAM audit remain to be verified.
+- Parent main SHA: 4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120.
+
+---
+
 ## 2026-11-24 — Keep LAN authentication password out of managed daemon argv
 
 - lanauth previously accepted only `-p <password>`; the RC service passed the NVRAM secret in argv before the daemon's later optarg overwrite. Added a one-shot credential file transport: RC uses `mkstemp`, exact mode 0600, complete write and `fsync`, then passes only the random pathname with `-f`. lanauth opens with `O_NOFOLLOW|O_NONBLOCK`, validates regular-file type, effective owner, single link, exact mode and inode identity, reads at most the legacy 20-byte password, then unlinks the file before daemonizing. The old `-p` interface remains for manual compatibility; managed router starts now use `-f`.
