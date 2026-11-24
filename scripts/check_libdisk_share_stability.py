@@ -253,7 +253,7 @@ for locked_writer in (
 
 
 pinned_scanner = function_body(
-    DISK_SOURCE, "static int\\nget_all_folder_in_directory_fd(int directory_fd,"
+    DISK_SOURCE, "get_all_folder_in_directory_fd(int directory_fd,"
 )
 pinned_scanner_compact = "".join(pinned_scanner.split())
 require('openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)' in
@@ -266,7 +266,7 @@ require('openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)' in
         "internal storage scanner must enumerate and validate entries through one pinned directory descriptor")
 
 pinned_cache = function_body(
-    DISK_SOURCE, "static int\\nget_folder_list_in_directory_fd(int directory_fd,"
+    DISK_SOURCE, "get_folder_list_in_directory_fd(int directory_fd,"
 )
 pinned_cache_compact = "".join(pinned_cache.split())
 cache_read_at = pinned_cache_compact.index(
@@ -293,7 +293,7 @@ for signature in (
             "close(directory_fd)" in compact,
             "folder snapshot API must keep its mount directory open through generation and publication")
 initial_snapshot = function_body(
-    DISK_SOURCE, "static int\\ninitial_folder_list_in_directory_fd(int directory_fd)"
+    DISK_SOURCE, "initial_folder_list_in_directory_fd(int directory_fd)"
 )
 initial_snapshot_compact = "".join(initial_snapshot.split())
 require("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)" in
