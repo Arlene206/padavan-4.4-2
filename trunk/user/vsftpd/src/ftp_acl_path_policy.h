@@ -1,5 +1,16 @@
 #ifndef FTP_ACL_PATH_POLICY_H
 #define FTP_ACL_PATH_POLICY_H
+
+/*
+ * Share rights are 0=none, 1=read, 2=write, 3=read/write.
+ * Unknown values fail closed. Keep directory access and LIST visibility
+ * on the same read-permission rule.
+ */
+static int
+ftp_acl_share_rights_allow_read(int user_right)
+{
+  return user_right == 1 || user_right == 3;
+}
 #include <limits.h>
 #include <stddef.h>
 #include <string.h>

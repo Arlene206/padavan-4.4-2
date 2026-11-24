@@ -296,7 +296,7 @@ asus_check_permission_at(struct vsf_session* p_sess, int perm,
 				goto free_and_exit;
 			}
 		} else if (perm == PERM_READ) {
-			if (i_user_right < 1 || i_user_right == 2) {
+			if (!ftp_acl_share_rights_allow_read(i_user_right)) {
 				i_result = 0;
 				goto free_and_exit;
 			}
@@ -923,7 +923,7 @@ asus_check_file_visible(struct vsf_session* p_sess,
       account_ftp = str_getbuf(&p_sess->user_str);
     }
     i_user_right = get_permission_ftp(account_ftp, mount_path, share_name);
-    if (i_user_right < 1) {
+    if (!ftp_acl_share_rights_allow_read(i_user_right)) {
       i_result = 0;
       goto free_and_exit;
     }

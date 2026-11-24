@@ -1,8 +1,16 @@
+## 2026-11-24 — Align FTP share listing visibility with read permissions
+
+- `asus_check_permission_at(..., PERM_READ, ...)` already treated share-right 2 as write-only and denied directory access, but `asus_check_file_visible()` accepted every value >=1. A write-only user could see protected share directory names in parent listings even though CWD/read authorization denied access.
+- Added one fail-closed `ftp_acl_share_rights_allow_read()` rule and use it for both PERM_READ authorization and share-entry visibility. Only rights 1 (read) and 3 (read/write) are visible; 0, 2 (write-only), negative/error and unknown values are denied. Added GNU89 tests for 0, 1, 2, 3, -1 and 4, plus exact-source assertions for both production callsites.
+- Parent main SHA: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`. VSFTPD Stability and AI handoff checks must be verified on the resulting atomic commit. No target firmware build or physical-router validation is claimed.
+
+---
+
 ## 2026-11-24 — Reject unsupported SSH daemon mode values
 
 - `sshd_nvram_mode_status()` accepted any in-range integer, but `start_sshd_with_mode()` implements only modes 0 (disabled), 1 (Dropbear) and 2 (OpenSSH). A corrupt value such as 3 could therefore pass configuration validation and return success without starting a listener; negative modes were silently treated as disabled.
 - Reject values outside 0..2 with `EINVAL` without modifying the caller's output. Added GNU89 sentinel-preservation tests for -1, 3, INT_MIN and INT_MAX, and exact-source assertions for the range guard and all boundary cases. The Process Lifecycle Regression workflow already filters these source/test/checker paths and runs the policy test under ASan/UBSan.
-- Parent main SHA: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`. Exact-head Process Lifecycle and AI handoff validation are pending after this atomic commit. XY-C1 #45503440356 is still pending on the earlier product-source SHA 6d and is tracked separately. No target MIPS/uClibc runtime or physical-router validation is claimed.
+- Parent main SHA: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`. Exact-head Process Lifecycle #45504233875, PID 1 SSH policy regression #45504233986, AI handoff #45504233800, process inventory #45504234314 and NVRAM audit #45504234041 all PASS. The two preceding XY-C1 runs #45502092732 (d096) and #45503440356 (6d) also completed Build, TRX and artifact upload successfully; neither run is the 07e7 source SHA. No target MIPS/uClibc runtime on the 07e7 source or physical-router validation is claimed.
 
 ---
 

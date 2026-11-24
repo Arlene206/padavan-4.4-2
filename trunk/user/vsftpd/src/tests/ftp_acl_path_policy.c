@@ -156,6 +156,21 @@ test_account_permission_path_builder(void)
   return 0;
 }
 
+static int
+test_share_read_permission_policy(void)
+{
+  if (!ftp_acl_share_rights_allow_read(1) ||
+      ftp_acl_share_rights_allow_read(0) ||
+      ftp_acl_share_rights_allow_read(2) ||
+      !ftp_acl_share_rights_allow_read(3) ||
+      ftp_acl_share_rights_allow_read(-1) ||
+      ftp_acl_share_rights_allow_read(4)) {
+    fprintf(stderr, "FTP share read permission policy mismatch\\n");
+    return 1;
+  }
+  return 0;
+}
+
 int
 main(void)
 {
@@ -194,7 +209,8 @@ main(void)
   struct stat st, canonical_st, cleanup_st, replacement_st;
   char *created;
 
-  if (test_share_permission_records() != 0 ||
+  if (test_share_read_permission_policy() != 0 ||
+      test_share_permission_records() != 0 ||
       test_account_permission_path_builder() != 0 ||
       ftp_acl_path_cleanup_directory_name(cleanup_dir_leaf,
                                           sizeof(cleanup_dir_leaf)) != 0)

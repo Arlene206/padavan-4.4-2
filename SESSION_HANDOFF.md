@@ -6,20 +6,22 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Reject unsupported SSH daemon mode values
+### Keep FTP share listing visibility consistent with read ACLs
 
-`sshd_nvram_mode_status()` strictly parsed an integer but accepted every value in the C `int` range. `start_sshd_with_mode()` handles only 1 (Dropbear) and 2 (OpenSSH); other values returned success without starting a daemon, while negative values silently acted like disabled mode. A corrupt `sshd_enable=3` could therefore falsely report successful startup with no SSH listener.
-
-The parser now rejects values outside 0..2 with `EINVAL` and leaves the output untouched. GNU89 regression cases cover -1, 3, INT_MIN and INT_MAX with sentinel preservation. The Process Lifecycle Regression workflow already filters the policy header, test and exact-source checker, and compiles the test with `-Wall -Wextra -Werror -fsanitize=address,undefined`. Parent main SHA: `05356ed622d1762e5e251c6adeb5fcd7be7713b6`; exact-head Process Lifecycle, AI docs and applicable XY-C1 validation must be checked after this atomic commit.
+The canonical `PERM_READ` check denies share-right value 2 (write-only), but `asus_check_file_visible()` only rejected values below 1. A write-only account could therefore see a protected share directory in a parent LIST response even though CWD/read checks denied entry. Centralize the documented rights mapping (0=none, 1=read, 2=write, 3=read/write) in `ftp_acl_share_rights_allow_read()` and use it for both directory authorization and listing visibility. Unknown values fail closed. GNU89 regression cases cover 0, 1, 2, 3, -1 and 4; the existing VSFTPD stability workflow compiles the descriptor-relative ACL policy test and pins the exact source callsites. Parent main SHA: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`; inspect the exact-head VSFTPD run after this atomic commit.
 
 ## Completed source slices
+
+### SSH daemon supported-mode validation
+
+Commit `07e7c3453ab02d25704c2d6770a1c30d06d771f3` rejects `sshd_enable` outside 0..2 with `EINVAL`, preserving the caller's output. GNU89 tests cover -1, 3, INT_MIN and INT_MAX. Exact-head Process Lifecycle #45504233875 and PID 1 notification #45504233986 both PASS, including the SSH policy regression compile/run; AI docs #45504233800, process inventory #45504234314 and NVRAM boundary audit #45504234041 PASS. No XY-C1 run was triggered for this SSH-only source SHA.
 
 ### Firewall virtual-server optional translation-port reads
 
@@ -43,8 +45,8 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 - SHA `786c504c8247fe42d5d1d5f2dc3ad28757fafc80`: #45498624157 Build, TRX and artifact upload PASS.
 - SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a`: #45499228265 Build, TRX and artifact upload PASS.
-- SHA `d096f168bfe4188f5223bf76806b4ea012742580`: #45502092732 PENDING at last poll; Build active, TRX/artifact steps pending. This does not cover the later firewall source change.
-- SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`: #45503440356 PENDING at last poll; Build active.
+- SHA `d096f168bfe4188f5223bf76806b4ea012742580`: XY-C1 #45502092732 PASS; Build XY-C1, TRX verification and artifact upload all completed SUCCESS.
+- SHA `6d5d5376e425587e6f116d09f88cbcc7ac6a05c1`: XY-C1 #45503440356 PASS; Build XY-C1, TRX verification and artifact upload all completed SUCCESS.
 
 ### d096f168bfe4188f5223bf76806b4ea012742580 exact-head Actions
 
@@ -56,19 +58,28 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 - HTTPD authentication/security #45502092764: PASS.
 - OpenVPN client credential staging #45502092820: PASS.
 
+### SSH policy SHA 07e7c3453ab02d25704c2d6770a1c30d06d771f3
+
+- Process Lifecycle regression #45504233875: PASS, including `Compile and run SSH firewall fail-closed policy regression`.
+- PID 1 notification queue #45504233986: PASS, including `Compile and run GNU89 SSH daemon restart policy regression`.
+- AI handoff docs #45504233800: PASS.
+- Process lifecycle inventory #45504234314: PASS.
+- NVRAM transaction boundary audit #45504234041: PASS; raw userland NVRAM caller audit completed with no bypass finding.
+- No XY-C1 build was triggered for this SSH-only commit. The closest firmware validations are d096 #45502092732 and 6d #45503440356, both full Build/TRX/artifact PASS, but those results are tied to their exact source SHAs.
+
 ### Firewall / checker SHA 2be0e5125bb29f01fc3a9a15fe8938a554387452
 
 - Firewall Startup Stability #45503784466: PASS. The exact-source checker and GNU89 ASan/UBSan VTS policy test passed, together with the other firewall policy checks.
-- AI handoff documentation #45503784498: FAIL because the handoff omitted the validator's exact mandatory-checkpoint sentence. Commit #05356ed622d1762e5e251c6adeb5fcd7be7713b6 restores it; rerun #45504014822 was in progress at the last poll.
-- XY-C1 #45503440356 remains PENDING on older product-source SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1; it does not validate later SSH source.
+- AI handoff documentation #45503784498: FAIL because the handoff omitted the validator's exact mandatory-checkpoint sentence. Commit #05356ed622d1762e5e251c6adeb5fcd7be7713b6 restores it; rerun #45504014822 PASS.
+- XY-C1 #45503440356 PASS on older product-source SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1; this does not validate later SSH source.
 - NVRAM audit #45503440350, WAN route #45503440493, IPv6 service #45503440453, AI docs #45503440345, WAN DHCP #45503440341, process inventory #45503440565, HTTPD #45503440466 and FULLCONENAT #45503440566: PASS on SHA 6d5d5376e425587e6f116d09f88cbcc7ac6a05c1.
 - No target MIPS/uClibc runtime or physical-router L4 validation is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process Lifecycle Regression and AI handoff documentation runs for the SSH mode validation commit. Confirm the GNU89 ASan/UBSan test, exact-source contract and handoff checker pass; fix the first real failing step.
-2. Recheck XY-C1 #45503440356 on source SHA 6d separately; claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on the identical SHA. Do not transfer this result to newer SSH source.
-3. Continue a concrete uncovered stability/security defect across Padavan userland. Do not reopen completed VTS port-read, WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
+1. Inspect exact-head VSFTPD stability run for the write-only share visibility change. Confirm GNU89 ACL policy tests and exact-source listing/CWD consistency assertions pass; repair the first real failing step.
+2. Recheck exact-head AI handoff validation after the bundled checkpoint update. Prior source SHA 07e7 has Process/PID1/AI/NVRAM PASS; no XY-C1 was triggered for that source, so do not claim L3 for it.
+3. Continue a concrete uncovered stability/security defect across Padavan userland. Avoid reopening the verified SSH mode validation, VTS port reads, WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
 4. Before any write, refresh live main and the frozen backup ref; before ending, refresh exact-SHA Actions and leave the first concrete next action.
 
 ## Mandatory handoff checkpoint

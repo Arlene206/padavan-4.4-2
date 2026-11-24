@@ -707,6 +707,13 @@ jobs:
           assert "reserved metadata file or symlink alias was accepted" in acl_path_test
           assert "ftp_acl_path_is_internal_metadata" in vsftpd_acl
           assert "ftp_acl_path_is_internal_metadata(p_filename)" in vsftpd_acl
+          share_read = function_body(acl_path_policy, "ftp_acl_share_rights_allow_read(")
+          assert "return user_right == 1 || user_right == 3;" in share_read
+          assert "ftp_acl_share_rights_allow_read(i_user_right)" in acl_at
+          assert "ftp_acl_share_rights_allow_read(i_user_right)" in acl_visible
+          for user_right in ("(1)", "(0)", "(2)", "(3)", "(-1)", "(4)"):
+              assert "ftp_acl_share_rights_allow_read" + user_right in acl_path_test
+          assert "FTP share read permission policy mismatch" in acl_path_test
           assert "reserved FTP metadata classification failed" in acl_path_test
           assert "ENAMETOOLONG" in child_path
           assert "length < 0" in child_path
