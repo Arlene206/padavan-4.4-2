@@ -277,7 +277,8 @@ stop_daemons = function_body(source, "frp_stop_daemons()")
 require("frp_signal_all TERM" in stop_daemons and "frp_wait_stopped 5" in stop_daemons and
         "frp_signal_all KILL" in stop_daemons and "frp_wait_stopped 2" in stop_daemons and
         'case "$frp_term_wait_status" in' in stop_daemons and
-        "verified timeout" in stop_daemons,
+        "1) ;;" in stop_daemons and "拒绝升级SIGKILL" in stop_daemons and
+        stop_daemons.index('case "$frp_term_wait_status" in') < stop_daemons.index("frp_signal_all KILL"),
         "FRP owned-daemon stop must escalate only after a verified TERM timeout")
 stop = function_body(services, "int stop_frp(void)")
 start = function_body(services, "void start_frp(void)")

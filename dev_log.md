@@ -1,3 +1,11 @@
+## 2026-11-23 — Verify FRP SIGKILL gate through exit-status semantics
+
+- Exact FRP run #45342815755 on `ebbd4dd406187a3b88b7f270f46fd8771bfc3253` passed all executable regression steps, including async startup, isolated managed-crontab tests, boot/config tests, exact process stop and lifecycle lock. Its only failure was a stale source checker requiring the literal comment/string `verified timeout`; production correctly allows SIGKILL only when `frp_wait_stopped 5` returns status 1 (confirmed still-running timeout), while UNKNOWN is rejected.
+- Updated the checker to assert the actual `case "$frp_term_wait_status"` status-1 branch, the unknown-state rejection message and that this gate precedes `frp_signal_all KILL`. No production code was relaxed or changed.
+- Exact AI handoff docs #45342815724 PASS on `ebbd4dd`; Process inventory #45342556827 PASS on `4be3f3898faf4665ebe19b1e87cf385bd162c21e`. AI docs also validated the required exact `## Active task` heading.
+- Parent main: `ebbd4dd406187a3b88b7f270f46fd8771bfc3253`. This checker-only commit should trigger FRP lifecycle, Process inventory and AI handoff checks on the exact new SHA.
+
+---
 ## 2026-11-23 — Align FRP process-path source contract with composed procfs paths
 
 - On exact commit `4be3f3898faf4665ebe19b1e87cf385bd162c21e`, the FRP lifecycle run #45342556772 passed every executable regression step, including asynchronous startup, `frp_crontab.sh`, boot/config tests, exact process stop and lifecycle lock. Only the final static source checker failed because it expected a literal `$FRP_PROC_ROOT/$frp_match_pid/exe` string even though the implementation safely builds `frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"` and then appends `/exe` and `/cmdline`.
