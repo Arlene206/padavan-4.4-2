@@ -891,26 +891,23 @@ int initial_folder_list_in_mount_path(const char *const mount_path)
 }
 
 
-static int initial_one_var_file_in_mount_path_locked(const char *const account,
-                                      const char *const mount_path)
+static int
+initial_one_var_file_in_directory_fd_locked(const char *account,
+                                            int directory_fd)
 {
-	int sh_num = 0, result, saved_errno, directory_fd = -1;
+	int sh_num = 0, result, saved_errno;
 	char **folder_list = NULL;
 	char var_leaf[64];
 	int samba_right, ftp_right, leaf_len;
 	struct disk_share_defaults_writer_context writer_context;
 
-	if (!is_valid_account_name(account) || !mount_path || !*mount_path) {
+	if (!is_valid_account_name(account) || directory_fd < 0) {
 		errno = EINVAL;
 		return -1;
 	}
-	directory_fd = disk_share_open_mount_directory(mount_path);
-	if (directory_fd < 0)
-		goto failed;
 	result = get_all_folder_in_directory_fd(directory_fd, &sh_num, &folder_list);
 	if (result != 0)
 		goto failed;
-
 	if (!strcmp(account, FTP_ANONYMOUS_USER)) {
 		samba_right = 0;
 		ftp_right = 1;
@@ -923,7 +920,6 @@ static int initial_one_var_file_in_mount_path_locked(const char *const account,
 		errno = ENAMETOOLONG;
 		goto failed;
 	}
-
 	writer_context.folder_count = sh_num;
 	writer_context.folder_list = folder_list;
 	writer_context.samba_right = samba_right;
@@ -934,22 +930,38 @@ static int initial_one_var_file_in_mount_path_locked(const char *const account,
 		&writer_context, 0);
 	if (result != 0)
 		goto failed;
-
-	if (close(directory_fd) != 0) {
-		directory_fd = -1;
-		goto failed;
-	}
-	directory_fd = -1;
 	free_2_dimension_list(&sh_num, &folder_list);
 	return 0;
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	if (directory_fd >= 0)
-		(void)close(directory_fd);
 	free_2_dimension_list(&sh_num, &folder_list);
 	errno = saved_errno;
 	return -1;
+}
+
+
+static int initial_one_var_file_in_mount_path_locked(const char *const account,
+                                      const char *const mount_path)
+{
+	int directory_fd, result, saved_errno;
+
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
+		return -1;
+	}
+	directory_fd = disk_share_open_mount_directory(mount_path);
+	if (directory_fd < 0)
+		return -1;
+	result = initial_one_var_file_in_directory_fd_locked(account, directory_fd);
+	saved_errno = errno;
+	if (close(directory_fd) != 0 && result == 0) {
+		saved_errno = errno ? errno : EIO;
+		result = -1;
+	}
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
 }
 
 
@@ -1238,12 +1250,12 @@ finished:
 }
 
 
-static int modify_if_exist_new_folder_locked(const char *const account,
-                                  const char *const mount_path)
+static int
+modify_if_exist_new_folder_in_directory_fd_locked(const char *account,
+                                                   int directory_fd)
 {
 	int sh_num = 0, cached_count = 0, missing_count = 0;
-	int directory_fd = -1, result, i, j, found;
-	int samba_right, ftp_right, leaf_len, saved_errno;
+	int result, i, j, found, samba_right, ftp_right, leaf_len, saved_errno;
 	char **folder_list = NULL, **cached_folder_list = NULL;
 	char **missing_folders = NULL;
 	char *old_info = NULL;
@@ -1251,17 +1263,13 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 	size_t old_len;
 	struct disk_share_update_writer_context writer_context;
 
-	if (!is_valid_account_name(account) || !mount_path || !*mount_path) {
+	if (!is_valid_account_name(account) || directory_fd < 0) {
 		errno = EINVAL;
 		return -1;
 	}
-	directory_fd = disk_share_open_mount_directory(mount_path);
-	if (directory_fd < 0)
-		goto failed;
 	result = get_all_folder_in_directory_fd(directory_fd, &sh_num, &folder_list);
 	if (result != 0)
 		goto failed;
-
 	if (sh_num > 0) {
 		if ((size_t)sh_num > (size_t)-1 / sizeof(*missing_folders)) {
 			errno = EOVERFLOW;
@@ -1271,11 +1279,11 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 		if (!missing_folders)
 			goto failed;
 	}
-
-	result = get_folder_list_in_directory_fd(
-		directory_fd, &cached_count, &cached_folder_list);
+	result = get_folder_list_in_directory_fd(directory_fd, &cached_count,
+	                                         &cached_folder_list);
 	if (result != 0)
 		goto failed;
+
 	for (i = 0; i < sh_num; ++i) {
 		found = 0;
 		for (j = 0; j < cached_count; ++j) {
@@ -1288,11 +1296,6 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 			missing_folders[missing_count++] = folder_list[i];
 	}
 	if (missing_count == 0) {
-		if (close(directory_fd) != 0) {
-			directory_fd = -1;
-			goto failed;
-		}
-		directory_fd = -1;
 		free(missing_folders);
 		free_2_dimension_list(&cached_count, &cached_folder_list);
 		free_2_dimension_list(&sh_num, &folder_list);
@@ -1315,7 +1318,6 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 	if (!old_info)
 		goto failed;
 	old_len = strlen(old_info);
-
 	writer_context.old_info = old_info;
 	writer_context.old_length = old_len;
 	writer_context.missing_count = missing_count;
@@ -1329,11 +1331,6 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 	if (result != 0)
 		goto failed;
 
-	if (close(directory_fd) != 0) {
-		directory_fd = -1;
-		goto failed;
-	}
-	directory_fd = -1;
 	free(old_info);
 	free(missing_folders);
 	free_2_dimension_list(&cached_count, &cached_folder_list);
@@ -1342,14 +1339,190 @@ static int modify_if_exist_new_folder_locked(const char *const account,
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	if (directory_fd >= 0)
-		(void)close(directory_fd);
 	free(old_info);
 	free(missing_folders);
 	free_2_dimension_list(&cached_count, &cached_folder_list);
 	free_2_dimension_list(&sh_num, &folder_list);
 	errno = saved_errno;
 	return -1;
+}
+
+
+static int modify_if_exist_new_folder_locked(const char *const account,
+                                  const char *const mount_path)
+{
+	int directory_fd, result, saved_errno;
+
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
+		return -1;
+	}
+	directory_fd = disk_share_open_mount_directory(mount_path);
+	if (directory_fd < 0)
+		return -1;
+	result = modify_if_exist_new_folder_in_directory_fd_locked(account,
+	                                                           directory_fd);
+	saved_errno = errno;
+	if (close(directory_fd) != 0 && result == 0) {
+		saved_errno = errno ? errno : EIO;
+		result = -1;
+	}
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
+}
+
+
+static int
+disk_share_account_metadata_status_at(int directory_fd, const char *account)
+{
+	char var_leaf[64];
+	struct stat status;
+	int leaf_len;
+
+	if (directory_fd < 0 || !is_valid_account_name(account)) {
+		errno = EINVAL;
+		return -1;
+	}
+	leaf_len = snprintf(var_leaf, sizeof(var_leaf), ".__%s_var.txt", account);
+	if (leaf_len < 0 || (size_t)leaf_len >= sizeof(var_leaf)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	if (fstatat(directory_fd, var_leaf, &status, AT_SYMLINK_NOFOLLOW) == 0) {
+		if (!S_ISREG(status.st_mode)) {
+			errno = EINVAL;
+			return -1;
+		}
+		return 1;
+	}
+	if (errno == ENOENT)
+		return 0;
+	return -1;
+}
+
+
+static int
+disk_share_create_or_update_account_metadata_at(int directory_fd,
+                                                const char *account)
+{
+	int status = disk_share_account_metadata_status_at(directory_fd, account);
+
+	if (status < 0)
+		return -1;
+	if (status == 0)
+		return initial_one_var_file_in_directory_fd_locked(account, directory_fd);
+	return modify_if_exist_new_folder_in_directory_fd_locked(account, directory_fd);
+}
+
+
+static int
+create_if_no_var_files_with_accounts(const char *mount_path, int acc_num,
+                                     char **account_list)
+{
+	int directory_fd = -1, result, i, j, saved_errno;
+
+	if (!mount_path || !*mount_path || acc_num < 0 ||
+	    acc_num > MAX_ACCOUNT_NUM || (acc_num > 0 && !account_list)) {
+		errno = EINVAL;
+		return -1;
+	}
+	for (i = 0; i < acc_num; ++i) {
+		if (!is_valid_account_name(account_list[i]) ||
+		    !strcmp(account_list[i], FTP_ANONYMOUS_USER)) {
+			errno = EINVAL;
+			return -1;
+		}
+		for (j = 0; j < i; ++j) {
+			if (strcmp(account_list[i], account_list[j]) == 0) {
+				errno = EINVAL;
+				return -1;
+			}
+		}
+	}
+	directory_fd = disk_share_open_mount_directory(mount_path);
+	if (directory_fd < 0)
+		return -1;
+
+	/* Preflight all active ACL targets before the first metadata mutation. */
+	result = disk_share_account_metadata_status_at(directory_fd, FTP_ANONYMOUS_USER);
+	if (result < 0)
+		goto failed;
+	for (i = 0; i < acc_num; ++i) {
+		result = disk_share_account_metadata_status_at(directory_fd, account_list[i]);
+		if (result < 0)
+			goto failed;
+	}
+
+	result = disk_share_create_or_update_account_metadata_at(directory_fd,
+	                                                        FTP_ANONYMOUS_USER);
+	if (result != 0)
+		goto failed;
+	for (i = 0; i < acc_num; ++i) {
+		result = disk_share_create_or_update_account_metadata_at(
+			directory_fd, account_list[i]);
+		if (result != 0)
+			goto failed;
+	}
+	if (close(directory_fd) != 0)
+		return -1;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	(void)close(directory_fd);
+	errno = saved_errno;
+	return -1;
+}
+
+
+int
+create_if_no_var_files(const char *const mount_path)
+{
+	int acc_num = 0, result, saved_errno = 0, end_errno;
+	char **account_list = NULL;
+	struct nvram_transaction transaction;
+
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (get_account_list(&acc_num, &account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finished;
+	}
+	if (disk_share_account_nvram_begin(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto finished;
+	}
+	if (disk_share_account_inventory_matches_locked(
+		    &disk_share_account_nvram_operations, &transaction,
+		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0) {
+		saved_errno = errno ? errno : EIO;
+		goto release;
+	}
+	result = create_if_no_var_files_with_accounts(mount_path, acc_num, account_list);
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+
+release:
+	errno = 0;
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		end_errno = errno ? errno : EIO;
+		if (saved_errno == 0)
+			saved_errno = end_errno;
+		else
+			logmessage("disk_share",
+				   "metadata initialization transaction release failed (errno %d)",
+				   end_errno);
+	}
+finished:
+	free_2_dimension_list(&acc_num, &account_list);
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
 }
 
 
