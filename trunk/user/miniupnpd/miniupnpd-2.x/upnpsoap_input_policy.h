@@ -165,4 +165,44 @@ miniupnpd_soap_protocol_valid(const char *protocol)
 	       );
 }
 
+
+/* A range-delete action must not report success after any backend failure. */
+struct miniupnpd_soap_delete_range_status {
+	unsigned int attempted;
+	unsigned int failed;
+};
+
+static inline void
+miniupnpd_soap_delete_range_status_init(
+	struct miniupnpd_soap_delete_range_status *status)
+{
+	if (!status)
+		return;
+	status->attempted = 0;
+	status->failed = 0;
+}
+
+static inline void
+miniupnpd_soap_delete_range_record(
+	struct miniupnpd_soap_delete_range_status *status, int delete_result)
+{
+	if (!status)
+		return;
+	if (status->attempted != UINT_MAX)
+		status->attempted++;
+	if (delete_result < 0 && status->failed != UINT_MAX)
+		status->failed++;
+}
+
+static inline int
+miniupnpd_soap_delete_range_error(
+	const struct miniupnpd_soap_delete_range_status *status)
+{
+	if (!status)
+		return 501; /* ActionFailed: do not claim an unverifiable success. */
+	if (status->attempted == 0)
+		return 730; /* PortMappingNotFound. */
+	return status->failed ? 501 : 0;
+}
+
 #endif /* MINIUPNPD_SOAP_INPUT_POLICY_H */

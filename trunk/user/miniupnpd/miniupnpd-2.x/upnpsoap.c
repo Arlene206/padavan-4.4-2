@@ -951,6 +951,8 @@ DeletePortMappingRange(struct upnphttp * h, const char * action, const char * ns
 	/*int manage;*/
 	unsigned short * port_list;
 	unsigned int i, number = 0;
+	struct miniupnpd_soap_delete_range_status delete_status;
+	int soap_error;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	startport_s = GetValueFromNameValueList(&data, "NewStartPort");
@@ -991,13 +993,22 @@ DeletePortMappingRange(struct upnphttp * h, const char * action, const char * ns
 		return;
 	}
 
+	miniupnpd_soap_delete_range_status_init(&delete_status);
 	for(i = 0; i < number; i++)
 	{
 		r = upnp_delete_redirection(port_list[i], protocol);
+		miniupnpd_soap_delete_range_record(&delete_status, r);
 		syslog(LOG_INFO, "%s: deleting external port: %hu, protocol: %s: %s",
 		       action, port_list[i], protocol, r < 0 ? "failed" : "ok");
 	}
 	free(port_list);
+	soap_error = miniupnpd_soap_delete_range_error(&delete_status);
+	if (soap_error != 0)
+	{
+		SoapError(h, soap_error, "ActionFailed");
+		ClearNameValueList(&data);
+		return;
+	}
 	bodylen = snprintf(body, sizeof(body), resp,
 	                   action, ns, action);
 	BuildSendAndCloseSoapResp(h, body, bodylen);

@@ -178,6 +178,33 @@ test_required_text_presence(void)
 	assert(miniupnpd_soap_required_text_present("port mapping"));
 }
 
+
+static void
+test_delete_range_result_status(void)
+{
+	struct miniupnpd_soap_delete_range_status status;
+
+	miniupnpd_soap_delete_range_status_init(&status);
+	assert(status.attempted == 0 && status.failed == 0);
+	assert(miniupnpd_soap_delete_range_error(&status) == 730);
+
+	miniupnpd_soap_delete_range_record(&status, 0);
+	miniupnpd_soap_delete_range_record(&status, 0);
+	assert(status.attempted == 2 && status.failed == 0);
+	assert(miniupnpd_soap_delete_range_error(&status) == 0);
+
+	miniupnpd_soap_delete_range_record(&status, -1);
+	assert(status.attempted == 3 && status.failed == 1);
+	assert(miniupnpd_soap_delete_range_error(&status) == 501);
+
+	miniupnpd_soap_delete_range_status_init(&status);
+	miniupnpd_soap_delete_range_record(&status, -1);
+	miniupnpd_soap_delete_range_record(&status, -EIO);
+	assert(status.attempted == 2 && status.failed == 2);
+	assert(miniupnpd_soap_delete_range_error(&status) == 501);
+	assert(miniupnpd_soap_delete_range_error(NULL) == 501);
+}
+
 int
 main(void)
 {
@@ -189,7 +216,8 @@ main(void)
 	test_protocol_number_boundaries();
 	test_ipv6_peer_identity_comparison();
 	test_required_text_presence();
+	test_delete_range_result_status();
 	test_invalid_output_arguments();
-	puts("MiniUPnP SOAP unsigned input policy: PASS");
+	puts("MiniUPnP SOAP unsigned input and range-delete result policy: PASS");
 	return 0;
 }

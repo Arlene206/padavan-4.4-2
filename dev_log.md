@@ -1,3 +1,12 @@
+## 2026-11-24 — Propagate MiniUPnP range-delete backend failures
+
+- `DeletePortMappingRange()` previously logged individual `upnp_delete_redirection()` failures but unconditionally sent a successful SOAP response after the loop. Clients could therefore retain stale mappings while being told that the complete delete action succeeded.
+- Added a range-result policy that counts attempted and failed deletions. Any backend failure now returns SOAP `501 ActionFailed`; only a zero-failure result sends the success response. The existing empty-range `730 PortMappingNotFound` and invalid-range handling remain intact.
+- GNU89 ASan/UBSan policy regression covers empty, all-success, mixed-success/failure, all-failure and invalid-state results. Added a source-order checker and exact workflow trigger/step.
+- XUPnP pair publication remains separately verified at its GNU89 regression and DNSMasq source-check level; Process umbrella still needs a green run after its multiline checker correction. No physical-router or new firmware L3 claim is made here.
+
+---
+
 ## 2026-11-24 — Normalize multiline XUPnP stage assertions in lifecycle contract
 
 - Process lifecycle run #45402388244 on `25db7b79cae620b6c2e36b1454e5cf1c92e5cfa5` passed the earlier process regressions, including the GNU89 ASan/UBSan XUPnP storage/file-safety test, but still failed at the updated checker’s first new assertion. The call is split across source lines in `net.c`, while the checker searched raw source for a single-line string.

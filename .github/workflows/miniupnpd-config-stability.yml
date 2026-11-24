@@ -33,6 +33,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "scripts/check_miniupnpd_soap_delete_range.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h"
@@ -96,6 +97,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "scripts/check_miniupnpd_soap_delete_range.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
@@ -240,6 +242,8 @@ jobs:
             trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c \
             -o /tmp/upnpsoap_input_policy_test
           ASAN_OPTIONS=detect_leaks=1 /tmp/upnpsoap_input_policy_test
+      - name: Verify MiniUPnP DeletePortMappingRange propagates backend failures
+        run: python3 scripts/check_miniupnpd_soap_delete_range.py
       - name: Compile and run IPv6 pinhole allocation and address policy regression
         run: |
           set -eu

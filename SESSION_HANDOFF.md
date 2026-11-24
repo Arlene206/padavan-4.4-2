@@ -1,14 +1,19 @@
 ## Current repository state
 
-- Active branch: `main`; process-checker follow-up parent for the XUPnP pair transaction: `25db7b79cae620b6c2e36b1454e5cf1c92e5cfa5`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- Active branch: `main`; MiniUPnP SOAP range-delete source fix and regressions parent: `364383be7889a9339887c1b4f04ce9ff9a273a10`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
 - MTK AP private-ioctl, HTTPD selector, WAN source-PHY range and QMI WDS/PDH teardown fixes retain recorded exact-SHA L3 Build/TRX/artifact evidence. Physical-router L4 remains unverified.
 - DHCPDECLINE retry/send-result chain: `4ca919b` / `02ddda7` / `4015869` / `aae46a6`. Exact-head udhcpc GNU89 ASan/UBSan regression/source contract #45400755028 PASS after the renamed test runner was fixed. AI handoff #45400755063 and Process lifecycle #45400755089 PASS; USB storage #45400755158 and NVRAM #45400755163 were pending at last poll. XY-C1 for production `4015869` #45400399157 was still building; TRX/artifact pending. Latest `aae46a6` is test/docs-only.
  
-## Active task — Publish XUPnP generated Lua configuration as a rollback-capable pair
+## Active task — MiniUPnP DeletePortMappingRange false-success handling
 
-- `start_xupnpd()` previously published `common.lua` before it opened, read and staged `xupnpd.lua`. A later source/NVRAM/write/fsync/second-rename failure could leave mixed old/new config files even though startup failed.
-- Both files are now fully rendered, flushed and fsynced before either destination changes. `dnsmasq_file_publish_pair()` snapshots both prior paths and restores the first if the second rename fails. A preserve-mode sentinel keeps each stage's already-selected permission bits.
-- GNU89 ASan/UBSan regression checks distinct mode preservation and forces a real second-rename failure by unlinking the second staging pathname while the stream remains open; both old files and modes must be restored. DNSMasq lifecycle runs a source-order contract and watches `net.c`.
+- In the current source fix, `DeletePortMappingRange()` records every `upnp_delete_redirection()` result and returns SOAP 501 if any deletion failed. It no longer sends a success response merely because the loop finished. Empty range still maps to 730.
+- Exact GNU89 ASan/UBSan and source-order checker are wired into `miniupnpd-config-stability.yml`. Check both on the exact commit SHA.
+ 
+## Previous task — XUPnP generated Lua configuration pair
+
+- `eb0fbb1` staged and fsynced both Lua files before pair publication through `dnsmasq_file_publish_pair()`, with backup restoration after a second-publish failure.
+- DNSMasq workflow #45402050207 on validator commit `2fd4c74` PASS. Process lifecycle #45402388244 on `25db` failed at a checker string matching the multiline stage call; fixed in the follow-up commit before the MiniUPnP task. Recheck exact Process run on this current main SHA.
+- NVRAM #45401700436 on `eb0fbb1` PASS. XY-C1 #45401700209 on product source `eb0fbb1` had build in progress at last poll; TRX and artifact were pending. No L3 claim for that slice until its exact-source Build/TRX/artifact all PASS.
 
 ## Verification boundary
 
@@ -19,7 +24,7 @@
 
 1. Fetch live `main` and verify exact-head Process lifecycle checker and GNU89/ASan/UBSan tests after the multiline assertion correction.
 2. Check same-SHA XY-C1 Build/TRX/artifact for product SHA `eb0fbb1`; record true status only.
-3. Continue the next independent userland stability/security defect.
+3. Check exact-head MiniUPnP SOAP range-delete regression/checker and Process lifecycle. Continue independent userland stability/security defects while XY-C1 runs remain pending.
 
 ## Mandatory handoff checkpoint
 
