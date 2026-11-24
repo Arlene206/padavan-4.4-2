@@ -345,7 +345,7 @@ require("disk_share_account_metadata_status_at(directory_fd,account)" in account
         "incremental account ACL creation must initialize missing files and extend existing files using the same pinned mount descriptor")
 
 create_with_accounts = function_body(
-    DISK_SOURCE, "create_if_no_var_files_with_accounts(const char *mount_path,"
+    DISK_SOURCE, "create_if_no_var_files_with_accounts_at(int directory_fd,"
 )
 create_with_accounts_compact = "".join(create_with_accounts.split())
 anonymous_preflight = create_with_accounts_compact.index(
@@ -366,9 +366,20 @@ account_publish = create_with_accounts_compact.index(
 require("acc_num>MAX_ACCOUNT_NUM" in create_with_accounts_compact and
         "is_valid_account_name(account_list[i])" in create_with_accounts_compact and
         "strcmp(account_list[i],account_list[j])==0" in create_with_accounts_compact and
-        "disk_share_open_mount_directory(mount_path)" in create_with_accounts_compact and
+        "disk_share_open_mount_directory" not in create_with_accounts_compact and
         anonymous_preflight < account_preflight < anonymous_publish < account_publish,
-        "incremental metadata worker must validate and preflight the complete active ACL set before updating accounts on one descriptor")
+        "descriptor-relative metadata worker must validate and preflight all active ACLs before mutating through its caller-pinned directory descriptor")
+
+create_with_accounts_wrapper = function_body(
+    DISK_SOURCE,
+    "create_if_no_var_files_with_accounts(const char *mount_path, int acc_num,"
+)
+create_with_accounts_wrapper_compact = "".join(create_with_accounts_wrapper.split())
+require("disk_share_open_mount_directory(mount_path)" in create_with_accounts_wrapper_compact and
+        "create_if_no_var_files_with_accounts_at(directory_fd,acc_num,account_list)" in create_with_accounts_wrapper_compact and
+        "close(directory_fd)" in create_with_accounts_wrapper_compact,
+        "path-based metadata wrapper must pin one mount directory and delegate to the descriptor-relative worker")
+
 
 create_public = function_body(
     DISK_SOURCE, "create_if_no_var_files(const char *const mount_path)"

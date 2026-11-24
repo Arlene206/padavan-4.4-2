@@ -1,3 +1,10 @@
+## 2026-11-24 — Check the new caller-pinned ACL initializer API
+
+- Exact-head libdisk run `45460328727` on `552699f8003dbd1e48c2c109e526a77b4b15da8d` passed both GNU89 ASan/UBSan host test binaries, then the source checker failed because its ACL-initializer contract still extracted the old pathname-taking worker and expected it to open its own directory. The implementation now separates `create_if_no_var_files_with_accounts_at(directory_fd,...)` from a compatibility pathname wrapper; the checker now validates all-account preflight/write ordering on the caller-pinned FD and separately checks wrapper delegation/close semantics.
+- Checker-only correction; product source and regression remain unchanged. Fresh exact-head CI is required.
+
+---
+
 ## 2026-11-24 — Restore add_folder and pin creation/rollback to one volume
 
 - The latest main commit had replaced the public `add_folder()` implementation with its rollback ACL helper, leaving the header-declared API without a definition. Restored the operation and closed its mountpoint-swap race: folder existence scan, `mkdirat`, snapshot publication, account ACL initialization, rollback removal and ACL compensation now all use one opened mount directory descriptor.
