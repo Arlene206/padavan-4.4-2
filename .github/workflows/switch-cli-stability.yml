@@ -1632,6 +1632,43 @@ jobs:
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
 
+      - name: Validate internal switch GPIO mapping before register access
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          setup = body("static int setup_internal_gsw(void)")
+          mapped = setup.index("gpio_base_virt = ioremap(ETH_GPIO_BASE, 0x1000);")
+          guard = setup.index("if (!gpio_base_virt)")
+          failure = setup.index("return -ENOMEM;", guard)
+          first_gpio_access = min(
+              position for position in (
+                  setup.find("gpio_base_virt + 0x520"),
+                  setup.find("gpio_base_virt + 0xf00"),
+                  setup.find("gpio_base_virt + 0x4c0"),
+                  setup.find("gpio_base_virt + 0xed0"),
+              ) if position >= 0
+          )
+          assert mapped < guard < failure < first_gpio_access
+          assert "iounmap(gpio_base_virt);" in setup
+          print("internal switch GPIO ioremap failure returns -ENOMEM before any mapped-register access: PASS")
+          PY
+
       - name: Validate MTK ESW PHY and MAC-table MDIO failure propagation
         run: |
           ESW_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw

@@ -4980,12 +4980,19 @@ static void ra_switch_mdio_reset_delay(void *context)
 
 static int setup_internal_gsw(void)
 {
-	void __iomem *gpio_base_virt = ioremap(ETH_GPIO_BASE, 0x1000);
-	struct END_DEVICE *ei_local = netdev_priv(dev_raether);
+	void __iomem *gpio_base_virt;
+	struct END_DEVICE *ei_local;
 	u32 reg_value;
 	u32 xtal_mode;
 	u32 i;
 	int status;
+
+	gpio_base_virt = ioremap(ETH_GPIO_BASE, 0x1000);
+	if (!gpio_base_virt) {
+		pr_err("%s: failed to map GPIO registers\n", __func__);
+		return -ENOMEM;
+	}
+	ei_local = netdev_priv(dev_raether);
 
 	if (ei_local->architecture &
 	    (GE1_TRGMII_FORCE_2000 | GE1_TRGMII_FORCE_2600))
