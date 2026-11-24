@@ -588,6 +588,13 @@ handle_pasv(struct vsf_session* p_sess, int is_epsv)
     str_upper(&p_sess->ftp_arg_str);
     if (str_equal_text(&p_sess->ftp_arg_str, "ALL"))
     {
+      /*
+       * EPSV ALL disables PORT, EPRT and PASV setup. Drop any endpoint
+       * established before this command so a later transfer cannot reuse
+       * stale non-EPSV data-channel state.
+       */
+      pasv_cleanup(p_sess);
+      port_cleanup(p_sess);
       p_sess->epsv_all = 1;
       vsf_cmdio_write(p_sess, FTP_EPSVALLOK, "EPSV ALL ok.");
       return;

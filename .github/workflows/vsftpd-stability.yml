@@ -818,6 +818,15 @@ jobs:
           assert "argval < 1U || (!is_ipv6 && argval == 2U)" in pasv
           assert "vsf_sysutil_atoi" not in pasv
           assert 'str_equal_text(&p_sess->ftp_arg_str, "ALL")' in pasv
+          epsv_all_start = pasv.index('if (str_equal_text(&p_sess->ftp_arg_str, "ALL"))')
+          epsv_all_end = pasv.index("return;", epsv_all_start) + len("return;")
+          epsv_all_branch = pasv[epsv_all_start:epsv_all_end]
+          assert epsv_all_branch.count("pasv_cleanup(p_sess);") == 1
+          assert epsv_all_branch.count("port_cleanup(p_sess);") == 1
+          assert epsv_all_branch.index("pasv_cleanup(p_sess);") < epsv_all_branch.index("port_cleanup(p_sess);")
+          assert epsv_all_branch.index("port_cleanup(p_sess);") < epsv_all_branch.index("p_sess->epsv_all = 1;")
+          assert epsv_all_branch.index("p_sess->epsv_all = 1;") < epsv_all_branch.index('vsf_cmdio_write(p_sess, FTP_EPSVALLOK')
+          assert epsv_all_branch.index('vsf_cmdio_write(p_sess, FTP_EPSVALLOK') < epsv_all_branch.index("return;")
           assert 'tunable_pasv_enable &&\n             !p_sess->epsv_all &&\n             (str_equal_text(&p_sess->ftp_cmd_str, "PASV") ||' in postlogin_dispatch
           assert 'tunable_port_enable &&\n             !p_sess->epsv_all &&\n             str_equal_text(&p_sess->ftp_cmd_str, "PORT")' in postlogin_dispatch
           assert 'tunable_port_enable &&\n             !p_sess->epsv_all &&\n             str_equal_text(&p_sess->ftp_cmd_str, "EPRT")' in postlogin_dispatch

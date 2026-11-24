@@ -196,8 +196,9 @@ Current implementation checkpoint (2026-11-21):
 - Uploaded planet transaction cleanup follow-up: found an EXIT-trap registration gap if the pre-read of the previous NVRAM value failed after `.planet-import.*` creation. Cleanup now registers before the first fallible read, and rollback is gated on explicit publish/delete pending state; added NVRAM-get fault injection, preserving old file/NVRAM and upload, and checking no stage directory leaks. Exact-head verification pending.
 
 ## Priority queue
-- P2 — VSFTPD `.hidden` path: checked `PATH_MAX` build and fail-closed regression added; CI pending.
-- P1 — detect_link first PHY read: initial query errors must not publish synthetic DOWN. Tri-state gating + GNU89 sanitizer/source contracts PASS on `18af4fb`; XY-C1 Build running, TRX/artifact pending. L3 open.
+- P1 — VSFTPD EPSV ALL must revoke a prior PORT/EPRT destination and PASV listener before enforcing EPSV-only setup. THIS COMMIT clears both first; exact-source contract checks order. Exact-head CI pending.
+- P2 — VSFTPD hidden-share path uses checked `PATH_MAX`; host/docs/process PASS on `5a7500e`, XY-C1 pending.
+- L2 — detect_link unknown-state guard: detect-link/AI/Process/NVRAM/USB/HTTPD PASS on `18af4fb`; XY-C1 build pending.
 - VERIFIED L3 — WAN `wan_src_phy` rejects unsupported IDs >5 before switch ioctl; negative legacy fallback preserved. Exact production SHA `d3733ec`: detect-link regression, AI/Process/NVRAM descendants and XY-C1 Build/TRX/artifact #45390205170 PASS; physical L4 unverified.
 - VERIFIED L3 — HTTPS-build HTTPD `http_proto` is limited to 0/1/2. SHA `659b91b`: HTTPD #45388114470, AI #45388114468, Process #45388114507 and XY-C1 #45388114515 (Build/TRX/artifact) PASS; physical L4 unverified.
 - VERIFIED — MTK AP private-ioctl safety: APD/STA/IAPP/WAPI, selector/SSID, APCLI 802.1X, 802.11r Boolean/R0KH-ID, WPA PSK and deauth fail closed. PSKs cap at 64 and are not logged; APCLI deauth allocates once and bounds-checks before table access. Exact-main SHA `d33fcf0`: MTK #45384680997, NVRAM #45384681048, AI docs #45384680982 and XY-C1 #45384680986 PASS; Build/TRX/artifact all PASS (L3). Physical-router L4 remains unverified.
