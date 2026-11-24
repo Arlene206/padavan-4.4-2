@@ -1,3 +1,11 @@
+## 2026-11-24 — Make VSFTPD quarantine source contract whitespace-safe
+
+- Exact source SHA `4ee6d7bc1b55c81bab7022e160397c7f7da297d6` VSFTPD run #45485311376 passed GNU89 compilation and the C ACL-path regression, then failed at the embedded Python contract. Traceback line 594 mapped to a formatting-sensitive assertion requiring `fstatat(cleanup_fd, quarantine_leaf, &quarantined, AT_SYMLINK_NOFOLLOW)` on one source line; the production call is split over two lines.
+- Updated the checker to collapse whitespace in the extracted cleanup function before matching the complete call. This preserves the full semantic check and does not relax the quarantine/inode verification requirement.
+- Exact-head VSFTPD rerun is required. On 4ee, AI handoff #45485311277 and Process lifecycle inventory #45485311380 passed; XY-C1 #45485311337 and NVRAM #45485311362 were still running at last poll. No L3 claim.
+ 
+---
+
 ## 2026-11-25 01:34 CST — Fix duplicate declaration left by quarantine-helper replacement
 
 - Exact parent `d01e302d2d22365bf1f828b4708dd6fb22ac5234`, VSFTPD run #45485007449 failed during GNU89 `-Wall -Wextra -Werror` compilation before executing the ACL regression. The cause was mechanical: replacing functions starting at the function name left the original preceding `static int` declaration in place, producing duplicate declaration specifiers for the metadata predicate and the new quarantine-directory helper. No runtime assertion was reached.

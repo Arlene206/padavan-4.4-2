@@ -741,7 +741,8 @@ jobs:
           assert "st.st_uid != geteuid()" in cleanup_open
           assert '(st.st_mode & 0777) != 0700' in cleanup_open
           assert "ftp_acl_path_rename_noreplace(dir_fd, leaf, cleanup_fd" in upload_cleanup
-          assert "fstatat(cleanup_fd, quarantine_leaf, &quarantined, AT_SYMLINK_NOFOLLOW)" in upload_cleanup
+          upload_cleanup_compact = " ".join(upload_cleanup.split())
+          assert "fstatat(cleanup_fd, quarantine_leaf, &quarantined, AT_SYMLINK_NOFOLLOW)" in upload_cleanup_compact
           assert "unlinkat(cleanup_fd, quarantine_leaf, 0)" in upload_cleanup
           assert "ftp_acl_path_rename_noreplace(cleanup_fd, quarantine_leaf" in upload_cleanup
           assert "fstatat(dir_fd, leaf" not in upload_cleanup
