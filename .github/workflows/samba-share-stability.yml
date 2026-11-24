@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/samba_share_policy.h"
+      - "trunk/user/rc/src/tests/samba_share_policy.c"
       - "trunk/user/rc/src/service_connection_limit_policy.h"
       - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/services_ex.c"
@@ -33,6 +35,8 @@ on:
     paths:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/samba_share_policy.h"
+      - "trunk/user/rc/src/tests/samba_share_policy.c"
       - "trunk/user/rc/src/service_connection_limit_policy.h"
       - "trunk/user/rc/src/tests/service_connection_limit_policy.c"
       - "trunk/user/rc/src/services_ex.c"
@@ -110,6 +114,11 @@ jobs:
             trunk/user/rc/src/tests/service_connection_limit_policy.c \
             -o /tmp/service-connection-limit-policy
           /tmp/service-connection-limit-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src -I trunk/user/shared/src/include \
+            trunk/user/rc/src/tests/samba_share_policy.c \
+            -o /tmp/samba-share-policy
+          /tmp/samba-share-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -131,6 +140,8 @@ jobs:
           config_mode_test = Path("trunk/user/rc/src/tests/samba_config_mode_policy.c").read_text()
           nvram_policy = Path("trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
           nvram_policy_test = Path("trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+          share_policy = Path("trunk/user/rc/src/samba_share_policy.h").read_text()
+          share_policy_test = Path("trunk/user/rc/src/tests/samba_share_policy.c").read_text()
 
           def function_body(source, signature):
               start = source.index(signature)
@@ -326,7 +337,16 @@ jobs:
           assert 'nvram_safe_get("http_username")' not in account_safety
           assert 'storage_read_string_status("http_username",local_router_username,sizeof(local_router_username))' in writer_compact
           assert writer_compact.index('storage_read_string_status("http_username",local_router_username,sizeof(local_router_username))') < writer_compact.index("samba_config_file_open(")
-          assert writer_compact.count("samba_service_account_is_safe(account_list[i],safe_router_username)") == 4
+          assert writer_compact.count("samba_service_account_is_safe(account_list[i],safe_router_username)") == 5
+          assert "intaccount_rights[MAX_ACCOUNT_NUM];" in writer_compact
+          account_permission_read = 'get_permission(account_list[i],follow_partition->mount_point,folder_list[n],"cifs")'
+          assert writer_compact.count(account_permission_read) == 1
+          assert 'account_rights[i]=get_permission(account_list[i],follow_partition->mount_point,folder_list[n],"cifs");' in writer_compact
+          assert writer_compact.count("right=account_rights[i];") == 4
+          assert "samba_acl_right_can_read" in share_policy
+          assert "samba_acl_right_can_write" in share_policy
+          assert "samba_acl_right_is_denied" in share_policy
+          assert "samba_acl_right_is_denied(-1)" in share_policy_test
           assert "write_smb_conf_unlocked(NULL, NULL, 0)" in standalone_writer
           assert "rc_wan_nvram_copy_value" in nvram_policy
           assert "EIO" in nvram_policy_test and "ENAMETOOLONG" in nvram_policy_test

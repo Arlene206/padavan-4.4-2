@@ -1189,6 +1189,7 @@ write_smb_conf_unlocked(const char *router_username,
 				for (n = 0; n < sh_num; ++n) {
 					int i, right, first, share_exists;
 					int guest_right;
+					int account_rights[MAX_ACCOUNT_NUM];
 					char share[256];
 
 					if (!samba_mount_path_is_safe(follow_partition->mount_point) ||
@@ -1197,6 +1198,20 @@ write_smb_conf_unlocked(const char *router_username,
 						continue;
 					}
 					guest_right = get_permission(SMB_GUEST_USER, follow_partition->mount_point, folder_list[n], "cifs");
+
+					/*
+					 * Read each account's ACL exactly once per share. Repeated
+					 * lookups while emitting valid/invalid/read/write lists can
+					 * observe different ACL generations and publish contradictory
+					 * Samba access lists.
+					 */
+					for (i = 0; i < acc_num; ++i) {
+						if (!samba_service_account_is_safe(account_list[i], safe_router_username)) {
+							account_rights[i] = 0;
+							continue;
+						}
+						account_rights[i] = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+					}
 					snprintf(share, sizeof(share), "%s", folder_list[n]);
 					
 					if (fclose(fp) != 0) {
@@ -1258,7 +1273,7 @@ write_smb_conf_unlocked(const char *router_username,
 					for (i = 0; i < acc_num; ++i) {
 						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
-						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						right = account_rights[i];
 						if (first == 1)
 							first = 0;
 						else
@@ -1273,7 +1288,7 @@ write_smb_conf_unlocked(const char *router_username,
 					for (i = 0; i < acc_num; ++i) {
 						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
-						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						right = account_rights[i];
 						/* A write-only grant must not be negated by invalid users. */
 						if (!samba_acl_right_is_denied(right))
 							continue;
@@ -1300,7 +1315,7 @@ write_smb_conf_unlocked(const char *router_username,
 					for (i = 0; i < acc_num; ++i) {
 						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
-						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						right = account_rights[i];
 						if (!samba_acl_right_can_read(right))
 							continue;
 						
@@ -1322,7 +1337,7 @@ write_smb_conf_unlocked(const char *router_username,
 					for (i = 0; i < acc_num; ++i) {
 						if (!samba_service_account_is_safe(account_list[i], safe_router_username))
 							continue;
-						right = get_permission(account_list[i], follow_partition->mount_point, folder_list[n], "cifs");
+						right = account_rights[i];
 						if (!samba_acl_right_can_write(right))
 							continue;
 						
