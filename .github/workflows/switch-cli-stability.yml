@@ -1632,6 +1632,79 @@ jobs:
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
 
+      - name: Validate SGMII mappings fail closed and propagate to switch init
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+
+          def body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          force = body("int set_sgmii_force_link(int port_num, int speed)")
+          force_maps = (
+              ("ethsys_base = ioremap(ETHSYS_BASE, 0x20);", "ethsys_base"),
+              ("phya_base = ioremap(sgmii_reg_phya, 0x100);", "phya_base"),
+              ("sgmii_base = ioremap(sgmii_reg, 0x100);", "sgmii_base"),
+          )
+          an = body("int set_sgmii_an(int port_num)")
+          an_maps = (
+              ("ethsys_base = ioremap(ETHSYS_BASE, 0x20);", "ethsys_base"),
+              ("mac_base = ioremap(ETHSYS_MAC_BASE, 0x300);", "mac_base"),
+              ("sgmii_base = ioremap(sgmii_reg, 0x100);", "sgmii_base"),
+          )
+
+          for implementation, mappings in ((force, force_maps), (an, an_maps)):
+              positions = []
+              for expression, variable in mappings:
+                  mapped = implementation.index(expression)
+                  guard = implementation.index("if (!" + variable + ")", mapped)
+                  failure = implementation.index("return -ENOMEM;", guard)
+                  positions.append(mapped)
+                  assert mapped < guard < failure
+              first_io = min(
+                  position for position in (
+                      implementation.find("sys_reg_read("),
+                      implementation.find("sys_reg_write("),
+                      implementation.find("set_ge1_force_1000("),
+                      implementation.find("set_ge2_force_1000("),
+                  ) if position >= 0
+              )
+              assert max(positions) < first_io
+              assert implementation.index("return -EINVAL;") < positions[0]
+              assert implementation.count("iounmap(") == 6
+
+          assert "iounmap(ethsys_base);\n\t\treturn -ENOMEM;" in force
+          assert "iounmap(phya_base);\n\t\tiounmap(ethsys_base);\n\t\treturn -ENOMEM;" in force
+          assert "iounmap(ethsys_base);\n\t\treturn -ENOMEM;" in an
+          assert "iounmap(mac_base);\n\t\tiounmap(ethsys_base);\n\t\treturn -ENOMEM;" in an
+
+          init = body(source, "int fe_sw_init(void)")
+          for signature in (
+              "status = set_sgmii_force_link(1, 1);",
+              "status = set_sgmii_an(1);",
+              "status = set_sgmii_force_link(2, 1);",
+              "status = set_sgmii_an(2);",
+          ):
+              start = init.index(signature)
+              tail = init[start:start + 150]
+              assert "if (status != 0)" in tail
+              assert "goto mdio_error;" in tail
+
+          print("SGMII mapping failure cleanup and switch-init propagation: PASS")
+          PY
+
       - name: Validate internal switch GPIO mapping before register access
         run: |
           python3 - <<'PY'

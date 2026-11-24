@@ -5510,99 +5510,132 @@ void set_rtl8367s_rgmii(void)
 	rtk_port_phyEnableAll_set(ENABLED);
 }
 
-void set_sgmii_force_link(int port_num, int speed)
+int set_sgmii_force_link(int port_num, int speed)
 {
-	void __iomem *virt_addr;
+	void __iomem *ethsys_base;
+	void __iomem *phya_base;
+	void __iomem *sgmii_base;
 	unsigned int reg_value;
 	unsigned int sgmii_reg_phya, sgmii_reg;
 
-	virt_addr = ioremap(ETHSYS_BASE, 0x20);
-	reg_value = sys_reg_read(virt_addr + 0x14);
-
 	if (port_num == 1) {
-		reg_value |= SGMII_CONFIG_0;
 		sgmii_reg_phya = SGMII_REG_PHYA_BASE0;
 		sgmii_reg = SGMII_REG_BASE0;
-		set_ge1_force_1000();
-	}
-	if (port_num == 2) {
-		reg_value |= SGMII_CONFIG_1;
+	} else if (port_num == 2) {
 		sgmii_reg_phya = SGMII_REG_PHYA_BASE1;
 		sgmii_reg = SGMII_REG_BASE1;
+	} else {
+		return -EINVAL;
+	}
+
+	/* Acquire every register window before changing SGMII state. */
+	ethsys_base = ioremap(ETHSYS_BASE, 0x20);
+	if (!ethsys_base)
+		return -ENOMEM;
+	phya_base = ioremap(sgmii_reg_phya, 0x100);
+	if (!phya_base) {
+		iounmap(ethsys_base);
+		return -ENOMEM;
+	}
+	sgmii_base = ioremap(sgmii_reg, 0x100);
+	if (!sgmii_base) {
+		iounmap(phya_base);
+		iounmap(ethsys_base);
+		return -ENOMEM;
+	}
+
+	reg_value = sys_reg_read(ethsys_base + 0x14);
+	if (port_num == 1) {
+		reg_value |= SGMII_CONFIG_0;
+		set_ge1_force_1000();
+	} else {
+		reg_value |= SGMII_CONFIG_1;
 		set_ge2_force_1000();
 	}
+	sys_reg_write(ethsys_base + 0x14, reg_value);
+	reg_value = sys_reg_read(ethsys_base + 0x14);
 
-	sys_reg_write(virt_addr + 0x14, reg_value);
-	reg_value = sys_reg_read(virt_addr + 0x14);
-	iounmap(virt_addr);
-
-	/* Set SGMII GEN2 speed(2.5G) */
-	virt_addr = ioremap(sgmii_reg_phya, 0x100);
-	reg_value = sys_reg_read(virt_addr + 0x28);
+	/* Set SGMII GEN2 speed(2.5G). */
+	reg_value = sys_reg_read(phya_base + 0x28);
 	reg_value |= speed << 2;
-	sys_reg_write(virt_addr + 0x28, reg_value);
-	iounmap(virt_addr);
+	sys_reg_write(phya_base + 0x28, reg_value);
 
-	virt_addr = ioremap(sgmii_reg, 0x100);
-	/* disable SGMII AN */
-	reg_value = sys_reg_read(virt_addr);
+	/* Disable SGMII AN and force the selected link mode. */
+	reg_value = sys_reg_read(sgmii_base);
 	reg_value &= ~(1 << 12);
-	sys_reg_write(virt_addr, reg_value);
-	/* SGMII force mode setting */
-	reg_value = sys_reg_read(virt_addr + 0x20);
-	sys_reg_write(virt_addr + 0x20, 0x31120019);
-	reg_value = sys_reg_read(virt_addr + 0x20);
-	/* Release PHYA power down state */
-	reg_value = sys_reg_read(virt_addr + 0xe8);
+	sys_reg_write(sgmii_base, reg_value);
+	reg_value = sys_reg_read(sgmii_base + 0x20);
+	sys_reg_write(sgmii_base + 0x20, 0x31120019);
+	reg_value = sys_reg_read(sgmii_base + 0x20);
+	reg_value = sys_reg_read(sgmii_base + 0xe8);
 	reg_value &= ~(1 << 4);
-	sys_reg_write(virt_addr + 0xe8, reg_value);
-	iounmap(virt_addr);
+	sys_reg_write(sgmii_base + 0xe8, reg_value);
+
+	iounmap(sgmii_base);
+	iounmap(phya_base);
+	iounmap(ethsys_base);
+	return 0;
 }
 
-void set_sgmii_an(int port_num)
+int set_sgmii_an(int port_num)
 {
-	void __iomem *virt_addr;
+	void __iomem *ethsys_base;
+	void __iomem *mac_base;
+	void __iomem *sgmii_base;
 	unsigned int reg_value;
-	unsigned int sgmii_reg, sgmii_reg_phya;
+	unsigned int sgmii_reg;
 
-	virt_addr = ioremap(ETHSYS_BASE, 0x20);
-	reg_value = sys_reg_read(virt_addr + 0x14);
-
-	if (port_num == 1) {
-		reg_value |= SGMII_CONFIG_0;
-		sgmii_reg_phya = SGMII_REG_PHYA_BASE0;
+	if (port_num == 1)
 		sgmii_reg = SGMII_REG_BASE0;
-	}
-	if (port_num == 2) {
-		reg_value |= SGMII_CONFIG_1;
-		sgmii_reg_phya = SGMII_REG_PHYA_BASE1;
+	else if (port_num == 2)
 		sgmii_reg = SGMII_REG_BASE1;
+	else
+		return -EINVAL;
+
+	/* Map all windows first so an allocation failure cannot leave a
+	 * half-programmed SGMII auto-negotiation path.
+	 */
+	ethsys_base = ioremap(ETHSYS_BASE, 0x20);
+	if (!ethsys_base)
+		return -ENOMEM;
+	mac_base = ioremap(ETHSYS_MAC_BASE, 0x300);
+	if (!mac_base) {
+		iounmap(ethsys_base);
+		return -ENOMEM;
+	}
+	sgmii_base = ioremap(sgmii_reg, 0x100);
+	if (!sgmii_base) {
+		iounmap(mac_base);
+		iounmap(ethsys_base);
+		return -ENOMEM;
 	}
 
-	sys_reg_write(virt_addr + 0x14, reg_value);
-	iounmap(virt_addr);
+	reg_value = sys_reg_read(ethsys_base + 0x14);
+	if (port_num == 1)
+		reg_value |= SGMII_CONFIG_0;
+	else
+		reg_value |= SGMII_CONFIG_1;
+	sys_reg_write(ethsys_base + 0x14, reg_value);
 
-	/* set auto polling */
-	virt_addr = ioremap(ETHSYS_MAC_BASE, 0x300);
-	sys_reg_write(virt_addr + (0x100 * port_num), 0x21056300);
-	iounmap(virt_addr);
+	/* Set auto polling. */
+	sys_reg_write(mac_base + (0x100 * port_num), 0x21056300);
 
-	virt_addr = ioremap(sgmii_reg, 0x100);
-	/* set link timer */
-	sys_reg_write(virt_addr + 0x18, 0x186a0);
-	/* disable remote fault */
-	reg_value = sys_reg_read(virt_addr + 0x20);
+	/* Configure link timer, remote fault handling and restart AN. */
+	sys_reg_write(sgmii_base + 0x18, 0x186a0);
+	reg_value = sys_reg_read(sgmii_base + 0x20);
 	reg_value |= 1 << 8;
-	sys_reg_write(virt_addr + 0x20, reg_value);
-	/* restart an */
-	reg_value = sys_reg_read(virt_addr);
+	sys_reg_write(sgmii_base + 0x20, reg_value);
+	reg_value = sys_reg_read(sgmii_base);
 	reg_value |= 1 << 9;
-	sys_reg_write(virt_addr, reg_value);
-	/* Release PHYA power down state */
-	reg_value = sys_reg_read(virt_addr + 0xe8);
+	sys_reg_write(sgmii_base, reg_value);
+	reg_value = sys_reg_read(sgmii_base + 0xe8);
 	reg_value &= ~(1 << 4);
-	sys_reg_write(virt_addr + 0xe8, reg_value);
-	iounmap(virt_addr);
+	sys_reg_write(sgmii_base + 0xe8, reg_value);
+
+	iounmap(sgmii_base);
+	iounmap(mac_base);
+	iounmap(ethsys_base);
+	return 0;
 }
 
 static int mt7622_esw_5port_gpio(void)
@@ -6108,10 +6141,14 @@ int fe_sw_init(void)
 
 	if (ei_local->architecture & GE1_SGMII_FORCE_2500) {
 		set_rtl8367s_sgmii();
-		set_sgmii_force_link(1, 1);
+		status = set_sgmii_force_link(1, 1);
+		if (status != 0)
+			goto mdio_error;
 	} else if (ei_local->architecture & GE1_SGMII_AN) {
 		enable_auto_negotiate(ei_local);
-		set_sgmii_an(1);
+		status = set_sgmii_an(1);
+		if (status != 0)
+			goto mdio_error;
 	}
 	if (ei_local->chip_name == LEOPARD_FE) {
 		if (ei_local->architecture & GE2_RAETH_SGMII) {
@@ -6128,10 +6165,14 @@ int fe_sw_init(void)
 	if (ei_local->architecture & GE2_SGMII_FORCE_2500) {
 		if (ei_local->architecture & SGMII_SWITCH)
 			set_rtl8367s_sgmii();
-		set_sgmii_force_link(2, 1);
+		status = set_sgmii_force_link(2, 1);
+		if (status != 0)
+			goto mdio_error;
 	} else if (ei_local->architecture & GE2_SGMII_AN) {
 		enable_auto_negotiate(ei_local);
-		set_sgmii_an(2);
+		status = set_sgmii_an(2);
+		if (status != 0)
+			goto mdio_error;
 	}
 
 	if (ei_local->architecture & MT7622_EPHY) {
