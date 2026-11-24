@@ -176,6 +176,15 @@ process_exists 201 || fail "wrong-config FRPC decoy was altered"
 process_exists 202 || fail "extra-argv FRPS decoy was altered"
 process_exists 203 || fail "wrong-executable FRPC decoy was altered"
  
+# A trailing empty argv is still a fourth argument even though command
+# substitution would strip its final newline during NUL-to-text conversion.
+mkdir -p "$FRP_PROC_ROOT/205"
+printf '/usr/bin/frpc\000-c\000/tmp/frp/myfrpc.ini\000\000' > "$FRP_PROC_ROOT/205/cmdline"
+ln -sfn /usr/bin/frpc "$FRP_PROC_ROOT/205/exe"
+if frp_process_matches 205 frpc; then
+	fail "trailing empty argv was accepted as an exact FRPC command"
+fi
+
 # An unrelated executable can copy the exact argv tuple; it still is not FRPC.
 mkdir -p "$FRP_PROC_ROOT/204"
 printf '/usr/bin/frpc\000-c\000/tmp/frp/myfrpc.ini\000' > "$FRP_PROC_ROOT/204/cmdline"

@@ -1,3 +1,11 @@
+## 2026-11-24 — Preserve exact FRP argv boundaries during procfs matching
+
+- Found a process-identity bypass: command substitution strips trailing newlines after `/proc/<pid>/cmdline` is converted from NUL-delimited argv. An additional empty final argument therefore disappeared before the exact-three-arguments awk check and could make a non-exact command look like the owned FRPC/FRPS process.
+- `frp_process_matches()` now counts NUL terminators first and rejects any command line that is not exactly three arguments before text conversion.
+- Added a regression using the real FRPC executable path, exact config argument and one extra empty final argument; it must not be considered owned. The static checker pins the NUL-count gate before conversion.
+- Parent main: 7e69ffb75bd26c854e2c36662185ef9d0815c194. That SHA fixed the previous ZeroTier orbit rollback regression; exact-head ZeroTier lifecycle #45350691842 completed successfully. No router hardware validation is claimed.
+
+---
 ## 2026-11-23 — Fail closed on QMI modem setup command errors
 
 - Found that SIM PIN verification, `--set-data-format 802.3`, and `--set-network-modes` errors were logged or ignored while QMI startup continued toward CID allocation and `--start-network`. This could ignore required configuration or continue after a rejected PIN.

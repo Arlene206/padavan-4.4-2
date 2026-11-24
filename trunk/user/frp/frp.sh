@@ -87,6 +87,27 @@ frp_process_matches()
 		[ -d "$frp_match_proc_dir" ] || return 1
 		return 2
 	fi
+
+	# Count NUL terminators before command substitution strips trailing newlines.
+	# This preserves the distinction between three argv entries and an empty
+	# fourth argument that would otherwise disappear during text conversion.
+	frp_match_nul_count=$(LC_ALL=C tr -cd '\000' < "$frp_match_cmdline" 2>/dev/null | wc -c 2>/dev/null) || {
+		[ -d "$frp_match_proc_dir" ] || return 1
+		return 2
+	}
+	set -- $frp_match_nul_count
+	if [ "$#" -ne 1 ]; then
+		[ -d "$frp_match_proc_dir" ] || return 1
+		return 2
+	fi
+	case "$1" in
+		''|*[!0-9]*)
+			[ -d "$frp_match_proc_dir" ] || return 1
+			return 2
+			;;
+	esac
+	[ "$1" -eq 3 ] || return 1
+
 	frp_match_cmdline_text=$(tr '\000' '\n' < "$frp_match_cmdline" 2>/dev/null) || {
 		[ -d "$frp_match_proc_dir" ] || return 1
 		return 2

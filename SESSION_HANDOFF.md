@@ -1,16 +1,16 @@
 ## Current repository state
 
-- Live parent main before this atomic change: `1c5d38531a62094501f3ab12b5043ba884b358f0`.
+- Live parent main before this atomic change: `7e69ffb75bd26c854e2c36662185ef9d0815c194`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
 ## Active task
 
-QMI startup setup-command error propagation:
-- QMI startup refuses duplicate sessions, reuses valid persisted WDS CIDs, rejects invalid network-mode values before side effects, and preserves valid/unreadable PDH markers after ambiguous starts.
-- A reliability gap remained: configured SIM PIN verification, `--set-data-format 802.3`, and `--set-network-modes` errors were logged or ignored while startup continued toward CID allocation and data start. Startup now aborts on each required setup failure; SIM PIN staging cleanup still runs before the command error is propagated.
-- Existing GNU89 policy tests cover normalized command statuses; the USB modem workflow statically pins all three checked `_eval()` calls and fail-fast order. Physical modem execution remains unverified.
+FRP exact argv identity on procfs:
+- `frp_process_matches()` converted `/proc/<pid>/cmdline` NUL delimiters to newlines inside command substitution. POSIX command substitution strips trailing newlines, so an extra empty final argv was erased before the `NR == 3` check. A process with `/usr/bin/frpc -c /tmp/frp/myfrpc.ini ""` could pass the supposedly exact three-argument identity test.
+- The matcher now counts NUL terminators before text conversion and requires exactly three argv entries. Added a stop regression for a genuine FRPC executable with a trailing empty argument, plus static workflow coverage for the count-before-conversion guard.
+- `tr -cd '\000' | wc -c` is compatible with BusyBox's `tr`/`wc` applets; exact-head FRP CI is still required to verify the target-like command environment. No router hardware validation is claimed.
 ## Verification boundary
 
 - Exact e006c68f711c0fc47e6d46d7f34b3c337a06f7da: NVRAM audit #45347148992, Process inventory #45347149044, AI handoff #45347148865, XY-C1 firmware #45347148972 and USB modem identity #45347148897 were IN_PROGRESS/QUEUED at last observation. Check final statuses before relying on them.
@@ -20,9 +20,9 @@ QMI startup setup-command error propagation:
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head USB modem identity for QMI setup-command fail-fast assertions and GNU89 policy coverage.
-2. Check XY-C1 Build, TRX and artifact individually against the exact source SHA; record NVRAM and Process results.
-3. Continue the next independent userland stability/security defect.
+1. Verify exact-head FRP lifecycle workflow and trailing-empty-argv process identity regression.
+2. Continue the next independent stability/security defect in Padavan userland; do not wait on unrelated firmware Actions.
+3. Poll the current exact-SHA XY-C1 Build, TRX and artifact states before making any firmware L3 claim.
 # Cross-session execution mandate
 
 Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change is one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
