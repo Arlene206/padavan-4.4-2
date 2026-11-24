@@ -1,18 +1,17 @@
 ## Current repository state
 
-- Live parent main before this atomic change: `e006c68f711c0fc47e6d46d7f34b3c337a06f7da`.
+- Live parent main before this atomic change: `08f39868ce700f008ba6501b4388eb06681cac64`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
 ## Active task
 
-QMI WAN teardown status propagation:
-- The QMI startup path now checks stale PDH removal, `uqmi --start-network` status, complete parsed PDH content and atomic publication of both the WDS client ID and PDH handle. Exact USB modem identity workflow must remain green after each QMI change.
-- A concrete teardown defect remains in `qmi_control_network()`: it ignored the return status of `--stop-network` and `--release-client-id`, unconditionally unlinked both status files, and always returned success. A failed stop could therefore erase the only CID/PDH state needed to retry cleanup while the modem session remained active.
-- Stop now fails closed: on stop-network failure it preserves both state files and skips CID release; after a successful stop it removes the PDH marker with checked unlink semantics, attempts CID release, preserves the CID file if release fails, and checks final CID-file cleanup. A shared wait-status helper normalizes command-runner failures.
-- Added GNU89 policy tests and USB modem workflow source assertions for failure ordering, retained state, exactly two checked command calls and checked unlink.
-- Exact parent SHA e006c68 had USB modem identity #45347148897, Process lifecycle #45347149044, NVRAM audit #45347148992, AI handoff #45347148865 and XY-C1 #45347148972 IN_PROGRESS at last poll. Verify exact outcomes; do not claim firmware L3 without same-SHA Build/TRX/artifact.
+QMI WAN startup ambiguous-result retry policy:
+- QMI startup rejects stale/unparseable PDH files, checks `uqmi --start-network`, strictly parses the single PDH token, and requires both command success and valid handle. `cmd_wds_start_network_cb()` uses private, atomic `/tmp/qmi-handle` publication.
+- A successful `uqmi --start-network` process result with no valid persisted PDH is ambiguous: the modem may have created a live session while the callback failed to publish its handle. Abort instead of retrying to avoid duplicate sessions. A failed command with no PDH is retryable; a failed command with a valid PDH is already ambiguous.
+- Added a GNU89 policy helper and matrix regression for all command-status/PDH combinations, plus an exact source-contract assertion that the startup path uses the helper. QMI teardown also preserves CID/PDH state when `--stop-network` or `--release-client-id` fails.
+- At parent d549f80, Process inventory #45347342258, Process fail-closed #45347342171, HTTPD #45347342170, WAN teardown #45347342223, DHCP callback #45347342218, detect_link #45347342139 and AI handoff #45347342145 PASS; USB modem identity #45347342135 failed only because the workflow tried to slice the stop function by an escaped newline delimiter (fixed in 08f3986). NVRAM #45347342159 and XY-C1 #45347342256 were still running at last poll. No target hardware validation is claimed.
 
 ## Verification boundary
 
@@ -23,9 +22,9 @@ QMI WAN teardown status propagation:
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head USB modem identity after QMI stop-network/CID cleanup status propagation; resolve any regression in the GNU89 policy or embedded source contract.
-2. Check exact-head Process inventory, NVRAM audit, AI handoff and XY-C1 firmware status; do not wait on pending firmware jobs before selecting the next independent defect.
-3. Continue the next userland stability/security source slice and preserve the frozen backup.
+1. Verify exact-head USB modem identity for the ambiguous QMI start result policy; fix any regression in the GNU89 test or embedded workflow contract.
+2. Check exact-head AI handoff and USB modem actions; poll d549f80 NVRAM/XY-C1 runs for final outcomes and verify same-SHA Build/TRX/artifact steps.
+3. Continue another independent userland stability/security slice once the QMI startup and teardown policies pass.
 
 # Cross-session execution mandate
 

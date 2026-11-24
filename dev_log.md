@@ -1,3 +1,12 @@
+## 2026-11-23 — Avoid retrying an ambiguous successful QMI start
+
+- A QMI start command that exits successfully but leaves no valid PDH file is not necessarily safe to retry: the WDS response may have created a live session while local handle publication failed.
+- Added `modem_qmi_start_attempt_is_ambiguous()` to stop retries for either a successful command without a parsed PDH or a failed command that nevertheless published a PDH. A failed command with no PDH remains retryable; a successful command with a valid PDH remains success.
+- Added GNU89 regression coverage for all command-status/handle combinations and extended the USB modem workflow source contract to pin the policy use.
+- Parent main: `08f39868ce700f008ba6501b4388eb06681cac64`. On parent d549f80, Process inventory, Process fail-closed, HTTPD, WAN teardown, DHCP callback, detect_link and AI handoff all passed; its USB modem identity check failed only on escaped-delimiter source slicing, corrected in 08f3986. NVRAM and XY-C1 remained pending at last observation.
+
+---
+
 ## 2026-11-23 — Propagate QMI WAN teardown failures and preserve retry state
 
 - Found a teardown reliability defect in `qmi_control_network()`: it ignored `_eval(--stop-network)` and `_eval(--release-client-id)` return values, unconditionally unlinked both QMI state files, and always returned success. A failed network stop could lose the CID/PDH needed to retry cleanup.

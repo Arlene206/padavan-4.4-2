@@ -924,6 +924,7 @@ jobs:
           assert "modem_qmi_start_attempt_status(start_status," in qmi_start_function
           assert "if (check_if_file_exist(QMI_HANDLE_PDH))" not in qmi_start_function
           assert "ambiguous_session" in qmi_start_function
+          assert "modem_qmi_start_attempt_is_ambiguous(start_status," in qmi_start_function
           assert "cannot remove failed QMI packet-data handle" in qmi_start_function
           qmi_policy_test = Path("trunk/user/rc/src/tests/modem_wan_start_policy.c").read_text()
           for policy_case in (
@@ -931,6 +932,7 @@ jobs:
               "test_qmi_start_requires_command_success_and_valid_handle",
               "test_qmi_handle_cleanup_distinguishes_missing_from_other_errors",
               "test_qmi_handle_parser_rejects_partial_and_out_of_range_values",
+              "test_qmi_start_retry_is_blocked_when_session_may_exist",
           ):
               assert policy_case in qmi_policy_test
           wds_callback_start = wds_source.index("cmd_wds_start_network_cb(struct qmi_dev")

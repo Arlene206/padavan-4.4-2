@@ -28,6 +28,19 @@ modem_qmi_command_status(int command_status)
 	return command_status > 0 ? command_status : EIO;
 }
 
+/*
+ * A successful QMI response without its persisted PDH, or a failed command
+ * that nevertheless published a PDH, may represent an active untracked
+ * session. Stop instead of creating a duplicate session on retry.
+ */
+static inline int
+modem_qmi_start_attempt_is_ambiguous(int command_status,
+				     int packet_data_handle)
+{
+	return command_status == 0 ? packet_data_handle < 0 :
+		packet_data_handle >= 0;
+}
+
 /* Missing old status files are benign; other unlink failures block startup. */
 static inline int
 modem_qmi_handle_file_unlink_status(int unlink_status, int saved_errno)

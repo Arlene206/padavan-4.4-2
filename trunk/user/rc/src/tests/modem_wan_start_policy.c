@@ -28,6 +28,25 @@ test_qmi_start_requires_command_success_and_valid_handle(void)
 }
 
 static void
+test_qmi_start_retry_is_blocked_when_session_may_exist(void)
+{
+	/* A confirmed command failure without a PDH is safe to retry. */
+	assert(!modem_qmi_start_attempt_is_ambiguous(EIO, -1));
+	assert(!modem_qmi_start_attempt_is_ambiguous(1, -1));
+
+	/* A successful response without a persisted PDH may have created a session. */
+	assert(modem_qmi_start_attempt_is_ambiguous(0, -1));
+
+	/* A failed command that did publish a PDH is also ambiguous. */
+	assert(modem_qmi_start_attempt_is_ambiguous(EIO, 17));
+	assert(modem_qmi_start_attempt_is_ambiguous(1, 0));
+
+	/* A fully successful command with a valid PDH is not an ambiguous result. */
+	assert(!modem_qmi_start_attempt_is_ambiguous(0, 17));
+	assert(!modem_qmi_start_attempt_is_ambiguous(0, 0));
+}
+
+static void
 test_qmi_handle_cleanup_distinguishes_missing_from_other_errors(void)
 {
 	assert(modem_qmi_handle_file_unlink_status(0, 0) == 0);
@@ -805,6 +824,7 @@ main(void)
 {
 	test_qmi_stop_status_requires_success_before_cleanup();
 	test_qmi_start_requires_command_success_and_valid_handle();
+	test_qmi_start_retry_is_blocked_when_session_may_exist();
 	test_qmi_handle_cleanup_distinguishes_missing_from_other_errors();
 	test_qmi_handle_parser_rejects_partial_and_out_of_range_values();
 	test_link_change_reconnect_requires_checked_modem_state();

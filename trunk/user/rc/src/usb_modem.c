@@ -942,7 +942,8 @@ qmi_control_network_start(const char *device_path)
 		pdh_handle = get_qmi_handle(QMI_HANDLE_PDH);
 		attempt_status = modem_qmi_start_attempt_status(start_status,
 							       pdh_handle);
-		ambiguous_session = (start_status != 0 && pdh_handle >= 0);
+		ambiguous_session = modem_qmi_start_attempt_is_ambiguous(start_status,
+								       pdh_handle);
 
 		if (has_credentials) {
 			cleanup_status = modem_qmi_credentials_file_cleanup(&credentials_file);
