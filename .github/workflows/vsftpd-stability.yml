@@ -11,6 +11,8 @@ on:
       - "trunk/user/vsftpd/src/ipaddrparse.h"
       - "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c"
       - "trunk/user/vsftpd/src/ftp_rest_offset_policy.h"
+      - "trunk/user/vsftpd/src/ftp_octal_arg_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
@@ -47,6 +49,8 @@ on:
       - "trunk/user/vsftpd/src/ipaddrparse.h"
       - "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c"
       - "trunk/user/vsftpd/src/ftp_rest_offset_policy.h"
+      - "trunk/user/vsftpd/src/ftp_octal_arg_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
@@ -123,6 +127,11 @@ jobs:
             trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c \
             -o /tmp/vsftpd-rest-offset-policy
           /tmp/vsftpd-rest-offset-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -iquote trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c \
+            -o /tmp/vsftpd-octal-arg-policy
+          /tmp/vsftpd-octal-arg-policy
       - name: Verify vsftpd configuration publication and startup gates
         run: |
           python3 - <<'PY'
@@ -144,6 +153,8 @@ jobs:
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
+          vsftpd_octal_policy = Path("trunk/user/vsftpd/src/ftp_octal_arg_policy.h").read_text()
+          octal_arg_test = Path("trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c").read_text()
           vsftpd_ipaddrparse = Path("trunk/user/vsftpd/src/ipaddrparse.c").read_text()
           vsftpd_ipaddrparse_header = Path("trunk/user/vsftpd/src/ipaddrparse.h").read_text()
           ipaddrparse_test = Path("trunk/user/vsftpd/src/tests/ipaddrparse_policy.c").read_text()
@@ -323,6 +334,7 @@ jobs:
           size = function_body(vsftpd_postlogin, "static void\nhandle_size")
           mdtm = function_body(vsftpd_postlogin, "static void\nhandle_mdtm")
           chmod = function_body(vsftpd_postlogin, "static void\nhandle_site_chmod")
+          umask_handler = function_body(vsftpd_postlogin, "static void\nhandle_site_umask")
           upload = function_body(vsftpd_postlogin, "static void\nhandle_upload_common")
           mkd = function_body(vsftpd_postlogin, "static void\nhandle_mkd")
           rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
@@ -544,8 +556,22 @@ jobs:
           assert "vsf_sysutil_setmodtime(" not in mdtm
           assert "asus_open_existing_path(" in chmod
           assert "p_sess, PERM_WRITE, &s_chmod_file_str, 0," in chmod
-          assert "vsf_sysutil_fchmod_ret(opened_file" in chmod
+          assert "ftp_octal_arg_parse(str_getbuf(p_arg_str), 0777U, &perms)" in chmod
+          assert chmod.index("ftp_octal_arg_parse(") < chmod.index("asus_open_existing_path(") < chmod.index("vsf_sysutil_fchmod_ret(opened_file")
+          assert "str_octal_to_uint" not in chmod
           assert "str_chmod(" not in chmod
+          assert "ftp_octal_arg_parse(str_getbuf(p_arg_str), 0777U, &new_umask)" in umask_handler
+          assert umask_handler.index("ftp_octal_arg_parse(") < umask_handler.index("vsf_sysutil_set_umask(")
+          assert "str_octal_to_uint" not in umask_handler
+          assert '#include "ftp_octal_arg_policy.h"' in vsftpd_postlogin
+          assert "maximum - digit" in vsftpd_octal_policy
+          assert "parsed > (maximum - digit) / 8U" in vsftpd_octal_policy
+          assert "*cursor < (unsigned char) '0'" in vsftpd_octal_policy
+          assert "*cursor > (unsigned char) '7'" in vsftpd_octal_policy
+          assert "755x" in octal_arg_test and "1000" in octal_arg_test
+          assert "0777" in octal_arg_test and "UINT_MAX" in octal_arg_test
+          assert workflow.count("trunk/user/vsftpd/src/ftp_octal_arg_policy.h") == 2
+          assert workflow.count("trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c") == 2
           assert "int vsf_sysutil_fchmod_ret(const int fd, unsigned int mode);" in vsftpd_sysutil_header
           assert "int vsf_sysutil_setmodtime_fd(int fd, long the_time, int is_localtime);" in vsftpd_sysutil_header
           assert "return fchmod(fd, mode & 0777);" in vsftpd_sysutil

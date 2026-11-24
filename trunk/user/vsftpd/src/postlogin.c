@@ -34,6 +34,7 @@
 #include "asus_ext.h"
 #include "ftp_listing_policy.h"
 #include "ftp_rest_offset_policy.h"
+#include "ftp_octal_arg_policy.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -1628,9 +1629,15 @@ handle_site_chmod(struct vsf_session* p_sess, struct mystr* p_arg_str)
     return;
   }
   str_split_char(p_arg_str, &s_chmod_file_str, ' ');
-  if (str_isempty(&s_chmod_file_str))
+  if (str_isempty(&s_chmod_file_str) || str_isempty(p_arg_str))
   {
     vsf_cmdio_write(p_sess, FTP_BADCMD, "SITE CHMOD needs 2 arguments.");
+    return;
+  }
+  if (!ftp_octal_arg_parse(str_getbuf(p_arg_str), 0777U, &perms))
+  {
+    vsf_cmdio_write(p_sess, FTP_BADCMD,
+                    "SITE CHMOD mode must be a complete octal value from 0 to 0777.");
     return;
   }
   resolve_tilde(&s_chmod_file_str, p_sess);
@@ -1656,7 +1663,6 @@ handle_site_chmod(struct vsf_session* p_sess, struct mystr* p_arg_str)
   }
 
   /* Mutate the authorized inode, not a pathname re-resolved after ACL checks. */
-  perms = str_octal_to_uint(p_arg_str);
   retval = vsf_sysutil_fchmod_ret(opened_file, perms);
   vsf_sysutil_close(opened_file);
   if (retval != 0)
@@ -1674,6 +1680,7 @@ static void
 handle_site_umask(struct vsf_session* p_sess, struct mystr* p_arg_str)
 {
   static struct mystr s_umask_resp_str;
+  unsigned int new_umask;
   if (str_isempty(p_arg_str))
   {
     /* Empty arg => report current umask */
@@ -1683,8 +1690,13 @@ handle_site_umask(struct vsf_session* p_sess, struct mystr* p_arg_str)
   }
   else
   {
-    /* Set current umask */
-    unsigned int new_umask = str_octal_to_uint(p_arg_str);
+    /* Set the mask only after validating the complete octal token. */
+    if (!ftp_octal_arg_parse(str_getbuf(p_arg_str), 0777U, &new_umask))
+    {
+      vsf_cmdio_write(p_sess, FTP_BADCMD,
+                      "SITE UMASK must be a complete octal value from 0 to 0777.");
+      return;
+    }
     vsf_sysutil_set_umask(new_umask);
     str_alloc_text(&s_umask_resp_str, "UMASK set to ");
     str_append_text(&s_umask_resp_str,
