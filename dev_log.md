@@ -1,3 +1,12 @@
+## 2026-11-25 — Pin folder deletion, ACL publication and recovery to one volume descriptor
+
+- del_folder() previously checked the share, staged it, read/published per-account ACLs, refreshed the folder snapshot and attempted rollback through independently resolved pathnames. A mountpoint replacement during hotplug could therefore delete on one volume while changing ACLs or compensating on another.
+- Reworked deletion to pin the mount root once, use no-follow fstatat plus descriptor-relative folder enumeration, prebuild ACL rewrite images with read_regular_file_nofollow_at, reserve/open a hidden staging directory with mkdirat/openat, and move/remove the share using renameat/unlinkat anchored to the two pinned descriptors. ACL write and rollback, folder snapshot refresh and staging recovery use those same descriptors. Failed directory compensation preserves the staged data instead of pruning its recovery parent.
+- Added GNU89 policy regressions for descriptor-relative stage-name collision/error/truncation handling, mountpoint-to-symlink replacement, ACL write rollback restoring both ACLs and directory placement, and incomplete directory compensation retaining the staged folder. The source checker now rejects path-based del_folder() operations and asserts the FD transaction ordering.
+- Parent exact main SHA be4e55398b9e4038f97f9cbc937686e7c74da96e repaired the XY-C1 implicit-declaration/static-definition build failure from #45468585947; at the last exact-head query its Actions run list had not appeared yet. This deletion slice has not yet been tested by Actions. Require exact-SHA libdisk and XY-C1 Build/TRX/artifact results before claiming L3; no hardware/L4 claim.
+
+---
+
 ## 2026-11-25 — Restore C89 prototype for descriptor-relative folder lookup
 
 - Exact main SHA `53ef9feca9ef9a031fae2782f0f83144be832d18`: libdisk host regression #45468585750 PASS; AI handoff #45468585944, Process inventory #45468585831, HTTPD auth #45468585722 and NVRAM audit #45468585988 PASS. XY-C1 push run #45468585947 FAILED during the MIPS build: `set_permission()` called `disk_share_folder_exists_in_directory_fd()` before its later `static` definition, producing an implicit declaration followed by “static declaration follows non-static declaration”. TRX verification and artifact upload were skipped.

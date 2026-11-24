@@ -2882,6 +2882,458 @@ test_fd_read_file(int directory_fd, const char *leaf,
 }
 
 
+
+struct fake_fd_folder_delete_state {
+	int directory_fd;
+	int staging_directory_fd;
+	int move_calls;
+	int remove_calls;
+	int refresh_calls;
+	int fail_move_call;
+	int fail_remove_call;
+	int fail_refresh_call;
+};
+static struct fake_fd_folder_delete_state *fake_fd_folder_delete_state;
+
+static int
+test_fd_create_staging_directory_at(int directory_fd, const char *leaf)
+{
+	return disk_share_create_directory_entry_nofollow(
+		directory_fd, leaf, 0700);
+}
+
+static int
+fake_fd_folder_delete_move_between_at(int from_fd, const char *from_leaf,
+                                      int to_fd, const char *to_leaf)
+{
+	struct fake_fd_folder_delete_state *state =
+		fake_fd_folder_delete_state;
+
+	if (!state ||
+	    !((from_fd == state->directory_fd &&
+	       to_fd == state->staging_directory_fd) ||
+	      (from_fd == state->staging_directory_fd &&
+	       to_fd == state->directory_fd))) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->move_calls;
+	if (state->move_calls == state->fail_move_call) {
+		errno = EXDEV;
+		return -1;
+	}
+	return disk_share_rename_directory_entry_nofollow(
+		from_fd, from_leaf, to_fd, to_leaf);
+}
+
+static int
+fake_fd_folder_delete_remove_at(int directory_fd, const char *leaf)
+{
+	struct fake_fd_folder_delete_state *state =
+		fake_fd_folder_delete_state;
+
+	if (!state || directory_fd != state->staging_directory_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->remove_calls;
+	if (state->remove_calls == state->fail_remove_call) {
+		errno = EBUSY;
+		return -1;
+	}
+	return disk_share_remove_directory_entry_nofollow(directory_fd, leaf);
+}
+
+static int
+fake_fd_folder_delete_refresh_at(int directory_fd)
+{
+	struct fake_fd_folder_delete_state *state =
+		fake_fd_folder_delete_state;
+
+	if (!state || directory_fd != state->directory_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->refresh_calls;
+	if (state->refresh_calls == state->fail_refresh_call) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+struct fake_fd_folder_delete_writer_state {
+	int directory_fd;
+	int calls;
+	int fail_call;
+};
+static struct fake_fd_folder_delete_writer_state *fake_fd_folder_delete_writer_state;
+
+static int
+fake_fd_folder_delete_write_at(int directory_fd, const char *leaf,
+                               const char *contents, size_t contents_len)
+{
+	struct fake_fd_folder_delete_writer_state *state =
+		fake_fd_folder_delete_writer_state;
+
+	if (!state || directory_fd != state->directory_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->calls;
+	if (state->calls == state->fail_call) {
+		errno = EACCES;
+		return -1;
+	}
+	return disk_share_replace_file_atomic_at(
+		directory_fd, leaf, contents, contents_len);
+}
+
+struct fake_staging_reserve_state {
+	int directory_fd;
+	int calls;
+	int collisions;
+	int failure_errno;
+	char last_leaf[64];
+};
+static struct fake_staging_reserve_state *fake_staging_reserve_state;
+
+static int
+fake_staging_reserve_create_at(int directory_fd, const char *leaf)
+{
+	struct fake_staging_reserve_state *state = fake_staging_reserve_state;
+
+	if (!state || directory_fd != state->directory_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->calls;
+	snprintf(state->last_leaf, sizeof(state->last_leaf), "%s", leaf);
+	if (state->calls <= state->collisions) {
+		errno = EEXIST;
+		return -1;
+	}
+	if (state->failure_errno != 0) {
+		errno = state->failure_errno;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+test_staging_directory_fd_reservation_retries_only_collisions(void)
+{
+	struct fake_staging_reserve_state state;
+	char leaf[64];
+
+	memset(&state, 0, sizeof(state));
+	state.directory_fd = 42;
+	state.collisions = 2;
+	fake_staging_reserve_state = &state;
+	assert(disk_share_reserve_staging_directory_at(
+		42, leaf, sizeof(leaf), 1234,
+		fake_staging_reserve_create_at) == 0);
+	assert(state.calls == 3);
+	assert(strcmp(leaf, ".share-delete-1234-2") == 0);
+	assert(strcmp(state.last_leaf, leaf) == 0);
+
+	memset(&state, 0, sizeof(state));
+	state.directory_fd = 42;
+	state.failure_errno = EACCES;
+	fake_staging_reserve_state = &state;
+	errno = 0;
+	assert(disk_share_reserve_staging_directory_at(
+		42, leaf, sizeof(leaf), 1234,
+		fake_staging_reserve_create_at) == -1);
+	assert(errno == EACCES);
+	assert(state.calls == 1);
+
+	memset(&state, 0, sizeof(state));
+	state.directory_fd = 42;
+	fake_staging_reserve_state = &state;
+	errno = 0;
+	assert(disk_share_reserve_staging_directory_at(
+		42, leaf, 8, 1234,
+		fake_staging_reserve_create_at) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(state.calls == 0);
+	fake_staging_reserve_state = NULL;
+}
+
+static void
+test_folder_delete_fd_batch_stays_on_original_volume_after_mount_swap(void)
+{
+	char root_template[] = "/tmp/disk-share-deletefd-XXXXXX";
+	char mount_dir[256], moved_dir[256], redirect_dir[256];
+	char stage_leaf[64], contents[64];
+	char *root;
+	const char *original = "*Old=111\n";
+	const char *redirected = "*Old=222\n";
+	struct disk_share_permission_fd_batch_entry entry;
+	struct fake_fd_folder_delete_state state;
+	struct fake_fd_folder_delete_writer_state writer_state;
+	struct stat status;
+	int directory_fd, staging_fd, redirect_fd, moved_fd;
+	int directory_staged = -1, rollback_error = -1;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	redirect_fd = open(redirect_dir, O_RDONLY | O_DIRECTORY);
+	assert(redirect_fd >= 0);
+	assert(mkdirat(directory_fd, "Old", 0700) == 0);
+	assert(mkdirat(redirect_fd, "Old", 0700) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, ".__one_var.txt", original, strlen(original)) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		redirect_fd, ".__one_var.txt", redirected, strlen(redirected)) == 0);
+	assert(disk_share_reserve_staging_directory_at(
+		directory_fd, stage_leaf, sizeof(stage_leaf), 9876,
+		test_fd_create_staging_directory_at) == 0);
+	staging_fd = openat(directory_fd, stage_leaf,
+	                    O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	assert(staging_fd >= 0);
+
+	memset(&entry, 0, sizeof(entry));
+	snprintf(entry.leaf, sizeof(entry.leaf), "%s", ".__one_var.txt");
+	entry.before = strdup(original);
+	entry.after = strdup("");
+	assert(entry.before != NULL && entry.after != NULL);
+	entry.before_len = strlen(entry.before);
+	entry.after_len = 0;
+	entry.needs_update = 1;
+	memset(&state, 0, sizeof(state));
+	state.directory_fd = directory_fd;
+	state.staging_directory_fd = staging_fd;
+	fake_fd_folder_delete_state = &state;
+	memset(&writer_state, 0, sizeof(writer_state));
+	writer_state.directory_fd = directory_fd;
+	fake_fd_folder_delete_writer_state = &writer_state;
+
+	/* Swap the mountpoint after both descriptors have been pinned. */
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+	assert(disk_share_folder_delete_fd_batch(
+		directory_fd, staging_fd, "Old", &entry, 1,
+		fake_fd_folder_delete_write_at,
+		fake_fd_folder_delete_move_between_at,
+		fake_fd_folder_delete_remove_at,
+		fake_fd_folder_delete_refresh_at,
+		&directory_staged, &rollback_error) == 0);
+	assert(directory_staged == 0 && rollback_error == 0);
+	assert(state.move_calls == 1 && state.remove_calls == 1);
+	assert(state.refresh_calls == 1);
+	assert(fstatat(directory_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	assert(fstatat(staging_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	assert(fstatat(redirect_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISDIR(status.st_mode));
+	assert(test_fd_read_file(directory_fd, ".__one_var.txt",
+	                         contents, sizeof(contents)) == 0);
+	assert(contents[0] == '\0');
+	assert(test_fd_read_file(redirect_fd, ".__one_var.txt",
+	                         contents, sizeof(contents)) > 0);
+	assert(strcmp(contents, redirected) == 0);
+
+	assert(disk_share_remove_directory_entry_nofollow(
+		directory_fd, stage_leaf) == 0);
+	assert(close(staging_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlinkat(redirect_fd, ".__one_var.txt", 0) == 0);
+	assert(unlinkat(redirect_fd, "Old", AT_REMOVEDIR) == 0);
+	assert(close(redirect_fd) == 0);
+	assert(close(directory_fd) == 0);
+	moved_fd = open(moved_dir, O_RDONLY | O_DIRECTORY);
+	assert(moved_fd >= 0);
+	assert(unlinkat(moved_fd, ".__one_var.txt", 0) == 0);
+	assert(close(moved_fd) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+	free(entry.before);
+	free(entry.after);
+	fake_fd_folder_delete_state = NULL;
+	fake_fd_folder_delete_writer_state = NULL;
+}
+
+static void
+test_folder_delete_fd_batch_restores_acl_and_directory_after_write_failure(void)
+{
+	char root_template[] = "/tmp/disk-share-delete-rollback-XXXXXX";
+	char mount_dir[256], stage_leaf[64], contents[64];
+	char *root;
+	const char *first = "*Old=111\n";
+	const char *second = "*Old=222\n";
+	struct disk_share_permission_fd_batch_entry entries[2];
+	struct fake_fd_folder_delete_state state;
+	struct fake_fd_folder_delete_writer_state writer_state;
+	struct stat status;
+	int directory_fd, staging_fd;
+	int directory_staged = -1, rollback_error = -1;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	assert(mkdirat(directory_fd, "Old", 0700) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, ".__one_var.txt", first, strlen(first)) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, ".__two_var.txt", second, strlen(second)) == 0);
+	assert(disk_share_reserve_staging_directory_at(
+		directory_fd, stage_leaf, sizeof(stage_leaf), 9877,
+		test_fd_create_staging_directory_at) == 0);
+	staging_fd = openat(directory_fd, stage_leaf,
+	                    O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	assert(staging_fd >= 0);
+	memset(entries, 0, sizeof(entries));
+	snprintf(entries[0].leaf, sizeof(entries[0].leaf), "%s", ".__one_var.txt");
+	snprintf(entries[1].leaf, sizeof(entries[1].leaf), "%s", ".__two_var.txt");
+	entries[0].before = strdup(first);
+	entries[0].after = strdup("");
+	entries[1].before = strdup(second);
+	entries[1].after = strdup("");
+	assert(entries[0].before && entries[0].after &&
+	       entries[1].before && entries[1].after);
+	entries[0].before_len = strlen(entries[0].before);
+	entries[1].before_len = strlen(entries[1].before);
+	entries[0].needs_update = entries[1].needs_update = 1;
+	memset(&state, 0, sizeof(state));
+	state.directory_fd = directory_fd;
+	state.staging_directory_fd = staging_fd;
+	fake_fd_folder_delete_state = &state;
+	memset(&writer_state, 0, sizeof(writer_state));
+	writer_state.directory_fd = directory_fd;
+	writer_state.fail_call = 2;
+	fake_fd_folder_delete_writer_state = &writer_state;
+
+	assert(disk_share_folder_delete_fd_batch(
+		directory_fd, staging_fd, "Old", entries, 2,
+		fake_fd_folder_delete_write_at,
+		fake_fd_folder_delete_move_between_at,
+		fake_fd_folder_delete_remove_at,
+		fake_fd_folder_delete_refresh_at,
+		&directory_staged, &rollback_error) == -1);
+	assert(errno == EACCES);
+	assert(directory_staged == 0 && rollback_error == 0);
+	assert(state.move_calls == 2 && state.remove_calls == 0);
+	assert(state.refresh_calls == 2 && writer_state.calls == 3);
+	assert(fstatat(directory_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISDIR(status.st_mode));
+	assert(fstatat(staging_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	assert(test_fd_read_file(directory_fd, ".__one_var.txt",
+	                         contents, sizeof(contents)) > 0);
+	assert(strcmp(contents, first) == 0);
+	assert(test_fd_read_file(directory_fd, ".__two_var.txt",
+	                         contents, sizeof(contents)) > 0);
+	assert(strcmp(contents, second) == 0);
+	assert(disk_share_remove_directory_entry_nofollow(
+		directory_fd, stage_leaf) == 0);
+	assert(close(staging_fd) == 0);
+	assert(unlinkat(directory_fd, ".__one_var.txt", 0) == 0);
+	assert(unlinkat(directory_fd, ".__two_var.txt", 0) == 0);
+	assert(unlinkat(directory_fd, "Old", AT_REMOVEDIR) == 0);
+	assert(close(directory_fd) == 0);
+	assert(rmdir(mount_dir) == 0);
+	assert(rmdir(root) == 0);
+	free(entries[0].before);
+	free(entries[0].after);
+	free(entries[1].before);
+	free(entries[1].after);
+	fake_fd_folder_delete_state = NULL;
+	fake_fd_folder_delete_writer_state = NULL;
+}
+
+static void
+test_folder_delete_fd_batch_preserves_staging_on_failed_compensation(void)
+{
+	char root_template[] = "/tmp/disk-share-delete-stage-XXXXXX";
+	char mount_dir[256], stage_leaf[64], contents[64];
+	char *root;
+	const char *original = "*Old=111\n";
+	struct disk_share_permission_fd_batch_entry entry;
+	struct fake_fd_folder_delete_state state;
+	struct fake_fd_folder_delete_writer_state writer_state;
+	struct stat status;
+	int directory_fd, staging_fd;
+	int directory_staged = -1, rollback_error = -1;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	assert(mkdirat(directory_fd, "Old", 0700) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, ".__one_var.txt", original, strlen(original)) == 0);
+	assert(disk_share_reserve_staging_directory_at(
+		directory_fd, stage_leaf, sizeof(stage_leaf), 9878,
+		test_fd_create_staging_directory_at) == 0);
+	staging_fd = openat(directory_fd, stage_leaf,
+	                    O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	assert(staging_fd >= 0);
+	memset(&entry, 0, sizeof(entry));
+	snprintf(entry.leaf, sizeof(entry.leaf), "%s", ".__one_var.txt");
+	entry.before = strdup(original);
+	entry.after = strdup("");
+	assert(entry.before && entry.after);
+	entry.before_len = strlen(entry.before);
+	entry.needs_update = 1;
+	memset(&state, 0, sizeof(state));
+	state.directory_fd = directory_fd;
+	state.staging_directory_fd = staging_fd;
+	state.fail_move_call = 2;
+	state.fail_remove_call = 1;
+	fake_fd_folder_delete_state = &state;
+	memset(&writer_state, 0, sizeof(writer_state));
+	writer_state.directory_fd = directory_fd;
+	fake_fd_folder_delete_writer_state = &writer_state;
+
+	assert(disk_share_folder_delete_fd_batch(
+		directory_fd, staging_fd, "Old", &entry, 1,
+		fake_fd_folder_delete_write_at,
+		fake_fd_folder_delete_move_between_at,
+		fake_fd_folder_delete_remove_at,
+		fake_fd_folder_delete_refresh_at,
+		&directory_staged, &rollback_error) == -1);
+	assert(errno == EIO);
+	assert(directory_staged == 1 && rollback_error == EXDEV);
+	assert(state.move_calls == 2 && state.remove_calls == 1);
+	assert(state.refresh_calls == 2 && writer_state.calls == 2);
+	assert(fstatat(directory_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	assert(fstatat(staging_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISDIR(status.st_mode));
+	assert(test_fd_read_file(directory_fd, ".__one_var.txt",
+	                         contents, sizeof(contents)) > 0);
+	assert(strcmp(contents, original) == 0);
+
+	/* Recovery owns this hidden directory; the failed path must not prune it. */
+	assert(unlinkat(staging_fd, "Old", AT_REMOVEDIR) == 0);
+	assert(close(staging_fd) == 0);
+	assert(disk_share_remove_directory_entry_nofollow(
+		directory_fd, stage_leaf) == 0);
+	assert(unlinkat(directory_fd, ".__one_var.txt", 0) == 0);
+	assert(close(directory_fd) == 0);
+	assert(rmdir(mount_dir) == 0);
+	assert(rmdir(root) == 0);
+	free(entry.before);
+	free(entry.after);
+	fake_fd_folder_delete_state = NULL;
+	fake_fd_folder_delete_writer_state = NULL;
+}
+
 static void
 test_folder_rename_fd_batch_stays_on_original_volume_after_mount_swap(void)
 {
@@ -3487,6 +3939,10 @@ test_folder_name_visibility_policy();
 	test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd();
 	test_folder_scans_use_pinned_directory_descriptors();
 	test_folder_rename_uses_pinned_parent_descriptors();
+	test_staging_directory_fd_reservation_retries_only_collisions();
+	test_folder_delete_fd_batch_stays_on_original_volume_after_mount_swap();
+	test_folder_delete_fd_batch_restores_acl_and_directory_after_write_failure();
+	test_folder_delete_fd_batch_preserves_staging_on_failed_compensation();
 	test_folder_rename_fd_batch_stays_on_original_volume_after_mount_swap();
 	test_folder_rename_fd_batch_rolls_back_after_acl_write_failure();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();

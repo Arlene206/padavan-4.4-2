@@ -655,13 +655,13 @@ require(
 )
 
 
-require("disk_share_reserve_staging_directory" in POLICY and
-        "EEXIST" in POLICY and
-        "disk_share_mkdir_staging_directory" in DISK_SOURCE and
+require("disk_share_reserve_staging_directory_at" in POLICY and
+        "disk_share_create_staging_directory_at" in DISK_SOURCE and
         "disk_share_create_directory_entry_nofollow" in DISK_SOURCE and
-        "mkdir(path, 0700)" not in DISK_SOURCE and
-        "disk_share_remove_folder_path(staging_dir)" in DISK_SOURCE,
-        "folder deletion must reserve, create and remove its staging parent through pinned directory descriptors")
+        "disk_share_remove_directory_entry_nofollow" in DISK_SOURCE and
+        "disk_share_reserve_staging_directory_at" in DISK_SOURCE and
+        "mkdir(path, 0700)" not in DISK_SOURCE,
+        "folder deletion must reserve its staging parent relative to the pinned volume descriptor")
 
 del_folder = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
@@ -673,26 +673,46 @@ del_validate = del_folder_compact.index(
     "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
     del_begin
 )
-del_plan = del_folder_compact.index("disk_share_permission_batch_prepare_rewrite(", del_validate)
-del_stage = del_folder_compact.index("disk_share_create_folder_staging_paths(", del_plan)
-del_batch = del_folder_compact.index(
-    "disk_share_folder_delete_batch(full_path,staging_path,mount_path,permission_batch,permission_batch_count,disk_share_replace_file_atomic,disk_share_rename_folder_path,disk_share_remove_folder_path,disk_share_refresh_folder_snapshot,&staging_applied,&rollback_error)",
+del_pin = del_folder_compact.index("disk_share_open_mount_directory(mount_path)", del_validate)
+del_stat = del_folder_compact.index(
+    "fstatat(mount_directory_fd,folder,&folder_status,AT_SYMLINK_NOFOLLOW)",
+    del_pin
+)
+del_scan = del_folder_compact.index(
+    "disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)",
+    del_stat
+)
+del_plan = del_folder_compact.index(
+    "disk_share_permission_fd_batch_prepare_rewrite(mount_directory_fd,acc_num,account_list,target,NULL",
+    del_scan
+)
+del_stage = del_folder_compact.index(
+    "disk_share_reserve_staging_directory_at(mount_directory_fd,staging_leaf",
+    del_plan
+)
+del_open_stage = del_folder_compact.index(
+    "openat(mount_directory_fd,staging_leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)",
     del_stage
+)
+del_batch = del_folder_compact.index(
+    "disk_share_folder_delete_fd_batch(mount_directory_fd,staging_directory_fd,folder,permission_batch,permission_batch_count,disk_share_replace_file_atomic_at,disk_share_rename_directory_entry_nofollow,disk_share_remove_directory_entry_nofollow,initial_folder_list_in_directory_fd,&staging_applied,&rollback_error)",
+    del_open_stage
 )
 del_release = del_folder_compact.index(
     "disk_share_account_nvram_end(&transaction)", del_batch
 )
-require(del_inventory < del_begin < del_validate < del_plan < del_stage <
-        del_batch < del_release and
-        "disk_share_permission_batch_prepare_rewrite" in DISK_SOURCE and
-        "disk_share_reserve_staging_directory" in DISK_SOURCE and
-        "disk_share_folder_delete_batch" in POLICY and
-        "disk_share_remove_folder_path" in DISK_SOURCE and
-        "disk_share_remove_folder_path(staging_dir)" in DISK_SOURCE and
-        "mkdir(path, 0700)" not in DISK_SOURCE and
-        "lstat(staging_path" not in DISK_SOURCE and
+require(del_inventory < del_begin < del_validate < del_pin < del_stat <
+        del_scan < del_plan < del_stage < del_open_stage < del_batch <
+        del_release and
+        "disk_share_permission_batch_prepare_rewrite(" not in del_folder_compact and
+        "disk_share_folder_delete_batch(" not in del_folder_compact and
+        "disk_share_create_folder_staging_paths(" not in del_folder_compact and
+        "test_if_exist_folder_in_mount_path(" not in del_folder_compact and
+        "lstat(" not in del_folder_compact and
+        "full_path" not in del_folder_compact and
+        "disk_share_remove_folder_path(" not in del_folder_compact and
         "disk_share_folder_name_is_visible" in "".join(DISK_SOURCE.split()),
-        "folder deletion must preflight metadata then use the tested staged-directory/ACL/snapshot compensation state machine")
+        "del_folder must pin one volume for no-follow checks, ACL snapshot/publication, staging, snapshot refresh and compensation")
 
 for marker in (
     "test_folder_delete_batch_commits_directory_snapshot_and_permissions",
@@ -739,6 +759,43 @@ require(delete_move < delete_refresh < delete_apply < delete_remove <
         delete_rollback < delete_move_back < delete_refresh_back,
         "delete policy must compensate ACLs, directory placement and folder snapshot after any post-stage failure")
 
+fd_folder_delete_policy = function_body(
+    POLICY, "disk_share_folder_delete_fd_batch("
+)
+fd_folder_delete_policy_compact = "".join(fd_folder_delete_policy.split())
+fd_delete_move = fd_folder_delete_policy_compact.index(
+    "move_entry(directory_fd,folder_leaf,staging_directory_fd,folder_leaf)"
+)
+fd_delete_refresh = fd_folder_delete_policy_compact.index(
+    "refresh_snapshot(directory_fd)", fd_delete_move
+)
+fd_delete_apply = fd_folder_delete_policy_compact.index(
+    "disk_share_permission_fd_batch_apply(directory_fd,entries,count,write_file,&compensation_error)",
+    fd_delete_refresh
+)
+fd_delete_remove = fd_folder_delete_policy_compact.index(
+    "remove_staged(staging_directory_fd,folder_leaf)", fd_delete_apply
+)
+fd_delete_rollback = fd_folder_delete_policy_compact.index(
+    "disk_share_permission_fd_batch_rollback(directory_fd,entries,count,write_file,&compensation_error)",
+    fd_delete_remove
+)
+fd_delete_move_back = fd_folder_delete_policy_compact.index(
+    "move_entry(staging_directory_fd,folder_leaf,directory_fd,folder_leaf)",
+    fd_delete_rollback
+)
+fd_delete_refresh_back = fd_folder_delete_policy_compact.index(
+    "refresh_snapshot(directory_fd)", fd_delete_move_back
+)
+require(fd_delete_move < fd_delete_refresh < fd_delete_apply <
+        fd_delete_remove < fd_delete_rollback < fd_delete_move_back <
+        fd_delete_refresh_back and
+        "disk_share_reserve_staging_directory_at" in POLICY and
+        "test_staging_directory_fd_reservation_retries_only_collisions();" in POLICY_TEST and
+        "test_folder_delete_fd_batch_stays_on_original_volume_after_mount_swap();" in POLICY_TEST and
+        "test_folder_delete_fd_batch_restores_acl_and_directory_after_write_failure();" in POLICY_TEST and
+        "test_folder_delete_fd_batch_preserves_staging_on_failed_compensation();" in POLICY_TEST,
+        "pinned-FD deletion must stage, refresh, publish ACLs, remove or compensate through the same root/staging descriptors")
 fd_batch_prepare = function_body(
     DISK_SOURCE, "disk_share_permission_fd_batch_prepare_rewrite("
 )
@@ -942,14 +999,17 @@ require("disk_share_replace_file_atomic_at(" in set_permission and
 del_folder_body = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
 )
-require("disk_share_permission_batch_prepare_rewrite(" in del_folder_body and
-        "disk_share_folder_delete_batch(" in del_folder_body and
-        "disk_share_create_folder_staging_paths(" in del_folder_body and
-        "disk_share_remove_folder_path" in DISK_SOURCE and
-        "disk_share_refresh_folder_snapshot" in DISK_SOURCE and
-        "disk_share_remove_folder_path(staging_dir)" in del_folder_body and
-        "!staging_applied" in del_folder_body,
-        "folder deletion must prepare ACL images then delegate staged directory, permission publication and snapshot compensation to the tested transaction helper")
+del_folder_compact = "".join(del_folder_body.split())
+require("disk_share_permission_fd_batch_prepare_rewrite(" in del_folder_compact and
+        "disk_share_folder_delete_fd_batch(" in del_folder_compact and
+        "disk_share_reserve_staging_directory_at(" in del_folder_compact and
+        "disk_share_create_staging_directory_at" in del_folder_compact and
+        "initial_folder_list_in_directory_fd" in del_folder_compact and
+        "disk_share_permission_batch_prepare_rewrite(" not in del_folder_compact and
+        "disk_share_folder_delete_batch(" not in del_folder_compact and
+        "disk_share_create_folder_staging_paths(" not in del_folder_compact and
+        "disk_share_remove_folder_path(" not in del_folder_compact,
+        "folder deletion must keep ACL reads/writes, staging, folder placement and rollback pinned to one mount")
 
 permission_batch_prepare = function_body(
     DISK_SOURCE, "disk_share_permission_batch_prepare_rewrite("

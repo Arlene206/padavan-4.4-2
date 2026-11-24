@@ -2975,47 +2975,34 @@ disk_share_remove_folder_path(const char *path)
 }
 
 
+
+static int
+disk_share_create_staging_directory_at(int directory_fd, const char *leaf)
+{
+	return disk_share_create_directory_entry_nofollow(
+		directory_fd, leaf, 0700);
+}
+
+
 int del_folder(const char *const mount_path, const char *const folder)
 {
 	int result, saved_errno, rollback_error = 0;
-	int acc_num = 0, transaction_started = 0, staging_applied = 0;
-	int permission_batch_count = 0, staging_dir_created = 0;
+	int acc_num = 0, transaction_started = 0;
+	int mount_directory_fd = -1, staging_directory_fd = -1;
+	int staging_dir_created = 0, staging_applied = 0;
+	int folder_status_result, permission_batch_count = 0;
+	char staging_leaf[64];
+	char **account_list = NULL;
+	char *target = NULL;
 	struct nvram_transaction transaction;
 	struct stat folder_status;
-	char **account_list = NULL;
-	char var_file[256], staging_dir[256], staging_path[512];
-	char *target = NULL, *full_path = NULL;
-	struct disk_share_permission_batch_entry *permission_batch = NULL;
-	size_t mount_len, folder_len, path_len, target_len;
+	struct disk_share_permission_fd_batch_entry *permission_batch = NULL;
+	size_t folder_len, target_len;
 
 	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
 		errno = EINVAL;
 		return -1;
 	}
-
-	mount_len = strlen(mount_path);
-	folder_len = strlen(folder);
-	if (folder_len > (size_t)-1 - 2 ||
-	    mount_len > (size_t)-1 - folder_len - 2) {
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-	path_len = mount_len + folder_len + 1;
-	full_path = (char *)malloc(path_len + 1);
-	if (!full_path)
-		return -1;
-	memcpy(full_path, mount_path, mount_len);
-	full_path[mount_len] = '/';
-	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
-
-	target_len = folder_len + 2;
-	target = (char *)malloc(target_len + 1);
-	if (!target)
-		goto failed;
-	target[0] = '*';
-	memcpy(target + 1, folder, folder_len);
-	target[target_len - 1] = '=';
-	target[target_len] = '\0';
 
 	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
@@ -3024,16 +3011,6 @@ int del_folder(const char *const mount_path, const char *const folder)
 		errno = EINVAL;
 		goto failed;
 	}
-	for (result = 0; result < acc_num; ++result) {
-		if (disk_share_format_account_var_path(
-			    var_file, sizeof(var_file), mount_path,
-			    account_list[result]) != 0)
-			goto failed;
-	}
-	if (disk_share_format_account_var_path(
-		    var_file, sizeof(var_file), mount_path,
-		    FTP_ANONYMOUS_USER) != 0)
-		goto failed;
 
 	/*
 	 * Serialize account identity changes while preparing, applying and
@@ -3047,73 +3024,131 @@ int del_folder(const char *const mount_path, const char *const folder)
 		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
 		goto failed;
 
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
-	if (result < 0)
+	/* Pin the volume once; no later step re-resolves mount_path. */
+	mount_directory_fd = disk_share_open_mount_directory(mount_path);
+	if (mount_directory_fd < 0)
 		goto failed;
-	if (lstat(full_path, &folder_status) != 0)
+	folder_status_result = fstatat(
+		mount_directory_fd, folder, &folder_status,
+		AT_SYMLINK_NOFOLLOW);
+	if (folder_status_result != 0)
 		goto failed;
 	if (!S_ISDIR(folder_status.st_mode)) {
 		errno = ENOTDIR;
 		goto failed;
 	}
+	result = disk_share_folder_exists_in_directory_fd(
+		mount_directory_fd, folder);
+	if (result < 0)
+		goto failed;
+	if (result == 0) {
+		errno = ENOENT;
+		goto failed;
+	}
 
-	/* Read/transform every metadata file before making any change. */
-	if (disk_share_permission_batch_prepare_rewrite(
-		    mount_path, acc_num, account_list, target, NULL,
+	folder_len = strlen(folder);
+	target_len = folder_len + 2;
+	target = (char *)malloc(target_len + 1);
+	if (!target)
+		goto failed;
+	target[0] = '*';
+	memcpy(target + 1, folder, folder_len);
+	target[target_len - 1] = '=';
+	target[target_len] = '\0';
+
+	/* Snapshot every ACL before staging the directory or publishing writes. */
+	if (disk_share_permission_fd_batch_prepare_rewrite(
+		    mount_directory_fd, acc_num, account_list, target, NULL,
 		    &permission_batch, &permission_batch_count) != 0)
 		goto failed;
-	if (disk_share_create_folder_staging_paths(
-		    mount_path, folder, staging_dir, sizeof(staging_dir),
-		    staging_path, sizeof(staging_path)) != 0)
+
+	if (disk_share_reserve_staging_directory_at(
+		    mount_directory_fd, staging_leaf, sizeof(staging_leaf),
+		    (long)getpid(), disk_share_create_staging_directory_at) != 0)
 		goto failed;
 	staging_dir_created = 1;
+	staging_directory_fd = openat(
+		mount_directory_fd, staging_leaf,
+		O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	if (staging_directory_fd < 0)
+		goto failed;
 
 	/*
-	 * The policy helper stages the directory, refreshes the visible list,
-	 * publishes the complete ACL batch, and compensates all three on failure.
-	 * The output flag keeps the staging parent when a failed rename-back leaves
-	 * the directory there, so data is never discarded during cleanup.
+	 * Directory placement, ACL publication and snapshot compensation all
+	 * stay on the pinned volume/staging descriptors. If compensation cannot
+	 * restore the folder, keep the hidden staging directory as recovery data.
 	 */
-	if (disk_share_folder_delete_batch(
-		    full_path, staging_path, mount_path,
+	if (disk_share_folder_delete_fd_batch(
+		    mount_directory_fd, staging_directory_fd, folder,
 		    permission_batch, permission_batch_count,
-		    disk_share_replace_file_atomic, disk_share_rename_folder_path,
-		    disk_share_remove_folder_path, disk_share_refresh_folder_snapshot,
+		    disk_share_replace_file_atomic_at,
+		    disk_share_rename_directory_entry_nofollow,
+		    disk_share_remove_directory_entry_nofollow,
+		    initial_folder_list_in_directory_fd,
 		    &staging_applied, &rollback_error) != 0) {
 		if (rollback_error != 0)
 			logmessage("disk_share",
-				   "folder deletion compensation incomplete (errno %d)",
-				   rollback_error);
+				   "folder deletion compensation incomplete (errno %d); preserving %s/%s/%s",
+				   rollback_error, mount_path, staging_leaf, folder);
 		goto failed;
 	}
-	if (disk_share_remove_folder_path(staging_dir) == 0 || errno == ENOENT)
+
+	if (close(staging_directory_fd) != 0)
+		logmessage("disk_share",
+			   "folder deletion staging descriptor close failed (errno %d)",
+			   errno ? errno : EIO);
+	staging_directory_fd = -1;
+	if (disk_share_remove_directory_entry_nofollow(
+		    mount_directory_fd, staging_leaf) == 0 || errno == ENOENT) {
 		staging_dir_created = 0;
-	else
+	} else {
 		logmessage("disk_share",
 			   "empty folder deletion staging directory cleanup failed (errno %d)",
 			   errno ? errno : EIO);
+	}
 
-	disk_share_permission_batch_free(permission_batch, permission_batch_count);
+	disk_share_permission_fd_batch_free(
+		permission_batch, permission_batch_count);
+	permission_batch = NULL;
 	free(target);
-	free(full_path);
+	target = NULL;
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
-	if (disk_share_account_nvram_end(&transaction) != 0)
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		transaction_started = 0;
+		(void)close(mount_directory_fd);
+		errno = saved_errno;
 		return -1;
+	}
 	transaction_started = 0;
+	if (close(mount_directory_fd) != 0)
+		return -1;
 	return 0;
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	if (staging_dir_created && !staging_applied) {
-		if (disk_share_remove_folder_path(staging_dir) != 0 && errno != ENOENT)
+	if (staging_directory_fd >= 0) {
+		if (close(staging_directory_fd) != 0)
+			logmessage("disk_share",
+				   "folder deletion staging descriptor close failed (errno %d)",
+				   errno ? errno : EIO);
+		staging_directory_fd = -1;
+	}
+	if (staging_dir_created && !staging_applied &&
+	    mount_directory_fd >= 0) {
+		if (disk_share_remove_directory_entry_nofollow(
+			    mount_directory_fd, staging_leaf) == 0 || errno == ENOENT) {
+			staging_dir_created = 0;
+		} else {
 			logmessage("disk_share",
 				   "folder deletion staging directory cleanup failed (errno %d)",
 				   errno ? errno : EIO);
+		}
 	}
-	disk_share_permission_batch_free(permission_batch, permission_batch_count);
+	disk_share_permission_fd_batch_free(
+		permission_batch, permission_batch_count);
 	free(target);
-	free(full_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	if (transaction_started) {
 		errno = 0;
@@ -3122,9 +3157,14 @@ failed:
 				   "folder deletion transaction release failed (errno %d)",
 				   errno ? errno : EIO);
 	}
+	if (mount_directory_fd >= 0 && close(mount_directory_fd) != 0)
+		logmessage("disk_share",
+			   "folder deletion directory descriptor close failed (errno %d)",
+			   errno ? errno : EIO);
 	errno = saved_errno;
 	return -1;
 }
+
 
 
 static int

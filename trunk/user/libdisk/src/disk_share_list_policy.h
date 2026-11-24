@@ -688,6 +688,52 @@ disk_share_reserve_staging_directory(
 
 
 /*
+ * Reserve a hidden staging directory relative to one pinned volume descriptor.
+ * mkdirat supplies exclusive creation, so a racing entry is never replaced.
+ */
+typedef int (*disk_share_staging_directory_create_at_fn)(int, const char *);
+
+static inline int
+disk_share_reserve_staging_directory_at(
+	int directory_fd, char *staging_leaf, size_t staging_size,
+	long process_id,
+	disk_share_staging_directory_create_at_fn create_directory)
+{
+	unsigned int attempt;
+	int leaf_len, saved_errno;
+
+	if (directory_fd < 0 || !staging_leaf || staging_size == 0 ||
+	    !create_directory) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (attempt = 0; attempt < 32; ++attempt) {
+		leaf_len = snprintf(staging_leaf, staging_size,
+		                    ".share-delete-%ld-%u",
+		                    process_id, attempt);
+		if (leaf_len < 0 || (size_t)leaf_len >= staging_size) {
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		errno = 0;
+		if (create_directory(directory_fd, staging_leaf) == 0) {
+			errno = 0;
+			return 0;
+		}
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno != EEXIST) {
+			errno = saved_errno;
+			return -1;
+		}
+	}
+
+	errno = EEXIST;
+	return -1;
+}
+
+
+/*
  * Rename a directory entry without following its final component or any
  * parent symlink. The caller pins both parent directories before reaching
  * this helper, so renameat() remains anchored if a mount path is replaced.
@@ -978,6 +1024,82 @@ compensate:
 	if (move_entry(directory_fd, new_leaf, old_leaf) != 0 &&
 	    compensation_error == 0)
 		compensation_error = errno ? errno : EIO;
+	if (refresh_snapshot(directory_fd) != 0 && compensation_error == 0)
+		compensation_error = errno ? errno : EIO;
+
+	*rollback_error = compensation_error;
+	if (compensation_error != 0) {
+		errno = EIO;
+		return -1;
+	}
+	errno = operation_error;
+	return -1;
+}
+
+
+/*
+ * Delete a share through two pinned descriptors: one for the volume root and
+ * one for its private staging directory. ACL publication, snapshot refresh,
+ * staging, removal and compensation stay on those descriptors.
+ */
+typedef int (*disk_share_folder_move_between_at_fn)(
+	int, const char *, int, const char *);
+typedef int (*disk_share_folder_remove_at_fn)(int, const char *);
+
+static inline int
+disk_share_folder_delete_fd_batch(
+	int directory_fd, int staging_directory_fd, const char *folder_leaf,
+	struct disk_share_permission_fd_batch_entry *entries, int count,
+	disk_share_permission_fd_batch_writer write_file,
+	disk_share_folder_move_between_at_fn move_entry,
+	disk_share_folder_remove_at_fn remove_staged,
+	disk_share_folder_refresh_at_fn refresh_snapshot,
+	int *directory_staged, int *rollback_error)
+{
+	int operation_error, compensation_error = 0;
+
+	if (directory_staged)
+		*directory_staged = 0;
+	if (rollback_error)
+		*rollback_error = 0;
+	if (directory_fd < 0 || staging_directory_fd < 0 ||
+	    !folder_leaf || !*folder_leaf || strchr(folder_leaf, '/') ||
+	    !strcmp(folder_leaf, ".") || !strcmp(folder_leaf, "..") ||
+	    count < 0 || (count > 0 && !entries) || !write_file ||
+	    !move_entry || !remove_staged || !refresh_snapshot ||
+	    !directory_staged || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (move_entry(directory_fd, folder_leaf,
+	               staging_directory_fd, folder_leaf) != 0)
+		return -1;
+	*directory_staged = 1;
+	if (refresh_snapshot(directory_fd) != 0)
+		goto compensate;
+	if (disk_share_permission_fd_batch_apply(
+		    directory_fd, entries, count, write_file,
+		    &compensation_error) != 0)
+		goto compensate;
+	if (remove_staged(staging_directory_fd, folder_leaf) != 0)
+		goto compensate;
+
+	*directory_staged = 0;
+	return 0;
+
+compensate:
+	operation_error = errno ? errno : EIO;
+	/* Retry any ACL compensation that was incomplete during apply(). */
+	(void)disk_share_permission_fd_batch_rollback(
+		directory_fd, entries, count, write_file, &compensation_error);
+	if (move_entry(staging_directory_fd, folder_leaf,
+	               directory_fd, folder_leaf) != 0) {
+		if (compensation_error == 0)
+			compensation_error = errno ? errno : EIO;
+	} else {
+		*directory_staged = 0;
+	}
 	if (refresh_snapshot(directory_fd) != 0 && compensation_error == 0)
 		compensation_error = errno ? errno : EIO;
 
