@@ -107,6 +107,9 @@ disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
 	/* A successful fstatat() need not clear errno; don't leak stale errors
 	 * into a callback that fails without setting its own errno. */
 	errno = 0;
+	/* A successful fstatat() does not clear errno. Avoid carrying a stale
+	 * lookup error into a callback that fails without setting errno. */
+	errno = 0;
 	if (writer(stream, context) != 0) {
 		if (!errno)
 			errno = EIO;

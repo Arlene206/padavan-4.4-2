@@ -296,10 +296,13 @@ require("disk_share_write_stream_atomic_at(directory_fd,leaf,disk_share_write_at
         "renameat(directory_fd,temp_leaf,directory_fd,leaf)" in atomic_stream_compact and
         "unlinkat(directory_fd,temp_leaf,0)" in atomic_stream_compact and
         "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and
+        "errno=0;if(writer(stream,context)!=0)" in atomic_stream_compact and
         "fflush(stream)" in atomic_stream_compact and
         "fsync(fileno(stream))" in atomic_stream_compact and
         "fclose(stream)" in atomic_stream_compact and
-        "test_atomic_metadata_replace_stays_in_pinned_directory();" in POLICY_TEST,
+        "test_atomic_metadata_replace_stays_in_pinned_directory();" in POLICY_TEST and
+        "errno = ENOENT;" in POLICY_TEST and
+        "fixture->fail_after_write == 2" in POLICY_TEST,
         "atomic ACL metadata replacement must use the checked stream publisher through one pinned dirfd")
 
 
