@@ -289,11 +289,12 @@ jobs:
               ("read", read, "mii_mgr_indirect_read(", "return __mii_mgr_read("),
               ("write", write, "mii_mgr_indirect_write(", "return __mii_mgr_write("),
           ):
-              check = body.index("mii_mgr_phy_address_status(phy_addr)")
-              reject = body.index("if (mii_mgr_phy_address_status(phy_addr) != 0)", check)
-              indirect_call = body.index(indirect, reject)
-              direct_call = body.index(direct, reject)
-              assert check < reject < indirect_call < direct_call, name
+              guard = body.index(
+                  "if (mii_mgr_phy_address_status(phy_addr) != 0)"
+              )
+              indirect_call = body.index(indirect, guard)
+              direct_call = body.index(direct, guard)
+              assert guard < indirect_call < direct_call, name
           assert source.count("mii_mgr_phy_address_status(phy_addr)") == 2
           print("MDIO PHY addresses are validated before direct or indirect transactions: PASS")
           PY
