@@ -1,3 +1,11 @@
+## 2026-11-25 04:32 CST — Repair blocking handoff contract literal
+
+- Exact SHA `b2dab6b05fb2cf07abbdae01b1acff2cc134df31`: udhcpc #45480533291 PASS (GNU89 ASan/UBSan regression and Python source contract). AI handoff #45480533158 failed because the live handoff expressed the atomic-tree/commit rule but omitted the validator's required literal phrase `one atomic main commit`.
+- THIS docs-only commit adds that exact rule to the checkpoint. The change is necessary to restore the required handoff workflow; no product source changed. It also records the udhcpc gate's PASS and preserves the exact pending verification boundary.
+- Prior source SHA `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: Process inventory #45480041644, Process lifecycle #45480041481, USB storage #45480041346 and NVRAM #45480041721 PASS. XY-C1 #45480041423 was still IN_PROGRESS at last observation. Product-source L3 baseline remains `36a10c0e5844daf31b3cc483c20d9e25a798ef6b`; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-25 04:29 CST — Normalize conditional branch token in DHCP checker
 
 - Exact main SHA `c522dc20b504eac7a7c701d341034752ac3f0ec1`, udhcpc run #45480285457: GNU89 `-Werror` ASan/UBSan policy binary PASS; Python checker failed at line 276 because the code compacts whitespace but the expected token still contained the space in `else if`. The actual compact spelling is `elseif(state==DECLINE_PENDING)`.
