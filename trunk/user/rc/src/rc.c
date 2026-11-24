@@ -1689,16 +1689,6 @@ init_router(void)
 	}
 
 	{
-		int timezone_status = set_timezone();
-
-		if (timezone_status != 0)
-			logmessage(LOGNAME,
-				   "kernel timezone initialization incomplete (status=%d)",
-				   timezone_status);
-		boot_services_status = rc_first_service_start_status(
-			boot_services_status, timezone_status);
-	}
-	{
 		int pagecache_status = set_pagecache_reclaim();
 
 		if (pagecache_status != 0)
@@ -1710,6 +1700,16 @@ init_router(void)
 	}
 
 	storage_load_time();
+	{
+		int timezone_status = set_timezone();
+
+		if (timezone_status != 0)
+			logmessage(LOGNAME,
+				   "kernel timezone initialization incomplete (status=%d)",
+				   timezone_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, timezone_status);
+	}
 
 	errno = 0;
 	log_remote_api_result = nvram_get_checked("log_ipaddr", &log_remote_nvram_value);

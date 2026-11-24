@@ -1734,6 +1734,9 @@ boot_router = c_function_body(rc_source, "init_router(void)")
 assert "int timezone_status = set_timezone();" in boot_router
 assert "boot_services_status = rc_first_service_start_status(" in boot_router
 assert "boot_services_status, timezone_status" in boot_router
+assert boot_router.index("storage_load_time();") < boot_router.index(
+    "int timezone_status = set_timezone();"
+), "kernel timezone offset must be initialized after persisted clock restore"
 time_restart = rc_source.split(
     "strcmp(entry->d_name, RCN_RESTART_TIME) == 0", 1
 )[1].split("RCN_RESTART_SYSCTL", 1)[0]
