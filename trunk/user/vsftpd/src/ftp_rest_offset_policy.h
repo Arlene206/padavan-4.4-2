@@ -44,4 +44,11 @@ ftp_rest_offset_parse(const char* p_input, unsigned int input_length,
   return 1;
 }
 
+/* ASCII conversions change byte counts, so REST offsets are binary-only. */
+static int
+ftp_rest_offset_mode_is_valid(int is_ascii, filesize_t offset)
+{
+  return offset >= 0 && (!is_ascii || offset == 0);
+}
+
 #endif /* VSF_FTP_REST_OFFSET_POLICY_H */

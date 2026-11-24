@@ -356,6 +356,10 @@ jobs:
           rmd = function_body(vsftpd_postlogin, "static void\nhandle_rmd")
           dele = function_body(vsftpd_postlogin, "static void\nhandle_dele")
           retr = function_body(vsftpd_postlogin, "static void\nhandle_retr")
+          assert "ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset)" in retr
+          assert "ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset)" in upload
+          assert upload.index("ftp_rest_offset_mode_is_valid(") < upload.index("asus_open_upload_path(")
+          assert "ftp_rest_offset_mode_is_valid(1, 42)" in rest_offset_test
           existing_open = function_body(vsftpd_acl, "asus_open_existing_path(")
           upload_open = function_body(vsftpd_acl, "asus_open_upload_path(")
           remove_path = function_body(vsftpd_acl, "asus_remove_path(")

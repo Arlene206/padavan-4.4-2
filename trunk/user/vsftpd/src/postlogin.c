@@ -671,7 +671,7 @@ handle_retr(struct vsf_session* p_sess, int is_http)
   {
     return;
   }
-  if (p_sess->is_ascii && offset != 0)
+  if (!ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset))
   {
     vsf_cmdio_write(p_sess, FTP_FILEFAIL,
                     "No support for resume of ASCII transfer.");
@@ -1069,6 +1069,12 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   p_sess->restart_pos = 0;
   if (!data_transfer_checks_ok(p_sess))
   {
+    return;
+  }
+  if (!ftp_rest_offset_mode_is_valid(p_sess->is_ascii, offset))
+  {
+    vsf_cmdio_write(p_sess, FTP_UPLOADFAIL,
+                    "No support for resume of ASCII transfer.");
     return;
   }
   resolve_tilde(&p_sess->ftp_arg_str, p_sess);

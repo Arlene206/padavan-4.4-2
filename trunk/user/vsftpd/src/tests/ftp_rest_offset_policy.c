@@ -54,6 +54,17 @@ main(void)
     failed = 1;
   }
 
+  if (!ftp_rest_offset_mode_is_valid(0, 0) ||
+      !ftp_rest_offset_mode_is_valid(0, 42) ||
+      !ftp_rest_offset_mode_is_valid(1, 0) ||
+      ftp_rest_offset_mode_is_valid(1, 1) ||
+      ftp_rest_offset_mode_is_valid(1, 42) ||
+      ftp_rest_offset_mode_is_valid(0, -1))
+  {
+    fprintf(stderr, "REST ASCII/binary resume policy mismatch\n");
+    failed = 1;
+  }
+
   if (failed)
   {
     return 1;
