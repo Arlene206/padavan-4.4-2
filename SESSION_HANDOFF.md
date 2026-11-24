@@ -2,12 +2,12 @@
 
 ## Current repository state
 
-- Live `main` parent for this RStats checked-setting slice: `aaa32409b8ce3a4c23d095243bfa9d3a493b8dc1`.
-- Exact `1b0f5ec` RStats run `#45305664640`: GNU89 `-Werror` ASan/UBSan policy executable **PASS**; the inline source-contract step failed on one checker assertion that joined a two-line helper call into one substring. The checker was corrected in `aaa3240`; its exact RStats run `#45305869350` and AI handoff run `#45305869452` were **IN_PROGRESS** at last poll.
-- Exact `1b0f5ec` Process inventory `#45305664547`, Process lifecycle regression `#45305664301`, HTTPD `#45305664353`, and AI handoff `#45305664712`: **PASS**. NVRAM audit `#45305664468` and XY-C1 firmware validation `#45305664453` were still running at last observation.
-- New stability finding: `nvram_get_int("rstats_stored")` maps NVRAM backend failures to zero, which can silently skip all raw-history writes. This slice changes the producer to a checked read: missing r## Active task
+- Live `main` parent for this RStats read-side hardening slice: `8a552f5b65d2e29dd4497d11781c390147f1fb3e`.
+- Exact `aaa3240` RStats stability run `#45305869350` and AI handoff contract `#45305869452`: **PASS**. This confirms the prior raw-history flash gate and the checker correction.
+- Exact `8a552f5` Actions at commit time: RStats stability `#45305989386`, AI handoff `#45305989400`, Process inventory `#45305989308`, Process fail-closed regression `#45305989408`, HTTPD `#45305989315`, and XY-C1 `#45305989350` were **IN_PROGRESS**; NVRAM audit `#45305989375` was **PENDING** at last poll.
+- `save_history_raw()` now distinguishes a missing `rstats_stored` key from NVRAM backend errors before writing raw history. The startup reader had the same lossy `nvram_match()` access: a transient failure was indistinguishable from “not equal to zero” and caused persisted history to be loaded anyway. This slice uses a checked read and preserve## Active task
 
-Verify the checked `rstats_stored` read on this commit's exact SHA. A failed or null NVRAM read must not be mistaken for explicit storage mode zero; absent keys must continue to mean zero, with legacy `atoi()` conversion retained for present values.
+Verify checked NVRAM handling in both RStats history persistence paths on this commit's exact SHA. `load_history_raw()` must preserve the previous exact `nvram_match(..., "0")` behavior for valid/missing values but must not interpret a backend error as a successful comparison result.
 
 ## Completed development slices
 
@@ -37,13 +37,14 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `1b0f5ec` RStats host policy compile/executable **PASS**; its final inline source checker assertion failed only due a wrapped two-line call. The checker-only successor `aaa3240` rerun was **IN_PROGRESS** at last observation.
-- Exact `1b0f5ec` Process inventory `#45305664547`, Process lifecycle regression `#45305664301`, HTTPD `#45305664353`, AI handoff `#45305664712`: **PASS**. NVRAM audit `#45305664468` and XY-C1 firmware validation `#45305664453`: **IN_PROGRESS** at last observation.
-- This checked-NVRAM source/test slice requires exact-SHA RStats stability and applicable Process/AI/XY-C1 checks. No firmware L3 or hardware L4 result is claimed.## Exact first action for the next GPT
+- Exact `aaa3240` RStats stability `#45305869350` and AI handoff `#45305869452`: **PASS** for the previous raw-history flash gate and checker correction.
+- Exact `8a552f5` RStats stability `#45305989386`, AI handoff `#45305989400`, Process inventory `#45305989308`, Process fail-closed regression `#45305989408`, HTTPD `#45305989315`, and XY-C1 `#45305989350` were **IN_PROGRESS** at last poll; NVRAM audit `#45305989375` was **PENDING**.
+- This read-side slice needs fresh exact-SHA policy/source-contract checks and applicable firmware validation. No firmware L3 or hardware L4 result is claimed.
+- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5## Exact first action for the next GPT
 
-1. Verify exact-SHA RStats stability, AI handoff and dependent Actions for the checked `rstats_stored` migration; inspect logs if any fail.
-2. Reconcile the pending `1b0f5ec` NVRAM audit and XY-C1 workflow results only against their own recorded SHA; do not promote older or later runs as same-SHA verification.
-3. Continue auditing other rstats configuration reads (including `load_history_raw()` and periodic mode changes) for lossy value-only NVRAM access, preserving missing-key compatibility.
+1. Verify this commit's exact-SHA RStats stability regression and dependent Actions; fix the first actual failure if any.
+2. Reconcile exact `8a552f5` NVRAM audit, Process, HTTPD and XY-C1 results only against that SHA.
+3. Continue scanning RStats and adjacent userland startup/config code for value-only NVRAM calls that collapse backend errors into valid defaults, adding checked adapters only where failure changes control flow.
 
 
 # Cross-session execution mandate

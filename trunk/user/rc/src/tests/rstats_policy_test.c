@@ -406,6 +406,28 @@ test_history_selector_copy_results(void)
 }
 
 static void
+test_nvram_history_load_status(void)
+{
+  int load_history = 99;
+
+  assert(rstats_nvram_history_load_status(0, 0, NULL, &load_history) == 0);
+  assert(load_history == 1); /* absent key matches legacy nvram_match() */
+  assert(rstats_nvram_history_load_status(1, 0, "0", &load_history) == 0);
+  assert(load_history == 0);
+  assert(rstats_nvram_history_load_status(1, 0, "00", &load_history) == 0);
+  assert(load_history == 1); /* preserve exact string comparison */
+  assert(rstats_nvram_history_load_status(1, 0, "", &load_history) == 0);
+  assert(load_history == 1);
+  assert(rstats_nvram_history_load_status(1, 0, NULL, &load_history) == EIO);
+  assert(load_history == 0);
+  assert(rstats_nvram_history_load_status(-1, EACCES, "0", &load_history) == EACCES);
+  assert(load_history == 0);
+  assert(rstats_nvram_history_load_status(-1, 0, "0", &load_history) == EIO);
+  assert(rstats_nvram_history_load_status(2, 0, "0", &load_history) == EIO);
+  assert(rstats_nvram_history_load_status(1, 0, "1", NULL) == EINVAL);
+}
+
+static void
 test_nvram_storage_mode_results(void)
 {
   int storage_mode = 99;
@@ -510,6 +532,7 @@ int main(void) {
   test_atomic_write_and_fsync_retries(target);
   test_nvram_selector_status_results();
   test_history_selector_copy_results();
+  test_nvram_history_load_status();
   test_nvram_storage_mode_results();
   test_history_file_write_status_results();
   test_periodic_storage_save_retries_after_failure();

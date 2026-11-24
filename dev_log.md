@@ -1,3 +1,11 @@
+## 2026-11-23 — Make RStats raw-history load setting error-aware
+
+- `load_history_raw()` used `nvram_match("rstats_stored", "0")`, which could not distinguish a missing key from a backend/read/close failure. The read is now checked. Missing keys and values other than the exact string `0` retain the previous load behavior; an unreadable or malformed API result skips the load rather than interpreting UNKNOWN as a valid match/non-match.
+- Added policy regression for absent, exact `0`, `00`, empty, null, backend error, errno-less error, unexpected result and invalid output pointer, plus source-order assertions proving the checked read is evaluated before any history file open/read. Previous checked writer + flash gate and source checker were green on exact `aaa3240` (`#45305869350`, `#45305869452`).
+- Parent `8a552f5b65d2e29dd4497d11781c390147f1fb3e` had RStats, AI, Process, HTTPD and XY-C1 checks in progress and NVRAM audit pending at last observation; this follow-up requires its own exact-SHA checks.
+
+---
+
 ## 2026-11-23 — Make RStats history storage mode read error-aware
 
 - `save_history_raw()` used `nvram_get_int("rstats_stored")`; the legacy getter maps both missing keys and backend/read/close failures to zero, so a transient NVRAM fault could silently disable raw history persistence. It now uses `nvram_get_checked()` and a status-bearing policy conversion: a missing key still defaults to zero, present values retain legacy `atoi()` conversion, and backend/unexpected/null results preserve pending writes rather than being interpreted as disabled.

@@ -165,6 +165,17 @@ jobs:
           assert "test_history_file_write_status_results();" in test
           assert "test_periodic_storage_save_retries_after_failure" in test
           assert "test_periodic_storage_save_retries_after_failure();" in test
+          history_load = body(rstats, "load_history_raw(void)")
+          assert "nvram_get_checked(\"rstats_stored\", &rstats_stored_text)" in history_load
+          assert "rstats_nvram_history_load_status(" in history_load
+          assert "nvram_match(\"rstats_stored\", \"0\")" not in history_load
+          assert "cannot trust history load setting" in history_load
+          assert history_load.index("nvram_get_checked(\"rstats_stored\", &rstats_stored_text)") < history_load.index(
+              "rstats_nvram_history_load_status(") < history_load.index("if (!load_history)")
+          assert "rstats_nvram_history_load_status(" in persistence_policy
+          assert "test_nvram_history_load_status" in test
+          assert "test_nvram_history_load_status();" in test
+
           raw_save = body(rstats, "save_history_raw(long ticks)")
           assert "nvram_get_checked(\"rstats_stored\", &rstats_stored_text)" in raw_save
           assert "rstats_nvram_storage_mode(" in raw_save

@@ -51,6 +51,33 @@ rstats_nvram_storage_mode(int read_result, int saved_errno,
  * shared cache pointer, so copy it before any later NVRAM operation.
  * Missing keys preserve the legacy empty/default selection.
  */
+/*
+ * Preserve nvram_match("rstats_stored", "0") semantics while distinguishing
+ * backend failures: a missing key or any value other than the exact string
+ * "0" permits the legacy history load, but an unreadable setting is UNKNOWN.
+ */
+static inline int
+rstats_nvram_history_load_status(int read_result, int saved_errno,
+                                 const char *value, int *load_history)
+{
+    int status;
+
+    if (!load_history)
+        return EINVAL;
+    *load_history = 0;
+    status = rstats_nvram_read_status(read_result, saved_errno);
+    if (status != 0)
+        return status;
+    if (read_result == 0) {
+        *load_history = 1;
+        return 0;
+    }
+    if (!value)
+        return EIO;
+    *load_history = strcmp(value, "0") != 0;
+    return 0;
+}
+
 static inline int
 rstats_nvram_copy_selector(int read_result, int saved_errno,
                            const char *value, char *destination,

@@ -216,10 +216,28 @@ static int is_history_active(const history_t *ph)
 static void load_history_raw(void)
 {
 	char h_path[40];
+	char *rstats_stored_text = NULL;
 	int i, n_len;
+	int rstats_stored_result, rstats_stored_errno, rstats_stored_status;
+	int load_history = 0;
 	history_t hist;
 
-	if (g_ap_mode || nvram_match("rstats_stored", "0"))
+	if (g_ap_mode)
+		return;
+
+	errno = 0;
+	rstats_stored_result = nvram_get_checked("rstats_stored", &rstats_stored_text);
+	rstats_stored_errno = errno;
+	rstats_stored_status = rstats_nvram_history_load_status(
+		rstats_stored_result, rstats_stored_errno,
+		rstats_stored_text, &load_history);
+	if (rstats_stored_status != 0) {
+		logmessage("rstats",
+			   "cannot trust history load setting; skipping raw history load (status=%d)",
+			   rstats_stored_status);
+		return;
+	}
+	if (!load_history)
 		return;
 
 	snprintf(h_path, sizeof(h_path), "%s/%s", "/etc/storage", "rstats-history");
