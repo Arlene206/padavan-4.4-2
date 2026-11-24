@@ -166,6 +166,17 @@ jobs:
           assert "test_periodic_storage_save_retries_after_failure" in test
           assert "test_periodic_storage_save_retries_after_failure();" in test
           raw_save = body(rstats, "save_history_raw(long ticks)")
+          assert "nvram_get_checked(\"rstats_stored\", &rstats_stored_text)" in raw_save
+          assert "rstats_nvram_storage_mode(" in raw_save
+          assert "nvram_get_int(\"rstats_stored\")" not in raw_save
+          assert "cannot trust history storage mode" in raw_save
+          assert raw_save.index("nvram_get_checked(\"rstats_stored\", &rstats_stored_text)") < raw_save.index(
+              "rstats_nvram_storage_mode(")
+          assert raw_save.index("rstats_nvram_storage_mode(") < raw_save.index(
+              "if (rstats_stored_status != 0)") < raw_save.index("f_write(h_path")
+          assert "rstats_nvram_storage_mode(" in persistence_policy
+          assert "test_nvram_storage_mode_results" in test
+          assert "test_nvram_storage_mode_results();" in test
           assert "storage_status = write_storage_to_mtd();" in raw_save
           assert "storage_errno = errno;" in raw_save
           assert "rstats_storage_save_result(" in raw_save

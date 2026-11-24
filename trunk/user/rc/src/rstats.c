@@ -241,11 +241,24 @@ static void save_history_raw(long ticks)
 	int i, rstats_stored, auto_save_th;
 	int storage_status, storage_errno;
 	int history_write_status, history_write_result, history_write_errno, file_status;
+	char *rstats_stored_text = NULL;
+	int rstats_stored_result, rstats_stored_errno, rstats_stored_status;
 
 	if (g_ap_mode)
 		return;
 
-	rstats_stored = nvram_get_int("rstats_stored");
+	errno = 0;
+	rstats_stored_result = nvram_get_checked("rstats_stored", &rstats_stored_text);
+	rstats_stored_errno = errno;
+	rstats_stored_status = rstats_nvram_storage_mode(
+		rstats_stored_result, rstats_stored_errno,
+		rstats_stored_text, &rstats_stored);
+	if (rstats_stored_status != 0) {
+		logmessage("rstats",
+			   "cannot trust history storage mode; preserving pending writes (status=%d)",
+			   rstats_stored_status);
+		return;
+	}
 	if (rstats_stored < 1)
 		return;
 

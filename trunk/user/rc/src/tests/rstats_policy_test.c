@@ -406,6 +406,24 @@ test_history_selector_copy_results(void)
 }
 
 static void
+test_nvram_storage_mode_results(void)
+{
+  int storage_mode = 99;
+
+  assert(rstats_nvram_storage_mode(0, 0, NULL, &storage_mode) == 0);
+  assert(storage_mode == 0); /* absent key retains legacy default */
+  assert(rstats_nvram_storage_mode(1, 0, "2", &storage_mode) == 0);
+  assert(storage_mode == 2);
+  assert(rstats_nvram_storage_mode(1, 0, "invalid", &storage_mode) == 0);
+  assert(storage_mode == 0); /* preserve legacy atoi parsing */
+  assert(rstats_nvram_storage_mode(1, 0, NULL, &storage_mode) == EIO);
+  assert(rstats_nvram_storage_mode(-1, EACCES, "2", &storage_mode) == EACCES);
+  assert(rstats_nvram_storage_mode(-1, 0, "2", &storage_mode) == EIO);
+  assert(rstats_nvram_storage_mode(2, 0, "2", &storage_mode) == EIO);
+  assert(rstats_nvram_storage_mode(1, 0, "2", NULL) == EINVAL);
+}
+
+static void
 test_history_file_write_status_results(void)
 {
   assert(rstats_history_file_write_status(0, ENOSPC) == 0);
@@ -492,6 +510,7 @@ int main(void) {
   test_atomic_write_and_fsync_retries(target);
   test_nvram_selector_status_results();
   test_history_selector_copy_results();
+  test_nvram_storage_mode_results();
   test_history_file_write_status_results();
   test_periodic_storage_save_retries_after_failure();
 

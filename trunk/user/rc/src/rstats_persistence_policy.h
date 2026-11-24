@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* Failed periodic flash saves stay due and are retried on the next rstats
@@ -17,6 +18,32 @@ rstats_nvram_read_status(int read_result, int saved_errno)
     if (read_result > 1)
         return EIO;
     return saved_errno > 0 ? saved_errno : EIO;
+}
+
+/*
+ * nvram_get_int() historically maps an absent key or a failed read to zero.
+ * Keep the absent-key default and atoi parsing, but never interpret a backend
+ * failure as an explicit disabled setting.
+ */
+static inline int
+rstats_nvram_storage_mode(int read_result, int saved_errno,
+                          const char *value, int *storage_mode)
+{
+    int status;
+
+    if (!storage_mode)
+        return EINVAL;
+    status = rstats_nvram_read_status(read_result, saved_errno);
+    if (status != 0)
+        return status;
+    if (read_result == 0) {
+        *storage_mode = 0;
+        return 0;
+    }
+    if (!value)
+        return EIO;
+    *storage_mode = atoi(value);
+    return 0;
 }
 
 /*

@@ -1,3 +1,11 @@
+## 2026-11-23 — Make RStats history storage mode read error-aware
+
+- `save_history_raw()` used `nvram_get_int("rstats_stored")`; the legacy getter maps both missing keys and backend/read/close failures to zero, so a transient NVRAM fault could silently disable raw history persistence. It now uses `nvram_get_checked()` and a status-bearing policy conversion: a missing key still defaults to zero, present values retain legacy `atoi()` conversion, and backend/unexpected/null results preserve pending writes rather than being interpreted as disabled.
+- Added GNU89 policy coverage for absent/present/malformed/null/backend/errno-less/unexpected results and an inline source-order contract proving the status gate precedes raw-history writes. Parent `aaa32409b8ce3a4c23d095243bfa9d3a493b8dc1`: exact RStats runner `#45305869350` and AI handoff `#45305869452` (checker-corrected successor `aaa3240`) were **IN_PROGRESS**; prior `1b0f5ec` host policy executable passed but its source checker failed on a two-line substring expectation.
+- This source/test slice awaits exact-SHA Actions; no firmware L3 or hardware L4 result is claimed.
+
+---
+
 ## 2026-11-23 — Match RStats write-status checker across wrapped source call
 
 - Exact `1b0f5ec` RStats stability run `#45305664640` passed the GNU89 `-Werror` ASan/UBSan compile and runtime policy regression. Its final Python source contract failed because one assertion expected the helper's arguments on the same line as the call, while production uses a normal two-line call.

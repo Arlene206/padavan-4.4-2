@@ -2,13 +2,12 @@
 
 ## Current repository state
 
-- Live `main` parent for this RStats source-contract correction: `1b0f5ecf1afeae4bc39e05c691d233b60caf9721`.
-- Exact `1b0f5ec` GNU89 persistence/signal policy compile + ASan/UBSan executable: **PASS** (RStats run `#45305664640`).
-- Exact `1b0f5ec` Process inventory `#45305664547`, HTTPD Authentication/Security `#45305664353`, and AI handoff contract `#45305664712`: **PASS**. Process lifecycle regression `#45305664301`, NVRAM audit `#45305664468`, and XY-C1 firmware validation `#45305664453` were still in progress at last poll.
-- The RStats workflow's final Python source contract failed on one overly-specific expected substring: production correctly calls `rstats_history_file_write_status(` with its two arguments on the following source line. This commit adjusts only the checker to assert the call and argument tokens separately; the GNU89 test and production C remain unchanged.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-1## Active task
+- Live `main` parent for this RStats checked-setting slice: `aaa32409b8ce3a4c23d095243bfa9d3a493b8dc1`.
+- Exact `1b0f5ec` RStats run `#45305664640`: GNU89 `-Werror` ASan/UBSan policy executable **PASS**; the inline source-contract step failed on one checker assertion that joined a two-line helper call into one substring. The checker was corrected in `aaa3240`; its exact RStats run `#45305869350` and AI handoff run `#45305869452` were **IN_PROGRESS** at last poll.
+- Exact `1b0f5ec` Process inventory `#45305664547`, Process lifecycle regression `#45305664301`, HTTPD `#45305664353`, and AI handoff `#45305664712`: **PASS**. NVRAM audit `#45305664468` and XY-C1 firmware validation `#45305664453` were still running at last observation.
+- New stability finding: `nvram_get_int("rstats_stored")` maps NVRAM backend failures to zero, which can silently skip all raw-history writes. This slice changes the producer to a checked read: missing r## Active task
 
-Re-run the RStats stability source-contract on the exact successor SHA after fixing the Python assertion to match the two-line production call to `rstats_history_file_write_status()`. The prior commit's GNU89 ASan/UBSan test already passed; no production change is part of this correction.
+Verify the checked `rstats_stored` read on this commit's exact SHA. A failed or null NVRAM read must not be mistaken for explicit storage mode zero; absent keys must continue to mean zero, with legacy `atoi()` conversion retained for present values.
 
 ## Completed development slices
 
@@ -38,14 +37,13 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `1b0f5ec` RStats stability run `#45305664640`: compile and execute GNU89 policy tests **PASS**; final inline Python source contract **FAIL** only because one expected call+arguments string ignored the source newline. No runtime C test failed.
-- Exact `1b0f5ec` Process inventory `#45305664547`, HTTPD `#45305664353`, and AI handoff `#45305664712`: **PASS**. Process lifecycle regression `#45305664301`, NVRAM audit `#45305664468`, XY-C1 validation `#45305664453`: **IN_PROGRESS** at last observation.
-- This checker-only correction awaits exact-SHA RStats and AI verification. No same-SHA firmware L3 or hardware L4 result is claimed.
-- Frozen backup rem## Exact first action for the next GPT
+- Exact `1b0f5ec` RStats host policy compile/executable **PASS**; its final inline source checker assertion failed only due a wrapped two-line call. The checker-only successor `aaa3240` rerun was **IN_PROGRESS** at last observation.
+- Exact `1b0f5ec` Process inventory `#45305664547`, Process lifecycle regression `#45305664301`, HTTPD `#45305664353`, AI handoff `#45305664712`: **PASS**. NVRAM audit `#45305664468` and XY-C1 firmware validation `#45305664453`: **IN_PROGRESS** at last observation.
+- This checked-NVRAM source/test slice requires exact-SHA RStats stability and applicable Process/AI/XY-C1 checks. No firmware L3 or hardware L4 result is claimed.## Exact first action for the next GPT
 
-1. Verify exact-SHA RStats stability and AI handoff Actions after the source-contract whitespace correction.
-2. Reconcile Process lifecycle regression, NVRAM audit, and XY-C1 Build/TRX/artifact results for `1b0f5ec`; do not infer results from a later SHA.
-3. Continue the RStats checked `rstats_stored` setting-read migration: the legacy `nvram_get_int()` maps backend errors to zero and can silently disable raw-history persistence. Preserve missing-key behavior and test backend/null/errno cases.
+1. Verify exact-SHA RStats stability, AI handoff and dependent Actions for the checked `rstats_stored` migration; inspect logs if any fail.
+2. Reconcile the pending `1b0f5ec` NVRAM audit and XY-C1 workflow results only against their own recorded SHA; do not promote older or later runs as same-SHA verification.
+3. Continue auditing other rstats configuration reads (including `load_history_raw()` and periodic mode changes) for lossy value-only NVRAM access, preserving missing-key compatibility.
 
 
 # Cross-session execution mandate
