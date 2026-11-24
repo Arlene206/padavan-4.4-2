@@ -1,3 +1,11 @@
+## 2026-11-24 19:31 Beijing — Fix R0KH-ID vendor-header contract matcher
+
+- Exact focused MTK run #45378781924 on `b9d55bfcbf23c751c2f548e35ba78e9e05e5118b` passed the new GNU89 ASan/UBSan R0KH-ID C regression, then failed in the Python contract because its raw-byte regex used double-escaped metacharacters and therefore did not match the vendor macro. Production code was not implicated.
+- Replaced the regex pair with whitespace-normalized byte-string checks. This keeps non-UTF-8 source safe and directly verifies the 48-byte maximum and 49-byte destination field.
+- The NUL-compatible R0KH-ID path is retained: raw lengths 1–48 and NUL-inclusive 2–49 are bounded before copy; effective payload length is normalized after copy, with no stored-state mutation on errors. Fresh exact-head MTK/AI/Process/NVRAM/XY-C1 verification is pending.
+
+---
+
 ## 2026-11-24 19:20 Beijing — Normalize R0KH-ID input and make source checks encoding-safe
 
 - The R0KH-ID C boundary fixture passed on `0517ce5`, but the focused MTK workflow failed in `verify_ft_r0khid_policy()` because one legacy vendor header contains non-UTF-8 bytes. Replaced text decoding for the vendor macro/structure headers with byte-based assertions.

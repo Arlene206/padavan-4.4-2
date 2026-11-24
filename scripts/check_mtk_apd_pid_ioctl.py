@@ -206,8 +206,10 @@ def verify_ft_r0khid_policy() -> None:
         include_dir = path.parents[1] / "include"
         macro = (include_dir / "dot11r_ft.h").read_bytes()
         structure = (include_dir / "ft_cmm.h").read_bytes()
-        assert re.search(rb"#define\\s+FT_ROKH_ID_LEN\\s+48\\b", macro)
-        assert re.search(rb"FtR0khId\\[FT_ROKH_ID_LEN\\s*\\+\\s*1\\]", structure)
+        macro = b" ".join(macro.split())
+        structure = b" ".join(structure.split())
+        assert b"#define FT_ROKH_ID_LEN 48" in macro
+        assert b"FtR0khId[FT_ROKH_ID_LEN + 1]" in structure
     for marker in ("input_length_valid(0U, 48U)", "input_length_valid(49U, 48U)",
                    "input_length_valid(50U, 48U)", "normalize_length(value, 49U, 48U, &length)",
                    "value[48] = '\\0';", "value[48] = 'x';"):

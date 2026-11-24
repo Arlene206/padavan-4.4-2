@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Active branch: `main`; source parent for this checkpoint: `0517ce5e9e67d94a82e546b67a7876e5f110691b`. Re-fetch live main before every write.
+- Active branch: `main`; source parent for this checkpoint: `b9d55bfcbf23c751c2f548e35ba78e9e05e5118b`. Re-fetch live main before every write.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
 - No open PRs were found. Legacy PR #1 is closed; its valid CA trust-store bootstrap and AliDDNS HMAC work were ported to main.
 - LLDT PID descriptor hardening: `529cf073`; fixture/checker fixes `8796b356`, `2fdf8e7a`, `9b97f743`; Process contract `be370293`; full interface identity `0b532570`; pathname checker fix `b270bcc` (Process #45376899681 PASS).
@@ -25,7 +25,7 @@
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head Actions for this compatibility/checker follow-up. Confirm the MTK C boundary and four-driver source contract pass, then resolve any real failure.
+1. Fetch exact-head Actions for this checker correction. Confirm MTK C boundaries and four-driver contract pass; #45378781924 was the over-escaped byte-regex failure being corrected.
 2. Refresh XY-C1 #45378091249 and require the new exact-SHA XY-C1 run to pass Build, TRX and artifact on one SHA. Close NVRAM/Process/AI runs on the new commit.
 3. After checks are closed or running independently, select the next concrete P1 security/stability issue outside this R0KH-ID slice and continue the source → regression → atomic commit → exact-SHA Actions loop.
 
