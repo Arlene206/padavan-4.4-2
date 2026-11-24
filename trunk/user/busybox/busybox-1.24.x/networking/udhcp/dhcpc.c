@@ -1010,6 +1010,12 @@ static smallint listen_mode;
 static smallint state;
 static smallint deconfig_resume_state;
 static smallint deconfig_release_on_usr2;
+#if ENABLE_FEATURE_UDHCPC_ARPING
+/* Retry DHCPDECLINE before requesting another address after an ARP conflict. */
+#define DECLINE_PENDING 8
+static uint32_t decline_server_addr;
+static uint32_t decline_requested_ip;
+#endif
 
 static int udhcp_raw_socket(int ifindex)
 {
@@ -1733,17 +1739,45 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				}
 				state = deconfig_resume_state;
 				deconfig_release_on_usr2 = 0;
+
 				if (state == INIT_SELECTING) {
 					change_listen_mode(LISTEN_RAW);
 					client_config.first_secs = 0;
 					requested_ip = 0;
 					packet_num = 0;
 					timeout = 0;
+#if ENABLE_FEATURE_UDHCPC_ARPING
+				} else if (state == DECLINE_PENDING) {
+					change_listen_mode(LISTEN_NONE);
+					timeout = 0;
+#endif
 				} else {
 					change_listen_mode(LISTEN_NONE);
 					timeout = INT_MAX;
 				}
 				continue;
+#if ENABLE_FEATURE_UDHCPC_ARPING
+			case DECLINE_PENDING: {
+				int decline_status = send_decline(decline_server_addr,
+								   decline_requested_ip);
+
+					if (udhcpc_decline_retry_required(decline_status)) {
+						bb_error_msg("DHCPDECLINE retry failed (status %d); delaying address selection",
+							decline_status);
+						timeout = udhcpc_decline_retry_delay(tryagain_timeout);
+						continue;
+					}
+					bb_info_msg("DHCPDECLINE sent; restarting address selection");
+					state = INIT_SELECTING;
+					change_listen_mode(LISTEN_RAW);
+					client_config.first_secs = 0;
+					requested_ip = 0;
+					timeout = tryagain_timeout;
+					packet_num = 0;
+					already_waited_sec = 0;
+					continue;
+			}
+#endif
 			/* case RELEASED: */
 			}
 			/* yah, I know, *you* say it would never happen */
@@ -1942,6 +1976,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				}
 #if ENABLE_FEATURE_UDHCPC_ARPING
 				if (opt & OPT_a) {
+					int decline_status;
 /* RFC 2131 3.1 paragraph 5:
  * "The client receives the DHCPACK message with configuration
  * parameters. The client SHOULD perform a final check on the
@@ -1960,17 +1995,35 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 					) {
 						bb_info_msg("Offered address is in use "
 							"(got ARP reply), declining");
-						send_decline(/*xid,*/ server_addr, packet.yiaddr);
+						decline_status = send_decline(server_addr, packet.yiaddr);
+						if (udhcpc_decline_retry_required(decline_status)) {
+							bb_error_msg("DHCPDECLINE send failed (status %d); blocking address reselection",
+								decline_status);
+							decline_server_addr = server_addr;
+							decline_requested_ip = packet.yiaddr;
+						}
 
 						if (state != REQUESTING) {
 							int deconfig_status = udhcp_run_script(NULL, "deconfig");
 							if (udhcpc_deconfig_retry_required(deconfig_status)) {
 								bb_error_msg("ARP conflict deconfig failed; deferring DHCP restart");
-								udhcpc_schedule_deconfig_retry(INIT_SELECTING, 0,
+								int resume_state = udhcpc_decline_retry_required(decline_status) ?
+									DECLINE_PENDING : INIT_SELECTING;
+
+								udhcpc_schedule_deconfig_retry(resume_state, 0,
 									tryagain_timeout, &timeout, &packet_num,
 									&already_waited_sec);
 								continue;
 							}
+						}
+
+						if (udhcpc_decline_retry_required(decline_status)) {
+							change_listen_mode(LISTEN_NONE);
+							state = DECLINE_PENDING;
+							timeout = udhcpc_decline_retry_delay(tryagain_timeout);
+							packet_num = 0;
+							already_waited_sec = 0;
+							continue;
 						}
 						change_listen_mode(LISTEN_RAW);
 						state = INIT_SELECTING;

@@ -18,6 +18,18 @@ static int test_failed_deconfig_blocks_state_transition(void)
 	return 0;
 }
 
+
+static int test_failed_dhcpdecline_blocks_reselection_until_retry(void)
+{
+	CHECK(!udhcpc_decline_retry_required(0));
+	CHECK(udhcpc_decline_retry_required(-1));
+	CHECK(udhcpc_decline_retry_required(1));
+	CHECK(udhcpc_decline_retry_delay(5) == 5);
+	CHECK(udhcpc_decline_retry_delay(0) == 1);
+	CHECK(udhcpc_decline_retry_delay(-3) == 1);
+	return 0;
+}
+
 static int test_pending_deconfig_manual_stop_releases_existing_lease(void)
 {
 	CHECK(udhcpc_deconfig_pending_release_required(1, 1));
@@ -121,6 +133,7 @@ static int test_already_expired_lease_is_not_resurrected(void)
 int main(void)
 {
 	if (test_failed_deconfig_blocks_state_transition() != 0 ||
+	    test_failed_dhcpdecline_blocks_reselection_until_retry() != 0 ||
 	    test_pending_deconfig_manual_stop_releases_existing_lease() != 0 ||
 	    test_initial_acquisition_retries_selected_request() != 0 ||
 	    test_nonpositive_retry_interval_is_throttled() != 0 ||

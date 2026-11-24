@@ -57,4 +57,19 @@ udhcpc_deconfig_pending_release_required(int lease_was_active,
 	return lease_was_active != 0 && release_requested != 0;
 }
 
+
+/* Do not restart discovery until the server has accepted DHCPDECLINE. */
+static inline int
+udhcpc_decline_retry_required(int send_status)
+{
+	return send_status != 0;
+}
+
+/* Keep retries bounded away from a busy loop when -A is zero or negative. */
+static inline int
+udhcpc_decline_retry_delay(int retry_timeout)
+{
+	return retry_timeout > 0 ? retry_timeout : 1;
+}
+
 #endif /* UDHCP_SCRIPT_POLICY_H */

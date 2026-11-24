@@ -119,10 +119,32 @@ assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
 arp_start = dhcpc.index("if (!arpping(packet.yiaddr,")
 arp_end = dhcpc.index("continue; /* back to main loop */", arp_start)
 arp_conflict = dhcpc[arp_start:arp_end]
-assert "send_decline(" in arp_conflict
+
+assert "decline_status = send_decline(server_addr, packet.yiaddr);" in arp_conflict
+assert "udhcpc_decline_retry_required(decline_status)" in arp_conflict
+assert "decline_server_addr = server_addr;" in arp_conflict
+assert "decline_requested_ip = packet.yiaddr;" in arp_conflict
+assert "DECLINE_PENDING : INIT_SELECTING" in " ".join(arp_conflict.split())
+assert "state = DECLINE_PENDING;" in arp_conflict
+assert "udhcpc_decline_retry_delay(tryagain_timeout)" in arp_conflict
+assert "udhcpc_decline_retry_required(int send_status)" in policy
+assert "udhcpc_decline_retry_delay(int retry_timeout)" in policy
+assert "test_failed_dhcpdecline_blocks_reselection_until_retry" in test
 assert "if (state != REQUESTING)" in arp_conflict
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in arp_conflict
 assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in arp_conflict
+
+decline_start = dhcpc.index("case DECLINE_PENDING:")
+decline_end = dhcpc.index("/* case RELEASED:", decline_start)
+decline_pending = dhcpc[decline_start:decline_end]
+assert "send_decline(decline_server_addr" in decline_pending
+assert "decline_requested_ip" in decline_pending
+assert "udhcpc_decline_retry_required(decline_status)" in decline_pending
+assert "timeout = udhcpc_decline_retry_delay(tryagain_timeout);" in decline_pending
+assert decline_pending.index("send_decline(") < decline_pending.index("state = INIT_SELECTING;")
+resume_pending = pending_body[pending_body.index("state = deconfig_resume_state;"):]
+assert "else if (state == DECLINE_PENDING)" in resume_pending
+assert "timeout = 0;" in resume_pending
 assert arp_conflict.index("udhcpc_schedule_deconfig_retry") < arp_conflict.index("change_listen_mode(LISTEN_RAW)")
 expiry_start = dhcpc.index('bb_info_msg("Lease lost, entering init state")')
 expiry_end = dhcpc.index("case DECONFIG_PENDING:", expiry_start)

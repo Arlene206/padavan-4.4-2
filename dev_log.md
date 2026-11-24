@@ -1,3 +1,10 @@
+## 2026-11-24 — Retry failed DHCPDECLINE before requesting another address
+
+- ARP conflict handling ignored the return value from send_decline(). It immediately restarted DHCP selection even when DHCPDECLINE could not be sent, so the server could offer the same conflicting address again; the source violated the required decline-before-restart sequence.
+- Added an ARPING-only DECLINE_PENDING state retaining the original server and address. A failed send blocks discovery and retries after a bounded delay. If old-lease deconfiguration also fails, DECONFIG_PENDING resumes into DECLINE_PENDING only after cleanup succeeds. Successful send then returns to INIT_SELECTING. GNU89 policy regression covers send status and retry-delay floor; the Python source contract pins saved tuple, cleanup ordering and retry-before-rediscovery.
+- Parent 94960ce: exact BusyBox udhcpc regression/source contract #45398493359 PASS; AI docs #45398493347 was pending at last check. Product-source XY-C1 #45398034078 is building on SHA 694732a; TRX/artifact pending. QMI firmware L3 is confirmed on b05eae9: #45396493118 Build, TRX verification and artifact upload all SUCCESS.
+
+---
 ## 2026-11-24 — Correct udhcpc pending-release source contract
 
 - Exact SHA 694732a passed the GNU89 ASan/UBSan state-policy binary, but the Python checker failed one stale assertion: it still expected the SIGUSR2 branch to assign deconfig_resume_state = RELEASED directly. The production code now correctly routes that path through perform_release() and udhcpc_schedule_deconfig_retry(RELEASED, 0, ...), so the source contract was updated to pin the shared routine and retry-before-continue order rather than the obsolete assignment.
