@@ -45,6 +45,7 @@
 #include "firewall_rp_filter_policy.h"
 #include "firewall_hook_file.h"
 #include "firewall_nvram_match_policy.h"
+#include "firewall_vts_lport_policy.h"
 #if defined (APP_ADBYBY)
 #include "firewall_adbyby_restore_policy.h"
 #endif
@@ -1903,9 +1904,9 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 static int
 include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int forward_chain)
 {
-int i, proto_status, saved_errno;
-	const char *proto;
-	char *protono, *port, *lport, *srcip, *dstip, *dtype;
+int i, proto_status, saved_errno, lport_status, lport_present, has_lport;
+	const char *proto, *lport_value, *lport;
+	char *protono, *port, *srcip, *dstip, *dtype;
 	char srcaddrs[64], dstports[32];
 
 	dtype = (forward_chain) ? "FORWARD" : "INPUT";
@@ -1948,14 +1949,29 @@ int i, proto_status, saved_errno;
 			continue;
 		}
 		port = portrange_conv("vts_port_x", i);
-		lport = portrange_conv("vts_lport_x", i);
+		lport = "";
 		if (strcmp(proto, "other") == 0) {
 			protono = portrange_conv("vts_protono_x", i);
 			if (!firewall_ip_protocol_number_is_safe(protono))
 				continue;
 		} else {
+			lport_present = 0;
+			lport_value = NULL;
+			lport_status = firewall_read_indexed_string_setting_with_presence(
+				"vts_lport_x", i, &lport_value, &lport_present);
+			lport_status = firewall_vts_lport_read_status(
+				lport_status, lport_present, lport_value, &has_lport);
+			if (lport_status != 0) {
+				saved_errno = lport_status;
+				logmessage(LOGNAME,
+					   "cannot read virtual-server translation port %d; refusing incomplete IPv4 filter ruleset (errno=%d)",
+					   i, saved_errno);
+				errno = saved_errno;
+				return -1;
+			}
+			lport = has_lport ? lport_value : "";
 			if (!firewall_port_range_is_safe(port, 0) ||
-			    (lport && *lport && !firewall_port_number_is_safe(lport)))
+			    (has_lport && !firewall_port_number_is_safe(lport)))
 				continue;
 		}
 		
@@ -1984,9 +2000,9 @@ int i, proto_status, saved_errno;
 static int
 include_vts_nat(FILE *fp, int num_entries)
 {
-int i, proto_status, saved_errno;
-	const char *proto;
-	char *protono, *port, *lport, *srcip, *dstip, *dtype;
+int i, proto_status, saved_errno, lport_status, lport_present, has_lport;
+	const char *proto, *lport_value, *lport;
+	char *protono, *port, *srcip, *dstip, *dtype;
 	char srcaddrs[64];
 
 	dtype = IPT_CHAIN_NAME_VSERVER;
@@ -2021,14 +2037,29 @@ int i, proto_status, saved_errno;
 			continue;
 		}
 		port = portrange_conv("vts_port_x", i);
-		lport = portrange_conv("vts_lport_x", i);
+		lport = "";
 		if (strcmp(proto, "other") == 0) {
 			protono = portrange_conv("vts_protono_x", i);
 			if (!firewall_ip_protocol_number_is_safe(protono))
 				continue;
 		} else {
+			lport_present = 0;
+			lport_value = NULL;
+			lport_status = firewall_read_indexed_string_setting_with_presence(
+				"vts_lport_x", i, &lport_value, &lport_present);
+			lport_status = firewall_vts_lport_read_status(
+				lport_status, lport_present, lport_value, &has_lport);
+			if (lport_status != 0) {
+				saved_errno = lport_status;
+				logmessage(LOGNAME,
+					   "cannot read virtual-server translation port %d; refusing incomplete IPv4 NAT ruleset (errno=%d)",
+					   i, saved_errno);
+				errno = saved_errno;
+				return -1;
+			}
+			lport = has_lport ? lport_value : "";
 			if (!firewall_port_range_is_safe(port, 0) ||
-			    (lport && *lport && !firewall_port_number_is_safe(lport)))
+			    (has_lport && !firewall_port_number_is_safe(lport)))
 				continue;
 		}
 		

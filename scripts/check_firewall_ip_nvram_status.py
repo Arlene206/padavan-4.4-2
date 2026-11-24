@@ -8,6 +8,8 @@ POLICY = (ROOT / "trunk/user/rc/src/firewall_nvram_match_policy.h").read_text()
 TEST = (ROOT / "trunk/user/rc/src/tests/firewall_nvram_match_policy.c").read_text()
 MANGLE_POLICY = (ROOT / "trunk/user/rc/src/firewall_mangle_ttl_policy.h").read_text()
 MANGLE_TEST = (ROOT / "trunk/user/rc/src/tests/firewall_mangle_ttl_policy.c").read_text()
+VTS_LPORT_POLICY = (ROOT / "trunk/user/rc/src/firewall_vts_lport_policy.h").read_text()
+VTS_LPORT_TEST = (ROOT / "trunk/user/rc/src/tests/firewall_vts_lport_policy.c").read_text()
 
 
 def body(source: str, signature: str) -> str:
@@ -183,6 +185,31 @@ for marker in (
     "test_checked_string_resolver_rejects_backend_and_malformed_results",
 ):
     assert marker in TEST and marker + "();" in TEST
+
+
+# Optional VTS translation ports must distinguish absence from an NVRAM fault.
+assert "firewall_vts_lport_read_status" in VTS_LPORT_POLICY
+for marker in (
+    "test_missing_optional_translation_port_keeps_external_port_fallback",
+    "test_empty_and_configured_translation_values",
+    "test_nvram_read_errors_never_become_missing_values",
+    "test_malformed_reader_results_are_rejected",
+):
+    assert marker in VTS_LPORT_TEST and marker + "();" in VTS_LPORT_TEST
+for signature, ruleset in (
+    ("include_vts_filter(FILE *fp, char *lan_ip", "filter"),
+    ("include_vts_nat(FILE *fp, int num_entries)", "NAT"),
+):
+    emitter = body(SOURCE, signature)
+    read_lport = emitter.index(
+        'firewall_read_indexed_string_setting_with_presence("vts_lport_x", i')
+    classify_lport = emitter.index("firewall_vts_lport_read_status(", read_lport)
+    failure_gate = emitter.index("if (lport_status != 0)", classify_lport)
+    failure_return = emitter.index("return -1;", failure_gate)
+    use_lport = emitter.index('lport = has_lport ? lport_value : "";', failure_return)
+    assert read_lport < classify_lport < failure_gate < failure_return < use_lport
+    assert "refusing incomplete IPv4 " + ruleset + " ruleset" in emitter[failure_gate:failure_return]
+    assert "lport = portrange_conv(\"vts_lport_x\"" not in emitter
 
 
 # VPN server subnet data influences MASQUERADE routes and must be snapshotted

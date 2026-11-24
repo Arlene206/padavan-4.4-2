@@ -1,3 +1,13 @@
+## 2026-11-24 — Fail closed when optional virtual-server translation-port NVRAM reads fail
+
+- `include_vts_filter()` and `include_vts_nat()` used `portrange_conv("vts_lport_x", i)` but treated a NULL result as an absent/empty optional translation port. If `nvram_get_checked()` failed while reading a configured internal port, the firewall silently fell back to the external port and could publish a different filter/DNAT mapping (for example, WAN 8080 -> LAN:8080 instead of LAN:80).
+- Both VTS builders now use the checked indexed-string reader with presence information. Missing/empty values preserve the legacy external-port fallback; any backend/malformed read result aborts the incomplete filter/NAT staging so the caller retains the previously published ruleset.
+- Added GNU89 ASan/UBSan regression coverage for missing, empty, configured, backend-error and malformed reader results, and extended the exact-source checker plus firewall Actions trigger/test step. Parent main SHA: `d096f168bfe4188f5223bf76806b4ea012742580`.
+- VPN lifecycle #45502092649, AI docs #45502092664, NVRAM boundary audit #45502092721, process inventory #45502093101, IPv6 service read #45502092750, HTTPD security #45502092764 and OpenVPN credential staging #45502092820 PASS on product SHA `d096f168bfe4188f5223bf76806b4ea012742580`. XY-C1 #45502092732 is still PENDING on that SHA (Build active; TRX/artifact not started at last poll). New firewall, XY-C1 and AI docs exact-head validation are pending after this commit.
+- No target runtime or physical-router validation is claimed.
+
+---
+
 ## 2026-11-24 — Reject malformed OpenVPN client certificate lifetime arguments
 
 - `ovpn_server_expcli_main()` parsed the optional `days_valid` argument twice with `atoi()`. Numeric-prefix values such as `30junk` silently became 30 days, while values outside the `int` range had undefined conversion behavior before being passed to certificate generation.

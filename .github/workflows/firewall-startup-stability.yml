@@ -25,6 +25,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_vts_lport_policy.h"
+      - "trunk/user/rc/src/tests/firewall_vts_lport_policy.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/tests/firewall_nvram_match_policy.c"
@@ -87,6 +89,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_vts_lport_policy.h"
+      - "trunk/user/rc/src/tests/firewall_vts_lport_policy.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/tests/firewall_nvram_match_policy.c"
@@ -148,6 +152,12 @@ jobs:
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_startup_policy.c -o "$RUNNER_TEMP/firewall_startup_policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall_startup_policy"
+
+      - name: Compile and run optional VTS translation-port read regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_vts_lport_policy.c -o "$RUNNER_TEMP/firewall-vts-lport-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall-vts-lport-policy"
 
       - name: Compile and run checked firewall-enable NVRAM regression
         run: |
