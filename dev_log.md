@@ -1,3 +1,10 @@
+## 2026-11-24 — Align SmartDNS lifecycle source contract with current tri-state helpers
+
+- Exact Process inventory run #45425821194 on `822d8a8c40808290825d838d746d7fec034bb2fc` ran the SmartDNS shell regression successfully, including the new procfs-default case, PID identity checks, stop revalidation, Adbyby ownership and adblock conversion. It then failed in `scripts/check_smartdns_lifecycle.py` because the static checker still expected a former generic `_smartdns_process_name` helper and `killall smartdns` behavior.
+- Current source intentionally separates `smartdns_named_process_state()` for Adbyby from `smartdns_process_state()` for verified SmartDNS executable/argv/start_time identity, and uses PID-scoped TERM/KILL with fresh post-signal state checks. Update the checker to assert the actual tri-state helper branches and PID-scoped stop path rather than obsolete name-wide killall behavior.
+- AI handoff #45425821211 on parent `822d8a8c40808290825d838d746d7fec034bb2fc` PASS. Its XY-C1 run #45425821347 remained in progress at last poll; the Process failure was a stale checker assertion, not a shell runtime regression.
+
+---
 ## 2026-11-24 — Include DNS Forwarder production sources in XY-C1 validation triggers
 
 - Exact SHA `0761c14cd929958b6398fa862f93e74b635d82ce`: DNS Forwarder launch-path #45424750772, AI handoff #45424750770 and Process inventory #45424750807 all PASS. No XY-C1 run was created because `xy-c1-firmware-validation.yml` did not include `trunk/user/dns-forwarder/**` in its push path filter.
