@@ -2779,6 +2779,7 @@ test_folder_scans_use_pinned_directory_descriptors(void)
 	assert(unlinkat(directory_fd, "Share", AT_REMOVEDIR) == 0);
 	assert(close(redirect_fd) == 0);
 	assert(close(directory_fd) == 0);
+	assert(rmdir(moved_dir) == 0);
 	assert(unlink(mount_dir) == 0);
 	assert(unlink(redirect_entry) == 0);
 	assert(rmdir(redirect_dir) == 0);
