@@ -17,6 +17,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_qdma.c"
       - "scripts/check_raeth_rx_ring_cleanup.py"
+      - "scripts/check_raeth_qdma_tx_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
@@ -64,6 +65,7 @@ on:
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
       - "scripts/check_raeth_rx_ring_cleanup.py"
+      - "scripts/check_raeth_qdma_tx_cleanup.py"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"
@@ -125,6 +127,9 @@ jobs:
 
       - name: Verify PDMA RX allocation rollback is complete
         run: python3 scripts/check_raeth_rx_ring_cleanup.py
+
+      - name: Verify QDMA TX staged allocation rollback is complete
+        run: python3 scripts/check_raeth_qdma_tx_cleanup.py
 
       - name: Compile and run switch status/ioctl packing regression
         run: |

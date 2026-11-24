@@ -168,6 +168,10 @@ bool qdma_tx_desc_alloc(void)
 	unsigned int txd_idx;
 	int i = 0;
 
+	/* Keep failure teardown safe even when coherent TXD allocation fails. */
+	for (i = 0; i < num_tx_desc; i++)
+		ei_local->skb_free[i] = 0;
+
 	ei_local->txd_pool =
 	    dma_alloc_coherent(&ei_local->qdma_pdev->dev,
 			       QTXD_LEN * num_tx_desc,
@@ -183,7 +187,6 @@ bool qdma_tx_desc_alloc(void)
 	       ei_local->skb_free);
 	/* set all txd_pool_info to 0. */
 	for (i = 0; i < num_tx_desc; i++) {
-		ei_local->skb_free[i] = 0;
 		ei_local->txd_pool_info[i] = i + 1;
 		ei_local->txd_pool[i].txd_info3.LS_bit = 1;
 		ei_local->txd_pool[i].txd_info3.OWN_bit = 1;
@@ -457,6 +460,10 @@ bool fq_qdma_init(struct net_device *dev)
 
 	if (unlikely(!free_page_head)) {
 		pr_err("QDMA FQ page not available...\n");
+		dma_free_coherent(&ei_local->qdma_pdev->dev,
+				  NUM_QDMA_PAGE * QTXD_LEN,
+				  free_head, phy_free_head);
+		free_head = NULL;
 		return 0;
 	}
 	for (i = 0; i < NUM_QDMA_PAGE; i++) {
@@ -1184,12 +1191,16 @@ int fe_qdma_tx_dma_init(struct net_device *dev)
 		sfq_init(dev);
 	/*tx desc alloc, add a NULL TXD to HW */
 	pass = qdma_tx_desc_alloc();
-	if (!pass)
-		return -1;
+	if (!pass) {
+		fe_qdma_tx_dma_deinit(dev);
+		return -ENOMEM;
+	}
 
 	pass = fq_qdma_init(dev);
-	if (!pass)
-		return -1;
+	if (!pass) {
+		fe_qdma_tx_dma_deinit(dev);
+		return -ENOMEM;
+	}
 
 	return 0;
 }
@@ -1227,25 +1238,35 @@ void fe_qdma_tx_dma_deinit(struct net_device *dev)
 	int i;
 
 	/* free TX Ring */
-	if (ei_local->txd_pool)
+	if (ei_local->txd_pool) {
 		dma_free_coherent(&ei_local->qdma_pdev->dev,
 				  num_tx_desc * QTXD_LEN,
 				  ei_local->txd_pool, ei_local->phy_txd_pool);
-	if (ei_local->free_head)
+		ei_local->txd_pool = NULL;
+	}
+	if (ei_local->free_head) {
 		dma_free_coherent(&ei_local->qdma_pdev->dev,
 				  NUM_QDMA_PAGE * QTXD_LEN,
 				  ei_local->free_head, ei_local->phy_free_head);
-	if (ei_local->free_page_head)
+		ei_local->free_head = NULL;
+		free_head = NULL;
+	}
+	if (ei_local->free_page_head) {
 		dma_free_coherent(&ei_local->qdma_pdev->dev,
 				  NUM_QDMA_PAGE * QDMA_PAGE_SIZE,
 				  ei_local->free_page_head,
 				  ei_local->phy_free_page_head);
+		ei_local->free_page_head = NULL;
+	}
 
 	/* free TX data */
-	for (i = 0; i < num_tx_desc; i++) {
-		if ((ei_local->skb_free[i] != (struct sk_buff *)0xFFFFFFFF) &&
-		    (ei_local->skb_free[i] != 0))
-			dev_kfree_skb_any(ei_local->skb_free[i]);
+	if (ei_local->skb_free) {
+		for (i = 0; i < num_tx_desc; i++) {
+			if ((ei_local->skb_free[i] != (struct sk_buff *)0xFFFFFFFF) &&
+			    (ei_local->skb_free[i] != 0))
+				dev_kfree_skb_any(ei_local->skb_free[i]);
+			ei_local->skb_free[i] = NULL;
+		}
 	}
 }
 
