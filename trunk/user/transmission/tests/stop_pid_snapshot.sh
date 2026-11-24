@@ -20,9 +20,12 @@ EVENTS="$TMP_DIR/events"
 : > "$EVENTS"
 
 MOCK_PIDOF_MODE=graceful
-MOCK_PIDOF_CALLS=0
+MOCK_PIDOF_CALLS_FILE="$TMP_DIR/pidof-calls"
+printf '0\n' > "$MOCK_PIDOF_CALLS_FILE"
 pidof() {
+  MOCK_PIDOF_CALLS=$(cat "$MOCK_PIDOF_CALLS_FILE")
   MOCK_PIDOF_CALLS=$((MOCK_PIDOF_CALLS + 1))
+  printf '%s\n' "$MOCK_PIDOF_CALLS" > "$MOCK_PIDOF_CALLS_FILE"
   case "$MOCK_PIDOF_MODE" in
     graceful)
       if [ "$MOCK_PIDOF_CALLS" -eq 1 ]; then
@@ -70,14 +73,14 @@ fi
 
 # An invalid or unknown initial process inventory must not signal anything.
 : > "$EVENTS"
-MOCK_PIDOF_CALLS=0
+printf '0\n' > "$MOCK_PIDOF_CALLS_FILE"
 MOCK_PIDOF_MODE=malformed
 if func_stop >/dev/null 2>&1; then
   fail "malformed PID output was accepted"
 fi
 [ ! -s "$EVENTS" ] || fail "malformed PID output caused a process signal"
 
-MOCK_PIDOF_CALLS=0
+printf '0\n' > "$MOCK_PIDOF_CALLS_FILE"
 MOCK_PIDOF_MODE=unknown
 if func_stop >/dev/null 2>&1; then
   fail "unknown PID inventory was accepted"
@@ -86,7 +89,7 @@ fi
 
 # The forced-stop fallback also targets the validated refreshed PID list only.
 : > "$EVENTS"
-MOCK_PIDOF_CALLS=0
+printf '0\n' > "$MOCK_PIDOF_CALLS_FILE"
 MOCK_PIDOF_MODE=timeout
 func_stop > "$TMP_DIR/timeout.out" || fail "SIGKILL fallback did not verify daemon exit"
 grep -Fxq 'kill -TERM 123' "$EVENTS" || fail "timeout path omitted graceful SIGTERM"
