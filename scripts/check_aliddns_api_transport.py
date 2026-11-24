@@ -161,7 +161,8 @@ require('PKG_NAME:=aliddns' in package and
 require('aliddns-hmac-sha1.c' in test and
         'aliddns_hmac_sha1() {' in test and
         '$TEST_DIR/aliddns-hmac-sha1' in test and
-        'expected_signature=' in test,
+        'expected_signature=' in test and
+        'expected_signature_url=$(enc "$expected_signature")' in test,
         "API transport fixture must compile and run the real HMAC helper and check its computed signature")
 require('RFC 2202' in hmac_test and
         'AccessKeySecret absent from HMAC helper argv and environment: PASS' in hmac_test and

@@ -177,15 +177,16 @@ grep -Fqx -- '-' "$CURL_ARGS_LOG" || fail "curl config source is not stdin"
 ! grep -Fq 'Signature=' "$CURL_ARGS_LOG" || fail "HMAC signature leaked into curl argv"
 expected_signing_input='GET&%2F&AccessKeyId%3Dtest-access-key%26Action%3DDescribeSubDomainRecords%26Format%3Djson%26SignatureMethod%3DHMAC-SHA1%26SignatureNonce%3Dnonce%26SignatureVersion%3D1.0%26SubDomain%3Dwww.example.com%26Timestamp%3D2026-11-12T16%253A30%253A00Z%26Type%3DA%26Version%3D2015-01-09'
 expected_signature=$(printf '%s\000%s' 'test-access-secret&' "$expected_signing_input" | "$TEST_DIR/aliddns-hmac-sha1") ||
+expected_signature_url=$(enc "$expected_signature") || fail "signature URL encoding failed"
 	fail "HMAC helper could not sign the expected canonical request"
-grep -Fqx "url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature\"" "$CURL_CONFIG_LOG" ||
+grep -Fqx "url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature_url\"" "$CURL_CONFIG_LOG" ||
 	fail "signed URL was not passed unchanged through curl stdin"
 ! grep -Fqx -- '-k' "$CURL_ARGS_LOG" || fail "TLS verification bypass was enabled"
 ! grep -Fqx -- '-L' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
 ! grep -Fqx -- '--location' "$CURL_ARGS_LOG" || fail "credential-bearing request follows redirects"
 url="$(cat "$CURL_CONFIG_LOG")"
 case "$url" in
-	"url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature\"")
+	"url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature_url\"")
 		;;
 	*) fail "signed URL was not passed to curl through the fixed HTTPS config endpoint" ;;
 esac
