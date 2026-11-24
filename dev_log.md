@@ -1,3 +1,11 @@
+## 2026-11-24 — Restore ERR_PTR handling for the RAETH frame-engine mapping
+
+- The exact main commit `f44888c6103f2ff3bf0712b4d1bb38eb683fc331` changed the failure check for `devm_ioremap_resource()` from `IS_ERR()/PTR_ERR()` to a NULL check. Linux 4.4's `lib/devres.c` documents and implements this API as returning an `ERR_PTR()` on failure; an error pointer is non-NULL and would have passed the new guard into later MMIO use.
+- Restored the error-pointer check and preserved the original errno for probe rollback. Strengthened the Switch CLI source contract to require the mapping call → `IS_ERR` guard → `PTR_ERR` propagation → `err_free_dev` path, and reject a NULL-only check.
+- Parent main: `f44888c6103f2ff3bf0712b4d1bb38eb683fc331`. THIS COMMIT requires exact-head Switch CLI, AI handoff, NVRAM and XY-C1 checks. No local MIPS build, firmware image or hardware validation is claimed.
+
+---
+
 ## 2026-11-23 — Make AliyunDrive failed-start cleanup regression race-safe
 
 - The exact-head AliyunDrive lifecycle run `#45312872098` on `3160f80` passed the bundled MIPSel CLI compatibility check, then failed in the new HTTP-503 launched-child fixture's combined assertion. The fixture assumed exactly 11 probes despite the child marker being published asynchronously; the initial process poll can legitimately observe ABSENT before the child becomes visible.
