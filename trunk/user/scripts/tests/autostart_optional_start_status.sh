@@ -329,5 +329,27 @@ sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart failed while rejec
 grep -Fq 'Refusing to follow persistent script symlink' "$AUTOSTART_LOG" || fail "sh_ezscript symlink rejection was not logged"
 grep -Fq 'Skipping symlinked persistent ap_script.sh' "$AUTOSTART_LOG" || fail "ap_script symlink rejection was not logged"
 
+
+# A destination created after preflight must win without being overwritten.
+REAL_LN=$(command -v ln)
+cat > "$TMP_DIR/bin/ln" <<'STUB'
+#!/bin/sh
+if [ "${AUTOSTART_SEED_RACE_DEST:-}" = "$2" ]; then
+	printf '%s\\n' "$AUTOSTART_SEED_RACE_CONTENT" > "$2"
+fi
+exec "$AUTOSTART_REAL_LN" "$@"
+STUB
+chmod 755 "$TMP_DIR/bin/ln"
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+rm -f "$TMP_DIR/storage/sh_ezscript.sh" "$TMP_DIR/storage/ap_script.sh"
+AUTOSTART_REAL_LN="$REAL_LN"
+AUTOSTART_SEED_RACE_DEST="$TMP_DIR/storage/sh_ezscript.sh"
+AUTOSTART_SEED_RACE_CONTENT="concurrent-user-script"
+export AUTOSTART_REAL_LN AUTOSTART_SEED_RACE_DEST AUTOSTART_SEED_RACE_CONTENT
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart failed while another writer published a persistent script"
+[ "$(cat "$TMP_DIR/storage/sh_ezscript.sh")" = "concurrent-user-script" ] || fail "default publication replaced a concurrent user script"
+grep -Fq 'Persistent script appeared during publication; preserving it' "$AUTOSTART_LOG" || fail "concurrent publication was not recognized"
+
 echo "optional add-on and SmartDNS autostart regression: PASS"
 

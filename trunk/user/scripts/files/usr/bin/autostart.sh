@@ -31,12 +31,16 @@ autostart_seed_storage_script()
 		logger -t "自动启动" "Refusing to follow persistent script symlink: $_autostart_destination"
 		return 1
 	fi
-	if [ -e "$_autostart_destination" ] && [ ! -f "$_autostart_destination" ]; then
-		logger -t "自动启动" "Refusing to replace non-regular persistent script: $_autostart_destination"
-		return 1
-	fi
-	if [ -x "$_autostart_destination" ]; then
-		return 0
+	_autostart_destination_exists=0
+	if [ -e "$_autostart_destination" ]; then
+		if [ ! -f "$_autostart_destination" ]; then
+			logger -t "自动启动" "Refusing to replace non-regular persistent script: $_autostart_destination"
+			return 1
+		fi
+		if [ -x "$_autostart_destination" ]; then
+			return 0
+		fi
+		_autostart_destination_exists=1
 	fi
 	if [ ! -f "$_autostart_source" ] || [ -L "$_autostart_source" ] || [ ! -r "$_autostart_source" ]; then
 		logger -t "自动启动" "Packaged script source is unavailable: $_autostart_source"
@@ -53,11 +57,30 @@ autostart_seed_storage_script()
 		logger -t "自动启动" "Cannot prepare packaged script for $_autostart_destination"
 		return 1
 	fi
-	# Same-directory rename prevents readers from observing a partial copy.
-	if ! mv -f "$_autostart_tmp" "$_autostart_destination"; then
-		rm -f "$_autostart_tmp"
-		logger -t "自动启动" "Cannot publish packaged script: $_autostart_destination"
-		return 1
+	if [ "$_autostart_destination_exists" = "1" ]; then
+		# Repair a pre-existing regular but non-executable default atomically.
+		if ! mv -f "$_autostart_tmp" "$_autostart_destination"; then
+			rm -f "$_autostart_tmp"
+			logger -t "自动启动" "Cannot replace non-executable persistent script: $_autostart_destination"
+			return 1
+		fi
+	else
+		# A same-directory hard link publishes without replacing a destination
+		# created concurrently after the initial no-follow checks.
+		if ! ln "$_autostart_tmp" "$_autostart_destination"; then
+			if [ -L "$_autostart_destination" ] ||
+			   [ ! -f "$_autostart_destination" ]; then
+				rm -f "$_autostart_tmp"
+				logger -t "自动启动" "Cannot publish packaged script: $_autostart_destination"
+				return 1
+			fi
+			# A concurrently published regular file wins; preserve its contents.
+			logger -t "自动启动" "Persistent script appeared during publication; preserving it: $_autostart_destination"
+		fi
+		if ! rm -f "$_autostart_tmp"; then
+			logger -t "自动启动" "Cannot remove temporary packaged script: $_autostart_tmp"
+			return 1
+		fi
 	fi
 	return 0
 }
