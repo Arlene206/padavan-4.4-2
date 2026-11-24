@@ -31,8 +31,8 @@ $j(document).ready(function() {
 </script>
 <script>
 
-var old_lan_addr = "<% nvram_get_x("","lan_ipaddr"); %>";
-var old_lan_mask = "<% nvram_get_x("","lan_netmask"); %>";
+var old_lan_addr = <% nvram_get_js("","lan_ipaddr"); %>;
+var old_lan_mask = <% nvram_get_js("","lan_netmask"); %>;
 
 function initial(){
 	show_banner(1);

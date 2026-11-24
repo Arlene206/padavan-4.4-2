@@ -24,12 +24,12 @@ function initial(){
 	show_menu(5,7,6);
 	show_footer();
 
-    if ("<% nvram_get_x("","ttyd_enable"); %>" === "1") {
+    if (<% nvram_get_js("","ttyd_enable"); %> === "1") {
         $j('#console-alert').hide();
         $j('#console-table').hide();
         $j('#console-form').unbind('keypress');
 
-        var termUrl = window.location.protocol + "//" + window.location.hostname + ":" + "<% nvram_get_x("","ttyd_port"); %>";
+        var termUrl = window.location.protocol + "//" + window.location.hostname + ":" + <% nvram_get_js("","ttyd_port"); %>;
 	    $j("#term-iframe").attr("src", termUrl).show();
     } else {
         if (!login_safe()){

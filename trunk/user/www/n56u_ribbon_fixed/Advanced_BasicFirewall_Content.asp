@@ -40,7 +40,7 @@ $j(document).ready(function() {
 </script>
 <script>
 
-var http_proto = '<% nvram_get_x("", "http_proto"); %>';
+var http_proto = <% nvram_get_js("", "http_proto"); %>;
 
 function initial(){
 	show_banner(1);

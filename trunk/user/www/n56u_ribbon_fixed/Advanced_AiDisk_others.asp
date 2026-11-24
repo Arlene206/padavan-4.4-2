@@ -36,13 +36,13 @@ $j(document).ready(function() {
 </script>
 <script>
 
-var lan_ipaddr = '<% nvram_get_x("", "lan_ipaddr_t"); %>';
-var http_proto = '<% nvram_get_x("", "http_proto"); %>';
-var http_port = '<% nvram_get_x("", "http_lanport"); %>';
-var https_port = '<% nvram_get_x("", "https_lport"); %>';
-var ddns_enable = '<% nvram_get_x("", "ddns_enable_x"); %>';
-var ddns_server = '<% nvram_get_x("", "ddns_server_x"); %>';
-var ddns_hostname = '<% nvram_get_x("", "ddns_hostname_x"); %>';
+var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr_t"); %>;
+var http_proto = <% nvram_get_js("", "http_proto"); %>;
+var http_port = <% nvram_get_js("", "http_lanport"); %>;
+var https_port = <% nvram_get_js("", "https_lport"); %>;
+var ddns_enable = <% nvram_get_js("", "ddns_enable_x"); %>;
+var ddns_server = <% nvram_get_js("", "ddns_server_x"); %>;
+var ddns_hostname = <% nvram_get_js("", "ddns_hostname_x"); %>;
 
 var usb_share_list = [<% get_usb_share_list(); %>];
 var menu_open = [0, 0, 0];

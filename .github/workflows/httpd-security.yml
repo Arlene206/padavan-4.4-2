@@ -150,6 +150,10 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_Services_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_SettingBackup_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_MACFilter_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_APLAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_others.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_BasicFirewall_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_Console_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
@@ -368,6 +372,10 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_Services_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_SettingBackup_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_MACFilter_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_APLAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_others.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_BasicFirewall_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_Console_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
@@ -461,6 +469,10 @@ on:
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_Services_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_SettingBackup_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_MACFilter_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_APLAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_AiDisk_others.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_BasicFirewall_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_Console_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
@@ -4614,6 +4626,26 @@ jobs:
           assert "write_js_string(wp, nvram_safe_get(name));" in js_nvram_get
           assert '"nvram_get_js", ej_nvram_get_js' in ej_table
           js_context_templates = {
+              "Advanced_APLAN_Content.asp": (
+                  'var old_lan_addr = <% nvram_get_js("","lan_ipaddr"); %>;',
+                  'var old_lan_mask = <% nvram_get_js("","lan_netmask"); %>;'
+              ),
+              "Advanced_AiDisk_others.asp": (
+                  'var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr_t"); %>;',
+                  'var http_proto = <% nvram_get_js("", "http_proto"); %>;',
+                  'var http_port = <% nvram_get_js("", "http_lanport"); %>;',
+                  'var https_port = <% nvram_get_js("", "https_lport"); %>;',
+                  'var ddns_enable = <% nvram_get_js("", "ddns_enable_x"); %>;',
+                  'var ddns_server = <% nvram_get_js("", "ddns_server_x"); %>;',
+                  'var ddns_hostname = <% nvram_get_js("", "ddns_hostname_x"); %>;'
+              ),
+              "Advanced_BasicFirewall_Content.asp": (
+                  'var http_proto = <% nvram_get_js("", "http_proto"); %>;',
+              ),
+              "Advanced_Console_Content.asp": (
+                  'if (<% nvram_get_js("","ttyd_enable"); %> === "1") {',
+                  'var termUrl = window.location.protocol + "//" + window.location.hostname + ":" + <% nvram_get_js("","ttyd_port"); %>;'
+              ),
               "Advanced_WAN_Content.asp": (
                   'var original_wan_dhcp_auto = parseInt(<% nvram_get_js("", "x_DHCPClient"); %>);',
                   'var original_wan_dns_auto = parseInt(<% nvram_get_js("", "wan_dnsenable_x"); %>);',
