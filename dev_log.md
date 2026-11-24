@@ -1,3 +1,10 @@
+## 2026-11-24 — Validate the no-follow reader split after descriptor pinning
+
+- Exact-head libdisk run `45457952519` on `88c485d15624e6decffc8b09f34cf5c39318e586` passed both GNU89 ASan/UBSan binaries, then the static checker failed because it searched for the old inline pathname-reader body in `disk_io_tools.c`. The implementation now separates `read_regular_file_nofollow_at(parent_fd, leaf)` from a small path wrapper; the checker now validates the descriptor-relative `openat`/regular-file/stream path and the wrapper's pinned-parent delegation/cleanup. It also explicitly requires the mount-replacement regression for the pinned helper.
+- No product C source changed in this checker repair. Run a new exact-SHA check; prior failures remain bound to their historical commits.
+
+---
+
 ## 2026-11-24 — Align libdisk metadata-rebuild contract with current implementation
 
 - The libdisk workflow's GNU89 ASan/UBSan host regressions completed, then the Python source checker failed because it still extracted the deleted public `create_if_no_var_files()` wrapper and depended on its removed worker contract. The current whole-volume rebuild is `initial_all_var_file_in_mount_path()`; its checker now enforces checked inventory/path preflight, NVRAM writer lease and inventory revalidation, anonymous/account ACL publication, folder snapshot publication before stale-file pruning, and transaction release.

@@ -577,17 +577,26 @@ require('open("/",O_RDONLY|O_DIRECTORY|O_CLOEXEC)' in parent_open_compact and
         "O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC" in parent_open_compact and
         'strcmp(component,"..")' in parent_open_compact,
         "removable-media metadata paths must pin each absolute parent component without following symlinks")
-safe_read = function_body(
-    DISK_IO_SOURCE, "char *read_regular_file_nofollow(const char *target)"
+safe_read_at = function_body(
+    DISK_IO_SOURCE, "read_regular_file_nofollow_at(int parent_fd, const char *leaf)"
 )
-safe_compact = "".join(safe_read.split())
-require("disk_io_open_parent_nofollow(target,&leaf)" in safe_compact and
-        "openat(parent_fd,leaf,O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC)" in safe_compact and
-        "fstat(fd,&file_status)" in safe_compact and
-        "!S_ISREG(file_status.st_mode)" in safe_compact and
-        'fdopen(fd,"r")' in safe_compact and
-        "read_whole_file_stream(fp)" in safe_compact,
-        "untrusted cache reads must pin parent directories and reject symlinks/non-regular files without blocking")
+safe_read_at_compact = "".join(safe_read_at.split())
+require("openat(parent_fd,leaf,O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC)" in safe_read_at_compact and
+        "fstat(fd,&file_status)" in safe_read_at_compact and
+        "!S_ISREG(file_status.st_mode)" in safe_read_at_compact and
+        'fdopen(fd,"r")' in safe_read_at_compact and
+        "read_whole_file_stream(fp)" in safe_read_at_compact,
+        "pinned metadata reader must reject final symlinks/non-regular files without blocking and preserve the bounded stream reader")
+safe_read = function_body(
+    DISK_IO_SOURCE, "read_regular_file_nofollow(const char *target)"
+)
+safe_read_compact = "".join(safe_read.split())
+require("disk_io_open_parent_nofollow(target,&leaf)" in safe_read_compact and
+        "read_regular_file_nofollow_at(parent_fd,leaf)" in safe_read_compact and
+        "close(parent_fd)" in safe_read_compact and
+        "free(leaf)" in safe_read_compact and
+        "errno=saved_errno?saved_errno:EIO;" in safe_read_compact,
+        "path-based metadata reader must delegate to the pinned leaf reader and close/free its parent resources with errno preservation")
 status_read = function_body(
     DISK_IO_SOURCE, "int test_if_regular_file_nofollow(const char *target)"
 )
@@ -610,6 +619,7 @@ for marker in (
     "test_regular_file_status_nofollow_distinguishes_missing_file",
     "test_regular_file_status_nofollow_rejects_symlink_and_fifo",
     "test_metadata_readers_reject_symlinked_parent_components",
+    "test_read_regular_file_nofollow_at_stays_with_pinned_directory",
 ):
     require(marker in IO_REGRESSION and marker + "();" in IO_REGRESSION,
             "missing read_whole_file regression: " + marker)
