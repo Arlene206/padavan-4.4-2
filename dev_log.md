@@ -1,3 +1,11 @@
+## 2026-11-24 — Align inline Process workflow with private lanauth credentials
+
+- Process lifecycle #45508464483 on SHA 76c951349c99e3f96ea3226de15438004ce4f756 compiled and ran the LAN authentication restart policy regression successfully, then failed the inline YAML Python contract because that duplicate block still expected the removed `-p password` call. The external `scripts/check_process_lifecycle_integration.py` had already been updated; this correction brings the inline check into sync, verifies normalized -f argv for both gateway cases, asserts the managed writer's mode/write/fsync behavior, and checks daemon loader no-follow/mode/owner/link/inode/unlink protections.
+- The following private credential-file C regression had been skipped only because the preceding inline step failed; the next Process run must execute it.
+- Parent main SHA: 76c951349c99e3f96ea3226de15438004ce4f756. XY-C1 production-source validation remains tracked on exact source SHA 4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120.
+
+---
+
 ## 2026-11-24 — Normalize wrapped LAN authentication argv contract
 
 - Process lifecycle #45508199161 on source SHA 259f9bc5f5574e07bf820c0a685ceefaa72af9cb passed all preceding integration checks and failed on a formatting-sensitive assertion: the gateway variant of `eval(... "-f", credential_path)` is split across two C source lines. Updated the contract to collapse whitespace before checking the exact argument vector; this does not loosen the no-password-in-argv requirement.

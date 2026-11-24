@@ -6,7 +6,7 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `259f9bc5f5574e07bf820c0a685ceefaa72af9cb`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `76c951349c99e3f96ea3226de15438004ce4f756`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
@@ -119,9 +119,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Re-run Process lifecycle integration after normalizing whitespace in the private `lanauth -f` gateway command assertion. Run #45508199161 on source SHA 259f9bc5f5574e07bf820c0a685ceefaa72af9cb reached the checker and failed because the C call spans two lines while the contract expected one line. The normalized check now verifies the same argv vector independent of formatting.
-2. Ensure the new private credential-file regression compiles/runs after the source checker, then check XY-C1 Build, TRX and artifact upload on the same source SHA before any firmware-validation claim.
-3. Continue only after exact-head Process/AI/XY status is accurate. Keep main-only atomic updates; no force push.
+1. Verify the new exact-head Process regression triggered by the inline workflow contract correction. Run #45508464483 on SHA 76c951349c99e3f96ea3226de15438004ce4f756 passed the LAN authentication restart policy test but failed in the following inline source contract because it still expected the obsolete `-p password` argv. That inline contract is now aligned with the -f private credential transport and explicitly checks writer/reader permissions and one-shot consumption.
+2. Confirm the private credential-file GNU89 ASan/UBSan regression actually runs and passes, then check XY-C1 Build, TRX and artifact upload on exact production source SHA 4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120.
+3. Continue after recording exact-head Process/AI and source-SHA firmware results. Preserve main-only atomic compare-and-swap commits and keep the backup read-only.
 
 
 ## Mandatory handoff checkpoint
