@@ -600,15 +600,7 @@ require(prune_scan < prune_stream < prune_read < prune_unlink < prune_close and
         "strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
         "strcmp(account_list[i],account)==0" in stale_pruner_compact,
         "stale metadata cleanup must use the caller's pinned root descriptor for scanning and unlinking")
-initial_all = function_body(
-    DISK_SOURCE,
-    "int initial_all_var_file_in_mount_path(const char *const mount_path)"
-)
-require("if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER," in initial_all and
-        "if (initial_one_var_file_in_mount_path_locked(account_list[i]," in initial_all and
-        "if (initial_folder_list_in_mount_path(mount_path) != 0)" in initial_all and
-        "if (remove_stale_share_var_files(mount_path, acc_num, account_list) != 0)" in initial_all,
-        "full share metadata initialization must rebuild active ACLs before pruning stale files and propagate every stage failure")
+
 metadata_rebuild = function_body(
     DISK_SOURCE, "int initial_all_var_file_in_mount_path(const char *const mount_path)"
 )
@@ -661,6 +653,19 @@ require(metadata_inventory < metadata_open < anonymous_preflight < account_prefl
         "initial_folder_list_in_mount_path(" not in metadata_rebuild_compact and
         "remove_stale_share_var_files(mount_path" not in metadata_rebuild_compact,
         "full metadata rebuild must preflight ACL targets, rebuild active ACLs, publish folder cache, prune stale files and release NVRAM while holding one pinned mount descriptor")
+
+free_list = function_body(
+    DISK_SOURCE, "void free_2_dimension_list(int *num, char ***list)"
+)
+free_list_compact = "".join(free_list.split())
+require("if(!num||!list)return;" in free_list_compact and
+        "target=*list;" in free_list_compact and
+        "free(target[i]);" in free_list_compact and
+        "free(target);" in free_list_compact and
+        "*num=0;" in free_list_compact and
+        "*list=NULL;" in free_list_compact,
+        "shared two-dimensional list destructor must free every owned element and reset both caller outputs")
+
 
 stale_pruner = function_body(
     DISK_SOURCE, "remove_stale_share_var_files(int directory_fd,"

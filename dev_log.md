@@ -1,3 +1,11 @@
+## 2026-11-24 — Pin full metadata rebuild and restore the shared list destructor
+
+- The XY-C1 compiler exposed a source truncation: `free_2_dimension_list()` had lost its body and opening brace, so the compiler parsed later function definitions as old-style parameters. Restored the established element/free/reset implementation from the frozen baseline and added a source contract check.
+- Completed whole-volume metadata consistency: `initial_all_var_file_in_mount_path()` now opens the removable-volume directory once, preflights ACL targets on that descriptor, revalidates the account inventory under the NVRAM lease, writes all ACL files, publishes the folder snapshot and prunes stale ACL files using the same FD. The stale pruner now borrows rather than closes the caller's descriptor.
+- Updated the contract checker to require this exact single-FD ordering. No local build is claimed; exact-SHA sanitizer and firmware checks remain outstanding.
+
+---
+
 ## 2026-11-24 — Check the new caller-pinned ACL initializer API
 
 - Exact-head libdisk run `45460328727` on `552699f8003dbd1e48c2c109e526a77b4b15da8d` passed both GNU89 ASan/UBSan host test binaries, then the source checker failed because its ACL-initializer contract still extracted the old pathname-taking worker and expected it to open its own directory. The implementation now separates `create_if_no_var_files_with_accounts_at(directory_fd,...)` from a compatibility pathname wrapper; the checker now validates all-account preflight/write ordering on the caller-pinned FD and separately checks wrapper delegation/close semantics.

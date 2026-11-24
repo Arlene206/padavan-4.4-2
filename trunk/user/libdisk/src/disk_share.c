@@ -756,7 +756,25 @@ invalid_list:
 }
 
 
-void free_2_dimension_list(int *num, char ***list)/*
+void free_2_dimension_list(int *num, char ***list)
+{
+	int i;
+	char **target;
+
+	if (!num || !list)
+		return;
+	target = *list;
+	if (target) {
+		for (i = 0; i < *num; ++i)
+			if (target[i] != NULL)
+				free(target[i]);
+		free(target);
+	}
+	*num = 0;
+	*list = NULL;
+}
+
+/*
  * Stream writer adapters keep the storage paths out of the publication
  * mechanism. The common publisher pins the parent, creates its temporary leaf
  * with O_EXCL, and performs the final rename relative to the same descriptor.
@@ -966,17 +984,16 @@ static int initial_one_var_file_in_mount_path_locked(const char *const account,
 
 
 static int
-remove_stale_share_var_files(const char *mount_path,
+remove_stale_share_var_files(int directory_fd,
                              int acc_num, char *const *account_list)
 {
 	DIR *dir = NULL;
 	struct dirent *entry;
 	char account[32 + 1];
-	int directory_fd = -1, scan_fd = -1;
-	int read_status, read_error, stale, saved_errno, i;
+	int scan_fd = -1, read_status, read_error, stale, saved_errno, i;
 	size_t name_len, account_len;
 
-	if (!mount_path || !*mount_path || acc_num < 0 ||
+	if (directory_fd < 0 || acc_num < 0 ||
 	    acc_num > MAX_ACCOUNT_NUM || (acc_num > 0 && !account_list)) {
 		errno = EINVAL;
 		return -1;
@@ -987,11 +1004,6 @@ remove_stale_share_var_files(const char *mount_path,
 			return -1;
 		}
 	}
-
-	directory_fd = disk_share_open_mount_directory(mount_path);
-	if (directory_fd < 0)
-		return -1;
-	/* Use a fresh stream descriptor while retaining directory_fd for unlinkat. */
 	scan_fd = openat(directory_fd, ".",
 	                 O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
 	if (scan_fd < 0)
@@ -1010,13 +1022,11 @@ remove_stale_share_var_files(const char *mount_path,
 			errno = read_error ? read_error : EIO;
 			goto failed;
 		}
-
 		name_len = strlen(entry->d_name);
 		if (name_len <= 3 + 8 ||
 		    strncmp(entry->d_name, ".__", 3) != 0 ||
 		    strcmp(entry->d_name + name_len - 8, "_var.txt") != 0)
 			continue;
-
 		account_len = name_len - 3 - 8;
 		if (account_len == 0 || account_len > 31)
 			continue;
@@ -1025,7 +1035,6 @@ remove_stale_share_var_files(const char *mount_path,
 		if (!is_valid_account_name(account) ||
 		    strcmp(account, FTP_ANONYMOUS_USER) == 0)
 			continue;
-
 		stale = 1;
 		for (i = 0; i < acc_num; ++i) {
 			if (strcmp(account_list[i], account) == 0) {
@@ -1035,7 +1044,6 @@ remove_stale_share_var_files(const char *mount_path,
 		}
 		if (!stale)
 			continue;
-
 		if (disk_share_unlink_stale_metadata_entry(
 			    directory_fd, entry->d_name) != 0 && errno != ENOENT) {
 			saved_errno = errno ? errno : EIO;
@@ -1049,11 +1057,6 @@ remove_stale_share_var_files(const char *mount_path,
 		goto failed;
 	}
 	dir = NULL;
-	if (close(directory_fd) != 0) {
-		directory_fd = -1;
-		goto failed;
-	}
-	directory_fd = -1;
 	return 0;
 
 failed:
@@ -1062,8 +1065,6 @@ failed:
 		(void)closedir(dir);
 	else if (scan_fd >= 0)
 		(void)close(scan_fd);
-	if (directory_fd >= 0)
-		(void)close(directory_fd);
 	errno = saved_errno;
 	return -1;
 }
@@ -1154,7 +1155,7 @@ int initial_one_var_file_in_mount_path(const char *const account,
 
 int initial_all_var_file_in_mount_path(const char *const mount_path)
 {
-	int i, first_error = 0, end_error;
+	int i, first_error = 0, end_error, directory_fd = -1;
 	int acc_num = 0, transaction_started = 0;
 	char **account_list = NULL;
 	char var_file[256];
@@ -1164,13 +1165,7 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 		errno = EINVAL;
 		return -1;
 	}
-
-	/*
-	 * Read and preflight the complete identity set before changing any file.
-	 * Rebuild active metadata atomically first, then prune orphaned account
-	 * files only after every active file and the folder-list snapshot succeed.
-	 * A failed rebuild therefore never starts by deleting working ACLs.
-	 */
+	/* Preflight the full identity set, then pin one volume for every operation. */
 	if (get_account_list(&acc_num, &account_list) != 0) {
 		first_error = errno ? errno : EIO;
 		goto finished;
@@ -1187,7 +1182,23 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 			goto finished;
 		}
 	}
-
+	directory_fd = disk_share_open_mount_directory(mount_path);
+	if (directory_fd < 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+	if (disk_share_account_metadata_status_at(
+		    directory_fd, FTP_ANONYMOUS_USER) < 0) {
+		first_error = errno ? errno : EIO;
+		goto finished;
+	}
+	for (i = 0; i < acc_num; ++i) {
+		if (disk_share_account_metadata_status_at(
+			    directory_fd, account_list[i]) < 0) {
+			first_error = errno ? errno : EIO;
+			goto finished;
+		}
+	}
 	if (disk_share_account_nvram_begin(&transaction) != 0) {
 		first_error = errno ? errno : EIO;
 		goto finished;
@@ -1199,33 +1210,24 @@ int initial_all_var_file_in_mount_path(const char *const mount_path)
 		first_error = errno ? errno : EIO;
 		goto finished;
 	}
-
-	/* Initialize anonymous defaults before account-specific permissions. */
-	if (initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,
-	                                       mount_path) != 0) {
+	if (initial_one_var_file_in_directory_fd_locked(
+		    FTP_ANONYMOUS_USER, directory_fd) != 0) {
 		first_error = errno ? errno : EIO;
 		goto finished;
 	}
-
 	for (i = 0; i < acc_num; ++i) {
-		if (initial_one_var_file_in_mount_path_locked(account_list[i],
-		                                       mount_path) != 0) {
+		if (initial_one_var_file_in_directory_fd_locked(
+			    account_list[i], directory_fd) != 0) {
 			first_error = errno ? errno : EIO;
 			goto finished;
 		}
 	}
-
-	/* Publish the folder-list snapshot only after all account files exist. */
-	if (initial_folder_list_in_mount_path(mount_path) != 0) {
+	if (initial_folder_list_in_directory_fd(directory_fd) != 0) {
 		first_error = errno ? errno : EIO;
 		goto finished;
 	}
-
-	/*
-	 * All active files are now durable. Remove only valid, unreferenced user
-	 * files; never delete the just-rebuilt active or anonymous ACLs.
-	 */
-	if (remove_stale_share_var_files(mount_path, acc_num, account_list) != 0)
+	if (remove_stale_share_var_files(
+		    directory_fd, acc_num, account_list) != 0)
 		first_error = errno ? errno : EIO;
 
 finished:
@@ -1242,10 +1244,20 @@ finished:
 					   end_error);
 		}
 	}
+	if (directory_fd >= 0 && close(directory_fd) != 0) {
+		end_error = errno ? errno : EIO;
+		if (first_error == 0)
+			first_error = end_error;
+		else
+			logmessage("disk_share",
+				   "full metadata rebuild directory close failed (errno %d)",
+				   end_error);
+	}
 	if (first_error != 0) {
 		errno = first_error;
 		return -1;
 	}
+	errno = 0;
 	return 0;
 }
 
@@ -1440,7 +1452,7 @@ create_if_no_var_files_with_accounts_at(int directory_fd, int acc_num,
 			}
 		}
 	}
-		/* Preflight all active ACL targets before the first metadata mutation. */
+	/* Preflight all active ACL targets before the first metadata mutation. */
 	result = disk_share_account_metadata_status_at(directory_fd, FTP_ANONYMOUS_USER);
 	if (result < 0)
 		goto failed;
