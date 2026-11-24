@@ -2622,7 +2622,7 @@ for test_case in (
     "test_read_failures_never_publish_a_default",
     "test_write_failures_are_preserved",
 ):
-    assert test_case + "();" in pagecache_test
+    assert "CHECK(" + test_case + "() == 0);" in pagecache_test
 
 pagecache_boot = c_function_body(rc_source, "init_router(void)")
 assert "int pagecache_status = set_pagecache_reclaim();" in pagecache_boot
