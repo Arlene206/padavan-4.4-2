@@ -377,7 +377,7 @@ jobs:
           )
           write_indirect_call = write.index("mii_mgr_indirect_write(", write_indirect_reg)
           write_direct_reg = write.index(
-              "if (mii_mgr_phy_register_status(phy_register) != 0)",
+              "mii_mgr_phy_register_status(phy_register) != 0",
               write_indirect_call,
           )
           write_direct_data = write.index(
