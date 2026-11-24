@@ -700,11 +700,23 @@ jobs:
           assert "vsf_sysutil_parse_uint(&s_part2_str, 65535U, &port_value)" in eprt
           assert "str_atoi(&s_part2_str)" not in eprt
           assert "int vsf_sysutil_parse_uint(const struct mystr* p_str" in vsftpd_ipaddrparse_header
+          ipv6_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_ipv6(")
+          ipv6_components = function_body(vsftpd_ipaddrparse, "ipv6_parse_main(")
+          assert "compression_ret = str_locate_text(p_str, \"::\")" in ipv6_parser
+          assert "lhs_len + rhs_len >= 16" in ipv6_parser
+          assert "lhs_len != 16 || rhs_len != 0" in ipv6_parser
+          assert "while (add_nulls--)" in ipv6_parser
+          assert "colon_ret.found && str_isempty(&s_rhs_str)" in ipv6_components
+          assert "!str_isempty(&s_rhs_str)" in ipv6_components
           for token in (
               "octet parser status mismatch",
               "IPv4 parser accepted a junk suffix",
               "IPv4 parser accepted an empty octet",
               "IPv4 parser accepted an octet above 255",
+              "IPv6 parser status mismatch",
+              "2001:db8:1",
+              "1:2:3:4:5:6:7:8::",
+              "IPv6 parser returned incorrect bytes",
           ):
               assert token in ipaddrparse_test
 

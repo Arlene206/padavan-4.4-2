@@ -2,12 +2,173 @@
  * Host regression for the production vsftpd decimal and address parsers.
  * Minimal mystr functions keep this test independent of firmware sysutil.
  */
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "ipaddrparse.h"
 #include "str.h"
+
+static void
+test_string_set(struct mystr* p_str, const char* text, unsigned int length)
+{
+  char* copy = (char*) malloc(length + 1U);
+  if (copy == 0)
+  {
+    fprintf(stderr, "allocation failed in string set stub\\n");
+    exit(2);
+  }
+  if (length != 0)
+  {
+    memcpy(copy, text, length);
+  }
+  copy[length] = '\\0';
+  free(p_str->PRIVATE_HANDS_OFF_p_buf);
+  p_str->PRIVATE_HANDS_OFF_p_buf = copy;
+  p_str->PRIVATE_HANDS_OFF_len = length;
+  p_str->PRIVATE_HANDS_OFF_alloc_bytes = length + 1U;
+}
+
+void
+str_empty(struct mystr* p_str)
+{
+  free(p_str->PRIVATE_HANDS_OFF_p_buf);
+  p_str->PRIVATE_HANDS_OFF_p_buf = 0;
+  p_str->PRIVATE_HANDS_OFF_len = 0;
+  p_str->PRIVATE_HANDS_OFF_alloc_bytes = 0;
+}
+
+const char*
+str_getbuf(const struct mystr* p_str)
+{
+  return p_str->PRIVATE_HANDS_OFF_p_buf;
+}
+
+void
+str_append_char(struct mystr* p_str, char the_char)
+{
+  unsigned int old_length = p_str->PRIVATE_HANDS_OFF_len;
+  char* copy = (char*) malloc(old_length + 2U);
+  if (copy == 0)
+  {
+    fprintf(stderr, "allocation failed in append char stub\\n");
+    exit(2);
+  }
+  if (old_length != 0)
+  {
+    memcpy(copy, p_str->PRIVATE_HANDS_OFF_p_buf, old_length);
+  }
+  copy[old_length] = the_char;
+  copy[old_length + 1U] = '\\0';
+  free(p_str->PRIVATE_HANDS_OFF_p_buf);
+  p_str->PRIVATE_HANDS_OFF_p_buf = copy;
+  p_str->PRIVATE_HANDS_OFF_len = old_length + 1U;
+  p_str->PRIVATE_HANDS_OFF_alloc_bytes = old_length + 2U;
+}
+
+void
+str_append_str(struct mystr* p_str, const struct mystr* p_other)
+{
+  unsigned int old_length = p_str->PRIVATE_HANDS_OFF_len;
+  unsigned int other_length = p_other->PRIVATE_HANDS_OFF_len;
+  char* copy = (char*) malloc(old_length + other_length + 1U);
+  if (copy == 0)
+  {
+    fprintf(stderr, "allocation failed in append string stub\\n");
+    exit(2);
+  }
+  if (old_length != 0)
+  {
+    memcpy(copy, p_str->PRIVATE_HANDS_OFF_p_buf, old_length);
+  }
+  if (other_length != 0)
+  {
+    memcpy(copy + old_length, p_other->PRIVATE_HANDS_OFF_p_buf, other_length);
+  }
+  copy[old_length + other_length] = '\\0';
+  free(p_str->PRIVATE_HANDS_OFF_p_buf);
+  p_str->PRIVATE_HANDS_OFF_p_buf = copy;
+  p_str->PRIVATE_HANDS_OFF_len = old_length + other_length;
+  p_str->PRIVATE_HANDS_OFF_alloc_bytes = old_length + other_length + 1U;
+}
+
+struct str_locate_result
+str_locate_char(const struct mystr* p_str, char look_char)
+{
+  struct str_locate_result result;
+  unsigned int i;
+  result.found = 0;
+  result.index = 0;
+  result.char_found = 0;
+  for (i = 0; i < p_str->PRIVATE_HANDS_OFF_len; ++i)
+  {
+    if (p_str->PRIVATE_HANDS_OFF_p_buf[i] == look_char)
+    {
+      result.found = 1;
+      result.index = i;
+      result.char_found = look_char;
+      break;
+    }
+  }
+  return result;
+}
+
+struct str_locate_result
+str_locate_text(const struct mystr* p_str, const char* p_text)
+{
+  struct str_locate_result result;
+  unsigned int i;
+  unsigned int text_length = (unsigned int) strlen(p_text);
+  result.found = 0;
+  result.index = 0;
+  result.char_found = 0;
+  if (text_length == 0 || text_length > p_str->PRIVATE_HANDS_OFF_len)
+  {
+    return result;
+  }
+  for (i = 0; i <= p_str->PRIVATE_HANDS_OFF_len - text_length; ++i)
+  {
+    if (memcmp(p_str->PRIVATE_HANDS_OFF_p_buf + i, p_text, text_length) == 0)
+    {
+      result.found = 1;
+      result.index = i;
+      result.char_found = p_text[0];
+      break;
+    }
+  }
+  return result;
+}
+
+void
+str_split_text(struct mystr* p_src, struct mystr* p_rhs, const char* p_text)
+{
+  struct str_locate_result result = str_locate_text(p_src, p_text);
+  unsigned int text_length = (unsigned int) strlen(p_text);
+  if (!result.found)
+  {
+    str_empty(p_rhs);
+    return;
+  }
+  {
+    struct mystr right = INIT_MYSTR;
+    struct mystr left = INIT_MYSTR;
+    test_string_set(&right, p_src->PRIVATE_HANDS_OFF_p_buf +
+                    result.index + text_length,
+                    p_src->PRIVATE_HANDS_OFF_len - result.index - text_length);
+    test_string_set(&left, p_src->PRIVATE_HANDS_OFF_p_buf, result.index);
+    str_empty(p_src);
+    str_empty(p_rhs);
+    *p_src = left;
+    *p_rhs = right;
+  }
+}
+
+int
+vsf_sysutil_toupper(int the_char)
+{
+  return toupper((unsigned char) the_char);
+}
 
 void
 str_copy(struct mystr* p_dest, const struct mystr* p_src)
@@ -187,12 +348,46 @@ expect_octets(const char* text, char separator,
   return failed;
 }
 
+static int
+expect_ipv6(const char* text, const unsigned char* expected,
+            int expected_success)
+{
+  struct mystr input = INIT_MYSTR;
+  const unsigned char* parsed;
+  int failed = 0;
+  test_string_init(&input, text);
+  parsed = vsf_sysutil_parse_ipv6(&input);
+  test_string_free(&input);
+  if ((parsed != 0) != expected_success)
+  {
+    fprintf(stderr, "IPv6 parser status mismatch for [%s]\\n", text);
+    return 1;
+  }
+  if (expected_success && memcmp(parsed, expected, 16) != 0)
+  {
+    fprintf(stderr, "IPv6 parser returned incorrect bytes for [%s]\\n", text);
+    failed = 1;
+  }
+  return failed;
+}
+
 int
 main(void)
 {
   static const unsigned char ipv4_expected[4] = { 192, 0, 2, 1 };
   static const unsigned char port_expected[6] = { 192, 0, 2, 1, 4, 20 };
   static const unsigned char zero_padded_expected[4] = { 1, 2, 3, 4 };
+  static const unsigned char ipv6_full_expected[16] =
+    { 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0,
+      0, 0, 0xff, 0, 0, 0x42, 0x83, 0x29 };
+  static const unsigned char ipv6_zero_expected[16] =
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  static const unsigned char ipv6_loopback_expected[16] =
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+  static const unsigned char ipv6_one_prefix_expected[16] =
+    { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  static const unsigned char ipv6_mapped_expected[16] =
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 0, 2, 1 };
   struct mystr ipv4 = INIT_MYSTR;
   const unsigned char* parsed_ipv4;
   int failed = 0;
@@ -261,10 +456,24 @@ main(void)
   }
   test_string_free(&ipv4);
 
+  failed |= expect_ipv6(
+      "2001:0db8:0000:0000:0000:ff00:0042:8329",
+      ipv6_full_expected, 1);
+  failed |= expect_ipv6("2001:db8::ff00:42:8329", ipv6_full_expected, 1);
+  failed |= expect_ipv6("::", ipv6_zero_expected, 1);
+  failed |= expect_ipv6("::1", ipv6_loopback_expected, 1);
+  failed |= expect_ipv6("1::", ipv6_one_prefix_expected, 1);
+  failed |= expect_ipv6("::ffff:192.0.2.1", ipv6_mapped_expected, 1);
+  failed |= expect_ipv6("2001:db8:1", ipv6_full_expected, 0);
+  failed |= expect_ipv6("1:2:3:4:5:6:7:8:", ipv6_full_expected, 0);
+  failed |= expect_ipv6("1:2:3:4:5:6:7:8::", ipv6_full_expected, 0);
+  failed |= expect_ipv6("1::192.0.2.1:3", ipv6_full_expected, 0);
+  failed |= expect_ipv6("192.0.2.1::", ipv6_full_expected, 0);
+
   if (failed)
   {
     return 1;
   }
-  puts("vsftpd strict decimal, PORT tuple and IPv4 parsing: PASS");
+  puts("vsftpd strict decimal, PORT tuple, IPv4 and IPv6 parsing: PASS");
   return 0;
 }

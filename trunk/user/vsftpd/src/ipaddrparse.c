@@ -26,12 +26,24 @@ vsf_sysutil_parse_ipv6(const struct mystr* p_str)
   static struct mystr s_rhs_ret;
   static struct mystr s_lhs_str;
   static struct mystr s_rhs_str;
+  struct str_locate_result compression_ret;
   unsigned int lhs_len;
   unsigned int rhs_len;
+  if (p_str == 0)
+  {
+    return 0;
+  }
+  compression_ret = str_locate_text(p_str, "::");
   str_empty(&s_ret);
   str_empty(&s_rhs_ret);
   str_copy(&s_lhs_str, p_str);
   str_split_text(&s_lhs_str, &s_rhs_str, "::");
+  /* An IPv4 tail must be the final part of the whole IPv6 address. */
+  if (compression_ret.found &&
+      str_locate_char(&s_lhs_str, '.').found)
+  {
+    return 0;
+  }
   if (!ipv6_parse_main(&s_ret, &s_lhs_str))
   {
     return 0;
@@ -42,18 +54,26 @@ vsf_sysutil_parse_ipv6(const struct mystr* p_str)
   }
   lhs_len = str_getlen(&s_ret);
   rhs_len = str_getlen(&s_rhs_ret);
-  if (lhs_len + rhs_len > 16)
+  if (compression_ret.found)
   {
-    return 0;
-  }
-  if (rhs_len > 0)
-  {
-    unsigned int add_nulls = 16 - (lhs_len + rhs_len);
-    while (add_nulls--)
+    /* A double colon must compress at least one 16-bit group. */
+    if (lhs_len + rhs_len >= 16)
     {
-      str_append_char(&s_ret, '\0');
+      return 0;
+    }
+    {
+      unsigned int add_nulls = 16 - (lhs_len + rhs_len);
+      while (add_nulls--)
+      {
+        str_append_char(&s_ret, '\0');
+      }
     }
     str_append_str(&s_ret, &s_rhs_ret);
+  }
+  else if (lhs_len != 16 || rhs_len != 0)
+  {
+    /* Without "::", exactly eight 16-bit groups are required. */
+    return 0;
   }
   return (const unsigned char*) str_getbuf(&s_ret);
 }
@@ -153,18 +173,22 @@ ipv6_parse_main(struct mystr* p_out_str, const struct mystr* p_in_str)
   static struct mystr s_lhs_str;
   static struct mystr s_rhs_str;
   struct str_locate_result loc_ret;
+  struct str_locate_result colon_ret;
   str_copy(&s_lhs_str, p_in_str);
   while (!str_isempty(&s_lhs_str))
   {
+    colon_ret = str_locate_char(&s_lhs_str, ':');
     str_split_char(&s_lhs_str, &s_rhs_str, ':');
-    if (str_isempty(&s_lhs_str))
+    if (str_isempty(&s_lhs_str) ||
+        (colon_ret.found && str_isempty(&s_rhs_str)))
     {
       return 0;
     }
     loc_ret = str_locate_char(&s_lhs_str, '.');
     if (loc_ret.found)
     {
-      if (!ipv4_parse_dotquad(p_out_str, &s_lhs_str))
+      if (!str_isempty(&s_rhs_str) ||
+          !ipv4_parse_dotquad(p_out_str, &s_lhs_str))
       {
         return 0;
       }
