@@ -42,9 +42,9 @@ $j(document).ready(function() {
 var client_mac = login_mac_str();
 var ipmonitor = [<% get_static_client(); %>];
 var original_wan_type = wan_proto;
-var original_wan_dhcp_auto = parseInt('<% nvram_get_x("", "x_DHCPClient"); %>');
-var original_wan_dns_auto = parseInt('<% nvram_get_x("", "wan_dnsenable_x"); %>');
-var original_wan_src_phy = '<% nvram_get_x("", "wan_src_phy"); %>';
+var original_wan_dhcp_auto = parseInt(<% nvram_get_js("", "x_DHCPClient"); %>);
+var original_wan_dns_auto = parseInt(<% nvram_get_js("", "wan_dnsenable_x"); %>);
+var original_wan_src_phy = <% nvram_get_js("", "wan_src_phy"); %>;
 var m_dhcp = [<% get_nvram_list("PPPConnection", "pppoemwanIPList"); %>];
 var mdhcp_ifield = 4;
 if(m_dhcp.length > 0){

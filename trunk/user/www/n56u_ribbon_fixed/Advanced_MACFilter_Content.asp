@@ -260,8 +260,8 @@ function format_date(nvdate) {
 
 function showMFList(){
 	var code = '';
-	var temp_time = '<% nvram_get_x("", "macfilter_time_x_0"); %>';
-	var temp_date = '<% nvram_get_x("", "macfilter_date_x_0"); %>';
+	var temp_time = <% nvram_get_js("", "macfilter_time_x_0"); %>;
+	var temp_date = <% nvram_get_js("", "macfilter_date_x_0"); %>;
 
 	if(MACList.length == 0) {
 		code +='<tr><td colspan="4" style="text-align: center;"><div class="alert alert-info"><#IPConnection_VSList_Norule#></div></td></tr>';

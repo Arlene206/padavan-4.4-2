@@ -40,10 +40,10 @@ $j(document).ready(function() {
 
 <% login_state_hook(); %>
 <% openssl_util_hook(); %>
-var lan_ipaddr = '<% nvram_get_x("", "lan_ipaddr"); %>';
-var http_proto = '<% nvram_get_x("", "http_proto"); %>';
-var http_port = '<% nvram_get_x("", "http_lanport"); %>';
-var https_port = '<% nvram_get_x("", "https_lport"); %>';
+var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr"); %>;
+var http_proto = <% nvram_get_js("", "http_proto"); %>;
+var http_port = <% nvram_get_js("", "http_lanport"); %>;
+var https_port = <% nvram_get_js("", "https_lport"); %>;
 
 function initial(){
 	show_banner(1);
@@ -259,7 +259,7 @@ function change_ttyd_enabled(){
 function on_ttyd_link(){
 	var ttyd_url="http";
 	var http_url=lan_ipaddr;
-	ttyd_url+="://"+http_url+":"+"<% nvram_get_x("","ttyd_port"); %>";
+	ttyd_url+="://"+http_url+":"+<% nvram_get_js("","ttyd_port"); %>;
 	window_ttyd = window.open(ttyd_url, "ttyd");
 	window_ttyd.focus();
 }

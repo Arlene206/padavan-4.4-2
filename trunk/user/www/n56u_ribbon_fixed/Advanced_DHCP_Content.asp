@@ -60,7 +60,7 @@ function initial(){
 	show_banner(1);
 	show_menu(5,3,2);
 	show_footer();
-	showtext($("LANIP"), '<% nvram_get_x("", "lan_ipaddr"); %>');
+	showtext($("LANIP"), <% nvram_get_js("", "lan_ipaddr"); %>);
 
 	if(get_ap_mode()){
 		showhide_div('row_dhcpd_rt', 0);

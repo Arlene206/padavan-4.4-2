@@ -32,7 +32,7 @@ $j(document).ready(function() {
 <script>
 
 <% login_state_hook(); %>
-var lan_ipaddr = '<% nvram_get_x("", "lan_ipaddr_t"); %>';
+var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr_t"); %>;
 
 function initial(){
 	show_banner(1);

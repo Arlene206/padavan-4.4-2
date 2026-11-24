@@ -143,6 +143,13 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_LAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_DHCP_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_IPTV_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_Services_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_SettingBackup_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_MACFilter_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
@@ -354,6 +361,13 @@ on:
       - "trunk/user/httpd/src/httpd.c"
       - "trunk/user/httpd/src/ej.c"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_LAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_DHCP_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_IPTV_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_Services_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_SettingBackup_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_MACFilter_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
@@ -440,6 +454,13 @@ on:
       - "trunk/user/httpd/src/httpd.h"
       - "trunk/user/shared/src/include/ralink_boards.h"
       - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_LAN_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_DHCP_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_IPTV_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_Services_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_SettingBackup_Content.asp"
+      - "trunk/user/www/n56u_ribbon_fixed/Advanced_MACFilter_Content.asp"
       - "trunk/user/www/n56u_ribbon_fixed/Advanced_DDNS_Content.asp"
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/tests/httpd_watchdog_stop_policy.c"
@@ -4592,6 +4613,42 @@ jobs:
           assert 'ejArgs(argc, argv, "%s %s", &sid, &name)' in js_nvram_get
           assert "write_js_string(wp, nvram_safe_get(name));" in js_nvram_get
           assert '"nvram_get_js", ej_nvram_get_js' in ej_table
+          js_context_templates = {
+              "Advanced_WAN_Content.asp": (
+                  'var original_wan_dhcp_auto = parseInt(<% nvram_get_js("", "x_DHCPClient"); %>);',
+                  'var original_wan_dns_auto = parseInt(<% nvram_get_js("", "wan_dnsenable_x"); %>);',
+                  'var original_wan_src_phy = <% nvram_get_js("", "wan_src_phy"); %>;'
+              ),
+              "Advanced_LAN_Content.asp": (
+                  'var old_lan_addr = <% nvram_get_js("","lan_ipaddr"); %>;',
+                  'var old_lan_mask = <% nvram_get_js("","lan_netmask"); %>;'
+              ),
+              "Advanced_DHCP_Content.asp": (
+                  'showtext($("LANIP"), <% nvram_get_js("", "lan_ipaddr"); %>);',
+              ),
+              "Advanced_IPTV_Content.asp": (
+                  'var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr_t"); %>;',
+                  'var path = (<% nvram_get_js("","msd_lite_enable"); %> === "1") ? "/stat" : "/status";'
+              ),
+              "Advanced_Services_Content.asp": (
+                  'var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr"); %>;',
+                  'var http_proto = <% nvram_get_js("", "http_proto"); %>;',
+                  'var http_port = <% nvram_get_js("", "http_lanport"); %>;',
+                  'var https_port = <% nvram_get_js("", "https_lport"); %>;',
+                  'ttyd_url+="://"+http_url+":"+<% nvram_get_js("","ttyd_port"); %>;'
+              ),
+              "Advanced_SettingBackup_Content.asp": (
+                  'var lan_ipaddr = <% nvram_get_js("", "lan_ipaddr_t"); %>;',
+              ),
+              "Advanced_MACFilter_Content.asp": (
+                  'var temp_time = <% nvram_get_js("", "macfilter_time_x_0"); %>;',
+                  'var temp_date = <% nvram_get_js("", "macfilter_date_x_0"); %>;'
+              )
+          }
+          for page, markers in js_context_templates.items():
+              template = (ui_root / page).read_text()
+              for marker in markers:
+                  assert marker in template, (page, marker)
           ddns_template = (ui_root / "Advanced_DDNS_Content.asp").read_text()
           assert 'var ddns_hname = <% nvram_get_js("","ddns_hostname_x"); %>;' in ddns_template
           assert "var ddns_hname = '<% nvram_get_x" not in ddns_template
