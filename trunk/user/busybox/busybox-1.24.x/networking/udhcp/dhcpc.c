@@ -2008,13 +2008,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
  * address is already in use (e.g., through the use of ARP),
  * the client MUST send a DHCPDECLINE message to the server and restarts
  * the configuration process..." */
-					if (!arpping(packet.yiaddr,
-							NULL,
-							(uint32_t) 0,
-							client_config.client_mac,
-							client_config.interface,
-							arpping_ms)
-					) {
+					
 						bb_info_msg("Offered address is in use "
 							"(got ARP reply), declining");
 						decline_status = send_decline(server_addr, packet.yiaddr);
