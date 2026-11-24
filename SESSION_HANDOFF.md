@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Live `main` parent for this WAN counter status slice: `400e3779d39c0ac28a94e1a5de7ba7315dd5c037`.
-- Exact `e3a7bd0` Switch CLI ioctl `#45306697005`, HTTPD Authentication/Security `#45306697003`, AI handoff `#45306697038`, Process inventory `#45306697000`, and NVRAM audit `#45306697097`: **PASS**. Exact `25d077e` XY-C1 firmware validation `#45306112829`: **PASS** on that earlier SHA only.
-- New stability defect: `get_ifstats_counter()` converted invalid paths, `fopen`/read failures and malformed sysfs data to numeric zero. `wanlink_hook()` propagated only numbers; `device-map/internet.asp` hid the row when both were zero, so failed reads looked like a valid idle WAN link.
-- This slice adds an errno-returning RX/TX pair API, keeps legacy scalar wrappers, prevents WAN-up from overwriting its baseline after a partial/error read, and exposes tri-state status to the UI (valid, failed, not collected).
+- Live `main` parent for this WAN counter regression harness correction: `b757cc5ad9f1173d2a476475ef66ffb6be6ff8d7`.
+- Exact `b757cc5` WAN sysfs byte-counter regression `#45308457252` **FAILED** at compile setup: the test includes `net_ifstats_policy.h` from the shared source directory, but the workflow omitted `-I trunk/user/shared/src`. No C assertions or integration contract ran; this is a test build-command issue, not a source-test result.
+- Exact `b757cc5` AI handoff contract `#45308457405`: **PASS**. Other exact-push statuses at latest poll: `WAN DHCP callback state stability regression` #45308457813: **success**; `detect_link signal lifecycle stability regression` #45308457811: **success**; `Wireless radio state regression` #45308457695: **success**; `AdGuardHome config security regression` #45308457694: **success**; `USB modem WDM/NDIS physical identity stability` #45308457689: **success**; `miniupnpd atomic configuration publication regression` #45308457667: **success**; `NVRAM transaction boundary audit` #45308457643: **in_progress**; `USB storage hotplug stability regression` #45308457640: **success**; `watchdog signal lifecycle stability regression` #45308457629: **success**; `Inadyn fail-closed lifecycle regression` #45308457628: **success**; `VPN server lifecycle stability regression` #45308457613: **success**; `Process lifecycle inventory - b757cc5ad9f1173d2a476475ef66ffb6be6ff8d7` #45308457608: **success**; `FRP asynchronous startup lifecycle regression` #45308457582: **success**; `IPv6 service-type checked-read regression` #45308457574: **success**; `Firewall Startup Stability Regression` #45308457562: **success**; `WAN route operation status regression` #45308457554: **success**; `AliyunDrive WebDAV lifecycle stability regression` #45308457536: **in_progress**; `Router mode NVRAM update failure regression` #45308457499: **success**; `XY-C1 Firmware Validation` #45308457490: **in_progress**; `WAN gateway ARP probe socket stability regression` #45308457331: **success**; `Process inventory and lifecycle fail-closed regression` #45308457314: **success**; `ZeroTier lifecycle stability regression` #45308457305: **success**; `HTTPD Authentication and Security Regression` #45308457290: **success**; `WAN interface teardown stability regression` #45308457262: **success**; `DNSMasq lifecycle stability regression` #45308457258: **success**; `detect_internet signal lifecycle stability regression` #45308457232: **success**.
+- The `b757cc5` source change adds checked RX/TX counter reads, preserves legacy scalar wrappers, avoids replacing WAN baselines on partial/error reads, and exports tri-state status to the page (numeric zero / N/A / hidden).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify the checked net_ifstats pair reader and end-to-end UI status propagation on this commit's exact SHA. A failed RX or TX read must clear both outputs and display N/A; a valid zero sample must remain distinguishable from read failure; unsupported/uncollected modes remain hidden. Legacy scalar APIs retain zero-on-error compatibility behavior.
+Re-run the WAN sysfs counter policy regression after adding the shared-source include directory to the host compiler invocation. Then inspect the source-contract step and exact-SHA dependent checks; do not infer source regression status from the previous compile-setup failure.
 
 ## Completed development slices
 
@@ -40,15 +40,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `e3a7bd0` Switch CLI `#45306697005`, HTTPD `#45306697003`, AI handoff `#45306697038`, Process inventory `#45306697000`, and NVRAM audit `#45306697097`: **PASS**.
-- Exact `25d077e` XY-C1 firmware validation `#45306112829`: **PASS** on that earlier SHA only. This net_ifstats commit requires its own host-policy/source-contract run; no same-SHA firmware or device result is claimed.
-- The new workflow compiles the policy suite under GNU89, `-Werror`, ASan and UBSan, then checks propagation through WAN baseline, HTTPD callback and valid/error/uncollected UI states. Frozen backup remains unchanged.
+- Exact `b757cc5` WAN run `#45308457252`: **FAIL** at compile setup only: missing `-I trunk/user/shared/src`. No host assertions or source-contract checks executed.
+- Exact `b757cc5` AI handoff `#45308457405`: **PASS**. Other Process/HTTPD/NVRAM/XY-C1 results are recorded above with their exact run IDs/statuses.
+- This is a workflow-only include-path correction; no new production C, firmware L3 or hardware L4 result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA `WAN sysfs byte-counter status regression`; inspect its host or source-contract log if it fails.
-2. Confirm the three UI states: valid sample (including numeric zero), read failure/N/A, and not-collected/hidden; also verify scalar getter compatibility.
-3. Continue with another independently evidenced stability defect outside this counter slice. Keep the frozen backup read-only.
+1. Verify the corrected WAN sysfs regression on this commit's exact SHA; if compilation passes, repair any actual policy or source-contract failure.
+2. Reconcile exact `b757cc5` Process, HTTPD, NVRAM and XY-C1 statuses by run ID; continue independent work while any remain pending.
+3. Continue auditing other source-proven resource/error paths. Keep the frozen backup read-only.
 
 
 # Cross-session execution mandate

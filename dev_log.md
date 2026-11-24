@@ -1,3 +1,11 @@
+## 2026-11-23 — Add the shared-source include path to WAN counter regression
+
+- Exact `b757cc5` WAN sysfs regression `#45308457252` failed at compile setup because `tests/net_ifstats_policy.c` includes `net_ifstats_policy.h` from the shared source directory and the workflow omitted `-I trunk/user/shared/src`. No C assertion or integration contract executed.
+- Added the missing include directory to the GNU89 `-Werror` ASan/UBSan compile command. This is a test harness correction; production C is unchanged.
+- Exact `b757cc5` AI handoff `#45308457405` passed; remaining exact-SHA run states are retained in `SESSION_HANDOFF.md`. The corrected workflow needs a fresh exact-SHA push run.
+
+---
+
 ## 2026-11-23 — Preserve WAN sysfs byte-counter read status through the UI
 
 - `get_ifstats_counter()` returned zero for invalid paths, `fopen`, `fgets`, parse and close failures. The WAN status hook propagated only scalar values, and the page hid byte/rate rows when both were zero, making a failed read indistinguishable from a valid idle counter.
