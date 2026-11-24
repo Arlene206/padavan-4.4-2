@@ -1818,8 +1818,11 @@ static void fe_int_free_requested_irqs(struct net_device *dev)
 
 	if (requested & RAETH_IRQ_REQ_ESW)
 		free_irq(ei_local->esw_irq, dev);
-	if (requested & RAETH_IRQ_REQ_GSW)
+	if (requested & RAETH_IRQ_REQ_GSW) {
+		/* Stop switch link-change sources before releasing their handler. */
+		mii_mgr_write(31, 0x7008, 0);
 		free_irq(ei_local->gsw_irq, NULL);
+	}
 	if (requested & RAETH_IRQ_REQ_IRQ3)
 		free_irq(ei_local->irq3, dev);
 	if (requested & RAETH_IRQ_REQ_IRQ2)

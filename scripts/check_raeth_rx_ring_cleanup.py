@@ -274,7 +274,8 @@ for mask in ("RAETH_IRQ_REQ_IRQ0", "RAETH_IRQ_REQ_IRQ1",
              "RAETH_IRQ_REQ_IRQ2", "RAETH_IRQ_REQ_IRQ3",
              "RAETH_IRQ_REQ_ESW", "RAETH_IRQ_REQ_GSW"):
     assert mask in irq_free
-assert "free_irq(ei_local->gsw_irq, NULL);" in irq_free
+assert "mii_mgr_write(31, 0x7008, 0);" in irq_free
+assert irq_free.index("mii_mgr_write(31, 0x7008, 0);") < irq_free.index("free_irq(ei_local->gsw_irq, NULL);")
 assert "ei_local->irq_requested = 0;" in irq_free
 
 irq_enable = function_body(RAETHER_SOURCE, "static int fe_int_enable(")
