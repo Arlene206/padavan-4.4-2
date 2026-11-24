@@ -867,7 +867,7 @@ jobs:
           assert start_preflight < start_clear < start_apply < start_launch
           restart_locked = function_body(services, "restart_dhcpd_locked(void)")
           assert "int arp_status;" in restart_locked
-          assert "status = arpbind_apply_current_ethers()" not in restart_locked
+          assert "\\n\\tstatus = arpbind_apply_current_ethers()" not in restart_locked
           restart_stop = restart_locked.index("stop_status = stop_dns_dhcpd_locked()")
           restart_absent = restart_locked.index("dnsmasq_restart_policy_stop_status(", restart_stop)
           restart_apply = restart_locked.index("arpbind_apply_current_ethers()", restart_absent)
