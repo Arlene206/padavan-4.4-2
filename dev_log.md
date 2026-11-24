@@ -1,3 +1,11 @@
+## 2026-11-25 00:38 CST (UTC+8) — Preserve indirect Clause 22 logical register range
+
+- Reviewed `18d9035` after its C22 width guard landed and found a compatibility regression: the five-bit register / 16-bit payload checks ran before the architecture-specific indirect access selector. The existing indirect policy tests use logical register `0x1234` and a u32 value `0x89abcdef`, which are intentionally split across page/low/high word MDIO transactions.
+- Adjusted `mii_mgr_read/write()` so the indirect register-31 path uses a bounded 16-bit logical register and accepts the full u32 payload; direct C22 remains limited to a five-bit register and 16-bit payload. PHY address remains five-bit on both paths.
+- Added tests for 16-bit indirect register boundaries and updated source contracts to prove each path validates before its matching transaction.
+
+---
+
 ## 2026-11-25 00:36 CST (UTC+8) — Correct Clause 45 regression call count and restore the required handoff rule
 
 - Exact source SHA 7ae410c1ff14d974e659b8c29bbcd83d18269f0c: its Clause 45 GNU89/ASan/UBSan policy binary passed; Switch CLI #45438347998 then failed because the newly added source checker used undefined policy/test variables. The parallel checker-load fix landed as 52e34a54f58930247d5ec5c5df0f1a99b6de52fb, but exact Switch CLI #45438676877 exposed a second checker-only mismatch: the regression contains exactly four calls to raeth_mdio_cl45_write_data_status(), not five. This commit asserts four calls, verifies the named boundary test and directly pins the policy header include at the kernel call site.

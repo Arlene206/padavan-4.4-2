@@ -1,39 +1,37 @@
 ## Current repository state
 
-- Active branch: main. This checkpoint is the next atomic main commit on parent 52e34a54f58930247d5ec5c5df0f1a99b6de52fb; resolve the resulting live SHA from refs/heads/main before the next write because the repository is being updated concurrently across sessions.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; its warning file explicitly prohibits mutation. Legacy PR #1 remains closed and unmerged.
-- Main-only development. Each logical slice must be one atomic main commit: create all blobs, one complete tree and one commit, then update main with a non-forced expected-SHA compare-and-swap. Never create side branches, PRs or force-push.
-- RC firewall startup readiness production fix 7ca46fc7049f3380755f6b2fe5073d86727c6382 has same-source XY-C1 Build/TRX/artifact PASS (#45434352284; L3 VERIFIED). Hardware L4 remains NOT VERIFIED.
+- Live branch `main` parent for this follow-up: `18d90355fb56b33100c05439df30ecc3e61ef85f`. Clause 22 width guards were added in `18d90355fb56b33100c05439df30ecc3e61ef85f`; exact-head Switch CLI #45439391302 and AI handoff #45439390998 PASS. XY-C1 #45439391086 and NVRAM #45439391348 were still running at last poll.
+- Clause 45 write-payload guard: `7ae410c1ff14d974e659b8c29bbcd83d18269f0c`; checker input fix `52e34a5`; test-count + handoff fix `e83ac62`.
+- Clause 45 address-policy include fix: `a650ed8c8fdd8b0100bc26bb91458cdf4bde9277`. RC firewall boot-result source fix: `7ca46fc7049f3380755f6b2fe5073d86727c6382`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 remains closed/unmerged. Use one atomic main commit per logical task with non-forced expected-SHA updates.
 
 ## Active task
 
-### Complete exact-SHA validation of Clause 45 write-payload bounds
+### Preserve the special indirect Clause 22 register/data ranges
 
-- Source SHA 7ae410c1ff14d974e659b8c29bbcd83d18269f0c adds raeth_mdio_cl45_write_data_status() and rejects values above 0xffff in mii_mgr_write_cl45() before the MDIO lock or register access. The GNU89 policy test covers 0, 0xffff, 0x10000 and 0xffffffff.
-- Switch CLI #45438347998 on 7ae passed the standalone policy binary but failed its source-contract script because it referenced policy and test without loading them. The variable-loading correction landed at 52e34a5, but Switch CLI #45438676877 on 52e failed on an incorrect expected invocation count (the test correctly calls the helper four times). THIS commit changes the assertion to exactly four, pins the named boundary test and asserts mii_mgr.c directly includes the policy header.
-- AI handoff #45438348166 on 7ae and #45438677094 on 52e failed because this handoff lacked the required literal phrase "one atomic main commit". THIS commit restores the required cross-session governance phrase.
-- Source behavior remains fail-closed: mii_mgr_write_cl45() returns its existing 0/failure convention for a payload over 16 bits; the host policy helper returns -EINVAL.
+- The direct C22 width guard commit `18d9035` initially applied five-bit register and 16-bit write-data limits before deciding whether an architecture-specific register-31 access uses the indirect page interface.
+- Existing `mii_mgr_indirect_policy.h` tests deliberately exercise logical register `0x1234` and a 32-bit value `0x89abcdef`: indirect access selects a page, reads/writes a low-word register and a high-word register, and supports a 16-bit logical register address/full u32 value. Applying direct C22 caps universally rejects valid TRGMII/forced-GE1 indirect access.
+- The follow-up keeps PHY address validation common and selects policy by path. Direct C22 requires register <=31 and data <=0xffff; indirect register-31 mode permits a 16-bit logical register <=0xffff and full u32 data (split into two 16-bit hardware writes). The indirect max also blocks aliasing above 0xffff.
+- Added policy boundary tests for logical register 0, 31, 0xffff, 0x10000 and UINT32_MAX; static workflow contract requires indirect guards before indirect calls and direct-only bounds before direct MMIO APIs.
 
 ## Verification boundary
 
-- Exact source SHA 7ae410c1ff14d974e659b8c29bbcd83d18269f0c: Clause 45 GNU89/ASan/UBSan binary PASS; Switch CLI #45438347998 FAIL after that binary because policy/test paths were not loaded. The source checker correction at 52e loaded both, but exact Switch CLI #45438676877 then failed only because the source test has four helper calls while the assertion required at least five. THIS commit corrects that count and requires the regression function to remain present.
-- AI handoff #45438348166 (7ae) and #45438677094 (52e) FAIL on the missing phrase one atomic main commit; corrected in THIS commit. Inspect exact new-head Action.
-- NVRAM audit #45438348160 and XY-C1 #45438348129 on source SHA 7ae were IN_PROGRESS at last poll. XY Build was in progress; TRX/artifact pending. They are source-SHA evidence only for 7ae, not for this follow-up.
-- Earlier shared Clause 45 address commit a08b86e XY-C1 #45436447371 failed from a missing policy-header prototype; include fixed in a650ed8. Switch CLI #45437706525 on checker-only descendant 472064b PASS. AI docs #45437414952 on a650ed8 PASS. The earlier XY-C1 runs #45437415030 (a650ed8) and #45438125350 (bc17758) were still IN_PROGRESS at last inspection; close/inspect separately, but do not transfer results.
-- Firewall startup status propagation in RC source SHA 7ca46fc7049f3380755f6b2fe5073d86727c6382 is L3 VERIFIED: same-SHA XY-C1 #45434352284 Build, TRX and artifact all PASS. Physical-device L4 remains NOT VERIFIED.
-- Current Clause45 source SHA still needs exact same-SHA XY-C1 Build, TRX and artifact PASS for L3. A successful host test or checker-only firmware workflow with skipped build is not L3.
+- Exact Clause 22 source SHA `18d90355fb56b33100c05439df30ecc3e61ef85f`: Switch CLI #45439391302 PASS (GNU89 address/register/data tests and source contracts); AI docs #45439390998 PASS. XY-C1 #45439391086 and NVRAM #45439391348 were still in progress at last poll.
+- Clause 45 payload guard `7ae410c`: policy binary passed; follow-up static checker count assertion was corrected in `e83ac62`. Exact XY-C1 #45438348129 and NVRAM #45438348160 status still needs final closure.
+- Clause 45 address include fix `a650ed8`: NVRAM #45437414867 PASS; XY-C1 #45437415030 requires final Build/TRX/artifact step inspection.
+- RC firewall source fix `7ca46fc` is L3 VERIFIED: XY-C1 #45434352284 Build, TRX and artifact all PASS on that exact SHA. Physical-device L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Switch CLI, AI handoff and NVRAM actions triggered by THIS commit; correct only the first demonstrated defect if either checker remains red.
-2. Close XY-C1 #45438348129 on source SHA 7ae and NVRAM #45438348160; inspect Build, TRX and artifact steps individually. If Build failed, diagnose the first compiler error.
-3. Confirm whether the prior XY runs #45437415030 (a650ed8) and #45438125350 (bc17758) completed, keeping their evidence scoped to their own SHAs.
-4. Continue the next high-risk unfinished P1 userland/kernel reliability issue across RC/WAN/HTTPD/USB; do not repeat completed SmartDNS work.
+1. Check exact-head Switch CLI and AI handoff runs for this indirect-range correction.
+2. Poll XY-C1 #45439391086 and NVRAM #45439391348 for exact C22 source SHA `18d9035`, checking Build/TRX/artifact individually.
+3. Poll Clause45 source XY-C1 #45438348129 and the include-fix source XY-C1 #45437415030. Keep their SHA results separate.
+4. Once the C22 direct/indirect range split is verified, return to the broad RC startup-result propagation P1 queue or another high-risk userland/kernel stability defect. Pending CI does not block independent implementation.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. At each session ending, inspect live main, the frozen backup, exact source SHA, exact-head Actions, L2/L3/L4 evidence and the next concrete task. If the handoff remains accurate, make no no-op documentation commit.
+The checkpoint is mandatory; a document edit is conditional. At each session end inspect live main, frozen backup, source SHA, exact-head Actions, L2/L3/L4 evidence and first next action. If accurate, do not create a no-op handoff commit.
 
 # Cross-session execution mandate
 
-Use one atomic main commit per logical slice. Before context exhaustion, record the exact current main SHA, source changes, regression results, exact-SHA Actions and first next action. Recovery is read-only by default; do not recreate completed audits or documentation.
+Recover once, implement, test and hand off. Use one atomic main commit per logical task with non-forced expected-SHA updates. Never force-push or overstate firmware or hardware validation.
