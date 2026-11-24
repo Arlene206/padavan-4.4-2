@@ -71,7 +71,7 @@ assert "st_uid != expected_uid" in policy
 assert "st_nlink != 1" in policy
 assert "(st->st_mode & (S_IWGRP | S_IWOTH))" in policy
 assert "test_pidfile_descriptor_validation" in test
-assert "LLDT PID-file descriptor ownership/mode/hard-link regression: PASS" in test
+assert "LLTD PID-file descriptor ownership/mode/hard-link regression: PASS" in test
 assert "S_ISREG(st->st_mode)" in policy
 assert "flock(fd, LOCK_EX | LOCK_NB)" in policy
 assert "test_pidfile_lock_serializes_competing_open" in test
