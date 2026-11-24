@@ -207,7 +207,11 @@ jobs:
               assert pack < reject < open_device < invoke
               assert bits in wrapper
               assert "cmd |= (par <<" not in wrapper
-          print("MTK ESW and RTL8367 ioctl parameter packing bounds: PASS")
+          rtl_source = (rc / "switch_rtl8367.c").read_text()
+          rtl_node = body(rtl_source, "int rtl8367_node(void)")
+          assert "S_IFCHR | 0600" in rtl_node
+          assert "0666" not in rtl_node
+          print("MTK ESW/RTL8367 device-node permissions and ioctl parameter bounds: PASS")
           PY
       - name: Check built switch CLI reports operational failures
         run: |

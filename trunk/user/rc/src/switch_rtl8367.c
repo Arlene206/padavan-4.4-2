@@ -658,7 +658,7 @@ static int asic_reg_set(unsigned int cmd, unsigned int reg, unsigned int reg_val
 
 int rtl8367_node(void)
 {
-	return mknod(RTL8367_DEVPATH, S_IFCHR | 0666, makedev(RTL8367_DEVMAJOR, 0));
+	return mknod(RTL8367_DEVPATH, S_IFCHR | 0600, makedev(RTL8367_DEVMAJOR, 0));
 }
 
 static int
