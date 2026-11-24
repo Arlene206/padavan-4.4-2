@@ -23,13 +23,14 @@ Every session MUST inspect the live repository state before ending: verify main 
 - Current main is 5ec726d5123bbfde442f15b1afad114e64747511; the frozen backup is 72f4f157a084f8184b9597ca5bf334b8080e5807 and remains untouched. No PR/branch work.
 ## Verification boundary
 
-- L3 VERIFIED for production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact all PASS; libdisk, Process, HTTPD, NVRAM exact source checks PASS). Hardware L4 NOT VERIFIED.
-- The first DHCP commit parent 8151d689580ff7e991f539d466c4b8a1ce9ebfb7 failed exact-SHA run #45474436146 at GNU89 compile due malformed test-main registration. b61d41a56a409053559909a26c8849f3b9d4d7af fixes the duplicated if before the compile step, but no exact-head run was listed for b61 when checked.
-- THIS COMMIT further extracts/tests the NAK server-ID filter and will provide a fresh exact-SHA workflow gate; no DHCP PASS claimed yet.
+- L3 VERIFIED for production source SHA 80f1bfccd255536a0a2682c7d046f0216038a922 (XY-C1 Build + TRX + artifact all PASS; libdisk, Process, HTTPD, NVRAM source checks PASS). Hardware L4 NOT VERIFIED.
+- Exact udhcpc run #45474845539 on b61d41a56a409053559909a26c8849f3b9d4d7af PASS: GNU89 -Werror ASan/UBSan C regression and Python contract checker passed with the NAK REQUESTING/lease cleanup test and corrected test-main registration.
+- Exact udhcpc run #45475021198 on fd8697d50c16035051a63cb6cbe932e99ac1a533: C compile/run PASS; Python checker FAIL because it expected pre-extraction server-ID comparisons. THIS COMMIT updates the checker to the extracted helper's semantics. No end-to-end DHCP PASS is claimed until this SHA's rerun is green.
+- Exact XY-C1 run #45475021132 and other product workflows on fd8697 remain in progress at the last query; inspect their final statuses, including Build/TRX/artifact.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA udhcpc-script-status-stability for THIS COMMIT; require GNU89 -Werror ASan/UBSan and the source-contract checker to pass.
-2. Confirm the corrected test harness no longer produces the parent's compile error; do not count b61 as verified absent a run.
-3. Continue deeper DHCP state transition coverage for deconfig retry, lease expiry and SIGUSR2/-R while DECONFIG_PENDING, then check exact-SHA XY-C1 Build/TRX/artifact and other independent userland workflows. Preserve frozen backup.
+1. Inspect exact-SHA udhcpc-script-status-stability for THIS checker correction. Require both the GNU89 -Werror ASan/UBSan test binary and Python source-contract checker to pass.
+2. Inspect exact-SHA XY-C1 Build/TRX/artifact and Process/NVRAM/storage/AI results for fd8697; if pending, proceed with an independent userland task.
+3. Continue deeper DHCP transition tests for deconfig retry, lease expiry and SIGUSR2/-R while DECONFIG_PENDING, preserving the frozen backup and expected-SHA commit protocol.

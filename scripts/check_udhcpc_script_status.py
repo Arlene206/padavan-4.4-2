@@ -127,14 +127,19 @@ assert "udhcpc_nak_requires_deconfig(state == REQUESTING)" in nak_branch
 assert "udhcpc_nak_requires_deconfig(int requesting)" in policy
 assert "test_nak_only_deconfigures_an_active_lease" in test
 assert "test_nak_only_deconfigures_an_active_lease() != 0" in test
-nak_id_guard = nak_branch.index("if (server_addr != 0)")
+nak_id_read = nak_branch.index("temp = udhcp_get_option32(&packet, DHCP_SERVER_ID)")
+nak_id_check = nak_branch.index("udhcpc_nak_server_id_rejected(")
 nak_event = nak_branch.index('udhcp_run_script(&packet, "nak")')
 nak_deconfig = nak_branch.index('udhcp_run_script(NULL, "deconfig")')
 nak_retry = nak_branch.index("udhcpc_schedule_deconfig_retry(INIT_SELECTING", nak_deconfig)
-assert nak_id_guard < nak_event < nak_deconfig < nak_retry
-assert "svid != server_addr" in nak_branch
+assert nak_id_read < nak_id_check < nak_event < nak_deconfig < nak_retry
 assert "received DHCP NAK with wrong" in nak_branch
 assert "udhcpc_nak_server_id_rejected(server_addr, temp != NULL, svid)" in nak_branch
+nak_id_policy_start = policy.index("static inline int\\nudhcpc_nak_server_id_rejected(")
+nak_id_policy_end = policy.index("\\n}", nak_id_policy_start)
+nak_id_policy = policy[nak_id_policy_start:nak_id_policy_end]
+assert "expected_server_id != 0" in nak_id_policy
+assert "!server_id_present || received_server_id != expected_server_id" in nak_id_policy
 assert "udhcpc_nak_server_id_rejected(uint32_t expected_server_id" in policy
 assert "test_nak_server_id_filter_rejects_missing_and_mismatched_server" in test
 assert "test_nak_server_id_filter_rejects_missing_and_mismatched_server() != 0" in test

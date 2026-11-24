@@ -1,3 +1,11 @@
+## 2026-11-25 — Align DHCP NAK source contract with extracted predicate
+
+- Exact run #45475021198 on fd8697d50c16035051a63cb6cbe932e99ac1a533 passed the GNU89 -Werror ASan/UBSan test binary and failed the Python source checker because it still looked for the pre-refactor inline server_addr conditional and svid comparison.
+- Rewrote the checker to assert the equivalent extracted helper contract: option extraction and helper rejection occur before the advisory nak script, missing/mismatched server ID is rejected when an expected server is known, and the no-known-server behavior remains unchanged. This is a checker expectation mismatch, not a compile/runtime test failure.
+- Exact-SHA rerun on THIS checker correction is mandatory. XY-C1 and other independent workflows for fd8697 are still being inspected separately.
+
+---
+
 ## 2026-11-25 — Cover DHCPNAK server identity filtering with executable policy tests
 
 - Preserved BusyBox's explicit multi-server safeguard and extracted it into udhcpc_nak_server_id_rejected(): when an expected server is known, missing/mismatched server IDs are rejected; when none is known, the old permissive startup behavior remains unchanged.
