@@ -1,36 +1,40 @@
 ## Current repository state
 
-- Live parent `main`: `56931489867a3772ef4b8f45a8559705ebd0fbbc`; this commit is a focused FRP host-test fixture correction. The exact source SHA is rechecked before ref update.
-- FRP process-inventory hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`: incomplete procfs metadata is UNKNOWN; a failed wait does not justify SIGKILL escalation.
-- FRP run #45341083663 failed at `client missing` because the fake process-exit helper deleted only `cmdline`, leaving the synthetic PID directory and executable symlink present. The scanner correctly failed closed on this impossible-to-call-terminated state. This follow-up removes the whole synthetic PID directory for actual TERM/KILL exits; dedicated UNKNOWN tests still remove only `cmdline` and retain the executable link.
-- Process inventory #45341083645 and AI handoff #45341083665 PASS on `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; FRP lifecycle on that SHA FAILED. Exact reruns are required on this commit.
-- HTTPD security #45340186122 and AI handoff #45340186109 PASS on `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live parent `main`: `5687c609137bbba09c707896dd95216c3df9e961`; this atomic continuation adds executable-bound Inadyn process identity. Re-fetch `main` and compare expected SHA before every further write.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- FRP process-inventory tri-state hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its host-test fixture correction is in `5687c609137bbba09c707896dd95216c3df9e961`. In the fixture, actual TERM/KILL exit now removes the complete synthetic PID directory; dedicated UNKNOWN tests still remove only `cmdline` and preserve the directory/exe link.
+- Router hostname/domain status propagation is in `a26746d033ffa19d9b576010f4fe4a583b4a859a`; HTTPD contract correction is in `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`.
+- AdGuardHome executable/config/workdir argv + start_time identity passed config-security #45339988745, Process inventory #45339988758 and AI docs #45339988750 on `cbbb27636807b7f195d7d87ccefb476366a07995`.
+- Adbyby executable/start_time identity passed host #45339125309 and Process fail-closed #45339125213 on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
 
 ## Active task
 
-FRP test fixture correction only:
-- The production `frp_process_matches()` returns UNKNOWN when `/proc/PID` and its executable link still exist but `cmdline` is missing. This is deliberate fail-closed behavior.
-- The old fake `remove_process()` represented a terminated process by unlinking only `cmdline`; this instead models metadata loss while a process remains visible.
-- Both `frp_lifecycle.sh` and `frp_stop.sh` now remove the complete synthetic PID directory for actual process exit. The dedicated `TERM_MAKES_CMDLINE_UNKNOWN` and explicit missing-cmdline cases still preserve the executable link and directory, exercising UNKNOWN handling.
+Inadyn executable-bound identity and stop/reload/manual refresh:
+- Previous validator used `process_identity_validate("inadyn", identity)` only; that validates comm, argv hashes and start_time but does not bind the process to the installed executable.
+- `trunk/user/inadyn/Makefile` installs the daemon at `/bin/inadyn`. The new policy requires exact `/proc/PID/exe` match, accepts only the kernel's exact ` (deleted)` suffix, maps ENOENT/ESRCH to ABSENT, and fails closed on other procfs read errors.
+- A filtered inventory removes wrong-executable same-name decoys from both the normal Inadyn process-presence probe and the shared service-lifecycle stop wait loop. UNKNOWN from any candidate blocks signals.
+- The Inadyn stop path now uses the shared bounded service lifecycle policy; config reload SIGHUP and manual refresh SIGUSR1 validate the same exact executable identity immediately before signaling.
+- Host policy tests and the Inadyn lifecycle source-contract checker/workflow are updated. Exact Actions are pending on the commit that adds this slice.
 
-## Completed development slices
+## Recent regression correction
 
-- FRP process inventory and stop escalation (`fa3dd001`): preserve RUNNING/ABSENT/UNKNOWN, propagate scan failures, and allow SIGKILL only after verified TERM timeout. Source/test checker and Process inventory regression are in place; exact FRP rerun was initially blocked by the inaccurate fake exit fixture.
-- Inadyn process identity extension remains the next independent security task: existing stop/reload/manual-update identity validation is comm/argv/start-time bound but not bound to `/proc/PID/exe`; the installed binary is `/bin/inadyn`. No changes have been committed for it yet.
-- Router hostname/domain callback failure propagation (`a26746d`) and HTTPD contract correction (`8584845`) remain completed predecessor slices with the exact action statuses recorded in `dev_log.md`.
+- FRP exact run #45341083663 on `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a` failed at `client missing` because `remove_process()` in host fixtures removed only `cmdline`, leaving the synthetic PID and executable link visible. Production correctly treats that state as UNKNOWN.
+- Commit `5687c609137bbba09c707896dd95216c3df9e961` fixes `frp_lifecycle.sh` and `frp_stop.sh` to remove the complete synthetic PID directory on actual process exit. Explicit missing-cmdline and post-TERM UNKNOWN fixtures still preserve `/proc/PID/exe`.
+- On `5687c609`, FRP asynchronous startup #45341607742, Process inventory #45341607727 and AI handoff docs #45341607707 were IN_PROGRESS at last poll. Recheck their completed state; no result is assumed.
 
 ## Verification boundary
 
-- Predecessor `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`: FRP async startup regression #45341083663 FAILED at `client missing` due only to the test helper leaving an extant synthetic PID with missing cmdline; Process lifecycle inventory #45341083645 PASS; AI docs #45341083665 PASS.
-- This follow-up test-only correction is pending exact-SHA FRP workflow rerun and AI handoff docs. No MIPS firmware, TRX artifact or hardware L4 result is claimed.
-- The UNKNOWN metadata fixtures are intentionally retained: tests explicitly remove only `cmdline` while preserving `/proc/PID/exe` to prove a live but uninspectable process blocks unsafe escalation.
+- This Inadyn slice includes GNU89-compatible injectable executable validation tests and workflow execution, but exact-head Actions are not yet available. Do not claim PASS before the exact SHA run finishes.
+- The Inadyn workflow runs GNU89 with `-Wall -Wextra -Werror -fsanitize=address,undefined`; Process source contract and XY-C1 build validation are also required for this production `services_ex.c` change.
+- No MIPS firmware build/TRX/artifact result or physical-router L4 result is claimed for this commit.
+- Linux 4.4 lacks pidfd; final `/proc` validation-to-`kill(2)` race remains a platform limitation, even with executable, argv and start-time binding.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA FRP async lifecycle, FRP stop, Process inventory and AI handoff Actions for this commit; fix any failure.
-2. If FRP/Process checks pass or remain pending, continue the Inadyn executable-bound stop/reload/manual-update fix and add GNU89 sanitizer regressions.
-3. Keep the frozen backup immutable; main writes remain complete-tree atomic commits with expected-SHA non-forced updates.
+1. Inspect exact-SHA Inadyn lifecycle policy, Process lifecycle, AI handoff and XY-C1 Actions for this commit; fix any first failure.
+2. Poll FRP #45341607742, Process inventory #45341607727 and AI docs #45341607707 on `5687c609`; fix a regression if any remains.
+3. Verify XY-C1 Build, TRX and artifact upload all pass on the same production-source SHA before any L3 claim; then continue the next P1 stability/security issue outside closed Adbyby/AdGuardHome/FRP scopes.
+4. Keep the backup immutable; all main changes remain complete-tree atomic commits with expected-SHA non-forced updates.
 
 # Cross-session execution mandate
 

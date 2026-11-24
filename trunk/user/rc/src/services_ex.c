@@ -53,6 +53,7 @@
 #include "dnsmasq_nvram_option_policy.h"
 #include "dnsmasq_reload_policy.h"
 #include "process_inventory.h"
+#include "service_lifecycle_policy.h"
 #include "inadyn_daemon_policy.h"
 #include "ddns_enabled_policy.h"
 #include "miniupnpd_config_file.h"
@@ -3064,12 +3065,46 @@ ddns_updated_main(int argc, char *argv[])
 	return 0;
 }
 
+
+static enum process_presence
+inadyn_process_inventory_scan(struct process_snapshot *snapshot);
+static enum process_presence
+inadyn_validate_identity(void *context,
+			 const struct process_identity *identity);
+static enum process_presence
+inadyn_lifecycle_scan(void *context, const char *service_name,
+			     struct process_snapshot *snapshot);
+static enum process_presence
+inadyn_lifecycle_validate(void *context, const char *service_name,
+				  const struct process_identity *identity);
+static int
+inadyn_lifecycle_send_signal(void *context,
+			     const struct process_identity *identity,
+			     int signal_number);
+static void
+inadyn_lifecycle_sleep(void *context, unsigned int seconds);
+
+static const struct service_lifecycle_ops inadyn_service_lifecycle_ops = {
+	inadyn_lifecycle_scan,
+	inadyn_lifecycle_validate,
+	inadyn_lifecycle_send_signal,
+	inadyn_lifecycle_sleep,
+	NULL
+};
+
 static int
 stop_ddns_locked(void)
 {
 	char* svcs[] = { "inadyn", NULL };
+	enum service_lifecycle_result result;
 
-	return kill_services(svcs, 3, 1);
+	result = service_lifecycle_stop(svcs, 3, 1,
+				       &inadyn_service_lifecycle_ops, NULL);
+	if (result != SERVICE_LIFECYCLE_STOPPED)
+		logmessage(LOGNAME,
+			   "identity-bound Inadyn stop incomplete (status=%d)",
+			   result);
+	return (int)result;
 }
 
 static int
@@ -3544,12 +3579,65 @@ failed:
 }
 
 static enum process_presence
+inadyn_process_inventory_scan(struct process_snapshot *snapshot)
+{
+	enum process_presence state;
+	size_t i, retained = 0;
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	state = process_inventory_scan("inadyn", snapshot);
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return PROCESS_PRESENCE_ABSENT;
+	if (state != PROCESS_PRESENCE_RUNNING ||
+	    snapshot->state != PROCESS_PRESENCE_RUNNING ||
+	    !snapshot->items || snapshot->count == 0) {
+		if (state != PROCESS_PRESENCE_UNKNOWN) {
+			snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+			snapshot->error = EIO;
+		}
+		if (snapshot->error <= 0)
+			snapshot->error = errno ? errno : EIO;
+		errno = snapshot->error;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+
+	/*
+	 * Filter same-name decoys out of every inventory snapshot, including
+	 * repeated stop probes. An unreadable executable remains UNKNOWN and
+	 * blocks every signal rather than being mistaken for an absent daemon.
+	 */
+	for (i = 0; i < snapshot->count; i++) {
+		state = inadyn_validate_identity(NULL, &snapshot->items[i]);
+		if (state == PROCESS_PRESENCE_RUNNING) {
+			if (retained != i)
+				snapshot->items[retained] = snapshot->items[i];
+			retained++;
+			continue;
+		}
+		if (state == PROCESS_PRESENCE_UNKNOWN) {
+			snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+			snapshot->error = errno ? errno : EIO;
+			errno = snapshot->error;
+			return PROCESS_PRESENCE_UNKNOWN;
+		}
+	}
+	snapshot->count = retained;
+	snapshot->state = retained ? PROCESS_PRESENCE_RUNNING :
+		PROCESS_PRESENCE_ABSENT;
+	snapshot->error = 0;
+	return snapshot->state;
+}
+
+static enum process_presence
 inadyn_process_presence(int *scan_error)
 {
 	struct process_snapshot snapshot;
 	enum process_presence state;
 
-	state = process_inventory_scan("inadyn", &snapshot);
+	state = inadyn_process_inventory_scan(&snapshot);
 	if (scan_error)
 		*scan_error = snapshot.error;
 	process_snapshot_release(&snapshot);
@@ -3899,11 +3987,101 @@ start_ddns(int clear_cache)
 }
 
 static enum process_presence
-inadyn_validate_identity(void *context,
-			 const struct process_identity *identity)
+inadyn_base_identity_validate(void *context,
+			      const struct process_identity *identity)
 {
 	(void)context;
 	return process_identity_validate("inadyn", identity);
+}
+
+static int
+inadyn_read_executable_path(void *context, pid_t pid,
+			    char *path, size_t path_size)
+{
+	char proc_path[64];
+	int length;
+	ssize_t read_length;
+
+	(void)context;
+	if (pid <= 0 || !path || path_size < 2) {
+		errno = EINVAL;
+		return -1;
+	}
+	length = snprintf(proc_path, sizeof(proc_path), "/proc/%ld/exe",
+			  (long)pid);
+	if (length < 0 || length >= (int)sizeof(proc_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	read_length = readlink(proc_path, path, path_size - 1);
+	if (read_length < 0)
+		return -1;
+	if ((size_t)read_length >= path_size - 1) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	path[read_length] = '\0';
+	return 0;
+}
+
+static enum process_presence
+inadyn_validate_identity(void *context,
+			 const struct process_identity *identity)
+{
+	return inadyn_executable_identity_validate(
+		identity, "/bin/inadyn", inadyn_base_identity_validate,
+		inadyn_read_executable_path, context);
+}
+
+static enum process_presence
+inadyn_lifecycle_scan(void *context, const char *service_name,
+			     struct process_snapshot *snapshot)
+{
+	(void)context;
+	if (!service_name || strcmp(service_name, "inadyn") != 0) {
+		if (snapshot) {
+			memset(snapshot, 0, sizeof(*snapshot));
+			snapshot->state = PROCESS_PRESENCE_UNKNOWN;
+			snapshot->error = EINVAL;
+		}
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	return inadyn_process_inventory_scan(snapshot);
+}
+
+static enum process_presence
+inadyn_lifecycle_validate(void *context, const char *service_name,
+			  const struct process_identity *identity)
+{
+	if (!service_name || strcmp(service_name, "inadyn") != 0) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	return inadyn_validate_identity(context, identity);
+}
+
+static int
+inadyn_lifecycle_send_signal(void *context,
+			     const struct process_identity *identity,
+			     int signal_number)
+{
+	(void)context;
+	if (!identity || identity->pid <= 0 ||
+	    (signal_number != SIGTERM && signal_number != SIGKILL)) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (kill(identity->pid, signal_number) == 0 || errno == ESRCH)
+		return 0;
+	return -1;
+}
+
+static void
+inadyn_lifecycle_sleep(void *context, unsigned int seconds)
+{
+	(void)context;
+	sleep(seconds);
 }
 
 static int
@@ -3949,7 +4127,7 @@ notify_ddns_update_locked(void)
 	if (!inadyn_update_should_run(ddns_enabled, is_ap_mode))
 		return 0;
 
-	state = process_inventory_scan("inadyn", &snapshot);
+	state = inadyn_process_inventory_scan(&snapshot);
 	action = inadyn_action_for_presence(state);
 	if (action == INADYN_DAEMON_ABORT) {
 		scan_error = snapshot.error > 0 ? snapshot.error : EIO;
@@ -4017,7 +4195,7 @@ notify_ddns_manual_update_locked(void)
 	int result;
 	int saved_errno;
 
-	state = process_inventory_scan("inadyn", &snapshot);
+	state = inadyn_process_inventory_scan(&snapshot);
 	if (state == PROCESS_PRESENCE_UNKNOWN) {
 		saved_errno = snapshot.error > 0 ? snapshot.error : EIO;
 		process_snapshot_release(&snapshot);

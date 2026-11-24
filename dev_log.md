@@ -1,3 +1,13 @@
+## 2026-11-24 14:47 UTC+8 — Bind Inadyn lifecycle to the installed executable
+
+- Inadyn stop, reload and manual refresh previously trusted `process_identity_validate("inadyn", ...)`, which checks comm/argv/start-time but not `/proc/PID/exe`. A same-name/argv impostor could therefore enter the PID-bound signal path.
+- Added an injectable executable identity policy that first preserves the generic process identity check, then requires `/bin/inadyn` from `/proc/PID/exe`. A precise ` (deleted)` suffix is allowed for an already-running daemon during replacement; ENOENT/ESRCH are ABSENT, while EACCES and other inspection errors remain UNKNOWN.
+- All Inadyn presence, config-reload and manual-refresh inventories now filter same-name wrong-executable decoys. Stop now uses the shared bounded `service_lifecycle_stop()` policy with the same executable-aware scan/validate callbacks; TERM/KILL are only sent to the captured exact executable identity, and UNKNOWN still blocks escalation.
+- Added GNU89-compatible policy regressions for exact executable, deleted executable, wrong executable, vanished process, unreadable executable, base identity UNKNOWN/ABSENT and invalid PID; source integration checker and dedicated workflow filters assert the executable-bound stop/reload/manual signal contract.
+- Parent main: `5687c609137bbba09c707896dd95216c3df9e961`. Exact Inadyn, Process, AI handoff and XY-C1 firmware checks are pending on the new source SHA; no firmware/TRX or device result is claimed.
+- FRP fake process-exit fixture correction is on parent `5687c609137bbba09c707896dd95216c3df9e961`; its exact FRP/Process/AI runs were in progress at the last poll.
+
+---
 ## 2026-11-24 14:38 UTC+8 — Correct FRP fake process-exit fixtures
 
 - Exact FRP run #45341083663 on `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a` failed at `client missing`: the fake `kill()` callback removed only `/proc/PID/cmdline`, leaving the PID directory and `/proc/PID/exe` link behind. The production scanner correctly interpreted that as an extant process with incomplete identity (UNKNOWN), so the stop path refused to claim a successful replacement.

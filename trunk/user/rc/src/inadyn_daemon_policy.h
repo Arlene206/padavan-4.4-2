@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <process_inventory.h>
 #include <string.h>
+#include <limits.h>
 
 enum inadyn_daemon_action {
 	INADYN_DAEMON_ABORT = -1,
@@ -303,6 +304,82 @@ inadyn_signal_snapshot(const struct process_snapshot *snapshot, int sig,
 		}
 	}
 	return 0;
+}
+
+
+/*
+ * Process comm/argv/start-time checks identify a candidate, but do not prove
+ * which executable image owns the PID. Inadyn is installed at /bin/inadyn;
+ * retain an exact deleted-image suffix so an already-running daemon remains
+ * manageable during atomic package replacement.
+ */
+typedef enum process_presence (*inadyn_base_identity_validate_fn)(
+	void *context, const struct process_identity *identity);
+typedef int (*inadyn_executable_read_fn)(void *context, pid_t pid,
+					 char *path, size_t path_size);
+
+static inline int
+inadyn_executable_path_matches(const char *actual, const char *expected)
+{
+	static const char deleted_suffix[] = " (deleted)";
+	size_t expected_length;
+
+	if (!actual || !expected || !*actual || !*expected)
+		return 0;
+	if (strcmp(actual, expected) == 0)
+		return 1;
+	expected_length = strlen(expected);
+	return strncmp(actual, expected, expected_length) == 0 &&
+	       strcmp(actual + expected_length, deleted_suffix) == 0;
+}
+
+static inline enum process_presence
+inadyn_executable_identity_validate(
+	const struct process_identity *identity, const char *expected_executable,
+	inadyn_base_identity_validate_fn base_validate,
+	inadyn_executable_read_fn read_executable, void *context)
+{
+	char executable[PATH_MAX];
+	enum process_presence state;
+	int result, saved_errno;
+
+	if (!identity || identity->pid <= 0 || !expected_executable ||
+	    !*expected_executable || !base_validate || !read_executable) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	errno = 0;
+	state = base_validate(context, identity);
+	if (state == PROCESS_PRESENCE_UNKNOWN) {
+		if (errno == 0)
+			errno = EIO;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (state == PROCESS_PRESENCE_ABSENT)
+		return PROCESS_PRESENCE_ABSENT;
+	if (state != PROCESS_PRESENCE_RUNNING) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+
+	memset(executable, 0, sizeof(executable));
+	errno = 0;
+	result = read_executable(context, identity->pid, executable,
+				 sizeof(executable));
+	if (result != 0) {
+		saved_errno = errno;
+		if (saved_errno == ENOENT || saved_errno == ESRCH)
+			return PROCESS_PRESENCE_ABSENT;
+		errno = saved_errno > 0 ? saved_errno : EIO;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (!memchr(executable, '\0', sizeof(executable))) {
+		errno = ENAMETOOLONG;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	if (!inadyn_executable_path_matches(executable, expected_executable))
+		return PROCESS_PRESENCE_ABSENT;
+	return PROCESS_PRESENCE_RUNNING;
 }
 
 #endif /* PADAVAN_INADYN_DAEMON_POLICY_H */

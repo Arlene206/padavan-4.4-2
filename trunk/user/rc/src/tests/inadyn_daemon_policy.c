@@ -470,6 +470,129 @@ test_failed_start_may_leave_daemon(void)
 	assert(inadyn_failed_start_may_leave_daemon((enum process_presence)99));
 }
 
+
+struct fake_inadyn_executable {
+	enum process_presence base_state;
+	int base_error;
+	int read_status;
+	int read_error;
+	const char *path;
+	int base_calls;
+	int read_calls;
+};
+
+static enum process_presence
+fake_inadyn_base_validate(void *context,
+			   const struct process_identity *identity)
+{
+	struct fake_inadyn_executable *fake =
+		(struct fake_inadyn_executable *)context;
+
+	assert(identity != NULL && identity->pid > 0);
+	fake->base_calls++;
+	if (fake->base_state == PROCESS_PRESENCE_UNKNOWN)
+		errno = fake->base_error ? fake->base_error : EIO;
+	return fake->base_state;
+}
+
+static int
+fake_inadyn_read_executable(void *context, pid_t pid,
+			    char *path, size_t path_size)
+{
+	struct fake_inadyn_executable *fake =
+		(struct fake_inadyn_executable *)context;
+	size_t length;
+
+	assert(pid == 404 && path != NULL && path_size > 1);
+	fake->read_calls++;
+	if (fake->read_status != 0) {
+		errno = fake->read_error;
+		return -1;
+	}
+	assert(fake->path != NULL);
+	length = strlen(fake->path);
+	if (length >= path_size) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	memcpy(path, fake->path, length + 1);
+	return 0;
+}
+
+static void
+test_executable_bound_inadyn_identity(void)
+{
+	struct process_identity identity;
+	struct fake_inadyn_executable fake;
+
+	memset(&identity, 0, sizeof(identity));
+	identity.pid = 404;
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_RUNNING;
+	fake.path = "/bin/inadyn";
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_RUNNING);
+	assert(fake.base_calls == 1 && fake.read_calls == 1);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_RUNNING;
+	fake.path = "/bin/inadyn (deleted)";
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_RUNNING);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_RUNNING;
+	fake.path = "/tmp/not-inadyn";
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_ABSENT);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_RUNNING;
+	fake.read_status = -1;
+	fake.read_error = ENOENT;
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_ABSENT);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_RUNNING;
+	fake.read_status = -1;
+	fake.read_error = EACCES;
+	errno = 0;
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_UNKNOWN);
+	assert(errno == EACCES);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_UNKNOWN;
+	fake.base_error = EPERM;
+	fake.path = "/bin/inadyn";
+	errno = 0;
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_UNKNOWN);
+	assert(errno == EPERM && fake.read_calls == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.base_state = PROCESS_PRESENCE_ABSENT;
+	fake.path = "/bin/inadyn";
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_ABSENT);
+	assert(fake.read_calls == 0);
+
+	identity.pid = 0;
+	errno = 0;
+	assert(inadyn_executable_identity_validate(
+		&identity, "/bin/inadyn", fake_inadyn_base_validate,
+		fake_inadyn_read_executable, &fake) == PROCESS_PRESENCE_UNKNOWN);
+	assert(errno == EINVAL);
+}
+
 int
 main(void)
 {
@@ -483,6 +606,7 @@ main(void)
 	test_config_preflight_requires_all_live_identities();
 	test_identity_bound_hup_signal();
 	test_identity_bound_usr1_signal();
+	test_executable_bound_inadyn_identity();
 	puts("inadyn tri-state daemon and PID-bound HUP/USR1 policy: PASS");
 	return 0;
 }

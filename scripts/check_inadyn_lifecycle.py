@@ -69,7 +69,7 @@ def body(signature):
     raise AssertionError("unterminated function: " + signature)
 
 notify = body("notify_ddns_update_locked(void)")
-assert "process_inventory_scan(\"inadyn\", &snapshot)" in notify
+assert "inadyn_process_inventory_scan(&snapshot)" in notify
 assert "inadyn_action_for_presence(state)" in notify
 assert "INADYN_DAEMON_ABORT" in notify and "INADYN_DAEMON_START" in notify
 assert notify.index("inadyn_validate_snapshot(") < notify.index("write_inadyn_conf(DDNS_CONF_FILE)")
@@ -80,7 +80,7 @@ assert "pids(\"inadyn\")" not in notify
 enabled_read = notify.index('enabled_api_result = nvram_get_checked("ddns_enable_x", &enabled_value)')
 enabled_status = notify.index("enabled_status = inadyn_ddns_enabled_status(", enabled_read)
 enabled_gate = notify.index("inadyn_update_should_run(ddns_enabled, is_ap_mode)", enabled_status)
-inventory_scan = notify.index('process_inventory_scan("inadyn", &snapshot)')
+inventory_scan = notify.index("inadyn_process_inventory_scan(&snapshot)")
 assert enabled_read < enabled_status < enabled_gate < inventory_scan
 assert "return enabled_status;" in notify
 assert "test_ddns_enabled_read_status" in test
@@ -226,10 +226,11 @@ assert "INADYN_START_WAIT_ATTEMPTS" in confirm
 assert 'service_start_wait_one_second("Inadyn")' in confirm
 assert "sleep(1)" not in confirm
 presence = body("inadyn_process_presence(int *scan_error)")
-assert 'process_inventory_scan("inadyn", &snapshot)' in presence
+assert "inadyn_process_inventory_scan(&snapshot)" in presence
 assert "inadyn_start_status(launch_status, state, scan_error)" in confirm
 stop = body("stop_ddns_locked(void)")
-assert "return kill_services(svcs, 3, 1)" in stop
+assert "service_lifecycle_stop(svcs, 3, 1," in stop
+assert "&inadyn_service_lifecycle_ops" in stop
 for entry in (body("stop_ddns(void)"), body("start_ddns(int clear_cache)"),
               body("notify_ddns_update(void)"), body("notify_ddns_manual_update(void)")):
     assert "inadyn_lifecycle_lock_acquire_status(" in entry
@@ -253,6 +254,15 @@ assert "INADYN_DAEMON_RELOAD" in policy
 assert "state == PROCESS_PRESENCE_UNKNOWN" in policy
 assert "sig != SIGHUP && sig != SIGUSR1" in policy
 assert "process_identity_validate(\"inadyn\", identity)" in source
+assert 'inadyn_executable_identity_validate(' in body("inadyn_validate_identity(void *context,")
+assert '"/bin/inadyn"' in body("inadyn_validate_identity(void *context,")
+assert 'readlink(proc_path, path, path_size - 1)' in body("inadyn_read_executable_path(void *context, pid_t pid,")
+assert "inadyn_process_inventory_scan(snapshot)" in body("inadyn_lifecycle_scan(void *context, const char *service_name,")
+assert "signal_number != SIGTERM && signal_number != SIGKILL" in body("inadyn_lifecycle_send_signal(void *context,")
+assert "service_lifecycle_policy.h" in source
+assert "inadyn_executable_identity_validate" in policy
+assert " (deleted)" in policy
+assert "test_executable_bound_inadyn_identity" in test
 assert "kill(pid, signal_number)" in source
 assert "test_config_preflight_requires_all_live_identities" in test
 assert "test_start_postcondition_status" in test
@@ -263,7 +273,7 @@ assert "trunk/user/rc/src/inadyn_daemon_policy.h" in xy
 assert "trunk/user/rc/src/services_ex.c" in workflow
 
 manual_update = body("notify_ddns_manual_update_locked(void)")
-assert 'process_inventory_scan("inadyn", &snapshot)' in manual_update
+assert "inadyn_process_inventory_scan(&snapshot)" in manual_update
 assert "PROCESS_PRESENCE_UNKNOWN" in manual_update
 assert "PROCESS_PRESENCE_ABSENT" in manual_update
 assert "inadyn_validate_snapshot(" in manual_update
