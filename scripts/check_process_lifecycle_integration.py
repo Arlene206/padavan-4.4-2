@@ -1695,6 +1695,8 @@ assert "time(&now) == (time_t)-1" in reboot_schedule
 assert "timezone_env_policy.h" in process_workflow
 assert "timezone_env_policy.h" in xy_workflow
 
+timezone_policy = (root / "trunk/user/rc/src/timezone_env_policy.h").read_text()
+timezone_test = (root / "trunk/user/rc/src/tests/timezone_env_policy.c").read_text()
 # Kernel timezone retries must not be suppressed after a failed settimeofday().
 kernel_timezone = c_function_body(rc_source, "setkernel_tz(void)")
 assert '#include "timezone_env_policy.h"' in rc_source
@@ -1709,8 +1711,6 @@ assert "tz_minuteswest_valid = 1;" in kernel_timezone
 assert "rc_timezone_kernel_cache_needs_update(int cache_valid" in timezone_policy
 assert "test_cache_validity_does_not_collide_with_negative_one_offset();" in timezone_test
 assert "cannot update kernel timezone" in kernel_timezone
-timezone_policy = (root / "trunk/user/rc/src/timezone_env_policy.h").read_text()
-timezone_test = (root / "trunk/user/rc/src/tests/timezone_env_policy.c").read_text()
 assert "if (syscall_status != 0)" in timezone_policy
 assert "*cached_minuteswest = requested_minuteswest;" in timezone_policy
 assert "test_kernel_timezone_cache_changes_only_after_success();" in timezone_test
