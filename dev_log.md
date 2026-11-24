@@ -1,3 +1,12 @@
+## 2026-11-24 18:34 Beijing — Align process lifecycle LLDT contract with descriptor policy
+
+- The exact Process lifecycle regression #45374673151 on `8796b356087fe77920a90e43f2889e86a6096013` compiled and passed the LLTD PID-file parser regression, then failed only because its source checker still required two inline `S_ISREG(st.st_mode)` checks after validation had been factored into `lldt_pidfile_validate_regular_file()`.
+- Updated `scripts/check_process_lifecycle_integration.py` to verify both PID-descriptor policy calls precede read/truncate, the sidecar descriptor is validated before flock, and the header enforces regular-file type, effective-UID ownership, one link and no group/world write. This preserves the safety contract while matching the shared policy implementation.
+- Dedicated LLDT exact-head workflow #45375259525 on `9b97f74377509e2740442475b210bf9921b04915` passed the GNU89 parser/metadata regression and production source contract. This checker/docs commit's Process, AI handoff and related Actions are pending.
+- XY-C1 build run #45374510309 on production-source SHA `529cf0739b3089bca88936c4c06c75cbd3eb79da` was still in Build at last observation; TRX and artifact stages were pending. No L3 or L4 claim is made.
+
+---
+
 ## 2026-11-24 — Bound adjacent legacy MTK AP ioctl stack copies
 
 - The first APD PID fix exposed the same unbounded `wrq->u.data.length` pattern in adjacent fixed-size destinations in the legacy MT76x2/MT76x3 AP ioctl dispatchers: IAPP PID and WAPI PID scalar locals, plus the six-byte STA address buffer used by `RT_SET_DEL_MAC_ENTRY`.

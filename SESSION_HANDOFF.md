@@ -1,55 +1,40 @@
 ## Current repository state
 
-- Active branch: `main`. Latest source parent for this handoff checkpoint: `21ca0c368ea6968823a6c1eca6ecfad8766f7212` (`fix(frp): reject unsafe crontab directories and files`). This handoff-only commit is placed on top of that source commit; always re-read live main before editing.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- VSFTPD strict EPSV numeric parser: source/test/workflow commit `974315bb0113d5fbc294a716579edceeb7b5d68f`; exact VSFTPD #45372034160, AI handoff #45372034407, Process inventory #45372034153 PASS.
-- VSFTPD EPSV ALL EPRT restriction: source/workflow commit `1b504eeda669d6c71df32ae3692adb99ffcaf13a`; exact VSFTPD #45372453417 PASS. The missing EPRT `!epsv_all` dispatcher gate is now present; PASV/PORT already had the guard. Its handoff contract run #45372453431 failed only because the previous handoff heading had `## Completed task` rather than the validator-required `## Active task`; this handoff checkpoint restores that heading.
-- Current FRP crontab hardening: source/test/checker commit `21ca0c368ea6968823a6c1eca6ecfad8766f7212`. It rejects unsafe or symlinked cron ancestors, wrong ownership, group/other-writable modes, unsafe existing crontab files and hardlinks before publishing; regression coverage includes the unsafe directory/file cases. Exact FRP lifecycle #45372520302 PASS; Process inventory #45372520381 was IN_PROGRESS at last check.
-- RAETH forced-mode indirect MMD page/data transaction: source `e721cb0e2f42f22a8189937ac2311d246ea9912c`, test include-path correction `542b8f7e38a30dca616db877a1757d22b1b19060`; exact Switch CLI regression #45363906601 and AI handoff #45363906553 PASS.
-- FRP procfs read and newline-spoofing corrections: `0104186915ee6132d99871bede241ecf1835c279` and `5ca9761969591766c583d3146cf5f32155ab7891`; exact FRP lifecycle #45361194679, AI handoff #45361194624 and Process inventory #45361194576 PASS.
-- VSFTPD SITE CHMOD/UMASK strict-octal validation: `ea7d7e28be9988175fbcc423f9378e5d765de764`, checker correction `0c23ad7c82fc2e033f73d4a94f6fb02a77324ca5`; exact VSFTPD #45359061300 PASS.
-- Samba per-share ACL snapshot `d8f6092c6af34f1c8ec45c746ce9411e40522577`; HTTPD source-contract correction `3026ffe460fe9d01ad5b72312978ff957b400479`, exact HTTPD #45363047352 PASS.
-- QMI client-ID workflow heredoc correction `4985f33bda8360f4dfb92581b7b7d47d7850a03c`; exact USB modem #45363094446 PASS.
-- XY-C1 L3 firmware build/TRX/artifact verification is valid only for production-source baseline `ea7d7e28be9988175fbcc423f9378e5d765de764`: Build/TRX/artifact #45358712652, Process #45358712716, NVRAM #45358712663 PASS. No current later source SHA has a completed firmware-build claim. No physical L4 validation is claimed.
+- Active development branch: `main`. Main SHA before this handoff commit: `9b97f74377509e2740442475b210bf9921b04915`; re-fetch live main before any write.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not modify, use for development, or delete it.
+- No open PRs were found. Legacy PR #1 is closed; its valid unmerged CA bootstrap and AliDDNS HMAC work were ported to main and documented in its closing comment.
+- Active product-source baseline for the current LLDT work: `529cf0739b3089bca88936c4c06c75cbd3eb79da` (`fix(lldt): validate pidfile ownership and link count`). Follow-up commits `8796b356`, `2fdf8e7a`, and `9b97f743` fixed the GNU89 fixture include and the dedicated LLDT source-contract assertions; no later firmware-source changes were made in those follow-ups.
 
-## Active task — Close the handoff validation and verify current FRP checks
+## Active task — Complete LLDT PID-file descriptor validation integration
 
-- Production code and regression for the EPSV numeric-selector fix and the EPSV ALL/EPRT dispatcher guard are complete; exact VSFTPD Actions passed on `974315bb` and `1b504eed`.
-- The documentation-only checkpoint `2593bd3bf54d3ddf670ac2bc17e3ac0d491a1e72` failed AI handoff #45372274258 because the validator requires the literal heading `## Active task`. The next fix preserves that mandatory heading; no firmware/runtime source change is involved.
-- The latest FRP crontab source/test/checker slice is complete on `21ca0c368ea6968823a6c1eca6ecfad8766f7212`; FRP lifecycle #45372520302 PASS. Its Process inventory exact run #45372520381 was still in progress.
-- Continue the normal loop after closing those exact checks; PENDING is not a reason to stop independent work.
+- `trunk/user/lldt/src/osl-linux.c` validates the sidecar lock descriptor before flock and validates the existing/read and final/write PID descriptors before reading or truncating.
+- `trunk/user/lldt/src/lldt_pidfile_policy.h` centralizes the policy: opened object must be regular, owned by effective UID, have exactly one hard link, and not be group/world writable. `O_NOFOLLOW` and `O_NONBLOCK` remain in the opens.
+- `trunk/user/lldt/src/tests/lldt_pidfile_policy.c` covers regular-file success, directory, wrong owner, hardlink, group/world-write and NULL metadata. The fixture originally missed `<string.h>`; commit `8796b356` added it.
+- Current bounded correction changes only `scripts/check_process_lifecycle_integration.py`: replace the obsolete inline-`S_ISREG` count with checks that the shared descriptor validator is called at the lock and PID-file boundaries, that calls precede flock/read/truncate, and that the helper contains the required metadata policy.
+- Dedicated LLDT workflow exact run #45375259525 on `9b97f74377509e2740442475b210bf9921b04915` is **PASS**: GNU89 compile, parser/metadata regression and dedicated production source checker all succeeded.
+- Process lifecycle integration exact run #45374673151 on `8796b356087fe77920a90e43f2889e86a6096013` failed only at `check_process_lifecycle_integration.py` because it still counted two inline `S_ISREG(st.st_mode)` checks. The LLTD parser regression step passed; the new checker change addresses that stale contract. Exact follow-up verification is pending.
+- Earlier exact LLDT failures: #45374510284 on `529cf073` failed because the stat fixture lacked `<string.h>` (fixed in `8796b356`); #45374673177 on `8796b356` failed because the dedicated checker expected inline owner checks (fixed in `2fdf8e7a`); #45374955437 on `2fdf8e7a` failed due LLDT/LLTD spelling mismatch (fixed in `9b97f743`).
+- XY-C1 firmware validation #45374510309 is for production-source SHA `529cf0739b3089bca88936c4c06c75cbd3eb79da`. At last inspection, host checks had passed and Build XY-C1 was still running; TRX verification and artifact upload were pending. Do not claim L3 unless Build, TRX and artifact all pass for this same source SHA. No physical L4 validation is claimed.
 
 ## Verification boundary
 
-- Exact `21ca0c368ea6968823a6c1eca6ecfad8766f7212`: FRP asynchronous startup lifecycle #45372520302 PASS; Process lifecycle inventory #45372520381 IN_PROGRESS at last poll.
-- Exact `1b504eeda669d6c71df32ae3692adb99ffcaf13a`: VSFTPD stability #45372453417 PASS; AI handoff #45372453431 FAIL solely due the required section heading; NVRAM #45372453247 and XY-C1 firmware #45372453296 were IN_PROGRESS.
-- Exact `974315bb0113d5fbc294a716579edceeb7b5d68f`: VSFTPD stability #45372034160 PASS; AI handoff #45372034407 PASS; Process inventory #45372034153 PASS. NVRAM #45372034333 and XY-C1 #45372034143 were IN_PROGRESS at last poll.
-- The VSFTPD regression workflow compiled and ran its C policy suite, including the EPSV parser regression, and its inline contract passed on both relevant source commits. This runtime could not clone GitHub due DNS resolution failure; no separate local compile is claimed.
-- Current FRP work has no firmware or physical-router result claimed. Verify Build, TRX and artifact on the same exact SHA before asserting firmware validation.
+- L1: descriptor validation call ordering and shared helper semantics are enforced by source contracts; no local repository checkout was available in this runtime.
+- L2: dedicated LLDT GNU89 regression and checker passed on exact main SHA `9b97f74377509e2740442475b210bf9921b04915` (#45375259525). Process lifecycle integration remains **PENDING** exact rerun of the checker correction introduced in this commit.
+- L3: XY-C1 run #45374510309 on source SHA `529cf0739b3089bca88936c4c06c75cbd3eb79da` was **IN_PROGRESS** at last observation; TRX and artifact not yet confirmed.
+- L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the AI handoff Action triggered by this corrected handoff checkpoint. The prior failure was the missing required `## Active task` title; fix any further exact assertion failure without changing source behavior.
-2. Refresh Process inventory #45372520381 on source SHA `21ca0c368ea6968823a6c1eca6ecfad8766f7212`; resolve any actual failure, but do not wait on a pending run.
-3. Refresh NVRAM and XY-C1 exact checks for the latest source SHA. Do not claim current firmware success unless Build/TRX/artifact all pass on that identical SHA.
-4. Then select a fresh concrete P1 stability/security bug outside the already-closed EPSV slices. Keep the frozen backup immutable and advance main only via complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
-
+1. Fetch Actions for the exact new main SHA from this commit. Inspect Process inventory/lifecycle and AI handoff jobs by matching `head_sha` and `event=push`; run #45374673151 is the known stale-checker failure being fixed here. Repair any newly exposed assertion without weakening production checks.
+2. Refresh XY-C1 run #45374510309 and inspect Build, TRX and artifact status for its exact product-source SHA `529cf0739b3089bca88936c4c06c75cbd3eb79da`. If still pending, do not wait idly.
+3. After the LLDT slice is validated, select a fresh P1 stability/security defect from the repository-wide roadmap outside LLDT, and continue the source → regression → atomic main commit → exact-SHA Actions loop.
 
 # Cross-session execution mandate
 
-Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change must land as one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.
+Recover once from the live repository. All development, commits and validation occur on `main`; never create/use another development branch or PR. The backup branch above is the sole immutable archival exception.
 
-## Mandatory handoff checkpoint
+For every multi-file logical slice, create all blobs, one complete tree based on the latest main tree, one commit with the exact main parent, then update `main` using a non-forced compare-and-swap with `expected_sha`. This is one atomic main commit; never issue sequential partial file commits, force-push, amend, or rewrite published history.
 
-The checkpoint is mandatory; a document edit is conditional.
+Continue implementation rather than repeating completed audits or stopping at planning. Pending Actions do not block independent tasks. Keep Linux 4.4, GNU89, MIPS/uClibc and router compatibility. Do not weaken regression coverage or claim host tests as target/hardware validation.
 
-Every session MUST perform a handoff checkpoint before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
-
-Every session MUST inspect live repository state before ending. Record only material exact-head Action transitions, new source commits, genuine unresolved failures or a changed first action. Do not manufacture documentation churn or no-op commits.
-
-## Development loop
-
-- Source modification → targeted regression → one complete Git tree/one atomic commit → exact-SHA Actions.
-- PASS advances; FAIL is diagnosed and fixed; PENDING does not block independent work.
-- Preserve Linux 4.4, GNU89, MIPS/uClibc compatibility, router configuration, security, architecture and backward compatibility.
-- Before context exhaustion, record exact latest SHA, tests, CI state, unresolved issues and one concrete first task.
+At every session end, inspect current main and exact-head push Actions. Update this handoff only when the active task or its first action materially changes; append substantive milestones to `dev_log.md`; update `REFACTOR_ROADMAP.md` only when module evidence/status/priority materially changes. If checkpoint facts remain accurate, make no no-op documentation commit. Before ending, finish a safe slice, commit it, record pending checks and the exact next action.

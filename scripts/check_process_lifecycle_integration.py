@@ -1980,7 +1980,25 @@ assert "lldt_pidfile_parse_pid(pidbuf, pidbuf_length, &pid)" in lldt_pidfile_wri
 assert "pidbuf_length == sizeof(pidbuf)" in lldt_pidfile_writer
 assert "O_NOFOLLOW" in lldt_pidfile_writer and "O_NONBLOCK" in lldt_pidfile_writer
 assert lldt_pidfile_writer.count("fstat(fd, &st)") == 2
-assert lldt_pidfile_writer.count("S_ISREG(st.st_mode)") == 2
+lldt_pidfile_read_validation = lldt_pidfile_writer.index(
+    "lldt_pidfile_validate_regular_file(&st, geteuid())")
+lldt_pidfile_write_validation = lldt_pidfile_writer.rindex(
+    "lldt_pidfile_validate_regular_file(&st, geteuid())")
+assert lldt_pidfile_read_validation < lldt_pidfile_writer.index("io_status = read")
+assert lldt_pidfile_write_validation < lldt_pidfile_writer.index("ftruncate(fd, 0)")
+lldt_pidfile_lock = c_function_body(lldt_osl_source,
+                                    "osl_open_pidfile_lock(const char *pidfile)")
+assert lldt_pidfile_lock.index("fstat(fd, &lock_stat)") < lldt_pidfile_lock.index(
+    "lldt_pidfile_validate_regular_file(&lock_stat, geteuid())")
+assert lldt_pidfile_lock.index(
+    "lldt_pidfile_validate_regular_file(&lock_stat, geteuid())") < lldt_pidfile_lock.index(
+    "lldt_pidfile_try_exclusive_lock(fd)")
+for marker in ("S_ISREG(st->st_mode)", "st->st_uid != expected_uid",
+               "st->st_nlink != 1",
+               "(st->st_mode & (S_IWGRP | S_IWOTH))"):
+    assert marker in lldt_pidfile_policy, marker
+assert "test_pidfile_descriptor_validation" in lldt_pidfile_test
+assert "LLTD PID-file descriptor ownership/mode/hard-link regression: PASS" in lldt_pidfile_test
 assert "if (saved_errno != ESRCH)" in lldt_pidfile_writer
 assert "if (ret == 0)" in lldt_pidfile_writer
 assert "ftruncate(fd, 0)" in lldt_pidfile_writer
