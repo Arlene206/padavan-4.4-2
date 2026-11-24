@@ -111,6 +111,18 @@ test_unmanaged_signals_and_null_state_are_ignored(void)
 	return 0;
 }
 
+static int
+test_scheduled_state_commits_only_after_pid1_accepts_notification(void)
+{
+	CHECK(watchdog_notification_state_commit(-1, 1, 0) == 1);
+	CHECK(watchdog_notification_state_commit(-1, 1, -1) == -1);
+	CHECK(watchdog_notification_state_commit(-1, 0, EACCES) == -1);
+	CHECK(watchdog_notification_state_commit(1, 0, 0) == 0);
+	CHECK(watchdog_notification_state_commit(1, 0, -1) == 1);
+	CHECK(watchdog_notification_state_commit(0, 1, EIO) == 0);
+	return 0;
+}
+
 int
 main(void)
 {
@@ -120,6 +132,7 @@ main(void)
 	CHECK(test_snapshot_clears_only_the_consumed_batch() == 0);
 	CHECK(test_pending_termination_suppresses_remaining_batch_work() == 0);
 	CHECK(test_unmanaged_signals_and_null_state_are_ignored() == 0);
-	puts("watchdog signal deferral policy: PASS");
+	CHECK(test_scheduled_state_commits_only_after_pid1_accepts_notification() == 0);
+	puts("watchdog signal and schedule notification policy: PASS");
 	return 0;
 }

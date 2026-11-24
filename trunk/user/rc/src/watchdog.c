@@ -545,6 +545,34 @@ int timecheck_reboot(char *activeSchedule)
 	return active;
 }
 
+/*
+ * Commit the scheduler's cached state only after PID 1 accepts the event.
+ * A failed queue operation leaves the old state intact so the next watchdog
+ * tick retries rather than silently losing a radio/guest schedule transition.
+ */
+static void
+watchdog_queue_state_notification(int *current_state, int requested_state,
+                                  const char *event_name)
+{
+	int queue_status, saved_errno;
+
+	if (!current_state || !event_name)
+		return;
+
+	errno = 0;
+	queue_status = notify_rc_status(event_name);
+	saved_errno = errno;
+	*current_state = watchdog_notification_state_commit(
+		*current_state, requested_state, queue_status);
+	if (queue_status != 0) {
+		if (saved_errno <= 0)
+			saved_errno = EIO;
+		logmessage("watchdog",
+			   "cannot queue scheduled wireless event %s (status=%d errno=%d); will retry",
+			   event_name, queue_status, saved_errno);
+	}
+}
+
 /* Check for time-dependent service */
 static int 
 svc_timecheck(void)
@@ -565,12 +593,8 @@ svc_timecheck(void)
 		activeNow = is_radio_allowed_wl();
 		if (activeNow != svcStatus[RADIO5_ACTIVE])
 		{
-			svcStatus[RADIO5_ACTIVE] = activeNow;
-			
-			if (activeNow)
-				notify_rc("control_wifi_radio_wl_on");
-			else
-				notify_rc("control_wifi_radio_wl_off");
+			watchdog_queue_state_notification(&svcStatus[RADIO5_ACTIVE], activeNow,
+				activeNow ? "control_wifi_radio_wl_on" : "control_wifi_radio_wl_off");
 		}
 		
 		if (svcStatus[RADIO5_ACTIVE] > 0)
@@ -578,12 +602,8 @@ svc_timecheck(void)
 			activeNow = is_guest_allowed_wl();
 			if (activeNow != svcStatus[GUEST5_ACTIVE])
 			{
-				svcStatus[GUEST5_ACTIVE] = activeNow;
-				
-				if (activeNow)
-					notify_rc("control_wifi_guest_wl_on");
-				else
-					notify_rc("control_wifi_guest_wl_off");
+				watchdog_queue_state_notification(&svcStatus[GUEST5_ACTIVE], activeNow,
+					activeNow ? "control_wifi_guest_wl_on" : "control_wifi_guest_wl_off");
 			}
 		}
 		else
@@ -607,12 +627,8 @@ svc_timecheck(void)
 		activeNow = is_radio_allowed_rt();
 		if (activeNow != svcStatus[RADIO2_ACTIVE])
 		{
-			svcStatus[RADIO2_ACTIVE] = activeNow;
-			
-			if (activeNow)
-				notify_rc("control_wifi_radio_rt_on");
-			else
-				notify_rc("control_wifi_radio_rt_off");
+			watchdog_queue_state_notification(&svcStatus[RADIO2_ACTIVE], activeNow,
+				activeNow ? "control_wifi_radio_rt_on" : "control_wifi_radio_rt_off");
 		}
 		
 		if (svcStatus[RADIO2_ACTIVE] > 0)
@@ -620,12 +636,8 @@ svc_timecheck(void)
 			activeNow = is_guest_allowed_rt();
 			if (activeNow != svcStatus[GUEST2_ACTIVE])
 			{
-				svcStatus[GUEST2_ACTIVE] = activeNow;
-				
-				if (activeNow)
-					notify_rc("control_wifi_guest_rt_on");
-				else
-					notify_rc("control_wifi_guest_rt_off");
+				watchdog_queue_state_notification(&svcStatus[GUEST2_ACTIVE], activeNow,
+					activeNow ? "control_wifi_guest_rt_on" : "control_wifi_guest_rt_off");
 			}
 		}
 		else

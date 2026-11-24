@@ -64,4 +64,16 @@ watchdog_should_dispatch_pending_event(
 		(batch_events & event) != 0);
 }
 
+/*
+ * Watchdog schedule state represents a notification accepted by PID 1, not
+ * merely a target observed by the scheduler. Preserve the prior state on
+ * queue errors so the caller retries the target on its next timer tick.
+ */
+static inline int
+watchdog_notification_state_commit(int previous_state, int requested_state,
+                                    int queue_status)
+{
+	return queue_status == 0 ? requested_state : previous_state;
+}
+
 #endif /* WATCHDOG_SIGNAL_POLICY_H */

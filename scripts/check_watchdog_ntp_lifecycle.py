@@ -249,3 +249,28 @@ for marker in (
 ):
     assert marker in _start_watchdog, marker
 assert 'return -1;' in _start_watchdog[:_start_watchdog.index('if (action == PROCESS_PRESENCE_START_NEW)')]
+
+
+# Scheduled radio/guest state is committed only after a durable PID 1 queue
+# acceptance. Queue failures must preserve the previous state so the next
+# watchdog tick retries the transition.
+_schedule_notifier = function_body(
+    _ntp_watchdog, "watchdog_queue_state_notification(int *current_state, int requested_state,"
+)
+_schedule = function_body(_ntp_watchdog, "svc_timecheck(void)")
+assert "notify_rc_status(event_name)" in _schedule_notifier
+assert "watchdog_notification_state_commit(" in _schedule_notifier
+assert _schedule_notifier.index("notify_rc_status(event_name)") < _schedule_notifier.index(
+    "watchdog_notification_state_commit("
+)
+assert "will retry" in _schedule_notifier
+for marker in (
+    "watchdog_queue_state_notification(&svcStatus[RADIO5_ACTIVE], activeNow",
+    "watchdog_queue_state_notification(&svcStatus[GUEST5_ACTIVE], activeNow",
+    "watchdog_queue_state_notification(&svcStatus[RADIO2_ACTIVE], activeNow",
+    "watchdog_queue_state_notification(&svcStatus[GUEST2_ACTIVE], activeNow",
+):
+    assert marker in _schedule
+assert "notify_rc(" not in _schedule
+assert "watchdog_notification_state_commit" in _ntp_policy
+assert "test_scheduled_state_commits_only_after_pid1_accepts_notification" in _ntp_test
