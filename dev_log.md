@@ -1,3 +1,11 @@
+## 2026-11-24 — Repair MiniUPnP secure-mode source-checker quoting
+
+- Exact MiniUPnP run #45405466908 on `852eb72` passed the GNU89 ASan/UBSan SOAP numeric/range policy binary, including the new IPv4 peer-identity cases, but failed before subsequent steps because the Python checker embedded a double-quoted C string using invalid backslash escaping.
+- Replaced that assertion with a single-quoted Python literal; no production source or test behavior changed. Exact-head MiniUPnP and AI-handoff workflows must rerun.
+- AI docs #45405466936 passed on `852eb72`. Process inventory #45405467000, NVRAM #45405466901 and XY-C1 #45405466882 were pending at last poll; no L3 claim for this MiniUPnP source SHA.
+
+---
+
 ## 2026-11-24 — Preflight MiniUPnP range deletes against secure-mode mapping owners
 
 - Found a second authorization defect in `DeletePortMappingRange()`: unlike the single-entry `DeletePortMapping()` action, the range action did not enforce `SECUREMODEMASK` ownership. A LAN peer could request deletion of another internal host's mapping when secure mode was enabled.

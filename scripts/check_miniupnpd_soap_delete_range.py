@@ -84,7 +84,7 @@ first_delete_at = compact.index("upnp_delete_redirection(port_list[i], protocol)
 assert secure_start < lookup_at < parse_at < peer_at < unauthorized_at < first_delete_at
 secure_preflight = compact[secure_start:first_delete_at]
 assert "if(r != 0)" in secure_preflight
-assert secure_preflight.count("SoapError(h, 501, \\"ActionFailed\\")") == 2
+assert secure_preflight.count('SoapError(h, 501, "ActionFailed")') == 2
 assert secure_preflight.count("free(port_list)") == 3
 assert secure_preflight.count("ClearNameValueList(&data)") == 3
 assert "return;" in secure_preflight
