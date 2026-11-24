@@ -1,3 +1,12 @@
+## 2026-11-24 — Honor RFC 2428 EPRT delimiters
+
+- `handle_eprt()` hard-coded `|` for every field boundary. RFC 2428 section 2 allows any printable ASCII delimiter (33–126); `|` is recommended only when it does not collide with a character used by the address.
+- Added a strict EPRT delimiter parser that requires exactly four occurrences and returns the selected byte; the production handler now uses it for all four field splits. GNU89 regression covers standard and alternate delimiters, invalid control/DEL bytes, missing/extra delimiters and unchanged output on rejection. Workflow source contracts pin printable bounds, occurrence count and use of the dynamic delimiter.
+- Exact parent main: `b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7`. VSFTPD run `#45353454360`, Process inventory `#45353454331`, and AI handoff `#45353454513` PASS; NVRAM audit `#45353454240` was PENDING at last observation. Exact-head verification for this change is pending.
+- No XY-C1 firmware or hardware L3/L4 validation is claimed.
+
+---
+
 ## 2026-11-24 — Correct FRP checker typo and assert a definite mismatch
 
 - All FRP shell regressions in exact d2b954 lifecycle run #45351395153 passed, including the added genuine-FRPC/empty-fourth-argv case. The final source-contract checker alone failed due to a JavaScript-style `.indexOf()` call on a Python `str`.

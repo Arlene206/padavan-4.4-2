@@ -120,6 +120,50 @@ vsf_sysutil_parse_uint(const struct mystr* p_str, unsigned int maximum,
   return 1;
 }
 
+
+/*
+ * RFC 2428 permits any printable ASCII EPRT delimiter, not only '|'.
+ * Require the opening delimiter and exactly four occurrences so each field
+ * boundary is unambiguous before post-login parsing starts.
+ */
+int
+vsf_sysutil_parse_eprt_delimiter(const struct mystr* p_str,
+                                 char* p_delimiter)
+{
+  unsigned int length;
+  unsigned int i;
+  unsigned int delimiter_count = 0;
+  int delimiter;
+  if (p_str == 0 || p_delimiter == 0)
+  {
+    return 0;
+  }
+  length = str_getlen(p_str);
+  if (length < 7U)
+  {
+    return 0;
+  }
+  delimiter = (unsigned char) str_get_char_at(p_str, 0);
+  if (delimiter < 33 || delimiter > 126)
+  {
+    return 0;
+  }
+  for (i = 0; i < length; ++i)
+  {
+    if ((unsigned char) str_get_char_at(p_str, i) ==
+        (unsigned int) delimiter)
+    {
+      ++delimiter_count;
+    }
+  }
+  if (delimiter_count != 4U)
+  {
+    return 0;
+  }
+  *p_delimiter = (char) delimiter;
+  return 1;
+}
+
 const unsigned char*
 vsf_sysutil_parse_uchar_string_sep(
   const struct mystr* p_str, char sep, unsigned char* p_items,

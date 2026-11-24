@@ -699,6 +699,15 @@ jobs:
           assert "vsf_sysutil_parse_uint(&s_part2_str, 2U, &proto_value)" in eprt
           assert "vsf_sysutil_parse_uint(&s_part2_str, 65535U, &port_value)" in eprt
           assert "str_atoi(&s_part2_str)" not in eprt
+          assert "vsf_sysutil_parse_eprt_delimiter(&p_sess->ftp_arg_str, &delimiter)" in eprt
+          assert eprt.count("str_split_char(") == 5
+          assert eprt.count(", delimiter)") == 4
+          assert "'|'" not in eprt
+          eprt_delimiter_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_eprt_delimiter(")
+          assert "delimiter < 33 || delimiter > 126" in eprt_delimiter_parser
+          assert "delimiter_count != 4U" in eprt_delimiter_parser
+          assert "*p_delimiter = (char) delimiter;" in eprt_delimiter_parser
+          assert "int vsf_sysutil_parse_eprt_delimiter(const struct mystr* p_str" in vsftpd_ipaddrparse_header
           assert "int vsf_sysutil_parse_uint(const struct mystr* p_str" in vsftpd_ipaddrparse_header
           ipv6_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_ipv6(")
           ipv6_components = function_body(vsftpd_ipaddrparse, "ipv6_parse_main(struct mystr* p_out_str")
@@ -720,6 +729,11 @@ jobs:
               "1:2:3:4:5:6:7:8::",
               "00000:0:0:0:0:0:0:1",
               "IPv6 parser returned incorrect bytes",
+              "EPRT delimiter status mismatch",
+              "!1!192.0.2.1!21!",
+              "~2~2001:db8::1~65535~",
+              " 1 192.0.2.1 21 ",
+              "!1!192.0!2.1!21!",
           ):
               assert token in ipaddrparse_test
 

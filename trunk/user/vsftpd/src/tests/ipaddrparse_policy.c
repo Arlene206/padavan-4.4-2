@@ -314,6 +314,27 @@ expect_uint(const char* text, unsigned int maximum, int expected_status,
   return 0;
 }
 
+
+static int
+expect_eprt_delimiter(const char* text, int expected_status,
+                      char expected_delimiter)
+{
+  struct mystr input = INIT_MYSTR;
+  char delimiter = '?';
+  int status;
+  test_string_init(&input, text);
+  status = vsf_sysutil_parse_eprt_delimiter(&input, &delimiter);
+  test_string_free(&input);
+  if (status != expected_status ||
+      (expected_status && delimiter != expected_delimiter) ||
+      (!expected_status && delimiter != '?'))
+  {
+    fprintf(stderr, "EPRT delimiter status mismatch for [%s]\\n", text);
+    return 1;
+  }
+  return 0;
+}
+
 static int
 expect_octets(const char* text, char separator,
               const unsigned char* expected, unsigned int count,
@@ -391,6 +412,15 @@ main(void)
   struct mystr ipv4 = INIT_MYSTR;
   const unsigned char* parsed_ipv4;
   int failed = 0;
+
+  failed |= expect_eprt_delimiter("|1|192.0.2.1|21|", 1, '|');
+  failed |= expect_eprt_delimiter("!1!192.0.2.1!21!", 1, '!');
+  failed |= expect_eprt_delimiter("~2~2001:db8::1~65535~", 1, '~');
+  failed |= expect_eprt_delimiter(" 1 192.0.2.1 21 ", 0, '?');
+  failed |= expect_eprt_delimiter("\\x7f1\\x7f192.0.2.1\\x7f21\\x7f", 0, '?');
+  failed |= expect_eprt_delimiter("!1!192.0.2.1!21", 0, '?');
+  failed |= expect_eprt_delimiter("!1!192.0!2.1!21!", 0, '?');
+  failed |= expect_eprt_delimiter("", 0, '?');
 
   failed |= expect_uint("0", 0U, 1, 0U);
   failed |= expect_uint("000255", 255U, 1, 255U);

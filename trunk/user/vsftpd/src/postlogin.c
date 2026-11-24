@@ -1802,16 +1802,21 @@ handle_eprt(struct vsf_session* p_sess)
   unsigned int port_value;
   const unsigned char* p_raw_addr;
   int is_ipv6 = vsf_sysutil_sockaddr_is_ipv6(p_sess->p_local_addr);
+  char delimiter;
   port_cleanup(p_sess);
   pasv_cleanup(p_sess);
+  if (!vsf_sysutil_parse_eprt_delimiter(&p_sess->ftp_arg_str, &delimiter))
+  {
+    goto bad_eprt;
+  }
   str_copy(&s_part1_str, &p_sess->ftp_arg_str);
-  str_split_char(&s_part1_str, &s_part2_str, '|');
+  str_split_char(&s_part1_str, &s_part2_str, delimiter);
   if (!str_isempty(&s_part1_str))
   {
     goto bad_eprt;
   }
   /* Split out the protocol and check it */
-  str_split_char(&s_part2_str, &s_part1_str, '|');
+  str_split_char(&s_part2_str, &s_part1_str, delimiter);
   if (!vsf_sysutil_parse_uint(&s_part2_str, 2U, &proto_value) ||
       proto_value < 1U)
   {
@@ -1825,7 +1830,7 @@ handle_eprt(struct vsf_session* p_sess)
     return;
   }
   /* Split out address and parse it */
-  str_split_char(&s_part1_str, &s_part2_str, '|');
+  str_split_char(&s_part1_str, &s_part2_str, delimiter);
   if (proto == 2)
   {
     str_split_char(&s_part1_str, &s_scopeid_str, '%');
@@ -1840,7 +1845,7 @@ handle_eprt(struct vsf_session* p_sess)
     goto bad_eprt;
   }
   /* Split out port and parse it */
-  str_split_char(&s_part2_str, &s_part1_str, '|');
+  str_split_char(&s_part2_str, &s_part1_str, delimiter);
   if (!str_isempty(&s_part1_str) || str_isempty(&s_part2_str))
   {
     goto bad_eprt;
