@@ -34,25 +34,27 @@ disk_share_unlink_stale_metadata_entry(int directory_fd,
 
 
 /*
- * Atomically replace one regular metadata file relative to a pinned directory.
- * The target lookup does not follow symlinks; a same-directory temporary file
- * is created with O_EXCL and published with renameat(), so parent path swaps
- * cannot redirect either the write or the final replacement.
+ * Publish a stream to a regular metadata file relative to a pinned directory.
+ * The temporary file is private and unique, and both creation and rename are
+ * descriptor-relative so a mountpoint path swap cannot redirect publication.
  */
+typedef int (*disk_share_atomic_stream_writer_fn)(FILE *, void *);
+
 static inline int
-disk_share_replace_file_atomic_at(int directory_fd, const char *leaf,
-                                  const char *contents, size_t contents_len)
+disk_share_write_stream_atomic_at(int directory_fd, const char *leaf,
+                                  disk_share_atomic_stream_writer_fn writer,
+                                  void *context, int preserve_existing_mode)
 {
 	struct stat existing_stat;
 	char temp_leaf[NAME_MAX + 1];
+	FILE *stream = NULL;
 	unsigned long attempt;
-	size_t written_total = 0;
 	int fd = -1, temp_created = 0, have_existing = 0, saved_errno;
-	ssize_t write_size;
 
 	if (directory_fd < 0 || !leaf || !*leaf ||
 	    strchr(leaf, '/') || !strcmp(leaf, ".") || !strcmp(leaf, "..") ||
-	    (!contents && contents_len != 0)) {
+	    !writer || (preserve_existing_mode != 0 &&
+	                preserve_existing_mode != 1)) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -93,35 +95,29 @@ disk_share_replace_file_atomic_at(int directory_fd, const char *leaf,
 		return -1;
 	}
 
-	if (have_existing &&
+	if (preserve_existing_mode && have_existing &&
 	    fchmod(fd, existing_stat.st_mode & 0777) != 0)
 		goto failed;
 
-	while (written_total < contents_len) {
-		size_t remaining = contents_len - written_total;
-
-		if (remaining > 65536U)
-			remaining = 65536U;
-		write_size = write(fd, contents + written_total, remaining);
-		if (write_size < 0) {
-			if (errno == EINTR)
-				continue;
-			goto failed;
-		}
-		if (write_size == 0) {
-			errno = EIO;
-			goto failed;
-		}
-		written_total += (size_t)write_size;
-	}
-
-	if (fsync(fd) != 0)
+	stream = fdopen(fd, "w");
+	if (!stream)
 		goto failed;
-	if (close(fd) != 0) {
-		fd = -1;
-		goto failed;
-	}
 	fd = -1;
+
+	if (writer(stream, context) != 0) {
+		if (!errno)
+			errno = EIO;
+		goto failed;
+	}
+	if (fflush(stream) != 0)
+		goto failed;
+	if (fsync(fileno(stream)) != 0)
+		goto failed;
+	if (fclose(stream) != 0) {
+		stream = NULL;
+		goto failed;
+	}
+	stream = NULL;
 
 	if (renameat(directory_fd, temp_leaf, directory_fd, leaf) != 0)
 		goto failed;
@@ -130,12 +126,56 @@ disk_share_replace_file_atomic_at(int directory_fd, const char *leaf,
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	if (fd >= 0)
+	if (stream)
+		(void)fclose(stream);
+	else if (fd >= 0)
 		(void)close(fd);
 	if (temp_created)
 		(void)unlinkat(directory_fd, temp_leaf, 0);
 	errno = saved_errno;
 	return -1;
+}
+
+
+struct disk_share_atomic_buffer_context {
+	const char *contents;
+	size_t length;
+};
+
+static inline int
+disk_share_write_atomic_buffer(FILE *stream, void *opaque)
+{
+	struct disk_share_atomic_buffer_context *context =
+		(struct disk_share_atomic_buffer_context *)opaque;
+
+	if (!context || (!context->contents && context->length != 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (context->length > 0 &&
+	    fwrite(context->contents, 1, context->length, stream) != context->length) {
+		if (!errno)
+			errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+
+static inline int
+disk_share_replace_file_atomic_at(int directory_fd, const char *leaf,
+                                  const char *contents, size_t contents_len)
+{
+	struct disk_share_atomic_buffer_context context;
+
+	if (!contents && contents_len != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	context.contents = contents;
+	context.length = contents_len;
+	return disk_share_write_stream_atomic_at(
+		directory_fd, leaf, disk_share_write_atomic_buffer, &context, 1);
 }
 
 
