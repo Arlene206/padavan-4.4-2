@@ -61,6 +61,7 @@
 #include "httpd.h"
 #include "httpd_script_policy.h"
 #include "httpd_apply_request_policy.h"
+#include "httpd_group_delete_policy.h"
 #include "httpd_update_output_policy.h"
 #include "httpd_nvram_restore_policy.h"
 #include "httpd_watchdog_stop_policy.h"
@@ -598,12 +599,11 @@ websScan(const char *query)
 #define SCAN_MAX_VALUE_LEN 256
 	unsigned int i = 0, j;
 	int flag = 0, invalid = 0;
-	size_t value_len, groupid_len;
+	size_t value_len, raw_value_len, groupid_len;
 	const char *v1, *v2, *v3, *sp;
 	char groupid[64] = "";
 	char value[SCAN_MAX_VALUE_LEN];
-	char *endptr;
-	long parsed;
+	int parsed_index, parse_status;
 
 	for (j = 0; j < MAX_GROUP_COUNT + 2; ++j)
 		group_del_map[j] = -1;
@@ -621,7 +621,8 @@ websScan(const char *query)
 			continue;
 		}
 
-		value_len = v3 ? (size_t)(v3 - v2 - 1) : strlen(v2 + 1);
+		raw_value_len = v3 ? (size_t)(v3 - v2 - 1) : strlen(v2 + 1);
+		value_len = raw_value_len;
 		if (value_len >= sizeof(value))
 			value_len = sizeof(value) - 1;
 		memcpy(value, v2 + 1, value_len);
@@ -635,18 +636,16 @@ websScan(const char *query)
 				groupid_len = strlen(groupid);
 				if (key_len >= groupid_len &&
 				    memcmp(v1 + 1, groupid, groupid_len) == 0) {
-					if (value_len == 2 && value[0] == '-' && value[1] == '1')
+					parse_status = httpd_group_delete_index_parse(
+						v2 + 1, raw_value_len, MAX_GROUP_COUNT,
+						&parsed_index);
+					if (parse_status > 0)
 						break;
-					errno = 0;
-					endptr = NULL;
-					parsed = strtol(value, &endptr, 10);
-					if (errno == ERANGE || endptr == value || !endptr ||
-					    *endptr != '\0' || parsed < 0 ||
-					    parsed >= MAX_GROUP_COUNT || i >= MAX_GROUP_COUNT) {
+					if (parse_status < 0 || i >= MAX_GROUP_COUNT) {
 						invalid = 1;
 						break;
 					}
-					group_del_map[i++] = (int)parsed;
+					group_del_map[i++] = parsed_index;
 				}
 			} else if (key_len == strlen("group_id") &&
 				   memcmp(v1 + 1, "group_id", key_len) == 0) {
