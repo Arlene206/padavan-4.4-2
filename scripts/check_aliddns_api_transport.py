@@ -76,6 +76,8 @@ def function_body(text: str, signature: str) -> str:
     return text[opening + 1:closing]
 
 
+urlencode = function_body(source, "urlencode() {")
+enc = function_body(source, "enc() {")
 send_request = function_body(source, "send_request() {")
 response_ok = function_body(source, "aliddns_response_ok() {")
 hmac_helper = function_body(source, "aliddns_hmac_sha1() {")
@@ -119,6 +121,14 @@ require("-k" not in send_request and "--insecure" not in send_request and
         "signed requests must not disable TLS checks or forward credentials through redirects")
 require("--config -" in send_request and 'url = "$request_url"' in send_request,
         "credential-bearing AliDNS URL must be delivered through curl stdin rather than argv")
+require("od -An -v -tu1" in urlencode and "LC_ALL=C" in urlencode and
+        'printf "%c", byte' in urlencode and 'byte == 126' in urlencode and
+        'printf \'%s\' "$1" | urlencode' in enc and
+        "read -n1" not in urlencode and "echo -n" not in enc,
+        "AliDNS canonical encoding must preserve every input byte with RFC 3986 unreserved semantics")
+require("a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22" in test and
+        "%E6%B5%8B%E8%AF%95" in test and "line%0Abreak" in test,
+        "AliDNS API fixture must cover reserved bytes, whitespace and UTF-8 canonical encoding")
 require('args="AccessKeyId=$aliddns_ak&Action=$1&Format=json&$2&Version=2015-01-09"' in send_request and
         'signing_input="GET&%2F&$(enc "$args")"' in send_request and
         'hash=$(printf \'%s\\000%s\' "$aliddns_sk&" "$signing_input" | aliddns_hmac_sha1)' in send_request and

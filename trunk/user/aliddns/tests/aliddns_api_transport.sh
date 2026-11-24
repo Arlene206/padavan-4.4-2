@@ -10,6 +10,8 @@ mkdir -p "$MOCK_BIN"
 : > "$FUNCTIONS"
 
 # Load only production functions under test; never run router startup code.
+sed -n '/^urlencode() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^enc() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^send_request() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_hmac_sha1() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_response_ok() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
@@ -49,7 +51,6 @@ nvram() {
 	printf '%s\n' "$*" >> "$NVRAM_LOG"
 }
 sleep() { :; }
-enc() { printf '%s' "$1"; }
 cat > "$MOCK_BIN/curl" <<'MOCK_CURL'
 #!/bin/sh
 printf '%s\n' "$@" > "$CURL_ARGS_LOG"
@@ -143,6 +144,19 @@ fail() {
 	exit 1
 }
 
+# Encoding must preserve unreserved bytes and encode spaces, delimiters,
+# backslashes, quotes and UTF-8 as RFC 3986 byte sequences.
+encoded=$(enc 'a b/c+d=e&f%g~ quote\slash"')
+[ "$encoded" = 'a%20b%2Fc%2Bd%3De%26f%25g~%20quote%5Cslash%22' ] ||
+	fail "RFC 3986 encoder corrupted reserved characters or whitespace"
+encoded=$(enc '测试')
+[ "$encoded" = '%E6%B5%8B%E8%AF%95' ] ||
+	fail "RFC 3986 encoder did not percent-encode UTF-8 bytes"
+encoded=$(enc 'line
+break')
+[ "$encoded" = 'line%0Abreak' ] ||
+	fail "RFC 3986 encoder did not preserve line-feed bytes"
+
 # The request preserves its signed parameters but pins HTTPS, trust and endpoint.
 reset_scenario transport-success
 response="$(send_request "DescribeSubDomainRecords" "SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=$timestamp&Type=A")" ||
@@ -161,7 +175,7 @@ grep -Fqx -- '--config' "$CURL_ARGS_LOG" || fail "curl is not reading config fro
 grep -Fqx -- '-' "$CURL_ARGS_LOG" || fail "curl config source is not stdin"
 ! grep -Fq 'AccessKeyId=' "$CURL_ARGS_LOG" || fail "AccessKeyId leaked into curl argv"
 ! grep -Fq 'Signature=' "$CURL_ARGS_LOG" || fail "HMAC signature leaked into curl argv"
-expected_signing_input='GET&%2F&AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09'
+expected_signing_input='GET&%2F&AccessKeyId%3Dtest-access-key%26Action%3DDescribeSubDomainRecords%26Format%3Djson%26SignatureMethod%3DHMAC-SHA1%26SignatureNonce%3Dnonce%26SignatureVersion%3D1.0%26SubDomain%3Dwww.example.com%26Timestamp%3D2026-11-12T16%253A30%253A00Z%26Type%3DA%26Version%3D2015-01-09'
 expected_signature=$(printf '%s\000%s' 'test-access-secret&' "$expected_signing_input" | "$TEST_DIR/aliddns-hmac-sha1") ||
 	fail "HMAC helper could not sign the expected canonical request"
 grep -Fqx "url = \"https://alidns.aliyuncs.com/?AccessKeyId=test-access-key&Action=DescribeSubDomainRecords&Format=json&SignatureMethod=HMAC-SHA1&SignatureNonce=nonce&SignatureVersion=1.0&SubDomain=www.example.com&Timestamp=2026-11-12T16%3A30%3A00Z&Type=A&Version=2015-01-09&Signature=$expected_signature\"" "$CURL_CONFIG_LOG" ||

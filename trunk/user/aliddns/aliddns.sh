@@ -547,20 +547,25 @@ fi
 }
 
 urlencode() {
-	# urlencode <string>
-	out=""
-	while read -n1 c
-	do
-		case $c in
-			[a-zA-Z0-9._-]) out="$out$c" ;;
-			*) out="$out`printf '%%%02X' "'$c"`" ;;
-		esac
-	done
-	echo -n $out
+	# RFC 3986 percent-encoding over the input bytes. Shell "read -n" is
+	# not portable and consumes IFS whitespace/backslash escapes.
+	LC_ALL=C od -An -v -tu1 | LC_ALL=C awk '
+	{
+		for (i = 1; i <= NF; ++i) {
+			byte = $i + 0
+			if ((byte >= 65 && byte <= 90) ||
+			    (byte >= 97 && byte <= 122) ||
+			    (byte >= 48 && byte <= 57) ||
+			    byte == 45 || byte == 46 || byte == 95 || byte == 126)
+				printf "%c", byte
+			else
+				printf "%%%02X", byte
+		}
+	}'
 }
 
 enc() {
-	echo -n "$1" | urlencode
+	printf '%s' "$1" | urlencode
 }
 
 ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
