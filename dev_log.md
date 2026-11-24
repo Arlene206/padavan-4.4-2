@@ -1,3 +1,12 @@
+## 2026-11-23 — Exact-head FRP tri-state Actions checkpoint
+
+- Commit: `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`.
+- Actions: FRP asynchronous startup lifecycle regression #45341083663 completed/failure; AI handoff documentation contract #45341083665 completed/success; Process lifecycle inventory - fa3dd0012cea550b339d01df4ff6ec97d0fdc00a #45341083645 completed/success .
+- This follow-up records only observed exact-SHA job states; pending workflows are not treated as PASS.
+
+
+---
+
 ## 2026-11-23 — Preserve FRP process-inventory UNKNOWN and block unsafe SIGKILL escalation
 
 - FRP matched the expected `/proc/PID/exe` and complete `frpc/frps -c <managed-config>` argv tuple, but an unreadable/missing cmdline for an extant matching executable was collapsed to “not running”. `frp_service_running()` also discarded the scanner's exit status through command substitution, so failed enumeration could look like confirmed absence.

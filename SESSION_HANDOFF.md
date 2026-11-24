@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Parent main for this FRP tri-state shutdown fix: `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`; branch and tree were fetched immediately before building the complete atomic tree.
+- FRP tri-state source/test commit on main: `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; exact-head Actions: FRP asynchronous startup lifecycle regression #45341083663 completed/failure; AI handoff documentation contract #45341083665 completed/success; Process lifecycle inventory - fa3dd0012cea550b339d01df4ff6ec97d0fdc00a #45341083645 completed/success.
 - Adbyby executable/start_time hardening: exact host #45339125309 and Process fail-closed #45339125213 PASS on `17d08de1ed22fe2ff102992d28c974b42b77de3a`.
 - AdGuardHome executable/config/workdir argv + start_time identity: config-security #45339988745, Process inventory #45339988758 and AI docs #45339988750 PASS on `cbbb27636807b7f195d7d87ccefb476366a07995`.
 - Latest main before this slice `8584845fa7ce78b928bfb6e47c5cf8eb8223982f`: HTTPD security #45340186122 and AI handoff #45340186109 PASS.
@@ -28,13 +28,15 @@ Implement and verify FRP tri-state process inventory and safe escalation:
 
 ## Verification boundary
 
+- Exact FRP commit `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`: FRP asynchronous startup lifecycle regression #45341083663 completed/failure; AI handoff documentation contract #45341083665 completed/success; Process lifecycle inventory - fa3dd0012cea550b339d01df4ff6ec97d0fdc00a #45341083645 completed/success; do not mark the slice complete until FRP lifecycle, Process inventory and AI handoff checks are all PASS.
 - This FRP source/test/checker change is pending publication and exact-head Actions; no FRP/Process/AI result is claimed for it yet.
 - No MIPS/uClibc firmware build, TRX artifact or physical-router L4 result is claimed for this shell-only slice.
 - Linux 4.4 lacks pidfd; process identity checks reduce risk but cannot eliminate the final procfs-check-to-kill(2) race.
 
-## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect this commit's exact-head FRP lifecycle, Process inventory/fail-closed and AI handoff results; fix the first failing regression before marking it complete.
+## Exact first action for the next GPT
+1. Inspect exact-head commit `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a` Actions; first fix any failed FRP lifecycle, Process or AI handoff job.
+
 2. If these checks pass or remain pending, continue an independent P1 stability/security fix outside completed SmartDNS, Adbyby, AdGuardHome and RAETH areas.
 3. Keep the frozen backup immutable; all main changes remain complete-tree atomic commits with expected-SHA non-forced ref updates.
 
