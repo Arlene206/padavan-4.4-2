@@ -1,3 +1,11 @@
+## 2026-11-24 — Correct the AliDNS POSIX encoder checker quoting
+
+- The first POSIX encoder commit ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6 included an invalidly quoted Python source assertion for the printf format expression.
+- Replaced the complicated nested-quote check with separate assertions for the %02X format and "'$c" byte-value operand. Production encoder and test fixture are unchanged.
+- Exact ca9267 Actions were queued/in progress at last check; this corrected checker commit needs exact-head verification.
+
+---
+
 ## 2026-11-24 — Make AliDNS RFC3986 encoder portable to configured ash
 
 - The read -d '' -n1 encoder relied on optional BusyBox ash extensions not enabled by the board configuration; the Bash re-exec in the test fixture masked the target-shell mismatch.

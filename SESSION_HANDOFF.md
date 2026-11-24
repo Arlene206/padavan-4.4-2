@@ -1,31 +1,31 @@
 ## Current repository state
 
-- Live parent main before the current AliDNS portability repair: 825e3ac7faab97eec889dc1e0109b34ba4785547.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains untouched at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- FRP process argument/identity hardening and checker repair: d2b954034d1a41de7dd9c170d597fbb6c2fa39b0, f933a44bcfa494d4aa4622b69d50c1713b6d2fc4.
-- VSFTPD PORT/EPRT numeric parsing, IPv4/IPv6 structure, hextet width, RFC2428 delimiter support and DEL fixture repair: d7490d832b53d7e74b92ed92642413e1c19ed412, 990fe8a814c515df8c161231d088af0efb9de41f, 008c440e32d624fc98f7e2d0cf6ee56279b46abc, b77c7a3aca7a4d7a1a7026488e5ac453c3363dc7, b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5, ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf.
-- VSFTPD REST strict 1–15 digit parser and regression: b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94. Exact checker repair 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS. NVRAM #45355332714 later PASS; XY-C1 #45355332727 was still IN_PROGRESS at last observation.
-- AliDNS RFC3986 encoder was changed in d651b0f9d17861459b10f5026ef146172d568c54, then moved to optional ash read -d/-n in 7b9b8aeb8c56f539e1a8532654056c6cb90748a8. That extension is not enabled in the board configuration and previous tests masked the mismatch by running Bash. Commit 825e3ac7faab97eec889dc1e0109b34ba4785547 restored the full fixture after an e942 test-script break; exact AliDNS #45356096386 and Process #45356096367 PASS.
+- Live main before the AliDNS checker syntax correction: ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- VSFTPD REST validation is committed in b87b1c10f3808f8bd4f47e374fdc5b0472bdfb94. Its exact checker repair 21699dc5a854afb6aea0121a64421bb836aa447c passed VSFTPD #45356072893 and AI handoff #45356072970.
+- AliDNS POSIX encoder and /bin/sh test conversion are in ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6. This commit's checker assertion around printf single-quote formatting was itself incorrectly quoted in Python and has been simplified to independent format/value token assertions; exact-head CI will retest.
+- The parent 825e3ac7faab97eec889dc1e0109b34ba4785547 AliDNS regression and Process runs passed. Parent 21699 VSFTPD/AI documentation checks passed. Exact 825 b87 XY-C1 #45355332727 was still pending when last checked; b87 NVRAM #45355332714 passed.
 
 ## Active task
 
-Remove the AliDNS BusyBox ash read-extension dependency:
-- Replaced read -d '' -n1 with a POSIX read -r line loop under LC_ALL=C; byte-wise shell parameter expansion and printf percent-encode octets, while each consumed LF is explicitly encoded as %0A. The encoder uses no read -n, read -d, od or Bash.
-- Removed the test's Bash re-exec and helper; tests call the sourced production functions directly under /bin/sh. Local /bin/sh checks passed for reserved ASCII, quote/backslash, spaces, UTF-8, controls, one/multiple/empty LF and unterminated final bytes. Exact-head CI pending.
-- Parent 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS #45356096386 and Process #45356096367 PASS. Parent 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS.
+Finish the POSIX AliDNS byte encoder:
+- Production uses POSIX read -r line input, LC_ALL=C byte slicing and %XX output; newline separators become %0A. It avoids BusyBox ash optional read -n/read -d and unavailable od.
+- Test no longer invokes Bash; sourced functions are invoked in /bin/sh.
+- The first ca9267 commit included a malformed Python quoting assertion in scripts/check_aliddns_api_transport.py. Replaced that with separate checks for "%02X" and the leading quote-value expression. The original shell implementation and fixture are unchanged by this checker correction.
+- Exact ca9267 Actions were queued/in flight at the last observation.
 
 ## Verification boundary
 
-- Exact 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS signed API transport regression and Process lifecycle inventory PASS.
-- Exact 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD stability regression and AI handoff contract PASS.
-- Exact ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf: VSFTPD #45354611125, Process #45354611121, AI handoff #45354611170 and NVRAM #45354611026 PASS.
-- No physical router validation; in-progress XY-C1 runs are not marked PASS.
+- Exact 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS #45356096386 and Process #45356096367 PASS.
+- Exact 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS.
+- Exact ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf: VSFTPD #45354611125, Process #45354611121, AI #45354611170 and NVRAM #45354611026 PASS.
+- Exact ca9267 POSIX AliDNS test/source contract must be verified on a corrected checker SHA. No hardware validation.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head POSIX AliDNS encoder tests and static contract.
-2. Check exact b87 XY-C1 Build/TRX/artifact run #45355332727 final status; if still pending, inspect latest firmware SHA.
-3. Continue independent userland stability/security work; keep backup frozen and main-only.
+1. Check the corrected exact-head AliDNS regression and static checker; diagnose runtime issues rather than weakening byte preservation.
+2. Check final state of XY-C1 run #45355332727; if it is still pending, inspect the latest firmware build run.
+3. Continue a separate userland stability/security defect, keeping the backup immutable.
 
 # Cross-session execution mandate
 
