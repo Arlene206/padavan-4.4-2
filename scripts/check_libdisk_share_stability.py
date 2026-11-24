@@ -1285,6 +1285,23 @@ require("disk_io_open_parent_nofollow(old_path,&old_leaf)" in rename_folder_comp
         "test_folder_rename_uses_pinned_parent_descriptors();" in POLICY_TEST,
         "folder moves must pin both parent directories and reject symlink/non-directory sources or occupied targets")
 
+mkdir_staging = function_body(
+    DISK_SOURCE, "disk_share_mkdir_staging_directory("
+)
+mkdir_staging_compact = "".join(mkdir_staging.split())
+remove_staging = function_body(
+    DISK_SOURCE, "disk_share_remove_folder_path("
+)
+remove_staging_compact = "".join(remove_staging.split())
+require("disk_io_open_parent_nofollow(path,&leaf)" in mkdir_staging_compact and
+        "disk_share_create_directory_entry_nofollow(directory_fd,leaf,0700)" in mkdir_staging_compact and
+        "disk_io_open_parent_nofollow(path,&leaf)" in remove_staging_compact and
+        "disk_share_remove_directory_entry_nofollow(directory_fd,leaf)" in remove_staging_compact and
+        "mkdirat(directory_fd,leaf,mode)" in rename_policy_compact and
+        "unlinkat(directory_fd,leaf,AT_REMOVEDIR)" in rename_policy_compact and
+        "test_staging_directory_operations_use_pinned_parent_fd();" in POLICY_TEST,
+        "staging directory creation and removal must remain under the pinned mount parent and reject final symlinks")
+
 
 
 

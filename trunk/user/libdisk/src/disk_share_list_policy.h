@@ -728,6 +728,44 @@ disk_share_rename_directory_entry_nofollow(int old_directory_fd,
 }
 
 
+/*
+ * Create or remove a single directory entry through its already-pinned parent.
+ * These helpers never follow a final symlink and reject path-like leaf names.
+ */
+static inline int
+disk_share_create_directory_entry_nofollow(int directory_fd,
+                                           const char *leaf, mode_t mode)
+{
+	if (directory_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+	    !strcmp(leaf, ".") || !strcmp(leaf, "..")) {
+		errno = EINVAL;
+		return -1;
+	}
+	return mkdirat(directory_fd, leaf, mode);
+}
+
+
+static inline int
+disk_share_remove_directory_entry_nofollow(int directory_fd,
+                                           const char *leaf)
+{
+	struct stat status;
+
+	if (directory_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
+	    !strcmp(leaf, ".") || !strcmp(leaf, "..")) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (fstatat(directory_fd, leaf, &status, AT_SYMLINK_NOFOLLOW) != 0)
+		return -1;
+	if (!S_ISDIR(status.st_mode)) {
+		errno = ENOTDIR;
+		return -1;
+	}
+	return unlinkat(directory_fd, leaf, AT_REMOVEDIR);
+}
+
+
 typedef int (*disk_share_folder_move_fn)(const char *, const char *);
 typedef int (*disk_share_folder_refresh_fn)(const char *);
 

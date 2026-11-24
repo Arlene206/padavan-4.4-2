@@ -2394,7 +2394,20 @@ failed:
 static int
 disk_share_mkdir_staging_directory(const char *path)
 {
-	return mkdir(path, 0700);
+	char *leaf = NULL;
+	int directory_fd, result, saved_errno;
+
+	directory_fd = disk_io_open_parent_nofollow(path, &leaf);
+	if (directory_fd < 0)
+		return -1;
+	result = disk_share_create_directory_entry_nofollow(
+		directory_fd, leaf, 0700);
+	saved_errno = errno;
+	(void)close(directory_fd);
+	free(leaf);
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
 }
 
 static int
@@ -2471,7 +2484,19 @@ disk_share_refresh_folder_snapshot(const char *mount_path)
 static int
 disk_share_remove_folder_path(const char *path)
 {
-	return rmdir(path);
+	char *leaf = NULL;
+	int directory_fd, result, saved_errno;
+
+	directory_fd = disk_io_open_parent_nofollow(path, &leaf);
+	if (directory_fd < 0)
+		return -1;
+	result = disk_share_remove_directory_entry_nofollow(directory_fd, leaf);
+	saved_errno = errno;
+	(void)close(directory_fd);
+	free(leaf);
+	if (result != 0)
+		errno = saved_errno ? saved_errno : EIO;
+	return result;
 }
 
 
