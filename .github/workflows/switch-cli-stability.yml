@@ -193,6 +193,8 @@ jobs:
           queue = ioctl.split("case RAETH_QDMA_QUEUE_MAPPING:", 1)[1].split(
               "case RAETH_QDMA_SFQ_WEB_ENABLE:", 1
           )[0]
+          # Normalize C whitespace so harmless line wrapping cannot stale the contract.
+          queue = " ".join(queue.split())
           decode = queue.index(
               "raeth_qdma_queue_mapping_decode(data->off, &map_index, &map_separate)"
           )
