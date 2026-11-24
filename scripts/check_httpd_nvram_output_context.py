@@ -194,10 +194,26 @@ def check_dynamic_js_hooks():
     print("Dynamic HTTPD JavaScript hook strings: PASS")
 
 
+def check_wol_dom_sinks():
+    """Keep client and third-party labels in text-only DOM sinks."""
+    source = (ROOT / "Advanced_WOL_Content.asp").read_text(encoding="utf-8")
+
+    assert ".find('td.vendor').text(vendorName);" in source
+    assert ".find('td.vendor').text(String(company));" in source
+    assert "$j('<td>').addClass('mac').text(mac).appendTo($row);" in source
+    assert "$j('<td>').text(name).appendTo($row);" in source
+    assert "$j('<td>').addClass('vendor').appendTo($row);" in source
+    assert "t_body += " not in source, "client data must not be concatenated into HTML"
+    assert ".html(vendorObj.company)" not in source
+    assert ".html(company)" not in source
+    print("WOL client/vendor DOM text sinks: PASS")
+
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
     check_templates()
+    check_wol_dom_sinks()
 
 
 if __name__ == "__main__":

@@ -2,14 +2,15 @@
 
 ## Current repository state
 
-- Current live main parent for this slice: fd68cee59bf32b95cb2fc6e044e1da73bd4d768c.
-- Previous exact SHA 89128ba: HTTPD, AI handoff, process inventory/lifecycle, NVRAM audit, FRP, Inadyn, AdGuardHome, USB storage and AliyunDrive all PASS. XY-C1 detector test PASS; firmware Build remains in progress with TRX/artifact pending at last poll.
-- Read-only backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged and never written.
-- Main-only, single complete Git tree/commit, non-forced expected-SHA update. Do not force push or write to backup.
+- Current live main parent for this slice: `fbbedd70659f2822ee4c4613342acda2c4360c82`.
+- Exact `fbbedd7` HTTPD Authentication/Security Regression `#45301473424` and AI handoff contract `#45301473510`: **PASS**. The WOL JSON response encoder and corrected source-range regression both passed.
+- Exact `fd68cee` HTTPD run `#45301344235`: **FAIL** because the new WOL source checker searched for literal backslash-n sequences instead of function-boundary newlines; corrected in `fbbedd7`. Its AI handoff `#45301344195`, NVRAM audit `#45301344189`, FRP `#45301344338`, Inadyn `#45301344311`, USB storage `#45301344302`, Process regression `#45301344737`, Process inventory `#45301344475` and AdGuardHome `#45301344973`: **PASS**. AliyunDrive `#45301344287` and XY-C1 `#45301344269` were still IN_PROGRESS at last poll; no L3 result is claimed.
+- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and never written.
+- Main-only, one complete Git tree/commit, non-forced expected-SHA update. Never force-push or write to backup.
 
 ## Active task
 
-Continue scanning C-side HTTPD JavaScript emitters for raw data-derived `websWrite()` string formatting. WAN/LAN status fields, the captive-client version, status counters, fixed no-link status text and validation action-mode strings now use the tested JavaScript string writer.
+Fix DOM XSS in `Advanced_WOL_Content.asp`: client names/MACs from static and DHCP client state were concatenated into HTML, and vendor labels from the external MAC lookup API or localStorage were inserted with `.html()`. Move all data sinks to text-only DOM insertion and pin them with the HTTPD security source-contract regression.
 
 ## Completed development slices
 
@@ -25,15 +26,17 @@ Continue scanning C-side HTTPD JavaScript emitters for raw data-derived `websWri
 
 - NVRAM HTML/JavaScript output-context hardening (this commit): finished the 174-asset audit by migrating the remaining 89 JS-source `nvram_get_x` sinks; all 117 such sinks are now protected across `51bd80e`, `453aefd` and this slice. The three DDNS JS callsites use the JS-string writer, and generic HTML NVRAM output escapes apostrophes. A GNU89 ASan/UBSan byte regression and a source-template context checker are wired into HTTPD push/PR CI.
 
+- WOL UI DOM XSS hardening (this commit): build client rows as DOM elements and render client MAC/name and vendor names only through jQuery `.text()`. Vendor API results are normalized to a string before rendering/caching. The HTTPD checker now rejects raw row concatenation of client data and `.html()` sinks for vendor labels.
+
 ### IPTV / process lifecycle
 
 Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3f7b51de115`, `d38250bfa213607dbf02ac65a75f60e933be34c9`, `b64511308e12091035a745055e2882a15addd166`, and `57c466d3001da525511160fc30418a774b99aa85`. The too-short overflow fixture and stale checker expectations were corrected; historical exact-SHA WAN/process/storage/XY-C1 results remain in earlier dev-log entries.
 
 ## Verification boundary
 
-- Exact 89128ba HTTPD run #45300665513: PASS, including JavaScript/JSON output-context check. AI handoff #45300665430, Process inventory #45300665463, Process lifecycle inventory #45300665517, NVRAM audit #45300665431, FRP #45300665527, Inadyn #45300665514, AdGuardHome #45300665471, USB storage #45300665447 and AliyunDrive #45300665429: PASS.
-- Exact 89128ba XY-C1 run #45300665497: detector PASS; Build IN_PROGRESS; TRX and artifact upload PENDING.
-- Exact fd68cee runs were queued/in progress when checkpointed; its WOL JSON source change and contract assertions are unverified until exact-SHA Actions finish.
+- Exact `fbbedd7` HTTPD run `#45301473424`: **PASS**, including the WOL JSON encoder/source contract and the existing NVRAM HTML/JavaScript sanitizer tests. Exact AI handoff run `#45301473510`: **PASS**.
+- Exact `fd68cee` HTTPD run `#45301344235`: **FAIL** only in the newly added WOL source-boundary locator; the doubled newline escape was corrected in `fbbedd7`, which passes its own exact-head HTTPD run. Exact fd68cee AI handoff `#45301344195`, NVRAM audit `#45301344189`, FRP `#45301344338`, Inadyn `#45301344311`, USB storage `#45301344302`, Process regression `#45301344737`, Process inventory `#45301344475` and AdGuardHome `#45301344973`: **PASS**. AliyunDrive `#45301344287` and XY-C1 `#45301344269` were IN_PROGRESS at last poll.
+- The WOL UI DOM text-sink fix and checker in THIS COMMIT await their exact-head HTTPD and XY-C1 Actions. No local execution, same-SHA L3 firmware build, or hardware L4 validation is claimed.
 - Exact dd099f6 HTTPD #45300345684: FAIL due to an over-broad source-contract assertion; narrowed in c6f5805, whose HTTPD #45300471389 and AI #45300471279 both PASS.
 - Exact 08c6d43 HTTPD #45299995452, AI #45299995515, Process inventory #45299995463, lifecycle inventory #45299995326, FRP #45299995540, Inadyn #45299995467, AliyunDrive #45299995485, AdGuardHome #45299995325 and USB storage #45299995495: PASS.
 - Exact 212aed2 XY-C1 detector test #45299517972: PASS; Build was still in progress with TRX/artifact pending at last poll. Exact 5c8c62f XY-C1 #45298161504 and 861e3fe XY-C1 #45298770098: PASS, including Build, TRX and artifact upload.
@@ -41,9 +44,9 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Exact first action for the next GPT
 
-1. Verify the WOL JSON response migration on its exact SHA; correct the checker source-index escape and inspect HTTPD Actions.
-2. Continue reviewing remaining HTTPD endpoints that serialize runtime state. Use shared JavaScript/JSON encoders for strings and retain strict input validation at action boundaries.
-3. Check exact-head XY-C1 Build/TRX/artifact status without waiting on it; keep the backup read-only.
+1. Inspect the exact-head HTTPD and XY-C1 Actions for this WOL DOM XSS fix. Confirm the browser-facing text-sink contract and, if triggered, the production-input detector, firmware Build, TRX verification and artifact upload on the same SHA.
+2. Continue tracing remaining C-side HTTPD dynamic output sinks to their data sources; next inspect the language-option emitter and legacy NVRAM list helpers before making further output-context changes.
+3. Keep the archival backup read-only and continue on main with one atomic source/test commit per logical fix.
 
 # Cross-session execution mandate
 

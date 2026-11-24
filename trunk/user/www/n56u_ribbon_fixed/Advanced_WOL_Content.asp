@@ -85,10 +85,13 @@ function getVendors()
                 success: function(response){
                     try{
                         var vendorObj = JSON.parse($j(response.responseText).text())[0];
-                        $j(value).parents('tr').find('td.vendor').html(vendorObj.company);
+                        var vendorName = (vendorObj && vendorObj.company != null)
+                                         ? String(vendorObj.company)
+                                         : '';
+                        $j(value).parents('tr').find('td.vendor').text(vendorName);
 
                         // add new vendor for saving to localStorage
-                        allMacs[hw_addr] = vendorObj.company;
+                        allMacs[hw_addr] = vendorName;
 
                         // save vendor to localStorage
                         setToLocalStorage('hw_addr', JSON.stringify(allMacs));
@@ -102,7 +105,7 @@ function getVendors()
         }
         else
         {
-            $j(value).parents('tr').find('td.vendor').html(company);
+            $j(value).parents('tr').find('td.vendor').text(String(company));
         }
     });
 }
@@ -192,20 +195,17 @@ $j(document).ready(function() {
     var countDevices = Object.keys(devices).length;
     if(countDevices > 0 || countDevices === 'undefined')
     {
-        var t_body = '';
-
         $j.each(devices, function(mac, name){
-            var vendor = '';
             var btn = '<button class="btn btn-info btn_wakeup"><#WOL_Wake_up#></button><div class="wol_response" class="alert"></div>';
+            var $row = $j('<tr>');
 
-            t_body += '<tr>\n';
-            t_body += '  <td class="mac">'+mac+'</td>\n';
-            t_body += '  <td>'+name+'</td>\n';
-            t_body += '  <td class="vendor">'+vendor+'</td>\n';
-            t_body += '  <td>'+btn+'</td>\n';
-            t_body += '</tr>\n';
+            // Device names and addresses come from client/NVRAM state, not HTML.
+            $j('<td>').addClass('mac').text(mac).appendTo($row);
+            $j('<td>').text(name).appendTo($row);
+            $j('<td>').addClass('vendor').appendTo($row);
+            $j('<td>').append(btn).appendTo($row);
+            $j('#wol_table').append($row);
         });
-        $j('#wol_table').append(t_body);
 
         setTimeout("getVendors()", 200);
     }

@@ -1,3 +1,11 @@
+## 2026-11-23 — Render WOL client and vendor data as text
+
+- The WOL device table concatenated static/DHCP client MACs and names into HTML, while vendor labels from the external MAC lookup API and localStorage were inserted with `.html()`. Client labels and third-party vendor strings are untrusted; either path could inject active markup into the authenticated router UI.
+- Rebuilt table rows with jQuery DOM elements and `.text()` for MAC, name and vendor cells. Normalize the API vendor field to a string before displaying and caching it. Added `check_wol_dom_sinks()` to the existing HTTPD output-context regression so raw row concatenation and vendor HTML sinks fail CI.
+- Exact parent `fbbedd7`: HTTPD `#45301473424` and AI handoff `#45301473510` PASS. The earlier `fd68cee` HTTPD failure `#45301344235` was the malformed checker boundary (fixed and revalidated on `fbbedd7`); its XY-C1 run `#45301344269` was still in progress at last check. This UI/source-contract slice awaits exact-head Actions; no local test, L3 or L4 result is claimed.
+
+---
+
 ## 2026-11-23 — Correct checker source-index escapes for WOL JSON contract
 
 - The WOL JSON migration added source-range assertions to the HTTPD checker. Inspection found its source.index() needles contained doubled backslashes and would search for literal backslash-n rather than actual line boundaries.
