@@ -88,17 +88,47 @@ for key in ("sdns_enable", "sdns_port", "sdns_redirect", "sdnse_enable", "sdnse_
     assert "smartdns_nvram_read_checked " + key + " || return $?" in lifecycle_nvram
 assert 'smartdns_validate_enable_selector "$sdns_enable" || return $?' in lifecycle_nvram
 assert 'start|restart|reset)' in lifecycle_nvram
-assert 'smartdns_load_lifecycle_nvram_state || exit $?' in smartdns
-assert smartdns.index('smartdns_load_lifecycle_nvram_state || exit $?') < smartdns.index('sdns_name=')
+runtime_nvram = body(smartdns, "smartdns_load_runtime_nvram_state")
+runtime_keys = (
+    "sdns_name", "sdns_tcp_server", "sdns_ipv6_server", "sdns_cache",
+    "sdns_cache_persist", "sdns_tcp_idle_time", "sdns_rr_ttl",
+    "sdns_rr_ttl_min", "sdns_rr_ttl_max", "sdns_rr_ttl_reply_max",
+    "sdns_max_reply_ip_num", "sdns_speed", "sdns_speed_mode",
+    "sdns_address", "sdns_ipset", "sdns_ipset_timeout", "sdns_as",
+    "sdns_ip_change", "sdns_ip_change_time",
+    "sdns_dualstack_ip_allow_force_aaaa", "sdns_force_aaaa_soa",
+    "sdns_force_qtype_soa", "sdns_prefetch_domain", "sdns_exp",
+    "sdns_exp_ttl", "sdns_exp_ttl_max", "sdns_exp_prefetch_time",
+    "sdnse_tcp", "sdnse_speed", "sdnse_name", "sdnse_address",
+    "sdnse_ns", "sdns_ns", "sdnse_ipset", "sdnse_as",
+    "sdnse_ipv6_server", "sdnse_ipc", "sdnse_cache", "sdns_adblock",
+    "sdns_white", "sdns_black", "sdns_coredump",
+)
+assert "smartdns_load_lifecycle_nvram_state || return $?" in runtime_nvram
+for key in runtime_keys:
+    assert "smartdns_nvram_read_checked " + key + " || return $?" in runtime_nvram
+assert 'if [ "$action" != "stop" ]; then' in runtime_nvram
+assert "IPS4=" in runtime_nvram and "IPS6=" in runtime_nvram and "dnsmasq_md5=" in runtime_nvram
+assert "nvram get " not in smartdns, "all SmartDNS configuration reads must use checked NVRAM access"
+lock_start = smartdns.index("if smartdns_lifecycle_lock_acquire; then")
+snapshot_call = smartdns.index("if smartdns_load_runtime_nvram_state; then")
+read_ini_call = smartdns.index("if Read_ini; then")
+assert lock_start < snapshot_call < read_ini_call, "runtime snapshot must be taken under the lifecycle lock"
+assert "smartdns runtime NVRAM snapshot failed" in smartdns
 assert 'value=1' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
 assert 'value=0' in (root / "trunk/user/www/n56u_ribbon_fixed/Advanced_smartdns.asp").read_text()
 assert "SmartDNS binary enable selector validation: PASS" in enable_test
 stop_nvram_test = (root / "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh").read_text()
+runtime_nvram_test = (root / "trunk/user/smartdns/tests/smartdns_runtime_nvram_snapshot.sh").read_text()
 for marker in ("explicit stop bypasses every configuration NVRAM read: PASS",
                "each checked NVRAM read preserves its original failure status: PASS",
                "invalid enable selector still fails closed: PASS",
                "SmartDNS lifecycle NVRAM stop isolation regression: PASS"):
     assert marker in stop_nvram_test, marker
+for marker in ("every runtime NVRAM snapshot failure aborts before later reads: PASS",
+               "valid runtime snapshot captures settings and LAN cleanup context: PASS",
+               "explicit stop remains independent of live configuration NVRAM: PASS"):
+    assert marker in runtime_nvram_test, marker
 
 read = body(smartdns, "Read_ini")
 assert '[ -L "$smartdns_Ini" ]' in read
@@ -123,12 +153,25 @@ adbyby_read = body(smartdns, "smartdns_nvram_read_checked")
 assert 'nvram get_checked "$1"' in adbyby_read
 assert "Failed to read NVRAM key" in adbyby_read
 assert 'return "$smartdns_nvram_status"' in adbyby_read
-startup = smartdns.split('smartdns_load_lifecycle_nvram_state || exit $?', 1)[0]
 for key in ("sdns_enable", "sdns_port", "sdns_redirect", "sdnse_enable", "sdnse_port"):
     assert 'smartdns_nvram_read_checked ' + key + ' || return $?' in lifecycle_nvram
-    assert key + '=$(nvram get ' + key + ')' not in startup
-assert smartdns.index('smartdns_load_lifecycle_nvram_state || exit $?') < smartdns.index('smartdns_nvram_read_checked adbyby_enable')
+assert "Check_ss || return $?" in body(smartdns, "Main")
+check_ss = body(smartdns, "Check_ss")
+for key in ('ss_enable', 'ss_run_mode', 'pdnsd_enable'):
+    assert 'smartdns_nvram_read_checked ' + key + ' || return $?' in check_ss
+main_body = body(smartdns, "Main")
+assert 'smartdns_nvram_read_checked adbyby_enable || return $?' in main_body
+assert 'smartdns_nvram_read_checked adbyby_add || return $?' in main_body
 assert 'pidof adbyby' not in smartdns
+assert 'smartdns_nvram_read_checked sdns_adblock_url || return $?' in main_body
+assert '"$sdns_adblock_url"' in body(smartdns, "Start_AD")
+get_conf = body(smartdns, "Get_sdns_conf")
+assert 'smartdns_nvram_read_checked sdns_staticnum_x || return $?' in get_conf
+assert 'sdnss_enable_x$j' in get_conf and 'while [ "$j" -lt "$listnum" ]' in get_conf
+assert '[ "$listnum" -le 64 ]' in get_conf
+for field in ("name", "ip", "port", "type", "ipc", "named", "non", "ipset"):
+    assert 'smartdns_nvram_read_checked "sdnss_' + field + '_x$j" || return $?' in get_conf
+assert '$(nvram get ' not in get_conf and '$(seq 1 ' not in get_conf
 adbyby_change = body(smartdns, "Change_adbyby")
 assert 'smartdns_process_state adbyby' in adbyby_change
 assert 'Cannot determine Adbyby process state' in adbyby_change
@@ -188,6 +231,7 @@ paths = (
     "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh",
     "trunk/user/smartdns/tests/smartdns_enable_selector.sh",
     "trunk/user/smartdns/tests/smartdns_stop_nvram_failure.sh",
+    "trunk/user/smartdns/tests/smartdns_runtime_nvram_snapshot.sh",
     "trunk/user/rc/src/services.c",
     "trunk/user/smartdns/tests/smartdns_config_file.sh",
     "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",

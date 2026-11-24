@@ -99,53 +99,101 @@ smartdns_load_lifecycle_nvram_state()
 
 chn_Route="$storage_Path/chinadns/chnroute.txt"
 
-smartdns_load_lifecycle_nvram_state || exit $?
-sdns_name=$(nvram get sdns_name)
-sdns_tcp_server=$(nvram get sdns_tcp_server)
-sdns_ipv6_server=$(nvram get sdns_ipv6_server)
-sdns_cache=$(nvram get sdns_cache)
-sdns_cache_persist=$(nvram get sdns_cache_persist)
-sdns_tcp_idle_time=$(nvram get sdns_tcp_idle_time)
-sdns_rr_ttl=$(nvram get sdns_rr_ttl)
-sdns_rr_ttl_min=$(nvram get sdns_rr_ttl_min)
-sdns_rr_ttl_max=$(nvram get sdns_rr_ttl_max)
-sdns_rr_ttl_reply_max=$(nvram get sdns_rr_ttl_reply_max)
-sdns_max_reply_ip_num=$(nvram get sdns_max_reply_ip_num)
-sdns_speed=$(nvram get sdns_speed)
-sdns_speed_mode=$(nvram get sdns_speed_mode)
-sdns_address=$(nvram get sdns_address)
-sdns_ipset=$(nvram get sdns_ipset)
-sdns_ipset_timeout=$(nvram get sdns_ipset_timeout)
-sdns_as=$(nvram get sdns_as)
-sdns_ip_change=$(nvram get sdns_ip_change)
-sdns_ip_change_time=$(nvram get sdns_ip_change_time)
-sdns_dualstack_ip_allow_force_aaaa=$(nvram get sdns_dualstack_ip_allow_force_aaaa)
-sdns_force_aaaa_soa=$(nvram get sdns_force_aaaa_soa)
-sdns_force_qtype_soa=$(nvram get sdns_force_qtype_soa)
-sdns_prefetch_domain=$(nvram get sdns_prefetch_domain)
-sdns_exp=$(nvram get sdns_exp)
-sdns_exp_ttl=$(nvram get sdns_exp_ttl)
-sdns_exp_ttl_max=$(nvram get sdns_exp_ttl_max)
-sdns_exp_prefetch_time=$(nvram get sdns_exp_prefetch_time)
-sdnse_tcp=$(nvram get sdnse_tcp)
-sdnse_speed=$(nvram get sdnse_speed)
-sdnse_name=$(nvram get sdnse_name)
-sdnse_address=$(nvram get sdnse_address)
-sdnse_ns=$(nvram get sdnse_ns)
-sdns_ns=$(nvram get sdns_ns)
-sdnse_ipset=$(nvram get sdnse_ipset)
-sdnse_as=$(nvram get sdnse_as)
-sdnse_ipv6_server=$(nvram get sdnse_ipv6_server)
-sdnse_ipc=$(nvram get sdnse_ipc)
-sdnse_cache=$(nvram get sdnse_cache)
-sdns_adblock=$(nvram get sdns_adblock)
-sdns_white=$(nvram get sdns_white)
-sdns_black=$(nvram get sdns_black)
-sdns_coredump=$(nvram get sdns_coredump)
+smartdns_load_runtime_nvram_state()
+{
+    smartdns_load_lifecycle_nvram_state || return $?
+    if [ "$action" != "stop" ]; then
+        smartdns_nvram_read_checked sdns_name || return $?
+        sdns_name=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_tcp_server || return $?
+        sdns_tcp_server=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_ipv6_server || return $?
+        sdns_ipv6_server=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_cache || return $?
+        sdns_cache=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_cache_persist || return $?
+        sdns_cache_persist=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_tcp_idle_time || return $?
+        sdns_tcp_idle_time=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_rr_ttl || return $?
+        sdns_rr_ttl=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_rr_ttl_min || return $?
+        sdns_rr_ttl_min=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_rr_ttl_max || return $?
+        sdns_rr_ttl_max=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_rr_ttl_reply_max || return $?
+        sdns_rr_ttl_reply_max=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_max_reply_ip_num || return $?
+        sdns_max_reply_ip_num=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_speed || return $?
+        sdns_speed=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_speed_mode || return $?
+        sdns_speed_mode=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_address || return $?
+        sdns_address=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_ipset || return $?
+        sdns_ipset=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_ipset_timeout || return $?
+        sdns_ipset_timeout=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_as || return $?
+        sdns_as=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_ip_change || return $?
+        sdns_ip_change=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_ip_change_time || return $?
+        sdns_ip_change_time=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_dualstack_ip_allow_force_aaaa || return $?
+        sdns_dualstack_ip_allow_force_aaaa=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_force_aaaa_soa || return $?
+        sdns_force_aaaa_soa=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_force_qtype_soa || return $?
+        sdns_force_qtype_soa=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_prefetch_domain || return $?
+        sdns_prefetch_domain=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_exp || return $?
+        sdns_exp=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_exp_ttl || return $?
+        sdns_exp_ttl=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_exp_ttl_max || return $?
+        sdns_exp_ttl_max=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_exp_prefetch_time || return $?
+        sdns_exp_prefetch_time=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_tcp || return $?
+        sdnse_tcp=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_speed || return $?
+        sdnse_speed=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_name || return $?
+        sdnse_name=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_address || return $?
+        sdnse_address=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_ns || return $?
+        sdnse_ns=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_ns || return $?
+        sdns_ns=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_ipset || return $?
+        sdnse_ipset=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_as || return $?
+        sdnse_as=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_ipv6_server || return $?
+        sdnse_ipv6_server=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_ipc || return $?
+        sdnse_ipc=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdnse_cache || return $?
+        sdnse_cache=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_adblock || return $?
+        sdns_adblock=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_white || return $?
+        sdns_white=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_black || return $?
+        sdns_black=$smartdns_nvram_value
+        smartdns_nvram_read_checked sdns_coredump || return $?
+        sdns_coredump=$smartdns_nvram_value
+    fi
 
-IPS4="$(ifconfig br0 | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}')"
-IPS6="$(ifconfig br0 | grep "inet6 addr" | grep -v "fe80::" | grep -v "::1" | grep "Global" | awk '{print $3}')"
-dnsmasq_md5=$(md5sum  "$dnsmasq_Conf" | awk '{ print $1 }')
+    IPS4="$(ifconfig br0 | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}')"
+    IPS6="$(ifconfig br0 | grep "inet6 addr" | grep -v "fe80::" | grep -v "::1" | grep "Global" | awk '{print $3}')"
+    dnsmasq_md5=$(md5sum "$dnsmasq_Conf" | awk '{ print $1 }')
+    return 0
+}
 
 # 函数
 
@@ -217,14 +265,22 @@ Check_md5 () {
     echo "smartdns：" "Leave Check_md5"
 }
 
-Check_ss(){
-    if [ -s /etc_ro/ss_ip.sh ] ; then
-        if [ $(nvram get ss_enable) = 1 ] && [ $(nvram get ss_run_mode) = "router" ] && [ $(nvram get pdnsd_enable) = 0 ] ; then
+Check_ss()
+{
+    if [ -s /etc_ro/ss_ip.sh ]; then
+        smartdns_nvram_read_checked ss_enable || return $?
+        ss_enable=$smartdns_nvram_value
+        smartdns_nvram_read_checked ss_run_mode || return $?
+        ss_run_mode=$smartdns_nvram_value
+        smartdns_nvram_read_checked pdnsd_enable || return $?
+        pdnsd_enable=$smartdns_nvram_value
+        if [ "$ss_enable" = 1 ] && [ "$ss_run_mode" = "router" ] && [ "$pdnsd_enable" = 0 ]; then
             logger -t "SmartDNS" "系统检测到 SS 模式为绕过大陆模式，并且启用了 pdnsd 请先调整 SS 解析使用 SmartDNS +手动配置模式！程序将退出..."
             nvram set sdns_enable=0
             exit 0
         fi
     fi
+    return 0
 }
 
 Get_sdns_conf () {
@@ -275,7 +331,7 @@ Get_sdns_conf () {
     echo "speed-check-mode $sdns_speed_mode" >> "$smartdns_tmp_Conf"
     if [ "$sdns_ip_change" -eq 1 ] ;then
         echo "dualstack-ip-selection yes" >> "$smartdns_tmp_Conf"
-        echo "dualstack-ip-selection-threshold $(nvram get sdns_ip_change_time)" >> "$smartdns_tmp_Conf"
+        echo "dualstack-ip-selection-threshold $sdns_ip_change_time" >> "$smartdns_tmp_Conf"
     elif [ "$sdns_force_aaaa_soa" -eq 1 ] ;then
         echo "force-AAAA-SOA yes" >> "$smartdns_tmp_Conf"
     fi
@@ -314,20 +370,39 @@ Get_sdns_conf () {
         echo "conf-file /tmp/anti-ad-for-smartdns.conf" >> "$smartdns_tmp_Conf"
     fi
     echo "log-level error" >> "$smartdns_tmp_Conf"
-    listnum=$(nvram get sdns_staticnum_x)
-    for i in $(seq 1 "$listnum")
-    do
-        j=$(expr "$i" - 1)
-        sdnss_enable=$(nvram get sdnss_enable_x"$j")
-        if  [ "$sdnss_enable" -eq 1 ] ; then
-            sdnss_name=$(nvram get sdnss_name_x"$j")
-            sdnss_ip=$(nvram get sdnss_ip_x"$j")
-            sdnss_port=$(nvram get sdnss_port_x"$j")
-            sdnss_type=$(nvram get sdnss_type_x"$j")
-            sdnss_ipc=$(nvram get sdnss_ipc_x"$j")
-            sdnss_named=$(nvram get sdnss_named_x"$j")
-            sdnss_non=$(nvram get sdnss_non_x"$j")
-            sdnss_ipset=$(nvram get sdnss_ipset_x"$j")
+    smartdns_nvram_read_checked sdns_staticnum_x || return $?
+    listnum=$smartdns_nvram_value
+    case "$listnum" in
+        '') listnum=0 ;;
+        *[!0-9]*) return 1 ;;
+    esac
+    while [ "${listnum#0}" != "$listnum" ]; do
+        listnum=${listnum#0}
+    done
+    [ -n "$listnum" ] || listnum=0
+    [ "${#listnum}" -le 2 ] && [ "$listnum" -le 64 ] 2>/dev/null || return 1
+    j=0
+    while [ "$j" -lt "$listnum" ]; do
+        smartdns_nvram_read_checked "sdnss_enable_x$j" || return $?
+        sdnss_enable=$smartdns_nvram_value
+        case "$sdnss_enable" in
+        1)
+            smartdns_nvram_read_checked "sdnss_name_x$j" || return $?
+            sdnss_name=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_ip_x$j" || return $?
+            sdnss_ip=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_port_x$j" || return $?
+            sdnss_port=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_type_x$j" || return $?
+            sdnss_type=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_ipc_x$j" || return $?
+            sdnss_ipc=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_named_x$j" || return $?
+            sdnss_named=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_non_x$j" || return $?
+            sdnss_non=$smartdns_nvram_value
+            smartdns_nvram_read_checked "sdnss_ipset_x$j" || return $?
+            sdnss_ipset=$smartdns_nvram_value
             ipc=""
             named=""
             non=""
@@ -366,10 +441,9 @@ Get_sdns_conf () {
                     echo "server-https $sdnss_ip:443 $ipc $named $non" >> "$smartdns_tmp_Conf"
                 else
                     echo "server-https $sdnss_ip:$sdnss_port $ipc $named $non" >> "$smartdns_tmp_Conf"
-                fi    
+                fi
             fi
             if [ "$sdnss_ipset"x != x ] ; then
-                # 调用 check_ip_Addr 函数，检测 ip 是否合规
                 Check_ip_addr "$sdnss_ipset"
                 if [ "$?" = "1" ] ;then
                     echo "ipset /$sdnss_ipset/smartdns" >> "$smartdns_tmp_Conf"
@@ -377,7 +451,11 @@ Get_sdns_conf () {
                     ipset add smartdns "$sdnss_ipset" 2>/dev/null
                 fi
             fi
-        fi
+            ;;
+        ''|0) ;;
+        *) return 1 ;;
+        esac
+        j=$((j + 1))
     done
     if [ "$sdns_white" = "1" ] && [ -f "$chn_Route" ] ; then
         :>/tmp/whitelist.conf
@@ -535,9 +613,8 @@ Start_AD () {
         logger -t "SmartDNS" "无法创建广告过滤下载文件，跳过广告过滤"
         return 1
     }
-    _smartdns_adblock_url=$(nvram get sdns_adblock_url)
-    if [ -z "$_smartdns_adblock_url" ] ||
-        ! curl -fsS -o "$_smartdns_adblock_download" --connect-timeout 10 --retry 3 "$_smartdns_adblock_url"; then
+    if [ -z "$sdns_adblock_url" ] ||
+        ! curl -fsS -o "$_smartdns_adblock_download" --connect-timeout 10 --retry 3 "$sdns_adblock_url"; then
         logger -t "SmartDNS" "广告过滤文件下载失败，继续使用空过滤列表"
         rm -f "$_smartdns_adblock_download"
         return 1
@@ -1042,8 +1119,10 @@ Main () {
         if [ ! -s "$smartdns_Ini" ] ; then
             logger -t "SmartDNS" "SmartDNS 正在启动..."
         fi
-        Check_ss
-        if [ "$(nvram get sdns_adblock)" = "1" ]; then
+        Check_ss || return $?
+        if [ "$sdns_adblock" = "1" ]; then
+            smartdns_nvram_read_checked sdns_adblock_url || return $?
+            sdns_adblock_url=$smartdns_nvram_value
             Start_AD
         fi
         Start_smartdns
@@ -1076,13 +1155,22 @@ Main () {
             fi
             return 0
         fi
-        if [ "$(nvram get adbyby_enable)" = "1" ] ; then
-            [ "$(nvram get adbyby_add)" = "1" ] && hosts_type="SmartDNS"
-            [ "$(nvram get adbyby_add)" = "0" ] && hosts_type="DNSmasq"
-        else
-            hosts_type="0"
-        fi
-        Check_ss
+        smartdns_nvram_read_checked adbyby_enable || return $?
+        adbyby_enable=$smartdns_nvram_value
+        case "$adbyby_enable" in
+            1)
+                smartdns_nvram_read_checked adbyby_add || return $?
+                adbyby_add=$smartdns_nvram_value
+                case "$adbyby_add" in
+                    1) hosts_type="SmartDNS" ;;
+                    0) hosts_type="DNSmasq" ;;
+                    *) return 22 ;;
+                esac
+                ;;
+            ''|0) hosts_type="0" ;;
+            *) return 22 ;;
+        esac
+        Check_ss || return $?
         Start_smartdns
         start_status=$?
         if [ "$start_status" -ne 0 ]; then
@@ -1113,6 +1201,14 @@ trap 'smartdns_lifecycle_lock_release >/dev/null 2>&1 || :' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+if smartdns_load_runtime_nvram_state; then
+    :
+else
+    smartdns_runtime_nvram_status=$?
+    logger -t "SmartDNS" "SmartDNS runtime NVRAM snapshot failed before lifecycle transition (status=$smartdns_runtime_nvram_status)"
+    exit "$smartdns_runtime_nvram_status"
+fi
 
 if Read_ini; then
     Main
