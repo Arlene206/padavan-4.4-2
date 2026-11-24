@@ -1703,6 +1703,11 @@ assert kernel_timezone.index("settimeofday(tvp, &tz)") < kernel_timezone.index(
     "rc_timezone_kernel_cache_status("
 )
 assert "tz_minuteswest_last = tz.tz_minuteswest" not in kernel_timezone
+assert "static int tz_minuteswest_valid = 0;" in kernel_timezone
+assert "rc_timezone_kernel_cache_needs_update(" in kernel_timezone
+assert "tz_minuteswest_valid = 1;" in kernel_timezone
+assert "rc_timezone_kernel_cache_needs_update(int cache_valid" in timezone_policy
+assert "test_cache_validity_does_not_collide_with_negative_one_offset();" in timezone_test
 assert "cannot update kernel timezone" in kernel_timezone
 timezone_policy = (root / "trunk/user/rc/src/timezone_env_policy.h").read_text()
 timezone_test = (root / "trunk/user/rc/src/tests/timezone_env_policy.c").read_text()

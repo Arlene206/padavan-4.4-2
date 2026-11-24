@@ -1374,7 +1374,8 @@ setkernel_tz(void)
 	struct tm gm, local;
 	struct timezone tz;
 	struct timeval *tvp = NULL;
-	static int tz_minuteswest_last = -1;
+	static int tz_minuteswest_last;
+	static int tz_minuteswest_valid = 0;
 	int syscall_status, saved_errno, status;
 
 	/* Update kernel timezone; fail instead of using uninitialized tm values. */
@@ -1433,7 +1434,9 @@ setkernel_tz(void)
 
 	tz.tz_minuteswest = (int)((gm_time - local_time) / 60);
 
-	if (tz_minuteswest_last == tz.tz_minuteswest)
+	if (!rc_timezone_kernel_cache_needs_update(
+		    tz_minuteswest_valid, tz_minuteswest_last,
+		    tz.tz_minuteswest))
 		return 0;
 
 	/*
@@ -1451,6 +1454,8 @@ setkernel_tz(void)
 		logmessage(LOGNAME,
 			   "cannot update kernel timezone (minuteswest=%d, status=%d)",
 			   tz.tz_minuteswest, status);
+	} else {
+		tz_minuteswest_valid = 1;
 	}
 	return status;
 }

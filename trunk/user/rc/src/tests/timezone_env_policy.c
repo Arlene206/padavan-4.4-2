@@ -81,6 +81,14 @@ test_time_conversion_failures_have_deterministic_status(void)
 }
 
 static void
+test_cache_validity_does_not_collide_with_negative_one_offset(void)
+{
+	assert(rc_timezone_kernel_cache_needs_update(0, 0, -1));
+	assert(!rc_timezone_kernel_cache_needs_update(1, -1, -1));
+	assert(rc_timezone_kernel_cache_needs_update(1, -1, 0));
+}
+
+static void
 test_kernel_timezone_cache_changes_only_after_success(void)
 {
 	int cached_minuteswest = 60;
@@ -107,6 +115,7 @@ main(void)
 	test_invalid_read_results_and_present_null_are_rejected();
 	test_timezone_length_boundary_is_checked_without_truncation();
 	test_time_conversion_failures_have_deterministic_status();
+	test_cache_validity_does_not_collide_with_negative_one_offset();
 	test_kernel_timezone_cache_changes_only_after_success();
 	puts("RC timezone environment checked-read policy: PASS");
 	return 0;

@@ -70,4 +70,15 @@ rc_timezone_conversion_status(int conversion_succeeded, int saved_errno)
 	return saved_errno > 0 ? saved_errno : EOVERFLOW;
 }
 
+/*
+ * A numeric offset alone cannot represent whether the kernel cache has ever
+ * been initialized: -1 is a valid timezone offset. Track validity separately.
+ */
+static inline int
+rc_timezone_kernel_cache_needs_update(int cache_valid, int cached_minuteswest,
+                                      int requested_minuteswest)
+{
+	return !cache_valid || cached_minuteswest != requested_minuteswest;
+}
+
 #endif /* TIMEZONE_ENV_POLICY_H */
