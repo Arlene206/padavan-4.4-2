@@ -1,3 +1,10 @@
+## 2026-11-24 — Correct staging-helper source contract formatting
+
+- Exact-head libdisk run `45458316166` on `2d8f56d3fc5fea4ab29722e781591646e5278de2` passed both GNU89 ASan/UBSan host test executables and then failed the static staging check. The checker searched for a whitespace-free call string in the raw C source, while the real call is intentionally line-wrapped; the dedicated extracted-function/whitespace-normalized check already validates the exact descriptor-relative helper call.
+- Replaced the raw formatting-sensitive assertion with a symbol-presence check, retaining the function-level semantic assertion. No production C source changed; exact-head verification is required.
+
+---
+
 ## 2026-11-24 — Validate the no-follow reader split after descriptor pinning
 
 - Exact-head libdisk run `45457952519` on `88c485d15624e6decffc8b09f34cf5c39318e586` passed both GNU89 ASan/UBSan binaries, then the static checker failed because it searched for the old inline pathname-reader body in `disk_io_tools.c`. The implementation now separates `read_regular_file_nofollow_at(parent_fd, leaf)` from a small path wrapper; the checker now validates the descriptor-relative `openat`/regular-file/stream path and the wrapper's pinned-parent delegation/cleanup. It also explicitly requires the mount-replacement regression for the pinned helper.

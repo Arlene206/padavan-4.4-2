@@ -1227,7 +1227,7 @@ require(add_inventory < add_begin < add_validate < add_lookup < add_mkdir <
 require("disk_share_reserve_staging_directory" in POLICY and
         "EEXIST" in POLICY and
         "disk_share_mkdir_staging_directory" in DISK_SOURCE and
-        "disk_share_create_directory_entry_nofollow(directory_fd,leaf,0700)" in DISK_SOURCE and
+        "disk_share_create_directory_entry_nofollow" in DISK_SOURCE and
         "mkdir(path, 0700)" not in DISK_SOURCE and
         "disk_share_remove_folder_path(staging_dir)" in DISK_SOURCE,
         "folder deletion must reserve, create and remove its staging parent through pinned directory descriptors")
