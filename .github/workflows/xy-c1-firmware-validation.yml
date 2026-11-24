@@ -224,6 +224,8 @@ on:
       - "trunk/linux-4.4.x/drivers/usb/serial/Makefile"
       - "trunk/linux-4.4.x/drivers/usb/serial/option.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/tests/ioctl_access_policy.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/ioctl_mt762x.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mtk_esw/mib_snapshot_policy.h"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/mii_mgr.c"

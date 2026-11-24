@@ -619,7 +619,7 @@ static int show_vlan_pvid_wan(void)
 
 int mtk_esw_node(void)
 {
-	return mknod(MTK_ESW_DEVPATH, S_IFCHR | 0666, makedev(MTK_ESW_DEVMAJOR, 0));
+	return mknod(MTK_ESW_DEVPATH, S_IFCHR | 0600, makedev(MTK_ESW_DEVMAJOR, 0));
 }
 
 static int

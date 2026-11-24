@@ -2,6 +2,9 @@
  * switch control IOCTL implementation (common code)
  */
 
+#include <linux/capability.h>
+#include "ioctl_access_policy.h"
+
 ////////////////////////////////////////////////////////////////////////////////////
 
 extern void (*esw_link_status_hook)(u32 port_id, int port_link);
@@ -49,6 +52,7 @@ static void fill_bridge_members(void)
 static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg)
 {
 	int ioctl_result = 0;
+	int access_status;
 	int power_changed = 0;
 	u32 uint_value = 0;
 	u32 uint_result = 0;
@@ -57,6 +61,10 @@ static long mtk_esw_ioctl(struct file *file, unsigned int req, unsigned long arg
 
 	unsigned int uint_param = (req >> MTK_ESW_IOCTL_CMD_LENGTH_BITS);
 	req &= ((1u << MTK_ESW_IOCTL_CMD_LENGTH_BITS)-1);
+
+	access_status = mtk_esw_ioctl_access_status(capable(CAP_NET_ADMIN));
+	if (access_status != 0)
+		return access_status;
 
 	mutex_lock(&esw_access_mutex);
 
