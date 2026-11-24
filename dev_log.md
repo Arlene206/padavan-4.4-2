@@ -1,3 +1,10 @@
+## 2026-11-24 — Remove obsolete duplicate metadata-rebuild checker
+
+- Exact-head libdisk run `45461771046` on `572ec294eeae01befe36684ed7ab3102b9430e21` passed both GNU89 ASan/UBSan executables, then a second, older static-check block failed by requiring pathname-based ACL writes. The same checker already contains the newer descriptor-pinned contract immediately above it; the duplicate stale block was removed so the current single-FD implementation is checked once.
+- Product source unchanged. Re-run libdisk against this exact new SHA; XY-C1 firmware build for the prior SHA was still running when last polled.
+
+---
+
 ## 2026-11-24 — Place rollback ACL updater before its caller
 
 - The exact-head libdisk workflow `45461428507` passed both GNU89 ASan/UBSan binaries, then the source checker selected a forward declaration of `disk_share_update_folder_permission_file()` and parsed the following function instead of its implementation. Moved the descriptor-relative updater body ahead of `add_folder()` and removed the prototype/duplicate trailing body, preserving the same code while making the checker bind to the real definition.

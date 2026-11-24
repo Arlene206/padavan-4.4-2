@@ -677,56 +677,6 @@ require("strcmp(account,FTP_ANONYMOUS_USER)==0" in stale_pruner_compact and
         'strcmp(entry->d_name,".__folder_list.txt")' not in stale_pruner_compact,
         "metadata cleanup must preserve anonymous and active accounts, and remove only orphaned account files after rebuild")
 
-metadata_rebuild = function_body(
-    DISK_SOURCE,
-    "int initial_all_var_file_in_mount_path(const char *const mount_path)"
-)
-metadata_rebuild_compact = "".join(metadata_rebuild.split())
-metadata_inventory = metadata_rebuild_compact.index(
-    "get_account_list(&acc_num,&account_list)"
-)
-anonymous_path_preflight = metadata_rebuild_compact.index(
-    "disk_share_format_account_var_path(var_file,sizeof(var_file),mount_path,FTP_ANONYMOUS_USER)",
-    metadata_inventory
-)
-account_path_preflight = metadata_rebuild_compact.index(
-    "for(i=0;i<acc_num;++i){", anonymous_path_preflight
-)
-metadata_begin = metadata_rebuild_compact.index(
-    "disk_share_account_nvram_begin(&transaction)", account_path_preflight
-)
-metadata_validate = metadata_rebuild_compact.index(
-    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
-    metadata_begin
-)
-anonymous_write = metadata_rebuild_compact.index(
-    "initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)",
-    metadata_validate
-)
-account_write = metadata_rebuild_compact.index(
-    "initial_one_var_file_in_mount_path_locked(account_list[i],mount_path)",
-    anonymous_write
-)
-snapshot_publish = metadata_rebuild_compact.index(
-    "initial_folder_list_in_mount_path(mount_path)", account_write
-)
-stale_prune = metadata_rebuild_compact.index(
-    "remove_stale_share_var_files(mount_path,acc_num,account_list)",
-    snapshot_publish
-)
-inventory_free = metadata_rebuild_compact.index(
-    "free_2_dimension_list(&acc_num,&account_list)", stale_prune
-)
-metadata_release = metadata_rebuild_compact.index(
-    "disk_share_account_nvram_end(&transaction)", inventory_free
-)
-require(metadata_inventory < anonymous_path_preflight < account_path_preflight <
-        metadata_begin < metadata_validate < anonymous_write < account_write <
-        snapshot_publish < stale_prune < inventory_free < metadata_release and
-        "initial_one_var_file_in_mount_path_locked(FTP_ANONYMOUS_USER,mount_path)" in metadata_rebuild_compact,
-        "full metadata rebuild must preflight one checked account inventory, serialize ACL writes, publish folder snapshot before stale pruning, and release the NVRAM lease")
-
-
 require("#include <errno.h>" in DISK_IO_SOURCE,
         "disk_io_tools.c must include errno definitions")
 
