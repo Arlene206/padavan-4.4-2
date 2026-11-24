@@ -1,3 +1,10 @@
+## 2026-11-24 — Reduce Roadmap size and preserve current LAN DHCP state
+
+- AI handoff runs #45323474834 (`5df6be1`) and #45323579867 (`24d204e`) both failed solely because `REFACTOR_ROADMAP.md` was 132159 UTF-8 bytes vs the 131072-byte hard ceiling.
+- Condensed the LAN DHCP/AP-mode lease row into the implemented behaviors, remaining protocol gaps and exact verification requirements. The core fail-closed BOUND/RENEW transaction, AP host/alias handling, networkmap retry and DHCP-first shutdown state remain represented; historical per-commit details already live in `dev_log.md`.
+- Parent main: `24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6`; compacted Roadmap now measures 128495 UTF-8 bytes. Exact-SHA AI handoff rerun required.
+
+---
 ## 2026-11-24 — Fix the metadata test fixture selected by lifecycle integration
 
 - Process lifecycle run #45323274944 on `017ffdf4` advanced through the C and ASan/UBSan regressions, then failed at `check_process_lifecycle_integration.py`: the assertion for `metadata_policy_rejects_unsafe_files` inspected `shared_pidfile_test`, which is the parser test in `src/tests/`, not the metadata test.

@@ -1,11 +1,12 @@
 ## 2026-11-24 持续开发接力（最新）
-## 2026-11-24 — 最新 exact-SHA 状态
+## 2026-11-24 — 最新验证状态
 
-- 当前 main 基线：`5df6be1d45a53c76f9a20ffa524dd4480be65f67`；归档备份仍只读，SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`。
-- `017ffdf4` 补齐 PID metadata header include、process contract 与 XY-C1 header path。该 SHA AI docs #45323274999 PASS、legacy wrapper #45323275091 PASS、process inventory #45323275034 PASS；XY-C1 #45323275097 已触发；process lifecycle #45323274944 失败于最后的 integration checker。
-- 失败根因已定位：checker 把 `metadata_policy_rejects_unsafe_files` 错误地在 parser-only `src/tests/shutils_pidfile_policy.c` 中查找；实际 owner/link/mode 用例在 `trunk/user/shared/tests/shutils_pidfile_open.c`。当前源码提交只修正测试夹具绑定，不改生产逻辑。
-- 并行 RAETH commit `f7bd670c88520298c8c4628b1ff06e0c95251f12` 为 pseudo interface 未注册/初始化的 close 路径加空指针保护；Switch CLI #45323341869 PASS，XY-C1 #45323341920 和 NVRAM #45323341860 当时仍运行。
-- `5df6be1` 是 RAETH handoff-only commit；其 AI docs #45323474834 正在运行。没有本轮 XY-C1 build/TRX/artifact 或硬件 L4 结果可宣称。
+- 当前 main 基线：`24d204e991e1ea1b2f1d1af6bb1c96d327e37ca6`；冻结备份 `backup/pre-plugin-overhaul-2026-11-14` 仍为 `72f4f157a084f8184b9597ca5bf334b8080e5807`，保持只读。
+- `017ffdf4` 的 AI docs #45323274999、legacy wrapper #45323275091、process inventory #45323275034 PASS；XY-C1 #45323275097 仍 IN_PROGRESS。Process lifecycle #45323274944 失败于 metadata test marker 指向错误 fixture。
+- 修正后的 fixture 绑定已在 `24d204e`。该 SHA 的 Process lifecycle #45323579958 正在运行，前段 C/ASan/UBSan 与多个生命周期回归已 PASS；尚未观察最终 integration checker 结论。
+- `24d204e` AI handoff #45323579867 失败原因是 Roadmap 132159 bytes 超过 131072 上限；本提交压缩 LAN DHCP 行并将 Roadmap 降至 ${roadmapBytes} bytes，需由新 exact-SHA validator 确认。
+- 并行 RAETH `f7bd670` 的 Switch CLI #45323341869 PASS、NVRAM #45323341860 PASS；XY-C1 #45323341920 仍 IN_PROGRESS。`5df6be1` AI docs #45323474834 也因同一 Roadmap byte limit 失败。
+- 所有 Actions 状态按精确 SHA 记录；当前没有可宣称的同 SHA 固件 Build/TRX/artifact 完成或硬件 L4 结果。
 
 <!-- 2026-11-23 RAETH CONTINUATION SNAPSHOT -->
 ## 2026-11-23 — RAETH continuation snapshot
@@ -57,9 +58,7 @@ Verification boundary: no local MIPS firmware build was run from this chat. Trea
 - Backup branch remains read-only; no XY-C1 build/TRX/artifact result or physical-router L4 result is claimed.
 ## Active task
 
-Verify process lifecycle integration on the exact SHA after loading the metadata cases from `trunk/user/shared/tests/shutils_pidfile_open.c`. In parallel inspect the triggered XY-C1 Build → TRX verification → artifact and the current RAETH/NVRAM actions. Continue independent source work while checks are pending.
-
-Verify the process lifecycle integration contract and strict-GNU89 PID metadata regression on the new exact SHA. Confirm the XY-C1 workflow is triggered by the policy-header path and follow its Build → TRX verification → artifact upload. Continue an independent stability/security fix while any jobs remain pending.
+Confirm `24d204e` Process lifecycle integration passes with the metadata fixture from `trunk/user/shared/tests/shutils_pidfile_open.c`, and rerun the AI handoff contract after shrinking the LAN DHCP Roadmap row. Continue independent stability/security work while XY-C1 firmware jobs remain pending.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -88,17 +87,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- `017ffdf4` AI docs #45323274999, legacy PID-file #45323275091 and process inventory #45323275034 PASS.
-- `017ffdf4` process lifecycle #45323274944 passed the standalone C/ASan stages and failed only at integration source assertion: metadata test marker was read from the parser fixture instead of `shutils_pidfile_open.c`.
-- `017ffdf4` XY-C1 #45323275097 was triggered by the newly added policy-header path; last seen IN_PROGRESS.
-- RAETH pseudo-interface close guard on `f7bd670` has Switch CLI #45323341869 PASS; XY-C1 #45323341920 and NVRAM #45323341860 were pending on that SHA. AI docs #45323474834 was pending on `5df6be1`.
-- No same-SHA firmware TRX/artifact or physical-router L4 result is claimed.
-## Exact first action for the next GPT
+- `017ffdf4` AI docs #45323274999, legacy PID-file #45323275091 and process inventory #45323275034 PASS; XY-C1 #45323275097 IN_PROGRESS at last poll.
+- `24d204e` contains the corrected metadata-test fixture source binding. Process lifecycle #45323579958 was IN_PROGRESS, with all completed earlier regression steps PASS; final integration step not yet observed.
+- AI handoff #45323579867 failed because `REFACTOR_ROADMAP.md` measured 132159 bytes vs 131072. This commit compacts the LAN DHCP status row to 128495 bytes total; a new exact-SHA docs check is required.
+- RAETH `f7bd670`: Switch CLI #45323341869 PASS, NVRAM #45323341860 PASS, XY-C1 #45323341920 IN_PROGRESS. No firmware TRX/artifact or physical ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-SHA process lifecycle, legacy wrapper, process inventory, AI docs, XY-C1 and NVRAM results.
-2. Confirm `check_process_lifecycle_integration.py` loads `shutils_pidfile_open.c` for the metadata policy test marker while retaining parser tests in `src/tests/shutils_pidfile_policy.c`.
-3. Confirm XY-C1 completed Build → TRX verification → artifact upload for the triggered source SHA; record run ID and individual job states.
-4. Continue a new independent stability/security fix while any jobs remain pending. Keep backup read-only and preserve the Roadmap size ceiling.
+1. Fetch live `main`; inspect exact-SHA Process lifecycle and AI handoff runs for the checker-fixture and Roadmap-size follow-up.
+2. Confirm process integration reads metadata cases from `trunk/user/shared/tests/shutils_pidfile_open.c` and that all GNU89/ASan/UBSan tests complete successfully.
+3. Confirm the AI documentation contract accepts the compact Roadmap below 131072 UTF-8 bytes.
+4. Continue exact-SHA XY-C1 Build → TRX → artifact verification for the latest product source commit; keep backup read-only and continue independent fixes while pending.
 
 # Cross-session execution mandate
 
