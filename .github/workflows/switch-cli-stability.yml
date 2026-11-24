@@ -1706,7 +1706,8 @@ jobs:
           frame_guard = probe.index("if (IS_ERR(ethdma_frame_engine_base))", frame_map)
           frame_failure = probe.index("ret = PTR_ERR(ethdma_frame_engine_base);", frame_guard)
           assert frame_map < frame_guard < frame_failure
-          assert "goto err_free_dev;" in probe[frame_guard:frame_failure + 120]
+          frame_rollback = probe.index("goto err_free_dev;", frame_failure)
+          assert frame_map < frame_guard < frame_failure < frame_rollback
           assert "if (!ethdma_frame_engine_base)" not in probe
           assert "if (!ethdma_mac_base)" in probe
           assert "ret = ei_clock_enable(ei_local);" in probe

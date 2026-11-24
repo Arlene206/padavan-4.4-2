@@ -1,3 +1,10 @@
+## 2026-11-24 — Fix the RAETH frame-engine rollback source assertion
+
+- The exact Switch CLI run #45314640982 on `2391437add2f2d614accc3264ec3e6d83b13d238` failed in the RAETH probe/MMIO source-contract step, not in compilation or the descriptor work. The code correctly checks `IS_ERR(ethdma_frame_engine_base)`, obtains `PTR_ERR`, logs it, and jumps to `err_free_dev`.
+- The checker incorrectly required `goto err_free_dev;` to occur within 120 characters after `PTR_ERR`. The intervening `dev_err()` line made that arbitrary text window too short. Replaced it with an ordered lookup of the rollback jump after the PTR_ERR assignment; this still verifies failure propagation without depending on formatting.
+- On parent `2391437...`: AI handoff #45314640970 **PASS**, NVRAM #45314641002 **PASS**, XY-C1 #45314641044 was **IN_PROGRESS** at last poll. New exact-head Switch CLI is required. No L3 claim is made for this parent until XY-C1 completes.
+
+---
 ## 2026-11-24 — Restore ERR_PTR handling for the RAETH frame-engine mapping
 
 - The exact main commit `f44888c6103f2ff3bf0712b4d1bb38eb683fc331` changed the failure check for `devm_ioremap_resource()` from `IS_ERR()/PTR_ERR()` to a NULL check. Linux 4.4's `lib/devres.c` documents and implements this API as returning an `ERR_PTR()` on failure; an error pointer is non-NULL and would have passed the new guard into later MMIO use.

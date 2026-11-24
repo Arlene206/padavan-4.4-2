@@ -1,12 +1,12 @@
-## 2026-11-23 持续开发接力（最新）
+## 2026-11-24 持续开发接力（最新）
 
-- 本次修复的父提交 `8855dff9d6e23b00e6922f242d64a36764615b01`；备份分支 `backup/pre-plugin-overhaul-2026-11-14` 保持只读，SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`。
-- RAETH compile-integrity checker 修复 `828c5bac2fec6e110188615d0ae9ec0984501b84`：Switch CLI #45313956637 **PASS**，覆盖 `static int fe_chip_name_config()` 唯一定义扫描及 DT selector/probe 错误传播契约。
-- AliyunDrive #45313731223（源 SHA `564c4c2`）的 CLI/QEMU 和全部 shell lifecycle regression（含新启动实例 HTTP 503 后 TERM 清理）均通过；失败发生在 Python 源码契约检查器，其仍断言旧错误文案。THIS COMMIT 已将契约改为匹配当前测试的 probe 上下界、完整等待、单次 TERM、无 KILL、marker 清理和诊断文案。新 SHA 的 lifecycle Actions 尚待验证。
-- RAETH selector 生产修复 `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`：AI #45313243914 与 NVRAM #45313243814 **PASS**；XY-C1 #45313243920 最近仍为 **IN_PROGRESS**。不能用更早的 `dd0b374` 构建成功替代该 SHA 的产品构建。
-- XY-C1 L3 已在 `dd0b374694cf9d1e99ca65c8b35fa53b482d377b` 验证：Build、TRX 和 artifact 上传成功，artifact #14884935723，SHA-256 `fe89a388f85d0487f26be72a609cd430b1bd72c94ca569dacd0c956cb3f99c12`。此结果仅属于 `dd0b374`。
-- 第一项后续：检查本提交 exact-SHA AliyunDrive lifecycle 与 AI handoff Actions；然后核对 `7f7aee3` 的 XY-C1 构建最终状态。之后处理 RAETH `fe_tx_rx_dec()` 未检查 DT 属性读取和 `kmalloc_array()` 失败的分配/清理路径。
-- 所有 CI 状态必须附带实际 HEAD SHA；PENDING 不算 PASS。备份分支不修改，不做 force push。
+- 本次 checker 修复父提交 `2391437add2f2d614accc3264ec3e6d83b13d238`；归档备份保持只读：`72f4f157a084f8184b9597ca5bf334b8080e5807`。
+- `2391437` 中 `devm_ioremap_resource()` 已正确使用 `IS_ERR/PTR_ERR`，AI handoff #45314640970 和 NVRAM #45314641002 **PASS**；XY-C1 #45314641044 **IN_PROGRESS**。
+- Switch CLI #45314640982 **FAIL** 的唯一首个错误是工作流源码契约中 `goto err_free_dev` 的固定 120 字符窗口过短；源码本身已正确执行 PTR_ERR 后跳转。THIS COMMIT 改为按顺序定位跳转，精确 SHA rerun 待确认。
+- AliyunDrive lifecycle #45314283222 和 AI handoff #45314283215 在 `c8800bfe` **PASS**。
+- XY-C1 L3 Build/TRX/artifact 仅在 `dd0b374` 完成（artifact #14884935723）；不继承到后续 SHA。
+- 下一步继续 RAETH `fe_tx_rx_dec()` DT 属性校验与数组分配失败回滚，完成 C regression 和 exact-SHA build。
+
 
 ---
 
@@ -14,15 +14,14 @@
 
 ## Current repository state
 
-- Parent main for the AliyunDrive static-contract fix: `8855dff9d6e23b00e6922f242d64a36764615b01`; backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- RAETH checker repair `828c5bac2fec6e110188615d0ae9ec0984501b84`: Switch CLI #45313956637 **PASS**.
-- AliyunDrive lifecycle #45313731223 on `564c4c` passed bundled CLI compatibility and all shell lifecycle cases, including HTTP-503 newly launched daemon cleanup, but failed in the Python checker due to obsolete expected text. THIS COMMIT updates the static contract; exact rerun required.
-- RAETH selector change `7f7aee3b5df94c6996743e58834ee2ec4d67eafd`: AI #45313243914 and NVRAM #45313243814 **PASS**; Switch CLI #45313244038 was a checker false-failure superseded by #45313956637 on later HEAD; XY-C1 #45313243920 was **IN_PROGRESS** at last poll.
-- XY-C1 L3 build/TRX/artifact is complete only for `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`, artifact #14884935723 with SHA-256 `fe89a388f85d0487f26be72a609cd430b1bd72c94ca569dacd0c956cb3f99c12`.
+- Parent main for this rollback-contract correction: `2391437add2f2d614accc3264ec3e6d83b13d238`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent Switch CLI #45314640982 **FAIL** only because the workflow searched `goto err_free_dev;` inside a fixed 120-character suffix after `PTR_ERR`; the source already contains a `dev_err()` between them. This commit replaces the brittle window with a positional order assertion.
+- Parent AI #45314640970 **PASS**, NVRAM #45314641002 **PASS**, XY-C1 #45314641044 **IN_PROGRESS** at last observation.
+- AliyunDrive lifecycle #45314283222 and AI #45314283215 on `c8800bfe` **PASS**.
 
 ## Active task
 
-Verify the AliyunDrive lifecycle regression and corrected Python source-contract checker on this commit's exact SHA. Confirm the HTTP-503 newly launched child reaches bounded TERM cleanup, with no KILL and no remaining process marker. Separately poll XY-C1 #45313243920 only for product source `7f7aee3`; do not transfer the earlier `dd0b374` L3 result.
+Check the corrected RAETH rollback source contract on this commit's exact Switch CLI SHA. Then proceed with the `fe_tx_rx_dec()` DT-property and allocation failure slice; do not reuse any older firmware result as proof for new source.
 
 ## Completed development slices
 
@@ -52,15 +51,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- RAETH checker repair #45313956637 on `828c5bac2fec6e110188615d0ae9ec0984501b84`: **PASS**.
-- AliyunDrive #45313731223 on `564c4c`: bundled CLI and shell lifecycle tests **PASS**; Python static contract **FAIL** due to obsolete expected fixture string. THIS COMMIT corrects the contract; no Aliyun lifecycle PASS is claimed yet.
-- XY-C1 #45313243920 on `7f7aee3` was **IN_PROGRESS** at last check. L3 Build/TRX/artifact success is confirmed only on `dd0b374`, artifact #14884935723. No L4 router validation is claimed.
+- Parent `2391437`: AI #45314640970 **PASS**, NVRAM #45314641002 **PASS**, Switch CLI #45314640982 **FAIL** at fixed rollback-window assertion, XY-C1 #45314641044 **IN_PROGRESS**.
+- This commit changes only workflow assertion/docs; exact-head Switch CLI not yet verified.
+- L3 remains confirmed only for `dd0b374` artifact #14884935723.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-SHA AliyunDrive lifecycle and AI handoff Actions; separate shell test output from Python contract checker.
-2. Poll XY-C1 #45313243920 on `7f7aee3` and confirm Build/TRX/artifact on that exact source SHA before L3 claims.
-3. Continue with RAETH `fe_tx_rx_dec()` DT-property validation and checked partial-allocation cleanup. Keep archival backup unchanged.
+1. Inspect this commit's exact-push Switch CLI and AI handoff Actions. Verify the rollback step reaches PASS.
+2. Check XY-C1 #45314641044 on parent `2391437` and attribute it only to that SHA.
+3. Continue with RAETH descriptor configuration validation/allocation cleanup and its host regression; keep backup read-only.
 
 
 # Cross-session execution mandate
