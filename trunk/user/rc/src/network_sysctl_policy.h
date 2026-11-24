@@ -50,6 +50,10 @@ rc_network_sysctl_parse_syncookies_status(int read_result, int read_errno,
 		return 0;
 	}
 
+	/* strtol() otherwise accepts leading whitespace and an optional sign. */
+	if (value[0] < '0' || value[0] > '9')
+		return EINVAL;
+
 	{
 		char *end;
 		long parsed_value;

@@ -1,28 +1,26 @@
 ## Current repository state
 
-- Active branch: `main`; source parent for EPSV ALL fix: `5a7500ed1f2902f57b7faedec82fa87c587944a2`. Re-fetch live main/tree before every write.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
-- MTK AP private-ioctl safety L3 verified on `d33fcf0`; MTK/NVRAM/AI/XY-C1 exact-SHA checks passed Build/TRX/artifact. HTTPD selector L3 verified on `659b91b`; HTTPD/AI/Process/XY-C1 passed Build/TRX/artifact.
-- WAN source PHY range guard L3 verified on production SHA `d3733ec`; XY-C1 #45390205170 passed Build/TRX/artifact. WAN first-sample UNKNOWN guard on `18af4fb`: detect-link #45392147396, AI #45392146896, Process #45392147378, HTTPD security #45392147738, NVRAM #45392147111 and USB WDM #45392146933 PASS; XY-C1 #45392147184 was building at last poll.
-- VSFTPD hidden-share path fix is on `5a7500e`; VSFTPD #45392889702, AI #45392889910 and Process #45392889923 PASS; XY-C1 #45392889756 was building and NVRAM #45392889664 pending at last poll. Physical L4 remains unverified.
+- Active branch: `main`; parent for this slice: `aa3d55bf141f88590c6b675d09ff28c51eb0e6ce`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- MTK AP private-ioctl and HTTPD selector fixes remain L3 verified on `d33fcf0` and `659b91b` respectively, including exact-SHA firmware Build/TRX/artifact. WAN source-PHY range guard is L3 verified on `d3733ec` with XY-C1 Build/TRX/artifact PASS.
+- WAN first-sample UNKNOWN guard: detect-link #45392147396, AI #45392146896, Process #45392147378/#45392146934, HTTPD #45392147738, NVRAM #45392147111 and USB modem #45392146933 PASS on `18af4fb`; its firmware Build/TRX/artifact verification is not recorded as complete.
+- VSFTPD hidden-share fix on `5a7500e`: VSFTPD #45392889702, AI #45392889910 and Process #45392889923 PASS. EPSV ALL cleanup on `aa3d55b`: VSFTPD #45393626354, AI #45393626335, Process #45393626312 and NVRAM #45393626295 PASS. Current XY-C1 #45393626376 is still building; TRX and artifact steps are pending. Both VSFTPD production fixes remain below L3 pending same-SHA firmware verification.
 
-## Active task — Clear stale FTP data endpoints on EPSV ALL
+## Active task — Reject whitespace/sign prefixes in the SYN-cookie selector
 
-- `handle_pasv()` accepted EPSV ALL by setting `epsv_all` and returning before active/passive cleanup. A client could arm a PORT/EPRT destination or PASV listener, send EPSV ALL, then issue a transfer without new data setup; dispatch blocks later non-EPSV setup, but the earlier endpoint remained usable by `get_remote_transfer_fd()`.
-- THIS COMMIT closes the passive listener and clears the active destination before setting EPSV ALL or sending success. The VSFTPD source contract requires both cleanup calls exactly once and before the state flag, success reply and return.
-- VSFTPD and XY-C1 already watch `trunk/user/vsftpd/src/postlogin.c`; unknown changed production paths trigger full XY-C1 firmware validation.
+- `rc_network_sysctl_parse_syncookies_status()` used `strtol()` and checked its final boolean domain, but `strtol()` normalizes leading whitespace and optional signs. Corrupt NVRAM values such as `" 0"`, `"\t1"`, `"+0"` or `"-0"` could therefore be treated as a deliberate SYN-cookie disable.
+- Reject a non-decimal first byte before calling `strtol()`, preserving full-token, 0/1 and overflow checks. Regression covers signs, spaces, tabs/newlines and unchanged output on rejection. `wan-route-status.yml` already compiles/runs the GNU89 ASan/UBSan regression and executes the Python source contract; XY-C1 watches the production policy header.
+- Concurrent XY-C1 #45393626376 is still running Build with TRX/artifact pending; the changed policy header will trigger a fresh exact-head firmware Build.
 
 ## Verification boundary
 
-- THIS COMMIT contains production cleanup, exact-source regression, handoff/roadmap/log updates in one atomic tree.
-- Parent `5a7500e`: VSFTPD #45392889702, AI #45392889910 and Process #45392889923 PASS; NVRAM #45392889664 pending and XY-C1 #45392889756 building at last poll.
-- Verify this SHA's VSFTPD regression and XY-C1 Build/TRX/artifact. Physical L4 remains unverified.
+- Parent `aa3d55bf141f88590c6b675d09ff28c51eb0e6ce`: VSFTPD, AI docs, Process and NVRAM PASS; XY-C1 Build in progress, TRX/artifact pending.
+- New exact-head WAN route regression/source checker, AI docs, NVRAM and XY-C1 Build/TRX/artifact must be checked. No L3 claim while any firmware step remains pending or skipped. Physical-router L4 remains unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch main and inspect exact-head VSFTPD, AI, NVRAM and XY-C1 Build/TRX/artifact.
-2. Fix the first causal CI failure atomically; keep firmware L3 open until Build, TRX and artifact pass on the same production SHA.
-3. Continue the next unresolved stability/security issue without repeating verified MTK, HTTPD or WAN-selector work absent new evidence.
+1. Fetch live `main` and query Actions by that exact SHA.
+2. Inspect SYN-cookie GNU89/ASan/UBSan policy regression and source checker; fix any causal failure atomically.
+3. Inspect XY-C1 Build/TRX/artifact for the same production SHA, then continue the next independent stability/security defect without re-auditing completed MTK/HTTPD/WAN-selector slices.
 
 ## Mandatory handoff checkpoint
 

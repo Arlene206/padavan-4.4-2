@@ -83,6 +83,13 @@ require("test_syncookies_boolean_domain_and_overflow" in TEST and
         "\"2\"" in TEST and "\"-1\"" in TEST and
         "\"1junk\"" in TEST and "\"not-a-number\"" in TEST,
         "regression must reject malformed and out-of-domain SYN-cookie selectors")
+require('"+1"' in TEST and '"-0"' in TEST and '" 0"' in TEST and
+        r'"\t1"' in TEST and r'"\n0"' in TEST,
+        "regression must reject leading whitespace and sign prefixes")
+syncookie_parser = body(POLICY, "rc_network_sysctl_parse_syncookies_status(")
+require("value[0] < '0' || value[0] > '9'" in syncookie_parser and
+        syncookie_parser.index("value[0] < '0'") < syncookie_parser.index("strtol(value, &end, 10)"),
+        "SYN-cookie parser must reject non-digit prefixes before strtol normalization")
 require("return connected" not in POLICY,"unrelated readiness policy must not be included")
 require("mock_status[0] = EIO" in TEST and "mock_status[3] = EACCES" in TEST,
         "regression must verify first-error and continue-after-failure")

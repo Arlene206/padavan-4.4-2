@@ -85,6 +85,16 @@ static void test_syncookies_boolean_domain_and_overflow(void)
 	assert(enabled == 1);
 	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "-1", &enabled) == EINVAL);
 	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "+1", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "-0", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, " 0", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "\t1", &enabled) == EINVAL);
+	assert(enabled == 1);
+	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "\n0", &enabled) == EINVAL);
+	assert(enabled == 1);
 	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "1junk", &enabled) == EINVAL);
 	assert(enabled == 1);
 	assert(rc_network_sysctl_parse_syncookies_status(1, 0, "not-a-number", &enabled) == EINVAL);
