@@ -1,3 +1,11 @@
+## 2026-11-24 14:55 UTC+8 — Align FRP proc-root UNKNOWN regression message
+
+- Exact FRP run #45343036173 on c8985b2b passed executable startup, crontab, boot/config, process-stop and lifecycle-lock regressions. Its final source checker failed only because it expected "non-directory proc root was not UNKNOWN", while the actual test reports "unavailable proc root was not UNKNOWN" after validating a non-directory proc root and requiring status 2 (UNKNOWN). Corrected the assertion text only; the surrounding fail-closed and no-signal checks remain.
+- Exact AI handoff #45343036253 was still in progress at last poll. The canonical required Active task section is present.
+- Parent main: c8985b2b9f760eb4089ca996cf2d1e320df00031. This is another checker-only follow-up; FRP runtime implementation remains unchanged.
+
+---
+
 ## 2026-11-23 — Verify FRP SIGKILL gate through exit-status semantics
 
 - Exact FRP run #45342815755 on `ebbd4dd406187a3b88b7f270f46fd8771bfc3253` passed all executable regression steps, including async startup, isolated managed-crontab tests, boot/config tests, exact process stop and lifecycle lock. Its only failure was a stale source checker requiring the literal comment/string `verified timeout`; production correctly allows SIGKILL only when `frp_wait_stopped 5` returns status 1 (confirmed still-running timeout), while UNKNOWN is rejected.

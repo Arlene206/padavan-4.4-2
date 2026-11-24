@@ -296,7 +296,7 @@ for marker in ("FRPC survived stop", "FRPS survived stop",
                "five-plus-two poll bound", "same-name decoys",
                "argv-matching impostor executable",
                "name-based killall was invoked",
-               "non-directory proc root was not UNKNOWN",
+               "unavailable proc root was not UNKNOWN",
                "matching executable with missing cmdline was not UNKNOWN",
                "UNKNOWN post-TERM inventory",
                "sleep failure triggered SIGKILL escalation"):

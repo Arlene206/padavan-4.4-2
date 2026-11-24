@@ -1,31 +1,33 @@
 ## Current repository state
 
-- Live parent `main`: `ebbd4dd406187a3b88b7f270f46fd8771bfc3253`; this commit corrects the final FRP source-contract status gate. Re-fetch main before further writes.
+- Live parent main: c8985b2b9f760eb4089ca996cf2d1e320df00031; FRP production/runtime tests pass, and the latest exact run reaches only a stale procfs-fixture message literal in the static checker. Re-fetch before further writes.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Inadyn executable-bound stop/reload/manual-update implementation is in `79c5389fe33326d85cc23e9856f39e5ca0ac242f`. Its dependent source-contract correction is in `257ac6399c4c7e8ec3b518f8f8438532d0821c33`.
 - FRP process inventory/stop hardening is in `fa3dd0012cea550b339d01df4ff6ec97d0fdc00a`; its test follow-ups are `5687c609137bbba09c707896dd95216c3df9e961` and `4be3f3898faf4665ebe19b1e87cf385bd162c21e`.
 
 ## Active task
 
-Align FRP stop-escalation source assertions with the actual status-1-only timeout gate.
-
-FRP implementation composes paths from `frp_match_proc_dir="$FRP_PROC_ROOT/$frp_match_pid"`, then `frp_match_exe_path="$frp_match_proc_dir/exe"` and `frp_match_cmdline="$frp_match_proc_dir/cmdline"`. The source checker now pins those relationships rather than demanding duplicated direct path literals. No runtime logic or process-matching policy was weakened.
-
-The FRP cron-only test fixture now sets `FRP_PROC_ROOT` to an empty temporary directory because it overrides the daemon readiness helper and is not intended to scan the hosted runner's real `/proc`. Independent synthetic procfs lifecycle/stop tests continue to cover fail-closed process behavior.
+Correct the final FRP stop-regression source contract:
+- Exact FRP run #45343036173 on c8985b2b passed the shell/runtime regression steps and failed only when the Python checker looked for "non-directory proc root was not UNKNOWN".
+- The test intentionally reports "unavailable proc root was not UNKNOWN" after it confirms a non-directory proc-root file produces tri-state UNKNOWN and blocks signals. Update the checker to match the actual regression message; retain the status==2 and no-signal assertions.
+- Previous FRP checker corrections now verify composed procfs paths and the status-1-only TERM timeout gate before KILL. No production code change is indicated by these failures.
+- Exact AI handoff result on c8985b2b is pending at last poll; the canonical Active task heading is present.
 
 ## Verification boundary
 
-- Exact `4be3f389`: FRP run #45342556772 passed every executable test step but failed its source checker on the direct-vs-composed path expectation; Process inventory #45342556827 PASS. AI docs #45342556719 FAILED only because of the old `## Active slice` heading.
-- Exact `ebbd4dd`: AI docs #45342815724 PASS. FRP #45342815755 passed all executable tests and failed only the stale `verified timeout` text assertion; this commit verifies the actual status branch. Exact `257ac639`: Inadyn #45342407697 PASS; DNSMasq #45342407692 PASS; WAN route #45342407753 PASS.
-- Exact `79c5389`: Process inventory #45341769713 PASS; Process fail-closed #45341769769 PASS; HTTPD #45341769686 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Its dependent Inadyn/DNSMasq/WAN source contract failures are closed by `257ac639`.
-- XY-C1 #45341769654 on production SHA `79c5389` was still building; TRX and artifact upload pending at last poll. No L3 result is claimed.
-- No MIPS firmware/TRX/artifact result or physical-router L4 result is claimed for the current source. Linux 4.4 has no pidfd; final procfs validation-to-signal race remains.
+- Exact c8985b2b: FRP #45343036173 passed the executable FRP startup, crontab, boot/config, process-stop and lock regressions, then failed only on one test-message mismatch in check_frp_lifecycle.py. This commit aligns the expected message with the actual test while retaining its UNKNOWN and no-signal checks. AI docs #45343036253 was IN_PROGRESS at last poll.
+- Exact ebbd4dd: AI handoff #45342815724 PASS; FRP #45342815755 passed all executable regressions and failed only on the obsolete "verified timeout" checker literal, fixed in c8985b2b.
+- Exact 4be3f389: Process inventory #45342556827 PASS; FRP executable tests passed before the stale proc-path checker failure; AI docs failure was corrected in ebbd4dd.
+- Exact 257ac639: Inadyn #45342407697 PASS; DNSMasq #45342407692 PASS; WAN route #45342407753 PASS.
+- Exact 79c5389: Process inventory #45341769713 PASS; Process fail-closed #45341769769 PASS; HTTPD #45341769686 PASS; WAN DHCP #45341769830 PASS; miniupnpd #45341769855 PASS; Samba #45341769858 PASS; NVRAM audit #45341769831 PASS. Inadyn/DNSMasq/WAN checker failures were corrected in 257ac639.
+- XY-C1 #45341769654 on production source 79c5389 remained IN_PROGRESS at Build; TRX/artifact are unconfirmed. No L3 claim.
+- No MIPS firmware/TRX/artifact or physical-router L4 result is claimed for this current source. Linux 4.4 has no pidfd; final procfs identity-validation-to-signal race remains.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-SHA FRP lifecycle, Process inventory and AI handoff Actions for this commit; fix any remaining first failed step.
-2. Continue an independent P1 source stability/security fix while those Actions run; do not wait on pending runs. Confirm XY-C1 Build, TRX and artifact result on one exact production-source SHA before claiming L3.
-3. Keep the backup immutable and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
+1. Check exact-head FRP and AI handoff Actions for this correction; triage any first failing assertion and close the FRP checker loop.
+2. Continue one independent P1 stability/security defect outside the completed process-identity slices while Actions run; poll XY-C1 Build/TRX/artifact on production source 79c5389 without blocking.
+3. Keep the frozen backup untouched and all main writes complete-tree atomic with expected-SHA non-forced ref updates.
 
 # Cross-session execution mandate
 
