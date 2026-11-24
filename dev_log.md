@@ -1,3 +1,12 @@
+## 2026-11-25 — Reconcile firewall state after a direct FTP stop
+
+- Found a second path bypassing the restart fix: `rc.c` dispatches the public `/sbin/rc stop_ftp` action to `stop_ftp()`, but that function stopped the daemon under the storage lock and unlocked immediately without invoking `control_ftp_fw()`. A confirmed RUNNING-to-ABSENT transition could therefore retain stale FTP firewall/UPnP mappings when using the direct stop command.
+- THIS COMMIT captures prior process presence under the same storage-operation lock, calls the shared confirmed-stop predicate, reconciles firewall exactly once only on successful stop, and merges firewall refresh status without masking the stop error. The lock remains held through reconciliation to prevent hotplug/restart races.
+- Renamed the pure status predicate to `ftp_stop_should_reconcile_firewall()` and reused it from restart/public-stop paths. Extended GNU89 policy test/source contracts for stop outcomes, ordering and the `rc.c` action route.
+- Parent `377f5a6670caefe0da2e46b8fd8b97977ca8543c`: AI #45442773576 PASS; HTTPD #45442773609 was IN_PROGRESS following the firewall checker correction. Parent `5e955b3` had XY Build IN_PROGRESS, TRX/artifact pending. This commit's exact-head regression results are pending.
+
+---
+
 ## 2026-11-25 00:54 CST (UTC+8) — Validate all firewall startup status arguments
 
 - Exact main `5e955b3bb2015e8db61a7e4c23eb44d29f873f8e` reran HTTPD Security #45442258062 and AI handoff #45442257900. AI handoff PASS; HTTPD still failed at inline Python line 204 because the first correction updated the boolean-helper/gate assertions but left the old function-argument suffix assertion unchanged.

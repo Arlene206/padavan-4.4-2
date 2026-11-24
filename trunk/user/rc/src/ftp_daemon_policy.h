@@ -15,7 +15,7 @@ ftp_failed_start_may_leave_daemon(enum process_presence state)
 /* Reconcile firewall state after every confirmed stop, independent of the
  * storage inventory or whether a replacement daemon can be started. */
 static inline int
-ftp_restart_should_reconcile_firewall(int stop_status)
+ftp_stop_should_reconcile_firewall(int stop_status)
 {
 	return stop_status == 0;
 }

@@ -283,7 +283,7 @@ ftp_rollback_failed_start(int start_errno, const char *operation)
 int
 stop_ftp(void)
 {
-	int storage_lock, status;
+	int storage_lock, status, is_run_before, firewall_status = 0;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
@@ -291,7 +291,15 @@ stop_ftp(void)
 		return -1;
 	}
 
+	is_run_before = is_ftp_run();
 	status = stop_ftp_locked();
+	if (ftp_stop_should_reconcile_firewall(status)) {
+		firewall_status = control_ftp_fw(is_run_before);
+		if (firewall_status != 0)
+			logmessage("FTP server", "firewall/UPnP refresh failed after FTP stop (status=%d)",
+				   firewall_status);
+	}
+	status = rc_first_service_start_status(status, firewall_status);
 	file_unlock(storage_lock);
 	return status;
 }
@@ -716,7 +724,7 @@ restart_ftpd(void)
 	 * is absent, its inventory is unavailable, or the replacement daemon
 	 * failed to start. Always reconcile firewall state after that stop.
 	 */
-	if (ftp_restart_should_reconcile_firewall(stop_status)) {
+	if (ftp_stop_should_reconcile_firewall(stop_status)) {
 		firewall_status = control_ftp_fw(is_run_before);
 		if (firewall_status != 0)
 			logmessage("FTP server", "firewall/UPnP refresh failed after FTP restart (status=%d)",
