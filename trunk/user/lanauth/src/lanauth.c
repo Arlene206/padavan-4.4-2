@@ -28,6 +28,7 @@
 
 #include "lanauth_credential_file_policy.h"
 #include "lanauth_privilege_drop_policy.h"
+#include "lanauth_socket_io_policy.h"
 
 #define LTC_NO_CIPHERS
 #define LTC_NO_MODES
@@ -93,6 +94,46 @@ lanauth_drop_privileges(int change_gid, gid_t gid,
         lanauth_set_group, lanauth_set_user, NULL, failure_stage);
 }
 
+static int
+lanauth_socket_wait_readable(void *context, int fd, int timeout_seconds)
+{
+    fd_set read_fds;
+    struct timeval timeout;
+    int status;
+
+    (void)context;
+    if (fd < 0 || fd >= FD_SETSIZE) {
+        errno = EINVAL;
+        return -1;
+    }
+    FD_ZERO(&read_fds);
+    FD_SET(fd, &read_fds);
+    timeout.tv_sec = timeout_seconds;
+    timeout.tv_usec = 0;
+    status = select(fd + 1, &read_fds, NULL, NULL, &timeout);
+    if (status > 0 && !FD_ISSET(fd, &read_fds)) {
+        errno = EIO;
+        return -1;
+    }
+    return status;
+}
+
+static ssize_t
+lanauth_socket_read_data(void *context, int fd, void *buffer, size_t size)
+{
+    (void)context;
+    return read(fd, buffer, size);
+}
+
+static ssize_t
+lanauth_socket_write_data(void *context, int fd, const void *buffer,
+                          size_t size)
+{
+    (void)context;
+    return write(fd, buffer, size);
+}
+
+
 int main(int argc, char **argv) {
 	char *s;
 	char *password_file = NULL;
@@ -104,8 +145,11 @@ int main(int argc, char **argv) {
 	int privilege_status;
 	enum lanauth_privilege_drop_stage privilege_failure_stage;
 	int op;
+	int socket_io_status;
 	unsigned char ch;
 	unsigned char curlevel = 0xff;
+	char redirected_gateip[sizeof(gateip)];
+	size_t sent_size;
 	/* process command line arguments */
 	while(1) {
 		op = getopt(argc, argv, "iv:b:ns:p:f:l:u:g:");
@@ -190,8 +234,9 @@ int main(int argc, char **argv) {
 
 	signal(SIGUSR1, sigusr);
 	signal(SIGUSR2, sigusr);
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
+		fatal("signal(SIGPIPE): %m");
 	if (!nodaemon) {
-		signal(SIGPIPE, SIG_IGN);
 		signal(SIGHUP, SIG_IGN);
 		daemon(0, 0);
 	}
@@ -216,11 +261,20 @@ int main(int argc, char **argv) {
 			case 1: /* continue authorization */
 				break;
 			case 2: /* redirect to real server */
-				read(sock, (char*)&ch, 1);
+				if (!tmread((char *)&ch, 1, 10)) {
+					close(sock);
+					sleep(5);
+					continue;
+				}
 				if(ch < 7 || ch > 15)
-				fatal("redirect: invalid gateway lenght %d", ch);
-				read(sock, gateip, ch);
-				gateip[ch] = 0;
+					fatal("redirect: invalid gateway length %d", ch);
+				if (!tmread(redirected_gateip, (int)ch, 10)) {
+					close(sock);
+					sleep(5);
+					continue;
+				}
+				redirected_gateip[ch] = '\0';
+				memcpy(gateip, redirected_gateip, (size_t)ch + 1);
 				syslog(LOG_NOTICE, "gate changed to %s", gateip);
 				close(sock);
 				break;
@@ -242,7 +296,18 @@ int main(int argc, char **argv) {
 				case 1: auth1(); break;
 				case 2: auth2(); break;
 			}
-			write(sock, digest, (ver == 1) ? 16 : 256);
+			socket_io_status = lanauth_write_all_with_ops(
+				sock, digest, (ver == 1) ? 16U : 256U,
+				lanauth_socket_write_data, NULL, &sent_size);
+			if (socket_io_status != 0) {
+				syslog(LOG_NOTICE,
+				       "auth response write incomplete (%lu/%u bytes, status=%d); reconnecting",
+				       (unsigned long)sent_size,
+				       (unsigned)((ver == 1) ? 16 : 256), socket_io_status);
+				close(sock);
+				sleep((curlevel == 0xff) ? 60 : 5);
+				break;
+			}
 			if (!tmread(&ch, 1, 10)) {
 				close(sock);
 				syslog(LOG_NOTICE, "auth unsuccessful");
@@ -310,42 +375,43 @@ static void opensock() {
 }
 
 static int tmread(char *buf, int size, int timeout) {
-	fd_set fds;
-	struct timeval tv;
+	int status, failure_stage;
+	size_t completed;
 
-	/* wait */
-	FD_ZERO(&fds);
-	FD_SET(sock, &fds);
-
-	tv.tv_sec = timeout;
-	tv.tv_usec = 0;
-	int n = select(sock+1, &fds, NULL ,NULL, &tv);
-	if (n < 0 && errno == EINTR) {
+	if (size <= 0 || timeout < 0) {
+		errno = EINVAL;
+		return 0;
+	}
+	status = lanauth_read_exact_with_ops(
+		sock, buf, (size_t)size, timeout, 3,
+		lanauth_socket_wait_readable, lanauth_socket_read_data, NULL,
+		&failure_stage, &completed);
+	if (status == 0)
+		return size;
+	if (failure_stage == LANAUTH_SOCKET_IO_STAGE_WAIT && status != EINTR) {
+		errno = status;
+		fatal("select: %m");
+	}
+	if (status == EINTR) {
 		syslog(LOG_DEBUG, "reconnecting by request");
 		return 0;
 	}
-	if (n < 0) fatal("select: %m");
-	if (!n) {
-		syslog(LOG_DEBUG, "no response from server, reconnecting");
+	if (status == ETIMEDOUT) {
+		if (completed == 0)
+			syslog(LOG_DEBUG, "no response from server, reconnecting");
+		else
+			syslog(LOG_DEBUG,
+			       "incomplete response from server (%lu/%d bytes), reconnecting",
+			       (unsigned long)completed, size);
 		return 0;
 	}
-	/* wait a moment */
-	if (size > 1) {
-		tv.tv_sec = 3;
-		tv.tv_usec = 0;
-		select(0, NULL, NULL, NULL, &tv);
-	}
-	/* read */
-	n = read(sock, buf, size);
-	if (n < 0) {
-		syslog(LOG_DEBUG, "read: %m");
-		return 0;
-	}
-	if (!n) {
+	if (status == ECONNRESET)
 		syslog(LOG_DEBUG, "server closed connection");
-		return 0;
+	else {
+		errno = status;
+		syslog(LOG_DEBUG, "read: %m");
 	}
-	return n;
+	return 0;
 }
 
 static void auth1() {

@@ -2002,6 +2002,21 @@ jobs:
           assert "opened_stat.st_uid != geteuid()" in credential_policy
           assert "lstat(path, &named_stat)" in credential_policy
           assert "unlink(path)" in credential_policy
+          lanauth_io_policy = Path("trunk/user/lanauth/src/lanauth_socket_io_policy.h").read_text()
+          lanauth_main = function_body(lanauth_source, "int main(int argc, char **argv)")
+          lanauth_tmread = function_body(lanauth_source, "static int tmread(char *buf, int size, int timeout)")
+          assert "lanauth_read_exact_with_ops(" in lanauth_tmread
+          assert "return size;" in lanauth_tmread
+          assert "lanauth_write_all_with_ops(" in lanauth_main
+          assert "read(sock," not in lanauth_main
+          assert "write(sock, digest" not in lanauth_main
+          assert "redirected_gateip[ch]" in lanauth_main
+          assert "FD_ISSET(fd, &read_fds)" in lanauth_source
+          assert "completed < size" in lanauth_io_policy
+          assert "ECONNRESET" in lanauth_io_policy and "ETIMEDOUT" in lanauth_io_policy
+          assert "test_read_exact_reassembles_fragments" in Path("trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c").read_text()
+          assert "test_partial_write_failure_requires_reconnect" in Path("trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c").read_text()
+          assert "signal(SIGPIPE, SIG_IGN)" in lanauth_source
           assert policy_body.index("AUTH_KABINET_GATEWAY_KEY") < policy_body.index("AUTH_KABINET_PASSWORD_KEY")
           assert policy_body.index("AUTH_KABINET_PASSWORD_KEY") < policy_body.index("stop_service(context)")
           assert policy_body.index("stop_service(context)") < policy_body.index("start_service(context, gateway, password)")
@@ -2039,6 +2054,15 @@ jobs:
             trunk/user/lanauth/src/tests/lanauth_privilege_drop_policy.c \
             -o "$RUNNER_TEMP/lanauth-privilege-drop-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lanauth-privilege-drop-policy"
+
+      - name: Compile and run LAN authentication exact socket I/O regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/lanauth/src \
+            trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c \
+            -o "$RUNNER_TEMP/lanauth-socket-io-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lanauth-socket-io-policy"
 
       - name: Compile and run RC user-config whole-line truncation regression
         run: |

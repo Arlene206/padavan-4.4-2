@@ -1687,6 +1687,22 @@ for case in ("test_group_is_applied_before_user_and_option_order_is_irrelevant",
              "test_unrequested_ids_are_not_changed",
              "test_missing_requested_callback_fails_closed"):
     assert case in lanauth_privilege_test
+lanauth_io_policy = (root / "trunk/user/lanauth/src/lanauth_socket_io_policy.h").read_text()
+lanauth_io_test = (root / "trunk/user/lanauth/src/tests/lanauth_socket_io_policy.c").read_text()
+lanauth_main = c_function_body(lanauth_source, "int main(int argc, char **argv)")
+lanauth_tmread = c_function_body(lanauth_source, "static int tmread(char *buf, int size, int timeout)")
+assert "lanauth_read_exact_with_ops(" in lanauth_tmread
+assert "return size;" in lanauth_tmread
+assert "lanauth_write_all_with_ops(" in lanauth_main
+assert "read(sock," not in lanauth_main
+assert "write(sock, digest" not in lanauth_main
+assert "redirected_gateip[ch]" in lanauth_main
+assert "FD_ISSET(fd, &read_fds)" in lanauth_source
+assert "completed < size" in lanauth_io_policy
+assert "ECONNRESET" in lanauth_io_policy and "ETIMEDOUT" in lanauth_io_policy
+assert "test_read_exact_reassembles_fragments" in lanauth_io_test
+assert "test_partial_write_failure_requires_reconnect" in lanauth_io_test
+assert "signal(SIGPIPE, SIG_IGN)" in lanauth_source
 assert 'getopt(argc, argv, "iv:b:ns:p:f:l:u:g:")' in lanauth_source
 assert "case 'f':" in lanauth_source
 assert "lanauth_read_private_password_file(" in lanauth_source
