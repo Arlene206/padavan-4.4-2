@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Live branch: `main` at `7efbd10d64f946ce112aab1e70a4206b649bfbf5`. RC production fix `7ca46fc7049f3380755f6b2fe5073d86727c6382` was based on `e1631a606564e95a93802123ceba97478ac3197c`; current main includes RAETH Clause 45 bounds commit `a76f771cd56c1ad623769d32400562f853330e34`, follow-up MDIO PHY address bounds `7efbd10d64f946ce112aab1e70a4206b649bfbf5`, and an earlier firewall checker correction `03ca0dbf9b201bb8752c53afbf0b44632c1818e8`.
+- Live branch: `main` at `2f95d1c04011101b08d5d52cc947b659f9b6810f`. RC production fix `7ca46fc7049f3380755f6b2fe5073d86727c6382` is followed by firewall checker corrections `03ca0dbf` and `77dc29c`. RAETH Clause 45 address bounds `a76f771` and MDIO Clause 22 bounds `7efbd10` remain on main; `2f95d1c` corrected the MDIO source-order checker.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 remains closed and unmerged.
 - Every logical task must be one atomic main commit: create a complete Git tree and one commit, then update `main` by non-forced expected-SHA compare-and-swap. Do not create extra branches or force-push.
 - SmartDNS checker/runtime correction at `79d912269f2ec021e21d1f543fe879140f4aab6e` passed Process, DNSMasq, USB and AI host checks; XY-C1 skipped Build/TRX/artifact, so it is not L3 evidence.
@@ -16,17 +16,17 @@
 
 ## Verification boundary
 
-- On source SHA `7ca46fc7049f3380755f6b2fe5073d86727c6382`, Firewall Startup C policy and checked-NVRAM host regressions passed. Its first static source contract failed on a line-wrapped status assignment.
-- Follow-up `03ca0dbf` fixed that assignment assertion but the Firewall Startup job #45435162086 then failed because the status-merge call also had a line break after the opening parenthesis. This commit corrects the assertion by checking the call prefix, exact argument pair and ordering separately.
+- On source SHA `7ca46fc7049f3380755f6b2fe5073d86727c6382`, Firewall Startup C policy and checked-NVRAM host regressions passed. First static contract failure: split status assignment. `03ca0dbf` corrected it; Firewall job #45435162086 then exposed a wrapped boot-status call.
+- On `77dc29c`, Firewall job #45435774161 failed because its argument check selected an earlier `boot_services_status` merge. The present checker now searches for the first matching merge after `policy_call`, then confirms the exact `boot_services_status, firewall_startup_status` argument pair before WAN startup.
 - AI handoff #45435161894 and #45435366901 failed because the handoff lacked the required literal end-of-session checkpoint sentence and exact required section headings; this handoff restores both.
 - Process inventory #45434352443 on `7ca46fc` PASS. XY-C1 #45434352284 on `7ca46fc` had Build in progress and TRX/artifact pending; it is the L3 validation run for the firewall source fix.
 - RAETH Clause 45 commit `a76f771`: Switch CLI #45434536973 PASS; XY-C1 #45434537034 had Build in progress and TRX/artifact pending. AI handoff #45434536945 failed for the same missing checkpoint sentence.
-- RAETH MDIO address commit `7efbd10`: Switch CLI #45435366858 failed in the new MDIO source-order checker after the Clause 22 address policy test passed; AI handoff #45435366901 failed on the handoff checkpoint. These exact failure details are in their job logs and need separate follow-up.
+- RAETH MDIO address commit `7efbd10`: Switch CLI #45435366858 failed because the checker searched for the containing `if (...)` starting at the address expression inside that same condition; the policy test passed. `2f95d1c` corrected the source-order assertion and exact-head Switch CLI #45435916372 PASS, AI handoff #45435916408 PASS.
 - L3 requires Build, TRX and artifact PASS on the same exact source SHA. Physical-device L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup and AI handoff Actions created by the current commit; inspect logs and fix any remaining failure atomically.
+1. Query exact-head Firewall Startup and AI handoff Actions created by this commit; ensure the boot-status merge order contract passes and the current handoff remains compliant.
 2. Recheck XY-C1 #45434352284 on `7ca46fc` for final Build/TRX/artifact status; do not claim L3 until all three pass.
 3. Inspect Switch CLI #45435366858 and fix the MDIO Clause 22 source-order assertion only after validating the actual source path; preserve the successful GNU89 bounds policy test.
 4. Recheck XY-C1 #45434537034 for the RAETH Clause 45 commit. Do not use one commit's run to certify another source SHA.

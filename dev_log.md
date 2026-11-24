@@ -1,3 +1,11 @@
+## 2026-11-25 00:18 CST (UTC+8) — Anchor firewall boot-status assertion after the gate
+
+- Exact SHA `77dc29cb83a5c9ce45a3f9262d85b8429dee4b43`: Firewall Startup #45435774161 advanced through the earlier checks but failed because the source checker selected an earlier boot-service status merge, not the firewall-specific merge. The checker now begins its merge lookup after the firewall gate, validates the exact first-error argument, and requires that merge before `start_wan()`.
+- Exact SHA `77dc29c`: AI handoff #45435774251 PASS. On follow-up RAETH MDIO checker commit `2f95d1c`, Switch CLI #45435916372 PASS and AI handoff #45435916408 PASS.
+- XY-C1 #45434352284 (`7ca46fc`) and #45434537034 (`a76f771`) remained in progress at last poll; Build/TRX/artifact must be confirmed per exact SHA.
+
+---
+
 ## 2026-11-25 00:15 CST (UTC+8) — Normalize firewall merge checker and restore AI handoff checkpoint
 
 - Exact SHA `03ca0dbf9b201bb8752c53afbf0b44632c1818e8`: Firewall Startup #45435162086 failed because the C boot-status merge call wraps arguments after the opening parenthesis; the static contract now checks the merge call, exact `boot_services_status, firewall_startup_status` operands and ordering independently.
