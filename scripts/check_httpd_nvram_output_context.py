@@ -402,7 +402,7 @@ def check_ralink_status_textarea_sinks():
     assert "write_escaped_html_field(wp, dst_endpoint)" in conntrack
 
     web_source = WEB_SOURCE.read_text(encoding="utf-8")
-    assert 'strcmp(file, "vpns_list.log") == 0' in web_source
+    assert 'strcmp(file, "vpns_list.log")==0' in web_source
     assert "return (ej_vpns_leases(eid, wp, 0, NULL));" in web_source
 
     dhcp_page = (ROOT / "Main_DHCPStatus_Content.asp").read_text(encoding="utf-8")

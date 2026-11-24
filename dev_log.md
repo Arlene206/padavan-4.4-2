@@ -1,3 +1,11 @@
+## 2026-11-24 — Match Ralink VPN log-route source assertion
+
+- On exact `bebad8b`, the HTTPD regression progressed past the earlier Python syntax error and all sanitizer/context checks, including the new Ralink DHCP, NAT, VPN fields, route, conntrack, WOL, AiDisk, syslog, language, uptime and wireless scan checks; it then failed at one source-contract string comparison.
+- The assertion expected `strcmp(file, "vpns_list.log") == 0`, but the actual callback is `strcmp(file, "vpns_list.log")==0`. Updated only that exact expected string; no source assertion or security check was weakened.
+- This test-only correction awaits exact-head HTTPD and AI Actions.
+
+---
+
 ## 2026-11-24 — Correct Ralink status checker Python quoting
 
 - Exact `fd5860` HTTPD `#45304722638` failed before the new Ralink assertions ran: Python reported `SyntaxError: unexpected character after line continuation character` for the DHCP IP/MAC expected snippets. The C changes were not disproven; the source checker could not parse.

@@ -2,15 +2,15 @@
 
 ## Current repository state
 
-- Current live main parent for this checker correction: `fd586053e9f1366fe785b87102d8dba6c9046a91`.
-- Exact `fd5860` AI handoff contract `#45304722690`: **PASS**; process lifecycle inventory `#45304722668`: **PASS**; NVRAM transaction audit `#45304722867`: IN_PROGRESS at last poll.
-- Exact `fd5860` HTTPD Security Regression `#45304722638`: **FAIL** only because two new Python assertions in `check_ralink_status_textarea_sinks()` were syntactically invalid around a quoted space. The C status-table source changes and those assertions were not executed due to this SyntaxError. This commit corrects only the checker strings.
-- Exact `8f1d1d5` wireless scan JSON commit: HTTPD `#45304169207`, AI `#45304169314`, process inventory `#45304169499`: **PASS**.
-- Read-only backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
+- Current live main parent for this checker correction: `bebad8be805bc811d646cf8f91bb35b9dc9d5b9d`.
+- Exact `bebad8b` AI handoff contract `#45305149055`: **PASS**.
+- Exact `bebad8b` HTTPD Security Regression `#45305148959`: **FAIL** only at the final Ralink status-table source contract. All HTML/JSON byte tests, WOL DOM checks, AiDisk message/USB checks, syslog checks, language-option checks, uptime checks and wireless scan JSON checks passed. The only failed assertion expected spaces in `strcmp(file, "vpns_list.log") == 0`; actual code uses `strcmp(file, "vpns_list.log")==0`. The source already routes `vpns_list.log` to `ej_vpns_leases()`; this is a checker-only mismatch.
+- The earlier `fd5860` HTTPD run `#45304722638` failed at Python parse time due the DHCP expected-string quoting. The parse issue was repaired in `bebad8b`, after which the script reached and passed all checks preceding the VPN route whitespace assertion.
+- Backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
 
 ## Active task
 
-Verify the Python checker correction for `check_ralink_status_textarea_sinks()` on its exact SHA. The two expected C snippets now use single-quoted Python literals around `" "`; no source-output safety assertion has been weakened.
+Correct the single VPN log-route assertion to match the exact source spacing (`strcmp(file, "vpns_list.log")==0`). Keep all Ralink HTML-escaping requirements intact, then re-run the exact-head HTTPD regression.
 
 ## Completed development slices
 
@@ -40,16 +40,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `fd5860` HTTPD Security Regression `#45304722638`: **FAIL** at Python parse time; all earlier compile, sanitizer, NVRAM transaction, wireless configuration, switch ioctl, auth/ACL and storage checks passed. The status-table source-contract checker did not run.
-- Exact `fd5860` AI handoff `#45304722690` and process inventory `#45304722668`: **PASS**. NVRAM transaction audit `#45304722867` was IN_PROGRESS at last poll.
-- This test-only fix corrects the two expected-string Python literals; exact-head HTTPD must now execute the Ralink status-table source check before claiming it passes.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No new firmware L3 or hardware L4 result is claimed.
+- Exact `bebad8b` HTTPD `#45305148959`: **FAIL** only at the Ralink source-contract comparison for the VPN log route; all preceding output-context checks printed PASS. Exact AI handoff contract `#45305149055`: **PASS**.
+- Exact `fd5860` HTTPD `#45304722638` had failed at Python parse time due two malformed DHCP assertion literals. Those literals are now syntactically correct in `bebad8b`, and all subsequent checks through wireless scan output passed in its HTTPD run.
+- The Ralink code emits VPN peer/interface data through the shared HTML encoder, DHCP/NAT/route/conntrack table fields through escaped helpers. The only remaining unverified part is the final source route assertion itself.
+- Backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Confirm the exact-head HTTPD run executes `check_ralink_status_textarea_sinks()` and passes.
-2. Inspect exact-head NVRAM and XY-C1 action statuses, then continue auditing other dynamic userland output producers such as rstats bandwidth history.
-3. Keep the backup branch read-only and use atomic expected-SHA updates on main.
+1. Verify the exact-head HTTPD run passes after correcting the VPN route whitespace assertion.
+2. Revisit exact-head NVRAM / XY-C1 action states; continue tracing rstats bandwidth-history dynamic strings if these gates are pending.
+3. Keep the backup branch read-only; continue with atomic source/test commits and exact-SHA CI checks.
 
 # Cross-session execution mandate
 
