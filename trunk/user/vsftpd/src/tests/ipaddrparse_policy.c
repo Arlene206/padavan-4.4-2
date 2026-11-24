@@ -23,7 +23,7 @@ test_string_set(struct mystr* p_str, const char* text, unsigned int length)
   {
     memcpy(copy, text, length);
   }
-  copy[length] = '\\0';
+  copy[length] = '\0';
   free(p_str->PRIVATE_HANDS_OFF_p_buf);
   p_str->PRIVATE_HANDS_OFF_p_buf = copy;
   p_str->PRIVATE_HANDS_OFF_len = length;
@@ -60,7 +60,7 @@ str_append_char(struct mystr* p_str, char the_char)
     memcpy(copy, p_str->PRIVATE_HANDS_OFF_p_buf, old_length);
   }
   copy[old_length] = the_char;
-  copy[old_length + 1U] = '\\0';
+  copy[old_length + 1U] = '\0';
   free(p_str->PRIVATE_HANDS_OFF_p_buf);
   p_str->PRIVATE_HANDS_OFF_p_buf = copy;
   p_str->PRIVATE_HANDS_OFF_len = old_length + 1U;
@@ -86,7 +86,7 @@ str_append_str(struct mystr* p_str, const struct mystr* p_other)
   {
     memcpy(copy + old_length, p_other->PRIVATE_HANDS_OFF_p_buf, other_length);
   }
-  copy[old_length + other_length] = '\\0';
+  copy[old_length + other_length] = '\0';
   free(p_str->PRIVATE_HANDS_OFF_p_buf);
   p_str->PRIVATE_HANDS_OFF_p_buf = copy;
   p_str->PRIVATE_HANDS_OFF_len = old_length + other_length;
