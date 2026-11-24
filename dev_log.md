@@ -1,3 +1,12 @@
+## 2026-11-24 18:43 Beijing — Restore mandatory handoff checkpoint contract
+
+- Exact AI handoff documentation run #45375798381 on `72e1e72dd494e6d930bdfef46f349f20da7065be` failed because the prior handoff rewrite omitted the validator-required `## Mandatory handoff checkpoint` section and its exact conditional-edit rule. Restored the mandatory section and end-of-session accuracy checkpoint.
+- LLDT integration checker alignment is committed in `be37029341b79273e520fda75f3b087b41757372`. Process run #45375797796 on the MTK source commit was cancelled before LLTD PID parser/integration steps; rerun attempt 2 of #45375705202 on `be370293` was still running at last inspection. No Process PASS is claimed.
+- MTK AP 802.11r boolean ioctl regression #45375797791 PASS on exact SHA `72e1e72`. Same-SHA Process #45375797796, NVRAM #45375798550 and XY-C1 #45375799312 had not completed; XY Build/TRX/artifact result is not verified.
+- This handoff correction's exact-SHA AI docs and other path-triggered Actions are pending. No L3 or L4 claim is made.
+
+---
+
 ## 2026-11-24 — Fix partial-copy stack values in MTK 802.11r ioctls
 
 - MT76x2, MT76x3, MT7615 and MT7915 AP ioctl handlers declared a stack `ULONG value` while validating one-byte `BOOLEAN` input for `OID_802_11R_SUPPORT`, `OID_802_11R_RIC` and `OID_802_11R_OTD`. Only the BOOLEAN-sized prefix was copied, leaving the remaining stack bytes uninitialized; the flags were also updated without checking `copy_from_user()` failure.
