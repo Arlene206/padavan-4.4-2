@@ -21,6 +21,8 @@ for source in SOURCES:
 pidfile_source = (ROOT / "trunk/user/shared/src/shutils.c").read_text()
 pidfile_policy = (ROOT / "trunk/user/shared/src/shutils_pidfile_policy.h").read_text()
 pidfile_test = (ROOT / "trunk/user/shared/tests/shutils_pidfile_open.c").read_text()
+if "#include <sys/stat.h>" not in pidfile_policy:
+    raise SystemExit("legacy pidfile open: FAIL: metadata policy header is not self-contained")
 if "shutils_pidfile_metadata_is_safe(&st, geteuid())" not in pidfile_source:
     raise SystemExit("legacy pidfile open: FAIL: privileged signalling skips owner/metadata validation")
 for token in ("(status->st_mode & S_IFMT) == S_IFREG", "status->st_uid == owner", "status->st_nlink == 1", "(status->st_mode & 022) == 0"):

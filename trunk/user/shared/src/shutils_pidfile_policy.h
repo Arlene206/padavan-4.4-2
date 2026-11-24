@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 /*
  * Parse a legacy PID-only record without accepting a numeric prefix from a

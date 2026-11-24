@@ -405,6 +405,7 @@ on:
       - "trunk/user/rc/src/tests/samba_config_transaction.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils_pidfile_policy.h"
       - "trunk/user/shared/src/passwd_temp_file_policy.h"
       - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
       - "trunk/user/shared/src/process_inventory.c"

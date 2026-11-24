@@ -1,11 +1,11 @@
 ## 2026-11-24 持续开发接力（最新）
 
-- 当前 main 接力基线：`3e13e241219d08b26aeb57795f553504783c1b06`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
-- LAN DHCP `lan_dns_x` 严格解析修复 `17441ec` 的 WAN DHCP #45321875664 PASS、AI docs #45321875753 PASS；HTTPD、Firewall、process inventory、NVRAM、WAN route、signal regressions 均 PASS。
-- RAETH MT7622 open-failure switch cleanup 与 `ei_close()` worker 停止顺序合入 `7627383`；精确 Switch CLI #45322123792 PASS。
-- 共享 PID-file 的 owner/nlink/mode hardening 已合入 `3e13e241219d08b26aeb57795f553504783c1b06`；legacy wrapper PIDfile #45322580536 PASS。但 process lifecycle regression #45322580591 的 strict GNU89 compile 在 `S_ISREG` 未被 glibc 暴露时 FAIL；本提交将 helper 改成可在 strict GNU89 下使用的 `S_IFMT/S_IFREG` 比较。其余 exact-SHA jobs 要重新按修复提交观察。
-- XY-C1 #45322580624 的 Build job仍在进行（Build XY-C1 / TRX / artifact upload 尚 pending at last poll）。无同 SHA firmware artifact 或硬件 L4 结果可提前宣称。
-- Roadmap 维持低于 131072 UTF-8 byte 上限；备份分支只读。
+- 当前 main 接力基线：`776c84b04a194d0260830eb14f8732df864ee7c3`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
+- LAN DHCP `lan_dns_x` 严格解析修复 `17441ec` 的 WAN DHCP callback #45321875664 PASS、AI docs #45321875753 PASS；HTTPD、Firewall、process inventory、NVRAM、WAN route/signal regressions 在该 SHA 均 PASS。
+- RAETH 最近连续修复包括 MT7621 GP0 clock enable error propagation、MT7622 open-failure switch teardown、先停止 kreset/kphy workers 再 reset、删除未初始化/从未 queue 的 `reset_task` work item。`7627383` Switch CLI #45322123792 PASS；后续 checker 更新需按新 SHA 单独核验。
+- `3e13e24` 对 legacy `kill_pidfile_s()` 增加 PID 文件 owner=effective UID、single-link、禁止 group/world write 校验。`fdc7ac1` 将 regular-file predicate 改为 strict-GNU89 可用的 `S_IFMT/S_IFREG`。`fdc7ac1` legacy wrapper #45322826292 PASS、AI docs #45322826306 PASS、process inventory #45322826437 PASS；process lifecycle #45322826402 失败在 integration checker 的旧 `S_ISREG` 断言，不是 C compile。本提交更新断言并使 policy header 自包含。
+- XY-C1 workflow 原先只监听 `shutils.c`，漏掉新 include 的 `shutils_pidfile_policy.h`，所以 header-only 安全策略不会触发固件编译。本提交补上 push path 和 source-contract assertion；必须检查同 SHA XY-C1 是否实际触发。
+- `fdc7ac1` XY-C1 未触发；无本轮 policy-header 同 SHA MIPS build、TRX、artifact 或硬件 L4 结果可宣称。Roadmap 低于 131072 UTF-8 byte 上限，避免无关扩写。
 
 ---
 
@@ -13,14 +13,15 @@
 
 ## Current repository state
 
-- Parent main before this compatibility correction: `3e13e241219d08b26aeb57795f553504783c1b06`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- `3e13e24` introduced legacy PID-file metadata rejection (effective-UID owner, single link, no group/world write) and regression cases. Legacy wrapper PID-file run #45322580536 PASS.
-- Process lifecycle run #45322580591 failed in its compile step for `shutils_pidfile_policy.c`: `S_ISREG` was not defined by libc under that strict `-std=gnu89` test compile. The policy now checks `(st_mode & S_IFMT) == S_IFREG`, using the POSIX mode constants already exposed by the platform headers; checker contract was updated accordingly.
-- Exact SHA XY-C1 #45322580624 and NVRAM #45322580583 were IN_PROGRESS on `3e13e24`; statuses do not validate this correction.
-- Backup branch remains read-only; no cross-SHA status transfer.
+- Parent main before this checker/CI-trigger correction: `776c84b04a194d0260830eb14f8732df864ee7c3`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Shared PID metadata policy is in `3e13e24`; its strict-GNU89-compatible predicate is in `fdc7ac1`. Legacy wrapper PID-file #45322826292 PASS; AI docs #45322826306 PASS; process lifecycle inventory #45322826437 PASS.
+- Process lifecycle regression #45322826402 failed only at `scripts/check_process_lifecycle_integration.py`, which still required the removed inline `S_ISREG(st.st_mode)` check. Its standalone C test compilation had advanced past the earlier GNU89 macro failure. The checker now requires the production metadata helper and its owner/link/mode rules.
+- The XY-C1 push path included `shutils.c` but omitted included header `shutils_pidfile_policy.h`. Added the header path and checker assertion, so header-only security changes will trigger the target build.
+- `shutils_pidfile_policy.h` now includes `<sys/stat.h>` itself; downstream tests do not depend on include order.
+- Backup branch remains read-only; no XY-C1 build/TRX/artifact result or physical-router L4 result is claimed.
 ## Active task
 
-Verify strict GNU89/ASan/UBSan process lifecycle regression and legacy-wrapper PID-file safety after the `S_IFMT` compatibility correction. Then inspect XY-C1 Build → TRX → artifact status on the newest product SHA; continue with an independent defect if builds remain pending.
+Verify the process lifecycle integration contract and strict-GNU89 PID metadata regression on the new exact SHA. Confirm the XY-C1 workflow is triggered by the policy-header path and follow its Build → TRX verification → artifact upload. Continue an independent stability/security fix while any jobs remain pending.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -49,16 +50,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- The original `3e13e24` metadata hardening passed the legacy-wrapper PID-file workflow #45322580536.
-- The process lifecycle regression #45322580591 failed only while compiling the header test under strict GNU89 because `S_ISREG` was not exposed. This commit changes the regular-file predicate to `S_IFMT/S_IFREG`; a fresh exact-SHA run is required.
-- The other 3e13e24 jobs: AI docs #45322580538, WAN DHCP #45322580657, HTTPD #45322580600, GPIO #45322580616, DNS Forwarder #45322580636, process lifecycle inventory #45322580712 were observed PASS; XY-C1 #45322580624 and NVRAM #45322580583 were pending.
-- No local router/MIPS build, TRX, artifact or hardware L4 result is claimed.
+- `3e13e24` legacy wrapper PID-file workflow #45322580536 PASS; `fdc7ac1` legacy wrapper #45322826292 PASS and AI docs #45322826306 PASS.
+- `fdc7ac1` process lifecycle #45322826402 failed at the integration source checker because it still expected inline `S_ISREG`; this commit updates it to the actual metadata helper. Strict-GNU89 compile no longer failed at the metadata predicate after the `S_IFMT/S_IFREG` correction.
+- XY-C1 had not triggered for `fdc7ac1` because its path filter omitted `shutils_pidfile_policy.h`; the current commit explicitly adds that path.
+- No same-SHA XY-C1 build/TRX/artifact or physical hardware result is available at commit creation.
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-SHA process lifecycle, legacy-wrapper PID-file, AI docs, NVRAM and XY-C1 Actions for the strict-GNU89 compatibility correction.
-2. Confirm the metadata test passes with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` and production source contract.
-3. Inspect XY-C1 Build, TRX verification and artifact upload on the latest exact product SHA; retain pending state if not done.
-4. Continue another independent stability issue if Actions are pending; keep backup read-only and Roadmap below byte limit.
+1. Fetch live `main`; inspect exact-SHA process lifecycle regression, legacy-wrapper PID-file, process inventory, AI docs and XY-C1 workflows.
+2. Confirm the metadata policy header compiles with `-std=gnu89 -Wall -Wextra -Werror`, the policy unit test passes with ASan/UBSan, and the integration checker accepts the production enforcement.
+3. Confirm XY-C1 triggered because `shutils_pidfile_policy.h` is now in push paths; inspect Build → TRX verification → artifact upload on that exact SHA.
+4. Continue a separate repository-wide stability/security fix while runs are pending. Keep backup read-only and preserve the roadmap byte limit.
 
 # Cross-session execution mandate
 

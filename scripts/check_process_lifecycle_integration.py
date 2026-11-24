@@ -111,7 +111,11 @@ assert "shutils_pidfile_open(pidfile)" in legacy_pidfile_body
 assert "O_NOFOLLOW" in shared_pidfile_policy
 assert "O_NONBLOCK" in shared_pidfile_policy
 assert "fstat(fd, &st)" in legacy_pidfile_body
-assert "S_ISREG(st.st_mode)" in legacy_pidfile_body
+assert "shutils_pidfile_metadata_is_safe(&st, geteuid())" in legacy_pidfile_body
+assert "S_ISREG(st.st_mode)" not in legacy_pidfile_body
+for token in ("(status->st_mode & S_IFMT) == S_IFREG", "status->st_uid == owner", "status->st_nlink == 1", "(status->st_mode & 022) == 0"):
+    assert token in shared_pidfile_policy, token
+assert "metadata_policy_rejects_unsafe_files" in shared_pidfile_test
 assert "fdopen(fd, \"r\")" in legacy_pidfile_body
 assert "shutils_pidfile_parse_record(buf, length, &pid)" in legacy_pidfile_body
 assert "fgets(" not in legacy_pidfile_body
@@ -1932,6 +1936,7 @@ assert '"trunk/user/lldt/src/lldt_pidfile_policy.h"' in xy_workflow
 assert '"trunk/user/lldt/src/main.c"' in xy_workflow
 assert '"trunk/user/lldt/src/lldt_config_path_policy.h"' in xy_workflow
 assert '"trunk/user/lldt/src/lldt_config_parse_policy.h"' in xy_workflow
+assert '"trunk/user/shared/src/shutils_pidfile_policy.h"' in xy_workflow
 print("LLTD/rstats detached startup postconditions and daemonization contracts: PASS")
 
 iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]

@@ -1,3 +1,11 @@
+## 2026-11-24 — Align PID metadata source contracts and XY-C1 header triggers
+
+- Process lifecycle run #45322826402 on `fdc7ac1` passed the strict-GNU89 compile stage but failed later in `check_process_lifecycle_integration.py`: the checker still required inline `S_ISREG(st.st_mode)` even though production now calls `shutils_pidfile_metadata_is_safe(&st, geteuid())`. Replaced the stale assertion with checks for the helper and the complete owner, file-type, link-count and mode policy.
+- Made `shutils_pidfile_policy.h` self-contained with `<sys/stat.h>` and added the include contract to the legacy wrapper checker.
+- Found that XY-C1 firmware push paths included `shutils.c` but not its newly included policy header. Added the header path and a source-contract assertion to prevent future silent skips of header-only target changes.
+- Parent main: `776c84b04a194d0260830eb14f8732df864ee7c3`; this correction requires fresh exact-SHA process lifecycle, legacy-wrapper and XY-C1 runs.
+
+---
 ## 2026-11-24 — Keep pidfile metadata policy portable to strict GNU89 tests
 
 - Process lifecycle regression #45322580591 caught a test-build incompatibility: under the workflow's `-std=gnu89 -Wall -Wextra -Werror`, glibc did not expose `S_ISREG` because the test did not request miscellaneous feature macros. Production build had `_GNU_SOURCE`, but the header-only policy tests deliberately compile without it.
