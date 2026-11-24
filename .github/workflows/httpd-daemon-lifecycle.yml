@@ -123,9 +123,10 @@ jobs:
               assert 'nvram_get_int("' + key + '")' not in start
           assert "httpd_start_config_read" in policy
           config_reader = body(policy, "httpd_start_config_read(")
-          protocol_range_check = "if (support_https &&" + "\\n" + "\\t    (next.http_proto < 0 || next.http_proto > 2))"
-          assert protocol_range_check in config_reader
-          assert config_reader.index(protocol_range_check) < config_reader.index('if (next.http_proto == 0 || next.http_proto == 2)')
+          compact_config_reader = " ".join(config_reader.split())
+          protocol_range_check = "if (support_https && (next.http_proto < 0 || next.http_proto > 2))"
+          assert protocol_range_check in compact_config_reader
+          assert compact_config_reader.index(protocol_range_check) < compact_config_reader.index("if (next.http_proto == 0 || next.http_proto == 2)")
           for marker in (
               "test_start_config_reads_only_selected_listener_settings",
               "test_start_config_preserves_missing_key_defaults_and_http_only_builds",

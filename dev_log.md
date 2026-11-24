@@ -1,3 +1,11 @@
+## 2026-11-24 — Correct HTTPD selector contract and ensure XY-C1 build coverage
+
+- On exact SHA `86d3078c1ead2dfd5578830e069b684e12a4b072`, HTTPD run #45387713984 compiled and passed the GNU89 ASan/UBSan policy regression, then failed its Python source contract. The new assertion used escaped backslash-n/tab text rather than the C source's actual whitespace; production code was not implicated.
+- The same SHA had no XY-C1 push run because `.github/workflows/xy-c1-firmware-validation.yml` did not watch `trunk/user/rc/src/httpd_daemon_policy.h`, despite that header being included by the firmware's `services.c`.
+- THIS FOLLOW-UP normalizes whitespace before the source assertion and adds the header to both XY-C1 push and pull-request path filters. Exact-head HTTPD, XY-C1 Build/TRX/artifact and AI/Process/NVRAM results must be checked on THIS COMMIT.
+
+---
+
 ## 2026-11-24 — Reject invalid HTTPD listener protocol selectors
 
 - The Advanced Services UI offers only `http_proto=0` (HTTP), `1` (HTTPS), and `2` (HTTP+HTTPS). In HTTPS-enabled builds, `httpd_start_config_read()` accepted any signed integer. An invalid value selected neither listener branch, but the startup path could still launch `httpd` without explicit listener arguments while firewall preflight treated the invalid selector as exposing no listener.

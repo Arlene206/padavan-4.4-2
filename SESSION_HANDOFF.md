@@ -1,29 +1,29 @@
 ## Current repository state
 
-- Active development branch: `main`; parent source SHA for the current HTTPD selector slice: `d33fcf06b73fbe2771ab0b559116d3e750dc4918`. Always fetch the live `main` head again before any write.
+- Active development branch: `main`; source/test commit under verification: `86d3078c1ead2dfd5578830e069b684e12a4b072`. Always fetch the live `main` head again before any write.
 - Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable and must not be modified, used for development, or deleted.
 - No open PRs; legacy PR #1 is closed and its valid unmerged work was ported to main.
-- MTK AP private-ioctl safety slice is implemented through deauthentication: exact main SHA `d33fcf06b73fbe2771ab0b559116d3e750dc4918` Actions MTK #45384680997, NVRAM #45384681048, AI handoff #45384680982, and XY-C1 #45384680986 all completed PASS on push with this exact head SHA. XY-C1 Build, TRX verification and artifact upload all PASS; L3 is verified for this source SHA. Physical router L4 remains NOT VERIFIED.
+- MTK AP private-ioctl safety is L3 VERIFIED on exact SHA `d33fcf06b73fbe2771ab0b559116d3e750dc4918`: MTK #45384680997, NVRAM #45384681048, AI docs #45384680982 and XY-C1 #45384680986 all PASS on push with that head SHA; XY-C1 Build/TRX/artifact all passed. Physical-router L4 remains NOT VERIFIED.
 
-## Active task — Reject invalid HTTPD listener protocol selectors
+## Active task — Finish HTTPD protocol-selector validation
 
-- Source: `trunk/user/rc/src/httpd_daemon_policy.h`, called by `start_httpd_locked()` in `trunk/user/rc/src/services.c`.
-- The Advanced Services UI offers exactly `http_proto=0` (HTTP), `1` (HTTPS), and `2` (HTTP+HTTPS). In HTTPS-enabled builds, `httpd_start_config_read()` previously accepted negative or out-of-range persisted values. Those values selected neither listener branch, so `start_httpd_locked()` could continue to launch the daemon with no explicit `-p`/`-s` listener arguments while `httpd_start_config_firewall_required()` treated the selector as exposing no listener.
-- THIS COMMIT rejects `http_proto < 0 || http_proto > 2` with `EINVAL` immediately after the checked read and before any listener-specific NVRAM reads, port normalization, state publication, or daemon launch. HTTP-only builds retain their legacy behavior and do not read the HTTPS selector.
-- Regression: `trunk/user/rc/src/tests/httpd_daemon_policy.c` exercises `-1`, `3`, and `99`, requiring one NVRAM read and an untouched output snapshot. `.github/workflows/httpd-daemon-lifecycle.yml` also pins validation-before-listener-read and the new test invocation.
-- No local checkout is available in this runtime. The exact-head HTTPD workflow will compile/run the GNU89 ASan/UBSan regression and integration contract; XY-C1 Actions are required for L3.
+- Production fix in `trunk/user/rc/src/httpd_daemon_policy.h` rejects HTTPS-build `http_proto` values outside 0/1/2 with `EINVAL` before listener-specific reads, state publication, port normalization or daemon launch. GNU89 ASan/UBSan policy regression for `-1`, `3`, `99` passed in HTTPD run #45387713984 on `86d3078c1ead2dfd5578830e069b684e12a4b072`.
+- Exact HTTPD run #45387713984 FAILED only in its Python source integration contract: the new matcher compared literal escaped newline/tab text against actual C whitespace. The code regression compile/run step passed; no production compiler failure was reported. THIS COMMIT changes the contract to whitespace-normalized matching.
+- No XY-C1 run was created for `86d3078`: the dedicated `xy-c1-firmware-validation.yml` path filter omitted `trunk/user/rc/src/httpd_daemon_policy.h`. THIS COMMIT adds the header to both push and pull-request path filters so the policy change receives a same-SHA firmware build.
+- Exact HTTPD run #45387713984 source-contract result must be rechecked on this follow-up SHA. Process inventory #45387714115, HTTPD Authentication/Security #45387714072, and AI handoff #45387714060 passed on `86d3078`. NVRAM #45387714231 was still running at the last check. XY-C1 was not triggered on `86d3078`; do not claim L3 for that SHA.
+- HTTP-only builds still preserve their legacy default and skip the selector read. The UI-supported HTTPS selector values are exactly 0, 1 and 2.
 
 ## Verification boundary
 
-- The HTTPD source/test/checker update is contained in THIS COMMIT; fetch live main and inspect exact `push` Actions by `head_sha` before declaring it verified.
-- Require HTTPD daemon lifecycle stability regression and AI handoff contract PASS. Require same-SHA XY-C1 Build, TRX and artifact PASS before L3.
-- L4 physical-router behavior: NOT VERIFIED.
+- New follow-up checker/path-filter changes are contained in THIS COMMIT. Fetch live main and inspect the exact-head HTTPD daemon lifecycle, XY-C1 Build/TRX/artifact, AI docs, Process and NVRAM Actions.
+- If the HTTPD source contract passes and XY-C1 Build/TRX/artifact pass on the same exact SHA, L3 is verified for this code. Otherwise triage the first causal error and keep L3 open.
+- Physical router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main` and query Actions by the exact live SHA. Confirm the HTTPD daemon lifecycle run compiles/runs the new invalid-protocol regression and its source contract; also inspect AI docs and XY-C1 Build/TRX/artifact on the same SHA.
-2. If the exact HTTPD or docs run fails, diagnose the first causal assertion/compiler failure and make a bounded atomic main fix. A pending XY-C1 build does not block independent work.
-3. After the HTTPD selector fix passes, continue the next highest-priority unclosed stability defect outside this already-validated MTK AP ioctl cluster; do not repeat closed HTTPD/MTK checks absent new evidence.
+1. Fetch current `main` and query push Actions by exact live SHA; inspect HTTPD daemon lifecycle, XY-C1 Build/TRX/artifact, AI docs, Process and NVRAM.
+2. Fix any exact-head failure with one bounded atomic main commit; pending checks do not block independent work.
+3. After this selector slice is verified, continue the next highest-priority unclosed stability/security defect outside the completed MTK AP ioctl slice. Do not repeat completed audits absent new evidence.
 
 ## Mandatory handoff checkpoint
 
