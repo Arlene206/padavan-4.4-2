@@ -206,6 +206,40 @@ test_regular_file_status_nofollow_rejects_symlink_and_fifo(void)
 	assert(unlink(path) == 0);
 }
 
+static void
+test_metadata_readers_reject_symlinked_parent_components(void)
+{
+	char alias[256], target[256], path[256];
+	const char *sample = "pinned metadata parent\\n";
+	char *contents;
+	int status;
+
+	make_path(alias, sizeof(alias), "parent-alias");
+	make_path(target, sizeof(target), "parent-component-cache.txt");
+	assert(symlink(test_dir, alias) == 0);
+	make_path(path, sizeof(path), "parent-alias/parent-component-cache.txt");
+	write_file(target, sample, strlen(sample));
+
+	errno = 0;
+	contents = read_regular_file_nofollow(path);
+	assert(contents == NULL);
+	assert(errno != 0);
+
+	errno = 0;
+	status = test_if_regular_file_nofollow(path);
+	assert(status == -1);
+	assert(errno != ENOENT);
+
+	contents = read_regular_file_nofollow(target);
+	assert(contents != NULL);
+	assert(strcmp(contents, sample) == 0);
+	free(contents);
+
+	assert(unlink(target) == 0);
+	assert(unlink(alias) == 0);
+}
+
+
 static void test_sanity_name_replaces_high_bit_reserved_byte(void)
 {
 	char name[] = { 'A', (char)0x84, 'B', '/', '\0' };
@@ -237,6 +271,7 @@ int main(void)
 	test_read_regular_file_nofollow_rejects_directory();
 	test_regular_file_status_nofollow_distinguishes_missing_file();
 	test_regular_file_status_nofollow_rejects_symlink_and_fifo();
+	test_metadata_readers_reject_symlinked_parent_components();
 	test_sanity_name_replaces_high_bit_reserved_byte();
 
 	assert(rmdir(test_dir) == 0);

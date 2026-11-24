@@ -154,24 +154,127 @@ char *read_whole_file(const char *target)
 }
 
 /*
- * Read an untrusted removable-media metadata file without following its final
- * path component or blocking on a FIFO/device. The stream reader keeps the
+ * Resolve an absolute file path one component at a time. Keeping the current
+ * directory descriptor pinned prevents a symlink in any ancestor component
+ * from redirecting removable-media ACL/cache metadata outside its mount tree.
+ * The final component is returned separately for openat()/fstatat().
+ */
+static int
+disk_io_open_parent_nofollow(const char *target, char **leaf_out)
+{
+	char *path_copy = NULL, *leaf = NULL, *slash, *cursor, *component;
+	size_t path_len, leaf_len;
+	int parent_fd = -1, next_fd, saved_errno;
+
+	if (!target || target[0] != '/' || !leaf_out) {
+		errno = EINVAL;
+		return -1;
+	}
+	*leaf_out = NULL;
+	path_len = strlen(target);
+	if (path_len < 2 || target[path_len - 1] == '/') {
+		errno = EINVAL;
+		return -1;
+	}
+
+	path_copy = (char *)malloc(path_len + 1);
+	if (!path_copy)
+		return -1;
+	memcpy(path_copy, target, path_len + 1);
+
+	slash = strrchr(path_copy, '/');
+	if (!slash || !slash[1]) {
+		errno = EINVAL;
+		goto failed;
+	}
+	leaf_len = strlen(slash + 1);
+	if ((leaf_len == 1 && slash[1] == '.') ||
+	    (leaf_len == 2 && slash[1] == '.' && slash[2] == '.')) {
+		errno = EINVAL;
+		goto failed;
+	}
+	leaf = (char *)malloc(leaf_len + 1);
+	if (!leaf)
+		goto failed;
+	memcpy(leaf, slash + 1, leaf_len + 1);
+	*slash = '\0';
+
+	parent_fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (parent_fd < 0)
+		goto failed;
+
+	cursor = path_copy;
+	while (*cursor == '/')
+		++cursor;
+	while (*cursor) {
+		char *next_component;
+
+		component = cursor;
+		next_component = strchr(cursor, '/');
+		if (next_component) {
+			*next_component = '\0';
+			cursor = next_component + 1;
+		} else {
+			cursor += strlen(cursor);
+		}
+		if (!*component)
+			continue;
+		if (!strcmp(component, ".") || !strcmp(component, "..")) {
+			errno = EACCES;
+			goto failed;
+		}
+
+		next_fd = openat(parent_fd, component,
+				 O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+		if (next_fd < 0)
+			goto failed;
+		(void)close(parent_fd);
+		parent_fd = next_fd;
+
+		while (*cursor == '/')
+			++cursor;
+	}
+
+	free(path_copy);
+	*leaf_out = leaf;
+	return parent_fd;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (parent_fd >= 0)
+		(void)close(parent_fd);
+	free(leaf);
+	free(path_copy);
+	errno = saved_errno;
+	return -1;
+}
+
+
+/*
+ * Read an untrusted removable-media metadata file without following any
+ * symlink component or blocking on a FIFO/device. The stream reader keeps the
  * same 1 MiB bound and checked read/close behavior as read_whole_file().
  */
 char *read_regular_file_nofollow(const char *target)
 {
 	struct stat file_status;
 	FILE *fp;
-	int fd, saved_errno;
+	char *leaf = NULL;
+	int parent_fd, fd, saved_errno;
 
-	if (!target || !*target) {
-		errno = EINVAL;
+	parent_fd = disk_io_open_parent_nofollow(target, &leaf);
+	if (parent_fd < 0)
+		return NULL;
+
+	fd = openat(parent_fd, leaf,
+		    O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+	saved_errno = errno;
+	(void)close(parent_fd);
+	free(leaf);
+	if (fd < 0) {
+		errno = saved_errno;
 		return NULL;
 	}
-
-	fd = open(target, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
-	if (fd < 0)
-		return NULL;
 
 	if (fstat(fd, &file_status) != 0) {
 		saved_errno = errno ? errno : EIO;
@@ -197,19 +300,25 @@ char *read_regular_file_nofollow(const char *target)
 
 
 /*
- * Return 1 for an existing regular file, 0 only for ENOENT, and -1 for
- * symlinks, non-regular entries, and all other lookup errors.
+ * Return 1 for an existing regular file, 0 only for a missing final component,
+ * and -1 for symlinks, non-regular entries, and all lookup errors.
  */
 int test_if_regular_file_nofollow(const char *target)
 {
 	struct stat file_status;
+	char *leaf = NULL;
+	int parent_fd, result, saved_errno;
 
-	if (!target || !*target) {
-		errno = EINVAL;
+	parent_fd = disk_io_open_parent_nofollow(target, &leaf);
+	if (parent_fd < 0)
 		return -1;
-	}
-	if (lstat(target, &file_status) != 0) {
-		if (errno == ENOENT)
+	result = fstatat(parent_fd, leaf, &file_status, AT_SYMLINK_NOFOLLOW);
+	saved_errno = errno;
+	(void)close(parent_fd);
+	free(leaf);
+	if (result != 0) {
+		errno = saved_errno;
+		if (saved_errno == ENOENT)
 			return 0;
 		return -1;
 	}

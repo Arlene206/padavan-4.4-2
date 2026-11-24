@@ -456,21 +456,35 @@ require("errno = EINVAL;" in read_body and
         'fopen(target, "r")' in read_body and
         "read_whole_file_stream(fp)" in read_body,
         "legacy file reader must preserve its path validation and bounded stream behavior")
+parent_open = function_body(
+    DISK_IO_SOURCE, "disk_io_open_parent_nofollow(const char *target, char **leaf_out)"
+)
+parent_open_compact = "".join(parent_open.split())
+require('open("/",O_RDONLY|O_DIRECTORY|O_CLOEXEC)' in parent_open_compact and
+        "openat(parent_fd,component" in parent_open_compact and
+        "O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC" in parent_open_compact and
+        'strcmp(component,"..")' in parent_open_compact,
+        "removable-media metadata paths must pin each absolute parent component without following symlinks")
 safe_read = function_body(
     DISK_IO_SOURCE, "char *read_regular_file_nofollow(const char *target)"
 )
 safe_compact = "".join(safe_read.split())
-require("open(target,O_RDONLY|O_NONBLOCK|O_NOFOLLOW)" in safe_compact and
+require("disk_io_open_parent_nofollow(target,&leaf)" in safe_compact and
+        "openat(parent_fd,leaf,O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC)" in safe_compact and
         "fstat(fd,&file_status)" in safe_compact and
         "!S_ISREG(file_status.st_mode)" in safe_compact and
         'fdopen(fd,"r")' in safe_compact and
         "read_whole_file_stream(fp)" in safe_compact,
-        "untrusted cache reads must reject final symlinks and non-regular files without blocking")
-require("test_if_regular_file_nofollow" in DISK_IO_SOURCE and
-        "lstat(target, &file_status)" in DISK_IO_SOURCE and
-        "S_ISLNK(file_status.st_mode)" in DISK_IO_SOURCE and
-        "S_ISREG(file_status.st_mode)" in DISK_IO_SOURCE,
-        "existence checks for removable account metadata must not open symlinks or special files")
+        "untrusted cache reads must pin parent directories and reject symlinks/non-regular files without blocking")
+status_read = function_body(
+    DISK_IO_SOURCE, "int test_if_regular_file_nofollow(const char *target)"
+)
+status_compact = "".join(status_read.split())
+require("disk_io_open_parent_nofollow(target,&leaf)" in status_compact and
+        "fstatat(parent_fd,leaf,&file_status,AT_SYMLINK_NOFOLLOW)" in status_compact and
+        "S_ISLNK(file_status.st_mode)" in status_compact and
+        "S_ISREG(file_status.st_mode)" in status_compact,
+        "removable account metadata existence checks must pin ancestors and reject final symlinks/special files")
 for marker in (
     "test_reads_complete_text_file",
     "test_reads_empty_file",
@@ -483,6 +497,7 @@ for marker in (
     "test_read_regular_file_nofollow_rejects_directory",
     "test_regular_file_status_nofollow_distinguishes_missing_file",
     "test_regular_file_status_nofollow_rejects_symlink_and_fifo",
+    "test_metadata_readers_reject_symlinked_parent_components",
 ):
     require(marker in IO_REGRESSION and marker + "();" in IO_REGRESSION,
             "missing read_whole_file regression: " + marker)
