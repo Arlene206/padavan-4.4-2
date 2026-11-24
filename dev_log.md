@@ -1,3 +1,10 @@
+## 2026-11-24 — Pin PID-scoped SmartDNS stop in runtime and workflow triggers
+
+- The SmartDNS source checker was aligned with the live helper contract in `af57e892ed4f1671cd1262feb83c0a98eaea9272`; this follow-up adds executable assertions for per-PID executable/start_time revalidation and the exact `kill -TERM/-KILL <pid>` path.
+- The shell lifecycle fixture keeps a killall mock as a tripwire and now requires `KILLALL_CALLS=0` after graceful, forced and UNKNOWN stop scenarios. Both Process workflow push and pull-request filters now include `trunk/user/smartdns/**`, so changes to the shell helper and fixture trigger the same regression suite.
+- Exact-head Process run #45427108566 for the checker correction was IN_PROGRESS at last inspection. Parent `822d8a8` XY-C1 run #45425821347 remained IN_PROGRESS with Build active and TRX/artifact pending. This commit's Process and AI Actions must be checked on its own SHA.
+
+---
 ## 2026-11-24 — Align SmartDNS lifecycle source contract with current tri-state helpers
 
 - Exact Process inventory run #45425821194 on `822d8a8c40808290825d838d746d7fec034bb2fc` ran the SmartDNS shell regression successfully, including the new procfs-default case, PID identity checks, stop revalidation, Adbyby ownership and adblock conversion. It then failed in `scripts/check_smartdns_lifecycle.py` because the static checker still expected a former generic `_smartdns_process_name` helper and `killall smartdns` behavior.

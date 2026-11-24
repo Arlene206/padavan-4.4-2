@@ -186,6 +186,7 @@ KILL_MODE=unknown
 if smartdns_stop_process; then fail "unknown post-TERM process inventory was accepted"; else stop_status=$?; fi
 [ "$stop_status" -eq 2 ] || fail "unknown post-TERM state returned $stop_status"
 [ "$(wc -l < "$KILL_LOG")" -eq 1 ] || fail "unknown inventory must prevent SIGKILL escalation"
+[ "$KILLALL_CALLS" -eq 0 ] || fail "PID-scoped stop never calls name-wide killall"
 
 # A PID reused for another executable between inventory and signal must not
 # let the replacement process receive a signal.

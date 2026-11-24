@@ -34,6 +34,12 @@ assert '[ -z "$_smartdns_pid_output" ] || return 2' in process_state
 assert '*) return 2 ;;' in named_state
 assert 'smartdns_signal_process_ids TERM' in stop_state and 'smartdns_signal_process_ids KILL' in stop_state
 assert 'smartdns_wait_stopped' in stop_state
+signal_helper = body(helper, 'smartdns_signal_process_ids()\\n{', '\\n}\\n\\nsmartdns_stop_process')
+assert 'smartdns_process_identity "$_smartdns_signal_pid"' in signal_helper
+assert '[ "$_smartdns_current_start" = "$_smartdns_signal_start" ] || continue' in signal_helper
+assert 'kill "-$_smartdns_signal" "$_smartdns_signal_pid"' in signal_helper
+assert 'killall' not in helper
+assert '[ "$KILLALL_CALLS" -eq 0 ] || fail "PID-scoped stop never calls name-wide killall"' in test
 reader = body(script, 'Read_ini () {', '\n}\n\nCheck_md5')
 assert 'if [ -L "$smartdns_Ini" ]; then' in reader
 assert '[ -r "$smartdns_Ini" ] && [ -s "$smartdns_Ini" ] || return 1' in reader
