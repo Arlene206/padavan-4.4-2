@@ -1,3 +1,9 @@
+## 2026-11-24 — Align SmartDNS process checker with deterministic PID reuse test
+
+- DNSMasq's runtime regressions now pass through the deterministic snapshot/replacement test, but the source checker still looked for the old race-test phrase. It now asserts the observable invariant: a replacement process must never receive a signal.
+
+---
+
 ## 2026-11-24 — Correct SmartDNS fixture extraction checker
 
 - The runtime DNSMasq fixture now passes with its renamed Adbyby-only helper, but the source checker retained one additional assertion for the former function name. Updated the expected two extraction sites so the contract reflects the verified runtime setup.

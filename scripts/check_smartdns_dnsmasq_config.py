@@ -263,7 +263,7 @@ assert 'kill "-$_smartdns_signal" "$_smartdns_signal_pid"' in process_helper
 assert "smartdns_named_process_state adbyby" in smartdns
 assert "smartdns_signal_process_ids TERM" in process_stop
 assert "smartdns_signal_process_ids KILL" in process_stop
-assert "replacement executable" in process_test and "unknown post-TERM" in process_test
+assert "replacement process received a signal" in process_test and "unknown post-TERM" in process_test
 assert test.count('/^smartdns_named_process_state()/') == 2
 assert '$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh' in makefile
 assert "trunk/user/smartdns/**" in xy
