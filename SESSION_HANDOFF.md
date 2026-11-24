@@ -1,34 +1,35 @@
 ## Current repository state
 
-- Active parent main SHA: fe2e86b3a6f3d36537bc3c6f9c6b64f04e37c86d. Re-fetch live main before every write because concurrent sessions may advance it.
+- Active parent main SHA: f148b0881302f62da93e5e81edb53a31bd17f998. Re-fetch live main before any write because concurrent sessions may advance it.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify/delete it.
-- PR #1 is closed/unmerged; core AliDDNS CA-bootstrap/HMAC work is integrated on main with later evolution. Do not port stale PR wholesale.
+- PR #1 remains closed/unmerged; core AliDDNS CA-bootstrap/HMAC work is on main with later evolution. Do not port stale PR wholesale.
 - Main-only development: one complete tree and one commit per logical task, then non-forced expected-SHA update. Never force-push or create development branches.
 
 ## Active task
 
-### DHCP ARP preflight and integrated BusyBox verification
+### DHCP ARP preflight and removable-storage descriptor hardening
 
-- be691b89477fefaa2e0fc42606b9bf8ba4650528 made arpping() return -1 on socket-option/send/poll/read errors, 0 for a conflict and 1 only after a completed no-conflict probe. DHCPACK rejects negative results without committing the lease, preserves current state/deadline and retries.
-- 57db1f707f65c8f753d964ebf69d9cacfb26ec28 removed the accidentally nested legacy arpping call so the tri-state result is the sole probe and the DHCPACK branch braces balance.
-- USB hotplug run #45465005107 on 57db successfully compiled BusyBox after that brace correction but failed its embedded Python source check because it still expected a single call to udhcpc_script_failure_prepare_retry(). The new ARP error gate adds a second legitimate caller. This commit changes expected count to two and makes the nearby deconfig block's resume_state declaration C89-compliant.
-- eb75f63ecd7ac2779fdbf53b989c94531ff3cd13 aligned the udhcpc source checker; exact udhcpc run #45464697251 PASS.
-- fe2e86b3a6f3d36537bc3c6f9c6b64f04e37c86d repaired the libdisk checker staging-helper signature after its earlier declaration-aware extractor fix.
+- be691b89477fefaa2e0fc42606b9bf8ba4650528 made arpping() return -1 for socket-option/send/poll/read errors, 0 for conflict and 1 only after a complete no-conflict probe. DHCPACK rejects negative results and preserves the current lease/state and retry deadline.
+- 57db1f707f65c8f753d964ebf69d9cacfb26ec28 removed the accidental nested old arpping() call so the new tri-state probe is used exactly once.
+- f148b0881302f62da93e5e81edb53a31bd17f998 updated the USB storage integration assertion to require two udhcpc_script_failure_prepare_retry call sites (event-script failure and ARP-probe failure) and moved resume_state before statements for C89.
+- fe2e86b3a6f3d36537bc3c6f9c6b64f04e37c86d corrected the libdisk checker matcher for disk_share_remove_folder_path() after making its extractor declaration-aware. Its libdisk run #45465306855 passed both GNU89 ASan/UBSan host binaries but then exposed a separate stale contract: it searched the rename-only policy body for mkdirat/unlinkat, which reside in create/remove-entry helpers. This commit aligns those checks with the correct helper definitions.
+- Earlier production: 552699f... pinned add_folder to mount fd; f22e429... restored the truncated destructor and pinned full metadata rebuild; 8e3c3ba... added static C89 prototypes after MIPS build errors.
 
 ## Verification boundary
 
-- 57db udhcpc #45465005678 PASS (GNU89 ASan/UBSan and Python source contract).
-- 57db USB hotplug #45465005107 compiled BusyBox, then failed only the integration contract's outdated call count; this commit fixes it. Fresh exact-head USB check required.
-- 57db XY-C1 #45465005302 was IN_PROGRESS at last poll. Confirm MIPS Build, TRX verification and artifact upload separately.
-- fe2e86 libdisk #45465306855 and AI handoff #45465306892 were QUEUED at last poll. Prior eb75 libdisk #45464697321 passed sanitizer binaries but checker failed on the escaped staging-helper matcher; corrected in fe2e86. Fresh exact-head test required.
-- Earlier production parent 572ec XY-C1 #45461770986 failed MIPS due missing prototypes; fixed in 8e3c3ba... No exact-SHA L3 Build/TRX/artifact PASS yet; L3 NOT VERIFIED; L4 NOT VERIFIED.
+- 57db udhcpc #45465005678 PASS (GNU89 ASan/UBSan and Python checker).
+- 57db USB hotplug #45465005107 compiled BusyBox, then failed the obsolete one-call integration assertion (workflow corrected in f148).
+- fe2e86 libdisk #45465306855 passed both sanitizer binaries, then failed only the mis-targeted staging syscall assertion. Current correction needs fresh exact-head libdisk run.
+- f148 USB hotplug #45465557087, XY-C1 #45465557176, udhcpc #45465557325, NVRAM #45465557210, Process #45465557323, Process regression #45465557058 and AI handoff #45465557053 were QUEUED at last poll.
+- 57db XY-C1 #45465005302 was IN_PROGRESS; verify Build/TRX/artifact steps. No same-SHA L3 Build/TRX/artifact all-PASS verified yet; L3 NOT VERIFIED; L4 NOT VERIFIED.
+- Earlier 572ec XY-C1 failed due missing libdisk prototypes, added in 8e3c3ba...; subsequent cross-build remains to be verified. No local MIPS build claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect fresh exact-head storage-hotplug BusyBox build and caller-graph checker; confirm the two retry-policy call sites and sanitizer/source contracts pass.
-2. Inspect XY-C1 Build, TRX verification and artifact upload for the source that includes both the C89 libdisk prototypes and DHCP ARP fail-closed change.
-3. Inspect fresh exact-head libdisk run after the declaration-aware extractor and staging-helper signature correction.
-4. Continue P1 removable-storage path/symlink/stale-inode audit and broader userland stability/security while PENDING workflows proceed.
+1. Inspect fresh exact-head libdisk checker and GNU89 sanitizer runs after the correct staging helper assertions.
+2. Inspect f148 USB hotplug run; confirm BusyBox compiles and the embedded caller-graph assertion now expects two retry helper callers.
+3. Inspect XY-C1 MIPS Build, TRX verification and artifact upload separately on the same production SHA.
+4. Continue P1 removable-storage path/symlink/stale-inode audit and independent userland stability/security fixes while runs are pending.
 
 ## Mandatory handoff checkpoint
 
@@ -36,4 +37,4 @@ At session end verify live main, frozen backup, exact active SHA, tests, exact-S
 
 # Cross-session execution mandate
 
-Implement, test, commit and hand off. Keep one atomic main commit per logical task with non-forced expected-SHA updates. Never force-push or overstate firmware/hardware validation. Complete this checkpoint Before context exhaustion.
+Implement, test, commit and hand off. Keep one atomic main commit per logical task with non-forced expected-SHA ref updates. Never force-push or overstate firmware/hardware validation. Complete this checkpoint Before context exhaustion.

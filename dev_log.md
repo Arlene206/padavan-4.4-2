@@ -1,3 +1,11 @@
+## 2026-11-24 — Check staging mkdir/remove syscalls on their own policy helpers
+
+- Exact fe2e86b3a6f3d36537bc3c6f9c6b64f04e37c86d libdisk run #45465306855 passed both GNU89 ASan/UBSan host binaries, then failed the Python source contract. The staging contract incorrectly searched rename_directory_entry_nofollow() for mkdirat()/unlinkat(); those calls correctly live in the separate create/remove directory-entry policy helpers. Updated the checker to extract and assert each helper independently rather than weakening the descriptor-relative/no-follow requirements.
+- Exact 57db udhcpc run #45465005678 PASS. USB run #45465005107 BusyBox compile PASS but failed line 1334 because an old integration assertion expected one udhcpc retry-policy call; current f148 source has two intended callers and updated the assertion to two. Fresh f148 USB run #45465557087 queued at last poll.
+- f148 XY-C1 #45465557176 and related actions were queued; 57db XY-C1 #45465005302 still IN_PROGRESS at last poll.
+
+---
+
 ## 2026-11-24 — Align storage BusyBox caller contract with the second DHCP retry gate
 
 - Exact 57db1f707f65c8f753d964ebf69d9cacfb26ec28 USB storage run #45465005107 compiled the host BusyBox after the DHCP brace fix, then failed its embedded Python caller-graph check because it expected exactly one call to udhcpc_script_failure_prepare_retry(). The new fail-closed ARP-probe path intentionally adds a second distinct caller alongside the existing event-script failure path; updated the expected count to two.
