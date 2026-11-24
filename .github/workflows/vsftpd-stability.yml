@@ -701,7 +701,7 @@ jobs:
           assert "str_atoi(&s_part2_str)" not in eprt
           assert "int vsf_sysutil_parse_uint(const struct mystr* p_str" in vsftpd_ipaddrparse_header
           ipv6_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_ipv6(")
-          ipv6_components = function_body(vsftpd_ipaddrparse, "ipv6_parse_main(")
+          ipv6_components = function_body(vsftpd_ipaddrparse, "ipv6_parse_main(struct mystr* p_out_str")
           assert "compression_ret = str_locate_text(p_str, \"::\")" in ipv6_parser
           assert "lhs_len + rhs_len >= 16" in ipv6_parser
           assert "lhs_len != 16 || rhs_len != 0" in ipv6_parser
