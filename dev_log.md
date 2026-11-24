@@ -1,3 +1,12 @@
+## 2026-11-24 — Validate RAETH descriptor DT properties and handle allocation failures
+
+- `fe_tx_rx_dec()` ignored every `of_property_read_u32()` result and reused `val`, so missing/malformed descriptor properties could feed uninitialized or stale counts into the driver. Queue×descriptor products and sums were unchecked, and every `kmalloc_array()` result was dereferenced without a NULL check.
+- Converted the decoder to return status. GMAC1 queue/descriptor and RX counts are mandatory; GMAC2 queue/descriptor properties must be supplied together and are mandatory when `FE_GE2_SUPPORT` is enabled. Zero/partial counts and 32-bit multiplication/addition overflow are rejected before global descriptor counters are published.
+- Checked all TX bookkeeping and RX-ring array allocations. Partial allocation failure releases every pointer already allocated and resets published counters. If a later probe stage fails after descriptor setup succeeds, probe rollback now releases descriptor bookkeeping before freeing the net_device.
+- Added a pure GNU89 descriptor policy and ASan/UBSan regression for GE1+GE2 and GE1-only configurations, invalid/missing counts, partial GMAC2 properties, invalid GE2 state, NULL outputs and arithmetic overflow. Wired the header/test into push and pull-request Switch CLI path filters and extended the RAETH source checker.
+- Parent `fe690de6011c957bdbb860ff0c792d6236faefde`: rollback-contract correction was just committed; exact-head Actions had not yet been observed. This source/test slice requires fresh exact-SHA Switch CLI and XY-C1 checks.
+
+---
 ## 2026-11-24 — Fix the RAETH frame-engine rollback source assertion
 
 - The exact Switch CLI run #45314640982 on `2391437add2f2d614accc3264ec3e6d83b13d238` failed in the RAETH probe/MMIO source-contract step, not in compilation or the descriptor work. The code correctly checks `IS_ERR(ethdma_frame_engine_base)`, obtains `PTR_ERR`, logs it, and jumps to `err_free_dev`.

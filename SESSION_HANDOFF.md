@@ -1,11 +1,11 @@
 ## 2026-11-24 持续开发接力（最新）
 
-- 本次 checker 修复父提交 `2391437add2f2d614accc3264ec3e6d83b13d238`；归档备份保持只读：`72f4f157a084f8184b9597ca5bf334b8080e5807`。
-- `2391437` 中 `devm_ioremap_resource()` 已正确使用 `IS_ERR/PTR_ERR`，AI handoff #45314640970 和 NVRAM #45314641002 **PASS**；XY-C1 #45314641044 **IN_PROGRESS**。
-- Switch CLI #45314640982 **FAIL** 的唯一首个错误是工作流源码契约中 `goto err_free_dev` 的固定 120 字符窗口过短；源码本身已正确执行 PTR_ERR 后跳转。THIS COMMIT 改为按顺序定位跳转，精确 SHA rerun 待确认。
+- 本次 RAETH descriptor 安全修复父提交 `fe690de6011c957bdbb860ff0c792d6236faefde`；归档备份保持只读：`72f4f157a084f8184b9597ca5bf334b8080e5807`。
 - AliyunDrive lifecycle #45314283222 和 AI handoff #45314283215 在 `c8800bfe` **PASS**。
-- XY-C1 L3 Build/TRX/artifact 仅在 `dd0b374` 完成（artifact #14884935723）；不继承到后续 SHA。
-- 下一步继续 RAETH `fe_tx_rx_dec()` DT 属性校验与数组分配失败回滚，完成 C regression 和 exact-SHA build。
+- `fe690de` 修正了 RAETH probe rollback 检查器的 120 字符窗口误报；精确 SHA Actions 待检查。
+- 新修复 `fe_tx_rx_dec()`：检查必需 DT 属性和可选 GMAC2 属性对，校验零值/u32 乘加溢出后发布全局计数；检查每个 TX/RX `kmalloc_array()`，失败释放部分分配；后续 probe 失败也回收 descriptor 资源。新增 GNU89 ASan/UBSan policy regression 和 source contract。精确 SHA CI 尚待验证。
+- XY-C1 L3 Build/TRX/artifact 只确认于 `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`（artifact #14884935723），不转移至后续 SHA。
+- 下一步检查本提交 exact-SHA Switch CLI policy test/source checker 和 XY-C1 Build/TRX/artifact；PENDING 时继续其他独立修复。
 
 
 ---
@@ -14,14 +14,14 @@
 
 ## Current repository state
 
-- Parent main for this rollback-contract correction: `2391437add2f2d614accc3264ec3e6d83b13d238`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent Switch CLI #45314640982 **FAIL** only because the workflow searched `goto err_free_dev;` inside a fixed 120-character suffix after `PTR_ERR`; the source already contains a `dev_err()` between them. This commit replaces the brittle window with a positional order assertion.
-- Parent AI #45314640970 **PASS**, NVRAM #45314641002 **PASS**, XY-C1 #45314641044 **IN_PROGRESS** at last observation.
-- AliyunDrive lifecycle #45314283222 and AI #45314283215 on `c8800bfe` **PASS**.
+- Parent main for the descriptor DT/allocation correction: `fe690de6011c957bdbb860ff0c792d6236faefde`; backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- AliyunDrive lifecycle #45314283222 and AI handoff #45314283215 on `c8800bfe` **PASS**.
+- `fe690de` corrects the previous Switch CLI rollback-contract assertion's 120-character window; exact-head Actions were not yet observed at task start.
+- THIS COMMIT changes RAETH descriptor parsing, arithmetic, allocation failure cleanup and probe rollback, and adds a host ASan/UBSan policy regression. Exact-SHA CI is still required.
 
 ## Active task
 
-Check the corrected RAETH rollback source contract on this commit's exact Switch CLI SHA. Then proceed with the `fe_tx_rx_dec()` DT-property and allocation failure slice; do not reuse any older firmware result as proof for new source.
+Verify the RAETH descriptor-policy ASan/UBSan test and source-contract checker on this exact commit. Inspect the same-SHA XY-C1 kernel build, TRX validation and artifact upload. Continue independent work if workflows are pending.
 
 ## Completed development slices
 
@@ -51,15 +51,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Parent `2391437`: AI #45314640970 **PASS**, NVRAM #45314641002 **PASS**, Switch CLI #45314640982 **FAIL** at fixed rollback-window assertion, XY-C1 #45314641044 **IN_PROGRESS**.
-- This commit changes only workflow assertion/docs; exact-head Switch CLI not yet verified.
-- L3 remains confirmed only for `dd0b374` artifact #14884935723.
+- Parent `fe690de` exact-head Actions were not yet observed at the time the descriptor patch was prepared; its predecessor `2391437` had AI/NVRAM PASS, Switch CLI FAIL from a brittle assertion (corrected by `fe690de`), and XY-C1 IN_PROGRESS.
+- Descriptor source/policy/test changes in THIS COMMIT have not run in CI. No local MIPS build, TRX/artifact or hardware result is claimed.
+- Earlier L3 artifact #14884935723 belongs only to `dd0b374`.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-push Switch CLI and AI handoff Actions. Verify the rollback step reaches PASS.
-2. Check XY-C1 #45314641044 on parent `2391437` and attribute it only to that SHA.
-3. Continue with RAETH descriptor configuration validation/allocation cleanup and its host regression; keep backup read-only.
+1. Inspect this exact-SHA Switch CLI log; descriptor policy ASan/UBSan and RAETH source-contract steps must both pass.
+2. Inspect XY-C1 Build, TRX validation and artifact upload on the same SHA.
+3. Continue the next independent repository-wide stability issue if Actions are pending; preserve exact SHA attribution and leave the frozen backup unchanged.
 
 
 # Cross-session execution mandate

@@ -17,6 +17,7 @@
 #include "ra_ioctl.h"
 #include "ra_switch.h"
 #include "ra_switch_mdio_policy.h"
+#include "ra_desc_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -3274,42 +3275,170 @@ void raeth_arch_setting(struct END_DEVICE *ei_local, struct platform_device *pde
 	}
 }
 
-void fe_tx_rx_dec(struct END_DEVICE *ei_local, struct platform_device *pdev)
+static void fe_tx_rx_dec_release(struct END_DEVICE *ei_local)
 {
-	u32 val;
-	u8 i;
+	unsigned int i;
 
-	of_property_read_u32(pdev->dev.of_node, "gmac1_txq_num", &val);
-	gmac1_txq_num = val;
-	of_property_read_u32(pdev->dev.of_node, "gmac1_txq_txd_num", &val);
-	gmac1_txq_txd_num = val;
-	gmac1_txd_num = gmac1_txq_num * gmac1_txq_txd_num;
+	kfree(ei_local->free_skb);
+	ei_local->free_skb = NULL;
+	kfree(ei_local->free_txd_num);
+	ei_local->free_txd_num = NULL;
+	kfree(ei_local->free_txd_head);
+	ei_local->free_txd_head = NULL;
+	kfree(ei_local->free_txd_tail);
+	ei_local->free_txd_tail = NULL;
+	kfree(ei_local->txd_pool_info);
+	ei_local->txd_pool_info = NULL;
+	kfree(ei_local->skb_free);
+	ei_local->skb_free = NULL;
+	kfree(ei_local->rls_cnt);
+	ei_local->rls_cnt = NULL;
+	for (i = 0; i < MAX_RX_RING_NUM; i++) {
+		kfree(ei_local->netrx_skb_data[i]);
+		ei_local->netrx_skb_data[i] = NULL;
+	}
+	kfree(ei_local->netrx0_skb_data);
+	ei_local->netrx0_skb_data = NULL;
 
-	of_property_read_u32(pdev->dev.of_node, "gmac2_txq_num", &val);
-	gmac2_txq_num = val;
-	of_property_read_u32(pdev->dev.of_node, "gmac2_txq_txd_num", &val);
-	gmac2_txq_txd_num = val;
-	gmac2_txd_num = gmac2_txq_num * gmac2_txq_txd_num;
+	gmac1_txq_num = 0;
+	gmac1_txq_txd_num = 0;
+	gmac1_txd_num = 0;
+	gmac2_txq_num = 0;
+	gmac2_txq_txd_num = 0;
+	gmac2_txd_num = 0;
+	num_rx_desc = 0;
+	num_tx_max_process = 0;
+	num_tx_desc = 0;
+	total_txq_num = 0;
+}
 
-	num_tx_desc = gmac1_txd_num + gmac2_txd_num;
-	total_txq_num = gmac1_txq_num + gmac2_txq_num;
+static int fe_tx_rx_dec(struct END_DEVICE *ei_local, struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct property *gmac2_queue_property;
+	struct property *gmac2_desc_property;
+	u32 txq1_num;
+	u32 txq1_desc_num;
+	u32 txq2_num = 0;
+	u32 txq2_desc_num = 0;
+	u32 rx_desc_num;
+	u32 txd1_num;
+	u32 txd2_num;
+	u32 tx_desc_count;
+	u32 tx_queue_count;
+	unsigned int i;
+	int ret;
 
-	of_property_read_u32(pdev->dev.of_node, "num_rx_desc", &val);
-	num_rx_desc = val;
-	num_tx_max_process = num_tx_desc;
+	ret = of_property_read_u32(node, "gmac1_txq_num", &txq1_num);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to read gmac1_txq_num: %d\n", ret);
+		return ret;
+	}
+	ret = of_property_read_u32(node, "gmac1_txq_txd_num", &txq1_desc_num);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to read gmac1_txq_txd_num: %d\n", ret);
+		return ret;
+	}
+	ret = of_property_read_u32(node, "num_rx_desc", &rx_desc_num);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to read num_rx_desc: %d\n", ret);
+		return ret;
+	}
 
-	ei_local->free_skb = kmalloc_array(num_tx_desc, sizeof(struct sk_buff *), GFP_KERNEL);
+	gmac2_queue_property = of_find_property(node, "gmac2_txq_num", NULL);
+	gmac2_desc_property = of_find_property(node, "gmac2_txq_txd_num", NULL);
+	if (!!gmac2_queue_property != !!gmac2_desc_property ||
+	    ((ei_local->features & FE_GE2_SUPPORT) &&
+	     (!gmac2_queue_property || !gmac2_desc_property))) {
+		dev_err(&pdev->dev,
+			"GMAC2 descriptor properties must be supplied as a pair\n");
+		return -EINVAL;
+	}
+	if (gmac2_queue_property) {
+		ret = of_property_read_u32(node, "gmac2_txq_num", &txq2_num);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to read gmac2_txq_num: %d\n", ret);
+			return ret;
+		}
+		ret = of_property_read_u32(node, "gmac2_txq_txd_num",
+					   &txq2_desc_num);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"failed to read gmac2_txq_txd_num: %d\n", ret);
+			return ret;
+		}
+	}
 
-	ei_local->free_txd_num = kmalloc_array(total_txq_num, sizeof(atomic_t), GFP_KERNEL);
-	ei_local->free_txd_head = kmalloc_array(total_txq_num, sizeof(unsigned int), GFP_KERNEL);
-	ei_local->free_txd_tail = kmalloc_array(total_txq_num, sizeof(unsigned int), GFP_KERNEL);
-	ei_local->txd_pool_info = kmalloc_array(num_tx_desc, sizeof(unsigned int), GFP_KERNEL);
-	ei_local->skb_free = kmalloc_array(num_tx_desc, sizeof(struct sk_buff *), GFP_KERNEL);
-	ei_local->rls_cnt = kmalloc_array(total_txq_num, sizeof(unsigned int), GFP_KERNEL);
-	for (i = 0; i < MAX_RX_RING_NUM; i++)
+	ret = raeth_desc_policy_calculate(txq1_num, txq1_desc_num,
+					  txq2_num, txq2_desc_num,
+					  rx_desc_num,
+					  !!(ei_local->features & FE_GE2_SUPPORT),
+					  &txd1_num, &txd2_num,
+					  &tx_desc_count, &tx_queue_count);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"invalid Ethernet descriptor configuration: %d\n", ret);
+		return ret;
+	}
+
+	/* Publish shared descriptor counts only after all DT values validate. */
+	gmac1_txq_num = txq1_num;
+	gmac1_txq_txd_num = txq1_desc_num;
+	gmac1_txd_num = txd1_num;
+	gmac2_txq_num = txq2_num;
+	gmac2_txq_txd_num = txq2_desc_num;
+	gmac2_txd_num = txd2_num;
+	num_rx_desc = rx_desc_num;
+	num_tx_desc = tx_desc_count;
+	total_txq_num = tx_queue_count;
+	num_tx_max_process = tx_desc_count;
+
+	ei_local->free_skb = kmalloc_array(tx_desc_count,
+					   sizeof(struct sk_buff *), GFP_KERNEL);
+	if (!ei_local->free_skb)
+		goto no_memory;
+	ei_local->free_txd_num = kmalloc_array(tx_queue_count,
+					       sizeof(atomic_t), GFP_KERNEL);
+	if (!ei_local->free_txd_num)
+		goto no_memory;
+	ei_local->free_txd_head = kmalloc_array(tx_queue_count,
+						sizeof(unsigned int), GFP_KERNEL);
+	if (!ei_local->free_txd_head)
+		goto no_memory;
+	ei_local->free_txd_tail = kmalloc_array(tx_queue_count,
+						sizeof(unsigned int), GFP_KERNEL);
+	if (!ei_local->free_txd_tail)
+		goto no_memory;
+	ei_local->txd_pool_info = kmalloc_array(tx_desc_count,
+						sizeof(unsigned int), GFP_KERNEL);
+	if (!ei_local->txd_pool_info)
+		goto no_memory;
+	ei_local->skb_free = kmalloc_array(tx_desc_count,
+					   sizeof(struct sk_buff *), GFP_KERNEL);
+	if (!ei_local->skb_free)
+		goto no_memory;
+	ei_local->rls_cnt = kmalloc_array(tx_queue_count,
+					  sizeof(unsigned int), GFP_KERNEL);
+	if (!ei_local->rls_cnt)
+		goto no_memory;
+	for (i = 0; i < MAX_RX_RING_NUM; i++) {
 		ei_local->netrx_skb_data[i] =
-			kmalloc_array(num_rx_desc, sizeof(void *), GFP_KERNEL);
-	ei_local->netrx0_skb_data = kmalloc_array(num_rx_desc, sizeof(void *), GFP_KERNEL);
+			kmalloc_array(rx_desc_num, sizeof(void *), GFP_KERNEL);
+		if (!ei_local->netrx_skb_data[i])
+			goto no_memory;
+	}
+	ei_local->netrx0_skb_data =
+		kmalloc_array(rx_desc_num, sizeof(void *), GFP_KERNEL);
+	if (!ei_local->netrx0_skb_data)
+		goto no_memory;
+
+	return 0;
+
+no_memory:
+	dev_err(&pdev->dev,
+		"failed to allocate Ethernet descriptor bookkeeping arrays\n");
+	fe_tx_rx_dec_release(ei_local);
+	return -ENOMEM;
 }
 
 
@@ -3323,6 +3452,7 @@ static int rather_probe(struct platform_device *pdev)
 	int ret;
 	int i;
 	int clocks_enabled = 0;
+	int desc_initialized = 0;
 
 	netdev = alloc_etherdev_mqs(sizeof(struct END_DEVICE),
 				    1, 1);
@@ -3341,7 +3471,10 @@ static int rather_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_dev;
 	raeth_arch_setting(ei_local, pdev);
-	fe_tx_rx_dec(ei_local, pdev);
+	ret = fe_tx_rx_dec(ei_local, pdev);
+	if (ret)
+		goto err_free_dev;
+	desc_initialized = 1;
 
 	ret = of_property_read_bool(pdev->dev.of_node, "dma-coherent");
 	if (ret)
@@ -3500,6 +3633,8 @@ static int rather_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_dev:
+	if (desc_initialized)
+		fe_tx_rx_dec_release(ei_local);
 	if (dev_raether == netdev)
 		dev_raether = NULL;
 	if (clocks_enabled)
