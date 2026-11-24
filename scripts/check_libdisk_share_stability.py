@@ -732,41 +732,82 @@ require(delete_move < delete_refresh < delete_apply < delete_remove <
         delete_rollback < delete_move_back < delete_refresh_back,
         "delete policy must compensate ACLs, directory placement and folder snapshot after any post-stage failure")
 
+fd_batch_prepare = function_body(
+    DISK_SOURCE, "disk_share_permission_fd_batch_prepare_rewrite("
+)
+fd_batch_prepare_compact = "".join(fd_batch_prepare.split())
+require('snprintf(entries[i].leaf,sizeof(entries[i].leaf),".__%s_var.txt",account)' in
+        fd_batch_prepare_compact and
+        "read_regular_file_nofollow_at(directory_fd,entries[i].leaf)" in
+        fd_batch_prepare_compact and
+        "disk_share_permission_rewrite(entries[i].before,target,replacement" in
+        fd_batch_prepare_compact and
+        "saved_errno==ENOENT" in fd_batch_prepare_compact,
+        "folder rename ACL preparation must read and transform bounded account leaves through the same pinned volume descriptor")
+
+fd_rename_policy = function_body(
+    POLICY, "disk_share_folder_rename_fd_batch("
+)
+fd_rename_policy_compact = "".join(fd_rename_policy.split())
+fd_move = fd_rename_policy_compact.index("move_entry(directory_fd,old_leaf,new_leaf)")
+fd_refresh = fd_rename_policy_compact.index("refresh_snapshot(directory_fd)", fd_move)
+fd_apply = fd_rename_policy_compact.index(
+    "disk_share_permission_fd_batch_apply(directory_fd,entries,count,write_file",
+    fd_refresh
+)
+fd_rollback = fd_rename_policy_compact.index(
+    "disk_share_permission_fd_batch_rollback(directory_fd,entries,count,write_file",
+    fd_apply
+)
+fd_move_back = fd_rename_policy_compact.index(
+    "move_entry(directory_fd,new_leaf,old_leaf)", fd_rollback
+)
+require(fd_move < fd_refresh < fd_apply < fd_rollback < fd_move_back and
+        "refresh_snapshot(directory_fd)" in fd_rename_policy_compact[fd_move_back:] and
+        "test_folder_rename_fd_batch_stays_on_original_volume_after_mount_swap();" in POLICY_TEST and
+        "test_folder_rename_fd_batch_rolls_back_after_acl_write_failure();" in POLICY_TEST,
+        "folder rename must compensate ACLs, directory name and snapshot through one FD with mount-swap and write-failure regressions")
+
+move_callback = function_body(DISK_SOURCE, "disk_share_move_folder_entry_at(")
+refresh_callback = function_body(DISK_SOURCE, "disk_share_refresh_folder_snapshot_at(")
+require("disk_share_rename_directory_entry_nofollow(directory_fd,old_leaf,directory_fd,new_leaf)" in
+        "".join(move_callback.split()) and
+        "initial_folder_list_in_directory_fd(directory_fd)" in
+        "".join(refresh_callback.split()),
+        "folder rename callbacks must remain descriptor-relative")
+
 mod_folder_body = function_body(
     DISK_SOURCE,
-    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
+    "int mod_folder(const char *const mount_path, const char *const folder,"
 )
 mod_folder_compact = "".join(mod_folder_body.split())
-mod_accounts = mod_folder_compact.index("get_account_list(&acc_num,&account_list)")
-mod_begin = mod_folder_compact.index("disk_share_account_nvram_begin(&transaction)", mod_accounts)
-mod_validate = mod_folder_compact.index(
-    "disk_share_account_inventory_matches_locked(&disk_share_account_nvram_operations,&transaction,acc_num,MAX_ACCOUNT_NUM,account_list)",
-    mod_begin
+mod_pin = mod_folder_compact.index("disk_share_open_mount_directory(mount_path)")
+mod_stat = mod_folder_compact.index(
+    "fstatat(mount_directory_fd,folder,&folder_status,AT_SYMLINK_NOFOLLOW)",
+    mod_pin
 )
-mod_live_check = mod_folder_compact.index("lstat(full_path,&target_stat)", mod_validate)
-mod_no_follow_check = mod_folder_compact.index(
-    "disk_share_folder_entry_status(result,errno", mod_live_check
-)
-mod_snapshot_check = mod_folder_compact.index(
-    "test_if_exist_folder_in_mount_path(mount_path,folder)", mod_no_follow_check
+mod_scan = mod_folder_compact.index(
+    "disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)",
+    mod_stat
 )
 mod_refresh = mod_folder_compact.index(
-    "initial_folder_list_in_mount_path(mount_path)", mod_snapshot_check
+    "initial_folder_list_in_directory_fd(mount_directory_fd)", mod_scan
 )
-mod_plan = mod_folder_compact.index(
-    "disk_share_permission_batch_prepare_rewrite(mount_path,acc_num,account_list,target,new_target,&permission_batch,&permission_batch_count)",
+mod_prepare = mod_folder_compact.index(
+    "disk_share_permission_fd_batch_prepare_rewrite(mount_directory_fd,acc_num,account_list,target,new_target",
     mod_refresh
 )
 mod_apply = mod_folder_compact.index(
-    "disk_share_folder_rename_batch(full_path,new_full_path,mount_path,permission_batch,permission_batch_count,disk_share_replace_file_atomic,disk_share_rename_folder_path,disk_share_refresh_folder_snapshot,&rollback_error)",
-    mod_plan
+    "disk_share_folder_rename_fd_batch(mount_directory_fd,folder,new_folder",
+    mod_prepare
 )
-mod_release = mod_folder_compact.index("disk_share_account_nvram_end(&transaction)", mod_apply)
-require(mod_accounts < mod_begin < mod_validate < mod_live_check <
-        mod_no_follow_check < mod_snapshot_check < mod_refresh < mod_plan <
-        mod_apply < mod_release and
-        "disk_share_update_folder_permission_file(" not in mod_folder_compact,
-        "folder rename must preflight every ACL image and delegate filesystem/ACL rollback to the tested transaction policy")
+require(mod_pin < mod_stat < mod_scan < mod_refresh < mod_prepare < mod_apply and
+        "disk_share_permission_batch_prepare_rewrite(" not in mod_folder_compact and
+        "disk_share_folder_rename_batch(" not in mod_folder_compact and
+        "test_if_exist_folder_in_mount_path(" not in mod_folder_compact and
+        "initial_folder_list_in_mount_path(" not in mod_folder_compact and
+        "lstat(" not in mod_folder_compact,
+        "mod_folder must keep source/destination checks, ACL reads/writes, snapshot and rollback on one pinned mount")
 
 folder_rename_policy = function_body(POLICY, "disk_share_folder_rename_batch(")
 folder_rename_policy_compact = "".join(folder_rename_policy.split())
@@ -863,28 +904,6 @@ require("test_permission_metadata_update_stays_on_pinned_mount_directory_fd" in 
         "permission ACL path-swap regression must be compiled and invoked")
 
 
-mod_folder_body = function_body(
-    DISK_SOURCE,
-    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
-)
-mod_folder_compact = "".join(mod_folder_body.split())
-mod_source_exists = mod_folder_compact.index("lstat(full_path,&target_stat)")
-mod_no_follow = mod_folder_compact.index("disk_share_folder_entry_status(result,errno", mod_source_exists)
-mod_snapshot_lookup = mod_folder_compact.index(
-    "test_if_exist_folder_in_mount_path(mount_path,folder)", mod_source_exists
-)
-mod_stale_refresh = mod_folder_compact.index(
-    "initial_folder_list_in_mount_path(mount_path)", mod_snapshot_lookup
-)
-mod_rename_batch = mod_folder_compact.index(
-    "disk_share_folder_rename_batch(full_path,new_full_path,mount_path",
-    mod_stale_refresh
-)
-require(mod_source_exists < mod_no_follow < mod_snapshot_lookup < mod_stale_refresh < mod_rename_batch and
-        "add_folder(mount_path,folder)" not in mod_folder_compact[mod_snapshot_lookup:mod_rename_batch] and
-        "rename(full_path,new_full_path)" not in mod_folder_compact,
-        "mod_folder must refresh stale folder metadata, then delegate directory/ACL publication and rollback to the tested rename batch")
-
 get_permission = function_body(DISK_SOURCE, "int get_permission(")
 get_permission_compact = " ".join(get_permission.split())
 get_path_check = get_permission_compact.index(
@@ -943,14 +962,18 @@ require("disk_share_format_account_var_path(" in permission_batch_prepare_compac
 
 mod_folder_body = function_body(
     DISK_SOURCE,
-    "int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)"
+    "int mod_folder(const char *const mount_path, const char *const folder,"
 )
-require("disk_share_folder_rename_batch(" in mod_folder_body and
-        "disk_share_rename_folder_path" in DISK_SOURCE and
-        "disk_share_refresh_folder_snapshot" in DISK_SOURCE and
+require("disk_share_folder_rename_fd_batch(" in mod_folder_body and
+        "disk_share_permission_fd_batch_prepare_rewrite(" in DISK_SOURCE and
+        "disk_share_move_folder_entry_at" in DISK_SOURCE and
+        "disk_share_refresh_folder_snapshot_at" in DISK_SOURCE and
+        "disk_share_folder_rename_batch(" not in mod_folder_body and
+        "disk_share_permission_batch_prepare_rewrite(" not in mod_folder_body and
         'fopen(var_file, "w")' not in mod_folder_body and
         'fopen(var_file, "a+")' not in mod_folder_body,
-        "folder rename must use the tested filesystem/permission transaction policy")
+        "folder rename must use the descriptor-pinned ACL/filesystem compensation policy")
+
 
 for marker in (
     "test_permission_rewrite_removes_complete_record",

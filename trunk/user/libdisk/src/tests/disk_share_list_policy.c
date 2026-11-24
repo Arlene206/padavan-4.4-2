@@ -2754,6 +2754,268 @@ init_fake_folder_rename(
 	fake_folder_rename_state = folder_state;
 }
 
+struct fake_fd_folder_rename_state {
+	int expected_fd;
+	int move_calls;
+	int refresh_calls;
+	int write_calls;
+	int fail_write_call;
+	int fail_refresh_call;
+	char current_leaf[32];
+	char contents[2][64];
+};
+
+static struct fake_fd_folder_rename_state *fake_fd_folder_rename_state;
+
+static int
+fake_fd_folder_move_at(int directory_fd, const char *old_leaf,
+                       const char *new_leaf)
+{
+	struct fake_fd_folder_rename_state *state = fake_fd_folder_rename_state;
+
+	if (directory_fd != state->expected_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->move_calls;
+	if (strcmp(state->current_leaf, old_leaf) != 0) {
+		errno = ENOENT;
+		return -1;
+	}
+	snprintf(state->current_leaf, sizeof(state->current_leaf), "%s", new_leaf);
+	return 0;
+}
+
+
+static int
+fake_fd_folder_refresh_at(int directory_fd)
+{
+	struct fake_fd_folder_rename_state *state = fake_fd_folder_rename_state;
+
+	if (directory_fd != state->expected_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->refresh_calls;
+	if (state->refresh_calls == state->fail_refresh_call) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+
+
+static int
+fake_fd_permission_batch_write(int directory_fd, const char *leaf,
+                               const char *contents, size_t contents_len)
+{
+	struct fake_fd_folder_rename_state *state = fake_fd_folder_rename_state;
+	int index;
+
+	if (directory_fd != state->expected_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->write_calls;
+	if (state->write_calls == state->fail_write_call) {
+		errno = EACCES;
+		return -1;
+	}
+	if (strcmp(leaf, ".__one_var.txt") == 0)
+		index = 0;
+	else if (strcmp(leaf, ".__two_var.txt") == 0)
+		index = 1;
+	else {
+		errno = EINVAL;
+		return -1;
+	}
+	if (contents_len >= sizeof(state->contents[index])) {
+		errno = ENOSPC;
+		return -1;
+	}
+	memcpy(state->contents[index], contents, contents_len);
+	state->contents[index][contents_len] = '\0';
+	return 0;
+}
+
+
+static int
+test_fd_real_folder_move(int directory_fd, const char *old_leaf,
+                         const char *new_leaf)
+{
+	struct fake_fd_folder_rename_state *state = fake_fd_folder_rename_state;
+
+	if (directory_fd != state->expected_fd) {
+		errno = EBADF;
+		return -1;
+	}
+	++state->move_calls;
+	return disk_share_rename_directory_entry_nofollow(
+		directory_fd, old_leaf, directory_fd, new_leaf);
+}
+
+
+static int
+test_fd_read_file(int directory_fd, const char *leaf,
+                  char *buffer, size_t buffer_size)
+{
+	int fd, saved_errno;
+	ssize_t bytes;
+
+	if (!buffer || buffer_size < 2) {
+		errno = EINVAL;
+		return -1;
+	}
+	fd = openat(directory_fd, leaf, O_RDONLY | O_NOFOLLOW);
+	if (fd < 0)
+		return -1;
+	bytes = read(fd, buffer, buffer_size - 1);
+	saved_errno = errno;
+	if (close(fd) != 0 && bytes >= 0)
+		return -1;
+	if (bytes < 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+	buffer[bytes] = '\0';
+	return (int)bytes;
+}
+
+
+static void
+test_folder_rename_fd_batch_stays_on_original_volume_after_mount_swap(void)
+{
+	char root_template[] = "/tmp/disk-share-renamefd-XXXXXX";
+	char mount_dir[256], moved_dir[256], redirect_dir[256], contents[64];
+	char *root;
+	const char *original = "*Old=111\n";
+	const char *redirected = "*Old=222\n";
+	struct disk_share_permission_fd_batch_entry entry;
+	struct fake_fd_folder_rename_state state;
+	struct stat status;
+	int directory_fd, redirect_fd, rollback_error = -1;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	redirect_fd = open(redirect_dir, O_RDONLY | O_DIRECTORY);
+	assert(redirect_fd >= 0);
+	assert(mkdirat(directory_fd, "Old", 0700) == 0);
+	assert(mkdirat(redirect_fd, "Old", 0700) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		directory_fd, ".__one_var.txt", original, strlen(original)) == 0);
+	assert(disk_share_replace_file_atomic_at(
+		redirect_fd, ".__one_var.txt", redirected, strlen(redirected)) == 0);
+
+	memset(&entry, 0, sizeof(entry));
+	assert(snprintf(entry.leaf, sizeof(entry.leaf), "%s", ".__one_var.txt") > 0);
+	entry.before = strdup(original);
+	entry.after = strdup("*New=111\n");
+	assert(entry.before != NULL && entry.after != NULL);
+	entry.before_len = strlen(entry.before);
+	entry.after_len = strlen(entry.after);
+	entry.needs_update = 1;
+
+	memset(&state, 0, sizeof(state));
+	state.expected_fd = directory_fd;
+	fake_fd_folder_rename_state = &state;
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+
+	assert(disk_share_folder_rename_fd_batch(
+		directory_fd, "Old", "New", &entry, 1,
+		disk_share_replace_file_atomic_at, test_fd_real_folder_move,
+		fake_fd_folder_refresh_at, &rollback_error) == 0);
+	assert(rollback_error == 0);
+	assert(state.move_calls == 1);
+	assert(state.refresh_calls == 1);
+	assert(fstatat(directory_fd, "New", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISDIR(status.st_mode));
+	assert(fstatat(directory_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+	assert(fstatat(redirect_fd, "Old", &status, AT_SYMLINK_NOFOLLOW) == 0);
+	assert(S_ISDIR(status.st_mode));
+	assert(fstatat(redirect_fd, "New", &status, AT_SYMLINK_NOFOLLOW) == -1);
+	assert(errno == ENOENT);
+
+	assert(test_fd_read_file(directory_fd, ".__one_var.txt",
+	                         contents, sizeof(contents)) > 0);
+	assert(strcmp(contents, "*New=111\n") == 0);
+	assert(test_fd_read_file(redirect_fd, ".__one_var.txt",
+	                         contents, sizeof(contents)) > 0);
+	assert(strcmp(contents, "*Old=222\n") == 0);
+
+	free(entry.before);
+	free(entry.after);
+	assert(unlinkat(directory_fd, ".__one_var.txt", 0) == 0);
+	assert(unlinkat(redirect_fd, ".__one_var.txt", 0) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlinkat(directory_fd, "New", AT_REMOVEDIR) == 0);
+	assert(unlinkat(redirect_fd, "Old", AT_REMOVEDIR) == 0);
+	assert(close(directory_fd) == 0);
+	assert(close(redirect_fd) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
+test_folder_rename_fd_batch_rolls_back_after_acl_write_failure(void)
+{
+	struct disk_share_permission_fd_batch_entry entries[2];
+	struct fake_fd_folder_rename_state state;
+	int rollback_error = -1;
+
+	memset(entries, 0, sizeof(entries));
+	memset(&state, 0, sizeof(state));
+	state.expected_fd = 42;
+	snprintf(state.current_leaf, sizeof(state.current_leaf), "%s", "Old");
+	snprintf(state.contents[0], sizeof(state.contents[0]), "%s", "old-one\n");
+	snprintf(state.contents[1], sizeof(state.contents[1]), "%s", "old-two\n");
+	snprintf(entries[0].leaf, sizeof(entries[0].leaf), "%s", ".__one_var.txt");
+	snprintf(entries[1].leaf, sizeof(entries[1].leaf), "%s", ".__two_var.txt");
+	entries[0].before = strdup("old-one\n");
+	entries[0].after = strdup("new-one\n");
+	entries[1].before = strdup("old-two\n");
+	entries[1].after = strdup("new-two\n");
+	assert(entries[0].before != NULL && entries[0].after != NULL);
+	assert(entries[1].before != NULL && entries[1].after != NULL);
+	entries[0].before_len = strlen(entries[0].before);
+	entries[0].after_len = strlen(entries[0].after);
+	entries[1].before_len = strlen(entries[1].before);
+	entries[1].after_len = strlen(entries[1].after);
+	entries[0].needs_update = 1;
+	entries[1].needs_update = 1;
+	state.fail_write_call = 2;
+	fake_fd_folder_rename_state = &state;
+
+	assert(disk_share_folder_rename_fd_batch(
+		42, "Old", "New", entries, 2, fake_fd_permission_batch_write,
+		fake_fd_folder_move_at, fake_fd_folder_refresh_at,
+		&rollback_error) == -1);
+	assert(errno == EACCES);
+	assert(rollback_error == 0);
+	assert(strcmp(state.current_leaf, "Old") == 0);
+	assert(state.move_calls == 2);
+	assert(state.refresh_calls == 2);
+	assert(state.write_calls == 3);
+	assert(strcmp(state.contents[0], "old-one\n") == 0);
+	assert(strcmp(state.contents[1], "old-two\n") == 0);
+
+	free(entries[0].before);
+	free(entries[0].after);
+	free(entries[1].before);
+	free(entries[1].after);
+}
+
+
 static void
 test_staging_directory_operations_use_pinned_parent_fd(void)
 {
@@ -3225,6 +3487,8 @@ test_folder_name_visibility_policy();
 	test_folder_creation_and_rollback_stay_on_pinned_mount_directory_fd();
 	test_folder_scans_use_pinned_directory_descriptors();
 	test_folder_rename_uses_pinned_parent_descriptors();
+	test_folder_rename_fd_batch_stays_on_original_volume_after_mount_swap();
+	test_folder_rename_fd_batch_rolls_back_after_acl_write_failure();
 	test_folder_rename_batch_commits_directory_snapshot_and_permissions();
 	test_folder_rename_batch_restores_directory_after_snapshot_failure();
 	test_folder_rename_batch_restores_files_and_directory_after_write_failure();

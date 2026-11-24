@@ -2767,6 +2767,103 @@ failed:
 	return -1;
 }
 
+static void
+disk_share_permission_fd_batch_free(
+	struct disk_share_permission_fd_batch_entry *entries, int count)
+{
+	int i;
+
+	if (!entries)
+		return;
+	for (i = 0; i < count; ++i) {
+		free(entries[i].before);
+		free(entries[i].after);
+	}
+	free(entries);
+}
+
+
+static int
+disk_share_permission_fd_batch_prepare_rewrite(
+	int directory_fd, int acc_num, char **account_list,
+	const char *target, const char *replacement,
+	struct disk_share_permission_fd_batch_entry **entries_out,
+	int *entry_count_out)
+{
+	struct disk_share_permission_fd_batch_entry *entries = NULL;
+	int i, count, saved_errno, leaf_len;
+	const char *account;
+
+	if (entries_out)
+		*entries_out = NULL;
+	if (entry_count_out)
+		*entry_count_out = 0;
+	if (directory_fd < 0 || acc_num < 0 || acc_num > MAX_ACCOUNT_NUM ||
+	    (acc_num > 0 && !account_list) || !target ||
+	    !entries_out || !entry_count_out) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	count = acc_num + 1;
+	entries = (struct disk_share_permission_fd_batch_entry *)
+		calloc((size_t)count, sizeof(*entries));
+	if (!entries)
+		return -1;
+
+	for (i = 0; i < count; ++i) {
+		account = i < acc_num ? account_list[i] : FTP_ANONYMOUS_USER;
+		if (!is_valid_account_name(account)) {
+			errno = EINVAL;
+			goto failed;
+		}
+		leaf_len = snprintf(entries[i].leaf, sizeof(entries[i].leaf),
+		                    ".__%s_var.txt", account);
+		if (leaf_len < 0 || (size_t)leaf_len >= sizeof(entries[i].leaf)) {
+			errno = ENAMETOOLONG;
+			goto failed;
+		}
+
+		entries[i].before = read_regular_file_nofollow_at(
+			directory_fd, entries[i].leaf);
+		if (!entries[i].before) {
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno == ENOENT) {
+				errno = 0;
+				continue;
+			}
+			errno = saved_errno;
+			goto failed;
+		}
+		entries[i].before_len = strlen(entries[i].before);
+		if (disk_share_permission_rewrite(
+			    entries[i].before, target, replacement,
+			    &entries[i].after, &entries[i].after_len) != 0) {
+			saved_errno = errno ? errno : EIO;
+			if (saved_errno == ENOENT) {
+				free(entries[i].before);
+				entries[i].before = NULL;
+				errno = 0;
+				continue;
+			}
+			errno = saved_errno;
+			goto failed;
+		}
+		entries[i].needs_update = 1;
+	}
+
+	*entries_out = entries;
+	*entry_count_out = count;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	disk_share_permission_fd_batch_free(entries, count);
+	errno = saved_errno;
+	return -1;
+}
+
+
 static int
 disk_share_mkdir_staging_directory(const char *path)
 {
@@ -3028,53 +3125,40 @@ failed:
 }
 
 
-int mod_folder(const char *const mount_path, const char *const folder, const char *const new_folder)
+static int
+disk_share_move_folder_entry_at(int directory_fd, const char *old_leaf,
+                                const char *new_leaf)
+{
+	return disk_share_rename_directory_entry_nofollow(
+		directory_fd, old_leaf, directory_fd, new_leaf);
+}
+
+
+static int
+disk_share_refresh_folder_snapshot_at(int directory_fd)
+{
+	return initial_folder_list_in_directory_fd(directory_fd);
+}
+
+
+int mod_folder(const char *const mount_path, const char *const folder,
+               const char *const new_folder)
 {
 	int result, saved_errno, rollback_error = 0;
-	int acc_num = 0, transaction_started = 0;
+	int acc_num = 0, transaction_started = 0, mount_directory_fd = -1;
 	int permission_batch_count = 0;
 	char **account_list = NULL;
 	struct nvram_transaction transaction;
-	char var_file[256];
+	struct stat folder_status;
+	struct disk_share_permission_fd_batch_entry *permission_batch = NULL;
 	char *target = NULL, *new_target = NULL;
-	char *full_path = NULL, *new_full_path = NULL;
-	struct stat target_stat;
-	struct disk_share_permission_batch_entry *permission_batch = NULL;
-	size_t mount_len, folder_len, new_folder_len, path_len;
-	size_t target_len, new_target_len;
+	size_t folder_len, new_folder_len, target_len, new_target_len;
 
 	if (!mount_path || !*mount_path || !is_valid_folder_name(folder) ||
 	    !is_valid_folder_name(new_folder)) {
 		errno = EINVAL;
 		return -1;
 	}
-
-	mount_len = strlen(mount_path);
-	folder_len = strlen(folder);
-	new_folder_len = strlen(new_folder);
-	if (folder_len > (size_t)-1 - 2 ||
-	    new_folder_len > (size_t)-1 - 2 ||
-	    mount_len > (size_t)-1 - folder_len - 2 ||
-	    mount_len > (size_t)-1 - new_folder_len - 2) {
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-	path_len = mount_len + folder_len + 1;
-	full_path = (char *)malloc(path_len + 1);
-	if (!full_path)
-		goto failed;
-	memcpy(full_path, mount_path, mount_len);
-	full_path[mount_len] = '/';
-	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
-
-	path_len = mount_len + new_folder_len + 1;
-	new_full_path = (char *)malloc(path_len + 1);
-	if (!new_full_path)
-		goto failed;
-	memcpy(new_full_path, mount_path, mount_len);
-	new_full_path[mount_len] = '/';
-	memcpy(new_full_path + mount_len + 1, new_folder, new_folder_len + 1);
-
 	result = get_account_list(&acc_num, &account_list);
 	if (result != 0)
 		goto failed;
@@ -3082,16 +3166,6 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		errno = EINVAL;
 		goto failed;
 	}
-	for (result = 0; result < acc_num; ++result) {
-		if (disk_share_format_account_var_path(
-			    var_file, sizeof(var_file), mount_path,
-			    account_list[result]) != 0)
-			goto failed;
-	}
-	if (disk_share_format_account_var_path(
-		    var_file, sizeof(var_file), mount_path,
-		    FTP_ANONYMOUS_USER) != 0)
-		goto failed;
 
 	if (disk_share_account_nvram_begin(&transaction) != 0)
 		goto failed;
@@ -3101,27 +3175,30 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
 		goto failed;
 
-	errno = 0;
-	result = lstat(full_path, &target_stat);
-	if (disk_share_folder_entry_status(
-		    result, errno,
-		    result == 0 ? target_stat.st_mode : (mode_t)0) != 1) {
-		if (result != 0 && errno == 0)
-			errno = EIO;
-		else if (result == 0)
-			errno = ENOTDIR;
+	/* Keep source/destination checks, ACLs, snapshot and rollback on one volume. */
+	mount_directory_fd = disk_share_open_mount_directory(mount_path);
+	if (mount_directory_fd < 0)
+		goto failed;
+	if (fstatat(mount_directory_fd, folder, &folder_status,
+	            AT_SYMLINK_NOFOLLOW) != 0)
+		goto failed;
+	if (!S_ISDIR(folder_status.st_mode)) {
+		errno = ENOTDIR;
 		goto failed;
 	}
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+
+	result = disk_share_folder_exists_in_directory_fd(mount_directory_fd,
+	                                                   folder);
 	if (result < 0)
 		goto failed;
-	if (result == 0 && initial_folder_list_in_mount_path(mount_path) != 0)
+	if (result == 0 && initial_folder_list_in_directory_fd(
+		    mount_directory_fd) != 0)
 		goto failed;
-
 	if (strcmp(folder, new_folder) == 0)
 		goto unchanged;
 
-	result = test_if_exist_folder_in_mount_path(mount_path, new_folder);
+	result = disk_share_folder_exists_in_directory_fd(mount_directory_fd,
+	                                                   new_folder);
 	if (result < 0)
 		goto failed;
 	if (result != 0) {
@@ -3129,13 +3206,21 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		goto failed;
 	}
 	errno = 0;
-	if (lstat(new_full_path, &target_stat) == 0) {
+	if (fstatat(mount_directory_fd, new_folder, &folder_status,
+	            AT_SYMLINK_NOFOLLOW) == 0) {
 		errno = EEXIST;
 		goto failed;
 	}
 	if (errno != ENOENT)
 		goto failed;
 
+	folder_len = strlen(folder);
+	new_folder_len = strlen(new_folder);
+	if (folder_len > (size_t)-1 - 2 ||
+	    new_folder_len > (size_t)-1 - 2) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
 	target_len = folder_len + 2;
 	new_target_len = new_folder_len + 2;
 	target = (char *)malloc(target_len + 1);
@@ -3151,17 +3236,16 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 	new_target[new_target_len - 1] = '=';
 	new_target[new_target_len] = '\0';
 
-	if (disk_share_permission_batch_prepare_rewrite(
-		    mount_path, acc_num, account_list, target, new_target,
+	if (disk_share_permission_fd_batch_prepare_rewrite(
+		    mount_directory_fd, acc_num, account_list, target, new_target,
 		    &permission_batch, &permission_batch_count) != 0)
 		goto failed;
-
-	if (disk_share_folder_rename_batch(
-		    full_path, new_full_path, mount_path,
+	if (disk_share_folder_rename_fd_batch(
+		    mount_directory_fd, folder, new_folder,
 		    permission_batch, permission_batch_count,
-		    disk_share_replace_file_atomic,
-		    disk_share_rename_folder_path,
-		    disk_share_refresh_folder_snapshot, &rollback_error) != 0) {
+		    disk_share_replace_file_atomic_at,
+		    disk_share_move_folder_entry_at,
+		    disk_share_refresh_folder_snapshot_at, &rollback_error) != 0) {
 		if (rollback_error != 0)
 			logmessage("disk_share",
 				   "folder rename compensation incomplete (errno %d)",
@@ -3169,39 +3253,47 @@ int mod_folder(const char *const mount_path, const char *const folder, const cha
 		goto failed;
 	}
 
-	disk_share_permission_batch_free(permission_batch, permission_batch_count);
+	disk_share_permission_fd_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(new_target);
-	free(full_path);
-	free(new_full_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
-	if (disk_share_account_nvram_end(&transaction) != 0)
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(mount_directory_fd);
+		errno = saved_errno;
 		return -1;
+	}
 	transaction_started = 0;
+	if (close(mount_directory_fd) != 0)
+		return -1;
 	return 0;
 
 unchanged:
-	disk_share_permission_batch_free(permission_batch, permission_batch_count);
+	disk_share_permission_fd_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(new_target);
-	free(full_path);
-	free(new_full_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
-	if (disk_share_account_nvram_end(&transaction) != 0)
+	if (disk_share_account_nvram_end(&transaction) != 0) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(mount_directory_fd);
+		errno = saved_errno;
 		return -1;
+	}
 	transaction_started = 0;
+	if (close(mount_directory_fd) != 0)
+		return -1;
 	return 0;
 
 failed:
 	saved_errno = errno ? errno : EIO;
-	disk_share_permission_batch_free(permission_batch, permission_batch_count);
+	disk_share_permission_fd_batch_free(permission_batch, permission_batch_count);
 	free(target);
 	free(new_target);
-	free(full_path);
-	free(new_full_path);
 	free_2_dimension_list(&acc_num, &account_list);
+	if (mount_directory_fd >= 0)
+		(void)close(mount_directory_fd);
 	if (transaction_started) {
 		errno = 0;
 		if (disk_share_account_nvram_end(&transaction) != 0)

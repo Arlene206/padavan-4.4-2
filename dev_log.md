@@ -1,3 +1,11 @@
+## 2026-11-25 — Pin folder rename and ACL rollback to one removable-volume descriptor
+
+- Review found `mod_folder()` independently re-resolved mount_path for source/destination checks, ACL preparation, directory rename, snapshot refresh and rollback. A mountpoint replacement/hotplug race could move the folder on one volume while updating or compensating another volume's ACL files.
+- Reworked `mod_folder()` to pin one directory descriptor and use no-follow `fstatat`, directory-FD existence scanning/cache refresh, bounded ACL leaf names, no-follow ACL reads, atomic descriptor-relative writes, `renameat`, snapshot publication and reverse compensation through that same FD. Added descriptor-relative batch policy helpers and GNU89 host regressions covering a mountpoint-to-symlink swap and ACL-write failure rollback.
+- Exact a6cbec6ca88598ce1a85daabad9b7febd32e860c libdisk #45468099683 PASS: both GNU89 ASan/UBSan binaries and all Python source contracts; AI handoff #45468099898 PASS. Earlier dc094 libdisk #45467759017 passed both binaries but its obsolete reader-count assertion was fixed in a6cb. This production slice needs fresh exact-head validation. No firmware or hardware claim.
+
+---
+
 ## 2026-11-25 — Update libdisk no-follow reader inventory contract for pinned-FD migration
 
 - Exact dc09472450a390828a9814b0690585a088c2f11e libdisk run #45467759017 passed both GNU89 ASan/UBSan binaries but the Python source contract failed its global reader-count assertion. The set_permission() descriptor migration intentionally converted several former path reads to `read_regular_file_nofollow_at()`, reducing legacy path-wrapper occurrences from six to four while adding six FD-relative calls. Updated the guard to require both the remaining wrappers and descriptor-relative readers separately; no production source or test semantics changed.

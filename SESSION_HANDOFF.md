@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Parent main SHA: dc09472450a390828a9814b0690585a088c2f11e. Re-fetch live main before every write because concurrent sessions may advance it.
+- Parent main SHA: a6cbec6ca88598ce1a85daabad9b7febd32e860c. Re-fetch live main before every write because concurrent sessions may advance it.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify/delete it.
 - PR #1 remains closed/unmerged; core AliDDNS CA-bootstrap/HMAC changes are integrated on main with later evolution. Do not port stale PR wholesale.
 - Main-only development: one complete tree and one commit per logical task, then non-forced expected-SHA update. Never force-push or create development branches.
@@ -16,17 +16,17 @@
 ## Verification boundary
 
 - Parent 1a62da7d321c4860c0531a289993a54192d67131 libdisk #45466418305 PASS and AI handoff #45466418446 PASS; these are pre-change checks only.
-- Exact dc094 libdisk #45467759017 passed both GNU89 ASan/UBSan binaries but its source checker failed one obsolete global reader-count assertion after set_permission() migrated to FD-relative reads; THIS FOLLOW-UP updates that inventory contract. Fresh exact-head libdisk rerun required.
+- Exact a6cb libdisk #45468099683 PASS (both GNU89 ASan/UBSan binaries and all Python source contracts); AI handoff #45468099898 PASS. THIS COMMIT updates mod_folder() production logic and adds mountpoint-swap/ACL-rollback host regressions; exact-head verification pending.
 - f148 USB hotplug #45465557087 PASS, udhcpc #45465557325 PASS, NVRAM #45465557210 PASS, Process inventory #45465557323 PASS, Process regression #45465557058 PASS and AI handoff #45465557053 PASS. XY-C1 #45465557176 had been PENDING at last check; inspect newest result.
 - No same-SHA XY-C1 Build/TRX/artifact all-PASS is confirmed here. L3 NOT VERIFIED; physical-router L4 NOT VERIFIED. No local MIPS build claimed.
 - Backup branch remains immutable.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head libdisk #45467759017 rerun after fixing the reader-count inventory assertion; require both sanitizer binaries and every Python contract to pass.
-2. Inspect dc094 XY-C1 #45467758980 Build, TRX verification and artifact upload individually on the same production SHA; only all three PASS support L3.
-3. Pin mod_folder() and del_folder() directory/ACL/snapshot operations to one mount directory descriptor, with mount-swap and compensation regression tests.
-4. Continue independent cross-userland stability/security work while PENDING Actions run.
+1. Inspect this commit's exact-head libdisk GNU89 ASan/UBSan binaries and source checker; require the new mountpoint-swap and ACL-write-rollback tests to pass.
+2. Inspect dc094 XY-C1 #45467758980 Build, TRX verification and artifact upload individually on that production SHA; only all three PASS support L3.
+3. Pin del_folder() staging, ACL preparation/publication, snapshot and compensation to one directory descriptor; add mount replacement and failed-cleanup regression tests.
+4. Continue independent cross-userland stability/security fixes while PENDING Actions run.
 
 ## Mandatory handoff checkpoint
 

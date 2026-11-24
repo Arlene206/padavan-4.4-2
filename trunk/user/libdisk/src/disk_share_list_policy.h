@@ -821,6 +821,176 @@ compensate:
 }
 
 
+/*
+ * Apply permission changes relative to one pinned removable-volume descriptor.
+ * ACL leaves are single path components; publication and compensation therefore
+ * cannot be redirected by a mountpoint replacement between operations.
+ */
+struct disk_share_permission_fd_batch_entry {
+	char leaf[64];
+	char *before;
+	size_t before_len;
+	char *after;
+	size_t after_len;
+	int needs_update;
+	int applied;
+};
+
+typedef int (*disk_share_permission_fd_batch_writer)(
+	int, const char *, const char *, size_t);
+
+static inline int
+disk_share_permission_fd_batch_rollback(
+	int directory_fd, struct disk_share_permission_fd_batch_entry *entries,
+	int count, disk_share_permission_fd_batch_writer write_file,
+	int *rollback_error)
+{
+	int i, saved_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (directory_fd < 0 || count < 0 || (count > 0 && !entries) ||
+	    !write_file || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = count; i > 0; --i) {
+		struct disk_share_permission_fd_batch_entry *entry = &entries[i - 1];
+
+		if (!entry->applied)
+			continue;
+		if (!entry->leaf[0] || strchr(entry->leaf, '/') ||
+		    !strcmp(entry->leaf, ".") || !strcmp(entry->leaf, "..") ||
+		    !entry->before) {
+			if (saved_error == 0)
+				saved_error = EINVAL;
+			continue;
+		}
+		errno = 0;
+		if (write_file(directory_fd, entry->leaf,
+		               entry->before, entry->before_len) != 0) {
+			if (saved_error == 0)
+				saved_error = errno ? errno : EIO;
+		} else {
+			entry->applied = 0;
+		}
+	}
+
+	*rollback_error = saved_error;
+	if (saved_error != 0) {
+		errno = saved_error;
+		return -1;
+	}
+	return 0;
+}
+
+
+static inline int
+disk_share_permission_fd_batch_apply(
+	int directory_fd, struct disk_share_permission_fd_batch_entry *entries,
+	int count, disk_share_permission_fd_batch_writer write_file,
+	int *rollback_error)
+{
+	int i, operation_error;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (directory_fd < 0 || count < 0 || (count > 0 && !entries) ||
+	    !write_file || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = 0; i < count; ++i) {
+		struct disk_share_permission_fd_batch_entry *entry = &entries[i];
+
+		if (!entry->needs_update)
+			continue;
+		if (!entry->leaf[0] || strchr(entry->leaf, '/') ||
+		    !strcmp(entry->leaf, ".") || !strcmp(entry->leaf, "..") ||
+		    !entry->before || !entry->after) {
+			operation_error = EINVAL;
+			goto compensate;
+		}
+		errno = 0;
+		if (write_file(directory_fd, entry->leaf,
+		               entry->after, entry->after_len) != 0) {
+			operation_error = errno ? errno : EIO;
+			goto compensate;
+		}
+		entry->applied = 1;
+	}
+	return 0;
+
+compensate:
+	if (disk_share_permission_fd_batch_rollback(
+		    directory_fd, entries, i, write_file, rollback_error) != 0) {
+		errno = EIO;
+		return -1;
+	}
+	errno = operation_error;
+	return -1;
+}
+
+
+/* Rename a share and update its ACLs without ever releasing the volume FD. */
+typedef int (*disk_share_folder_move_at_fn)(int, const char *, const char *);
+typedef int (*disk_share_folder_refresh_at_fn)(int);
+
+static inline int
+disk_share_folder_rename_fd_batch(
+	int directory_fd, const char *old_leaf, const char *new_leaf,
+	struct disk_share_permission_fd_batch_entry *entries, int count,
+	disk_share_permission_fd_batch_writer write_file,
+	disk_share_folder_move_at_fn move_entry,
+	disk_share_folder_refresh_at_fn refresh_snapshot, int *rollback_error)
+{
+	int operation_error, compensation_error = 0;
+
+	if (rollback_error)
+		*rollback_error = 0;
+	if (directory_fd < 0 || !old_leaf || !*old_leaf ||
+	    !new_leaf || !*new_leaf || strchr(old_leaf, '/') ||
+	    strchr(new_leaf, '/') || !strcmp(old_leaf, ".") ||
+	    !strcmp(old_leaf, "..") || !strcmp(new_leaf, ".") ||
+	    !strcmp(new_leaf, "..") || count < 0 ||
+	    (count > 0 && !entries) || !write_file || !move_entry ||
+	    !refresh_snapshot || !rollback_error) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (move_entry(directory_fd, old_leaf, new_leaf) != 0)
+		return -1;
+	if (refresh_snapshot(directory_fd) != 0)
+		goto compensate;
+	if (disk_share_permission_fd_batch_apply(
+		    directory_fd, entries, count, write_file,
+		    &compensation_error) != 0)
+		goto compensate;
+	return 0;
+
+compensate:
+	operation_error = errno ? errno : EIO;
+	(void)disk_share_permission_fd_batch_rollback(
+		directory_fd, entries, count, write_file, &compensation_error);
+	if (move_entry(directory_fd, new_leaf, old_leaf) != 0 &&
+	    compensation_error == 0)
+		compensation_error = errno ? errno : EIO;
+	if (refresh_snapshot(directory_fd) != 0 && compensation_error == 0)
+		compensation_error = errno ? errno : EIO;
+
+	*rollback_error = compensation_error;
+	if (compensation_error != 0) {
+		errno = EIO;
+		return -1;
+	}
+	errno = operation_error;
+	return -1;
+}
+
+
 typedef int (*disk_share_folder_remove_fn)(const char *);
 
 static inline int
