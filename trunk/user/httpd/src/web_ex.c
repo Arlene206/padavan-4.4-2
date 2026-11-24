@@ -4069,7 +4069,14 @@ int ej_shown_language_option(int eid, webs_t wp, int argc, char **argv) {
 			if (!strcmp(key, lang_set))
 				selected = " selected";
 			
-			websWrite(wp, "<option value=\"%s\"%s>%s</option>\n", key, selected, target);
+			websWrite(wp, "<option value=\"");
+			write_html_attribute(wp, key);
+			websWrite(wp, "\"%s>", selected);
+			if (write_html_text(wp, target) != 0) {
+				fclose(fp);
+				return -1;
+			}
+			websWrite(wp, "</option>\n");
 			
 			break;
 		}

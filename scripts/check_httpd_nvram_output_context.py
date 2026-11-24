@@ -277,6 +277,21 @@ def check_syslog_html_sinks():
 
 
 
+
+def check_language_option_html_sinks():
+    source = WEB_SOURCE.read_text(encoding="utf-8")
+    start = source.index("int ej_shown_language_option(")
+    end = source.index("\nstatic int\nis_valid_cert_common_name(", start)
+    language_options = source[start:end]
+    assert r'websWrite(wp, "<option value=\"");' in language_options
+    assert "write_html_attribute(wp, key);" in language_options
+    assert r'websWrite(wp, "\"%s>", selected);' in language_options
+    assert "write_html_text(wp, target)" in language_options
+    assert r'websWrite(wp, "<option value=\"%s\"%s>%s</option>\n", key, selected, target);' not in language_options
+    print("Language-option HTML attribute/text escaping: PASS")
+
+
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
@@ -285,6 +300,7 @@ def main():
     check_aidisk_script_messages()
     check_aidisk_usb_string_outputs()
     check_syslog_html_sinks()
+    check_language_option_html_sinks()
 
 
 if __name__ == "__main__":

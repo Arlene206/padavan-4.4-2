@@ -1,3 +1,11 @@
+## 2026-11-23 — Escape language-option labels from EN.dict
+
+- `ej_shown_language_option()` reads `EN.dict` and interpolated the dictionary key and target label directly into an HTML `<option>`. The key is checked against the supported language table, but the file-derived visible label was an unescaped HTML text sink.
+- Route the option value through `write_html_attribute()` and the visible label through `write_html_text()`; close the dictionary file and return an error if the text writer fails. Added an HTTPD source-contract check rejecting the previous raw `%s` interpolation.
+- Parent `28613f4` HTTPD `#45302967232` and AI handoff `#45302967200`: **PASS**, including syslog and the corrected AiDisk USB source check. This language-option change awaits exact-head Actions.
+
+---
+
 ## 2026-11-23 — Correct AiDisk USB checker source boundaries
 
 - Exact `cd7e54d` HTTPD `#45302551766` and child `674adb3` HTTPD `#45302709748` failed at `check_aidisk_usb_string_outputs()` with `substring not found`. The source check used double-escaped `\\n` text when locating the C function/newline before `#endif`; it did not reach the newly added syslog output contract.
