@@ -76,9 +76,9 @@ dnsmasq_static_host_nvram_snapshot_read(
 		if (status == 0)
 			status = rc_wan_nvram_parse_int_value(text, &item_count);
 
+		if (status == 0 && item_count < 0)
+			status = EINVAL;
 		if (status == 0) {
-			if (item_count < 0)
-				item_count = 0;
 			if (item_count > DNSMASQ_STATIC_HOST_MAX)
 				item_count = DNSMASQ_STATIC_HOST_MAX;
 			snapshot->item_count = (unsigned int)item_count;

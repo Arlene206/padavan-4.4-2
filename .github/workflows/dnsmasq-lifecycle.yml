@@ -723,6 +723,8 @@ jobs:
           assert "status = EINVAL;" in static_host_nvram_policy
           assert "test_invalid_static_host_enable_flag_fails_closed" in static_host_nvram_test
           assert 'fake_add(&fake, "dhcp_static_x", invalid_flags[i]);' in static_host_nvram_test
+          assert "if (status == 0 && item_count < 0)" in static_host_nvram_policy
+          assert "test_negative_item_count_fails_closed" in static_host_nvram_test
           static_mac_test = Path("trunk/user/rc/src/tests/dnsmasq_static_host_policy.c").read_text()
           arp_source = Path("trunk/user/busybox/busybox-1.24.x/networking/arp.c").read_text()
           static_mac_policy = Path("trunk/user/rc/src/dnsmasq_static_host_policy.h").read_text()

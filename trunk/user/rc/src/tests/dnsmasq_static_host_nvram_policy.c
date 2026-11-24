@@ -239,6 +239,23 @@ test_invalid_arp_enable_flag_fails_closed(void)
 }
 
 static void
+test_negative_item_count_fails_closed(void)
+{
+	struct fake_nvram fake;
+	struct dnsmasq_static_host_nvram_snapshot snapshot;
+
+	memset(&fake, 0, sizeof(fake));
+	fake_add(&fake, "dhcp_static_x", "1");
+	fake_add(&fake, "dhcp_static_arp", "0");
+	fake_add(&fake, "dhcp_staticnum_x", "-1");
+	memset(&snapshot, 0xa5, sizeof(snapshot));
+	assert(dnsmasq_static_host_nvram_snapshot_read(
+		&snapshot, fake_begin, fake_get, fake_end, &fake) == EINVAL);
+	assert(fake.get_calls == 3);
+	assert(fake.end_calls == 1 && !fake.active);
+	assert_clear(&snapshot);
+}
+static void
 test_item_count_is_bounded(void)
 {
 	struct fake_nvram fake;
@@ -263,6 +280,7 @@ main(void)
 	test_malformed_and_oversized_values_fail_closed();
 	test_invalid_static_host_enable_flag_fails_closed();
 	test_invalid_arp_enable_flag_fails_closed();
+	test_negative_item_count_fails_closed();
 	test_item_count_is_bounded();
 	puts("DNSMasq static-host NVRAM snapshot fail-closed regression: PASS");
 	return 0;
