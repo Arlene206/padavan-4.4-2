@@ -1,3 +1,12 @@
+## 2026-11-23 — Fix DDNS JavaScript string injection
+
+- Confirmed a stored-XSS sink: Advanced_DDNS_Content.asp initialized ddns_hostname_x inside a single-quoted JavaScript literal using the HTML-only nvram_get_x output helper. An apostrophe in the stored hostname could terminate the script string.
+- Added nvram_get_js in web_ex.c, reusing the existing tested JavaScript string writer, classified it as HTTPD_DIRECT_EJ_ESCAPED_OUTPUT, extended direct-EJ registry tests/contracts, and switched only the JavaScript sink. The separate HTML input value continues through HTML escaping.
+- Source commit edc313c; workflow source-contract corrections 6cb5c16 and 2a50ce0. Exact main HTTPD security run #45295707346 PASS; AI handoff check #45295707326 PASS. NVRAM boundary audit #45295392634 PASS (15/15).
+- XY-C1 build run #45295392702 for production source edc313c was still at Build XY-C1 (37/44) at last check. TRX and artifact remain unconfirmed; do not claim product L3. Backup branch 72f4f157 unchanged.
+
+---
+
 ## 2026-11-23 — Harden HTTPD group operations and bounded request parsing
 
 - Refreshed the live handoff from the stale 3ec4e18 checkpoint to exact main c7bcd00; backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157 and untouched.

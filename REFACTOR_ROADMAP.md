@@ -1,3 +1,11 @@
+## 2026-11-23 状态增量：DDNS JavaScript 输出上下文
+
+- 修复 `ddns_hostname_x` 被 `nvram_get_x()` 放入单引号 JavaScript 字符串而造成的存储型 XSS：新增 `nvram_get_js`，复用现有 JS 字符串转义器，纳入 direct-EJ escaped-output 分类和回归合同。
+- 生产源码提交 `edc313cdf61b4c888ead94e019cc1f4c87f02ffa`；HTTPD 工作流检查随后在 `6cb5c168`、`2a50ce0c` 两个原子修正提交中完成校准。精确当前 main `2a50ce0c` 的 HTTPD 安全回归及 AI handoff contract 均 PASS；NVRAM audit `#45295392634` PASS。
+- XY-C1 run `#45295392702` 对应生产源码 SHA `edc313cd`，最近观察仍在 Build（37/44），TRX 与 artifact 尚未确认；不宣称 L3。备份分支保持只读。
+
+---
+
 ## 2026-11-23 状态增量：HTTPD NVRAM group / AiDisk 输入边界
 
 - Group compaction 在事务锁内复核调用方 count snapshot；Group Add 已改为单事务、全列 snapshot、count 最后发布、失败回滚，并将失败返回给 HTTP 500。回归覆盖 count 读取失败、目标列写入失败、count 已写入后报告失败，以及回滚不完整。

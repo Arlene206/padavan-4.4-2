@@ -2,43 +2,40 @@
 
 ## Current repository state
 
-- Live `main`: `c7bcd00de2d696a38e9dcae112b712c8dcfbcbf1` (verified immediately before this documentation checkpoint).
-- Read-only backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged and not written.
-- All source, tests, and workflow changes in this session were committed to `main` with complete Git trees and non-forced expected-SHA updates. No force-push or partial per-file commit was used.
-- Earlier handoff text below the execution mandate is historical. Its old live SHA, old next task, and old CI status are superseded by this checkpoint.
+- Live `main`: `2a50ce0c6653de44fe071c13049747b406d49f3c`.
+- Read-only backup: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged, not written.
+- This checkpoint follows source commit `edc313cdf61b4c888ead94e019cc1f4c87f02ffa`, workflow correction `6cb5c16818eb5a91382a97365692f58105e4b5c2`, and final workflow assertion correction `2a50ce0c6653de44fe071c13049747b406d49f3c`.
+- All logical changes were published with complete Git trees and non-forced expected-SHA updates. No force-push or partial file commit.
 
-## Active task
+## Completed development slices
 
-### HTTPD stability/security: transactional NVRAM group operations and bounded request parsing
+### HTTPD stability / security
 
-Completed source slices:
+- `09576b630122b31bed95c161223f05a43f0cdd6f`: group compaction validates the transactional count against the caller snapshot before modifying rows; malformed, stale, negative, and overflow counts fail closed.
+- `beb57775ac957fb79a509f8fca9f22ee74510949`: AiDisk removable-media folder names are HTML-escaped at every folder-tree label and title-attribute sink; Node VM regression covers XSS payloads.
+- `c89d1d777494dd13384270014c080b62c1b9f56a`, `6262b52ab098f98ceeb7466261a5916c1b4ed79e`, `3e02326eae477850f0f98fe74764b59f42c64baf`, `0136ceb43575bc4367fc288a3524ead11fcad7b7`: NVRAM group Add is transaction-locked, snapshots destination/cache/count values, clears deletion caches, publishes count last, rolls back partial writes, returns a distinct incomplete-rollback result, and propagates failure to HTTP 500. Fault injection covers missing/malformed/full counts, count/destination read errors, row write failure, count write applied-then-failed, and incomplete rollback.
+- `96431bbdf8dafedf38db929ef31f9990ec9a2ab8` plus `2b8333e65915adbfc7e617b81ded751b7e2a253b` and `c7bcd00de2d696a38e9dcae112b712c8dcfbcbf1`: group-delete indexes are parsed from the full raw request value; no silent fixed-buffer truncation before `strtol`. Exact legacy `-1` terminator is retained. Regression uses a 255-digit zero-padded numeric prefix followed by an untrusted suffix.
+- `edc313cdf61b4c888ead94e019cc1f4c87f02ffa`: fixed stored XSS in DDNS hostname JavaScript initialization. `ddns_hostname_x` was emitted into a single-quoted JS literal through HTML-only `nvram_get_x`; an apostrophe could terminate the script string. Added `nvram_get_js`, which uses the tested JavaScript string writer, marked it `HTTPD_DIRECT_EJ_ESCAPED_OUTPUT`, added registry/authorization/source-contract coverage, and switched only the JS sink in `Advanced_DDNS_Content.asp`. The separate double-quoted HTML input continues using HTML escaping.
+- `6cb5c16818eb5a91382a97365692f58105e4b5c2` and `2a50ce0c6653de44fe071c13049747b406d49f3c`: corrected the HTTPD workflow's new source-contract extraction and exact template whitespace assertion. Those commits change workflow checks only, not firmware source.
 
-- `09576b630122b31bed95c161223f05a43f0cdd6f`: NVRAM group compaction now checks the count read under the transaction lock against the caller snapshot before mutating any row. Stale/inconsistent/malformed counts fail closed. Added stale-higher/stale-lower/junk/negative/overflow and legacy-decimal regressions.
-- `beb57775ac957fb79a509f8fca9f22ee74510949`: escaped removable-media folder names at every AiDisk folder-tree HTML text/attribute sink. Added a Node VM XSS regression and workflow contract. Both label paths and both title sinks are covered.
-- `c89d1d777494dd13384270014c080b62c1b9f56a` plus `6262b52ab098f98ceeb7466261a5916c1b4ed79e`: replaced unchecked HTTPD NVRAM group Add writes with a single transaction-locked all-column append. It snapshots destination/cache/count cells, clears deletion caches, publishes count last, rolls back partial writes, reports incomplete rollback, and returns HTTP 500 when add fails. Follow-up corrected diagnostic newline escaping and the workflow's source-signature matcher.
-- `3e02326eae477850f0f98fe74764b59f42c64baf`: added fault injection proving that an incomplete group-add rollback returns the distinct failure status rather than reporting success.
-- `0136ceb43575bc4367fc288a3524ead11fcad7b7`: added a regression that a backend error reading the group count aborts before any NVRAM write.
-- `96431bbdf8dafedf38db929ef31f9990ec9a2ab8` (current source carried forward to this main): group-delete request parsing no longer silently parses a truncated prefix of an oversized index value. The bounded parser preserves the exact legacy `-1` end marker and rejects malformed, negative, overflowing, out-of-range, and oversized values.
-- `2b8333e65915adbfc7e617b81ded751b7e2a253b` and `c7bcd00de2d696a38e9dcae112b712c8dcfbcbf1`: fixed the workflow assertion and strengthened the truncation regression to use a valid 255-digit zero-padded index followed by an untrusted suffix. The old code would parse the truncated numeric prefix; the new bounded parser rejects the full oversized value.
-- Independent IPTV/process-lifecycle follow-ups already present on main include `99ad9397e3cf4450c6fc07758b58c3f7b51de115`, `d38250bfa213607dbf02ac65a75f60e933be34c9`, `b64511308e12091035a745055e2882a15addd166`, and checker alignment `57c466d3001da525511160fc30418a774b99aa85`. The too-short IPTV overflow fixture and stale lifecycle checker expectations were corrected; see exact run statuses below.
+### IPTV / process lifecycle
+
+The independent IPTV snapshot/lifecycle work remains on main: `99ad9397e3cf4450c6fc07758b58c3f7b51de115`, `d38250bfa213607dbf02ac65a75f60e933be34c9`, `b64511308e12091035a745055e2882a15addd166`, `57c466d3001da525511160fc30418a774b99aa85`. The too-short oversized altnet fixture and stale checker expectations were corrected. Earlier exact-SHA WAN route, process, storage, and XY-C1 checks are recorded in the historical log below.
 
 ## Verification boundary
 
-- Exact live `main` SHA: `c7bcd00de2d696a38e9dcae112b712c8dcfbcbf1`.
-- Exact-SHA HTTPD Authentication/Security Regression #45294291762: **PASS** (all 51 steps). This includes the bounded group-delete parser regression/source contract, NVRAM group compaction/add policy regression, and AiDisk folder-tree XSS regression.
-- Exact-SHA Process lifecycle inventory #45294291601: **PASS**.
-- Exact-SHA NVRAM transaction boundary audit #45294292010: **PENDING / IN_PROGRESS** at the last check, step “Audit raw userland ioctl paths and kernel NVRAM API callers” (12/14 completed; no failure observed). Do not treat the earlier cancelled runs #45293821282 and #45293720232 as failures.
-- Product-source SHA `96431bbdf8dafedf38db929ef31f9990ec9a2ab8` has XY-C1 Firmware Validation #45294157650 **IN_PROGRESS** at “Build XY-C1” (37/44 steps completed at last check). It contains the current production-source changes; later `2b8333e` and `c7bcd00` commits changed only the workflow/test fixture, not firmware production inputs. Until Build, TRX verification, and artifact upload finish successfully on that run, product-source L3 remains **NOT VERIFIED**.
-- Exact `6262b52` Actions were HTTPD #45293347938 PASS, process inventory #45293347859 PASS, fail-closed lifecycle #45293347851 PASS, storage hotplug #45293348046 PASS, NVRAM boundary #45293348079 PASS, AI handoff #45293347748 PASS, AdGuardHome #45293347875 PASS, Inadyn #45293347871 PASS, FRP #45293348404 PASS, and AliyunDrive WebDAV #45293348099 PASS. XY-C1 #45293348126 was still in progress at its Build step when superseded by the later production-source build above.
-- Exact earlier verification: `57c466d` process lifecycle #45292778140 PASS, storage hotplug #45292778219 PASS, and XY-C1 #45292778199 PASS; `b645113` WAN route #45292528186, process inventory #45292528141, and NVRAM audit #45292528207 PASS. These are historical exact-SHA results, not claims that those older SHAs equal current main.
+- Exact current-main HTTPD Authentication/Security Regression `#45295707346`: **PASS**.
+- Exact current-main AI handoff documentation contract `#45295707326`: **PASS**.
+- NVRAM transaction-boundary audit `#45295392634` on source SHA `edc313cdf61b4c888ead94e019cc1f4c87f02ffa`: **PASS**, 15/15 steps.
+- XY-C1 Firmware Validation `#45295392702` on the same production-source SHA: last observed **IN_PROGRESS** at `Build XY-C1` (37/44 steps); TRX verification and artifact upload had not started. Do not claim product L3 until Build, TRX verification, and artifact upload all pass.
+- The HTTPD run on `edc313...` initially failed its new static contract because it used a nonexistent helper; `6cb5...` fixed extraction but exposed an exact whitespace mismatch; `2a50...` corrected that assertion. The final exact-main HTTPD run above passed. These transient failures are not hidden.
 - No local MIPS cross-build, physical router test, or hardware L4 validation is claimed.
 
 ## Exact first action for the next GPT
 
-1. Poll NVRAM transaction audit #45294292010 on exact main `c7bcd00de2d696a38e9dcae112b712c8dcfbcbf1`; record its terminal result and inspect logs only if it fails.
-2. Poll XY-C1 run #45294157650 on production-source SHA `96431bbdf8dafedf38db929ef31f9990ec9a2ab8`. Confirm Build, TRX check, and artifact upload individually before claiming L3.
-3. Continue an independent userland defect investigation while either check is pending. A concrete next candidate is to trace all `ej_nvram_get_x()` call sites and verify their HTML/attribute/JavaScript output contexts before deciding whether the general NVRAM output helper needs additional context-specific escaping. Do not change it based only on the missing apostrophe escape; first demonstrate a vulnerable sink and add a regression.
-4. Keep working on `main`, use one complete tree and one atomic commit per logical fix, and check Actions for its exact SHA.
+1. Poll XY-C1 run `#45295392702` for production source SHA `edc313cdf61b4c888ead94e019cc1f4c87f02ffa`. Confirm Build, TRX verification, and artifact upload individually.
+2. Continue the remaining HTTPD output-context audit: enumerate other `nvram_get_x()` calls embedded in JavaScript strings or script blocks. The DDNS hostname sink is fixed; do not replace every HTML-context use indiscriminately. For each candidate, prove the output context and add a focused regression before changing it.
+3. Continue independent userland stability/security work while firmware CI is running. Keep atomic commits and exact-SHA Actions checks. Keep the backup branch read-only.
 
 ---
 
