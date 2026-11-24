@@ -314,7 +314,7 @@ jobs:
           restart = function_body(source, "restart_ftpd(void)")
           assert "ftp_read_enabled_status(&ftp_enabled)" in restart
           assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("is_run_before = is_ftp_run()")
-          assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("stop_status = stop_ftp_locked()")
+          assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("stop_status = stop_ftp_locked(&final_presence)")
           assert "ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_ABSENT)" in daemon_test
           assert "ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_RUNNING)" in daemon_test
           assert "ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_UNKNOWN)" in daemon_test
@@ -807,8 +807,8 @@ jobs:
           assert "return -1;" in stop
           assert "return 0;" in stop
           assert stop.index("status = kill_services(svcs, 3, 1)") < stop.index(
-              "storage_service_stop_complete(status, is_ftp_run())"
-          ) < stop.index("return -1;") < stop.rindex("return 0;")
+              "final_state = is_ftp_run();"
+          ) < stop.index("storage_service_stop_complete(status, final_state)") < stop.index("return -1;") < stop.rindex("return 0;")
           public_stop = function_body(source, "stop_ftp(void)")
           assert public_stop.index("storage_operation_lock_acquire(file_lock)") < public_stop.index("is_run_before = is_ftp_run();")
           assert public_stop.index("is_run_before = is_ftp_run();") < public_stop.index("status = stop_ftp_locked(&final_presence);")
@@ -831,8 +831,8 @@ jobs:
           assert "if (mount_status > 0)" in restart
           assert "start_status = run_ftp()" in restart
           restart_lock = restart.index("storage_operation_lock_acquire(file_lock)")
-          assert restart_lock < restart.index("stop_status = stop_ftp_locked()")
-          assert restart.index("stop_status = stop_ftp_locked()") < restart.index("storage_has_mounted_devices")
+          assert restart_lock < restart.index("stop_status = stop_ftp_locked(&final_presence)")
+          assert restart.index("stop_status = stop_ftp_locked(&final_presence)") < restart.index("storage_has_mounted_devices")
           assert restart.index("storage_has_mounted_devices") < restart.index("start_status = run_ftp()")
           assert restart.index("start_status = run_ftp()") < restart.index("file_unlock(storage_lock);")
           assert restart.count("file_unlock(storage_lock);") == 1

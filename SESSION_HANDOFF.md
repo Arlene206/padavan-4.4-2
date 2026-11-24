@@ -38,9 +38,10 @@ The current source slice addresses VSFTPD firewall cleanup: a stop command can r
 - Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: XY-C1 #45480041423 PASS, including Build XY-C1, TRX verification and artifact upload. Process inventory #45480041644, Process lifecycle #45480041481, USB storage #45480041346, NVRAM #45480041721 and AI handoff #45480041430 PASS. L3 VERIFIED for this DHCP product-source SHA; hardware/router L4 NOT VERIFIED.
 - Descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` AI handoff #45480533158 failed only the literal-string validator; docs-only descendant `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f` AI handoff #45480803456 PASS.
 - THIS VSFTPD stop/firewall source slice has no local compiler/MIPS result. Exact-head VSFTPD workflow and triggered dependent checks are pending; do not claim target verification until actual runs finish.
+- Exact source SHA `b3f165ef4e08b585cc5a77ccdfb791165ba60496` triggers VSFTPD #45482945754. Static source-check review found three remaining stale workflow expectations for the old no-argument `stop_ftp_locked()` plus one old stop-order token; THIS checker-only correction updates those expectations to the final-presence output parameter. No product source changes.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA `vsftpd-stability.yml` after this commit; require all GNU89 `-Wall -Wextra -Werror` binaries and Python FTP lifecycle/ACL source contracts to pass.
-2. If a contract fails, fix only the matcher/integration contract that disagrees with the final-presence output argument and failed-stop cleanup branch. Keep tests proving UNKNOWN/RUNNING never authorize firewall cleanup.
-3. Continue the VSFTPD upload-cleanup TOCTOU investigation only if a Linux 4.4-compatible atomic fix is demonstrable; otherwise preserve the residual-risk disclosure. Do not re-audit completed DHCP work.
+1. Inspect the exact-SHA VSFTPD run for `b3f165e` and then THIS checker-only correction; require GNU89 tests and all Python FTP/RC source contracts to pass.
+2. If a further assertion fails, align the contract with the final-presence output while preserving UNKNOWN/RUNNING rejection and the first-error return semantics.
+3. Continue with upload-cleanup TOCTOU only after the service-control gate passes; do not repeat the already closed DHCP L3 gate.

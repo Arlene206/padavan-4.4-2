@@ -1,3 +1,11 @@
+## 2026-11-25 — Align VSFTPD source checker with final-presence stop output
+
+- On exact source SHA `b3f165ef4e08b585cc5a77ccdfb791165ba60496`, VSFTPD workflow #45482945754 was triggered. A static pass over its embedded Python contract found three assertions still looking for the old no-argument `stop_ftp_locked()` and one ordering assertion still matching `storage_service_stop_complete(status, is_ftp_run())`.
+- THIS checker-only commit updates those expectations to the final-presence output parameter and the new stop observation order. No product source or C regression was changed.
+- Exact-head VSFTPD Actions for THIS correction are pending. The b3 source commit's triggered dependent workflows were also pending at last observation; inspect each by exact SHA and do not transfer PASS status between SHAs.
+
+---
+
 ## 2026-11-25 — Reconcile FTP firewall after confirmed absence despite stop-command error
 
 - Confirmed source-control defect: `stop_ftp_locked()` can return failure when `kill_services()` reports an error even though the final procfs inventory proves `vsftpd` absent. Standalone stop/restart previously gated firewall refresh on status==0, skipping FTP/UPnP cleanup after that partial stop failure.
