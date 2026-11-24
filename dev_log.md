@@ -1,3 +1,9 @@
+## 2026-11-24 — Fix SmartDNS proc-root state initialization
+
+- Exact-head DNSMasq Actions exposed a nounset failure after the first valid fake-proc identity: process-state confirmation reused a proc-root variable assigned only inside command substitution. Initialize the proc root in the parent function so absence checks are deterministic in the test and service shell.
+
+---
+
 ## 2026-11-24 — Bind SmartDNS lifecycle actions to the exact daemon
 
 - The previous helper trusted `pidof smartdns` and used `killall`, so a process with the same comm name could block startup or be terminated by a stop request. Its process regression was not executed or triggered by DNSMasq CI.

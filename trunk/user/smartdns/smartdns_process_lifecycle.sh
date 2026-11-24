@@ -101,6 +101,8 @@ smartdns_process_state()
 {
     smartdns_process_pids=
     smartdns_process_ids=
+    _smartdns_proc_root=/proc
+    [ -n "$SMARTDNS_PROC_ROOT" ] && _smartdns_proc_root=$SMARTDNS_PROC_ROOT
     _smartdns_pid_output=$(pidof smartdns 2>/dev/null)
     _smartdns_pid_status=$?
     case "$_smartdns_pid_status" in
