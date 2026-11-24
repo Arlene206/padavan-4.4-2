@@ -1,3 +1,11 @@
+## 2026-11-23 — JSON-encode wireless scan and BSSID strings
+
+- Ralink 5 GHz and 2.4 GHz scan callbacks returned JavaScript arrays with raw `%s` interpolation for SSIDs and other driver fields. SSIDs are advertised by nearby access points and are untrusted; quotes, backslashes or `</script>` could corrupt the JSON embedded by `wds_aplist.asp`.
+- Added a local JSON string writer using shared `httpd_json_escape_next()` and route all four scan-result fields through it in both band handlers. NVRAM fallback BSSID values are also emitted as JSON string literals in the two JavaScript callbacks. Changed the AP-client/WDS caption write to a constant `%s` format. Added a source-contract regression and a byte fixture for a quote + script-tag SSID.
+- Parent `f3c83db`: HTTPD `#45303585359`, AI `#45303585354`, process, NVRAM, USB storage, AdGuardHome, AliyunDrive, Inadyn and FRP actions all **PASS**. XY-C1 `#45303585432` remains IN_PROGRESS. This wireless serialization slice awaits exact-SHA Actions.
+
+---
+
 ## 2026-11-23 — Keep uptime timestamp out of the format-string slot
 
 - `ej_uptime()` passed the result of `rfctime()` directly as the `websWrite()` format argument. The result is generated from the router's timezone/date state, but a dynamic string must never be interpreted as a format template, and this callback emits HTML text.

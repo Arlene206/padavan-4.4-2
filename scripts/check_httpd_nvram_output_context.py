@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path("trunk/user/www/n56u_ribbon_fixed")
 WEB_SOURCE = Path("trunk/user/httpd/src/web_ex.c")
+RALINK_SOURCE = Path("trunk/user/httpd/src/ralink.c")
 HTML_POLICY = Path("trunk/user/httpd/src/httpd_html_output_policy.h")
 JSON_POLICY = Path("trunk/user/httpd/src/httpd_json_output_policy.h")
 AIDISK_SOURCE = Path("trunk/user/httpd/src/aidisk.c")
@@ -305,6 +306,54 @@ def check_uptime_html_sink():
     print("Uptime output uses a constant HTML text encoder: PASS")
 
 
+
+def check_wireless_scan_json_sinks():
+    source = RALINK_SOURCE.read_text(encoding="utf-8")
+    assert '#include "httpd_json_output_policy.h"' in source
+
+    writer_start = source.index("static int\nralink_write_json_string(")
+    entry_start = source.index("\nstatic int\nwrite_scan_json_entry(", writer_start)
+    writer = source[writer_start:entry_start]
+    assert "httpd_json_escape_next(p, escaped," in writer
+    assert "fwrite(escaped, 1, escaped_len, wp)" in writer
+
+    entry_end = source.index("\n/****************************************************************", entry_start)
+    entry = source[entry_start:entry_end]
+    assert "fields[0] = ssid;" in entry
+    assert "fields[1] = bssid;" in entry
+    assert "fields[2] = channel;" in entry
+    assert "fields[3] = signal;" in entry
+    assert entry.count("ralink_write_json_string(wp, fields[i])") == 1
+
+    scan_5_start = source.index("int\nej_wl_scan_5g(")
+    scan_2_start = source.index("int \nej_wl_scan_2g(", scan_5_start)
+    bssid_5_start = source.index("int\nej_wl_bssid_5g(", scan_2_start)
+    scan_5 = source[scan_5_start:scan_2_start]
+    scan_2 = source[scan_2_start:bssid_5_start]
+    for scan in (scan_5, scan_2):
+        assert "write_scan_json_entry(wp, ssid_str," in scan
+        assert "trim_r(site_bssid), trim_r(site_chnl)," in scan
+        assert "trim_r(site_signal)" in scan
+        assert 'ssid_str, trim_r(site_bssid)' not in scan
+
+    bssid_2_start = source.index("int\nej_wl_bssid_2g(", bssid_5_start)
+    bssid_5 = source[bssid_5_start:bssid_2_start]
+    bssid_2 = source[bssid_2_start:]
+    for output in (bssid_5, bssid_2):
+        assert "ralink_write_json_string(wp, bssid)" in output
+        assert "return '%s'" not in output
+
+    caption_start = source.index("static int\nprint_apcli_wds_header(")
+    caption_end = source.index("\nstatic int\nget_rssi_from_me(", caption_start)
+    caption = source[caption_start:caption_end]
+    assert 'websWrite(wp, "%s", caption);' in caption
+    assert "websWrite(wp, caption)" not in caption
+
+    wds_template = (ROOT / "wds_aplist.asp").read_text(encoding="utf-8")
+    assert "wds_aplist = <% wl_scan_5g(); %>;" in wds_template
+    print("Ralink wireless scan/BSSID JSON output escaping: PASS")
+
+
 def main():
     check_handler_wiring()
     check_dynamic_js_hooks()
@@ -315,6 +364,7 @@ def main():
     check_syslog_html_sinks()
     check_language_option_html_sinks()
     check_uptime_html_sink()
+    check_wireless_scan_json_sinks()
 
 
 if __name__ == "__main__":

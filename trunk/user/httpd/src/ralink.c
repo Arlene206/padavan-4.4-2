@@ -46,6 +46,7 @@
 
 #include "common.h"
 #include "httpd.h"
+#include "httpd_json_output_policy.h"
 
 static size_t
 mac_table_entry_limit(size_t buffer_size, size_t response_size,
@@ -136,6 +137,71 @@ write_escaped_html_field(webs_t wp, const char *text)
 	}
 
 	return ret;
+}
+
+
+static int
+ralink_write_json_string(webs_t wp, const char *value)
+{
+	const unsigned char *p;
+	int ret, written;
+
+	p = (const unsigned char *)(value ? value : "");
+	ret = websWrite(wp, "%s", "\"");
+	if (ret < 0)
+		return -1;
+
+	while (*p) {
+		char escaped[6];
+		size_t input_consumed = 0;
+		size_t escaped_len = httpd_json_escape_next(p, escaped,
+							     &input_consumed);
+
+		if (escaped_len == 0 || input_consumed == 0)
+			return -1;
+		if (fwrite(escaped, 1, escaped_len, wp) != escaped_len)
+			return -1;
+		ret += (int)escaped_len;
+		p += input_consumed;
+	}
+
+	written = websWrite(wp, "%s", "\"");
+	if (written < 0)
+		return -1;
+	return ret + written;
+}
+
+static int
+write_scan_json_entry(webs_t wp, const char *ssid, const char *bssid,
+		      const char *channel, const char *signal)
+{
+	const char *fields[4];
+	int i, ret, written;
+
+	fields[0] = ssid;
+	fields[1] = bssid;
+	fields[2] = channel;
+	fields[3] = signal;
+
+	ret = websWrite(wp, "[");
+	if (ret < 0)
+		return -1;
+	for (i = 0; i < 4; ++i) {
+		if (i > 0) {
+			written = websWrite(wp, ", ");
+			if (written < 0)
+				return -1;
+			ret += written;
+		}
+		written = ralink_write_json_string(wp, fields[i]);
+		if (written < 0)
+			return -1;
+		ret += written;
+	}
+	written = websWrite(wp, "]");
+	if (written < 0)
+		return -1;
+	return ret + written;
 }
 
 /******************************************************************************************************************************************/
@@ -1089,7 +1155,7 @@ print_apcli_wds_header(webs_t wp, const char *caption)
 {
 	int ret = 0;
 
-	ret += websWrite(wp, caption);
+	ret += websWrite(wp, "%s", caption);
 	ret += websWrite(wp, "----------------------------------------\n");
 	ret += websWrite(wp, "%-19s%-8s%-4s%-4s%-4s%-5s%-5s%-6s%-5s\n",
 				   "BSSID", "PhyMode", "BW", "MCS", "SGI", "LDPC", "STBC", "TRate", "RSSI");
@@ -1883,7 +1949,14 @@ ej_wl_scan_5g(int eid, webs_t wp, int argc, char **argv)
 			if (apCount)
 				retval += websWrite(wp, "%s ", ",");
 
-			retval += websWrite(wp, "[\"%s\", \"%s\", \"%s\", \"%s\"]", ssid_str, trim_r(site_bssid), trim_r(site_chnl), trim_r(site_signal));
+			{
+				int written = write_scan_json_entry(wp, ssid_str,
+					trim_r(site_bssid), trim_r(site_chnl),
+					trim_r(site_signal));
+				if (written < 0)
+					return -1;
+				retval += written;
+			}
 
 //			dbg("%s\n", site_line);
 
@@ -2009,7 +2082,14 @@ ej_wl_scan_2g(int eid, webs_t wp, int argc, char **argv)
 			if (apCount)
 				retval += websWrite(wp, "%s ", ",");
 			
-			retval += websWrite(wp, "[\"%s\", \"%s\", \"%s\", \"%s\"]", ssid_str, trim_r(site_bssid), trim_r(site_chnl), trim_r(site_signal));
+			{
+				int written = write_scan_json_entry(wp, ssid_str,
+					trim_r(site_bssid), trim_r(site_chnl),
+					trim_r(site_signal));
+				if (written < 0)
+					return -1;
+				retval += written;
+			}
 			
 //			dbg("%s\n", site_line);
 			
@@ -2044,7 +2124,12 @@ ej_wl_bssid_5g(int eid, webs_t wp, int argc, char **argv)
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	}
 
-	websWrite(wp, "function get_bssid_ra0() { return '%s';}\n", bssid);
+	if (websWrite(wp, "function get_bssid_ra0() { return ") < 0)
+		return -1;
+	if (ralink_write_json_string(wp, bssid) < 0)
+		return -1;
+	if (websWrite(wp, ";\n}\n") < 0)
+		return -1;
 
 	return 0;
 }
@@ -2071,7 +2156,12 @@ ej_wl_bssid_2g(int eid, webs_t wp, int argc, char **argv)
 	}
 #endif
 
-	websWrite(wp, "function get_bssid_rai0() { return '%s';}\n", bssid);
+	if (websWrite(wp, "function get_bssid_rai0() { return ") < 0)
+		return -1;
+	if (ralink_write_json_string(wp, bssid) < 0)
+		return -1;
+	if (websWrite(wp, ";\n}\n") < 0)
+		return -1;
 
 	return 0;
 }

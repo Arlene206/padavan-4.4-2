@@ -37,6 +37,7 @@ main(void)
 	static const unsigned char quote[] = { '"', 0 };
 	static const unsigned char backslash[] = { '\\', 0 };
 	static const unsigned char markup[] = "</script><b>&";
+	static const unsigned char wireless_ssid[] = "\"<script>";
 	static const unsigned char controls[] = {
 		'\b', '\f', '\n', '\r', '\t', 0x01, 0x1f, 0
 	};
@@ -55,6 +56,7 @@ main(void)
 	assert_escaped(quote, "\\\"");
 	assert_escaped(backslash, "\\\\");
 	assert_escaped(markup, "\\u003c/script\\u003e\\u003cb\\u003e\\u0026");
+	assert_escaped(wireless_ssid, "\\\"\\u003cscript\\u003e");
 	assert_escaped(controls, "\\b\\f\\n\\r\\t\\u0001\\u001f");
 	assert_escaped(unicode_separators, "\\u2028\\u2029");
 	assert_escaped(utf8_text, "\xc3\xa9 \xe4\xb8\xad");
