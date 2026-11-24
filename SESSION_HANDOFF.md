@@ -1,28 +1,29 @@
 ## Current repository state
 
-- Live main before the AliDNS checker syntax repair: 3151906ee28c42f38a8a283e4f94768cc31126bb.
+- Live main before the AliDNS static-check token-boundary repair: 32263cbbfe129697874d0f70a2760f989bbdfa8c.
 - Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- VSFTPD REST validation and checker repair are verified on 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS.
-- AliDNS POSIX byte encoder and POSIX /bin/sh regression are in ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6. On exact ca9267, the shell syntax and all executed regression suites passed; the Python source-contract step failed with SyntaxError at line 127 caused by the over-quoted checker assertion. The checker-only fix simplifies the byte format assertion to a valid Python double-quoted literal.
+- VSFTPD REST strict input validation and checker repair: 21699dc5a854afb6aea0121a64421bb836aa447c; exact VSFTPD #45356072893 and AI handoff #45356072970 PASS.
+- AliDNS POSIX byte encoder/direct /bin/sh tests: ca9267b3c71a9fb2a8de96e82a2878fcf31e5dc6. Exact ca9267 shell tests all passed; the static checker later failed at the over-quoted printf assertion, fixed by 32263cbbfe129697874d0f70a2760f989bbdfa8c. That SHA's functional tests all passed but the static contract then falsely matched "od" inside the word "encode". The current checker now tests for a standalone od command by splitting potential shell pipeline segments and checking their first word.
 
 ## Active task
 
-Verify the corrected AliDNS static source contract:
-- POSIX encoder implementation and test shell suite are unchanged; exact ca9267 test run #45356506023 passed signed API transport, address lookup, lifecycle/NVRAM and HMAC argument-privacy steps. Only the final Python checker failed due SyntaxError.
-- Corrected the checker assertion to look for the actual printf '%%%02X' format string without fragile nested quotes. Exact-head CI #45356634683 and AI handoff #45356634556 were in progress at the last observation.
+Re-run exact-head AliDNS source contract:
+- Production encoder and test fixture are unchanged; only the static checker is modified.
+- Exact 32263 AliDNS #45356801815: shell syntax, signed transport, address lookup, lifecycle/NVRAM and HMAC privacy tests PASS; final static contract failed on false-positive "od" substring. AI handoff #45356801657 PASS.
+- Replaced the substring check with command-token detection; exact run on the next SHA pending.
 
 ## Verification boundary
 
-- Exact 825e3ac7faab97eec889dc1e0109b34ba4785547: AliDNS #45356096386 and Process #45356096367 PASS.
-- Exact 21699dc5a854afb6aea0121a64421bb836aa447c: VSFTPD #45356072893 and AI handoff #45356072970 PASS.
-- Exact ca9267: shell syntax and signed API / IPv4 / IPv6 / lifecycle / HMAC privacy tests PASS; Python static contract FAIL (line 127 SyntaxError).
-- No physical router validation; exact b87 XY-C1 #45355332727 was still in progress at last observation.
+- Exact ca9267: all functional AliDNS steps PASS; Python checker failed with SyntaxError due bad quoting.
+- Exact 32263: all functional steps PASS; static contract failed because "od" substring matched "encode".
+- Exact 21699: VSFTPD #45356072893 and AI #45356072970 PASS.
+- No firmware hardware validation.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head AliDNS regression and source checker after the quoting correction.
-2. Check XY-C1 Build/TRX/artifact run #45355332727 final state.
-3. Continue another independent userland stability/security defect; keep backup frozen and develop on main only.
+1. Verify exact-head AliDNS source contract and POSIX shell regression after the command-token fix.
+2. Check final XY-C1 Build/TRX/artifact run #45355332727 status.
+3. Continue another independent userland stability/security defect; maintain the frozen backup and develop on main only.
 
 # Cross-session execution mandate
 

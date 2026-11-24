@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix AliDNS od-command contract false positive
+
+- Exact 32263 AliDNS #45356801815 passed shell syntax and every functional test, then the static check failed because a substring search for "od" matched the word "encode" in the comments.
+- Replaced it with a command-token check that splits shell pipeline segments and examines each leading command. Production source/test files are unchanged.
+- Exact 32263 AI handoff #45356801657 PASS; corrected exact-head AliDNS check pending.
+
+---
+
 ## 2026-11-24 — Fix AliDNS Python checker syntax
 
 - Exact ca9267 AliDNS Action #45356506023 passed shell syntax, signed transport, address lookup, lifecycle/NVRAM and HMAC argument-privacy regression steps. The final source-contract step failed with SyntaxError: unterminated string literal at Python line 127.

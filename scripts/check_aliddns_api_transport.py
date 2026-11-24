@@ -128,7 +128,7 @@ require("while :" in urlencode and "IFS= read -r value" in urlencode and
         'printf \'%%0A\'' in urlencode and
         'printf \'%s\' "$1" | urlencode' in enc and
         "read -n" not in urlencode and "read -d" not in urlencode and
-        "od" not in urlencode,
+        not any(part.strip().startswith("od ") for part in urlencode.replace("|", "\n").splitlines()) and
         "AliDNS encoder must use POSIX read and preserve bytes without optional BusyBox ash features")
 require('if [ -z "${BASH_VERSION:-}" ]; then' not in test and
         "exec bash" not in test and
