@@ -450,20 +450,43 @@ require("disk_share_write_stream_atomic_at(directory_fd,leaf,disk_share_write_at
 
 modify_writer = function_body(
     DISK_SOURCE,
-    "static int modify_if_exist_new_folder_locked(const char *const account,"
+    "modify_if_exist_new_folder_in_directory_fd_locked(const char *account,"
 )
 compact_modify = "".join(modify_writer.split())
-modify_open = compact_modify.index("disk_share_open_mount_directory(mount_path)")
-modify_scan = compact_modify.index("get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)", modify_open)
-modify_cache = compact_modify.index("get_folder_list_in_directory_fd(directory_fd,&cached_count,&cached_folder_list)", modify_scan)
-modify_compare = compact_modify.index("upper_strcmp(folder_list[i],cached_folder_list[j])", modify_cache)
-modify_read = compact_modify.index("read_regular_file_nofollow_at(directory_fd,var_leaf)", modify_compare)
-modify_publish = compact_modify.index("disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_update_stream,&writer_context,0)", modify_read)
-require(modify_open < modify_scan < modify_cache < modify_compare < modify_read < modify_publish and
+modify_scan = compact_modify.index(
+    "get_all_folder_in_directory_fd(directory_fd,&sh_num,&folder_list)"
+)
+modify_cache = compact_modify.index(
+    "get_folder_list_in_directory_fd(directory_fd,&cached_count,&cached_folder_list)",
+    modify_scan
+)
+modify_compare = compact_modify.index(
+    "upper_strcmp(folder_list[i],cached_folder_list[j])", modify_cache
+)
+modify_read = compact_modify.index(
+    "read_regular_file_nofollow_at(directory_fd,var_leaf)", modify_compare
+)
+modify_publish = compact_modify.index(
+    "disk_share_write_stream_atomic_at(directory_fd,var_leaf,disk_share_write_update_stream,&writer_context,0)",
+    modify_read
+)
+require(modify_scan < modify_cache < modify_compare < modify_read < modify_publish and
+        "disk_share_open_mount_directory" not in compact_modify and
         "test_if_exist_folder_in_mount_path" not in compact_modify and
         "read_regular_file_nofollow(" not in compact_modify and
         "disk_share_write_stream_atomic(" not in compact_modify,
-        "new-folder ACL update must enumerate, read and publish on one pinned removable-media volume")
+        "new-folder ACL updater must read fresh/cache/ACL metadata and publish through one already-pinned directory descriptor")
+
+modify_wrapper = function_body(
+    DISK_SOURCE, "static int modify_if_exist_new_folder_locked(const char *const account,"
+)
+modify_wrapper_compact = "".join(modify_wrapper.split())
+require("disk_share_open_mount_directory(mount_path)" in modify_wrapper_compact and
+        "modify_if_exist_new_folder_in_directory_fd_locked(account,directory_fd)" in modify_wrapper_compact and
+        "close(directory_fd)" in modify_wrapper_compact,
+        "path-based ACL update wrapper must pin one volume and delegate to the descriptor-relative worker")
+
+
 
 
 stale_pruner = function_body(
@@ -590,7 +613,7 @@ metadata_release = metadata_rebuild_compact.index(
 require(metadata_inventory < anonymous_path_preflight < account_path_preflight <
         metadata_begin < metadata_validate < anonymous_write < account_write <
         snapshot_publish < stale_prune < inventory_free < metadata_release and
-        "create_if_no_var_files(" not in DISK_SOURCE,
+        "disk_share_open_mount_directory(mount_path)" in metadata_rebuild_compact,
         "full metadata rebuild must preflight one checked account inventory, serialize ACL writes, publish folder snapshot before stale pruning, and release the NVRAM lease")
 
 
