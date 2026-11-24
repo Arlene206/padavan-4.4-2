@@ -139,6 +139,37 @@ ln "$crontab" "$test_root/crontab-hardlink"
 if frp_manage_watchdog_cron add; then fail "hard-linked existing crontab was accepted"; fi
 [ "$(cat "$crontab")" = "$before" ] || fail "hard-linked crontab was modified"
 rm -f "$test_root/crontab-hardlink"
+
+# Simulate owner mismatches without requiring root or chown in CI.
+TEST_STAT_PATH="$FRP_CRONTAB_DIR"
+TEST_STAT_FORMAT="%u %a"
+TEST_STAT_FAKE_UID=$(( $(id -u) + 1 ))
+stat()
+{
+	if [ "${1:-}" = "-c" ] && [ "${2:-}" = "$TEST_STAT_FORMAT" ] &&
+	   [ "${3:-}" = "$TEST_STAT_PATH" ]; then
+		printf '%s 755\n' "$TEST_STAT_FAKE_UID"
+		return 0
+	fi
+	command stat "$@"
+}
+if frp_manage_watchdog_cron add; then fail "wrong-owner crontab directory was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "wrong-owner crontab directory changed the published file"
+unset -f stat
+TEST_STAT_PATH="$crontab"
+TEST_STAT_FORMAT="%u %a %h"
+stat()
+{
+	if [ "${1:-}" = "-c" ] && [ "${2:-}" = "$TEST_STAT_FORMAT" ] &&
+	   [ "${3:-}" = "$TEST_STAT_PATH" ]; then
+		printf '%s 600 1\n' "$TEST_STAT_FAKE_UID"
+		return 0
+	fi
+	command stat "$@"
+}
+if frp_manage_watchdog_cron add; then fail "wrong-owner existing crontab was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "wrong-owner existing crontab was modified"
+unset -f stat
 echo "FRP crontab ownership, directory and hard-link checks fail closed: PASS"
 
 # Failed script startup never changes the user's scheduled jobs.

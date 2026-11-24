@@ -166,6 +166,7 @@ for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "world-writable crontab directory", "world-writable cron root",
                "world-writable cron parent", "world-writable existing crontab",
                "hard-linked existing crontab",
+               "wrong-owner crontab directory", "wrong-owner existing crontab",
                "FRP crontab ownership, directory and hard-link checks fail closed: PASS"):
     require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
 
