@@ -1674,20 +1674,18 @@ int set_permission(const char *account,
 		   const char *protocol,
 		   const int flag)
 {
-	char var_file[256];
+	char var_leaf[64];
 	char *target = NULL, *follow_info, *var_info = NULL, *updated_info = NULL;
 	char **account_list = NULL;
 	struct nvram_transaction transaction;
 	int acc_num = 0, transaction_started = 0, account_found = 0;
 	int len, result, saved_errno, samba_right = 0, ftp_right = 0;
-	int lookup_status;
+	int lookup_status, mount_directory_fd = -1, leaf_len;
 	int folder_stat_result, folder_stat_error, directory_status;
 	size_t record_offset;
 	struct stat folder_entry_stat;
 	int dms_right = DEFAULT_DMS_RIGHT;
 	size_t old_len, target_len, updated_len, separator_len;
-	size_t mount_len, folder_len, folder_path_len;
-	char *folder_path = NULL;
 	char record_rights[5];
 
 	if (flag < 0 || flag > 3 || !protocol ||
@@ -1738,25 +1736,15 @@ int set_permission(const char *account,
 		goto failed;
 
 	/*
-	 * Validate both the live directory and its cached folder-list entry while
-	 * holding the writer lease. A stale permission row must not let callers
-	 * recreate access metadata for a folder that has already been removed.
+	 * Pin the volume root once. Folder lookup, snapshot refresh, ACL read and
+	 * atomic replacement must address the same directory if hotplug replaces
+	 * the mountpoint while this permission update is running.
 	 */
-	mount_len = strlen(mount_path);
-	folder_len = strlen(folder);
-	if (folder_len > (size_t)-1 - 2 ||
-	    mount_len > (size_t)-1 - folder_len - 2) {
-		errno = ENAMETOOLONG;
+	mount_directory_fd = disk_share_open_mount_directory(mount_path);
+	if (mount_directory_fd < 0)
 		goto failed;
-	}
-	folder_path_len = mount_len + 1 + folder_len;
-	folder_path = (char *)malloc(folder_path_len + 1);
-	if (!folder_path)
-		goto failed;
-	memcpy(folder_path, mount_path, mount_len);
-	folder_path[mount_len] = '/';
-	memcpy(folder_path + mount_len + 1, folder, folder_len + 1);
-	folder_stat_result = lstat(folder_path, &folder_entry_stat);
+	folder_stat_result = fstatat(mount_directory_fd, folder,
+	                             &folder_entry_stat, AT_SYMLINK_NOFOLLOW);
 	folder_stat_error = errno;
 	directory_status = disk_share_folder_entry_status(
 		folder_stat_result, folder_stat_error,
@@ -1768,25 +1756,23 @@ int set_permission(const char *account,
 			errno = ENOTDIR;
 		goto failed;
 	}
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
+	result = disk_share_folder_exists_in_directory_fd(mount_directory_fd,
+	                                                   folder);
 	if (result < 0)
 		goto failed;
 	if (result == 0) {
-		if (initial_folder_list_in_mount_path(mount_path) != 0)
-			goto failed;
-		result = test_if_exist_folder_in_mount_path(mount_path, folder);
-		if (result < 0)
-			goto failed;
-		if (result == 0) {
-			errno = ENOENT;
-			goto failed;
-		}
-	}
-
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, account) != 0)
+		errno = ENOENT;
 		goto failed;
-	var_info = read_regular_file_nofollow(var_file);
+	}
+	if (initial_folder_list_in_directory_fd(mount_directory_fd) != 0)
+		goto failed;
+
+	leaf_len = snprintf(var_leaf, sizeof(var_leaf), ".__%s_var.txt", account);
+	if (leaf_len < 0 || (size_t)leaf_len >= sizeof(var_leaf)) {
+		errno = ENAMETOOLONG;
+		goto failed;
+	}
+	var_info = read_regular_file_nofollow_at(mount_directory_fd, var_leaf);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
 		if (saved_errno != ENOENT) {
@@ -1794,13 +1780,14 @@ int set_permission(const char *account,
 			goto failed;
 		}
 		errno = 0;
-		result = initial_one_var_file_in_mount_path_locked(account, mount_path);
+		result = initial_one_var_file_in_directory_fd_locked(account,
+		                                                    mount_directory_fd);
 		if (result != 0) {
 			if (!errno)
 				errno = EIO;
 			goto failed;
 		}
-		var_info = read_regular_file_nofollow(var_file);
+		var_info = read_regular_file_nofollow_at(mount_directory_fd, var_leaf);
 		if (!var_info) {
 			if (!errno)
 				errno = EIO;
@@ -1822,7 +1809,7 @@ int set_permission(const char *account,
 	follow_info = lookup_status == 1 ?
 		var_info + record_offset : NULL;
 	if (!follow_info) {
-		result = initial_folder_list_in_mount_path(mount_path);
+		result = initial_folder_list_in_directory_fd(mount_directory_fd);
 		if (result != 0)
 			goto failed;
 
@@ -1864,7 +1851,7 @@ int set_permission(const char *account,
 		       record_rights, 4);
 		updated_info[updated_len] = '\0';
 
-		if (disk_share_replace_file_atomic(var_file, updated_info,
+		if (disk_share_replace_file_atomic_at(mount_directory_fd, var_leaf, updated_info,
 		                                   updated_len) != 0)
 			goto failed;
 	} else {
@@ -1889,7 +1876,7 @@ int set_permission(const char *account,
 		}
 
 		updated_len = strlen(var_info);
-		if (disk_share_replace_file_atomic(var_file, var_info,
+		if (disk_share_replace_file_atomic_at(mount_directory_fd, var_leaf, var_info,
 		                                   updated_len) != 0)
 			goto failed;
 	}
@@ -1897,14 +1884,23 @@ int set_permission(const char *account,
 	free(target);
 	free(var_info);
 	free(updated_info);
-	free(folder_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
 	if (disk_share_account_nvram_end(&transaction) != 0) {
-		errno = errno ? errno : EIO;
+		saved_errno = errno ? errno : EIO;
+		(void)close(mount_directory_fd);
+		mount_directory_fd = -1;
+		errno = saved_errno;
 		return -1;
 	}
 	transaction_started = 0;
+	if (close(mount_directory_fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		mount_directory_fd = -1;
+		errno = saved_errno;
+		return -1;
+	}
+	mount_directory_fd = -1;
 
 	if (!strcmp(protocol, "cifs"))
 		system("/sbin/run_samba");
@@ -1913,14 +1909,23 @@ int set_permission(const char *account,
 unchanged:
 	free(target);
 	free(var_info);
-	free(folder_path);
 	free_2_dimension_list(&acc_num, &account_list);
 	errno = 0;
 	if (disk_share_account_nvram_end(&transaction) != 0) {
-		errno = errno ? errno : EIO;
+		saved_errno = errno ? errno : EIO;
+		(void)close(mount_directory_fd);
+		mount_directory_fd = -1;
+		errno = saved_errno;
 		return -1;
 	}
 	transaction_started = 0;
+	if (close(mount_directory_fd) != 0) {
+		saved_errno = errno ? errno : EIO;
+		mount_directory_fd = -1;
+		errno = saved_errno;
+		return -1;
+	}
+	mount_directory_fd = -1;
 	return 0;
 
 failed:
@@ -1928,8 +1933,11 @@ failed:
 	free(target);
 	free(var_info);
 	free(updated_info);
-	free(folder_path);
 	free_2_dimension_list(&acc_num, &account_list);
+	if (mount_directory_fd >= 0) {
+		(void)close(mount_directory_fd);
+		mount_directory_fd = -1;
+	}
 	if (transaction_started) {
 		errno = 0;
 		if (disk_share_account_nvram_end(&transaction) != 0)

@@ -140,6 +140,81 @@ disk_share_test_stream_writer(FILE *stream, void *opaque)
 
 
 static void
+test_permission_metadata_update_stays_on_pinned_mount_directory_fd(void)
+{
+	char root_template[] = "/tmp/disk-share-permission-at-XXXXXX";
+	char mount_dir[256], moved_dir[256], redirect_dir[256];
+	char mount_acl[320], moved_acl[320], redirect_acl[320], buffer[64];
+	const char *acl_leaf = ".__alice_var.txt";
+	const char original[] = "*Share=311\n";
+	const char redirected[] = "redirect-volume\n";
+	const char updated[] = "*Share=211\n";
+	char *root;
+	int directory_fd, file_fd;
+	ssize_t length;
+
+	root = mkdtemp(root_template);
+	assert(root != NULL);
+	assert(snprintf(mount_dir, sizeof(mount_dir), "%s/mount", root) > 0);
+	assert(snprintf(moved_dir, sizeof(moved_dir), "%s/moved", root) > 0);
+	assert(snprintf(redirect_dir, sizeof(redirect_dir), "%s/redirect", root) > 0);
+	assert(snprintf(mount_acl, sizeof(mount_acl), "%s/%s", mount_dir, acl_leaf) > 0);
+	assert(snprintf(moved_acl, sizeof(moved_acl), "%s/%s", moved_dir, acl_leaf) > 0);
+	assert(snprintf(redirect_acl, sizeof(redirect_acl), "%s/%s", redirect_dir, acl_leaf) > 0);
+	assert(mkdir(mount_dir, 0700) == 0);
+	assert(mkdir(redirect_dir, 0700) == 0);
+
+	file_fd = open(mount_acl, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, original, sizeof(original) - 1) == (ssize_t)(sizeof(original) - 1));
+	assert(close(file_fd) == 0);
+	file_fd = open(redirect_acl, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(file_fd >= 0);
+	assert(write(file_fd, redirected, sizeof(redirected) - 1) == (ssize_t)(sizeof(redirected) - 1));
+	assert(close(file_fd) == 0);
+
+	directory_fd = open(mount_dir, O_RDONLY | O_DIRECTORY);
+	assert(directory_fd >= 0);
+	assert(rename(mount_dir, moved_dir) == 0);
+	assert(symlink(redirect_dir, mount_dir) == 0);
+
+	file_fd = openat(directory_fd, acl_leaf, O_RDONLY | O_NOFOLLOW);
+	assert(file_fd >= 0);
+	length = read(file_fd, buffer, sizeof(buffer) - 1);
+	assert(length == (ssize_t)(sizeof(original) - 1));
+	buffer[length] = '\0';
+	assert(strcmp(buffer, original) == 0);
+	assert(close(file_fd) == 0);
+
+	assert(disk_share_replace_file_atomic_at(directory_fd, acl_leaf,
+	                                         updated, sizeof(updated) - 1) == 0);
+	file_fd = open(moved_acl, O_RDONLY);
+	assert(file_fd >= 0);
+	length = read(file_fd, buffer, sizeof(buffer) - 1);
+	assert(length == (ssize_t)(sizeof(updated) - 1));
+	buffer[length] = '\0';
+	assert(strcmp(buffer, updated) == 0);
+	assert(close(file_fd) == 0);
+
+	file_fd = open(redirect_acl, O_RDONLY);
+	assert(file_fd >= 0);
+	length = read(file_fd, buffer, sizeof(buffer) - 1);
+	assert(length == (ssize_t)(sizeof(redirected) - 1));
+	buffer[length] = '\0';
+	assert(strcmp(buffer, redirected) == 0);
+	assert(close(file_fd) == 0);
+
+	assert(close(directory_fd) == 0);
+	assert(unlink(mount_dir) == 0);
+	assert(unlink(moved_acl) == 0);
+	assert(rmdir(moved_dir) == 0);
+	assert(unlink(redirect_acl) == 0);
+	assert(rmdir(redirect_dir) == 0);
+	assert(rmdir(root) == 0);
+}
+
+
+static void
 test_atomic_stream_failure_preserves_previous_metadata(void)
 {
 	char root_template[] = "/tmp/disk-share-stream-failure-XXXXXX";
@@ -3138,6 +3213,7 @@ main(void)
 	test_folder_entry_status_rejects_symlinks_and_non_directories();
 	test_stale_metadata_unlink_uses_pinned_directory_fd();
 	test_atomic_metadata_replace_stays_in_pinned_directory();
+	test_permission_metadata_update_stays_on_pinned_mount_directory_fd();
 	test_atomic_stream_failure_preserves_previous_metadata();
 test_folder_name_visibility_policy();
 	test_folder_delete_batch_commits_directory_snapshot_and_permissions();

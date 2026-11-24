@@ -1,3 +1,12 @@
+## 2026-11-25 — Pin set_permission ACL read/modify/write to one volume
+
+- Identified a mountpoint replacement race: set_permission() independently resolved mount_path for folder stat/cache, ACL read, missing ACL creation and atomic replacement. A hotplug replacement could read one device and write another.
+- set_permission() now pins the mount root once and uses fstatat(AT_SYMLINK_NOFOLLOW), directory-FD folder enumeration and snapshot refresh, bounded ACL leaf formatting, read_regular_file_nofollow_at(), FD-relative default ACL creation and disk_share_replace_file_atomic_at() across the operation. Cleanup releases the pinned descriptor on success, unchanged and failure paths while preserving NVRAM transaction errors.
+- Added a host path-swap regression: rename the original mount directory after opening its FD, replace the old mount path with a symlink to a different volume, then verify FD-relative ACL replacement changes only the original volume. Added source-order contract checks.
+- Parent 1a62da7d321c4860c0531a289993a54192d67131 libdisk #45466418305 and AI handoff #45466418446 PASS; those validate only the preceding checker contract, not this source change. Fresh exact-head GNU89 ASan/UBSan and Python source checks are required.
+
+---
+
 ## 2026-11-25 03:20 CST (UTC+8) — Align libdisk ACL updater contract with pinned descriptor API
 
 - Exact b0d3012e1144f7edd3c6f16658da4d047c5ba8ae libdisk run #45465855322 passed both GNU89 ASan/UBSan host binaries, then failed the Python source contract at the ACL updater assertion. Production `disk_share_update_folder_permission_file()` now accepts the caller's pinned `directory_fd`, builds a bounded account leaf, reads it with `read_regular_file_nofollow_at()` and publishes with `disk_share_replace_file_atomic_at()`; the checker still expected the removed mount-path formatter/reader/writer API. THIS COMMIT aligns the contract to that descriptor-relative implementation and retains ENOENT-only skip and other-error propagation assertions. No product C or regression binary changed.

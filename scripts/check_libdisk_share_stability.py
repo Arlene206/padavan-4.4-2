@@ -834,31 +834,34 @@ require("disk_io_open_parent_nofollow(path,&leaf)" in mkdir_staging_compact and
 
 
 permission_update = function_body(
-    DISK_SOURCE,
-    "disk_share_update_folder_permission_file(int directory_fd,"
+    DISK_SOURCE, "int set_permission(const char *account,"
 )
 update_compact = "".join(permission_update.split())
-update_leaf = update_compact.index(
-    'snprintf(var_leaf,sizeof(var_leaf),".__%s_var.txt",account)'
-)
-update_read = update_compact.index(
-    "read_regular_file_nofollow_at(directory_fd,var_leaf)", update_leaf
-)
-update_rewrite = update_compact.index(
-    "disk_share_permission_rewrite(var_info,target,replacement,&updated_info,&updated_len)",
-    update_read
-)
-update_replace = update_compact.index(
-    "disk_share_replace_file_atomic_at(directory_fd,var_leaf,updated_info,updated_len)",
-    update_rewrite
-)
-require(update_leaf < update_read < update_rewrite < update_replace and
-        "if (saved_errno == ENOENT)" in permission_update and
-        "errno = saved_errno;" in permission_update and
-        "disk_share_format_account_var_path" not in permission_update and
-        "read_regular_file_nofollow(var_file)" not in permission_update and
-        "disk_share_replace_file_atomic(var_file" not in permission_update,
-        "ACL updater must derive a bounded leaf, no-follow read and atomically replace it through the same pinned directory descriptor; only ENOENT may be skipped and other errors must propagate")
+update_begin = update_compact.index("disk_share_account_nvram_begin(&transaction)")
+update_snapshot = update_compact.index("disk_share_account_inventory_matches_locked(", update_begin)
+update_mount = update_compact.index("disk_share_open_mount_directory(mount_path)", update_snapshot)
+update_stat = update_compact.index("fstatat(mount_directory_fd,folder,", update_mount)
+update_scan = update_compact.index("disk_share_folder_exists_in_directory_fd(mount_directory_fd,folder)", update_stat)
+update_cache = update_compact.index("initial_folder_list_in_directory_fd(mount_directory_fd)", update_scan)
+update_leaf = update_compact.index('snprintf(var_leaf,sizeof(var_leaf),".__%s_var.txt",account)', update_cache)
+update_read = update_compact.index("read_regular_file_nofollow_at(mount_directory_fd,var_leaf)", update_leaf)
+update_default = update_compact.index("initial_one_var_file_in_directory_fd_locked(account,mount_directory_fd)", update_read)
+update_rewrite = update_compact.index("disk_share_permission_find_unique_record(", update_default)
+update_replace = update_compact.index("disk_share_replace_file_atomic_at(mount_directory_fd,var_leaf,", update_rewrite)
+require(update_begin < update_snapshot < update_mount < update_stat < update_scan <
+        update_cache < update_leaf < update_read < update_default <
+        update_rewrite < update_replace and
+        "if(saved_errno!=ENOENT)" in update_compact and
+        "lstat(" not in update_compact and
+        "test_if_exist_folder_in_mount_path(" not in update_compact and
+        "disk_share_format_account_var_path" not in update_compact and
+        "read_regular_file_nofollow(var_file)" not in update_compact and
+        "disk_share_replace_file_atomic(var_file" not in update_compact and
+        "initial_folder_list_in_mount_path(" not in update_compact,
+        "permission updater must pin one mount fd across folder validation, ACL read/default creation and atomic replacement")
+require("test_permission_metadata_update_stays_on_pinned_mount_directory_fd" in POLICY_TEST and "test_permission_metadata_update_stays_on_pinned_mount_directory_fd();" in POLICY_TEST,
+        "permission ACL path-swap regression must be compiled and invoked")
+
 
 mod_folder_body = function_body(
     DISK_SOURCE,
@@ -903,11 +906,12 @@ require("have_existing=1;" in atomic_stream_compact and
         "atomic replacement must only preserve an initialized existing-file mode when explicitly requested")
 
 set_permission = function_body(DISK_SOURCE, "int set_permission(const char *account,")
-require("disk_share_replace_file_atomic(" in set_permission and
-        "disk_share_format_account_var_path" in set_permission and
+require("disk_share_replace_file_atomic_at(" in set_permission and
+        "read_regular_file_nofollow_at(" in set_permission and
+        "disk_share_open_mount_directory(" in set_permission and
         'fopen(var_file, "w")' not in set_permission and
         'fopen(var_file, "a+")' not in set_permission,
-        "set_permission must use checked path construction and atomic publication")
+        "set_permission must read and atomically publish ACL metadata relative to its pinned mount fd")
 
 del_folder_body = function_body(
     DISK_SOURCE, "int del_folder(const char *const mount_path, const char *const folder)"
