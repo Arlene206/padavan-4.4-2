@@ -10,6 +10,8 @@ on:
       - "trunk/user/vsftpd/src/ipaddrparse.c"
       - "trunk/user/vsftpd/src/ipaddrparse.h"
       - "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c"
+      - "trunk/user/vsftpd/src/ftp_rest_offset_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/vsftpd/src/ftp_listing_policy.h"
@@ -44,6 +46,8 @@ on:
       - "trunk/user/vsftpd/src/ipaddrparse.c"
       - "trunk/user/vsftpd/src/ipaddrparse.h"
       - "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c"
+      - "trunk/user/vsftpd/src/ftp_rest_offset_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/vsftpd/src/ftp_listing_policy.h"
@@ -114,6 +118,11 @@ jobs:
             trunk/user/vsftpd/src/tests/ipaddrparse_policy.c \
             -o /tmp/vsftpd-ipaddrparse-policy
           /tmp/vsftpd-ipaddrparse-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -iquote trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c \
+            -o /tmp/vsftpd-rest-offset-policy
+          /tmp/vsftpd-rest-offset-policy
       - name: Verify vsftpd configuration publication and startup gates
         run: |
           python3 - <<'PY'
@@ -138,6 +147,8 @@ jobs:
           vsftpd_ipaddrparse = Path("trunk/user/vsftpd/src/ipaddrparse.c").read_text()
           vsftpd_ipaddrparse_header = Path("trunk/user/vsftpd/src/ipaddrparse.h").read_text()
           ipaddrparse_test = Path("trunk/user/vsftpd/src/tests/ipaddrparse_policy.c").read_text()
+          vsftpd_rest_policy = Path("trunk/user/vsftpd/src/ftp_rest_offset_policy.h").read_text()
+          rest_offset_test = Path("trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c").read_text()
           vsftpd_dataio = Path("trunk/user/vsftpd/src/ftpdataio.c").read_text()
           vsftpd_listing_policy = Path("trunk/user/vsftpd/src/ftp_listing_policy.h").read_text()
           vsftpd_sysutil = Path("trunk/user/vsftpd/src/sysutil.c").read_text()
@@ -684,7 +695,26 @@ jobs:
           assert group_stop.index("stop_ftp_locked()") < group_stop.index("file_unlock(storage_lock);")
           assert group_stop.count("file_unlock(storage_lock);") == 1
 
-          decimal_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_uint(")
+          rest_policy = function_body(vsftpd_rest_policy, "ftp_rest_offset_parse(")
+          rest_handler = function_body(vsftpd_postlogin, "handle_rest(")
+          assert "input_length == 0U || input_length > 15U" in rest_policy
+          assert "ch < '0' || ch > '9'" in rest_policy
+          assert "*p_offset = parsed;" in rest_policy
+          assert "ftp_rest_offset_parse(str_getbuf(&p_sess->ftp_arg_str)" in rest_handler
+          assert "str_getlen(&p_sess->ftp_arg_str)" in rest_handler
+          assert "str_a_to_filesize_t" not in rest_handler
+          assert "if (val < 0)" not in rest_handler
+          assert rest_handler.index("ftp_rest_offset_parse(") < rest_handler.index("p_sess->restart_pos = 0;")
+          assert rest_handler.index("p_sess->restart_pos = 0;") < rest_handler.index("FTP_BADCMD")
+          assert rest_handler.index("FTP_BADCMD") < rest_handler.index("return;")
+          assert rest_handler.index("return;") < rest_handler.index("p_sess->restart_pos = val;")
+          assert "Bad REST argument." in rest_handler
+          assert "REST offset policy mismatch" in rest_offset_test
+          for token in ("999999999999999", "1000000000000000",
+                        "0000000000000000", '"-1"', '"+1"', '"12x"',
+                        '" 1"', '"1 "', "embedded_nul"):
+              assert token in rest_offset_test
+
           octet_parser = function_body(vsftpd_ipaddrparse, "vsf_sysutil_parse_uchar_string_sep(")
           port = function_body(vsftpd_postlogin, "handle_port(")
           eprt = function_body(vsftpd_postlogin, "handle_eprt(")
@@ -756,6 +786,8 @@ jobs:
               "trunk/user/vsftpd/src/ipaddrparse.c",
               "trunk/user/vsftpd/src/ipaddrparse.h",
               "trunk/user/vsftpd/src/tests/ipaddrparse_policy.c",
+              "trunk/user/vsftpd/src/ftp_rest_offset_policy.h",
+              "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c",
               "trunk/user/vsftpd/src/ftp_acl_path_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c",
           )

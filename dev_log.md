@@ -1,3 +1,12 @@
+## 2026-11-24 — Reject malformed FTP REST restart markers
+
+- `handle_rest()` passed client text to `str_a_to_filesize_t()`, then checked for a negative result. That converter returns zero for invalid characters and strings longer than 15 bytes, so malformed REST values were accepted with FTP 350 and restart offset zero.
+- Added a strict 1–15 digit decimal parser with output preservation on failure and GNU89 coverage for null/empty, signs, suffixes, whitespace, embedded NUL, overlength, zero, leading zeros and the maximum supported 15-digit value. Invalid REST now clears a stale one-shot offset and responds FTP_BADCMD; valid offsets preserve previous behavior.
+- Exact parent `ffeba1d20c4f03ed3f46b173cc92c7f253fa67bf`: VSFTPD #45354611125, Process #45354611121 and AI handoff #45354611170 PASS; NVRAM #45354611026 PENDING at last observation. Exact-head validation of this source fix is pending.
+- No firmware Build/TRX/artifact or router hardware validation claimed.
+
+---
+
 ## 2026-11-24 — Correct the EPRT DEL-byte test fixture
 
 - Exact `b37af6b5caf6fa0346ef27cd94dd7c9e6b5f2fd5` VSFTPD job `#45353862964` compiled the C tests and passed earlier FTP suites, but the parser regression's DEL test contained a double-escaped C `\\x7f`, so runtime input was literal text instead of ASCII 127.

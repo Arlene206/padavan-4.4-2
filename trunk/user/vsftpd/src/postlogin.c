@@ -33,6 +33,7 @@
 /* Padavan */
 #include "asus_ext.h"
 #include "ftp_listing_policy.h"
+#include "ftp_rest_offset_policy.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -1321,10 +1322,14 @@ static void
 handle_rest(struct vsf_session* p_sess)
 {
   static struct mystr s_rest_str;
-  filesize_t val = str_a_to_filesize_t(&p_sess->ftp_arg_str);
-  if (val < 0)
+  filesize_t val;
+  if (!ftp_rest_offset_parse(str_getbuf(&p_sess->ftp_arg_str),
+                             str_getlen(&p_sess->ftp_arg_str), &val))
   {
-    val = 0;
+    /* An invalid marker must not leave a stale one-shot offset armed. */
+    p_sess->restart_pos = 0;
+    vsf_cmdio_write(p_sess, FTP_BADCMD, "Bad REST argument.");
+    return;
   }
   p_sess->restart_pos = val;
   str_alloc_text(&s_rest_str, "Restart position accepted (");
@@ -1332,6 +1337,7 @@ handle_rest(struct vsf_session* p_sess)
   str_append_text(&s_rest_str, ").");
   vsf_cmdio_write_str(p_sess, FTP_RESTOK, &s_rest_str);
 }
+
 
 static void
 handle_rnfr(struct vsf_session* p_sess)
