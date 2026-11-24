@@ -54,7 +54,6 @@ autostart_seed_storage_script()
 		return 1
 	fi
 	# Same-directory rename prevents readers from observing a partial copy.
-	# rename replaces a final symlink itself; it does not write through it.
 	if ! mv -f "$_autostart_tmp" "$_autostart_destination"; then
 		rm -f "$_autostart_tmp"
 		logger -t "自动启动" "Cannot publish packaged script: $_autostart_destination"

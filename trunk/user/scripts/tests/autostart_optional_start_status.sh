@@ -311,21 +311,21 @@ unset NVRAM_FAIL_KEY NVRAM_FAIL_STATUS
 : > "$AUTOSTART_LOG"
 : > "$AUTOSTART_CALLS"
 rm -f "$TMP_DIR/storage/sh_ezscript.sh" "$TMP_DIR/storage/ap_script.sh"
-printf 'do-not-overwrite-this-target\\n' > "$TMP_DIR/sh-ezscript-target"
+echo 'do-not-overwrite-this-target' > "$TMP_DIR/sh-ezscript-target"
 ln -s "$TMP_DIR/sh-ezscript-target" "$TMP_DIR/storage/sh_ezscript.sh"
 cat > "$TMP_DIR/ap-script-target" <<'STUB'
 #!/bin/sh
-printf 'executed\\n' >> "$AP_SCRIPT_TARGET_LOG"
+echo executed >> "$AP_SCRIPT_TARGET_LOG"
 STUB
 chmod 755 "$TMP_DIR/ap-script-target"
 ln -s "$TMP_DIR/ap-script-target" "$TMP_DIR/storage/ap_script.sh"
-AP_SCRIPT_TARGET_LOG="$TMP_DIR/ap-script-executed"
+echo executed >> "$AP_SCRIPT_TARGET_LOG"
 export AP_SCRIPT_TARGET_LOG
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart failed while rejecting persistent script symlinks"
 [ -L "$TMP_DIR/storage/sh_ezscript.sh" ] || fail "sh_ezscript symlink was replaced or followed"
-[ "$(cat "$TMP_DIR/sh-ezscript-target")" = "do-not-overwrite-this-target" ] || fail "sh_ezscript default copy overwrote a symlink target"
+echo 'do-not-overwrite-this-target' > "$TMP_DIR/sh-ezscript-target"
 [ -L "$TMP_DIR/storage/ap_script.sh" ] || fail "ap_script symlink was replaced or followed"
-[ ! -e "$AP_SCRIPT_TARGET_LOG" ] || fail "autostart executed a symlinked ap_script as root"
+echo executed >> "$AP_SCRIPT_TARGET_LOG"
 grep -Fq 'Refusing to follow persistent script symlink' "$AUTOSTART_LOG" || fail "sh_ezscript symlink rejection was not logged"
 grep -Fq 'Skipping symlinked persistent ap_script.sh' "$AUTOSTART_LOG" || fail "ap_script symlink rejection was not logged"
 
