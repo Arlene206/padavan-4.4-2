@@ -296,6 +296,36 @@ test_start_config_reads_https_only_settings_when_selected(void)
 }
 
 static void
+test_start_config_rejects_invalid_http_protocol_modes(void)
+{
+	struct fake_httpd_nvram_reader fake;
+	struct httpd_start_config config;
+	int invalid_modes[] = { -1, 3, 99 };
+	int mode;
+
+	for (mode = 0; mode < (int)(sizeof(invalid_modes) / sizeof(invalid_modes[0])); mode++) {
+		fake_httpd_nvram_init(&fake);
+		fake.present[HTTPD_TEST_HTTP_PROTO] = 1;
+		fake.values[HTTPD_TEST_HTTP_PROTO] = invalid_modes[mode];
+		config.http_proto = 11;
+		config.http_port = 22;
+		config.misc_http_x = 33;
+		config.https_port = 44;
+		config.https_wopen = 55;
+
+		assert(httpd_start_config_read(fake_httpd_nvram_read, &fake, 1,
+					       &config) == EINVAL);
+		assert(fake.calls == 1);
+		assert(fake.read_keys[0] == HTTPD_TEST_HTTP_PROTO);
+		assert(config.http_proto == 11);
+		assert(config.http_port == 22);
+		assert(config.misc_http_x == 33);
+		assert(config.https_port == 44);
+		assert(config.https_wopen == 55);
+	}
+}
+
+static void
 test_start_config_fails_closed_without_partial_snapshot(void)
 {
 	struct fake_httpd_nvram_reader fake;
@@ -348,6 +378,7 @@ int main(void)
 	test_start_config_reads_only_selected_listener_settings();
 	test_start_config_preserves_missing_key_defaults_and_http_only_builds();
 	test_start_config_reads_https_only_settings_when_selected();
+	test_start_config_rejects_invalid_http_protocol_modes();
 	test_start_config_fails_closed_without_partial_snapshot();
 	test_start_config_rejects_invalid_arguments();
 	test_launcher_failure_is_preserved();

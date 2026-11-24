@@ -48,6 +48,15 @@ httpd_start_config_read(httpd_nvram_int_reader_fn read_int, void *context,
 			return status;
 	}
 
+	/*
+	 * The UI exposes only HTTP (0), HTTPS (1), and both (2).  An invalid
+	 * persisted selector must not fall through to a daemon launch without
+	 * an explicit listener argument or a matching firewall decision.
+	 */
+	if (support_https &&
+	    (next.http_proto < 0 || next.http_proto > 2))
+		return EINVAL;
+
 	if (next.http_proto == 0 || next.http_proto == 2) {
 		status = read_int(context, "http_lanport", 0, &next.http_port);
 		if (status != 0)

@@ -122,10 +122,15 @@ jobs:
           for key in ("http_lanport", "misc_http_x", "https_lport", "https_wopen"):
               assert 'nvram_get_int("' + key + '")' not in start
           assert "httpd_start_config_read" in policy
+          config_reader = body(policy, "httpd_start_config_read(")
+          protocol_range_check = "if (support_https &&" + "\\n" + "\\t    (next.http_proto < 0 || next.http_proto > 2))"
+          assert protocol_range_check in config_reader
+          assert config_reader.index(protocol_range_check) < config_reader.index('if (next.http_proto == 0 || next.http_proto == 2)')
           for marker in (
               "test_start_config_reads_only_selected_listener_settings",
               "test_start_config_preserves_missing_key_defaults_and_http_only_builds",
               "test_start_config_reads_https_only_settings_when_selected",
+              "test_start_config_rejects_invalid_http_protocol_modes",
               "test_start_config_fails_closed_without_partial_snapshot",
               "test_start_config_rejects_invalid_arguments",
           ):

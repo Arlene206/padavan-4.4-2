@@ -1,3 +1,12 @@
+## 2026-11-24 — Reject invalid HTTPD listener protocol selectors
+
+- The Advanced Services UI offers only `http_proto=0` (HTTP), `1` (HTTPS), and `2` (HTTP+HTTPS). In HTTPS-enabled builds, `httpd_start_config_read()` accepted any signed integer. An invalid value selected neither listener branch, but the startup path could still launch `httpd` without explicit listener arguments while firewall preflight treated the invalid selector as exposing no listener.
+- Added an early `EINVAL` domain check immediately after the checked selector read. Invalid values fail before protocol-dependent settings, port normalization, stale-state publication, or daemon launch; HTTP-only builds preserve their existing HTTP default and skip the selector read.
+- Added GNU89 ASan/UBSan regression cases for `-1`, `3`, and `99`, asserting exactly one read and that the configuration snapshot remains unchanged. The HTTPD daemon lifecycle workflow now asserts the range guard's ordering and the new test invocation.
+- This source slice is published in THIS COMMIT; exact-head HTTPD lifecycle, AI handoff and XY-C1 Build/TRX/artifact Actions must be checked live. L4 hardware behavior remains unverified.
+
+---
+
 ## 2026-11-24 — Fix APCLI deauthentication allocation leak and index validation order
 
 - MT76x2 and MT7915 APCLI deauthentication handlers called `os_alloc_mem()` twice for the same `pInfo`, overwriting the first pointer and leaking it. Both handlers also dereferenced `ApCliTab[ifIndex]` / `StaCfg[ifIndex]` before checking `ifIndex >= MAX_APCLI_NUM`.

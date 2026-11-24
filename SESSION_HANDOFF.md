@@ -1,34 +1,29 @@
 ## Current repository state
 
-- Active branch: `main`; this deauthentication hardening slice is based on exact parent SHA `0dc7eaed5c1eb2623f5762c9f9b6fb7b93c9a4d0`. Always refresh live main before writing.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify, develop on or delete it.
-- No open PRs were found. Legacy PR #1 is closed; its valid CA trust-store bootstrap and AliDDNS HMAC work were ported to main.
-- LLDT descriptor/path hardening history: `529cf073`, `8796b356`, `2fdf8e7a`, `9b97f743`, `be370293`, `0b532570`, `b270bcc`. Process integration #45376899681 PASS on `b270bcc`; dedicated LLDT #45376256149 PASS on `0b532570`.
-- MTK AP hardening: 802.11r Boolean `72e1e72`; MT76x3 PSK `e32120d`; R0KH-ID `b9d55bf`; R0KH checker follow-ups `b046206` and `2789d637`; AuthMode/WepStatus/SSID/APCLI Boolean copy failures `8f639815`; WSC PSK bounds and secret-log removal `0dc7eaed`.
+- Active development branch: `main`; parent source SHA for the current HTTPD selector slice: `d33fcf06b73fbe2771ab0b559116d3e750dc4918`. Always fetch the live `main` head again before any write.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is immutable and must not be modified, used for development, or deleted.
+- No open PRs; legacy PR #1 is closed and its valid unmerged work was ported to main.
+- MTK AP private-ioctl safety slice is implemented through deauthentication: exact main SHA `d33fcf06b73fbe2771ab0b559116d3e750dc4918` Actions MTK #45384680997, NVRAM #45384681048, AI handoff #45384680982, and XY-C1 #45384680986 all completed PASS on push with this exact head SHA. XY-C1 Build, TRX verification and artifact upload all PASS; L3 is verified for this source SHA. Physical router L4 remains NOT VERIFIED.
 
-## Active task — Validate MTK AP deauthentication usercopy failure handling
+## Active task — Reject invalid HTTPD listener protocol selectors
 
-- MT76x2, MT76x3, MT7615 and MT7915 `OID_802_11_DEAUTHENTICATION` handlers performed exact request-length checks but consumed request fields after ignoring/storing `copy_from_user()` errors. Faulted/partial reads could lead to uninitialized or partially copied addresses/reasons entering MacTableLookup/MLME enqueue and APCLI state transitions.
-- This slice adds explicit `-EFAULT` cleanup branches before any request field use or deauthentication side effect. It frees the MLME queue element and any separately allocated APCLI request buffer. MT76x2/MT7915 APCLI branches now check the request allocation and report `-ENOMEM` before copy.
-- `scripts/check_mtk_apd_pid_ioctl.py` now checks exact request sizes, every copy-failure branch, cleanup before break, successful-copy ordering and the APCLI allocation guard. The existing focused MTK workflow already monitors all four AP source files and this checker; a fresh exact-head run is required.
-- This follow-up removes the duplicate `pInfo` allocation in MT76x2/MT7915 APCLI deauth paths and moves `ifIndex >= MAX_APCLI_NUM` immediately after reading the ioctl index, before any `ApCliTab[]`/`StaCfg[]` dereference. Invalid indices now set `-EINVAL`, free the queue element and exit the switch case. The checker requires exactly one allocation and bounds-check-before-index ordering.
-- Previous PSK fix in `0dc7eaed`: fixed the MT7615/MT7915 WSC destination overflow (64-byte WSC buffer vs 65-byte security PSK buffer), stages one checked usercopy, caps inputs at 64 and removes plaintext PSK logs. Exact MTK #45381270549, AI #45381270437, Process #45381270630 and NVRAM #45381270585 PASS on `0dc7eaed`.
-- XY-C1 #45381270533 on exact source SHA `0dc7eaed5c1eb2623f5762c9f9b6fb7b93c9a4d0` was still in Build XY-C1 at last check; TRX and artifact pending. This deauth source change requires its own exact-SHA firmware validation.
-- Earlier R0KH-ID compatibility supports raw 1–48-byte IDs or 2–49-byte inputs containing trailing NUL; focused MTK #45379297940 and AI #45379297910 PASS on `2789d637`. LLDT Process integration #45376899681 PASS on `b270bcc`.
-
-- Follow-up fix in this commit removes duplicate MT76x2/MT7915 APCLI `pInfo` allocation and validates `ifIndex` before table dereference; exact-head MTK/AI Actions are pending.
+- Source: `trunk/user/rc/src/httpd_daemon_policy.h`, called by `start_httpd_locked()` in `trunk/user/rc/src/services.c`.
+- The Advanced Services UI offers exactly `http_proto=0` (HTTP), `1` (HTTPS), and `2` (HTTP+HTTPS). In HTTPS-enabled builds, `httpd_start_config_read()` previously accepted negative or out-of-range persisted values. Those values selected neither listener branch, so `start_httpd_locked()` could continue to launch the daemon with no explicit `-p`/`-s` listener arguments while `httpd_start_config_firewall_required()` treated the selector as exposing no listener.
+- THIS COMMIT rejects `http_proto < 0 || http_proto > 2` with `EINVAL` immediately after the checked read and before any listener-specific NVRAM reads, port normalization, state publication, or daemon launch. HTTP-only builds retain their legacy behavior and do not read the HTTPS selector.
+- Regression: `trunk/user/rc/src/tests/httpd_daemon_policy.c` exercises `-1`, `3`, and `99`, requiring one NVRAM read and an untouched output snapshot. `.github/workflows/httpd-daemon-lifecycle.yml` also pins validation-before-listener-read and the new test invocation.
+- No local checkout is available in this runtime. The exact-head HTTPD workflow will compile/run the GNU89 ASan/UBSan regression and integration contract; XY-C1 Actions are required for L3.
 
 ## Verification boundary
 
-- Main source SHA `28bf02ce0d95edbf81db51816c1683805f1cc28c` contains the deauthentication checked-usercopy change, but its focused MTK and XY-C1 exact-head push Actions have not been verified in this session. `get_commit_combined_status` returned no status contexts; the available workflow-run fetch wrapper is PR-event-only and does not expose `push` runs. Do not infer PASS.
-- This session confirmed the source-level duplicate-allocation and pre-bounds-check array-access defects described above. No repository checkout was available locally (`git ls-remote` could not resolve GitHub); no local tests or target build were run. No firmware L3 or hardware L4 claim.
-- L4 physical-router validation: NOT VERIFIED.
+- The HTTPD source/test/checker update is contained in THIS COMMIT; fetch live main and inspect exact `push` Actions by `head_sha` before declaring it verified.
+- Require HTTPD daemon lifecycle stability regression and AI handoff contract PASS. Require same-SHA XY-C1 Build, TRX and artifact PASS before L3.
+- L4 physical-router behavior: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head MTK and AI Actions for this follow-up; verify the APCLI allocation/index-order contract and existing selector, PSK, R0KH-ID and deauth regressions.
-2. Refresh XY-C1 #45381270533 and #45382730572, then require a new exact-SHA XY-C1 Build/TRX/artifact PASS for this source checkpoint.
-3. Continue into an independent userland/network-service stability issue; pending Actions do not block work.
+1. Fetch current `main` and query Actions by the exact live SHA. Confirm the HTTPD daemon lifecycle run compiles/runs the new invalid-protocol regression and its source contract; also inspect AI docs and XY-C1 Build/TRX/artifact on the same SHA.
+2. If the exact HTTPD or docs run fails, diagnose the first causal assertion/compiler failure and make a bounded atomic main fix. A pending XY-C1 build does not block independent work.
+3. After the HTTPD selector fix passes, continue the next highest-priority unclosed stability defect outside this already-validated MTK AP ioctl cluster; do not repeat closed HTTPD/MTK checks absent new evidence.
 
 ## Mandatory handoff checkpoint
 
