@@ -597,8 +597,7 @@ jobs:
           assert "fstat(fd, &opened)" in bounded_file_open_at
           assert "!S_ISREG(opened.st_mode)" in bounded_file_open_at
           assert "opened.st_size > max_size" in bounded_file_open_at
-          assert "!S_ISREG(opened.st_mode)" in bounded_file_open
-          assert "opened.st_size > max_size" in bounded_file_open
+
           assert "ftp_acl_path_open_bounded_regular_file_at(" in acl_file_reader
           assert acl_file_reader.count("ftp_acl_path_verify_directory_identity(directory_path,") >= 3
           assert "read(fd, buffer + read_total, file_size - read_total)" in acl_file_reader

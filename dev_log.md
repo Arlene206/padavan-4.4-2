@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix relocated VSFTPD ACL open assertions
+
+- Exact source SHA `9fe57d025796fbc0d6574dc68b9f71c5dc80903b`: Process lifecycle #45448598258 PASS and AI handoff #45448598098 PASS. XY-C1 #45448598232 remained IN_PROGRESS; NVRAM #45448598003 was CANCELLED.
+- VSFTPD #45448598152 FAILED at inline Python line 450 before running host regression binaries. The new bounded-file type/size checks correctly live in `ftp_acl_path_open_bounded_regular_file_at()`, but two legacy duplicate assertions still looked for them in the compatibility wrapper. Removed only those stale assertions; equivalent assertions on the `_at` helper remain.
+- The latest independent libdisk parent commit is `0f812eef2ce02057c8d95227dcad7d1478f758ba`; its Process #45448794129, XY-C1 #45448794152, libdisk share-list #45448794198 and NVRAM #45448794248 were pending at last poll. Exact-head VSFTPD and AI reruns for THIS contract correction are pending.
+
+---
+
 ## 2026-11-24 — Revalidate FTP ACL mount identity across metadata reads
 
 - Parent-pinning commit `ecb381796f856495b41d0d76e87718c82944ea6d` changed the ACL path helper to pin the complete parent directory and open the metadata leaf with `openat()`; ancestor symlinks, final symlinks and FIFO/device nodes are rejected. Exact-head VSFTPD #45447276290, Process #45447276310 and AI handoff #45447276525 PASS; XY-C1 #45447276297 and NVRAM #45447276423 were IN_PROGRESS at last poll.

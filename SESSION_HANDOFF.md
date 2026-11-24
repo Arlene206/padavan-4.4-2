@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Live `main` parent for the next ACL reader hardening slice: `ecb381796f856495b41d0d76e87718c82944ea6d` (`fix(vsftpd): pin ACL metadata parent directory`). Re-fetch the branch before every write; concurrent ChatGPT sessions can advance it.
+- Live `main` parent for this VSFTPD contract correction: `0f812eef2ce02057c8d95227dcad7d1478f758ba` (`fix(libdisk): pin removable metadata parent paths`). Re-fetch the branch before every write; concurrent ChatGPT sessions can advance it.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify. Legacy PR #1 remains closed/unmerged.
 - Main-only, one atomic main commit per logical task: create every blob and one complete Git tree, then one commit, then non-forced expected-SHA ref update. Never force-push or create side branches/PRs.
 - Roadmap remains below its 128 KiB handoff limit; this task adds one bounded P1 item without exceeding the validator ceiling.
@@ -17,8 +17,9 @@
 ### FTP ACL metadata path and parent identity
 
 - Source `6d4b0537316390ca00a388a015edb828456cc213` rejects `/` inside authenticated FTP usernames, requires an absolute mount path and fails closed on filename truncation. Its exact-head VSFTPD #45444917834, Process #45444917951, NVRAM #45444916236 and XY-C1 #45444916327 all PASS; the XY job's Build, TRX and artifact-upload steps all succeeded (L3 VERIFIED for that SHA only).
-- Parent-pinning commit `ecb381796f856495b41d0d76e87718c82944ea6d` changed the bounded ACL path helper to open its leaf with `openat()` relative to a verified directory descriptor and added symlinked-parent regression coverage. Exact-head VSFTPD #45447276290, Process #45447276310 and AI #45447276525 PASS; XY-C1 #45447276297 and NVRAM #45447276423 were IN_PROGRESS at last poll.
-- THIS follow-up keeps the mount descriptor open through metadata reading, verifies directory identity before/after open and after read, and compares the opened metadata inode/size. Regressions cover descriptor-relative open, symlink/FIFO denial and directory replacement with a retained original dirfd. Exact-head Actions pending.
+- Parent-pinning commit `ecb381796f856495b41d0d76e87718c82944ea6d` changed the bounded ACL path helper to open its leaf with `openat()` relative to a verified directory descriptor and added symlinked-parent regression coverage. Exact-head VSFTPD #45447276290, Process #45447276310, AI #45447276525 and NVRAM #45447276423 PASS; XY-C1 #45447276297 was still IN_PROGRESS at last poll.
+- Reader revalidation source `9fe57d025796fbc0d6574dc68b9f71c5dc80903b`: Process #45448598258 and AI #45448598098 PASS; VSFTPD #45448598152 failed only on the two obsolete wrapper assertions at line 450; XY-C1 #45448598232 IN_PROGRESS; NVRAM #45448598003 CANCELLED. THIS commit corrects the test contract.
+- Source `9fe57d025796fbc0d6574dc68b9f71c5dc80903b` keeps the mount descriptor open through metadata reading, verifies directory identity before open, after open and after read, and compares metadata device/inode/size. Process #45448598258 and AI #45448598098 PASS; VSFTPD #45448598152 failed at Python line 450 because two duplicate type/size assertions still targeted the wrapper after those checks moved to the `_at` helper. THIS commit removes those stale duplicates without removing the equivalent helper checks. XY #45448598232 was IN_PROGRESS; NVRAM #45448598003 was CANCELLED. Exact VSFTPD/AI reruns pending.
 
 ## Verification boundary
 
@@ -30,10 +31,10 @@
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VSFTPD, Process, NVRAM, XY-C1 and AI handoff Actions triggered by THIS reader revalidation commit; inspect the first failing log before adjusting assertions.
-2. Verify XY-C1 Build, TRX and artifact upload separately on this exact product-source SHA. The preceding parent-pin commit `ecb381796f856495b41d0d76e87718c82944ea6d` had XY #45447276297 and NVRAM #45447276423 pending at last poll.
-3. After this ACL parent-object boundary is validated, continue the next independent P1 reliability/security defect outside the already-completed FTP ACL path, CWD and stop/restart work.
-4. Re-poll older pending XY-C1 runs #45443260501 (`0fa6f3`) and #45442617613 (`5e955b3`) only if still in progress; keep evidence scoped to each SHA.
+1. Check exact-head VSFTPD and AI handoff Actions triggered by THIS contract correction; VSFTPD must pass the ACL helper assertions and compile/run host regressions.
+2. Poll XY-C1 #45448598232 for source `9fe57d0`, and inspect Build, TRX and artifact upload separately. NVRAM #45448598003 was cancelled; rerun only if required by the CI matrix.
+3. Continue the independent libdisk removable-metadata parent-path task from `0f812eef2ce02057c8d95227dcad7d1478f758ba` while its exact-head XY/NVRAM/Process Actions are pending, then take the next open P1 reliability/security item.
+4. Do not transfer L3 evidence from the earlier `6d4b053` firmware build to later source SHAs.
 
 ## Mandatory handoff checkpoint
 
