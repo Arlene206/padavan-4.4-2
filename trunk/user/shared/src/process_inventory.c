@@ -241,7 +241,7 @@ proc_parse_stat(const char *buffer, size_t length, pid_t expected_pid,
 	memcpy(identity->comm, left + 1, copy_length);
 	identity->comm[copy_length] = '\0';
 	identity->comm_truncated =
-		(comm_length >= sizeof(identity->comm) - 1) ? 1 : 0;
+		(comm_length > sizeof(identity->comm) - 1) ? 1 : 0;
 	identity->pid = expected_pid;
 
 	cursor = right + 2;

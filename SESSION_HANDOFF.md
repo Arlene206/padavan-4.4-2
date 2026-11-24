@@ -30,6 +30,14 @@ A stop command can report an error while the final procfs scan proves vsftpd abs
 
 Exact source commit b3f165ef4e08b585cc5a77ccdfb791165ba60496 changed service control, policy regression and VSFTPD source contract. Exact descendant 155a8be964e1ceb1ce82583df241be2248d1ec9d passed VSFTPD #45483093422 (GNU89 regression and embedded Python checker) and AI handoff #45483093417. The source commit's storage-wide checker was stale; THIS commit aligns that caller graph. No local cross compiler/MIPS build is claimed.
 
+### Shared process inventory — exact 15-byte comm boundary
+
+Review found an off-by-one in `proc_parse_stat()`: a 15-byte `comm` exactly fits the 16-byte kernel task-name buffer including its NUL terminator, but the scanner marked lengths >= 15 as truncated. When cmdline is empty or does not match the requested name, a valid maximum-length process name could be missed. This source slice changes the boundary to > 15 and adds a GNU89 regression using an exact 15-byte name with an empty cmdline. The Process workflow now pins both the comparison and test case. No local compiler run or MIPS build is claimed.
+
+### Parallel FTP verification — final-presence firewall reconciliation
+
+The production FTP stop/firewall change remains in `b3f165e`; VSFTPD checks passed on `155a8be`. Storage-hotplug run `d91dd33` passed its compiled C tests and full caller-graph checker but exposed duplicate stale FTP contracts in `scripts/check_storage_safe_remove.py`. The checker-only correction is now on current parent `f5b01d9`; exact storage-hotplug run `45484032665` and XY-C1 run `45484032783` were in progress at last observation. AI handoff `45484032630` passed. Do not transfer status between SHAs.
+ 
 ## Verification boundary
 
 - Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: initial udhcpc #45480041494 had C GNU89/ASan/UBSan regression PASS and a stale Python assertion failure. After checker-only corrections, descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` udhcpc #45480533291 PASS (C regression and Python source contract).
@@ -40,7 +48,6 @@ Exact source commit b3f165ef4e08b585cc5a77ccdfb791165ba60496 changed service con
 - Other b3 results: libdisk, USB modem identity, MiniDLNA, Samba, IPv6, Firefly, storage-service enable, NFSD, AI docs, Process inventory, firewall startup and HTTPD security PASS; XY-C1 #45482945636, NVRAM #45482945421 and Process lifecycle #45482945410 were pending at last observation.
 
 ## Exact first action for the next GPT
-
-1. Inspect exact-SHA storage-hotplug after THIS duplicated checker correction; require GNU89 storage regressions, the caller-graph checker and both safe-remove FTP contracts to pass.
-2. Inspect the b3 XY-C1 exact-SHA run if completed; its NVRAM and Process lifecycle runs already passed. Do not attribute results to checker-only descendants.
-3. Continue cross-userland stability work after this full storage suite closes; DHCP source L3 is verified on fd59df3; router/hardware L4 remains unverified.
+1. Inspect exact-head Process lifecycle/inventory and XY-C1 Actions for the new 15-byte `comm` boundary fix. Require GNU89 ASan/UBSan regression and source contract PASS; L3 requires Build, TRX and artifact upload PASS on the same product SHA.
+2. Inspect f5b01d9 storage-hotplug #45484032665 and XY-C1 #45484032783 to close the FTP stop/firewall validation boundary; AI docs #45484032630 is PASS. Also check b3f165e XY-C1 #45482945636 only by its own SHA.
+3. Continue an independently evidenced stability/security issue across Padavan userland; do not repeat closed DHCP work. Hardware/router L4 remains unverified.

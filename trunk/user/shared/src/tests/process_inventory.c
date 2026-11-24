@@ -473,6 +473,26 @@ test_partial_match_then_readdir_error_is_unknown(void)
 	assert(snapshot.error == EIO);
 }
 
+
+static void
+test_exact_max_length_comm_is_not_truncated(void)
+{
+	const char *entries[] = { "123" };
+	const char process_name[] = "123456789012345";
+	struct fake_context context;
+	struct process_snapshot snapshot;
+
+	fake_init(&context, entries, 1);
+	fake_add(&context, 123, process_name, "");
+	assert(process_inventory_scan_with_ops(process_name, &snapshot,
+						&fake_ops, &context) ==
+	       PROCESS_PRESENCE_RUNNING);
+	assert(snapshot.count == 1);
+	assert(snapshot.items[0].comm_truncated == 0);
+	assert(strcmp(snapshot.items[0].comm, process_name) == 0);
+	process_snapshot_release(&snapshot);
+}
+
 static void
 test_procfs_read_eintr_retries_are_bounded(void)
 {
@@ -495,6 +515,7 @@ test_procfs_read_eintr_retries_are_bounded(void)
 int
 main(void)
 {
+	test_exact_max_length_comm_is_not_truncated();
 	test_procfs_read_eintr_retries_are_bounded();
 	test_context_allocation_failure();
 	test_proc_open_failure();

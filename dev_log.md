@@ -1,3 +1,11 @@
+## 2026-11-24 — Preserve exact 15-byte comm names in process inventory
+
+- L1 review found an off-by-one in `proc_parse_stat()`: a `comm` value exactly 15 bytes long fits the 16-byte buffer including its terminator, but the old >= comparison marked it truncated. This could cause the scanner to miss a valid maximum-length process name when cmdline is empty or differs.
+- Changed the truncation boundary to > 15 and added an injected GNU89 regression for a 15-byte process name with an empty cmdline. The Process workflow source contract now requires the corrected boundary and the regression case.
+- No local compiler run or MIPS build is claimed. On parent f5b01d9, storage-hotplug #45484032665 and XY-C1 #45484032783 were still in progress; AI handoff #45484032630 passed. Frozen backup remains read-only.
+
+---
+
 ## 2026-11-25 — Align storage safe-remove FTP lifecycle checks
 
 - Exact SHA `d91dd33195eb32b29e2250c9cec4cd1604e50b77` storage-hotplug #45483595415 passed all compiled storage/FTP regressions and the full embedded caller-graph check. Its final standalone `scripts/check_storage_safe_remove.py` step failed at line 578 due to two duplicate contracts still calling `body(storage, "stop_ftp_locked(void)")`.
