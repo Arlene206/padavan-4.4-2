@@ -1,3 +1,12 @@
+## 2026-11-23 — Validate QMI client IDs before narrowing to the wire field
+
+- `cmd_set_client_id_prepare()` used `strtoul()` without checking ERANGE, no-digit input or the one-byte CID range. Since `qmi_service_connect()` stores the CID in `uint8_t`, values over 255 were silently truncated and negative/empty tokens could select an unintended CID.
+- Added `uqmi_parse_client_id()` as a GNU89-compatible helper. It keeps the existing base-0 number syntax but rejects negative, empty, malformed, overflowing and greater-than-UCHAR_MAX values without modifying the output on error.
+- Added an ASan/UBSan standalone regression and wired it into both push and pull-request paths of the USB modem identity workflow. Source contract asserts the setter uses the parser.
+- Parent main: c8ea6fb62a7186059578e1685535163dfc81ca38. Exact c8ea6fb USB modem identity #45348146003 and AI handoff #45348145979 PASS. Exact 0bf423b Process/HTTPD/WAN/DHCP/detect_link checks PASS; its USB modem failure was a static checker NameError fixed in c8ea6fb. Its NVRAM and XY-C1 builds were still in progress at last poll; no firmware L3 claim.
+
+---
+
 ## 2026-11-23 — Preserve a QMI handle when start outcome is ambiguous
 
 - Review found that the ambiguous QMI failed-command/valid-PDH path unlinked /tmp/qmi-handle before exiting. That file may be the only recovery handle for a still-live modem session; deleting it prevents later explicit teardown.

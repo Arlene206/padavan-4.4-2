@@ -29,6 +29,8 @@ on:
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/uqmi/main.c"
       - "trunk/user/uqmi/commands.c"
+      - "trunk/user/uqmi/uqmi-client-id-policy.h"
+      - "trunk/user/uqmi/tests/client_id_policy.c"
       - "trunk/user/uqmi/uqmi-command-queue-policy.h"
       - "trunk/user/uqmi/tests/command_queue.c"
       - "trunk/user/uqmi/commands.h"
@@ -87,6 +89,8 @@ on:
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/uqmi/main.c"
       - "trunk/user/uqmi/commands.c"
+      - "trunk/user/uqmi/uqmi-client-id-policy.h"
+      - "trunk/user/uqmi/tests/client_id_policy.c"
       - "trunk/user/uqmi/uqmi-command-queue-policy.h"
       - "trunk/user/uqmi/tests/command_queue.c"
       - "trunk/user/uqmi/commands.h"
@@ -883,6 +887,15 @@ jobs:
             trunk/user/uqmi/tests/status_file.c \
             -o /tmp/uqmi-status-file
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-status-file
+      - name: Compile and run strict QMI client-ID parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/uqmi \
+            trunk/user/uqmi/tests/client_id_policy.c \
+            -o /tmp/uqmi-client-id-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/uqmi-client-id-policy
+
       - name: Verify QMI client IDs are only kept after atomic publication
         run: |
           python3 - <<'PY'
@@ -892,6 +905,9 @@ jobs:
           modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
           helper = Path("trunk/user/uqmi/uqmi-status-file.h").read_text()
           wds_source = Path("trunk/user/uqmi/commands-wds.c").read_text()
+          client_policy = Path("trunk/user/uqmi/uqmi-client-id-policy.h").read_text()
+          client_policy_test = Path("trunk/user/uqmi/tests/client_id_policy.c").read_text()
+          set_client = commands.split("cmd_set_client_id_prepare", 1)[1].split("qmi_get_array_idx", 1)[0]
 
           getter = commands.split("cmd_get_client_id_prepare", 1)[1].split("cmd_set_client_id_prepare", 1)[0]
           assert "uqmi_status_file_write(\"/tmp/qmi-client-id\"" in getter
@@ -899,6 +915,11 @@ jobs:
           assert "qmi_service_release_client_id(qmi, svc)" in getter
           assert "return QMI_CMD_EXIT;" in getter
           assert "fopen(\"/tmp/qmi-client-id\", \"w+\")" not in getter
+          assert '#include "uqmi-client-id-policy.h"' in commands
+          assert "uqmi_parse_client_id(s, &id)" in set_client
+          assert "value > UCHAR_MAX" in client_policy
+          assert "test_client_id_parser_accepts_valid_8_bit_values" in client_policy_test
+          assert "test_client_id_parser_rejects_invalid_numbers" in client_policy_test
 
           qmi_start = modem.split("/* obtain new client id */", 1)[1].split("unlink(QMI_HANDLE_PDH);", 1)[0]
           assert "_eval(client_argv, NULL, 0, NULL)" in qmi_start

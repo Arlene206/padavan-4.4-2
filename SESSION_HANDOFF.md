@@ -7,12 +7,11 @@
 
 ## Active task
 
-QMI ambiguous-start retry and recovery-state preservation:
-- QMI startup rejects stale/unparseable PDH files, checks uqmi --start-network, strictly parses one PDH token, requires command success plus valid handle, and atomically publishes the PDH.
-- A successful uqmi process result without a valid persisted PDH is ambiguous because the void WDS callback may have failed to publish the handle while the modem did create the session. A failed start with a valid PDH is also ambiguous; both abort retries. A failed start without a PDH remains retryable.
-- New recovery-state defect: the ambiguous failed-command/valid-PDH path unlinked /tmp/qmi-handle before exiting. The modem could remain live while its only recovery handle was erased. This slice preserves a valid PDH when the result is ambiguous and only unlinks malformed/missing PDH state. GNU89 regressions cover this preservation matrix; the workflow asserts the preservation decision precedes unlink.
-- Parent 5de929 exact Actions: USB modem identity #45347628860, AI handoff #45347628915, HTTPD #45347628767, WAN teardown #45347629033, WAN DHCP callback #45347628857, detect_link #45347628882 and Process inventory #45347628829 PASS. Process fail-closed #45347628853, NVRAM #45347628791 and XY-C1 #45347628749 were still running. XY-C1 Build/TRX/artifact were pending; no firmware L3 or hardware claim.
-
+UQMI client-ID input validation:
+- `cmd_set_client_id_prepare()` previously used `strtoul()` without checking conversion errors, empty input or the QMI client-ID field range. `qmi_dev.service_data[].client_id` is `uint8_t`; values above 255 were silently narrowed, and negative/empty values could be interpreted as an unintended CID.
+- This slice moves parsing into a standalone GNU89 policy helper. It preserves base-0 decimal/octal/hex input compatibility but accepts only a complete nonnegative value that fits one octet. ASan/UBSan regression covers boundaries, malformed suffixes, signs, empty input and overflow; the USB modem workflow compiles/runs it and asserts the command handler uses the helper.
+- QMI startup preserves a valid PDH file if a failed/ambiguous start may have created a session; missing or malformed PDH state is still checked-cleaned before abort/retry. QMI teardown preserves CID/PDH state when stop-network or CID release fails.
+- Exact c8ea6fb USB modem identity #45348146003 and AI handoff #45348145979 PASS. Exact 0bf423b Process inventory #45347992057, Process fail-closed #45347991933, HTTPD #45347991939, WAN DHCP #45347992116, WAN teardown #45347991984, detect_link #45347991763 and AI handoff #45347992004 PASS; USB modem identity #45347991900 failed only on a premature qmi_policy_test reference fixed in c8ea6fb. Its NVRAM #45347991766 and XY-C1 #45347991951 remained in progress at last poll; Build was still running, TRX/artifact pending. No firmware L3 or hardware claim.
 ## Verification boundary
 
 - Exact e006c68f711c0fc47e6d46d7f34b3c337a06f7da: NVRAM audit #45347148992, Process inventory #45347149044, AI handoff #45347148865, XY-C1 firmware #45347148972 and USB modem identity #45347148897 were IN_PROGRESS/QUEUED at last observation. Check final statuses before relying on them.
@@ -22,10 +21,9 @@ QMI ambiguous-start retry and recovery-state preservation:
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head USB modem identity and GNU89 regression for preserving /tmp/qmi-handle on ambiguous failed starts.
-2. Poll parent 5de929 Process fail-closed, NVRAM and XY-C1 outcomes, checking same-SHA Build, TRX and artifact separately.
-3. Continue another independent userland stability/security defect after QMI recovery-state preservation passes.
-
+1. Verify exact-head USB modem identity for the strict QMI client-ID parser; fix any source-contract or GNU89 regression immediately.
+2. Check exact-head NVRAM, Process fail-closed, HTTPD and XY-C1 results. On XY-C1, verify Build, TRX and artifact upload individually against the production SHA.
+3. Continue the next independent userland stability/security defect; do not wait on pending CI before doing independent work.
 # Cross-session execution mandate
 
 Treat this as continuous work across GPT conversations. Recover once, then execute on `main`; each logical source or CI change is one atomic main commit. Create all changed blobs, one complete Git tree and one commit before updating the branch with a non-forced expected-SHA compare-and-swap. Never force-push or modify the frozen backup.

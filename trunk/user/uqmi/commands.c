@@ -10,6 +10,7 @@
 #include "uqmi.h"
 #include "commands.h"
 #include "uqmi-status-file.h"
+#include "uqmi-client-id-policy.h"
 
 static struct blob_buf status;
 static char uqmi_command_buffer[2048];
@@ -107,9 +108,8 @@ cmd_set_client_id_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct q
 	*s = 0;
 	s++;
 
-	id = strtoul(s, &s, 0);
-	if (s && *s) {
-		fprintf(stderr, "Invalid argument\n");
+	if (uqmi_parse_client_id(s, &id) != 0) {
+		fprintf(stderr, "Invalid client ID\n");
 		return QMI_CMD_EXIT;
 	}
 
