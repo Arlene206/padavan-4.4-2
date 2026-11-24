@@ -262,7 +262,7 @@ require('openat(directory_fd,".",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC)' in
         "fstatat(directory_fd,entry->d_name,&entry_status,AT_SYMLINK_NOFOLLOW)" in
         pinned_scanner_compact and
         "disk_share_list_next_entry" in pinned_scanner_compact and
-        "opendir(" not in pinned_scanner_compact and "lstat(" not in pinned_scanner_compact,
+        "opendir(mount_path)" not in pinned_scanner_compact and "lstat(" not in pinned_scanner_compact,
         "internal storage scanner must enumerate and validate entries through one pinned directory descriptor")
 
 pinned_cache = function_body(
@@ -420,7 +420,7 @@ prune_fdopendir = stale_pruner_compact.index("fdopendir(scan_fd)", prune_open_st
 require(prune_directory_fd < prune_open_stream < prune_fdopendir < prune_read <
         prune_eof < prune_error < prune_skip_anonymous < prune_active_match <
         prune_unlink and
-        "opendir(" not in stale_pruner_compact and
+        "opendir(mount_path)" not in stale_pruner_compact and
         "directory_fd=dirfd(dir)" not in stale_pruner_compact and
         "unlink(path)" not in stale_pruner_compact and
         "if(closedir(dir)!=0)" in stale_pruner_compact and
