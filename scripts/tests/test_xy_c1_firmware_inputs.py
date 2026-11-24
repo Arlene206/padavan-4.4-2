@@ -25,6 +25,13 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertIn("group: xy-c1-firmware-validation-${{ github.ref }}-${{ github.sha }}", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
 
+    def test_dns_forwarder_source_triggers_firmware_validation(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        source_path = '      - "trunk/user/dns-forwarder/**"'
+        self.assertEqual(workflow.count(source_path), 1)
+        self.assertFalse(is_non_firmware_input("trunk/user/dns-forwarder/dns-forwarder.sh"))
+        self.assertIn('      - "trunk/user/shared/scripts/process_lifecycle.sh"', workflow)
+
     def test_regression_test_file_triggers_its_own_workflow(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         test_path = '      - "scripts/tests/test_xy_c1_firmware_inputs.py"'

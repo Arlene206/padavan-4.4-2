@@ -1,31 +1,26 @@
 ## Current repository state
 
-- Active development branch: `main`. Source parent for this DNS Forwarder procfs correction: `fd81fc8c6863f2ca59d3610dfead53db076173ee`; this atomic commit updates daemon discovery, regression, checker, workflow filters and handoff together. Resolve live `main` before every later write.
-- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; keep it read-only. Legacy PR #1 is closed and unmerged.
-- Use one complete Git tree and one commit per logical task, then a non-forced expected-SHA update of `main`.
+- Active branch: `main`. DNS Forwarder source fix is `0761c14cd929958b6398fa862f93e74b635d82ce`; its DNS Forwarder launch-path #45424750772, AI docs #45424750770 and Process inventory #45424750807 all PASS.
+- The exact SHA did not trigger XY-C1 because `.github/workflows/xy-c1-firmware-validation.yml` lacked `trunk/user/dns-forwarder/**` in its path filter. This atomic follow-up adds that production path, tests the classification, and includes the workflow file in its own filter.
+- Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. Legacy PR #1 is closed/unmerged.
 
 ## Active task
 
-### DNS Forwarder process-state confirmation
+### Restore XY-C1 firmware validation coverage for DNS Forwarder
 
-- `dns_forwarder_process_state()` accepted `pidof dns-forwarder` status 1 with empty output as confirmed ABSENT, although BusyBox may also return 1 after incomplete procfs enumeration. `func_start()` could launch a duplicate daemon when process discovery was unreliable.
-- The fix sources `/usr/lib/process_lifecycle.sh` and cross-checks ambiguous pidof absence with shared `pl_process_state dns-forwarder`. Only shared-helper ABSENT is accepted; a procfs-visible matching task without a usable pidof PID list, or an incomplete/unavailable procfs scan, returns UNKNOWN. Start and stop fail closed.
-- Regression injects a hidden `4242 (dns-forwarder)` procfs stat entry and a missing-procfs-root case; both must block start and stop without changing launch or signal counts. The Python checker pins helper inclusion/installation; workflow filters include the helper and Makefile.
-
-### Previously completed RAETH lock-balance fix
-
-- Commit `522210d812578bb0d64b546a7ea8b3fb1b7dfe15` restores `page_lock` before the common epilogue when `RAETH_SET_LAN_IP` rejects malformed input. Its exact-head Switch CLI #45421759200, AI handoff #45421759120 and NVRAM #45421759308 passed. Do not infer firmware L3 from host checks.
+- The DNS Forwarder service now cross-checks ambiguous `pidof` status 1/empty output through shared `pl_process_state()` and returns UNKNOWN for procfs-visible-but-unlisted processes or incomplete procfs scans. Its hidden-daemon and missing-procfs tests plus source contract passed on `0761c14`.
+- The XY-C1 push filter included the shared process helper but omitted `trunk/user/dns-forwarder/**`; consequently no firmware validation run was scheduled for that product package change. The workflow now watches the DNS Forwarder package directory and itself, and its unit test pins both path coverage and firmware-input classification.
 
 ## Verification boundary
 
-- Parent `fd81fc8c6863f2ca59d3610dfead53db076173ee` includes the latest SmartDNS source/test follow-up. This DNS Forwarder regression and source checker have not yet run on the new commit; inspect exact-head DNS Forwarder launch-path, Process inventory, AI handoff and XY-C1 Actions.
-- L3 requires Build, TRX verification and artifact upload all PASS on the same product-source SHA. Physical-router L4 remains NOT VERIFIED.
+- Exact SHA `0761c14cd929958b6398fa862f93e74b635d82ce`: DNS Forwarder launch-path #45424750772 PASS; AI docs #45424750770 PASS; Process inventory #45424750807 PASS. XY-C1 was NOT TRIGGERED because of the missing path filter now corrected here.
+- Inspect the exact-head XY-C1 run for this workflow-filter commit. L3 requires Build, TRX verification and artifact upload all PASS on the same product-source SHA; target BusyBox/MIPS and live DNS behavior plus physical L4 remain unverified.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head DNS Forwarder launch-path, Process inventory, AI handoff and XY-C1 Actions for the procfs confirmation fix; diagnose any failure.
-2. If XY-C1 remains pending, continue an independent stability/security slice rather than waiting. Do not claim L3 until Build/TRX/artifact all pass on one source SHA.
-3. Continue outside DNS Forwarder after this fix is verified; do not repeat completed RAETH lock-balance or SmartDNS write-failure work without new evidence.
+1. Fetch live `main` and inspect the exact-head XY-C1 run created by the DNS Forwarder path-filter correction; confirm Build, TRX verification and artifact upload on that exact SHA.
+2. Diagnose any build or filter failure. Do not claim L3 without all three same-SHA steps passing.
+3. Continue the next open P1 stability/security task outside DNS Forwarder; do not repeat the confirmed DNS Forwarder/Process/AI host checks without new failure evidence.
 
 ## Mandatory handoff checkpoint
 

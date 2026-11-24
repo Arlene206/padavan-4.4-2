@@ -57,6 +57,7 @@ on:
       - "trunk/user/shadowsocks/scripts/shadowsocks.sh"
       - "trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh"
       - "trunk/user/smartdns/**"
+      - "trunk/user/dns-forwarder/**"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/aria2/aria.sh"
       - "trunk/user/scripts/tests/storage_app_start_status.sh"

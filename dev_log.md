@@ -1,3 +1,10 @@
+## 2026-11-24 — Include DNS Forwarder production sources in XY-C1 validation triggers
+
+- Exact SHA `0761c14cd929958b6398fa862f93e74b635d82ce`: DNS Forwarder launch-path #45424750772, AI handoff #45424750770 and Process inventory #45424750807 all PASS. No XY-C1 run was created because `xy-c1-firmware-validation.yml` did not include `trunk/user/dns-forwarder/**` in its push path filter.
+- Add the production package path to the XY-C1 workflow and a unit regression that proves the path is selected and classified as a firmware input. This commit also ensures the workflow file itself is in its own trigger set so later filter edits cannot silently skip validation.
+- The DNS Forwarder source fix itself is host/contract L2 verified; firmware Build/TRX/artifact L3 and physical BusyBox/MIPS DNS behavior remain unverified until exact-source evidence exists.
+
+---
 ## 2026-11-24 — Confirm ambiguous DNS Forwarder pidof absence with procfs
 
 - `dns_forwarder_process_state()` documented that BusyBox `pidof` status 1 can mean an incomplete procfs scan, but treated empty output as confirmed ABSENT. That could launch a duplicate DNS Forwarder instance when process discovery was unreliable.
