@@ -43,6 +43,7 @@
 #include <flash_mtd.h>
 
 #include "rc.h"
+#include "rc_user_config_copy_policy.h"
 #include "char_to_ascii_policy.h"
 #include "module_refcount_policy.h"
 #include "wireless_module_load_policy.h"
@@ -623,44 +624,35 @@ is_param_forbidden(const char *line, const char **forbid_list)
 	return 0;
 }
 
-void
-load_user_config(FILE *fp, const char *dir_name, const char *file_name, const char **forbid_list)
+int
+load_user_config(FILE *fp, const char *dir_name, const char *file_name,
+                 const char **forbid_list)
 {
-	FILE *fp_user;
-	char line[256], real_path[128];
-	int path_len;
+    FILE *fp_user;
+    char real_path[128];
+    int path_len, status;
 
-	if (!fp || !dir_name || !file_name)
-		return;
+    if (!fp || !dir_name || !file_name)
+        return EINVAL;
 
-	path_len = snprintf(real_path, sizeof(real_path), "%s/%s", dir_name, file_name);
-	if (path_len < 0 || path_len >= (int)sizeof(real_path))
-		return;
+    path_len = snprintf(real_path, sizeof(real_path), "%s/%s",
+                        dir_name, file_name);
+    if (path_len < 0 || path_len >= (int)sizeof(real_path))
+        return ENAMETOOLONG;
 
-	fp_user = fopen(real_path, "r");
-	if (fp_user) {
-		while (fgets(line, sizeof(line), fp_user)) {
-			size_t len = strlen(line);
+    fp_user = fopen(real_path, "r");
+    if (!fp_user) {
+        if (errno == ENOENT)
+            return 0;
+        return errno ? errno : EIO;
+    }
 
-			if (len == 0 || line[0] == '\r' || line[0] == '\n' ||
-			    line[0] == '#' || line[0] == ';')
-				continue;
+    status = rc_user_config_copy_stream(fp, fp_user, forbid_list,
+                                        is_param_forbidden);
+    if (fclose(fp_user) != 0 && status == 0)
+        status = errno ? errno : EIO;
 
-			if (forbid_list && is_param_forbidden(line, forbid_list))
-				continue;
-
-			if (line[len - 1] != '\n') {
-				if (len + 1 >= sizeof(line))
-					continue;
-				line[len++] = '\n';
-				line[len] = '\0';
-			}
-
-			fputs(line, fp);
-		}
-
-		fclose(fp_user);
-	}
+    return status;
 }
 
 static int

@@ -674,6 +674,7 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	int i_mode_x, i_phy_mode, i_gfe, i_auth, i_encr, i_wep, i_wds;
 	int i_ssid_num, i_channel, i_channel_max, i_HTBW_MAX;
 	int i_stream_tx, i_stream_rx, i_mphy, i_mmcs, i_fphy[2], i_val_mbss[2];
+	int user_config_status;
 	const char *dat_file, *sku_file, *prefix = (is_aband) ? "wl" : "rt";
 
 	i_ssid_num = 2; // AP+GuestAP
@@ -1793,7 +1794,16 @@ gen_ralink_config(int is_soc_ap, int is_aband, int disable_autoscan)
 	}
 #endif
 
-	load_user_config(fp, "/etc/storage/wlan", (is_aband) ? "AP_5G.dat" : "AP.dat", NULL);
+	user_config_status = load_user_config(
+		fp, "/etc/storage/wlan", (is_aband) ? "AP_5G.dat" : "AP.dat", NULL);
+	if (user_config_status != 0) {
+		errno = user_config_status;
+		logmessage(LOGNAME,
+			   "cannot append stored wireless configuration (status=%d)",
+			   user_config_status);
+		ralink_config_discard_atomic(&fp, temp_path);
+		return -1;
+	}
 
 	if (ralink_config_publish_atomic(&fp, temp_path, dat_file) < 0) {
 		logmessage(LOGNAME, "Failed to publish wireless configuration %s", dat_file);

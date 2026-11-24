@@ -6805,7 +6805,9 @@ update_hosts_router(const char *lan_ipaddr)
 
 	/* Never ingest a stale or attacker-planted shared-/tmp link as hosts data. */
 	if (dnsmasq_file_is_safe_regular("/tmp/hosts.static") == 0)
-		load_user_config(hosts_fp, "/tmp", "hosts.static", NULL);
+		saved_errno = load_user_config(hosts_fp, "/tmp", "hosts.static", NULL);
+		if (saved_errno != 0)
+			goto failed;
 	else if (errno != ENOENT)
 		logmessage(LOGNAME, "skipping unsafe static DHCP host snapshot (errno=%d)", errno);
 

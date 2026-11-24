@@ -6,19 +6,22 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `a30043d18ebf28e4c0dbef2205af2819073aa92f`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `142af5929fc37ecf04f426c4878e581bc8aad573`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Verify private LAN credential transport and deferred privilege drop
+### Verify RC optional user-config whole-line parser hardening
 
-The managed RC path passes a one-shot mode-0600 credential-file path instead of the password in argv. The daemon now reads that file before any requested UID drop, applies a requested GID before UID regardless of CLI option order, and fails closed when either privilege change fails. Verify the dedicated file-reader and privilege-order GNU89 ASan/UBSan regressions, Process integration contracts, and same-source XY-C1 Build/TRX/artifact checks.
+Check exact-head Process regression, AI handoff and XY-C1 source build for the new load_user_config() contract. The source now drains entire overlong and embedded-NUL records, reports copy/read/close errors, and prevents LAN/WAN hosts and wireless config publication when an overlay copy fails. Fix only genuine CI/compiler failures, then continue with a separate userland stability/security defect.
 
 ## Completed source slices
 
+### RC optional user-config long-line handling
+
+The generic load_user_config() reader previously discarded a full 255-byte fgets() chunk when it had no newline, then resumed at the remainder of the same physical line. A suffix such as injected=payload could therefore be interpreted as a fresh configuration directive in hosts or wireless driver overlays. The reader now drains and rejects the entire overlong physical record; an exactly 255-byte record is accepted, and a final unterminated short record is normalized with a newline. Embedded-NUL records are also rejected. The API returns read/write/flush/close errors (while a missing optional file remains success), and the LAN hosts, WAN hosts and Ralink config publishers abort their staged publication on copy failure. Host regression covers overlong suffix injection, binary suffix injection, exact-length records, comments, forbidden records and EOF without a newline. Exact-head CI pending.
 ### LAN authentication password argument exposure
 
 This main slice stages the legacy maximum 20-byte password in a random mode-0600 file and launches lanauth with only its pathname through new `-f` input. The daemon checks regular-file type, owner, exact permissions, single-link count and inode identity, uses `O_NOFOLLOW`, then consumes the file before daemonizing. The legacy `-p` CLI remains for manual compatibility, but managed RC starts no longer pass the secret in argv. A GNU89 ASan/UBSan test covers valid consumption, empty/oversized/insecure/missing files and symlink rejection. Exact Process and XY-C1 checks pending.
@@ -119,11 +122,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head Process and XY-C1 runs for the deferred lanauth privilege-drop source slice. Confirm the private credential-file test and privilege policy test both compile/run with GNU89, ASan and UBSan.
-2. The prior Process SHA `a30043d18ebf28e4c0dbef2205af2819073aa92f` passed its full fail-closed regression, including both LAN authentication policy tests and the private credential-file reader test. Its AI handoff check also PASSed.
-3. Verify Build, TRX and artifact upload on the same new production-source SHA before claiming L3. The previous XY-C1 run for source SHA `4e9d0c25f02e0c83c8657215f7cfa6b7b6ac0120` was still building at last check.
-4. Then continue one uncovered stability/security defect, using main-only atomic CAS commits and leaving the frozen backup untouched.
-
+1. Verify the exact-head Process/AI/XY-C1 Actions for the RC user-config copy fix. Confirm the GNU89 ASan/UBSan regression for long-line suffix injection, embedded-NUL lines, exact-255-byte records, comment/forbid filtering, and EOF without newline.
+2. Confirm the XY-C1 run #45509202992 for source SHA 142af5929fc37ecf04f426c4878e581bc8aad573 reaches Build, TRX verification and artifact upload. Do not claim L3 until all three finish PASS on one exact source SHA.
+3. Continue the next concrete stability/security defect across Padavan userland. Keep main-only atomic expected-SHA commits and the backup branch frozen/read-only.
 
 ## Mandatory handoff checkpoint
 

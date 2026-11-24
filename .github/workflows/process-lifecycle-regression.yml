@@ -62,6 +62,12 @@ on:
       - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
       - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/rc_user_config_copy_policy.h"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/tests/rc_user_config_copy_policy.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
       - "trunk/user/rc/src/tests/pagecache_reclaim_policy.c"
       - "trunk/user/rc/src/char_to_ascii_policy.h"
@@ -326,6 +332,12 @@ on:
       - "trunk/user/rc/src/auth_kabinet_restart_policy.h"
       - "trunk/user/rc/src/tests/auth_kabinet_restart_policy.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/rc_user_config_copy_policy.h"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/ralink.c"
+      - "trunk/user/rc/src/tests/rc_user_config_copy_policy.c"
       - "trunk/user/rc/src/pagecache_reclaim_policy.h"
       - "trunk/user/rc/src/tests/pagecache_reclaim_policy.c"
       - "trunk/user/rc/src/char_to_ascii_policy.h"
@@ -2033,3 +2045,54 @@ jobs:
             trunk/user/lanauth/src/tests/lanauth_privilege_drop_policy.c \
             -o "$RUNNER_TEMP/lanauth-privilege-drop-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lanauth-privilege-drop-policy"
+
+      - name: Compile and run RC user-config whole-line truncation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/rc_user_config_copy_policy.c \
+            -o "$RUNNER_TEMP/rc-user-config-copy-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-user-config-copy-policy"
+
+      - name: Verify RC user-config copy errors abort staged publication
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def function_body(source, signature):
+              start = source.find(signature)
+              assert start >= 0, "missing function: " + signature
+              brace = source.find("{", start + len(signature))
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          common = Path("trunk/user/rc/src/common_ex.c").read_text()
+          policy = Path("trunk/user/rc/src/rc_user_config_copy_policy.h").read_text()
+          lan = Path("trunk/user/rc/src/net_lan.c").read_text()
+          wan = Path("trunk/user/rc/src/net_wan.c").read_text()
+          ralink = Path("trunk/user/rc/src/ralink.c").read_text()
+
+          loader = function_body(common, "int load_user_config(")
+          assert "rc_user_config_copy_stream(" in loader
+          assert "fclose(fp_user)" in loader
+          assert "line[length - 1]" not in loader
+          assert "fgetc(input)" in policy
+          assert "overlong = 1" in policy
+          assert "invalid = 1" in policy
+          assert "saved_errno = load_user_config(hosts_fp" in lan
+          assert "saved_errno = load_user_config(hosts_fp" in wan
+          assert "if (saved_errno != 0)" in lan
+          assert "if (saved_errno != 0)" in wan
+          assert "user_config_status = load_user_config(" in ralink
+          assert "ralink_config_discard_atomic(&fp, temp_path)" in ralink
+
+          print("RC user-config whole-record and staged-publication contract: PASS")
+          PY
