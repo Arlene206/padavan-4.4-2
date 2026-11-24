@@ -875,3 +875,12 @@
 - USB modem checker PASS remains #45220509149 on f947; Process, NVRAM and Storage PASS remain #45220191260/#45220191315/#45220191366 on ecff. Exact AI docs rerun on THIS handoff correction is pending; XY-C1 runs #45220033426 (e6dc), #45220191233 (ecff), and #45221089272 (e4d34) were still in progress at last observation.
 
 ---
+
+## 2026-11-23 持续开发
+
+- main 基线：`828c5bac2fec6e110188615d0ae9ec0984501b84`；备份分支只读：`72f4f157a084f8184b9597ca5bf334b8080e5807`。
+- 本次核验：当前 HEAD Actions：Switch CLI ioctl failure-status regression: completed/success (run 45313956637)。
+- AliyunDrive WebDAV 生命周期：基准 SHA `3160f80e4e2c82d2188bddc12f88589898a79327`，Actions：AI handoff documentation contract: completed/success (run 45312872263); Process lifecycle inventory - 3160f80e4e2c82d2188bddc12f88589898a79327: completed/success (run 45312872116); AliyunDrive WebDAV lifecycle stability regression: completed/failure (run 45312872098)。
+- RAETH compile-integrity 基准 SHA `8d0f9325ec63223b442b1aff4f95dc7566d3f421`，Actions：AI handoff documentation contract: completed/success (run 45313394069); Switch CLI ioctl failure-status regression: completed/failure (run 45313394047)；已修正检查器使其识别真实函数定义，而非把原型/不同返回类型误判为重复定义。
+- 后续：按本轮 SESSION_HANDOFF 顶部任务继续；所有验证均绑定精确 SHA，PENDING 不等待，转做独立缺陷。
+

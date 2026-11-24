@@ -1,3 +1,18 @@
+## 2026-11-23 持续开发接力（最新）
+
+- 当前 `main`：`828c5bac2fec6e110188615d0ae9ec0984501b84`（test(raeth): repair compile integrity checker）；备份分支 `backup/pre-plugin-overhaul-2026-11-14`：`72f4f157a084f8184b9597ca5bf334b8080e5807`，本轮未改动。
+- 当前 HEAD 精确 SHA Actions：Switch CLI ioctl failure-status regression: completed/success (run 45313956637)。
+- AliyunDrive WebDAV 启动就绪/清理回归（提交 `3160f80e4e2c82d2188bddc12f88589898a79327`）：AI handoff documentation contract: completed/success (run 45312872263); Process lifecycle inventory - 3160f80e4e2c82d2188bddc12f88589898a79327: completed/success (run 45312872116); AliyunDrive WebDAV lifecycle stability regression: completed/failure (run 45312872098)。若失败，优先根据 QEMU 测试日志定位“启动后未就绪”的进程回收路径；不要仅降低测试断言或延长超时掩盖泄漏。
+- RAETH 编译完整性（提交 `8d0f9325ec63223b442b1aff4f95dc7566d3f421`）：AI handoff documentation contract: completed/success (run 45313394069); Switch CLI ioctl failure-status regression: completed/failure (run 45313394047)。已发现并追加修复 `scripts/check_raeth_compile_integrity.py`：重写定义扫描器，使其显式区分函数原型和定义，并自测重复定义、缺失定义和返回类型契约；需以本条记录中的 HEAD Actions 结果验证。
+- 自 `8d0f9325...` 以来的新提交：
+- 564c4c239f006a23bb504eba34d6a113c9cdb813: test: harden Aliyun and RAETH regression checks
+- 828c5bac2fec6e110188615d0ae9ec0984501b84: test(raeth): repair compile integrity checker
+- 本轮已推进的 RAETH 修复：switch GPIO/SGMII/FE switch init/RTL8367/Leopard/GMII/probe MMIO 映射失败均应 fail closed 并传播错误；HW-IOC PMU 命令索引、参数、事件、读取映射也有边界验证与回归测试。此前提交 SHA 见 Git 历史，不要重复审计已完成切片。
+- 第一项后续任务：先读取本节精确 SHA 的 Actions 最终状态。若 RAETH compile integrity 仍 FAIL，检查这次定义扫描器与真实函数签名差异后修复；若 PASS，继续 XY-C1 构建/对应 SHA 验证。并行处理 AliyunDrive lifecycle QEMU 失败（若仍失败），必须依据失败日志修复真实启动/清理问题，不得伪造 PASS。
+- 任何未返回的 run 均视为 PENDING/未验证；不能将较早 SHA 的 PASS 推断为当前 HEAD PASS。XY-C1 全量固件构建如无当前 SHA 对应 run，明确记录未验证。
+
+---
+
 # Session Handoff
 
 ## Current repository state
