@@ -1,3 +1,10 @@
+## 2026-11-24 — Add reserved headroom to RSS and hardware-LRO RX buffers
+
+- RSS 4-ring/2-ring initialization and hardware-LRO ring setup allocated skb buffers without `NET_SKB_PAD`, although their DMA mappings start at `buffer + NET_SKB_PAD` and the receive path reserves `NET_SKB_PAD + NET_IP_ALIGN`. This left the initial buffers smaller than the corresponding PDMA/QDMA and runtime replacement allocations.
+- Added `NET_SKB_PAD` to all three initialization size calculations. Extended `check_raeth_rx_ring_cleanup.py` to require the correct aligned payload + headroom + shared-info capacity for PDMA, QDMA, RSS 4-ring, RSS 2-ring and HW LRO.
+- Parent main: `54f23c27f924b31ad8d3caefc25ed9973a82bd08`. This source/checker slice requires exact-SHA Switch CLI, AI handoff and XY-C1 Build/TRX/artifact verification. No local MIPS build or hardware L4 result is claimed.
+
+---
 ## 2026-11-24 — Validate RAETH descriptor DT properties and handle allocation failures
 
 - `fe_tx_rx_dec()` ignored every `of_property_read_u32()` result and reused `val`, so missing/malformed descriptor properties could feed uninitialized or stale counts into the driver. Queue×descriptor products and sums were unchecked, and every `kmalloc_array()` result was dereferenced without a NULL check.

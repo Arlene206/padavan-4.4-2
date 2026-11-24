@@ -1,12 +1,10 @@
 ## 2026-11-24 持续开发接力（最新）
 
-- 本次 RAETH descriptor 安全修复父提交 `fe690de6011c957bdbb860ff0c792d6236faefde`；归档备份保持只读：`72f4f157a084f8184b9597ca5bf334b8080e5807`。
-- AliyunDrive lifecycle #45314283222 和 AI handoff #45314283215 在 `c8800bfe` **PASS**。
-- `fe690de` 修正了 RAETH probe rollback 检查器的 120 字符窗口误报；精确 SHA Actions 待检查。
-- 新修复 `fe_tx_rx_dec()`：检查必需 DT 属性和可选 GMAC2 属性对，校验零值/u32 乘加溢出后发布全局计数；检查每个 TX/RX `kmalloc_array()`，失败释放部分分配；后续 probe 失败也回收 descriptor 资源。新增 GNU89 ASan/UBSan policy regression 和 source contract。精确 SHA CI 尚待验证。
-- XY-C1 L3 Build/TRX/artifact 只确认于 `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`（artifact #14884935723），不转移至后续 SHA。
-- 下一步检查本提交 exact-SHA Switch CLI policy test/source checker 和 XY-C1 Build/TRX/artifact；PENDING 时继续其他独立修复。
-
+- 接力基线：`54f23c27f924b31ad8d3caefc25ed9973a82bd08`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
+- 近期 RAETH 修复已覆盖 DT descriptor 配置校验、PDMA/QDMA/RSS/HW-LRO 部分分配回滚、DMA init 失败回收、open/close/module 引用平衡和部分 IRQ 注册回滚。不要重新审计已完成项；以 live main 和 exact-SHA Actions 为准。
+- 本 handoff 所在原子提交同时包含新的 RX buffer headroom 修复：RSS 2/4-ring 和 HW-LRO 初始化分配漏掉 `NET_SKB_PAD`，但 DMA 从 `buffer + NET_SKB_PAD` 开始映射完整 payload，消费时也执行 `skb_reserve(NET_SKB_PAD + NET_IP_ALIGN)`。修正分配长度，并扩展现有 RAETH source-contract 检查到 PDMA/QDMA/RSS/HW-LRO 五条路径。
+- 父提交 exact-SHA Switch CLI、AI handoff、NVRAM、XY-C1 状态不转移到本提交；本提交的所有相关 Actions 必须按本提交 SHA 单独核验。
+- 无本地 MIPS build、固件产物或硬件 L4 结果可提前宣称。
 
 ---
 
@@ -14,15 +12,13 @@
 
 ## Current repository state
 
-- Parent main for the descriptor DT/allocation correction: `fe690de6011c957bdbb860ff0c792d6236faefde`; backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AliyunDrive lifecycle #45314283222 and AI handoff #45314283215 on `c8800bfe` **PASS**.
-- `fe690de` corrects the previous Switch CLI rollback-contract assertion's 120-character window; exact-head Actions were not yet observed at task start.
-- THIS COMMIT changes RAETH descriptor parsing, arithmetic, allocation failure cleanup and probe rollback, and adds a host ASan/UBSan policy regression. Exact-SHA CI is still required.
-
+- Parent main before this implementation commit: `54f23c27f924b31ad8d3caefc25ed9973a82bd08`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- This handoff commit is the new source baseline for RSS/HW-LRO RX allocation capacity: add `NET_SKB_PAD` to both RSS ring modes and hardware LRO ring setup, matching PDMA/QDMA and runtime buffer replacement.
+- Parent-SHA Actions are historical only and do not validate this implementation commit. Inspect the exact commit containing this handoff for new push-triggered workflow results.
+- The backup branch remains read-only.
 ## Active task
 
-Verify the RAETH descriptor-policy ASan/UBSan test and source-contract checker on this exact commit. Inspect the same-SHA XY-C1 kernel build, TRX validation and artifact upload. Continue independent work if workflows are pending.
-
+Verify the exact-SHA Switch CLI run for this commit, including the extended five-path RX skb-capacity source contract. Check exact-SHA AI handoff documentation and XY-C1 Build, TRX verification and artifact upload. Continue another independent stability fix while checks are pending; do not wait idly.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -51,16 +47,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Parent `fe690de` exact-head Actions were not yet observed at the time the descriptor patch was prepared; its predecessor `2391437` had AI/NVRAM PASS, Switch CLI FAIL from a brittle assertion (corrected by `fe690de`), and XY-C1 IN_PROGRESS.
-- Descriptor source/policy/test changes in THIS COMMIT have not run in CI. No local MIPS build, TRX/artifact or hardware result is claimed.
-- Earlier L3 artifact #14884935723 belongs only to `dd0b374`.
-
+- Source changes in this commit correct the RSS 2-ring/4-ring and hardware-LRO initial RX buffer capacity by adding `NET_SKB_PAD`; the existing PDMA and QDMA paths already include it.
+- The extended source checker is wired into the existing Switch CLI regression workflow, whose push filter includes the RSS, HW-LRO and checker paths. XY-C1 push filters already include both modified driver files.
+- Exact-SHA host regression, AI documentation validation, XY-C1 kernel build, TRX verification and artifact upload for this commit are not yet observed at commit creation. No local test, MIPS build, TRX, artifact or hardware result is claimed.
+- Historical L3 artifact #14884935723 belongs only to `dd0b374694cf9d1e99ca65c8b35fa53b482d377b`, not this source baseline.
 ## Exact first action for the next GPT
 
-1. Inspect this exact-SHA Switch CLI log; descriptor policy ASan/UBSan and RAETH source-contract steps must both pass.
-2. Inspect XY-C1 Build, TRX validation and artifact upload on the same SHA.
-3. Continue the next independent repository-wide stability issue if Actions are pending; preserve exact SHA attribution and leave the frozen backup unchanged.
-
+1. Fetch live `main` and read its exact SHA. Inspect that SHA's push-triggered Switch CLI, AI handoff documentation, NVRAM and XY-C1 Actions.
+2. Confirm the Switch CLI job passes the new RX buffer capacity checks for PDMA, QDMA, RSS 4-ring, RSS 2-ring and HW LRO. Diagnose any failure on the first causal step.
+3. Inspect XY-C1 Build → TRX verification → artifact upload on the same SHA; record exact run ID and completion state.
+4. If any run is PENDING, continue independent repository-wide stability work. Keep the backup branch untouched and do not promote another SHA's result.
 
 # Cross-session execution mandate
 

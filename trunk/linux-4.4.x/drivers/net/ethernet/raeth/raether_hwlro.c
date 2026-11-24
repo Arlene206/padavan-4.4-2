@@ -258,7 +258,7 @@ int fe_hw_lro_init(struct net_device *dev)
 	int mapped[MAX_RX_RING_NUM] = { 0 };
 	int i, j;
 
-	skb_size = SKB_DATA_ALIGN(MAX_LRO_RX_LENGTH + NET_IP_ALIGN) +
+	skb_size = SKB_DATA_ALIGN(MAX_LRO_RX_LENGTH + NET_IP_ALIGN + NET_SKB_PAD) +
 		   SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
 	/* Allocate every secondary LRO ring transactionally before programming HW. */

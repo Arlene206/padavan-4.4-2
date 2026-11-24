@@ -26,6 +26,7 @@
 | 子系统 | 当前进展 | 验证/风险 | 下一步 |
 |---|---|---|---|
 | RAETH MII manager | MDIO timeout 改为单调纳秒；所有 timeout 点由可测策略函数覆盖 | 精确 SHA Actions 必须独立确认；硬件总线行为仍需设备实测 | 核对最新 Switch CLI / XY-C1 build 结果 |
+| RAETH DMA / RX buffers | P1 — RSS 4-ring/2-ring and HW-LRO initial RX allocations omitted `NET_SKB_PAD`; corrected in the current source/checker commit | All five PDMA/QDMA/RSS/HW-LRO initialization paths now size payload, reserved headroom and shared-info consistently; exact source contract checks the aligned expression. DMA runtime replacement paths already included the headroom. | Exact-SHA Switch CLI and XY-C1 Build/TRX/artifact pending; actual MIPS/uClibc runtime and physical-router L4 remain unverified. |
 | MTK ESW MIB | 计数器通过临时 snapshot 聚合，任一读失败不发布半成品 | 已有逐寄存器故障注入回归 | 保留回归并关注寄存器清零语义 |
 | MTK PHY / switch init | page-select、reset-ready、VLAN busy、PHY config、TRGMII 与 GE PHY 初始化加入失败传播 | 多处 legacy API 仍以 0/void 表示失败；调用链需要持续检查 | 清理兼容 wrappers，审查 link state 和 teardown 路径 |
 | XY-C1 firmware | 构建只能由仓库 Actions 执行 | 不能用 host-only C policy test 代替固件构建 | 逐 SHA 检查构建、TRX、artifact 上传 |

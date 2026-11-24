@@ -25,7 +25,7 @@ int fe_rss_4ring_init(struct net_device *dev)
 	int mapped[MAX_RX_RING_NUM] = { 0 };
 	int i, j;
 
-	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN) +
+	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN + NET_SKB_PAD) +
 		   SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
 	/* Allocate all secondary RX rings before publishing them to hardware. */
@@ -178,7 +178,7 @@ int fe_rss_2ring_init(struct net_device *dev)
 	int mapped[MAX_RX_RING_NUM_2RING] = { 0 };
 	int i, j;
 
-	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN) +
+	skb_size = SKB_DATA_ALIGN(MAX_RX_LENGTH + NET_IP_ALIGN + NET_SKB_PAD) +
 		   SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
 	/* Allocate all secondary RX rings before publishing them to hardware. */

@@ -297,3 +297,23 @@ assert open_irq_at < open_reset < open_deinit < open_module_put < open_return
 assert "kthread_stop(ei_local->kphy_poll_task);" in open_body[open_irq_at:open_reset]
 assert "kthread_stop(ei_local->kreset_task);" in open_body[open_irq_at:open_reset]
 print("RAETH IRQ acquisition now tracks each request, frees partial sets on error, and propagates IRQ setup failures: PASS")
+
+# Keep initial RX buffers large enough for skb_reserve() and the DMA payload
+# mapped after NET_SKB_PAD. Runtime replacement paths already include it.
+def check_rx_buffer_size(source: str, signature: str, payload_length: str) -> None:
+    init = function_body(source, signature)
+    compact = " ".join(init.split())
+    expected = (
+        f"skb_size = SKB_DATA_ALIGN({payload_length} + NET_IP_ALIGN + "
+        "NET_SKB_PAD) + SKB_DATA_ALIGN(sizeof(struct skb_shared_info));"
+    )
+    assert expected in compact, (
+        f"{signature} must reserve NET_SKB_PAD before the DMA payload"
+    )
+
+check_rx_buffer_size(SOURCE, "int fe_pdma_rx_dma_init(", "MAX_RX_LENGTH")
+check_rx_buffer_size(QDMA_SOURCE, "int fe_qdma_rx_dma_init(", "MAX_RX_LENGTH")
+check_rx_buffer_size(RSS_SOURCE, "int fe_rss_4ring_init(", "MAX_RX_LENGTH")
+check_rx_buffer_size(RSS_SOURCE, "int fe_rss_2ring_init(", "MAX_RX_LENGTH")
+check_rx_buffer_size(LRO_SOURCE, "int fe_hw_lro_init(", "MAX_LRO_RX_LENGTH")
+print("RAETH PDMA/QDMA/RSS/HW-LRO RX buffers include NET_SKB_PAD headroom: PASS")
