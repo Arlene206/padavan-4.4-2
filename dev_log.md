@@ -1,3 +1,15 @@
+## 2026-11-24 — Publish SCUTClient auth status without following /tmp symlinks
+
+- Default SCUTClient -E/-Q event hooks previously executed shell redirection to /tmp/scutclient_status. Since the daemon is launched by the privileged service wrapper, a local user could pre-create a symlink at that shared /tmp path and redirect the privileged write into an unrelated file.
+- Added scutclient_status_file.sh: validate status 0/1 and an absolute destination; stage in the same directory under umask 077 with mktemp; enforce mode 0600; atomically rename into place. Existing file symlinks are replaced as directory entries rather than followed; directory targets are rejected. Explicit user-supplied NVRAM hooks remain unchanged.
+- Updated default success/failure hooks to call /usr/bin/scutclient_status_file.sh 0/1. The SCUTClient Makefile already installs scripts/ wholesale into /usr/bin.
+- Added a shell regression for normal publication, 0600 mode/single link, symlink-target preservation, hard-link inode preservation, directory destinations, invalid arguments and temporary cleanup. The SCUT watchdog safety workflow now runs shell syntax, the fixture test and exact-source contract checks.
+- Parent SHA 347628c7535656c9d80bb466f8271037e1e24a55: QMI reader workflow #45491981121 PASS; AI handoff #45491981194 PASS; bounded NVRAM audit #45491981203 PASS; Process inventory #45491981328/#45491981119 PASS; WAN teardown #45491981147, WAN DHCP callback #45491981235, detect_link #45491981246 and HTTPD auth/security #45491981225 PASS. XY-C1 workflow #45491981249 still had Build XY-C1 step 38 in progress; TRX and artifact upload were pending.
+- Wireless correction SHA c3d9f29fc94e81e1828c4c854f46658d2111ec3c: exact-head Wireless #45491054451 and AI handoff #45491054663 PASS. No product inputs changed on c3d9, so XY-C1 host-only detector skipped Build/TRX/artifact.
+- No physical-router L4 validation is claimed.
+
+---
+
 ## 2026-11-24 — Protect USB modem QMI status reads from /tmp precreation
 
 - get_qmi_handle() previously used fopen() on /tmp/qmi-client-id and /tmp/qmi-handle, which follows symlinks and can block indefinitely on a pre-created FIFO. A forged PDH marker can make WAN startup believe a QMI session already exists; a forged WDS CID can affect later teardown.

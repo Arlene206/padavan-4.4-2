@@ -6,12 +6,18 @@ on:
     paths:
       - ".github/workflows/scutclient-watchcat-safety.yml"
       - "trunk/user/scutclient/scripts/scutclient_watchcat.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/scutclient/scripts/scutclient_status_file.sh"
+      - "trunk/user/scripts/tests/scutclient_status_file_atomic.sh"
       - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
       - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
   pull_request:
     paths:
       - ".github/workflows/scutclient-watchcat-safety.yml"
       - "trunk/user/scutclient/scripts/scutclient_watchcat.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/scutclient/scripts/scutclient_status_file.sh"
+      - "trunk/user/scripts/tests/scutclient_status_file_atomic.sh"
       - "trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh"
       - "trunk/user/busybox/busybox-1.24.x/util-linux/Config.src"
 
@@ -26,10 +32,15 @@ jobs:
       - name: Check shell syntax
         run: |
           sh -n trunk/user/scutclient/scripts/scutclient_watchcat.sh
+          sh -n trunk/user/scutclient/scripts/scutclient.sh
+          sh -n trunk/user/scutclient/scripts/scutclient_status_file.sh
           sh -n trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh
+          sh -n trunk/user/scripts/tests/scutclient_status_file_atomic.sh
           command -v flock >/dev/null 2>&1
       - name: Exercise watchdog PID identity and stale PID safety
         run: sh trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh
+      - name: Exercise atomic SCUTClient status-hook publication
+        run: sh trunk/user/scripts/tests/scutclient_status_file_atomic.sh
       - name: Verify fail-closed source contract
         run: |
           python3 - <<'PY'
@@ -67,6 +78,19 @@ jobs:
           assert "watchcat_read_force" in source
           assert "watchcat_fail" in source
           assert "SCUTCLIENT_WATCHCAT_AUTH_FLAG" in source
+          client_source = Path("trunk/user/scutclient/scripts/scutclient.sh").read_text()
+          status_writer = Path("trunk/user/scutclient/scripts/scutclient_status_file.sh").read_text()
+          status_test = Path("trunk/user/scripts/tests/scutclient_status_file_atomic.sh").read_text()
+          assert '-E "${auth_hook:-"/usr/bin/scutclient_status_file.sh 0"}"' in client_source
+          assert '-Q "${fail_hook:-"/usr/bin/scutclient_status_file.sh 1"}"' in client_source
+          assert 'tmp_file=$(mktemp "${status_file}.tmp.XXXXXX")' in status_writer
+          assert 'chmod 600 "$tmp_file"' in status_writer
+          assert 'mv -f "$tmp_file" "$status_file"' in status_writer
+          assert 'echo 0 > /tmp/scutclient_status' not in client_source
+          assert 'echo 1 > /tmp/scutclient_status' not in client_source
+          assert "hardlink-sentinel" in status_test
+          assert "directory destination" in status_test
+          assert "scripts/ /usr/bin/" in Path("trunk/user/scutclient/Makefile").read_text()
           assert "NVRAM_FAIL_KEY" in Path("trunk/user/scripts/tests/scutclient_watchcat_lifecycle.sh").read_text()
           assert 'if (set -C; printf' in source
           assert 'kill -9' not in source

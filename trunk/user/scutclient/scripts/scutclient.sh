@@ -148,8 +148,8 @@ func_start(){
 	-c "$scutclient_version_value" \
 	-h "$scutclient_hash_value" \
 	"$scutclient_debug_arg" "$scutclient_skip_udp_hb_arg" \
-	-E "${auth_hook:-"echo 0 > /tmp/scutclient_status"}" \
-	-Q "${fail_hook:-"echo 1 > /tmp/scutclient_status"}"; then
+	-E "${auth_hook:-"/usr/bin/scutclient_status_file.sh 0"}" \
+	-Q "${fail_hook:-"/usr/bin/scutclient_status_file.sh 1"}"; then
 		if pl_wait_started "$scutclient_exec" 1 4 1; then
 			:
 		else
