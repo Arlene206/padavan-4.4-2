@@ -1,3 +1,11 @@
+## 2026-11-24 — Repair LAN authentication integration contract and handoff checkpoint
+
+- Exact-head Process lifecycle run #45506666241 on 3e31c744db7c4fd27665ccadc7325058c3c60a83 reached the aggregate integration check, then failed on a stale assertion requiring `ret = stop_auth_kabinet();` inside `start_auth_kabinet()`. The source now delegates read→stop→start ordering to `auth_kabinet_restart_with_ops()`; the checker now validates checked NVRAM reads, read-before-stop ordering, the launch adapter and secret-buffer clearing.
+- Exact-head AI handoff run #45506666102 failed because the added roadmap note raised `REFACTOR_ROADMAP.md` to 131503 bytes, above the 131072-byte hard limit. Removed that redundant bullet and reconstructed `SESSION_HANDOFF.md` from the full parent version so prior completed-source records are retained.
+- Parent main SHA: 3e31c744db7c4fd27665ccadc7325058c3c60a83. Exact correction SHA and AI/Process/XY-C1 Actions must be checked after the atomic commit. Next security task remains removing the LAN authentication password from `lanauth` argv.
+
+---
+
 ## 2026-11-24 — Preserve LAN authentication when NVRAM reads fail
 
 - start_auth_kabinet() previously used nvram_safe_get() for wan_auth_host / wan_auth_pass and stopped the running lanauth daemon before it could distinguish a valid empty password from a failed NVRAM read. A transient backend failure could be converted into an empty value and interrupt a known-good authentication session.

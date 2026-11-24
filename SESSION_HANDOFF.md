@@ -6,25 +6,27 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `7d589c2ea0a3f46356e8bc361d212f8a9b81776f`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `3e31c744db7c4fd27665ccadc7325058c3c60a83`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Remove the LAN authentication password from the daemon argument vector
+### Remove LAN authentication password from the daemon argument vector
 
-start_auth_kabinet() still launches /usr/sbin/lanauth using eval(..., "-p", password), which puts the configured password in the process argument vector. Inspect the lanauth option parser and daemon input paths before changing the interface. Prefer a private mode-0600 credential/config file or inherited descriptor that the daemon can read without exposing the secret in /proc/*/cmdline; preserve the existing -s gateway behavior, service stop/readiness checks and backward compatibility as required. Add a host regression and source contract for the new secret transport. This is the next security slice; do not claim it was fixed by the checked-read change.
+`start_auth_kabinet()` still launches `/usr/sbin/lanauth` using `eval(..., "-p", password)`, exposing the configured secret in the process argument vector. Inspect the `lanauth` option parser and daemon input paths before changing the interface. Prefer a private mode-0600 credential/config file or inherited descriptor that the daemon can read without exposing the secret in `/proc/*/cmdline`; preserve the existing `-s` gateway behavior, stop/readiness semantics and backward compatibility. Add a host regression and source contract for the new secret transport. This remains open after the checked-read fix.
+
 ## Completed source slices
 
 ### LAN authentication restart checked-read gate
 
-On the parent source, start_auth_kabinet() fetched wan_auth_host and wan_auth_pass with nvram_safe_get() and stopped the current lanauth daemon before it could distinguish a valid empty password from a failed NVRAM read. A backend error could therefore be converted to an empty setting and interrupt a working authentication service. The current source slice copies both settings through nvram_get_checked() and the bounded rc_wan_nvram_copy_value() helper before stopping anything. Read errors and truncation preserve the active daemon; a successfully read empty password retains the legacy stop/no-start behavior. The policy also wipes temporary password and gateway buffers on exit. GNU89 ASan/UBSan regression covers both read failures, empty password, stop failure, successful read→stop→start ordering and start error propagation. Exact-head Process/XY-C1/AI checks are triggered by this source commit; no firmware or device result is claimed yet.
+Commit `3e31c744db7c4fd27665ccadc7325058c3c60a83` fixes `start_auth_kabinet()` previously using `nvram_safe_get()` for `wan_auth_host` / `wan_auth_pass` and stopping the active daemon before it could distinguish a valid empty password from a backend read failure. Both settings are now copied through `nvram_get_checked()` and `rc_wan_nvram_copy_value()` before stop; read error/truncation preserves the running daemon, while a readable empty password retains legacy stop/no-start behavior. The policy clears temporary buffers on exit. GNU89 ASan/UBSan tests cover both read failures, empty password, stop/start failures and read→stop→start ordering. The Process workflow initially exposed an outdated aggregate assertion still requiring the old inline stop call; the checker is corrected in the follow-up commit. Exact Process rerun pending.
 
-### FTP share listing visibility
+### FTP credential lookup transaction snapshot
 
-Commit 7d589c2ea0a3f46356e8bc361d212f8a9b81776f applies the same fail-closed share-right read rule to PERM_READ authorization and parent-listing visibility: only values 1 and 3 are readable. GNU89 cases cover 0, 1, 2, 3, -1 and 4. Exact-head VSFTPD stability #45505371869, AI handoff #45505371734 and process inventory #45505371860 PASS. NVRAM boundary audit #45505371707 was still running its raw ioctl/kernel caller audit, and XY-C1 #45505371723 was still building; do not claim L3.
+Commit `b2afc079f262a13aa05ef0d926455b328c480dd6` moves `asus_getpwnam()` to one coherent `nvram_transaction` snapshot across account count, active usernames and the matching password. It fails closed on missing/incomplete/duplicate credentials and transaction errors. Exact-head VSFTPD #45506421995, AI docs #45506421990 and Process inventory #45506422053 PASS. NVRAM audit #45506422062 was cancelled; XY-C1 #45506422126 was still in progress at last poll, so no L3 claim.
+
 ### FTP share listing read-ACL consistency
 
 Commit `7d589c2ea0a3f46356e8bc361d212f8a9b81776f` made LIST visibility use the same documented read-right predicate as CWD/read authorization. Write-only (2) and unknown rights are no longer treated as readable merely because they are positive. VSFTPD Stability #45505371869 PASS on this exact SHA, including the GNU89 ACL policy regression and exact-source checks. AI handoff docs #45505371734, process inventory #45505371860 and NVRAM audit #45505371707 PASS. XY-C1 #45505371723 was still running at last poll.
@@ -51,13 +53,23 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Verification boundary
 
-### FTP ACL visibility SHA 7d589c2ea0a3f46356e8bc361d212f8a9b81776f
+### Exact-head status after LAN authentication checked-read commit 3e31c744db7c4fd27665ccadc7325058c3c60a83
 
-- VSFTPD stability #45505371869: PASS, including the GNU89 ACL policy binary and listing/CWD source contract.
-- AI handoff docs #45505371734: PASS.
-- Process lifecycle inventory #45505371860: PASS.
-- NVRAM transaction boundary audit #45505371707: IN_PROGRESS; its raw ioctl/kernel caller audit step had not yet completed.
-- XY-C1 Firmware Validation #45505371723: IN_PROGRESS at Build XY-C1; TRX verification and artifact upload were pending. Do not claim L3 on this SHA.
+- AI handoff documentation #45506666102: FAIL because `REFACTOR_ROADMAP.md` exceeded its 131072-byte hard limit (131503 bytes); this correction removes the redundant roadmap bullet and restores the full handoff records.
+- Process lifecycle inventory #45506666210: PASS.
+- EAPoL configuration confidentiality and credential escaping #45506666147: PASS.
+- Process lifecycle fail-closed regression #45506666241: FAIL at the aggregate integration assertion requiring `ret = stop_auth_kabinet();`; the checked-read refactor moved stop into the policy callback. Earlier host regression steps passed; this follow-up updates the assertion to validate checked read-before-stop and ordered service start.
+- NVRAM transaction boundary audit #45506666281: IN_PROGRESS at raw userland ioctl/kernel caller audit.
+- XY-C1 Firmware Validation #45506666559: IN_PROGRESS; Build active, TRX and artifact pending. Do not claim L3.
+
+### FTP account credential snapshot SHA b2afc079f262a13aa05ef0d926455b328c480dd6
+
+- VSFTPD stability #45506421995: PASS.
+- AI handoff documentation #45506421990: PASS.
+- Process lifecycle inventory #45506422053: PASS.
+- NVRAM transaction boundary audit #45506422062: CANCELLED (not a pass).
+- XY-C1 Firmware Validation #45506422126: IN_PROGRESS at Build XY-C1; TRX/artifact not confirmed.
+
 ### XY-C1 exact-source results
 
 - SHA `786c504c8247fe42d5d1d5f2dc3ad28757fafc80`: #45498624157 Build, TRX and artifact upload PASS.
@@ -103,10 +115,12 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Inspect /usr/sbin/lanauth source and option parsing in trunk/user/lanauth. The current start_auth_kabinet() still passes the configured password as -p <password> in argv. Design and test a private credential/config transport that removes the secret from process listings without weakening file permissions or daemon startup behavior.
-2. Verify the exact-head Process Lifecycle, AI handoff and XY-C1 Actions for the checked-read source slice; repair the first genuine failure. Do not claim L3 unless Build, TRX and artifact upload all PASS on that exact source SHA.
-3. Continue one concrete stability/security defect across Padavan userland. Avoid reopening verified FTP share-right visibility, SSH mode validation, VTS port reads, WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
-4. Before any write, refresh live main and frozen backup refs; before ending, refresh exact-SHA Actions and leave the first concrete next action.
+1. Inspect `/usr/sbin/lanauth` option parsing in `trunk/user/lanauth`. The remaining issue is that `start_auth_kabinet()` passes its password as `-p <password>` in argv. Design and test a private credential transport (private file or inherited descriptor) that keeps the password out of process listings while preserving gateway behavior and startup semantics.
+2. Verify the follow-up AI handoff and Process lifecycle runs for the correction to `3e31c744db7c4fd27665ccadc7325058c3c60a83`; fix any genuine failure. Check XY-C1 #45506666559 and NVRAM audit #45506666281 at their exact recorded SHAs, without treating PENDING/CANCELLED as PASS.
+3. Continue concrete stability/security implementation across Padavan userland. Do not reopen the verified FTP ACL, SSH supported-mode, firewall VTS, WAN counter baseline, USB modem retry, OpenVPN lifetime or account snapshot fixes absent new failing evidence.
+4. Before any write, refresh live main and the frozen backup ref; before ending, record exact-SHA Actions and a concrete first action.
+
+
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
