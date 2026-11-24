@@ -1,3 +1,11 @@
+## 2026-11-24 — Validate legacy PID-file metadata before privileged signalling
+
+- `kill_pidfile_s()` parsed a PID from a no-follow opened path, but only verified that the opened object was a regular file and below the size limit. It did not constrain file owner, hard-link count or group/world write permission. Since the helper invokes `kill(pid, sig)` with caller privileges, an untrusted PID file can direct privileged signalling at an unrelated process.
+- Added metadata policy matching the stricter shared process-pidfile checks: regular file, owner equals effective UID, `st_nlink == 1`, and no group/world write bits. Production `kill_pidfile_s()` now fails closed with `EPERM` before parsing/signalling when metadata is unsafe. Existing no-follow and nonblocking open flags remain.
+- Extended the existing host regression to cover safe metadata, wrong owner, hardlink, group-write and FIFO; extended the source checker to require production enforcement. Existing legacy-wrapper PID-file workflow builds this test with GNU89 warnings-as-errors and ASan/UBSan.
+- Parent main: `dd5e71103ee4ea1e2b312d358f253f662c0ddc0f`; exact-SHA Actions pending after commit.
+
+---
 ## 2026-11-24 — Fail closed on malformed LAN DHCP static-DNS selector during deconfig
 
 - `lan_down_auto()` read `lan_dns_x` into its transactional deconfig snapshot but selected static DNS with `atoi(snapshot.static_dns_mode) == 0`. The bound/lease resolver path uses `rc_wan_nvram_parse_int_value()` on the same setting. `atoi("0;reboot")` returns zero and incorrectly enables static-DNS mode, potentially replacing `/etc/resolv.conf` during deconfig.

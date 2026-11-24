@@ -796,8 +796,8 @@ kill_pidfile_s(char *pidfile, int sig)
 		return -1;
 	if (fstat(fd, &st) != 0)
 		saved_errno = errno ? errno : EIO;
-	else if (!S_ISREG(st.st_mode))
-		saved_errno = EINVAL;
+	else if (!shutils_pidfile_metadata_is_safe(&st, geteuid()))
+		saved_errno = EPERM;
 	else if (st.st_size >= (off_t)sizeof(buf))
 		saved_errno = EOVERFLOW;
 	if (saved_errno != 0) {

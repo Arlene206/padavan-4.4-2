@@ -68,6 +68,15 @@ shutils_pidfile_parse_record(const char *text, size_t length, pid_t *pid)
 	return 0;
 }
 
+/* PID files direct privileged signal delivery. Trust only an owned, single-link
+ * regular file that cannot be modified by another uid or group member. */
+static inline int
+shutils_pidfile_metadata_is_safe(const struct stat *status, uid_t owner)
+{
+	return status && S_ISREG(status->st_mode) && status->st_uid == owner &&
+	       status->st_nlink == 1 && (status->st_mode & 022) == 0;
+}
+
 /*
  * PID files are control inputs to privileged signal delivery. Never follow a
  * symlink supplied at the configured pathname.
