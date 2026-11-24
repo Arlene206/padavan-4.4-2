@@ -1,3 +1,11 @@
+## 2026-11-24 — Align add_folder source contract with the pinned-directory implementation
+
+- Exact-head libdisk run 45462263753 on 3629400054732dc685d102cb2aee0e78b9604e94 passed both GNU89 ASan/UBSan host executables, then failed the Python source checker at line 1338 because its add_folder contract still required pathname-based folder lookup, mkdir, ACL initialization and rollback. Production now pins one mount directory descriptor for lookup, creation, folder-list publication, ACL setup, deletion compensation and ACL compensation.
+- Replaced the stale contract with ordered assertions for descriptor-relative operations, NVRAM account-snapshot lease, bounded target formatting, first-error cleanup and mount-path replacement regression. Product source unchanged.
+- Exact-head rerun pending. AI handoff run 45462263766 PASS. XY-C1 run 45461770986 was still IN_PROGRESS on product source parent 572ec294; this checker-only follow-up does not change firmware inputs. L3 only if same production SHA Build/TRX/artifact all PASS.
+
+---
+
 ## 2026-11-24 — Remove obsolete duplicate metadata-rebuild checker
 
 - Exact-head libdisk run `45461771046` on `572ec294eeae01befe36684ed7ab3102b9430e21` passed both GNU89 ASan/UBSan executables, then a second, older static-check block failed by requiring pathname-based ACL writes. The same checker already contains the newer descriptor-pinned contract immediately above it; the duplicate stale block was removed so the current single-FD implementation is checked once.
