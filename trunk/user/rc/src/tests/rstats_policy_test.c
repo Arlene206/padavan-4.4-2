@@ -476,10 +476,39 @@ test_periodic_storage_save_retries_after_failure(void)
   assert(rstats_storage_save_result(&elapsed, 0, 0, 0) == EINVAL);
 }
 
+static void
+test_read_close_results(void)
+{
+  errno = 0;
+  assert(rstats_file_read_close_result(24, 0, 0, EIO) == 24);
+  assert(errno == 0);
+
+  errno = 0;
+  assert(rstats_file_read_close_result(7, 0, 0, 0) == 7);
+  assert(errno == 0); /* short EOF remains distinguishable to the caller */
+
+  errno = 0;
+  assert(rstats_file_read_close_result(-1, ENOSPC, -1, EIO) == -1);
+  assert(errno == ENOSPC); /* primary read error wins */
+
+  errno = 0;
+  assert(rstats_file_read_close_result(24, 0, -1, EIO) == -1);
+  assert(errno == EIO); /* close-only failure invalidates the read */
+
+  errno = 0;
+  assert(rstats_file_read_close_result(24, 0, -1, 0) == -1);
+  assert(errno == EIO); /* missing close errno is not success */
+
+  errno = 0;
+  assert(rstats_file_read_close_result(-1, 0, 0, 0) == -1);
+  assert(errno == EIO); /* missing read errno is not success */
+}
+
 int main(void) {
   test_null_safe_system_time_policy();
   test_bounded_open_eintr();
   test_exact_read_retries_eintr_and_short_reads();
+  test_read_close_results();
   char dir[] = "/tmp/rstats-policy.XXXXXX";
   char target[128], victim[128], stage[128];
   struct rstats_file_ops o;

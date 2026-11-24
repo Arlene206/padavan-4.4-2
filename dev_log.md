@@ -1,3 +1,12 @@
+## 2026-11-23 — Propagate RStats history read descriptor-close failures
+
+- `f_read()` saved the read errno but ignored `close(fd)`'s return value. A descriptor-close I/O error after a successful or short read could therefore be reported as ordinary data, allowing a questionable persistent-history record to be consumed.
+- Added `rstats_file_read_close_result()`: preserves a primary read error, converts close-only failures to `-1` with close errno (or `EIO` if unavailable), and otherwise preserves full/short read counts. `f_read()` now captures read and close errno separately. It deliberately does not retry `close()` after EINTR on Linux.
+- Added GNU89 policy cases for full/short success, read-error precedence, close-only failure and missing-errno fallbacks; extended the source contract to require errno capture before checked close and helper return.
+- Parent `47100dccc0a7128cbc711b31766fedc82ac787ad`: Switch CLI `#45309913398` and AI handoff `#45309913249` **PASS**; NVRAM audit `#45309913323` and XY-C1 validation `#45309913333` were **IN_PROGRESS** at last poll. This RStats slice awaits its own exact-SHA Actions.
+
+---
+
 ## 2026-11-23 — Count checked-reader compatibility wrappers in WAN regression contract
 
 - Exact `cfd69a7` WAN regression `#45308740232` passed the GNU89 `-Werror` ASan/UBSan policy executable, then failed its inline Python contract because it expected one `get_ifstats_counter_status(..., "rx_bytes")` reference. The implementation correctly has two: the new atomic pair reader and the retained scalar RX compatibility wrapper (likewise TX).

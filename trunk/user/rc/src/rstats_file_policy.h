@@ -125,6 +125,26 @@ rstats_file_read_exact(int fd, void *buffer, size_t length)
                                      rstats_file_system_read, NULL);
 }
 
+/*
+ * Preserve a data-read error over a later close error. A close-only failure
+ * invalidates an otherwise successful history read. Do not retry close after
+ * EINTR: on Linux the descriptor has already been released.
+ */
+static inline int
+rstats_file_read_close_result(int read_result, int read_errno,
+                              int close_result, int close_errno)
+{
+  if (read_result < 0) {
+    errno = read_errno > 0 ? read_errno : EIO;
+    return -1;
+  }
+  if (close_result != 0) {
+    errno = close_errno > 0 ? close_errno : EIO;
+    return -1;
+  }
+  return read_result;
+}
+
 struct rstats_file_ops {
   int (*mkstemp_fn)(char *template_path);
   int (*fchmod_fn)(int fd, mode_t mode);

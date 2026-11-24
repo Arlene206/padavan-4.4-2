@@ -2,15 +2,16 @@
 
 ## Current repository state
 
-- Live `main` parent for the WAN source-contract count correction: `97dccf5a886ac490d5b86949444ab1d0796f5607`.
-- Exact `cfd69a7` WAN sysfs regression `#45308740232` **FAILED** at the Python source contract after the GNU89 ASan/UBSan policy executable **PASSED**. The checker expected one `get_ifstats_counter_status(..., "rx_bytes")` call, but there are correctly two: the checked pair API and the retained legacy scalar RX wrapper. The TX count has the same expected pair-plus-wrapper shape. No production test failed.
-- Exact `cfd69a7` AI handoff contract `#45308740182`: **PASS**. Exact `97dccf5` watchdog HTTPD probe file-I/O regression `#45308912671`, HTTPD security `#45308912702`, Process inventory `#45308912664`, and remaining dependent actions were **IN_PROGRESS** at last poll.
-- The watchdog slice in `97dccf5` distinguishes expected `ENOENT` during detached wget startup from permission/resource/read/close errors; the latter now skip restart decisions.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live `main` parent for this RStats read-close reliability slice: `47100dccc0a7128cbc711b31766fedc82ac787ad`.
+- Exact `fe356dd` Switch CLI ioctl failure-status regression `#45309913398`: **PASS**; AI handoff contract `#45309913249`: **PASS**. NVRAM audit `#45309913323` and XY-C1 firmware validation `#45309913333` were **IN_PROGRESS** at last poll.
+- Exact `ac9151b` HTTPD Authentication/Security `#45309428181` and NVRAM audit `#45309428290`: **PASS**; XY-C1 run `#45309428188` was **IN_PROGRESS** on that earlier SHA only.
+- Earlier exact-SHA independent fixes: WAN counter status `#45309010747` on `181ffec`: **PASS**; watchdog probe-file I/O `#45308912671` on `97dccf5`: **PASS**.
+- Latest main addition `47100dc` makes SGMII switch register mappings fail closed when `ioremap()` fails, returning `-ENOMEM` before register access. The archival backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- New RStats finding: `f_read()` captured read errno but discarded `close(fd)`'s return value, so a close-time I/O error could still return a successful/short byte count and allow questionable persisted history to be consumed. This slice makes descriptor-close status part of the read result.
 
 ## Active task
 
-Correct the WAN workflow source-contract counts to include both legitimate uses of the checked file reader: one in the all-or-nothing RX/TX API and one in each legacy scalar compatibility wrapper. Re-run exact-SHA WAN validation, then reconcile the watchdog probe I/O regression on its own SHA.
+Verify `f_read()` close-result handling on this commit's exact SHA. Full or short reads are returned only when `close(fd)` succeeds; a close-only error becomes `-1`, while an earlier read error retains its original errno. Do not retry `close()` after EINTR on Linux.
 
 ## Completed development slices
 
@@ -40,15 +41,15 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `cfd69a7` WAN host policy executable **PASS**; integration source contract **FAIL** only because it expected one counter-reader call while the implementation correctly contains two (checked pair + compatibility wrapper).
-- Exact `cfd69a7` AI handoff `#45308740182`: **PASS**. The watchdog slice and dependent HTTPD/Process/NVRAM/firmware Actions on `97dccf5` were **IN_PROGRESS** at last poll.
-- This commit changes only the WAN source-contract expectation and handoff/dev log. No new firmware L3 or hardware L4 result is claimed.
+- Exact `fe356dd` Switch CLI `#45309913398` and AI handoff `#45309913249`: **PASS**. NVRAM audit `#45309913323` and XY-C1 validation `#45309913333`: **IN_PROGRESS** at last poll.
+- The new RStats host policy cases use GNU89, `-Werror`, ASan and UBSan; the source contract pins errno capture before close and checked close-result handling. Verify the result from this commit's exact-SHA Actions.
+- No same-SHA XY-C1 firmware L3 or hardware L4 result is claimed. The archival backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Verify corrected WAN sysfs regression on this commit's exact SHA; inspect any remaining source-contract failure.
-2. Reconcile watchdog HTTPD probe-I/O regression `#45308912671` and the `97dccf5` Process/HTTPD/NVRAM/XY-C1 checks against their exact run IDs.
-3. Continue with a separate source-proven userland stability defect while any checks remain pending. Keep the frozen backup read-only.
+1. Verify exact-SHA RStats persistence/signal regression for this read-close change; inspect both the host executable and source-contract step.
+2. Reconcile the pending `fe356dd` NVRAM audit and XY-C1 Build/TRX/artifact checks against their exact run IDs; do not transfer older SHA results.
+3. Continue RStats file-lifecycle review for delayed I/O and cleanup errors, then move to another independent userland stability defect. Keep the frozen backup read-only.
 
 
 # Cross-session execution mandate

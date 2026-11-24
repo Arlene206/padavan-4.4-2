@@ -129,7 +129,7 @@ static volatile sig_atomic_t rstats_pending_events = 0;
 static int f_read(const char *path, void *buffer, int max)
 {
 	int fd;
-	int n, saved_errno;
+	int n, saved_errno, close_result, close_errno;
 
 	if (!path || !*path || max < 0 || (!buffer && max > 0)) {
 		errno = EINVAL;
@@ -142,10 +142,11 @@ static int f_read(const char *path, void *buffer, int max)
 
 	n = rstats_file_read_exact(fd, buffer, (size_t)max);
 	saved_errno = errno;
-	(void)close(fd);
-	if (n < 0)
-		errno = saved_errno ? saved_errno : EIO;
-	return n;
+	errno = 0;
+	close_result = close(fd);
+	close_errno = errno;
+	return rstats_file_read_close_result(
+		n, saved_errno, close_result, close_errno);
 }
 
 static int f_write(const char *path, const void *buffer, int len)
