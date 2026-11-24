@@ -1,3 +1,11 @@
+## 2026-11-25 00:15 CST (UTC+8) — Normalize firewall merge checker and restore AI handoff checkpoint
+
+- Exact SHA `03ca0dbf9b201bb8752c53afbf0b44632c1818e8`: Firewall Startup #45435162086 failed because the C boot-status merge call wraps arguments after the opening parenthesis; the static contract now checks the merge call, exact `boot_services_status, firewall_startup_status` operands and ordering independently.
+- AI handoff #45435161894 and #45435366901 failed because the handoff omitted the exact sentence `The checkpoint is mandatory; a document edit is conditional.` and expected top-level section names. Handoff rewritten to meet the current checker contract and retain precise SHA/CI status.
+- Newer RAETH MDIO Clause 22 address guard's policy test passed, but Switch CLI #45435366858 failed later in its source-order checker; next step is to inspect the precise function-body mismatch. XY-C1 #45434352284 and #45434537034 builds remained pending at last poll.
+ 
+---
+
 ## 2026-11-25 00:15 CST (UTC+8) — Correct firewall startup workflow source contract
 
 - Exact SHA `7ca46fc7049f3380755f6b2fe5073d86727c6382`: firewall policy and checked-NVRAM host regressions passed; the static startup contract failed because it expected `firewall_startup_status = firewall_startup_policy_wan_failure_status(` as one contiguous line, while the valid C assignment is line-wrapped. Changed the contract to assert the status assignment and helper invocation separately.

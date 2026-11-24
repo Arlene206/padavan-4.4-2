@@ -265,7 +265,9 @@ jobs:
           policy_call = router_compact.index("firewall_startup_status = firewall_startup_policy_wan_failure_status(")
           policy_vlan_arg = router_compact.index("switch_vlan_status", policy_call)
           wan_start = router_compact.index("start_wan();")
-          status_merge = router_compact.index("boot_services_status = rc_first_service_start_status(boot_services_status, firewall_startup_status);")
+          status_merge = router_compact.index("boot_services_status = rc_first_service_start_status(")
+          status_merge_end = router_compact.index(";", status_merge)
+          assert "boot_services_status, firewall_startup_status" in router_compact[status_merge:status_merge_end]
           assert policy_call < policy_vlan_arg < status_merge < wan_start
           assert "Blocking WAN startup: required switch VLAN isolation could not be verified" in router_init
           switch_vlan_gate = policy.index("if (switch_vlan_status != 0)")
