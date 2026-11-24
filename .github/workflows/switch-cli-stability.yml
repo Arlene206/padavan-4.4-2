@@ -14,6 +14,9 @@ on:
       - "trunk/user/utils/src/switch/mii_mgr.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
+      - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
@@ -70,6 +73,9 @@ on:
       - "trunk/user/utils/src/switch/mii_mgr.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h"
+      - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c"
+      - "trunk/linux-4.4.x/net/core/dev_ioctl.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_pdma.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_rss.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether_hwlro.c"
@@ -750,6 +756,84 @@ jobs:
               assert xy_push.count('"' + path + '"') == 1, path
 
           print("MTK ESW ioctl CAP_NET_ADMIN gate, device-node mode and trigger paths: PASS")
+          PY
+
+      - name: Guard RAETH private network ioctls with CAP_NET_ADMIN
+        run: |
+          set -eu
+          RAETH_DIR=trunk/linux-4.4.x/drivers/net/ethernet/raeth
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RAETH_DIR" \
+            "$RAETH_DIR/tests/raeth_private_ioctl_access_policy.c" \
+            -o /tmp/raeth-private-ioctl-access
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 \
+            /tmp/raeth-private-ioctl-access
+          python3 - <<'PY'
+          from pathlib import Path
+
+          raeth = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth")
+          driver = (raeth / "raether.c").read_text()
+          policy = (raeth / "raeth_private_ioctl_access_policy.h").read_text()
+          test = (raeth / "tests/raeth_private_ioctl_access_policy.c").read_text()
+          uapi = (raeth / "ra_ioctl.h").read_text()
+          net_core = Path("trunk/linux-4.4.x/net/core/dev_ioctl.c").read_text()
+          switch_workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+          xy_workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+          def function_body(source, signature):
+              start = source.find(signature)
+              assert start >= 0, "missing function: " + signature
+              opening = source.find("{", start + len(signature))
+              assert opening >= 0, "missing body: " + signature
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "#include <linux/capability.h>" in driver
+          assert '#include "raeth_private_ioctl_access_policy.h"' in driver
+          assert "has_cap_net_admin == 1 ? 0 : -EPERM" in policy
+          assert "raeth_private_ioctl_access_status(0) == -EPERM" in test
+          assert "#define RAETH_SW_IOCTL          0x89F0" in uapi
+
+          handler = function_body(
+              driver, "int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)"
+          )
+          authorization = handler.index(
+              "raeth_private_ioctl_access_status(capable(CAP_NET_ADMIN))"
+          )
+          deny = handler.index("if (access_status != 0)", authorization)
+          denied_return = handler.index("return access_status;", deny)
+          page_lock = handler.index("spin_lock_irq(&ei_local->page_lock)")
+          assert authorization < deny < denied_return < page_lock
+
+          generic = function_body(
+              net_core, "int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)"
+          )
+          private_range = generic.index("cmd >= SIOCDEVPRIVATE")
+          assert "SIOCDEVPRIVATE + 15" in generic
+          driver_dispatch = generic.index("ret = dev_ifsioc(net, &ifr, cmd)", private_range)
+          dispatch = function_body(
+              net_core, "static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)"
+          )
+          ndo_call = dispatch.index("ops->ndo_do_ioctl(dev, ifr, cmd)")
+          assert private_range < driver_dispatch and ndo_call >= 0
+
+          filters = switch_workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for event_paths in (push, pull_request):
+              for path in ("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h", "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c", "trunk/linux-4.4.x/net/core/dev_ioctl.c"):
+                  assert event_paths.count('"' + path + '"') == 1, path
+          xy_push = xy_workflow.split("  workflow_dispatch:", 1)[0]
+          for path in ("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raeth_private_ioctl_access_policy.h", "trunk/linux-4.4.x/drivers/net/ethernet/raeth/tests/raeth_private_ioctl_access_policy.c", "trunk/linux-4.4.x/net/core/dev_ioctl.c"):
+              assert xy_push.count('"' + path + '"') == 1, path
+
+          print("RAETH SIOCDEVPRIVATE dispatch is protected by the CAP_NET_ADMIN gate: PASS")
           PY
 
       - name: Validate strict numeric parsing in RC switch front-ends

@@ -14,11 +14,13 @@
  */
 #include "raether.h"
 #include <linux/pm_runtime.h>
+#include <linux/capability.h>
 #include "ra_mac.h"
 #include "ra_ioctl.h"
 #include "ra_switch.h"
 #include "ra_switch_mdio_policy.h"
 #include "ra_desc_policy.h"
+#include "raeth_private_ioctl_access_policy.h"
 #include "raether_hwlro.h"
 #include "ra_ethtool.h"
 
@@ -2972,12 +2974,17 @@ int ei_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	unsigned int offset = 0;
 	unsigned int value = 0;
 	int ret = 0;
+	int access_status;
 	struct END_DEVICE *ei_local = netdev_priv(dev);
 	struct ra_mii_ioctl_data mii;
 	char ip_tmp[IP4_ADDR_LEN];
 
 	if (!ifr || !ifr->ifr_data)
 		return -EFAULT;
+
+	access_status = raeth_private_ioctl_access_status(capable(CAP_NET_ADMIN));
+	if (access_status != 0)
+		return access_status;
 
 	spin_lock_irq(&ei_local->page_lock);
 
