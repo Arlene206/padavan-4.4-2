@@ -315,20 +315,25 @@ jobs:
           assert "ftp_read_enabled_status(&ftp_enabled)" in restart
           assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("is_run_before = is_ftp_run()")
           assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("stop_status = stop_ftp_locked()")
-          assert "ftp_stop_should_reconcile_firewall(0)" in daemon_test
-          assert "ftp_stop_should_reconcile_firewall(EIO)" in daemon_test
-          assert "return stop_status == 0;" in daemon_policy
+          assert "ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_ABSENT)" in daemon_test
+          assert "ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_RUNNING)" in daemon_test
+          assert "ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_UNKNOWN)" in daemon_test
+          assert "return final_presence == PROCESS_PRESENCE_ABSENT;" in daemon_policy
           stop_gate = restart.index("if (stop_status != 0)")
+          failed_firewall_gate = restart.index("if (ftp_stop_should_reconcile_firewall(final_presence))", stop_gate)
+          failed_firewall_call = restart.index("firewall_status = control_ftp_fw(is_run_before)", failed_firewall_gate)
+          failed_status_merge = restart.index("restart_status = rc_first_service_start_status(stop_status, firewall_status)", failed_firewall_call)
+          failed_return = restart.index("goto out;", failed_status_merge)
           mount_gate = restart.index('mount_status = storage_has_mounted_devices("restarting FTP")')
-          firewall_gate = restart.index("if (ftp_stop_should_reconcile_firewall(stop_status))")
-          firewall_call = restart.index("control_ftp_fw(is_run_before)")
+          firewall_gate = restart.rindex("if (ftp_stop_should_reconcile_firewall(final_presence))")
+          firewall_call = restart.rindex("firewall_status = control_ftp_fw(is_run_before)")
           final_status = restart.index("rc_first_service_start_status(start_status, firewall_status)")
-          assert stop_gate < mount_gate < firewall_gate < firewall_call < final_status
+          assert stop_gate < failed_firewall_gate < failed_firewall_call < failed_status_merge < failed_return < mount_gate
+          assert mount_gate < firewall_gate < firewall_call < final_status
           assert "errno = 0;" in restart[mount_gate - 40:mount_gate]
           assert "start_status = errno > 0 ? errno : EIO;" in restart
           assert "start_status = run_ftp();" in restart
-          assert "goto out;" not in restart[mount_gate:firewall_gate]
-          assert restart.count("control_ftp_fw(is_run_before)") == 1
+          assert restart.count("control_ftp_fw(is_run_before)") == 2
           assert "ftp_enable_value_status(EIO, 1, &enabled)" in daemon_test
           assert "ftp_enable_value_status(0, 2, &enabled)" in daemon_test
           assert "ftp_enable_value_status(0, 1, NULL)" in daemon_test
@@ -338,7 +343,7 @@ jobs:
           assert "ftp_failed_start_may_leave_daemon(enum process_presence state)" in daemon_policy
           assert "return state != PROCESS_PRESENCE_ABSENT;" in daemon_policy
           rollback = function_body(source, "static void\nftp_rollback_failed_start(int start_errno, const char *operation)")
-          assert rollback.index("stop_ftp_locked()") < rollback.index('process_inventory_scan("vsftpd", &snapshot)')
+          assert rollback.index("stop_ftp_locked(NULL)") < rollback.index('process_inventory_scan("vsftpd", &snapshot)')
           assert rollback.index('process_inventory_scan("vsftpd", &snapshot)') < rollback.index("ftp_failed_start_may_leave_daemon")
           assert rollback.index("ftp_failed_start_may_leave_daemon") < rollback.index("errno = start_errno > 0")
 
@@ -794,9 +799,11 @@ jobs:
           assert "listen=YES" in test
           assert "ftp_config_file_publish(&fp, staged, target) != 0" in test
 
-          stop = function_body(source, "stop_ftp_locked(void)")
+          stop = function_body(source, "stop_ftp_locked(int *final_presence)")
           assert "status = kill_services(svcs, 3, 1)" in stop
-          assert "storage_service_stop_complete(status, is_ftp_run())" in stop
+          assert "final_state = is_ftp_run();" in stop
+          assert "*final_presence = final_state;" in stop
+          assert "storage_service_stop_complete(status, final_state)" in stop
           assert "return -1;" in stop
           assert "return 0;" in stop
           assert stop.index("status = kill_services(svcs, 3, 1)") < stop.index(
@@ -804,12 +811,12 @@ jobs:
           ) < stop.index("return -1;") < stop.rindex("return 0;")
           public_stop = function_body(source, "stop_ftp(void)")
           assert public_stop.index("storage_operation_lock_acquire(file_lock)") < public_stop.index("is_run_before = is_ftp_run();")
-          assert public_stop.index("is_run_before = is_ftp_run();") < public_stop.index("status = stop_ftp_locked();")
-          public_stop_gate = public_stop.index("if (ftp_stop_should_reconcile_firewall(status))")
+          assert public_stop.index("is_run_before = is_ftp_run();") < public_stop.index("status = stop_ftp_locked(&final_presence);")
+          public_stop_gate = public_stop.index("if (ftp_stop_should_reconcile_firewall(final_presence))")
           public_firewall = public_stop.index("firewall_status = control_ftp_fw(is_run_before)")
           public_status_merge = public_stop.index("status = rc_first_service_start_status(status, firewall_status)")
           public_unlock = public_stop.index("file_unlock(storage_lock);")
-          assert public_stop.index("status = stop_ftp_locked();") < public_stop_gate < public_firewall < public_status_merge < public_unlock
+          assert public_stop.index("status = stop_ftp_locked(&final_presence);") < public_stop_gate < public_firewall < public_status_merge < public_unlock
           assert public_stop.count("control_ftp_fw(is_run_before)") == 1
           assert "if (firewall_status != 0)" in public_stop
           assert public_stop.count("file_unlock(storage_lock);") == 1
@@ -817,7 +824,7 @@ jobs:
           stop_action_end = rc.index("\n\t}", stop_action)
           assert "ret = stop_ftp();" in rc[stop_action:stop_action_end]
           restart = function_body(source, "restart_ftpd(void)")
-          assert "stop_status = stop_ftp_locked()" in restart
+          assert "stop_status = stop_ftp_locked(&final_presence)" in restart
           assert "if (stop_status != 0)" in restart
           assert "mount_status = storage_has_mounted_devices" in restart
           assert "if (mount_status < 0)" in restart
@@ -832,7 +839,7 @@ jobs:
           assert "goto out;" in restart and "return restart_status;" in restart
 
           stop_stor = function_body(source, "stop_stor_apps(void)")
-          assert "if (stop_ftp_locked() != 0)" in stop_stor
+          assert "if (stop_ftp_locked(NULL) != 0)" in stop_stor
           assert "FTP server did not stop cleanly" in stop_stor
           start_stor = function_body(source, "start_stor_apps(void)")
           assert "service_status = run_ftp();" in start_stor
@@ -852,8 +859,11 @@ jobs:
           assert "ret = stop_ftpsamba();" in rc
           assert "int stop_ftpsamba(void);" in header
           group_stop = function_body(source, "int\nstop_ftpsamba(void)")
-          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("stop_ftp_locked()")
-          assert group_stop.index("stop_ftp_locked()") < group_stop.index("file_unlock(storage_lock);")
+          assert group_stop.index("storage_operation_lock_acquire(file_lock)") < group_stop.index("is_run_before = is_ftp_run();")
+          assert group_stop.index("is_run_before = is_ftp_run();") < group_stop.index("stop_ftp_locked(&final_presence)")
+          assert group_stop.index("stop_ftp_locked(&final_presence)") < group_stop.index("ftp_stop_should_reconcile_firewall(final_presence)")
+          assert group_stop.index("ftp_stop_should_reconcile_firewall(final_presence)") < group_stop.index("control_ftp_fw(is_run_before)")
+          assert group_stop.index("control_ftp_fw(is_run_before)") < group_stop.index("file_unlock(storage_lock);")
           assert group_stop.count("file_unlock(storage_lock);") == 1
 
           rest_policy = function_body(vsftpd_rest_policy, "ftp_rest_offset_parse(")

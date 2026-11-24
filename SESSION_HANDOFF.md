@@ -10,7 +10,7 @@ Each source/test slice is one atomic main commit: construct one complete Git tre
 
 Every session MUST inspect the live repository state before ending: verify `main` and the frozen backup, identify the exact current SHA, inspect relevant exact-head Actions, record material state transitions, and name the next concrete implementation task. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave the files untouched and create no no-op commit. Do not claim tests, builds, artifacts or hardware checks that were not performed. Before context exhaustion, finish the current safe slice and preserve the exact verification boundary and first action.
 
-- Live main before this checker correction: `c522dc20b504eac7a7c701d341034752ac3f0ec1`. Re-fetch the exact tip before every write; the handoff records the engineering baseline and need not chase documentation-only commits.
+- Parent main before this VSFTPD source slice: `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f`. Re-fetch live main before every write.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
 - PR #1 remains closed/unmerged and deeply behind main. Valid AliDDNS CA-bootstrap/HMAC evolution is already integrated on main; do not port the stale PR wholesale.
 - Only `main` is authorized for development and validation. Use one complete tree, one commit, and a non-forced expected-SHA ref update.
@@ -28,18 +28,19 @@ Relevant files:
 
 The main pending-deconfig retry scheduler now prepares a single tested plan (resume state, release intent, retry timeout, packet counter and elapsed-wait counter) before closing the listener, then publishes it after switching to `LISTEN_NONE`. C regression and source contracts cover nonpositive retry floors, resume-state/socket/timer setup, lease expiry, NAK server filtering, SIGUSR2 and `-R` cleanup.
 
-The active failure is a compact-source token mismatch in `scripts/check_udhcpc_script_status.py`: after whitespace removal, `else if(state==DECLINE_PENDING)` is `elseif(state==DECLINE_PENDING)`. THIS correction changes only that expected token; DECLINE_PENDING and the subsequent non-discovery listener/timeout checks remain intact. Once the exact-head suite passes, continue the broader DHCP pending-release integration boundary, then rotate to other high-risk userland modules.
+The DHCP retry-plan/state-transition slice passed its exact-source gate on descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` (udhcpc #45480533291). Its product-source parent `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e` also passed XY-C1 Build, TRX verification and artifact upload (#45480041423), plus Process inventory #45480041644, Process lifecycle #45480041481, USB storage #45480041346, NVRAM #45480041721 and AI handoff #45480041430. DHCP source L3 is VERIFIED; hardware/router L4 is NOT VERIFIED.
+
+The current source slice addresses VSFTPD firewall cleanup: a stop command can return an error even when the final process inventory proves `vsftpd` absent. Standalone stop and restart previously gated FTP firewall/UPnP reconciliation on the collapsed status==0 value, so a partial stop error could leave stale mappings. The locked stop now exports final tri-state presence independently; callers reconcile only on positively confirmed absence while preserving stop errors and fail-closed restart/eject behavior.
 
 ## Verification boundary
 
-- Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e` udhcpc #45480041494: GNU89 ASan/UBSan C regression PASS; Python checker failed at line 238 because the scheduler assertion had not moved with the tested retry-plan helper. Subsequent correction at `c522dc20` moved that checker contract to the plan initializer.
-- Exact `c522dc20b504eac7a7c701d341034752ac3f0ec1` udhcpc #45480285457: GNU89 ASan/UBSan C regression PASS; Python checker failed at line 276 on the whitespace-compacted `else if` branch token. THIS correction fixes that token only. AI handoff #45480285572 was IN_PROGRESS at last observation.
-- On `fd59df3`, AI handoff #45480041430, Process inventory #45480041644, Process lifecycle #45480041481 and USB storage #45480041346 PASS; NVRAM #45480041721 and XY-C1 #45480041423 were IN_PROGRESS at last observation. Inspect remaining results by exact SHA; do not attribute them to this checker-only correction.
-- Prior L3 VERIFIED source/test tree: `36a10c0e5844daf31b3cc483c20d9e25a798ef6b`, XY-C1 #45476128451 Build, TRX verification and artifact upload all PASS. Product-source changes on `fd59df3` are newer and still require same-SHA target-build evidence. Hardware/router L4 remains NOT VERIFIED.
-- No local repository checkout, host compile or MIPS build was performed in this session.
+- Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: initial udhcpc #45480041494 had C GNU89/ASan/UBSan regression PASS and a stale Python assertion failure. After checker-only corrections, descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` udhcpc #45480533291 PASS (C regression and Python source contract).
+- Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: XY-C1 #45480041423 PASS, including Build XY-C1, TRX verification and artifact upload. Process inventory #45480041644, Process lifecycle #45480041481, USB storage #45480041346, NVRAM #45480041721 and AI handoff #45480041430 PASS. L3 VERIFIED for this DHCP product-source SHA; hardware/router L4 NOT VERIFIED.
+- Descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` AI handoff #45480533158 failed only the literal-string validator; docs-only descendant `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f` AI handoff #45480803456 PASS.
+- THIS VSFTPD stop/firewall source slice has no local compiler/MIPS result. Exact-head VSFTPD workflow and triggered dependent checks are pending; do not claim target verification until actual runs finish.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head udhcpc Actions for THIS branch-token checker correction. Require GNU89 `-Wall -Wextra -Werror` ASan/UBSan and all Python contracts to PASS; triage the first failure without loosening semantic assertions.
-2. Inspect the exact-head AI handoff result and close out the pending `fd59df3` XY-C1, NVRAM, Process and storage runs; only same-SHA Build/TRX/artifact establishes L3.
-3. Once this test gate passes, continue the DHCP pending-release/exit integration case, then rotate to the next highest-risk unaudited userland stability issue from `REFACTOR_ROADMAP.md`. Keep the frozen backup read-only and update only `main` by expected-SHA non-force CAS.
+1. Inspect exact-SHA `vsftpd-stability.yml` after this commit; require all GNU89 `-Wall -Wextra -Werror` binaries and Python FTP lifecycle/ACL source contracts to pass.
+2. If a contract fails, fix only the matcher/integration contract that disagrees with the final-presence output argument and failed-stop cleanup branch. Keep tests proving UNKNOWN/RUNNING never authorize firewall cleanup.
+3. Continue the VSFTPD upload-cleanup TOCTOU investigation only if a Linux 4.4-compatible atomic fix is demonstrable; otherwise preserve the residual-risk disclosure. Do not re-audit completed DHCP work.

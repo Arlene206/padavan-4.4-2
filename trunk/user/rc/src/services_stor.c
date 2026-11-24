@@ -240,13 +240,16 @@ is_ftp_run(void)
 }
 
 static int
-stop_ftp_locked(void)
+stop_ftp_locked(int *final_presence)
 {
 	char* svcs[] = { "vsftpd", NULL };
-	int status;
+	int status, final_state;
 
 	status = kill_services(svcs, 3, 1);
-	if (storage_service_stop_complete(status, is_ftp_run()) != 0) {
+	final_state = is_ftp_run();
+	if (final_presence)
+		*final_presence = final_state;
+	if (storage_service_stop_complete(status, final_state) != 0) {
 		logmessage("FTP server", "vsftpd did not stop cleanly or process state is unknown");
 		return -1;
 	}
@@ -264,7 +267,7 @@ ftp_rollback_failed_start(int start_errno, const char *operation)
 	enum process_presence presence;
 
 	memset(&snapshot, 0, sizeof(snapshot));
-	stop_status = stop_ftp_locked();
+	stop_status = stop_ftp_locked(NULL);
 	presence = process_inventory_scan("vsftpd", &snapshot);
 	scan_error = snapshot.error;
 	if (ftp_failed_start_may_leave_daemon(presence)) {
@@ -283,7 +286,8 @@ ftp_rollback_failed_start(int start_errno, const char *operation)
 int
 stop_ftp(void)
 {
-	int storage_lock, status, is_run_before, firewall_status = 0;
+	int storage_lock, status, is_run_before, final_presence;
+	int firewall_status = 0;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
@@ -292,8 +296,8 @@ stop_ftp(void)
 	}
 
 	is_run_before = is_ftp_run();
-	status = stop_ftp_locked();
-	if (ftp_stop_should_reconcile_firewall(status)) {
+	status = stop_ftp_locked(&final_presence);
+	if (ftp_stop_should_reconcile_firewall(final_presence)) {
 		firewall_status = control_ftp_fw(is_run_before);
 		if (firewall_status != 0)
 			logmessage("FTP server", "firewall/UPnP refresh failed after FTP stop (status=%d)",
@@ -676,7 +680,7 @@ control_ftp_fw(int is_run_before)
 int
 restart_ftpd(void)
 {
-	int storage_lock, is_run_before;
+	int storage_lock, is_run_before, final_presence;
 	int stop_status, mount_status, start_status = 0, restart_status = -1;
 	int firewall_status = 0, ftp_enabled;
 
@@ -698,10 +702,16 @@ restart_ftpd(void)
 	}
 
 	is_run_before = is_ftp_run();
-	stop_status = stop_ftp_locked();
+	stop_status = stop_ftp_locked(&final_presence);
 	if (stop_status != 0) {
 		logmessage("FTP server", "restart aborted because existing daemon did not stop");
-		restart_status = stop_status;
+		if (ftp_stop_should_reconcile_firewall(final_presence)) {
+			firewall_status = control_ftp_fw(is_run_before);
+			if (firewall_status != 0)
+				logmessage("FTP server", "firewall/UPnP refresh failed after incomplete FTP stop (status=%d)",
+					   firewall_status);
+		}
+		restart_status = rc_first_service_start_status(stop_status, firewall_status);
 		goto out;
 	}
 
@@ -724,7 +734,7 @@ restart_ftpd(void)
 	 * is absent, its inventory is unavailable, or the replacement daemon
 	 * failed to start. Always reconcile firewall state after that stop.
 	 */
-	if (ftp_stop_should_reconcile_firewall(stop_status)) {
+	if (ftp_stop_should_reconcile_firewall(final_presence)) {
 		firewall_status = control_ftp_fw(is_run_before);
 		if (firewall_status != 0)
 			logmessage("FTP server", "firewall/UPnP refresh failed after FTP restart (status=%d)",
@@ -3889,7 +3899,19 @@ stop_ftpsamba(void)
 	}
 
 #if defined (APP_FTPD)
-	status = stop_ftp_locked();
+	{
+		int is_run_before, final_presence, firewall_status = 0;
+
+		is_run_before = is_ftp_run();
+		status = stop_ftp_locked(&final_presence);
+		if (ftp_stop_should_reconcile_firewall(final_presence)) {
+			firewall_status = control_ftp_fw(is_run_before);
+			if (firewall_status != 0)
+				logmessage("Storage", "firewall/UPnP refresh failed after FTP/Samba stop (status=%d)",
+					   firewall_status);
+			status = rc_first_service_start_status(status, firewall_status);
+		}
+	}
 #endif
 #if defined (APP_SMBD)
 	status = storage_service_stop_status_merge(status, stop_samba_locked(0));
@@ -4707,7 +4729,7 @@ stop_stor_apps(void)
 #if defined (APP_FTPD)
 	/* Refresh even with external FTP disabled so stale rules are removed. */
 	need_restart_fw |= (is_ftp_run() != PROCESS_PRESENCE_ABSENT);
-	if (stop_ftp_locked() != 0) {
+	if (stop_ftp_locked(NULL) != 0) {
 		logmessage("Storage", "FTP server did not stop cleanly; storage removal must be aborted");
 		stop_status = -1;
 	}

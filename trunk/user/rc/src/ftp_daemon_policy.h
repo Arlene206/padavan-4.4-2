@@ -12,12 +12,13 @@ ftp_failed_start_may_leave_daemon(enum process_presence state)
 	return state != PROCESS_PRESENCE_ABSENT;
 }
 
-/* Reconcile firewall state after every confirmed stop, independent of the
- * storage inventory or whether a replacement daemon can be started. */
+/* Reconcile only after procfs positively confirms the final daemon absence.
+ * Preserve kill_services() errors separately: a partial stop failure can
+ * still leave stale FTP/UPnP rules after the process has exited. */
 static inline int
-ftp_stop_should_reconcile_firewall(int stop_status)
+ftp_stop_should_reconcile_firewall(int final_presence)
 {
-	return stop_status == 0;
+	return final_presence == PROCESS_PRESENCE_ABSENT;
 }
 
 /* Do not turn an NVRAM backend error into an implicit disabled value. */

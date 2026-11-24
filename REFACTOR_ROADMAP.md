@@ -197,7 +197,7 @@ Current implementation checkpoint (2026-11-21):
 
 ## Priority queue
 - P1 — VSFTPD ACL metadata path construction: username separators and truncation are rejected; parent components are pinned and ACL leaf opened with bounded `openat(O_NOFOLLOW|O_NONBLOCK)`. Reader rechecks directory identity around the read. GNU89 covers traversal, truncation, symlink/FIFO, oversize and parent replacement.
-- P1 — VSFTPD stop/restart firewall cleanup: `restart_ftpd()` and standalone `stop_ftp()` now reconcile FTP firewall/UPnP state after every confirmed daemon stop, including no-storage, unknown-inventory and failed-restart paths. Preserve the first operational error; exact-head validation pending.
+- P1 — VSFTPD stop/restart firewall cleanup: standalone `stop_ftp()`, `restart_ftpd()` (including a stop-command error with procfs-confirmed absence) and grouped `stop_ftpsamba()` decide reconciliation from final tri-state daemon presence, not the lossy stop-command result. A partial stop error triggers firewall/UPnP cleanup only when `vsftpd` is positively absent; the original error is preserved and restart/eject remains fail-closed. GNU89 state-policy regression and exact-source control-flow contracts added; exact-head validation pending.
 - P1 — VSFTPD EPSV ALL cleanup: VSFTPD #45393626354, AI/Process/NVRAM PASS on `aa3d55b`; XY-C1 Build running, TRX/artifact pending. L3 open.
 - P2 — VSFTPD hidden-share truncation fix: VSFTPD #45392889702 PASS; included in `aa3d55b` XY-C1 Build (running; TRX/artifact pending).
 - L2 — detect_link UNKNOWN guard: detect/AI/Process/NVRAM/USB/HTTPD PASS on `18af4fb`; exact-SHA XY-C1 Build/TRX/artifact not yet recorded.

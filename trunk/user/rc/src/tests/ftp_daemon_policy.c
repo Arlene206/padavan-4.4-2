@@ -70,10 +70,10 @@ main(void)
 	assert(enabled == 0);
 	assert(ftp_enable_value_status(0, 1, NULL) == EINVAL);
 
-	assert(ftp_stop_should_reconcile_firewall(0));
-	assert(!ftp_stop_should_reconcile_firewall(-1));
-	assert(!ftp_stop_should_reconcile_firewall(EIO));
-	assert(!ftp_stop_should_reconcile_firewall(ETIMEDOUT));
+	assert(ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_ABSENT));
+	assert(!ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_RUNNING));
+	assert(!ftp_stop_should_reconcile_firewall(PROCESS_PRESENCE_UNKNOWN));
+	assert(!ftp_stop_should_reconcile_firewall((enum process_presence)9));
 
 	assert(!ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
 	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));

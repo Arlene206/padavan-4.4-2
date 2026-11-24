@@ -1,3 +1,12 @@
+## 2026-11-25 — Reconcile FTP firewall after confirmed absence despite stop-command error
+
+- Confirmed source-control defect: `stop_ftp_locked()` can return failure when `kill_services()` reports an error even though the final procfs inventory proves `vsftpd` absent. Standalone stop/restart previously gated firewall refresh on status==0, skipping FTP/UPnP cleanup after that partial stop failure.
+- The locked stop now exports the final tri-state process state separately. Standalone stop, restart (including its early stop-failure branch) and FTP/Samba group stop reconcile only when final presence is PROCESS_PRESENCE_ABSENT. RUNNING/UNKNOWN/invalid never authorize cleanup; the original stop error remains the first returned failure, so failed restart/eject does not proceed.
+- Added GNU89 policy regression for ABSENT/RUNNING/UNKNOWN/invalid and source contracts for the failed-stop branch, successful stop and grouped stop. No local compile/MIPS build is claimed; exact-head VSFTPD Actions pending.
+- Prior DHCP L3 closure: source SHA `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e` XY-C1 #45480041423 Build/TRX/artifact PASS; Process #45480041644/#45480041481, USB #45480041346, NVRAM #45480041721 and AI handoff #45480041430 PASS. Descendant udhcpc gate `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` #45480533291 PASS; docs descendant `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f` #45480803456 PASS. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+
+---
+
 ## 2026-11-25 04:32 CST — Repair blocking handoff contract literal
 
 - Exact SHA `b2dab6b05fb2cf07abbdae01b1acff2cc134df31`: udhcpc #45480533291 PASS (GNU89 ASan/UBSan regression and Python source contract). AI handoff #45480533158 failed because the live handoff expressed the atomic-tree/commit rule but omitted the validator's required literal phrase `one atomic main commit`.
