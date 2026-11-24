@@ -154,8 +154,39 @@ def check_handler_wiring():
     print("HTML, JSON and JavaScript NVRAM output-context wiring: PASS")
 
 
+def check_dynamic_js_hooks():
+    source = WEB_SOURCE.read_text(encoding="utf-8")
+
+    wan_start = source.index("static int\nwanlink_hook(")
+    lan_start = source.index("\nstatic int\nlanlink_hook(", wan_start)
+    wan = source[wan_start:lan_start]
+    for value in (
+        "etherlink", "apclilink", "wan_desc", "wan0_ip", "wan0_gw",
+        "wanx_ip", "wanx_gw", "wan_ip6", "lan_ip6", "wan_dns", "wan_mac",
+    ):
+        assert f"write_js_string(wp, {value});" in wan, (
+            f"wanlink_hook emits {value} without JavaScript string escaping"
+        )
+    assert "return '%s'" not in wan
+
+    lan_end = source.index("\nstatic int\nwan_action_hook(", lan_start)
+    lan = source[lan_start:lan_end]
+    assert "write_js_string(wp, port_status);" in lan
+    assert "return '%s'" not in lan
+
+    for value in ("ver", "nf_count"):
+        assert f"write_js_string(wp, {value});" in source, (
+            f"dynamic status string {value} is not JavaScript escaped"
+        )
+    assert source.count("write_js_string(wp, count);") >= 2, (
+        "route-list status strings must use the JavaScript string writer"
+    )
+    print("Dynamic HTTPD JavaScript hook strings: PASS")
+
+
 def main():
     check_handler_wiring()
+    check_dynamic_js_hooks()
     check_templates()
 
 

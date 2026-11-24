@@ -1,3 +1,11 @@
+## 2026-11-23 — Escape dynamic HTTPD status-hook strings for JavaScript
+
+- Audited C-side JavaScript emitters in `web_ex.c`. WAN status strings (link state, connection type, IP/gateway fields, DNS and MAC), per-port LAN status, captive-client version and route/connection counters were interpolated directly between single quotes with `websWrite("%s")`. Routed these values through the existing tested `write_js_string()` encoder. Numeric fields remain numeric; existing DNS `<br/>` display markup is preserved after JavaScript parsing.
+- Added source-contract checks to the HTTPD template-context checker so those runtime strings cannot regress to raw quoted `%s` output.
+- Parent `08c6d43` exact HTTPD `#45299995452` and AI handoff `#45299995515` passed; XY-C1 `#45299995388` was in progress with Build pending. Exact new SHA is unverified until its Actions complete.
+
+---
+
 ## 2026-11-24 — Fix JSON list newline escaping and remaining legacy JavaScript getter
 
 - The 174-asset context scan identified sixteen JavaScript `get_nvram_list` array insertions. They flowed through `write_json_string()`, but its newline case emitted a literal LF inside a quoted JSON string, making the output invalid JavaScript/JSON. Added a bounded GNU89 encoder that escapes JSON controls, quotes, backslashes, HTML script delimiters and U+2028/U+2029 while preserving UTF-8.

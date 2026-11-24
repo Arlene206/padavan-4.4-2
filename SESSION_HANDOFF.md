@@ -9,7 +9,7 @@
 
 ## Active task
 
-Verify the JSON encoder regression and remaining legacy JavaScript getter migration on exact-SHA Actions. Then continue context-specific review of dynamic web emitters, preserving JSON, HTML and JavaScript output boundaries.
+Continue the HTTPD dynamic JavaScript output audit beyond NVRAM callbacks. The WAN/LAN status hooks, captive-client version and status counters now emit runtime strings through the existing tested JavaScript string writer. Inspect remaining C-side `websWrite()` script emitters and add source-contract assertions for any newly identified dynamic values.
 
 ## Completed development slices
 
@@ -31,18 +31,17 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- Exact `861e3fe` HTTPD Authentication and Security Regression `#45298769831`: **PASS**, including the repository-wide JavaScript NVRAM context check and AiDisk DOM-escaping regression. Exact AI handoff `#45298769865`, Process inventory `#45298769872`, Process lifecycle inventory `#45298769967` and NVRAM transaction audit `#45298769873`: **PASS**.
-- Exact `861e3fe` XY-C1 Firmware Validation `#45298770098`: Build XY-C1 **IN_PROGRESS** at last check; TRX verification and artifact upload **PENDING**.
-- Exact `212aed2` XY-C1 `#45299517972`: detector regression **PASS**, Build XY-C1 **IN_PROGRESS**, TRX verification and artifact upload **PENDING**. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
-- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build XY-C1, TRX verification and artifact upload. This closes the older production build verification but does not substitute for exact-head checks on later source changes.
-- Exact test-fixture correction `a2310ad` XY-C1 `#45297887131`: detector regression **PASS**; firmware stages were skipped for a test-only commit. The original `453aefd` failure was due only to double-escaped test fixture separators.
-- The `861e3fe` source/UI hardening commit passed HTTPD tests; its own XY-C1 result remained in progress. No physical-router L4 result is claimed.
-- Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `08c6d43` HTTPD Authentication and Security Regression `#45299995452`: **PASS**, including the JSON NVRAM output-context step and template checker. Exact AI handoff `#45299995515`, Process lifecycle inventory `#45299995326`, Process regression `#45299995463`, FRP `#45299995540`, Inadyn `#45299995467`, AliyunDrive `#45299995485`, AdGuardHome `#45299995325` and USB storage regression job `#45299995495`: their jobs **PASS** at last poll; NVRAM transaction audit `#45299995549` was still running.
+- Exact `08c6d43` XY-C1 Firmware Validation `#45299995388`: job in progress; Build step still pending, TRX and artifact upload pending.
+- Exact `212aed2` XY-C1 `#45299517972`: detector regression **PASS**, Build running with TRX/artifact pending at last check. AI handoff `#45299517974` and Process inventory `#45299517987`: **PASS**.
+- Exact `5c8c62f` XY-C1 `#45298161504`: **PASS**, including Build, TRX verification and artifact upload. This historical result does not substitute for exact-head checks on later sources.
+- Exact `861e3fe` HTTPD `#45298769831`, AI handoff `#45298769865`, Process inventory `#45298769872`, Process lifecycle `#45298769967` and NVRAM transaction `#45298769873`: **PASS**. Its XY-C1 Build `#45298770098` remained in progress at last poll.
+- No physical-router L4 result is claimed. Backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA Actions for the JSON encoder/validator.js slice. Confirm the HTTPD context checker and GNU89 ASan/UBSan JSON byte regression; check XY-C1 Build, TRX and artifact only against that exact UI-bearing SHA.
-2. Continue reviewing data-derived dynamic emitters beyond NVRAM getters. The completed 174-asset scan found no JavaScript use of `nvram_get_list_x`, `nvram_get_buf_x` or `nvram_get_table_x`; `nvram_get_table_x` is HTML-only. Sixteen JavaScript `get_nvram_list` callsites use the JSON string writer, now covered for newline/control/quote/script-terminator/UTF-8/U+2028/U+2029 handling.
+1. Inspect exact-SHA HTTPD Actions for the dynamic-hook migration and verify the source-contract checker. Confirm exact-head XY-C1 Build, TRX and artifact status.
+2. Continue auditing C-side `websWrite()` calls that embed data-derived values in JavaScript source. Any runtime strings must use `write_js_string()` or a type-specific safe encoder; static literals and numeric values can remain unchanged.
 3. Keep the backup immutable and continue atomic commits while independent Actions are pending.
 
 # Cross-session execution mandate

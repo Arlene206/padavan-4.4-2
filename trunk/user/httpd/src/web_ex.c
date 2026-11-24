@@ -2158,19 +2158,41 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 		strcpy(wan_dns, "---");
 
 	websWrite(wp, "function wanlink_status() { return %d;}\n", status_code);
-	websWrite(wp, "function wanlink_etherlink() { return '%s';}\n", etherlink);
-	websWrite(wp, "function wanlink_apclilink() { return '%s';}\n", apclilink);
+	websWrite(wp, "function wanlink_etherlink() { return ");
+	write_js_string(wp, etherlink);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_apclilink() { return ");
+	write_js_string(wp, apclilink);
+	websWrite(wp, ";}\n");
 	websWrite(wp, "function wanlink_uptime() { return %ld;}\n", wan_uptime);
 	websWrite(wp, "function wanlink_dltime() { return %ld;}\n", wan_dltime);
-	websWrite(wp, "function wanlink_type() { return '%s';}\n", wan_desc);
-	websWrite(wp, "function wanlink_ip4_wan() { return '%s';}\n", wan0_ip);
-	websWrite(wp, "function wanlink_gw4_wan() { return '%s';}\n", wan0_gw);
-	websWrite(wp, "function wanlink_ip4_man() { return '%s';}\n", wanx_ip);
-	websWrite(wp, "function wanlink_gw4_man() { return '%s';}\n", wanx_gw);
-	websWrite(wp, "function wanlink_ip6_wan() { return '%s';}\n", wan_ip6);
-	websWrite(wp, "function wanlink_ip6_lan() { return '%s';}\n", lan_ip6);
-	websWrite(wp, "function wanlink_dns() { return '%s';}\n", wan_dns);
-	websWrite(wp, "function wanlink_mac() { return '%s';}\n", wan_mac);
+	websWrite(wp, "function wanlink_type() { return ");
+	write_js_string(wp, wan_desc);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_ip4_wan() { return ");
+	write_js_string(wp, wan0_ip);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_gw4_wan() { return ");
+	write_js_string(wp, wan0_gw);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_ip4_man() { return ");
+	write_js_string(wp, wanx_ip);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_gw4_man() { return ");
+	write_js_string(wp, wanx_gw);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_ip6_wan() { return ");
+	write_js_string(wp, wan_ip6);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_ip6_lan() { return ");
+	write_js_string(wp, lan_ip6);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_dns() { return ");
+	write_js_string(wp, wan_dns);
+	websWrite(wp, ";}\n");
+	websWrite(wp, "function wanlink_mac() { return ");
+	write_js_string(wp, wan_mac);
+	websWrite(wp, ";}\n");
 	websWrite(wp, "function wanlink_bytes_rx() { return %llu;}\n", wan_bytes_rx);
 	websWrite(wp, "function wanlink_bytes_tx() { return %llu;}\n", wan_bytes_tx);
 
@@ -2205,7 +2227,9 @@ lanlink_hook(int eid, webs_t wp, int argc, char **argv)
 	for (i = 0; i < BOARD_NUM_ETH_EPHY; i++) {
 		port_status[0] = '\0';
 		fill_eth_port_status(i, port_status);
-		websWrite(wp, " if(idx==%d) return '%s';\n", i, port_status);
+		websWrite(wp, " if(idx==%d) return ", i);
+		write_js_string(wp, port_status);
+		websWrite(wp, ";\n");
 	}
 	websWrite(wp, " return '%s';\n", "No link");
 	websWrite(wp, "}\n");
@@ -2308,7 +2332,9 @@ static int scutclient_version_hook(int eid, webs_t wp, int argc, char **argv)
 	} else {
 		sprintf(ver, "%s", "unknown");
 	}
-	websWrite(wp, "function scutclient_version() { return '%s';}\n", ver);
+	websWrite(wp, "function scutclient_version() { return ");
+	write_js_string(wp, ver);
+	websWrite(wp, ";}\n");
 	return 0;
 }
 #endif
@@ -2596,7 +2622,9 @@ static int rules_count_hook(int eid, webs_t wp, int argc, char **argv)
 	}
 	if (strlen(count) > 0)
 		count[strlen(count) - 1] = 0;
-	websWrite(wp, "function chnroute_count() { return '%s';}\n", count);
+	websWrite(wp, "function chnroute_count() { return ");
+	write_js_string(wp, count);
+	websWrite(wp, ";}\n");
 #if defined(APP_SHADOWSOCKS)
 	memset(count, 0, sizeof(count));
 	fstream = popen("cat /etc/storage/gfwlist/gfwlist_list.conf | wc -l", "r");
@@ -2608,7 +2636,9 @@ static int rules_count_hook(int eid, webs_t wp, int argc, char **argv)
 	}
 	if (strlen(count) > 0)
 		count[strlen(count) - 1] = 0;
-	websWrite(wp, "function gfwlist_count() { return '%s';}\n", count);	
+	websWrite(wp, "function gfwlist_count() { return ");
+	write_js_string(wp, count);
+	websWrite(wp, ";}\n");	
 #endif
 	return 0;
 }
@@ -2851,7 +2881,9 @@ nf_values_hook(int eid, webs_t wp, int argc, char **argv)
 		sprintf(nf_count, "%d", 0);
 	}
 	
-	websWrite(wp, "function nf_conntrack_count() { return '%s';}\n", nf_count);
+	websWrite(wp, "function nf_conntrack_count() { return ");
+	write_js_string(wp, nf_count);
+	websWrite(wp, ";}\n");
 	
 	return 0;
 }
