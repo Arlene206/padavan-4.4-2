@@ -1,3 +1,13 @@
+## 2026-11-23 — Publish UQMI PDH handles atomically
+
+- Follow-up to QMI WAN startup hardening: `cmd_wds_start_network_cb()` still wrote `/tmp/qmi-handle` with unchecked `fopen("w+")`, `fprintf`, and `fclose`. A failed write could truncate or partially publish the PDH status.
+- Replaced the callback's direct write with the existing `uqmi_status_file_write()` helper, which uses private `mkstemp` staging, mode 0600, full writes, fsync and atomic rename. The callback now emits an error and omits the handle field if publication fails.
+- Extended the USB modem workflow's static contract to require the helper call before publishing the JSON handle and prohibit the unchecked direct file-writer sequence. The existing GNU89 UQMI status-file test covers replacement permissions, symlink safety, failed rename preserving the destination, and staging cleanup.
+- Parent main: 42257289849aa454630dfda18b8e1efc1a213411. Exact USB modem identity Action must be checked on the resulting SHA.
+- At parent SHA, Process inventory #45346865350, HTTPD #45346865450 and AliyunDrive #45346865525 were still in progress after the MTD checker syntax cleanup; final outcomes remain to be checked.
+
+---
+
 ## 2026-11-23 — Correct QMI regression fixture and static checker slicing
 
 - Exact QMI commit 2b7281bca3ed4be30f65b5ec803413e6cd78f86f: USB modem identity #45346405084 reached the modem WAN policy test and failed because the test source encoded backslash+n as two literal characters. Replaced it with explicit ASCII newline bytes and added a separate multi-line rejection fixture.

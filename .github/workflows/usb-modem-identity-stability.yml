@@ -891,6 +891,7 @@ jobs:
           commands = Path("trunk/user/uqmi/commands.c").read_text()
           modem = Path("trunk/user/rc/src/usb_modem.c").read_text()
           helper = Path("trunk/user/uqmi/uqmi-status-file.h").read_text()
+          wds_source = Path("trunk/user/uqmi/commands-wds.c").read_text()
 
           getter = commands.split("cmd_get_client_id_prepare", 1)[1].split("cmd_set_client_id_prepare", 1)[0]
           assert "uqmi_status_file_write(\"/tmp/qmi-client-id\"" in getter
@@ -931,6 +932,15 @@ jobs:
               "test_qmi_handle_parser_rejects_partial_and_out_of_range_values",
           ):
               assert policy_case in qmi_policy_test
+          wds_callback_start = wds_source.index("cmd_wds_start_network_cb(struct qmi_dev")
+          wds_callback_end = wds_source.index("cmd_wds_start_network_prepare(struct qmi_dev", wds_callback_start)
+          wds_callback = wds_source[wds_callback_start:wds_callback_end]
+          assert '#include "uqmi-status-file.h"' in wds_source
+          assert 'uqmi_status_file_write("/tmp/qmi-handle"' in wds_callback
+          assert wds_callback.index("uqmi_status_file_write(") < wds_callback.index('blobmsg_add_u32(&status, "handle"')
+          assert 'fopen("/tmp/qmi-handle"' not in wds_callback
+          assert "fprintf(fp" not in wds_callback and "fclose(fp)" not in wds_callback
+          assert "Failed to publish packet data handle" in wds_callback
           print("QMI client ID and packet-data handle fail-closed contract: PASS")
           PY
 

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "qmi-message.h"
+#include "uqmi-status-file.h"
 
 static struct qmi_wds_start_network_request wds_sn_req = {
 	QMI_INIT(authentication_preference,
@@ -67,10 +68,11 @@ cmd_wds_start_network_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qm
 
 	qmi_parse_wds_start_network_response(msg, &res);
 	if (res.set.packet_data_handle) {
-		FILE *fp = fopen("/tmp/qmi-handle", "w+");
-		if (fp) {
-			fprintf(fp, "%u", res.data.packet_data_handle);
-			fclose(fp);
+		if (uqmi_status_file_write("/tmp/qmi-handle",
+					   (unsigned long)res.data.packet_data_handle) != 0) {
+			blobmsg_add_string(&status, "error",
+					   "Failed to publish packet data handle");
+			return;
 		}
 		blobmsg_add_u32(&status, "handle", res.data.packet_data_handle);
 	}
