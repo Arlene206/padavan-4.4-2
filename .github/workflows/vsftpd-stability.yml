@@ -19,6 +19,8 @@ on:
       - "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/ftp_account_auth_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/vsftpd/src/ftp_listing_policy.h"
       - "trunk/user/vsftpd/src/ftpdataio.c"
@@ -61,6 +63,8 @@ on:
       - "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_rest_offset_policy.c"
       - "trunk/user/vsftpd/src/ftp_acl_path_policy.h"
+      - "trunk/user/vsftpd/src/ftp_account_auth_policy.h"
+      - "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c"
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/vsftpd/src/ftp_listing_policy.h"
       - "trunk/user/vsftpd/src/ftpdataio.c"
@@ -124,6 +128,11 @@ jobs:
             trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c \
             -o /tmp/ftp-acl-path-policy
           /tmp/ftp-acl-path-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/shared/src -iquote trunk/user/vsftpd/src \
+            trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c \
+            -o /tmp/vsftpd-account-auth-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/vsftpd-account-auth-policy
           cc -std=gnu89 -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
             -Wl,--gc-sections -iquote trunk/user/vsftpd/src \
             trunk/user/vsftpd/src/ipaddrparse.c \
@@ -186,6 +195,8 @@ jobs:
           vsftpd_sysstr_header = Path("trunk/user/vsftpd/src/sysstr.h").read_text()
           acl_path_policy = Path("trunk/user/vsftpd/src/ftp_acl_path_policy.h").read_text()
           acl_path_test = Path("trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c").read_text()
+          vsftpd_auth_policy = Path("trunk/user/vsftpd/src/ftp_account_auth_policy.h").read_text()
+          vsftpd_auth_test = Path("trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c").read_text()
 
           def function_body(text, signature):
               signature_has_open_brace = signature.rstrip().endswith("{")
@@ -714,6 +725,36 @@ jobs:
           for user_right in ("(1)", "(0)", "(2)", "(3)", "(-1)", "(4)"):
               assert "ftp_acl_share_rights_allow_read" + user_right in acl_path_test
           assert "FTP share read permission policy mismatch" in acl_path_test
+
+          account_lookup = function_body(
+              vsftpd_acl, "struct passwd *asus_getpwnam(const char *name)"
+          )
+          assert '#include "ftp_account_auth_policy.h"' in vsftpd_acl
+          assert "vsftpd_account_auth_password_read(" in account_lookup
+          assert 'nvram_get_int("acc_num")' not in account_lookup
+          assert "nvram_safe_get(nvram_value)" not in account_lookup
+          assert "nvram_transaction_begin(" in vsftpd_acl
+          assert "nvram_transaction_get(" in vsftpd_acl
+          assert "nvram_transaction_end(" in vsftpd_acl
+          for token in (
+              "router_account_nvram_read_count(",
+              "ops->begin(context)",
+              "ops->get(context, key, &value)",
+              "ops->end(context)",
+              "status == 0 ? EINVAL : EIO",
+              "status == 0 ? EACCES : EIO",
+          ):
+              assert token in vsftpd_auth_policy
+          for token in (
+              "test_credentials_are_read_under_one_transaction",
+              "test_absent_account_returns_no_password",
+              "test_incomplete_or_ambiguous_inventory_fails_closed",
+              "test_missing_or_empty_password_fails_closed",
+              "test_transaction_errors_discard_copied_credentials",
+              "test_malformed_and_overflowing_account_count_fails_closed",
+              "writer_blocked == 1",
+          ):
+              assert token in vsftpd_auth_test
           assert "reserved FTP metadata classification failed" in acl_path_test
           assert "ENAMETOOLONG" in child_path
           assert "length < 0" in child_path
@@ -1024,6 +1065,8 @@ jobs:
               "trunk/user/vsftpd/src/tests/ftp_octal_arg_policy.c",
               "trunk/user/vsftpd/src/ftp_acl_path_policy.h",
               "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c",
+              "trunk/user/vsftpd/src/ftp_account_auth_policy.h",
+              "trunk/user/vsftpd/src/tests/ftp_account_auth_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

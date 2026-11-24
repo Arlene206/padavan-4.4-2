@@ -1,8 +1,17 @@
+## 2026-11-24 — Read FTP credentials under one NVRAM transaction
+
+- `asus_getpwnam()` used separate single-key `nvram_get_int()` / `nvram_safe_get()` calls for account count, username and password. Each getter took and released the NVRAM lock independently, while add/delete/rename/password writers update the same multi-key inventory under `nvram_transaction_begin()`. A login concurrent with a writer could combine a username from one generation with a password from another (or briefly observe a newly published account with a stale tail-slot password).
+- Added a coherent credential snapshot under one exclusive NVRAM transaction. The reader checks the bounded account count, requires every active username slot to be present/nonempty, rejects duplicate matches, copies the matching nonempty password before releasing the shared cache, and fails closed if begin/get/end fails. All non-success paths clear the output password.
+- Added GNU89 ASan/UBSan regressions for the lock lifetime (including a simulated writer attempting to change the password between username and password reads), absent user, incomplete/ambiguous inventory, missing/empty password, malformed/overflowing count and transaction begin/end errors. The VSFTPD workflow path filters and exact-source checker cover the new header/test and the production NSS callback.
+- Parent main SHA: `7d589c2ea0a3f46356e8bc361d212f8a9b81776f`. Exact-head VSFTPD and AI handoff checks must be verified after the atomic commit. This source-only auth change makes no XY-C1 or physical-router validation claim.
+
+---
+
 ## 2026-11-24 — Align FTP share listing visibility with read permissions
 
 - `asus_check_permission_at(..., PERM_READ, ...)` already treated share-right 2 as write-only and denied directory access, but `asus_check_file_visible()` accepted every value >=1. A write-only user could see protected share directory names in parent listings even though CWD/read authorization denied access.
 - Added one fail-closed `ftp_acl_share_rights_allow_read()` rule and use it for both PERM_READ authorization and share-entry visibility. Only rights 1 (read) and 3 (read/write) are visible; 0, 2 (write-only), negative/error and unknown values are denied. Added GNU89 tests for 0, 1, 2, 3, -1 and 4, plus exact-source assertions for both production callsites.
-- Parent main SHA: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`. VSFTPD Stability and AI handoff checks must be verified on the resulting atomic commit. No target firmware build or physical-router validation is claimed.
+- Parent main SHA: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`. VSFTPD Stability #45505371869, AI handoff #45505371734, process inventory #45505371860 and NVRAM audit #45505371707 all PASS on source SHA 7d589c2. XY-C1 #45505371723 was still running at the last poll; no target firmware build or physical-router validation is claimed for this FTP-only slice.
 
 ---
 

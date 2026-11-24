@@ -6,18 +6,24 @@ Continue one autonomous engineering stream on `main`. For each logical slice, cr
 
 ## Branch and checkpoint
 
-- Parent main SHA for this handoff update: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`; refresh live refs before future writes.
+- Parent main SHA for this handoff update: `7d589c2ea0a3f46356e8bc361d212f8a9b81776f`; refresh live refs before future writes.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only.
 - `main` is the only development ref. PR #1 is closed/unmerged and must not be ported.
 - Bootstrap, protocol and handoff were recovered once; do not repeat startup audits without a new reason.
 
 ## Active task
 
-### Keep FTP share listing visibility consistent with read ACLs
+### Make FTP credential lookup transactionally consistent
 
-The canonical `PERM_READ` check denies share-right value 2 (write-only), but `asus_check_file_visible()` only rejected values below 1. A write-only account could therefore see a protected share directory in a parent LIST response even though CWD/read checks denied entry. Centralize the documented rights mapping (0=none, 1=read, 2=write, 3=read/write) in `ftp_acl_share_rights_allow_read()` and use it for both directory authorization and listing visibility. Unknown values fail closed. GNU89 regression cases cover 0, 1, 2, 3, -1 and 4; the existing VSFTPD stability workflow compiles the descriptor-relative ACL policy test and pins the exact source callsites. Parent main SHA: `07e7c3453ab02d25704c2d6770a1c30d06d771f3`; inspect the exact-head VSFTPD run after this atomic commit.
+`asus_getpwnam()` previously read `acc_num`, each `acc_usernameN` and `acc_passwordN` through separate `nvram_get_int()` / `nvram_safe_get()` calls. Each call released the shared NVRAM API lock after one key, while account writers publish count, username and password changes under a multi-key exclusive `nvram_transaction`. Login could therefore observe mixed credential generations during account add, remove, rename or password change.
+
+The reader now holds one `nvram_transaction_begin()` lease across the count, all active usernames and the matching password. Missing active usernames, duplicate matches, malformed/overflowing counts, missing/empty passwords and transaction begin/end failures all fail closed; the output password is cleared on every non-success path. A GNU89 host regression models a concurrent writer attempt and checks that it remains blocked while the credential pair is read, plus error and malformed-inventory cases. Parent main SHA: `7d589c2ea0a3f46356e8bc361d212f8a9b81776f`; inspect exact-head VSFTPD and AI docs checks after this atomic commit.
 
 ## Completed source slices
+
+### FTP share listing read-ACL consistency
+
+Commit `7d589c2ea0a3f46356e8bc361d212f8a9b81776f` made LIST visibility use the same documented read-right predicate as CWD/read authorization. Write-only (2) and unknown rights are no longer treated as readable merely because they are positive. VSFTPD Stability #45505371869 PASS on this exact SHA, including the GNU89 ACL policy regression and exact-source checks. AI handoff docs #45505371734, process inventory #45505371860 and NVRAM audit #45505371707 PASS. XY-C1 #45505371723 was still running at last poll.
 
 ### SSH daemon supported-mode validation
 
@@ -67,6 +73,15 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 - NVRAM transaction boundary audit #45504234041: PASS; raw userland NVRAM caller audit completed with no bypass finding.
 - No XY-C1 build was triggered for this SSH-only commit. The closest firmware validations are d096 #45502092732 and 6d #45503440356, both full Build/TRX/artifact PASS, but those results are tied to their exact source SHAs.
 
+### VSFTPD share-listing ACL SHA 7d589c2ea0a3f46356e8bc361d212f8a9b81776f
+
+- VSFTPD Stability #45505371869: PASS, including GNU89 ACL policy regression and exact-source read-right callsite checks.
+- AI handoff docs #45505371734: PASS.
+- Process lifecycle inventory #45505371860: PASS.
+- NVRAM transaction boundary audit #45505371707: PASS.
+- XY-C1 Firmware Validation #45505371723 was IN PROGRESS at last poll. Build, TRX verification and artifact upload must all pass on this same SHA before claiming L3.
+- No physical-router L4 validation is claimed.
+
 ### Firewall / checker SHA 2be0e5125bb29f01fc3a9a15fe8938a554387452
 
 - Firewall Startup Stability #45503784466: PASS. The exact-source checker and GNU89 ASan/UBSan VTS policy test passed, together with the other firewall policy checks.
@@ -77,9 +92,9 @@ Commit `786c504c8247fe42d5d1d5f2dc3ad28757fafc80` strictly parses persisted RX/T
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VSFTPD stability run for the write-only share visibility change. Confirm GNU89 ACL policy tests and exact-source listing/CWD consistency assertions pass; repair the first real failing step.
-2. Recheck exact-head AI handoff validation after the bundled checkpoint update. Prior source SHA 07e7 has Process/PID1/AI/NVRAM PASS; no XY-C1 was triggered for that source, so do not claim L3 for it.
-3. Continue a concrete uncovered stability/security defect across Padavan userland. Avoid reopening the verified SSH mode validation, VTS port reads, WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
+1. Inspect exact-head VSFTPD Stability and AI handoff documentation runs for the FTP credential snapshot change. Confirm the GNU89 ASan/UBSan regression and exact-source transaction contract pass; repair the first real failing step.
+2. Recheck XY-C1 #45505371723 for its original source SHA `7d589c2ea0a3f46356e8bc361d212f8a9b81776f`; claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on that identical SHA. Do not transfer it to newer auth source.
+3. Continue an uncovered stability/security defect across Padavan userland. Do not reopen the verified SSH mode validation or FTP listing ACL, VTS port reads, WAN baseline, USB modem retry, OpenVPN certificate parsing, QMI identity, Wireless, HTTPD, DNSMasq, WAN route/DHCP, process inventory or USB storage work absent a new failing case.
 4. Before any write, refresh live main and the frozen backup ref; before ending, refresh exact-SHA Actions and leave the first concrete next action.
 
 ## Mandatory handoff checkpoint

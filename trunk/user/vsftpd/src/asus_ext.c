@@ -5,6 +5,7 @@
 
 #include "asus_ext.h"
 #include "ftp_acl_path_policy.h"
+#include "ftp_account_auth_policy.h"
 #include "session.h"
 #include "ls.h"
 #include "tunables.h"
@@ -29,6 +30,32 @@
 #include <disk_share.h>
 
 #define HIDE_PARTITION_FILE ".hidden"
+
+static int
+asus_account_auth_nvram_begin(void *context)
+{
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+static int
+asus_account_auth_nvram_get(void *context, const char *name, char **value)
+{
+	return nvram_transaction_get((struct nvram_transaction *)context,
+				     name, value);
+}
+
+static int
+asus_account_auth_nvram_end(void *context)
+{
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+static const struct vsftpd_account_auth_nvram_ops
+asus_account_auth_nvram_ops = {
+	asus_account_auth_nvram_begin,
+	asus_account_auth_nvram_get,
+	asus_account_auth_nvram_end
+};
 
 int asus_share_mode_read(void)
 {
@@ -942,14 +969,15 @@ struct passwd *asus_getpwnam(const char *name)
 	static struct passwd resultbuf;
 	static char pw_name[VSFTP_USERNAME_MAX];
 	static char pw_passwd[VSFTP_PASSWORD_MAX];
-	char nvram_value[32];
-	char *tmp_user, *tmp_pass;
-	int acc_num, i;
+	struct nvram_transaction transaction;
+	int lookup_result;
 
 	if (!name)
 		return NULL;
 
-	if (strcmp(name, "root") == 0){
+	pw_passwd[0] = '\0';
+
+	if (strcmp(name, "root") == 0) {
 		strcpy(pw_name, name);
 		strcpy(pw_passwd, "*");
 		resultbuf.pw_name = pw_name;
@@ -960,46 +988,39 @@ struct passwd *asus_getpwnam(const char *name)
 		resultbuf.pw_dir = POOL_MOUNT_ROOT;
 		resultbuf.pw_shell = "/bin/false";
 		return &resultbuf;
-	}
-	else if(strcmp(name, "ftp") == 0){
+	} else if (strcmp(name, "ftp") == 0) {
 		strcpy(pw_name, name);
 		strcpy(pw_passwd, "*");
 		resultbuf.pw_name = pw_name;
 		resultbuf.pw_passwd = pw_passwd;
-		resultbuf.pw_uid = 99; // nobody
-		resultbuf.pw_gid = 99; // nogroup
+		resultbuf.pw_uid = 99; /* nobody */
+		resultbuf.pw_gid = 99; /* nogroup */
 		resultbuf.pw_gecos = pw_name;
 		resultbuf.pw_dir = POOL_MOUNT_ROOT;
 		resultbuf.pw_shell = "/bin/false";
 		return &resultbuf;
 	}
-	else {
-		acc_num = nvram_get_int("acc_num");
-		if (acc_num > MAX_ACCOUNT_NUM) acc_num = MAX_ACCOUNT_NUM;
-		for(i = 0; i < acc_num; i++){
-			sprintf(nvram_value, "acc_username%d", i);
-			tmp_user = nvram_safe_get(nvram_value);
-			sprintf(nvram_value, "acc_password%d", i);
-			tmp_pass = nvram_safe_get(nvram_value);
-			if (strcmp(name, tmp_user) == 0) {
-				if (strlen(name) >= sizeof(pw_name) ||
-				    strlen(tmp_pass) >= sizeof(pw_passwd))
-					return NULL;
-				strcpy(pw_name, name);
-				strcpy(pw_passwd, tmp_pass);
-				resultbuf.pw_name = pw_name;
-				resultbuf.pw_passwd = pw_passwd;
-				resultbuf.pw_uid = 99; // nobody
-				resultbuf.pw_gid = 99; // nogroup
-				resultbuf.pw_gecos = pw_name;
-				resultbuf.pw_dir = POOL_MOUNT_ROOT;
-				resultbuf.pw_shell = "/bin/sh";
-				return &resultbuf;
-			}
-		}
+
+	if (strnlen(name, sizeof(pw_name)) >= sizeof(pw_name))
+		return NULL;
+
+	lookup_result = vsftpd_account_auth_password_read(
+		&asus_account_auth_nvram_ops, &transaction, name,
+		MAX_ACCOUNT_NUM, pw_passwd, sizeof(pw_passwd));
+	if (lookup_result != 1) {
+		pw_passwd[0] = '\0';
+		return NULL;
 	}
 
-	return NULL;
+	strcpy(pw_name, name);
+	resultbuf.pw_name = pw_name;
+	resultbuf.pw_passwd = pw_passwd;
+	resultbuf.pw_uid = 99; /* nobody */
+	resultbuf.pw_gid = 99; /* nogroup */
+	resultbuf.pw_gecos = pw_name;
+	resultbuf.pw_dir = POOL_MOUNT_ROOT;
+	resultbuf.pw_shell = "/bin/sh";
+	return &resultbuf;
 }
 
 int
