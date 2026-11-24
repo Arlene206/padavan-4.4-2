@@ -15,6 +15,7 @@
 #include "mii_mgr.h"
 #include "mii_mgr_timeout_policy.h"
 #include "mii_mgr_indirect_policy.h"
+#include "mii_mgr_phy_address_policy.h"
 
 void set_an_polling(u32 an_status)
 {
@@ -185,6 +186,9 @@ u32 mii_mgr_read(u32 phy_addr, u32 phy_register, u32 *read_data)
 		return 0;
 	ei_local = netdev_priv(dev_raether);
 
+	if (mii_mgr_phy_address_status(phy_addr) != 0)
+		return 0;
+
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
 	      GE1_TRGMII_FORCE_2600)) && (phy_addr == 31)) {
@@ -217,6 +221,9 @@ u32 mii_mgr_write(u32 phy_addr, u32 phy_register, u32 write_data)
 	if (!dev_raether)
 		return 0;
 	ei_local = netdev_priv(dev_raether);
+
+	if (mii_mgr_phy_address_status(phy_addr) != 0)
+		return 0;
 
 	if ((ei_local->architecture &
 	     (GE1_RGMII_FORCE_1000 | GE1_TRGMII_FORCE_2000 |
