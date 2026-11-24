@@ -1,28 +1,26 @@
 ## Current repository state
 
-- Active branch: main; parent for this send-status correction: 02ddda76cf1e7ed315fc635794a55898c353413f. Frozen archive backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable. No PRs created.
-- QMI WDS/PDH teardown fix on b05eae9 has host L2 PASS and exact XY-C1 #45396493118 Build, TRX verification and artifact upload SUCCESS (L3 on that SHA).
-- Product DHCPRELEASE changes from 694732a had GNU89 PASS; checker-only correction 02ddda7 addressed a stale assertion and handoff-contract wording. Its exact-head udhcpc and AI docs workflows were queued at last poll.
-- DHCPDECLINE source on 4ca919b introduced DECLINE_PENDING, but its first source checker run exposed an obsolete direct schedule assertion. The follow-up also found an important syscall contract: packet.c send helpers return a positive byte count on success and -1 on failure. THIS commit changes the retry predicate to status < 0 and prevents false DHCPRELEASE failure logs.
-- Product-source XY-C1 #45399679681 for SHA 4ca919b was still pending at cache/build preparation; Build/TRX/artifact had not completed. The correction SHA requires its own exact-head host runs; product Build evidence remains tied to 4ca919b until a new run starts for this source change.
+- Active branch: `main`; parent for the DHCP policy test-runner correction: `4015869670026b37843d043045a9805cdead925b`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. No open PRs.
+- MTK AP private-ioctl, HTTPD selector and WAN source-PHY range fixes retain recorded exact-SHA L3 Build/TRX/artifact evidence. QMI WDS/PDH teardown on `b05eae9` has same-SHA XY-C1 Build/TRX/artifact PASS (L3). Physical-router L4 remains unverified.
+- DHCPDECLINE retry/send-result changes on `4ca919b` and follow-up `02ddda7` / `4015869`: packet send semantics are now correctly treated as failed only for negative return values. Python source contract and AI handoff contract were repaired; however exact udhcpc #45400399177 on `4015869` failed GNU89 compilation because `main()` still invoked the old test name after its function was renamed. This commit aligns the invocation with the renamed regression function.
+- On `4015869`, AI handoff #45400399146 PASS; Process lifecycle #45400399189 PASS. USB storage #45400399201, NVRAM #45400399144, XY-C1 #45400399157 and Process inventory #45400399232 were still running at last poll.
 
-## Active task — Verify packet send result semantics and DHCPDECLINE retry
+## Active task — Verify DHCPDECLINE retry and packet-send semantics
 
-- ARP conflict handling must send DHCPDECLINE before restarting address selection. Failed transmissions are retained in DECLINE_PENDING and retried only after any old lease deconfig succeeds.
-- BusyBox send helpers return bytes written on success; only negative status is failure. The shared udhcpc_packet_send_failed() predicate now drives DHCPDECLINE retry and DHCPRELEASE error logging, so successful positive-length packets do not stall or produce false errors.
-- Regression includes zero/positive success and negative failure plus retry-delay floor; Python checker covers saved server/address, deconfig ordering, pending resend and release status diagnostics. No local full checkout was used.
+- The current slice retains a failed DHCPDECLINE packet in `DECLINE_PENDING` and retries only after any prior lease deconfig succeeds.
+- BusyBox send helpers return positive byte counts on success and `-1` on failure. `udhcpc_packet_send_failed(status < 0)` drives both DECLINE retry and RELEASE diagnostics.
+- Exact-head compile failure was purely a stale test-runner function name: definition and source checker already use `test_failed_packet_send_blocks_dhcp_reselection_until_retry()`; `main()` still called `test_failed_dhcpdecline_blocks_reselection_until_retry()`. Updated that call; production code unchanged.
 
 ## Verification boundary
 
-- Exact SHA 4ca919b host binary passed, but its source checker failed on a stale assertion (corrected in 02ddda7). AI docs failed because SESSION_HANDOFF missed exact mandatory checkpoint wording; 02ddda7 corrected that too. The exact-head reruns for 02ddda7 were queued at last check.
-- This send-status correction requires exact-head udhcpc GNU89 ASan/UBSan, Python source contract, AI docs, Process/NVRAM and XY-C1 Build/TRX/artifact checks. Do not claim firmware L3 until the product-source SHA passes all three build/artifact steps.
-- DHCP server ARP conflict simulation and target MIPS/uClibc runtime L4 remain NOT VERIFIED.
+- Parent SHA `4015869670026b37843d043045a9805cdead925b`: AI handoff PASS, Process lifecycle PASS; udhcpc GNU89 ASan/UBSan compile failed on the stale test invocation name. The corrected commit must pass the exact-head regression and source contract.
+- Same-SHA XY-C1 Build/TRX/artifact are still required before L3 for DHCPDECLINE. DHCP server ARP-conflict simulation and target MIPS/uClibc runtime L4 remain unverified.
 
 ## Exact first action for the next GPT
 
-1. Query live main and exact-head Actions for this send-status correction; fix the first causal failure in udhcpc or AI docs.
-2. Poll XY-C1 for the relevant product-source SHA; if it fails, inspect the Build log and repair the source.
-3. Continue another independent high-priority userland stability/security defect without re-auditing QMI, DHCPRELEASE, SYN-cookie, MTK or HTTPD completed work.
+1. Fetch live `main` and query exact-head Actions for the test-runner correction.
+2. Verify the udhcpc GNU89 ASan/UBSan binary and Python source contract; fix any causal failure atomically.
+3. Check XY-C1 Build/TRX/artifact and the USB/NVRAM/Process runs for the same production SHA, then continue an independent stability/security defect. XUPnP's two-file Lua configuration publication still needs a rollback-capable pair transaction.
 
 ## Mandatory handoff checkpoint
 

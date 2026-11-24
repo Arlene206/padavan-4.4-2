@@ -1,3 +1,11 @@
+## 2026-11-24 — Fix stale DHCPDECLINE regression invocation
+
+- Exact SHA `4015869` udhcpc workflow #45400399177 failed GNU89 compilation: the regression was renamed to `test_failed_packet_send_blocks_dhcp_reselection_until_retry()`, but `main()` still invoked the removed `test_failed_dhcpdecline_blocks_reselection_until_retry()` name. This also triggered an unused-function error for the new definition.
+- Updated the test runner to invoke the existing renamed function. Production DHCP code and source-contract assertions were already aligned; this is a regression-harness compile fix.
+- On parent `4015869`, AI handoff #45400399146 and Process lifecycle #45400399189 PASS. USB storage, NVRAM audit, XY-C1 and Process inventory were pending at the last poll.
+
+---
+
 ## 2026-11-24 — Honor sendto byte-count semantics in DHCP retries
 
 - Review of BusyBox packet.c confirmed udhcp_send_raw_packet() and udhcp_send_kernel_packet() return sendto()/safe_write() byte counts on success and -1 on failure. The new DHCPDECLINE retry predicate initially treated every nonzero result as an error, which would have retried successful transmissions forever. The recent perform_release() diagnostic similarly mislabeled successful DHCPRELEASE sends as failures.
