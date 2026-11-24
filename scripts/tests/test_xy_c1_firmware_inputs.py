@@ -285,6 +285,32 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertEqual(paths, [".github/workflows/xy-c1-firmware-validation.yml"])
         self.assertIn("production inputs changed", reason)
 
+    def test_web_ui_asset_push_triggers_firmware_build(self):
+        calls = []
+        def fake_git(args):
+            calls.append(args)
+            if args[:2] == ["rev-parse", "HEAD"]:
+                return result(args, stdout=AFTER + "\\n")
+            if args[0] == "fetch":
+                return result(args)
+            if args[0] == "diff":
+                return result(args, stdout=(
+                    "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp\\0"
+                    "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js\\0"
+                ))
+            self.fail("unexpected git args: " + repr(args))
+
+        changed, paths, reason = decide_firmware_build(
+            "push", BEFORE, AFTER, fake_git
+        )
+        self.assertTrue(changed)
+        self.assertEqual(paths, [
+            "trunk/user/www/n56u_ribbon_fixed/Advanced_WAN_Content.asp",
+            "trunk/user/www/n56u_ribbon_fixed/disk_folder_tree.js",
+        ])
+        self.assertIn("production inputs changed", reason)
+        self.assertEqual(calls[2][:3], ["diff", "--name-only", "--no-renames"])
+
     def test_documentation_only_push_skips_build(self):
         def fake_git(args):
             if args[:2] == ["rev-parse", "HEAD"]:

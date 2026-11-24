@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "Makefile"
+      - "trunk/user/www/**"
       - "scripts/install_musl_queue_header.sh"
       - "scripts/tests/test_install_musl_queue_header.py"
       - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
