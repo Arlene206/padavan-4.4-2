@@ -377,3 +377,16 @@ assert "unregister_netdev(dev);" not in napi_uninit
 assert "free_netdev(dev);" not in napi_uninit
 assert napi_remove < napi_remove_end
 print("RAETH ndo_uninit unregisters every configured NAPI instance before its dummy netdev is freed: PASS")
+
+# The MT7622 switch's regulator/pin state is paired with open even when
+# PHY setup or IRQ registration fails after the switch has been initialized.
+switch_init_branch = open_body.index("err = fe_sw_init();")
+switch_init_cleanup = open_body.index("fe_sw_deinit(ei_local);", switch_init_branch)
+switch_init_return = open_body.index("return err;", switch_init_cleanup)
+assert switch_init_branch < switch_init_cleanup < switch_init_return
+irq_open_branch = open_body.index("err = fe_int_enable(dev);")
+irq_open_cleanup = open_body.index("fe_sw_deinit(ei_local);", irq_open_branch)
+irq_open_return = open_body.index("return err;", irq_open_cleanup)
+assert irq_open_branch < irq_open_cleanup < irq_open_return
+assert open_body.count("fe_sw_deinit(ei_local);") == 2
+print("MT7622 switch deinit is paired with switch and IRQ setup failures: PASS")

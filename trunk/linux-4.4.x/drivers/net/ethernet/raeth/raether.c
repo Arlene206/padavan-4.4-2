@@ -2702,6 +2702,8 @@ int ei_open(struct net_device *dev)
 		if (err) {
 			fe_reset();
 			ei_deinit_dma(dev);
+			if (ei_local->chip_name == MT7622_FE)
+				fe_sw_deinit(ei_local);
 			module_put(THIS_MODULE);
 			return err;
 		}
@@ -2778,6 +2780,8 @@ int ei_open(struct net_device *dev)
 		}
 		fe_reset();
 		ei_deinit_dma(dev);
+		if (ei_local->chip_name == MT7622_FE)
+			fe_sw_deinit(ei_local);
 		module_put(THIS_MODULE);
 		return err;
 	}
