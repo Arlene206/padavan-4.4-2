@@ -1,6 +1,6 @@
 ## Current repository state
 
-- Active branch: `main`; this checkpoint follows parent `79c278b3f12cd95db5880052c95e912d482e96c5`, which corrected a stale Clause 22 source-contract anchor and restored the handoff rule `Before context exhaustion`. Re-read the live branch before any further write because concurrent sessions advance `main`.
+- Active branch: `main` at `a8284ea16840ffbd10f3c0444e68a829bfc7d9d5`. This commit fixed the Clause 22 indirect-write source contract; exact-head Switch CLI #45441278142 PASS. AI handoff #45441278100 failed because `REFACTOR_ROADMAP.md` exceeded the 128 KiB validator limit by 380 bytes; the P1 USB checked-read historical entry was compressed without changing its technical outcome. Re-read live main before any further write.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; its marker explicitly prohibits mutation. Legacy PR #1 remains closed and unmerged.
 - Main-only development: each logical task is one atomic main commit, create all blobs + one complete tree + one commit, then non-forced expected-SHA compare-and-swap. No side branches, PRs or force pushes.
 - RC firewall startup readiness source SHA `7ca46fc7049f3380755f6b2fe5073d86727c6382` is L3 VERIFIED by same-SHA XY-C1 Build/TRX/artifact #45434352284. Hardware L4 remains NOT VERIFIED.
@@ -21,6 +21,11 @@
 - This commit's GNU89 FTP policy binary and source integration contract are pending exact-head VSFTPD/Storage Actions; no local checkout/build was available. Current-head L3 is NOT VERIFIED until its exact XY-C1 Build, TRX and artifact upload all PASS. Physical-device L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
+
+1. Query AI handoff after this roadmap size correction; confirm byte-size and live-handoff validation PASS. Recheck XY-C1 #45441167736 for source SHA `7ff02de99fc676e0262b7c5770356b1e31bda758` (FTP firewall reconciliation) and inspect Build/TRX/artifact individually.
+2. Inspect HTTPD Authentication/Security run #45441167757 on `7ff02de`; read its job log and distinguish source regression from test-contract failure before editing. The exact run was FAILED at last poll.
+3. Close the Clause 22 indirect-range exact-head validation on the latest main, including Switch CLI #45441278142 PASS and this new docs result. Then proceed with the highest-risk open fix.
+
 
 1. Inspect exact-head VSFTPD configuration/lifecycle, Storage Hotplug, AI handoff, NVRAM and XY-C1 Actions triggered by THIS COMMIT. Confirm the new stop-gate tests and the post-stop reconciler source contract pass.
 2. If a checker fails, inspect the first exact-SHA causal log and fix the stale assertion without weakening coverage. If XY-C1 Build fails, diagnose the first compiler error; L3 requires Build, TRX and artifact on the same SHA.

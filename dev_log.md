@@ -1,3 +1,11 @@
+## 2026-11-25 00:46 CST (UTC+8) — Fit active roadmap within the handoff validator limit
+
+- AI handoff #45441278100 on exact main `a8284ea16840ffbd10f3c0444e68a829bfc7d9d5` failed only in live handoff/roadmap validation: the roadmap was 131,452 UTF-8 bytes, 380 bytes above the 131,072-byte cap. Switch CLI #45441278142 PASS.
+- Compressed one stale, over-detailed historical USB checked-read bullet, preserving the checked selectors, absent-key compatibility, error aggregation, regression coverage and DHCP/DDNS persistence outcomes. The roadmap is now 130288 UTF-8 bytes.
+- Parent `7ff02de` FTP firewall reconciliation source change passed FTP, USB storage, Process, Firewall, Samba, NFS, MiniDLNA, Firefly and storage-enable checks; XY-C1 #45441167736 remained in progress. HTTPD Authentication/Security #45441167757 failed; inspect its job log before deciding whether source or checker needs correction.
+
+---
+
 ## 2026-11-24 — Reconcile FTP firewall state after every confirmed stop
 
 - Found a concrete VSFTPD lifecycle gap in `restart_ftpd()`: after `stop_ftp_locked()` succeeded, `control_ftp_fw()` ran only inside the mounted-storage + successful-relaunch branch. If storage was absent, mount inventory failed, or `run_ftp()` failed, a transition from RUNNING to ABSENT bypassed firewall/UPnP reconciliation and could leave stale FTP rules.
