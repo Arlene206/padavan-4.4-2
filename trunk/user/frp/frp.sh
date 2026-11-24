@@ -225,14 +225,41 @@ frp_manage_watchdog_cron()
 
 		[ "$FRP_CRONTAB_DIR" = "$FRP_CRON_ROOT/crontabs" ] || exit 1
 		frp_cron_root_parent="${FRP_CRON_ROOT%/*}"
-		[ -d "$frp_cron_root_parent" ] && [ ! -L "$frp_cron_root_parent" ] || exit 1
-		[ -d "$FRP_CRON_ROOT" ] && [ ! -L "$FRP_CRON_ROOT" ] || exit 1
-		[ -d "$FRP_CRONTAB_DIR" ] && [ ! -L "$FRP_CRONTAB_DIR" ] || exit 1
+		frp_cron_uid=$(id -u) || exit 1
+		frp_validate_cron_directory()
+		{
+			frp_validate_dir="$1"
+			[ -d "$frp_validate_dir" ] && [ ! -L "$frp_validate_dir" ] || return 1
+			frp_validate_dir_info=$(stat -c '%u %a' "$frp_validate_dir") || return 1
+			set -- $frp_validate_dir_info
+			[ "$#" -eq 2 ] && [ "$1" = "$frp_cron_uid" ] || return 1
+			case "$2" in ''|*[!0-7]*) return 1 ;; esac
+			frp_validate_dir_mode=$((0$2))
+			[ $((frp_validate_dir_mode & 0022)) -eq 0 ]
+		}
+		# A writable ancestor can redirect the cron directory or staged files.
+		frp_validate_cron_directory "$frp_cron_root_parent" || exit 1
+		frp_validate_cron_directory "$FRP_CRON_ROOT" || exit 1
+		frp_validate_cron_directory "$FRP_CRONTAB_DIR" || exit 1
 		frp_cron_file="$FRP_CRONTAB_DIR/$http_username"
 		if [ -L "$frp_cron_file" ] ||
 		   { [ -e "$frp_cron_file" ] && [ ! -f "$frp_cron_file" ]; }; then
 			logger -t "frp" "拒绝修改非普通文件或符号链接crontab。"
 			exit 1
+		fi
+		if [ -e "$frp_cron_file" ]; then
+			frp_cron_file_info=$(stat -c '%u %a %h' "$frp_cron_file") || exit 1
+			set -- $frp_cron_file_info
+			[ "$#" -eq 3 ] && [ "$1" = "$frp_cron_uid" ] && [ "$3" = 1 ] || {
+				logger -t "frp" "crontab所有者或硬链接数不安全，拒绝导入现有任务。"
+				exit 1
+			}
+			case "$2" in ''|*[!0-7]*) exit 1 ;; esac
+			frp_cron_file_mode=$((0$2))
+			[ $((frp_cron_file_mode & 0022)) -eq 0 ] || {
+				logger -t "frp" "crontab允许组或其他用户写入，拒绝导入现有任务。"
+				exit 1
+			}
 		fi
 		if [ "$frp_cron_action" = "remove" ] &&
 		   [ ! -e "$frp_cron_file" ] && [ ! -L "$frp_cron_file" ]; then

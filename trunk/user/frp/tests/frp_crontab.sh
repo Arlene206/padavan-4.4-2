@@ -117,6 +117,30 @@ expect_has_line "$crontab" '@reboot /usr/local/sbin/frp-backup'
 expect_has_line "$crontab" '# operator note: frp maintenance is independent'
 expect_no_stage
 
+# Unsafe directory ownership/modes and existing files must not be imported.
+before=$(cat "$crontab")
+chmod 0777 "$FRP_CRONTAB_DIR"
+if frp_manage_watchdog_cron add; then fail "world-writable crontab directory was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "writable crontab directory changed the published file"
+chmod 0755 "$FRP_CRONTAB_DIR"
+chmod 0777 "$FRP_CRON_ROOT"
+if frp_manage_watchdog_cron add; then fail "world-writable cron root was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "writable cron root changed the published file"
+chmod 0755 "$FRP_CRON_ROOT"
+chmod 0777 "$test_root"
+if frp_manage_watchdog_cron add; then fail "world-writable cron parent was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "writable cron parent changed the published file"
+chmod 0700 "$test_root"
+chmod 0666 "$crontab"
+if frp_manage_watchdog_cron add; then fail "world-writable existing crontab was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "unsafe existing crontab was modified"
+chmod 0600 "$crontab"
+ln "$crontab" "$test_root/crontab-hardlink"
+if frp_manage_watchdog_cron add; then fail "hard-linked existing crontab was accepted"; fi
+[ "$(cat "$crontab")" = "$before" ] || fail "hard-linked crontab was modified"
+rm -f "$test_root/crontab-hardlink"
+echo "FRP crontab ownership, directory and hard-link checks fail closed: PASS"
+
 # Failed script startup never changes the user's scheduled jobs.
 frpc_enable=1
 FRP_RUN_STATUS=7

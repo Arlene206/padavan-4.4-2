@@ -75,7 +75,10 @@ for marker in ("client-only configuration", "server-only configuration",
 
 cron = function_body(source, "frp_manage_watchdog_cron()")
 for marker in ("add|remove", "A-Za-z0-9_.-", "FRP_CRONTAB_DIR", "FRP_CRON_ROOT",
-               "mktemp", "umask 077", "awk -v managed=", "chmod 0600", "mv -f"):
+               "mktemp", "umask 077", "awk -v managed=", "chmod 0600", "mv -f",
+               "frp_validate_cron_directory", "stat -c '%u %a'",
+               "stat -c '%u %a %h'", "frp_cron_uid", "0022",
+               '[ "$3" = 1 ]'):
     require(marker in cron, f"managed FRP crontab transaction omits {marker}")
 require("sed -i '/frp/d'" not in source and "cat >> /etc/storage/cron/crontabs/" not in source,
         "FRP must not delete arbitrary cron entries using substring matching")
@@ -146,7 +149,11 @@ for marker in ("frp_start", "frp_close", "operator", "path-traversal",
                "disabled start executed the custom FRP script",
                "server-only start did not invoke the custom script once",
                'FRP_PROC_ROOT="$test_root/proc"',
-               'mkdir -p "$FRP_CRONTAB_DIR" "$FRP_PROC_ROOT"'):
+               'mkdir -p "$FRP_CRONTAB_DIR" "$FRP_PROC_ROOT"',
+               "world-writable crontab directory", "world-writable cron root",
+               "world-writable cron parent", "world-writable existing crontab",
+               "hard-linked existing crontab",
+               "FRP crontab ownership, directory and hard-link checks fail closed: PASS"):
     require(marker in cron_test, f"FRP managed crontab regression omits {marker}")
 
 
