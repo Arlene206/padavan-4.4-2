@@ -1,3 +1,13 @@
+## 2026-11-24 — Close stale HTTPD lease-parser contract; refresh exact validation status
+
+- Commit 7c77568b8148c31604b107972c2d8427e6b04d5d updates the duplicate HTTPD static checker to the current canonical LAN DHCP lease callback. The old assertion demanded a raw 0..INT_MAX parser that was intentionally removed; the checker now requires `lan_dhcp_effective_lease_seconds()`, canonical parsed assignment, the shared one-hour default and the matching regression test, and forbids the obsolete expression.
+- Exact-head HTTPD Authentication and Security #45495732037: PASS on 7c77568b8148c31604b107972c2d8427e6b04d5d. AI handoff documentation #45495731574: PASS on the same SHA.
+- Parent product-source SHA 402fc1cc455490c9c678be28966bf30f5597e1e3: BusyBox udhcpc event-script stability #45495287614 PASS; WAN DHCP callback state stability #45495287778 PASS; AI handoff #45495287791 PASS. HTTPD #45495287685 failed due the stale duplicated source assertion and was superseded by the corrected passing run above.
+- XY-C1 Firmware Validation #45495287536 remains IN_PROGRESS at Build XY-C1 on 402fc; TRX verification and artifact upload have not been confirmed. Do not claim L3 until all three steps PASS on this one source SHA.
+- No MIPS/uClibc runtime or physical-router L4 validation is claimed.
+
+---
+
 ## 2026-11-24 — Keep LAN NVRAM lease duration identical to the udhcpc timer
 
 - `udhcpc_lan_bound()` previously stored `lease=0` when the option was absent, even though BusyBox armed a 3600-second lease. It also persisted the unnormalized raw option although the client clamps values below 16 seconds and caps values at/above `0x10000000` to `0x0fffffff`. Non-four-byte DHCP lease options are treated as absent by `udhcp_get_option32()`, so the script environment must use the same validity test rather than formatting the raw option.

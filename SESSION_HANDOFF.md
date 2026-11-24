@@ -13,11 +13,12 @@ Continue one autonomous engineering stream on main. For each logical source/test
 
 ## Active task
 
-### Active LAN DHCP lease-duration parity — normalize the script value at its source
+### LAN DHCP lease-duration parity — source and regression slice PASS; firmware gate pending
 
-BusyBox now uses one `udhcpc_lease_time_effective()` policy for its ACK timer and `lease=` event-script export. The LAN callback defaults missing metadata to 3600 and accepts only canonical 16..268435455 values before publishing `lan_lease_t`. Regression coverage checks absent/short/large/malformed/multi-value input.
+The BusyBox source now shares one `udhcpc_lease_time_effective()` policy for its ACK timer and `lease=` event-script export. The LAN callback defaults missing metadata to 3600 and accepts only canonical 16..268435455 values before publishing `lan_lease_t`. Regression tests cover missing/short/large/malformed/multi-value inputs.
 
-Exact-head on SHA 402fc1cc455490c9c678be28966bf30f5597e1e3: udhcpc event-script workflow #45495287614 PASS; WAN DHCP callback workflow #45495287778 PASS; AI handoff #45495287791 PASS. HTTPD Authentication and Security #45495287685 FAILED only because its duplicated static assertion still required the removed raw lease parser; the HTTPD workflow contract is being corrected in this follow-up. XY-C1 #45495287536 reached Build XY-C1 but remained IN_PROGRESS; TRX and artifact upload were still pending. Do not claim firmware L3 until all pass on one SHA. Target MIPS/uClibc runtime and physical-router L4 remain unverified.
+On source SHA 402fc1cc455490c9c678be28966bf30f5597e1e3, exact-head BusyBox udhcpc event-script workflow #45495287614 and WAN DHCP callback workflow #45495287778 both PASS. The duplicated HTTPD workflow assertion initially failed because it still expected the removed raw parser; corrected workflow and source contract now PASS as HTTPD #45495732037 on child SHA 7c77568b8148c31604b107972c2d8427e6b04d5d. AI handoff contract #45495731574 also PASS on 7c77568. The XY-C1 build #45495287536 belongs to source SHA 402fc and remains in Build XY-C1; TRX verification and artifact upload are pending. No firmware L3 claim yet. Target MIPS/uClibc runtime and physical-router L4 remain unverified.
+
 
 ### SCUT watchdog auth-marker reader trust boundary
 
@@ -49,6 +50,12 @@ dhcpc.c passes the client state to the server-ID filter. Outside REBINDING, NAKs
 The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenly built with an empty tree base and omitted unrelated paths. This was detected by inspecting GitHub commit stats before claiming validation. Non-forced recovery commit 717f983f07434cd78a4ad00ebdb944b8f6d30fa5 restored the complete root tree from the actual parent and retained the four intended DHCP files. REST compare from original main 054ff22bf517a45bf29f2da21963a4206f8b3b83 to 717 confirmed exactly those four paths changed. Do not rewrite or erase intermediate history. For future Git Data API commits, fetch the live main commit's commit.tree.sha and use it as base_tree_sha.
 
 ## Verification boundary
+
+### Exact source SHA 7c77568b8148c31604b107972c2d8427e6b04d5d
+
+- HTTPD Authentication and Security Regression #45495732037: PASS; this run validates the corrected duplicate LAN DHCP source contract.
+- AI handoff documentation contract #45495731574: PASS.
+- No firmware build was triggered for this workflow/doc-only child; the product-source validation remains tied to 402fc1cc455490c9c678be28966bf30f5597e1e3.
 
 ### Exact source SHA 402fc1cc455490c9c678be28966bf30f5597e1e3
 
@@ -101,11 +108,11 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Check the HTTPD Authentication and Security run triggered by this checker correction; verify the updated LAN callback contract now passes and inspect any remaining failure from its exact log.
-2. Check XY-C1 Firmware Validation #45495287536 on parent SHA 402fc1cc455490c9c678be28966bf30f5597e1e3 and then the new exact-head run. Build, TRX verification and artifact upload must all PASS on one source SHA for L3.
-3. Continue LAN DHCP/AP-mode transition review (leasefail, NAK/deconfig sequencing, renewal/expiry) without reopening the completed DHCPNAK REBINDING server-identity fix. Target MIPS/uClibc runtime and physical-router L4 remain open.
-4. The BusyBox udhcpc event-script #45495287614, WAN DHCP callback #45495287778 and AI handoff #45495287791 all PASS on SHA 402fc1cc455490c9c678be28966bf30f5597e1e3. Do not re-audit these green gates absent a material source change.
-5. Before context exhaustion, checkpoint exact main SHA, all exact-head Actions and the next concrete task.
+1. Poll XY-C1 Firmware Validation #45495287536 on source SHA 402fc1cc455490c9c678be28966bf30f5597e1e3. Confirm Build XY-C1, TRX verification and artifact upload independently. Only claim L3 when all three pass on this exact source SHA; if still PENDING, continue independent work.
+2. The LAN lease parity slice is covered by udhcpc #45495287614 PASS and WAN DHCP callback #45495287778 PASS on 402fc. The stale HTTPD static assertion was corrected and HTTPD #45495732037 PASS, AI docs #45495731574 PASS on 7c77568b8148c31604b107972c2d8427e6b04d5d. Do not repeat these green tests absent relevant source changes.
+3. Continue LAN DHCP/AP-mode transition and stop/retry edge cases only where a concrete untested failure is found (leasefail, NAK/deconfig, expiry/reacquisition). Keep the closed DHCPNAK REBINDING server-identity fix closed. Target MIPS/uClibc runtime and physical L4 remain open.
+4. Then move to an uncovered stability/security defect elsewhere in Padavan userland; do not loop back through completed QMI, Wireless, process, WAN teardown or HTTPD audits.
+5. Before context exhaustion, refresh main/backup refs and exact-head Actions, then checkpoint the exact commit SHA and first actionable next task.
 
 ## Mandatory handoff checkpoint
 
