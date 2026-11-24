@@ -489,6 +489,31 @@ require("disk_share_open_mount_directory(mount_path)" in modify_wrapper_compact 
 
 
 
+rollback_permission_writer = function_body(
+    DISK_SOURCE, "disk_share_update_folder_permission_file(const char *mount_path,"
+)
+rollback_permission_writer_compact = "".join(rollback_permission_writer.split())
+rollback_open = rollback_permission_writer_compact.index(
+    "disk_share_open_mount_directory(mount_path)"
+)
+rollback_read = rollback_permission_writer_compact.index(
+    "read_regular_file_nofollow_at(directory_fd,var_leaf)", rollback_open
+)
+rollback_rewrite = rollback_permission_writer_compact.index(
+    "disk_share_permission_rewrite(var_info,target,replacement,&updated_info,&updated_len)",
+    rollback_read
+)
+rollback_publish = rollback_permission_writer_compact.index(
+    "disk_share_replace_file_atomic_at(directory_fd,var_leaf,updated_info,updated_len)",
+    rollback_rewrite
+)
+rollback_close = rollback_permission_writer_compact.index("close(directory_fd)", rollback_publish)
+require(rollback_open < rollback_read < rollback_rewrite < rollback_publish < rollback_close and
+        "read_regular_file_nofollow(" not in rollback_permission_writer_compact and
+        "disk_share_replace_file_atomic(" not in rollback_permission_writer_compact and
+        "disk_share_format_account_var_path" not in rollback_permission_writer_compact,
+        "rollback ACL rewrites must read and atomically replace metadata through one pinned mount descriptor")
+
 stale_pruner = function_body(
     DISK_SOURCE, "remove_stale_share_var_files("
 )

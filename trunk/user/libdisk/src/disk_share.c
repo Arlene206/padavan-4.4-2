@@ -2409,175 +2409,32 @@ static int
 disk_share_update_folder_permission_file(const char *mount_path,
                                          const char *account,
                                          const char *target,
-                                         const char *replacement);
-
-int add_folder(const char *const mount_path, const char *const folder)
+                                         const char *replacement)
 {
-	int result, saved_errno, transaction_started = 0, directory_created = 0;
-	int permission_init_started = 0, rollback_error = 0;
-	int acc_num = 0, i;
-	char **account_list = NULL;
-	struct nvram_transaction transaction;
-	size_t mount_len, folder_len, full_len, target_len;
-	char *full_path = NULL, *target = NULL;
-	mode_t old_umask;
+	char var_leaf[64];
+	char *var_info = NULL, *updated_info = NULL;
+	size_t updated_len = 0;
+	int directory_fd = -1, leaf_len, saved_errno;
 
-	if (!mount_path || !*mount_path || !is_valid_folder_name(folder)) {
+	if (!mount_path || !*mount_path || !is_valid_account_name(account) ||
+	    !target) {
 		errno = EINVAL;
 		return -1;
 	}
-
-	/*
-	 * Capture the account list before mutation, then revalidate it after
-	 * acquiring the same writer lease used by account add/delete/rename.
-	 */
-	if (get_account_list(&acc_num, &account_list) != 0)
-		return -1;
-
-	mount_len = strlen(mount_path);
-	folder_len = strlen(folder);
-	if (mount_len > (size_t)-1 - 2 ||
-	    folder_len > (size_t)-1 - mount_len - 2) {
+	leaf_len = snprintf(var_leaf, sizeof(var_leaf), ".__%s_var.txt", account);
+	if (leaf_len < 0 || (size_t)leaf_len >= sizeof(var_leaf)) {
 		errno = ENAMETOOLONG;
-		goto failed;
-	}
-	full_len = mount_len + 1 + folder_len;
-	full_path = (char *)malloc(full_len + 1);
-	if (!full_path)
-		goto failed;
-	memcpy(full_path, mount_path, mount_len);
-	full_path[mount_len] = '/';
-	memcpy(full_path + mount_len + 1, folder, folder_len + 1);
-
-	target_len = folder_len + 2;
-	if (target_len == (size_t)-1) {
-		errno = ENAMETOOLONG;
-		goto failed;
-	}
-	target = (char *)malloc(target_len + 1);
-	if (!target)
-		goto failed;
-	target[0] = '*';
-	memcpy(target + 1, folder, folder_len);
-	target[target_len - 1] = '=';
-	target[target_len] = '\0';
-
-	if (disk_share_account_nvram_begin(&transaction) != 0)
-		goto failed;
-	transaction_started = 1;
-	if (disk_share_account_inventory_matches_locked(
-		    &disk_share_account_nvram_operations, &transaction,
-		    acc_num, MAX_ACCOUNT_NUM, account_list) != 0)
-		goto failed;
-
-	/* A failed folder-list read is an error, not evidence of a free name. */
-	result = test_if_exist_folder_in_mount_path(mount_path, folder);
-	if (result != 0) {
-		if (result > 0)
-			errno = EEXIST;
-		goto failed;
-	}
-
-	old_umask = umask(0000);
-	result = mkdir(full_path, 0777);
-	(void)umask(old_umask);
-	if (result != 0)
-		goto failed;
-	directory_created = 1;
-
-	/* Publish the live directory before initializing its permission records. */
-	if (initial_folder_list_in_mount_path(mount_path) != 0)
-		goto failed;
-
-	/* Reuse the already-validated inventory; do not nest an NVRAM read lock. */
-	permission_init_started = 1;
-	if (create_if_no_var_files_with_accounts(
-		    mount_path, acc_num, account_list) != 0)
-		goto failed;
-
-	free(target);
-	free(full_path);
-	free_2_dimension_list(&acc_num, &account_list);
-	errno = 0;
-	if (disk_share_account_nvram_end(&transaction) != 0)
 		return -1;
-	return 0;
-
-failed:
-	saved_errno = errno ? errno : EIO;
-	if (directory_created) {
-		int remove_result, remove_errno;
-
-		remove_result = rmdir(full_path);
-		remove_errno = errno;
-		if (!disk_share_folder_rollback_can_remove_permissions(
-			    remove_result, remove_errno)) {
-			if (rollback_error == 0)
-				rollback_error = remove_errno ? remove_errno : EIO;
-			logmessage("disk_share",
-				   "cannot roll back new share directory %s (errno %d)",
-				   full_path, remove_errno ? remove_errno : EIO);
-		} else if (permission_init_started) {
-			/*
-			 * Some account files may already contain the new permission
-			 * row. Remove it from every known file when rolling the folder
-			 * back so a later re-create cannot inherit partial state.
-			 */
-			for (i = 0; i < acc_num; ++i) {
-				if (disk_share_update_folder_permission_file(
-					    mount_path, account_list[i], target, NULL) != 0 &&
-				    rollback_error == 0)
-					rollback_error = errno ? errno : EIO;
-			}
-			if (disk_share_update_folder_permission_file(
-				    mount_path, FTP_ANONYMOUS_USER, target, NULL) != 0 &&
-			    rollback_error == 0)
-				rollback_error = errno ? errno : EIO;
-		}
-
-		/* Rebuild from disk whether rmdir succeeded or had to be abandoned. */
-		if (initial_folder_list_in_mount_path(mount_path) != 0 &&
-		    rollback_error == 0)
-			rollback_error = errno ? errno : EIO;
 	}
-	if (rollback_error != 0) {
-		logmessage("disk_share",
-			   "share folder creation rollback incomplete (errno %d)",
-			   rollback_error);
-		saved_errno = EIO;
-	}
-	free(target);
-	free(full_path);
-	free_2_dimension_list(&acc_num, &account_list);
-	if (transaction_started) {
-		errno = 0;
-		if (disk_share_account_nvram_end(&transaction) != 0)
-			logmessage("disk_share",
-				   "folder creation transaction release failed (errno %d)",
-				   errno ? errno : EIO);
-	}
-	errno = saved_errno;
-	return -1;
-}
-
-static int
-disk_share_update_folder_permission_file(const char *mount_path,
-                                         const char *account,
-                                         const char *target,
-                                         const char *replacement)
-{
-	char var_file[256];
-	char *var_info = NULL, *updated_info = NULL;
-	size_t updated_len = 0;
-	int saved_errno;
-
-	if (disk_share_format_account_var_path(var_file, sizeof(var_file),
-	                                       mount_path, account) != 0)
+	directory_fd = disk_share_open_mount_directory(mount_path);
+	if (directory_fd < 0)
 		return -1;
 
-	var_info = read_regular_file_nofollow(var_file);
+	var_info = read_regular_file_nofollow_at(directory_fd, var_leaf);
 	if (!var_info) {
 		saved_errno = errno ? errno : EIO;
+		if (close(directory_fd) != 0 && saved_errno == ENOENT)
+			saved_errno = errno ? errno : EIO;
 		if (saved_errno == ENOENT) {
 			errno = 0;
 			return 0;
@@ -2590,6 +2447,8 @@ disk_share_update_folder_permission_file(const char *mount_path,
 	                                  &updated_info, &updated_len) != 0) {
 		saved_errno = errno ? errno : EIO;
 		free(var_info);
+		if (close(directory_fd) != 0 && saved_errno == ENOENT)
+			saved_errno = errno ? errno : EIO;
 		if (saved_errno == ENOENT) {
 			errno = 0;
 			return 0;
@@ -2598,17 +2457,20 @@ disk_share_update_folder_permission_file(const char *mount_path,
 		return -1;
 	}
 
-	if (disk_share_replace_file_atomic(var_file, updated_info,
-	                                   updated_len) != 0) {
+	if (disk_share_replace_file_atomic_at(
+		    directory_fd, var_leaf, updated_info, updated_len) != 0) {
 		saved_errno = errno ? errno : EIO;
 		free(var_info);
 		free(updated_info);
+		(void)close(directory_fd);
 		errno = saved_errno;
 		return -1;
 	}
 
 	free(var_info);
 	free(updated_info);
+	if (close(directory_fd) != 0)
+		return -1;
 	return 0;
 }
 
