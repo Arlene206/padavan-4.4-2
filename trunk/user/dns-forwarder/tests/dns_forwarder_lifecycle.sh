@@ -7,7 +7,8 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/dns-forwarder-lifecycle.XXXXXX")
 trap 'rm -rf "$tmp"' 0 HUP INT TERM
 
 mkdir -m 700 "$tmp/lock" "$tmp/bin"
-sed "s@/tmp/.dns-forwarder.lifecycle.lock@$tmp/lock/.lock@" \
+sed -e "s@/tmp/.dns-forwarder.lifecycle.lock@$tmp/lock/.lock@" \
+  -e 's@kill -TERM "$dns_forwarder_pid"@fake_kill -TERM "$dns_forwarder_pid"@' \
   "$source_script" > "$tmp/dns-forwarder.sh"
 chmod 700 "$tmp/dns-forwarder.sh"
 
@@ -45,7 +46,7 @@ printf '%s\n' "$*" >> "$FAKE_LAUNCH_LOG"
 [ "${FAKE_START_NO_PID:-0}" = 1 ] || printf '%s\n' 123 > "$FAKE_RUNNING_FILE"
 exit 0
 STUB
-cat > "$tmp/bin/kill" <<'STUB'
+cat > "$tmp/bin/fake_kill" <<'STUB'
 #!/bin/sh
 printf '%s %s\n' "$1" "$2" >> "$FAKE_SIGNAL_LOG"
 [ "${FAKE_KILL_FAIL:-0}" = 0 ] || exit 1
