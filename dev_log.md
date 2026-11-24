@@ -1,3 +1,11 @@
+## 2026-11-25 00:54 CST (UTC+8) — Validate all firewall startup status arguments
+
+- Exact main `5e955b3bb2015e8db61a7e4c23eb44d29f873f8e` reran HTTPD Security #45442258062 and AI handoff #45442257900. AI handoff PASS; HTTPD still failed at inline Python line 204 because the first correction updated the boolean-helper/gate assertions but left the old function-argument suffix assertion unchanged.
+- Replaced that stale substring with an eleven-argument order check for `firewall_startup_policy_wan_failure_status()`, normalized only for whitespace. The status-return branch, first-error boot-status merge, IPv4/IPv6 forwarding-disable checks and all existing HTTPD security regressions remain required. No production source changed.
+- FTP restart source SHA `7ff02de99fc676e0262b7c5770356b1e31bda758`: VSFTPD #45441167767, USB hotplug #45441189222, storage enable #45441167587, Process #45441167968 and NVRAM #45441167946 PASS. XY-C1 #45441167736 is `in_progress` / `pending`; Build/TRX/artifact still require exact-step confirmation. No L3/L4 overclaim.
+
+---
+
 ## 2026-11-25 00:49 CST (UTC+8) — Align HTTPD Security firewall contract with status-return gate
 
 - HTTPD Authentication/Security run #45441167757 on source SHA `7ff02de99fc676e0262b7c5770356b1e31bda758` failed at `Check firewall command status reporting`. The firewall C policy/restore tests passed before its static script asserted the obsolete `firewall_startup_policy_allows_wan_checked()` call. This was a stale cross-workflow contract after RC now returns and merges `firewall_startup_status`.
