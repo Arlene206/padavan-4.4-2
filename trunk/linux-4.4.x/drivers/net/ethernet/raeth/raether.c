@@ -770,17 +770,19 @@ static int __init ei_init(struct net_device *dev)
 static void ei_uninit(struct net_device *dev)
 {
 	struct END_DEVICE *ei_local = netdev_priv(dev);
+	struct net_device *pseudo_dev = ei_local->pseudo_dev;
 
-	unregister_netdev(dev);
-	free_netdev(dev);
-
-	if (ei_local->features & FE_GE2_SUPPORT) {
-		unregister_netdev(ei_local->pseudo_dev);
-		free_netdev(ei_local->pseudo_dev);
+	/*
+	 * ndo_uninit runs as part of the core's unregister/free lifecycle.
+	 * It must not unregister or free the primary net_device itself.
+	 */
+	if ((ei_local->features & FE_GE2_SUPPORT) && pseudo_dev) {
+		ei_local->pseudo_dev = NULL;
+		unregister_netdev(pseudo_dev);
+		free_netdev(pseudo_dev);
 	}
 
 	pr_info("Free ei_local and unregister netdev...\n");
-
 	debug_proc_exit();
 }
 
@@ -2557,6 +2559,7 @@ static const struct net_device_ops virtualif_netdev_ops = {
 void raeth_init_pseudo(struct END_DEVICE *p_ad, struct net_device *net_dev)
 {
 	int index;
+	int err;
 	struct net_device *dev;
 	struct PSEUDO_ADAPTER *p_pseudo_ad;
 	struct END_DEVICE *ei_local = netdev_priv(net_dev);
@@ -2608,8 +2611,15 @@ void raeth_init_pseudo(struct END_DEVICE *p_ad, struct net_device *net_dev)
 			ethtool_virt_init(dev);
 		}
 
-		/* Register this device */
-		register_netdev(dev);
+		/* Publish only successfully registered pseudo interfaces. */
+		err = register_netdev(dev);
+		if (err) {
+			p_ad->pseudo_dev = NULL;
+			pr_err("register pseudo interface %s failed: %d\n",
+			       DEV2_NAME, err);
+			free_netdev(dev);
+			return;
+		}
 	}
 }
 

@@ -1828,7 +1828,7 @@ jobs:
                   assert guard is not None, f"{variable} map lacks NULL check"
                   failure = next(
                       (index for index in range(guard + 1, len(lines))
-                       if lines[index].strip() in ("return -ENOMEM;", "return;")),
+                       if lines[index].strip() in ("return -ENOMEM;", "return;", "goto out_put_device;")),
                       None,
                   )
                   assert failure is not None, f"{variable} map failure is not propagated"

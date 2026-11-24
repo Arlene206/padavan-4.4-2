@@ -341,3 +341,24 @@ for map_failure in (
     assert fail_at < unwind_at < release
 assert "return;" not in switch_deinit[gsw_check:]
 print("Switch shutdown platform-device validation and reference cleanup: PASS")
+
+UNINIT_SOURCE = RAETHER_SOURCE
+uninit_body = function_body(UNINIT_SOURCE, "static void ei_uninit(")
+assert "unregister_netdev(dev);" not in uninit_body
+assert "free_netdev(dev);" not in uninit_body
+assert "struct net_device *pseudo_dev = ei_local->pseudo_dev;" in uninit_body
+pseudo_check = uninit_body.index("if ((ei_local->features & FE_GE2_SUPPORT) && pseudo_dev)")
+pseudo_unregister = uninit_body.index("unregister_netdev(pseudo_dev);", pseudo_check)
+pseudo_free = uninit_body.index("free_netdev(pseudo_dev);", pseudo_unregister)
+assert pseudo_check < pseudo_unregister < pseudo_free
+assert "ei_local->pseudo_dev = NULL;" in uninit_body[pseudo_check:pseudo_unregister]
+
+pseudo_init = function_body(UNINIT_SOURCE, "void raeth_init_pseudo(")
+pseudo_register = pseudo_init.index("err = register_netdev(dev);")
+pseudo_fail = pseudo_init.index("if (err)", pseudo_register)
+pseudo_clear = pseudo_init.index("p_ad->pseudo_dev = NULL;", pseudo_fail)
+pseudo_free_failed = pseudo_init.index("free_netdev(dev);", pseudo_clear)
+pseudo_return = pseudo_init.index("return;", pseudo_free_failed)
+assert pseudo_register < pseudo_fail < pseudo_clear < pseudo_free_failed < pseudo_return
+assert "register_netdev(dev);" not in pseudo_init[pseudo_register + len("err = "):]
+print("RAETH ndo_uninit no longer recursively frees the primary netdev; failed pseudo registration is released safely: PASS")
