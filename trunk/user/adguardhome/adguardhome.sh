@@ -105,6 +105,27 @@ adg_lifecycle_lock_execute() {
   return "$adg_action_status"
 }
 
+# Checked enable-state preflight prevents transient/corrupt NVRAM values
+# from being mistaken for "disabled" after a running daemon is stopped.
+adg_read_enable_state() {
+  if adg_enable_value=$(nvram get_checked adg_enable); then
+    case "$adg_enable_value" in
+      ''|0|1)
+        return 0
+        ;;
+      *)
+        logger -t "AdGuardHome" "AdGuardHome enable selector is invalid; refusing to change process state"
+        return 22
+        ;;
+    esac
+  else
+    adg_enable_status=$?
+  fi
+  logger -t "AdGuardHome" "无法读取AdGuardHome启用状态(status=$adg_enable_status)，取消重启"
+  [ "$adg_enable_status" -ne 0 ] || adg_enable_status=1
+  return "$adg_enable_status"
+}
+
 adg_lifecycle_locked_action() {
   case "$1" in
     start)
@@ -114,11 +135,13 @@ adg_lifecycle_locked_action() {
       stop_adg
       ;;
     restart)
+      # Read and validate the enable selector before stopping a healthy daemon.
+      adg_read_enable_state || return $?
       # Stop + optional start is one transaction under one inter-process lock.
       if ! stop_adg; then
         return 1
       fi
-      if [ "$(nvram get adg_enable)" = 1 ]; then
+      if [ "$adg_enable_value" = 1 ]; then
         start_adg
       fi
       ;;

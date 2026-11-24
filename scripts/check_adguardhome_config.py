@@ -70,6 +70,7 @@ stop = function_body(script, "stop_adg(){")
 lock_path = function_body(script, "adg_lifecycle_lock_path() {")
 lock_prepare = function_body(script, "adg_lifecycle_lock_prepare() {")
 lock_execute = function_body(script, "adg_lifecycle_lock_execute() {")
+enable_reader = function_body(script, "adg_read_enable_state() {")
 locked_action = function_body(script, "adg_lifecycle_locked_action() {")
 lock_run = function_body(script, "adg_lifecycle_lock_run() {")
 require('while [ "$adg_remove_count" -lt 64 ]; do' in remove_redirect and
@@ -210,12 +211,21 @@ require('flock -n 9' in lock_execute and
         '[ "$adg_lock_attempt" -ge "$adg_wait_seconds" ]' in lock_execute and
         'exec 9>&-' in lock_execute,
         "lifecycle operations must share a bounded kernel flock and release FD 9 on all outcomes")
-require('if ! stop_adg; then' in locked_action and
-        'if [ "$(nvram get adg_enable)" = 1 ]; then' in locked_action and
-        locked_action.index('if ! stop_adg; then') <
-        locked_action.index('nvram get adg_enable') <
-        locked_action.index('start_adg', locked_action.index('if ! stop_adg; then')),
-        "restart must hold one lock across stop and conditional start")
+require('nvram get_checked adg_enable' in enable_reader and
+        "''|0|1)" in enable_reader and
+        'AdGuardHome enable selector is invalid; refusing to change process state' in enable_reader and
+        'return 22' in enable_reader,
+        "AdGuardHome restart must validate a checked binary enable selector before changing process state")
+restart_body=locked_action.split("restart)", 1)[1].split(";;", 1)[0]
+require('adg_read_enable_state || return $?' in restart_body and
+        restart_body.index('adg_read_enable_state || return $?') <
+        restart_body.index('if ! stop_adg; then') <
+        restart_body.index('start_adg'),
+        "restart must preflight enable state before stopping and conditionally starting")
+require('nvram get adg_enable' not in restart_body,
+        "restart must not use an unchecked enable-state read")
+require("AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS" in test,
+        "restart regression must verify NVRAM read failures and malformed selectors cause no stop/start side effects")
 require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'adg_lifecycle_lock_execute "$adg_lock_file"' in lock_run and
         'start|stop|restart' in lock_run,

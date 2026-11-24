@@ -258,13 +258,44 @@ echo "AdGuardHome lifecycle lock excludes concurrent transitions and releases af
   : > "$TEST_ADG_RESTART_LOG"
   stop_adg() { echo stop >> "$TEST_ADG_RESTART_LOG"; }
   start_adg() { echo start >> "$TEST_ADG_RESTART_LOG"; }
-  nvram() { [ "$1" = get ] && [ "$2" = adg_enable ] || return 1; echo 1; }
+  TEST_ADG_ENABLE_VALUE=1
+  TEST_ADG_ENABLE_READ_STATUS=0
+  nvram() {
+    [ "$1" = get_checked ] && [ "$2" = adg_enable ] || return 1
+    [ "$TEST_ADG_ENABLE_READ_STATUS" -eq 0 ] || return "$TEST_ADG_ENABLE_READ_STATUS"
+    printf '%s\n' "$TEST_ADG_ENABLE_VALUE"
+  }
   adg_lifecycle_lock_prepare "$TEST_ADG_LOCK" || exit 1
   adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_lifecycle_locked_action restart || exit 1
   [ "$(cat "$TEST_ADG_RESTART_LOG")" = "$(printf 'stop\nstart')" ] || exit 1
+
+  # A failed checked NVRAM read must leave the running daemon untouched.
+  : > "$TEST_ADG_RESTART_LOG"
+  TEST_ADG_ENABLE_READ_STATUS=71
+  if adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_lifecycle_locked_action restart; then
+    exit 1
+  else
+    TEST_ADG_ACTION_STATUS=$?
+  fi
+  [ "$TEST_ADG_ACTION_STATUS" -eq 71 ] || exit 1
+  [ ! -s "$TEST_ADG_RESTART_LOG" ] || exit 1
+
+  # An invalid non-empty selector is not an explicit disable.
+  TEST_ADG_ENABLE_READ_STATUS=0
+  for TEST_ADG_ENABLE_VALUE in unexpected -1 2 '1;reboot'; do
+    : > "$TEST_ADG_RESTART_LOG"
+    if adg_lifecycle_lock_execute "$TEST_ADG_LOCK" 0 adg_lifecycle_locked_action restart; then
+      exit 1
+    else
+      TEST_ADG_ACTION_STATUS=$?
+    fi
+    [ "$TEST_ADG_ACTION_STATUS" -eq 22 ] || exit 1
+    [ ! -s "$TEST_ADG_RESTART_LOG" ] || exit 1
+  done
 ) || fail "restart did not keep stop and conditional start in a single locked action"
 
 echo "AdGuardHome restart is a single locked stop/start transaction: PASS"
+echo "AdGuardHome restart preserves a healthy daemon on enable-read errors or invalid selectors: PASS"
 
 # Model the v4/v6 PREROUTING rule set without requiring host netfilter privileges.
 TEST_ADG_IPV4_RULES="$TEST_TMP/iptables-v4.rules"
