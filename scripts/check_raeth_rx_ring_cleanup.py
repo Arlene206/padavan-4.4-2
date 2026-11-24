@@ -360,7 +360,8 @@ pseudo_clear = pseudo_init.index("p_ad->pseudo_dev = NULL;", pseudo_fail)
 pseudo_free_failed = pseudo_init.index("free_netdev(dev);", pseudo_clear)
 pseudo_return = pseudo_init.index("return;", pseudo_free_failed)
 assert pseudo_register < pseudo_fail < pseudo_clear < pseudo_free_failed < pseudo_return
-assert "register_netdev(dev);" not in pseudo_init[pseudo_register + len("err = "):]
+assert pseudo_init.count("register_netdev(dev);") == 1
+assert pseudo_init[pseudo_register:].startswith("err = register_netdev(dev);")
 print("RAETH ndo_uninit no longer recursively frees the primary netdev; failed pseudo registration is released safely: PASS")
 
 napi_uninit = function_body(RAETHER_SOURCE, "static void ei_uninit(")
