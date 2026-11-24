@@ -23,6 +23,29 @@ expect_bad_counter(const char *text, int expected)
 }
 
 static void
+test_counter_delta(void)
+{
+	uint64_t delta = 99;
+
+	assert(net_ifstats_counter_delta(100U, "40", &delta) == 0);
+	assert(delta == 60U);
+	assert(net_ifstats_counter_delta(10U, "40", &delta) == 0);
+	assert(delta == 0U);
+	/* Empty NVRAM baselines historically meant zero. */
+	assert(net_ifstats_counter_delta(100U, "", &delta) == 0);
+	assert(delta == 100U);
+	assert(net_ifstats_counter_delta(100U, "40junk", &delta) == EINVAL);
+	assert(delta == 0U);
+	assert(net_ifstats_counter_delta(100U, "-1", &delta) == EINVAL);
+	assert(delta == 0U);
+	assert(net_ifstats_counter_delta(100U, "18446744073709551616", &delta) == ERANGE);
+	assert(delta == 0U);
+	assert(net_ifstats_counter_delta(100U, NULL, &delta) == EINVAL);
+	assert(delta == 0U);
+	assert(net_ifstats_counter_delta(100U, "40", NULL) == EINVAL);
+}
+
+static void
 test_counter_pair_result(void)
 {
 	uint64_t rx = 0, tx = 34;
@@ -90,6 +113,7 @@ main(void)
 	assert(net_ifstats_build_path(path, sizeof(path), "eth0", "tx_packets") == EINVAL);
 
 	test_counter_pair_result();
+	test_counter_delta();
 	assert(net_ifstats_parse_counter("0\n", &value) == 0 && value == 0);
 	assert(net_ifstats_parse_counter("18446744073709551615\n", &value) == 0);
 	assert(value == UINT64_MAX);

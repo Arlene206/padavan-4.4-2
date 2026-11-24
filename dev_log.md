@@ -1,3 +1,12 @@
+## 2026-11-24 — Reject malformed persisted WAN traffic baselines
+
+- `wanlink_hook()` in `web_ex.c` read persisted `bytes_rx`/`bytes_tx` baselines with `strtoull(..., NULL, 10)`. That accepts numeric prefixes such as `"40junk"` as 40, yielding a plausible but false WAN traffic delta rather than reporting invalid persisted state.
+- Added `net_ifstats_counter_delta()` and `get_ifstats_counter_delta_status()`. Empty baselines retain the legacy zero default; signs, trailing junk and overflow are rejected. Counter regression/reset still yields zero. The HTTPD handler treats RX/TX as an atomic sample: if either baseline is invalid, both deltas are cleared and byte status is unavailable.
+- Added GNU89 regression cases for valid subtraction, counter reset, empty baseline, numeric-prefix junk, signed/overflowing values, NULL and output initialization. Updated WAN-counter and XY-C1 path filters.
+- Parent main SHA: `36ca1aea683ab148d348c15e79a1ddd619498686`. WAN-counter and XY-C1 exact-head workflows remain to be checked; no target firmware runtime or physical-router L4 claim.
+
+---
+
 ## 2026-11-24 — Fix HTTPD workflow's deconfig-scope assertion
 
 - On 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4, AI handoff #45497016593 PASS. HTTPD Authentication and Security #45497016612 failed at inline Python line 110 with `NameError: name 'cleanup' is not defined`.

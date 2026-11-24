@@ -227,6 +227,19 @@ get_ifstats_bytes_status(const char *ifname,
 	return status;
 }
 
+int
+get_ifstats_counter_delta_status(uint64_t current, const char *baseline_text,
+                                 uint64_t *delta)
+{
+	int status;
+
+	errno = 0;
+	status = net_ifstats_counter_delta(current, baseline_text, delta);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 uint64_t
 get_ifstats_bytes_rx(const char *ifname)
 {

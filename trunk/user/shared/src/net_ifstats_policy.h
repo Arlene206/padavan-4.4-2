@@ -115,4 +115,29 @@ net_ifstats_parse_counter(const char *text, uint64_t *value)
 	return 0;
 }
 
+/* Subtract a persisted baseline without accepting strtoull's valid-prefix
+ * behavior. Empty values retain the legacy zero baseline for first boot. */
+static inline int
+net_ifstats_counter_delta(uint64_t current, const char *baseline_text,
+                          uint64_t *delta)
+{
+	uint64_t baseline = 0;
+	int status;
+
+	if (delta == NULL)
+		return EINVAL;
+	*delta = 0;
+	if (baseline_text == NULL)
+		return EINVAL;
+	if (baseline_text[0] != '\0') {
+		status = net_ifstats_parse_counter(baseline_text, &baseline);
+		if (status != 0)
+			return status;
+	}
+	if (current >= baseline)
+		*delta = current - baseline;
+	return 0;
+}
+
 #endif /* NET_IFSTATS_POLICY_H */
+

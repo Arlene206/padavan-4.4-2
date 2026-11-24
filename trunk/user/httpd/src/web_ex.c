@@ -57,6 +57,7 @@
 #include <process_pidfile.h>
 
 #include "common.h"
+#include "netutils.h"
 #include "nvram_x.h"
 #include "httpd.h"
 #include "httpd_netdev_policy.h"
@@ -2134,21 +2135,26 @@ wanlink_hook(int eid, webs_t wp, int argc, char **argv)
 		}
 		
 		if (wan_bytes_status == 1 && wan_uptime > 0 && (wan_bytes_rx || wan_bytes_tx)) {
-			uint64_t init_bytes_rx, init_bytes_tx;
-			
-			init_bytes_rx = strtoull(nvram_safe_get(strcat_r(prefix, "bytes_rx", tmp)), NULL, 10);
-			init_bytes_tx = strtoull(nvram_safe_get(strcat_r(prefix, "bytes_tx", tmp)), NULL, 10);
-			
-			/* support only 64 bit counters */
-			if (wan_bytes_rx < init_bytes_rx)
+			uint64_t delta_rx, delta_tx;
+			int rx_baseline_status, tx_baseline_status;
+			const char *baseline_text;
+
+			baseline_text = nvram_safe_get(strcat_r(prefix, "bytes_rx", tmp));
+			rx_baseline_status = get_ifstats_counter_delta_status(
+				wan_bytes_rx, baseline_text, &delta_rx);
+			baseline_text = nvram_safe_get(strcat_r(prefix, "bytes_tx", tmp));
+			tx_baseline_status = get_ifstats_counter_delta_status(
+				wan_bytes_tx, baseline_text, &delta_tx);
+
+			/* Never publish a partial or prefix-parsed NVRAM baseline. */
+			if (rx_baseline_status != 0 || tx_baseline_status != 0) {
+				wan_bytes_status = 0;
 				wan_bytes_rx = 0;
-			else
-				wan_bytes_rx -= init_bytes_rx;
-			
-			if (wan_bytes_tx < init_bytes_tx)
 				wan_bytes_tx = 0;
-			else
-				wan_bytes_tx -= init_bytes_tx;
+			} else {
+				wan_bytes_rx = delta_rx;
+				wan_bytes_tx = delta_tx;
+			}
 		} else {
 			wan_bytes_rx = 0;
 			wan_bytes_tx = 0;

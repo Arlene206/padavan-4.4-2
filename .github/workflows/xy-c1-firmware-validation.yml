@@ -447,6 +447,7 @@ on:
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/src/Makefile"
       - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/netutils.c"
       - "trunk/user/shared/src/include/router_account_policy.h"
       - "trunk/user/shared/src/router_account_nvram_policy.h"

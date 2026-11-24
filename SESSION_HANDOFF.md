@@ -13,11 +13,11 @@ Continue one autonomous engineering stream on main. For each logical source/test
 
 ## Active task
 
-### Active LAN DHCP deconfig retry — source fix and WAN callback gate PASS; HTTPD contract corrected
+### Active WAN traffic baseline parsing — reject malformed NVRAM instead of accepting numeric prefixes
 
-A retry deadlock in `lan_down_auto()` was fixed by commit 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c: after a DHCP route was deleted, later cleanup failure caused BusyBox to retry DECONFIG; the next raw delete returned `ESRCH` and aborted cleanup. Both LAN deconfig and BOUND/RENEW old-gateway deletion now use `route_status_idempotent_delete()`, mapping only already-absent `ESRCH` to success.
+`wanlink_hook()` in `web_ex.c` read persisted `bytes_rx`/`bytes_tx` baselines with `strtoull(..., NULL, 10)`. That silently accepts values such as `"40junk"` as 40; an invalid NVRAM value therefore produced a plausible but false traffic total instead of marking the pair unavailable. RX and TX are one UI sample, so a bad baseline on either side must not publish a partial delta.
 
-WAN DHCP callback state stability #45496718762 PASS on 1572. HTTPD's duplicate checker next failed because it still expected the raw BOUND route-delete return; commit 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4 changed that check but accidentally referred to an undefined `cleanup` variable. This follow-up derives a bounded `lan_down_auto()` body and asserts idempotent delete there. The new HTTPD run must pass before closing the static-contract synchronization.
+This slice adds `net_ifstats_counter_delta()` and a public status-bearing wrapper. It uses the existing strict decimal parser, preserves an empty NVRAM string as the legacy zero baseline, keeps the existing zero-on-counter-reset behavior, and resets both UI counters/status to unavailable when either saved baseline is malformed or overflows. Regression coverage includes numeric-prefix junk, signs, overflow, missing baseline, NULL and counter reset. Exact-head WAN counter and XY-C1 checks must pass before this slice is closed.
 
 ### SCUT watchdog auth-marker reader trust boundary
 
@@ -49,6 +49,14 @@ dhcpc.c passes the client state to the server-ID filter. Outside REBINDING, NAKs
 The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenly built with an empty tree base and omitted unrelated paths. This was detected by inspecting GitHub commit stats before claiming validation. Non-forced recovery commit 717f983f07434cd78a4ad00ebdb944b8f6d30fa5 restored the complete root tree from the actual parent and retained the four intended DHCP files. REST compare from original main 054ff22bf517a45bf29f2da21963a4206f8b3b83 to 717 confirmed exactly those four paths changed. Do not rewrite or erase intermediate history. For future Git Data API commits, fetch the live main commit's commit.tree.sha and use it as base_tree_sha.
 
 ## Verification boundary
+
+### Exact source SHA 36ca1aea683ab148d348c15e79a1ddd619498686
+
+- HTTPD Authentication and Security #45497256588: PASS after correcting the bounded `lan_down_auto()` source slice.
+- AI handoff documentation #45497256794: PASS.
+- Product-source validation remains tied to SHA 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c: WAN DHCP callback #45496718762 PASS; XY-C1 #45496718759 still IN_PROGRESS at Build XY-C1, TRX and artifact upload not yet confirmed. No L3 claim.
+- Backup branch is read-only; last verified SHA remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- No target MIPS/uClibc runtime or physical-router L4 validation.
 
 ### Exact source SHA 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4
 
@@ -130,11 +138,11 @@ The initial source commit ff9cb0ec0f9143cd398d8de1d9b4eb13dca87be5 was mistakenl
 
 ## Exact first action for the next GPT
 
-1. Verify the corrected HTTPD Authentication and Security workflow triggered by the bounded lan_down_auto() source slice; it should pass the former NameError and assert the deconfig wrapper on the right function body.
-2. Check XY-C1 Firmware Validation #45496718759 on product source SHA 1572f3e5c91ec78de42382e02f8cc40d0e7fd18c. Build XY-C1 was active at last poll; confirm Build, TRX and artifact upload separately. L3 only when all three PASS on that same SHA.
-3. LAN DHCP old-route retry fix in 1572 is already validated by WAN DHCP callback #45496718762 PASS. Avoid repeating green route/DHCP gates absent source changes. Continue only concrete uncovered transition defects, then move to a different unreviewed userland issue.
-4. On child 8f69bb2cbbfe296d3913d3c4b55eb65eb92a2ca4, AI handoff #45497016593 PASS; HTTPD #45497016612 failed due an undefined variable in the new inline test contract. This follow-up fixes that test-only defect.
-5. Before context exhaustion, refresh main/backup refs and exact SHA Actions, then record the next actionable task.
+1. Verify exact-head WAN sysfs byte-counter regression for strict NVRAM baseline parsing; compile/run ASan+UBSan policy tests and inspect its static contract on the new SHA.
+2. Verify XY-C1 product Build, TRX and artifact upload triggered by shared netutils/HTTPD source changes; only claim L3 when all three pass on the identical new source SHA.
+3. LAN DHCP lease parity passed udhcpc #45495287614 and WAN callback #45495287778 on 402fc; route deletion retry fix passed WAN callback #45496718762 on 1572. HTTPD duplicate contracts are synchronized and HTTPD #45497256588 plus AI docs #45497256794 PASS on 36ca. Do not reopen those green areas absent source regressions.
+4. Continue into an uncovered stability/security defect in Padavan userland; do not repeat completed QMI, Wireless, process inventory, WAN teardown, HTTPD, DNSMasq or USB storage audits.
+5. Before context exhaustion, refresh refs and exact-SHA Actions, then checkpoint the next concrete task and all validation boundaries.
 
 ## Mandatory handoff checkpoint
 

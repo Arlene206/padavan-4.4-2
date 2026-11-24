@@ -212,6 +212,8 @@ extern int       brport_set_m2u(const char *ifname, int m2u_on);
 extern const char* get_ifname_descriptor(const char* ifname, int ap_mode, int *ifindex, int *wan_no);
 /* Checked pair: zero on success, errno on failure; clears both outputs on error. */
 extern int         get_ifstats_bytes_status(const char* ifname, uint64_t *rx_bytes, uint64_t *tx_bytes);
+/* Strictly subtract a decimal NVRAM baseline; return errno on malformed input. */
+extern int         get_ifstats_counter_delta_status(uint64_t current, const char *baseline_text, uint64_t *delta);
 extern uint64_t    get_ifstats_bytes_rx(const char* ifname);
 extern uint64_t    get_ifstats_bytes_tx(const char* ifname);
 

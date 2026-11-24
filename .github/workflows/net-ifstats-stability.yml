@@ -62,6 +62,9 @@ jobs:
           assert "get_ifstats_bytes_status" in header
           assert "net_ifstats_pair_result" in policy
           assert "test_counter_pair_result" in tests
+          assert "net_ifstats_counter_delta(" in policy
+          assert "test_counter_delta" in tests
+          assert "get_ifstats_counter_delta_status(" in netutils
           assert "net_ifstats_pair_result(EIO, 0, &rx, &tx)" in tests
           assert "net_ifstats_pair_result(0, ENOENT, &rx, &tx)" in tests
 
@@ -74,6 +77,10 @@ jobs:
           assert "preserving prior baseline" in wan
 
           assert web.count("get_ifstats_bytes_status(") == 4
+          assert "get_ifstats_counter_delta_status(" in web
+          assert 'strtoull(nvram_safe_get(strcat_r(prefix, "bytes_rx"' not in web
+          assert 'strtoull(nvram_safe_get(strcat_r(prefix, "bytes_tx"' not in web
+          assert "rx_baseline_status != 0 || tx_baseline_status != 0" in web
           assert "get_ifstats_bytes_rx(" not in web
           assert "get_ifstats_bytes_tx(" not in web
           assert "wan_bytes_status = -1;" in web
