@@ -143,32 +143,38 @@ void set_ge2_an(void)
 	sys_reg_write(ETHDMASYS_ETH_MAC_BASE + 0x200, 0x21056300);
 }
 
-void set_ge2_gmii(void)
+int set_ge2_gmii(void)
 {
 	void __iomem *virt_addr;
 	unsigned int reg_value;
 
 	virt_addr = ioremap(ETHSYS_BASE, 0x20);
+	if (!virt_addr)
+		return -ENOMEM;
 	reg_value = sys_reg_read(virt_addr + 0x14);
 	/*[15:14] =0 RGMII, [8] = 0 SGMII disable*/
 	reg_value = reg_value & (~0xc100);
 	reg_value = reg_value | 0x4000;
 	sys_reg_write(virt_addr + 0x14, reg_value);
 	iounmap(virt_addr);
+	return 0;
 }
 
-void set_ge0_gmii(void)
+int set_ge0_gmii(void)
 {
 	void __iomem *virt_addr;
 	unsigned int reg_value;
 
 	virt_addr = ioremap(ETHSYS_BASE, 0x20);
+	if (!virt_addr)
+		return -ENOMEM;
 	reg_value = sys_reg_read(virt_addr + 0x14);
 	/*[15:14] =0 RGMII, [8] = 0 SGMII disable*/
 	reg_value = reg_value & (~0xc000);
 	reg_value = reg_value | 0x400;
 	sys_reg_write(virt_addr + 0x14, reg_value);
 	iounmap(virt_addr);
+	return 0;
 }
 
 void set_ge2_force_link_down(void)

@@ -6002,7 +6002,9 @@ int fe_sw_init(void)
 			goto mdio_error;
 		enable_auto_negotiate(ei_local);
 		set_ge2_an();
-		set_ge2_gmii();
+		status = set_ge2_gmii();
+		if (status != 0)
+			goto mdio_error;
 		if (ei_local->chip_name == LEOPARD_FE) {
 			for (i = 1; i < 5; i++) {
 				status = do_fe_phy_all_analog_cal_checked((u8)i);
@@ -6168,7 +6170,9 @@ int fe_sw_init(void)
 				status = leopard_gmii_config(1);
 				if (status != 0)
 					goto mdio_error;
-				set_ge0_gmii();
+				status = set_ge0_gmii();
+				if (status != 0)
+					goto mdio_error;
 			} else {
 				status = leopard_gmii_config(0);
 				if (status != 0)

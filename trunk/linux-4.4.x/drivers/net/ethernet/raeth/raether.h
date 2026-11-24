@@ -468,6 +468,8 @@ static inline struct sk_buff *raeth_build_skb(void *data,
 #endif
 }
 
+int set_ge2_gmii(void);
+int set_ge0_gmii(void);
 extern u32 gmac1_txq_num;
 extern u32 gmac1_txq_txd_num;
 extern u32 gmac1_txd_num;

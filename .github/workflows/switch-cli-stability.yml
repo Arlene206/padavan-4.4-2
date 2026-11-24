@@ -1632,6 +1632,49 @@ jobs:
             -o "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/raeth-mii-mgr-timeout-policy"
 
+      - name: Validate GMII mux ioremap failures propagate to FE init
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          mac = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_mac.c").read_text()
+          switch = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/ra_switch.c").read_text()
+          header = Path("trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.h").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          for signature in ("int set_ge2_gmii(void)", "int set_ge0_gmii(void)"):
+              implementation = body(mac, signature)
+              mapped = implementation.index("virt_addr = ioremap(ETHSYS_BASE, 0x20);")
+              guard = implementation.index("if (!virt_addr)", mapped)
+              failure = implementation.index("return -ENOMEM;", guard)
+              first_read = implementation.index("sys_reg_read(virt_addr", mapped)
+              assert mapped < guard < failure < first_read
+              assert "iounmap(virt_addr);" in implementation
+              assert implementation.rstrip().endswith("return 0;")
+              assert signature + ";" in header
+
+          init = body(switch, "int fe_sw_init(void)")
+          for signature in ("status = set_ge2_gmii();", "status = set_ge0_gmii();"):
+              start = init.index(signature)
+              tail = init[start:start + 150]
+              assert "if (status != 0)" in tail
+              assert "goto mdio_error;" in tail
+
+          print("GE0/GE2 GMII register mappings fail closed and propagate to FE initialization: PASS")
+          PY
+
       - name: Validate RTL8367 and Leopard GPIO mappings fail closed
         run: |
           python3 - <<'PY'
