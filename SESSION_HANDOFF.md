@@ -1,10 +1,11 @@
 ## 2026-11-24 持续开发接力（最新）
 
-- 当前 main 接力基线：`dd5e71103ee4ea1e2b312d358f253f662c0ddc0f`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
-- LAN DHCP deconfig 的 `lan_dns_x` 已从 `atoi()` 统一改为严格整数解析，修复在 `17441ec283ac5b3da5b5e5ea7859f905a33e2c48`；该 SHA WAN DHCP callback #45321875664 PASS，AI docs #45321875753 PASS，HTTPD security #45321875813 PASS，Firewall #45321875825 PASS，process/NVRAM/route/signal regressions 均 PASS。
-- 最近 RAETH 原子修复：MT7622 open 初始化失败时回收 switch 状态；`ei_close()` 先 stop kreset/kphy-poll workers、停 TX queue/RA2880，再复位硬件，防止后台线程与 reset 并发。`7627383723a2c33bc6ff7456384ec248db3236fa` Switch CLI #45322123792 PASS。
-- 新发现并修复的共享 pidfile 安全问题：旧 `kill_pidfile_s()` 只拒绝 symlink/FIFO，并未验证 PID 文件属主、硬链接数和 group/world 写权限。该 helper 随调用方权限执行 `kill(pid, sig)`，因此被其他 uid 控制的普通文件可能诱导 root 管理进程向任意 PID 发送信号。当前切片要求常规文件由 effective uid 所有、单一硬链接且不允许 group/world 写，并增加回归与 CI 源码契约。
-- exact SHA Actions 必须各自核对；没有同 SHA XY-C1 Build、TRX 和 artifact 全部成功前，不得宣称固件验证完成。Roadmap 保持低于 131072 UTF-8 byte 上限，无硬件 L4 结果。
+- 当前 main 接力基线：`3e13e241219d08b26aeb57795f553504783c1b06`；归档备份 `backup/pre-plugin-overhaul-2026-11-14` 保持只读（`72f4f157a084f8184b9597ca5bf334b8080e5807`）。
+- LAN DHCP `lan_dns_x` 严格解析修复 `17441ec` 的 WAN DHCP #45321875664 PASS、AI docs #45321875753 PASS；HTTPD、Firewall、process inventory、NVRAM、WAN route、signal regressions 均 PASS。
+- RAETH MT7622 open-failure switch cleanup 与 `ei_close()` worker 停止顺序合入 `7627383`；精确 Switch CLI #45322123792 PASS。
+- 共享 PID-file 的 owner/nlink/mode hardening 已合入 `3e13e241219d08b26aeb57795f553504783c1b06`；legacy wrapper PIDfile #45322580536 PASS。但 process lifecycle regression #45322580591 的 strict GNU89 compile 在 `S_ISREG` 未被 glibc 暴露时 FAIL；本提交将 helper 改成可在 strict GNU89 下使用的 `S_IFMT/S_IFREG` 比较。其余 exact-SHA jobs 要重新按修复提交观察。
+- XY-C1 #45322580624 的 Build job仍在进行（Build XY-C1 / TRX / artifact upload 尚 pending at last poll）。无同 SHA firmware artifact 或硬件 L4 结果可提前宣称。
+- Roadmap 维持低于 131072 UTF-8 byte 上限；备份分支只读。
 
 ---
 
@@ -12,14 +13,14 @@
 
 ## Current repository state
 
-- Parent main before this implementation commit: `dd5e71103ee4ea1e2b312d358f253f662c0ddc0f`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- `17441ec` LAN DHCP strict `lan_dns_x` parser: exact WAN DHCP #45321875664 PASS; AI docs #45321875753 PASS; HTTPD #45321875813 PASS; Firewall #45321875825 PASS; process lifecycle #45321875859 PASS; WAN route #45321876067 PASS; NVRAM audit #45321875820 PASS. XY-C1 #45321875660 remained IN_PROGRESS at last parent poll.
-- `7627383` RAETH worker shutdown ordering: exact Switch CLI #45322123792 PASS. Exact XY-C1 #45322123939 and NVRAM audit #45322123748 were still IN_PROGRESS at last poll.
-- This commit hardens legacy `kill_pidfile_s()` by rejecting PID files not owned by `geteuid()`, files with `st_nlink != 1`, and files with group/world write permission. Symlink and nonregular-file rejection remain. Tests cover each metadata predicate.
-- Backup branch remains read-only; no result from older SHAs may be transferred to this parent or subsequent commits.
+- Parent main before this compatibility correction: `3e13e241219d08b26aeb57795f553504783c1b06`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- `3e13e24` introduced legacy PID-file metadata rejection (effective-UID owner, single link, no group/world write) and regression cases. Legacy wrapper PID-file run #45322580536 PASS.
+- Process lifecycle run #45322580591 failed in its compile step for `shutils_pidfile_policy.c`: `S_ISREG` was not defined by libc under that strict `-std=gnu89` test compile. The policy now checks `(st_mode & S_IFMT) == S_IFREG`, using the POSIX mode constants already exposed by the platform headers; checker contract was updated accordingly.
+- Exact SHA XY-C1 #45322580624 and NVRAM #45322580583 were IN_PROGRESS on `3e13e24`; statuses do not validate this correction.
+- Backup branch remains read-only; no cross-SHA status transfer.
 ## Active task
 
-Run the exact-SHA legacy PID-file safety workflow and broader process lifecycle regression. Confirm the metadata predicate rejects wrong owner, hardlinks, group/world-writable files and non-regular files while accepting an owned 0600 regular PID file. Check XY-C1 Build → TRX → artifact on the current product SHA; continue independent stability work if still pending.
+Verify strict GNU89/ASan/UBSan process lifecycle regression and legacy-wrapper PID-file safety after the `S_IFMT` compatibility correction. Then inspect XY-C1 Build → TRX → artifact status on the newest product SHA; continue with an independent defect if builds remain pending.
 ## Completed development slices
 
 ### HTTPD / web UI security
@@ -48,17 +49,16 @@ Independent snapshot/lifecycle changes remain in `99ad9397e3cf4450c6fc07758b58c3
 
 ## Verification boundary
 
-- LAN DNS-mode strict parsing is in `17441ec`; WAN DHCP callback #45321875664 PASS and AI docs #45321875753 PASS.
-- RAETH close worker ordering is in `7627383`; exact Switch CLI #45322123792 PASS.
-- Current commit changes legacy PID-file metadata policy, production `kill_pidfile_s()` enforcement, sanitizer regression coverage and source contracts. No Actions for the new SHA exist at commit creation.
-- Parent product SHA `7627383`: XY-C1 #45322123939 was IN_PROGRESS; NVRAM audit #45322123748 was IN_PROGRESS. No local MIPS build/TRX/artifact/hardware result is claimed.
-- Keep Roadmap below 131072 UTF-8 bytes; no hardware L4 results.
+- The original `3e13e24` metadata hardening passed the legacy-wrapper PID-file workflow #45322580536.
+- The process lifecycle regression #45322580591 failed only while compiling the header test under strict GNU89 because `S_ISREG` was not exposed. This commit changes the regular-file predicate to `S_IFMT/S_IFREG`; a fresh exact-SHA run is required.
+- The other 3e13e24 jobs: AI docs #45322580538, WAN DHCP #45322580657, HTTPD #45322580600, GPIO #45322580616, DNS Forwarder #45322580636, process lifecycle inventory #45322580712 were observed PASS; XY-C1 #45322580624 and NVRAM #45322580583 were pending.
+- No local router/MIPS build, TRX, artifact or hardware L4 result is claimed.
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-SHA legacy wrapper PID-file safety, process lifecycle regression, XY-C1 and NVRAM runs.
-2. Ensure PID-file metadata hardening passes GNU89 `-Wall -Wextra -Werror` with ASan/UBSan and source-contract checks; diagnose regressions before moving on.
-3. Check exact product SHA XY-C1 Build → TRX verification → artifact upload. Do not transfer statuses across SHAs.
-4. Continue another independent stability/security fix while pending jobs run. Keep backup read-only and the Roadmap byte limit intact.
+1. Fetch live `main`; inspect exact-SHA process lifecycle, legacy-wrapper PID-file, AI docs, NVRAM and XY-C1 Actions for the strict-GNU89 compatibility correction.
+2. Confirm the metadata test passes with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` and production source contract.
+3. Inspect XY-C1 Build, TRX verification and artifact upload on the latest exact product SHA; retain pending state if not done.
+4. Continue another independent stability issue if Actions are pending; keep backup read-only and Roadmap below byte limit.
 
 # Cross-session execution mandate
 

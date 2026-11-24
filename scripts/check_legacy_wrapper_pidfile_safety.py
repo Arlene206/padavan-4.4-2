@@ -23,7 +23,7 @@ pidfile_policy = (ROOT / "trunk/user/shared/src/shutils_pidfile_policy.h").read_
 pidfile_test = (ROOT / "trunk/user/shared/tests/shutils_pidfile_open.c").read_text()
 if "shutils_pidfile_metadata_is_safe(&st, geteuid())" not in pidfile_source:
     raise SystemExit("legacy pidfile open: FAIL: privileged signalling skips owner/metadata validation")
-for token in ("S_ISREG(status->st_mode)", "status->st_uid == owner", "status->st_nlink == 1", "(status->st_mode & 022) == 0"):
+for token in ("(status->st_mode & S_IFMT) == S_IFREG", "status->st_uid == owner", "status->st_nlink == 1", "(status->st_mode & 022) == 0"):
     if token not in pidfile_policy:
         raise SystemExit("legacy pidfile open: FAIL: owner/mode/link policy missing: " + token)
 if "metadata_policy_rejects_unsafe_files" not in pidfile_test:

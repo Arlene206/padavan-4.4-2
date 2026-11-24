@@ -1,3 +1,10 @@
+## 2026-11-24 — Keep pidfile metadata policy portable to strict GNU89 tests
+
+- Process lifecycle regression #45322580591 caught a test-build incompatibility: under the workflow's `-std=gnu89 -Wall -Wextra -Werror`, glibc did not expose `S_ISREG` because the test did not request miscellaneous feature macros. Production build had `_GNU_SOURCE`, but the header-only policy tests deliberately compile without it.
+- Replaced `S_ISREG(st_mode)` with the equivalent `(st_mode & S_IFMT) == S_IFREG`, which is available under the test's declared POSIX/GNU89 environment, and updated the source-contract checker. A fresh exact-SHA process lifecycle run must confirm.
+- Parent main: `3e13e241219d08b26aeb57795f553504783c1b06`; no new exact-SHA validation exists yet.
+
+---
 ## 2026-11-24 — Validate legacy PID-file metadata before privileged signalling
 
 - `kill_pidfile_s()` parsed a PID from a no-follow opened path, but only verified that the opened object was a regular file and below the size limit. It did not constrain file owner, hard-link count or group/world write permission. Since the helper invokes `kill(pid, sig)` with caller privileges, an untrusted PID file can direct privileged signalling at an unrelated process.

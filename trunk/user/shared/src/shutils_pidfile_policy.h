@@ -73,7 +73,7 @@ shutils_pidfile_parse_record(const char *text, size_t length, pid_t *pid)
 static inline int
 shutils_pidfile_metadata_is_safe(const struct stat *status, uid_t owner)
 {
-	return status && S_ISREG(status->st_mode) && status->st_uid == owner &&
+	return status && ((status->st_mode & S_IFMT) == S_IFREG) && status->st_uid == owner &&
 	       status->st_nlink == 1 && (status->st_mode & 022) == 0;
 }
 
