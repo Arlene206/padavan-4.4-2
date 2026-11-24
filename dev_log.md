@@ -1,3 +1,13 @@
+## 2026-11-24 — Repair PID 1 queue workflow's stale modem restart assertions
+
+- Exact-head PID 1 notification queue run #45499228171 on source SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a` passed the bounded-batch, secure-marker, enqueue-status, optional-daemon and SSH GNU89 policy tests, then failed in the final inline source contract. The modem assertions still expected the removed `stop_failed` flag after the USB retry fix had correctly replaced it with `transition_failed` and guarded cache publication.
+- Updated this workflow to verify both modem rule/type reload paths, cache-publication and failure ordering, and the final WAN-restart gate. This is a test-contract repair; production source is unchanged.
+- Exact-head PID 1 rerun and AI handoff validation are pending on the resulting commit. XY-C1 validation remains in progress on product-source SHA `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a` (#45499228265); Build was active and TRX/artifact steps pending at the last poll.
+- Parent main SHA: `d2fa77e69aa8017db457d5e8cfd4f9744cebe5a4`. USB modem source fix `8a2fbd592e1f0ddbd7a014d97bd00a8e08fb949a` and the dedicated caller-contract follow-up `d2fa77e69aa8017db457d5e8cfd4f9744cebe5a4` are already validated by USB #45499733421 PASS and AI docs #45499733544 PASS on d2fa.
+- No target MIPS/uClibc runtime or physical-router validation is claimed.
+
+---
+
 ## 2026-11-24 — Align USB modem caller contract with retry-safe cache publication
 
 - The exact-head USB modem workflow #45499228398 reached its inline WDM/NDIS caller-graph contract, which still searched for the old `stop_failed` flag. The source transition now uses `transition_failed` so module-readiness failure also blocks WAN restart; the stale contract stopped the workflow before the dedicated modem module checker could run.

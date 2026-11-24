@@ -367,12 +367,32 @@ jobs:
           modem = function_body(handler, 'else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
           assert "wan_stop_status = stop_wan()" in modem
           assert "action_result = rc_notify_merge_action_result(" in modem
-          assert "stop_failed = 1" in modem
-          assert modem.index("if (!stop_failed)") < modem.index("reload_modem_modules(")
-          assert modem.index("if (!stop_failed)") < modem.index("unload_modem_modules()")
-          assert "if (!stop_failed && need_restart_wan)" in modem
-          assert "nvram_modem_rule = modem_rule;" in modem
-          assert "if (!stop_failed && nvram_modem_type != modem_type)" in modem
+          assert "int transition_failed = 0;" in modem
+          assert "stop_failed" not in modem
+          assert "if (!transition_failed && nvram_modem_rule != modem_rule)" in modem
+          assert modem.count("rc_modem_module_reload_cache_publish(") == 2
+          assert modem.count("reload_modem_modules(modem_type, 1)") == 2
+
+          rule_change = modem.index("if (!transition_failed && nvram_modem_rule != modem_rule)")
+          rule_publish = modem.index("rc_modem_module_reload_cache_publish(", rule_change)
+          rule_reload = modem.index("reload_modem_modules(modem_type, 1)", rule_publish)
+          rule_failure = modem.index("if (module_reload_status != 0)", rule_reload)
+          rule_failed = modem.index("transition_failed = 1;", rule_failure)
+          rule_ready = modem.index("modules_reloaded = 1;", rule_failed)
+          rule_unload = modem.index("unload_modem_modules();", rule_change)
+          rule_cache = modem.index("nvram_modem_rule = modem_rule;", rule_unload)
+          assert rule_change < rule_publish < rule_reload < rule_failure < rule_failed < rule_ready
+          assert rule_unload < rule_cache
+          assert "retaining previous cache for retry" in modem
+
+          type_change = modem.index("if (!transition_failed && nvram_modem_type != modem_type)")
+          type_publish = modem.index("rc_modem_module_reload_cache_publish(", type_change)
+          type_reload = modem.index("reload_modem_modules(modem_type, 1)", type_publish)
+          type_failure = modem.index("if (module_reload_status != 0)", type_reload)
+          type_failed = modem.index("transition_failed = 1;", type_failure)
+          type_cache = modem.index("nvram_modem_type = modem_type;", type_failed)
+          restart_gate = modem.index("if (!transition_failed && need_restart_wan)")
+          assert type_change < type_publish < type_reload < type_failure < type_failed < type_cache < restart_gate
           assert "assert(rc_notify_batch_should_requeue(10, 1, 0))" in test
           assert "assert(!rc_notify_batch_should_requeue(10, 1, 1))" in test
           assert "kill(1, SIGUSR1)" in notify
