@@ -36,11 +36,11 @@ Exact source commit b3f165ef4e08b585cc5a77ccdfb791165ba60496 changed service con
 - Exact `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: XY-C1 #45480041423 PASS, including Build XY-C1, TRX verification and artifact upload. Process inventory #45480041644, Process lifecycle #45480041481, USB storage #45480041346, NVRAM #45480041721 and AI handoff #45480041430 PASS. L3 VERIFIED for this DHCP product-source SHA; hardware/router L4 NOT VERIFIED.
 - Descendant `b2dab6b05fb2cf07abbdae01b1acff2cc134df31` AI handoff #45480533158 failed only the literal-string validator; docs-only descendant `f43b856869a0ad94bae5fd15a1e14daff1f8ec1f` AI handoff #45480803456 PASS.
 - Exact SHA `b3f165ef4e08b585cc5a77ccdfb791165ba60496`: VSFTPD #45482945754 failed only embedded source assertions; its GNU89 C policy binary passed. Exact descendant `155a8be964e1ceb1ce82583df241be2248d1ec9d` VSFTPD #45483093422 PASS (GNU89 regression + Python source contracts) and AI handoff #45483093417 PASS.
-- On b3, storage-hotplug #45482945464 passed compiled storage/FTP regressions and failed only the final Python whole-caller-graph matcher at the stale no-argument FTP stop signature. THIS commit updates that storage-wide contract to final-presence propagation. Exact-head storage-hotplug rerun pending.
+- Exact SHA `d91dd33195eb32b29e2250c9cec4cd1604e50b77` storage-hotplug #45483595415: all compiled C regressions and whole-caller-graph check PASS; the final `scripts/check_storage_safe_remove.py` step failed on two stale `stop_ftp_locked(void)` lookups. THIS commit aligns both duplicate FTP contracts with the final-presence output. Exact-head rerun pending.
 - Other b3 results: libdisk, USB modem identity, MiniDLNA, Samba, IPv6, Firefly, storage-service enable, NFSD, AI docs, Process inventory, firewall startup and HTTPD security PASS; XY-C1 #45482945636, NVRAM #45482945421 and Process lifecycle #45482945410 were pending at last observation.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA storage-hotplug run after THIS commit; require the whole caller-graph Python contract to pass together with compiled storage regressions.
-2. Inspect the previously pending b3 XY-C1, NVRAM and Process lifecycle exact-SHA runs. Do not attribute results to later checker-only commits.
-3. Continue cross-userland stability work after recording these exact results; DHCP L3 remains verified on fd59df3; router/hardware L4 is not verified.
+1. Inspect exact-SHA storage-hotplug after THIS duplicated checker correction; require GNU89 storage regressions, the caller-graph checker and both safe-remove FTP contracts to pass.
+2. Inspect the b3 XY-C1 exact-SHA run if completed; its NVRAM and Process lifecycle runs already passed. Do not attribute results to checker-only descendants.
+3. Continue cross-userland stability work after this full storage suite closes; DHCP source L3 is verified on fd59df3; router/hardware L4 remains unverified.

@@ -575,9 +575,11 @@ require("storage_service_stop_complete(" in stop_body,
 stop_body = body(storage, "stop_aria(void)")
 require("storage_service_stop_complete(" in stop_body,
         "stop_aria must verify daemon absence after stop")
-ftp_stop = body(storage, "stop_ftp_locked(void)")
-require("storage_service_stop_complete(status, is_ftp_run())" in ftp_stop,
-        "FTP stop must verify daemon absence before eject")
+ftp_stop = body(storage, "stop_ftp_locked(int *final_presence)")
+require("final_state = is_ftp_run();" in ftp_stop and
+        "*final_presence = final_state;" in ftp_stop and
+        "storage_service_stop_complete(status, final_state)" in ftp_stop,
+        "FTP stop must preserve final tri-state presence separately from stop-command status")
 ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
@@ -631,9 +633,11 @@ for daemon, signature in (
     state_fn = body(storage, signature)
     require('storage_daemon_presence("' + daemon + '", NULL)' in state_fn,
             "storage daemon query must use tri-state inventory: " + daemon)
-ftp_stop = body(storage, "stop_ftp_locked(void)")
-require("storage_service_stop_complete(status, is_ftp_run())" in ftp_stop,
-        "FTP stop must verify daemon absence before eject")
+ftp_stop = body(storage, "stop_ftp_locked(int *final_presence)")
+require("final_state = is_ftp_run();" in ftp_stop and
+        "*final_presence = final_state;" in ftp_stop and
+        "storage_service_stop_complete(status, final_state)" in ftp_stop,
+        "FTP stop must preserve final tri-state presence separately from stop-command status")
 ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,

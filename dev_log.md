@@ -1,3 +1,11 @@
+## 2026-11-25 — Align storage safe-remove FTP lifecycle checks
+
+- Exact SHA `d91dd33195eb32b29e2250c9cec4cd1604e50b77` storage-hotplug #45483595415 passed all compiled storage/FTP regressions and the full embedded caller-graph check. Its final standalone `scripts/check_storage_safe_remove.py` step failed at line 578 due to two duplicate contracts still calling `body(storage, "stop_ftp_locked(void)")`.
+- THIS checker-only commit updates both duplicate checks to the new `stop_ftp_locked(int *final_presence)` signature and requires the final tri-state process result to be exported separately while the stop postcondition remains strict. No production source or C behavior changed.
+- Exact-head storage-hotplug rerun pending; b3 NVRAM #45482945421 and Process lifecycle #45482945410 PASS; b3 XY-C1 #45482945636 was still running at last observation. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-25 — Align storage-wide FTP caller graph with final process state
 
 - Exact source b3f165ef4e08b585cc5a77ccdfb791165ba60496 VSFTPD run #45482945754 failed source assertions while its GNU89 C policy binary passed. Checker-only descendant 155a8be964e1ceb1ce82583df241be2248d1ec9d VSFTPD #45483093422 and AI docs #45483093417 both PASS.
