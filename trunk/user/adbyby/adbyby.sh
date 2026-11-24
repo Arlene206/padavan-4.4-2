@@ -69,9 +69,10 @@ adbyby_start()
 }
 
 # pidof has three outcomes here: RUNNING, confirmed ABSENT, or UNKNOWN.
-# Only a clean "not found" result is allowed to authorize destructive cleanup.
-adbyby_process_state()
+# The snapshot helper retains only a fully validated PID list for direct signals.
+adbyby_process_snapshot()
 {
+	adbyby_pids=
 	if adbyby_pid_output=$(pidof adbyby 2>/dev/null); then
 		adbyby_pid_status=0
 	else
@@ -90,22 +91,31 @@ adbyby_process_state()
 				}
 				END { if (invalid) exit 1 }
 			   '; then
-				printf '%s\n' UNKNOWN
-				return 0
+				return 2
 			fi
-			printf '%s\n' RUNNING
+			adbyby_pids="$adbyby_pid_output"
+			return 0
 			;;
 		1)
-			if [ -z "$adbyby_pid_output" ]; then
-				printf '%s\n' ABSENT
-			else
-				printf '%s\n' UNKNOWN
-			fi
+			[ -z "$adbyby_pid_output" ] && return 1
+			return 2
 			;;
-		*)
-			printf '%s\n' UNKNOWN
-			;;
+		*) return 2 ;;
 	esac
+}
+
+# Preserve the existing textual RUNNING/ABSENT/UNKNOWN contract for callers.
+adbyby_process_state()
+{
+	if adbyby_process_snapshot; then
+		printf '%s\n' RUNNING
+	else
+		adbyby_state_status=$?
+		case "$adbyby_state_status" in
+			1) printf '%s\n' ABSENT ;;
+			*) printf '%s\n' UNKNOWN ;;
+		esac
+	fi
 }
 
 # Confirm the detached Adbyby process before publishing DNS or redirect rules.
@@ -226,20 +236,30 @@ adbyby_rollback_failed_start()
 
 adbyby_stop_daemon()
 {
-	adbyby_state=$(adbyby_process_state) || adbyby_state=UNKNOWN
-	case "$adbyby_state" in
-		ABSENT) return 0 ;;
-		RUNNING) ;;
-		*)
-			logger -t "adbyby" "无法确认Adbyby进程状态，拒绝清理服务状态。"
-			return 1
-			;;
-	esac
-
-	if killall -q adbyby >/dev/null 2>&1; then
-		adbyby_kill_status=0
+	if adbyby_process_snapshot; then
+		adbyby_stop_pids="$adbyby_pids"
 	else
-		adbyby_kill_status=$?
+		adbyby_stop_state_status=$?
+		case "$adbyby_stop_state_status" in
+			1) return 0 ;;
+			*)
+				logger -t "adbyby" "无法确认Adbyby进程状态，拒绝清理服务状态。"
+				return 1
+				;;
+		esac
+	fi
+
+	# Signal only the PID list validated above; do not rescan by process name.
+	adbyby_kill_status=0
+	for adbyby_stop_pid in $adbyby_stop_pids; do
+		if kill -TERM "$adbyby_stop_pid" >/dev/null 2>&1; then
+			:
+		else
+			adbyby_signal_status=$?
+			[ "$adbyby_kill_status" -ne 0 ] || adbyby_kill_status=$adbyby_signal_status
+		fi
+	done
+	if [ "$adbyby_kill_status" -ne 0 ]; then
 		logger -t "adbyby" "Adbyby停止信号返回错误(status=$adbyby_kill_status)，继续验证进程状态。"
 	fi
 	adbyby_stop_attempt=0

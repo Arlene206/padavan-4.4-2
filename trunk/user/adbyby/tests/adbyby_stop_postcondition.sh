@@ -16,20 +16,26 @@ case "$(cat "$ADBYBY_TEST_STATE")" in
 	absent) exit 1 ;;
 	error|unknown) exit 2 ;;
 	malformed) echo "123 nope"; exit 0 ;;
-	running|stubborn) echo "123"; exit 0 ;;
+	running|stubborn) echo "${ADBYBY_TEST_PID_OUTPUT:-123}"; exit 0 ;;
 	*) exit 2 ;;
 esac
 STUB
 cat > "$tmp/bin/killall" <<'STUB'
 #!/bin/sh
 printf 'killall:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
-case "$ADBYBY_TEST_KILL_MODE" in
-	stop|stop-fail) echo absent > "$ADBYBY_TEST_STATE" ;;
-	unknown) echo unknown > "$ADBYBY_TEST_STATE" ;;
-esac
-[ "${ADBYBY_TEST_KILL_STATUS:-0}" -eq 0 ] && exit 0
-exit "$ADBYBY_TEST_KILL_STATUS"
+exit 0
 STUB
+kill()
+{
+	printf 'kill:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
+	case "$ADBYBY_TEST_KILL_MODE" in
+		stop|stop-fail) echo absent > "$ADBYBY_TEST_STATE" ;;
+		unknown) echo unknown > "$ADBYBY_TEST_STATE" ;;
+	esac
+	[ "${ADBYBY_TEST_KILL_STATUS:-0}" -eq 0 ] && return 0
+	return "$ADBYBY_TEST_KILL_STATUS"
+}
+
 cat > "$tmp/bin/sleep" <<'STUB'
 #!/bin/sh
 printf 'sleep:%s\n' "$*" >> "$ADBYBY_TEST_EVENTS"
@@ -104,7 +110,7 @@ echo stubborn > "$state_file"
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=keep
 if adbyby_close; then fail "stubborn daemon was accepted as stopped"; fi
-[ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "TERM count was not one"
+[ "$(event_count 'kill:-TERM 123')" -eq 1 ] || fail "TERM count was not one"
 [ "$(event_count 'sleep:1')" -eq 5 ] || fail "stop did not make five bounded polls"
 assert_no_cleanup stubborn
 
@@ -113,7 +119,7 @@ echo running > "$state_file"
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=unknown
 if adbyby_close; then fail "post-signal UNKNOWN was accepted"; fi
-[ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "unexpected signal count after UNKNOWN"
+[ "$(event_count 'kill:-TERM 123')" -eq 1 ] || fail "unexpected signal count after UNKNOWN"
 [ "$(event_count 'sleep:1')" -eq 1 ] || fail "UNKNOWN did not stop at the first poll"
 assert_no_cleanup post-signal-UNKNOWN
 
@@ -123,10 +129,22 @@ echo running > "$state_file"
 ADBYBY_TEST_KILL_MODE=keep
 ADBYBY_TEST_SLEEP_MODE=fail
 if adbyby_close; then fail "sleep failure was accepted as a stop"; fi
-[ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "sleep-failure path did not send TERM"
+[ "$(event_count 'kill:-TERM 123')" -eq 1 ] || fail "sleep-failure path did not send TERM"
 [ "$(event_count 'sleep:1')" -eq 1 ] || fail "sleep failure was not observed once"
 assert_no_cleanup sleep-failure
 ADBYBY_TEST_SLEEP_MODE=ok
+
+# Multiple validated PIDs are signalled individually; killall stays unused.
+echo running > "$state_file"
+ADBYBY_TEST_PID_OUTPUT='123 456'
+: > "$events_file"
+ADBYBY_TEST_KILL_MODE=stop
+adbyby_close || fail "multi-PID stop failed"
+[ "$(event_count 'kill:-TERM 123')" -eq 1 ] || fail "first validated PID was not signalled"
+[ "$(event_count 'kill:-TERM 456')" -eq 1 ] || fail "second validated PID was not signalled"
+[ "$(event_count 'killall:-q adbyby')" -eq 0 ] || fail "stop rescanned process name with killall"
+ADBYBY_TEST_PID_OUTPUT=
+export ADBYBY_TEST_PID_OUTPUT
 
 # Confirmed ABSENT is idempotent and permits cleanup without signalling.
 echo absent > "$state_file"
@@ -145,7 +163,7 @@ echo running > "$state_file"
 : > "$events_file"
 ADBYBY_TEST_KILL_MODE=stop
 adbyby_close || fail "RUNNING-to-ABSENT stop failed"
-[ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "successful stop did not send one TERM"
+[ "$(event_count 'kill:-TERM 123')" -eq 1 ] || fail "successful stop did not send one TERM"
 [ "$(event_count 'sleep:1')" -eq 1 ] || fail "successful stop did not verify its postcondition"
 [ "$(event_count del_rule)" -eq 1 ] || fail "successful firewall cleanup count was not one"
 [ "$(event_count del_cron)" -eq 1 ] || fail "successful cron cleanup count was not one"
@@ -159,7 +177,7 @@ ADBYBY_TEST_KILL_MODE=stop-fail
 ADBYBY_TEST_KILL_STATUS=29
 export ADBYBY_TEST_KILL_STATUS
 adbyby_close || fail "failed killall status overrode confirmed ABSENT postcondition"
-[ "$(event_count 'killall:-q adbyby')" -eq 1 ] || fail "failed-signal path did not send one TERM"
+[ "$(event_count 'kill:-TERM 123')" -eq 1 ] || fail "failed-signal path did not send one TERM"
 [ "$(event_count del_rule)" -eq 1 ] || fail "failed-signal path did not complete firewall cleanup"
 [ "$(event_count restart_dhcpd)" -eq 1 ] || fail "failed-signal path did not restart dnsmasq"
 
