@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 
 #include "watchdog_signal_policy.h"
