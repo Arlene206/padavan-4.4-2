@@ -1,3 +1,11 @@
+## 2026-11-25 — Align DHCP retry scheduler checker with tested plan
+
+- Exact main SHA `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`, udhcpc run #45480041494: GNU89 -Werror ASan/UBSan policy regression PASS; Python source checker failed at line 238 because it still expected `udhcpc_retry_delay(retry_timeout)` to appear directly in the scheduler after the call moved into `udhcpc_deconfig_retry_plan_init()`.
+- THIS COMMIT updates the stale source assertion to match the new scheduler/plan integration. The independent source-order checks still pin plan initialization, LISTEN_NONE, state publication and timer/counter publication; no DHCP product C code or test semantics changed.
+- Parent AI handoff #45480041430 PASS. Exact-head udhcpc rerun pending; prior-SHA target-build and integration runs remain separate. L3 baseline `80f1bfccd255536a0a2682c7d046f0216038a922`, hardware L4 unverified.
+
+---
+
 ## 2026-11-25 — Make DHCP deconfig retry state and timer planning testable
 
 - Extends the active WAN DHCP transition slice by extracting the pending-cleanup resume tuple into a pure GNU89 policy plan: resume state, release intent, retry timeout (including the one-second floor), packet count and elapsed-wait counter. The event loop prepares the tuple before closing its listener, then publishes the saved transition and timer only after switching to LISTEN_NONE.

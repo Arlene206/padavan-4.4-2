@@ -235,7 +235,7 @@ exit_cleanup = dhcpc[dhcpc.index(" ret0:"):]
 # decline retry, and process-exit cleanup.
 assert "udhcpc_retry_delay(int retry_timeout)" in policy
 assert "returnretry_timeout>0?retry_timeout:1;" in policy_compact
-assert "udhcpc_retry_delay(retry_timeout)" in "".join(scheduler.split())
+assert "udhcpc_deconfig_retry_plan_init(&plan, resume_state, release_on_usr2," in scheduler
 assert "timeout=udhcpc_retry_delay(tryagain_timeout);" in "".join(pending_body.split())
 assert "intretry_delay=udhcpc_retry_delay(tryagain_timeout);" in "".join(exit_cleanup.split())
 assert "returnudhcpc_retry_delay(retry_timeout);" in policy_compact

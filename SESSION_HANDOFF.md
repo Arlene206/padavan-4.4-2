@@ -29,12 +29,13 @@ Every session MUST inspect the live repository state before ending: verify main 
 - Exact SHA `36a10c0e5844daf31b3cc483c20d9e25a798ef6b`: udhcpc #45476128312 C regression PASS / Python checker FAIL at the whitespace-normalized retry-helper return assertion; Process lifecycle #45476128289, Process inventory #45476128257, USB storage #45476128360, NVRAM #45476128492, XY-C1 #45476128451 and AI handoff #45476128686 all completed SUCCESS.
 - Exact SHA `0db869b438d344406375dde71ee8b1764b047272`: udhcpc #45476513525 C regression PASS / Python checker failed on compact-return whitespace; AI handoff #45476513417 PASS.
 - Exact SHA `98168ad16689cf47e1efeb2ee3999374790cbc41`: udhcpc #45479146215 PASS (GNU89 -Werror ASan/UBSan C regression and Python source contract); AI handoff #45479146192 PASS.
-- THIS commit adds the retry-state plan regression and strengthens source contracts. Its exact-head udhcpc, AI handoff, XY-C1, Process and NVRAM checks are pending; do not claim this new product-source SHA is L3 until XY-C1 Build/TRX/artifact pass on the same SHA.
+- Exact SHA `fd59df3710ddcadfd9ca96f9e3b486f5cce7866e`: GNU89 -Werror ASan/UBSan retry-plan regression PASS; udhcpc #45480041494 Python checker FAIL at line 238 because the source checker still expected the retry helper to be called directly from the scheduler after it was moved into the tested plan initializer. AI handoff #45480041430 PASS. THIS checker-only correction updates that assertion to the new plan call.
+- Exact-head rerun for THIS correction is pending. XY-C1 #45480041423, Process inventory #45480041644, Process regression #45480041481, storage #45480041346 and NVRAM #45480041721 for the prior source SHA were still in progress at last observation; inspect by exact SHA only.
 - Last verified L3 product-source baseline remains `80f1bfccd255536a0a2682c7d046f0216038a922` (XY-C1 Build + TRX + artifact). Hardware L4 remains NOT VERIFIED.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is immutable.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-SHA udhcpc workflow for THIS retry-state plan/test/checker slice; require the GNU89 -Werror ASan/UBSan binary and every Python state/socket/timer/release contract to pass.
-2. Inspect exact-head AI handoff, Process inventory/lifecycle, NVRAM and XY-C1 runs. Only same-SHA Build + TRX verification + artifact upload establish L3; hardware L4 remains unverified.
-3. Continue the WAN DHCP transition audit across timeout accounting, NAK/expiry cleanup and SIGUSR2/exit cleanup; fix a source defect only when its runtime semantics are demonstrated, preserving the wrong-server filter.
+1. Inspect the exact-SHA udhcpc workflow for THIS checker correction; require both GNU89 -Werror ASan/UBSan C regression and all Python source contracts to pass.
+2. Inspect still-pending prior-SHA XY-C1 Build/TRX/artifact, Process, storage and NVRAM runs without attributing them to this checker correction.
+3. After the checker passes, continue the DHCP pending-resume state/timer and NAK/expiry/SIGUSR2 transition integration contracts without weakening wrong-server filtering.
